@@ -1,0 +1,12 @@
+# Compiled Object files, Static and Dynamic libs
+*.o
+*.a
+*.so
+*.so.*
+
+# Temporary files
+*.swn
+*.swp
+
+# Folders
+.vscode
