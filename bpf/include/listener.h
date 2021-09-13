@@ -7,6 +7,7 @@
 #define _LISTENER_H_
 
 #include "config.h"
+#include "endpoint.h"
 
 typedef struct {
 	char name[KMESH_NAME_LEN];
@@ -24,7 +25,7 @@ typedef struct {
 	__u8 type;
 
 	address_t address;
-	filter_t filter_chains[BPF_FILTER_CHAINS_LEN];
+	filter_t filter_chains[KMESH_FILTER_CHAINS_LEN];
 } listener_t;
 
 #endif //_LISTENER_H_

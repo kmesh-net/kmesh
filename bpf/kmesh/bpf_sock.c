@@ -6,15 +6,14 @@
 #include "bpf_log.h"
 #include "listener.h"
 #include "cluster.h"
-#include "endpoint.h"
 
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_TCP
 
-__section("connect4")
+SEC("connect4")
 int sock4_connect(struct bpf_sock_addr *ctx)
 {
-	return SYS_PROCEED;
+	return 1;
 }
 
 #endif //KMESH_ENABLE_TCP

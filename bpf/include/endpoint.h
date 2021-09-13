@@ -15,8 +15,8 @@ typedef struct {
 
 	__u32 port;	// network byte order
 	union {
-		__u32 ipv4
-		__u64 ipv6
+		__u32 ipv4;
+		__u64 ipv6;
 	} ip;	// network byte order
 } address_t;
 
