@@ -4,7 +4,7 @@
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 include ../bpf.vars.mk
-include ../bpf.echo.mk
+include ../bpf.print.mk
 
 INCLUDES := -I$(ROOT_DIR)/../include
 INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
