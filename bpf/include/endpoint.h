@@ -26,4 +26,12 @@ typedef struct {
 	__u16 lb_weight;
 } endpoint_t;
 
+struct bpf_map_def SEC("maps") endpoint_map = {
+	.type			= BPF_MAP_TYPE_HASH,
+	.key_size		= sizeof(key_array_t), // cluster_name+id in load_assignment_t
+	.value_size		= sizeof(endpoint_t),
+	.max_entries	= ENDPOINT_MAP_SIZE,
+	.map_flags		= 0,
+};
+
 #endif //_ENDPOINT_H_

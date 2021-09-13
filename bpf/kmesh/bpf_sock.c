@@ -7,13 +7,16 @@
 #include "listener.h"
 #include "cluster.h"
 
+#define SOCK_ERR		0
+#define SOCK_OK			1
+
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_TCP
 
 SEC("connect4")
 int sock4_connect(struct bpf_sock_addr *ctx)
 {
-	return 1;
+	return SOCK_OK;
 }
 
 #endif //KMESH_ENABLE_TCP
