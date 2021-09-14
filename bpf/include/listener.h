@@ -11,8 +11,7 @@
 #include "endpoint.h"
 
 typedef struct {
-#define FILTER_CHAIN_MAP_KEY_ID	key_id
-	key_index_t key_id;
+	key_index_t map_keyid_of_filter_chain;
 	char name[KMESH_NAME_LEN];
 
 #define LISTENER_TYPE_STATIC		1U
@@ -26,11 +25,11 @@ typedef struct {
 	address_t address;
 } listener_t;
 
-struct bpf_map_def SEC("maps") listener_map = {
+bpf_map_t SEC("maps") map_of_listener = {
 	.type			= BPF_MAP_TYPE_HASH,
 	.key_size		= sizeof(address_t),
 	.value_size		= sizeof(listener_t),
-	.max_entries	= LISTENER_MAP_SIZE,
+	.max_entries	= MAP_SIZE_OF_LISTENER,
 	.map_flags		= 0,
 };
 

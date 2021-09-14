@@ -10,8 +10,12 @@
 #include "router.h"
 
 typedef struct {
-	// TODO
-} rds_t;
+	//TODO
+} http_filter_t;
+
+typedef struct {
+	//TODO
+} server_name_t;
 
 typedef struct {
 #define FILTER_NETWORK_HTTP_CONNECTION_MANAGER	1U
@@ -31,7 +35,7 @@ typedef struct {
 	__u8 at_type;
 	// TODO
 	char stat_prefix[0];
-	char domain[0];
+	char domains[KMESH_HTTP_DOMAIN_NUM][KMESH_HTTP_DOMAIN_LEN];
 	__u16 timeout;
 } ratelimit_t;
 
@@ -43,11 +47,11 @@ typedef struct {
 	} typed_config;
 } filter_t;
 
-struct bpf_map_def SEC("maps") filter_map = {
+bpf_map_t SEC("maps") map_of_filter = {
 	.type			= BPF_MAP_TYPE_HASH,
 	.key_size		= sizeof(key_array_t), // listener_name+id in filter_chains_t
 	.value_size		= sizeof(filter_t),
-	.max_entries	= FILTER_MAP_SIZE,
+	.max_entries	= MAP_SIZE_OF_FILTER,
 	.map_flags		= 0,
 };
 
@@ -57,17 +61,17 @@ typedef struct {
 } filter_chain_match_t;
 
 typedef struct {
-#define FILTER_MAP_KEY_ID		key_id
-	key_index_t key_id; // using listener_name
+	key_index_t map_keyid_of_filter;
+	// name = listener_name
 
 	filter_chain_match_t filter_chain_match;
 } filter_chain_t;
 
-struct bpf_map_def SEC("maps") filter_chain_map = {
+bpf_map_t SEC("maps") map_of_filter_chain = {
 	.type			= BPF_MAP_TYPE_HASH,
 	.key_size		= sizeof(key_array_t), // listener_name+id in listener_t
 	.value_size		= sizeof(filter_chain_t),
-	.max_entries	= FILTER_CHAIN_MAP_SIZE,
+	.max_entries	= MAP_SIZE_OF_FILTER_CHAIN,
 	.map_flags		= 0,
 };
 
