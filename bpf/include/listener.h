@@ -33,4 +33,31 @@ bpf_map_t SEC("maps") map_of_listener = {
 	.map_flags		= 0,
 };
 
+static inline
+int listener_manager(listener_t *listener, void *buf, address_t *address)
+{
+	map_key_t map_key;
+	filter_chain_t *filter_chain = NULL;
+
+	if (listener->state & LISTENER_STATE_PASSIVE)
+		return -EBUSY;
+
+	map_key.nameid = listener->map_key_of_filter_chain.nameid;
+	for (int i = 0; i < listener->map_key_of_filter_chain.index; i++) {
+		map_key.index = i;
+
+		filter_chain = map_ops.map_get_elem(&map_of_filter_chain, &map_key);
+		if (filter_chain == NULL) {
+			BPF_LOG(ERR, KMESH, "%s: map_of_filter_chain get failed\n",
+					__func__);
+			return -ENOENT;
+		}
+
+		if (filter_chain_manager(filter_chain, buf, address) == 0)
+			break;
+	}
+
+	return 0;
+}
+
 #endif //_LISTENER_H_

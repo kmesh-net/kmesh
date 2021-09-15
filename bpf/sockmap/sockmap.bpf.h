@@ -26,7 +26,7 @@ enum bpf_loglevel {
 	do {												\
 		if (BPF_LOG_ ## l <= BPF_LOGLEVEL)				\
 			bpf_printk("["# l"] "f"", ##__VA_ARGS__);	\
-	} while (0);
+	} while (0)
 
 #define SKOPS_MAP_SIZE			65535
 #define SKOPS_PROXY_MAP_SIZE	SKOPS_MAP_SIZE

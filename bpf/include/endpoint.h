@@ -9,15 +9,10 @@
 #include "config.h"
 
 typedef struct {
-#define ADDRESS_TYPE_TCP		1U
-#define ADDRESS_TYPE_UDP		2U
-	__u8 protocol;
-
-	__u32 port;	// network byte order
-	union {
-		__u32 ipv4;
-		__u64 ipv6;
-	} ip;	// network byte order
+	__u32 protocol;
+	__u32 port; // network byte order
+	__u32 ipv4;
+	__u32 ipv6[4];
 } address_t;
 
 typedef struct {

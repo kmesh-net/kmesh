@@ -8,6 +8,7 @@
 
 #include "config.h"
 #include "router.h"
+#include "endpoint.h"
 
 typedef struct {
 	//TODO
@@ -25,7 +26,7 @@ typedef struct {
 	union {
 		rds_t rds;
 		route_config_t route_config;
-	} backend;
+	};
 	http_filter_t http_filter;
 	server_name_t server_name;
 } http_connection_manager_t;
@@ -74,5 +75,13 @@ bpf_map_t SEC("maps") map_of_filter_chain = {
 	.max_entries	= MAP_SIZE_OF_FILTER_CHAIN,
 	.map_flags		= 0,
 };
+
+static inline
+int filter_chain_manager(filter_chain_t *filter_chain, bpf_unused void *buf, address_t *address)
+{
+	//map_key_t map_key;
+
+	return 0;
+}
 
 #endif //_FILTER_H_

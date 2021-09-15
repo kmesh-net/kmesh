@@ -13,6 +13,7 @@
 #include <bpf/bpf_endian.h>
 
 #include "config.h"
+#include "errno.h"
 
 #define bpf_unused __attribute__((__unused__))
 
@@ -59,7 +60,7 @@ typedef struct {
 	int (*map_add_elem)(bpf_map_t *map, const map_key_t *key, const void *value);
 } map_ops_t;
 
-const map_ops_t kmesh_map_ops = {
+const map_ops_t map_ops = {
 	.map_get_elem = kmesh_map_get_elem,
 	.map_del_elem = kmesh_map_del_elem,
 	.map_add_elem = kmesh_map_add_elem,
