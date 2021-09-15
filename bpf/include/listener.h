@@ -11,7 +11,7 @@
 #include "endpoint.h"
 
 typedef struct {
-	key_index_t map_keyid_of_filter_chain;
+	map_key_t map_key_of_filter_chain;
 	char name[KMESH_NAME_LEN];
 
 #define LISTENER_TYPE_STATIC		1U

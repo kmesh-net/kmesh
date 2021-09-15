@@ -15,7 +15,7 @@ typedef struct {
 } route_match_t;
 
 typedef struct {
-	// map_keyid_of_cluster = 0
+	map_key_t map_key_of_cluster; // map_key.index = 0
 	char cluster[KMESH_NAME_LEN];
 	__u16 timeout;  // default 15s
 } route_action_t;
@@ -28,14 +28,14 @@ typedef struct {
 
 struct bpf_map_def SEC("maps") map_of_routes = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(key_array_t), // virtual_hosts_name+id in route_config_t
+	.key_size		= sizeof(map_key_t), // virtual_hosts_nameid in route_config_t
 	.value_size		= sizeof(routes_t),
 	.max_entries	= MAP_SIZE_OF_ROUTES,
 	.map_flags		= 0,
 };
 
 typedef struct {
-	key_index_t map_keyid_of_routes;
+	map_key_t map_keyid_of_routes;
 	char name[KMESH_NAME_LEN];
 
 	char domains[KMESH_HTTP_DOMAIN_NUM][KMESH_HTTP_DOMAIN_LEN];
@@ -43,14 +43,14 @@ typedef struct {
 
 bpf_map_t SEC("maps") map_of_virtual_hosts = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(key_array_t), // route_config_name+id in route_config_t
+	.key_size		= sizeof(map_key_t), // route_config_nameid in route_config_t
 	.value_size		= sizeof(virtual_hosts_t),
 	.max_entries	= MAP_SIZE_OF_VIRTUAL_HOSTS,
 	.map_flags		= 0,
 };
 
 typedef struct {
-	key_index_t map_keyid_of_virtual_host;
+	map_key_t map_keyid_of_virtual_host;
 	char name[KMESH_NAME_LEN];
 } route_config_t;
 

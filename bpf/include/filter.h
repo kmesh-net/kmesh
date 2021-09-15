@@ -49,7 +49,7 @@ typedef struct {
 
 bpf_map_t SEC("maps") map_of_filter = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(key_array_t), // listener_name+id in filter_chains_t
+	.key_size		= sizeof(map_key_t), // listener_nameid in filter_chains_t
 	.value_size		= sizeof(filter_t),
 	.max_entries	= MAP_SIZE_OF_FILTER,
 	.map_flags		= 0,
@@ -61,7 +61,7 @@ typedef struct {
 } filter_chain_match_t;
 
 typedef struct {
-	key_index_t map_keyid_of_filter;
+	map_key_t map_key_of_filter;
 	// name = listener_name
 
 	filter_chain_match_t filter_chain_match;
@@ -69,7 +69,7 @@ typedef struct {
 
 bpf_map_t SEC("maps") map_of_filter_chain = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(key_array_t), // listener_name+id in listener_t
+	.key_size		= sizeof(map_key_t), // listener_nameid in listener_t
 	.value_size		= sizeof(filter_chain_t),
 	.max_entries	= MAP_SIZE_OF_FILTER_CHAIN,
 	.map_flags		= 0,

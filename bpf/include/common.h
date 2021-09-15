@@ -19,7 +19,6 @@
 #define BPF_MAX(x , y)		(((x) > (y)) ? (x) : (y))
 #define BPF_MIN(x , y)		(((x) < (y)) ? (x) : (y))
 
-// https://maao.cloud/2021/03/01/%E7%AC%94%E8%AE%B0-BPF-and-XDP-Reference-Guide-cilium/
 #ifndef bpf_memset
 #define bpf_memset(dest, chr, n)   __builtin_memset((dest), (chr), (n))
 #endif
@@ -31,51 +30,36 @@
 typedef struct bpf_map_def bpf_map_t;
 
 typedef struct {
-	__u16 index;
-	char name[KMESH_NAME_LEN];
-} key_array_t;
-
-typedef struct {
-	__u16 count;
-	__u16 capacity;
-} key_index_t;
+	__u32 nameid; // calculated based on name in daemon
+	__u32 index; // initial value of the index is map_count, key range is [0, map_count)
+} map_key_t;
 
 static inline
-void kmesh_map_get_key(char *name, bpf_unused unsigned len, unsigned index, key_array_t *key)
-{
-	key->index = index;
-	// len must be a constant?
-	(void)bpf_memcpy(key->name, name, KMESH_NAME_LEN);
-}
-
-static inline
-void *kmesh_map_get_elem(bpf_map_t *map, const key_array_t *key)
+void *kmesh_map_get_elem(bpf_map_t *map, const map_key_t *key)
 {
 	return bpf_map_lookup_elem(map, key);
 }
 
 static inline
-int kmesh_map_del_elem(bpf_map_t *map, const key_array_t *key)
+int kmesh_map_del_elem(bpf_map_t *map, const map_key_t *key)
 {
 	return bpf_map_delete_elem(map, key);
 }
 
 static inline
-int kmesh_map_add_elem(bpf_map_t *map, const key_array_t *key, const void *value)
+int kmesh_map_add_elem(bpf_map_t *map, const map_key_t *key, const void *value)
 {
 	// TODO: 重复元素，状态更新
 	return bpf_map_update_elem(map, key, value, BPF_ANY);
 }
 
 typedef struct {
-	void (*map_get_key)(char *name, unsigned len, unsigned index, key_array_t *key);
-	void *(*map_get_elem)(bpf_map_t *map, const key_array_t *key);
-	int (*map_del_elem)(bpf_map_t *map, const key_array_t *key);
-	int (*map_add_elem)(bpf_map_t *map, const key_array_t *key, const void *value);
+	void *(*map_get_elem)(bpf_map_t *map, const map_key_t *key);
+	int (*map_del_elem)(bpf_map_t *map, const map_key_t *key);
+	int (*map_add_elem)(bpf_map_t *map, const map_key_t *key, const void *value);
 } map_ops_t;
 
 const map_ops_t kmesh_map_ops = {
-	.map_get_key  = kmesh_map_get_key,
 	.map_get_elem = kmesh_map_get_elem,
 	.map_del_elem = kmesh_map_del_elem,
 	.map_add_elem = kmesh_map_add_elem,

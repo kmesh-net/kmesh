@@ -17,7 +17,7 @@ typedef struct {
 } circuit_breaker_t;
 
 typedef struct {
-	key_index_t map_keyid_of_endpoint;
+	map_key_t map_key_of_endpoint;
 	char cluster_name[KMESH_NAME_LEN];
 } load_assignment_t;
 
@@ -40,7 +40,7 @@ typedef struct {
 
 bpf_map_t SEC("maps") cluster_map = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(key_array_t), // cluster_name+0 in xx
+	.key_size		= sizeof(map_key_t), // cluster_name+0 in xx
 	.value_size		= sizeof(cluster_t),
 	.max_entries	= MAP_SIZE_OF_CLUSTER,
 	.map_flags		= 0,
