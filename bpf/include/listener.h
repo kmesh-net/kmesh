@@ -14,13 +14,13 @@ typedef struct {
 	map_key_t map_key_of_filter_chain;
 	char name[KMESH_NAME_LEN];
 
-#define LISTENER_TYPE_STATIC		1U
-#define LISTENER_TYPE_DYNAMIC		2U
-	__u8 type;
+#define LISTENER_TYPE_STATIC		1
+#define LISTENER_TYPE_DYNAMIC		2
+	__u16 type;
 
-#define LISTENER_STATE_PASSIVE		1U
-#define LISTENER_STATE_ACTIVE		2U
-	__u8 state;
+#define LISTENER_STATE_PASSIVE		1
+#define LISTENER_STATE_ACTIVE		2
+	__u16 state;
 
 	address_t address;
 } listener_t;
@@ -63,10 +63,10 @@ int listener_manager(listener_t *listener, void *buf, address_t *address)
 		}
 
 		if (filter_chain_manager(filter_chain, buf, address) == 0)
-			break;
+			return 0;
 	}
 
-	return 0;
+	return -ENOENT;
 }
 
 #endif //_LISTENER_H_

@@ -15,25 +15,21 @@ typedef struct {
 } http_filter_t;
 
 typedef struct {
-	//TODO
-} server_name_t;
-
-typedef struct {
-#define FILTER_NETWORK_HTTP_CONNECTION_MANAGER	1U
-	__u8 at_type;
-
 	char stat_prefix[0];
+
+#define HTTP_CONNECTION_MANAGER_RDS				1
+#define HTTP_CONNECTION_MANAGER_ROUTE_CONFIG	2
+	__u16 at_type;
+
 	union {
 		rds_t rds;
 		route_config_t route_config;
 	};
 	http_filter_t http_filter;
-	server_name_t server_name;
+	char server_name[0];
 } http_connection_manager_t;
 
 typedef struct {
-#define FILTER_NETWORK_RATELIMIT	2U
-	__u8 at_type;
 	// TODO
 	char stat_prefix[0];
 	char domains[KMESH_HTTP_DOMAIN_NUM][KMESH_HTTP_DOMAIN_LEN];
@@ -42,10 +38,16 @@ typedef struct {
 
 typedef struct {
 	char name[KMESH_NAME_LEN];
+
+#define FILTER_NETWORK_HTTP_CONNECTION_MANAGER	1
+#define FILTER_NETWORK_RATELIMIT				2
+	__u16 at_type;
+
+	// typed_config
 	union {
 		http_connection_manager_t http_connection_manager;
 		ratelimit_t ratelimit;
-	} typed_config;
+	};
 } filter_t;
 
 bpf_map_t SEC("maps") map_of_filter = {
@@ -90,16 +92,61 @@ filter_chain_t *map_lookup_filter_chain(map_key_t *map_key)
 }
 
 static inline
-int filter_chain_match_check(filter_chain_match_t *filter_chain_match, void *buf)
+int http_filter_manager(http_filter_t *http_filter, void *buf)
 {
 	//TODO
 	return 0;
 }
 
 static inline
-int *filter_manager(filter_t *filter, void *buf, address_t *address)
+int filter_handle_http_connection_manager(http_connection_manager_t *http_connection_manager,
+										void* buf, address_t *address)
 {
-	
+	int ret = -ENOENT;
+
+	switch (http_connection_manager->at_type) {
+		case HTTP_CONNECTION_MANAGER_RDS:
+			ret = rds_manager(&http_connection_manager->rds, NULL, address);
+			break;
+		case HTTP_CONNECTION_MANAGER_ROUTE_CONFIG:
+			ret = route_config_manager(&http_connection_manager->route_config, NULL, address);
+			break;
+		default:
+			BPF_LOG(ERR, KMESH, "http_connection_manager at_type is wrong\n");
+			break;
+	}
+
+	ret |= http_filter_manager(&http_connection_manager->http_filter, NULL);
+
+	return ret;
+}
+
+static inline
+int filter_manager(filter_t *filter, void *buf, address_t *address)
+{
+	int ret = -ENOENT;
+
+	switch (filter->at_type) {
+		case FILTER_NETWORK_HTTP_CONNECTION_MANAGER:
+			ret = filter_handle_http_connection_manager(&filter->http_connection_manager,
+														NULL, address);
+			break;
+		case FILTER_NETWORK_RATELIMIT:
+			//TODO
+			//filter_handle_rds(filter->ratelimit);
+			break;
+		default:
+			BPF_LOG(ERR, KMESH, "filter at_type is wrong\n");
+			break;
+	}
+
+	return ret;
+}
+
+static inline
+int filter_chain_match_check(filter_chain_match_t *filter_chain_match, void *buf)
+{
+	//TODO
 	return 0;
 }
 
@@ -131,10 +178,10 @@ int filter_chain_manager(filter_chain_t *filter_chain, void *buf, address_t *add
 		}
 
 		if (filter_manager(filter, NULL, address) == 0)
-			break;
+			return 0;
 	}
 
-	return 0;
+	return -ENOENT;
 }
 
 #endif //_FILTER_H_

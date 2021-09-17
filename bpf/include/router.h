@@ -7,6 +7,7 @@
 #define _ROUTER_H_
 
 #include "config.h"
+#include "endpoint.h"
 
 typedef struct {
 	// TODO
@@ -34,6 +35,12 @@ struct bpf_map_def SEC("maps") map_of_routes = {
 	.map_flags		= 0,
 };
 
+static inline
+routes_t *map_lookup_routes(map_key_t *map_key)
+{
+	return kmesh_map_lookup_elem(&map_of_routes, map_key);
+}
+
 typedef struct {
 	map_key_t map_keyid_of_routes;
 	char name[KMESH_NAME_LEN];
@@ -49,16 +56,36 @@ bpf_map_t SEC("maps") map_of_virtual_hosts = {
 	.map_flags		= 0,
 };
 
+static inline
+virtual_hosts_t *map_lookup_virtual_host(map_key_t *map_key)
+{
+	return kmesh_map_lookup_elem(&map_of_virtual_hosts, map_key);
+}
+
 typedef struct {
 	map_key_t map_keyid_of_virtual_host;
 	char name[KMESH_NAME_LEN];
 } route_config_t;
 
 typedef struct {
+	map_key_t map_keyid_of_routes;
+	char route_config_name[KMESH_NAME_LEN];
+
 	struct {
 		// TODO
 	} config_source;
-	char route_config_name[KMESH_NAME_LEN];
 } rds_t;
+
+static inline
+int rds_manager(rds_t *rds, void *buf, address_t *address)
+{
+	return 0;
+}
+
+static inline
+int route_config_manager(route_config_t *route_config, void *buf, address_t *address)
+{
+	return 0;
+}
 
 #endif //_ROUTER_H_
