@@ -26,16 +26,15 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
 	listener = bpf_map_lookup_elem(&map_of_listener, &address);
 	if (listener == NULL) {
-		BPF_LOG(WARN, KMESH, "%s: map_of_listener get failed, ip4 %u, port %u\n",
-				__func__, address.ipv4, address.port);
+		BPF_LOG(DEBUG, KMESH, "map_of_listener get failed, ip4 %u, port %u\n",
+				address.ipv4, address.port);
 		return -ENOENT;
 	}
 
 	bpf_memset(&address, 0, sizeof(address));
 	ret = listener_manager(listener, NULL, &address);
 	if (ret != 0) {
-		BPF_LOG(ERR, KMESH, "%s: listener_manager failed, ret %d\n",
-				__func__, ret);
+		BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
 		return ret;
 	}
 

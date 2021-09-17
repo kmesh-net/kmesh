@@ -48,8 +48,8 @@ int listener_manager(listener_t *listener, void *buf, address_t *address)
 
 		filter_chain = map_ops.map_get_elem(&map_of_filter_chain, &map_key);
 		if (filter_chain == NULL) {
-			BPF_LOG(ERR, KMESH, "%s: map_of_filter_chain get failed\n",
-					__func__);
+			BPF_LOG(ERR, KMESH, "map_of_filter_chain get failed, map_key %u %u\n",
+					map_key.nameid, map_key.index);
 			return -ENOENT;
 		}
 
