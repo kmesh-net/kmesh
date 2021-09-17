@@ -56,9 +56,16 @@ bpf_map_t SEC("maps") map_of_filter = {
 	.map_flags		= 0,
 };
 
+static inline
+filter_t *map_lookup_filter(map_key_t *map_key)
+{
+	return kmesh_map_lookup_elem(&map_of_filter, map_key);
+}
+
 typedef struct {
 	__u32 destination_port;
-	// TODO
+	char transport_protocol[0];
+	char application_protocols[0][0];
 } filter_chain_match_t;
 
 typedef struct {
@@ -77,9 +84,55 @@ bpf_map_t SEC("maps") map_of_filter_chain = {
 };
 
 static inline
-int filter_chain_manager(filter_chain_t *filter_chain, bpf_unused void *buf, address_t *address)
+filter_chain_t *map_lookup_filter_chain(map_key_t *map_key)
 {
-	//map_key_t map_key;
+	return kmesh_map_lookup_elem(&map_of_filter_chain, map_key);
+}
+
+static inline
+int filter_chain_match_check(filter_chain_match_t *filter_chain_match, void *buf)
+{
+	//TODO
+	return 0;
+}
+
+static inline
+int *filter_manager(filter_t *filter, void *buf, address_t *address)
+{
+	
+	return 0;
+}
+
+static inline
+int filter_chain_manager(filter_chain_t *filter_chain, void *buf, address_t *address)
+{
+	int ret;
+	__u32 index;
+	map_key_t map_key;
+	filter_t *filter = NULL;
+
+	ret = filter_chain_match_check(&filter_chain->filter_chain_match, NULL);
+	if (ret != 0) {
+		BPF_LOG(DEBUG, KMESH, "filter_chain_match_check failed, ret %d\n", ret);
+		return ret;
+	}
+
+	map_key.nameid = filter_chain->map_key_of_filter.nameid;
+	index = BPF_MIN(filter_chain->map_key_of_filter.index, MAP_SIZE_OF_FILTER);
+
+	for (int i = 0; i < index; i++) {
+		map_key.index = i;
+
+		filter = map_lookup_filter(&map_key);
+		if (filter == NULL) {
+			BPF_LOG(DEBUG, KMESH, "map_of_filter get failed, map_key %u %u\n",
+					map_key.nameid, map_key.index);
+			return -ENOENT;
+		}
+
+		if (filter_manager(filter, NULL, address) == 0)
+			break;
+	}
 
 	return 0;
 }

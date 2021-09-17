@@ -14,4 +14,8 @@
 #define EBUSY		16  /* Device or resource busy */
 #endif
 
+#ifndef EINVAL
+#define EINVAL		22  /* Invalid argument */
+#endif
+
 #endif //_ERRNO_H_

@@ -24,7 +24,7 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	address.port = ctx->user_port;
 	address.ipv4 = ctx->user_ip4;
 
-	listener = bpf_map_lookup_elem(&map_of_listener, &address);
+	listener = map_lookup_listener(&address);
 	if (listener == NULL) {
 		BPF_LOG(DEBUG, KMESH, "map_of_listener get failed, ip4 %u, port %u\n",
 				address.ipv4, address.port);

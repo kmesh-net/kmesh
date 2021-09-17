@@ -36,34 +36,22 @@ typedef struct {
 } map_key_t;
 
 static inline
-void *kmesh_map_get_elem(bpf_map_t *map, const map_key_t *key)
+void *kmesh_map_lookup_elem(bpf_map_t *map, const void *key)
 {
 	return bpf_map_lookup_elem(map, key);
 }
 
 static inline
-int kmesh_map_del_elem(bpf_map_t *map, const map_key_t *key)
+int kmesh_map_delete_elem(bpf_map_t *map, const void *key)
 {
 	return bpf_map_delete_elem(map, key);
 }
 
 static inline
-int kmesh_map_add_elem(bpf_map_t *map, const map_key_t *key, const void *value)
+int kmesh_map_update_elem(bpf_map_t *map, const void *key, const void *value)
 {
 	// TODO: 重复元素，状态更新
 	return bpf_map_update_elem(map, key, value, BPF_ANY);
 }
-
-typedef struct {
-	void *(*map_get_elem)(bpf_map_t *map, const map_key_t *key);
-	int (*map_del_elem)(bpf_map_t *map, const map_key_t *key);
-	int (*map_add_elem)(bpf_map_t *map, const map_key_t *key, const void *value);
-} map_ops_t;
-
-const map_ops_t map_ops = {
-	.map_get_elem = kmesh_map_get_elem,
-	.map_del_elem = kmesh_map_del_elem,
-	.map_add_elem = kmesh_map_add_elem,
-};
 
 #endif //_COMMON_H_

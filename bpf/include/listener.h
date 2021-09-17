@@ -34,8 +34,15 @@ bpf_map_t SEC("maps") map_of_listener = {
 };
 
 static inline
+listener_t *map_lookup_listener(address_t *address)
+{
+	return kmesh_map_lookup_elem(&map_of_listener, address);
+}
+
+static inline
 int listener_manager(listener_t *listener, void *buf, address_t *address)
 {
+	__u32 index;
 	map_key_t map_key;
 	filter_chain_t *filter_chain = NULL;
 
@@ -43,10 +50,12 @@ int listener_manager(listener_t *listener, void *buf, address_t *address)
 		return -EBUSY;
 
 	map_key.nameid = listener->map_key_of_filter_chain.nameid;
-	for (int i = 0; i < listener->map_key_of_filter_chain.index; i++) {
+	index = BPF_MIN(listener->map_key_of_filter_chain.index, MAP_SIZE_OF_FILTER_CHAIN);
+
+	for (int i = 0; i < index; i++) {
 		map_key.index = i;
 
-		filter_chain = map_ops.map_get_elem(&map_of_filter_chain, &map_key);
+		filter_chain = map_lookup_filter_chain(&map_key);
 		if (filter_chain == NULL) {
 			BPF_LOG(ERR, KMESH, "map_of_filter_chain get failed, map_key %u %u\n",
 					map_key.nameid, map_key.index);
