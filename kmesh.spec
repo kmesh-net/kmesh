@@ -8,6 +8,7 @@ Source0:       %{name}-%{version}.tar.gz
 
 BuildRequires: clang llvm
 BuildRequires: libbpf-devel kernel-devel
+BuildRequires: golang
 
 Requires: libbpf bpftool
 

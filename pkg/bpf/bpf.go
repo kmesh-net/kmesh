@@ -3,12 +3,13 @@
  * Description: 
  */
 
-package main
+package bpf
 
 import (
-	"codehub.com/kmesh/pkg/bpf"
+	"fmt"
+	//"github.com/cilium/ebpf"
 )
 
-func main() {
-	bpf.Test("hello world!")
+func Test(s string) {
+	fmt.Println(s)
 }
