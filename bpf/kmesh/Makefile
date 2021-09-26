@@ -16,9 +16,7 @@ CFLAGS := -O2 -g -Wall
 # target
 APPS := bpf_sock.o
 
-INSTALL_BIN := $(DESTDIR)/$(BINDIR)/kmesh
-
-.PHONY: all install test clean
+.PHONY: all install clean
 
 all: $(APPS)
 
@@ -31,11 +29,9 @@ all: $(APPS)
 clean:
 	$(call printlog, CLEAN, $(APPS))
 	$(QUIET) rm -rf $(APPS)
+	$(QUIET) rm -rf $(INSTALL_BIN)
 
 install:
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS))
 	$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
 	$(QUIET) install -Dp -m 0500 $(ROOT_DIR)/$(APPS) $(INSTALL_BIN)
-
-test:
-	$(call printlog, TEST, xxx)

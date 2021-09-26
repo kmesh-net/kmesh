@@ -6,7 +6,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "sockmap.bpf.h"
+#include "bpf_sockmap.h"
 
 static inline
 void skops_extract_ip4_key(struct bpf_sock_ops *skops, struct sock_key *key)

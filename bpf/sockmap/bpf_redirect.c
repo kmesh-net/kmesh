@@ -3,7 +3,7 @@
  * Description: 
  */
 
-#include "sockmap.bpf.h"
+#include "bpf_sockmap.h"
 
 static inline
 void skmsg_extract_ip4_key(struct sk_msg_md *msg, struct sock_key *key)

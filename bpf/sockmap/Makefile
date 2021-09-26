@@ -17,29 +17,31 @@ CFLAGS := -O2 -g -Wall
 APPS := bpf_sock.o
 
 # target
-APPS = sockops_ip4.bpf.o redirect_tcp.bpf.o
-APPS += sockops_ip4.skel.h redirect_tcp.skel.h
+APPS = bpf_sockops.o bpf_redirect.o
+APPS += bpf_sockops.skel.h bpf_redirect.skel.h
 
-.PHONY: all clean install test
+.PHONY: all clean install
 
 all: $(APPS)
 
 # Build BPF code
-%.bpf.o: %.bpf.c
+%.o: %.c
 	$(call printlog, BUILD, $@)
 	$(QUIET) $(CLANG) $(CFLAGS) $(LDFLAGS) $(INCLUDES) \
 		-target bpf -c $(filter %.c,$^) -o $@
 	$(QUIET) $(LLVM_STRIP) -g $@ #strip useless DWARF info
 
 # Generate BPF skeletons
-%.skel.h: %.bpf.o
+%.skel.h: %.o
 	$(call printlog, GEN-SKEL, $@)
 	$(QUIET) $(BPFTOOL) gen skeleton $< > $@
 
 clean:
 	$(call printlog, CLEAN, $(APPS))
 	$(QUIET) rm -rf $(APPS)
+	$(QUIET) rm -rf $(INSTALL_BIN)
 
 install:
-
-test:
+	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS))
+	$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
+	$(QUIET) install -Dp -m 0500 $(ROOT_DIR)/$(APPS) $(INSTALL_BIN)

@@ -1,3 +1,5 @@
+%global debug_package %{nil}
+
 Name:          kmesh
 Version:       1.0.0
 Release:       1
@@ -21,16 +23,21 @@ ExclusiveArch: x86_64 aarch64
 %autosetup -n %{name}-%{version}
 
 %build
+cd %{_builddir}/%{name}-%{version}/bpf
 %make_build
 
 %install
+cd %{_builddir}/%{name}-%{version}/bpf
 %make_install
 
 %check
-make test
+cd %{_builddir}/%{name}-%{version}/test
+#make
+#make test
 
 %files
 %defattr(-,root,root)
+%{_bindir}/*
 
 %changelog
 * Mon Sep 13 2021 huangliming<huangliming5@huawei.com> - 1.0.0-1
