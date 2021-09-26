@@ -29,6 +29,7 @@
 #endif
 
 typedef struct bpf_map_def bpf_map_t;
+typedef struct sk_msg_md ctx_buff_t;
 
 typedef struct {
 	__u32 nameid; // calculated based on name in daemon

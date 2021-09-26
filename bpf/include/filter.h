@@ -92,51 +92,54 @@ filter_chain_t *map_lookup_filter_chain(map_key_t *map_key)
 }
 
 static inline
-int http_filter_manager(http_filter_t *http_filter, void *buf)
+int http_filter_manager(ctx_buff_t *ctx, http_filter_t *http_filter)
 {
 	//TODO
 	return 0;
 }
 
 static inline
-int filter_handle_http_connection_manager(http_connection_manager_t *http_connection_manager,
-										void* buf, address_t *address)
+int filter_handle_http_connection_manager(
+	ctx_buff_t *ctx,
+	http_connection_manager_t *http_connection_manager)
 {
-	int ret = -ENOENT;
+	int ret;
 
 	switch (http_connection_manager->at_type) {
 		case HTTP_CONNECTION_MANAGER_RDS:
-			ret = rds_manager(&http_connection_manager->rds, NULL, address);
+			ret = rds_manager(ctx, &http_connection_manager->rds);
 			break;
 		case HTTP_CONNECTION_MANAGER_ROUTE_CONFIG:
-			ret = route_config_manager(&http_connection_manager->route_config, NULL, address);
+			ret = route_config_manager(ctx, &http_connection_manager->route_config);
 			break;
 		default:
 			BPF_LOG(ERR, KMESH, "http_connection_manager at_type is wrong\n");
+			ret = -ENOENT;
 			break;
 	}
 
-	ret |= http_filter_manager(&http_connection_manager->http_filter, NULL);
+	ret |= http_filter_manager(ctx, &http_connection_manager->http_filter);
 
 	return ret;
 }
 
 static inline
-int filter_manager(filter_t *filter, void *buf, address_t *address)
+int filter_manager(ctx_buff_t *ctx, filter_t *filter)
 {
-	int ret = -ENOENT;
+	int ret;
 
 	switch (filter->at_type) {
 		case FILTER_NETWORK_HTTP_CONNECTION_MANAGER:
-			ret = filter_handle_http_connection_manager(&filter->http_connection_manager,
-														NULL, address);
+			ret = filter_handle_http_connection_manager(ctx, &filter->http_connection_manager);
 			break;
 		case FILTER_NETWORK_RATELIMIT:
 			//TODO
-			//filter_handle_rds(filter->ratelimit);
+			//ret = filter_handle_rds(filter->ratelimit);
+			ret = -ENOENT;
 			break;
 		default:
 			BPF_LOG(ERR, KMESH, "filter at_type is wrong\n");
+			ret = -ENOENT;
 			break;
 	}
 
@@ -151,7 +154,7 @@ int filter_chain_match_check(filter_chain_match_t *filter_chain_match, void *buf
 }
 
 static inline
-int filter_chain_manager(filter_chain_t *filter_chain, void *buf, address_t *address)
+int filter_chain_manager(ctx_buff_t *ctx, filter_chain_t *filter_chain)
 {
 	int ret;
 	__u32 index;
@@ -177,7 +180,7 @@ int filter_chain_manager(filter_chain_t *filter_chain, void *buf, address_t *add
 			return -ENOENT;
 		}
 
-		if (filter_manager(filter, NULL, address) == 0)
+		if (filter_manager(ctx, filter) == 0)
 			return 0;
 	}
 

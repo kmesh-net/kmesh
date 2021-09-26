@@ -31,15 +31,21 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 		return -ENOENT;
 	}
 
-	bpf_memset(&address, 0, sizeof(address));
-	ret = listener_manager(listener, NULL, &address);
+	/*
+	struct sk_msg_md {
+		__bpf_md_ptr(void *, data);
+		__bpf_md_ptr(void *, data_end);
+		...
+		__u32 remote_ip4;
+		__u32 remote_port;
+		__u32 size;
+		...
+	}; */
+	ret = listener_manager(NULL, listener);
 	if (ret != 0) {
 		BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
 		return ret;
 	}
-
-	ctx->user_ip4 = address.ipv4;
-	ctx->user_port = address.port;
 
 	return 0;
 }

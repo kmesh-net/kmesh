@@ -77,13 +77,13 @@ typedef struct {
 } rds_t;
 
 static inline
-int rds_manager(rds_t *rds, void *buf, address_t *address)
+int rds_manager(ctx_buff_t *ctx, rds_t *rds)
 {
 	return 0;
 }
 
 static inline
-int route_config_manager(route_config_t *route_config, void *buf, address_t *address)
+int route_config_manager(ctx_buff_t *ctx, route_config_t *route_config)
 {
 	return 0;
 }

@@ -40,7 +40,7 @@ listener_t *map_lookup_listener(address_t *address)
 }
 
 static inline
-int listener_manager(listener_t *listener, void *buf, address_t *address)
+int listener_manager(ctx_buff_t *ctx, listener_t *listener)
 {
 	__u32 index;
 	map_key_t map_key;
@@ -62,7 +62,7 @@ int listener_manager(listener_t *listener, void *buf, address_t *address)
 			return -ENOENT;
 		}
 
-		if (filter_chain_manager(filter_chain, buf, address) == 0)
+		if (filter_chain_manager(ctx, filter_chain) == 0)
 			return 0;
 	}
 
