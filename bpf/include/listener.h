@@ -6,9 +6,10 @@
 #ifndef _LISTENER_H_
 #define _LISTENER_H_
 
-#include "config.h"
+#include "bpf_log.h"
 #include "filter.h"
 #include "endpoint.h"
+#include "tail_call.h"
 
 typedef struct {
 	map_key_t map_key_of_filter_chain;
@@ -46,6 +47,8 @@ int listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	map_key_t map_key;
 	filter_chain_t *filter_chain = NULL;
 
+	DECLARE_VAR_ADDRESS(address, ctx);
+
 	if (listener->state & LISTENER_STATE_PASSIVE)
 		return -EBUSY;
 
@@ -62,8 +65,15 @@ int listener_manager(ctx_buff_t *ctx, listener_t *listener)
 			return -ENOENT;
 		}
 
-		if (filter_chain_manager(ctx, filter_chain) == 0)
-			return 0;
+		if (filter_chain_match_check(ctx, &filter_chain->filter_chain_match) != 0)
+			continue;
+
+		if (kmesh_tail_update_ctx(&address, filter_chain) != 0)
+			return -ENOSPC;
+		kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER_CHAIN);
+		kmesh_tail_delete_ctx(&address);
+
+		break;
 	}
 
 	return -ENOENT;

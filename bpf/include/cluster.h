@@ -6,7 +6,7 @@
 #ifndef _CLUSTER_H_
 #define _CLUSTER_H_
 
-#include "config.h"
+#include "common.h"
 
 typedef struct {
 	__u8 priority;

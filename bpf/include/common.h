@@ -29,7 +29,21 @@
 #endif
 
 typedef struct bpf_map_def bpf_map_t;
-typedef struct sk_msg_md ctx_buff_t;
+
+#if 0
+typedef struct sk_msg_md		ctx_buff_t;
+#define DECLARE_VAR_ADDRESS(name, ctx) \
+	address_t name = {0}; \
+	name.ipv4 = ctx->remote_ip4; \
+	name.port = ctx->remote_port
+
+#else
+typedef struct bpf_sock_addr	ctx_buff_t;
+#define DECLARE_VAR_ADDRESS(name, ctx) \
+	address_t name = {0}; \
+	name.ipv4 = ctx->user_ip4; \
+	name.port = ctx->user_port
+#endif
 
 typedef struct {
 	__u32 nameid; // calculated based on name in daemon

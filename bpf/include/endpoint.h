@@ -6,7 +6,7 @@
 #ifndef _ENDPOINT_H_
 #define _ENDPOINT_H_
 
-#include "config.h"
+#include "common.h"
 
 typedef struct {
 	__u32 protocol;

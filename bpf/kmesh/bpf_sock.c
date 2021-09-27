@@ -5,7 +5,6 @@
 
 #include "bpf_log.h"
 #include "listener.h"
-#include "cluster.h"
 
 #define SOCK_ERR		0
 #define SOCK_OK			1
@@ -17,12 +16,9 @@ static inline
 int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
 	int ret;
-	address_t address = {0};
 	listener_t *listener = NULL;
 
-	address.protocol = ctx->protocol;
-	address.port = ctx->user_port;
-	address.ipv4 = ctx->user_ip4;
+	DECLARE_VAR_ADDRESS(address, ctx);
 
 	listener = map_lookup_listener(&address);
 	if (listener == NULL) {
@@ -41,7 +37,7 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 		__u32 size;
 		...
 	}; */
-	ret = listener_manager(NULL, listener);
+	ret = listener_manager(ctx, listener);
 	if (ret != 0) {
 		BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
 		return ret;

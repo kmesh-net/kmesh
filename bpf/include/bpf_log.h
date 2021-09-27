@@ -6,7 +6,6 @@
 #ifndef _BPF_LOG_H_
 #define _BPF_LOG_H_
 
-#include "config.h"
 #include "common.h"
 
 #define BPF_DEBUG_ON		0

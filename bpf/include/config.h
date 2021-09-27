@@ -23,12 +23,12 @@
 // ************
 // map size
 #define MAP_SIZE_OF_LISTENER		128
-#define MAP_SIZE_OF_CLUSTER			128
-#define MAP_SIZE_OF_ENDPOINT		8192
 #define MAP_SIZE_OF_FILTER_CHAIN	128
 #define MAP_SIZE_OF_FILTER			128
 #define MAP_SIZE_OF_VIRTUAL_HOSTS	64
 #define MAP_SIZE_OF_ROUTES			64
+#define MAP_SIZE_OF_CLUSTER			128
+#define MAP_SIZE_OF_ENDPOINT		8192
 
 // ************
 // array len

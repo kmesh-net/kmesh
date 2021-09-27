@@ -6,7 +6,7 @@
 #ifndef _ROUTER_H_
 #define _ROUTER_H_
 
-#include "config.h"
+#include "common.h"
 #include "endpoint.h"
 
 typedef struct {
