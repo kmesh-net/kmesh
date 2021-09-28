@@ -66,7 +66,7 @@ filter_t *map_lookup_filter(map_key_t *map_key)
 typedef struct {
 	__u32 destination_port;
 	char transport_protocol[0];
-	char application_protocols[0][0];
+	char application_protocol[0][0];
 } filter_chain_match_t;
 
 typedef struct {

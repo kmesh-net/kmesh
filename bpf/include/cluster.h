@@ -9,11 +9,11 @@
 #include "common.h"
 
 typedef struct {
-	__u8 priority;
+	__u16 priority;
 	__u16 max_connections;
 	__u16 max_pending_requests;
 	__u16 max_requests;;
-	__u8 max_retries;
+	__u16 max_retries;
 } circuit_breaker_t;
 
 typedef struct {
@@ -27,12 +27,12 @@ typedef struct {
 #define CLUSTER_TYPE_STATIC				1U
 #define CLUSTER_TYPE_ORIGINAL_DST		2U
 #define CLUSTER_TYPE_ORIGINAL_EDS		3U
-	__u8 type;
+	__u16 type;
 
 #define LB_POLICY_LEAST_REQUEST		1U
 #define LB_POLICY_ROUND_ROBIN		2U
 #define LB_POLICY_RANDOM			3U
-	__u8 lb_policy;
+	__u16 lb_policy;
 	__u16 connect_timeout; //default 5s
 	load_assignment_t load_assignment;
 	circuit_breaker_t circuit_breaker;

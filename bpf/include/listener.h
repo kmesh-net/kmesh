@@ -43,7 +43,7 @@ listener_t *map_lookup_listener(address_t *address)
 static inline
 int listener_manager(ctx_buff_t *ctx, listener_t *listener)
 {
-	__u32 index;
+	unsigned index, i;
 	map_key_t map_key;
 	filter_chain_t *filter_chain = NULL;
 
@@ -53,30 +53,28 @@ int listener_manager(ctx_buff_t *ctx, listener_t *listener)
 		return -EBUSY;
 
 	map_key.nameid = listener->map_key_of_filter_chain.nameid;
-	index = BPF_MIN(listener->map_key_of_filter_chain.index, MAP_SIZE_OF_FILTER_CHAIN);
+	index = BPF_MIN(listener->map_key_of_filter_chain.index, MAP_SIZE_OF_PER_FILTER_CHAIN);
 
-	for (int i = 0; i < index; i++) {
+	for (i = 0; i < index; i++) {
 		map_key.index = i;
 
 		filter_chain = map_lookup_filter_chain(&map_key);
-		if (filter_chain == NULL) {
-			BPF_LOG(ERR, KMESH, "map_of_filter_chain get failed, map_key %u %u\n",
-					map_key.nameid, map_key.index);
+		if (filter_chain == NULL)
 			return -ENOENT;
-		}
 
-		if (filter_chain_match_check(ctx, &filter_chain->filter_chain_match) != 0)
-			continue;
-
-		if (kmesh_tail_update_ctx(&address, filter_chain) != 0)
-			return -ENOSPC;
-		kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER_CHAIN);
-		kmesh_tail_delete_ctx(&address);
-
-		break;
+		if (filter_chain_match_check(ctx, &filter_chain->filter_chain_match) == 0)
+			break;
 	}
 
-	return -ENOENT;
+	if (i == index)
+		return -ENOENT;
+
+	if (kmesh_tail_update_ctx(&address, filter_chain) != 0)
+		return -ENOSPC;
+	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER_CHAIN);
+	kmesh_tail_delete_ctx(&address);
+
+	return 0;
 }
 
 #endif //_LISTENER_H_
