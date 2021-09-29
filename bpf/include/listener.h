@@ -47,7 +47,7 @@ int listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	map_key_t map_key;
 	filter_chain_t *filter_chain = NULL;
 
-	DECLARE_VAR_ADDRESS(address, ctx);
+	DECLARE_VAR_ADDRESS(ctx, address);
 
 	if (listener->state & LISTENER_STATE_PASSIVE)
 		return -EBUSY;

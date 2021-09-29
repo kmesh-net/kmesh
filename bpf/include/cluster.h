@@ -19,6 +19,12 @@ typedef struct {
 typedef struct {
 	map_key_t map_key_of_endpoint;
 	char cluster_name[KMESH_NAME_LEN];
+
+#define LB_POLICY_LEAST_REQUEST		1U
+#define LB_POLICY_ROUND_ROBIN		2U
+#define LB_POLICY_RANDOM			3U
+	__u16 lb_policy;
+	map_key_t map_key_of_least_endpoint;
 } load_assignment_t;
 
 typedef struct {
@@ -29,21 +35,23 @@ typedef struct {
 #define CLUSTER_TYPE_ORIGINAL_EDS		3U
 	__u16 type;
 
-#define LB_POLICY_LEAST_REQUEST		1U
-#define LB_POLICY_ROUND_ROBIN		2U
-#define LB_POLICY_RANDOM			3U
-	__u16 lb_policy;
 	__u16 connect_timeout; //default 5s
 	load_assignment_t load_assignment;
 	circuit_breaker_t circuit_breaker;
 } cluster_t;
 
-bpf_map_t SEC("maps") cluster_map = {
+bpf_map_t SEC("maps") map_of_cluster = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(map_key_t), // cluster_name+0 in xx
+	.key_size		= sizeof(map_key_t), // cluster_name+0 in route_action_t
 	.value_size		= sizeof(cluster_t),
 	.max_entries	= MAP_SIZE_OF_CLUSTER,
 	.map_flags		= 0,
 };
+
+static inline
+cluster_t *map_lookup_cluster(map_key_t *map_key)
+{
+	return kmesh_map_lookup_elem(&map_of_cluster, map_key);
+}
 
 #endif //_CLUSTER_H_

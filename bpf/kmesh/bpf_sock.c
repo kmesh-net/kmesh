@@ -18,7 +18,7 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	int ret;
 	listener_t *listener = NULL;
 
-	DECLARE_VAR_ADDRESS(address, ctx);
+	DECLARE_VAR_ADDRESS(ctx, address);
 
 	listener = map_lookup_listener(&address);
 	if (listener == NULL) {

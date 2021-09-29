@@ -52,12 +52,14 @@ int filter_manager(ctx_buff_t *ctx)
 	filter_t *filter = NULL;
 	http_connection_manager_t *http_connection_manager = NULL;
 
-	DECLARE_VAR_ADDRESS(address, ctx);
+	DECLARE_VAR_ADDRESS(ctx, address);
 
 	filter = kmesh_tail_lookup_ctx(&address);
 	if (filter == NULL) {
 		return -ENOENT;
 	}
+	kmesh_tail_delete_ctx(&address);
+
 	http_connection_manager = &filter->http_connection_manager;
 
 	switch (http_connection_manager->at_type) {
@@ -84,12 +86,13 @@ int filter_chain_manager(ctx_buff_t *ctx)
 	filter_chain_t *filter_chain = NULL;
 	filter_t *filter = NULL;
 
-	DECLARE_VAR_ADDRESS(address, ctx);
+	DECLARE_VAR_ADDRESS(ctx, address);
 
 	filter_chain = kmesh_tail_lookup_ctx(&address);
 	if (filter_chain == NULL) {
 		return -ENOENT;
 	}
+	kmesh_tail_delete_ctx(&address);
 
 	map_key.nameid = filter_chain->map_key_of_filter.nameid;
 	index = BPF_MIN(filter_chain->map_key_of_filter.index, MAP_SIZE_OF_PER_FILTER);

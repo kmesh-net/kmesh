@@ -19,6 +19,7 @@ typedef struct {
 	address_t address;
 	__u16 lb_priority;
 	__u16 lb_weight;
+	__u16 lb_conn_num;
 } endpoint_t;
 
 bpf_map_t SEC("maps") map_of_endpoint = {
@@ -28,5 +29,11 @@ bpf_map_t SEC("maps") map_of_endpoint = {
 	.max_entries	= MAP_SIZE_OF_ENDPOINT,
 	.map_flags		= 0,
 };
+
+static inline
+endpoint_t *map_lookup_endpoint(map_key_t *map_key)
+{
+	return kmesh_map_lookup_elem(&map_of_endpoint, map_key);
+}
 
 #endif //_ENDPOINT_H_

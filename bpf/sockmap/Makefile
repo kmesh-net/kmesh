@@ -11,7 +11,7 @@ INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
 
 # compiler flags
 #LDFLAGS = -lbpf
-CFLAGS := -O2 -g -Wall
+CFLAGS := -O2 -g -Wall -target bpf
 
 # target
 APPS := bpf_sock.o
@@ -28,7 +28,7 @@ all: $(APPS)
 %.o: %.c
 	$(call printlog, BUILD, $@)
 	$(QUIET) $(CLANG) $(CFLAGS) $(LDFLAGS) $(INCLUDES) \
-		-target bpf -c $(filter %.c,$^) -o $@
+		-c $(filter %.c,$^) -o $@
 	$(QUIET) $(LLVM_STRIP) -g $@ #strip useless DWARF info
 
 # Generate BPF skeletons
