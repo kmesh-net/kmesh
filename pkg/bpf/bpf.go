@@ -6,10 +6,18 @@
 package bpf
 
 import (
-	"fmt"
+	"codehub.com/mesh/pkg/logger"
 	//"github.com/cilium/ebpf"
 )
 
+const (
+	bpfSubsys = "bpf"
+)
+
+var (
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, bpfSubsys)
+)
+
 func Test(s string) {
-	fmt.Println(s)
+	log.Debug(s)
 }

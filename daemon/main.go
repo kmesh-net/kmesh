@@ -6,9 +6,19 @@
 package main
 
 import (
-	"codehub.com/kmesh/pkg/bpf"
+	"codehub.com/mesh/pkg/logger"
+	"codehub.com/mesh/pkg/bpf"
+)
+
+const (
+	daemonSubsys = "daemon"
+)
+
+var (
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, daemonSubsys)
 )
 
 func main() {
-	bpf.Test("hello world!")
+	log.Debug("test log")
+	bpf.Test("test bpf")
 }
