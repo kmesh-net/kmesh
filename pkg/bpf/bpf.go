@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	bpfSubsys = "bpf"
+	pkgSubsys = "bpf"
 )
 
 var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, bpfSubsys)
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 func Test(s string) {

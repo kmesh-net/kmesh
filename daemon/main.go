@@ -11,11 +11,11 @@ import (
 )
 
 const (
-	daemonSubsys = "daemon"
+	pkgSubsys = "daemon"
 )
 
 var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, daemonSubsys)
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 func main() {
