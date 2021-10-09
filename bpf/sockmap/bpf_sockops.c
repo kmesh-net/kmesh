@@ -27,7 +27,7 @@ int skops_map_add(struct bpf_sock_ops *skops)
 
 	skops_extract_ip4_key(skops, &key);
 
-	BPF_LOG(DEBUG, "skops_map: op %d, sport %d, dport %d\n",
+	BPF_LOG(INFO, "skops_map: op %d, sport %d, dport %d\n",
 		skops->op, bpf_ntohl(key.sport), bpf_ntohl(key.dport));
 
 	return bpf_sock_hash_update(skops, &skops_map, &key, BPF_NOEXIST);
@@ -89,7 +89,7 @@ int skops_proxy_map_del(struct sock_key *key)
 }
 
 SEC("sockops")
-int bpf_sockmap(struct bpf_sock_ops *skops)
+int bpf_sockops_tcp(struct bpf_sock_ops *skops)
 {
 	int ret;
 	__u32 family, op;

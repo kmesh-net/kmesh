@@ -19,7 +19,7 @@ void skmsg_extract_ip4_key(struct sk_msg_md *msg, struct sock_key *key)
 }
 
 SEC("sk_msg")
-int bpf_tcpip_bypass(struct sk_msg_md *msg)
+int bpf_redirect_tcp(struct sk_msg_md *msg)
 {
 	int ret = SK_DROP;
 	struct sock_key key;
