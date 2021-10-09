@@ -51,7 +51,7 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
 
 #if KMESH_ENABLE_IPV4
-SEC("connect4")
+SEC("cgroup/connect4")
 int sock4_connect(struct bpf_sock_addr *ctx)
 {
 #if KMESH_ENABLE_TCP

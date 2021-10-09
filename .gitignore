@@ -7,6 +7,9 @@
 # Temporary files
 *.swn
 *.swp
+#*_bpfeb.go
+#*_bpfel.go
 
 # Folders
 .vscode
+.idea

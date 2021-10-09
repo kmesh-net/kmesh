@@ -14,7 +14,7 @@ INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
 CFLAGS := -O2 -g -Wall -target bpf
 
 # target
-APPS := bpf_sock.o filter.o cluster.o
+APPS := cgroup_sock.o filter.o cluster.o
 
 .PHONY: all install clean
 

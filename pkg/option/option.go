@@ -7,6 +7,7 @@ package option
 
 import (
 	"codehub.com/mesh/pkg/logger"
+	"fmt"
 )
 
 const (
@@ -17,5 +18,19 @@ var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
-// TODO
+type DaemonConfig struct {
+	Cgroup2Path	string
+	BpffsPath	string
+}
 
+func InitializeDaemonConfig() (*DaemonConfig, error) {
+	dc := &DaemonConfig {
+		Cgroup2Path: "/mnt/cgroup2/",
+		BpffsPath: "/sys/fs/bpf/",
+	}
+	return dc, nil
+}
+
+func (dc *DaemonConfig) String() string {
+	return fmt.Sprintf("Cgroup2Path=%s, BpffsPath=%s", dc.Cgroup2Path, dc.BpffsPath)
+}

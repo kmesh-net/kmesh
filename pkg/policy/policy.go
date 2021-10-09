@@ -17,5 +17,8 @@ var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
-// TODO
-
+func ControlManager() {
+	for true {
+		//TODO
+	}
+}
