@@ -21,7 +21,7 @@ const (
 
 var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
-	bpfProg *bpf.BpfProgram
+	bpfObj *bpf.BpfObject
 )
 
 func main() {
@@ -29,10 +29,20 @@ func main() {
 	setupCloseHandler()
 
 	cfg, _ := option.InitializeDaemonConfig()
+	info := &bpf.BpfInfo {
+		BpffsPath:		cfg.BpffsPath,
+		Cgroup2Path:	cfg.Cgroup2Path,
+	}
 
-	bpfProg, err = bpf.AttachCgroupSock(cfg.Cgroup2Path, cfg.BpffsPath)
+	bpfObj, err = bpf.Load(info)
 	if err != nil {
-		log.Error("AttachCgroupSock failed, ", err)
+		log.Fatal("bpf Load failed, ", err)
+	}
+	if err = bpfObj.Setup(); err != nil {
+		log.Error("bpf Setup failed, ", err)
+	}
+	if err := bpfObj.Attach(); err != nil {
+		log.Fatal("bpf Attach failed, ", err)
 	}
 
 	policy.ControlManager()
@@ -44,7 +54,9 @@ func setupCloseHandler() {
 
 	go func() {
 		<-c
-		bpfProg.Close()
+		if err := bpfObj.Close(); err != nil {
+			log.Error("bpf Close failed, ", err)
+		}
 		os.Exit(0)
 	}()
 }

@@ -10,6 +10,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
+	"reflect"
 )
 
 //go run github.com/cilium/ebpf/cmd/bpf2go --help
@@ -25,48 +26,144 @@ var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
-type BpfProgram struct {
-	link link.Link
-	objs *CgroupSockObjects
+type bpfProgram struct {
+	CgroupSockPrograms
+	FilterPrograms
+	ClusterPrograms
 }
 
-func AttachCgroupSock(cgroup2Path, bpffsPath string) (*BpfProgram, error) {
-	fn := "cgroup_sock"
+type bpfMap struct {
+	CgroupSockMaps
+	//FilterMaps
+	//ClusterMaps
+}
 
+type BpfInfo struct {
+	BpffsPath	string
+	Cgroup2Path	string
+	AttachType	ebpf.AttachType
+}
+
+type BpfObject struct {
+	link	link.Link
+	progs	bpfProgram
+	maps	bpfMap
+	info 	BpfInfo
+}
+
+func Load(info *BpfInfo) (*BpfObject, error) {
 	if err := rlimit.RemoveMemlock(); err != nil {
 		return nil, err
 	}
 
-	objs := &CgroupSockObjects{}
-	if err := LoadCgroupSockObjects(objs, nil); err != nil {
+	obj := &BpfObject{}
+	obj.info = *info
+	obj.info.AttachType = ebpf.AttachCGroupInet4Connect
+
+	sockObjs := &CgroupSockObjects{}
+	if err := LoadCgroupSockObjects(sockObjs, nil); err != nil {
 		return nil, err
 	}
-	objs.Sock4Connect.Pin(bpffsPath + fn)
+	obj.progs.CgroupSockPrograms = sockObjs.CgroupSockPrograms
+	obj.maps.CgroupSockMaps = sockObjs.CgroupSockMaps
 
+	return obj, nil
+}
+
+func (obj *BpfObject) pinPrograms() error {
+	var (
+		err		error
+		pInfo	*ebpf.ProgramInfo
+	)
+
+	if pInfo, err = obj.progs.Sock4Connect.Info(); err != nil {
+		return err
+	}
+	if err = obj.progs.Sock4Connect.Pin(obj.info.BpffsPath + pInfo.Name); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (obj *BpfObject) unpinPrograms() error {
+	if err := obj.progs.Sock4Connect.Unpin(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (obj *BpfObject) pinMaps() error {
+	var (
+		err		error
+		mInfo	*ebpf.MapInfo
+	)
+
+	value := reflect.ValueOf(obj.maps.CgroupSockMaps)
+	for i := 0; i < value.NumField(); i++ {
+		m := value.Field(i).Interface().(*ebpf.Map)
+		if mInfo, err = m.Info(); err != nil {
+			return err
+		}
+		if err = m.Pin(obj.info.BpffsPath + mInfo.Name); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (obj *BpfObject) unpinMaps() error {
+	value := reflect.ValueOf(obj.maps.CgroupSockMaps)
+	for i := 0; i < value.NumField(); i++ {
+		m := value.Field(i).Interface().(*ebpf.Map)
+		if err := m.Unpin(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (obj *BpfObject) Setup() error {
+	if err := obj.pinPrograms(); err != nil {
+		return err
+	}
+
+	return obj.pinMaps()
+}
+
+func (obj *BpfObject) Attach() error {
 	cgopt := link.CgroupOptions {
-		Path: cgroup2Path,
-		Attach: ebpf.AttachCGroupInet4Connect,
-		Program: objs.Sock4Connect,
+		Path:		obj.info.Cgroup2Path,
+		Attach:		obj.info.AttachType,
+		Program:	obj.progs.Sock4Connect,
 	}
 
 	lk, err := link.AttachCgroup(cgopt)
 	if err != nil {
-		return nil, err
+		return err
 	}
+	obj.link = lk
 
-	bp := &BpfProgram{
-		objs: objs,
-		link: lk,
-	}
-	return bp, err
+	return nil
 }
 
-func (bp *BpfProgram) Close() error {
-	if err := bp.objs.Close(); err != nil {
+func (obj *BpfObject) Close() error {
+	if err := obj.progs.CgroupSockPrograms.Close(); err != nil {
 		return err
 	}
-	if err := bp.objs.Sock4Connect.Unpin(); err != nil {
+	if err := obj.maps.CgroupSockMaps.Close(); err != nil {
 		return err
 	}
-	return bp.link.Close()
+
+	if err := obj.unpinPrograms(); err != nil {
+		return err
+	}
+	if err := obj.unpinMaps(); err != nil {
+		return err
+	}
+
+	return obj.link.Close()
 }
