@@ -76,7 +76,8 @@ int cluster_handle_loadbanance(ctx_buff_t *ctx, load_assignment_t *load_assignme
 
 	if (endpoint == NULL)
 		return -EAGAIN;
-	SET_CTX_ADDRESS(ctx, &endpoint->address);
+	//FIXME: load error, invalid bpf_context access
+	//SET_CTX_ADDRESS(ctx, &endpoint->address);
 
 	return 0;
 }
@@ -84,15 +85,19 @@ int cluster_handle_loadbanance(ctx_buff_t *ctx, load_assignment_t *load_assignme
 SEC_TAIL(socket, KMESH_TAIL_CALL_CLUSTER)
 int cluster_manager(ctx_buff_t *ctx)
 {
+	map_key_t *pkey = NULL;
 	cluster_t *cluster = NULL;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	cluster = kmesh_tail_lookup_ctx(&address);
-	if (cluster == NULL) {
+	pkey = kmesh_tail_lookup_ctx(&address);
+	if (pkey == NULL)
 		return -ENOENT;
-	}
+
+	cluster = map_lookup_cluster(pkey);
 	kmesh_tail_delete_ctx(&address);
+	if (cluster == NULL)
+		return -ENOENT;
 
 	if (cluster_handle_circuit_breaker(cluster) != 0)
 		return -EBUSY;
@@ -100,3 +105,5 @@ int cluster_manager(ctx_buff_t *ctx)
 	return cluster_handle_loadbanance(ctx, &cluster->load_assignment);
 }
 
+char _license[] SEC("license") = "GPL";
+int _version SEC("version") = 1;

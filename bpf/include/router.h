@@ -88,15 +88,9 @@ int route_check(ctx_buff_t *ctx, route_match_t *route_match)
 static inline
 int route_mangager(ctx_buff_t *ctx, route_action_t *route_action)
 {
-	cluster_t *cluster = NULL;
-
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	cluster = map_lookup_cluster(&route_action->map_key_of_cluster);
-	if (cluster == NULL)
-		return -ENOENT;
-
-	if (kmesh_tail_update_ctx(&address, cluster) != 0)
+	if (kmesh_tail_update_ctx(&address, &route_action->map_key_of_cluster) != 0)
 		return -ENOSPC;
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
 	kmesh_tail_delete_ctx(&address);

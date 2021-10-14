@@ -74,4 +74,15 @@ int kmesh_map_update_elem(bpf_map_t *map, const void *key, const void *value)
 	return bpf_map_update_elem(map, key, value, BPF_ANY);
 }
 
+// rename map to void truncation when name length exceeds BPF_OBJ_NAME_LEN = 16
+#define map_of_listener			listener
+#define map_of_filter_chain		filter_chain
+#define map_of_filter			filter
+#define map_of_virtual_host		virtual_host
+#define map_of_route			route
+#define map_of_cluster			cluster
+#define map_of_endpoint			endpoint
+#define map_of_tail_call_prog	tail_call_prog
+#define map_of_tail_call_ctx	tail_call_ctx
+
 #endif //_COMMON_H_

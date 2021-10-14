@@ -6,13 +6,13 @@
 package logger
 
 import (
-	"os"
 	"io"
-	"time"
+	"os"
 	"path/filepath"
+	"time"
 
-	"github.com/sirupsen/logrus"
 	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
+	"github.com/sirupsen/logrus"
 )
 
 /*
@@ -44,7 +44,7 @@ var (
 
 func InitializeDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
-	logger.Formatter = DefaultLogFormat
+	logger.SetFormatter(DefaultLogFormat)
 	logger.SetLevel(DefaultLogLevel)
 
 	path, _ := filepath.Split(DefaultLogFile)

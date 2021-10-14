@@ -37,7 +37,7 @@ void kmesh_tail_call(ctx_buff_t *ctx, const __u32 index)
 bpf_map_t SEC("maps") map_of_tail_call_ctx = {
 	.type			= BPF_MAP_TYPE_HASH,
 	.key_size		= sizeof(address_t),
-	.value_size		= sizeof(void *),
+	.value_size		= sizeof(map_key_t),
 	.map_flags		= 0,
 	.max_entries	= MAP_SIZE_OF_TAIL_CALL_CTX,
 };
@@ -55,7 +55,7 @@ int kmesh_tail_delete_ctx(const address_t *key)
 }
 
 static inline
-int kmesh_tail_update_ctx(const address_t *key, const void *value)
+int kmesh_tail_update_ctx(const address_t *key, const map_key_t *value)
 {
 	return bpf_map_update_elem(&map_of_tail_call_ctx, key, value, BPF_ANY);
 }

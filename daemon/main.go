@@ -38,9 +38,8 @@ func main() {
 	if err != nil {
 		log.Fatal("bpf Load failed, ", err)
 	}
-	if err = bpfObj.Setup(); err != nil {
-		log.Error("bpf Setup failed, ", err)
-	}
+	defer bpfObj.Detach()
+
 	if err := bpfObj.Attach(); err != nil {
 		log.Fatal("bpf Attach failed, ", err)
 	}
@@ -54,7 +53,7 @@ func setupCloseHandler() {
 
 	go func() {
 		<-c
-		if err := bpfObj.Close(); err != nil {
+		if err := bpfObj.Detach(); err != nil {
 			log.Error("bpf Close failed, ", err)
 		}
 		os.Exit(0)

@@ -69,7 +69,7 @@ int listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	if (i == index)
 		return -ENOENT;
 
-	if (kmesh_tail_update_ctx(&address, filter_chain) != 0)
+	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
 		return -ENOSPC;
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER_CHAIN);
 	kmesh_tail_delete_ctx(&address);
