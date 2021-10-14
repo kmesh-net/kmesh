@@ -17,7 +17,12 @@
 #define KMESH_TAIL_CALL_ROUTER			3
 #define KMESH_TAIL_CALL_CLUSTER			4
 
-#define SEC_TAIL(name, id)	SEC(# name "/" # id)
+#define KMESH_SOCKET_CALLS				cgroup/connect4
+
+#ifndef __stringify
+#define __stringify(X)					#X
+#endif
+#define SEC_TAIL(ID, KEY)				SEC(__stringify(ID) "/" __stringify(KEY))
 
 bpf_map_t SEC("maps") map_of_tail_call_prog = {
 	.type			= BPF_MAP_TYPE_PROG_ARRAY,

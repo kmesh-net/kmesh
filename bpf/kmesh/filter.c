@@ -45,7 +45,7 @@ int filter_check(ctx_buff_t *ctx, filter_t *filter)
 	return ret;
 }
 
-SEC_TAIL(socket, KMESH_TAIL_CALL_FILTER)
+SEC_TAIL(KMESH_SOCKET_CALLS, KMESH_TAIL_CALL_FILTER)
 int filter_manager(ctx_buff_t *ctx)
 {
 	int ret;
@@ -82,7 +82,7 @@ int filter_manager(ctx_buff_t *ctx)
 	return ret;
 }
 
-SEC_TAIL(socket, KMESH_TAIL_CALL_FILTER_CHAIN)
+SEC_TAIL(KMESH_SOCKET_CALLS, KMESH_TAIL_CALL_FILTER_CHAIN)
 int filter_chain_manager(ctx_buff_t *ctx)
 {
 	unsigned index, i;

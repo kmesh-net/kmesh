@@ -76,13 +76,13 @@ int cluster_handle_loadbanance(ctx_buff_t *ctx, load_assignment_t *load_assignme
 
 	if (endpoint == NULL)
 		return -EAGAIN;
-	//FIXME: load error, invalid bpf_context access
-	//SET_CTX_ADDRESS(ctx, &endpoint->address);
+
+	SET_CTX_ADDRESS(ctx, &endpoint->address);
 
 	return 0;
 }
 
-SEC_TAIL(socket, KMESH_TAIL_CALL_CLUSTER)
+SEC_TAIL(KMESH_SOCKET_CALLS, KMESH_TAIL_CALL_CLUSTER)
 int cluster_manager(ctx_buff_t *ctx)
 {
 	map_key_t *pkey = NULL;

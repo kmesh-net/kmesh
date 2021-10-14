@@ -53,7 +53,7 @@ type CgroupSockSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type CgroupSockProgramSpecs struct {
-	Sock4Connect *ebpf.ProgramSpec `ebpf:"sock4_connect"`
+	SockConnect4 *ebpf.ProgramSpec `ebpf:"sock_connect4"`
 }
 
 // CgroupSockMapSpecs contains maps before they are loaded into the kernel.
@@ -119,12 +119,12 @@ func (m *CgroupSockMaps) Close() error {
 //
 // It can be passed to LoadCgroupSockObjects or ebpf.CollectionSpec.LoadAndAssign.
 type CgroupSockPrograms struct {
-	Sock4Connect *ebpf.Program `ebpf:"sock4_connect"`
+	SockConnect4 *ebpf.Program `ebpf:"sock_connect4"`
 }
 
 func (p *CgroupSockPrograms) Close() error {
 	return _CgroupSockClose(
-		p.Sock4Connect,
+		p.SockConnect4,
 	)
 }
 

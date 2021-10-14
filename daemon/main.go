@@ -10,6 +10,7 @@ import (
 	"codehub.com/mesh/pkg/logger"
 	"codehub.com/mesh/pkg/option"
 	"codehub.com/mesh/pkg/policy"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,7 +37,9 @@ func main() {
 
 	bpfObj, err = bpf.Load(info)
 	if err != nil {
-		log.Fatal("bpf Load failed, ", err)
+		//log.Fatal("bpf Load failed, ", err)
+		fmt.Println("bpf Load failed, ", err)
+		return
 	}
 	defer bpfObj.Detach()
 
@@ -53,9 +56,7 @@ func setupCloseHandler() {
 
 	go func() {
 		<-c
-		if err := bpfObj.Detach(); err != nil {
-			log.Error("bpf Close failed, ", err)
-		}
+		bpfObj.Detach()
 		os.Exit(0)
 	}()
 }
