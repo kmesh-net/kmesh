@@ -85,4 +85,13 @@ int kmesh_map_update_elem(bpf_map_t *map, const void *key, const void *value)
 #define map_of_tail_call_prog	tail_call_prog
 #define map_of_tail_call_ctx	tail_call_ctx
 
+// bpf return value
+#define CGROUP_SOCK_ERR		0
+#define CGROUP_SOCK_OK		1
+static inline
+int convert_sock_errno(int err)
+{
+    return err == 0 ? CGROUP_SOCK_OK : CGROUP_SOCK_ERR;
+}
+
 #endif //_COMMON_H_

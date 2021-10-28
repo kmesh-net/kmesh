@@ -6,9 +6,6 @@
 #include "bpf_log.h"
 #include "listener.h"
 
-#define SOCK_ERR		0
-#define SOCK_OK			1
-
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_TCP
 
@@ -57,7 +54,7 @@ int sock_connect4(struct bpf_sock_addr *ctx)
 #if KMESH_ENABLE_TCP
 	sock4_traffic_control(ctx);
 #endif //KMESH_ENABLE_TCP
-	return SOCK_OK;
+	return CGROUP_SOCK_OK;
 }
 #endif //KMESH_ENABLE_IPV4
 

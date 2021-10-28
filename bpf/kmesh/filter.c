@@ -57,12 +57,12 @@ int filter_manager(ctx_buff_t *ctx)
 
 	pkey = kmesh_tail_lookup_ctx(&address);
 	if (pkey == NULL)
-		return -ENOENT;
+		return convert_sock_errno(ENOENT);
 
 	filter = map_lookup_filter(pkey);
 	kmesh_tail_delete_ctx(&address);
 	if (filter == NULL)
-		return -ENOENT;
+		return convert_sock_errno(ENOENT);
 
 	http_connection_manager = &filter->http_connection_manager;
 
@@ -79,7 +79,7 @@ int filter_manager(ctx_buff_t *ctx)
 			break;
 	}
 
-	return ret;
+	return convert_sock_errno(ret);
 }
 
 SEC_TAIL(KMESH_SOCKET_CALLS, KMESH_TAIL_CALL_FILTER_CHAIN)
@@ -95,12 +95,12 @@ int filter_chain_manager(ctx_buff_t *ctx)
 
 	pkey = kmesh_tail_lookup_ctx(&address);
 	if (pkey == NULL)
-		return -ENOENT;
+		return convert_sock_errno(ENOENT);
 
 	filter_chain = map_lookup_filter_chain(pkey);
 	kmesh_tail_delete_ctx(&address);
 	if (filter_chain == NULL)
-		return -ENOENT;
+		return convert_sock_errno(ENOENT);
 
 	map_key.nameid = filter_chain->map_key_of_filter.nameid;
 	index = BPF_MIN(filter_chain->map_key_of_filter.index, MAP_SIZE_OF_PER_FILTER);
@@ -110,21 +110,21 @@ int filter_chain_manager(ctx_buff_t *ctx)
 
 		filter = map_lookup_filter(&map_key);
 		if (filter == NULL)
-			return -ENOENT;
+			return convert_sock_errno(ENOENT);
 
 		if (filter_check(ctx, filter) == 0)
 			break;
 	}
 
 	if (i == index)
-		return -ENOENT;
+		return convert_sock_errno(ENOENT);
 
 	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
-		return -ENOSPC;
+		return convert_sock_errno(ENOSPC);
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER);
 	kmesh_tail_delete_ctx(&address);
 
-	return 0;
+	return CGROUP_SOCK_OK;
 }
 
 char _license[] SEC("license") = "GPL";

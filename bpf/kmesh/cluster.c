@@ -85,6 +85,7 @@ int cluster_handle_loadbanance(ctx_buff_t *ctx, load_assignment_t *load_assignme
 SEC_TAIL(KMESH_SOCKET_CALLS, KMESH_TAIL_CALL_CLUSTER)
 int cluster_manager(ctx_buff_t *ctx)
 {
+	int ret;
 	map_key_t *pkey = NULL;
 	cluster_t *cluster = NULL;
 
@@ -92,17 +93,18 @@ int cluster_manager(ctx_buff_t *ctx)
 
 	pkey = kmesh_tail_lookup_ctx(&address);
 	if (pkey == NULL)
-		return -ENOENT;
+		return convert_sock_errno(ENOENT);
 
 	cluster = map_lookup_cluster(pkey);
 	kmesh_tail_delete_ctx(&address);
 	if (cluster == NULL)
-		return -ENOENT;
+		return convert_sock_errno(ENOENT);
 
 	if (cluster_handle_circuit_breaker(cluster) != 0)
-		return -EBUSY;
+		return convert_sock_errno(EBUSY);
 
-	return cluster_handle_loadbanance(ctx, &cluster->load_assignment);
+	ret = cluster_handle_loadbanance(ctx, &cluster->load_assignment);
+	return convert_sock_errno(ret);
 }
 
 char _license[] SEC("license") = "GPL";
