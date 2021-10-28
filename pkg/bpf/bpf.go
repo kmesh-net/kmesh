@@ -5,6 +5,10 @@
 
 package bpf
 
+// #cgo CFLAGS: -I../../bpf/include
+// #include "tail_call.h"
+import "C"
+
 import (
 	"codehub.com/mesh/pkg/logger"
 	"github.com/cilium/ebpf"
@@ -175,7 +179,23 @@ func (sc *bpfSocketConnect) loadFilterObjects() (*ebpf.CollectionSpec, error) {
 	}
 
 	value := reflect.ValueOf(sc.FilterObjects.FilterPrograms)
-	if err := pinPrograms(&value, sc.info.BpffsPath); err != nil {
+	if err = pinPrograms(&value, sc.info.BpffsPath); err != nil {
+		return nil, err
+	}
+
+	err = sc.FilterObjects.FilterMaps.TailCallProg.Update(
+		uint32(C.KMESH_TAIL_CALL_FILTER_CHAIN),
+		uint32(sc.FilterObjects.FilterPrograms.FilterChainManager.FD()),
+		ebpf.UpdateAny)
+	if err != nil {
+		return nil, err
+	}
+
+	err = sc.FilterObjects.FilterMaps.TailCallProg.Update(
+		uint32(C.KMESH_TAIL_CALL_FILTER),
+		uint32(sc.FilterObjects.FilterPrograms.FilterManager.FD()),
+		ebpf.UpdateAny)
+	if err != nil {
 		return nil, err
 	}
 
@@ -201,18 +221,19 @@ func (sc *bpfSocketConnect) loadClusterObjects() (*ebpf.CollectionSpec, error) {
 	}
 
 	value := reflect.ValueOf(sc.ClusterObjects.ClusterPrograms)
-	if err := pinPrograms(&value, sc.info.BpffsPath); err != nil {
+	if err = pinPrograms(&value, sc.info.BpffsPath); err != nil {
+		return nil, err
+	}
+
+	err = sc.ClusterObjects.ClusterMaps.TailCallProg.Update(
+		uint32(C.KMESH_TAIL_CALL_CLUSTER),
+		uint32(sc.ClusterObjects.ClusterPrograms.ClusterManager.FD()),
+		ebpf.UpdateAny)
+	if err != nil {
 		return nil, err
 	}
 
 	return spec, nil
-}
-
-func (sc *bpfSocketConnect) updateTailCallProg() error {
-	//m := sc.CgroupSockObjects.CgroupSockMaps.TailCallProg
-	//p := sc.FilterObjects.FilterPrograms
-	//m.Update(1, , ebpf.UpdateNoExist)
-	return nil
 }
 
 func (sc *bpfSocketConnect) load() error {
@@ -229,10 +250,6 @@ func (sc *bpfSocketConnect) load() error {
 		return err
 	}
 	if _, err := sc.loadClusterObjects(); err != nil {
-		return err
-	}
-
-	if err := sc.updateTailCallProg(); err != nil {
 		return err
 	}
 
