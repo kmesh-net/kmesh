@@ -36,12 +36,14 @@ func main() {
 	}
 
 	bpfObj, err = bpf.Load(info)
+	if bpfObj != nil {
+		defer bpfObj.Detach()
+	}
 	if err != nil {
 		//log.Fatal("bpf Load failed, ", err)
 		fmt.Println("bpf Load failed, ", err)
 		return
 	}
-	defer bpfObj.Detach()
 
 	if err := bpfObj.Attach(); err != nil {
 		log.Fatal("bpf Attach failed, ", err)

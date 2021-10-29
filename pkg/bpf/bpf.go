@@ -306,10 +306,9 @@ func (sc *bpfSocketConnect) detach() error {
 		return err
 	}
 
-	if err := sc.link.Close(); err != nil {
-		return err
+	if sc.link != nil {
+		return sc.link.Close()
 	}
-
 	return nil
 }
 
@@ -326,11 +325,9 @@ func Load(info *BpfInfo) (*BpfObject, error) {
 	if obj.SockConn, err = NewSocketConnect(info); err != nil {
 		return nil, err
 	}
-	if err = obj.SockConn.load(); err != nil {
-		return nil, err
-	}
 
-	return obj, nil
+	err = obj.SockConn.load()
+	return obj, err
 }
 
 func (obj *BpfObject) Attach() error {
