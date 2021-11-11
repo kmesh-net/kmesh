@@ -3,10 +3,9 @@
  * Description:
  */
 
-package policy
+package kubernetes
 
 import (
-	"codehub.com/mesh/pkg/logger"
 	"fmt"
 	apiCoreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -23,13 +22,8 @@ import (
 )
 
 const (
-	pkgSubsys = "policy"
 	InformerNameService = "Service"
 	InformerNameEndpoints = "Endpoints"
-)
-
-var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 type KubeController struct {
@@ -200,7 +194,7 @@ func (c *KubeController) processNextWorkItem() bool {
 	}(obj)
 
 	if err != nil {
-		log.Debug(err)
+		fmt.Println(err)
 		return false
 	}
 
@@ -227,7 +221,7 @@ func (c *KubeController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func KubeClient() error {
+func Run() error {
 	home := homedir.HomeDir()
 	if home == "" {
 		return fmt.Errorf("kube get home failed")
@@ -252,8 +246,4 @@ func KubeClient() error {
 	}
 
 	return nil
-}
-
-func ControlManager() {
-	KubeClient()
 }

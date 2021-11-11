@@ -3,12 +3,8 @@
  * Description: 
  */
 
-package main
+package command
 
-import (
-	"codehub.com/mesh/daemon/manager"
-)
-
-func main() {
-	manager.Execute()
+func StartClient() {
+	// TODO
 }

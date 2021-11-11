@@ -3,12 +3,9 @@
  * Description: 
  */
 
-package main
+package envoy
 
-import (
-	"codehub.com/mesh/daemon/manager"
-)
-
-func main() {
-	manager.Execute()
+func Run() {
+	// TODO
 }
+

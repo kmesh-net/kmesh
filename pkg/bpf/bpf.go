@@ -11,6 +11,8 @@ import "C"
 
 import (
 	"codehub.com/mesh/pkg/logger"
+	"codehub.com/mesh/pkg/option"
+	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
@@ -32,8 +34,7 @@ var (
 )
 
 type BpfInfo struct {
-	Cgroup2Path	string
-	BpffsPath	string
+	option.BpfConfig
 	mapPath		string
 	Type		ebpf.ProgramType
 	AttachType	ebpf.AttachType
@@ -46,7 +47,7 @@ type bpfSocketConnect struct {
 	ClusterObjects
 }
 type BpfObject struct {
-	SockConn	*bpfSocketConnect
+	SockConn	bpfSocketConnect
 }
 
 func pinPrograms(value *reflect.Value, path string) error {
@@ -101,22 +102,21 @@ func unpinMaps(value *reflect.Value) error {
 	return nil
 }
 
-func NewSocketConnect(i *BpfInfo) (*bpfSocketConnect, error) {
-	sc := &bpfSocketConnect {
-		info: *i,
-	}
+func newSocketConnect(cfg *option.BpfConfig) (bpfSocketConnect, error) {
+	sc := bpfSocketConnect {}
+	sc.info.BpfConfig = *cfg
 
 	if _, err := os.Stat(sc.info.Cgroup2Path); err != nil {
-		return nil, err
+		return sc, err
 	}
 	if _, err := os.Stat(sc.info.BpffsPath); err != nil {
-		return nil, err
+		return sc, err
 	}
 
 	sc.info.BpffsPath += "socket_connect/"
 	sc.info.mapPath = sc.info.BpffsPath + "map/"
 	if err := os.MkdirAll(sc.info.mapPath, 0750); err != nil && !os.IsExist(err) {
-		return nil, err
+		return sc, err
 	}
 
 	return sc, nil
@@ -312,28 +312,37 @@ func (sc *bpfSocketConnect) detach() error {
 	return nil
 }
 
-func Load(info *BpfInfo) (*BpfObject, error) {
-	var (
-		err error
-	)
-	obj := &BpfObject{}
-
-	if err := rlimit.RemoveMemlock(); err != nil {
-		return nil, err
-	}
-
-	if obj.SockConn, err = NewSocketConnect(info); err != nil {
-		return nil, err
-	}
-
-	err = obj.SockConn.load()
-	return obj, err
-}
-
 func (obj *BpfObject) Attach() error {
 	return obj.SockConn.attach()
 }
 
 func (obj *BpfObject) Detach() error {
 	return obj.SockConn.detach()
+}
+
+func Start(cfg *option.BpfConfig) (BpfObject, error) {
+	var (
+		err error
+		obj BpfObject
+	)
+
+	if err := rlimit.RemoveMemlock(); err != nil {
+		return obj, err
+	}
+
+	if obj.SockConn, err = newSocketConnect(cfg); err != nil {
+		return obj, err
+	}
+
+	if err = obj.SockConn.load(); err != nil {
+		obj.Detach()
+		return obj, fmt.Errorf("bpf Load failed, %s", err)
+	}
+
+	if err = obj.Attach(); err != nil {
+		obj.Detach()
+		return obj, fmt.Errorf("bpf Attach failed, %s", err)
+	}
+
+	return obj, nil
 }

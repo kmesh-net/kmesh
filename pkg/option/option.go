@@ -6,31 +6,38 @@
 package option
 
 import (
-	"codehub.com/mesh/pkg/logger"
 	"fmt"
 )
 
 const (
-	pkgSubsys = "option"
+	ClientModeKube = "kubernetes"
+	ClientModeEnvoy = "envoy"
 )
 
-var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
-)
-
-type DaemonConfig struct {
-	Cgroup2Path	string
+type BpfConfig struct {
 	BpffsPath	string
+	Cgroup2Path	string
+}
+type ClientConfig struct {
+	ClientMode string
 }
 
-func InitializeDaemonConfig() (*DaemonConfig, error) {
-	dc := &DaemonConfig {
-		Cgroup2Path: "/mnt/cgroup2/",
-		BpffsPath: "/sys/fs/bpf/",
-	}
+type DaemonConfig struct {
+	BpfConfig
+	ClientConfig
+}
+
+func InitializeDaemonConfig() (DaemonConfig, error) {
+	dc := DaemonConfig{}
+
+	dc.BpfConfig.BpffsPath = "/sys/fs/bpf/"
+	dc.BpfConfig.Cgroup2Path = "/mnt/cgroup2/"
+
+	dc.ClientConfig.ClientMode = ClientModeKube
+
 	return dc, nil
 }
 
 func (dc *DaemonConfig) String() string {
-	return fmt.Sprintf("Cgroup2Path=%s, BpffsPath=%s", dc.Cgroup2Path, dc.BpffsPath)
+	return fmt.Sprintf("%#v", *dc)
 }

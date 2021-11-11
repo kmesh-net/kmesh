@@ -6,6 +6,7 @@
 package main
 
 import (
+	"codehub.com/mesh/cmd/command"
 	"codehub.com/mesh/pkg/logger"
 )
 
@@ -17,7 +18,7 @@ var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
-// TODO
 func main() {
 	log.Debug("cmd test log")
+	command.StartClient()
 }
