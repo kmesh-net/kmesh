@@ -53,6 +53,10 @@ type BpfObject struct {
 func pinPrograms(value *reflect.Value, path string) error {
 	for i := 0; i < value.NumField(); i++ {
 		tp := value.Field(i).Interface().(*ebpf.Program)
+		if tp == nil {
+			return fmt.Errorf("invalid pinPrograms ptr")
+		}
+
 		info, err := tp.Info()
 		if err != nil {
 			log.Warn(err)
@@ -68,6 +72,9 @@ func pinPrograms(value *reflect.Value, path string) error {
 func unpinPrograms(value *reflect.Value) error {
 	for i := 0; i < value.NumField(); i++ {
 		tp := value.Field(i).Interface().(*ebpf.Program)
+		if tp == nil {
+			continue
+		}
 		if err := tp.Unpin(); err != nil {
 			log.Warn(err)
 		}
@@ -79,6 +86,10 @@ func unpinPrograms(value *reflect.Value) error {
 func pinMaps(value *reflect.Value, path string) error {
 	for i := 0; i < value.NumField(); i++ {
 		tp := value.Field(i).Interface().(*ebpf.Map)
+		if tp == nil {
+			return fmt.Errorf("invalid pinMaps ptr")
+		}
+
 		info, err := tp.Info()
 		if err != nil {
 			log.Warn(err)
@@ -94,6 +105,9 @@ func pinMaps(value *reflect.Value, path string) error {
 func unpinMaps(value *reflect.Value) error {
 	for i := 0; i < value.NumField(); i++ {
 		tp := value.Field(i).Interface().(*ebpf.Map)
+		if tp == nil {
+			continue
+		}
 		if err := tp.Unpin(); err != nil {
 			log.Warn(err)
 		}
