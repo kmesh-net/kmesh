@@ -6,11 +6,11 @@
 package manager
 
 import (
-	"codehub.com/mesh/cmd/command"
-	"codehub.com/mesh/pkg/bpf"
-	"codehub.com/mesh/pkg/client"
-	"codehub.com/mesh/pkg/logger"
-	"codehub.com/mesh/pkg/option"
+	"openeuler.io/mesh/cmd/command"
+	"openeuler.io/mesh/pkg/bpf"
+	"openeuler.io/mesh/pkg/client"
+	"openeuler.io/mesh/pkg/logger"
+	"openeuler.io/mesh/pkg/option"
 	"os"
 	"os/signal"
 	"syscall"

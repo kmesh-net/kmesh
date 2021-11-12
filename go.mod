@@ -1,4 +1,4 @@
-module codehub.com/mesh
+module openeuler.io/mesh
 
 go 1.16
 

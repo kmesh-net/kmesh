@@ -5,7 +5,7 @@
 
 package envoy
 
-import "codehub.com/mesh/pkg/option"
+import "openeuler.io/mesh/pkg/option"
 
 func Run(cfg *option.ClientConfig) {
 	// TODO

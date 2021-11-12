@@ -6,10 +6,10 @@
 package client
 
 import (
-	xds "codehub.com/mesh/pkg/client/envoy"
-	apiserver "codehub.com/mesh/pkg/client/kubernetes"
-	"codehub.com/mesh/pkg/client/yaml"
-	"codehub.com/mesh/pkg/option"
+	xds "openeuler.io/mesh/pkg/client/envoy"
+	apiserver "openeuler.io/mesh/pkg/client/kubernetes"
+	"openeuler.io/mesh/pkg/client/yaml"
+	"openeuler.io/mesh/pkg/option"
 	"fmt"
 )
 

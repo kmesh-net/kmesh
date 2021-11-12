@@ -6,7 +6,7 @@
 package main
 
 import (
-	"codehub.com/mesh/daemon/manager"
+	"openeuler.io/mesh/daemon/manager"
 )
 
 func main() {

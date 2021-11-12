@@ -6,8 +6,8 @@
 package kubernetes
 
 import (
-	"codehub.com/mesh/pkg/logger"
-	"codehub.com/mesh/pkg/option"
+	"openeuler.io/mesh/pkg/logger"
+	"openeuler.io/mesh/pkg/option"
 	"fmt"
 	apiCoreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"

@@ -10,7 +10,7 @@ package bpf
 import "C"
 
 import (
-	"codehub.com/mesh/pkg/option"
+	"openeuler.io/mesh/pkg/option"
 	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"

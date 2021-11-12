@@ -2,7 +2,7 @@
 # Description: 
 
 cmake_minimum_required(VERSION 3.12.1)
-project(codehub.com/kmesh/bpf)
+project(openeuler.io/kmesh/bpf)
 
 # debug
 #set(CMAKE_VERBOSE_MAKEFILE ON)

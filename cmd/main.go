@@ -6,8 +6,8 @@
 package main
 
 import (
-	"codehub.com/mesh/cmd/command"
-	"codehub.com/mesh/pkg/logger"
+	"openeuler.io/mesh/cmd/command"
+	"openeuler.io/mesh/pkg/logger"
 )
 
 const (
