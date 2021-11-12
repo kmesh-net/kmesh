@@ -6,6 +6,7 @@
 package kubernetes
 
 import (
+	"codehub.com/mesh/pkg/logger"
 	"codehub.com/mesh/pkg/option"
 	"fmt"
 	apiCoreV1 "k8s.io/api/core/v1"
@@ -24,8 +25,13 @@ import (
 )
 
 const (
+	pkgSubsys = "apiserver"
 	InformerNameService = "Service"
 	InformerNameEndpoints = "Endpoints"
+)
+
+var (
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 type KubeController struct {
@@ -82,6 +88,7 @@ func (c *KubeController) checkObjectValidity(oldObj, newObj interface{}) bool {
 	case *apiCoreV1.Service:
 		return true
 	case *apiCoreV1.Endpoints:
+		// filter out invalid endpoint without IP
 		for _, subset := range newObj.(*apiCoreV1.Endpoints).Subsets {
 			for _, addr := range subset.Addresses {
 				if addr.IP != "" {
@@ -149,14 +156,18 @@ func (c *KubeController) syncHandler(key queueKey) error {
 		obj, exists, err = c.serviceInformer.Informer().GetIndexer().GetByKey(key.name)
 		if err == nil && exists {
 			serviceObj = obj.(*apiCoreV1.Service)
-			fmt.Printf("syncHandler for Service: %#v\n", serviceObj)
+			log.Debugf("syncHandler for Service: %#v", serviceObj)
+			fmt.Println("")
 		}
+		// TODO
 	case InformerNameEndpoints:
 		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(key.name)
 		if err == nil && exists {
 			endpointsObj = obj.(*apiCoreV1.Endpoints)
-			fmt.Printf("syncHandler for Endpoints: %#v\n", endpointsObj)
+			log.Debugf("syncHandler for Endpoints: %#v", endpointsObj)
+			fmt.Println("")
 		}
+		// TODO
 	default:
 		return fmt.Errorf("invlid queueKey name")
 	}
@@ -165,30 +176,34 @@ func (c *KubeController) syncHandler(key queueKey) error {
 		return fmt.Errorf("get object with key %#v from store failed with %v", key, err)
 	}
 	if !exists {
-		fmt.Printf("Service or Endpoints %#v does not exist anymore\n", key)
-		return nil
+		log.Debugf("Service or Endpoints %#v does not exist anymore", key)
 	}
 
 	return nil
 }
 
-func (c *KubeController) processNextWorkItem() bool {
+// processNextWorkItem will read a single work item off the queue and
+// attempt to process it.
+func (c *KubeController) processNextWorkItem() error {
 	obj, shutdown := c.queue.Get()
 	if shutdown {
-		return false
+		return fmt.Errorf("queue alreay shutdown")
 	}
 
+	// func for defer queue.Done
 	err := func(obj interface{}) error {
+		// Let queue knows we have finished processing this item.
+		// We also must call Forget if we do not want this work item being re-queued.
 		defer c.queue.Done(obj)
 
 		key, ok := obj.(queueKey)
 		if !ok {
 			c.queue.Forget(obj)
-			return fmt.Errorf("expected string in queue but got %#v", obj)
+			return fmt.Errorf("queue get unknown obj, %#v", obj)
 		}
 
 		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("sync failed %s: %s", key, err.Error())
+			return fmt.Errorf("sync failed, %s %s", key, err)
 		}
 
 		c.queue.Forget(obj)
@@ -196,18 +211,22 @@ func (c *KubeController) processNextWorkItem() bool {
 	}(obj)
 
 	if err != nil {
-		fmt.Println(err)
-		return false
+		return err
 	}
-
-	return true
+	return nil
 }
 
 func (c *KubeController) runWorker() {
-	for c.processNextWorkItem() {
+	for true {
+		if err := c.processNextWorkItem(); err != nil {
+			log.Error(err)
+			break
+		}
 	}
 }
 
+// Run will block until stopCh is closed, at which point it will shutdown the queue
+// and wait for workers to finish processing their current work items.
 func (c *KubeController) Run(stopCh <-chan struct{}) error {
 	defer c.queue.ShutDown()
 
@@ -217,6 +236,7 @@ func (c *KubeController) Run(stopCh <-chan struct{}) error {
 		return fmt.Errorf("kube wait for caches to sync failed")
 	}
 
+	// until stop channel is closed, and running Worker every second
 	go wait.Until(c.runWorker, time.Second, stopCh)
 
 	<-stopCh
@@ -232,7 +252,7 @@ func Run(cfg *option.ClientConfig) error {
 	if cfg.KubeInCluster {
 		config, err = restclient.InClusterConfig()
 		if err != nil {
-			return fmt.Errorf("kube build config in cluster failed")
+			return fmt.Errorf("kube build config in cluster failed, %s", err)
 		}
 	} else {
 		home := homedir.HomeDir()
@@ -242,13 +262,13 @@ func Run(cfg *option.ClientConfig) error {
 		kubeconfig := filepath.Join(home, ".kube", "config")
 		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
 		if err != nil {
-			return fmt.Errorf("kube build config failed")
+			return fmt.Errorf("kube build config failed, %s", err)
 		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		return fmt.Errorf("kube now clientset failld")
+		return fmt.Errorf("kube new clientset failed, %s", err)
 	}
 
 	stopCh := make(chan struct{})
@@ -256,7 +276,7 @@ func Run(cfg *option.ClientConfig) error {
 
 	controller := NewKubeController(clientset)
 	if err := controller.Run(stopCh); err != nil {
-		return err
+		return fmt.Errorf("kube run controller failed, %s", err)
 	}
 
 	return nil

@@ -10,7 +10,6 @@ package bpf
 import "C"
 
 import (
-	"codehub.com/mesh/pkg/logger"
 	"codehub.com/mesh/pkg/option"
 	"fmt"
 	"github.com/cilium/ebpf"
@@ -25,13 +24,6 @@ import (
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang Filter ../../bpf/kmesh/filter.c -- -I../../bpf/include
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang Cluster ../../bpf/kmesh/cluster.c -- -I../../bpf/include
 
-const (
-	pkgSubsys = "bpf"
-)
-
-var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
-)
 
 type BpfInfo struct {
 	option.BpfConfig
@@ -59,10 +51,10 @@ func pinPrograms(value *reflect.Value, path string) error {
 
 		info, err := tp.Info()
 		if err != nil {
-			log.Warn(err)
+			return fmt.Errorf("get prog info failed, %s", err)
 		}
 		if err := tp.Pin(path + info.Name); err != nil {
-			log.Warn(err)
+			return fmt.Errorf("pin prog failed, %s", err)
 		}
 	}
 
@@ -76,7 +68,7 @@ func unpinPrograms(value *reflect.Value) error {
 			continue
 		}
 		if err := tp.Unpin(); err != nil {
-			log.Warn(err)
+			return fmt.Errorf("unpin prog failed, %s", err)
 		}
 	}
 
@@ -92,10 +84,10 @@ func pinMaps(value *reflect.Value, path string) error {
 
 		info, err := tp.Info()
 		if err != nil {
-			log.Warn(err)
+			return fmt.Errorf("get map info failed, %s", err)
 		}
 		if err := tp.Pin(path + info.Name); err != nil {
-			log.Warn(err)
+			return fmt.Errorf("pin map failed, %s", err)
 		}
 	}
 
@@ -109,7 +101,7 @@ func unpinMaps(value *reflect.Value) error {
 			continue
 		}
 		if err := tp.Unpin(); err != nil {
-			log.Warn(err)
+			return fmt.Errorf("unpin prog failed, %s", err)
 		}
 	}
 

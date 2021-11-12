@@ -28,7 +28,7 @@ func Start(cfg *option.ClientConfig) error {
 	case option.ClientModeEnvoy:
 		go xds.Run(cfg)
 	default:
-		return fmt.Errorf("")
+		return fmt.Errorf("invalid client mode, %s", cfg.ClientMode)
 	}
 
 	return nil

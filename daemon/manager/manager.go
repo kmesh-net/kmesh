@@ -29,6 +29,7 @@ func Execute() {
 	var err error
 
 	config, _ = option.InitializeDaemonConfig()
+	log.Debugf("%#v", config)
 
 	bpfObj, err = bpf.Start(&config.BpfConfig)
 	if err != nil {
