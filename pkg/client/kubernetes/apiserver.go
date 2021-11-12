@@ -15,8 +15,6 @@
 package kubernetes
 
 import (
-	"openeuler.io/mesh/pkg/logger"
-	"openeuler.io/mesh/pkg/option"
 	"fmt"
 	apiCoreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -29,6 +27,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"k8s.io/client-go/util/workqueue"
+	"openeuler.io/mesh/pkg/logger"
+	"openeuler.io/mesh/pkg/option"
 	"path/filepath"
 	"time"
 )
@@ -252,11 +252,12 @@ func (c *KubeController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func Run(cfg *option.ClientConfig) error {
+func Run() error {
 	var (
 		err error
 		config *restclient.Config
 	)
+	cfg := option.GetClientConfig()
 
 	if cfg.KubeInCluster {
 		config, err = restclient.InClusterConfig()

@@ -14,9 +14,7 @@
 
 package envoy
 
-import "openeuler.io/mesh/pkg/option"
-
-func Run(cfg *option.ClientConfig) {
+func Run() {
 	// TODO
 }
 

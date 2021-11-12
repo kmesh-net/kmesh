@@ -19,11 +19,11 @@ package bpf
 import "C"
 
 import (
-	"openeuler.io/mesh/pkg/option"
 	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
+	"openeuler.io/mesh/pkg/option"
 	"os"
 	"reflect"
 )
@@ -117,9 +117,9 @@ func unpinMaps(value *reflect.Value) error {
 	return nil
 }
 
-func NewSocketConnect(cfg *option.BpfConfig) (bpfSocketConnect, error) {
+func NewSocketConnect(cfg option.BpfConfig) (bpfSocketConnect, error) {
 	sc := bpfSocketConnect {}
-	sc.info.BpfConfig = *cfg
+	sc.info.BpfConfig = cfg
 
 	if _, err := os.Stat(sc.info.Cgroup2Path); err != nil {
 		return sc, err
@@ -335,7 +335,7 @@ func (obj *BpfObject) Detach() error {
 	return obj.SockConn.detach()
 }
 
-func Start(cfg *option.BpfConfig) (BpfObject, error) {
+func Start() (BpfObject, error) {
 	var (
 		err error
 		obj BpfObject
@@ -345,7 +345,7 @@ func Start(cfg *option.BpfConfig) (BpfObject, error) {
 		return obj, err
 	}
 
-	if obj.SockConn, err = NewSocketConnect(cfg); err != nil {
+	if obj.SockConn, err = NewSocketConnect(option.GetBpfConfig()); err != nil {
 		return obj, err
 	}
 

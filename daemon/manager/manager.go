@@ -32,16 +32,14 @@ const (
 var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 	bpfObj bpf.BpfObject
-	config option.DaemonConfig
 )
 
 func Execute() {
 	var err error
 
-	config, _ = option.InitializeDaemonConfig()
-	log.Debugf("%#v", config)
+	option.InitializeDaemonConfig()
 
-	bpfObj, err = bpf.Start(&config.BpfConfig)
+	bpfObj, err = bpf.Start()
 	if err != nil {
 		log.Error(err)
 		return
@@ -49,7 +47,7 @@ func Execute() {
 	defer bpfObj.Detach()
 	setupCloseHandler()
 
-	err = client.Start(&config.ClientConfig)
+	err = client.Start()
 	if err != nil {
 		log.Error(err)
 	}

@@ -15,11 +15,11 @@
 package client
 
 import (
+	"fmt"
 	xds "openeuler.io/mesh/pkg/client/envoy"
 	apiserver "openeuler.io/mesh/pkg/client/kubernetes"
 	"openeuler.io/mesh/pkg/client/yaml"
 	"openeuler.io/mesh/pkg/option"
-	"fmt"
 )
 
 type Interface interface {
@@ -27,17 +27,17 @@ type Interface interface {
 	Start() error
 }
 
-func Start(cfg *option.ClientConfig) error {
+func Start() error {
 
 	go yaml.Run()
 
-	switch cfg.ClientMode {
+	switch option.GetClientConfig().ClientMode {
 	case option.ClientModeKube:
-		go apiserver.Run(cfg)
+		go apiserver.Run()
 	case option.ClientModeEnvoy:
-		go xds.Run(cfg)
+		go xds.Run()
 	default:
-		return fmt.Errorf("invalid client mode, %s", cfg.ClientMode)
+		return fmt.Errorf("invalid client mode, %s", option.GetClientConfig().ClientMode)
 	}
 
 	return nil

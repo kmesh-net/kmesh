@@ -23,6 +23,10 @@ const (
 	ClientModeEnvoy = "envoy"
 )
 
+var (
+	config	DaemonConfig
+)
+
 type BpfConfig struct {
 	BpffsPath	string
 	Cgroup2Path	string
@@ -37,8 +41,8 @@ type DaemonConfig struct {
 	ClientConfig
 }
 
-func InitializeDaemonConfig() (DaemonConfig, error) {
-	dc := DaemonConfig{}
+func InitializeDaemonConfig() error {
+	dc := &config
 
 	dc.BpfConfig.BpffsPath = "/sys/fs/bpf/"
 	dc.BpfConfig.Cgroup2Path = "/mnt/cgroup2/"
@@ -46,9 +50,17 @@ func InitializeDaemonConfig() (DaemonConfig, error) {
 	dc.ClientConfig.ClientMode = ClientModeKube
 	dc.ClientConfig.KubeInCluster = false
 
-	return dc, nil
+	return nil
 }
 
 func (dc *DaemonConfig) String() string {
 	return fmt.Sprintf("%#v", *dc)
+}
+
+func GetBpfConfig() BpfConfig {
+	return config.BpfConfig
+}
+
+func GetClientConfig() ClientConfig {
+	return config.ClientConfig
 }
