@@ -6,6 +6,7 @@
 package kubernetes
 
 import (
+	"codehub.com/mesh/pkg/option"
 	"fmt"
 	apiCoreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -13,6 +14,7 @@ import (
 	"k8s.io/client-go/informers"
 	informersCoreV1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
+	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -221,15 +223,27 @@ func (c *KubeController) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func Run() error {
-	home := homedir.HomeDir()
-	if home == "" {
-		return fmt.Errorf("kube get home failed")
-	}
-	kubeconfig := filepath.Join(home, ".kube", "config")
-	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
-	if err != nil {
-		return fmt.Errorf("kube build config failed")
+func Run(cfg *option.ClientConfig) error {
+	var (
+		err error
+		config *restclient.Config
+	)
+
+	if cfg.KubeInCluster {
+		config, err = restclient.InClusterConfig()
+		if err != nil {
+			return fmt.Errorf("kube build config in cluster failed")
+		}
+	} else {
+		home := homedir.HomeDir()
+		if home == "" {
+			return fmt.Errorf("kube get homedir failed")
+		}
+		kubeconfig := filepath.Join(home, ".kube", "config")
+		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
+		if err != nil {
+			return fmt.Errorf("kube build config failed")
+		}
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)

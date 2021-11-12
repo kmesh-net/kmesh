@@ -5,7 +5,9 @@
 
 package envoy
 
-func Run() {
+import "codehub.com/mesh/pkg/option"
+
+func Run(cfg *option.ClientConfig) {
 	// TODO
 }
 

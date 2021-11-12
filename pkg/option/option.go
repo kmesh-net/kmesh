@@ -19,7 +19,8 @@ type BpfConfig struct {
 	Cgroup2Path	string
 }
 type ClientConfig struct {
-	ClientMode string
+	ClientMode		string
+	KubeInCluster	bool
 }
 
 type DaemonConfig struct {
@@ -34,6 +35,7 @@ func InitializeDaemonConfig() (DaemonConfig, error) {
 	dc.BpfConfig.Cgroup2Path = "/mnt/cgroup2/"
 
 	dc.ClientConfig.ClientMode = ClientModeKube
+	dc.ClientConfig.KubeInCluster = false
 
 	return dc, nil
 }

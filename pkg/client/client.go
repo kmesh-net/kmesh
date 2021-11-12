@@ -24,9 +24,9 @@ func Start(cfg *option.ClientConfig) error {
 
 	switch cfg.ClientMode {
 	case option.ClientModeKube:
-		go apiserver.Run()
+		go apiserver.Run(cfg)
 	case option.ClientModeEnvoy:
-		go xds.Run()
+		go xds.Run(cfg)
 	default:
 		return fmt.Errorf("")
 	}

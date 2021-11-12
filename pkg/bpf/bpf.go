@@ -116,7 +116,7 @@ func unpinMaps(value *reflect.Value) error {
 	return nil
 }
 
-func newSocketConnect(cfg *option.BpfConfig) (bpfSocketConnect, error) {
+func NewSocketConnect(cfg *option.BpfConfig) (bpfSocketConnect, error) {
 	sc := bpfSocketConnect {}
 	sc.info.BpfConfig = *cfg
 
@@ -344,7 +344,7 @@ func Start(cfg *option.BpfConfig) (BpfObject, error) {
 		return obj, err
 	}
 
-	if obj.SockConn, err = newSocketConnect(cfg); err != nil {
+	if obj.SockConn, err = NewSocketConnect(cfg); err != nil {
 		return obj, err
 	}
 
