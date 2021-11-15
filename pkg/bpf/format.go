@@ -12,9 +12,11 @@
  * Create: 2021-10-09
  */
 
-package yaml
+package bpf
 
-func Run() {
-	// TODO
+type Interface interface {
+	Get() error
+	Add() error
+	Delete() error
 }
-
+// TODO

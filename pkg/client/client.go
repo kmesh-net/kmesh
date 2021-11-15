@@ -18,24 +18,30 @@ import (
 	"fmt"
 	xds "openeuler.io/mesh/pkg/client/envoy"
 	apiserver "openeuler.io/mesh/pkg/client/kubernetes"
-	"openeuler.io/mesh/pkg/client/yaml"
+	"openeuler.io/mesh/pkg/logger"
 	"openeuler.io/mesh/pkg/option"
 )
 
-type Interface interface {
-	Init(config interface{})
-	Start() error
-}
+const (
+	pkgSubsys = "client"
+)
+
+var (
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+)
 
 func Start() error {
-
-	go yaml.Run()
-
 	switch option.GetClientConfig().ClientMode {
 	case option.ClientModeKube:
-		go apiserver.Run()
+		go func() {
+			err := apiserver.Run()
+			log.Error(err)
+		}()
 	case option.ClientModeEnvoy:
-		go xds.Run()
+		go func() {
+			err := xds.Run()
+			log.Error(err)
+		}()
 	default:
 		return fmt.Errorf("invalid client mode, %s", option.GetClientConfig().ClientMode)
 	}

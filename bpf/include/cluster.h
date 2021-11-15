@@ -21,7 +21,7 @@ typedef struct {
 	__u16 priority;
 	__u16 max_connections;
 	__u16 max_pending_requests;
-	__u16 max_requests;;
+	__u16 max_requests;
 	__u16 max_retries;
 } circuit_breaker_t;
 

@@ -12,9 +12,4 @@
  * Create: 2021-10-09
  */
 
-package envoy
-
-func Run() error {
-	// TODO
-	return nil
-}
+package kubernetes

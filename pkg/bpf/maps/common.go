@@ -12,9 +12,25 @@
  * Create: 2021-10-09
  */
 
-package envoy
+package maps
 
-func Run() error {
-	// TODO
-	return nil
+import "C"
+import "fmt"
+
+type MapKey struct {
+	NameID	uint32
+	Index	uint32
 }
+
+func ByteToString() {
+	b := [16]byte{'h', 'e', 'l', 'l', 'o', '0'}
+	fmt.Println(string(b[:]))
+}
+
+func StringToByte() {
+	b := [16]byte{}
+	s := "hello"
+	copy(b[:], s[:])
+}
+
+// TODO: turn string to uint32
