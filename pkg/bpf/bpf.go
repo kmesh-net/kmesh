@@ -23,16 +23,11 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
+	"openeuler.io/mesh/bpf/bpf2go"
 	"openeuler.io/mesh/pkg/option"
 	"os"
 	"reflect"
 )
-
-//go run github.com/cilium/ebpf/cmd/bpf2go --help
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang CgroupSock ../../bpf/kmesh/cgroup_sock.c -- -I../../bpf/include
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang Filter ../../bpf/kmesh/filter.c -- -I../../bpf/include
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang Cluster ../../bpf/kmesh/cluster.c -- -I../../bpf/include
-
 
 type BpfInfo struct {
 	option.BpfConfig
@@ -43,9 +38,9 @@ type BpfInfo struct {
 type bpfSocketConnect struct {
 	info 		BpfInfo
 	link		link.Link
-	CgroupSockObjects
-	FilterObjects
-	ClusterObjects
+	bpf2go.CgroupSockObjects
+	bpf2go.FilterObjects
+	bpf2go.ClusterObjects
 }
 type BpfObject struct {
 	SockConn	bpfSocketConnect
@@ -158,7 +153,7 @@ func (sc *bpfSocketConnect) loadCgroupSockObjects() (*ebpf.CollectionSpec, error
 	)
 	opts.Maps.PinPath = sc.info.mapPath
 
-	if spec, err = LoadCgroupSock(); err != nil {
+	if spec, err = bpf2go.LoadCgroupSock(); err != nil {
 		return nil, err
 	}
 
@@ -183,7 +178,7 @@ func (sc *bpfSocketConnect) loadFilterObjects() (*ebpf.CollectionSpec, error) {
 	)
 	opts.Maps.PinPath = sc.info.mapPath
 
-	if spec, err = LoadFilter(); err != nil {
+	if spec, err = bpf2go.LoadFilter(); err != nil {
 		return nil, err
 	}
 
@@ -225,7 +220,7 @@ func (sc *bpfSocketConnect) loadClusterObjects() (*ebpf.CollectionSpec, error) {
 	)
 	opts.Maps.PinPath = sc.info.mapPath
 
-	if spec, err = LoadCluster(); err != nil {
+	if spec, err = bpf2go.LoadCluster(); err != nil {
 		return nil, err
 	}
 
