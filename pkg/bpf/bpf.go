@@ -17,7 +17,6 @@ package bpf
 // #cgo CFLAGS: -I../../bpf/include
 // #include "tail_call.h"
 import "C"
-
 import (
 	"fmt"
 	"github.com/cilium/ebpf"
@@ -45,6 +44,8 @@ type bpfSocketConnect struct {
 type BpfObject struct {
 	SockConn	bpfSocketConnect
 }
+
+var Obj BpfObject
 
 func pinPrograms(value *reflect.Value, path string) error {
 	for i := 0; i < value.NumField(); i++ {
@@ -322,37 +323,34 @@ func (sc *bpfSocketConnect) detach() error {
 	return nil
 }
 
-func (obj *BpfObject) Attach() error {
-	return obj.SockConn.attach()
+func Attach() error {
+	return Obj.SockConn.attach()
 }
 
-func (obj *BpfObject) Detach() error {
-	return obj.SockConn.detach()
+func Detach() error {
+	return Obj.SockConn.detach()
 }
 
-func Start() (BpfObject, error) {
-	var (
-		err error
-		obj BpfObject
-	)
+func Start() error {
+	var err error
 
-	if err := rlimit.RemoveMemlock(); err != nil {
-		return obj, err
+	if err = rlimit.RemoveMemlock(); err != nil {
+		return err
 	}
 
-	if obj.SockConn, err = NewSocketConnect(option.GetBpfConfig()); err != nil {
-		return obj, err
+	if Obj.SockConn, err = NewSocketConnect(option.GetBpfConfig()); err != nil {
+		return err
 	}
 
-	if err = obj.SockConn.load(); err != nil {
-		obj.Detach()
-		return obj, fmt.Errorf("bpf Load failed, %s", err)
+	if err = Obj.SockConn.load(); err != nil {
+		Detach()
+		return fmt.Errorf("bpf Load failed, %s", err)
 	}
 
-	if err = obj.Attach(); err != nil {
-		obj.Detach()
-		return obj, fmt.Errorf("bpf Attach failed, %s", err)
+	if err = Attach(); err != nil {
+		Detach()
+		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
 
-	return obj, nil
+	return nil
 }

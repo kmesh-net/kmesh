@@ -39,12 +39,12 @@ func Execute() {
 
 	option.InitializeDaemonConfig()
 
-	bpfObj, err = bpf.Start()
+	err = bpf.Start()
 	if err != nil {
 		log.Error(err)
 		return
 	}
-	defer bpfObj.Detach()
+	defer bpf.Detach()
 	setupCloseHandler()
 
 	err = client.Start()
@@ -62,7 +62,7 @@ func setupCloseHandler() {
 
 	go func() {
 		<-c
-		bpfObj.Detach()
+		bpf.Detach()
 		os.Exit(0)
 	}()
 }

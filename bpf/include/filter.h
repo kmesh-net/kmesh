@@ -16,7 +16,7 @@
 #define _FILTER_H_
 
 #include "common.h"
-#include "router.h"
+#include "route.h"
 
 typedef struct {
 	//TODO
@@ -29,10 +29,11 @@ typedef struct {
 #define HTTP_CONNECTION_MANAGER_ROUTE_CONFIG	2
 	__u16 at_type;
 
-	union {
+	// Golang cannot access C.union directly
+	//union {
 		rds_t rds;
 		route_config_t route_config;
-	};
+	//};
 	http_filter_t http_filter;
 	char server_name[0];
 } http_connection_manager_t;
@@ -52,10 +53,11 @@ typedef struct {
 	__u16 at_type;
 
 	// typed_config
-	union {
+	// Golang cannot access C.union directly
+	//union {
 		http_connection_manager_t http_connection_manager;
 		ratelimit_t ratelimit;
-	};
+	//};
 } filter_t;
 
 bpf_map_t SEC("maps") map_of_filter = {

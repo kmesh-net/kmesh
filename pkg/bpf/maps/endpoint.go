@@ -17,34 +17,39 @@ package maps
 // #cgo CFLAGS: -I../../bpf/include
 // #include "endpoint.h"
 import "C"
-import "unsafe"
+import (
+	"github.com/cilium/ebpf"
+	"openeuler.io/mesh/pkg/bpf"
+)
 
-type EndpointAddress struct {
-	Protocol	uint32	`json:"protocol"`
-	Port		uint32	`json:"port"`
-	IPv4		uint32	`json:"ipv4,omitempty"`
-	IPv6		[4]uint32	`json:"ipv6,omitempty"`
+// ClangEndpoint = C.endpoint_t
+type ClangEndpoint struct {
+	Entry	C.endpoint_t
+}
+
+func (ce *ClangEndpoint) Lookup(key *MapKey) error {
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
+		Lookup(key, &ce.Entry)
+}
+
+func (ce *ClangEndpoint) Update(key *MapKey) error {
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
+		Update(key, &ce.Entry, ebpf.UpdateAny)
+}
+
+func (ce *ClangEndpoint) Delete(key *MapKey) error {
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
+		Delete(key)
 }
 
 type Endpoint struct {
-	Address		EndpointAddress
-	LBPriority	uint16	`json:"lb_priority"`
-	LBWeight	uint16	`json:"lb_weight,omitempty"`
-	LBConnNum	uint16
+
 }
 
-func (ep *Endpoint) CheckInvalidSize() bool {
-	return unsafe.Sizeof(*ep) != unsafe.Sizeof(C.endpoint_t)
-}
-
-func (ep *Endpoint) Get() error {
+func (ce *ClangEndpoint) ToGolang() *Endpoint {
 	return nil
 }
 
-func (ep *Endpoint) Add() error {
-	return nil
-}
-
-func (ep *Endpoint) Delete() error {
+func (e *Endpoint) ToClang() *ClangEndpoint {
 	return nil
 }

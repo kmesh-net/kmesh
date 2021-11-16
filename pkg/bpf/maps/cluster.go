@@ -13,27 +13,43 @@
  */
 
 package maps
-import "C"
 
-type ClusterCircuitBreaker struct {
-	Priority			uint16	`json:"priority"`
-	MaxConnections		uint16	`json:"max_connections"`
-	MaxPendingRequests	uint16	`json:"max_pending_requests"`
-	MaxRequests			uint16	`json:"max_requests"`
-	MaxRetries			uint16	`json:"max_retries"`
+// #cgo CFLAGS: -I../../bpf/include
+// #include "cluster.h"
+import "C"
+import (
+	"github.com/cilium/ebpf"
+	"openeuler.io/mesh/pkg/bpf"
+)
+
+// ClangCluster = C.cluster_t
+type ClangCluster struct {
+	Entry	C.cluster_t
 }
 
-type ClusterLoadAssignment struct {
-	MapKeyOfEndpoint	MapKey
-	ClusterName			[C.KMESH_NAME_LEN]byte	`json:"cluster_name"`
-	LBPolicy			uint16					`json:"lb_policy"`
-	MapKeyOfLeastEndpoint	MapKey
+func (cc *ClangCluster) Lookup(key *MapKey) error {
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
+		Lookup(key, &cc.Entry)
+}
+
+func (cc *ClangCluster) Update(key *MapKey) error {
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
+		Update(key, &cc.Entry, ebpf.UpdateAny)
+}
+
+func (cc *ClangCluster) Delete(key *MapKey) error {
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
+		Delete(key)
 }
 
 type Cluster struct {
-	Name	[C.KMESH_NAME_LEN]byte	`json:"name"`
-	Type			uint16			`json:"type"`
-	ConnectTimeout	uint16			`json:"connect_timeout"`
-	LoadAssignment	ClusterLoadAssignment
-	CircuitBreaker	ClusterCircuitBreaker
+
+}
+
+func (cc *ClangCluster) ToGolang() *Cluster {
+	return nil
+}
+
+func (c *Cluster) ToClang() *ClangCluster {
+	return nil
 }

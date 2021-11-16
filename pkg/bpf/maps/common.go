@@ -17,9 +17,18 @@ package maps
 import "C"
 import "fmt"
 
+// MapKey = C.map_key_t
 type MapKey struct {
 	NameID	uint32
 	Index	uint32
+}
+
+// Address = C.address_t
+type Address struct {
+	Protocol	uint32
+	Port		uint32
+	IPv4		uint32
+	IPv6		[4]uint32
 }
 
 func ByteToString() {
