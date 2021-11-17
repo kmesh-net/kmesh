@@ -51,7 +51,8 @@ typedef struct {
 
 bpf_map_t SEC("maps") map_of_cluster = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(map_key_t), // cluster_name+0 in route_action_t
+	// come from listener_t or route_action_t
+	.key_size		= sizeof(map_key_t),
 	.value_size		= sizeof(cluster_t),
 	.max_entries	= MAP_SIZE_OF_CLUSTER,
 	.map_flags		= 0,

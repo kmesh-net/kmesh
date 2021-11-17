@@ -14,6 +14,9 @@
 
 package option
 
+// #cgo CFLAGS: -I../../bpf/include
+// #include "config.h"
+import "C"
 import (
 	"fmt"
 )
@@ -34,6 +37,7 @@ type BpfConfig struct {
 type ClientConfig struct {
 	ClientMode		string
 	KubeInCluster	bool
+	EnableL7Policy	bool
 }
 
 type DaemonConfig struct {
@@ -49,7 +53,9 @@ func InitializeDaemonConfig() error {
 
 	dc.ClientConfig.ClientMode = ClientModeKube
 	dc.ClientConfig.KubeInCluster = false
+	dc.ClientConfig.EnableL7Policy = C.KMESH_ENABLE_HTTP == C.KMESH_MODULE_ON
 
+	fmt.Println(config)
 	return nil
 }
 

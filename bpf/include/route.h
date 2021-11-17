@@ -40,7 +40,7 @@ typedef struct {
 
 struct bpf_map_def SEC("maps") map_of_route = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(map_key_t), // virtual_host_nameid in route_config_t
+	.key_size		= sizeof(map_key_t), // come from virtual_host_t
 	.value_size		= sizeof(route_t),
 	.max_entries	= MAP_SIZE_OF_ROUTE,
 	.map_flags		= 0,
@@ -53,7 +53,7 @@ route_t *map_lookup_route(map_key_t *map_key)
 }
 
 typedef struct {
-	map_key_t map_keyid_of_routes;
+	map_key_t map_key_of_route;
 	char name[KMESH_NAME_LEN];
 
 	char domains[KMESH_HTTP_DOMAIN_NUM][KMESH_HTTP_DOMAIN_LEN];
@@ -61,7 +61,7 @@ typedef struct {
 
 bpf_map_t SEC("maps") map_of_virtual_host = {
 	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(map_key_t), // route_config_nameid in route_config_t
+	.key_size		= sizeof(map_key_t), // come from route_config_t
 	.value_size		= sizeof(virtual_host_t),
 	.max_entries	= MAP_SIZE_OF_VIRTUAL_HOST,
 	.map_flags		= 0,
@@ -121,8 +121,8 @@ int virtual_host_manager(ctx_buff_t *ctx, virtual_host_t *virtual_host)
 	map_key_t map_key;
 	route_t *route = NULL;
 
-	map_key.nameid = virtual_host->map_keyid_of_routes.nameid;
-	index = BPF_MIN(virtual_host->map_keyid_of_routes.index, MAP_SIZE_OF_PER_ROUTE);
+	map_key.nameid = virtual_host->map_key_of_route.nameid;
+	index = BPF_MIN(virtual_host->map_key_of_route.index, MAP_SIZE_OF_PER_ROUTE);
 
 	for (i = 0; i < index; i++) {
 		map_key.index = i;
