@@ -14,8 +14,12 @@
 
 package maps
 
+// #include <string.h>
 import "C"
-import "fmt"
+import (
+	"fmt"
+	"unsafe"
+)
 
 // GoMapKey = C.map_key_t
 type GoMapKey struct {
@@ -40,6 +44,10 @@ func StringToByte() {
 	b := [16]byte{}
 	s := "hello"
 	copy(b[:], s[:])
+}
+
+func Memcpy(dst, src unsafe.Pointer, len uintptr) {
+	C.memcpy(dst, src, C.ulong(len))
 }
 
 // TODO: turn string to uint32

@@ -20,6 +20,7 @@ import "C"
 import (
 	"github.com/cilium/ebpf"
 	"openeuler.io/mesh/pkg/bpf"
+	"unsafe"
 )
 
 // CEndpoint = C.endpoint_t
@@ -28,17 +29,17 @@ type CEndpoint struct {
 }
 
 func (ce *CEndpoint) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Lookup(key, &ce.Entry)
 }
 
 func (ce *CEndpoint) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Update(key, &ce.Entry, ebpf.UpdateAny)
 }
 
 func (ce *CEndpoint) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Delete(key)
 }
 
@@ -49,9 +50,24 @@ type GoEndpoint struct {
 }
 
 func (ce *CEndpoint) ToGolang() *GoEndpoint {
-	return nil
+	ge := &GoEndpoint{
+		LBPriority: uint16(ce.Entry.lb_priority),
+		LBWeight: uint16(ce.Entry.lb_weight),
+	}
+	Memcpy(unsafe.Pointer(&ge.Address),
+		   unsafe.Pointer(&ce.Entry.address),
+		   unsafe.Sizeof(ge.Address))
+
+	return ge
 }
 
 func (ge *GoEndpoint) ToClang() *CEndpoint {
-	return nil
+	ce := &CEndpoint{}
+	ce.Entry.lb_priority = C.uint(ge.LBPriority)
+	ce.Entry.lb_weight = C.uint(ge.LBWeight)
+	Memcpy(unsafe.Pointer(&ce.Entry.address),
+		   unsafe.Pointer(&ge.Address),
+		   unsafe.Sizeof(ce.Entry.address))
+
+	return ce
 }
