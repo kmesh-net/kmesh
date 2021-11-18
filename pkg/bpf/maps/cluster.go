@@ -82,20 +82,13 @@ var (
 func (cc *CCluster) ToGolang() *GoCluster {
 	gc := &GoCluster{}
 	gc.Name = C.GoString( (*C.char)(unsafe.Pointer(cc.Entry.name)) )
-	//TODO: gc.Type = cc.Entry._type
+	gc.Type = cc.Entry._type
 	gc.ConnectTimeout = cc.Entry.connect_timeout
 
 	gc.LoadAssignment.LBPolicy = LBPolicyToGo[cc.Entry.load_assignment.lb_policy]
-	ce := CEndpoint{}
-	key := GoMapKey{}
-	// TODO: key.NameID =
-	for true {
-		// until cannot lookup from map
-		if err := ce.Lookup(&key); err != nil {
-			break
-		}
-		gc.LoadAssignment.Endpoints = append(gc.LoadAssignment.Endpoints, *ce.ToGolang())
-		key.Index++
+	for _, v := range cc.Endpoints {
+		ge := v.ToGolang()
+		gc.LoadAssignment.Endpoints = append(gc.LoadAssignment.Endpoints, *ge)
 	}
 
 	Memcpy(unsafe.Pointer(&gc.CircuitBreaker),
@@ -110,7 +103,7 @@ func (gc *GoCluster) ToClang() *CCluster {
 	StrcpyToC(unsafe.Pointer(&cc.Entry.name),
 		unsafe.Sizeof(cc.Entry.name),
 		gc.Name)
-	//TODO: cc.Entry._type = gc.Type
+	cc.Entry._type = gc.Type
 	cc.Entry.connect_timeout = gc.ConnectTimeout
 
 	cc.Entry.load_assignment.lb_policy = LBPolicyToC[gc.LoadAssignment.LBPolicy]

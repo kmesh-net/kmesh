@@ -47,7 +47,7 @@ func StringToByte() {
 }
 
 func Memcpy(dst, src unsafe.Pointer, len uintptr) {
-	C.memcpy(dst, src, C.ulong(len))
+	C.memcpy(dst, src, C.size_t(len))
 }
 
 func StrcpyToC(cStr unsafe.Pointer, len uintptr, goStr string) {
@@ -58,7 +58,7 @@ func StrcpyToC(cStr unsafe.Pointer, len uintptr, goStr string) {
 	if len > unsafe.Sizeof(goStr) {
 		len = unsafe.Sizeof(goStr)
 	}
-	C.strncpy(dst, src, C.ulong(len))
+	C.strncpy(dst, src, C.size_t(len))
 	dst[len] = 0
 }
 

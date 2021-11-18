@@ -20,11 +20,13 @@ import "C"
 import (
 	"github.com/cilium/ebpf"
 	"openeuler.io/mesh/pkg/bpf"
+	"unsafe"
 )
 
 // CListener = C.listener_t
 type CListener struct {
 	Entry	C.listener_t
+	Cluster	CCluster
 }
 
 func (cl *CListener) Lookup(key *GoAddress) error {
@@ -43,13 +45,36 @@ func (cl *CListener) Delete(key *GoAddress) error {
 }
 
 type GoListener struct {
-
+	Name	string	`json:"name"`
+	Type	string	`json:"type"`
+	Address	GoAddress	`json:"address"`
+	Cluster	GoCluster	`json:"cluster,omitempty"`
 }
 
 func (cl *CListener) ToGolang() *GoListener {
-	return nil
+	gl := &GoListener{}
+	gl.Name = C.GoString( (*C.char)(unsafe.Pointer(cl.Entry.name)) )
+	gl.Type = cl.Entry._type
+
+	Memcpy(unsafe.Pointer(&gl.Address),
+		unsafe.Pointer(&cl.Entry.address),
+		unsafe.Sizeof(gl.Address))
+
+	gl.Cluster = *cl.Cluster.ToGolang()
+	return gl
 }
 
 func (gl *GoListener) ToClang() *CListener {
-	return nil
+	cl := &CListener{}
+	StrcpyToC(unsafe.Pointer(&cl.Entry.name),
+		unsafe.Sizeof(cl.Entry.name),
+		gl.Name)
+	cl.Entry._type = gl.Type
+
+	Memcpy(unsafe.Pointer(&cl.Entry.address),
+		unsafe.Pointer(&gl.Address),
+		unsafe.Sizeof(cl.Entry.address))
+
+	cl.Cluster = *gl.Cluster.ToClang()
+	return cl
 }
