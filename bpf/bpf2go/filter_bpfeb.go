@@ -62,7 +62,6 @@ type FilterProgramSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type FilterMapSpecs struct {
 	Cluster      *ebpf.MapSpec `ebpf:"cluster"`
-	Endpoint     *ebpf.MapSpec `ebpf:"endpoint"`
 	Filter       *ebpf.MapSpec `ebpf:"filter"`
 	FilterChain  *ebpf.MapSpec `ebpf:"filter_chain"`
 	Route        *ebpf.MapSpec `ebpf:"route"`
@@ -91,7 +90,6 @@ func (o *FilterObjects) Close() error {
 // It can be passed to LoadFilterObjects or ebpf.CollectionSpec.LoadAndAssign.
 type FilterMaps struct {
 	Cluster      *ebpf.Map `ebpf:"cluster"`
-	Endpoint     *ebpf.Map `ebpf:"endpoint"`
 	Filter       *ebpf.Map `ebpf:"filter"`
 	FilterChain  *ebpf.Map `ebpf:"filter_chain"`
 	Route        *ebpf.Map `ebpf:"route"`
@@ -103,7 +101,6 @@ type FilterMaps struct {
 func (m *FilterMaps) Close() error {
 	return _FilterClose(
 		m.Cluster,
-		m.Endpoint,
 		m.Filter,
 		m.FilterChain,
 		m.Route,

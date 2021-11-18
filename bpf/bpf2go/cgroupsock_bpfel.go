@@ -61,7 +61,6 @@ type CgroupSockProgramSpecs struct {
 // It can be passed ebpf.CollectionSpec.Assign.
 type CgroupSockMapSpecs struct {
 	Cluster      *ebpf.MapSpec `ebpf:"cluster"`
-	Endpoint     *ebpf.MapSpec `ebpf:"endpoint"`
 	Filter       *ebpf.MapSpec `ebpf:"filter"`
 	FilterChain  *ebpf.MapSpec `ebpf:"filter_chain"`
 	Listener     *ebpf.MapSpec `ebpf:"listener"`
@@ -91,7 +90,6 @@ func (o *CgroupSockObjects) Close() error {
 // It can be passed to LoadCgroupSockObjects or ebpf.CollectionSpec.LoadAndAssign.
 type CgroupSockMaps struct {
 	Cluster      *ebpf.Map `ebpf:"cluster"`
-	Endpoint     *ebpf.Map `ebpf:"endpoint"`
 	Filter       *ebpf.Map `ebpf:"filter"`
 	FilterChain  *ebpf.Map `ebpf:"filter_chain"`
 	Listener     *ebpf.Map `ebpf:"listener"`
@@ -104,7 +102,6 @@ type CgroupSockMaps struct {
 func (m *CgroupSockMaps) Close() error {
 	return _CgroupSockClose(
 		m.Cluster,
-		m.Endpoint,
 		m.Filter,
 		m.FilterChain,
 		m.Listener,
