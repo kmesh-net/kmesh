@@ -50,13 +50,12 @@ type GoEndpoint struct {
 }
 
 func (ce *CEndpoint) ToGolang() *GoEndpoint {
-	ge := &GoEndpoint{
-		LBPriority: uint16(ce.Entry.lb_priority),
-		LBWeight: uint16(ce.Entry.lb_weight),
-	}
+	ge := &GoEndpoint{}
+	ge.LBPriority = uint16(ce.Entry.lb_priority)
+	ge.LBWeight = uint16(ce.Entry.lb_weight)
 	Memcpy(unsafe.Pointer(&ge.Address),
-		   unsafe.Pointer(&ce.Entry.address),
-		   unsafe.Sizeof(ge.Address))
+		unsafe.Pointer(&ce.Entry.address),
+		unsafe.Sizeof(ge.Address))
 
 	return ge
 }
@@ -66,8 +65,8 @@ func (ge *GoEndpoint) ToClang() *CEndpoint {
 	ce.Entry.lb_priority = C.uint(ge.LBPriority)
 	ce.Entry.lb_weight = C.uint(ge.LBWeight)
 	Memcpy(unsafe.Pointer(&ce.Entry.address),
-		   unsafe.Pointer(&ge.Address),
-		   unsafe.Sizeof(ce.Entry.address))
+		unsafe.Pointer(&ge.Address),
+		unsafe.Sizeof(ce.Entry.address))
 
 	return ce
 }

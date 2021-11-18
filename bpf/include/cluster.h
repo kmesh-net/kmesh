@@ -27,7 +27,7 @@ typedef struct {
 
 typedef struct {
 	map_key_t map_key_of_endpoint;
-	char cluster_name[KMESH_NAME_LEN];
+	//char cluster_name[KMESH_NAME_LEN];
 
 #define LB_POLICY_LEAST_REQUEST		1U
 #define LB_POLICY_ROUND_ROBIN		2U

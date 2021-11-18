@@ -29,10 +29,10 @@ type GoMapKey struct {
 
 // GoAddress = C.address_t
 type GoAddress struct {
-	Protocol	uint32
-	Port		uint32
-	IPv4		uint32
-	IPv6		[4]uint32
+	Protocol	uint32	`json:"protocol"`
+	Port		uint32	`json:"port"`
+	IPv4		uint32	`json:"ipv4,omitempty"`
+	IPv6		[4]uint32	`json:"ipv6,omitempty"`
 }
 
 func ByteToString() {
@@ -48,6 +48,18 @@ func StringToByte() {
 
 func Memcpy(dst, src unsafe.Pointer, len uintptr) {
 	C.memcpy(dst, src, C.ulong(len))
+}
+
+func StrcpyToC(cStr unsafe.Pointer, len uintptr, goStr string) {
+	dst := (*C.char)(cStr)
+	src := C.CString(goStr)
+	defer C.free(unsafe.Pointer(src))
+
+	if len > unsafe.Sizeof(goStr) {
+		len = unsafe.Sizeof(goStr)
+	}
+	C.strncpy(dst, src, C.ulong(len))
+	dst[len] = 0
 }
 
 // TODO: turn string to uint32
