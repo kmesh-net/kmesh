@@ -22,66 +22,66 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 )
 
-// ClangRoute = C.route_t
-type ClangRoute struct {
+// CRoute = C.route_t
+type CRoute struct {
 	Entry	C.route_t
 }
 
-func (cr *ClangRoute) Lookup(key *MapKey) error {
+func (cr *CRoute) Lookup(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Route.
 		Lookup(key, &cr.Entry)
 }
 
-func (cr *ClangRoute) Update(key *MapKey) error {
+func (cr *CRoute) Update(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Route.
 		Update(key, &cr.Entry, ebpf.UpdateAny)
 }
 
-func (cr *ClangRoute) Delete(key *MapKey) error {
+func (cr *CRoute) Delete(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Route.
 		Delete(key)
 }
 
-type Route struct {
+type GoRoute struct {
 
 }
 
-func (cr *ClangRoute) ToGolang() *Route {
+func (cr *CRoute) ToGolang() *GoRoute {
 	return nil
 }
 
-func (r *Route) ToClang() *ClangRoute {
+func (gr *GoRoute) ToClang() *CRoute {
 	return nil
 }
 
-// ClangVirtualHost = C.virtual_host_t
-type ClangVirtualHost struct {
+// CVirtualHost = C.virtual_host_t
+type CVirtualHost struct {
 	Entry	C.virtual_host_t
 }
 
-func (cvh *ClangVirtualHost) Lookup(key *MapKey) error {
+func (cvh *CVirtualHost) Lookup(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.VirtualHost.
 		Lookup(key, &cvh.Entry)
 }
 
-func (cvh *ClangVirtualHost) Update(key *MapKey) error {
+func (cvh *CVirtualHost) Update(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.VirtualHost.
 		Update(key, &cvh.Entry, ebpf.UpdateAny)
 }
 
-func (cvh *ClangVirtualHost) Delete(key *MapKey) error {
+func (cvh *CVirtualHost) Delete(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.VirtualHost.
 		Delete(key)
 }
 
-type VirtualHost struct {
+type GoVirtualHost struct {
 
 }
 
-func (cvh *ClangVirtualHost) ToGolang() *VirtualHost {
+func (cvh *CVirtualHost) ToGolang() *GoVirtualHost {
 	return nil
 }
 
-func (vh *VirtualHost) ToClang() *ClangVirtualHost {
+func (gvh *GoVirtualHost) ToClang() *CVirtualHost {
 	return nil
 }

@@ -22,34 +22,34 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 )
 
-// ClangListener = C.listener_t
-type ClangListener struct {
+// CListener = C.listener_t
+type CListener struct {
 	Entry	C.listener_t
 }
 
-func (cl *ClangListener) Lookup(key *Address) error {
+func (cl *CListener) Lookup(key *GoAddress) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Lookup(key, &cl.Entry)
 }
 
-func (cl *ClangListener) Update(key *Address) error {
+func (cl *CListener) Update(key *GoAddress) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Update(key, &cl.Entry, ebpf.UpdateAny)
 }
 
-func (cl *ClangListener) Delete(key *Address) error {
+func (cl *CListener) Delete(key *GoAddress) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Delete(key)
 }
 
-type Listener struct {
+type GoListener struct {
 
 }
 
-func (cl *ClangListener) ToGolang() *Listener {
+func (cl *CListener) ToGolang() *GoListener {
 	return nil
 }
 
-func (l *Listener) ToClang() *ClangListener {
+func (gl *GoListener) ToClang() *CListener {
 	return nil
 }

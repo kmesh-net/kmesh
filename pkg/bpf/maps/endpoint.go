@@ -22,34 +22,36 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 )
 
-// ClangEndpoint = C.endpoint_t
-type ClangEndpoint struct {
+// CEndpoint = C.endpoint_t
+type CEndpoint struct {
 	Entry	C.endpoint_t
 }
 
-func (ce *ClangEndpoint) Lookup(key *MapKey) error {
+func (ce *CEndpoint) Lookup(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
 		Lookup(key, &ce.Entry)
 }
 
-func (ce *ClangEndpoint) Update(key *MapKey) error {
+func (ce *CEndpoint) Update(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
 		Update(key, &ce.Entry, ebpf.UpdateAny)
 }
 
-func (ce *ClangEndpoint) Delete(key *MapKey) error {
+func (ce *CEndpoint) Delete(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Endpoint.
 		Delete(key)
 }
 
-type Endpoint struct {
-
+type GoEndpoint struct {
+	Address		GoAddress	`json:"address"`
+	LBPriority	uint16	`json:"lb_priority"`
+	LBWeight	uint16	`json:"lb_weight"`
 }
 
-func (ce *ClangEndpoint) ToGolang() *Endpoint {
+func (ce *CEndpoint) ToGolang() *GoEndpoint {
 	return nil
 }
 
-func (e *Endpoint) ToClang() *ClangEndpoint {
+func (ge *GoEndpoint) ToClang() *CEndpoint {
 	return nil
 }

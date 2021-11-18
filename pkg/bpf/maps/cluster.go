@@ -22,34 +22,34 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 )
 
-// ClangCluster = C.cluster_t
-type ClangCluster struct {
+// CCluster = C.cluster_t
+type CCluster struct {
 	Entry	C.cluster_t
 }
 
-func (cc *ClangCluster) Lookup(key *MapKey) error {
+func (cc *CCluster) Lookup(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
 		Lookup(key, &cc.Entry)
 }
 
-func (cc *ClangCluster) Update(key *MapKey) error {
+func (cc *CCluster) Update(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
 		Update(key, &cc.Entry, ebpf.UpdateAny)
 }
 
-func (cc *ClangCluster) Delete(key *MapKey) error {
+func (cc *CCluster) Delete(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
 		Delete(key)
 }
 
-type Cluster struct {
+type GoCluster struct {
 
 }
 
-func (cc *ClangCluster) ToGolang() *Cluster {
+func (cc *CCluster) ToGolang() *GoCluster {
 	return nil
 }
 
-func (c *Cluster) ToClang() *ClangCluster {
+func (gc *GoCluster) ToClang() *CCluster {
 	return nil
 }

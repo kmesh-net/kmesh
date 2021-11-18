@@ -17,14 +17,14 @@ package maps
 import "C"
 import "fmt"
 
-// MapKey = C.map_key_t
-type MapKey struct {
+// GoMapKey = C.map_key_t
+type GoMapKey struct {
 	NameID	uint32
 	Index	uint32
 }
 
-// Address = C.address_t
-type Address struct {
+// GoAddress = C.address_t
+type GoAddress struct {
 	Protocol	uint32
 	Port		uint32
 	IPv4		uint32

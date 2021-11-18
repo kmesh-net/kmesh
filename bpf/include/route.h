@@ -16,7 +16,6 @@
 #define _ROUTER_H_
 
 #include "common.h"
-#include "endpoint.h"
 #include "cluster.h"
 #include "tail_call.h"
 

@@ -16,7 +16,6 @@
 #define _TAIL_CALL_H_
 
 #include "common.h"
-#include "endpoint.h"
 
 // same as linux/bpf.h MAX_TAIL_CALL_CNT
 #define MAP_SIZE_OF_TAIL_CALL_PROG		32

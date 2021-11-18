@@ -67,6 +67,13 @@ typedef struct {
 	__u32 index;
 } map_key_t;
 
+typedef struct {
+	__u32 protocol;
+	__u32 port; // host byte order
+	__u32 ipv4;
+	__u32 ipv6[4];
+} address_t;
+
 static inline
 void *kmesh_map_lookup_elem(bpf_map_t *map, const void *key)
 {

@@ -18,13 +18,6 @@
 #include "common.h"
 
 typedef struct {
-	__u32 protocol;
-	__u32 port; // host byte order
-	__u32 ipv4;
-	__u32 ipv6[4];
-} address_t;
-
-typedef struct {
 	address_t address;
 	__u16 lb_priority;
 	__u16 lb_weight;

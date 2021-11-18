@@ -22,66 +22,66 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 )
 
-// ClangFilter = C.filter_t
-type ClangFilter struct {
+// CFilter = C.filter_t
+type CFilter struct {
 	Entry	C.filter_t
 }
 
-func (cf *ClangFilter) Lookup(key *MapKey) error {
+func (cf *CFilter) Lookup(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
 		Lookup(key, &cf.Entry)
 }
 
-func (cf *ClangFilter) Update(key *MapKey) error {
+func (cf *CFilter) Update(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
 		Update(key, &cf.Entry, ebpf.UpdateAny)
 }
 
-func (cf *ClangFilter) Delete(key *MapKey) error {
+func (cf *CFilter) Delete(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
 		Delete(key)
 }
 
-type Filter struct {
+type GoFilter struct {
 
 }
 
-func (cf *ClangFilter) ToGolang() *Filter {
+func (cf *CFilter) ToGolang() *GoFilter {
 	return nil
 }
 
-func (f *Filter) ToClang() *ClangFilter {
+func (gf *GoFilter) ToClang() *CFilter {
 	return nil
 }
 
-// ClangFilterChain = C.filter_chain_t
-type ClangFilterChain struct {
+// CFilterChain = C.filter_chain_t
+type CFilterChain struct {
 	Entry	C.filter_chain_t
 }
 
-func (cfc *ClangFilterChain) Lookup(key *MapKey) error {
+func (cfc *CFilterChain) Lookup(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
 		Lookup(key, &cfc.Entry)
 }
 
-func (cfc *ClangFilterChain) Update(key *MapKey) error {
+func (cfc *CFilterChain) Update(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
 		Update(key, &cfc.Entry, ebpf.UpdateAny)
 }
 
-func (cfc *ClangFilterChain) Delete(key *MapKey) error {
+func (cfc *CFilterChain) Delete(key *GoMapKey) error {
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
 		Delete(key)
 }
 
-type FilterChain struct {
+type GoFilterChain struct {
 
 }
 
-func (cfc *ClangFilterChain) ToGolang() *FilterChain {
+func (cfc *CFilterChain) ToGolang() *GoFilterChain {
 	return nil
 }
 
-func (fc *FilterChain) ToClang() *ClangFilterChain {
+func (gfc *GoFilterChain) ToClang() *CFilterChain {
 	return nil
 }

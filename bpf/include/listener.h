@@ -17,7 +17,6 @@
 
 #include "bpf_log.h"
 #include "filter.h"
-#include "endpoint.h"
 #include "tail_call.h"
 
 typedef struct {
