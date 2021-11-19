@@ -15,9 +15,13 @@
 package maps
 
 // #include <string.h>
+// #include <stdlib.h>
 import "C"
 import (
-	"fmt"
+	"encoding/binary"
+	"hash/fnv"
+	"math"
+	"net"
 	"unsafe"
 )
 
@@ -35,15 +39,47 @@ type GoAddress struct {
 	IPv6		[4]uint32	`json:"ipv6,omitempty"`
 }
 
-func ByteToString() {
-	b := [16]byte{'h', 'e', 'l', 'l', 'o', '0'}
-	fmt.Println(string(b[:]))
+var hash = fnv.New32a()
+
+// ConvertMapKey converts a string to a uint32 integer as the key of bpf map
+type ConvertMapKey struct {
+	numToStr map[uint32]string
 }
 
-func StringToByte() {
-	b := [16]byte{}
-	s := "hello"
-	copy(b[:], s[:])
+func (con *ConvertMapKey) StrToNum(str string) uint32 {
+	var num uint32
+	hash.Write([]byte(str))
+
+	// Using linear probing to solve hash conflicts
+	for num = hash.Sum32(); num < math.MaxUint32; num++ {
+		if con.numToStr[num] == "" {
+			con.numToStr[num] = str
+			return num
+		} else if con.numToStr[num] == str {
+			return num
+		}
+	}
+
+	return num
+}
+
+func (con *ConvertMapKey) NumToStr(num uint32) string {
+	return con.numToStr[num]
+}
+
+func (con *ConvertMapKey) Delete(str string) {
+	con.numToStr[con.StrToNum(str)] = ""
+}
+
+func ConvertIpToUint32(ip string) uint32 {
+	netIP := net.ParseIP(ip)
+	return binary.BigEndian.Uint32(netIP)
+}
+
+func ConvertUint32ToIp(num uint32) string {
+	netIP := make(net.IP, 4)
+	binary.BigEndian.PutUint32(netIP, num)
+	return netIP.String()
 }
 
 func Memcpy(dst, src unsafe.Pointer, len uintptr) {
@@ -61,5 +97,3 @@ func StrcpyToC(cStr unsafe.Pointer, len uintptr, goStr string) {
 	C.strncpy(dst, src, C.size_t(len))
 	dst[len] = 0
 }
-
-// TODO: turn string to uint32

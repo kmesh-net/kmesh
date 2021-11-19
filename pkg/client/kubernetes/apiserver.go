@@ -37,6 +37,8 @@ const (
 	pkgSubsys = "apiserver"
 	InformerNameService = "Service"
 	InformerNameEndpoints = "Endpoints"
+	InformerOptUpdate = "Update"
+	InformerOptDelete = "Delete"
 )
 
 var (
@@ -48,6 +50,7 @@ type KubeController struct {
 	factory		informers.SharedInformerFactory
 	serviceInformer		informersCoreV1.ServiceInformer
 	endpointInformer	informersCoreV1.EndpointsInformer
+	eventMap	map[string]ClientEvent
 }
 
 type queueKey struct {
@@ -74,6 +77,7 @@ func NewKubeController(clientset kubernetes.Interface) *KubeController {
 	c.serviceInformer.Informer().AddEventHandler(handler)
 	c.endpointInformer.Informer().AddEventHandler(handler)
 
+	c.eventMap = make(map[string]ClientEvent)
 	return c
 }
 
@@ -126,20 +130,14 @@ func (c *KubeController) enqueueForAdd(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.enqueue("Add", c.getObjectType(obj), name)
+	c.enqueue(InformerOptUpdate, c.getObjectType(obj), name)
 }
 
 func (c *KubeController) enqueueForUpdate(oldObj, newObj interface{}) {
 	if !c.checkObjectValidity(oldObj, newObj) {
 		return
 	}
-
-	name, err := cache.MetaNamespaceKeyFunc(newObj)
-	if err != nil {
-		runtime.HandleError(err)
-		return
-	}
-	c.enqueue("Update", c.getObjectType(newObj), name)
+	c.enqueueForAdd(newObj)
 }
 
 func (c *KubeController) enqueueForDelete(obj interface{}) {
@@ -148,7 +146,7 @@ func (c *KubeController) enqueueForDelete(obj interface{}) {
 		runtime.HandleError(err)
 		return
 	}
-	c.enqueue("Delete", c.getObjectType(obj), name)
+	c.enqueue(InformerOptDelete, c.getObjectType(obj), name)
 }
 
 func (c *KubeController) syncHandler(key queueKey) error {
@@ -156,27 +154,20 @@ func (c *KubeController) syncHandler(key queueKey) error {
 		err error
 		exists bool
 		obj interface{}
-		serviceObj *apiCoreV1.Service
-		endpointsObj *apiCoreV1.Endpoints
 	)
+	event := c.eventMap[key.name]
 
 	switch key.typ {
 	case InformerNameService:
 		obj, exists, err = c.serviceInformer.Informer().GetIndexer().GetByKey(key.name)
-		if err == nil && exists {
-			serviceObj = obj.(*apiCoreV1.Service)
-			log.Debugf("syncHandler for Service: %#v", serviceObj)
-			fmt.Println("")
+		if err == nil {
+			event.Service = obj.(*apiCoreV1.Service)
 		}
-		// TODO
 	case InformerNameEndpoints:
 		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(key.name)
-		if err == nil && exists {
-			endpointsObj = obj.(*apiCoreV1.Endpoints)
-			log.Debugf("syncHandler for Endpoints: %#v", endpointsObj)
-			fmt.Println("")
+		if err == nil {
+			event.Endpoints = append(event.Endpoints, obj.(*apiCoreV1.Endpoints))
 		}
-		// TODO
 	default:
 		return fmt.Errorf("invlid queueKey name")
 	}
@@ -188,6 +179,7 @@ func (c *KubeController) syncHandler(key queueKey) error {
 		log.Debugf("Service or Endpoints %#v does not exist anymore", key)
 	}
 
+	c.eventMap[key.name] = event
 	return nil
 }
 
@@ -231,6 +223,13 @@ func (c *KubeController) runWorker() {
 			log.Error(err)
 			break
 		}
+	}
+
+	for i, v := range c.eventMap {
+		if err := v.EventHandler(); err != nil {
+			fmt.Println(err)
+		}
+		delete(c.eventMap, i)
 	}
 }
 

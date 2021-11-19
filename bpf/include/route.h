@@ -26,7 +26,7 @@ typedef struct {
 } route_match_t;
 
 typedef struct {
-	map_key_t map_key_of_cluster; // map_key.index = 0
+	map_key_t map_key_of_cluster;
 	char cluster[KMESH_NAME_LEN];
 	__u16 timeout;  // default 15s
 } route_action_t;
@@ -96,9 +96,14 @@ int route_check(ctx_buff_t *ctx, route_match_t *route_match)
 static inline
 int route_mangager(ctx_buff_t *ctx, route_action_t *route_action)
 {
+	map_key_t map_key;
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	if (kmesh_tail_update_ctx(&address, &route_action->map_key_of_cluster) != 0)
+	// always route_action->map_key_of_cluster.index = 1
+	map_key.nameid = route_action->map_key_of_cluster.nameid;
+	map_key.index = 0;
+
+	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
 		return -ENOSPC;
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
 	kmesh_tail_delete_ctx(&address);

@@ -55,12 +55,17 @@ listener_t *map_lookup_listener(address_t *address)
 
 int l4_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 {
+	map_key_t map_key;
 	DECLARE_VAR_ADDRESS(ctx, address);
 
 	if (listener->state & LISTENER_STATE_PASSIVE)
 		return -EBUSY;
 
-	if (kmesh_tail_update_ctx(&address, &listener->map_key) != 0)
+	// always listener->map_key.index = 1
+	map_key.nameid = listener->map_key.nameid;
+	map_key.index = 0;
+
+	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
 		return -ENOSPC;
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
 	kmesh_tail_delete_ctx(&address);

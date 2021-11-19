@@ -14,7 +14,7 @@
 
 package maps
 
-// #cgo CFLAGS: -I../../bpf/include
+// #cgo CFLAGS: -I../../../bpf/include
 // #include "route.h"
 import "C"
 import (

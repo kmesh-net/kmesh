@@ -14,7 +14,7 @@
 
 package maps
 
-// #cgo CFLAGS: -I../../bpf/include
+// #cgo CFLAGS: -I../../../bpf/include
 // #include "filter.h"
 import "C"
 import (

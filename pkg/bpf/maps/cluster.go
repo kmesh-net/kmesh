@@ -14,7 +14,7 @@
 
 package maps
 
-// #cgo CFLAGS: -I../../bpf/include
+// #cgo CFLAGS: -I../../../bpf/include
 // #include "cluster.h"
 import "C"
 import (
@@ -67,7 +67,7 @@ type GoCircuitBreaker struct {
 }
 
 var (
-	LBPolicyStrToC = map[string]C.uint16 {
+	LBPolicyStrToC = map[string]C.uint {
 		"ROUND_ROBIN":		C.LB_POLICY_ROUND_ROBIN,
 		"LEAST_REQUEST":	C.LB_POLICY_LEAST_REQUEST,
 		"RANDOM":			C.LB_POLICY_RANDOM,

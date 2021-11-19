@@ -14,7 +14,7 @@
 
 package maps
 
-// #cgo CFLAGS: -I../../bpf/include
+// #cgo CFLAGS: -I../../../bpf/include
 // #include "listener.h"
 import "C"
 import (
@@ -44,6 +44,7 @@ func (cl *CListener) Delete(key *GoAddress) error {
 }
 
 type GoListener struct {
+	MapKey	GoMapKey
 	//Name	string	`json:"name"`
 	Type	uint16	`json:"type"`
 	State	uint16	`json:"state"`
