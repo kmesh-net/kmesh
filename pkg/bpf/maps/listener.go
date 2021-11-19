@@ -26,7 +26,6 @@ import (
 // CListener = C.listener_t
 type CListener struct {
 	Entry	C.listener_t
-	Cluster	CCluster
 }
 
 func (cl *CListener) Lookup(key *GoAddress) error {
@@ -45,36 +44,26 @@ func (cl *CListener) Delete(key *GoAddress) error {
 }
 
 type GoListener struct {
-	Name	string	`json:"name"`
-	Type	string	`json:"type"`
+	//Name	string	`json:"name"`
+	Type	uint16	`json:"type"`
+	State	uint16	`json:"state"`
 	Address	GoAddress	`json:"address"`
-	Cluster	GoCluster	`json:"cluster,omitempty"`
 }
 
 func (cl *CListener) ToGolang() *GoListener {
 	gl := &GoListener{}
-	gl.Name = C.GoString( (*C.char)(unsafe.Pointer(cl.Entry.name)) )
-	gl.Type = cl.Entry._type
+	Memcpy(unsafe.Pointer(gl),
+		unsafe.Pointer(&cl.Entry),
+		unsafe.Sizeof(cl.Entry))
 
-	Memcpy(unsafe.Pointer(&gl.Address),
-		unsafe.Pointer(&cl.Entry.address),
-		unsafe.Sizeof(gl.Address))
-
-	gl.Cluster = *cl.Cluster.ToGolang()
 	return gl
 }
 
 func (gl *GoListener) ToClang() *CListener {
 	cl := &CListener{}
-	StrcpyToC(unsafe.Pointer(&cl.Entry.name),
-		unsafe.Sizeof(cl.Entry.name),
-		gl.Name)
-	cl.Entry._type = gl.Type
+	Memcpy(unsafe.Pointer(&cl.Entry),
+		unsafe.Pointer(gl),
+		unsafe.Sizeof(cl.Entry))
 
-	Memcpy(unsafe.Pointer(&cl.Entry.address),
-		unsafe.Pointer(&gl.Address),
-		unsafe.Sizeof(cl.Entry.address))
-
-	cl.Cluster = *gl.Cluster.ToClang()
 	return cl
 }

@@ -19,19 +19,23 @@
 #include "filter.h"
 #include "tail_call.h"
 
+enum listener_type {
+	LISTENER_TYPE_STATIC = 0,
+	LISTENER_TYPE_DYNAMIC,
+};
+
+enum listener_state {
+	LISTENER_STATE_PASSIVE = 0,
+	LISTENER_STATE_ACTIVE,
+};
+
 typedef struct {
 	// used by map_of_cluster_t or map_of_filter_chain
 	map_key_t map_key;
-	char name[KMESH_NAME_LEN];
+	//char name[KMESH_NAME_LEN];
 
-#define LISTENER_TYPE_STATIC		1
-#define LISTENER_TYPE_DYNAMIC		2
 	__u16 type;
-
-#define LISTENER_STATE_PASSIVE		1
-#define LISTENER_STATE_ACTIVE		2
 	__u16 state;
-
 	address_t address;
 } listener_t;
 

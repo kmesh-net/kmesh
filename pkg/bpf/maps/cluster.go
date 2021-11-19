@@ -26,7 +26,6 @@ import (
 // CCluster = C.cluster_t
 type CCluster struct {
 	Entry	C.cluster_t
-	Endpoints	[]CEndpoint
 }
 
 func (cc *CCluster) Lookup(key *GoMapKey) error {
@@ -45,16 +44,17 @@ func (cc *CCluster) Delete(key *GoMapKey) error {
 }
 
 type GoCluster struct {
-	Name	string	`json:"name"`
-	Type	string	`json:"type"`
+	//Name	string	`json:"name"`
+	Type	uint16	`json:"type"`
 	ConnectTimeout	uint16	`json:"connect_timeout"`
 	LoadAssignment	GoLoadAssignment	`json:"load_assignment"`
 	CircuitBreaker	GoCircuitBreaker	`json:"circuit_breaker"`
 }
 
 type GoLoadAssignment struct {
-	LBPolicy	string	`json:"lb_policy"`
-	Endpoints	[]GoEndpoint	`json:"endpoints"`
+	MapKeyOfEndpoint		GoMapKey
+	MapKeyOfLeastEndpoint	GoMapKey
+	LBPolicy	uint16	`json:"lb_policy"`
 }
 
 // GoCircuitBreaker = C.circuit_breaker_t
@@ -67,54 +67,27 @@ type GoCircuitBreaker struct {
 }
 
 var (
-	LBPolicyToC = map[string]C.ushort {
-		"LEAST_REQUEST":	C.LB_POLICY_LEAST_REQUEST,
+	LBPolicyStrToC = map[string]C.uint16 {
 		"ROUND_ROBIN":		C.LB_POLICY_ROUND_ROBIN,
+		"LEAST_REQUEST":	C.LB_POLICY_LEAST_REQUEST,
 		"RANDOM":			C.LB_POLICY_RANDOM,
-	}
-	LBPolicyToGo = map[C.ushort]string {
-		C.LB_POLICY_LEAST_REQUEST:	"LEAST_REQUEST",
-		C.LB_POLICY_ROUND_ROBIN:	"ROUND_ROBIN",
-		C.LB_POLICY_RANDOM:			"RANDOM",
 	}
 )
 
 func (cc *CCluster) ToGolang() *GoCluster {
 	gc := &GoCluster{}
-	gc.Name = C.GoString( (*C.char)(unsafe.Pointer(cc.Entry.name)) )
-	gc.Type = cc.Entry._type
-	gc.ConnectTimeout = cc.Entry.connect_timeout
-
-	gc.LoadAssignment.LBPolicy = LBPolicyToGo[cc.Entry.load_assignment.lb_policy]
-	for _, v := range cc.Endpoints {
-		ge := v.ToGolang()
-		gc.LoadAssignment.Endpoints = append(gc.LoadAssignment.Endpoints, *ge)
-	}
-
-	Memcpy(unsafe.Pointer(&gc.CircuitBreaker),
-		unsafe.Pointer(&cc.Entry.circuit_breaker),
-		unsafe.Sizeof(gc.CircuitBreaker))
+	Memcpy(unsafe.Pointer(gc),
+		unsafe.Pointer(&cc.Entry),
+		unsafe.Sizeof(cc.Entry))
 
 	return gc
 }
 
 func (gc *GoCluster) ToClang() *CCluster {
 	cc := &CCluster{}
-	StrcpyToC(unsafe.Pointer(&cc.Entry.name),
-		unsafe.Sizeof(cc.Entry.name),
-		gc.Name)
-	cc.Entry._type = gc.Type
-	cc.Entry.connect_timeout = gc.ConnectTimeout
-
-	cc.Entry.load_assignment.lb_policy = LBPolicyToC[gc.LoadAssignment.LBPolicy]
-	for _, v := range gc.LoadAssignment.Endpoints {
-		ce := v.ToClang()	// never failed
-		cc.Endpoints = append(cc.Endpoints, *ce)
-	}
-
-	Memcpy(unsafe.Pointer(&cc.Entry.circuit_breaker),
-		unsafe.Pointer(&gc.CircuitBreaker),
-		unsafe.Sizeof(cc.Entry.circuit_breaker))
+	Memcpy(unsafe.Pointer(&cc.Entry),
+		unsafe.Pointer(gc),
+		unsafe.Sizeof(cc.Entry))
 
 	return cc
 }

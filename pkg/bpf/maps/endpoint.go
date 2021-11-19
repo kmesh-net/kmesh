@@ -47,26 +47,23 @@ type GoEndpoint struct {
 	Address		GoAddress	`json:"address"`
 	LBPriority	uint16	`json:"lb_priority"`
 	LBWeight	uint16	`json:"lb_weight"`
+	LBConnNum	uint16	`json:"lb_conn_num"`
 }
 
 func (ce *CEndpoint) ToGolang() *GoEndpoint {
 	ge := &GoEndpoint{}
-	ge.LBPriority = uint16(ce.Entry.lb_priority)
-	ge.LBWeight = uint16(ce.Entry.lb_weight)
-	Memcpy(unsafe.Pointer(&ge.Address),
-		unsafe.Pointer(&ce.Entry.address),
-		unsafe.Sizeof(ge.Address))
+	Memcpy(unsafe.Pointer(ge),
+		unsafe.Pointer(&ce.Entry),
+		unsafe.Sizeof(ce.Entry))
 
 	return ge
 }
 
 func (ge *GoEndpoint) ToClang() *CEndpoint {
 	ce := &CEndpoint{}
-	ce.Entry.lb_priority = C.uint(ge.LBPriority)
-	ce.Entry.lb_weight = C.uint(ge.LBWeight)
-	Memcpy(unsafe.Pointer(&ce.Entry.address),
-		unsafe.Pointer(&ge.Address),
-		unsafe.Sizeof(ce.Entry.address))
+	Memcpy(unsafe.Pointer(&ce.Entry),
+		unsafe.Pointer(ge),
+		unsafe.Sizeof(ce.Entry))
 
 	return ce
 }

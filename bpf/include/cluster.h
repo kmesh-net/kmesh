@@ -25,25 +25,27 @@ typedef struct {
 	__u16 max_retries;
 } circuit_breaker_t;
 
+enum lb_policy {
+	LB_POLICY_ROUND_ROBIN = 0,
+	LB_POLICY_LEAST_REQUEST,
+	LB_POLICY_RANDOM,
+};
+
 typedef struct {
 	map_key_t map_key_of_endpoint;
-	//char cluster_name[KMESH_NAME_LEN];
-
-#define LB_POLICY_LEAST_REQUEST		1U
-#define LB_POLICY_ROUND_ROBIN		2U
-#define LB_POLICY_RANDOM			3U
-	__u16 lb_policy;
 	map_key_t map_key_of_least_endpoint;
+	__u16 lb_policy;
 } load_assignment_t;
 
+enum cluster_type {
+	CLUSTER_TYPE_STATIC = 0,
+	CLUSTER_TYPE_ORIGINAL_DST,
+	CLUSTER_TYPE_ORIGINAL_EDS,
+};
+
 typedef struct {
-	char name[KMESH_NAME_LEN];
-
-#define CLUSTER_TYPE_STATIC				1U
-#define CLUSTER_TYPE_ORIGINAL_DST		2U
-#define CLUSTER_TYPE_ORIGINAL_EDS		3U
+	//char name[KMESH_NAME_LEN];
 	__u16 type;
-
 	__u16 connect_timeout; //default 5s
 	load_assignment_t load_assignment;
 	circuit_breaker_t circuit_breaker;
