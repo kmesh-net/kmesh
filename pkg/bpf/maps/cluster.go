@@ -15,7 +15,7 @@
 package maps
 
 // #cgo CFLAGS: -I../../../bpf/include
-// #include "cluster.h"
+// #include "cluster_type.h"
 import "C"
 import (
 	"github.com/cilium/ebpf"
@@ -29,17 +29,17 @@ type CCluster struct {
 }
 
 func (cc *CCluster) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Cluster.
 		Lookup(key, &cc.Entry)
 }
 
 func (cc *CCluster) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Cluster.
 		Update(key, &cc.Entry, ebpf.UpdateAny)
 }
 
 func (cc *CCluster) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Cluster.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Cluster.
 		Delete(key)
 }
 

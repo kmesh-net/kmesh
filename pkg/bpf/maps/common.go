@@ -87,6 +87,8 @@ func Memcpy(dst, src unsafe.Pointer, len uintptr) {
 }
 
 func StrcpyToC(cStr unsafe.Pointer, len uintptr, goStr string) {
+	C.memset(cStr, 0, C.size_t(len))
+
 	dst := (*C.char)(cStr)
 	src := C.CString(goStr)
 	defer C.free(unsafe.Pointer(src))
@@ -95,5 +97,4 @@ func StrcpyToC(cStr unsafe.Pointer, len uintptr, goStr string) {
 		len = unsafe.Sizeof(goStr)
 	}
 	C.strncpy(dst, src, C.size_t(len))
-	dst[len] = 0
 }

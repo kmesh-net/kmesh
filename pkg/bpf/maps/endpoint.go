@@ -15,7 +15,7 @@
 package maps
 
 // #cgo CFLAGS: -I../../../bpf/include
-// #include "endpoint.h"
+// #include "endpoint_type.h"
 import "C"
 import (
 	"github.com/cilium/ebpf"

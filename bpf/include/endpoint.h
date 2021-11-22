@@ -15,14 +15,7 @@
 #ifndef _ENDPOINT_H_
 #define _ENDPOINT_H_
 
-#include "common.h"
-
-typedef struct {
-	address_t address;
-	__u16 lb_priority;
-	__u16 lb_weight;
-	__u16 lb_conn_num;
-} endpoint_t;
+#include "endpoint_type.h"
 
 bpf_map_t SEC("maps") map_of_endpoint = {
 	.type			= BPF_MAP_TYPE_HASH,

@@ -15,50 +15,7 @@
 #ifndef _FILTER_H_
 #define _FILTER_H_
 
-#include "common.h"
-#include "route.h"
-
-typedef struct {
-	//TODO
-} http_filter_t;
-
-typedef struct {
-	char stat_prefix[0];
-
-#define HTTP_CONNECTION_MANAGER_RDS				1
-#define HTTP_CONNECTION_MANAGER_ROUTE_CONFIG	2
-	__u16 at_type;
-
-	// Golang cannot access C.union directly
-	//union {
-		rds_t rds;
-		route_config_t route_config;
-	//};
-	http_filter_t http_filter;
-	char server_name[0];
-} http_connection_manager_t;
-
-typedef struct {
-	// TODO
-	char stat_prefix[0];
-	char domains[KMESH_HTTP_DOMAIN_NUM][KMESH_HTTP_DOMAIN_LEN];
-	__u16 timeout;
-} ratelimit_t;
-
-typedef struct {
-	char name[KMESH_NAME_LEN];
-
-#define FILTER_NETWORK_HTTP_CONNECTION_MANAGER	1
-#define FILTER_NETWORK_RATELIMIT				2
-	__u16 at_type;
-
-	// typed_config
-	// Golang cannot access C.union directly
-	//union {
-		http_connection_manager_t http_connection_manager;
-		ratelimit_t ratelimit;
-	//};
-} filter_t;
+#include "filter_type.h"
 
 bpf_map_t SEC("maps") map_of_filter = {
 	.type			= BPF_MAP_TYPE_HASH,
@@ -74,18 +31,6 @@ filter_t *map_lookup_filter(map_key_t *map_key)
 	return kmesh_map_lookup_elem(&map_of_filter, map_key);
 }
 
-typedef struct {
-	__u32 destination_port;
-	char transport_protocol[0];
-	char application_protocol[0][0];
-} filter_chain_match_t;
-
-typedef struct {
-	map_key_t map_key_of_filter;
-	// name = listener_name
-
-	filter_chain_match_t filter_chain_match;
-} filter_chain_t;
 
 bpf_map_t SEC("maps") map_of_filter_chain = {
 	.type			= BPF_MAP_TYPE_HASH,
@@ -101,6 +46,7 @@ filter_chain_t *map_lookup_filter_chain(map_key_t *map_key)
 	return kmesh_map_lookup_elem(&map_of_filter_chain, map_key);
 }
 
+static inline
 int filter_chain_match_check(ctx_buff_t *ctx, filter_chain_match_t *filter_chain_match)
 {
 	//TODO

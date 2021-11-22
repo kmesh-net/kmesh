@@ -15,7 +15,7 @@
 package maps
 
 // #cgo CFLAGS: -I../../../bpf/include
-// #include "filter.h"
+// #include "filter_type.h"
 import "C"
 import (
 	"github.com/cilium/ebpf"

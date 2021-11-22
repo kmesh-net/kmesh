@@ -14,6 +14,8 @@
 
 package kubernetes
 
+// #cgo CFLAGS: -I../../../bpf/include
+// #include "listener_type.h"
 import "C"
 import (
 	"fmt"

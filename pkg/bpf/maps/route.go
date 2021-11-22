@@ -15,7 +15,7 @@
 package maps
 
 // #cgo CFLAGS: -I../../../bpf/include
-// #include "route.h"
+// #include "route_type.h"
 import "C"
 import (
 	"github.com/cilium/ebpf"
@@ -28,17 +28,17 @@ type CRoute struct {
 }
 
 func (cr *CRoute) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Route.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Route.
 		Lookup(key, &cr.Entry)
 }
 
 func (cr *CRoute) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Route.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Route.
 		Update(key, &cr.Entry, ebpf.UpdateAny)
 }
 
 func (cr *CRoute) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Route.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Route.
 		Delete(key)
 }
 
@@ -60,17 +60,17 @@ type CVirtualHost struct {
 }
 
 func (cvh *CVirtualHost) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.VirtualHost.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.VirtualHost.
 		Lookup(key, &cvh.Entry)
 }
 
 func (cvh *CVirtualHost) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.VirtualHost.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.VirtualHost.
 		Update(key, &cvh.Entry, ebpf.UpdateAny)
 }
 
 func (cvh *CVirtualHost) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.VirtualHost.
+	return bpf.Obj.SockConn.FilterObjects.FilterMaps.VirtualHost.
 		Delete(key)
 }
 

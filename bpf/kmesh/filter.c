@@ -14,6 +14,7 @@
 
 #include "bpf_log.h"
 #include "filter.h"
+#include "route.h"
 #include "tail_call.h"
 
 static inline

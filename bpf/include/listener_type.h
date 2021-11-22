@@ -12,24 +12,29 @@
  * Create: 2021-09-17
  */
 
-#ifndef _CLUSTER_H_
-#define _CLUSTER_H_
+#ifndef _LISTENER_TYPE_H_
+#define _LISTENER_TYPE_H_
 
-#include "cluster_type.h"
+#include "common.h"
 
-bpf_map_t SEC("maps") map_of_cluster = {
-	.type			= BPF_MAP_TYPE_HASH,
-	// come from listener_t or route_action_t
-	.key_size		= sizeof(map_key_t),
-	.value_size		= sizeof(cluster_t),
-	.max_entries	= MAP_SIZE_OF_CLUSTER,
-	.map_flags		= 0,
+enum listener_type {
+	LISTENER_TYPE_STATIC = 0,
+	LISTENER_TYPE_DYNAMIC,
 };
 
-static inline
-cluster_t *map_lookup_cluster(map_key_t *map_key)
-{
-	return kmesh_map_lookup_elem(&map_of_cluster, map_key);
-}
+enum listener_state {
+	LISTENER_STATE_PASSIVE = 0,
+	LISTENER_STATE_ACTIVE,
+};
 
-#endif //_CLUSTER_H_
+typedef struct {
+	// used by map_of_cluster_t or map_of_filter_chain
+	map_key_t map_key;
+	//char name[KMESH_NAME_LEN];
+
+	__u16 type;
+	__u16 state;
+	address_t address;
+} listener_t;
+
+#endif //_LISTENER_TYPE_H_
