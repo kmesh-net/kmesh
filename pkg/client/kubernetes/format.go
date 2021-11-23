@@ -105,14 +105,14 @@ func (event *ClientEvent) eventUpdateItem() error {
 	// Update map of endpoint
 	for _, ep := range event.Endpoints {
 		log.Debugf("eventUpdateItem Endpoints: %#v", ep)
-		log.Debug("---------")
+		log.Debug("------------------")
 
 		for _, sub := range ep.Subsets {
 			// TODO: len(v.Subsets[]) > 1 ??
 			for i := 0; i < len(sub.Addresses); i++ {
 				goEndpoint = maps.GoEndpoint{}
 				// TODO: goEndpoint.Address.Protocol = 0
-				goEndpoint.Address.Port = uint32(sub.Ports[i].Port)
+				goEndpoint.Address.Port = uint32(sub.Ports[0].Port)
 				goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(sub.Addresses[i].IP)
 
 				cEndpoint := goEndpoint.ToClang()
@@ -132,7 +132,7 @@ func (event *ClientEvent) eventUpdateItem() error {
 		return nil
 	}
 	log.Debugf("eventUpdateItem server: %#v", event.Service)
-	log.Debug("---------")
+	log.Debug("------------------")
 
 	mapKey.Index = 0
 	// Update map of cluster
@@ -151,7 +151,7 @@ func (event *ClientEvent) eventUpdateItem() error {
 	goListener.State = C.LISTENER_STATE_ACTIVE
 	goListener.Address = maps.GoAddress{
 		Protocol: 0,
-		Port: uint32(event.Service.Spec.Ports[0].Port),
+		Port: 0,//uint32(event.Service.Spec.Ports[0].Port),
 	}
 	// TODO: support other type
 	switch event.Service.Spec.Type {

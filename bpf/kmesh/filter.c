@@ -111,7 +111,7 @@ int filter_chain_manager(ctx_buff_t *ctx)
 	if (filter_chain == NULL)
 		return convert_sock_errno(ENOENT);
 
-	map_key.nameid = filter_chain->map_key_of_filter.nameid;
+	map_key = filter_chain->map_key_of_filter;
 
 	for (i = 0; i < MAP_SIZE_OF_PER_FILTER; i++) {
 		map_key.index = i;

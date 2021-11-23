@@ -25,7 +25,7 @@ int cluster_handle_circuit_breaker(cluster_t *cluster)
 }
 
 static inline
-endpoint_t *loadbanance_least_request(load_assignment_t *load_assignment)
+endpoint_t *loadbanance_round_robin(load_assignment_t *load_assignment)
 {
 	map_key_t *map_key = NULL;
 
@@ -38,13 +38,13 @@ endpoint_t *loadbanance_least_request(load_assignment_t *load_assignment)
 }
 
 static inline
-endpoint_t *loadbanance_round_robin(load_assignment_t *load_assignment)
+endpoint_t *loadbanance_least_request(load_assignment_t *load_assignment)
 {
 	unsigned i;
 	map_key_t map_key;
 	endpoint_t *endpoint = NULL;
 	
-	map_key.nameid = load_assignment->map_key_of_endpoint.nameid;
+	map_key = load_assignment->map_key_of_endpoint;
 
 	for (i = 0; i < MAP_SIZE_OF_PER_ENDPOINT; i++) {
 		map_key.index = i;

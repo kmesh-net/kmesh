@@ -43,8 +43,7 @@ int l4_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	if (listener->state & LISTENER_STATE_PASSIVE)
 		return -EBUSY;
 
-	map_key.nameid = listener->map_key.nameid;
-	map_key.index = 0;
+	map_key = listener->map_key;
 
 	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
 		return -ENOSPC;
@@ -66,7 +65,7 @@ int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	if (listener->state & LISTENER_STATE_PASSIVE)
 		return -EBUSY;
 
-	map_key.nameid = listener->map_key.nameid;
+	map_key = listener->map_key;
 
 	for (i = 0; i < MAP_SIZE_OF_PER_FILTER_CHAIN; i++) {
 		map_key.index = i;

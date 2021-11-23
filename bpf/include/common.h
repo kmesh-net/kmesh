@@ -62,6 +62,8 @@ typedef struct bpf_sock_addr	ctx_buff_t;
 typedef struct {
 	// calculated based on name in daemon
 	__u32 nameid;
+	// identify different services
+	__u32 port;
 	// initial value of the index is map_count, key range is [0, map_count)
 	__u32 index;
 } map_key_t;

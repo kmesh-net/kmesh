@@ -28,6 +28,7 @@ import (
 // GoMapKey = C.map_key_t
 type GoMapKey struct {
 	NameID	uint32
+	Port	uint32
 	Index	uint32
 }
 

@@ -64,10 +64,8 @@ type CgroupSockMapSpecs struct {
 	Filter       *ebpf.MapSpec `ebpf:"filter"`
 	FilterChain  *ebpf.MapSpec `ebpf:"filter_chain"`
 	Listener     *ebpf.MapSpec `ebpf:"listener"`
-	Route        *ebpf.MapSpec `ebpf:"route"`
 	TailCallCtx  *ebpf.MapSpec `ebpf:"tail_call_ctx"`
 	TailCallProg *ebpf.MapSpec `ebpf:"tail_call_prog"`
-	VirtualHost  *ebpf.MapSpec `ebpf:"virtual_host"`
 }
 
 // CgroupSockObjects contains all objects after they have been loaded into the kernel.
@@ -93,10 +91,8 @@ type CgroupSockMaps struct {
 	Filter       *ebpf.Map `ebpf:"filter"`
 	FilterChain  *ebpf.Map `ebpf:"filter_chain"`
 	Listener     *ebpf.Map `ebpf:"listener"`
-	Route        *ebpf.Map `ebpf:"route"`
 	TailCallCtx  *ebpf.Map `ebpf:"tail_call_ctx"`
 	TailCallProg *ebpf.Map `ebpf:"tail_call_prog"`
-	VirtualHost  *ebpf.Map `ebpf:"virtual_host"`
 }
 
 func (m *CgroupSockMaps) Close() error {
@@ -105,10 +101,8 @@ func (m *CgroupSockMaps) Close() error {
 		m.Filter,
 		m.FilterChain,
 		m.Listener,
-		m.Route,
 		m.TailCallCtx,
 		m.TailCallProg,
-		m.VirtualHost,
 	)
 }
 

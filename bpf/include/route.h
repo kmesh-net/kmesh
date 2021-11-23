@@ -60,8 +60,7 @@ int route_mangager(ctx_buff_t *ctx, route_action_t *route_action)
 	map_key_t map_key;
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	map_key.nameid = route_action->map_key_of_cluster.nameid;
-	map_key.index = 0;
+	map_key = route_action->map_key_of_cluster;
 
 	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
 		return -ENOSPC;
@@ -85,7 +84,7 @@ int virtual_host_manager(ctx_buff_t *ctx, virtual_host_t *virtual_host)
 	map_key_t map_key;
 	route_t *route = NULL;
 
-	map_key.nameid = virtual_host->map_key_of_route.nameid;
+	map_key = virtual_host->map_key_of_route;
 
 	for (i = 0; i < MAP_SIZE_OF_PER_ROUTE; i++) {
 		map_key.index = i;
@@ -111,7 +110,7 @@ int route_config_manager(ctx_buff_t *ctx, route_config_t *route_config)
 	map_key_t map_key;
 	virtual_host_t *virtual_host = NULL;
 
-	map_key.nameid = route_config->map_keyid_of_virtual_host.nameid;
+	map_key = route_config->map_keyid_of_virtual_host;
 
 	for (i = 0; i < MAP_SIZE_OF_PER_VIRTUAL_HOST; i++) {
 		map_key.index = i;
