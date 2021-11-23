@@ -46,6 +46,12 @@ type ConvertMapKey struct {
 	numToStr map[uint32]string
 }
 
+func NewConvertMapKey() *ConvertMapKey {
+	con := &ConvertMapKey{}
+	con.numToStr = make(map[uint32]string)
+	return con
+}
+
 func (con *ConvertMapKey) StrToNum(str string) uint32 {
 	var num uint32
 	hash.Write([]byte(str))

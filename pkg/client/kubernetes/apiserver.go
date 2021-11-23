@@ -37,6 +37,7 @@ const (
 	pkgSubsys = "apiserver"
 	InformerNameService = "Service"
 	InformerNameEndpoints = "Endpoints"
+	InformerOptAdd = "Add"
 	InformerOptUpdate = "Update"
 	InformerOptDelete = "Delete"
 )
@@ -50,13 +51,12 @@ type KubeController struct {
 	factory		informers.SharedInformerFactory
 	serviceInformer		informersCoreV1.ServiceInformer
 	endpointInformer	informersCoreV1.EndpointsInformer
-	eventMap	map[string]ClientEvent
+	eventMap	map[EventKey]ClientEvent
 }
 
 type queueKey struct {
 	typ		string
-	opt		string
-	name	string
+	EventKey
 }
 
 func NewKubeController(clientset kubernetes.Interface) *KubeController {
@@ -77,7 +77,7 @@ func NewKubeController(clientset kubernetes.Interface) *KubeController {
 	c.serviceInformer.Informer().AddEventHandler(handler)
 	c.endpointInformer.Informer().AddEventHandler(handler)
 
-	c.eventMap = make(map[string]ClientEvent)
+	c.eventMap = make(map[EventKey]ClientEvent)
 	return c
 }
 
@@ -115,56 +115,52 @@ func (c *KubeController) checkObjectValidity(oldObj, newObj interface{}) bool {
 	return false
 }
 
-func (c *KubeController) enqueue(opt, typ, name string) {
-	key := queueKey{
-		opt: opt,
-		typ: typ,
-		name: name,
-	}
-	c.queue.AddRateLimited(key)
-}
-
-func (c *KubeController) enqueueForAdd(obj interface{}) {
+func (c *KubeController) enqueue(opt string, obj interface{}) {
 	name, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
-	c.enqueue(InformerOptUpdate, c.getObjectType(obj), name)
+
+	qkey := queueKey{}
+	qkey.typ = c.getObjectType(obj)
+	qkey.opt = opt
+	qkey.name = name
+	c.queue.AddRateLimited(qkey)
+}
+
+func (c *KubeController) enqueueForAdd(obj interface{}) {
+	c.enqueue(InformerOptAdd, obj)
 }
 
 func (c *KubeController) enqueueForUpdate(oldObj, newObj interface{}) {
 	if !c.checkObjectValidity(oldObj, newObj) {
 		return
 	}
-	c.enqueueForAdd(newObj)
+	c.enqueue(InformerOptUpdate, newObj)
 }
 
 func (c *KubeController) enqueueForDelete(obj interface{}) {
-	name, err := cache.DeletionHandlingMetaNamespaceKeyFunc(obj)
-	if err != err {
-		runtime.HandleError(err)
-		return
-	}
-	c.enqueue(InformerOptDelete, c.getObjectType(obj), name)
+	c.enqueue(InformerOptDelete, obj)
 }
 
-func (c *KubeController) syncHandler(key queueKey) error {
+func (c *KubeController) syncHandler(qkey queueKey) error {
 	var (
 		err error
 		exists bool
 		obj interface{}
 	)
-	event := c.eventMap[key.name]
+	event := c.eventMap[qkey.EventKey]
+	event.Key = qkey.EventKey
 
-	switch key.typ {
+	switch qkey.typ {
 	case InformerNameService:
-		obj, exists, err = c.serviceInformer.Informer().GetIndexer().GetByKey(key.name)
+		obj, exists, err = c.serviceInformer.Informer().GetIndexer().GetByKey(qkey.name)
 		if err == nil {
 			event.Service = obj.(*apiCoreV1.Service)
 		}
 	case InformerNameEndpoints:
-		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(key.name)
+		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.name)
 		if err == nil {
 			event.Endpoints = append(event.Endpoints, obj.(*apiCoreV1.Endpoints))
 		}
@@ -173,13 +169,13 @@ func (c *KubeController) syncHandler(key queueKey) error {
 	}
 
 	if err != nil {
-		return fmt.Errorf("get object with key %#v from store failed with %v", key, err)
+		return fmt.Errorf("get object with key %#v from store failed with %v", qkey, err)
 	}
 	if !exists {
-		log.Debugf("Service or Endpoints %#v does not exist anymore", key)
+		log.Debugf("Service or Endpoints %#v does not exist anymore", qkey)
 	}
 
-	c.eventMap[key.name] = event
+	c.eventMap[qkey.EventKey] = event
 	return nil
 }
 
@@ -197,14 +193,14 @@ func (c *KubeController) processNextWorkItem() error {
 		// We also must call Forget if we do not want this work item being re-queued.
 		defer c.queue.Done(obj)
 
-		key, ok := obj.(queueKey)
+		qkey, ok := obj.(queueKey)
 		if !ok {
 			c.queue.Forget(obj)
 			return fmt.Errorf("queue get unknown obj, %#v", obj)
 		}
 
-		if err := c.syncHandler(key); err != nil {
-			return fmt.Errorf("sync failed, %s %s", key, err)
+		if err := c.syncHandler(qkey); err != nil {
+			return fmt.Errorf("sync failed, %s %s", qkey, err)
 		}
 
 		c.queue.Forget(obj)
@@ -223,13 +219,21 @@ func (c *KubeController) runWorker() {
 			log.Error(err)
 			break
 		}
-	}
 
-	for i, v := range c.eventMap {
-		if err := v.EventHandler(); err != nil {
-			fmt.Println(err)
+		// Dequeue until the queue is empty, and then process in batch
+		if c.queue.Len() > 0 {
+			continue
 		}
-		delete(c.eventMap, i)
+		for k, v := range c.eventMap {
+			if err := v.EventHandler(); err != nil {
+				log.Error(err)
+			}
+			if v.Empty() {
+				delete(c.eventMap, k)
+			} else {
+				v.Reset()
+			}
+		}
 	}
 }
 

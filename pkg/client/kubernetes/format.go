@@ -23,23 +23,71 @@ import (
 	"openeuler.io/mesh/pkg/bpf/maps"
 )
 
-var convert = maps.ConvertMapKey{}
+var convert = maps.NewConvertMapKey()
 
 type ClientEvent struct {
-	QKey	queueKey
-	Service		*apiCoreV1.Service
-	Endpoints	[]*apiCoreV1.Endpoints
+	Key			EventKey
+	serviceCount	uint32
+	endpointsCount	uint32
+	Service			*apiCoreV1.Service
+	Endpoints		[]*apiCoreV1.Endpoints
+}
+
+type EventKey struct {
+	opt		string
+	name	string
+}
+/*
+func NewEndpointFromKubernetes(ep *apiCoreV1.Endpoints) []maps.GoEndpoint {
+	var endpoints []maps.GoEndpoint
+
+	for _, sub := range ep.Subsets {
+		// TODO: len(v.Subsets[]) > 1 ??
+		for i := 0; i < len(sub.Addresses); i++ {
+			goEndpoint := maps.GoEndpoint{}
+			// TODO: goEndpoint.Address.Protocol = 0
+			goEndpoint.Address.Port = uint32(sub.Ports[i].Port)
+			goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(sub.Addresses[i].IP)
+
+			endpoints = append(endpoints, goEndpoint)
+		}
+	}
+
+	return endpoints
+}
+
+func NewClusterFromKubernetes(ser *apiCoreV1.Service) *maps.GoCluster {
+
+}
+
+func NewListenerFromKubernetes(ser *apiCoreV1.Service) *maps.GoListener {
+
+}*/
+
+func (event *ClientEvent) Reset() {
+	event.Service = nil
+	event.Endpoints = nil
+}
+
+func (event *ClientEvent) Empty() bool {
+	return (event.serviceCount == 0) && (event.endpointsCount == 0)
 }
 
 func (event *ClientEvent) EventHandler() error {
-	switch event.QKey.opt {
+	switch event.Key.opt {
+	case InformerOptAdd:
+		return event.eventAddItem()
 	case InformerOptUpdate:
 		return event.eventUpdateItem()
 	case InformerOptDelete:
 		return event.eventDeleteItem()
 	default:
-		return nil
+		return fmt.Errorf("EventHandler get invalid informer opt")
 	}
+}
+
+func (event *ClientEvent) eventAddItem() error {
+	return event.eventUpdateItem()
 }
 
 func (event *ClientEvent) eventUpdateItem() error {
@@ -49,60 +97,79 @@ func (event *ClientEvent) eventUpdateItem() error {
 		goListener maps.GoListener
 	)
 
-	key := maps.GoMapKey{
-		NameID: convert.StrToNum(event.QKey.name),
-		Index: 0,
+	mapKey := maps.GoMapKey{
+		NameID: convert.StrToNum(event.Key.name),
+		Index: event.endpointsCount,
 	}
 
 	// Update map of endpoint
-	for _, v := range event.Endpoints {
-		log.Debugf("eventUpdateItem Endpoints: %#v", v)
-		fmt.Println("")
-		// TODO: len(v.Subsets[]) > 1 ??
-		for i := 0; i < len(v.Subsets[0].Addresses); i++ {
-			goEndpoint = maps.GoEndpoint{}
-			// TODO: goEndpoint.Address.Protocol =
-			goEndpoint.Address.Port = uint32(v.Subsets[0].Ports[i].Port)
-			goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(v.Subsets[0].Addresses[i].IP)
+	for _, ep := range event.Endpoints {
+		log.Debugf("eventUpdateItem Endpoints: %#v", ep)
+		log.Debug("---------")
 
-			cEndpoint := goEndpoint.ToClang()
-			if err := cEndpoint.Update(&key); err != nil {
-				// TODO: failed
-				fmt.Printf("eventUpdateItem endpoint failed, %s\n", err)
+		for _, sub := range ep.Subsets {
+			// TODO: len(v.Subsets[]) > 1 ??
+			for i := 0; i < len(sub.Addresses); i++ {
+				goEndpoint = maps.GoEndpoint{}
+				// TODO: goEndpoint.Address.Protocol = 0
+				goEndpoint.Address.Port = uint32(sub.Ports[i].Port)
+				goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(sub.Addresses[i].IP)
+
+				cEndpoint := goEndpoint.ToClang()
+				if err := cEndpoint.Update(&mapKey); err != nil {
+					log.Errorf("eventUpdateItem endpoint failed, %v, %s", mapKey, err)
+					continue
+				}
+				mapKey.Index++
 			}
-			key.Index++
 		}
 	}
+	if event.Key.opt == InformerOptAdd {
+		event.endpointsCount += mapKey.Index
+	}
 
-	// Update map of cluster
+	if event.Service == nil {
+		return nil
+	}
 	log.Debugf("eventUpdateItem server: %#v", event.Service)
-	fmt.Println("")
-	// TODO: goCluster.Type = C.CLUSTER_TYPE_STATIC
+	log.Debug("---------")
+
+	mapKey.Index = 0
+	// Update map of cluster
+	goCluster.LoadAssignment.MapKeyOfEndpoint = mapKey
 	goCluster.ConnectTimeout = 15
-	goCluster.LoadAssignment.MapKeyOfEndpoint = key
 
 	cCluster := goCluster.ToClang()
-	key.Index = 1
-	if err := cCluster.Update(&key); err != nil {
-		// TODO: failed
-		fmt.Printf("eventUpdateItem cluster failed, %s\n", err)
+	if err := cCluster.Update(&mapKey); err != nil {
+		event.eventDeleteItem()
+		return fmt.Errorf("eventUpdateItem cluster failed, %v, %s", mapKey, err)
 	}
 
 	// Update map of listener
-	goListener.MapKey = key
+	goListener.MapKey = mapKey
 	goListener.Type = C.LISTENER_TYPE_DYNAMIC
 	goListener.State = C.LISTENER_STATE_ACTIVE
 	goListener.Address = maps.GoAddress{
 		Protocol: 0,
 		Port: uint32(event.Service.Spec.Ports[0].Port),
-		// TODO: event.Service.Spec.Type
-		IPv4: maps.ConvertIpToUint32(event.Service.Spec.ClusterIP),
+	}
+	// TODO: support other type
+	switch event.Service.Spec.Type {
+	case apiCoreV1.ServiceTypeClusterIP:
+		goListener.Address.IPv4 = maps.ConvertIpToUint32(event.Service.Spec.ClusterIP)
+	case apiCoreV1.ServiceTypeNodePort:
+	case apiCoreV1.ServiceTypeLoadBalancer:
+	default:
 	}
 
 	cListener := goListener.ToClang()
 	if err := cListener.Update(&goListener.Address); err != nil {
-		// TODO: failed
-		fmt.Printf("eventUpdateItem listener failed, %s\n", err)
+		event.eventDeleteItem()
+		return fmt.Errorf("eventUpdateItem listener failed, %v, %s", goListener.Address, err)
+	}
+
+	if event.Key.opt == InformerOptAdd {
+		event.serviceCount = 1
 	}
 
 	return nil
