@@ -43,7 +43,6 @@ int l4_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	if (listener->state & LISTENER_STATE_PASSIVE)
 		return -EBUSY;
 
-	// always listener->map_key.index = 1
 	map_key.nameid = listener->map_key.nameid;
 	map_key.index = 0;
 
@@ -58,7 +57,7 @@ int l4_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 static inline
 int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 {
-	unsigned index, i;
+	unsigned i;
 	map_key_t map_key;
 	filter_chain_t *filter_chain = NULL;
 
@@ -68,9 +67,8 @@ int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 		return -EBUSY;
 
 	map_key.nameid = listener->map_key.nameid;
-	index = BPF_MIN(listener->map_key.index, MAP_SIZE_OF_PER_FILTER_CHAIN);
 
-	for (i = 0; i < index; i++) {
+	for (i = 0; i < MAP_SIZE_OF_PER_FILTER_CHAIN; i++) {
 		map_key.index = i;
 
 		filter_chain = map_lookup_filter_chain(&map_key);
@@ -81,7 +79,7 @@ int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 			break;
 	}
 
-	if (i == index)
+	if (i == MAP_SIZE_OF_PER_FILTER_CHAIN)
 		return -ENOENT;
 
 	if (kmesh_tail_update_ctx(&address, &map_key) != 0)

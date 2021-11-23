@@ -60,7 +60,6 @@ int route_mangager(ctx_buff_t *ctx, route_action_t *route_action)
 	map_key_t map_key;
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	// always route_action->map_key_of_cluster.index = 1
 	map_key.nameid = route_action->map_key_of_cluster.nameid;
 	map_key.index = 0;
 
@@ -82,14 +81,13 @@ int virtual_host_check(ctx_buff_t *ctx, virtual_host_t *virtual_host)
 static inline
 int virtual_host_manager(ctx_buff_t *ctx, virtual_host_t *virtual_host)
 {
-	unsigned index, i;
+	unsigned i;
 	map_key_t map_key;
 	route_t *route = NULL;
 
 	map_key.nameid = virtual_host->map_key_of_route.nameid;
-	index = BPF_MIN(virtual_host->map_key_of_route.index, MAP_SIZE_OF_PER_ROUTE);
 
-	for (i = 0; i < index; i++) {
+	for (i = 0; i < MAP_SIZE_OF_PER_ROUTE; i++) {
 		map_key.index = i;
 
 		route = map_lookup_route(&map_key);
@@ -100,7 +98,7 @@ int virtual_host_manager(ctx_buff_t *ctx, virtual_host_t *virtual_host)
 			break;
 	}
 
-	if (i == index)
+	if (i == MAP_SIZE_OF_PER_ROUTE)
 		return -ENOENT;
 
 	return route_mangager(ctx, &route->action);
@@ -109,14 +107,13 @@ int virtual_host_manager(ctx_buff_t *ctx, virtual_host_t *virtual_host)
 static inline
 int route_config_manager(ctx_buff_t *ctx, route_config_t *route_config)
 {
-	unsigned index, i;
+	unsigned i;
 	map_key_t map_key;
 	virtual_host_t *virtual_host = NULL;
 
 	map_key.nameid = route_config->map_keyid_of_virtual_host.nameid;
-	index = BPF_MIN(route_config->map_keyid_of_virtual_host.index, MAP_SIZE_OF_PER_VIRTUAL_HOST);
 
-	for (i = 0; i < index; i++) {
+	for (i = 0; i < MAP_SIZE_OF_PER_VIRTUAL_HOST; i++) {
 		map_key.index = i;
 
 		virtual_host = map_lookup_virtual_host(&map_key);
@@ -127,7 +124,7 @@ int route_config_manager(ctx_buff_t *ctx, route_config_t *route_config)
 			break;
 	}
 
-	if (i == index)
+	if (i == MAP_SIZE_OF_PER_VIRTUAL_HOST)
 		return -ENOENT;
 
 	return virtual_host_manager(ctx, virtual_host);

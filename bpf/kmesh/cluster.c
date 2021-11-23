@@ -40,26 +40,26 @@ endpoint_t *loadbanance_least_request(load_assignment_t *load_assignment)
 static inline
 endpoint_t *loadbanance_round_robin(load_assignment_t *load_assignment)
 {
-	unsigned index, i;
+	unsigned i;
 	map_key_t map_key;
 	endpoint_t *endpoint = NULL;
 	
 	map_key.nameid = load_assignment->map_key_of_endpoint.nameid;
-	index = BPF_MIN(load_assignment->map_key_of_endpoint.index, MAP_SIZE_OF_PER_ENDPOINT);
 
-	for (i = 0; i < index; i++) {
+	for (i = 0; i < MAP_SIZE_OF_PER_ENDPOINT; i++) {
 		map_key.index = i;
 
 		endpoint_t *ep = map_lookup_endpoint(&map_key);
 		if (ep == NULL)
-			return NULL;
+			break;
 
 		if ((endpoint == NULL) || (endpoint->lb_conn_num > ep->lb_conn_num))
 			endpoint = ep;
 	}
 
 	// TODO: -1 when disconn
-	endpoint->lb_conn_num++;
+	if (endpoint != NULL)
+		endpoint->lb_conn_num++;
 	return endpoint;
 }
 

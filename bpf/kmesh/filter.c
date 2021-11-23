@@ -94,7 +94,7 @@ int filter_manager(ctx_buff_t *ctx)
 SEC_TAIL(KMESH_SOCKET_CALLS, KMESH_TAIL_CALL_FILTER_CHAIN)
 int filter_chain_manager(ctx_buff_t *ctx)
 {
-	unsigned index, i;
+	unsigned i;
 	map_key_t map_key;
 	map_key_t *pkey = NULL;
 	filter_chain_t *filter_chain = NULL;
@@ -112,9 +112,8 @@ int filter_chain_manager(ctx_buff_t *ctx)
 		return convert_sock_errno(ENOENT);
 
 	map_key.nameid = filter_chain->map_key_of_filter.nameid;
-	index = BPF_MIN(filter_chain->map_key_of_filter.index, MAP_SIZE_OF_PER_FILTER);
 
-	for (i = 0; i < index; i++) {
+	for (i = 0; i < MAP_SIZE_OF_PER_FILTER; i++) {
 		map_key.index = i;
 
 		filter = map_lookup_filter(&map_key);
@@ -125,7 +124,7 @@ int filter_chain_manager(ctx_buff_t *ctx)
 			break;
 	}
 
-	if (i == index)
+	if (i == MAP_SIZE_OF_PER_FILTER)
 		return convert_sock_errno(ENOENT);
 
 	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
