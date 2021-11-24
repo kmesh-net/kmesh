@@ -45,7 +45,7 @@ type EventKey struct {
 }
 
 var (
-	ProtocolStrToC = map[apiCoreV1.Protocol]C.uint {
+	ProtocolStrToC = map[apiCoreV1.Protocol]uint32 {
 		apiCoreV1.ProtocolTCP:	0, //C.IPPROTO_TCP,
 		apiCoreV1.ProtocolUDP:	6, //C.IPPROTO_UDP,
 	}
@@ -83,73 +83,153 @@ func (event *ClientEvent) Empty() bool {
 	return false
 }
 
+func (event *ClientEvent) PrintDebug() {
+	for _, ep := range event.Endpoints {
+		log.Debugf("ClientEvent Endpoints: %#v", ep)
+		log.Debug("------------------------------------")
+	}
+
+	if event.Service != nil {
+		log.Debugf("ClientEvent Service: %#v", event.Service)
+		log.Debug("------------------------------------")
+	}
+}
+
 func (event *ClientEvent) EventHandler() error {
 	event.Init()
 
 	switch event.Key.opt {
 	case InformerOptAdd:
-		return event.eventAddItem()
+		if err := event.addEndpoint(); err != nil {
+			return err
+		}
+		if err := event.addCluster(); err != nil {
+			return err
+		}
+		if err := event.addListener(); err != nil {
+			return err
+		}
 	case InformerOptUpdate:
-		return event.eventUpdateItem()
+		if err := event.UpdateEndpoint(); err != nil {
+			return err
+		}
+		if err := event.UpdateCluster(); err != nil {
+			return err
+		}
+		if err := event.UpdateListener(); err != nil {
+			return err
+		}
 	case InformerOptDelete:
-		return event.eventDeleteItem()
+		if err := event.DeleteListener(); err != nil {
+			return err
+		}
+		if err := event.DeleteCluster(); err != nil {
+			return err
+		}
+		if err := event.DeleteEndpoint(); err != nil {
+			return err
+		}
 	default:
-		return fmt.Errorf("EventHandler get invalid informer opt")
+		return fmt.Errorf("eventAddItem get invalid informer opt")
 	}
+
+	event.PrintDebug()
+	return nil
 }
 
-func (event *ClientEvent) eventAddItem() error {
+func (event *ClientEvent) addEndpoint() error {
 	var (
-		goEndpoint maps.GoEndpoint
-		goCluster maps.GoCluster
-		goListener maps.GoListener
 		mapKey maps.GoMapKey
+		goEndpoint maps.GoEndpoint
 	)
 
 	mapKey.NameID = convert.StrToNum(event.Key.name)
 
-	// Update map of endpoint
 	for _, ep := range event.Endpoints {
-		log.Debugf("eventUpdateItem Endpoints: %#v", ep)
-		log.Debug("------------------")
-
 		for _, sub := range ep.Subsets {
 			for _, epPort := range sub.Ports {
+				goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
 				goEndpoint.Address.Port = uint32(epPort.Port)
+
 				mapKey.Port = goEndpoint.Address.Port
 				mapKey.Index = event.endpointsCount[mapKey.Port]
 
 				for _, epAddr := range sub.Addresses {
-					goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
 					goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(epAddr.IP)
 
 					cEndpoint := goEndpoint.ToClang()
 					if err := cEndpoint.Update(&mapKey); err != nil {
-						log.Errorf("eventUpdateItem endpoint failed, %v, %s", mapKey, err)
-						continue
+						event.DeleteEndpoint()
+						return fmt.Errorf("eventAddItem endpoint failed, %v, %s", mapKey, err)
 					}
 
 					event.endpointsAddressToMapKey[goEndpoint.Address] = mapKey
+					event.endpointsCount[mapKey.Port]++
 					mapKey.Index++
 				}
-
-				event.endpointsCount[mapKey.Port] = mapKey.Index
 			}
 		}
 	}
 
+	return nil
+}
+
+func (event *ClientEvent) UpdateEndpoint() error {
+	var (
+		mapKey maps.GoMapKey
+		goEndpoint maps.GoEndpoint
+	)
+
+	// Update map of endpoint
+	for _, ep := range event.Endpoints {
+		for _, sub := range ep.Subsets {
+			for _, epPort := range sub.Ports {
+				goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
+				goEndpoint.Address.Port = uint32(epPort.Port)
+
+				for _, epAddr := range sub.Addresses {
+					goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(epAddr.IP)
+
+					mapKey = event.endpointsAddressToMapKey[goEndpoint.Address]
+
+					cEndpoint := goEndpoint.ToClang()
+					if err := cEndpoint.Update(&mapKey); err != nil {
+						event.DeleteEndpoint()
+						return fmt.Errorf("eventUpdateItem endpoint failed, %v, %s", mapKey, err)
+					}
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (event *ClientEvent) DeleteEndpoint() error {
+	//log.Debugf("syncHandler for Endpoints: %#v", obj)
+	//fmt.Println("")
+	// FIXME: update map flags??
+	// FIXME: 没有收到删除事件
+	// FIXME: 怎么去得到key，遍历？
+
+	return nil
+}
+
+func (event *ClientEvent) addCluster() error {
+	var (
+		mapKey maps.GoMapKey
+		goCluster maps.GoCluster
+	)
+
 	if event.Service == nil {
 		return nil
 	}
-	log.Debugf("eventUpdateItem server: %#v", event.Service)
-	log.Debug("------------------")
+	mapKey.NameID = convert.StrToNum(event.Key.name)
 
-	// Update map of cluster
 	// TODO
 	//goCluster.Type = 0
 	//goCluster.ConnectTimeout = 15
 
-	mapKey.Index = 0
 	for _, serPort := range event.Service.Spec.Ports {
 		mapKey.Port = uint32(serPort.TargetPort.IntVal)
 		goCluster.LoadAssignment.MapKeyOfEndpoint = mapKey
@@ -157,31 +237,50 @@ func (event *ClientEvent) eventAddItem() error {
 		mapKey.Port = uint32(serPort.Port)
 		cCluster := goCluster.ToClang()
 		if err := cCluster.Update(&mapKey); err != nil {
-			event.eventDeleteItem()
-			return fmt.Errorf("eventUpdateItem cluster failed, %v, %s", mapKey, err)
+			event.DeleteCluster()
+			return fmt.Errorf("eventAddItem cluster failed, %v, %s", mapKey, err)
 		}
 
 		event.serviceCount[mapKey.Port] = 1
 	}
 
-	// Update map of listener
-	goListener.MapKey = mapKey
+	return nil
+}
+
+func (event *ClientEvent) UpdateCluster() error {
+	return event.addCluster()
+}
+
+func (event *ClientEvent) DeleteCluster() error {
+	return nil
+}
+
+func (event *ClientEvent) addListener() error {
+	var (
+		goListener maps.GoListener
+	)
+
+	if event.Service == nil {
+		return nil
+	}
+	goListener.MapKey.NameID = convert.StrToNum(event.Key.name)
+
 	goListener.Type = C.LISTENER_TYPE_DYNAMIC
 	goListener.State = C.LISTENER_STATE_ACTIVE
 
 	for _, serPort := range event.Service.Spec.Ports {
+		goListener.MapKey.Port = uint32(serPort.TargetPort.IntVal)
+
 		goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
 
 		// apiCoreV1.ServiceTypeClusterIP
 		goListener.Address.IPv4 = maps.ConvertIpToUint32(event.Service.Spec.ClusterIP)
 		goListener.Address.Port = uint32(serPort.Port)
 
-		goListener.MapKey.Port = uint32(serPort.TargetPort.IntVal)
-
 		cListener := goListener.ToClang()
 		if err := cListener.Update(&goListener.Address); err != nil {
-			event.eventDeleteItem()
-			return fmt.Errorf("eventUpdateItem listener failed, %v, %s", goListener.Address, err)
+			event.DeleteListener()
+			return fmt.Errorf("eventAddItem listener failed, %v, %s", goListener.Address, err)
 		}
 
 		// apiCoreV1.ServiceTypeNodePort
@@ -191,8 +290,8 @@ func (event *ClientEvent) eventAddItem() error {
 
 			cListener := goListener.ToClang()
 			if err := cListener.Update(&goListener.Address); err != nil {
-				event.eventDeleteItem()
-				return fmt.Errorf("eventUpdateItem listener failed, %v, %s", goListener.Address, err)
+				event.DeleteListener()
+				return fmt.Errorf("eventAddItem listener failed, %v, %s", goListener.Address, err)
 			}
 		}
 	}
@@ -200,15 +299,11 @@ func (event *ClientEvent) eventAddItem() error {
 	return nil
 }
 
-func (event *ClientEvent) eventUpdateItem() error {
+func (event *ClientEvent) UpdateListener() error {
+	return event.addListener()
+}
+
+func (event *ClientEvent) DeleteListener() error {
 	return nil
 }
 
-func (event *ClientEvent) eventDeleteItem() error {
-	//log.Debugf("syncHandler for Endpoints: %#v", obj)
-	//fmt.Println("")
-	return nil
-	// FIXME: update map flags??
-	// FIXME: 没有收到删除事件
-	// FIXME: 怎么去得到key，遍历？
-}
