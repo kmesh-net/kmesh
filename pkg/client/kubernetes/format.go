@@ -27,42 +27,41 @@ var convert = maps.NewConvertMapKey()
 
 type ClientEvent struct {
 	Key			EventKey
-	serviceCount	uint32
-	endpointsCount	uint32
 	Service			*apiCoreV1.Service
 	Endpoints		[]*apiCoreV1.Endpoints
+
+	// k = endpointPort, v = count
+	serviceCount	map[uint32]uint32
+	// k = clusterPort, v = count
+	endpointsCount	map[uint32]uint32
+	// When you want to delete endpoint from the map,
+	// you need to convert the address to key first.
+	endpointsAddressToMapKey map[maps.GoAddress]maps.GoMapKey
 }
 
 type EventKey struct {
 	opt		string
 	name	string
 }
-/*
-func NewEndpointFromKubernetes(ep *apiCoreV1.Endpoints) []maps.GoEndpoint {
-	var endpoints []maps.GoEndpoint
 
-	for _, sub := range ep.Subsets {
-		// TODO: len(v.Subsets[]) > 1 ??
-		for i := 0; i < len(sub.Addresses); i++ {
-			goEndpoint := maps.GoEndpoint{}
-			// TODO: goEndpoint.Address.Protocol = 0
-			goEndpoint.Address.Port = uint32(sub.Ports[i].Port)
-			goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(sub.Addresses[i].IP)
-
-			endpoints = append(endpoints, goEndpoint)
-		}
+var (
+	ProtocolStrToC = map[apiCoreV1.Protocol]C.uint {
+		apiCoreV1.ProtocolTCP:	0, //C.IPPROTO_TCP,
+		apiCoreV1.ProtocolUDP:	6, //C.IPPROTO_UDP,
 	}
+)
 
-	return endpoints
+func (event *ClientEvent) Init() {
+	if event.serviceCount == nil {
+		event.serviceCount = make(map[uint32]uint32)
+	}
+	if event.endpointsCount == nil {
+		event.endpointsCount = make(map[uint32]uint32)
+	}
+	if event.endpointsAddressToMapKey == nil {
+		event.endpointsAddressToMapKey = make(map[maps.GoAddress]maps.GoMapKey)
+	}
 }
-
-func NewClusterFromKubernetes(ser *apiCoreV1.Service) *maps.GoCluster {
-
-}
-
-func NewListenerFromKubernetes(ser *apiCoreV1.Service) *maps.GoListener {
-
-}*/
 
 func (event *ClientEvent) Reset() {
 	event.Service = nil
@@ -70,10 +69,23 @@ func (event *ClientEvent) Reset() {
 }
 
 func (event *ClientEvent) Empty() bool {
-	return (event.serviceCount == 0) && (event.endpointsCount == 0)
+	for _, c := range event.serviceCount {
+		if c > 0 {
+			return true
+		}
+	}
+	for _, c := range event.endpointsCount {
+		if c > 0 {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (event *ClientEvent) EventHandler() error {
+	event.Init()
+
 	switch event.Key.opt {
 	case InformerOptAdd:
 		return event.eventAddItem()
@@ -87,20 +99,14 @@ func (event *ClientEvent) EventHandler() error {
 }
 
 func (event *ClientEvent) eventAddItem() error {
-	return event.eventUpdateItem()
-}
-
-func (event *ClientEvent) eventUpdateItem() error {
 	var (
 		goEndpoint maps.GoEndpoint
 		goCluster maps.GoCluster
 		goListener maps.GoListener
+		mapKey maps.GoMapKey
 	)
 
-	mapKey := maps.GoMapKey{
-		NameID: convert.StrToNum(event.Key.name),
-		Index: event.endpointsCount,
-	}
+	mapKey.NameID = convert.StrToNum(event.Key.name)
 
 	// Update map of endpoint
 	for _, ep := range event.Endpoints {
@@ -108,24 +114,28 @@ func (event *ClientEvent) eventUpdateItem() error {
 		log.Debug("------------------")
 
 		for _, sub := range ep.Subsets {
-			// TODO: len(v.Subsets[]) > 1 ??
-			for i := 0; i < len(sub.Addresses); i++ {
-				goEndpoint = maps.GoEndpoint{}
-				// TODO: goEndpoint.Address.Protocol = 0
-				goEndpoint.Address.Port = uint32(sub.Ports[0].Port)
-				goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(sub.Addresses[i].IP)
+			for _, epPort := range sub.Ports {
+				goEndpoint.Address.Port = uint32(epPort.Port)
+				mapKey.Port = goEndpoint.Address.Port
+				mapKey.Index = event.endpointsCount[mapKey.Port]
 
-				cEndpoint := goEndpoint.ToClang()
-				if err := cEndpoint.Update(&mapKey); err != nil {
-					log.Errorf("eventUpdateItem endpoint failed, %v, %s", mapKey, err)
-					continue
+				for _, epAddr := range sub.Addresses {
+					goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
+					goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(epAddr.IP)
+
+					cEndpoint := goEndpoint.ToClang()
+					if err := cEndpoint.Update(&mapKey); err != nil {
+						log.Errorf("eventUpdateItem endpoint failed, %v, %s", mapKey, err)
+						continue
+					}
+
+					event.endpointsAddressToMapKey[goEndpoint.Address] = mapKey
+					mapKey.Index++
 				}
-				mapKey.Index++
+
+				event.endpointsCount[mapKey.Port] = mapKey.Index
 			}
 		}
-	}
-	if event.Key.opt == InformerOptAdd {
-		event.endpointsCount += mapKey.Index
 	}
 
 	if event.Service == nil {
@@ -134,44 +144,63 @@ func (event *ClientEvent) eventUpdateItem() error {
 	log.Debugf("eventUpdateItem server: %#v", event.Service)
 	log.Debug("------------------")
 
-	mapKey.Index = 0
 	// Update map of cluster
-	goCluster.LoadAssignment.MapKeyOfEndpoint = mapKey
-	goCluster.ConnectTimeout = 15
+	// TODO
+	//goCluster.Type = 0
+	//goCluster.ConnectTimeout = 15
 
-	cCluster := goCluster.ToClang()
-	if err := cCluster.Update(&mapKey); err != nil {
-		event.eventDeleteItem()
-		return fmt.Errorf("eventUpdateItem cluster failed, %v, %s", mapKey, err)
+	mapKey.Index = 0
+	for _, serPort := range event.Service.Spec.Ports {
+		mapKey.Port = uint32(serPort.TargetPort.IntVal)
+		goCluster.LoadAssignment.MapKeyOfEndpoint = mapKey
+
+		mapKey.Port = uint32(serPort.Port)
+		cCluster := goCluster.ToClang()
+		if err := cCluster.Update(&mapKey); err != nil {
+			event.eventDeleteItem()
+			return fmt.Errorf("eventUpdateItem cluster failed, %v, %s", mapKey, err)
+		}
+
+		event.serviceCount[mapKey.Port] = 1
 	}
 
 	// Update map of listener
 	goListener.MapKey = mapKey
 	goListener.Type = C.LISTENER_TYPE_DYNAMIC
 	goListener.State = C.LISTENER_STATE_ACTIVE
-	goListener.Address = maps.GoAddress{
-		Protocol: 0,
-		Port: 0,//uint32(event.Service.Spec.Ports[0].Port),
-	}
-	// TODO: support other type
-	switch event.Service.Spec.Type {
-	case apiCoreV1.ServiceTypeClusterIP:
+
+	for _, serPort := range event.Service.Spec.Ports {
+		goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
+
+		// apiCoreV1.ServiceTypeClusterIP
 		goListener.Address.IPv4 = maps.ConvertIpToUint32(event.Service.Spec.ClusterIP)
-	case apiCoreV1.ServiceTypeNodePort:
-	case apiCoreV1.ServiceTypeLoadBalancer:
-	default:
+		goListener.Address.Port = uint32(serPort.Port)
+
+		goListener.MapKey.Port = uint32(serPort.TargetPort.IntVal)
+
+		cListener := goListener.ToClang()
+		if err := cListener.Update(&goListener.Address); err != nil {
+			event.eventDeleteItem()
+			return fmt.Errorf("eventUpdateItem listener failed, %v, %s", goListener.Address, err)
+		}
+
+		// apiCoreV1.ServiceTypeNodePort
+		if event.Service.Spec.Type == apiCoreV1.ServiceTypeNodePort {
+			goListener.Address.IPv4 = 0
+			goListener.Address.Port = uint32(serPort.NodePort)
+
+			cListener := goListener.ToClang()
+			if err := cListener.Update(&goListener.Address); err != nil {
+				event.eventDeleteItem()
+				return fmt.Errorf("eventUpdateItem listener failed, %v, %s", goListener.Address, err)
+			}
+		}
 	}
 
-	cListener := goListener.ToClang()
-	if err := cListener.Update(&goListener.Address); err != nil {
-		event.eventDeleteItem()
-		return fmt.Errorf("eventUpdateItem listener failed, %v, %s", goListener.Address, err)
-	}
+	return nil
+}
 
-	if event.Key.opt == InformerOptAdd {
-		event.serviceCount = 1
-	}
-
+func (event *ClientEvent) eventUpdateItem() error {
 	return nil
 }
 
