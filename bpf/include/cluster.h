@@ -32,4 +32,26 @@ cluster_t *map_lookup_cluster(map_key_t *map_key)
 	return kmesh_map_lookup_elem(&map_of_cluster, map_key);
 }
 
+bpf_map_t SEC("maps") map_of_loadbanance = {
+	.type			= BPF_MAP_TYPE_HASH,
+	// come from cluster_t
+	.key_size		= sizeof(map_key_t),
+	// selecte endpoint's map_key next time
+	.value_size		= sizeof(map_key_t),
+	.max_entries	= MAP_SIZE_OF_CLUSTER,
+	.map_flags		= 0,
+};
+
+static inline
+map_key_t *map_lookup_loadbanance(map_key_t *map_key)
+{
+	return kmesh_map_lookup_elem(&map_of_loadbanance, map_key);
+}
+
+static inline
+int map_update_loadbanance(map_key_t *map_key, map_key_t *value)
+{
+	return kmesh_map_update_elem(&map_of_loadbanance, map_key, value);
+}
+
 #endif //_CLUSTER_H_

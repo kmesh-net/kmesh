@@ -56,6 +56,19 @@
 #define MAP_SIZE_OF_ENDPOINT		\
 	BPF_MIN(MAP_SIZE_OF_MAX, MAP_SIZE_OF_PER_ENDPOINT * MAP_SIZE_OF_CLUSTER)
 
+// rename map to void truncation when name length exceeds BPF_OBJ_NAME_LEN = 16
+#define map_of_listener			listener
+#define map_of_filter_chain		filter_chain
+#define map_of_filter			filter
+#define map_of_virtual_host		virtual_host
+#define map_of_route			route
+#define map_of_cluster			cluster
+#define map_of_loadbanance		loadbanance
+#define map_of_endpoint			endpoint
+#define map_of_tail_call_prog	tail_call_prog
+#define map_of_tail_call_ctx	tail_call_ctx
+
+
 // ************
 // array len
 #define KMESH_NAME_LEN				64

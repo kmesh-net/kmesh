@@ -27,14 +27,29 @@ int cluster_handle_circuit_breaker(cluster_t *cluster)
 static inline
 endpoint_t *loadbanance_round_robin(load_assignment_t *load_assignment)
 {
+	int ret;
 	map_key_t *map_key = NULL;
+	endpoint_t *endpoint = NULL;
 
-	map_key = &load_assignment->map_key_of_least_endpoint;
+	map_key = map_lookup_loadbanance(&load_assignment->map_key_of_endpoint);
+	if (map_key == NULL)
+		return NULL;
+
+	endpoint = map_lookup_endpoint(map_key);
+	if (endpoint == NULL) {
+		map_key->index = 0;
+		endpoint = map_lookup_endpoint(map_key);
+	}
 
 	map_key->index++;
-	map_key->index %= load_assignment->map_key_of_endpoint.index;
+	ret = map_update_loadbanance(&load_assignment->map_key_of_endpoint, map_key);
+	if (ret != 0)
+		BPF_LOG(ERR, KMESH, "map_of_loadbanance update failed, key %u %u %u\n",
+			load_assignment->map_key_of_endpoint.nameid,
+			load_assignment->map_key_of_endpoint.port,
+			load_assignment->map_key_of_endpoint.index);
 
-	return map_lookup_endpoint(map_key);
+	return endpoint;
 }
 
 static inline
