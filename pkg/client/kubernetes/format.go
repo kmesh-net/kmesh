@@ -271,7 +271,7 @@ func (event *ClientEvent) addListener() error {
 	for _, serPort := range event.Service.Spec.Ports {
 		goListener.MapKey.Port = uint32(serPort.TargetPort.IntVal)
 
-		goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
+		// TODO: goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
 
 		// apiCoreV1.ServiceTypeClusterIP
 		goListener.Address.IPv4 = maps.ConvertIpToUint32(event.Service.Spec.ClusterIP)
@@ -285,7 +285,7 @@ func (event *ClientEvent) addListener() error {
 
 		// apiCoreV1.ServiceTypeNodePort
 		if event.Service.Spec.Type == apiCoreV1.ServiceTypeNodePort {
-			goListener.Address.IPv4 = 0
+			// TODO: goListener.Address.IPv4 = 0
 			goListener.Address.Port = uint32(serPort.NodePort)
 
 			cListener := goListener.ToClang()

@@ -28,10 +28,10 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
 	listener = map_lookup_listener(&address);
 	if (listener == NULL) {
-		BPF_LOG(DEBUG, KMESH, "map_of_listener get failed, ip4 %u, port %u\n",
-				address.ipv4, address.port);
 		return -ENOENT;
 	}
+	BPF_LOG(DEBUG, KMESH, "listener.address, ip4 %u, port %u\n",
+		listener->address.ipv4, listener->address.port);
 
 #if KMESH_ENABLE_HTTP
 	ret = l7_listener_manager(ctx, listener);

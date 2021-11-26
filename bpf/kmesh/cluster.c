@@ -68,12 +68,15 @@ int cluster_handle_loadbanance(ctx_buff_t *ctx, load_assignment_t *load_assignme
 {
 	endpoint_t *endpoint = NULL;
 
+	BPF_LOG(DEBUG, KMESH, "cluster.load_assignment, port %u, lb_policy %u\n",
+		load_assignment->map_key_of_endpoint.port, load_assignment->lb_policy);
+
 	switch (load_assignment->lb_policy) {
-		case LB_POLICY_LEAST_REQUEST:
-			endpoint = loadbanance_least_request(load_assignment);
-			break;
 		case LB_POLICY_ROUND_ROBIN:
 			endpoint = loadbanance_round_robin(load_assignment);
+			break;
+		case LB_POLICY_LEAST_REQUEST:
+			endpoint = loadbanance_least_request(load_assignment);
 			break;
 		case LB_POLICY_RANDOM:
 			// TODO
@@ -85,6 +88,9 @@ int cluster_handle_loadbanance(ctx_buff_t *ctx, load_assignment_t *load_assignme
 
 	if (endpoint == NULL)
 		return -EAGAIN;
+
+	BPF_LOG(DEBUG, KMESH, "endpoint.address, ipv4 %u, port %u\n",
+		endpoint->address.ipv4, endpoint->address.port);
 
 	SET_CTX_ADDRESS(ctx, &endpoint->address);
 
