@@ -64,15 +64,17 @@ func NewConvertMapKey() *ConvertMapKey {
 
 func (con *ConvertMapKey) StrToNum(str string) uint32 {
 	var num uint32
+
+	hash.Reset()
 	hash.Write([]byte(str))
 
 	// Using linear probing to solve hash conflicts
 	for num = hash.Sum32(); num < math.MaxUint32; num++ {
 		if con.numToStr[num] == "" {
 			con.numToStr[num] = str
-			return num
+			break
 		} else if con.numToStr[num] == str {
-			return num
+			break
 		}
 	}
 
