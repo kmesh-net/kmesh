@@ -219,6 +219,7 @@ func (event *ClientEvent) addCluster() error {
 	var (
 		mapKey maps.GoMapKey
 		goCluster maps.GoCluster
+		loadbalance maps.Loadbalance
 	)
 
 	if event.Service == nil {
@@ -240,8 +241,13 @@ func (event *ClientEvent) addCluster() error {
 			event.DeleteCluster()
 			return fmt.Errorf("eventAddItem cluster failed, %v, %s", mapKey, err)
 		}
-
 		event.serviceCount[mapKey.Port] = 1
+
+		loadbalance.MapKey = goCluster.LoadAssignment.MapKeyOfEndpoint
+		if err := loadbalance.Update(&goCluster.LoadAssignment.MapKeyOfEndpoint); err != nil {
+			event.DeleteCluster()
+			return fmt.Errorf("eventAddItem loadbalance failed, %v, %s", mapKey, err)
+		}
 	}
 
 	return nil
@@ -269,7 +275,7 @@ func (event *ClientEvent) addListener() error {
 	goListener.State = C.LISTENER_STATE_ACTIVE
 
 	for _, serPort := range event.Service.Spec.Ports {
-		goListener.MapKey.Port = uint32(serPort.TargetPort.IntVal)
+		goListener.MapKey.Port = uint32(serPort.Port)
 
 		// TODO: goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
 

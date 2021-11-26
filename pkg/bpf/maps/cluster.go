@@ -29,17 +29,17 @@ type CCluster struct {
 }
 
 func (cc *CCluster) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Cluster.
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
 		Lookup(key, &cc.Entry)
 }
 
 func (cc *CCluster) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Cluster.
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
 		Update(key, &cc.Entry, ebpf.UpdateAny)
 }
 
 func (cc *CCluster) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Cluster.
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
 		Delete(key)
 }
 
@@ -53,7 +53,6 @@ type GoCluster struct {
 
 type GoLoadAssignment struct {
 	MapKeyOfEndpoint		GoMapKey
-	MapKeyOfLeastEndpoint	GoMapKey
 	LBPolicy	uint16	`json:"lb_policy"`
 }
 

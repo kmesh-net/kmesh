@@ -23,6 +23,25 @@ import (
 	"unsafe"
 )
 
+type Loadbalance struct {
+	MapKey	GoMapKey
+}
+
+func (lb *Loadbalance) Lookup(key *GoMapKey) error {
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Lookup(key, &lb.MapKey)
+}
+
+func (lb *Loadbalance) Update(key *GoMapKey) error {
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Update(key, &lb.MapKey, ebpf.UpdateAny)
+}
+
+func (lb *Loadbalance) Delete(key *GoMapKey) error {
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Delete(key)
+}
+
 // CEndpoint = C.endpoint_t
 type CEndpoint struct {
 	Entry	C.endpoint_t

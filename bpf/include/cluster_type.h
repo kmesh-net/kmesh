@@ -33,7 +33,6 @@ enum lb_policy {
 
 typedef struct {
 	map_key_t map_key_of_endpoint;
-	map_key_t map_key_of_least_endpoint;
 	__u16 lb_policy;
 } load_assignment_t;
 

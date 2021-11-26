@@ -63,7 +63,7 @@
 #define map_of_virtual_host		virtual_host
 #define map_of_route			route
 #define map_of_cluster			cluster
-#define map_of_loadbanance		loadbanance
+#define map_of_loadbalance		loadbalance
 #define map_of_endpoint			endpoint
 #define map_of_tail_call_prog	tail_call_prog
 #define map_of_tail_call_ctx	tail_call_ctx

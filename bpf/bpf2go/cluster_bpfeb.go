@@ -62,6 +62,7 @@ type ClusterProgramSpecs struct {
 type ClusterMapSpecs struct {
 	Cluster      *ebpf.MapSpec `ebpf:"cluster"`
 	Endpoint     *ebpf.MapSpec `ebpf:"endpoint"`
+	Loadbalance  *ebpf.MapSpec `ebpf:"loadbalance"`
 	TailCallCtx  *ebpf.MapSpec `ebpf:"tail_call_ctx"`
 	TailCallProg *ebpf.MapSpec `ebpf:"tail_call_prog"`
 }
@@ -87,6 +88,7 @@ func (o *ClusterObjects) Close() error {
 type ClusterMaps struct {
 	Cluster      *ebpf.Map `ebpf:"cluster"`
 	Endpoint     *ebpf.Map `ebpf:"endpoint"`
+	Loadbalance  *ebpf.Map `ebpf:"loadbalance"`
 	TailCallCtx  *ebpf.Map `ebpf:"tail_call_ctx"`
 	TailCallProg *ebpf.Map `ebpf:"tail_call_prog"`
 }
@@ -95,6 +97,7 @@ func (m *ClusterMaps) Close() error {
 	return _ClusterClose(
 		m.Cluster,
 		m.Endpoint,
+		m.Loadbalance,
 		m.TailCallCtx,
 		m.TailCallProg,
 	)

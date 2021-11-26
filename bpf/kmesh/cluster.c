@@ -25,13 +25,13 @@ int cluster_handle_circuit_breaker(cluster_t *cluster)
 }
 
 static inline
-endpoint_t *loadbanance_round_robin(load_assignment_t *load_assignment)
+endpoint_t *loadbalance_round_robin(load_assignment_t *load_assignment)
 {
 	int ret;
 	map_key_t *map_key = NULL;
 	endpoint_t *endpoint = NULL;
 
-	map_key = map_lookup_loadbanance(&load_assignment->map_key_of_endpoint);
+	map_key = map_lookup_loadbalance(&load_assignment->map_key_of_endpoint);
 	if (map_key == NULL)
 		return NULL;
 
@@ -42,9 +42,9 @@ endpoint_t *loadbanance_round_robin(load_assignment_t *load_assignment)
 	}
 
 	map_key->index++;
-	ret = map_update_loadbanance(&load_assignment->map_key_of_endpoint, map_key);
+	ret = map_update_loadbalance(&load_assignment->map_key_of_endpoint, map_key);
 	if (ret != 0)
-		BPF_LOG(ERR, KMESH, "map_of_loadbanance update failed, key %u %u %u\n",
+		BPF_LOG(ERR, KMESH, "map_of_loadbalance update failed, key %u %u %u\n",
 			load_assignment->map_key_of_endpoint.nameid,
 			load_assignment->map_key_of_endpoint.port,
 			load_assignment->map_key_of_endpoint.index);
@@ -53,7 +53,7 @@ endpoint_t *loadbanance_round_robin(load_assignment_t *load_assignment)
 }
 
 static inline
-endpoint_t *loadbanance_least_request(load_assignment_t *load_assignment)
+endpoint_t *loadbalance_least_request(load_assignment_t *load_assignment)
 {
 	unsigned i;
 	map_key_t map_key;
@@ -79,7 +79,7 @@ endpoint_t *loadbanance_least_request(load_assignment_t *load_assignment)
 }
 
 static inline
-int cluster_handle_loadbanance(ctx_buff_t *ctx, load_assignment_t *load_assignment)
+int cluster_handle_loadbalance(ctx_buff_t *ctx, load_assignment_t *load_assignment)
 {
 	endpoint_t *endpoint = NULL;
 
@@ -88,10 +88,10 @@ int cluster_handle_loadbanance(ctx_buff_t *ctx, load_assignment_t *load_assignme
 
 	switch (load_assignment->lb_policy) {
 		case LB_POLICY_ROUND_ROBIN:
-			endpoint = loadbanance_round_robin(load_assignment);
+			endpoint = loadbalance_round_robin(load_assignment);
 			break;
 		case LB_POLICY_LEAST_REQUEST:
-			endpoint = loadbanance_least_request(load_assignment);
+			endpoint = loadbalance_least_request(load_assignment);
 			break;
 		case LB_POLICY_RANDOM:
 			// TODO
@@ -133,7 +133,7 @@ int cluster_manager(ctx_buff_t *ctx)
 	if (cluster_handle_circuit_breaker(cluster) != 0)
 		return convert_sock_errno(EBUSY);
 
-	ret = cluster_handle_loadbanance(ctx, &cluster->load_assignment);
+	ret = cluster_handle_loadbalance(ctx, &cluster->load_assignment);
 	return convert_sock_errno(ret);
 }
 
