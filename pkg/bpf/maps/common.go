@@ -22,7 +22,16 @@ import (
 	"hash/fnv"
 	"math"
 	"net"
+	"openeuler.io/mesh/pkg/logger"
 	"unsafe"
+)
+
+const (
+	pkgSubsys = "maps"
+)
+
+var (
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 // GoMapKey = C.map_key_t
@@ -80,13 +89,25 @@ func (con *ConvertMapKey) Delete(str string) {
 
 func ConvertIpToUint32(ip string) uint32 {
 	netIP := net.ParseIP(ip)
-	return binary.BigEndian.Uint32(netIP)
+	if len(netIP) == net.IPv6len {
+		return binary.LittleEndian.Uint32(netIP.To4())
+	}
+	return binary.LittleEndian.Uint32(netIP)
 }
 
 func ConvertUint32ToIp(num uint32) string {
 	netIP := make(net.IP, 4)
-	binary.BigEndian.PutUint32(netIP, num)
+	binary.LittleEndian.PutUint32(netIP, num)
 	return netIP.String()
+}
+
+func ConvertPortToLittleEndian(num int32) uint32 {
+	// FIXME
+	tmp := make([]byte, 2)
+	big16 := uint16(num)
+	binary.BigEndian.PutUint16(tmp, big16)
+	little16 := binary.LittleEndian.Uint16(tmp)
+	return uint32(little16)
 }
 
 func Memcpy(dst, src unsafe.Pointer, len uintptr) {

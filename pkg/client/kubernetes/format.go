@@ -133,7 +133,7 @@ func (event *ClientEvent) EventHandler() error {
 		return fmt.Errorf("eventAddItem get invalid informer opt")
 	}
 
-	event.PrintDebug()
+	//event.PrintDebug()
 	return nil
 }
 
@@ -149,7 +149,7 @@ func (event *ClientEvent) addEndpoint() error {
 		for _, sub := range ep.Subsets {
 			for _, epPort := range sub.Ports {
 				goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
-				goEndpoint.Address.Port = uint32(epPort.Port)
+				goEndpoint.Address.Port = maps.ConvertPortToLittleEndian(epPort.Port)
 
 				mapKey.Port = goEndpoint.Address.Port
 				mapKey.Index = event.endpointsCount[mapKey.Port]
@@ -185,7 +185,7 @@ func (event *ClientEvent) UpdateEndpoint() error {
 		for _, sub := range ep.Subsets {
 			for _, epPort := range sub.Ports {
 				goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
-				goEndpoint.Address.Port = uint32(epPort.Port)
+				goEndpoint.Address.Port = maps.ConvertPortToLittleEndian(epPort.Port)
 
 				for _, epAddr := range sub.Addresses {
 					goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(epAddr.IP)
@@ -232,10 +232,10 @@ func (event *ClientEvent) addCluster() error {
 	//goCluster.ConnectTimeout = 15
 
 	for _, serPort := range event.Service.Spec.Ports {
-		mapKey.Port = uint32(serPort.TargetPort.IntVal)
+		mapKey.Port = maps.ConvertPortToLittleEndian(serPort.TargetPort.IntVal)
 		goCluster.LoadAssignment.MapKeyOfEndpoint = mapKey
 
-		mapKey.Port = uint32(serPort.Port)
+		mapKey.Port = maps.ConvertPortToLittleEndian(serPort.Port)
 		cCluster := goCluster.ToClang()
 		if err := cCluster.Update(&mapKey); err != nil {
 			event.DeleteCluster()
@@ -275,13 +275,13 @@ func (event *ClientEvent) addListener() error {
 	goListener.State = C.LISTENER_STATE_ACTIVE
 
 	for _, serPort := range event.Service.Spec.Ports {
-		goListener.MapKey.Port = uint32(serPort.Port)
+		goListener.MapKey.Port = maps.ConvertPortToLittleEndian(serPort.Port)
 
 		// TODO: goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
 
 		// apiCoreV1.ServiceTypeClusterIP
 		goListener.Address.IPv4 = maps.ConvertIpToUint32(event.Service.Spec.ClusterIP)
-		goListener.Address.Port = uint32(serPort.Port)
+		goListener.Address.Port = maps.ConvertPortToLittleEndian(serPort.Port)
 
 		cListener := goListener.ToClang()
 		if err := cListener.Update(&goListener.Address); err != nil {
@@ -290,9 +290,10 @@ func (event *ClientEvent) addListener() error {
 		}
 
 		// apiCoreV1.ServiceTypeNodePort
+		/* TODO
 		if event.Service.Spec.Type == apiCoreV1.ServiceTypeNodePort {
-			// TODO: goListener.Address.IPv4 = 0
-			goListener.Address.Port = uint32(serPort.NodePort)
+			goListener.Address.IPv4 = 0
+			goListener.Address.Port = maps.ConvertPortToLittleEndian(serPort.NodePort)
 
 			cListener := goListener.ToClang()
 			if err := cListener.Update(&goListener.Address); err != nil {
@@ -300,6 +301,7 @@ func (event *ClientEvent) addListener() error {
 				return fmt.Errorf("eventAddItem listener failed, %v, %s", goListener.Address, err)
 			}
 		}
+		*/
 	}
 
 	return nil

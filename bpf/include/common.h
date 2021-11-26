@@ -70,7 +70,8 @@ typedef struct {
 
 typedef struct {
 	__u32 protocol;
-	__u32 port; // host byte order
+	// network byte order
+	__u32 port;
 	__u32 ipv4;
 	__u32 ipv6[4];
 } address_t;

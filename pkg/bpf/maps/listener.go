@@ -34,6 +34,7 @@ func (cl *CListener) Lookup(key *GoAddress) error {
 }
 
 func (cl *CListener) Update(key *GoAddress) error {
+	log.Debugf("%#v", *key)
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Update(key, &cl.Entry, ebpf.UpdateAny)
 }
@@ -66,5 +67,6 @@ func (gl *GoListener) ToClang() *CListener {
 		unsafe.Pointer(gl),
 		unsafe.Sizeof(cl.Entry))
 
+	log.Debugf("%#v", *gl)
 	return cl
 }
