@@ -59,17 +59,21 @@ int filter_manager(ctx_buff_t *ctx)
 {
 	int ret;
 	map_key_t *pkey = NULL;
+	ctx_key_t ctx_key;
 	filter_t *filter = NULL;
 	http_connection_manager_t *http_connection_manager = NULL;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	pkey = kmesh_tail_lookup_ctx(&address);
+	ctx_key.address = address;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER;
+
+	pkey = kmesh_tail_lookup_ctx(&ctx_key);
 	if (pkey == NULL)
 		return convert_sock_errno(ENOENT);
 
 	filter = map_lookup_filter(pkey);
-	kmesh_tail_delete_ctx(&address);
+	kmesh_tail_delete_ctx(&ctx_key);
 	if (filter == NULL)
 		return convert_sock_errno(ENOENT);
 
@@ -97,17 +101,21 @@ int filter_chain_manager(ctx_buff_t *ctx)
 	unsigned i;
 	map_key_t map_key;
 	map_key_t *pkey = NULL;
+	ctx_key_t ctx_key;
 	filter_chain_t *filter_chain = NULL;
 	filter_t *filter = NULL;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	pkey = kmesh_tail_lookup_ctx(&address);
+	ctx_key.address = address;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN;
+
+	pkey = kmesh_tail_lookup_ctx(&ctx_key);
 	if (pkey == NULL)
 		return convert_sock_errno(ENOENT);
 
 	filter_chain = map_lookup_filter_chain(pkey);
-	kmesh_tail_delete_ctx(&address);
+	kmesh_tail_delete_ctx(&ctx_key);
 	if (filter_chain == NULL)
 		return convert_sock_errno(ENOENT);
 
@@ -127,10 +135,12 @@ int filter_chain_manager(ctx_buff_t *ctx)
 	if (i == MAP_SIZE_OF_PER_FILTER)
 		return convert_sock_errno(ENOENT);
 
-	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER;
+
+	if (kmesh_tail_update_ctx(&ctx_key, &map_key) != 0)
 		return convert_sock_errno(ENOSPC);
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER);
-	kmesh_tail_delete_ctx(&address);
+	kmesh_tail_delete_ctx(&ctx_key);
 
 	return CGROUP_SOCK_OK;
 }

@@ -58,14 +58,18 @@ static inline
 int route_mangager(ctx_buff_t *ctx, route_action_t *route_action)
 {
 	map_key_t map_key;
+	ctx_key_t ctx_key;
 	DECLARE_VAR_ADDRESS(ctx, address);
 
 	map_key = route_action->map_key_of_cluster;
 
-	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
+	ctx_key.address = address;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER;
+
+	if (kmesh_tail_update_ctx(&ctx_key, &map_key) != 0)
 		return -ENOSPC;
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
-	kmesh_tail_delete_ctx(&address);
+	kmesh_tail_delete_ctx(&ctx_key);
 
 	return 0;
 }

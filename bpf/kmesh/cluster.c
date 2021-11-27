@@ -117,16 +117,20 @@ int cluster_manager(ctx_buff_t *ctx)
 {
 	int ret;
 	map_key_t *pkey = NULL;
+	ctx_key_t ctx_key;
 	cluster_t *cluster = NULL;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	pkey = kmesh_tail_lookup_ctx(&address);
+	ctx_key.address = address;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER;
+
+	pkey = kmesh_tail_lookup_ctx(&ctx_key);
 	if (pkey == NULL)
 		return convert_sock_errno(ENOENT);
 
 	cluster = map_lookup_cluster(pkey);
-	kmesh_tail_delete_ctx(&address);
+	kmesh_tail_delete_ctx(&ctx_key);
 	if (cluster == NULL)
 		return convert_sock_errno(ENOENT);
 

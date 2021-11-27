@@ -38,17 +38,20 @@ static inline
 int l4_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 {
 	map_key_t map_key;
+	ctx_key_t ctx_key;
 	DECLARE_VAR_ADDRESS(ctx, address);
 
 	if (listener->state & LISTENER_STATE_PASSIVE)
 		return -EBUSY;
-
 	map_key = listener->map_key;
 
-	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
+	ctx_key.address = address;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER;
+
+	if (kmesh_tail_update_ctx(&ctx_key, &map_key) != 0)
 		return -ENOSPC;
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
-	kmesh_tail_delete_ctx(&address);
+	kmesh_tail_delete_ctx(&ctx_key);
 
 	return 0;
 }
@@ -58,13 +61,13 @@ int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 {
 	unsigned i;
 	map_key_t map_key;
+	ctx_key_t ctx_key;
 	filter_chain_t *filter_chain = NULL;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
 
 	if (listener->state & LISTENER_STATE_PASSIVE)
 		return -EBUSY;
-
 	map_key = listener->map_key;
 
 	for (i = 0; i < MAP_SIZE_OF_PER_FILTER_CHAIN; i++) {
@@ -81,10 +84,13 @@ int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	if (i == MAP_SIZE_OF_PER_FILTER_CHAIN)
 		return -ENOENT;
 
-	if (kmesh_tail_update_ctx(&address, &map_key) != 0)
+	ctx_key.address = address;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN;
+
+	if (kmesh_tail_update_ctx(&ctx_key, &map_key) != 0)
 		return -ENOSPC;
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER_CHAIN);
-	kmesh_tail_delete_ctx(&address);
+	kmesh_tail_delete_ctx(&ctx_key);
 
 	return 0;
 }
