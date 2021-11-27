@@ -23,12 +23,16 @@ import (
 	"openeuler.io/mesh/pkg/bpf/maps"
 )
 
-var convert = maps.NewConvertMapKey()
+var (
+	convert = maps.NewConvertMapKey()
+	// k = nodeName
+	nodesMap = make(map[string]*apiCoreV1.Node)
+)
 
 type ClientEvent struct {
 	Key			EventKey
-	Service			*apiCoreV1.Service
-	Endpoints		[]*apiCoreV1.Endpoints
+	Service		*apiCoreV1.Service
+	Endpoints	[]*apiCoreV1.Endpoints
 
 	// k = endpointPort, v = count
 	serviceCount	map[uint32]uint32
@@ -91,6 +95,11 @@ func (event *ClientEvent) PrintDebug() {
 
 	if event.Service != nil {
 		log.Debugf("ClientEvent Service: %#v", event.Service)
+		log.Debug("------------------------------------")
+	}
+
+	for _, node := range nodesMap {
+		log.Debugf("ClientEvent node: %#v", node)
 		log.Debug("------------------------------------")
 	}
 }
@@ -276,32 +285,45 @@ func (event *ClientEvent) addListener() error {
 
 	for _, serPort := range event.Service.Spec.Ports {
 		goListener.MapKey.Port = maps.ConvertPortToLittleEndian(serPort.Port)
-
 		// TODO: goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
 
-		// apiCoreV1.ServiceTypeClusterIP
-		goListener.Address.IPv4 = maps.ConvertIpToUint32(event.Service.Spec.ClusterIP)
-		goListener.Address.Port = maps.ConvertPortToLittleEndian(serPort.Port)
-
-		cListener := goListener.ToClang()
-		if err := cListener.Update(&goListener.Address); err != nil {
-			event.DeleteListener()
-			return fmt.Errorf("eventAddItem listener failed, %v, %s", goListener.Address, err)
-		}
-
-		// apiCoreV1.ServiceTypeNodePort
-		/* TODO
-		if event.Service.Spec.Type == apiCoreV1.ServiceTypeNodePort {
-			goListener.Address.IPv4 = 0
+		switch event.Service.Spec.Type {
+		case apiCoreV1.ServiceTypeNodePort:
 			goListener.Address.Port = maps.ConvertPortToLittleEndian(serPort.NodePort)
+
+			for _, node := range nodesMap {
+				for _, addr := range node.Status.Addresses {
+					// TODO: addr.Type == apiCoreV1.NodeExternalIP
+					if addr.Type != apiCoreV1.NodeInternalIP {
+						continue
+					}
+					goListener.Address.IPv4 = maps.ConvertIpToUint32(addr.Address)
+
+					cListener := goListener.ToClang()
+					if err := cListener.Update(&goListener.Address); err != nil {
+						event.DeleteListener()
+						return fmt.Errorf("eventAddItem listener failed, %v, %s", goListener.Address, err)
+					}
+				}
+			}
+
+			fallthrough
+		case apiCoreV1.ServiceTypeClusterIP:
+			// TODO: event.Service.Spec.ExternalIPs
+			goListener.Address.IPv4 = maps.ConvertIpToUint32(event.Service.Spec.ClusterIP)
+			goListener.Address.Port = maps.ConvertPortToLittleEndian(serPort.Port)
 
 			cListener := goListener.ToClang()
 			if err := cListener.Update(&goListener.Address); err != nil {
 				event.DeleteListener()
 				return fmt.Errorf("eventAddItem listener failed, %v, %s", goListener.Address, err)
 			}
+		case apiCoreV1.ServiceTypeLoadBalancer:
+			// TODO
+		case apiCoreV1.ServiceTypeExternalName:
+			// TODO
+		default:
 		}
-		*/
 	}
 
 	return nil

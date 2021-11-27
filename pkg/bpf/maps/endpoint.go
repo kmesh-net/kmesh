@@ -53,11 +53,13 @@ func (ce *CEndpoint) Lookup(key *GoMapKey) error {
 }
 
 func (ce *CEndpoint) Update(key *GoMapKey) error {
+	log.Debugf("Update %#v", *key)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Update(key, &ce.Entry, ebpf.UpdateAny)
 }
 
 func (ce *CEndpoint) Delete(key *GoMapKey) error {
+	log.Debugf("Delete %#v", *key)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Delete(key)
 }
@@ -84,5 +86,6 @@ func (ge *GoEndpoint) ToClang() *CEndpoint {
 		unsafe.Pointer(ge),
 		unsafe.Sizeof(ce.Entry))
 
+	log.Debugf("%#v", *ge)
 	return ce
 }

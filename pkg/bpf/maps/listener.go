@@ -34,12 +34,13 @@ func (cl *CListener) Lookup(key *GoAddress) error {
 }
 
 func (cl *CListener) Update(key *GoAddress) error {
-	log.Debugf("%#v", *key)
+	log.Debugf("Update %#v", *key)
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Update(key, &cl.Entry, ebpf.UpdateAny)
 }
 
 func (cl *CListener) Delete(key *GoAddress) error {
+	log.Debugf("Delete %#v", *key)
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Delete(key)
 }

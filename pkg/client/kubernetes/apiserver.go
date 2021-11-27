@@ -37,6 +37,7 @@ const (
 	pkgSubsys = "apiserver"
 	InformerNameService = "Service"
 	InformerNameEndpoints = "Endpoints"
+	InformerNameNode = "Node"
 	InformerOptAdd = "Add"
 	InformerOptUpdate = "Update"
 	InformerOptDelete = "Delete"
@@ -51,6 +52,7 @@ type KubeController struct {
 	factory		informers.SharedInformerFactory
 	serviceInformer		informersCoreV1.ServiceInformer
 	endpointInformer	informersCoreV1.EndpointsInformer
+	nodeInformer		informersCoreV1.NodeInformer
 	eventMap	map[EventKey]ClientEvent
 }
 
@@ -66,6 +68,7 @@ func NewKubeController(clientset kubernetes.Interface) *KubeController {
 		factory: factory,
 		serviceInformer: factory.Core().V1().Services(),
 		endpointInformer: factory.Core().V1().Endpoints(),
+		nodeInformer: factory.Core().V1().Nodes(),
 		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "KubeController"),
 	}
 
@@ -76,6 +79,7 @@ func NewKubeController(clientset kubernetes.Interface) *KubeController {
 	}
 	c.serviceInformer.Informer().AddEventHandler(handler)
 	c.endpointInformer.Informer().AddEventHandler(handler)
+	c.nodeInformer.Informer().AddEventHandler(handler)
 
 	c.eventMap = make(map[EventKey]ClientEvent)
 	return c
@@ -87,6 +91,8 @@ func (c *KubeController) getObjectType(obj interface{}) string {
 		return InformerNameService
 	case *apiCoreV1.Endpoints:
 		return InformerNameEndpoints
+	case *apiCoreV1.Node:
+		return InformerNameNode
 	default:
 		return ""
 	}
@@ -163,6 +169,15 @@ func (c *KubeController) syncHandler(qkey queueKey) error {
 		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.name)
 		if err == nil {
 			event.Endpoints = append(event.Endpoints, obj.(*apiCoreV1.Endpoints))
+		}
+	case InformerNameNode:
+		obj, exists, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.name)
+		if err == nil {
+			if !exists {
+				delete(nodesMap, qkey.name)
+			} else {
+				nodesMap[qkey.name] = obj.(*apiCoreV1.Node)
+			}
 		}
 	default:
 		return fmt.Errorf("invlid queueKey name")
@@ -245,7 +260,13 @@ func (c *KubeController) Run(stopCh <-chan struct{}) error {
 	go c.factory.Start(stopCh)
 
 	if ok := cache.WaitForCacheSync(stopCh, c.serviceInformer.Informer().HasSynced); !ok {
-		return fmt.Errorf("kube wait for caches to sync failed")
+		return fmt.Errorf("kube wait for service caches to sync failed")
+	}
+	if ok := cache.WaitForCacheSync(stopCh, c.endpointInformer.Informer().HasSynced); !ok {
+		return fmt.Errorf("kube wait for endpoint caches to sync failed")
+	}
+	if ok := cache.WaitForCacheSync(stopCh, c.nodeInformer.Informer().HasSynced); !ok {
+		return fmt.Errorf("kube wait for node caches to sync failed")
 	}
 
 	// until stop channel is closed, and running Worker every second

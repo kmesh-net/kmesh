@@ -34,11 +34,13 @@ func (cc *CCluster) Lookup(key *GoMapKey) error {
 }
 
 func (cc *CCluster) Update(key *GoMapKey) error {
+	log.Debugf("Update %#v", *key)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
 		Update(key, &cc.Entry, ebpf.UpdateAny)
 }
 
 func (cc *CCluster) Delete(key *GoMapKey) error {
+	log.Debugf("Delete %#v", *key)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
 		Delete(key)
 }
@@ -88,5 +90,6 @@ func (gc *GoCluster) ToClang() *CCluster {
 		unsafe.Pointer(gc),
 		unsafe.Sizeof(cc.Entry))
 
+	log.Debugf("%#v", *gc)
 	return cc
 }
