@@ -28,7 +28,7 @@ struct bpf_map_def SEC("maps") map_of_route = {
 };
 
 static inline
-route_t *map_lookup_route(map_key_t *map_key)
+route_t *map_lookup_route(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_route, map_key);
 }
@@ -42,7 +42,7 @@ bpf_map_t SEC("maps") map_of_virtual_host = {
 };
 
 static inline
-virtual_host_t *map_lookup_virtual_host(map_key_t *map_key)
+virtual_host_t *map_lookup_virtual_host(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_virtual_host, map_key);
 }

@@ -29,7 +29,7 @@ bpf_map_t SEC("maps") map_of_listener = {
 };
 
 static inline
-listener_t *map_lookup_listener(address_t *address)
+listener_t *map_lookup_listener(const address_t *address)
 {
 	return kmesh_map_lookup_elem(&map_of_listener, address);
 }

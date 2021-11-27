@@ -26,13 +26,13 @@ bpf_map_t SEC("maps") map_of_loadbalance = {
 };
 
 static inline
-map_key_t *map_lookup_loadbalance(map_key_t *map_key)
+map_key_t *map_lookup_loadbalance(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_loadbalance, map_key);
 }
 
 static inline
-int map_update_loadbalance(map_key_t *map_key, map_key_t *value)
+int map_update_loadbalance(const map_key_t *map_key, const map_key_t *value)
 {
 	return kmesh_map_update_elem(&map_of_loadbalance, map_key, value);
 }
@@ -46,7 +46,7 @@ bpf_map_t SEC("maps") map_of_endpoint = {
 };
 
 static inline
-endpoint_t *map_lookup_endpoint(map_key_t *map_key)
+endpoint_t *map_lookup_endpoint(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_endpoint, map_key);
 }

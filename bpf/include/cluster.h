@@ -27,7 +27,7 @@ bpf_map_t SEC("maps") map_of_cluster = {
 };
 
 static inline
-cluster_t *map_lookup_cluster(map_key_t *map_key)
+cluster_t *map_lookup_cluster(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_cluster, map_key);
 }

@@ -26,7 +26,7 @@ bpf_map_t SEC("maps") map_of_filter = {
 };
 
 static inline
-filter_t *map_lookup_filter(map_key_t *map_key)
+filter_t *map_lookup_filter(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_filter, map_key);
 }
@@ -41,7 +41,7 @@ bpf_map_t SEC("maps") map_of_filter_chain = {
 };
 
 static inline
-filter_chain_t *map_lookup_filter_chain(map_key_t *map_key)
+filter_chain_t *map_lookup_filter_chain(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_filter_chain, map_key);
 }

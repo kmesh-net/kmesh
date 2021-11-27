@@ -57,7 +57,7 @@ bpf_map_t SEC("maps") map_of_tail_call_ctx = {
 };
 
 static inline
-void *kmesh_tail_lookup_ctx(const address_t *key)
+map_key_t *kmesh_tail_lookup_ctx(const address_t *key)
 {
 	return bpf_map_lookup_elem(&map_of_tail_call_ctx, key);
 }
