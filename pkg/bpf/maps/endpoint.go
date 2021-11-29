@@ -23,25 +23,6 @@ import (
 	"unsafe"
 )
 
-type Loadbalance struct {
-	MapKey	GoMapKey
-}
-
-func (lb *Loadbalance) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
-		Lookup(key, &lb.MapKey)
-}
-
-func (lb *Loadbalance) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
-		Update(key, &lb.MapKey, ebpf.UpdateAny)
-}
-
-func (lb *Loadbalance) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
-		Delete(key)
-}
-
 // CEndpoint = C.endpoint_t
 type CEndpoint struct {
 	Entry	C.endpoint_t
@@ -68,7 +49,6 @@ type GoEndpoint struct {
 	Address		GoAddress	`json:"address"`
 	LBPriority	uint16	`json:"lb_priority"`
 	LBWeight	uint16	`json:"lb_weight"`
-	LBConnNum	uint16	`json:"lb_conn_num"`
 }
 
 func (ce *CEndpoint) ToGolang() *GoEndpoint {
@@ -88,4 +68,48 @@ func (ge *GoEndpoint) ToClang() *CEndpoint {
 
 	log.Debugf("%#v", *ge)
 	return ce
+}
+
+// CLoadbalance = C.loadbalance_t
+type CLoadbalance struct {
+	Entry	C.loadbalance_t
+}
+
+func (clb *CLoadbalance) Lookup(key *GoMapKey) error {
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Lookup(key, &clb.Entry)
+}
+
+func (clb *CLoadbalance) Update(key *GoMapKey) error {
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Update(key, &clb.Entry, ebpf.UpdateAny)
+}
+
+func (clb *CLoadbalance) Delete(key *GoMapKey) error {
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Delete(key)
+}
+
+type GoLoadbalance struct {
+	MapKey	GoMapKey	`json:"map_key"`
+	LBConnNum	uint32	`json:"lb_conn_num"`
+}
+
+func (clb *CLoadbalance) ToGolang() *GoLoadbalance {
+	glb := &GoLoadbalance{}
+	Memcpy(unsafe.Pointer(glb),
+		unsafe.Pointer(&clb.Entry),
+		unsafe.Sizeof(clb.Entry))
+
+	return glb
+}
+
+func (glb *GoLoadbalance) ToClang() *CLoadbalance {
+	clb := &CLoadbalance{}
+	Memcpy(unsafe.Pointer(&clb.Entry),
+		unsafe.Pointer(glb),
+		unsafe.Sizeof(clb.Entry))
+
+	log.Debugf("%#v", *glb)
+	return clb
 }

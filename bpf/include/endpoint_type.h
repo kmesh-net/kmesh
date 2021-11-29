@@ -21,7 +21,13 @@ typedef struct {
 	address_t address;
 	__u16 lb_priority;
 	__u16 lb_weight;
-	__u16 lb_conn_num;
 } endpoint_t;
+
+typedef struct {
+	// for loadbalance_round_robin
+	map_key_t map_key;
+	// for loadbalance_least_request
+	__u32 lb_conn_num;
+} loadbalance_t;
 
 #endif //_ENDPOINT_TYPE_H_

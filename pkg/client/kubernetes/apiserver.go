@@ -174,6 +174,7 @@ func (c *KubeController) syncHandler(qkey queueKey) error {
 		obj, exists, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.name)
 		if err == nil {
 			if !exists {
+				// TODO: DeleteListener
 				delete(nodesMap, qkey.name)
 			} else {
 				nodesMap[qkey.name] = obj.(*apiCoreV1.Node)

@@ -106,7 +106,7 @@ func (event *ClientEvent) PrintDebug() {
 
 func (event *ClientEvent) EventHandler() error {
 	event.Init()
-
+	// FIXME: if mapKey.Port change
 	switch event.Key.opt {
 	case InformerOptAdd:
 		if err := event.addEndpoint(); err != nil {
@@ -150,6 +150,7 @@ func (event *ClientEvent) addEndpoint() error {
 	var (
 		mapKey maps.GoMapKey
 		goEndpoint maps.GoEndpoint
+		goLoadbalance maps.GoLoadbalance
 	)
 
 	mapKey.NameID = convert.StrToNum(event.Key.name)
@@ -169,7 +170,13 @@ func (event *ClientEvent) addEndpoint() error {
 					cEndpoint := goEndpoint.ToClang()
 					if err := cEndpoint.Update(&mapKey); err != nil {
 						event.DeleteEndpoint()
-						return fmt.Errorf("eventAddItem endpoint failed, %v, %s", mapKey, err)
+						return fmt.Errorf("add endpoint failed, %v, %s", mapKey, err)
+					}
+
+					goLoadbalance.MapKey = mapKey
+					cLoadbalance := goLoadbalance.ToClang()
+					if err := cLoadbalance.Update(&mapKey); err != nil {
+						return fmt.Errorf("add loadbalance failed, %v, %s", mapKey, err)
 					}
 
 					event.endpointsAddressToMapKey[goEndpoint.Address] = mapKey
@@ -204,7 +211,7 @@ func (event *ClientEvent) UpdateEndpoint() error {
 					cEndpoint := goEndpoint.ToClang()
 					if err := cEndpoint.Update(&mapKey); err != nil {
 						event.DeleteEndpoint()
-						return fmt.Errorf("eventUpdateItem endpoint failed, %v, %s", mapKey, err)
+						return fmt.Errorf("update endpoint failed, %v, %s", mapKey, err)
 					}
 				}
 			}
@@ -215,8 +222,6 @@ func (event *ClientEvent) UpdateEndpoint() error {
 }
 
 func (event *ClientEvent) DeleteEndpoint() error {
-	//log.Debugf("syncHandler for Endpoints: %#v", obj)
-	//fmt.Println("")
 	// FIXME: update map flags??
 	// FIXME: 没有收到删除事件
 	// FIXME: 怎么去得到key，遍历？
@@ -228,7 +233,6 @@ func (event *ClientEvent) addCluster() error {
 	var (
 		mapKey maps.GoMapKey
 		goCluster maps.GoCluster
-		loadbalance maps.Loadbalance
 	)
 
 	if event.Service == nil {
@@ -248,15 +252,9 @@ func (event *ClientEvent) addCluster() error {
 		cCluster := goCluster.ToClang()
 		if err := cCluster.Update(&mapKey); err != nil {
 			event.DeleteCluster()
-			return fmt.Errorf("eventAddItem cluster failed, %v, %s", mapKey, err)
+			return fmt.Errorf("add cluster failed, %v, %s", mapKey, err)
 		}
 		event.serviceCount[mapKey.Port] = 1
-
-		loadbalance.MapKey = goCluster.LoadAssignment.MapKeyOfEndpoint
-		if err := loadbalance.Update(&goCluster.LoadAssignment.MapKeyOfEndpoint); err != nil {
-			event.DeleteCluster()
-			return fmt.Errorf("eventAddItem loadbalance failed, %v, %s", mapKey, err)
-		}
 	}
 
 	return nil
@@ -302,7 +300,7 @@ func (event *ClientEvent) addListener() error {
 					cListener := goListener.ToClang()
 					if err := cListener.Update(&goListener.Address); err != nil {
 						event.DeleteListener()
-						return fmt.Errorf("eventAddItem listener failed, %v, %s", goListener.Address, err)
+						return fmt.Errorf("add listener failed, %v, %s", goListener.Address, err)
 					}
 				}
 			}
@@ -316,7 +314,7 @@ func (event *ClientEvent) addListener() error {
 			cListener := goListener.ToClang()
 			if err := cListener.Update(&goListener.Address); err != nil {
 				event.DeleteListener()
-				return fmt.Errorf("eventAddItem listener failed, %v, %s", goListener.Address, err)
+				return fmt.Errorf("add listener failed, %v, %s", goListener.Address, err)
 			}
 		case apiCoreV1.ServiceTypeLoadBalancer:
 			// TODO
@@ -336,4 +334,3 @@ func (event *ClientEvent) UpdateListener() error {
 func (event *ClientEvent) DeleteListener() error {
 	return nil
 }
-

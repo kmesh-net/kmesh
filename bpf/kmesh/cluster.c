@@ -28,26 +28,23 @@ static inline
 endpoint_t *loadbalance_round_robin(load_assignment_t *load_assignment)
 {
 	int ret;
-	map_key_t *map_key = NULL;
+	loadbalance_t *lb = NULL;
 	endpoint_t *endpoint = NULL;
 
-	map_key = map_lookup_loadbalance(&load_assignment->map_key_of_endpoint);
-	if (map_key == NULL)
+	lb = map_lookup_loadbalance(&load_assignment->map_key_of_endpoint);
+	if (lb == NULL)
 		return NULL;
 
-	endpoint = map_lookup_endpoint(map_key);
+	endpoint = map_lookup_endpoint(&lb->map_key);
 	if (endpoint == NULL) {
-		map_key->index = 0;
-		endpoint = map_lookup_endpoint(map_key);
+		lb->map_key.index = 0;
+		endpoint = map_lookup_endpoint(&lb->map_key);
 	}
 
-	map_key->index++;
-	ret = map_update_loadbalance(&load_assignment->map_key_of_endpoint, map_key);
+	lb->map_key.index++;
+	ret = map_update_loadbalance(&load_assignment->map_key_of_endpoint, lb);
 	if (ret != 0)
-		BPF_LOG(ERR, KMESH, "map_of_loadbalance update failed, key %u %u %u\n",
-			load_assignment->map_key_of_endpoint.nameid,
-			load_assignment->map_key_of_endpoint.port,
-			load_assignment->map_key_of_endpoint.index);
+		BPF_LOG(ERR, KMESH, "map_of_loadbalance update failed\n");
 
 	return endpoint;
 }
@@ -55,26 +52,39 @@ endpoint_t *loadbalance_round_robin(load_assignment_t *load_assignment)
 static inline
 endpoint_t *loadbalance_least_request(load_assignment_t *load_assignment)
 {
+	int ret;
 	unsigned i;
-	map_key_t map_key;
+	map_key_t map_key, least_map_key;
+	loadbalance_t least_lb = {};
+	loadbalance_t *lb = NULL;
 	endpoint_t *endpoint = NULL;
-	
+
 	map_key = load_assignment->map_key_of_endpoint;
+	least_map_key = load_assignment->map_key_of_endpoint;
+	least_lb.lb_conn_num = UINT32_MAX;
 
 	for (i = 0; i < MAP_SIZE_OF_PER_ENDPOINT; i++) {
 		map_key.index = i;
 
-		endpoint_t *ep = map_lookup_endpoint(&map_key);
-		if (ep == NULL)
+		lb = map_lookup_loadbalance(&map_key);
+		if (lb == NULL)
 			break;
 
-		if ((endpoint == NULL) || (endpoint->lb_conn_num > ep->lb_conn_num))
-			endpoint = ep;
+		if (lb->lb_conn_num < least_lb.lb_conn_num) {
+			least_lb = *lb;
+			least_map_key = map_key;
+		}
 	}
 
-	// TODO: -1 when disconn
-	if (endpoint != NULL)
-		endpoint->lb_conn_num++;
+	endpoint = map_lookup_endpoint(&least_map_key);
+	if (endpoint != NULL) {
+		// TODO: -1 when disconn
+		least_lb.lb_conn_num++;
+		ret = map_update_loadbalance(&least_map_key, &least_lb);
+		if (ret != 0)
+			BPF_LOG(ERR, KMESH, "map_of_loadbalance update failed\n");
+	}
+
 	return endpoint;
 }
 
