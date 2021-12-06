@@ -37,12 +37,12 @@ type BpfConfig struct {
 type ClientConfig struct {
 	ClientMode		string
 	KubeInCluster	bool
-	EnableL7Policy	bool
 }
 
 type DaemonConfig struct {
 	BpfConfig
 	ClientConfig
+	Protocol	map[string]bool
 }
 
 func InitializeDaemonConfig() error {
@@ -53,7 +53,13 @@ func InitializeDaemonConfig() error {
 
 	dc.ClientConfig.ClientMode = ClientModeKube
 	dc.ClientConfig.KubeInCluster = false
-	dc.ClientConfig.EnableL7Policy = C.KMESH_ENABLE_HTTP == C.KMESH_MODULE_ON
+
+	dc.Protocol = make(map[string]bool)
+	dc.Protocol["HTTP"] = C.KMESH_ENABLE_HTTP == C.KMESH_MODULE_ON
+	dc.Protocol["TCP"] = C.KMESH_ENABLE_TCP == C.KMESH_ENABLE_TCP
+	dc.Protocol["UDP"] = C.KMESH_ENABLE_UDP == C.KMESH_ENABLE_UDP
+	dc.Protocol["IPV4"] = C.KMESH_ENABLE_IPV4 == C.KMESH_ENABLE_IPV4
+	dc.Protocol["IPV6"] = C.KMESH_ENABLE_IPV6 == C.KMESH_ENABLE_IPV6
 
 	fmt.Println(config)
 	return nil
@@ -69,4 +75,8 @@ func GetBpfConfig() BpfConfig {
 
 func GetClientConfig() ClientConfig {
 	return config.ClientConfig
+}
+
+func EnabledProtocolConfig(s string) bool {
+	return config.Protocol[s]
 }

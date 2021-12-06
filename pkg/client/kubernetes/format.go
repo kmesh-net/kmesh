@@ -21,6 +21,7 @@ import (
 	"fmt"
 	apiCoreV1 "k8s.io/api/core/v1"
 	"openeuler.io/mesh/pkg/bpf/maps"
+	"openeuler.io/mesh/pkg/option"
 )
 
 var (
@@ -158,6 +159,10 @@ func (event *ClientEvent) addEndpoint() error {
 	for _, ep := range event.Endpoints {
 		for _, sub := range ep.Subsets {
 			for _, epPort := range sub.Ports {
+				if !option.EnabledProtocolConfig(string(epPort.Protocol)) {
+					continue
+				}
+
 				goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
 				goEndpoint.Address.Port = maps.ConvertPortToLittleEndian(epPort.Port)
 
@@ -200,6 +205,10 @@ func (event *ClientEvent) UpdateEndpoint() error {
 	for _, ep := range event.Endpoints {
 		for _, sub := range ep.Subsets {
 			for _, epPort := range sub.Ports {
+				if !option.EnabledProtocolConfig(string(epPort.Protocol)) {
+					continue
+				}
+
 				goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
 				goEndpoint.Address.Port = maps.ConvertPortToLittleEndian(epPort.Port)
 
@@ -245,6 +254,10 @@ func (event *ClientEvent) addCluster() error {
 	//goCluster.ConnectTimeout = 15
 
 	for _, serPort := range event.Service.Spec.Ports {
+		if !option.EnabledProtocolConfig(string(serPort.Protocol)) {
+			continue
+		}
+
 		mapKey.Port = maps.ConvertPortToLittleEndian(serPort.TargetPort.IntVal)
 		goCluster.LoadAssignment.MapKeyOfEndpoint = mapKey
 
@@ -282,6 +295,10 @@ func (event *ClientEvent) addListener() error {
 	goListener.State = C.LISTENER_STATE_ACTIVE
 
 	for _, serPort := range event.Service.Spec.Ports {
+		if !option.EnabledProtocolConfig(string(serPort.Protocol)) {
+			continue
+		}
+
 		goListener.MapKey.Port = maps.ConvertPortToLittleEndian(serPort.Port)
 		// TODO: goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
 
