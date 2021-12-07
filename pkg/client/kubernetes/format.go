@@ -21,6 +21,7 @@ import (
 	"fmt"
 	apiCoreV1 "k8s.io/api/core/v1"
 	"openeuler.io/mesh/pkg/bpf/maps"
+	"openeuler.io/mesh/pkg/nets"
 	"openeuler.io/mesh/pkg/option"
 )
 
@@ -164,13 +165,13 @@ func (event *ClientEvent) addEndpoint() error {
 				}
 
 				goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
-				goEndpoint.Address.Port = maps.ConvertPortToLittleEndian(epPort.Port)
+				goEndpoint.Address.Port = nets.ConvertPortToLittleEndian(epPort.Port)
 
 				mapKey.Port = goEndpoint.Address.Port
 				mapKey.Index = event.endpointsCount[mapKey.Port]
 
 				for _, epAddr := range sub.Addresses {
-					goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(epAddr.IP)
+					goEndpoint.Address.IPv4 = nets.ConvertIpToUint32(epAddr.IP)
 
 					cEndpoint := goEndpoint.ToClang()
 					if err := cEndpoint.Update(&mapKey); err != nil {
@@ -210,10 +211,10 @@ func (event *ClientEvent) UpdateEndpoint() error {
 				}
 
 				goEndpoint.Address.Protocol = ProtocolStrToC[epPort.Protocol]
-				goEndpoint.Address.Port = maps.ConvertPortToLittleEndian(epPort.Port)
+				goEndpoint.Address.Port = nets.ConvertPortToLittleEndian(epPort.Port)
 
 				for _, epAddr := range sub.Addresses {
-					goEndpoint.Address.IPv4 = maps.ConvertIpToUint32(epAddr.IP)
+					goEndpoint.Address.IPv4 = nets.ConvertIpToUint32(epAddr.IP)
 
 					mapKey = event.endpointsAddressToMapKey[goEndpoint.Address]
 
@@ -258,10 +259,10 @@ func (event *ClientEvent) addCluster() error {
 			continue
 		}
 
-		mapKey.Port = maps.ConvertPortToLittleEndian(serPort.TargetPort.IntVal)
+		mapKey.Port = nets.ConvertPortToLittleEndian(serPort.TargetPort.IntVal)
 		goCluster.LoadAssignment.MapKeyOfEndpoint = mapKey
 
-		mapKey.Port = maps.ConvertPortToLittleEndian(serPort.Port)
+		mapKey.Port = nets.ConvertPortToLittleEndian(serPort.Port)
 		cCluster := goCluster.ToClang()
 		if err := cCluster.Update(&mapKey); err != nil {
 			event.DeleteCluster()
@@ -299,12 +300,12 @@ func (event *ClientEvent) addListener() error {
 			continue
 		}
 
-		goListener.MapKey.Port = maps.ConvertPortToLittleEndian(serPort.Port)
+		goListener.MapKey.Port = nets.ConvertPortToLittleEndian(serPort.Port)
 		// TODO: goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
 
 		switch event.Service.Spec.Type {
 		case apiCoreV1.ServiceTypeNodePort:
-			goListener.Address.Port = maps.ConvertPortToLittleEndian(serPort.NodePort)
+			goListener.Address.Port = nets.ConvertPortToLittleEndian(serPort.NodePort)
 
 			for _, node := range nodesMap {
 				for _, addr := range node.Status.Addresses {
@@ -312,7 +313,7 @@ func (event *ClientEvent) addListener() error {
 					if addr.Type != apiCoreV1.NodeInternalIP {
 						continue
 					}
-					goListener.Address.IPv4 = maps.ConvertIpToUint32(addr.Address)
+					goListener.Address.IPv4 = nets.ConvertIpToUint32(addr.Address)
 
 					cListener := goListener.ToClang()
 					if err := cListener.Update(&goListener.Address); err != nil {
@@ -325,8 +326,8 @@ func (event *ClientEvent) addListener() error {
 			fallthrough
 		case apiCoreV1.ServiceTypeClusterIP:
 			// TODO: event.Service.Spec.ExternalIPs
-			goListener.Address.IPv4 = maps.ConvertIpToUint32(event.Service.Spec.ClusterIP)
-			goListener.Address.Port = maps.ConvertPortToLittleEndian(serPort.Port)
+			goListener.Address.IPv4 = nets.ConvertIpToUint32(event.Service.Spec.ClusterIP)
+			goListener.Address.Port = nets.ConvertPortToLittleEndian(serPort.Port)
 
 			cListener := goListener.ToClang()
 			if err := cListener.Update(&goListener.Address); err != nil {
