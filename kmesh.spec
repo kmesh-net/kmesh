@@ -23,15 +23,15 @@ ExclusiveArch: x86_64 aarch64
 %autosetup -n %{name}-%{version}
 
 %build
-cd %{_builddir}/%{name}-%{version}/bpf
+cd %{_builddir}/%{name}-%{version}
 %make_build
 
 %install
-cd %{_builddir}/%{name}-%{version}/bpf
+cd %{_builddir}/%{name}-%{version}
 %make_install
 
 %check
-cd %{_builddir}/%{name}-%{version}/test
+cd %{_builddir}/%{name}-%{version}
 #make
 #make test
 

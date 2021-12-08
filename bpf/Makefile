@@ -12,7 +12,7 @@
 
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-include ./bpf.print.mk
+include ../mk/bpf.print.mk
 
 .PHONY: all install clean
 

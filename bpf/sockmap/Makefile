@@ -12,8 +12,8 @@
 
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
-include ../bpf.vars.mk
-include ../bpf.print.mk
+include ../../mk/bpf.vars.mk
+include ../../mk/bpf.print.mk
 
 INCLUDES := -I$(ROOT_DIR)/../include
 INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
@@ -45,12 +45,12 @@ all: $(APPS)
 	$(call printlog, GEN-SKEL, $@)
 	$(QUIET) $(BPFTOOL) gen skeleton $< > $@
 
-clean:
-	$(call printlog, CLEAN, $(APPS))
-	$(QUIET) rm -rf $(APPS)
-	$(QUIET) rm -rf $(INSTALL_BIN)
-
 install:
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS))
 	$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
 	$(QUIET) install -Dp -m 0500 $(ROOT_DIR)/$(APPS) $(INSTALL_BIN)
+
+clean:
+	$(call printlog, CLEAN, $(APPS))
+	$(QUIET) rm -rf $(APPS)
+	$(QUIET) rm -rf $(INSTALL_BIN)
