@@ -232,10 +232,16 @@ func (event *ClientEvent) UpdateEndpoint() error {
 }
 
 func (event *ClientEvent) DeleteEndpoint() error {
-	// FIXME: update map flags??
-	// FIXME: 没有收到删除事件
-	// FIXME: 怎么去得到key，遍历？
-
+	// FIXME: 没有收到apiserver删除endpoint的事件
+	// TODO
+	// 1. 使用 event.endpointsAddressToMapKey
+	// 2. 更新 map_of_endpoint map_of_loadbalance
+	//      找到最后一个条目
+	//      覆盖要删除的条目
+	//      删除最后一个条目
+	// 3. 计数 event.endpointsCount--
+	// 4. 删除 event.endpointsAddressToMapKey
+	// 5. 删除 convert.Delete()
 	return nil
 }
 
@@ -279,6 +285,10 @@ func (event *ClientEvent) UpdateCluster() error {
 }
 
 func (event *ClientEvent) DeleteCluster() error {
+	// TODO
+	// 1. 从apiserver收到删除service的事件
+	// 2. 删除相关的所有map条目
+	// 3. 重置计数 event.serviceCount = 0
 	return nil
 }
 
@@ -350,5 +360,12 @@ func (event *ClientEvent) UpdateListener() error {
 }
 
 func (event *ClientEvent) DeleteListener() error {
+	// TODO
+	// NodePort模式
+	// 1. 从apiserver收到删除node的事件
+	// 2. 删除nodeIP相关的map条目
+	// ClusterIP模式
+	// 1. 从apiserver收到删除service的事件
+	// 2. 删除相关的所有map条目
 	return nil
 }
