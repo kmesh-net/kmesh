@@ -162,22 +162,22 @@ func (c *KubeController) syncHandler(qkey queueKey) error {
 	switch qkey.Type {
 	case InformerNameService:
 		obj, exists, err = c.serviceInformer.Informer().GetIndexer().GetByKey(qkey.Name)
-		if err == nil {
+		if err == nil && exists {
 			event.Service = obj.(*apiCoreV1.Service)
 		}
 	case InformerNameEndpoints:
 		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.Name)
-		if err == nil {
+		if err == nil && exists {
 			event.Endpoints = append(event.Endpoints, obj.(*apiCoreV1.Endpoints))
 		}
 	case InformerNameNode:
 		obj, exists, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.Name)
 		if err == nil {
-			if !exists {
+			if exists {
+				nodesMap[qkey.Name] = obj.(*apiCoreV1.Node)
+			} else {
 				// TODO: DeleteListener
 				delete(nodesMap, qkey.Name)
-			} else {
-				nodesMap[qkey.Name] = obj.(*apiCoreV1.Node)
 			}
 		}
 	default:
