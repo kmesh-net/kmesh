@@ -57,7 +57,7 @@ type KubeController struct {
 }
 
 type queueKey struct {
-	typ		string
+	Type		string
 	EventKey
 }
 
@@ -129,9 +129,9 @@ func (c *KubeController) enqueue(opt string, obj interface{}) {
 	}
 
 	qkey := queueKey{}
-	qkey.typ = c.getObjectType(obj)
-	qkey.opt = opt
-	qkey.name = name
+	qkey.Type = c.getObjectType(obj)
+	qkey.Opt = opt
+	qkey.Name = name
 	c.queue.AddRateLimited(qkey)
 }
 
@@ -159,25 +159,25 @@ func (c *KubeController) syncHandler(qkey queueKey) error {
 	event := c.eventMap[qkey.EventKey]
 	event.Key = qkey.EventKey
 
-	switch qkey.typ {
+	switch qkey.Type {
 	case InformerNameService:
-		obj, exists, err = c.serviceInformer.Informer().GetIndexer().GetByKey(qkey.name)
+		obj, exists, err = c.serviceInformer.Informer().GetIndexer().GetByKey(qkey.Name)
 		if err == nil {
 			event.Service = obj.(*apiCoreV1.Service)
 		}
 	case InformerNameEndpoints:
-		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.name)
+		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.Name)
 		if err == nil {
 			event.Endpoints = append(event.Endpoints, obj.(*apiCoreV1.Endpoints))
 		}
 	case InformerNameNode:
-		obj, exists, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.name)
+		obj, exists, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.Name)
 		if err == nil {
 			if !exists {
 				// TODO: DeleteListener
-				delete(nodesMap, qkey.name)
+				delete(nodesMap, qkey.Name)
 			} else {
-				nodesMap[qkey.name] = obj.(*apiCoreV1.Node)
+				nodesMap[qkey.Name] = obj.(*apiCoreV1.Node)
 			}
 		}
 	default:

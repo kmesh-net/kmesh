@@ -46,8 +46,8 @@ type ClientEvent struct {
 }
 
 type EventKey struct {
-	opt		string
-	name	string
+	Opt		string
+	Name	string
 }
 
 var (
@@ -109,7 +109,7 @@ func (event *ClientEvent) PrintDebug() {
 func (event *ClientEvent) EventHandler() error {
 	event.Init()
 	// FIXME: if mapKey.Port change
-	switch event.Key.opt {
+	switch event.Key.Opt {
 	case InformerOptAdd:
 		if err := event.addEndpoint(); err != nil {
 			return err
@@ -155,7 +155,7 @@ func (event *ClientEvent) addEndpoint() error {
 		goLoadbalance maps.GoLoadbalance
 	)
 
-	mapKey.NameID = convert.StrToNum(event.Key.name)
+	mapKey.NameID = convert.StrToNum(event.Key.Name)
 
 	for _, ep := range event.Endpoints {
 		for _, sub := range ep.Subsets {
@@ -254,7 +254,7 @@ func (event *ClientEvent) addCluster() error {
 	if event.Service == nil {
 		return nil
 	}
-	mapKey.NameID = convert.StrToNum(event.Key.name)
+	mapKey.NameID = convert.StrToNum(event.Key.Name)
 
 	// TODO
 	//goCluster.Type = 0
@@ -300,7 +300,7 @@ func (event *ClientEvent) addListener() error {
 	if event.Service == nil {
 		return nil
 	}
-	goListener.MapKey.NameID = convert.StrToNum(event.Key.name)
+	goListener.MapKey.NameID = convert.StrToNum(event.Key.Name)
 
 	goListener.Type = C.LISTENER_TYPE_DYNAMIC
 	goListener.State = C.LISTENER_STATE_ACTIVE
