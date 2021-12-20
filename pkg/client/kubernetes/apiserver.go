@@ -22,7 +22,7 @@ import (
 	"k8s.io/client-go/informers"
 	informersCoreV1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	restclient "k8s.io/client-go/rest"
+	restClient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
@@ -35,9 +35,11 @@ import (
 
 const (
 	pkgSubsys = "apiserver"
-	InformerNameService = "Service"
-	InformerNameEndpoints = "Endpoints"
-	InformerNameNode = "Node"
+
+	InformerTypeService = "Service"
+	InformerTypeEndpoints = "Endpoints"
+	InformerTypeNode = "Node"
+
 	InformerOptAdd = "Add"
 	InformerOptUpdate = "Update"
 	InformerOptDelete = "Delete"
@@ -47,29 +49,31 @@ var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
-type KubeController struct {
-	queue		workqueue.RateLimitingInterface
-	factory		informers.SharedInformerFactory
-	serviceInformer		informersCoreV1.ServiceInformer
-	endpointInformer	informersCoreV1.EndpointsInformer
-	nodeInformer		informersCoreV1.NodeInformer
-	eventMap	map[EventKey]ClientEvent
+type kubeController struct {
+	queue            workqueue.RateLimitingInterface
+	factory          informers.SharedInformerFactory
+	serviceInformer  informersCoreV1.ServiceInformer
+	endpointInformer informersCoreV1.EndpointsInformer
+	nodeInformer     informersCoreV1.NodeInformer
+	svcHandles       map[string]*serviceHandle
 }
 
 type queueKey struct {
-	Type		string
-	EventKey
+	name	string
+	opt		string
+	typ		string
+	oldObj	interface{}
 }
 
-func NewKubeController(clientset kubernetes.Interface) *KubeController {
+func newKubeController(clientset kubernetes.Interface) *kubeController {
 	factory := informers.NewSharedInformerFactory(clientset, time.Second * 30)
 
-	c := &KubeController{
+	c := &kubeController{
 		factory: factory,
 		serviceInformer: factory.Core().V1().Services(),
 		endpointInformer: factory.Core().V1().Endpoints(),
 		nodeInformer: factory.Core().V1().Nodes(),
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "KubeController"),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kubeController"),
 	}
 
 	handler := cache.ResourceEventHandlerFuncs{
@@ -81,34 +85,36 @@ func NewKubeController(clientset kubernetes.Interface) *KubeController {
 	c.endpointInformer.Informer().AddEventHandler(handler)
 	c.nodeInformer.Informer().AddEventHandler(handler)
 
-	c.eventMap = make(map[EventKey]ClientEvent)
+	c.svcHandles = make(map[string]*serviceHandle)
 	return c
 }
 
-func (c *KubeController) getObjectType(obj interface{}) string {
+func (c *kubeController) destroy() {
+	*c = kubeController{}
+}
+
+func (c *kubeController) getObjectType(obj interface{}) string {
 	switch obj.(type) {
 	case *apiCoreV1.Service:
-		return InformerNameService
+		return InformerTypeService
 	case *apiCoreV1.Endpoints:
-		return InformerNameEndpoints
+		return InformerTypeEndpoints
 	case *apiCoreV1.Node:
-		return InformerNameNode
+		return InformerTypeNode
 	default:
 		return ""
 	}
 }
 
-func (c *KubeController) checkObjectValidity(oldObj, newObj interface{}) bool {
-	if oldObj == newObj {
-		return false
-	}
-
-	switch newObj.(type) {
+func (c *kubeController) checkObjectValidity(obj interface{}) bool {
+	switch obj.(type) {
+	case *apiCoreV1.Node:
+		return true
 	case *apiCoreV1.Service:
 		return true
 	case *apiCoreV1.Endpoints:
 		// filter out invalid endpoint without IP
-		for _, subset := range newObj.(*apiCoreV1.Endpoints).Subsets {
+		for _, subset := range obj.(*apiCoreV1.Endpoints).Subsets {
 			for _, addr := range subset.Addresses {
 				if addr.IP != "" {
 					return true
@@ -121,64 +127,65 @@ func (c *KubeController) checkObjectValidity(oldObj, newObj interface{}) bool {
 	return false
 }
 
-func (c *KubeController) enqueue(opt string, obj interface{}) {
-	name, err := cache.MetaNamespaceKeyFunc(obj)
+func (c *kubeController) enqueue(opt string, oldObj, newObj interface{}) {
+	name, err := cache.MetaNamespaceKeyFunc(newObj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	qkey := queueKey{}
-	qkey.Type = c.getObjectType(obj)
-	qkey.Opt = opt
-	qkey.Name = name
+	qkey.typ = c.getObjectType(newObj)
+	qkey.opt = opt
+	qkey.name = name
+	qkey.oldObj = oldObj
 	c.queue.AddRateLimited(qkey)
 }
 
-func (c *KubeController) enqueueForAdd(obj interface{}) {
-	c.enqueue(InformerOptAdd, obj)
+func (c *kubeController) enqueueForAdd(obj interface{}) {
+	c.enqueue(InformerOptAdd, nil, obj)
 }
 
-func (c *KubeController) enqueueForUpdate(oldObj, newObj interface{}) {
-	if !c.checkObjectValidity(oldObj, newObj) {
+func (c *kubeController) enqueueForUpdate(oldObj, newObj interface{}) {
+	if oldObj == newObj {
 		return
 	}
-	c.enqueue(InformerOptUpdate, newObj)
+	if !c.checkObjectValidity(oldObj) && !c.checkObjectValidity(newObj) {
+		return
+	}
+	c.enqueue(InformerOptUpdate, oldObj, newObj)
 }
 
-func (c *KubeController) enqueueForDelete(obj interface{}) {
-	c.enqueue(InformerOptDelete, obj)
+func (c *kubeController) enqueueForDelete(obj interface{}) {
+	c.enqueue(InformerOptDelete, obj, nil)
 }
 
-func (c *KubeController) syncHandler(qkey queueKey) error {
+func (c *kubeController) syncHandler(qkey queueKey) error {
 	var (
 		err error
-		exists bool
-		obj interface{}
+		newObj interface{}
 	)
-	event := c.eventMap[qkey.EventKey]
-	event.Key = qkey.EventKey
+	svcHdl := c.svcHandles[qkey.name]
+	if svcHdl == nil {
+		svcHdl = newServiceHandle()
+	}
 
-	switch qkey.Type {
-	case InformerNameService:
-		obj, exists, err = c.serviceInformer.Informer().GetIndexer().GetByKey(qkey.Name)
-		if err == nil && exists {
-			event.Service = obj.(*apiCoreV1.Service)
-		}
-	case InformerNameEndpoints:
-		obj, exists, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.Name)
-		if err == nil && exists {
-			event.Endpoints = append(event.Endpoints, obj.(*apiCoreV1.Endpoints))
-		}
-	case InformerNameNode:
-		obj, exists, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.Name)
+	switch qkey.typ {
+	case InformerTypeService:
+		newObj, _, err = c.serviceInformer.Informer().GetIndexer().GetByKey(qkey.name)
 		if err == nil {
-			if exists {
-				nodesMap[qkey.Name] = obj.(*apiCoreV1.Node)
-			} else {
-				// TODO: DeleteListener
-				delete(nodesMap, qkey.Name)
-			}
+			svcHdl.service = newServiceEvent(qkey.oldObj, newObj)
+		}
+	case InformerTypeEndpoints:
+		newObj, _, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.name)
+		if err == nil {
+			svcHdl.endpoints = append(svcHdl.endpoints, newEndpointEvent(qkey.oldObj, newObj))
+		}
+	case InformerTypeNode:
+		newObj, _, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.name)
+		if err == nil {
+			nodeHdl.extractNodeData(serviceOptionDeleteFlag, qkey.oldObj)
+			nodeHdl.extractNodeData(serviceOptionUpdateFlag, newObj)
 		}
 	default:
 		return fmt.Errorf("invlid queueKey name")
@@ -187,17 +194,14 @@ func (c *KubeController) syncHandler(qkey queueKey) error {
 	if err != nil {
 		return fmt.Errorf("get object with key %#v from store failed with %v", qkey, err)
 	}
-	if !exists {
-		log.Debugf("Service or Endpoints %#v does not exist anymore", qkey)
-	}
 
-	c.eventMap[qkey.EventKey] = event
+	c.svcHandles[qkey.name] = svcHdl
 	return nil
 }
 
 // processNextWorkItem will read a single work item off the queue and
 // attempt to process it.
-func (c *KubeController) processNextWorkItem() error {
+func (c *kubeController) processNextWorkItem() error {
 	obj, shutdown := c.queue.Get()
 	if shutdown {
 		return fmt.Errorf("queue alreay shutdown")
@@ -214,6 +218,7 @@ func (c *KubeController) processNextWorkItem() error {
 			c.queue.Forget(obj)
 			return fmt.Errorf("queue get unknown obj, %#v", obj)
 		}
+		defer func() { qkey.oldObj = nil }()
 
 		if err := c.syncHandler(qkey); err != nil {
 			return fmt.Errorf("sync failed, %s %s", qkey, err)
@@ -229,7 +234,7 @@ func (c *KubeController) processNextWorkItem() error {
 	return nil
 }
 
-func (c *KubeController) runWorker() {
+func (c *kubeController) runWorker() {
 	for true {
 		if err := c.processNextWorkItem(); err != nil {
 			log.Error(err)
@@ -240,14 +245,17 @@ func (c *KubeController) runWorker() {
 		if c.queue.Len() > 0 {
 			continue
 		}
-		for k, v := range c.eventMap {
-			if err := v.EventHandler(); err != nil {
-				log.Error(err)
+
+		nodeHdl.batchProcess()
+		for name, svcHdl := range c.svcHandles {
+			if svcHdl.service != nil {
+				nodeHdl.refreshService(svcHdl.name, svcHdl.service.oldObj, svcHdl.service.newObj)
 			}
-			if v.Empty() {
-				delete(c.eventMap, k)
-			} else {
-				v.Reset()
+
+			svcHdl.batchProcess(nodeHdl.address)
+			if svcHdl.isEmpty() {
+				svcHdl.destroy()
+				delete(c.svcHandles, name)
 			}
 		}
 	}
@@ -255,7 +263,7 @@ func (c *KubeController) runWorker() {
 
 // Run will block until stopCh is closed, at which point it will shutdown the queue
 // and wait for workers to finish processing their current work items.
-func (c *KubeController) Run(stopCh <-chan struct{}) error {
+func (c *kubeController) run(stopCh <-chan struct{}) error {
 	defer c.queue.ShutDown()
 
 	go c.factory.Start(stopCh)
@@ -280,12 +288,12 @@ func (c *KubeController) Run(stopCh <-chan struct{}) error {
 func Run() error {
 	var (
 		err error
-		config *restclient.Config
+		config *restClient.Config
 	)
 	cfg := option.GetClientConfig()
 
 	if cfg.KubeInCluster {
-		config, err = restclient.InClusterConfig()
+		config, err = restClient.InClusterConfig()
 		if err != nil {
 			return fmt.Errorf("kube build config in cluster failed, %s", err)
 		}
@@ -309,8 +317,8 @@ func Run() error {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	controller := NewKubeController(clientset)
-	if err := controller.Run(stopCh); err != nil {
+	controller := newKubeController(clientset)
+	if err := controller.run(stopCh); err != nil {
 		return fmt.Errorf("kube run controller failed, %s", err)
 	}
 
