@@ -24,16 +24,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-/*
-	logrus.Trace()
-	logrus.Debug()
-	logrus.Info()
-	logrus.Warn()
-	logrus.Error()
-	logrus.Fatal()
-	logrus.Panic()
-*/
-
 const (
 	LogSubsys = "subsys"
 	pkgSubsys = "logger"

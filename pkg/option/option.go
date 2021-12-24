@@ -56,10 +56,10 @@ func InitializeDaemonConfig() error {
 
 	dc.Protocol = make(map[string]bool)
 	dc.Protocol["HTTP"] = C.KMESH_ENABLE_HTTP == C.KMESH_MODULE_ON
-	dc.Protocol["TCP"] = C.KMESH_ENABLE_TCP == C.KMESH_ENABLE_TCP
-	dc.Protocol["UDP"] = C.KMESH_ENABLE_UDP == C.KMESH_ENABLE_UDP
-	dc.Protocol["IPV4"] = C.KMESH_ENABLE_IPV4 == C.KMESH_ENABLE_IPV4
-	dc.Protocol["IPV6"] = C.KMESH_ENABLE_IPV6 == C.KMESH_ENABLE_IPV6
+	dc.Protocol["TCP"] = C.KMESH_ENABLE_TCP == C.KMESH_MODULE_ON
+	dc.Protocol["UDP"] = C.KMESH_ENABLE_UDP == C.KMESH_MODULE_ON
+	dc.Protocol["IPV4"] = C.KMESH_ENABLE_IPV4 == C.KMESH_MODULE_ON
+	dc.Protocol["IPV6"] = C.KMESH_ENABLE_IPV6 == C.KMESH_MODULE_ON
 
 	fmt.Println(config)
 	return nil
