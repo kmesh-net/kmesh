@@ -39,7 +39,7 @@ var (
 
 // k = port
 type objCount map[uint32]uint32
-type objAddressToMapKey map[maps.GoAddress]maps.GoMapKey
+type objAddressToMapKey map[maps.Address]maps.MapKey
 
 type serviceHandle struct {
 	name		string

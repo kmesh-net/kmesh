@@ -30,7 +30,7 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	if (listener == NULL) {
 		return -ENOENT;
 	}
-	BPF_LOG(DEBUG, KMESH, "listener.address, ip4 %u, port %u\n",
+	BPF_LOG(DEBUG, KMESH, "listener.address, ipv4 %u, port %u\n",
 		listener->address.ipv4, listener->address.port);
 
 #if KMESH_ENABLE_HTTP

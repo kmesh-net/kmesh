@@ -23,8 +23,8 @@ import (
 )
 
 type endpointKeyAndValue struct {
-	key		maps.GoMapKey
-	value	maps.GoEndpoint
+	key		maps.MapKey
+	value	maps.Endpoint
 }
 type endpointData map[endpointKeyAndValue]objOptionFlag
 
@@ -91,8 +91,7 @@ func (data endpointData) flushMap(flag objOptionFlag, count objCount, addressToM
 func (kv *endpointKeyAndValue) updateMap(count objCount, addressToMapKey objAddressToMapKey) error {
 	kv.key.Index = count[kv.key.Port]
 
-	cEndpoint := kv.value.ToClang()
-	if err := cEndpoint.Update(&kv.key); err != nil {
+	if err := kv.value.Update(&kv.key); err != nil {
 		return fmt.Errorf("update endpoint failed, %v, %s", kv.key, err)
 	}
 
@@ -100,10 +99,9 @@ func (kv *endpointKeyAndValue) updateMap(count objCount, addressToMapKey objAddr
 	count[kv.key.Port]++
 	addressToMapKey[kv.value.Address] = kv.key
 
-	var goLoadbalance maps.GoLoadbalance
-	goLoadbalance.MapKey = kv.key
-	cLoadbalance := goLoadbalance.ToClang()
-	if err := cLoadbalance.Update(&kv.key); err != nil {
+	lb := &maps.Loadbalance{}
+	lb.MapKey = kv.key
+	if err := lb.Update(&kv.key); err != nil {
 		kv.deleteMap(count, addressToMapKey)
 		return fmt.Errorf("update loadbalance failed, %v, %s", kv.key, err)
 	}
@@ -112,8 +110,7 @@ func (kv *endpointKeyAndValue) updateMap(count objCount, addressToMapKey objAddr
 }
 
 func (kv *endpointKeyAndValue) deleteMap(count objCount, addressToMapKey objAddressToMapKey) error {
-	cEndpoint := &maps.CEndpoint{}
-	cLoadbalance := &maps.CLoadbalance{}
+	lb := &maps.Loadbalance{}
 	mapKey := addressToMapKey[kv.value.Address]
 
 	kv.key.Index = mapKey.Index
@@ -125,15 +122,15 @@ func (kv *endpointKeyAndValue) deleteMap(count objCount, addressToMapKey objAddr
 	mapKeyTail.Index = count[mapKey.Port] - 1
 
 	if mapKey != mapKeyTail {
-		if err := cEndpoint.Lookup(&mapKeyTail); err == nil {
-			cEndpoint.Update(&mapKey)
+		if err := kv.value.Lookup(&mapKeyTail); err == nil {
+			kv.value.Update(&mapKey)
 		}
-		if err := cLoadbalance.Lookup(&mapKeyTail); err == nil {
-			cLoadbalance.Update(&mapKey)
+		if err := lb.Lookup(&mapKeyTail); err == nil {
+			lb.Update(&mapKey)
 		}
 	}
-	cEndpoint.Delete(&mapKeyTail)
-	cLoadbalance.Delete(&mapKeyTail)
+	kv.value.Delete(&mapKeyTail)
+	lb.Delete(&mapKeyTail)
 
 	// update count
 	delete(addressToMapKey, kv.value.Address)

@@ -32,15 +32,15 @@ var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
-// GoMapKey = C.map_key_t
-type GoMapKey struct {
+// MapKey = C.map_key_t
+type MapKey struct {
 	NameID	uint32
 	Port	uint32
 	Index	uint32
 }
 
-// GoAddress = C.address_t
-type GoAddress struct {
+// Address = C.address_t
+type Address struct {
 	Protocol	uint32	`json:"protocol"`
 	Port		uint32	`json:"port"`
 	IPv4		uint32	`json:"ipv4,omitempty"`

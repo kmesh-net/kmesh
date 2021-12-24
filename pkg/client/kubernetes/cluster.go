@@ -23,8 +23,8 @@ import (
 )
 
 type clusterKeyAndValue struct {
-	key		maps.GoMapKey
-	value	maps.GoCluster
+	key		maps.MapKey
+	value	maps.Cluster
 }
 type clusterData map[clusterKeyAndValue]objOptionFlag
 
@@ -88,8 +88,7 @@ func (data clusterData) flushMap(flag objOptionFlag, count objCount) int {
 }
 
 func (kv *clusterKeyAndValue) updateMap(count objCount) error {
-	cCluster := kv.value.ToClang()
-	if err := cCluster.Update(&kv.key); err != nil {
+	if err := kv.value.Update(&kv.key); err != nil {
 		return fmt.Errorf("update cluster failed, %v, %s", kv.value, err)
 	}
 
@@ -98,8 +97,7 @@ func (kv *clusterKeyAndValue) updateMap(count objCount) error {
 }
 
 func (kv *clusterKeyAndValue) deleteMap(count objCount) error {
-	cCluster := &maps.CCluster{}
-	if err := cCluster.Delete(&kv.key); err != nil {
+	if err := kv.value.Delete(&kv.key); err != nil {
 		return fmt.Errorf("delete cluster failed, %v, %s", kv.key, err)
 	}
 

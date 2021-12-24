@@ -23,43 +23,26 @@ import (
 	"unsafe"
 )
 
-// CCluster = C.cluster_t
-type CCluster struct {
-	Entry	C.cluster_t
+// cCluster = C.cluster_t
+type cCluster struct {
+	entry C.cluster_t
 }
 
-func (cc *CCluster) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
-		Lookup(key, &cc.Entry)
-}
-
-func (cc *CCluster) Update(key *GoMapKey) error {
-	log.Debugf("Update %#v", *key)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
-		Update(key, &cc.Entry, ebpf.UpdateAny)
-}
-
-func (cc *CCluster) Delete(key *GoMapKey) error {
-	log.Debugf("Delete %#v", *key)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
-		Delete(key)
-}
-
-type GoCluster struct {
+type Cluster struct {
 	//Name	string	`json:"name"`
-	Type	uint16	`json:"type"`
-	ConnectTimeout	uint16	`json:"connect_timeout"`
-	LoadAssignment	GoLoadAssignment	`json:"load_assignment"`
-	CircuitBreaker	GoCircuitBreaker	`json:"circuit_breaker"`
+	Type           uint16         `json:"type"`
+	ConnectTimeout uint16         `json:"connect_timeout"`
+	LoadAssignment LoadAssignment `json:"load_assignment"`
+	CircuitBreaker CircuitBreaker `json:"circuit_breaker"`
 }
 
-type GoLoadAssignment struct {
-	MapKeyOfEndpoint		GoMapKey
-	LBPolicy	uint16	`json:"lb_policy"`
+type LoadAssignment struct {
+	MapKeyOfEndpoint MapKey
+	LBPolicy         uint16	`json:"lb_policy"`
 }
 
-// GoCircuitBreaker = C.circuit_breaker_t
-type GoCircuitBreaker struct {
+// CircuitBreaker = C.circuit_breaker_t
+type CircuitBreaker struct {
 	Priority		uint16
 	MaxConnections	uint16
 	MaxPendingRequests	uint16
@@ -75,21 +58,42 @@ var (
 	}
 )
 
-func (cc *CCluster) ToGolang() *GoCluster {
-	gc := &GoCluster{}
-	Memcpy(unsafe.Pointer(gc),
-		unsafe.Pointer(&cc.Entry),
-		unsafe.Sizeof(cc.Entry))
-
-	return gc
+func (cl *Cluster) toGolang(ccl *cCluster) {
+	Memcpy(unsafe.Pointer(cl),
+		unsafe.Pointer(&ccl.entry),
+		unsafe.Sizeof(ccl.entry))
 }
 
-func (gc *GoCluster) ToClang() *CCluster {
-	cc := &CCluster{}
-	Memcpy(unsafe.Pointer(&cc.Entry),
-		unsafe.Pointer(gc),
-		unsafe.Sizeof(cc.Entry))
+func (cl *Cluster) toClang() *cCluster {
+	ccl := &cCluster{}
+	Memcpy(unsafe.Pointer(&ccl.entry),
+		unsafe.Pointer(cl),
+		unsafe.Sizeof(ccl.entry))
 
-	log.Debugf("%#v", *gc)
-	return cc
+	return ccl
+}
+
+func (cl *Cluster) Lookup(key *MapKey) error {
+	ccl := &cCluster{}
+	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
+		Lookup(key, &ccl.entry)
+
+	if err == nil {
+		cl.toGolang(ccl)
+	}
+	log.Debugf("Lookup [%#v], [%#v]", *key, *cl)
+
+	return err
+}
+
+func (cl *Cluster) Update(key *MapKey) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *cl)
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
+		Update(key, &cl.toClang().entry, ebpf.UpdateAny)
+}
+
+func (cl *Cluster) Delete(key *MapKey) error {
+	log.Debugf("Delete [%#v], [%#v]", *key, *cl)
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
+		Delete(key)
 }

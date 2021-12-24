@@ -22,66 +22,86 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 )
 
-// CFilter = C.filter_t
-type CFilter struct {
-	Entry	C.filter_t
-}
-
-func (cf *CFilter) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
-		Lookup(key, &cf.Entry)
-}
-
-func (cf *CFilter) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
-		Update(key, &cf.Entry, ebpf.UpdateAny)
-}
-
-func (cf *CFilter) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
-		Delete(key)
+// cFilter = C.filter_t
+type cFilter struct {
+	entry C.filter_t
 }
 
 type GoFilter struct {
 
 }
 
-func (cf *CFilter) ToGolang() *GoFilter {
+func (f *GoFilter) toGolang(cf *cFilter) {
+	return
+}
+
+func (f *GoFilter) toClang() *cFilter {
 	return nil
 }
 
-func (gf *GoFilter) ToClang() *CFilter {
-	return nil
+func (f *GoFilter) Lookup(key *MapKey) error {
+	cf := &cFilter{}
+	err := bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
+		Lookup(key, &cf.entry)
+
+	if err == nil {
+		f.toGolang(cf)
+	}
+	log.Debugf("Lookup [%#v], [%#v]", *key, *f)
+
+	return err
 }
 
-// CFilterChain = C.filter_chain_t
-type CFilterChain struct {
-	Entry	C.filter_chain_t
+func (f *GoFilter) Update(key *MapKey) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *f)
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
+		Update(key, &f.toClang().entry, ebpf.UpdateAny)
 }
 
-func (cfc *CFilterChain) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
-		Lookup(key, &cfc.Entry)
-}
-
-func (cfc *CFilterChain) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
-		Update(key, &cfc.Entry, ebpf.UpdateAny)
-}
-
-func (cfc *CFilterChain) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
+func (f *GoFilter) Delete(key *MapKey) error {
+	log.Debugf("Delete [%#v], [%#v]", *key, *f)
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
 		Delete(key)
+}
+
+// cFilterChain = C.filter_chain_t
+type cFilterChain struct {
+	entry C.filter_chain_t
 }
 
 type GoFilterChain struct {
 
 }
 
-func (cfc *CFilterChain) ToGolang() *GoFilterChain {
+func (fc *GoFilterChain) toGolang(cfc *cFilterChain) {
+	return
+}
+
+func (fc *GoFilterChain) toClang() *cFilterChain {
 	return nil
 }
 
-func (gfc *GoFilterChain) ToClang() *CFilterChain {
-	return nil
+func (fc *GoFilterChain) Lookup(key *MapKey) error {
+	cfc := &cFilterChain{}
+	err := bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
+		Lookup(key, &cfc.entry)
+
+	if err == nil {
+		fc.toGolang(cfc)
+	}
+	log.Debugf("Lookup [%#v], [%#v]", *key, *fc)
+
+	return err
+}
+
+func (fc *GoFilterChain) Update(key *MapKey) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *fc)
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
+		Update(key, &fc.toClang().entry, ebpf.UpdateAny)
+}
+
+func (fc *GoFilterChain) Delete(key *MapKey) error {
+	log.Debugf("Delete [%#v], [%#v]", *key, *fc)
+	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
+		Delete(key)
 }

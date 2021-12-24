@@ -26,8 +26,8 @@ import (
 )
 
 type listenerKeyAndValue struct {
-	key		maps.GoAddress
-	value	maps.GoListener
+	key		maps.Address
+	value	maps.Listener
 }
 type listenerData map[listenerKeyAndValue]objOptionFlag
 
@@ -119,18 +119,14 @@ func (data listenerData) flushMap(flag objOptionFlag) int {
 }
 
 func (kv *listenerKeyAndValue) updateMap() error {
-	cListener := kv.value.ToClang()
-
-	if err := cListener.Update(&kv.key); err != nil {
+	if err := kv.value.Update(&kv.key); err != nil {
 		return fmt.Errorf("update listener failed, %v, %s", kv.key, err)
 	}
 	return nil
 }
 
 func (kv *listenerKeyAndValue) deleteMap() error {
-	cListener := &maps.CListener{}
-
-	if err := cListener.Delete(&kv.key); err != nil {
+	if err := kv.value.Delete(&kv.key); err != nil {
 		return fmt.Errorf("delete listener failed, %v, %s", kv.key, err)
 	}
 	return nil

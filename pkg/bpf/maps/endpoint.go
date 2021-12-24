@@ -23,93 +23,103 @@ import (
 	"unsafe"
 )
 
-// CEndpoint = C.endpoint_t
-type CEndpoint struct {
-	Entry	C.endpoint_t
+// cEndpoint = C.endpoint_t
+type cEndpoint struct {
+	entry C.endpoint_t
 }
 
-func (ce *CEndpoint) Lookup(key *GoMapKey) error {
+type Endpoint struct {
+	Address    Address `json:"address"`
+	LBPriority uint16  `json:"lb_priority"`
+	LBWeight   uint16  `json:"lb_weight"`
+}
+
+func (ep *Endpoint) toGolang(cep *cEndpoint) {
+	Memcpy(unsafe.Pointer(ep),
+		unsafe.Pointer(&cep.entry),
+		unsafe.Sizeof(cep.entry))
+}
+
+func (ep *Endpoint) toClang() *cEndpoint {
+	cep := &cEndpoint{}
+	Memcpy(unsafe.Pointer(&cep.entry),
+		unsafe.Pointer(ep),
+		unsafe.Sizeof(cep.entry))
+
+	return cep
+}
+
+func (ep *Endpoint) Lookup(key *MapKey) error {
+	cep := &cEndpoint{}
+	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
+		Lookup(key, &cep.entry)
+
+	if err == nil {
+		ep.toGolang(cep)
+	}
+	log.Debugf("Lookup [%#v], [%#v]", *key, *ep)
+
+	return err
+}
+
+func (ep *Endpoint) Update(key *MapKey) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *ep)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
-		Lookup(key, &ce.Entry)
+		Update(key, &ep.toClang().entry, ebpf.UpdateAny)
 }
 
-func (ce *CEndpoint) Update(key *GoMapKey) error {
-	log.Debugf("Update %#v", *key)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
-		Update(key, &ce.Entry, ebpf.UpdateAny)
-}
-
-func (ce *CEndpoint) Delete(key *GoMapKey) error {
-	log.Debugf("Delete %#v", *key)
+func (ep *Endpoint) Delete(key *MapKey) error {
+	log.Debugf("Delete [%#v], [%#v]", *key, *ep)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Delete(key)
 }
 
-type GoEndpoint struct {
-	Address		GoAddress	`json:"address"`
-	LBPriority	uint16	`json:"lb_priority"`
-	LBWeight	uint16	`json:"lb_weight"`
+// cLoadbalance = C.loadbalance_t
+type cLoadbalance struct {
+	entry C.loadbalance_t
 }
 
-func (ce *CEndpoint) ToGolang() *GoEndpoint {
-	ge := &GoEndpoint{}
-	Memcpy(unsafe.Pointer(ge),
-		unsafe.Pointer(&ce.Entry),
-		unsafe.Sizeof(ce.Entry))
-
-	return ge
+type Loadbalance struct {
+	MapKey    MapKey `json:"map_key"`
+	LBConnNum uint32 `json:"lb_conn_num"`
 }
 
-func (ge *GoEndpoint) ToClang() *CEndpoint {
-	ce := &CEndpoint{}
-	Memcpy(unsafe.Pointer(&ce.Entry),
-		unsafe.Pointer(ge),
-		unsafe.Sizeof(ce.Entry))
-
-	log.Debugf("%#v", *ge)
-	return ce
+func (lb *Loadbalance) toGolang(clb *cLoadbalance) {
+	Memcpy(unsafe.Pointer(lb),
+		unsafe.Pointer(&clb.entry),
+		unsafe.Sizeof(clb.entry))
 }
 
-// CLoadbalance = C.loadbalance_t
-type CLoadbalance struct {
-	Entry	C.loadbalance_t
-}
+func (lb *Loadbalance) toClang() *cLoadbalance {
+	clb := &cLoadbalance{}
+	Memcpy(unsafe.Pointer(&clb.entry),
+		unsafe.Pointer(lb),
+		unsafe.Sizeof(clb.entry))
 
-func (clb *CLoadbalance) Lookup(key *GoMapKey) error {
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
-		Lookup(key, &clb.Entry)
-}
-
-func (clb *CLoadbalance) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
-		Update(key, &clb.Entry, ebpf.UpdateAny)
-}
-
-func (clb *CLoadbalance) Delete(key *GoMapKey) error {
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
-		Delete(key)
-}
-
-type GoLoadbalance struct {
-	MapKey	GoMapKey	`json:"map_key"`
-	LBConnNum	uint32	`json:"lb_conn_num"`
-}
-
-func (clb *CLoadbalance) ToGolang() *GoLoadbalance {
-	glb := &GoLoadbalance{}
-	Memcpy(unsafe.Pointer(glb),
-		unsafe.Pointer(&clb.Entry),
-		unsafe.Sizeof(clb.Entry))
-
-	return glb
-}
-
-func (glb *GoLoadbalance) ToClang() *CLoadbalance {
-	clb := &CLoadbalance{}
-	Memcpy(unsafe.Pointer(&clb.Entry),
-		unsafe.Pointer(glb),
-		unsafe.Sizeof(clb.Entry))
-
-	log.Debugf("%#v", *glb)
 	return clb
+}
+
+func (lb *Loadbalance) Lookup(key *MapKey) error {
+	clb := &cLoadbalance{}
+	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Lookup(key, &clb.entry)
+
+	if err == nil {
+		lb.toGolang(clb)
+	}
+	log.Debugf("Lookup [%#v], [%#v]", *key, *lb)
+
+	return err
+}
+
+func (lb *Loadbalance) Update(key *MapKey) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *lb)
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Update(key, &lb.toClang().entry, ebpf.UpdateAny)
+}
+
+func (lb *Loadbalance) Delete(key *MapKey) error {
+	log.Debugf("Delete [%#v], [%#v]", *key, *lb)
+	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+		Delete(key)
 }

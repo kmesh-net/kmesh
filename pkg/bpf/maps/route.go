@@ -22,66 +22,86 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 )
 
-// CRoute = C.route_t
-type CRoute struct {
-	Entry	C.route_t
+// cRoute = C.route_t
+type cRoute struct {
+	entry C.route_t
 }
 
-func (cr *CRoute) Lookup(key *GoMapKey) error {
+type Route struct {
+
+}
+
+func (r *Route) toGolang(cr *cRoute) {
+	return
+}
+
+func (r *Route) toClang() *cRoute {
+	return nil
+}
+
+func (r *Route) Lookup(key *MapKey) error {
+	cr := &cRoute{}
+	err := bpf.Obj.SockConn.FilterObjects.FilterMaps.Route.
+		Lookup(key, &cr.entry)
+
+	if err == nil {
+		r.toGolang(cr)
+	}
+	log.Debugf("Lookup [%#v], [%#v]", *key, *r)
+
+	return err
+}
+
+func (r *Route) Update(key *MapKey) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *r)
 	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Route.
-		Lookup(key, &cr.Entry)
+		Update(key, &r.toClang().entry, ebpf.UpdateAny)
 }
 
-func (cr *CRoute) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Route.
-		Update(key, &cr.Entry, ebpf.UpdateAny)
-}
-
-func (cr *CRoute) Delete(key *GoMapKey) error {
+func (r *Route) Delete(key *MapKey) error {
+	log.Debugf("Delete [%#v], [%#v]", *key, *r)
 	return bpf.Obj.SockConn.FilterObjects.FilterMaps.Route.
 		Delete(key)
 }
 
-type GoRoute struct {
+// cVirtualHost = C.virtual_host_t
+type cVirtualHost struct {
+	entry C.virtual_host_t
+}
+
+type VirtualHost struct {
 
 }
 
-func (cr *CRoute) ToGolang() *GoRoute {
+func (vh *VirtualHost) toGolang(cvh *cVirtualHost) {
+	return
+}
+
+func (vh *VirtualHost) toClang() *cVirtualHost {
 	return nil
 }
 
-func (gr *GoRoute) ToClang() *CRoute {
-	return nil
+func (vh *VirtualHost) Lookup(key *MapKey) error {
+	cvh := &cVirtualHost{}
+	err := bpf.Obj.SockConn.FilterObjects.FilterMaps.VirtualHost.
+		Lookup(key, &cvh.entry)
+
+	if err == nil {
+		vh.toGolang(cvh)
+	}
+	log.Debugf("Lookup [%#v], [%#v]", *key, *vh)
+
+	return err
 }
 
-// CVirtualHost = C.virtual_host_t
-type CVirtualHost struct {
-	Entry	C.virtual_host_t
-}
-
-func (cvh *CVirtualHost) Lookup(key *GoMapKey) error {
+func (vh *VirtualHost) Update(key *MapKey) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *vh)
 	return bpf.Obj.SockConn.FilterObjects.FilterMaps.VirtualHost.
-		Lookup(key, &cvh.Entry)
+		Update(key, &vh.toClang().entry, ebpf.UpdateAny)
 }
 
-func (cvh *CVirtualHost) Update(key *GoMapKey) error {
-	return bpf.Obj.SockConn.FilterObjects.FilterMaps.VirtualHost.
-		Update(key, &cvh.Entry, ebpf.UpdateAny)
-}
-
-func (cvh *CVirtualHost) Delete(key *GoMapKey) error {
+func (vh *VirtualHost) Delete(key *MapKey) error {
+	log.Debugf("Delete [%#v], [%#v]", *key, *vh)
 	return bpf.Obj.SockConn.FilterObjects.FilterMaps.VirtualHost.
 		Delete(key)
-}
-
-type GoVirtualHost struct {
-
-}
-
-func (cvh *CVirtualHost) ToGolang() *GoVirtualHost {
-	return nil
-}
-
-func (gvh *GoVirtualHost) ToClang() *CVirtualHost {
-	return nil
 }

@@ -23,51 +23,55 @@ import (
 	"unsafe"
 )
 
-// CListener = C.listener_t
-type CListener struct {
-	Entry	C.listener_t
+// cListener = C.listener_t
+type cListener struct {
+	entry C.listener_t
 }
 
-func (cl *CListener) Lookup(key *GoAddress) error {
+type Listener struct {
+	MapKey MapKey
+	//Name	string	`json:"name"`
+	Type    uint16  `json:"type"`
+	State   uint16  `json:"state"`
+	Address Address `json:"address"`
+}
+
+func (l *Listener) toGolang(cl *cListener) {
+	Memcpy(unsafe.Pointer(l),
+		unsafe.Pointer(&cl.entry),
+		unsafe.Sizeof(cl.entry))
+}
+
+func (l *Listener) toClang() *cListener {
+	cl := &cListener{}
+	Memcpy(unsafe.Pointer(&cl.entry),
+		unsafe.Pointer(l),
+		unsafe.Sizeof(cl.entry))
+
+	return cl
+}
+
+func (l *Listener) Lookup(key *Address) error {
+	cl := &cListener{}
+	err := bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
+		Lookup(key, &cl.entry)
+
+	if err == nil {
+		l.toGolang(cl)
+	}
+	log.Debugf("Lookup [%#v], [%#v]", *key, *l)
+
+	return err
+}
+
+func (l *Listener) Update(key *Address) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *l)
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
-		Lookup(key, &cl.Entry)
+		Update(key, &l.toClang().entry, ebpf.UpdateAny)
 }
 
-func (cl *CListener) Update(key *GoAddress) error {
-	log.Debugf("Update %#v", *key)
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
-		Update(key, &cl.Entry, ebpf.UpdateAny)
-}
-
-func (cl *CListener) Delete(key *GoAddress) error {
-	log.Debugf("Delete %#v", *key)
+func (l *Listener) Delete(key *Address) error {
+	log.Debugf("Delete [%#v], [%#v]", *key, *l)
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Delete(key)
-}
-
-type GoListener struct {
-	MapKey	GoMapKey
-	//Name	string	`json:"name"`
-	Type	uint16	`json:"type"`
-	State	uint16	`json:"state"`
-	Address	GoAddress	`json:"address"`
-}
-
-func (cl *CListener) ToGolang() *GoListener {
-	gl := &GoListener{}
-	Memcpy(unsafe.Pointer(gl),
-		unsafe.Pointer(&cl.Entry),
-		unsafe.Sizeof(cl.Entry))
-
-	return gl
-}
-
-func (gl *GoListener) ToClang() *CListener {
-	cl := &CListener{}
-	Memcpy(unsafe.Pointer(&cl.Entry),
-		unsafe.Pointer(gl),
-		unsafe.Sizeof(cl.Entry))
-
-	log.Debugf("%#v", *gl)
-	return cl
 }
