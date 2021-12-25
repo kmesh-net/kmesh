@@ -14,9 +14,11 @@
 
 package command
 
-// TODO
-func StartServer() {
-	for true {
+import "time"
 
+func StartServer() {
+	// TODO
+	for true {
+		time.Sleep(time.Second * 30)
 	}
 }
