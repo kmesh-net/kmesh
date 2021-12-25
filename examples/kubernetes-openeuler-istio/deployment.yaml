@@ -8,13 +8,16 @@ metadata:
 spec:
   selector:
     app: openeuler
+  type: NodePort
   ports:
-  - port: 80
-    name: http
+  - name: http
+    nodePort: 30080
+    port: 9080
     targetPort: 80
-  - port: 443
-    name: https
-    targetPort: 80
+  - name: https
+    nodePort: 30443
+    port: 9443
+    targetPort: 443
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -41,15 +44,16 @@ spec:
         command: ["/sbin/init"]
         imagePullPolicy: IfNotPresent #Always
         ports:
-        - containerPort: 80
-          protocol: TCP
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1024Mi
-          requests:
-            cpu: "2"
-            memory: 1024Mi
+        - protocol: TCP
+          containerPort: 80
+          containerPort: 433
+#        resources:
+#          limits:
+#            cpu: "2"
+#            memory: 1024Mi
+#          requests:
+#            cpu: "2"
+#            memory: 1024Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -76,12 +80,13 @@ spec:
         command: ["sbin/init"]
         imagePullPolicy: IfNotPresent #Always
         ports:
-        - containerPort: 80
-          protocol: TCP
-        resources:
-          limits:
-            cpu: "2"
-            memory: 1024Mi
-          requests:
-            cpu: "2"
-            memory: 1024Mi
+        - protocol: TCP
+          containerPort: 80
+          containerPort: 433
+#        resources:
+#          limits:
+#            cpu: "2"
+#            memory: 1024Mi
+#          requests:
+#            cpu: "2"
+#            memory: 1024Mi

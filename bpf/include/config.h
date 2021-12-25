@@ -28,6 +28,8 @@
 #define KMESH_ENABLE_UDP		KMESH_MODULE_OFF
 // L7
 #define KMESH_ENABLE_HTTP		KMESH_MODULE_OFF
+#define KMESH_ENABLE_HTTPS		KMESH_MODULE_OFF
+
 
 // ************
 // map size
