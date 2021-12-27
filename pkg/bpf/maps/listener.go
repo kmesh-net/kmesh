@@ -54,7 +54,7 @@ func (l *Listener) toClang() *cListener {
 func (l *Listener) Lookup(key *Address) error {
 	cl := &cListener{}
 	err := bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
-		Lookup(key, &cl.entry)
+		Lookup(key, cl.entry)
 
 	if err == nil {
 		l.toGolang(cl)

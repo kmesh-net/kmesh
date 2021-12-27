@@ -52,7 +52,7 @@ func (ep *Endpoint) toClang() *cEndpoint {
 func (ep *Endpoint) Lookup(key *MapKey) error {
 	cep := &cEndpoint{}
 	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
-		Lookup(key, &cep.entry)
+		Lookup(key, cep.entry)
 
 	if err == nil {
 		ep.toGolang(cep)
@@ -102,7 +102,7 @@ func (lb *Loadbalance) toClang() *cLoadbalance {
 func (lb *Loadbalance) Lookup(key *MapKey) error {
 	clb := &cLoadbalance{}
 	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
-		Lookup(key, &clb.entry)
+		Lookup(key, clb.entry)
 
 	if err == nil {
 		lb.toGolang(clb)

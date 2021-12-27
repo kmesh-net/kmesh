@@ -76,7 +76,7 @@ func (cl *Cluster) toClang() *cCluster {
 func (cl *Cluster) Lookup(key *MapKey) error {
 	ccl := &cCluster{}
 	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
-		Lookup(key, &ccl.entry)
+		Lookup(key, ccl.entry)
 
 	if err == nil {
 		cl.toGolang(ccl)

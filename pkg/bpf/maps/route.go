@@ -42,7 +42,7 @@ func (r *Route) toClang() *cRoute {
 func (r *Route) Lookup(key *MapKey) error {
 	cr := &cRoute{}
 	err := bpf.Obj.SockConn.FilterObjects.FilterMaps.Route.
-		Lookup(key, &cr.entry)
+		Lookup(key, cr.entry)
 
 	if err == nil {
 		r.toGolang(cr)
@@ -84,7 +84,7 @@ func (vh *VirtualHost) toClang() *cVirtualHost {
 func (vh *VirtualHost) Lookup(key *MapKey) error {
 	cvh := &cVirtualHost{}
 	err := bpf.Obj.SockConn.FilterObjects.FilterMaps.VirtualHost.
-		Lookup(key, &cvh.entry)
+		Lookup(key, cvh.entry)
 
 	if err == nil {
 		vh.toGolang(cvh)

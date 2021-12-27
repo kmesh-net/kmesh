@@ -42,7 +42,7 @@ func (f *GoFilter) toClang() *cFilter {
 func (f *GoFilter) Lookup(key *MapKey) error {
 	cf := &cFilter{}
 	err := bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Filter.
-		Lookup(key, &cf.entry)
+		Lookup(key, cf.entry)
 
 	if err == nil {
 		f.toGolang(cf)
@@ -84,7 +84,7 @@ func (fc *GoFilterChain) toClang() *cFilterChain {
 func (fc *GoFilterChain) Lookup(key *MapKey) error {
 	cfc := &cFilterChain{}
 	err := bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.FilterChain.
-		Lookup(key, &cfc.entry)
+		Lookup(key, cfc.entry)
 
 	if err == nil {
 		fc.toGolang(cfc)
