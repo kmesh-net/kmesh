@@ -128,14 +128,19 @@ func (c *kubeController) checkObjectValidity(obj interface{}) bool {
 }
 
 func (c *kubeController) enqueue(opt string, oldObj, newObj interface{}) {
-	name, err := cache.MetaNamespaceKeyFunc(newObj)
+	obj := newObj
+	if obj == nil {
+		obj = oldObj
+	}
+
+	name, err := cache.MetaNamespaceKeyFunc(obj)
 	if err != nil {
 		runtime.HandleError(err)
 		return
 	}
 
 	qkey := queueKey{}
-	qkey.typ = c.getObjectType(newObj)
+	qkey.typ = c.getObjectType(obj)
 	qkey.opt = opt
 	qkey.name = name
 	qkey.oldObj = oldObj
