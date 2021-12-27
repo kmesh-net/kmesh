@@ -55,8 +55,9 @@ type serviceHandle struct {
 	endpointsAddressToMapKey objAddressToMapKey
 }
 
-func newServiceHandle() *serviceHandle {
+func newServiceHandle(name string) *serviceHandle {
 	handle := &serviceHandle{}
+	handle.name = name
 	handle.serviceCount = make(objCount)
 	handle.endpointsCount = make(objCount)
 	handle.endpointsAddressToMapKey = make(objAddressToMapKey)

@@ -76,6 +76,7 @@ func (con *ConvertMapKey) StrToNum(str string) uint32 {
 		}
 	}
 
+	log.Debugf("convert %s to %d", str, num)
 	return num
 }
 
@@ -84,7 +85,7 @@ func (con *ConvertMapKey) NumToStr(num uint32) string {
 }
 
 func (con *ConvertMapKey) Delete(str string) {
-	con.numToStr[con.StrToNum(str)] = ""
+	delete(con.numToStr, con.StrToNum(str))
 }
 
 func Memcpy(dst, src unsafe.Pointer, len uintptr) {

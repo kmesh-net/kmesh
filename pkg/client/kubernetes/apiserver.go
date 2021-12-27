@@ -165,9 +165,20 @@ func (c *kubeController) syncHandler(qkey queueKey) error {
 		err error
 		newObj interface{}
 	)
+
+	if qkey.typ == InformerTypeNode {
+		newObj, _, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.name)
+		if err != nil {
+			return fmt.Errorf("get object with key %#v from store failed with %v", qkey, err)
+		}
+		nodeHdl.extractNodeData(serviceOptionDeleteFlag, qkey.oldObj)
+		nodeHdl.extractNodeData(serviceOptionUpdateFlag, newObj)
+		return nil
+	}
+
 	svcHdl := c.svcHandles[qkey.name]
 	if svcHdl == nil {
-		svcHdl = newServiceHandle()
+		svcHdl = newServiceHandle(qkey.name)
 	}
 
 	switch qkey.typ {
@@ -180,12 +191,6 @@ func (c *kubeController) syncHandler(qkey queueKey) error {
 		newObj, _, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.name)
 		if err == nil {
 			svcHdl.endpoints = append(svcHdl.endpoints, newEndpointEvent(qkey.oldObj, newObj))
-		}
-	case InformerTypeNode:
-		newObj, _, err = c.nodeInformer.Informer().GetIndexer().GetByKey(qkey.name)
-		if err == nil {
-			nodeHdl.extractNodeData(serviceOptionDeleteFlag, qkey.oldObj)
-			nodeHdl.extractNodeData(serviceOptionUpdateFlag, newObj)
 		}
 	default:
 		return fmt.Errorf("invlid queueKey name")
