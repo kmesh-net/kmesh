@@ -12,12 +12,12 @@
  * Create: 2021-10-09
  */
 
-package client
+package controller
 
 import (
 	"fmt"
-	xds "openeuler.io/mesh/pkg/client/envoy"
-	apiserver "openeuler.io/mesh/pkg/client/kubernetes"
+	xds "openeuler.io/mesh/pkg/controller/envoy"
+	apiserver "openeuler.io/mesh/pkg/controller/kubernetes"
 	"openeuler.io/mesh/pkg/logger"
 	"openeuler.io/mesh/pkg/option"
 )

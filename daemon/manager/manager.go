@@ -17,7 +17,7 @@ package manager
 import (
 	"openeuler.io/mesh/cmd/command"
 	"openeuler.io/mesh/pkg/bpf"
-	"openeuler.io/mesh/pkg/client"
+	"openeuler.io/mesh/pkg/controller"
 	"openeuler.io/mesh/pkg/logger"
 	"openeuler.io/mesh/pkg/option"
 	"os"
@@ -47,7 +47,7 @@ func Execute() {
 	defer bpf.Detach()
 	setupCloseHandler()
 
-	err = client.Start()
+	err = controller.Start()
 	if err != nil {
 		log.Error(err)
 	}
