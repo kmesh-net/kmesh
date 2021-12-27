@@ -253,6 +253,9 @@ func (c *kubeController) runWorker() {
 
 		nodeHdl.batchProcess()
 		for name, svcHdl := range c.svcHandles {
+			if !svcHdl.isChange() {
+				continue
+			}
 			if svcHdl.service != nil {
 				nodeHdl.refreshService(svcHdl.name, svcHdl.service.oldObj, svcHdl.service.newObj)
 			}

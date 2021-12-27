@@ -84,6 +84,17 @@ func (svcHdl *serviceHandle) isEmpty() bool {
 	return true
 }
 
+func (svcHdl *serviceHandle) isChange() bool {
+	if svcHdl.service != nil {
+		return true
+	}
+	if len(svcHdl.endpoints) > 0 {
+		return true
+	}
+
+	return false
+}
+
 func (svcHdl *serviceHandle) batchProcess(addr nodeAddress) {
 	lData := make(listenerData)
 	defer func() { lData = nil }()
