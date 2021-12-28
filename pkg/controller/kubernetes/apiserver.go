@@ -245,31 +245,32 @@ func (c *kubeController) processNextWorkItem() error {
 }
 
 func (c *kubeController) runWorker() {
-	for true {
+	if c.queue.Len() == 0 {
+		return
+	}
+
+	// Dequeue until the queue is empty, and then process in batch
+	for c.queue.Len() > 0 {
 		if err := c.processNextWorkItem(); err != nil {
 			log.Error(err)
 			break
 		}
+	}
 
-		// Dequeue until the queue is empty, and then process in batch
-		if c.queue.Len() > 0 {
+	// then process in batch
+	nodeHdl.batchProcess()
+	for name, svcHdl := range c.svcHandles {
+		if !svcHdl.isChange() {
 			continue
 		}
+		if svcHdl.service != nil {
+			nodeHdl.refreshService(svcHdl.name, svcHdl.service.oldObj, svcHdl.service.newObj)
+		}
 
-		nodeHdl.batchProcess()
-		for name, svcHdl := range c.svcHandles {
-			if !svcHdl.isChange() {
-				continue
-			}
-			if svcHdl.service != nil {
-				nodeHdl.refreshService(svcHdl.name, svcHdl.service.oldObj, svcHdl.service.newObj)
-			}
-
-			svcHdl.batchProcess(nodeHdl.address)
-			if svcHdl.isEmpty() {
-				svcHdl.destroy()
-				delete(c.svcHandles, name)
-			}
+		svcHdl.batchProcess(nodeHdl.address)
+		if svcHdl.isEmpty() {
+			svcHdl.destroy()
+			delete(c.svcHandles, name)
 		}
 	}
 }
