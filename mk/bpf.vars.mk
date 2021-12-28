@@ -25,3 +25,7 @@ RUNDIR ?= /var/run
 CONFDIR ?= /etc
 
 INSTALL_BIN ?= $(DESTDIR)/$(BINDIR)/kmesh
+
+EXTRA_GOFLAGS ?= -a
+EXTRA_CFLAGS ?= -O2 -Wall
+EXTRA_CDEFINE ?= -D__x86_64__

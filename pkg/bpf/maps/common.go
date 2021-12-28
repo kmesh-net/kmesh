@@ -76,7 +76,7 @@ func (con *ConvertMapKey) StrToNum(str string) uint32 {
 		}
 	}
 
-	log.Debugf("convert %s to %d", str, num)
+	//log.Debugf("convert %s to %d", str, num)
 	return num
 }
 

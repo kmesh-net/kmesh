@@ -20,7 +20,8 @@ INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
 
 # compiler flags
 #LDFLAGS = -lbpf
-CFLAGS := -O2 -g -Wall -target bpf
+CFLAGS := $(EXTRA_CFLAGS) $(EXTRA_CDEFINE)
+CFLAGS += -target bpf
 
 # target
 APPS := bpf_sock.o

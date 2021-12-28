@@ -16,8 +16,7 @@ include ./mk/bpf.vars.mk
 include ./mk/bpf.print.mk
 
 # compiler flags
-GOFLAGS := -gcflags="-N -l"
-#GOFLAGS += -a
+GOFLAGS := $(EXTRA_GOFLAGS)
 
 # target
 APPS1 := mesh-daemon

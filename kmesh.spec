@@ -9,8 +9,9 @@ URL:           https://gitee.com/openeuler
 Source0:       %{name}-%{version}.tar.gz
 
 BuildRequires: clang llvm
-BuildRequires: libbpf-devel kernel-devel
-BuildRequires: golang
+BuildRequires: libbpf-devel 
+BuildRequires: kernel-devel >= 5.10
+BuildRequires: golang >= 1.16
 
 Requires: libbpf bpftool
 
@@ -23,6 +24,10 @@ ExclusiveArch: x86_64 aarch64
 %autosetup -n %{name}-%{version}
 
 %build
+export EXTRA_GOFLAGS="-gcflags=\"-N -l\""
+export EXTRA_CFLAGS="-O0 -g"
+export EXTRA_CDEFINE="-D__x86_64__"
+
 cd %{_builddir}/%{name}-%{version}
 %make_build
 
