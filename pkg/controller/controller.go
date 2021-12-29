@@ -23,28 +23,31 @@ import (
 )
 
 const (
-	pkgSubsys = "client"
+	pkgSubsys = "controller"
 )
 
 var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+	stopCh = make(chan struct{})
 )
 
 func Start() error {
+	var err error = nil
+
 	switch option.GetClientConfig().ClientMode {
 	case option.ClientModeKube:
-		go func() {
-			err := apiserver.Run()
-			log.Error(err)
-		}()
+		err = apiserver.Run(stopCh)
 	case option.ClientModeEnvoy:
-		go func() {
-			err := xds.Run()
-			log.Error(err)
-		}()
+		err = xds.Run(stopCh)
 	default:
 		return fmt.Errorf("invalid client mode, %s", option.GetClientConfig().ClientMode)
 	}
 
-	return nil
+	return err
+}
+
+func Quit() {
+	var obj struct{}
+	stopCh <- obj
+	close(stopCh)
 }

@@ -14,7 +14,7 @@
 
 package envoy
 
-func Run() error {
+func Run(stopCh <-chan struct{}) error {
 	// TODO
 	return nil
 }

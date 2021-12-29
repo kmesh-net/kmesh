@@ -295,11 +295,10 @@ func (c *kubeController) run(stopCh <-chan struct{}) error {
 	// until stop channel is closed, and running Worker every second
 	go wait.Until(c.runWorker, time.Second, stopCh)
 
-	<-stopCh
 	return nil
 }
 
-func Run() error {
+func Run(stopCh <-chan struct{}) error {
 	var (
 		err error
 		config *restClient.Config
@@ -327,9 +326,6 @@ func Run() error {
 	if err != nil {
 		return fmt.Errorf("kube new clientset failed, %s", err)
 	}
-
-	stopCh := make(chan struct{})
-	defer close(stopCh)
 
 	controller := newKubeController(clientset)
 	if err := controller.run(stopCh); err != nil {

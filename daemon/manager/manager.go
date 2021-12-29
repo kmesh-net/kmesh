@@ -45,24 +45,27 @@ func Execute() {
 		return
 	}
 	defer bpf.Detach()
-	setupCloseHandler()
 
 	err = controller.Start()
 	if err != nil {
 		log.Error(err)
+		return
 	}
+	defer controller.Quit()
 
-	command.StartServer()
+	command.Start()
+
+	setupCloseHandler()
 	return
 }
 
 func setupCloseHandler() {
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGQUIT)
 
-	go func() {
-		<-c
-		bpf.Detach()
-		os.Exit(0)
-	}()
+	<-ch
+	controller.Quit()
+	bpf.Detach()
+
+	os.Exit(1)
 }
