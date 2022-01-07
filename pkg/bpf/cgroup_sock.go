@@ -41,12 +41,12 @@ func NewSocketConnect(cfg option.BpfConfig) (BpfSocketConnect, error) {
 	if _, err := os.Stat(sc.Info.Cgroup2Path); err != nil {
 		return sc, err
 	}
-	if _, err := os.Stat(sc.Info.BpffsPath); err != nil {
+	if _, err := os.Stat(sc.Info.BpfFsPath); err != nil {
 		return sc, err
 	}
 
-	sc.Info.BpffsPath += "socket_connect/"
-	sc.Info.MapPath = sc.Info.BpffsPath + "map/"
+	sc.Info.BpfFsPath += "socket_connect/"
+	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
 	if err := os.MkdirAll(sc.Info.MapPath, 0750); err != nil && !os.IsExist(err) {
 		return sc, err
 	}
@@ -72,7 +72,7 @@ func (sc *BpfSocketConnect) loadCgroupSockObjects() (*ebpf.CollectionSpec, error
 	}
 
 	value := reflect.ValueOf(sc.CgroupSockObjects.CgroupSockPrograms)
-	if err = pinPrograms(&value, sc.Info.BpffsPath); err != nil {
+	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
@@ -98,7 +98,7 @@ func (sc *BpfSocketConnect) loadFilterObjects() (*ebpf.CollectionSpec, error) {
 	}
 
 	value := reflect.ValueOf(sc.FilterObjects.FilterPrograms)
-	if err = pinPrograms(&value, sc.Info.BpffsPath); err != nil {
+	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
@@ -140,7 +140,7 @@ func (sc *BpfSocketConnect) loadClusterObjects() (*ebpf.CollectionSpec, error) {
 	}
 
 	value := reflect.ValueOf(sc.ClusterObjects.ClusterPrograms)
-	if err = pinPrograms(&value, sc.Info.BpffsPath); err != nil {
+	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
@@ -221,7 +221,7 @@ func (sc *BpfSocketConnect) detach() error {
 		return err
 	}
 
-	if err := os.RemoveAll(sc.Info.BpffsPath); err != nil && !os.IsNotExist(err) {
+	if err := os.RemoveAll(sc.Info.BpfFsPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 

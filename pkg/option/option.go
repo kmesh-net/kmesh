@@ -18,6 +18,7 @@ package option
 // #include "config.h"
 import "C"
 import (
+	"flag"
 	"fmt"
 )
 
@@ -31,7 +32,7 @@ var (
 )
 
 type BpfConfig struct {
-	BpffsPath	string
+	BpfFsPath	string
 	Cgroup2Path	string
 }
 type ClientConfig struct {
@@ -48,12 +49,6 @@ type DaemonConfig struct {
 func InitializeDaemonConfig() error {
 	dc := &config
 
-	dc.BpfConfig.BpffsPath = "/sys/fs/bpf/"
-	dc.BpfConfig.Cgroup2Path = "/mnt/cgroup2/"
-
-	dc.ClientConfig.ClientMode = ClientModeKube
-	dc.ClientConfig.KubeInCluster = false
-
 	dc.Protocol = make(map[string]bool)
 	dc.Protocol["IPV4"]  = C.KMESH_ENABLE_IPV4 == C.KMESH_MODULE_ON
 	dc.Protocol["IPV6"]  = C.KMESH_ENABLE_IPV6 == C.KMESH_MODULE_ON
@@ -62,6 +57,13 @@ func InitializeDaemonConfig() error {
 	dc.Protocol["HTTP"]  = C.KMESH_ENABLE_HTTP == C.KMESH_MODULE_ON
 	dc.Protocol["HTTPS"] = C.KMESH_ENABLE_HTTPS == C.KMESH_MODULE_ON
 
+	flag.StringVar(&dc.BpfConfig.BpfFsPath, "bpfFsPath", "/sys/fs/bpf/", "bpf fs path")
+	flag.StringVar(&dc.BpfConfig.Cgroup2Path, "cgroup2Path", "/mnt/cgroup2/", "cgroup2 path")
+
+	flag.StringVar(&dc.ClientConfig.ClientMode, "clientMode", ClientModeKube, "controller plane mode")
+	flag.BoolVar(&dc.ClientConfig.KubeInCluster,"kubeInCluster", false, "deploy in kube cluster")
+
+	flag.Parse()
 	fmt.Println(config)
 	return nil
 }
