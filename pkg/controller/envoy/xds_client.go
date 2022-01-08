@@ -12,37 +12,30 @@
  * Create: 2021-10-09
  */
 
-package controller
+package envoy
 
-import (
-	"openeuler.io/mesh/pkg/controller/interfaces"
-	"openeuler.io/mesh/pkg/logger"
-)
+type XdsClient struct {
 
-const (
-	pkgSubsys = "controller"
-)
-
-var (
-	log        = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
-	stopCh     = make(chan struct{})
-	client     interfaces.ClientFactory
-)
-
-func Start() error {
-	var err error
-
-	client, err = config.NewClient()
-	if err != nil {
-		return err
-	}
-
-	return client.Run(stopCh)
 }
 
-func Stop() {
-	var obj struct{}
-	stopCh <- obj
-	close(stopCh)
-	client.Close()
+func NewXdsClient() *XdsClient {
+	c := &XdsClient{}
+	return c
+}
+
+func (c *XdsClient) Run(stopCh <-chan struct{}) error {
+	// TODO
+	go func() {
+		select {
+		case <-stopCh:
+			return
+		//default:
+		}
+	}()
+
+	return nil
+}
+
+func (c *XdsClient) Close() error {
+	return nil
 }

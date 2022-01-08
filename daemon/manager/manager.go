@@ -37,21 +37,22 @@ var (
 func Execute() {
 	var err error
 
-	option.InitializeDaemonConfig()
+	if err = option.InitDaemonConfig(); err != nil {
+		log.Error(err)
+		return
+	}
 
-	err = bpf.Start()
-	if err != nil {
+	if err = bpf.Start(); err != nil {
 		log.Error(err)
 		return
 	}
 	defer bpf.Detach()
 
-	err = controller.Start()
-	if err != nil {
+	if err = controller.Start(); err != nil {
 		log.Error(err)
 		return
 	}
-	defer controller.Quit()
+	defer controller.Stop()
 
 	command.Start()
 
@@ -64,7 +65,7 @@ func setupCloseHandler() {
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGQUIT)
 
 	<-ch
-	controller.Quit()
+	controller.Stop()
 	bpf.Detach()
 
 	os.Exit(1)

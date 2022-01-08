@@ -9,40 +9,42 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  * Author: LemmyHuang
- * Create: 2021-10-09
+ * Create: 2022-01-08
  */
 
-package controller
+package bpf
 
 import (
-	"openeuler.io/mesh/pkg/controller/interfaces"
-	"openeuler.io/mesh/pkg/logger"
+	"flag"
+	"openeuler.io/mesh/pkg/option"
+	"os"
 )
 
-const (
-	pkgSubsys = "controller"
-)
+var config Config
 
-var (
-	log        = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
-	stopCh     = make(chan struct{})
-	client     interfaces.ClientFactory
-)
+func init() {
+	option.Register(&config)
+}
 
-func Start() error {
-	var err error
+type Config struct {
+	BpfFsPath    string
+	Cgroup2Path    string
+}
 
-	client, err = config.NewClient()
-	if err != nil {
+func (c *Config) SetArgs() error {
+	flag.StringVar(&c.BpfFsPath, "bpfFsPath", "/sys/fs/bpf/", "bpf fs path")
+	flag.StringVar(&c.Cgroup2Path, "cgroup2Path", "/mnt/cgroup2/", "cgroup2 path")
+
+	return nil
+}
+
+func (c *Config) ParseConfig() error {
+	if _, err := os.Stat(c.Cgroup2Path); err != nil {
+		return err
+	}
+	if _, err := os.Stat(c.BpfFsPath); err != nil {
 		return err
 	}
 
-	return client.Run(stopCh)
-}
-
-func Stop() {
-	var obj struct{}
-	stopCh <- obj
-	close(stopCh)
-	client.Close()
+	return nil
 }

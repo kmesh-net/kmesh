@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"openeuler.io/mesh/bpf/bpf2go"
-	"openeuler.io/mesh/pkg/option"
 	"os"
 	"reflect"
 )
@@ -34,16 +33,9 @@ type BpfSocketConnect struct {
 	bpf2go.ClusterObjects
 }
 
-func NewSocketConnect(cfg option.BpfConfig) (BpfSocketConnect, error) {
+func NewSocketConnect(cfg *Config) (BpfSocketConnect, error) {
 	sc := BpfSocketConnect {}
-	sc.Info.BpfConfig = cfg
-
-	if _, err := os.Stat(sc.Info.Cgroup2Path); err != nil {
-		return sc, err
-	}
-	if _, err := os.Stat(sc.Info.BpfFsPath); err != nil {
-		return sc, err
-	}
+	sc.Info.Config = *cfg
 
 	sc.Info.BpfFsPath += "socket_connect/"
 	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"

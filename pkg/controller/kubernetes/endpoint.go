@@ -19,7 +19,6 @@ import (
 	apiCoreV1 "k8s.io/api/core/v1"
 	"openeuler.io/mesh/pkg/bpf/maps"
 	"openeuler.io/mesh/pkg/nets"
-	"openeuler.io/mesh/pkg/option"
 )
 
 type endpointKeyAndValue struct {
@@ -44,7 +43,7 @@ func (data endpointData) extractData(flag objOptionFlag, ep *apiCoreV1.Endpoints
 
 	for _, sub := range ep.Subsets {
 		for _, epPort := range sub.Ports {
-			if !option.EnabledProtocolConfig(string(epPort.Protocol)) {
+			if !nets.GetConfig().IsEnabledProtocol(string(epPort.Protocol)) {
 				continue
 			}
 

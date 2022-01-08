@@ -19,7 +19,6 @@ import (
 	apiCoreV1 "k8s.io/api/core/v1"
 	"openeuler.io/mesh/pkg/bpf/maps"
 	"openeuler.io/mesh/pkg/nets"
-	"openeuler.io/mesh/pkg/option"
 )
 
 type clusterKeyAndValue struct {
@@ -48,7 +47,7 @@ func (data clusterData) extractData(flag objOptionFlag, svc *apiCoreV1.Service, 
 	kv.value.ConnectTimeout = 15
 
 	for _, serPort := range svc.Spec.Ports {
-		if !option.EnabledProtocolConfig(string(serPort.Protocol)) {
+		if !nets.GetConfig().IsEnabledProtocol(string(serPort.Protocol)) {
 			continue
 		}
 

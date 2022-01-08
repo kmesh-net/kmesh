@@ -18,11 +18,10 @@ import (
 	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
-	"openeuler.io/mesh/pkg/option"
 )
 
 type BpfInfo struct {
-	option.BpfConfig
+	Config
 	MapPath		string
 	Type		ebpf.ProgramType
 	AttachType	ebpf.AttachType
@@ -49,7 +48,7 @@ func Start() error {
 		return err
 	}
 
-	if Obj.SockConn, err = NewSocketConnect(option.GetBpfConfig()); err != nil {
+	if Obj.SockConn, err = NewSocketConnect(&config); err != nil {
 		return err
 	}
 

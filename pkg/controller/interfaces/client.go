@@ -9,12 +9,18 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  * Author: LemmyHuang
- * Create: 2021-10-09
+ * Create: 2022-01-08
  */
 
-package envoy
+package interfaces
 
-func Run(stopCh <-chan struct{}) error {
-	// TODO
-	return nil
+type ClientFactory interface {
+	Run(ch <- chan struct{}) error
+	Close() error
+}
+
+type ConfigFactory interface {
+	SetClientArgs() error
+	UnmarshalResources() error
+	NewClient() (ClientFactory, error)
 }

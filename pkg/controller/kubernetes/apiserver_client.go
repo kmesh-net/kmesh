@@ -22,14 +22,9 @@ import (
 	"k8s.io/client-go/informers"
 	informersCoreV1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
-	restClient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
-	"k8s.io/client-go/tools/clientcmd"
-	"k8s.io/client-go/util/homedir"
 	"k8s.io/client-go/util/workqueue"
 	"openeuler.io/mesh/pkg/logger"
-	"openeuler.io/mesh/pkg/option"
-	"path/filepath"
 	"time"
 )
 
@@ -49,7 +44,7 @@ var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
-type kubeController struct {
+type ApiserverClient struct {
 	queue            workqueue.RateLimitingInterface
 	factory          informers.SharedInformerFactory
 	serviceInformer  informersCoreV1.ServiceInformer
@@ -65,35 +60,7 @@ type queueKey struct {
 	oldObj	interface{}
 }
 
-func newKubeController(clientset kubernetes.Interface) *kubeController {
-	factory := informers.NewSharedInformerFactory(clientset, time.Second * 30)
-
-	c := &kubeController{
-		factory: factory,
-		serviceInformer: factory.Core().V1().Services(),
-		endpointInformer: factory.Core().V1().Endpoints(),
-		nodeInformer: factory.Core().V1().Nodes(),
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "kubeController"),
-	}
-
-	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueueForAdd,
-		UpdateFunc: c.enqueueForUpdate,
-		DeleteFunc: c.enqueueForDelete,
-	}
-	c.serviceInformer.Informer().AddEventHandler(handler)
-	c.endpointInformer.Informer().AddEventHandler(handler)
-	c.nodeInformer.Informer().AddEventHandler(handler)
-
-	c.svcHandles = make(map[string]*serviceHandle)
-	return c
-}
-
-func (c *kubeController) destroy() {
-	*c = kubeController{}
-}
-
-func (c *kubeController) getObjectType(obj interface{}) string {
+func getObjectType(obj interface{}) string {
 	switch obj.(type) {
 	case *apiCoreV1.Service:
 		return InformerTypeService
@@ -106,7 +73,7 @@ func (c *kubeController) getObjectType(obj interface{}) string {
 	}
 }
 
-func (c *kubeController) checkObjectValidity(obj interface{}) bool {
+func checkObjectValidity(obj interface{}) bool {
 	switch obj.(type) {
 	case *apiCoreV1.Node:
 		return true
@@ -127,7 +94,7 @@ func (c *kubeController) checkObjectValidity(obj interface{}) bool {
 	return false
 }
 
-func (c *kubeController) enqueue(opt string, oldObj, newObj interface{}) {
+func (c *ApiserverClient) enqueue(opt string, oldObj, newObj interface{}) {
 	obj := newObj
 	if obj == nil {
 		obj = oldObj
@@ -140,32 +107,56 @@ func (c *kubeController) enqueue(opt string, oldObj, newObj interface{}) {
 	}
 
 	qkey := queueKey{}
-	qkey.typ = c.getObjectType(obj)
+	qkey.typ = getObjectType(obj)
 	qkey.opt = opt
 	qkey.name = name
 	qkey.oldObj = oldObj
 	c.queue.AddRateLimited(qkey)
 }
 
-func (c *kubeController) enqueueForAdd(obj interface{}) {
+func (c *ApiserverClient) enqueueForAdd(obj interface{}) {
 	c.enqueue(InformerOptAdd, nil, obj)
 }
 
-func (c *kubeController) enqueueForUpdate(oldObj, newObj interface{}) {
+func (c *ApiserverClient) enqueueForUpdate(oldObj, newObj interface{}) {
 	if oldObj == newObj {
 		return
 	}
-	if !c.checkObjectValidity(oldObj) && !c.checkObjectValidity(newObj) {
+	if !checkObjectValidity(oldObj) && !checkObjectValidity(newObj) {
 		return
 	}
 	c.enqueue(InformerOptUpdate, oldObj, newObj)
 }
 
-func (c *kubeController) enqueueForDelete(obj interface{}) {
+func (c *ApiserverClient) enqueueForDelete(obj interface{}) {
 	c.enqueue(InformerOptDelete, obj, nil)
 }
 
-func (c *kubeController) syncHandler(qkey queueKey) error {
+func NewApiserverClient(clientset kubernetes.Interface) *ApiserverClient {
+	factory := informers.NewSharedInformerFactory(clientset, time.Second * 30)
+
+	c := &ApiserverClient{
+		factory: factory,
+		serviceInformer: factory.Core().V1().Services(),
+		endpointInformer: factory.Core().V1().Endpoints(),
+		nodeInformer: factory.Core().V1().Nodes(),
+		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ApiserverClient"),
+	}
+
+	handler := cache.ResourceEventHandlerFuncs{
+		AddFunc: c.enqueueForAdd,
+		UpdateFunc: c.enqueueForUpdate,
+		DeleteFunc: c.enqueueForDelete,
+	}
+	c.serviceInformer.Informer().AddEventHandler(handler)
+	c.endpointInformer.Informer().AddEventHandler(handler)
+	c.nodeInformer.Informer().AddEventHandler(handler)
+
+	c.svcHandles = make(map[string]*serviceHandle)
+	return c
+}
+
+func (c *ApiserverClient) syncHandler(qkey queueKey) error {
 	var (
 		err error
 		newObj interface{}
@@ -211,7 +202,7 @@ func (c *kubeController) syncHandler(qkey queueKey) error {
 
 // processNextWorkItem will read a single work item off the queue and
 // attempt to process it.
-func (c *kubeController) processNextWorkItem() error {
+func (c *ApiserverClient) processNextWorkItem() error {
 	obj, shutdown := c.queue.Get()
 	if shutdown {
 		return fmt.Errorf("queue alreay shutdown")
@@ -244,7 +235,7 @@ func (c *kubeController) processNextWorkItem() error {
 	return nil
 }
 
-func (c *kubeController) runWorker() {
+func (c *ApiserverClient) runWorker() {
 	if c.queue.Len() == 0 {
 		return
 	}
@@ -277,7 +268,7 @@ func (c *kubeController) runWorker() {
 
 // Run will block until stopCh is closed, at which point it will shutdown the queue
 // and wait for workers to finish processing their current work items.
-func (c *kubeController) run(stopCh <-chan struct{}) error {
+func (c *ApiserverClient) Run(stopCh <-chan struct{}) error {
 	defer c.queue.ShutDown()
 
 	go c.factory.Start(stopCh)
@@ -298,39 +289,7 @@ func (c *kubeController) run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func Run(stopCh <-chan struct{}) error {
-	var (
-		err error
-		config *restClient.Config
-	)
-	cfg := option.GetClientConfig()
-
-	if cfg.KubeInCluster {
-		config, err = restClient.InClusterConfig()
-		if err != nil {
-			return fmt.Errorf("kube build config in cluster failed, %s", err)
-		}
-	} else {
-		home := homedir.HomeDir()
-		if home == "" {
-			return fmt.Errorf("kube get homedir failed")
-		}
-		kubeconfig := filepath.Join(home, ".kube", "config")
-		config, err = clientcmd.BuildConfigFromFlags("", kubeconfig)
-		if err != nil {
-			return fmt.Errorf("kube build config failed, %s", err)
-		}
-	}
-
-	clientset, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		return fmt.Errorf("kube new clientset failed, %s", err)
-	}
-
-	controller := newKubeController(clientset)
-	if err := controller.run(stopCh); err != nil {
-		return fmt.Errorf("kube run controller failed, %s", err)
-	}
-
+func (c *ApiserverClient) Close() error {
+	*c = ApiserverClient{}
 	return nil
 }

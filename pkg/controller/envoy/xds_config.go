@@ -9,40 +9,30 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  * Author: LemmyHuang
- * Create: 2021-10-09
+ * Create: 2022-01-08
  */
 
-package controller
+package envoy
 
 import (
+	"flag"
 	"openeuler.io/mesh/pkg/controller/interfaces"
-	"openeuler.io/mesh/pkg/logger"
 )
 
-const (
-	pkgSubsys = "controller"
-)
-
-var (
-	log        = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
-	stopCh     = make(chan struct{})
-	client     interfaces.ClientFactory
-)
-
-func Start() error {
-	var err error
-
-	client, err = config.NewClient()
-	if err != nil {
-		return err
-	}
-
-	return client.Run(stopCh)
+type XdsConfig struct {
+	configPath string
 }
 
-func Stop() {
-	var obj struct{}
-	stopCh <- obj
-	close(stopCh)
-	client.Close()
+func (c *XdsConfig) SetClientArgs() error {
+	flag.StringVar(&c.configPath,"configPath", "etc/istio/proxy/envoy-rev0.json", "deploy in kube cluster")
+	return nil
+}
+
+func (c *XdsConfig) UnmarshalResources() error {
+	return nil
+}
+
+func (c *XdsConfig) NewClient() (interfaces.ClientFactory, error) {
+	client := NewXdsClient()
+	return client, nil
 }
