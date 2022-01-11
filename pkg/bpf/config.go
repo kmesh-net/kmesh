@@ -18,6 +18,7 @@ import (
 	"flag"
 	"openeuler.io/mesh/pkg/option"
 	"os"
+	"path/filepath"
 )
 
 var config Config
@@ -32,17 +33,26 @@ type Config struct {
 }
 
 func (c *Config) SetArgs() error {
-	flag.StringVar(&c.BpfFsPath, "bpfFsPath", "/sys/fs/bpf/", "bpf fs path")
-	flag.StringVar(&c.Cgroup2Path, "cgroup2Path", "/mnt/cgroup2/", "cgroup2 path")
+	flag.StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
+	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/cgroup2", "cgroup2 path")
 
 	return nil
 }
 
 func (c *Config) ParseConfig() error {
-	if _, err := os.Stat(c.Cgroup2Path); err != nil {
+	var err error
+
+	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
 		return err
 	}
-	if _, err := os.Stat(c.BpfFsPath); err != nil {
+	if _, err = os.Stat(c.Cgroup2Path); err != nil {
+		return err
+	}
+
+	if c.BpfFsPath, err = filepath.Abs(c.BpfFsPath); err != nil {
+		return err
+	}
+	if _, err = os.Stat(c.BpfFsPath); err != nil {
 		return err
 	}
 

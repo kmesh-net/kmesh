@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	flagClientMode = "clientMode"
 	ClientModeKube = "kubernetes"
 	ClientModeEnvoy = "envoy"
 )
@@ -44,8 +43,8 @@ func (c *Config) SetArgs() error {
 	var clientModeValue = ClientModeKube
 	var clientModeUsage = fmt.Sprintf("controller plane mode: [%s %s]", ClientModeKube, ClientModeEnvoy)
 
-	flag.StringVar(&c.ClientMode, flagClientMode, clientModeValue, clientModeUsage)
-	if idx := option.FindArgIndex(flagClientMode); idx != -1 {
+	flag.StringVar(&c.ClientMode, "client-mode", clientModeValue, clientModeUsage)
+	if idx := option.FindArgIndex("client-mode"); idx != -1 {
 		clientModeValue = option.GetArgValue(idx)
 	}
 

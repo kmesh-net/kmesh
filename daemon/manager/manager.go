@@ -31,7 +31,6 @@ const (
 
 var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
-	bpfObj bpf.BpfObject
 )
 
 func Execute() {

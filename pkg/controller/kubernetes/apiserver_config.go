@@ -22,7 +22,16 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"openeuler.io/mesh/pkg/controller/interfaces"
+	"openeuler.io/mesh/pkg/logger"
 	"path/filepath"
+)
+
+const (
+	pkgSubsys = "apiserver"
+)
+
+var (
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 type ApiserverConfig struct {
@@ -31,7 +40,7 @@ type ApiserverConfig struct {
 }
 
 func (c *ApiserverConfig) SetClientArgs() error {
-	flag.BoolVar(&c.InCluster,"inCluster", false, "deploy in kube cluster by DaemonSet")
+	flag.BoolVar(&c.InCluster, "in-cluster", false, "deploy in kube cluster by DaemonSet")
 	return nil
 }
 

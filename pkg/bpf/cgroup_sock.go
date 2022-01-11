@@ -37,7 +37,7 @@ func NewSocketConnect(cfg *Config) (BpfSocketConnect, error) {
 	sc := BpfSocketConnect {}
 	sc.Info.Config = *cfg
 
-	sc.Info.BpfFsPath += "socket_connect/"
+	sc.Info.BpfFsPath += "/socket_connect/"
 	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
 	if err := os.MkdirAll(sc.Info.MapPath, 0750); err != nil && !os.IsExist(err) {
 		return sc, err

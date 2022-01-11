@@ -18,6 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -95,3 +96,10 @@ func GetArgValue(index int) string {
 	return ""
 }
 
+func IsYamlFormat(path string) bool {
+	ext := filepath.Ext(path)
+	if ext == ".yaml" || ext == ".yml" {
+		return true
+	}
+	return false
+}

@@ -24,13 +24,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"openeuler.io/mesh/pkg/logger"
 	"time"
 )
 
 const (
-	pkgSubsys = "apiserver"
-
 	InformerTypeService = "Service"
 	InformerTypeEndpoints = "Endpoints"
 	InformerTypeNode = "Node"
@@ -38,10 +35,6 @@ const (
 	InformerOptAdd = "Add"
 	InformerOptUpdate = "Update"
 	InformerOptDelete = "Delete"
-)
-
-var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 type ApiserverClient struct {
