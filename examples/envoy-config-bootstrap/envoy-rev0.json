@@ -337,8 +337,10 @@
             "lb_endpoints": [{
               "endpoint": {
                 "address":{
-                  "pipe": {
-                    "path": "./etc/istio/proxy/XDS"
+                  "socket_address": {
+                    "protocol": "TCP",
+                    "address": "192.168.123.249",
+                    "port_value": 15010
                   }
                 }
               }

@@ -125,8 +125,8 @@ func (c *ApiserverClient) enqueueForDelete(obj interface{}) {
 	c.enqueue(InformerOptDelete, obj, nil)
 }
 
-func NewApiserverClient(clientset kubernetes.Interface) *ApiserverClient {
-	factory := informers.NewSharedInformerFactory(clientset, time.Second * 30)
+func NewApiserverClient(clientSet kubernetes.Interface) (*ApiserverClient, error) {
+	factory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 
 	c := &ApiserverClient{
 		factory: factory,
@@ -146,7 +146,7 @@ func NewApiserverClient(clientset kubernetes.Interface) *ApiserverClient {
 	c.nodeInformer.Informer().AddEventHandler(handler)
 
 	c.svcHandles = make(map[string]*serviceHandle)
-	return c
+	return c, nil
 }
 
 func (c *ApiserverClient) syncHandler(qkey queueKey) error {

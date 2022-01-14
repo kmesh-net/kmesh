@@ -29,8 +29,8 @@ const (
 
 var (
 	protocolStrToC = map[apiCoreV1.Protocol]uint32 {
-		apiCoreV1.ProtocolTCP:	0, //C.IPPROTO_TCP,
-		apiCoreV1.ProtocolUDP:	6, //C.IPPROTO_UDP,
+		apiCoreV1.ProtocolTCP: 0, //C.IPPROTO_TCP,
+		apiCoreV1.ProtocolUDP: 6, //C.IPPROTO_UDP,
 	}
 
 	convert = maps.NewConvertMapKey()

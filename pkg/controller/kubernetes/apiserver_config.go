@@ -18,7 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"k8s.io/client-go/kubernetes"
-	restClient "k8s.io/client-go/rest"
+	clientRest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"openeuler.io/mesh/pkg/controller/interfaces"
@@ -35,8 +35,8 @@ var (
 )
 
 type ApiserverConfig struct {
-	InCluster    bool
-	ClientConfig *restClient.Config
+	InCluster  bool
+	ClientSet  kubernetes.Interface
 }
 
 func (c *ApiserverConfig) SetClientArgs() error {
@@ -45,10 +45,13 @@ func (c *ApiserverConfig) SetClientArgs() error {
 }
 
 func (c *ApiserverConfig) UnmarshalResources() error {
-	var err error
+	var (
+		err error
+		rest *clientRest.Config
+	)
 
 	if c.InCluster {
-		c.ClientConfig, err = restClient.InClusterConfig()
+		rest, err = clientRest.InClusterConfig()
 		if err != nil {
 			return fmt.Errorf("kube build config in cluster failed, %s", err)
 		}
@@ -58,22 +61,20 @@ func (c *ApiserverConfig) UnmarshalResources() error {
 			return fmt.Errorf("kube get homedir failed")
 		}
 		cfgPath := filepath.Join(home, ".kube", "config")
-		c.ClientConfig, err = clientcmd.BuildConfigFromFlags("", cfgPath)
+		rest, err = clientcmd.BuildConfigFromFlags("", cfgPath)
 		if err != nil {
 			return fmt.Errorf("kube build config failed, %s", err)
 		}
+	}
+
+	c.ClientSet, err = kubernetes.NewForConfig(rest)
+	if err != nil {
+		return fmt.Errorf("kube new clientset failed, %s", err)
 	}
 
 	return nil
 }
 
 func (c *ApiserverConfig) NewClient() (interfaces.ClientFactory, error) {
-	clientset, err := kubernetes.NewForConfig(c.ClientConfig)
-	if err != nil {
-		return nil, fmt.Errorf("kube new clientset failed, %s", err)
-	}
-
-	client := NewApiserverClient(clientset)
-
-	return client, nil
+	return NewApiserverClient(c.ClientSet)
 }
