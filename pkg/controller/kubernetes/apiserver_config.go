@@ -24,19 +24,27 @@ import (
 	"openeuler.io/mesh/pkg/controller/interfaces"
 	"openeuler.io/mesh/pkg/logger"
 	"path/filepath"
+	"time"
 )
 
 const (
 	pkgSubsys = "apiserver"
+	DefaultRefreshDelay = time.Second * 3
 )
 
 var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+	config ApiserverConfig
 )
 
 type ApiserverConfig struct {
-	InCluster  bool
-	ClientSet  kubernetes.Interface
+	InCluster     bool
+	RefreshDelay  time.Duration
+	ClientSet     kubernetes.Interface
+}
+
+func GetConfig() *ApiserverConfig {
+	return &config
 }
 
 func (c *ApiserverConfig) SetClientArgs() error {
@@ -72,6 +80,7 @@ func (c *ApiserverConfig) UnmarshalResources() error {
 		return fmt.Errorf("kube new clientset failed, %s", err)
 	}
 
+	c.RefreshDelay = DefaultRefreshDelay
 	return nil
 }
 

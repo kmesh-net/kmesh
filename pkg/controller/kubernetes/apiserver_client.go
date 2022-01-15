@@ -276,8 +276,8 @@ func (c *ApiserverClient) Run(stopCh <-chan struct{}) error {
 		return fmt.Errorf("kube wait for node caches to sync failed")
 	}
 
-	// until stop channel is closed, and running Worker every second
-	go wait.Until(c.runWorker, time.Second, stopCh)
+	// until stop channel is closed, and running Worker every period
+	go wait.Until(c.runWorker, config.RefreshDelay, stopCh)
 
 	return nil
 }

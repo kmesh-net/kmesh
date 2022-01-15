@@ -15,57 +15,125 @@
 package envoy
 
 import (
+	"context"
 	"fmt"
 	envoyConfigCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	envoyServiceDiscoveryV3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	resourceV3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 	"openeuler.io/mesh/pkg/nets"
+	"time"
 )
 
 type AdsClient struct {
-	conn *grpc.ClientConn
+	grpcConn  *grpc.ClientConn
+	service   envoyServiceDiscoveryV3.AggregatedDiscoveryServiceClient
+	stream    envoyServiceDiscoveryV3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	cancel    context.CancelFunc
+	svcHandle serviceHandle
 }
 
 func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
-	var (
-		err error
-		conn *grpc.ClientConn
-		client = &AdsClient{}
-		cluster = ads.Clusters[0]
-	)
+	client := &AdsClient{}
+	err := client.CreateStream(ads)
+
+	return client, err
+}
+
+func (c *AdsClient) CreateStream(ads *AdsConfig) error {
+	var err error
 
 	switch ads.APIType {
 	case envoyConfigCoreV3.ApiConfigSource_GRPC:
-		var opts []grpc.DialOption
-		opts = append(opts, nets.DefaultDialOption())
-		opts = append(opts, grpc.WithInsecure())
-
 		// just using the first address
-		if !nets.IsIPAndPort(cluster.Address[0]) {
-			opts = append(opts, grpc.WithContextDialer(nets.UnixDialHandler))
+		if c.grpcConn, err = nets.GrpcConnect(ads.Clusters[0].Address[0]); err != nil {
+			return fmt.Errorf("ads grpc connect failed, %s", err)
 		}
-
-		if conn, err = grpc.Dial(cluster.Address[0], opts...); err != nil {
-			return nil, err
-		}
-		log.Debug("grpc dial, %#v", cluster)
-	case envoyConfigCoreV3.ApiConfigSource_REST:
-		// TODO
-		fallthrough
 	default:
-		return nil, fmt.Errorf("")
+		return fmt.Errorf("ads invalid APIType, %v", ads.APIType)
 	}
 
-	client.conn = conn
-	return client, nil
+	ctx, cancel := context.WithCancel(context.Background())
+	c.cancel = cancel
+
+	c.service = envoyServiceDiscoveryV3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
+	// DeltaAggregatedResources() is supported from istio-1.12.x
+	c.stream, err = c.service.StreamAggregatedResources(ctx)
+	if err != nil {
+		return fmt.Errorf("ads StreamAggregatedResources failed, %s", err)
+	}
+
+	if err = c.stream.Send(initAdsRequest(resourceV3.ClusterType)); err != nil {
+		return fmt.Errorf("ads subscribe failed, %s", err)
+	}
+
+	return nil
+}
+
+func (c *AdsClient) recoverConnection() error {
+	var (
+		err error
+		interval = time.Second
+	)
+
+	c.Close()
+	for count := 0; count < nets.MaxRetryCount; count++ {
+		if c.grpcConn, err = nets.GrpcConnect(config.Ads.Clusters[0].Address[0]); err != nil {
+			log.Debugf("ads grpc connect failed, %s", err)
+			time.Sleep(interval + nets.CalculateRandTime(1000))
+			interval = nets.CalculateInterval(interval)
+		} else {
+			return c.CreateStream(config.Ads)
+		}
+	}
+
+	return err
+}
+
+func (c *AdsClient) runWorker() {
+	var (
+		err error
+		reconnect = false
+		rsp *envoyServiceDiscoveryV3.DiscoveryResponse
+		//rqt  *envoyServiceDiscoveryV3.DiscoveryRequest
+	)
+
+	for true {
+		if c.cancel == nil {
+			return
+		}
+		if reconnect {
+			if err = c.recoverConnection(); err != nil {
+				log.Errorf("ads recover connection failed, %s", err)
+				return
+			}
+			reconnect = false
+		}
+
+		if rsp, err = c.stream.Recv(); err != nil {
+			log.Debugf("ads recv failed, %s", err)
+			reconnect = true
+			continue
+		}
+
+		if err = c.stream.Send(newAckRequest(rsp)); err != nil {
+			log.Debugf("ads send failed, %s", err)
+			reconnect = true
+			continue
+		}
+
+		_ = c.svcHandle.handleAds(rsp)
+	}
 }
 
 func (c *AdsClient) Run(stopCh <-chan struct{}) error {
-	// TODO
+	go c.runWorker()
+
 	go func() {
-		select {
-		case <-stopCh:
-			return
-		//default:
+		<-stopCh
+		if c.cancel != nil {
+			c.cancel()
+			c.cancel = nil
 		}
 	}()
 
@@ -73,5 +141,12 @@ func (c *AdsClient) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *AdsClient) Close() error {
+	if c.stream != nil {
+		c.stream.CloseSend()
+	}
+	if c.grpcConn != nil {
+		c.grpcConn.Close()
+	}
+	*c = AdsClient{}
 	return nil
 }

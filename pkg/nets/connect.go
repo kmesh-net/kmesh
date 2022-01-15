@@ -18,24 +18,16 @@ import (
 	"context"
 	"google.golang.org/grpc"
 	"math"
+	"math/rand"
 	"net"
 	"strings"
+	"time"
 )
 
-func DefaultDialOption() grpc.DialOption {
-	return grpc.WithDefaultCallOptions(
-		grpc.MaxCallRecvMsgSize(math.MaxInt32),
-	)
-}
-
-func UnixDialHandler(ctx context.Context, addr string) (net.Conn, error) {
-	unixAddress, err := net.ResolveUnixAddr("unix", addr)
-	if err != nil {
-		return nil, err
-	}
-
-	return net.DialUnix("unix", nil, unixAddress)
-}
+const (
+	MaxRetryInterval = time.Second * 30
+	MaxRetryCount    = 5
+)
 
 func IsIPAndPort(addr string) bool {
 	var idx int
@@ -50,4 +42,51 @@ func IsIPAndPort(addr string) bool {
 	}
 
 	return true
+}
+
+func unixDialHandler(ctx context.Context, addr string) (net.Conn, error) {
+	unixAddress, err := net.ResolveUnixAddr("unix", addr)
+	if err != nil {
+		return nil, err
+	}
+
+	return net.DialUnix("unix", nil, unixAddress)
+}
+
+func defaultDialOption() grpc.DialOption {
+	return grpc.WithDefaultCallOptions(
+		grpc.MaxCallRecvMsgSize(math.MaxInt32),
+	)
+}
+
+func GrpcConnect(addr string) (*grpc.ClientConn, error) {
+	var (
+		err error
+		conn *grpc.ClientConn
+		opts []grpc.DialOption
+	)
+	opts = append(opts, defaultDialOption())
+	opts = append(opts, grpc.WithInsecure())
+
+	if !IsIPAndPort(addr) {
+		opts = append(opts, grpc.WithContextDialer(unixDialHandler))
+	}
+
+	if conn, err = grpc.Dial(addr, opts...); err != nil {
+		return nil, err
+	}
+
+	return conn, nil
+}
+
+func CalculateInterval(t time.Duration) time.Duration {
+	t += MaxRetryInterval / MaxRetryCount
+	if t > MaxRetryInterval {
+		t = MaxRetryInterval
+	}
+	return t
+}
+
+func CalculateRandTime(sed int) time.Duration {
+	return time.Duration(rand.Intn(sed)) * time.Millisecond
 }

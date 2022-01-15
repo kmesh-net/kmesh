@@ -64,18 +64,18 @@ func newServiceHandle(name string) *serviceHandle {
 	return handle
 }
 
-func (svcHdl *serviceHandle) destroy() {
-	convert.Delete(svcHdl.name)
-	*svcHdl = serviceHandle{}
+func (svc *serviceHandle) destroy() {
+	convert.Delete(svc.name)
+	*svc = serviceHandle{}
 }
 
-func (svcHdl *serviceHandle) isEmpty() bool {
-	for _, c := range svcHdl.serviceCount {
+func (svc *serviceHandle) isEmpty() bool {
+	for _, c := range svc.serviceCount {
 		if c > 0 {
 			return false
 		}
 	}
-	for _, c := range svcHdl.endpointsCount {
+	for _, c := range svc.endpointsCount {
 		if c > 0 {
 			return false
 		}
@@ -84,18 +84,18 @@ func (svcHdl *serviceHandle) isEmpty() bool {
 	return true
 }
 
-func (svcHdl *serviceHandle) isChange() bool {
-	if svcHdl.service != nil {
+func (svc *serviceHandle) isChange() bool {
+	if svc.service != nil {
 		return true
 	}
-	if len(svcHdl.endpoints) > 0 {
+	if len(svc.endpoints) > 0 {
 		return true
 	}
 
 	return false
 }
 
-func (svcHdl *serviceHandle) batchProcess(addr nodeAddress) {
+func (svc *serviceHandle) batchProcess(addr nodeAddress) {
 	lData := make(listenerData)
 	defer func() { lData = nil }()
 	cData := make(clusterData)
@@ -103,39 +103,39 @@ func (svcHdl *serviceHandle) batchProcess(addr nodeAddress) {
 	epData := make(endpointData)
 	defer func() { epData = nil }()
 
-	nameID := convert.StrToNum(svcHdl.name)
-	for k, epEvent := range svcHdl.endpoints {
+	nameID := convert.StrToNum(svc.name)
+	for k, epEvent := range svc.endpoints {
 		epData.extractData(serviceOptionDeleteFlag, epEvent.oldObj, nameID)
 		epData.extractData(serviceOptionUpdateFlag, epEvent.newObj, nameID)
 
 		epEvent.destroy()
-		svcHdl.endpoints[k] = nil
+		svc.endpoints[k] = nil
 	}
 	// clear endpoints all elem
-	if svcHdl.endpoints != nil {
-		svcHdl.endpoints = svcHdl.endpoints[:0]
+	if svc.endpoints != nil {
+		svc.endpoints = svc.endpoints[:0]
 	}
 
-	if svcHdl.service != nil {
-		cData.extractData(serviceOptionDeleteFlag, svcHdl.service.oldObj, nameID)
-		cData.extractData(serviceOptionUpdateFlag, svcHdl.service.newObj, nameID)
+	if svc.service != nil {
+		cData.extractData(serviceOptionDeleteFlag, svc.service.oldObj, nameID)
+		cData.extractData(serviceOptionUpdateFlag, svc.service.newObj, nameID)
 
-		lData.extractData(serviceOptionDeleteFlag, svcHdl.service.oldObj, addr, nameID)
-		lData.extractData(serviceOptionUpdateFlag, svcHdl.service.newObj, addr, nameID)
+		lData.extractData(serviceOptionDeleteFlag, svc.service.oldObj, addr, nameID)
+		lData.extractData(serviceOptionUpdateFlag, svc.service.newObj, addr, nameID)
 
-		svcHdl.service.destroy()
-		svcHdl.service = nil
+		svc.service.destroy()
+		svc.service = nil
 	}
 
 	// update all map
-	epData.flushMap(serviceOptionUpdateFlag, svcHdl.endpointsCount, svcHdl.endpointsAddressToMapKey)
-	cData.flushMap(serviceOptionUpdateFlag, svcHdl.serviceCount)
+	epData.flushMap(serviceOptionUpdateFlag, svc.endpointsCount, svc.endpointsAddressToMapKey)
+	cData.flushMap(serviceOptionUpdateFlag, svc.serviceCount)
 	lData.flushMap(serviceOptionUpdateFlag)
 
 	// delete all map
 	lData.flushMap(serviceOptionDeleteFlag)
-	cData.flushMap(serviceOptionDeleteFlag, svcHdl.serviceCount)
-	epData.flushMap(serviceOptionDeleteFlag, svcHdl.endpointsCount, svcHdl.endpointsAddressToMapKey)
+	cData.flushMap(serviceOptionDeleteFlag, svc.serviceCount)
+	epData.flushMap(serviceOptionDeleteFlag, svc.endpointsCount, svc.endpointsAddressToMapKey)
 }
 
 type endpointEvent struct {
@@ -212,23 +212,23 @@ func newNodeHandle() *nodeHandle {
 	return handle
 }
 
-func (nodeHdl *nodeHandle) destroy() {
-	nodeHdl.service = nil
-	nodeHdl.address = nil
+func (nd *nodeHandle) destroy() {
+	nd.service = nil
+	nd.address = nil
 }
 
-func (nodeHdl *nodeHandle) refreshService(name string, oldObj, newObj *apiCoreV1.Service) {
+func (nd *nodeHandle) refreshService(name string, oldObj, newObj *apiCoreV1.Service) {
 	if oldObj != nil && newObj == nil {
-		delete(nodeHdl.service, name)
+		delete(nd.service, name)
 	} else if newObj != nil {
 		// TODO: handle other type
 		if newObj.Spec.Type == apiCoreV1.ServiceTypeNodePort {
-			nodeHdl.service[name] = newObj
+			nd.service[name] = newObj
 		}
 	}
 }
 
-func (nodeHdl *nodeHandle) extractNodeData(flag objOptionFlag, obj interface{}) {
+func (nd *nodeHandle) extractNodeData(flag objOptionFlag, obj interface{}) {
 	if obj == nil {
 		return
 	}
@@ -240,36 +240,36 @@ func (nodeHdl *nodeHandle) extractNodeData(flag objOptionFlag, obj interface{}) 
 			continue
 		}
 
-		nodeHdl.isChange = true
-		nodeHdl.address[addr.Address] |= flag
-		if nodeHdl.address[addr.Address] == serviceOptionAllFlag {
-			nodeHdl.address[addr.Address] = 0
+		nd.isChange = true
+		nd.address[addr.Address] |= flag
+		if nd.address[addr.Address] == serviceOptionAllFlag {
+			nd.address[addr.Address] = 0
 		}
 	}
 }
 
-func (nodeHdl *nodeHandle) batchProcess() {
-	if !nodeHdl.isChange {
+func (nd *nodeHandle) batchProcess() {
+	if !nd.isChange {
 		return
 	}
 	lData := make(listenerData)
 	defer func() { lData = nil }()
 
-	for name, svc := range nodeHdl.service {
+	for name, svc := range nd.service {
 		nameID := convert.StrToNum(name)
-		lData.extractData(0, svc, nodeHdl.address, nameID)
+		lData.extractData(0, svc, nd.address, nameID)
 
 		lData.flushMap(serviceOptionUpdateFlag)
 		lData.flushMap(serviceOptionDeleteFlag)
 	}
 
-	for ip, flag := range nodeHdl.address {
+	for ip, flag := range nd.address {
 		if flag == serviceOptionDeleteFlag {
-			delete(nodeHdl.address, ip)
+			delete(nd.address, ip)
 		} else {
-			nodeHdl.address[ip] = 0
+			nd.address[ip] = 0
 		}
 	}
 
-	nodeHdl.isChange = false
+	nd.isChange = false
 }

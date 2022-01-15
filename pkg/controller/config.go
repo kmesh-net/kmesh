@@ -50,9 +50,9 @@ func (c *Config) SetArgs() error {
 
 	switch clientModeValue {
 	case ClientModeEnvoy:
-		c.ConfigFactory = &envoy.XdsConfig{}
+		c.ConfigFactory = envoy.GetConfig()
 	case ClientModeKube:
-		c.ConfigFactory = &kubernetes.ApiserverConfig{}
+		c.ConfigFactory = kubernetes.GetConfig()
 	default:
 		return fmt.Errorf("invalid client mode, %s", c.ClientMode)
 	}

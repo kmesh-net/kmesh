@@ -44,15 +44,24 @@ const (
 
 var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+	config XdsConfig
 )
 
 type XdsConfig struct {
-	Path string
-	Ads  *AdsConfig
+	Path			string
+	ServiceNode		string
+	ServiceCluster	string
+	Ads				*AdsConfig
+}
+
+func GetConfig() *XdsConfig {
+	return &config
 }
 
 func (c *XdsConfig) SetClientArgs() error {
 	flag.StringVar(&c.Path, "config-path", "/etc/istio/proxy/envoy-rev0.json", "deploy in kube cluster")
+	flag.StringVar(&c.ServiceNode, "service-node", "TODO", "TODO")
+	flag.StringVar(&c.ServiceCluster, "service-cluster", "TODO", "TODO")
 	return nil
 }
 
@@ -81,6 +90,18 @@ func (c *XdsConfig) NewClient() (interfaces.ClientFactory, error) {
 	return NewAdsClient(c.Ads)
 }
 
+func (c *XdsConfig) getNode() *envoyConfigCoreV3.Node {
+	if c.Ads.Node != nil {
+		return c.Ads.Node
+	}
+
+	return &envoyConfigCoreV3.Node{
+		Id: c.ServiceNode,
+		Cluster: c.ServiceCluster,
+		Metadata: nil,
+	}
+}
+
 func loadConfigFile(path string) (*envoyConfigBootstrapV3.Bootstrap, error) {
 	var (
 		err       error
@@ -106,8 +127,9 @@ func loadConfigFile(path string) (*envoyConfigBootstrapV3.Bootstrap, error) {
 }
 
 type AdsConfig struct {
-	APIType  envoyConfigCoreV3.ApiConfigSource_ApiType
-	Clusters []*ClusterConfig
+	Node         *envoyConfigCoreV3.Node
+	APIType      envoyConfigCoreV3.ApiConfigSource_ApiType
+	Clusters     []*ClusterConfig
 }
 
 type ClusterConfig struct {
@@ -132,7 +154,8 @@ func NewAdsConfig(bootstrap *envoyConfigBootstrapV3.Bootstrap) (*AdsConfig, erro
 	}
 
 	ads := &AdsConfig{
-		APIType: bootstrap.GetDynamicResources().GetAdsConfig().GetApiType(),
+		Node:         bootstrap.GetNode(),
+		APIType:      bootstrap.GetDynamicResources().GetAdsConfig().GetApiType(),
 	}
 
 	for _, svc := range bootstrap.GetDynamicResources().GetAdsConfig().GetGrpcServices() {
