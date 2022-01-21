@@ -15,7 +15,7 @@
 package envoy
 
 import (
-	envoyServiceDiscoveryV3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	serviceDiscoveryV3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resourceV3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 )
 
@@ -23,8 +23,8 @@ type serviceHandle struct {
 
 }
 
-func initAdsRequest(typeUrl string) *envoyServiceDiscoveryV3.DiscoveryRequest {
-	return &envoyServiceDiscoveryV3.DiscoveryRequest{
+func initAdsRequest(typeUrl string) *serviceDiscoveryV3.DiscoveryRequest {
+	return &serviceDiscoveryV3.DiscoveryRequest{
 		TypeUrl:       typeUrl,
 		VersionInfo:   "",
 		ResourceNames: []string{},
@@ -34,8 +34,8 @@ func initAdsRequest(typeUrl string) *envoyServiceDiscoveryV3.DiscoveryRequest {
 	}
 }
 
-func newAckRequest(rsp *envoyServiceDiscoveryV3.DiscoveryResponse) *envoyServiceDiscoveryV3.DiscoveryRequest {
-	return &envoyServiceDiscoveryV3.DiscoveryRequest{
+func newAckRequest(rsp *serviceDiscoveryV3.DiscoveryResponse) *serviceDiscoveryV3.DiscoveryRequest {
+	return &serviceDiscoveryV3.DiscoveryRequest{
 		TypeUrl:       rsp.GetTypeUrl(),
 		VersionInfo:   rsp.GetVersionInfo(),
 		ResourceNames: []string{},
@@ -45,7 +45,7 @@ func newAckRequest(rsp *envoyServiceDiscoveryV3.DiscoveryResponse) *envoyService
 	}
 }
 
-func (svc *serviceHandle) handleAds(rsp *envoyServiceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceHandle) handleAds(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
 	var err error
 
 	log.Debugf("handle ads response, %#v\n", rsp)
@@ -71,18 +71,18 @@ func (svc *serviceHandle) handleAds(rsp *envoyServiceDiscoveryV3.DiscoveryRespon
 	return err
 }
 
-func (svc *serviceHandle) handleLdsResponse(rsp *envoyServiceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceHandle) handleLdsResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
 	return nil
 }
 
-func (svc *serviceHandle) handleCdsResponse(rsp *envoyServiceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceHandle) handleCdsResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
 	return nil
 }
 
-func (svc *serviceHandle) handleRdsResponse(rsp *envoyServiceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceHandle) handleRdsResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
 	return nil
 }
 
-func (svc *serviceHandle) handleEdsResponse(rsp *envoyServiceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceHandle) handleEdsResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
 	return nil
 }

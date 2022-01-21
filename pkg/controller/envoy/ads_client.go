@@ -17,8 +17,8 @@ package envoy
 import (
 	"context"
 	"fmt"
-	envoyConfigCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	envoyServiceDiscoveryV3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	configCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	serviceDiscoveryV3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resourceV3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 	"openeuler.io/mesh/pkg/nets"
@@ -27,8 +27,8 @@ import (
 
 type AdsClient struct {
 	grpcConn  *grpc.ClientConn
-	service   envoyServiceDiscoveryV3.AggregatedDiscoveryServiceClient
-	stream    envoyServiceDiscoveryV3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	service   serviceDiscoveryV3.AggregatedDiscoveryServiceClient
+	stream    serviceDiscoveryV3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 	cancel    context.CancelFunc
 	svcHandle serviceHandle
 }
@@ -44,7 +44,7 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 	var err error
 
 	switch ads.APIType {
-	case envoyConfigCoreV3.ApiConfigSource_GRPC:
+	case configCoreV3.ApiConfigSource_GRPC:
 		// just using the first address
 		if c.grpcConn, err = nets.GrpcConnect(ads.Clusters[0].Address[0]); err != nil {
 			return fmt.Errorf("ads grpc connect failed, %s", err)
@@ -56,7 +56,7 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 
-	c.service = envoyServiceDiscoveryV3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
+	c.service = serviceDiscoveryV3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 	// DeltaAggregatedResources() is supported from istio-1.12.x
 	c.stream, err = c.service.StreamAggregatedResources(ctx)
 	if err != nil {
@@ -94,8 +94,8 @@ func (c *AdsClient) runWorker() {
 	var (
 		err error
 		reconnect = false
-		rsp *envoyServiceDiscoveryV3.DiscoveryResponse
-		//rqt  *envoyServiceDiscoveryV3.DiscoveryRequest
+		rsp *serviceDiscoveryV3.DiscoveryResponse
+		//rqt  *serviceDiscoveryV3.DiscoveryRequest
 	)
 
 	for true {
