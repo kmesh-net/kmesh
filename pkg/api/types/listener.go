@@ -12,7 +12,7 @@
  * Create: 2021-10-09
  */
 
-package maps
+package types
 
 // #cgo CFLAGS: -I../../../bpf/include
 // #include "listener_type.h"
@@ -37,14 +37,14 @@ type Listener struct {
 }
 
 func (l *Listener) toGolang(cl *cListener) {
-	Memcpy(unsafe.Pointer(l),
+	memcpy(unsafe.Pointer(l),
 		unsafe.Pointer(&cl.entry),
 		unsafe.Sizeof(cl.entry))
 }
 
 func (l *Listener) toClang() *cListener {
 	cl := &cListener{}
-	Memcpy(unsafe.Pointer(&cl.entry),
+	memcpy(unsafe.Pointer(&cl.entry),
 		unsafe.Pointer(l),
 		unsafe.Sizeof(cl.entry))
 

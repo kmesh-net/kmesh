@@ -12,20 +12,18 @@
  * Create: 2021-10-09
  */
 
-package maps
+package types
 
 // #include <string.h>
 // #include <stdlib.h>
 import "C"
 import (
-	"hash/fnv"
-	"math"
 	"openeuler.io/mesh/pkg/logger"
 	"unsafe"
 )
 
 const (
-	pkgSubsys = "maps"
+	pkgSubsys = "api/types"
 )
 
 var (
@@ -47,52 +45,11 @@ type Address struct {
 	IPv6		[4]uint32	`json:"ipv6,omitempty"`
 }
 
-var hash = fnv.New32a()
-
-// ConvertMapKey converts a string to a uint32 integer as the key of bpf map
-type ConvertMapKey struct {
-	numToStr map[uint32]string
-}
-
-func NewConvertMapKey() *ConvertMapKey {
-	con := &ConvertMapKey{}
-	con.numToStr = make(map[uint32]string)
-	return con
-}
-
-func (con *ConvertMapKey) StrToNum(str string) uint32 {
-	var num uint32
-
-	hash.Reset()
-	hash.Write([]byte(str))
-
-	// Using linear probing to solve hash conflicts
-	for num = hash.Sum32(); num < math.MaxUint32; num++ {
-		if con.numToStr[num] == "" {
-			con.numToStr[num] = str
-			break
-		} else if con.numToStr[num] == str {
-			break
-		}
-	}
-
-	//log.Debugf("convert %s to %d", str, num)
-	return num
-}
-
-func (con *ConvertMapKey) NumToStr(num uint32) string {
-	return con.numToStr[num]
-}
-
-func (con *ConvertMapKey) Delete(str string) {
-	delete(con.numToStr, con.StrToNum(str))
-}
-
-func Memcpy(dst, src unsafe.Pointer, len uintptr) {
+func memcpy(dst, src unsafe.Pointer, len uintptr) {
 	C.memcpy(dst, src, C.size_t(len))
 }
 
-func StrcpyToC(cStr unsafe.Pointer, len uintptr, goStr string) {
+func strcpyToC(cStr unsafe.Pointer, len uintptr, goStr string) {
 	C.memset(cStr, 0, C.size_t(len))
 
 	dst := (*C.char)(cStr)

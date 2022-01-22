@@ -12,7 +12,7 @@
  * Create: 2021-10-09
  */
 
-package maps
+package types
 
 // #cgo CFLAGS: -I../../../bpf/include
 // #include "route_type.h"

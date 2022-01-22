@@ -12,7 +12,7 @@
  * Create: 2021-10-09
  */
 
-package maps
+package types
 
 // #cgo CFLAGS: -I../../../bpf/include
 // #include "cluster_type.h"
@@ -59,14 +59,14 @@ var (
 )
 
 func (cl *Cluster) toGolang(ccl *cCluster) {
-	Memcpy(unsafe.Pointer(cl),
+	memcpy(unsafe.Pointer(cl),
 		unsafe.Pointer(&ccl.entry),
 		unsafe.Sizeof(ccl.entry))
 }
 
 func (cl *Cluster) toClang() *cCluster {
 	ccl := &cCluster{}
-	Memcpy(unsafe.Pointer(&ccl.entry),
+	memcpy(unsafe.Pointer(&ccl.entry),
 		unsafe.Pointer(cl),
 		unsafe.Sizeof(ccl.entry))
 

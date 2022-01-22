@@ -12,7 +12,7 @@
  * Create: 2021-10-09
  */
 
-package maps
+package types
 
 // #cgo CFLAGS: -I../../../bpf/include
 // #include "endpoint_type.h"
@@ -35,14 +35,14 @@ type Endpoint struct {
 }
 
 func (ep *Endpoint) toGolang(cep *cEndpoint) {
-	Memcpy(unsafe.Pointer(ep),
+	memcpy(unsafe.Pointer(ep),
 		unsafe.Pointer(&cep.entry),
 		unsafe.Sizeof(cep.entry))
 }
 
 func (ep *Endpoint) toClang() *cEndpoint {
 	cep := &cEndpoint{}
-	Memcpy(unsafe.Pointer(&cep.entry),
+	memcpy(unsafe.Pointer(&cep.entry),
 		unsafe.Pointer(ep),
 		unsafe.Sizeof(cep.entry))
 
@@ -85,14 +85,14 @@ type Loadbalance struct {
 }
 
 func (lb *Loadbalance) toGolang(clb *cLoadbalance) {
-	Memcpy(unsafe.Pointer(lb),
+	memcpy(unsafe.Pointer(lb),
 		unsafe.Pointer(&clb.entry),
 		unsafe.Sizeof(clb.entry))
 }
 
 func (lb *Loadbalance) toClang() *cLoadbalance {
 	clb := &cLoadbalance{}
-	Memcpy(unsafe.Pointer(&clb.entry),
+	memcpy(unsafe.Pointer(&clb.entry),
 		unsafe.Pointer(lb),
 		unsafe.Sizeof(clb.entry))
 
