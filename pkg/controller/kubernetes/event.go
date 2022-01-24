@@ -20,11 +20,6 @@ import (
 )
 
 var (
-	protocolStrToC = map[apiCoreV1.Protocol]uint32 {
-		apiCoreV1.ProtocolTCP: 0, //C.IPPROTO_TCP,
-		apiCoreV1.ProtocolUDP: 6, //C.IPPROTO_UDP,
-	}
-
 	convert = api.NewConvertName()
 	nodeHdl = newNodeHandle()
 )
@@ -44,12 +39,12 @@ type serviceHandle struct {
 }
 
 func newServiceHandle(name string) *serviceHandle {
-	handle := &serviceHandle{}
-	handle.name = name
-	handle.serviceCount = make(api.CacheCount)
-	handle.endpointsCount = make(api.CacheCount)
-	handle.endpointsAddressToMapKey = make(api.AddressToMapKey)
-	return handle
+	return &serviceHandle{
+		name: name,
+		serviceCount: make(api.CacheCount),
+		endpointsCount: make(api.CacheCount),
+		endpointsAddressToMapKey: make(api.AddressToMapKey),
+	}
 }
 
 func (svc *serviceHandle) destroy() {
@@ -191,13 +186,11 @@ type nodeHandle struct {
 }
 
 func newNodeHandle() *nodeHandle {
-	handle := &nodeHandle{
+	return &nodeHandle{
 		isChange: false,
 		service: make(nodeService),
 		address: make(nodeAddress),
 	}
-
-	return handle
 }
 
 func (nd *nodeHandle) destroy() {
@@ -255,7 +248,7 @@ func (nd *nodeHandle) batchProcess() {
 		if flag == api.CacheFlagDelete {
 			delete(nd.address, ip)
 		} else {
-			nd.address[ip] = 0
+			nd.address[ip] = api.CacheFlagNone
 		}
 	}
 

@@ -105,6 +105,7 @@ func (cache EndpointCache) Flush(flag CacheOptionFlag, count CacheCount, addrToK
 			err = kv.packDelete(count, addrToKey)
 		case CacheFlagUpdate:
 			err = kv.packUpdate(count, addrToKey)
+			cache[kv] = CacheFlagNone
 		default:
 		}
 		num++
@@ -114,11 +115,29 @@ func (cache EndpointCache) Flush(flag CacheOptionFlag, count CacheCount, addrToK
 		}
 	}
 
+	if flag == CacheFlagDelete {
+		for kv, f := range cache {
+			if f == CacheFlagDelete {
+				delete(cache, kv)
+			}
+		}
+	}
+
 	return num
 }
 
-func (cache EndpointCache) DeleteInvalid(kv *EndpointKeyAndValue) {
-	if cache[*kv] == CacheFlagAll {
-		delete(cache, *kv)
+func (cache EndpointCache) DeleteFlag(flag CacheOptionFlag) {
+	for kv, f := range cache {
+		if f == flag {
+			delete(cache, kv)
+		}
+	}
+}
+
+func (cache EndpointCache) ResetFlag(old, new CacheOptionFlag) {
+	for kv, f := range cache {
+		if f == old {
+			cache[kv] = new
+		}
 	}
 }

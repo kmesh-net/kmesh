@@ -28,6 +28,11 @@ const (
 
 var (
 	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+
+	ProtocolStrToC = map[string]uint32 {
+		"TCP": 0, //C.IPPROTO_TCP,
+		"UDP": 6, //C.IPPROTO_UDP,
+	}
 )
 
 // MapKey = C.map_key_t

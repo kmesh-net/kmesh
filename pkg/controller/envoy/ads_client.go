@@ -9,7 +9,7 @@
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
  * Author: LemmyHuang
- * Create: 2021-10-09
+ * Create: 2022-01-08
  */
 
 package envoy
@@ -30,7 +30,7 @@ type AdsClient struct {
 	service   serviceDiscoveryV3.AggregatedDiscoveryServiceClient
 	stream    serviceDiscoveryV3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 	cancel    context.CancelFunc
-	svcHandle serviceHandle
+	svcHandle *serviceHandle
 }
 
 func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
@@ -63,10 +63,11 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 		return fmt.Errorf("ads StreamAggregatedResources failed, %s", err)
 	}
 
-	if err = c.stream.Send(initAdsRequest(resourceV3.ClusterType)); err != nil {
+	if err = c.stream.Send(newAdsRequest(resourceV3.ClusterType, nil)); err != nil {
 		return fmt.Errorf("ads subscribe failed, %s", err)
 	}
 
+	c.svcHandle = newServiceHandle()
 	return nil
 }
 
@@ -95,7 +96,6 @@ func (c *AdsClient) runWorker() {
 		err error
 		reconnect = false
 		rsp *serviceDiscoveryV3.DiscoveryResponse
-		//rqt  *serviceDiscoveryV3.DiscoveryRequest
 	)
 
 	for true {
@@ -103,6 +103,7 @@ func (c *AdsClient) runWorker() {
 			return
 		}
 		if reconnect {
+			log.Warnf("reconnect due to %s", err)
 			if err = c.recoverConnection(); err != nil {
 				log.Errorf("ads recover connection failed, %s", err)
 				return
@@ -111,18 +112,22 @@ func (c *AdsClient) runWorker() {
 		}
 
 		if rsp, err = c.stream.Recv(); err != nil {
-			log.Debugf("ads recv failed, %s", err)
 			reconnect = true
 			continue
 		}
 
-		if err = c.stream.Send(newAckRequest(rsp)); err != nil {
-			log.Debugf("ads send failed, %s", err)
+		c.svcHandle.processResponse(rsp)
+
+		if err = c.stream.Send(c.svcHandle.ack); err != nil {
 			reconnect = true
 			continue
 		}
-
-		_ = c.svcHandle.handleAds(rsp)
+		if c.svcHandle.rqt != nil {
+			if err = c.stream.Send(c.svcHandle.rqt); err != nil {
+				reconnect = true
+				continue
+			}
+		}
 	}
 }
 

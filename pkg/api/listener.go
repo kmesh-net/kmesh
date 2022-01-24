@@ -65,8 +65,18 @@ func (cache ListenerCache) Flush(flag CacheOptionFlag) int {
 	return num
 }
 
-func (cache ListenerCache) DeleteInvalid(kv *ListenerKeyAndValue) {
-	if cache[*kv] == CacheFlagAll {
-		delete(cache, *kv)
+func (cache ListenerCache) DeleteFlag(flag CacheOptionFlag) {
+	for kv, f := range cache {
+		if f == flag {
+			delete(cache, kv)
+		}
+	}
+}
+
+func (cache ListenerCache) ResetFlag(old, new CacheOptionFlag) {
+	for kv, f := range cache {
+		if f == old {
+			cache[kv] = new
+		}
 	}
 }

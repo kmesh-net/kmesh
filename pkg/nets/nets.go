@@ -33,7 +33,7 @@ func ConvertUint32ToIp(num uint32) string {
 	return netIP.String()
 }
 
-func ConvertPortToLittleEndian(num int32) uint32 {
+func ConvertPortToLittleEndian(num uint32) uint32 {
 	// FIXME
 	tmp := make([]byte, 2)
 	big16 := uint16(num)

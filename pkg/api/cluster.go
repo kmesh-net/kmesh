@@ -58,6 +58,7 @@ func (cache ClusterCache) Flush(flag CacheOptionFlag, count CacheCount) int {
 			err = kv.packDelete(count)
 		case CacheFlagUpdate:
 			err = kv.packUpdate(count)
+			cache[kv] = CacheFlagNone
 		default:
 		}
 		num++
@@ -67,11 +68,29 @@ func (cache ClusterCache) Flush(flag CacheOptionFlag, count CacheCount) int {
 		}
 	}
 
+	if flag == CacheFlagDelete {
+		for kv, f := range cache {
+			if f == CacheFlagDelete {
+				delete(cache, kv)
+			}
+		}
+	}
+
 	return num
 }
 
-func (cache ClusterCache) DeleteInvalid(kv *ClusterKeyAndValue) {
-	if cache[*kv] == CacheFlagAll {
-		delete(cache, *kv)
+func (cache ClusterCache) DeleteFlag(flag CacheOptionFlag) {
+	for kv, f := range cache {
+		if f == flag {
+			delete(cache, kv)
+		}
+	}
+}
+
+func (cache ClusterCache) ResetFlag(old, new CacheOptionFlag) {
+	for kv, f := range cache {
+		if f == old {
+			cache[kv] = new
+		}
 	}
 }

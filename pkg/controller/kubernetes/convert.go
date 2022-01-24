@@ -21,6 +21,7 @@ import "C"
 import (
 	apiCoreV1 "k8s.io/api/core/v1"
 	"openeuler.io/mesh/pkg/api"
+	"openeuler.io/mesh/pkg/api/types"
 	"openeuler.io/mesh/pkg/nets"
 )
 
@@ -38,14 +39,13 @@ func extractEndpointCache(cache api.EndpointCache, flag api.CacheOptionFlag, nam
 				continue
 			}
 
-			kv.Value.Address.Protocol = protocolStrToC[epPort.Protocol]
-			kv.Value.Address.Port = nets.ConvertPortToLittleEndian(epPort.Port)
+			kv.Value.Address.Protocol = types.ProtocolStrToC[string(epPort.Protocol)]
+			kv.Value.Address.Port = nets.ConvertPortToLittleEndian(uint32(epPort.Port))
 			kv.Key.Port = kv.Value.Address.Port
 
 			for _, epAddr := range sub.Addresses {
 				kv.Value.Address.IPv4 = nets.ConvertIpToUint32(epAddr.IP)
 				cache[kv] |= flag
-				cache.DeleteInvalid(&kv)
 			}
 		}
 	}
@@ -69,11 +69,10 @@ func extractClusterCache(cache api.ClusterCache, flag api.CacheOptionFlag, nameI
 			continue
 		}
 
-		kv.Value.LoadAssignment.MapKeyOfEndpoint.Port = nets.ConvertPortToLittleEndian(serPort.TargetPort.IntVal)
-		kv.Key.Port = nets.ConvertPortToLittleEndian(serPort.Port)
+		kv.Value.LoadAssignment.MapKeyOfEndpoint.Port = nets.ConvertPortToLittleEndian(uint32(serPort.TargetPort.IntVal))
+		kv.Key.Port = nets.ConvertPortToLittleEndian(uint32(serPort.Port))
 
 		cache[kv] |= flag
-		cache.DeleteInvalid(&kv)
 	}
 }
 
@@ -95,32 +94,30 @@ func extractListenerCache(cache api.ListenerCache, svcFlag api.CacheOptionFlag, 
 		}
 
 		// TODO: goListener.Address.Protocol = ProtocolStrToC[serPort.Protocol]
-		kv.Value.MapKey.Port = nets.ConvertPortToLittleEndian(serPort.Port)
+		kv.Value.MapKey.Port = nets.ConvertPortToLittleEndian(uint32(serPort.Port))
 
 		switch svc.Spec.Type {
 		case apiCoreV1.ServiceTypeNodePort:
-			kv.Key.Port = nets.ConvertPortToLittleEndian(serPort.NodePort)
+			kv.Key.Port = nets.ConvertPortToLittleEndian(uint32(serPort.NodePort))
 			for ip, nodeFlag := range addr {
 				kv.Key.IPv4 = nets.ConvertIpToUint32(ip)
 				kv.Value.Address = kv.Key
 
-				if svcFlag != 0 {
+				if svcFlag != api.CacheFlagNone {
 					cache[kv] |= svcFlag
-				} else if nodeFlag != 0 {
+				} else if nodeFlag != api.CacheFlagNone {
 					cache[kv] |= nodeFlag
 				}
-				cache.DeleteInvalid(&kv)
 			}
 			fallthrough
 		case apiCoreV1.ServiceTypeClusterIP:
 			if svcFlag != 0 {
-				kv.Key.Port = nets.ConvertPortToLittleEndian(serPort.Port)
+				kv.Key.Port = nets.ConvertPortToLittleEndian(uint32(serPort.Port))
 				// TODO: Service.Spec.ExternalIPs ??
 				kv.Key.IPv4 = nets.ConvertIpToUint32(svc.Spec.ClusterIP)
 
 				kv.Value.Address = kv.Key
 				cache[kv] |= svcFlag
-				cache.DeleteInvalid(&kv)
 			}
 		case apiCoreV1.ServiceTypeLoadBalancer:
 			// TODO

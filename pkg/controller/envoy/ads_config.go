@@ -170,8 +170,8 @@ func NewAdsConfig(bootstrap *configBootstrapV3.Bootstrap) (*AdsConfig, error) {
 			clusterCfg.LbPolicy = cluster.GetLbPolicy()
 			clusterCfg.ConnectTimeout = cluster.GetConnectTimeout().AsDuration()
 
-			for _, endpoints := range cluster.GetLoadAssignment().GetEndpoints() {
-				for _, lb := range endpoints.GetLbEndpoints() {
+			for _, localityLb := range cluster.GetLoadAssignment().GetEndpoints() {
+				for _, lb := range localityLb.GetLbEndpoints() {
 					addr := ""
 
 					switch lb.GetEndpoint().GetAddress().GetAddress().(type) {
