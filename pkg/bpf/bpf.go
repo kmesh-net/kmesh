@@ -33,14 +33,6 @@ type BpfObject struct {
 
 var Obj BpfObject
 
-func Attach() error {
-	return Obj.SockConn.attach()
-}
-
-func Detach() error {
-	return Obj.SockConn.detach()
-}
-
 func Start() error {
 	var err error
 
@@ -52,15 +44,19 @@ func Start() error {
 		return err
 	}
 
-	if err = Obj.SockConn.load(); err != nil {
-		Detach()
+	if err = Obj.SockConn.Load(); err != nil {
+		Stop()
 		return fmt.Errorf("bpf Load failed, %s", err)
 	}
 
-	if err = Attach(); err != nil {
-		Detach()
+	if err = Obj.SockConn.Attach(); err != nil {
+		Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
 
 	return nil
+}
+
+func Stop() error {
+	return Obj.SockConn.Detach()
 }

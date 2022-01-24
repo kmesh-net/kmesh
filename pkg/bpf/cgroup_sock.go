@@ -147,7 +147,7 @@ func (sc *BpfSocketConnect) loadClusterObjects() (*ebpf.CollectionSpec, error) {
 	return spec, nil
 }
 
-func (sc *BpfSocketConnect) load() error {
+func (sc *BpfSocketConnect) Load() error {
 	spec, err := sc.loadCgroupSockObjects()
 	if err != nil {
 		return err
@@ -167,7 +167,7 @@ func (sc *BpfSocketConnect) load() error {
 	return nil
 }
 
-func (sc *BpfSocketConnect) attach() error {
+func (sc *BpfSocketConnect) Attach() error {
 	cgopt := link.CgroupOptions {
 		Path:		sc.Info.Cgroup2Path,
 		Attach:		sc.Info.AttachType,
@@ -197,7 +197,7 @@ func (sc *BpfSocketConnect) close() error {
 	return nil
 }
 
-func (sc *BpfSocketConnect) detach() error {
+func (sc *BpfSocketConnect) Detach() error {
 	var value reflect.Value
 
 	if err := sc.close(); err != nil {

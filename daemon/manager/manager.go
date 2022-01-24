@@ -45,7 +45,7 @@ func Execute() {
 		log.Error(err)
 		return
 	}
-	defer bpf.Detach()
+	defer bpf.Stop()
 
 	if err = controller.Start(); err != nil {
 		log.Error(err)
@@ -65,7 +65,7 @@ func setupCloseHandler() {
 
 	<-ch
 	controller.Stop()
-	bpf.Detach()
+	bpf.Stop()
 
 	os.Exit(1)
 }
