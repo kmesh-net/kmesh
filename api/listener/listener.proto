@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package listener;
+option go_package = "v1/listener;listener";
+
+message Listener {
+
+}

@@ -12,6 +12,7 @@ BuildRequires: clang llvm
 BuildRequires: libbpf-devel 
 BuildRequires: kernel-devel >= 5.10
 BuildRequires: golang >= 1.16
+BuildRequires: protobuf protobuf-c protobuf-c-devel
 
 Requires: libbpf bpftool
 

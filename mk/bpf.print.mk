@@ -24,3 +24,4 @@ else
 	MAKEFLAGS += --no-print-directory
 endif
 
+find_source = $(shell find $(1) -name $(2))

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package endpoint;
+option go_package = "v1/endpoint;endpoint";
+
+import "api/core/address.proto";
+
+message Endpoint {
+  core.SocketAddress address = 1;
+  uint32 priority = 2;
+  uint32 load_balancing_weight = 3;
+}
+
+message LocalityLbEndpoints {
+  repeated Endpoint lb_endpoints = 1;
+  uint32 connect_num = 2;
+}

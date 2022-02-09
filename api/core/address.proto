@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package core;
+option go_package = "v1/core;core";
+
+message SocketAddress {
+  enum Protocol {
+    TCP = 0;
+    UDP = 1;
+  }
+
+  Protocol protocol = 1;
+  uint32 port = 2;
+  uint32 ipv4 = 3;
+}
