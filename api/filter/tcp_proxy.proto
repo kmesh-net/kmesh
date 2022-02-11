@@ -3,6 +3,6 @@ syntax = "proto3";
 package filter;
 option go_package = "v1/filter;filter";
 
-message Filter {
+message TcpProxy {
 
 }

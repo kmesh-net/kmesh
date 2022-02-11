@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+package core;
+option go_package = "v1/core;core";
+
+enum RoutingPriority {
+  DEFAULT = 0;
+  HIGH = 1;
+}

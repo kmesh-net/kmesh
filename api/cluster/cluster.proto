@@ -3,32 +3,20 @@ syntax = "proto3";
 package cluster;
 option go_package = "v1/cluster;cluster";
 
+import "api/cluster/circuit_breaker.proto";
 import "api/endpoint/endpoint.proto";
 
 message Cluster {
-  string name = 1;
-  uint32 connect_timeout = 2;
-
   enum LbPolicy {
     ROUND_ROBIN = 0;
     LEAST_REQUEST = 1;
     RANDOM = 3;
   }
-  LbPolicy lb_policy = 3;
 
-  ClusterLoadAssignment load_assignment = 4;
-  ClusterCircuitBreaker circuit_breaker = 5;
-}
+  string name = 1;
+  uint32 connect_timeout = 4;
+  LbPolicy lb_policy = 6;
 
-message ClusterLoadAssignment {
-  string cluster_name = 1;
-  endpoint.LocalityLbEndpoints endpoints = 2;
-}
-
-message ClusterCircuitBreaker {
-  uint32 priority = 1;
-  uint32 max_connections = 2;
-  uint32 max_pending_requests = 3;
-  uint32 max_requests = 4;
-  uint32 max_retries = 5;
+  endpoint.ClusterLoadAssignment load_assignment = 33;
+  CircuitBreakers circuit_breakers = 10;
 }

@@ -7,11 +7,17 @@ import "api/core/address.proto";
 
 message Endpoint {
   core.SocketAddress address = 1;
-  uint32 priority = 2;
-  uint32 load_balancing_weight = 3;
+  string hostname = 3;
 }
 
 message LocalityLbEndpoints {
   repeated Endpoint lb_endpoints = 1;
-  uint32 connect_num = 2;
+  uint32 load_balancing_weight = 3;
+  uint32 priority = 5;
+  uint32 connect_num = 11;
+}
+
+message ClusterLoadAssignment {
+  string cluster_name = 1;
+  repeated LocalityLbEndpoints endpoints = 2;
 }

@@ -8,8 +8,12 @@ message SocketAddress {
     TCP = 0;
     UDP = 1;
   }
-
   Protocol protocol = 1;
   uint32 port = 2;
   uint32 ipv4 = 3;
+}
+
+message CidrRange {
+  string address_prefix = 1;
+  uint32 prefix_len = 2;
 }

@@ -26,9 +26,9 @@ all:
 	$(QUIET) mv api $(BUILD_DIR)
 	$(QUIET) find $(BUILD_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
 
-	$(QUIET) protoc   --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
+	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
 install:
 
 clean:
-	$(call printlog, CLEAN, mesh-*)
+	$(call printlog, CLEAN, $(BUILD_DIR))
 	$(QUIET) rm -rf $(BUILD_DIR)

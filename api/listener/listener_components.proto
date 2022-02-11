@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package listener;
+option go_package = "v1/listener;listener";
+
+import "api/core/address.proto";
+
+message Filter {
+  string name = 1;
+  // TODO
+}
+
+message FilterChainMatch {
+  repeated core.CidrRange prefix_ranges = 3;
+  uint32 destination_port = 8;
+  string transport_protocol = 9;
+  repeated string application_protocols = 10;
+}
+
+message FilterChain {
+  FilterChainMatch filter_chain_match = 1;
+  repeated Filter filters = 3;
+  string name = 7;
+}
