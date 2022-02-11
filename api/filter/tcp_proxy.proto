@@ -4,5 +4,5 @@ package filter;
 option go_package = "v1/filter;filter";
 
 message TcpProxy {
-
+  string cluster = 2;
 }

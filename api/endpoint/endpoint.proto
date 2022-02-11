@@ -7,7 +7,6 @@ import "api/core/address.proto";
 
 message Endpoint {
   core.SocketAddress address = 1;
-  string hostname = 3;
 }
 
 message LocalityLbEndpoints {

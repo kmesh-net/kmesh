@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+package route;
+option go_package = "v1/route;route";
+
+import "api/route/route_components.proto";
+
+message RouteConfiguration {
+  string name = 1;
+  repeated VirtualHost virtual_hosts = 2;
+}

@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package route;
+option go_package = "v1/route;route";
+
+message VirtualHost {
+  string name = 1;
+  repeated string domains = 2;
+  repeated Route routes = 3;
+}
+
+message Route {
+  string name = 14;
+  RouteMatch match = 1;
+  RouteAction route = 2;
+}
+
+message RouteMatch {
+  string prefix = 1;
+}
+
+message RouteAction {
+  string cluster = 1;
+  uint32 timeout = 8;
+  RetryPolicy retry_policy = 9;
+}
+
+message RetryPolicy {
+  uint32 num_retries = 2;
+  //RetryPriority retry_priority = 4;
+}

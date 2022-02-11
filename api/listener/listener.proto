@@ -9,6 +9,5 @@ import "api/core/address.proto";
 message Listener {
   string name = 1;
   core.SocketAddress address = 2;
-  string stat_prefix = 28;
   repeated FilterChain filter_chains = 3;
 }

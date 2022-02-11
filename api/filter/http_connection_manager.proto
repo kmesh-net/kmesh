@@ -4,5 +4,5 @@ package filter;
 option go_package = "v1/filter;filter";
 
 message HttpConnectionManager {
-
+  string route_config_name = 2;
 }
