@@ -14,7 +14,7 @@
 
 package bpf
 
-// #cgo CFLAGS: -I../../bpf/include
+// #cgo CFLAGS: -I../../bpf/include -I../../bpf/kmesh -I../../api/v1/types
 // #include "tail_call.h"
 import "C"
 import (

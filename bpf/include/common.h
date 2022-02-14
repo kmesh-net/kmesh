@@ -22,7 +22,6 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
-#include "config.h"
 #include "errno.h"
 
 #define bpf_unused __attribute__((__unused__))
@@ -60,22 +59,6 @@ typedef struct bpf_sock_addr	ctx_buff_t;
 	(ctx)->user_port = (address)->port
 #endif
 
-typedef struct {
-	// calculated based on name in daemon
-	__u32 nameid;
-	// identify different services
-	__u32 port;
-	// initial value of the index is map_count, key range is [0, map_count)
-	__u32 index;
-} map_key_t;
-
-typedef struct {
-	__u32 protocol;
-	// network byte order
-	__u32 port;
-	__u32 ipv4;
-	__u32 ipv6[4];
-} address_t;
 
 static inline
 void *kmesh_map_lookup_elem(bpf_map_t *map, const void *key)

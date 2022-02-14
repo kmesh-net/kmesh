@@ -15,7 +15,8 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 include ../../mk/bpf.vars.mk
 include ../../mk/bpf.print.mk
 
-INCLUDES := -I$(ROOT_DIR)/../include
+INCLUDES := -I../include \
+			-I../../api/v1/types
 INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
 
 # compiler flags

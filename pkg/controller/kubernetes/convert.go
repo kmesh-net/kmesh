@@ -14,14 +14,13 @@
 
 package kubernetes
 
-// #cgo CFLAGS: -I../../../bpf/include
-// #include "listener_type.h"
-import "C"
+// #cgo CFLAGS: -I../../../api/v1/types
+// #include "listener.pb-c.h"
 import "C"
 import (
 	apiCoreV1 "k8s.io/api/core/v1"
+	"openeuler.io/mesh/api/v1/types"
 	"openeuler.io/mesh/pkg/cache/v1"
-	"openeuler.io/mesh/pkg/cache/v1/types"
 	"openeuler.io/mesh/pkg/nets"
 )
 

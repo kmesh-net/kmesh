@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package listener;
-option go_package = "openeuler.io/mesh/api/v1/listener;listener";
+option go_package = "openeuler.io/mesh/api/listener;listener";
 
 import "api/core/address.proto";
 import "api/filter/tcp_proxy.proto";

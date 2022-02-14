@@ -26,10 +26,6 @@ import (
 	"openeuler.io/mesh/pkg/cache/v1"
 )
 
-var (
-	convert = cache_v1.NewConvertName()
-)
-
 type serviceHandle struct {
 	listener cache_v1.ListenerCache
 	clusters clusterLoadCache

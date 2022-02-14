@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	convert = cache_v1.NewConvertName()
+	hashName = cache_v1.NewHashName()
 	nodeHdl = newNodeHandle()
 )
 
@@ -48,7 +48,7 @@ func newServiceHandle(name string) *serviceHandle {
 }
 
 func (svc *serviceHandle) destroy() {
-	convert.Delete(svc.name)
+	hashName.Delete(svc.name)
 	*svc = serviceHandle{}
 }
 
@@ -86,7 +86,7 @@ func (svc *serviceHandle) batchProcess(addr nodeAddress) {
 	epCache := make(cache_v1.EndpointCache)
 	defer func() { epCache = nil }()
 
-	nameID := convert.StrToNum(svc.name)
+	nameID := hashName.StrToNum(svc.name)
 	for k, epEvent := range svc.endpoints {
 		extractEndpointCache(epCache, cache_v1.CacheFlagDelete, nameID, epEvent.oldObj)
 		extractEndpointCache(epCache, cache_v1.CacheFlagUpdate, nameID, epEvent.newObj)
@@ -237,7 +237,7 @@ func (nd *nodeHandle) batchProcess() {
 	defer func() { lCache = nil }()
 
 	for name, svc := range nd.service {
-		nameID := convert.StrToNum(name)
+		nameID := hashName.StrToNum(name)
 		extractListenerCache(lCache, cache_v1.CacheFlagNone, nameID, svc, nd.address)
 
 		lCache.Flush(cache_v1.CacheFlagUpdate)

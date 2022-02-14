@@ -16,7 +16,8 @@ package cache_v1
 
 import (
 	"fmt"
-	"openeuler.io/mesh/pkg/cache/v1/types"
+	"openeuler.io/mesh/api/v1/maps"
+	"openeuler.io/mesh/api/v1/types"
 )
 
 const (
@@ -38,7 +39,7 @@ type EndpointKeyAndValue struct {
 func (kv *EndpointKeyAndValue) packUpdate(count CacheCount, addrToKey AddressToMapKey) error {
 	kv.Key.Index = count[kv.Key.Port]
 
-	if err := kv.Value.Update(&kv.Key); err != nil {
+	if err := maps.EndpointUpdate(&kv.Value, &kv.Key); err != nil {
 		return fmt.Errorf("update endpoint failed, %v, %s", kv.Key, err)
 	}
 
@@ -46,9 +47,9 @@ func (kv *EndpointKeyAndValue) packUpdate(count CacheCount, addrToKey AddressToM
 	count[kv.Key.Port]++
 	addrToKey[kv.Value.Address] = kv.Key
 
-	lb := &types.Loadbalance{}
+	lb := types.Loadbalance{}
 	lb.MapKey = kv.Key
-	if err := lb.Update(&kv.Key); err != nil {
+	if err := maps.LoadbalanceUpdate(&lb, &kv.Key); err != nil {
 		kv.packDelete(count, addrToKey)
 		return fmt.Errorf("update loadbalance failed, %v, %s", kv.Key, err)
 	}
@@ -57,7 +58,7 @@ func (kv *EndpointKeyAndValue) packUpdate(count CacheCount, addrToKey AddressToM
 }
 
 func (kv *EndpointKeyAndValue) packDelete(count CacheCount, addrToKey AddressToMapKey) error {
-	lb := &types.Loadbalance{}
+	lb := types.Loadbalance{}
 	mapKey := addrToKey[kv.Value.Address]
 
 	kv.Key.Index = mapKey.Index
@@ -69,15 +70,15 @@ func (kv *EndpointKeyAndValue) packDelete(count CacheCount, addrToKey AddressToM
 	mapKeyTail.Index = count[mapKey.Port] - 1
 
 	if mapKey != mapKeyTail {
-		if err := kv.Value.Lookup(&mapKeyTail); err == nil {
-			kv.Value.Update(&mapKey)
+		if err := maps.EndpointLookup(&kv.Value, &mapKeyTail); err == nil {
+			maps.EndpointUpdate(&kv.Value, &mapKey)
 		}
-		if err := lb.Lookup(&mapKeyTail); err == nil {
-			lb.Update(&mapKey)
+		if err := maps.LoadbalanceLookup(&lb, &mapKeyTail); err == nil {
+			maps.LoadbalanceUpdate(&lb, &mapKey)
 		}
 	}
-	kv.Value.Delete(&mapKeyTail)
-	lb.Delete(&mapKeyTail)
+	maps.EndpointDelete(&kv.Value, &mapKeyTail)
+	maps.LoadbalanceDelete(&lb, &mapKeyTail)
 
 	// update count
 	delete(addrToKey, kv.Value.Address)

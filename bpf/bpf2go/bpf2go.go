@@ -15,6 +15,6 @@
 package bpf2go
 
 //go run github.com/cilium/ebpf/cmd/bpf2go --help
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE CgroupSock ../kmesh/cgroup_sock.c -- -I../include
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE Filter ../kmesh/filter.c -- -I../include
-//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE Cluster ../kmesh/cluster.c -- -I../include
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE CgroupSock ../kmesh/cgroup_sock.c -- -I../include -I../../api/v1/types
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE Filter ../kmesh/filter.c -- -I../include -I../../api/v1/types
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE Cluster ../kmesh/cluster.c -- -I../include -I../../api/v1/types

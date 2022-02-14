@@ -25,9 +25,13 @@ import (
 	pkgWellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"openeuler.io/mesh/api/v1/types"
 	"openeuler.io/mesh/pkg/cache/v1"
-	"openeuler.io/mesh/pkg/cache/v1/types"
 	"openeuler.io/mesh/pkg/nets"
+)
+
+var (
+	hashName = cache_v1.NewHashName()
 )
 
 type clusterLoad struct {
@@ -68,7 +72,7 @@ func extractEndpointCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionF
 		return
 	}
 	clusterName := lbAssignment.GetClusterName()
-	kv.Key.NameID = convert.StrToNum(clusterName)
+	kv.Key.NameID = hashName.StrToNum(clusterName)
 
 	for _, localityLb := range lbAssignment.GetEndpoints() {
 		for _, lb := range localityLb.GetLbEndpoints() {
@@ -90,7 +94,7 @@ func extractEndpointCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionF
 }
 
 func setEndpointCacheClusterPort(cache cache_v1.EndpointCache, name string, port uint32) {
-	nameID := convert.StrToNum(name)
+	nameID := hashName.StrToNum(name)
 	for kv, flag := range cache {
 		if kv.Key.NameID == nameID {
 			kv.Key.Port = nets.ConvertPortToLittleEndian(port)
@@ -110,7 +114,7 @@ func extractClusterCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionFl
 	if clusterName == "" {
 		return
 	} else {
-		kv.Key.NameID = convert.StrToNum(clusterName)
+		kv.Key.NameID = hashName.StrToNum(clusterName)
 		kv.Value.LoadAssignment.MapKeyOfEndpoint.NameID = kv.Key.NameID
 	}
 
@@ -141,7 +145,7 @@ func extractListenerCache(cache cache_v1.ListenerCache, flag cache_v1.CacheOptio
 		return
 	} else {
 		// TODO: should be calculated at bpf
-		kv.Value.MapKey.NameID = convert.StrToNum(clusterName)
+		kv.Value.MapKey.NameID = hashName.StrToNum(clusterName)
 	}
 
 	{

@@ -16,7 +16,8 @@ package cache_v1
 
 import (
 	"fmt"
-	"openeuler.io/mesh/pkg/cache/v1/types"
+	"openeuler.io/mesh/api/v1/maps"
+	"openeuler.io/mesh/api/v1/types"
 )
 
 type ListenerKeyAndValue struct {
@@ -25,14 +26,14 @@ type ListenerKeyAndValue struct {
 }
 
 func (kv *ListenerKeyAndValue) packUpdate() error {
-	if err := kv.Value.Update(&kv.Key); err != nil {
+	if err := maps.ListenerUpdate(&kv.Value, &kv.Key); err != nil {
 		return fmt.Errorf("update listener failed, %v, %s", kv.Key, err)
 	}
 	return nil
 }
 
 func (kv *ListenerKeyAndValue) packDelete() error {
-	if err := kv.Value.Delete(&kv.Key); err != nil {
+	if err := maps.ListenerDelete(&kv.Value, &kv.Key); err != nil {
 		return fmt.Errorf("delete listener failed, %v, %s", kv.Key, err)
 	}
 	return nil
