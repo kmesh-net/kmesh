@@ -14,7 +14,7 @@
 
 package types
 
-// #cgo CFLAGS: -I../../../bpf/include
+// #cgo CFLAGS: -I../../../../bpf/include
 // #include "route_type.h"
 import "C"
 import (

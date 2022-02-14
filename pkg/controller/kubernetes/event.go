@@ -16,11 +16,11 @@ package kubernetes
 
 import (
 	apiCoreV1 "k8s.io/api/core/v1"
-	"openeuler.io/mesh/pkg/api"
+	"openeuler.io/mesh/pkg/cache/v1"
 )
 
 var (
-	convert = api.NewConvertName()
+	convert = cache_v1.NewConvertName()
 	nodeHdl = newNodeHandle()
 )
 
@@ -30,20 +30,20 @@ type serviceHandle struct {
 	endpoints	[]*endpointEvent
 
 	// k = endpointPort, v = count
-	serviceCount	api.CacheCount
+	serviceCount	cache_v1.CacheCount
 	// k = clusterPort, v = count
-	endpointsCount	api.CacheCount
+	endpointsCount	cache_v1.CacheCount
 	// When you want to delete endpoint from the map,
 	// you need to convert the address to key first.
-	endpointsAddressToMapKey api.AddressToMapKey
+	endpointsAddressToMapKey cache_v1.AddressToMapKey
 }
 
 func newServiceHandle(name string) *serviceHandle {
 	return &serviceHandle{
 		name: name,
-		serviceCount: make(api.CacheCount),
-		endpointsCount: make(api.CacheCount),
-		endpointsAddressToMapKey: make(api.AddressToMapKey),
+		serviceCount: make(cache_v1.CacheCount),
+		endpointsCount: make(cache_v1.CacheCount),
+		endpointsAddressToMapKey: make(cache_v1.AddressToMapKey),
 	}
 }
 
@@ -79,17 +79,17 @@ func (svc *serviceHandle) isChange() bool {
 }
 
 func (svc *serviceHandle) batchProcess(addr nodeAddress) {
-	lCache := make(api.ListenerCache)
+	lCache := make(cache_v1.ListenerCache)
 	defer func() { lCache = nil }()
-	cCache := make(api.ClusterCache)
+	cCache := make(cache_v1.ClusterCache)
 	defer func() { cCache = nil }()
-	epCache := make(api.EndpointCache)
+	epCache := make(cache_v1.EndpointCache)
 	defer func() { epCache = nil }()
 
 	nameID := convert.StrToNum(svc.name)
 	for k, epEvent := range svc.endpoints {
-		extractEndpointCache(epCache, api.CacheFlagDelete, nameID, epEvent.oldObj)
-		extractEndpointCache(epCache, api.CacheFlagUpdate, nameID, epEvent.newObj)
+		extractEndpointCache(epCache, cache_v1.CacheFlagDelete, nameID, epEvent.oldObj)
+		extractEndpointCache(epCache, cache_v1.CacheFlagUpdate, nameID, epEvent.newObj)
 
 		epEvent.destroy()
 		svc.endpoints[k] = nil
@@ -100,25 +100,25 @@ func (svc *serviceHandle) batchProcess(addr nodeAddress) {
 	}
 
 	if svc.service != nil {
-		extractClusterCache(cCache, api.CacheFlagDelete, nameID, svc.service.oldObj)
-		extractClusterCache(cCache, api.CacheFlagUpdate, nameID, svc.service.newObj)
+		extractClusterCache(cCache, cache_v1.CacheFlagDelete, nameID, svc.service.oldObj)
+		extractClusterCache(cCache, cache_v1.CacheFlagUpdate, nameID, svc.service.newObj)
 
-		extractListenerCache(lCache, api.CacheFlagDelete, nameID, svc.service.oldObj, addr)
-		extractListenerCache(lCache, api.CacheFlagUpdate, nameID, svc.service.newObj, addr)
+		extractListenerCache(lCache, cache_v1.CacheFlagDelete, nameID, svc.service.oldObj, addr)
+		extractListenerCache(lCache, cache_v1.CacheFlagUpdate, nameID, svc.service.newObj, addr)
 
 		svc.service.destroy()
 		svc.service = nil
 	}
 
 	// update all map
-	epCache.Flush(api.CacheFlagUpdate, svc.endpointsCount, svc.endpointsAddressToMapKey)
-	cCache.Flush(api.CacheFlagUpdate, svc.serviceCount)
-	lCache.Flush(api.CacheFlagUpdate)
+	epCache.Flush(cache_v1.CacheFlagUpdate, svc.endpointsCount, svc.endpointsAddressToMapKey)
+	cCache.Flush(cache_v1.CacheFlagUpdate, svc.serviceCount)
+	lCache.Flush(cache_v1.CacheFlagUpdate)
 
 	// delete all map
-	lCache.Flush(api.CacheFlagDelete)
-	cCache.Flush(api.CacheFlagDelete, svc.serviceCount)
-	epCache.Flush(api.CacheFlagDelete, svc.endpointsCount, svc.endpointsAddressToMapKey)
+	lCache.Flush(cache_v1.CacheFlagDelete)
+	cCache.Flush(cache_v1.CacheFlagDelete, svc.serviceCount)
+	epCache.Flush(cache_v1.CacheFlagDelete, svc.endpointsCount, svc.endpointsAddressToMapKey)
 }
 
 type endpointEvent struct {
@@ -176,7 +176,7 @@ func (event *serviceEvent) destroy() {
 // k = name
 type nodeService map[string]*apiCoreV1.Service
 // k = ip
-type nodeAddress map[string]api.CacheOptionFlag
+type nodeAddress map[string]cache_v1.CacheOptionFlag
 
 type nodeHandle struct {
 	// Mark node changes only
@@ -209,7 +209,7 @@ func (nd *nodeHandle) refreshService(name string, oldObj, newObj *apiCoreV1.Serv
 	}
 }
 
-func (nd *nodeHandle) extractNodeCache(flag api.CacheOptionFlag, obj interface{}) {
+func (nd *nodeHandle) extractNodeCache(flag cache_v1.CacheOptionFlag, obj interface{}) {
 	if obj == nil {
 		return
 	}
@@ -223,7 +223,7 @@ func (nd *nodeHandle) extractNodeCache(flag api.CacheOptionFlag, obj interface{}
 
 		nd.isChange = true
 		nd.address[addr.Address] |= flag
-		if nd.address[addr.Address] == api.CacheFlagAll {
+		if nd.address[addr.Address] == cache_v1.CacheFlagAll {
 			nd.address[addr.Address] = 0
 		}
 	}
@@ -233,22 +233,22 @@ func (nd *nodeHandle) batchProcess() {
 	if !nd.isChange {
 		return
 	}
-	lCache := make(api.ListenerCache)
+	lCache := make(cache_v1.ListenerCache)
 	defer func() { lCache = nil }()
 
 	for name, svc := range nd.service {
 		nameID := convert.StrToNum(name)
-		extractListenerCache(lCache, api.CacheFlagNone, nameID, svc, nd.address)
+		extractListenerCache(lCache, cache_v1.CacheFlagNone, nameID, svc, nd.address)
 
-		lCache.Flush(api.CacheFlagUpdate)
-		lCache.Flush(api.CacheFlagDelete)
+		lCache.Flush(cache_v1.CacheFlagUpdate)
+		lCache.Flush(cache_v1.CacheFlagDelete)
 	}
 
 	for ip, flag := range nd.address {
-		if flag == api.CacheFlagDelete {
+		if flag == cache_v1.CacheFlagDelete {
 			delete(nd.address, ip)
 		} else {
-			nd.address[ip] = api.CacheFlagNone
+			nd.address[ip] = cache_v1.CacheFlagNone
 		}
 	}
 

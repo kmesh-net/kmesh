@@ -20,13 +20,13 @@ import "C"
 import "C"
 import (
 	apiCoreV1 "k8s.io/api/core/v1"
-	"openeuler.io/mesh/pkg/api"
-	"openeuler.io/mesh/pkg/api/types"
+	"openeuler.io/mesh/pkg/cache/v1"
+	"openeuler.io/mesh/pkg/cache/v1/types"
 	"openeuler.io/mesh/pkg/nets"
 )
 
-func extractEndpointCache(cache api.EndpointCache, flag api.CacheOptionFlag, nameID uint32, ep *apiCoreV1.Endpoints) {
-	var kv api.EndpointKeyAndValue
+func extractEndpointCache(cache cache_v1.EndpointCache, flag cache_v1.CacheOptionFlag, nameID uint32, ep *apiCoreV1.Endpoints) {
+	var kv cache_v1.EndpointKeyAndValue
 
 	if ep == nil {
 		return
@@ -51,8 +51,8 @@ func extractEndpointCache(cache api.EndpointCache, flag api.CacheOptionFlag, nam
 	}
 }
 
-func extractClusterCache(cache api.ClusterCache, flag api.CacheOptionFlag, nameID uint32, svc *apiCoreV1.Service) {
-	var kv api.ClusterKeyAndValue
+func extractClusterCache(cache cache_v1.ClusterCache, flag cache_v1.CacheOptionFlag, nameID uint32, svc *apiCoreV1.Service) {
+	var kv cache_v1.ClusterKeyAndValue
 
 	if svc == nil {
 		return
@@ -76,9 +76,9 @@ func extractClusterCache(cache api.ClusterCache, flag api.CacheOptionFlag, nameI
 	}
 }
 
-func extractListenerCache(cache api.ListenerCache, svcFlag api.CacheOptionFlag, nameID uint32,
+func extractListenerCache(cache cache_v1.ListenerCache, svcFlag cache_v1.CacheOptionFlag, nameID uint32,
 						  svc *apiCoreV1.Service, addr nodeAddress) {
-	var kv api.ListenerKeyAndValue
+	var kv cache_v1.ListenerKeyAndValue
 
 	if svc == nil {
 		return
@@ -103,9 +103,9 @@ func extractListenerCache(cache api.ListenerCache, svcFlag api.CacheOptionFlag, 
 				kv.Key.IPv4 = nets.ConvertIpToUint32(ip)
 				kv.Value.Address = kv.Key
 
-				if svcFlag != api.CacheFlagNone {
+				if svcFlag != cache_v1.CacheFlagNone {
 					cache[kv] |= svcFlag
-				} else if nodeFlag != api.CacheFlagNone {
+				} else if nodeFlag != cache_v1.CacheFlagNone {
 					cache[kv] |= nodeFlag
 				}
 			}

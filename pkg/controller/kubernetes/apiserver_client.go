@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"openeuler.io/mesh/pkg/api"
+	"openeuler.io/mesh/pkg/cache/v1"
 	"time"
 )
 
@@ -161,8 +161,8 @@ func (c *ApiserverClient) syncHandler(qkey queueKey) error {
 		if err != nil {
 			return fmt.Errorf("get object with key %#v from store failed with %v", qkey, err)
 		}
-		nodeHdl.extractNodeCache(api.CacheFlagDelete, qkey.oldObj)
-		nodeHdl.extractNodeCache(api.CacheFlagUpdate, newObj)
+		nodeHdl.extractNodeCache(cache_v1.CacheFlagDelete, qkey.oldObj)
+		nodeHdl.extractNodeCache(cache_v1.CacheFlagUpdate, newObj)
 		return nil
 	}
 

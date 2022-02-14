@@ -12,39 +12,35 @@
  * Create: 2021-12-22
  */
 
-package api
+package cache_v1
 
 import (
 	"fmt"
-	"openeuler.io/mesh/pkg/api/types"
+	"openeuler.io/mesh/pkg/cache/v1/types"
 )
 
-type ClusterKeyAndValue struct {
-	Key		types.MapKey
-	Value	types.Cluster
+type ListenerKeyAndValue struct {
+	Key		types.Address
+	Value	types.Listener
 }
 
-func (kv *ClusterKeyAndValue) packUpdate(count CacheCount) error {
+func (kv *ListenerKeyAndValue) packUpdate() error {
 	if err := kv.Value.Update(&kv.Key); err != nil {
-		return fmt.Errorf("update cluster failed, %v, %s", kv.Value, err)
+		return fmt.Errorf("update listener failed, %v, %s", kv.Key, err)
 	}
-
-	count[kv.Key.Port] = 1
 	return nil
 }
 
-func (kv *ClusterKeyAndValue) packDelete(count CacheCount) error {
+func (kv *ListenerKeyAndValue) packDelete() error {
 	if err := kv.Value.Delete(&kv.Key); err != nil {
-		return fmt.Errorf("delete cluster failed, %v, %s", kv.Key, err)
+		return fmt.Errorf("delete listener failed, %v, %s", kv.Key, err)
 	}
-
-	delete(count, kv.Key.Port)
 	return nil
 }
 
-type ClusterCache map[ClusterKeyAndValue]CacheOptionFlag
+type ListenerCache map[ListenerKeyAndValue]CacheOptionFlag
 
-func (cache ClusterCache) Flush(flag CacheOptionFlag, count CacheCount) int {
+func (cache ListenerCache) Flush(flag CacheOptionFlag) int {
 	var err error
 	var num int
 
@@ -55,31 +51,21 @@ func (cache ClusterCache) Flush(flag CacheOptionFlag, count CacheCount) int {
 
 		switch flag {
 		case CacheFlagDelete:
-			err = kv.packDelete(count)
+			err = kv.packDelete()
 		case CacheFlagUpdate:
-			err = kv.packUpdate(count)
-			cache[kv] = CacheFlagNone
+			err = kv.packUpdate()
 		default:
 		}
-		num++
 
 		if err != nil {
 			log.Errorln(err)
 		}
 	}
 
-	if flag == CacheFlagDelete {
-		for kv, f := range cache {
-			if f == CacheFlagDelete {
-				delete(cache, kv)
-			}
-		}
-	}
-
 	return num
 }
 
-func (cache ClusterCache) DeleteFlag(flag CacheOptionFlag) {
+func (cache ListenerCache) DeleteFlag(flag CacheOptionFlag) {
 	for kv, f := range cache {
 		if f == flag {
 			delete(cache, kv)
@@ -87,7 +73,7 @@ func (cache ClusterCache) DeleteFlag(flag CacheOptionFlag) {
 	}
 }
 
-func (cache ClusterCache) ResetFlag(old, new CacheOptionFlag) {
+func (cache ListenerCache) ResetFlag(old, new CacheOptionFlag) {
 	for kv, f := range cache {
 		if f == old {
 			cache[kv] = new

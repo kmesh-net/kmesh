@@ -23,15 +23,15 @@ import (
 	resourceV3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"openeuler.io/mesh/pkg/api"
+	"openeuler.io/mesh/pkg/cache/v1"
 )
 
 var (
-	convert = api.NewConvertName()
+	convert = cache_v1.NewConvertName()
 )
 
 type serviceHandle struct {
-	listener api.ListenerCache
+	listener cache_v1.ListenerCache
 	clusters clusterLoadCache
 
 	ack *serviceDiscoveryV3.DiscoveryRequest
@@ -40,7 +40,7 @@ type serviceHandle struct {
 
 func newServiceHandle() *serviceHandle {
 	return &serviceHandle{
-		listener: make(api.ListenerCache),
+		listener: make(cache_v1.ListenerCache),
 		clusters: make(clusterLoadCache),
 		ack:      nil,
 		rqt:      nil,
@@ -126,7 +126,7 @@ func (svc *serviceHandle) handleCdsResponse(rsp *serviceDiscoveryV3.DiscoveryRes
 		case configClusterV3.Cluster_EDS:
 			clusterNames = append(clusterNames, cluster.GetName())
 		case configClusterV3.Cluster_STATIC:
-			extractEndpointCache(svc.clusters, api.CacheFlagUpdate, cluster.GetLoadAssignment())
+			extractEndpointCache(svc.clusters, cache_v1.CacheFlagUpdate, cluster.GetLoadAssignment())
 		case configClusterV3.Cluster_STRICT_DNS:
 		case configClusterV3.Cluster_LOGICAL_DNS:
 		case configClusterV3.Cluster_ORIGINAL_DST:
@@ -156,7 +156,7 @@ func (svc *serviceHandle) handleEdsResponse(rsp *serviceDiscoveryV3.DiscoveryRes
 		if err = anypb.UnmarshalTo(resource, lbAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		extractEndpointCache(svc.clusters, api.CacheFlagUpdate, lbAssignment)
+		extractEndpointCache(svc.clusters, cache_v1.CacheFlagUpdate, lbAssignment)
 	}
 
 	svc.rqt = newAdsRequest(resourceV3.ListenerType, nil)
@@ -173,8 +173,8 @@ func (svc *serviceHandle) handleLdsResponse(rsp *serviceDiscoveryV3.DiscoveryRes
 		if err = anypb.UnmarshalTo(resource, listener, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		extractClusterCache(svc.clusters, api.CacheFlagUpdate, listener)
-		extractListenerCache(svc.listener, api.CacheFlagUpdate, listener)
+		extractClusterCache(svc.clusters, cache_v1.CacheFlagUpdate, listener)
+		extractListenerCache(svc.listener, cache_v1.CacheFlagUpdate, listener)
 	}
 	svc.flushEndpoint()
 	svc.flushCluster()
@@ -194,7 +194,7 @@ func (svc *serviceHandle) handleRdsResponse(rsp *serviceDiscoveryV3.DiscoveryRes
 		if err = anypb.UnmarshalTo(resource, routes, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		extractRouteCache(nil, api.CacheFlagUpdate, rsp)
+		extractRouteCache(nil, cache_v1.CacheFlagUpdate, rsp)
 	}
 
 	svc.rqt = nil
@@ -203,31 +203,31 @@ func (svc *serviceHandle) handleRdsResponse(rsp *serviceDiscoveryV3.DiscoveryRes
 
 func (svc *serviceHandle) flushEndpoint() {
 	for _, load := range svc.clusters {
-		load.endpoint.ResetFlag(api.CacheFlagNone, api.CacheFlagDelete)
-		load.endpoint.Flush(api.CacheFlagUpdate, load.endpointsCount, load.endpointsAddressToMapKey)
-		load.endpoint.Flush(api.CacheFlagDelete, load.endpointsCount, load.endpointsAddressToMapKey)
+		load.endpoint.ResetFlag(cache_v1.CacheFlagNone, cache_v1.CacheFlagDelete)
+		load.endpoint.Flush(cache_v1.CacheFlagUpdate, load.endpointsCount, load.endpointsAddressToMapKey)
+		load.endpoint.Flush(cache_v1.CacheFlagDelete, load.endpointsCount, load.endpointsAddressToMapKey)
 
-		load.endpoint.DeleteFlag(api.CacheFlagDelete)
-		load.endpoint.ResetFlag(api.CacheFlagUpdate, api.CacheFlagNone)
+		load.endpoint.DeleteFlag(cache_v1.CacheFlagDelete)
+		load.endpoint.ResetFlag(cache_v1.CacheFlagUpdate, cache_v1.CacheFlagNone)
 	}
 }
 
 func (svc *serviceHandle) flushCluster() {
 	for _, load := range svc.clusters {
-		load.cluster.ResetFlag(api.CacheFlagNone, api.CacheFlagDelete)
-		load.cluster.Flush(api.CacheFlagUpdate, load.clusterCount)
-		load.cluster.Flush(api.CacheFlagDelete, load.clusterCount)
+		load.cluster.ResetFlag(cache_v1.CacheFlagNone, cache_v1.CacheFlagDelete)
+		load.cluster.Flush(cache_v1.CacheFlagUpdate, load.clusterCount)
+		load.cluster.Flush(cache_v1.CacheFlagDelete, load.clusterCount)
 
-		load.cluster.DeleteFlag(api.CacheFlagDelete)
-		load.cluster.ResetFlag(api.CacheFlagUpdate, api.CacheFlagNone)
+		load.cluster.DeleteFlag(cache_v1.CacheFlagDelete)
+		load.cluster.ResetFlag(cache_v1.CacheFlagUpdate, cache_v1.CacheFlagNone)
 	}
 }
 
 func (svc *serviceHandle) flushListener() {
-	svc.listener.ResetFlag(api.CacheFlagNone, api.CacheFlagDelete)
-	svc.listener.Flush(api.CacheFlagUpdate)
-	svc.listener.Flush(api.CacheFlagDelete)
+	svc.listener.ResetFlag(cache_v1.CacheFlagNone, cache_v1.CacheFlagDelete)
+	svc.listener.Flush(cache_v1.CacheFlagUpdate)
+	svc.listener.Flush(cache_v1.CacheFlagDelete)
 
-	svc.listener.DeleteFlag(api.CacheFlagDelete)
-	svc.listener.ResetFlag(api.CacheFlagUpdate, api.CacheFlagNone)
+	svc.listener.DeleteFlag(cache_v1.CacheFlagDelete)
+	svc.listener.ResetFlag(cache_v1.CacheFlagUpdate, cache_v1.CacheFlagNone)
 }

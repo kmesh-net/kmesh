@@ -12,11 +12,11 @@
  * Create: 2021-12-22
  */
 
-package api
+package cache_v1
 
 import (
 	"fmt"
-	"openeuler.io/mesh/pkg/api/types"
+	"openeuler.io/mesh/pkg/cache/v1/types"
 )
 
 const (

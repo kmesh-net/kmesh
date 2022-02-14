@@ -25,18 +25,18 @@ import (
 	pkgWellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"openeuler.io/mesh/pkg/api"
-	"openeuler.io/mesh/pkg/api/types"
+	"openeuler.io/mesh/pkg/cache/v1"
+	"openeuler.io/mesh/pkg/cache/v1/types"
 	"openeuler.io/mesh/pkg/nets"
 )
 
 type clusterLoad struct {
-	cluster        api.ClusterCache
-	clusterCount   api.CacheCount
+	cluster        cache_v1.ClusterCache
+	clusterCount   cache_v1.CacheCount
 
-	endpoint       api.EndpointCache
-	endpointsCount api.CacheCount
-	endpointsAddressToMapKey api.AddressToMapKey
+	endpoint       cache_v1.EndpointCache
+	endpointsCount cache_v1.CacheCount
+	endpointsAddressToMapKey cache_v1.AddressToMapKey
 }
 // k = clusterName
 type clusterLoadCache map[string]*clusterLoad
@@ -53,16 +53,16 @@ func (lc clusterLoadCache) getClusterLoad(name string) *clusterLoad {
 
 func newClusterLoad() *clusterLoad {
 	return &clusterLoad{
-		cluster:        make(api.ClusterCache),
-		clusterCount:   make(api.CacheCount),
-		endpoint:       make(api.EndpointCache),
-		endpointsCount: make(api.CacheCount),
-		endpointsAddressToMapKey: make(api.AddressToMapKey),
+		cluster:        make(cache_v1.ClusterCache),
+		clusterCount:   make(cache_v1.CacheCount),
+		endpoint:       make(cache_v1.EndpointCache),
+		endpointsCount: make(cache_v1.CacheCount),
+		endpointsAddressToMapKey: make(cache_v1.AddressToMapKey),
 	}
 }
 
-func extractEndpointCache(loadCache clusterLoadCache, flag api.CacheOptionFlag, lbAssignment *configEndpointV3.ClusterLoadAssignment) {
-	var kv api.EndpointKeyAndValue
+func extractEndpointCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionFlag, lbAssignment *configEndpointV3.ClusterLoadAssignment) {
+	var kv cache_v1.EndpointKeyAndValue
 
 	if lbAssignment == nil {
 		return
@@ -89,7 +89,7 @@ func extractEndpointCache(loadCache clusterLoadCache, flag api.CacheOptionFlag, 
 	}
 }
 
-func setEndpointCacheClusterPort(cache api.EndpointCache, name string, port uint32) {
+func setEndpointCacheClusterPort(cache cache_v1.EndpointCache, name string, port uint32) {
 	nameID := convert.StrToNum(name)
 	for kv, flag := range cache {
 		if kv.Key.NameID == nameID {
@@ -99,8 +99,8 @@ func setEndpointCacheClusterPort(cache api.EndpointCache, name string, port uint
 	}
 }
 
-func extractClusterCache(loadCache clusterLoadCache, flag api.CacheOptionFlag, listener *configListenerV3.Listener) {
-	var kv api.ClusterKeyAndValue
+func extractClusterCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionFlag, listener *configListenerV3.Listener) {
+	var kv cache_v1.ClusterKeyAndValue
 
 	if listener == nil {
 		return
@@ -129,8 +129,8 @@ func extractClusterCache(loadCache clusterLoadCache, flag api.CacheOptionFlag, l
 	}
 }
 
-func extractListenerCache(cache api.ListenerCache, flag api.CacheOptionFlag, listener *configListenerV3.Listener) {
-	var kv api.ListenerKeyAndValue
+func extractListenerCache(cache cache_v1.ListenerCache, flag cache_v1.CacheOptionFlag, listener *configListenerV3.Listener) {
+	var kv cache_v1.ListenerKeyAndValue
 
 	if listener == nil {
 		return
@@ -159,7 +159,7 @@ func extractListenerCache(cache api.ListenerCache, flag api.CacheOptionFlag, lis
 	}
 }
 
-func extractRouteCache(cache api.ListenerCache, flag api.CacheOptionFlag, rsp *serviceDiscoveryV3.DiscoveryResponse) {
+func extractRouteCache(cache cache_v1.ListenerCache, flag cache_v1.CacheOptionFlag, rsp *serviceDiscoveryV3.DiscoveryResponse) {
 	return
 }
 
