@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package core;
-option go_package = "v1/core;core";
+option go_package = "openeuler.io/mesh/api/v1/core;core";
 
 enum RoutingPriority {
   DEFAULT = 0;

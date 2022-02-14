@@ -14,7 +14,9 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 include ../mk/bpf.print.mk
 
-BUILD_DIR := ./v1
+BUILD_DIR := v1
+GO_BUILD_DIR := openeuler.io/mesh/api/$(BUILD_DIR)
+
 PROTO_PATH := ../
 PROTO_SRC := $(call find_source, ../api, *.proto)
 
@@ -27,6 +29,8 @@ all:
 	$(QUIET) find $(BUILD_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
 
 	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
+	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(BUILD_DIR)
+	$(QUIET) rm -rf openeuler.io
 install:
 
 clean:
