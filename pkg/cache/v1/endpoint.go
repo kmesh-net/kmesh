@@ -117,11 +117,7 @@ func (cache EndpointCache) Flush(flag CacheOptionFlag, count CacheCount, addrToK
 	}
 
 	if flag == CacheFlagDelete {
-		for kv, f := range cache {
-			if f == CacheFlagDelete {
-				delete(cache, kv)
-			}
-		}
+		cache.DeleteFlag(flag)
 	}
 
 	return num

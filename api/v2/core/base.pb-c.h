@@ -19,6 +19,17 @@ PROTOBUF_C__BEGIN_DECLS
 
 /* --- enums --- */
 
+/*
+ * The status of the control-plane of the current data is identified to
+ * determine the corresponding lower control-plane operation.
+ */
+typedef enum _Core__ApiStatus {
+  CORE__API_STATUS__NONE = 0,
+  CORE__API_STATUS__DELETE = 1,
+  CORE__API_STATUS__UPDATE = 2,
+  CORE__API_STATUS__ALL = 3
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(CORE__API_STATUS)
+} Core__ApiStatus;
 typedef enum _Core__RoutingPriority {
   CORE__ROUTING_PRIORITY__DEFAULT = 0,
   CORE__ROUTING_PRIORITY__HIGH = 1
@@ -35,6 +46,7 @@ typedef enum _Core__RoutingPriority {
 
 /* --- descriptors --- */
 
+extern const ProtobufCEnumDescriptor    core__api_status__descriptor;
 extern const ProtobufCEnumDescriptor    core__routing_priority__descriptor;
 
 PROTOBUF_C__END_DECLS

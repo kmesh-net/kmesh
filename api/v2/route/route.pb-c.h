@@ -15,6 +15,7 @@ PROTOBUF_C__BEGIN_DECLS
 #endif
 
 #include "route/route_components.pb-c.h"
+#include "core/base.pb-c.h"
 
 typedef struct _Route__RouteConfiguration Route__RouteConfiguration;
 
@@ -27,13 +28,14 @@ typedef struct _Route__RouteConfiguration Route__RouteConfiguration;
 struct  _Route__RouteConfiguration
 {
   ProtobufCMessage base;
+  Core__ApiStatus api_status;
   char *name;
   size_t n_virtual_hosts;
   Route__VirtualHost **virtual_hosts;
 };
 #define ROUTE__ROUTE_CONFIGURATION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&route__route_configuration__descriptor) \
-    , (char *)protobuf_c_empty_string, 0,NULL }
+    , CORE__API_STATUS__NONE, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 /* Route__RouteConfiguration methods */

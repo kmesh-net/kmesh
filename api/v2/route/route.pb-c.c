@@ -52,7 +52,7 @@ void   route__route_configuration__free_unpacked
   assert(message->base.descriptor == &route__route_configuration__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-static const ProtobufCFieldDescriptor route__route_configuration__field_descriptors[2] =
+static const ProtobufCFieldDescriptor route__route_configuration__field_descriptors[3] =
 {
   {
     "name",
@@ -78,15 +78,29 @@ static const ProtobufCFieldDescriptor route__route_configuration__field_descript
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "api_status",
+    128,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_ENUM,
+    0,   /* quantifier_offset */
+    offsetof(Route__RouteConfiguration, api_status),
+    &core__api_status__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned route__route_configuration__field_indices_by_name[] = {
+  2,   /* field[2] = api_status */
   0,   /* field[0] = name */
   1,   /* field[1] = virtual_hosts */
 };
-static const ProtobufCIntRange route__route_configuration__number_ranges[1 + 1] =
+static const ProtobufCIntRange route__route_configuration__number_ranges[2 + 1] =
 {
   { 1, 0 },
-  { 0, 2 }
+  { 128, 2 },
+  { 0, 3 }
 };
 const ProtobufCMessageDescriptor route__route_configuration__descriptor =
 {
@@ -96,10 +110,10 @@ const ProtobufCMessageDescriptor route__route_configuration__descriptor =
   "Route__RouteConfiguration",
   "route",
   sizeof(Route__RouteConfiguration),
-  2,
+  3,
   route__route_configuration__field_descriptors,
   route__route_configuration__field_indices_by_name,
-  1,  route__route_configuration__number_ranges,
+  2,  route__route_configuration__number_ranges,
   (ProtobufCMessageInit) route__route_configuration__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

@@ -7,6 +7,38 @@
 #endif
 
 #include "core/base.pb-c.h"
+static const ProtobufCEnumValue core__api_status__enum_values_by_number[4] =
+{
+  { "NONE", "CORE__API_STATUS__NONE", 0 },
+  { "DELETE", "CORE__API_STATUS__DELETE", 1 },
+  { "UPDATE", "CORE__API_STATUS__UPDATE", 2 },
+  { "ALL", "CORE__API_STATUS__ALL", 3 },
+};
+static const ProtobufCIntRange core__api_status__value_ranges[] = {
+{0, 0},{0, 4}
+};
+static const ProtobufCEnumValueIndex core__api_status__enum_values_by_name[4] =
+{
+  { "ALL", 3 },
+  { "DELETE", 1 },
+  { "NONE", 0 },
+  { "UPDATE", 2 },
+};
+const ProtobufCEnumDescriptor core__api_status__descriptor =
+{
+  PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
+  "core.ApiStatus",
+  "ApiStatus",
+  "Core__ApiStatus",
+  "core",
+  4,
+  core__api_status__enum_values_by_number,
+  4,
+  core__api_status__enum_values_by_name,
+  1,
+  core__api_status__value_ranges,
+  NULL,NULL,NULL,NULL   /* reserved[1234] */
+};
 static const ProtobufCEnumValue core__routing_priority__enum_values_by_number[2] =
 {
   { "DEFAULT", "CORE__ROUTING_PRIORITY__DEFAULT", 0 },

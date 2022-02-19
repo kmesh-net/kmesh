@@ -18,6 +18,15 @@ import (
 	"fmt"
 	"openeuler.io/mesh/api/v1/maps"
 	"openeuler.io/mesh/api/v1/types"
+	"openeuler.io/mesh/pkg/logger"
+)
+
+const (
+	pkgSubsys = "cache_v2"
+)
+
+var (
+	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 type ListenerKeyAndValue struct {

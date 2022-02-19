@@ -17,16 +17,9 @@ package cache_v1
 import (
 	"hash/fnv"
 	"math"
-	"openeuler.io/mesh/pkg/logger"
-)
-
-const (
-	pkgSubsys = "api"
 )
 
 var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
-
 	hash = fnv.New32a()
 )
 

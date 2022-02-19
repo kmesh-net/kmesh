@@ -16,6 +16,7 @@ PROTOBUF_C__BEGIN_DECLS
 
 #include "cluster/circuit_breaker.pb-c.h"
 #include "endpoint/endpoint.pb-c.h"
+#include "core/base.pb-c.h"
 
 typedef struct _Cluster__Cluster Cluster__Cluster;
 
@@ -34,6 +35,7 @@ typedef enum _Cluster__Cluster__LbPolicy {
 struct  _Cluster__Cluster
 {
   ProtobufCMessage base;
+  Core__ApiStatus api_status;
   char *name;
   uint32_t connect_timeout;
   Cluster__Cluster__LbPolicy lb_policy;
@@ -42,7 +44,7 @@ struct  _Cluster__Cluster
 };
 #define CLUSTER__CLUSTER__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cluster__cluster__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN, NULL, NULL }
+    , CORE__API_STATUS__NONE, (char *)protobuf_c_empty_string, 0, CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN, NULL, NULL }
 
 
 /* Cluster__Cluster methods */

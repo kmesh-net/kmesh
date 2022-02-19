@@ -82,7 +82,7 @@ const ProtobufCEnumDescriptor cluster__cluster__lb_policy__descriptor =
   cluster__cluster__lb_policy__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCFieldDescriptor cluster__cluster__field_descriptors[5] =
+static const ProtobufCFieldDescriptor cluster__cluster__field_descriptors[6] =
 {
   {
     "name",
@@ -144,22 +144,36 @@ static const ProtobufCFieldDescriptor cluster__cluster__field_descriptors[5] =
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "api_status",
+    128,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_ENUM,
+    0,   /* quantifier_offset */
+    offsetof(Cluster__Cluster, api_status),
+    &core__api_status__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned cluster__cluster__field_indices_by_name[] = {
+  5,   /* field[5] = api_status */
   3,   /* field[3] = circuit_breakers */
   1,   /* field[1] = connect_timeout */
   2,   /* field[2] = lb_policy */
   4,   /* field[4] = load_assignment */
   0,   /* field[0] = name */
 };
-static const ProtobufCIntRange cluster__cluster__number_ranges[5 + 1] =
+static const ProtobufCIntRange cluster__cluster__number_ranges[6 + 1] =
 {
   { 1, 0 },
   { 4, 1 },
   { 6, 2 },
   { 10, 3 },
   { 33, 4 },
-  { 0, 5 }
+  { 128, 5 },
+  { 0, 6 }
 };
 const ProtobufCMessageDescriptor cluster__cluster__descriptor =
 {
@@ -169,10 +183,10 @@ const ProtobufCMessageDescriptor cluster__cluster__descriptor =
   "Cluster__Cluster",
   "cluster",
   sizeof(Cluster__Cluster),
-  5,
+  6,
   cluster__cluster__field_descriptors,
   cluster__cluster__field_indices_by_name,
-  5,  cluster__cluster__number_ranges,
+  6,  cluster__cluster__number_ranges,
   (ProtobufCMessageInit) cluster__cluster__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

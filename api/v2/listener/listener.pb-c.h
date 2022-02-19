@@ -16,6 +16,7 @@ PROTOBUF_C__BEGIN_DECLS
 
 #include "listener/listener_components.pb-c.h"
 #include "core/address.pb-c.h"
+#include "core/base.pb-c.h"
 
 typedef struct _Listener__Listener Listener__Listener;
 
@@ -28,6 +29,7 @@ typedef struct _Listener__Listener Listener__Listener;
 struct  _Listener__Listener
 {
   ProtobufCMessage base;
+  Core__ApiStatus api_status;
   char *name;
   Core__SocketAddress *address;
   size_t n_filter_chains;
@@ -35,7 +37,7 @@ struct  _Listener__Listener
 };
 #define LISTENER__LISTENER__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&listener__listener__descriptor) \
-    , (char *)protobuf_c_empty_string, NULL, 0,NULL }
+    , CORE__API_STATUS__NONE, (char *)protobuf_c_empty_string, NULL, 0,NULL }
 
 
 /* Listener__Listener methods */

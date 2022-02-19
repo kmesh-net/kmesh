@@ -3,6 +3,15 @@ syntax = "proto3";
 package core;
 option go_package = "openeuler.io/mesh/api/core;core";
 
+// The status of the control-plane of the current data is identified to
+// determine the corresponding lower control-plane operation.
+enum ApiStatus {
+  NONE = 0;
+  DELETE = 1;
+  UPDATE = 2;
+  ALL = 3;
+}
+
 enum RoutingPriority {
   DEFAULT = 0;
   HIGH = 1;

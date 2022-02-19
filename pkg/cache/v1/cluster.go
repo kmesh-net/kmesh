@@ -70,11 +70,7 @@ func (cache ClusterCache) Flush(flag CacheOptionFlag, count CacheCount) int {
 	}
 
 	if flag == CacheFlagDelete {
-		for kv, f := range cache {
-			if f == CacheFlagDelete {
-				delete(cache, kv)
-			}
-		}
+		cache.DeleteFlag(flag)
 	}
 
 	return num
