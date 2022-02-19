@@ -263,8 +263,6 @@ func (c *ApiserverClient) runWorker() {
 // Run will block until stopCh is closed, at which point it will shutdown the queue
 // and wait for workers to finish processing their current work items.
 func (c *ApiserverClient) Run(stopCh <-chan struct{}) error {
-	defer c.queue.ShutDown()
-
 	go c.factory.Start(stopCh)
 
 	if ok := cache.WaitForCacheSync(stopCh, c.serviceInformer.Informer().HasSynced); !ok {
@@ -284,6 +282,7 @@ func (c *ApiserverClient) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *ApiserverClient) Close() error {
+	c.queue.ShutDown()
 	*c = ApiserverClient{}
 	return nil
 }
