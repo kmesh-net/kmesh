@@ -92,7 +92,7 @@ func (kv *EndpointKeyAndValue) packDelete(count CacheCount, addrToKey AddressToM
 
 type EndpointCache map[EndpointKeyAndValue]CacheOptionFlag
 
-func (cache EndpointCache) Flush(flag CacheOptionFlag, count CacheCount, addrToKey AddressToMapKey) int {
+func (cache EndpointCache) StatusFlush(flag CacheOptionFlag, count CacheCount, addrToKey AddressToMapKey) int {
 	var err error
 	var num int
 
@@ -117,13 +117,13 @@ func (cache EndpointCache) Flush(flag CacheOptionFlag, count CacheCount, addrToK
 	}
 
 	if flag == CacheFlagDelete {
-		cache.DeleteFlag(flag)
+		cache.StatusDelete(flag)
 	}
 
 	return num
 }
 
-func (cache EndpointCache) DeleteFlag(flag CacheOptionFlag) {
+func (cache EndpointCache) StatusDelete(flag CacheOptionFlag) {
 	for kv, f := range cache {
 		if f == flag {
 			delete(cache, kv)
@@ -131,7 +131,7 @@ func (cache EndpointCache) DeleteFlag(flag CacheOptionFlag) {
 	}
 }
 
-func (cache EndpointCache) ResetFlag(old, new CacheOptionFlag) {
+func (cache EndpointCache) StatusReset(old, new CacheOptionFlag) {
 	for kv, f := range cache {
 		if f == old {
 			cache[kv] = new

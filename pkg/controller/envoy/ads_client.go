@@ -26,11 +26,11 @@ import (
 )
 
 type AdsClient struct {
-	grpcConn  *grpc.ClientConn
-	service   serviceDiscoveryV3.AggregatedDiscoveryServiceClient
-	stream    serviceDiscoveryV3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	cancel    context.CancelFunc
-	svcHandle *serviceHandle
+	grpcConn *grpc.ClientConn
+	service  serviceDiscoveryV3.AggregatedDiscoveryServiceClient
+	stream   serviceDiscoveryV3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	cancel   context.CancelFunc
+	event    *serviceEvent
 }
 
 func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
@@ -67,7 +67,7 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 		return fmt.Errorf("ads subscribe failed, %s", err)
 	}
 
-	c.svcHandle = newServiceHandle()
+	c.event = newServiceEvent()
 	return nil
 }
 
@@ -116,14 +116,14 @@ func (c *AdsClient) runWorker() {
 			continue
 		}
 
-		c.svcHandle.processResponse(rsp)
+		c.event.processResponse(rsp)
 
-		if err = c.stream.Send(c.svcHandle.ack); err != nil {
+		if err = c.stream.Send(c.event.ack); err != nil {
 			reconnect = true
 			continue
 		}
-		if c.svcHandle.rqt != nil {
-			if err = c.stream.Send(c.svcHandle.rqt); err != nil {
+		if c.event.rqt != nil {
+			if err = c.stream.Send(c.event.rqt); err != nil {
 				reconnect = true
 				continue
 			}

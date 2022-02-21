@@ -50,7 +50,7 @@ func (kv *ListenerKeyAndValue) packDelete() error {
 
 type ListenerCache map[ListenerKeyAndValue]CacheOptionFlag
 
-func (cache ListenerCache) Flush(flag CacheOptionFlag) int {
+func (cache ListenerCache) StatusFlush(flag CacheOptionFlag) int {
 	var err error
 	var num int
 
@@ -75,7 +75,7 @@ func (cache ListenerCache) Flush(flag CacheOptionFlag) int {
 	return num
 }
 
-func (cache ListenerCache) DeleteFlag(flag CacheOptionFlag) {
+func (cache ListenerCache) StatusDelete(flag CacheOptionFlag) {
 	for kv, f := range cache {
 		if f == flag {
 			delete(cache, kv)
@@ -83,7 +83,7 @@ func (cache ListenerCache) DeleteFlag(flag CacheOptionFlag) {
 	}
 }
 
-func (cache ListenerCache) ResetFlag(old, new CacheOptionFlag) {
+func (cache ListenerCache) StatusReset(old, new CacheOptionFlag) {
 	for kv, f := range cache {
 		if f == old {
 			cache[kv] = new

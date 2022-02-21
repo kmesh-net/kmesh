@@ -45,7 +45,7 @@ func (kv *ClusterKeyAndValue) packDelete(count CacheCount) error {
 
 type ClusterCache map[ClusterKeyAndValue]CacheOptionFlag
 
-func (cache ClusterCache) Flush(flag CacheOptionFlag, count CacheCount) int {
+func (cache ClusterCache) StatusFlush(flag CacheOptionFlag, count CacheCount) int {
 	var err error
 	var num int
 
@@ -70,13 +70,13 @@ func (cache ClusterCache) Flush(flag CacheOptionFlag, count CacheCount) int {
 	}
 
 	if flag == CacheFlagDelete {
-		cache.DeleteFlag(flag)
+		cache.StatusDelete(flag)
 	}
 
 	return num
 }
 
-func (cache ClusterCache) DeleteFlag(flag CacheOptionFlag) {
+func (cache ClusterCache) StatusDelete(flag CacheOptionFlag) {
 	for kv, f := range cache {
 		if f == flag {
 			delete(cache, kv)
@@ -84,7 +84,7 @@ func (cache ClusterCache) DeleteFlag(flag CacheOptionFlag) {
 	}
 }
 
-func (cache ClusterCache) ResetFlag(old, new CacheOptionFlag) {
+func (cache ClusterCache) StatusReset(old, new CacheOptionFlag) {
 	for kv, f := range cache {
 		if f == old {
 			cache[kv] = new

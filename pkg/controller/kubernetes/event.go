@@ -111,14 +111,14 @@ func (svc *serviceHandle) batchProcess(addr nodeAddress) {
 	}
 
 	// update all map
-	epCache.Flush(cache_v1.CacheFlagUpdate, svc.endpointsCount, svc.endpointsAddressToMapKey)
-	cCache.Flush(cache_v1.CacheFlagUpdate, svc.serviceCount)
-	lCache.Flush(cache_v1.CacheFlagUpdate)
+	epCache.StatusFlush(cache_v1.CacheFlagUpdate, svc.endpointsCount, svc.endpointsAddressToMapKey)
+	cCache.StatusFlush(cache_v1.CacheFlagUpdate, svc.serviceCount)
+	lCache.StatusFlush(cache_v1.CacheFlagUpdate)
 
 	// delete all map
-	lCache.Flush(cache_v1.CacheFlagDelete)
-	cCache.Flush(cache_v1.CacheFlagDelete, svc.serviceCount)
-	epCache.Flush(cache_v1.CacheFlagDelete, svc.endpointsCount, svc.endpointsAddressToMapKey)
+	lCache.StatusFlush(cache_v1.CacheFlagDelete)
+	cCache.StatusFlush(cache_v1.CacheFlagDelete, svc.serviceCount)
+	epCache.StatusFlush(cache_v1.CacheFlagDelete, svc.endpointsCount, svc.endpointsAddressToMapKey)
 }
 
 type endpointEvent struct {
@@ -240,8 +240,8 @@ func (nd *nodeHandle) batchProcess() {
 		nameID := hashName.StrToNum(name)
 		extractListenerCache(lCache, cache_v1.CacheFlagNone, nameID, svc, nd.address)
 
-		lCache.Flush(cache_v1.CacheFlagUpdate)
-		lCache.Flush(cache_v1.CacheFlagDelete)
+		lCache.StatusFlush(cache_v1.CacheFlagUpdate)
+		lCache.StatusFlush(cache_v1.CacheFlagDelete)
 	}
 
 	for ip, flag := range nd.address {
