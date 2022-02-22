@@ -13,8 +13,10 @@
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
 include ../mk/bpf.print.mk
+include ../mk/bpf.vars.mk
 
-BUILD_DIR := v2
+C_OUTPUT_DIR := v2-c
+GO_OUTPUT_DIR := v2
 GO_BUILD_DIR := openeuler.io/mesh/api
 
 PROTO_PATH := ../
@@ -23,17 +25,19 @@ PROTO_SRC := $(call find_source, ../api, *.proto)
 .PHONY: all install clean
 
 all:
+	$(QUIET) $(GO) install google.golang.org/protobuf/cmd/protoc-gen-go
+
 	$(call printlog, BUILD, $(PROTO_SRC))
 	$(QUIET) protoc-c --proto_path=$(PROTO_PATH) --c_out=.  $(PROTO_SRC)
-	$(QUIET) mv api $(BUILD_DIR)
-	$(QUIET) find $(BUILD_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
+	$(QUIET) mv api $(C_OUTPUT_DIR)
+	$(QUIET) find $(C_OUTPUT_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
 
 	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
-	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(BUILD_DIR)
-	$(QUIET) find $(BUILD_DIR) -name *pb.go | xargs sed -i 's/mesh\/api/mesh\/api\/v2/g'
+	$(QUIET) mkdir $(GO_OUTPUT_DIR); cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR)
+	$(QUIET) find $(GO_OUTPUT_DIR) -name *pb.go | xargs sed -i 's/mesh\/api/mesh\/api\/v2/g'
 	$(QUIET) rm -rf openeuler.io
 install:
 
 clean:
-	$(call printlog, CLEAN, $(BUILD_DIR))
-	$(QUIET) rm -rf $(BUILD_DIR)
+	$(call printlog, CLEAN, $(C_OUTPUT_DIR) $(GO_OUTPUT_DIR))
+	$(QUIET) rm -rf $(C_OUTPUT_DIR) $(GO_OUTPUT_DIR)
