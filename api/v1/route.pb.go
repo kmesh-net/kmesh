@@ -14,7 +14,7 @@
 
 package api
 
-// #cgo CFLAGS: -I../v1-c
+// #cgo pkg-config: api-v1-c
 // #include "route.pb-c.h"
 import "C"
 

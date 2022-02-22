@@ -14,7 +14,7 @@
 
 package nets
 
-// #cgo CFLAGS: -I../../bpf/kmesh
+// #cgo pkg-config: bpf-kmesh
 // #include "config.h"
 import "C"
 import "openeuler.io/mesh/pkg/option"

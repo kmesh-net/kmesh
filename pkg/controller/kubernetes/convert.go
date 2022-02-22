@@ -14,7 +14,7 @@
 
 package kubernetes
 
-// #cgo CFLAGS: -I../../../api/v1-c
+// #cgo pkg-config: api-v1-c
 // #include "listener.pb-c.h"
 import "C"
 import (

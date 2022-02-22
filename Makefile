@@ -25,6 +25,8 @@ APPS2 := mesh-cmd
 .PHONY: all install clean
 
 all:
+	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh set
+	
 	$(QUIET) $(GO) mod download
 	$(QUIET) $(GO) generate bpf/bpf2go/bpf2go.go
 	
@@ -33,6 +35,8 @@ all:
 	
 	$(call printlog, BUILD, $(APPS2))
 	$(QUIET) $(GO) build -o $(APPS2) $(GOFLAGS) ./cmd/main.go
+	
+	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh unset
 
 install:
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS1))

@@ -1,0 +1,6 @@
+prefix=
+
+Name: api-v2-c
+Description: api-v2-c
+Version:
+Cflags:-I${prefix}/api/v2-c
