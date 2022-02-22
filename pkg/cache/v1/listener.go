@@ -16,8 +16,8 @@ package cache_v1
 
 import (
 	"fmt"
+	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/api/v1/maps"
-	"openeuler.io/mesh/api/v1/types"
 	"openeuler.io/mesh/pkg/logger"
 )
 
@@ -30,8 +30,8 @@ var (
 )
 
 type ListenerKeyAndValue struct {
-	Key		types.Address
-	Value	types.Listener
+	Key		api_v1.Address
+	Value	api_v1.Listener
 }
 
 func (kv *ListenerKeyAndValue) packUpdate() error {

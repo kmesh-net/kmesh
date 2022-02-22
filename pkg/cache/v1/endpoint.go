@@ -16,8 +16,8 @@ package cache_v1
 
 import (
 	"fmt"
+	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/api/v1/maps"
-	"openeuler.io/mesh/api/v1/types"
 )
 
 const (
@@ -29,11 +29,11 @@ const (
 
 type CacheOptionFlag uint
 type CacheCount map[uint32]uint32                   // k = port
-type AddressToMapKey map[types.Address]types.MapKey // k = port
+type AddressToMapKey map[api_v1.Address]api_v1.MapKey // k = port
 
 type EndpointKeyAndValue struct {
-	Key		types.MapKey
-	Value	types.Endpoint
+	Key		api_v1.MapKey
+	Value	api_v1.Endpoint
 }
 
 func (kv *EndpointKeyAndValue) packUpdate(count CacheCount, addrToKey AddressToMapKey) error {
@@ -47,7 +47,7 @@ func (kv *EndpointKeyAndValue) packUpdate(count CacheCount, addrToKey AddressToM
 	count[kv.Key.Port]++
 	addrToKey[kv.Value.Address] = kv.Key
 
-	lb := types.Loadbalance{}
+	lb := api_v1.Loadbalance{}
 	lb.MapKey = kv.Key
 	if err := maps.LoadbalanceUpdate(&lb, &kv.Key); err != nil {
 		kv.packDelete(count, addrToKey)
@@ -58,7 +58,7 @@ func (kv *EndpointKeyAndValue) packUpdate(count CacheCount, addrToKey AddressToM
 }
 
 func (kv *EndpointKeyAndValue) packDelete(count CacheCount, addrToKey AddressToMapKey) error {
-	lb := types.Loadbalance{}
+	lb := api_v1.Loadbalance{}
 	mapKey := addrToKey[kv.Value.Address]
 
 	kv.Key.Index = mapKey.Index

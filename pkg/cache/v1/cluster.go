@@ -16,13 +16,13 @@ package cache_v1
 
 import (
 	"fmt"
+	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/api/v1/maps"
-	"openeuler.io/mesh/api/v1/types"
 )
 
 type ClusterKeyAndValue struct {
-	Key		types.MapKey
-	Value	types.Cluster
+	Key		api_v1.MapKey
+	Value	api_v1.Cluster
 }
 
 func (kv *ClusterKeyAndValue) packUpdate(count CacheCount) error {

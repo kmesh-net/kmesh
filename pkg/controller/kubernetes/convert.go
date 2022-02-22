@@ -14,12 +14,12 @@
 
 package kubernetes
 
-// #cgo CFLAGS: -I../../../api/v1/types
+// #cgo CFLAGS: -I../../../api/v1-c
 // #include "listener.pb-c.h"
 import "C"
 import (
 	apiCoreV1 "k8s.io/api/core/v1"
-	"openeuler.io/mesh/api/v1/types"
+	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/pkg/cache/v1"
 	"openeuler.io/mesh/pkg/nets"
 )
@@ -38,7 +38,7 @@ func extractEndpointCache(cache cache_v1.EndpointCache, flag cache_v1.CacheOptio
 				continue
 			}
 
-			kv.Value.Address.Protocol = types.ProtocolStrToC[string(epPort.Protocol)]
+			kv.Value.Address.Protocol = api_v1.ProtocolStrToC[string(epPort.Protocol)]
 			kv.Value.Address.Port = nets.ConvertPortToLittleEndian(uint32(epPort.Port))
 			kv.Key.Port = kv.Value.Address.Port
 

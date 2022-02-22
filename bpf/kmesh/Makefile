@@ -16,7 +16,7 @@ include ../../mk/bpf.vars.mk
 include ../../mk/bpf.print.mk
 
 INCLUDES := -I../include \
-			-I../../api/v1/types
+			-I../../api/v1-c
 INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
 
 # compiler flags

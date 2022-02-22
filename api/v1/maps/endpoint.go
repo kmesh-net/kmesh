@@ -16,19 +16,19 @@ package maps
 
 import (
 	"github.com/cilium/ebpf"
-	"openeuler.io/mesh/api/v1/types"
+	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/pkg/bpf"
 	"unsafe"
 )
 
-func endpointToGolang(ep *types.Endpoint, cep *types.CEndpoint) {
+func endpointToGolang(ep *api_v1.Endpoint, cep *api_v1.CEndpoint) {
 	memcpy(unsafe.Pointer(ep),
 		unsafe.Pointer(&cep.Entry),
 		unsafe.Sizeof(cep.Entry))
 }
 
-func endpointToClang(ep *types.Endpoint) *types.CEndpoint {
-	cep := &types.CEndpoint{}
+func endpointToClang(ep *api_v1.Endpoint) *api_v1.CEndpoint {
+	cep := &api_v1.CEndpoint{}
 	memcpy(unsafe.Pointer(&cep.Entry),
 		unsafe.Pointer(ep),
 		unsafe.Sizeof(cep.Entry))
@@ -36,8 +36,8 @@ func endpointToClang(ep *types.Endpoint) *types.CEndpoint {
 	return cep
 }
 
-func EndpointLookup(ep *types.Endpoint, key *types.MapKey) error {
-	cep := &types.CEndpoint{}
+func EndpointLookup(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
+	cep := &api_v1.CEndpoint{}
 	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Lookup(key, cep.Entry)
 
@@ -49,26 +49,26 @@ func EndpointLookup(ep *types.Endpoint, key *types.MapKey) error {
 	return err
 }
 
-func EndpointUpdate(ep *types.Endpoint, key *types.MapKey) error {
+func EndpointUpdate(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *ep)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Update(key, &endpointToClang(ep).Entry, ebpf.UpdateAny)
 }
 
-func EndpointDelete(ep *types.Endpoint, key *types.MapKey) error {
+func EndpointDelete(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v], [%#v]", *key, *ep)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
 		Delete(key)
 }
 
-func loadbalanceToGolang(lb *types.Loadbalance, clb *types.CLoadbalance) {
+func loadbalanceToGolang(lb *api_v1.Loadbalance, clb *api_v1.CLoadbalance) {
 	memcpy(unsafe.Pointer(lb),
 		unsafe.Pointer(&clb.Entry),
 		unsafe.Sizeof(clb.Entry))
 }
 
-func loadbalanceToClang(lb *types.Loadbalance) *types.CLoadbalance {
-	clb := &types.CLoadbalance{}
+func loadbalanceToClang(lb *api_v1.Loadbalance) *api_v1.CLoadbalance {
+	clb := &api_v1.CLoadbalance{}
 	memcpy(unsafe.Pointer(&clb.Entry),
 		unsafe.Pointer(lb),
 		unsafe.Sizeof(clb.Entry))
@@ -76,8 +76,8 @@ func loadbalanceToClang(lb *types.Loadbalance) *types.CLoadbalance {
 	return clb
 }
 
-func LoadbalanceLookup(lb *types.Loadbalance, key *types.MapKey) error {
-	clb := &types.CLoadbalance{}
+func LoadbalanceLookup(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
+	clb := &api_v1.CLoadbalance{}
 	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
 		Lookup(key, clb.Entry)
 
@@ -89,13 +89,13 @@ func LoadbalanceLookup(lb *types.Loadbalance, key *types.MapKey) error {
 	return err
 }
 
-func LoadbalanceUpdate(lb *types.Loadbalance, key *types.MapKey) error {
+func LoadbalanceUpdate(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *lb)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
 		Update(key, &loadbalanceToClang(lb).Entry, ebpf.UpdateAny)
 }
 
-func LoadbalanceDelete(lb *types.Loadbalance, key *types.MapKey) error {
+func LoadbalanceDelete(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v], [%#v]", *key, *lb)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
 		Delete(key)

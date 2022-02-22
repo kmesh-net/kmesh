@@ -12,26 +12,26 @@
  * Create: 2021-10-09
  */
 
-package types
+package api
 
-var (
-	ProtocolStrToC = map[string]uint32 {
-		"TCP": 0, //C.IPPROTO_TCP,
-		"UDP": 6, //C.IPPROTO_UDP,
-	}
-)
+// #cgo CFLAGS: -I../v1-c
+// #include "route.pb-c.h"
+import "C"
 
-// MapKey = C.map_key_t
-type MapKey struct {
-	NameID	uint32
-	Port	uint32
-	Index	uint32
+// CRoute = C.route_t
+type CRoute struct {
+	Entry C.route_t
 }
 
-// Address = C.address_t
-type Address struct {
-	Protocol	uint32	`json:"protocol"`
-	Port		uint32	`json:"port"`
-	IPv4		uint32	`json:"ipv4,omitempty"`
-	IPv6		[4]uint32	`json:"ipv6,omitempty"`
+type Route struct {
+
+}
+
+// CVirtualHost = C.virtual_host_t
+type CVirtualHost struct {
+	Entry C.virtual_host_t
+}
+
+type VirtualHost struct {
+
 }

@@ -16,19 +16,19 @@ package maps
 
 import (
 	"github.com/cilium/ebpf"
-	"openeuler.io/mesh/api/v1/types"
+	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/pkg/bpf"
 	"unsafe"
 )
 
-func listenerToGolang(l *types.Listener, cl *types.CListener) {
+func listenerToGolang(l *api_v1.Listener, cl *api_v1.CListener) {
 	memcpy(unsafe.Pointer(l),
 		unsafe.Pointer(&cl.Entry),
 		unsafe.Sizeof(cl.Entry))
 }
 
-func listenerToClang(l *types.Listener) *types.CListener {
-	cl := &types.CListener{}
+func listenerToClang(l *api_v1.Listener) *api_v1.CListener {
+	cl := &api_v1.CListener{}
 	memcpy(unsafe.Pointer(&cl.Entry),
 		unsafe.Pointer(l),
 		unsafe.Sizeof(cl.Entry))
@@ -36,8 +36,8 @@ func listenerToClang(l *types.Listener) *types.CListener {
 	return cl
 }
 
-func ListenerLookup(l *types.Listener, key *types.Address) error {
-	cl := &types.CListener{}
+func ListenerLookup(l *api_v1.Listener, key *api_v1.Address) error {
+	cl := &api_v1.CListener{}
 	err := bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Lookup(key, cl.Entry)
 
@@ -49,13 +49,13 @@ func ListenerLookup(l *types.Listener, key *types.Address) error {
 	return err
 }
 
-func ListenerUpdate(l *types.Listener, key *types.Address) error {
+func ListenerUpdate(l *api_v1.Listener, key *api_v1.Address) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *l)
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Update(key, &listenerToClang(l).Entry, ebpf.UpdateAny)
 }
 
-func ListenerDelete(l *types.Listener, key *types.Address) error {
+func ListenerDelete(l *api_v1.Listener, key *api_v1.Address) error {
 	log.Debugf("Delete [%#v], [%#v]", *key, *l)
 	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
 		Delete(key)

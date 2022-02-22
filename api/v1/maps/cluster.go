@@ -16,19 +16,19 @@ package maps
 
 import (
 	"github.com/cilium/ebpf"
-	"openeuler.io/mesh/api/v1/types"
+	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/pkg/bpf"
 	"unsafe"
 )
 
-func clusterToGolang(cl *types.Cluster, ccl *types.CCluster) {
+func clusterToGolang(cl *api_v1.Cluster, ccl *api_v1.CCluster) {
 	memcpy(unsafe.Pointer(cl),
 		unsafe.Pointer(&ccl.Entry),
 		unsafe.Sizeof(ccl.Entry))
 }
 
-func clusterToClang(cl *types.Cluster) *types.CCluster {
-	ccl := &types.CCluster{}
+func clusterToClang(cl *api_v1.Cluster) *api_v1.CCluster {
+	ccl := &api_v1.CCluster{}
 	memcpy(unsafe.Pointer(&ccl.Entry),
 		unsafe.Pointer(cl),
 		unsafe.Sizeof(ccl.Entry))
@@ -36,8 +36,8 @@ func clusterToClang(cl *types.Cluster) *types.CCluster {
 	return ccl
 }
 
-func ClusterLookup(cl *types.Cluster, key *types.MapKey) error {
-	ccl := &types.CCluster{}
+func ClusterLookup(cl *api_v1.Cluster, key *api_v1.MapKey) error {
+	ccl := &api_v1.CCluster{}
 	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
 		Lookup(key, ccl.Entry)
 
@@ -49,13 +49,13 @@ func ClusterLookup(cl *types.Cluster, key *types.MapKey) error {
 	return err
 }
 
-func ClusterUpdate(cl *types.Cluster, key *types.MapKey) error {
+func ClusterUpdate(cl *api_v1.Cluster, key *api_v1.MapKey) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *cl)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
 		Update(key, &clusterToClang(cl).Entry, ebpf.UpdateAny)
 }
 
-func ClusterDelete(cl *types.Cluster, key *types.MapKey) error {
+func ClusterDelete(cl *api_v1.Cluster, key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v], [%#v]", *key, *cl)
 	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
 		Delete(key)

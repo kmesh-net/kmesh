@@ -12,8 +12,9 @@
  * Create: 2021-10-09
  */
 
-package types
+package api
 
+// #cgo CFLAGS: -I../v1-c
 // #include "cluster.pb-c.h"
 import "C"
 

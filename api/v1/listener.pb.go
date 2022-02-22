@@ -12,25 +12,21 @@
  * Create: 2021-10-09
  */
 
-package types
+package api
 
-// #include "filter.pb-c.h"
+// #cgo CFLAGS: -I../v1-c
+// #include "listener.pb-c.h"
 import "C"
 
-// CFilter = C.filter_t
-type CFilter struct {
-	Entry C.filter_t
+// CListener = C.listener_t
+type CListener struct {
+	Entry C.listener_t
 }
 
-type GoFilter struct {
-
-}
-
-// cFilterChain = C.filter_chain_t
-type cFilterChain struct {
-	entry C.filter_chain_t
-}
-
-type GoFilterChain struct {
-
+type Listener struct {
+	MapKey MapKey
+	//Name	string	`json:"name"`
+	Type    uint16  `json:"type"`
+	State   uint16  `json:"state"`
+	Address Address `json:"address"`
 }
