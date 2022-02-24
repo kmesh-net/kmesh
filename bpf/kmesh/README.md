@@ -1,6 +1,4 @@
-# BPF KMESH
-kmesh
-
+# BPF-KMESH
 ## Usage Tutorial
 load bpf connect4
 

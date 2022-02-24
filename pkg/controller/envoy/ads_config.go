@@ -95,10 +95,14 @@ func (c *XdsConfig) getNode() *configCoreV3.Node {
 		return c.Ads.Node
 	}
 
-	return &configCoreV3.Node{
-		Id: c.ServiceNode,
-		Cluster: c.ServiceCluster,
-		Metadata: nil,
+	if c.Ads.Node != nil {
+		return c.Ads.Node
+	} else {
+		return &configCoreV3.Node{
+			Id: c.ServiceNode,
+			Cluster: c.ServiceCluster,
+			Metadata: nil,
+		}
 	}
 }
 

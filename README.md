@@ -35,3 +35,53 @@ Kmesh (kernel mesh) is a data plane software for service grids. It is dedicated 
 4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
 5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
 6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+
+## Usage Tutorial
+
+config
+
+```sh
+mkdir /mnt/cgroup2
+mount -t cgroup2 none /mnt/cgroup2/
+
+kubectl exec xxx-pod-name -c istio-proxy -- cat etc/istio/proxy/envoy-rev0.json > envoy-rev0.json
+---
+       , {
+        "name": "xds-grpc",
+        "type" : "STATIC",
+        "connect_timeout": "1s",
+        "lb_policy": "ROUND_ROBIN",
+        "load_assignment": {
+          "cluster_name": "xds-grpc",
+          "endpoints": [{
+            "lb_endpoints": [{
+              "endpoint": {
+                "address":{
+                  "socket_address": {
+                    "protocol": "TCP",
+                    "address": "192.168.123.249", # istiod pod IP
+                    "port_value": 15010
+                  }
+                }
+              }
+            }]
+          }]
+        },
+---
+```
+
+mesh-daemon
+
+```sh
+# kubernetes
+./mesh-daemon -cgroup2-path=/mnt/cgroup2 -client-mode=kubernetes
+
+# envoy
+./mesh-daemon -cgroup2-path=/mnt/cgroup2 -client-mode=envoy -config-path=examples/envoy-config-bootstrap/envoy-rev0.json
+```
+
+mesh-cmd
+
+```sh
+# TODO
+```
