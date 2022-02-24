@@ -47,8 +47,10 @@ func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) in
 		switch route.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
 			err = cache.packUpdate()
+			log.Debugf("ApiStatus_UPDATE [%s]", route.String())
 		case core_v2.ApiStatus_DELETE:
 			err = cache.packDelete()
+			log.Debugf("ApiStatus_DELETE [%s]", route.String())
 		}
 
 		if err != nil {

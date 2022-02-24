@@ -56,8 +56,10 @@ func (cache ApiListenerCache) StatusFlush(status core_v2.ApiStatus) int {
 		switch listener.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
 			err = cache.packUpdate()
+			log.Debugf("ApiStatus_UPDATE [%s]", listener.String())
 		case core_v2.ApiStatus_DELETE:
 			err = cache.packDelete()
+			log.Debugf("ApiStatus_DELETE [%s]", listener.String())
 		}
 
 		if err != nil {

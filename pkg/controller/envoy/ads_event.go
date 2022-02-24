@@ -108,7 +108,6 @@ func (svc *serviceEvent) handleCdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 	var (
 		err error
 		cluster = &configClusterV3.Cluster{}
-		clusterNames []string
 	)
 
 	for _, resource := range rsp.GetResources() {
@@ -116,15 +115,12 @@ func (svc *serviceEvent) handleCdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 			continue
 		}
 
-		svc.loader.createApiClusterByCDS(core_v2.ApiStatus_UPDATE, cluster)
-
-		if cluster.GetType() == configClusterV3.Cluster_EDS {
-			clusterNames = append(clusterNames, cluster.GetName())
-		}
+		svc.loader.createApiClusterByCds(core_v2.ApiStatus_UPDATE, cluster)
 	}
 
-	if len(clusterNames) > 0 {
-		svc.rqt = newAdsRequest(resourceV3.EndpointType, clusterNames)
+	if len(svc.loader.clusterNames) > 0 {
+		svc.rqt = newAdsRequest(resourceV3.EndpointType, svc.loader.clusterNames)
+		svc.loader.clusterNames = nil
 	} else {
 		cache_v2.CacheFlush(svc.loader.clusterCache)
 	}
@@ -141,7 +137,7 @@ func (svc *serviceEvent) handleEdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 		if err = anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.createApiClusterByEDS(core_v2.ApiStatus_UPDATE, loadAssignment)
+		svc.loader.createApiClusterByEds(core_v2.ApiStatus_UPDATE, loadAssignment)
 	}
 
 	svc.rqt = newAdsRequest(resourceV3.ListenerType, nil)
@@ -159,11 +155,17 @@ func (svc *serviceEvent) handleLdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 		if err = anypb.UnmarshalTo(resource, listener, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.createApiListenerByLDS(core_v2.ApiStatus_UPDATE, listener)
+		svc.loader.createApiListenerByLds(core_v2.ApiStatus_UPDATE, listener)
 	}
 
-	svc.rqt = newAdsRequest(resourceV3.RouteType, nil)
 	cache_v2.CacheFlush(svc.loader.listenerCache)
+	if len(svc.loader.routeNames) > 0 {
+		svc.rqt = newAdsRequest(resourceV3.RouteType, svc.loader.routeNames)
+		svc.loader.routeNames = nil
+	} else {
+		cache_v2.CacheFlush(svc.loader.routeCache)
+	}
+
 	return nil
 }
 
@@ -177,7 +179,7 @@ func (svc *serviceEvent) handleRdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 		if err = anypb.UnmarshalTo(resource, routeConfiguration, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.createApiRouteByRDS(core_v2.ApiStatus_UPDATE, routeConfiguration)
+		svc.loader.createApiRouteByRds(core_v2.ApiStatus_UPDATE, routeConfiguration)
 	}
 
 	svc.rqt = nil
