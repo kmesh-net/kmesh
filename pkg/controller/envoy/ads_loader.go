@@ -165,12 +165,12 @@ func (load *adsLoader) createApiListenerByLds(status core_v2.ApiStatus, listener
 		}
 
 		for _, filter := range filterChain.GetFilters() {
-			apiFilter, apiRouteConfig := newApiFilterAndRoute(filter)
+			apiFilter, routeName := newApiFilterAndRouteName(filter)
 			if apiFilter != nil {
 				apiFilterChain.Filters = append(apiFilterChain.Filters, apiFilter)
 			}
-			if apiRouteConfig != nil {
-				load.createApiRouteByLds(status, apiRouteConfig)
+			if routeName != "" {
+				load.routeNames = append(load.routeNames, routeName)
 			}
 		}
 
@@ -191,9 +191,9 @@ func newApiFilterChainMatch(match *configListenerV3.FilterChainMatch) *listener_
 	return apiMatch
 }
 
-func newApiFilterAndRoute(filter *configListenerV3.Filter) (*listener_v2.Filter, *route_v2.RouteConfiguration) {
+func newApiFilterAndRouteName(filter *configListenerV3.Filter) (*listener_v2.Filter, string) {
 	var err error
-	var apiRouteConfig *route_v2.RouteConfiguration
+	var routeName string
 	apiFilter := &listener_v2.Filter{
 		Name: filter.GetName(),
 	}
@@ -202,44 +202,39 @@ func newApiFilterAndRoute(filter *configListenerV3.Filter) (*listener_v2.Filter,
 	case *configListenerV3.Filter_TypedConfig:
 		switch filter.GetName() {
 		case pkgWellknown.TCPProxy:
-			cfgTcp := &filtersNetworkTcp.TcpProxy{}
-			if err = anypb.UnmarshalTo(filter.GetTypedConfig(), cfgTcp, proto.UnmarshalOptions{}); err != nil {
-				return nil, nil
+			filterTcp := &filtersNetworkTcp.TcpProxy{}
+			if err = anypb.UnmarshalTo(filter.GetTypedConfig(), filterTcp, proto.UnmarshalOptions{}); err != nil {
+				return nil, ""
 			}
 
 			apiFilter.ConfigType = &listener_v2.Filter_TcpProxy{
 				TcpProxy: &filter_v2.TcpProxy{
-					Cluster: cfgTcp.GetCluster(),
+					Cluster: filterTcp.GetCluster(),
 				},
 			}
 		case pkgWellknown.HTTPConnectionManager:
-			var name string
-			cfgHttp := &filtersNetworkHttp.HttpConnectionManager{}
-			if err = anypb.UnmarshalTo(filter.GetTypedConfig(), cfgHttp, proto.UnmarshalOptions{}); err != nil {
-				return nil, nil
+			var apiFilterHttp listener_v2.Filter_HttpConnectionManager
+			filterHttp := &filtersNetworkHttp.HttpConnectionManager{}
+			if err = anypb.UnmarshalTo(filter.GetTypedConfig(), filterHttp, proto.UnmarshalOptions{}); err != nil {
+				return nil, ""
 			}
 
 			// RouteConfiguration
-			if cfgHttp.GetRouteConfig() != nil {
-				apiRouteConfig = newApiRouteConfiguration(cfgHttp.GetRouteConfig())
-				// FIXME: name
-				name = filter.GetName() + "/" + cfgHttp.GetRouteConfig().GetName()
-				apiRouteConfig.Name = name
-			} else if cfgHttp.GetRds() != nil {
-				name = cfgHttp.GetRds().GetRouteConfigName()
-				// if VirtualHosts == nil, subscribe to RDS by Name
-				apiRouteConfig = &route_v2.RouteConfiguration{
-					Name: name,
-					VirtualHosts: nil,
+			if filterHttp.GetRouteConfig() != nil {
+				apiFilterHttp.HttpConnectionManager = &filter_v2.HttpConnectionManager{
+					RouteSpecifier: &filter_v2.HttpConnectionManager_RouteConfig{
+						RouteConfig: newApiRouteConfiguration(filterHttp.GetRouteConfig()),
+					},
+				}
+			} else if filterHttp.GetRds() != nil {
+				routeName = filterHttp.GetRds().GetRouteConfigName()
+				apiFilterHttp.HttpConnectionManager = &filter_v2.HttpConnectionManager{
+					RouteSpecifier: &filter_v2.HttpConnectionManager_RouteConfigName{
+						RouteConfigName: routeName,
+					},
 				}
 			}
-
-			// Filter
-			apiFilter.ConfigType = &listener_v2.Filter_HttpConnectionManager{
-				HttpConnectionManager: &filter_v2.HttpConnectionManager{
-					RouteConfigName: name,
-				},
-			}
+			apiFilter.ConfigType = &apiFilterHttp
 		default:
 		}
 	case *configListenerV3.Filter_ConfigDiscovery:
@@ -247,18 +242,9 @@ func newApiFilterAndRoute(filter *configListenerV3.Filter) (*listener_v2.Filter,
 	}
 
 	if apiFilter.ConfigType == nil {
-		return nil, nil
+		return nil, ""
 	}
-	return apiFilter, apiRouteConfig
-}
-
-func (load *adsLoader) createApiRouteByLds(status core_v2.ApiStatus, apiRouteConfig *route_v2.RouteConfiguration) {
-	if apiRouteConfig.GetVirtualHosts() == nil {
-		load.routeNames = append(load.routeNames, apiRouteConfig.GetName())
-	} else {
-		apiRouteConfig.ApiStatus = status
-		load.routeCache[apiRouteConfig.GetName()] = apiRouteConfig
-	}
+	return apiFilter, routeName
 }
 
 func (load *adsLoader) createApiRouteByRds(status core_v2.ApiStatus, routeConfig *configRouteV3.RouteConfiguration) {
