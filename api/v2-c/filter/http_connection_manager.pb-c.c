@@ -52,28 +52,42 @@ void   filter__http_connection_manager__free_unpacked
   assert(message->base.descriptor == &filter__http_connection_manager__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-static const ProtobufCFieldDescriptor filter__http_connection_manager__field_descriptors[1] =
+static const ProtobufCFieldDescriptor filter__http_connection_manager__field_descriptors[2] =
 {
   {
     "route_config_name",
     2,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
-    0,   /* quantifier_offset */
+    offsetof(Filter__HttpConnectionManager, route_specifier_case),
     offsetof(Filter__HttpConnectionManager, route_config_name),
     NULL,
     &protobuf_c_empty_string,
-    0,             /* flags */
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
+    "route_config",
+    4,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Filter__HttpConnectionManager, route_specifier_case),
+    offsetof(Filter__HttpConnectionManager, route_config),
+    &route__route_configuration__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
 static const unsigned filter__http_connection_manager__field_indices_by_name[] = {
+  1,   /* field[1] = route_config */
   0,   /* field[0] = route_config_name */
 };
-static const ProtobufCIntRange filter__http_connection_manager__number_ranges[1 + 1] =
+static const ProtobufCIntRange filter__http_connection_manager__number_ranges[2 + 1] =
 {
   { 2, 0 },
-  { 0, 1 }
+  { 4, 1 },
+  { 0, 2 }
 };
 const ProtobufCMessageDescriptor filter__http_connection_manager__descriptor =
 {
@@ -83,10 +97,10 @@ const ProtobufCMessageDescriptor filter__http_connection_manager__descriptor =
   "Filter__HttpConnectionManager",
   "filter",
   sizeof(Filter__HttpConnectionManager),
-  1,
+  2,
   filter__http_connection_manager__field_descriptors,
   filter__http_connection_manager__field_indices_by_name,
-  1,  filter__http_connection_manager__number_ranges,
+  2,  filter__http_connection_manager__number_ranges,
   (ProtobufCMessageInit) filter__http_connection_manager__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
