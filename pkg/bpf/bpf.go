@@ -28,7 +28,7 @@ type BpfInfo struct {
 }
 
 type BpfObject struct {
-	SockConn	BpfSocketConnect
+	Slb BpfSlb
 }
 
 var Obj BpfObject
@@ -40,16 +40,16 @@ func Start() error {
 		return err
 	}
 
-	if Obj.SockConn, err = NewSocketConnect(&config); err != nil {
+	if Obj.Slb, err = NewBpfSlb(&config); err != nil {
 		return err
 	}
 
-	if err = Obj.SockConn.Load(); err != nil {
+	if err = Obj.Slb.Load(); err != nil {
 		Stop()
 		return fmt.Errorf("bpf Load failed, %s", err)
 	}
 
-	if err = Obj.SockConn.Attach(); err != nil {
+	if err = Obj.Slb.Attach(); err != nil {
 		Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
@@ -58,5 +58,5 @@ func Start() error {
 }
 
 func Stop() error {
-	return Obj.SockConn.Detach()
+	return Obj.Slb.Detach()
 }

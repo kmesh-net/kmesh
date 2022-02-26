@@ -14,7 +14,7 @@
 
 package bpf
 
-// #cgo pkg-config: api-v1-c bpf-kmesh
+// #cgo pkg-config: bpf-slb api-v1-c
 // #include "tail_call.h"
 import "C"
 import (
@@ -25,7 +25,9 @@ import (
 	"reflect"
 )
 
-type BpfSocketConnect struct {
+const pinName = "bpf_slb"
+
+type BpfSlb struct {
 	Info 		BpfInfo
 	Link		link.Link
 	bpf2go.CgroupSockObjects
@@ -33,11 +35,11 @@ type BpfSocketConnect struct {
 	bpf2go.ClusterObjects
 }
 
-func NewSocketConnect(cfg *Config) (BpfSocketConnect, error) {
-	sc := BpfSocketConnect {}
+func NewBpfSlb(cfg *Config) (BpfSlb, error) {
+	sc := BpfSlb{}
 	sc.Info.Config = *cfg
 
-	sc.Info.BpfFsPath += "/socket_connect/"
+	sc.Info.BpfFsPath += "/" + pinName + "/"
 	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
 	if err := os.MkdirAll(sc.Info.MapPath, 0750); err != nil && !os.IsExist(err) {
 		return sc, err
@@ -46,65 +48,65 @@ func NewSocketConnect(cfg *Config) (BpfSocketConnect, error) {
 	return sc, nil
 }
 
-func (sc *BpfSocketConnect) loadCgroupSockObjects() (*ebpf.CollectionSpec, error) {
+func (b *BpfSlb) loadCgroupSockObjects() (*ebpf.CollectionSpec, error) {
 	var (
 		err		error
 		spec	*ebpf.CollectionSpec
 		opts 	ebpf.CollectionOptions
 	)
-	opts.Maps.PinPath = sc.Info.MapPath
+	opts.Maps.PinPath = b.Info.MapPath
 
 	if spec, err = bpf2go.LoadCgroupSock(); err != nil {
 		return nil, err
 	}
 
 	setMapPinType(spec, ebpf.PinByName)
-	if err = spec.LoadAndAssign(&sc.CgroupSockObjects, &opts); err != nil {
+	if err = spec.LoadAndAssign(&b.CgroupSockObjects, &opts); err != nil {
 		return nil, err
 	}
 
-	value := reflect.ValueOf(sc.CgroupSockObjects.CgroupSockPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
+	value := reflect.ValueOf(b.CgroupSockObjects.CgroupSockPrograms)
+	if err = pinPrograms(&value, b.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
 	return spec, nil
 }
 
-func (sc *BpfSocketConnect) loadFilterObjects() (*ebpf.CollectionSpec, error) {
+func (b *BpfSlb) loadFilterObjects() (*ebpf.CollectionSpec, error) {
 	var (
 		err		error
 		spec	*ebpf.CollectionSpec
 		opts 	ebpf.CollectionOptions
 	)
-	opts.Maps.PinPath = sc.Info.MapPath
+	opts.Maps.PinPath = b.Info.MapPath
 
 	if spec, err = bpf2go.LoadFilter(); err != nil {
 		return nil, err
 	}
 
 	setMapPinType(spec, ebpf.PinByName)
-	setProgBpfType(spec, sc.Info.Type, sc.Info.AttachType)
-	if err = spec.LoadAndAssign(&sc.FilterObjects, &opts); err != nil {
+	setProgBpfType(spec, b.Info.Type, b.Info.AttachType)
+	if err = spec.LoadAndAssign(&b.FilterObjects, &opts); err != nil {
 		return nil, err
 	}
 
-	value := reflect.ValueOf(sc.FilterObjects.FilterPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
+	value := reflect.ValueOf(b.FilterObjects.FilterPrograms)
+	if err = pinPrograms(&value, b.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
-	err = sc.FilterObjects.FilterMaps.TailCallProg.Update(
+	err = b.FilterObjects.FilterMaps.TailCallProg.Update(
 		uint32(C.KMESH_TAIL_CALL_FILTER_CHAIN),
-		uint32(sc.FilterObjects.FilterPrograms.FilterChainManager.FD()),
+		uint32(b.FilterObjects.FilterPrograms.FilterChainManager.FD()),
 		ebpf.UpdateAny)
 	if err != nil {
 		return nil, err
 	}
 
-	err = sc.FilterObjects.FilterMaps.TailCallProg.Update(
+	err = b.FilterObjects.FilterMaps.TailCallProg.Update(
 		uint32(C.KMESH_TAIL_CALL_FILTER),
-		uint32(sc.FilterObjects.FilterPrograms.FilterManager.FD()),
+		uint32(b.FilterObjects.FilterPrograms.FilterManager.FD()),
 		ebpf.UpdateAny)
 	if err != nil {
 		return nil, err
@@ -113,32 +115,32 @@ func (sc *BpfSocketConnect) loadFilterObjects() (*ebpf.CollectionSpec, error) {
 	return spec, nil
 }
 
-func (sc *BpfSocketConnect) loadClusterObjects() (*ebpf.CollectionSpec, error) {
+func (b *BpfSlb) loadClusterObjects() (*ebpf.CollectionSpec, error) {
 	var (
 		err		error
 		spec	*ebpf.CollectionSpec
 		opts 	ebpf.CollectionOptions
 	)
-	opts.Maps.PinPath = sc.Info.MapPath
+	opts.Maps.PinPath = b.Info.MapPath
 
 	if spec, err = bpf2go.LoadCluster(); err != nil {
 		return nil, err
 	}
 
 	setMapPinType(spec, ebpf.PinByName)
-	setProgBpfType(spec, sc.Info.Type, sc.Info.AttachType)
-	if err = spec.LoadAndAssign(&sc.ClusterObjects, &opts); err != nil {
+	setProgBpfType(spec, b.Info.Type, b.Info.AttachType)
+	if err = spec.LoadAndAssign(&b.ClusterObjects, &opts); err != nil {
 		return nil, err
 	}
 
-	value := reflect.ValueOf(sc.ClusterObjects.ClusterPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
+	value := reflect.ValueOf(b.ClusterObjects.ClusterPrograms)
+	if err = pinPrograms(&value, b.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
-	err = sc.ClusterObjects.ClusterMaps.TailCallProg.Update(
+	err = b.ClusterObjects.ClusterMaps.TailCallProg.Update(
 		uint32(C.KMESH_TAIL_CALL_CLUSTER),
-		uint32(sc.ClusterObjects.ClusterPrograms.ClusterManager.FD()),
+		uint32(b.ClusterObjects.ClusterPrograms.ClusterManager.FD()),
 		ebpf.UpdateAny)
 	if err != nil {
 		return nil, err
@@ -147,78 +149,78 @@ func (sc *BpfSocketConnect) loadClusterObjects() (*ebpf.CollectionSpec, error) {
 	return spec, nil
 }
 
-func (sc *BpfSocketConnect) Load() error {
-	spec, err := sc.loadCgroupSockObjects()
+func (b *BpfSlb) Load() error {
+	spec, err := b.loadCgroupSockObjects()
 	if err != nil {
 		return err
 	}
 
 	prog := spec.Programs["sock_connect4"]
-	sc.Info.Type = prog.Type
-	sc.Info.AttachType = prog.AttachType
+	b.Info.Type = prog.Type
+	b.Info.AttachType = prog.AttachType
 
-	if _, err := sc.loadFilterObjects(); err != nil {
+	if _, err := b.loadFilterObjects(); err != nil {
 		return err
 	}
-	if _, err := sc.loadClusterObjects(); err != nil {
+	if _, err := b.loadClusterObjects(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (sc *BpfSocketConnect) Attach() error {
-	cgopt := link.CgroupOptions {
-		Path:		sc.Info.Cgroup2Path,
-		Attach:		sc.Info.AttachType,
-		Program:	sc.CgroupSockObjects.SockConnect4,
+func (b *BpfSlb) Attach() error {
+	cgroupOpt := link.CgroupOptions {
+		Path:    b.Info.Cgroup2Path,
+		Attach:  b.Info.AttachType,
+		Program: b.CgroupSockObjects.SockConnect4,
 	}
 
-	lk, err := link.AttachCgroup(cgopt)
+	lk, err := link.AttachCgroup(cgroupOpt)
 	if err != nil {
 		return err
 	}
-	sc.Link = lk
+	b.Link = lk
 
 	return nil
 }
 
-func (sc *BpfSocketConnect) close() error {
-	if err := sc.CgroupSockObjects.Close(); err != nil {
+func (b *BpfSlb) close() error {
+	if err := b.CgroupSockObjects.Close(); err != nil {
 		return err
 	}
-	if err := sc.FilterObjects.Close(); err != nil {
+	if err := b.FilterObjects.Close(); err != nil {
 		return err
 	}
-	if err := sc.ClusterObjects.Close(); err != nil {
+	if err := b.ClusterObjects.Close(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (sc *BpfSocketConnect) Detach() error {
+func (b *BpfSlb) Detach() error {
 	var value reflect.Value
 
-	if err := sc.close(); err != nil {
+	if err := b.close(); err != nil {
 		return err
 	}
 
-	value = reflect.ValueOf(sc.CgroupSockObjects.CgroupSockPrograms)
+	value = reflect.ValueOf(b.CgroupSockObjects.CgroupSockPrograms)
 	if err := unpinPrograms(&value); err != nil {
 		return err
 	}
-	value = reflect.ValueOf(sc.CgroupSockObjects.CgroupSockMaps)
+	value = reflect.ValueOf(b.CgroupSockObjects.CgroupSockMaps)
 	if err := unpinMaps(&value); err != nil {
 		return err
 	}
 
-	if err := os.RemoveAll(sc.Info.BpfFsPath); err != nil && !os.IsNotExist(err) {
+	if err := os.RemoveAll(b.Info.BpfFsPath); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 
-	if sc.Link != nil {
-		return sc.Link.Close()
+	if b.Link != nil {
+		return b.Link.Close()
 	}
 	return nil
 }

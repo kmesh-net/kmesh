@@ -38,7 +38,7 @@ func endpointToClang(ep *api_v1.Endpoint) *api_v1.CEndpoint {
 
 func EndpointLookup(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
 	cep := &api_v1.CEndpoint{}
-	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
+	err := bpf.Obj.Slb.ClusterObjects.ClusterMaps.Endpoint.
 		Lookup(key, cep.Entry)
 
 	if err == nil {
@@ -51,13 +51,13 @@ func EndpointLookup(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
 
 func EndpointUpdate(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *ep)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
+	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Endpoint.
 		Update(key, &endpointToClang(ep).Entry, ebpf.UpdateAny)
 }
 
 func EndpointDelete(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v], [%#v]", *key, *ep)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Endpoint.
+	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Endpoint.
 		Delete(key)
 }
 
@@ -78,7 +78,7 @@ func loadbalanceToClang(lb *api_v1.Loadbalance) *api_v1.CLoadbalance {
 
 func LoadbalanceLookup(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
 	clb := &api_v1.CLoadbalance{}
-	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+	err := bpf.Obj.Slb.ClusterObjects.ClusterMaps.Loadbalance.
 		Lookup(key, clb.Entry)
 
 	if err == nil {
@@ -91,12 +91,12 @@ func LoadbalanceLookup(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
 
 func LoadbalanceUpdate(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *lb)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Loadbalance.
 		Update(key, &loadbalanceToClang(lb).Entry, ebpf.UpdateAny)
 }
 
 func LoadbalanceDelete(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v], [%#v]", *key, *lb)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Loadbalance.
+	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Loadbalance.
 		Delete(key)
 }

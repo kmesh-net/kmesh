@@ -3,4 +3,4 @@ prefix=
 Name: bpf-kmesh
 Description: bpf-kmesh
 Version:
-Cflags:-I${prefix}/bpf/kmesh -I${prefix}/bpf/include
+Cflags:-I${prefix}/bpf/include -I${prefix}/bpf/slb

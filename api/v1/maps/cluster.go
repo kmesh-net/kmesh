@@ -38,7 +38,7 @@ func clusterToClang(cl *api_v1.Cluster) *api_v1.CCluster {
 
 func ClusterLookup(cl *api_v1.Cluster, key *api_v1.MapKey) error {
 	ccl := &api_v1.CCluster{}
-	err := bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
+	err := bpf.Obj.Slb.ClusterObjects.ClusterMaps.Cluster.
 		Lookup(key, ccl.Entry)
 
 	if err == nil {
@@ -51,12 +51,12 @@ func ClusterLookup(cl *api_v1.Cluster, key *api_v1.MapKey) error {
 
 func ClusterUpdate(cl *api_v1.Cluster, key *api_v1.MapKey) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *cl)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
+	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Cluster.
 		Update(key, &clusterToClang(cl).Entry, ebpf.UpdateAny)
 }
 
 func ClusterDelete(cl *api_v1.Cluster, key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v], [%#v]", *key, *cl)
-	return bpf.Obj.SockConn.ClusterObjects.ClusterMaps.Cluster.
+	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Cluster.
 		Delete(key)
 }

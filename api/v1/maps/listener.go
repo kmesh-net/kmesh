@@ -38,7 +38,7 @@ func listenerToClang(l *api_v1.Listener) *api_v1.CListener {
 
 func ListenerLookup(l *api_v1.Listener, key *api_v1.Address) error {
 	cl := &api_v1.CListener{}
-	err := bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
+	err := bpf.Obj.Slb.CgroupSockObjects.CgroupSockMaps.Listener.
 		Lookup(key, cl.Entry)
 
 	if err == nil {
@@ -51,12 +51,12 @@ func ListenerLookup(l *api_v1.Listener, key *api_v1.Address) error {
 
 func ListenerUpdate(l *api_v1.Listener, key *api_v1.Address) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *l)
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
+	return bpf.Obj.Slb.CgroupSockObjects.CgroupSockMaps.Listener.
 		Update(key, &listenerToClang(l).Entry, ebpf.UpdateAny)
 }
 
 func ListenerDelete(l *api_v1.Listener, key *api_v1.Address) error {
 	log.Debugf("Delete [%#v], [%#v]", *key, *l)
-	return bpf.Obj.SockConn.CgroupSockObjects.CgroupSockMaps.Listener.
+	return bpf.Obj.Slb.CgroupSockObjects.CgroupSockMaps.Listener.
 		Delete(key)
 }
