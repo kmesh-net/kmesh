@@ -15,33 +15,34 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 include ../../mk/bpf.vars.mk
 include ../../mk/bpf.print.mk
 
-INCLUDES := -I../include \
-			-I../../api/v1-c
-INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
+INCLUDES =
 
 # compiler flags
-#LDFLAGS = -lbpf
+#LDFLAGS := -lbpf
 CFLAGS := $(EXTRA_CFLAGS) $(EXTRA_CDEFINE)
-CFLAGS += -target bpf
+CFLAGS += -fstack-protector -fPIC
+CFLAGS += -Werror -Wall
 
+SOURCES = $(wildcard *.c)
+OBJECTS = $(subst .c,.o,$(SOURCES))
 # target
-APPS := cgroup_sock.o filter.o cluster.o
+APPS := libdeserial.so
 
 .PHONY: all install clean
 
 all: $(APPS)
 
-%.o: %.c
+$(APPS): $(OBJECTS)
+	$(call printlog, BUILD, $@)
+	$(QUIET) $(CLANG) $(CFLAGS) $(LDFLAGS) -shared $^ -o $@
+
+$(OBJECTS): $(SOURCES)
 	$(call printlog, BUILD, $@)
 	$(QUIET) $(CLANG) $(CFLAGS) $(LDFLAGS) $(INCLUDES) -c $^ -o $@
-	$(QUIET) $(LLVM_STRIP) -g $@ #strip useless DWARF info
 
 install:
-	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS))
-	$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
-	$(QUIET) install -Dp -m 0500 $(ROOT_DIR)/$(APPS) $(INSTALL_BIN)
 
 clean:
-	$(call printlog, CLEAN, $(APPS))
-	$(QUIET) rm -rf $(APPS)
-	$(QUIET) rm -rf $(INSTALL_BIN)
+	$(call printlog, CLEAN, $(APPS) $(OBJECTS))
+	$(QUIET) rm -rf $(APPS) $(OBJECTS)
+

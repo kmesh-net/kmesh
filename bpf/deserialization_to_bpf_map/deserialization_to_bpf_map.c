@@ -6,7 +6,7 @@
 #include <linux/bpf.h>
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
-#include <protobuf-c.h>
+#include <protobuf-c/protobuf-c.h>
 
 #include "deserialization_to_bpf_map.h"
 
@@ -400,7 +400,8 @@ static int field_handle(struct op_context *ctx,
 static int copy_indirect_data_to_map(struct op_context *ctx, int outter_key,
 					    void *value, ProtobufCType type)
 {
-	int ret, inner_fd, key = 0;
+	int ret = 0;
+	int inner_fd, key = 0;
 	struct op_context new_ctx;
 	const ProtobufCMessageDescriptor *desc;
 
