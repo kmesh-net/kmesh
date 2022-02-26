@@ -37,6 +37,11 @@
 #define bpf_memcpy(dest, src, n)   __builtin_memcpy((dest), (src), (n))
 #endif
 
+#ifndef __stringify
+#define __stringify(X)					#X
+#endif
+#define SEC_TAIL(ID, KEY)				SEC(__stringify(ID) "/" __stringify(KEY))
+
 typedef struct bpf_map_def bpf_map_t;
 
 static inline

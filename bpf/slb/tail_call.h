@@ -25,11 +25,6 @@
 
 #define KMESH_SOCKET_CALLS				cgroup/connect4
 
-#ifndef __stringify
-#define __stringify(X)					#X
-#endif
-#define SEC_TAIL(ID, KEY)				SEC(__stringify(ID) "/" __stringify(KEY))
-
 typedef enum {
 	KMESH_TAIL_CALL_LISTENER = 1,
 	KMESH_TAIL_CALL_FILTER_CHAIN,

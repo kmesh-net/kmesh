@@ -4,7 +4,7 @@ ROOT_DIR=$(dirname ${ROOT_DIR})
 
 # for pkg-config to use mk/*.pc
 export PKG_CONFIG_PATH=/usr/share/pkgconfig
-PKG_CONFIG_FILE="api-v1-c.pc api-v2-c.pc bpf-slb.pc"
+PKG_CONFIG_FILE="api-v1-c.pc api-v2-c.pc bpf.pc"
 
 arg_file=$0
 arg_input=$1

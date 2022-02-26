@@ -14,8 +14,8 @@
 
 package bpf
 
-// #cgo pkg-config: bpf-slb api-v1-c
-// #include "tail_call.h"
+// #cgo pkg-config: bpf api-v1-c
+// #include "slb/tail_call.h"
 import "C"
 import (
 	"github.com/cilium/ebpf"

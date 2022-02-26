@@ -1,6 +1,0 @@
-prefix=
-
-Name: bpf-kmesh
-Description: bpf-kmesh
-Version:
-Cflags:-I${prefix}/bpf/include -I${prefix}/bpf/slb
