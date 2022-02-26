@@ -39,27 +39,6 @@
 
 typedef struct bpf_map_def bpf_map_t;
 
-#if 0
-typedef struct sk_msg_md		ctx_buff_t;
-#define DECLARE_VAR_ADDRESS(ctx, name) \
-	address_t name = {0}; \
-	name.ipv4 = (ctx)->remote_ip4; \
-	name.port = (ctx)->remote_port
-#define SET_CTX_ADDRESS(ctx, address) \
-	(ctx)->remote_ip4  = (address)->ipv4; \
-	(ctx)->remote_port = (address)->port
-#else
-typedef struct bpf_sock_addr	ctx_buff_t;
-#define DECLARE_VAR_ADDRESS(ctx, name) \
-	address_t name = {0}; \
-	name.ipv4 = (ctx)->user_ip4; \
-	name.port = (ctx)->user_port
-#define SET_CTX_ADDRESS(ctx, address) \
-	(ctx)->user_ip4  = (address)->ipv4; \
-	(ctx)->user_port = (address)->port
-#endif
-
-
 static inline
 void *kmesh_map_lookup_elem(bpf_map_t *map, const void *key)
 {
@@ -77,15 +56,6 @@ int kmesh_map_update_elem(bpf_map_t *map, const void *key, const void *value)
 {
 	// TODO: 重复元素，状态更新
 	return bpf_map_update_elem(map, key, value, BPF_ANY);
-}
-
-// bpf return value
-#define CGROUP_SOCK_ERR		0
-#define CGROUP_SOCK_OK		1
-static inline
-int convert_sock_errno(int err)
-{
-    return err == 0 ? CGROUP_SOCK_OK : CGROUP_SOCK_ERR;
 }
 
 #endif //_COMMON_H_

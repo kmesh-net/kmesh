@@ -20,7 +20,7 @@ import "C"
 import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"openeuler.io/mesh/bpf/bpf2go"
+	"openeuler.io/mesh/bpf/slb/bpf2go"
 	"os"
 	"reflect"
 )
