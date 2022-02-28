@@ -17,7 +17,7 @@ package cache_v1
 import (
 	"fmt"
 	api_v1 "openeuler.io/mesh/api/v1"
-	"openeuler.io/mesh/api/v1/maps"
+	"openeuler.io/mesh/pkg/cache/v1/maps"
 	"openeuler.io/mesh/pkg/logger"
 )
 
