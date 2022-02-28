@@ -19,13 +19,17 @@ include ./mk/bpf.print.mk
 GOFLAGS := $(EXTRA_GOFLAGS)
 
 # target
-APPS1 := mesh-daemon
-APPS2 := mesh-cmd
+APPS1 := kmesh-daemon
+APPS2 := kmesh-cmd
 
 .PHONY: all install clean
 
 all:
 	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh set
+	
+	$(QUIET) make -C api
+	$(QUIET) make -C api/v2-c
+	$(QUIET) make -C bpf/deserialization_to_bpf_map
 	
 	$(QUIET) $(GO) mod download
 	$(QUIET) $(GO) generate bpf/slb/bpf2go/bpf2go.go
@@ -41,17 +45,21 @@ all:
 
 install:
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS1))
-	$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
-	$(QUIET) install -Dp -m 0500 $(ROOT_DIR)/$(APPS1) $(INSTALL_BIN)
+	#$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
+	$(QUIET) install -Dp -m 0550 $(APPS1) $(INSTALL_BIN)
 	
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS2))
-	$(QUIET) install -Dp -m 0500 $(ROOT_DIR)/$(APPS2) $(INSTALL_BIN)
+	$(QUIET) install -Dp -m 0550 $(APPS2) $(INSTALL_BIN)
+	
+	$(QUIET) make install -C api/v2-c
+	$(QUIET) make install -C bpf/deserialization_to_bpf_map
 
 clean:
-	$(call printlog, CLEAN, $(APPS1))
-	$(QUIET) rm -rf $(APPS1)
+	$(call printlog, CLEAN, $(INSTALL_BIN)/$(APPS1))
+	$(QUIET) rm -rf $(APPS1) $(INSTALL_BIN)/$(APPS1)
 	
-	$(call printlog, CLEAN, $(APPS2))
-	$(QUIET) rm -rf $(APPS2)
+	$(call printlog, CLEAN, $(INSTALL_BIN)/$(APPS2))
+	$(QUIET) rm -rf $(APPS2) $(INSTALL_BIN)/$(APPS2)
 	
-	$(QUIET) rm -rf $(INSTALL_BIN)
+	$(QUIET) make clean -C api/v2-c
+	$(QUIET) make clean -C bpf/deserialization_to_bpf_map

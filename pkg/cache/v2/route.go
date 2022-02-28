@@ -17,20 +17,13 @@ package cache_v2
 import (
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	route_v2 "openeuler.io/mesh/api/v2/route"
+	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
 )
 
 type ApiRouteConfigurationCache map[string]*route_v2.RouteConfiguration
 
 func NewApiRouteConfigurationCache() ApiRouteConfigurationCache {
 	return make(ApiRouteConfigurationCache)
-}
-
-func (cache ApiRouteConfigurationCache) packUpdate() error {
-	return nil
-}
-
-func (cache ApiRouteConfigurationCache) packDelete() error {
-	return nil
 }
 
 func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) int {
@@ -46,11 +39,9 @@ func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) in
 
 		switch route.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
-			err = cache.packUpdate()
-			log.Debugf("ApiStatus_UPDATE [%s]", route.String())
+			err = maps_v2.RouteConfigUpdate(route.GetName(), route)
 		case core_v2.ApiStatus_DELETE:
-			err = cache.packDelete()
-			log.Debugf("ApiStatus_DELETE [%s]", route.String())
+			err = maps_v2.RouteConfigDelete(route.GetName())
 		}
 
 		if err != nil {

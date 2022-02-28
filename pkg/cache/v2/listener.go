@@ -17,11 +17,12 @@ package cache_v2
 import (
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	listener_v2 "openeuler.io/mesh/api/v2/listener"
+	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
 	"openeuler.io/mesh/pkg/logger"
 )
 
 const (
-	pkgSubsys = "cache_v2"
+	pkgSubsys = "cache/v2"
 )
 
 var (
@@ -32,14 +33,6 @@ type ApiListenerCache map[string]*listener_v2.Listener
 
 func NewApiListenerCache() ApiListenerCache {
 	return make(ApiListenerCache)
-}
-
-func (cache ApiListenerCache) packUpdate() error {
-	return nil
-}
-
-func (cache ApiListenerCache) packDelete() error {
-	return nil
 }
 
 func (cache ApiListenerCache) StatusFlush(status core_v2.ApiStatus) int {
@@ -55,11 +48,9 @@ func (cache ApiListenerCache) StatusFlush(status core_v2.ApiStatus) int {
 
 		switch listener.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
-			err = cache.packUpdate()
-			log.Debugf("ApiStatus_UPDATE [%s]", listener.String())
+			err = maps_v2.ListenerUpdate(listener.GetAddress(), listener)
 		case core_v2.ApiStatus_DELETE:
-			err = cache.packDelete()
-			log.Debugf("ApiStatus_DELETE [%s]", listener.String())
+			err = maps_v2.ListenerDelete(listener.GetAddress())
 		}
 
 		if err != nil {

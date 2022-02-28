@@ -15,18 +15,18 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 include ../../mk/bpf.vars.mk
 include ../../mk/bpf.print.mk
 
-INCLUDES =
+INCLUDES = -I./
 
 # compiler flags
-LDFLAGS := -lbpf
+LDFLAGS := -lprotobuf-c
 CFLAGS := $(EXTRA_CFLAGS) $(EXTRA_CDEFINE)
 CFLAGS += -fstack-protector -fPIC
 CFLAGS += -Wall -Werror
 
-SOURCES = $(wildcard *.c)
+SOURCES = $(wildcard */*.c)
 OBJECTS = $(subst .c,.o,$(SOURCES))
 # target
-APPS := libkmesh_deserial.so
+APPS := libkmesh_api_v2_c.so
 
 .PHONY: all install clean
 

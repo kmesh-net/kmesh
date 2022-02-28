@@ -24,7 +24,8 @@ LIBDIR ?= /usr/lib64
 RUNDIR ?= /var/run
 CONFDIR ?= /etc
 
-INSTALL_BIN ?= $(DESTDIR)/$(BINDIR)/kmesh
+INSTALL_BIN ?= $(DESTDIR)/$(BINDIR)
+INSTALL_LIB ?= $(DESTDIR)/$(LIBDIR)
 
 EXTRA_GOFLAGS ?= -a
 EXTRA_CFLAGS ?= -O2 -Wall

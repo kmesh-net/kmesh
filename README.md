@@ -38,6 +38,14 @@ Kmesh (kernel mesh) is a data plane software for service grids. It is dedicated 
 
 ## Usage Tutorial
 
+build
+
+```sh
+make clean
+make
+make install
+```
+
 config
 
 ```sh

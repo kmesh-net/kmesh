@@ -3,4 +3,7 @@ prefix=
 Name: api-v2-c
 Description: api-v2-c
 Version:
-Cflags:-I${prefix}/api/v2-c
+Cflags: -I${prefix}/api/v2-c \
+		-I${prefix}/bpf/deserialization_to_bpf_map
+Libs: -L${prefix}/api/v2-c -lkmesh_api_v2_c \
+		-L${prefix}/bpf/deserialization_to_bpf_map -lkmesh_deserial

@@ -17,20 +17,13 @@ package cache_v2
 import (
 	cluster_v2 "openeuler.io/mesh/api/v2/cluster"
 	core_v2 "openeuler.io/mesh/api/v2/core"
+	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
 )
 
 type ApiClusterCache map[string]*cluster_v2.Cluster
 
 func NewApiClusterCache() ApiClusterCache {
 	return make(ApiClusterCache)
-}
-
-func (cache ApiClusterCache) packUpdate() error {
-	return nil
-}
-
-func (cache ApiClusterCache) packDelete() error {
-	return nil
 }
 
 func (cache ApiClusterCache) StatusFlush(status core_v2.ApiStatus) int {
@@ -46,11 +39,9 @@ func (cache ApiClusterCache) StatusFlush(status core_v2.ApiStatus) int {
 
 		switch cluster.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
-			err = cache.packUpdate()
-			log.Debugf("ApiStatus_UPDATE [%s]", cluster.String())
+			err = maps_v2.ClusterUpdate(cluster.GetName(), cluster)
 		case core_v2.ApiStatus_DELETE:
-			err = cache.packDelete()
-			log.Debugf("ApiStatus_DELETE [%s]", cluster.String())
+			err = maps_v2.ClusterDelete(cluster.GetName())
 		}
 
 		if err != nil {

@@ -29,13 +29,15 @@ all:
 
 	$(call printlog, BUILD, $(PROTO_SRC))
 	$(QUIET) protoc-c --proto_path=$(PROTO_PATH) --c_out=.  $(PROTO_SRC)
-	$(QUIET) mv api $(C_OUTPUT_DIR)
+	$(QUIET) mkdir -p $(C_OUTPUT_DIR)
+	$(QUIET) cp -rf api/* $(C_OUTPUT_DIR); rm -rf api
 	$(QUIET) find $(C_OUTPUT_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
 
 	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
-	$(QUIET) mkdir $(GO_OUTPUT_DIR); cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR)
+	$(QUIET) mkdir -p $(GO_OUTPUT_DIR)
+	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR); rm -rf openeuler.io
 	$(QUIET) find $(GO_OUTPUT_DIR) -name *pb.go | xargs sed -i 's/mesh\/api/mesh\/api\/v2/g'
-	$(QUIET) rm -rf openeuler.io
+
 install:
 
 clean:
