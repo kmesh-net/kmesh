@@ -33,11 +33,11 @@ APPS := libkmesh_deserial.so
 all: $(APPS)
 
 $(APPS): $(OBJECTS)
-	$(call printlog, BUILD, $@)
+	$(call printlog, BUILD, bpf/deserialization_to_bpf_map/$@)
 	$(QUIET) $(CLANG) $(CFLAGS) $(LDFLAGS) -shared $^ -o $@
 
 %.o: %.c
-	$(call printlog, BUILD, $@)
+	$(call printlog, BUILD, bpf/deserialization_to_bpf_map/$@)
 	$(QUIET) $(CLANG) $(CFLAGS) $(INCLUDES) -c $^ -o $@
 
 install:

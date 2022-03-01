@@ -21,42 +21,42 @@ import (
 	"unsafe"
 )
 
-func listenerToGolang(l *api_v1.Listener, cl *api_v1.CListener) {
-	memcpy(unsafe.Pointer(l),
-		unsafe.Pointer(&cl.Entry),
-		unsafe.Sizeof(cl.Entry))
+func listenerToGolang(goMsg *api_v1.Listener, cMsg *api_v1.CListener) {
+	memcpy(unsafe.Pointer(goMsg),
+		unsafe.Pointer(&cMsg.Entry),
+		unsafe.Sizeof(cMsg.Entry))
 }
 
-func listenerToClang(l *api_v1.Listener) *api_v1.CListener {
+func listenerToClang(goMsg *api_v1.Listener) *api_v1.CListener {
 	cl := &api_v1.CListener{}
 	memcpy(unsafe.Pointer(&cl.Entry),
-		unsafe.Pointer(l),
+		unsafe.Pointer(goMsg),
 		unsafe.Sizeof(cl.Entry))
 
 	return cl
 }
 
-func ListenerLookup(l *api_v1.Listener, key *api_v1.Address) error {
-	cl := &api_v1.CListener{}
+func ListenerLookup(key *api_v1.Address, value *api_v1.Listener) error {
+	cMsg := &api_v1.CListener{}
 	err := bpf.Obj.Slb.CgroupSockObjects.CgroupSockMaps.Listener.
-		Lookup(key, cl.Entry)
+		Lookup(key, cMsg.Entry)
 
 	if err == nil {
-		listenerToGolang(l, cl)
+		listenerToGolang(value, cMsg)
 	}
-	log.Debugf("Lookup [%#v], [%#v]", *key, *l)
+	log.Debugf("Lookup [%#v], [%#v]", *key, *value)
 
 	return err
 }
 
-func ListenerUpdate(l *api_v1.Listener, key *api_v1.Address) error {
-	log.Debugf("Update [%#v], [%#v]", *key, *l)
+func ListenerUpdate(key *api_v1.Address, value *api_v1.Listener) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *value)
 	return bpf.Obj.Slb.CgroupSockObjects.CgroupSockMaps.Listener.
-		Update(key, &listenerToClang(l).Entry, ebpf.UpdateAny)
+		Update(key, &listenerToClang(value).Entry, ebpf.UpdateAny)
 }
 
-func ListenerDelete(l *api_v1.Listener, key *api_v1.Address) error {
-	log.Debugf("Delete [%#v], [%#v]", *key, *l)
+func ListenerDelete(key *api_v1.Address) error {
+	log.Debugf("Delete [%#v]", *key)
 	return bpf.Obj.Slb.CgroupSockObjects.CgroupSockMaps.Listener.
 		Delete(key)
 }

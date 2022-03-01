@@ -33,11 +33,11 @@ APPS := libkmesh_api_v2_c.so
 all: $(APPS)
 
 $(APPS): $(OBJECTS)
-	$(call printlog, BUILD, $@)
+	$(call printlog, BUILD, api/v2-c/$@)
 	$(QUIET) $(CLANG) $(CFLAGS) $(LDFLAGS) -shared $^ -o $@
 
 %.o: %.c
-	$(call printlog, BUILD, $@)
+	$(call printlog, BUILD, api/v2-c/$@)
 	$(QUIET) $(CLANG) $(CFLAGS) $(INCLUDES) -c $^ -o $@
 
 install:

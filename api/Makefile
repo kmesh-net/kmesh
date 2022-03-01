@@ -27,12 +27,13 @@ PROTO_SRC := $(call find_source, ../api, *.proto)
 all:
 	$(QUIET) $(GO) install google.golang.org/protobuf/cmd/protoc-gen-go
 
-	$(call printlog, BUILD, $(PROTO_SRC))
+	$(call printlog, PROTO, api/$(C_OUTPUT_DIR))
 	$(QUIET) protoc-c --proto_path=$(PROTO_PATH) --c_out=.  $(PROTO_SRC)
 	$(QUIET) mkdir -p $(C_OUTPUT_DIR)
 	$(QUIET) cp -rf api/* $(C_OUTPUT_DIR); rm -rf api
 	$(QUIET) find $(C_OUTPUT_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
 
+	$(call printlog, PROTO, api/$(GO_OUTPUT_DIR))
 	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
 	$(QUIET) mkdir -p $(GO_OUTPUT_DIR)
 	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR); rm -rf openeuler.io

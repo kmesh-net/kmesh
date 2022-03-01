@@ -17,7 +17,7 @@ package cache_v1
 import (
 	"fmt"
 	api_v1 "openeuler.io/mesh/api/v1"
-	"openeuler.io/mesh/pkg/cache/v1/maps"
+	maps_v1 "openeuler.io/mesh/pkg/cache/v1/maps"
 )
 
 const (
@@ -39,7 +39,7 @@ type EndpointKeyAndValue struct {
 func (kv *EndpointKeyAndValue) packUpdate(count CacheCount, addrToKey AddressToMapKey) error {
 	kv.Key.Index = count[kv.Key.Port]
 
-	if err := maps.EndpointUpdate(&kv.Value, &kv.Key); err != nil {
+	if err := maps_v1.EndpointUpdate(&kv.Key, &kv.Value); err != nil {
 		return fmt.Errorf("update endpoint failed, %v, %s", kv.Key, err)
 	}
 
@@ -49,7 +49,7 @@ func (kv *EndpointKeyAndValue) packUpdate(count CacheCount, addrToKey AddressToM
 
 	lb := api_v1.Loadbalance{}
 	lb.MapKey = kv.Key
-	if err := maps.LoadbalanceUpdate(&lb, &kv.Key); err != nil {
+	if err := maps_v1.LoadbalanceUpdate(&kv.Key, &lb); err != nil {
 		kv.packDelete(count, addrToKey)
 		return fmt.Errorf("update loadbalance failed, %v, %s", kv.Key, err)
 	}
@@ -70,15 +70,15 @@ func (kv *EndpointKeyAndValue) packDelete(count CacheCount, addrToKey AddressToM
 	mapKeyTail.Index = count[mapKey.Port] - 1
 
 	if mapKey != mapKeyTail {
-		if err := maps.EndpointLookup(&kv.Value, &mapKeyTail); err == nil {
-			maps.EndpointUpdate(&kv.Value, &mapKey)
+		if err := maps_v1.EndpointLookup(&mapKeyTail, &kv.Value); err == nil {
+			maps_v1.EndpointUpdate(&mapKey, &kv.Value)
 		}
-		if err := maps.LoadbalanceLookup(&lb, &mapKeyTail); err == nil {
-			maps.LoadbalanceUpdate(&lb, &mapKey)
+		if err := maps_v1.LoadbalanceLookup(&mapKeyTail, &lb); err == nil {
+			maps_v1.LoadbalanceUpdate(&mapKey, &lb)
 		}
 	}
-	maps.EndpointDelete(&kv.Value, &mapKeyTail)
-	maps.LoadbalanceDelete(&lb, &mapKeyTail)
+	maps_v1.EndpointDelete(&mapKeyTail)
+	maps_v1.LoadbalanceDelete(&mapKeyTail)
 
 	// update count
 	delete(addrToKey, kv.Value.Address)

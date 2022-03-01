@@ -21,42 +21,42 @@ import (
 	"unsafe"
 )
 
-func clusterToGolang(cl *api_v1.Cluster, ccl *api_v1.CCluster) {
-	memcpy(unsafe.Pointer(cl),
-		unsafe.Pointer(&ccl.Entry),
-		unsafe.Sizeof(ccl.Entry))
+func clusterToGolang(goMsg *api_v1.Cluster, cMsg *api_v1.CCluster) {
+	memcpy(unsafe.Pointer(goMsg),
+		unsafe.Pointer(&cMsg.Entry),
+		unsafe.Sizeof(cMsg.Entry))
 }
 
-func clusterToClang(cl *api_v1.Cluster) *api_v1.CCluster {
-	ccl := &api_v1.CCluster{}
-	memcpy(unsafe.Pointer(&ccl.Entry),
-		unsafe.Pointer(cl),
-		unsafe.Sizeof(ccl.Entry))
+func clusterToClang(goMsg *api_v1.Cluster) *api_v1.CCluster {
+	cMsg := &api_v1.CCluster{}
+	memcpy(unsafe.Pointer(&cMsg.Entry),
+		unsafe.Pointer(goMsg),
+		unsafe.Sizeof(cMsg.Entry))
 
-	return ccl
+	return cMsg
 }
 
-func ClusterLookup(cl *api_v1.Cluster, key *api_v1.MapKey) error {
-	ccl := &api_v1.CCluster{}
+func ClusterLookup(key *api_v1.MapKey, value *api_v1.Cluster) error {
+	cMsg := &api_v1.CCluster{}
 	err := bpf.Obj.Slb.ClusterObjects.ClusterMaps.Cluster.
-		Lookup(key, ccl.Entry)
+		Lookup(key, cMsg.Entry)
 
 	if err == nil {
-		clusterToGolang(cl, ccl)
+		clusterToGolang(value, cMsg)
 	}
-	log.Debugf("Lookup [%#v], [%#v]", *key, *cl)
+	log.Debugf("Lookup [%#v], [%#v]", *key, *value)
 
 	return err
 }
 
-func ClusterUpdate(cl *api_v1.Cluster, key *api_v1.MapKey) error {
-	log.Debugf("Update [%#v], [%#v]", *key, *cl)
+func ClusterUpdate(key *api_v1.MapKey, value *api_v1.Cluster) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *value)
 	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Cluster.
-		Update(key, &clusterToClang(cl).Entry, ebpf.UpdateAny)
+		Update(key, &clusterToClang(value).Entry, ebpf.UpdateAny)
 }
 
-func ClusterDelete(cl *api_v1.Cluster, key *api_v1.MapKey) error {
-	log.Debugf("Delete [%#v], [%#v]", *key, *cl)
+func ClusterDelete(key *api_v1.MapKey) error {
+	log.Debugf("Delete [%#v]", *key)
 	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Cluster.
 		Delete(key)
 }

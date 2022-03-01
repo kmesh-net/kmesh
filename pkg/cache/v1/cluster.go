@@ -17,7 +17,7 @@ package cache_v1
 import (
 	"fmt"
 	api_v1 "openeuler.io/mesh/api/v1"
-	"openeuler.io/mesh/pkg/cache/v1/maps"
+	maps_v1 "openeuler.io/mesh/pkg/cache/v1/maps"
 )
 
 type ClusterKeyAndValue struct {
@@ -26,7 +26,7 @@ type ClusterKeyAndValue struct {
 }
 
 func (kv *ClusterKeyAndValue) packUpdate(count CacheCount) error {
-	if err := maps.ClusterUpdate(&kv.Value, &kv.Key); err != nil {
+	if err := maps_v1.ClusterUpdate(&kv.Key, &kv.Value); err != nil {
 		return fmt.Errorf("update cluster failed, %v, %s", kv.Value, err)
 	}
 
@@ -35,7 +35,7 @@ func (kv *ClusterKeyAndValue) packUpdate(count CacheCount) error {
 }
 
 func (kv *ClusterKeyAndValue) packDelete(count CacheCount) error {
-	if err := maps.ClusterDelete(&kv.Value, &kv.Key); err != nil {
+	if err := maps_v1.ClusterDelete(&kv.Key); err != nil {
 		return fmt.Errorf("delete cluster failed, %v, %s", kv.Key, err)
 	}
 

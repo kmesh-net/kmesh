@@ -21,82 +21,82 @@ import (
 	"unsafe"
 )
 
-func endpointToGolang(ep *api_v1.Endpoint, cep *api_v1.CEndpoint) {
-	memcpy(unsafe.Pointer(ep),
-		unsafe.Pointer(&cep.Entry),
-		unsafe.Sizeof(cep.Entry))
+func endpointToGolang(goMsg *api_v1.Endpoint, cMsg *api_v1.CEndpoint) {
+	memcpy(unsafe.Pointer(goMsg),
+		unsafe.Pointer(&cMsg.Entry),
+		unsafe.Sizeof(cMsg.Entry))
 }
 
-func endpointToClang(ep *api_v1.Endpoint) *api_v1.CEndpoint {
-	cep := &api_v1.CEndpoint{}
-	memcpy(unsafe.Pointer(&cep.Entry),
-		unsafe.Pointer(ep),
-		unsafe.Sizeof(cep.Entry))
+func endpointToClang(goMsg *api_v1.Endpoint) *api_v1.CEndpoint {
+	cMsg := &api_v1.CEndpoint{}
+	memcpy(unsafe.Pointer(&cMsg.Entry),
+		unsafe.Pointer(goMsg),
+		unsafe.Sizeof(cMsg.Entry))
 
-	return cep
+	return cMsg
 }
 
-func EndpointLookup(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
-	cep := &api_v1.CEndpoint{}
+func EndpointLookup(key *api_v1.MapKey, value *api_v1.Endpoint) error {
+	cMsg := &api_v1.CEndpoint{}
 	err := bpf.Obj.Slb.ClusterObjects.ClusterMaps.Endpoint.
-		Lookup(key, cep.Entry)
+		Lookup(key, cMsg.Entry)
 
 	if err == nil {
-		endpointToGolang(ep, cep)
+		endpointToGolang(value, cMsg)
 	}
-	log.Debugf("Lookup [%#v], [%#v]", *key, *ep)
+	log.Debugf("Lookup [%#v], [%#v]", *key, *value)
 
 	return err
 }
 
-func EndpointUpdate(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
-	log.Debugf("Update [%#v], [%#v]", *key, *ep)
+func EndpointUpdate(key *api_v1.MapKey, value *api_v1.Endpoint) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *value)
 	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Endpoint.
-		Update(key, &endpointToClang(ep).Entry, ebpf.UpdateAny)
+		Update(key, &endpointToClang(value).Entry, ebpf.UpdateAny)
 }
 
-func EndpointDelete(ep *api_v1.Endpoint, key *api_v1.MapKey) error {
-	log.Debugf("Delete [%#v], [%#v]", *key, *ep)
+func EndpointDelete(key *api_v1.MapKey) error {
+	log.Debugf("Delete [%#v]", *key)
 	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Endpoint.
 		Delete(key)
 }
 
-func loadbalanceToGolang(lb *api_v1.Loadbalance, clb *api_v1.CLoadbalance) {
-	memcpy(unsafe.Pointer(lb),
-		unsafe.Pointer(&clb.Entry),
-		unsafe.Sizeof(clb.Entry))
+func loadbalanceToGolang(goMsg *api_v1.Loadbalance, cMsg *api_v1.CLoadbalance) {
+	memcpy(unsafe.Pointer(goMsg),
+		unsafe.Pointer(&cMsg.Entry),
+		unsafe.Sizeof(cMsg.Entry))
 }
 
-func loadbalanceToClang(lb *api_v1.Loadbalance) *api_v1.CLoadbalance {
-	clb := &api_v1.CLoadbalance{}
-	memcpy(unsafe.Pointer(&clb.Entry),
-		unsafe.Pointer(lb),
-		unsafe.Sizeof(clb.Entry))
+func loadbalanceToClang(goMsg *api_v1.Loadbalance) *api_v1.CLoadbalance {
+	cMsg := &api_v1.CLoadbalance{}
+	memcpy(unsafe.Pointer(&cMsg.Entry),
+		unsafe.Pointer(goMsg),
+		unsafe.Sizeof(cMsg.Entry))
 
-	return clb
+	return cMsg
 }
 
-func LoadbalanceLookup(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
-	clb := &api_v1.CLoadbalance{}
+func LoadbalanceLookup(key *api_v1.MapKey, value *api_v1.Loadbalance) error {
+	cMsg := &api_v1.CLoadbalance{}
 	err := bpf.Obj.Slb.ClusterObjects.ClusterMaps.Loadbalance.
-		Lookup(key, clb.Entry)
+		Lookup(key, cMsg.Entry)
 
 	if err == nil {
-		loadbalanceToGolang(lb, clb)
+		loadbalanceToGolang(value, cMsg)
 	}
-	log.Debugf("Lookup [%#v], [%#v]", *key, *lb)
+	log.Debugf("Lookup [%#v], [%#v]", *key, *value)
 
 	return err
 }
 
-func LoadbalanceUpdate(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
-	log.Debugf("Update [%#v], [%#v]", *key, *lb)
+func LoadbalanceUpdate(key *api_v1.MapKey, value *api_v1.Loadbalance) error {
+	log.Debugf("Update [%#v], [%#v]", *key, *value)
 	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Loadbalance.
-		Update(key, &loadbalanceToClang(lb).Entry, ebpf.UpdateAny)
+		Update(key, &loadbalanceToClang(value).Entry, ebpf.UpdateAny)
 }
 
-func LoadbalanceDelete(lb *api_v1.Loadbalance, key *api_v1.MapKey) error {
-	log.Debugf("Delete [%#v], [%#v]", *key, *lb)
+func LoadbalanceDelete(key *api_v1.MapKey) error {
+	log.Debugf("Delete [%#v]", *key)
 	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Loadbalance.
 		Delete(key)
 }
