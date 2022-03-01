@@ -29,6 +29,7 @@ all:
 	
 	$(QUIET) $(GO) mod download
 	$(QUIET) $(GO) generate bpf/slb/bpf2go/bpf2go.go
+	$(QUIET) $(GO) generate bpf/kmesh/bpf2go/bpf2go.go
 	
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) $(GO) build -o $(APPS1) $(GOFLAGS) ./daemon/main.go

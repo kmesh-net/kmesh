@@ -28,17 +28,33 @@ type BpfInfo struct {
 }
 
 type BpfObject struct {
+	Kmesh BpfKmesh
 	Slb BpfSlb
 }
 
 var Obj BpfObject
 
-func Start() error {
+func StartKmesh() error {
 	var err error
 
-	if err = rlimit.RemoveMemlock(); err != nil {
+	if Obj.Kmesh, err = NewBpfKmesh(&config); err != nil {
 		return err
 	}
+
+	if err = Obj.Kmesh.Load(); err != nil {
+		Stop()
+		return fmt.Errorf("bpf Load failed, %s", err)
+	}
+
+	if err = Obj.Kmesh.Attach(); err != nil {
+		Stop()
+		return fmt.Errorf("bpf Attach failed, %s", err)
+	}
+	return nil
+}
+
+func StartSlb() error {
+	var err error
 
 	if Obj.Slb, err = NewBpfSlb(&config); err != nil {
 		return err
@@ -53,10 +69,36 @@ func Start() error {
 		Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
+	return nil
+}
+
+func Start() error {
+	var err error
+
+	if err = rlimit.RemoveMemlock(); err != nil {
+		return err
+	}
+
+	if err = StartKmesh(); err != nil {
+		return err;
+	}
+
+	if err = StartSlb(); err != nil {
+		return err;
+	}
 
 	return nil
 }
 
 func Stop() error {
-	return Obj.Slb.Detach()
+	var err error
+
+	if err = Obj.Kmesh.Detach(); err != nil {
+		return err
+	}
+
+	if err = Obj.Slb.Detach(); err != nil {
+		return err
+	}
+	return nil
 }
