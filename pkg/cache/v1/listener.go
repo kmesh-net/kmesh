@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	pkgSubsys = "cache_v2"
+	pkgSubsys = "cache/v1"
 )
 
 var (

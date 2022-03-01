@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	pkgSubsys = "api/types"
+	pkgSubsys = "cache/v1/maps"
 )
 
 var (

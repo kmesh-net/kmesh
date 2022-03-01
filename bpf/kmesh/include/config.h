@@ -58,7 +58,7 @@
 #define MAP_SIZE_OF_ENDPOINT		\
 	BPF_MIN(MAP_SIZE_OF_MAX, MAP_SIZE_OF_PER_ENDPOINT * MAP_SIZE_OF_CLUSTER)
 
-// rename map to void truncation when name length exceeds BPF_OBJ_NAME_LEN = 16
+// rename map to avoid truncation when name length exceeds BPF_OBJ_NAME_LEN = 16
 #define map_of_listener			 kmesh_listener
 #define map_of_filter_chain		 kmesh_filter_chain
 #define map_of_filter			   kmesh_filter
