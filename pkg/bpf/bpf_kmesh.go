@@ -291,7 +291,7 @@ func (sc *BpfSockConn) LoadSockConn() error {
 		return err
 	}
 
-	prog := spec.Programs["sock_connect4"]
+	prog := spec.Programs["cgroup_connect4_prog"]
 	sc.Info.Type = prog.Type
 	sc.Info.AttachType = prog.AttachType
 
@@ -331,7 +331,7 @@ func (sc *BpfSockConn) Attach() error {
 	cgopt := link.CgroupOptions {
 		Path:		sc.Info.Cgroup2Path,
 		Attach:		sc.Info.AttachType,
-		Program:	sc.KmeshCgroupSockObjects.SockConnect4,
+		Program:	sc.KmeshCgroupSockObjects.CgroupConnect4Prog,
 	}
 
 	lk, err := link.AttachCgroup(cgopt)

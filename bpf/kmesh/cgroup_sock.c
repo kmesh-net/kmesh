@@ -54,7 +54,7 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 }
 
 SEC("cgroup/connect4")
-int sock_connect4(struct bpf_sock_addr *ctx)
+int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
 	int ret = sock4_traffic_control(ctx);
 #if KMESH_ENABLE_HTTP
