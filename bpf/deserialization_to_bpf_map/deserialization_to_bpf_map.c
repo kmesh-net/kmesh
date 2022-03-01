@@ -54,6 +54,17 @@ static void* create_struct(struct op_context *ctx, int *err);
 static int del_bpf_map(struct op_context *ctx, int is_inner);
 static int free_outter_map_entry(struct op_context *ctx, void *outter_key);
 
+static inline int selected_oneof_field(void *value,
+				    const ProtobufCFieldDescriptor *field)
+{
+	uint32_t n = *(uint32_t*)((char*)value + field->quantifier_offset);
+
+	if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) && field->id != n)
+		return 0;
+
+	return 1;
+}
+
 static inline size_t
 sizeof_elt_in_repeated_array(ProtobufCType type)
 {
@@ -540,6 +551,9 @@ static int update_bpf_map(struct op_context *ctx)
 	for (i = 0; i < desc->n_fields; i++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + i;
 
+		if (!selected_oneof_field(ctx->value, field))
+			continue;
+
 		switch (field->label) {
 		case PROTOBUF_C_LABEL_REPEATED:
 			ret = repeat_field_handle(ctx, field);
@@ -853,6 +867,9 @@ static void* create_struct(struct op_context *ctx, int *err)
 	for (i = 0; i < desc->n_fields; i++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + i;
 
+		if (!selected_oneof_field(ctx->value, field))
+			continue;
+
 		switch (field->label) {
 		case PROTOBUF_C_LABEL_REPEATED:
 			ret = repeat_field_query(ctx, field);
@@ -1087,8 +1104,15 @@ static int del_bpf_map(struct op_context *ctx, int is_inner)
 	int i, ret;
 	const ProtobufCMessageDescriptor *desc = ctx->desc;
 
+	ret = bpf_map_lookup_elem(ctx->curr_fd, ctx->key, ctx->value);
+	if (ret < 0)
+		return ret;
+
 	for (i = 0; i < desc->n_fields; i++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + i;
+
+		if (!selected_oneof_field(ctx->value, field))
+			continue;
 
 		switch (field->label) {
 		case PROTOBUF_C_LABEL_REPEATED:
@@ -1242,6 +1266,9 @@ void deserial_free_elem(void *value)
 
 	for (i = 0; i < desc->n_fields; i++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + i;
+
+		if (!selected_oneof_field(value, field))
+			continue;
 
 		switch (field->label) {
 		case PROTOBUF_C_LABEL_REPEATED:
