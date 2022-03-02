@@ -17,14 +17,14 @@ package envoy
 import (
 	"flag"
 	"fmt"
-	configClusterV3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	configCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	extensionsTlsV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	extensions_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"openeuler.io/mesh/pkg/controller/interfaces"
 	"strconv"
 	"time"
 
-	configBootstrapV3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
+	config_bootstrap_v3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	// in order to fix: could not resolve Any message type
 	// https://issueexplorer.com/issue/envoyproxy/go-control-plane/450
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
@@ -68,7 +68,7 @@ func (c *XdsConfig) SetClientArgs() error {
 func (c *XdsConfig) UnmarshalResources() error {
 	var (
 		err error
-		bootstrap *configBootstrapV3.Bootstrap
+		bootstrap *config_bootstrap_v3.Bootstrap
 	)
 
 	if c.Path, err = filepath.Abs(c.Path); err != nil {
@@ -90,7 +90,7 @@ func (c *XdsConfig) NewClient() (interfaces.ClientFactory, error) {
 	return NewAdsClient(c.Ads)
 }
 
-func (c *XdsConfig) getNode() *configCoreV3.Node {
+func (c *XdsConfig) getNode() *config_core_v3.Node {
 	if c.Ads.Node != nil {
 		return c.Ads.Node
 	}
@@ -98,7 +98,7 @@ func (c *XdsConfig) getNode() *configCoreV3.Node {
 	if c.Ads.Node != nil {
 		return c.Ads.Node
 	} else {
-		return &configCoreV3.Node{
+		return &config_core_v3.Node{
 			Id: c.ServiceNode,
 			Cluster: c.ServiceCluster,
 			Metadata: nil,
@@ -106,11 +106,11 @@ func (c *XdsConfig) getNode() *configCoreV3.Node {
 	}
 }
 
-func loadConfigFile(path string) (*configBootstrapV3.Bootstrap, error) {
+func loadConfigFile(path string) (*config_bootstrap_v3.Bootstrap, error) {
 	var (
 		err       error
 		content   []byte
-		bootstrap configBootstrapV3.Bootstrap
+		bootstrap config_bootstrap_v3.Bootstrap
 	)
 
 	if content, err = ioutil.ReadFile(path); err != nil {
@@ -131,20 +131,20 @@ func loadConfigFile(path string) (*configBootstrapV3.Bootstrap, error) {
 }
 
 type AdsConfig struct {
-	Node     *configCoreV3.Node
-	APIType  configCoreV3.ApiConfigSource_ApiType
+	Node     *config_core_v3.Node
+	APIType  config_core_v3.ApiConfigSource_ApiType
 	Clusters []*ClusterConfig
 }
 
 type ClusterConfig struct {
 	Name           string
 	Address        []string
-	LbPolicy       configClusterV3.Cluster_LbPolicy
+	LbPolicy       config_cluster_v3.Cluster_LbPolicy
 	ConnectTimeout time.Duration
-	TlsContext     *extensionsTlsV3.UpstreamTlsContext
+	TlsContext     *extensions_tls_v3.UpstreamTlsContext
 }
 
-func NewAdsConfig(bootstrap *configBootstrapV3.Bootstrap) (*AdsConfig, error) {
+func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsConfig, error) {
 	var (
 		err error
 		clusterCfg *ClusterConfig
@@ -179,13 +179,13 @@ func NewAdsConfig(bootstrap *configBootstrapV3.Bootstrap) (*AdsConfig, error) {
 					addr := ""
 
 					switch lb.GetEndpoint().GetAddress().GetAddress().(type) {
-					case *configCoreV3.Address_Pipe:
+					case *config_core_v3.Address_Pipe:
 						addr = lb.GetEndpoint().GetAddress().GetPipe().GetPath()
-					case *configCoreV3.Address_SocketAddress:
+					case *config_core_v3.Address_SocketAddress:
 						ip := lb.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
 						port := lb.GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
 						addr = ip + ":" + strconv.FormatUint(uint64(port), 10)
-					case *configCoreV3.Address_EnvoyInternalAddress:
+					case *config_core_v3.Address_EnvoyInternalAddress:
 						// TODO
 						continue
 					}

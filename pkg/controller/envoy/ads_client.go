@@ -17,9 +17,9 @@ package envoy
 import (
 	"context"
 	"fmt"
-	configCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	serviceDiscoveryV3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	resourceV3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 	"openeuler.io/mesh/pkg/nets"
 	"time"
@@ -27,8 +27,8 @@ import (
 
 type AdsClient struct {
 	grpcConn *grpc.ClientConn
-	service  serviceDiscoveryV3.AggregatedDiscoveryServiceClient
-	stream   serviceDiscoveryV3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	service  service_discovery_v3.AggregatedDiscoveryServiceClient
+	stream   service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 	cancel   context.CancelFunc
 	event    *serviceEvent
 }
@@ -44,7 +44,7 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 	var err error
 
 	switch ads.APIType {
-	case configCoreV3.ApiConfigSource_GRPC:
+	case config_core_v3.ApiConfigSource_GRPC:
 		// just using the first address
 		if c.grpcConn, err = nets.GrpcConnect(ads.Clusters[0].Address[0]); err != nil {
 			return fmt.Errorf("ads grpc connect failed, %s", err)
@@ -56,14 +56,14 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	c.cancel = cancel
 
-	c.service = serviceDiscoveryV3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
+	c.service = service_discovery_v3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 	// DeltaAggregatedResources() is supported from istio-1.12.x
 	c.stream, err = c.service.StreamAggregatedResources(ctx)
 	if err != nil {
 		return fmt.Errorf("ads StreamAggregatedResources failed, %s", err)
 	}
 
-	if err = c.stream.Send(newAdsRequest(resourceV3.ClusterType, nil)); err != nil {
+	if err = c.stream.Send(newAdsRequest(resource_v3.ClusterType, nil)); err != nil {
 		return fmt.Errorf("ads subscribe failed, %s", err)
 	}
 
@@ -95,7 +95,7 @@ func (c *AdsClient) runWorker() {
 	var (
 		err error
 		reconnect = false
-		rsp *serviceDiscoveryV3.DiscoveryResponse
+		rsp *service_discovery_v3.DiscoveryResponse
 	)
 
 	for true {

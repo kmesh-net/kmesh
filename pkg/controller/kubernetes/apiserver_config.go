@@ -18,7 +18,7 @@ import (
 	"flag"
 	"fmt"
 	"k8s.io/client-go/kubernetes"
-	clientRest "k8s.io/client-go/rest"
+	client_rest "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/util/homedir"
 	"openeuler.io/mesh/pkg/controller/interfaces"
@@ -55,11 +55,11 @@ func (c *ApiserverConfig) SetClientArgs() error {
 func (c *ApiserverConfig) UnmarshalResources() error {
 	var (
 		err error
-		rest *clientRest.Config
+		rest *client_rest.Config
 	)
 
 	if c.InCluster {
-		rest, err = clientRest.InClusterConfig()
+		rest, err = client_rest.InClusterConfig()
 		if err != nil {
 			return fmt.Errorf("kube build config in cluster failed, %s", err)
 		}

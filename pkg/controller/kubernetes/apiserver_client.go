@@ -16,11 +16,11 @@ package kubernetes
 
 import (
 	"fmt"
-	apiCoreV1 "k8s.io/api/core/v1"
+	api_core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
-	informersCoreV1 "k8s.io/client-go/informers/core/v1"
+	informers_core_v1 "k8s.io/client-go/informers/core/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -41,9 +41,9 @@ const (
 type ApiserverClient struct {
 	queue            workqueue.RateLimitingInterface
 	factory          informers.SharedInformerFactory
-	serviceInformer  informersCoreV1.ServiceInformer
-	endpointInformer informersCoreV1.EndpointsInformer
-	nodeInformer     informersCoreV1.NodeInformer
+	serviceInformer  informers_core_v1.ServiceInformer
+	endpointInformer informers_core_v1.EndpointsInformer
+	nodeInformer     informers_core_v1.NodeInformer
 	svcHandles       map[string]*serviceHandle
 }
 
@@ -56,11 +56,11 @@ type queueKey struct {
 
 func getObjectType(obj interface{}) string {
 	switch obj.(type) {
-	case *apiCoreV1.Service:
+	case *api_core_v1.Service:
 		return InformerTypeService
-	case *apiCoreV1.Endpoints:
+	case *api_core_v1.Endpoints:
 		return InformerTypeEndpoints
-	case *apiCoreV1.Node:
+	case *api_core_v1.Node:
 		return InformerTypeNode
 	default:
 		return ""
@@ -69,13 +69,13 @@ func getObjectType(obj interface{}) string {
 
 func checkObjectValidity(obj interface{}) bool {
 	switch obj.(type) {
-	case *apiCoreV1.Node:
+	case *api_core_v1.Node:
 		return true
-	case *apiCoreV1.Service:
+	case *api_core_v1.Service:
 		return true
-	case *apiCoreV1.Endpoints:
+	case *api_core_v1.Endpoints:
 		// filter out invalid endpoint without IP
-		for _, subset := range obj.(*apiCoreV1.Endpoints).Subsets {
+		for _, subset := range obj.(*api_core_v1.Endpoints).Subsets {
 			for _, addr := range subset.Addresses {
 				if addr.IP != "" {
 					return true

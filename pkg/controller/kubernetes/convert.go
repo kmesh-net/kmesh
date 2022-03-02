@@ -18,13 +18,13 @@ package kubernetes
 // #include "listener.pb-c.h"
 import "C"
 import (
-	apiCoreV1 "k8s.io/api/core/v1"
+	api_core_v1 "k8s.io/api/core/v1"
 	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/pkg/cache/v1"
 	"openeuler.io/mesh/pkg/nets"
 )
 
-func extractEndpointCache(cache cache_v1.EndpointCache, flag cache_v1.CacheOptionFlag, nameID uint32, ep *apiCoreV1.Endpoints) {
+func extractEndpointCache(cache cache_v1.EndpointCache, flag cache_v1.CacheOptionFlag, nameID uint32, ep *api_core_v1.Endpoints) {
 	var kv cache_v1.EndpointKeyAndValue
 
 	if ep == nil {
@@ -50,7 +50,7 @@ func extractEndpointCache(cache cache_v1.EndpointCache, flag cache_v1.CacheOptio
 	}
 }
 
-func extractClusterCache(cache cache_v1.ClusterCache, flag cache_v1.CacheOptionFlag, nameID uint32, svc *apiCoreV1.Service) {
+func extractClusterCache(cache cache_v1.ClusterCache, flag cache_v1.CacheOptionFlag, nameID uint32, svc *api_core_v1.Service) {
 	var kv cache_v1.ClusterKeyAndValue
 
 	if svc == nil {
@@ -76,7 +76,7 @@ func extractClusterCache(cache cache_v1.ClusterCache, flag cache_v1.CacheOptionF
 }
 
 func extractListenerCache(cache cache_v1.ListenerCache, svcFlag cache_v1.CacheOptionFlag, nameID uint32,
-						  svc *apiCoreV1.Service, addr nodeAddress) {
+						  svc *api_core_v1.Service, addr nodeAddress) {
 	var kv cache_v1.ListenerKeyAndValue
 
 	if svc == nil {
@@ -96,7 +96,7 @@ func extractListenerCache(cache cache_v1.ListenerCache, svcFlag cache_v1.CacheOp
 		kv.Value.MapKey.Port = nets.ConvertPortToLittleEndian(uint32(serPort.Port))
 
 		switch svc.Spec.Type {
-		case apiCoreV1.ServiceTypeNodePort:
+		case api_core_v1.ServiceTypeNodePort:
 			kv.Key.Port = nets.ConvertPortToLittleEndian(uint32(serPort.NodePort))
 			for ip, nodeFlag := range addr {
 				kv.Key.IPv4 = nets.ConvertIpToUint32(ip)
@@ -109,7 +109,7 @@ func extractListenerCache(cache cache_v1.ListenerCache, svcFlag cache_v1.CacheOp
 				}
 			}
 			fallthrough
-		case apiCoreV1.ServiceTypeClusterIP:
+		case api_core_v1.ServiceTypeClusterIP:
 			if svcFlag != 0 {
 				kv.Key.Port = nets.ConvertPortToLittleEndian(uint32(serPort.Port))
 				// TODO: Service.Spec.ExternalIPs ??
@@ -118,9 +118,9 @@ func extractListenerCache(cache cache_v1.ListenerCache, svcFlag cache_v1.CacheOp
 				kv.Value.Address = kv.Key
 				cache[kv] |= svcFlag
 			}
-		case apiCoreV1.ServiceTypeLoadBalancer:
+		case api_core_v1.ServiceTypeLoadBalancer:
 			// TODO
-		case apiCoreV1.ServiceTypeExternalName:
+		case api_core_v1.ServiceTypeExternalName:
 			// TODO
 		default:
 			// ignore

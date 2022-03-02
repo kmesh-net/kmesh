@@ -15,14 +15,14 @@
 package envoy
 
 import (
-	configClusterV3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	configCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	configEndpointV3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	configListenerV3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	configRouteV3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	filtersNetworkHttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	filtersNetworkTcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	pkgWellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	filters_network_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	filters_network_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	cluster_v2 "openeuler.io/mesh/api/v2/cluster"
@@ -54,7 +54,7 @@ func newAdsLoader() *adsLoader {
 	}
 }
 
-func (load *adsLoader) createApiClusterByCds(status core_v2.ApiStatus, cluster *configClusterV3.Cluster) {
+func (load *adsLoader) createApiClusterByCds(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) {
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus: status,
 		Name: cluster.GetName(),
@@ -63,7 +63,7 @@ func (load *adsLoader) createApiClusterByCds(status core_v2.ApiStatus, cluster *
 		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),
 	}
 
-	if cluster.GetType() == configClusterV3.Cluster_EDS {
+	if cluster.GetType() == config_cluster_v3.Cluster_EDS {
 		load.clusterNames = append(load.clusterNames, cluster.GetName())
 	} else {
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
@@ -72,7 +72,7 @@ func (load *adsLoader) createApiClusterByCds(status core_v2.ApiStatus, cluster *
 	load.clusterCache[cluster.GetName()] = apiCluster
 }
 
-func (load *adsLoader) createApiClusterByEds(status core_v2.ApiStatus, loadAssignment *configEndpointV3.ClusterLoadAssignment) {
+func (load *adsLoader) createApiClusterByEds(status core_v2.ApiStatus, loadAssignment *config_endpoint_v3.ClusterLoadAssignment) {
 	apiCluster := load.clusterCache[loadAssignment.GetClusterName()]
 	if apiCluster == nil {
 		return
@@ -81,7 +81,7 @@ func (load *adsLoader) createApiClusterByEds(status core_v2.ApiStatus, loadAssig
 	apiCluster.LoadAssignment = newApiClusterLoadAssignment(loadAssignment)
 }
 
-func newApiClusterLoadAssignment(loadAssignment *configEndpointV3.ClusterLoadAssignment) *endpoint_v2.ClusterLoadAssignment {
+func newApiClusterLoadAssignment(loadAssignment *config_endpoint_v3.ClusterLoadAssignment) *endpoint_v2.ClusterLoadAssignment {
 	apiLoadAssignment := &endpoint_v2.ClusterLoadAssignment{
 		ClusterName: loadAssignment.GetClusterName(),
 	}
@@ -109,11 +109,11 @@ func newApiClusterLoadAssignment(loadAssignment *configEndpointV3.ClusterLoadAss
 	return apiLoadAssignment
 }
 
-func newApiSocketAddress(address *configCoreV3.Address) *core_v2.SocketAddress {
-	var addr *configCoreV3.SocketAddress
+func newApiSocketAddress(address *config_core_v3.Address) *core_v2.SocketAddress {
+	var addr *config_core_v3.SocketAddress
 
 	switch address.GetAddress().(type) {
-	case *configCoreV3.Address_SocketAddress:
+	case *config_core_v3.Address_SocketAddress:
 		addr = address.GetSocketAddress()
 	default:
 		return nil
@@ -130,7 +130,7 @@ func newApiSocketAddress(address *configCoreV3.Address) *core_v2.SocketAddress {
 	}
 }
 
-func newApiCircuitBreakers(cb *configClusterV3.CircuitBreakers) *cluster_v2.CircuitBreakers {
+func newApiCircuitBreakers(cb *config_cluster_v3.CircuitBreakers) *cluster_v2.CircuitBreakers {
 	if cb == nil {
 		return nil
 	}
@@ -150,7 +150,7 @@ func newApiCircuitBreakers(cb *configClusterV3.CircuitBreakers) *cluster_v2.Circ
 	}
 }
 
-func (load *adsLoader) createApiListenerByLds(status core_v2.ApiStatus, listener *configListenerV3.Listener) {
+func (load *adsLoader) createApiListenerByLds(status core_v2.ApiStatus, listener *config_listener_v3.Listener) {
 	apiListener := &listener_v2.Listener{
 		ApiStatus: status,
 		Name: listener.GetName(),
@@ -180,7 +180,7 @@ func (load *adsLoader) createApiListenerByLds(status core_v2.ApiStatus, listener
 	load.listenerCache[apiListener.GetName()] = apiListener
 }
 
-func newApiFilterChainMatch(match *configListenerV3.FilterChainMatch) *listener_v2.FilterChainMatch {
+func newApiFilterChainMatch(match *config_listener_v3.FilterChainMatch) *listener_v2.FilterChainMatch {
 	apiMatch := &listener_v2.FilterChainMatch{
 		DestinationPort: match.GetDestinationPort().GetValue(),
 		ApplicationProtocols: match.GetApplicationProtocols(),
@@ -191,7 +191,7 @@ func newApiFilterChainMatch(match *configListenerV3.FilterChainMatch) *listener_
 	return apiMatch
 }
 
-func newApiFilterAndRouteName(filter *configListenerV3.Filter) (*listener_v2.Filter, string) {
+func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.Filter, string) {
 	var err error
 	var routeName string
 	apiFilter := &listener_v2.Filter{
@@ -199,10 +199,10 @@ func newApiFilterAndRouteName(filter *configListenerV3.Filter) (*listener_v2.Fil
 	}
 
 	switch filter.GetConfigType().(type) {
-	case *configListenerV3.Filter_TypedConfig:
+	case *config_listener_v3.Filter_TypedConfig:
 		switch filter.GetName() {
-		case pkgWellknown.TCPProxy:
-			filterTcp := &filtersNetworkTcp.TcpProxy{}
+		case pkg_wellknown.TCPProxy:
+			filterTcp := &filters_network_tcp.TcpProxy{}
 			if err = anypb.UnmarshalTo(filter.GetTypedConfig(), filterTcp, proto.UnmarshalOptions{}); err != nil {
 				return nil, ""
 			}
@@ -212,9 +212,9 @@ func newApiFilterAndRouteName(filter *configListenerV3.Filter) (*listener_v2.Fil
 					Cluster: filterTcp.GetCluster(),
 				},
 			}
-		case pkgWellknown.HTTPConnectionManager:
+		case pkg_wellknown.HTTPConnectionManager:
 			var apiFilterHttp listener_v2.Filter_HttpConnectionManager
-			filterHttp := &filtersNetworkHttp.HttpConnectionManager{}
+			filterHttp := &filters_network_http.HttpConnectionManager{}
 			if err = anypb.UnmarshalTo(filter.GetTypedConfig(), filterHttp, proto.UnmarshalOptions{}); err != nil {
 				return nil, ""
 			}
@@ -237,7 +237,7 @@ func newApiFilterAndRouteName(filter *configListenerV3.Filter) (*listener_v2.Fil
 			apiFilter.ConfigType = &apiFilterHttp
 		default:
 		}
-	case *configListenerV3.Filter_ConfigDiscovery:
+	case *config_listener_v3.Filter_ConfigDiscovery:
 	default:
 	}
 
@@ -247,13 +247,13 @@ func newApiFilterAndRouteName(filter *configListenerV3.Filter) (*listener_v2.Fil
 	return apiFilter, routeName
 }
 
-func (load *adsLoader) createApiRouteByRds(status core_v2.ApiStatus, routeConfig *configRouteV3.RouteConfiguration) {
+func (load *adsLoader) createApiRouteByRds(status core_v2.ApiStatus, routeConfig *config_route_v3.RouteConfiguration) {
 	apiRouteConfig := newApiRouteConfiguration(routeConfig)
 	apiRouteConfig.ApiStatus = status
 	load.routeCache[apiRouteConfig.GetName()] = apiRouteConfig
 }
 
-func newApiRouteConfiguration(routeConfig *configRouteV3.RouteConfiguration) *route_v2.RouteConfiguration {
+func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *route_v2.RouteConfiguration {
 	apiRouteConfig := &route_v2.RouteConfiguration{
 		Name: routeConfig.GetName(),
 		VirtualHosts: nil,
@@ -279,7 +279,7 @@ func newApiRouteConfiguration(routeConfig *configRouteV3.RouteConfiguration) *ro
 	return apiRouteConfig
 }
 
-func newApiRoute(route *configRouteV3.Route) *route_v2.Route {
+func newApiRoute(route *config_route_v3.Route) *route_v2.Route {
 	apiRoute := &route_v2.Route{
 		Name: route.GetName(),
 		Match: &route_v2.RouteMatch{
@@ -288,7 +288,7 @@ func newApiRoute(route *configRouteV3.Route) *route_v2.Route {
 	}
 
 	switch route.GetAction().(type) {
-	case *configRouteV3.Route_Route:
+	case *config_route_v3.Route_Route:
 		action := route.GetRoute()
 		apiRoute.Route = &route_v2.RouteAction{
 			Cluster: action.GetCluster(),
@@ -297,8 +297,8 @@ func newApiRoute(route *configRouteV3.Route) *route_v2.Route {
 				NumRetries: action.GetRetryPolicy().GetNumRetries().GetValue(),
 			},
 		}
-	case *configRouteV3.Route_FilterAction:
-	case *configRouteV3.Route_Redirect:
+	case *config_route_v3.Route_FilterAction:
+	case *config_route_v3.Route_Redirect:
 	default:
 	}
 

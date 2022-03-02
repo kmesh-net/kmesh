@@ -15,12 +15,12 @@
 package envoy
 
 import (
-	configClusterV3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	configEndpointV3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	configListenerV3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	configRouteV3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	serviceDiscoveryV3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	resourceV3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 	core_v2 "openeuler.io/mesh/api/v2/core"
@@ -29,8 +29,8 @@ import (
 
 type serviceEvent struct {
 	loader *adsLoader
-	ack *serviceDiscoveryV3.DiscoveryRequest
-	rqt *serviceDiscoveryV3.DiscoveryRequest
+	ack *service_discovery_v3.DiscoveryRequest
+	rqt *service_discovery_v3.DiscoveryRequest
 }
 
 func newServiceEvent() *serviceEvent {
@@ -45,8 +45,8 @@ func (svc *serviceEvent) destroy() {
 	*svc = serviceEvent{}
 }
 
-func newAdsRequest(typeUrl string, names []string) *serviceDiscoveryV3.DiscoveryRequest {
-	return &serviceDiscoveryV3.DiscoveryRequest{
+func newAdsRequest(typeUrl string, names []string) *service_discovery_v3.DiscoveryRequest {
+	return &service_discovery_v3.DiscoveryRequest{
 		TypeUrl:       typeUrl,
 		VersionInfo:   "",
 		ResourceNames: names,
@@ -56,8 +56,8 @@ func newAdsRequest(typeUrl string, names []string) *serviceDiscoveryV3.Discovery
 	}
 }
 
-func newAckRequest(rsp *serviceDiscoveryV3.DiscoveryResponse) *serviceDiscoveryV3.DiscoveryRequest {
-	return &serviceDiscoveryV3.DiscoveryRequest{
+func newAckRequest(rsp *service_discovery_v3.DiscoveryResponse) *service_discovery_v3.DiscoveryRequest {
+	return &service_discovery_v3.DiscoveryRequest{
 		TypeUrl:       rsp.GetTypeUrl(),
 		VersionInfo:   rsp.GetVersionInfo(),
 		ResourceNames: []string{},
@@ -75,7 +75,7 @@ func newAckRequest(rsp *serviceDiscoveryV3.DiscoveryResponse) *serviceDiscoveryV
 // * RDS updates related to the newly added listeners must arrive after CDS/EDS/LDS updates.
 // * VHDS updates (if any) related to the newly added RouteConfigurations must arrive after RDS updates.
 // * Stale CDS clusters and related EDS endpoints (ones no longer being referenced) can then be removed.
-func (svc *serviceEvent) processResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) {
+func (svc *serviceEvent) processResponse(rsp *service_discovery_v3.DiscoveryResponse) {
 	var err error
 
 	log.Debugf("handle ads response, %#v\n", rsp.GetTypeUrl())
@@ -86,13 +86,13 @@ func (svc *serviceEvent) processResponse(rsp *serviceDiscoveryV3.DiscoveryRespon
 	}
 
 	switch rsp.GetTypeUrl() {
-	case resourceV3.ClusterType:
+	case resource_v3.ClusterType:
 		err = svc.handleCdsResponse(rsp)
-	case resourceV3.EndpointType:
+	case resource_v3.EndpointType:
 		err = svc.handleEdsResponse(rsp)
-	case resourceV3.ListenerType:
+	case resource_v3.ListenerType:
 		err = svc.handleLdsResponse(rsp)
-	case resourceV3.RouteType:
+	case resource_v3.RouteType:
 		err = svc.handleRdsResponse(rsp)
 	default:
 		log.Errorf("unsupport type url %s", rsp.GetTypeUrl())
@@ -104,10 +104,10 @@ func (svc *serviceEvent) processResponse(rsp *serviceDiscoveryV3.DiscoveryRespon
 	return
 }
 
-func (svc *serviceEvent) handleCdsResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err error
-		cluster = &configClusterV3.Cluster{}
+		cluster = &config_cluster_v3.Cluster{}
 	)
 
 	for _, resource := range rsp.GetResources() {
@@ -119,7 +119,7 @@ func (svc *serviceEvent) handleCdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 	}
 
 	if len(svc.loader.clusterNames) > 0 {
-		svc.rqt = newAdsRequest(resourceV3.EndpointType, svc.loader.clusterNames)
+		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.loader.clusterNames)
 		svc.loader.clusterNames = nil
 	} else {
 		cache_v2.CacheFlush(svc.loader.clusterCache)
@@ -127,10 +127,10 @@ func (svc *serviceEvent) handleCdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 	return nil
 }
 
-func (svc *serviceEvent) handleEdsResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err error
-		loadAssignment = &configEndpointV3.ClusterLoadAssignment{}
+		loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
 	)
 
 	for _, resource := range rsp.GetResources() {
@@ -140,15 +140,15 @@ func (svc *serviceEvent) handleEdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 		svc.loader.createApiClusterByEds(core_v2.ApiStatus_UPDATE, loadAssignment)
 	}
 
-	svc.rqt = newAdsRequest(resourceV3.ListenerType, nil)
+	svc.rqt = newAdsRequest(resource_v3.ListenerType, nil)
 	cache_v2.CacheFlush(svc.loader.clusterCache)
 	return nil
 }
 
-func (svc *serviceEvent) handleLdsResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err error
-		listener = &configListenerV3.Listener{}
+		listener = &config_listener_v3.Listener{}
 	)
 
 	for _, resource := range rsp.GetResources() {
@@ -160,7 +160,7 @@ func (svc *serviceEvent) handleLdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 
 	cache_v2.CacheFlush(svc.loader.listenerCache)
 	if len(svc.loader.routeNames) > 0 {
-		svc.rqt = newAdsRequest(resourceV3.RouteType, svc.loader.routeNames)
+		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.loader.routeNames)
 		svc.loader.routeNames = nil
 	} else {
 		cache_v2.CacheFlush(svc.loader.routeCache)
@@ -169,10 +169,10 @@ func (svc *serviceEvent) handleLdsResponse(rsp *serviceDiscoveryV3.DiscoveryResp
 	return nil
 }
 
-func (svc *serviceEvent) handleRdsResponse(rsp *serviceDiscoveryV3.DiscoveryResponse) error {
+func (svc *serviceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err error
-		routeConfiguration = &configRouteV3.RouteConfiguration{}
+		routeConfiguration = &config_route_v3.RouteConfiguration{}
 	)
 
 	for _, resource := range rsp.GetResources() {

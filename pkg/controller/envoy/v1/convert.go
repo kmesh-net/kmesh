@@ -16,17 +16,17 @@ package envoy
 
 import "C"
 import (
-	configCoreV3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	configEndpointV3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	configListenerV3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	filtersNetworkHttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	filtersNetworkTcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	serviceDiscoveryV3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	pkgWellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
+	filters_network_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	filters_network_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"openeuler.io/mesh/api/v1/types"
-	"openeuler.io/mesh/pkg/cache/v1"
+	api_v1 "openeuler.io/mesh/api/v1"
+	cache_v1 "openeuler.io/mesh/pkg/cache/v1"
 	"openeuler.io/mesh/pkg/nets"
 )
 
@@ -65,7 +65,7 @@ func newClusterLoad() *clusterLoad {
 	}
 }
 
-func extractEndpointCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionFlag, lbAssignment *configEndpointV3.ClusterLoadAssignment) {
+func extractEndpointCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionFlag, lbAssignment *config_endpoint_v3.ClusterLoadAssignment) {
 	var kv cache_v1.EndpointKeyAndValue
 
 	if lbAssignment == nil {
@@ -81,7 +81,7 @@ func extractEndpointCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionF
 				continue
 			}
 
-			kv.Value.Address.Protocol = types.ProtocolStrToC[addr.GetProtocol().String()]
+			kv.Value.Address.Protocol = api_v1.ProtocolStrToC[addr.GetProtocol().String()]
 			kv.Value.Address.IPv4 = nets.ConvertIpToUint32(addr.GetAddress())
 			kv.Value.Address.Port = nets.ConvertPortToLittleEndian(addr.GetPortValue())
 
@@ -103,7 +103,7 @@ func setEndpointCacheClusterPort(cache cache_v1.EndpointCache, name string, port
 	}
 }
 
-func extractClusterCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionFlag, listener *configListenerV3.Listener) {
+func extractClusterCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionFlag, listener *config_listener_v3.Listener) {
 	var kv cache_v1.ClusterKeyAndValue
 
 	if listener == nil {
@@ -133,7 +133,7 @@ func extractClusterCache(loadCache clusterLoadCache, flag cache_v1.CacheOptionFl
 	}
 }
 
-func extractListenerCache(cache cache_v1.ListenerCache, flag cache_v1.CacheOptionFlag, listener *configListenerV3.Listener) {
+func extractListenerCache(cache cache_v1.ListenerCache, flag cache_v1.CacheOptionFlag, listener *config_listener_v3.Listener) {
 	var kv cache_v1.ListenerKeyAndValue
 
 	if listener == nil {
@@ -163,15 +163,15 @@ func extractListenerCache(cache cache_v1.ListenerCache, flag cache_v1.CacheOptio
 	}
 }
 
-func extractRouteCache(cache cache_v1.ListenerCache, flag cache_v1.CacheOptionFlag, rsp *serviceDiscoveryV3.DiscoveryResponse) {
+func extractRouteCache(cache cache_v1.ListenerCache, flag cache_v1.CacheOptionFlag, rsp *service_discovery_v3.DiscoveryResponse) {
 	return
 }
 
-func getSocketAddress(address *configCoreV3.Address) *configCoreV3.SocketAddress {
-	var addr *configCoreV3.SocketAddress
+func getSocketAddress(address *config_core_v3.Address) *config_core_v3.SocketAddress {
+	var addr *config_core_v3.SocketAddress
 
 	switch address.GetAddress().(type) {
-	case *configCoreV3.Address_SocketAddress:
+	case *config_core_v3.Address_SocketAddress:
 		addr = address.GetSocketAddress()
 	default:
 		return nil
@@ -185,7 +185,7 @@ func getSocketAddress(address *configCoreV3.Address) *configCoreV3.SocketAddress
 }
 
 // TODO: extract filter
-func getFilterChainClusterName(filterChains []*configListenerV3.FilterChain) string {
+func getFilterChainClusterName(filterChains []*config_listener_v3.FilterChain) string {
 	var err error
 
 	if filterChains == nil {
@@ -195,16 +195,16 @@ func getFilterChainClusterName(filterChains []*configListenerV3.FilterChain) str
 	for _, chain := range filterChains {
 		for _, filter := range chain.GetFilters() {
 			switch filter.GetConfigType().(type) {
-			case *configListenerV3.Filter_TypedConfig:
+			case *config_listener_v3.Filter_TypedConfig:
 				switch filter.GetName() {
-				case pkgWellknown.TCPProxy:
-					cfgTcp := &filtersNetworkTcp.TcpProxy{}
+				case pkg_wellknown.TCPProxy:
+					cfgTcp := &filters_network_tcp.TcpProxy{}
 					if err = anypb.UnmarshalTo(filter.GetTypedConfig(), cfgTcp, proto.UnmarshalOptions{}); err != nil {
 						continue
 					}
 					return cfgTcp.GetCluster()
-				case pkgWellknown.HTTPConnectionManager:
-					cfgHttp := &filtersNetworkHttp.HttpConnectionManager{}
+				case pkg_wellknown.HTTPConnectionManager:
+					cfgHttp := &filters_network_http.HttpConnectionManager{}
 					if err = anypb.UnmarshalTo(filter.GetTypedConfig(), cfgHttp, proto.UnmarshalOptions{}); err != nil {
 						continue
 					}
@@ -215,7 +215,7 @@ func getFilterChainClusterName(filterChains []*configListenerV3.FilterChain) str
 				default:
 					continue
 				}
-			case *configListenerV3.Filter_ConfigDiscovery:
+			case *config_listener_v3.Filter_ConfigDiscovery:
 				continue
 			default:
 			}
