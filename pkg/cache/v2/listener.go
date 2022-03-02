@@ -81,3 +81,21 @@ func (cache ApiListenerCache) StatusReset(old, new core_v2.ApiStatus) {
 		}
 	}
 }
+
+func (cache ApiListenerCache) StatusLookup() []*listener_v2.Listener {
+	var err error
+	var mapCache []*listener_v2.Listener
+
+	for name, listener := range cache {
+		tmp := &listener_v2.Listener{}
+		if err = maps_v2.ListenerLookup(listener.GetAddress(), tmp); err != nil {
+			log.Errorf("ListenerLookup failed, %s", name)
+			continue
+		}
+
+		tmp.ApiStatus = listener.ApiStatus
+		mapCache = append(mapCache, tmp)
+	}
+
+	return mapCache
+}

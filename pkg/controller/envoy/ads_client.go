@@ -40,6 +40,10 @@ func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
 	return client, err
 }
 
+func (c *AdsClient) GetEventLoader() *AdsLoader {
+	return c.event.loader
+}
+
 func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 	var err error
 

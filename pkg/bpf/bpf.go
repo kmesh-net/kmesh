@@ -79,8 +79,10 @@ func Start() error {
 		return err
 	}
 
-	if err = StartKmesh(); err != nil {
-		return err;
+	if config.EnableKmesh {
+		if err = StartKmesh(); err != nil {
+			return err
+		}
 	}
 
 	if err = StartSlb(); err != nil {
@@ -93,8 +95,10 @@ func Start() error {
 func Stop() error {
 	var err error
 
-	if err = Obj.Kmesh.Detach(); err != nil {
-		return err
+	if config.EnableKmesh {
+		if err = Obj.Kmesh.Detach(); err != nil {
+			return err
+		}
 	}
 
 	if err = Obj.Slb.Detach(); err != nil {

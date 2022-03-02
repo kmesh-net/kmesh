@@ -28,13 +28,15 @@ func init() {
 }
 
 type Config struct {
-	BpfFsPath    string
+	BpfFsPath      string
 	Cgroup2Path    string
+	EnableKmesh    bool
 }
 
 func (c *Config) SetArgs() error {
 	flag.StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
 	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/cgroup2", "cgroup2 path")
+	flag.BoolVar(&c.EnableKmesh, "enable-kmesh", false, "enable bpf kmesh")
 
 	return nil
 }

@@ -53,7 +53,11 @@ func Execute() {
 	}
 	defer controller.Stop()
 
-	command.Start()
+	if err = command.StartServer(); err != nil {
+		log.Error(err)
+		return
+	}
+	defer command.StopServer()
 
 	setupCloseHandler()
 	return
@@ -64,6 +68,7 @@ func setupCloseHandler() {
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGKILL, syscall.SIGTERM, syscall.SIGQUIT)
 
 	<-ch
+	command.StopServer()
 	controller.Stop()
 	bpf.Stop()
 

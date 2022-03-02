@@ -36,16 +36,16 @@ type BpfSlb struct {
 }
 
 func NewBpfSlb(cfg *Config) (BpfSlb, error) {
-	sc := BpfSlb{}
-	sc.Info.Config = *cfg
+	b := BpfSlb{}
+	b.Info.Config = *cfg
 
-	sc.Info.BpfFsPath += "/" + pinName + "/"
-	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
-	if err := os.MkdirAll(sc.Info.MapPath, 0750); err != nil && !os.IsExist(err) {
-		return sc, err
+	b.Info.BpfFsPath += "/" + pinName + "/"
+	b.Info.MapPath = b.Info.BpfFsPath + "map/"
+	if err := os.MkdirAll(b.Info.MapPath, 0750); err != nil && !os.IsExist(err) {
+		return b, err
 	}
 
-	return sc, nil
+	return b, nil
 }
 
 func (b *BpfSlb) loadCgroupSockObjects() (*ebpf.CollectionSpec, error) {

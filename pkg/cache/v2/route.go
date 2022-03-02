@@ -72,3 +72,21 @@ func (cache ApiRouteConfigurationCache) StatusReset(old, new core_v2.ApiStatus) 
 		}
 	}
 }
+
+func (cache ApiRouteConfigurationCache) StatusLookup() []*route_v2.RouteConfiguration {
+	var err error
+	var mapCache []*route_v2.RouteConfiguration
+
+	for name, route := range cache {
+		tmp := &route_v2.RouteConfiguration{}
+		if err = maps_v2.RouteConfigLookup(name, tmp); err != nil {
+			log.Errorf("RouteConfigLookup failed, %s", name)
+			continue
+		}
+
+		tmp.ApiStatus = route.ApiStatus
+		mapCache = append(mapCache, tmp)
+	}
+
+	return mapCache
+}

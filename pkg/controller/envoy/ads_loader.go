@@ -35,26 +35,26 @@ import (
 	"openeuler.io/mesh/pkg/nets"
 )
 
-type adsLoader struct {
+type AdsLoader struct {
 	// subscribe to EDS by cluster Name
 	clusterNames []string
 	// subscribe to RDS by RouteConfiguration Name
 	routeNames []string
 
-	listenerCache cache_v2.ApiListenerCache
-	clusterCache  cache_v2.ApiClusterCache
-	routeCache    cache_v2.ApiRouteConfigurationCache
+	ListenerCache cache_v2.ApiListenerCache
+	ClusterCache  cache_v2.ApiClusterCache
+	RouteCache    cache_v2.ApiRouteConfigurationCache
 }
 
-func newAdsLoader() *adsLoader {
-	return &adsLoader{
-		listenerCache: cache_v2.NewApiListenerCache(),
-		clusterCache:  cache_v2.NewApiClusterCache(),
-		routeCache:    cache_v2.NewApiRouteConfigurationCache(),
+func NewAdsLoader() *AdsLoader {
+	return &AdsLoader{
+		ListenerCache: cache_v2.NewApiListenerCache(),
+		ClusterCache:  cache_v2.NewApiClusterCache(),
+		RouteCache:    cache_v2.NewApiRouteConfigurationCache(),
 	}
 }
 
-func (load *adsLoader) createApiClusterByCds(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) {
+func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) {
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus: status,
 		Name: cluster.GetName(),
@@ -69,11 +69,11 @@ func (load *adsLoader) createApiClusterByCds(status core_v2.ApiStatus, cluster *
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
 
-	load.clusterCache[cluster.GetName()] = apiCluster
+	load.ClusterCache[cluster.GetName()] = apiCluster
 }
 
-func (load *adsLoader) createApiClusterByEds(status core_v2.ApiStatus, loadAssignment *config_endpoint_v3.ClusterLoadAssignment) {
-	apiCluster := load.clusterCache[loadAssignment.GetClusterName()]
+func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus, loadAssignment *config_endpoint_v3.ClusterLoadAssignment) {
+	apiCluster := load.ClusterCache[loadAssignment.GetClusterName()]
 	if apiCluster == nil {
 		return
 	}
@@ -150,7 +150,7 @@ func newApiCircuitBreakers(cb *config_cluster_v3.CircuitBreakers) *cluster_v2.Ci
 	}
 }
 
-func (load *adsLoader) createApiListenerByLds(status core_v2.ApiStatus, listener *config_listener_v3.Listener) {
+func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener *config_listener_v3.Listener) {
 	apiListener := &listener_v2.Listener{
 		ApiStatus: status,
 		Name: listener.GetName(),
@@ -177,7 +177,7 @@ func (load *adsLoader) createApiListenerByLds(status core_v2.ApiStatus, listener
 		apiListener.FilterChains = append(apiListener.FilterChains, apiFilterChain)
 	}
 
-	load.listenerCache[apiListener.GetName()] = apiListener
+	load.ListenerCache[apiListener.GetName()] = apiListener
 }
 
 func newApiFilterChainMatch(match *config_listener_v3.FilterChainMatch) *listener_v2.FilterChainMatch {
@@ -247,10 +247,10 @@ func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.F
 	return apiFilter, routeName
 }
 
-func (load *adsLoader) createApiRouteByRds(status core_v2.ApiStatus, routeConfig *config_route_v3.RouteConfiguration) {
+func (load *AdsLoader) CreateApiRouteByRds(status core_v2.ApiStatus, routeConfig *config_route_v3.RouteConfiguration) {
 	apiRouteConfig := newApiRouteConfiguration(routeConfig)
 	apiRouteConfig.ApiStatus = status
-	load.routeCache[apiRouteConfig.GetName()] = apiRouteConfig
+	load.RouteCache[apiRouteConfig.GetName()] = apiRouteConfig
 }
 
 func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *route_v2.RouteConfiguration {

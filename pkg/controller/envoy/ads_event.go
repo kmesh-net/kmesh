@@ -28,14 +28,14 @@ import (
 )
 
 type serviceEvent struct {
-	loader *adsLoader
+	loader *AdsLoader
 	ack *service_discovery_v3.DiscoveryRequest
 	rqt *service_discovery_v3.DiscoveryRequest
 }
 
 func newServiceEvent() *serviceEvent {
 	return &serviceEvent{
-		loader: newAdsLoader(),
+		loader: NewAdsLoader(),
 		ack:    nil,
 		rqt:    nil,
 	}
@@ -115,14 +115,14 @@ func (svc *serviceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryRe
 			continue
 		}
 
-		svc.loader.createApiClusterByCds(core_v2.ApiStatus_UPDATE, cluster)
+		svc.loader.CreateApiClusterByCds(core_v2.ApiStatus_UPDATE, cluster)
 	}
 
 	if len(svc.loader.clusterNames) > 0 {
 		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.loader.clusterNames)
 		svc.loader.clusterNames = nil
 	} else {
-		cache_v2.CacheFlush(svc.loader.clusterCache)
+		cache_v2.CacheFlush(svc.loader.ClusterCache)
 	}
 	return nil
 }
@@ -137,11 +137,11 @@ func (svc *serviceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.createApiClusterByEds(core_v2.ApiStatus_UPDATE, loadAssignment)
+		svc.loader.CreateApiClusterByEds(core_v2.ApiStatus_UPDATE, loadAssignment)
 	}
 
 	svc.rqt = newAdsRequest(resource_v3.ListenerType, nil)
-	cache_v2.CacheFlush(svc.loader.clusterCache)
+	cache_v2.CacheFlush(svc.loader.ClusterCache)
 	return nil
 }
 
@@ -155,15 +155,15 @@ func (svc *serviceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, listener, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.createApiListenerByLds(core_v2.ApiStatus_UPDATE, listener)
+		svc.loader.CreateApiListenerByLds(core_v2.ApiStatus_UPDATE, listener)
 	}
 
-	cache_v2.CacheFlush(svc.loader.listenerCache)
+	cache_v2.CacheFlush(svc.loader.ListenerCache)
 	if len(svc.loader.routeNames) > 0 {
 		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.loader.routeNames)
 		svc.loader.routeNames = nil
 	} else {
-		cache_v2.CacheFlush(svc.loader.routeCache)
+		cache_v2.CacheFlush(svc.loader.RouteCache)
 	}
 
 	return nil
@@ -179,10 +179,10 @@ func (svc *serviceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, routeConfiguration, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.createApiRouteByRds(core_v2.ApiStatus_UPDATE, routeConfiguration)
+		svc.loader.CreateApiRouteByRds(core_v2.ApiStatus_UPDATE, routeConfiguration)
 	}
 
 	svc.rqt = nil
-	cache_v2.CacheFlush(svc.loader.routeCache)
+	cache_v2.CacheFlush(svc.loader.RouteCache)
 	return nil
 }
