@@ -99,3 +99,12 @@ func (cache ApiClusterCache) StatusLookup() []*cluster_v2.Cluster {
 
 	return mapCache
 }
+
+func (cache ApiClusterCache) StatusRead() []*cluster_v2.Cluster {
+	var mapCache []*cluster_v2.Cluster
+
+	for _, route := range cache {
+		mapCache = append(mapCache, route)
+	}
+	return mapCache
+}

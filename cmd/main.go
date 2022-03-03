@@ -15,19 +15,13 @@
 package main
 
 import (
+	"fmt"
 	"openeuler.io/mesh/cmd/command"
-	"openeuler.io/mesh/pkg/logger"
-)
-
-const (
-	pkgSubsys = "cmd"
-)
-
-var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 func main() {
-	log.Debug("cmd test log")
-	command.StartClient()
+	if err := command.StartClient(); err != nil {
+		fmt.Println(err)
+	}
+	defer command.StopClient()
 }

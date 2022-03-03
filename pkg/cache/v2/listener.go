@@ -99,3 +99,12 @@ func (cache ApiListenerCache) StatusLookup() []*listener_v2.Listener {
 
 	return mapCache
 }
+
+func (cache ApiListenerCache) StatusRead() []*listener_v2.Listener {
+	var mapCache []*listener_v2.Listener
+
+	for _, listener := range cache {
+		mapCache = append(mapCache, listener)
+	}
+	return mapCache
+}

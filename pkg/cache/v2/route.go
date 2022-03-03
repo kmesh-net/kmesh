@@ -90,3 +90,12 @@ func (cache ApiRouteConfigurationCache) StatusLookup() []*route_v2.RouteConfigur
 
 	return mapCache
 }
+
+func (cache ApiRouteConfigurationCache) StatusRead() []*route_v2.RouteConfiguration {
+	var mapCache []*route_v2.RouteConfiguration
+
+	for _, route := range cache {
+		mapCache = append(mapCache, route)
+	}
+	return mapCache
+}

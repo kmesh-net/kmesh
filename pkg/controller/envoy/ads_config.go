@@ -31,11 +31,9 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	"github.com/golang/protobuf/jsonpb"
-	"io/ioutil"
 	"openeuler.io/mesh/pkg/logger"
 	"openeuler.io/mesh/pkg/option"
 	"path/filepath"
-	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -67,19 +65,23 @@ func (c *XdsConfig) SetClientArgs() error {
 
 func (c *XdsConfig) UnmarshalResources() error {
 	var (
-		err error
-		bootstrap *config_bootstrap_v3.Bootstrap
+		err       error
+		content   []byte
+		bootstrap config_bootstrap_v3.Bootstrap
 	)
 
 	if c.Path, err = filepath.Abs(c.Path); err != nil {
 		return err
 	}
 
-	if bootstrap, err = loadConfigFile(c.Path); err != nil {
+	if content, err = option.LoadConfigFile(c.Path); err != nil {
+		return err
+	}
+	if err = jsonpb.UnmarshalString(string(content), &bootstrap); err != nil {
 		return err
 	}
 
-	if c.Ads, err = NewAdsConfig(bootstrap); err != nil {
+	if c.Ads, err = NewAdsConfig(&bootstrap); err != nil {
 		return err
 	}
 
@@ -104,30 +106,6 @@ func (c *XdsConfig) getNode() *config_core_v3.Node {
 			Metadata: nil,
 		}
 	}
-}
-
-func loadConfigFile(path string) (*config_bootstrap_v3.Bootstrap, error) {
-	var (
-		err       error
-		content   []byte
-		bootstrap config_bootstrap_v3.Bootstrap
-	)
-
-	if content, err = ioutil.ReadFile(path); err != nil {
-		return nil, fmt.Errorf("%s read failed, %s", path, err)
-	}
-
-	if option.IsYamlFormat(path) {
-		if content, err = yaml.YAMLToJSON(content); err != nil {
-			return nil, fmt.Errorf("%s format to json failed, %s", path, err)
-		}
-	}
-
-	if err = jsonpb.UnmarshalString(string(content), &bootstrap); err != nil {
-		return nil, fmt.Errorf("%s unmarshal failed, %s", path, err)
-	}
-
-	return &bootstrap, nil
 }
 
 type AdsConfig struct {

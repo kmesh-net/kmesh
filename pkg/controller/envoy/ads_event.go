@@ -15,6 +15,7 @@
 package envoy
 
 import (
+	"context"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -23,26 +24,36 @@ import (
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	admin_v2 "openeuler.io/mesh/api/v2/admin"
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	cache_v2 "openeuler.io/mesh/pkg/cache/v2"
 )
 
-type serviceEvent struct {
-	loader *AdsLoader
-	ack *service_discovery_v3.DiscoveryRequest
-	rqt *service_discovery_v3.DiscoveryRequest
+const (
+	apiVersionInfo = "v2"
+	maxAdminRequests = 16
+)
+
+type ServiceEvent struct {
+	StaticLoader  *AdsLoader
+	DynamicLoader *AdsLoader
+	ack           *service_discovery_v3.DiscoveryRequest
+	rqt           *service_discovery_v3.DiscoveryRequest
+	adminChan     chan *admin_v2.ConfigResources
 }
 
-func newServiceEvent() *serviceEvent {
-	return &serviceEvent{
-		loader: NewAdsLoader(),
-		ack:    nil,
-		rqt:    nil,
+func NewServiceEvent() *ServiceEvent {
+	return &ServiceEvent{
+		StaticLoader:  NewAdsLoader(),
+		DynamicLoader: NewAdsLoader(),
+		ack:           nil,
+		rqt:           nil,
+		adminChan:     make(chan *admin_v2.ConfigResources, maxAdminRequests),
 	}
 }
 
-func (svc *serviceEvent) destroy() {
-	*svc = serviceEvent{}
+func (svc *ServiceEvent) Destroy() {
+	*svc = ServiceEvent{}
 }
 
 func newAdsRequest(typeUrl string, names []string) *service_discovery_v3.DiscoveryRequest {
@@ -75,7 +86,7 @@ func newAckRequest(rsp *service_discovery_v3.DiscoveryResponse) *service_discove
 // * RDS updates related to the newly added listeners must arrive after CDS/EDS/LDS updates.
 // * VHDS updates (if any) related to the newly added RouteConfigurations must arrive after RDS updates.
 // * Stale CDS clusters and related EDS endpoints (ones no longer being referenced) can then be removed.
-func (svc *serviceEvent) processResponse(rsp *service_discovery_v3.DiscoveryResponse) {
+func (svc *ServiceEvent) processAdsResponse(rsp *service_discovery_v3.DiscoveryResponse) {
 	var err error
 
 	log.Debugf("handle ads response, %#v\n", rsp.GetTypeUrl())
@@ -104,7 +115,7 @@ func (svc *serviceEvent) processResponse(rsp *service_discovery_v3.DiscoveryResp
 	return
 }
 
-func (svc *serviceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
+func (svc *ServiceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err error
 		cluster = &config_cluster_v3.Cluster{}
@@ -115,19 +126,19 @@ func (svc *serviceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryRe
 			continue
 		}
 
-		svc.loader.CreateApiClusterByCds(core_v2.ApiStatus_UPDATE, cluster)
+		svc.DynamicLoader.CreateApiClusterByCds(core_v2.ApiStatus_UPDATE, cluster)
 	}
 
-	if len(svc.loader.clusterNames) > 0 {
-		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.loader.clusterNames)
-		svc.loader.clusterNames = nil
+	if len(svc.DynamicLoader.clusterNames) > 0 {
+		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.DynamicLoader.clusterNames)
+		svc.DynamicLoader.clusterNames = nil
 	} else {
-		cache_v2.CacheFlush(svc.loader.ClusterCache)
+		cache_v2.CacheFlush(svc.DynamicLoader.ClusterCache)
 	}
 	return nil
 }
 
-func (svc *serviceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
+func (svc *ServiceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err error
 		loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
@@ -137,15 +148,15 @@ func (svc *serviceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.CreateApiClusterByEds(core_v2.ApiStatus_UPDATE, loadAssignment)
+		svc.DynamicLoader.CreateApiClusterByEds(core_v2.ApiStatus_UPDATE, loadAssignment)
 	}
 
 	svc.rqt = newAdsRequest(resource_v3.ListenerType, nil)
-	cache_v2.CacheFlush(svc.loader.ClusterCache)
+	cache_v2.CacheFlush(svc.DynamicLoader.ClusterCache)
 	return nil
 }
 
-func (svc *serviceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
+func (svc *ServiceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err error
 		listener = &config_listener_v3.Listener{}
@@ -155,21 +166,21 @@ func (svc *serviceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, listener, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.CreateApiListenerByLds(core_v2.ApiStatus_UPDATE, listener)
+		svc.DynamicLoader.CreateApiListenerByLds(core_v2.ApiStatus_UPDATE, listener)
 	}
 
-	cache_v2.CacheFlush(svc.loader.ListenerCache)
-	if len(svc.loader.routeNames) > 0 {
-		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.loader.routeNames)
-		svc.loader.routeNames = nil
+	cache_v2.CacheFlush(svc.DynamicLoader.ListenerCache)
+	if len(svc.DynamicLoader.routeNames) > 0 {
+		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.DynamicLoader.routeNames)
+		svc.DynamicLoader.routeNames = nil
 	} else {
-		cache_v2.CacheFlush(svc.loader.RouteCache)
+		cache_v2.CacheFlush(svc.DynamicLoader.RouteCache)
 	}
 
 	return nil
 }
 
-func (svc *serviceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
+func (svc *ServiceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err error
 		routeConfiguration = &config_route_v3.RouteConfiguration{}
@@ -179,10 +190,66 @@ func (svc *serviceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, routeConfiguration, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.loader.CreateApiRouteByRds(core_v2.ApiStatus_UPDATE, routeConfiguration)
+		svc.DynamicLoader.CreateApiRouteByRds(core_v2.ApiStatus_UPDATE, routeConfiguration)
 	}
 
 	svc.rqt = nil
-	cache_v2.CacheFlush(svc.loader.RouteCache)
+	cache_v2.CacheFlush(svc.DynamicLoader.RouteCache)
 	return nil
+}
+
+func (svc *ServiceEvent) NewAdminRequest(resources *admin_v2.ConfigResources) {
+	svc.adminChan <- resources
+}
+
+func (svc *ServiceEvent) processAdminResponse(ctx context.Context) {
+	for true {
+		select {
+		case <- ctx.Done():
+			return
+		case resources := <- svc.adminChan:
+			svc.handleAdminResponse(resources)
+		}
+	}
+}
+
+func (svc *ServiceEvent) handleAdminResponse(resources *admin_v2.ConfigResources) error {
+	if ConfigResourcesIsEmpty(resources) {
+		return nil
+	}
+
+	for _, cluster := range resources.GetClusterConfigs() {
+		svc.StaticLoader.ClusterCache[cluster.GetName()] = cluster
+	}
+	for _, listener := range resources.GetListenerConfigs() {
+		svc.StaticLoader.ListenerCache[listener.GetName()] = listener
+	}
+	for _, route := range resources.GetRouteConfigs() {
+		svc.StaticLoader.RouteCache[route.GetName()] = route
+	}
+
+	cache_v2.CacheFlush(svc.StaticLoader.ClusterCache)
+	cache_v2.CacheFlush(svc.StaticLoader.ListenerCache)
+	cache_v2.CacheFlush(svc.StaticLoader.RouteCache)
+
+	return nil
+}
+
+func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {
+	if resources == nil {
+		return true
+	}
+
+	count := len(resources.GetClusterConfigs()) + len(resources.GetRouteConfigs()) + len(resources.GetListenerConfigs())
+	if count == 0 {
+		return true
+	}
+
+	return false
+}
+
+func SetApiVersionInfo(resources *admin_v2.ConfigResources) {
+	if !ConfigResourcesIsEmpty(resources) {
+		resources.VersionInfo = apiVersionInfo
+	}
 }

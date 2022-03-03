@@ -26,11 +26,13 @@ import (
 )
 
 type AdsClient struct {
+	ctx      context.Context
+	cancel   context.CancelFunc
+
 	grpcConn *grpc.ClientConn
 	service  service_discovery_v3.AggregatedDiscoveryServiceClient
 	stream   service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	cancel   context.CancelFunc
-	event    *serviceEvent
+	Event    *ServiceEvent
 }
 
 func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
@@ -38,10 +40,6 @@ func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
 	err := client.CreateStream(ads)
 
 	return client, err
-}
-
-func (c *AdsClient) GetEventLoader() *AdsLoader {
-	return c.event.loader
 }
 
 func (c *AdsClient) CreateStream(ads *AdsConfig) error {
@@ -57,12 +55,11 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 		return fmt.Errorf("ads invalid APIType, %v", ads.APIType)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	c.cancel = cancel
+	c.ctx, c.cancel = context.WithCancel(context.Background())
 
 	c.service = service_discovery_v3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 	// DeltaAggregatedResources() is supported from istio-1.12.x
-	c.stream, err = c.service.StreamAggregatedResources(ctx)
+	c.stream, err = c.service.StreamAggregatedResources(c.ctx)
 	if err != nil {
 		return fmt.Errorf("ads StreamAggregatedResources failed, %s", err)
 	}
@@ -71,7 +68,7 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 		return fmt.Errorf("ads subscribe failed, %s", err)
 	}
 
-	c.event = newServiceEvent()
+	c.Event = NewServiceEvent()
 	return nil
 }
 
@@ -102,6 +99,8 @@ func (c *AdsClient) runWorker() {
 		rsp *service_discovery_v3.DiscoveryResponse
 	)
 
+	go c.Event.processAdminResponse(c.ctx)
+
 	for true {
 		if c.cancel == nil {
 			return
@@ -120,14 +119,14 @@ func (c *AdsClient) runWorker() {
 			continue
 		}
 
-		c.event.processResponse(rsp)
+		c.Event.processAdsResponse(rsp)
 
-		if err = c.stream.Send(c.event.ack); err != nil {
+		if err = c.stream.Send(c.Event.ack); err != nil {
 			reconnect = true
 			continue
 		}
-		if c.event.rqt != nil {
-			if err = c.stream.Send(c.event.rqt); err != nil {
+		if c.Event.rqt != nil {
+			if err = c.stream.Send(c.Event.rqt); err != nil {
 				reconnect = true
 				continue
 			}
@@ -155,6 +154,9 @@ func (c *AdsClient) Close() error {
 	}
 	if c.grpcConn != nil {
 		c.grpcConn.Close()
+	}
+	if c.Event != nil {
+		c.Event.Destroy()
 	}
 	*c = AdsClient{}
 	return nil

@@ -17,8 +17,10 @@ package option
 import (
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sigs.k8s.io/yaml"
 	"strings"
 )
 
@@ -102,4 +104,23 @@ func IsYamlFormat(path string) bool {
 		return true
 	}
 	return false
+}
+
+func LoadConfigFile(path string) ([]byte, error) {
+	var (
+		err       error
+		content   []byte
+	)
+
+	if content, err = ioutil.ReadFile(path); err != nil {
+		return nil, fmt.Errorf("%s read failed, %s", path, err)
+	}
+
+	if IsYamlFormat(path) {
+		if content, err = yaml.YAMLToJSON(content); err != nil {
+			return nil, fmt.Errorf("%s format to json failed, %s", path, err)
+		}
+	}
+
+	return content, nil
 }

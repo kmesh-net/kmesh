@@ -16,10 +16,13 @@ package command
 
 import (
 	"fmt"
+	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/encoding/protojson"
+	"io/ioutil"
 	"net/http"
 	admin_v2 "openeuler.io/mesh/api/v2/admin"
 	"openeuler.io/mesh/pkg/controller"
+	"openeuler.io/mesh/pkg/controller/envoy"
 	"time"
 )
 
@@ -33,83 +36,135 @@ func newHttpServer() *httpServer {
 		mux: http.NewServeMux(),
 	}
 	s.server = &http.Server{
-		Addr: "localhost:15200",
-		Handler: s.mux,
-		ReadTimeout: time.Second * 3,
+		Addr:         adminAddr,
+		Handler:      s.mux,
+		ReadTimeout:  time.Second * 3,
 		WriteTimeout: time.Second * 3,
 	}
 
-	s.mux.HandleFunc("/help", httpHelp)
-	s.mux.HandleFunc("/options", httpOptions)
-	s.mux.HandleFunc("/bpf/maps", httpBpfMaps)
-	s.mux.HandleFunc("/controller/envoy", httpControllerEnvoy)
-	s.mux.HandleFunc("/controller/kubernetes", httpControllerKubernetes)
+	s.mux.HandleFunc(patternHelp, httpHelp)
+	s.mux.HandleFunc(patternOptions, httpOptions)
+	s.mux.HandleFunc(patternBpfMaps, httpBpfMaps)
+	s.mux.HandleFunc(patternControllerEnvoy, httpControllerEnvoy)
+	s.mux.HandleFunc(patternControllerKubernetes, httpControllerKubernetes)
 
 	return s
 }
 
 func httpHelp(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "\t%s: %s\n", "/help",
+	w.WriteHeader(http.StatusOK)
+
+	fmt.Fprintf(w, "\t%s: %s\n", patternHelp,
 		"print list of commands")
-	fmt.Fprintf(w, "\t%s: %s\n", "/options",
+	fmt.Fprintf(w, "\t%s: %s\n", patternOptions,
 		"print config options")
-	fmt.Fprintf(w, "\t%s: %s\n", "/bpf/maps",
+	fmt.Fprintf(w, "\t%s: %s\n", patternBpfMaps,
 		"print bpf maps in kernel")
-	fmt.Fprintf(w, "\t%s: %s\n", "/controller/envoy",
+	fmt.Fprintf(w, "\t%s: %s\n", patternControllerEnvoy,
 		"print control-plane in envoy cache")
-	fmt.Fprintf(w, "\t%s: %s\n", "/controller/kubernetes",
+	fmt.Fprintf(w, "\t%s: %s\n", patternControllerKubernetes,
 		"print control-plane in kubernetes cache")
 }
 
 func httpOptions(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s: %s\n", "/options",
+	w.WriteHeader(http.StatusNotImplemented)
+
+	fmt.Fprintf(w, "%s: %s\n", patternOptions,
 		"TODO")
 }
 
 func httpBpfMaps(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+
 	client := controller.GetAdsClient()
 	if client == nil {
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
 		return
+	} else if client.Event == nil {
+		fmt.Fprintf(w, "\t%s\n", "none client.Event")
+		return
 	}
-	loader := client.GetEventLoader()
-	dump := &admin_v2.ConfigDump{}
 
-	dump.ClusterConfigs = append(dump.ClusterConfigs, loader.ClusterCache.StatusLookup()...)
-	dump.RouteConfigs = append(dump.RouteConfigs, loader.RouteCache.StatusLookup()...)
-	dump.ListenerConfigs = append(dump.ListenerConfigs, loader.ListenerCache.StatusLookup()...)
+	switch r.Method {
+	case http.MethodGet:
+		dynamicLd := client.Event.DynamicLoader
+		staticLd  := client.Event.StaticLoader
+		dynamicRes := &admin_v2.ConfigResources{}
+		staticRes  := &admin_v2.ConfigResources{}
 
-	w.Write([]byte(protojson.Format(dump)))
+		dynamicRes.ClusterConfigs  = append(dynamicRes.ClusterConfigs,  dynamicLd.ClusterCache.StatusLookup()...)
+		dynamicRes.ListenerConfigs = append(dynamicRes.ListenerConfigs, dynamicLd.ListenerCache.StatusLookup()...)
+		dynamicRes.RouteConfigs    = append(dynamicRes.RouteConfigs,    dynamicLd.RouteCache.StatusLookup()...)
+		envoy.SetApiVersionInfo(dynamicRes)
+
+		staticRes.ClusterConfigs  = append(staticRes.ClusterConfigs,  staticLd.ClusterCache.StatusLookup()...)
+		staticRes.ListenerConfigs = append(staticRes.ListenerConfigs, staticLd.ListenerCache.StatusLookup()...)
+		staticRes.RouteConfigs    = append(staticRes.RouteConfigs,    staticLd.RouteCache.StatusLookup()...)
+		envoy.SetApiVersionInfo(staticRes)
+
+		fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{
+			StaticResources: staticRes,
+			DynamicResources: dynamicRes,
+		}))
+	case http.MethodPost:
+		dump := &admin_v2.ConfigDump{}
+		content, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintln(w, "body read failed")
+			return
+		}
+		if err = jsonpb.UnmarshalString(string(content), dump); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintln(w, "body unmarshal failed")
+			return
+		}
+
+		client.Event.NewAdminRequest(dump.GetStaticResources())
+	default:
+		w.WriteHeader(http.StatusNotFound)
+	}
+
+	return
 }
 
 func httpControllerEnvoy(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+
 	client := controller.GetAdsClient()
 	if client == nil {
 		fmt.Fprintf(w, "\t%s\n", "invalid bpf.Config.ClientMode")
 		return
 	}
-	loader := client.GetEventLoader()
-	dump := &admin_v2.ConfigDump{}
+	dynamicLd := client.Event.DynamicLoader
+	staticLd  := client.Event.StaticLoader
+	dynamicRes := &admin_v2.ConfigResources{}
+	staticRes  := &admin_v2.ConfigResources{}
 
-	for _, cluster := range loader.ClusterCache {
-		dump.ClusterConfigs = append(dump.ClusterConfigs, cluster)
-	}
-	for _, route := range loader.RouteCache {
-		dump.RouteConfigs = append(dump.RouteConfigs, route)
-	}
-	for _, listener := range loader.ListenerCache {
-		dump.ListenerConfigs = append(dump.ListenerConfigs, listener)
-	}
+	dynamicRes.ClusterConfigs  = append(dynamicRes.ClusterConfigs,  dynamicLd.ClusterCache.StatusRead()...)
+	dynamicRes.ListenerConfigs = append(dynamicRes.ListenerConfigs, dynamicLd.ListenerCache.StatusRead()...)
+	dynamicRes.RouteConfigs    = append(dynamicRes.RouteConfigs,    dynamicLd.RouteCache.StatusRead()...)
+	envoy.SetApiVersionInfo(dynamicRes)
 
-	w.Write([]byte(protojson.Format(dump)))
+	staticRes.ClusterConfigs  = append(staticRes.ClusterConfigs,  staticLd.ClusterCache.StatusRead()...)
+	staticRes.ListenerConfigs = append(staticRes.ListenerConfigs, staticLd.ListenerCache.StatusRead()...)
+	staticRes.RouteConfigs    = append(staticRes.RouteConfigs,    staticLd.RouteCache.StatusRead()...)
+	envoy.SetApiVersionInfo(staticRes)
+
+	fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{
+		StaticResources:  staticRes,
+		DynamicResources: dynamicRes,
+	}))
 }
 
 func httpControllerKubernetes(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintf(w, "%s: %s\n", "/controller/kubernetes",
+	w.WriteHeader(http.StatusNotImplemented)
+
+	fmt.Fprintf(w, "%s: %s\n", patternControllerKubernetes,
 		"TODO")
 }
 
-var cmdServer *httpServer = newHttpServer()
+var cmdServer = newHttpServer()
 
 func StartServer() error {
 	return cmdServer.server.ListenAndServe()
