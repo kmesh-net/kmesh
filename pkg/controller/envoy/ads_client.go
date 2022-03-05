@@ -28,15 +28,20 @@ import (
 type AdsClient struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
+	Event    *ServiceEvent
 
+	// config.EnableAds
 	grpcConn *grpc.ClientConn
 	service  service_discovery_v3.AggregatedDiscoveryServiceClient
 	stream   service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	Event    *ServiceEvent
 }
 
 func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
 	client := &AdsClient{}
+
+	client.ctx, client.cancel = context.WithCancel(context.Background())
+	client.Event = NewServiceEvent()
+
 	err := client.CreateStream(ads)
 
 	return client, err
@@ -44,6 +49,10 @@ func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
 
 func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 	var err error
+
+	if !config.EnableAds {
+		return nil
+	}
 
 	switch ads.APIType {
 	case config_core_v3.ApiConfigSource_GRPC:
@@ -54,8 +63,6 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 	default:
 		return fmt.Errorf("ads invalid APIType, %v", ads.APIType)
 	}
-
-	c.ctx, c.cancel = context.WithCancel(context.Background())
 
 	c.service = service_discovery_v3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 	// DeltaAggregatedResources() is supported from istio-1.12.x
@@ -68,7 +75,6 @@ func (c *AdsClient) CreateStream(ads *AdsConfig) error {
 		return fmt.Errorf("ads subscribe failed, %s", err)
 	}
 
-	c.Event = NewServiceEvent()
 	return nil
 }
 
@@ -92,56 +98,68 @@ func (c *AdsClient) recoverConnection() error {
 	return err
 }
 
-func (c *AdsClient) runWorker() {
+func (c *AdsClient) runControlPlane() {
 	var (
 		err error
 		reconnect = false
 		rsp *service_discovery_v3.DiscoveryResponse
 	)
 
-	go c.Event.processAdminResponse(c.ctx)
+	if !config.EnableAds {
+		return
+	}
 
 	for true {
-		if c.cancel == nil {
+		select {
+		case <- c.ctx.Done():
 			return
-		}
-		if reconnect {
-			log.Warnf("reconnect due to %s", err)
-			if err = c.recoverConnection(); err != nil {
-				log.Errorf("ads recover connection failed, %s", err)
-				return
+		default:
+			if reconnect {
+				log.Warnf("reconnect due to %s", err)
+				if err = c.recoverConnection(); err != nil {
+					log.Errorf("ads recover connection failed, %s", err)
+					return
+				}
+				reconnect = false
 			}
-			reconnect = false
-		}
 
-		if rsp, err = c.stream.Recv(); err != nil {
-			reconnect = true
-			continue
-		}
-
-		c.Event.processAdsResponse(rsp)
-
-		if err = c.stream.Send(c.Event.ack); err != nil {
-			reconnect = true
-			continue
-		}
-		if c.Event.rqt != nil {
-			if err = c.stream.Send(c.Event.rqt); err != nil {
+			if rsp, err = c.stream.Recv(); err != nil {
 				reconnect = true
 				continue
+			}
+
+			c.Event.processAdsResponse(rsp)
+
+			if err = c.stream.Send(c.Event.ack); err != nil {
+				reconnect = true
+				continue
+			}
+			if c.Event.rqt != nil {
+				if err = c.stream.Send(c.Event.rqt); err != nil {
+					reconnect = true
+					continue
+				}
 			}
 		}
 	}
 }
 
 func (c *AdsClient) Run(stopCh <-chan struct{}) error {
-	go c.runWorker()
+	go c.Event.processAdminResponse(c.ctx)
+	go c.runControlPlane()
 
 	go func() {
 		<-stopCh
+
+		if c.stream != nil {
+			c.stream.CloseSend()
+		}
+		if c.grpcConn != nil {
+			c.grpcConn.Close()
+		}
+
 		if c.cancel != nil {
 			c.cancel()
-			c.cancel = nil
 		}
 	}()
 
@@ -149,12 +167,6 @@ func (c *AdsClient) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *AdsClient) Close() error {
-	if c.stream != nil {
-		c.stream.CloseSend()
-	}
-	if c.grpcConn != nil {
-		c.grpcConn.Close()
-	}
 	if c.Event != nil {
 		c.Event.Destroy()
 	}

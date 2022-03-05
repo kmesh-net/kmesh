@@ -38,9 +38,9 @@ var (
 )
 
 type ApiserverConfig struct {
-	InCluster     bool
-	RefreshDelay  time.Duration
-	ClientSet     kubernetes.Interface
+	EnableInCluster bool
+	RefreshDelay    time.Duration
+	ClientSet       kubernetes.Interface
 }
 
 func GetConfig() *ApiserverConfig {
@@ -48,7 +48,7 @@ func GetConfig() *ApiserverConfig {
 }
 
 func (c *ApiserverConfig) SetClientArgs() error {
-	flag.BoolVar(&c.InCluster, "in-cluster", false, "deploy in kube cluster by DaemonSet")
+	flag.BoolVar(&c.EnableInCluster, "enable-in-cluster", false, "[if -enable-slb] deploy in kube cluster by DaemonSet")
 	return nil
 }
 
@@ -58,7 +58,7 @@ func (c *ApiserverConfig) UnmarshalResources() error {
 		rest *client_rest.Config
 	)
 
-	if c.InCluster {
+	if c.EnableInCluster {
 		rest, err = client_rest.InClusterConfig()
 		if err != nil {
 			return fmt.Errorf("kube build config in cluster failed, %s", err)

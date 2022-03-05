@@ -16,6 +16,7 @@ package bpf
 
 import (
 	"flag"
+	"fmt"
 	"openeuler.io/mesh/pkg/option"
 	"os"
 	"path/filepath"
@@ -30,12 +31,15 @@ func init() {
 type Config struct {
 	BpfFsPath      string
 	Cgroup2Path    string
+	EnableSlb      bool
 	EnableKmesh    bool
 }
 
 func (c *Config) SetArgs() error {
 	flag.StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
 	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/cgroup2", "cgroup2 path")
+
+	flag.BoolVar(&c.EnableSlb, "enable-slb", false, "enable bpf slb")
 	flag.BoolVar(&c.EnableKmesh, "enable-kmesh", false, "enable bpf kmesh")
 
 	return nil
@@ -43,6 +47,10 @@ func (c *Config) SetArgs() error {
 
 func (c *Config) ParseConfig() error {
 	var err error
+
+	if (!c.EnableSlb && !c.EnableKmesh) || (c.EnableSlb && c.EnableKmesh) {
+		return fmt.Errorf("choose to -enable-slb or -enable-kmesh")
+	}
 
 	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
 		return err
@@ -59,4 +67,8 @@ func (c *Config) ParseConfig() error {
 	}
 
 	return nil
+}
+
+func GetConfig() *Config {
+	return &config
 }

@@ -15,17 +15,11 @@
 package controller
 
 import (
-	"flag"
-	"fmt"
+	"openeuler.io/mesh/pkg/bpf"
 	"openeuler.io/mesh/pkg/controller/envoy"
 	"openeuler.io/mesh/pkg/controller/interfaces"
 	"openeuler.io/mesh/pkg/controller/kubernetes"
 	"openeuler.io/mesh/pkg/option"
-)
-
-const (
-	ClientModeKube = "kubernetes"
-	ClientModeEnvoy = "envoy"
 )
 
 var config Config
@@ -35,31 +29,22 @@ func init() {
 }
 
 type Config struct {
-	ClientMode	string
 	interfaces.ConfigFactory
 }
 
 func (c *Config) SetArgs() error {
-	var clientModeValue = ClientModeKube
-	var clientModeUsage = fmt.Sprintf("controller plane mode: [%s %s]", ClientModeKube, ClientModeEnvoy)
-
-	flag.StringVar(&c.ClientMode, "client-mode", clientModeValue, clientModeUsage)
-	if idx := option.FindArgIndex("client-mode"); idx != -1 {
-		clientModeValue = option.GetArgValue(idx)
-	}
-
-	switch clientModeValue {
-	case ClientModeEnvoy:
-		c.ConfigFactory = envoy.GetConfig()
-	case ClientModeKube:
-		c.ConfigFactory = kubernetes.GetConfig()
-	default:
-		return fmt.Errorf("invalid client mode, %s", c.ClientMode)
-	}
-
-	return c.ConfigFactory.SetClientArgs()
+	kubernetes.GetConfig().SetClientArgs()
+	envoy.GetConfig().SetClientArgs()
+	return nil
 }
 
 func (c *Config) ParseConfig() error {
+	if bpf.GetConfig().EnableSlb {
+		c.ConfigFactory = kubernetes.GetConfig()
+	}
+	if bpf.GetConfig().EnableKmesh {
+		c.ConfigFactory = envoy.GetConfig()
+	}
+
 	return c.ConfigFactory.UnmarshalResources()
 }

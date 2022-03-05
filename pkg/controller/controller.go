@@ -15,6 +15,7 @@
 package controller
 
 import (
+	"openeuler.io/mesh/pkg/bpf"
 	"openeuler.io/mesh/pkg/controller/envoy"
 	"openeuler.io/mesh/pkg/controller/interfaces"
 	"openeuler.io/mesh/pkg/logger"
@@ -49,7 +50,7 @@ func Stop() {
 }
 
 func GetAdsClient() *envoy.AdsClient {
-	if config.ClientMode != ClientModeEnvoy {
+	if !bpf.GetConfig().EnableKmesh {
 		return nil
 	}
 	return client.(*envoy.AdsClient)

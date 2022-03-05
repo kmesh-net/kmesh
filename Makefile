@@ -44,15 +44,15 @@ all:
 	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh unset
 
 install:
+	$(QUIET) make install -C api/v2-c
+	$(QUIET) make install -C bpf/deserialization_to_bpf_map
+
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS1))
 	#$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
 	$(QUIET) install -Dp -m 0550 $(APPS1) $(INSTALL_BIN)
 	
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS2))
 	$(QUIET) install -Dp -m 0550 $(APPS2) $(INSTALL_BIN)
-	
-	$(QUIET) make install -C api/v2-c
-	$(QUIET) make install -C bpf/deserialization_to_bpf_map
 
 clean:
 	$(call printlog, CLEAN, $(INSTALL_BIN)/$(APPS1))

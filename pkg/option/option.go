@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"sigs.k8s.io/yaml"
-	"strings"
 )
 
 var (
@@ -61,41 +60,13 @@ func InitDaemonConfig() error {
 
 	for _, factory := range config {
 		if err = factory.ParseConfig(); err != nil {
+			flag.Usage()
 			return fmt.Errorf("parse config failed, %s", err)
 		}
 	}
 
 	fmt.Println(config.String())
 	return nil
-}
-
-func FindArgIndex(name string) int {
-	for i, arg := range argLists {
-		if strings.Contains(arg, name) {
-			return i
-		}
-	}
-
-	return -1
-}
-
-func GetArgValue(index int) string {
-	if len(argLists) <= index {
-		return ""
-	}
-
-	arg := argLists[index]
-	if j := strings.Index(arg, "="); j != -1 {
-		if len(arg) - 1 > j {
-			return arg[j+1:]
-		}
-	} else {
-		if len(argLists) - 1 > index {
-			return argLists[index+1]
-		}
-	}
-
-	return ""
 }
 
 func IsYamlFormat(path string) bool {

@@ -35,12 +35,12 @@ const (
 var config Config
 
 type Config struct {
-	Path       string
+	File            string
 	ConfigResources []byte
 }
 
 func (c *Config) SetArgs() error {
-	flag.StringVar(&c.Path, "config-path", "./config-resources.json", "input config-resources to bpf maps")
+	flag.StringVar(&c.File, "config-file", "./config-resources.json", "input config-resources to bpf maps")
 	return nil
 }
 
@@ -50,11 +50,11 @@ func (c *Config) ParseConfig() error {
 		content    []byte
 	)
 
-	if c.Path, err = filepath.Abs(c.Path); err != nil {
+	if c.File, err = filepath.Abs(c.File); err != nil {
 		return err
 	}
 
-	if content, err = option.LoadConfigFile(c.Path); err != nil {
+	if content, err = option.LoadConfigFile(c.File); err != nil {
 		return err
 	}
 

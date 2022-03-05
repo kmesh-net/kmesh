@@ -46,10 +46,11 @@ var (
 )
 
 type XdsConfig struct {
-	Path			string
-	ServiceNode		string
-	ServiceCluster	string
-	Ads				*AdsConfig
+	File           string
+	ServiceNode    string
+	ServiceCluster string
+	EnableAds      bool
+	Ads            *AdsConfig
 }
 
 func GetConfig() *XdsConfig {
@@ -57,9 +58,10 @@ func GetConfig() *XdsConfig {
 }
 
 func (c *XdsConfig) SetClientArgs() error {
-	flag.StringVar(&c.Path, "config-path", "/etc/istio/proxy/envoy-rev0.json", "deploy in kube cluster")
-	flag.StringVar(&c.ServiceNode, "service-node", "TODO", "TODO")
-	flag.StringVar(&c.ServiceCluster, "service-cluster", "TODO", "TODO")
+	flag.StringVar(&c.File, "config-file", "/etc/istio/proxy/envoy-rev0.json", "[if -enable-kmesh] deploy in kube cluster")
+	flag.StringVar(&c.ServiceNode, "service-node", "TODO", "[if -enable-kmesh] TODO")
+	flag.StringVar(&c.ServiceCluster, "service-cluster", "TODO", "[if -enable-kmesh] TODO")
+	flag.BoolVar(&c.EnableAds, "enable-ads", true, "[if -enable-kmesh] enable control-plane from ads")
 	return nil
 }
 
@@ -70,11 +72,15 @@ func (c *XdsConfig) UnmarshalResources() error {
 		bootstrap config_bootstrap_v3.Bootstrap
 	)
 
-	if c.Path, err = filepath.Abs(c.Path); err != nil {
+	if !c.EnableAds {
+		return nil
+	}
+
+	if c.File, err = filepath.Abs(c.File); err != nil {
 		return err
 	}
 
-	if content, err = option.LoadConfigFile(c.Path); err != nil {
+	if content, err = option.LoadConfigFile(c.File); err != nil {
 		return err
 	}
 	if err = jsonpb.UnmarshalString(string(content), &bootstrap); err != nil {

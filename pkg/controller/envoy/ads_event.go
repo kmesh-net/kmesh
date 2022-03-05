@@ -53,6 +53,9 @@ func NewServiceEvent() *ServiceEvent {
 }
 
 func (svc *ServiceEvent) Destroy() {
+	if svc.adminChan != nil {
+		close(svc.adminChan)
+	}
 	*svc = ServiceEvent{}
 }
 

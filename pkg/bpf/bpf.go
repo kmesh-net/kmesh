@@ -85,8 +85,10 @@ func Start() error {
 		}
 	}
 
-	if err = StartSlb(); err != nil {
-		return err;
+	if config.EnableSlb {
+		if err = StartSlb(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -101,8 +103,11 @@ func Stop() error {
 		}
 	}
 
-	if err = Obj.Slb.Detach(); err != nil {
-		return err
+	if config.EnableSlb {
+		if err = Obj.Slb.Detach(); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
