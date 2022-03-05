@@ -15,7 +15,6 @@
 package cache_v2
 
 import (
-	"google.golang.org/protobuf/encoding/protojson"
 	cluster_v2 "openeuler.io/mesh/api/v2/cluster"
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
@@ -72,14 +71,6 @@ func (cache ApiClusterCache) StatusReset(old, new core_v2.ApiStatus) {
 			cluster.ApiStatus = new
 		}
 	}
-}
-
-func (cache ApiClusterCache) String() string {
-	var str string
-	for _, cluster := range cache {
-		str += protojson.Format(cluster)
-	}
-	return str
 }
 
 func (cache ApiClusterCache) StatusLookup() []*cluster_v2.Cluster {

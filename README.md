@@ -78,18 +78,59 @@ kubectl exec xxx-pod-name -c istio-proxy -- cat etc/istio/proxy/envoy-rev0.json 
 ---
 ```
 
-mesh-daemon
+kmesh-daemon
 
 ```sh
-# kubernetes
-./mesh-daemon -cgroup2-path=/mnt/cgroup2 -client-mode=kubernetes
+# kmesh-daemon -h
+Usage of kmesh-daemon:
+  -bpf-fs-path string
+    	bpf fs path (default "/sys/fs/bpf")
+  -cgroup2-path string
+    	cgroup2 path (default "/mnt/cgroup2")
+  -config-file string
+    	[if -enable-kmesh] deploy in kube cluster (default "/etc/istio/proxy/envoy-rev0.json")
+  -enable-ads
+    	[if -enable-kmesh] enable control-plane from ads (default true)
+  -enable-in-cluster
+    	[if -enable-slb] deploy in kube cluster by DaemonSet
+  -enable-kmesh
+    	enable bpf kmesh
+  -enable-slb
+    	enable bpf slb
+  -service-cluster string
+    	[if -enable-kmesh] TODO (default "TODO")
+  -service-node string
+    	[if -enable-kmesh] TODO (default "TODO")
 
-# envoy
-./mesh-daemon -cgroup2-path=/mnt/cgroup2 -client-mode=envoy -config-path=examples/envoy-config-bootstrap/envoy-rev0.json
+# example
+./mesh-daemon -enable-slb=true
+# example
+./mesh-daemon -enable-kmesh=true -enable-ads=true -config-file=envoy-rev0.json
 ```
 
-mesh-cmd
+kmesh-cmd
 
 ```sh
-# TODO
+# kmesh-cmd -h
+Usage of kmesh-cmd:
+  -config-file string
+    	input config-resources to bpf maps (default "./config-resources.json")
+
+# example
+./kmesh-cmd -config-file=examples/api-v2-config/config-resources.json
+```
+
+admin
+
+```sh
+# curl http://localhost:15200/help
+	/help: print list of commands
+	/options: print config options
+	/bpf/maps: print bpf maps in kernel
+	/controller/envoy: print control-plane in envoy cache
+	/controller/kubernetes: print control-plane in kubernetes cache
+
+# example
+curl http://localhost:15200/bpf/maps
+curl http://localhost:15200/controller/envoy
 ```

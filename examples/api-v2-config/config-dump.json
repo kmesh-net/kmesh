@@ -1,0 +1,1675 @@
+{
+  "staticResources": {},
+  "dynamicResources": {
+    "versionInfo": "v2",
+    "listenerConfigs": [
+      {
+        "name": "10.96.253.121_443",
+        "address": {
+          "port": 47873,
+          "ipv4": 2046648330
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.96.0.1_443",
+        "address": {
+          "port": 47873,
+          "ipv4": 16801802
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|443||kubernetes.default.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.110.230.201_15443",
+        "address": {
+          "port": 21308,
+          "ipv4": 3387321866
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|15443||istio-egressgateway.istio-system.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "0.0.0.0_80",
+        "address": {
+          "port": 20480
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "http/1.0",
+                "http/1.1",
+                "h2c"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfigName": "80"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.96.0.10_53",
+        "address": {
+          "port": 13568,
+          "ipv4": 167796746
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|53||kube-dns.kube-system.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.105.133.241_9443",
+        "address": {
+          "port": 58148,
+          "ipv4": 4052052234
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|9443||openeuler-service.sample.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.110.230.201_443",
+        "address": {
+          "port": 47873,
+          "ipv4": 3387321866
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|443||istio-egressgateway.istio-system.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.96.253.121_15021",
+        "address": {
+          "port": 44346,
+          "ipv4": 2046648330
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "http/1.0",
+                "http/1.1",
+                "h2c"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfigName": "istio-ingressgateway.istio-system.svc.cluster.local:15021"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.96.253.121_15443",
+        "address": {
+          "port": 21308,
+          "ipv4": 2046648330
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|15443||istio-ingressgateway.istio-system.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.108.71.42_15012",
+        "address": {
+          "port": 42042,
+          "ipv4": 709323786
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|15012||istiod.istio-system.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "0.0.0.0_15010",
+        "address": {
+          "port": 41530
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "http/1.0",
+                "http/1.1",
+                "h2c"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfigName": "15010"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "virtualOutbound",
+        "address": {
+          "port": 39226
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {
+              "destinationPort": 15001
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "BlackHoleCluster"
+                }
+              }
+            ],
+            "name": "virtualOutbound-blackhole"
+          },
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "PassthroughCluster"
+                }
+              }
+            ],
+            "name": "virtualOutbound-catchall-tcp"
+          }
+        ]
+      },
+      {
+        "name": "virtualInbound",
+        "address": {
+          "port": 40506
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {
+              "destinationPort": 15006
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "BlackHoleCluster"
+                }
+              }
+            ],
+            "name": "virtualInbound-blackhole"
+          },
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "istio-peer-exchange",
+                "istio"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "InboundPassthroughClusterIpv4"
+                }
+              }
+            ],
+            "name": "virtualInbound"
+          },
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "InboundPassthroughClusterIpv4"
+                }
+              }
+            ],
+            "name": "virtualInbound"
+          },
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "http/1.0",
+                "http/1.1",
+                "h2c",
+                "istio-http/1.0",
+                "istio-http/1.1",
+                "istio-h2"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfig": {
+                    "name": "InboundPassthroughClusterIpv4",
+                    "virtualHosts": [
+                      {
+                        "name": "inbound|http|0",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "name": "default",
+                            "match": {
+                              "prefix": "/"
+                            },
+                            "route": {
+                              "cluster": "InboundPassthroughClusterIpv4",
+                              "retryPolicy": {}
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "name": "virtualInbound-catchall-http"
+          },
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "http/1.0",
+                "http/1.1",
+                "h2c"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfig": {
+                    "name": "InboundPassthroughClusterIpv4",
+                    "virtualHosts": [
+                      {
+                        "name": "inbound|http|0",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "name": "default",
+                            "match": {
+                              "prefix": "/"
+                            },
+                            "route": {
+                              "cluster": "InboundPassthroughClusterIpv4",
+                              "retryPolicy": {}
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "name": "virtualInbound-catchall-http"
+          },
+          {
+            "filterChainMatch": {
+              "destinationPort": 9080,
+              "applicationProtocols": [
+                "istio",
+                "istio-http/1.0",
+                "istio-http/1.1",
+                "istio-h2"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfig": {
+                    "name": "inbound|9080||",
+                    "virtualHosts": [
+                      {
+                        "name": "inbound|http|9080",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "name": "default",
+                            "match": {
+                              "prefix": "/"
+                            },
+                            "route": {
+                              "cluster": "inbound|9080||",
+                              "retryPolicy": {}
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "name": "0.0.0.0_9080"
+          },
+          {
+            "filterChainMatch": {
+              "destinationPort": 9080
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfig": {
+                    "name": "inbound|9080||",
+                    "virtualHosts": [
+                      {
+                        "name": "inbound|http|9080",
+                        "domains": [
+                          "*"
+                        ],
+                        "routes": [
+                          {
+                            "name": "default",
+                            "match": {
+                              "prefix": "/"
+                            },
+                            "route": {
+                              "cluster": "inbound|9080||",
+                              "retryPolicy": {}
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              }
+            ],
+            "name": "0.0.0.0_9080"
+          }
+        ]
+      },
+      {
+        "name": "10.96.253.121_31400",
+        "address": {
+          "port": 43130,
+          "ipv4": 2046648330
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|31400||istio-ingressgateway.istio-system.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.108.71.42_443",
+        "address": {
+          "port": 47873,
+          "ipv4": 709323786
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {},
+            "filters": [
+              {
+                "name": "envoy.filters.network.tcp_proxy",
+                "tcpProxy": {
+                  "cluster": "outbound|443||istiod.istio-system.svc.cluster.local"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "0.0.0.0_9080",
+        "address": {
+          "port": 30755
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "http/1.0",
+                "http/1.1",
+                "h2c"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfigName": "9080"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "10.96.0.10_9153",
+        "address": {
+          "port": 49443,
+          "ipv4": 167796746
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "http/1.0",
+                "http/1.1",
+                "h2c"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfigName": "kube-dns.kube-system.svc.cluster.local:9153"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "0.0.0.0_15014",
+        "address": {
+          "port": 42554
+        },
+        "filterChains": [
+          {
+            "filterChainMatch": {
+              "applicationProtocols": [
+                "http/1.0",
+                "http/1.1",
+                "h2c"
+              ]
+            },
+            "filters": [
+              {
+                "name": "envoy.filters.network.http_connection_manager",
+                "httpConnectionManager": {
+                  "routeConfigName": "15014"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "routeConfigs": [
+      {
+        "name": "80",
+        "virtualHosts": [
+          {
+            "name": "istio-egressgateway.istio-system.svc.cluster.local:80",
+            "domains": [
+              "istio-egressgateway.istio-system.svc.cluster.local",
+              "istio-egressgateway.istio-system.svc.cluster.local:80",
+              "istio-egressgateway.istio-system",
+              "istio-egressgateway.istio-system:80",
+              "istio-egressgateway.istio-system.svc.cluster",
+              "istio-egressgateway.istio-system.svc.cluster:80",
+              "istio-egressgateway.istio-system.svc",
+              "istio-egressgateway.istio-system.svc:80",
+              "10.110.230.201",
+              "10.110.230.201:80"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|80||istio-egressgateway.istio-system.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "istio-ingressgateway.istio-system.svc.cluster.local:80",
+            "domains": [
+              "istio-ingressgateway.istio-system.svc.cluster.local",
+              "istio-ingressgateway.istio-system.svc.cluster.local:80",
+              "istio-ingressgateway.istio-system",
+              "istio-ingressgateway.istio-system:80",
+              "istio-ingressgateway.istio-system.svc.cluster",
+              "istio-ingressgateway.istio-system.svc.cluster:80",
+              "istio-ingressgateway.istio-system.svc",
+              "istio-ingressgateway.istio-system.svc:80",
+              "10.96.253.121",
+              "10.96.253.121:80"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "allow_any",
+            "domains": [
+              "*"
+            ],
+            "routes": [
+              {
+                "name": "allow_any",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "PassthroughCluster",
+                  "retryPolicy": {}
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "istio-ingressgateway.istio-system.svc.cluster.local:15021",
+        "virtualHosts": [
+          {
+            "name": "istio-ingressgateway.istio-system.svc.cluster.local:15021",
+            "domains": [
+              "istio-ingressgateway.istio-system.svc.cluster.local",
+              "istio-ingressgateway.istio-system.svc.cluster.local:15021",
+              "istio-ingressgateway.istio-system",
+              "istio-ingressgateway.istio-system:15021",
+              "istio-ingressgateway.istio-system.svc.cluster",
+              "istio-ingressgateway.istio-system.svc.cluster:15021",
+              "istio-ingressgateway.istio-system.svc",
+              "istio-ingressgateway.istio-system.svc:15021",
+              "10.96.253.121",
+              "10.96.253.121:15021"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|15021||istio-ingressgateway.istio-system.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "9080",
+        "virtualHosts": [
+          {
+            "name": "details.default.svc.cluster.local:9080",
+            "domains": [
+              "details.default.svc.cluster.local",
+              "details.default.svc.cluster.local:9080",
+              "details",
+              "details:9080",
+              "details.default.svc.cluster",
+              "details.default.svc.cluster:9080",
+              "details.default.svc",
+              "details.default.svc:9080",
+              "details.default",
+              "details.default:9080",
+              "10.101.129.137",
+              "10.101.129.137:9080"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|9080||details.default.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "openeuler-service.sample.svc.cluster.local:9080",
+            "domains": [
+              "openeuler-service.sample.svc.cluster.local",
+              "openeuler-service.sample.svc.cluster.local:9080",
+              "openeuler-service.sample",
+              "openeuler-service.sample:9080",
+              "openeuler-service.sample.svc.cluster",
+              "openeuler-service.sample.svc.cluster:9080",
+              "openeuler-service.sample.svc",
+              "openeuler-service.sample.svc:9080",
+              "10.105.133.241",
+              "10.105.133.241:9080"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|9080||openeuler-service.sample.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "productpage.default.svc.cluster.local:9080",
+            "domains": [
+              "productpage.default.svc.cluster.local",
+              "productpage.default.svc.cluster.local:9080",
+              "productpage",
+              "productpage:9080",
+              "productpage.default.svc.cluster",
+              "productpage.default.svc.cluster:9080",
+              "productpage.default.svc",
+              "productpage.default.svc:9080",
+              "productpage.default",
+              "productpage.default:9080",
+              "10.106.111.238",
+              "10.106.111.238:9080"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|9080||productpage.default.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "ratings.default.svc.cluster.local:9080",
+            "domains": [
+              "ratings.default.svc.cluster.local",
+              "ratings.default.svc.cluster.local:9080",
+              "ratings",
+              "ratings:9080",
+              "ratings.default.svc.cluster",
+              "ratings.default.svc.cluster:9080",
+              "ratings.default.svc",
+              "ratings.default.svc:9080",
+              "ratings.default",
+              "ratings.default:9080",
+              "10.97.110.140",
+              "10.97.110.140:9080"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|9080||ratings.default.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "reviews.default.svc.cluster.local:9080",
+            "domains": [
+              "reviews.default.svc.cluster.local",
+              "reviews.default.svc.cluster.local:9080",
+              "reviews",
+              "reviews:9080",
+              "reviews.default.svc.cluster",
+              "reviews.default.svc.cluster:9080",
+              "reviews.default.svc",
+              "reviews.default.svc:9080",
+              "reviews.default",
+              "reviews.default:9080",
+              "10.111.110.185",
+              "10.111.110.185:9080"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|9080||reviews.default.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "allow_any",
+            "domains": [
+              "*"
+            ],
+            "routes": [
+              {
+                "name": "allow_any",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "PassthroughCluster",
+                  "retryPolicy": {}
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "kube-dns.kube-system.svc.cluster.local:9153",
+        "virtualHosts": [
+          {
+            "name": "kube-dns.kube-system.svc.cluster.local:9153",
+            "domains": [
+              "kube-dns.kube-system.svc.cluster.local",
+              "kube-dns.kube-system.svc.cluster.local:9153",
+              "kube-dns.kube-system",
+              "kube-dns.kube-system:9153",
+              "kube-dns.kube-system.svc.cluster",
+              "kube-dns.kube-system.svc.cluster:9153",
+              "kube-dns.kube-system.svc",
+              "kube-dns.kube-system.svc:9153",
+              "10.96.0.10",
+              "10.96.0.10:9153"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|9153||kube-dns.kube-system.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "15010",
+        "virtualHosts": [
+          {
+            "name": "istiod.istio-system.svc.cluster.local:15010",
+            "domains": [
+              "istiod.istio-system.svc.cluster.local",
+              "istiod.istio-system.svc.cluster.local:15010",
+              "istiod.istio-system",
+              "istiod.istio-system:15010",
+              "istiod.istio-system.svc.cluster",
+              "istiod.istio-system.svc.cluster:15010",
+              "istiod.istio-system.svc",
+              "istiod.istio-system.svc:15010",
+              "10.108.71.42",
+              "10.108.71.42:15010"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|15010||istiod.istio-system.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "allow_any",
+            "domains": [
+              "*"
+            ],
+            "routes": [
+              {
+                "name": "allow_any",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "PassthroughCluster",
+                  "retryPolicy": {}
+                }
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "15014",
+        "virtualHosts": [
+          {
+            "name": "istiod.istio-system.svc.cluster.local:15014",
+            "domains": [
+              "istiod.istio-system.svc.cluster.local",
+              "istiod.istio-system.svc.cluster.local:15014",
+              "istiod.istio-system",
+              "istiod.istio-system:15014",
+              "istiod.istio-system.svc.cluster",
+              "istiod.istio-system.svc.cluster:15014",
+              "istiod.istio-system.svc",
+              "istiod.istio-system.svc:15014",
+              "10.108.71.42",
+              "10.108.71.42:15014"
+            ],
+            "routes": [
+              {
+                "name": "default",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "outbound|15014||istiod.istio-system.svc.cluster.local",
+                  "retryPolicy": {
+                    "numRetries": 2
+                  }
+                }
+              }
+            ]
+          },
+          {
+            "name": "allow_any",
+            "domains": [
+              "*"
+            ],
+            "routes": [
+              {
+                "name": "allow_any",
+                "match": {
+                  "prefix": "/"
+                },
+                "route": {
+                  "cluster": "PassthroughCluster",
+                  "retryPolicy": {}
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "clusterConfigs": [
+      {
+        "name": "InboundPassthroughClusterIpv4",
+        "connectTimeout": 10,
+        "lbPolicy": 6,
+        "loadAssignment": {},
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|80||istio-ingressgateway.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 36895,
+                    "ipv4": 2222696640
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "PassthroughCluster",
+        "connectTimeout": 10,
+        "lbPolicy": 6,
+        "loadAssignment": {},
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|15010||istiod.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|15010||istiod.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 41530,
+                    "ipv4": 2189142208
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|15443||istio-egressgateway.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|15443||istio-egressgateway.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 21308,
+                    "ipv4": 2205919424
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|15021||istio-ingressgateway.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|15021||istio-ingressgateway.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 44346,
+                    "ipv4": 2222696640
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|31400||istio-ingressgateway.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|31400||istio-ingressgateway.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 43130,
+                    "ipv4": 2222696640
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|9080||ratings.default.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|9080||ratings.default.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 30755,
+                    "ipv4": 2742790336
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|53||kube-dns.kube-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|53||kube-dns.kube-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 13568,
+                    "ipv4": 3246106816
+                  }
+                },
+                {
+                  "address": {
+                    "port": 13568,
+                    "ipv4": 3262884032
+                  }
+                }
+              ],
+              "loadBalancingWeight": 2
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|9153||kube-dns.kube-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|9153||kube-dns.kube-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 49443,
+                    "ipv4": 3246106816
+                  }
+                },
+                {
+                  "address": {
+                    "port": 49443,
+                    "ipv4": 3262884032
+                  }
+                }
+              ],
+              "loadBalancingWeight": 2
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|443||istiod.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|443||istiod.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 43322,
+                    "ipv4": 2189142208
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|80||istio-egressgateway.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|80||istio-egressgateway.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 36895,
+                    "ipv4": 2205919424
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|443||istio-egressgateway.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|443||istio-egressgateway.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 64288,
+                    "ipv4": 2205919424
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|9080||productpage.default.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|9080||productpage.default.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 30755,
+                    "ipv4": 2759567552
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|9080||reviews.default.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|9080||reviews.default.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 30755,
+                    "ipv4": 2675681472
+                  }
+                },
+                {
+                  "address": {
+                    "port": 30755,
+                    "ipv4": 2709235904
+                  }
+                },
+                {
+                  "address": {
+                    "port": 30755,
+                    "ipv4": 2726013120
+                  }
+                }
+              ],
+              "loadBalancingWeight": 3
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "BlackHoleCluster",
+        "connectTimeout": 10,
+        "loadAssignment": {}
+      },
+      {
+        "name": "outbound|443||kubernetes.default.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|443||kubernetes.default.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 11033,
+                    "ipv4": 1803200704
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|15012||istiod.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|15012||istiod.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 42042,
+                    "ipv4": 2189142208
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|15443||istio-ingressgateway.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|15443||istio-ingressgateway.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 21308,
+                    "ipv4": 2222696640
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|9080||openeuler-service.sample.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|9080||openeuler-service.sample.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 20480,
+                    "ipv4": 2642127040
+                  }
+                },
+                {
+                  "address": {
+                    "port": 20480,
+                    "ipv4": 2776344768
+                  }
+                }
+              ],
+              "loadBalancingWeight": 2
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|9443||openeuler-service.sample.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|9443||openeuler-service.sample.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 47873,
+                    "ipv4": 2642127040
+                  }
+                },
+                {
+                  "address": {
+                    "port": 47873,
+                    "ipv4": 2776344768
+                  }
+                }
+              ],
+              "loadBalancingWeight": 2
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|9080||details.default.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|9080||details.default.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 30755,
+                    "ipv4": 2692458688
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "inbound|9080||",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "inbound|9080||",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 30755,
+                    "ipv4": 16777343
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|15014||istiod.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|15014||istiod.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 42554,
+                    "ipv4": 2189142208
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      },
+      {
+        "name": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local",
+        "connectTimeout": 10,
+        "loadAssignment": {
+          "clusterName": "outbound|443||istio-ingressgateway.istio-system.svc.cluster.local",
+          "endpoints": [
+            {
+              "lbEndpoints": [
+                {
+                  "address": {
+                    "port": 64288,
+                    "ipv4": 2222696640
+                  }
+                }
+              ],
+              "loadBalancingWeight": 1
+            }
+          ]
+        },
+        "circuitBreakers": {
+          "maxConnections": 4294967295,
+          "maxPendingRequests": 4294967295,
+          "maxRequests": 4294967295,
+          "maxRetries": 4294967295
+        }
+      }
+    ]
+  }
+}
