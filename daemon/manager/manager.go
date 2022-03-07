@@ -46,21 +46,18 @@ func Execute() {
 		log.Error(err)
 		return
 	}
-	defer bpf.Stop()
 	log.Info("bpf Start successful")
 
 	if err = controller.Start(); err != nil {
 		log.Error(err)
 		return
 	}
-	defer controller.Stop()
 	log.Info("controller Start successful")
 
 	if err = command.StartServer(); err != nil {
 		log.Error(err)
 		return
 	}
-	defer command.StopServer()
 	log.Info("command StartServer successful")
 
 	setupCloseHandler()
