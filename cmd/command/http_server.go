@@ -177,7 +177,8 @@ func httpControllerKubernetes(w http.ResponseWriter, r *http.Request) {
 var cmdServer = newHttpServer()
 
 func StartServer() error {
-	return cmdServer.server.ListenAndServe()
+	go cmdServer.server.ListenAndServe()
+	return nil
 }
 
 func StopServer() error {
