@@ -12,9 +12,10 @@
  * Create: 2021-10-09
  */
 
-package option
+package options
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -35,12 +36,16 @@ type parseFactory interface {
 type DaemonConfig []parseFactory
 
 func (c *DaemonConfig) String() string {
-	var str = ""
-	for _, factory := range *c {
-		str += fmt.Sprintf("%#v \n", factory)
+	data, err := json.MarshalIndent(c, "", "  ")
+	if err != nil {
+		return fmt.Sprintf("json marshal failed, %s", err)
 	}
 
-	return str
+	return string(data)
+}
+
+func String() string {
+	return config.String()
 }
 
 func Register(factory parseFactory) {
@@ -65,7 +70,6 @@ func InitDaemonConfig() error {
 		}
 	}
 
-	fmt.Println(config.String())
 	return nil
 }
 

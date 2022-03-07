@@ -23,6 +23,7 @@ import (
 	admin_v2 "openeuler.io/mesh/api/v2/admin"
 	"openeuler.io/mesh/pkg/controller"
 	"openeuler.io/mesh/pkg/controller/envoy"
+	"openeuler.io/mesh/pkg/options"
 	"time"
 )
 
@@ -70,10 +71,8 @@ func httpHelp(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpOptions(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-
-	fmt.Fprintf(w, "%s: %s\n", patternOptions,
-		"TODO")
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintln(w, options.String())
 }
 
 func httpBpfSlbMaps(w http.ResponseWriter, r *http.Request) {

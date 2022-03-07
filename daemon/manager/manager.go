@@ -19,7 +19,7 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 	"openeuler.io/mesh/pkg/controller"
 	"openeuler.io/mesh/pkg/logger"
-	"openeuler.io/mesh/pkg/option"
+	"openeuler.io/mesh/pkg/options"
 	"os"
 	"os/signal"
 	"syscall"
@@ -36,28 +36,32 @@ var (
 func Execute() {
 	var err error
 
-	if err = option.InitDaemonConfig(); err != nil {
+	if err = options.InitDaemonConfig(); err != nil {
 		log.Error(err)
 		return
 	}
+	log.Info("options InitDaemonConfig successful")
 
 	if err = bpf.Start(); err != nil {
 		log.Error(err)
 		return
 	}
 	defer bpf.Stop()
+	log.Info("bpf Start successful")
 
 	if err = controller.Start(); err != nil {
 		log.Error(err)
 		return
 	}
 	defer controller.Stop()
+	log.Info("controller Start successful")
 
 	if err = command.StartServer(); err != nil {
 		log.Error(err)
 		return
 	}
 	defer command.StopServer()
+	log.Info("command StartServer successful")
 
 	setupCloseHandler()
 	return
@@ -72,5 +76,6 @@ func setupCloseHandler() {
 	controller.Stop()
 	bpf.Stop()
 
+	log.Warn("signal Notify exit")
 	os.Exit(1)
 }

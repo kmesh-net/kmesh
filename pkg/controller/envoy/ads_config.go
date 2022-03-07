@@ -32,7 +32,7 @@ import (
 
 	"github.com/golang/protobuf/jsonpb"
 	"openeuler.io/mesh/pkg/logger"
-	"openeuler.io/mesh/pkg/option"
+	"openeuler.io/mesh/pkg/options"
 	"path/filepath"
 )
 
@@ -46,11 +46,11 @@ var (
 )
 
 type XdsConfig struct {
-	File           string
-	ServiceNode    string
-	ServiceCluster string
-	EnableAds      bool
-	Ads            *AdsConfig
+	File           string `json:"-file"`
+	ServiceNode    string `json:"-service-node"`
+	ServiceCluster string `json:"-service-cluster"`
+	EnableAds      bool   `json:"-enable-ads"`
+	adsSet         *AdsSet
 }
 
 func GetConfig() *XdsConfig {
@@ -80,14 +80,14 @@ func (c *XdsConfig) UnmarshalResources() error {
 		return err
 	}
 
-	if content, err = option.LoadConfigFile(c.File); err != nil {
+	if content, err = options.LoadConfigFile(c.File); err != nil {
 		return err
 	}
 	if err = jsonpb.UnmarshalString(string(content), &bootstrap); err != nil {
 		return err
 	}
 
-	if c.Ads, err = NewAdsConfig(&bootstrap); err != nil {
+	if c.adsSet, err = NewAdsConfig(&bootstrap); err != nil {
 		return err
 	}
 
@@ -95,16 +95,16 @@ func (c *XdsConfig) UnmarshalResources() error {
 }
 
 func (c *XdsConfig) NewClient() (interfaces.ClientFactory, error) {
-	return NewAdsClient(c.Ads)
+	return NewAdsClient(c.adsSet)
 }
 
 func (c *XdsConfig) getNode() *config_core_v3.Node {
-	if c.Ads.Node != nil {
-		return c.Ads.Node
+	if c.adsSet.Node != nil {
+		return c.adsSet.Node
 	}
 
-	if c.Ads.Node != nil {
-		return c.Ads.Node
+	if c.adsSet.Node != nil {
+		return c.adsSet.Node
 	} else {
 		return &config_core_v3.Node{
 			Id: c.ServiceNode,
@@ -114,7 +114,7 @@ func (c *XdsConfig) getNode() *config_core_v3.Node {
 	}
 }
 
-type AdsConfig struct {
+type AdsSet struct {
 	Node     *config_core_v3.Node
 	APIType  config_core_v3.ApiConfigSource_ApiType
 	Clusters []*ClusterConfig
@@ -128,7 +128,7 @@ type ClusterConfig struct {
 	TlsContext     *extensions_tls_v3.UpstreamTlsContext
 }
 
-func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsConfig, error) {
+func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 	var (
 		err error
 		clusterCfg *ClusterConfig
@@ -141,7 +141,7 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsConfig, error) 
 		return nil, err
 	}
 
-	ads := &AdsConfig{
+	ads := &AdsSet{
 		Node:         bootstrap.GetNode(),
 		APIType:      bootstrap.GetDynamicResources().GetAdsConfig().GetApiType(),
 	}

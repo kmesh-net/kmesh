@@ -17,16 +17,16 @@ package nets
 // #cgo pkg-config: bpf api-v1-c
 // #include "slb/config.h"
 import "C"
-import "openeuler.io/mesh/pkg/option"
+import "openeuler.io/mesh/pkg/options"
 
 var config Config
 
 func init() {
-	option.Register(&config)
+	options.Register(&config)
 }
 
 type Config struct {
-	Protocol   map[string]bool
+	Protocol   map[string]bool `json:"protocol"`
 }
 
 func (c *Config) SetArgs() error {

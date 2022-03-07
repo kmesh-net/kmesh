@@ -19,17 +19,17 @@ import (
 	"openeuler.io/mesh/pkg/controller/envoy"
 	"openeuler.io/mesh/pkg/controller/interfaces"
 	"openeuler.io/mesh/pkg/controller/kubernetes"
-	"openeuler.io/mesh/pkg/option"
+	"openeuler.io/mesh/pkg/options"
 )
 
 var config Config
 
 func init() {
-	option.Register(&config)
+	options.Register(&config)
 }
 
 type Config struct {
-	interfaces.ConfigFactory
+	interfaces.ConfigFactory `json:"controller"`
 }
 
 func (c *Config) SetArgs() error {

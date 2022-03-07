@@ -17,7 +17,7 @@ package bpf
 import (
 	"flag"
 	"fmt"
-	"openeuler.io/mesh/pkg/option"
+	"openeuler.io/mesh/pkg/options"
 	"os"
 	"path/filepath"
 )
@@ -25,14 +25,14 @@ import (
 var config Config
 
 func init() {
-	option.Register(&config)
+	options.Register(&config)
 }
 
 type Config struct {
-	BpfFsPath      string
-	Cgroup2Path    string
-	EnableSlb      bool
-	EnableKmesh    bool
+	BpfFsPath      string `json:"-bpf-fs-path"`
+	Cgroup2Path    string `json:"-cgroup2-path"`
+	EnableSlb      bool   `json:"-enable-slb"`
+	EnableKmesh    bool   `json:"-enable-kmesh"`
 }
 
 func (c *Config) SetArgs() error {

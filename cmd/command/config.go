@@ -16,7 +16,7 @@ package command
 
 import (
 	"flag"
-	"openeuler.io/mesh/pkg/option"
+	"openeuler.io/mesh/pkg/options"
 	"path/filepath"
 )
 
@@ -55,7 +55,7 @@ func (c *Config) ParseConfig() error {
 		return err
 	}
 
-	if content, err = option.LoadConfigFile(c.File); err != nil {
+	if content, err = options.LoadConfigFile(c.File); err != nil {
 		return err
 	}
 

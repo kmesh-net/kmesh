@@ -36,7 +36,7 @@ type AdsClient struct {
 	stream   service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 }
 
-func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
+func NewAdsClient(ads *AdsSet) (*AdsClient, error) {
 	client := &AdsClient{}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
@@ -47,7 +47,7 @@ func NewAdsClient(ads *AdsConfig) (*AdsClient, error) {
 	return client, err
 }
 
-func (c *AdsClient) CreateStream(ads *AdsConfig) error {
+func (c *AdsClient) CreateStream(ads *AdsSet) error {
 	var err error
 
 	if !config.EnableAds {
@@ -86,12 +86,12 @@ func (c *AdsClient) recoverConnection() error {
 
 	c.Close()
 	for count := 0; count < nets.MaxRetryCount; count++ {
-		if c.grpcConn, err = nets.GrpcConnect(config.Ads.Clusters[0].Address[0]); err != nil {
+		if c.grpcConn, err = nets.GrpcConnect(config.adsSet.Clusters[0].Address[0]); err != nil {
 			log.Errorf("ads grpc connect failed, %s", err)
 			time.Sleep(interval + nets.CalculateRandTime(1000))
 			interval = nets.CalculateInterval(interval)
 		} else {
-			return c.CreateStream(config.Ads)
+			return c.CreateStream(config.adsSet)
 		}
 	}
 

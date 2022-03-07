@@ -37,9 +37,9 @@ var (
 )
 
 type ApiserverConfig struct {
-	EnableInCluster bool
-	RefreshDelay    time.Duration
-	ClientSet       kubernetes.Interface
+	EnableInCluster bool          `json:"-enable-in-cluster"`
+	RefreshDelay    time.Duration `json:"refresh_delay"`
+	clientSet       kubernetes.Interface
 }
 
 func GetConfig() *ApiserverConfig {
@@ -74,7 +74,7 @@ func (c *ApiserverConfig) UnmarshalResources() error {
 		}
 	}
 
-	c.ClientSet, err = kubernetes.NewForConfig(rest)
+	c.clientSet, err = kubernetes.NewForConfig(rest)
 	if err != nil {
 		return fmt.Errorf("kube new clientset failed, %s", err)
 	}
@@ -84,5 +84,5 @@ func (c *ApiserverConfig) UnmarshalResources() error {
 }
 
 func (c *ApiserverConfig) NewClient() (interfaces.ClientFactory, error) {
-	return NewApiserverClient(c.ClientSet)
+	return NewApiserverClient(c.clientSet)
 }
