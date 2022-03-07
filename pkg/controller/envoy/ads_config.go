@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+	log = logger.NewLoggerField("controller/envoy")
 	config XdsConfig
 )
 

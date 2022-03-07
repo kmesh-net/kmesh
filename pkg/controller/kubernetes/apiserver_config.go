@@ -28,12 +28,11 @@ import (
 )
 
 const (
-	pkgSubsys = "apiserver"
 	DefaultRefreshDelay = time.Second * 3
 )
 
 var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+	log = logger.NewLoggerField("controller/kubernetes")
 	config ApiserverConfig
 )
 

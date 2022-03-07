@@ -25,17 +25,16 @@ import (
 )
 
 const (
-	LogSubsys = "subsys"
-	pkgSubsys = "logger"
+	logSubsys = "subsys"
 )
 
 var (
-	DefaultLogger = InitializeDefaultLogger()
+	defaultLogger = InitializeDefaultLogger()
 
-	DefaultLogLevel = logrus.DebugLevel
-	DefaultLogFile = "/var/run/kmesh/daemon.log"
+	defaultLogLevel = logrus.InfoLevel
+	defaultLogFile  = "/var/run/kmesh/daemon.log"
 
-	DefaultLogFormat = &logrus.TextFormatter {
+	defaultLogFormat = &logrus.TextFormatter {
 		DisableColors:	  true,
 		DisableTimestamp: false,
 	}
@@ -43,18 +42,18 @@ var (
 
 func InitializeDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
-	logger.SetFormatter(DefaultLogFormat)
-	logger.SetLevel(DefaultLogLevel)
+	logger.SetFormatter(defaultLogFormat)
+	logger.SetLevel(defaultLogLevel)
 
-	path, _ := filepath.Split(DefaultLogFile)
+	path, _ := filepath.Split(defaultLogFile)
 	err := os.MkdirAll(path, 0750)
 	if err != nil {
 		logger.Fatal(err)
 	}
 
 	file, err := rotatelogs.New(
-		DefaultLogFile + "-%Y%m%d%H%M",
-		rotatelogs.WithLinkName(DefaultLogFile),
+		defaultLogFile+ "-%Y%m%d%H%M",
+		rotatelogs.WithLinkName(defaultLogFile),
 		rotatelogs.WithRotationCount(12),
 		rotatelogs.WithRotationTime(time.Hour),
 	)
@@ -67,3 +66,6 @@ func InitializeDefaultLogger() *logrus.Logger {
 	return logger
 }
 
+func NewLoggerField(pkgSubsys string) *logrus.Entry {
+	return defaultLogger.WithField(logSubsys, pkgSubsys)
+}

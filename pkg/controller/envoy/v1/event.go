@@ -129,9 +129,6 @@ func (svc *serviceHandle) handleCdsResponse(rsp *service_discovery_v3.DiscoveryR
 		case config_cluster_v3.Cluster_ORIGINAL_DST:
 		default:
 		}
-
-		//fmt.Println(cluster.String())
-		//fmt.Println("")
 	}
 
 	if len(clusterNames) > 0 {

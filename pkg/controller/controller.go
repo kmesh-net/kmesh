@@ -18,15 +18,9 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 	"openeuler.io/mesh/pkg/controller/envoy"
 	"openeuler.io/mesh/pkg/controller/interfaces"
-	"openeuler.io/mesh/pkg/logger"
-)
-
-const (
-	pkgSubsys = "controller"
 )
 
 var (
-	log        = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 	stopCh     = make(chan struct{})
 	client     interfaces.ClientFactory
 )

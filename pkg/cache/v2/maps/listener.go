@@ -23,7 +23,12 @@ import (
 	"google.golang.org/protobuf/proto"
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	listener_v2 "openeuler.io/mesh/api/v2/listener"
+	"openeuler.io/mesh/pkg/logger"
 	"unsafe"
+)
+
+var (
+	log = logger.NewLoggerField("cache/v2/maps")
 )
 
 func listenerToGolang(goMsg *listener_v2.Listener, cMsg *C.Listener__Listener) error {

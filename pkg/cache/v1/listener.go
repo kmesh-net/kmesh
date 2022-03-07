@@ -21,12 +21,8 @@ import (
 	"openeuler.io/mesh/pkg/logger"
 )
 
-const (
-	pkgSubsys = "cache/v1"
-)
-
 var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+	log = logger.NewLoggerField("cache/v1")
 )
 
 type ListenerKeyAndValue struct {

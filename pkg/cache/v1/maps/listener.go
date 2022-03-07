@@ -18,7 +18,12 @@ import (
 	"github.com/cilium/ebpf"
 	api_v1 "openeuler.io/mesh/api/v1"
 	"openeuler.io/mesh/pkg/bpf"
+	"openeuler.io/mesh/pkg/logger"
 	"unsafe"
+)
+
+var (
+	log = logger.NewLoggerField("cache/v1/maps")
 )
 
 func listenerToGolang(goMsg *api_v1.Listener, cMsg *api_v1.CListener) {

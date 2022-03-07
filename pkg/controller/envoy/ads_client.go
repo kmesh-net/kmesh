@@ -87,7 +87,7 @@ func (c *AdsClient) recoverConnection() error {
 	c.Close()
 	for count := 0; count < nets.MaxRetryCount; count++ {
 		if c.grpcConn, err = nets.GrpcConnect(config.Ads.Clusters[0].Address[0]); err != nil {
-			log.Debugf("ads grpc connect failed, %s", err)
+			log.Errorf("ads grpc connect failed, %s", err)
 			time.Sleep(interval + nets.CalculateRandTime(1000))
 			interval = nets.CalculateInterval(interval)
 		} else {

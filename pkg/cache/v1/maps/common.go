@@ -18,16 +18,7 @@ package maps
 // #include <stdlib.h>
 import "C"
 import (
-	"openeuler.io/mesh/pkg/logger"
 	"unsafe"
-)
-
-const (
-	pkgSubsys = "cache/v1/maps"
-)
-
-var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 func memcpy(dst, src unsafe.Pointer, len uintptr) {

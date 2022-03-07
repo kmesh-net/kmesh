@@ -23,16 +23,7 @@ import (
 	"fmt"
 	"google.golang.org/protobuf/proto"
 	core_v2 "openeuler.io/mesh/api/v2/core"
-	"openeuler.io/mesh/pkg/logger"
 	"unsafe"
-)
-
-const (
-	pkgSubsys = "cache/v2/maps"
-)
-
-var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
 )
 
 func convertToPack(buf []byte) *C.uint8_t {

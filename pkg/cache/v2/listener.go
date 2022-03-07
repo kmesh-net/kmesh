@@ -21,12 +21,8 @@ import (
 	"openeuler.io/mesh/pkg/logger"
 )
 
-const (
-	pkgSubsys = "cache/v2"
-)
-
 var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+	log = logger.NewLoggerField("cache/v2")
 )
 
 type ApiListenerCache map[string]*listener_v2.Listener

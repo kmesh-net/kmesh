@@ -30,7 +30,7 @@ const (
 )
 
 var (
-	log = logger.DefaultLogger.WithField(logger.LogSubsys, pkgSubsys)
+	log = logger.NewLoggerField("manager")
 )
 
 func Execute() {
