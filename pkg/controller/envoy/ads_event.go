@@ -231,9 +231,9 @@ func (svc *ServiceEvent) handleAdminResponse(resources *admin_v2.ConfigResources
 		svc.StaticLoader.RouteCache[route.GetName()] = route
 	}
 
-	cache_v2.CacheFlush(svc.StaticLoader.ClusterCache)
-	cache_v2.CacheFlush(svc.StaticLoader.ListenerCache)
-	cache_v2.CacheFlush(svc.StaticLoader.RouteCache)
+	cache_v2.CacheDeltaFlush(svc.StaticLoader.ClusterCache)
+	cache_v2.CacheDeltaFlush(svc.StaticLoader.ListenerCache)
+	cache_v2.CacheDeltaFlush(svc.StaticLoader.RouteCache)
 
 	return nil
 }

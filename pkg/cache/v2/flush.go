@@ -30,3 +30,10 @@ func CacheFlush(cache CacheFactory) {
 	cache.StatusDelete(core_v2.ApiStatus_DELETE)
 	cache.StatusReset(core_v2.ApiStatus_UPDATE, core_v2.ApiStatus_NONE)
 }
+
+func CacheDeltaFlush(cache CacheFactory) {
+	cache.StatusFlush(core_v2.ApiStatus_UPDATE)
+	cache.StatusFlush(core_v2.ApiStatus_DELETE)
+
+	cache.StatusDelete(core_v2.ApiStatus_DELETE)
+}
