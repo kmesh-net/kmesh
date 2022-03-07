@@ -106,6 +106,7 @@ Usage of kmesh-daemon:
 ./mesh-daemon -enable-slb=true
 # example
 ./mesh-daemon -enable-kmesh=true -enable-ads=true -config-file=envoy-rev0.json
+./mesh-daemon -enable-kmesh=true -enable-ads=false
 ```
 
 kmesh-cmd
@@ -126,11 +127,12 @@ admin
 # curl http://localhost:15200/help
 	/help: print list of commands
 	/options: print config options
-	/bpf/maps: print bpf maps in kernel
+	/bpf/slb/maps: print bpf slb maps in kernel
+	/bpf/kmesh/maps: print bpf kmesh maps in kernel
 	/controller/envoy: print control-plane in envoy cache
 	/controller/kubernetes: print control-plane in kubernetes cache
 
 # example
-curl http://localhost:15200/bpf/maps
+curl http://localhost:15200/bpf/kmesh/maps
 curl http://localhost:15200/controller/envoy
 ```
