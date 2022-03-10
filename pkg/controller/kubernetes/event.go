@@ -88,6 +88,9 @@ func (svc *serviceHandle) batchProcess(addr nodeAddress) {
 
 	nameID := hashName.StrToNum(svc.name)
 	for k, epEvent := range svc.endpoints {
+		if epEvent == nil {
+			continue
+		}
 		extractEndpointCache(epCache, cache_v1.CacheFlagDelete, nameID, epEvent.oldObj)
 		extractEndpointCache(epCache, cache_v1.CacheFlagUpdate, nameID, epEvent.newObj)
 

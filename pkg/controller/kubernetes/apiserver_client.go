@@ -180,7 +180,9 @@ func (c *ApiserverClient) syncHandler(qkey queueKey) error {
 	case InformerTypeEndpoints:
 		newObj, _, err = c.endpointInformer.Informer().GetIndexer().GetByKey(qkey.name)
 		if err == nil {
-			svcHdl.endpoints = append(svcHdl.endpoints, newEndpointEvent(qkey.oldObj, newObj))
+			if epEvent := newEndpointEvent(qkey.oldObj, newObj); epEvent != nil {
+				svcHdl.endpoints = append(svcHdl.endpoints, epEvent)
+			}
 		}
 	default:
 		return fmt.Errorf("invlid queueKey name")
