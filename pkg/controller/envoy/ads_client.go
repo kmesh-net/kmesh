@@ -43,7 +43,6 @@ func NewAdsClient(ads *AdsSet) (*AdsClient, error) {
 	client.Event = NewServiceEvent()
 
 	err := client.CreateStream(ads)
-
 	return client, err
 }
 
@@ -84,21 +83,20 @@ func (c *AdsClient) recoverConnection() error {
 		interval = time.Second
 	)
 
-	c.Close()
 	for count := 0; count < nets.MaxRetryCount; count++ {
-		if c.grpcConn, err = nets.GrpcConnect(config.adsSet.Clusters[0].Address[0]); err != nil {
-			log.Errorf("ads grpc connect failed, %s", err)
-			time.Sleep(interval + nets.CalculateRandTime(1000))
-			interval = nets.CalculateInterval(interval)
-		} else {
-			return c.CreateStream(config.adsSet)
+		if err = c.CreateStream(config.adsSet); err == nil {
+			return nil
 		}
+
+		log.Errorf("ads grpc connect failed, %s", err)
+		time.Sleep(interval + nets.CalculateRandTime(1000))
+		interval = nets.CalculateInterval(interval)
 	}
 
-	return err
+	return fmt.Errorf("retry %d times", nets.MaxRetryCount)
 }
 
-func (c *AdsClient) runControlPlane() {
+func (c *AdsClient) runControlPlane(ctx context.Context) {
 	var (
 		err error
 		reconnect = false
@@ -111,7 +109,7 @@ func (c *AdsClient) runControlPlane() {
 
 	for true {
 		select {
-		case <- c.ctx.Done():
+		case <- ctx.Done():
 			return
 		default:
 			if reconnect {
@@ -146,7 +144,7 @@ func (c *AdsClient) runControlPlane() {
 
 func (c *AdsClient) Run(stopCh <-chan struct{}) error {
 	go c.Event.processAdminResponse(c.ctx)
-	go c.runControlPlane()
+	go c.runControlPlane(c.ctx)
 
 	go func() {
 		<-stopCh

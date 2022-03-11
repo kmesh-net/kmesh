@@ -16,6 +16,7 @@ package envoy
 
 import (
 	"context"
+	"fmt"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -109,7 +110,7 @@ func (svc *ServiceEvent) processAdsResponse(rsp *service_discovery_v3.DiscoveryR
 	case resource_v3.RouteType:
 		err = svc.handleRdsResponse(rsp)
 	default:
-		log.Errorf("unsupport type url %s", rsp.GetTypeUrl())
+		err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
 	}
 
 	if err != nil {

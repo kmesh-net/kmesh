@@ -26,7 +26,7 @@ import (
 
 const (
 	MaxRetryInterval = time.Second * 30
-	MaxRetryCount    = 5
+	MaxRetryCount    = 3
 )
 
 func IsIPAndPort(addr string) bool {
