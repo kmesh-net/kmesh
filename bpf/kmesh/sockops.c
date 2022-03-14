@@ -24,10 +24,15 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
 	/* 1 lookup listener */
 	DECLARE_VAR_ADDRESS(skops, addr);
 	Listener__Listener *listener = map_lookup_listener(&addr);
+
 	if (!listener) {
-		/* no match vip/nodeport listener */
-		BPF_LOG(ERR, SOCKOPS, "no match listener\n");
-		return 0;
+		addr.ipv4 = 0;
+		listener = map_lookup_listener(&addr);
+		if (!listener) {
+			/* no match vip/nodeport listener */
+			BPF_LOG(ERR, SOCKOPS, "no match listener\n");
+			return 0;
+		}
 	}
 
 	return l7_listener_manager(skops, listener);

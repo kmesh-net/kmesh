@@ -6,9 +6,21 @@
 #include <linux/bpf.h>
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
+#include <bpf/btf.h>
+
 #include <protobuf-c/protobuf-c.h>
 
 #include "deserialization_to_bpf_map.h"
+
+#define MAX_ERRNO	4095
+
+#if 0
+#define IS_ERR_VALUE(x) ((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
+static inline bool  IS_ERR( const void *ptr)
+{
+	return IS_ERR_VALUE((unsigned long)ptr);
+}
+#endif
 
 #define LOG_ERR(fmt, args...)	printf(fmt, ## args)
 #define LOG_INFO(fmt, args...)	printf(fmt, ## args)
@@ -54,6 +66,56 @@ static void* create_struct(struct op_context *ctx, int *err);
 static int del_bpf_map(struct op_context *ctx, int is_inner);
 static int free_outter_map_entry(struct op_context *ctx, void *outter_key);
 
+#if 0
+static int normalize_key(struct op_context *ctx, void *key)
+{
+	static struct btf *btf_vmlinux;
+	const struct btf_type *t;
+
+	ctx->key = malloc(ctx->curr_info->key_size);
+	if (!ctx->key)
+		return -errno;
+
+	if (!btf_vmlinux)
+		btf_vmlinux = libbpf_find_kernel_btf();
+	if (IS_ERR(btf_vmlinux)) {
+		LOG_ERR("requires kernel CONFIG_DEBUG_INFO_BTF=y\n");
+		return -1;
+	}
+
+	t = btf__type_by_id(btf_vmlinux, ctx->curr_info->btf_key_type_id);
+	LOG_INFO("BTF KIND = %d\n", BTF_INFO_KIND(t->info));
+
+	memset(ctx->key, 0, ctx->curr_info->key_size);
+
+	switch (BTF_INFO_KIND(t->info)) {
+	case BTF_KIND_STRUCT:
+		memcpy(ctx->key, key, ctx->curr_info->key_size);
+		break;
+	default:
+		strncpy(ctx->key, key, ctx->curr_info->key_size);
+		break;
+	}
+
+	return 0;
+}
+#else
+static int normalize_key(struct op_context *ctx, void *key, const char *map_name)
+{
+	ctx->key = malloc(ctx->curr_info->key_size);
+	if (!ctx->key)
+		return -errno;
+
+	memset(ctx->key, 0, ctx->curr_info->key_size);
+	if (!strncmp(map_name, "Listener", strlen(map_name)))
+		memcpy(ctx->key, key, ctx->curr_info->key_size);
+	else
+		strncpy(ctx->key, key, ctx->curr_info->key_size);
+
+	return 0;
+}
+#endif
+
 static inline int selected_oneof_field(void *value,
 				    const ProtobufCFieldDescriptor *field)
 {
@@ -61,6 +123,32 @@ static inline int selected_oneof_field(void *value,
 
 	if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) && field->id != n)
 		return 0;
+
+	return 1;
+}
+
+static inline int valid_field_value(void *value,
+				const ProtobufCFieldDescriptor *field)
+{
+	uint32_t val = *(uint32_t*)((char*)value + field->offset);
+
+
+	if (val == 0) {
+		switch (field->type) {
+		case PROTOBUF_C_TYPE_MESSAGE:
+		case PROTOBUF_C_TYPE_STRING:
+			return 0;
+		default:
+			break;
+		}
+
+		switch (field->label) {
+		case PROTOBUF_C_LABEL_REPEATED:
+			return 0;
+		default:
+			break;
+		}
+	}
 
 	return 1;
 }
@@ -541,6 +629,7 @@ end:
 static int update_bpf_map(struct op_context *ctx)
 {
 	int i, ret;
+	void *temp_val;
 	const ProtobufCMessageDescriptor *desc = ctx->desc;
 
 	if (desc->sizeof_message > ctx->curr_info->value_size) {
@@ -548,10 +637,18 @@ static int update_bpf_map(struct op_context *ctx)
 		return -EINVAL;
 	}
 
+	temp_val = malloc(ctx->curr_info->value_size);
+	if (!temp_val)
+		return -ENOMEM;
+
+	memcpy(temp_val, ctx->value, ctx->curr_info->value_size);
+	ctx->value = temp_val;
+
 	for (i = 0; i < desc->n_fields; i++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + i;
 
-		if (!selected_oneof_field(ctx->value, field))
+		if (!selected_oneof_field(ctx->value, field) ||
+			!valid_field_value(ctx->value, field))
 			continue;
 
 		switch (field->label) {
@@ -565,11 +662,14 @@ static int update_bpf_map(struct op_context *ctx)
 
 		if (ret) {
 			LOG_INFO("field[%d] handle fail\n", i);
+			free(temp_val);
 			return ret;
 		}
 	}
 
-	return bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
+	ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
+	free(temp_val);
+	return ret;
 }
 
 static int map_info_check(struct bpf_map_info *outter_info,
@@ -611,7 +711,7 @@ int deserial_update_elem(void *key, void *value)
 
 	desc = ((ProtobufCMessage *)value)->descriptor;
 	if (desc && desc->magic == PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
-		map_name = desc->name;
+		map_name = desc->short_name;
 
 	ret = get_map_ids(map_name, &id, &outter_id, &inner_id);
 	if (ret)
@@ -643,13 +743,17 @@ int deserial_update_elem(void *key, void *value)
 		ret = -errno;
 		goto end;
 	}
-
 	memset(context.inner_map_object, 0, context.inner_info->value_size);
+
+	normalize_key(&context, key, map_name);
+
 	ret = update_bpf_map(&context);
 	if (ret)
 		deserial_delete_elem(key, desc);
 
 end:
+	if (context.key != NULL)
+		free(context.key);
 	if (context.inner_map_object != NULL)
 		free(context.inner_map_object);
 	if (map_fd > 0)
@@ -867,7 +971,8 @@ static void* create_struct(struct op_context *ctx, int *err)
 	for (i = 0; i < desc->n_fields; i++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + i;
 
-		if (!selected_oneof_field(ctx->value, field))
+		if (!selected_oneof_field(ctx->value, field) ||
+			!valid_field_value(ctx->value, field))
 			continue;
 
 		switch (field->label) {
@@ -907,7 +1012,7 @@ void* deserial_lookup_elem(void *key, const void *msg_desciptor)
 	if (desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
 		return NULL;
 
-	map_name = desc->name;
+	map_name = desc->short_name;
 	ret = get_map_ids(map_name, &id, &outter_id, &inner_id);
 	if (ret)
 		return NULL;
@@ -926,6 +1031,7 @@ void* deserial_lookup_elem(void *key, const void *msg_desciptor)
 	init_op_context(context, key, NULL, desc, outter_fd, map_fd,
 			&outter_info, &inner_info, &info);
 
+	normalize_key(&context, key, map_name);
 	value = create_struct(&context, &err);
 	if (err != 0) {
 		deserial_free_elem(value);
@@ -933,6 +1039,8 @@ void* deserial_lookup_elem(void *key, const void *msg_desciptor)
 	}
 
 end:
+	if (context.key != NULL)
+		free(context.key);
 	if (map_fd > 0)
 		close(map_fd);
 	if (outter_fd > 0)
@@ -1111,7 +1219,8 @@ static int del_bpf_map(struct op_context *ctx, int is_inner)
 	for (i = 0; i < desc->n_fields; i++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + i;
 
-		if (!selected_oneof_field(ctx->value, field))
+		if (!selected_oneof_field(ctx->value, field) ||
+			!valid_field_value(ctx->value, field))
 			continue;
 
 		switch (field->label) {
@@ -1148,7 +1257,7 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 
 	desc = (ProtobufCMessageDescriptor *)msg_desciptor;
 	if (desc->magic == PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
-		map_name = desc->name;
+		map_name = desc->short_name;
 
 	ret = get_map_ids(map_name, &id, &outter_id, &inner_id);
 	if (ret)
@@ -1184,9 +1293,12 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 	memset(context.inner_map_object, 0, context.inner_info->value_size);
 	memset(context.value, 0, context.curr_info->value_size);
 
+	normalize_key(&context, key, map_name);
 	ret = del_bpf_map(&context, 0);
 
 end:
+	if (context.key != NULL)
+		free(context.key);
 	if (context.value != NULL)
 		free(context.value);
 	if (context.inner_map_object != NULL)
@@ -1256,7 +1368,7 @@ void deserial_free_elem(void *value)
 
 	desc = ((ProtobufCMessage *)value)->descriptor;
 	if (desc && desc->magic == PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
-		map_name = desc->name;
+		map_name = desc->short_name;
 
 	if (!map_name) {
 		LOG_ERR("map_name is NULL");
@@ -1267,7 +1379,8 @@ void deserial_free_elem(void *value)
 	for (i = 0; i < desc->n_fields; i++) {
 		const ProtobufCFieldDescriptor *field = desc->fields + i;
 
-		if (!selected_oneof_field(value, field))
+		if (!selected_oneof_field(value, field) ||
+			!valid_field_value(value, field))
 			continue;
 
 		switch (field->label) {

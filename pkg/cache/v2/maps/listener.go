@@ -66,8 +66,11 @@ func ListenerLookup(key *core_v2.SocketAddress, value *listener_v2.Listener) err
 		return fmt.Errorf("ListenerLookup %s", err)
 	}
 	defer socketAddressFreeClang(cKey)
-
+	
+	desc := cKey.base.descriptor
+	cKey.base.descriptor = nil
 	cMsg := C.deserial_lookup_elem(unsafe.Pointer(cKey), unsafe.Pointer(&C.listener__listener__descriptor))
+	cKey.base.descriptor = desc
 	if cMsg == nil {
 		return fmt.Errorf("ListenerLookup deserial_lookup_elem failed")
 	}
@@ -97,7 +100,10 @@ func ListenerUpdate(key *core_v2.SocketAddress, value *listener_v2.Listener) err
 	testSocketAddress(key, cKey)
 	testListener(value, cMsg)
 
+	desc := cKey.base.descriptor
+	cKey.base.descriptor = nil
 	ret := C.deserial_update_elem(unsafe.Pointer(cKey), unsafe.Pointer(cMsg))
+	cKey.base.descriptor = desc
 	if ret != 0 {
 		return fmt.Errorf("ListenerUpdate deserial_update_elem failed")
 	}
@@ -114,7 +120,10 @@ func ListenerDelete(key *core_v2.SocketAddress) error {
 	}
 	defer socketAddressFreeClang(cKey)
 
+	desc := cKey.base.descriptor
+	cKey.base.descriptor = nil
 	ret := C.deserial_delete_elem(unsafe.Pointer(cKey), unsafe.Pointer(&C.listener__listener__descriptor))
+	cKey.base.descriptor = desc
 	if ret != 0 {
 		return fmt.Errorf("ListenerDelete deserial_delete_elem failed")
 	}

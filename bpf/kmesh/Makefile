@@ -21,6 +21,7 @@ INCLUDES := -I$(ROOT_DIR)/include
 INCLUDES += -I$(ROOT_DIR)/../include
 INCLUDES += $(CLANG_BPF_SYS_INCLUDES)
 INCLUDES += -I$(PROTOBUF_H)
+INCLUDES += -I/usr/include/
 
 # compiler flags
 #LDFLAGS = -lbpf

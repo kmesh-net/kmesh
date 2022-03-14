@@ -23,7 +23,7 @@
 bpf_map_t SEC("maps") map_of_router_config = {
 	.type			= BPF_MAP_TYPE_HASH,
 	.key_size		= ROUTER_NAME_MAX_LEN,
-	.value_size		= sizeof(ROUTER_NAME_MAX_LEN),
+	.value_size		= sizeof(Route__RouteConfiguration),
 	.max_entries	= MAP_SIZE_OF_ROUTE,
 	.map_flags		= 0,
 };
@@ -68,7 +68,7 @@ Route__VirtualHost * virtual_host_match(Route__RouteConfiguration *route_config,
 	n_virt_hosts = BPF_MIN(n_virt_hosts, KMESH_PER_VIRT_HOST_NUM);
 #pragma unroll
 	for (i = 0; i < n_virt_hosts; i++) {
-		virt_host = kmesh_get_ptr_val(_(ptrs + i));
+		virt_host = kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!virt_host) {
 			continue;
 		}
@@ -108,7 +108,7 @@ Route__Route * virtual_host_route_match(Route__VirtualHost *virt_host, address_t
 	n_routes = BPF_MIN(n_routes, KMESH_PER_ROUTE_NUM);
 #pragma unroll
 	for (i = 0; i < n_routes; i++) {
-		route = (Route__Route *)kmesh_get_ptr_val(_(ptrs + i));
+		route = (Route__Route *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!route) {
 			continue;
 		}

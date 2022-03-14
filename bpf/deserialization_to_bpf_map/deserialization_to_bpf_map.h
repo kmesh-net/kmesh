@@ -1,7 +1,7 @@
 #ifndef __DESERIALIZATION_TO_BPF_MAP_H__
 #define __DESERIALIZATION_TO_BPF_MAP_H__
 
-#define MAX_OUTTER_MAP_ENTRIES	(320)
+#define MAX_OUTTER_MAP_ENTRIES	(10000)
 
 int deserial_update_elem(void *key, void *value);
 void* deserial_lookup_elem(void *key, const void *msg_desciptor);

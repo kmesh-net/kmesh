@@ -98,6 +98,8 @@ int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_b
 	Core__SocketAddress *sock_addr = NULL;
 	__u32 lb_policy = cluster->lb_policy;
 
+	BPF_LOG(DEBUG, CLUSTER, "cluster_handle_loadbalance\n");
+
 	name = kmesh_get_ptr_val(cluster->name);
 	if (!name) {
 		BPF_LOG(DEBUG, CLUSTER, "cluster lb_policy %u\n", lb_policy);
@@ -116,6 +118,7 @@ int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_b
 		return -EAGAIN;
 	}
 
+	BPF_LOG(DEBUG, CLUSTER, "cluster_handle_loadbalance= %ld,%d\n", (__s64)ep_identity, lb_policy);
 	sock_addr = cluster_get_ep_sock_addr(ep_identity);
 	if (!sock_addr) {
 		BPF_LOG(ERR, CLUSTER, "ep get sock addr failed\n");

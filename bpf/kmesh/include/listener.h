@@ -41,7 +41,7 @@ int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain,
 	if (filter_chain_match && (filter_chain_match->destination_port == addr->port)) {
 		return 1;
 	}
-	return 0;
+	return 1;
 }
 
 static inline 
@@ -67,18 +67,23 @@ int listener_filter_chain_match(const Listener__Listener *listener,
 		BPF_LOG(ERR, LISTENER, "failed to get filter chain ptrs\n");
 		return -1;
 	}
-	
+
+	BPF_LOG(DEBUG, LISTENER, "ptrs = %lu\n", *(__u64*)ptrs);
+
 	n_filter_chains = BPF_MIN(n_filter_chains, KMESH_PER_FILTER_CHAIN_NUM);
+	 BPF_LOG(DEBUG, LISTENER, "n_filter_chains = %d", n_filter_chains);
+
 #pragma unroll
 	for (i = 0; i < n_filter_chains; i++) {
-		filter_chain = (Listener__FilterChain *)kmesh_get_ptr_val(_(ptrs + i));
+		filter_chain = (Listener__FilterChain *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!filter_chain) {
+			BPF_LOG(DEBUG, LISTENER, "continue");
 			continue;
 		}
 
 		if (listener_filter_chain_match_check(filter_chain, addr, ctx)) {
 			*filter_chain_ptr = filter_chain;
-			*filter_chain_idx = (__u64)_(ptrs + i);
+			*filter_chain_idx = (__u64)*((__u64*)ptrs + i);
 			return 0;
 		}
 	}
@@ -98,6 +103,7 @@ int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener)
 	/* filter chain match */
 	ret = listener_filter_chain_match(listener, &addr, ctx, &filter_chain, &filter_chain_idx);
 	if (ret != 0) {
+		BPF_LOG(ERR, LISTENER, "listener_filter_chain_match fail\n");
 		return -1;
 	}
 	

@@ -15,6 +15,7 @@
 #ifndef _KMESH_COMMON_H_
 #define _KMESH_COMMON_H_
 
+#include "bpf_log.h"
 #include "common.h"
 #include "config.h"
 #include "core/address.pb-c.h"
@@ -27,8 +28,9 @@
 #define BPF_LOGTYPE_SOCKOPS		 BPF_DEBUG_ON
 #define BPF_LOGTYPE_ROUTER		  BPF_DEBUG_ON
 #define BPF_LOGTYPE_ROUTER_CONFIG   BPF_DEBUG_ON
+#define BPF_LOGTYPE_COMMON		BPF_DEBUG_ON
 
-#define BPF_DATA_MAX_LEN			32
+#define BPF_DATA_MAX_LEN			256
 #define BPF_INNER_MAP_DATA_LEN	  100
 
 
@@ -45,6 +47,13 @@ bpf_map_t SEC("maps") outer_map = {
 	.value_size		= sizeof(__u32),
 	.max_entries	= MAP_SIZE_OF_MAX,
 	.map_flags		= 0,
+};
+
+bpf_map_t SEC("maps") inner_map = {
+        .type                   = BPF_MAP_TYPE_ARRAY,
+        .key_size               = sizeof(__u32),
+        .value_size             = 1300,
+        .max_entries   	 	= 1,
 };
 
 #if 1
@@ -102,6 +111,7 @@ void * kmesh_get_ptr_val(const void *ptr)
 	__u32 inner_idx = 0;
 	__u64 idx = (__u64)ptr;
 
+	BPF_LOG(DEBUG, COMMON, "idx=%lu,%d\n", idx, __LINE__);
 	if (!ptr) {
 		return NULL;
 	}

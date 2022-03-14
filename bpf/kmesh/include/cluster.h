@@ -104,7 +104,7 @@ int cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct clu
 		}
 
 		/* store ep identify */
-		cluster_set_ep_identity(cluster_eps->ep_num, (__u64)_(ep_ptrs + i), cluster_eps->ep_identity);
+		cluster_set_ep_identity(cluster_eps->ep_num, (__u64)*((__u64*)ep_ptrs + i), cluster_eps->ep_identity);
 		cluster_eps->ep_num++;
 	}
 	return 0;
@@ -129,8 +129,12 @@ __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignment *cla)
 		if (i >= cla->n_endpoints) {
 			break;
 		}
+		
+		ptrs = (void*)((__u64*)ptrs + i);
+		if (!ptrs)
+			break;
 
-		lb_ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val(_(ptrs + i));
+		lb_ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val(*(__u64*)ptrs);
 		if (!lb_ep) {
 			continue;
 		}
@@ -156,6 +160,7 @@ int cluster_init_endpoints(const char *cluster_name,
 		BPF_LOG(ERR, CLUSTER, "invalid cluster ep num %d\n", cluster_eps.ep_num);
 		return -1;
 	}
+
 	cluster_eps.lb_policy = lb_policy;
 	cluster_eps.last_round_robin_idx = 0;
 
@@ -171,7 +176,7 @@ int cluster_init_endpoints(const char *cluster_name,
 			break;
 		}
 
-		ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val(_(ptrs + i));
+		ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void*)(*(__u64*)ptrs + i));
 		if (!ep) {
 			continue;
 		}

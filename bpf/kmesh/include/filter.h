@@ -71,18 +71,17 @@ int filter_chain_filter_match(const Listener__FilterChain *filter_chain,
 	nfilter = BPF_MIN(nfilter, KMESH_PER_FILTER_NUM);
 #pragma unroll
 	for (i = 0; i < nfilter; i++) {
-		filter = (Listener__Filter *)kmesh_get_ptr_val(_(ptrs + i));
+		filter = (Listener__Filter *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!filter) {
 			continue;
 		}
 
 		if (filter_match_check(filter, addr, ctx)) {
 			*filter_ptr = filter;
-			*filter_ptr_idx = (__u64)_(ptrs + i);
+			*filter_ptr_idx = (__u64)*((__u64 *)ptrs + i);
 			return 0;
 		}
 	}
 	return -1;
 }
-
 #endif

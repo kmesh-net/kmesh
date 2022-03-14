@@ -50,6 +50,12 @@ func StartKmesh() error {
 		Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
+
+	if err = Obj.Kmesh.ApiEnvCfg(); err != nil {
+                Stop()
+                return fmt.Errorf("api env config failed, %s", err)
+        }
+
 	return nil
 }
 

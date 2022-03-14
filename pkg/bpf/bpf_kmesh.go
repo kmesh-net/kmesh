@@ -23,6 +23,7 @@ import (
 	"openeuler.io/mesh/bpf/kmesh/bpf2go"
 	"os"
 	"reflect"
+	"strconv"
 )
 
 type BpfSockConn struct {
@@ -88,7 +89,7 @@ func setInnerMap(spec *ebpf.CollectionSpec) {
 			v.InnerMap = &ebpf.MapSpec{
 				Type: ebpf.Array,
 				KeySize: 4,
-				ValueSize: 100, // C.BPF_INNER_MAP_DATA_LEN
+				ValueSize: 1300, // C.BPF_INNER_MAP_DATA_LEN
 				MaxEntries: 1,
 			}
 		}
@@ -308,9 +309,46 @@ func (sc *BpfKmesh) Load() error {
 	if err = sc.SockConn.LoadSockConn(); err != nil {
 		return err
 	}
+
 	return nil
 }
 
+func (sc *BpfKmesh) ApiEnvCfg() error{
+	var err error
+	var info* ebpf.MapInfo
+	var id ebpf.MapID
+	info, err = Obj.Kmesh.SockOps.KmeshSockopsMaps.KmeshListener.Info()
+
+	if (err != nil) {
+		return err
+	}
+
+	id, _ = info.ID()
+	string_id := strconv.Itoa(int(id))
+	os.Setenv("Listener", string_id)
+
+	info, _ = Obj.Kmesh.SockOps.KmeshSockopsMaps.OuterMap.Info()
+	id, _ = info.ID()
+	string_id = strconv.Itoa(int(id))
+	os.Setenv("OUTTER_MAP_ID", string_id)
+
+	info, _ = Obj.Kmesh.SockOps.KmeshSockopsMaps.InnerMap.Info()
+	id, _ = info.ID()
+	string_id = strconv.Itoa(int(id))
+	os.Setenv("INNER_MAP_ID", string_id)
+
+	info, _ = Obj.Kmesh.SockOps.MapOfRouterConfig.Info()
+	id, _ = info.ID()
+	string_id = strconv.Itoa(int(id))
+	os.Setenv("RouteConfiguration", string_id)
+
+	info, _ = Obj.Kmesh.SockOps.KmeshCluster.Info()
+	id, _ = info.ID()
+	string_id = strconv.Itoa(int(id))
+	os.Setenv("Cluster", string_id)
+
+	return nil
+}
 func (sc *BpfSockOps) Attach() error {
 	cgopt := link.CgroupOptions {
 		Path:		sc.Info.Cgroup2Path,

@@ -12,6 +12,7 @@
  * Create: 2022-02-14
  */
 
+#include <linux/in.h>
 #include "bpf_log.h"
 #include "listener.h"
 #include "listener/listener.pb-c.h"
@@ -24,7 +25,8 @@
 	address_t name = {0}; \
 	name.ipv4 = (ctx)->user_ip4; \
 	name.port = (ctx)->user_port; \
-	name.protocol = (ctx)->protocol
+	name.protocol = ((ctx)->protocol == IPPROTO_TCP) ?	\
+	CORE__SOCKET_ADDRESS__PROTOCOL__TCP: CORE__SOCKET_ADDRESS__PROTOCOL__UDP
 #endif
 
 static inline
@@ -37,7 +39,13 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
 	listener = map_lookup_listener(&address);
 	if (listener == NULL) {
-		return -ENOENT;
+		BPF_LOG(ERR, KMESH, "sock4_traffic_control first %d:%d\n", address.port, address.protocol);
+		address.ipv4 = 0;
+		listener = map_lookup_listener(&address);
+		if (!listener) {
+			BPF_LOG(ERR, KMESH, "sock4_traffic_control second\n");
+			return -ENOENT;
+		}
 	}
 	
 #if KMESH_ENABLE_HTTP
