@@ -206,7 +206,7 @@ const ProtobufCMessageDescriptor listener__filter__descriptor =
   (ProtobufCMessageInit) listener__filter__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor listener__filter_chain_match__field_descriptors[3] =
+static const ProtobufCFieldDescriptor listener__filter_chain_match__field_descriptors[4] =
 {
   {
     "prefix_ranges",
@@ -233,6 +233,18 @@ static const ProtobufCFieldDescriptor listener__filter_chain_match__field_descri
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
+    "transport_protocol",
+    9,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(Listener__FilterChainMatch, transport_protocol),
+    NULL,
+    &protobuf_c_empty_string,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
     "application_protocols",
     10,
     PROTOBUF_C_LABEL_REPEATED,
@@ -246,16 +258,16 @@ static const ProtobufCFieldDescriptor listener__filter_chain_match__field_descri
   },
 };
 static const unsigned listener__filter_chain_match__field_indices_by_name[] = {
-  2,   /* field[2] = application_protocols */
+  3,   /* field[3] = application_protocols */
   1,   /* field[1] = destination_port */
   0,   /* field[0] = prefix_ranges */
+  2,   /* field[2] = transport_protocol */
 };
-static const ProtobufCIntRange listener__filter_chain_match__number_ranges[3 + 1] =
+static const ProtobufCIntRange listener__filter_chain_match__number_ranges[2 + 1] =
 {
   { 3, 0 },
   { 8, 1 },
-  { 10, 2 },
-  { 0, 3 }
+  { 0, 4 }
 };
 const ProtobufCMessageDescriptor listener__filter_chain_match__descriptor =
 {
@@ -265,10 +277,10 @@ const ProtobufCMessageDescriptor listener__filter_chain_match__descriptor =
   "Listener__FilterChainMatch",
   "listener",
   sizeof(Listener__FilterChainMatch),
-  3,
+  4,
   listener__filter_chain_match__field_descriptors,
   listener__filter_chain_match__field_indices_by_name,
-  3,  listener__filter_chain_match__number_ranges,
+  2,  listener__filter_chain_match__number_ranges,
   (ProtobufCMessageInit) listener__filter_chain_match__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

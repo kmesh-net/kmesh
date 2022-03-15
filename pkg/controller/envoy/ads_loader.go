@@ -183,11 +183,17 @@ func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener
 func newApiFilterChainMatch(match *config_listener_v3.FilterChainMatch) *listener_v2.FilterChainMatch {
 	apiMatch := &listener_v2.FilterChainMatch{
 		DestinationPort: match.GetDestinationPort().GetValue(),
+		TransportProtocol: match.GetTransportProtocol(),
 		ApplicationProtocols: match.GetApplicationProtocols(),
 	}
 
-	// TODO
-	apiMatch.PrefixRanges = nil
+	for _, prefixRange := range match.GetPrefixRanges() {
+		apiMatch.PrefixRanges = append(apiMatch.PrefixRanges, &core_v2.CidrRange{
+			AddressPrefix: prefixRange.GetAddressPrefix(),
+			PrefixLen: prefixRange.GetPrefixLen().GetValue(),
+		})
+	}
+
 	return apiMatch
 }
 

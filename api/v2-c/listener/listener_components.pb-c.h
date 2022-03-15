@@ -56,12 +56,13 @@ struct  _Listener__FilterChainMatch
   size_t n_prefix_ranges;
   Core__CidrRange **prefix_ranges;
   uint32_t destination_port;
+  char *transport_protocol;
   size_t n_application_protocols;
   char **application_protocols;
 };
 #define LISTENER__FILTER_CHAIN_MATCH__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&listener__filter_chain_match__descriptor) \
-    , 0,NULL, 0, 0,NULL }
+    , 0,NULL, 0, (char *)protobuf_c_empty_string, 0,NULL }
 
 
 struct  _Listener__FilterChain

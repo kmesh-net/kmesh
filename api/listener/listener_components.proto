@@ -18,6 +18,7 @@ message Filter {
 message FilterChainMatch {
   repeated core.CidrRange prefix_ranges = 3;
   uint32 destination_port = 8;
+  string transport_protocol = 9;
   repeated string application_protocols = 10;
 }
 
