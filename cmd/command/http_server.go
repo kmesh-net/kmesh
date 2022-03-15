@@ -24,7 +24,6 @@ import (
 	"openeuler.io/mesh/pkg/controller"
 	"openeuler.io/mesh/pkg/controller/envoy"
 	"openeuler.io/mesh/pkg/options"
-	"time"
 )
 
 type httpServer struct {
@@ -39,8 +38,8 @@ func newHttpServer() *httpServer {
 	s.server = &http.Server{
 		Addr:         adminAddr,
 		Handler:      s.mux,
-		ReadTimeout:  time.Second * 3,
-		WriteTimeout: time.Second * 3,
+		ReadTimeout:  httpTimeout,
+		WriteTimeout: httpTimeout,
 	}
 
 	s.mux.HandleFunc(patternHelp, httpHelp)

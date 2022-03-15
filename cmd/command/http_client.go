@@ -20,7 +20,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"strings"
-	"time"
 )
 
 type httpClient struct {
@@ -43,7 +42,7 @@ func StartClient() error {
 	}
 
 	cmdClient.client = &http.Client{
-		Timeout: time.Second * 3,
+		Timeout: httpTimeout,
 	}
 	cmdClient.resp, err =
 		cmdClient.client.Post(adminUrl + patternBpfKmeshMaps, contentType, strings.NewReader(string(config.ConfigResources)))

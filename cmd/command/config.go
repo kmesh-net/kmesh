@@ -18,6 +18,7 @@ import (
 	"flag"
 	"openeuler.io/mesh/pkg/options"
 	"path/filepath"
+	"time"
 )
 
 const (
@@ -31,6 +32,8 @@ const (
 	patternBpfKmeshMaps         = "/bpf/kmesh/maps"
 	patternControllerEnvoy      = "/controller/envoy"
 	patternControllerKubernetes = "/controller/kubernetes"
+
+	httpTimeout = time.Second * 10
 )
 
 var config Config
