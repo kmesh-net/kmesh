@@ -11,11 +11,11 @@ spec:
   type: NodePort
   ports:
   - name: http
-    nodePort: 30080
+#    nodePort: 30080
     port: 9080
     targetPort: 80
   - name: https
-    nodePort: 30443
+#    nodePort: 30443
     port: 9443
     targetPort: 443
 ---
@@ -47,13 +47,13 @@ spec:
         - protocol: TCP
           containerPort: 80
           containerPort: 433
-#        resources:
-#          limits:
-#            cpu: "2"
-#            memory: 1024Mi
-#          requests:
-#            cpu: "2"
-#            memory: 1024Mi
+        resources:
+          limits:
+            cpu: 2
+            memory: 1Gi
+          requests:
+            cpu: 10m
+            memory: 40Mi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -83,10 +83,10 @@ spec:
         - protocol: TCP
           containerPort: 80
           containerPort: 433
-#        resources:
-#          limits:
-#            cpu: "2"
-#            memory: 1024Mi
-#          requests:
-#            cpu: "2"
-#            memory: 1024Mi
+        resources:
+          limits:
+            cpu: 2
+            memory: 1Gi
+          requests:
+            cpu: 10m
+            memory: 40Mi
