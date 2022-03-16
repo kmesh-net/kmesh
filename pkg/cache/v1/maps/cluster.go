@@ -51,12 +51,19 @@ func ClusterLookup(key *api_v1.MapKey, value *api_v1.Cluster) error {
 
 func ClusterUpdate(key *api_v1.MapKey, value *api_v1.Cluster) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *value)
+    if err := bpf.Obj.XdpBalance.XdpClusterObjects.XdpClusterMaps.Cluster.
+        Update(key, &clusterToClang(value).Entry, ebpf.UpdateAny); err != nil {
+        log.Errorf("Update xdp cluster failed [%#v], [%#v], err:%s", *key, *value, err)
+    }
 	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Cluster.
 		Update(key, &clusterToClang(value).Entry, ebpf.UpdateAny)
 }
 
 func ClusterDelete(key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v]", *key)
+    if err := bpf.Obj.XdpBalance.XdpClusterObjects.XdpClusterMaps.Cluster.Delete(key); err != nil {
+        log.Errorf("Delete xdp cluster failed [%#v],err:%s", *key, err)
+    }
 	return bpf.Obj.Slb.ClusterObjects.ClusterMaps.Cluster.
 		Delete(key)
 }

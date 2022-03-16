@@ -3,7 +3,7 @@ module openeuler.io/mesh
 go 1.16
 
 require (
-	github.com/cilium/ebpf v0.7.0
+	github.com/cilium/ebpf v0.8.0
 	github.com/envoyproxy/go-control-plane v0.10.1
 	github.com/golang/protobuf v1.5.2
 	github.com/google/martian v2.1.0+incompatible

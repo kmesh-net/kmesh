@@ -56,12 +56,21 @@ func ListenerLookup(key *api_v1.Address, value *api_v1.Listener) error {
 
 func ListenerUpdate(key *api_v1.Address, value *api_v1.Listener) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *value)
+	//todo xsy
+	if err := bpf.Obj.XdpBalance.XdpBalanceObjects.XdpBalanceMaps.Listener.
+		Update(key, &listenerToClang(value).Entry, ebpf.UpdateAny); err != nil {
+		log.Errorf("Update xdp listener failed,[%#v], [%#v],err:%s", *key, *value, err)
+	}
 	return bpf.Obj.Slb.CgroupSockObjects.CgroupSockMaps.Listener.
 		Update(key, &listenerToClang(value).Entry, ebpf.UpdateAny)
 }
 
 func ListenerDelete(key *api_v1.Address) error {
 	log.Debugf("Delete [%#v]", *key)
+	//todo xsy
+	if err := bpf.Obj.XdpBalance.XdpBalanceObjects.XdpBalanceMaps.Listener.Delete(key); err != nil {
+		log.Errorf("Delete xdp listener failed,[%#v],err:%s", *key, err)
+	}
 	return bpf.Obj.Slb.CgroupSockObjects.CgroupSockMaps.Listener.
 		Delete(key)
 }

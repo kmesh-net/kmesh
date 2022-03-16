@@ -18,3 +18,6 @@ package bpf2go
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE CgroupSock ../cgroup_sock.c -- -I../../include -I../../../api/v1-c
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE Filter ../filter.c -- -I../../include -I../../../api/v1-c
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE Cluster ../cluster.c -- -I../../include -I../../../api/v1-c
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE XdpBalance ../xdp_load_balance.c  -- -I../../include -I../../../api/v1-c -D XDP_ACCELERATE_ENABLE
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE XdpCluster ../cluster.c -- -I../../include -I../../../api/v1-c -D XDP_ACCELERATE_ENABLE
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE TcXdpRevnat ../tc_xdp_revnat.c -- -I../../include -I../../../api/v1-c -D XDP_ACCELERATE_ENABLE

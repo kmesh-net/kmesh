@@ -15,6 +15,8 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
+#include <linux/bpf.h>
+
 // ************
 // options
 #define KMESH_MODULE_ON			1
@@ -69,7 +71,7 @@
 #define map_of_endpoint			endpoint
 #define map_of_tail_call_prog	tail_call_prog
 #define map_of_tail_call_ctx	tail_call_ctx
-
+#define map_of_tuple_ct         tuple_ct
 
 // ************
 // bpf return value
@@ -81,15 +83,20 @@ int convert_sock_errno(int err)
     return err == 0 ? CGROUP_SOCK_OK : CGROUP_SOCK_ERR;
 }
 
-#if 0
-typedef struct sk_msg_md		ctx_buff_t;
+static inline
+int convert_xdp_error(int ret)
+{
+    return ret < 0 ? XDP_ABORTED : ret;
+}
+
+#ifdef XDP_ACCELERATE_ENABLE
+typedef struct xdp_md		ctx_buff_t;
+//todo instead of parse_xdp_address
 #define DECLARE_VAR_ADDRESS(ctx, name) \
-	address_t name = {0}; \
-	name.ipv4 = (ctx)->remote_ip4; \
-	name.port = (ctx)->remote_port
+	address_t name = {0};
 #define SET_CTX_ADDRESS(ctx, address) \
-	(ctx)->remote_ip4  = (address)->ipv4; \
-	(ctx)->remote_port = (address)->port
+/*	(ctx)->remote_ip4  = (address)->ipv4; \
+	(ctx)->remote_port = (address)->port*/
 #else
 typedef struct bpf_sock_addr	ctx_buff_t;
 #define DECLARE_VAR_ADDRESS(ctx, name) \

@@ -18,6 +18,11 @@ import (
 	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"openeuler.io/mesh/pkg/logger"
+)
+
+var (
+	log = logger.NewLoggerField("pkg/bpf")
 )
 
 type BpfInfo struct {
@@ -30,6 +35,7 @@ type BpfInfo struct {
 type BpfObject struct {
 	Kmesh BpfKmesh
 	Slb BpfSlb
+	XdpBalance  BpfXdpBalance
 }
 
 var Obj BpfObject
@@ -95,6 +101,10 @@ func Start() error {
 		if err = StartSlb(); err != nil {
 			return err
 		}
+		if err = StartXdpBalance(); err != nil {
+			Stop()
+			return fmt.Errorf("bpf StartXdpBalance failed, %s", err)
+		}
 	}
 
 	return nil
@@ -110,10 +120,29 @@ func Stop() error {
 	}
 
 	if config.EnableSlb {
+		if err := Obj.XdpBalance.Detach(); err != nil {
+			log.Error("failed to detach XdpBalance, err:%s", err)
+		}
 		if err = Obj.Slb.Detach(); err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+func StartXdpBalance() error {
+	var err error
+	if Obj.XdpBalance, err = NewXdpBalance(&config); err != nil {
+		return err
+	}
+
+	if err = Obj.XdpBalance.Load(); err != nil {
+		return fmt.Errorf("bpf xdp_banlance Load failed, %s", err)
+	}
+
+	if err = Obj.XdpBalance.Attach(); err != nil {
+		return fmt.Errorf("bpf xdp_banlance Attach failed, %s", err)
+	}
 	return nil
 }

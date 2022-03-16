@@ -16,6 +16,7 @@ package kubernetes
 
 import (
 	"fmt"
+	"golang.org/x/time/rate"
 	api_core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -129,12 +130,17 @@ func (c *ApiserverClient) enqueueForDelete(obj interface{}) {
 func NewApiserverClient(clientSet kubernetes.Interface) (*ApiserverClient, error) {
 	factory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
 
+	rateLimiter := workqueue.NewMaxOfRateLimiter(
+		workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second),
+		// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(200), 500)},
+	)
 	c := &ApiserverClient{
 		factory: factory,
 		serviceInformer: factory.Core().V1().Services(),
 		endpointInformer: factory.Core().V1().Endpoints(),
 		nodeInformer: factory.Core().V1().Nodes(),
-		queue: workqueue.NewNamedRateLimitingQueue(workqueue.DefaultControllerRateLimiter(), "ApiserverClient"),
+		queue: workqueue.NewNamedRateLimitingQueue(rateLimiter, "ApiserverClient"),
 	}
 
 	handler := cache.ResourceEventHandlerFuncs{

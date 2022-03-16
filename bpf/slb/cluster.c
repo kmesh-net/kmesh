@@ -16,6 +16,7 @@
 #include "cluster.h"
 #include "endpoint.h"
 #include "tail_call.h"
+#include "xdp.h"
 
 static inline
 int cluster_handle_circuit_breaker(cluster_t *cluster)
@@ -89,7 +90,10 @@ endpoint_t *loadbalance_least_request(load_assignment_t *load_assignment)
 }
 
 static inline
-int cluster_handle_loadbalance(ctx_buff_t *ctx, load_assignment_t *load_assignment)
+int cluster_handle_loadbalance(ctx_buff_t *ctx,
+                               load_assignment_t *load_assignment,
+                               address_t* src_address bpf_unused,
+                               address_t* origin_dst bpf_unused)
 {
 	endpoint_t *endpoint = NULL;
 
@@ -117,9 +121,12 @@ int cluster_handle_loadbalance(ctx_buff_t *ctx, load_assignment_t *load_assignme
 	BPF_LOG(DEBUG, KMESH, "endpoint.address, ipv4 %u, port %u\n",
 		endpoint->address.ipv4, endpoint->address.port);
 
+#ifdef XDP_ACCELERATE_ENABLE
+	return xdp_dnat(ctx, src_address, origin_dst, &endpoint->address, true);
+#else
 	SET_CTX_ADDRESS(ctx, &endpoint->address);
-
-	return 0;
+    return 0;
+#endif
 }
 
 SEC_TAIL(KMESH_SOCKET_CALLS, KMESH_TAIL_CALL_CLUSTER)
@@ -129,25 +136,39 @@ int cluster_manager(ctx_buff_t *ctx)
 	map_key_t *pkey = NULL;
 	ctx_key_t ctx_key;
 	cluster_t *cluster = NULL;
+    address_t src_address = {0};
 
-	DECLARE_VAR_ADDRESS(ctx, address);
+#ifdef XDP_ACCELERATE_ENABLE
+    address_t address = {0};
+    parse_xdp_address(ctx, false, &src_address, &address);
+#else
+    DECLARE_VAR_ADDRESS(ctx, address);
+#endif
 
 	ctx_key.address = address;
 	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER;
-
+    BPF_LOG(DEBUG, KMESH, "cluster_manager., ip %u, port %u\n",
+            address.ipv4, address.port);
 	pkey = kmesh_tail_lookup_ctx(&ctx_key);
 	if (pkey == NULL)
 		return convert_sock_errno(ENOENT);
 
 	cluster = map_lookup_cluster(pkey);
 	kmesh_tail_delete_ctx(&ctx_key);
-	if (cluster == NULL)
-		return convert_sock_errno(ENOENT);
+	if (cluster == NULL) {
+        BPF_LOG(DEBUG, KMESH, "cluster_manager.can not find cluster; ip %u, port %u\n",
+                address.ipv4, address.port);
+        return convert_sock_errno(ENOENT);
+    }
 
 	if (cluster_handle_circuit_breaker(cluster) != 0)
 		return convert_sock_errno(EBUSY);
 
-	ret = cluster_handle_loadbalance(ctx, &cluster->load_assignment);
+	ret = cluster_handle_loadbalance(ctx, &cluster->load_assignment, &src_address, &address);
+#ifdef XDP_ACCELERATE_ENABLE
+    BPF_LOG(DEBUG, KMESH, "xdp_cluster_manager.ret %u\n", ret);
+    return convert_xdp_error(ret);
+#endif
 	return convert_sock_errno(ret);
 }
 
