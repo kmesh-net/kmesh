@@ -39,15 +39,41 @@ Route__RouteConfiguration * map_lookup_route_config(const char *route_name)
 }
 
 static inline 
-int virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx)
+int virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
-	return 1;
+	int i;
+	void *domains = NULL;
+	void *domain = NULL;
+	void *ptr;
+
+	ptr = _(msg->ptr);
+	if (!ptr)
+		return 0;
+
+	if (!virt_host->domains)
+		return 0;
+
+	domains = kmesh_get_ptr_val(_(virt_host->domains));
+	if (!domains)
+		return 0;
+
+#pragma unroll
+	for (i = 0; i < KMESH_HTTP_DOMAIN_NUM; i++) {
+		domain = kmesh_get_ptr_val((void*)*((__u64*)domains + i));
+		if (!domain)
+			return 0;
+		if (bpf_strstr(ptr, domain) != NULL)
+			return 1;
+	}
+
+	return 0;
 }
 
 static inline
 Route__VirtualHost * virtual_host_match(Route__RouteConfiguration *route_config, 
-										address_t *addr, 
-										ctx_buff_t *ctx)
+					address_t *addr, 
+					ctx_buff_t *ctx,
+					struct bpf_mem_ptr *msg)
 {
 	int i;
 	void *ptrs = NULL;
@@ -73,7 +99,7 @@ Route__VirtualHost * virtual_host_match(Route__RouteConfiguration *route_config,
 			continue;
 		}
 
-		if (virtual_host_match_check(virt_host, addr, ctx)) {
+		if (virtual_host_match_check(virt_host, addr, ctx, msg)) {
 			return virt_host;
 		}
 	}
@@ -81,13 +107,32 @@ Route__VirtualHost * virtual_host_match(Route__RouteConfiguration *route_config,
 }
 
 static inline
-int virtual_host_route_match_check(Route__Route *route, address_t *addr, ctx_buff_t *ctx)
+int virtual_host_route_match_check(Route__Route *route, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
-	return 1;
+	Route__RouteMatch *match;
+	char *prefix;
+	void *ptr;
+
+	ptr = _(msg->ptr);
+	if (!ptr)
+		return 0;
+
+	if (!route->match)
+		return 0;
+
+	match = kmesh_get_ptr_val(route->match);
+	if (!match)
+		return 0;
+
+	prefix = kmesh_get_ptr_val(match->prefix);
+	if (!prefix)
+		return 0;
+
+	return (bpf_strstr(ptr, prefix) != NULL);
 }
 
 static inline
-Route__Route * virtual_host_route_match(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx)
+Route__Route * virtual_host_route_match(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
 	int i;
 	void *ptrs = NULL;
@@ -113,7 +158,7 @@ Route__Route * virtual_host_route_match(Route__VirtualHost *virt_host, address_t
 			continue;
 		}
 
-		if (virtual_host_route_match_check(route, addr, ctx)) {
+		if (virtual_host_route_match_check(route, addr, ctx, msg)) {
 			return route;
 		}
 	}

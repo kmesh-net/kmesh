@@ -30,7 +30,8 @@
 #define BPF_LOGTYPE_ROUTER_CONFIG   BPF_DEBUG_ON
 #define BPF_LOGTYPE_COMMON		BPF_DEBUG_ON
 
-#define BPF_DATA_MAX_LEN			256
+#define BPF_DATA_MAX_LEN			226 /* this value should be
+						       small that make compile success */
 #define BPF_INNER_MAP_DATA_LEN	  100
 
 

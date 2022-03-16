@@ -57,6 +57,7 @@ typedef struct {
 		__u64 val;
 		char data[BPF_DATA_MAX_LEN];
 	};
+	struct bpf_mem_ptr *msg;
 } ctx_val_t;
 
 // save temporary variables of tail_call

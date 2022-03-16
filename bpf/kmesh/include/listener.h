@@ -34,22 +34,50 @@ Listener__Listener * map_lookup_listener(const address_t *addr)
 
 static inline
 int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain, 
-									  const address_t * addr, 
-									  const ctx_buff_t *ctx)
+						  const address_t * addr, 
+						  const ctx_buff_t *ctx)
 {
+#define BUF_SIZE 64
+
 	Listener__FilterChainMatch * filter_chain_match = kmesh_get_ptr_val(filter_chain->filter_chain_match);
-	if (filter_chain_match && (filter_chain_match->destination_port == addr->port)) {
+	char *transport_protocol;
+	char *temp;
+	int ret = 0;
+
+	if (!filter_chain_match)
+		return 0;
+
+	temp = kmesh_map_lookup_elem(&inner_map, &ret);
+	if (!temp) {
+		BPF_LOG(ERR, LISTENER, "temp is NULL\n");
+		return 0;
+	}
+
+	transport_protocol = kmesh_get_ptr_val(filter_chain_match->transport_protocol);
+	if (!transport_protocol) {
+		BPF_LOG(ERR, LISTENER, "transport_protocol is NULL\n");
+		return 0;
+	}
+
+	ret = bpf_strcpy(temp, BUF_SIZE, transport_protocol);
+	if (ret != 0) {
+		BPF_LOG(ERR, LISTENER, "transport_protocol(%s) copy failed:%d\n", temp, ret);
+		return 0;
+	}
+
+	if ((filter_chain_match->destination_port == addr->port) &&
+		bpf_strcmp(temp, "raw_buffer") == 0) {
 		return 1;
 	}
-	return 1;
+	return 0;
 }
 
 static inline 
 int listener_filter_chain_match(const Listener__Listener *listener, 
-													const address_t *addr, 
-													const ctx_buff_t *ctx,
-													Listener__FilterChain **filter_chain_ptr,
-													__u64 *filter_chain_idx)
+					const address_t *addr, 
+					const ctx_buff_t *ctx,
+					Listener__FilterChain **filter_chain_ptr,
+					__u64 *filter_chain_idx)
 {
 	int i;
 	void *ptrs = NULL;
@@ -91,7 +119,7 @@ int listener_filter_chain_match(const Listener__Listener *listener,
 }
 
 static inline 
-int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener)
+int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener, struct bpf_mem_ptr *msg)
 {
 	int ret = 0;
 	__u64 filter_chain_idx = 0;
@@ -111,6 +139,7 @@ int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener)
 	ctx_key.address = addr;
 	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN;
 	ctx_val.val = filter_chain_idx;
+	ctx_val.msg = msg;
 	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);
 	if (ret != 0) {
 		BPF_LOG(ERR, LISTENER, "kmesh tail update failed:%d\n", ret);

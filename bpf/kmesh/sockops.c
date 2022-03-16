@@ -35,7 +35,7 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
 		}
 	}
 
-	return l7_listener_manager(skops, listener);
+	return l7_listener_manager(skops, listener, msg);
 }
 
 SEC("sockops")

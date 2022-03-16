@@ -18,7 +18,7 @@
 
 static inline
 int handle_http_connection_manager(
-	const Filter__HttpConnectionManager *http_conn, const address_t *addr, const ctx_buff_t *ctx)
+	const Filter__HttpConnectionManager *http_conn, const address_t *addr, const ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
 	int ret;
 	char *route_name = NULL;
@@ -40,6 +40,7 @@ int handle_http_connection_manager(
 
 	ctx_key.address = *addr;
 	ctx_key.tail_call_index = KMESH_TAIL_CALL_ROUTER_CONFIG;
+	ctx_val.msg = msg;
 	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);
 	if (ret != 0) {
 		return -1;
@@ -88,7 +89,7 @@ int filter_manager(ctx_buff_t *ctx)
 				ret = -1;
 				break;
 			}
-			ret = handle_http_connection_manager(http_conn, &addr, ctx);
+			ret = handle_http_connection_manager(http_conn, &addr, ctx, ctx_val->msg);
 			break;
 		case LISTENER__FILTER__CONFIG_TYPE_TCP_PROXY:
 			break;
@@ -136,6 +137,7 @@ int filter_chain_manager(ctx_buff_t *ctx)
 	ctx_key.address = addr;
 	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER;
 	ctx_val.val = filter_idx;
+	ctx_val.msg = ctx_val_ptr->msg;
 	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);
 	if (ret != 0) {
 		BPF_LOG(ERR, FILTERCHAIN, "kmesh_tail_update_ctx failed:%d\n", ret);

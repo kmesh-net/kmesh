@@ -57,13 +57,13 @@ int route_config_manager(ctx_buff_t *ctx)
 		return convert_sockops_ret(-1);
 	}
 
-	virt_host = virtual_host_match(route_config, &addr, ctx);
+	virt_host = virtual_host_match(route_config, &addr, ctx, (struct bpf_mem_ptr *)ctx_val->msg);
 	if (!virt_host) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get virtual host\n");
 		return convert_sockops_ret(-1);
 	}
 
-	route = virtual_host_route_match(virt_host, &addr, ctx);
+	route = virtual_host_route_match(virt_host, &addr, ctx, (struct bpf_mem_ptr *)ctx_val->msg);
 	if (!route) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get route action\n");
 		return convert_sockops_ret(-1);
