@@ -74,7 +74,7 @@ int tc_xdp_rev_nat(struct __sk_buff *skb) {
         return TC_ACT_OK;
     }
 
-    BPF_LOG(DEBUG, KMESH, "tc_xdp_rev_nat:ori gin src %u:%u,p rotocol=%u", tuple.src_ipv4,tuple.src_port,tuple.protocol);
+    BPF_LOG(DEBUG, KMESH, "tc_xdp_rev_nat:origin src %u:%u,p rotocol=%u", tuple.src_ipv4,tuple.src_port,tuple.protocol);
     BPF_LOG(DEBUG, KMESH, "tc_xdp_rev_nat:dst %u:%u", tuple.dst_ipv4,tuple.dst_port);
 
 
