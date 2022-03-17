@@ -43,4 +43,4 @@ address_t* map_lookup_tuple_in_tc(const tuple_t* tuple)
     return bpf_map_lookup_elem(&map_of_tuple_ct, tuple);
 }
 
-#endif //_TUPLE_H_
+#endif // _TUPLE_H_

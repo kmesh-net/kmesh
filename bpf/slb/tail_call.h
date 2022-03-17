@@ -23,7 +23,7 @@
 #define MAP_SIZE_OF_TAIL_CALL_PROG		32
 #define MAP_SIZE_OF_TAIL_CALL_CTX		256
 
-#define KMESH_SOCKET_CALLS				cgroup/connect4
+#define KMESH_SOCKET_CALLS				(cgroup/connect4)
 
 typedef enum {
 	KMESH_TAIL_CALL_LISTENER = 1,
@@ -79,4 +79,4 @@ int kmesh_tail_update_ctx(const ctx_key_t *key, const map_key_t *value)
 	return bpf_map_update_elem(&map_of_tail_call_ctx, key, value, BPF_ANY);
 }
 
-#endif //_TAIL_CALL_H_
+#endif // _TAIL_CALL_H_

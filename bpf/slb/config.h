@@ -91,21 +91,25 @@ int convert_xdp_error(int ret)
 
 #ifdef XDP_ACCELERATE_ENABLE
 typedef struct xdp_md		ctx_buff_t;
-//todo instead of parse_xdp_address
+// todo instead of parse_xdp_address
 #define DECLARE_VAR_ADDRESS(ctx, name) \
 	address_t name = {0};
 #define SET_CTX_ADDRESS(ctx, address) \
 /*	(ctx)->remote_ip4  = (address)->ipv4; \
-	(ctx)->remote_port = (address)->port*/
+	(ctx)->remote_port = (address)->port */
 #else
 typedef struct bpf_sock_addr	ctx_buff_t;
 #define DECLARE_VAR_ADDRESS(ctx, name) \
+do { \
 	address_t name = {0}; \
 	name.ipv4 = (ctx)->user_ip4; \
-	name.port = (ctx)->user_port
+	name.port = (ctx)->user_port \
+} while (0)
 #define SET_CTX_ADDRESS(ctx, address) \
+do { \
 	(ctx)->user_ip4  = (address)->ipv4; \
-	(ctx)->user_port = (address)->port
+	(ctx)->user_port = (address)->port \
+} while (0)
 #endif
 
-#endif //_CONFIG_H_
+#endif // _CONFIG_H_

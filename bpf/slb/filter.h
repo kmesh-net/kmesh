@@ -50,8 +50,8 @@ filter_chain_t *map_lookup_filter_chain(const map_key_t *map_key)
 static inline
 int filter_chain_match_check(ctx_buff_t *ctx, filter_chain_match_t *filter_chain_match)
 {
-	//TODO
+	// TODO
 	return 0;
 }
 
-#endif //_FILTER_H_
+#endif // _FILTER_H_

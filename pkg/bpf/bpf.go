@@ -21,9 +21,6 @@ import (
 	"openeuler.io/mesh/pkg/logger"
 )
 
-var (
-	log = logger.NewLoggerField("pkg/bpf")
-)
 
 type BpfInfo struct {
 	Config
@@ -121,7 +118,7 @@ func Stop() error {
 
 	if config.EnableSlb {
 		if err := Obj.XdpBalance.Detach(); err != nil {
-			log.Error("failed to detach XdpBalance, err:%s", err)
+			return fmt.Errorf("failed to detach XdpBalance, err:%s", err)
 		}
 		if err = Obj.Slb.Detach(); err != nil {
 			return err

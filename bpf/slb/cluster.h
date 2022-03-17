@@ -33,4 +33,4 @@ cluster_t *map_lookup_cluster(const map_key_t *map_key)
 	return kmesh_map_lookup_elem(&map_of_cluster, map_key);
 }
 
-#endif //_CLUSTER_H_
+#endif // _CLUSTER_H_

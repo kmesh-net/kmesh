@@ -95,4 +95,4 @@ int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	return 0;
 }
 
-#endif //_LISTENER_H_
+#endif // _LISTENER_H_

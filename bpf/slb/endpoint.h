@@ -52,4 +52,4 @@ int map_update_loadbalance(const map_key_t *map_key, const loadbalance_t *value)
 	return kmesh_map_update_elem(&map_of_loadbalance, map_key, value);
 }
 
-#endif //_ENDPOINT_H_
+#endif // _ENDPOINT_H_

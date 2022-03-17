@@ -21,7 +21,7 @@ static inline
 int handle_http_connection_manager(
 	ctx_buff_t *ctx, http_connection_manager_t *http_connection_manager)
 {
-	//TODO
+	// TODO
 	return 0;
 }
 
@@ -29,7 +29,7 @@ static inline
 int handle_ratelimit(
 	ctx_buff_t *ctx, ratelimit_t *ratelimit)
 {
-	//TODO
+	// TODO
 	return 0;
 }
 

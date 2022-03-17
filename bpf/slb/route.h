@@ -139,4 +139,4 @@ int rds_manager(ctx_buff_t *ctx, rds_t *rds)
 	return route_config_manager(ctx, &rds->route_config);
 }
 
-#endif //_ROUTER_H_
+#endif // _ROUTER_H_

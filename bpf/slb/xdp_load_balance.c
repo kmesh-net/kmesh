@@ -12,7 +12,8 @@
 #include "xdp.h"
 
 static inline
-int l4_manager(struct xdp_md* xdp_ctx, address_t* dst_address, listener_t *listener) {
+int l4_manager(struct xdp_md* xdp_ctx, address_t* dst_address, listener_t *listener)
+{
     map_key_t cluster_map_key;
     ctx_key_t ctx_key;
     if (listener->state & LISTENER_STATE_PASSIVE) {
@@ -31,7 +32,8 @@ int l4_manager(struct xdp_md* xdp_ctx, address_t* dst_address, listener_t *liste
     return  0;
 }
 static inline
-int redirect_to_endpoints(struct xdp_md* xdp_ctx, address_t* src_address, address_t* dst_address) {
+int redirect_to_endpoints(struct xdp_md* xdp_ctx, address_t* src_address, address_t* dst_address)
+{
     int ret;
     listener_t *listener = NULL;
     address_t *target = NULL;
@@ -68,7 +70,8 @@ int redirect_to_endpoints(struct xdp_md* xdp_ctx, address_t* src_address, addres
 }
 
 static inline
-int process_packet(struct xdp_md* xdp_ctx) {
+int process_packet(struct xdp_md* xdp_ctx)
+{
 
     address_t dst_addr = {0};
     address_t src_addr = {0};
@@ -78,7 +81,6 @@ int process_packet(struct xdp_md* xdp_ctx) {
         BPF_LOG(DEBUG, KMESH, "parse_xdp_address return %u\n", ret);
         return ret;
     }
-    //BPF_LOG(DEBUG, KMESH, "redirect_to_endpoints dst %u\n", dst_addr.ipv4);
     return redirect_to_endpoints(xdp_ctx,  &src_addr, &dst_addr);
 
 }
@@ -90,7 +92,6 @@ int xdp_load_balance(struct xdp_md *ctx)
     void* data = (void*)(unsigned long)ctx->data;
     void* data_end = (void*)(unsigned long)ctx->data_end;
     struct ethhdr* eth = data;
-    //BPF_LOG(DEBUG, KMESH, "xdp_load_balance enter\n");
 
     if ((void*)(eth + 1) > data_end) {
         // bogus packet, len less than minimum ethernet frame size
@@ -98,7 +99,7 @@ int xdp_load_balance(struct xdp_md *ctx)
         return XDP_DROP;
     }
 
-    //only support ipv4 now
+    // only support ipv4 now
     if (eth->h_proto == bpf_htons(ETH_P_IP)) {
         return process_packet(ctx);
     } else {

@@ -8,7 +8,7 @@
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
  * See the Mulan PSL v2 for more details.
- * Author: 355931
+ * Author: superCharge
  * Create: 2022-1-12
  */
 #ifndef _XDP_H_
@@ -23,7 +23,7 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 
-#define XDP_FURTHER_PROCESSING -1
+#define XDP_FURTHER_PROCESSING (-1)
 #define __CTX_OFF_MAX			0xff
 
 bpf_map_t SEC("maps") map_of_tuple_ct = {
@@ -37,21 +37,18 @@ bpf_map_t SEC("maps") map_of_tuple_ct = {
 static inline
 address_t* map_lookup_tuple_ct(const tuple_t* tuple)
 {
-    //return bpf_map_lookup_elem(&map_of_tuple_ct, tuple);
     return kmesh_map_lookup_elem(&map_of_tuple_ct, tuple);
 }
 
 static inline
 int map_update_tuple_ct(const tuple_t* tuple, address_t* target)
 {
-    //return bpf_map_update_elem(&map_of_tuple_ct, tuple, target, BPF_ANY);
     return kmesh_map_update_elem(&map_of_tuple_ct, tuple, target);
 }
 
 static inline
 int map_delete_tuple_ct(const tuple_t* tuple)
 {
-    //return bpf_map_delete_elem(&map_of_tuple_ct, tuple);
     return kmesh_map_delete_elem(&map_of_tuple_ct, tuple);
 }
 
@@ -165,7 +162,8 @@ xdp_l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 
 
 static inline
-int xdp_l3_dnat(void* data, void* data_end, __u32 daddr) {
+int xdp_l3_dnat(void* data, void* data_end, __u32 daddr)
+{
     struct iphdr* iph;
     iph = data + sizeof(struct ethhdr);
     if ((void*) (iph + 1) > data_end) {
@@ -178,7 +176,8 @@ int xdp_l3_dnat(void* data, void* data_end, __u32 daddr) {
 }
 
 static inline
-int xdp_l4_dnat(void * data, void * data_end, __u32 off_set, __u32 dport) {
+int xdp_l4_dnat(void * data, void * data_end, __u32 off_set, __u32 dport)
+{
     struct tcphdr * tcp;
     tcp = data + off_set;
     if ((void*)(tcp + 1) > data_end) {
@@ -194,7 +193,8 @@ static inline
 int parse_xdp_address(struct xdp_md* xdp_ctx,
                       bool is_ipv6,
                       address_t* src_addr,
-                      address_t* dst_addr ) {
+                      address_t* dst_addr )
+{
 
     struct tcphdr* tcph;
     void* data = (void*)(unsigned long)xdp_ctx->data;
@@ -235,7 +235,8 @@ int xdp_dnat(struct xdp_md* xdp_ctx,
              address_t* src_address,
              address_t* origin_dst,
              address_t* backend,
-             bool add_tc) {
+             bool add_tc)
+{
     void* data;
     void* data_end;
     __u32 l3_off;
@@ -282,24 +283,24 @@ int xdp_dnat(struct xdp_md* xdp_ctx,
                         BPF_F_PSEUDO_HDR) < 0)
         return -1;
 
-    if (XDP_ABORTED == xdp_l4_dnat(data, data_end, l4_off, backend->port)){
+    if (XDP_ABORTED == xdp_l4_dnat(data, data_end, l4_off, backend->port)) {
         return XDP_ABORTED;
     }
     if (xdp_l4_csum_replace(xdp_ctx, l4_off + offsetof(struct tcphdr, check),
-                            (__be16)origin_dst->port,(__be16) backend->port, sizeof(__be16)) < 0)
+                            (__be16)origin_dst->port, (__be16) backend->port, sizeof(__be16)) < 0)
         return -1;
 
     if (add_tc) {
         DECLARE_TUPLE(src_address, origin_dst, tuple)
         tuple.flags = TUPLE_FLAGS_INGRESS;
-        if(map_update_tuple_ct(&tuple, backend) < 0) {
+        if (map_update_tuple_ct(&tuple, backend) < 0) {
             return -1;
         }
         // insert rev nat record
         DECLARE_TUPLE(backend, src_address, rev_tuple)
         rev_tuple.flags = TUPLE_FLAGS_EGRESS;
         rev_tuple.protocol = src_address->protocol;
-        if(map_update_tuple_ct(&rev_tuple, origin_dst) < 0) {
+        if (map_update_tuple_ct(&rev_tuple, origin_dst) < 0) {
             map_delete_tuple_ct(&tuple);
             return -1;
         }

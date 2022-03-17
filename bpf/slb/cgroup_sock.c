@@ -30,14 +30,13 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	if (listener == NULL) {
 		return -ENOENT;
 	}
-	BPF_LOG(DEBUG, KMESH, "listener.address, ipv4 %u, port %u\n",
-		listener->address.ipv4, listener->address.port);
+	BPF_LOG(DEBUG, KMESH, "listener.address, ipv4 %u, port %u\n", listener->address.ipv4, listener->address.port);
 
 #if KMESH_ENABLE_HTTP
 	ret = l7_listener_manager(ctx, listener);
-#else //KMESH_ENABLE_HTTP
+#else // KMESH_ENABLE_HTTP
 	ret = l4_listener_manager(ctx, listener);
-#endif //KMESH_ENABLE_HTTP
+#endif // KMESH_ENABLE_HTTP
 	if (ret != 0) {
 		BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
 		return ret;
@@ -49,22 +48,12 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 SEC("cgroup/connect4")
 int sock_connect4(struct bpf_sock_addr *ctx)
 {
-	/*
-	struct sk_msg_md {
-		__bpf_md_ptr(void *, data);
-		__bpf_md_ptr(void *, data_end);
-		...
-		__u32 remote_ip4;
-		__u32 remote_port;
-		__u32 size;
-		...
-	}; */
 	sock4_traffic_control(ctx);
 	return CGROUP_SOCK_OK;
 }
 
-#endif //KMESH_ENABLE_TCP
-#endif //KMESH_ENABLE_IPV4
+#endif // KMESH_ENABLE_TCP
+#endif // KMESH_ENABLE_IPV4
 
 char _license[] SEC("license") = "GPL";
 int _version SEC("version") = 1;

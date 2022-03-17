@@ -24,16 +24,13 @@
 #define IP_CSUM_OFF (ETH_HLEN + offsetof(struct iphdr, check))
 #define IP_SRC_OFF (ETH_HLEN + offsetof(struct iphdr, saddr))
 
-/*
-  check whether the packet is of TCP protocol
-*/
-static bool is_ETH_P_IP(void *data_begin, void *data_end){
+static bool is_eth_ip(void *data_begin, void *data_end)
+{
     struct ethhdr *eth = data_begin;
     if ((void *)(eth + 1) > data_end) //
         return false;
     // Check if Ethernet frame has IP packet
-    if (eth->h_proto == bpf_htons(ETH_P_IP))
-    {
+    if (eth->h_proto == bpf_htons(ETH_P_IP)) {
         return true;
     }
     return false;
@@ -50,7 +47,7 @@ int tc_xdp_rev_nat(struct __sk_buff *skb) {
     tuple_t tuple = {0};
     BPF_LOG(DEBUG, KMESH, "tc_xdp_rev_nat:enter");
 
-    if (!is_ETH_P_IP(data,data_end)) {
+    if (!is_eth_ip(data, data_end)) {
         return TC_ACT_OK;
     }
 
@@ -74,11 +71,10 @@ int tc_xdp_rev_nat(struct __sk_buff *skb) {
 
     address_t *revSnatAddr = map_lookup_tuple_in_tc(&tuple);
     if (!revSnatAddr) {
-        //BPF_LOG(DEBUG, KMESH, "tc_xdp_rev_nat:find no s-nat record");
         return TC_ACT_OK;
     }
 
-    BPF_LOG(DEBUG, KMESH, "tc_xdp_rev_nat:origin src %u:%u,protocol=%u", tuple.src_ipv4,tuple.src_port,tuple.protocol);
+    BPF_LOG(DEBUG, KMESH, "tc_xdp_rev_nat:ori gin src %u:%u,p rotocol=%u", tuple.src_ipv4,tuple.src_port,tuple.protocol);
     BPF_LOG(DEBUG, KMESH, "tc_xdp_rev_nat:dst %u:%u", tuple.dst_ipv4,tuple.dst_port);
 
 
@@ -88,7 +84,6 @@ int tc_xdp_rev_nat(struct __sk_buff *skb) {
     __u16 oldSrcPort = tcph->source;
 
 
-    //bpf_l4_csum_replace(skb, TCP_CSUM_OFF, oldSrcIp, newSrcIp, 0x10 | sizeof(newSrcIp));
     bpf_l4_csum_replace(skb, TCP_CSUM_OFF, oldSrcIp, newSrcIp, BPF_F_PSEUDO_HDR);
     bpf_l3_csum_replace(skb, IP_CSUM_OFF, oldSrcIp, newSrcIp, sizeof(newSrcIp));
     bpf_skb_store_bytes(skb, IP_SRC_OFF, &newSrcIp, sizeof(newSrcIp), 0);
