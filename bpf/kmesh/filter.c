@@ -92,6 +92,7 @@ int filter_manager(ctx_buff_t *ctx)
 			ret = handle_http_connection_manager(http_conn, &addr, ctx, ctx_val->msg);
 			break;
 		case LISTENER__FILTER__CONFIG_TYPE_TCP_PROXY:
+			// TODO
 			break;
 		default:
 			break;
@@ -133,6 +134,9 @@ int filter_chain_manager(ctx_buff_t *ctx)
 		BPF_LOG(ERR, FILTERCHAIN, "no match filter\n");
 		return convert_sockops_ret(-1);
 	}
+
+	// FIXME: when filter_manager unsuccessful, 
+	// we should skip back and handle next filter, rather than exit.
 
 	ctx_key.address = addr;
 	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER;

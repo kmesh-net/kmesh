@@ -15,6 +15,7 @@
 package manager
 
 import (
+	"fmt"
 	"openeuler.io/mesh/cmd/command"
 	"openeuler.io/mesh/pkg/bpf"
 	"openeuler.io/mesh/pkg/controller"
@@ -43,7 +44,8 @@ func Execute() {
 	log.Info("options InitDaemonConfig successful")
 
 	if err = bpf.Start(); err != nil {
-		log.Error(err)
+		//log.Error(err)
+		fmt.Println(err)
 		return
 	}
 	log.Info("bpf Start successful")

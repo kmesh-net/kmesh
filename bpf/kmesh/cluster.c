@@ -98,11 +98,9 @@ int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_b
 	Core__SocketAddress *sock_addr = NULL;
 	__u32 lb_policy = cluster->lb_policy;
 
-	BPF_LOG(DEBUG, CLUSTER, "cluster_handle_loadbalance\n");
-
 	name = kmesh_get_ptr_val(cluster->name);
 	if (!name) {
-		BPF_LOG(DEBUG, CLUSTER, "cluster lb_policy %u\n", lb_policy);
+		BPF_LOG(ERR, CLUSTER, "filed to get cluster\n");
 		return -1;
 	}
 
@@ -111,21 +109,20 @@ int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_b
 		BPF_LOG(ERR, CLUSTER, "failed to reflush cluster(%s) endpoints\n", name);
 		return ret;
 	}
-	
+
 	ep_identity = cluster_get_ep_identity_by_lb_policy(name, lb_policy);
 	if (!ep_identity) {
 		BPF_LOG(ERR, CLUSTER, "cluster(%s) lb_policy:%u, handle lb ep failed\n", name, lb_policy);
 		return -EAGAIN;
 	}
 
-	BPF_LOG(DEBUG, CLUSTER, "cluster_handle_loadbalance= %ld,%d\n", (__s64)ep_identity, lb_policy);
 	sock_addr = cluster_get_ep_sock_addr(ep_identity);
 	if (!sock_addr) {
-		BPF_LOG(ERR, CLUSTER, "ep get sock addr failed\n");
+		BPF_LOG(ERR, CLUSTER, "ep get sock addr failed, %ld\n", (__s64)ep_identity);
 		return -EAGAIN;
 	}
 
-	BPF_LOG(DEBUG, CLUSTER, "cluster %s lb endpoint, ipv4 %u, port %u\n", 
+	BPF_LOG(DEBUG, CLUSTER, "cluster=\"%s\", loadbalance to addr=[%u:%u]\n",
 			name, sock_addr->ipv4, sock_addr->port);
 	SET_CTX_ADDRESS(ctx, sock_addr);
 	return 0;

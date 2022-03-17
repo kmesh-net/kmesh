@@ -39,15 +39,16 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
 	listener = map_lookup_listener(&address);
 	if (listener == NULL) {
-		BPF_LOG(ERR, KMESH, "sock4_traffic_control first %d:%d\n", address.port, address.protocol);
 		address.ipv4 = 0;
 		listener = map_lookup_listener(&address);
 		if (!listener) {
-			BPF_LOG(ERR, KMESH, "sock4_traffic_control second\n");
 			return -ENOENT;
 		}
 	}
-	
+
+//	BPF_LOG(DEBUG, KMESH, "sock4_traffic_control listener=\"%s\", addr=[%u:%u]\n",
+//		(char *)kmesh_get_ptr_val(listener->name), ctx->user_ip4, ctx->user_port);
+
 #if KMESH_ENABLE_HTTP
 	return 2;	// defer conn
 #else //KMESH_ENABLE_HTTP

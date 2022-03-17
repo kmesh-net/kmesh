@@ -30,10 +30,12 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
 		listener = map_lookup_listener(&addr);
 		if (!listener) {
 			/* no match vip/nodeport listener */
-			BPF_LOG(ERR, SOCKOPS, "no match listener\n");
 			return 0;
 		}
 	}
+
+	BPF_LOG(DEBUG, SOCKOPS, "sockops_traffic_control listener=\"%s\", addr=[%u:%u]\n",
+		(char *)kmesh_get_ptr_val(listener->name), skops->remote_ip4, skops->remote_port);
 
 	return l7_listener_manager(skops, listener, msg);
 }
@@ -44,7 +46,6 @@ int sockops_prog(struct bpf_sock_ops *skops)
 #define BPF_CONSTRUCT_PTR(low_32, high_32) \
 	(unsigned long long)(((unsigned long long)(high_32) << 32) + (low_32))
 
-	int ret;
 	struct bpf_mem_ptr *msg = NULL;
 	
 	if (skops->family != AF_INET) {
@@ -54,8 +55,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
 	switch (skops->op) {
 		case BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB:
 			msg = (struct bpf_mem_ptr *)BPF_CONSTRUCT_PTR(skops->args[0], skops->args[1]);
-			ret = sockops_traffic_control(skops, msg);
-			BPF_LOG(ERR, SOCKOPS, "sock4_traffic_control ret:%d\n", ret);
+			(void)sockops_traffic_control(skops, msg);
 	}
 	return 0;
 }

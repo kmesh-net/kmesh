@@ -37,40 +37,32 @@ int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain,
 						  const address_t * addr, 
 						  const ctx_buff_t *ctx)
 {
-#define BUF_SIZE 64
-
-	Listener__FilterChainMatch * filter_chain_match = kmesh_get_ptr_val(filter_chain->filter_chain_match);
-	char *transport_protocol;
-	char *temp;
 	int ret = 0;
-	char buf[] = "raw_buffer";
+	char *transport_protocol;
+	const char buf[] = "raw_buffer";
 
+	Listener__FilterChainMatch * filter_chain_match = 
+		kmesh_get_ptr_val(filter_chain->filter_chain_match);
 	if (!filter_chain_match)
 		return 0;
 
-	temp = kmesh_map_lookup_elem(&inner_map, &ret);
-	if (!temp) {
-		BPF_LOG(ERR, LISTENER, "temp is NULL\n");
+	if (filter_chain_match->destination_port != 0 &&
+		filter_chain_match->destination_port != addr->port)
 		return 0;
-	}
 
 	transport_protocol = kmesh_get_ptr_val(filter_chain_match->transport_protocol);
 	if (!transport_protocol) {
 		BPF_LOG(ERR, LISTENER, "transport_protocol is NULL\n");
 		return 0;
-	}
-
-	ret = bpf_strcpy(temp, BUF_SIZE, transport_protocol);
-	if (ret != 0) {
-		BPF_LOG(ERR, LISTENER, "transport_protocol(%s) copy failed:%d\n", temp, ret);
+	} else if (bpf_strcmp(buf, transport_protocol) != 0) {
 		return 0;
 	}
 
-	if ((filter_chain_match->destination_port == addr->port) &&
-		bpf_strcmp(temp, buf) == 0) {
-		return 1;
-	}
-	return 0;
+	// TODO: application_protocols
+
+	BPF_LOG(DEBUG, LISTENER, "match filter_chain, name=\"%s\"\n",
+		(char *)kmesh_get_ptr_val(filter_chain->name));
+	return 1;
 }
 
 static inline 
@@ -85,7 +77,6 @@ int listener_filter_chain_match(const Listener__Listener *listener,
 	size_t n_filter_chains = listener->n_filter_chains;
 	Listener__FilterChain *filter_chain = NULL;
 
-	BPF_LOG(INFO, LISTENER, "enter listener_filter_chain_match\n");
 	if (n_filter_chains == 0 || n_filter_chains > KMESH_PER_FILTER_CHAIN_NUM) {
 		BPF_LOG(ERR, LISTENER, "listener has no filter chains\n");
 		return -1;
@@ -97,16 +88,12 @@ int listener_filter_chain_match(const Listener__Listener *listener,
 		return -1;
 	}
 
-	BPF_LOG(DEBUG, LISTENER, "ptrs = %lu\n", *(__u64*)ptrs);
-
 	n_filter_chains = BPF_MIN(n_filter_chains, KMESH_PER_FILTER_CHAIN_NUM);
-	 BPF_LOG(DEBUG, LISTENER, "n_filter_chains = %d", n_filter_chains);
 
 #pragma unroll
 	for (i = 0; i < n_filter_chains; i++) {
 		filter_chain = (Listener__FilterChain *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!filter_chain) {
-			BPF_LOG(DEBUG, LISTENER, "continue");
 			continue;
 		}
 

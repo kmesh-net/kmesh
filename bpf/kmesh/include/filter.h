@@ -47,8 +47,6 @@ int filter_chain_filter_match(const Listener__FilterChain *filter_chain,
 	void *ptrs = NULL;
 	size_t nfilter = filter_chain->n_filters;
 	Listener__Filter *filter = NULL;
-	
-	BPF_LOG(INFO, FILTERCHAIN, "enter filter_chain_filter_match\n");
 
 	if (!filter_ptr || !filter_ptr_idx) {
 		BPF_LOG(ERR, FILTERCHAIN, "invalid params\n");
@@ -76,6 +74,7 @@ int filter_chain_filter_match(const Listener__FilterChain *filter_chain,
 			continue;
 		}
 
+		// FIXME: repeat on filter_manager
 		if (filter_match_check(filter, addr, ctx)) {
 			*filter_ptr = filter;
 			*filter_ptr_idx = (__u64)*((__u64 *)ptrs + i);

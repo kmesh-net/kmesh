@@ -22,13 +22,13 @@
 
 
 #define BPF_LOGTYPE_LISTENER		BPF_DEBUG_ON
-#define BPF_LOGTYPE_FILTERCHAIN	 BPF_DEBUG_ON
-#define BPF_LOGTYPE_FILTER		  BPF_DEBUG_ON
-#define BPF_LOGTYPE_CLUSTER		 BPF_DEBUG_ON
-#define BPF_LOGTYPE_SOCKOPS		 BPF_DEBUG_ON
-#define BPF_LOGTYPE_ROUTER		  BPF_DEBUG_ON
+#define BPF_LOGTYPE_FILTERCHAIN	 	BPF_DEBUG_ON
+#define BPF_LOGTYPE_FILTER		  	BPF_DEBUG_ON
+#define BPF_LOGTYPE_CLUSTER		 	BPF_DEBUG_ON
+#define BPF_LOGTYPE_SOCKOPS		 	BPF_DEBUG_ON
+#define BPF_LOGTYPE_ROUTER		  	BPF_DEBUG_ON
 #define BPF_LOGTYPE_ROUTER_CONFIG   BPF_DEBUG_ON
-#define BPF_LOGTYPE_COMMON		BPF_DEBUG_ON
+#define BPF_LOGTYPE_COMMON			BPF_DEBUG_OFF
 
 #define BPF_DATA_MAX_LEN			226 /* this value should be
 						       small that make compile success */
@@ -112,7 +112,7 @@ void * kmesh_get_ptr_val(const void *ptr)
 	__u32 inner_idx = 0;
 	__u64 idx = (__u64)ptr;
 
-	BPF_LOG(DEBUG, COMMON, "idx=%lu,%d\n", idx, __LINE__);
+	BPF_LOG(DEBUG, COMMON, "kmesh_get_ptr_val idx=%u\n", idx);
 	if (!ptr) {
 		return NULL;
 	}
