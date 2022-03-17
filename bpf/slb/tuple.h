@@ -37,15 +37,12 @@ typedef struct {
 
 
 #define DECLARE_TUPLE(src, dst, tuple) \
-do { \
     tuple_t tuple = {0}; \
     (tuple).src_ipv4 = (src)->ipv4; \
     (tuple).src_port = (src)->port; \
     (tuple).protocol = (src)->protocol; \
     (tuple).dst_ipv4 = (dst)->ipv4; \
-    (tuple).dst_port = (dst)->port; \
-} while (0)
-
+    (tuple).dst_port = (dst)->port;
 
 static inline
 void parse_tuple(struct iphdr* iph, struct tcphdr* tcph, tuple_t* tuple)

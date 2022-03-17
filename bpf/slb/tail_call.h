@@ -23,7 +23,7 @@
 #define MAP_SIZE_OF_TAIL_CALL_PROG		32
 #define MAP_SIZE_OF_TAIL_CALL_CTX		256
 
-#define KMESH_SOCKET_CALLS				(cgroup/connect4)
+#define KMESH_SOCKET_CALLS				cgroup/connect4
 
 typedef enum {
 	KMESH_TAIL_CALL_LISTENER = 1,

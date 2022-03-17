@@ -100,16 +100,12 @@ typedef struct xdp_md		ctx_buff_t;
 #else
 typedef struct bpf_sock_addr	ctx_buff_t;
 #define DECLARE_VAR_ADDRESS(ctx, name) \
-do { \
 	address_t name = {0}; \
 	name.ipv4 = (ctx)->user_ip4; \
-	name.port = (ctx)->user_port \
-} while (0)
+	name.port = (ctx)->user_port
 #define SET_CTX_ADDRESS(ctx, address) \
-do { \
 	(ctx)->user_ip4  = (address)->ipv4; \
-	(ctx)->user_port = (address)->port \
-} while (0)
+	(ctx)->user_port = (address)->port
 #endif
 
 #endif // _CONFIG_H_
