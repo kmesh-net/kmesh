@@ -43,6 +43,7 @@ int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain,
 	char *transport_protocol;
 	char *temp;
 	int ret = 0;
+	char buf[] = "raw_buffer";
 
 	if (!filter_chain_match)
 		return 0;
@@ -66,7 +67,7 @@ int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain,
 	}
 
 	if ((filter_chain_match->destination_port == addr->port) &&
-		bpf_strcmp(temp, "raw_buffer") == 0) {
+		bpf_strcmp(temp, buf) == 0) {
 		return 1;
 	}
 	return 0;
