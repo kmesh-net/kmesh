@@ -125,7 +125,7 @@ int cluster_handle_loadbalance(ctx_buff_t *ctx,
 	return xdp_dnat(ctx, src_address, origin_dst, &endpoint->address, true);
 #else
 	SET_CTX_ADDRESS(ctx, &endpoint->address);
-    return 0;
+	return 0;
 #endif
 }
 
