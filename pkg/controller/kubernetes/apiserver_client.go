@@ -37,6 +37,12 @@ const (
 	InformerOptAdd = "Add"
 	InformerOptUpdate = "Update"
 	InformerOptDelete = "Delete"
+
+	ClientRsyncDuration         = 30
+	LimiterBaseDelayMillisecond = 5
+	LimiterMaxDelaySecond       = 1000
+	LimiterQps                  = 200
+	LimiterBurst                = 500
 )
 
 type ApiserverClient struct {
@@ -128,12 +134,13 @@ func (c *ApiserverClient) enqueueForDelete(obj interface{}) {
 }
 
 func NewApiserverClient(clientSet kubernetes.Interface) (*ApiserverClient, error) {
-	factory := informers.NewSharedInformerFactory(clientSet, time.Second * 30)
+	factory := informers.NewSharedInformerFactory(clientSet, time.Second *ClientRsyncDuration)
 
 	rateLimiter := workqueue.NewMaxOfRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(5*time.Millisecond, 1000*time.Second),
+		workqueue.NewItemExponentialFailureRateLimiter(LimiterBaseDelayMillisecond * time.Millisecond,
+			LimiterMaxDelaySecond * time.Second),
 		// 10 qps, 100 bucket size.  This is only for retry speed and its only the overall factor (not per item)
-		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(200), 500)},
+		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(LimiterQps), LimiterBurst)},
 	)
 	c := &ApiserverClient{
 		factory: factory,

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
-	"openeuler.io/mesh/pkg/logger"
 )
 
 
