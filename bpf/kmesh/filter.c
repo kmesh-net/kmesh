@@ -18,7 +18,8 @@
 
 static inline
 int handle_http_connection_manager(
-	const Filter__HttpConnectionManager *http_conn, const address_t *addr, const ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
+	const Filter__HttpConnectionManager *http_conn, const address_t *addr,
+	ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
 	int ret;
 	char *route_name = NULL;

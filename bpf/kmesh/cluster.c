@@ -25,39 +25,39 @@ int cluster_handle_circuit_breaker(Cluster__Cluster *cluster, address_t *addr, c
 }
 
 static inline
-void * loadbalance_round_robin(const char *cluster_name)
+void * loadbalance_round_robin(struct cluster_endpoints *eps)
 {
-	struct cluster_endpoints *eps = NULL;
-
-	eps = map_lookup_cluster_eps(cluster_name);
-	if (!eps || eps->ep_num == 0 || eps->ep_num > KMESH_PER_ENDPOINT_NUM) {
+	if (!eps || eps->ep_num == 0) {
 		return NULL;
 	}
 
-	eps->last_round_robin_idx = (eps->last_round_robin_idx + 1) % eps->ep_num;
-	if (eps->last_round_robin_idx >= KMESH_PER_ENDPOINT_NUM) {
-		return NULL;
+	__u32 idx = eps->last_round_robin_idx % eps->ep_num;
+	if (idx >= KMESH_PER_ENDPOINT_NUM) {
+			return NULL;
 	}
-	return (void *)eps->ep_identity[eps->last_round_robin_idx];
+
+	__sync_fetch_and_add(&eps->last_round_robin_idx, 1);
+	return (void *)eps->ep_identity[idx];
 }
 
 static inline
-void *loadbalance_least_request(const char *cluster_name)
+void *loadbalance_least_request(struct cluster_endpoints *eps)
 {
 	// TODO
 	return NULL;
 }
 
 static inline
-void * cluster_get_ep_identity_by_lb_policy(const char *cluster_name, __u32 lb_policy)
+void * cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_policy)
 {
 	void *ep_identity = NULL;
+
 	switch (lb_policy) {
 		case CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN:
-			ep_identity = loadbalance_round_robin(cluster_name);
+			ep_identity = loadbalance_round_robin(eps);
 			break;
 		case CLUSTER__CLUSTER__LB_POLICY__LEAST_REQUEST:
-			ep_identity = loadbalance_least_request(cluster_name);
+			ep_identity = loadbalance_least_request(eps);
 			break;
 		case CLUSTER__CLUSTER__LB_POLICY__RANDOM:
 			// TODO
@@ -96,7 +96,7 @@ int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_b
 	char *name = NULL;
 	void *ep_identity = NULL;
 	Core__SocketAddress *sock_addr = NULL;
-	__u32 lb_policy = cluster->lb_policy;
+	struct cluster_endpoints *eps = NULL;
 
 	name = kmesh_get_ptr_val(cluster->name);
 	if (!name) {
@@ -104,15 +104,15 @@ int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_b
 		return -1;
 	}
 
-	ret = cluster_refresh_endpoints(cluster, name);
-	if (ret != 0) {
+	eps = cluster_refresh_endpoints(cluster, name);
+	if (!eps) {
 		BPF_LOG(ERR, CLUSTER, "failed to reflush cluster(%s) endpoints\n", name);
 		return ret;
 	}
 
-	ep_identity = cluster_get_ep_identity_by_lb_policy(name, lb_policy);
+	ep_identity = cluster_get_ep_identity_by_lb_policy(eps, cluster->lb_policy);
 	if (!ep_identity) {
-		BPF_LOG(ERR, CLUSTER, "cluster(%s) lb_policy:%u, handle lb ep failed\n", name, lb_policy);
+		BPF_LOG(ERR, CLUSTER, "cluster=\"%s\" handle lb failed, %u\n", name);
 		return -EAGAIN;
 	}
 

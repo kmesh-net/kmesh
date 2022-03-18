@@ -34,7 +34,6 @@ struct cluster_endpoints {
 	__u32 ep_num;
 	/*  */
 	__u64 ep_identity[KMESH_PER_ENDPOINT_NUM];
-	__u32 lb_policy;	/*  */
 	union {
 		/* ROUND_ROBIN */
 		__u32 last_round_robin_idx;
@@ -117,24 +116,21 @@ __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignment *cla)
 	__u32 num = 0;
 	void *ptrs = NULL;
 	Endpoint__LocalityLbEndpoints *lb_ep = NULL;
+	size_t n_endpoints = cla->n_endpoints;
 
 	ptrs = kmesh_get_ptr_val(cla->endpoints);
+	if (!ptrs)
+		return -1;
 
-	if (cla->n_endpoints > KMESH_PER_ENDPOINT_NUM) {
-		return 0;
+	if (n_endpoints == 0 || n_endpoints > KMESH_PER_ENDPOINT_NUM) {
+		BPF_LOG(ERR, CLUSTER, "n_endpoints num(%d) invalid\n", n_endpoints);
+		return -1;
 	}
+	n_endpoints = BPF_MIN(cla->n_endpoints, KMESH_PER_ENDPOINT_NUM);
 
 #pragma unroll
-	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-		if (i >= cla->n_endpoints) {
-			break;
-		}
-		
-		ptrs = (void*)((__u64*)ptrs + i);
-		if (!ptrs)
-			break;
-
-		lb_ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val(*(__u64*)ptrs);
+	for (i = 0; i < n_endpoints; i++) {
+		lb_ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!lb_ep) {
 			continue;
 		}
@@ -145,24 +141,14 @@ __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignment *cla)
 }
 
 static inline
-int cluster_init_endpoints(const char *cluster_name, 
-						   __u32 lb_policy, 
-						   const Endpoint__ClusterLoadAssignment *cla)
+int cluster_init_endpoints(const char *cluster_name,  
+						const Endpoint__ClusterLoadAssignment *cla)
 {
 	__u32 i;
 	int ret = 0;
 	void *ptrs = NULL;
 	Endpoint__LocalityLbEndpoints *ep = NULL;
 	struct cluster_endpoints cluster_eps = {0};
-	
-	cluster_eps.ep_num = cluster_get_endpoints_num(cla);
-	if (cluster_eps.ep_num > KMESH_PER_ENDPOINT_NUM || cluster_eps.ep_num == 0) {
-		BPF_LOG(ERR, CLUSTER, "invalid cluster ep num %d\n", cluster_eps.ep_num);
-		return -1;
-	}
-
-	cluster_eps.lb_policy = lb_policy;
-	cluster_eps.last_round_robin_idx = 0;
 
 	ptrs = kmesh_get_ptr_val(cla->endpoints);
 	if (!ptrs) {
@@ -176,14 +162,14 @@ int cluster_init_endpoints(const char *cluster_name,
 			break;
 		}
 
-		ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void*)(*(__u64*)ptrs + i));
+		ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!ep) {
 			continue;
 		}
 
 		ret = cluster_add_endpoints(ep, &cluster_eps);
 		if (ret != 0) {
-			break;
+			return -1;
 		}
 	}
 
@@ -198,18 +184,17 @@ int cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint_
 	void *ptrs = NULL;
 	__u32 lb_num = cluster_get_endpoints_num(cla);
 
-	if (eps->ep_num != lb_num) {
+	if (!eps || eps->ep_num != lb_num) {
 		return 0;
 	}
 
 	ptrs = kmesh_get_ptr_val(cla->endpoints);
+	if (!ptrs)
+		return 0;
+
 	lb_num = BPF_MIN(lb_num, KMESH_PER_ENDPOINT_NUM);
 #pragma unroll
-	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-		if (i > lb_num) {
-			break;
-		}
-
+	for (i = 0; i < lb_num; i++) {
 		if (eps->ep_identity[i] != (__u64)_(ptrs + i)) {
 			return 0;
 		}
@@ -218,35 +203,26 @@ int cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint_
 }
 
 static inline
-int cluster_refresh_endpoints(const Cluster__Cluster *cluster, const char *name)
+struct cluster_endpoints *cluster_refresh_endpoints(const Cluster__Cluster *cluster, const char *name)
 {
 	struct cluster_endpoints *eps = NULL;
 	Endpoint__ClusterLoadAssignment *cla = NULL;
-	void *lb_ptrs = NULL;
 
 	cla = kmesh_get_ptr_val(cluster->load_assignment);
 	if (!cla) {
 		BPF_LOG(ERR, CLUSTER, "get load_assignment failed\n");
-		return -1;
+		return NULL;
 	}
 
-	lb_ptrs = kmesh_get_ptr_val(cla->endpoints);
-	if (!lb_ptrs) {
-		BPF_LOG(ERR, CLUSTER, "get cluster endpoints failed\n");
-		return -1;
-	}
-
-	/* total endpoint num */
-	if (cla->n_endpoints > KMESH_PER_ENDPOINT_NUM) {
-		return -1;
-	}
-
+	// FIXME: if control-plane delete or update, clear
+	// FIXME: if cluster_init_endpoints failed, clear
+	// FIXME: if cluster_check_endpoints failed, clear
 	eps = map_lookup_cluster_eps(name);
-	if (eps && cluster_check_endpoints(eps, cla)) {
-		return 0;
-	}
+	if (eps) // TODO: && cluster_check_endpoints(eps, cla) != 0)
+		return eps;
 
-	/* need to init cluster eps */
-	return cluster_init_endpoints(name, cluster->lb_policy, cla);
+	if (cluster_init_endpoints(name, cla) != 0)
+		return NULL;
+	return map_lookup_cluster_eps(name);
 }
 #endif
