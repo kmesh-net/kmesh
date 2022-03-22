@@ -299,6 +299,7 @@ static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 	int inner_map_fd;
 	__u32 inner_map_id;
 	struct outter_map_alloc_control *a_ctl;
+	void *inner_map_object;
 
 	ret = bpf_map_delete_elem(ctx->outter_fd, outter_key);
 	if (ret)
@@ -312,14 +313,22 @@ static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 	if (inner_map_fd < 0)
 		return inner_map_fd;
 
-	ret = bpf_map_lookup_elem(inner_map_fd, &key, ctx->inner_map_object);
-	if (ret < 0)
-		return ret;
 
-	a_ctl = (struct outter_map_alloc_control *)ctx->inner_map_object;
+	inner_map_object = malloc(ctx->inner_info->value_size);
+	if (!inner_map_object)
+		return -ENOMEM;
+
+	ret = bpf_map_lookup_elem(inner_map_fd, &key, inner_map_object);
+	if (ret < 0) {
+		free(inner_map_object);
+		return ret;
+	}
+
+	a_ctl = (struct outter_map_alloc_control *)inner_map_object;
 	a_ctl->used--;
 	a_ctl->free_map[i/32] |= (1U << (i % 32));
 	bpf_map_update_elem(inner_map_fd, &key, a_ctl, BPF_ANY);
+	free(inner_map_object);
 
 	return 0;
 }
@@ -1053,6 +1062,8 @@ end:
 static int indirect_field_del(struct op_context *ctx, int outter_key,
 				 const ProtobufCFieldDescriptor *field)
 {
+	int ret;
+	char *inner_map_object = NULL;
 	int inner_fd, key = 0;
 	struct op_context new_ctx;
 	const ProtobufCMessageDescriptor *desc;
@@ -1074,14 +1085,20 @@ static int indirect_field_del(struct op_context *ctx, int outter_key,
 			return -EINVAL;
 		}
 
+		inner_map_object = malloc(ctx->inner_info->value_size);
+		if (!inner_map_object)
+			return -ENOMEM;
+
 		memcpy(&new_ctx, ctx, sizeof(*ctx));
 		new_ctx.curr_fd = inner_fd;
 		new_ctx.key = (void*)&key;
 		new_ctx.curr_info = ctx->inner_info;
-		new_ctx.value = new_ctx.inner_map_object;
+		new_ctx.value = inner_map_object;
 		new_ctx.desc = desc;
 
-		return del_bpf_map(&new_ctx, 1);
+		ret = del_bpf_map(&new_ctx, 1);
+		free(inner_map_object);
+		return ret;
 		
 	default:
 		break;
@@ -1151,6 +1168,8 @@ static int msg_field_del(struct op_context *ctx, int inner_fd,
 			     const ProtobufCFieldDescriptor *field)
 {
 	int key = 0;
+	int ret;
+	char *inner_map_object = NULL;
 	struct op_context new_ctx;
 	const ProtobufCMessageDescriptor *desc;
 
@@ -1158,14 +1177,20 @@ static int msg_field_del(struct op_context *ctx, int inner_fd,
 	if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
 		return -EINVAL;
 
+	inner_map_object = malloc(ctx->inner_info->value_size);
+	if (!inner_map_object)
+		return -ENOMEM;
+
 	memcpy(&new_ctx, ctx, sizeof(*ctx));
 	new_ctx.curr_fd = inner_fd;
 	new_ctx.key = (void*)&key;
 	new_ctx.curr_info = ctx->inner_info;
-	new_ctx.value = new_ctx.inner_map_object;
+	new_ctx.value = inner_map_object;
 	new_ctx.desc = desc;
 
-	return del_bpf_map(&new_ctx, 1);
+	ret = del_bpf_map(&new_ctx, 1);
+	free(inner_map_object);
+	return ret;
 }
 
 static int field_del(struct op_context *ctx,
@@ -1251,6 +1276,7 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 	struct bpf_map_info outter_info, inner_info, info;
 	int map_fd, outter_fd = 0, inner_fd = 0;
 	int id, outter_id = 0, inner_id = 0;
+	char *inner_map_object = NULL;
 
 	if (!key || !msg_desciptor)
 		return -EINVAL;
@@ -1290,6 +1316,7 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 		goto end;
 	}
 
+	inner_map_object = context.inner_map_object;
 	memset(context.inner_map_object, 0, context.inner_info->value_size);
 	memset(context.value, 0, context.curr_info->value_size);
 
@@ -1301,8 +1328,8 @@ end:
 		free(context.key);
 	if (context.value != NULL)
 		free(context.value);
-	if (context.inner_map_object != NULL)
-		free(context.inner_map_object);
+	if (inner_map_object != NULL)
+		free(inner_map_object);
 	if (map_fd > 0)
 		close(map_fd);
 	if (outter_fd > 0)
