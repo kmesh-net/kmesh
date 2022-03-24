@@ -119,7 +119,7 @@ int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener, struct bp
 	/* filter chain match */
 	ret = listener_filter_chain_match(listener, &addr, ctx, &filter_chain, &filter_chain_idx);
 	if (ret != 0) {
-		BPF_LOG(ERR, LISTENER, "listener_filter_chain_match fail\n");
+		BPF_LOG(ERR, LISTENER, "listener_filter_chain_match fail, addr=%u\n", addr.ipv4);
 		return -1;
 	}
 	

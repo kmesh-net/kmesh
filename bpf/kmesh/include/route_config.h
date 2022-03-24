@@ -157,7 +157,7 @@ Route__Route * virtual_host_route_match(Route__VirtualHost *virt_host, address_t
 
 	ptrs = kmesh_get_ptr_val(_(virt_host->routes));
 	if (!ptrs) {
-		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get routes\n");
+		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get routes ptrs\n");
 		return NULL;
 	}
 
