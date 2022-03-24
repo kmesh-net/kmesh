@@ -45,6 +45,6 @@ install:
 	$(QUIET) install -Dp -m 0550 $(APPS) $(INSTALL_LIB)
 
 clean:
-	$(call printlog, CLEAN, $(INSTALL_LIB)/$(APPS))
-	$(QUIET) rm -rf $(APPS) $(INSTALL_LIB)/$(APPS) $(OBJECTS)
+	$(call printlog, CLEAN, $(APPS))
+	$(QUIET) rm -rf $(APPS) $(APPS) $(OBJECTS)
 

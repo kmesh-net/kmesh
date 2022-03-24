@@ -55,11 +55,11 @@ install:
 	$(QUIET) install -Dp -m 0550 $(APPS2) $(INSTALL_BIN)
 
 clean:
-	$(call printlog, CLEAN, $(INSTALL_BIN)/$(APPS1))
-	$(QUIET) rm -rf $(APPS1) $(INSTALL_BIN)/$(APPS1)
+	$(call printlog, CLEAN, $(APPS1))
+	$(QUIET) rm -rf $(APPS1) $(APPS1)
 	
-	$(call printlog, CLEAN, $(INSTALL_BIN)/$(APPS2))
-	$(QUIET) rm -rf $(APPS2) $(INSTALL_BIN)/$(APPS2)
+	$(call printlog, CLEAN, $(APPS2))
+	$(QUIET) rm -rf $(APPS2) $(APPS2)
 	
 	$(QUIET) make clean -C api/v2-c
 	$(QUIET) make clean -C bpf/deserialization_to_bpf_map
