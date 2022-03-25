@@ -125,7 +125,7 @@ int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener, struct bp
 	
 	/* exec filter chain */
 	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN + bpf_get_current_task();
 	ctx_val.val = filter_chain_idx;
 	ctx_val.msg = msg;
 	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);

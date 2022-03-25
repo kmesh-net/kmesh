@@ -40,7 +40,7 @@ int handle_http_connection_manager(
 	}
 
 	ctx_key.address = *addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_ROUTER_CONFIG;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_ROUTER_CONFIG + bpf_get_current_task();
 	ctx_val.msg = msg;
 	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);
 	if (ret != 0) {
@@ -63,7 +63,7 @@ int filter_manager(ctx_buff_t *ctx)
 
 	DECLARE_VAR_ADDRESS(ctx, addr);
 	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER + bpf_get_current_task();
 	ctx_val = kmesh_tail_lookup_ctx(&ctx_key);
 	if (!ctx_val) {
 		BPF_LOG(ERR, FILTER, "failed to lookup tail call val\n");
@@ -115,7 +115,7 @@ int filter_chain_manager(ctx_buff_t *ctx)
 	DECLARE_VAR_ADDRESS(ctx, addr);
 
 	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN + bpf_get_current_task();
 
 	ctx_val_ptr = kmesh_tail_lookup_ctx(&ctx_key);
 	if (!ctx_val_ptr) {
@@ -140,7 +140,7 @@ int filter_chain_manager(ctx_buff_t *ctx)
 	// we should skip back and handle next filter, rather than exit.
 
 	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER + bpf_get_current_task();
 	ctx_val.val = filter_idx;
 	ctx_val.msg = ctx_val_ptr->msg;
 	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);

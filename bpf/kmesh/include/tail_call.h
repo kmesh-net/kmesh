@@ -47,7 +47,7 @@ void kmesh_tail_call(ctx_buff_t *ctx, const __u32 index)
 }
 
 typedef struct {
-	__u32 tail_call_index;
+	__u64 tail_call_index;
 	address_t address;
 } ctx_key_t;
 

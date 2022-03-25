@@ -139,7 +139,7 @@ int cluster_manager(ctx_buff_t *ctx)
 	DECLARE_VAR_ADDRESS(ctx, addr);
 
 	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER + bpf_get_current_task();
 
 	ctx_val = kmesh_tail_lookup_ctx(&ctx_key);
 	if (ctx_val == NULL) {
