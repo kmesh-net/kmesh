@@ -16,6 +16,8 @@ package kubernetes
 
 import (
 	"fmt"
+	"time"
+
 	"golang.org/x/time/rate"
 	api_core_v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -25,16 +27,15 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
-	"openeuler.io/mesh/pkg/cache/v1"
-	"time"
+	cache_v1 "openeuler.io/mesh/pkg/cache/v1"
 )
 
 const (
-	InformerTypeService = "Service"
+	InformerTypeService   = "Service"
 	InformerTypeEndpoints = "Endpoints"
-	InformerTypeNode = "Node"
+	InformerTypeNode      = "Node"
 
-	InformerOptAdd = "Add"
+	InformerOptAdd    = "Add"
 	InformerOptUpdate = "Update"
 	InformerOptDelete = "Delete"
 
@@ -55,10 +56,10 @@ type ApiserverClient struct {
 }
 
 type queueKey struct {
-	name	string
-	opt		string
-	typ		string
-	oldObj	interface{}
+	name   string
+	opt    string
+	typ    string
+	oldObj interface{}
 }
 
 func getObjectType(obj interface{}) string {
@@ -82,16 +83,21 @@ func checkObjectValidity(obj interface{}) bool {
 		return true
 	case *api_core_v1.Endpoints:
 		// filter out invalid endpoint without IP
-		for _, subset := range obj.(*api_core_v1.Endpoints).Subsets {
-			for _, addr := range subset.Addresses {
-				if addr.IP != "" {
-					return true
-				}
-			}
-		}
+		return isEndpointsEmpty(obj)
 	default:
 	}
 
+	return false
+}
+
+func isEndpointsEmpty(obj interface{}) bool {
+	for _, subset := range obj.(*api_core_v1.Endpoints).Subsets {
+		for _, addr := range subset.Addresses {
+			if addr.IP != "" {
+				return true
+			}
+		}
+	}
 	return false
 }
 
@@ -134,24 +140,24 @@ func (c *ApiserverClient) enqueueForDelete(obj interface{}) {
 }
 
 func NewApiserverClient(clientSet kubernetes.Interface) (*ApiserverClient, error) {
-	factory := informers.NewSharedInformerFactory(clientSet, time.Second * ClientRsyncDuration)
+	factory := informers.NewSharedInformerFactory(clientSet, time.Second*ClientRsyncDuration)
 
 	rateLimiter := workqueue.NewMaxOfRateLimiter(
-		workqueue.NewItemExponentialFailureRateLimiter(LimiterBaseDelayMillisecond * time.Millisecond,
-			LimiterMaxDelaySecond * time.Second),
+		workqueue.NewItemExponentialFailureRateLimiter(LimiterBaseDelayMillisecond*time.Millisecond,
+			LimiterMaxDelaySecond*time.Second),
 		// This is only for retry speed and its only the overall factor (not per item)
 		&workqueue.BucketRateLimiter{Limiter: rate.NewLimiter(rate.Limit(LimiterQps), LimiterBurst)},
 	)
 	c := &ApiserverClient{
-		factory: factory,
-		serviceInformer: factory.Core().V1().Services(),
+		factory:          factory,
+		serviceInformer:  factory.Core().V1().Services(),
 		endpointInformer: factory.Core().V1().Endpoints(),
-		nodeInformer: factory.Core().V1().Nodes(),
-		queue: workqueue.NewNamedRateLimitingQueue(rateLimiter, "ApiserverClient"),
+		nodeInformer:     factory.Core().V1().Nodes(),
+		queue:            workqueue.NewNamedRateLimitingQueue(rateLimiter, "ApiserverClient"),
 	}
 
 	handler := cache.ResourceEventHandlerFuncs{
-		AddFunc: c.enqueueForAdd,
+		AddFunc:    c.enqueueForAdd,
 		UpdateFunc: c.enqueueForUpdate,
 		DeleteFunc: c.enqueueForDelete,
 	}
@@ -165,7 +171,7 @@ func NewApiserverClient(clientSet kubernetes.Interface) (*ApiserverClient, error
 
 func (c *ApiserverClient) syncHandler(qkey queueKey) error {
 	var (
-		err error
+		err    error
 		newObj interface{}
 	)
 

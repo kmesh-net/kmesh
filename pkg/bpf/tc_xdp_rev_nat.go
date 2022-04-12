@@ -1,3 +1,16 @@
+/*
+ * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * MeshAccelerating is licensed under the Mulan PSL v2.
+ * You can use this software according to the terms and conditions of the Mulan PSL v2.
+ * You may obtain a copy of Mulan PSL v2 at:
+ *     http://license.coscl.org.cn/MulanPSL2
+ * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
+ * PURPOSE.
+ * See the Mulan PSL v2 for more details.
+ * Author: LemmyHuang
+ * Create: 2022-02-15
+ */
 
 package bpf
 
@@ -5,24 +18,24 @@ package bpf
 // #cgo LDFLAGS: -Wl,--allow-multiple-definition
 import "C"
 import (
-"fmt"
-"github.com/cilium/ebpf"
-"github.com/cilium/ebpf/link"
-"openeuler.io/mesh/bpf/slb/bpf2go"
-"os"
-"reflect"
+	"fmt"
+	"os"
+	"reflect"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"openeuler.io/mesh/bpf/slb/bpf2go"
 )
 
 type TcXdpRevnat struct {
-	Info 		BpfInfo
-	Link		link.Link
+	Info BpfInfo
+	Link link.Link
 	bpf2go.TcXdpRevnatObjects
 }
 
 func NewTcXdpRevnat(cfg *Config) (TcXdpRevnat, error) {
 	tcRevNat := TcXdpRevnat{}
 	tcRevNat.Info.Config = *cfg
-
 
 	tcRevNat.Info.BpfFsPath += "/xdp_banlance/"
 	tcRevNat.Info.MapPath = tcRevNat.Info.BpfFsPath + "map/"
@@ -33,13 +46,11 @@ func NewTcXdpRevnat(cfg *Config) (TcXdpRevnat, error) {
 	return tcRevNat, nil
 }
 
-
-
 func (tc *TcXdpRevnat) LoadTcRevnatObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err		error
-		spec	*ebpf.CollectionSpec
-		opts 	ebpf.CollectionOptions
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = tc.Info.MapPath
 
@@ -69,25 +80,6 @@ func (tc *TcXdpRevnat) Load() error {
 }
 
 func (tc *TcXdpRevnat) Attach() error {
-/*	opts := link.RawLinkOptions {
-		Program: tc.TcXdpRevnatObjects.TcXdpRevNat,
-		Attach: ebpf.AttachCGroupInetEgress,
-		Target: 2, //interface id ens4
-
-	}
-	rawLink, err := link.AttachRawLink(opts)
-	if err != nil {
-		return fmt.Errorf("LoadAndAssign return err %s", err)
-	}
-	tc.Link = rawLink*/
-
-/*	rawLink, err := AttachRawLink(RawLinkOptions{
-		Program: opts.Program,
-		Attach:  ebpf.AttachXDP,
-		Target:  opts.Interface,
-		Flags:   uint32(opts.Flags),
-	})*/
-
 	return nil
 }
 
@@ -123,5 +115,3 @@ func (tc *TcXdpRevnat) Detach() error {
 	}
 	return nil
 }
-
-

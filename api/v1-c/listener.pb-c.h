@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -30,11 +30,9 @@ enum listener_state {
 typedef struct {
 	// used by map_of_cluster_t or map_of_filter_chain
 	map_key_t map_key;
-	//char name[KMESH_NAME_LEN];
-
 	__u16 type;
 	__u16 state;
 	address_t address;
 } listener_t;
 
-#endif //_LISTENER_PB_H_
+#endif // _LISTENER_PB_H_

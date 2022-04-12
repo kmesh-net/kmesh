@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -31,7 +31,7 @@
 #define BPF_LOGTYPE_COMMON			BPF_DEBUG_OFF
 
 #define BPF_DATA_MAX_LEN			226 /* this value should be
-						       small that make compile success */
+							   small that make compile success */
 #define BPF_INNER_MAP_DATA_LEN	  100
 
 
@@ -51,10 +51,10 @@ bpf_map_t SEC("maps") outer_map = {
 };
 
 bpf_map_t SEC("maps") inner_map = {
-        .type                   = BPF_MAP_TYPE_ARRAY,
-        .key_size               = sizeof(__u32),
-        .value_size             = 1300,
-        .max_entries   	 	= 1,
+		.type				   = BPF_MAP_TYPE_ARRAY,
+		.key_size			   = sizeof(__u32),
+		.value_size			 = 1300,
+		.max_entries   	 	= 1,
 };
 
 #if 1
@@ -85,22 +85,19 @@ typedef Core__SocketAddress address_t;
 // bpf return value
 #define CGROUP_SOCK_ERR		0
 #define CGROUP_SOCK_OK		1
-static inline
-int convert_sock_errno(int err)
+static inline int convert_sock_errno(int err)
 {
 	return err == 0 ? CGROUP_SOCK_OK : CGROUP_SOCK_ERR;
 }
 
-static inline 
-int convert_sockops_ret(int err)
+static inline int convert_sockops_ret(int err)
 {
 	return 0;
 }
 
-static inline
-void * kmesh_get_ptr_val(const void *ptr)
+static inline void *kmesh_get_ptr_val(const void *ptr)
 {
-	/* 
+	/*
 		map_in_map -- outer_map:
 		key		value
 		idx1	inner_map_fd1	// point to inner map1
@@ -126,4 +123,4 @@ void * kmesh_get_ptr_val(const void *ptr)
 	/* get inner_map value */
 	return kmesh_map_lookup_elem(inner_map, &inner_idx);
 }
-#endif //_KMESH_COMMON_H_
+#endif // _KMESH_COMMON_H_

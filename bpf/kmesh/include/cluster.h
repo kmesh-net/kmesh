@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -50,26 +50,22 @@ bpf_map_t SEC("maps") map_of_cluster_eps = {
 	.map_flags		 = 0,
 };
 
-static inline
-Cluster__Cluster * map_lookup_cluster(const char *cluster_name)
+static inline Cluster__Cluster *map_lookup_cluster(const char *cluster_name)
 {
 	return kmesh_map_lookup_elem(&map_of_cluster, cluster_name);
 }
 
-static inline 
-struct cluster_endpoints * map_lookup_cluster_eps(const char *cluster_name)
+static inline struct cluster_endpoints *map_lookup_cluster_eps(const char *cluster_name)
 {
 	return kmesh_map_lookup_elem(&map_of_cluster_eps, cluster_name);
 }
 
-static inline
-int map_add_cluster_eps(const char *cluster_name, const struct cluster_endpoints *eps)
+static inline int map_add_cluster_eps(const char *cluster_name, const struct cluster_endpoints *eps)
 {
 	return kmesh_map_update_elem(&map_of_cluster_eps, cluster_name, eps);
 }
 
-static inline
-void cluster_set_ep_identity(__u32 idx, __u64 identity, __u64 *ep_identity)
+static inline void cluster_set_ep_identity(__u32 idx, __u64 identity, __u64 *ep_identity)
 {
 	// TODO
 	if (idx >= KMESH_PER_ENDPOINT_NUM)
@@ -85,22 +81,20 @@ void cluster_set_ep_identity(__u32 idx, __u64 identity, __u64 *ep_identity)
 		*(ep_identity + 3) = identity;
 }
 
-static inline
-int cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct cluster_endpoints *cluster_eps)
+static inline int cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep,
+										struct cluster_endpoints *cluster_eps)
 {
 	__u32 i;
 	void *ep_ptrs = NULL;
 
 	ep_ptrs = kmesh_get_ptr_val(lb_ep->lb_endpoints);
-	if (!ep_ptrs) {
+	if (!ep_ptrs)
 		return -1;
-	}
 
 #pragma unroll
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-		if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >=  KMESH_PER_ENDPOINT_NUM) {
+		if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >=  KMESH_PER_ENDPOINT_NUM)
 			break;
-		}
 
 		/* store ep identify */
 		cluster_set_ep_identity(cluster_eps->ep_num, (__u64)*((__u64*)ep_ptrs + i), cluster_eps->ep_identity);
@@ -109,8 +103,7 @@ int cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct clu
 	return 0;
 }
 
-static inline
-__u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignment *cla)
+static inline __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignment *cla)
 {
 	__u32 i;
 	__u32 num = 0;
@@ -131,17 +124,15 @@ __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignment *cla)
 #pragma unroll
 	for (i = 0; i < n_endpoints; i++) {
 		lb_ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
-		if (!lb_ep) {
+		if (!lb_ep)
 			continue;
-		}
 
 		num += lb_ep->n_lb_endpoints;
 	}
 	return num;
 }
 
-static inline
-int cluster_init_endpoints(const char *cluster_name,  
+static inline int cluster_init_endpoints(const char *cluster_name,
 						const Endpoint__ClusterLoadAssignment *cla)
 {
 	__u32 i;
@@ -158,35 +149,31 @@ int cluster_init_endpoints(const char *cluster_name,
 
 #pragma unroll
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-		if (i >= cla->n_endpoints) {
+		if (i >= cla->n_endpoints)
 			break;
-		}
 
 		ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
-		if (!ep) {
+		if (!ep)
 			continue;
-		}
 
 		ret = cluster_add_endpoints(ep, &cluster_eps);
-		if (ret != 0) {
+		if (ret != 0)
 			return -1;
-		}
 	}
 
 	return map_add_cluster_eps(cluster_name, &cluster_eps);
 }
 
-static inline
-int cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint__ClusterLoadAssignment *cla)
+static inline int cluster_check_endpoints(const struct cluster_endpoints *eps,
+										const Endpoint__ClusterLoadAssignment *cla)
 {
 	/* 0 -- failed 1 -- succeed */
 	int i;
 	void *ptrs = NULL;
 	__u32 lb_num = cluster_get_endpoints_num(cla);
 
-	if (!eps || eps->ep_num != lb_num) {
+	if (!eps || eps->ep_num != lb_num)
 		return 0;
-	}
 
 	ptrs = kmesh_get_ptr_val(cla->endpoints);
 	if (!ptrs)
@@ -195,15 +182,13 @@ int cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint_
 	lb_num = BPF_MIN(lb_num, KMESH_PER_ENDPOINT_NUM);
 #pragma unroll
 	for (i = 0; i < lb_num; i++) {
-		if (eps->ep_identity[i] != (__u64)_(ptrs + i)) {
+		if (eps->ep_identity[i] != (__u64)_(ptrs + i))
 			return 0;
-		}
 	}
 	return 1;
 }
 
-static inline
-struct cluster_endpoints *cluster_refresh_endpoints(const Cluster__Cluster *cluster, const char *name)
+static inline struct cluster_endpoints *cluster_refresh_endpoints(const Cluster__Cluster *cluster, const char *name)
 {
 	struct cluster_endpoints *eps = NULL;
 	Endpoint__ClusterLoadAssignment *cla = NULL;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -34,4 +34,4 @@ typedef struct {
 	__u32 ipv6[4];
 } address_t;
 
-#endif //_ADDRESS_PB_H_
+#endif // _ADDRESS_PB_H_

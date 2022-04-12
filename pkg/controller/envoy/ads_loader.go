@@ -56,10 +56,10 @@ func NewAdsLoader() *AdsLoader {
 
 func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) {
 	apiCluster := &cluster_v2.Cluster{
-		ApiStatus: status,
-		Name: cluster.GetName(),
-		ConnectTimeout: uint32(cluster.GetConnectTimeout().GetSeconds()),
-		LbPolicy: cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
+		ApiStatus:       status,
+		Name:            cluster.GetName(),
+		ConnectTimeout:  uint32(cluster.GetConnectTimeout().GetSeconds()),
+		LbPolicy:        cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
 		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),
 	}
 
@@ -72,7 +72,8 @@ func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *
 	load.ClusterCache[cluster.GetName()] = apiCluster
 }
 
-func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus, loadAssignment *config_endpoint_v3.ClusterLoadAssignment) {
+func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus,
+	loadAssignment *config_endpoint_v3.ClusterLoadAssignment) {
 	apiCluster := load.ClusterCache[loadAssignment.GetClusterName()]
 	if apiCluster == nil {
 		return
@@ -81,7 +82,8 @@ func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus, loadAssig
 	apiCluster.LoadAssignment = newApiClusterLoadAssignment(loadAssignment)
 }
 
-func newApiClusterLoadAssignment(loadAssignment *config_endpoint_v3.ClusterLoadAssignment) *endpoint_v2.ClusterLoadAssignment {
+func newApiClusterLoadAssignment(
+	loadAssignment *config_endpoint_v3.ClusterLoadAssignment) *endpoint_v2.ClusterLoadAssignment {
 	apiLoadAssignment := &endpoint_v2.ClusterLoadAssignment{
 		ClusterName: loadAssignment.GetClusterName(),
 	}
@@ -89,8 +91,8 @@ func newApiClusterLoadAssignment(loadAssignment *config_endpoint_v3.ClusterLoadA
 	for _, localityLb := range loadAssignment.GetEndpoints() {
 		apiLocalityLb := &endpoint_v2.LocalityLbEndpoints{
 			LoadBalancingWeight: localityLb.GetLoadBalancingWeight().GetValue(),
-			Priority: localityLb.GetPriority(),
-			LbEndpoints: nil,
+			Priority:            localityLb.GetPriority(),
+			LbEndpoints:         nil,
 		}
 
 		for _, endpoint := range localityLb.GetLbEndpoints() {
@@ -124,7 +126,7 @@ func newApiSocketAddress(address *config_core_v3.Address) *core_v2.SocketAddress
 	}
 
 	return &core_v2.SocketAddress{
-		//Protocol: core_v2.SocketAddress_Protocol(addr.GetProtocol()),
+		// Protocol: core_v2.SocketAddress_Protocol(addr.GetProtocol()),
 		Port: nets.ConvertPortToLittleEndian(addr.GetPortValue()),
 		Ipv4: nets.ConvertIpToUint32(addr.GetAddress()),
 	}
@@ -141,27 +143,27 @@ func newApiCircuitBreakers(cb *config_cluster_v3.CircuitBreakers) *cluster_v2.Ci
 	}
 
 	return &cluster_v2.CircuitBreakers{
-		Priority: core_v2.RoutingPriority(thresholds[0].GetPriority()),
-		MaxConnections: thresholds[0].GetMaxConnections().GetValue(),
+		Priority:           core_v2.RoutingPriority(thresholds[0].GetPriority()),
+		MaxConnections:     thresholds[0].GetMaxConnections().GetValue(),
 		MaxConnectionPools: thresholds[0].GetMaxConnectionPools().GetValue(),
-		MaxRequests: thresholds[0].GetMaxRequests().GetValue(),
+		MaxRequests:        thresholds[0].GetMaxRequests().GetValue(),
 		MaxPendingRequests: thresholds[0].GetMaxPendingRequests().GetValue(),
-		MaxRetries: thresholds[0].GetMaxRetries().GetValue(),
+		MaxRetries:         thresholds[0].GetMaxRetries().GetValue(),
 	}
 }
 
 func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener *config_listener_v3.Listener) {
 	apiListener := &listener_v2.Listener{
 		ApiStatus: status,
-		Name: listener.GetName(),
-		Address: newApiSocketAddress(listener.GetAddress()),
+		Name:      listener.GetName(),
+		Address:   newApiSocketAddress(listener.GetAddress()),
 	}
 
 	for _, filterChain := range listener.GetFilterChains() {
 		apiFilterChain := &listener_v2.FilterChain{
-			Name: filterChain.GetName(),
+			Name:             filterChain.GetName(),
 			FilterChainMatch: newApiFilterChainMatch(filterChain.GetFilterChainMatch()),
-			Filters: nil,
+			Filters:          nil,
 		}
 
 		for _, filter := range filterChain.GetFilters() {
@@ -182,15 +184,15 @@ func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener
 
 func newApiFilterChainMatch(match *config_listener_v3.FilterChainMatch) *listener_v2.FilterChainMatch {
 	apiMatch := &listener_v2.FilterChainMatch{
-		DestinationPort: match.GetDestinationPort().GetValue(),
-		TransportProtocol: match.GetTransportProtocol(),
+		DestinationPort:      match.GetDestinationPort().GetValue(),
+		TransportProtocol:    match.GetTransportProtocol(),
 		ApplicationProtocols: match.GetApplicationProtocols(),
 	}
 
 	for _, prefixRange := range match.GetPrefixRanges() {
 		apiMatch.PrefixRanges = append(apiMatch.PrefixRanges, &core_v2.CidrRange{
 			AddressPrefix: prefixRange.GetAddressPrefix(),
-			PrefixLen: prefixRange.GetPrefixLen().GetValue(),
+			PrefixLen:     prefixRange.GetPrefixLen().GetValue(),
 		})
 	}
 
@@ -261,15 +263,15 @@ func (load *AdsLoader) CreateApiRouteByRds(status core_v2.ApiStatus, routeConfig
 
 func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *route_v2.RouteConfiguration {
 	apiRouteConfig := &route_v2.RouteConfiguration{
-		Name: routeConfig.GetName(),
+		Name:         routeConfig.GetName(),
 		VirtualHosts: nil,
 	}
 
 	for _, host := range routeConfig.GetVirtualHosts() {
 		apiHost := &route_v2.VirtualHost{
-			Name: host.GetName(),
+			Name:    host.GetName(),
 			Domains: host.GetDomains(),
-			Routes: nil,
+			Routes:  nil,
 		}
 
 		for _, route := range host.GetRoutes() {

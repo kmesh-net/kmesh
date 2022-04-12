@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -26,22 +26,20 @@ bpf_map_t SEC("maps") map_of_listener = {
 	.map_flags		  = 0,
 };
 
-static inline
-Listener__Listener * map_lookup_listener(const address_t *addr)
+static inline Listener__Listener *map_lookup_listener(const address_t *addr)
 {
 	return kmesh_map_lookup_elem(&map_of_listener, addr);
 }
 
-static inline
-int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain, 
-						  const address_t * addr, 
+static inline int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain,
+						  const address_t *addr,
 						  const ctx_buff_t *ctx)
 {
 	int ret = 0;
 	char *transport_protocol;
 	const char buf[] = "raw_buffer";
 
-	Listener__FilterChainMatch * filter_chain_match = 
+	Listener__FilterChainMatch *filter_chain_match =
 		kmesh_get_ptr_val(filter_chain->filter_chain_match);
 	if (!filter_chain_match)
 		return 0;
@@ -65,9 +63,8 @@ int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain,
 	return 1;
 }
 
-static inline 
-int listener_filter_chain_match(const Listener__Listener *listener, 
-					const address_t *addr, 
+static inline int listener_filter_chain_match(const Listener__Listener *listener,
+					const address_t *addr,
 					const ctx_buff_t *ctx,
 					Listener__FilterChain **filter_chain_ptr,
 					__u64 *filter_chain_idx)
@@ -106,8 +103,7 @@ int listener_filter_chain_match(const Listener__Listener *listener,
 	return -1;
 }
 
-static inline 
-int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener, struct bpf_mem_ptr *msg)
+static inline int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener, struct bpf_mem_ptr *msg)
 {
 	int ret = 0;
 	__u64 filter_chain_idx = 0;

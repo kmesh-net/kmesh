@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -20,8 +20,7 @@
 #include "filter/http_connection_manager.pb-c.h"
 
 
-static inline
-int filter_match_check(const Listener__Filter *filter, const address_t *addr, const ctx_buff_t *ctx)
+static inline int filter_match_check(const Listener__Filter *filter, const address_t *addr, const ctx_buff_t *ctx)
 {
 	int match = 0;
 	switch (filter->config_type_case) {
@@ -36,9 +35,8 @@ int filter_match_check(const Listener__Filter *filter, const address_t *addr, co
 	return match;
 }
 
-static inline
-int filter_chain_filter_match(const Listener__FilterChain *filter_chain, 
-											 const address_t *addr, 
+static inline int filter_chain_filter_match(const Listener__FilterChain *filter_chain,
+											 const address_t *addr,
 											 const ctx_buff_t *ctx,
 											 Listener__Filter **filter_ptr,
 											 __u64 *filter_ptr_idx)

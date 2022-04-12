@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -43,11 +43,10 @@ enum cluster_type {
 };
 
 typedef struct {
-	//char name[KMESH_NAME_LEN];
 	__u16 type;
-	__u16 connect_timeout; //default 5s
+	__u16 connect_timeout; // default 5s
 	load_assignment_t load_assignment;
 	circuit_breaker_t circuit_breaker;
 } cluster_t;
 
-#endif //_CLUSTER_PB_H_
+#endif // _CLUSTER_PB_H_

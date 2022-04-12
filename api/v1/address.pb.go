@@ -16,8 +16,8 @@ package api
 
 var (
 	ProtocolStrToC = map[string]uint32 {
-		"TCP": 0, //C.IPPROTO_TCP,
-		"UDP": 6, //C.IPPROTO_UDP,
+		"TCP": 0, // C.IPPROTO_TCP,
+		"UDP": 6, // C.IPPROTO_UDP,
 	}
 )
 

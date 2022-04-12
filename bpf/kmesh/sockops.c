@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -11,8 +11,8 @@
  * Author: nlgwcy
  * Create: 2022-02-14
  */
-#include "bpf_log.h"
 #include <sys/socket.h>
+#include "bpf_log.h"
 #include "listener.h"
 #include "listener/listener.pb-c.h"
 
@@ -48,9 +48,8 @@ int sockops_prog(struct bpf_sock_ops *skops)
 
 	struct bpf_mem_ptr *msg = NULL;
 	
-	if (skops->family != AF_INET) {
+	if (skops->family != AF_INET)
 		return 0;
-	}
 	
 	switch (skops->op) {
 		case BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB:

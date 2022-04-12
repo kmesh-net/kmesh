@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
+ *	 http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
@@ -23,7 +23,7 @@
 #define MAP_SIZE_OF_TAIL_CALL_PROG		32
 #define MAP_SIZE_OF_TAIL_CALL_CTX		256
 
-#define KMESH_SOCKET_CALLS				cgroup/connect4
+#define KMESH_SOCKET_CALLS				(cgroup/connect4)
 
 typedef enum {
 	KMESH_TAIL_CALL_LISTENER = 1,
@@ -41,8 +41,7 @@ bpf_map_t SEC("maps") map_of_tail_call_prog = {
 	.max_entries	= MAP_SIZE_OF_TAIL_CALL_PROG,
 };
 
-static inline
-void kmesh_tail_call(ctx_buff_t *ctx, const __u32 index)
+static inline void kmesh_tail_call(ctx_buff_t *ctx, const __u32 index)
 {
 	bpf_tail_call(ctx, &map_of_tail_call_prog, index);
 }
@@ -61,20 +60,17 @@ bpf_map_t SEC("maps") map_of_tail_call_ctx = {
 	.max_entries	= MAP_SIZE_OF_TAIL_CALL_CTX,
 };
 
-static inline
-map_key_t *kmesh_tail_lookup_ctx(const ctx_key_t *key)
+static inline map_key_t *kmesh_tail_lookup_ctx(const ctx_key_t *key)
 {
 	return bpf_map_lookup_elem(&map_of_tail_call_ctx, key);
 }
 
-static inline
-int kmesh_tail_delete_ctx(const ctx_key_t *key)
+static inline int kmesh_tail_delete_ctx(const ctx_key_t *key)
 {
 	return bpf_map_delete_elem(&map_of_tail_call_ctx, key);
 }
 
-static inline
-int kmesh_tail_update_ctx(const ctx_key_t *key, const map_key_t *value)
+static inline int kmesh_tail_update_ctx(const ctx_key_t *key, const map_key_t *value)
 {
 	return bpf_map_update_elem(&map_of_tail_call_ctx, key, value, BPF_ANY);
 }

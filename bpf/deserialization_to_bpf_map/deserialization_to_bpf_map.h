@@ -1,3 +1,6 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020-2020. All rights reserved.
+ */
 #ifndef __DESERIALIZATION_TO_BPF_MAP_H__
 #define __DESERIALIZATION_TO_BPF_MAP_H__
 

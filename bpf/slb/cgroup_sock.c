@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
+ *	 http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
@@ -18,8 +18,7 @@
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_TCP
 
-static inline
-int sock4_traffic_control(struct bpf_sock_addr *ctx)
+static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
 	int ret;
 	listener_t *listener = NULL;
@@ -27,9 +26,8 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	DECLARE_VAR_ADDRESS(ctx, address);
 
 	listener = map_lookup_listener(&address);
-	if (listener == NULL) {
+	if (listener == NULL)
 		return -ENOENT;
-	}
 	BPF_LOG(DEBUG, KMESH, "listener.address, ipv4 %u, port %u\n", listener->address.ipv4, listener->address.port);
 
 #if KMESH_ENABLE_HTTP

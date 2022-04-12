@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -16,8 +16,7 @@
 #include "filter.h"
 #include "tail_call.h"
 
-static inline
-int handle_http_connection_manager(
+static inline int handle_http_connection_manager(
 	const Filter__HttpConnectionManager *http_conn, const address_t *addr,
 	ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
@@ -25,7 +24,6 @@ int handle_http_connection_manager(
 	char *route_name = NULL;
 	ctx_key_t ctx_key = {0};
 	ctx_val_t ctx_val = {0};
-
 
 	route_name = kmesh_get_ptr_val((http_conn->route_config_name));
 	if (!route_name) {
@@ -126,7 +124,6 @@ int filter_chain_manager(ctx_buff_t *ctx)
 
 	filter_chain = (Listener__FilterChain *)kmesh_get_ptr_val((void *)ctx_val_ptr->val);
 	if (filter_chain == NULL) {
-		//BPF_LOG(ERR, FILTERCHAIN, "kmesh_tail_lookup_ctx failed\n");
 		return convert_sockops_ret(-1);
 	}
 	/* filter match */
@@ -136,7 +133,7 @@ int filter_chain_manager(ctx_buff_t *ctx)
 		return convert_sockops_ret(-1);
 	}
 
-	// FIXME: when filter_manager unsuccessful, 
+	// FIXME: when filter_manager unsuccessful,
 	// we should skip back and handle next filter, rather than exit.
 
 	ctx_key.address = addr;

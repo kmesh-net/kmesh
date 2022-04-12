@@ -31,11 +31,12 @@ const (
 var (
 	defaultLogger = InitializeDefaultLogger()
 
-	defaultLogLevel = logrus.InfoLevel
-	defaultLogFile  = "/var/run/kmesh/daemon.log"
+	defaultLogLevel           = logrus.InfoLevel
+	defaultLogFile            = "/var/run/kmesh/daemon.log"
+	defaultLogMaxFileCnt uint = 12
 
-	defaultLogFormat = &logrus.TextFormatter {
-		DisableColors:	  true,
+	defaultLogFormat = &logrus.TextFormatter{
+		DisableColors:    true,
 		DisableTimestamp: false,
 	}
 )
@@ -52,9 +53,9 @@ func InitializeDefaultLogger() *logrus.Logger {
 	}
 
 	file, err := rotatelogs.New(
-		defaultLogFile+ "-%Y%m%d%H%M",
+		defaultLogFile+"-%Y%m%d%H%M",
 		rotatelogs.WithLinkName(defaultLogFile),
-		rotatelogs.WithRotationCount(12),
+		rotatelogs.WithRotationCount(defaultLogMaxFileCnt),
 		rotatelogs.WithRotationTime(time.Hour),
 	)
 	if err != nil {

@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
+ *	 http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
@@ -27,8 +27,7 @@ bpf_map_t SEC("maps") map_of_cluster = {
 	.map_flags		= 0,
 };
 
-static inline
-cluster_t *map_lookup_cluster(const map_key_t *map_key)
+static inline cluster_t *map_lookup_cluster(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_cluster, map_key);
 }

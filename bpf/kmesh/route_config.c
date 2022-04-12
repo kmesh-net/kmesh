@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -16,8 +16,7 @@
 #include "route_config.h"
 #include "tail_call.h"
 
-static inline
-char * route_get_cluster(const Route__Route *route)
+static inline char *route_get_cluster(const Route__Route *route)
 {
 	Route__RouteAction *route_act = NULL;
 
@@ -46,9 +45,8 @@ int route_config_manager(ctx_buff_t *ctx)
 	ctx_key.address = addr;
 	ctx_key.tail_call_index = KMESH_TAIL_CALL_ROUTER_CONFIG + bpf_get_current_task();
 	ctx_val = kmesh_tail_lookup_ctx(&ctx_key);
-	if (!ctx_val) {
+	if (!ctx_val)
 		return convert_sockops_ret(-1);
-	}
 
 	route_config = map_lookup_route_config(ctx_val->data);
 	kmesh_tail_delete_ctx(&ctx_key);
@@ -84,9 +82,8 @@ int route_config_manager(ctx_buff_t *ctx)
 	}
 
 	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val_1);
-	if (ret != 0) {
+	if (ret != 0)
 		return convert_sockops_ret(ret);
-	}
 
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
 	kmesh_tail_delete_ctx(&ctx_key);

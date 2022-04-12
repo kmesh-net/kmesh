@@ -18,23 +18,30 @@ package bpf
 // #include "kmesh/include/tail_call.h"
 import "C"
 import (
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
-	"openeuler.io/mesh/bpf/kmesh/bpf2go"
 	"os"
 	"reflect"
 	"strconv"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+	"openeuler.io/mesh/bpf/kmesh/bpf2go"
+)
+
+var (
+	InnerMapKeySize    uint32 = 4
+	InnerMapDataLength uint32 = 1300
+	InnerMapMaxEntries uint32 = 1
 )
 
 type BpfSockConn struct {
-	Info		 BpfInfo
-	Link		link.Link
+	Info BpfInfo
+	Link link.Link
 	bpf2go.KmeshCgroupSockObjects
 }
 
 type BpfSockOps struct {
-	Info		 BpfInfo
-	Link		link.Link
+	Info BpfInfo
+	Link link.Link
 	bpf2go.KmeshSockopsObjects
 	bpf2go.KmeshFilterObjects
 	bpf2go.KmeshRouteConfigObjects
@@ -42,8 +49,8 @@ type BpfSockOps struct {
 }
 
 type BpfKmesh struct {
-	SockConn	BpfSockConn
-	SockOps		BpfSockOps
+	SockConn BpfSockConn
+	SockOps  BpfSockOps
 }
 
 func (sc *BpfSockOps) NewBpf(cfg *Config) error {
@@ -61,7 +68,7 @@ func (sc *BpfSockConn) NewBpf(cfg *Config) error {
 	sc.Info.Config = *cfg
 	sc.Info.BpfFsPath += "/bpf_kmesh/"
 	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
-	
+
 	if err := os.MkdirAll(sc.Info.MapPath, 0750); err != nil && !os.IsExist(err) {
 		return err
 	}
@@ -70,8 +77,8 @@ func (sc *BpfSockConn) NewBpf(cfg *Config) error {
 
 func NewBpfKmesh(cfg *Config) (BpfKmesh, error) {
 	var err error
-	
-	sc := BpfKmesh {}
+
+	sc := BpfKmesh{}
 	if err = sc.SockOps.NewBpf(cfg); err != nil {
 		return sc, err
 	}
@@ -87,10 +94,10 @@ func setInnerMap(spec *ebpf.CollectionSpec) {
 	for _, v := range spec.Maps {
 		if v.Name == "outer_map" {
 			v.InnerMap = &ebpf.MapSpec{
-				Type: ebpf.Array,
-				KeySize: 4,
-				ValueSize: 1300, // C.BPF_INNER_MAP_DATA_LEN
-				MaxEntries: 1,
+				Type:       ebpf.Array,
+				KeySize:    InnerMapKeySize,
+				ValueSize:  InnerMapDataLength, // C.BPF_INNER_MAP_DATA_LEN
+				MaxEntries: InnerMapMaxEntries,
 			}
 		}
 	}
@@ -98,9 +105,9 @@ func setInnerMap(spec *ebpf.CollectionSpec) {
 
 func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err		error
-		spec	*ebpf.CollectionSpec
-		opts	 ebpf.CollectionOptions
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
@@ -124,9 +131,9 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 
 func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err		error
-		spec	*ebpf.CollectionSpec
-		opts	 ebpf.CollectionOptions
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
@@ -166,9 +173,9 @@ func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 
 func (sc *BpfSockOps) loadRouteConfigObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err		error
-		spec	*ebpf.CollectionSpec
-		opts	 ebpf.CollectionOptions
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
@@ -200,9 +207,9 @@ func (sc *BpfSockOps) loadRouteConfigObjects() (*ebpf.CollectionSpec, error) {
 
 func (sc *BpfSockOps) loadKmeshClusterObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err		error
-		spec	*ebpf.CollectionSpec
-		opts	 ebpf.CollectionOptions
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
@@ -261,9 +268,9 @@ func (sc *BpfSockOps) LoadSockOps() error {
 
 func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err		error
-		spec	*ebpf.CollectionSpec
-		opts	 ebpf.CollectionOptions
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
@@ -313,47 +320,47 @@ func (sc *BpfKmesh) Load() error {
 	return nil
 }
 
-func (sc *BpfKmesh) ApiEnvCfg() error{
+func (sc *BpfKmesh) ApiEnvCfg() error {
 	var err error
-	var info* ebpf.MapInfo
+	var info *ebpf.MapInfo
 	var id ebpf.MapID
 	info, err = Obj.Kmesh.SockOps.KmeshSockopsMaps.KmeshListener.Info()
 
-	if (err != nil) {
+	if err != nil {
 		return err
 	}
 
 	id, _ = info.ID()
-	string_id := strconv.Itoa(int(id))
-	os.Setenv("Listener", string_id)
+	stringId := strconv.Itoa(int(id))
+	os.Setenv("Listener", stringId)
 
 	info, _ = Obj.Kmesh.SockOps.KmeshSockopsMaps.OuterMap.Info()
 	id, _ = info.ID()
-	string_id = strconv.Itoa(int(id))
-	os.Setenv("OUTTER_MAP_ID", string_id)
+	stringId = strconv.Itoa(int(id))
+	os.Setenv("OUTTER_MAP_ID", stringId)
 
 	info, _ = Obj.Kmesh.SockOps.KmeshSockopsMaps.InnerMap.Info()
 	id, _ = info.ID()
-	string_id = strconv.Itoa(int(id))
-	os.Setenv("INNER_MAP_ID", string_id)
+	stringId = strconv.Itoa(int(id))
+	os.Setenv("INNER_MAP_ID", stringId)
 
 	info, _ = Obj.Kmesh.SockOps.MapOfRouterConfig.Info()
 	id, _ = info.ID()
-	string_id = strconv.Itoa(int(id))
-	os.Setenv("RouteConfiguration", string_id)
+	stringId = strconv.Itoa(int(id))
+	os.Setenv("RouteConfiguration", stringId)
 
 	info, _ = Obj.Kmesh.SockOps.KmeshCluster.Info()
 	id, _ = info.ID()
-	string_id = strconv.Itoa(int(id))
-	os.Setenv("Cluster", string_id)
+	stringId = strconv.Itoa(int(id))
+	os.Setenv("Cluster", stringId)
 
 	return nil
 }
 func (sc *BpfSockOps) Attach() error {
-	cgopt := link.CgroupOptions {
-		Path:		sc.Info.Cgroup2Path,
-		Attach:		sc.Info.AttachType,
-		Program:	sc.KmeshSockopsObjects.SockopsProg,
+	cgopt := link.CgroupOptions{
+		Path:    sc.Info.Cgroup2Path,
+		Attach:  sc.Info.AttachType,
+		Program: sc.KmeshSockopsObjects.SockopsProg,
 	}
 
 	lk, err := link.AttachCgroup(cgopt)
@@ -366,10 +373,10 @@ func (sc *BpfSockOps) Attach() error {
 }
 
 func (sc *BpfSockConn) Attach() error {
-	cgopt := link.CgroupOptions {
-		Path:		sc.Info.Cgroup2Path,
-		Attach:		sc.Info.AttachType,
-		Program:	sc.KmeshCgroupSockObjects.CgroupConnect4Prog,
+	cgopt := link.CgroupOptions{
+		Path:    sc.Info.Cgroup2Path,
+		Attach:  sc.Info.AttachType,
+		Program: sc.KmeshCgroupSockObjects.CgroupConnect4Prog,
 	}
 
 	lk, err := link.AttachCgroup(cgopt)
@@ -420,7 +427,7 @@ func (sc *BpfSockConn) close() error {
 
 func (sc *BpfKmesh) close() error {
 	var err error
-	
+
 	if err = sc.SockOps.close(); err != nil {
 		return err
 	}

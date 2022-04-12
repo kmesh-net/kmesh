@@ -14,7 +14,7 @@
 
 package bpf2go
 
-//go run github.com/cilium/ebpf/cmd/bpf2go --help
+// go run github.com/cilium/ebpf/cmd/bpf2go --help
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE CgroupSock ../cgroup_sock.c -- -I../../include -I../../../api/v1-c
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE Filter ../filter.c -- -I../../include -I../../../api/v1-c
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE Cluster ../cluster.c -- -I../../include -I../../../api/v1-c

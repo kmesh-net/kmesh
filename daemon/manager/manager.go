@@ -44,7 +44,7 @@ func Execute() {
 	log.Info("options InitDaemonConfig successful")
 
 	if err = bpf.Start(); err != nil {
-		//log.Error(err)
+		// log.Error(err)
 		fmt.Println(err)
 		return
 	}

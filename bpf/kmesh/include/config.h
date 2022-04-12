@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -84,4 +84,4 @@
 #define KMESH_PER_VIRT_HOST_NUM	   MAP_SIZE_OF_PER_VIRTUAL_HOST
 #define KMESH_PER_ROUTE_NUM		   MAP_SIZE_OF_PER_ROUTE
 #define KMESH_PER_ENDPOINT_NUM		MAP_SIZE_OF_PER_ENDPOINT
-#endif //_CONFIG_H_
+#endif // _CONFIG_H_

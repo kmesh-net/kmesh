@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -19,6 +19,8 @@
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_HTTP
 
+#define BPF_DEFER_CONN_RET		2
+
 #ifdef DECLARE_VAR_ADDRESS
 #undef DECLARE_VAR_ADDRESS
 #define DECLARE_VAR_ADDRESS(ctx, name) \
@@ -29,8 +31,7 @@
 	CORE__SOCKET_ADDRESS__PROTOCOL__TCP: CORE__SOCKET_ADDRESS__PROTOCOL__UDP
 #endif
 
-static inline
-int sock4_traffic_control(struct bpf_sock_addr *ctx)
+static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
 	int ret;
 	Listener__Listener *listener = NULL;
@@ -41,19 +42,16 @@ int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	if (listener == NULL) {
 		address.ipv4 = 0;
 		listener = map_lookup_listener(&address);
-		if (!listener) {
+		if (!listener)
 			return -ENOENT;
-		}
 	}
 
-//	BPF_LOG(DEBUG, KMESH, "sock4_traffic_control listener=\"%s\", addr=[%u:%u]\n",
-//		(char *)kmesh_get_ptr_val(listener->name), ctx->user_ip4, ctx->user_port);
-
 #if KMESH_ENABLE_HTTP
-	return 2;	// defer conn
-#else //KMESH_ENABLE_HTTP
+	// defer conn
+	return BPF_DEFER_CONN_RET;
+#else // KMESH_ENABLE_HTTP
 	ret = l4_listener_manager(ctx, lisdemotener);
-#endif //KMESH_ENABLE_HTTP
+#endif // KMESH_ENABLE_HTTP
 	if (ret != 0) {
 		BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
 		return ret;
@@ -67,15 +65,16 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
 	int ret = sock4_traffic_control(ctx);
 #if KMESH_ENABLE_HTTP
-	if (ret == 2) {	// defer conn
+	if (ret == 2) {
+		// defer conn
 		return ret;
 	}
 #endif
 	return CGROUP_SOCK_OK;
 }
 
-#endif //KMESH_ENABLE_TCP
-#endif //KMESH_ENABLE_IPV4
+#endif // KMESH_ENABLE_TCP
+#endif // KMESH_ENABLE_IPV4
 
 char _license[] SEC("license") = "GPL";
 int _version SEC("version") = 1;

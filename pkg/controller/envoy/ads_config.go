@@ -17,12 +17,13 @@ package envoy
 import (
 	"flag"
 	"fmt"
+	"strconv"
+	"time"
+
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extensions_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"openeuler.io/mesh/pkg/controller/interfaces"
-	"strconv"
-	"time"
 
 	config_bootstrap_v3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	// in order to fix: could not resolve Any message type
@@ -30,18 +31,20 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
+	"path/filepath"
+
 	"github.com/golang/protobuf/jsonpb"
 	"openeuler.io/mesh/pkg/logger"
 	"openeuler.io/mesh/pkg/options"
-	"path/filepath"
 )
 
 const (
-	pkgSubsys = "xds"
+	pkgSubsys  = "xds"
+	Decimalism = 10
 )
 
 var (
-	log = logger.NewLoggerField("controller/envoy")
+	log    = logger.NewLoggerField("controller/envoy")
 	config XdsConfig
 )
 
@@ -58,7 +61,8 @@ func GetConfig() *XdsConfig {
 }
 
 func (c *XdsConfig) SetClientArgs() error {
-	flag.StringVar(&c.File, "config-file", "/etc/istio/proxy/envoy-rev0.json", "[if -enable-kmesh] deploy in kube cluster")
+	flag.StringVar(&c.File, "config-file",
+		"/etc/istio/proxy/envoy-rev0.json", "[if -enable-kmesh] deploy in kube cluster")
 	flag.StringVar(&c.ServiceNode, "service-node", "TODO", "[if -enable-kmesh] TODO")
 	flag.StringVar(&c.ServiceCluster, "service-cluster", "TODO", "[if -enable-kmesh] TODO")
 	flag.BoolVar(&c.EnableAds, "enable-ads", true, "[if -enable-kmesh] enable control-plane from ads")
@@ -107,8 +111,8 @@ func (c *XdsConfig) getNode() *config_core_v3.Node {
 		return c.adsSet.Node
 	} else {
 		return &config_core_v3.Node{
-			Id: c.ServiceNode,
-			Cluster: c.ServiceCluster,
+			Id:       c.ServiceNode,
+			Cluster:  c.ServiceCluster,
 			Metadata: nil,
 		}
 	}
@@ -130,7 +134,7 @@ type ClusterConfig struct {
 
 func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 	var (
-		err error
+		err        error
 		clusterCfg *ClusterConfig
 	)
 
@@ -142,8 +146,8 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 	}
 
 	ads := &AdsSet{
-		Node:         bootstrap.GetNode(),
-		APIType:      bootstrap.GetDynamicResources().GetAdsConfig().GetApiType(),
+		Node:    bootstrap.GetNode(),
+		APIType: bootstrap.GetDynamicResources().GetAdsConfig().GetApiType(),
 	}
 
 	for _, svc := range bootstrap.GetDynamicResources().GetAdsConfig().GetGrpcServices() {
@@ -168,7 +172,7 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 					case *config_core_v3.Address_SocketAddress:
 						ip := lb.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
 						port := lb.GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
-						addr = ip + ":" + strconv.FormatUint(uint64(port), 10)
+						addr = ip + ":" + strconv.FormatUint(uint64(port), Decimalism)
 					case *config_core_v3.Address_EnvoyInternalAddress:
 						// TODO
 						continue

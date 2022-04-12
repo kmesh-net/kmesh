@@ -17,18 +17,23 @@ package envoy
 import (
 	"context"
 	"fmt"
+	"time"
+
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 	"openeuler.io/mesh/pkg/nets"
-	"time"
+)
+
+const (
+	RandTimeSed = 1000
 )
 
 type AdsClient struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	Event    *ServiceEvent
+	ctx    context.Context
+	cancel context.CancelFunc
+	Event  *ServiceEvent
 
 	// config.EnableAds
 	grpcConn *grpc.ClientConn
@@ -79,7 +84,7 @@ func (c *AdsClient) CreateStream(ads *AdsSet) error {
 
 func (c *AdsClient) recoverConnection() error {
 	var (
-		err error
+		err      error
 		interval = time.Second
 	)
 
@@ -89,7 +94,7 @@ func (c *AdsClient) recoverConnection() error {
 		}
 
 		log.Errorf("ads grpc connect failed, %s", err)
-		time.Sleep(interval + nets.CalculateRandTime(1000))
+		time.Sleep(interval + nets.CalculateRandTime(RandTimeSed))
 		interval = nets.CalculateInterval(interval)
 	}
 
@@ -98,9 +103,9 @@ func (c *AdsClient) recoverConnection() error {
 
 func (c *AdsClient) runControlPlane(ctx context.Context) {
 	var (
-		err error
+		err       error
 		reconnect = false
-		rsp *service_discovery_v3.DiscoveryResponse
+		rsp       *service_discovery_v3.DiscoveryResponse
 	)
 
 	if !config.EnableAds {
@@ -109,7 +114,7 @@ func (c *AdsClient) runControlPlane(ctx context.Context) {
 
 	for true {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return
 		default:
 			if reconnect {

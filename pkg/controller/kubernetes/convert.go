@@ -20,11 +20,16 @@ import "C"
 import (
 	api_core_v1 "k8s.io/api/core/v1"
 	api_v1 "openeuler.io/mesh/api/v1"
-	"openeuler.io/mesh/pkg/cache/v1"
+	cache_v1 "openeuler.io/mesh/pkg/cache/v1"
 	"openeuler.io/mesh/pkg/nets"
 )
 
-func extractEndpointCache(cache cache_v1.EndpointCache, flag cache_v1.CacheOptionFlag, nameID uint32, ep *api_core_v1.Endpoints) {
+const (
+	DefaultConnectTimeOut = 15
+)
+
+func extractEndpointCache(cache cache_v1.EndpointCache,
+	flag cache_v1.CacheOptionFlag, nameID uint32, ep *api_core_v1.Endpoints) {
 	var kv cache_v1.EndpointKeyAndValue
 
 	if ep == nil {
@@ -50,7 +55,8 @@ func extractEndpointCache(cache cache_v1.EndpointCache, flag cache_v1.CacheOptio
 	}
 }
 
-func extractClusterCache(cache cache_v1.ClusterCache, flag cache_v1.CacheOptionFlag, nameID uint32, svc *api_core_v1.Service) {
+func extractClusterCache(cache cache_v1.ClusterCache,
+	flag cache_v1.CacheOptionFlag, nameID uint32, svc *api_core_v1.Service) {
 	var kv cache_v1.ClusterKeyAndValue
 
 	if svc == nil {
@@ -61,14 +67,15 @@ func extractClusterCache(cache cache_v1.ClusterCache, flag cache_v1.CacheOptionF
 	kv.Value.LoadAssignment.MapKeyOfEndpoint.NameID = nameID
 	// TODO
 	kv.Value.Type = 0
-	kv.Value.ConnectTimeout = 15
+	kv.Value.ConnectTimeout = DefaultConnectTimeOut
 
 	for _, serPort := range svc.Spec.Ports {
 		if !nets.GetConfig().IsEnabledProtocol(string(serPort.Protocol)) {
 			continue
 		}
 
-		kv.Value.LoadAssignment.MapKeyOfEndpoint.Port = nets.ConvertPortToLittleEndian(uint32(serPort.TargetPort.IntVal))
+		kv.Value.LoadAssignment.MapKeyOfEndpoint.Port =
+			nets.ConvertPortToLittleEndian(uint32(serPort.TargetPort.IntVal))
 		kv.Key.Port = nets.ConvertPortToLittleEndian(uint32(serPort.Port))
 
 		cache[kv] |= flag
@@ -76,7 +83,7 @@ func extractClusterCache(cache cache_v1.ClusterCache, flag cache_v1.CacheOptionF
 }
 
 func extractListenerCache(cache cache_v1.ListenerCache, svcFlag cache_v1.CacheOptionFlag, nameID uint32,
-						  svc *api_core_v1.Service, addr nodeAddress) {
+	svc *api_core_v1.Service, addr nodeAddress) {
 	var kv cache_v1.ListenerKeyAndValue
 
 	if svc == nil {

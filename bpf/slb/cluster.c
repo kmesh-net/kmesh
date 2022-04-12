@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
+ *	 http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
@@ -18,15 +18,13 @@
 #include "tail_call.h"
 #include "xdp.h"
 
-static inline
-int cluster_handle_circuit_breaker(cluster_t *cluster)
+static inline int cluster_handle_circuit_breaker(cluster_t *cluster)
 {
 	// TODO
 	return 0;
 }
 
-static inline
-endpoint_t *loadbalance_round_robin(load_assignment_t *load_assignment)
+static inline endpoint_t *loadbalance_round_robin(load_assignment_t *load_assignment)
 {
 	int ret;
 	loadbalance_t *lb = NULL;
@@ -38,20 +36,27 @@ endpoint_t *loadbalance_round_robin(load_assignment_t *load_assignment)
 
 	endpoint = map_lookup_endpoint(&lb->map_key);
 	if (endpoint == NULL) {
-		lb->map_key.index = 0;
-		endpoint = map_lookup_endpoint(&lb->map_key);
+		map_key_t lb_map_key_temp = {
+				lb->map_key.nameid,
+				lb->map_key.port,
+				0
+		};
+		endpoint = map_lookup_endpoint(&lb_map_key_temp);
+		lb->map_key.index = 1;
+	} else {
+		__sync_fetch_and_add(&lb->map_key.index, 1);
 	}
 
-	lb->map_key.index++;
-	ret = map_update_loadbalance(&load_assignment->map_key_of_endpoint, lb);
-	if (ret != 0)
-		BPF_LOG(ERR, KMESH, "map_of_loadbalance update failed\n");
-
+	if (endpoint == NULL) {
+		BPF_LOG(ERR, KMESH, "map_lookup_endpoint failed, key %u|%u|%u\n",
+				lb->map_key.nameid,
+				lb->map_key.port,
+				lb->map_key.index);
+	}
 	return endpoint;
 }
 
-static inline
-endpoint_t *loadbalance_least_request(load_assignment_t *load_assignment)
+static inline endpoint_t *loadbalance_least_request(load_assignment_t *load_assignment)
 {
 	int ret;
 	unsigned i;
@@ -89,11 +94,10 @@ endpoint_t *loadbalance_least_request(load_assignment_t *load_assignment)
 	return endpoint;
 }
 
-static inline
-int cluster_handle_loadbalance(ctx_buff_t *ctx,
-                               load_assignment_t *load_assignment,
-                               address_t* src_address bpf_unused,
-                               address_t* origin_dst bpf_unused)
+static inline int cluster_handle_loadbalance(ctx_buff_t *ctx,
+							   load_assignment_t *load_assignment,
+							   address_t* src_address bpf_unused,
+							   address_t* origin_dst bpf_unused)
 {
 	endpoint_t *endpoint = NULL;
 
@@ -136,39 +140,46 @@ int cluster_manager(ctx_buff_t *ctx)
 	map_key_t *pkey = NULL;
 	ctx_key_t ctx_key;
 	cluster_t *cluster = NULL;
-    address_t src_address = {0};
+	address_t src_address = {0};
 
 #ifdef XDP_ACCELERATE_ENABLE
-    address_t address = {0};
-    parse_xdp_address(ctx, false, &src_address, &address);
+	address_t address = {0};
+	parse_xdp_address(ctx, false, &src_address, &address);
 #else
-    DECLARE_VAR_ADDRESS(ctx, address);
+	DECLARE_VAR_ADDRESS(ctx, address);
 #endif
 
 	ctx_key.address = address;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER;
-    BPF_LOG(DEBUG, KMESH, "cluster_manager., ip %u, port %u\n",
-            address.ipv4, address.port);
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER + bpf_get_current_task();
+	BPF_LOG(DEBUG, KMESH, "cluster_manager., ip %u, port %u\n",
+			address.ipv4, address.port);
 	pkey = kmesh_tail_lookup_ctx(&ctx_key);
-	if (pkey == NULL)
+	if (pkey == NULL) {
+		BPF_LOG(ERR, KMESH, "cluster_manager,ENOENT");
 		return convert_sock_errno(ENOENT);
+	}
 
 	cluster = map_lookup_cluster(pkey);
 	kmesh_tail_delete_ctx(&ctx_key);
 	if (cluster == NULL) {
-        BPF_LOG(DEBUG, KMESH, "cluster_manager.can not find cluster; ip %u, port %u\n",
-                address.ipv4, address.port);
-        return convert_sock_errno(ENOENT);
-    }
+		BPF_LOG(ERR, KMESH, "cluster_manager.can not find cluster; ip %u, port %u\n",
+				address.ipv4, address.port);
+		return convert_sock_errno(ENOENT);
+	}
 
 	if (cluster_handle_circuit_breaker(cluster) != 0)
 		return convert_sock_errno(EBUSY);
 
 	ret = cluster_handle_loadbalance(ctx, &cluster->load_assignment, &src_address, &address);
 #ifdef XDP_ACCELERATE_ENABLE
-    BPF_LOG(DEBUG, KMESH, "xdp_cluster_manager.ret %u\n", ret);
-    return convert_xdp_error(ret);
+	BPF_LOG(DEBUG, KMESH, "xdp_cluster_manager.ret %u\n", ret);
+	return convert_xdp_error(ret);
 #endif
+	if (ret != 0) {
+		BPF_LOG(ERR, KMESH, "cluster_manager.cluster_handle_loadbalance return %u, policy %u\n", ret,
+				cluster->load_assignment.lb_policy);
+	}
+
 	return convert_sock_errno(ret);
 }
 

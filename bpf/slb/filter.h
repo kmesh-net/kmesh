@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
+ *	 http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
@@ -26,8 +26,7 @@ bpf_map_t SEC("maps") map_of_filter = {
 	.map_flags		= 0,
 };
 
-static inline
-filter_t *map_lookup_filter(const map_key_t *map_key)
+static inline filter_t *map_lookup_filter(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_filter, map_key);
 }
@@ -41,14 +40,12 @@ bpf_map_t SEC("maps") map_of_filter_chain = {
 	.map_flags		= 0,
 };
 
-static inline
-filter_chain_t *map_lookup_filter_chain(const map_key_t *map_key)
+static inline filter_chain_t *map_lookup_filter_chain(const map_key_t *map_key)
 {
 	return kmesh_map_lookup_elem(&map_of_filter_chain, map_key);
 }
 
-static inline
-int filter_chain_match_check(ctx_buff_t *ctx, filter_chain_match_t *filter_chain_match)
+static inline int filter_chain_match_check(ctx_buff_t *ctx, filter_chain_match_t *filter_chain_match)
 {
 	// TODO
 	return 0;

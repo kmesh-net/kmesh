@@ -45,7 +45,8 @@ func StartClient() error {
 		Timeout: httpTimeout,
 	}
 	cmdClient.resp, err =
-		cmdClient.client.Post(adminUrl + patternBpfKmeshMaps, contentType, strings.NewReader(string(config.ConfigResources)))
+		cmdClient.client.Post(adminUrl + patternBpfKmeshMaps, 
+							  contentType, strings.NewReader(string(config.ConfigResources)))
 	if err != nil {
 		return err
 	}

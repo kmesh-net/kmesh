@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
+ *	 http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
@@ -17,24 +17,21 @@
 #include "route.h"
 #include "tail_call.h"
 
-static inline
-int handle_http_connection_manager(
+static inline int handle_http_connection_manager(
 	ctx_buff_t *ctx, http_connection_manager_t *http_connection_manager)
 {
 	// TODO
 	return 0;
 }
 
-static inline
-int handle_ratelimit(
+static inline int handle_ratelimit(
 	ctx_buff_t *ctx, ratelimit_t *ratelimit)
 {
 	// TODO
 	return 0;
 }
 
-static inline
-int filter_check(ctx_buff_t *ctx, filter_t *filter)
+static inline int filter_check(ctx_buff_t *ctx, filter_t *filter)
 {
 	int ret;
 

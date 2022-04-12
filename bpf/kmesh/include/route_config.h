@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2022-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -28,18 +28,16 @@ bpf_map_t SEC("maps") map_of_router_config = {
 	.map_flags		= 0,
 };
 
-static inline
-Route__RouteConfiguration * map_lookup_route_config(const char *route_name)
+static inline Route__RouteConfiguration *map_lookup_route_config(const char *route_name)
 {
-	if (!route_name) {
+	if (!route_name)
 		return NULL;
-	}
 
 	return kmesh_map_lookup_elem(&map_of_router_config, route_name);
 }
 
-static inline 
-int virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
+static inline int virtual_host_match_check(Route__VirtualHost *virt_host,
+											address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
 	int i;
 	void *domains = NULL;
@@ -75,9 +73,8 @@ int virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx
 	return 0;
 }
 
-static inline
-Route__VirtualHost * virtual_host_match(Route__RouteConfiguration *route_config, 
-					address_t *addr, 
+static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *route_config,
+					address_t *addr,
 					ctx_buff_t *ctx,
 					struct bpf_mem_ptr *msg)
 {
@@ -101,19 +98,17 @@ Route__VirtualHost * virtual_host_match(Route__RouteConfiguration *route_config,
 #pragma unroll
 	for (i = 0; i < n_virt_hosts; i++) {
 		virt_host = kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
-		if (!virt_host) {
+		if (!virt_host)
 			continue;
-		}
 
-		if (virtual_host_match_check(virt_host, addr, ctx, msg)) {
+		if (virtual_host_match_check(virt_host, addr, ctx, msg))
 			return virt_host;
-		}
 	}
 	return NULL;
 }
 
-static inline
-int virtual_host_route_match_check(Route__Route *route, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
+static inline int virtual_host_route_match_check(Route__Route *route,
+												address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
 	Route__RouteMatch *match;
 	char *prefix;
@@ -142,8 +137,8 @@ int virtual_host_route_match_check(Route__Route *route, address_t *addr, ctx_buf
 	return 1;
 }
 
-static inline
-Route__Route * virtual_host_route_match(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
+static inline Route__Route *virtual_host_route_match(Route__VirtualHost *virt_host,
+													address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
 	int i;
 	void *ptrs = NULL;
@@ -165,13 +160,11 @@ Route__Route * virtual_host_route_match(Route__VirtualHost *virt_host, address_t
 #pragma unroll
 	for (i = 0; i < n_routes; i++) {
 		route = (Route__Route *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
-		if (!route) {
+		if (!route)
 			continue;
-		}
 
-		if (virtual_host_route_match_check(route, addr, ctx, msg)) {
+		if (virtual_host_route_match_check(route, addr, ctx, msg))
 			return route;
-		}
 	}
 	return NULL;
 }

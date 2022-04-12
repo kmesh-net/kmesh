@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
+ *	 http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
@@ -19,6 +19,7 @@
 #include "filter.h"
 #include "cluster.h"
 #include "tail_call.h"
+#include "bpf_log.h"
 
 bpf_map_t SEC("maps") map_of_listener = {
 	.type			= BPF_MAP_TYPE_HASH,
@@ -28,14 +29,12 @@ bpf_map_t SEC("maps") map_of_listener = {
 	.map_flags		= 0,
 };
 
-static inline
-listener_t *map_lookup_listener(const address_t *address)
+static inline listener_t *map_lookup_listener(const address_t *address)
 {
 	return kmesh_map_lookup_elem(&map_of_listener, address);
 }
 
-static inline
-int l4_listener_manager(ctx_buff_t *ctx, listener_t *listener)
+static inline int l4_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 {
 	map_key_t map_key;
 	ctx_key_t ctx_key;
@@ -46,18 +45,19 @@ int l4_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 	map_key = listener->map_key;
 
 	ctx_key.address = address;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER;
+	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER + bpf_get_current_task();
 
-	if (kmesh_tail_update_ctx(&ctx_key, &map_key) != 0)
+	if (kmesh_tail_update_ctx(&ctx_key, &map_key) != 0) {
+		BPF_LOG(ERR, KMESH, "l4_listener_manager:ENOSPC\n");
 		return -ENOSPC;
+	}
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
 	kmesh_tail_delete_ctx(&ctx_key);
 
 	return 0;
 }
 
-static inline
-int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
+static inline int l7_listener_manager(ctx_buff_t *ctx, listener_t *listener)
 {
 	unsigned i;
 	map_key_t map_key;

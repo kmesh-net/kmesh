@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
@@ -19,7 +19,7 @@
 #include "route.pb-c.h"
 
 typedef struct {
-	//TODO
+	// TODO
 } http_filter_t;
 
 typedef struct {
@@ -30,10 +30,10 @@ typedef struct {
 	__u16 at_type;
 
 	// Golang cannot access C.union directly
-	//union {
+	// union {
 		rds_t rds;
 		route_config_t route_config;
-	//};
+	// };
 	http_filter_t http_filter;
 	char server_name[0];
 } http_connection_manager_t;
@@ -54,10 +54,10 @@ typedef struct {
 
 	// typed_config
 	// Golang cannot access C.union directly
-	//union {
+	// union {
 		http_connection_manager_t http_connection_manager;
 		ratelimit_t ratelimit;
-	//};
+	// };
 } filter_t;
 
 
@@ -74,4 +74,4 @@ typedef struct {
 	filter_chain_match_t filter_chain_match;
 } filter_chain_t;
 
-#endif //_FILTER_PB_H_
+#endif // _FILTER_PB_H_

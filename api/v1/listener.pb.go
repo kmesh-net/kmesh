@@ -25,7 +25,7 @@ type CListener struct {
 
 type Listener struct {
 	MapKey MapKey
-	//Name	string	`json:"name"`
+	// Name	string	`json:"name"`
 	Type    uint16  `json:"type"`
 	State   uint16  `json:"state"`
 	Address Address `json:"address"`

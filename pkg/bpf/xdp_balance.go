@@ -20,33 +20,34 @@ package bpf
 import "C"
 import (
 	"fmt"
+	"os"
+	"reflect"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"openeuler.io/mesh/bpf/slb/bpf2go"
-	"os"
-	"reflect"
 )
 
 var (
-	 GlobalMapPath = "/sys/fs/bpf/tc/globals/"
-	 XdpProgPath = "/xdp_balance/"
-	)
+	GlobalMapPath   = "/sys/fs/bpf/tc/globals/"
+	XdpProgPath     = "/xdp_balance/"
+	AttachInterface = 2
+)
 
 type BpfXdpBalance struct {
-	Info 		BpfInfo
-	Link		link.Link
+	Info BpfInfo
+	Link link.Link
 	bpf2go.XdpBalanceObjects
 	bpf2go.XdpClusterObjects
 }
 
 func NewXdpBalance(cfg *Config) (BpfXdpBalance, error) {
-	xdpBalance := BpfXdpBalance {}
+	xdpBalance := BpfXdpBalance{}
 	xdpBalance.Info.Config = *cfg
 
-
 	xdpBalance.Info.BpfFsPath += XdpProgPath
-	//xdpBalance.Info.MapPath = xdpBalance.Info.BpfFsPath + "map/"
-	//shared map to tcRevNat bpf
+	// xdpBalance.Info.MapPath = xdpBalance.Info.BpfFsPath + "map/"
+	// shared map to tcRevNat bpf
 	xdpBalance.Info.MapPath = GlobalMapPath
 	if err := os.MkdirAll(xdpBalance.Info.BpfFsPath, 0750); err != nil && !os.IsExist(err) {
 		return xdpBalance, err
@@ -60,9 +61,9 @@ func NewXdpBalance(cfg *Config) (BpfXdpBalance, error) {
 
 func (xdpB *BpfXdpBalance) LoadXdpBalanceObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err		error
-		spec	*ebpf.CollectionSpec
-		opts 	ebpf.CollectionOptions
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = xdpB.Info.MapPath
 
@@ -83,12 +84,11 @@ func (xdpB *BpfXdpBalance) LoadXdpBalanceObjects() (*ebpf.CollectionSpec, error)
 	return spec, nil
 }
 
-
 func (xdpB *BpfXdpBalance) loadXdpClusterObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err		error
-		spec	*ebpf.CollectionSpec
-		opts 	ebpf.CollectionOptions
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = xdpB.Info.MapPath
 
@@ -139,8 +139,8 @@ func (xdpB *BpfXdpBalance) Attach() error {
 	xdpOpts := link.XDPOptions{
 		Program: xdpB.XdpBalanceObjects.XdpLoadBalance,
 		// todo xsy get by command:ip link show set in config
-		Interface: 2,
-		Flags: link.XDPGenericMode,
+		Interface: AttachInterface,
+		Flags:     link.XDPGenericMode,
 	}
 
 	lk, err := link.AttachXDP(xdpOpts)

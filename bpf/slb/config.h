@@ -1,9 +1,9 @@
 /*
- * Copyright (c) 2019 Huawei Technologies Co., Ltd.
+ * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
  * MeshAccelerating is licensed under the Mulan PSL v2.
  * You can use this software according to the terms and conditions of the Mulan PSL v2.
  * You may obtain a copy of Mulan PSL v2 at:
- *     http://license.coscl.org.cn/MulanPSL2
+ *	 http://license.coscl.org.cn/MulanPSL2
  * THIS SOFTWARE IS PROVIDED ON AN "AS IS" BASIS, WITHOUT WARRANTIES OF ANY KIND, EITHER EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO NON-INFRINGEMENT, MERCHANTABILITY OR FIT FOR A PARTICULAR
  * PURPOSE.
@@ -71,29 +71,27 @@
 #define map_of_endpoint			endpoint
 #define map_of_tail_call_prog	tail_call_prog
 #define map_of_tail_call_ctx	tail_call_ctx
-#define map_of_tuple_ct         tuple_ct
+#define map_of_tuple_ct		 tuple_ct
 
 // ************
 // bpf return value
 #define CGROUP_SOCK_ERR		0
 #define CGROUP_SOCK_OK		1
-static inline
-int convert_sock_errno(int err)
+static inline int convert_sock_errno(int err)
 {
-    return err == 0 ? CGROUP_SOCK_OK : CGROUP_SOCK_ERR;
+	return err == 0 ? CGROUP_SOCK_OK : CGROUP_SOCK_ERR;
 }
 
-static inline
-int convert_xdp_error(int ret)
+static inline int convert_xdp_error(int ret)
 {
-    return ret < 0 ? XDP_ABORTED : ret;
+	return ret < 0 ? XDP_ABORTED : ret;
 }
 
 #ifdef XDP_ACCELERATE_ENABLE
 typedef struct xdp_md		ctx_buff_t;
 // todo instead of parse_xdp_address
 #define DECLARE_VAR_ADDRESS(ctx, name) \
-	address_t name = {0};
+	address_t name = {0}
 #define SET_CTX_ADDRESS(ctx, address) \
 /*	(ctx)->remote_ip4  = (address)->ipv4; \
 	(ctx)->remote_port = (address)->port */
@@ -101,8 +99,8 @@ typedef struct xdp_md		ctx_buff_t;
 typedef struct bpf_sock_addr	ctx_buff_t;
 #define DECLARE_VAR_ADDRESS(ctx, name) \
 	address_t name = {0}; \
-	name.ipv4 = (ctx)->user_ip4; \
-	name.port = (ctx)->user_port
+	(name).ipv4 = (ctx)->user_ip4; \
+	(name).port = (ctx)->user_port
 #define SET_CTX_ADDRESS(ctx, address) \
 	(ctx)->user_ip4  = (address)->ipv4; \
 	(ctx)->user_port = (address)->port

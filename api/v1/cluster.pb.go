@@ -24,7 +24,7 @@ type CCluster struct {
 }
 
 type Cluster struct {
-	//Name	string	`json:"name"`
+	// Name	string	`json:"name"`
 	Type           uint16         `json:"type"`
 	ConnectTimeout uint16         `json:"connect_timeout"`
 	LoadAssignment LoadAssignment `json:"load_assignment"`

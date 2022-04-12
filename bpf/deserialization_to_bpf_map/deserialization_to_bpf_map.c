@@ -1,26 +1,22 @@
+/*
+ * Copyright (c) Huawei Technologies Co., Ltd. 2020-2020. All rights reserved.
+ */
 #include <errno.h>
 #include <stdlib.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <securec.h>
 
-#include <linux/bpf.h>
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
 #include <bpf/btf.h>
+#include <linux/bpf.h>
 
 #include <protobuf-c/protobuf-c.h>
 
 #include "deserialization_to_bpf_map.h"
 
 #define MAX_ERRNO	4095
-
-#if 0
-#define IS_ERR_VALUE(x) ((unsigned long)(void *)(x) >= (unsigned long)-MAX_ERRNO)
-static inline bool  IS_ERR( const void *ptr)
-{
-	return IS_ERR_VALUE((unsigned long)ptr);
-}
-#endif
 
 #define LOG_ERR(fmt, args...)	printf(fmt, ## args)
 #define LOG_INFO(fmt, args...)	printf(fmt, ## args)
@@ -49,72 +45,37 @@ struct op_context {
 #define init_op_context(context, key, val, desc, o_fd, fd, o_info,	\
 			i_info, m_info)	\
 do {					\
-	context.key = key;		\
-	context.value = val;		\
-	context.desc = desc;		\
-	context.outter_fd = o_fd;	\
-	context.map_fd = fd;		\
-	context.outter_info = o_info;	\
-	context.inner_info = i_info;	\
-	context.info = m_info;		\
-	context.curr_info = m_info;	\
-	context.curr_fd = fd;		\
-} while(0)
+	(context).key = (key);		\
+	(context).value = (val);		\
+	(context).desc = (desc);		\
+	(context).outter_fd = (o_fd);	\
+	(context).map_fd = (fd);		\
+	(context).outter_info = (o_info);	\
+	(context).inner_info = (i_info);	\
+	(context).info = (m_info);		\
+	(context).curr_info = (m_info);	\
+	(context).curr_fd = (fd);		\
+} while (0)
 
-static int update_bpf_map(struct op_context *context);
+static int update_bpf_map(struct op_context *ctx);
 static void* create_struct(struct op_context *ctx, int *err);
 static int del_bpf_map(struct op_context *ctx, int is_inner);
 static int free_outter_map_entry(struct op_context *ctx, void *outter_key);
 
-#if 0
-static int normalize_key(struct op_context *ctx, void *key)
-{
-	static struct btf *btf_vmlinux;
-	const struct btf_type *t;
-
-	ctx->key = malloc(ctx->curr_info->key_size);
-	if (!ctx->key)
-		return -errno;
-
-	if (!btf_vmlinux)
-		btf_vmlinux = libbpf_find_kernel_btf();
-	if (IS_ERR(btf_vmlinux)) {
-		LOG_ERR("requires kernel CONFIG_DEBUG_INFO_BTF=y\n");
-		return -1;
-	}
-
-	t = btf__type_by_id(btf_vmlinux, ctx->curr_info->btf_key_type_id);
-	LOG_INFO("BTF KIND = %d\n", BTF_INFO_KIND(t->info));
-
-	memset(ctx->key, 0, ctx->curr_info->key_size);
-
-	switch (BTF_INFO_KIND(t->info)) {
-	case BTF_KIND_STRUCT:
-		memcpy(ctx->key, key, ctx->curr_info->key_size);
-		break;
-	default:
-		strncpy(ctx->key, key, ctx->curr_info->key_size);
-		break;
-	}
-
-	return 0;
-}
-#else
 static int normalize_key(struct op_context *ctx, void *key, const char *map_name)
 {
-	ctx->key = malloc(ctx->curr_info->key_size);
+	ctx->key = calloc(1, ctx->curr_info->key_size);
 	if (!ctx->key)
 		return -errno;
 
-	memset(ctx->key, 0, ctx->curr_info->key_size);
+	// TODO
 	if (!strncmp(map_name, "Listener", strlen(map_name)))
-		memcpy(ctx->key, key, ctx->curr_info->key_size);
+		memcpy_s(ctx->key, ctx->curr_info->key_size, key, ctx->curr_info->key_size);
 	else
 		strncpy(ctx->key, key, ctx->curr_info->key_size);
 
 	return 0;
 }
-#endif
 
 static inline int selected_oneof_field(void *value,
 				    const ProtobufCFieldDescriptor *field)
@@ -131,7 +92,6 @@ static inline int valid_field_value(void *value,
 				const ProtobufCFieldDescriptor *field)
 {
 	uint32_t val = *(uint32_t*)((char*)value + field->offset);
-
 
 	if (val == 0) {
 		switch (field->type) {
@@ -153,8 +113,7 @@ static inline int valid_field_value(void *value,
 	return 1;
 }
 
-static inline size_t
-sizeof_elt_in_repeated_array(ProtobufCType type)
+static inline size_t sizeof_elt_in_repeated_array(ProtobufCType type)
 {
 	switch (type) {
 	case PROTOBUF_C_TYPE_SINT32:
@@ -313,7 +272,6 @@ static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 	if (inner_map_fd < 0)
 		return inner_map_fd;
 
-
 	inner_map_object = malloc(ctx->inner_info->value_size);
 	if (!inner_map_object)
 		return -ENOMEM;
@@ -373,7 +331,7 @@ retry:
 	}
 
 	if (first) {
-		memset(a_ctl->free_map, 0xff, sizeof(a_ctl->free_map));
+		memset_s(a_ctl->free_map, sizeof(a_ctl->free_map), 0xff, sizeof(a_ctl->free_map));
 		a_ctl->free_map[0] &= ~(1U << 0);
 	}
 
@@ -425,15 +383,7 @@ static int copy_sfield_to_map(struct op_context *ctx, int o_index,
 	if (inner_fd < 0)
 		return inner_fd;
 
-#if 0
-	ret = bpf_map_lookup_elem(inner_fd, &key, ctx->inner_map_object);
-	if (ret < 0) {
-		close(inner_fd);
-		return ret;
-	}
-#endif
-
-	strcpy(ctx->inner_map_object, save_value);
+	strcpy_s(ctx->inner_map_object, ctx->inner_info->value_size, save_value);
 	ret = bpf_map_update_elem(inner_fd, &key, ctx->inner_map_object, BPF_ANY);
 	close(inner_fd);
 	return ret;
@@ -461,7 +411,7 @@ static int copy_msg_field_to_map(struct op_context *ctx, int o_index,
 	if (inner_fd < 0)
 		return inner_fd;
 
-	memcpy(&new_ctx, ctx, sizeof(*ctx));
+	memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
 
 	new_ctx.curr_fd = inner_fd;
 	new_ctx.key = (void*)&key;
@@ -517,17 +467,9 @@ static int copy_indirect_data_to_map(struct op_context *ctx, int outter_key,
 	if (inner_fd < 0)
 		return inner_fd;
 
-#if 0
-	ret = bpf_map_lookup_elem(inner_fd, &key, ctx->inner_map_object);
-	if (ret < 0) {
-		close(inner_fd);
-		return ret;
-	}
-#endif
-
 	switch (type) {
 	case PROTOBUF_C_TYPE_MESSAGE:
-		memcpy(&new_ctx, ctx, sizeof(*ctx));
+		memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
 		new_ctx.curr_fd = inner_fd;
 		new_ctx.key = (void*)&key;
 		new_ctx.value = value;
@@ -543,7 +485,7 @@ static int copy_indirect_data_to_map(struct op_context *ctx, int outter_key,
 		ret = update_bpf_map(&new_ctx);
 		break;
 	case PROTOBUF_C_TYPE_STRING:
-		strcpy(ctx->inner_map_object, (char*)value);
+		strcpy_s(ctx->inner_map_object, ctx->inner_info->value_size, (char*)value);
 		ret = bpf_map_update_elem(inner_fd, &key,
 					   ctx->inner_map_object, BPF_ANY);
 		break;
@@ -591,13 +533,11 @@ static int repeat_field_handle(struct op_context *ctx,
 	if (inner_fd < 0)
 		return inner_fd;
 
-	inner_map_object = malloc(ctx->inner_info->value_size);
+	inner_map_object = calloc(1, ctx->inner_info->value_size);
 	if (!inner_map_object) {
 		close(inner_fd);
 		return -ENOMEM;
 	}
-
-	memset(inner_map_object, 0, ctx->inner_info->value_size);
 
 	switch (field->type) {
 	case PROTOBUF_C_TYPE_MESSAGE:
@@ -615,7 +555,7 @@ static int repeat_field_handle(struct op_context *ctx,
 		}
 		break;
 	default:
-		memcpy(inner_map_object, (void*)origin_value,
+		memcpy_s(inner_map_object, ctx->inner_info->value_size, (void*)origin_value,
 			*(size_t*)n * sizeof_elt_in_repeated_array(field->type));
 		break;
 	}
@@ -632,7 +572,6 @@ end:
 	close(inner_fd);
 
 	return ret;
-
 }
 
 static int update_bpf_map(struct op_context *ctx)
@@ -650,7 +589,7 @@ static int update_bpf_map(struct op_context *ctx)
 	if (!temp_val)
 		return -ENOMEM;
 
-	memcpy(temp_val, ctx->value, ctx->curr_info->value_size);
+	memcpy_s(temp_val, ctx->curr_info->value_size, ctx->value, ctx->curr_info->value_size);
 	ctx->value = temp_val;
 
 	for (i = 0; i < desc->n_fields; i++) {
@@ -747,12 +686,11 @@ int deserial_update_elem(void *key, void *value)
 	init_op_context(context, key, value, desc, outter_fd, map_fd,
 			&outter_info, &inner_info, &info);
 
-	context.inner_map_object = malloc(context.inner_info->value_size);
+	context.inner_map_object = calloc(1, context.inner_info->value_size);
 	if (context.inner_map_object == NULL) {
 		ret = -errno;
 		goto end;
 	}
-	memset(context.inner_map_object, 0, context.inner_info->value_size);
 
 	normalize_key(&context, key, map_name);
 
@@ -814,7 +752,7 @@ static int query_message_field(struct op_context *ctx,
 	if (inner_fd < 0)
 		return inner_fd;
 
-	memcpy(&new_ctx, ctx, sizeof(*ctx));
+	memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
 	new_ctx.curr_fd = inner_fd;
 	new_ctx.key = (void*)&key;
 	new_ctx.curr_info = ctx->inner_info;
@@ -865,7 +803,7 @@ static void* create_indirect_struct(struct op_context *ctx, int outter_key,
 
 	switch (field->type) {
 	case PROTOBUF_C_TYPE_MESSAGE:
-		memcpy(&new_ctx, ctx, sizeof(*ctx));
+		memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
 		new_ctx.curr_fd = inner_fd;
 		new_ctx.key = (void*)&key;
 		new_ctx.curr_info = ctx->inner_info;
@@ -917,13 +855,11 @@ static int repeat_field_query(struct op_context *ctx,
 	if (inner_fd < 0)
 		return inner_fd;
 
-	array = malloc(ctx->inner_info->value_size);
+	array = calloc(1, ctx->inner_info->value_size);
 	if (!array) {
 		close(inner_fd);
 		return -ENOMEM;
 	}
-
-	memset(array, 0, ctx->inner_info->value_size);
 
 	*outter_key = (uintptr_t)array;
 	ret = bpf_map_lookup_elem(inner_fd, &key, array);
@@ -964,14 +900,12 @@ static void* create_struct(struct op_context *ctx, int *err)
 		return NULL;
 	}
 
-	value = malloc(ctx->curr_info->value_size);
+	value = calloc(1, ctx->curr_info->value_size);
 	if (!value)
 		return value;
 
-	memset(value, 0, ctx->curr_info->value_size);
-
 	ret = bpf_map_lookup_elem(ctx->curr_fd, ctx->key, value);
-	if (ret < 0) { 
+	if (ret < 0) {
 		free(value);
 		return NULL;
 	}
@@ -1078,30 +1012,30 @@ static int indirect_field_del(struct op_context *ctx, int outter_key,
 	free_outter_map_entry(ctx, &outter_key);
 
 	switch (field->type) {
-	case PROTOBUF_C_TYPE_MESSAGE:	
-		desc = (ProtobufCMessageDescriptor*)field->descriptor;
-		if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
-			close(inner_fd);
-			return -EINVAL;
-		}
+		case PROTOBUF_C_TYPE_MESSAGE:
+			desc = (ProtobufCMessageDescriptor*)field->descriptor;
+			if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
+				close(inner_fd);
+				return -EINVAL;
+			}
 
-		inner_map_object = malloc(ctx->inner_info->value_size);
-		if (!inner_map_object)
-			return -ENOMEM;
+			inner_map_object = malloc(ctx->inner_info->value_size);
+			if (!inner_map_object)
+				return -ENOMEM;
 
-		memcpy(&new_ctx, ctx, sizeof(*ctx));
-		new_ctx.curr_fd = inner_fd;
-		new_ctx.key = (void*)&key;
-		new_ctx.curr_info = ctx->inner_info;
-		new_ctx.value = inner_map_object;
-		new_ctx.desc = desc;
+			memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
+			new_ctx.curr_fd = inner_fd;
+			new_ctx.key = (void*)&key;
+			new_ctx.curr_info = ctx->inner_info;
+			new_ctx.value = inner_map_object;
+			new_ctx.desc = desc;
 
-		ret = del_bpf_map(&new_ctx, 1);
-		free(inner_map_object);
-		return ret;
-		
-	default:
-		break;
+			ret = del_bpf_map(&new_ctx, 1);
+			free(inner_map_object);
+			return ret;
+			
+		default:
+			break;
 	}
 
 	close(inner_fd);
@@ -1138,12 +1072,11 @@ static int repeat_field_del(struct op_context *ctx,
 	switch (field->type) {
 	case PROTOBUF_C_TYPE_MESSAGE:
 	case PROTOBUF_C_TYPE_STRING:
-		inner_map_object = malloc(ctx->inner_info->value_size);
+		inner_map_object = calloc(1, ctx->inner_info->value_size);
 		if (!inner_map_object) {
 			ret = -ENOMEM;
 			goto end;
 		}
-		memset(inner_map_object, 0, ctx->inner_info->value_size);
 
 		ret = bpf_map_lookup_elem(inner_fd, &key, inner_map_object);
 		if (ret < 0)
@@ -1181,7 +1114,7 @@ static int msg_field_del(struct op_context *ctx, int inner_fd,
 	if (!inner_map_object)
 		return -ENOMEM;
 
-	memcpy(&new_ctx, ctx, sizeof(*ctx));
+	memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
 	new_ctx.curr_fd = inner_fd;
 	new_ctx.key = (void*)&key;
 	new_ctx.curr_info = ctx->inner_info;
@@ -1233,7 +1166,6 @@ static int field_del(struct op_context *ctx,
 
 static int del_bpf_map(struct op_context *ctx, int is_inner)
 {
-	
 	int i, ret;
 	const ProtobufCMessageDescriptor *desc = ctx->desc;
 
@@ -1305,20 +1237,17 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 	if (ret < 0 || map_info_check(&outter_info, &inner_info))
 		goto end;
 
-
 	init_op_context(context, key, NULL, desc, outter_fd, map_fd,
 			&outter_info, &inner_info, &info);
 
-	context.inner_map_object = malloc(context.inner_info->value_size);
-	context.value = malloc(context.curr_info->value_size);
+	context.inner_map_object = calloc(1, context.inner_info->value_size);
+	context.value = calloc(1, context.curr_info->value_size);
 	if (!context.inner_map_object || !context.value) {
 		ret = -errno;
 		goto end;
 	}
 
 	inner_map_object = context.inner_map_object;
-	memset(context.inner_map_object, 0, context.inner_info->value_size);
-	memset(context.value, 0, context.curr_info->value_size);
 
 	normalize_key(&context, key, map_name);
 	ret = del_bpf_map(&context, 0);

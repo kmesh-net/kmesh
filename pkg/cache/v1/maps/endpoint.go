@@ -51,7 +51,7 @@ func EndpointLookup(key *api_v1.MapKey, value *api_v1.Endpoint) error {
 
 func EndpointUpdate(key *api_v1.MapKey, value *api_v1.Endpoint) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *value)
-	//todo xsy
+	// todo xsy
 	if err := bpf.Obj.XdpBalance.XdpClusterObjects.XdpClusterMaps.Endpoint.
 		Update(key, &endpointToClang(value).Entry, ebpf.UpdateAny); err != nil {
 		log.Errorf("Update xdp endpoint failed [%#v], [%#v], err %s", *key, *value, err)
@@ -62,7 +62,7 @@ func EndpointUpdate(key *api_v1.MapKey, value *api_v1.Endpoint) error {
 
 func EndpointDelete(key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v]", *key)
-	//todo xsy
+	// todo xsy
 	if err := bpf.Obj.XdpBalance.XdpClusterObjects.XdpClusterMaps.Endpoint.
 		Delete(key); err != nil {
 		log.Errorf("Delete xdp endpoint failed [%#v], err %s %", *key, err)
@@ -101,7 +101,7 @@ func LoadbalanceLookup(key *api_v1.MapKey, value *api_v1.Loadbalance) error {
 
 func LoadbalanceUpdate(key *api_v1.MapKey, value *api_v1.Loadbalance) error {
 	log.Debugf("Update [%#v], [%#v]", *key, *value)
-	//todo xsy shared map
+	// todo xsy shared map
 	if err := bpf.Obj.XdpBalance.XdpClusterObjects.XdpClusterMaps.Loadbalance.
 		Update(key, &loadbalanceToClang(value).Entry, ebpf.UpdateAny); err != nil {
 		log.Errorf("Update xdp loadbalance failed, [%#v], [%#v], err: %s", *key, *value, err)
@@ -112,7 +112,7 @@ func LoadbalanceUpdate(key *api_v1.MapKey, value *api_v1.Loadbalance) error {
 
 func LoadbalanceDelete(key *api_v1.MapKey) error {
 	log.Debugf("Delete [%#v]", *key)
-	//todo xsy
+	// todo xsy
 	if err := bpf.Obj.XdpBalance.XdpClusterObjects.XdpClusterMaps.Loadbalance.
 		Delete(key); err != nil {
 		log.Errorf("Delete xdp loadbalance failed,[%#v], err:%s", *key, err)
