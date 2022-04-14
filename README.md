@@ -103,10 +103,10 @@ Usage of kmesh-daemon:
     	[if -enable-kmesh] TODO (default "TODO")
 
 # example
-./mesh-daemon -enable-slb=true
+./kmesh-daemon -enable-slb=true
 # example
-./mesh-daemon -enable-kmesh=true -enable-ads=true -config-file=envoy-rev0.json
-./mesh-daemon -enable-kmesh=true -enable-ads=false
+./kmesh-daemon -enable-kmesh=true -enable-ads=true -config-file=envoy-rev0.json
+./kmesh-daemon -enable-kmesh=true -enable-ads=false
 ```
 
 kmesh-cmd

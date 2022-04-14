@@ -8,13 +8,17 @@ License:       Mulan PSL v2
 URL:           https://gitee.com/openeuler
 Source0:       %{name}-%{version}.tar.gz
 
-BuildRequires: clang llvm
-BuildRequires: libbpf-devel 
-BuildRequires: kernel-devel >= 5.10
-BuildRequires: golang >= 1.16
+BuildRequires: make
 BuildRequires: protobuf protobuf-c protobuf-c-devel
+BuildRequires: golang >= 1.16
+BuildRequires: clang >= 10.0.1 llvm >= 10.0.1
+BuildRequires: libbpf-devel kernel-devel >= 5.10
 
-Requires: libbpf bpftool
+Requires: bpftool
+Requires: libbpf kernel >= 5.10
+
+BuildRequires: libsecurec-devel
+Requires: libsecurec
 
 %description
 %{name} is a eBPF-based service mesh kernel solution.

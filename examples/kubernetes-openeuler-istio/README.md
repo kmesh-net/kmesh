@@ -8,7 +8,7 @@ Install istio
 # https://istio.io/latest/docs/setup/getting-started/#download
 cd istio-1.8.2
 export PATH=$PWD/bin:$PATH
-istioctl install --set profile=demo -y
+istioctl install --set profile=default -y
 ```
 
 Deploy openEuler
@@ -30,22 +30,24 @@ openeuler-v2-7b7b59c8bf-4zdnm   2/2     Running   2          5d14h
 Install fortio to pod
 
 ```shell
-cat > /etc/yum.repos.d/openEuler.repo << EOF
-[openEuler]
-name=openEuler
-#baseurl=http://repo.huaweicloud.com/openeuler/openEuler-21.03/everything/x86_64/
-baseurl=http://mirrors.tools.huawei.com/openeuler/openEuler-21.03/everything/x86_64/
-enabled=1
-gpgcheck=0
-EOF
 cat >> /etc/hosts << EOF
 172.30.163.142 repo.huaweicloud.com
 7.223.219.58 mirrors.tools.huawei.com
 EOF
+
+cat > /etc/yum.repos.d/openEuler.repo << EOF
+[openEuler]
+name=openEuler
+baseurl=http://repo.huaweicloud.com/openeuler/openEuler-21.03/everything/x86_64/
+#baseurl=http://mirrors.tools.huawei.com/openeuler/openEuler-21.03/everything/x86_64/
+enabled=1
+gpgcheck=0
+EOF
 cat >> ~/.bashrc << EOF
 export PATH=$PATH:$HOME/bin:/usr/local/go/bin:/root/go/bin
 export GO111MODULE=on
-export GOPROXY=http://cmc-cd-mirror.rnd.huawei.com/goproxy/
+export GOPROXY=https://repo.huaweicloud.com/repository/goproxy/
+#export GOPROXY=http://cmc-cd-mirror.rnd.huawei.com/goproxy/
 export GONOSUMDB=*
 EOF
 
