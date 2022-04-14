@@ -27,9 +27,9 @@ import (
 
 	config_bootstrap_v3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	// in order to fix: could not resolve Any message type
-	// https://issueexplorer.com/issue/envoyproxy/go-control-plane/450
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 
 	"path/filepath"
 
