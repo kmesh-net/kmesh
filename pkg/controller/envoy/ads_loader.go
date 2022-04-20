@@ -290,28 +290,83 @@ func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *
 func newApiRoute(route *config_route_v3.Route) *route_v2.Route {
 	apiRoute := &route_v2.Route{
 		Name: route.GetName(),
-		Match: &route_v2.RouteMatch{
-			Prefix: route.GetMatch().GetPrefix(),
-		},
+		Match: newApiRouteMatch(route.GetMatch()),
 	}
 
 	switch route.GetAction().(type) {
 	case *config_route_v3.Route_Route:
-		action := route.GetRoute()
-		apiRoute.Route = &route_v2.RouteAction{
-			Cluster: action.GetCluster(),
-			Timeout: uint32(action.GetTimeout().GetSeconds()),
-			RetryPolicy: &route_v2.RetryPolicy{
-				NumRetries: action.GetRetryPolicy().GetNumRetries().GetValue(),
-			},
-		}
+		apiRoute.Route = newApiRouteAction(route.GetRoute())
 	case *config_route_v3.Route_FilterAction:
 	case *config_route_v3.Route_Redirect:
 	default:
-	}
-
-	if apiRoute.Route == nil {
 		return nil
 	}
+
 	return apiRoute
+}
+
+func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
+	var apiHeaders []*route_v2.HeaderMatcher
+	for _, header := range match.GetHeaders() {
+		apiHeader := &route_v2.HeaderMatcher{
+			Name: header.GetName(),
+			HeaderMatchSpecifier: nil,
+		}
+
+		switch header.GetHeaderMatchSpecifier().(type) {
+		case *config_route_v3.HeaderMatcher_PrefixMatch:
+			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_PrefixMatch{
+				PrefixMatch: header.GetPrefixMatch(),
+			}
+		case *config_route_v3.HeaderMatcher_ExactMatch:
+			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch{
+				ExactMatch: header.GetExactMatch(),
+			}
+		default:
+			continue
+		}
+
+		apiHeaders = append(apiHeaders, apiHeader)
+	}
+
+	return &route_v2.RouteMatch{
+		Prefix: match.GetPrefix(),
+		CaseSensitive: match.GetCaseSensitive().GetValue(),
+		Headers: apiHeaders,
+	}
+}
+
+func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteAction {
+	apiAction := &route_v2.RouteAction{
+		ClusterSpecifier: nil,
+		Timeout: uint32(action.GetTimeout().GetSeconds()),
+		RetryPolicy: &route_v2.RetryPolicy{
+			NumRetries: action.GetRetryPolicy().GetNumRetries().GetValue(),
+		},
+	}
+
+	switch action.GetClusterSpecifier().(type) {
+	case *config_route_v3.RouteAction_Cluster:
+		apiAction.ClusterSpecifier = &route_v2.RouteAction_Cluster{
+			Cluster: action.GetCluster(),
+		}
+	case *config_route_v3.RouteAction_WeightedClusters:
+		var apiClusters []*route_v2.WeightedCluster_ClusterWeight
+		for _, cluster := range action.GetWeightedClusters().GetClusters() {
+			apiClusters = append(apiClusters, &route_v2.WeightedCluster_ClusterWeight{
+				Name: cluster.GetName(),
+				Weight: cluster.GetWeight().GetValue(),
+			})
+		}
+
+		apiAction.ClusterSpecifier = &route_v2.RouteAction_WeightedClusters{
+			WeightedClusters: &route_v2.WeightedCluster{
+				Clusters: apiClusters,
+			},
+		}
+	default:
+		return nil
+	}
+
+	return apiAction
 }
