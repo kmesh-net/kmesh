@@ -91,7 +91,7 @@ static inline int cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_
 	if (!ep_ptrs)
 		return -1;
 
-#pragma unroll
+
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
 		if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >=  KMESH_PER_ENDPOINT_NUM)
 			break;
@@ -109,20 +109,16 @@ static inline __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignm
 	__u32 num = 0;
 	void *ptrs = NULL;
 	Endpoint__LocalityLbEndpoints *lb_ep = NULL;
-	size_t n_endpoints = cla->n_endpoints;
 
 	ptrs = kmesh_get_ptr_val(cla->endpoints);
 	if (!ptrs)
 		return -1;
 
-	if (n_endpoints == 0 || n_endpoints > KMESH_PER_ENDPOINT_NUM) {
-		BPF_LOG(ERR, CLUSTER, "n_endpoints num(%d) invalid\n", n_endpoints);
-		return -1;
-	}
-	n_endpoints = BPF_MIN(cla->n_endpoints, KMESH_PER_ENDPOINT_NUM);
+	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
+		if (i >= cla->n_endpoints) {
+			break;
+		}
 
-#pragma unroll
-	for (i = 0; i < n_endpoints; i++) {
 		lb_ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!lb_ep)
 			continue;
@@ -147,7 +143,7 @@ static inline int cluster_init_endpoints(const char *cluster_name,
 		return -1;
 	}
 
-#pragma unroll
+
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
 		if (i >= cla->n_endpoints)
 			break;
@@ -179,9 +175,11 @@ static inline int cluster_check_endpoints(const struct cluster_endpoints *eps,
 	if (!ptrs)
 		return 0;
 
-	lb_num = BPF_MIN(lb_num, KMESH_PER_ENDPOINT_NUM);
-#pragma unroll
-	for (i = 0; i < lb_num; i++) {
+	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
+		if (i >= lb_num) {
+			break;
+		}
+
 		if (eps->ep_identity[i] != (__u64)_(ptrs + i))
 			return 0;
 	}

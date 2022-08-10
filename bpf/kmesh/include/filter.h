@@ -51,8 +51,8 @@ static inline int filter_chain_filter_match(const Listener__FilterChain *filter_
 		return -1;
 	}
 
-	if (nfilter == 0 || nfilter > KMESH_PER_FILTER_NUM) {
-		BPF_LOG(ERR, FILTERCHAIN, "nfilter num(%d) invalid\n", nfilter);
+	if (filter_chain->n_filters == 0 || filter_chain->n_filters > KMESH_PER_FILTER_NUM) {
+		BPF_LOG(ERR, FILTERCHAIN, "nfilter num(%d) invalid\n", filter_chain->n_filters);
 		return -1;
 	}
 	
@@ -64,9 +64,11 @@ static inline int filter_chain_filter_match(const Listener__FilterChain *filter_
 	}
 
 	/* limit loop cap to pass bpf verify */
-	nfilter = BPF_MIN(nfilter, KMESH_PER_FILTER_NUM);
-#pragma unroll
-	for (i = 0; i < nfilter; i++) {
+	for (i = 0; i < KMESH_PER_FILTER_NUM; i++) {
+		if (i >= filter_chain->n_filters) {
+			break;
+		}
+
 		filter = (Listener__Filter *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!filter) {
 			continue;

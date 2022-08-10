@@ -43,7 +43,6 @@ static inline int virtual_host_match_check(Route__VirtualHost *virt_host,
 	void *domains = NULL;
 	void *domain = NULL;
 	void *ptr;
-	size_t n_domains = virt_host->n_domains;
 
 	ptr = _(msg->ptr);
 	if (!ptr)
@@ -56,9 +55,11 @@ static inline int virtual_host_match_check(Route__VirtualHost *virt_host,
 	if (!domains)
 		return 0;
 
-	n_domains = BPF_MIN(n_domains, KMESH_HTTP_DOMAIN_NUM);
-#pragma unroll
-	for (i = 0; i < n_domains; i++) {
+	for (i = 0; i < KMESH_HTTP_DOMAIN_NUM; i++) {
+		if (i >= virt_host->n_domains) {
+			break;
+		}
+
 		domain = kmesh_get_ptr_val((void*)*((__u64*)domains + i));
 		if (!domain)
 			continue;
@@ -80,11 +81,10 @@ static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *
 {
 	int i;
 	void *ptrs = NULL;
-	size_t n_virt_hosts = _(route_config->n_virtual_hosts);
 	Route__VirtualHost *virt_host = NULL;
 
-	if (n_virt_hosts <= 0 || n_virt_hosts > KMESH_PER_VIRT_HOST_NUM) {
-		BPF_LOG(WARN, ROUTER_CONFIG, "invalid virt hosts num=%d\n", n_virt_hosts);
+	if (route_config->n_virtual_hosts <= 0 || route_config->n_virtual_hosts > KMESH_PER_VIRT_HOST_NUM) {
+		BPF_LOG(WARN, ROUTER_CONFIG, "invalid virt hosts num=%d\n", route_config->n_virtual_hosts);
 		return NULL;
 	}
 
@@ -94,9 +94,11 @@ static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *
 		return NULL;
 	}
 
-	n_virt_hosts = BPF_MIN(n_virt_hosts, KMESH_PER_VIRT_HOST_NUM);
-#pragma unroll
-	for (i = 0; i < n_virt_hosts; i++) {
+	for (i = 0; i < KMESH_PER_VIRT_HOST_NUM; i++) {
+		if (i >= route_config->n_virtual_hosts) {
+			break;
+		}
+
 		virt_host = kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!virt_host)
 			continue;
@@ -143,10 +145,9 @@ static inline Route__Route *virtual_host_route_match(Route__VirtualHost *virt_ho
 	int i;
 	void *ptrs = NULL;
 	Route__Route *route = NULL;
-	size_t n_routes = _(virt_host->n_routes);
 
-	if (n_routes <= 0 || n_routes > KMESH_PER_ROUTE_NUM) {
-		BPF_LOG(WARN, ROUTER_CONFIG, "invalid virtual route num(%d)\n", n_routes);
+	if (virt_host->n_routes <= 0 || virt_host->n_routes > KMESH_PER_ROUTE_NUM) {
+		BPF_LOG(WARN, ROUTER_CONFIG, "invalid virtual route num(%d)\n", virt_host->n_routes);
 		return NULL;
 	}
 
@@ -156,9 +157,11 @@ static inline Route__Route *virtual_host_route_match(Route__VirtualHost *virt_ho
 		return NULL;
 	}
 
-	n_routes = BPF_MIN(n_routes, KMESH_PER_ROUTE_NUM);
-#pragma unroll
-	for (i = 0; i < n_routes; i++) {
+	for (i = 0; i < KMESH_PER_ROUTE_NUM; i++) {
+		if (i >= virt_host->n_routes) {
+			break;
+		}
+
 		route = (Route__Route *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!route)
 			continue;

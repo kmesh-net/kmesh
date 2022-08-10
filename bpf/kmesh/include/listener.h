@@ -71,10 +71,9 @@ static inline int listener_filter_chain_match(const Listener__Listener *listener
 {
 	int i;
 	void *ptrs = NULL;
-	size_t n_filter_chains = listener->n_filter_chains;
 	Listener__FilterChain *filter_chain = NULL;
 
-	if (n_filter_chains == 0 || n_filter_chains > KMESH_PER_FILTER_CHAIN_NUM) {
+	if (listener->n_filter_chains == 0 || listener->n_filter_chains > KMESH_PER_FILTER_CHAIN_NUM) {
 		BPF_LOG(ERR, LISTENER, "listener has no filter chains\n");
 		return -1;
 	}
@@ -85,10 +84,11 @@ static inline int listener_filter_chain_match(const Listener__Listener *listener
 		return -1;
 	}
 
-	n_filter_chains = BPF_MIN(n_filter_chains, KMESH_PER_FILTER_CHAIN_NUM);
+	for (i = 0; i < KMESH_PER_FILTER_CHAIN_NUM; i++) {		
+		if (i >= listener->n_filter_chains) {
+			break;
+		}
 
-#pragma unroll
-	for (i = 0; i < n_filter_chains; i++) {
 		filter_chain = (Listener__FilterChain *)kmesh_get_ptr_val((void*)*((__u64*)ptrs + i));
 		if (!filter_chain) {
 			continue;
