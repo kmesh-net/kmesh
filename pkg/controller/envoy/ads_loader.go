@@ -287,6 +287,8 @@ func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *
 				apiHost.Routes = append(apiHost.Routes, apiRoute)
 			}
 		}
+		apiHost.Routes = append(apiHost.Routes, defaultRoute)
+
 		apiRouteConfig.VirtualHosts = append(apiRouteConfig.VirtualHosts, apiHost)
 	}
 
