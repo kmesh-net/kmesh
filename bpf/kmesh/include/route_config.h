@@ -109,6 +109,86 @@ static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *
 	return NULL;
 }
 
+static inline char *get_msg_header(char *name) {
+	//todo:return head value parse from msg
+	return name;
+}
+
+static inline bool check_header_value_match(char *target, char *value, bool exact) {
+	if (exact && bpf_strcmp(target, value) != 0) {
+		return false;
+	} else if (!exact && (bpf_strstr(target, value) == NULL)) {
+		return false;
+	}
+	BPF_LOG(DEBUG, ROUTER_CONFIG, "header match, is exact:%d value:%s\n", exact,target);
+	return true;
+}
+
+static inline bool check_headers_match(Route__RouteMatch *match) {
+	int i;
+	void *ptrs = NULL;
+	char *header_name = NULL;
+	char *config_header_value = NULL;
+	char *msg_header_value = NULL;
+	Route__HeaderMatcher *header_match = NULL;
+
+	if (match->n_headers <= 0 || match->n_headers > KMESH_PER_HEADER_MUM) {
+		BPF_LOG(DEBUG, ROUTER_CONFIG, "un support header num(%d), no need to check\n", match->n_headers);
+		return true;
+	}
+	ptrs = kmesh_get_ptr_val(_(match->headers));
+	if (!ptrs) {
+		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get match headers in route match\n");
+		return false;
+	}
+	for (i = 0; i < KMESH_PER_HEADER_MUM; i++) {
+		if (i >= match->n_headers) {
+			break;
+		}
+		header_match = (Route__HeaderMatcher *) kmesh_get_ptr_val((void *)*((__u64*)ptrs + i));
+		if (!header_match) {
+			BPF_LOG(ERR, ROUTER_CONFIG, "failed to get match headers in route match\n");
+			return false;
+		}
+		header_name = kmesh_get_ptr_val(header_match->name);
+		if (!header_name) {
+			BPF_LOG(ERR, ROUTER_CONFIG, "failed to get match headers in route match\n");
+			return false;
+		}
+		msg_header_value = get_msg_header(header_name);
+		if (!msg_header_value) {
+			BPF_LOG(ERR, ROUTER_CONFIG, "failed to get header value form msg\n");
+			return false;
+		}
+		BPF_LOG(DEBUG, ROUTER_CONFIG, "header match check, name:%s\n", header_name);
+		switch (header_match->header_match_specifier_case) {
+			case ROUTE__HEADER_MATCHER__HEADER_MATCH_SPECIFIER_EXACT_MATCH: {
+				config_header_value = kmesh_get_ptr_val(header_match->exact_match);
+				if (config_header_value == NULL) {
+					BPF_LOG(ERR, ROUTER_CONFIG, "failed to get config_header_value\n");
+				}
+				if (!check_header_value_match(config_header_value, msg_header_value, true)) {
+					return false;
+				}
+				break;
+			}
+			case ROUTE__HEADER_MATCHER__HEADER_MATCH_SPECIFIER_PREFIX_MATCH: {
+				config_header_value = kmesh_get_ptr_val(header_match->prefix_match);
+				if (config_header_value == NULL) {
+					BPF_LOG(ERR, ROUTER_CONFIG, "prefix:failed to get config_header_value\n");
+				}
+				if (!check_header_value_match(config_header_value, msg_header_value, false)) {
+					return false;
+				}
+				break;
+			}
+			default:
+				BPF_LOG(INFO, ROUTER_CONFIG, "un-support match type:%d\n", header_match->header_match_specifier_case);
+		}
+	}
+	return true;
+}
+
 static inline int virtual_host_route_match_check(Route__Route *route,
 												address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
 {
@@ -132,6 +212,9 @@ static inline int virtual_host_route_match_check(Route__Route *route,
 		return 0;
 
 	if (bpf_strstr(ptr, prefix) == NULL)
+		return 0;
+
+	if (!check_headers_match(match)
 		return 0;
 
 	BPF_LOG(DEBUG, ROUTER_CONFIG, "match route, name=\"%s\"\n",

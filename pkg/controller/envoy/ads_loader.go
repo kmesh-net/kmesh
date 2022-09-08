@@ -273,13 +273,19 @@ func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *
 			Domains: host.GetDomains(),
 			Routes:  nil,
 		}
-
+		//default route is first one without match headers
+		//append it to the end 
+		var defaultRoute *route_v2 = nil
 		for _, route := range host.GetRoutes() {
 			apiRoute := newApiRoute(route)
 			if apiRoute == nil {
 				continue
 			}
-			apiHost.Routes = append(apiHost.Routes, apiRoute)
+			if apiRoute.Match.Headers == nil && defaultRoute == nil {
+				defaultRoute = apiRoute
+			} else {
+				apiHost.Routes = append(apiHost.Routes, apiRoute)
+			}
 		}
 		apiRouteConfig.VirtualHosts = append(apiRouteConfig.VirtualHosts, apiHost)
 	}
@@ -322,7 +328,12 @@ func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch{
 				ExactMatch: header.GetExactMatch(),
 			}
+		case *config_route_v3.HeaderMatcher_StringMatch:
+			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch {
+				ExactMatch: header.GetStringMatch().GetExactMatch(),
+			}
 		default:
+			log.Info("newApiRouteMatch default continue, type is %T", header.GetHeaderMatchSpecifier())
 			continue
 		}
 
