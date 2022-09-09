@@ -214,7 +214,7 @@ static inline int virtual_host_route_match_check(Route__Route *route,
 	if (bpf_strstr(ptr, prefix) == NULL)
 		return 0;
 
-	if (!check_headers_match(match)
+	if (!check_headers_match(match))
 		return 0;
 
 	BPF_LOG(DEBUG, ROUTER_CONFIG, "match route, name=\"%s\"\n",
