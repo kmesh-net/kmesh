@@ -135,7 +135,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 		return true;
 	if (match->n_headers > KMESH_PER_HEADER_MUM) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "un support header num(%d), no need to check\n", match->n_headers);
-		return true;
+		return false;
 	}
 	ptrs = kmesh_get_ptr_val(_(match->headers));
 	if (!ptrs) {
