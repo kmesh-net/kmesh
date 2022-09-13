@@ -22,6 +22,7 @@ import (
 	config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	filters_network_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	filters_network_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
+	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -274,7 +275,7 @@ func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *
 			Routes:  nil,
 		}
 		//default route is first one without match headers
-		//append it to the end 
+		//append it to the end
 		var defaultRoute *route_v2.Route = nil
 		for _, route := range host.GetRoutes() {
 			apiRoute := newApiRoute(route)
@@ -297,7 +298,7 @@ func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *
 
 func newApiRoute(route *config_route_v3.Route) *route_v2.Route {
 	apiRoute := &route_v2.Route{
-		Name: route.GetName(),
+		Name:  route.GetName(),
 		Match: newApiRouteMatch(route.GetMatch()),
 	}
 
@@ -324,7 +325,7 @@ func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 	var apiHeaders []*route_v2.HeaderMatcher
 	for _, header := range match.GetHeaders() {
 		apiHeader := &route_v2.HeaderMatcher{
-			Name: header.GetName(),
+			Name:                 header.GetName(),
 			HeaderMatchSpecifier: nil,
 		}
 
@@ -338,9 +339,7 @@ func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 				ExactMatch: header.GetExactMatch(),
 			}
 		case *config_route_v3.HeaderMatcher_StringMatch:
-			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch {
-				ExactMatch: header.GetStringMatch().GetExact(),
-			}
+			parseStringMatch(header, apiHeader)
 		default:
 			log.Info("newApiRouteMatch default continue, type is %T", header.GetHeaderMatchSpecifier())
 			continue
@@ -350,9 +349,24 @@ func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 	}
 
 	return &route_v2.RouteMatch{
-		Prefix: match.GetPrefix(),
+		Prefix:        match.GetPrefix(),
 		CaseSensitive: match.GetCaseSensitive().GetValue(),
-		Headers: apiHeaders,
+		Headers:       apiHeaders,
+	}
+}
+
+func parseStringMatch(configHeader *config_route_v3.HeaderMatcher, apiHeader *route_v2.HeaderMatcher) {
+	switch configHeader.GetStringMatch().GetMatchPattern().(type) {
+	case *envoy_type_matcher_v3.StringMatcher_Exact:
+		apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch{
+			ExactMatch: configHeader.GetStringMatch().GetExact(),
+		}
+	case *envoy_type_matcher_v3.StringMatcher_Prefix:
+		apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_PrefixMatch{
+			PrefixMatch: configHeader.GetStringMatch().GetPrefix(),
+		}
+	default:
+		log.Infof("unsupport, type is %T", configHeader.GetStringMatch().GetMatchPattern())
 	}
 }
 
