@@ -115,13 +115,12 @@ static inline char *get_msg_header(char *name) {
 }
 
 static inline bool check_header_value_match(char *target, char *value, bool exact) {
-	if (exact && bpf_strcmp(target, value) != 0) {
-		return false;
-	} else if (!exact && (bpf_strstr(target, value) == NULL)) {
-		return false;
-	}
 	BPF_LOG(DEBUG, ROUTER_CONFIG, "header match, is exact:%d value:%s\n", exact,target);
-	return true;
+	if (exact) {
+		return (bpf_strcmp(target, value) == 0);
+	} else {
+		return (bpf_strstr(target, value) != NULL);
+	}
 }
 
 static inline bool check_headers_match(Route__RouteMatch *match) {
@@ -132,8 +131,10 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 	char *msg_header_value = NULL;
 	Route__HeaderMatcher *header_match = NULL;
 
-	if (match->n_headers <= 0 || match->n_headers > KMESH_PER_HEADER_MUM) {
-		BPF_LOG(DEBUG, ROUTER_CONFIG, "un support header num(%d), no need to check\n", match->n_headers);
+	if (match->n_headers <= 0)
+		return true;
+	if (match->n_headers > KMESH_PER_HEADER_MUM) {
+		BPF_LOG(ERR, ROUTER_CONFIG, "un support header num(%d), no need to check\n", match->n_headers);
 		return true;
 	}
 	ptrs = kmesh_get_ptr_val(_(match->headers));
@@ -183,7 +184,8 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 				break;
 			}
 			default:
-				BPF_LOG(INFO, ROUTER_CONFIG, "un-support match type:%d\n", header_match->header_match_specifier_case);
+				BPF_LOG(ERR, ROUTER_CONFIG, "un-support match type:%d\n", header_match->header_match_specifier_case);
+				return false;
 		}
 	}
 	return true;
