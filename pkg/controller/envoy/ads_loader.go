@@ -304,14 +304,7 @@ func newApiRoute(route *config_route_v3.Route) *route_v2.Route {
 
 	switch route.GetAction().(type) {
 	case *config_route_v3.Route_Route:
-		action := route.GetRoute()
-		apiRoute.Route = &route_v2.RouteAction{
-			Cluster: action.GetCluster(),
-			Timeout: uint32(action.GetTimeout().GetSeconds()),
-			RetryPolicy: &route_v2.RetryPolicy{
-				NumRetries: action.GetRetryPolicy().GetNumRetries().GetValue(),
-			},
-		}
+		apiRoute.Route = newApiRouteAction(route.GetRoute())
 	case *config_route_v3.Route_FilterAction:
 	case *config_route_v3.Route_Redirect:
 	default:
