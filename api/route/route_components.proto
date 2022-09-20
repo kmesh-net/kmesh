@@ -22,7 +22,16 @@ message RouteMatch {
 }
 
 message RouteAction {
-  string cluster = 1;
+  oneof cluster_specifier {
+    // Indicates the upstream cluster to which the request should be routed to.
+    string cluster = 1;
+    // Multiple upstream clusters can be specified for a given route. The
+    // request is routed to one of the upstream clusters based on weights
+    // assigned to each cluster.
+    WeightedCluster weighted_clusters = 3;
+  }
+  // the matched prefix (or path) should be swapped with this value.
+  string prefix_rewrite = 5;
   uint32 timeout = 8;
   RetryPolicy retry_policy = 9;
 }
@@ -41,4 +50,12 @@ message HeaderMatcher {
     // If specified, header match will be performed based on the prefix of the header value.
     string prefix_match = 9;
   }
+}
+
+message WeightedCluster {
+  message ClusterWeight {
+    string name = 1;
+    uint32 weight = 2;
+  }
+  repeated ClusterWeight clusters = 1;
 }

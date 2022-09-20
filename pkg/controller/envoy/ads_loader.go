@@ -370,7 +370,10 @@ func parseStringMatch(configHeader *config_route_v3.HeaderMatcher, apiHeader *ro
 	}
 }
 
-/* func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteAction {
+func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteAction {
+	if action == nil {
+		return &route_v2.RouteAction{}
+	}
 	apiAction := &route_v2.RouteAction{
 		ClusterSpecifier: nil,
 		Timeout: uint32(action.GetTimeout().GetSeconds()),
@@ -388,9 +391,10 @@ func parseStringMatch(configHeader *config_route_v3.HeaderMatcher, apiHeader *ro
 		var apiClusters []*route_v2.WeightedCluster_ClusterWeight
 		for _, cluster := range action.GetWeightedClusters().GetClusters() {
 			apiClusters = append(apiClusters, &route_v2.WeightedCluster_ClusterWeight{
-				Name: cluster.GetName(),
+				Name:   cluster.GetName(),
 				Weight: cluster.GetWeight().GetValue(),
 			})
+			log.Debugf("cluster name:%v, weighet:%v", cluster.GetName(), cluster.GetWeight().GetValue())
 		}
 
 		apiAction.ClusterSpecifier = &route_v2.RouteAction_WeightedClusters{
@@ -399,8 +403,9 @@ func parseStringMatch(configHeader *config_route_v3.HeaderMatcher, apiHeader *ro
 			},
 		}
 	default:
+		log.Errorf("newApiRouteAction default, type is %T", action.GetClusterSpecifier())
 		return nil
 	}
 
 	return apiAction
-} */
+}

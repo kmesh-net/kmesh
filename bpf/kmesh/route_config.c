@@ -16,14 +16,51 @@
 #include "route_config.h"
 #include "tail_call.h"
 
+static inline char *select_weight_cluster(Route__RouteAction *route_act) {
+	void *ptr = NULL;
+	Route__WeightedCluster *weightedCluster = NULL;
+	Route__WeightedCluster__ClusterWeight *rwc = NULL;
+	int32_t select_value;
+
+	weightedCluster = kmesh_get_ptr_val((route_act->weighted_clusters));
+	if (!weightedCluster) {
+		return NULL;
+	}
+	ptr = kmesh_get_ptr_val(weightedCluster->clusters);
+	if (!ptr) {
+		return NULL;
+	}
+	select_value = (int)(bpf_get_prandom_u32() % 100);
+	for (int i = 0; i < KMESH_PER_WEIGHT_CLUSTER_NUM; i ++) {
+		if (i >= weightedCluster->n_clusters) {
+			break;
+		}
+		rwc = (Route__WeightedCluster__ClusterWeight *) kmesh_get_ptr_val(
+			(void *) *((__u64 *) ptr + i));
+		if (!rwc) {
+			return NULL;
+		}
+		select_value = select_value - (int)rwc->weight;
+		if (select_value <= 0) {
+			BPF_LOG(DEBUG, ROUTER_CONFIG, "select cluster, name:weight %s:%d\n",
+				kmesh_get_ptr_val(rwc->name), rwc->weight);
+			return kmesh_get_ptr_val(rwc->name);
+		}
+	}
+	return NULL;
+}
+
 static inline char *route_get_cluster(const Route__Route *route)
 {
 	Route__RouteAction *route_act = NULL;
-
 	route_act = kmesh_get_ptr_val(_(route->route));
 	if (!route_act) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get route action ptr\n");
 		return NULL;
+	}
+
+	if (route_act->cluster_specifier_case == ROUTE__ROUTE_ACTION__CLUSTER_SPECIFIER_WEIGHTED_CLUSTERS) {
+		return select_weight_cluster(route_act);
 	}
 
 	return kmesh_get_ptr_val(_(route_act->cluster));
