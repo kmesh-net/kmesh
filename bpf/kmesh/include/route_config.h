@@ -109,10 +109,6 @@ static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *
 	return NULL;
 }
 
-static inline char *get_msg_header(char *name) {
-	//todo:return head value parse from msg
-	return name;
-}
 static inline bool check_header_value_match(char *target, struct bpf_mem_ptr* head, bool exact) {
 	BPF_LOG(DEBUG, ROUTER_CONFIG, "header match, is exact:%d value:%s\n", exact,target);
 	if (exact) {
@@ -157,7 +153,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 		}
 		msg_header = (struct bpf_mem_ptr *) bpf_get_protocol_element(header_name);
 		if (!msg_header) {
-			BPF_LOG(ERR, ROUTER_CONFIG, "failed to get header value form msg\n");
+			BPF_LOG(DEBUG, ROUTER_CONFIG, "failed to get header value form msg\n");
 			return false;
 		}
 		BPF_LOG(DEBUG, ROUTER_CONFIG, "header match check, name:%s\n", header_name);

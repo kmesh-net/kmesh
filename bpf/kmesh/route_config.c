@@ -43,8 +43,8 @@ static inline char *select_weight_cluster(Route__RouteAction *route_act) {
 		select_value = select_value - (int)route_cluster_weight->weight;
 		if (select_value <= 0) {
 			BPF_LOG(DEBUG, ROUTER_CONFIG, "select cluster, name:weight %s:%d\n",
-					kmesh_get_ptr_val(rwc->name), route_cluster_weight->weight);
-			return kmesh_get_ptr_val(rwc->name);
+					kmesh_get_ptr_val(route_cluster_weight->name), route_cluster_weight->weight);
+			return kmesh_get_ptr_val(route_cluster_weight->name);
 		}
 	}
 	return NULL;
