@@ -113,13 +113,12 @@ static inline char *get_msg_header(char *name) {
 	//todo:return head value parse from msg
 	return name;
 }
-
-static inline bool check_header_value_match(char *target, char *value, bool exact) {
+static inline bool check_header_value_match(char *target, struct bpf_mem_ptr* head, bool exact) {
 	BPF_LOG(DEBUG, ROUTER_CONFIG, "header match, is exact:%d value:%s\n", exact,target);
 	if (exact) {
-		return (bpf_strcmp(target, value) == 0);
+		return (bpf_strncmp(target, _(head->ptr), _(head->size)) == 0);
 	} else {
-		return (bpf_strstr(target, value) != NULL);
+		return (bpf_strnstr(target, _(head->ptr), _(head->size)) != NULL);
 	}
 }
 
@@ -128,7 +127,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 	void *ptrs = NULL;
 	char *header_name = NULL;
 	char *config_header_value = NULL;
-	char *msg_header_value = NULL;
+	struct bpf_mem_ptr *msg_header= NULL;
 	Route__HeaderMatcher *header_match = NULL;
 
 	if (match->n_headers <= 0)
@@ -156,8 +155,8 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 			BPF_LOG(ERR, ROUTER_CONFIG, "failed to get match headers in route match\n");
 			return false;
 		}
-		msg_header_value = get_msg_header(header_name);
-		if (!msg_header_value) {
+		msg_header = (struct bpf_mem_ptr *) bpf_get_protocol_element(header_name);
+		if (!msg_header) {
 			BPF_LOG(ERR, ROUTER_CONFIG, "failed to get header value form msg\n");
 			return false;
 		}
@@ -168,7 +167,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 				if (config_header_value == NULL) {
 					BPF_LOG(ERR, ROUTER_CONFIG, "failed to get config_header_value\n");
 				}
-				if (!check_header_value_match(config_header_value, msg_header_value, true)) {
+				if (!check_header_value_match(config_header_value, msg_header, true)) {
 					return false;
 				}
 				break;
@@ -178,7 +177,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 				if (config_header_value == NULL) {
 					BPF_LOG(ERR, ROUTER_CONFIG, "prefix:failed to get config_header_value\n");
 				}
-				if (!check_header_value_match(config_header_value, msg_header_value, false)) {
+				if (!check_header_value_match(config_header_value, msg_header, false)) {
 					return false;
 				}
 				break;

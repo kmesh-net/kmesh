@@ -41,6 +41,15 @@ message RetryPolicy {
   //RetryPriority retry_priority = 4;
 }
 
+message WeightedCluster {
+  repeated ClusterWeight clusters = 1;
+}
+
+message ClusterWeight {
+  string name = 1;
+  uint32 weight = 2;
+}
+
 message HeaderMatcher {
   // Specifies the name of the header in the request.
   string name = 1;
@@ -50,12 +59,4 @@ message HeaderMatcher {
     // If specified, header match will be performed based on the prefix of the header value.
     string prefix_match = 9;
   }
-}
-
-message WeightedCluster {
-  message ClusterWeight {
-    string name = 1;
-    uint32 weight = 2;
-  }
-  repeated ClusterWeight clusters = 1;
 }

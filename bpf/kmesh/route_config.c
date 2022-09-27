@@ -19,7 +19,7 @@
 static inline char *select_weight_cluster(Route__RouteAction *route_act) {
 	void *ptr = NULL;
 	Route__WeightedCluster *weightedCluster = NULL;
-	Route__WeightedCluster__ClusterWeight *rwc = NULL;
+	Route__ClusterWeight *route_cluster_weight = NULL;
 	int32_t select_value;
 
 	weightedCluster = kmesh_get_ptr_val((route_act->weighted_clusters));
@@ -35,15 +35,15 @@ static inline char *select_weight_cluster(Route__RouteAction *route_act) {
 		if (i >= weightedCluster->n_clusters) {
 			break;
 		}
-		rwc = (Route__WeightedCluster__ClusterWeight *) kmesh_get_ptr_val(
-			(void *) *((__u64 *) ptr + i));
-		if (!rwc) {
+		route_cluster_weight = (Route__ClusterWeight *) kmesh_get_ptr_val(
+				(void *) *((__u64 *) ptr + i));
+		if (!route_cluster_weight) {
 			return NULL;
 		}
-		select_value = select_value - (int)rwc->weight;
+		select_value = select_value - (int)route_cluster_weight->weight;
 		if (select_value <= 0) {
 			BPF_LOG(DEBUG, ROUTER_CONFIG, "select cluster, name:weight %s:%d\n",
-				kmesh_get_ptr_val(rwc->name), rwc->weight);
+					kmesh_get_ptr_val(rwc->name), route_cluster_weight->weight);
 			return kmesh_get_ptr_val(rwc->name);
 		}
 	}

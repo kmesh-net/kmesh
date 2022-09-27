@@ -1,0 +1,167 @@
+diff --git a/api/route/route_components.proto b/api/route/route_components.proto
+index 3ae4132..95d381f 100644
+--- a/api/route/route_components.proto
++++ b/api/route/route_components.proto
+@@ -41,6 +41,15 @@ message RetryPolicy {
+   //RetryPriority retry_priority = 4;
+ }
+ 
++message WeightedCluster {
++  repeated ClusterWeight clusters = 1;
++}
++
++message ClusterWeight {
++  string name = 1;
++  uint32 weight = 2;
++}
++
+ message HeaderMatcher {
+   // Specifies the name of the header in the request.
+   string name = 1;
+@@ -51,11 +60,3 @@ message HeaderMatcher {
+     string prefix_match = 9;
+   }
+ }
+-
+-message WeightedCluster {
+-  message ClusterWeight {
+-    string name = 1;
+-    uint32 weight = 2;
+-  }
+-  repeated ClusterWeight clusters = 1;
+-}
+\ No newline at end of file
+diff --git a/bpf/kmesh/include/route_config.h b/bpf/kmesh/include/route_config.h
+index b4cf7a5..d4ba403 100644
+--- a/bpf/kmesh/include/route_config.h
++++ b/bpf/kmesh/include/route_config.h
+@@ -113,13 +113,12 @@ static inline char *get_msg_header(char *name) {
+ 	//todo:return head value parse from msg
+ 	return name;
+ }
+-
+-static inline bool check_header_value_match(char *target, char *value, bool exact) {
++static inline bool check_header_value_match(char *target, struct bpf_mem_ptr* head, bool exact) {
+ 	BPF_LOG(DEBUG, ROUTER_CONFIG, "header match, is exact:%d value:%s\n", exact,target);
+ 	if (exact) {
+-		return (bpf_strcmp(target, value) == 0);
++		return (bpf_strncmp(target, _(head->ptr), _(head->size)) == 0);
+ 	} else {
+-		return (bpf_strstr(target, value) != NULL);
++		return (bpf_strnstr(target, _(head->ptr), _(head->size)) != NULL);
+ 	}
+ }
+ 
+@@ -128,7 +127,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
+ 	void *ptrs = NULL;
+ 	char *header_name = NULL;
+ 	char *config_header_value = NULL;
+-	char *msg_header_value = NULL;
++	struct bpf_mem_ptr *msg_header= NULL;
+ 	Route__HeaderMatcher *header_match = NULL;
+ 
+ 	if (match->n_headers <= 0)
+@@ -156,8 +155,8 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
+ 			BPF_LOG(ERR, ROUTER_CONFIG, "failed to get match headers in route match\n");
+ 			return false;
+ 		}
+-		msg_header_value = get_msg_header(header_name);
+-		if (!msg_header_value) {
++		msg_header = (struct bpf_mem_ptr *) bpf_get_protocol_element(header_name);
++		if (!msg_header) {
+ 			BPF_LOG(ERR, ROUTER_CONFIG, "failed to get header value form msg\n");
+ 			return false;
+ 		}
+@@ -168,7 +167,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
+ 				if (config_header_value == NULL) {
+ 					BPF_LOG(ERR, ROUTER_CONFIG, "failed to get config_header_value\n");
+ 				}
+-				if (!check_header_value_match(config_header_value, msg_header_value, true)) {
++				if (!check_header_value_match(config_header_value, msg_header, true)) {
+ 					return false;
+ 				}
+ 				break;
+@@ -178,7 +177,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
+ 				if (config_header_value == NULL) {
+ 					BPF_LOG(ERR, ROUTER_CONFIG, "prefix:failed to get config_header_value\n");
+ 				}
+-				if (!check_header_value_match(config_header_value, msg_header_value, false)) {
++				if (!check_header_value_match(config_header_value, msg_header, false)) {
+ 					return false;
+ 				}
+ 				break;
+diff --git a/bpf/kmesh/route_config.c b/bpf/kmesh/route_config.c
+index c873144..7c5396a 100644
+--- a/bpf/kmesh/route_config.c
++++ b/bpf/kmesh/route_config.c
+@@ -19,7 +19,7 @@
+ static inline char *select_weight_cluster(Route__RouteAction *route_act) {
+ 	void *ptr = NULL;
+ 	Route__WeightedCluster *weightedCluster = NULL;
+-	Route__WeightedCluster__ClusterWeight *rwc = NULL;
++	Route__ClusterWeight *route_cluster_weight = NULL;
+ 	int32_t select_value;
+ 
+ 	weightedCluster = kmesh_get_ptr_val((route_act->weighted_clusters));
+@@ -35,15 +35,15 @@ static inline char *select_weight_cluster(Route__RouteAction *route_act) {
+ 		if (i >= weightedCluster->n_clusters) {
+ 			break;
+ 		}
+-		rwc = (Route__WeightedCluster__ClusterWeight *) kmesh_get_ptr_val(
+-			(void *) *((__u64 *) ptr + i));
+-		if (!rwc) {
++		route_cluster_weight = (Route__ClusterWeight *) kmesh_get_ptr_val(
++				(void *) *((__u64 *) ptr + i));
++		if (!route_cluster_weight) {
+ 			return NULL;
+ 		}
+-		select_value = select_value - (int)rwc->weight;
++		select_value = select_value - (int)route_cluster_weight->weight;
+ 		if (select_value <= 0) {
+ 			BPF_LOG(DEBUG, ROUTER_CONFIG, "select cluster, name:weight %s:%d\n",
+-				kmesh_get_ptr_val(rwc->name), rwc->weight);
++					kmesh_get_ptr_val(rwc->name), route_cluster_weight->weight);
+ 			return kmesh_get_ptr_val(rwc->name);
+ 		}
+ 	}
+diff --git a/bpf/kmesh/sockops.c b/bpf/kmesh/sockops.c
+index b00ea9e..e6617ca 100644
+--- a/bpf/kmesh/sockops.c
++++ b/bpf/kmesh/sockops.c
+@@ -37,6 +37,7 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
+ 	BPF_LOG(DEBUG, SOCKOPS, "sockops_traffic_control listener=\"%s\", addr=[%u:%u]\n",
+ 		(char *)kmesh_get_ptr_val(listener->name), skops->remote_ip4, skops->remote_port);
+ 
++	(void)bpf_parse_protocol_msg(msg);
+ 	return l7_listener_manager(skops, listener, msg);
+ }
+ 
+diff --git a/cmd/command/config.go b/cmd/command/config.go
+index 881bbc5..2419812 100644
+--- a/cmd/command/config.go
++++ b/cmd/command/config.go
+@@ -33,7 +33,7 @@ const (
+ 	patternControllerEnvoy      = "/controller/envoy"
+ 	patternControllerKubernetes = "/controller/kubernetes"
+ 
+-	httpTimeout = time.Second * 10
++	httpTimeout = time.Second * 20
+ )
+ 
+ var config Config
+diff --git a/pkg/controller/envoy/ads_loader.go b/pkg/controller/envoy/ads_loader.go
+index 0e4cbb2..7668c40 100644
+--- a/pkg/controller/envoy/ads_loader.go
++++ b/pkg/controller/envoy/ads_loader.go
+@@ -381,9 +381,9 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
+ 			Cluster: action.GetCluster(),
+ 		}
+ 	case *config_route_v3.RouteAction_WeightedClusters:
+-		var apiClusters []*route_v2.WeightedCluster_ClusterWeight
++		var apiClusters []*route_v2.ClusterWeight
+ 		for _, cluster := range action.GetWeightedClusters().GetClusters() {
+-			apiClusters = append(apiClusters, &route_v2.WeightedCluster_ClusterWeight{
++			apiClusters = append(apiClusters, &route_v2.ClusterWeight{
+ 				Name:   cluster.GetName(),
+ 				Weight: cluster.GetWeight().GetValue(),
+ 			})

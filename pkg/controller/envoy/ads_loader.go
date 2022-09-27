@@ -381,9 +381,9 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
 			Cluster: action.GetCluster(),
 		}
 	case *config_route_v3.RouteAction_WeightedClusters:
-		var apiClusters []*route_v2.WeightedCluster_ClusterWeight
+		var apiClusters []*route_v2.ClusterWeight
 		for _, cluster := range action.GetWeightedClusters().GetClusters() {
-			apiClusters = append(apiClusters, &route_v2.WeightedCluster_ClusterWeight{
+			apiClusters = append(apiClusters, &route_v2.ClusterWeight{
 				Name:   cluster.GetName(),
 				Weight: cluster.GetWeight().GetValue(),
 			})

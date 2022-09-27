@@ -33,7 +33,7 @@ const (
 	patternControllerEnvoy      = "/controller/envoy"
 	patternControllerKubernetes = "/controller/kubernetes"
 
-	httpTimeout = time.Second * 10
+	httpTimeout = time.Second * 20
 )
 
 var config Config
