@@ -123,7 +123,7 @@ static inline bool check_headers_match(Route__RouteMatch *match) {
 	void *ptrs = NULL;
 	char *header_name = NULL;
 	char *config_header_value = NULL;
-	struct bpf_mem_ptr *msg_header= NULL;
+	struct bpf_mem_ptr *msg_header = NULL;
 	Route__HeaderMatcher *header_match = NULL;
 
 	if (match->n_headers <= 0)
