@@ -18,7 +18,6 @@ import (
 	"openeuler.io/mesh/pkg/bpf"
 	"openeuler.io/mesh/pkg/controller/envoy"
 	"openeuler.io/mesh/pkg/controller/interfaces"
-	"openeuler.io/mesh/pkg/controller/kubernetes"
 	"openeuler.io/mesh/pkg/options"
 )
 
@@ -33,15 +32,11 @@ type Config struct {
 }
 
 func (c *Config) SetArgs() error {
-	kubernetes.GetConfig().SetClientArgs()
 	envoy.GetConfig().SetClientArgs()
 	return nil
 }
 
 func (c *Config) ParseConfig() error {
-	if bpf.GetConfig().EnableSlb {
-		c.ConfigFactory = kubernetes.GetConfig()
-	}
 	if bpf.GetConfig().EnableKmesh {
 		c.ConfigFactory = envoy.GetConfig()
 	}

@@ -1,6 +1,0 @@
-prefix=
-
-Name: api-v1-c
-Description: api-v1-c
-Version:
-Cflags: -I${prefix}/api/v1-c
