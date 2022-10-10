@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package listener;
+option go_package = "openeuler.io/mesh/api/listener;listener";
+
+import "api/core/address.proto";
+import "api/filter/tcp_proxy.proto";
+import "api/filter/http_connection_manager.proto";
+
+message Filter {
+  string name = 1;
+  oneof config_type {
+    filter.TcpProxy tcp_proxy = 2;
+    filter.HttpConnectionManager http_connection_manager = 3;
+  }
+}
+
+message FilterChainMatch {
+  repeated core.CidrRange prefix_ranges = 3;
+  uint32 destination_port = 8;
+  string transport_protocol = 9;
+  repeated string application_protocols = 10;
+}
+
+message FilterChain {
+  FilterChainMatch filter_chain_match = 1;
+  repeated Filter filters = 3;
+  string name = 7;
+}

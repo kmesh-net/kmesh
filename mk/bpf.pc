@@ -1,0 +1,6 @@
+prefix=
+
+Name: bpf
+Description: bpf
+Version:
+Cflags:-I${prefix}/bpf/include -I${prefix}/bpf

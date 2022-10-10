@@ -1,0 +1,599 @@
+From 13c9d5bbf08fa24a179f6983c22b206b867a6e64 Mon Sep 17 00:00:00 2001
+From: wuchangye <wuchangye@huawei.com>
+Date: Mon, 28 Feb 2022 19:59:43 +0800
+Subject: [PATCH] defer conn
+
+---
+ include/linux/bpf.h            |   7 +-
+ include/net/inet_sock.h        |   2 +-
+ include/uapi/linux/bpf.h       |  11 +++
+ kernel/bpf/cgroup.c            |   6 +-
+ kernel/bpf/helpers.c           | 156 +++++++++++++++++++++++++++++++++
+ kernel/bpf/verifier.c          |   3 +
+ net/core/filter.c              |  32 +++----
+ net/ipv4/af_inet.c             |  12 ++-
+ net/ipv4/tcp.c                 | 119 +++++++++++++++++++++++++
+ net/ipv4/tcp_ipv4.c            |   2 +
+ tools/include/uapi/linux/bpf.h |  18 ++++
+ 11 files changed, 345 insertions(+), 23 deletions(-)
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index 2b16bf48a..27b4aadae 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -1065,6 +1065,7 @@ int bpf_prog_array_copy(struct bpf_prog_array *old_array,
+ 		struct bpf_prog *_prog;			\
+ 		struct bpf_prog_array *_array;		\
+ 		u32 _ret = 1;				\
++		u32 func_ret;               \
+ 		migrate_disable();			\
+ 		rcu_read_lock();			\
+ 		_array = rcu_dereference(array);	\
+@@ -1073,7 +1074,11 @@ int bpf_prog_array_copy(struct bpf_prog_array *old_array,
+ 		_item = &_array->items[0];		\
+ 		while ((_prog = READ_ONCE(_item->prog))) {		\
+ 			bpf_cgroup_storage_set(_item->cgroup_storage);	\
+-			_ret &= func(_prog, ctx);	\
++            func_ret = func(_prog, ctx); \
++            if (func_ret > 1)           \
++                _ret = func_ret;        \
++            else                        \
++                _ret &= func_ret;	    \
+ 			_item++;			\
+ 		}					\
+ _out:							\
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 89163ef8c..0f797daf2 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -226,7 +226,7 @@ struct inet_sock {
+ 				nodefrag:1;
+ 	__u8			bind_address_no_port:1,
+ 				recverr_rfc4884:1,
+-				defer_connect:1; /* Indicates that fastopen_connect is set
++				defer_connect:2; /* Indicates that fastopen_connect is set
+ 						  * and cookie exists so we defer connect
+ 						  * until first data frame is written
+ 						  */
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 556216dc9..fc44f4bd5 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -3900,6 +3900,11 @@ union bpf_attr {
+ 	FN(per_cpu_ptr),		\
+ 	FN(this_cpu_ptr),		\
+ 	FN(redirect_peer),		\
++	FN(strchr),             \
++	FN(strstr),             \
++	FN(strcmp),             \
++	FN(mem_replace),        \
++	FN(strcpy),             \
+ 	/* */
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+@@ -4727,6 +4732,7 @@ enum {
+ 					 * by the kernel or the
+ 					 * earlier bpf-progs.
+ 					 */
++    BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB, /* defer connect */
+ };
+ 
+ /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
+@@ -5032,6 +5038,11 @@ struct btf_ptr {
+ 	__u32 flags;		/* BTF ptr flags; unused at present. */
+ };
+ 
++struct bpf_mem_ptr {
++    void *ptr;
++    __u32 size;    
++};
++
+ /*
+  * Flags to control bpf_snprintf_btf() behaviour.
+  *     - BTF_F_COMPACT: no formatting around type information
+diff --git a/kernel/bpf/cgroup.c b/kernel/bpf/cgroup.c
+index 6aa9e10c6..40099c1fa 100644
+--- a/kernel/bpf/cgroup.c
++++ b/kernel/bpf/cgroup.c
+@@ -1089,7 +1089,11 @@ int __cgroup_bpf_run_filter_sock_addr(struct sock *sk,
+ 	cgrp = sock_cgroup_ptr(&sk->sk_cgrp_data);
+ 	ret = BPF_PROG_RUN_ARRAY(cgrp->bpf.effective[type], &ctx, BPF_PROG_RUN);
+ 
+-	return ret == 1 ? 0 : -EPERM;
++    if (ret == 1)
++        return 0;
++    if (ret == 0)
++        return 1;
++    return ret;
+ }
+ EXPORT_SYMBOL(__cgroup_bpf_run_filter_sock_addr);
+ 
+diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+index c489430ca..f1a2db214 100644
+--- a/kernel/bpf/helpers.c
++++ b/kernel/bpf/helpers.c
+@@ -651,6 +651,152 @@ const struct bpf_func_proto bpf_this_cpu_ptr_proto = {
+ 	.arg1_type	= ARG_PTR_TO_PERCPU_BTF_ID,
+ };
+ 
++#if 1
++BPF_CALL_2(bpf_strchr, void *, s, int, c)
++{
++    return strchr(s, c);
++}
++
++const struct bpf_func_proto bpf_strchr_proto = {
++    .func       = bpf_strchr,
++    .gpl_only   = false,
++    .ret_type   = RET_PTR_TO_ALLOC_MEM_OR_NULL,
++    .arg1_type  = ARG_ANYTHING,
++    .arg2_type  = ARG_ANYTHING,
++};
++
++BPF_CALL_2(bpf_strstr, void *, s1, void *, s2)
++{
++    return strstr(s1, s2);
++}
++
++const struct bpf_func_proto bpf_strstr_proto = {
++    .func       = bpf_strstr,
++    .gpl_only   = false,
++    .ret_type   = RET_PTR_TO_ALLOC_MEM_OR_NULL,
++    .arg1_type  = ARG_ANYTHING,
++    .arg2_type  = ARG_ANYTHING,
++};
++
++BPF_CALL_2(bpf_strcmp, void *, str1, void *, str2)
++{
++    return strcmp(str1, str2);
++}
++
++const struct bpf_func_proto bpf_strcmp_proto = {
++    .func       = bpf_strcmp,
++    .gpl_only   = false,
++    .ret_type   = RET_INTEGER,
++    .arg1_type  = ARG_ANYTHING,
++    .arg2_type  = ARG_ANYTHING,
++};
++
++#if 1
++static void __bpf_memmove(char *dst, char *src, u32 srcLen)
++{
++    u32 i;
++    for (i = 0; i < srcLen; i++) {
++        dst[i] = src[i];
++    }
++    return;
++}
++
++static inline int __bpf_mem_replace(struct bpf_mem_ptr *mem, 
++                                    struct bpf_mem_ptr *old, 
++                                    struct bpf_mem_ptr *new)
++{
++#define BPF_OFFSET(ptr, size)   ((void *)((char *)(ptr) + (size)))
++#define BPF_MEM_PTR_VALID(m)    (((m)->ptr) && ((m)->size))
++
++    u32 newSize;
++    u32 size;
++    void *start = NULL;
++    void *newMem = NULL;
++    if (!BPF_MEM_PTR_VALID(mem) || !BPF_MEM_PTR_VALID(old) || !BPF_MEM_PTR_VALID(new))
++        return -1;
++
++    newSize = mem->size - old->size + new->size;
++    if (newSize <= mem->size) {
++        memcpy(old->ptr, new->ptr, new->size);
++        __bpf_memmove(BPF_OFFSET(old->ptr, new->size), 
++                      BPF_OFFSET(old->ptr, old->size), 
++                      (mem->size - (old->ptr - mem->ptr) - old->size));
++        mem->size = newSize;
++        return 0;
++    }
++
++    newMem = (void *)kmalloc(newSize, GFP_KERNEL);
++    if (!newMem)
++        return -1;
++
++    start = newMem;
++    /* start -- old */
++    size = old->ptr - mem->ptr;
++    if (size)
++        memcpy(start, mem->ptr, size);
++    /* new -- new + newSize */
++    memcpy(BPF_OFFSET(start, size), new->ptr, new->size);
++    size += new->size;
++
++    /* old + oldSize -- end */
++    if ((old->ptr + old->size) < (mem->ptr + mem->size)) {
++        memcpy(BPF_OFFSET(start, size), 
++               BPF_OFFSET(old->ptr, old->size), 
++               (newSize - size));
++    }
++
++    kfree(mem->ptr);
++    mem->ptr = newMem;
++    mem->size = newSize;
++    return 0;
++}
++
++#endif
++BPF_CALL_3(bpf_mem_replace, struct bpf_mem_ptr *, mem, struct bpf_mem_ptr *, old, struct bpf_mem_ptr *, new)
++{
++    /* replace old to new for mem */
++    return __bpf_mem_replace(mem, old, new);
++}
++
++const struct bpf_func_proto bpf_mem_replace_proto = {
++    .func       = bpf_mem_replace,
++    .gpl_only   = true,
++    .ret_type   = RET_INTEGER,
++    .arg1_type  = ARG_ANYTHING,
++    .arg2_type  = ARG_ANYTHING,
++    .arg3_type  = ARG_ANYTHING,
++};
++
++static inline
++int __bpf_strcpy(char *dst, u32 dst_size, const char *src)
++{
++    u32 src_size;
++    if (!dst || !src)
++        return -1;
++
++    src_size = strlen(src) + 1;
++    if (src_size > dst_size)
++        return -1;
++
++    (void)strcpy(dst, src);
++    return 0;
++}
++
++BPF_CALL_3(bpf_strcpy, void *, dst, u32, dst_size, void *, src)
++{
++    return __bpf_strcpy(dst, dst_size, src);
++}
++
++const struct bpf_func_proto bpf_strcpy_proto = {
++    .func       = bpf_strcpy,
++    .gpl_only   = true,
++    .ret_type   = RET_INTEGER,
++    .arg1_type  = ARG_ANYTHING,
++    .arg2_type  = ARG_ANYTHING,
++    .arg3_type  = ARG_ANYTHING,
++};
++#endif
++
+ const struct bpf_func_proto bpf_get_current_task_proto __weak;
+ const struct bpf_func_proto bpf_probe_read_user_proto __weak;
+ const struct bpf_func_proto bpf_probe_read_user_str_proto __weak;
+@@ -695,6 +841,16 @@ bpf_base_func_proto(enum bpf_func_id func_id)
+ 		return &bpf_ringbuf_discard_proto;
+ 	case BPF_FUNC_ringbuf_query:
+ 		return &bpf_ringbuf_query_proto;
++    case BPF_FUNC_strchr:
++        return &bpf_strchr_proto;
++    case BPF_FUNC_strstr:
++        return &bpf_strstr_proto;
++    case BPF_FUNC_strcmp:
++        return &bpf_strcmp_proto;
++    case BPF_FUNC_mem_replace:
++        return &bpf_mem_replace_proto;
++    case BPF_FUNC_strcpy:
++        return &bpf_strcpy_proto;
+ 	default:
+ 		break;
+ 	}
+diff --git a/kernel/bpf/verifier.c b/kernel/bpf/verifier.c
+index 8c017f8c0..448b03ab3 100644
+--- a/kernel/bpf/verifier.c
++++ b/kernel/bpf/verifier.c
+@@ -7831,6 +7831,9 @@ static int check_return_code(struct bpf_verifier_env *env)
+ 		    env->prog->expected_attach_type == BPF_CGROUP_INET4_GETSOCKNAME ||
+ 		    env->prog->expected_attach_type == BPF_CGROUP_INET6_GETSOCKNAME)
+ 			range = tnum_range(1, 1);
++        if (env->prog->expected_attach_type == BPF_CGROUP_INET4_CONNECT ||
++            env->prog->expected_attach_type == BPF_CGROUP_INET6_CONNECT)
++            range = tnum_range(0, 2);
+ 		break;
+ 	case BPF_PROG_TYPE_CGROUP_SKB:
+ 		if (env->prog->expected_attach_type == BPF_CGROUP_INET_EGRESS) {
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 2ca5eeceb..92dc47e70 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -8060,9 +8060,15 @@ static bool sock_ops_is_valid_access(int off, int size,
+ 		switch (off) {
+ 		case offsetof(struct bpf_sock_ops, reply):
+ 		case offsetof(struct bpf_sock_ops, sk_txhash):
++        case offsetof(struct bpf_sock_ops, remote_ip4):
++        case offsetof(struct bpf_sock_ops, remote_port):
+ 			if (size != size_default)
+ 				return false;
+ 			break;
++        case offsetof(struct bpf_sock_ops, remote_ip6):
++            if (size != (4 * size_default))
++                return false;
++            break;
+ 		default:
+ 			return false;
+ 		}
+@@ -9229,14 +9235,10 @@ static u32 sock_ops_convert_ctx_access(enum bpf_access_type type,
+ 		break;
+ 
+ 	case offsetof(struct bpf_sock_ops, remote_ip4):
+-		BUILD_BUG_ON(sizeof_field(struct sock_common, skc_daddr) != 4);
+-
+-		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
+-						struct bpf_sock_ops_kern, sk),
+-				      si->dst_reg, si->src_reg,
+-				      offsetof(struct bpf_sock_ops_kern, sk));
+-		*insn++ = BPF_LDX_MEM(BPF_W, si->dst_reg, si->dst_reg,
+-				      offsetof(struct sock_common, skc_daddr));
++        SOCK_ADDR_LOAD_OR_STORE_NESTED_FIELD(
++            struct bpf_sock_ops_kern, 
++            struct sock_common, 
++            sk, skc_daddr, temp);
+ 		break;
+ 
+ 	case offsetof(struct bpf_sock_ops, local_ip4):
+@@ -9296,16 +9298,10 @@ static u32 sock_ops_convert_ctx_access(enum bpf_access_type type,
+ 
+ 	case offsetof(struct bpf_sock_ops, remote_port):
+ 		BUILD_BUG_ON(sizeof_field(struct sock_common, skc_dport) != 2);
+-
+-		*insn++ = BPF_LDX_MEM(BPF_FIELD_SIZEOF(
+-						struct bpf_sock_ops_kern, sk),
+-				      si->dst_reg, si->src_reg,
+-				      offsetof(struct bpf_sock_ops_kern, sk));
+-		*insn++ = BPF_LDX_MEM(BPF_H, si->dst_reg, si->dst_reg,
+-				      offsetof(struct sock_common, skc_dport));
+-#ifndef __BIG_ENDIAN_BITFIELD
+-		*insn++ = BPF_ALU32_IMM(BPF_LSH, si->dst_reg, 16);
+-#endif
++        SOCK_ADDR_LOAD_OR_STORE_NESTED_FIELD(
++            struct bpf_sock_ops_kern, 
++            struct sock_common, 
++            sk, skc_dport, temp);
+ 		break;
+ 
+ 	case offsetof(struct bpf_sock_ops, local_port):
+diff --git a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+index b7260c8ce..a8be4605b 100644
+--- a/net/ipv4/af_inet.c
++++ b/net/ipv4/af_inet.c
+@@ -654,6 +654,11 @@ int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 
+ 		if (BPF_CGROUP_PRE_CONNECT_ENABLED(sk)) {
+ 			err = sk->sk_prot->pre_connect(sk, uaddr, addr_len);
++            if (err == 2) {
++                inet_sk(sk)->defer_connect = 2;
++                //printk(KERN_CRIT "[pre_connect]bpf defer connect, sk:%p, defer_conn:%u\n", sk, inet_sk(sk)->defer_connect);
++                err = 0;
++            }
+ 			if (err)
+ 				goto out;
+ 		}
+@@ -663,9 +668,12 @@ int __inet_stream_connect(struct socket *sock, struct sockaddr *uaddr,
+ 			goto out;
+ 
+ 		sock->state = SS_CONNECTING;
+-
+-		if (!err && inet_sk(sk)->defer_connect)
++        
++        //printk(KERN_CRIT "[inet_connect]after connect:%d, sk:%p, err:%d\n", inet_sk(sk)->defer_connect, sk, err);
++		if (!err && inet_sk(sk)->defer_connect) {
++            //printk(KERN_CRIT "[defer_connect]goto out, defer_conn:%d, sk:%p\n", inet_sk(sk)->defer_connect, sk);
+ 			goto out;
++        }
+ 
+ 		/* Just entered SS_CONNECTING state; the only
+ 		 * difference is that return value in non-blocking
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index 41d03683b..a7df31bba 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -267,6 +267,9 @@
+ #include <linux/slab.h>
+ #include <linux/errqueue.h>
+ #include <linux/static_key.h>
++#include <linux/mm.h>
++#include <linux/uio.h>
++#include <linux/mman.h>
+ 
+ #include <net/icmp.h>
+ #include <net/inet_common.h>
+@@ -1186,6 +1189,95 @@ static int tcp_sendmsg_fastopen(struct sock *sk, struct msghdr *msg,
+ 	return err;
+ }
+ 
++#if 1
++int tcp_copy_msg_from_user(struct msghdr *msg, void **to, unsigned int *len)
++{
++    void *kbuf = NULL;
++    const struct iovec *iov;
++
++    if (!to || !len)
++        return -1;
++
++    if (msg->msg_iter.type & ITER_KVEC)
++        iov = (struct iovec *)msg->msg_iter.kvec;
++    else
++        iov = msg->msg_iter.iov;
++
++    kbuf = (void *)kmalloc(iov->iov_len, GFP_KERNEL);
++    if (kbuf == NULL)
++        return -1;
++
++    copy_from_user(kbuf, iov->iov_base, iov->iov_len);
++    *to = kbuf;
++    *len = iov->iov_len;
++    return 0;
++}
++
++#define TEST_OFFSETOF(STRUCT, FIELD) (unsigned int)((char *)(&((STRUCT *)100)->FIELD) - (char *)100)
++
++void tcp_defer_connect(struct sock *sk, struct inet_sock *inet_sk, int defer_conn)
++{
++    if (defer_conn == 2) {
++        //printk(KERN_CRIT "tcp_sendmsg_locked:sk:%p, inet_sk:%p, pmtudisc offset:%d, defer_conn:%d\n", 
++        //       sk, inet_sk, TEST_OFFSETOF(struct inet_sock, pmtudisc), defer_conn);
++    }
++    return;
++}
++
++//malloc userland memory in kernelspace
++void __user * kmalloc_user_memory(unsigned long size)
++{
++    void __user *mm_buf = NULL;
++    unsigned long populate = 0;
++    
++    down_write(&current->mm->mmap_lock);
++    mm_buf = (char*)do_mmap(NULL, 0, size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, 0, &populate, NULL);
++    up_write(&current->mm->mmap_lock); 
++    if (mm_buf == NULL)
++        printk("[err] kmalloc_user_memory failed!\n");
++    return mm_buf;
++}
++
++/*
++* free the userland memory malloced by kmalloc_user_memory func
++*
++* */
++bool kfree_user_memory(void __user *buf, unsigned long size)
++{
++    int error = -1;
++    
++    down_write(&current->mm->mmap_lock);
++    error = do_munmap(current->mm, buf, size, NULL);
++    up_write(&current->mm->mmap_lock);
++    if(error != 0)
++        printk("[err] sys_do_munmap. buf:%p, size:%lu, ret:%d\n", buf, size, error);
++
++    return (error==0);
++}
++
++int tcp_defer_msg_build(struct msghdr *msg, struct msghdr *orgMsg, struct iovec *iov, void *buf, __u32 len)
++{
++    /* copy kernel buf to user buf */
++    int err;
++    __u32 oldLen;
++    void __user *userBuf = kmalloc_user_memory(len);
++    void __user *oldUserPtr = NULL;
++    if (!userBuf)
++        return -1;
++
++    copy_to_user(userBuf, buf, len);
++
++    /* build defer msg */
++    memcpy(msg, orgMsg, sizeof(struct msghdr));
++    oldUserPtr = msg->msg_iter.iov->iov_base;
++    oldLen = msg->msg_iter.iov->iov_len;
++    err = import_single_range(WRITE, userBuf, len, iov, &msg->msg_iter);
++    //printk(KERN_CRIT "[defer_msg]userPtr from [%p %u] to [%p %u], buf:%s\n", 
++    //        oldUserPtr, oldLen, msg->msg_iter.iov->iov_base, msg->msg_iter.iov->iov_len, (char *)buf);
++    return err;
++}
++#endif
++
+ int tcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t size)
+ {
+ 	struct tcp_sock *tp = tcp_sk(sk);
+@@ -1197,6 +1289,9 @@ int tcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t size)
+ 	int process_backlog = 0;
+ 	bool zc = false;
+ 	long timeo;
++    struct bpf_mem_ptr tmpMem = {0};
++    struct msghdr deferMsg;
++	struct iovec iov;
+ 
+ 	flags = msg->msg_flags;
+ 
+@@ -1213,6 +1308,27 @@ int tcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t size)
+ 			uarg->zerocopy = 0;
+ 	}
+ 
++    //tcp_defer_connect(sk, inet_sk(sk), inet_sk(sk)->defer_connect);
++    if (unlikely(inet_sk(sk)->defer_connect == 2)) {
++        //printk(KERN_CRIT "[tcp_sendmsg]bpf defer connect, sk:%p\n", sk);
++        inet_sk(sk)->defer_connect = 0;
++
++        err = tcp_copy_msg_from_user(msg, &(tmpMem.ptr), &(tmpMem.size));
++        tcp_call_bpf_3arg(sk, BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB, 
++                          ((u64)(&tmpMem) & 0xffffffff), (((u64)(&tmpMem) >> 32) & 0xffffffff), tmpMem.size);
++        err = tcp_connect(sk);
++        //printk(KERN_CRIT "[tcp_sendmsg]tcp connect:%d\n", err);
++        err = tcp_defer_msg_build(&deferMsg, msg, &iov, tmpMem.ptr, tmpMem.size);
++        //printk(KERN_CRIT "[tcp_sendmsg]defer msg build ret:%d, flag:%d\n", err, flags);
++        msg = &deferMsg;
++        kfree(tmpMem.ptr);
++        if (err) {
++            tcp_set_state(sk, TCP_CLOSE);
++            sk->sk_route_caps = 0;
++            inet_sk(sk)->inet_dport = 0;
++        }
++    }
++
+ 	if (unlikely(flags & MSG_FASTOPEN || inet_sk(sk)->defer_connect) &&
+ 	    !tp->repair) {
+ 		err = tcp_sendmsg_fastopen(sk, msg, &copied_syn, size, uarg);
+@@ -1223,6 +1339,9 @@ int tcp_sendmsg_locked(struct sock *sk, struct msghdr *msg, size_t size)
+ 	}
+ 
+ 	timeo = sock_sndtimeo(sk, flags & MSG_DONTWAIT);
++    if (msg == &deferMsg) {
++        timeo = 100;
++    }
+ 
+ 	tcp_rate_check_app_limited(sk);  /* is sending application-limited? */
+ 
+diff --git a/net/ipv4/tcp_ipv4.c b/net/ipv4/tcp_ipv4.c
+index ab8ed0fc4..7e515a622 100644
+--- a/net/ipv4/tcp_ipv4.c
++++ b/net/ipv4/tcp_ipv4.c
+@@ -304,6 +304,8 @@ int tcp_v4_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
+ 
+ 	inet->inet_id = prandom_u32();
+ 
++    if (inet_sk(sk)->defer_connect == 2)
++        return err;
+ 	if (tcp_fastopen_defer_connect(sk, &err))
+ 		return err;
+ 	if (err)
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 556216dc9..a5f03d7dd 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -3742,6 +3742,19 @@ union bpf_attr {
+  * 	Return
+  * 		The helper returns **TC_ACT_REDIRECT** on success or
+  * 		**TC_ACT_SHOT** on error.
++ *
++ * char * bpf_strstr(void *s1, void *s2)
++ * 	Description
++ * 		Redirect the packet to another net device of index *ifindex*.
++ * 		This helper is somewhat similar to **bpf_redirect**\ (), except
++ * 		that the redirection happens to the *ifindex*' peer device and
++ * 		the netns switch takes place from ingress to ingress without
++ * 		going through the CPU's backlog queue.
++ *
++ * 		The *flags* argument is reserved and must be 0. The helper is
++ * 		currently only supported for tc BPF program types at the ingress
++ * 		hook and for veth device types. The peer device must reside in a
++ * 		different network namespace.
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -3900,6 +3913,11 @@ union bpf_attr {
+ 	FN(per_cpu_ptr),		\
+ 	FN(this_cpu_ptr),		\
+ 	FN(redirect_peer),		\
++	FN(strchr),             \
++	FN(strstr),             \
++	FN(strcmp),             \
++	FN(mem_replace),        \
++	FN(strcpy),        \
+ 	/* */
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+-- 
+2.20.1.windows.1
+

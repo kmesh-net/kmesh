@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package filter;
+option go_package = "openeuler.io/mesh/api/filter;filter";
+
+import "api/route/route.proto";
+
+message HttpConnectionManager {
+  oneof route_specifier {
+    string route_config_name = 2;
+    route.RouteConfiguration route_config = 4;
+  }
+}

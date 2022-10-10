@@ -1,0 +1,62 @@
+syntax = "proto3";
+
+package route;
+option go_package = "openeuler.io/mesh/api/route;route";
+
+message VirtualHost {
+  string name = 1;
+  repeated string domains = 2;
+  repeated Route routes = 3;
+}
+
+message Route {
+  string name = 14;
+  RouteMatch match = 1;
+  RouteAction route = 2;
+}
+
+message RouteMatch {
+  string prefix = 1;
+  bool case_sensitive = 4;
+  repeated HeaderMatcher headers = 6;
+}
+
+message RouteAction {
+  oneof cluster_specifier {
+    // Indicates the upstream cluster to which the request should be routed to.
+    string cluster = 1;
+    // Multiple upstream clusters can be specified for a given route. The
+    // request is routed to one of the upstream clusters based on weights
+    // assigned to each cluster.
+    WeightedCluster weighted_clusters = 3;
+  }
+  // the matched prefix (or path) should be swapped with this value.
+  string prefix_rewrite = 5;
+  uint32 timeout = 8;
+  RetryPolicy retry_policy = 9;
+}
+
+message RetryPolicy {
+  uint32 num_retries = 2;
+  //RetryPriority retry_priority = 4;
+}
+
+message WeightedCluster {
+  repeated ClusterWeight clusters = 1;
+}
+
+message ClusterWeight {
+  string name = 1;
+  uint32 weight = 2;
+}
+
+message HeaderMatcher {
+  // Specifies the name of the header in the request.
+  string name = 1;
+  oneof header_match_specifier {
+    // If specified, header match will be performed based on the value of the header.
+    string exact_match = 4;
+    // If specified, header match will be performed based on the prefix of the header value.
+    string prefix_match = 9;
+  }
+}

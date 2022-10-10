@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package cluster;
+option go_package = "openeuler.io/mesh/api/cluster;cluster";
+
+import "api/cluster/circuit_breaker.proto";
+import "api/endpoint/endpoint.proto";
+import "api/core/base.proto";
+
+message Cluster {
+  enum LbPolicy {
+    ROUND_ROBIN = 0;
+    LEAST_REQUEST = 1;
+    RANDOM = 3;
+  }
+
+  core.ApiStatus api_status = 128;
+  string name = 1;
+  uint32 connect_timeout = 4;
+  LbPolicy lb_policy = 6;
+
+  endpoint.ClusterLoadAssignment load_assignment = 33;
+  CircuitBreakers circuit_breakers = 10;
+}

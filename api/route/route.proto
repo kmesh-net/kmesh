@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package route;
+option go_package = "openeuler.io/mesh/api/route;route";
+
+import "api/route/route_components.proto";
+import "api/core/base.proto";
+
+message RouteConfiguration {
+  core.ApiStatus api_status = 128;
+  string name = 1;
+  repeated VirtualHost virtual_hosts = 2;
+}
