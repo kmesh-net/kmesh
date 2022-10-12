@@ -273,20 +273,24 @@ static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 		return inner_map_fd;
 
 	inner_map_object = malloc(ctx->inner_info->value_size);
-	if (!inner_map_object)
+	if (!inner_map_object) {
+		close(inner_map_fd);
 		return -ENOMEM;
+	}
 
 	ret = bpf_map_lookup_elem(inner_map_fd, &key, inner_map_object);
 	if (ret < 0) {
+		close(inner_map_fd);
 		free(inner_map_object);
 		return ret;
 	}
 
 	a_ctl = (struct outter_map_alloc_control *)inner_map_object;
 	a_ctl->used--;
-	a_ctl->free_map[i/32] |= (1U << (i % 32));
+	a_ctl->free_map[i / 32] |= (1U << (i % 32));
 	bpf_map_update_elem(inner_map_fd, &key, a_ctl, BPF_ANY);
 	free(inner_map_object);
+	close(inner_map_fd);
 
 	return 0;
 }
@@ -1020,8 +1024,10 @@ static int indirect_field_del(struct op_context *ctx, int outter_key,
 			}
 
 			inner_map_object = malloc(ctx->inner_info->value_size);
-			if (!inner_map_object)
+			if (!inner_map_object) {
+				close(inner_fd);
 				return -ENOMEM;
+			}
 
 			memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
 			new_ctx.curr_fd = inner_fd;
@@ -1032,7 +1038,7 @@ static int indirect_field_del(struct op_context *ctx, int outter_key,
 
 			ret = del_bpf_map(&new_ctx, 1);
 			free(inner_map_object);
-			return ret;
+			break;
 			
 		default:
 			break;
@@ -1156,6 +1162,7 @@ static int field_del(struct op_context *ctx,
 		}
 
 		msg_field_del(ctx, inner_fd, field);
+		close(inner_fd);
 		break;
 	default:
 		break;
