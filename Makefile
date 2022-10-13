@@ -32,7 +32,6 @@ all:
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
 	
 	$(QUIET) $(GO) mod download
-	$(QUIET) $(GO) generate bpf/slb/bpf2go/bpf2go.go
 	$(QUIET) $(GO) generate bpf/kmesh/bpf2go/bpf2go.go
 	
 	$(call printlog, BUILD, $(APPS1))
