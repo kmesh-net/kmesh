@@ -91,22 +91,18 @@ Usage of kmesh-daemon:
     	[if -enable-kmesh] deploy in kube cluster (default "/etc/istio/proxy/envoy-rev0.json")
   -enable-ads
     	[if -enable-kmesh] enable control-plane from ads (default true)
-  -enable-in-cluster
-    	[if -enable-slb] deploy in kube cluster by DaemonSet
   -enable-kmesh
     	enable bpf kmesh
-  -enable-slb
-    	enable bpf slb
   -service-cluster string
     	[if -enable-kmesh] TODO (default "TODO")
   -service-node string
     	[if -enable-kmesh] TODO (default "TODO")
 
 # example
-./kmesh-daemon -enable-slb=true
+./kmesh-daemon -enable-kmesh
 # example
-./kmesh-daemon -enable-kmesh=true -enable-ads=true -config-file=envoy-rev0.json
-./kmesh-daemon -enable-kmesh=true -enable-ads=false
+./kmesh-daemon -enable-kmesh -enable-ads=true -config-file=envoy-rev0.json
+./kmesh-daemon -enable-kmesh -enable-ads=false
 ```
 
 kmesh-cmd
@@ -127,7 +123,6 @@ admin
 # curl http://localhost:15200/help
 	/help: print list of commands
 	/options: print config options
-	/bpf/slb/maps: print bpf slb maps in kernel
 	/bpf/kmesh/maps: print bpf kmesh maps in kernel
 	/controller/envoy: print control-plane in envoy cache
 	/controller/kubernetes: print control-plane in kubernetes cache

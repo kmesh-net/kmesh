@@ -28,7 +28,6 @@ const (
 
 	patternHelp                 = "/help"
 	patternOptions              = "/options"
-	patternBpfSlbMaps           = "/bpf/slb/maps"
 	patternBpfKmeshMaps         = "/bpf/kmesh/maps"
 	patternControllerEnvoy      = "/controller/envoy"
 	patternControllerKubernetes = "/controller/kubernetes"

@@ -14,7 +14,7 @@
 
 package nets
 
-// #cgo pkg-config: bpf api-v1-c
+// #cgo pkg-config: bpf api-v2-c
 // #include "kmesh/include/config.h"
 import "C"
 import "openeuler.io/mesh/pkg/options"

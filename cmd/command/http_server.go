@@ -44,7 +44,6 @@ func newHttpServer() *httpServer {
 
 	s.mux.HandleFunc(patternHelp, httpHelp)
 	s.mux.HandleFunc(patternOptions, httpOptions)
-	s.mux.HandleFunc(patternBpfSlbMaps, httpBpfSlbMaps)
 	s.mux.HandleFunc(patternBpfKmeshMaps, httpBpfKmeshMaps)
 	s.mux.HandleFunc(patternControllerEnvoy, httpControllerEnvoy)
 	s.mux.HandleFunc(patternControllerKubernetes, httpControllerKubernetes)
@@ -59,8 +58,6 @@ func httpHelp(w http.ResponseWriter, r *http.Request) {
 		"print list of commands")
 	fmt.Fprintf(w, "\t%s: %s\n", patternOptions,
 		"print config options")
-	fmt.Fprintf(w, "\t%s: %s\n", patternBpfSlbMaps,
-		"print bpf slb maps in kernel")
 	fmt.Fprintf(w, "\t%s: %s\n", patternBpfKmeshMaps,
 		"print bpf kmesh maps in kernel")
 	fmt.Fprintf(w, "\t%s: %s\n", patternControllerEnvoy,
@@ -72,13 +69,6 @@ func httpHelp(w http.ResponseWriter, r *http.Request) {
 func httpOptions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, options.String())
-}
-
-func httpBpfSlbMaps(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-
-	fmt.Fprintf(w, "%s: %s\n", patternBpfSlbMaps,
-		"TODO")
 }
 
 func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
