@@ -40,6 +40,9 @@ all:
 	$(call printlog, BUILD, $(APPS2))
 	$(QUIET) $(GO) build -o $(APPS2) $(GOFLAGS) ./cmd/main.go
 	
+	$(call printlog, BUILD, "kernel")
+	$(QUIET) make -C kernel/ko_src
+
 	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh unset
 
 install:
@@ -62,3 +65,5 @@ clean:
 	
 	$(QUIET) make clean -C api/v2-c
 	$(QUIET) make clean -C bpf/deserialization_to_bpf_map
+	$(call printlog, CLEAN, "kernel")
+	$(QUIET) make clean -C kernel/ko_src
