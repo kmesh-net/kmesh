@@ -18,7 +18,7 @@ include ../../mk/bpf.print.mk
 INCLUDES =
 
 # compiler flags
-LDFLAGS := -lbpf -lsecurec
+LDFLAGS := -lbpf -lboundscheck
 CFLAGS := $(EXTRA_CFLAGS) $(EXTRA_CDEFINE)
 CFLAGS += -fstack-protector -fPIC
 CFLAGS += -Wall -Werror
