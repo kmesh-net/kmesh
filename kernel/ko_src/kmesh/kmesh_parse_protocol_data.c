@@ -8,7 +8,7 @@
  */
 #include "kmesh_parse_protocol_data.h"
 
-struct rb_root *g_kmesh_data_root;
+struct rb_root __percpu *g_kmesh_data_root;
 struct list_head g_protocol_list_head = LIST_HEAD_INIT(g_protocol_list_head);
 
 struct kmesh_data_node* new_kmesh_data_node(u32 name_field_length)
@@ -118,3 +118,49 @@ void kmesh_protocol_data_clean_allcpu(void)
 	}
 }
 
+typedef u32 (*bpf_parse_protocol_func)(struct bpf_mem_ptr* msg);
+extern bpf_parse_protocol_func parse_protocol;
+
+typedef struct bpf_mem_ptr* (*bpf_get_protocol_element_func)(char *key);
+extern bpf_get_protocol_element_func get_protocol_element_func;
+
+static u32
+parse_protocol_impl(struct bpf_mem_ptr* msg)
+{
+	u32 ret;
+	struct msg_protocol *cur;
+	kmesh_protocol_data_clean_all();
+	list_for_each_entry(cur, &g_protocol_list_head, list) {
+		if (!cur->parse_protocol_msg)
+			continue;
+		ret = cur->parse_protocol_msg(msg);
+		if (ret)
+			break;
+	}
+	return ret;
+}
+
+static struct bpf_mem_ptr* get_protocol_element_impl(char *key)
+{
+	struct kmesh_data_node *data = kmesh_protocol_data_search(key);
+	if (!data)
+		return NULL;
+	return &data->value;
+}
+
+int __init proto_common_init(void)
+{
+	parse_protocol = parse_protocol_impl;
+	get_protocol_element_func = get_protocol_element_impl;
+	/* add protocol list */
+	g_kmesh_data_root = alloc_percpu(struct rb_root);
+
+	return 0;
+}
+
+void __exit proto_common_exit(void)
+{
+	parse_protocol = NULL;
+	get_protocol_element_func = NULL;
+	kmesh_protocol_data_clean_allcpu();
+}

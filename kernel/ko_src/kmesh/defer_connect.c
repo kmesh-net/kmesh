@@ -16,8 +16,7 @@
 #include <net/tcp.h>
 #include <net/udp.h>
 
-#include "kmesh_parse_protocol_data.h"
-#include "kmesh_parse_http_1_1.h"
+#define DEFER_CONNECT 2
 
 static int copy_msg_from_user(struct msghdr *msg, void **to, unsigned int *len)
 {
@@ -226,7 +225,7 @@ static int __defer_inet_stream_connect(struct socket *sock, struct sockaddr *uad
 
 		if (BPF_CGROUP_PRE_CONNECT_ENABLED(sk)) {
 			err = sk->sk_prot->pre_connect(sk, uaddr, addr_len);
-			if (err == 2) {
+			if (err == DEFER_CONNECT) {
 				inet_sk(sk)->bpf_defer_connect = 1;
 				err = 0;
 				sk->sk_dport = ((struct sockaddr_in *)uaddr)->sin_port;
@@ -318,38 +317,7 @@ static struct inet_protosw defer_inetsw = {
 		      INET_PROTOSW_ICSK,
 };
 
-typedef u32 (*bpf_parse_protocol_func)(struct bpf_mem_ptr* msg);
-extern bpf_parse_protocol_func parse_protocol;
-
-typedef struct bpf_mem_ptr* (*bpf_get_protocol_element_func)(char *key);
-extern bpf_get_protocol_element_func get_protocol_element_func;
-
-static u32
-parse_protocol_impl(struct bpf_mem_ptr* msg)
-{
-	u32 ret;
-	struct msg_protocol *cur;
-	kmesh_protocol_data_clean_all();
-	list_for_each_entry(cur, &g_protocol_list_head, list) {
-		if (!cur->parse_protocol_msg)
-			continue;
-		ret = cur->parse_protocol_msg(msg);
-		if (ret)
-			break;
-	}
-	return ret;
-}
-
-static struct bpf_mem_ptr*
-get_protocol_element_impl(char *key)
-{
-	struct kmesh_data_node *data = kmesh_protocol_data_search(key);
-	if (!data)
-		return NULL;
-	return &data->value;
-}
-
-static int __init defer_conn_init(void)
+int __init defer_conn_init(void)
 {
 	defer_inet_stream_ops = inet_stream_ops;
 	defer_inet_stream_ops.owner = THIS_MODULE;
@@ -358,26 +326,10 @@ static int __init defer_conn_init(void)
 
 	inet_register_protosw(&defer_inetsw);
 
-	parse_protocol = parse_protocol_impl;
-	get_protocol_element_func = get_protocol_element_impl;
-	/* add protocol list */
-	g_kmesh_data_root = alloc_percpu(struct rb_root);
-
-	kmesh_register_http_1_1_init();
-
 	return 0;
 }
 
-static void __exit defer_conn_exit(void)
+void __exit defer_conn_exit(void)
 {
 	inet_unregister_protosw(&defer_inetsw);
-
-	parse_protocol = NULL;
-	get_protocol_element_func = NULL;
-	kmesh_protocol_data_clean_allcpu();
 }
-
-module_init(defer_conn_init);
-module_exit(defer_conn_exit);
-
-MODULE_LICENSE("GPL");

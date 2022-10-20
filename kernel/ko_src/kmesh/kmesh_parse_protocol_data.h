@@ -60,5 +60,8 @@ void kmesh_protocol_data_clean_all(void);
 
 void kmesh_protocol_data_clean_allcpu(void);
 
+int __init proto_common_init(void);
+void __exit proto_common_exit(void);
+
 #endif /* KMESH_PARSE_PROTOCOL_DATA */
 

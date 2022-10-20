@@ -1,5 +1,5 @@
 obj-m := kmesh.o
-kmesh-objs = defer_connect.o \
+kmesh-objs = kmesh_main.o defer_connect.o \
 	kmesh_parse_protocol_data.o \
 	kmesh_parse_http_1_1.o
 

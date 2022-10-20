@@ -12,7 +12,7 @@
 
 #include "kmesh_parse_protocol_data.h"
 
-void kmesh_register_http_1_1_init(void);
+int __init kmesh_register_http_1_1_init(void);
 
 #endif /* KMESH_REGISTER_HTTP_1_1_H */
 

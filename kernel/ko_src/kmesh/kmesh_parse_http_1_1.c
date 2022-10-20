@@ -398,9 +398,11 @@ static void register_http_1_1_repose(void)
 	list_add_tail(&http_1_1_respose.list, &g_protocol_list_head);
 }
 
-void kmesh_register_http_1_1_init(void)
+int __init kmesh_register_http_1_1_init(void)
 {
 	register_http_1_1_request();
 	register_http_1_1_repose();
+
+	return 0;
 }
 
