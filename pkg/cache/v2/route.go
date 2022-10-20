@@ -18,7 +18,10 @@ import (
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	route_v2 "openeuler.io/mesh/api/v2/route"
 	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
+	"sync"
 )
+
+var rw_route sync.RWMutex
 
 type ApiRouteConfigurationCache map[string]*route_v2.RouteConfiguration
 
@@ -31,6 +34,8 @@ func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) in
 		err error
 		num int
 	)
+
+	rw_route.Lock()
 
 	for _, route := range cache {
 		if route.GetApiStatus() != status {
@@ -53,6 +58,8 @@ func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) in
 	if status == core_v2.ApiStatus_DELETE {
 		cache.StatusDelete(status)
 	}
+
+	defer rw_route.Unlock()
 
 	return num
 }
@@ -77,6 +84,8 @@ func (cache ApiRouteConfigurationCache) StatusLookup() []*route_v2.RouteConfigur
 	var err error
 	var mapCache []*route_v2.RouteConfiguration
 
+	rw_route.RLock()
+
 	for name, route := range cache {
 		tmp := &route_v2.RouteConfiguration{}
 		if err = maps_v2.RouteConfigLookup(name, tmp); err != nil {
@@ -87,6 +96,8 @@ func (cache ApiRouteConfigurationCache) StatusLookup() []*route_v2.RouteConfigur
 		tmp.ApiStatus = route.ApiStatus
 		mapCache = append(mapCache, tmp)
 	}
+
+	defer rw_route.RUnlock()
 
 	return mapCache
 }
