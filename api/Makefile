@@ -25,7 +25,6 @@ PROTO_SRC := $(call find_source, ../api, *.proto)
 .PHONY: all install clean
 
 all:
-	$(QUIET) $(GO) install google.golang.org/protobuf/cmd/protoc-gen-go
 
 	$(call printlog, PROTO, api/$(C_OUTPUT_DIR))
 	$(QUIET) protoc-c --proto_path=$(PROTO_PATH) --c_out=.  $(PROTO_SRC)
