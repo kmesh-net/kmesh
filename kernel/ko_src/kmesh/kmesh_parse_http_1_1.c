@@ -46,7 +46,11 @@ u32 parse_http_1_1_request(const struct bpf_mem_ptr *msg);
 u32 parse_http_1_1_respond(const struct bpf_mem_ptr *msg);
 
 
-static bool parse_request_startline(const struct bpf_mem_ptr *msg, struct bpf_mem_ptr *context)
+static int parse_startline(const struct bpf_mem_ptr *msg,
+				  struct bpf_mem_ptr *context,
+				  struct kmesh_data_node *method,
+				  struct kmesh_data_node *URI,
+				  struct kmesh_data_node *http_version)
 {
 	enum state current_state = ST_START;
 	u32 start = 0;
@@ -54,81 +58,92 @@ static bool parse_request_startline(const struct bpf_mem_ptr *msg, struct bpf_me
 	bool end_parse_startline = false;
 	u32 i;
 	char ch;
-	struct kmesh_data_node *method = new_kmesh_data_node(METHOD_STRING_LENGTH);
-	struct kmesh_data_node *URI = new_kmesh_data_node(URI_STRING_LENGTH);
-	struct kmesh_data_node *http_version = new_kmesh_data_node(VERSION_STRING_LENGTH);
+
 	for (i = 0; !end_parse_startline && i < msg->size; ++i) {
 		ch = ((char *)msg->ptr)[i];
 		switch (current_state) {
-			case ST_START:
-				if ((ch < 'A' || ch > 'Z')) {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: method unparsed characters found, ch:%c\n", ch);
+		case ST_START:
+			if ((ch < 'A' || ch > 'Z')) {
+				printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: method unparsed characters found, ch:%c\n", ch);
+				goto failed;
+			}
+			start = i;
+			pstart = (char *)msg->ptr;
+			current_state = ST_METHOD;
+			break;
+		case ST_METHOD:
+			if (ch == SPACE) {
+				method->value.ptr = pstart;
+				method->value.size = i - start;
+				strncpy(method->keystring, "method", METHOD_STRING_LENGTH);
+				current_state = ST_SPACE_BEFORE_URI;
+				break;
+			}
+			if ((ch < 'A' || ch > 'Z')) {
+				printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: method unparsed characters found, ch:%c\n", ch);
+				goto failed;
+			}
+			break;
+		case ST_SPACE_BEFORE_URI:
+			pstart = msg->ptr + i;
+			start = i;
+			current_state = ST_URI;
+			break;
+		case ST_URI:
+			if (ch == SPACE) {
+				URI->value.ptr = pstart;
+				URI->value.size = i - start;
+				strncpy(URI->keystring, "URI", URI_STRING_LENGTH);
+				current_state = ST_SPACE_BEFORE_VERSION;
+			}
+			break;
+		case ST_SPACE_BEFORE_VERSION:
+			pstart = msg->ptr + i;
+			start = i;
+			current_state = ST_VERSION;
+			break;
+		case ST_VERSION:
+			if (ch == CR) {
+				http_version->value.ptr = pstart;
+				http_version->value.size = i - start;
+				if (strncmp((char *)http_version->value.ptr, "HTTP/1.1", strlen("HTTP/1.1"))) {
+					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: version is not HTTP/1.1 ");
 					goto failed;
 				}
-				start = i;
-				pstart = (char *)msg->ptr;
-				current_state = ST_METHOD;
-				break;
-			case ST_METHOD:
-				if (ch == SPACE) {
-					method->value.ptr = pstart;
-					method->value.size = i - start;
-					strncpy(method->keystring, "method", METHOD_STRING_LENGTH);
-					current_state = ST_SPACE_BEFORE_URI;
-					break;
-				}
-				if ((ch < 'A' || ch > 'Z')) {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: method unparsed characters found, ch:%c\n", ch);
-					goto failed;
-				}
-				break;
-			case ST_SPACE_BEFORE_URI:
-				pstart = msg->ptr + i;
-				start = i;
-				current_state = ST_URI;
-				break;
-			case ST_URI:
-				if (ch == SPACE) {
-					URI->value.ptr = pstart;
-					URI->value.size = i - start;
-					strncpy(URI->keystring, "URI", URI_STRING_LENGTH);
-					current_state = ST_SPACE_BEFORE_VERSION;
-				}
-				break;
-			case ST_SPACE_BEFORE_VERSION:
-				pstart = msg->ptr + i;
-				start = i;
-				current_state = ST_VERSION;
-				break;
-			case ST_VERSION:
-				if (ch == CR) {
-					http_version->value.ptr = pstart;
-					http_version->value.size = i - start;
-					if (strncmp((char *)http_version->value.ptr, "HTTP/1.1", strlen("HTTP/1.1"))) {
-						printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: version is not HTTP/1.1 ");
-						goto failed;
-					}
-					strncpy(http_version->keystring, "version", VERSION_STRING_LENGTH);
-					current_state = ST_NEW_LINE;
-				}
-				break;
-			case ST_NEW_LINE:
-				if (ch != LF) {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: start-line not end with LF\n");
-					goto failed;
-				}
-				current_state = ST_FIELD_NAME_START;
-				break;
-			case ST_FIELD_NAME_START:
-				context->ptr = msg->ptr + i;
-				context->size = msg->size - i;
-				end_parse_startline = true;
-				break;
-			default:
-				// It's not going to get here
-				break;
+				strncpy(http_version->keystring, "version", VERSION_STRING_LENGTH);
+				current_state = ST_NEW_LINE;
+			}
+			break;
+		case ST_NEW_LINE:
+			if (ch != LF) {
+				printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: start-line not end with LF\n");
+				goto failed;
+			}
+			current_state = ST_FIELD_NAME_START;
+			break;
+		case ST_FIELD_NAME_START:
+			context->ptr = msg->ptr + i;
+			context->size = msg->size - i;
+			end_parse_startline = true;
+			break;
+		default:
+			// It's not going to get here
+			break;
 		}
 	}
+
+failed:
+	return current_state;
+}
+
+static bool parse_request_startline(const struct bpf_mem_ptr *msg, struct bpf_mem_ptr *context)
+{
+	enum state current_state;
+	struct kmesh_data_node *method = new_kmesh_data_node(METHOD_STRING_LENGTH);
+	struct kmesh_data_node *URI = new_kmesh_data_node(URI_STRING_LENGTH);
+	struct kmesh_data_node *http_version = new_kmesh_data_node(VERSION_STRING_LENGTH);
+
+	current_state = parse_startline(msg, context, method, URI, http_version);
 	if (current_state != ST_FIELD_NAME_START) {
 		printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: state not equal ST_FIELD_NAME_START\n");
 		goto failed;
