@@ -50,14 +50,17 @@ static inline void *cluster_get_ep_identity_by_lb_policy(struct cluster_endpoint
 		case CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN:
 			ep_identity = loadbalance_round_robin(eps);
 			break;
+		/* other policy will support next version
 		case CLUSTER__CLUSTER__LB_POLICY__LEAST_REQUEST:
 			ep_identity = loadbalance_least_request(eps);
 			break;
 		case CLUSTER__CLUSTER__LB_POLICY__RANDOM:
 			// TODO
 			break;
+		*/
 		default:
-			BPF_LOG(ERR, CLUSTER, "load_assignment lb_policy is wrong\n");
+			BPF_LOG(ERR, CLUSTER, "%d lb_policy is unsupport, defaut:ROUND_ROBIN\n", lb_policy);
+			ep_identity = loadbalance_round_robin(eps);
 			break;
 	}
 	return ep_identity;
