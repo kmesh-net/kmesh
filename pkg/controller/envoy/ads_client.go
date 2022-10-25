@@ -88,6 +88,7 @@ func (c *AdsClient) recoverConnection() error {
 		interval = time.Second
 	)
 
+	c.closeStreamClient()
 	for count := 0; count < nets.MaxRetryCount; count++ {
 		if err = c.CreateStream(config.adsSet); err == nil {
 			return nil
@@ -154,12 +155,7 @@ func (c *AdsClient) Run(stopCh <-chan struct{}) error {
 	go func() {
 		<-stopCh
 
-		if c.stream != nil {
-			c.stream.CloseSend()
-		}
-		if c.grpcConn != nil {
-			c.grpcConn.Close()
-		}
+		c.closeStreamClient()
 
 		if c.cancel != nil {
 			c.cancel()
@@ -167,6 +163,15 @@ func (c *AdsClient) Run(stopCh <-chan struct{}) error {
 	}()
 
 	return nil
+}
+
+func (c *AdsClient) closeStreamClient() {
+	if c.stream != nil {
+		c.stream.CloseSend()
+	}
+	if c.grpcConn != nil {
+		c.grpcConn.Close()
+	}
 }
 
 func (c *AdsClient) Close() error {
