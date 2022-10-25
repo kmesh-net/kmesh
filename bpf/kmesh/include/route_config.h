@@ -64,6 +64,9 @@ static inline int virtual_host_match_check(Route__VirtualHost *virt_host,
 		if (!domain)
 			continue;
 
+		if (((char *)domain)[0] == '*' && ((char *)domain)[1] == '\0')
+			return 1;
+
 		if (bpf_strstr(ptr, domain) != NULL) {
 			BPF_LOG(DEBUG, ROUTER_CONFIG, "match virtual_host, name=\"%s\"\n",
 				(char *)kmesh_get_ptr_val(virt_host->name));
