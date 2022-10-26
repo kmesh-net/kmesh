@@ -20,9 +20,7 @@ function code_compile() {
 
     local tmp_path=$(pwd)
     cp $tmp_path/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/protoc-gen-go /usr/bin/
-    #cp depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs.h /usr/include/bpf/
-    cp /usr/include/bpf/bpf_helper_defs.h /usr/include/bpf/bpf_helper_defs.h_bk
-    cat depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h >> /usr/include/bpf/bpf_helper_defs.h
+    cp depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h bpf/include/
     make clean
     make
     make install
@@ -37,10 +35,6 @@ function code_compile() {
 
 function packages_install() {
     yum install -y make golang clang libbpf-devel llvm libboundscheck protobuf protobuf-c protobuf-c-devel
-}
-
-function env_reset() {
-    yes | cp /usr/include/bpf/bpf_helper_defs.h_bk /usr/include/bpf/bpf_helper_defs.h
 }
 
 function test() {
@@ -83,4 +77,3 @@ function test() {
 packages_install
 code_compile
 test
-env_reset

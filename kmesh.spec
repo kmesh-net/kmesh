@@ -36,15 +36,12 @@ if [ "$ARCH" == "x86_64" ]; then
 fi
 
 export PATH=$PATH:%{_builddir}/%{name}-%{version}/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/
-mkdir -p %{buildroot}/usr/include/bpf
-cp %{buildroot}/usr/include/bpf/bpf_helper_defs.h %{buildroot}/usr/include/bpf/bpf_helper_defs.h_bk
-cat %{_builddir}/%{name}-%{version}/depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h >> %{buildroot}/usr/include/bpf/bpf_helper_defs.h
+cp %{_builddir}/%{name}-%{version}/depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h %{_builddir}/%{name}-%{version}/bpf/include/
 
 make
 
 cd %{_builddir}/%{name}-%{version}/kernel/ko_src
 make
-yes | mv %{buildroot}/usr/include/bpf/bpf_helper_defs.h_bk %{buildroot}/usr/include/bpf/bpf_helper_defs.h
 
 %install
 mkdir -p %{buildroot}%{_bindir}
