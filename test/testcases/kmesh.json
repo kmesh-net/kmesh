@@ -1,0 +1,8 @@
+{
+    "path": "$OET_PATH/testcases/smoke-test/kmesh",
+    "cases": [
+	{
+	    "name": "oe_test_base_function"
+	}
+    ]
+}
