@@ -1,0 +1,16 @@
+[Unit]
+Description=kmesh is a eBPF-based service mesh kernel solution
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStartPre=/usr/bin/kmesh-start-pre.sh
+ExecStart=/usr/bin/kmesh-daemon -enable-kmesh
+ExecStop=/usr/bin/kill kmesh-daemon
+ExecStopPost=/usr/bin/kmesh-stop-post.sh
+StartLimitBurst=1
+StartLimitInterval=1s
+
+[Install]
+WantedBy=multi-user.target
