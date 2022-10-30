@@ -94,7 +94,7 @@ int route_config_manager(ctx_buff_t *ctx)
 		return convert_sockops_ret(-1);
 	}
 
-	virt_host = virtual_host_match(route_config, &addr, ctx, (struct bpf_mem_ptr *)ctx_val->msg);
+	virt_host = virtual_host_match(route_config, &addr, ctx);
 	if (!virt_host) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "failed to match virtual host, addr=%u\n", addr.ipv4);
 		return convert_sockops_ret(-1);

@@ -37,16 +37,22 @@ static inline Route__RouteConfiguration *map_lookup_route_config(const char *rou
 }
 
 static inline int virtual_host_match_check(Route__VirtualHost *virt_host,
-											address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *msg)
+											address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *uri)
 {
 	int i;
 	void *domains = NULL;
 	void *domain = NULL;
 	void *ptr;
+	__u32 ptr_length;
 
-	ptr = _(msg->ptr);
+	if (!uri)
+		return 0;
+
+	ptr = _(uri->ptr);
 	if (!ptr)
 		return 0;
+
+	ptr_length = _(uri->size);
 
 	if (!virt_host->domains)
 		return 0;
@@ -67,7 +73,7 @@ static inline int virtual_host_match_check(Route__VirtualHost *virt_host,
 		if (((char *)domain)[0] == '*' && ((char *)domain)[1] == '\0')
 			return 1;
 
-		if (bpf_strstr(ptr, domain) != NULL) {
+		if (bpf_strnstr(ptr, domain, ptr_length) != NULL) {
 			BPF_LOG(DEBUG, ROUTER_CONFIG, "match virtual_host, name=\"%s\"\n",
 				(char *)kmesh_get_ptr_val(virt_host->name));
 			return 1;
@@ -79,7 +85,7 @@ static inline int virtual_host_match_check(Route__VirtualHost *virt_host,
 
 static inline bool VirtualHost_check_allow_any(char *name) {
 	char allow_any[10] = {'a', 'l', 'l', 'o', 'w', '_','a', 'n', 'y', '\0'};
-	if (bpf_strncmp(allow_any, 10, name) == 0) {
+	if (name && bpf_strncmp(allow_any, 10, name) == 0) {
 		return true;
 	 }
 	return false;
@@ -87,13 +93,14 @@ static inline bool VirtualHost_check_allow_any(char *name) {
 
 static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *route_config,
 					address_t *addr,
-					ctx_buff_t *ctx,
-					struct bpf_mem_ptr *msg)
+					ctx_buff_t *ctx)
 {
 	int i;
 	void *ptrs = NULL;
 	Route__VirtualHost *virt_host = NULL;
 	Route__VirtualHost *virt_host_allow_any = NULL;
+	char uri_key[4] = {'U', 'R', 'I', '\0'};
+	struct bpf_mem_ptr *uri;
 
 	if (route_config->n_virtual_hosts <= 0 || route_config->n_virtual_hosts > KMESH_PER_VIRT_HOST_NUM) {
 		BPF_LOG(WARN, ROUTER_CONFIG, "invalid virt hosts num=%d\n", route_config->n_virtual_hosts);
@@ -103,6 +110,12 @@ static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *
 	ptrs = kmesh_get_ptr_val(_(route_config->virtual_hosts));
 	if (!ptrs) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get virtual hosts\n");
+		return NULL;
+	}
+	
+	uri = bpf_get_msg_header_element(uri_key);
+	if (!uri) {
+		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get URI in msg\n");
 		return NULL;
 	}
 
@@ -120,11 +133,11 @@ static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *
 			continue;
 		}
 
-		if (virtual_host_match_check(virt_host, addr, ctx, msg))
+		if (virtual_host_match_check(virt_host, addr, ctx, uri))
 			return virt_host;
 	}
 	// allow_any as the default virt_host
-	if (virt_host_allow_any && virtual_host_match_check(virt_host_allow_any, addr, ctx, msg))
+	if (virt_host_allow_any && virtual_host_match_check(virt_host_allow_any, addr, ctx, uri))
 		return virt_host_allow_any;
 	return NULL;
 }
@@ -136,7 +149,7 @@ static inline bool check_header_value_match(char *target, struct bpf_mem_ptr* he
 		return (bpf_strncmp(target, target_length, _(head->ptr)) == 0);
 	if (target_length != _(head->size))
 		return false;
-	return bpf_strncmp(target, target_length, _(head->ptr) == 0);
+	return (bpf_strncmp(target, target_length, _(head->ptr)) == 0);
 }
 
 static inline bool check_headers_match(Route__RouteMatch *match) {
