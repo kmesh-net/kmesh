@@ -107,24 +107,75 @@ Kmesh基于mugen实现了测试框架，主要用于开发阶段，对Kmesh的�
 
 libs目录封装了Kmesh测试过程中的一些公共操作，以简化新增测试例的开发；基础库包含的API列表如下：
 
-- XXXX
+- start_fortio_server
 
   - 功能说明
 
-    xxxx
+    启动fortio_server测试程序；
 
   - 参数说明
 
-    | 名称 | 含义 | 必选 |
-    | :--: | :--: | :--: |
-    |      |      |      |
-    |      |      |      |
-    |      |      |      |
+    | 参数 |                             含义                             | 必选 |
+    | :--: | :----------------------------------------------------------: | :--: |
+    |  $1  | 指定fortio_server启动的ip:port；若不指定，默认127.0.0.1:8080 |  N   |
+    
+  - 调用样例
+
+    ```sh
+    # 启动默认fortio_server
+    start_fortio_server
+    
+    # 启动指定ip:port的fortio_server
+    start_fortio_server 192.168.100.19:8081
+    ```
+
+- start_kmesh
+
+  - 功能说明
+
+    按本地模式启动Kmesh，该模式无需环境部署k8s/istio；
+
+  - 参数说明
+
+    NA
 
   - 调用样例
 
     ```sh
-    # sample
+    # 按本地模式启动Kmesh
+    start_kmesh
+    ```
+
+- load_kmesh_config
+
+  -  功能说明
+
+    加载xds配置文件；默认按测试例下的conf加载
+
+  - 参数说明
+
+    NA
+
+  - 调用样例
+
+    ```sh
+    load_kmesh_config
+    ```
+
+- cleanup
+
+  - 功能说明
+
+    测试清理；
+
+  - 参数说明
+
+    NA
+
+  - 调用样例
+
+    ```sh
+    cleanup
     ```
 
 ## 如何新增测试用例
