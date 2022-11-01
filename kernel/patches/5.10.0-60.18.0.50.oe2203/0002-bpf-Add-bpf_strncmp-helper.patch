@@ -1,0 +1,132 @@
+From 44121e1cce217203899c1db5c9e1bfcef9080ea2 Mon Sep 17 00:00:00 2001
+From: root <root@localhost.localdomain>
+Date: Mon, 31 Oct 2022 05:48:54 +0800
+Subject: [PATCH] bpf: Add bpf_strncmp helper
+
+The helper compares two strings: one string is a null-terminated
+read-only string, and another string has const max storage size
+but doesn't need to be null-terminated. It can be used to compare
+file name in tracing or LSM program.
+
+Modify: The input parameter type of bpf_strncmp is strictly 
+verified in bpf verifer. The Kmesh application scenario is not 
+supported. The input parameter type is changed to ARG_ANYTHING.
+
+Signed-off-by: Hou Tao <houtao1@huawei.com>
+Signed-off-by: Alexei Starovoitov <ast@kernel.org>
+Signed-off-by: Xin Liu <liuxin350@huawei.com>
+Link: https://lore.kernel.org/bpf/20211210141652.877186-2-houtao1@huawei.com
+---
+ include/linux/bpf.h            |  1 +
+ include/uapi/linux/bpf.h       | 11 +++++++++++
+ kernel/bpf/helpers.c           | 16 ++++++++++++++++
+ tools/include/uapi/linux/bpf.h | 11 +++++++++++
+ 4 files changed, 39 insertions(+)
+
+diff --git a/include/linux/bpf.h b/include/linux/bpf.h
+index bf002569e..55d653197 100644
+--- a/include/linux/bpf.h
++++ b/include/linux/bpf.h
+@@ -1968,6 +1968,7 @@ extern const struct bpf_func_proto bpf_copy_from_user_proto;
+ extern const struct bpf_func_proto bpf_snprintf_btf_proto;
+ extern const struct bpf_func_proto bpf_per_cpu_ptr_proto;
+ extern const struct bpf_func_proto bpf_this_cpu_ptr_proto;
++extern const struct bpf_func_proto bpf_strncmp_proto;
+ 
+ const struct bpf_func_proto *bpf_tracing_func_proto(
+ 	enum bpf_func_id func_id, const struct bpf_prog *prog);
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index ca3b43d0c..5b220f875 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -3762,6 +3762,16 @@ union bpf_attr {
+  *		Obtains the length of a character string.
+  *	Return
+  *		Length of the string
++ *
++ * long bpf_strncmp(const char *s1, u32 s1_sz, const char *s2)
++ *	Description
++ *		Do strncmp() between **s1** and **s2**. **s1** doesn't need
++ *		to be null-terminated and **s1_sz** is the maximum storage
++ *		size of **s1**. **s2** must be a read-only string.
++ *	Return
++ *		An integer less than, equal to, or greater than zero
++ *		if the first **s1_sz** bytes of **s1** is found to be
++ *		less than, to match, or be greater than **s2**.
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -3929,6 +3939,7 @@ union bpf_attr {
+ 	FN(parse_header_msg),		\
+ 	FN(get_msg_header_element),	\
+ 	FN(strlen),			\
++	FN(strncmp),			\
+ 	/* */
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+diff --git a/kernel/bpf/helpers.c b/kernel/bpf/helpers.c
+index 53117ae77..19b4c809b 100644
+--- a/kernel/bpf/helpers.c
++++ b/kernel/bpf/helpers.c
+@@ -534,6 +534,20 @@ const struct bpf_func_proto bpf_strtoul_proto = {
+ };
+ #endif
+ 
++BPF_CALL_3(bpf_strncmp, const char *, s1, u32, s1_sz, const char *, s2)
++{
++	return strncmp(s1, s2, s1_sz);
++}
++
++const struct bpf_func_proto bpf_strncmp_proto = {
++	.func		= bpf_strncmp,
++	.gpl_only	= false,
++	.ret_type	= RET_INTEGER,
++	.arg1_type	= ARG_ANYTHING,
++	.arg2_type	= ARG_ANYTHING,
++	.arg3_type	= ARG_ANYTHING,
++};
++
+ BPF_CALL_4(bpf_get_ns_current_pid_tgid, u64, dev, u64, ino,
+ 	   struct bpf_pidns_info *, nsdata, u32, size)
+ {
+@@ -883,6 +897,8 @@ bpf_base_func_proto(enum bpf_func_id func_id)
+         return &bpf_strcpy_proto;
+ 	case BPF_FUNC_strlen:
+ 		return &bpf_strlen_proto;
++	case BPF_FUNC_strncmp:
++		return &bpf_strncmp_proto;
+ 	default:
+ 		break;
+ 	}
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 2c431c2cb..dc1197bc8 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -3775,6 +3775,16 @@ union bpf_attr {
+  *		Obtains the length of a character string.
+  *	Return
+  *		Length of the string
++ *
++ * long bpf_strncmp(const char *s1, u32 s1_sz, const char *s2)
++ *	Description
++ *		Do strncmp() between **s1** and **s2**. **s1** doesn't need
++ *		to be null-terminated and **s1_sz** is the maximum storage
++ *		size of **s1**. **s2** must be a read-only string.
++ *	Return
++ *		An integer less than, equal to, or greater than zero
++ *		if the first **s1_sz** bytes of **s1** is found to be
++ *		less than, to match, or be greater than **s2**.
+  */
+ #define __BPF_FUNC_MAPPER(FN)		\
+ 	FN(unspec),			\
+@@ -3942,6 +3952,7 @@ union bpf_attr {
+ 	FN(parse_header_msg),		\
+ 	FN(get_msg_header_element),	\
+ 	FN(strlen),			\
++	FN(strncmp),			\
+ 	/* */
+ 
+ /* integer value in 'imm' field of BPF_CALL instruction selects which helper
+-- 
+2.33.0
+
