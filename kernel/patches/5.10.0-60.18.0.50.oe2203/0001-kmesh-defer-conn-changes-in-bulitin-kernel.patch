@@ -15,8 +15,8 @@ Signed-off-by: Di Zhu <zhudi2@huawei.com>
  net/core/filter.c              |  72 +++++++++----
  net/ipv4/af_inet.c             |   2 +
  net/ipv4/tcp.c                 |   3 +-
- tools/include/uapi/linux/bpf.h |  42 ++++++++
- 11 files changed, 339 insertions(+), 22 deletions(-)
+ tools/include/uapi/linux/bpf.h |  36 +++++++
+ 11 files changed, 333 insertions(+), 22 deletions(-)
 
 diff --git a/include/linux/bpf.h b/include/linux/bpf.h
 index 5443178ff..bf002569e 100644
@@ -517,26 +517,20 @@ index fcd792816..c8f36a6d8 100644
  		 * Return EPOLLOUT so application can call write()
  		 * in order for kernel to generate SYN+data
 diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
-index 00afbbc13..2c431c2cb 100644
+index 00afbbc13..03b836c04 100644
 --- a/tools/include/uapi/linux/bpf.h
 +++ b/tools/include/uapi/linux/bpf.h
-@@ -3742,6 +3742,39 @@ union bpf_attr {
+@@ -3742,6 +3742,33 @@ union bpf_attr {
   * 	Return
   * 		The helper returns **TC_ACT_REDIRECT** on success or
   * 		**TC_ACT_SHOT** on error.
 + *
 + * char * bpf_strstr(void *s1, void *s2)
 + * 	Description
-+ * 		Redirect the packet to another net device of index *ifindex*.
-+ * 		This helper is somewhat similar to **bpf_redirect**\ (), except
-+ * 		that the redirection happens to the *ifindex*' peer device and
-+ * 		the netns switch takes place from ingress to ingress without
-+ * 		going through the CPU's backlog queue.
++ * 		strstr returns a apointer to the first occurrence of s2 in s1.
 + *
-+ * 		The *flags* argument is reserved and must be 0. The helper is
-+ * 		currently only supported for tc BPF program types at the ingress
-+ * 		hook and for veth device types. The peer device must reside in a
-+ * 		different network namespace.
++ * 	Return
++ * 		pointer to the s1 substring
 + *
 + * int bpf_parse_header_msg(struct bpf_mem_ptr *msg)
 + * 	Description
@@ -560,7 +554,7 @@ index 00afbbc13..2c431c2cb 100644
   */
  #define __BPF_FUNC_MAPPER(FN)		\
  	FN(unspec),			\
-@@ -3900,6 +3933,15 @@ union bpf_attr {
+@@ -3900,6 +3927,15 @@ union bpf_attr {
  	FN(per_cpu_ptr),		\
  	FN(this_cpu_ptr),		\
  	FN(redirect_peer),		\
@@ -577,5 +571,5 @@ index 00afbbc13..2c431c2cb 100644
  
  /* integer value in 'imm' field of BPF_CALL instruction selects which helper
 -- 
-2.36.1.windows.1
+2.33.0
 
