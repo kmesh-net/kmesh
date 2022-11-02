@@ -26,7 +26,8 @@ APPS2 := kmesh-cmd
 
 all:
 	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh set
-	
+	$(QUIET) cp depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h bpf/include/
+
 	$(QUIET) make -C api
 	$(QUIET) make -C api/v2-c
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
