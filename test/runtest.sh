@@ -20,7 +20,6 @@ function code_compile() {
 
     local tmp_path=$(pwd)
     cp $tmp_path/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/protoc-gen-go /usr/bin/
-    cp depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h bpf/include/
     make clean
     make
     make install
