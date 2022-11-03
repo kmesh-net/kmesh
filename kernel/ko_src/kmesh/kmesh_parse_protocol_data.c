@@ -41,10 +41,8 @@ struct kmesh_data_node* kmesh_protocol_data_search(const char* key)
 	struct rb_root *kmesh_data_root = per_cpu_ptr(g_kmesh_data_root, raw_smp_processor_id());
 	struct rb_node *node = kmesh_data_root->rb_node;
 	int cmp_result;
-	printk(KERN_ERR "begin find data search\n");
 	while (node) {
 		struct kmesh_data_node *data = rb_entry(node, struct kmesh_data_node, node);
-		// printk(KERN_ERR "current data keystring is %s, value is %s, length is %d\n", data->keystring, (char *)data->value.ptr, data->value.size);
 		cmp_result = strcmp(data->keystring, key);
 
 		if (cmp_result > 0)

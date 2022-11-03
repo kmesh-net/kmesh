@@ -64,7 +64,6 @@ static int parse_startline(const struct bpf_mem_ptr *msg,
 		switch (current_state) {
 		case ST_START:
 			if ((ch < 'A' || ch > 'Z')) {
-				printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: method unparsed characters found, ch:%c\n", ch);
 				goto failed;
 			}
 			start = i;
@@ -79,10 +78,8 @@ static int parse_startline(const struct bpf_mem_ptr *msg,
 				current_state = ST_SPACE_BEFORE_URI;
 				break;
 			}
-			if ((ch < 'A' || ch > 'Z')) {
-				printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: method unparsed characters found, ch:%c\n", ch);
+			if (ch < 'A' || ch > 'Z')
 				goto failed;
-			}
 			break;
 		case ST_SPACE_BEFORE_URI:
 			pstart = msg->ptr + i;
@@ -106,19 +103,15 @@ static int parse_startline(const struct bpf_mem_ptr *msg,
 			if (ch == CR) {
 				http_version->value.ptr = pstart;
 				http_version->value.size = i - start;
-				if (strncmp((char *)http_version->value.ptr, "HTTP/1.1", strlen("HTTP/1.1"))) {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: version is not HTTP/1.1 ");
+				if (strncmp((char *)http_version->value.ptr, "HTTP/1.1", strlen("HTTP/1.1")))
 					goto failed;
-				}
 				strncpy(http_version->keystring, "version", VERSION_STRING_LENGTH);
 				current_state = ST_NEW_LINE;
 			}
 			break;
 		case ST_NEW_LINE:
-			if (ch != LF) {
-				printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: start-line not end with LF\n");
+			if (ch != LF)
 				goto failed;
-			}
 			current_state = ST_FIELD_NAME_START;
 			break;
 		case ST_FIELD_NAME_START:
@@ -144,11 +137,8 @@ static bool parse_request_startline(const struct bpf_mem_ptr *msg, struct bpf_me
 	struct kmesh_data_node *http_version = new_kmesh_data_node(VERSION_STRING_LENGTH);
 
 	current_state = parse_startline(msg, context, method, URI, http_version);
-	if (current_state != ST_FIELD_NAME_START) {
-		printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_request_startline: state not equal ST_FIELD_NAME_START\n");
+	if (current_state != ST_FIELD_NAME_START)
 		goto failed;
-	}
-
 	kmesh_protocol_data_insert(method);
 	kmesh_protocol_data_insert(URI);
 	kmesh_protocol_data_insert(http_version);
@@ -193,19 +183,15 @@ static bool parse_respose_startline(const struct bpf_mem_ptr *msg, struct bpf_me
 				}
 				break;
 			case ST_SPACE_BEFORE_STATUS_CODE:
-				if (ch < '0' || ch > '9') {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_respose_startline: status unparsed characters found, ch:%c\n", ch);
+				if (ch < '0' || ch > '9')
 					goto failed;
-				}
 				pstart = msg->ptr + i;
 				start = i;
 				current_state = ST_STATUS_CODE;
 				break;
 			case ST_STATUS_CODE:
-				if (ch < '0' || ch > '9') {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_respose_startline: status unparsed characters found, ch:%c\n", ch);
+				if (ch < '0' || ch > '9')
 					goto failed;
-				}
 				if (ch == SPACE) {
 					status_code->value.ptr = pstart;
 					status_code->value.size = i - start;
@@ -293,22 +279,12 @@ static bool parse_header(struct bpf_mem_ptr *context)
 					current_state = ST_NEW_LINE;
 				break;
 			case ST_NEW_LINE:
-				if (unlikely(ch != LF)) {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_header: can not parse http1.1 field! CR is not followed by LF\n");
+				if (unlikely(ch != LF))
 					return false;
-				}
-				if (field_name_end_position < field_name_begin_position) {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_header: can not parse http1.1 head field name! \
-							begin position:%d, end position:%d\n", field_name_begin_position, field_name_end_position);
+				if (field_name_end_position < field_name_begin_position)
 					return false;
-				}
-				if (field_value_end_position < field_value_begin_position) {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_header: can not parse http1.1 value field name! \
-							begin position:%d, end position:%d\n", field_value_begin_position, field_value_end_position);
+				if (field_value_end_position < field_value_begin_position)
 					return false;
-				}
-				printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_header: name begin:%d, end:%d. value begin:%d, end:%d\n",
-					       field_name_begin_position, field_name_end_position, field_value_begin_position, field_value_end_position);
 				new_field = new_kmesh_data_node(field_name_end_position - field_name_begin_position + 2);
 				if (IS_ERR(new_field))
 					return false;
@@ -330,10 +306,8 @@ static bool parse_header(struct bpf_mem_ptr *context)
 				current_state = ST_FIELD_NAME_START;
 				break;
 			case ST_HEAD_END:
-				if (ch != LF) {
-					printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_header: can not parse http1.1 failed! CR is not followed by LF at end\n");
+				if (ch != LF)
 					return false;
-				}
 				head_end = true;
 				break;
 			default:
@@ -341,10 +315,9 @@ static bool parse_header(struct bpf_mem_ptr *context)
 				break;
 		}
 	}
-	if (current_state != ST_HEAD_END) {
-		printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_header: can not parse http1.1 field\n");
+	if (current_state != ST_HEAD_END)
 		return false;
-	}
+	
 	return true;
 }
 
@@ -352,16 +325,13 @@ u32 parse_http_1_1_request(const struct bpf_mem_ptr *msg)
 {
 	struct bpf_mem_ptr context = {0};
 	u32 ret;
-	printk(KERN_DEBUG "context:%s\n", (char *)msg->ptr);
 	if (parse_request_startline(msg, &context) == false) {
-		printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_http_1_1_request: http can not parse request\n");
 		kmesh_protocol_data_clean_all();
 		return PROTO_UNKNOW;
 	}
 
 	// Parse the rest of the header
 	if (parse_header(&context) == false) {
-		printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_http_1_1_request: http can not parse context\n");
 		kmesh_protocol_data_clean_all();
 		return PROTO_UNKNOW;
 	}
@@ -377,14 +347,12 @@ u32 parse_http_1_1_respond(const struct bpf_mem_ptr *msg)
 	struct bpf_mem_ptr context = {0};
 	u32 ret;
 	if (parse_respose_startline(msg, &context) == false) {
-		printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_http_1_1_respond: http can not parse respond\n");
 		kmesh_protocol_data_clean_all();
 		return PROTO_UNKNOW;
 	}
 
 	// Parse the rest of the header
 	if (parse_header(&context) == false) {
-		printk(KERN_DEBUG "[kmesh_parse_http_1_1] parse_http_1_1_respond: http can not parse context\n");
 		kmesh_protocol_data_clean_all();
 		return PROTO_UNKNOW;
 	}
