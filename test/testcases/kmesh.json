@@ -3,6 +3,9 @@
     "cases": [
 	{
 	    "name": "oe_test_base_function"
-	}
+	},
+	{
+            "name": "oe_test_lb_policy_function"
+        }
     ]
 }
