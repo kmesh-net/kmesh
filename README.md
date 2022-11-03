@@ -52,7 +52,7 @@ config
 mkdir /mnt/cgroup2
 mount -t cgroup2 none /mnt/cgroup2/
 
-kubectl exec xxx-pod-name -c istio-proxy -- cat etc/istio/proxy/envoy-rev0.json > envoy-rev0.json
+vim /etc/kmesh/kmesh.json
 ---
        , {
         "name": "xds-grpc",
@@ -88,7 +88,7 @@ Usage of kmesh-daemon:
   -cgroup2-path string
     	cgroup2 path (default "/mnt/cgroup2")
   -config-file string
-    	[if -enable-kmesh] deploy in kube cluster (default "/etc/istio/proxy/envoy-rev0.json")
+    	[if -enable-kmesh] deploy in kube cluster (default "/etc/kmesh/kmesh.json")
   -enable-ads
     	[if -enable-kmesh] enable control-plane from ads (default true)
   -enable-kmesh
@@ -101,7 +101,7 @@ Usage of kmesh-daemon:
 # example
 ./kmesh-daemon -enable-kmesh
 # example
-./kmesh-daemon -enable-kmesh -enable-ads=true -config-file=envoy-rev0.json
+./kmesh-daemon -enable-kmesh -enable-ads=true -config-file=./kmesh.json
 ./kmesh-daemon -enable-kmesh -enable-ads=false
 ```
 
