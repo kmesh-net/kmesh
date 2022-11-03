@@ -62,7 +62,7 @@ func GetConfig() *XdsConfig {
 
 func (c *XdsConfig) SetClientArgs() error {
 	flag.StringVar(&c.File, "config-file",
-		"/etc/istio/proxy/envoy-rev0.json", "[if -enable-kmesh] deploy in kube cluster")
+		"/etc/kmesh/kmesh.json", "[if -enable-kmesh] deploy in kube cluster")
 	flag.StringVar(&c.ServiceNode, "service-node", "TODO", "[if -enable-kmesh] TODO")
 	flag.StringVar(&c.ServiceCluster, "service-cluster", "TODO", "[if -enable-kmesh] TODO")
 	flag.BoolVar(&c.EnableAds, "enable-ads", true, "[if -enable-kmesh] enable control-plane from ads")
