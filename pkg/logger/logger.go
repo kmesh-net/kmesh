@@ -49,7 +49,7 @@ func InitializeDefaultLogger() *logrus.Logger {
 	path, _ := filepath.Split(defaultLogFile)
 	err := os.MkdirAll(path, 0750)
 	if err != nil {
-		logger.Fatal(err)
+		logger.Fatal("failed to create log directory")
 	}
 
 	file, err := rotatelogs.New(

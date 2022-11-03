@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+
 	"openeuler.io/mesh/cmd/command"
 )
 
@@ -23,5 +24,9 @@ func main() {
 	if err := command.StartClient(); err != nil {
 		fmt.Println(err)
 	}
-	defer command.StopClient()
+	defer func() {
+		if err := command.StopClient(); err != nil {
+			fmt.Printf("failed when stop client, err:%s", err)
+		}
+	}()
 }
