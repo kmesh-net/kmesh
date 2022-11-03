@@ -6,3 +6,4 @@ fi
 
 umount -t cgroup2 /mnt/cgroup2/
 rm -rf /mnt/cgroup2 > /dev/null
+rm -rf /sys/fs/bpf/bpf_kmesh

@@ -1,4 +1,5 @@
 
 all:
-
+install:
+uninstall:
 clean:

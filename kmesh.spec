@@ -28,19 +28,8 @@ ExclusiveArch: x86_64 aarch64
 %autosetup -n %{name}-%{version}
 
 %build
-ARCH=$(arch)
-if [ "$ARCH" == "x86_64" ]; then
-    export EXTRA_GOFLAGS="-gcflags=\"-N -l\""
-    export EXTRA_CFLAGS="-O0 -g"
-    export EXTRA_CDEFINE="-D__x86_64__"
-fi
-
-export PATH=$PATH:%{_builddir}/%{name}-%{version}/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/
-
-make
-
-cd %{_builddir}/%{name}-%{version}/kernel/ko_src
-make
+cd %{_builddir}/%{name}-%{version}
+./build.sh -b
 
 %install
 mkdir -p %{buildroot}%{_bindir}
@@ -69,6 +58,7 @@ cd %{_builddir}/%{name}-%{version}
 
 %post
 echo "installing ..."
+rm -rf /lib/modules/`uname -r`/kmesh.ko > /dev/null
 ln -s /lib/modules/kmesh/kmesh.ko /lib/modules/`uname -r`
 depmod -a
 
