@@ -212,7 +212,9 @@ func (svc *ServiceEvent) processAdminResponse(ctx context.Context) {
 		case <- ctx.Done():
 			return
 		case resources := <- svc.adminChan:
-			svc.handleAdminResponse(resources)
+			if err := svc.handleAdminResponse(resources); err != nil {
+				log.Error("handleAdminResponse failed err:%s", err)
+			}
 		}
 	}
 }

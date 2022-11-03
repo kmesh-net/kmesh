@@ -18,8 +18,10 @@ import (
 	"fmt"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"openeuler.io/mesh/pkg/logger"
 )
 
+var log = logger.NewLoggerField("pkg/bpf")
 
 type BpfInfo struct {
 	Config
@@ -75,14 +77,15 @@ func Start() error {
 	return nil
 }
 
-func Stop() error {
+func Stop() {
 	var err error
 
 	if config.EnableKmesh {
 		if err = Obj.Kmesh.Detach(); err != nil {
-			return err
+			log.Errorf("failed detach when stop kmesh, err:%s", err)
+			return
 		}
 	}
 
-	return nil
+	return
 }
