@@ -44,6 +44,10 @@ install:
 	$(call printlog, INSTALL, $(INSTALL_LIB)/$(APPS))
 	$(QUIET) install -Dp -m 0550 $(APPS) $(INSTALL_LIB)
 
+uninstall:
+	$(call printlog, UNINSTALL, $(INSTALL_LIB)/$(APPS))
+	$(QUIET) rm -rf $(INSTALL_LIB)/$(APPS)
+
 clean:
 	$(call printlog, CLEAN, $(APPS))
 	$(QUIET) rm -rf $(APPS) $(APPS) $(OBJECTS)
