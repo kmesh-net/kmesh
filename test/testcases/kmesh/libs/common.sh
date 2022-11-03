@@ -62,8 +62,8 @@ function curl_test()
     CHECK_RESULT $? 0 0 "curl fortio server failed"
     pkill bpftool
     
-    grep "cluster=.*loadbalance to addr" tmp_bpftool_prog_trace.log
-    CHECK_RESULT $? 0 0 "check kmesh-daemon log failed"
+    err_num=`grep " ERR: " tmp_bpftool_prog_trace.log | wc -l`
+    CHECK_RESULT $err_num 0 0 "check kmesh-daemon log failed"
 
     #check fortio server log
     grep "GET /fortio/" tmp_fortio_server.log
