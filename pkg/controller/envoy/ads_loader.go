@@ -122,7 +122,7 @@ func newApiSocketAddress(address *config_core_v3.Address) *core_v2.SocketAddress
 		return nil
 	}
 
-	if !nets.GetConfig().IsEnabledProtocol(addr.GetProtocol().String()) {
+	if addr == nil || !nets.GetConfig().IsEnabledProtocol(addr.GetProtocol().String()) {
 		return nil
 	}
 
