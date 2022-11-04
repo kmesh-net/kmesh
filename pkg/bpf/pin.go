@@ -16,14 +16,15 @@ package bpf
 
 import (
 	"fmt"
-	"github.com/cilium/ebpf"
 	"reflect"
+
+	"github.com/cilium/ebpf"
 )
 
 func pinPrograms(value *reflect.Value, path string) error {
 	for i := 0; i < value.NumField(); i++ {
-		tp := value.Field(i).Interface().(*ebpf.Program)
-		if tp == nil {
+		tp, ok := value.Field(i).Interface().(*ebpf.Program)
+		if tp == nil || !ok {
 			return fmt.Errorf("invalid pinPrograms ptr")
 		}
 
@@ -55,8 +56,8 @@ func unpinPrograms(value *reflect.Value) error {
 
 func pinMaps(value *reflect.Value, path string) error {
 	for i := 0; i < value.NumField(); i++ {
-		tp := value.Field(i).Interface().(*ebpf.Map)
-		if tp == nil {
+		tp, ok := value.Field(i).Interface().(*ebpf.Map)
+		if tp == nil || !ok {
 			return fmt.Errorf("invalid pinMaps ptr")
 		}
 
@@ -74,8 +75,8 @@ func pinMaps(value *reflect.Value, path string) error {
 
 func unpinMaps(value *reflect.Value) error {
 	for i := 0; i < value.NumField(); i++ {
-		tp := value.Field(i).Interface().(*ebpf.Map)
-		if tp == nil {
+		tp, ok := value.Field(i).Interface().(*ebpf.Map)
+		if tp == nil || !ok {
 			continue
 		}
 		if err := tp.Unpin(); err != nil {

@@ -175,7 +175,11 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 						addr = ip + ":" + strconv.FormatUint(uint64(port), Decimalism)
 					case *config_core_v3.Address_EnvoyInternalAddress:
 						// TODO
+						log.Infof("envoy internal addr type is unsupport this version")
 						continue
+					default:
+						log.Infof("unsuport addr type, %T", lb.GetEndpoint().GetAddress())
+						continue	
 					}
 
 					clusterCfg.Address = append(clusterCfg.Address, addr)

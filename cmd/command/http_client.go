@@ -66,7 +66,8 @@ func StartClient() error {
 
 func StopClient() error {
 	if cmdClient.resp != nil {
-		cmdClient.resp.Body.Close()
+		return cmdClient.resp.Body.Close()
+		
 	}
 	return nil
 }
