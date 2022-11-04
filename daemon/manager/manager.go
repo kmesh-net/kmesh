@@ -52,12 +52,15 @@ func Execute() {
 
 	if err = controller.Start(); err != nil {
 		log.Error(err)
+		bpf.Stop()
 		return
 	}
 	log.Info("controller Start successful")
 
 	if err = command.StartServer(); err != nil {
 		log.Error(err)
+		controller.Stop()
+		bpf.Stop()
 		return
 	}
 	log.Info("command StartServer successful")
