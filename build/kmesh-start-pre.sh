@@ -9,5 +9,8 @@ else
 	modprobe kmesh
 fi
 
-mkdir /mnt/cgroup2
-mount -t cgroup2 none /mnt/cgroup2/
+mount | grep /mnt/cgroup2
+if [ $? -ne 0 ]; then
+	mkdir /mnt/cgroup2
+	mount -t cgroup2 none /mnt/cgroup2/
+fi

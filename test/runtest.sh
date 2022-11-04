@@ -9,7 +9,7 @@ CURRENT_PATH=$(pwd)
 
 function code_compile() {
     cd $CURRENT_PATH/../
-
+    ./build.sh -u
     ./build.sh -b
     ./build.sh -i
 }

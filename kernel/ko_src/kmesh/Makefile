@@ -14,7 +14,7 @@ all:
 install:
 	install -dp -m 0550 /lib/modules/kmesh
 	install -Dp -m 0440 kmesh.ko /lib/modules/kmesh
-	ln -s /lib/modules/kmesh/kmesh.ko /lib/modules/`uname -r` > /dev/null
+	ln -sf /lib/modules/kmesh/kmesh.ko /lib/modules/`uname -r`
 	depmod -a
 
 uninstall:

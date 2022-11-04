@@ -58,15 +58,23 @@ cd %{_builddir}/%{name}-%{version}
 
 %post
 echo "installing ..."
-rm -rf /lib/modules/`uname -r`/kmesh.ko > /dev/null
-ln -s /lib/modules/kmesh/kmesh.ko /lib/modules/`uname -r`
+ln -sf /lib/modules/kmesh/kmesh.ko /lib/modules/`uname -r`
 depmod -a
 
 %preun
-%systemd_preun kmesh.service
+if [ "$1" == "1" ]; then
+    systemctl status kmesh | grep "active (running)"
+    if [ "$?" == "0" ]; then
+        systemctl restart kmesh.service
+    fi
+else
+    systemctl stop kmesh.service
+fi
 
 %postun
-rm -rf /lib/modules/`uname -r`/kmesh.ko
+if [ "$1" -ne "1" ]; then
+    rm -rf /lib/modules/`uname -r`/kmesh.ko
+fi
 depmod -a
 
 %clean
