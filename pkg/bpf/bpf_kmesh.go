@@ -110,6 +110,7 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
+	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
 	if spec, err = bpf2go.LoadKmeshSockops(); err != nil {
 		return nil, err
@@ -136,6 +137,7 @@ func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
+	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
 	if spec, err = bpf2go.LoadKmeshFilter(); err != nil {
 		return nil, err
@@ -178,7 +180,7 @@ func (sc *BpfSockOps) loadRouteConfigObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-
+	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 	if spec, err = bpf2go.LoadKmeshRouteConfig(); err != nil {
 		return nil, err
 	}
@@ -212,7 +214,7 @@ func (sc *BpfSockOps) loadKmeshClusterObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-
+	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 	if spec, err = bpf2go.LoadKmeshCluster(); err != nil {
 		return nil, err
 	}
@@ -273,7 +275,7 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-
+	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 	if spec, err = bpf2go.LoadKmeshCgroupSock(); err != nil {
 		return nil, err
 	}
