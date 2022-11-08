@@ -79,5 +79,4 @@ func setupCloseHandler() {
 	bpf.Stop()
 
 	log.Warn("signal Notify exit")
-	os.Exit(1)
 }
