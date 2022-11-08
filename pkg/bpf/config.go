@@ -17,9 +17,11 @@ package bpf
 import (
 	"flag"
 	"fmt"
-	"openeuler.io/mesh/pkg/options"
 	"os"
 	"path/filepath"
+	"strconv"
+
+	"openeuler.io/mesh/pkg/options"
 )
 
 var config Config
@@ -29,9 +31,10 @@ func init() {
 }
 
 type Config struct {
-	BpfFsPath      string `json:"-bpf-fs-path"`
-	Cgroup2Path    string `json:"-cgroup2-path"`
-	EnableKmesh    bool   `json:"-enable-kmesh"`
+	BpfFsPath        string `json:"-bpf-fs-path"`
+	Cgroup2Path      string `json:"-cgroup2-path"`
+	EnableKmesh      bool   `json:"-enable-kmesh"`
+	BpfVerifyLogSize int    `json:"-bpf-verify-log-size"`
 }
 
 func (c *Config) SetArgs() error {
@@ -62,6 +65,11 @@ func (c *Config) ParseConfig() error {
 	}
 	if _, err = os.Stat(c.BpfFsPath); err != nil {
 		return err
+	}
+
+	bpfLogsize := os.Getenv("BPF_LOG_SIZE")
+	if bpfLogsize != "" {
+		c.BpfVerifyLogSize, _ = strconv.Atoi(bpfLogsize)
 	}
 
 	return nil
