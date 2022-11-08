@@ -11,5 +11,16 @@ ccflags-y += -Wno-discarded-qualifiers
 all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD)
 
+install:
+	install -dp -m 0550 /lib/modules/kmesh
+	install -Dp -m 0440 kmesh.ko /lib/modules/kmesh
+	ln -sf /lib/modules/kmesh/kmesh.ko /lib/modules/`uname -r`
+	depmod -a
+
+uninstall:
+	rm -rf /lib/modules/`uname -r`/kmesh.ko
+	rm -rf /lib/modules/kmesh
+	depmod -a
+
 clean:
 	@rm -rf *.o *.mod *.mod.c *.mod.o *.ko *.order *.symvers .*.cmd

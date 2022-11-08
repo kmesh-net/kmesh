@@ -22,11 +22,12 @@ GOFLAGS := $(EXTRA_GOFLAGS)
 APPS1 := kmesh-daemon
 APPS2 := kmesh-cmd
 
-.PHONY: all install clean
+.PHONY: all install uninstall clean
 
 all:
 	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh set
-	
+	$(QUIET) cp depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h bpf/include/
+
 	$(QUIET) make -C api
 	$(QUIET) make -C api/v2-c
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
@@ -47,6 +48,7 @@ all:
 install:
 	$(QUIET) make install -C api/v2-c
 	$(QUIET) make install -C bpf/deserialization_to_bpf_map
+	$(QUIET) make install -C kernel/ko_src
 
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS1))
 	#$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
@@ -54,6 +56,14 @@ install:
 	
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS2))
 	$(QUIET) install -Dp -m 0550 $(APPS2) $(INSTALL_BIN)
+
+uninstall:
+	$(QUIET) make uninstall -C api/v2-c
+	$(QUIET) make uninstall -C bpf/deserialization_to_bpf_map
+	$(QUIET) make uninstall -C kernel/ko_src
+
+	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS1)
+	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS2)
 
 clean:
 	$(call printlog, CLEAN, $(APPS1))

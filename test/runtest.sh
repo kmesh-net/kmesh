@@ -8,29 +8,15 @@ PORT=${4-22}
 CURRENT_PATH=$(pwd)
 
 function code_compile() {
-    local ARCH=$(arch)
-    if [ "$ARCH" == "x86_64" ]; then
-        export EXTRA_GOFLAGS="-gcflags=\"-N -l\""
-        export EXTRA_CFLAGS="-O0 -g"
-        export EXTRA_CDEFINE="-D__x86_64__"
-    fi
+    cd $CURRENT_PATH/../
+    ./build.sh -u
+    ./build.sh -b
+    ./build.sh -i
+}
 
-    cd $CURRENT_PATH
-    cd ../
-
-    local tmp_path=$(pwd)
-    cp $tmp_path/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/protoc-gen-go /usr/bin/
-    cp depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h bpf/include/
-    make clean
-    make
-    make install
-
-    cd kernel/ko_src
-    make
-    mkdir -p /lib/modules/kmesh
-    cp ../ko/kmesh.ko /lib/modules/kmesh/
-
-    cd $CURRENT_PATH
+function env_reset() {
+    cd $CURRENT_PATH/../
+    ./build.sh -u
 }
 
 function packages_install() {
@@ -38,6 +24,8 @@ function packages_install() {
 }
 
 function test() {
+    cd $CURRENT_PATH
+
     rm -rf mugen-master
     unzip testframe/mugen-master.zip > /dev/null
     cp -rf testcases/kmesh mugen-master/testcases/smoke-test/
@@ -77,3 +65,4 @@ function test() {
 packages_install
 code_compile
 test
+env_reset

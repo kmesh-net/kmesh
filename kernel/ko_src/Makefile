@@ -11,6 +11,15 @@ all:
 			cp $(CURRENT_PATH)/$$dir/*.ko ../ko ||exit;	\
 		fi	\
 	done
+
+install:
+	@for dir in ${BASE_DIRS}; do 	\
+		make -C $(CURRENT_PATH)/$$dir install ||exit; done
+
+uninstall:
+	@for dir in ${BASE_DIRS}; do 	\
+		make -C $(CURRENT_PATH)/$$dir uninstall ||exit; done
+
 clean:
 	@for dir in ${BASE_DIRS}; do 	\
 		make -C $(CURRENT_PATH)/$$dir clean > /dev/null 2>&1||exit; done
