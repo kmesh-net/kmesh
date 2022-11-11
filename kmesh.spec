@@ -16,7 +16,7 @@ BuildRequires: libbpf-devel kernel-devel >= 5.10
 BuildRequires: libboundscheck
 
 Requires: bpftool
-Requires: libbpf kernel >= 5.10
+Requires: libbpf
 Requires: libboundscheck
 
 %description
