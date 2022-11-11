@@ -4,8 +4,8 @@ source ${OET_PATH}/libs/locallibs/common_lib.sh
 # environment preparation
 function env_init()
 {
-    mkdir /mnt/cgroup2
-    mount -t cgroup2 none /mnt/cgroup2/
+    mkdir /mnt/kmesh_cgroup2
+    mount -t cgroup2 none /mnt/kmesh_cgroup2/
 
     cd $CURRENT_PATH
     cd ../pkg

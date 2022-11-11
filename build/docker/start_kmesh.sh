@@ -7,10 +7,10 @@ if [ $? -ne 0 ]; then
         modprobe kmesh
 fi
 
-mount | grep /mnt/cgroup2
+mount | grep /mnt/kmesh_cgroup2
 if [ $? -ne 0 ]; then
-        mkdir /mnt/cgroup2
-        mount -t cgroup2 none /mnt/cgroup2/
+        mkdir /mnt/kmesh_cgroup2
+        mount -t cgroup2 none /mnt/kmesh_cgroup2/
         if [ $? -ne 0 ]; then
                 echo "mount cgroup2 failed"
         fi
@@ -26,8 +26,8 @@ function stop_kmesh() {
                 rmmod kmesh
         fi
 
-        umount -t cgroup2 /mnt/cgroup2/
-        rm -rf /mnt/cgroup2
+        umount -t cgroup2 /mnt/kmesh_cgroup2/
+        rm -rf /mnt/kmesh_cgroup2
         rm -rf /sys/fs/bpf/bpf_kmesh
 }
 
