@@ -35,5 +35,6 @@ trap 'stop_kmesh' SIGTERM
 
 while true;
 do
-    sleep 60
+    sleep 60 &
+    wait $!
 done
