@@ -49,8 +49,8 @@ make install
 config
 
 ```sh
-mkdir /mnt/cgroup2
-mount -t cgroup2 none /mnt/cgroup2/
+mkdir /mnt/kmesh_cgroup2
+mount -t cgroup2 none /mnt/kmesh_cgroup2/
 
 vim /etc/kmesh/kmesh.json
 ---
@@ -86,7 +86,7 @@ Usage of kmesh-daemon:
   -bpf-fs-path string
     	bpf fs path (default "/sys/fs/bpf")
   -cgroup2-path string
-    	cgroup2 path (default "/mnt/cgroup2")
+	cgroup2 path (default "/mnt/kmesh_cgroup2")
   -config-file string
     	[if -enable-kmesh] deploy in kube cluster (default "/etc/kmesh/kmesh.json")
   -enable-ads

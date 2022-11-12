@@ -39,7 +39,7 @@ type Config struct {
 
 func (c *Config) SetArgs() error {
 	flag.StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
-	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/cgroup2", "cgroup2 path")
+	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
 
 	flag.BoolVar(&c.EnableKmesh, "enable-kmesh", false, "enable bpf kmesh")
 

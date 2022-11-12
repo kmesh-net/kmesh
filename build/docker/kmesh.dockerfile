@@ -3,7 +3,7 @@
 # 
 # Usage:
 # docker build -f kmesh.dockerfile -t kmesh:1.0.1 .
-# docker run -itd --privileged=true -v /mnt/cgroup2:/mnt/cgroup2 -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:1.0.1
+# docker run -itd --privileged=true -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:1.0.1
 #
 
 # base image

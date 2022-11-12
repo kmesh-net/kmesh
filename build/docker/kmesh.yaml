@@ -14,9 +14,9 @@ spec:
          app: kmesh
      spec:
        volumes:
-         - name: mnt-cgroup2
+         - name: mnt
            hostPath:
-             path: /mnt/cgroup2
+             path: /mnt
          - name: sys-fs-bpf
            hostPath:
              path: /sys/fs/bpf
@@ -35,8 +35,8 @@ spec:
            - containerPort: 6789
              hostPort: 6789
            volumeMounts:
-           - name: mnt-cgroup2
-             mountPath: /mnt/cgroup2
+           - name: mnt
+             mountPath: /mnt
              readOnly: false
            - name: sys-fs-bpf
              mountPath: /sys/fs/bpf
