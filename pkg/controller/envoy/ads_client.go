@@ -95,6 +95,7 @@ func (c *AdsClient) recoverConnection() error {
 		}
 
 		log.Errorf("ads grpc connect failed, %s", err)
+		c.closeStreamClient()
 		time.Sleep(interval + nets.CalculateRandTime(RandTimeSed))
 		interval = nets.CalculateInterval(interval)
 	}
