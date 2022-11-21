@@ -50,6 +50,19 @@ bpf_map_t SEC("maps") map_of_cluster_eps = {
 	.map_flags		 = 0,
 };
 
+struct {
+	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+	__type(key, int);
+	__type(value, struct cluster_endpoints);
+	__uint(max_entries, 1);
+} map_of_cluster_eps_data SEC(".maps");
+
+static inline Cluster__Cluster *map_lookup_cluster_eps_data()
+{
+	int location = 0;
+	return kmesh_map_lookup_elem(&map_of_cluster_eps_data, &location);
+}
+
 static inline Cluster__Cluster *map_lookup_cluster(const char *cluster_name)
 {
 	return kmesh_map_lookup_elem(&map_of_cluster, cluster_name);
@@ -65,22 +78,6 @@ static inline int map_add_cluster_eps(const char *cluster_name, const struct clu
 	return kmesh_map_update_elem(&map_of_cluster_eps, cluster_name, eps);
 }
 
-static inline void cluster_set_ep_identity(__u32 idx, __u64 identity, __u64 *ep_identity)
-{
-	// TODO
-	if (idx >= KMESH_PER_ENDPOINT_NUM)
-		return;
-
-	if (idx == 0)
-		*(ep_identity + 0) = identity;
-	if (idx == 1)
-		*(ep_identity + 1) = identity;
-	if (idx == 2)
-		*(ep_identity + 2) = identity;
-	if (idx == 3)
-		*(ep_identity + 3) = identity;
-}
-
 static inline int cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep,
 										struct cluster_endpoints *cluster_eps)
 {
@@ -91,14 +88,12 @@ static inline int cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_
 	if (!ep_ptrs)
 		return -1;
 
-
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-		if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >=  KMESH_PER_ENDPOINT_NUM)
+		if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >= KMESH_PER_ENDPOINT_NUM)
 			break;
 
-		/* store ep identify */
-		cluster_set_ep_identity(cluster_eps->ep_num, (__u64)*((__u64*)ep_ptrs + i), cluster_eps->ep_identity);
-		cluster_eps->ep_num++;
+		/* store ep identity */
+		cluster_eps->ep_identity[cluster_eps->ep_num++] = (__u64)*((__u64*)ep_ptrs + i);
 	}
 	return 0;
 }
@@ -135,14 +130,23 @@ static inline int cluster_init_endpoints(const char *cluster_name,
 	int ret = 0;
 	void *ptrs = NULL;
 	Endpoint__LocalityLbEndpoints *ep = NULL;
-	struct cluster_endpoints cluster_eps = {0};
+	/* A percpu array map is added to store cluster eps data.
+	 * The reason for using percpu array map is that a alarge value exceeds
+	 * the 512 bytes limit of the stack in ebpf.
+	 */
+	struct cluster_endpoints *cluster_eps = map_lookup_cluster_eps_data();
+
+	if (!cluster_eps) {
+		BPF_LOG(ERR, CLUSTER, "failed to get percpu cluster eps data\n");
+		return -1;
+	}
+	cluster_eps->ep_num = 0;
 
 	ptrs = kmesh_get_ptr_val(cla->endpoints);
 	if (!ptrs) {
 		BPF_LOG(ERR, CLUSTER, "failed to get cla endpoints ptrs\n");
 		return -1;
 	}
-
 
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
 		if (i >= cla->n_endpoints)
@@ -152,12 +156,12 @@ static inline int cluster_init_endpoints(const char *cluster_name,
 		if (!ep)
 			continue;
 
-		ret = cluster_add_endpoints(ep, &cluster_eps);
+		ret = cluster_add_endpoints(ep, cluster_eps);
 		if (ret != 0)
 			return -1;
 	}
 
-	return map_add_cluster_eps(cluster_name, &cluster_eps);
+	return map_add_cluster_eps(cluster_name, cluster_eps);
 }
 
 static inline int cluster_check_endpoints(const struct cluster_endpoints *eps,
