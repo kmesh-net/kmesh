@@ -15,9 +15,13 @@
 package envoy
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -36,6 +40,10 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"openeuler.io/mesh/pkg/logger"
 	"openeuler.io/mesh/pkg/options"
+
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 const (
@@ -136,6 +144,7 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 	var (
 		err        error
 		clusterCfg *ClusterConfig
+		meshCtlIp  string
 	)
 
 	if bootstrap == nil {
@@ -171,6 +180,12 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 						addr = lb.GetEndpoint().GetAddress().GetPipe().GetPath()
 					case *config_core_v3.Address_SocketAddress:
 						ip := lb.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
+						meshCtlIp, err = getMeshCtlIp();
+						if err != nil {
+							log.Infof(err.Error())
+						} else if meshCtlIp != "" {
+							ip = meshCtlIp
+						}
 						port := lb.GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
 						addr = ip + ":" + strconv.FormatUint(uint64(port), Decimalism)
 					case *config_core_v3.Address_EnvoyInternalAddress:
@@ -179,7 +194,7 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 						continue
 					default:
 						log.Infof("unsuport addr type, %T", lb.GetEndpoint().GetAddress())
-						continue	
+						continue
 					}
 
 					clusterCfg.Address = append(clusterCfg.Address, addr)
@@ -191,4 +206,43 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 	}
 
 	return ads, nil
+}
+
+func getMeshCtlIp() (meshCtlIp string, err error) {
+        var kubeConfig *string
+
+	if home := os.Getenv("HOME"); home != "" {
+		configPath := filepath.Join(home, ".kube", "config")
+		kubeConfig = &configPath
+	} else {
+		return meshCtlIp, errors.New("get kube config error!")
+	}
+
+	config, err := clientcmd.BuildConfigFromFlags("", *kubeConfig)
+	if err != nil {
+		log.Errorf("create config error!")
+		return meshCtlIp, err
+	}
+
+	clientSet, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		log.Errorf("create clientset error!")
+		return meshCtlIp, err
+	}
+
+	meshCtl := os.Getenv("MESH_CONTROLLER")
+	array := strings.Split(meshCtl, ":")
+	if (len(array) != 2) {
+		return meshCtlIp, errors.New("get env MESH_CONTROLLER error!")
+	}
+	ns := array[0]
+	name := array[1]
+	service, err := clientSet.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to get service %s in namespace %s!", name, ns)
+		return meshCtlIp, err
+	}
+
+	meshCtlIp = service.Spec.ClusterIP
+	return meshCtlIp, nil
 }
