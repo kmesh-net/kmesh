@@ -1,0 +1,122 @@
+{
+    "staticResources":{
+      "versionInfo":"v2",
+      "listenerConfigs":[
+        {
+          "apiStatus":"UPDATE",
+          "name":"127.0.0.1_9081",
+          "address":{
+            "port":31011,
+            "ipv4":16777343
+          },
+          "filterChains":[
+            {
+              "filterChainMatch":{
+                "transportProtocol":"raw_buffer",
+                "applicationProtocols":[
+                  "http/1.0",
+                  "http/1.1",
+                  "h2c"
+                ]
+              },
+              "filters":[
+                {
+                  "name":"envoy.filters.network.http_connection_manager",
+                  "httpConnectionManager":{
+                    "routeConfigName":"9080"
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "routeConfigs":[
+        {
+          "apiStatus":"UPDATE",
+          "name":"9080",
+          "virtualHosts":[
+            {
+              "name":"details.default.svc.cluster.local:9080",
+              "domains":[
+                "*"
+              ],
+              "routes":[
+                {
+                  "name":"default",
+                  "match":{
+                    "prefix":"/"
+                  },
+                  "route": {
+                    "weighted_clusters": {
+                      "clusters": [
+                        {
+                          "name": "outbound|9080|v1|details.default.svc.cluster.local",
+                          "weight": 80
+                        },
+                        {
+                          "name": "outbound|9080|v2|details.default.svc.cluster.local",
+                          "weight": 20
+                        }
+                      ] 
+                    },                    
+                    "retryPolicy": {
+                      "numRetries": 2
+                    }
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ],
+      "clusterConfigs":[
+        {
+          "apiStatus":"UPDATE",
+          "name":"outbound|9080|v1|details.default.svc.cluster.local",
+          "connectTimeout":10,
+          "lb_policy":"ROUND_ROBIN",
+          "loadAssignment":{
+            "clusterName":"outbound|9080|v1|details.default.svc.cluster.local",
+            "endpoints":[
+              {
+                "lbEndpoints":[
+                  {
+                    "address":{
+                      "port":32035,
+                      "ipv4":16777343
+                    }
+                  }
+                ],
+                "loadBalancingWeight":1
+              }
+            ]
+          }
+        },
+        {
+          "apiStatus":"UPDATE",
+          "name":"outbound|9080|v2|details.default.svc.cluster.local",
+          "connectTimeout":10,
+          "lb_policy":"ROUND_ROBIN",
+          "loadAssignment":{
+            "clusterName":"outbound|9080|v2|details.default.svc.cluster.local",
+            "endpoints":[
+              {
+                "lbEndpoints":[
+                  {
+                    "address":{
+                      "port":32291,
+                      "ipv4":16777343
+                    }
+                  }
+                ],
+                "loadBalancingWeight":1
+              }
+            ]
+          }
+        }
+      ]
+    }
+  }
+
+
