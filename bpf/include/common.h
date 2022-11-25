@@ -52,13 +52,13 @@ static inline void *kmesh_map_lookup_elem(bpf_map_t *map, const void *key)
 
 static inline int kmesh_map_delete_elem(bpf_map_t *map, const void *key)
 {
-	return bpf_map_delete_elem(map, key);
+	return (int)bpf_map_delete_elem(map, key);
 }
 
 static inline int kmesh_map_update_elem(bpf_map_t *map, const void *key, const void *value)
 {
 	// TODO: Duplicate element, status update
-	return bpf_map_update_elem(map, key, value, BPF_ANY);
+	return (int)bpf_map_update_elem(map, key, value, BPF_ANY);
 }
 
 #endif // _COMMON_H_
