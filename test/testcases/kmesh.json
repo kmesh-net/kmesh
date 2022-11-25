@@ -6,6 +6,9 @@
 	},
 	{
             "name": "oe_test_lb_policy_function"
+        },
+        {
+	    "name": "oe_test_dark_launch_function"
         }
     ]
 }
