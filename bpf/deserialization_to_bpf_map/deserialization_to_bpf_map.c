@@ -19,12 +19,13 @@
 #define MAX_ERRNO	4095
 
 #define LOG_ERR(fmt, args...)	printf(fmt, ## args)
+#define LOG_WARN(fmt, args...)	printf(fmt, ## args)
 #define LOG_INFO(fmt, args...)	printf(fmt, ## args)
 
 #define FREE_MAP_SIZE	(MAX_OUTTER_MAP_ENTRIES / (sizeof(uint32_t) * 8))
 
 struct outter_map_alloc_control {
-	int used;
+	unsigned int used;
 	uint32_t free_map[FREE_MAP_SIZE];
 };
 
@@ -138,12 +139,14 @@ static inline size_t sizeof_elt_in_repeated_array(ProtobufCType type)
 		return sizeof(void *);
 	case PROTOBUF_C_TYPE_BYTES:
 		return sizeof(ProtobufCBinaryData);
+	default:
+		break;
 	}
 
 	return 0;
 }
 
-static inline int valid_outter_key(struct op_context *ctx, int outter_key)
+static inline int valid_outter_key(struct op_context *ctx, unsigned int outter_key)
 {
 	if (outter_key >= ctx->outter_info->max_entries || !outter_key)
 		return 0;
@@ -179,7 +182,7 @@ static int get_map_ids(const char *name, int *id, int *outter_id, int *inner_id)
 
 	map_id = (name == NULL) ? getenv("MAP_ID") : getenv(name);
 	if (!map_id) {
-		LOG_ERR("%s is not set\n", (name == NULL) ? "MAP_ID" : name);
+		LOG_ERR("%s is not set\n", ((name == NULL) ? "MAP_ID" : name));
 		return -EINVAL;
 	}
 
@@ -238,13 +241,14 @@ static int alloc_and_set_inner_map(struct op_context *ctx, int key)
 static int find_free_outter_map_entry(struct op_context *ctx,
 					struct outter_map_alloc_control *a_ctl)
 {
-	int i, index;
+	int index;
+	unsigned int i;
 
 	for (i = 0; i < FREE_MAP_SIZE; i++) {
 		if (a_ctl->free_map[i]) {
 			index = __builtin_ffs(a_ctl->free_map[i]);
 			a_ctl->free_map[i] &= ~(1U << (index - 1));
-			return (index - 1 + i * 32);
+			return (index - 1 + (i * 32));
 		}
 	}
 
@@ -254,7 +258,8 @@ static int find_free_outter_map_entry(struct op_context *ctx,
 static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 {
 	int ret;
-	int key = 0, i = *(int*)outter_key;
+	int key = 0;
+	unsigned int i = *(unsigned int*)outter_key;
 	int inner_map_fd;
 	__u32 inner_map_id;
 	struct outter_map_alloc_control *a_ctl;
@@ -298,7 +303,7 @@ static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 static int alloc_outter_map_entry(struct op_context *ctx)
 {
 	int ret;
-	int first = 0;
+	unsigned int first = 0;
 	int key = 0, ret_key;
 	int inner_map_fd;
 	__u32 inner_map_id;
@@ -516,7 +521,8 @@ static int repeat_field_handle(struct op_context *ctx,
 				    const ProtobufCFieldDescriptor *field)
 {
 	int ret, ret1;
-	int i, outter_key, inner_fd, key = 0;
+	unsigned int i;
+	int outter_key, inner_fd, key = 0;
 	void *n = ((char*)ctx->value) + field->quantifier_offset;
 	void ***value = (void***)((char*)ctx->value + field->offset);
 	void **origin_value = *value;
@@ -580,7 +586,8 @@ end:
 
 static int update_bpf_map(struct op_context *ctx)
 {
-	int i, ret;
+	int ret;
+	unsigned int i;
 	void *temp_val;
 	const ProtobufCMessageDescriptor *desc = ctx->desc;
 
@@ -848,10 +855,11 @@ static void* create_indirect_struct(struct op_context *ctx, int outter_key,
 static int repeat_field_query(struct op_context *ctx,
 			     const ProtobufCFieldDescriptor *field)
 {
-	int i, ret;
+	int ret;
 	int key = 0;
 	int inner_fd;
 	void *array;
+	unsigned int i;
 	void *n = ((char*)ctx->value) + field->quantifier_offset;
 	uintptr_t *outter_key = (uintptr_t*)((char*)ctx->value + field->offset);
 
@@ -894,7 +902,8 @@ static int repeat_field_query(struct op_context *ctx,
 static void* create_struct(struct op_context *ctx, int *err)
 {
 	void *value;
-	int i, ret;
+	int ret;
+	unsigned int i;
 	const ProtobufCMessageDescriptor *desc = ctx->desc;
 
 	*err = 0;
@@ -997,10 +1006,9 @@ end:
 	return value;
 }
 
-static int indirect_field_del(struct op_context *ctx, int outter_key,
+static int indirect_field_del(struct op_context *ctx, unsigned int outter_key,
 				 const ProtobufCFieldDescriptor *field)
 {
-	int ret;
 	char *inner_map_object = NULL;
 	int inner_fd, key = 0;
 	struct op_context new_ctx;
@@ -1036,7 +1044,7 @@ static int indirect_field_del(struct op_context *ctx, int outter_key,
 			new_ctx.value = inner_map_object;
 			new_ctx.desc = desc;
 
-			ret = del_bpf_map(&new_ctx, 1);
+			(void)del_bpf_map(&new_ctx, 1);
 			free(inner_map_object);
 			break;
 			
@@ -1051,15 +1059,18 @@ static int indirect_field_del(struct op_context *ctx, int outter_key,
 static int repeat_field_del(struct op_context *ctx,
 				 const ProtobufCFieldDescriptor *field)
 {
-	int i, ret;
+	int ret;
+	unsigned int i;
 	int inner_fd, key = 0;
 	void *inner_map_object = NULL;
 	void *n;
 	uintptr_t *outter_key;
 
 	ret = bpf_map_lookup_elem(ctx->curr_fd, ctx->key, ctx->value);
-	if (ret < 0)
+	if (ret < 0) {
+		LOG_WARN("faild to find map(%d) elem: %d.", ctx->curr_fd, ret);
 		return ret;
+	}
 
 	outter_key = (uintptr_t*)((char*)ctx->value + field->offset);
 	if (!valid_outter_key(ctx, *outter_key))
@@ -1077,6 +1088,7 @@ static int repeat_field_del(struct op_context *ctx,
 
 	switch (field->type) {
 	case PROTOBUF_C_TYPE_MESSAGE:
+		//lint -fallthrough
 	case PROTOBUF_C_TYPE_STRING:
 		inner_map_object = calloc(1, ctx->inner_info->value_size);
 		if (!inner_map_object) {
@@ -1173,11 +1185,13 @@ static int field_del(struct op_context *ctx,
 
 static int del_bpf_map(struct op_context *ctx, int is_inner)
 {
-	int i, ret;
+	int ret;
+	unsigned int i;
 	const ProtobufCMessageDescriptor *desc = ctx->desc;
 
 	ret = bpf_map_lookup_elem(ctx->curr_fd, ctx->key, ctx->value);
 	if (ret < 0)
+		LOG_WARN("failed to find map(%d) elem:%d.", ctx->curr_fd, ret);
 		return ret;
 
 	for (i = 0; i < desc->n_fields; i++) {
@@ -1279,7 +1293,7 @@ end:
 static void repeat_field_free(void *value,
 				   const ProtobufCFieldDescriptor *field)
 {
-	int i;
+	unsigned int i;
 	void *n = ((char*)value) + field->quantifier_offset;
 	uintptr_t *ptr_array = *(uintptr_t**)((char*)value + field->offset);
 
@@ -1322,7 +1336,7 @@ static void field_free(void *value,
 
 void deserial_free_elem(void *value)
 {
-	int i;
+	unsigned int i;
 	const char *map_name = NULL;
 	const ProtobufCMessageDescriptor *desc;
 
