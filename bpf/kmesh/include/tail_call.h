@@ -75,12 +75,12 @@ static inline ctx_val_t *kmesh_tail_lookup_ctx(const ctx_key_t *key)
 
 static inline int kmesh_tail_delete_ctx(const ctx_key_t *key)
 {
-	return bpf_map_delete_elem(&map_of_tail_call_ctx, key);
+	return (int)bpf_map_delete_elem(&map_of_tail_call_ctx, key);
 }
 
 static inline int kmesh_tail_update_ctx(const ctx_key_t *key, const ctx_val_t *value)
 {
-	return bpf_map_update_elem(&map_of_tail_call_ctx, key, value, BPF_ANY);
+	return (int)bpf_map_update_elem(&map_of_tail_call_ctx, key, value, BPF_ANY);
 }
 
 #endif // _TAIL_CALL_H_

@@ -51,10 +51,11 @@ bpf_map_t SEC("maps") outer_map = {
 };
 
 bpf_map_t SEC("maps") inner_map = {
-		.type				   = BPF_MAP_TYPE_ARRAY,
-		.key_size			   = sizeof(__u32),
-		.value_size			 = 1300,
-		.max_entries   	 	= 1,
+		.type			= BPF_MAP_TYPE_ARRAY,
+		.key_size		= sizeof(__u32),
+		.value_size		= 1300,
+		.max_entries	= 1,
+		.map_flags		= 0,
 };
 
 #if 1
@@ -105,7 +106,7 @@ static inline void *kmesh_get_ptr_val(const void *ptr)
 		
 		structA.ptr_member1 = idx1;	// store idx in outer_map
 	*/
-	void *inner_map = NULL;
+	void *inner_map_instance = NULL;
 	__u32 inner_idx = 0;
 	__u64 idx = (__u64)ptr;
 
@@ -114,13 +115,13 @@ static inline void *kmesh_get_ptr_val(const void *ptr)
 		return NULL;
 	}
 
-	/* get inner_map by idx */
-	inner_map = kmesh_map_lookup_elem(&outer_map, &idx);
-	if (!inner_map) {
+	/* get inner_map_instance by idx */
+	inner_map_instance = kmesh_map_lookup_elem(&outer_map, &idx);
+	if (!inner_map_instance) {
 		return NULL;
 	}
 
-	/* get inner_map value */
-	return kmesh_map_lookup_elem(inner_map, &inner_idx);
+	/* get inner_map_instance value */
+	return kmesh_map_lookup_elem(inner_map_instance, &inner_idx);
 }
 #endif // _KMESH_COMMON_H_
