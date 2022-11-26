@@ -16,19 +16,24 @@ package nets
 
 import (
 	"context"
-	"google.golang.org/grpc"
 	"math"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
 )
 
 const (
+	// MaxRetryInterval retry interval time when reconnect
 	MaxRetryInterval = time.Second * 30
-	MaxRetryCount    = 3
+
+	// MaxRetryCount retry max count when reconnect
+	MaxRetryCount = 3
 )
 
+// IsIPAndPort returns true if the address format ip:port
 func IsIPAndPort(addr string) bool {
 	var idx int
 
@@ -59,9 +64,10 @@ func defaultDialOption() grpc.DialOption {
 	)
 }
 
+// GrpcConnect creates a client connection to the given addr
 func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	var (
-		err error
+		err  error
 		conn *grpc.ClientConn
 		opts []grpc.DialOption
 	)
@@ -79,6 +85,7 @@ func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
+// CalculateInterval calculate retry interval
 func CalculateInterval(t time.Duration) time.Duration {
 	t += MaxRetryInterval / MaxRetryCount
 	if t > MaxRetryInterval {
@@ -87,6 +94,7 @@ func CalculateInterval(t time.Duration) time.Duration {
 	return t
 }
 
+// CalculateRandTime returns a non-negative pseudo-random time in the half-open interval [0,sed)
 func CalculateRandTime(sed int) time.Duration {
 	return time.Duration(rand.Intn(sed)) * time.Millisecond
 }

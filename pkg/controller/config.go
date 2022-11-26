@@ -31,6 +31,7 @@ type Config struct {
 	interfaces.ConfigFactory `json:"controller"`
 }
 
+// SetArgs set controller command arguments
 func (c *Config) SetArgs() error {
 	envoy.GetConfig().SetClientArgs()
 	return nil

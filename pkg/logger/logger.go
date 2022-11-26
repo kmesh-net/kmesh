@@ -12,6 +12,7 @@
  * Create: 2021-10-09
  */
 
+//Package logger log constructor
 package logger
 
 import (
@@ -41,6 +42,7 @@ var (
 	}
 )
 
+// InitializeDefaultLogger return a initialized logger
 func InitializeDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
 	logger.SetFormatter(defaultLogFormat)
@@ -67,6 +69,7 @@ func InitializeDefaultLogger() *logrus.Logger {
 	return logger
 }
 
+// NewLoggerField allocates a new log entry and adds a field to it.
 func NewLoggerField(pkgSubsys string) *logrus.Entry {
 	return defaultLogger.WithField(logSubsys, pkgSubsys)
 }
