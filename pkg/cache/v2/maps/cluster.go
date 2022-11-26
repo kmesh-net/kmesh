@@ -20,9 +20,10 @@ package maps
 import "C"
 import (
 	"fmt"
+	"unsafe"
+
 	"google.golang.org/protobuf/proto"
 	cluster_v2 "openeuler.io/mesh/api/v2/cluster"
-	"unsafe"
 )
 
 func clusterToGolang(goMsg *cluster_v2.Cluster, cMsg *C.Cluster__Cluster) error {
