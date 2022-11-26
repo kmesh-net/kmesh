@@ -54,7 +54,7 @@ bpf_map_t SEC("maps") inner_map = {
 		.type			= BPF_MAP_TYPE_ARRAY,
 		.key_size		= sizeof(__u32),
 		.value_size		= 1300,
-		.max_entries   	= 1,
+		.max_entries	= 1,
 		.map_flags		= 0,
 };
 

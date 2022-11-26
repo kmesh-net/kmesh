@@ -168,7 +168,7 @@ static inline int cluster_check_endpoints(const struct cluster_endpoints *eps,
 										const Endpoint__ClusterLoadAssignment *cla)
 {
 	/* 0 -- failed 1 -- succeed */
-	int i;
+	__u32 i;
 	void *ptrs = NULL;
 	__u32 lb_num = cluster_get_endpoints_num(cla);
 
@@ -180,7 +180,7 @@ static inline int cluster_check_endpoints(const struct cluster_endpoints *eps,
 		return 0;
 
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-		if (i >= (int)lb_num) {
+		if (i >= lb_num) {
 			break;
 		}
 
