@@ -34,8 +34,8 @@ enum bpf_loglevel {
 
 #define BPF_LOG(l, t, f, ...)	\
 	do {							\
-		int loglevel = BPF_MIN(BPF_LOG_LEVEL, BPF_LOG_DEBUG + BPF_LOGTYPE_ ## t);	\
-		if (BPF_LOG_ ## l <= loglevel)							\
+		int loglevel = BPF_MIN((int)BPF_LOG_LEVEL, ((int)BPF_LOG_DEBUG + (int)(BPF_LOGTYPE_ ## t)));	\
+		if ((int)(BPF_LOG_ ## l) <= loglevel)							\
 			bpf_printk("["# t"] "# l": "f"", ##__VA_ARGS__);	\
 	} while (0)
 

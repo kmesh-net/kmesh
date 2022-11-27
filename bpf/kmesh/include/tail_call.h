@@ -70,12 +70,12 @@ bpf_map_t SEC("maps") map_of_tail_call_ctx = {
 
 static inline ctx_val_t *kmesh_tail_lookup_ctx(const ctx_key_t *key)
 {
-	return bpf_map_lookup_elem(&map_of_tail_call_ctx, key);
+	return (ctx_val_t *)bpf_map_lookup_elem(&map_of_tail_call_ctx, key);
 }
 
-static inline int kmesh_tail_delete_ctx(const ctx_key_t *key)
+static inline void kmesh_tail_delete_ctx(const ctx_key_t *key)
 {
-	return (int)bpf_map_delete_elem(&map_of_tail_call_ctx, key);
+	(void)bpf_map_delete_elem(&map_of_tail_call_ctx, key);
 }
 
 static inline int kmesh_tail_update_ctx(const ctx_key_t *key, const ctx_val_t *value)

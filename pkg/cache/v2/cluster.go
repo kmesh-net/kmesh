@@ -15,10 +15,11 @@
 package cache_v2
 
 import (
+	"sync"
+
 	cluster_v2 "openeuler.io/mesh/api/v2/cluster"
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
-	"sync"
 )
 
 var rw_cluster sync.RWMutex
@@ -46,6 +47,8 @@ func (cache ApiClusterCache) StatusFlush(status core_v2.ApiStatus) int {
 			err = maps_v2.ClusterUpdate(cluster.GetName(), cluster)
 		case core_v2.ApiStatus_DELETE:
 			err = maps_v2.ClusterDelete(cluster.GetName())
+		default:
+			break
 		}
 
 		if err != nil {
