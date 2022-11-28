@@ -12,6 +12,7 @@
  * Create: 2021-12-07
  */
 
+// Package nets : net connection provider
 package nets
 
 import (
@@ -19,6 +20,7 @@ import (
 	"net"
 )
 
+// ConvertIpToUint32 converts ip to little endian uint32 format
 func ConvertIpToUint32(ip string) uint32 {
 	netIP := net.ParseIP(ip)
 	if len(netIP) == net.IPv6len {
@@ -27,12 +29,14 @@ func ConvertIpToUint32(ip string) uint32 {
 	return binary.LittleEndian.Uint32(netIP)
 }
 
+// ConvertUint32ToIp converts uint32 to ip format
 func ConvertUint32ToIp(num uint32) string {
 	netIP := make(net.IP, 4)
 	binary.LittleEndian.PutUint32(netIP, num)
 	return netIP.String()
 }
 
+// ConvertPortToLittleEndian is the little-endian implementation of ByteOrder.
 func ConvertPortToLittleEndian(num uint32) uint32 {
 	// FIXME
 	tmp := make([]byte, 2)

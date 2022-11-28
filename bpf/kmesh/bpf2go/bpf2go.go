@@ -12,6 +12,7 @@
  * Create: 2022-02-27
  */
 
+// Package bpf2go  generate c to go struct
 package bpf2go
 
 // go run github.com/cilium/ebpf/cmd/bpf2go --help

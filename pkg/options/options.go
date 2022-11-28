@@ -12,6 +12,7 @@
  * Create: 2021-10-09
  */
 
+// Package options for parsing config
 package options
 
 import (
@@ -21,18 +22,21 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+
 	"sigs.k8s.io/yaml"
 )
 
 var (
 	argLists = os.Args[1:]
-	config DaemonConfig
+	config   DaemonConfig
 )
 
 type parseFactory interface {
 	SetArgs() error
 	ParseConfig() error
 }
+
+// DaemonConfig describes the config factory, which can be registered by options.Register
 type DaemonConfig []parseFactory
 
 func (c *DaemonConfig) String() string {
@@ -44,14 +48,17 @@ func (c *DaemonConfig) String() string {
 	return string(data)
 }
 
+// String format options.config to string
 func String() string {
 	return config.String()
 }
 
+// Register register the config factory
 func Register(factory parseFactory) {
 	config = append(config, factory)
 }
 
+// InitDaemonConfig init daemon config which has been registered
 func InitDaemonConfig() error {
 	var err error
 
@@ -73,6 +80,7 @@ func InitDaemonConfig() error {
 	return nil
 }
 
+// IsYamlFormat verify whether yaml format file
 func IsYamlFormat(path string) bool {
 	ext := filepath.Ext(path)
 	if ext == ".yaml" || ext == ".yml" {
@@ -81,10 +89,11 @@ func IsYamlFormat(path string) bool {
 	return false
 }
 
+// LoadConfigFile load the config from the input file path
 func LoadConfigFile(path string) ([]byte, error) {
 	var (
-		err       error
-		content   []byte
+		err     error
+		content []byte
 	)
 
 	if content, err = ioutil.ReadFile(path); err != nil {

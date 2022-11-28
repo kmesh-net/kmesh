@@ -12,18 +12,20 @@
  * Create: 2021-10-09
  */
 
+// Package manager: kmesh daemon manager
 package manager
 
 import (
 	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"openeuler.io/mesh/cmd/command"
 	"openeuler.io/mesh/pkg/bpf"
 	"openeuler.io/mesh/pkg/controller"
 	"openeuler.io/mesh/pkg/logger"
 	"openeuler.io/mesh/pkg/options"
-	"os"
-	"os/signal"
-	"syscall"
 )
 
 const (
@@ -31,9 +33,10 @@ const (
 )
 
 var (
-	log = logger.NewLoggerField("manager")
+	log = logger.NewLoggerField(pkgSubsys)
 )
 
+// Execute start daemon manager process
 func Execute() {
 	var err error
 
@@ -44,7 +47,6 @@ func Execute() {
 	log.Info("options InitDaemonConfig successful")
 
 	if err = bpf.Start(); err != nil {
-		// log.Error(err)
 		fmt.Println(err)
 		return
 	}
