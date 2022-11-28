@@ -47,6 +47,8 @@ func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) in
 			err = maps_v2.RouteConfigUpdate(route.GetName(), route)
 		case core_v2.ApiStatus_DELETE:
 			err = maps_v2.RouteConfigDelete(route.GetName())
+		default:
+			break
 		}
 
 		if err != nil {

@@ -21,16 +21,11 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"openeuler.io/mesh/bpf/kmesh/bpf2go"
-)
-
-var (
-	InnerMapKeySize    uint32 = 4
-	InnerMapDataLength uint32 = 1300
-	InnerMapMaxEntries uint32 = 1
 )
 
 type BpfSockConn struct {
@@ -38,6 +33,8 @@ type BpfSockConn struct {
 	Link link.Link
 	bpf2go.KmeshCgroupSockObjects
 }
+
+var FOLDER_ACCESS uint32 = 0750
 
 type BpfSockOps struct {
 	Info BpfInfo
@@ -58,7 +55,9 @@ func (sc *BpfSockOps) NewBpf(cfg *Config) error {
 	sc.Info.BpfFsPath += "/bpf_kmesh/"
 	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
 
-	if err := os.MkdirAll(sc.Info.MapPath, 0750); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(sc.Info.MapPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
 		return err
 	}
 	return nil
@@ -69,7 +68,9 @@ func (sc *BpfSockConn) NewBpf(cfg *Config) error {
 	sc.Info.BpfFsPath += "/bpf_kmesh/"
 	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
 
-	if err := os.MkdirAll(sc.Info.MapPath, 0750); err != nil && !os.IsExist(err) {
+	if err := os.MkdirAll(sc.Info.MapPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
 		return err
 	}
 	return nil
@@ -90,7 +91,11 @@ func NewBpfKmesh(cfg *Config) (BpfKmesh, error) {
 }
 
 func setInnerMap(spec *ebpf.CollectionSpec) {
-	// TODO
+	var (
+		InnerMapKeySize    uint32 = 4
+		InnerMapDataLength uint32 = 1300
+		InnerMapMaxEntries uint32 = 1
+	)
 	for _, v := range spec.Maps {
 		if v.Name == "outer_map" {
 			v.InnerMap = &ebpf.MapSpec{
@@ -334,27 +339,37 @@ func (sc *BpfKmesh) ApiEnvCfg() error {
 
 	id, _ = info.ID()
 	stringId := strconv.Itoa(int(id))
-	os.Setenv("Listener", stringId)
+	if err = os.Setenv("Listener", stringId); err != nil {
+		return err
+	}
 
 	info, _ = Obj.Kmesh.SockOps.KmeshSockopsMaps.OuterMap.Info()
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))
-	os.Setenv("OUTTER_MAP_ID", stringId)
+	if err = os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
+		return err
+	}
 
 	info, _ = Obj.Kmesh.SockOps.KmeshSockopsMaps.InnerMap.Info()
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))
-	os.Setenv("INNER_MAP_ID", stringId)
+	if err = os.Setenv("INNER_MAP_ID", stringId); err != nil {
+		return err
+	}
 
 	info, _ = Obj.Kmesh.SockOps.MapOfRouterConfig.Info()
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))
-	os.Setenv("RouteConfiguration", stringId)
+	if err = os.Setenv("RouteConfiguration", stringId); err != nil {
+		return err
+	}
 
 	info, _ = Obj.Kmesh.SockOps.KmeshCluster.Info()
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))
-	os.Setenv("Cluster", stringId)
+	if err = os.Setenv("Cluster", stringId); err != nil {
+		return err
+	}
 
 	return nil
 }

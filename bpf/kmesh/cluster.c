@@ -36,12 +36,6 @@ static inline void *loadbalance_round_robin(struct cluster_endpoints *eps)
 	return (void *)eps->ep_identity[idx];
 }
 
-static inline void *loadbalance_least_request(struct cluster_endpoints *eps)
-{
-	// TODO
-	return NULL;
-}
-
 static inline void *cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_policy)
 {
 	void *ep_identity = NULL;
@@ -50,14 +44,6 @@ static inline void *cluster_get_ep_identity_by_lb_policy(struct cluster_endpoint
 		case CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN:
 			ep_identity = loadbalance_round_robin(eps);
 			break;
-		/* other policy will support next version
-		case CLUSTER__CLUSTER__LB_POLICY__LEAST_REQUEST:
-			ep_identity = loadbalance_least_request(eps);
-			break;
-		case CLUSTER__CLUSTER__LB_POLICY__RANDOM:
-			// TODO
-			break;
-		*/
 		default:
 			BPF_LOG(ERR, CLUSTER, "%d lb_policy is unsupport, defaut:ROUND_ROBIN\n", lb_policy);
 			ep_identity = loadbalance_round_robin(eps);
@@ -87,7 +73,6 @@ static inline Core__SocketAddress *cluster_get_ep_sock_addr(const void *ep_ident
 
 static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_buff_t *ctx)
 {
-	int ret;
 	char *name = NULL;
 	void *ep_identity = NULL;
 	Core__SocketAddress *sock_addr = NULL;
@@ -96,13 +81,13 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
 	name = kmesh_get_ptr_val(cluster->name);
 	if (!name) {
 		BPF_LOG(ERR, CLUSTER, "filed to get cluster\n");
-		return -1;
+		return -EAGAIN;
 	}
 
 	eps = cluster_refresh_endpoints(cluster, name);
 	if (!eps) {
 		BPF_LOG(ERR, CLUSTER, "failed to reflush cluster(%s) endpoints\n", name);
-		return ret;
+		return -EAGAIN;
 	}
 
 	ep_identity = cluster_get_ep_identity_by_lb_policy(eps, cluster->lb_policy);

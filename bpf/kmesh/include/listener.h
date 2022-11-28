@@ -31,36 +31,35 @@ static inline Listener__Listener *map_lookup_listener(const address_t *addr)
 	return kmesh_map_lookup_elem(&map_of_listener, addr);
 }
 
-static inline int listener_filter_chain_match_check(const Listener__FilterChain *filter_chain,
+static inline bool listener_filter_chain_match_check(const Listener__FilterChain *filter_chain,
 						  const address_t *addr,
 						  const ctx_buff_t *ctx)
 {
-	int ret = 0;
 	char *transport_protocol;
 	const char buf[] = "raw_buffer";
 
 	Listener__FilterChainMatch *filter_chain_match =
 		kmesh_get_ptr_val(filter_chain->filter_chain_match);
 	if (!filter_chain_match)
-		return 0;
+		return false;
 
 	if (filter_chain_match->destination_port != 0 &&
 		filter_chain_match->destination_port != addr->port)
-		return 0;
+		return false;
 
 	transport_protocol = kmesh_get_ptr_val(filter_chain_match->transport_protocol);
 	if (!transport_protocol) {
 		BPF_LOG(ERR, LISTENER, "transport_protocol is NULL\n");
-		return 0;
+		return false;
 	} else if (bpf_strcmp(buf, transport_protocol) != 0) {
-		return 0;
+		return false;
 	}
 
 	// TODO: application_protocols
 
 	BPF_LOG(DEBUG, LISTENER, "match filter_chain, name=\"%s\"\n",
 		(char *)kmesh_get_ptr_val(filter_chain->name));
-	return 1;
+	return true;
 }
 
 static inline int listener_filter_chain_match(const Listener__Listener *listener,
@@ -85,7 +84,7 @@ static inline int listener_filter_chain_match(const Listener__Listener *listener
 	}
 
 	for (i = 0; i < KMESH_PER_FILTER_CHAIN_NUM; i++) {		
-		if (i >= listener->n_filter_chains) {
+		if (i >= (int)listener->n_filter_chains) {
 			break;
 		}
 
@@ -131,7 +130,7 @@ static inline int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *liste
 	}
 
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER_CHAIN);
-	kmesh_tail_delete_ctx(&ctx_key);
+	(void)kmesh_tail_delete_ctx(&ctx_key);
 
 	BPF_LOG(ERR, LISTENER, "l7_listener_manager exit\n");
 	return ret;

@@ -52,6 +52,8 @@ func (cache ApiListenerCache) StatusFlush(status core_v2.ApiStatus) int {
 			err = maps_v2.ListenerUpdate(listener.GetAddress(), listener)
 		case core_v2.ApiStatus_DELETE:
 			err = maps_v2.ListenerDelete(listener.GetAddress())
+		default:
+			break
 		}
 
 		if err != nil {
