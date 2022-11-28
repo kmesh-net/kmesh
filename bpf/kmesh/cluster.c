@@ -17,12 +17,6 @@
 #include "cluster/cluster.pb-c.h"
 #include "tail_call.h"
 
-static inline int cluster_handle_circuit_breaker(Cluster__Cluster *cluster, address_t *addr, ctx_buff_t *ctx)
-{
-	// TODO
-	return 0;
-}
-
 static inline void *loadbalance_round_robin(struct cluster_endpoints *eps)
 {
 	if (!eps || eps->ep_num == 0)
@@ -144,9 +138,6 @@ int cluster_manager(ctx_buff_t *ctx)
 	kmesh_tail_delete_ctx(&ctx_key);
 	if (cluster == NULL)
 		return convert_sock_errno(ENOENT);
-
-	if (cluster_handle_circuit_breaker(cluster, &addr, ctx) != 0)
-		return convert_sock_errno(EBUSY);
 
 	ret = cluster_handle_loadbalance(cluster, &addr, ctx);
 	return convert_sock_errno(ret);

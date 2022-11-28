@@ -16,10 +16,12 @@ package command
 
 import (
 	"fmt"
-	"github.com/golang/protobuf/jsonpb"
-	"google.golang.org/protobuf/encoding/protojson"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/golang/protobuf/jsonpb"
+	"google.golang.org/protobuf/encoding/protojson"
+
 	admin_v2 "openeuler.io/mesh/api/v2/admin"
 	"openeuler.io/mesh/pkg/controller"
 	"openeuler.io/mesh/pkg/controller/envoy"
@@ -86,22 +88,22 @@ func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case http.MethodGet:
 		dynamicLd := client.Event.DynamicLoader
-		staticLd  := client.Event.StaticLoader
+		staticLd := client.Event.StaticLoader
 		dynamicRes := &admin_v2.ConfigResources{}
-		staticRes  := &admin_v2.ConfigResources{}
+		staticRes := &admin_v2.ConfigResources{}
 
-		dynamicRes.ClusterConfigs  = append(dynamicRes.ClusterConfigs,  dynamicLd.ClusterCache.StatusLookup()...)
+		dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusLookup()...)
 		dynamicRes.ListenerConfigs = append(dynamicRes.ListenerConfigs, dynamicLd.ListenerCache.StatusLookup()...)
-		dynamicRes.RouteConfigs    = append(dynamicRes.RouteConfigs,    dynamicLd.RouteCache.StatusLookup()...)
+		dynamicRes.RouteConfigs = append(dynamicRes.RouteConfigs, dynamicLd.RouteCache.StatusLookup()...)
 		envoy.SetApiVersionInfo(dynamicRes)
 
-		staticRes.ClusterConfigs  = append(staticRes.ClusterConfigs,  staticLd.ClusterCache.StatusLookup()...)
+		staticRes.ClusterConfigs = append(staticRes.ClusterConfigs, staticLd.ClusterCache.StatusLookup()...)
 		staticRes.ListenerConfigs = append(staticRes.ListenerConfigs, staticLd.ListenerCache.StatusLookup()...)
-		staticRes.RouteConfigs    = append(staticRes.RouteConfigs,    staticLd.RouteCache.StatusLookup()...)
+		staticRes.RouteConfigs = append(staticRes.RouteConfigs, staticLd.RouteCache.StatusLookup()...)
 		envoy.SetApiVersionInfo(staticRes)
 
 		fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{
-			StaticResources: staticRes,
+			StaticResources:  staticRes,
 			DynamicResources: dynamicRes,
 		}))
 	case http.MethodPost:
@@ -135,18 +137,18 @@ func httpControllerEnvoy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dynamicLd := client.Event.DynamicLoader
-	staticLd  := client.Event.StaticLoader
+	staticLd := client.Event.StaticLoader
 	dynamicRes := &admin_v2.ConfigResources{}
-	staticRes  := &admin_v2.ConfigResources{}
+	staticRes := &admin_v2.ConfigResources{}
 
-	dynamicRes.ClusterConfigs  = append(dynamicRes.ClusterConfigs,  dynamicLd.ClusterCache.StatusRead()...)
+	dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusRead()...)
 	dynamicRes.ListenerConfigs = append(dynamicRes.ListenerConfigs, dynamicLd.ListenerCache.StatusRead()...)
-	dynamicRes.RouteConfigs    = append(dynamicRes.RouteConfigs,    dynamicLd.RouteCache.StatusRead()...)
+	dynamicRes.RouteConfigs = append(dynamicRes.RouteConfigs, dynamicLd.RouteCache.StatusRead()...)
 	envoy.SetApiVersionInfo(dynamicRes)
 
-	staticRes.ClusterConfigs  = append(staticRes.ClusterConfigs,  staticLd.ClusterCache.StatusRead()...)
+	staticRes.ClusterConfigs = append(staticRes.ClusterConfigs, staticLd.ClusterCache.StatusRead()...)
 	staticRes.ListenerConfigs = append(staticRes.ListenerConfigs, staticLd.ListenerCache.StatusRead()...)
-	staticRes.RouteConfigs    = append(staticRes.RouteConfigs,    staticLd.RouteCache.StatusRead()...)
+	staticRes.RouteConfigs = append(staticRes.RouteConfigs, staticLd.RouteCache.StatusRead()...)
 	envoy.SetApiVersionInfo(staticRes)
 
 	fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{

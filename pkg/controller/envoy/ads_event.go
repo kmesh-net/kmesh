@@ -17,6 +17,7 @@ package envoy
 import (
 	"context"
 	"fmt"
+
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -25,13 +26,14 @@ import (
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
 	admin_v2 "openeuler.io/mesh/api/v2/admin"
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	cache_v2 "openeuler.io/mesh/pkg/cache/v2"
 )
 
 const (
-	apiVersionInfo = "v2"
+	apiVersionInfo   = "v2"
 	maxAdminRequests = 16
 )
 
@@ -121,7 +123,7 @@ func (svc *ServiceEvent) processAdsResponse(rsp *service_discovery_v3.DiscoveryR
 
 func (svc *ServiceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
-		err error
+		err     error
 		cluster = &config_cluster_v3.Cluster{}
 	)
 
@@ -144,7 +146,7 @@ func (svc *ServiceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryRe
 
 func (svc *ServiceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
-		err error
+		err            error
 		loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
 	)
 
@@ -162,7 +164,7 @@ func (svc *ServiceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryRe
 
 func (svc *ServiceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
-		err error
+		err      error
 		listener = &config_listener_v3.Listener{}
 	)
 
@@ -186,7 +188,7 @@ func (svc *ServiceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryRe
 
 func (svc *ServiceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
 	var (
-		err error
+		err                error
 		routeConfiguration = &config_route_v3.RouteConfiguration{}
 	)
 
@@ -209,9 +211,9 @@ func (svc *ServiceEvent) NewAdminRequest(resources *admin_v2.ConfigResources) {
 func (svc *ServiceEvent) processAdminResponse(ctx context.Context) {
 	for true {
 		select {
-		case <- ctx.Done():
+		case <-ctx.Done():
 			return
-		case resources := <- svc.adminChan:
+		case resources := <-svc.adminChan:
 			if err := svc.handleAdminResponse(resources); err != nil {
 				log.Error("handleAdminResponse failed err:%s", err)
 			}
