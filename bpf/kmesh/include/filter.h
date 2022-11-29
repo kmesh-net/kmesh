@@ -41,9 +41,7 @@ static inline int filter_chain_filter_match(const Listener__FilterChain *filter_
 											 Listener__Filter **filter_ptr,
 											 __u64 *filter_ptr_idx)
 {
-	int i;
 	void *ptrs = NULL;
-	size_t nfilter = filter_chain->n_filters;
 	Listener__Filter *filter = NULL;
 
 	if (!filter_ptr || !filter_ptr_idx) {
@@ -64,7 +62,7 @@ static inline int filter_chain_filter_match(const Listener__FilterChain *filter_
 	}
 
 	/* limit loop cap to pass bpf verify */
-	for (i = 0; i < KMESH_PER_FILTER_NUM; i++) {
+	for (unsigned int i = 0; i < KMESH_PER_FILTER_NUM; i++) {
 		if (i >= filter_chain->n_filters) {
 			break;
 		}

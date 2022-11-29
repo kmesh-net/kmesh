@@ -16,15 +16,16 @@ package command
 
 import (
 	"flag"
-	"openeuler.io/mesh/pkg/options"
 	"path/filepath"
 	"time"
+
+	"openeuler.io/mesh/pkg/options"
 )
 
 const (
-	adminAddr      = "localhost:15200"
-	adminUrl       = "http://" + adminAddr
-	contentType    = "application/json"
+	adminAddr   = "localhost:15200"
+	adminUrl    = "http://" + adminAddr
+	contentType = "application/json"
 
 	patternHelp                 = "/help"
 	patternOptions              = "/options"
@@ -49,8 +50,8 @@ func (c *Config) SetArgs() error {
 
 func (c *Config) ParseConfig() error {
 	var (
-		err        error
-		content    []byte
+		err     error
+		content []byte
 	)
 
 	if c.File, err = filepath.Abs(c.File); err != nil {

@@ -23,6 +23,7 @@ import (
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
+
 	"openeuler.io/mesh/pkg/nets"
 )
 
