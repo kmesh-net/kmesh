@@ -14,15 +14,18 @@ struct list_head g_protocol_list_head = LIST_HEAD_INIT(g_protocol_list_head);
 struct kmesh_data_node* new_kmesh_data_node(u32 name_field_length)
 {
 	struct kmesh_data_node *new = (struct kmesh_data_node *)kmalloc(sizeof(struct kmesh_data_node), GFP_ATOMIC);
-	if (unlikely(!new))
+	if (unlikely(!new)) {
+		(void)pr_err("[kmesh data node] alloc data node memory failed! no memory!\n");
 		return ERR_PTR(-ENOMEM);
-	memset(new, 0x0, sizeof(struct kmesh_data_node));
+	}
+	(void)memset(new, 0x0, sizeof(struct kmesh_data_node));
 	new->keystring = (char *)kmalloc(name_field_length * sizeof(char), GFP_ATOMIC);
 	if (unlikely(!new->keystring)) {
 		kfree(new);
+		(void)pr_err("[kmesh data node] alloc data node key memory failed! no memory!\n");
 		return ERR_PTR(-ENOMEM);
 	}
-	memset(new->keystring, 0x0, sizeof(char) * name_field_length);
+	(void)memset(new->keystring, 0x0, sizeof(char) * name_field_length);
 	return new;
 }
 
@@ -70,7 +73,7 @@ bool kmesh_protocol_data_insert(struct kmesh_data_node* data)
 		else if (cmp_result > 0)
 			new = &((*new)->rb_right);
 		else {
-			pr_err("find the same key in tree, key = %s\n",
+			(void)pr_err("[kmesh data node] find the same key in tree, key = %s\n",
 				data->keystring);
 			return false;
 		}

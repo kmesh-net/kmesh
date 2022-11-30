@@ -20,9 +20,10 @@ package maps
 import "C"
 import (
 	"fmt"
+	"unsafe"
+
 	"google.golang.org/protobuf/proto"
 	route_v2 "openeuler.io/mesh/api/v2/route"
-	"unsafe"
 )
 
 func routeConfigToGolang(goMsg *route_v2.RouteConfiguration, cMsg *C.Route__RouteConfiguration) error {
