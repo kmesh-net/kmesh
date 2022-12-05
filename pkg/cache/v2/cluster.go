@@ -24,17 +24,16 @@ import (
 
 var RWCluster sync.RWMutex
 
-
-type ClusterCache struct{
+type ClusterCache struct {
 	apiClusterCache apiClusterCache
 	// resourceCache[0]:cds  resourceCache[1]:eds
-	resourceCache   map[string][2]string
+	resourceCache map[string][2]string
 }
 
 func NewClusterCache() ClusterCache {
-	return ClusterCache {
-		apiClusterCache:newApiClusterCache(),
-		resourceCache: make(map[string][2]string),
+	return ClusterCache{
+		apiClusterCache: newApiClusterCache(),
+		resourceCache:   make(map[string][2]string),
 	}
 }
 
@@ -44,15 +43,15 @@ func newApiClusterCache() apiClusterCache {
 	return make(apiClusterCache)
 }
 
-func (cache *ClusterCache)GetApiClusterCache(key string) *cluster_v2.Cluster {
+func (cache *ClusterCache) GetApiClusterCache(key string) *cluster_v2.Cluster {
 	return cache.apiClusterCache[key]
 }
 
-func (cache *ClusterCache)SetApiClusterCache(key string, value *cluster_v2.Cluster) {
+func (cache *ClusterCache) SetApiClusterCache(key string, value *cluster_v2.Cluster) {
 	cache.apiClusterCache[key] = value
 }
 
-func (cache *ClusterCache) GetCdsResource(key string) string  {
+func (cache *ClusterCache) GetCdsResource(key string) string {
 	return cache.resourceCache[key][0]
 }
 
@@ -60,7 +59,7 @@ func (cache *ClusterCache) SetCdsResource(key string, value string) {
 	cache.resourceCache[key] = [2]string{value, cache.resourceCache[key][1]}
 }
 
-func (cache *ClusterCache) GetEdsResource(key string) string  {
+func (cache *ClusterCache) GetEdsResource(key string) string {
 	return cache.resourceCache[key][1]
 }
 
@@ -127,7 +126,7 @@ func (cache ClusterCache) StatusLookup() []*cluster_v2.Cluster {
 
 	RWCluster.RLock()
 
-	for name, route := range cache.apiClusterCache{
+	for name, route := range cache.apiClusterCache {
 		tmp := &cluster_v2.Cluster{}
 		if err = maps_v2.ClusterLookup(name, tmp); err != nil {
 			log.Errorf("ClusterLookup failed, %s", name)

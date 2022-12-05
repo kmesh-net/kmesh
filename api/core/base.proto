@@ -9,7 +9,7 @@ enum ApiStatus {
   NONE = 0;
   DELETE = 1;
   UPDATE = 2;
-  UNCHANGED = 3,
+  UNCHANGED = 3;
   ALL = 4;
 }
 

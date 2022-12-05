@@ -24,7 +24,7 @@ import (
 
 var RWRoute sync.RWMutex
 
-type RouteConfigCache struct{
+type RouteConfigCache struct {
 	apiRouteConfigCache ApiRouteConfigurationCache
 	resourceCache       map[string]string
 }
@@ -46,15 +46,15 @@ func (cache RouteConfigCache) SetApiRouteConfigCache(key string, value *route_v2
 	cache.apiRouteConfigCache[key] = value
 }
 
-func (cache RouteConfigCache) GetApiRouteConfigCache(key string, value *route_v2.RouteConfiguration) {
-	cache.apiRouteConfigCache[key] = value
+func (cache RouteConfigCache) GetApiRouteConfigCache(key string) *route_v2.RouteConfiguration {
+	return cache.apiRouteConfigCache[key]
 }
 
-func (cache *RouteConfigCache)GetRdsResource(key string) string {
+func (cache *RouteConfigCache) GetRdsResource(key string) string {
 	return cache.resourceCache[key]
 }
 
-func (cache *RouteConfigCache)SetRdsResource(key string, value string) {
+func (cache *RouteConfigCache) SetRdsResource(key string, value string) {
 	cache.resourceCache[key] = value
 }
 

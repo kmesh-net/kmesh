@@ -29,15 +29,15 @@ var (
 	log = logger.NewLoggerField("cache/v2")
 )
 
-type ListenerCache struct{
+type ListenerCache struct {
 	apiListenerCache apiListenerCache
-	resourceCache   map[string]string
+	resourceCache    map[string]string
 }
 
 func NewListenerCache() ListenerCache {
-	return ListenerCache {
+	return ListenerCache{
 		apiListenerCache: NewApiListenerCache(),
-		resourceCache: make(map[string]string),
+		resourceCache:    make(map[string]string),
 	}
 }
 
@@ -47,19 +47,19 @@ func NewApiListenerCache() apiListenerCache {
 	return make(apiListenerCache)
 }
 
-func (cache *ListenerCache)GetApiListenerCache(key string) *listener_v2.Listener {
+func (cache *ListenerCache) GetApiListenerCache(key string) *listener_v2.Listener {
 	return cache.apiListenerCache[key]
 }
 
-func (cache *ListenerCache)SetApiListenerCache(key string, value *listener_v2.Listener) {
+func (cache *ListenerCache) SetApiListenerCache(key string, value *listener_v2.Listener) {
 	cache.apiListenerCache[key] = value
 }
 
-func (cache *ListenerCache)GetLdsResource(key string) string {
+func (cache *ListenerCache) GetLdsResource(key string) string {
 	return cache.resourceCache[key]
 }
 
-func (cache *ListenerCache)SetLdsResource(key string, value string) {
+func (cache *ListenerCache) SetLdsResource(key string, value string) {
 	cache.resourceCache[key] = value
 }
 
