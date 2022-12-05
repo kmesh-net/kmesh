@@ -9,7 +9,8 @@ enum ApiStatus {
   NONE = 0;
   DELETE = 1;
   UPDATE = 2;
-  ALL = 3;
+  UNCHANGED = 3,
+  ALL = 4;
 }
 
 enum RoutingPriority {

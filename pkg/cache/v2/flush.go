@@ -22,6 +22,10 @@ type CacheFactory interface {
 	StatusReset(old, new core_v2.ApiStatus)
 }
 
+// CacheFlush ApiStatus_NONE: indicates that the resource is not included in this response
+// need delete it, so reset to ApiStatus_DELETE
+// ApiStatus_UPDATE: indicates that the resource need update
+// ApiStatus_UNCHANGED:indicates that the resource is not changed in this response
 func CacheFlush(cache CacheFactory) {
 	cache.StatusReset(core_v2.ApiStatus_NONE, core_v2.ApiStatus_DELETE)
 	cache.StatusFlush(core_v2.ApiStatus_UPDATE)
@@ -29,6 +33,7 @@ func CacheFlush(cache CacheFactory) {
 
 	cache.StatusDelete(core_v2.ApiStatus_DELETE)
 	cache.StatusReset(core_v2.ApiStatus_UPDATE, core_v2.ApiStatus_NONE)
+	cache.StatusReset(core_v2.ApiStatus_UNCHANGED, core_v2.ApiStatus_NONE)
 }
 
 func CacheDeltaFlush(cache CacheFactory) {

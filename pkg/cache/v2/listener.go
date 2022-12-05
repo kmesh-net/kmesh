@@ -15,11 +15,12 @@
 package cache_v2
 
 import (
+	"sync"
+
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	listener_v2 "openeuler.io/mesh/api/v2/listener"
 	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
 	"openeuler.io/mesh/pkg/logger"
-	"sync"
 )
 
 var rw_listener sync.RWMutex
@@ -28,13 +29,41 @@ var (
 	log = logger.NewLoggerField("cache/v2")
 )
 
-type ApiListenerCache map[string]*listener_v2.Listener
-
-func NewApiListenerCache() ApiListenerCache {
-	return make(ApiListenerCache)
+type ListenerCache struct{
+	apiListenerCache apiListenerCache
+	resourceCache   map[string]string
 }
 
-func (cache ApiListenerCache) StatusFlush(status core_v2.ApiStatus) int {
+func NewListenerCache() ListenerCache {
+	return ListenerCache {
+		apiListenerCache: NewApiListenerCache(),
+		resourceCache: make(map[string]string),
+	}
+}
+
+type apiListenerCache map[string]*listener_v2.Listener
+
+func NewApiListenerCache() apiListenerCache {
+	return make(apiListenerCache)
+}
+
+func (cache *ListenerCache)GetApiListenerCache(key string) *listener_v2.Listener {
+	return cache.apiListenerCache[key]
+}
+
+func (cache *ListenerCache)SetApiListenerCache(key string, value *listener_v2.Listener) {
+	cache.apiListenerCache[key] = value
+}
+
+func (cache *ListenerCache)GetLdsResource(key string) string {
+	return cache.resourceCache[key]
+}
+
+func (cache *ListenerCache)SetLdsResource(key string, value string) {
+	cache.resourceCache[key] = value
+}
+
+func (cache ListenerCache) StatusFlush(status core_v2.ApiStatus) int {
 	var (
 		err error
 		num int
@@ -42,7 +71,7 @@ func (cache ApiListenerCache) StatusFlush(status core_v2.ApiStatus) int {
 
 	rw_listener.Lock()
 
-	for _, listener := range cache {
+	for _, listener := range cache.apiListenerCache {
 		if listener.GetApiStatus() != status {
 			continue
 		}
@@ -71,29 +100,30 @@ func (cache ApiListenerCache) StatusFlush(status core_v2.ApiStatus) int {
 	return num
 }
 
-func (cache ApiListenerCache) StatusDelete(status core_v2.ApiStatus) {
-	for name, listener := range cache {
+func (cache ListenerCache) StatusDelete(status core_v2.ApiStatus) {
+	for name, listener := range cache.apiListenerCache {
 		if listener.GetApiStatus() == status {
-			delete(cache, name)
+			delete(cache.apiListenerCache, name)
+			delete(cache.resourceCache, name)
 		}
 	}
 }
 
-func (cache ApiListenerCache) StatusReset(old, new core_v2.ApiStatus) {
-	for _, listener := range cache {
+func (cache ListenerCache) StatusReset(old, new core_v2.ApiStatus) {
+	for _, listener := range cache.apiListenerCache {
 		if listener.GetApiStatus() == old {
 			listener.ApiStatus = new
 		}
 	}
 }
 
-func (cache ApiListenerCache) StatusLookup() []*listener_v2.Listener {
+func (cache ListenerCache) StatusLookup() []*listener_v2.Listener {
 	var err error
 	var mapCache []*listener_v2.Listener
 
 	rw_listener.RLock()
 
-	for name, listener := range cache {
+	for name, listener := range cache.apiListenerCache {
 		tmp := &listener_v2.Listener{}
 		if err = maps_v2.ListenerLookup(listener.GetAddress(), tmp); err != nil {
 			log.Errorf("ListenerLookup failed, %s", name)
@@ -109,10 +139,10 @@ func (cache ApiListenerCache) StatusLookup() []*listener_v2.Listener {
 	return mapCache
 }
 
-func (cache ApiListenerCache) StatusRead() []*listener_v2.Listener {
+func (cache ListenerCache) StatusRead() []*listener_v2.Listener {
 	var mapCache []*listener_v2.Listener
 
-	for _, listener := range cache {
+	for _, listener := range cache.apiListenerCache {
 		mapCache = append(mapCache, listener)
 	}
 	return mapCache

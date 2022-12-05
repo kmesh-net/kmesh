@@ -15,21 +15,50 @@
 package cache_v2
 
 import (
+	"sync"
+
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	route_v2 "openeuler.io/mesh/api/v2/route"
 	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
-	"sync"
 )
 
 var rw_route sync.RWMutex
 
+type RouteConfigCache struct{
+	apiRouteConfigCache ApiRouteConfigurationCache
+	resourceCache       map[string]string
+}
+
+func NewRouteConfigCache() RouteConfigCache {
+	return RouteConfigCache{
+		apiRouteConfigCache: newApiRouteConfigurationCache(),
+		resourceCache:       make(map[string]string),
+	}
+}
+
 type ApiRouteConfigurationCache map[string]*route_v2.RouteConfiguration
 
-func NewApiRouteConfigurationCache() ApiRouteConfigurationCache {
+func newApiRouteConfigurationCache() ApiRouteConfigurationCache {
 	return make(ApiRouteConfigurationCache)
 }
 
-func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) int {
+func (cache RouteConfigCache) SetApiRouteConfigCache(key string, value *route_v2.RouteConfiguration) {
+	cache.apiRouteConfigCache[key] = value
+}
+
+func (cache RouteConfigCache) GetApiRouteConfigCache(key string, value *route_v2.RouteConfiguration) {
+	cache.apiRouteConfigCache[key] = value
+}
+
+func (cache *RouteConfigCache)GetRdsResource(key string) string {
+	return cache.resourceCache[key]
+}
+
+func (cache *RouteConfigCache)SetRdsResource(key string, value string) {
+	cache.resourceCache[key] = value
+}
+
+func (cache RouteConfigCache) StatusFlush(status core_v2.ApiStatus) int {
 	var (
 		err error
 		num int
@@ -37,7 +66,7 @@ func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) in
 
 	rw_route.Lock()
 
-	for _, route := range cache {
+	for _, route := range cache.apiRouteConfigCache {
 		if route.GetApiStatus() != status {
 			continue
 		}
@@ -66,29 +95,30 @@ func (cache ApiRouteConfigurationCache) StatusFlush(status core_v2.ApiStatus) in
 	return num
 }
 
-func (cache ApiRouteConfigurationCache) StatusDelete(flag core_v2.ApiStatus) {
-	for name, route := range cache {
+func (cache RouteConfigCache) StatusDelete(flag core_v2.ApiStatus) {
+	for name, route := range cache.apiRouteConfigCache {
 		if route.GetApiStatus() == flag {
-			delete(cache, name)
+			delete(cache.apiRouteConfigCache, name)
+			delete(cache.resourceCache, name)
 		}
 	}
 }
 
-func (cache ApiRouteConfigurationCache) StatusReset(old, new core_v2.ApiStatus) {
-	for _, route := range cache {
+func (cache RouteConfigCache) StatusReset(old, new core_v2.ApiStatus) {
+	for _, route := range cache.apiRouteConfigCache {
 		if route.GetApiStatus() == old {
 			route.ApiStatus = new
 		}
 	}
 }
 
-func (cache ApiRouteConfigurationCache) StatusLookup() []*route_v2.RouteConfiguration {
+func (cache RouteConfigCache) StatusLookup() []*route_v2.RouteConfiguration {
 	var err error
 	var mapCache []*route_v2.RouteConfiguration
 
 	rw_route.RLock()
 
-	for name, route := range cache {
+	for name, route := range cache.apiRouteConfigCache {
 		tmp := &route_v2.RouteConfiguration{}
 		if err = maps_v2.RouteConfigLookup(name, tmp); err != nil {
 			log.Errorf("RouteConfigLookup failed, %s", name)
@@ -104,10 +134,10 @@ func (cache ApiRouteConfigurationCache) StatusLookup() []*route_v2.RouteConfigur
 	return mapCache
 }
 
-func (cache ApiRouteConfigurationCache) StatusRead() []*route_v2.RouteConfiguration {
+func (cache RouteConfigCache) StatusRead() []*route_v2.RouteConfiguration {
 	var mapCache []*route_v2.RouteConfiguration
 
-	for _, route := range cache {
+	for _, route := range cache.apiRouteConfigCache {
 		mapCache = append(mapCache, route)
 	}
 	return mapCache

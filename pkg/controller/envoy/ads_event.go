@@ -17,6 +17,7 @@ package envoy
 import (
 	"context"
 	"fmt"
+
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -129,8 +130,18 @@ func (svc *ServiceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-
-		svc.DynamicLoader.CreateApiClusterByCds(core_v2.ApiStatus_UPDATE, cluster)
+		// compare part[0] CDS now
+		// Cluster_EDS need compare tow parts, compare part[1] EDS in EDS handler
+		apiStatus := core_v2.ApiStatus_UPDATE
+		newCdsString := resource.String()
+		if newCdsString != svc.DynamicLoader.ClusterCache.GetCdsResource(cluster.GetName()) {
+			svc.DynamicLoader.ClusterCache.SetCdsResource(cluster.GetName(), newCdsString)
+			log.Debugf("[CreateApiClusterByCds]update cluster %s, status %d, cluster.type %v",
+				cluster.GetName(), apiStatus, cluster.GetType())
+		} else {
+			apiStatus = core_v2.ApiStatus_UNCHANGED
+		}
+		svc.DynamicLoader.CreateApiClusterByCds(apiStatus, cluster)
 	}
 
 	if len(svc.DynamicLoader.clusterNames) > 0 {
@@ -152,7 +163,18 @@ func (svc *ServiceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.DynamicLoader.CreateApiClusterByEds(core_v2.ApiStatus_UPDATE, loadAssignment)
+		apiStatus := svc.DynamicLoader.ClusterCache.GetApiClusterCache(loadAssignment.GetClusterName()).ApiStatus
+		newEdsString := resource.String()
+		//part[0] CDS is different or part[1] EDS is different
+		if apiStatus == core_v2.ApiStatus_UPDATE ||
+			newEdsString != svc.DynamicLoader.ClusterCache.GetEdsResource(loadAssignment.GetClusterName()){
+			apiStatus = core_v2.ApiStatus_UPDATE
+			svc.DynamicLoader.ClusterCache.SetEdsResource(loadAssignment.GetClusterName(), newEdsString)
+			log.Debugf("[CreateApiClusterByEds] update cluster %s", loadAssignment.GetClusterName())
+		} else {
+			apiStatus = core_v2.ApiStatus_UNCHANGED
+		}
+		svc.DynamicLoader.CreateApiClusterByEds(apiStatus, loadAssignment)
 	}
 
 	svc.rqt = newAdsRequest(resource_v3.ListenerType, nil)
@@ -170,7 +192,17 @@ func (svc *ServiceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, listener, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.DynamicLoader.CreateApiListenerByLds(core_v2.ApiStatus_UPDATE, listener)
+
+		apiStatus := core_v2.ApiStatus_UPDATE
+		newLdsResource := resource.String()
+		if newLdsResource != svc.DynamicLoader.ListenerCache.GetLdsResource(listener.GetName()) {
+			svc.DynamicLoader.ListenerCache.SetLdsResource(listener.GetName(), newLdsResource)
+			log.Debugf("[CreateApiListenerByLds]update %s", listener.GetName())
+		} else {
+			apiStatus = core_v2.ApiStatus_UNCHANGED
+		}
+
+		svc.DynamicLoader.CreateApiListenerByLds(apiStatus, listener)
 	}
 
 	cache_v2.CacheFlush(svc.DynamicLoader.ListenerCache)
@@ -194,7 +226,17 @@ func (svc *ServiceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, routeConfiguration, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		svc.DynamicLoader.CreateApiRouteByRds(core_v2.ApiStatus_UPDATE, routeConfiguration)
+
+		apiStatus := core_v2.ApiStatus_UPDATE
+		newRdsResource := resource.String()
+		if newRdsResource != svc.DynamicLoader.RouteCache.GetRdsResource(routeConfiguration.GetName()) {
+			svc.DynamicLoader.RouteCache.SetRdsResource(routeConfiguration.GetName(), newRdsResource)
+			log.Debugf("[CreateApiRouteByRds] update %s", routeConfiguration.GetName())
+		} else {
+			apiStatus = core_v2.ApiStatus_UNCHANGED
+		}
+
+		svc.DynamicLoader.CreateApiRouteByRds(apiStatus, routeConfiguration)
 	}
 
 	svc.rqt = nil
@@ -225,13 +267,13 @@ func (svc *ServiceEvent) handleAdminResponse(resources *admin_v2.ConfigResources
 	}
 
 	for _, cluster := range resources.GetClusterConfigs() {
-		svc.StaticLoader.ClusterCache[cluster.GetName()] = cluster
+		svc.StaticLoader.ClusterCache.SetApiClusterCache(cluster.GetName(), cluster)
 	}
 	for _, listener := range resources.GetListenerConfigs() {
-		svc.StaticLoader.ListenerCache[listener.GetName()] = listener
+		svc.StaticLoader.ListenerCache.SetApiListenerCache(listener.GetName(), listener)
 	}
 	for _, route := range resources.GetRouteConfigs() {
-		svc.StaticLoader.RouteCache[route.GetName()] = route
+		svc.StaticLoader.RouteCache.SetApiRouteConfigCache(route.GetName(), route)
 	}
 
 	cache_v2.CacheDeltaFlush(svc.StaticLoader.ClusterCache)
