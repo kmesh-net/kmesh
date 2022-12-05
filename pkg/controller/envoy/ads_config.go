@@ -20,30 +20,28 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
+	config_bootstrap_v3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	extensions_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"openeuler.io/mesh/pkg/controller/interfaces"
 
-	config_bootstrap_v3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	// in order to fix: could not resolve Any message type
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-
-	"path/filepath"
-
 	"github.com/golang/protobuf/jsonpb"
-	"openeuler.io/mesh/pkg/logger"
-	"openeuler.io/mesh/pkg/options"
-
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
+
+	"openeuler.io/mesh/pkg/controller/interfaces"
+	"openeuler.io/mesh/pkg/logger"
+	"openeuler.io/mesh/pkg/options"
 )
 
 const (
@@ -180,7 +178,7 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 						addr = lb.GetEndpoint().GetAddress().GetPipe().GetPath()
 					case *config_core_v3.Address_SocketAddress:
 						ip := lb.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
-						meshCtlIp, err = getMeshCtlIp();
+						meshCtlIp, err = getMeshCtlIp()
 						if err != nil {
 							log.Infof(err.Error())
 						} else if meshCtlIp != "" {
@@ -189,7 +187,6 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 						port := lb.GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
 						addr = ip + ":" + strconv.FormatUint(uint64(port), Decimalism)
 					case *config_core_v3.Address_EnvoyInternalAddress:
-						// TODO
 						log.Infof("envoy internal addr type is unsupport this version")
 						continue
 					default:
@@ -209,7 +206,7 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 }
 
 func getMeshCtlIp() (meshCtlIp string, err error) {
-        var kubeConfig *string
+	var kubeConfig *string
 
 	if home := os.Getenv("HOME"); home != "" {
 		configPath := filepath.Join(home, ".kube", "config")
@@ -231,8 +228,12 @@ func getMeshCtlIp() (meshCtlIp string, err error) {
 	}
 
 	meshCtl := os.Getenv("MESH_CONTROLLER")
+	if (meshCtl == "") {
+		log.Infof("env MESH_CONTROLLER not set, use the default vlaue: istio-system:istiod")
+		meshCtl = "istio-system:istiod"
+	}
 	array := strings.Split(meshCtl, ":")
-	if (len(array) != 2) {
+	if len(array) != 2 {
 		return meshCtlIp, errors.New("get env MESH_CONTROLLER error!")
 	}
 	ns := array[0]

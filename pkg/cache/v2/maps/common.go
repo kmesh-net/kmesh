@@ -21,9 +21,10 @@ package maps
 import "C"
 import (
 	"fmt"
+	"unsafe"
+
 	"google.golang.org/protobuf/proto"
 	core_v2 "openeuler.io/mesh/api/v2/core"
-	"unsafe"
 )
 
 func convertToPack(buf []byte) *C.uint8_t {

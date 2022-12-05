@@ -22,7 +22,7 @@ import (
 	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
 )
 
-var rw_cluster sync.RWMutex
+var RWCluster sync.RWMutex
 
 
 type ClusterCache struct{
@@ -74,7 +74,7 @@ func (cache ClusterCache) StatusFlush(status core_v2.ApiStatus) int {
 		num int
 	)
 
-	rw_cluster.Lock()
+	RWCluster.Lock()
 	for _, cluster := range cache.apiClusterCache {
 		if cluster.GetApiStatus() != status {
 			continue
@@ -99,7 +99,7 @@ func (cache ClusterCache) StatusFlush(status core_v2.ApiStatus) int {
 		cache.StatusDelete(status)
 	}
 
-	defer rw_cluster.Unlock()
+	defer RWCluster.Unlock()
 
 	return num
 }
@@ -125,7 +125,7 @@ func (cache ClusterCache) StatusLookup() []*cluster_v2.Cluster {
 	var err error
 	var mapCache []*cluster_v2.Cluster
 
-	rw_cluster.RLock()
+	RWCluster.RLock()
 
 	for name, route := range cache.apiClusterCache{
 		tmp := &cluster_v2.Cluster{}
@@ -137,7 +137,7 @@ func (cache ClusterCache) StatusLookup() []*cluster_v2.Cluster {
 		tmp.ApiStatus = route.ApiStatus
 		mapCache = append(mapCache, tmp)
 	}
-	defer rw_cluster.RUnlock()
+	defer RWCluster.RUnlock()
 
 	return mapCache
 }

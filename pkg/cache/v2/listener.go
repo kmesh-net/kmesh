@@ -23,7 +23,7 @@ import (
 	"openeuler.io/mesh/pkg/logger"
 )
 
-var rw_listener sync.RWMutex
+var RWListener sync.RWMutex
 
 var (
 	log = logger.NewLoggerField("cache/v2")
@@ -69,7 +69,7 @@ func (cache ListenerCache) StatusFlush(status core_v2.ApiStatus) int {
 		num int
 	)
 
-	rw_listener.Lock()
+	RWListener.Lock()
 
 	for _, listener := range cache.apiListenerCache {
 		if listener.GetApiStatus() != status {
@@ -95,7 +95,7 @@ func (cache ListenerCache) StatusFlush(status core_v2.ApiStatus) int {
 		cache.StatusDelete(status)
 	}
 
-	defer rw_listener.Unlock()
+	defer RWListener.Unlock()
 
 	return num
 }
@@ -121,7 +121,7 @@ func (cache ListenerCache) StatusLookup() []*listener_v2.Listener {
 	var err error
 	var mapCache []*listener_v2.Listener
 
-	rw_listener.RLock()
+	RWListener.RLock()
 
 	for name, listener := range cache.apiListenerCache {
 		tmp := &listener_v2.Listener{}
@@ -134,7 +134,7 @@ func (cache ListenerCache) StatusLookup() []*listener_v2.Listener {
 		mapCache = append(mapCache, tmp)
 	}
 
-	defer rw_listener.RUnlock()
+	defer RWListener.RUnlock()
 
 	return mapCache
 }

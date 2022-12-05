@@ -69,7 +69,10 @@ func (c *Config) ParseConfig() error {
 
 	bpfLogsize := os.Getenv("BPF_LOG_SIZE")
 	if bpfLogsize != "" {
-		c.BpfVerifyLogSize, _ = strconv.Atoi(bpfLogsize)
+		c.BpfVerifyLogSize, err = strconv.Atoi(bpfLogsize)
+		if (err != nil) {
+			c.BpfVerifyLogSize = 0
+		}
 	}
 
 	return nil

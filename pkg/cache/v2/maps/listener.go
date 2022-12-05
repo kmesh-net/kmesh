@@ -67,7 +67,7 @@ func ListenerLookup(key *core_v2.SocketAddress, value *listener_v2.Listener) err
 		return fmt.Errorf("ListenerLookup %s", err)
 	}
 	defer socketAddressFreeClang(cKey)
-	
+
 	desc := cKey.base.descriptor
 	cKey.base.descriptor = nil
 	cMsg := C.deserial_lookup_elem(unsafe.Pointer(cKey), unsafe.Pointer(&C.listener__listener__descriptor))

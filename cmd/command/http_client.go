@@ -24,7 +24,7 @@ import (
 
 type httpClient struct {
 	client *http.Client
-	resp *http.Response
+	resp   *http.Response
 }
 
 var cmdClient httpClient
@@ -45,8 +45,8 @@ func StartClient() error {
 		Timeout: httpTimeout,
 	}
 	cmdClient.resp, err =
-		cmdClient.client.Post(adminUrl + patternBpfKmeshMaps, 
-							  contentType, strings.NewReader(string(config.ConfigResources)))
+		cmdClient.client.Post(adminUrl+patternBpfKmeshMaps,
+			contentType, strings.NewReader(string(config.ConfigResources)))
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func StartClient() error {
 func StopClient() error {
 	if cmdClient.resp != nil {
 		return cmdClient.resp.Body.Close()
-		
+
 	}
 	return nil
 }

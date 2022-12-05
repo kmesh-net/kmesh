@@ -16,6 +16,7 @@ package bpf
 
 import (
 	"fmt"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
 	"openeuler.io/mesh/pkg/logger"
@@ -25,9 +26,9 @@ var log = logger.NewLoggerField("pkg/bpf")
 
 type BpfInfo struct {
 	Config
-	MapPath		string
-	Type		ebpf.ProgramType
-	AttachType	ebpf.AttachType
+	MapPath    string
+	Type       ebpf.ProgramType
+	AttachType ebpf.AttachType
 }
 
 type BpfObject struct {
@@ -54,9 +55,9 @@ func StartKmesh() error {
 	}
 
 	if err = Obj.Kmesh.ApiEnvCfg(); err != nil {
-                Stop()
-                return fmt.Errorf("api env config failed, %s", err)
-        }
+		Stop()
+		return fmt.Errorf("api env config failed, %s", err)
+	}
 
 	return nil
 }

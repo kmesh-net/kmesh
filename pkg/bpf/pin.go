@@ -42,8 +42,8 @@ func pinPrograms(value *reflect.Value, path string) error {
 
 func unpinPrograms(value *reflect.Value) error {
 	for i := 0; i < value.NumField(); i++ {
-		tp := value.Field(i).Interface().(*ebpf.Program)
-		if tp == nil {
+		tp, ok := value.Field(i).Interface().(*ebpf.Program)
+		if !ok || tp == nil {
 			continue
 		}
 		if err := tp.Unpin(); err != nil {

@@ -39,7 +39,7 @@ static int copy_msg_from_user(struct msghdr *msg, void **to, unsigned int *len)
 		return -EFAULT;
 
 	*to = kbuf;
-	*len = iov->iov_len;
+	*len = (unsigned int)iov->iov_len;
 	return 0;
 }
 
@@ -78,7 +78,7 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
 	if (err)
 		return err;
 
-        tcp_call_bpf_3arg(sk, BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB,
+        (void)tcp_call_bpf_3arg(sk, BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB,
                           ((u64)(&tmpMem) & 0xffffffff),
                           (((u64)(&tmpMem) >> 32) & 0xffffffff), tmpMem.size);
 
@@ -96,7 +96,7 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
         kfree(tmpMem.ptr);
 
         if (unlikely(err)) {
-	    printk(KERN_CRIT "[tcp_sendmsg]import_single_range failed:%d\n", err);
+	    (void)printk(KERN_CRIT "[tcp_sendmsg]import_single_range failed:%d\n", err);
             tcp_set_state(sk, TCP_CLOSE);
             sk->sk_route_caps = 0;
             inet_sk(sk)->inet_dport = 0;
@@ -104,7 +104,7 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
         }
 
 	timeo = 1;
-	if (((1 << sk->sk_state) & ~(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT))
+	if ((((__u32)1 << sk->sk_state) & ~(__u32)(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT))
 		&& !tcp_passive_fastopen(sk)) {
 		sk_stream_wait_connect(sk, &timeo);
 	}

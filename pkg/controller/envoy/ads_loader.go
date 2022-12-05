@@ -26,6 +26,7 @@ import (
 	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+
 	cluster_v2 "openeuler.io/mesh/api/v2/cluster"
 	core_v2 "openeuler.io/mesh/api/v2/core"
 	endpoint_v2 "openeuler.io/mesh/api/v2/endpoint"
@@ -274,8 +275,8 @@ func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *
 			Domains: host.GetDomains(),
 			Routes:  nil,
 		}
-		//default route is first one without match headers
-		//append it to the end
+		// default route is first one without match headers
+		// append it to the end
 		var defaultRoute *route_v2.Route = nil
 		for _, route := range host.GetRoutes() {
 			apiRoute := newApiRoute(route)
@@ -369,7 +370,7 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
 	}
 	apiAction := &route_v2.RouteAction{
 		ClusterSpecifier: nil,
-		Timeout: uint32(action.GetTimeout().GetSeconds()),
+		Timeout:          uint32(action.GetTimeout().GetSeconds()),
 		RetryPolicy: &route_v2.RetryPolicy{
 			NumRetries: action.GetRetryPolicy().GetNumRetries().GetValue(),
 		},

@@ -73,12 +73,7 @@ int filter_manager(ctx_buff_t *ctx)
 		BPF_LOG(ERR, FILTER, "failed to get filter\n");
 		return convert_sockops_ret(-1);
 	}
-
 	kmesh_tail_delete_ctx(&ctx_key);
-	if (!filter) {
-		BPF_LOG(ERR, FILTER, "kmesh_tail_lookup_ctx failed\n");
-		return convert_sockops_ret(-1);
-	}
 
 	switch (filter->config_type_case) {
 		case LISTENER__FILTER__CONFIG_TYPE_HTTP_CONNECTION_MANAGER:

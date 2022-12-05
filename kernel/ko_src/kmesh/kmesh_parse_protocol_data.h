@@ -18,22 +18,22 @@
 enum kmesh_l7_proto_type {
 	PROTO_UNKNOW 	= 0,
 	PROTO_HTTP_1_1,
-	PROTO_HTTP_2_0,
+	PROTO_HTTP_2_0
 };
 
 enum kmesh_l7_msg_type {
 	MSG_UNKNOW	= 0,
 	MSG_REQUEST,
 	MSG_MID_REPONSE,
-	MSG_FINAL_RESPONSE,
+	MSG_FINAL_RESPONSE
 };
 
-#define KMESH_PROTO_TYPE_WIDTH 8
+#define KMESH_PROTO_TYPE_WIDTH (8)
 
-#define SET_RET_PROTO_TYPE(n, type) (n) = (((n) & 0xff00) | ((type) & 0xff ))
+#define SET_RET_PROTO_TYPE(n, type) (n) = (((n) & 0xff00) | ((u32)(type) & 0xff ))
 #define GET_RET_PROTO_TYPE(n) ((n) & 0xff)
 
-#define SET_RET_MSG_TYPE(n, type) (n) = (((n) & 0xff) | (((type) & 0xff) << KMESH_PROTO_TYPE_WIDTH))
+#define SET_RET_MSG_TYPE(n, type) (n) = (((n) & 0xff) | (((u32)(type) & 0xff) << KMESH_PROTO_TYPE_WIDTH))
 #define GET_RET_MSG_TYPE(n) (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
 
 struct kmesh_data_node {
