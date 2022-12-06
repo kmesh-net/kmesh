@@ -43,16 +43,16 @@ type AdsLoader struct {
 	// subscribe to RDS by RouteConfiguration Name
 	routeNames []string
 
-	ListenerCache cache_v2.ApiListenerCache
-	ClusterCache  cache_v2.ApiClusterCache
-	RouteCache    cache_v2.ApiRouteConfigurationCache
+	ListenerCache    cache_v2.ListenerCache
+	ClusterCache     cache_v2.ClusterCache
+	RouteCache       cache_v2.RouteConfigCache
 }
 
 func NewAdsLoader() *AdsLoader {
 	return &AdsLoader{
-		ListenerCache: cache_v2.NewApiListenerCache(),
-		ClusterCache:  cache_v2.NewApiClusterCache(),
-		RouteCache:    cache_v2.NewApiRouteConfigurationCache(),
+		ListenerCache:    cache_v2.NewListenerCache(),
+		ClusterCache:     cache_v2.NewClusterCache(),
+		RouteCache:       cache_v2.NewRouteConfigCache(),
 	}
 }
 
@@ -71,16 +71,16 @@ func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
 
-	load.ClusterCache[cluster.GetName()] = apiCluster
+	load.ClusterCache.SetApiClusterCache(cluster.GetName(), apiCluster)
 }
 
 func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus,
 	loadAssignment *config_endpoint_v3.ClusterLoadAssignment) {
-	apiCluster := load.ClusterCache[loadAssignment.GetClusterName()]
+	apiCluster := load.ClusterCache.GetApiClusterCache(loadAssignment.GetClusterName())
 	if apiCluster == nil {
 		return
 	}
-
+	apiCluster.ApiStatus = status
 	apiCluster.LoadAssignment = newApiClusterLoadAssignment(loadAssignment)
 }
 
@@ -181,7 +181,7 @@ func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener
 		apiListener.FilterChains = append(apiListener.FilterChains, apiFilterChain)
 	}
 
-	load.ListenerCache[apiListener.GetName()] = apiListener
+	load.ListenerCache.SetApiListenerCache(apiListener.GetName(), apiListener)
 }
 
 func newApiFilterChainMatch(match *config_listener_v3.FilterChainMatch) *listener_v2.FilterChainMatch {
@@ -260,7 +260,7 @@ func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.F
 func (load *AdsLoader) CreateApiRouteByRds(status core_v2.ApiStatus, routeConfig *config_route_v3.RouteConfiguration) {
 	apiRouteConfig := newApiRouteConfiguration(routeConfig)
 	apiRouteConfig.ApiStatus = status
-	load.RouteCache[apiRouteConfig.GetName()] = apiRouteConfig
+	load.RouteCache.SetApiRouteConfigCache(apiRouteConfig.GetName(), apiRouteConfig)
 }
 
 func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *route_v2.RouteConfiguration {

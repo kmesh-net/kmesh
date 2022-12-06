@@ -24,20 +24,57 @@ import (
 
 var RWCluster sync.RWMutex
 
-type ApiClusterCache map[string]*cluster_v2.Cluster
-
-func NewApiClusterCache() ApiClusterCache {
-	return make(ApiClusterCache)
+type ClusterCache struct {
+	apiClusterCache apiClusterCache
+	// resourceCache[0]:cds  resourceCache[1]:eds
+	resourceCache map[string][2]string
 }
 
-func (cache ApiClusterCache) StatusFlush(status core_v2.ApiStatus) int {
+func NewClusterCache() ClusterCache {
+	return ClusterCache{
+		apiClusterCache: newApiClusterCache(),
+		resourceCache:   make(map[string][2]string),
+	}
+}
+
+type apiClusterCache map[string]*cluster_v2.Cluster
+
+func newApiClusterCache() apiClusterCache {
+	return make(apiClusterCache)
+}
+
+func (cache *ClusterCache) GetApiClusterCache(key string) *cluster_v2.Cluster {
+	return cache.apiClusterCache[key]
+}
+
+func (cache *ClusterCache) SetApiClusterCache(key string, value *cluster_v2.Cluster) {
+	cache.apiClusterCache[key] = value
+}
+
+func (cache *ClusterCache) GetCdsResource(key string) string {
+	return cache.resourceCache[key][0]
+}
+
+func (cache *ClusterCache) SetCdsResource(key string, value string) {
+	cache.resourceCache[key] = [2]string{value, cache.resourceCache[key][1]}
+}
+
+func (cache *ClusterCache) GetEdsResource(key string) string {
+	return cache.resourceCache[key][1]
+}
+
+func (cache *ClusterCache) SetEdsResource(key string, value string) {
+	cache.resourceCache[key] = [2]string{cache.resourceCache[key][0], value}
+}
+
+func (cache ClusterCache) StatusFlush(status core_v2.ApiStatus) int {
 	var (
 		err error
 		num int
 	)
 
 	RWCluster.Lock()
-	for _, cluster := range cache {
+	for _, cluster := range cache.apiClusterCache {
 		if cluster.GetApiStatus() != status {
 			continue
 		}
@@ -66,29 +103,30 @@ func (cache ApiClusterCache) StatusFlush(status core_v2.ApiStatus) int {
 	return num
 }
 
-func (cache ApiClusterCache) StatusDelete(status core_v2.ApiStatus) {
-	for name, cluster := range cache {
+func (cache ClusterCache) StatusDelete(status core_v2.ApiStatus) {
+	for name, cluster := range cache.apiClusterCache {
 		if cluster.GetApiStatus() == status {
-			delete(cache, name)
+			delete(cache.apiClusterCache, name)
+			delete(cache.resourceCache, name)
 		}
 	}
 }
 
-func (cache ApiClusterCache) StatusReset(old, new core_v2.ApiStatus) {
-	for _, cluster := range cache {
+func (cache ClusterCache) StatusReset(old, new core_v2.ApiStatus) {
+	for _, cluster := range cache.apiClusterCache {
 		if cluster.GetApiStatus() == old {
 			cluster.ApiStatus = new
 		}
 	}
 }
 
-func (cache ApiClusterCache) StatusLookup() []*cluster_v2.Cluster {
+func (cache ClusterCache) StatusLookup() []*cluster_v2.Cluster {
 	var err error
 	var mapCache []*cluster_v2.Cluster
 
 	RWCluster.RLock()
 
-	for name, route := range cache {
+	for name, route := range cache.apiClusterCache {
 		tmp := &cluster_v2.Cluster{}
 		if err = maps_v2.ClusterLookup(name, tmp); err != nil {
 			log.Errorf("ClusterLookup failed, %s", name)
@@ -103,10 +141,10 @@ func (cache ApiClusterCache) StatusLookup() []*cluster_v2.Cluster {
 	return mapCache
 }
 
-func (cache ApiClusterCache) StatusRead() []*cluster_v2.Cluster {
+func (cache ClusterCache) StatusRead() []*cluster_v2.Cluster {
 	var mapCache []*cluster_v2.Cluster
 
-	for _, route := range cache {
+	for _, route := range cache.apiClusterCache {
 		mapCache = append(mapCache, route)
 	}
 	return mapCache
