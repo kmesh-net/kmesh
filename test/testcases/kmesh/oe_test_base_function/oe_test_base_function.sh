@@ -19,7 +19,7 @@ function run_test() {
     set -e
 
     #start fortio server
-    start_fortio_server
+    start_fortio_server -http-port 127.0.0.1:11466
 
     #start kmesh-daemon
     start_kmesh
