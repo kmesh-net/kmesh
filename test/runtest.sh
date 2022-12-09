@@ -20,7 +20,7 @@ function env_reset() {
 }
 
 function packages_install() {
-    yum install -y make golang clang libbpf-devel llvm libboundscheck protobuf protobuf-c protobuf-c-devel
+    yum install -y make golang clang libbpf-devel llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool rpm-build rpmdevtools
 }
 
 function test() {
