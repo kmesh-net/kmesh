@@ -6,7 +6,7 @@
           "apiStatus":"UPDATE",
           "name":"127.0.0.1_9081",
           "address":{
-            "port":31011,
+            "port":9563,
             "ipv4":16777343
           },
           "filterChains":[
@@ -91,7 +91,7 @@
                 "lbEndpoints":[
                   {
                     "address":{
-                      "port":32035,
+                      "port":51756,
                       "ipv4":16777343
                     }
                   }
@@ -113,7 +113,7 @@
                 "lbEndpoints":[
                   {
                     "address":{
-                      "port":32291,
+                      "port":57388,
                       "ipv4":16777343
                     }
                   }

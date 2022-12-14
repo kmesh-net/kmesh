@@ -19,10 +19,10 @@ function run_test() {
     # exits the shell when $? is not 0
     set -e
 
-    # start fortio server 9085 
-    # start fortio server 9086
-    start_fortio_server -http-port 127.0.0.1:9085 -echo-server-default-params="header=server:1"
-    start_fortio_server -http-port 127.0.0.1:9086 -echo-server-default-params="header=server:2"
+    # start fortio server 11466 
+    # start fortio server 11488
+    start_fortio_server -http-port 127.0.0.1:11466 -echo-server-default-params="header=server:1"
+    start_fortio_server -http-port 127.0.0.1:11488 -echo-server-default-params="header=server:2"
 
     # start kmesh-daemon
     start_kmesh
@@ -30,12 +30,16 @@ function run_test() {
     # use kmesh-cmd load conf and check conf load ok
     load_kmesh_config
     
-    # curl header is end-user:jason route to 9085
-    # else route to 9086    
-    curl --header "end-user:jason" -v http://127.0.0.1:9081 > tmp_trace1.log 2>&1
-    curl -v http://127.0.0.1:9081 > tmp_trace2.log 2>&1
-    grep 'Server: 1' tmp_trace1.log && grep 'Server: 2' tmp_trace2.log
-    CHECK_RESULT $? 0 0 "bad route"
+    # curl header is end-user:jason route to 11466
+    # else route to 11488    
+    for ((i=0;i<10;i++))
+    do
+	    curl --header "end-user:jason" -v http://127.0.0.1:23333 >> tmp_trace1.log 2>&1
+	    curl -v http://127.0.0.1:23333 >> tmp_trace2.log 2>&1
+    done
+
+    grep 'Server: 1' tmp_trace1.log && grep 'Server: 2' tmp_trace2.log&&grep 'Server: 2' tmp_trace1.log || grep 'Server: 1' tmp_trace2.log || echo 'OK'
+    CHECK_RESULT $_ OK 0 "bad route"
 
     LOG_INFO "Finish test!"
 }

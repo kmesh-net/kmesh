@@ -19,10 +19,10 @@ function run_test() {
     # exits the shell when $? is not 0
     set -e
 
-    # start fortio server 9085 
-    # start fortio server 9086
-    start_fortio_server -http-port 127.0.0.1:9085 -echo-server-default-params="header=server:1"
-    start_fortio_server -http-port 127.0.0.1:9086 -echo-server-default-params="header=server:2"
+    # start fortio server 11466 
+    # start fortio server 11488
+    start_fortio_server -http-port 127.0.0.1:11466 -echo-server-default-params="header=server:1"
+    start_fortio_server -http-port 127.0.0.1:11488 -echo-server-default-params="header=server:2"
 
     # start kmesh-daemon
     start_kmesh
@@ -32,10 +32,10 @@ function run_test() {
     
     # load balancing test
     # round robin
-    curl -v http://127.0.0.1:9081 > tmp_trace.log 2>&1
-    curl -v http://127.0.0.1:9081 >> tmp_trace.log 2>&1
+    curl -v http://127.0.0.1:23333 > tmp_trace.log 2>&1
+    curl -v http://127.0.0.1:23333 >> tmp_trace.log 2>&1
     grep 'Server: 1' tmp_trace.log && grep 'Server: 2' tmp_trace.log
-    CHECK_RESULT $? 0 0 "bad balancing"
+    CHECK_RESULT $? 0 0 "bad balancing" 
 
     LOG_INFO "Finish test!"
 }

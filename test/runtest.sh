@@ -2,8 +2,9 @@
 
 IPADDR=$1
 PASSWD=$2
-USER=${3-root}
-PORT=${4-22}
+TESTCASE=${3-ALL}
+USER=${4-root}
+PORT=${5-22}
 
 CURRENT_PATH=$(pwd)
 
@@ -23,7 +24,7 @@ function packages_install() {
     yum install -y make golang clang libbpf-devel llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool rpm-build rpmdevtools
 }
 
-function test() {
+function runtest() {
     cd $CURRENT_PATH
 
     rm -rf mugen-master
@@ -35,7 +36,11 @@ function test() {
     bash dep_install.sh
     bash mugen.sh -c --ip $IPADDR --password $PASSWD --user $USER --port $PORT
 
-    bash mugen.sh -f kmesh -x
+    if [ $TESTCASE == 'ALL' ]; then
+	    bash mugen.sh -f kmesh -x
+    else
+	    bash mugen.sh -f kmesh -r $TESTCASE -x
+    fi
 
     if [ -d results/kmesh ]; then
         if [ -d results/kmesh/succeed ]; then
@@ -64,5 +69,5 @@ function test() {
 
 packages_install
 code_compile
-test
+runtest
 env_reset
