@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kmesh-deploy
+  labels:
+    app: kmesh
+spec:
+  selector:
+    matchLabels:
+      app: kmesh
+  template:
+     metadata:
+       labels:
+         app: kmesh
+     spec:
+       volumes:
+         - name: mnt
+           hostPath:
+             path: /mnt
+         - name: sys-fs-bpf
+           hostPath:
+             path: /sys/fs/bpf
+         - name: lib-modules
+           hostPath:
+             path: /lib/modules
+         - name: kube-config-path
+           hostPath:
+             path: /root/.kube
+       containers:
+         - name: kmesh
+           image: kmesh:1.0.1
+           imagePullPolicy: IfNotPresent
+           securityContext:
+             privileged: true
+             capabilities:
+               add: ["all"]
+           ports:
+           - containerPort: 6789
+             hostPort: 6789
+           env:
+           - name: MESH_CONTROLLER
+             value:istio-system:istiod
+           - name: BPF_LOG_SIZE
+             value:"12800"
+           volumeMounts:
+           - name: mnt
+             mountPath: /mnt
+             readOnly: false
+           - name: sys-fs-bpf
+             mountPath: /sys/fs/bpf
+             readOnly: false
+           - name: lib-modules
+             mountPath: /lib/modules
+             readOnly: false
+           - name: kube-config-path
+             mountPath: /root/.kube
+             readOnly: true
+           resources:
+             limits:
+               memory: "200Mi"
+               cpu: "1"
