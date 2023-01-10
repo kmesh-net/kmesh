@@ -29,6 +29,8 @@
 
 - kmesh-cmd
 
+  手动导入编排规则，一般为手动部署场景使用；
+
   ```sh
   # kmesh-cmd -h
   Usage of kmesh-cmd:
@@ -54,4 +56,13 @@
   curl http://localhost:15200/options
   ```
 
-#### 
+- 命令使用注意事项
+
+  - `-enable-ads=true`时，Kmesh从服务网格控制面自动接收编排规则；此配置下，不要使用`kmesh-cmd`命令下发规则，避免多头配置；
+
+  - `-bpf-fs-path`参数指定的`path`要求是bpf文件系统路径；如：
+
+    ```sh
+    [root@localhost Kmesh]# mount | grep "/sys/fs/bpf"
+    none on /sys/fs/bpf type bpf (rw,nosuid,nodev,noexec,relatime,mode=700)
+    ```
