@@ -149,3 +149,17 @@ known_types = {
 [root@dev rpmbuild]# rpmbuild --noclean --noprep --define="_topdir /home/test/kmesh_kernel/root/rpmbuild" -bb SPECS/kernel.spec
 ```
 
+
+### Kmesh 新增的patch修改了include/uapi/linux/bpf.h， 和libbpf中的中的bpf.h头文件不再一致。
+
+A:
+
+```sh
+#更新libbpf中的bpf.h头文件为kernel中打上patch后的文件；请更新之前备份，用于后续不再使用此版本内核时恢复。
+[root@dev rpmbuild]# cp /usr/include/linux/bpf.h /usr/include/linux/bpf.hbak
+[root@dev rpmbuild]# cp /home/test/kmesh_kernel/root/rpmbuild/BUILD/kernel-5.10.0/linux-5.10.0-60.18.0.50.x86_64/include/uapi/linux/bpf.h /usr/include/linux/bpf.h
+
+#当然也可以不备份，后续恢复采用重新安装libbpf rpm包的方式
+
+```
+
