@@ -9,6 +9,7 @@ ExecStartPre=/usr/bin/kmesh-start-pre.sh
 ExecStart=/usr/bin/kmesh-daemon -enable-kmesh
 ExecStop=/usr/bin/kill kmesh-daemon
 ExecStopPost=/usr/bin/kmesh-stop-post.sh
+Restart=on-failure
 StartLimitBurst=1
 StartLimitInterval=1s
 
