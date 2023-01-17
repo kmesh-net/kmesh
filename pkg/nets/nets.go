@@ -22,7 +22,6 @@ import (
 
 // ConvertIpToUint32 converts ip to little-endian uint32 format
 func ConvertIpToUint32(ip string) uint32 {
-	netIP := net.ParseIP(ip)
 	netIP := net.ParseIP(ip) // BigEndian
 	if len(netIP) == net.IPv6len {
 		return binary.LittleEndian.Uint32(netIP.To4())
