@@ -49,3 +49,7 @@ func GetAdsClient() *envoy.AdsClient {
 	}
 	return client.(*envoy.AdsClient)
 }
+
+func IsAdsEnable() bool {
+	return envoy.GetConfig().EnableAds
+}
