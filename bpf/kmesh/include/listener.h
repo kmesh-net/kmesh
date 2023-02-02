@@ -49,9 +49,10 @@ static inline bool listener_filter_chain_match_check(const Listener__FilterChain
 
 	transport_protocol = kmesh_get_ptr_val(filter_chain_match->transport_protocol);
 	if (!transport_protocol) {
-		BPF_LOG(ERR, LISTENER, "transport_protocol is NULL\n");
+		BPF_LOG(WARN, LISTENER, "transport_protocol is NULL\n");
 		return false;
 	} else if (bpf_strcmp(buf, transport_protocol) != 0) {
+		BPF_LOG(WARN, LISTENER, "transport_protocol %s mismatch\n", transport_protocol);
 		return false;
 	}
 
@@ -114,7 +115,7 @@ static inline int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *liste
 	/* filter chain match */
 	ret = listener_filter_chain_match(listener, &addr, ctx, &filter_chain, &filter_chain_idx);
 	if (ret != 0) {
-		BPF_LOG(ERR, LISTENER, "listener_filter_chain_match fail, addr=%u\n", addr.ipv4);
+		BPF_LOG(WARN, LISTENER, "filterchain mismatch, un support addr=%u:%u\n", addr.ipv4, addr.port);
 		return -1;
 	}
 	
