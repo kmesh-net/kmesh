@@ -74,13 +74,13 @@ func httpOptions(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-
 	client := controller.GetAdsClient()
 	if client == nil {
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
 		return
 	} else if client.Event == nil {
+		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "none client.Event")
 		return
 	}
@@ -107,6 +107,11 @@ func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
 			DynamicResources: dynamicRes,
 		}))
 	case http.MethodPost:
+		if controller.IsAdsEnable() {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintln(w, "This operation is not supported, because kmesh starts with -enable-ads=true.")
+			return
+		}
 		dump := &admin_v2.ConfigDump{}
 		content, err := ioutil.ReadAll(r.Body)
 		if err != nil {
@@ -123,8 +128,9 @@ func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
 		client.Event.NewAdminRequest(dump.GetStaticResources())
 	default:
 		w.WriteHeader(http.StatusNotFound)
+		return
 	}
-
+	w.WriteHeader(http.StatusOK)
 	return
 }
 
