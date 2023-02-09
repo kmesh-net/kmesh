@@ -26,6 +26,7 @@ import (
 	"openeuler.io/mesh/pkg/controller"
 	"openeuler.io/mesh/pkg/logger"
 	"openeuler.io/mesh/pkg/options"
+	"openeuler.io/mesh/pkg/pid"
 )
 
 const (
@@ -38,7 +39,12 @@ var (
 
 // Execute start daemon manager process
 func Execute() {
-	var err error
+	err := pid.CreatePidFile()
+	if err != nil {
+		log.Errorf("failed to start, reason: %v", err)
+		return
+	}
+	defer pid.RemovePidFile()
 
 	if err = options.InitDaemonConfig(); err != nil {
 		log.Error(err)
