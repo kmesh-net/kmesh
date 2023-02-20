@@ -30,9 +30,8 @@ CFLAGS += -target bpf
 
 # target
 APPS := $(patsubst %.c, %.o, $(wildcard *.c))
-APPS_BIN = $(addprefix $(INSTALL_BIN)/, $(APPS))
 
-.PHONY: all install clean
+.PHONY: all clean
 
 all: $(APPS)
 
@@ -42,12 +41,6 @@ all: $(APPS)
 		-c $(filter %.c,$^) -o $@
 	$(QUIET) $(LLVM_STRIP) -g $@ #strip useless DWARF info
 
-install:
-	$(call printlog, INSTALL, $(APPS_BIN))
-	$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
-	$(QUIET) install -Dp -m 0500 $(APPS) $(INSTALL_BIN)
-
 clean:
-	$(call printlog, CLEAN, $(APPS_BIN))
+	$(call printlog, CLEAN, $(APPS))
 	$(QUIET) rm -rf $(APPS)
-	$(QUIET) rm -rf $(APPS_BIN)
