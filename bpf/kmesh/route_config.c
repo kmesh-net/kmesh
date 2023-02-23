@@ -90,7 +90,7 @@ int route_config_manager(ctx_buff_t *ctx)
 	route_config = map_lookup_route_config(ctx_val->data);
 	kmesh_tail_delete_ctx(&ctx_key);
 	if (!route_config) {
-		BPF_LOG(ERR, ROUTER_CONFIG, "failed to lookup route config, route_name=\"%s\"\n", ctx_val->data);
+		BPF_LOG(WARN, ROUTER_CONFIG, "failed to lookup route config, route_name=\"%s\"\n", ctx_val->data);
 		return convert_sockops_ret(-1);
 	}
 
