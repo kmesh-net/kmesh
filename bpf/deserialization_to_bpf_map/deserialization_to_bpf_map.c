@@ -1192,7 +1192,6 @@ static int del_bpf_map(struct op_context *ctx, int is_inner)
 
 	ret = bpf_map_lookup_elem(ctx->curr_fd, ctx->key, ctx->value);
 	if (ret < 0)
-		LOG_WARN("failed to find map(%d) elem:%d.", ctx->curr_fd, ret);
 		return ret;
 
 	for (i = 0; i < desc->n_fields; i++) {
