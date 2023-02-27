@@ -18,10 +18,11 @@ ADD . /kmesh
 
 # install pkg dependencies 
 # RUN yum install -y kmod util-linux kmesh
-RUN yum update -y \
-    && yum install -y kmod \
+RUN yum install -y kmod \
     && yum install -y util-linux \
-    && yum install -y kmesh-*.rpm
+    && yum install -y kmesh-*.rpm \
+    && yum clean all \
+    && rm -rf /var/cache/yum
 
 RUN cp /lib/modules/kmesh/kmesh.ko .
 
