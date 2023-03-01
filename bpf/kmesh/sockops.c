@@ -21,6 +21,7 @@
 
 static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_ptr *msg)
 {
+	int ret;
 	/* 1 lookup listener */
 	DECLARE_VAR_ADDRESS(skops, addr);
 	Listener__Listener *listener = map_lookup_listener(&addr);
@@ -37,7 +38,12 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
 	BPF_LOG(DEBUG, SOCKOPS, "sockops_traffic_control listener=\"%s\", addr=[%u:%u]\n",
 		(char *)kmesh_get_ptr_val(listener->name), skops->remote_ip4, skops->remote_port);
 
-	(void)bpf_parse_header_msg(msg);
+	ret = bpf_parse_header_msg(msg);
+	if (GET_RET_PROTO_TYPE(ret) != PROTO_HTTP_1_1) {
+		BPF_LOG(WARN, SOCKOPS, "sockops_traffic_control listener=\"%s\", remote_ip:%u, ret:%d\n",
+				(char *)kmesh_get_ptr_val(listener->name), skops->remote_ip4, ret);
+		return 0;
+	}
 	return l7_listener_manager(skops, listener, msg);
 }
 
