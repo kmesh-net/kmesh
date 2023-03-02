@@ -23,17 +23,16 @@ function pre_test() {
     mkdir BUILD SOURCES BUILDROOT RPMS SPECS SRPMS   
 
     # rpmbuild files prepare
-    cd $KMESH_PATH/ 
-
+    cd $KMESH_PATH/
     KMESH_VERSION=$(grep Version: kmesh.spec | egrep -o [0-9]+.[0-9]+.[0-9]+)
-    cd ../
-    mv Kmesh kmesh-$KMESH_VERSION
-    tar zcvf kmesh-$KMESH_VERSION.tar.gz kmesh-$KMESH_VERSION/
-    mv kmesh-$KMESH_VERSION Kmesh
-    mv kmesh-$KMESH_VERSION.tar.gz $CURRENT_PATH/rpmbuild/SOURCES/
-    
-    cd $KMESH_PATH
+    cp -r ../Kmesh ../kmesh_tmp
+    mv ../kmesh_tmp $CURRENT_PATH/kmesh-$KMESH_VERSION
     cp kmesh.spec $CURRENT_PATH/rpmbuild/SPECS/
+
+    cd $CURRENT_PATH
+    tar zcvf kmesh-$KMESH_VERSION.tar.gz kmesh-$KMESH_VERSION/
+    rm -rf kmesh-$KMESH_VERSION/
+    mv kmesh-$KMESH_VERSION.tar.gz rpmbuild/SOURCES/
 
     LOG_INFO "End of environmental preparation!"
 }
