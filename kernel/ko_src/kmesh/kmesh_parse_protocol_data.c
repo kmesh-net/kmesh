@@ -72,11 +72,8 @@ bool kmesh_protocol_data_insert(struct kmesh_data_node* data)
 			new = &((*new)->rb_left);
 		else if (cmp_result > 0)
 			new = &((*new)->rb_right);
-		else {
-			(void)pr_err("[kmesh data node] find the same key in tree, key = %s\n",
-				data->keystring);
+		else 
 			return false;
-		}
 	}
 	rb_link_node(&data->node, parent, new);
 	rb_insert_color(&data->node, kmesh_data_root);
