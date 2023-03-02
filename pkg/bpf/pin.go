@@ -88,7 +88,10 @@ func unpinMaps(value *reflect.Value) error {
 }
 
 func setMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
-	for _, v := range spec.Maps {
+	for key, v := range spec.Maps {
+		if key == ".rodata" || key == ".bss" {
+			continue
+		}
 		v.Pinning = pinType
 	}
 }

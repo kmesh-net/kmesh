@@ -226,10 +226,11 @@ static int alloc_and_set_inner_map(struct op_context *ctx, int key)
 {
 	int fd, ret;
 	struct bpf_map_info *inner_info = ctx->inner_info;
+	LIBBPF_OPTS(bpf_map_create_opts, opts, .map_flags = inner_info->map_flags);
 
-	fd = bpf_create_map_name(inner_info->type, NULL, inner_info->key_size,
+	fd = bpf_map_create(inner_info->type, NULL, inner_info->key_size,
 			    inner_info->value_size, inner_info->max_entries,
-			    inner_info->map_flags);
+			    &opts);
 	if (fd < 0)
 		return fd;
 

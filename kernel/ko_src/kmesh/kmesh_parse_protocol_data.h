@@ -13,7 +13,6 @@
 #include <linux/list.h>
 #include <linux/bpf.h>
 #include <linux/percpu.h>
-#include <stdbool.h>
 
 enum kmesh_l7_proto_type {
 	PROTO_UNKNOW 	= 0,

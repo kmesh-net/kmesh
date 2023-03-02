@@ -42,21 +42,21 @@
 		val;								   \
 	})
 
-bpf_map_t SEC("maps") outer_map = {
-	.type			= BPF_MAP_TYPE_ARRAY_OF_MAPS,
-	.key_size		= sizeof(__u32),
-	.value_size		= sizeof(__u32),
-	.max_entries	= MAP_SIZE_OF_MAX,
-	.map_flags		= 0,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof(__u32));
+	__uint(max_entries, MAP_SIZE_OF_MAX);
+	__uint(map_flags, 0);
+} outer_map SEC(".maps");
 
-bpf_map_t SEC("maps") inner_map = {
-		.type			= BPF_MAP_TYPE_ARRAY,
-		.key_size		= sizeof(__u32),
-		.value_size		= 1300,
-		.max_entries	= 1,
-		.map_flags		= 0,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, 1300);
+	__uint(max_entries, 1);
+	__uint(map_flags, 0);
+} inner_map SEC(".maps");
 
 #if 1
 typedef struct bpf_sock_ops		ctx_buff_t;

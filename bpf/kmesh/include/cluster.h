@@ -22,13 +22,13 @@
 
 #define CLUSTER_NAME_MAX_LEN	BPF_DATA_MAX_LEN
 
-bpf_map_t SEC("maps") map_of_cluster = {
-	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= CLUSTER_NAME_MAX_LEN,
-	.value_size		= sizeof(Cluster__Cluster),
-	.max_entries	= MAP_SIZE_OF_CLUSTER,
-	.map_flags		= 0,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(key_size, CLUSTER_NAME_MAX_LEN);
+	__uint(value_size, sizeof(Cluster__Cluster));
+	__uint(map_flags, 0);
+	__uint(max_entries, MAP_SIZE_OF_CLUSTER);
+} map_of_cluster SEC(".maps");
 
 struct cluster_endpoints {
 	__u32 ep_num;
@@ -42,18 +42,18 @@ struct cluster_endpoints {
 	};
 };
 
-bpf_map_t SEC("maps") map_of_cluster_eps = {
-	.type			 = BPF_MAP_TYPE_HASH,
-	.key_size		= CLUSTER_NAME_MAX_LEN,
-	.value_size		= sizeof(struct cluster_endpoints),
-	.max_entries	= MAP_SIZE_OF_ENDPOINT,
-	.map_flags		 = 0,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(key_size, CLUSTER_NAME_MAX_LEN);
+	__uint(value_size, sizeof(struct cluster_endpoints));
+	__uint(max_entries, MAP_SIZE_OF_ENDPOINT);
+	__uint(map_flags, 0);
+} map_of_cluster_eps SEC(".maps");
 
 struct {
 	__uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-	__type(key, int);
-	__type(value, struct cluster_endpoints);
+	__uint(key_size, sizeof(int));
+	__uint(value_size, sizeof(struct cluster_endpoints));
 	__uint(max_entries, 1);
 } map_of_cluster_eps_data SEC(".maps");
 

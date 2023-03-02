@@ -18,13 +18,13 @@
 #include "tail_call.h"
 #include "listener/listener.pb-c.h"
 
-bpf_map_t SEC("maps") map_of_listener = {
-	.type			   = BPF_MAP_TYPE_HASH,
-	.key_size		   = sizeof(address_t),
-	.value_size		 = sizeof(Listener__Listener),
-	.max_entries		= MAP_SIZE_OF_LISTENER,
-	.map_flags		  = 0,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(key_size, sizeof(address_t));
+	__uint(value_size, sizeof(Listener__Listener));
+	__uint(max_entries, MAP_SIZE_OF_LISTENER);
+	__uint(map_flags, 0);
+} map_of_listener SEC(".maps");
 
 static inline Listener__Listener *map_lookup_listener(const address_t *addr)
 {
@@ -51,7 +51,7 @@ static inline bool listener_filter_chain_match_check(const Listener__FilterChain
 	if (!transport_protocol) {
 		BPF_LOG(WARN, LISTENER, "transport_protocol is NULL\n");
 		return false;
-	} else if (bpf_strcmp(buf, transport_protocol) != 0) {
+	} else if (bpf_strncmp(buf, sizeof(buf), transport_protocol) != 0) {
 		BPF_LOG(WARN, LISTENER, "transport_protocol %s mismatch\n", transport_protocol);
 		return false;
 	}
