@@ -28,13 +28,17 @@ import (
 	"openeuler.io/mesh/bpf/kmesh/bpf2go"
 )
 
+type BpfTracePoint struct {
+	Info BpfInfo
+	Link link.Link
+	bpf2go.KmeshTracePointObjects
+}
+
 type BpfSockConn struct {
 	Info BpfInfo
 	Link link.Link
 	bpf2go.KmeshCgroupSockObjects
 }
-
-var FOLDER_ACCESS uint32 = 0750
 
 type BpfSockOps struct {
 	Info BpfInfo
@@ -46,8 +50,13 @@ type BpfSockOps struct {
 }
 
 type BpfKmesh struct {
+	TracePoint BpfTracePoint
 	SockConn BpfSockConn
 	SockOps  BpfSockOps
+}
+
+func (sc *BpfTracePoint) NewBpf(cfg *Config) {
+	sc.Info.Config = *cfg
 }
 
 func (sc *BpfSockOps) NewBpf(cfg *Config) error {
@@ -80,6 +89,9 @@ func NewBpfKmesh(cfg *Config) (BpfKmesh, error) {
 	var err error
 
 	sc := BpfKmesh{}
+
+	sc.TracePoint.NewBpf(cfg)
+
 	if err = sc.SockOps.NewBpf(cfg); err != nil {
 		return sc, err
 	}
@@ -106,6 +118,39 @@ func setInnerMap(spec *ebpf.CollectionSpec) {
 			}
 		}
 	}
+}
+
+func (sc *BpfTracePoint) loadKmeshTracePointObjects() (*ebpf.CollectionSpec, error) {
+	var (
+		err error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
+	)
+	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
+
+	spec, err = bpf2go.LoadKmeshTracePoint()
+	if err != nil || spec == nil {
+		return nil, err
+	}
+
+	for _, v := range spec.Programs {
+		if v.Name == "connect_ret" {
+			v.Type = ebpf.RawTracepointWritable
+		}
+	}
+
+	if err = spec.LoadAndAssign(&sc.KmeshTracePointObjects, &opts); err !=nil {
+		return nil, err
+	}
+
+	return spec, nil
+}
+
+func (sc *BpfTracePoint) LoadTracePoint() error {
+	if _, err := sc.loadKmeshTracePointObjects(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
@@ -329,6 +374,10 @@ func (sc *BpfSockConn) LoadSockConn() error {
 func (sc *BpfKmesh) Load() error {
 	var err error
 
+	if err = sc.TracePoint.LoadTracePoint(); err != nil {
+		return err
+	}
+
 	if err = sc.SockOps.LoadSockOps(); err != nil {
 		return err
 	}
@@ -386,6 +435,22 @@ func (sc *BpfKmesh) ApiEnvCfg() error {
 
 	return nil
 }
+
+func (sc *BpfTracePoint) Attach() error {
+	tpopt := link.RawTracepointOptions {
+		Name:    "connect_ret",
+		Program: sc.KmeshTracePointObjects.ConnectRet,
+	}
+
+	lk, err := link.AttachRawTracepoint(tpopt)
+	if err != nil {
+		return err
+	}
+	sc.Link = lk
+
+	return nil
+}
+
 func (sc *BpfSockOps) Attach() error {
 	cgopt := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
@@ -421,6 +486,10 @@ func (sc *BpfSockConn) Attach() error {
 func (sc *BpfKmesh) Attach() error {
 	var err error
 
+	if err = sc.TracePoint.Attach(); err != nil {
+		return err
+	}
+
 	if err = sc.SockOps.Attach(); err != nil {
 		return err
 	}
@@ -429,6 +498,10 @@ func (sc *BpfKmesh) Attach() error {
 		return err
 	}
 	return nil
+}
+
+func (sc *BpfTracePoint) close() error {
+	return sc.KmeshTracePointObjects.Close()
 }
 
 func (sc *BpfSockOps) close() error {
@@ -464,6 +537,21 @@ func (sc *BpfKmesh) close() error {
 
 	if err = sc.SockConn.close(); err != nil {
 		return err
+	}
+
+	if err = sc.TracePoint.close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (sc *BpfTracePoint) Detach() error {
+	if err := sc.close(); err != nil {
+		return err
+	}
+
+	if sc.Link != nil {
+		return sc.Link.Close()
 	}
 	return nil
 }
@@ -522,6 +610,10 @@ func (sc *BpfSockConn) Detach() error {
 
 func (sc *BpfKmesh) Detach() error {
 	var err error
+
+	if err = sc.TracePoint.Detach(); err != nil {
+		return err
+	}
 
 	if err = sc.SockOps.Detach(); err != nil {
 		return err

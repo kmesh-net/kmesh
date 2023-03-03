@@ -31,8 +31,7 @@ static inline int handle_http_connection_manager(
 		return -1;
 	}
 
-	ret = bpf_strcpy(ctx_val.data, BPF_DATA_MAX_LEN, route_name);
-	if (ret != 0) {
+	if (!bpf_strncpy(ctx_val.data, BPF_DATA_MAX_LEN, route_name)) {
 		BPF_LOG(ERR, FILTER, "http conn: route name(%s) copy failed:%d\n", route_name, ret);
 		return -1;
 	}

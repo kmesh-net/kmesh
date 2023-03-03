@@ -6,7 +6,7 @@ BASE_DIRS := $(filter-out $(CURRENT_PATH), $(BASE_DIRS))
 
 all:
 	@for dir in ${BASE_DIRS}; do 	\
-		make -C $(CURRENT_PATH)/$$dir > /dev/null 2>&1;	\
+		make -C $(CURRENT_PATH)/$$dir;	\
 		if [ -f $(CURRENT_PATH)/$$dir/*.ko ];then	\
 			cp $(CURRENT_PATH)/$$dir/*.ko ../ko ||exit;	\
 		fi	\

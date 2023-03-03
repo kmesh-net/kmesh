@@ -120,7 +120,7 @@ void kmesh_protocol_data_clean_allcpu(void)
 }
 
 typedef u32 (*bpf_parse_protocol_func)(struct bpf_mem_ptr* msg);
-extern bpf_parse_protocol_func parse_protocol;
+extern bpf_parse_protocol_func parse_protocol_func;
 
 typedef struct bpf_mem_ptr* (*bpf_get_protocol_element_func)(char *key);
 extern bpf_get_protocol_element_func get_protocol_element_func;
@@ -151,7 +151,7 @@ static struct bpf_mem_ptr* get_protocol_element_impl(char *key)
 
 int __init proto_common_init(void)
 {
-	parse_protocol = parse_protocol_impl;
+	parse_protocol_func = parse_protocol_impl;
 	get_protocol_element_func = get_protocol_element_impl;
 	/* add protocol list */
 	g_kmesh_data_root = alloc_percpu(struct rb_root);
@@ -161,7 +161,7 @@ int __init proto_common_init(void)
 
 void __exit proto_common_exit(void)
 {
-	parse_protocol = NULL;
+	parse_protocol_func = NULL;
 	get_protocol_element_func = NULL;
 	kmesh_protocol_data_clean_allcpu();
 }

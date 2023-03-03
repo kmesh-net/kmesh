@@ -20,13 +20,13 @@
 
 #define ROUTER_NAME_MAX_LEN		BPF_DATA_MAX_LEN
 
-bpf_map_t SEC("maps") map_of_router_config = {
-	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= ROUTER_NAME_MAX_LEN,
-	.value_size		= sizeof(Route__RouteConfiguration),
-	.max_entries	= MAP_SIZE_OF_ROUTE,
-	.map_flags		= 0,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(key_size, ROUTER_NAME_MAX_LEN);
+	__uint(value_size, sizeof(Route__RouteConfiguration));
+	__uint(max_entries, MAP_SIZE_OF_ROUTE);
+	__uint(map_flags, 0);
+} map_of_router_config SEC(".maps");
 
 static inline Route__RouteConfiguration *map_lookup_route_config(const char *route_name)
 {
@@ -144,7 +144,7 @@ static inline Route__VirtualHost *virtual_host_match(Route__RouteConfiguration *
 
 static inline bool check_header_value_match(char *target, struct bpf_mem_ptr* head, bool exact) {
 	BPF_LOG(DEBUG, ROUTER_CONFIG, "header match, is exact:%d value:%s\n", exact,target);
-	long target_length = bpf_strlen(target);
+	long target_length = bpf_strnlen(target, BPF_DATA_MAX_LEN);
 	if (!exact)
 		return (bpf_strncmp(target, target_length, _(head->ptr)) == 0);
 	if (target_length != _(head->size))
@@ -242,7 +242,7 @@ static inline int virtual_host_route_match_check(Route__Route *route,
 	if (!prefix)
 		return 0;
 
-	if (bpf_strstr(ptr, prefix) == NULL)
+	if (bpf_strnstr(ptr, prefix, BPF_DATA_MAX_LEN) == NULL)
 		return 0;
 
 	if (!check_headers_match(match))

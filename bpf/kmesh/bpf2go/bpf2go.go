@@ -21,3 +21,4 @@ package bpf2go
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshFilter ../filter.c -- -I../include -I../../include -I../../../api/v2-c
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshRouteConfig ../route_config.c -- -I../include -I../../include -I../../../api/v2-c
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshCluster ../cluster.c -- -I../include -I../../include -I../../../api/v2-c
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshTracePoint ../tracepoint.c -- -I../include -I../../include

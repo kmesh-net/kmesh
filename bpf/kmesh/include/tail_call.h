@@ -32,13 +32,13 @@ typedef enum {
 	KMESH_TAIL_CALL_ROUTER_CONFIG,
 } tail_call_index_t;
 
-bpf_map_t SEC("maps") map_of_tail_call_prog = {
-	.type		   = BPF_MAP_TYPE_PROG_ARRAY,
-	.key_size	   = sizeof(__u32),
-	.value_size	 = sizeof(__u32),
-	.map_flags	  = 0,
-	.max_entries	= MAP_SIZE_OF_TAIL_CALL_PROG,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof(__u32));
+	__uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
+	__uint(map_flags, 0);
+} map_of_tail_call_prog SEC(".maps");
 
 static inline void kmesh_tail_call(ctx_buff_t *ctx, const __u32 index)
 {
@@ -60,13 +60,13 @@ typedef struct {
 } ctx_val_t;
 
 // save temporary variables of tail_call
-bpf_map_t SEC("maps") map_of_tail_call_ctx = {
-	.type		   = BPF_MAP_TYPE_HASH,
-	.key_size	   = sizeof(ctx_key_t),
-	.value_size	 = sizeof(ctx_val_t),
-	.map_flags	  = 0,
-	.max_entries	= MAP_SIZE_OF_TAIL_CALL_CTX,
-};
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(key_size, sizeof(ctx_key_t));
+	__uint(value_size, sizeof(ctx_val_t));
+	__uint(max_entries, MAP_SIZE_OF_TAIL_CALL_CTX);
+	__uint(map_flags, 0);
+} map_of_tail_call_ctx SEC(".maps");
 
 static inline ctx_val_t *kmesh_tail_lookup_ctx(const ctx_key_t *key)
 {
