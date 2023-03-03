@@ -101,8 +101,7 @@ static int defer_tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 	if (ret)
 		return ret;
 
-	return INDIRECT_CALL_1(sk->sk_prot->sendmsg, tcp_sendmsg,
-			sk, msg, size);
+	return tcp_sendmsg(sk, msg, size);
 }
 
 static int defer_tcp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
@@ -117,8 +116,8 @@ static int defer_tcp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_l
 	inet_sk(sk)->bpf_defer_connect = 1;
 	sk->sk_dport = ((struct sockaddr_in *)uaddr)->sin_port;
 	sk_daddr_set(sk, ((struct sockaddr_in *)uaddr)->sin_addr.s_addr);
-	sk->sk_socket->state = SS_CONNECTED;
-	tcp_set_state(sk, TCP_ESTABLISHED);
+	sk->sk_socket->state = SS_CONNECTING;
+	tcp_set_state(sk, TCP_SYN_SENT);
 	return KMESH_DELAY_ERROR;
 }
 
