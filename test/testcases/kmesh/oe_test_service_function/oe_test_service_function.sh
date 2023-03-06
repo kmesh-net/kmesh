@@ -10,9 +10,6 @@ KMESH_PATH=$(pwd)
 function pre_test() {
     LOG_INFO "Start environmental preparation."
 
-    cd $KMESH_PATH/
-    ./build.sh -u
-    
     # modify Environment Variables HOME 
     # mkdir rpmbuild
     cd $CURRENT_PATH/
@@ -38,7 +35,6 @@ function pre_test() {
 }
 
 function run_test() {
-
     LOG_INFO "Start testing..."
     
     set -e
@@ -59,25 +55,16 @@ function run_test() {
     systemctl stop kmesh.service
 
     LOG_INFO "Finish test!"
-
 }
 
 function post_test() {
-
     LOG_INFO "Start environment cleanup."
     
     cd $CURRENT_PATH/
     rpm -evh kmesh
     rm -rf rpmbuild
     
-    # restore environment
-    cd $KMESH_PATH/
-    ./build.sh -u
-    ./build.sh -b
-    ./build.sh -i
-
     LOG_INFO "Finish environment cleanup!"
-
 }
 
 main "@"
