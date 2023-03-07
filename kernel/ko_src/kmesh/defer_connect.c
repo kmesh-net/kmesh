@@ -24,21 +24,28 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
 	struct sockaddr_in addr_in;
 	long timeo = 1;
 	const struct iovec *iov;
+	void __user *ubase;
 	int err;
 
-	if (iov_iter_is_kvec(&msg->msg_iter))
+	if (iov_iter_is_kvec(&msg->msg_iter)) {
 		iov = (struct iovec *)msg->msg_iter.kvec;
-	else if (iter_is_iovec(&msg->msg_iter))
+		ubase = iov->iov_base;
+		kbuf_size = iov->iov_len;
+	} else if (iter_is_iovec(&msg->msg_iter)) {
 		iov = msg->msg_iter.iov;
-	else
+		ubase = iov->iov_base;
+		kbuf_size = iov->iov_len;
+	} else if (iter_is_ubuf(&msg->msg_iter)){
+		ubase = msg->msg_iter.ubuf;
+		kbuf_size = msg->msg_iter.count;
+	} else
 		goto connect;
 
-	kbuf_size = iov->iov_len;
 	kbuf = (void *)kmalloc(kbuf_size, GFP_KERNEL);
 	if (!kbuf)
 		return -EFAULT;
 
-	if (copy_from_user(kbuf, iov->iov_base, iov->iov_len)) {
+	if (copy_from_user(kbuf, ubase, kbuf_size)) {
 		err = -EFAULT;
 		goto out;
 	}
@@ -78,6 +85,7 @@ static int defer_connect_and_sendmsg(struct sock *sk, struct msghdr *msg, size_t
 
 	if (unlikely(inet_sk(sk)->bpf_defer_connect == 1)) {
 		lock_sock(sk);
+		inet_sk(sk)->defer_connect = 0;
 
 		err = defer_connect(sk, msg, size);
 		if (err) {
@@ -106,6 +114,13 @@ static int defer_tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 
 static int defer_tcp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 {
+	/* Kmesh is not compatible with defer_connect, so we
+	 * need to check whether defer_connect is set to 1.
+	 * Kmesh reuses the defer_connect flag to enable the 
+	 * epoll to be triggered normally.
+	 */
+	if (inet_sk(sk)->defer_connect == 1)
+		return -ENOTSUPP;
 	/* bpf_defer_connect is 0 when you first enter the connection.
 	 * When you delay link establishment from sendmsg, the value
 	 * of bpf_defer_connect should be 1 and the normal connect function
@@ -114,6 +129,7 @@ static int defer_tcp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_l
 	if (inet_sk(sk)->bpf_defer_connect)
 	       return tcp_v4_connect(sk, uaddr, addr_len);
 	inet_sk(sk)->bpf_defer_connect = 1;
+	inet_sk(sk)->defer_connect = 1;
 	sk->sk_dport = ((struct sockaddr_in *)uaddr)->sin_port;
 	sk_daddr_set(sk, ((struct sockaddr_in *)uaddr)->sin_addr.s_addr);
 	sk->sk_socket->state = SS_CONNECTING;
