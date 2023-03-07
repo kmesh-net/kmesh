@@ -30,7 +30,6 @@ APPS2 := kmesh-cmd
 .PHONY: all install uninstall clean
 
 all:
-	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh set
 	$(QUIET) cp depends/include/6.1/bpf_helper_defs_ext.h bpf/include/
 
 	$(QUIET) make -C api
@@ -40,15 +39,15 @@ all:
 	$(QUIET) $(GO) generate bpf/kmesh/bpf2go/bpf2go.go
 	
 	$(call printlog, BUILD, $(APPS1))
-	$(QUIET) $(GO) build -o $(APPS1) $(GOFLAGS) ./daemon/main.go
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
 	
 	$(call printlog, BUILD, $(APPS2))
-	$(QUIET) $(GO) build -o $(APPS2) $(GOFLAGS) ./cmd/main.go
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -o $(APPS2) $(GOFLAGS) ./cmd/main.go)
 	
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
-
-	$(QUIET) $(ROOT_DIR)/mk/pkg-config.sh unset
 
 install:
 	$(QUIET) make install -C api/v2-c
