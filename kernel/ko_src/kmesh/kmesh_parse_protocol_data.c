@@ -98,16 +98,15 @@ static void kmesh_protocol_clean_all(struct rb_root *kmesh_data_root)
 	struct kmesh_data_node* n = NULL;
 	if (!kmesh_data_root)
 		return;
-	rbtree_postorder_for_each_entry_safe(data, n, kmesh_data_root, node) {
-		rb_erase(&data->node, kmesh_data_root);
+	rbtree_postorder_for_each_entry_safe(data, n, kmesh_data_root, node)
 		delete_kmesh_data_node(&data);
-	}
 }
 
 void kmesh_protocol_data_clean_all(void)
 {
 	struct rb_root *kmesh_data_root = per_cpu_ptr(g_kmesh_data_root, raw_smp_processor_id());
 	kmesh_protocol_clean_all(kmesh_data_root);
+	kmesh_data_root->rb_node = NULL;
 }
 
 void kmesh_protocol_data_clean_allcpu(void)
@@ -155,6 +154,8 @@ int __init proto_common_init(void)
 	get_protocol_element_func = get_protocol_element_impl;
 	/* add protocol list */
 	g_kmesh_data_root = alloc_percpu(struct rb_root);
+	if (!g_kmesh_data_root)
+		return -ENOMEM;
 
 	return 0;
 }
@@ -164,4 +165,5 @@ void __exit proto_common_exit(void)
 	parse_protocol_func = NULL;
 	get_protocol_element_func = NULL;
 	kmesh_protocol_data_clean_allcpu();
+	free_percpu(g_kmesh_data_root);
 }
