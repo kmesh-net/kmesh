@@ -17,7 +17,7 @@ function install() {
     mkdir -p /etc/kmesh
     chmod 750 /etc/kmesh
     cp $ROOT_DIR/config/kmesh.json /etc/kmesh
-    chmod 550 /etc/kmesh/kmesh.json
+    chmod 640 /etc/kmesh/kmesh.json
 
     cp $ROOT_DIR/build/kmesh-start-pre.sh /usr/bin
     chmod 550 /usr/bin/kmesh-start-pre.sh
