@@ -43,18 +43,19 @@ var (
 
 // Execute start daemon manager process
 func Execute() {
-	err := pid.CreatePidFile()
-	if err != nil {
-		log.Errorf("failed to start, reason: %v", err)
-		return
-	}
-	defer pid.RemovePidFile()
+	var err error
 
 	if err = options.InitDaemonConfig(); err != nil {
 		log.Error(err)
 		return
 	}
 	log.Info("options InitDaemonConfig successful")
+
+	if err = pid.CreatePidFile(); err != nil {
+		log.Errorf("failed to start, reason: %v", err)
+		return
+	}
+	defer pid.RemovePidFile()
 
 	if err = bpf.Start(); err != nil {
 		fmt.Println(err)
