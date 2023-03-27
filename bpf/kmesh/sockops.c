@@ -44,7 +44,7 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
 
 	ret = bpf_parse_header_msg(msg);
 	if (GET_RET_PROTO_TYPE(ret) != PROTO_HTTP_1_1) {
-		BPF_LOG(WARN, SOCKOPS, "sockops_traffic_control listener=\"%s\", remote_ip:%u, ret:%d\n",
+		BPF_LOG(DEBUG, SOCKOPS, "sockops_traffic_control listener=\"%s\", remote_ip:%u, ret:%d\n",
 				(char *)kmesh_get_ptr_val(listener->name), skops->remote_ip4, ret);
 		return 0;
 	}
