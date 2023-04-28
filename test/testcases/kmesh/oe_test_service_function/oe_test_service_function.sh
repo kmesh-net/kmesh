@@ -63,7 +63,11 @@ function post_test() {
     cd $CURRENT_PATH/
     rpm -evh kmesh
     rm -rf rpmbuild
-    
+ 
+    # restore environment
+    cd $KMESH_PATH
+    ./build.sh -i 
+
     LOG_INFO "Finish environment cleanup!"
 }
 
