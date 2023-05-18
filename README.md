@@ -1,6 +1,7 @@
-# Kmesh
+![kmesh-logo](docs/pics/logo/PNG2/kmesh-logo.png)
 
 ### 介绍
+
 Kmesh是一种基于可编程内核实现的高性能网格数据面；提供serviceMesh场景下高性能的服务通信能力。
 
 ### 软件架构
@@ -38,11 +39,12 @@ Kmesh正常运行依赖对kernel的增强特性修改，这些增强特性正在
 
 - 针对主流kernel版本归档包含Kmesh增强特性的发布包
 
-  | 基线版本                                                     | Kmesh特性增强版本                              | 备注 |
-  | ------------------------------------------------------------ | ---------------------------------------------- | ---- |
-  | [openEuler_2203_LTS_x86](https://repo.openeuler.org/openEuler-22.03-LTS/everything/x86_64/Packages/kernel-5.10.0-60.18.0.50.oe2203.x86_64.rpm) | [kmesh_openEuler_2203_LTS_x86](release/kernel) |      |
-  | centos                                                       | TODO                                           |      |
-  | Ubuntu                                                       | TODO                                           |      |
+  | 基线版本                                                     | Kmesh特性增强版本          | 备注 |
+  | ------------------------------------------------------------ | -------------------------- | ---- |
+  | [openEuler_2303_kernel_x8664](https://repo.openeuler.org/openEuler-23.03/everything/x86_64/Packages/kernel-6.1.19-7.0.0.17.oe2303.x86_64.rpm) | openEuler 2303版本原生支持 |      |
+  | [openEuler_2303_kernel_aarch64](https://repo.openeuler.org/openEuler-23.03/everything/aarch64/Packages/kernel-6.1.19-7.0.0.17.oe2303.aarch64.rpm) | openEuler 2303版本原生支持 |      |
+  | centos                                                       | TODO                       |      |
+  | Ubuntu                                                       | TODO                       |      |
 
 - 基于Kmesh增强特性patch制作kernel包
 
@@ -241,6 +243,7 @@ total 67M
 |              | http2协议             |                            | ![](docs/pics/support.png) |                            |                            |                            |
 |              | grpc协议              |                            |                            | ![](docs/pics/support.png) |                            |                            |
 |              | quic协议              |                            |                            | ![](docs/pics/support.png) |                            |                            |
+|              | tcp协议               | ![](docs/pics/support.png) |                            |                            |                            |                            |
 |              | 重试                  |                            | ![](docs/pics/support.png) |                            |                            |                            |
 |              | 路由                  | ![](docs/pics/support.png) |                            |                            |                            |                            |
 |              | 负载均衡              | ![](docs/pics/support.png) |                            |                            |                            |                            |
@@ -262,6 +265,3 @@ total 67M
 | 部署形态     | per-node形态          | ![](docs/pics/support.png) |                            |                            |                            |                            |
 |              | gateway形态           |                            |                            |                            |                            | ![](docs/pics/support.png) |
 
-### 演进路标
-
-TODO
