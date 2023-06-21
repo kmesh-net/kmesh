@@ -238,30 +238,27 @@ total 67M
 | 特性域       | 特性                  |            2022            |          2023.H1           |          2023.H2           |          2024.H1           |          2024.H2           |
 | ------------ | --------------------- | :------------------------: | :------------------------: | :------------------------: | :------------------------: | :------------------------: |
 | 流量管理     | sidecarless网格数据面 | ![](docs/pics/support.png) |                            |                            |                            |                            |
+|              | sockmap加速           |                            |                            | ![](docs/pics/support.png) |                            |                            |
 |              | 基于ebpf的可编程治理  | ![](docs/pics/support.png) |                            |                            |                            |                            |
-|              | http1.1协议           | ![](docs/pics/support.png) |                            |                            |                            |                            |
-|              | http2协议             |                            | ![](docs/pics/support.png) |                            |                            |                            |
-|              | grpc协议              |                            |                            | ![](docs/pics/support.png) |                            |                            |
-|              | quic协议              |                            |                            | ![](docs/pics/support.png) |                            |                            |
-|              | tcp协议               | ![](docs/pics/support.png) |                            |                            |                            |                            |
-|              | 重试                  |                            | ![](docs/pics/support.png) |                            |                            |                            |
-|              | 路由                  | ![](docs/pics/support.png) |                            |                            |                            |                            |
-|              | 负载均衡              | ![](docs/pics/support.png) |                            |                            |                            |                            |
-|              | 故障注入              |                            |                            | ![](docs/pics/support.png) |                            |                            |
-|              | 灰度发布              | ![](docs/pics/support.png) |                            |                            |                            |                            |
-| 服务安全     | 基于SSL的双向认证     |                            | ![](docs/pics/support.png) |                            |                            |                            |
-|              | L7授权                |                            |                            | ![](docs/pics/support.png) |                            |                            |
-|              | 治理pod级隔离         |                            |                            | ![](docs/pics/support.png) |                            |                            |
-| 流量监控     | 治理指标监控          |                            | ![](docs/pics/support.png) |                            |                            |                            |
+|              | http1.1协议           |                            | ![](docs/pics/support.png) |                            |                            |                            |
+|              | http2协议             |                            |                            |                            | ![](docs/pics/support.png) |                            |
+|              | grpc协议              |                            |                            |                            |                            | ![](docs/pics/support.png) |
+|              | quic协议              |                            |                            |                            |                            |                            |
+|              | tcp协议               |                            |                            | ![](docs/pics/support.png) |                            |                            |
+|              | 重试                  |                            |                            |                            | ![](docs/pics/support.png) |                            |
+|              | 路由                  |                            | ![](docs/pics/support.png) |                            |                            |                            |
+|              | 负载均衡              |                            | ![](docs/pics/support.png) |                            |                            |                            |
+|              | 故障注入              |                            |                            |                            |                            | ![](docs/pics/support.png) |
+|              | 灰度发布              |                            | ![](docs/pics/support.png) |                            |                            |                            |
+| 服务安全     | 基于SSL的双向认证     |                            |                            |                            | ![](docs/pics/support.png) |                            |
+|              | L7授权                |                            |                            |                            |                            | ![](docs/pics/support.png) |
+|              | 治理pod级隔离         |                            |                            |                            |                            | ![](docs/pics/support.png) |
+| 流量监控     | 治理指标监控          |                            |                            | ![](docs/pics/support.png) |                            |                            |
 |              | E2E可观测             |                            |                            |                            |                            | ![](docs/pics/support.png) |
-| 软硬件协同   | XPU卸载               |                            |                            |                            | ![](docs/pics/support.png) |                            |
-| 可扩展       | 应用协议自定义扩展    |                            |                            | ![](docs/pics/support.png) |                            |                            |
-|              | 插件式扩展能力        |                            |                            |                            | ![](docs/pics/support.png) |                            |
-| 运行环境支持 | 容器                  | ![](docs/pics/support.png) |                            |                            |                            |                            |
-|              | 虚机                  |                            |                            | ![](docs/pics/support.png) |                            |                            |
-|              | 裸机                  |                            |                            | ![](docs/pics/support.png) |                            |                            |
-|              | 多集群                |                            |                            |                            |                            | ![](docs/pics/support.png) |
-|              | serverless            |                            |                            |                            |                            | ![](docs/pics/support.png) |
+| 软硬件协同   | XPU卸载               |                            |                            |                            |                            |                            |
+| 可编程       | ebpf sdk              |                            |                            | ![](docs/pics/support.png) |                            |                            |
+|              | 插件式扩展能力        |                            |                            |                            |                            |                            |
+| 生态协作     | 数据面协同（Envoy等） |                            |                            |                            | ![](docs/pics/support.png) |                            |
+| 运行环境支持 | 容器                  |                            | ![](docs/pics/support.png) |                            |                            |                            |
 | 部署形态     | per-node形态          | ![](docs/pics/support.png) |                            |                            |                            |                            |
-|              | gateway形态           |                            |                            |                            |                            | ![](docs/pics/support.png) |
 
