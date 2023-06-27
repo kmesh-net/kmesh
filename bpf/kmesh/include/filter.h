@@ -32,6 +32,7 @@ static inline int filter_match_check(const Listener__Filter *filter, const addre
 			match = 1;
 			break;
 		case LISTENER__FILTER__CONFIG_TYPE_TCP_PROXY:
+			match = 1;
 			break;
 		default:
 			break;
