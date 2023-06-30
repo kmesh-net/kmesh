@@ -55,7 +55,7 @@ static inline bool listener_filter_chain_match_check(const Listener__FilterChain
 	if (!transport_protocol) {
 		BPF_LOG(WARN, LISTENER, "transport_protocol is NULL\n");
 		return false;
-	} else if (bpf_strncmp(buf, sizeof(buf), transport_protocol) != 0) {
+	} else if (transport_protocol[0] != '\0' && bpf_strncmp(buf, sizeof(buf), transport_protocol) != 0) {
 		BPF_LOG(WARN, LISTENER, "transport_protocol %s mismatch\n", transport_protocol);
 		return false;
 	}

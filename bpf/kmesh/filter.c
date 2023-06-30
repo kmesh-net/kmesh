@@ -19,6 +19,7 @@
 #include "bpf_log.h"
 #include "filter.h"
 #include "tail_call.h"
+#include "tcp_proxy.h"
 
 static inline int handle_http_connection_manager(
 	const Filter__HttpConnectionManager *http_conn, const address_t *addr,
@@ -61,6 +62,7 @@ int filter_manager(ctx_buff_t *ctx)
 	ctx_val_t *ctx_val = NULL;
 	Listener__Filter *filter = NULL;
 	Filter__HttpConnectionManager *http_conn = NULL;
+	Filter__TcpProxy *tcp_proxy = NULL;
 
 	DECLARE_VAR_ADDRESS(ctx, addr);
 	ctx_key.address = addr;
@@ -89,7 +91,13 @@ int filter_manager(ctx_buff_t *ctx)
 			ret = handle_http_connection_manager(http_conn, &addr, ctx, ctx_val->msg);
 			break;
 		case LISTENER__FILTER__CONFIG_TYPE_TCP_PROXY:
-			// TODO
+			tcp_proxy = kmesh_get_ptr_val(filter->tcp_proxy);
+			if (!tcp_proxy) {
+				BPF_LOG(ERR, FILTER, "get tcp_prxoy failed\n");
+				ret = -1;
+				break;
+			}
+			ret = tcp_proxy_manager(tcp_proxy, ctx);
 			break;
 		default:
 			break;

@@ -232,7 +232,7 @@ func getMeshCtlIp() (meshCtlIp string, err error) {
 	}
 
 	meshCtl := os.Getenv("MESH_CONTROLLER")
-	if (meshCtl == "") {
+	if meshCtl == "" {
 		log.Infof("env MESH_CONTROLLER not set, use the default vlaue: istio-system:istiod")
 		meshCtl = "istio-system:istiod"
 	}

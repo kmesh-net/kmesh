@@ -47,16 +47,16 @@ type AdsLoader struct {
 	// subscribe to RDS by RouteConfiguration Name
 	routeNames []string
 
-	ListenerCache    cache_v2.ListenerCache
-	ClusterCache     cache_v2.ClusterCache
-	RouteCache       cache_v2.RouteConfigCache
+	ListenerCache cache_v2.ListenerCache
+	ClusterCache  cache_v2.ClusterCache
+	RouteCache    cache_v2.RouteConfigCache
 }
 
 func NewAdsLoader() *AdsLoader {
 	return &AdsLoader{
-		ListenerCache:    cache_v2.NewListenerCache(),
-		ClusterCache:     cache_v2.NewClusterCache(),
-		RouteCache:       cache_v2.NewRouteConfigCache(),
+		ListenerCache: cache_v2.NewListenerCache(),
+		ClusterCache:  cache_v2.NewClusterCache(),
+		RouteCache:    cache_v2.NewRouteConfigCache(),
 	}
 }
 
