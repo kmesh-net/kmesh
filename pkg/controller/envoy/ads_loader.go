@@ -222,9 +222,7 @@ func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.F
 			}
 
 			apiFilter.ConfigType = &listener_v2.Filter_TcpProxy{
-				TcpProxy: &filter_v2.TcpProxy{
-					Cluster: filterTcp.GetCluster(),
-				},
+				TcpProxy: newFilterTcpProxy(filterTcp),
 			}
 		case pkg_wellknown.HTTPConnectionManager:
 			var apiFilterHttp listener_v2.Filter_HttpConnectionManager

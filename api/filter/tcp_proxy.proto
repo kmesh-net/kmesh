@@ -4,5 +4,32 @@ package filter;
 option go_package = "openeuler.io/mesh/api/filter;filter";
 
 message TcpProxy {
-  string cluster = 2;
+  // cluster based on weights.
+  message WeightedCluster {
+    message ClusterWeight {
+      // cluster name
+      string name = 1;
+
+      // the choice of an cluster is determined by its weight
+      uint32 weight = 2;
+    }
+
+    // Specifies one or more upstream clusters.
+    repeated ClusterWeight clusters = 1;
+  }
+
+  // The prefix to use when emitting :ref:`statistics
+  string stat_prefix = 1;
+
+  oneof cluster_specifier {
+    //cluster name to connect to.
+    string cluster = 2;
+
+    // Multiple upstream clusters can be specified for a given route. The
+    // request is routed to one of the upstream clusters based on weights
+    // assigned to each cluster.
+    WeightedCluster weighted_clusters = 10;
+  }
+
+  uint32 max_connect_attempts = 7;
 }
