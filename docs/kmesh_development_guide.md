@@ -319,14 +319,62 @@ Kmesh主要功能模块分为：
 
 #### 3.6.2.1 L4流量编排
 
+- 模型设计：tcp_proxy结构下新增oneof cluster_specifier字段，支持订阅普通cluster或带权重的WeightedCluster信息
 
+  ```protobuf
+  message TcpProxy {
+    // cluster based on weights.
+    message WeightedCluster {
+      message ClusterWeight {
+        // cluster name
+        string name = 1;
+  
+        // the choice of an cluster is determined by its weight
+        uint32 weight = 2;
+      }
+  
+      // Specifies one or more upstream clusters.
+      repeated ClusterWeight clusters = 1;
+    }
+  
+    oneof cluster_specifier {
+      //cluster name to connect to.
+      string cluster = 2;
+  
+      // Multiple upstream clusters can be specified for a given route. The
+      // request is routed to one of the upstream clusters based on weights
+      // assigned to each cluster.
+      WeightedCluster weighted_clusters = 10;
+    }
+  
+  }
+  ```
 
-![trafic_manager](pics/design/traffic_manager.png)
+  
 
-- 支持tcp_proxy 类型的filter（流量过滤器）
-  - 控制面订阅LDS模型时，新增对tcp_proxy类型filter的支持
-  - 非灰度场景：数据面在进行消息匹配时，在filter_manager流程，解析当前对应的filter类型，如果是tcp_proxy filter，则直接解析cluster信息，获取对应的cluster_name，并ebpf尾调用到cluster_manager流程去做后续的endpoints负载均衡。
-  - 灰度场景：数据面在进行消息匹配时，在filter_manager流程，解析当前对应的filter类型，如果是tcp_proxy filter，且是带有权重的一组cluster配置，则根据灰度比例获取对应的cluster_name，并ebpf尾调用到cluster_manager流程去做后续的endpoints负载均衡。
+- 功能设计：支持tcp_proxy 类型的filter（流量过滤器），设计如图中L4:tcp_prxoy分支处理流程
+
+  ![trafic_manager](pics/design/kmesh_traffic_manager.png)
+
+  - 数据面进行消息匹配时，在filter_manager流程匹配当前对应的filter类型，如果是tcp_proxy filter，无需走L7路由治理逻辑，直接走L4治理逻辑，在tcp_proxy_manager中解析该filter下的cluster信息，此处分两种情况：
+
+    1）集群未配置WeightedCluster，则解析cluster_name，并ebpf尾调用到cluster_manager流程去做后续的endpoints负载均衡逻辑；
+
+    2）集群配置WeightedCluster，即带有权重的一组cluster配置，则根据权重比例获取对应的cluster_name，并ebpf尾调用到cluster_manager流程去做后续的endpoints负载均衡。
+
+    
+
+- 能力验证：
+
+  - 在集群中部署tcp类型的tcp-echo-service，指定v1、V2两个版本后端，启动kmesh数据面
+
+  - 使用测试工具，访问tcp-echo-service，服务能够正常访问，v1、v2两个后端轮旬访问，功能正常
+
+  - 在集群中新增VirtualService配置，配置灰度权重比例，访问tcp-echo-service，预期按照灰度比例访问V1、v2两个后端，功能正常
+
+    注：可使用社区提供的测试demo覆盖测试 (https://istio.io/latest/zh/docs/tasks/traffic-management/tcp-traffic-shifting/) 
+
+    
 
 ### 3.6.3 kmesh-controller
 
@@ -384,9 +432,10 @@ kmesh管理程序，负责Kmesh生命周期管理、XDS协议对接、观测运�
 
 ### 3.6.3 需求列表
 
-| SR                                             | AR                                             | 详细描述                                       | 落地版本 |
-| ---------------------------------------------- | ---------------------------------------------- | ---------------------------------------------- | -------- |
-| 服务间调用通信时延相比业界方案（istio）降低3倍 | 服务间调用通信时延相比业界方案（istio）降低3倍 | 服务间调用通信时延相比业界方案（istio）降低3倍 |          |
+| SR                                             | AR                                                           | 详细描述                                                     | 落地版本 |
+| ---------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | -------- |
+| 服务间调用通信时延相比业界方案（istio）降低3倍 | 服务间调用通信时延相比业界方案（istio）降低3倍               | 服务间调用通信时延相比业界方案（istio）降低3倍               | 23.03    |
+| 支持L4基本流量编排能力                         | 支持tcp_proxy 类型的filter（流量过滤器），支持基本通路和灰度流量配置 | 支持tcp_proxy 类型的filter（流量过滤器），支持基本通路和灰度流量配置 | 23.09    |
 
 ## 3.7、接口清单
 
