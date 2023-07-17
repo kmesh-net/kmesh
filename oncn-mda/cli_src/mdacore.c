@@ -20,6 +20,7 @@ static void usage(void)
 	(void)printf("Usage: mdacore {COMMAND}\n");
 	(void)printf("       COMMAND: enable      enable serviceMesh accelerating\n");
 	(void)printf("                disable     disable serviceMesh accelerating\n");
+	(void)printf("                query       check program state\n");
 }
 
 static int do_help(int argc, char* const *argv)
@@ -32,6 +33,7 @@ const struct cmd mda_cmds[] = {
 	{"help",	do_help},			 // help message
 	{"enable",	do_enable},			 // enable service
 	{"disable",	do_disable},		 // disable service
+	{"query",	do_query},			 // query service is enabled
 	{NULL}
 };
 
