@@ -315,6 +315,19 @@ Kmesh主要功能模块分为：
 
 ![kmesh-orchestration](pics/design/kmesh-orchestration.png)
 
+
+
+#### 3.6.2.1 L4流量编排
+
+
+
+![trafic_manager](pics/design/traffic_manager.png)
+
+- 支持tcp_proxy 类型的filter（流量过滤器）
+  - 控制面订阅LDS模型时，新增对tcp_proxy类型filter的支持
+  - 非灰度场景：数据面在进行消息匹配时，在filter_manager流程，解析当前对应的filter类型，如果是tcp_proxy filter，则直接解析cluster信息，获取对应的cluster_name，并ebpf尾调用到cluster_manager流程去做后续的endpoints负载均衡。
+  - 灰度场景：数据面在进行消息匹配时，在filter_manager流程，解析当前对应的filter类型，如果是tcp_proxy filter，且是带有权重的一组cluster配置，则根据灰度比例获取对应的cluster_name，并ebpf尾调用到cluster_manager流程去做后续的endpoints负载均衡。
+
 ### 3.6.3 kmesh-controller
 
 kmesh管理程序，负责Kmesh生命周期管理、XDS协议对接、观测运维等功能；
