@@ -478,6 +478,32 @@ static int clean_proxy_map(const struct mesh_service_info* const fds)
 	return SUCCESS;
 }
 
+static void reset_filter_rules(struct sock_param* const filter_rules, const struct sock_param* const old_param)
+{
+	filter_rules->dump_params.switch_on = (*old_param).dump_params.switch_on;
+	filter_rules->dump_params.current_cidr_num = (*old_param).dump_params.current_cidr_num;
+	filter_rules->dump_params.current_port_num = (*old_param).dump_params.current_port_num;
+	for (int i = 0; i < (*old_param).dump_params.current_cidr_num; ++i) {
+		filter_rules->dump_params.dump_cidr[i].ip4 = (*old_param).dump_params.dump_cidr[i].ip4;
+		filter_rules->dump_params.dump_cidr[i].mask = (*old_param).dump_params.dump_cidr[i].mask;
+	}
+	for (int i = 0; i < (*old_param).dump_params.current_port_num; ++i) {
+		filter_rules->dump_params.dump_port[i].begin_port = (*old_param).dump_params.dump_port[i].begin_port;
+		filter_rules->dump_params.dump_port[i].end_port = (*old_param).dump_params.dump_port[i].end_port;
+	}
+}
+
+static int reset_param_map(struct sock_param* const filter_rules, const struct mesh_service_info* const fds)
+{
+	struct sock_param old_param;
+	if (get_map_filter_rule(&fds->map_fds[MESH_MAP_OPS_PARAM_MAP], &old_param) != SUCCESS)
+		return FAILED;
+	reset_filter_rules(filter_rules, &old_param);
+	if (update_param_map(filter_rules, fds) != SUCCESS)
+		return FAILED;
+	return SUCCESS;
+}
+
 int do_enable(int argc, char* const *argv)
 {
 	/*
@@ -517,6 +543,14 @@ int do_enable(int argc, char* const *argv)
 	if (init_fds(&fds, cgroup2_fd) != SUCCESS)
 		goto CLOSE_PINNED_FD;
 
+	if (check_accelerating_on(&fds) == TRUE) {
+		macli_log(INFO, "mesh service is enabled!\n");
+		if (reset_param_map(&filter_rules, &fds) != SUCCESS) {
+			macli_log(ERR, "reset mesh param failed!\n");
+			goto CLOSE_PINNED_FD;
+		}
+		goto ENABLE_SUCCESS;
+	}
 	if (create_accelerate_fold() != SUCCESS)
 		goto DELETE_FILE;
 	if (create_map(&fds) != SUCCESS)
@@ -527,10 +561,10 @@ int do_enable(int argc, char* const *argv)
 	if (enable_service(&fds, &filter_rules) != SUCCESS)
 		goto DETACH;
 
+ENABLE_SUCCESS:
 	close_fds(cgroup2_fd, &fds);
 	macli_log(INFO, "enable serviceMesh accelerating success!\n");
 	return SUCCESS;
-
 DETACH:
 	(void)detach_program(&fds);
 DELETE_FILE:
