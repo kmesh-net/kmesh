@@ -54,6 +54,7 @@ struct sock_key {
 	__u32 dip4;
 	__u32 sport;
 	__u32 dport;
+	__u64 netns_cookie;
 } __attribute__((packed));
 
 struct uid_gid_info {
