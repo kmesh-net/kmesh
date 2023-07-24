@@ -61,6 +61,8 @@ do {													\
 #define UID_LENGTH 32
 #define FORMAT_IP_LENGTH 16
 
+#define LOOPBACK_ADDR 16777343
+
 struct bpf_map_def SEC("maps") SOCK_OPS_MAP_NAME = {
 	.type			= BPF_MAP_TYPE_SOCKHASH,
 	.key_size		= sizeof(struct sock_key),
@@ -106,5 +108,14 @@ struct bpf_map_def SEC("maps") SOCK_DUMP_CPU_ARRAY_NAME = {
 	.value_size		= sizeof(struct dump_data),
 	.max_entries	= 1,
 };
+
+static inline void set_netns_cookie(void* const ctx, struct sock_key* const key)
+{
+	if (key->sip4 != LOOPBACK_ADDR || key->dip4 != LOOPBACK_ADDR)
+		key->netns_cookie = 0;
+	else
+		key->netns_cookie = bpf_get_netns_cookie(ctx);
+	return;
+}
 
 #endif
