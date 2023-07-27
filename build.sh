@@ -45,16 +45,17 @@ function install_mda {
 
 function install() {
     mkdir -p /etc/kmesh
-    chmod 750 /etc/kmesh
+    chmod 700 /etc/kmesh
     cp $ROOT_DIR/config/kmesh.json /etc/kmesh
-    chmod 640 /etc/kmesh/kmesh.json
+    chmod 600 /etc/kmesh/kmesh.json
 
     cp $ROOT_DIR/build/kmesh-start-pre.sh /usr/bin
-    chmod 550 /usr/bin/kmesh-start-pre.sh
+    chmod 500 /usr/bin/kmesh-start-pre.sh
     cp $ROOT_DIR/build/kmesh-stop-post.sh /usr/bin
-    chmod 550 /usr/bin/kmesh-stop-post.sh
+    chmod 500 /usr/bin/kmesh-stop-post.sh
 
     cp $ROOT_DIR/build/kmesh.service /usr/lib/systemd/system/
+    chmod 600 /usr/lib/systemd/system/kmesh.service
     systemctl daemon-reload
 }
 

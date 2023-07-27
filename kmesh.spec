@@ -82,20 +82,20 @@ rm -rf %{buildroot}
 
 %files
 %defattr(-,root,root)
-%attr(0550,root,root) %{_bindir}/kmesh-daemon
-%attr(0550,root,root) %{_bindir}/kmesh-cmd
+%attr(0500,root,root) %{_bindir}/kmesh-daemon
+%attr(0500,root,root) %{_bindir}/kmesh-cmd
 
 %attr(0500,root,root) /usr/lib64/libkmesh_deserial.so
 %attr(0500,root,root) /usr/lib64/libkmesh_api_v2_c.so
 
-%attr(0550,root,root) %dir /lib/modules/kmesh
-%attr(0440,root,root) /lib/modules/kmesh/kmesh.ko
+%attr(0500,root,root) %dir /lib/modules/kmesh
+%attr(0400,root,root) /lib/modules/kmesh/kmesh.ko
 
-%attr(0750,root,root) %dir %{_sysconfdir}/kmesh
-%config(noreplace) %attr(0640,root,root) %{_sysconfdir}/kmesh/kmesh.json
-%config(noreplace) %attr(0640,root,root) /usr/lib/systemd/system/kmesh.service
-%attr(0550,root,root) /usr/bin/kmesh-start-pre.sh
-%attr(0550,root,root) /usr/bin/kmesh-stop-post.sh
+%attr(0700,root,root) %dir %{_sysconfdir}/kmesh
+%config(noreplace) %attr(0600,root,root) %{_sysconfdir}/kmesh/kmesh.json
+%config(noreplace) %attr(0600,root,root) /usr/lib/systemd/system/kmesh.service
+%attr(0500,root,root) /usr/bin/kmesh-start-pre.sh
+%attr(0500,root,root) /usr/bin/kmesh-stop-post.sh
 
 %changelog
 * Mon Sep 13 2021 huangliming<huangliming5@huawei.com> - 1.0.0-1

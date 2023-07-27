@@ -56,11 +56,11 @@ install:
 	$(QUIET) make install -C kernel/ko_src
 
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS1))
-	#$(QUIET) install -dp -m 0750 $(INSTALL_BIN)
-	$(QUIET) install -Dp -m 0550 $(APPS1) $(INSTALL_BIN)
+	#$(QUIET) install -dp -m 0700 $(INSTALL_BIN)
+	$(QUIET) install -Dp -m 0500 $(APPS1) $(INSTALL_BIN)
 	
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS2))
-	$(QUIET) install -Dp -m 0550 $(APPS2) $(INSTALL_BIN)
+	$(QUIET) install -Dp -m 0500 $(APPS2) $(INSTALL_BIN)
 
 uninstall:
 	$(QUIET) make uninstall -C api/v2-c
