@@ -47,7 +47,7 @@ $(APPS): $(OBJECTS)
 
 install:
 	$(call printlog, INSTALL, $(INSTALL_LIB)/$(APPS))
-	$(QUIET) install -Dp -m 0550 $(APPS) $(INSTALL_LIB)
+	$(QUIET) install -Dp -m 0500 $(APPS) $(INSTALL_LIB)
 
 uninstall:
 	$(call printlog, UNINSTALL, $(INSTALL_LIB)/$(APPS))

@@ -53,7 +53,7 @@ func InitializeDefaultLogger() *logrus.Logger {
 	logger.SetLevel(defaultLogLevel)
 
 	path, _ := filepath.Split(defaultLogFile)
-	err := os.MkdirAll(path, 0750)
+	err := os.MkdirAll(path, 0700)
 	if err != nil {
 		logger.Fatal("failed to create log directory")
 	}

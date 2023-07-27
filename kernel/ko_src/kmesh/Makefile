@@ -12,8 +12,8 @@ all:
 	$(MAKE) -C $(KERNELDIR) M=$(PWD)
 
 install:
-	install -dp -m 0550 /lib/modules/kmesh
-	install -Dp -m 0440 kmesh.ko /lib/modules/kmesh
+	install -dp -m 0500 /lib/modules/kmesh
+	install -Dp -m 0400 kmesh.ko /lib/modules/kmesh
 	ln -sf /lib/modules/kmesh/kmesh.ko /lib/modules/`uname -r`
 	depmod -a
 
