@@ -83,8 +83,7 @@ static inline int tcp_proxy_manager(const Filter__TcpProxy *tcpProxy, ctx_buff_t
 	cluster = tcp_proxy_get_cluster(tcpProxy);
 	ctx_key.address = addr;
 	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER + bpf_get_current_task();
-	ret = bpf_strcpy(ctx_val.data, BPF_DATA_MAX_LEN, cluster);
-	if (ret != 0) {
+	if (!bpf_strncpy(ctx_val.data, BPF_DATA_MAX_LEN, cluster)) {
 		BPF_LOG(ERR, FILTER, "failed to copy cluster %s\n", cluster);
 		return convert_sock_errno(ret);
 	}
