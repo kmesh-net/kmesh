@@ -107,7 +107,7 @@ static inline int listener_filter_chain_match(const Listener__Listener *listener
 	return -1;
 }
 
-static inline int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *listener, struct bpf_mem_ptr *msg)
+static inline int listener_manager(ctx_buff_t *ctx, Listener__Listener *listener, struct bpf_mem_ptr *msg)
 {
 	int ret = 0;
 	__u64 filter_chain_idx = 0;
@@ -137,7 +137,7 @@ static inline int l7_listener_manager(ctx_buff_t *ctx, Listener__Listener *liste
 	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER_CHAIN);
 	(void)kmesh_tail_delete_ctx(&ctx_key);
 
-	BPF_LOG(ERR, LISTENER, "l7_listener_manager exit\n");
+	BPF_LOG(ERR, LISTENER, "listener_manager exit\n");
 	return ret;
 }
 #endif
