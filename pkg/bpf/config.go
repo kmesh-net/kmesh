@@ -38,6 +38,7 @@ type Config struct {
 	BpfFsPath        string `json:"-bpf-fs-path"`
 	Cgroup2Path      string `json:"-cgroup2-path"`
 	EnableKmesh      bool   `json:"-enable-kmesh"`
+	EnableMda        bool   `json:"-enable-mda"`
 	BpfVerifyLogSize int    `json:"-bpf-verify-log-size"`
 }
 
@@ -46,6 +47,7 @@ func (c *Config) SetArgs() error {
 	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
 
 	flag.BoolVar(&c.EnableKmesh, "enable-kmesh", false, "enable bpf kmesh")
+	flag.BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 
 	return nil
 }
@@ -53,30 +55,36 @@ func (c *Config) SetArgs() error {
 func (c *Config) ParseConfig() error {
 	var err error
 
-	if !c.EnableKmesh {
-		return fmt.Errorf("choose -enable-kmesh")
+	if c.EnableKmesh && c.EnableMda {
+		return fmt.Errorf("cannot choose -enable-kmesh and -enable-mda at the same time")
 	}
 
-	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
-		return err
-	}
-	if _, err = os.Stat(c.Cgroup2Path); err != nil {
-		return err
-	}
-
-	if c.BpfFsPath, err = filepath.Abs(c.BpfFsPath); err != nil {
-		return err
-	}
-	if _, err = os.Stat(c.BpfFsPath); err != nil {
-		return err
-	}
-
-	bpfLogsize := os.Getenv("BPF_LOG_SIZE")
-	if bpfLogsize != "" {
-		c.BpfVerifyLogSize, err = strconv.Atoi(bpfLogsize)
-		if (err != nil) {
-			c.BpfVerifyLogSize = 0
+	if c.EnableKmesh {
+		if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
+			return err
 		}
+		if _, err = os.Stat(c.Cgroup2Path); err != nil {
+			return err
+		}
+
+		if c.BpfFsPath, err = filepath.Abs(c.BpfFsPath); err != nil {
+			return err
+		}
+		if _, err = os.Stat(c.BpfFsPath); err != nil {
+			return err
+		}
+
+		bpfLogsize := os.Getenv("BPF_LOG_SIZE")
+		if bpfLogsize != "" {
+			c.BpfVerifyLogSize, err = strconv.Atoi(bpfLogsize)
+			if err != nil {
+				c.BpfVerifyLogSize = 0
+			}
+		}
+	} else if c.EnableMda {
+		return nil
+	} else {
+		return fmt.Errorf("must choose -enable-kmesh or -enable-mda")
 	}
 
 	return nil

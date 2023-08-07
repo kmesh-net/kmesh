@@ -20,6 +20,7 @@ package bpf
 
 import (
 	"fmt"
+	"os/exec"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -66,6 +67,18 @@ func StartKmesh() error {
 	return nil
 }
 
+func StartMda() error {
+	cmd := exec.Command("mdacore", "enable")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Error(string(output))
+		return err
+	}
+
+	log.Info(string(output))
+	return nil
+}
+
 func Start() error {
 	var err error
 
@@ -77,8 +90,24 @@ func Start() error {
 		if err = StartKmesh(); err != nil {
 			return err
 		}
+	} else if config.EnableMda {
+		if err = StartMda(); err != nil {
+			return err
+		}
 	}
 
+	return nil
+}
+
+func StopMda() error {
+	cmd := exec.Command("mdacore", "disable")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Error(string(output))
+		return err
+	}
+
+	log.Info(string(output))
 	return nil
 }
 
@@ -88,6 +117,11 @@ func Stop() {
 	if config.EnableKmesh {
 		if err = Obj.Kmesh.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
+			return
+		}
+	} else if config.EnableMda {
+		if err = StopMda(); err != nil {
+			log.Errorf("failed disable mda when stop kmesh, err:%s", err)
 			return
 		}
 	}

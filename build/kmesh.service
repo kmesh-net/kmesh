@@ -5,6 +5,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
+KillMode=process
 ExecStartPre=/usr/bin/kmesh-start-pre.sh
 ExecStart=/usr/bin/kmesh-daemon -enable-kmesh
 ExecStop=/usr/bin/kill kmesh-daemon
