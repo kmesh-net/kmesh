@@ -13,36 +13,6 @@ function prepare() {
     cp $ROOT_DIR/depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h $ROOT_DIR/bpf/include/
 }
 
-function build_mda {
-    cd oncn-mda
-    mkdir -p build && cd build
-    cmake ../
-    make
-}
-
-function build() {
-    make
-    build_mda
-}
-
-function install_mda {
-    echo "install mda"
-    cp $ROOT_DIR/oncn-mda/deploy/mdacore /usr/bin/
-    chmod 500 /usr/bin/mdacore
-
-    mkdir -p /usr/share/oncn-mda
-    chmod 500 /usr/share/oncn-mda
-    cp $ROOT_DIR/oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o /usr/share/oncn-mda/
-    cp $ROOT_DIR/oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o /usr/share/oncn-mda/
-    chmod 500 /usr/share/oncn-mda/sock_ops.c.o
-    chmod 500 /usr/share/oncn-mda/sock_redirect.c.o
-
-    mkdir -p /etc/oncn-mda
-    chmod 700 /etc/oncn-mda
-    cp $ROOT_DIR/oncn-mda/etc/oncn-mda.conf /etc/oncn-mda/
-    chmod 600 /etc/oncn-mda/oncn-mda.conf
-}
-
 function install() {
     mkdir -p /etc/kmesh
     chmod 700 /etc/kmesh
@@ -54,6 +24,11 @@ function install() {
     cp $ROOT_DIR/build/kmesh-stop-post.sh /usr/bin
     chmod 500 /usr/bin/kmesh-stop-post.sh
 
+    mkdir -p /etc/oncn-mda
+    chmod 700 /etc/oncn-mda
+    cp $ROOT_DIR/oncn-mda/etc/oncn-mda.conf /etc/oncn-mda/
+    chmod 600 /etc/oncn-mda/oncn-mda.conf
+
     cp $ROOT_DIR/build/kmesh.service /usr/lib/systemd/system/
     chmod 600 /usr/lib/systemd/system/kmesh.service
     systemctl daemon-reload
@@ -63,15 +38,10 @@ function uninstall() {
     rm -rf /etc/kmesh
     rm -rf /usr/bin/kmesh-start-pre.sh
     rm -rf /usr/bin/kmesh-stop-post.sh
+    rm -rf /etc/oncn-mda
+    rm -rf /usr/share/oncn-mda
     rm -rf /usr/lib/systemd/system/kmesh.service
     systemctl daemon-reload
-}
-
-function uninstall_mda() {
-    echo "uninstall mda"
-    rm -rf /etc/oncn-mda
-    rm -rf /usr/bin/mdacore
-    rm -rf /usr/share/oncn-mda
 }
 
 function clean() {
@@ -91,28 +61,24 @@ fi
 
 if [ -z "$1" -o "$1" == "-b"  -o  "$1" == "--build" ]; then
     prepare
-    build
+    make
     exit
 fi
 
 if [ "$1" == "-i"  -o  "$1" == "--install" ]; then
     make install
     install
-    install_mda
     exit
 fi
 
 if [ "$1" == "-u"  -o  "$1" == "--uninstall" ]; then
     make uninstall
     uninstall
-    uninstall_mda
     exit
 fi
 
 if [ "$1" == "-c"  -o  "$1" == "--clean" ]; then
     make clean
     clean
-    rm -rf $ROOT_DIR/oncn-mda/build
-    rm -rf $ROOT_DIR/oncn-mda/deploy
     exit
 fi
