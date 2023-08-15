@@ -42,7 +42,7 @@ func (c *Config) SetArgs() error {
 }
 
 func (c *Config) ParseConfig() error {
-	if bpf.GetConfig().EnableKmesh {
+	if bpf.GetConfig().EnableKmesh || bpf.GetConfig().EnableMda {
 		c.ConfigFactory = envoy.GetConfig()
 	}
 
