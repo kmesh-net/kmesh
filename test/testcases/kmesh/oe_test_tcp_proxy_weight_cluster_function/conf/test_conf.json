@@ -1,0 +1,93 @@
+{
+  "staticResources":{
+    "versionInfo":"v2",
+    "listenerConfigs":[
+      {
+        "apiStatus":"UPDATE",
+        "name":"127.0.0.1_9081",
+        "address":{
+          "port":9563,
+          "ipv4":16777343
+        },
+        "filterChains":[
+          {
+            "filterChainMatch":{
+              "transportProtocol":"raw_buffer",
+              "applicationProtocols":[
+                "http/1.0",
+                "http/1.1",
+                "h2c"
+              ]
+            },
+            "filters":[
+              {
+                "name":"envoy.filters.network.tcp_proxy",
+                 "tcp_proxy": {
+                  "weighted_clusters": {
+                    "clusters": [
+                      {
+                        "name": "outbound|9080|v1|details.default.svc.cluster.local",
+                        "weight": 80
+                      },
+                      {
+                        "name": "outbound|9080|v2|details.default.svc.cluster.local",
+                        "weight": 20
+                      }
+                    ]
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "clusterConfigs":[
+      {
+        "apiStatus":"UPDATE",
+        "name":"outbound|9080|v1|details.default.svc.cluster.local",
+        "connectTimeout":10,
+        "lb_policy":"ROUND_ROBIN",
+        "loadAssignment":{
+          "clusterName":"outbound|9080|v1|details.default.svc.cluster.local",
+          "endpoints":[
+            {
+              "lbEndpoints":[
+                {
+                  "address":{
+                    "port":51756,
+                    "ipv4":16777343
+                  }
+                }
+              ],
+              "loadBalancingWeight":1
+            }
+          ]
+        }
+      },
+      {
+        "apiStatus":"UPDATE",
+        "name":"outbound|9080|v2|details.default.svc.cluster.local",
+        "connectTimeout":10,
+        "lb_policy":"ROUND_ROBIN",
+        "loadAssignment":{
+          "clusterName":"outbound|9080|v2|details.default.svc.cluster.local",
+          "endpoints":[
+            {
+              "lbEndpoints":[
+                {
+                  "address":{
+                    "port":57388,
+                    "ipv4":16777343
+                  }
+                }
+              ],
+              "loadBalancingWeight":1
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
+
