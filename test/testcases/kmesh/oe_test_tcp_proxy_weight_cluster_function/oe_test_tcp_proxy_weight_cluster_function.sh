@@ -44,7 +44,7 @@ function run_test() {
     else
 	result=1
     fi
-    CHECK_RESULT $result 0 0 "bad dark launch"
+    CHECK_RESULT $result 0 0 "bad tcp weighted cluster select"
 
     LOG_INFO "Finish test!"
 }

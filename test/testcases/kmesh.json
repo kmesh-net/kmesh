@@ -14,7 +14,7 @@
         "name": "oe_test_route_function"
       },
       {
-	      "name": "oe_test_service_function"
+        "name": "oe_test_service_function"
       },
       {
         "name": "oe_test_tcp_proxy_weight_cluster_function"
