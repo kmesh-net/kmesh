@@ -1,3 +1,12 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License version 2 as
+# published by the Free Software Foundation
+#
+# Author: liuxin
+# Create: 2022-08-24
+
 obj-m := kmesh.o
 kmesh-objs = kmesh_main.o defer_connect.o \
 	kmesh_parse_protocol_data.o \
