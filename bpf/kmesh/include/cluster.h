@@ -314,20 +314,18 @@ int cluster_manager(ctx_buff_t *ctx)
 
 	DECLARE_VAR_ADDRESS(ctx, addr);
 
-	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER + bpf_get_current_task();
-
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_CLUSTER, addr);
 	ctx_val = kmesh_tail_lookup_ctx(&ctx_key);
 	if (ctx_val == NULL)
-		return convert_sock_errno(ENOENT);
+		return KMESH_TAIL_CALL_RET(ENOENT);
 
 	cluster = map_lookup_cluster(ctx_val->data);
 	kmesh_tail_delete_ctx(&ctx_key);
 	if (cluster == NULL)
-		return convert_sock_errno(ENOENT);
+		return KMESH_TAIL_CALL_RET(ENOENT);
 
 	ret = cluster_handle_loadbalance(cluster, &addr, ctx);
-	return convert_sock_errno(ret);
+	return KMESH_TAIL_CALL_RET(ret);
 }
 
 #endif

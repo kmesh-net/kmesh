@@ -39,6 +39,7 @@
 							   small that make compile success */
 #define BPF_INNER_MAP_DATA_LEN	  1300
 
+#define BPF_OK						1
 
 #define _(P)								   \
 	({										 \
@@ -134,16 +135,6 @@ enum kmesh_l7_msg_type {
 #define KMESH_PROTO_TYPE_WIDTH (8)
 #define GET_RET_PROTO_TYPE(n) ((n) & 0xff)
 #define GET_RET_MSG_TYPE(n) (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
-
-static inline int convert_sock_errno(int err)
-{
-	return err == 0 ? CGROUP_SOCK_OK : CGROUP_SOCK_ERR;
-}
-
-static inline int convert_sockops_ret(int err)
-{
-	return 0;
-}
 
 static inline void *kmesh_get_ptr_val(const void *ptr)
 {
