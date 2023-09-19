@@ -61,17 +61,17 @@ Note: * Planning
 - Kmesh container image prepare
 
   ```sh
-  # add an image registry: hub.oepkgs.net
+  # add an image registry: ghcr.io
   [root@ ~]# cat /etc/docker/daemon.json
       {
               "insecure-registries": [
                       ...,
-                      "hub.oepkgs.net"
+                      "ghcr.io"
               ]
       }
   
   # docker pull
-  [root@ ~]# docker pull hub.oepkgs.net/oncn/kmesh:latest
+  [root@ ~]# docker pull ghcr.io/kmesh-net/kmesh:latest
   ```
 
 - Start Kmesh
