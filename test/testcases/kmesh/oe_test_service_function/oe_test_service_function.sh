@@ -27,6 +27,7 @@ function pre_test() {
     cp kmesh.spec $CURRENT_PATH/rpmbuild/SPECS/
 
     cd $CURRENT_PATH
+    (cd kmesh-$KMESH_VERSION/ && ./build.sh -c)
     tar zcvf kmesh-$KMESH_VERSION.tar.gz kmesh-$KMESH_VERSION/
     rm -rf kmesh-$KMESH_VERSION/
     mv kmesh-$KMESH_VERSION.tar.gz rpmbuild/SOURCES/
@@ -41,8 +42,8 @@ function run_test() {
     # rpm build and install
     cd $CURRENT_PATH/rpmbuild/SPECS/
     rpmbuild --define="_topdir $CURRENT_PATH/rpmbuild/" -bb kmesh.spec
-    cd $CURRENT_PATH/rpmbuild/RPMS/x86_64/
-    rpm -ivh --force kmesh-$KMESH_VERSION-1.x86_64.rpm
+    cd $CURRENT_PATH/rpmbuild/RPMS/$(arch)/
+    rpm -ivh --force kmesh-$KMESH_VERSION-1.$(arch).rpm
     rpm -ql kmesh > tmp_rpm_install.log
     grep kmesh tmp_rpm_install.log
     CHECK_RESULT $? 0 0 "rpmb install error"

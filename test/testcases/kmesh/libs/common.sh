@@ -9,7 +9,7 @@ function env_init()
 
     cd $CURRENT_PATH
     cd ../pkg
-    yum localinstall -y fortio-*.rpm
+    yum localinstall -y fortio-*$(arch).rpm
     cd $CURRENT_PATH
 
     insmod /lib/modules/kmesh/kmesh.ko
@@ -24,7 +24,7 @@ function env_init()
 function start_fortio_server()
 {
     fortio server $@ > tmp_fortio_server.log 2>&1 &
-    sleep 0.1
+    sleep 0.2
     echo "$@" > tmp_fortio_cmd.log
     ip_port=$(egrep -o "[0-9]+.[0-9]+.[0-9]+.[0-9]+:[0-9]+" tmp_fortio_cmd.log) || ip_port="127.0.0.1:8080"
     grep "http://${ip_port}/fortio/" tmp_fortio_server.log
