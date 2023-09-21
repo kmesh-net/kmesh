@@ -21,7 +21,9 @@
 
 const char pinmap_file_path[][PATH_MAX] = {
 	"/sys/fs/bpf/meshAccelerate/sock_ops_map",
+#if MDA_GID_UID_FILTER
 	"/sys/fs/bpf/meshAccelerate/sock_helper_map",
+#endif
 	"/sys/fs/bpf/meshAccelerate/sock_param_map",
 	"/sys/fs/bpf/meshAccelerate/sock_proxy_map",
 	"/sys/fs/bpf/meshAccelerate/sock_dump_map",
@@ -49,6 +51,7 @@ struct bpf_create_map_attr g_sock_ops_map_xattr = {
 	.max_entries	= SKOPS_MAP_SIZE,
 };
 
+#if MDA_GID_UID_FILTER
 struct bpf_create_map_attr g_sock_ops_helper_map_xattr = {
 	.name			= to_str(SOCK_OPS_HELPER_MAP_NAME),
 	.map_type		= BPF_MAP_TYPE_HASH,
@@ -56,6 +59,7 @@ struct bpf_create_map_attr g_sock_ops_helper_map_xattr = {
 	.value_size		= sizeof(struct uid_gid_info),
 	.max_entries	= SKOPS_MAP_SIZE,
 };
+#endif
 
 struct bpf_create_map_attr g_sock_ops_proxy_map_xattr = {
 	.name			= to_str(SOCK_OPS_PROXY_MAP_NAME),
@@ -218,8 +222,10 @@ int init_fds(struct mesh_service_info* const fds, int cgroup_fd)
 	int ret = SUCCESS;
 	ret += init_mesh_map(&fds->map_fds[MESH_MAP_OPS_MAP], pinmap_file_path[MESH_MAP_OPS_MAP],
 						to_str(SOCK_OPS_MAP_NAME), &g_sock_ops_map_xattr);
+#if MDA_GID_UID_FILTER
 	ret += init_mesh_map(&fds->map_fds[MESH_MAP_OPS_HELPER_MAP], pinmap_file_path[MESH_MAP_OPS_HELPER_MAP],
 						to_str(SOCK_OPS_HELPER_MAP_NAME), &g_sock_ops_helper_map_xattr);
+#endif
 	ret += init_mesh_map(&fds->map_fds[MESH_MAP_OPS_PARAM_MAP], pinmap_file_path[MESH_MAP_OPS_PARAM_MAP],
 						to_str(SOCK_PARAM_MAP_NAME), &g_sock_param_map_xattr);
 	ret += init_mesh_map(&fds->map_fds[MESH_MAP_OPS_PROXY_MAP], pinmap_file_path[MESH_MAP_OPS_PROXY_MAP],

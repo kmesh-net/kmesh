@@ -2,8 +2,9 @@
 ROOT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 
 function prepare() {
-    ARCH=$(arch)
-    if [ "$ARCH" == "x86_64" ]; then
+    sh kmesh_macros_env.sh
+    sh kmesh_bpf_env.sh
+    if [ "$(arch)" == "x86_64" ]; then
             export EXTRA_CDEFINE="-D__x86_64__"
     fi
 
@@ -12,7 +13,6 @@ function prepare() {
     
     (cd $ROOT_DIR/vendor/google.golang.org/protobuf/cmd/protoc-gen-go && go build -mod=vendor)
     export PATH=$PATH:$ROOT_DIR/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/
-    cp $ROOT_DIR/depends/include/5.10.0-60.18.0.50.oe2203/bpf_helper_defs_ext.h $ROOT_DIR/bpf/include/
 }
 
 function install() {
