@@ -1,0 +1,373 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "fortio-server-nginx-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: fortio-server-nginx
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: nginx-service1
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service1-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service1
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: nginx-service2
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service1-egress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service1
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: fortio-server-nginx
+    toPorts:
+      - ports:
+        - port: "8080"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service2-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service2
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: nginx-service3
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service2-egress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service2
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: nginx-service1
+    toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service3-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service3
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: nginx-service4
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service3-egress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service3
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: nginx-service2
+    toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service4-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service4
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: nginx-service5
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service4-egress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service4
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: nginx-service3
+    toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service5-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service5
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: nginx-service6
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service5-egress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service5
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: nginx-service4
+    toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service6-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service6
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: nginx-service7
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service6-egress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service6
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: nginx-service5
+    toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service7-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service7
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: nginx-service8
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service7-egress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service7
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: nginx-service6
+    toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service8-ingress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service8
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: fortio-client-nginx
+    toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-service8-egress"
+  namespace: nginx
+spec:
+  endpointSelector:
+    matchLabels:
+      app: nginx-service8
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: nginx-service7
+    toPorts:
+      - ports:
+        - port: "80"
+          protocol: TCP
+        rules:
+          http:
+          - method: "GET"
+            path: "/"

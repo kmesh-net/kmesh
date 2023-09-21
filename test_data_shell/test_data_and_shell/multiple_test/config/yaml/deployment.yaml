@@ -1,0 +1,430 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-service1
+  name: nginx-service1
+  namespace: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-service1
+  template:
+    metadata:
+      annotations:
+        proxy.istio.io/config: '{ "concurrency": 6 }'
+        #sidecar.istio.io/proxyCPULimit: "6"
+        #sidecar.istio.io/proxyCPU: "3"
+      labels:
+        app: nginx-service1
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - name: nginx
+          image: nginx:1.21.5
+          imagePullPolicy: IfNotPresent
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: etc-volume
+              mountPath: /etc/nginx/nginx.conf
+      volumes:
+        - name: etc-volume
+          hostPath:
+            path: /home/liuxin/multiple_endback/nginx_config/proxypass1/nginx.conf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-service2
+  name: nginx-service2
+  namespace: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-service2
+  template:
+    metadata:
+      annotations:
+        proxy.istio.io/config: '{ "concurrency": 6 }'
+        #sidecar.istio.io/proxyCPULimit: "6"
+        #sidecar.istio.io/proxyCPU: "3"
+      labels:
+        app: nginx-service2
+    spec:
+      initContainers:
+        - name: setsysctl
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+              sysctl -w net.ipv4.tcp_max_tw_buckets = 55000
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w fs.file-max=1048576
+              sysctl -w net.ipv4.tcp_fin_timeout=15
+              sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=30
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - name: nginx
+          image: nginx:1.21.5
+          imagePullPolicy: IfNotPresent
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: etc-volume
+              mountPath: /etc/nginx/nginx.conf
+      volumes:
+        - name: etc-volume
+          hostPath:
+            path: /home/liuxin/multiple_endback/nginx_config/proxypass2/nginx.conf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-service3
+  name: nginx-service3
+  namespace: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-service3
+  template:
+    metadata:
+      annotations:
+        proxy.istio.io/config: '{ "concurrency": 6 }'
+        #sidecar.istio.io/proxyCPULimit: "6"
+        #sidecar.istio.io/proxyCPU: "3"
+      labels:
+        app: nginx-service3
+    spec:
+      initContainers:
+        - name: setsysctl
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+              sysctl -w net.ipv4.tcp_max_tw_buckets = 55000
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w fs.file-max=1048576
+              sysctl -w net.ipv4.tcp_fin_timeout=15
+              sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=30
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - name: nginx
+          image: nginx:1.21.5
+          imagePullPolicy: IfNotPresent
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: etc-volume
+              mountPath: /etc/nginx/nginx.conf
+      volumes:
+        - name: etc-volume
+          hostPath:
+            path: /home/liuxin/multiple_endback/nginx_config/proxypass3/nginx.conf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-service4
+  name: nginx-service4
+  namespace: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-service4
+  template:
+    metadata:
+      annotations:
+        proxy.istio.io/config: '{ "concurrency": 6 }'
+        #sidecar.istio.io/proxyCPULimit: "6"
+        #sidecar.istio.io/proxyCPU: "3"
+      labels:
+        app: nginx-service4
+    spec:
+      initContainers:
+        - name: setsysctl
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+              sysctl -w net.ipv4.tcp_max_tw_buckets = 55000
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w fs.file-max=1048576
+              sysctl -w net.ipv4.tcp_fin_timeout=15
+              sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=30
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - name: nginx
+          image: nginx:1.21.5
+          imagePullPolicy: IfNotPresent
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: etc-volume
+              mountPath: /etc/nginx/nginx.conf
+      volumes:
+        - name: etc-volume
+          hostPath:
+            path: /home/liuxin/multiple_endback/nginx_config/proxypass4/nginx.conf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-service5
+  name: nginx-service5
+  namespace: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-service5
+  template:
+    metadata:
+      annotations:
+        proxy.istio.io/config: '{ "concurrency": 6 }'
+        #sidecar.istio.io/proxyCPULimit: "6"
+        #sidecar.istio.io/proxyCPU: "3"
+      labels:
+        app: nginx-service5
+    spec:
+      initContainers:
+        - name: setsysctl
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+              sysctl -w net.ipv4.tcp_max_tw_buckets = 55000
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w fs.file-max=1048576
+              sysctl -w net.ipv4.tcp_fin_timeout=15
+              sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=30
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - name: nginx
+          image: nginx:1.21.5
+          imagePullPolicy: IfNotPresent
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: etc-volume
+              mountPath: /etc/nginx/nginx.conf
+      volumes:
+        - name: etc-volume
+          hostPath:
+            path: /home/liuxin/multiple_endback/nginx_config/proxypass5/nginx.conf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-service6
+  name: nginx-service6
+  namespace: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-service6
+  template:
+    metadata:
+      annotations:
+        proxy.istio.io/config: '{ "concurrency": 6 }'
+        #sidecar.istio.io/proxyCPULimit: "6"
+        #sidecar.istio.io/proxyCPU: "3"
+      labels:
+        app: nginx-service6
+    spec:
+      initContainers:
+        - name: setsysctl
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+              sysctl -w net.ipv4.tcp_max_tw_buckets = 55000
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w fs.file-max=1048576
+              sysctl -w net.ipv4.tcp_fin_timeout=15
+              sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=30
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - name: nginx
+          image: nginx:1.21.5
+          imagePullPolicy: IfNotPresent
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: etc-volume
+              mountPath: /etc/nginx/nginx.conf
+      volumes:
+        - name: etc-volume
+          hostPath:
+            path: /home/liuxin/multiple_endback/nginx_config/proxypass6/nginx.conf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-service7
+  name: nginx-service7
+  namespace: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-service7
+  template:
+    metadata:
+      annotations:
+        proxy.istio.io/config: '{ "concurrency": 6 }'
+        #sidecar.istio.io/proxyCPULimit: "6"
+        #sidecar.istio.io/proxyCPU: "3"
+      labels:
+        app: nginx-service7
+    spec:
+      initContainers:
+        - name: setsysctl
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+              sysctl -w net.ipv4.tcp_max_tw_buckets = 55000
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w fs.file-max=1048576
+              sysctl -w net.ipv4.tcp_fin_timeout=15
+              sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=30
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - name: nginx
+          image: nginx:1.21.5
+          imagePullPolicy: IfNotPresent
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: etc-volume
+              mountPath: /etc/nginx/nginx.conf
+      volumes:
+        - name: etc-volume
+          hostPath:
+            path: /home/liuxin/multiple_endback/nginx_config/proxypass7/nginx.conf
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: nginx-service8
+  name: nginx-service8
+  namespace: nginx
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: nginx-service8
+  template:
+    metadata:
+      annotations:
+        proxy.istio.io/config: '{ "concurrency": 6 }'
+        #sidecar.istio.io/proxyCPULimit: "6"
+        #sidecar.istio.io/proxyCPU: "3"
+      labels:
+        app: nginx-service8
+    spec:
+      initContainers:
+        - name: setsysctl
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+              sysctl -w net.ipv4.tcp_max_tw_buckets = 55000
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w fs.file-max=1048576
+              sysctl -w net.ipv4.tcp_fin_timeout=15
+              sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=30
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - name: nginx
+          image: nginx:1.21.5
+          imagePullPolicy: IfNotPresent
+          #command: [ "/bin/bash", "-c", "--" ]
+          #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: etc-volume
+              mountPath: /etc/nginx/nginx.conf
+      volumes:
+        - name: etc-volume
+          hostPath:
+            path: /home/liuxin/multiple_endback/nginx_config/proxypass8/nginx.conf

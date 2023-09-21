@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortio-server-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: fortio-server
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/proxyImage: "istio/proxyv2:1.15.3"
+        status.sidecar.istio.io/port: "0"
+        proxy.istio.io/config: "{concurrency: 48}"
+        sidecar.istio.io/proxyCPU: "1m"
+        sidecar.istio.io/proxyiMemory: "1Mi"
+      labels:
+        app: fortio-server
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - image: fortio/fortio
+          imagePullPolicy: IfNotPresent
+          name: fortio-server
+          ports:
+            - containerPort: 8080
+              #command: ["fortio", "tcp-echo"]
+          resources:
+            #limits:
+            #cpu: 100m
+            #memory: 32Mi
+            requests:
+              cpu: 100m
+              memory: 512Mi
+
+

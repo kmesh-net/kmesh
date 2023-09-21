@@ -1,0 +1,45 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "fortio-server-ingress"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: fortio-server
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+      app: fortio-client
+    toPorts:
+    - ports:
+      - port: "8080"
+        prorocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+        - method: "PORT"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "nginx-client-egress"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: fortio-client
+  egress:
+  - toEndpoints:
+    - matchLabels:
+      app: fortio-server
+    toPorts:
+    - ports:
+      - port: "8080"
+        prorocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+        - method: "PORT"
+          path: "/"

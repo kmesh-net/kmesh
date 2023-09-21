@@ -1,0 +1,22 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: details-v1
+  namespace: default
+specs:
+  - endpointSelector:
+      matchLabels:
+        "k8s:app": details
+        "k8s:version": v1
+    ingress:
+    - fromEndpoints:
+        - matchLabels:
+            "k8s:app": productpage
+      toPorts:
+      - ports:
+        - port: "9080"
+          protocol: TCP
+        rules:
+          http:
+          - method: GET
+            path: "/details/[0-9]*"
