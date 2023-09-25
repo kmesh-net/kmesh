@@ -21,6 +21,7 @@ package bpf
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -71,11 +72,11 @@ func StartMda() error {
 	cmd := exec.Command("mdacore", "enable")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Error(string(output))
+		log.Error(strings.Replace(string(output), "\n", " ", -1))
 		return err
 	}
 
-	log.Info(string(output))
+	log.Info(strings.Replace(string(output), "\n", " ", -1))
 	return nil
 }
 
@@ -105,11 +106,11 @@ func StopMda() error {
 	cmd := exec.Command("mdacore", "disable")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		log.Error(string(output))
+		log.Error(strings.Replace(string(output), "\n", " ", -1))
 		return err
 	}
 
-	log.Info(string(output))
+	log.Info(strings.Replace(string(output), "\n", " ", -1))
 	return nil
 }
 
