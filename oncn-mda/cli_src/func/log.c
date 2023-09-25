@@ -38,8 +38,10 @@ void ma_log(enum LOG_LEVEL level, const char* format, ...)
 	va_list ap;
 	va_start(ap, format);
 	char fmt_str[MAX_FMT_STR_LENGTH] = {0};
-	if (vsnprintf_s(fmt_str, sizeof(fmt_str), sizeof(fmt_str) - 1, format, ap) == -1)
+	if (vsnprintf_s(fmt_str, sizeof(fmt_str), sizeof(fmt_str) - 1, format, ap) == -1) {
+		va_end(ap);
 		return;
+	}
 	va_end(ap);
 
 	(void)fprintf(stderr, "%s", fmt_str);
