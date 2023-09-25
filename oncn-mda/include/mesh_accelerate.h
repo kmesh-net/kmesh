@@ -71,14 +71,6 @@ struct bpf_map_def SEC("maps") SOCK_OPS_MAP_NAME = {
 	.map_flags		= 0,
 };
 
-struct bpf_map_def SEC("maps") SOCK_OPS_HELPER_MAP_NAME = {
-	.type			= BPF_MAP_TYPE_HASH,
-	.key_size		= sizeof(struct sock_key),
-	.value_size		= sizeof(struct uid_gid_info),
-	.max_entries	= SKOPS_MAP_SIZE,
-	.map_flags		= 0,
-};
-
 struct bpf_map_def SEC("maps") SOCK_PARAM_MAP_NAME = {
 	.type			= BPF_MAP_TYPE_ARRAY,
 	.key_size		= sizeof(__u32),
@@ -93,6 +85,16 @@ struct bpf_map_def SEC("maps") SOCK_OPS_PROXY_MAP_NAME = {
 	.max_entries	= SKOPS_MAP_SIZE,
 	.map_flags		= 0,
 };
+
+#if MDA_GID_UID_FILTER
+struct bpf_map_def SEC("maps") SOCK_OPS_HELPER_MAP_NAME = {
+	.type			= BPF_MAP_TYPE_HASH,
+	.key_size		= sizeof(struct sock_key),
+	.value_size		= sizeof(struct uid_gid_info),
+	.max_entries	= SKOPS_MAP_SIZE,
+	.map_flags		= 0,
+};
+#endif
 
 struct bpf_map_def SEC("maps") SOCK_DUMP_MAP_I_NAME = {
 	.type			= BPF_MAP_TYPE_QUEUE,
@@ -109,6 +111,7 @@ struct bpf_map_def SEC("maps") SOCK_DUMP_CPU_ARRAY_NAME = {
 	.max_entries	= 1,
 };
 
+#if MDA_LOOPBACK_ADDR
 static inline void set_netns_cookie(void* const ctx, struct sock_key* const key)
 {
 	if (key->sip4 != LOOPBACK_ADDR || key->dip4 != LOOPBACK_ADDR)
@@ -117,5 +120,6 @@ static inline void set_netns_cookie(void* const ctx, struct sock_key* const key)
 		key->netns_cookie = bpf_get_netns_cookie(ctx);
 	return;
 }
+#endif
 
 #endif

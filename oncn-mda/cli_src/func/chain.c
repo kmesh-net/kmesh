@@ -19,8 +19,10 @@
 static const struct option g_chain_options[] = {
 	{"ip",			required_argument, NULL, 'i'},
 	{"ports",		required_argument, NULL, 'p'},
+#if MDA_GID_UID_FILTER
 	{"uid-owner",	required_argument, NULL, 'u'},
 	{"gid-owner",	required_argument, NULL, 'g'},
+#endif
 	{"jump",		required_argument, NULL, 'j'},
 	{NULL}
 };
@@ -30,8 +32,10 @@ static void chain_usage(void)
 	(void)printf("config file usage: chain {OPTIONS}\n");
 	(void)printf("       OPTIONS: -i|--ip:        filter cidr:ip/mask\n");
 	(void)printf("                -p|--ports:     filter ports,eg:15001-15006\n");
+#if MDA_GID_UID_FILTER
 	(void)printf("                -u|--uid-owner: filter uids,eg:1337\n");
 	(void)printf("                -g|--gid-owner: filter gids,eg:1337\n");
+#endif
 	(void)printf("                -j|--jump:      RETURN or ACCEPT,eg:accept/return\n");
 }
 
@@ -70,38 +74,6 @@ static int get_input_port(const char* const src, struct input_filter_rule* const
 	return SUCCESS;
 }
 
-static int get_input_uid(const char* const src, struct input_filter_rule* const input_filter_rules)
-{
-	if (input_filter_rules->input_uid_num >= MAX_UID_GID_LENGTH) {
-		macli_log(ERR, "over the max uids set num, max is %d\n", MAX_PARAM_LENGTH);
-		return FAILED;
-	}
-	__u32 tmp_uid;
-	if (get_u32_num(src, &tmp_uid) != SUCCESS) {
-		macli_log(ERR, "not a valid uids! you input:%s\n", src);
-		return FAILED;
-	}
-	input_filter_rules->input_uid[(input_filter_rules->input_uid_num)++] = tmp_uid;
-
-	return SUCCESS;
-}
-
-static int get_input_gid(const char* const src, struct input_filter_rule* const input_filter_rules)
-{
-	if (input_filter_rules->input_gid_num >= MAX_UID_GID_LENGTH) {
-		macli_log(ERR, "over the max gids set num, max is %d\n", MAX_PARAM_LENGTH);
-		return FAILED;
-	}
-	__u32 tmp_gid;
-	if (get_u32_num(src, &tmp_gid) != SUCCESS) {
-		macli_log(ERR, "not a valid gids! you input:%s\n", src);
-		return FAILED;
-	}
-	input_filter_rules->input_gid[(input_filter_rules->input_gid_num)++] = tmp_gid;
-
-	return SUCCESS;
-}
-
 static int set_cidr_filter_rule(struct input_cidr* const p, __u32 ipv4, __u32 mask)
 {
 	if (p->current_cidr_num + 1 > MAX_PARAM_LENGTH) {
@@ -129,32 +101,6 @@ static int set_port_filter_rule(struct input_port* const p, __u32 begin_port, __
 	p->ports[p->current_port_num].end_port = end_port;
 	p->current_port_num++;
 	macli_log(DEBUG, "add beginport:%u, endport:%u to filter\n", begin_port, end_port);
-	return SUCCESS;
-}
-
-static int set_uid_filter_rule(struct input_uid* const p, __u32 input_uid)
-{
-	if (p->current_uid_num + 1 > MAX_PARAM_LENGTH) {
-		macli_log(ERR, "can not set accept uids rule, because the rule is too much! max rule num is %d\n",
-				  MAX_PARAM_LENGTH);
-		return FAILED;
-	}
-	p->uids[p->current_uid_num] = input_uid;
-	p->current_uid_num++;
-	macli_log(DEBUG, "add uids:%u to filter\n", input_uid);
-	return SUCCESS;
-}
-
-static int set_gid_filter_rule(struct input_gid* const p, __u32 input_gid)
-{
-	if (p->current_gid_num + 1 > MAX_PARAM_LENGTH) {
-		macli_log(ERR, "can not set accept gids rule, because the rule is too much! max rule num is %d\n",
-				  MAX_PARAM_LENGTH);
-		return FAILED;
-	}
-	p->gids[p->current_gid_num] = input_gid;
-	p->current_gid_num++;
-	macli_log(DEBUG, "add gids:%u to accept filter\n", input_gid);
 	return SUCCESS;
 }
 
@@ -201,6 +147,65 @@ static int init_port_param(struct sock_param* const filter_rules,
 	return SUCCESS;
 }
 
+#if MDA_GID_UID_FILTER
+static int get_input_uid(const char* const src, struct input_filter_rule* const input_filter_rules)
+{
+	if (input_filter_rules->input_uid_num >= MAX_UID_GID_LENGTH) {
+		macli_log(ERR, "over the max uids set num, max is %d\n", MAX_PARAM_LENGTH);
+		return FAILED;
+	}
+	__u32 tmp_uid;
+	if (get_u32_num(src, &tmp_uid) != SUCCESS) {
+		macli_log(ERR, "not a valid uids! you input:%s\n", src);
+		return FAILED;
+	}
+	input_filter_rules->input_uid[(input_filter_rules->input_uid_num)++] = tmp_uid;
+
+	return SUCCESS;
+}
+
+static int get_input_gid(const char* const src, struct input_filter_rule* const input_filter_rules)
+{
+	if (input_filter_rules->input_gid_num >= MAX_UID_GID_LENGTH) {
+		macli_log(ERR, "over the max gids set num, max is %d\n", MAX_PARAM_LENGTH);
+		return FAILED;
+	}
+	__u32 tmp_gid;
+	if (get_u32_num(src, &tmp_gid) != SUCCESS) {
+		macli_log(ERR, "not a valid gids! you input:%s\n", src);
+		return FAILED;
+	}
+	input_filter_rules->input_gid[(input_filter_rules->input_gid_num)++] = tmp_gid;
+
+	return SUCCESS;
+}
+
+static int set_uid_filter_rule(struct input_uid* const p, __u32 input_uid)
+{
+	if (p->current_uid_num + 1 > MAX_PARAM_LENGTH) {
+		macli_log(ERR, "can not set accept uids rule, because the rule is too much! max rule num is %d\n",
+				  MAX_PARAM_LENGTH);
+		return FAILED;
+	}
+	p->uids[p->current_uid_num] = input_uid;
+	p->current_uid_num++;
+	macli_log(DEBUG, "add uids:%u to filter\n", input_uid);
+	return SUCCESS;
+}
+
+static int set_gid_filter_rule(struct input_gid* const p, __u32 input_gid)
+{
+	if (p->current_gid_num + 1 > MAX_PARAM_LENGTH) {
+		macli_log(ERR, "can not set accept gids rule, because the rule is too much! max rule num is %d\n",
+				  MAX_PARAM_LENGTH);
+		return FAILED;
+	}
+	p->gids[p->current_gid_num] = input_gid;
+	p->current_gid_num++;
+	macli_log(DEBUG, "add gids:%u to accept filter\n", input_gid);
+	return SUCCESS;
+}
+
 static int init_gid_param(struct sock_param* const filter_rules,
 						  const struct input_filter_rule* const input_filter_rules, bool is_accept)
 {
@@ -230,6 +235,7 @@ static int init_uid_param(struct sock_param* const filter_rules,
 	}
 	return SUCCESS;
 }
+#endif
 
 static int set_filter_rule(struct sock_param* const filter_rules,
 						   const struct input_filter_rule* const input_filter_rules, bool is_accept)
@@ -241,11 +247,13 @@ static int set_filter_rule(struct sock_param* const filter_rules,
 	if (init_port_param(filter_rules, input_filter_rules, is_accept) != SUCCESS)
 		return FAILED;
 
+#if MDA_GID_UID_FILTER
 	if (init_uid_param(filter_rules, input_filter_rules, is_accept) != SUCCESS)
 		return FAILED;
 
 	if (init_gid_param(filter_rules, input_filter_rules, is_accept) != SUCCESS)
 		return FAILED;
+#endif
 
 	return SUCCESS;
 }
@@ -266,6 +274,7 @@ static int chain_get_opt(int argc, char* const *argv,
 			if (get_input_port(optarg, input_filter_rules) != SUCCESS)
 				return FAILED;
 			break;
+#if MDA_GID_UID_FILTER
 		case 'u':
 			if (get_input_uid(optarg, input_filter_rules) != SUCCESS)
 				return FAILED;
@@ -274,6 +283,7 @@ static int chain_get_opt(int argc, char* const *argv,
 			if (get_input_gid(optarg, input_filter_rules) != SUCCESS)
 				return FAILED;
 			break;
+#endif
 		case 'j':
 			if (strcmp("ACCEPT", optarg) == 0 || strcmp("accept", optarg) == 0) {
 				*is_accept = true;

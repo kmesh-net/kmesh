@@ -26,7 +26,9 @@ int SOCK_REDIRECT_NAME(struct sk_msg_md* const msg)
 	key.dip4 = msg->remote_ip4;
 	key.sport = (bpf_htonl(msg->local_port) >> 16);
 	key.dport = (force_read(msg->remote_port) >> 16);
+#if MDA_LOOPBACK_ADDR
 	set_netns_cookie((void*)msg, &key);
+#endif
 
 	redir_key = bpf_map_lookup_elem(&SOCK_OPS_PROXY_MAP_NAME, &key);
 	if (redir_key != NULL) {

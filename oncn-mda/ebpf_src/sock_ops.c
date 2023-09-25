@@ -49,22 +49,6 @@ static bool is_accept_port(const struct sock_key* const key, const struct sock_k
 	return !filter_option;
 }
 
-static bool is_accept_uid(const struct uid_gid_info* const current_uid_gid, const __u32 input_uid,
-								bool filter_option)
-{
-	if ((current_uid_gid->cuid == input_uid) || (current_uid_gid->puid == input_uid))
-		return filter_option;
-	return !filter_option;
-}
-
-static bool is_accept_gid(const struct uid_gid_info* const current_uid_gid, const __u32 input_gid,
-								bool filter_option)
-{
-	if ((current_uid_gid->cgid == input_gid) || (current_uid_gid->pgid == input_gid))
-		return filter_option;
-	return !filter_option;
-}
-
 static bool adj_filter_ip(__u32 ip4, const struct input_cidr* const param, bool filter_flag)
 {
 	for (int i = 0; i < MAX_PARAM_LENGTH; ++i) {
@@ -111,6 +95,23 @@ static bool filter_port(const struct sock_key* const key, const struct sock_key*
 			return filter_flag;
 	}
 	return !filter_flag;
+}
+
+#if MDA_GID_UID_FILTER
+static bool is_accept_uid(const struct uid_gid_info* const current_uid_gid, const __u32 input_uid,
+								bool filter_option)
+{
+	if ((current_uid_gid->cuid == input_uid) || (current_uid_gid->puid == input_uid))
+		return filter_option;
+	return !filter_option;
+}
+
+static bool is_accept_gid(const struct uid_gid_info* const current_uid_gid, const __u32 input_gid,
+								bool filter_option)
+{
+	if ((current_uid_gid->cgid == input_gid) || (current_uid_gid->pgid == input_gid))
+		return filter_option;
+	return !filter_option;
 }
 
 static bool filter_uid(const struct uid_gid_info* const current_uid_gid,
@@ -167,6 +168,7 @@ static int get_peer_uid_gid(const struct sock_key* const peer_key, struct uid_gi
 	bpf_map_delete_elem(&SOCK_OPS_HELPER_MAP_NAME, (void *)peer_key);
 	return SUCCESS;
 }
+#endif
 
 static bool filter(const struct sock_key* const key, const struct sock_key* const peer_key,
 			struct bpf_sock_ops* const skops)
@@ -187,6 +189,7 @@ static bool filter(const struct sock_key* const key, const struct sock_key* cons
 	if (filter_port(key, peer_key, &param->accept_ports, FILTER_PASS) != FILTER_PASS)
 		return FILTER_RETURN;
 
+#if MDA_GID_UID_FILTER
 	if (param->accept_uids.current_uid_num == 0 && param->return_uids.current_uid_num == 0 &&
 		param->accept_gids.current_gid_num == 0 && param->return_gids.current_gid_num == 0)
 		return FILTER_PASS;
@@ -210,6 +213,7 @@ static bool filter(const struct sock_key* const key, const struct sock_key* cons
 
 	if (filter_gid(&current_uid_gid, &param->accept_gids, FILTER_PASS) != FILTER_PASS)
 		return FILTER_RETURN;
+#endif
 
 	return FILTER_PASS;
 }
@@ -224,11 +228,19 @@ static void extract_key4_from_ops(struct bpf_sock_ops* const ops, struct sock_ke
 	 */
 	key->sport = (bpf_htonl(ops->local_port) >> FORMAT_IP_LENGTH);
 	key->dip4 = ops->remote_ip4;
+
+#if MDA_PORT_OFFSET
 	key->dport = (force_read(ops->remote_port) >> FORMAT_IP_LENGTH);
-	set_netns_cookie((void*)ops, key);
+#else	
+	key->dport = (force_read(ops->remote_port));
+#endif
 	bpf_log(DEBUG, "sip:%u, sport:%u\n", key->sip4, key->sport);
 	bpf_log(DEBUG, "dip:%u, dport:%u\n", key->dip4, key->dport);
+
+#if MDA_LOOPBACK_ADDR
+	set_netns_cookie((void*)ops, key);
 	bpf_log(DEBUG, "netns_cookie:%u\n", key->netns_cookie);
+#endif
 }
 
 static int add_sockhash_map(struct bpf_sock_ops* const skops, const struct sock_key* const key)
@@ -241,6 +253,7 @@ static int add_sockhash_map(struct bpf_sock_ops* const skops, const struct sock_
 	return SUCCESS;
 }
 
+#if MDA_GID_UID_FILTER
 static int add_helper_hash(const struct sock_key* const key, const struct uid_gid_info* const uid_gid)
 {
 	long ret = bpf_map_update_elem(&SOCK_OPS_HELPER_MAP_NAME, (void *)key, (void *)uid_gid, BPF_ANY);
@@ -250,10 +263,12 @@ static int add_helper_hash(const struct sock_key* const key, const struct uid_gi
 	}
 	return SUCCESS;
 }
+#endif
 
 static int get_peer_addr(struct bpf_sock_ops* const skops, const struct sock_key* const key,
 				struct sock_key* const peer_key)
 {
+#if MDA_NAT_ACCEL
 	struct sockaddr_in target = {0};
 	int target_len = sizeof(target);
 	int ret = bpf_sk_original_addr(skops, SO_ORIGINAL_DST, (void *)&target, target_len);
@@ -262,25 +277,34 @@ static int get_peer_addr(struct bpf_sock_ops* const skops, const struct sock_key
 		peer_key->sport = key->dport;
 		peer_key->dip4 = target.sin_addr.s_addr;
 		peer_key->dport = target.sin_port;
+#if MDA_LOOPBACK_ADDR
 		set_netns_cookie((void*)skops, peer_key);
+#endif
 		return SUCCESS;
 	} else if (ret == -ENOENT) {
+#endif
 		peer_key->sip4 = key->dip4;
 		peer_key->sport = key->dport;
 		peer_key->dip4 = key->sip4;
 		peer_key->dport = key->sport;
+#if MDA_LOOPBACK_ADDR
 		set_netns_cookie((void*)skops, peer_key);
+#endif
 		return SUCCESS;
+#if MDA_NAT_ACCEL
 	}
 
 	bpf_log(ERROR, "get target failed!, operator = %d, ret = %d\n", SO_ORIGINAL_DST, ret);
 	return FAILED;
+#endif
 }
 
 static int clean_ops(const struct sock_key* const key)
 {
 	bpf_map_delete_elem(&SOCK_OPS_MAP_NAME, (void *)key);
+#if MDA_GID_UID_FILTER
 	bpf_map_delete_elem(&SOCK_OPS_HELPER_MAP_NAME, (void *)key);
+#endif
 	bpf_map_delete_elem(&SOCK_OPS_PROXY_MAP_NAME, (void*)key);
 	return SUCCESS;
 }
@@ -288,21 +312,21 @@ static int clean_ops(const struct sock_key* const key)
 static void active_ops_ipv4(struct bpf_sock_ops* const skops)
 {
 	struct sock_key key = {0};
-	struct uid_gid_info current_uid_gid = {0};
-
 	extract_key4_from_ops(skops, &key);
-	get_current_uid_gid(&current_uid_gid, skops);
-
 	if (add_sockhash_map(skops, &key)) {
 		bpf_log(ERROR, "active_ops_ipv4 failed!\n");
 		return;
 	}
 
+#if MDA_GID_UID_FILTER
+	struct uid_gid_info current_uid_gid = {0};
+	get_current_uid_gid(&current_uid_gid, skops);
 	if (add_helper_hash(&key, &current_uid_gid)) {
 		bpf_log(ERROR, "active_ops_ipv4 failed!\n");
 		(void)clean_ops(&key);
 		return;
 	}
+#endif
 	return;
 }
 
@@ -347,9 +371,13 @@ static void clean_ops_map(struct bpf_sock_ops* const skops)
 	struct sock_key key;
 	struct sock_key *reverse_key = NULL;
 	extract_key4_from_ops(skops, &key);
-	long ret = bpf_map_delete_elem(&SOCK_OPS_HELPER_MAP_NAME, &key);
+	long ret;
+
+#if MDA_GID_UID_FILTER
+	ret = bpf_map_delete_elem(&SOCK_OPS_HELPER_MAP_NAME, &key);
 	if (ret && ret != -ENOENT)
 		bpf_log(INFO, "bpf map delete helper elem key failed! ret:%d\n", ret);
+#endif
 	reverse_key = bpf_map_lookup_elem(&SOCK_OPS_PROXY_MAP_NAME, &key);
 	ret = bpf_map_delete_elem(&SOCK_OPS_PROXY_MAP_NAME, &key);
 	if (ret && ret != -ENOENT)
