@@ -90,7 +90,9 @@ func Start() error {
 		if err = StartKmesh(); err != nil {
 			return err
 		}
-	} else if config.EnableMda {
+	}
+
+	if config.EnableMda {
 		if err = StartMda(); err != nil {
 			return err
 		}
@@ -119,7 +121,9 @@ func Stop() {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
-	} else if config.EnableMda {
+	}
+
+	if config.EnableMda {
 		if err = StopMda(); err != nil {
 			log.Errorf("failed disable mda when stop kmesh, err:%s", err)
 			return

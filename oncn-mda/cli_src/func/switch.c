@@ -210,9 +210,13 @@ static int load_program(struct mesh_service_info* const fds)
 
 static int attach_program(const struct mesh_service_info* const fds)
 {
+	unsigned int flags;
 	for (int i = (int)MESH_PROG_NUM - 1; i >= 0; --i) {
+		flags = 0;
+		if (strcmp(fds->prog_fds[i].name, to_str(SOCK_OPS_NAME)) == 0)
+			flags = BPF_F_ALLOW_MULTI;
 		if (bpf_prog_attach(fds->prog_fds[i].fd, fds->prog_fds[i].attach_fd,
-							fds->prog_fds[i].attach_type, 0)) {
+							fds->prog_fds[i].attach_type, flags)) {
 			macli_log(ERR, "failed to attach %s, errno:%d\n",
 					  fds->prog_fds[i].pin_file_path, errno);
 			return FAILED;

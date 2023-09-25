@@ -55,8 +55,8 @@ func (c *Config) SetArgs() error {
 func (c *Config) ParseConfig() error {
 	var err error
 
-	if c.EnableKmesh && c.EnableMda {
-		return fmt.Errorf("cannot choose -enable-kmesh and -enable-mda at the same time")
+	if !c.EnableKmesh && !c.EnableMda {
+		return fmt.Errorf("must choose one or both of -enable-kmesh and -enable-mda")
 	}
 
 	if c.EnableKmesh {
@@ -81,10 +81,6 @@ func (c *Config) ParseConfig() error {
 				c.BpfVerifyLogSize = 0
 			}
 		}
-	} else if c.EnableMda {
-		return nil
-	} else {
-		return fmt.Errorf("must choose -enable-kmesh or -enable-mda")
 	}
 
 	return nil
