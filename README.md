@@ -178,7 +178,7 @@ ExecStart=/usr/bin/kmesh-daemon -enable-kmesh -enable-ads=false
 
 ![fortio_performance_test](docs/pics/fortio_performance_test.png)
 
-详细的测试步骤请参考[Kmesh性能测试](test/performance/README.md)；
+完整的性能测试请参考[Kmesh性能测试](test/performance/README.md)；
 
 ### 软件架构
 
