@@ -4,7 +4,7 @@ Name:          kmesh
 Version:       1.0.0
 Release:       1
 Summary:       %{name} is a eBPF-based service mesh kernel solution
-License:       ASL 2.0
+License:       ASL 2.0 and GPL-2.0
 URL:           https://gitee.com/openeuler
 Source0:       %{name}-%{version}.tar.gz
 
