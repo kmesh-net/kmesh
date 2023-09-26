@@ -1,0 +1,22 @@
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: reviews-v2
+  namespace: default
+specs:
+  - endpointSelector:
+      matchLabels:
+        "k8s:app": reviews
+        "k8s:version": v2
+    ingress:
+    - fromEndpoints:
+      - matchLabels:
+          "k8s:app": productpage
+      toPorts:
+      - ports:
+        - port: "9080"
+          protocol: TCP
+        rules:
+          http:
+          - method: GET
+            path: "/reviews/[0-9]*"

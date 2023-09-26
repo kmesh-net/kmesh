@@ -1,0 +1,41 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "fortio-server-small-ingress"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: fortio-server-small
+  ingress:
+  - fromEndpoints:
+    - matchLabels:
+        app: fortio-client-small
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
+---
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: "fortio-client-small-egress"
+spec:
+  endpointSelector:
+    matchLabels:
+      app: fortio-client-small
+  egress:
+  - toEndpoints:
+    - matchLabels:
+        app: fortio-server-small
+    toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - method: "GET"
+          path: "/"
