@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortio-client-nginx-deployment
+  namespace: nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fortio-client-nginx
+  template:
+    metadata:
+      labels:
+        app: fortio-client-nginx
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node2
+      containers:
+        - image: fortio/fortio
+          imagePullPolicy: IfNotPresent
+          name: fortio-client-nginx
+          ports:
+            - containerPort: 8080
+          #resources:
+           # limits:
+            #  cpu: 500m
+             # memory: 512Mi
+            #requests:
+             # cpu: 500m
+              #memory: 512Mi

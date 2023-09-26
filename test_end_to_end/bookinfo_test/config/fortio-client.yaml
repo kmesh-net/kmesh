@@ -1,0 +1,50 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fortio-client-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fortio-client
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/proxyImage: "istio/proxyv2:1.15.3"
+        status.sidecar.istio.io/port: "0"
+      labels:
+        app: fortio-client
+    spec:
+      initContainers:
+        - name: setsysctl
+          image: busybox
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            privileged: true
+          command:
+            - sh
+            - -c
+            - |
+              sysctl -w net.core.somaxconn=65535
+              sysctl -w net.ipv4.ip_local_port_range="1024 65535"
+              sysctl -w net.ipv4.tcp_max_tw_buckets = 55000
+              sysctl -w net.ipv4.tcp_tw_reuse=1
+              sysctl -w fs.file-max=1048576
+              sysctl -w net.ipv4.tcp_fin_timeout=15
+              sysctl -w net.netfilter.nf_conntrack_tcp_timeout_time_wait=30
+      nodeSelector:
+        kubernetes.io/hostname: k8s-node1
+      containers:
+        - image: fortio/fortio
+          imagePullPolicy: IfNotPresent
+          name: fortio-client
+          ports:
+            - containerPort: 8080
+          #resources:
+           # limits:
+            #  cpu: 500m
+             # memory: 512Mi
+            #requests:
+             # cpu: 500m
+              #memory: 512Mi
+
