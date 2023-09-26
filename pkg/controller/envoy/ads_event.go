@@ -31,9 +31,9 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	admin_v2 "openeuler.io/mesh/api/v2/admin"
-	core_v2 "openeuler.io/mesh/api/v2/core"
-	cache_v2 "openeuler.io/mesh/pkg/cache/v2"
+	admin_v2 "openmesh.io/mesh/api/v2/admin"
+	core_v2 "openmesh.io/mesh/api/v2/core"
+	cache_v2 "openmesh.io/mesh/pkg/cache/v2"
 )
 
 const (

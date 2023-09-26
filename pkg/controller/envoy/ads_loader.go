@@ -31,14 +31,14 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	cluster_v2 "openeuler.io/mesh/api/v2/cluster"
-	core_v2 "openeuler.io/mesh/api/v2/core"
-	endpoint_v2 "openeuler.io/mesh/api/v2/endpoint"
-	filter_v2 "openeuler.io/mesh/api/v2/filter"
-	listener_v2 "openeuler.io/mesh/api/v2/listener"
-	route_v2 "openeuler.io/mesh/api/v2/route"
-	cache_v2 "openeuler.io/mesh/pkg/cache/v2"
-	"openeuler.io/mesh/pkg/nets"
+	cluster_v2 "openmesh.io/mesh/api/v2/cluster"
+	core_v2 "openmesh.io/mesh/api/v2/core"
+	endpoint_v2 "openmesh.io/mesh/api/v2/endpoint"
+	filter_v2 "openmesh.io/mesh/api/v2/filter"
+	listener_v2 "openmesh.io/mesh/api/v2/listener"
+	route_v2 "openmesh.io/mesh/api/v2/route"
+	cache_v2 "openmesh.io/mesh/pkg/cache/v2"
+	"openmesh.io/mesh/pkg/nets"
 )
 
 type AdsLoader struct {

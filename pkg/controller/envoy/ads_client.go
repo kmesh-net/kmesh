@@ -28,7 +28,7 @@ import (
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 
-	"openeuler.io/mesh/pkg/nets"
+	"openmesh.io/mesh/pkg/nets"
 )
 
 const (

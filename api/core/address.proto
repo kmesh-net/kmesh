@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package core;
-option go_package = "openeuler.io/mesh/api/core;core";
+option go_package = "openmesh.io/mesh/api/core;core";
 
 message SocketAddress {
   enum Protocol {

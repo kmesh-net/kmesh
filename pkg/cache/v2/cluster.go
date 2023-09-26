@@ -21,9 +21,9 @@ package cache_v2
 import (
 	"sync"
 
-	cluster_v2 "openeuler.io/mesh/api/v2/cluster"
-	core_v2 "openeuler.io/mesh/api/v2/core"
-	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
+	cluster_v2 "openmesh.io/mesh/api/v2/cluster"
+	core_v2 "openmesh.io/mesh/api/v2/core"
+	maps_v2 "openmesh.io/mesh/pkg/cache/v2/maps"
 )
 
 var RWCluster sync.RWMutex

@@ -28,7 +28,7 @@ import (
 	"unsafe"
 
 	"google.golang.org/protobuf/proto"
-	core_v2 "openeuler.io/mesh/api/v2/core"
+	core_v2 "openmesh.io/mesh/api/v2/core"
 )
 
 func convertToPack(buf []byte) *C.uint8_t {

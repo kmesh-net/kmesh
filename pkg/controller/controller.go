@@ -19,9 +19,9 @@
 package controller
 
 import (
-	"openeuler.io/mesh/pkg/bpf"
-	"openeuler.io/mesh/pkg/controller/envoy"
-	"openeuler.io/mesh/pkg/controller/interfaces"
+	"openmesh.io/mesh/pkg/bpf"
+	"openmesh.io/mesh/pkg/controller/envoy"
+	"openmesh.io/mesh/pkg/controller/interfaces"
 )
 
 var (

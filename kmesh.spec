@@ -5,7 +5,7 @@ Version:       1.0.0
 Release:       1
 Summary:       %{name} is a eBPF-based service mesh kernel solution
 License:       ASL 2.0
-URL:           https://gitee.com/openeuler
+URL:           https://github.com/kmesh-net/kmesh
 Source0:       %{name}-%{version}.tar.gz
 
 BuildRequires: make
