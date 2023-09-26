@@ -1,181 +1,140 @@
-![kmesh-logo](docs/pics/logo/KMESH-stacked-colour.png)
+<img src="docs/pics/logo/KMESH-stacked-colour.png" alt="kmesh-logo" style="zoom: 100%;" />
 
 ### 介绍
 
-Kmesh是一种基于可编程内核实现的高性能网格数据面；提供serviceMesh场景下高性能的服务通信能力。
+Kmesh是一种基于可编程内核实现的高性能服务网格数据面；提供服务网格场景下高性能的服务通信基础设施。
 
-### 软件架构
+### 为什么需要Kmesh
 
-![kmesh-arch](docs/pics/kmesh-arch.png)
+#### 服务网格数据面的挑战
 
-Kmesh的主要部件包括：
+Istio为代表的服务网格已逐步流行，成为云上基础设施的重要组成；但当前的服务网格仍面临一定的挑战：
 
-- kmesh-controller：
+- **代理层引入额外时延开销**：服务访问单跳增加[2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance)，无法满足时延敏感应用的SLA诉求；基于该问题，社区在网格数据面演进出了多种方案，典型的如：grpc proxyless、Cilium Mesh、ambient Mesh等，一定程度上可以缓解时延开销，但很难完全消减；
+- **资源占用大**：代理占用额外CPU/MEM开销，业务容器部署密度下降；
 
-  kmesh管理程序，负责Kmesh生命周期管理、XDS协议对接、观测运维等功能；
+#### Kmesh：内核级原生流量治理
 
-- kmesh-api：
+Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过代理层，构建应用透明的sidecarless服务网格。
 
-  kmesh对外提供的api接口层，主要包括：xds转换后的编排API、观测运维通道等；
+![image-20230927012356836](docs/pics/why-kmesh-arch.png)
 
-- kmesh-runtime：
+#### Kmesh关键特性
 
-  kernel中实现的支持L3~L7流量编排的运行时；
-
-- kmesh-orchestration：
-
-  基于ebpf实现L3~L7流量编排，如路由、灰度、负载均衡等；
-
-- kmesh-probe：
-
-  观测运维探针，提供端到端观测能力；
-
+![image-20230927012241512](docs/pics/kmesh-features.png)
 
 ### 快速开始
 
-#### 准备工作
+#### 集群启动模式
 
-Kmesh正常运行依赖对kernel的增强特性修改，这些增强特性正在向上游社区推送；在此之前，提供了两种方式获取包含Kmesh增强特性的kernel包：
+##### Kmesh容器镜像准备
 
-- 针对主流kernel版本归档包含Kmesh增强特性的发布包
-
-  | 基线版本                                                     | Kmesh特性增强版本          | 备注 |
-  | ------------------------------------------------------------ | -------------------------- | ---- |
-  | [openEuler_2303_kernel_x8664](https://repo.openeuler.org/openEuler-23.03/everything/x86_64/Packages/kernel-6.1.19-7.0.0.17.oe2303.x86_64.rpm) | openEuler 2303版本原生支持 |      |
-  | [openEuler_2303_kernel_aarch64](https://repo.openeuler.org/openEuler-23.03/everything/aarch64/Packages/kernel-6.1.19-7.0.0.17.oe2303.aarch64.rpm) | openEuler 2303版本原生支持 |      |
-  | centos                                                       | TODO                       |      |
-  | Ubuntu                                                       | TODO                       |      |
-
-- 基于Kmesh增强特性patch制作kernel包
-
-  [基于Kmesh增强特性构建kernel包](docs/kmesh_kernel_compile.md)
-
-编译运行Kmesh前，需要安装包含Kmesh增强特性的kernel包重启；
+下载对应版本Kmesh容器镜像后，使用如下命令将镜像加载到环境中
 
 ```sh
-[root@dev kernel]# ll
-total 67M
--rw-r--r--. 1 root root  51M Nov  2 21:59 kernel-5.10.0-60.18.0.99.x86_64.rpm
--rw-r--r--. 1 root root  15M Nov  2 21:59 kernel-devel-5.10.0-60.18.0.99.x86_64.rpm
--rw-r--r--. 1 root root 2.2M Nov  2 21:59 kernel-headers-5.10.0-60.18.0.99.x86_64.rpm
-# 编译/运行环境安装
-[root@dev kernel]# rpm -Uvh kernel-5.10.0-60.18.0.99.x86_64.rpm
-# 编译环境需额外安装kernel-headers/kernel-devel
-[root@dev kernel]# rpm -Uvh kernel-headers-5.10.0-60.18.0.99.x86_64.rpm
-[root@dev kernel]# rpm -Uvh kernel-devel-5.10.0-60.18.0.99.x86_64.rpm
+[root@ ~]# docker load -i Kmesh.tar
 ```
 
-详细的开发编译流程，可参考[Kmesh编译构建](docs/kmesh_compile.md)；
+##### 启动Kmesh容器
 
-#### Kmesh集群启动模式
+下载对应版本yaml文件，启动Kmesh
 
-在serviceMesh环境中启动Kmesh当前支持rpm、容器两种模式；
+```sh
+[root@ ~]# kubectl apply -f kmesh.yaml
+```
 
-- 基于rpm启动部署
+默认使用Kmesh功能，可通过调整yaml文件中的启动参数进行功能选择
 
-  1. 下载一个[Kmesh发行包](release/Kmesh/rpm)安装：
+##### 查看kmesh服务启动状态
 
-     ```sh
-     [root@dev ~]# rpm -Uvh kmesh.rpm
-     ```
+```sh
+[root@ ~]# kubectl get pods -A -owide | grep kmesh
+default        kmesh-deploy-j8q68                   1/1     Running   0          6h15m   192.168.11.6    node1   <none> 
+```
 
-  2. Kmesh启动配置修改，设置集群中控制面程序ip信息（如istiod ip地址）；
+查看kmesh服务运行状态
 
-     ```sh
-     [root@dev ~]# vim /etc/kmesh/kmesh.json
-     {
-             "name": "xds-grpc",		# 1 找到该项配置
-             "type" : "STATIC",
-             "connect_timeout": "1s",
-             "lb_policy": "ROUND_ROBIN",
-             "load_assignment": {
-               "cluster_name": "xds-grpc",
-               "endpoints": [{
-                 "lb_endpoints": [{
-                   "endpoint": {
-                     "address":{
-                       "socket_address": {
-                         "protocol": "TCP",
-                         "address": "192.168.123.123", # 2 设置控制面ip(如istiod ip)
-                         "port_value": 15010
-                       }
-                     }
-                   }
-                 }]
-               }]
-             },
-     ```
+```sh
+[root@ ~]# kubectl logs -f kmesh-deploy-j8q68
+time="2023-07-25T09:28:37+08:00" level=info msg="options InitDaemonConfig successful" subsys=manager
+time="2023-07-25T09:28:38+08:00" level=info msg="bpf Start successful" subsys=manager
+time="2023-07-25T09:28:38+08:00" level=info msg="controller Start successful" subsys=manager
+time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
+```
 
-  3. 启动Kmesh
+#### 本地启动模式
 
-     ```sh
-     # 启动Kmesh服务
-     [root@dev ~]# systemctl start kmesh.service
-     
-     # 查看kmesh运行状态
-     [root@dev ~]# systemctl status kmesh.service
-     ```
+下载对应版本Kmesh软件包
 
-  4. 停止Kmesh
+##### 安装Kmesh软件包
 
-     ```sh
-     [root@dev ~]# systemctl stop kmesh.service
-     ```
-     
-  5. 卸载Kmesh rpm
+```
+[root@ ~]# yum install Kmesh
+```
 
-     ```sh
-     [root@dev ~]# rpm -evh kmesh
-     ```
+##### 配置Kmesh服务
 
-- 基于容器镜像启动部署
+```sh
+# 禁用ads开关
+[root@ ~]# vim /usr/lib/systemd/system/kmesh.service
+ExecStart=/usr/bin/kmesh-daemon -enable-kmesh -enable-ads=false
+[root@ ~]# systemctl daemon-reload
+```
 
-  - 从代码仓中获取[容器镜像](release/Kmesh/docker)并加载到集群
-  
-    ```sh
-    [root@dev Kmesh]# docker load -i kmesh-1.0.1.tar
-    ```
-    
-  - 启动Kmesh
-  
-    - 启动Kmesh容器
-  
-      ```sh
-      [root@dev Kmesh]# docker run -itd --privileged=true -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:1.0.1
-      ```
-  
-    - daemonset方式启动Kmesh
-  
-      ```sh
-      [root@dev Kmesh]# kubectl apply -f kmesh.yaml
-      ```
+##### 启动Kmesh服务
 
-#### Kmesh本地启动模式
+```sh
+[root@ ~]# systemctl start kmesh.service
+# 查看Kmesh服务运行状态
+[root@ ~]# systemctl status kmesh.service
+```
 
-为了方便快速验证，Kmesh支持本地启动模式，本地启动模式下，无需部署k8s/istio，可在单节点上直接启动；
+##### 停止Kmesh服务
 
-- 替换包含Kmesh增强特性的内核包
+```sh
+[root@ ~]# systemctl stop kmesh.service
+```
 
-  具体步骤参考[准备工作](#准备工作)；
 
-- 下载Kmesh.rpm安装
+#### 编译构建
+
+##### 源码编译
+
+- 代码下载
 
   ```sh
-  [root@dev ~]# rpm -Uvh kmesh.rpm
+  [root@ ~]# git clone https://github.com/kmesh-net/kmesh.git
   ```
 
-- 修改kmesh.service，禁用ads开关
+- 代码编译
 
   ```sh
-  [root@dev ~]# vim /usr/lib/systemd/system/kmesh.service
-  ExecStart=/usr/bin/kmesh-daemon -enable-kmesh -enable-ads=false
-  [root@dev ~]# systemctl daemon-reload
-  
-  # service启动
-  [root@dev ~]# systemctl start kmesh.service
+  [root@ ~]# cd kmesh/
+  [root@ ~]# ./build.sh -b
   ```
 
-#### demo部署演示
+- 程序安装
+
+  ```sh
+  # 安装脚本显示了Kmesh所有安装文件的位置
+  [root@ ~]# ./build.sh -i
+  ```
+
+- 编译清理
+
+  ```sh
+  [root@ ~]# ./build.sh -c
+  ```
+
+- 程序卸载
+
+  ```sh
+  [root@ ~]# ./build.sh -u
+  ```
+
+更多Kmesh编译方式，请参考[Kmesh编译构建](https://github.com/kmesh-net/kmesh/blob/main/docs/kmesh_compile.md)
+
+### demo演示
 
 以istio的bookinfo示例服务为例，演示部署Kmesh后进行百分比灰度访问的执行过程；
 
@@ -218,6 +177,32 @@ total 67M
 ![fortio_performance_test](docs/pics/fortio_performance_test.png)
 
 详细的测试步骤请参考[Kmesh性能测试](test/performance/README.md)；
+
+### 软件架构
+
+![kmesh-arch](docs/pics/kmesh-arch.png)
+
+Kmesh的主要部件包括：
+
+- kmesh-controller：
+
+  kmesh管理程序，负责Kmesh生命周期管理、XDS协议对接、观测运维等功能；
+
+- kmesh-api：
+
+  kmesh对外提供的api接口层，主要包括：xds转换后的编排API、观测运维通道等；
+
+- kmesh-runtime：
+
+  kernel中实现的支持L3~L7流量编排的运行时；
+
+- kmesh-orchestration：
+
+  基于ebpf实现L3~L7流量编排，如路由、灰度、负载均衡等；
+
+- kmesh-probe：
+
+  观测运维探针，提供端到端观测能力；
 
 ### 特性说明
 
