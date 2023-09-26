@@ -31,7 +31,7 @@ Kmesh基于可编程内核，将网格流量治理下沉OS，数据路径3跳->1
 
 ## 1.3、License
 
-Mulan PSL v2 / GPL
+APL 2.0 / GPL
 
 # 2、设计概述
 

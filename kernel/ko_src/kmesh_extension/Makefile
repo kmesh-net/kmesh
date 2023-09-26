@@ -1,5 +1,0 @@
-
-all:
-install:
-uninstall:
-clean:
