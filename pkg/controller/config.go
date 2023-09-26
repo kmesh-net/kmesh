@@ -19,10 +19,10 @@
 package controller
 
 import (
-	"openeuler.io/mesh/pkg/bpf"
-	"openeuler.io/mesh/pkg/controller/envoy"
-	"openeuler.io/mesh/pkg/controller/interfaces"
-	"openeuler.io/mesh/pkg/options"
+	"oncn.io/mesh/pkg/bpf"
+	"oncn.io/mesh/pkg/controller/envoy"
+	"oncn.io/mesh/pkg/controller/interfaces"
+	"oncn.io/mesh/pkg/options"
 )
 
 var config Config

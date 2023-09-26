@@ -23,7 +23,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"openeuler.io/mesh/pkg/options"
+	"oncn.io/mesh/pkg/options"
 )
 
 const (

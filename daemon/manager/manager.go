@@ -25,12 +25,12 @@ import (
 	"os/signal"
 	"syscall"
 
-	"openeuler.io/mesh/cmd/command"
-	"openeuler.io/mesh/pkg/bpf"
-	"openeuler.io/mesh/pkg/controller"
-	"openeuler.io/mesh/pkg/logger"
-	"openeuler.io/mesh/pkg/options"
-	"openeuler.io/mesh/pkg/pid"
+	"oncn.io/mesh/cmd/command"
+	"oncn.io/mesh/pkg/bpf"
+	"oncn.io/mesh/pkg/controller"
+	"oncn.io/mesh/pkg/logger"
+	"oncn.io/mesh/pkg/options"
+	"oncn.io/mesh/pkg/pid"
 )
 
 const (

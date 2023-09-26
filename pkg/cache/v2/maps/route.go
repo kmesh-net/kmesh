@@ -27,7 +27,7 @@ import (
 	"unsafe"
 
 	"google.golang.org/protobuf/proto"
-	route_v2 "openeuler.io/mesh/api/v2/route"
+	route_v2 "oncn.io/mesh/api/v2/route"
 )
 
 func routeConfigToGolang(goMsg *route_v2.RouteConfiguration, cMsg *C.Route__RouteConfiguration) error {

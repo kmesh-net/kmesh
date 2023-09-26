@@ -22,7 +22,7 @@ include ../mk/bpf.vars.mk
 
 C_OUTPUT_DIR := v2-c
 GO_OUTPUT_DIR := v2
-GO_BUILD_DIR := openeuler.io/mesh/api
+GO_BUILD_DIR := oncn.io/mesh/api
 
 PROTO_PATH := ../
 PROTO_SRC := $(call find_source, ../api, *.proto)
@@ -40,7 +40,7 @@ all:
 	$(call printlog, PROTO, api/$(GO_OUTPUT_DIR))
 	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
 	$(QUIET) mkdir -p $(GO_OUTPUT_DIR)
-	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR); rm -rf openeuler.io
+	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR); rm -rf oncn.io
 	$(QUIET) find $(GO_OUTPUT_DIR) -name *pb.go | xargs sed -i 's/mesh\/api/mesh\/api\/v2/g'
 
 install:

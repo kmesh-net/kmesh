@@ -43,9 +43,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"openeuler.io/mesh/pkg/controller/interfaces"
-	"openeuler.io/mesh/pkg/logger"
-	"openeuler.io/mesh/pkg/options"
+	"oncn.io/mesh/pkg/controller/interfaces"
+	"oncn.io/mesh/pkg/logger"
+	"oncn.io/mesh/pkg/options"
 )
 
 const (

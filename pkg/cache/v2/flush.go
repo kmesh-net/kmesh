@@ -18,7 +18,7 @@
 
 package cache_v2
 
-import core_v2 "openeuler.io/mesh/api/v2/core"
+import core_v2 "oncn.io/mesh/api/v2/core"
 
 type CacheFactory interface {
 	StatusFlush(status core_v2.ApiStatus) int

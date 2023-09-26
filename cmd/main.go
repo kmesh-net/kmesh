@@ -21,7 +21,7 @@ package main
 import (
 	"fmt"
 
-	"openeuler.io/mesh/cmd/command"
+	"oncn.io/mesh/cmd/command"
 )
 
 func main() {
