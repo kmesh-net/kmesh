@@ -29,78 +29,74 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 #### 集群启动模式
 
-##### Kmesh容器镜像准备
+- Kmesh容器镜像准备
 
-下载对应版本Kmesh容器镜像后，使用如下命令将镜像加载到环境中
+  下载对应版本Kmesh容器镜像后，使用如下命令将镜像加载到环境中
 
-```sh
-[root@ ~]# docker load -i Kmesh.tar
-```
+  ```sh
+  [root@ ~]# docker load -i Kmesh.tar
+  ```
 
-##### 启动Kmesh容器
+- 启动Kmesh容器
 
-下载对应版本yaml文件，启动Kmesh
+  下载对应版本yaml文件，启动Kmesh
 
-```sh
-[root@ ~]# kubectl apply -f kmesh.yaml
-```
+  ```sh
+  [root@ ~]# kubectl apply -f kmesh.yaml
+  ```
 
-默认使用Kmesh功能，可通过调整yaml文件中的启动参数进行功能选择
+  默认使用Kmesh功能，可通过调整yaml文件中的启动参数进行功能选择
 
-##### 查看kmesh服务启动状态
+- 查看kmesh服务启动状态
 
-```sh
-[root@ ~]# kubectl get pods -A -owide | grep kmesh
-default        kmesh-deploy-j8q68                   1/1     Running   0          6h15m   192.168.11.6    node1   <none> 
-```
+  ```sh
+  [root@ ~]# kubectl get pods -A -owide | grep kmesh
+  default        kmesh-deploy-j8q68                   1/1     Running   0          6h15m   192.168.11.6    node1   <none> 
+  ```
 
-查看kmesh服务运行状态
+  查看kmesh服务运行状态
 
-```sh
-[root@ ~]# kubectl logs -f kmesh-deploy-j8q68
-time="2023-07-25T09:28:37+08:00" level=info msg="options InitDaemonConfig successful" subsys=manager
-time="2023-07-25T09:28:38+08:00" level=info msg="bpf Start successful" subsys=manager
-time="2023-07-25T09:28:38+08:00" level=info msg="controller Start successful" subsys=manager
-time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
-```
+  ```sh
+  [root@ ~]# kubectl logs -f kmesh-deploy-j8q68
+  time="2023-07-25T09:28:37+08:00" level=info msg="options InitDaemonConfig successful" subsys=manager
+  time="2023-07-25T09:28:38+08:00" level=info msg="bpf Start successful" subsys=manager
+  time="2023-07-25T09:28:38+08:00" level=info msg="controller Start successful" subsys=manager
+  time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
+  ```
 
 #### 本地启动模式
 
-下载对应版本Kmesh软件包
+- 下载需要安装的Kmesh软件包
 
-##### 安装Kmesh软件包
+  ```sh
+  https://github.com/kmesh-net/kmesh/releases
+  ```
 
-```
-[root@ ~]# yum install Kmesh
-```
+- 配置Kmesh服务
 
-##### 配置Kmesh服务
+  ```sh
+  # 可选，如果当前非服务网格环境，只是想单机启动Kmesh，可以禁用ads开关，否则可跳过该步骤
+  [root@ ~]# vim /usr/lib/systemd/system/kmesh.service
+  ExecStart=/usr/bin/kmesh-daemon -enable-kmesh -enable-ads=false
+  [root@ ~]# systemctl daemon-reload
+  ```
 
-```sh
-# 禁用ads开关
-[root@ ~]# vim /usr/lib/systemd/system/kmesh.service
-ExecStart=/usr/bin/kmesh-daemon -enable-kmesh -enable-ads=false
-[root@ ~]# systemctl daemon-reload
-```
+- 启动Kmesh服务
 
-##### 启动Kmesh服务
+  ```sh
+  [root@ ~]# systemctl start kmesh.service
+  # 查看Kmesh服务运行状态
+  [root@ ~]# systemctl status kmesh.service
+  ```
 
-```sh
-[root@ ~]# systemctl start kmesh.service
-# 查看Kmesh服务运行状态
-[root@ ~]# systemctl status kmesh.service
-```
+- 停止Kmesh服务
 
-##### 停止Kmesh服务
-
-```sh
-[root@ ~]# systemctl stop kmesh.service
-```
+  ```sh
+  [root@ ~]# systemctl stop kmesh.service
+  ```
 
 
 #### 编译构建
-
-##### 源码编译
 
 - 代码下载
 
@@ -208,17 +204,17 @@ Kmesh的主要部件包括：
 
 ### 特性说明
 
-#### Kmesh开发指南
+- Kmesh开发指南
 
-[Kmesh开发指南](docs/kmesh_development_guide.md)
+  [Kmesh开发指南](docs/kmesh_development_guide.md)
 
-#### Kmesh命令列表
+- Kmesh命令列表
 
-[Kmesh命令列表](docs/kmesh_commands.md)
+  [Kmesh命令列表](docs/kmesh_commands.md)
 
-#### 测试框架
+- 测试框架
 
-[Kmesh测试框架](./test/README.md)
+  [Kmesh测试框架](./test/README.md)
 
 ### Kmesh能力地图
 
