@@ -1,60 +1,60 @@
 <img src="docs/pics/logo/KMESH-stacked-colour.png" alt="kmesh-logo" style="zoom: 100%;" />
 
-### 介绍
+### Introduction
 
-Kmesh是一种基于可编程内核实现的高性能服务网格数据面；提供服务网格场景下高性能的服务通信基础设施。
+Kmesh is a high-performance service mesh data plane software based on programmable kernel. Provides high-performance service communication infrastructure in service mesh scenarios.
 
-### 为什么需要Kmesh
+### Why Kmesh
 
-#### 服务网格数据面的挑战
+#### Challenges of the Service Mesh Data Plane
 
-Istio为代表的服务网格已逐步流行，成为云上基础设施的重要组成；但当前的服务网格仍面临一定的挑战：
+The service mesh software represented by Istio has gradually become popular and has become an important component of cloud infrastructure. However, the current service mesh till face some challenges:
 
-- **代理层引入额外时延开销**：服务访问单跳增加[2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance)，无法满足时延敏感应用的SLA诉求；基于该问题，社区在网格数据面演进出了多种方案，典型的如：grpc proxyless、Cilium Mesh、ambient Mesh等，一定程度上可以缓解时延开销，但很难完全消减；
-- **资源占用大**：代理占用额外CPU/MEM开销，业务容器部署密度下降；
+- **Extra latency overhead at the proxy layer**: Single hop service access increases by [2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance), which cannot meet the SLA requirements of latency-sensitive applications. Based on this problem, the community has developed multiple solutions on the service mesh data plane, such as grpc proxyless, Cilium Mesh, and Ambient Mesh. These solutions can reduce latency overhead to some extent, but cannot completely reduce latency overhead.
+- **High resources occupation**: The agent occupies extra CPU/MEM overhead, and the deployment density of service container decreases.
 
-#### Kmesh：内核级原生流量治理
+#### Kmesh：Kernel level native traffic governance
 
-Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过代理层，构建应用透明的sidecarless服务网格。
+Kmesh innovatively proposes to move traffic governance to the OS, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path.
 
-![image-20230927012356836](docs/pics/why-kmesh-arch.png)
+![image-20230927012356836](docs/pics/why-kmesh-arch-en.png)
 
-#### Kmesh关键特性
+#### Key features of Kmesh
 
-![image-20230927013406204](docs/pics/kmesh-features.png)
+![image-20230927013406204](docs/pics/kmesh-features-en.png)
 
-注：* 规划中；
+Note: * Under planning
 
-### 快速开始
+### Quick Start
 
-#### 集群启动模式
+#### Cluster start mode
 
-- Kmesh容器镜像准备
+- Kmesh container image prepare
 
-  下载对应版本Kmesh容器镜像后，使用如下命令将镜像加载到环境中
+  Download the corresponding version of Kmesh container image
 
   ```sh
   [root@ ~]# docker load -i Kmesh.tar
   ```
 
-- 启动Kmesh容器
+- Start Kmesh container
 
-  下载对应版本yaml文件，启动Kmesh
+  Download the yaml file
 
   ```sh
   [root@ ~]# kubectl apply -f kmesh.yaml
   ```
 
-  默认使用Kmesh功能，可通过调整yaml文件中的启动参数进行功能选择
+  By default, the Kmesh base function is used, other function can be selected by adjusting the startup parameters in the yaml file
 
-- 查看kmesh服务启动状态
+- Check kmesh service status
 
   ```sh
   [root@ ~]# kubectl get pods -A -owide | grep kmesh
   default        kmesh-deploy-j8q68                   1/1     Running   0          6h15m   192.168.11.6    node1   <none> 
   ```
 
-  查看kmesh服务运行状态
+  View the running status of kmesh service
 
   ```sh
   [root@ ~]# kubectl logs -f kmesh-deploy-j8q68
@@ -64,183 +64,183 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
   ```
 
-#### 本地启动模式
+#### Local start mode
 
-- 下载需要安装的Kmesh软件包
+- Download the corresponding version software package of Kmesh
 
   ```sh
   https://github.com/kmesh-net/kmesh/releases
   ```
 
-- 配置Kmesh服务
+- Configure Kmesh service
 
   ```sh
-  # 可选，如果当前非服务网格环境，只是想单机启动Kmesh，可以禁用ads开关，否则可跳过该步骤
+  # Optional, If you are currently not in a service mesh environment and only want to start Kmesh on a standalone basis, you can disable the ads switch. Otherwise, you can skip this step
   [root@ ~]# vim /usr/lib/systemd/system/kmesh.service
   ExecStart=/usr/bin/kmesh-daemon -enable-kmesh -enable-ads=false
   [root@ ~]# systemctl daemon-reload
   ```
 
-- 启动Kmesh服务
+- Start Kmesh service
 
   ```sh
   [root@ ~]# systemctl start kmesh.service
-  # 查看Kmesh服务运行状态
+  # View the running status of Kmesh service
   [root@ ~]# systemctl status kmesh.service
   ```
 
-- 停止Kmesh服务
+- Stop Kmesh service
 
   ```sh
   [root@ ~]# systemctl stop kmesh.service
   ```
 
 
-#### 编译构建
+#### Compile and Build
 
-- 代码下载
+- Code download
 
   ```sh
   [root@ ~]# git clone https://github.com/kmesh-net/kmesh.git
   ```
 
-- 代码编译
+- Code compilation
 
   ```sh
   [root@ ~]# cd kmesh/
   [root@ ~]# ./build.sh -b
   ```
 
-- 程序安装
+- Program installation
 
   ```sh
-  # 安装脚本显示了Kmesh所有安装文件的位置
+  # The installation script displays the locations of all installation files for Kmesh
   [root@ ~]# ./build.sh -i
   ```
 
-- 编译清理
+- Compilation cleanup
 
   ```sh
   [root@ ~]# ./build.sh -c
   ```
 
-- 程序卸载
+- Program uninstallation
 
   ```sh
   [root@ ~]# ./build.sh -u
   ```
 
-更多Kmesh编译方式，请参考[Kmesh编译构建](https://github.com/kmesh-net/kmesh/blob/main/docs/kmesh_compile.md)
+More compilation methods of Kmesh, See: [Kmesh Compilation and Construction](https://github.com/kmesh-net/kmesh/blob/main/docs/kmesh_compile.md)
 
-### demo演示
+### Demo
 
-以istio的bookinfo示例服务为例，演示部署Kmesh后进行百分比灰度访问的执行过程；
+The bookinfo service of istio is used as an example to demonstrate the percentage gray access process after Kmesh is deployed.
 
-- 启动Kmesh
+- Start Kmesh
 
   ```sh
   [root@vm-x86-11222]# systemctl start kmesh.service
   ```
 
-- bookinfo环境准备
+- Bookinfo environment preparation
 
-  部署istio及启动bookinfo的流程可参考[bookinfo环境部署](https://istio.io/latest/docs/setup/getting-started/)；需要注意的是，无需为namespace注入`istio-injection` 标记，即不需要启动istio的数据面代理程序；
+  For the process of deploying istio and starting bookinfo, See: [Bookinfo Environment Deployment](https://istio.io/latest/docs/setup/getting-started/), Note that you do not need to inject the `istio-injection` tag into the namespace, that is, you do not need to start the istio data plane agent.
 
-  因此准备好的环境上关注如下信息：
+  Therefore, pay attention to the following information in the prepared environment:
 
   ```sh
-  # default ns未设置istio的sidecar注入
+  # default ns not set sidecar injection of istio
   [root@vm-x86-11222 networking]# kubectl get namespaces --show-labels
   NAME              STATUS   AGE   LABELS
   default           Active   92d   <none>
   ```
 
-- 访问bookinfo
+- Access bookinfo
 
   ```sh
   [root@vm-x86-11222 networking]# productpage_addr=`kubectl get svc -owide | grep productpage | awk {'print $3'}`
   [root@vm-x86-11222 networking]# curl http://$productpage_addr:9080/productpage
   ```
 
-- demo演示
+- Demo demonstration
 
-  demo演示了基于Kmesh，对bookinfo的reviews服务实施百分比路由规则，并成功访问；
+  The demo shows how to implement percentage routing rules for the reviews service of bookinfo based on Kmesh and successfully access the service.
 
   ![demo_bookinfo_v1_v2_8_2](docs/pics/demo_bookinfo_v1_v2_8_2.svg)
 
-### Kmesh性能
+### Kmesh Performance
 
-基于fortio对比测试了Kmesh和envoy的数据面执行性能；测试结果如下：
+Based on Fortio, the data plane execution performance of Kmesh and Envoy was compared and tested. The test results are as follows:
 
 ![fortio_performance_test](docs/pics/fortio_performance_test.png)
 
-完整的性能测试请参考[Kmesh性能测试](test/performance/README.md)；
+For a complete performance test, please refer to [Kmesh Performance Test](test/performance/README.md).
 
-### 软件架构
+### Software Architecture
 
 ![kmesh-arch](docs/pics/kmesh-arch.png)
 
-Kmesh的主要部件包括：
+The main components of Kmesh include:
 
 - kmesh-controller：
 
-  kmesh管理程序，负责Kmesh生命周期管理、XDS协议对接、观测运维等功能；
+  Kmesh management program, responsible for Kmesh lifecycle management, XDS protocol docking, observation and DevOps, and other functions.
 
 - kmesh-api：
 
-  kmesh对外提供的api接口层，主要包括：xds转换后的编排API、观测运维通道等；
+  The API interface layer provided by Kmesh mainly includes: orchestration API after xds conversion, observation and DevOps channels, etc.
 
 - kmesh-runtime：
 
-  kernel中实现的支持L3~L7流量编排的运行时；
+  The runtime implemented in the kernel that supports L3~L7 traffic orchestration.
 
 - kmesh-orchestration：
 
-  基于ebpf实现L3~L7流量编排，如路由、灰度、负载均衡等；
+  Implement L3-L7 traffic scheduling based on ebpf, such as routing, grayscale, load balance, etc.
 
 - kmesh-probe：
 
-  观测运维探针，提供端到端观测能力；
+  Observation and DevOps probes, providing end-to-end observation capabilities.
 
-### 特性说明
+### Feature Description
 
-- Kmesh开发指南
+- Development Guide
 
-  [Kmesh开发指南](docs/kmesh_development_guide.md)
+  [Kmesh Development Guide](docs/kmesh_development_guide.md)
 
-- Kmesh命令列表
+- Command List
 
-  [Kmesh命令列表](docs/kmesh_commands.md)
+  [Kmesh Command List](docs/kmesh_commands.md)
 
-- 测试框架
+- Test Framework
 
-  [Kmesh测试框架](./test/README.md)
+  [Kmesh Test Framework](test/README.md)
 
-### Kmesh能力地图
+### Kmesh Capability Map
 
-| 特性域       | 特性                     |          2023.H1           |          2023.H2           |          2024.H1           |          2024.H2           |
+| Feature Field       | Feature                     |          2023.H1           |          2023.H2           |          2024.H1           |          2024.H2           |
 | ------------ | ------------------------ | :------------------------: | :------------------------: | :------------------------: | :------------------------: |
-| 流量管理     | sidecarless网格数据面    | ![](docs/pics/support.png) |                            |                            |                            |
-|              | sockmap加速              |                            | ![](docs/pics/support.png) |                            |                            |
-|              | 基于ebpf的可编程治理     | ![](docs/pics/support.png) |                            |                            |                            |
-|              | http1.1协议              | ![](docs/pics/support.png) |                            |                            |                            |
-|              | http2协议                |                            |                            |                            | ![](docs/pics/support.png) |
-|              | grpc协议                 |                            |                            |                            | ![](docs/pics/support.png) |
-|              | quic协议                 |                            |                            |                            | ![](docs/pics/support.png) |
-|              | tcp协议                  |                            | ![](docs/pics/support.png) |                            |                            |
-|              | 重试                     |                            |                            | ![](docs/pics/support.png) |                            |
-|              | 路由                     | ![](docs/pics/support.png) |                            |                            |                            |
-|              | 负载均衡                 | ![](docs/pics/support.png) |                            |                            |                            |
-|              | 故障注入                 |                            |                            | ![](docs/pics/support.png) |                            |
-|              | 灰度发布                 |                            | ![](docs/pics/support.png) |                            |                            |
-|              | 熔断                     |                            |                            | ![](docs/pics/support.png) |                            |
-|              | 限流                     |                            |                            | ![](docs/pics/support.png) |                            |
-| 服务安全     | 基于SSL的双向认证        |                            |                            |                            | ![](docs/pics/support.png) |
-|              | L7授权                   |                            |                            |                            | ![](docs/pics/support.png) |
-|              | 治理pod级隔离            | ![](docs/pics/support.png) |                            |                            |                            |
-| 流量监控     | 基础观测（治理指标监控） |                            | ![](docs/pics/support.png) |                            |                            |
-|              | E2E可观测                |                            |                            |                            | ![](docs/pics/support.png) |
-| 可编程       | 插件式扩展能力           |                            |                            |                            | ![](docs/pics/support.png) |
-| 生态协作     | 数据面协同（Envoy等）    |                            | ![](docs/pics/support.png) |                            |                            |
-| 运行环境支持 | 容器                     | ![](docs/pics/support.png) |                            |                            |                            |
+| Traffic management     | sidecarless mesh data  plane   | ![](docs/pics/support.png) |                            |                            |                            |
+|              | sockmap accelerate       |                            | ![](docs/pics/support.png) |                            |                            |
+|              | Programmable governance based on ebpf | ![](docs/pics/support.png) |                            |                            |                            |
+|              | http1.1 protocol         | ![](docs/pics/support.png) |                            |                            |                            |
+|              | http2 protocol           |                            |                            |                            | ![](docs/pics/support.png) |
+|              | grpc protocol            |                            |                            |                            | ![](docs/pics/support.png) |
+|              | quic protocol            |                            |                            |                            | ![](docs/pics/support.png) |
+|              | tcp protocol             |                            | ![](docs/pics/support.png) |                            |                            |
+|              | Retry                    |                            |                            | ![](docs/pics/support.png) |                            |
+|              | Routing                  | ![](docs/pics/support.png) |                            |                            |                            |
+|              | load balance             | ![](docs/pics/support.png) |                            |                            |                            |
+|              | Fault injection |                            |                            | ![](docs/pics/support.png) |                            |
+|              | Gray release   |                            | ![](docs/pics/support.png) |                            |                            |
+|              | Circuit Breaker |                            |                            | ![](docs/pics/support.png) |                            |
+|              | Rate Limits    |                            |                            | ![](docs/pics/support.png) |                            |
+| Service security | SSL-based two-way authentication |                            |                            |                            | ![](docs/pics/support.png) |
+|              | L7 authorization |                            |                            |                            | ![](docs/pics/support.png) |
+|              | Cgroup-level isolation | ![](docs/pics/support.png) |                            |                            |                            |
+| Traffic monitoring | Governance indicator monitoring |                            | ![](docs/pics/support.png) |                            |                            |
+|              | End-to-End observability |                            |                            |                            | ![](docs/pics/support.png) |
+| Programmable | Plug-in expansion capability |                            |                            |                            | ![](docs/pics/support.png) |
+| Ecosystem collaboration | Data plane collaboration (Envoy etc.) |                            | ![](docs/pics/support.png) |                            |                            |
+| Operating environment support | container                | ![](docs/pics/support.png) |                            |                            |                            |
 
