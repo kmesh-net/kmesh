@@ -28,8 +28,10 @@ spec:
              path: /root/.kube
        containers:
          - name: kmesh
-           image: kmesh:1.0.1
+           image: kmesh:0.0.1
            imagePullPolicy: IfNotPresent
+           command: ["/bin/sh", "-c"]
+           args: ["./start_kmesh.sh -enable-kmesh -enable-ads=true"]
            securityContext:
              privileged: true
              capabilities:
@@ -39,9 +41,9 @@ spec:
              hostPort: 6789
            env:
            - name: MESH_CONTROLLER
-             value:istio-system:istiod
+             value: istio-system:istiod
            - name: BPF_LOG_SIZE
-             value:"12800"
+             value: "12800"
            volumeMounts:
            - name: mnt
              mountPath: /mnt

@@ -2,12 +2,12 @@
 # Dockerfile for building openEuler kmesh docker image.
 # 
 # Usage:
-# docker build -f kmesh.dockerfile -t kmesh:1.0.1 .
-# docker run -itd --privileged=true -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:1.0.1
+# docker build -f kmesh.dockerfile -t kmesh:0.0.1 .
+# docker run -itd --privileged=true -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:0.0.1
 #
 
 # base image
-FROM openeuler/openeuler:22.03-lts
+FROM openeuler-23.03:latest
 
 # container work directory
 WORKDIR /kmesh
@@ -30,4 +30,4 @@ RUN cp /lib/modules/kmesh/kmesh.ko .
 EXPOSE 6789
 
 # start kmesh service
-ENTRYPOINT ["/bin/sh", "./start_kmesh.sh"]
+ENTRYPOINT ["/bin/sh", "./start_kmesh.sh", "-enable-kmesh", "-enable-ads=true"]

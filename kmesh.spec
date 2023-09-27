@@ -1,5 +1,3 @@
-%global debug_package %{nil}
-
 Name:          kmesh
 Version:       1.0.0
 Release:       1
