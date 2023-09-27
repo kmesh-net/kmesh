@@ -2,8 +2,8 @@
 # Dockerfile for building openEuler kmesh docker image.
 # 
 # Usage:
-# docker build -f kmesh.dockerfile -t kmesh:0.0.1 .
-# docker run -itd --privileged=true -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:0.0.1
+# docker build -f kmesh.dockerfile -t kmesh:latest .
+# docker run -itd --privileged=true -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:latest
 #
 
 # base image

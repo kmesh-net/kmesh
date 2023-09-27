@@ -8,12 +8,12 @@ Kmesh is a high-performance service mesh data plane software based on programmab
 
 #### Challenges of the Service Mesh Data Plane
 
-The service mesh software represented by Istio has gradually become popular and has become an important component of cloud infrastructure. However, the current service mesh till face some challenges:
+The service mesh software represented by Istio has gradually become popular and has become an important component of cloud infrastructure. However, the current service mesh still face some challenges:
 
-- **Extra latency overhead at the proxy layer**: Single hop service access increases by [2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance), which cannot meet the SLA requirements of latency-sensitive applications. Based on this problem, the community has developed multiple solutions on the service mesh data plane, such as grpc proxyless, Cilium Mesh, and Ambient Mesh. These solutions can reduce latency overhead to some extent, but cannot completely reduce latency overhead.
+- **Extra latency overhead at the proxy layer**: Single hop service access increases by [2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance), which cannot meet the SLA requirements of latency-sensitive applications. Although the community has come up with a variety of data plane solutions to this problem, the overhead introduced by agents cannot be completely reduced.
 - **High resources occupation**: The agent occupies extra CPU/MEM overhead, and the deployment density of service container decreases.
 
-#### Kmesh：Kernel level native traffic governance
+#### Kmesh：Kernel-native traffic governance
 
 Kmesh innovatively proposes to move traffic governance to the OS, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path.
 
@@ -23,30 +23,37 @@ Kmesh innovatively proposes to move traffic governance to the OS, and build a tr
 
 ![image-20230927013406204](docs/pics/kmesh-features-en.png)
 
-Note: * Under planning
-
 ### Quick Start
 
-#### Cluster start mode
+- prerequisite
+
+  Currently, Kmesh connects to the Istio control plane. Before starting Kmesh, install the Istio control plane software. For details, see https://istio.io/latest/docs/setup/getting-started/#install.
 
 - Kmesh container image prepare
 
-  Download the corresponding version of Kmesh container image
-
   ```sh
-  [root@ ~]# docker load -i Kmesh.tar
+  # add an image registry: hub.oepkgs.net
+  [root@ ~]# cat /etc/docker/daemon.json
+      {
+              "insecure-registries": [
+                      ...,
+                      "hub.oepkgs.net"
+              ]
+      }
+  
+  # docker pull
+  [root@ ~]# docker pull hub.oepkgs.net/oncn/kmesh:latest
   ```
 
-- Start Kmesh container
-
-  Download the yaml file
+- Start Kmesh
 
   ```sh
+# get kmesh.yaml from build/docker/kmesh.yaml
   [root@ ~]# kubectl apply -f kmesh.yaml
   ```
-
-  By default, the Kmesh base function is used, other function can be selected by adjusting the startup parameters in the yaml file
-
+  
+By default, the Kmesh base function is used, other function can be selected by adjusting the startup parameters in the yaml file
+  
 - Check kmesh service status
 
   ```sh
@@ -64,109 +71,7 @@ Note: * Under planning
   time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
   ```
 
-#### Local start mode
-
-- Download the corresponding version software package of Kmesh
-
-  ```sh
-  https://github.com/kmesh-net/kmesh/releases
-  ```
-
-- Configure Kmesh service
-
-  ```sh
-  # Optional, If you are currently not in a service mesh environment and only want to start Kmesh on a standalone basis, you can disable the ads switch. Otherwise, you can skip this step
-  [root@ ~]# vim /usr/lib/systemd/system/kmesh.service
-  ExecStart=/usr/bin/kmesh-daemon -enable-kmesh -enable-ads=false
-  [root@ ~]# systemctl daemon-reload
-  ```
-
-- Start Kmesh service
-
-  ```sh
-  [root@ ~]# systemctl start kmesh.service
-  # View the running status of Kmesh service
-  [root@ ~]# systemctl status kmesh.service
-  ```
-
-- Stop Kmesh service
-
-  ```sh
-  [root@ ~]# systemctl stop kmesh.service
-  ```
-
-
-#### Compile and Build
-
-- Code download
-
-  ```sh
-  [root@ ~]# git clone https://github.com/kmesh-net/kmesh.git
-  ```
-
-- Code compilation
-
-  ```sh
-  [root@ ~]# cd kmesh/
-  [root@ ~]# ./build.sh -b
-  ```
-
-- Program installation
-
-  ```sh
-  # The installation script displays the locations of all installation files for Kmesh
-  [root@ ~]# ./build.sh -i
-  ```
-
-- Compilation cleanup
-
-  ```sh
-  [root@ ~]# ./build.sh -c
-  ```
-
-- Program uninstallation
-
-  ```sh
-  [root@ ~]# ./build.sh -u
-  ```
-
-More compilation methods of Kmesh, See: [Kmesh Compilation and Construction](https://github.com/kmesh-net/kmesh/blob/main/docs/kmesh_compile.md)
-
-### Demo
-
-The bookinfo service of istio is used as an example to demonstrate the percentage gray access process after Kmesh is deployed.
-
-- Start Kmesh
-
-  ```sh
-  [root@vm-x86-11222]# systemctl start kmesh.service
-  ```
-
-- Bookinfo environment preparation
-
-  For the process of deploying istio and starting bookinfo, See: [Bookinfo Environment Deployment](https://istio.io/latest/docs/setup/getting-started/), Note that you do not need to inject the `istio-injection` tag into the namespace, that is, you do not need to start the istio data plane agent.
-
-  Therefore, pay attention to the following information in the prepared environment:
-
-  ```sh
-  # default ns not set sidecar injection of istio
-  [root@vm-x86-11222 networking]# kubectl get namespaces --show-labels
-  NAME              STATUS   AGE   LABELS
-  default           Active   92d   <none>
-  ```
-
-- Access bookinfo
-
-  ```sh
-  [root@vm-x86-11222 networking]# productpage_addr=`kubectl get svc -owide | grep productpage | awk {'print $3'}`
-  [root@vm-x86-11222 networking]# curl http://$productpage_addr:9080/productpage
-  ```
-
-- Demo demonstration
-
-  The demo shows how to implement percentage routing rules for the reviews service of bookinfo based on Kmesh and successfully access the service.
-
-  ![demo_bookinfo_v1_v2_8_2](docs/pics/demo_bookinfo_v1_v2_8_2.svg)
+More compilation methods of Kmesh, See: [Kmesh Compilation and Construction](docs/kmesh_compile.md)
 
 ### Kmesh Performance
 
@@ -215,6 +120,10 @@ The main components of Kmesh include:
 - Test Framework
 
   [Kmesh Test Framework](test/README.md)
+  
+- Demo
+
+  [Kmesh demo demonstration](docs/kmesh_demo.md)
 
 ### Kmesh Capability Map
 

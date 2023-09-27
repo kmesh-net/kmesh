@@ -28,7 +28,7 @@ spec:
              path: /root/.kube
        containers:
          - name: kmesh
-           image: kmesh:0.0.1
+           image: kmesh:latest
            imagePullPolicy: IfNotPresent
            command: ["/bin/sh", "-c"]
            args: ["./start_kmesh.sh -enable-kmesh -enable-ads=true"]
