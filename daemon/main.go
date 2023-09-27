@@ -20,7 +20,7 @@
 package main
 
 import (
-	"openeuler.io/mesh/daemon/manager"
+	"oncn.io/mesh/daemon/manager"
 )
 
 func main() {

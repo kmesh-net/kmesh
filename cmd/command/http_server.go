@@ -26,10 +26,10 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	admin_v2 "openeuler.io/mesh/api/v2/admin"
-	"openeuler.io/mesh/pkg/controller"
-	"openeuler.io/mesh/pkg/controller/envoy"
-	"openeuler.io/mesh/pkg/options"
+	admin_v2 "oncn.io/mesh/api/v2/admin"
+	"oncn.io/mesh/pkg/controller"
+	"oncn.io/mesh/pkg/controller/envoy"
+	"oncn.io/mesh/pkg/options"
 )
 
 type httpServer struct {

@@ -25,7 +25,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
-	"openeuler.io/mesh/pkg/logger"
+	"oncn.io/mesh/pkg/logger"
 )
 
 var log = logger.NewLoggerField("pkg/bpf")

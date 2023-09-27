@@ -1,4 +1,4 @@
-module openeuler.io/mesh
+module oncn.io/mesh
 
 go 1.17
 

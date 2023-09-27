@@ -11,7 +11,7 @@ Kmesh软件包需要在拥有Kmesh内核增强特性的linux环境上编译构�
 - 代码下载
 
   ```sh
-  [root@dev tmp]# git clone https://gitee.com/openeuler/Kmesh.git
+  [root@dev tmp]# git clone https://github.com/kmesh-net/kmesh.git
   ```
 
 - 代码修改编译
@@ -53,7 +53,7 @@ Kmesh软件包需要在拥有Kmesh内核增强特性的linux环境上编译构�
 - 代码下载
 
   ```sh
-  [root@dev tmp]# git clone https://gitee.com/openeuler/Kmesh.git
+  [root@dev tmp]# git clone https://github.com/kmesh-net/kmesh.git
   ```
 
 - 创建build环境

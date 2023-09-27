@@ -25,7 +25,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"openeuler.io/mesh/pkg/options"
+	"oncn.io/mesh/pkg/options"
 )
 
 var config Config

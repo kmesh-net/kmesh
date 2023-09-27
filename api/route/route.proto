@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package route;
-option go_package = "openeuler.io/mesh/api/route;route";
+option go_package = "oncn.io/mesh/api/route;route";
 
 import "api/route/route_components.proto";
 import "api/core/base.proto";

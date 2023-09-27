@@ -21,9 +21,9 @@ package cache_v2
 import (
 	"sync"
 
-	core_v2 "openeuler.io/mesh/api/v2/core"
-	route_v2 "openeuler.io/mesh/api/v2/route"
-	maps_v2 "openeuler.io/mesh/pkg/cache/v2/maps"
+	core_v2 "oncn.io/mesh/api/v2/core"
+	route_v2 "oncn.io/mesh/api/v2/route"
+	maps_v2 "oncn.io/mesh/pkg/cache/v2/maps"
 )
 
 var RWRoute sync.RWMutex
