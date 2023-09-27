@@ -21,7 +21,7 @@ Kmesh innovatively proposes to move traffic governance to the OS, and build a tr
 
 #### Key features of Kmesh
 
-![image-20230927013406204](docs/pics/kmesh-features-en.png)
+![image-20230928005359650](D:\work\code\github\wcccc\kmesh\docs\pics\kmesh-features-en.png)
 
 ### Quick Start
 
@@ -48,30 +48,30 @@ Kmesh innovatively proposes to move traffic governance to the OS, and build a tr
 - Start Kmesh
 
   ```sh
-# get kmesh.yaml from build/docker/kmesh.yaml
+  # get kmesh.yaml from build/docker/kmesh.yaml
   [root@ ~]# kubectl apply -f kmesh.yaml
   ```
   
-By default, the Kmesh base function is used, other function can be selected by adjusting the startup parameters in the yaml file
+  By default, the Kmesh base function is used, other function can be selected by adjusting the startup parameters in the yaml file.
   
 - Check kmesh service status
 
   ```sh
   [root@ ~]# kubectl get pods -A -owide | grep kmesh
-  default        kmesh-deploy-j8q68                   1/1     Running   0          6h15m   192.168.11.6    node1   <none> 
+    default        kmesh-deploy-j8q68                   1/1     Running   0          6h15m   192.168.11.6    node1   <none> 
   ```
 
-  View the running status of kmesh service
+- View the running status of kmesh service
 
   ```sh
   [root@ ~]# kubectl logs -f kmesh-deploy-j8q68
-  time="2023-07-25T09:28:37+08:00" level=info msg="options InitDaemonConfig successful" subsys=manager
-  time="2023-07-25T09:28:38+08:00" level=info msg="bpf Start successful" subsys=manager
-  time="2023-07-25T09:28:38+08:00" level=info msg="controller Start successful" subsys=manager
-  time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
+    time="2023-07-25T09:28:37+08:00" level=info msg="options InitDaemonConfig successful" subsys=manager
+    time="2023-07-25T09:28:38+08:00" level=info msg="bpf Start successful" subsys=manager
+    time="2023-07-25T09:28:38+08:00" level=info msg="controller Start successful" subsys=manager
+    time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
   ```
 
-More compilation methods of Kmesh, See: [Kmesh Compilation and Construction](docs/kmesh_compile.md)
+  More compilation methods of Kmesh, See: [Kmesh Compilation and Construction](docs/kmesh_compile.md)
 
 ### Kmesh Performance
 
@@ -83,7 +83,7 @@ For a complete performance test, please refer to [Kmesh Performance Test](test/p
 
 ### Software Architecture
 
-![kmesh-arch](docs/pics/kmesh-arch.png)
+<img src="docs/pics/kmesh-arch.png" alt="kmesh-arch" style="zoom:150%;" />
 
 The main components of Kmesh include:
 
