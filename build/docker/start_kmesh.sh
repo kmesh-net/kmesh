@@ -16,7 +16,7 @@ if [ $? -ne 0 ]; then
         fi
 fi
 
-kmesh-daemon -enable-kmesh  &
+kmesh-daemon $@ &
 
 function stop_kmesh() {
         pkill kmesh-daemon
