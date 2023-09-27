@@ -22,7 +22,7 @@ function pre_test() {
     # rpmbuild files prepare
     cd $KMESH_PATH/
     KMESH_VERSION=$(grep Version: kmesh.spec | egrep -o [0-9]+.[0-9]+.[0-9]+)
-    cp -r ../Kmesh ../kmesh_tmp
+    cp -r $KMESH_PATH ../kmesh_tmp
     mv ../kmesh_tmp $CURRENT_PATH/kmesh-$KMESH_VERSION
     cp kmesh.spec $CURRENT_PATH/rpmbuild/SPECS/
 
