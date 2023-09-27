@@ -21,7 +21,7 @@ Kmesh innovatively proposes to move traffic governance to the OS, and build a tr
 
 #### Key features of Kmesh
 
-![image-20230928005359650](D:\work\code\github\wcccc\kmesh\docs\pics\kmesh-features-en.png)
+![image-20230928005359650](docs/pics/kmesh-features-en.png)
 
 ### Quick Start
 
