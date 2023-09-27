@@ -10,7 +10,7 @@ Kmesh是一种基于可编程内核实现的高性能服务网格数据面；提
 
 Istio为代表的服务网格已逐步流行，成为云上基础设施的重要组成；但当前的服务网格仍面临一定的挑战：
 
-- **代理层引入额外时延开销**：服务访问单跳增加[2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance)，无法满足时延敏感应用的SLA诉求；基于该问题，社区在网格数据面演进出了多种方案，典型的如：grpc proxyless、Cilium Mesh、ambient Mesh等，一定程度上可以缓解时延开销，但很难完全消减；
+- **代理层引入额外时延开销**：服务访问单跳增加[2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance)，无法满足时延敏感应用的SLA诉求；虽然社区基于该问题演进出了多种数据面方案，但仍无法完全消减代理引入的开销；
 - **资源占用大**：代理占用额外CPU/MEM开销，业务容器部署密度下降；
 
 #### Kmesh：内核级原生流量治理
@@ -27,26 +27,35 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 ### 快速开始
 
-#### 集群启动模式
+- 前提条件
+
+  Kmesh当前是对接Istio控制面，启动Kmesh前，需要提前安装好Istio的控制面软件；具体安装步骤参考：https://istio.io/latest/docs/setup/getting-started/#install
 
 - Kmesh容器镜像准备
 
-  下载对应版本Kmesh容器镜像后，使用如下命令将镜像加载到环境中
-
   ```sh
-  [root@ ~]# docker load -i Kmesh.tar
+  # /etc/docker/daemon.json 中添加镜像源 hub.oepkgs.net
+  [root@ ~]# cat /etc/docker/daemon.json
+      {
+              "insecure-registries": [
+              		...,
+                      "hub.oepkgs.net"
+              ]
+      }
+  
+  # docker pull
+  [root@ ~]# docker pull hub.oepkgs.net/oncn/kmesh:latest
   ```
-
+  
 - 启动Kmesh容器
 
-  下载对应版本yaml文件，启动Kmesh
-
   ```sh
+  # get kmesh.yaml：来自代码仓 build/docker/kmesh.yaml
   [root@ ~]# kubectl apply -f kmesh.yaml
   ```
-
+  
   默认使用Kmesh功能，可通过调整yaml文件中的启动参数进行功能选择
-
+  
 - 查看kmesh服务启动状态
 
   ```sh
@@ -54,119 +63,17 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   default        kmesh-deploy-j8q68                   1/1     Running   0          6h15m   192.168.11.6    node1   <none> 
   ```
 
-  查看kmesh服务运行状态
+- 查看kmesh服务运行状态
 
-  ```sh
-  [root@ ~]# kubectl logs -f kmesh-deploy-j8q68
-  time="2023-07-25T09:28:37+08:00" level=info msg="options InitDaemonConfig successful" subsys=manager
-  time="2023-07-25T09:28:38+08:00" level=info msg="bpf Start successful" subsys=manager
-  time="2023-07-25T09:28:38+08:00" level=info msg="controller Start successful" subsys=manager
-  time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
-  ```
+    ```sh
+    [root@ ~]# kubectl logs -f kmesh-deploy-j8q68
+    time="2023-07-25T09:28:37+08:00" level=info msg="options InitDaemonConfig successful" subsys=manager
+    time="2023-07-25T09:28:38+08:00" level=info msg="bpf Start successful" subsys=manager
+    time="2023-07-25T09:28:38+08:00" level=info msg="controller Start successful" subsys=manager
+    time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
+    ```
 
-#### 本地启动模式
-
-- 下载需要安装的Kmesh软件包
-
-  ```sh
-  https://github.com/kmesh-net/kmesh/releases
-  ```
-
-- 配置Kmesh服务
-
-  ```sh
-  # 可选，如果当前非服务网格环境，只是想单机启动Kmesh，可以禁用ads开关，否则可跳过该步骤
-  [root@ ~]# vim /usr/lib/systemd/system/kmesh.service
-  ExecStart=/usr/bin/kmesh-daemon -enable-kmesh -enable-ads=false
-  [root@ ~]# systemctl daemon-reload
-  ```
-
-- 启动Kmesh服务
-
-  ```sh
-  [root@ ~]# systemctl start kmesh.service
-  # 查看Kmesh服务运行状态
-  [root@ ~]# systemctl status kmesh.service
-  ```
-
-- 停止Kmesh服务
-
-  ```sh
-  [root@ ~]# systemctl stop kmesh.service
-  ```
-
-
-#### 编译构建
-
-- 代码下载
-
-  ```sh
-  [root@ ~]# git clone https://github.com/kmesh-net/kmesh.git
-  ```
-
-- 代码编译
-
-  ```sh
-  [root@ ~]# cd kmesh/
-  [root@ ~]# ./build.sh -b
-  ```
-
-- 程序安装
-
-  ```sh
-  # 安装脚本显示了Kmesh所有安装文件的位置
-  [root@ ~]# ./build.sh -i
-  ```
-
-- 编译清理
-
-  ```sh
-  [root@ ~]# ./build.sh -c
-  ```
-
-- 程序卸载
-
-  ```sh
-  [root@ ~]# ./build.sh -u
-  ```
-
-更多Kmesh编译方式，请参考[Kmesh编译构建](https://github.com/kmesh-net/kmesh/blob/main/docs/kmesh_compile.md)
-
-### demo演示
-
-以istio的bookinfo示例服务为例，演示部署Kmesh后进行百分比灰度访问的执行过程；
-
-- 启动Kmesh
-
-  ```sh
-  [root@vm-x86-11222]# systemctl start kmesh.service
-  ```
-
-- bookinfo环境准备
-
-  部署istio及启动bookinfo的流程可参考[bookinfo环境部署](https://istio.io/latest/docs/setup/getting-started/)；需要注意的是，无需为namespace注入`istio-injection` 标记，即不需要启动istio的数据面代理程序；
-
-  因此准备好的环境上关注如下信息：
-
-  ```sh
-  # default ns未设置istio的sidecar注入
-  [root@vm-x86-11222 networking]# kubectl get namespaces --show-labels
-  NAME              STATUS   AGE   LABELS
-  default           Active   92d   <none>
-  ```
-
-- 访问bookinfo
-
-  ```sh
-  [root@vm-x86-11222 networking]# productpage_addr=`kubectl get svc -owide | grep productpage | awk {'print $3'}`
-  [root@vm-x86-11222 networking]# curl http://$productpage_addr:9080/productpage
-  ```
-
-- demo演示
-
-  demo演示了基于Kmesh，对bookinfo的reviews服务实施百分比路由规则，并成功访问；
-
-  ![demo_bookinfo_v1_v2_8_2](docs/pics/demo_bookinfo_v1_v2_8_2.svg)
+  更多Kmesh编译构建方式，请参考[Kmesh编译构建](docs/kmesh_compile-zh.md)
 
 ### Kmesh性能
 
@@ -215,6 +122,10 @@ Kmesh的主要部件包括：
 - 测试框架
 
   [Kmesh测试框架](./test/README.md)
+  
+- demo演示
+
+  [Kmesh demo演示](docs/kmesh_demo-zh.md)
 
 ### Kmesh能力地图
 
