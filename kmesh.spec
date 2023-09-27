@@ -1,5 +1,5 @@
 Name:          kmesh
-Version:       1.0.0
+Version:       0.0.1
 Release:       1
 Summary:       %{name} is a eBPF-based service mesh kernel solution
 License:       ASL 2.0 and GPL-2.0
@@ -110,5 +110,5 @@ rm -rf %{buildroot}
 %attr(0500,root,root) /usr/bin/kmesh-stop-post.sh
 
 %changelog
-* Mon Sep 13 2021 huangliming<huangliming5@huawei.com> - 1.0.0-1
-- first package
+* Wed Sep 27 2023 kwb0523<kwb0523@163.com> - 0.0.1-1
+- init package
