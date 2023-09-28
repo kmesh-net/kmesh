@@ -1,25 +1,25 @@
 <img src="docs/pics/logo/KMESH-stacked-colour.png" alt="kmesh-logo" style="zoom: 100%;" />
 
-### 介绍
+## 介绍
 
 Kmesh是一种基于可编程内核实现的高性能服务网格数据面；提供服务网格场景下高性能的服务通信基础设施。
 
-### 为什么需要Kmesh
+## 为什么需要Kmesh
 
-#### 服务网格数据面的挑战
+### 服务网格数据面的挑战
 
 Istio为代表的服务网格已逐步流行，成为云上基础设施的重要组成；但当前的服务网格仍面临一定的挑战：
 
 - **代理层引入额外时延开销**：服务访问单跳增加[2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance)，无法满足时延敏感应用的SLA诉求；虽然社区基于该问题演进出了多种数据面方案，但仍无法完全消减代理引入的开销；
 - **资源占用大**：代理占用额外CPU/MEM开销，业务容器部署密度下降；
 
-#### Kmesh：内核级原生流量治理
+### Kmesh：内核级原生流量治理
 
 Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过代理层，构建应用透明的sidecarless服务网格。
 
 ![image-20230927012356836](docs/pics/why-kmesh-arch.png)
 
-#### Kmesh关键特性
+### Kmesh关键特性
 
 **平滑兼容**
 
@@ -29,7 +29,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 **高性能**
 
 - 网格转发时延**60%↓**
-- 服务启动性能**40%**↑
+- 服务启动性能**40%↑**
 
 **低开销**
 
@@ -51,7 +51,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 注：* 规划中；
 
-### 快速开始
+## 快速开始
 
 - 前提条件
 
@@ -102,7 +102,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
   更多Kmesh编译构建方式，请参考[Kmesh编译构建](docs/kmesh_compile-zh.md)
 
-### Kmesh性能
+## Kmesh性能
 
 基于fortio对比测试了Kmesh和envoy的数据面执行性能；测试结果如下：
 
@@ -110,7 +110,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 完整的性能测试请参考[Kmesh性能测试](test/performance/README-zh.md)；
 
-### 软件架构
+## 软件架构
 
 ![kmesh-arch](docs/pics/kmesh-arch.png)
 
@@ -136,7 +136,7 @@ Kmesh的主要部件包括：
 
   观测运维探针，提供端到端观测能力；
 
-### 特性说明
+## 特性说明
 
 - Kmesh命令列表
 
@@ -146,7 +146,7 @@ Kmesh的主要部件包括：
 
   [Kmesh demo演示](docs/kmesh_demo-zh.md)
 
-### Kmesh能力地图
+## Kmesh能力地图
 
 | 特性域       | 特性                     |          2023.H1           |          2023.H2           |          2024.H1           |          2024.H2           |
 | ------------ | ------------------------ | :------------------------: | :------------------------: | :------------------------: | :------------------------: |
@@ -174,3 +174,24 @@ Kmesh的主要部件包括：
 | 生态协作     | 数据面协同（Envoy等）    |                            | ![](docs/pics/support.png) |                            |                            |
 | 运行环境支持 | 容器                     | ![](docs/pics/support.png) |                            |                            |                            |
 
+## 联系人
+
+如果您有任何问题，请随时通过以下方式联系我们：
+
+- [mailing list](https://groups.google.com/forum/#!forum/kmesh)
+- [slack](https://join.slack.com/t/kmesh/shared_invite/zt-23mte0eau-s3MoQNYPzsgvUwwXkOmIIA)
+- [twitter](https://twitter.com/kmesh_net)
+
+## 贡献
+
+如果您有兴趣成为贡献者，并希望参与开发Kmesh代码，请参见[贡献](CONTRIBUTING.md)了解有关提交补丁程序和贡献工作流的详细信息。
+
+## 许可证
+
+Kmesh在Apache 2.0许可证下。有关详细信息，请参见[LICENSE](LICENSE) 文件。
+
+Kmesh文档位于[CC-BY-4.0 license](https://creativecommons.org/licenses/by/4.0/legalcode)下。
+
+## 致谢
+
+此项目最初在[openEuler社区](https://gitee.com/openeuler/Kmesh)孵化，感谢openEuler社区在早期推动该项目的帮助。
