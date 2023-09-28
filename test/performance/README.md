@@ -1,25 +1,25 @@
-# Kmesh性能测试
+# Kmesh performance test
 
-## 基础测试组网
+## Basic test networking
 
 ![perf_network](../../docs/pics/perf_network.png)
 
-## 测试工具
+## Test tool
 
-Kmesh采用fortio、dstat做性能测试工具；fortio是一款功能强大的微服务负载测试库，可以统计tp90/tp99/qps等时延吞吐信息；dstat是一款系统信息统计工具，主要用它收集测试过程中CPU使用情况；
+Fortio and dstat are used as performance test tools for Kmesh. Fortio is a powerful microservice load test library that can collect statistics on latency and throughput information such as TP90, TP99, and QPS. dstat is a system information statistics tool. It is used to collect the CPU usage during the test.
 
-## 测试例说明
+## Test Case Description
 
-目录下包含了一组测试用例配置与脚本文件，用于在k8s集群环境下测试kmesh以及业界软件的各项性能；
+The directory contains a group of test case configuration and script files, which are used to test the performance of kmesh and industry software in the Kubernetes cluster environment.
 
 
-### 环境准备：
+### Environment Prepare：
 
-- 多节点k8s集群环境
+- k8s cluster
 
-- 安装istio
+- install istio
 
-  - 下载并安装istio，参考[istio官方文档]( https://istio.io/latest/zh/docs/setup/getting-started/)
+  - Download and install istio. For details, see (https://istio.io/latest/zh/docs/setup/getting-started/).
 
   ```sh
   $ curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.14.5 TARGET_ARCH=x86_64 sh -
@@ -29,67 +29,65 @@ Kmesh采用fortio、dstat做性能测试工具；fortio是一款功能强大的�
   ```
 
 
-### 测试用例说明：
+### Test Case Description：
 
-共8项测试，每个子项目录中均包含有：
+There are eight tests, each of which contains the following sub-items: config and shell directories;
 
-config和shell目录;
+config: configuration file for starting the fortio pod and svc configuration file
 
-config：用于起fortio的pod的配置文件，和svc的配置文件
-
-shell：自动化用例的测试脚本
+shell: test script for automated test cases
 
 #### big_small_test
 
-该用例为多并发情况下性能测试，在同一个节点上起多个fortio的客户端或服务端，通过改变其中一个fortio所使用的资源(例如改变线程数，会引起cpu占用率和内存占用率变化)来观察对其他fortio打流测试的性能影响。
+This test case is used to test the performance in the case of multiple concurrent requests. Multiple Fortio clients or servers are started on the same node, and the resources used by one Fortio are changed. (For example, if the number of threads is changed, the CPU usage and memory usage will change.) to observe the impact on the performance of other Fortio traffic sending tests.
 
 #### density_test
 
-该用例为密度测试，即在同一个节点上部署多个fortio的客户端来对fortio集群进行负载测试，通过改变fortio-client的数量，收集系统资源使用情况（cpu和内存占用率）和负载测试的结果的统计信息(延时和qps信息)
+This test case is a density test. That is, multiple Fortio clients are deployed on the same node to perform a load test on the Fortio cluster. The number of Fortio-clients is changed. Collect system resource usage (CPU and memory usage) and load test result statistics (delay and QPS information).
 
-本测试用例脚本中同时拉起多个fortio-client端，在每个client端内对svc端口进行打流测试，观察不同client内性能信息。
+In this test case, multiple fortio-clients are started at the same time, traffic is sent to the SVC port on each client, and performance information of different clients is observed.
 
 #### multiple
 
-使用nginx多次转发(多跳)的情况下，系统资源使用情况和负载统计信息，并测试打流的延时和qps信息
+When Nginx is used to forward packets for multiple times (multi-hop), check the system resource usage and load statistics, and test the traffic sending delay and QPS information.
 
 #### qps_test
 
-测试在不同qps下的系统资源使用情况(cpu和内存占用率)和负载统计信息
+Test the system resource usage (CPU and memory usage) and load statistics in different QPSs.
 
 #### bookinfo_test
 
-bookinfo作为后端情况下，测试不同线程情况下的系统资源使用情况和负载统计信息，并测试打流的延时和qps信息
+When bookinfo functions as the backend, test the system resource usage and load statistics of different threads, and test the delay and QPS of traffic sending.
 
 #### long_test
 
-测试在不同线程下的长连接的系统资源使用情况和负载统计信息，以及延时和qps信息
+Test the system resource usage, load statistics, delay, and QPS of persistent connection in different threads.
 
-#### packsize_test
+#### packet-size_test
 
-测试不同http包大小的情况下，系统资源使用情况和负载统计信息，以及延时和qps信息
+Test the system resource usage, load statistics, delay, and QPS information under different HTTP packet sizes.
 
 #### short_test
 
-测试短链接情况下，不同线程下系统资源使用情况和负载统计信息，以及延时和qps信息
+Test the system resource usage, load statistics, delay, and QPS of different threads in the case of short connections.
 
-### 使用示例
+### Use Example
 
-以长链接测试为例：
+The persistent link test is used as an example.
 
-在部署完成k8s和istio的环境上进行测试:
+Perform the test in the environment where K8S and istio have been deployed.
 
-- istio-envoy测试
-- cilium测试
-- kmesh测试
+- istio(envoy) test
+- cilium test
+- istio(Kmesh) test
 
-##### istio-envoy测试
+##### istio(envoy) test
 
-开启istio-sidecar注入
+istio-sidecar injection:
 
 `kubectl label namespace default istio-injection=enabled --overwrite`
 
-拉起fortio-client和server以及service
+Start the fortio-client, server, and service:
 
 `kubectl apply -f config/fortio-client.yaml`
 
@@ -97,21 +95,21 @@ bookinfo作为后端情况下，测试不同线程情况下的系统资源使用
 
 `kubectl apply -f config/fortio-service.yaml`
 
-执行脚本
+run:
 
 `sh long_test.sh`
 
-##### cilium测试
+##### cilium test
 
-安装cilium (此模块测试不需要istio参与)
+Install Cillium: (This test does not require the participation of the iStio.)
 
-```
-# https://github.com/cilium/cilium-cli/releases，下载cilium，解压安装
+```sh
+# https://github.com/cilium/cilium-cli/releases，download cilium
 
 cilium install --helm-set-string kubeProxyReplacement=strict --helm-set-string extraConfig enable-envoy-config=true
 ```
 
-拉起fortio-client和server以及service
+Start the fortio-client, server, and service:
 
 `kubectl apply -f config/cilium_policy.yaml`
 
@@ -121,23 +119,17 @@ cilium install --helm-set-string kubeProxyReplacement=strict --helm-set-string e
 
 `kubectl apply -f config/fortio-service.yaml`
 
-如果之前以及拉起了相关pod，则此时可以重启pod即可
-
-`kubectl delete pod <fortio-xxx>`
-
-删除之前的pod后deployment会重新拉起，
-
-执行脚本
+Run:
 
 `sh long_test.sh`
 
-##### kmesh测试
+##### kmesh test
 
-关闭istio-sidecar注入
+Disable istio-sidecar injection:
 
 `kubectl label namespace default istio-injection=unenabled --overwrite`
 
-拉起fortio-client和server以及service
+Start the fortio-client, server, and service:
 
 `kubectl apply -f config/fortio-client.yaml`
 
@@ -145,16 +137,12 @@ cilium install --helm-set-string kubeProxyReplacement=strict --helm-set-string e
 
 `kubectl apply -f config/fortio-service.yaml`
 
-如果之前以及拉起了相关pod，则此时可以重启pod即可
+start Kmesh:
 
-`kubectl delete pod <fortio-xxx>`
+Refer to [Quick Start](../../README.md#quick-start)
 
-删除之前的pod后deployment会重新拉起，
-
-然后启动kmesh
-
-执行脚本
+Run: 
 
 `sh long_test.sh`
 
-执行结果会在当前目录下根据时间新建文件夹，每个线程一个文件，查看执行结果，执行结果包括过程中的cpu和内存占用信息，以及fortio打流的延时和qps信息，可以对比kmesh与其他软件包的性能。
+Create a folder in the current directory based on the time. Each thread has a file. You can view the execution result. The execution result includes the CPU and memory usage, Fortio traffic sending delay, and QPS information. You can compare the performance of kmesh with that of other packages.
