@@ -108,7 +108,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 ![fortio_performance_test](docs/pics/fortio_performance_test.png)
 
-完整的性能测试请参考[Kmesh性能测试](test/performance/README.md)；
+完整的性能测试请参考[Kmesh性能测试](test/performance/README-zh.md)；
 
 ### 软件架构
 
