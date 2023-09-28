@@ -174,3 +174,20 @@ The main components of Kmesh include:
 | Ecosystem collaboration | Data plane collaboration (Envoy etc.) |                            | ![](docs/pics/support.png) |                            |                            |
 | Operating environment support | container                | ![](docs/pics/support.png) |                            |                            |                            |
 
+# Contact
+
+If you have questions, feel free to reach out to us in the following ways:
+
+- [mailing list](https://groups.google.com/forum/#!forum/kmesh)
+- [slack](https://join.slack.com/t/kmesh/shared_invite/zt-23mte0eau-s3MoQNYPzsgvUwwXkOmIIA)
+- [twitter](https://twitter.com/kmesh_net)
+
+# Contributing
+
+If you're interested in being a contributor and want to get involved in developing the Kmesh code, please see [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
+
+# License
+
+Kmesh is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
+
+Kmesh documentation is under the [CC-BY-4.0 license](https://creativecommons.org/licenses/by/4.0/legalcode).
