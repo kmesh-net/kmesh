@@ -68,11 +68,11 @@ Kmesh需要在拥有Kmesh内核增强特性的linux环境上编译构建；当�
   ```sh
   # 代码压缩包放入/root/rpmbuild/SOURCE
   # 注意压缩包的名称是kmesh-{version}.tar.gz，{version}参考kmesh.spec中的Version字段
-  [root@dev tmp]# mv Kmesh kmesh-1.0.0
-  [root@dev tmp]# tar zcvf /root/rpmbuild/SOURCES/kmesh-1.0.0.tar.gz kmesh-1.0.0/
+  [root@dev tmp]# mv Kmesh kmesh-0.0.1
+  [root@dev tmp]# tar zcvf /root/rpmbuild/SOURCES/kmesh-0.0.1.tar.gz kmesh-0.0.1
   
   # kmesh.spec放入/root/rpmbuild/SPEC
-  [root@dev kmesh-1.0.0]# cp kmesh.spec /root/rpmbuild/SPECS/
+  [root@dev kmesh-0.0.1]# cp kmesh.spec /root/rpmbuild/SPECS/
   ```
 
 - rpm编译
@@ -85,7 +85,7 @@ Kmesh需要在拥有Kmesh内核增强特性的linux环境上编译构建；当�
   [root@dev tmp]# cd /root/rpmbuild/RPMS/x86_64/
   [root@dev x86_64]# ll
   total 9.2M
-  -rw-r--r--. 1 root root 9.2M Nov  5 11:11 kmesh-1.0.0-1.x86_64.rpm
+  -rw-r--r--. 1 root root 9.2M Nov  5 11:11 kmesh-0.0.1-1.x86_64.rpm
   [root@dev x86_64]#
   ```
 
