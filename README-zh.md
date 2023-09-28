@@ -111,18 +111,10 @@ Kmesh的主要部件包括：
 
 ### 特性说明
 
-- Kmesh开发指南
-
-  [Kmesh开发指南](docs/kmesh_development_guide.md)
-
 - Kmesh命令列表
 
-  [Kmesh命令列表](docs/kmesh_commands.md)
+  [Kmesh命令列表](docs/kmesh_commands-zh.md)
 
-- 测试框架
-
-  [Kmesh测试框架](./test/README.md)
-  
 - demo演示
 
   [Kmesh demo演示](docs/kmesh_demo-zh.md)

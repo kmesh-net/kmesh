@@ -109,18 +109,10 @@ The main components of Kmesh include:
 
 ### Feature Description
 
-- Development Guide
-
-  [Kmesh Development Guide](docs/kmesh_development_guide.md)
-
 - Command List
 
   [Kmesh Command List](docs/kmesh_commands.md)
 
-- Test Framework
-
-  [Kmesh Test Framework](test/README.md)
-  
 - Demo
 
   [Kmesh demo demonstration](docs/kmesh_demo.md)
