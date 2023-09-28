@@ -32,5 +32,5 @@
 
   demo演示了基于Kmesh，对bookinfo的reviews服务实施百分比路由规则，并成功访问；
 
-  ![demo_bookinfo_v1_v2_8_2](D:/work/code/github/wcccc/kmesh/docs/pics/demo_bookinfo_v1_v2_8_2.svg)
+  ![demo_bookinfo_v1_v2_8_2](pics/demo_bookinfo_v1_v2_8_2.svg)
 

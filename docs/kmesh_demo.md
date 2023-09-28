@@ -32,5 +32,5 @@ The bookinfo service of istio is used as an example to demonstrate the percentag
 
   The demo shows how to implement percentage routing rules for the reviews service of bookinfo based on Kmesh and successfully access the service.
 
-  ![demo_bookinfo_v1_v2_8_2](D:/work/code/github/wcccc/kmesh/docs/pics/demo_bookinfo_v1_v2_8_2.svg)
+  ![demo_bookinfo_v1_v2_8_2](pics/demo_bookinfo_v1_v2_8_2.svg)
 

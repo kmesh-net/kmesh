@@ -1,4 +1,4 @@
-# Commands Description
+# Kmesh命令说明
 
 - kmesh-daemon
 
@@ -29,7 +29,7 @@
 
 - kmesh-cmd
 
-  Orchestration rules can be manually imported. Generally, orchestration rules are used in manual deployment scenarios.
+  手动导入编排规则，一般为手动部署场景使用；
 
   ```sh
   # kmesh-cmd -h
@@ -41,7 +41,7 @@
   ./kmesh-cmd -config-file=examples/api-v2-config/config-resources.json
   ```
 
-- Commands Example
+- 运维相关
 
   ```sh
   # curl http://localhost:15200/help
@@ -56,11 +56,11 @@
   curl http://localhost:15200/options
   ```
 
-- Precautions
+- 命令使用注意事项
 
-  - When `-enable-ads=true`, Kmesh automatically receives orchestration rules from the service grid control plane. In this configuration, do not run the `kmesh-cmd` command to deliver rules. Otherwise, configuration conflicts may occur.
+  - `-enable-ads=true`时，Kmesh从服务网格控制面自动接收编排规则；此配置下，不要使用`kmesh-cmd`命令下发规则，避免多头配置；
 
-  - The `path` specified by the `-bpf-fs-path` parameter must be the path of the bpf file system. For example:
+  - `-bpf-fs-path`参数指定的`path`要求是bpf文件系统路径；如：
 
     ```sh
     [root@localhost Kmesh]# mount | grep "/sys/fs/bpf"
