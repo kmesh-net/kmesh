@@ -29,7 +29,7 @@ Kmesh innovatively proposes to move traffic governance to the OS, and build a tr
 **High Performance**
 
 - Forwarding delay **60%↓**
-- Service startup performance **40%**↑
+- Service startup performance **40%↑**
 
 **Low Overhead**
 
