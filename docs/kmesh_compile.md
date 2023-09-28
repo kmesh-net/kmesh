@@ -6,6 +6,10 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
 
 ## build
 
+### kernel build
+
+To build a kernel package that supports Kmesh, see the [kernel compilation](kmesh_kernel_compile.md) document.
+
 ### build from source
 
 - Code download

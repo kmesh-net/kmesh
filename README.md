@@ -21,13 +21,42 @@ Kmesh innovatively proposes to move traffic governance to the OS, and build a tr
 
 #### Key features of Kmesh
 
-![image-20230928005359650](docs/pics/kmesh-features-en.png)
+**Smooth Compatibility**
+
+- Application-transparent Traffic Management
+- Automatically interconnecting with Istiod
+
+**High Performance**
+
+- Forwarding delay **60%↓**
+- Service startup performance **40%**↑
+
+**Low Overhead**
+
+- ServiceMesh data plane overhead **70%↓**
+
+**Safety Isolation**
+
+- eBPF Virtual machine security
+- Cgroup level orchestration isolation
+
+**Full Stack Visualization**
+
+- E2E observation*
+- Integration with Mainstream Observability Platforms*
+
+**Open Ecology**
+
+- Supports XDS protocol standards
+
+Note: * Planning
 
 ### Quick Start
 
 - prerequisite
 
-  Currently, Kmesh connects to the Istio control plane. Before starting Kmesh, install the Istio control plane software. For details, see https://istio.io/latest/docs/setup/getting-started/#install.
+  - Currently, Kmesh connects to the Istio control plane. Before starting Kmesh, install the Istio control plane software. For details, see https://istio.io/latest/docs/setup/getting-started/#install.
+  - The complete Kmesh capability depends on the OS enhancement. Check whether the execution environment is in the [OS list](docs/kmesh_support.md) supported by Kmesh. For other OS environments, see [Kmesh Compilation and Building](docs/kmesh_compile.md).
 
 - Kmesh container image prepare
 
@@ -136,7 +165,7 @@ The main components of Kmesh include:
 |              | Gray release   |                            | ![](docs/pics/support.png) |                            |                            |
 |              | Circuit Breaker |                            |                            | ![](docs/pics/support.png) |                            |
 |              | Rate Limits    |                            |                            | ![](docs/pics/support.png) |                            |
-| Service security | SSL-based two-way authentication |                            |                            |                            | ![](docs/pics/support.png) |
+| Service security | mTLS |                            |                            |                            | ![](docs/pics/support.png) |
 |              | L7 authorization |                            |                            |                            | ![](docs/pics/support.png) |
 |              | Cgroup-level isolation | ![](docs/pics/support.png) |                            |                            |                            |
 | Traffic monitoring | Governance indicator monitoring |                            | ![](docs/pics/support.png) |                            |                            |
