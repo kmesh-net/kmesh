@@ -49,7 +49,7 @@ To build a kernel package that supports Kmesh, see the [kernel compilation](kmes
 - prerequisite
 
   ```sh
-[root@dev tmp]# yum install -y rpm-build rpmdevtools
+  [root@dev tmp]# yum install -y rpm-build rpmdevtools
   ```
   
 - source code
@@ -69,11 +69,11 @@ To build a kernel package that supports Kmesh, see the [kernel compilation](kmes
   ```sh
   # The code package is stored in /root/rpmbuild/SOURCE
   # Note: The name of the compressed package is, kmesh-{version}.tar.gz
-  [root@dev tmp]# mv Kmesh kmesh-1.0.0
-  [root@dev tmp]# tar zcvf /root/rpmbuild/SOURCES/kmesh-1.0.0.tar.gz kmesh-1.0.0/
+  [root@dev tmp]# mv Kmesh kmesh-0.0.1
+  [root@dev tmp]# tar zcvf /root/rpmbuild/SOURCES/kmesh-0.0.1.tar.gz kmesh-0.0.1
   
   # kmesh.spec is stored in /root/rpmbuild/SPEC
-  [root@dev kmesh-1.0.0]# cp kmesh.spec /root/rpmbuild/SPECS/
+  [root@dev kmesh-0.0.1]# cp kmesh.spec /root/rpmbuild/SPECS/
   ```
 
 - rpm build
@@ -86,7 +86,7 @@ To build a kernel package that supports Kmesh, see the [kernel compilation](kmes
   [root@dev tmp]# cd /root/rpmbuild/RPMS/x86_64/
   [root@dev x86_64]# ll
   total 9.2M
-  -rw-r--r--. 1 root root 9.2M Nov  5 11:11 kmesh-1.0.0-1.x86_64.rpm
+  -rw-r--r--. 1 root root 9.2M Nov  5 11:11 kmesh-0.0.1-1.x86_64.rpm
   [root@dev x86_64]#
   ```
 
