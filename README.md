@@ -194,4 +194,4 @@ Kmesh documentation is under the [CC-BY-4.0 license](https://creativecommons.org
 
 ## Credit
 
-This project was [initially incubated in the openEuler community](https://gitee.com/openeuler/Kmesh), thanks openEuler Community for the help on promoting this project in early days.
+This project was initially incubated in the [openEuler community](https://gitee.com/openeuler/Kmesh), thanks openEuler Community for the help on promoting this project in early days.
