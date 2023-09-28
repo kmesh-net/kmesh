@@ -21,7 +21,33 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 #### Kmesh关键特性
 
-![image-20230927013406204](docs/pics/kmesh-features.png)
+**平滑兼容**
+
+- 应用透明的流量治理
+- 自动对接Istiod
+
+**高性能**
+
+- 网格转发时延**60%↓**
+- 服务启动性能**40%**↑
+
+**低开销**
+
+- 网格底座开销**70%↓**
+
+**安全隔离**
+
+- ebpf虚机安全
+- cgroup级编排隔离
+
+**全栈可视化**
+
+- 端到端指标采集*
+- 主流观测平台对接*
+
+**开放生态**
+
+- 支持XDS协议标准
 
 注：* 规划中；
 
@@ -29,7 +55,8 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 - 前提条件
 
-  Kmesh当前是对接Istio控制面，启动Kmesh前，需要提前安装好Istio的控制面软件；具体安装步骤参考：https://istio.io/latest/docs/setup/getting-started/#install
+  - Kmesh当前是对接Istio控制面，启动Kmesh前，需要提前安装好Istio的控制面软件；具体安装步骤参考：https://istio.io/latest/docs/setup/getting-started/#install
+  - 完整的Kmesh能力依赖对OS的增强，需确认执行环境是否在Kmesh支持的[OS列表](docs/kmesh_support-zh.md)中，对于其他OS环境需要参考[Kmesh编译构建](docs/kmesh_compile-zh.md)；
 
 - Kmesh容器镜像准备
 
@@ -138,7 +165,7 @@ Kmesh的主要部件包括：
 |              | 灰度发布                 |                            | ![](docs/pics/support.png) |                            |                            |
 |              | 熔断                     |                            |                            | ![](docs/pics/support.png) |                            |
 |              | 限流                     |                            |                            | ![](docs/pics/support.png) |                            |
-| 服务安全     | 基于SSL的双向认证        |                            |                            |                            | ![](docs/pics/support.png) |
+| 服务安全     | mTLS                     |                            |                            |                            | ![](docs/pics/support.png) |
 |              | L7授权                   |                            |                            |                            | ![](docs/pics/support.png) |
 |              | 治理pod级隔离            | ![](docs/pics/support.png) |                            |                            |                            |
 | 流量监控     | 基础观测（治理指标监控） |                            | ![](docs/pics/support.png) |                            |                            |
