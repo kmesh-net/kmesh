@@ -1,25 +1,25 @@
 <img src="docs/pics/logo/KMESH-stacked-colour.png" alt="kmesh-logo" style="zoom: 100%;" />
 
-### Introduction
+## Introduction
 
 Kmesh is a high-performance service mesh data plane software based on programmable kernel. Provides high-performance service communication infrastructure in service mesh scenarios.
 
-### Why Kmesh
+## Why Kmesh
 
-#### Challenges of the Service Mesh Data Plane
+### Challenges of the Service Mesh Data Plane
 
 The service mesh software represented by Istio has gradually become popular and has become an important component of cloud infrastructure. However, the current service mesh still face some challenges:
 
 - **Extra latency overhead at the proxy layer**: Single hop service access increases by [2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance), which cannot meet the SLA requirements of latency-sensitive applications. Although the community has come up with a variety of data plane solutions to this problem, the overhead introduced by agents cannot be completely reduced.
 - **High resources occupation**: The agent occupies extra CPU/MEM overhead, and the deployment density of service container decreases.
 
-#### Kmesh：Kernel-native traffic governance
+### Kmesh：Kernel-native traffic governance
 
 Kmesh innovatively proposes to move traffic governance to the OS, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path.
 
 ![image-20230927012356836](docs/pics/why-kmesh-arch-en.png)
 
-#### Key features of Kmesh
+### Key features of Kmesh
 
 **Smooth Compatibility**
 
@@ -51,7 +51,7 @@ Kmesh innovatively proposes to move traffic governance to the OS, and build a tr
 
 Note: * Planning
 
-### Quick Start
+## Quick Start
 
 - prerequisite
 
@@ -102,7 +102,7 @@ Note: * Planning
 
   More compilation methods of Kmesh, See: [Kmesh Compilation and Construction](docs/kmesh_compile.md)
 
-### Kmesh Performance
+## Kmesh Performance
 
 Based on Fortio, the data plane execution performance of Kmesh and Envoy was compared and tested. The test results are as follows:
 
@@ -110,7 +110,7 @@ Based on Fortio, the data plane execution performance of Kmesh and Envoy was com
 
 For a complete performance test, please refer to [Kmesh Performance Test](test/performance/README.md).
 
-### Software Architecture
+## Software Architecture
 
 <img src="docs/pics/kmesh-arch.png" alt="kmesh-arch" style="zoom:150%;" />
 
@@ -136,7 +136,7 @@ The main components of Kmesh include:
 
   Observation and DevOps probes, providing end-to-end observation capabilities.
 
-### Feature Description
+## Feature Description
 
 - Command List
 
@@ -146,7 +146,7 @@ The main components of Kmesh include:
 
   [Kmesh demo demonstration](docs/kmesh_demo.md)
 
-### Kmesh Capability Map
+## Kmesh Capability Map
 
 | Feature Field       | Feature                     |          2023.H1           |          2023.H2           |          2024.H1           |          2024.H2           |
 | ------------ | ------------------------ | :------------------------: | :------------------------: | :------------------------: | :------------------------: |
@@ -174,7 +174,7 @@ The main components of Kmesh include:
 | Ecosystem collaboration | Data plane collaboration (Envoy etc.) |                            | ![](docs/pics/support.png) |                            |                            |
 | Operating environment support | container                | ![](docs/pics/support.png) |                            |                            |                            |
 
-# Contact
+## Contact
 
 If you have questions, feel free to reach out to us in the following ways:
 
@@ -182,12 +182,16 @@ If you have questions, feel free to reach out to us in the following ways:
 - [slack](https://join.slack.com/t/kmesh/shared_invite/zt-23mte0eau-s3MoQNYPzsgvUwwXkOmIIA)
 - [twitter](https://twitter.com/kmesh_net)
 
-# Contributing
+## Contributing
 
 If you're interested in being a contributor and want to get involved in developing the Kmesh code, please see [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
 
-# License
+## License
 
 Kmesh is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
 
 Kmesh documentation is under the [CC-BY-4.0 license](https://creativecommons.org/licenses/by/4.0/legalcode).
+
+## Credit
+
+This project was [initially incubated in the openEuler community](https://gitee.com/openeuler/Kmesh), thanks openEuler Community for the help on promoting this project in early days.
