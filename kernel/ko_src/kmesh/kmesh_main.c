@@ -1,5 +1,6 @@
 /*
- * Copyright (c) Huawei Technologies Co., Ltd. 2021-2022. All rights reserved.
+ * Copyright 2023 The Kmesh Authors.
+ *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation
