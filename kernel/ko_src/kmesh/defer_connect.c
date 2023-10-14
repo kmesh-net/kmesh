@@ -8,6 +8,7 @@
  * Create: 2022-08-24
  */
 
+#include "../../../config/kmesh_marcos_def.h"
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kmod.h>
@@ -16,6 +17,7 @@
 #include <linux/types.h>
 #include <linux/socket.h>
 #include <linux/netdevice.h>
+#include <linux/bpf.h>
 #include <net/sock.h>
 #include <net/inet_common.h>
 #include <net/inet_connection_sock.h>
@@ -34,8 +36,12 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
 	struct sockaddr_in addr_in;
 	long timeo = 1;
 	const struct iovec *iov;
+	struct bpf_sock_ops_kern sock_ops;
 	void __user *ubase;
 	int err;
+	u32 dport, daddr;
+	dport = sk->sk_dport;
+	daddr = sk->sk_daddr;
 
 	if (iov_iter_is_kvec(&msg->msg_iter)) {
 		iov = (struct iovec *)msg->msg_iter.kvec;
@@ -45,9 +51,11 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
 		iov = msg->msg_iter.iov;
 		ubase = iov->iov_base;
 		kbuf_size = iov->iov_len;
+#if ITER_TYPE_IS_UBUF
 	} else if (iter_is_ubuf(&msg->msg_iter)){
 		ubase = msg->msg_iter.ubuf;
 		kbuf_size = msg->msg_iter.count;
+#endif
 	} else
 		goto connect;
 
@@ -62,14 +70,33 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
 	tmpMem.size = kbuf_size;
 	tmpMem.ptr = kbuf;
 
+#if OE_23_03
 	tcp_call_bpf_3arg(sk, BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB,
-						((u64)(&tmpMem) & 0xffffffff),
-						(((u64)(&tmpMem) >> 32) & 0xffffffff), kbuf_size);
+						((u64)(&tmpMem) & U32_MAX),
+						(((u64)(&tmpMem) >> 32) & U32_MAX), kbuf_size);
+	daddr = sk->sk_daddr;
+	dport = sk->sk_dport;
+#else
+	memset(&sock_ops, 0, offsetof(struct bpf_sock_ops_kern, temp));
+	if (sk_fullsock(sk)) {
+		sock_ops.is_fullsock = 1;
+		sock_owned_by_me(sk);
+	}
+	sock_ops.sk = sk;
+	sock_ops.op = BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB;
+	sock_ops.args[0] = ((u64)(&tmpMem) & U32_MAX);
+	sock_ops.args[1] = (((u64)(&tmpMem) >> 32) & U32_MAX);
 
+	(void)BPF_CGROUP_RUN_PROG_SOCK_OPS(&sock_ops);
+	if (sock_ops.replylong[2] && sock_ops.replylong[3]) {
+		daddr = sock_ops.replylong[2];
+		dport = sock_ops.replylong[3];
+	}
+#endif
 connect:
 	addr_in.sin_family = AF_INET;
-	addr_in.sin_port = sk->sk_dport;
-	addr_in.sin_addr.s_addr = sk->sk_daddr;
+	addr_in.sin_addr.s_addr = daddr;
+	addr_in.sin_port = dport;
 	err = sk->sk_prot->connect(sk, (struct sockaddr *)&addr_in, sizeof(struct sockaddr_in));
 	inet_sk(sk)->bpf_defer_connect = 0;
 	if (unlikely(err)) {

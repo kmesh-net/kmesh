@@ -4,6 +4,24 @@ ROOT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 VERSION=$(uname -r | cut -d '.' -f 1,2)
 OE_VERSION=$(uname -r | grep -o 'oe[^.]*')
 
-if [ "$OE_VERSION" == "oe2303" ]; then
-        cp $ROOT_DIR/depends/include/6.1/bpf_helper_defs_ext.h $ROOT_DIR/bpf/include/
-fi
+# new bpf helper functions name in the kernel, if there are any new functions
+# added in the future, please add them to the list.
+helper_name=(
+	strncpy
+	strnstr
+	strnlen
+	_strncmp
+	parse_header_msg
+	get_msg_header_element
+)
+
+base_line=`grep -nr "FN(unspec)" /usr/include/linux/bpf.h | awk -F ":" {'print $1'}`
+for name in ${helper_name[@]}; do
+	current_line=`grep -nr "FN($name)" /usr/include/linux/bpf.h | awk -F ":" {'print $1'}`
+	if [ -n "$current_line" ]; then
+		helper_id=`expr $current_line - $base_line`
+		sed -Ei "/$name/s/([0-9]+)[^0-9]*$/$helper_id;/" $ROOT_DIR/depends/include/bpf_helper_defs_ext.h
+	fi
+done
+
+cp $ROOT_DIR/depends/include/bpf_helper_defs_ext.h $ROOT_DIR/bpf/include/

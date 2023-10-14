@@ -31,7 +31,6 @@ APPS3 := mdacore
 .PHONY: all install uninstall clean
 
 all:
-	$(QUIET) cp depends/include/6.1/bpf_helper_defs_ext.h bpf/include/
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 
 	$(QUIET) make -C api
