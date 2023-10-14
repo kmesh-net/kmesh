@@ -1,0 +1,54 @@
+From 16b1ffe4eae8a45a366fc34871312257c2033e66 Mon Sep 17 00:00:00 2001
+From: kongweibin <kongweibin2@huawei.com>
+Date: Fri, 13 Oct 2023 18:04:54 +0800
+Subject: [PATCH 2/8] net, ipv4: A new bit is added to indicate whether to
+ delay link establishment using bpf
+
+The bpf_defer_connect bit is added for inet_sock to indicate
+whether the current socket is changed to the bpf program to
+delay link establishment.
+
+Signed-off-by: kongweibin <kongweibin2@huawei.com>
+---
+ include/net/inet_sock.h | 7 ++++++-
+ net/ipv4/tcp.c          | 3 ++-
+ 2 files changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/include/net/inet_sock.h b/include/net/inet_sock.h
+index 91668b1cd..ef860886c 100644
+--- a/include/net/inet_sock.h
++++ b/include/net/inet_sock.h
+@@ -240,10 +240,15 @@ struct inet_sock {
+ 				nodefrag:1;
+ 	__u8			bind_address_no_port:1,
+ 				recverr_rfc4884:1,
+-				defer_connect:1; /* Indicates that fastopen_connect is set
++				defer_connect:1, /* Indicates that fastopen_connect is set
+ 						  * and cookie exists so we defer connect
+ 						  * until first data frame is written
+ 						  */
++				bpf_defer_connect:1; /* specifies the ebpf program for
++						      * traffic orchestration so we defer
++						      * connect until first data frame is
++						      * written
++						      */
+ 	__u8			rcv_tos;
+ 	__u8			convert_csum;
+ 	int			uc_index;
+diff --git a/net/ipv4/tcp.c b/net/ipv4/tcp.c
+index f009d7846..d88de88bb 100644
+--- a/net/ipv4/tcp.c
++++ b/net/ipv4/tcp.c
+@@ -590,7 +590,8 @@ __poll_t tcp_poll(struct file *file, struct socket *sock, poll_table *wait)
+ 
+ 		if (tp->urg_data & TCP_URG_VALID)
+ 			mask |= EPOLLPRI;
+-	} else if (state == TCP_SYN_SENT && inet_sk(sk)->defer_connect) {
++	} else if (state == TCP_SYN_SENT &&
++			(inet_sk(sk)->defer_connect || inet_sk(sk)->bpf_defer_connect)) {
+ 		/* Active TCP fastopen socket with defer_connect
+ 		 * Return EPOLLOUT so application can call write()
+ 		 * in order for kernel to generate SYN+data
+-- 
+2.33.0
+
