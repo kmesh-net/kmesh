@@ -2,21 +2,7 @@
 
 ## 背景说明
 
-Kmesh基于内核做了增强特性，当前这些增强特性正在有计划的向上游社区推送；在此之前，如果想要使用Kmesh，需要自行构建/获取内核包；
-
-当前提供了两种获取包含Kmesh增强特性的内核包途径：
-
-- 项目仓预编译
-
-  项目仓中已归档主流内核版本对应的Kmesh增强包，路径如下：
-
-  |      |      |      |
-  | ---- | ---- | ---- |
-  |      |      |      |
-  |      |      |      |
-  |      |      |      |
-
-- 基于增强特性patch编译
+Kmesh基于内核做了增强，如果想要使用Kmesh，需要自行构建内核包；
 
 本篇主要描述通过patch构建包含Kmesh增强特性的内核包的过程；
 
@@ -32,23 +18,20 @@ kernel/
 ├── ko
 ├── ko_src
 └── patches		# 内核增强特性补丁
-    └── 5.10.0-60.18.0.50.oe2203	# 基于openEuler 2203 LTS制作的增强patch
-        └── kmesh-defer-conn-changes-in-bulitin-kernel.patch
+    └── 5.10.0	# 基于linux 5.10制作的增强patch
+        └── 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch
+        └── 0002-xxx.patch
+        └── ......
+    └── ......
 ```
 
 内核构建时，按需获取/适配patch。
 
-### openEuler版本构建
+### 基于linux 5.10 版本构建
 
-以openEuler 2203 LTS版本为内核基线为例，构建步骤如下；
+以openEuler 2203 LTS SP2 版本(linux 5.10)内核基线为例，构建步骤如下；
 
 - 准备一台x86的编译环境
-
-  ```sh
-  # 编译环境最好也是openEuler 2203的
-  [root@dev ~]# cat /etc/openEuler-release
-  openEuler release 22.03
-  ```
 
 - 增加openEuler 2203 source repo源
 
@@ -56,7 +39,7 @@ kernel/
   # /etc/yum.repos.d/openEuler.repo中增加repo源
   [oe_2203_source]
   name=oe_2203_source
-  baseurl=https://repo.openeuler.org/openEuler-22.03-LTS/source/
+  baseurl=https://repo.openeuler.org/openEuler-22.03-LTS-SP2/source/
   enabled=1
   gpgcheck=0
   ```
@@ -66,34 +49,35 @@ kernel/
   ```sh
   [root@dev test]# yum download --source kernel.src
   # 基线代码解压缩
-  [root@dev test]# rpm -ivh kernel-5.10.0-60.18.0.50.oe2203.src.rpm --root=/home/test/kmesh_kernel
+  [root@dev test]# rpm -ivh kernel-5.10.0-153.12.0.92.oe2203sp2.src.rpm --root=/home/test/kmesh_kernel
   ```
 
 - patch拷贝到编译目录下
 
   ```sh
   # 将项目仓中patch拷贝到SOURCE目录下
-  [root@dev SOURCES]# cp kmesh-defer-conn-changes-in-bulitin-kernel.patch .
   [root@dev SOURCES]# pwd
   /home/test/kmesh_kernel/root/rpmbuild/SOURCES
-  [root@dev SOURCES]# ll kmesh-defer-conn-changes-in-bulitin-kernel.patch
-  -rw-r--r--. 1 root root 19K Oct 31 07:03 kmesh-defer-conn-changes-in-bulitin-kernel.patch
-  [root@dev SOURCES]#
+  [root@dev SOURCES]# cp 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch .
+  ......
+  [root@dev SOURCES]# cp xxx.patch .
   ```
 
 - 修改SPEC增加patch
 
   ```sh
-  # 修改SPEC/kernel.spec 增加patch编译
+  # 修改SPEC/kernel.spec 增加如下patch编译内容
   # a. kabi检查可以先关闭
   %define with_kabichk 0
   
   # b. spec中增加patch定义
   # 增加增强特性补丁
-  Source9003: kmesh-defer-conn-changes-in-bulitin-kernel.patch
+  Source9003: 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch
+  Source900X: ......
   
-  # c. 打patch
+  # c. %prep中增加打patch步骤
   patch -s -F0 -E -p1 --no-backup-if-mismatch -i %{SOURCE9003}
+  patch -s -F0 -E -p1 --no-backup-if-mismatch -i ......
   ```
 
 - 编译
@@ -115,9 +99,9 @@ warning: line 153: It's not recommended to have unversioned Obsoletes: Obsoletes
 warning: line 168: It's not recommended to have unversioned Obsoletes: Obsoletes: kernel-tools-libs-devel
 warning: bogus date in %changelog: Tue Jan 29 2021 Yuan Zhichang <erik.yuan@arm.com> - 5.10.0-1.0.0.10
 error: Failed build dependencies:
-        asciidoc is needed by kernel-5.10.0-60.18.0.50.x86_64
-        audit-libs-devel is needed by kernel-5.10.0-60.18.0.50.x86_64
-        bc is needed by kernel-5.10.0-60.18.0.50.x86_64
+        asciidoc is needed by kernel-5.10.0-153.12.0.92.x86_64
+        audit-libs-devel is needed by kernel-5.10.0-153.12.0.92.x86_64
+        bc is needed by kernel-5.10.0-153.12.0.92.x86_64
         ......
 [root@dev rpmbuild]#
 ```
@@ -133,14 +117,14 @@ A：
 
 ```sh
 Unrecognized type 'char *', please add it to known types!
-make[3]: *** [Makefile:182: /home/test/kmesh_kernel/root/rpmbuild/BUILD/kernel-5.10.0/linux-5.10.0-60.18.0.50.x86_64/tools/bpf/resolve_btfids/libbpf/bpf_helper_defs.h] Error 1
+make[3]: *** [Makefile:182: /home/test/kmesh_kernel/root/rpmbuild/BUILD/kernel-5.10.0/linux-5.10.0-153.12.0.92.x86_64/tools/bpf/resolve_btfids/libbpf/bpf_helper_defs.h] Error 1
 ```
 
 A:
 
 ```sh
 # bpf_helpers_doc.py中增加 char *定义
-[root@dev rpmbuild]# vim ./BUILD/kernel-5.10.0/linux-5.10.0-60.18.0.50.x86_64/scripts/bpf_helpers_doc.py
+[root@dev rpmbuild]# vim ./BUILD/kernel-5.10.0/linux-5.10.0-153.12.0.92.x86_64/scripts/bpf_helpers_doc.py
 known_types = {
             '...',
             'char *', 
@@ -157,7 +141,7 @@ A:
 ```sh
 #更新libbpf中的bpf.h头文件为kernel中打上patch后的文件；请更新之前备份，用于后续不再使用此版本内核时恢复。
 [root@dev rpmbuild]# cp /usr/include/linux/bpf.h /usr/include/linux/bpf.hbak
-[root@dev rpmbuild]# cp /home/test/kmesh_kernel/root/rpmbuild/BUILD/kernel-5.10.0/linux-5.10.0-60.18.0.50.x86_64/include/uapi/linux/bpf.h /usr/include/linux/bpf.h
+[root@dev rpmbuild]# cp /home/test/kmesh_kernel/root/rpmbuild/BUILD/kernel-5.10.0/linux-5.10.0-153.12.0.92.x86_64/include/uapi/linux/bpf.h /usr/include/linux/bpf.h
 
 #当然也可以不备份，后续恢复采用重新安装libbpf rpm包的方式
 
