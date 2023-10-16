@@ -2,9 +2,14 @@
 
 ## 准备工作
 
-Kmesh需要在拥有Kmesh内核增强特性的linux环境上编译构建；当前[openEuler 23.03](https://repo.openeuler.org/openEuler-23.03/everything/x86_64/)可以原生支持；
+Kmesh需要在拥有Kmesh内核增强特性的linux环境上编译构建；当前可以原生支持kmesh的内核见[kmesh_support.md](kmesh_support.md)；
 
 ## 编译构建
+
+### 内核编译
+
+编译完整支持kmesh能力的内核，请参考[内核编译](kmesh_kernel_compile-zh.md)文档
+
 
 ### 源码编译
 
