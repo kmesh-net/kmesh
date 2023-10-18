@@ -124,7 +124,7 @@ static inline int handle_http_connection_manager(
 	return 0;
 }
 
-SEC_TAIL(KMESH_SOCKOPS_CALLS, KMESH_TAIL_CALL_FILTER)
+SEC_TAIL(KMESH_PORG_CALLS, KMESH_TAIL_CALL_FILTER)
 int filter_manager(ctx_buff_t *ctx)
 {
 	int ret = 0;
@@ -151,6 +151,7 @@ int filter_manager(ctx_buff_t *ctx)
 	kmesh_tail_delete_ctx(&ctx_key);
 
 	switch (filter->config_type_case) {
+#ifndef CGROUP_SOCK_MANAGE
 		case LISTENER__FILTER__CONFIG_TYPE_HTTP_CONNECTION_MANAGER:
 			http_conn = kmesh_get_ptr_val(filter->http_connection_manager);
 			ret = bpf_parse_header_msg(ctx_val->msg);
@@ -165,6 +166,7 @@ int filter_manager(ctx_buff_t *ctx)
 			}
 			ret = handle_http_connection_manager(http_conn, &addr, ctx, ctx_val->msg);
 			break;
+#endif
 		case LISTENER__FILTER__CONFIG_TYPE_TCP_PROXY:
 			tcp_proxy = kmesh_get_ptr_val(filter->tcp_proxy);
 			if (!tcp_proxy) {
@@ -180,7 +182,7 @@ int filter_manager(ctx_buff_t *ctx)
 	return convert_sockops_ret(ret);
 }
 
-SEC_TAIL(KMESH_SOCKOPS_CALLS, KMESH_TAIL_CALL_FILTER_CHAIN)
+SEC_TAIL(KMESH_PORG_CALLS, KMESH_TAIL_CALL_FILTER_CHAIN)
 int filter_chain_manager(ctx_buff_t *ctx)
 {
 	int ret = 0;

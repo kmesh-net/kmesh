@@ -304,7 +304,7 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
 	return 0;
 }
 
-SEC_TAIL(KMESH_SOCKOPS_CALLS, KMESH_TAIL_CALL_CLUSTER)
+SEC_TAIL(KMESH_PORG_CALLS, KMESH_TAIL_CALL_CLUSTER)
 int cluster_manager(ctx_buff_t *ctx)
 {
 	int ret = 0;

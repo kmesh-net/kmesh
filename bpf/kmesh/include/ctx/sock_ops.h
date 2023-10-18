@@ -23,6 +23,8 @@
 
 typedef struct bpf_sock_ops		ctx_buff_t;
 
+#define KMESH_PORG_CALLS		sockops
+
 #define DECLARE_VAR_ADDRESS(ctx, name) \
 	address_t name = {0}; \
 	bpf_memset(&name, 0, sizeof(name)); \

@@ -344,7 +344,7 @@ static inline char *route_get_cluster(const Route__Route *route)
 	return kmesh_get_ptr_val(_(route_act->cluster));
 }
 
-SEC_TAIL(KMESH_SOCKOPS_CALLS, KMESH_TAIL_CALL_ROUTER_CONFIG)
+SEC_TAIL(KMESH_PORG_CALLS, KMESH_TAIL_CALL_ROUTER_CONFIG)
 int route_config_manager(ctx_buff_t *ctx)
 {
 	int ret;
