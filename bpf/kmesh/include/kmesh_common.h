@@ -63,28 +63,14 @@ struct {
 	__uint(map_flags, 0);
 } inner_map SEC(".maps");
 
-#if 1
-typedef struct bpf_sock_ops		ctx_buff_t;
-#define DECLARE_VAR_ADDRESS(ctx, name) \
-	address_t name = {0}; \
-	bpf_memset(&name, 0, sizeof(name)); \
-	name.ipv4 = (ctx)->remote_ip4; \
-	name.port = (ctx)->remote_port
-#define SET_CTX_ADDRESS(ctx, address) \
-	(ctx)->remote_ip4  = (address)->ipv4; \
-	(ctx)->remote_port = (address)->port
-#else
-typedef struct bpf_sock_addr	ctx_buff_t;
-#define DECLARE_VAR_ADDRESS(ctx, name) \
-	address_t name = {0}; \
-	name.ipv4 = (ctx)->user_ip4; \
-	name.port = (ctx)->user_port; \
-	name.protocol = (ctx)->protocol
-#define SET_CTX_ADDRESS(ctx, address) \
-	(ctx)->user_ip4  = (address)->ipv4; \
-	(ctx)->user_port = (address)->port; \
-	(ctx)->protocol = (address)->protocol
-#endif
+typedef enum {
+	KMESH_TAIL_CALL_LISTENER = 1,
+	KMESH_TAIL_CALL_FILTER_CHAIN,
+	KMESH_TAIL_CALL_FILTER,
+	KMESH_TAIL_CALL_ROUTER,
+	KMESH_TAIL_CALL_CLUSTER,
+	KMESH_TAIL_CALL_ROUTER_CONFIG,
+} tail_call_index_t;
 
 typedef Core__SocketAddress address_t;
 

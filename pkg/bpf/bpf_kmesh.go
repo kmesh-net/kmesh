@@ -20,7 +20,7 @@
 package bpf
 
 // #cgo pkg-config: bpf api-v2-c
-// #include "kmesh/include/tail_call.h"
+// #include "kmesh/include/kmesh_common.h"
 import "C"
 import (
 	"os"
@@ -49,9 +49,6 @@ type BpfSockOps struct {
 	Info BpfInfo
 	Link link.Link
 	bpf2go.KmeshSockopsObjects
-	bpf2go.KmeshFilterObjects
-	bpf2go.KmeshRouteConfigObjects
-	bpf2go.KmeshClusterObjects
 }
 
 type BpfKmesh struct {
@@ -66,27 +63,41 @@ func (sc *BpfTracePoint) NewBpf(cfg *Config) {
 
 func (sc *BpfSockOps) NewBpf(cfg *Config) error {
 	sc.Info.Config = *cfg
-	sc.Info.BpfFsPath += "/bpf_kmesh/"
-	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
+	sc.Info.MapPath = sc.Info.BpfFsPath + "/bpf_kmesh/map/"
+	sc.Info.BpfFsPath += "/bpf_kmesh/sockops/"
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
 			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
 		return err
 	}
+
+	if err := os.MkdirAll(sc.Info.BpfFsPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
 	return nil
 }
 
 func (sc *BpfSockConn) NewBpf(cfg *Config) error {
 	sc.Info.Config = *cfg
-	sc.Info.BpfFsPath += "/bpf_kmesh/"
-	sc.Info.MapPath = sc.Info.BpfFsPath + "map/"
+	sc.Info.MapPath = sc.Info.BpfFsPath + "/bpf_kmesh/map/"
+	sc.Info.BpfFsPath += "/bpf_kmesh/sockconn/"
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
 			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
 		return err
 	}
+
+	if err := os.MkdirAll(sc.Info.BpfFsPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
 	return nil
 }
 
@@ -144,7 +155,7 @@ func (sc *BpfTracePoint) loadKmeshTracePointObjects() (*ebpf.CollectionSpec, err
 		}
 	}
 
-	if err = spec.LoadAndAssign(&sc.KmeshTracePointObjects, &opts); err !=nil {
+	if err = spec.LoadAndAssign(&sc.KmeshTracePointObjects, &opts); err != nil {
 		return nil, err
 	}
 
@@ -196,34 +207,17 @@ func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 	opts.Maps.PinPath = sc.Info.MapPath
 	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
-	spec, err = bpf2go.LoadKmeshFilter()
-
-	if err != nil || spec == nil {
-		return nil, err
-	}
-
-	setMapPinType(spec, ebpf.PinByName)
-	setProgBpfType(spec, sc.Info.Type, sc.Info.AttachType)
-	if err = spec.LoadAndAssign(&sc.KmeshFilterObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	value := reflect.ValueOf(sc.KmeshFilterObjects.KmeshFilterPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
-	err = sc.KmeshFilterObjects.KmeshFilterMaps.KmeshTailCallProg.Update(
+	err = sc.KmeshTailCallProg.Update(
 		uint32(C.KMESH_TAIL_CALL_FILTER_CHAIN),
-		uint32(sc.KmeshFilterObjects.KmeshFilterPrograms.FilterChainManager.FD()),
+		uint32(sc.FilterChainManager.FD()),
 		ebpf.UpdateAny)
 	if err != nil {
 		return nil, err
 	}
 
-	err = sc.KmeshFilterObjects.KmeshFilterMaps.KmeshTailCallProg.Update(
+	err = sc.KmeshTailCallProg.Update(
 		uint32(C.KMESH_TAIL_CALL_FILTER),
-		uint32(sc.KmeshFilterObjects.KmeshFilterPrograms.FilterManager.FD()),
+		uint32(sc.FilterManager.FD()),
 		ebpf.UpdateAny)
 	if err != nil {
 		return nil, err
@@ -241,26 +235,9 @@ func (sc *BpfSockOps) loadRouteConfigObjects() (*ebpf.CollectionSpec, error) {
 	opts.Maps.PinPath = sc.Info.MapPath
 	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
-	spec, err = bpf2go.LoadKmeshRouteConfig()
-
-	if err != nil || spec == nil {
-		return nil, err
-	}
-
-	setMapPinType(spec, ebpf.PinByName)
-	setProgBpfType(spec, sc.Info.Type, sc.Info.AttachType)
-	if err = spec.LoadAndAssign(&sc.KmeshRouteConfigObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	value := reflect.ValueOf(sc.KmeshRouteConfigObjects.KmeshRouteConfigPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
-	err = sc.KmeshRouteConfigObjects.KmeshRouteConfigMaps.KmeshTailCallProg.Update(
+	err = sc.KmeshTailCallProg.Update(
 		uint32(C.KMESH_TAIL_CALL_ROUTER_CONFIG),
-		uint32(sc.KmeshRouteConfigObjects.KmeshRouteConfigPrograms.RouteConfigManager.FD()),
+		uint32(sc.RouteConfigManager.FD()),
 		ebpf.UpdateAny)
 	if err != nil {
 		return nil, err
@@ -278,26 +255,9 @@ func (sc *BpfSockOps) loadKmeshClusterObjects() (*ebpf.CollectionSpec, error) {
 	opts.Maps.PinPath = sc.Info.MapPath
 	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
-	spec, err = bpf2go.LoadKmeshCluster()
-
-	if err != nil || spec == nil {
-		return nil, err
-	}
-
-	setMapPinType(spec, ebpf.PinByName)
-	setProgBpfType(spec, sc.Info.Type, sc.Info.AttachType)
-	if err = spec.LoadAndAssign(&sc.KmeshClusterObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	value := reflect.ValueOf(sc.KmeshClusterObjects.KmeshClusterPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
-	err = sc.KmeshClusterObjects.KmeshClusterMaps.KmeshTailCallProg.Update(
+	err = sc.KmeshTailCallProg.Update(
 		uint32(C.KMESH_TAIL_CALL_CLUSTER),
-		uint32(sc.KmeshClusterObjects.KmeshClusterPrograms.ClusterManager.FD()),
+		uint32(sc.ClusterManager.FD()),
 		ebpf.UpdateAny)
 	if err != nil {
 		return nil, err
@@ -513,16 +473,6 @@ func (sc *BpfSockOps) close() error {
 	if err := sc.KmeshSockopsObjects.Close(); err != nil {
 		return err
 	}
-	if err := sc.KmeshFilterObjects.Close(); err != nil {
-		return err
-	}
-	if err := sc.KmeshRouteConfigObjects.Close(); err != nil {
-		return err
-	}
-	if err := sc.KmeshClusterObjects.Close(); err != nil {
-		return err
-	}
-
 	return nil
 }
 
