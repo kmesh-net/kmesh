@@ -21,21 +21,16 @@
 #include <linux/bpf.h>
 #include <linux/tcp.h>
 #include "bpf_log.h"
+#include "ctx/sock_addr.h"
 #include "listener.h"
 #include "listener/listener.pb-c.h"
+#include "filter.h"
+#include "cluster.h"
+
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_HTTP
 
 static const char kmesh_module_name[] = "kmesh_defer";
-#ifdef DECLARE_VAR_ADDRESS
-#undef DECLARE_VAR_ADDRESS
-#define DECLARE_VAR_ADDRESS(ctx, name) \
-	address_t name = {0}; \
-	name.ipv4 = (ctx)->user_ip4; \
-	name.port = (ctx)->user_port; \
-	name.protocol = ((ctx)->protocol == IPPROTO_TCP) ?	\
-	CORE__SOCKET_ADDRESS__PROTOCOL__TCP: CORE__SOCKET_ADDRESS__PROTOCOL__UDP
-#endif
 
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
@@ -52,6 +47,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 		if (!listener)
 			return -ENOENT;
 	}
+	BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
 
 #if KMESH_ENABLE_HTTP
 	// defer conn
@@ -81,3 +77,4 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 
 char _license[] SEC("license") = "GPL";
 int _version SEC("version") = 1;
+
