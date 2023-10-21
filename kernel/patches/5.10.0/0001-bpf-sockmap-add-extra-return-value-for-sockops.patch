@@ -1,0 +1,29 @@
+From ab2a6465a9af8e5fffb4638fe22fc17ee6858c69 Mon Sep 17 00:00:00 2001
+From: kongweibin <kongweibin2@huawei.com>
+Date: Fri, 13 Oct 2023 17:57:38 +0800
+Subject: [PATCH 1/8] bpf,sockmap: add extra return value for sockops
+
+Sockops was previously returned only through replylong[0]. Now we
+extend it to support returning replylong[1]~replylong[3]
+
+Signed-off-by: kongweibin <kongweibin2@huawei.com>
+---
+ net/core/filter.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index 2e4edda72..c36dbcee6 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -8206,7 +8206,7 @@ static bool sock_ops_is_valid_access(int off, int size,
+ 
+ 	if (type == BPF_WRITE) {
+ 		switch (off) {
+-		case offsetof(struct bpf_sock_ops, reply):
++		case bpf_ctx_range_till(struct bpf_sock_ops, reply, replylong[3]):
+ 		case offsetof(struct bpf_sock_ops, sk_txhash):
+ 			if (size != size_default)
+ 				return false;
+-- 
+2.33.0
+

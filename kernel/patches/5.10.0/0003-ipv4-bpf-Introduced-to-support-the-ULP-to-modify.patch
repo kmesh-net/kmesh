@@ -1,0 +1,34 @@
+From 2b40ef8d75316e6fb005ac8c3844b3b096850b07 Mon Sep 17 00:00:00 2001
+From: kongweibin <kongweibin2@huawei.com>
+Date: Fri, 13 Oct 2023 18:06:31 +0800
+Subject: [PATCH 3/8] ipv4, bpf: Introduced to support the ULP to modify
+
+Currently, the ebpf program can distinguish sockets according to
+the address accessed by the client, and use the ULP framework to
+modify the matched sockets to delay link establishment.
+
+Signed-off-by: kongweibin <kongweibin2@huawei.com>
+---
+ net/core/filter.c | 6 +++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/net/core/filter.c b/net/core/filter.c
+index c36dbcee6..6a0fdc5ce 100644
+--- a/net/core/filter.c
++++ b/net/core/filter.c
+@@ -4838,6 +4838,12 @@ static int _bpf_setsockopt(struct sock *sk, int level, int optname,
+ 						    TCP_CA_NAME_MAX-1));
+ 			name[TCP_CA_NAME_MAX-1] = 0;
+ 			ret = tcp_set_congestion_control(sk, name, false, true);
++		} else if (optname == TCP_ULP) {
++			char name[TCP_ULP_NAME_MAX] = {0};
++
++			strncpy(name, optval, min_t(long, optlen,
++						    TCP_ULP_NAME_MAX - 1));
++			return tcp_set_ulp(sk, name);
+ 		} else {
+ 			struct inet_connection_sock *icsk = inet_csk(sk);
+ 			struct tcp_sock *tp = tcp_sk(sk);
+-- 
+2.33.0
+

@@ -1,0 +1,43 @@
+From d52cfd2c8c1f4ac198e32c8b4e71edb61ad3715e Mon Sep 17 00:00:00 2001
+From: kongweibin <kongweibin2@huawei.com>
+Date: Fri, 13 Oct 2023 18:11:16 +0800
+Subject: [PATCH 5/8] bpf: Introduces a new state to identify the location of
+ the sockops call
+
+Currently, a permission status code is required to identify
+that the access to the sockops is from the delayed link establishment
+scenario. Therefore, "BPF_SOCK_OPS_TCP_DEFFER_CONNECT_CB"
+
+Signed-off-by: kongweibin <kongweibin2@huawei.com>
+---
+ include/uapi/linux/bpf.h       | 1 +
+ tools/include/uapi/linux/bpf.h | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/include/uapi/linux/bpf.h b/include/uapi/linux/bpf.h
+index 9373abafc..0ac3b2af3 100644
+--- a/include/uapi/linux/bpf.h
++++ b/include/uapi/linux/bpf.h
+@@ -4879,6 +4879,7 @@ enum {
+ 					 * by the kernel or the
+ 					 * earlier bpf-progs.
+ 					 */
++	BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB,/* call ebpf to defer connect*/
+ };
+ 
+ /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
+diff --git a/tools/include/uapi/linux/bpf.h b/tools/include/uapi/linux/bpf.h
+index 41bc2f496..584d20c56 100644
+--- a/tools/include/uapi/linux/bpf.h
++++ b/tools/include/uapi/linux/bpf.h
+@@ -4879,6 +4879,7 @@ enum {
+ 					 * by the kernel or the
+ 					 * earlier bpf-progs.
+ 					 */
++	BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB,/* call ebpf to defer connect*/
+ };
+ 
+ /* List of TCP states. There is a build check in net/ipv4/tcp.c to detect
+-- 
+2.33.0
+
