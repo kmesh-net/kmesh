@@ -20,6 +20,7 @@
 #ifndef _COMMON_H_
 #define _COMMON_H_
 
+#include "../../config/kmesh_marcos_def.h"
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -63,5 +64,9 @@ static inline int kmesh_map_update_elem(void *map, const void *key, const void *
 	// TODO: Duplicate element, status update
 	return (int)bpf_map_update_elem(map, key, value, BPF_ANY);
 }
+
+#if OE_23_03
+#define bpf__strncmp bpf_strncmp
+#endif
 
 #endif // _COMMON_H_

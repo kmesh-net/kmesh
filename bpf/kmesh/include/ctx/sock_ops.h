@@ -20,6 +20,7 @@
 #ifndef __BPF_CTX_SOCK_OPS_H
 #define __BPF_CTX_SOCK_OPS_H
 
+#include "kmesh_common.h"
 
 typedef struct bpf_sock_ops		ctx_buff_t;
 
@@ -29,7 +30,13 @@ typedef struct bpf_sock_ops		ctx_buff_t;
 	name.ipv4 = (ctx)->remote_ip4; \
 	name.port = (ctx)->remote_port
 #define SET_CTX_ADDRESS(ctx, address) \
+	(ctx)->replylong[2]  = (address)->ipv4; \
+	(ctx)->replylong[3] = (address)->port
+#if OE_23_03
+#undef SET_CTX_ADDRESS
+#define SET_CTX_ADDRESS(ctx, address) \
 	(ctx)->remote_ip4  = (address)->ipv4; \
 	(ctx)->remote_port = (address)->port
+#endif
 
 #endif //__BPF_CTX_SOCK_OPS_H
