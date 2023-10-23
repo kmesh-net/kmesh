@@ -50,12 +50,13 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
 
 #if KMESH_ENABLE_HTTP
+	// todo build when kernel support http parse and route
 	// defer conn
 	ret = bpf_setsockopt(ctx, IPPROTO_TCP, TCP_ULP, (void *)kmesh_module_name, sizeof(kmesh_module_name));
 	if (ret)
 		BPF_LOG(ERR, KMESH, "bpf set sockopt failed! ret:%d\n", ret);
 #else // KMESH_ENABLE_HTTP
-	ret = l4_listener_manager(ctx, lisdemotener);
+	ret = listener_manager(ctx, listener, NULL);
 	if (ret != 0) {
 		BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
 		return ret;

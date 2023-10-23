@@ -94,7 +94,9 @@ func unpinMaps(value *reflect.Value) error {
 
 func setMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
 	for key, v := range spec.Maps {
-		if key == ".rodata" || key == ".bss" {
+		// tail_call map dont support pinning when shared by different bpf types
+		if key == ".rodata" || key == ".bss" || key == "kmesh_tail_call_prog" ||
+			key == "kmesh_tail_call_ctx" {
 			continue
 		}
 		v.Pinning = pinType
