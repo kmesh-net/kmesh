@@ -68,3 +68,10 @@
  * the corresponding scenarios.
  */
 #define ITER_TYPE_IS_UBUF   0
+
+/*
+ * Kmesh’s Layer 7 acceleration proxy capability relies on kernel enhancements.
+ * It’s necessary to determine whether the current environment has an
+ * enhanced kernel in order to enable Kmesh’s capabilities.
+ */
+#define ENHANCED_KERNEL	0

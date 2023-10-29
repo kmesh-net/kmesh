@@ -37,7 +37,7 @@
 
 #define BPF_DATA_MAX_LEN			226 /* this value should be
 							   small that make compile success */
-#define BPF_INNER_MAP_DATA_LEN	  100
+#define BPF_INNER_MAP_DATA_LEN	  1300
 
 
 #define _(P)								   \
@@ -46,6 +46,46 @@
 		bpf_probe_read_kernel(&val, sizeof(val), &P); \
 		val;								   \
 	})
+
+#if !ENHANCED_KERNEL
+struct bpf_mem_ptr {
+	void *ptr;
+	__u32 size;
+};
+
+static inline int bpf__strncmp (char *dst, int n, const char *src) {
+	if (dst == NULL || src == NULL)
+		return -1;
+
+	#pragma unroll
+	for (int i = 0; i < BPF_DATA_MAX_LEN; i++) {
+		if (dst[i] != src[i])
+			return dst[i] - src[i];
+		else if (dst[i] == '\0' || i >= n - 1)
+			return 0;
+	}
+	return 0;
+};
+
+static inline char *bpf_strncpy(char *dst, int n, const char *src) {
+	int isEnd = 0;
+	if (src == NULL)
+		return 0;
+
+	#pragma unroll
+	for (int i = 0; i < BPF_DATA_MAX_LEN; i++) {
+		if (src[i] == '\0')
+			isEnd = 1;
+		if (isEnd == 1)
+			dst[i] = '\0';
+		else
+			dst[i] = src[i];
+		if (i >= n - 1)
+			break;
+	}
+	return dst;
+}
+#endif
 
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
@@ -58,7 +98,7 @@ struct {
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY);
 	__uint(key_size, sizeof(__u32));
-	__uint(value_size, 1300);
+	__uint(value_size, BPF_INNER_MAP_DATA_LEN);
 	__uint(max_entries, 1);
 	__uint(map_flags, 0);
 } inner_map SEC(".maps");
