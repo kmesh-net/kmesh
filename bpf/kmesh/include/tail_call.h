@@ -26,8 +26,6 @@
 #define MAP_SIZE_OF_TAIL_CALL_PROG		  32
 #define MAP_SIZE_OF_TAIL_CALL_CTX		   256
 
-#define KMESH_SOCKOPS_CALLS				 sockops
-
 struct {
 	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
 	__uint(key_size, sizeof(__u32));

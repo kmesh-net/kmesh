@@ -47,6 +47,48 @@
 		val;								   \
 	})
 
+#if !ISENHANCED_KERNEL
+struct bpf_mem_ptr {
+	void *ptr;
+	__u32 size;
+};
+
+static inline int bpf__strncmp (char *dst, int n, const char *src) {
+	if (dst == NULL || src == NULL)
+		return -1;
+
+	#pragma unroll
+	for (int i = 0; i < BPF_DATA_MAX_LEN; i++) {
+		if (dst[i] != src[i])
+			return dst[i] - src[i];
+		else if (dst[i] == '\0')
+			return 0;
+		if (i >= n - 1)
+			break;
+	}
+	return 0;
+};
+
+static inline char *bpf_strncpy(char *dst, int n, const char *src) {
+	int isEnd = 0;
+	if (src == NULL)
+		return 0;
+
+	#pragma unroll
+	for (int i = 0; i < BPF_DATA_MAX_LEN; i++) {
+		if (src[i] == '\0')
+			isEnd = 1;
+		if (isEnd == 1)
+			dst[i] = '\0';
+		else
+			dst[i] = src[i];
+		if (i >= n - 1)
+			break;
+	}
+	return dst;
+}
+#endif
+
 struct {
 	__uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
 	__uint(key_size, sizeof(__u32));

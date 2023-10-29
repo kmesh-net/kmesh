@@ -1,9 +1,29 @@
 #!/bin/bash
 ROOT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 
+function set_bpf2go() {
+    if bpftool feature | grep parse_header_msg; then
+            export ISENHANCED_KERNEL="enhanced"
+            sed -i '/tracepoint/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/sockops/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+    else
+            export ISENHANCED_KERNEL="unenhanced"
+            sed -i '/tracepoint/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/sockops/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+    fi
+}
+
+function set_isenchanced() {
+    if bpftool feature | grep parse_header_msg; then
+	    export ISENHANCED_KERNEL="enhanced"
+    else
+	    export ISENHANCED_KERNEL="unenhanced"
+    fi
+}
+
 function prepare() {
     sh kmesh_macros_env.sh
-    sh kmesh_bpf_env.sh
+    sh kmesh_bpf_env.sh    
     if [ "$(arch)" == "x86_64" ]; then
             export EXTRA_CDEFINE="-D__x86_64__"
     fi
@@ -13,6 +33,8 @@ function prepare() {
     
     (cd $ROOT_DIR/vendor/google.golang.org/protobuf/cmd/protoc-gen-go && go build -mod=vendor)
     export PATH=$PATH:$ROOT_DIR/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/
+    export C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu:$C_INCLUDE_PATH
+    set_bpf2go
 }
 
 function install() {
@@ -52,6 +74,8 @@ function clean() {
     rm -rf /usr/bin/kmesh-stop-post.sh
 }
 
+set_isenhanced
+
 if [ "$1" == "-h"  -o  "$1" == "--help" ]; then
     echo build.sh -h/--help : Help.
     echo build.sh -b/--build: Build Kmesh.
@@ -60,6 +84,8 @@ if [ "$1" == "-h"  -o  "$1" == "--help" ]; then
     echo build.sh -u/--uninstall: Uninstall Kmesh.
     exit
 fi
+
+set_bpf2go
 
 if [ -z "$1" -o "$1" == "-b"  -o  "$1" == "--build" ]; then
     prepare

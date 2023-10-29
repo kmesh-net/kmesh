@@ -25,11 +25,14 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <linux/bpf.h>
-#include <bpf_helper_defs_ext.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
 #include "errno.h"
+
+#if ISENHANCED_KERNEL
+#include <bpf_helper_defs_ext.h>
+#endif
 
 #define bpf_unused __attribute__((__unused__))
 

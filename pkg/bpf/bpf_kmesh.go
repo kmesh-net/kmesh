@@ -1,3 +1,5 @@
+// +build enhanced
+
 /*
  * Copyright 2023 The Kmesh Authors.
  *
@@ -332,6 +334,31 @@ func (sc *BpfSockConn) LoadSockConn() error {
 	prog := spec.Programs["cgroup_connect4_prog"]
 	sc.Info.Type = prog.Type
 	sc.Info.AttachType = prog.AttachType
+
+	// update tail call prog
+	err = sc.KmeshTailCallProg.Update(
+		uint32(C.KMESH_TAIL_CALL_FILTER_CHAIN),
+		uint32(sc.FilterChainManager.FD()),
+		ebpf.UpdateAny)
+	if err != nil {
+		return err
+	}
+
+	err = sc.KmeshTailCallProg.Update(
+		uint32(C.KMESH_TAIL_CALL_FILTER),
+		uint32(sc.FilterManager.FD()),
+		ebpf.UpdateAny)
+	if err != nil {
+		return err
+	}
+
+	err = sc.KmeshTailCallProg.Update(
+		uint32(C.KMESH_TAIL_CALL_CLUSTER),
+		uint32(sc.ClusterManager.FD()),
+		ebpf.UpdateAny)
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

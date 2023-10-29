@@ -14,6 +14,7 @@ function set_config_oe2303() {
     set_config MDA_PORT_OFFSET 0
     set_config OE_23_03 1
     set_config ITER_TYPE_IS_UBUF 1
+    set_config ISENHANCED_KERNEL 1
 }
 
 function set_config_all_disabled() {
@@ -23,6 +24,7 @@ function set_config_all_disabled() {
     set_config MDA_PORT_OFFSET 1
     set_config OE_23_03 0
     set_config ITER_TYPE_IS_UBUF 0
+    set_config ISENHANCED_KERNEL 0
 }
 
 function set_kmesh_env_config() {
