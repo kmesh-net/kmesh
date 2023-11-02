@@ -2,13 +2,9 @@
 
 ## prerequisite
 
-The Kmesh needs to be compiled and built in the Linux environment with the Kmesh kernel enhancement feature. Currently, natively supported kmesh kernel see [kmesh_support](kmesh_support.md) document.
+The Kmesh needs to be compiled and built in the Linux environment with the Kmesh kernel enhancement feature. Currently, Kmesh can be compiled and run in multiple OS versions, and the specific OS versions can see [Kmesh support system](kmesh_support.md).
 
 ## build
-
-### kernel build
-
-To build a kernel package that supports Kmesh, see the [kernel compilation](kmesh_kernel_compile.md) document.
 
 ### build from source
 
