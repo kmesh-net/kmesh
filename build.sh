@@ -21,10 +21,11 @@ function set_enhanced_kernel_env() {
 }
 
 function prepare() {
-    sh kmesh_macros_env.sh
-    sh kmesh_bpf_env.sh
+    bash kmesh_macros_env.sh
+    bash kmesh_bpf_env.sh
     if [ "$(arch)" == "x86_64" ]; then
             export EXTRA_CDEFINE="-D__x86_64__"
+	    export C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu:$C_INCLUDE_PATH
     fi
 
     export EXTRA_GOFLAGS="-gcflags=\"-N -l\""
