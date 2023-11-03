@@ -676,7 +676,7 @@ int deserial_update_elem(void *key, void *value)
 	const char *map_name = NULL;
 	struct op_context context = {.inner_map_object = NULL};
 	const ProtobufCMessageDescriptor *desc;
-	struct bpf_map_info outter_info, inner_info, info;
+	struct bpf_map_info outter_info = {0}, inner_info = {0}, info = {0};
 	int map_fd, outter_fd = 0, inner_fd = 0;
 	unsigned int id, outter_id = 0, inner_id = 0;
 
@@ -972,7 +972,7 @@ void* deserial_lookup_elem(void *key, const void *msg_desciptor)
 	const char *map_name = NULL;
 	struct op_context context = {.inner_map_object = NULL};
 	const ProtobufCMessageDescriptor *desc;
-	struct bpf_map_info outter_info, inner_info, info;
+	struct bpf_map_info outter_info = {0}, inner_info = {0}, info = {0};
 	int map_fd, outter_fd = 0, inner_fd = 0;
 	unsigned int id, outter_id = 0, inner_id = 0;
 
@@ -1240,7 +1240,7 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 	const char *map_name = NULL;
 	struct op_context context = {.inner_map_object = NULL};
 	const ProtobufCMessageDescriptor *desc;
-	struct bpf_map_info outter_info, inner_info, info;
+	struct bpf_map_info outter_info = {0}, inner_info = {0}, info = {0};
 	int map_fd, outter_fd = 0, inner_fd = 0;
 	unsigned int id, outter_id = 0, inner_id = 0;
 	char *inner_map_object = NULL;
