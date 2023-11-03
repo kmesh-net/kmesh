@@ -37,18 +37,6 @@
 */
 #define MDA_GID_UID_FILTER	1
 
-/* In the kernel network protocol stack, the port is stored in u16, 
- * but in the bpf network module, the port is stored in u32. Therefore, 
- * after the endian conversion, the 16-bit port needs to be obtained from 
- * the 32-bit data structure. You need to find the position of the valid 
- * 16 bits. Generally, after the port is extended from 16 bits to 32 bits, 
- * the port is in the upper 16 bits after the endian conversion. 
- * Therefore, you need to offset the port before using the u16 RX port.
- * In some specific kernels, the port stored in sockops is in the lower 
- * 16 bits and does not need to be offset.
- */
-#define MDA_PORT_OFFSET		1
-
 /*
  * openEuler-23.03 is an innovative version of openEuler, in the early time, we
  * developed kmesh based on openEuler-23.03, and the implementation of kmesh was
@@ -59,7 +47,16 @@
  * openEuler-23.03 version are as follows:
  * 1. Use replylong parameter instead of directly modifying the remote IP and Port;
  * 2. Use bpf__strncmp instead of bpf_strncmp for string comparison;
- * 3. Fix Port shift bug on openEuler-23.03.
+ * 3. Fix Port shift bug on openEuler-23.03.In the kernel network protocol
+ *    stack, the port is stored in u16, but in the bpf network module, 
+ *    the port is stored in u32. Therefore, after the endian conversion, 
+ *    the 16-bit port needs to be obtained from the 32-bit data structure. 
+ *    You need to find the position of the valid 16 bits. Generally, 
+ *    after the port is extended from 16 bits to 32 bits, the port is in 
+ *    the upper 16 bits after the endian conversion. Therefore, you need
+ *    to offset the port before using the u16 RX port. In some specific 
+ *    kernels, the port stored in sockops is in the lower 16 bits and does 
+ *    not need to be offset.
  */
 #define OE_23_03            0
 
