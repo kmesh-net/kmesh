@@ -61,7 +61,7 @@ static inline int bpf__strncmp (char *dst, int n, const char *src) {
 	for (int i = 0; i < BPF_DATA_MAX_LEN; i++) {
 		if (dst[i] != src[i])
 			return dst[i] - src[i];
-		else if (dst[i] == '\0' || i >= n - 1)
+		else if (dst[i] == '\0' || i == n - 1)
 			return 0;
 	}
 	return 0;
@@ -80,7 +80,7 @@ static inline char *bpf_strncpy(char *dst, int n, const char *src) {
 			dst[i] = '\0';
 		else
 			dst[i] = src[i];
-		if (i >= n - 1)
+		if (i == n - 1)
 			break;
 	}
 	return dst;
