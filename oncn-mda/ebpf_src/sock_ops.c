@@ -230,7 +230,7 @@ static void extract_key4_from_ops(struct bpf_sock_ops* const ops, struct sock_ke
 	key->sport = (bpf_htonl(ops->local_port) >> FORMAT_IP_LENGTH);
 	key->dip4 = ops->remote_ip4;
 
-#if MDA_PORT_OFFSET
+#if !OE_23_03
 	key->dport = (force_read(ops->remote_port) >> FORMAT_IP_LENGTH);
 #else	
 	key->dport = (force_read(ops->remote_port));
