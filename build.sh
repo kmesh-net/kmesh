@@ -1,6 +1,25 @@
 #!/bin/bash
 ROOT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 
+# adjust the range of BPF code compillation based on the kernel is enhanced
+function bpf_compile_range_adjust() {
+    if [ "$ENHANCED_KERNEL" == "enhanced" ]; then
+            sed -i '/tracepoint/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/sockops/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+    else
+            sed -i '/tracepoint/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/sockops/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+    fi
+}
+
+function set_enhanced_kernel_env() {
+    if grep "FN(parse_header_msg)" /usr/include/linux/bpf.h; then
+	    export ENHANCED_KERNEL="enhanced"
+    else
+	    export ENHANCED_KERNEL="unenhanced"
+    fi
+}
+
 function prepare() {
     sh kmesh_macros_env.sh
     sh kmesh_bpf_env.sh
@@ -13,6 +32,7 @@ function prepare() {
     
     (cd $ROOT_DIR/vendor/google.golang.org/protobuf/cmd/protoc-gen-go && go build -mod=vendor)
     export PATH=$PATH:$ROOT_DIR/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/
+    bpf_compile_range_adjust
 }
 
 function install() {
@@ -51,6 +71,8 @@ function clean() {
     rm -rf /usr/bin/kmesh-start-pre.sh
     rm -rf /usr/bin/kmesh-stop-post.sh
 }
+
+set_enhanced_kernel_env
 
 if [ "$1" == "-h"  -o  "$1" == "--help" ]; then
     echo build.sh -h/--help : Help.

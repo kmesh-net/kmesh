@@ -49,7 +49,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	}
 	BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
 
-#if KMESH_ENABLE_HTTP
+#if ENHANCED_KERNEL
 	// todo build when kernel support http parse and route
 	// defer conn
 	ret = bpf_setsockopt(ctx, IPPROTO_TCP, TCP_ULP, (void *)kmesh_module_name, sizeof(kmesh_module_name));
