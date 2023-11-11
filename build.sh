@@ -21,6 +21,7 @@ function set_enhanced_kernel_env() {
 }
 
 function prepare() {
+    bash kmesh_compile_env_pre.sh
     bash kmesh_macros_env.sh
     bash kmesh_bpf_env.sh
     if [ "$(arch)" == "x86_64" ]; then

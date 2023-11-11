@@ -28,6 +28,7 @@
 #include <protobuf-c/protobuf-c.h>
 
 #include "deserialization_to_bpf_map.h"
+#include "../../config/kmesh_marcos_def.h"
 
 #define LOG_ERR(fmt, args...)	printf(fmt, ## args)
 #define LOG_WARN(fmt, args...)	printf(fmt, ## args)
@@ -239,11 +240,17 @@ static int alloc_and_set_inner_map(struct op_context *ctx, int key)
 {
 	int fd, ret;
 	struct bpf_map_info *inner_info = ctx->inner_info;
+#if LIBBPF_HIGHER_0_6_0_VERSION
 	LIBBPF_OPTS(bpf_map_create_opts, opts, .map_flags = inner_info->map_flags);
 
 	fd = bpf_map_create(inner_info->type, NULL, inner_info->key_size,
 			    inner_info->value_size, inner_info->max_entries,
 			    &opts);
+#else
+	fd = bpf_create_map_name(inner_info->type, NULL, inner_info->key_size,
+			    inner_info->value_size, inner_info->max_entries,
+			    inner_info->map_flags);
+#endif
 	if (fd < 0)
 		return fd;
 
