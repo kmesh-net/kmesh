@@ -48,3 +48,16 @@ if grep "FN(parse_header_msg)" /usr/include/linux/bpf.h; then
 else
 	set_config ENHANCED_KERNEL 0
 fi
+
+# Determine libbpf version
+if command -v apt > /dev/null; then
+	LIBBPF_VERSION=$(ls /usr/lib/x86_64-linux-gnu | grep -P 'libbpf\.so\.\d+\.\d+\.\d+$' | sed -n -e 's/^.*libbpf.so.\(.*\)$/\1/p')
+else
+	LIBBPF_VERSION=$(ls /usr/lib64 | grep -P 'libbpf\.so\.\d+\.\d+\.\d+$' | sed -n -e 's/^.*libbpf.so.\(.*\)$/\1/p')
+fi
+
+if [[ "$LIBBPF_VERSION" < "0.6.0" ]]; then
+	set_config LIBBPF_HIGHER_0_6_0_VERSION 0
+else
+	set_config LIBBPF_HIGHER_0_6_0_VERSION 1
+fi

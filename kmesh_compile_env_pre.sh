@@ -1,6 +1,6 @@
 # libboundscheck is not available in some environments, install by source
 function install_libboundscheck() {
-    if [ ! -f /etc/openEuler-release && ! -f /usr/local/lib/libboundscheck.so ]; then
+    if [ ! -f /usr/local/lib/libboundscheck.so ]; then
 	    git clone https://github.com/openeuler-mirror/libboundscheck.git
 	    cd libboundscheck
 	    make CC=gcc
@@ -11,16 +11,15 @@ function install_libboundscheck() {
     fi
 }
 
-function pkg_install() {
+function dependency_pkg_install() {
     if command -v apt > /dev/null; then
 	    # apt install 
-	    apt-get update && sudo apt-get install -y git make clang libbpf-dev llvm rpm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake
-
+	    apt-get update && apt-get install -y git make clang libbpf-dev llvm rpm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake golang
+	    install_libboundscheck
     elif command -v yum > /dev/null; then
 	    # yum install
 	    yum install -y git make golang clang llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool rpm-build rpmdevtools libbpf libbpf-devel cmake
     fi
-    install_libboundscheck
 }
 
 # fix bug in libbpf
@@ -33,5 +32,5 @@ function fix_libbpf_bug() {
     fi
 }
 
-pkg_install
+dependency_pkg_install
 fix_libbpf_bug
