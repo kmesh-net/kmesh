@@ -22,7 +22,7 @@ kernel/
         └── 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch
         └── 0002-xxx.patch
         └── ......
-    └── ......
+    	└── bpf-support-writable-context-for-bare-tracepoint.patch	#该补丁为社区补丁，在linux 5.16引入，在此之前版本需要判断是否已回合该补丁并按需回合；此补丁提供了kmesh所依赖内核功能相关宏定义
 ```
 
 内核构建时，按需获取/适配patch。

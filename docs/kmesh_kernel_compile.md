@@ -23,7 +23,7 @@ kernel/
         └── 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch
         └── 0002-xxx.patch
         └── ......
-    └── ......
+    	└── bpf-support-writable-context-for-bare-tracepoint.patch	#This patch is a community patch, introduced in Linux 5.16. For versions prior to this, it is necessary to determine whether this patch has already been merged and merge as needed. This patch provides the macro definitions related to the kernel features that kmesh depends on
 ```
 
 When building the kernel, get/adapt the patch as needed.
