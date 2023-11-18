@@ -23,58 +23,94 @@
 #include "kmesh_common.h"
 
 // same as linux/bpf.h MAX_TAIL_CALL_CNT
-#define MAP_SIZE_OF_TAIL_CALL_PROG		  32
-#define MAP_SIZE_OF_TAIL_CALL_CTX		   256
+#define MAP_SIZE_OF_TAIL_CALL_PROG          32
+#define MAP_SIZE_OF_TAIL_CALL_CTX           256
 
 struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(value_size, sizeof(__u32));
-	__uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
-	__uint(map_flags, 0);
+    __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
+    __uint(map_flags, 0);
 } map_of_tail_call_prog SEC(".maps");
 
 static inline void kmesh_tail_call(ctx_buff_t *ctx, const __u32 index)
 {
-	bpf_tail_call(ctx, &map_of_tail_call_prog, index);
+    bpf_tail_call(ctx, &map_of_tail_call_prog, index);
 }
 
 typedef struct {
-	__u64 tail_call_index;
-	address_t address;
+    __u64 tail_call_index;
+    address_t address;
 } ctx_key_t;
 
 typedef struct {
-	union {
-		// void *val;
-		__u64 val;
-		char data[BPF_DATA_MAX_LEN];
-	};
-	struct bpf_mem_ptr *msg;
+    union {
+        // void *val;
+        __u64 val;
+        char data[BPF_DATA_MAX_LEN];
+    };
+    struct bpf_mem_ptr *msg;
 } ctx_val_t;
 
 // save temporary variables of tail_call
 struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__uint(key_size, sizeof(ctx_key_t));
-	__uint(value_size, sizeof(ctx_val_t));
-	__uint(max_entries, MAP_SIZE_OF_TAIL_CALL_CTX);
-	__uint(map_flags, 0);
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(ctx_key_t));
+    __uint(value_size, sizeof(ctx_val_t));
+    __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_CTX);
+    __uint(map_flags, 0);
 } map_of_tail_call_ctx SEC(".maps");
 
 static inline ctx_val_t *kmesh_tail_lookup_ctx(const ctx_key_t *key)
 {
-	return (ctx_val_t *)bpf_map_lookup_elem(&map_of_tail_call_ctx, key);
+    return (ctx_val_t *)bpf_map_lookup_elem(&map_of_tail_call_ctx, key);
 }
 
 static inline void kmesh_tail_delete_ctx(const ctx_key_t *key)
 {
-	(void)bpf_map_delete_elem(&map_of_tail_call_ctx, key);
+    (void)bpf_map_delete_elem(&map_of_tail_call_ctx, key);
 }
 
 static inline int kmesh_tail_update_ctx(const ctx_key_t *key, const ctx_val_t *value)
 {
-	return (int)bpf_map_update_elem(&map_of_tail_call_ctx, key, value, BPF_ANY);
+    return (int)bpf_map_update_elem(&map_of_tail_call_ctx, key, value, BPF_ANY);
+}
+
+/*
+    As a service mesh accelerator, Kmesh is expected to roll back to the original forwarding 
+    process when the acceleration forwarding logic fails. The execution result of the bpf 
+    tail caller must return BPF_OK.
+*/
+#define KMESH_TAIL_CALL_RET(ret)    BPF_OK
+
+#define KMESH_TAIL_CALL_CTX_KEY(ckey, tail_call_idx, addr)                  \
+{                                                                           \
+    ckey.address = addr;                                                    \
+    ckey.tail_call_index = tail_call_idx + bpf_get_current_task();          \
+}
+
+#define KMESH_TAIL_CALL_CTX_VAL(cval, m, v)                                 \
+{                                                                           \
+    cval.msg = m;                                                           \
+    cval.val = v;                                                           \
+}
+
+#define KMESH_TAIL_CALL_CTX_VALSTR(cval, m, s)                              \
+{                                                                           \
+    cval.msg = m;                                                           \
+    (void)bpf_strncpy(cval.data, BPF_DATA_MAX_LEN, s);                      \
+}
+
+#define KMESH_TAIL_CALL_WITH_CTX(tail_call_idx, ckey, cval)                 \
+{                                                                           \
+    ret = kmesh_tail_update_ctx(&ckey, &cval);                              \
+    if (ret != 0) {                                                         \
+        BPF_LOG(ERR, COMMON, "kmesh tail update failed:%d\n", ret);         \
+    } else {                                                                \
+        kmesh_tail_call(ctx, tail_call_idx);                                \
+        kmesh_tail_delete_ctx(&ckey);                                       \
+    }                                                                       \
 }
 
 #endif // _TAIL_CALL_H_

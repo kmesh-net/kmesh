@@ -357,50 +357,41 @@ int route_config_manager(ctx_buff_t *ctx)
 	Route__Route *route = NULL;
 
 	DECLARE_VAR_ADDRESS(ctx, addr);
-	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_ROUTER_CONFIG + bpf_get_current_task();
+
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_ROUTER_CONFIG, addr);
 	ctx_val = kmesh_tail_lookup_ctx(&ctx_key);
 	if (!ctx_val)
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 
 	route_config = map_lookup_route_config(ctx_val->data);
 	kmesh_tail_delete_ctx(&ctx_key);
 	if (!route_config) {
 		BPF_LOG(WARN, ROUTER_CONFIG, "failed to lookup route config, route_name=\"%s\"\n", ctx_val->data);
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 
 	virt_host = virtual_host_match(route_config, &addr, ctx);
 	if (!virt_host) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "failed to match virtual host, addr=%u\n", addr.ipv4);
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 
 	route = virtual_host_route_match(virt_host, &addr, ctx, (struct bpf_mem_ptr *)ctx_val->msg);
 	if (!route) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "failed to match route action, addr=%u\n", addr.ipv4);
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 
 	cluster = route_get_cluster(route);
 	if (!cluster) {
 		BPF_LOG(ERR, ROUTER_CONFIG, "failed to get cluster\n");
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 
-	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER + bpf_get_current_task();
-	if (!bpf_strncpy(ctx_val_1.data, BPF_DATA_MAX_LEN, cluster)) {
-		BPF_LOG(ERR, ROUTER_CONFIG, "failed to copy cluster %s\n", cluster);
-		return convert_sockops_ret(-1);
-	}
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_CLUSTER, addr);
+	KMESH_TAIL_CALL_CTX_VALSTR(ctx_val_1, NULL, cluster);
 
-	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val_1);
-	if (ret != 0)
-		return convert_sockops_ret(ret);
-
-	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
-	kmesh_tail_delete_ctx(&ctx_key);
-	return 0;
+	KMESH_TAIL_CALL_WITH_CTX(KMESH_TAIL_CALL_CLUSTER, ctx_key, ctx_val_1);
+	return KMESH_TAIL_CALL_RET(ret);
 }
 #endif

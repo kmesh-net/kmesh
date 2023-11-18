@@ -125,20 +125,10 @@ static inline int listener_manager(ctx_buff_t *ctx, Listener__Listener *listener
 	}
 	
 	/* exec filter chain */
-	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN + bpf_get_current_task();
-	ctx_val.val = filter_chain_idx;
-	ctx_val.msg = msg;
-	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);
-	if (ret != 0) {
-		BPF_LOG(ERR, LISTENER, "kmesh tail update failed:%d\n", ret);
-		return ret;
-	}
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_FILTER_CHAIN, addr);
+	KMESH_TAIL_CALL_CTX_VAL(ctx_val, msg, filter_chain_idx);
 
-	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER_CHAIN);
-	(void)kmesh_tail_delete_ctx(&ctx_key);
-
-	BPF_LOG(ERR, LISTENER, "listener_manager exit\n");
-	return ret;
+	KMESH_TAIL_CALL_WITH_CTX(KMESH_TAIL_CALL_FILTER_CHAIN, ctx_key, ctx_val);
+	return KMESH_TAIL_CALL_RET(ret);
 }
 #endif

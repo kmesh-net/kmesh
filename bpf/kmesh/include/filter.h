@@ -106,22 +106,11 @@ static inline int handle_http_connection_manager(
 		return -1;
 	}
 
-	if (!bpf_strncpy(ctx_val.data, BPF_DATA_MAX_LEN, route_name)) {
-		BPF_LOG(ERR, FILTER, "http conn: route name(%s) copy failed:%d\n", route_name, ret);
-		return -1;
-	}
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_ROUTER_CONFIG, *addr);
+	KMESH_TAIL_CALL_CTX_VALSTR(ctx_val, msg, route_name);
 
-	ctx_key.address = *addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_ROUTER_CONFIG + bpf_get_current_task();
-	ctx_val.msg = msg;
-	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);
-	if (ret != 0) {
-		return -1;
-	}
-
-	kmesh_tail_call(ctx, KMESH_TAIL_CALL_ROUTER_CONFIG);
-	kmesh_tail_delete_ctx(&ctx_key);
-	return 0;
+	KMESH_TAIL_CALL_WITH_CTX(KMESH_TAIL_CALL_ROUTER_CONFIG, ctx_key, ctx_val);
+	return KMESH_TAIL_CALL_RET(ret);
 }
 
 SEC_TAIL(KMESH_PORG_CALLS, KMESH_TAIL_CALL_FILTER)
@@ -135,18 +124,17 @@ int filter_manager(ctx_buff_t *ctx)
 	Filter__TcpProxy *tcp_proxy = NULL;
 
 	DECLARE_VAR_ADDRESS(ctx, addr);
-	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER + bpf_get_current_task();
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_FILTER, addr);
 	ctx_val = kmesh_tail_lookup_ctx(&ctx_key);
 	if (!ctx_val) {
 		BPF_LOG(ERR, FILTER, "failed to lookup tail call val\n");
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 
 	filter = (Listener__Filter *)kmesh_get_ptr_val((void *)ctx_val->val);
 	if (!filter) {
 		BPF_LOG(ERR, FILTER, "failed to get filter\n");
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 	kmesh_tail_delete_ctx(&ctx_key);
 
@@ -157,8 +145,9 @@ int filter_manager(ctx_buff_t *ctx)
 			ret = bpf_parse_header_msg(ctx_val->msg);
 			if (GET_RET_PROTO_TYPE(ret) != PROTO_HTTP_1_1) {
 				BPF_LOG(DEBUG, FILTER, "http filter manager,only support http1.1 this version");
-				return 0;
+				break;
 			}
+
 			if (!http_conn) {
 				BPF_LOG(ERR, FILTER, "get http_conn failed\n");
 				ret = -1;
@@ -179,7 +168,7 @@ int filter_manager(ctx_buff_t *ctx)
 		default:
 			break;
 	}
-	return convert_sockops_ret(ret);
+	return KMESH_TAIL_CALL_RET(ret);
 }
 
 SEC_TAIL(KMESH_PORG_CALLS, KMESH_TAIL_CALL_FILTER_CHAIN)
@@ -195,42 +184,34 @@ int filter_chain_manager(ctx_buff_t *ctx)
 
 	DECLARE_VAR_ADDRESS(ctx, addr);
 
-	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER_CHAIN + bpf_get_current_task();
-
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_FILTER_CHAIN, addr);
 	ctx_val_ptr = kmesh_tail_lookup_ctx(&ctx_key);
 	if (!ctx_val_ptr) {
 		BPF_LOG(ERR, FILTERCHAIN, "failed to lookup tail ctx\n");
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 	kmesh_tail_delete_ctx(&ctx_key);
 
 	filter_chain = (Listener__FilterChain *)kmesh_get_ptr_val((void *)ctx_val_ptr->val);
 	if (filter_chain == NULL) {
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 	/* filter match */
 	ret = filter_chain_filter_match(filter_chain, &addr, ctx, &filter, &filter_idx);
 	if (ret != 0) {
 		BPF_LOG(ERR, FILTERCHAIN, "no match filter, addr=%u\n", addr.ipv4);
-		return convert_sockops_ret(-1);
+		return KMESH_TAIL_CALL_RET(-1);
 	}
 
 	// FIXME: when filter_manager unsuccessful,
 	// we should skip back and handle next filter, rather than exit.
 
-	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_FILTER + bpf_get_current_task();
-	ctx_val.val = filter_idx;
-	ctx_val.msg = ctx_val_ptr->msg;
-	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);
-	if (ret != 0) {
-		BPF_LOG(ERR, FILTERCHAIN, "kmesh_tail_update_ctx failed:%d\n", ret);
-		return convert_sockops_ret(ret);
-	}
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_FILTER, addr);
+	KMESH_TAIL_CALL_CTX_VAL(ctx_val, ctx_val_ptr->msg, filter_idx);
 
-	kmesh_tail_call(ctx, KMESH_TAIL_CALL_FILTER);
-	kmesh_tail_delete_ctx(&ctx_key);
-	return 0;
+	KMESH_TAIL_CALL_WITH_CTX(KMESH_TAIL_CALL_FILTER, ctx_key, ctx_val);
+	return KMESH_TAIL_CALL_RET(ret);
 }
+
+
 #endif

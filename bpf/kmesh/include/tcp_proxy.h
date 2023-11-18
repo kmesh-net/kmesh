@@ -75,27 +75,20 @@ static inline int tcp_proxy_manager(const Filter__TcpProxy *tcpProxy, ctx_buff_t
 {
 	int ret;
 	char *cluster = NULL;
-	DECLARE_VAR_ADDRESS(ctx, addr);
 	ctx_key_t ctx_key = {0};
 	ctx_val_t ctx_val = {0};
 
 	if (NULL == tcpProxy)
-		return convert_sock_errno(-EINVAL);
-	cluster = tcp_proxy_get_cluster(tcpProxy);
-	ctx_key.address = addr;
-	ctx_key.tail_call_index = KMESH_TAIL_CALL_CLUSTER + bpf_get_current_task();
-	if (!bpf_strncpy(ctx_val.data, BPF_DATA_MAX_LEN, cluster)) {
-		BPF_LOG(ERR, FILTER, "failed to copy cluster %s\n", cluster);
-		return convert_sock_errno(ret);
-	}
+		return -EINVAL;
 
-	ret = kmesh_tail_update_ctx(&ctx_key, &ctx_val);
-	if (ret != 0)
-		return convert_sock_errno(ret);
-	BPF_LOG(DEBUG, FILTER, "tcp_proxy_manager cluster %s\n", cluster);
-	kmesh_tail_call(ctx, KMESH_TAIL_CALL_CLUSTER);
-	kmesh_tail_delete_ctx(&ctx_key);
-	return 0;
+	DECLARE_VAR_ADDRESS(ctx, addr);
+	cluster = tcp_proxy_get_cluster(tcpProxy);
+
+	KMESH_TAIL_CALL_CTX_KEY(ctx_key, KMESH_TAIL_CALL_CLUSTER, addr);
+	KMESH_TAIL_CALL_CTX_VALSTR(ctx_val, NULL, cluster);
+
+	KMESH_TAIL_CALL_WITH_CTX(KMESH_TAIL_CALL_CLUSTER, ctx_key, ctx_val);
+	return KMESH_TAIL_CALL_RET(ret);
 }
 
 #endif // __TCP_PROXY_H__

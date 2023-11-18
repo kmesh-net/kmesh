@@ -62,14 +62,14 @@ int sockops_prog(struct bpf_sock_ops *skops)
 	struct bpf_mem_ptr *msg = NULL;
 
 	if (skops->family != AF_INET)
-		return 0;
+		return BPF_OK;
 
 	switch (skops->op) {
 		case BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB:
 			msg = (struct bpf_mem_ptr *)BPF_CONSTRUCT_PTR(skops->args[0], skops->args[1]);
 			(void)sockops_traffic_control(skops, msg);
 	}
-	return 0;
+	return BPF_OK;
 }
 
 #endif
