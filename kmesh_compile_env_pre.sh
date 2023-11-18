@@ -24,11 +24,13 @@ function dependency_pkg_install() {
 
 # fix bug in libbpf
 function fix_libbpf_bug() {
-    if ! grep -q "#define SEC(name) __attribute__((section(name), used))" /usr/include/bpf/bpf_helpers.h; then
+    if ! grep -iq "#define SEC(name) __attribute__((section(name), used))" /usr/include/bpf/bpf_helpers.h; then
 	    LINENUMBER=$(grep -n '#define SEC(name)' /usr/include/bpf/bpf_helpers.h | cut -f1 -d:)
-	    sed -i "${LINENUMBER} i #if __GNUC__ && !__clang__\n#define SEC(name) __attribute__((section(name), used))\n#else" /usr/include/bpf/bpf_helpers.h
-	    LINENUMBER=$((LINENUMBER+8))
-	    sed -i "${LINENUMBER} a \\#endif" /usr/include/bpf/bpf_helpers.h
+	    if [[ ! -z "$LINENUMBER" ]]; then
+		    sed -i "${LINENUMBER} i #if __GNUC__ && !__clang__\n#define SEC(name) __attribute__((section(name), used))\n#else" /usr/include/bpf/bpf_helpers.h
+		    LINENUMBER=$((LINENUMBER+8))
+		    sed -i "${LINENUMBER} a \\#endif" /usr/include/bpf/bpf_helpers.h
+	    fi
     fi
 }
 

@@ -20,6 +20,7 @@
 #define MESH_ACCELERATING_H
 
 #include <errno.h>
+#include <stddef.h>
 #include <stdbool.h>
 #include <linux/kernel.h>
 #include <linux/bpf.h>
