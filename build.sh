@@ -13,7 +13,7 @@ function bpf_compile_range_adjust() {
 }
 
 function set_enhanced_kernel_env() {
-    if grep "FN(parse_header_msg)" /usr/include/linux/bpf.h; then
+    if grep -q "FN(parse_header_msg)" /usr/include/linux/bpf.h; then
 	    export ENHANCED_KERNEL="enhanced"
     else
 	    export ENHANCED_KERNEL="unenhanced"
