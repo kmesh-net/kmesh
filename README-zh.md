@@ -61,17 +61,17 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 - Kmesh容器镜像准备
 
   ```sh
-  # /etc/docker/daemon.json 中添加镜像源 hub.oepkgs.net
+  # /etc/docker/daemon.json 中添加镜像源 ghcr.io
   [root@ ~]# cat /etc/docker/daemon.json
       {
               "insecure-registries": [
               		...,
-                      "hub.oepkgs.net"
+                      "ghcr.io"
               ]
       }
   
   # docker pull
-  [root@ ~]# docker pull hub.oepkgs.net/oncn/kmesh:latest
+  [root@ ~]# docker pull ghcr.io/kmesh-net/kmesh:latest
   ```
   
 - 启动Kmesh容器
