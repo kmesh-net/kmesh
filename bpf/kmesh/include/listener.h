@@ -89,6 +89,7 @@ static inline int listener_filter_chain_match(const Listener__Listener *listener
 		return -1;
 	}
 
+	#pragma unroll
 	for (i = 0; i < KMESH_PER_FILTER_CHAIN_NUM; i++) {		
 		if (i >= (int)listener->n_filter_chains) {
 			break;

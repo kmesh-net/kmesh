@@ -40,8 +40,10 @@ enum bpf_loglevel {
 #define BPF_LOG(l, t, f, ...)	\
 	do {							\
 		int loglevel = BPF_MIN((int)BPF_LOG_LEVEL, ((int)BPF_LOG_DEBUG + (int)(BPF_LOGTYPE_ ## t)));	\
-		if ((int)(BPF_LOG_ ## l) <= loglevel)							\
-			bpf_printk("["# t"] "# l": "f"", ##__VA_ARGS__);	\
+		if ((int)(BPF_LOG_ ## l) <= loglevel) {		\
+			char fmt[] = "["# t"] " # l": " f"";		\
+			bpf_trace_printk(fmt, sizeof(fmt), ##__VA_ARGS__);	\
+		} \
 	} while (0)
 
 #endif // _BPF_LOG_H_
