@@ -59,7 +59,7 @@ struct {
     __uint(key_size, sizeof(ctx_key_t));
     __uint(value_size, sizeof(ctx_val_t));
     __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_CTX);
-    __uint(map_flags, 0);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_tail_call_ctx SEC(".maps");
 
 static inline ctx_val_t *kmesh_tail_lookup_ctx(const ctx_key_t *key)

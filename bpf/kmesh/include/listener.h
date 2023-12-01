@@ -28,7 +28,7 @@ struct {
 	__uint(key_size, sizeof(address_t));
 	__uint(value_size, sizeof(Listener__Listener));
 	__uint(max_entries, MAP_SIZE_OF_LISTENER);
-	__uint(map_flags, 0);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_listener SEC(".maps");
 
 static inline Listener__Listener *map_lookup_listener(const address_t *addr)
