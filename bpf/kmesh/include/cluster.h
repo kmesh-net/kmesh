@@ -32,7 +32,7 @@ struct {
 	__uint(type, BPF_MAP_TYPE_HASH);
 	__uint(key_size, CLUSTER_NAME_MAX_LEN);
 	__uint(value_size, sizeof(Cluster__Cluster));
-	__uint(map_flags, 0);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 	__uint(max_entries, MAP_SIZE_OF_CLUSTER);
 } map_of_cluster SEC(".maps");
 
@@ -53,7 +53,7 @@ struct {
 	__uint(key_size, CLUSTER_NAME_MAX_LEN);
 	__uint(value_size, sizeof(struct cluster_endpoints));
 	__uint(max_entries, MAP_SIZE_OF_ENDPOINT);
-	__uint(map_flags, 0);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_cluster_eps SEC(".maps");
 
 struct {

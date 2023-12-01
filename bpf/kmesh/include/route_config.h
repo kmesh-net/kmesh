@@ -31,7 +31,7 @@ struct {
 	__uint(key_size, ROUTER_NAME_MAX_LEN);
 	__uint(value_size, sizeof(Route__RouteConfiguration));
 	__uint(max_entries, MAP_SIZE_OF_ROUTE);
-	__uint(map_flags, 0);
+	__uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_router_config SEC(".maps");
 
 static inline Route__RouteConfiguration *map_lookup_route_config(const char *route_name)
