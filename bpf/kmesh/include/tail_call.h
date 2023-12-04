@@ -84,10 +84,15 @@ static inline int kmesh_tail_update_ctx(const ctx_key_t *key, const ctx_val_t *v
 */
 #define KMESH_TAIL_CALL_RET(ret)    BPF_OK
 
+/*
+ *  To avoid interference between tail calls in different processes, we utilize
+ *  the exclusivity of the eBPF program to the CPU to distinguish tail calls 
+ *  generated in different processes 
+ */
 #define KMESH_TAIL_CALL_CTX_KEY(ckey, tail_call_idx, addr)                  \
 {                                                                           \
     ckey.address = addr;                                                    \
-    ckey.tail_call_index = tail_call_idx + bpf_get_current_task();          \
+    ckey.tail_call_index = tail_call_idx + (bpf_get_smp_processor_id() << 16);\
 }
 
 #define KMESH_TAIL_CALL_CTX_VAL(cval, m, v)                                 \

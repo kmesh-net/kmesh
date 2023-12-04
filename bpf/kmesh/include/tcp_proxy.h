@@ -42,6 +42,8 @@ static inline char *select_tcp_weight_cluster(const Filter__TcpProxy *tcpProxy)
 	}
 
 	select_value = (int)(bpf_get_prandom_u32() % 100);
+	
+	#pragma unroll
 	for (int i = 0; i < KMESH_PER_WEIGHT_CLUSTER_NUM; i ++) {
 		if (i >= weightedClusters->n_clusters) {
 			break;

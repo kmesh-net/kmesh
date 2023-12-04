@@ -71,6 +71,7 @@ static inline int filter_chain_filter_match(const Listener__FilterChain *filter_
 	}
 
 	/* limit loop cap to pass bpf verify */
+	#pragma unroll
 	for (unsigned int i = 0; i < KMESH_PER_FILTER_NUM; i++) {
 		if (i >= filter_chain->n_filters) {
 			break;

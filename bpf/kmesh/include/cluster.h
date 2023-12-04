@@ -93,7 +93,8 @@ static inline int cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_
 	ep_ptrs = kmesh_get_ptr_val(lb_ep->lb_endpoints);
 	if (!ep_ptrs)
 		return -1;
-
+	
+	#pragma unroll
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
 		if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >= KMESH_PER_ENDPOINT_NUM)
 			break;
@@ -115,6 +116,7 @@ static inline __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignm
 	if (!ptrs)
 		return 0;
 
+	#pragma unroll
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
 		if (i >= cla->n_endpoints) {
 			break;
@@ -154,6 +156,7 @@ static inline int cluster_init_endpoints(const char *cluster_name,
 		return -1;
 	}
 
+	#pragma unroll
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
 		if (i >= cla->n_endpoints)
 			break;
@@ -185,6 +188,7 @@ static inline int cluster_check_endpoints(const struct cluster_endpoints *eps,
 	if (!ptrs)
 		return 0;
 
+	#pragma unroll
 	for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
 		if (i >= lb_num) {
 			break;

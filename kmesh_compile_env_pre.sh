@@ -34,5 +34,13 @@ function fix_libbpf_bug() {
     fi
 }
 
+function adapt_low_version_kernel() {
+    # adapt less insn in kernel 4.19, only 4096, so modify KMESH_PER_ENDPOINT_NUM into 15
+    if [ "$(uname -r | cut -d '.' -f 1)" -le 4 ]; then
+            sed -i 's/\(KMESH_PER_ENDPOINT_NUM\).*/\1 15/g' bpf/kmesh/include/config.h
+    fi
+}
+
 dependency_pkg_install
 fix_libbpf_bug
+adapt_low_version_kernel
