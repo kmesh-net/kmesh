@@ -32,11 +32,28 @@
 
 static const char kmesh_module_name[] = "kmesh_defer";
 
+static inline bool check_sock_enable_kmesh()
+{
+	/* currently, namespace that use Kmesh are marked by using the
+	 * specified number in net_cls.classid of cgroupv1.
+	 * When the container is started, the CNI adds the corresponding
+	 * tag to the classid file of the container. eBPF obtains the tag
+	 * to determine whether to manage the container in Kmesh.
+	 */
+	__u64 classid = bpf_get_cgroup_classid(NULL);
+	if (classid != KMESH_CLASSID_MARK)
+		return false;
+	return true;
+}
+
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
 	int ret;
 
 	Listener__Listener *listener = NULL;
+
+	if (!check_sock_enable_kmesh())
+		return 0;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
 
