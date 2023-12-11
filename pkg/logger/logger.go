@@ -35,7 +35,8 @@ const (
 )
 
 var (
-	defaultLogger = InitializeDefaultLogger()
+	defaultLogger  = InitializeDefaultLogger(false)
+	fileOnlyLogger = InitializeDefaultLogger(true)
 
 	defaultLogLevel           = logrus.InfoLevel
 	defaultLogFile            = "/var/run/kmesh/daemon.log"
@@ -48,7 +49,7 @@ var (
 )
 
 // InitializeDefaultLogger return a initialized logger
-func InitializeDefaultLogger() *logrus.Logger {
+func InitializeDefaultLogger(onlyFile bool) *logrus.Logger {
 	logger := logrus.New()
 	logger.SetFormatter(defaultLogFormat)
 	logger.SetLevel(defaultLogLevel)
@@ -69,7 +70,11 @@ func InitializeDefaultLogger() *logrus.Logger {
 		logger.Fatal(err)
 	}
 
-	logger.SetOutput(io.MultiWriter(os.Stdout, file))
+	if onlyFile {
+		logger.SetOutput(io.Writer(file))
+	} else {
+		logger.SetOutput(io.MultiWriter(os.Stdout, file))
+	}
 
 	return logger
 }
@@ -77,4 +82,9 @@ func InitializeDefaultLogger() *logrus.Logger {
 // NewLoggerField allocates a new log entry and adds a field to it.
 func NewLoggerField(pkgSubsys string) *logrus.Entry {
 	return defaultLogger.WithField(logSubsys, pkgSubsys)
+}
+
+// NewLoggerFieldFileOnly don't output log to stdout
+func NewLoggerFieldWithoutStdout(pkgSubsys string) *logrus.Entry {
+	return fileOnlyLogger.WithField(logSubsys, pkgSubsys)
 }

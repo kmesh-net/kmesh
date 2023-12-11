@@ -41,12 +41,11 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/golang/protobuf/jsonpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/clientcmd"
 
 	"oncn.io/mesh/pkg/controller/interfaces"
 	"oncn.io/mesh/pkg/logger"
 	"oncn.io/mesh/pkg/options"
+	"oncn.io/mesh/pkg/utils"
 )
 
 const (
@@ -211,27 +210,6 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 }
 
 func getMeshCtlIp() (meshCtlIp string, err error) {
-	var kubeConfig *string
-
-	if home := os.Getenv("HOME"); home != "" {
-		configPath := filepath.Join(home, ".kube", "config")
-		kubeConfig = &configPath
-	} else {
-		return meshCtlIp, errors.New("get kube config error!")
-	}
-
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeConfig)
-	if err != nil {
-		log.Errorf("create config error!")
-		return meshCtlIp, err
-	}
-
-	clientSet, err := kubernetes.NewForConfig(config)
-	if err != nil {
-		log.Errorf("create clientset error!")
-		return meshCtlIp, err
-	}
-
 	meshCtl := os.Getenv("MESH_CONTROLLER")
 	if meshCtl == "" {
 		log.Infof("env MESH_CONTROLLER not set, use the default vlaue: istio-system:istiod")
@@ -243,6 +221,10 @@ func getMeshCtlIp() (meshCtlIp string, err error) {
 	}
 	ns := array[0]
 	name := array[1]
+	clientSet, err := utils.GetK8sclient()
+	if err != nil {
+		return meshCtlIp, err
+	}
 	service, err := clientSet.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("failed to get service %s in namespace %s!", name, ns)
