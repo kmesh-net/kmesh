@@ -28,6 +28,7 @@ import (
 
 	"oncn.io/mesh/cmd/command"
 	"oncn.io/mesh/pkg/bpf"
+	"oncn.io/mesh/pkg/cni_plg"
 	"oncn.io/mesh/pkg/controller"
 	"oncn.io/mesh/pkg/logger"
 	"oncn.io/mesh/pkg/options"
@@ -63,21 +64,28 @@ func Execute() {
 		return
 	}
 	log.Info("bpf Start successful")
+	defer bpf.Stop()
 
 	if err = controller.Start(); err != nil {
 		log.Error(err)
-		bpf.Stop()
 		return
 	}
 	log.Info("controller Start successful")
+	defer controller.Stop()
 
 	if err = command.StartServer(); err != nil {
 		log.Error(err)
-		controller.Stop()
-		bpf.Stop()
 		return
 	}
 	log.Info("command StartServer successful")
+	defer command.StopServer()
+
+	if err = cni_plg.Start(); err != nil {
+		log.Error(err)
+		return
+	}
+	log.Info("command Start cni successful")
+	defer cni_plg.Stop()
 
 	setupCloseHandler()
 	return
@@ -88,9 +96,6 @@ func setupCloseHandler() {
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGABRT, syscall.SIGTSTP)
 
 	<-ch
-	command.StopServer()
-	controller.Stop()
-	bpf.Stop()
 
 	log.Warn("signal Notify exit")
 }
