@@ -27,6 +27,7 @@ GOFLAGS := $(EXTRA_GOFLAGS)
 APPS1 := kmesh-daemon
 APPS2 := kmesh-cmd
 APPS3 := mdacore
+APPS4 := kmesh-cniplugin
 
 .PHONY: all install uninstall clean
 
@@ -53,6 +54,10 @@ all:
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) cd oncn-mda && cmake . -B build && make -C build
 
+	$(call printlog, BUILD, $(APPS4))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS4) $(GOFLAGS) ./cniplugin/main.go)
+
 install:
 	$(QUIET) make install -C api/v2-c
 	$(QUIET) make install -C bpf/deserialization_to_bpf_map
@@ -68,6 +73,9 @@ install:
 	$(QUIET) install -Dp -m 0500 oncn-mda/deploy/$(APPS3) $(INSTALL_BIN)
 	$(QUIET) install -Dp -m 0400 oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o /usr/share/oncn-mda/sock_ops.c.o
 	$(QUIET) install -Dp -m 0400 oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o /usr/share/oncn-mda/sock_redirect.c.o
+
+	$(call printlog, INSTALL, /opt/cni/bin/$(APPS4))
+	$(QUIET) install -Dp -m 0750 $(APPS4) /opt/cni/bin
 
 uninstall:
 	$(QUIET) make uninstall -C api/v2-c

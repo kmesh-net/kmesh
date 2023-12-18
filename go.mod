@@ -4,6 +4,8 @@ go 1.17
 
 require (
 	github.com/cilium/ebpf v0.8.0
+	github.com/containernetworking/cni v1.1.2
+	github.com/containernetworking/plugins v1.1.0
 	github.com/envoyproxy/go-control-plane v0.10.3
 	github.com/golang/protobuf v1.5.2
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
