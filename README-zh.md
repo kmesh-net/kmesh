@@ -178,6 +178,7 @@ Kmesh的主要部件包括：
 
 如果您有任何问题，请随时通过以下方式联系我们：
 
+- [meeting notes](https://docs.google.com/document/d/1fFqolwWMVMk92yXPHvWGrMgsrb8Xru_v4Cve5ummjbk)
 - [mailing list](https://groups.google.com/forum/#!forum/kmesh)
 - [slack](https://join.slack.com/t/kmesh/shared_invite/zt-23mte0eau-s3MoQNYPzsgvUwwXkOmIIA)
 - [twitter](https://twitter.com/kmesh_net)

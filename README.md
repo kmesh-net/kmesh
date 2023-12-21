@@ -178,6 +178,7 @@ The main components of Kmesh include:
 
 If you have questions, feel free to reach out to us in the following ways:
 
+- [meeting notes](https://docs.google.com/document/d/1fFqolwWMVMk92yXPHvWGrMgsrb8Xru_v4Cve5ummjbk)
 - [mailing list](https://groups.google.com/forum/#!forum/kmesh)
 - [slack](https://join.slack.com/t/kmesh/shared_invite/zt-23mte0eau-s3MoQNYPzsgvUwwXkOmIIA)
 - [twitter](https://twitter.com/kmesh_net)
