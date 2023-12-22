@@ -12,6 +12,11 @@ function env_init()
     yum localinstall -y fortio-*$(arch).rpm
     cd $CURRENT_PATH
 
+    cd /sys/fs/cgroup/net_cls && mkdir -p kmesh_test && cd kmesh_test
+    echo 0x1000 >> net_cls.classid
+    echo $$ >> tasks
+    cd $CURRENT_PATH
+
     insmod /lib/modules/kmesh/kmesh.ko
     lsmod | grep kmesh
     if [ $? -ne 0 ]; then
@@ -36,7 +41,7 @@ function start_fortio_server()
 # start kmesh-daemon
 function start_kmesh()
 {
-    kmesh-daemon -enable-kmesh=true -enable-ads=false -config-file $CURRENT_PATH/conf/test_conf.json > tmp_kmesh_daemon.log &
+    kmesh-daemon -enable-kmesh -enable-ads=false -cni-etc-path $(dirname $CURRENT_PATH)/libs > tmp_kmesh_daemon.log &
     sleep 3
     
     grep "command StartServer successful" tmp_kmesh_daemon.log
@@ -49,7 +54,7 @@ function load_kmesh_config()
     kmesh-cmd -config-file=$CURRENT_PATH/conf/test_conf.json > tmp_kmesh_cmd.log &
     CHECK_RESULT $? 0 0 "kmesh-cmd start failed"
     sleep 2
-    
+
     curl http://127.0.0.1:15200/bpf/kmesh/maps --connect-timeout 5 > tmp_kmesh_conf_read.log
     grep "stenerConfigs\|routeConfigs\|clusterConfigs" tmp_kmesh_conf_read.log
     CHECK_RESULT $? 0 0 "check kmesh conf failed"
@@ -78,6 +83,7 @@ function curl_test()
 function cleanup()
 {
     rm -rf tmp*.log
+    cgdelete net_cls:/kmesh_test
     pkill fortio
     pkill kmesh-daemon
     rmmod kmesh
