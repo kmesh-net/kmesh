@@ -3,11 +3,11 @@
 # 
 # Usage:
 # docker build -f kmesh.dockerfile -t kmesh:latest .
-# docker run -itd --privileged=true -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:latest
+# docker run -itd --privileged=true -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:latest
 #
 
 # base image
-FROM openeuler-23.03:latest
+FROM openeuler/openeuler:23.03
 
 # container work directory
 WORKDIR /kmesh
@@ -24,7 +24,7 @@ RUN yum install -y kmod \
     && yum clean all \
     && rm -rf /var/cache/yum
 
-RUN cp /lib/modules/kmesh/kmesh.ko .
+RUN chmod +x start_kmesh.sh
 
 # expose port
 EXPOSE 6789

@@ -75,7 +75,7 @@ install:
 	$(QUIET) install -Dp -m 0400 oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o /usr/share/oncn-mda/sock_redirect.c.o
 
 	$(call printlog, INSTALL, /opt/cni/bin/$(APPS4))
-	$(QUIET) install -Dp -m 0750 $(APPS4) /opt/cni/bin
+	$(QUIET) install -Dp -m 0500 $(APPS4) /usr/bin
 
 uninstall:
 	$(QUIET) make uninstall -C api/v2-c
