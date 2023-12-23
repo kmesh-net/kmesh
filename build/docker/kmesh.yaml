@@ -26,6 +26,14 @@ spec:
          - name: kube-config-path
            hostPath:
              path: /root/.kube
+         # k8s default cni conflist path
+         - name: cni 
+           hostPath:
+             path: /etc/cni/net.d
+         # k8s deafult cni path 
+         - name: kmesh-cniplugin-install-path
+           hostPath:
+             path: /opt/cni/bin
        containers:
          - name: kmesh
            image: kmesh:latest
@@ -57,6 +65,12 @@ spec:
            - name: kube-config-path
              mountPath: /root/.kube
              readOnly: true
+           - name: cni
+             mountPath: /etc/cni/net.d
+             readOnly: false
+           - name: kmesh-cniplugin-install-path
+             mountPath: /opt/cni/bin
+             readOnly: false
            resources:
              limits:
                memory: "200Mi"

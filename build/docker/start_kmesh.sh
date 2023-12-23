@@ -1,5 +1,7 @@
 #!/bin/sh
 
+cp /usr/bin/kmesh-cniplugin /opt/cni/bin
+
 lsmod | grep kmesh > /dev/null
 if [ $? -ne 0 ]; then
         cp kmesh.ko /lib/modules/`uname -r`
