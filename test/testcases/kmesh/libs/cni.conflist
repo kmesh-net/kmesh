@@ -1,0 +1,9 @@
+{
+  "cniVersion": "0.0.1",
+  "name": "kmesh",
+  "plugins": [
+    {
+      "type": "kmesh-cni"
+    }
+  ]
+}
