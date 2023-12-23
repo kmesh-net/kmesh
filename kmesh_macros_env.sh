@@ -1,7 +1,6 @@
 #!/bin/bash
   
 VERSION=$(uname -r | cut -d '.' -f 1)
-OE_VERSION=$(cat /etc/openEuler-release | awk '{print $3}')
 
 function set_config() {
     sed -i -r -e "s/($1)([ \t]*)([0-9]+)/\1\2$2/" config/kmesh_marcos_def.h
@@ -29,7 +28,7 @@ else
 fi
 
 # OE_23_03
-if [ "$OE_VERSION" == "23.03" ]; then
+if (uname -r | grep oe2303); then
 	set_config OE_23_03 1
 else
 	set_config OE_23_03 0
