@@ -3,7 +3,7 @@
 # 
 # Usage:
 # docker build -f kmesh.dockerfile -t kmesh:latest .
-# docker run -itd --privileged=true -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:latest
+# docker run -itd --privileged=true -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:latest
 #
 
 # base image

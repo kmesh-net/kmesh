@@ -14,11 +14,11 @@ function install_libboundscheck() {
 function dependency_pkg_install() {
     if command -v apt > /dev/null; then
 	    # apt install 
-	    apt-get update && apt-get install -y git make clang libbpf-dev llvm rpm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake golang
+	    apt-get update && apt-get install -y make clang libbpf-dev llvm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake golang
 	    install_libboundscheck
     elif command -v yum > /dev/null; then
 	    # yum install
-	    yum install -y git make golang clang llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool rpm-build rpmdevtools libbpf libbpf-devel cmake
+	    yum install -y make golang clang llvm libboundscheck protobuf-c-devel bpftool libbpf libbpf-devel cmake
     fi
 }
 

@@ -37,6 +37,9 @@ install %{_builddir}/%{name}-%{version}/build/kmesh-start-pre.sh %{buildroot}%{_
 install %{_builddir}/%{name}-%{version}/build/kmesh-stop-post.sh %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/oncn-mda/deploy/mdacore %{buildroot}%{_bindir}
 
+mkdir -p %{buildroot}/opt/cni/bin
+install %{_builddir}/%{name}-%{version}/kmesh-cniplugin %{buildroot}/opt/cni/bin
+
 mkdir -p %{buildroot}%{_datarootdir}/oncn-mda
 install %{_builddir}/%{name}-%{version}/oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o %{buildroot}%{_datarootdir}/oncn-mda
 install %{_builddir}/%{name}-%{version}/oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o %{buildroot}%{_datarootdir}/oncn-mda
@@ -90,6 +93,8 @@ rm -rf %{buildroot}
 %attr(0500,root,root) %{_bindir}/kmesh-daemon
 %attr(0500,root,root) %{_bindir}/kmesh-cmd
 %attr(0500,root,root) %{_bindir}/mdacore
+
+%attr(0500,root,root) /opt/cni/bin/kmesh-cniplugin
 
 %attr(0500,root,root) /usr/lib64/libkmesh_deserial.so
 %attr(0500,root,root) /usr/lib64/libkmesh_api_v2_c.so

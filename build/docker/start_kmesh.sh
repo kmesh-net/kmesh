@@ -1,11 +1,7 @@
 #!/bin/sh
 
-lsmod | grep kmesh > /dev/null
-if [ $? -ne 0 ]; then
-        cp kmesh.ko /lib/modules/`uname -r`
-        depmod -a
-        modprobe kmesh
-fi
+bash build.sh
+bash build.sh -i 
 
 mount | grep /mnt/kmesh_cgroup2
 if [ $? -ne 0 ]; then
