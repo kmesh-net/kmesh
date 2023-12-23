@@ -34,6 +34,17 @@ spec:
          - name: kmesh-cniplugin-install-path
            hostPath:
              path: /opt/cni/bin
+         # Optional: 
+         # online compilation image needs to determine the support 
+         # to kmesh in host during compilation, based on this file.
+         - name: linux-bpf
+           hostPath:
+             path: /usr/include/linux/bpf.h
+         # Optional: 
+         # online compilation image needs compile kmesh.ko by host file
+         - name: ko-build-path
+           hostPath:
+             path: /usr/src
        containers:
          - name: kmesh
            image: kmesh:latest
@@ -65,13 +76,27 @@ spec:
            - name: kube-config-path
              mountPath: /root/.kube
              readOnly: true
+           # k8s default cni conflist path
            - name: cni
              mountPath: /etc/cni/net.d
              readOnly: false
+           # k8s deafult cni path
            - name: kmesh-cniplugin-install-path
              mountPath: /opt/cni/bin
              readOnly: false
+           # Optional: 
+           # online compilation image needs to determine the support 
+           # to kmesh in host during compilation, based on this file.           
+           - name: linux-bpf
+             mountPath: /kmesh/config/linux-bpf.h
+             readOnly: true
+           # Optional: 
+           # online compilation image needs compile kmesh.ko by host file
+           - name: ko-build-path
+             mountPath: /usr/src
+             readOnly: true
            resources:
              limits:
-               memory: "200Mi"
+               # image online-compile needs 800Mi, or only 200Mi
+               memory: "800Mi"
                cpu: "1"

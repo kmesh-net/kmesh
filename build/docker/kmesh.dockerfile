@@ -3,11 +3,11 @@
 # 
 # Usage:
 # docker build -f kmesh.dockerfile -t kmesh:latest .
-# docker run -itd --privileged=true -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:latest
+# docker run -itd --privileged=true -v /usr/src:/usr/src -v /usr/include/linux/bpf.h:/kmesh/config/linux-bpf.h -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:latest
 #
 
 # base image
-FROM openeuler/openeuler:23.03
+FROM openeuler/openeuler:23.09
 
 # container work directory
 WORKDIR /kmesh
@@ -17,12 +17,11 @@ WORKDIR /kmesh
 ADD . /kmesh
 
 # install pkg dependencies 
-# RUN yum install -y kmod util-linux kmesh
+# RUN yum install -y kmod util-linux
+# install package in online-compile image
 RUN yum install -y kmod \
     && yum install -y util-linux \
-    && yum install -y kmesh-*.rpm \
-    && yum clean all \
-    && rm -rf /var/cache/yum
+    && yum install -y make golang clang llvm libboundscheck protobuf-c-devel bpftool libbpf libbpf-devel cmake
 
 RUN chmod +x start_kmesh.sh
 

@@ -7,21 +7,21 @@ function set_config() {
 }
 
 # MDA_LOOPBACK_ADDR
-if grep -q "FN(get_netns_cookie)" /usr/include/linux/bpf.h; then
+if grep -q "FN(get_netns_cookie)" $KERNEL_HEADER_LINUX_BPF; then
 	set_config MDA_LOOPBACK_ADDR 1
 else
 	set_config MDA_LOOPBACK_ADDR 0
 fi
 
 # MDA_NAT_ACCEL
-if grep -q "FN(sk_original_addr)" /usr/include/linux/bpf.h; then
+if grep -q "FN(sk_original_addr)" $KERNEL_HEADER_LINUX_BPF; then
 	set_config MDA_NAT_ACCEL 1
 else
 	set_config MDA_NAT_ACCEL 0
 fi
 
 # MDA_GID_UID_FILTER
-if grep -q "FN(get_sockops_uid_gid)" /usr/include/linux/bpf.h; then
+if grep -q "FN(get_sockops_uid_gid)" $KERNEL_HEADER_LINUX_BPF; then
 	set_config MDA_GID_UID_FILTER 1
 else
 	set_config MDA_GID_UID_FILTER 0
@@ -42,7 +42,7 @@ else
 fi
 
 # ENHANCED_KERNEL
-if grep -q "FN(parse_header_msg)" /usr/include/linux/bpf.h; then
+if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF; then
 	set_config ENHANCED_KERNEL 1
 else
 	set_config ENHANCED_KERNEL 0

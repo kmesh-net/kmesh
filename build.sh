@@ -13,7 +13,20 @@ function bpf_compile_range_adjust() {
 }
 
 function set_enhanced_kernel_env() {
-    if grep -q "FN(parse_header_msg)" /usr/include/linux/bpf.h; then
+    # we use /usr/include/linux/bpf.h to determine the runtime environment’s 
+    # support for kmesh. Considering the case of online image compilation, a 
+    # variable KERNEL_HEADER_LINUX_BPF is used here to specify the path of the
+    # source of macro definition. 
+    # When using an online compiled image, /usr/include/linux/bpf.h in host 
+    # machine  will be mounted to config/linux-bpf.h. 
+    # Otherwise, /usr/include/linux/bpf.h from the current compilation 
+    # environment will be obtained
+    export KERNEL_HEADER_LINUX_BPF=$ROOT_DIR/config/linux-bpf.h
+    if [ ! -f "$KERNEL_HEADER_LINUX_BPF" ]; then
+	    export KERNEL_HEADER_LINUX_BPF=/usr/include/linux/bpf.h
+    fi
+
+    if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF; then
 	    export ENHANCED_KERNEL="enhanced"
     else
 	    export ENHANCED_KERNEL="unenhanced"
