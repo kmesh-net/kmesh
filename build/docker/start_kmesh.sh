@@ -1,10 +1,13 @@
 #!/bin/sh
 
+# docker image compile online, if not compile online, the following lines also have no effect 
+bash build.sh
+bash build.sh -i 
+
 cp /usr/bin/kmesh-cniplugin /opt/cni/bin
 
 lsmod | grep kmesh > /dev/null
 if [ $? -ne 0 ]; then
-        cp kmesh.ko /lib/modules/`uname -r`
         depmod -a
         modprobe kmesh
 fi
