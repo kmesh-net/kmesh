@@ -50,12 +50,12 @@
 		val;								   \
 	})
 
-#if !ENHANCED_KERNEL
 struct bpf_mem_ptr {
 	void *ptr;
 	__u32 size;
 };
 
+#if !ENHANCED_KERNEL
 static inline int bpf__strncmp (char *dst, int n, const char *src) {
 	if (dst == NULL || src == NULL)
 		return -1;
