@@ -56,8 +56,9 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 - 前提条件
 
   - Kmesh当前是对接Istio控制面，启动Kmesh前，需要提前安装好Istio的控制面软件；具体安装步骤参考：https://istio.io/latest/docs/setup/getting-started/#install
-  - 完整的Kmesh能力依赖对OS的增强，需确认执行环境是否在Kmesh支持的[OS列表](docs/kmesh_support-zh.md)中，对于其他OS环境需要参考[Kmesh编译构建](docs/kmesh_compile-zh.md)；
-
+  - 完整的Kmesh能力依赖对OS的增强，需确认执行环境是否在Kmesh支持的[OS列表](docs/kmesh_support-zh.md)中，对于其他OS环境需要参考[Kmesh编译构建](docs/kmesh_compile-zh.md)；也可以使用[兼容模式的kmesh镜像](build/docker/README.md#兼容模式镜像)在其他OS环境中进行尝试，关于kmesh各种镜像的说明请参考[详细文档](build/docker/README.md)。
+  - 不同的环境中集群config文件位置有所区别，需要用户在yaml文件中指定当前集群中config文件位置并映射至镜像
+  
 - Kmesh容器镜像准备
 
   ```sh
@@ -82,6 +83,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   ```
   
   默认使用Kmesh功能，可通过调整yaml文件中的启动参数进行功能选择
+  
   
 - 查看kmesh服务启动状态
 

@@ -134,6 +134,54 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
   kmesh-0.0.1           latest              e321b18d5fee        4 hours ago         675MB
   ```
 
+### Building Docker Image in [Compatibility Mode](../build/docker/README.md)
+
+- Prerequisites
+
+  - Docker-engine installation
+
+    ```sh
+    [root@dev Kmesh]# yum install docker-engine
+    ```
+
+  - Preparation of image materials
+
+    The compilation of the Kmesh image requires the Kmesh source code, kmesh.dockerfile, and the start_kmesh.sh startup script; place them in one directory;
+
+    kmesh.dockerfile and start_kmesh.sh are archived in the code repository directory:
+
+    ```sh
+    [root@dev Kmesh]# ll build/docker/
+    total 12K
+    -rw-r--r--. 1 root root  793 Nov 25 01:31 kmesh.dockerfile
+    -rw-r--r--. 1 root root 1.5K Nov 25 10:48 kmesh.yaml
+    -rw-r--r--. 1 root root  764 Nov 25 01:31 start_kmesh.sh
+    ```
+
+    Place the image materials in one directory
+
+    ```sh
+    [root@dev docker]# ll
+    -rw-r--r--. 1 root root  793 Nov 25 01:36 kmesh.dockerfile
+    -rw-r--r--. 1 root root  764 Nov 25 01:36 start_kmesh.sh
+    -rw-r--r--. 1 root root  764 Nov 25 01:36 xxx
+    ...
+    ```
+
+- Image production
+
+  ```sh
+  [root@dev docker]# docker build -f kmesh.dockerfile -t kmesh:v0.1.0 .
+  ```
+
+  Check the local image repository for the existing Kmesh image
+
+  ```sh
+  [root@dev docker]# docker images
+  REPOSITORY            TAG                 IMAGE ID            CREATED             SIZE
+  kmesh                 v0.1.0              fd60c89b1253        4 days ago          1.5GB
+  ```
+
 ## Local start mode
 
 - Download the corresponding version software package of Kmesh

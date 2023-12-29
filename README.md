@@ -56,8 +56,9 @@ Note: * Planning
 - prerequisite
 
   - Currently, Kmesh connects to the Istio control plane. Before starting Kmesh, install the Istio control plane software. For details, see https://istio.io/latest/docs/setup/getting-started/#install.
-  - The complete Kmesh capability depends on the OS enhancement. Check whether the execution environment is in the [OS list](docs/kmesh_support.md) supported by Kmesh. For other OS environments, see [Kmesh Compilation and Building](docs/kmesh_compile.md).
-
+  - The complete Kmesh capability depends on the OS enhancement. Check whether the execution environment is in the [OS list](docs/kmesh_support.md) supported by Kmesh. For other OS environments, see [Kmesh Compilation and Building](docs/kmesh_compile.md).You can also try the [kmesh image in compatibility mode](build/docker/README.md) in other OS environments.For information on various Kmesh images, please refer to the [detailed document](build/docker/README.md).
+  - The location of the cluster config file may vary in different environments. Users need to specify the location of the config file in the current cluster in the yaml file and map it to the image.
+  
 - Kmesh container image prepare
 
   ```sh
@@ -82,6 +83,7 @@ Note: * Planning
   ```
   
   By default, the Kmesh base function is used, other function can be selected by adjusting the startup parameters in the yaml file.
+  
   
 - Check kmesh service status
 

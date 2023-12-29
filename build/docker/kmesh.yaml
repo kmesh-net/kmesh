@@ -14,12 +14,15 @@ spec:
          app: kmesh
      spec:
        volumes:
+         # use cgroup requires
          - name: mnt
            hostPath:
              path: /mnt
+         # for eBPF program into the host machine
          - name: sys-fs-bpf
            hostPath:
              path: /sys/fs/bpf
+         # required for compiling and building ko
          - name: lib-modules
            hostPath:
              path: /lib/modules
