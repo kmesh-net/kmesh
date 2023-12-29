@@ -1,4 +1,4 @@
-<img src="docs/pics/logo/KMESH-stacked-colour.png" alt="kmesh-logo" style="zoom: 100%;" />
+<img src="docs/pics/logo/KMESH-horizontal-colour.png" alt="kmesh-logo" style="zoom: 100%;" />
 
 ## Introduction
 
@@ -150,29 +150,29 @@ The main components of Kmesh include:
 
 | Feature Field       | Feature                     |          2023.H1           |          2023.H2           |          2024.H1           |          2024.H2           |
 | ------------ | ------------------------ | :------------------------: | :------------------------: | :------------------------: | :------------------------: |
-| Traffic management     | sidecarless mesh data  plane   | ![](docs/pics/support.png) |                            |                            |                            |
-|              | sockmap accelerate       |                            | ![](docs/pics/support.png) |                            |                            |
-|              | Programmable governance based on ebpf | ![](docs/pics/support.png) |                            |                            |                            |
-|              | http1.1 protocol         | ![](docs/pics/support.png) |                            |                            |                            |
-|              | http2 protocol           |                            |                            |                            | ![](docs/pics/support.png) |
-|              | grpc protocol            |                            |                            |                            | ![](docs/pics/support.png) |
-|              | quic protocol            |                            |                            |                            | ![](docs/pics/support.png) |
-|              | tcp protocol             |                            | ![](docs/pics/support.png) |                            |                            |
-|              | Retry                    |                            |                            | ![](docs/pics/support.png) |                            |
-|              | Routing                  | ![](docs/pics/support.png) |                            |                            |                            |
-|              | load balance             | ![](docs/pics/support.png) |                            |                            |                            |
-|              | Fault injection |                            |                            | ![](docs/pics/support.png) |                            |
-|              | Gray release   |                            | ![](docs/pics/support.png) |                            |                            |
-|              | Circuit Breaker |                            |                            | ![](docs/pics/support.png) |                            |
-|              | Rate Limits    |                            |                            | ![](docs/pics/support.png) |                            |
-| Service security | mTLS |                            |                            |                            | ![](docs/pics/support.png) |
-|              | L7 authorization |                            |                            |                            | ![](docs/pics/support.png) |
-|              | Cgroup-level isolation | ![](docs/pics/support.png) |                            |                            |                            |
-| Traffic monitoring | Governance indicator monitoring |                            | ![](docs/pics/support.png) |                            |                            |
-|              | End-to-End observability |                            |                            |                            | ![](docs/pics/support.png) |
-| Programmable | Plug-in expansion capability |                            |                            |                            | ![](docs/pics/support.png) |
-| Ecosystem collaboration | Data plane collaboration (Envoy etc.) |                            | ![](docs/pics/support.png) |                            |                            |
-| Operating environment support | container                | ![](docs/pics/support.png) |                            |                            |                            |
+| Traffic management     | sidecarless mesh data  plane   | √ |                            |                            |                            |
+|              | sockmap accelerate       |                            | √ |                            |                            |
+|              | Programmable governance based on ebpf | √ |                            |                            |                            |
+|              | http1.1 protocol         | √ |                            |                            |                            |
+|              | http2 protocol           |                            |                            |                            | √ |
+|              | grpc protocol            |                            |                            |                            | √ |
+|              | quic protocol            |                            |                            |                            | √ |
+|              | tcp protocol             |                            | √ |                            |                            |
+|              | Retry                    |                            |                            | √ |                            |
+|              | Routing                  | √ |                            |                            |                            |
+|              | load balance             | √ |                            |                            |                            |
+|              | Fault injection |                            |                            | √ |                            |
+|              | Gray release   |                            | √ |                            |                            |
+|              | Circuit Breaker |                            |                            | √ |                            |
+|              | Rate Limits    |                            |                            | √ |                            |
+| Service security | mTLS |                            |                            |                            | √ |
+|              | L7 authorization |                            |                            |                            | √ |
+|              | Cgroup-level isolation | √ |                            |                            |                            |
+| Traffic monitoring | Governance indicator monitoring |                            | √ |                            |                            |
+|              | End-to-End observability |                            |                            |                            | √ |
+| Programmable | Plug-in expansion capability |                            |                            |                            | √ |
+| Ecosystem collaboration | Data plane collaboration (Envoy etc.) |                            | √ |                            |                            |
+| Operating environment support | container                | √ |                            |                            |                            |
 
 ## Contact
 
