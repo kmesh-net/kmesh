@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package filter;
-option go_package = "oncn.io/mesh/api/filter;filter";
+option go_package = "kmesh.net/kmesh/api/filter;filter";
 
 import "api/route/route.proto";
 

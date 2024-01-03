@@ -22,7 +22,7 @@ package nets
 // #cgo pkg-config: bpf api-v2-c
 // #include "kmesh/include/config.h"
 import "C"
-import "oncn.io/mesh/pkg/options"
+import "kmesh.net/kmesh/pkg/options"
 
 var config Config
 

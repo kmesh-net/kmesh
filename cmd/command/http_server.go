@@ -27,10 +27,10 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	admin_v2 "oncn.io/mesh/api/v2/admin"
-	"oncn.io/mesh/pkg/controller"
-	"oncn.io/mesh/pkg/controller/envoy"
-	"oncn.io/mesh/pkg/options"
+	admin_v2 "kmesh.net/kmesh/api/v2/admin"
+	"kmesh.net/kmesh/pkg/controller"
+	"kmesh.net/kmesh/pkg/controller/envoy"
+	"kmesh.net/kmesh/pkg/options"
 )
 
 type httpServer struct {

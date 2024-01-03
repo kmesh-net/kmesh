@@ -29,7 +29,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
-	"oncn.io/mesh/bpf/kmesh/bpf2go"
+	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 )
 
 type BpfTracePoint struct {

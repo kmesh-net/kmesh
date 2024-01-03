@@ -25,7 +25,7 @@ import (
 	"io"
 	"os/exec"
 
-	"oncn.io/mesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
 var (

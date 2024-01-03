@@ -24,8 +24,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"oncn.io/mesh/pkg/bpf"
-	"oncn.io/mesh/pkg/options"
+	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/options"
 )
 
 var config Config

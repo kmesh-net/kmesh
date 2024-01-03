@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"oncn.io/mesh/pkg/options"
+	"kmesh.net/kmesh/pkg/options"
 )
 
 var config Config

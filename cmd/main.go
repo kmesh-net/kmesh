@@ -22,7 +22,7 @@ package main
 import (
 	"fmt"
 
-	"oncn.io/mesh/cmd/command"
+	"kmesh.net/kmesh/cmd/command"
 )
 
 func main() {

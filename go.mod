@@ -1,4 +1,4 @@
-module oncn.io/mesh
+module kmesh.net/kmesh
 
 go 1.17
 

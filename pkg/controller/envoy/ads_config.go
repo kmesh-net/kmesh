@@ -42,10 +42,10 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"oncn.io/mesh/pkg/controller/interfaces"
-	"oncn.io/mesh/pkg/logger"
-	"oncn.io/mesh/pkg/options"
-	"oncn.io/mesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/controller/interfaces"
+	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/options"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 const (

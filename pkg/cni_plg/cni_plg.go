@@ -20,8 +20,8 @@
 package cni_plg
 
 import (
-	"oncn.io/mesh/pkg/bpf"
-	"oncn.io/mesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
 var (

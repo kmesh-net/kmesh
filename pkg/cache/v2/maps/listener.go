@@ -28,9 +28,9 @@ import (
 	"unsafe"
 
 	"google.golang.org/protobuf/proto"
-	core_v2 "oncn.io/mesh/api/v2/core"
-	listener_v2 "oncn.io/mesh/api/v2/listener"
-	"oncn.io/mesh/pkg/logger"
+	core_v2 "kmesh.net/kmesh/api/v2/core"
+	listener_v2 "kmesh.net/kmesh/api/v2/listener"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
 var (

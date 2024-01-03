@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package cluster;
-option go_package = "oncn.io/mesh/api/cluster;cluster";
+option go_package = "kmesh.net/kmesh/api/cluster;cluster";
 
 import "api/cluster/circuit_breaker.proto";
 import "api/endpoint/endpoint.proto";

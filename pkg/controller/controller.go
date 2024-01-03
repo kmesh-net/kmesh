@@ -20,9 +20,9 @@
 package controller
 
 import (
-	"oncn.io/mesh/pkg/bpf"
-	"oncn.io/mesh/pkg/controller/envoy"
-	"oncn.io/mesh/pkg/controller/interfaces"
+	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/controller/envoy"
+	"kmesh.net/kmesh/pkg/controller/interfaces"
 )
 
 var (

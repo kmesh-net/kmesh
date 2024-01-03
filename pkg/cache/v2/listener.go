@@ -22,10 +22,10 @@ package cache_v2
 import (
 	"sync"
 
-	core_v2 "oncn.io/mesh/api/v2/core"
-	listener_v2 "oncn.io/mesh/api/v2/listener"
-	maps_v2 "oncn.io/mesh/pkg/cache/v2/maps"
-	"oncn.io/mesh/pkg/logger"
+	core_v2 "kmesh.net/kmesh/api/v2/core"
+	listener_v2 "kmesh.net/kmesh/api/v2/listener"
+	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
 var RWListener sync.RWMutex
