@@ -25,7 +25,7 @@ import (
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
 
-	"oncn.io/mesh/pkg/cni_plg/plugin"
+	"kmesh.net/kmesh/pkg/cni_plg/plugin"
 )
 
 const (

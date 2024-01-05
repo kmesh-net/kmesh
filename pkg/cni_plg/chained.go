@@ -26,7 +26,7 @@ import (
 	"path/filepath"
 	"sort"
 
-	"oncn.io/mesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/utils"
 
 	"github.com/containernetworking/cni/libcni"
 )

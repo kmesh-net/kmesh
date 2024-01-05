@@ -21,7 +21,7 @@
 package main
 
 import (
-	"oncn.io/mesh/daemon/manager"
+	"kmesh.net/kmesh/daemon/manager"
 )
 
 func main() {

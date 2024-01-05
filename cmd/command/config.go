@@ -24,7 +24,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"oncn.io/mesh/pkg/options"
+	"kmesh.net/kmesh/pkg/options"
 )
 
 const (

@@ -34,8 +34,8 @@ import (
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"oncn.io/mesh/pkg/logger"
-	"oncn.io/mesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 var (

@@ -26,13 +26,13 @@ import (
 	"os/signal"
 	"syscall"
 
-	"oncn.io/mesh/cmd/command"
-	"oncn.io/mesh/pkg/bpf"
-	"oncn.io/mesh/pkg/cni_plg"
-	"oncn.io/mesh/pkg/controller"
-	"oncn.io/mesh/pkg/logger"
-	"oncn.io/mesh/pkg/options"
-	"oncn.io/mesh/pkg/pid"
+	"kmesh.net/kmesh/cmd/command"
+	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/cni_plg"
+	"kmesh.net/kmesh/pkg/controller"
+	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/options"
+	"kmesh.net/kmesh/pkg/pid"
 )
 
 const (

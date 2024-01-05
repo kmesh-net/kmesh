@@ -1,7 +1,7 @@
 syntax = "proto3";
 
 package admin;
-option go_package = "oncn.io/mesh/api/admin;admin";
+option go_package = "kmesh.net/kmesh/api/admin;admin";
 
 import "api/listener/listener.proto";
 import "api/route/route.proto";

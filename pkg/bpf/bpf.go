@@ -26,7 +26,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
-	"oncn.io/mesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
 var log = logger.NewLoggerField("pkg/bpf")
