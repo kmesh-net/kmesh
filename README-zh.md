@@ -59,22 +59,6 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   - 完整的Kmesh能力依赖对OS的增强，需确认执行环境是否在Kmesh支持的[OS列表](docs/kmesh_support-zh.md)中，对于其他OS环境需要参考[Kmesh编译构建](docs/kmesh_compile-zh.md)；也可以使用[兼容模式的kmesh镜像](build/docker/README.md#兼容模式镜像)在其他OS环境中进行尝试，关于kmesh各种镜像的说明请参考[详细文档](build/docker/README.md)。
   - 不同的环境中集群config文件位置有所区别，需要用户在yaml文件中指定当前集群中config文件位置并映射至镜像
   
-- Kmesh容器镜像准备
-
-  ```sh
-  # /etc/docker/daemon.json 中添加镜像源 ghcr.io
-  [root@ ~]# cat /etc/docker/daemon.json
-      {
-              "insecure-registries": [
-              		...,
-                      "ghcr.io"
-              ]
-      }
-  
-  # docker pull
-  [root@ ~]# docker pull ghcr.io/kmesh-net/kmesh:latest
-  ```
-  
 - 启动Kmesh容器
 
   ```sh
