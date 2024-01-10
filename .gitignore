@@ -1,15 +1,53 @@
-# Compiled Object files, Static and Dynamic libs
-*.o
-*.a
+# git history files
+.history_rewritten_*
+# Eclipse artifacts
+.project
+.pydevproject
+#Vagrant
+tools/vagrant/.vagrant/
+# Intellij
+*.iml
+.idea/
+.run/
+# Visual Studio Code
+.vscode/
+# Bazel
+/bazel-*
+# vi swap files
+.*.swp
+# vi backups
+*.bak
+# common backups
+*~
+# python artifacts
+*.pyc
+vendor
+# Contains the built artifacts
+out/
+# Go compiled tests
+*.test
+# MacOS extended attributes
+._*
+# MacOS Desktop Services Store
+.DS_Store
+# build binaries       
+kmesh-cmd
+kmesh-cniplugin
+kmesh-daemon
+# build artifacts
 *.so
-*.so.*
-
-# Temporary files
-*.swn
-*.swp
-#*_bpfeb.go
-#*_bpfel.go
-
-# Folders
-.vscode
-.idea
+*.o
+api/v2/
+api/v2-c/admin/
+api/v2-c/cluster/
+api/v2-c/core/
+api/v2-c/endpoint/
+api/v2-c/filter/
+api/v2-c/listener/
+api/v2-c/route/
+bpf/include/bpf_helper_defs_ext.h
+bpf/kmesh/bpf2go/kmeshcgroupsock_bpfeb.go
+bpf/kmesh/bpf2go/kmeshcgroupsock_bpfel.go
+oncn-mda/build/
+oncn-mda/deploy/
+test/mugen-master/
