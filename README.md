@@ -58,11 +58,36 @@ Note: * Planning
   - Currently, Kmesh connects to the Istio control plane. Before starting Kmesh, install the Istio control plane software. For details, see https://istio.io/latest/docs/setup/getting-started/#install.
   - The complete Kmesh capability depends on the OS enhancement. Check whether the execution environment is in the [OS list](docs/kmesh_support.md) supported by Kmesh. For other OS environments, see [Kmesh Compilation and Building](docs/kmesh_compile.md).You can also try the [kmesh image in compatibility mode](build/docker/README.md) in other OS environments.For information on various Kmesh images, please refer to the [detailed document](build/docker/README.md).
   - The location of the cluster config file may vary in different environments. Users need to specify the location of the config file in the current cluster in the yaml file and map it to the image.
+
+- Docker Images
+
+  Kmesh achieves the ability to completely sink traffic management below the OS through kernel enhancements. When releasing images, the range of OS for which the image is applicable must be considered. To this end, we consider releasing two types of images:
+
+  - Supported OS versions with kernel enhancement modifications
+
+    The current [openEuler 23.03](https://repo.openeuler.org/openEuler-23.03/) OS natively supports the kernel enhancement features required by Kmesh. Kmesh release images can be directly installed and run on this OS. For a detailed list of supported OS versions with kernel enhancement modifications, please refer to [this link](https://github.com/kmesh-net/kmesh/blob/main/docs/kmesh_support.md).
+  
+  - Unsupported OS versions with kernel enhancement modifications
+
+    To be compatible with different OS versions, Kmesh provides online compilation and running images. After Kmesh is deployed, it will automatically select Kmesh features supported by the host machine's kernel capabilities, to meet the demand for one image to run in different OS environments.
+  
+  ```
+  # The Kmesh x86 image is used for openEuler 23.03 OS.
+  docker pull ghcr.io/kmesh-net/kmesh:v0.1.0
+
+  # The x86 image for Kmesh online compilation and execution, supports OS kernel versions 5.10 and above.
+  docker pull ghcr.io/kmesh-net/kmesh-x86:v0.1.0
+
+  # The arm image for Kmesh online compilation and execution, supports OS kernel versions 5.10 and above.
+  docker pull ghcr.io/kmesh-net/kmesh-arm:v0.1.0
+  ```
+
   
 - Start Kmesh
 
   ```sh
   # get kmesh.yaml from build/docker/kmesh.yaml
+  # replace with an image suitable for your OS
   [root@ ~]# kubectl apply -f kmesh.yaml
   ```
   
