@@ -139,7 +139,7 @@ The daemon needs to manage the cni plugin.  When Kmesh is started and the cni po
 			...
 			// Add cni-plugin for kmesh
 			{
-				"type": "Kmesh-cniplugin",
+				"type": "kmesh-cni",
 			}
 		]
 	}
@@ -157,7 +157,7 @@ The format of flannel's conflist is as follows:
 			...
 			// Add the cni-plugin for kmesh
 			{
-				"type": "Kmesh-cniplugin",
+				"type": "kmesh-cni",
 			}
 		]
 	}

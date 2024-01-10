@@ -31,6 +31,12 @@ import (
 	"github.com/containernetworking/cni/libcni"
 )
 
+const (
+	kmeshCniPluginName = "kmesh-cni"
+	kmeshCniKubeConfig = "kmesh-cni-kubeconfig"
+	MountedCNIBinDir   = "/opt/cni/bin"
+)
+
 var cniConfigFilePath string
 
 func getCniConfigPath() (string, error) {
@@ -84,9 +90,6 @@ func getCniConfigPath() (string, error) {
 
 func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 	var cniConfigMap map[string]interface{}
-	var kmeshConfigMap map[string]string = make(map[string]string)
-	kmeshConfigMap["type"] = "kmesh-cniplugin"
-
 	err := json.Unmarshal(oldconfig, &cniConfigMap)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal json: %v", err)
@@ -108,12 +111,16 @@ func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 			log.Error(err)
 			return nil, err
 		}
-		if plugin["type"] == "kmesh-cniplugin" {
+		if plugin["type"] == kmeshCniPluginName {
 			return nil, nil
 		}
 	}
 
-	cniConfigMap["plugins"] = append(plugins, kmeshConfigMap)
+	kmeshConfig := map[string]string{}
+	// add kmesh-cni configuration
+	kmeshConfig["type"] = kmeshCniPluginName
+	kmeshConfig["kubeConfig"] = kmeshCniKubeConfig
+	cniConfigMap["plugins"] = append(plugins, kmeshConfig)
 
 	byte, err := json.MarshalIndent(cniConfigMap, "", "  ")
 	if err != nil {
@@ -150,7 +157,7 @@ func deleteCNIConfig(oldconfig []byte) ([]byte, error) {
 		if !ok {
 			continue
 		}
-		if plugin["type"] == "kmesh-cniplugin" {
+		if plugin["type"] == kmeshCniPluginName {
 			foundKmeshPlugin = true
 			break
 		}
@@ -188,6 +195,15 @@ func chainedKmeshCniPlugin() error {
 		err = fmt.Errorf("failed to read cni config file %v : %v", cniConfigFilePath, err)
 		log.Error(err)
 		return err
+	}
+
+	// TODO(hzxuzhonghu): install kmesh cni binary, currently it is installed from start_kmesh.sh
+
+	// Install kubeconfig (if needed) - we write/update this in the shared node CNI bin dir,
+	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
+	// unless it's missing or the contents are not what we expect.
+	if err := maybeWriteKubeConfigFile(); err != nil {
+		return fmt.Errorf("write kubeconfig: %v", err)
 	}
 
 	newCNIConfig, err = insertCNIConfig(existCNIConfig)

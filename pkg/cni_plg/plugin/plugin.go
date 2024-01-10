@@ -183,7 +183,7 @@ func bypassSidecar(iptFlag bool, ns string) error {
 func getPrevCniResult(conf *cniConf) (*cniv1.Result, error) {
 	var err error
 	if conf.RawPrevResult == nil {
-		err = fmt.Errorf("kmesh-cniplugin can not use standalone")
+		err = fmt.Errorf("kmesh-cni can not use standalone")
 		log.Error(err)
 		return nil, err
 	}

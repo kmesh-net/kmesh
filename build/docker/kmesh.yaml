@@ -31,7 +31,7 @@ spec:
            hostPath:
              path: /etc/cni/net.d
          # k8s deafult cni path 
-         - name: kmesh-cniplugin-install-path
+         - name: kmesh-cni-install-path
            hostPath:
              path: /opt/cni/bin
          # Optional: 
@@ -78,7 +78,7 @@ spec:
              mountPath: /etc/cni/net.d
              readOnly: false
            # k8s deafult cni path
-           - name: kmesh-cniplugin-install-path
+           - name: kmesh-cni-install-path
              mountPath: /opt/cni/bin
              readOnly: false
            # Optional: 

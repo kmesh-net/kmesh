@@ -33,7 +33,7 @@ cd %{_builddir}/%{name}-%{version}
 mkdir -p %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/kmesh-daemon %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/kmesh-cmd %{buildroot}%{_bindir}
-install %{_builddir}/%{name}-%{version}/kmesh-cniplugin %{buildroot}%{_bindir}
+install %{_builddir}/%{name}-%{version}/kmesh-cni %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/build/kmesh-start-pre.sh %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/build/kmesh-stop-post.sh %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/oncn-mda/deploy/mdacore %{buildroot}%{_bindir}
@@ -90,7 +90,7 @@ rm -rf %{buildroot}
 %defattr(-,root,root)
 %attr(0500,root,root) %{_bindir}/kmesh-daemon
 %attr(0500,root,root) %{_bindir}/kmesh-cmd
-%attr(0500,root,root) %{_bindir}/kmesh-cniplugin
+%attr(0500,root,root) %{_bindir}/kmesh-cni
 %attr(0500,root,root) %{_bindir}/mdacore
 
 %attr(0500,root,root) /usr/lib64/libkmesh_deserial.so
