@@ -28,9 +28,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-var (
-	clientSet *kubernetes.Clientset = nil
-)
+var clientSet *kubernetes.Clientset = nil
 
 func GetK8sclient() (*kubernetes.Clientset, error) {
 	var kubeConfig *string
@@ -64,4 +62,20 @@ func GetK8sclient() (*kubernetes.Clientset, error) {
 		return nil, err
 	}
 	return clientSet, nil
+}
+
+// CreateK8sClientSet creates a Kubernetes clientset from a kubeconfig file
+func CreateK8sClientSet(kubeconfig string) (*kubernetes.Clientset, error) {
+	// Build the client configuration from the kubeconfig file
+	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create the Kubernetes clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return clientset, nil
 }

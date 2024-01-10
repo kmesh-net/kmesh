@@ -43,9 +43,14 @@ var (
 	ENABLE_KMESH_MARK = "0x1000"
 )
 
+// Config is whatever you expect your configuration json to be. This is whatever
+// is passed in on stdin. Your plugin may wish to expose its functionality via
+// runtime args, see CONVENTIONS.md in the CNI spec.
 type cniConf struct {
 	types.NetConf
-	PrevResult *map[string]interface{} `json:"prevResult"`
+
+	// Add plugin-specific flags here
+	KubeConfig string `json:"kubeconfig,omitempty"`
 }
 
 /*
@@ -80,11 +85,11 @@ func parseSkelArgs(args *skel.CmdArgs) (*cniConf, *k8sArgs, *cniv1.Result, error
 	return &cniConf, &k8sCommonArgs, result, nil
 }
 
-func checkK8sNSLabel(podNamespace string) (bool, bool, error) {
+func checkK8sNSLabel(kubeconfig, podNamespace string) (bool, bool, error) {
 	var enableKmesh bool = false
 	var enableSidecar bool = false
 
-	clientSet, err := utils.GetK8sclient()
+	clientSet, err := utils.CreateK8sClientSet(kubeconfig)
 	if err != nil {
 		err = fmt.Errorf("failed to get k8s client: %v", err)
 		log.Error(err)
@@ -96,22 +101,20 @@ func checkK8sNSLabel(podNamespace string) (bool, bool, error) {
 		return enableKmesh, enableSidecar, err
 	}
 
-	labelValue, ok := namespace.Labels["istio.io/dataplane-mode"]
-
-	if ok && labelValue == "Kmesh" {
+	mode := namespace.Labels["istio.io/dataplane-mode"]
+	if mode == "Kmesh" {
 		enableKmesh = true
 	}
 
-	labelValue, ok = namespace.Labels["istio-injection"]
-
-	if ok && labelValue == "enabled" {
+	injectLabel := namespace.Labels["istio-injection"]
+	if injectLabel == "enabled" {
 		enableSidecar = true
 	}
 
 	return enableKmesh, enableSidecar, nil
 }
 
-func enableKmeshControl(podName, k8sNs string) error {
+func enableKmeshControl(podName, podNs string) error {
 	clientSet, err := utils.GetK8sclient()
 	if err != nil {
 		err = fmt.Errorf("failed to get k8s client: %v", err)
@@ -121,7 +124,7 @@ func enableKmeshControl(podName, k8sNs string) error {
 
 	classIDPathPrefix := "/sys/fs/cgroup/net_cls/kubepods"
 
-	pod, err := clientSet.CoreV1().Pods(k8sNs).Get(context.TODO(), podName, metav1.GetOptions{})
+	pod, err := clientSet.CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to get pod info: %v", err)
 		log.Error(err)
@@ -179,23 +182,23 @@ func bypassSidecar(iptFlag bool, ns string) error {
 
 func getPrevCniResult(conf *cniConf) (*cniv1.Result, error) {
 	var err error
-	if conf.PrevResult == nil {
+	if conf.RawPrevResult == nil {
 		err = fmt.Errorf("kmesh-cniplugin can not use standalone")
 		log.Error(err)
 		return nil, err
 	}
 
-	prevResultBytes, err := json.Marshal(conf.PrevResult)
+	prevResultBytes, err := json.Marshal(conf.RawPrevResult)
 	if err != nil {
-		log.Errorf("failed to get prev cni result: %v", err)
+		log.Errorf("failed to serialize prev cni result: %v", err)
 		return nil, err
 	}
-	prevResult, err := version.NewResult(conf.CNIVersion, prevResultBytes)
+	res, err := version.NewResult(conf.CNIVersion, prevResultBytes)
 	if err != nil {
 		log.Errorf("failed to parse prev result: %v", err)
 		return nil, err
 	}
-	cniv1PrevResult, err := cniv1.NewResultFromResult(prevResult)
+	cniv1PrevResult, err := cniv1.NewResultFromResult(res)
 	if err != nil {
 		log.Errorf("failed to convert result to version %s: %v", cniv1.ImplementedSpecVersion, err)
 		return nil, err
@@ -215,19 +218,26 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	enableKmesh, enableSidecar, err := checkK8sNSLabel(string(k8sConf.K8S_POD_NAMESPACE))
+	podName := string(k8sConf.K8S_POD_NAME)
+	podNamespace := string(k8sConf.K8S_POD_NAMESPACE)
+	if podName == "" || podNamespace == "" {
+		log.Debug("Not a kubernetes pod")
+		return types.PrintResult(preResult, cniConf.CNIVersion)
+	}
+
+	enableKmesh, enableSidecar, err := checkK8sNSLabel(cniConf.KubeConfig, podNamespace)
 	if err != nil {
 		log.Error("failed to check enable kmesh information")
-		return types.PrintResult(preResult, cniConf.CNIVersion)
+		return err
 	}
 
 	if !enableKmesh {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	if err := enableKmeshControl(string(k8sConf.K8S_POD_NAME), string(k8sConf.K8S_POD_NAMESPACE)); err != nil {
+	if err := enableKmeshControl(podName, podNamespace); err != nil {
 		log.Error("failed to enable kmesh control")
-		return types.PrintResult(preResult, cniConf.CNIVersion)
+		return err
 	}
 
 	if !enableSidecar {
@@ -236,7 +246,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 
 	if err := bypassSidecar(enableSidecar, string(args.Netns)); err != nil {
 		log.Errorf("failed to inject iptables rule: %v", err)
-		return types.PrintResult(preResult, cniConf.CNIVersion)
+		return err
 	}
 
 	return types.PrintResult(preResult, cniConf.CNIVersion)
