@@ -26,12 +26,6 @@ spec:
          - name: lib-modules
            hostPath:
              path: /lib/modules
-         - name: kube-config-path
-           hostPath:
-             # location of the k8s config file in the current cluster environment
-             # may vary depending on the method used to create the cluster, 
-             # and needs to be specified by the user
-             path: /root/.kube/config
          # k8s default cni conflist path
          - name: cni 
            hostPath:
@@ -79,9 +73,6 @@ spec:
            - name: lib-modules
              mountPath: /lib/modules
              readOnly: false
-           - name: kube-config-path
-             mountPath: /root/.kube/config
-             readOnly: true
            # k8s default cni conflist path
            - name: cni
              mountPath: /etc/cni/net.d
