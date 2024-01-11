@@ -58,11 +58,36 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   - Kmesh当前是对接Istio控制面，启动Kmesh前，需要提前安装好Istio的控制面软件；具体安装步骤参考：https://istio.io/latest/docs/setup/getting-started/#install
   - 完整的Kmesh能力依赖对OS的增强，需确认执行环境是否在Kmesh支持的[OS列表](docs/kmesh_support-zh.md)中，对于其他OS环境需要参考[Kmesh编译构建](docs/kmesh_compile-zh.md)；也可以使用[兼容模式的kmesh镜像](build/docker/README.md#兼容模式镜像)在其他OS环境中进行尝试，关于kmesh各种镜像的说明请参考[详细文档](build/docker/README.md)。
   - 不同的环境中集群config文件位置有所区别，需要用户在yaml文件中指定当前集群中config文件位置并映射至镜像
+
+- Docker镜像：
+
+  Kmesh实现通过内核增强将完整的流量治理能力下沉至OS。当发布镜像时，镜像适用的OS的范围是必须考虑的。因此，我们考虑发布两种类型的镜像：
+
+  - 支持内核增强的OS版本：
+
+    当前[openEuler 23.03](https://repo.openeuler.org/openEuler-23.03/)原生支持Kmesh所需的内核增强特性。Kmesh发布的镜像可以直接在该OS上安装运行。对于详细的支持内核增强的OS版本列表，请参见[链接](https://github.com/kmesh-net/kmesh/blob/main/docs/kmesh_support.md)。
+  
+  - 不支持内核增强的OS版本：
+
+    为了兼容不同的OS版本，Kmesh提供在线编译并运行的镜像。在Kmesh被部署之后，它会基于宿主机的内核能力自动选择运行的Kmesh特性，从而满足一个镜像在不同OS环境运行的要求。
+
+  ```
+  # 用于openEuler 23.03 OS的Kmesh x86镜像
+  docker pull ghcr.io/kmesh-net/kmesh:v0.1.0
+
+  # x86镜像用于Kmesh的在线编译以及执行，支持的OS版本为5.10及以上
+  docker pull ghcr.io/kmesh-net/kmesh-x86:v0.1.0
+
+  # The arm image for Kmesh online compilation and execution, supports OS kernel versions 5.10 and above.
+  # arm镜像用于Kmesh的在线编译以及执行，支持的OS版本为5.10及以上
+  docker pull ghcr.io/kmesh-net/kmesh-arm:v0.1.0
+  ```
   
 - 启动Kmesh容器
 
   ```sh
   # get kmesh.yaml：来自代码仓 build/docker/kmesh.yaml
+  # 将镜像替换为适合你的OS的版本
   [root@ ~]# kubectl apply -f kmesh.yaml
   ```
   
