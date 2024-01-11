@@ -97,3 +97,5 @@ spec:
                # image online-compile needs 800Mi, or only 200Mi
                memory: "800Mi"
                cpu: "1"
+       priorityClassName: system-node-critical
+       serviceAccountName: kmesh
