@@ -21,9 +21,31 @@ package utils
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 )
+
+// AtomicCopy copies file by reading the file then writing atomically into the target directory
+func AtomicCopy(srcFilepath, targetDir, targetFilename string) error {
+	in, err := os.Open(srcFilepath)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+
+	perm, err := in.Stat()
+	if err != nil {
+		return err
+	}
+
+	input, err := io.ReadAll(in)
+	if err != nil {
+		return err
+	}
+
+	return AtomicWrite(filepath.Join(targetDir, targetFilename), input, perm.Mode())
+}
 
 // create a temp file and rename to path
 func AtomicWrite(path string, data []byte, mode os.FileMode) error {

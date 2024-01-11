@@ -36,8 +36,6 @@ func addCniConfig() error {
 		if err != nil {
 			return err
 		}
-		// TODO(hzxuzhonghu): install kmesh cni and add cni config
-		// Prepare kubeconfig for kmesh cni
 	} else {
 		log.Error("currently kmesh can not support cni with no chained mode\n")
 	}
