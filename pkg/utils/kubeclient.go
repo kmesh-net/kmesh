@@ -20,48 +20,25 @@
 package utils
 
 import (
-	"os"
-	"os/user"
-	"path/filepath"
-
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-var clientSet *kubernetes.Clientset = nil
-
 func GetK8sclient() (*kubernetes.Clientset, error) {
-	var kubeConfig *string
-	var home string
-
-	if clientSet != nil {
-		return clientSet, nil
-	}
-
-	if home = os.Getenv("HOME"); home == "" {
-		currentUser, err := user.Current()
-		if err != nil {
-			log.Errorf("failed to get current user when get k8s config file: %v", err)
-			return nil, err
-		}
-		home = currentUser.HomeDir
-	}
-
-	configPath := filepath.Join(home, ".kube", "config")
-	kubeConfig = &configPath
-
-	config, err := clientcmd.BuildConfigFromFlags("", *kubeConfig)
+	// Create the in-cluster configuration
+	config, err := rest.InClusterConfig()
 	if err != nil {
-		log.Errorf("create config error!")
 		return nil, err
 	}
 
-	clientSet, err := kubernetes.NewForConfig(config)
+	// Create the Kubernetes clientset
+	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		log.Errorf("create clientset error!")
 		return nil, err
 	}
-	return clientSet, nil
+
+	return clientset, nil
 }
 
 // CreateK8sClientSet creates a Kubernetes clientset from a kubeconfig file

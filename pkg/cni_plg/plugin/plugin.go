@@ -33,6 +33,7 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
@@ -85,16 +86,10 @@ func parseSkelArgs(args *skel.CmdArgs) (*cniConf, *k8sArgs, *cniv1.Result, error
 	return &cniConf, &k8sCommonArgs, result, nil
 }
 
-func checkK8sNSLabel(kubeconfig, podNamespace string) (bool, bool, error) {
-	var enableKmesh bool = false
-	var enableSidecar bool = false
+func checkK8sNSLabel(clientSet *kubernetes.Clientset, podNamespace string) (bool, bool, error) {
+	enableKmesh := false
+	enableSidecar := false
 
-	clientSet, err := utils.CreateK8sClientSet(kubeconfig)
-	if err != nil {
-		err = fmt.Errorf("failed to get k8s client: %v", err)
-		log.Error(err)
-		return enableKmesh, enableSidecar, err
-	}
 	namespace, err := clientSet.CoreV1().Namespaces().Get(context.TODO(), podNamespace, metav1.GetOptions{})
 	if err != nil {
 		log.Error(err)
@@ -114,14 +109,7 @@ func checkK8sNSLabel(kubeconfig, podNamespace string) (bool, bool, error) {
 	return enableKmesh, enableSidecar, nil
 }
 
-func enableKmeshControl(podName, podNs string) error {
-	clientSet, err := utils.GetK8sclient()
-	if err != nil {
-		err = fmt.Errorf("failed to get k8s client: %v", err)
-		log.Error(err)
-		return err
-	}
-
+func enableKmeshControl(clientSet *kubernetes.Clientset, podName, podNs string) error {
 	classIDPathPrefix := "/sys/fs/cgroup/net_cls/kubepods"
 
 	pod, err := clientSet.CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
@@ -225,7 +213,13 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	enableKmesh, enableSidecar, err := checkK8sNSLabel(cniConf.KubeConfig, podNamespace)
+	clientSet, err := utils.CreateK8sClientSet(cniConf.KubeConfig)
+	if err != nil {
+		err = fmt.Errorf("failed to get k8s client: %v", err)
+		log.Error(err)
+		return err
+	}
+	enableKmesh, enableSidecar, err := checkK8sNSLabel(clientSet, podNamespace)
 	if err != nil {
 		log.Error("failed to check enable kmesh information")
 		return err
@@ -235,7 +229,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	if err := enableKmeshControl(podName, podNamespace); err != nil {
+	if err := enableKmeshControl(clientSet, podName, podNamespace); err != nil {
 		log.Error("failed to enable kmesh control")
 		return err
 	}
