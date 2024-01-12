@@ -48,8 +48,7 @@ function prepare() {
     export EXTRA_GOFLAGS="-gcflags=\"-N -l\""
     export EXTRA_CFLAGS="-O0 -g"    
     
-    (cd $ROOT_DIR/vendor/google.golang.org/protobuf/cmd/protoc-gen-go && go build -mod=vendor)
-    export PATH=$PATH:$ROOT_DIR/vendor/google.golang.org/protobuf/cmd/protoc-gen-go/
+    go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
     bpf_compile_range_adjust
 }
 
