@@ -191,7 +191,8 @@ func chainedKmeshCniPlugin() error {
 	// Install kubeconfig (if needed) - we write/update this in the shared node CNI bin dir,
 	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
 	// unless it's missing or the contents are not what we expect.
-	if err := maybeWriteKubeConfigFile(); err != nil {
+	kubeconfigFilepath := filepath.Join(config.CniMountNetEtcDIR, kmeshCniKubeConfig)
+	if err := maybeWriteKubeConfigFile(kubeconfigFilepath); err != nil {
 		return fmt.Errorf("write kubeconfig: %v", err)
 	}
 
@@ -261,7 +262,7 @@ func removeChainedKmeshCniPlugin() error {
 	}
 
 	// remove kubeconfig file
-	if kubeconfigFilepath := filepath.Join(MountedCNIBinDir, kmeshCniKubeConfig); fileExists(kubeconfigFilepath) {
+	if kubeconfigFilepath := filepath.Join(config.CniMountNetEtcDIR, kmeshCniKubeConfig); fileExists(kubeconfigFilepath) {
 		kubeconfigFilepath := filepath.Join(MountedCNIBinDir, kmeshCniKubeConfig)
 		log.Infof("Removing Kmesh CNI kubeconfig file: %s", kubeconfigFilepath)
 		if err := os.Remove(kubeconfigFilepath); err != nil {
@@ -281,7 +282,8 @@ func removeChainedKmeshCniPlugin() error {
 }
 
 func copyBinary(filename string, targetDir string) error {
-	if err := utils.AtomicCopy(filename, targetDir, filename); err != nil {
+	_, binaryName := filepath.Split(filename)
+	if err := utils.AtomicCopy(filename, targetDir, binaryName); err != nil {
 		log.Errorf("Failed file copy of %s to %s: %s", filename, targetDir, err.Error())
 		return err
 	}

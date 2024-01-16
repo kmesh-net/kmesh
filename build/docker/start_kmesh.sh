@@ -4,8 +4,6 @@
 bash build.sh
 bash build.sh -i 
 
-cp /usr/bin/kmesh-cni /opt/cni/bin
-
 lsmod | grep kmesh > /dev/null
 if [ $? -ne 0 ]; then
         depmod -a
