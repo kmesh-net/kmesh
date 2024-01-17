@@ -49,6 +49,7 @@ function prepare() {
     export EXTRA_CFLAGS="-O0 -g"    
     
     go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
+    export PATH="$PATH:$(go env GOPATH)/bin"
     bpf_compile_range_adjust
 }
 
