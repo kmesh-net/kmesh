@@ -97,7 +97,7 @@ func checkK8sNSLabel(clientSet *kubernetes.Clientset, podNamespace string) (bool
 	}
 
 	mode := namespace.Labels["istio.io/dataplane-mode"]
-	if mode == "Kmesh" {
+	if strings.EqualFold(mode, "Kmesh") {
 		enableKmesh = true
 	}
 

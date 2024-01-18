@@ -179,7 +179,6 @@ func deleteCNIConfig(oldconfig []byte) ([]byte, error) {
 }
 
 func chainedKmeshCniPlugin() error {
-	// TODO(hzxuzhonghu): install kmesh cni binary, currently it is installed from start_kmesh.sh
 	// Install binaries
 	// Currently we _always_ do this, since the binaries do not live in a shared location
 	// and we harm no one by doing so.
