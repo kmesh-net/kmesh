@@ -80,7 +80,8 @@ func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *
 }
 
 func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus,
-	loadAssignment *config_endpoint_v3.ClusterLoadAssignment) {
+	loadAssignment *config_endpoint_v3.ClusterLoadAssignment,
+) {
 	apiCluster := load.ClusterCache.GetApiClusterCache(loadAssignment.GetClusterName())
 	if apiCluster == nil {
 		return
@@ -90,7 +91,8 @@ func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus,
 }
 
 func newApiClusterLoadAssignment(
-	loadAssignment *config_endpoint_v3.ClusterLoadAssignment) *endpoint_v2.ClusterLoadAssignment {
+	loadAssignment *config_endpoint_v3.ClusterLoadAssignment,
+) *endpoint_v2.ClusterLoadAssignment {
 	apiLoadAssignment := &endpoint_v2.ClusterLoadAssignment{
 		ClusterName: loadAssignment.GetClusterName(),
 	}
@@ -329,16 +331,18 @@ func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 		switch header.GetHeaderMatchSpecifier().(type) {
 		case *config_route_v3.HeaderMatcher_PrefixMatch:
 			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_PrefixMatch{
-				PrefixMatch: header.GetPrefixMatch(),
+				// TODO: stop using deprecated field
+				PrefixMatch: header.GetPrefixMatch(), // nolint
 			}
 		case *config_route_v3.HeaderMatcher_ExactMatch:
 			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch{
-				ExactMatch: header.GetExactMatch(),
+				// TODO: stop using deprecated field
+				ExactMatch: header.GetExactMatch(), // nolint
 			}
 		case *config_route_v3.HeaderMatcher_StringMatch:
 			parseStringMatch(header, apiHeader)
 		default:
-			log.Info("newApiRouteMatch default continue, type is %T", header.GetHeaderMatchSpecifier())
+			log.Infof("newApiRouteMatch default continue, type is %T", header.GetHeaderMatchSpecifier())
 			continue
 		}
 

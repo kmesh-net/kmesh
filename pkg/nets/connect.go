@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 const (
@@ -47,11 +48,7 @@ func IsIPAndPort(addr string) bool {
 	}
 
 	ip := addr[:idx]
-	if net.ParseIP(ip) == nil {
-		return false
-	}
-
-	return true
+	return net.ParseIP(ip) != nil
 }
 
 func unixDialHandler(ctx context.Context, addr string) (net.Conn, error) {
@@ -77,7 +74,7 @@ func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 		opts []grpc.DialOption
 	)
 	opts = append(opts, defaultDialOption())
-	opts = append(opts, grpc.WithInsecure())
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	if !IsIPAndPort(addr) {
 		opts = append(opts, grpc.WithContextDialer(unixDialHandler))

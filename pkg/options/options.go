@@ -24,17 +24,13 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 
 	"sigs.k8s.io/yaml"
 )
 
-var (
-	argLists = os.Args[1:]
-	config   DaemonConfig
-)
+var config DaemonConfig
 
 type parseFactory interface {
 	SetArgs() error
@@ -101,7 +97,7 @@ func LoadConfigFile(path string) ([]byte, error) {
 		content []byte
 	)
 
-	if content, err = ioutil.ReadFile(path); err != nil {
+	if content, err = os.ReadFile(path); err != nil {
 		return nil, fmt.Errorf("%s read failed, %s", path, err)
 	}
 

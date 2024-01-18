@@ -22,7 +22,7 @@ package command
 import (
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"strings"
 )
@@ -49,16 +49,15 @@ func StartClient() error {
 	cmdClient.client = &http.Client{
 		Timeout: httpTimeout,
 	}
-	cmdClient.resp, err =
-		cmdClient.client.Post(adminUrl+patternBpfKmeshMaps,
-			contentType, strings.NewReader(string(config.ConfigResources)))
+	cmdClient.resp, err = cmdClient.client.Post(adminUrl+patternBpfKmeshMaps,
+		contentType, strings.NewReader(string(config.ConfigResources)))
 	if err != nil {
 		return err
 	}
 
 	if cmdClient.resp.StatusCode != http.StatusOK {
 		var content []byte
-		content, err = ioutil.ReadAll(cmdClient.resp.Body)
+		content, err = io.ReadAll(cmdClient.resp.Body)
 		if err != nil {
 			return fmt.Errorf("%s, %s", cmdClient.resp.Status, err)
 		}
@@ -72,7 +71,6 @@ func StartClient() error {
 func StopClient() error {
 	if cmdClient.resp != nil {
 		return cmdClient.resp.Body.Close()
-
 	}
 	return nil
 }

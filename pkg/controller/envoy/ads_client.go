@@ -29,7 +29,7 @@ import (
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 
-	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/nets" // nolint
 )
 
 const (
@@ -120,7 +120,7 @@ func (c *AdsClient) runControlPlane(ctx context.Context) {
 		return
 	}
 
-	for true {
+	for {
 		select {
 		case <-ctx.Done():
 			return
@@ -174,10 +174,10 @@ func (c *AdsClient) Run(stopCh <-chan struct{}) error {
 
 func (c *AdsClient) closeStreamClient() {
 	if c.stream != nil {
-		c.stream.CloseSend()
+		_ = c.stream.CloseSend()
 	}
 	if c.grpcConn != nil {
-		c.grpcConn.Close()
+		_ = c.grpcConn.Close()
 	}
 }
 

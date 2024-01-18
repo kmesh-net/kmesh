@@ -20,7 +20,7 @@
 package controller
 
 import (
-	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/bpf" // nolint
 	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/interfaces"
 	"kmesh.net/kmesh/pkg/options"
@@ -38,8 +38,7 @@ type Config struct {
 
 // SetArgs set controller command arguments
 func (c *Config) SetArgs() error {
-	envoy.GetConfig().SetClientArgs()
-	return nil
+	return envoy.GetConfig().SetClientArgs()
 }
 
 func (c *Config) ParseConfig() error {
