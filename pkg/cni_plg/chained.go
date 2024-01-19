@@ -31,6 +31,12 @@ import (
 	"github.com/containernetworking/cni/libcni"
 )
 
+const (
+	kmeshCniPluginName = "kmesh-cni"
+	kmeshCniKubeConfig = "kmesh-cni-kubeconfig"
+	MountedCNIBinDir   = "/opt/cni/bin"
+)
+
 var cniConfigFilePath string
 
 func getCniConfigPath() (string, error) {
@@ -84,9 +90,6 @@ func getCniConfigPath() (string, error) {
 
 func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 	var cniConfigMap map[string]interface{}
-	var kmeshConfigMap map[string]string = make(map[string]string)
-	kmeshConfigMap["type"] = "kmesh-cniplugin"
-
 	err := json.Unmarshal(oldconfig, &cniConfigMap)
 	if err != nil {
 		err = fmt.Errorf("failed to unmarshal json: %v", err)
@@ -108,12 +111,16 @@ func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 			log.Error(err)
 			return nil, err
 		}
-		if plugin["type"] == "kmesh-cniplugin" {
+		if plugin["type"] == kmeshCniPluginName {
 			return nil, nil
 		}
 	}
 
-	cniConfigMap["plugins"] = append(plugins, kmeshConfigMap)
+	kmeshConfig := map[string]string{}
+	// add kmesh-cni configuration
+	kmeshConfig["type"] = kmeshCniPluginName
+	kmeshConfig["kubeConfig"] = kmeshCniKubeConfig
+	cniConfigMap["plugins"] = append(plugins, kmeshConfig)
 
 	byte, err := json.MarshalIndent(cniConfigMap, "", "  ")
 	if err != nil {
@@ -150,7 +157,7 @@ func deleteCNIConfig(oldconfig []byte) ([]byte, error) {
 		if !ok {
 			continue
 		}
-		if plugin["type"] == "kmesh-cniplugin" {
+		if plugin["type"] == kmeshCniPluginName {
 			foundKmeshPlugin = true
 			break
 		}
@@ -172,8 +179,22 @@ func deleteCNIConfig(oldconfig []byte) ([]byte, error) {
 }
 
 func chainedKmeshCniPlugin() error {
-	var err error
-	var newCNIConfig []byte
+	// Install binaries
+	// Currently we _always_ do this, since the binaries do not live in a shared location
+	// and we harm no one by doing so.
+	err := copyBinary("/usr/bin/kmesh-cni", MountedCNIBinDir)
+	if err != nil {
+		return fmt.Errorf("copy binaries: %v", err)
+	}
+
+	// Install kubeconfig (if needed) - we write/update this in the shared node CNI bin dir,
+	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
+	// unless it's missing or the contents are not what we expect.
+	kubeconfigFilepath := filepath.Join(config.CniMountNetEtcDIR, kmeshCniKubeConfig)
+	if err := maybeWriteKubeConfigFile(kubeconfigFilepath); err != nil {
+		return fmt.Errorf("write kubeconfig: %v", err)
+	}
+
 	cniConfigFilePath, err = getCniConfigPath()
 	if err != nil {
 		return err
@@ -190,7 +211,7 @@ func chainedKmeshCniPlugin() error {
 		return err
 	}
 
-	newCNIConfig, err = insertCNIConfig(existCNIConfig)
+	newCNIConfig, err := insertCNIConfig(existCNIConfig)
 	if err != nil {
 		log.Error("failed to assemble cni config")
 		return err
@@ -239,5 +260,42 @@ func removeChainedKmeshCniPlugin() error {
 		return err
 	}
 
+	// remove kubeconfig file
+	if kubeconfigFilepath := filepath.Join(config.CniMountNetEtcDIR, kmeshCniKubeConfig); fileExists(kubeconfigFilepath) {
+		kubeconfigFilepath := filepath.Join(MountedCNIBinDir, kmeshCniKubeConfig)
+		log.Infof("Removing Kmesh CNI kubeconfig file: %s", kubeconfigFilepath)
+		if err := os.Remove(kubeconfigFilepath); err != nil {
+			return err
+		}
+	}
+
+	// remove cni binary
+	if kmeshCNIBin := filepath.Join(MountedCNIBinDir, kmeshCniPluginName); fileExists(kmeshCNIBin) {
+		log.Infof("Removing binary: %s", kmeshCNIBin)
+		if err := os.Remove(kmeshCNIBin); err != nil {
+			return err
+		}
+	}
+
 	return nil
+}
+
+func copyBinary(filename string, targetDir string) error {
+	_, binaryName := filepath.Split(filename)
+	if err := utils.AtomicCopy(filename, targetDir, binaryName); err != nil {
+		log.Errorf("Failed file copy of %s to %s: %s", filename, targetDir, err.Error())
+		return err
+	}
+	log.Infof("Copied %s to %s.", filename, targetDir)
+	return nil
+}
+
+func fileExists(filePath string) bool {
+	_, err := os.Stat(filePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+	}
+	return true
 }

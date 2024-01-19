@@ -139,7 +139,7 @@ daemon需要对cni插件进行管理，将Kmesh启动、cni pod重启时，将cn
 			...
 			// 新增kmesh的cni-plugin
 			{
-				"type": "Kmesh-cniplugin",
+				"type": "Kmesh-cni",
 			}
 		]
 	}
@@ -157,7 +157,7 @@ flannel的conflist格式如下：
 			...
 			// 新增kmesh的cni-plugin
 			{
-				"type": "Kmesh-cniplugin",
+				"type": "Kmesh-cni",
 			}
 		]
 	}

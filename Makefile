@@ -27,7 +27,7 @@ GOFLAGS := $(EXTRA_GOFLAGS)
 APPS1 := kmesh-daemon
 APPS2 := kmesh-cmd
 APPS3 := mdacore
-APPS4 := kmesh-cniplugin
+APPS4 := kmesh-cni
 
 .PHONY: all install uninstall clean
 

@@ -34,5 +34,5 @@ const (
 
 func main() {
 	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
-		fmt.Sprintf("CNI plugin kmesh-cniplugin %v", CNI_PLUGIN_VERSION))
+		fmt.Sprintf("CNI plugin kmesh-cni %v", CNI_PLUGIN_VERSION))
 }

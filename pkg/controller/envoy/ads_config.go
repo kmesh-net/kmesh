@@ -209,6 +209,7 @@ func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
 	return ads, nil
 }
 
+// TODO(hzxuzhonghu): pass xds discovery address instead of using `MESH_CONTROLLER`
 func getMeshCtlIp() (meshCtlIp string, err error) {
 	meshCtl := os.Getenv("MESH_CONTROLLER")
 	if meshCtl == "" {

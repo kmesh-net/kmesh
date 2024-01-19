@@ -32,7 +32,7 @@ out/
 .DS_Store
 # build binaries       
 kmesh-cmd
-kmesh-cniplugin
+kmesh-cni
 kmesh-daemon
 # build artifacts
 *.so
