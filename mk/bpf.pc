@@ -1,5 +1,4 @@
-prefix=/root/go/src/kmesh.net/kmesh/
-
+prefix=
 Name: bpf
 Description: bpf
 Version:
