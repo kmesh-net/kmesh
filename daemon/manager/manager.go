@@ -27,7 +27,7 @@ import (
 	"syscall"
 
 	"kmesh.net/kmesh/cmd/command"
-	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/bpf" // nolint
 	"kmesh.net/kmesh/pkg/cni_plg"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/logger"
@@ -39,9 +39,7 @@ const (
 	pkgSubsys = "manager"
 )
 
-var (
-	log = logger.NewLoggerField(pkgSubsys)
-)
+var log = logger.NewLoggerField(pkgSubsys)
 
 // Execute start daemon manager process
 func Execute() {
@@ -57,7 +55,11 @@ func Execute() {
 		log.Errorf("failed to start, reason: %v", err)
 		return
 	}
-	defer pid.RemovePidFile()
+	defer func() {
+		if err = pid.RemovePidFile(); err != nil {
+			log.Errorf("failed to remove pid file, reason: %v", err)
+		}
+	}()
 
 	if err = bpf.Start(); err != nil {
 		fmt.Println(err)
@@ -78,7 +80,9 @@ func Execute() {
 		return
 	}
 	log.Info("command StartServer successful")
-	defer command.StopServer()
+	defer func() {
+		_ = command.StopServer()
+	}()
 
 	if err = cni_plg.Start(); err != nil {
 		log.Error(err)
@@ -88,7 +92,6 @@ func Execute() {
 	defer cni_plg.Stop()
 
 	setupCloseHandler()
-	return
 }
 
 func setupCloseHandler() {

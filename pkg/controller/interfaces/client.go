@@ -20,7 +20,7 @@
 package interfaces
 
 type ClientFactory interface {
-	Run(ch <- chan struct{}) error
+	Run(ch <-chan struct{}) error
 	Close() error
 }
 

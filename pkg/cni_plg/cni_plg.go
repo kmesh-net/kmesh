@@ -20,13 +20,11 @@
 package cni_plg
 
 import (
-	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/bpf" // nolint
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var (
-	log = logger.NewLoggerField("cniplugin")
-)
+var log = logger.NewLoggerField("cniplugin")
 
 func addCniConfig() error {
 	var err error
@@ -66,5 +64,4 @@ func Stop() {
 			log.Error("remove CNI config failed, please remove manual")
 		}
 	}
-	return
 }

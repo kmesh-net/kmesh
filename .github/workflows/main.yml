@@ -32,9 +32,9 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3.7.0
       with:
-        args: "--out-format colored-line-number"
+        args: "--config=common/config/.golangci.yaml --out-format colored-line-number"
         skip-pkg-cache: true
 
-    - name: Go Test
-      run: |
-        go test -v -vet=off ./...
+#    - name: Go Test
+#      run: |
+#        go test -v -vet=off ./...

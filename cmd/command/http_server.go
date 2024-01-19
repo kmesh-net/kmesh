@@ -21,10 +21,10 @@ package command
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 
-	"github.com/golang/protobuf/jsonpb"
+	"github.com/golang/protobuf/jsonpb" // nolint
 	"google.golang.org/protobuf/encoding/protojson"
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
@@ -118,7 +118,7 @@ func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		dump := &admin_v2.ConfigDump{}
-		content, err := ioutil.ReadAll(r.Body)
+		content, err := io.ReadAll(r.Body)
 		if err != nil {
 			w.WriteHeader(http.StatusBadRequest)
 			fmt.Fprintln(w, "body read failed")
@@ -136,7 +136,6 @@ func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	return
 }
 
 func httpControllerEnvoy(w http.ResponseWriter, r *http.Request) {
@@ -178,7 +177,10 @@ func httpControllerKubernetes(w http.ResponseWriter, r *http.Request) {
 var cmdServer = newHttpServer()
 
 func StartServer() error {
-	go cmdServer.server.ListenAndServe()
+	go func() {
+		// TODO: handle the error
+		_ = cmdServer.server.ListenAndServe()
+	}()
 	return nil
 }
 

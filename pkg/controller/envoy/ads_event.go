@@ -123,7 +123,6 @@ func (svc *ServiceEvent) processAdsResponse(rsp *service_discovery_v3.DiscoveryR
 	if err != nil {
 		log.Error(err)
 	}
-	return
 }
 
 func (svc *ServiceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryResponse) error {
@@ -171,9 +170,9 @@ func (svc *ServiceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		}
 		apiStatus := svc.DynamicLoader.ClusterCache.GetApiClusterCache(loadAssignment.GetClusterName()).ApiStatus
 		newEdsString := resource.String()
-		//part[0] CDS is different or part[1] EDS is different
+		// part[0] CDS is different or part[1] EDS is different
 		if apiStatus == core_v2.ApiStatus_UPDATE ||
-			newEdsString != svc.DynamicLoader.ClusterCache.GetEdsResource(loadAssignment.GetClusterName()){
+			newEdsString != svc.DynamicLoader.ClusterCache.GetEdsResource(loadAssignment.GetClusterName()) {
 			apiStatus = core_v2.ApiStatus_UPDATE
 			svc.DynamicLoader.ClusterCache.SetEdsResource(loadAssignment.GetClusterName(), newEdsString)
 			log.Debugf("[CreateApiClusterByEds] update cluster %s", loadAssignment.GetClusterName())
@@ -255,13 +254,13 @@ func (svc *ServiceEvent) NewAdminRequest(resources *admin_v2.ConfigResources) {
 }
 
 func (svc *ServiceEvent) processAdminResponse(ctx context.Context) {
-	for true {
+	for {
 		select {
 		case <-ctx.Done():
 			return
 		case resources := <-svc.adminChan:
 			if err := svc.handleAdminResponse(resources); err != nil {
-				log.Error("handleAdminResponse failed err:%s", err)
+				log.Errorf("handleAdminResponse failed err: %s", err)
 			}
 		}
 	}
@@ -295,11 +294,7 @@ func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {
 	}
 
 	count := len(resources.GetClusterConfigs()) + len(resources.GetRouteConfigs()) + len(resources.GetListenerConfigs())
-	if count == 0 {
-		return true
-	}
-
-	return false
+	return count == 0
 }
 
 func SetApiVersionInfo(resources *admin_v2.ConfigResources) {
