@@ -92,7 +92,6 @@ func Execute() {
 	defer cni_plg.Stop()
 
 	setupCloseHandler()
-	return
 }
 
 func setupCloseHandler() {

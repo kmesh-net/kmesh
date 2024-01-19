@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	stopCh     = make(chan struct{})
-	client     interfaces.ClientFactory
+	stopCh = make(chan struct{})
+	client interfaces.ClientFactory
 )
 
 func Start() error {
