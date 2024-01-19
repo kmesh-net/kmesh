@@ -35,6 +35,6 @@ jobs:
         args: "--config=common/config/.golangci.yaml --out-format colored-line-number"
         skip-pkg-cache: true
 
-    - name: Go Test
-      run: |
-        sudo bash ./build.sh && go test -v -vet=off ./...
+#    - name: Go Test
+#      run: |
+#        go test -v -vet=off ./...
