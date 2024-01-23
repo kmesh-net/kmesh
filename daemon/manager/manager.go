@@ -22,13 +22,13 @@ package manager
 
 import (
 	"fmt"
-	"kmesh.net/kmesh/pkg/cni"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"kmesh.net/kmesh/cmd/command"
 	"kmesh.net/kmesh/pkg/bpf" // nolint
+	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/options"

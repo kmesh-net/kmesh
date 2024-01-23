@@ -34,6 +34,7 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	"kmesh.net/kmesh/pkg/logger"
@@ -120,15 +121,8 @@ func checkKmesh(clientSet *kubernetes.Clientset, pod *v1.Pod) (bool, error) {
 	return false, nil
 }
 
-func enableKmeshControl(clientSet *kubernetes.Clientset, podName, podNs string) error {
+func enableKmeshControl(clientSet *kubernetes.Clientset, pod *v1.Pod) error {
 	classIDPathPrefix := "/sys/fs/cgroup/net_cls/kubepods"
-
-	pod, err := clientSet.CoreV1().Pods(podNs).Get(context.TODO(), podName, metav1.GetOptions{})
-	if err != nil {
-		err = fmt.Errorf("failed to get pod info: %v", err)
-		log.Error(err)
-		return err
-	}
 
 	qosClass := strings.ToLower(string(pod.Status.QOSClass))
 	podUID := "pod" + pod.UID
@@ -147,8 +141,27 @@ func enableKmeshControl(clientSet *kubernetes.Clientset, podName, podNs string) 
 		log.Error(err)
 		return err
 	}
+
+	if _, err = clientSet.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(),
+		pod.Name,
+		k8stypes.MergePatchType,
+		annotationPatch,
+		metav1.PatchOptions{},
+	); err != nil {
+		log.Error("failed to annotate kmesh redirection: %v", err)
+	}
+
 	return nil
 }
+
+const KmeshRedirection = "kmesh.net/redirection"
+
+var annotationPatch = []byte(fmt.Sprintf(
+	`{"metadata":{"annotations":{"%s":"%s"}}}`,
+	KmeshRedirection,
+	"enabled",
+))
 
 func getPrevCniResult(conf *cniConf) (*cniv1.Result, error) {
 	var err error
