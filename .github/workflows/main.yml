@@ -10,10 +10,10 @@ jobs:
       matrix:
         go-version: [ '1.21' ]
     
-    env:
-      GOPATH: /home/runner/go
-      GOBIN: /home/runner/go/bin
-      PKG_CONFIG_PATH: $GITHUB_WORKSPACE/mk
+    # env:
+    #   GOPATH: /home/runner/go
+    #   GOBIN: /home/runner/go/bin
+    #   PKG_CONFIG_PATH: $GITHUB_WORKSPACE/mk
 
     steps:
     - uses: actions/checkout@v3
@@ -35,6 +35,7 @@ jobs:
         args: "--config=common/config/.golangci.yaml --out-format colored-line-number"
         skip-pkg-cache: true
 
-#    - name: Go Test
-#      run: |
-#        go test -v -vet=off ./...
+    - name: Go Test
+      run: |
+        export PKG_CONFIG_PATH=$GITHUB_WORKSPACE/mk
+        go test -v -vet=off ./...
