@@ -231,7 +231,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	if err := enableKmeshControl(clientSet, podName, podNamespace); err != nil {
+	if err := enableKmeshControl(clientSet, pod); err != nil {
 		log.Error("failed to enable kmesh control")
 		return err
 	}
