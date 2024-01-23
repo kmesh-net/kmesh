@@ -1,3 +1,4 @@
+//go:build !enhanced
 // +build !enhanced
 
 /*
@@ -103,15 +104,17 @@ func (sc *BpfKmesh) Attach() error {
 	return nil
 }
 
-func (sc *BpfKmesh) close() error {
-	var err error
+// Due to the golint issuse, comment unused functions temporaryly
 
-	if err = sc.SockConn.close(); err != nil {
-		return err
-	}
+// func (sc *BpfKmesh) close() error {
+// 	var err error
 
-	return nil
-}
+// 	if err = sc.SockConn.close(); err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }
 
 func (sc *BpfKmesh) Detach() error {
 	var err error
@@ -121,4 +124,3 @@ func (sc *BpfKmesh) Detach() error {
 	}
 	return nil
 }
-

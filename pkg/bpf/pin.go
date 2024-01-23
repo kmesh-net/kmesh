@@ -59,24 +59,26 @@ func unpinPrograms(value *reflect.Value) error {
 	return nil
 }
 
-func pinMaps(value *reflect.Value, path string) error {
-	for i := 0; i < value.NumField(); i++ {
-		tp, ok := value.Field(i).Interface().(*ebpf.Map)
-		if tp == nil || !ok {
-			return fmt.Errorf("invalid pinMaps ptr")
-		}
+// Due to the golint issuse, comment unused functions temporaryly
 
-		info, err := tp.Info()
-		if err != nil {
-			return fmt.Errorf("get map info failed, %s", err)
-		}
-		if err := tp.Pin(path + info.Name); err != nil {
-			return fmt.Errorf("pin map failed, %s", err)
-		}
-	}
+// func pinMaps(value *reflect.Value, path string) error {
+// 	for i := 0; i < value.NumField(); i++ {
+// 		tp, ok := value.Field(i).Interface().(*ebpf.Map)
+// 		if tp == nil || !ok {
+// 			return fmt.Errorf("invalid pinMaps ptr")
+// 		}
 
-	return nil
-}
+// 		info, err := tp.Info()
+// 		if err != nil {
+// 			return fmt.Errorf("get map info failed, %s", err)
+// 		}
+// 		if err := tp.Pin(path + info.Name); err != nil {
+// 			return fmt.Errorf("pin map failed, %s", err)
+// 		}
+// 	}
+
+// 	return nil
+// }
 
 func unpinMaps(value *reflect.Value) error {
 	for i := 0; i < value.NumField(); i++ {
@@ -103,9 +105,11 @@ func setMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
 	}
 }
 
-func setProgBpfType(spec *ebpf.CollectionSpec, typ ebpf.ProgramType, atyp ebpf.AttachType) {
-	for _, v := range spec.Programs {
-		v.Type = typ
-		v.AttachType = atyp
-	}
-}
+// Due to the golint issuse, comment unused functions temporaryly
+
+// func setProgBpfType(spec *ebpf.CollectionSpec, typ ebpf.ProgramType, atyp ebpf.AttachType) {
+// 	for _, v := range spec.Programs {
+// 		v.Type = typ
+// 		v.AttachType = atyp
+// 	}
+// }
