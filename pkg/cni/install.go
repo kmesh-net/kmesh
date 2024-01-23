@@ -17,14 +17,14 @@
  * Create: 2023-11-19
  */
 
-package cni_plg
+package cni
 
 import (
 	"kmesh.net/kmesh/pkg/bpf" // nolint
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("cniplugin")
+var log = logger.NewLoggerField("cni installer")
 
 func addCniConfig() error {
 	var err error
@@ -37,7 +37,7 @@ func addCniConfig() error {
 			return err
 		}
 	} else {
-		log.Error("currently kmesh can not support cni with no chained mode\n")
+		log.Error("currently kmesh only support chained cni mode\n")
 	}
 	return nil
 }

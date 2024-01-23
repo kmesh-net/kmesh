@@ -17,7 +17,7 @@
  * Create: 2023-11-19
  */
 
-package cni_plg
+package cni
 
 import (
 	"encoding/json"

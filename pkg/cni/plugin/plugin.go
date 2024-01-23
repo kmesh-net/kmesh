@@ -23,15 +23,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	v1 "k8s.io/api/core/v1"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
-	netns "github.com/containernetworking/plugins/pkg/ns"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -86,27 +87,37 @@ func parseSkelArgs(args *skel.CmdArgs) (*cniConf, *k8sArgs, *cniv1.Result, error
 	return &cniConf, &k8sCommonArgs, result, nil
 }
 
-func checkK8sNSLabel(clientSet *kubernetes.Clientset, podNamespace string) (bool, bool, error) {
-	enableKmesh := false
-	enableSidecar := false
-
-	namespace, err := clientSet.CoreV1().Namespaces().Get(context.TODO(), podNamespace, metav1.GetOptions{})
+// checkKmesh checks whether we should enable kmesh for the given pod
+func checkKmesh(clientSet *kubernetes.Clientset, pod *v1.Pod) (bool, error) {
+	namespace, err := clientSet.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
 	if err != nil {
-		log.Error(err)
-		return enableKmesh, enableSidecar, err
+		return false, err
 	}
-
-	mode := namespace.Labels["istio.io/dataplane-mode"]
-	if strings.EqualFold(mode, "Kmesh") {
-		enableKmesh = true
-	}
-
+	var enableSidecar bool
 	injectLabel := namespace.Labels["istio-injection"]
 	if injectLabel == "enabled" {
 		enableSidecar = true
 	}
+	// According to istio, it support per pod config.
+	injValue := pod.Annotations["sidecar.istio.io/inject"]
+	if v, ok := pod.Labels["sidecar.istio.io/inject"]; ok {
+		injValue = v
+	}
+	if inject, err := strconv.ParseBool(injValue); err == nil {
+		enableSidecar = inject
+	}
 
-	return enableKmesh, enableSidecar, nil
+	// If sidecar inject enabled, kmesh do not take charge of it.
+	if enableSidecar {
+		return false, nil
+	}
+
+	mode := namespace.Labels["istio.io/dataplane-mode"]
+	if strings.EqualFold(mode, "Kmesh") {
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func enableKmeshControl(clientSet *kubernetes.Clientset, podName, podNs string) error {
@@ -134,35 +145,6 @@ func enableKmeshControl(clientSet *kubernetes.Clientset, podName, podNs string) 
 	if err := utils.ExecuteWithRedirect("echo", []string{ENABLE_KMESH_MARK}, file); err != nil {
 		err = fmt.Errorf("failed to exec cmd with redirect: %v", err)
 		log.Error(err)
-		return err
-	}
-	return nil
-}
-
-func bypassSidecar(iptFlag bool, ns string) error {
-	if !iptFlag {
-		log.Debugf("don't need inject iptables rule, skip")
-		return nil
-	}
-	iptArgs := [][]string{
-		{"-t", "nat", "-I", "PREROUTING", "1", "-j", "RETURN"},
-		{"-t", "nat", "-I", "OUTPUT", "1", "-j", "RETURN"},
-	}
-
-	execFunc := func(netns.NetNS) error {
-		log.Debugf("Running iptables rule in namespace:%s", ns)
-		for _, args := range iptArgs {
-			if err := utils.Execute("iptables", args); err != nil {
-				err = fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
-				log.Error(err)
-				return err
-			}
-		}
-		return nil
-	}
-
-	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		err = fmt.Errorf("enter ns path: %v, run command failed: %v", ns, err)
 		return err
 	}
 	return nil
@@ -219,9 +201,16 @@ func CmdAdd(args *skel.CmdArgs) error {
 		log.Error(err)
 		return err
 	}
-	enableKmesh, enableSidecar, err := checkK8sNSLabel(clientSet, podNamespace)
+
+	pod, err := clientSet.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		log.Error("failed to check enable kmesh information")
+		err = fmt.Errorf("failed to get pod: %v", err)
+		return err
+	}
+
+	enableKmesh, err := checkKmesh(clientSet, pod)
+	if err != nil {
+		log.Errorf("failed to check enable kmesh information: %v", err)
 		return err
 	}
 
@@ -231,15 +220,6 @@ func CmdAdd(args *skel.CmdArgs) error {
 
 	if err := enableKmeshControl(clientSet, podName, podNamespace); err != nil {
 		log.Error("failed to enable kmesh control")
-		return err
-	}
-
-	if !enableSidecar {
-		return types.PrintResult(preResult, cniConf.CNIVersion)
-	}
-
-	if err := bypassSidecar(enableSidecar, string(args.Netns)); err != nil {
-		log.Errorf("failed to inject iptables rule: %v", err)
 		return err
 	}
 
