@@ -71,7 +71,6 @@ function install() {
 
     cp $ROOT_DIR/build/kmesh.service /usr/lib/systemd/system/
     chmod 600 /usr/lib/systemd/system/kmesh.service
-    systemctl daemon-reload
 }
 
 function uninstall() {
@@ -81,7 +80,6 @@ function uninstall() {
     rm -rf /etc/oncn-mda
     rm -rf /usr/share/oncn-mda
     rm -rf /usr/lib/systemd/system/kmesh.service
-    systemctl daemon-reload
 }
 
 function clean() {

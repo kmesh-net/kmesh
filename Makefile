@@ -29,7 +29,7 @@ APPS2 := kmesh-cmd
 APPS3 := mdacore
 APPS4 := kmesh-cni
 
-.PHONY: all install uninstall clean
+.PHONY: all install uninstall clean build docker
 
 all:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
@@ -88,6 +88,37 @@ uninstall:
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS2)
 	$(call printlog, UNINSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
+
+build:
+	$(QUIET) BUILD_CONTAINER_ID=$$(docker run -itd --privileged=true -v /usr/src:/usr/src -v /usr/include/linux/bpf.h:/kmesh/config/linux-bpf.h -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh-build kmesh:build) && \
+	docker exec $${BUILD_CONTAINER_ID} ./build.sh && \
+	docker exec $${BUILD_CONTAINER_ID} ./build.sh -i && \
+	mkdir buildresult && \
+	docker cp $${BUILD_CONTAINER_ID}:/usr/lib64/libkmesh_api_v2_c.so buildresult && \
+	docker cp $${BUILD_CONTAINER_ID}:/usr/lib64/libkmesh_deserial.so buildresult && \
+	docker cp $${BUILD_CONTAINER_ID}:/usr/lib64/libboundscheck.so buildresult && \
+	docker exec $${BUILD_CONTAINER_ID} find /usr/lib64 -name 'libbpf.so*' -print0 | xargs -0 -I {} docker cp $${BUILD_CONTAINER_ID}:{} buildresult && \
+	docker exec $${BUILD_CONTAINER_ID} find /usr/lib64 -name 'libprotobuf-c.so*' -print0 | xargs -0 -I {} docker cp $${BUILD_CONTAINER_ID}:{} buildresult && \
+	docker cp $${BUILD_CONTAINER_ID}:/usr/bin/kmesh-daemon buildresult && \
+	docker cp $${BUILD_CONTAINER_ID}:/usr/bin/kmesh-cmd buildresult && \
+	docker cp $${BUILD_CONTAINER_ID}:/usr/bin/kmesh-cni buildresult && \
+	docker cp $${BUILD_CONTAINER_ID}:/usr/bin/mdacore buildresult &&\
+	docker cp $${BUILD_CONTAINER_ID}:/usr/share/oncn-mda/sock_ops.c.o buildresult && \
+	docker cp $${BUILD_CONTAINER_ID}:/usr/share/oncn-mda/sock_redirect.c.o buildresult
+
+docker:
+	$(QUIET) make build
+	$(QUIET) PURE_CONTAINER_ID=$$(docker run -itd --privileged=true -v /usr/src:/usr/src -v /usr/include/linux/bpf.h:/kmesh/config/linux-bpf.h -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh-pure openeuler/openeuler:2309) && \
+	find ./buildresult -name '*so*' -print0 | xargs -0 -I {} docker cp {} $${PURE_CONTAINER_ID}:/usr/lib64/ && \
+	docker cp buildresult/kmesh-daemon $${PURE_CONTAINER_ID}:/usr/bin && \
+	docker cp buildresult/kmesh-cni $${PURE_CONTAINER_ID}:/usr/bin && \
+	docker cp buildresult/kmesh-cmd $${PURE_CONTAINER_ID}:/usr/bin && \
+	docker cp buildresult/mdacore $${PURE_CONTAINER_ID}:/usr/bin  && \
+	docker exec $${PURE_CONTAINER_ID} mkdir /usr/share/oncn-mda/  && \
+	docker cp buildresult/sock_ops.c.o $${PURE_CONTAINER_ID}:/usr/share/oncn-mda/ && \
+	docker cp buildresult/sock_redirect.c.o $${PURE_CONTAINER_ID}:/usr/share/oncn-mda/  && \
+	docker exec $${PURE_CONTAINER_ID} yum install -y kmod util-linux && \
+	docker commit $${PURE_CONTAINER_ID} kmesh:runimage
 
 clean:
 	$(call printlog, CLEAN, $(APPS1))
