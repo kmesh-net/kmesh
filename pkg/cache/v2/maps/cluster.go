@@ -28,6 +28,7 @@ import (
 	"unsafe"
 
 	"google.golang.org/protobuf/proto"
+
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 )
 

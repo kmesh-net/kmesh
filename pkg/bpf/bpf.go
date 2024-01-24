@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -131,6 +132,4 @@ func Stop() {
 			return
 		}
 	}
-
-	return
 }
