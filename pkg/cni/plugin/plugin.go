@@ -149,7 +149,7 @@ func enableKmeshControl(clientSet *kubernetes.Clientset, pod *v1.Pod) error {
 		annotationPatch,
 		metav1.PatchOptions{},
 	); err != nil {
-		log.Error("failed to annotate kmesh redirection: %v", err)
+		log.Errorf("failed to annotate kmesh redirection: %v", err)
 	}
 
 	return nil
