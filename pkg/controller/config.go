@@ -33,7 +33,7 @@ func init() {
 }
 
 type Config struct {
-	interfaces.ConfigFactory `json:"controller"`
+	adsConfig *envoy.XdsConfig
 }
 
 // SetArgs set controller command arguments
@@ -43,8 +43,12 @@ func (c *Config) SetArgs() error {
 
 func (c *Config) ParseConfig() error {
 	if bpf.GetConfig().EnableKmesh || bpf.GetConfig().EnableMda {
-		c.ConfigFactory = envoy.GetConfig()
+		c.adsConfig = envoy.GetConfig()
 	}
 
-	return c.ConfigFactory.UnmarshalResources()
+	return c.adsConfig.Init()
+}
+
+func (c *Config) NewClient() (interfaces.ClientFactory, error) {
+	return c.adsConfig.NewClient()
 }

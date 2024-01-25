@@ -24,7 +24,6 @@ import (
 	"fmt"
 	"time"
 
-	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
@@ -42,36 +41,32 @@ type AdsClient struct {
 	Event  *ServiceEvent
 
 	// config.EnableAds
-	grpcConn *grpc.ClientConn
-	service  service_discovery_v3.AggregatedDiscoveryServiceClient
-	stream   service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	discoveryAddress string
+	grpcConn         *grpc.ClientConn
+	service          service_discovery_v3.AggregatedDiscoveryServiceClient
+	stream           service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 }
 
-func NewAdsClient(ads *AdsSet) (*AdsClient, error) {
-	client := &AdsClient{}
+func NewAdsClient(address string) (*AdsClient, error) {
+	client := &AdsClient{
+		discoveryAddress: address,
+	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
 	client.Event = NewServiceEvent()
 
-	err := client.CreateStream(ads)
+	err := client.CreateStream()
 	return client, err
 }
 
-func (c *AdsClient) CreateStream(ads *AdsSet) error {
-	var err error
-
+func (c *AdsClient) CreateStream() error {
 	if !config.EnableAds {
 		return nil
 	}
 
-	switch ads.APIType {
-	case config_core_v3.ApiConfigSource_GRPC:
-		// just using the first address
-		if c.grpcConn, err = nets.GrpcConnect(ads.Clusters[0].Address[0]); err != nil {
-			return fmt.Errorf("ads grpc connect failed, %s", err)
-		}
-	default:
-		return fmt.Errorf("ads invalid APIType, %v", ads.APIType)
+	var err error
+	if c.grpcConn, err = nets.GrpcConnect(c.discoveryAddress); err != nil {
+		return fmt.Errorf("ads grpc connect failed: %v", err)
 	}
 
 	c.service = service_discovery_v3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
@@ -96,7 +91,7 @@ func (c *AdsClient) recoverConnection() error {
 
 	c.closeStreamClient()
 	for count := 0; count < nets.MaxRetryCount; count++ {
-		if err = c.CreateStream(config.adsSet); err == nil {
+		if err = c.CreateStream(); err == nil {
 			return nil
 		}
 
