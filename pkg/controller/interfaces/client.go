@@ -23,9 +23,3 @@ type ClientFactory interface {
 	Run(ch <-chan struct{}) error
 	Close() error
 }
-
-type ConfigFactory interface {
-	SetClientArgs() error
-	UnmarshalResources() error
-	NewClient() (ClientFactory, error)
-}

@@ -45,6 +45,18 @@ spec:
          - name: ko-build-path
            hostPath:
              path: /usr/src
+         - name: istiod-ca-cert
+           configMap:
+             defaultMode: 420
+             name: istio-ca-root-cert
+         - name: istio-token
+           projected:
+             defaultMode: 420
+             sources:
+             - serviceAccountToken:
+                 audience: istio-ca
+                 expirationSeconds: 43200
+                 path: istio-token
        containers:
          - name: kmesh
            image: kmesh:latest
@@ -59,8 +71,21 @@ spec:
            - containerPort: 6789
              hostPort: 6789
            env:
-           - name: MESH_CONTROLLER
-             value: istio-system:istiod
+           - name: POD_NAME
+             valueFrom:
+               fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace
+           - name: POD_NAMESPACE
+             valueFrom:
+               fieldRef:
+                 apiVersion: v1
+                 fieldPath: metadata.namespace
+           - name: INSTANCE_IP
+             valueFrom:
+               fieldRef:
+                 apiVersion: v1
+                 fieldPath: status.podIP
            - name: BPF_LOG_SIZE
              value: "12800"
            volumeMounts:
@@ -92,6 +117,10 @@ spec:
            - name: ko-build-path
              mountPath: /usr/src
              readOnly: true
+           - name: istiod-ca-cert
+             mountPath: /var/run/secrets/istio
+           - name: istio-token
+             mountPath: /var/run/secrets/tokens
            resources:
              limits:
                # image online-compile needs 800Mi, or only 200Mi
