@@ -31,6 +31,8 @@ import (
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
@@ -42,6 +44,7 @@ const (
 
 type ServiceEvent struct {
 	DynamicLoader *AdsLoader
+	AuthPolicies  *auth.PolicyStore
 	ack           *service_discovery_v3.DiscoveryRequest
 	rqt           *service_discovery_v3.DiscoveryRequest
 	adminChan     chan *admin_v2.ConfigResources
@@ -273,4 +276,31 @@ func SetApiVersionInfo(resources *admin_v2.ConfigResources) {
 	if !ConfigResourcesIsEmpty(resources) {
 		resources.VersionInfo = apiVersionInfo
 	}
+}
+
+func (svc *ServiceEvent) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
+	var (
+		err  error
+		auth = &security.Authorization{}
+	)
+
+	// update resource
+	for _, resource := range rsp.GetResources() {
+		if err = anypb.UnmarshalTo(resource.Resource, auth, proto.UnmarshalOptions{}); err != nil {
+			continue
+		}
+		log.Debugf("handle auth xds, resource.name %s, auth %s", resource.GetName(), auth.String())
+		svc.AuthPolicies.UpdatePolicy(auth)
+	}
+
+	// delete resource by name
+	for _, rmResourceName := range rsp.GetRemovedResources() {
+
+		svc.AuthPolicies.RemovePolicy(rmResourceName)
+
+		log.Debugf("handle rm resource %s", rmResourceName)
+
+	}
+
+	return nil
 }
