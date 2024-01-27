@@ -28,7 +28,7 @@ import (
 
 	"kmesh.net/kmesh/cmd/command"
 	"kmesh.net/kmesh/pkg/bpf" // nolint
-	"kmesh.net/kmesh/pkg/cni_plg"
+	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/options"
@@ -84,12 +84,12 @@ func Execute() {
 		_ = command.StopServer()
 	}()
 
-	if err = cni_plg.Start(); err != nil {
+	if err = cni.Start(); err != nil {
 		log.Error(err)
 		return
 	}
 	log.Info("command Start cni successful")
-	defer cni_plg.Stop()
+	defer cni.Stop()
 
 	setupCloseHandler()
 }
