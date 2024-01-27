@@ -19,7 +19,9 @@
 
 package cache_v2
 
-import core_v2 "kmesh.net/kmesh/api/v2/core"
+import (
+	core_v2 "kmesh.net/kmesh/api/v2/core"
+)
 
 type CacheFactory interface {
 	StatusFlush(status core_v2.ApiStatus) int

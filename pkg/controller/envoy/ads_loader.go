@@ -76,13 +76,18 @@ func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
 
-	load.ClusterCache.SetApiClusterCache(cluster.GetName(), apiCluster)
+	load.ClusterCache.SetApiCluster(cluster.GetName(), apiCluster)
+}
+
+func (load *AdsLoader) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
+	load.ClusterCache.UpdateApiClusterStatus(key, status)
+
 }
 
 func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus,
 	loadAssignment *config_endpoint_v3.ClusterLoadAssignment,
 ) {
-	apiCluster := load.ClusterCache.GetApiClusterCache(loadAssignment.GetClusterName())
+	apiCluster := load.ClusterCache.GetApiCluster(loadAssignment.GetClusterName())
 	if apiCluster == nil {
 		return
 	}
