@@ -22,8 +22,6 @@ package envoy
 import (
 	"context"
 	"fmt"
-	"k8s.io/apimachinery/pkg/util/sets"
-	"kmesh.net/kmesh/pkg/utils/hash"
 
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -33,10 +31,12 @@ import (
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
+	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
 const (
@@ -134,7 +134,7 @@ func (svc *ServiceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryRe
 	)
 
 	current := sets.New[string]()
-	//make(set, 0, len(rsp.GetResources()))
+	// make(set, 0, len(rsp.GetResources()))
 	for _, resource := range rsp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
 			continue

@@ -81,7 +81,6 @@ func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *
 
 func (load *AdsLoader) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
 	load.ClusterCache.UpdateApiClusterStatus(key, status)
-
 }
 
 func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus,
