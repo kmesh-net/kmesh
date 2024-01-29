@@ -222,13 +222,12 @@ func (svc *ServiceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		svc.DynamicLoader.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
 	}
 
+	svc.DynamicLoader.ListenerCache.Flush()
+
 	if len(svc.DynamicLoader.routeNames) > 0 {
 		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.DynamicLoader.routeNames)
 		svc.DynamicLoader.routeNames = nil
-	} else {
-		svc.DynamicLoader.ListenerCache.Flush()
 	}
-
 	return nil
 }
 
