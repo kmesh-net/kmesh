@@ -29,7 +29,7 @@ import (
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 
-	"kmesh.net/kmesh/pkg/nets" // nolint
+	"kmesh.net/kmesh/pkg/nets"
 )
 
 const (
