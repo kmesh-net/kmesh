@@ -20,8 +20,9 @@
 package cache_v2
 
 import (
-	"k8s.io/apimachinery/pkg/util/sets"
 	"sync"
+
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
@@ -129,5 +130,32 @@ func (cache *ClusterCache) Flush() {
 			log.Errorf("cluster %s %s flush failed: %v", cluster.Name, cluster.ApiStatus, err)
 		}
 	}
+}
 
+func (cache *ClusterCache) StatusLookup() []*cluster_v2.Cluster {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	clusters := make([]*cluster_v2.Cluster, 0, len(cache.apiClusterCache))
+	for name, c := range cache.apiClusterCache {
+		tmp := &cluster_v2.Cluster{}
+		if err := maps_v2.ClusterLookup(name, tmp); err != nil {
+			log.Errorf("ClusterLookup failed, %s", name)
+			continue
+		}
+
+		tmp.ApiStatus = c.ApiStatus
+		clusters = append(clusters, tmp)
+	}
+
+	return clusters
+}
+
+func (cache *ClusterCache) StatusRead() []*cluster_v2.Cluster {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	clusters := make([]*cluster_v2.Cluster, 0, len(cache.apiClusterCache))
+	for _, c := range cache.apiClusterCache {
+		clusters = append(clusters, c)
+	}
+	return clusters
 }
