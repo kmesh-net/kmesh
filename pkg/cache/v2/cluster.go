@@ -32,14 +32,14 @@ import (
 type ClusterCache struct {
 	mutex           sync.RWMutex
 	apiClusterCache apiClusterCache
-	// resourceCache[0]:cds  resourceCache[1]:eds
-	resourceCache map[string][2]uint64
+	// resourceHash[0]:cds  resourceHash[1]:eds
+	resourceHash map[string][2]uint64
 }
 
 func NewClusterCache() ClusterCache {
 	return ClusterCache{
 		apiClusterCache: newApiClusterCache(),
-		resourceCache:   make(map[string][2]uint64),
+		resourceHash:    make(map[string][2]uint64),
 	}
 }
 
@@ -79,52 +79,49 @@ func (cache *ClusterCache) UpdateApiClusterStatus(key string, status core_v2.Api
 	}
 }
 
-func (cache *ClusterCache) DeleteApiCluster(key string) {
+func (cache *ClusterCache) GetCdsHash(key string) uint64 {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	return cache.resourceHash[key][0]
+}
+
+func (cache *ClusterCache) SetCdsHash(key string, value uint64) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
-	delete(cache.apiClusterCache, key)
-	delete(cache.resourceCache, key)
-}
-
-func (cache *ClusterCache) GetCdsResource(key string) uint64 {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
-	return cache.resourceCache[key][0]
-}
-
-func (cache *ClusterCache) SetCdsResource(key string, value uint64) {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
-	cache.resourceCache[key] = [2]uint64{value, cache.resourceCache[key][1]}
+	cache.resourceHash[key] = [2]uint64{value, cache.resourceHash[key][1]}
 }
 
 func (cache *ClusterCache) GetEdsResource(key string) uint64 {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
-	return cache.resourceCache[key][1]
+	return cache.resourceHash[key][1]
 }
 
 func (cache *ClusterCache) SetEdsResource(key string, value uint64) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
-	cache.resourceCache[key] = [2]uint64{cache.resourceCache[key][0], value}
+	cache.resourceHash[key] = [2]uint64{cache.resourceHash[key][0], value}
 }
 
 // Flush flushes the cluster to bpf map.
 func (cache *ClusterCache) Flush() {
 	var err error
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 	for _, cluster := range cache.apiClusterCache {
 		switch cluster.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
 			err = maps_v2.ClusterUpdate(cluster.GetName(), cluster)
+			if err == nil {
+				// reset api status after successfully updated
+				cluster.ApiStatus = core_v2.ApiStatus_NONE
+			}
 		case core_v2.ApiStatus_DELETE:
 			err = maps_v2.ClusterDelete(cluster.GetName())
-			delete(cache.apiClusterCache, cluster.GetName())
-			delete(cache.resourceCache, cluster.GetName())
-		default:
-			break
+			if err == nil {
+				delete(cache.apiClusterCache, cluster.GetName())
+				delete(cache.resourceHash, cluster.GetName())
+			}
 		}
 		if err != nil {
 			log.Errorf("cluster %s %s flush failed: %v", cluster.Name, cluster.ApiStatus, err)
