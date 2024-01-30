@@ -17,6 +17,14 @@
 
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+	GOBIN=$(shell go env GOPATH)/bin
+else
+	GOBIN=$(shell go env GOBIN)
+endif
+export PATH := $(GOBIN):$(PATH)
+
 include ./mk/bpf.vars.mk
 include ./mk/bpf.print.mk
 
@@ -58,9 +66,21 @@ all:
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS4) $(GOFLAGS) ./cniplugin/main.go)
 
-.PHONY: gen
-gen:
+.PHONY: gen-proto
+gen-proto:
 	$(QUIET) make -C api gen-proto
+
+.PHONY: tidy
+tidy:
+	go mod tidy
+
+.PHONY: gen
+gen: tidy\
+	gen-proto
+
+.PHONY: gen-check
+gen-check: gen
+	hack/gen-check.sh
 
 install:
 	$(QUIET) make install -C api/v2-c

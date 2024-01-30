@@ -31,6 +31,7 @@ PROTO_SRC := $(call find_source, ../api, *.proto)
 
 gen-proto:
 
+	$(QUIET) bash ../hack/install-proto.sh
 	$(call printlog, PROTO, api/$(C_OUTPUT_DIR))
 	$(QUIET) protoc-c --proto_path=$(PROTO_PATH) --c_out=.  $(PROTO_SRC)
 	$(QUIET) mkdir -p $(C_OUTPUT_DIR)
