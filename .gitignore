@@ -37,14 +37,6 @@ kmesh-daemon
 # build artifacts
 *.so
 *.o
-api/v2/
-api/v2-c/admin/
-api/v2-c/cluster/
-api/v2-c/core/
-api/v2-c/endpoint/
-api/v2-c/filter/
-api/v2-c/listener/
-api/v2-c/route/
 bpf/include/bpf_helper_defs_ext.h
 bpf/kmesh/bpf2go/kmeshcgroupsock_bpfeb.go
 bpf/kmesh/bpf2go/kmeshcgroupsock_bpfel.go
