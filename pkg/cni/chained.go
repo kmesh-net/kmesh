@@ -117,9 +117,10 @@ func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 	}
 
 	kmeshConfig := map[string]string{}
+	kubeconfigFilepath := filepath.Join(config.CniMountNetEtcDIR, kmeshCniKubeConfig)
 	// add kmesh-cni configuration
 	kmeshConfig["type"] = kmeshCniPluginName
-	kmeshConfig["kubeConfig"] = kmeshCniKubeConfig
+	kmeshConfig["kubeConfig"] = kubeconfigFilepath
 	cniConfigMap["plugins"] = append(plugins, kmeshConfig)
 
 	byte, err := json.MarshalIndent(cniConfigMap, "", "  ")
