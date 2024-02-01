@@ -97,11 +97,7 @@ uninstall:
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
 
 build:
-	$(QUIET) BUILD_CONTAINER_ID=$$(docker run -itd --privileged=true -v /usr/src:/usr/src -v /usr/include/linux/bpf.h:/kmesh/config/linux-bpf.h -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules -v $(ROOT_DIR):/kmesh --name kmesh-build kmesh:build) && \
-	docker exec $${BUILD_CONTAINER_ID} ./build.sh && \
-	docker exec $${BUILD_CONTAINER_ID} ./build.sh -i && \
-	./copy.sh -p $${BUILD_CONTAINER_ID} 
-	git clean -df 
+	./copy.sh
 	
 docker:
 	make build
