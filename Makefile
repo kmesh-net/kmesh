@@ -97,11 +97,11 @@ uninstall:
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
 
 build:
-	./copy.sh
+	./kmesh_compile.sh
 	
 docker:
 	make build
-	docker build --build-arg dir=$(DIR) -f kmesh.dockerfile -t $(IMAGE) .
+	docker build --build-arg dir=$(DIR) -f build/docker/kmesh.dockerfile -t $(IMAGE) .
 
 clean:
 	$(call printlog, CLEAN, $(APPS1))
