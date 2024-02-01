@@ -22,6 +22,13 @@ include ./mk/bpf.print.mk
 
 # compiler flags
 GOFLAGS := $(EXTRA_GOFLAGS)
+ARCH := $(shell uname -m)
+
+ifeq ($(ARCH),x86_64)
+	DIR := amd64
+else
+	DIR := aarch64
+endif
 
 # target
 APPS1 := kmesh-daemon
@@ -97,7 +104,6 @@ build:
 	git clean -df 
 	
 docker:
-	$(QUIET) PURE_CONTAINER_ID=$$(docker run -itd --privileged=true -v /usr/src:/usr/src -v /usr/include/linux/bpf.h:/kmesh/config/linux-bpf.h -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh-pure kmesh:pure) && \
 	make build
 	docker build --build-arg dir=$(DIR) -f kmesh.dockerfile -t $(IMAGE) .
 

@@ -1,8 +1,14 @@
 #!/bin/bash
 
-container_id=$1
+KMESH_DIR=$(pwd)
+container_id=$(docker run -itd --privileged=true -v /usr/src:/usr/src -v /usr/include/linux/bpf.h:/kmesh/config/linux-bpf.h -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules -v ${KMESH_DIR}:/kmesh --name kmesh-build kmesh:build)
 dir=""
-copy_to_host() {
+function build() {
+    docker exec $container_id  sh /kmesh/build.sh 
+    docker exec $container_id  sh  /kmesh/build.sh -i 
+}
+
+function copy_to_host() {
     if [ ! -d "./out" ]; then
         mkdir out
     fi
@@ -26,4 +32,5 @@ copy_to_host() {
     docker cp $container_id:/usr/share/oncn-mda/sock_redirect.c.o out/$dir
 }
 
-copy_to_host $container_id
+build
+copy_to_host
