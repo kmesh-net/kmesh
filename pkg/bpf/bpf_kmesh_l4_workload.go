@@ -25,6 +25,9 @@ import (
 
 type BpfKmeshWorkload struct {
 	SockConn BpfSockConnWorkload
+	SockOps  BpfSockOpsWorkload
+	SendMsg  BpfSendMsgWorkload
+	SkbVerd  BpfSkbVerdictWorkload
 }
 
 type BpfObjectWorkload struct {
@@ -39,6 +42,18 @@ func NewBpfKmeshWorkload(cfg *Config) (BpfKmeshWorkload, error) {
 	sc := BpfKmeshWorkload{}
 
 	if err = sc.SockConn.NewBpf(cfg); err != nil {
+		return sc, err
+	}
+
+	if err = sc.SockOps.NewBpf(cfg); err != nil {
+		return sc, err
+	}
+
+	if err = sc.SendMsg.NewBpf(cfg); err != nil {
+		return sc, err
+	}
+
+	if err = sc.SkbVerd.NewBpf(cfg); err != nil {
 		return sc, err
 	}
 	return sc, nil
@@ -71,6 +86,18 @@ func (sc *BpfKmeshWorkload) Load() error {
 		return err
 	}
 
+	if err = sc.SockOps.LoadSockOps(); err != nil {
+		return err
+	}
+
+	if err = sc.SendMsg.LoadSendMsg(); err != nil {
+		return err
+	}
+
+	if err = sc.SkbVerd.LoadSkbVerdict(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -81,6 +108,18 @@ func (sc *BpfKmeshWorkload) Attach() error {
 		return err
 	}
 
+	if err = sc.SockOps.Attach(); err != nil {
+		return err
+	}
+
+	if err = sc.SendMsg.Attach(); err != nil {
+		return err
+	}
+
+	if err = sc.SkbVerd.Attach(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -88,6 +127,18 @@ func (sc *BpfKmeshWorkload) Detach() error {
 	var err error
 
 	if err = sc.SockConn.Detach(); err != nil {
+		return err
+	}
+
+	if err = sc.Sendmsg.Detach(); err != nil {
+		return err
+	}
+
+	if err = sc.SkbVerd.Detach(); err != nil {
+		return err
+	}
+
+	if err = sc.SockOps.Detach(); err != nil {
 		return err
 	}
 	return nil
