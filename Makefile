@@ -42,7 +42,6 @@ APPS4 := kmesh-cni
 all:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 
-	$(QUIET) make -C api
 	$(QUIET) make -C api/v2-c
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
 	
