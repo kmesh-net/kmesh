@@ -93,6 +93,10 @@ func Start() error {
 		if err = StartKmesh(); err != nil {
 			return err
 		}
+	} else if config.EnableKmeshWorkload {
+		if err = StartKmeshWorkload(); err != nil {
+			return err
+		}
 	}
 
 	if config.EnableMda {
@@ -121,6 +125,11 @@ func Stop() {
 
 	if config.EnableKmesh {
 		if err = Obj.Kmesh.Detach(); err != nil {
+			log.Errorf("failed detach when stop kmesh, err:%s", err)
+			return
+		}
+	} else if config.EnableKmeshWorkload {
+		if err = ObjWorkload.KmeshWorkload.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
