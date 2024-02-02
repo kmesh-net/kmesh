@@ -27,10 +27,11 @@ GO_BUILD_DIR := kmesh.net/kmesh/api
 PROTO_PATH := ../
 PROTO_SRC := $(call find_source, ../api, *.proto)
 
-.PHONY: all install clean
+.PHONY: gen-proto install clean
 
-all:
+gen-proto:
 
+	$(QUIET) bash ../hack/install-proto.sh
 	$(call printlog, PROTO, api/$(C_OUTPUT_DIR))
 	$(QUIET) protoc-c --proto_path=$(PROTO_PATH) --c_out=.  $(PROTO_SRC)
 	$(QUIET) mkdir -p $(C_OUTPUT_DIR)
@@ -43,6 +44,7 @@ all:
 	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR); rm -rf kmesh.net
 	$(QUIET) find $(GO_OUTPUT_DIR) -name *pb.go | xargs sed -i 's/mesh\/api/mesh\/api\/v2/g'
 
+	
 install:
 
 clean:

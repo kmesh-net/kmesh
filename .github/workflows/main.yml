@@ -17,7 +17,11 @@ jobs:
       uses: actions/setup-go@v4.0.0
       with:
         go-version: ${{ matrix.go-version }}
-    
+
+    - name: Run gen-check
+      run: |
+        make gen-check
+
     - name: Build Kmesh
       shell: bash
       run: |
