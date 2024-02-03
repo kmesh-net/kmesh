@@ -51,8 +51,10 @@ spec:
         - containerPort: 6789
           hostPort: 6789
         resources: {{- toYaml .Values.deploy.kmesh.resources | nindent 10 }}
-        securityContext: {{- toYaml .Values.deploy.kmesh.containerSecurityContext | nindent
-          10 }}
+        securityContext:
+          privileged: true
+          capabilities:
+            add: ["all"]
         volumeMounts:
         - mountPath: /mnt
           name: mnt
