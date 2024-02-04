@@ -25,7 +25,7 @@ jobs:
     - name: Build Kmesh
       shell: bash
       run: |
-        sudo bash ./build.sh
+        sudo env "PATH=$PATH" bash ./build.sh
 
     - name: Setup Enviroments
       run: |

@@ -75,6 +75,8 @@ spec:
                fieldRef:
                  apiVersion: v1
                  fieldPath: status.podIP
+           - name: MESH_CONTROLLER
+             value: "istiod.istio-system.svc:15012"
            - name: BPF_LOG_SIZE
              value: "12800"
            volumeMounts:

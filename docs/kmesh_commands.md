@@ -9,36 +9,15 @@
       	bpf fs path (default "/sys/fs/bpf")
     -cgroup2-path string
       	cgroup2 path (default "/mnt/kmesh_cgroup2")
-    -config-file string
-      	[if -enable-kmesh] deploy in kube cluster (default "/etc/kmesh/kmesh.json")
     -enable-ads
       	[if -enable-kmesh] enable control-plane from ads (default true)
     -enable-kmesh
       	enable bpf kmesh
-    -service-cluster string
-      	[if -enable-kmesh] TODO (default "TODO")
-    -service-node string
-      	[if -enable-kmesh] TODO (default "TODO")
   
   # example
   ./kmesh-daemon -enable-kmesh
   # example
-  ./kmesh-daemon -enable-kmesh -enable-ads=true -config-file=envoy-rev0.json
   ./kmesh-daemon -enable-kmesh -enable-ads=false
-  ```
-
-- kmesh-cmd
-
-  Orchestration rules can be manually imported. Generally, orchestration rules are used in manual deployment scenarios.
-
-  ```sh
-  # kmesh-cmd -h
-  Usage of kmesh-cmd:
-    -config-file string
-      	input config-resources to bpf maps (default "./config-resources.json")
-  
-  # example
-  ./kmesh-cmd -config-file=examples/api-v2-config/config-resources.json
   ```
 
 - Commands Example

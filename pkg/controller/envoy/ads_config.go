@@ -53,7 +53,6 @@ var (
 
 type XdsConfig struct {
 	ServiceNode      string
-	ServiceCluster   string
 	DiscoveryAddress string
 	EnableAds        bool
 }
@@ -64,7 +63,6 @@ func GetConfig() *XdsConfig {
 
 func (c *XdsConfig) SetClientArgs() error {
 	flag.BoolVar(&c.EnableAds, "enable-ads", true, "[if -enable-kmesh] enable control-plane from ads")
-	flag.StringVar(&c.ServiceCluster, "service-cluster", "TODO", "[if -enable-kmesh] TODO")
 	return nil
 }
 
@@ -102,7 +100,6 @@ func (c *XdsConfig) NewClient() (interfaces.ClientFactory, error) {
 func (c *XdsConfig) getNode() *config_core_v3.Node {
 	return &config_core_v3.Node{
 		Id:       c.ServiceNode,
-		Cluster:  c.ServiceCluster,
 		Metadata: nil,
 	}
 }
