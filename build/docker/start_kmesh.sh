@@ -1,8 +1,6 @@
 #!/bin/sh
 
 # docker image compile online, if not compile online, the following lines also have no effect 
-bash build.sh
-bash build.sh -i 
 
 lsmod | grep kmesh > /dev/null
 if [ $? -ne 0 ]; then

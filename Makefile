@@ -30,6 +30,13 @@ include ./mk/bpf.print.mk
 
 # compiler flags
 GOFLAGS := $(EXTRA_GOFLAGS)
+ARCH := $(shell uname -m)
+
+ifeq ($(ARCH),x86_64)
+	DIR := amd64
+else
+	DIR := aarch64
+endif
 
 # target
 APPS1 := kmesh-daemon
@@ -37,7 +44,7 @@ APPS2 := kmesh-cmd
 APPS3 := mdacore
 APPS4 := kmesh-cni
 
-.PHONY: all install uninstall clean
+.PHONY: all install uninstall clean build docker
 
 all:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
@@ -111,6 +118,13 @@ uninstall:
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS2)
 	$(call printlog, UNINSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
+
+build:
+	./kmesh_compile.sh
+	
+docker:
+	make build
+	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(IMAGE) .
 
 clean:
 	$(call printlog, CLEAN, $(APPS1))
