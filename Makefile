@@ -47,6 +47,8 @@ all:
 	
 	$(QUIET) $(GO) generate bpf/kmesh/bpf2go/bpf2go.go
 	
+	echo $(GO)
+	$(GO) env
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
