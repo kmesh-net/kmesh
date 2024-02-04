@@ -20,8 +20,6 @@
 package nets
 
 import (
-	"context"
-	"math"
 	"math/rand"
 	"net"
 	"strings"
@@ -59,21 +57,6 @@ func IsIPAndPort(addr string) bool {
 	return net.ParseIP(ip) != nil
 }
 
-func unixDialHandler(ctx context.Context, addr string) (net.Conn, error) {
-	unixAddress, err := net.ResolveUnixAddr("unix", addr)
-	if err != nil {
-		return nil, err
-	}
-
-	return net.DialUnix("unix", nil, unixAddress)
-}
-
-func defaultDialOption() grpc.DialOption {
-	return grpc.WithDefaultCallOptions(
-		grpc.MaxCallRecvMsgSize(math.MaxInt32),
-	)
-}
-
 // GrpcConnect creates a client connection to the given addr
 func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	var (
@@ -92,6 +75,9 @@ func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	}
 
 	credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, trustDomainEnv, jwtPath, "")
+	if err != nil {
+		return nil, err
+	}
 	o := &istiosecurity.Options{
 		CredFetcher: credFetcher,
 	}
