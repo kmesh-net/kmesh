@@ -27,3 +27,4 @@ package bpf2go
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshTracePoint ../tracepoint.c -- -I../include -I../../include
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshSkbVerdict ../skb_verdict.c -- -I../include -I../../include
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshSendmsg ../sendmsg.c -- -I../include -I../../include
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshSockopsWorkload ../skckops_workload.c -- -I../include -I../../include

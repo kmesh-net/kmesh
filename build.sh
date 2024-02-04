@@ -5,10 +5,10 @@ ROOT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 function bpf_compile_range_adjust() {
     if [ "$ENHANCED_KERNEL" == "enhanced" ]; then
             sed -i '/tracepoint/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-            sed -i '/sockops/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/KmeshSockops /s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
     else
             sed -i '/tracepoint/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-            sed -i '/sockops/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/KmeshSockops /s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
     fi
 }
 
