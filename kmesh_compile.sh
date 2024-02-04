@@ -27,28 +27,28 @@ function build_kmesh() {
 }
 
 function copy_to_host() {
-    local aarch=""
+    local arch=""
     if [ ! -d "./out" ]; then
         mkdir out
     fi
 
     if [ "$(arch)" == "x86_64" ]; then
-        aarch="amd64"
+        arch="amd64"
     else
-        aarch="aarch64"
+        arch="aarch64"
     fi
 
-    mkdir "./out/$aarch"
+    mkdir "./out/$arch"
 
-    cp /usr/lib64/libkmesh_api_v2_c.so out/$aarch
-    cp /usr/lib64/libkmesh_deserial.so out/$aarch
-    cp /usr/lib64/libboundscheck.so out/$aarch
-    find /usr/lib64 -name 'libbpf.so*' -exec cp {} out/$aarch \;
-    find /usr/lib64 -name 'libprotobuf-c.so*' -exec cp {} out/$aarch \;
-    cp /usr/bin/kmesh-daemon out/$aarch
-    cp /usr/bin/kmesh-cmd out/$aarch
-    cp /usr/bin/kmesh-cni out/$aarch
-    cp /usr/bin/mdacore out/$aarch
+    cp /usr/lib64/libkmesh_api_v2_c.so out/$arch
+    cp /usr/lib64/libkmesh_deserial.so out/$arch
+    cp /usr/lib64/libboundscheck.so out/$arch
+    find /usr/lib64 -name 'libbpf.so*' -exec cp {} out/$arch \;
+    find /usr/lib64 -name 'libprotobuf-c.so*' -exec cp {} out/$arch \;
+    cp /usr/bin/kmesh-daemon out/$arch
+    cp /usr/bin/kmesh-cmd out/$arch
+    cp /usr/bin/kmesh-cni out/$arch
+    cp /usr/bin/mdacore out/$arch
 }
 
 function clean_container() {

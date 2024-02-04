@@ -101,7 +101,7 @@ build:
 	
 docker:
 	make build
-	docker build --build-arg aarch=$(DIR) -f build/docker/kmesh.dockerfile -t $(IMAGE) .
+	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(IMAGE) .
 
 clean:
 	$(call printlog, CLEAN, $(APPS1))

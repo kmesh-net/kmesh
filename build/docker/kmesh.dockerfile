@@ -5,13 +5,13 @@ FROM openeuler/openeuler:23.09
 
 WORKDIR /kmesh
 
-ARG aarch
+ARG arch
 
-ADD out/$aarch/*so* /usr/lib64/
-ADD out/$aarch/kmesh-daemon /usr/bin/
-ADD out/$aarch/kmesh-cni /usr/bin/
-ADD out/$aarch/kmesh-cmd /usr/bin/
-ADD out/$aarch/mdacore /usr/bin/
+ADD out/$arch/*so* /usr/lib64/
+ADD out/$arch/kmesh-daemon /usr/bin/
+ADD out/$arch/kmesh-cni /usr/bin/
+ADD out/$arch/kmesh-cmd /usr/bin/
+ADD out/$arch/mdacore /usr/bin/
 ADD build/docker/start_kmesh.sh /kmesh
 
 RUN mkdir /etc/kmesh

@@ -68,9 +68,6 @@ function install() {
     chmod 700 /etc/oncn-mda
     cp $ROOT_DIR/oncn-mda/etc/oncn-mda.conf /etc/oncn-mda/
     chmod 600 /etc/oncn-mda/oncn-mda.conf
-
-    cp $ROOT_DIR/build/kmesh.service /usr/lib/systemd/system/
-    chmod 600 /usr/lib/systemd/system/kmesh.service
 }
 
 function uninstall() {
@@ -79,7 +76,6 @@ function uninstall() {
     rm -rf /usr/bin/kmesh-stop-post.sh
     rm -rf /etc/oncn-mda
     rm -rf /usr/share/oncn-mda
-    rm -rf /usr/lib/systemd/system/kmesh.service
 }
 
 function clean() {
