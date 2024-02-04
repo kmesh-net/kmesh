@@ -20,15 +20,16 @@
 package nets
 
 import (
-	"context"
-	"math"
 	"math/rand"
 	"net"
 	"strings"
 	"time"
 
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	istiosecurity "istio.io/istio/pkg/security"
+	"istio.io/istio/security/pkg/credentialfetcher"
+	"istio.io/istio/security/pkg/nodeagent/caclient"
 )
 
 const (
@@ -37,6 +38,11 @@ const (
 
 	// MaxRetryCount retry max count when reconnect
 	MaxRetryCount = 3
+
+	credFetcherTypeEnv = "JWT"
+	trustDomainEnv     = "cluster.local"
+	jwtPath            = "/var/run/secrets/tokens/istio-token"
+	rootCertPath       = "/var/run/secrets/istio/root-cert.pem"
 )
 
 // IsIPAndPort returns true if the address format ip:port
@@ -51,34 +57,31 @@ func IsIPAndPort(addr string) bool {
 	return net.ParseIP(ip) != nil
 }
 
-func unixDialHandler(ctx context.Context, addr string) (net.Conn, error) {
-	unixAddress, err := net.ResolveUnixAddr("unix", addr)
-	if err != nil {
-		return nil, err
-	}
-
-	return net.DialUnix("unix", nil, unixAddress)
-}
-
-func defaultDialOption() grpc.DialOption {
-	return grpc.WithDefaultCallOptions(
-		grpc.MaxCallRecvMsgSize(math.MaxInt32),
-	)
-}
-
 // GrpcConnect creates a client connection to the given addr
 func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	var (
 		err  error
 		conn *grpc.ClientConn
-		opts []grpc.DialOption
 	)
-	opts = append(opts, defaultDialOption())
-	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
-	if !IsIPAndPort(addr) {
-		opts = append(opts, grpc.WithContextDialer(unixDialHandler))
+	tlsOptions := &istiogrpc.TLSOptions{
+		RootCert:      rootCertPath,
+		ServerAddress: addr,
 	}
+
+	opts, err := istiogrpc.ClientOptions(nil, tlsOptions)
+	if err != nil {
+		return nil, err
+	}
+
+	credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, trustDomainEnv, jwtPath, "")
+	if err != nil {
+		return nil, err
+	}
+	o := &istiosecurity.Options{
+		CredFetcher: credFetcher,
+	}
+	opts = append(opts, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(o)))
 
 	if conn, err = grpc.Dial(addr, opts...); err != nil {
 		return nil, err

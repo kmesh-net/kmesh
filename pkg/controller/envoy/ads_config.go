@@ -20,37 +20,30 @@
 package envoy
 
 import (
-	"context"
-	"errors"
 	"flag"
-	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
 	"strings"
-	"time"
 
-	config_bootstrap_v3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
-	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	extensions_tls_v3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	"istio.io/pkg/env"
 
 	// in order to fix: could not resolve Any message type
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
-	"github.com/golang/protobuf/jsonpb" // nolint
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3" // nolint
 
 	"kmesh.net/kmesh/pkg/controller/interfaces"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/options"
-	"kmesh.net/kmesh/pkg/utils"
 )
 
 const (
 	pkgSubsys  = "xds"
 	Decimalism = 10
+
+	// TODO(YaoZengzeng): use appropriate role, "sidecar" or "ztunnel".
+	nodeRole                  = "sidecar"
+	localHostIPv4             = "127.0.0.1"
+	serviceNodeSeparator      = "~"
+	defaultClusterLocalDomain = "cluster.local"
 )
 
 var (
@@ -59,11 +52,9 @@ var (
 )
 
 type XdsConfig struct {
-	File           string `json:"-file"`
-	ServiceNode    string `json:"-service-node"`
-	ServiceCluster string `json:"-service-cluster"`
-	EnableAds      bool   `json:"-enable-ads"`
-	adsSet         *AdsSet
+	ServiceNode      string
+	DiscoveryAddress string
+	EnableAds        bool
 }
 
 func GetConfig() *XdsConfig {
@@ -71,167 +62,44 @@ func GetConfig() *XdsConfig {
 }
 
 func (c *XdsConfig) SetClientArgs() error {
-	flag.StringVar(&c.File, "config-file",
-		"/etc/kmesh/kmesh.json", "[if -enable-kmesh] deploy in kube cluster")
-	flag.StringVar(&c.ServiceNode, "service-node", "TODO", "[if -enable-kmesh] TODO")
-	flag.StringVar(&c.ServiceCluster, "service-cluster", "TODO", "[if -enable-kmesh] TODO")
 	flag.BoolVar(&c.EnableAds, "enable-ads", true, "[if -enable-kmesh] enable control-plane from ads")
 	return nil
 }
 
-func (c *XdsConfig) UnmarshalResources() error {
-	var (
-		err       error
-		content   []byte
-		bootstrap config_bootstrap_v3.Bootstrap
-	)
-
+func (c *XdsConfig) Init() error {
 	if !c.EnableAds {
 		return nil
 	}
 
-	if c.File, err = filepath.Abs(c.File); err != nil {
-		return err
+	podIP := env.Register("INSTANCE_IP", "", "").Get()
+	podName := env.Register("POD_NAME", "", "").Get()
+	podNamespace := env.Register("POD_NAMESPACE", "", "").Get()
+	discoveryAddress := env.Register("MESH_CONTROLLER", "istiod.istio-system.svc:15012", "").Get()
+
+	c.DiscoveryAddress = discoveryAddress
+
+	ip := localHostIPv4
+	if podIP != "" {
+		ip = podIP
 	}
 
-	if content, err = options.LoadConfigFile(c.File); err != nil {
-		return err
-	}
-	if err = jsonpb.UnmarshalString(string(content), &bootstrap); err != nil {
-		return err
-	}
+	id := podName + podNamespace
+	dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
 
-	if c.adsSet, err = NewAdsConfig(&bootstrap); err != nil {
-		return err
-	}
+	c.ServiceNode = strings.Join([]string{nodeRole, ip, id, dnsDomain}, serviceNodeSeparator)
+
+	log.Infof("service node %v connect to discovery address %v", c.ServiceNode, c.DiscoveryAddress)
 
 	return nil
 }
 
 func (c *XdsConfig) NewClient() (interfaces.ClientFactory, error) {
-	return NewAdsClient(c.adsSet)
+	return NewAdsClient(c.DiscoveryAddress)
 }
 
 func (c *XdsConfig) getNode() *config_core_v3.Node {
-	if c.adsSet.Node != nil {
-		return c.adsSet.Node
+	return &config_core_v3.Node{
+		Id:       c.ServiceNode,
+		Metadata: nil,
 	}
-
-	if c.adsSet.Node != nil {
-		return c.adsSet.Node
-	} else {
-		return &config_core_v3.Node{
-			Id:       c.ServiceNode,
-			Cluster:  c.ServiceCluster,
-			Metadata: nil,
-		}
-	}
-}
-
-type AdsSet struct {
-	Node     *config_core_v3.Node
-	APIType  config_core_v3.ApiConfigSource_ApiType
-	Clusters []*ClusterConfig
-}
-
-type ClusterConfig struct {
-	Name           string
-	Address        []string
-	LbPolicy       config_cluster_v3.Cluster_LbPolicy
-	ConnectTimeout time.Duration
-	TlsContext     *extensions_tls_v3.UpstreamTlsContext
-}
-
-func NewAdsConfig(bootstrap *config_bootstrap_v3.Bootstrap) (*AdsSet, error) {
-	var (
-		err        error
-		clusterCfg *ClusterConfig
-		meshCtlIp  string
-	)
-
-	if bootstrap == nil {
-		return nil, fmt.Errorf("bootstrap is nil")
-	}
-	if err = bootstrap.ValidateAll(); err != nil {
-		return nil, err
-	}
-
-	ads := &AdsSet{
-		Node:    bootstrap.GetNode(),
-		APIType: bootstrap.GetDynamicResources().GetAdsConfig().GetApiType(),
-	}
-
-	for _, svc := range bootstrap.GetDynamicResources().GetAdsConfig().GetGrpcServices() {
-		name := svc.GetEnvoyGrpc().GetClusterName()
-		for _, cluster := range bootstrap.GetStaticResources().GetClusters() {
-			if name != cluster.GetName() {
-				continue
-			}
-
-			clusterCfg = new(ClusterConfig)
-			clusterCfg.Name = name
-			clusterCfg.LbPolicy = cluster.GetLbPolicy()
-			clusterCfg.ConnectTimeout = cluster.GetConnectTimeout().AsDuration()
-
-			for _, localityLb := range cluster.GetLoadAssignment().GetEndpoints() {
-				for _, lb := range localityLb.GetLbEndpoints() {
-					addr := ""
-
-					switch lb.GetEndpoint().GetAddress().GetAddress().(type) {
-					case *config_core_v3.Address_Pipe:
-						addr = lb.GetEndpoint().GetAddress().GetPipe().GetPath()
-					case *config_core_v3.Address_SocketAddress:
-						ip := lb.GetEndpoint().GetAddress().GetSocketAddress().GetAddress()
-						meshCtlIp, err = getMeshCtlIp()
-						if err != nil {
-							log.Infof(err.Error())
-						} else if meshCtlIp != "" {
-							ip = meshCtlIp
-						}
-						port := lb.GetEndpoint().GetAddress().GetSocketAddress().GetPortValue()
-						addr = ip + ":" + strconv.FormatUint(uint64(port), Decimalism)
-					case *config_core_v3.Address_EnvoyInternalAddress:
-						log.Infof("envoy internal addr type is unsupport this version")
-						continue
-					default:
-						log.Infof("unsuport addr type, %T", lb.GetEndpoint().GetAddress())
-						continue
-					}
-
-					clusterCfg.Address = append(clusterCfg.Address, addr)
-				}
-			}
-
-			ads.Clusters = append(ads.Clusters, clusterCfg)
-		}
-	}
-
-	return ads, nil
-}
-
-// TODO(hzxuzhonghu): pass xds discovery address instead of using `MESH_CONTROLLER`
-func getMeshCtlIp() (meshCtlIp string, err error) {
-	meshCtl := os.Getenv("MESH_CONTROLLER")
-	if meshCtl == "" {
-		log.Infof("env MESH_CONTROLLER not set, use the default vlaue: istio-system:istiod")
-		meshCtl = "istio-system:istiod"
-	}
-	array := strings.Split(meshCtl, ":")
-	if len(array) != 2 {
-		return meshCtlIp, errors.New("get env MESH_CONTROLLER error!")
-	}
-	ns := array[0]
-	name := array[1]
-	clientSet, err := utils.GetK8sclient()
-	if err != nil {
-		return meshCtlIp, err
-	}
-	service, err := clientSet.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
-	if err != nil {
-		log.Errorf("failed to get service %s in namespace %s!", name, ns)
-		return meshCtlIp, err
-	}
-
-	meshCtlIp = service.Spec.ClusterIP
-	return meshCtlIp, nil
 }
