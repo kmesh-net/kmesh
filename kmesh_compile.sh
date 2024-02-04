@@ -1,11 +1,16 @@
 #!/bin/bash
 
 function prepare() {
-    docker pull ghcr.io/kmesh-net/kmesh-build:v0.2.0
+    local arch
+    arch=$(get_arch)
+    docker pull "ghcr.io/kmesh-net/kmesh-build-${arch}:v0.2.0"
 }
 
 function run_docker_container() {
-    local container_id=$(docker run -itd --privileged=true \
+    local arch
+    arch=$(get_arch)
+    local container_id
+    container_id=$(docker run -itd --privileged=true \
         -v /usr/src:/usr/src \
         -v /usr/include/linux/bpf.h:/kmesh/config/linux-bpf.h \
         -v /etc/cni/net.d:/etc/cni/net.d \
@@ -13,10 +18,18 @@ function run_docker_container() {
         -v /mnt:/mnt \
         -v /sys/fs/bpf:/sys/fs/bpf \
         -v /lib/modules:/lib/modules \
-        -v $(pwd):/kmesh \
-        --name kmesh-build kmesh-build:v0.2.0)
+        -v "$(pwd)":/kmesh \
+        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:v0.2.0")
 
-    echo $container_id
+    echo "$container_id"
+}
+
+function get_arch() {
+    if [ "$(arch)" == "x86_64" ]; then
+        echo "x86"
+    else
+        echo "arm"
+    fi
 }
 
 function build_kmesh() {
