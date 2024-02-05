@@ -22,6 +22,8 @@ package cache_v2
 import (
 	"sync"
 
+	"k8s.io/apimachinery/pkg/util/sets"
+
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
@@ -30,19 +32,18 @@ import (
 
 var RWListener sync.RWMutex
 
-var (
-	log = logger.NewLoggerField("cache/v2")
-)
+var log = logger.NewLoggerField("cache/v2")
 
 type ListenerCache struct {
+	mutex            sync.RWMutex
 	apiListenerCache apiListenerCache
-	resourceCache    map[string]string
+	resourceHash     map[string]uint64
 }
 
 func NewListenerCache() ListenerCache {
 	return ListenerCache{
 		apiListenerCache: NewApiListenerCache(),
-		resourceCache:    make(map[string]string),
+		resourceHash:     make(map[string]uint64),
 	}
 }
 
@@ -52,103 +53,104 @@ func NewApiListenerCache() apiListenerCache {
 	return make(apiListenerCache)
 }
 
-func (cache *ListenerCache) GetApiListenerCache(key string) *listener_v2.Listener {
+func (cache *ListenerCache) GetApiListener(key string) *listener_v2.Listener {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
 	return cache.apiListenerCache[key]
 }
 
-func (cache *ListenerCache) SetApiListenerCache(key string, value *listener_v2.Listener) {
+func (cache *ListenerCache) GetResourceNames() sets.Set[string] {
+	out := sets.New[string]()
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	for key := range cache.apiListenerCache {
+		out.Insert(key)
+	}
+	return out
+}
+
+func (cache *ListenerCache) SetApiListener(key string, value *listener_v2.Listener) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 	cache.apiListenerCache[key] = value
 }
 
-func (cache *ListenerCache) GetLdsResource(key string) string {
-	return cache.resourceCache[key]
+func (cache *ListenerCache) UpdateApiListenerStatus(key string, status core_v2.ApiStatus) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	if cluster := cache.apiListenerCache[key]; cluster != nil {
+		cluster.ApiStatus = status
+	}
 }
 
-func (cache *ListenerCache) SetLdsResource(key string, value string) {
-	cache.resourceCache[key] = value
+func (cache *ListenerCache) DeleteApiListener(key string) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	delete(cache.apiListenerCache, key)
+	delete(cache.resourceHash, key)
 }
 
-func (cache ListenerCache) StatusFlush(status core_v2.ApiStatus) int {
-	var (
-		err error
-		num int
-	)
+func (cache *ListenerCache) GetLdsHash(key string) uint64 {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	return cache.resourceHash[key]
+}
 
-	RWListener.Lock()
+func (cache *ListenerCache) AddOrUpdateLdsHash(key string, value uint64) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	cache.resourceHash[key] = value
+}
 
-	for _, listener := range cache.apiListenerCache {
-		if listener.GetApiStatus() != status {
-			continue
-		}
-
+func (cache *ListenerCache) Flush() {
+	var err error
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	for name, listener := range cache.apiListenerCache {
 		switch listener.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
 			err = maps_v2.ListenerUpdate(listener.GetAddress(), listener)
+			if err == nil {
+				// reset api status after successfully updated
+				listener.ApiStatus = core_v2.ApiStatus_NONE
+			}
 		case core_v2.ApiStatus_DELETE:
 			err = maps_v2.ListenerDelete(listener.GetAddress())
-		default:
-			break
+			if err == nil {
+				delete(cache.apiListenerCache, name)
+				delete(cache.resourceHash, name)
+			}
 		}
-
 		if err != nil {
-			log.Errorln(err)
-		}
-		num++
-	}
-
-	if status == core_v2.ApiStatus_DELETE {
-		cache.StatusDelete(status)
-	}
-
-	defer RWListener.Unlock()
-
-	return num
-}
-
-func (cache ListenerCache) StatusDelete(status core_v2.ApiStatus) {
-	for name, listener := range cache.apiListenerCache {
-		if listener.GetApiStatus() == status {
-			delete(cache.apiListenerCache, name)
-			delete(cache.resourceCache, name)
+			log.Errorf("listener %s %s flush failed: %v", name, listener.ApiStatus, err)
 		}
 	}
 }
 
-func (cache ListenerCache) StatusReset(old, new core_v2.ApiStatus) {
-	for _, listener := range cache.apiListenerCache {
-		if listener.GetApiStatus() == old {
-			listener.ApiStatus = new
-		}
-	}
-}
-
-func (cache ListenerCache) StatusLookup() []*listener_v2.Listener {
-	var err error
-	var mapCache []*listener_v2.Listener
-
-	RWListener.RLock()
-
+func (cache *ListenerCache) StatusLookup() []*listener_v2.Listener {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	listeners := make([]*listener_v2.Listener, 0, len(cache.apiListenerCache))
 	for name, listener := range cache.apiListenerCache {
 		tmp := &listener_v2.Listener{}
-		if err = maps_v2.ListenerLookup(listener.GetAddress(), tmp); err != nil {
+		if err := maps_v2.ListenerLookup(listener.GetAddress(), tmp); err != nil {
 			log.Errorf("ListenerLookup failed, %s", name)
 			continue
 		}
 
 		tmp.ApiStatus = listener.ApiStatus
-		mapCache = append(mapCache, tmp)
+		listeners = append(listeners, tmp)
 	}
 
-	defer RWListener.RUnlock()
-
-	return mapCache
+	return listeners
 }
 
-func (cache ListenerCache) StatusRead() []*listener_v2.Listener {
-	var mapCache []*listener_v2.Listener
-
+func (cache *ListenerCache) StatusRead() []*listener_v2.Listener {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	listeners := make([]*listener_v2.Listener, 0, len(cache.apiListenerCache))
 	for _, listener := range cache.apiListenerCache {
-		mapCache = append(mapCache, listener)
+		listeners = append(listeners, listener)
 	}
-	return mapCache
+	return listeners
 }

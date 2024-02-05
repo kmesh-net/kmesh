@@ -76,13 +76,17 @@ func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
 
-	load.ClusterCache.SetApiClusterCache(cluster.GetName(), apiCluster)
+	load.ClusterCache.SetApiCluster(cluster.GetName(), apiCluster)
+}
+
+func (load *AdsLoader) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
+	load.ClusterCache.UpdateApiClusterStatus(key, status)
 }
 
 func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus,
 	loadAssignment *config_endpoint_v3.ClusterLoadAssignment,
 ) {
-	apiCluster := load.ClusterCache.GetApiClusterCache(loadAssignment.GetClusterName())
+	apiCluster := load.ClusterCache.GetApiCluster(loadAssignment.GetClusterName())
 	if apiCluster == nil {
 		return
 	}
@@ -161,6 +165,10 @@ func newApiCircuitBreakers(cb *config_cluster_v3.CircuitBreakers) *cluster_v2.Ci
 	}
 }
 
+func (load *AdsLoader) UpdateApiListenerStatus(key string, status core_v2.ApiStatus) {
+	load.ListenerCache.UpdateApiListenerStatus(key, status)
+}
+
 func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener *config_listener_v3.Listener) {
 	apiListener := &listener_v2.Listener{
 		ApiStatus: status,
@@ -188,7 +196,7 @@ func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener
 		apiListener.FilterChains = append(apiListener.FilterChains, apiFilterChain)
 	}
 
-	load.ListenerCache.SetApiListenerCache(apiListener.GetName(), apiListener)
+	load.ListenerCache.SetApiListener(apiListener.GetName(), apiListener)
 }
 
 func newApiFilterChainMatch(match *config_listener_v3.FilterChainMatch) *listener_v2.FilterChainMatch {
@@ -265,7 +273,7 @@ func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.F
 func (load *AdsLoader) CreateApiRouteByRds(status core_v2.ApiStatus, routeConfig *config_route_v3.RouteConfiguration) {
 	apiRouteConfig := newApiRouteConfiguration(routeConfig)
 	apiRouteConfig.ApiStatus = status
-	load.RouteCache.SetApiRouteConfigCache(apiRouteConfig.GetName(), apiRouteConfig)
+	load.RouteCache.SetApiRouteConfig(apiRouteConfig.GetName(), apiRouteConfig)
 }
 
 func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *route_v2.RouteConfiguration {

@@ -31,10 +31,11 @@ import (
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
-	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
+	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
 const (
@@ -131,16 +132,18 @@ func (svc *ServiceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		cluster = &config_cluster_v3.Cluster{}
 	)
 
+	current := sets.New[string]()
 	for _, resource := range rsp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
+		current.Insert(cluster.GetName())
 		// compare part[0] CDS now
 		// Cluster_EDS need compare tow parts, compare part[1] EDS in EDS handler
 		apiStatus := core_v2.ApiStatus_UPDATE
-		newCdsString := resource.String()
-		if newCdsString != svc.DynamicLoader.ClusterCache.GetCdsResource(cluster.GetName()) {
-			svc.DynamicLoader.ClusterCache.SetCdsResource(cluster.GetName(), newCdsString)
+		newHash := hash.Sum64String(resource.String())
+		if newHash != svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName()) {
+			svc.DynamicLoader.ClusterCache.SetCdsHash(cluster.GetName(), newHash)
 			log.Debugf("[CreateApiClusterByCds]update cluster %s, status %d, cluster.type %v",
 				cluster.GetName(), apiStatus, cluster.GetType())
 		} else {
@@ -149,11 +152,18 @@ func (svc *ServiceEvent) handleCdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		svc.DynamicLoader.CreateApiClusterByCds(apiStatus, cluster)
 	}
 
+	removed := svc.DynamicLoader.ClusterCache.GetResourceNames().Difference(current)
+	for key := range removed {
+		svc.DynamicLoader.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
+	}
+
+	// TODO: maybe we don't need to wait until all clusters ready before loading, like cluster delete
+
 	if len(svc.DynamicLoader.clusterNames) > 0 {
 		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.DynamicLoader.clusterNames)
 		svc.DynamicLoader.clusterNames = nil
 	} else {
-		cache_v2.CacheFlush(svc.DynamicLoader.ClusterCache)
+		svc.DynamicLoader.ClusterCache.Flush()
 	}
 	return nil
 }
@@ -168,22 +178,20 @@ func (svc *ServiceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-		apiStatus := svc.DynamicLoader.ClusterCache.GetApiClusterCache(loadAssignment.GetClusterName()).ApiStatus
-		newEdsString := resource.String()
+		apiStatus := svc.DynamicLoader.ClusterCache.GetApiCluster(loadAssignment.GetClusterName()).ApiStatus
+		newEdsString := hash.Sum64String(resource.String())
 		// part[0] CDS is different or part[1] EDS is different
 		if apiStatus == core_v2.ApiStatus_UPDATE ||
 			newEdsString != svc.DynamicLoader.ClusterCache.GetEdsResource(loadAssignment.GetClusterName()) {
 			apiStatus = core_v2.ApiStatus_UPDATE
 			svc.DynamicLoader.ClusterCache.SetEdsResource(loadAssignment.GetClusterName(), newEdsString)
 			log.Debugf("[CreateApiClusterByEds] update cluster %s", loadAssignment.GetClusterName())
-		} else {
-			apiStatus = core_v2.ApiStatus_UNCHANGED
+			svc.DynamicLoader.CreateApiClusterByEds(apiStatus, loadAssignment)
 		}
-		svc.DynamicLoader.CreateApiClusterByEds(apiStatus, loadAssignment)
 	}
 
 	svc.rqt = newAdsRequest(resource_v3.ListenerType, nil)
-	cache_v2.CacheFlush(svc.DynamicLoader.ClusterCache)
+	svc.DynamicLoader.ClusterCache.Flush()
 	return nil
 }
 
@@ -192,32 +200,34 @@ func (svc *ServiceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		err      error
 		listener = &config_listener_v3.Listener{}
 	)
-
+	current := sets.New[string]()
 	for _, resource := range rsp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, listener, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-
 		apiStatus := core_v2.ApiStatus_UPDATE
-		newLdsResource := resource.String()
-		if newLdsResource != svc.DynamicLoader.ListenerCache.GetLdsResource(listener.GetName()) {
-			svc.DynamicLoader.ListenerCache.SetLdsResource(listener.GetName(), newLdsResource)
+		current.Insert(listener.GetName())
+		newHash := hash.Sum64String(resource.String())
+		if newHash != svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName()) {
+			svc.DynamicLoader.ListenerCache.AddOrUpdateLdsHash(listener.GetName(), newHash)
 			log.Debugf("[CreateApiListenerByLds]update %s", listener.GetName())
 		} else {
 			apiStatus = core_v2.ApiStatus_UNCHANGED
 		}
-
 		svc.DynamicLoader.CreateApiListenerByLds(apiStatus, listener)
 	}
 
-	cache_v2.CacheFlush(svc.DynamicLoader.ListenerCache)
+	removed := svc.DynamicLoader.ListenerCache.GetResourceNames().Difference(current)
+	for key := range removed {
+		svc.DynamicLoader.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
+	}
+
+	svc.DynamicLoader.ListenerCache.Flush()
+
 	if len(svc.DynamicLoader.routeNames) > 0 {
 		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.DynamicLoader.routeNames)
 		svc.DynamicLoader.routeNames = nil
-	} else {
-		cache_v2.CacheFlush(svc.DynamicLoader.RouteCache)
 	}
-
 	return nil
 }
 
@@ -227,25 +237,25 @@ func (svc *ServiceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		routeConfiguration = &config_route_v3.RouteConfiguration{}
 	)
 
+	current := sets.New[string]()
 	for _, resource := range rsp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, routeConfiguration, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
-
 		apiStatus := core_v2.ApiStatus_UPDATE
-		newRdsResource := resource.String()
-		if newRdsResource != svc.DynamicLoader.RouteCache.GetRdsResource(routeConfiguration.GetName()) {
-			svc.DynamicLoader.RouteCache.SetRdsResource(routeConfiguration.GetName(), newRdsResource)
+		current.Insert(routeConfiguration.GetName())
+		newHash := hash.Sum64String(resource.String())
+		if newHash != svc.DynamicLoader.RouteCache.GetRdsHash(routeConfiguration.GetName()) {
+			svc.DynamicLoader.RouteCache.SetRdsHash(routeConfiguration.GetName(), newHash)
 			log.Debugf("[CreateApiRouteByRds] update %s", routeConfiguration.GetName())
 		} else {
 			apiStatus = core_v2.ApiStatus_UNCHANGED
 		}
-
 		svc.DynamicLoader.CreateApiRouteByRds(apiStatus, routeConfiguration)
 	}
 
 	svc.rqt = nil
-	cache_v2.CacheFlush(svc.DynamicLoader.RouteCache)
+	svc.DynamicLoader.RouteCache.Flush()
 	return nil
 }
 
@@ -272,18 +282,18 @@ func (svc *ServiceEvent) handleAdminResponse(resources *admin_v2.ConfigResources
 	}
 
 	for _, cluster := range resources.GetClusterConfigs() {
-		svc.StaticLoader.ClusterCache.SetApiClusterCache(cluster.GetName(), cluster)
+		svc.StaticLoader.ClusterCache.SetApiCluster(cluster.GetName(), cluster)
 	}
 	for _, listener := range resources.GetListenerConfigs() {
-		svc.StaticLoader.ListenerCache.SetApiListenerCache(listener.GetName(), listener)
+		svc.StaticLoader.ListenerCache.SetApiListener(listener.GetName(), listener)
 	}
 	for _, route := range resources.GetRouteConfigs() {
-		svc.StaticLoader.RouteCache.SetApiRouteConfigCache(route.GetName(), route)
+		svc.StaticLoader.RouteCache.SetApiRouteConfig(route.GetName(), route)
 	}
 
-	cache_v2.CacheDeltaFlush(svc.StaticLoader.ClusterCache)
-	cache_v2.CacheDeltaFlush(svc.StaticLoader.ListenerCache)
-	cache_v2.CacheDeltaFlush(svc.StaticLoader.RouteCache)
+	svc.StaticLoader.ClusterCache.Flush()
+	svc.StaticLoader.ListenerCache.Flush()
+	svc.StaticLoader.RouteCache.Flush()
 
 	return nil
 }

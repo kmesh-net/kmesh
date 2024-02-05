@@ -20,7 +20,7 @@
 package controller
 
 import (
-	"kmesh.net/kmesh/pkg/bpf" // nolint
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/interfaces"
 	"kmesh.net/kmesh/pkg/options"
