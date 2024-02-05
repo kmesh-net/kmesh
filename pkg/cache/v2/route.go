@@ -72,6 +72,14 @@ func (cache *RouteConfigCache) GetResourceNames() sets.Set[string] {
 	return out
 }
 
+func (cache *RouteConfigCache) UpdateApiRouteStatus(key string, status core_v2.ApiStatus) {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	if route := cache.apiRouteConfigCache[key]; route != nil {
+		route.ApiStatus = status
+	}
+}
+
 func (cache *RouteConfigCache) GetRdsHash(key string) uint64 {
 	return cache.resourceHash[key]
 }

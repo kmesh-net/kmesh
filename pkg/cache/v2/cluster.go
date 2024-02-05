@@ -91,13 +91,13 @@ func (cache *ClusterCache) SetCdsHash(key string, value uint64) {
 	cache.resourceHash[key] = [2]uint64{value, cache.resourceHash[key][1]}
 }
 
-func (cache *ClusterCache) GetEdsResource(key string) uint64 {
+func (cache *ClusterCache) GetEdsHash(key string) uint64 {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 	return cache.resourceHash[key][1]
 }
 
-func (cache *ClusterCache) SetEdsResource(key string, value uint64) {
+func (cache *ClusterCache) SetEdsHash(key string, value uint64) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 	cache.resourceHash[key] = [2]uint64{cache.resourceHash[key][0], value}

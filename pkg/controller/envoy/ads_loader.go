@@ -276,6 +276,10 @@ func (load *AdsLoader) CreateApiRouteByRds(status core_v2.ApiStatus, routeConfig
 	load.RouteCache.SetApiRouteConfig(apiRouteConfig.GetName(), apiRouteConfig)
 }
 
+func (load *AdsLoader) UpateApiRouteStatus(key string, status core_v2.ApiStatus) {
+	load.RouteCache.UpdateApiRouteStatus(key, status)
+}
+
 func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *route_v2.RouteConfiguration {
 	apiRouteConfig := &route_v2.RouteConfiguration{
 		Name:         routeConfig.GetName(),
