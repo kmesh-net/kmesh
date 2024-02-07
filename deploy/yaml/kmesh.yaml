@@ -4,6 +4,7 @@ metadata:
   name: kmesh-deploy
   labels:
     app: kmesh
+  namespace: kmesh-system
 spec:
   selector:
     matchLabels:

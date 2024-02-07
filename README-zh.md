@@ -85,10 +85,21 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   
 - 启动Kmesh容器
 
+  -  Helm安装方式
+
+   ```sh
+  [root@ ~]# helm install kmesh ./deploy/helm -n kmesh-system --create-namespace
+  ```
+
+  - Yaml安装方式
+
   ```sh
-  # get kmesh.yaml：来自代码仓 build/docker/kmesh.yaml
+  # get kmesh.yaml：来自代码仓 deploy/yaml/kmesh.yaml
   # 将镜像替换为适合你的OS的版本
   [root@ ~]# kubectl apply -f kmesh.yaml
+  [root@ ~]# kubectl apply -f clusterrole.yaml
+  [root@ ~]# kubectl apply -f clusterrolebinding.yaml
+  [root@ ~]# kubectl apply -f serviceaccount.yaml
   ```
   
   默认使用Kmesh功能，可通过调整yaml文件中的启动参数进行功能选择
