@@ -30,6 +30,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf" // nolint
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
+	"kmesh.net/kmesh/pkg/controller_workload"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/options"
 	"kmesh.net/kmesh/pkg/pid"
@@ -74,6 +75,15 @@ func Execute() {
 	}
 	log.Info("controller Start successful")
 	defer controller.Stop()
+
+	if bpf.GetConfig().EnableKmeshWorkload {
+		if err = controller_workload.Start(); err != nil {
+			log.Error(err)
+			return
+		}
+		log.Info("controller workload Start successful")
+		defer controller_workload.Stop()
+	}
 
 	if err = command.StartServer(); err != nil {
 		log.Error(err)
