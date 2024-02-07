@@ -85,14 +85,24 @@ Note: * Planning
   
 - Start Kmesh
 
+  - Install from Helm
+  
   ```sh
-  # get kmesh.yaml from build/docker/kmesh.yaml
+  [root@ ~]# helm install kmesh ./deploy/helm -n kmesh-system --create-namespace
+  ```
+
+  - Install from Yaml
+
+  ```sh
+  # get kmesh.yaml from deploy/yaml/kmesh.yaml
   # replace with an image suitable for your OS
   [root@ ~]# kubectl apply -f kmesh.yaml
+  [root@ ~]# kubectl apply -f clusterrole.yaml
+  [root@ ~]# kubectl apply -f clusterrolebinding.yaml
+  [root@ ~]# kubectl apply -f serviceaccount.yaml
   ```
   
   By default, the Kmesh base function is used, other function can be selected by adjusting the startup parameters in the yaml file.
-  
   
 - Check kmesh service status
 

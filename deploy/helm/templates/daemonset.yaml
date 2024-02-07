@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "kmesh.fullname" . }}
+  labels:
+    app: kmesh
+  {{- include "kmesh.labels" . | nindent 4 }}
+  namespace: '{{ .Release.Namespace }}'
+spec:
+  selector:
+    matchLabels:
+      app: kmesh
+    {{- include "kmesh.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: kmesh
+      {{- include "kmesh.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+      - args: ["./start_kmesh.sh -enable-kmesh -enable-ads=true"]
+        command:
+        - /bin/sh
+        - -c
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: metadata.namespace
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: status.podIP
+        - name: MESH_CONTROLLER
+          value: {{ quote .Values.deploy.kmesh.env.meshController }}
+        - name: BPF_LOG_SIZE
+          value: {{ quote .Values.deploy.kmesh.env.bpfLogSize }}
+        - name: KUBERNETES_CLUSTER_DOMAIN
+          value: {{ quote .Values.kubernetesClusterDomain }}
+        image: {{ .Values.deploy.kmesh.image.repository }}:{{ .Values.deploy.kmesh.image.tag | default .Chart.AppVersion }}
+        imagePullPolicy: {{ .Values.deploy.kmesh.imagePullPolicy }}
+        name: kmesh
+        ports:
+        - containerPort: 6789
+          hostPort: 6789
+        resources: {{- toYaml .Values.deploy.kmesh.resources | nindent 10 }}
+        securityContext: {{- toYaml .Values.deploy.kmesh.containerSecurityContext | nindent
+          10 }}
+        volumeMounts:
+        - mountPath: /mnt
+          name: mnt
+        - mountPath: /sys/fs/bpf
+          name: sys-fs-bpf
+        - mountPath: /lib/modules
+          name: lib-modules
+        - mountPath: /etc/cni/net.d
+          name: cni
+        - mountPath: /opt/cni/bin
+          name: kmesh-cni-install-path
+        - mountPath: /var/run/secrets/istio
+          name: istiod-ca-cert
+        - mountPath: /var/run/secrets/tokens
+          name: istio-token
+      priorityClassName: system-node-critical
+      serviceAccountName: {{ include "kmesh.fullname" . }}
+      volumes:
+      - hostPath:
+          path: /mnt
+        name: mnt
+      - hostPath:
+          path: /sys/fs/bpf
+        name: sys-fs-bpf
+      - hostPath:
+          path: /lib/modules
+        name: lib-modules
+      - hostPath:
+          path: /etc/cni/net.d
+        name: cni
+      - hostPath:
+          path: /opt/cni/bin
+        name: kmesh-cni-install-path
+      - configMap:
+          defaultMode: 420
+          name: istio-ca-root-cert
+        name: istiod-ca-cert
+      - name: istio-token
+        projected:
+          defaultMode: 420
+          sources:
+          - serviceAccountToken:
+              audience: istio-ca
+              expirationSeconds: 43200
+              path: istio-token
