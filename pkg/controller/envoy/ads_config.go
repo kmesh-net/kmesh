@@ -83,7 +83,7 @@ func (c *XdsConfig) Init() error {
 		ip = podIP
 	}
 
-	id := podName + podNamespace
+	id := podName + "." + podNamespace
 	dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
 
 	c.ServiceNode = strings.Join([]string{nodeRole, ip, id, dnsDomain}, serviceNodeSeparator)
