@@ -50,7 +50,7 @@ func removeCniConfig() error {
 }
 
 func Start() error {
-	if bpf.GetConfig().EnableKmesh {
+	if bpf.GetConfig().EnableKmesh || bpf.GetConfig().EnableKmeshWorkload {
 		log.Info("start write CNI config\n")
 		return addCniConfig()
 	}
@@ -58,7 +58,7 @@ func Start() error {
 }
 
 func Stop() {
-	if bpf.GetConfig().EnableKmesh {
+	if bpf.GetConfig().EnableKmesh || bpf.GetConfig().EnableKmeshWorkload {
 		log.Info("start remove CNI config\n")
 		if err := removeCniConfig(); err != nil {
 			log.Error("remove CNI config failed, please remove manual")
