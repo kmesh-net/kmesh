@@ -7,6 +7,8 @@ deploy:
       repository: ghcr.io/kmesh-net/kmesh
       tag: 0.2.0
     imagePullPolicy: IfNotPresent
+    containers:
+      kmeshDaemonArgs: "-enable-kmesh -enable-ads=true"
     resources:
       limits:
         cpu: "1"
