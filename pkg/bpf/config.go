@@ -36,11 +36,12 @@ func init() {
 }
 
 type Config struct {
-	BpfFsPath        string `json:"-bpf-fs-path"`
-	Cgroup2Path      string `json:"-cgroup2-path"`
-	EnableKmesh      bool   `json:"-enable-kmesh"`
-	EnableMda        bool   `json:"-enable-mda"`
-	BpfVerifyLogSize int    `json:"-bpf-verify-log-size"`
+	BpfFsPath           string `json:"-bpf-fs-path"`
+	Cgroup2Path         string `json:"-cgroup2-path"`
+	EnableKmesh         bool   `json:"-enable-kmesh"`
+	EnableKmeshWorkload bool   `json:"-enable-kmesh-workload"`
+	EnableMda           bool   `json:"-enable-mda"`
+	BpfVerifyLogSize    int    `json:"-bpf-verify-log-size"`
 }
 
 func (c *Config) SetArgs() error {
@@ -48,6 +49,7 @@ func (c *Config) SetArgs() error {
 	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
 
 	flag.BoolVar(&c.EnableKmesh, "enable-kmesh", false, "enable bpf kmesh")
+	flag.BoolVar(&c.EnableKmeshWorkload, "enable-kmesh-workload", false, "enable bpf kmesh workload")
 	flag.BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 
 	return nil
@@ -56,11 +58,11 @@ func (c *Config) SetArgs() error {
 func (c *Config) ParseConfig() error {
 	var err error
 
-	if !c.EnableKmesh && !c.EnableMda {
-		return fmt.Errorf("must choose one or both of -enable-kmesh and -enable-mda")
+	if !c.EnableKmesh && !c.EnableMda && !c.EnableKmeshWorkload {
+		return fmt.Errorf("must choose one or both of -enable-kmesh, -enable-mda and -enable-kmesh-workload")
 	}
 
-	if c.EnableKmesh {
+	if c.EnableKmesh || c.EnableKmeshWorkload {
 		if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
 			return err
 		}

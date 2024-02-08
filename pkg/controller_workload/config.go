@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
  * Create: 2022-01-08
  */
 
-package controller
+package controller_workload
 
 import (
 	"kmesh.net/kmesh/pkg/bpf"
-	"kmesh.net/kmesh/pkg/controller/envoy"
-	"kmesh.net/kmesh/pkg/controller/interfaces"
+	"kmesh.net/kmesh/pkg/controller_workload/interfaces"
+	"kmesh.net/kmesh/pkg/controller_workload/workload"
 	"kmesh.net/kmesh/pkg/options"
 )
 
@@ -33,22 +33,22 @@ func init() {
 }
 
 type Config struct {
-	adsConfig *envoy.XdsConfig
+	workloadConfig *workload.XdsConfig
 }
 
 // SetArgs set controller command arguments
 func (c *Config) SetArgs() error {
-	return envoy.GetConfig().SetClientArgs()
+	return workload.GetConfig().SetClientArgs()
 }
 
 func (c *Config) ParseConfig() error {
 	if bpf.GetConfig().EnableKmesh || bpf.GetConfig().EnableMda || bpf.GetConfig().EnableKmeshWorkload {
-		c.adsConfig = envoy.GetConfig()
+		c.workloadConfig = workload.GetConfig()
 	}
 
-	return c.adsConfig.Init()
+	return c.workloadConfig.Init()
 }
 
 func (c *Config) NewClient() (interfaces.ClientFactory, error) {
-	return c.adsConfig.NewClient()
+	return c.workloadConfig.NewClient()
 }
