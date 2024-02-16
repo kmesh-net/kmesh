@@ -149,3 +149,117 @@ func (sc *BpfSockConnWorkload) Detach() error {
 	}
 	return nil
 }
+
+type BpfSockOpsWorkload struct {
+	Info BpfInfo
+	Link link.Link
+	bpf2go.KmeshSockopsWorkloadObjects
+}
+
+func (so *BpfSockOpsWorkload) NewBpf(cfg *Config) error {
+	so.Info.Config = *cfg
+	so.Info.MapPath = so.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
+	so.Info.BpfFsPath += "/bpf_kmesh_workload/sockops/"
+
+	if err := os.MkdirAll(so.Info.MapPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	if err := os.MkdirAll(so.Info.BpfFsPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
+	var (
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
+	)
+
+	opts.Maps.PinPath = so.Info.MapPath
+	opts.Programs.LogSize = so.Info.BpfVerifyLogSize
+
+	spec, err = bpf2go.LoadKmeshSockopsWorkload()
+	if err != nil || spec == nil {
+		return nil, err
+	}
+
+	setMapPinType(spec, ebpf.PinByName)
+	if err = spec.LoadAndAssign(&so.KmeshSockopsWorkloadObjects, &opts); err != nil {
+		return nil, err
+	}
+
+	value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
+	if err = pinPrograms(&value, so.Info.BpfFsPath); err != nil {
+		return nil, err
+	}
+
+	return spec, nil
+}
+func (so *BpfSockOpsWorkload) LoadSockOps() error {
+	/* load kmesh sockops main bpf prog*/
+	spec, err := so.loadKmeshSockopsObjects()
+	if err != nil {
+		return err
+	}
+
+	prog := spec.Programs["socket_migration"]
+	so.Info.Type = prog.Type
+	so.Info.AttachType = prog.AttachType
+
+	return nil
+}
+
+func (so *BpfSockOpsWorkload) Attach() error {
+	cgopt := link.CgroupOptions{
+		Path:    so.Info.Cgroup2Path,
+		Attach:  so.Info.AttachType,
+		Program: so.KmeshSockopsWorkloadObjects.SocketMigration,
+	}
+
+	lk, err := link.AttachCgroup(cgopt)
+	if err != nil {
+		return err
+	}
+	so.Link = lk
+	return nil
+}
+
+func (so *BpfSockOpsWorkload) close() error {
+	if err := so.KmeshSockopsWorkloadObjects.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (so *BpfSockOpsWorkload) Detach() error {
+	if err := so.close(); err != nil {
+		return err
+	}
+
+	program_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
+	if err := unpinPrograms(&program_value); err != nil {
+		return err
+	}
+
+	map_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps)
+	if err := unpinMaps(&map_value); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(so.Info.BpfFsPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if so.Link != nil {
+		return so.Link.Close()
+	}
+	return nil
+}

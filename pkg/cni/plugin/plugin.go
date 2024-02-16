@@ -28,10 +28,14 @@ import (
 	"strconv"
 	"strings"
 
+	netns "github.com/containernetworking/plugins/pkg/ns"
+
+	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
+	"github.com/vishvananda/netlink"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -44,6 +48,7 @@ import (
 var (
 	log               = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
 	ENABLE_KMESH_MARK = "0x1000"
+	XDP_PROG_NAME     = "xdp_handler"
 )
 
 // Config is whatever you expect your configuration json to be. This is whatever
@@ -189,6 +194,28 @@ func getPrevCniResult(conf *cniConf) (*cniv1.Result, error) {
 	return cniv1PrevResult, nil
 }
 
+func enableXdpAuth(ifname string) error {
+	var (
+		err  error
+		xdp  *ebpf.Program
+		link netlink.Link
+	)
+
+	if xdp, err = utils.GetProgramByName(XDP_PROG_NAME); err != nil {
+		return err
+	}
+
+	if link, err = netlink.LinkByName(ifname); err != nil {
+		return err
+	}
+
+	if err = netlink.LinkSetXdpFd(link, xdp.FD()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // if cmdadd failed, then we cannot return failed, do nothing and print pre result
 func CmdAdd(args *skel.CmdArgs) error {
 	var err error
@@ -233,6 +260,19 @@ func CmdAdd(args *skel.CmdArgs) error {
 
 	if err := enableKmeshControl(client, pod); err != nil {
 		log.Error("failed to enable kmesh control")
+		return err
+	}
+
+	enableXDPFunc := func(netns.NetNS) error {
+		if err := enableXdpAuth(args.IfName); err != nil {
+			err = fmt.Errorf("failed to set xdp to dev %v, err is %v", args.IfName, err)
+			return err
+		}
+		return nil
+	}
+
+	if err := netns.WithNetNSPath(string(args.Netns), enableXDPFunc); err != nil {
+		log.Error(err)
 		return err
 	}
 
