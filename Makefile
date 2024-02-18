@@ -152,7 +152,7 @@ docker: build
 
 clean:
 	$(QUIET) rm -rf ./out
-	$(QUIET) rm ./config/linux-bpf.h
+	$(QUIET) rm -rf ./config/linux-bpf.h
 	git checkout $(TMP_FILES)
 
 	$(call printlog, CLEAN, $(APPS1))
