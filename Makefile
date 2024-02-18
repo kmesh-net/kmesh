@@ -61,6 +61,13 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
+TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
+	bpf/kmesh/bpf2go/kmeshcgroupsockworkload_bpfeb.go \
+	bpf/kmesh/bpf2go/kmeshcgroupsockworkload_bpfel.go \
+	config/kmesh_marcos_def.h \
+	mk/api-v2-c.pc \
+	mk/bpf.pc
+
 .PHONY: all install uninstall clean build docker
 
 all:
@@ -139,11 +146,15 @@ uninstall:
 build:
 	./kmesh_compile.sh
 	
-docker:
+docker: build
 	make build
 	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 clean:
+	$(QUIET) rm -rf ./out
+	$(QUIET) rm ./config/linux-bpf.h
+	git checkout $(TMP_FILES)
+
 	$(call printlog, CLEAN, $(APPS1))
 	$(QUIET) rm -rf $(APPS1) $(APPS1)
 

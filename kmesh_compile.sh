@@ -41,17 +41,13 @@ function build_kmesh() {
 
 function copy_to_host() {
     local arch=""
-    if [ ! -d "./out" ]; then
-        mkdir out
-    fi
-
     if [ "$(arch)" == "x86_64" ]; then
         arch="amd64"
     else
         arch="aarch64"
     fi
 
-    mkdir "./out/$arch"
+    mkdir -p "./out/$arch"
 
     cp /usr/lib64/libkmesh_api_v2_c.so out/$arch
     cp /usr/lib64/libkmesh_deserial.so out/$arch
