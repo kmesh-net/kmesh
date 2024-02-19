@@ -45,12 +45,12 @@ APPS3 := mdacore
 APPS4 := kmesh-cni
 
 # If the hub is not explicitly set, use default to kmesh-net.
-HUB ?=ghcr.io/kmesh-net
+HUB ?= ghcr.io/kmesh-net
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
-TARGET ?=kmesh
+TARGET ?= kmesh
 ifeq ($(TARGET),)
   $(error "TARGET cannot be empty")
 endif
@@ -60,6 +60,11 @@ TAG ?= $(shell git rev-parse --verify HEAD)
 ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
+
+TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
+	config/kmesh_marcos_def.h \
+	mk/api-v2-c.pc \
+	mk/bpf.pc
 
 .PHONY: all install uninstall clean build docker
 
@@ -139,11 +144,14 @@ uninstall:
 build:
 	./kmesh_compile.sh
 	
-docker:
-	make build
+docker: build
 	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 clean:
+	$(QUIET) rm -rf ./out
+	$(QUIET) rm -rf ./config/linux-bpf.h
+	git checkout $(TMP_FILES)
+
 	$(call printlog, CLEAN, $(APPS1))
 	$(QUIET) rm -rf $(APPS1) $(APPS1)
 
