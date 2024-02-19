@@ -44,6 +44,23 @@ APPS2 := kmesh-cmd
 APPS3 := mdacore
 APPS4 := kmesh-cni
 
+# If the hub is not explicitly set, use default to kmesh-net.
+HUB ?=ghcr.io/kmesh-net
+ifeq ($(HUB),)
+  $(error "HUB cannot be empty")
+endif
+
+TARGET ?=kmesh
+ifeq ($(TARGET),)
+  $(error "TARGET cannot be empty")
+endif
+
+# If tag not explicitly set, default to the git sha.
+TAG ?= $(shell git rev-parse --verify HEAD)
+ifeq ($(TAG),)
+  $(error "TAG cannot be empty")
+endif
+
 .PHONY: all install uninstall clean build docker
 
 all:
@@ -124,7 +141,7 @@ build:
 	
 docker:
 	make build
-	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(IMAGE) .
+	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 clean:
 	$(call printlog, CLEAN, $(APPS1))
