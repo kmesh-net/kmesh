@@ -62,8 +62,6 @@ ifeq ($(TAG),)
 endif
 
 TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
-	bpf/kmesh/bpf2go/kmeshcgroupsockworkload_bpfeb.go \
-	bpf/kmesh/bpf2go/kmeshcgroupsockworkload_bpfel.go \
 	config/kmesh_marcos_def.h \
 	mk/api-v2-c.pc \
 	mk/bpf.pc
