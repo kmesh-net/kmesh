@@ -45,12 +45,12 @@ APPS3 := mdacore
 APPS4 := kmesh-cni
 
 # If the hub is not explicitly set, use default to kmesh-net.
-HUB ?=ghcr.io/kmesh-net
+HUB ?= ghcr.io/kmesh-net
 ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
-TARGET ?=kmesh
+TARGET ?= kmesh
 ifeq ($(TARGET),)
   $(error "TARGET cannot be empty")
 endif
@@ -145,7 +145,6 @@ build:
 	./kmesh_compile.sh
 	
 docker: build
-	make build
 	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 clean:
