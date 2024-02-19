@@ -41,6 +41,7 @@ scene description
 		- The newly launched Pod accesses the server side through the k8s native svc
 		- The existing Pods are not affected, and the containers of the Kmesh agent still access the server side after being orchestrated by Kmesh.
 		
+
 ![](./pics/client_with_noenvoy.png)
 
 - There is Envoy on the Pod.
@@ -51,6 +52,7 @@ scene description
 		- Newly launched Pods access server side through Envoy orchestration
 		- The existing Pods are not affected, and the containers that are managed by Kmesh still address and access the server side through Kmesh orchestration and short-circuit envoy.
 		
+
 ![](./pics/client_with_envoy.png)
 
 ## User Scenario 2: Communication Analysis between Kmesh Nano-tube Pods and Pods in the Kmesh Data Plane:
@@ -107,9 +109,9 @@ scene description
 ### Using interface design
 
 	# Enable Kmesh for the specified namespace
-	kubectl label namespace xxx label istio.io/dataplane-mode=Kmesh
+	kubectl label namespace xxx istio.io/dataplane-mode=Kmesh
 	# Close Kmesh for the specified namespace
-	kubectl label namespace xxx label istio.io/dataplane-mode-
+	kubectl label namespace xxx istio.io/dataplane-mode-
 
 ## Function implementation principle:
 ### Component Design

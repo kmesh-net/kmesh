@@ -107,9 +107,9 @@ Kmesh当前不支持在Server端短接sidecar（envoy）并与使用sidecar（en
 ### 使用接口设计
 
 	# 对指定的namespace来启用Kmesh
-	kubectl label namespace xxx label istio.io/dataplane-mode=Kmesh
+	kubectl label namespace xxx istio.io/dataplane-mode=Kmesh
 	# 对指定的namespace来关闭Kmesh
-	kubectl label namespace xxx label istio.io/dataplane-mode-
+	kubectl label namespace xxx istio.io/dataplane-mode-
 
 ## 功能实现原理：
 ### 组件设计

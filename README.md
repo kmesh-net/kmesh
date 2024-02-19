@@ -57,31 +57,27 @@ Note: * Planning
 
   - Currently, Kmesh connects to the Istio control plane. Before starting Kmesh, install the Istio control plane software. For details, see https://istio.io/latest/docs/setup/getting-started/#install.
   - The complete Kmesh capability depends on the OS enhancement. Check whether the execution environment is in the [OS list](docs/kmesh_support.md) supported by Kmesh. For other OS environments, see [Kmesh Compilation and Building](docs/kmesh_compile.md).You can also try the [kmesh image in compatibility mode](build/docker/README.md) in other OS environments.For information on various Kmesh images, please refer to the [detailed document](build/docker/README.md).
-  - The location of the cluster config file may vary in different environments. Users need to specify the location of the config file in the current cluster in the yaml file and map it to the image.
-
+  
 - Docker Images
 
-  Kmesh achieves the ability to completely sink traffic management below the OS through kernel enhancements. When releasing images, the range of OS for which the image is applicable must be considered. To this end, we consider releasing two types of images:
+  Kmesh achieves the ability to completely sink traffic management below the OS through kernel enhancements. When releasing images, the range of OS for which the image is applicable must be considered. To this end, we consider releasing three types of images:
 
   - Supported OS versions with kernel enhancement modifications
 
     The current [openEuler 23.03](https://repo.openeuler.org/openEuler-23.03/) OS natively supports the kernel enhancement features required by Kmesh. Kmesh release images can be directly installed and run on this OS. For a detailed list of supported OS versions with kernel enhancement modifications, please refer to [this link](https://github.com/kmesh-net/kmesh/blob/main/docs/kmesh_support.md).
   
-  - Unsupported OS versions with kernel enhancement modifications
+  - For all OS versions:
 
     To be compatible with different OS versions, Kmesh provides online compilation and running images. After Kmesh is deployed, it will automatically select Kmesh features supported by the host machine's kernel capabilities, to meet the demand for one image to run in different OS environments.
-  
-  ```
-  # The Kmesh x86 image is used for openEuler 23.03 OS.
-  docker pull ghcr.io/kmesh-net/kmesh:v0.1.0
-
-  # The x86 image for Kmesh online compilation and execution, supports OS kernel versions 5.10 and above.
-  docker pull ghcr.io/kmesh-net/kmesh-x86:v0.1.0
-
-  # The arm image for Kmesh online compilation and execution, supports OS kernel versions 5.10 and above.
-  docker pull ghcr.io/kmesh-net/kmesh-arm:v0.1.0
-  ```
-
+    
+    
+    
+    Considering the universality of kmesh, we have released an image for compiling and building kmesh. Users can conveniently create a kmesh image based on this, which can run on their current OS version. By default, it is named `ghcr.io/kmesh-net/kmesh:latest`, but the user can adjust it as needed. Please refer to [Kmesh Build Compilation](docs/kmesh_compile.md#build docker image) for more details.
+    
+    
+    ```bash
+    make docker TAG=latest
+    ```
   
 - Start Kmesh
 
@@ -95,7 +91,6 @@ Note: * Planning
 
   ```sh
   # get kmesh.yaml from deploy/yaml/kmesh.yaml
-  # replace with an image suitable for your OS
   [root@ ~]# kubectl apply -f kmesh.yaml
   [root@ ~]# kubectl apply -f clusterrole.yaml
   [root@ ~]# kubectl apply -f clusterrolebinding.yaml
@@ -107,20 +102,27 @@ Note: * Planning
 - Check kmesh service status
 
   ```sh
-  [root@ ~]# kubectl get pods -A -owide | grep kmesh
-    default        kmesh-deploy-j8q68                   1/1     Running   0          6h15m   192.168.11.6    node1   <none> 
+  [root@ ~]# kubectl get pods -A | grep kmesh
+  kmesh-system   kmesh-l5z2j                                 1/1     Running   0          117m
   ```
 
 - View the running status of kmesh service
 
   ```sh
-  [root@ ~]# kubectl logs -f kmesh-deploy-j8q68
-    time="2023-07-25T09:28:37+08:00" level=info msg="options InitDaemonConfig successful" subsys=manager
-    time="2023-07-25T09:28:38+08:00" level=info msg="bpf Start successful" subsys=manager
-    time="2023-07-25T09:28:38+08:00" level=info msg="controller Start successful" subsys=manager
-    time="2023-07-25T09:28:38+08:00" level=info msg="command StartServer successful" subsys=manager
+  [root@master mod]# kubectl logs -f -n kmesh-system kmesh-l5z2j
+  time="2024-02-19T10:16:52Z" level=info msg="service node sidecar~192.168.11.53~kmesh-system.kmesh-system~kmesh-system.svc.cluster.local connect to discovery address istiod.istio-system.svc:15012" subsys=controller/envoy
+  time="2024-02-19T10:16:52Z" level=info msg="options InitDaemonConfig successful" subsys=manager
+  time="2024-02-19T10:16:53Z" level=info msg="bpf Start successful" subsys=manager
+  time="2024-02-19T10:16:53Z" level=info msg="controller Start successful" subsys=manager
+  time="2024-02-19T10:16:53Z" level=info msg="command StartServer successful" subsys=manager
+  time="2024-02-19T10:16:53Z" level=info msg="start write CNI config\n" subsys="cni installer"
+  time="2024-02-19T10:16:53Z" level=info msg="kmesh cni use chained\n" subsys="cni installer"
+  time="2024-02-19T10:16:54Z" level=info msg="Copied /usr/bin/kmesh-cni to /opt/cni/bin." subsys="cni installer"
+  time="2024-02-19T10:16:54Z" level=info msg="kubeconfig either does not exist or is out of date, writing a new one" subsys="cni installer"
+  time="2024-02-19T10:16:54Z" level=info msg="wrote kubeconfig file /etc/cni/net.d/kmesh-cni-kubeconfig" subsys="cni installer"
+  time="2024-02-19T10:16:54Z" level=info msg="command Start cni successful" subsys=manager
   ```
-
+  
   More compilation methods of Kmesh, See: [Kmesh Compilation and Construction](docs/kmesh_compile.md)
 
 ## Kmesh Performance
