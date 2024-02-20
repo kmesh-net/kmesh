@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
-  name: kmesh-deploy
+  name: kmesh
   labels:
     app: kmesh
   namespace: kmesh-system
