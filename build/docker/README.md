@@ -1,5 +1,3 @@
-[TOC]
-
 ## docker镜像说明
 
 由于kmesh的部分能力对于内核版本有着较强的依赖，我们提供了两种kmesh的镜像：
@@ -27,15 +25,17 @@
 - 需要保证宿主机环境上安装了kernel-headers和kernel-devel软件包以用于读取宿主机环境和编译内核模块(kmesh.ko)
 - 启动的时候会在线编译，所有会花费较多时间并消耗较多内存，需要分配一定资源以保证启动成功
 
+### 构建镜像
+
+kmesh构建镜像是用于方便用户编译kmesh和构建出当前OS版本可用的kmesh镜像而发布，用户执行make docker命令的时候会使用本目录下的kmesh.dockerfile，将编译输出件和运行依赖放入新的镜像中
+
 #### kmesh.dockerfile
 
-使用该文件用于制作kmesh兼容模式编译镜像
+使用该文件用于制作当前OS版本上可运行的kmesh镜像
 
-基于oe2309 base镜像构建，
+基于oe2309 base镜像构建，将kmesh源码目录作为工作目录，
 
-将kmesh源码目录作为工作目录，
-
-安装编译过程中所有的依赖软件包，
+安装kmesh所有编译输出件，并放入运行依赖；
 
 最后在运行时执行start_kmesh.sh脚本
 
@@ -50,9 +50,8 @@
 | volume    | mnt                          | kmesh启动过程中需要mount部分cgroup目录                       | - name: mnt<br/>           hostPath:<br/>             path: /mnt |                                                    |
 | volume    | sys-fs-bpf                   | 将ebpf程序挂载于宿主机上，需要宿主机的ebpf目录               | - name: sys-fs-bpf<br/>           hostPath:<br/>             path: /sys/fs/bpf |                                                    |
 | volume    | lib-modules                  | 编译kmesh.ko需要该目录                                       | - name: lib-modules<br/>           hostPath:<br/>             path: /lib/modules |                                                    |
-| volume    | kube-config-path             | 读取k8s集群的config文件需要                                  | - name: kube-config-path<br/>           hostPath:<br/>             path: /root/.kube | 由于集群创建方式的不同而位置不同，需要用户自己指定 |
 | volume    | cni                          | 读取k8s集群的cni配置文件                                     | - name: cni <br/>           hostPath:<br/>             path: /etc/cni/net.d |                                                    |
-| volume    | kmesh-cni-install-path | 写入kmesh的cniplugin文件到k8s集群                            | - name: kmesh-cni-install-path<br/>           hostPath:<br/>             path: /opt/cni/bin |                                                    |
+| volume    | kmesh-cni-install-path | 写入kmesh的cni文件到k8s集群                            | - name: kmesh-cni-install-path<br/>           hostPath:<br/>             path: /opt/cni/bin |                                                    |
 | volume    | linux-bpf                    | 将宿主机环境上的kernel-headers包的/usr/include/linux/bpf.h文件映射到镜像内，通过该文件来判断当前宿主机所支持的helper函数和是否对内核进行过增强，进而判断支持kmesh的哪些能力，去对编译宏开关进行编辑并进行编译 | - name: linux-bpf<br/>           hostPath:<br/>             path: /usr/include/linux/bpf.h | 可选项，兼容模式镜像需要使用                       |
 | volume    | ko-build-path                | kmesh的七层治理能力需要对内核进行增强并插入kmesh.ko文件，内核模块的编译环境需要和宿主机环境保持一致，所以需要将宿主机上的/lib/module/build目录映射到镜像中，大多数环境中该目录都是软链接到/usr/src/$(uname -r) 目录，所以需要将/usr/src目录映射至镜像中 | - name: ko-build-path<br/>           hostPath:<br/>             path: /usr/src | 可选项，兼容模式镜像需要使用                       |
 | args      |                              | 镜像启动时的执行动作，可自定义修改                           | ["./start_kmesh.sh -enable-kmesh -enable-ads=true"]          | 默认执行启动kmesh                                  |
@@ -64,8 +63,6 @@
 
 镜像启动脚本，用于在镜像容器创建时调度所需资源，执行所需步骤：
 
-- 编译构建并在镜像内安装kmesh
-- 将部分文件拷贝安装到正确的位置
 - 加载kmesh.ko并将kmesh_cgroup2挂载到cgroup2
 - kmesh-daemon按照指定参数启动
 
