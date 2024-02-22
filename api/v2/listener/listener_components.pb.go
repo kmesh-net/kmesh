@@ -29,6 +29,7 @@ type Filter struct {
 
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to ConfigType:
+	//
 	//	*Filter_TcpProxy
 	//	*Filter_HttpConnectionManager
 	ConfigType isFilter_ConfigType `protobuf_oneof:"config_type"`

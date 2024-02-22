@@ -215,6 +215,7 @@ type RouteAction struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to ClusterSpecifier:
+	//
 	//	*RouteAction_Cluster
 	//	*RouteAction_WeightedClusters
 	ClusterSpecifier isRouteAction_ClusterSpecifier `protobuf_oneof:"cluster_specifier"`
@@ -475,6 +476,7 @@ type HeaderMatcher struct {
 	// Specifies the name of the header in the request.
 	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	// Types that are assignable to HeaderMatchSpecifier:
+	//
 	//	*HeaderMatcher_ExactMatch
 	//	*HeaderMatcher_PrefixMatch
 	HeaderMatchSpecifier isHeaderMatcher_HeaderMatchSpecifier `protobuf_oneof:"header_match_specifier"`

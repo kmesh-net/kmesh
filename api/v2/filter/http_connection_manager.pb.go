@@ -27,6 +27,7 @@ type HttpConnectionManager struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to RouteSpecifier:
+	//
 	//	*HttpConnectionManager_RouteConfigName
 	//	*HttpConnectionManager_RouteConfig
 	RouteSpecifier isHttpConnectionManager_RouteSpecifier `protobuf_oneof:"route_specifier"`

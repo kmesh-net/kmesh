@@ -211,6 +211,7 @@ type Address struct {
 	unknownFields protoimpl.UnknownFields
 
 	// Types that are assignable to Type:
+	//
 	//	*Address_Workload
 	//	*Address_Service
 	Type isAddress_Type `protobuf_oneof:"type"`
@@ -771,6 +772,7 @@ type GatewayAddress struct {
 	// address can either be a hostname (ex: gateway.example.com) or an IP (ex: 1.2.3.4).
 	//
 	// Types that are assignable to Destination:
+	//
 	//	*GatewayAddress_Hostname
 	//	*GatewayAddress_Address
 	Destination isGatewayAddress_Destination `protobuf_oneof:"destination"`
