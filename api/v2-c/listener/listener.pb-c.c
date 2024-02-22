@@ -52,7 +52,7 @@ void   listener__listener__free_unpacked
   assert(message->base.descriptor == &listener__listener__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-static const ProtobufCFieldDescriptor listener__listener__field_descriptors[4] =
+static const ProtobufCFieldDescriptor listener__listener__field_descriptors[5] =
 {
   {
     "name",
@@ -91,6 +91,18 @@ static const ProtobufCFieldDescriptor listener__listener__field_descriptors[4] =
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
+    "default_filter_chain",
+    25,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(Listener__Listener, default_filter_chain),
+    &listener__filter_chain__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+  {
     "api_status",
     128,
     PROTOBUF_C_LABEL_NONE,
@@ -105,15 +117,17 @@ static const ProtobufCFieldDescriptor listener__listener__field_descriptors[4] =
 };
 static const unsigned listener__listener__field_indices_by_name[] = {
   1,   /* field[1] = address */
-  3,   /* field[3] = api_status */
+  4,   /* field[4] = api_status */
+  3,   /* field[3] = default_filter_chain */
   2,   /* field[2] = filter_chains */
   0,   /* field[0] = name */
 };
-static const ProtobufCIntRange listener__listener__number_ranges[2 + 1] =
+static const ProtobufCIntRange listener__listener__number_ranges[3 + 1] =
 {
   { 1, 0 },
-  { 128, 3 },
-  { 0, 4 }
+  { 25, 3 },
+  { 128, 4 },
+  { 0, 5 }
 };
 const ProtobufCMessageDescriptor listener__listener__descriptor =
 {
@@ -123,10 +137,10 @@ const ProtobufCMessageDescriptor listener__listener__descriptor =
   "Listener__Listener",
   "listener",
   sizeof(Listener__Listener),
-  4,
+  5,
   listener__listener__field_descriptors,
   listener__listener__field_indices_by_name,
-  2,  listener__listener__number_ranges,
+  3,  listener__listener__number_ranges,
   (ProtobufCMessageInit) listener__listener__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

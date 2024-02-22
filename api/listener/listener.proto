@@ -12,4 +12,7 @@ message Listener {
   string name = 1;
   core.SocketAddress address = 2;
   repeated FilterChain filter_chains = 3;
+  // The default filter chain if none of the filter chain matches. If no default filter chain is supplied,
+  // the connection will be closed. The filter chain match is ignored in this field.
+  FilterChain default_filter_chain = 25;
 }

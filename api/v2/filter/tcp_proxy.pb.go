@@ -28,7 +28,6 @@ type TcpProxy struct {
 	// The prefix to use when emitting :ref:`statistics
 	StatPrefix string `protobuf:"bytes,1,opt,name=stat_prefix,json=statPrefix,proto3" json:"stat_prefix,omitempty"`
 	// Types that are assignable to ClusterSpecifier:
-	//
 	//	*TcpProxy_Cluster
 	//	*TcpProxy_WeightedClusters
 	ClusterSpecifier   isTcpProxy_ClusterSpecifier `protobuf_oneof:"cluster_specifier"`
@@ -107,7 +106,7 @@ type isTcpProxy_ClusterSpecifier interface {
 }
 
 type TcpProxy_Cluster struct {
-	// cluster name to connect to.
+	//cluster name to connect to.
 	Cluster string `protobuf:"bytes,2,opt,name=cluster,proto3,oneof"`
 }
 
