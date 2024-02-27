@@ -26,6 +26,7 @@
 #define MAP_SIZE_OF_ENDPOINT    1000
 #define MAP_SIZE_OF_BACKEND     500
 #define MAP_SIZE_OF_AUTH        8192
+#define MAP_SIZE_OF_MANAGER     8192
 
 // map name
 #define map_of_frontend			kmesh_frontend

@@ -21,6 +21,7 @@ package plugin
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -43,12 +44,14 @@ import (
 
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
 var (
-	log               = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
-	ENABLE_KMESH_MARK = "0x1000"
-	XDP_PROG_NAME     = "xdp_shutdown"
+	log                        = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
+	ENABLE_KMESH_MARK          = "0x1000"
+	XDP_PROG_NAME              = "xdp_shutdown"
+	ENABLED_KMESH_MAP_PIN_PATH = "/sys/fs/bpf/bpf_kmesh_workload/map/map_of_kmesh_manager"
 )
 
 // Config is whatever you expect your configuration json to be. This is whatever
@@ -59,6 +62,12 @@ type cniConf struct {
 
 	// Add plugin-specific flags here
 	KubeConfig string `json:"kubeconfig,omitempty"`
+}
+
+type kmeshManagerKey struct {
+	ContainerID uint64
+	IpAddress   uint32
+	Index       uint32
 }
 
 /*
@@ -126,7 +135,7 @@ func checkKmesh(client kubernetes.Interface, pod *v1.Pod) (bool, error) {
 	return false, nil
 }
 
-func enableKmeshControl(client kubernetes.Interface, pod *v1.Pod) error {
+func kmeshCtlByClassid(client kubernetes.Interface, pod *v1.Pod) error {
 	classIDPathPrefix := "/sys/fs/cgroup/net_cls/kubepods"
 
 	qosClass := strings.ToLower(string(pod.Status.QOSClass))
@@ -155,6 +164,108 @@ func enableKmeshControl(client kubernetes.Interface, pod *v1.Pod) error {
 		metav1.PatchOptions{},
 	); err != nil {
 		log.Errorf("failed to annotate kmesh redirection: %v", err)
+	}
+
+	return nil
+}
+
+/*
+ * there have a containerID and its hash is 64334212, it have 3 ip address in pod
+ * there have 7 record in thie map.
+ *      |containerID        |ip     |index      |||value        |
+ * 1.   |64334214           |0      |0          |||3            |
+ * 2.   |64334214           |0      |1          |||ip1          |
+ * 3.   |64334214           |0      |2          |||ip2          |
+ * 4.   |64334214           |0      |3          |||ip3          |
+ * 5.   |0                  |ip1    |0          |||0            |
+ * 6.   |0                  |ip2    |0          |||0            |
+ * 7.   |0                  |ip3    |0          |||0            |
+ *
+ * Why design it that way?
+ * We need a way to mark in the cni whether the current ip is managed by Kmesh.
+ * The cni inserts the ip address into the map when the pod is created and removes the ip
+ * address from the map when the pod is destroyed.
+ * However, according to the cni guide, when deleting the data, only the CONTAINER and IFNAME
+ * (https://github.com/containernetworking/cni.dev/blob/main/content/docs/spec.md#del-remove-container-from-network-or-un-apply-modifications)
+ * must be transferred. The IP address is not transferred in the cni. Therefore, the
+ * containerID and IP address must be bound and stored in the map for subsequent deletion.
+ */
+
+func kmeshCtlByIP(targetmap *ebpf.Map, preResult *cniv1.Result, containerID string) error {
+	var keyIP kmeshManagerKey
+	var keyContainer kmeshManagerKey
+	var value uint32 = 0
+	var totalNum uint32
+	var err error
+
+	keyContainer.ContainerID = hash.Sum64String(containerID)
+
+	for _, allocIP := range preResult.IPs {
+		keyIP.IpAddress = binary.LittleEndian.Uint32(allocIP.Address.IP.To4())
+		keyContainer.Index = totalNum + 1
+
+		if err = targetmap.Update(&keyContainer, &keyIP.IpAddress, ebpf.UpdateAny); err != nil {
+			log.Errorf("failed to record container :%v: %v", keyContainer.ContainerID, err)
+			// Try to insert the rest of the ip
+			continue
+		}
+
+		if err = targetmap.Update(&keyIP, &value, ebpf.UpdateAny); err != nil {
+			log.Errorf("failed to record ip %+v: %v", keyIP, err)
+			targetmap.Delete(&keyContainer) // nolint: errcheck
+			continue
+		}
+		totalNum++
+	}
+	keyContainer.Index = 0
+	value = totalNum
+	if err = targetmap.Update(&keyContainer, &value, ebpf.UpdateAny); err != nil {
+		log.Errorf("failed to record container total ip num %+v: %v", keyContainer, err)
+		return err
+	}
+	return nil
+}
+
+func kmeshDisCtlByIP(targetmap *ebpf.Map, containerID string) {
+	var totalNum uint32
+	var keyContainer kmeshManagerKey
+	var keyIP kmeshManagerKey
+	var index uint32
+
+	keyContainer.ContainerID = hash.Sum64String(containerID)
+	if err := targetmap.Lookup(&keyContainer, &totalNum); err != nil {
+		// The cmddelete command is invoked more than once.
+		// If the command is invoked multiple times, the floolwing error information is desplayed
+		log.Errorf("can not found container info in kmesh manager map")
+		return
+	}
+
+	for index = 0; index < totalNum; index++ {
+		keyContainer.Index = index + 1
+		if err := targetmap.Lookup(&keyContainer, &keyIP.IpAddress); err != nil {
+			log.Errorf("can not found a valid ip, info:%+v", keyContainer)
+			continue
+		}
+		targetmap.Delete(&keyIP)        // nolint: errcheck
+		targetmap.Delete(&keyContainer) // nolint: errcheck
+	}
+	keyContainer.Index = 0
+	targetmap.Delete(&keyContainer) // nolint: errcheck
+}
+
+func enableKmeshControl(client kubernetes.Interface, pod *v1.Pod, preResult *cniv1.Result, containerID string) error {
+	if err := kmeshCtlByClassid(client, pod); err != nil {
+		return err
+	}
+
+	recordmap, err := ebpf.LoadPinnedMap(ENABLED_KMESH_MAP_PIN_PATH, nil)
+	if err != nil {
+		log.Errorf("failed to get a valid kmesh_enabled map")
+		return err
+	}
+
+	if err = kmeshCtlByIP(recordmap, preResult, containerID); err != nil {
+		kmeshDisCtlByIP(recordmap, containerID)
 	}
 
 	return nil
@@ -258,7 +369,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	if err := enableKmeshControl(client, pod); err != nil {
+	if err := enableKmeshControl(client, pod, preResult, args.ContainerID); err != nil {
 		log.Error("failed to enable kmesh control")
 		return err
 	}
@@ -284,5 +395,13 @@ func CmdCheck(args *skel.CmdArgs) (err error) {
 }
 
 func CmdDelete(args *skel.CmdArgs) error {
+	// clean
+	recordmap, err := ebpf.LoadPinnedMap(ENABLED_KMESH_MAP_PIN_PATH, nil)
+	if err != nil {
+		log.Errorf("failed to get a valid kmesh_enabled map")
+		// cmd delete must be return nil
+		return nil
+	}
+	kmeshDisCtlByIP(recordmap, args.ContainerID)
 	return nil
 }
