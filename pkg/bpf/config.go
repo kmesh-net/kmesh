@@ -21,7 +21,6 @@ package bpf
 
 import (
 	"flag"
-	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -29,7 +28,15 @@ import (
 	"kmesh.net/kmesh/pkg/options"
 )
 
-var config Config
+const (
+	adsMode      = "ads"
+	workloadMode = "workload"
+)
+
+var (
+	config Config
+	mode   string
+)
 
 func init() {
 	options.Register(&config)
@@ -38,18 +45,16 @@ func init() {
 type Config struct {
 	BpfFsPath           string `json:"-bpf-fs-path"`
 	Cgroup2Path         string `json:"-cgroup2-path"`
-	EnableKmesh         bool   `json:"-enable-kmesh"`
-	EnableKmeshWorkload bool   `json:"-enable-kmesh-workload"`
-	EnableMda           bool   `json:"-enable-mda"`
-	BpfVerifyLogSize    int    `json:"-bpf-verify-log-size"`
+	EnableKmesh         bool
+	EnableKmeshWorkload bool
+	EnableMda           bool `json:"-enable-mda"`
+	BpfVerifyLogSize    int  `json:"-bpf-verify-log-size"`
 }
 
 func (c *Config) SetArgs() error {
 	flag.StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
 	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
-
-	flag.BoolVar(&c.EnableKmesh, "enable-kmesh", false, "enable bpf kmesh")
-	flag.BoolVar(&c.EnableKmeshWorkload, "enable-kmesh-workload", false, "enable bpf kmesh workload")
+	flag.StringVar(&mode, "mode", "ads", "controller plane mode, ads/workload optional")
 	flag.BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 
 	return nil
@@ -58,31 +63,31 @@ func (c *Config) SetArgs() error {
 func (c *Config) ParseConfig() error {
 	var err error
 
-	if !c.EnableKmesh && !c.EnableMda && !c.EnableKmeshWorkload {
-		return fmt.Errorf("must choose one or both of -enable-kmesh, -enable-mda and -enable-kmesh-workload")
+	c.EnableKmesh = true
+	if mode == workloadMode {
+		c.EnableKmeshWorkload = true
+		c.EnableKmesh = false
 	}
 
-	if c.EnableKmesh || c.EnableKmeshWorkload {
-		if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
-			return err
-		}
-		if _, err = os.Stat(c.Cgroup2Path); err != nil {
-			return err
-		}
+	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
+		return err
+	}
+	if _, err = os.Stat(c.Cgroup2Path); err != nil {
+		return err
+	}
 
-		if c.BpfFsPath, err = filepath.Abs(c.BpfFsPath); err != nil {
-			return err
-		}
-		if _, err = os.Stat(c.BpfFsPath); err != nil {
-			return err
-		}
+	if c.BpfFsPath, err = filepath.Abs(c.BpfFsPath); err != nil {
+		return err
+	}
+	if _, err = os.Stat(c.BpfFsPath); err != nil {
+		return err
+	}
 
-		bpfLogsize := os.Getenv("BPF_LOG_SIZE")
-		if bpfLogsize != "" {
-			c.BpfVerifyLogSize, err = strconv.Atoi(bpfLogsize)
-			if err != nil {
-				c.BpfVerifyLogSize = 0
-			}
+	bpfLogsize := os.Getenv("BPF_LOG_SIZE")
+	if bpfLogsize != "" {
+		c.BpfVerifyLogSize, err = strconv.Atoi(bpfLogsize)
+		if err != nil {
+			c.BpfVerifyLogSize = 0
 		}
 	}
 

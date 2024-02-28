@@ -9,15 +9,19 @@
       	bpf fs path (default "/sys/fs/bpf")
     -cgroup2-path string
       	cgroup2 path (default "/mnt/kmesh_cgroup2")
-    -enable-ads
-      	[if -enable-kmesh] enable control-plane from ads (default true)
-    -enable-kmesh
-      	enable bpf kmesh
+    -mode
+        controller plane mode, ads/workload optional (default "ads")
+    -enable-mda
+        enable mda
   
   # example
-  ./kmesh-daemon -enable-kmesh
+  ./kmesh-daemon -mode=ads
   # example
-  ./kmesh-daemon -enable-kmesh -enable-ads=false
+  ./kmesh-daemon -mode=workload
+  # example
+  ./kmesh-daemon -mode=ads -enable-mda
+  # example
+  ./kmesh-daemon -mode=workload -enable-mda
   ```
 
 - 运维相关
@@ -36,8 +40,6 @@
   ```
 
 - 命令使用注意事项
-
-  - `-enable-ads=true`时，Kmesh从服务网格控制面自动接收编排规则；此配置下，不要使用`kmesh-cmd`命令下发规则，避免多头配置；
 
   - `-bpf-fs-path`参数指定的`path`要求是bpf文件系统路径；如：
 

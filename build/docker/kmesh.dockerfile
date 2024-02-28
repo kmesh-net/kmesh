@@ -10,7 +10,6 @@ ARG arch
 ADD out/$arch/*so* /usr/lib64/
 ADD out/$arch/kmesh-daemon /usr/bin/
 ADD out/$arch/kmesh-cni /usr/bin/
-ADD out/$arch/kmesh-cmd /usr/bin/
 ADD out/$arch/mdacore /usr/bin/
 ADD build/docker/start_kmesh.sh /kmesh
 

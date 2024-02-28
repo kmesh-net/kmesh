@@ -41,7 +41,7 @@ Kmesh需要在拥有Kmesh内核增强特性的Linux环境中编译构建。当�
 
   ```bash
   [root@localhost kmesh]# ls out/amd64/
-  kmesh-cmd  kmesh-daemon       libbpf.so    libbpf.so.0.8.1       libkmesh_deserial.so  libprotobuf-c.so.1      mdacore
+  kmesh-daemon       libbpf.so    libbpf.so.0.8.1       libkmesh_deserial.so  libprotobuf-c.so.1      mdacore
   kmesh-cni  libboundscheck.so  libbpf.so.0  libkmesh_api_v2_c.so  libprotobuf-c.so      libprotobuf-c.so.1.0.0
   ```
 

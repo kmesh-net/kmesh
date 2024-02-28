@@ -55,7 +55,6 @@ function copy_to_host() {
     find /usr/lib64 -name 'libbpf.so*' -exec cp {} out/$arch \;
     find /usr/lib64 -name 'libprotobuf-c.so*' -exec cp {} out/$arch \;
     cp /usr/bin/kmesh-daemon out/$arch
-    cp /usr/bin/kmesh-cmd out/$arch
     cp /usr/bin/kmesh-cni out/$arch
     cp /usr/bin/mdacore out/$arch
 }

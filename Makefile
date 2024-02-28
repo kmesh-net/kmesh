@@ -40,9 +40,8 @@ endif
 
 # target
 APPS1 := kmesh-daemon
-APPS2 := kmesh-cmd
-APPS3 := mdacore
-APPS4 := kmesh-cni
+APPS2 := mdacore
+APPS3 := kmesh-cni
 
 # If the hub is not explicitly set, use default to kmesh-net.
 HUB ?= ghcr.io/kmesh-net
@@ -80,19 +79,15 @@ all:
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
 	
-	$(call printlog, BUILD, $(APPS2))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS2) $(GOFLAGS) ./cmd/main.go)
-	
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
 
-	$(call printlog, BUILD, $(APPS3))
+	$(call printlog, BUILD, $(APPS2))
 	$(QUIET) cd oncn-mda && cmake . -B build && make -C build
 
-	$(call printlog, BUILD, $(APPS4))
+	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS4) $(GOFLAGS) ./cniplugin/main.go)
+		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 
 .PHONY: gen-proto
 gen-proto:
@@ -119,15 +114,12 @@ install:
 	$(QUIET) install -Dp -m 0500 $(APPS1) $(INSTALL_BIN)
 	
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS2))
-	$(QUIET) install -Dp -m 0500 $(APPS2) $(INSTALL_BIN)
-
-	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS3))
-	$(QUIET) install -Dp -m 0500 oncn-mda/deploy/$(APPS3) $(INSTALL_BIN)
+	$(QUIET) install -Dp -m 0500 oncn-mda/deploy/$(APPS2) $(INSTALL_BIN)
 	$(QUIET) install -Dp -m 0400 oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o /usr/share/oncn-mda/sock_ops.c.o
 	$(QUIET) install -Dp -m 0400 oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o /usr/share/oncn-mda/sock_redirect.c.o
 
-	$(call printlog, INSTALL, /opt/cni/bin/$(APPS4))
-	$(QUIET) install -Dp -m 0500 $(APPS4) /usr/bin
+	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS3))
+	$(QUIET) install -Dp -m 0500 $(APPS3) $(INSTALL_BIN)
 
 uninstall:
 	$(QUIET) make uninstall -C api/v2-c
@@ -156,11 +148,11 @@ clean:
 	$(QUIET) rm -rf $(APPS1) $(APPS1)
 
 	$(call printlog, CLEAN, $(APPS2))
-	$(QUIET) rm -rf $(APPS2) $(APPS2)
-
-	$(call printlog, CLEAN, $(APPS3))
 	$(QUIET) rm -rf oncn-mda/build
 	$(QUIET) rm -rf oncn-mda/deploy
+
+	$(call printlog, CLEAN, $(APPS3))
+	$(QUIET) rm -rf $(APPS1) $(APPS3)
 
 	$(QUIET) make clean -C api/v2-c
 	$(QUIET) make clean -C bpf/deserialization_to_bpf_map
