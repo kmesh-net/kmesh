@@ -39,5 +39,8 @@ jobs:
         skip-pkg-cache: true
 
     - name: Go Test
-      run: |
-        go test -v -vet=off ./...
+      run: go test -race -coverprofile=coverage.txt -covermode=atomic $(go list ./pkg/...)
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.txt
