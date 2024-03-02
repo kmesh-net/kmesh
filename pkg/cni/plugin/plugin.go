@@ -89,8 +89,8 @@ func parseSkelArgs(args *skel.CmdArgs) (*cniConf, *k8sArgs, *cniv1.Result, error
 }
 
 // checkKmesh checks whether we should enable kmesh for the given pod
-func checkKmesh(clientSet *kubernetes.Clientset, pod *v1.Pod) (bool, error) {
-	namespace, err := clientSet.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
+func checkKmesh(client kubernetes.Interface, pod *v1.Pod) (bool, error) {
+	namespace, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
 	if err != nil {
 		return false, err
 	}
@@ -121,7 +121,7 @@ func checkKmesh(clientSet *kubernetes.Clientset, pod *v1.Pod) (bool, error) {
 	return false, nil
 }
 
-func enableKmeshControl(clientSet *kubernetes.Clientset, pod *v1.Pod) error {
+func enableKmeshControl(client kubernetes.Interface, pod *v1.Pod) error {
 	classIDPathPrefix := "/sys/fs/cgroup/net_cls/kubepods"
 
 	qosClass := strings.ToLower(string(pod.Status.QOSClass))
@@ -142,7 +142,7 @@ func enableKmeshControl(clientSet *kubernetes.Clientset, pod *v1.Pod) error {
 		return err
 	}
 
-	if _, err = clientSet.CoreV1().Pods(pod.Namespace).Patch(
+	if _, err = client.CoreV1().Pods(pod.Namespace).Patch(
 		context.Background(),
 		pod.Name,
 		k8stypes.MergePatchType,
@@ -208,20 +208,20 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	clientSet, err := utils.CreateK8sClientSet(cniConf.KubeConfig)
+	client, err := utils.CreateK8sClientSet(cniConf.KubeConfig)
 	if err != nil {
 		err = fmt.Errorf("failed to get k8s client: %v", err)
 		log.Error(err)
 		return err
 	}
 
-	pod, err := clientSet.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
+	pod, err := client.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		err = fmt.Errorf("failed to get pod: %v", err)
 		return err
 	}
 
-	enableKmesh, err := checkKmesh(clientSet, pod)
+	enableKmesh, err := checkKmesh(client, pod)
 	if err != nil {
 		log.Errorf("failed to check enable kmesh information: %v", err)
 		return err
@@ -231,7 +231,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	if err := enableKmeshControl(clientSet, pod); err != nil {
+	if err := enableKmeshControl(client, pod); err != nil {
 		log.Error("failed to enable kmesh control")
 		return err
 	}
