@@ -62,6 +62,46 @@ func Test_checkKmesh(t *testing.T) {
 			},
 			want:    false,
 			wantErr: false,
+		}, {
+			name: "test2: namespace with dataplane-mode=Kmesh, pod without sidecar inject annotation, should return true",
+			args: args{
+				client: fake.NewSimpleClientset(&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "utNs",
+						Labels: map[string]string{
+							"istio.io/dataplane-mode": "kmesh",
+						},
+					},
+				}),
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "utPod",
+						Namespace: "utNs",
+					},
+				},
+			},
+			want:    true,
+			wantErr: false,
+		}, {
+			name: "test: namespace not found, should return error",
+			args: args{
+				client: fake.NewSimpleClientset(&corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "otherNs",
+					},
+				}),
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "utPod",
+						Namespace: "utNs",
+						Labels: map[string]string{
+							"istio.io/dataplane-mode": "Kmesh",
+						},
+					},
+				},
+			},
+			want:    false,
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
