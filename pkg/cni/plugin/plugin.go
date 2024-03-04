@@ -189,7 +189,7 @@ func getPrevCniResult(conf *cniConf) (*cniv1.Result, error) {
 	return cniv1PrevResult, nil
 }
 
-/* if cmaadd failed, then we cannot return failed, do nothing and print pre result */
+// if cmdadd failed, then we cannot return failed, do nothing and print pre result
 func CmdAdd(args *skel.CmdArgs) error {
 	var err error
 	cniConf, k8sConf, preResult, err := parseSkelArgs(args)
