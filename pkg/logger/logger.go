@@ -56,7 +56,7 @@ func InitializeDefaultLogger(onlyFile bool) *logrus.Logger {
 	path, _ := filepath.Split(defaultLogFile)
 	err := os.MkdirAll(path, 0o700)
 	if err != nil {
-		logger.Fatal("failed to create log directory")
+		logger.Fatalf("failed to create log directory: %v", err)
 	}
 
 	file, err := rotatelogs.New(
