@@ -146,7 +146,7 @@ func TestGetCniConfigPath(t *testing.T) {
 						CNIVersion:   "0.2.0",
 						DisableCheck: true,
 						Plugins: []*libcni.NetworkConfig{
-							&libcni.NetworkConfig{
+							{
 								Network: &types.NetConf{
 									CNIVersion: "0.2.0",
 									Name:       "utTest",
@@ -178,7 +178,7 @@ func TestGetCniConfigPath(t *testing.T) {
 						CNIVersion:   "0.2.0",
 						DisableCheck: true,
 						Plugins: []*libcni.NetworkConfig{
-							&libcni.NetworkConfig{
+							{
 								Network: &types.NetConf{
 									CNIVersion: "0.2.0",
 									Name:       "utTest",
