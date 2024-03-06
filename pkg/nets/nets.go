@@ -52,7 +52,7 @@ func ConvertPortToBigEndian(little uint32) uint32 {
 	return uint32(big16)
 }
 
-// ConvertIpByteToUint32 converts ip to little-endian uint32 format
+// ConvertIpByteToUint32 converts ip to big-endian uint32 format
 func ConvertIpByteToUint32(ip []byte) uint32 {
-	return binary.LittleEndian.Uint32(ip)
+	return binary.BigEndian.Uint32(ip)
 }
