@@ -162,6 +162,7 @@ func RemoveWorkloadResource(removed_resources []string) error {
 			log.Errorf("BackendDelete failed: %s", err)
 			goto failed
 		}
+		hashName.Delete(workloadUid)
 	}
 
 failed:
@@ -219,6 +220,7 @@ func RemoveServiceResource(removed_resources []string) error {
 				}
 			}
 		}
+		hashName.Delete(name)
 	}
 
 failed:
