@@ -18,24 +18,24 @@ if [ $? -ne 0 ]; then
 fi
 
 kmesh-daemon $@ &
+pid = $!
 
+# pass SIGTERM to kmesh process
 function stop_kmesh() {
-        pkill kmesh-daemon
+        kill $pid
+}
 
-        lsmod | grep kmesh > /dev/null
-        if [ $? == 0 ]; then
-                rmmod kmesh
-        fi
+function cleanup(){
+          lsmod | grep kmesh > /dev/null
+          if [ $? == 0 ]; then
+                  rmmod kmesh
+          fi
 
-        umount -t cgroup2 /mnt/kmesh_cgroup2/
-        rm -rf /mnt/kmesh_cgroup2
-        rm -rf /sys/fs/bpf/bpf_kmesh
+          umount -t cgroup2 /mnt/kmesh_cgroup2/
+          rm -rf /mnt/kmesh_cgroup2
+          rm -rf /sys/fs/bpf/bpf_kmesh
 }
 
 trap 'stop_kmesh' SIGTERM
-
-while true;
-do
-    sleep 60 &
-    wait $!
-done
+wait # wait child process exit
+cleanup
