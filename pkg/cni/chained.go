@@ -64,22 +64,23 @@ func getCniConfigPath() (string, error) {
 		sort.Strings(files)
 		var confList *libcni.NetworkConfigList = nil
 
-		for _, confFile = range files {
-			confList, err = libcni.ConfListFromFile(confFile)
+		for _, file := range files {
+			confList, err = libcni.ConfListFromFile(file)
 			if err != nil {
-				err = fmt.Errorf("failed to read conflist: %v, %v", confFile, err)
+				err = fmt.Errorf("failed to read conflist: %v, %v", file, err)
 				log.Info(err)
 				continue
 			}
 			if len(confList.Plugins) == 0 {
-				log.Infof("file %s plugins is empty\n", confList.Name)
+				log.Infof("file %s plugins is empty", confList.Name)
 				continue
 			} else {
+				confFile = file
 				break
 			}
 		}
 		if confList == nil || len(confList.Plugins) == 0 {
-			err = fmt.Errorf("can not found the valid cni config!\n")
+			err = fmt.Errorf("can not found the valid cni config")
 			log.Error(err)
 			return "", err
 		}
@@ -112,7 +113,7 @@ func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 			return nil, err
 		}
 		if plugin["type"] == kmeshCniPluginName {
-			return nil, nil
+			log.Infof("%s was installed but not cleaned up, but we would overwrite it", kmeshCniPluginName)
 		}
 	}
 
@@ -200,6 +201,7 @@ func chainedKmeshCniPlugin() error {
 	if err != nil {
 		return err
 	}
+	log.Infof("cni config file: %s", cniConfigFilePath)
 
 	/*
 	 TODO: add watcher for cniConfigFile
@@ -216,6 +218,11 @@ func chainedKmeshCniPlugin() error {
 	if err != nil {
 		log.Error("failed to assemble cni config")
 		return err
+	}
+
+	if len(newCNIConfig) == 0 {
+		log.Infof("kmesh cni plugin is empty")
+		return fmt.Errorf("kmesh cni config is not generated")
 	}
 
 	fileInfo, err := os.Stat(cniConfigFilePath)
