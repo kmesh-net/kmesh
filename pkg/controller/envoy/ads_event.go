@@ -178,6 +178,7 @@ func (svc *ServiceEvent) handleEdsResponse(rsp *service_discovery_v3.DiscoveryRe
 		if err = anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
+		svc.ack.ResourceNames = append(svc.ack.ResourceNames, loadAssignment.GetClusterName())
 		apiStatus := svc.DynamicLoader.ClusterCache.GetApiCluster(loadAssignment.GetClusterName()).ApiStatus
 		newHash := hash.Sum64String(resource.String())
 		// part[0] CDS is different or part[1] EDS is different
@@ -242,6 +243,7 @@ func (svc *ServiceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryRe
 			continue
 		}
 		current.Insert(routeConfiguration.GetName())
+		svc.ack.ResourceNames = append(svc.ack.ResourceNames, routeConfiguration.GetName())
 		newHash := hash.Sum64String(resource.String())
 		if newHash != svc.DynamicLoader.RouteCache.GetRdsHash(routeConfiguration.GetName()) {
 			svc.DynamicLoader.RouteCache.SetRdsHash(routeConfiguration.GetName(), newHash)
