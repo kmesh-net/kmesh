@@ -38,7 +38,8 @@ type Config struct {
 
 // SetArgs set controller command arguments
 func (c *Config) SetArgs() error {
-	return envoy.GetConfig().SetClientArgs()
+	envoy.GetConfig().SetClientArgs()
+	return nil
 }
 
 func (c *Config) ParseConfig() error {
@@ -46,7 +47,8 @@ func (c *Config) ParseConfig() error {
 		c.adsConfig = envoy.GetConfig()
 	}
 
-	return c.adsConfig.Init()
+	c.adsConfig.Init()
+	return nil
 }
 
 func (c *Config) NewClient() (interfaces.ClientFactory, error) {
