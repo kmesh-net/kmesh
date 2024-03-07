@@ -55,8 +55,11 @@ func NewAdsClient(address string) (*AdsClient, error) {
 	client.ctx, client.cancel = context.WithCancel(context.Background())
 	client.Event = NewServiceEvent()
 
-	err := client.CreateStream()
-	return client, err
+	if err := client.CreateStream(); err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
 
 func (c *AdsClient) CreateStream() error {

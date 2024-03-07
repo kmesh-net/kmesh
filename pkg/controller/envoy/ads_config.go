@@ -61,36 +61,31 @@ func GetConfig() *XdsConfig {
 	return &config
 }
 
-func (c *XdsConfig) SetClientArgs() error {
+func (c *XdsConfig) SetClientArgs() {
 	flag.BoolVar(&c.EnableAds, "enable-ads", true, "[if -enable-kmesh] enable control-plane from ads")
-	return nil
 }
 
-func (c *XdsConfig) Init() error {
-	if !c.EnableAds {
-		return nil
+func (c *XdsConfig) Init() {
+	if c.EnableAds {
+		podIP := env.Register("INSTANCE_IP", "", "").Get()
+		podName := env.Register("POD_NAME", "", "").Get()
+		podNamespace := env.Register("POD_NAMESPACE", "", "").Get()
+		discoveryAddress := env.Register("MESH_CONTROLLER", "istiod.istio-system.svc:15012", "").Get()
+
+		c.DiscoveryAddress = discoveryAddress
+
+		ip := localHostIPv4
+		if podIP != "" {
+			ip = podIP
+		}
+
+		id := podName + "." + podNamespace
+		dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
+
+		c.ServiceNode = strings.Join([]string{nodeRole, ip, id, dnsDomain}, serviceNodeSeparator)
+
+		log.Infof("service node %v connect to discovery address %v", c.ServiceNode, c.DiscoveryAddress)
 	}
-
-	podIP := env.Register("INSTANCE_IP", "", "").Get()
-	podName := env.Register("POD_NAME", "", "").Get()
-	podNamespace := env.Register("POD_NAMESPACE", "", "").Get()
-	discoveryAddress := env.Register("MESH_CONTROLLER", "istiod.istio-system.svc:15012", "").Get()
-
-	c.DiscoveryAddress = discoveryAddress
-
-	ip := localHostIPv4
-	if podIP != "" {
-		ip = podIP
-	}
-
-	id := podName + "." + podNamespace
-	dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
-
-	c.ServiceNode = strings.Join([]string{nodeRole, ip, id, dnsDomain}, serviceNodeSeparator)
-
-	log.Infof("service node %v connect to discovery address %v", c.ServiceNode, c.DiscoveryAddress)
-
-	return nil
 }
 
 func (c *XdsConfig) NewClient() (interfaces.ClientFactory, error) {
