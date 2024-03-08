@@ -45,7 +45,7 @@ chain --port 15006 -j RETURN
 ```shell
 # service配置，将ExecStart配置设为如下形式
 [root@openEuler ~]# vim /usr/lib/systemd/system/kmesh.service
-ExecStart=/usr/bin/kmesh-daemon -enable-mda -enable-ads=false
+ExecStart=/usr/bin/kmesh-daemon -enable-mda
 [root@openEuler ~]# systemctl daemon-reload
 
 # service启动

@@ -139,9 +139,6 @@ Kmesh总体逻辑视图：
 │   └── kmesh-docker_file			# kmesh docker file
 │   └── kmesh-daemonset.yaml		# kmesh daemonset yaml
 ├── build.sh			# 编译脚本
-├── cmd					# kmesh-cmd模块，支持手动注入治理规则
-│   ├── command
-│   └── main.go
 ├── config				# Kmesh启动配置文件
 │   └── kmesh.json
 ├── daemon				# kmesh-daemon主模块

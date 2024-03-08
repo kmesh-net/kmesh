@@ -31,7 +31,6 @@ out/
 # MacOS Desktop Services Store
 .DS_Store
 # build binaries       
-kmesh-cmd
 kmesh-cni
 kmesh-daemon
 # build artifacts

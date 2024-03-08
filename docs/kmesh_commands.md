@@ -9,15 +9,19 @@
       	bpf fs path (default "/sys/fs/bpf")
     -cgroup2-path string
       	cgroup2 path (default "/mnt/kmesh_cgroup2")
-    -enable-ads
-      	[if -enable-kmesh] enable control-plane from ads (default true)
-    -enable-kmesh
-      	enable bpf kmesh
+    -mode
+        controller plane mode, ads/workload optional (default "ads")
+    -enable-mda
+        enable mda
   
   # example
-  ./kmesh-daemon -enable-kmesh
+  ./kmesh-daemon -mode=ads
   # example
-  ./kmesh-daemon -enable-kmesh -enable-ads=false
+  ./kmesh-daemon -mode=workload
+  # example
+  ./kmesh-daemon -mode=ads -enable-mda
+  # example
+  ./kmesh-daemon -mode=workload -enable-mda
   ```
 
 - Commands Example
@@ -36,8 +40,6 @@
   ```
 
 - Precautions
-
-  - When `-enable-ads=true`, Kmesh automatically receives orchestration rules from the service grid control plane. In this configuration, do not run the `kmesh-cmd` command to deliver rules. Otherwise, configuration conflicts may occur.
 
   - The `path` specified by the `-bpf-fs-path` parameter must be the path of the bpf file system. For example:
 

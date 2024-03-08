@@ -12,14 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: kwb0523
- * Create: 2024-01-08
  */
 
 package workload
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strings"
 
@@ -28,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	workloadapi "kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/pkg/controller/config"
 	nets "kmesh.net/kmesh/pkg/nets"
 )
 
@@ -36,7 +35,6 @@ const (
 	MaxPortPairNum = 10
 	LbPolicyRandom = 0
 	RandTimeSed    = 1000
-	AddressType    = "type.googleapis.com/istio.workload.Address"
 )
 
 var (
@@ -78,7 +76,7 @@ func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.De
 		ResourceNamesSubscribe: names,
 		ResponseNonce:          "",
 		ErrorDetail:            nil,
-		Node:                   config.getNode(),
+		Node:                   config.GetConfig().GetNode(),
 	}
 }
 
@@ -88,7 +86,7 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 		ResourceNamesSubscribe: []string{},
 		ResponseNonce:          rsp.GetNonce(),
 		ErrorDetail:            nil,
-		Node:                   config.getNode(),
+		Node:                   config.GetConfig().GetNode(),
 	}
 }
 
@@ -107,7 +105,12 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 
 	if rsp.RemovedResources != nil {
 		log.Debugf("RemovedResources %s\n", rsp.RemovedResources)
-		err = handleDeleteResponse(rsp)
+		switch rsp.GetTypeUrl() {
+		case AddressType:
+			err = handleDeleteResponse(rsp)
+		default:
+			err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
+		}
 	}
 
 	if err != nil {
@@ -115,7 +118,7 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 	}
 }
 
-func RemoveWorkloadResource(removed_resources []string) error {
+func removeWorkloadResource(removed_resources []string) error {
 	var (
 		err      error
 		skUpdate = ServiceKey{}
@@ -188,7 +191,7 @@ func deleteFrontendData(id uint32) error {
 	return nil
 }
 
-func RemoveServiceResource(removed_resources []string) error {
+func removeServiceResource(removed_resources []string) error {
 	var (
 		err      error
 		skDelete = ServiceKey{}
@@ -274,7 +277,7 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList) 
 
 	bk.BackendUid = uid
 	for _, ip := range ips {
-		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
+		bv.IPv4 = binary.LittleEndian.Uint32(ip)
 		bv.PortCount = uint32(len(portList.Ports))
 		for i, portPair := range portList.Ports {
 			if i >= MaxPortPairNum {
@@ -341,7 +344,7 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 	bk.BackendUid = hashName.StrToNum(workload.GetUid())
 	ips := workload.GetAddresses()
 	for _, ip := range ips {
-		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
+		bv.IPv4 = binary.LittleEndian.Uint32(ip)
 		if err = BackendUpdate(&bk, &bv); err != nil {
 			log.Errorf("Update backend map failed, err:%s", err)
 			return err
@@ -379,7 +382,7 @@ func storeFrontendData(serviceId uint32, service *workloadapi.Service) error {
 	fv.ServiceId = serviceId
 	for _, networkAddress := range service.GetAddresses() {
 		address := networkAddress.Address
-		fk.IPv4 = nets.ConvertIpByteToUint32(address)
+		fk.IPv4 = binary.LittleEndian.Uint32(address)
 		for _, portPair := range service.GetPorts() {
 			fk.Port = nets.ConvertPortToBigEndian(portPair.ServicePort)
 			if err = FrontendUpdate(&fk, &fv); err != nil {
@@ -472,12 +475,12 @@ func handleDeleteResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) erro
 
 	if strings.Contains(strings.Join(rsp.RemovedResources, ""), "Kubernetes//Pod") {
 		// delete as a workload
-		if err = RemoveWorkloadResource(rsp.GetRemovedResources()); err != nil {
+		if err = removeWorkloadResource(rsp.GetRemovedResources()); err != nil {
 			log.Errorf("RemoveWorkloadResource failed: %s", err)
 		}
 	} else {
 		// delete as a service
-		if err = RemoveServiceResource(rsp.GetRemovedResources()); err != nil {
+		if err = removeServiceResource(rsp.GetRemovedResources()); err != nil {
 			log.Errorf("RemoveServiceResource failed: %s", err)
 		}
 	}

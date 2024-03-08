@@ -12,31 +12,31 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2021-10-09
  */
 
 package controller
 
 import (
+	"fmt"
+
 	"kmesh.net/kmesh/pkg/bpf"
-	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/interfaces"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
 var (
-	stopCh = make(chan struct{})
-	client interfaces.ClientFactory
+	stopCh    = make(chan struct{})
+	client    interfaces.ClientFactory
+	log       = logger.NewLoggerField("controller")
+	bpfConfig = bpf.GetConfig()
 )
 
 func Start() error {
-	var err error
-
-	client, err = config.NewClient()
-	if err != nil {
-		return err
+	if !bpfConfig.EnableKmesh && !bpfConfig.EnableKmeshWorkload {
+		return fmt.Errorf("controller start failed")
 	}
+
+	client = NewXdsClient()
 
 	return client.Run(stopCh)
 }
@@ -48,13 +48,6 @@ func Stop() {
 	client.Close()
 }
 
-func GetAdsClient() *envoy.AdsClient {
-	if !bpf.GetConfig().EnableKmesh {
-		return nil
-	}
-	return client.(*envoy.AdsClient)
-}
-
-func IsAdsEnable() bool {
-	return envoy.GetConfig().EnableAds
+func GetXdsClient() *XdsClient {
+	return client.(*XdsClient)
 }

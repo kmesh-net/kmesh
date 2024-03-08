@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright 2023 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,16 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-01-08
- *
  */
 
-package workload
+package config
 
 import (
-	"flag"
 	"strings"
 
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -32,8 +27,9 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3" // nolint
 
-	"kmesh.net/kmesh/pkg/controller/interfaces"
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/options"
 )
 
 const (
@@ -48,30 +44,36 @@ const (
 )
 
 var (
-	log    = logger.NewLoggerField("controller/workload")
+	log    = logger.NewLoggerField("controller/config")
 	config XdsConfig
 )
 
 type XdsConfig struct {
 	ServiceNode      string
 	DiscoveryAddress string
-	EnableWorkload   bool
+}
+
+func init() {
+	options.Register(&config)
+}
+
+func (c *XdsConfig) SetArgs() error {
+	return nil
+}
+
+func (c *XdsConfig) ParseConfig() error {
+	if bpf.GetConfig().EnableKmesh || bpf.GetConfig().EnableMda || bpf.GetConfig().EnableKmeshWorkload {
+		c = &config
+	}
+
+	return c.Init()
 }
 
 func GetConfig() *XdsConfig {
 	return &config
 }
 
-func (c *XdsConfig) SetClientArgs() error {
-	flag.BoolVar(&c.EnableWorkload, "enable-workload", false, "[if -enable-kmesh-workload] enable control-plane from workload")
-	return nil
-}
-
 func (c *XdsConfig) Init() error {
-	if !c.EnableWorkload {
-		return nil
-	}
-
 	podIP := env.Register("INSTANCE_IP", "", "").Get()
 	podName := env.Register("POD_NAME", "", "").Get()
 	podNamespace := env.Register("POD_NAMESPACE", "", "").Get()
@@ -84,7 +86,7 @@ func (c *XdsConfig) Init() error {
 		ip = podIP
 	}
 
-	id := podName + podNamespace
+	id := podName + "." + podNamespace
 	dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
 
 	c.ServiceNode = strings.Join([]string{nodeRole, ip, id, dnsDomain}, serviceNodeSeparator)
@@ -94,11 +96,7 @@ func (c *XdsConfig) Init() error {
 	return nil
 }
 
-func (c *XdsConfig) NewClient() (interfaces.ClientFactory, error) {
-	return NewWorkloadClient(c.DiscoveryAddress)
-}
-
-func (c *XdsConfig) getNode() *config_core_v3.Node {
+func (c *XdsConfig) GetNode() *config_core_v3.Node {
 	return &config_core_v3.Node{
 		Id:       c.ServiceNode,
 		Metadata: nil,

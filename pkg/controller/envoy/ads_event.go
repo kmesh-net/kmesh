@@ -12,15 +12,11 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-01-08
  */
 
 package envoy
 
 import (
-	"context"
 	"fmt"
 
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -35,6 +31,7 @@ import (
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
@@ -44,7 +41,6 @@ const (
 )
 
 type ServiceEvent struct {
-	StaticLoader  *AdsLoader
 	DynamicLoader *AdsLoader
 	ack           *service_discovery_v3.DiscoveryRequest
 	rqt           *service_discovery_v3.DiscoveryRequest
@@ -53,7 +49,6 @@ type ServiceEvent struct {
 
 func NewServiceEvent() *ServiceEvent {
 	return &ServiceEvent{
-		StaticLoader:  NewAdsLoader(),
 		DynamicLoader: NewAdsLoader(),
 		ack:           nil,
 		rqt:           nil,
@@ -75,7 +70,7 @@ func newAdsRequest(typeUrl string, names []string) *service_discovery_v3.Discove
 		ResourceNames: names,
 		ResponseNonce: "",
 		ErrorDetail:   nil,
-		Node:          config.getNode(),
+		Node:          config.GetConfig().GetNode(),
 	}
 }
 
@@ -86,7 +81,7 @@ func newAckRequest(rsp *service_discovery_v3.DiscoveryResponse) *service_discove
 		ResourceNames: []string{},
 		ResponseNonce: rsp.GetNonce(),
 		ErrorDetail:   nil,
-		Node:          config.getNode(),
+		Node:          config.GetConfig().GetNode(),
 	}
 }
 
@@ -263,41 +258,6 @@ func (svc *ServiceEvent) handleRdsResponse(rsp *service_discovery_v3.DiscoveryRe
 
 func (svc *ServiceEvent) NewAdminRequest(resources *admin_v2.ConfigResources) {
 	svc.adminChan <- resources
-}
-
-func (svc *ServiceEvent) processAdminResponse(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case resources := <-svc.adminChan:
-			if err := svc.handleAdminResponse(resources); err != nil {
-				log.Errorf("handleAdminResponse failed err: %s", err)
-			}
-		}
-	}
-}
-
-func (svc *ServiceEvent) handleAdminResponse(resources *admin_v2.ConfigResources) error {
-	if ConfigResourcesIsEmpty(resources) {
-		return nil
-	}
-
-	for _, cluster := range resources.GetClusterConfigs() {
-		svc.StaticLoader.ClusterCache.SetApiCluster(cluster.GetName(), cluster)
-	}
-	for _, listener := range resources.GetListenerConfigs() {
-		svc.StaticLoader.ListenerCache.SetApiListener(listener.GetName(), listener)
-	}
-	for _, route := range resources.GetRouteConfigs() {
-		svc.StaticLoader.RouteCache.SetApiRouteConfig(route.GetName(), route)
-	}
-
-	svc.StaticLoader.ClusterCache.Flush()
-	svc.StaticLoader.ListenerCache.Flush()
-	svc.StaticLoader.RouteCache.Flush()
-
-	return nil
 }
 
 func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {

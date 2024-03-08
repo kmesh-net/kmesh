@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,25 +12,36 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-03-02
  */
 
-package command
+package dump
 
 import (
 	"fmt"
-	"io"
 	"net/http"
+	"time"
 
-	"github.com/golang/protobuf/jsonpb" // nolint
+	// nolint
 	"google.golang.org/protobuf/encoding/protojson"
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/options"
+)
+
+const (
+	adminAddr   = "localhost:15200"
+	adminUrl    = "http://" + adminAddr
+	contentType = "application/json"
+
+	patternHelp                 = "/help"
+	patternOptions              = "/options"
+	patternBpfKmeshMaps         = "/bpf/kmesh/maps"
+	patternControllerEnvoy      = "/controller/envoy"
+	patternControllerKubernetes = "/controller/kubernetes"
+
+	httpTimeout = time.Second * 20
 )
 
 type httpServer struct {
@@ -79,12 +90,12 @@ func httpOptions(w http.ResponseWriter, r *http.Request) {
 }
 
 func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
-	client := controller.GetAdsClient()
+	client := controller.GetXdsClient()
 	if client == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
 		return
-	} else if client.Event == nil {
+	} else if client.AdsStream.Event == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "none client.Event")
 		return
@@ -92,45 +103,17 @@ func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case http.MethodGet:
-		dynamicLd := client.Event.DynamicLoader
-		staticLd := client.Event.StaticLoader
+		dynamicLd := client.AdsStream.Event.DynamicLoader
 		dynamicRes := &admin_v2.ConfigResources{}
-		staticRes := &admin_v2.ConfigResources{}
 
 		dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusLookup()...)
 		dynamicRes.ListenerConfigs = append(dynamicRes.ListenerConfigs, dynamicLd.ListenerCache.StatusLookup()...)
 		dynamicRes.RouteConfigs = append(dynamicRes.RouteConfigs, dynamicLd.RouteCache.StatusLookup()...)
 		envoy.SetApiVersionInfo(dynamicRes)
 
-		staticRes.ClusterConfigs = append(staticRes.ClusterConfigs, staticLd.ClusterCache.StatusLookup()...)
-		staticRes.ListenerConfigs = append(staticRes.ListenerConfigs, staticLd.ListenerCache.StatusLookup()...)
-		staticRes.RouteConfigs = append(staticRes.RouteConfigs, staticLd.RouteCache.StatusLookup()...)
-		envoy.SetApiVersionInfo(staticRes)
-
 		fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{
-			StaticResources:  staticRes,
 			DynamicResources: dynamicRes,
 		}))
-	case http.MethodPost:
-		if controller.IsAdsEnable() {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintln(w, "This operation is not supported, because kmesh starts with -enable-ads=true.")
-			return
-		}
-		dump := &admin_v2.ConfigDump{}
-		content, err := io.ReadAll(r.Body)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintln(w, "body read failed")
-			return
-		}
-		if err = jsonpb.UnmarshalString(string(content), dump); err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			fmt.Fprintln(w, "body unmarshal failed")
-			return
-		}
-
-		client.Event.NewAdminRequest(dump.GetStaticResources())
 	default:
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -141,28 +124,20 @@ func httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) {
 func httpControllerEnvoy(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 
-	client := controller.GetAdsClient()
+	client := controller.GetXdsClient()
 	if client == nil {
 		fmt.Fprintf(w, "\t%s\n", "invalid bpf.Config.ClientMode")
 		return
 	}
-	dynamicLd := client.Event.DynamicLoader
-	staticLd := client.Event.StaticLoader
+	dynamicLd := client.AdsStream.Event.DynamicLoader
 	dynamicRes := &admin_v2.ConfigResources{}
-	staticRes := &admin_v2.ConfigResources{}
 
 	dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusRead()...)
 	dynamicRes.ListenerConfigs = append(dynamicRes.ListenerConfigs, dynamicLd.ListenerCache.StatusRead()...)
 	dynamicRes.RouteConfigs = append(dynamicRes.RouteConfigs, dynamicLd.RouteCache.StatusRead()...)
 	envoy.SetApiVersionInfo(dynamicRes)
 
-	staticRes.ClusterConfigs = append(staticRes.ClusterConfigs, staticLd.ClusterCache.StatusRead()...)
-	staticRes.ListenerConfigs = append(staticRes.ListenerConfigs, staticLd.ListenerCache.StatusRead()...)
-	staticRes.RouteConfigs = append(staticRes.RouteConfigs, staticLd.RouteCache.StatusRead()...)
-	envoy.SetApiVersionInfo(staticRes)
-
 	fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{
-		StaticResources:  staticRes,
 		DynamicResources: dynamicRes,
 	}))
 }
