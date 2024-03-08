@@ -108,19 +108,6 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 			err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
 		}
 	}
-
-	if rsp.RemovedResources != nil {
-		log.Debugf("RemovedResources %s\n", rsp.RemovedResources)
-		switch rsp.GetTypeUrl() {
-		case AddressType:
-			err = handleDeleteResponse(rsp)
-		case AuthorizationType:
-			err = svc.handleAuthorizationTypeResponse(rsp)
-		default:
-			err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
-		}
-	}
-
 	if err != nil {
 		log.Error(err)
 	}
@@ -476,24 +463,27 @@ func handleServiceData(service *workloadapi.Service) error {
 	return nil
 }
 
-func handleDeleteResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
-	var (
-		err error
-	)
-
-	if strings.Contains(strings.Join(rsp.RemovedResources, ""), "Kubernetes//Pod") {
-		// delete as a workload
-		if err = removeWorkloadResource(rsp.GetRemovedResources()); err != nil {
-			log.Errorf("RemoveWorkloadResource failed: %s", err)
-		}
-	} else {
-		// delete as a service
-		if err = removeServiceResource(rsp.GetRemovedResources()); err != nil {
-			log.Errorf("RemoveServiceResource failed: %s", err)
+func handleRemovedAddresses(removed []string) error {
+	var workloadNames []string
+	var serviceNames []string
+	for _, res := range removed {
+		// workload resource name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
+		if strings.Count(res, "/") > 2 {
+			workloadNames = append(workloadNames, res)
+		} else {
+			// service resource name format: namespace/hostname
+			serviceNames = append(serviceNames, res)
 		}
 	}
 
-	return err
+	if err := removeWorkloadResource(workloadNames); err != nil {
+		log.Errorf("RemoveWorkloadResource failed: %v", err)
+	}
+	if err := removeServiceResource(serviceNames); err != nil {
+		log.Errorf("RemoveServiceResource failed: %v", err)
+	}
+
+	return nil
 }
 
 func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
@@ -521,10 +511,12 @@ func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse)
 			log.Errorf("unknow type")
 		}
 	}
-
 	if err != nil {
 		log.Error(err)
 	}
+
+	_ = handleRemovedAddresses(rsp.RemovedResources)
+
 	return err
 }
 
