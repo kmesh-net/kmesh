@@ -26,6 +26,8 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 
 	workloadapi "kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/controller/config"
 	nets "kmesh.net/kmesh/pkg/nets"
 )
@@ -42,8 +44,9 @@ var (
 )
 
 type ServiceEvent struct {
-	ack *service_discovery_v3.DeltaDiscoveryRequest
-	rqt *service_discovery_v3.DeltaDiscoveryRequest
+	ack  *service_discovery_v3.DeltaDiscoveryRequest
+	rqt  *service_discovery_v3.DeltaDiscoveryRequest
+	rbac *auth.Rbac
 }
 
 var (
@@ -61,8 +64,9 @@ type Endpoint struct {
 
 func NewServiceEvent() *ServiceEvent {
 	return &ServiceEvent{
-		ack: nil,
-		rqt: nil,
+		ack:  nil,
+		rqt:  nil,
+		rbac: auth.NewRbac(),
 	}
 }
 
@@ -98,6 +102,8 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 		switch rsp.GetTypeUrl() {
 		case AddressType:
 			err = handleAddressTypeResponse(rsp)
+		case AuthorizationType:
+			err = svc.handleAuthorizationTypeResponse(rsp)
 		default:
 			err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
 		}
@@ -108,6 +114,8 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 		switch rsp.GetTypeUrl() {
 		case AddressType:
 			err = handleDeleteResponse(rsp)
+		case AuthorizationType:
+			err = svc.handleAuthorizationTypeResponse(rsp)
 		default:
 			err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
 		}
@@ -518,4 +526,27 @@ func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse)
 		log.Error(err)
 	}
 	return err
+}
+
+func (svc *ServiceEvent) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
+	// update resource
+	for _, resource := range rsp.GetResources() {
+		auth := &security.Authorization{}
+		if err := anypb.UnmarshalTo(resource.Resource, auth, proto.UnmarshalOptions{}); err != nil {
+			log.Errorf("unmarshal failed, err: %v", err)
+			continue
+		}
+		log.Debugf("handle auth xds, resource.name %s, auth %s", resource.GetName(), auth.String())
+		if err := svc.rbac.UpdatePolicy(auth); err != nil {
+			return err
+		}
+	}
+
+	// delete resource by name
+	for _, rmResourceName := range rsp.GetRemovedResources() {
+		svc.rbac.RemovePolicy(rmResourceName)
+		log.Debugf("handle rm resource %s", rmResourceName)
+	}
+
+	return nil
 }

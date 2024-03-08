@@ -26,7 +26,8 @@ import (
 )
 
 const (
-	AddressType = "type.googleapis.com/istio.workload.Address"
+	AddressType       = "type.googleapis.com/istio.workload.Address"
+	AuthorizationType = "type.googleapis.com/istio.security.Authorization"
 )
 
 var (
@@ -48,6 +49,10 @@ func (ws *WorkloadStream) WorklaodStreamCreateAndSend(client service_discovery_v
 
 	if err := ws.Stream.Send(newWorkloadRequest(AddressType, nil)); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
+	}
+
+	if err = ws.Stream.Send(newWorkloadRequest(AuthorizationType, nil)); err != nil {
+		return fmt.Errorf("authorization subscribe failed, %s", err)
 	}
 
 	return nil
