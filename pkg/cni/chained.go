@@ -105,7 +105,8 @@ func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	for _, rawplugin := range plugins {
+	kmeshIndex := -1
+	for i, rawplugin := range plugins {
 		plugin, ok := rawplugin.(map[string]interface{})
 		if !ok {
 			err = fmt.Errorf("failed to parser plugin\n")
@@ -113,6 +114,7 @@ func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 			return nil, err
 		}
 		if plugin["type"] == kmeshCniPluginName {
+			kmeshIndex = i
 			log.Infof("%s was installed but not cleaned up, but we would overwrite it", kmeshCniPluginName)
 		}
 	}
@@ -122,7 +124,12 @@ func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 	// add kmesh-cni configuration
 	kmeshConfig["type"] = kmeshCniPluginName
 	kmeshConfig["kubeConfig"] = kubeconfigFilepath
-	cniConfigMap["plugins"] = append(plugins, kmeshConfig)
+	if kmeshIndex >= 0 {
+		plugins[kmeshIndex] = kmeshConfig
+		cniConfigMap["plugins"] = plugins
+	} else {
+		cniConfigMap["plugins"] = append(plugins, kmeshConfig)
+	}
 
 	byte, err := json.MarshalIndent(cniConfigMap, "", "  ")
 	if err != nil {
