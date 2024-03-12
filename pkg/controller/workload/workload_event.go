@@ -98,15 +98,13 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 	var err error
 
 	svc.ack = newAckRequest(rsp)
-	if rsp.GetResources() != nil {
-		switch rsp.GetTypeUrl() {
-		case AddressType:
-			err = handleAddressTypeResponse(rsp)
-		case AuthorizationType:
-			err = svc.handleAuthorizationTypeResponse(rsp)
-		default:
-			err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
-		}
+	switch rsp.GetTypeUrl() {
+	case AddressType:
+		err = handleAddressTypeResponse(rsp)
+	case AuthorizationType:
+		err = svc.handleAuthorizationTypeResponse(rsp)
+	default:
+		err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
 	}
 	if err != nil {
 		log.Error(err)
@@ -349,17 +347,16 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 }
 
 func handleWorkloadData(workload *workloadapi.Workload) error {
-	var err error
-
+	log.Debugf("workload uid: %s", workload.Uid)
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
-		if err = handleDataWithService(workload); err != nil {
-			log.Errorf("handleDataWithService failed, err:%s", err)
+		if err := handleDataWithService(workload); err != nil {
+			log.Errorf("handleDataWithService %s failed: %v", workload.Uid, err)
 			return err
 		}
 	} else { // independent workload without service
-		if err = handleDataWithoutService(workload); err != nil {
-			log.Errorf("handleDataWithoutService failed, err:%s", err)
+		if err := handleDataWithoutService(workload); err != nil {
+			log.Errorf("handleDataWithoutService %s failed: %v", workload.Uid, err)
 			return err
 		}
 	}
@@ -425,6 +422,7 @@ func storeServiceData(serviceName string) error {
 }
 
 func handleServiceData(service *workloadapi.Service) error {
+	log.Debugf("service resource name: %s/%s", service.Namespace, service.Hostname)
 	var (
 		err error
 		sk  = ServiceKey{}
@@ -497,15 +495,13 @@ func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse)
 			continue
 		}
 
-		log.Debugf("resource, %s", resource.Resource)
+		log.Debugf("resource, %v", address)
 		switch address.GetType().(type) {
 		case *workloadapi.Address_Workload:
 			workload := address.GetWorkload()
-			log.Debugf("Address_Workload name:%s", workload.Name)
 			err = handleWorkloadData(workload)
 		case *workloadapi.Address_Service:
 			service := address.GetService()
-			log.Debugf("Address_Service name:%s", service.Name)
 			err = handleServiceData(service)
 		default:
 			log.Errorf("unknow type")
