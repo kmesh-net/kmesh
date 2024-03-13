@@ -121,6 +121,10 @@ func newApiClusterLoadAssignment(
 func newApiSocketAddress(address *config_core_v3.Address) *core_v2.SocketAddress {
 	var addr *config_core_v3.SocketAddress
 
+	if address == nil {
+		return nil
+	}
+
 	switch address.GetAddress().(type) {
 	case *config_core_v3.Address_SocketAddress:
 		addr = address.GetSocketAddress()
@@ -164,6 +168,10 @@ func (load *AdsLoader) UpdateApiListenerStatus(key string, status core_v2.ApiSta
 }
 
 func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener *config_listener_v3.Listener) {
+	if listener == nil {
+		return
+	}
+
 	apiListener := &listener_v2.Listener{
 		ApiStatus: status,
 		Name:      listener.GetName(),
@@ -197,6 +205,10 @@ func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener
 }
 
 func newApiFilterChainMatch(match *config_listener_v3.FilterChainMatch) *listener_v2.FilterChainMatch {
+	if match == nil {
+		return &listener_v2.FilterChainMatch{}
+	}
+
 	apiMatch := &listener_v2.FilterChainMatch{
 		DestinationPort:      match.GetDestinationPort().GetValue(),
 		TransportProtocol:    match.GetTransportProtocol(),
@@ -216,6 +228,11 @@ func newApiFilterChainMatch(match *config_listener_v3.FilterChainMatch) *listene
 func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.Filter, string) {
 	var err error
 	var routeName string
+
+	if filter == nil {
+		return nil, ""
+	}
+
 	apiFilter := &listener_v2.Filter{
 		Name: filter.GetName(),
 	}
@@ -278,6 +295,9 @@ func (load *AdsLoader) UpateApiRouteStatus(key string, status core_v2.ApiStatus)
 }
 
 func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *route_v2.RouteConfiguration {
+	if routeConfig == nil {
+		return nil
+	}
 	apiRouteConfig := &route_v2.RouteConfiguration{
 		Name:         routeConfig.GetName(),
 		VirtualHosts: nil,
@@ -312,6 +332,10 @@ func newApiRouteConfiguration(routeConfig *config_route_v3.RouteConfiguration) *
 }
 
 func newApiRoute(route *config_route_v3.Route) *route_v2.Route {
+	if route == nil {
+		return nil
+	}
+
 	apiRoute := &route_v2.Route{
 		Name:  route.GetName(),
 		Match: newApiRouteMatch(route.GetMatch()),
@@ -331,6 +355,10 @@ func newApiRoute(route *config_route_v3.Route) *route_v2.Route {
 
 func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 	var apiHeaders []*route_v2.HeaderMatcher
+
+	if match == nil {
+		return &route_v2.RouteMatch{}
+	}
 	for _, header := range match.GetHeaders() {
 		apiHeader := &route_v2.HeaderMatcher{
 			Name:                 header.GetName(),
@@ -366,6 +394,9 @@ func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 }
 
 func parseStringMatch(configHeader *config_route_v3.HeaderMatcher, apiHeader *route_v2.HeaderMatcher) {
+	if configHeader == nil {
+		return
+	}
 	switch configHeader.GetStringMatch().GetMatchPattern().(type) {
 	case *envoy_type_matcher_v3.StringMatcher_Exact:
 		apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch{
