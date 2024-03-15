@@ -25,6 +25,14 @@ import "C"
 import "kmesh.net/kmesh/pkg/options"
 
 var config Config
+var protocol = map[string]bool{
+	"IPV4":  C.KMESH_ENABLE_IPV4 == C.KMESH_MODULE_ON,
+	"IPV6":  C.KMESH_ENABLE_IPV6 == C.KMESH_MODULE_ON,
+	"TCP":   C.KMESH_ENABLE_TCP == C.KMESH_MODULE_ON,
+	"UDP":   C.KMESH_ENABLE_UDP == C.KMESH_MODULE_ON,
+	"HTTP":  C.KMESH_ENABLE_HTTP == C.KMESH_MODULE_ON,
+	"HTTPS": C.KMESH_ENABLE_HTTPS == C.KMESH_MODULE_ON,
+}
 
 func init() {
 	options.Register(&config)
@@ -43,20 +51,13 @@ func (c *Config) SetArgs() error {
 // ParseConfig parses the config of nets
 func (c *Config) ParseConfig() error {
 	c.Protocol = make(map[string]bool)
-
-	c.Protocol["IPV4"] = C.KMESH_ENABLE_IPV4 == C.KMESH_MODULE_ON
-	c.Protocol["IPV6"] = C.KMESH_ENABLE_IPV6 == C.KMESH_MODULE_ON
-	c.Protocol["TCP"] = C.KMESH_ENABLE_TCP == C.KMESH_MODULE_ON
-	c.Protocol["UDP"] = C.KMESH_ENABLE_UDP == C.KMESH_MODULE_ON
-	c.Protocol["HTTP"] = C.KMESH_ENABLE_HTTP == C.KMESH_MODULE_ON
-	c.Protocol["HTTPS"] = C.KMESH_ENABLE_HTTPS == C.KMESH_MODULE_ON
-
+	c.Protocol = protocol
 	return nil
 }
 
 // IsEnabledProtocol returns true if the protocol is supported
 func (c *Config) IsEnabledProtocol(pro string) bool {
-	return c.Protocol[pro]
+	return protocol[pro]
 }
 
 // GetConfig function to get config
