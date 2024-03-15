@@ -31,6 +31,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: metadata.namespace
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
         - name: INSTANCE_IP
           valueFrom:
             fieldRef:
@@ -105,3 +110,4 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
+      hostPID: true
