@@ -23,15 +23,19 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"path"
+	"net"
 	"strconv"
 	"strings"
+	"syscall"
 
+	netns "github.com/containernetworking/plugins/pkg/ns"
+
+	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
+	"github.com/vishvananda/netlink"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -44,6 +48,7 @@ import (
 var (
 	log               = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
 	ENABLE_KMESH_MARK = "0x1000"
+	XDP_PROG_NAME     = "xdp_shutdown"
 )
 
 // Config is whatever you expect your configuration json to be. This is whatever
@@ -121,37 +126,86 @@ func checkKmesh(client kubernetes.Interface, pod *v1.Pod) (bool, error) {
 	return false, nil
 }
 
-func enableKmeshControl(client kubernetes.Interface, pod *v1.Pod) error {
-	classIDPathPrefix := "/sys/fs/cgroup/net_cls/kubepods"
-
-	qosClass := strings.ToLower(string(pod.Status.QOSClass))
-	podUID := "pod" + pod.UID
-	classidFile := "net_cls.classid"
-	netClsPath := path.Join(classIDPathPrefix, string(qosClass), string(podUID), classidFile)
-
-	file, err := os.OpenFile(netClsPath, os.O_RDWR|os.O_APPEND, 0)
-	if err != nil {
-		err = fmt.Errorf("failed to open net cls path: %v, %v", netClsPath, err)
-		log.Error(err)
+func disableKmeshControl(ns string) error {
+	if ns == "" {
+		return nil
+	}
+	execFunc := func(netns.NetNS) error {
+		/*
+		 * Attempt to connect to a special IP address. The
+		 * connection triggers the cgroup/connect4 ebpf
+		 * program and records the netns cookie information
+		 * of the current connection. The cookie can be used
+		 * to determine whether the netns is managed by Kmesh.
+		 * 0.0.0.1:930(0x3a2) is "cipher key" for cgroup/connect4
+		 * ebpf program disable kmesh control
+		 */
+		simip := net.ParseIP("0.0.0.1")
+		sockfd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+		if err != nil {
+			return err
+		}
+		if err = syscall.SetNonblock(sockfd, true); err != nil {
+			return err
+		}
+		err = syscall.Connect(sockfd, &syscall.SockaddrInet4{
+			Port: 930,
+			Addr: [4]byte(simip.To4()),
+		})
+		if err == nil {
+			return err
+		}
+		errno, ok := err.(syscall.Errno)
+		if ok && errno == 115 { // -EINPROGRESS, Operation now in progress
+			return nil
+		}
 		return err
 	}
-	defer file.Close()
-	if err := utils.ExecuteWithRedirect("echo", []string{ENABLE_KMESH_MARK}, file); err != nil {
-		err = fmt.Errorf("failed to exec cmd with redirect: %v", err)
-		log.Error(err)
+
+	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
+		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
+		return err
+	}
+	return nil
+}
+
+func enableKmeshControl(ns string) error {
+	execFunc := func(netns.NetNS) error {
+		/*
+		 * Attempt to connect to a special IP address. The
+		 * connection triggers the cgroup/connect4 ebpf
+		 * program and records the netns cookie information
+		 * of the current connection. The cookie can be used
+		 * to determine whether the netns is managed by Kmesh.
+		 * 0.0.0.1:929(0x3a1) is "cipher key" for cgroup/connect4
+		 * ebpf program.
+		 */
+		simip := net.ParseIP("0.0.0.1")
+		sockfd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+		if err != nil {
+			return err
+		}
+		if err = syscall.SetNonblock(sockfd, true); err != nil {
+			return err
+		}
+		err = syscall.Connect(sockfd, &syscall.SockaddrInet4{
+			Port: 929,
+			Addr: [4]byte(simip.To4()),
+		})
+		if err == nil {
+			return err
+		}
+		errno, ok := err.(syscall.Errno)
+		if ok && errno == 115 { // -EINPROGRESS, Operation now in progress
+			return nil
+		}
 		return err
 	}
 
-	if _, err = client.CoreV1().Pods(pod.Namespace).Patch(
-		context.Background(),
-		pod.Name,
-		k8stypes.MergePatchType,
-		annotationPatch,
-		metav1.PatchOptions{},
-	); err != nil {
-		log.Errorf("failed to annotate kmesh redirection: %v", err)
+	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
+		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
+		return err
 	}
-
 	return nil
 }
 
@@ -187,6 +241,39 @@ func getPrevCniResult(conf *cniConf) (*cniv1.Result, error) {
 		return nil, err
 	}
 	return cniv1PrevResult, nil
+}
+
+func enableXdpAuth(ifname string) error {
+	var (
+		err  error
+		xdp  *ebpf.Program
+		link netlink.Link
+	)
+
+	if xdp, err = utils.GetProgramByName(XDP_PROG_NAME); err != nil {
+		return err
+	}
+
+	if link, err = netlink.LinkByName(ifname); err != nil {
+		return err
+	}
+
+	if err = netlink.LinkSetXdpFd(link, xdp.FD()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func patchKmeshAnnotation(client kubernetes.Interface, pod *v1.Pod) error {
+	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(),
+		pod.Name,
+		k8stypes.MergePatchType,
+		annotationPatch,
+		metav1.PatchOptions{},
+	)
+	return err
 }
 
 // if cmdadd failed, then we cannot return failed, do nothing and print pre result
@@ -231,8 +318,25 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	if err := enableKmeshControl(client, pod); err != nil {
-		log.Error("failed to enable kmesh control")
+	if err := enableKmeshControl(args.Netns); err != nil {
+		log.Errorf("failed to enable kmesh control, err is %v\n", err)
+		return err
+	}
+
+	if err := patchKmeshAnnotation(client, pod); err != nil {
+		log.Errorf("failed to annotate kmesh redirection, err is %v\n", err)
+	}
+
+	enableXDPFunc := func(netns.NetNS) error {
+		if err := enableXdpAuth(args.IfName); err != nil {
+			err = fmt.Errorf("failed to set xdp to dev %v, err is %v", args.IfName, err)
+			return err
+		}
+		return nil
+	}
+
+	if err := netns.WithNetNSPath(string(args.Netns), enableXDPFunc); err != nil {
+		log.Error(err)
 		return err
 	}
 
@@ -244,5 +348,10 @@ func CmdCheck(args *skel.CmdArgs) (err error) {
 }
 
 func CmdDelete(args *skel.CmdArgs) error {
+	// clean
+	err := disableKmeshControl(args.Netns)
+	log.Errorf("failed to disable Kmesh control, err: %v\n", err)
+
+	// cmd delete must be return nil
 	return nil
 }

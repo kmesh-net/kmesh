@@ -3,7 +3,7 @@
 function prepare() {
     local arch
     arch=$(get_arch)
-    docker pull "ghcr.io/kmesh-net/kmesh-build-${arch}:v0.2.0"
+    docker pull "ghcr.io/kmesh-net/kmesh-build-${arch}:latest"
 }
 
 function run_docker_container() {
@@ -19,7 +19,7 @@ function run_docker_container() {
         -v /sys/fs/bpf:/sys/fs/bpf \
         -v /lib/modules:/lib/modules \
         -v "$(pwd)":/kmesh \
-        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:v0.2.0")
+        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:latest")
 
     echo "$container_id"
 }
@@ -48,6 +48,7 @@ function copy_to_host() {
     fi
 
     mkdir -p "./out/$arch"
+    mkdir -p "./out/$arch/ko"
 
     cp /usr/lib64/libkmesh_api_v2_c.so out/$arch
     cp /usr/lib64/libkmesh_deserial.so out/$arch
@@ -57,6 +58,9 @@ function copy_to_host() {
     cp /usr/bin/kmesh-daemon out/$arch
     cp /usr/bin/kmesh-cni out/$arch
     cp /usr/bin/mdacore out/$arch
+    if [ -f "/lib/modules/kmesh/kmesh.ko" ]; then
+        cp /lib/modules/kmesh/kmesh.ko out/$arch/ko
+    fi
 }
 
 function clean_container() {

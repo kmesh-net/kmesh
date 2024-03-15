@@ -20,20 +20,12 @@
 package plugin
 
 import (
-	"errors"
-	"io"
-	"io/fs"
-	"os"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
-
-	"kmesh.net/kmesh/pkg/utils"
 )
 
 func TestCheckKmesh(t *testing.T) {
@@ -122,78 +114,6 @@ func TestCheckKmesh(t *testing.T) {
 			if got != tt.want {
 				t.Errorf("checkKmesh() = %v, want %v", got, tt.want)
 			}
-		})
-	}
-}
-
-func TestEnableKmeshControl(t *testing.T) {
-	utPod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			UID:       types.UID("utpod"),
-			Name:      "utPod",
-			Namespace: "utNs",
-		},
-	}
-	fakeClient := fake.NewSimpleClientset(utPod)
-	patches1 := gomonkey.NewPatches()
-	patches2 := gomonkey.NewPatches()
-	tests := []struct {
-		name       string
-		wantErr    bool
-		beforeFunc func()
-		afterFunc  func()
-	}{
-		{
-			name:    "test1: failed to open new cls, should return err",
-			wantErr: true,
-			beforeFunc: func() {
-				patches1.ApplyFunc(os.OpenFile, func(name string, flag int, perm fs.FileMode) (*os.File, error) {
-					return nil, errors.New("permission denied")
-				})
-			},
-			afterFunc: func() {
-				patches1.Reset()
-			},
-		}, {
-			name:    "test2: failed to exec cmd with redirect, should return err",
-			wantErr: true,
-			beforeFunc: func() {
-				patches1.ApplyFunc(os.OpenFile, func(name string, flag int, perm fs.FileMode) (*os.File, error) {
-					return nil, nil
-				})
-				patches2.ApplyFunc(utils.ExecuteWithRedirect, func(cmd string, args []string, stdout io.Writer) error {
-					return errors.New("permission denied")
-				})
-			},
-			afterFunc: func() {
-				patches1.Reset()
-				patches2.Reset()
-			},
-		}, {
-			name:    "test3: no error, should return nil",
-			wantErr: false,
-			beforeFunc: func() {
-				patches1.ApplyFunc(os.OpenFile, func(name string, flag int, perm fs.FileMode) (*os.File, error) {
-					return nil, nil
-				})
-				patches2.ApplyFunc(utils.ExecuteWithRedirect, func(cmd string, args []string, stdout io.Writer) error {
-					return nil
-				})
-			},
-			afterFunc: func() {
-				patches1.Reset()
-				patches2.Reset()
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tt.beforeFunc()
-			err := enableKmeshControl(fakeClient, utPod)
-			if err != nil && !tt.wantErr {
-				t.Errorf("%v", err)
-			}
-			tt.afterFunc()
 		})
 	}
 }

@@ -26,24 +26,34 @@ spec:
         - name: POD_NAME
           valueFrom:
             fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
-              apiVersion: v1
               fieldPath: metadata.namespace
-        - name: INSTANCE_IP
+        - name: NODE_NAME
           valueFrom:
             fieldRef:
               apiVersion: v1
+              fieldPath: spec.nodeName
+        - name: INSTANCE_IP
+          valueFrom:
+            fieldRef:
               fieldPath: status.podIP
-        - name: MESH_CONTROLLER
-          value: {{ quote .Values.deploy.kmesh.env.meshController }}
+        - name: XDS_ADDRESS
+          value: {{ quote .Values.deploy.kmesh.env.xdsAddress }}
         - name: BPF_LOG_SIZE
           value: {{ quote .Values.deploy.kmesh.env.bpfLogSize }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.serviceAccountName
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         image: {{ .Values.deploy.kmesh.image.repository }}:{{ .Values.deploy.kmesh.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.deploy.kmesh.imagePullPolicy }}
         name: kmesh
@@ -100,3 +110,4 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
+      hostPID: true

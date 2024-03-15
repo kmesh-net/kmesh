@@ -30,10 +30,12 @@ type ServicePorts [MaxPortPairNum]uint32
 type TargetPorts [MaxPortPairNum]uint32
 
 type BackendValue struct {
-	IPv4        uint32 // backend ip
-	PortCount   uint32
-	ServicePort ServicePorts // ServicePort[i] and TargetPort[i] are a pair, i starts from 0 and max value is PortCount-1
-	TargetPort  TargetPorts
+	IPv4         uint32 // backend ip
+	PortCount    uint32
+	ServicePort  ServicePorts // ServicePort[i] and TargetPort[i] are a pair, i starts from 0 and max value is PortCount-1
+	TargetPort   TargetPorts
+	WaypointAddr uint32
+	WaypointPort uint32
 }
 
 func BackendUpdate(key *BackendKey, value *BackendValue) error {

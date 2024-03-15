@@ -20,8 +20,10 @@ import (
 	"fmt"
 
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/controller/bypass"
 	"kmesh.net/kmesh/pkg/controller/interfaces"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 var (
@@ -32,11 +34,21 @@ var (
 )
 
 func Start() error {
-	if !bpfConfig.EnableKmesh && !bpfConfig.EnableKmeshWorkload {
+	if !bpfConfig.AdsEnabled() && !bpfConfig.WdsEnabled() {
 		return fmt.Errorf("controller start failed")
 	}
 
 	client = NewXdsClient()
+
+	clientset, err := utils.GetK8sclient()
+	if err != nil {
+		panic(err)
+	}
+
+	err = bypass.StartByPassController(clientset)
+	if err != nil {
+		return fmt.Errorf("failed to start bypass controller: %v", err)
+	}
 
 	return client.Run(stopCh)
 }

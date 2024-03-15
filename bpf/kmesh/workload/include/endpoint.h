@@ -37,13 +37,14 @@ static inline int endpoint_manager(ctx_buff_t *ctx, endpoint_value *endpoint_v)
 	backend_k.backend_uid = endpoint_v->backend_uid;
 	backend_v = map_lookup_backend(&backend_k);
 	if (!backend_v) {
-		BPF_LOG(ERR, ENDPOINT, "find backend failed");
+		BPF_LOG(WARN, ENDPOINT, "find backend failed");
 		return -ENOENT;
 	}
 
 	ret = backend_manager(ctx, backend_v);
 	if (ret != 0) {
-		BPF_LOG(ERR, ENDPOINT, "backend_manager failed, ret:%d\n", ret);
+		if (ret != -ENOENT)
+			BPF_LOG(ERR, ENDPOINT, "backend_manager failed, ret:%d\n", ret);
 		return ret;
 	}
 

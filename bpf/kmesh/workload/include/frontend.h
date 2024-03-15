@@ -42,7 +42,8 @@ static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v)
 
 	ret = service_manager(ctx, frontend_v->service_id, service_v);
 	if (ret != 0) {
-		BPF_LOG(ERR, FRONTEND, "service_manager failed, ret:%d\n", ret);
+		if (ret != -ENOENT)
+			BPF_LOG(ERR, FRONTEND, "service_manager failed, ret:%d\n", ret);
 		return ret;
 	}
 

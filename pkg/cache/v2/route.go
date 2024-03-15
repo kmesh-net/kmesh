@@ -95,13 +95,13 @@ func (cache *RouteConfigCache) Flush() {
 	for name, route := range cache.apiRouteConfigCache {
 		switch route.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
-			err = maps_v2.RouteConfigUpdate(route.GetName(), route)
+			err = maps_v2.RouteConfigUpdate(name, route)
 			if err == nil {
 				// reset api status after successfully updated
 				route.ApiStatus = core_v2.ApiStatus_NONE
 			}
 		case core_v2.ApiStatus_DELETE:
-			err = maps_v2.RouteConfigUpdate(route.GetName(), route)
+			err = maps_v2.RouteConfigDelete(name)
 			if err == nil {
 				delete(cache.apiRouteConfigCache, name)
 				delete(cache.resourceHash, name)
