@@ -18,7 +18,7 @@ if [ $? -ne 0 ]; then
 fi
 
 kmesh-daemon $@ &
-pid = $!
+pid=$!
 
 # pass SIGTERM to kmesh process
 function stop_kmesh() {
