@@ -13,4 +13,4 @@ ADD out/$arch/kmesh-cni /usr/bin/
 ADD out/$arch/mdacore /usr/bin/
 ADD build/docker/start_kmesh.sh /kmesh
 
-RUN yum install -y kmod util-linux
+RUN yum install -y kmod util-linux iptables

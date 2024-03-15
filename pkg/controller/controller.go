@@ -20,8 +20,10 @@ import (
 	"fmt"
 
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/controller/bypass"
 	"kmesh.net/kmesh/pkg/controller/interfaces"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 var (
@@ -37,6 +39,13 @@ func Start() error {
 	}
 
 	client = NewXdsClient()
+
+	clientset, err := utils.GetK8sclient()
+	if err != nil {
+		panic(err)
+	}
+
+	bypass.StartByPassController(clientset)
 
 	return client.Run(stopCh)
 }
