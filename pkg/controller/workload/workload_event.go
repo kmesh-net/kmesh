@@ -43,6 +43,9 @@ var (
 	hashName = NewHashName()
 )
 
+var SecurityAddDataChannel = make(chan string)
+var SecurityDelDataChannel = make(chan string)
+
 type ServiceEvent struct {
 	ack  *service_discovery_v3.DeltaDiscoveryRequest
 	rqt  *service_discovery_v3.DeltaDiscoveryRequest
@@ -60,6 +63,14 @@ type Endpoint struct {
 	serviceName string
 	portCount   uint32
 	portList    []*workloadapi.Port
+}
+
+func SendAddData(data string) {
+	SecurityAddDataChannel <- data
+}
+
+func SendDelData(data string) {
+	SecurityDelDataChannel <- data
 }
 
 func NewServiceEvent() *ServiceEvent {
@@ -139,6 +150,7 @@ func removeWorkloadResource(removed_resources []string) error {
 	)
 
 	for _, workloadUid := range removed_resources {
+		SendDelData(workloadUid)
 		backendUid := hashName.StrToNum(workloadUid)
 		if eks := EndpointIterFindKey(backendUid); len(eks) != 0 {
 			for _, ekUpdate = range eks {
@@ -511,6 +523,7 @@ func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse)
 		switch address.GetType().(type) {
 		case *workloadapi.Address_Workload:
 			workload := address.GetWorkload()
+			SendAddData(workload.Uid)
 			log.Debugf("Address_Workload name:%s", workload.Name)
 			err = handleWorkloadData(workload)
 		case *workloadapi.Address_Service:
