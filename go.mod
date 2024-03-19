@@ -17,6 +17,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.33.0
+	istio.io/api v1.19.0-alpha.1.0.20240305222620-e799e9291a3f
 	istio.io/istio v0.0.0-20240307180419-011bbc9f3038
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
 	k8s.io/api v0.29.2
