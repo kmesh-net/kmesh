@@ -172,6 +172,10 @@ func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener
 		return
 	}
 
+	if status == core_v2.ApiStatus_UNCHANGED {
+		return
+	}
+
 	apiListener := &listener_v2.Listener{
 		ApiStatus: status,
 		Name:      listener.GetName(),
@@ -198,9 +202,6 @@ func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener
 		apiListener.FilterChains = append(apiListener.FilterChains, apiFilterChain)
 	}
 
-	if status == core_v2.ApiStatus_UNCHANGED {
-		return
-	}
 	load.ListenerCache.SetApiListener(apiListener.GetName(), apiListener)
 }
 
