@@ -21,6 +21,7 @@ import (
 
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/interfaces"
+	"kmesh.net/kmesh/pkg/controller/kmeshsecurity"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -37,7 +38,7 @@ func Start() error {
 	}
 
 	client = NewXdsClient()
-
+	kmeshsecurity.NewSecretManagerClient()
 	return client.Run(stopCh)
 }
 
