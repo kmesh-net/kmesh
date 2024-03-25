@@ -13,10 +13,13 @@ require (
 	github.com/cilium/ebpf v0.13.2
 	github.com/containernetworking/cni v1.1.2
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240229170157-f82c59662ea6
+	github.com/golang/protobuf v1.5.4
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
+	github.com/stretchr/testify v1.9.0
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.33.0
+	gotest.tools v2.2.0+incompatible
 	istio.io/istio v0.0.0-20240307180419-011bbc9f3038
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
 	k8s.io/api v0.29.2
@@ -51,7 +54,6 @@ require (
 	github.com/goccy/go-json v0.10.2 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
-	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/cel-go v0.17.7 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
@@ -85,6 +87,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.0 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_golang v1.19.0 // indirect
 	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.50.0 // indirect
