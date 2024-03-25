@@ -148,13 +148,13 @@ func TestHandleCdsResponse(t *testing.T) {
 			DynamicLoader: adsLoader,
 		}
 		multClusters := []*config_cluster_v3.Cluster{
-			&config_cluster_v3.Cluster{
+			{
 				Name: "ut-cluster1",
 				ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
 					Type: config_cluster_v3.Cluster_LOGICAL_DNS,
 				},
 			},
-			&config_cluster_v3.Cluster{
+			{
 				Name: "ut-cluster2",
 				ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
 					Type: config_cluster_v3.Cluster_EDS,
@@ -442,7 +442,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash, actualHash)
 	})
 
-	t.Run("listenerCache already has resource", func(t *testing.T) {
+	t.Run("test2: listenerCache already has resource", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		adsLoader.routeNames = []string{
 			"ut-route-to-client",
@@ -480,34 +480,6 @@ func TestHandleLdsResponse(t *testing.T) {
 		actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
 	})
-
-	// t.Run("test3: listener in rsp is nil", func(t *testing.T) {
-	// 	adsLoader := NewAdsLoader()
-	// 	adsLoader.routeNames = []string{
-	// 		"ut-route-to-client",
-	// 		"ut-route-to-service",
-	// 	}
-	// 	svc := &ServiceEvent{
-	// 		DynamicLoader: adsLoader,
-	// 	}
-	// 	listener := &config_listener_v3.Listener{}
-	// 	anyListener, err := anypb.New(listener)
-	// 	assert.NoError(t, err)
-	// 	rsp := &service_discovery_v3.DiscoveryResponse{
-	// 		Resources: []*anypb.Any{
-	// 			anyListener,
-	// 		},
-	// 	}
-	// 	err = svc.handleLdsResponse(rsp)
-	// 	assert.NoError(t, err)
-	// 	apiMethod := svc.DynamicLoader.ListenerCache.GetApiListener("ut-listener").ApiStatus
-	// 	assert.Equal(t, core_v2.ApiStatus_UPDATE, apiMethod)
-	// 	wantHash := hash.Sum64String(anyListener.String())
-	// 	actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
-	// 	assert.Equal(t, wantHash, actualHash)
-	// })
-
-	t.Run("test4: ", func(t *testing.T) {})
 }
 
 func TestHandleRdsResponse(t *testing.T) {
