@@ -307,7 +307,10 @@ static bool parse_header(struct bpf_mem_ptr *context)
 					continue;
 				field_value_begin_position = i;
 				field_value_end_position = i;
-				current_state = ST_FIELD_VALUE;
+				if (ch == CR)
+					current_state = ST_NEW_LINE;
+				else
+					current_state = ST_FIELD_VALUE;
 				break;
 			case ST_FIELD_VALUE:
 				if (ch != SPACE)
