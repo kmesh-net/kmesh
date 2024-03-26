@@ -32,7 +32,6 @@ import (
 	"kmesh.net/kmesh/pkg/controller/dump"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/options"
-	"kmesh.net/kmesh/pkg/pid"
 )
 
 const (
@@ -50,16 +49,6 @@ func Execute() {
 		return
 	}
 	log.Info("options InitDaemonConfig successful")
-
-	if err = pid.CreatePidFile(); err != nil {
-		log.Errorf("failed to start, reason: %v", err)
-		return
-	}
-	defer func() {
-		if err = pid.RemovePidFile(); err != nil {
-			log.Errorf("failed to remove pid file, reason: %v", err)
-		}
-	}()
 
 	if err = bpf.Start(); err != nil {
 		fmt.Println(err)
