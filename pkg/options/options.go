@@ -24,13 +24,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
 
 var config DaemonConfig
 
 type parseFactory interface {
-	SetArgs() error
+	AttachFlags(cmd *cobra.Command) error
 	ParseConfig() error
 }
 
@@ -57,16 +58,14 @@ func Register(factory parseFactory) {
 }
 
 // InitDaemonConfig init daemon config which has been registered
-func InitDaemonConfig() error {
+func InitDaemonConfig(cmd *cobra.Command) error {
 	var err error
 
 	for _, factory := range config {
-		if err = factory.SetArgs(); err != nil {
-			flag.Usage()
+		if err = factory.AttachFlags(cmd); err != nil {
 			return fmt.Errorf("set args failed, %s", err)
 		}
 	}
-	flag.Parse()
 
 	for _, factory := range config {
 		if err = factory.ParseConfig(); err != nil {

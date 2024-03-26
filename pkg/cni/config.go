@@ -20,10 +20,10 @@
 package cni
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/options"
 )
@@ -35,16 +35,15 @@ func init() {
 }
 
 type Config struct {
-	CniMountNetEtcDIR string `json:"-cni-etc-path"`
-	CniConfigName     string `json:"-cni-config-name"`
-	CniConfigChained  bool   `json:"-cni-config-chained"`
+	CniMountNetEtcDIR string
+	CniConfigName     string
+	CniConfigChained  bool
 }
 
-func (c *Config) SetArgs() error {
-	flag.StringVar(&c.CniMountNetEtcDIR, "cni-etc-path", "/etc/cni/net.d", "cni etc path")
-	flag.StringVar(&c.CniConfigName, "conflist-name", "", "cni conflist name")
-
-	flag.BoolVar(&c.CniConfigChained, "plugin-cni-chained", true, "kmesh cni plugins chained to anthor cni")
+func (c *Config) AttachFlags(cmd *cobra.Command) error {
+	cmd.PersistentFlags().StringVar(&c.CniMountNetEtcDIR, "cni-etc-path", "/etc/cni/net.d", "cni etc path")
+	cmd.PersistentFlags().StringVar(&c.CniConfigName, "conflist-name", "", "cni conflist name")
+	cmd.PersistentFlags().BoolVar(&c.CniConfigChained, "plugin-cni-chained", true, "kmesh cni plugins chained to anthor cni")
 	return nil
 }
 

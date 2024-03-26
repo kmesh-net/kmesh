@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"github.com/spf13/cobra"
 	"istio.io/pkg/env"
 
 	// in order to fix: could not resolve Any message type
@@ -57,7 +58,7 @@ func init() {
 	options.Register(&config)
 }
 
-func (c *XdsConfig) SetArgs() error {
+func (c *XdsConfig) AttachFlags(cmd *cobra.Command) error {
 	return nil
 }
 
@@ -77,15 +78,12 @@ func (c *XdsConfig) Init() error {
 	podIP := env.Register("INSTANCE_IP", "", "").Get()
 	podName := env.Register("POD_NAME", "", "").Get()
 	podNamespace := env.Register("POD_NAMESPACE", "", "").Get()
-	discoveryAddress := env.Register("MESH_CONTROLLER", "istiod.istio-system.svc:15012", "").Get()
-
-	c.DiscoveryAddress = discoveryAddress
+	c.DiscoveryAddress = env.Register("XDS_ADDRESS", "istiod.istio-system.svc:15012", "").Get()
 
 	ip := localHostIPv4
 	if podIP != "" {
 		ip = podIP
 	}
-
 	id := podName + "." + podNamespace
 	dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
 

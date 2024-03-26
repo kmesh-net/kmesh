@@ -20,11 +20,11 @@
 package bpf
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
 	"strconv"
 
+	"github.com/spf13/cobra"
 	"kmesh.net/kmesh/pkg/options"
 )
 
@@ -35,7 +35,6 @@ const (
 
 var (
 	config Config
-	mode   string
 )
 
 func init() {
@@ -43,19 +42,20 @@ func init() {
 }
 
 type Config struct {
-	BpfFsPath           string `json:"-bpf-fs-path"`
-	Cgroup2Path         string `json:"-cgroup2-path"`
+	Mode                string
+	BpfFsPath           string
+	Cgroup2Path         string
 	EnableKmesh         bool
 	EnableKmeshWorkload bool
-	EnableMda           bool `json:"-enable-mda"`
-	BpfVerifyLogSize    int  `json:"-bpf-verify-log-size"`
+	EnableMda           bool
+	BpfVerifyLogSize    int
 }
 
-func (c *Config) SetArgs() error {
-	flag.StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
-	flag.StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
-	flag.StringVar(&mode, "mode", "ads", "controller plane mode, ads/workload optional")
-	flag.BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
+func (c *Config) AttachFlags(cmd *cobra.Command) error {
+	cmd.PersistentFlags().StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
+	cmd.PersistentFlags().StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
+	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "ads", "controller plane mode, valid values are [ads, workload], by default is ads")
+	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 
 	return nil
 }
@@ -64,7 +64,7 @@ func (c *Config) ParseConfig() error {
 	var err error
 
 	c.EnableKmesh = true
-	if mode == workloadMode {
+	if c.Mode == workloadMode {
 		c.EnableKmeshWorkload = true
 		c.EnableKmesh = false
 	}

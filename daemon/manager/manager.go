@@ -12,21 +12,20 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2021-10-09
  */
 
 // Package manager: kmesh daemon manager
 package manager
 
 import (
-	"fmt"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"kmesh.net/kmesh/pkg/bpf" // nolint
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/dump"
@@ -40,34 +39,42 @@ const (
 
 var log = logger.NewLoggerField(pkgSubsys)
 
-// Execute start daemon manager process
-func Execute() {
-	var err error
-
-	if err = options.InitDaemonConfig(); err != nil {
-		log.Error(err)
-		return
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "kmesh-daemon",
+		Short: "Start kmesh daemon",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			PrintFlags(cmd.Flags())
+			return Execute()
+		},
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
+		},
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			return addFlags(cmd)
+		},
 	}
-	log.Info("options InitDaemonConfig successful")
 
-	if err = bpf.Start(); err != nil {
-		fmt.Println(err)
-		return
+	return cmd
+}
+
+// Execute start daemon manager process
+func Execute() error {
+	if err := bpf.Start(); err != nil {
+		return err
 	}
 	log.Info("bpf Start successful")
 	defer bpf.Stop()
 
-	if err = controller.Start(); err != nil {
-		log.Error(err)
-		return
+	if err := controller.Start(); err != nil {
+		return err
 	}
 	log.Info("controller Start successful")
 	defer controller.Stop()
 
 	if bpf.GetConfig().EnableKmesh {
-		if err = dump.StartServer(); err != nil {
-			log.Error(err)
-			return
+		if err := dump.StartServer(); err != nil {
+			return err
 		}
 		log.Info("dump StartServer successful")
 		defer func() {
@@ -75,14 +82,14 @@ func Execute() {
 		}()
 	}
 
-	if err = cni.Start(); err != nil {
-		log.Error(err)
-		return
+	if err := cni.Start(); err != nil {
+		return err
 	}
 	log.Info("command Start cni successful")
 	defer cni.Stop()
 
 	setupCloseHandler()
+	return nil
 }
 
 func setupCloseHandler() {
@@ -91,5 +98,21 @@ func setupCloseHandler() {
 
 	<-ch
 
-	log.Warn("signal Notify exit")
+	log.Warn("exiting...")
+}
+
+// PrintFlags print flags
+func PrintFlags(flags *pflag.FlagSet) {
+	flags.VisitAll(func(flag *pflag.Flag) {
+		log.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
+	})
+}
+
+func addFlags(cmd *cobra.Command) error {
+	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+	if err := options.InitDaemonConfig(cmd); err != nil {
+		log.Error(err)
+		return err
+	}
+	return nil
 }
