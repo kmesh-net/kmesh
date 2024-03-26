@@ -16,9 +16,9 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
-	github.com/stretchr/testify v1.9.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
+	github.com/stretchr/testify v1.9.0
 	google.golang.org/grpc v1.62.1
 	google.golang.org/protobuf v1.33.0
 	gotest.tools v2.2.0+incompatible
