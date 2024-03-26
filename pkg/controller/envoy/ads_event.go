@@ -229,7 +229,7 @@ func (svc *ServiceEvent) handleLdsResponse(rsp *service_discovery_v3.DiscoveryRe
 
 	removed := svc.DynamicLoader.ListenerCache.GetResourceNames().Difference(current)
 	for key := range removed {
-		svc.DynamicLoader.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
+		svc.DynamicLoader.UpdateApiListenerStatus(key, core_v2.ApiStatus_DELETE)
 	}
 
 	svc.DynamicLoader.ListenerCache.Flush()
