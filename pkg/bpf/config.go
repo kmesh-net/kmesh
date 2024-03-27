@@ -49,13 +49,11 @@ type Config struct {
 	BpfVerifyLogSize    int
 }
 
-func (c *Config) AttachFlags(cmd *cobra.Command) error {
+func (c *Config) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
 	cmd.PersistentFlags().StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
-	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "ads", "controller plane mode, valid values are [ads, workload], by default is ads")
+	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "ads", "controller plane mode, valid values are [ads, workload]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
-
-	return nil
 }
 
 func (c *Config) ParseConfig() error {

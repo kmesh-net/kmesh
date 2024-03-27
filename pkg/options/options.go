@@ -19,7 +19,6 @@ package options
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -31,7 +30,7 @@ import (
 var config DaemonConfig
 
 type parseFactory interface {
-	AttachFlags(cmd *cobra.Command) error
+	AttachFlags(cmd *cobra.Command)
 	ParseConfig() error
 }
 
@@ -57,19 +56,15 @@ func Register(factory parseFactory) {
 	config = append(config, factory)
 }
 
-// InitDaemonConfig init daemon config which has been registered
-func InitDaemonConfig(cmd *cobra.Command) error {
-	var err error
-
+func AttachFlags(cmd *cobra.Command) {
 	for _, factory := range config {
-		if err = factory.AttachFlags(cmd); err != nil {
-			return fmt.Errorf("set args failed, %s", err)
-		}
+		factory.AttachFlags(cmd)
 	}
+}
 
+func ParseConfigs() error {
 	for _, factory := range config {
-		if err = factory.ParseConfig(); err != nil {
-			flag.Usage()
+		if err := factory.ParseConfig(); err != nil {
 			return fmt.Errorf("parse config failed, %s", err)
 		}
 	}

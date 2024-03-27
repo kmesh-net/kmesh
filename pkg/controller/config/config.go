@@ -58,8 +58,7 @@ func init() {
 	options.Register(&config)
 }
 
-func (c *XdsConfig) AttachFlags(cmd *cobra.Command) error {
-	return nil
+func (c *XdsConfig) AttachFlags(cmd *cobra.Command) {
 }
 
 func (c *XdsConfig) ParseConfig() error {

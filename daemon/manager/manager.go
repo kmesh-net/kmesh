@@ -42,19 +42,22 @@ var log = logger.NewLoggerField(pkgSubsys)
 
 func NewCommand() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "kmesh-daemon",
-		Short: "Start kmesh daemon",
+		Use:          "kmesh-daemon",
+		Short:        "Start kmesh daemon",
+		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			PrintFlags(cmd.Flags())
+			printFlags(cmd.Flags())
+			if err := options.ParseConfigs(); err != nil {
+				return err
+			}
 			return Execute()
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			UnknownFlags: true,
 		},
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			return addFlags(cmd)
-		},
 	}
+
+	addFlags(cmd)
 
 	return cmd
 }
@@ -102,18 +105,14 @@ func setupCloseHandler() {
 	log.Warn("exiting...")
 }
 
-// PrintFlags print flags
-func PrintFlags(flags *pflag.FlagSet) {
+// printFlags print flags
+func printFlags(flags *pflag.FlagSet) {
 	flags.VisitAll(func(flag *pflag.Flag) {
 		log.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 	})
 }
 
-func addFlags(cmd *cobra.Command) error {
+func addFlags(cmd *cobra.Command) {
+	options.AttachFlags(cmd)
 	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
-	if err := options.InitDaemonConfig(cmd); err != nil {
-		log.Error(err)
-		return err
-	}
-	return nil
 }
