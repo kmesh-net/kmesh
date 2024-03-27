@@ -41,7 +41,7 @@ function start_fortio_server()
 # start kmesh-daemon
 function start_kmesh()
 {
-    kmesh-daemon -enable-kmesh -enable-ads=false -cni-etc-path $(dirname $CURRENT_PATH)/libs > tmp_kmesh_daemon.log &
+    kmesh-daemon --enable-kmesh --enable-ads=false --cni-etc-path $(dirname $CURRENT_PATH)/libs > tmp_kmesh_daemon.log &
     sleep 3
     
     grep "command StartServer successful" tmp_kmesh_daemon.log

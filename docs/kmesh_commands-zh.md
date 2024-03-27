@@ -2,26 +2,31 @@
 
 - kmesh-daemon
 
-  ```sh
-  # kmesh-daemon -h
-  Usage of kmesh-daemon:
-    -bpf-fs-path string
-      	bpf fs path (default "/sys/fs/bpf")
-    -cgroup2-path string
-      	cgroup2 path (default "/mnt/kmesh_cgroup2")
-    -mode
-        controller plane mode, ads/workload optional (default "ads")
-    -enable-mda
-        enable mda
-  
-  # example
-  ./kmesh-daemon -mode=ads
-  # example
-  ./kmesh-daemon -mode=workload
-  # example
-  ./kmesh-daemon -mode=ads -enable-mda
-  # example
-  ./kmesh-daemon -mode=workload -enable-mda
+```sh
+# kmesh-daemon -h
+Start kmesh daemon
+
+Usage:
+  kmesh-daemon [flags]
+
+Flags:
+      --bpf-fs-path string     bpf fs path (default "/sys/fs/bpf")
+      --cgroup2-path string    cgroup2 path (default "/mnt/kmesh_cgroup2")
+      --cni-etc-path string    cni etc path (default "/etc/cni/net.d")
+      --conflist-name string   cni conflist name
+      --enable-mda             enable mda
+  -h, --help                   help for kmesh-daemon
+      --mode string            controller plane mode, valid values are [ads, workload] (default "ads")
+      --plugin-cni-chained     kmesh cni plugins chained to anthor cni (default true)
+
+# example
+./kmesh-daemon --mode=ads
+# example
+./kmesh-daemon --mode=workload
+# example
+./kmesh-daemon --mode=ads --enable-mda
+# example
+./kmesh-daemon --mode=workload --enable-mda
   ```
 
 - 运维相关

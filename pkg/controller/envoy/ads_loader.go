@@ -132,14 +132,16 @@ func newApiSocketAddress(address *config_core_v3.Address) *core_v2.SocketAddress
 		return nil
 	}
 
-	if addr == nil || !nets.GetConfig().IsEnabledProtocol(addr.GetProtocol().String()) {
+	// only support TCP, UDP is not supported yet
+	if addr == nil || addr.GetProtocol() != config_core_v3.SocketAddress_TCP {
+		log.Debugf("listener addr is nil or protocol is not TCP")
 		return nil
 	}
 
 	return &core_v2.SocketAddress{
-		// Protocol: core_v2.SocketAddress_Protocol(addr.GetProtocol()),
-		Port: nets.ConvertPortToBigEndian(addr.GetPortValue()),
-		Ipv4: nets.ConvertIpToUint32(addr.GetAddress()),
+		Protocol: core_v2.SocketAddress_Protocol(addr.GetProtocol()),
+		Port:     nets.ConvertPortToBigEndian(addr.GetPortValue()),
+		Ipv4:     nets.ConvertIpToUint32(addr.GetAddress()),
 	}
 }
 

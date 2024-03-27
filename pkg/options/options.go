@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2021-10-09
  */
 
 // Package options for parsing config
@@ -22,18 +19,18 @@ package options
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
 
+	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 )
 
 var config DaemonConfig
 
 type parseFactory interface {
-	SetArgs() error
+	AttachFlags(cmd *cobra.Command)
 	ParseConfig() error
 }
 
@@ -59,21 +56,15 @@ func Register(factory parseFactory) {
 	config = append(config, factory)
 }
 
-// InitDaemonConfig init daemon config which has been registered
-func InitDaemonConfig() error {
-	var err error
-
+func AttachFlags(cmd *cobra.Command) {
 	for _, factory := range config {
-		if err = factory.SetArgs(); err != nil {
-			flag.Usage()
-			return fmt.Errorf("set args failed, %s", err)
-		}
+		factory.AttachFlags(cmd)
 	}
-	flag.Parse()
+}
 
+func ParseConfigs() error {
 	for _, factory := range config {
-		if err = factory.ParseConfig(); err != nil {
-			flag.Usage()
+		if err := factory.ParseConfig(); err != nil {
 			return fmt.Errorf("parse config failed, %s", err)
 		}
 	}

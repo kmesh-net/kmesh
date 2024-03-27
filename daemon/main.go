@@ -12,18 +12,23 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2021-10-09
  */
 
 // package main kmesh main function
 package main
 
 import (
+	"os"
+
 	"kmesh.net/kmesh/daemon/manager"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
 func main() {
-	manager.Execute()
+	var log = logger.NewLoggerField("main")
+	cmd := manager.NewCommand()
+	if err := cmd.Execute(); err != nil {
+		log.Error(err)
+		os.Exit(1)
+	}
 }

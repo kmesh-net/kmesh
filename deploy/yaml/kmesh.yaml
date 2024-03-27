@@ -52,7 +52,7 @@ spec:
            image: kmesh:latest
            imagePullPolicy: IfNotPresent
            command: ["/bin/sh", "-c"]
-           args: ["./start_kmesh.sh -mode=ads"]
+           args: ["./start_kmesh.sh --mode=ads"]
            securityContext:
              privileged: true
              capabilities:
