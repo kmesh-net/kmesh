@@ -307,10 +307,13 @@ static bool parse_header(struct bpf_mem_ptr *context)
 					continue;
 				field_value_begin_position = i;
 				field_value_end_position = i;
-				current_state = ST_FIELD_VALUE;
+				if (ch == CR)
+					current_state = ST_NEW_LINE;
+				else
+					current_state = ST_FIELD_VALUE;
 				break;
 			case ST_FIELD_VALUE:
-				if (ch != SPACE && ch != CR)
+				if (ch != SPACE)
 					field_value_end_position = i;
 
 				if (unlikely(ch == CR))
@@ -331,12 +334,12 @@ static bool parse_header(struct bpf_mem_ptr *context)
 				old_field = kmesh_protocol_data_search(new_field->keystring);
 				if (unlikely(old_field)) {
 					old_field->value.ptr = context->ptr + field_value_begin_position;
-					old_field->value.size = field_value_end_position - field_value_begin_position + 1;
+					old_field->value.size = field_value_end_position - field_value_begin_position;
 					delete_kmesh_data_node(&new_field);
 					old_field = NULL;
 				} else {
 					new_field->value.ptr = context->ptr + field_value_begin_position;
-					new_field->value.size = field_value_end_position - field_value_begin_position + 1;
+					new_field->value.size = field_value_end_position - field_value_begin_position;
 
 					if (!kmesh_protocol_data_insert(new_field)) {
 						delete_kmesh_data_node(&new_field);
