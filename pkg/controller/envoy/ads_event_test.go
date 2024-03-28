@@ -571,12 +571,13 @@ func TestHandleRdsResponse(t *testing.T) {
 				anyRouteConfig,
 			},
 		}
+		svc.ack = newAckRequest(rsp)
 		err = svc.handleRdsResponse(rsp)
 		assert.NoError(t, err)
 		wantHash := hash.Sum64String(anyRouteConfig.String())
 		actualHash := svc.DynamicLoader.RouteCache.GetRdsHash(routeConfig.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-routeclient", "ut-routeconfig", "ut-routeconfig"}, svc.ack.ResourceNames)
+		assert.Equal(t, []string{"ut-routeconfig"}, svc.ack.ResourceNames)
 	})
 
 	t.Run("already have a Rda, RdaHash has change. And have mult routeconfig in rsp", func(t *testing.T) {
@@ -627,6 +628,7 @@ func TestHandleRdsResponse(t *testing.T) {
 				anyRouteConfig2,
 			},
 		}
+		svc.ack = newAckRequest(rsp)
 		err := svc.handleRdsResponse(rsp)
 		assert.NoError(t, err)
 		wantHash1 := hash.Sum64String(anyRouteConfig1.String())
@@ -635,6 +637,6 @@ func TestHandleRdsResponse(t *testing.T) {
 		wantHash2 := hash.Sum64String(anyRouteConfig2.String())
 		actualHash2 := svc.DynamicLoader.RouteCache.GetRdsHash(routeConfig2.GetName())
 		assert.Equal(t, wantHash2, actualHash2)
-		assert.Equal(t, []string{"ut-routeclient", "ut-routeconfig1", "ut-routeconfig1", "ut-routeconfig2"}, svc.ack.ResourceNames)
+		assert.Equal(t, []string{"ut-routeconfig1", "ut-routeconfig2"}, svc.ack.ResourceNames)
 	})
 }
