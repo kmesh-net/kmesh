@@ -43,6 +43,12 @@
 
 #define BPF_OK						1
 
+#define FORMAT_IP_LENGTH		16
+
+#ifndef force_read
+#define force_read(X) (*(volatile typeof(X)*)&(X))
+#endif
+
 #define _(P)								   \
 	({										 \
 		typeof(P) val;						 \
