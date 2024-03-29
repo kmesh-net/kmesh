@@ -26,7 +26,7 @@
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, RINGBUF_SIZE);
-} map_of_migration SEC(".maps");
+} map_of_mgrt SEC(".maps");
 
 enum family_type {
     IPV4,
@@ -36,7 +36,6 @@ enum family_type {
 struct ringbuf_msg_type {
     __u32 type; 
     struct bpf_sock_tuple tuple;
-    enum family_type type;
 };
 
 SEC("sockops")

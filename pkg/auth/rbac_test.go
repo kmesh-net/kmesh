@@ -1347,12 +1347,12 @@ var (
 	byNamespaceAllowDeny = map[string]sets.Set[string]{KMESH_NAMESPACE: sets.New(ALLOW_POLICY, DENY_POLICY)}
 )
 
-func TestRbac_DoRbac(t *testing.T) {
+func TestRbac_doRbac(t *testing.T) {
 	type fields struct {
 		policyStore *policyStore
 	}
 	type args struct {
-		conn *RbacConnection
+		conn *rbacConnection
 	}
 	tests := []struct {
 		name   string
@@ -1369,15 +1369,15 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      KMESH_NAMESPACE,
 						serviceAccount: "sleep",
 					},
-					SrcIp:   []byte{192, 168, 122, 3},
-					DstIp:   []byte{192, 168, 122, 4},
-					DstPort: 8888,
+					srcIp:   []byte{192, 168, 122, 3},
+					dstIp:   []byte{192, 168, 122, 4},
+					dstPort: 8888,
 				},
 			},
 			true,
@@ -1391,7 +1391,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{DstIp: []byte{192, 168, 122, 2}}},
+			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
 			true,
 		},
 		{
@@ -1402,7 +1402,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{DstIp: []byte{192, 168, 122, 2}}},
+			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
 			false,
 		},
 		{
@@ -1416,7 +1416,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&RbacConnection{DstIp: []byte{192, 168, 122, 2}}},
+			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
 			false,
 		},
 		{
@@ -1427,7 +1427,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&RbacConnection{DstIp: []byte{192, 168, 122, 2}}},
+			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
 			true,
 		},
 
@@ -1439,7 +1439,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{SrcIp: []byte{192, 168, 122, 10}}},
+			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
 			true,
 		},
 		{
@@ -1450,7 +1450,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{SrcIp: []byte{192, 168, 122, 10}}},
+			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
 			false,
 		},
 		{
@@ -1464,7 +1464,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&RbacConnection{SrcIp: []byte{192, 168, 122, 10}}},
+			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
 			false,
 		},
 		{
@@ -1475,7 +1475,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&RbacConnection{SrcIp: []byte{192, 168, 122, 10}}},
+			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
 			true,
 		},
 
@@ -1487,7 +1487,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{DstPort: 8888}},
+			args{&rbacConnection{dstPort: 8888}},
 			true,
 		},
 		{
@@ -1498,7 +1498,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{DstPort: 8888}},
+			args{&rbacConnection{dstPort: 8888}},
 			false,
 		},
 		{
@@ -1512,7 +1512,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&RbacConnection{DstPort: 8888}},
+			args{&rbacConnection{dstPort: 8888}},
 			false,
 		},
 		{
@@ -1523,7 +1523,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&RbacConnection{DstPort: 8888}},
+			args{&rbacConnection{dstPort: 8888}},
 			true,
 		},
 
@@ -1536,8 +1536,8 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      KMESH_NAMESPACE,
 						serviceAccount: "sleep",
@@ -1555,8 +1555,8 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      KMESH_NAMESPACE,
 						serviceAccount: "sleep",
@@ -1577,8 +1577,8 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      KMESH_NAMESPACE,
 						serviceAccount: "sleep",
@@ -1596,8 +1596,8 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      KMESH_NAMESPACE,
 						serviceAccount: "sleep",
@@ -1616,7 +1616,7 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{SrcIdentity: Identity{namespace: KMESH_NAMESPACE}},
+				&rbacConnection{srcIdentity: Identity{namespace: KMESH_NAMESPACE}},
 			},
 			true,
 		},
@@ -1628,7 +1628,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{SrcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
+			args{&rbacConnection{srcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
 			false,
 		},
 		{
@@ -1642,7 +1642,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&RbacConnection{SrcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
+			args{&rbacConnection{srcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
 			false,
 		},
 		{
@@ -1653,7 +1653,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&RbacConnection{SrcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
+			args{&rbacConnection{srcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
 			true,
 		},
 
@@ -1666,9 +1666,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			true,
@@ -1682,9 +1682,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 5},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 5},
 				},
 			},
 			false,
@@ -1698,9 +1698,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			false,
@@ -1714,9 +1714,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 5},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 5},
 				},
 			},
 			true,
@@ -1731,9 +1731,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			false,
@@ -1747,9 +1747,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 3},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 3},
 				},
 			},
 			true,
@@ -1763,9 +1763,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			true,
@@ -1779,9 +1779,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 3},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 3},
 				},
 			},
 			false,
@@ -1796,9 +1796,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			true,
@@ -1812,9 +1812,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 5},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 5},
 				},
 			},
 			false,
@@ -1828,9 +1828,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			false,
@@ -1844,9 +1844,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 5},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 5},
 				},
 			},
 			true,
@@ -1857,7 +1857,7 @@ func TestRbac_DoRbac(t *testing.T) {
 			rbac := &Rbac{
 				policyStore: tt.fields.policyStore,
 			}
-			if got := rbac.DoRbac(tt.args.conn); got != tt.want {
+			if got := rbac.doRbac(tt.args.conn); got != tt.want {
 				t.Errorf("Rbac.DoRbac() = %v, want %v", got, tt.want)
 			}
 		})

@@ -12,6 +12,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0
 	github.com/cilium/ebpf v0.13.2
 	github.com/containernetworking/cni v1.1.2
+	github.com/containernetworking/plugins v1.4.0
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240229170157-f82c59662ea6
 	github.com/golang/protobuf v1.5.4
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
@@ -95,9 +96,9 @@ require (
 	github.com/prometheus/client_model v0.6.0 // indirect
 	github.com/prometheus/common v0.50.0 // indirect
 	github.com/prometheus/procfs v0.13.0 // indirect
-	github.com/vishvananda/netns v0.0.4 //indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stoewer/go-strcase v1.3.0 // indirect
+	github.com/vishvananda/netns v0.0.4 //indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.49.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.49.0 // indirect

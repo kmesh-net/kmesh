@@ -26,6 +26,7 @@ import (
 type BpfKmeshWorkload struct {
 	SockConn BpfSockConnWorkload
 	SockOps  BpfSockOpsWorkload
+	XdpAuth  BpfXdpAuthWorkload
 }
 
 type BpfObjectWorkload struct {
@@ -44,6 +45,10 @@ func NewBpfKmeshWorkload(cfg *Config) (BpfKmeshWorkload, error) {
 	}
 
 	if err = sc.SockOps.NewBpf(cfg); err != nil {
+		return sc, err
+	}
+
+	if err = sc.XdpAuth.NewBpf(cfg); err != nil {
 		return sc, err
 	}
 
@@ -81,6 +86,10 @@ func (sc *BpfKmeshWorkload) Load() error {
 		return err
 	}
 
+	if err = sc.XdpAuth.LoadXdpAuth(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -106,6 +115,10 @@ func (sc *BpfKmeshWorkload) Detach() error {
 	}
 
 	if err = sc.SockOps.Detach(); err != nil {
+		return err
+	}
+
+	if err = sc.XdpAuth.Close(); err != nil {
 		return err
 	}
 

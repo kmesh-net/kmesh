@@ -263,3 +263,94 @@ func (so *BpfSockOpsWorkload) Detach() error {
 	}
 	return nil
 }
+
+type BpfXdpAuthWorkload struct {
+	Info BpfInfo
+	Link link.Link
+	bpf2go.KmeshXDPAuthObjects
+}
+
+func (xa *BpfXdpAuthWorkload) NewBpf(cfg *Config) error {
+	xa.Info.Config = *cfg
+	xa.Info.MapPath = xa.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
+	xa.Info.BpfFsPath += "/bpf_kmesh_workload/xdpauth/"
+
+	if err := os.MkdirAll(xa.Info.MapPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	if err := os.MkdirAll(xa.Info.BpfFsPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, error) {
+	var (
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
+	)
+
+	opts.Maps.PinPath = xa.Info.MapPath
+	opts.Programs.LogSize = xa.Info.BpfVerifyLogSize
+
+	spec, err = bpf2go.LoadKmeshXDPAuth()
+	if err != nil || spec == nil {
+		return nil, err
+	}
+
+	setMapPinType(spec, ebpf.PinByName)
+	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
+		return nil, err
+	}
+
+	value := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthPrograms)
+	if err = pinPrograms(&value, xa.Info.BpfFsPath); err != nil {
+		return nil, err
+	}
+
+	return spec, nil
+}
+
+func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
+	spec, err := xa.loadKmeshXdpAuthObjects()
+	if err != nil {
+		return err
+	}
+
+	prog := spec.Programs["xdp_handler"]
+	xa.Info.Type = prog.Type
+	xa.Info.AttachType = prog.AttachType
+
+	return nil
+}
+
+func (xa *BpfXdpAuthWorkload) Close() error {
+	if err := xa.KmeshXDPAuthObjects.Close(); err != nil {
+		return err
+	}
+	progVal := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthPrograms)
+	if err := unpinPrograms(&progVal); err != nil {
+		return err
+	}
+
+	mapVal := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthMaps)
+	if err := unpinMaps(&mapVal); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(xa.Info.BpfFsPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if xa.Link != nil {
+		return xa.Link.Close()
+	}
+	return nil
+}
