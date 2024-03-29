@@ -17,7 +17,6 @@
 package workload
 
 import (
-	"encoding/binary"
 	"fmt"
 	"strings"
 
@@ -40,7 +39,8 @@ const (
 )
 
 var (
-	hashName = NewHashName()
+	hashName                          = NewHashName()
+	ServiceCache map[string]Endpoints = make(map[string]Endpoints)
 )
 
 type ServiceEvent struct {
@@ -48,10 +48,6 @@ type ServiceEvent struct {
 	rqt  *service_discovery_v3.DeltaDiscoveryRequest
 	rbac *auth.Rbac
 }
-
-var (
-	ServiceCache map[string]Endpoints = make(map[string]Endpoints)
-)
 
 type Endpoints map[string]Endpoint
 
@@ -124,6 +120,8 @@ func removeWorkloadResource(removed_resources []string) error {
 	)
 
 	for _, workloadUid := range removed_resources {
+		WorkloadCache.deleteWorkload(workloadUid)
+
 		backendUid := hashName.StrToNum(workloadUid)
 		if eks := EndpointIterFindKey(backendUid); len(eks) != 0 {
 			for _, ekUpdate = range eks {
@@ -270,7 +268,7 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList) 
 
 	bk.BackendUid = uid
 	for _, ip := range ips {
-		bv.IPv4 = binary.LittleEndian.Uint32(ip)
+		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
 		bv.PortCount = uint32(len(portList.Ports))
 		for i, portPair := range portList.Ports {
 			if i >= MaxPortPairNum {
@@ -337,7 +335,7 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 	bk.BackendUid = hashName.StrToNum(workload.GetUid())
 	ips := workload.GetAddresses()
 	for _, ip := range ips {
-		bv.IPv4 = binary.LittleEndian.Uint32(ip)
+		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
 		if err = BackendUpdate(&bk, &bv); err != nil {
 			log.Errorf("Update backend map failed, err:%s", err)
 			return err
@@ -348,6 +346,7 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 
 func handleWorkloadData(workload *workloadapi.Workload) error {
 	log.Debugf("workload uid: %s", workload.Uid)
+	WorkloadCache.addWorkload(workload)
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
 		if err := handleDataWithService(workload); err != nil {
@@ -374,7 +373,7 @@ func storeFrontendData(serviceId uint32, service *workloadapi.Service) error {
 	fv.ServiceId = serviceId
 	for _, networkAddress := range service.GetAddresses() {
 		address := networkAddress.Address
-		fk.IPv4 = binary.LittleEndian.Uint32(address)
+		fk.IPv4 = nets.ConvertIpByteToUint32(address)
 		for _, portPair := range service.GetPorts() {
 			fk.Port = nets.ConvertPortToBigEndian(portPair.ServicePort)
 			if err = FrontendUpdate(&fk, &fv); err != nil {
