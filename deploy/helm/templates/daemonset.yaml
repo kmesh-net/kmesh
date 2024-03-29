@@ -26,17 +26,14 @@ spec:
         - name: POD_NAME
           valueFrom:
             fieldRef:
-              apiVersion: v1
-              fieldPath: metadata.namespace
+              fieldPath: metadata.name
         - name: POD_NAMESPACE
           valueFrom:
             fieldRef:
-              apiVersion: v1
               fieldPath: metadata.namespace
         - name: INSTANCE_IP
           valueFrom:
             fieldRef:
-              apiVersion: v1
               fieldPath: status.podIP
         - name: MESH_CONTROLLER
           value: {{ quote .Values.deploy.kmesh.env.meshController }}

@@ -64,17 +64,14 @@ spec:
            - name: POD_NAME
              valueFrom:
                fieldRef:
-                 apiVersion: v1
                  fieldPath: metadata.name
            - name: POD_NAMESPACE
              valueFrom:
                fieldRef:
-                 apiVersion: v1
                  fieldPath: metadata.namespace
            - name: INSTANCE_IP
              valueFrom:
                fieldRef:
-                 apiVersion: v1
                  fieldPath: status.podIP
            - name: MESH_CONTROLLER
              value: "istiod.istio-system.svc:15012"
