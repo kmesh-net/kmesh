@@ -30,7 +30,7 @@ func TestInit(t *testing.T) {
 	os.Setenv("POD_NAME", "test")
 	os.Setenv("POD_NAMESPACE", "testNs")
 	os.Setenv("MESH_CONTROLLER", "istiod.istio-system.svc:15012")
-	config.Init()
+	_ = config.Init()
 	assert.Equal(t, "sidecar~10.244.0.81~test.testNs~testNs.svc.cluster.local", config.ServiceNode)
 	assert.Equal(t, "istiod.istio-system.svc:15012", config.DiscoveryAddress)
 }
