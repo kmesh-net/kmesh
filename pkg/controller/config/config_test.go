@@ -24,8 +24,6 @@ import (
 )
 
 func TestInit(t *testing.T) {
-	config := XdsConfig{}
-
 	os.Setenv("INSTANCE_IP", "10.244.0.81")
 	os.Setenv("POD_NAME", "test")
 	os.Setenv("POD_NAMESPACE", "testNs")
