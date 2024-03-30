@@ -41,6 +41,16 @@ spec:
           value: {{ quote .Values.deploy.kmesh.env.bpfLogSize }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
+        - name: SERVICE_ACCOUNT
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.serviceAccountName
+        - name: NODE_NAME
+          valueFrom:
+            fieldRef:
+              apiVersion: v1
+              fieldPath: spec.nodeName
         image: {{ .Values.deploy.kmesh.image.repository }}:{{ .Values.deploy.kmesh.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.deploy.kmesh.imagePullPolicy }}
         name: kmesh

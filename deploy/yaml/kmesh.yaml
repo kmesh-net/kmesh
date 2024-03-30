@@ -77,6 +77,16 @@ spec:
              value: "istiod.istio-system.svc:15012"
            - name: BPF_LOG_SIZE
              value: "12800"
+           - name: SERVICE_ACCOUNT
+             valueFrom:
+               fieldRef:
+                 apiVersion: v1
+                 fieldPath: spec.serviceAccountName
+           - name: NODE_NAME
+             valueFrom:
+               fieldRef:
+                 apiVersion: v1
+                 fieldPath: spec.nodeName
            volumeMounts:
            - name: mnt
              mountPath: /mnt
