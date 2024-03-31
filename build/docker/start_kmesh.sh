@@ -18,6 +18,14 @@ if [ $? -ne 0 ]; then
         fi
 fi
 
+mount | grep "type bpf"
+if [ $? -ne 0 ]; then
+	mount -t bpf none /sys/fs/bpf
+	if [ $? -ne 0 ]; then
+		echo "mount bpf failed"
+	fi
+fi
+
 kmesh-daemon $@ &
 pid=$!
 
