@@ -73,7 +73,7 @@ spec:
              valueFrom:
                fieldRef:
                  fieldPath: status.podIP
-           - name: MESH_CONTROLLER
+           - name: XDS_ADDRESS
              value: "istiod.istio-system.svc:15012"
            - name: BPF_LOG_SIZE
              value: "12800"
