@@ -80,12 +80,10 @@ spec:
            - name: SERVICE_ACCOUNT
              valueFrom:
                fieldRef:
-                 apiVersion: v1
                  fieldPath: spec.serviceAccountName
            - name: NODE_NAME
              valueFrom:
                fieldRef:
-                 apiVersion: v1
                  fieldPath: spec.nodeName
            volumeMounts:
            - name: mnt
