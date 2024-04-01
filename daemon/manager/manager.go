@@ -12,27 +12,26 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2021-10-09
  */
 
 // Package manager: kmesh daemon manager
 package manager
 
 import (
-	"fmt"
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"kmesh.net/kmesh/pkg/bpf" // nolint
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/dump"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/options"
-	"kmesh.net/kmesh/pkg/pid"
 )
 
 const (
@@ -41,44 +40,45 @@ const (
 
 var log = logger.NewLoggerField(pkgSubsys)
 
+func NewCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:          "kmesh-daemon",
+		Short:        "Start kmesh daemon",
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			printFlags(cmd.Flags())
+			if err := options.ParseConfigs(); err != nil {
+				return err
+			}
+			return Execute()
+		},
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			UnknownFlags: true,
+		},
+	}
+
+	addFlags(cmd)
+
+	return cmd
+}
+
 // Execute start daemon manager process
-func Execute() {
-	var err error
-
-	if err = options.InitDaemonConfig(); err != nil {
-		log.Error(err)
-		return
-	}
-	log.Info("options InitDaemonConfig successful")
-
-	if err = pid.CreatePidFile(); err != nil {
-		log.Errorf("failed to start, reason: %v", err)
-		return
-	}
-	defer func() {
-		if err = pid.RemovePidFile(); err != nil {
-			log.Errorf("failed to remove pid file, reason: %v", err)
-		}
-	}()
-
-	if err = bpf.Start(); err != nil {
-		fmt.Println(err)
-		return
+func Execute() error {
+	if err := bpf.Start(); err != nil {
+		return err
 	}
 	log.Info("bpf Start successful")
 	defer bpf.Stop()
 
-	if err = controller.Start(); err != nil {
-		log.Error(err)
-		return
+	if err := controller.Start(); err != nil {
+		return err
 	}
 	log.Info("controller Start successful")
 	defer controller.Stop()
 
 	if bpf.GetConfig().EnableKmesh {
-		if err = dump.StartServer(); err != nil {
-			log.Error(err)
-			return
+		if err := dump.StartServer(); err != nil {
+			return err
 		}
 		log.Info("dump StartServer successful")
 		defer func() {
@@ -86,14 +86,14 @@ func Execute() {
 		}()
 	}
 
-	if err = cni.Start(); err != nil {
-		log.Error(err)
-		return
+	if err := cni.Start(); err != nil {
+		return err
 	}
 	log.Info("command Start cni successful")
 	defer cni.Stop()
 
 	setupCloseHandler()
+	return nil
 }
 
 func setupCloseHandler() {
@@ -102,5 +102,17 @@ func setupCloseHandler() {
 
 	<-ch
 
-	log.Warn("signal Notify exit")
+	log.Warn("exiting...")
+}
+
+// printFlags print flags
+func printFlags(flags *pflag.FlagSet) {
+	flags.VisitAll(func(flag *pflag.Flag) {
+		log.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
+	})
+}
+
+func addFlags(cmd *cobra.Command) {
+	options.AttachFlags(cmd)
+	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 }
