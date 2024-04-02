@@ -108,23 +108,23 @@ func (cache *ClusterCache) Flush() {
 	var err error
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
-	for _, cluster := range cache.apiClusterCache {
+	for name, cluster := range cache.apiClusterCache {
 		switch cluster.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
-			err = maps_v2.ClusterUpdate(cluster.GetName(), cluster)
+			err = maps_v2.ClusterUpdate(name, cluster)
 			if err == nil {
 				// reset api status after successfully updated
 				cluster.ApiStatus = core_v2.ApiStatus_NONE
 			}
 		case core_v2.ApiStatus_DELETE:
-			err = maps_v2.ClusterDelete(cluster.GetName())
+			err = maps_v2.ClusterDelete(name)
 			if err == nil {
-				delete(cache.apiClusterCache, cluster.GetName())
-				delete(cache.resourceHash, cluster.GetName())
+				delete(cache.apiClusterCache, name)
+				delete(cache.resourceHash, name)
 			}
 		}
 		if err != nil {
-			log.Errorf("cluster %s %s flush failed: %v", cluster.Name, cluster.ApiStatus, err)
+			log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 		}
 	}
 }
