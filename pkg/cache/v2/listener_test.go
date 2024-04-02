@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,12 +31,17 @@ import (
 
 func TestListenerFlush(t *testing.T) {
 	t.Run("listener status is UPDATE", func(t *testing.T) {
+		updateListenerAddress := []*core_v2.SocketAddress{}
+		deleteListenerAddress := []*core_v2.SocketAddress{}
+
 		patches1 := gomonkey.NewPatches()
 		patches2 := gomonkey.NewPatches()
 		patches1.ApplyFunc(maps_v2.ListenerUpdate, func(key *core_v2.SocketAddress, value *listener_v2.Listener) error {
+			updateListenerAddress = append(updateListenerAddress, key)
 			return nil
 		})
 		patches1.ApplyFunc(maps_v2.ListenerDelete, func(key *core_v2.SocketAddress) error {
+			deleteListenerAddress = append(deleteListenerAddress, key)
 			return nil
 		})
 		defer func() {
@@ -67,15 +72,22 @@ func TestListenerFlush(t *testing.T) {
 		apiListener2 := cache.GetApiListener(listener2.Name)
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiListener1.ApiStatus)
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiListener2.ApiStatus)
+		assert.Equal(t, []*core_v2.SocketAddress{listener1.GetAddress(), listener2.GetAddress()}, updateListenerAddress)
+		assert.Equal(t, []*core_v2.SocketAddress{}, deleteListenerAddress)
 	})
 
 	t.Run("one listener status is UPDATE, one listener status is DELETE", func(t *testing.T) {
+		updateListenerAddress := []*core_v2.SocketAddress{}
+		deleteListenerAddress := []*core_v2.SocketAddress{}
+
 		patches1 := gomonkey.NewPatches()
 		patches2 := gomonkey.NewPatches()
 		patches1.ApplyFunc(maps_v2.ListenerUpdate, func(key *core_v2.SocketAddress, value *listener_v2.Listener) error {
+			updateListenerAddress = append(updateListenerAddress, key)
 			return nil
 		})
 		patches1.ApplyFunc(maps_v2.ListenerDelete, func(key *core_v2.SocketAddress) error {
+			deleteListenerAddress = append(deleteListenerAddress, key)
 			return nil
 		})
 		defer func() {
@@ -117,15 +129,22 @@ func TestListenerFlush(t *testing.T) {
 		zeroHash := uint64(0)
 		assert.Equal(t, hash.Sum64String(anyListener1.String()), apiLdsHash1)
 		assert.Equal(t, zeroHash, apiLdsHash2)
+		assert.Equal(t, []*core_v2.SocketAddress{listener1.GetAddress()}, updateListenerAddress)
+		assert.Equal(t, []*core_v2.SocketAddress{listener2.GetAddress()}, deleteListenerAddress)
 	})
 
 	t.Run("listener status isn't UPDATE or DELETE", func(t *testing.T) {
+		updateListenerAddress := []*core_v2.SocketAddress{}
+		deleteListenerAddress := []*core_v2.SocketAddress{}
+
 		patches1 := gomonkey.NewPatches()
 		patches2 := gomonkey.NewPatches()
 		patches1.ApplyFunc(maps_v2.ListenerUpdate, func(key *core_v2.SocketAddress, value *listener_v2.Listener) error {
+			updateListenerAddress = append(updateListenerAddress, key)
 			return nil
 		})
 		patches1.ApplyFunc(maps_v2.ListenerDelete, func(key *core_v2.SocketAddress) error {
+			deleteListenerAddress = append(deleteListenerAddress, key)
 			return nil
 		})
 		defer func() {
@@ -156,5 +175,7 @@ func TestListenerFlush(t *testing.T) {
 		apiListener2 := cache.GetApiListener(listener2.Name)
 		assert.Equal(t, core_v2.ApiStatus_UNCHANGED, apiListener1.ApiStatus)
 		assert.Equal(t, core_v2.ApiStatus_ALL, apiListener2.ApiStatus)
+		assert.Equal(t, []*core_v2.SocketAddress{}, updateListenerAddress)
+		assert.Equal(t, []*core_v2.SocketAddress{}, deleteListenerAddress)
 	})
 }
