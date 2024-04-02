@@ -482,9 +482,9 @@ func TestHandleLdsResponse(t *testing.T) {
 				},
 			},
 			FilterChains: []*config_listener_v3.FilterChain{
-				&config_listener_v3.FilterChain{
+				{
 					Filters: []*config_listener_v3.Filter{
-						&config_listener_v3.Filter{
+						{
 							Name: pkg_wellknown.HTTPConnectionManager,
 							ConfigType: &config_listener_v3.Filter_TypedConfig{
 								TypedConfig: anyfilterHttp,
@@ -583,9 +583,9 @@ func TestHandleLdsResponse(t *testing.T) {
 		anyfilterHttp, err := anypb.New(filterHttp)
 		assert.NoError(t, err)
 		filterChains := []*config_listener_v3.FilterChain{
-			&config_listener_v3.FilterChain{
+			{
 				Filters: []*config_listener_v3.Filter{
-					&config_listener_v3.Filter{
+					{
 						Name: pkg_wellknown.HTTPConnectionManager,
 						ConfigType: &config_listener_v3.Filter_TypedConfig{
 							TypedConfig: anyfilterHttp,
