@@ -31,12 +31,17 @@ import (
 
 func TestClusterFlush(t *testing.T) {
 	t.Run("cluster status is UPDATE", func(t *testing.T) {
+		updateClusterName := []string{}
+		deleteClusterName := []string{}
+
 		patches1 := gomonkey.NewPatches()
 		patches2 := gomonkey.NewPatches()
 		patches1.ApplyFunc(maps_v2.ClusterUpdate, func(key string, value *cluster_v2.Cluster) error {
+			updateClusterName = append(updateClusterName, key)
 			return nil
 		})
 		patches2.ApplyFunc(maps_v2.ClusterDelete, func(key string) error {
+			deleteClusterName = append(deleteClusterName, key)
 			return nil
 		})
 		defer func() {
@@ -64,15 +69,22 @@ func TestClusterFlush(t *testing.T) {
 		apiCluster2 := cache.GetApiCluster(cluster2.GetName())
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiCluster1.ApiStatus)
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiCluster2.ApiStatus)
+		assert.Equal(t, []string{"ut-cluster1", "ut-cluster2"}, updateClusterName)
+		assert.Equal(t, []string{}, deleteClusterName)
 	})
 
 	t.Run("one cluster status is UPDATE, one cluster status is DELETE", func(t *testing.T) {
+		updateClusterName := []string{}
+		deleteClusterName := []string{}
+
 		patches1 := gomonkey.NewPatches()
 		patches2 := gomonkey.NewPatches()
 		patches1.ApplyFunc(maps_v2.ClusterUpdate, func(key string, value *cluster_v2.Cluster) error {
+			updateClusterName = append(updateClusterName, key)
 			return nil
 		})
 		patches2.ApplyFunc(maps_v2.ClusterDelete, func(key string) error {
+			deleteClusterName = append(deleteClusterName, key)
 			return nil
 		})
 		defer func() {
@@ -111,15 +123,22 @@ func TestClusterFlush(t *testing.T) {
 		zeroHash := uint64(0)
 		assert.Equal(t, hash.Sum64String(anyCluster1.String()), apiRouteHash1)
 		assert.Equal(t, zeroHash, apiRouteHash2)
+		assert.Equal(t, []string{"ut-cluster1"}, updateClusterName)
+		assert.Equal(t, []string{"ut-cluster2"}, deleteClusterName)
 	})
 
 	t.Run("cluster status isn't UPDATE or DELETE", func(t *testing.T) {
+		updateClusterName := []string{}
+		deleteClusterName := []string{}
+
 		patches1 := gomonkey.NewPatches()
 		patches2 := gomonkey.NewPatches()
 		patches1.ApplyFunc(maps_v2.ClusterUpdate, func(key string, value *cluster_v2.Cluster) error {
+			updateClusterName = append(updateClusterName, key)
 			return nil
 		})
 		patches2.ApplyFunc(maps_v2.ClusterDelete, func(key string) error {
+			deleteClusterName = append(deleteClusterName, key)
 			return nil
 		})
 		defer func() {
@@ -147,5 +166,7 @@ func TestClusterFlush(t *testing.T) {
 		apiCluster2 := cache.GetApiCluster(cluster2.GetName())
 		assert.Equal(t, core_v2.ApiStatus_UNCHANGED, apiCluster1.ApiStatus)
 		assert.Equal(t, core_v2.ApiStatus_ALL, apiCluster2.ApiStatus)
+		assert.Equal(t, []string{}, updateClusterName)
+		assert.Equal(t, []string{}, deleteClusterName)
 	})
 }
