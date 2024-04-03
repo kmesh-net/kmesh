@@ -22,6 +22,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/slices"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	route_v2 "kmesh.net/kmesh/api/v2/route"
@@ -75,7 +76,7 @@ func TestRouteFlush(t *testing.T) {
 		apiRouteConfig2 := cache.GetApiRouteConfig(routeConfig2.Name)
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiRouteConfig1.ApiStatus)
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiRouteConfig2.ApiStatus)
-		assert.Equal(t, []string{"ut-route1", "ut-route2"}, updateRouterName)
+		assert.Equal(t, true, slices.EqualUnordered([]string{"ut-route1", "ut-route2"}, updateRouterName))
 		assert.Equal(t, []string{}, deleteRouterName)
 	})
 
