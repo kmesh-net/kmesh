@@ -159,7 +159,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Nil(t, svc.rqt)
 	})
 
-	t.Run("have mult clusters, add a new  eds cluster", func(t *testing.T) {
+	t.Run("have multiClusters, add a new  eds cluster", func(t *testing.T) {
 		patch := gomonkey.NewPatches()
 		defer patch.Reset()
 		clusterNames := sets.New[string]()
@@ -228,7 +228,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"new-ut-cluster"}, svc.rqt.ResourceNames)
 	})
 
-	t.Run("mult clusters in rsp", func(t *testing.T) {
+	t.Run("mult clusters in resp", func(t *testing.T) {
 		patch := gomonkey.NewPatches()
 		defer patch.Reset()
 		clusterNames := sets.New[string]()
@@ -393,7 +393,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-far", "ut-cluster"}, svc.ack.ResourceNames)
 	})
 
-	t.Run("no apicluster, svc.ack not chamge", func(t *testing.T) {
+	t.Run("no apicluster, svc.ack not change", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{}
@@ -659,7 +659,7 @@ func TestHandleRdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-routeclient", "ut-routeconfig"}, svc.ack.ResourceNames)
 	})
 
-	t.Run("nil routeConfig", func(t *testing.T) {
+	t.Run("empty routeConfig", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		svc := &ServiceEvent{
 			DynamicLoader: adsLoader,
@@ -685,7 +685,7 @@ func TestHandleRdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-routeclient"}, svc.ack.ResourceNames)
 	})
 
-	t.Run("already have a Rda, RdaHash has change", func(t *testing.T) {
+	t.Run("already have a Rds, RdsHash has change", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		svc := &ServiceEvent{
 			DynamicLoader: adsLoader,
