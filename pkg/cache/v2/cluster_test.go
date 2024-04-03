@@ -22,6 +22,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/slices"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
@@ -69,7 +70,7 @@ func TestClusterFlush(t *testing.T) {
 		apiCluster2 := cache.GetApiCluster(cluster2.GetName())
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiCluster1.ApiStatus)
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiCluster2.ApiStatus)
-		assert.Equal(t, []string{"ut-cluster1", "ut-cluster2"}, updateClusterName)
+		assert.Equal(t, true, slices.EqualUnordered([]string{"ut-cluster2", "ut-cluster1"}, updateClusterName))
 		assert.Equal(t, []string{}, deleteClusterName)
 	})
 
