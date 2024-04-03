@@ -159,7 +159,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Nil(t, svc.rqt)
 	})
 
-	t.Run("have multiClusters, add a new  eds cluster", func(t *testing.T) {
+	t.Run("have multiClusters, add a new eds cluster", func(t *testing.T) {
 		patch := gomonkey.NewPatches()
 		defer patch.Reset()
 		clusterNames := sets.New[string]()
@@ -172,7 +172,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		svc := &ServiceEvent{
 			DynamicLoader: adsLoader,
 		}
-		multClusters := []*config_cluster_v3.Cluster{
+		multiClusters := []*config_cluster_v3.Cluster{
 			{
 				Name: "ut-cluster1",
 				ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -186,8 +186,8 @@ func TestHandleCdsResponse(t *testing.T) {
 				},
 			},
 		}
-		anyMultCluster1, err1 := anypb.New(multClusters[0])
-		anyMultCluster2, err2 := anypb.New(multClusters[1])
+		anyMultCluster1, err1 := anypb.New(multiClusters[0])
+		anyMultCluster2, err2 := anypb.New(multiClusters[1])
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
 		rsp := &service_discovery_v3.DiscoveryResponse{
@@ -219,16 +219,16 @@ func TestHandleCdsResponse(t *testing.T) {
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(newCluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		wantOldClusterHash1 := hash.Sum64String(anyMultCluster1.String())
-		actualOldClusterHash1 := svc.DynamicLoader.ClusterCache.GetCdsHash(multClusters[0].GetName())
+		actualOldClusterHash1 := svc.DynamicLoader.ClusterCache.GetCdsHash(multiClusters[0].GetName())
 		assert.Equal(t, wantOldClusterHash1, actualOldClusterHash1)
 		wantOldClusterHash2 := hash.Sum64String(anyMultCluster2.String())
-		actualOldClusterHash2 := svc.DynamicLoader.ClusterCache.GetCdsHash(multClusters[1].GetName())
+		actualOldClusterHash2 := svc.DynamicLoader.ClusterCache.GetCdsHash(multiClusters[1].GetName())
 		assert.Equal(t, wantOldClusterHash2, actualOldClusterHash2)
 		assert.Equal(t, sets.Set[string]{}, clusterNames)
 		assert.Equal(t, []string{"new-ut-cluster"}, svc.rqt.ResourceNames)
 	})
 
-	t.Run("mult clusters in resp", func(t *testing.T) {
+	t.Run("multiClusters in resp", func(t *testing.T) {
 		patch := gomonkey.NewPatches()
 		defer patch.Reset()
 		clusterNames := sets.New[string]()
@@ -393,7 +393,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-far", "ut-cluster"}, svc.ack.ResourceNames)
 	})
 
-	t.Run("no apicluster, svc.ack not change", func(t *testing.T) {
+	t.Run("no apicluster, svc.ack not be changed", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{}
@@ -421,7 +421,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-far"}, svc.ack.ResourceNames)
 	})
 
-	t.Run("no loadAssignment", func(t *testing.T) {
+	t.Run("empty loadAssignment", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
@@ -511,7 +511,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-rds"}, svc.rqt.ResourceNames)
 	})
 
-	t.Run("listenerCache already has resource and it hasn't changed", func(t *testing.T) {
+	t.Run("listenerCache already has resource and it has not been changed", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		adsLoader.routeNames = []string{
 			"ut-route-to-client",
@@ -553,7 +553,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash, actualHash)
 	})
 
-	t.Run("listenerCache already has resource and it has changed", func(t *testing.T) {
+	t.Run("listenerCache already has resource and it has been changed", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		adsLoader.routeNames = []string{
 			"ut-route-to-client",
@@ -685,7 +685,7 @@ func TestHandleRdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-routeclient"}, svc.ack.ResourceNames)
 	})
 
-	t.Run("already have a Rds, RdsHash has change", func(t *testing.T) {
+	t.Run("already have a Rds, RdsHash has been changed", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		svc := &ServiceEvent{
 			DynamicLoader: adsLoader,
@@ -730,7 +730,7 @@ func TestHandleRdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-routeconfig"}, svc.ack.ResourceNames)
 	})
 
-	t.Run("already have a Rda, RdaHash has change. And have mult routeconfig in rsp", func(t *testing.T) {
+	t.Run("already have a Rds, RdsHash has been change. And have multiRouteconfig in resp", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		svc := &ServiceEvent{
 			DynamicLoader: adsLoader,
