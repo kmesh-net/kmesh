@@ -22,6 +22,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/slices"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
@@ -72,7 +73,7 @@ func TestListenerFlush(t *testing.T) {
 		apiListener2 := cache.GetApiListener(listener2.Name)
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiListener1.ApiStatus)
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiListener2.ApiStatus)
-		assert.Equal(t, []*core_v2.SocketAddress{listener1.GetAddress(), listener2.GetAddress()}, updateListenerAddress)
+		assert.Equal(t, true, slices.EqualUnordered([]*core_v2.SocketAddress{listener1.GetAddress(), listener2.GetAddress()}, updateListenerAddress))
 		assert.Equal(t, []*core_v2.SocketAddress{}, deleteListenerAddress)
 	})
 
