@@ -26,59 +26,91 @@ import (
 )
 
 func TestAddWorkload(t *testing.T) {
-	t.Run("no old address workload", func(t *testing.T) {
+	t.Run("adding a workload when none exists", func(t *testing.T) {
 		w := newWorkloadStore()
 		workload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",
 			Network: "ut-net",
 			Addresses: [][]byte{
-				[]byte("hello"),
-				[]byte("world"),
+				[]byte("192.168.224.22"),
+				[]byte("1.2.3.4"),
 			},
 		}
 		w.addWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
-		addr1 := nets.ConvertIpByteToUint32([]byte("hello"))
-		addr2 := nets.ConvertIpByteToUint32([]byte("world"))
-		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: "ut-net", Address: addr1}])
-		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: "ut-net", Address: addr2}])
+		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
+		addr2 := nets.ConvertIpByteToUint32([]byte("1.2.3.4"))
+		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr1}])
+		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
 	})
 
-	t.Run("have old address workload", func(t *testing.T) {
+	t.Run("modify addresses in workload", func(t *testing.T) {
 		w := newWorkloadStore()
 		workload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",
 			Network: "ut-net",
 			Addresses: [][]byte{
-				[]byte("hello"),
-				[]byte("world"),
+				[]byte("192.168.224.22"),
+				[]byte("1.2.3.4"),
 			},
 		}
 		w.addWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
-		addr1 := nets.ConvertIpByteToUint32([]byte("hello"))
-		addr2 := nets.ConvertIpByteToUint32([]byte("world"))
-		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: "ut-net", Address: addr1}])
-		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: "ut-net", Address: addr2}])
+		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
+		addr2 := nets.ConvertIpByteToUint32([]byte("1.2.3.4"))
+		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr1}])
+		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
 		newWorkload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",
-			Network: "ut-net",
+			Network: "new-net",
 			Addresses: [][]byte{
-				[]byte("welcome"),
-				[]byte("kmesh"),
+				[]byte("192.168.10.25"),
+				[]byte("2.3.4.5"),
 			},
 		}
 		w.addWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
-		addr3 := nets.ConvertIpByteToUint32([]byte("welcome"))
-		addr4 := nets.ConvertIpByteToUint32([]byte("kmesh"))
-		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: "ut-net", Address: addr3}])
-		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: "ut-net", Address: addr4}])
-		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: "ut-net", Address: addr1}])
-		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: "ut-net", Address: addr2}])
+		addr3 := nets.ConvertIpByteToUint32([]byte("192.168.10.25"))
+		addr4 := nets.ConvertIpByteToUint32([]byte("2.3.4.5"))
+		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr3}])
+		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr4}])
+		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: workload.Network, Address: addr1}])
+		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
+	})
+
+	t.Run("add addresses to the same workload", func(t *testing.T) {
+		w := newWorkloadStore()
+		workload := &workloadapi.Workload{
+			Name:    "ut-workload",
+			Uid:     "123456",
+			Network: "ut-net",
+			Addresses: [][]byte{
+				[]byte("192.168.224.22"),
+			},
+		}
+		w.addWorkload(workload)
+		assert.Equal(t, workload, w.byUid["123456"])
+		addr := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
+		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
+		newWorkload := &workloadapi.Workload{
+			Name:    "ut-workload",
+			Uid:     "123456",
+			Network: "new-net",
+			Addresses: [][]byte{
+				[]byte("192.168.224.22"),
+				[]byte("2.3.4.5"),
+			},
+		}
+		w.addWorkload(newWorkload)
+		assert.Equal(t, newWorkload, w.byUid["123456"])
+		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
+		addr2 := nets.ConvertIpByteToUint32([]byte("2.3.4.5"))
+		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr1}])
+		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr2}])
+		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
 	})
 }
 
