@@ -40,13 +40,10 @@ import (
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/bpf"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
-	"kmesh.net/kmesh/pkg/options"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
 func TestHandleCdsResponse(t *testing.T) {
-	bpf.StartKmesh()
-	defer bpf.Stop()
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
 		patch := gomonkey.NewPatches()
 		defer patch.Reset()
@@ -444,7 +441,7 @@ func TestHandleEdsResponse(t *testing.T) {
 }
 
 func initBpfMap(t *testing.T) {
-	os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
+	_ = os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
 	err := syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
 	if err != nil {
 		t.Fatalf("Failed to mount: %v", err)
@@ -452,7 +449,7 @@ func initBpfMap(t *testing.T) {
 	config := bpf.GetConfig()
 	config.BpfFsPath = "/sys/fs/bpf"
 	config.Cgroup2Path = "/mnt/kmesh_cgroup2"
-	options.ParseConfigs()
+	_ = config.ParseConfig()
 	err = bpf.StartKmesh()
 	if err != nil {
 		t.Fatalf("bpf init failed: %v", err)
