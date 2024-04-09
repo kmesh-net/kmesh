@@ -441,15 +441,17 @@ func TestHandleEdsResponse(t *testing.T) {
 }
 
 func initBpfMap(t *testing.T) {
-	_ = os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
-	err := syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
+	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
 	if err != nil {
-		t.Fatalf("Failed to mount: %v", err)
+		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
+	}
+	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
+	if err != nil {
+		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 	}
 	config := bpf.GetConfig()
 	config.BpfFsPath = "/sys/fs/bpf"
 	config.Cgroup2Path = "/mnt/kmesh_cgroup2"
-	_ = config.ParseConfig()
 	err = bpf.StartKmesh()
 	if err != nil {
 		t.Fatalf("bpf init failed: %v", err)
