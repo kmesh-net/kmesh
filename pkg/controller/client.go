@@ -149,7 +149,7 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	}
 
 	go c.clientResponseProcess(c.ctx)
-	go c.rbac.Worker(c.ctx)
+	go c.rbac.Run(c.ctx)
 
 	go func() {
 		<-stopCh

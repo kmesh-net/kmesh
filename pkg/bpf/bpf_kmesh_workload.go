@@ -23,6 +23,7 @@ package bpf
 // #include "kmesh/include/kmesh_common.h"
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"syscall"
@@ -187,8 +188,11 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 	opts.Programs.LogSize = so.Info.BpfVerifyLogSize
 
 	spec, err = bpf2go.LoadKmeshSockopsWorkload()
-	if err != nil || spec == nil {
+	if err != nil {
 		return nil, err
+	}
+	if spec == nil {
+		return nil, fmt.Errorf("error: loadKmeshSockopsObjects() spec is nil")
 	}
 
 	setMapPinType(spec, ebpf.PinByName)
@@ -221,7 +225,7 @@ func (so *BpfSockOpsWorkload) Attach() error {
 	cgopt := link.CgroupOptions{
 		Path:    so.Info.Cgroup2Path,
 		Attach:  so.Info.AttachType,
-		Program: so.KmeshSockopsWorkloadObjects.SocketMigration,
+		Program: so.KmeshSockopsWorkloadObjects.RecordTuple,
 	}
 
 	lk, err := link.AttachCgroup(cgopt)
@@ -301,8 +305,11 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	opts.Programs.LogSize = xa.Info.BpfVerifyLogSize
 
 	spec, err = bpf2go.LoadKmeshXDPAuth()
-	if err != nil || spec == nil {
+	if err != nil {
 		return nil, err
+	}
+	if spec == nil {
+		return nil, fmt.Errorf("error: loadKmeshXdpAuthObjects() spec is nil")
 	}
 
 	setMapPinType(spec, ebpf.PinByName)
@@ -324,7 +331,7 @@ func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
 		return err
 	}
 
-	prog := spec.Programs["xdp_handler"]
+	prog := spec.Programs["xdp_auth_handler"]
 	xa.Info.Type = prog.Type
 	xa.Info.AttachType = prog.AttachType
 

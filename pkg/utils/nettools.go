@@ -32,6 +32,5 @@ func Ifname2ifindex(ifname string) (int, error) {
 			return iface.Index, nil
 		}
 	}
-	err = fmt.Errorf("cann't to find interface:%v\n", ifname)
-	return 0, err
+	return 0, fmt.Errorf("cann't to find interface:%v\n", ifname)
 }

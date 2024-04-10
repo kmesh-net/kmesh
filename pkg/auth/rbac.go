@@ -29,18 +29,18 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/bpf"
-	ctrl_bpf "kmesh.net/kmesh/pkg/controller/bpf"
 	"kmesh.net/kmesh/pkg/controller/common/cache"
-	"kmesh.net/kmesh/pkg/controller/common/types"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 const (
-	SPIFFE_PREFIX     = "spiffe://"
-	MSG_TYPE_IPV4     = 0
-	MSG_TYPE_IPV6     = 1
+	SPIFFE_PREFIX = "spiffe://"
+	MSG_TYPE_IPV4 = 0
+	MSG_TYPE_IPV6 = 1
+	// IPV4_TUPLE_LENGTH is the fixed length of IPv4 source/destination address(4 bytes each) and port(2 bytes each)
 	IPV4_TUPLE_LENGTH = 12
-	MSG_LEN           = 40
+	// MSG_LEN is the fixed length of one record we retrieve from map of tuple
+	MSG_LEN = 40
 )
 
 var (
@@ -71,16 +71,20 @@ func NewRbac() *Rbac {
 	}
 }
 
-func (r *Rbac) Worker(ctx context.Context) {
-	reader, err := ringbuf.NewReader(bpf.ObjWorkload.KmeshWorkload.SockOps.MapOfMgrt)
-	defer reader.Close()
+func (r *Rbac) Run(ctx context.Context) {
+	reader, err := ringbuf.NewReader(bpf.ObjWorkload.KmeshWorkload.SockOps.MapOfTuple)
 	if err != nil {
 		log.Errorf("open ringbuf map FAILED, err: %v", err)
 		return
 	}
+	defer func() {
+		if err := reader.Close(); err != nil {
+			log.Errorf("reader Close FAILED, err: %v", err)
+		}
+	}()
 
 	rec := ringbuf.Record{}
-	tupleV4, tupleV6 := types.BpfSockTupleV4{}, types.BpfSockTupleV6{}
+	tupleV4, tupleV6 := bpfSockTupleV4{}, bpfSockTupleV6{}
 	var conn rbacConnection
 	for {
 		select {
@@ -101,15 +105,15 @@ func (r *Rbac) Worker(ctx context.Context) {
 			switch msgType {
 			case MSG_TYPE_IPV4:
 				buf = bytes.NewBuffer(rec.RawSample[4 : IPV4_TUPLE_LENGTH+4+1])
-				if err = binary.Read(buf, binary.NativeEndian, &tupleV4); err != nil {
-					log.Errorf("deserialize V4 FAILED, err: %v", err)
+				if err = binary.Read(buf, binary.LittleEndian, &tupleV4); err != nil {
+					log.Errorf("deserialize IPv4 FAILED, err: %v", err)
 					continue
 				}
 				conn = buildConnV4(&tupleV4)
 			case MSG_TYPE_IPV6:
 				buf = bytes.NewBuffer(rec.RawSample[4:])
-				if err = binary.Read(buf, binary.NativeEndian, &tupleV6); err != nil {
-					log.Errorf("deserialize V6 FAILED, err: %v", err)
+				if err = binary.Read(buf, binary.LittleEndian, &tupleV6); err != nil {
+					log.Errorf("deserialize IPv6 FAILED, err: %v", err)
 					continue
 				}
 				conn = buildConnV6(&tupleV6)
@@ -121,12 +125,12 @@ func (r *Rbac) Worker(ctx context.Context) {
 			if !r.doRbac(&conn) {
 				switch msgType {
 				case MSG_TYPE_IPV4:
-					if err = ctrl_bpf.XdpHandlerUpdateV4(&ctrl_bpf.XdpHandlerKeyV4{Tuple: tupleV4}); err != nil {
+					if err = xdpNotifyConnRstV4(&xdpHandlerKeyV4{Tuple: tupleV4}); err != nil {
 						log.Errorf("XdpHandlerUpdateV4 FAILED, err: %v", err)
 						continue
 					}
 				case MSG_TYPE_IPV6:
-					if err = ctrl_bpf.XdpHandlerUpdateV6(&ctrl_bpf.XdpHandlerKeyV6{Tuple: tupleV6}); err != nil {
+					if err = xdpNotifyConnRstV6(&xdpHandlerKeyV6{tuple: tupleV6}); err != nil {
 						log.Errorf("XdpHandlerUpdateV6 FAILED, err: %v", err)
 						continue
 					}
@@ -148,10 +152,13 @@ func (r *Rbac) RemovePolicy(policyKey string) {
 }
 
 func (r *Rbac) doRbac(conn *rbacConnection) bool {
-	workload := cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
-		Network: conn.srcNetwork,
-		Address: binary.BigEndian.Uint32(conn.srcIp),
-	})
+	var workload *workloadapi.Workload
+	if len(conn.srcIp) > 0 {
+		workload = cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
+			Network: conn.srcNetwork,
+			Address: binary.BigEndian.Uint32(conn.srcIp),
+		})
+	}
 	allowPolices, denyPolicies := r.aggregate(workload)
 
 	// 1. If there is ANY deny policy, deny the request
@@ -418,7 +425,7 @@ func internalMatchNamespace(srcNs string, namespaces []*security.StringMatch) bo
 	return false
 }
 
-func buildConnV4(tupleV4 *types.BpfSockTupleV4) rbacConnection {
+func buildConnV4(tupleV4 *bpfSockTupleV4) rbacConnection {
 	conn := rbacConnection{}
 	conn.srcIp = binary.LittleEndian.AppendUint32(conn.srcIp, tupleV4.SrcAddr)
 	conn.dstIp = binary.LittleEndian.AppendUint32(conn.dstIp, tupleV4.DstAddr)
@@ -426,11 +433,11 @@ func buildConnV4(tupleV4 *types.BpfSockTupleV4) rbacConnection {
 	return conn
 }
 
-func buildConnV6(tupleV6 *types.BpfSockTupleV6) rbacConnection {
+func buildConnV6(tupleV6 *bpfSockTupleV6) rbacConnection {
 	conn := rbacConnection{}
 	for i := range tupleV6.SrcAddr {
-		conn.srcIp = binary.LittleEndian.AppendUint32(conn.srcIp, tupleV6.SrcAddr[i])
-		conn.dstIp = binary.LittleEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[i])
+		conn.srcIp = binary.LittleEndian.AppendUint32(conn.srcIp, tupleV6.SrcAddr[4-i])
+		conn.dstIp = binary.LittleEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[4-i])
 	}
 	conn.dstPort = uint32(tupleV6.DstPort<<8 | tupleV6.DstPort>>8)
 	return conn

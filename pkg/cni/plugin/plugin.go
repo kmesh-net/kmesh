@@ -48,7 +48,7 @@ import (
 var (
 	log               = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
 	ENABLE_KMESH_MARK = "0x1000"
-	XDP_PROG_NAME     = "xdp_handler"
+	XDP_PROG_NAME     = "xdp_auth_handler"
 )
 
 // Config is whatever you expect your configuration json to be. This is whatever

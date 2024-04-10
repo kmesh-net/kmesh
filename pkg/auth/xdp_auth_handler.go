@@ -14,12 +14,11 @@
  * limitations under the License.
  */
 
-package bpf
+package auth
 
 import (
 	"github.com/cilium/ebpf"
-	"kmesh.net/kmesh/pkg/controller/common/types"
-	"kmesh.net/kmesh/pkg/logger"
+
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -27,20 +26,30 @@ const (
 	XDP_AUTH_MAP_NAME = "map_of_auth"
 )
 
-var (
-	log = logger.NewLoggerField("controller/bpf")
-)
+type bpfSockTupleV4 struct {
+	SrcAddr uint32
+	DstAddr uint32
+	SrcPort uint16
+	DstPort uint16
+}
 
-type XdpHandlerKeyV4 struct {
-	Tuple  types.BpfSockTupleV4
+type bpfSockTupleV6 struct {
+	SrcAddr [4]uint32
+	DstAddr [4]uint32
+	SrcPort uint16
+	DstPort uint16
+}
+
+type xdpHandlerKeyV4 struct {
+	Tuple  bpfSockTupleV4
 	Filled [24]byte
 }
 
-type XdpHandlerKeyV6 struct {
-	Tuple types.BpfSockTupleV6
+type xdpHandlerKeyV6 struct {
+	tuple bpfSockTupleV6
 }
 
-func XdpHandlerUpdateV4(key *XdpHandlerKeyV4) error {
+func xdpNotifyConnRstV4(key *xdpHandlerKeyV4) error {
 	log.Infof("XdpHandlerUpdateV4 [%#v]", *key)
 	var (
 		authMap *ebpf.Map
@@ -50,10 +59,12 @@ func XdpHandlerUpdateV4(key *XdpHandlerKeyV4) error {
 		log.Errorf("GetMapByName in XdpHandlerUpdateV4 FAILED, err: %v", err)
 		return err
 	}
+	// Insert the socket tuple into the auth map, so xdp_auth_handler can know that socket with
+	// this tuple is denied by policy
 	return authMap.Update(key, uint32(1), ebpf.UpdateAny)
 }
 
-func XdpHandlerUpdateV6(key *XdpHandlerKeyV6) error {
+func xdpNotifyConnRstV6(key *xdpHandlerKeyV6) error {
 	log.Infof("XdpHandlerUpdateV6 [%#v]", *key)
 	var (
 		authMap *ebpf.Map
@@ -63,5 +74,7 @@ func XdpHandlerUpdateV6(key *XdpHandlerKeyV6) error {
 		log.Errorf("GetMapByName in XdpHandlerUpdateV6 FAILED, err: %v", err)
 		return err
 	}
+	// Insert the socket tuple into the auth map, so xdp_auth_handler can know that socket with
+	// this tuple is denied by policy
 	return authMap.Update(key, uint32(1), ebpf.UpdateAny)
 }

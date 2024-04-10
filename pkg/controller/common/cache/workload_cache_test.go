@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package workload
+package cache
 
 import (
 	"testing"
@@ -37,7 +37,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("1.2.3.4"),
 			},
 		}
-		w.addWorkload(workload)
+		w.AddWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
 		addr2 := nets.ConvertIpByteToUint32([]byte("1.2.3.4"))
@@ -56,7 +56,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("1.2.3.4"),
 			},
 		}
-		w.addWorkload(workload)
+		w.AddWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
 		addr2 := nets.ConvertIpByteToUint32([]byte("1.2.3.4"))
@@ -71,7 +71,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("2.3.4.5"),
 			},
 		}
-		w.addWorkload(newWorkload)
+		w.AddWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
 		addr3 := nets.ConvertIpByteToUint32([]byte("192.168.10.25"))
 		addr4 := nets.ConvertIpByteToUint32([]byte("2.3.4.5"))
@@ -91,7 +91,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("192.168.224.22"),
 			},
 		}
-		w.addWorkload(workload)
+		w.AddWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
@@ -104,7 +104,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("2.3.4.5"),
 			},
 		}
-		w.addWorkload(newWorkload)
+		w.AddWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
 		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
 		addr2 := nets.ConvertIpByteToUint32([]byte("2.3.4.5"))
@@ -126,9 +126,9 @@ func TestDeleteWorkload(t *testing.T) {
 				[]byte("world"),
 			},
 		}
-		w.addWorkload(workload)
+		w.AddWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
-		w.deleteWorkload("123456")
+		w.DeleteWorkload("123456")
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byUid["123456"])
 		addr1 := nets.ConvertIpByteToUint32([]byte("hello"))
 		addr2 := nets.ConvertIpByteToUint32([]byte("world"))

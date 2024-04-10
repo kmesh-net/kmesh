@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,6 +22,7 @@
 #include <linux/if_ether.h>
 #include "config.h"
 #include "bpf_log.h"
+#include "workload.h"
 
 #define AUTH_PASS   0
 #define AUTH_FORBID   1
@@ -34,13 +35,6 @@ struct xdp_info {
     struct iphdr *iph;
     struct tcphdr *tcph;
 };
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, struct bpf_sock_tuple);
-    __type(value, __u32);
-    __uint(max_entries, MAP_SIZE_OF_MAX);
-} map_of_auth SEC(".maps");
 
 static inline int get_hdr_ptr(struct xdp_md *ctx, struct ethhdr **ethh,
     struct iphdr **iph, struct tcphdr **tcph)
@@ -89,6 +83,8 @@ static inline int should_shutdown(struct bpf_sock_tuple *tuple_info)
     __u32 *value = bpf_map_lookup_elem(&map_of_auth, tuple_info);
     if (value)
     {
+        BPF_LOG(INFO, XDP, "auth denied, src ip: %u, port: %u\n",
+         bpf_ntohl(tuple_info->ipv4.saddr), bpf_ntohs(tuple_info->ipv4.sport));
         bpf_map_delete_elem(&map_of_auth, tuple_info);
         return AUTH_FORBID;
     }
@@ -100,8 +96,8 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
     return get_hdr_ptr(ctx, &info->ethh, &info->iph, &info->tcph);
 }
 
-SEC("xdp_migration")
-int xdp_handler(struct xdp_md *ctx)
+SEC("xdp_auth")
+int xdp_auth_handler(struct xdp_md *ctx)
 {
     struct xdp_info info = {0};
     struct bpf_sock_tuple tuple_info = {0};
@@ -113,7 +109,9 @@ int xdp_handler(struct xdp_md *ctx)
     parser_tuple(&info, &tuple_info);
     if (should_shutdown(&tuple_info) == AUTH_FORBID) 
         shutdown_tuple(&info);
-        
+    
+    // If auth denied, it still returns XDP_PASS here, so next time when a client package is
+    // sent to server, it will be shutdown since server's RST has been set
     return XDP_PASS;
 }
 
