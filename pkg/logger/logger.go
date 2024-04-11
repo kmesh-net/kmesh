@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2021-10-09
  */
 
 package logger
@@ -23,10 +20,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"time"
 
-	rotatelogs "github.com/lestrrat-go/file-rotatelogs"
 	"github.com/sirupsen/logrus"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 const (
@@ -37,9 +33,8 @@ var (
 	defaultLogger  = InitializeDefaultLogger(false)
 	fileOnlyLogger = InitializeDefaultLogger(true)
 
-	defaultLogLevel           = logrus.InfoLevel
-	defaultLogFile            = "/var/run/kmesh/daemon.log"
-	defaultLogMaxFileCnt uint = 12
+	defaultLogLevel = logrus.InfoLevel
+	defaultLogFile  = "/var/run/kmesh/daemon.log"
 
 	defaultLogFormat = &logrus.TextFormatter{
 		DisableColors:    true,
@@ -59,20 +54,18 @@ func InitializeDefaultLogger(onlyFile bool) *logrus.Logger {
 		logger.Fatalf("failed to create log directory: %v", err)
 	}
 
-	file, err := rotatelogs.New(
-		defaultLogFile+"-%Y%m%d%H%M",
-		rotatelogs.WithLinkName(defaultLogFile),
-		rotatelogs.WithRotationCount(defaultLogMaxFileCnt),
-		rotatelogs.WithRotationTime(time.Hour),
-	)
-	if err != nil {
-		logger.Fatal(err)
+	logfile := &lumberjack.Logger{
+		Filename:   defaultLogFile,
+		MaxSize:    500, // megabytes
+		MaxBackups: 3,
+		MaxAge:     28,    //days
+		Compress:   false, // disabled by default
 	}
 
 	if onlyFile {
-		logger.SetOutput(io.Writer(file))
+		logger.SetOutput(io.Writer(logfile))
 	} else {
-		logger.SetOutput(io.MultiWriter(os.Stdout, file))
+		logger.SetOutput(io.MultiWriter(os.Stdout, logfile))
 	}
 
 	return logger
