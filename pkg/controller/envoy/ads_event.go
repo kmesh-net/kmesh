@@ -123,16 +123,12 @@ func (svc *ServiceEvent) processAdsResponse(resp *service_discovery_v3.Discovery
 
 	switch resp.GetTypeUrl() {
 	case resource_v3.ClusterType:
-		svc.LastNonce.cdsNonce = resp.Nonce
 		err = svc.handleCdsResponse(resp)
 	case resource_v3.EndpointType:
-		svc.LastNonce.edsNonce = resp.Nonce
 		err = svc.handleEdsResponse(resp)
 	case resource_v3.ListenerType:
-		svc.LastNonce.ldsNonce = resp.Nonce
 		err = svc.handleLdsResponse(resp)
 	case resource_v3.RouteType:
-		svc.LastNonce.rdsNonce = resp.Nonce
 		err = svc.handleRdsResponse(resp)
 	default:
 		err = fmt.Errorf("unsupport type url %s", resp.GetTypeUrl())
@@ -149,6 +145,7 @@ func (svc *ServiceEvent) handleCdsResponse(resp *service_discovery_v3.DiscoveryR
 		cluster = &config_cluster_v3.Cluster{}
 	)
 
+	svc.LastNonce.cdsNonce = resp.Nonce
 	current := sets.New[string]()
 	lastEdsClusterNames := svc.DynamicLoader.edsClusterNames
 	svc.DynamicLoader.edsClusterNames = []string{}
@@ -196,6 +193,7 @@ func (svc *ServiceEvent) handleEdsResponse(resp *service_discovery_v3.DiscoveryR
 		loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
 	)
 
+	svc.LastNonce.edsNonce = resp.Nonce
 	for _, resource := range resp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
@@ -228,6 +226,8 @@ func (svc *ServiceEvent) handleLdsResponse(resp *service_discovery_v3.DiscoveryR
 		err      error
 		listener = &config_listener_v3.Listener{}
 	)
+
+	svc.LastNonce.ldsNonce = resp.Nonce
 	current := sets.New[string]()
 	lastRouteNames := svc.DynamicLoader.routeNames
 	svc.DynamicLoader.routeNames = []string{}
@@ -267,6 +267,7 @@ func (svc *ServiceEvent) handleRdsResponse(resp *service_discovery_v3.DiscoveryR
 		routeConfiguration = &config_route_v3.RouteConfiguration{}
 	)
 
+	svc.LastNonce.rdsNonce = resp.Nonce
 	current := sets.New[string]()
 	for _, resource := range resp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, routeConfiguration, proto.UnmarshalOptions{}); err != nil {
