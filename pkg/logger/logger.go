@@ -33,9 +33,8 @@ var (
 	defaultLogger  = InitializeDefaultLogger(false)
 	fileOnlyLogger = InitializeDefaultLogger(true)
 
-	defaultLogLevel           = logrus.InfoLevel
-	defaultLogFile            = "/var/run/kmesh/daemon.log"
-	defaultLogMaxFileCnt uint = 12
+	defaultLogLevel = logrus.InfoLevel
+	defaultLogFile  = "/var/run/kmesh/daemon.log"
 
 	defaultLogFormat = &logrus.TextFormatter{
 		DisableColors:    true,
