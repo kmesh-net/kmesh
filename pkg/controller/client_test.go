@@ -105,16 +105,24 @@ func TestRecoverConnection(t *testing.T) {
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		iteration := 0
-		patches.ApplyPrivateMethod(reflect.TypeOf(utClient), "createStreamClient",
-			func(_ *XdsClient) error {
-				// more than 2 link failures will result in a long test time
-				if iteration < 2 {
-					iteration++
-					return errors.New("cant connect to client")
-				} else {
-					return nil
-				}
-			})
+		netPatches := gomonkey.NewPatches()
+		defer netPatches.Reset()
+		netPatches.ApplyFunc(nets.GrpcConnect, func(addr string) (*grpc.ClientConn, error) {
+			// // more than 2 link failures will result in a long test time
+			if iteration < 2 {
+				iteration++
+				return nil, errors.New("failed to create grpc connect")
+			} else {
+				// returns a fake grpc connection
+				mockDiscovery := NewMockServer(t)
+				return grpc.Dial("buffcon",
+					grpc.WithTransportCredentials(insecure.NewCredentials()),
+					grpc.WithBlock(),
+					grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+						return mockDiscovery.Listener.Dial()
+					}))
+			}
+		})
 		err := utClient.recoverConnection()
 		assert.NilError(t, err)
 		assert.Equal(t, 2, iteration)
@@ -160,9 +168,11 @@ func TestClientResponseProcess(t *testing.T) {
 		defer streamPatches.Reset()
 		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsStream), "AdsStreamProcess",
 			func(_ *envoy.AdsStream) error {
+				// if the number of loops is less than or equal to two, an error is reported and a retry is triggered.
 				if iteration < 2 {
 					return errors.New("stream recv failed")
 				} else {
+					// it's been cycled more than twice, use context.cancel() to end the current grpc connection.
 					utClient.cancel()
 					return nil
 				}
