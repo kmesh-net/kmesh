@@ -27,6 +27,7 @@ import (
 	workloadapi "kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/auth"
+	"kmesh.net/kmesh/pkg/controller/common/cache"
 	"kmesh.net/kmesh/pkg/controller/config"
 	nets "kmesh.net/kmesh/pkg/nets"
 )
@@ -44,9 +45,8 @@ var (
 )
 
 type ServiceEvent struct {
-	ack  *service_discovery_v3.DeltaDiscoveryRequest
-	rqt  *service_discovery_v3.DeltaDiscoveryRequest
-	rbac *auth.Rbac
+	ack *service_discovery_v3.DeltaDiscoveryRequest
+	rqt *service_discovery_v3.DeltaDiscoveryRequest
 }
 
 type Endpoints map[string]Endpoint
@@ -60,9 +60,8 @@ type Endpoint struct {
 
 func NewServiceEvent() *ServiceEvent {
 	return &ServiceEvent{
-		ack:  nil,
-		rqt:  nil,
-		rbac: auth.NewRbac(),
+		ack: nil,
+		rqt: nil,
 	}
 }
 
@@ -90,7 +89,7 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 	}
 }
 
-func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) {
+func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
 	var err error
 
 	svc.ack = newAckRequest(rsp)
@@ -98,7 +97,7 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 	case AddressType:
 		err = handleAddressTypeResponse(rsp)
 	case AuthorizationType:
-		err = svc.handleAuthorizationTypeResponse(rsp)
+		err = svc.handleAuthorizationTypeResponse(rsp, rbac)
 	default:
 		err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
 	}
@@ -120,7 +119,7 @@ func removeWorkloadResource(removed_resources []string) error {
 	)
 
 	for _, workloadUid := range removed_resources {
-		WorkloadCache.deleteWorkload(workloadUid)
+		cache.WorkloadCache.DeleteWorkload(workloadUid)
 
 		backendUid := hashName.StrToNum(workloadUid)
 		if eks := EndpointIterFindKey(backendUid); len(eks) != 0 {
@@ -346,7 +345,7 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 
 func handleWorkloadData(workload *workloadapi.Workload) error {
 	log.Debugf("workload uid: %s", workload.Uid)
-	WorkloadCache.addWorkload(workload)
+	cache.WorkloadCache.AddWorkload(workload)
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
 		if err := handleDataWithService(workload); err != nil {
@@ -515,7 +514,7 @@ func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse)
 	return err
 }
 
-func (svc *ServiceEvent) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
+func (svc *ServiceEvent) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) error {
 	// update resource
 	for _, resource := range rsp.GetResources() {
 		auth := &security.Authorization{}
@@ -524,14 +523,14 @@ func (svc *ServiceEvent) handleAuthorizationTypeResponse(rsp *service_discovery_
 			continue
 		}
 		log.Debugf("handle auth xds, resource.name %s, auth %s", resource.GetName(), auth.String())
-		if err := svc.rbac.UpdatePolicy(auth); err != nil {
+		if err := rbac.UpdatePolicy(auth); err != nil {
 			return err
 		}
 	}
 
 	// delete resource by name
 	for _, rmResourceName := range rsp.GetRemovedResources() {
-		svc.rbac.RemovePolicy(rmResourceName)
+		rbac.RemovePolicy(rmResourceName)
 		log.Debugf("handle rm resource %s", rmResourceName)
 	}
 

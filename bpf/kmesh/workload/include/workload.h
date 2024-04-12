@@ -23,6 +23,7 @@
 #include "config.h"
 
 #define MAX_PORT_COUNT   10
+#define RINGBUF_SIZE (1 << 12)
 
 // frontend map
 typedef struct
@@ -105,6 +106,18 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_BACKEND);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_backend SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, struct bpf_sock_tuple);
+    __type(value, __u32);
+    __uint(max_entries, MAP_SIZE_OF_AUTH);
+} map_of_auth SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, RINGBUF_SIZE);
+} map_of_tuple SEC(".maps");
 
 #endif
 

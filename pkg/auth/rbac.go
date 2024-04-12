@@ -17,17 +17,30 @@
 package auth
 
 import (
+	"bytes"
+	"context"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
 
+	"github.com/cilium/ebpf/ringbuf"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/controller/common/cache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 const (
 	SPIFFE_PREFIX = "spiffe://"
+	MSG_TYPE_IPV4 = 0
+	MSG_TYPE_IPV6 = 1
+	// IPV4_TUPLE_LENGTH is the fixed length of IPv4 source/destination address(4 bytes each) and port(2 bytes each)
+	IPV4_TUPLE_LENGTH = 12
+	// MSG_LEN is the fixed length of one record we retrieve from map of tuple
+	MSG_LEN = 40
 )
 
 var (
@@ -38,14 +51,114 @@ type Rbac struct {
 	policyStore *policyStore
 }
 
+type Identity struct {
+	trustDomain    string
+	namespace      string
+	serviceAccount string
+}
+
+type rbacConnection struct {
+	srcIdentity Identity
+	srcNetwork  string
+	srcIp       []byte
+	dstIp       []byte
+	dstPort     uint32
+}
+
 func NewRbac() *Rbac {
 	return &Rbac{
 		policyStore: newPolicystore(),
 	}
 }
 
-func (r *Rbac) DoRbac(conn *RbacConnection) bool {
-	workload := conn.fetchWorkload()
+func (r *Rbac) Run(ctx context.Context) {
+	reader, err := ringbuf.NewReader(bpf.ObjWorkload.KmeshWorkload.SockOps.MapOfTuple)
+	if err != nil {
+		log.Errorf("open ringbuf map FAILED, err: %v", err)
+		return
+	}
+	defer func() {
+		if err := reader.Close(); err != nil {
+			log.Errorf("reader Close FAILED, err: %v", err)
+		}
+	}()
+
+	rec := ringbuf.Record{}
+	tupleV4, tupleV6 := bpfSockTupleV4{}, bpfSockTupleV6{}
+	var conn rbacConnection
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if err = reader.ReadInto(&rec); err != nil {
+				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
+				continue
+			}
+
+			if len(rec.RawSample) != MSG_LEN {
+				log.Errorf("wrong length %v of a msg...", len(rec.RawSample))
+				continue
+			}
+			msgType := binary.LittleEndian.Uint32(rec.RawSample)
+			var buf *bytes.Buffer
+			switch msgType {
+			case MSG_TYPE_IPV4:
+				buf = bytes.NewBuffer(rec.RawSample[4 : IPV4_TUPLE_LENGTH+4+1])
+				if err = binary.Read(buf, binary.LittleEndian, &tupleV4); err != nil {
+					log.Errorf("deserialize IPv4 FAILED, err: %v", err)
+					continue
+				}
+				conn = buildConnV4(&tupleV4)
+			case MSG_TYPE_IPV6:
+				buf = bytes.NewBuffer(rec.RawSample[4:])
+				if err = binary.Read(buf, binary.LittleEndian, &tupleV6); err != nil {
+					log.Errorf("deserialize IPv6 FAILED, err: %v", err)
+					continue
+				}
+				conn = buildConnV6(&tupleV6)
+			default:
+				log.Errorf("INVALID msg type: %v", msgType)
+				continue
+			}
+
+			if !r.doRbac(&conn) {
+				switch msgType {
+				case MSG_TYPE_IPV4:
+					if err = xdpNotifyConnRstV4(&xdpHandlerKeyV4{Tuple: tupleV4}); err != nil {
+						log.Errorf("XdpHandlerUpdateV4 FAILED, err: %v", err)
+						continue
+					}
+				case MSG_TYPE_IPV6:
+					if err = xdpNotifyConnRstV6(&xdpHandlerKeyV6{tuple: tupleV6}); err != nil {
+						log.Errorf("XdpHandlerUpdateV6 FAILED, err: %v", err)
+						continue
+					}
+				default:
+					log.Errorf("INVALID msg type: %v", msgType)
+					continue
+				}
+			}
+		}
+	}
+}
+
+func (r *Rbac) UpdatePolicy(auth *security.Authorization) error {
+	return r.policyStore.updatePolicy(auth)
+}
+
+func (r *Rbac) RemovePolicy(policyKey string) {
+	r.policyStore.removePolicy(policyKey)
+}
+
+func (r *Rbac) doRbac(conn *rbacConnection) bool {
+	var workload *workloadapi.Workload
+	if len(conn.srcIp) > 0 {
+		workload = cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
+			Network: conn.srcNetwork,
+			Address: binary.BigEndian.Uint32(conn.srcIp),
+		})
+	}
 	allowPolices, denyPolicies := r.aggregate(workload)
 
 	// 1. If there is ANY deny policy, deny the request
@@ -71,22 +184,18 @@ func (r *Rbac) DoRbac(conn *RbacConnection) bool {
 	return false
 }
 
-func (r *Rbac) UpdatePolicy(auth *security.Authorization) error {
-	return r.policyStore.updatePolicy(auth)
-}
-
-func (r *Rbac) RemovePolicy(policyKey string) {
-	r.policyStore.removePolicy(policyKey)
-}
-
 func (r *Rbac) aggregate(workload *workloadapi.Workload) (allowPolicies, denyPolicies []authPolicy) {
-	// Collect policy names from workload, global namespace and namespace
-	policyNames := workload.GetAuthorizationPolicies()
-	policyNames = append(policyNames, r.policyStore.getByNamesapce("").UnsortedList()...)
-	policyNames = append(policyNames, r.policyStore.getByNamesapce(workload.Namespace).UnsortedList()...)
-
 	allowPolicies = make([]authPolicy, 0)
 	denyPolicies = make([]authPolicy, 0)
+
+	// Collect policy names from workload, global namespace and namespace
+	policyNames := r.policyStore.getByNamesapce("").UnsortedList()
+	if workload != nil {
+		policyNames = append(append(policyNames,
+			r.policyStore.getByNamesapce(workload.Namespace).UnsortedList()...),
+			workload.GetAuthorizationPolicies()...)
+	}
+
 	for _, policyName := range policyNames {
 		if policy, ok := r.policyStore.byKey[policyName]; ok {
 			if policy.Action == security.Action_ALLOW {
@@ -99,7 +208,7 @@ func (r *Rbac) aggregate(workload *workloadapi.Workload) (allowPolicies, denyPol
 	return
 }
 
-func matches(conn *RbacConnection, policy authPolicy) bool {
+func matches(conn *rbacConnection, policy authPolicy) bool {
 	if policy.GetRules() == nil {
 		return false
 	}
@@ -118,9 +227,9 @@ func matches(conn *RbacConnection, policy authPolicy) bool {
 
 				// Values of specific type are OR-ed. If multiple types are set, they are AND-ed
 				// If one type fails to match, we do a short circuit
-				if matchDstIp(conn.DstIp, match) && matchSrcIp(conn.SrcIp, match) &&
-					matchDstPort(conn.DstPort, match) && matchPrincipal(conn.SrcIdentity.String(), match) &&
-					matchNamespace(conn.SrcIdentity.namespace, match) {
+				if matchDstIp(conn.dstIp, match) && matchSrcIp(conn.srcIp, match) &&
+					matchDstPort(conn.dstPort, match) && matchPrincipal(conn.srcIdentity.String(), match) &&
+					matchNamespace(conn.srcIdentity.namespace, match) {
 					clauseMatch = true
 					break
 				}
@@ -316,28 +425,26 @@ func internalMatchNamespace(srcNs string, namespaces []*security.StringMatch) bo
 	return false
 }
 
-type Identity struct {
-	trustDomain    string
-	namespace      string
-	serviceAccount string
+func buildConnV4(tupleV4 *bpfSockTupleV4) rbacConnection {
+	conn := rbacConnection{}
+	conn.srcIp = binary.LittleEndian.AppendUint32(conn.srcIp, tupleV4.SrcAddr)
+	conn.dstIp = binary.LittleEndian.AppendUint32(conn.dstIp, tupleV4.DstAddr)
+	conn.dstPort = uint32(tupleV4.DstPort<<8 | tupleV4.DstPort>>8)
+	return conn
+}
+
+func buildConnV6(tupleV6 *bpfSockTupleV6) rbacConnection {
+	conn := rbacConnection{}
+	for i := range tupleV6.SrcAddr {
+		conn.srcIp = binary.LittleEndian.AppendUint32(conn.srcIp, tupleV6.SrcAddr[4-i])
+		conn.dstIp = binary.LittleEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[4-i])
+	}
+	conn.dstPort = uint32(tupleV6.DstPort<<8 | tupleV6.DstPort>>8)
+	return conn
 }
 
 func (id *Identity) String() string {
 	return fmt.Sprintf(SPIFFE_PREFIX+"%s/ns/%s/sa/%s", id.trustDomain, id.namespace, id.serviceAccount)
-}
-
-type RbacConnection struct {
-	SrcIdentity Identity
-	SrcIp       []byte
-	DstIp       []byte
-	DstPort     uint32
-}
-
-// fetchWorkload fetches workload proto model by dstIP & dstPort
-// Since the workload API has not been finished yet, we do MOCK here
-func (rc *RbacConnection) fetchWorkload() *workloadapi.Workload {
-	KMESH_NAMESPACE := "kmesh-system"
-	return &workloadapi.Workload{Namespace: KMESH_NAMESPACE}
 }
 
 func isEmptyMatch(m *security.Match) bool {

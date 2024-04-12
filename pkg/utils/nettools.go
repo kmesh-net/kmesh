@@ -12,26 +12,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: kwb0523
- * Create: 2024-01-20
  */
+package utils
 
-#ifndef _KMESH_CONFIG_H_
-#define _KMESH_CONFIG_H_
+import (
+	"fmt"
+	"net"
+	"strings"
+)
 
-// map size
-#define MAP_SIZE_OF_FRONTEND    100
-#define MAP_SIZE_OF_SERVICE     100
-#define MAP_SIZE_OF_ENDPOINT    1000
-#define MAP_SIZE_OF_BACKEND     500
-#define MAP_SIZE_OF_AUTH        8192
-
-// map name
-#define map_of_frontend			kmesh_frontend
-#define map_of_service			kmesh_service
-#define map_of_endpoint			kmesh_endpoint
-#define map_of_backend			kmesh_backend
-
-#endif // _CONFIG_H_
-
+func Ifname2ifindex(ifname string) (int, error) {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		err = fmt.Errorf("failed to get pod ifindex info, err is %v\n", err)
+		return 0, err
+	}
+	for _, iface := range ifaces {
+		if strings.Compare(iface.Name, ifname) == 0 {
+			return iface.Index, nil
+		}
+	}
+	return 0, fmt.Errorf("cann't to find interface:%v\n", ifname)
+}

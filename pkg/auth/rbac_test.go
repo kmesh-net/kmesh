@@ -25,11 +25,11 @@ import (
 )
 
 const (
-	KMESH_NAMESPACE = "kmesh-system"
-	ALLOW_AUTH      = "allow-sleep-to-kmesh"
-	DENY_AUTH       = "deny-sleep-to-kmesh"
-	ALLOW_POLICY    = KMESH_NAMESPACE + "/" + ALLOW_AUTH
-	DENY_POLICY     = KMESH_NAMESPACE + "/" + DENY_AUTH
+	GLOBAL_NAMESPACE = ""
+	ALLOW_AUTH       = "allow-sleep-to-kmesh"
+	DENY_AUTH        = "deny-sleep-to-kmesh"
+	ALLOW_POLICY     = GLOBAL_NAMESPACE + "/" + ALLOW_AUTH
+	DENY_POLICY      = GLOBAL_NAMESPACE + "/" + DENY_AUTH
 )
 
 var (
@@ -67,7 +67,7 @@ var (
 	policy2_1 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -108,7 +108,7 @@ var (
 	policy2_2 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -149,7 +149,7 @@ var (
 	policy2_3_deny = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -186,7 +186,7 @@ var (
 	policy2_3_allow = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -213,7 +213,7 @@ var (
 	policy2_4 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -240,7 +240,7 @@ var (
 	policy3_1 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -271,7 +271,7 @@ var (
 	policy3_2 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -302,7 +302,7 @@ var (
 	policy3_3_deny = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -343,7 +343,7 @@ var (
 	policy3_3_allow = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -384,7 +384,7 @@ var (
 	policy3_4 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -415,7 +415,7 @@ var (
 	policy4_1 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -437,7 +437,7 @@ var (
 	policy4_2 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -459,7 +459,7 @@ var (
 	policy4_3_deny = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -491,7 +491,7 @@ var (
 	policy4_3_allow = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -523,7 +523,7 @@ var (
 	policy4_4 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -545,7 +545,7 @@ var (
 	policy5_1 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -557,7 +557,7 @@ var (
 									Principals: []*security.StringMatch{
 										{
 											MatchType: &security.StringMatch_Exact{
-												Exact: "cluster.local/ns/kmesh-system/sa/sleep",
+												Exact: "cluster.local/ns//sa/sleep",
 											},
 										},
 									},
@@ -573,7 +573,7 @@ var (
 	policy5_2 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -606,7 +606,7 @@ var (
 	policy5_3_deny = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -644,7 +644,7 @@ var (
 	policy5_3_allow = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -682,7 +682,7 @@ var (
 	policy5_4 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -694,7 +694,7 @@ var (
 									Principals: []*security.StringMatch{
 										{
 											MatchType: &security.StringMatch_Exact{
-												Exact: "cluster.local/ns/kmesh-system/sa/notsleep",
+												Exact: "cluster.local/ns//sa/notsleep",
 											},
 										},
 									},
@@ -710,7 +710,7 @@ var (
 	policy6_1 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -722,7 +722,7 @@ var (
 									Namespaces: []*security.StringMatch{
 										{
 											MatchType: &security.StringMatch_Exact{
-												Exact: KMESH_NAMESPACE,
+												Exact: GLOBAL_NAMESPACE,
 											},
 										},
 									},
@@ -738,7 +738,7 @@ var (
 	policy6_2 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -771,7 +771,7 @@ var (
 	policy6_3_deny = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -793,7 +793,7 @@ var (
 									NotNamespaces: []*security.StringMatch{
 										{
 											MatchType: &security.StringMatch_Exact{
-												Exact: KMESH_NAMESPACE,
+												Exact: GLOBAL_NAMESPACE,
 											},
 										},
 									},
@@ -809,7 +809,7 @@ var (
 	policy6_3_allow = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -831,7 +831,7 @@ var (
 									Namespaces: []*security.StringMatch{
 										{
 											MatchType: &security.StringMatch_Exact{
-												Exact: KMESH_NAMESPACE,
+												Exact: GLOBAL_NAMESPACE,
 											},
 										},
 									},
@@ -847,7 +847,7 @@ var (
 	policy6_4 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -875,7 +875,7 @@ var (
 	policy7_1 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -918,7 +918,7 @@ var (
 	policy7_2 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -961,7 +961,7 @@ var (
 	policy7_3 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -1004,7 +1004,7 @@ var (
 	policy7_4 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -1047,7 +1047,7 @@ var (
 	policy8_1 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -1086,7 +1086,7 @@ var (
 	policy8_2 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -1125,7 +1125,7 @@ var (
 	policy8_3 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -1164,7 +1164,7 @@ var (
 	policy8_4 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -1203,7 +1203,7 @@ var (
 	policy9_1 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -1238,7 +1238,7 @@ var (
 	policy9_2 = authPolicy{
 		&security.Authorization{
 			Name:      ALLOW_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_ALLOW,
 			Rules: []*security.Rule{
@@ -1273,7 +1273,7 @@ var (
 	policy9_3 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -1308,7 +1308,7 @@ var (
 	policy9_4 = authPolicy{
 		&security.Authorization{
 			Name:      DENY_AUTH,
-			Namespace: KMESH_NAMESPACE,
+			Namespace: GLOBAL_NAMESPACE,
 			Scope:     security.Scope_WORKLOAD_SELECTOR,
 			Action:    security.Action_DENY,
 			Rules: []*security.Rule{
@@ -1340,19 +1340,19 @@ var (
 		},
 	}
 
-	byNamespaceAllow = map[string]sets.Set[string]{KMESH_NAMESPACE: sets.New(ALLOW_POLICY)}
+	byNamespaceAllow = map[string]sets.Set[string]{GLOBAL_NAMESPACE: sets.New(ALLOW_POLICY)}
 
-	byNamespaceDeny = map[string]sets.Set[string]{KMESH_NAMESPACE: sets.New(DENY_POLICY)}
+	byNamespaceDeny = map[string]sets.Set[string]{GLOBAL_NAMESPACE: sets.New(DENY_POLICY)}
 
-	byNamespaceAllowDeny = map[string]sets.Set[string]{KMESH_NAMESPACE: sets.New(ALLOW_POLICY, DENY_POLICY)}
+	byNamespaceAllowDeny = map[string]sets.Set[string]{GLOBAL_NAMESPACE: sets.New(ALLOW_POLICY, DENY_POLICY)}
 )
 
-func TestRbac_DoRbac(t *testing.T) {
+func TestRbac_doRbac(t *testing.T) {
 	type fields struct {
 		policyStore *policyStore
 	}
 	type args struct {
-		conn *RbacConnection
+		conn *rbacConnection
 	}
 	tests := []struct {
 		name   string
@@ -1369,15 +1369,15 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
-						namespace:      KMESH_NAMESPACE,
+						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
-					SrcIp:   []byte{192, 168, 122, 3},
-					DstIp:   []byte{192, 168, 122, 4},
-					DstPort: 8888,
+					srcIp:   []byte{192, 168, 122, 3},
+					dstIp:   []byte{192, 168, 122, 4},
+					dstPort: 8888,
 				},
 			},
 			true,
@@ -1391,7 +1391,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{DstIp: []byte{192, 168, 122, 2}}},
+			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
 			true,
 		},
 		{
@@ -1402,7 +1402,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{DstIp: []byte{192, 168, 122, 2}}},
+			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
 			false,
 		},
 		{
@@ -1416,7 +1416,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&RbacConnection{DstIp: []byte{192, 168, 122, 2}}},
+			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
 			false,
 		},
 		{
@@ -1427,7 +1427,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&RbacConnection{DstIp: []byte{192, 168, 122, 2}}},
+			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
 			true,
 		},
 
@@ -1439,7 +1439,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{SrcIp: []byte{192, 168, 122, 10}}},
+			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
 			true,
 		},
 		{
@@ -1450,7 +1450,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{SrcIp: []byte{192, 168, 122, 10}}},
+			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
 			false,
 		},
 		{
@@ -1464,7 +1464,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&RbacConnection{SrcIp: []byte{192, 168, 122, 10}}},
+			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
 			false,
 		},
 		{
@@ -1475,7 +1475,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&RbacConnection{SrcIp: []byte{192, 168, 122, 10}}},
+			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
 			true,
 		},
 
@@ -1487,7 +1487,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{DstPort: 8888}},
+			args{&rbacConnection{dstPort: 8888}},
 			true,
 		},
 		{
@@ -1498,7 +1498,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{DstPort: 8888}},
+			args{&rbacConnection{dstPort: 8888}},
 			false,
 		},
 		{
@@ -1512,7 +1512,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&RbacConnection{DstPort: 8888}},
+			args{&rbacConnection{dstPort: 8888}},
 			false,
 		},
 		{
@@ -1523,7 +1523,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&RbacConnection{DstPort: 8888}},
+			args{&rbacConnection{dstPort: 8888}},
 			true,
 		},
 
@@ -1536,10 +1536,10 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
-						namespace:      KMESH_NAMESPACE,
+						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
 				},
@@ -1555,10 +1555,10 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
-						namespace:      KMESH_NAMESPACE,
+						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
 				},
@@ -1577,10 +1577,10 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
-						namespace:      KMESH_NAMESPACE,
+						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
 				},
@@ -1596,10 +1596,10 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					SrcIdentity: Identity{
+				&rbacConnection{
+					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
-						namespace:      KMESH_NAMESPACE,
+						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
 				},
@@ -1616,7 +1616,7 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{SrcIdentity: Identity{namespace: KMESH_NAMESPACE}},
+				&rbacConnection{srcIdentity: Identity{namespace: GLOBAL_NAMESPACE}},
 			},
 			true,
 		},
@@ -1628,7 +1628,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&RbacConnection{SrcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
+			args{&rbacConnection{srcIdentity: Identity{namespace: GLOBAL_NAMESPACE}}},
 			false,
 		},
 		{
@@ -1642,7 +1642,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&RbacConnection{SrcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
+			args{&rbacConnection{srcIdentity: Identity{namespace: GLOBAL_NAMESPACE}}},
 			false,
 		},
 		{
@@ -1653,7 +1653,7 @@ func TestRbac_DoRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&RbacConnection{SrcIdentity: Identity{namespace: KMESH_NAMESPACE}}},
+			args{&rbacConnection{srcIdentity: Identity{namespace: GLOBAL_NAMESPACE}}},
 			true,
 		},
 
@@ -1666,9 +1666,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			true,
@@ -1682,9 +1682,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 5},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 5},
 				},
 			},
 			false,
@@ -1698,9 +1698,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			false,
@@ -1714,9 +1714,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 5},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 5},
 				},
 			},
 			true,
@@ -1731,9 +1731,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			false,
@@ -1747,9 +1747,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 3},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 3},
 				},
 			},
 			true,
@@ -1763,9 +1763,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			true,
@@ -1779,9 +1779,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 3},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 3},
 				},
 			},
 			false,
@@ -1796,9 +1796,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			true,
@@ -1812,9 +1812,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 5},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 5},
 				},
 			},
 			false,
@@ -1828,9 +1828,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 4},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 4},
 				},
 			},
 			false,
@@ -1844,9 +1844,9 @@ func TestRbac_DoRbac(t *testing.T) {
 				},
 			},
 			args{
-				&RbacConnection{
-					DstIp: []byte{192, 168, 122, 2},
-					SrcIp: []byte{192, 168, 122, 5},
+				&rbacConnection{
+					dstIp: []byte{192, 168, 122, 2},
+					srcIp: []byte{192, 168, 122, 5},
 				},
 			},
 			true,
@@ -1857,7 +1857,7 @@ func TestRbac_DoRbac(t *testing.T) {
 			rbac := &Rbac{
 				policyStore: tt.fields.policyStore,
 			}
-			if got := rbac.DoRbac(tt.args.conn); got != tt.want {
+			if got := rbac.doRbac(tt.args.conn); got != tt.want {
 				t.Errorf("Rbac.DoRbac() = %v, want %v", got, tt.want)
 			}
 		})

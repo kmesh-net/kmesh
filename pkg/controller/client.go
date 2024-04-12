@@ -24,6 +24,7 @@ import (
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 
+	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/workload"
@@ -42,6 +43,7 @@ type XdsClient struct {
 	AdsStream      *envoy.AdsStream
 	workloadStream *workload.WorkloadStream
 	xdsConfig      *config.XdsConfig
+	rbac           *auth.Rbac
 }
 
 func NewXdsClient() *XdsClient {
@@ -53,6 +55,7 @@ func NewXdsClient() *XdsClient {
 		workloadStream: &workload.WorkloadStream{
 			Event: workload.NewServiceEvent(),
 		},
+		rbac: auth.NewRbac(),
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
@@ -129,7 +132,7 @@ func (c *XdsClient) clientResponseProcess(ctx context.Context) {
 					continue
 				}
 			} else if bpfConfig.EnableKmeshWorkload {
-				if err = c.workloadStream.WorkloadStreamProcess(); err != nil {
+				if err = c.workloadStream.WorkloadStreamProcess(c.rbac); err != nil {
 					_ = c.workloadStream.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
@@ -146,6 +149,7 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	}
 
 	go c.clientResponseProcess(c.ctx)
+	go c.rbac.Run(c.ctx)
 
 	go func() {
 		<-stopCh

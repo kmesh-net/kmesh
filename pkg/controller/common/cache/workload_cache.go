@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package workload
+package cache
 
 import (
 	"sync"
@@ -68,7 +68,7 @@ func composeNetworkAddress(network string, addr uint32) NetworkAddress {
 	return networkAddress
 }
 
-func (w *workloadStore) addWorkload(workload *workloadapi.Workload) {
+func (w *workloadStore) AddWorkload(workload *workloadapi.Workload) {
 	uid := workload.Uid
 
 	w.mutex.Lock()
@@ -95,7 +95,7 @@ func (w *workloadStore) addWorkload(workload *workloadapi.Workload) {
 	}
 }
 
-func (w *workloadStore) deleteWorkload(uid string) {
+func (w *workloadStore) DeleteWorkload(uid string) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
