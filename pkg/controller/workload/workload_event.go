@@ -17,6 +17,7 @@
 package workload
 
 import (
+	"encoding/binary"
 	"fmt"
 	"strings"
 
@@ -32,10 +33,11 @@ import (
 )
 
 const (
-	ConverNumBase  = 10
-	MaxPortPairNum = 10
-	LbPolicyRandom = 0
-	RandTimeSed    = 1000
+	ConverNumBase     = 10
+	MaxPortPairNum    = 10
+	LbPolicyRandom    = 0
+	RandTimeSed       = 1000
+	KmeshWaypointPort = 15019 // use this fixed port instead of the HboneMtlsPort in kmesh
 )
 
 var (
@@ -107,6 +109,49 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 	}
 }
 
+func deletePodFontendData(uid uint32) error {
+	var (
+		err error
+		bk  = BackendKey{}
+		bv  = BackendValue{}
+		fk  = FrontendKey{}
+	)
+
+	bk.BackendUid = uid
+	if err = BackendLookup(&bk, &bv); err == nil {
+		log.Debugf("Find BackendValue: [%#v]", bv)
+		if bv.PortCount == 0 {
+			fk.IPv4 = bv.IPv4
+			fk.Port = 0
+			if err = FrontendDelete(&fk); err != nil {
+				log.Errorf("FrontendDelete failed: %s", err)
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func storePodFrontendData(uid uint32, ip []byte) error {
+	var (
+		fk = FrontendKey{}
+		fv = FrontendValue{}
+	)
+
+	// stored PodIP in the frontend map for Pod to Pod access.
+	// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
+	fk.IPv4 = binary.LittleEndian.Uint32(ip)
+	fk.Port = 0
+	fv.ServiceId = uid
+	if err := FrontendUpdate(&fk, &fv); err != nil {
+		log.Errorf("Update frontend map failed, err:%s", err)
+		return err
+	}
+
+	return nil
+}
+
 func removeWorkloadResource(removed_resources []string) error {
 	var (
 		err      error
@@ -123,6 +168,12 @@ func removeWorkloadResource(removed_resources []string) error {
 		WorkloadCache.deleteWorkload(workloadUid)
 
 		backendUid := hashName.StrToNum(workloadUid)
+		// for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
+		if err = deletePodFontendData(backendUid); err != nil {
+			log.Errorf("deletePodFontendData failed: %s", err)
+			goto failed
+		}
+
 		if eks := EndpointIterFindKey(backendUid); len(eks) != 0 {
 			for _, ekUpdate = range eks {
 				log.Debugf("Find EndpointKey: [%#v]", ekUpdate)
@@ -151,6 +202,7 @@ func removeWorkloadResource(removed_resources []string) error {
 				}
 			}
 		}
+
 		bkDelete.BackendUid = backendUid
 		if err = BackendDelete(&bkDelete); err != nil {
 			log.Errorf("BackendDelete failed: %s", err)
@@ -259,7 +311,7 @@ func storeServiceCache(workload_uid string, serviceName string, portList *worklo
 	endpointCaches[workload_uid] = endpoint
 }
 
-func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList) error {
+func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, waypoint *workloadapi.GatewayAddress) error {
 	var (
 		err error
 		bk  = BackendKey{}
@@ -268,6 +320,12 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList) 
 
 	bk.BackendUid = uid
 	for _, ip := range ips {
+		if waypoint != nil {
+			addr := waypoint.GetAddress().Address
+			bv.WaypointAddr = nets.ConvertIpByteToUint32(addr)
+			bv.WaypointPort = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+		}
+
 		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
 		bv.PortCount = uint32(len(portList.Ports))
 		for i, portPair := range portList.Ports {
@@ -281,6 +339,13 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList) 
 				log.Errorf("Update backend map failed, err:%s", err)
 				return err
 			}
+		}
+
+		// stored PodIP in the frontend map for Pod to Pod access.
+		// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
+		if err = storePodFrontendData(uid, ip); err != nil {
+			log.Errorf("storePodFrontendData failed, err:%s", err)
+			return err
 		}
 	}
 	return nil
@@ -296,6 +361,12 @@ func handleDataWithService(workload *workloadapi.Workload) error {
 		bv = BackendValue{}
 	)
 	backend_uid := hashName.StrToNum(workload.GetUid())
+	// a Pod may be added to a certain service in the future, so it is necessary to delete the Pod info
+	// that was previously added as an independent Pod to the frontend map.
+	if err = deletePodFontendData(backend_uid); err != nil {
+		log.Errorf("deletePodFontendData failed, err:%s", err)
+		return err
+	}
 
 	for serviceName, portList := range workload.GetServices() {
 		bk.BackendUid = backend_uid
@@ -317,7 +388,7 @@ func handleDataWithService(workload *workloadapi.Workload) error {
 	for _, portList := range workload.GetServices() {
 		// store workload info in backend map, after service come, add the endpoint relationship
 		ips := workload.GetAddresses()
-		if err = storeBackendData(backend_uid, ips, portList); err != nil {
+		if err = storeBackendData(backend_uid, ips, portList, workload.GetWaypoint()); err != nil {
 			log.Errorf("storeBackendData failed, err:%s", err)
 			return err
 		}
@@ -332,12 +403,26 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 		bk  = BackendKey{}
 		bv  = BackendValue{}
 	)
-	bk.BackendUid = hashName.StrToNum(workload.GetUid())
+	uid := hashName.StrToNum(workload.GetUid())
 	ips := workload.GetAddresses()
 	for _, ip := range ips {
+		if waypoint := workload.GetWaypoint(); waypoint != nil {
+			addr := waypoint.GetAddress().Address
+			bv.WaypointAddr = nets.ConvertIpByteToUint32(addr)
+			bv.WaypointPort = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+		}
+
+		bk.BackendUid = uid
 		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
 		if err = BackendUpdate(&bk, &bv); err != nil {
 			log.Errorf("Update backend map failed, err:%s", err)
+			return err
+		}
+
+		// stored PodIP in the frontend map for Pod to Pod access.
+		// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
+		if err = storePodFrontendData(uid, ip); err != nil {
+			log.Errorf("storePodFrontendData failed, err:%s", err)
 			return err
 		}
 	}
@@ -363,7 +448,7 @@ func handleWorkloadData(workload *workloadapi.Workload) error {
 	return nil
 }
 
-func storeFrontendData(serviceId uint32, service *workloadapi.Service) error {
+func storeServiceFrontendData(serviceId uint32, service *workloadapi.Service) error {
 	var (
 		err error
 		fk  = FrontendKey{}
@@ -440,14 +525,14 @@ func handleServiceData(service *workloadapi.Service) error {
 			log.Errorf("deleteFrontendData failed: %s", err)
 			return err
 		}
-		if err = storeFrontendData(serviceId, service); err != nil {
-			log.Errorf("storeFrontendData failed, err:%s", err)
+		if err = storeServiceFrontendData(serviceId, service); err != nil {
+			log.Errorf("storeServiceFrontendData failed, err:%s", err)
 			return err
 		}
 	} else {
 		// store in frontend
-		if err = storeFrontendData(serviceId, service); err != nil {
-			log.Errorf("storeFrontendData failed, err:%s", err)
+		if err = storeServiceFrontendData(serviceId, service); err != nil {
+			log.Errorf("storeServiceFrontendData failed, err:%s", err)
 			return err
 		}
 
