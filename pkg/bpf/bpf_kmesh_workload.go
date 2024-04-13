@@ -214,7 +214,7 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 		return err
 	}
 
-	prog := spec.Programs["socket_migration"]
+	prog := spec.Programs["record_tuple"]
 	so.Info.Type = prog.Type
 	so.Info.AttachType = prog.AttachType
 
