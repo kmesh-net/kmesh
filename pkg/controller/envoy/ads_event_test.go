@@ -17,7 +17,10 @@
 package envoy
 
 import (
+	"fmt"
+	"os"
 	"reflect"
+	"syscall"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -35,6 +38,7 @@ import (
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/pkg/bpf"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
@@ -436,7 +440,39 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 }
 
+func initBpfMap(t *testing.T) {
+	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
+	if err != nil {
+		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
+	}
+	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
+	if err != nil {
+		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
+	}
+	config := bpf.GetConfig()
+	config.BpfFsPath = "/sys/fs/bpf"
+	config.Cgroup2Path = "/mnt/kmesh_cgroup2"
+	err = bpf.StartKmesh()
+	if err != nil {
+		t.Fatalf("bpf init failed: %v", err)
+	}
+}
+
+func cleanupBpfMap() {
+	bpf.Stop()
+	err := syscall.Unmount("/mnt/kmesh_cgroup2", 0)
+	if err != nil {
+		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
+	}
+	err = os.RemoveAll("/mnt/kmesh_cgroup2")
+	if err != nil {
+		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
+	}
+}
+
 func TestHandleLdsResponse(t *testing.T) {
+	initBpfMap(t)
+	t.Cleanup(cleanupBpfMap)
 	t.Run("normal function test", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		adsLoader.routeNames = []string{
@@ -488,7 +524,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		err = svc.handleLdsResponse(rsp)
 		assert.NoError(t, err)
 		apiMethod := svc.DynamicLoader.ListenerCache.GetApiListener("ut-listener").ApiStatus
-		assert.Equal(t, core_v2.ApiStatus_UPDATE, apiMethod)
+		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		wantHash := hash.Sum64String(anyListener.String())
 		actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
@@ -525,13 +561,13 @@ func TestHandleLdsResponse(t *testing.T) {
 		err = svc.handleLdsResponse(rsp)
 		assert.NoError(t, err)
 		apiMethod := svc.DynamicLoader.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
-		assert.Equal(t, core_v2.ApiStatus_UPDATE, apiMethod)
+		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		err = svc.handleLdsResponse(rsp)
 		assert.NoError(t, err)
 		apiMethod = svc.DynamicLoader.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
 		// ApiStatus = core_v2.ApiStatus_UNCHANGED when svc.DynamicLoader.CreateApiListenerByLds is executed,
 		// it will keep the original state and not change apistatus.
-		assert.Equal(t, core_v2.ApiStatus_UPDATE, apiMethod)
+		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		wantHash := hash.Sum64String(anyListener.String())
 		actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
@@ -587,7 +623,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		err = svc.handleLdsResponse(rsp)
 		assert.NoError(t, err)
 		apiMethod := svc.DynamicLoader.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
-		assert.Equal(t, core_v2.ApiStatus_UPDATE, apiMethod)
+		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 
 		listener.FilterChains = filterChains
 		anyListener, err = anypb.New(listener)
@@ -600,7 +636,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		err = svc.handleLdsResponse(rsp)
 		assert.NoError(t, err)
 		apiMethod = svc.DynamicLoader.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
-		assert.Equal(t, core_v2.ApiStatus_UPDATE, apiMethod)
+		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		wantHash := hash.Sum64String(anyListener.String())
 		actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
