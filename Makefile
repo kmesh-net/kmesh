@@ -30,6 +30,7 @@ include ./mk/bpf.print.mk
 
 # compiler flags
 GOFLAGS := $(EXTRA_GOFLAGS)
+LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn"
 ARCH := $(shell uname -m)
 
 ifeq ($(ARCH),x86_64)
@@ -77,7 +78,7 @@ all:
 	
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
 	
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
@@ -87,7 +88,7 @@ all:
 
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 
 .PHONY: gen-proto
 gen-proto:
