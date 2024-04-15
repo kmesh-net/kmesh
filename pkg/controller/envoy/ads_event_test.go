@@ -52,8 +52,10 @@ func TestHandleCdsResponse(t *testing.T) {
 		var c *cache_v2.ClusterCache
 		svc := NewServiceEvent()
 		svc.LastNonce.edsNonce = "utkmesh"
+		done1 := make(chan int)
 		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
 			clusterNames = cache.GetResourceNames()
+			close(done1)
 		})
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
@@ -84,8 +86,10 @@ func TestHandleCdsResponse(t *testing.T) {
 		defer patch.Reset()
 		clusterNames := sets.New[string]()
 		var c *cache_v2.ClusterCache
+		done2 := make(chan int)
 		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
 			clusterNames = cache.GetResourceNames()
+			close(done2)
 		})
 
 		svc := NewServiceEvent()
@@ -108,6 +112,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
+		<-done2
 		assert.Equal(t, sets.Set[string]{"ut-cluster": sets.Empty{}}, clusterNames)
 		assert.Nil(t, svc.rqt)
 	})
@@ -117,8 +122,10 @@ func TestHandleCdsResponse(t *testing.T) {
 		defer patch.Reset()
 		clusterNames := sets.New[string]()
 		var c *cache_v2.ClusterCache
+		done3 := make(chan int)
 		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
 			clusterNames = cache.GetResourceNames()
+			close(done3)
 		})
 
 		svc := NewServiceEvent()
@@ -152,6 +159,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
+		<-done3
 		assert.Equal(t, sets.Set[string]{"ut-cluster": sets.Empty{}}, clusterNames)
 		assert.Nil(t, svc.rqt)
 	})
@@ -161,8 +169,10 @@ func TestHandleCdsResponse(t *testing.T) {
 		defer patch.Reset()
 		clusterNames := sets.New[string]()
 		var c *cache_v2.ClusterCache
+		done4 := make(chan int)
 		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
 			clusterNames = cache.GetResourceNames()
+			close(done4)
 		})
 
 		svc := NewServiceEvent()
@@ -229,8 +239,10 @@ func TestHandleCdsResponse(t *testing.T) {
 		defer patch.Reset()
 		clusterNames := sets.New[string]()
 		var c *cache_v2.ClusterCache
+		done5 := make(chan int)
 		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
 			clusterNames = cache.GetResourceNames()
+			close(done5)
 		})
 
 		svc := NewServiceEvent()

@@ -182,7 +182,7 @@ func (svc *ServiceEvent) handleCdsResponse(resp *service_discovery_v3.DiscoveryR
 	if !slices.EqualUnordered(svc.DynamicLoader.edsClusterNames, lastEdsClusterNames) {
 		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.DynamicLoader.edsClusterNames, svc.LastNonce.edsNonce)
 	} else {
-		svc.DynamicLoader.ClusterCache.Flush()
+		go svc.DynamicLoader.ClusterCache.Flush()
 	}
 	return nil
 }
@@ -217,7 +217,7 @@ func (svc *ServiceEvent) handleEdsResponse(resp *service_discovery_v3.DiscoveryR
 	}
 
 	svc.rqt = newAdsRequest(resource_v3.ListenerType, nil, svc.LastNonce.ldsNonce)
-	svc.DynamicLoader.ClusterCache.Flush()
+	go svc.DynamicLoader.ClusterCache.Flush()
 	return nil
 }
 
@@ -253,7 +253,7 @@ func (svc *ServiceEvent) handleLdsResponse(resp *service_discovery_v3.DiscoveryR
 		svc.DynamicLoader.UpdateApiListenerStatus(key, core_v2.ApiStatus_DELETE)
 	}
 
-	svc.DynamicLoader.ListenerCache.Flush()
+	go svc.DynamicLoader.ListenerCache.Flush()
 
 	if !slices.EqualUnordered(svc.DynamicLoader.routeNames, lastRouteNames) {
 		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.DynamicLoader.routeNames, svc.LastNonce.rdsNonce)
@@ -293,7 +293,7 @@ func (svc *ServiceEvent) handleRdsResponse(resp *service_discovery_v3.DiscoveryR
 	}
 
 	svc.rqt = nil
-	svc.DynamicLoader.RouteCache.Flush()
+	go svc.DynamicLoader.RouteCache.Flush()
 	return nil
 }
 
