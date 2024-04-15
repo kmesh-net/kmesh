@@ -59,14 +59,14 @@ static inline void clean_auth_map(struct bpf_sock_ops *skops)
     }
 }
 
-// insert an IPv4 tuple into the ringbuf, return 0 if succeed, 1 if failed
-static inline int insert_ipv4_tuple(struct bpf_sock_ops *skops)
+// insert an IPv4 tuple into the ringbuf
+static inline void insert_ipv4_tuple(struct bpf_sock_ops *skops)
 {
     if (skops->family == AF_INET) {
         struct ringbuf_msg_type *msg = bpf_ringbuf_reserve(&map_of_tuple, sizeof(*msg), 0);
         if (!msg) {
             BPF_LOG(WARN, SOCKOPS, "can not alloc new ringbuf in map_of_tuple");
-          return 1;
+            return;
         }
         (*msg).tuple.ipv4.daddr = skops->local_ip4;
         (*msg).tuple.ipv4.saddr = skops->remote_ip4;
@@ -77,7 +77,6 @@ static inline int insert_ipv4_tuple(struct bpf_sock_ops *skops)
         (*msg).type = (__u32)IPV4;
         bpf_ringbuf_submit(msg, 0);
     }
-    return 0;
 }
 
 SEC("sockops")
@@ -97,9 +96,8 @@ int record_tuple(struct bpf_sock_ops *skops)
             if(bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0){
                 BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
             }           
-            if(insert_ipv4_tuple(skops)) {
-                break;
-            }
+            insert_ipv4_tuple(skops);
+            break;
         case BPF_SOCK_OPS_STATE_CB:
             if(skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT 
             || skops->args[1] == BPF_TCP_FIN_WAIT1) {

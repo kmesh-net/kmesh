@@ -97,7 +97,7 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 }
 
 SEC("xdp_auth")
-int xdp_auth_handler(struct xdp_md *ctx)
+int xdp_shutdown(struct xdp_md *ctx)
 {
     struct xdp_info info = {0};
     struct bpf_sock_tuple tuple_info = {0};
