@@ -109,7 +109,7 @@ func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.Delta
 	}
 }
 
-func deletePodFontendData(uid uint32) error {
+func deletePodFrontendData(uid uint32) error {
 	var (
 		err error
 		bk  = BackendKey{}
@@ -169,8 +169,8 @@ func removeWorkloadResource(removed_resources []string) error {
 
 		backendUid := hashName.StrToNum(workloadUid)
 		// for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
-		if err = deletePodFontendData(backendUid); err != nil {
-			log.Errorf("deletePodFontendData failed: %s", err)
+		if err = deletePodFrontendData(backendUid); err != nil {
+			log.Errorf("deletePodFrontendData failed: %s", err)
 			goto failed
 		}
 
@@ -363,8 +363,8 @@ func handleDataWithService(workload *workloadapi.Workload) error {
 	backend_uid := hashName.StrToNum(workload.GetUid())
 	// a Pod may be added to a certain service in the future, so it is necessary to delete the Pod info
 	// that was previously added as an independent Pod to the frontend map.
-	if err = deletePodFontendData(backend_uid); err != nil {
-		log.Errorf("deletePodFontendData failed, err:%s", err)
+	if err = deletePodFrontendData(backend_uid); err != nil {
+		log.Errorf("deletePodFrontendData failed, err:%s", err)
 		return err
 	}
 
