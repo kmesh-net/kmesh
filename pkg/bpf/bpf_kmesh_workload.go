@@ -331,7 +331,7 @@ func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
 		return err
 	}
 
-	prog := spec.Programs["xdp_auth_handler"]
+	prog := spec.Programs["xdp_shutdown"]
 	xa.Info.Type = prog.Type
 	xa.Info.AttachType = prog.AttachType
 
