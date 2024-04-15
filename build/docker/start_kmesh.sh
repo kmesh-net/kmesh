@@ -4,8 +4,7 @@
 
 lsmod | grep kmesh > /dev/null
 if [ $? -ne 0 ] && [ -f kmesh.ko ]; then
-        mkdir -p /lib/modules/kmesh
-        cp kmesh.ko /lib/modules/kmesh
+	cp kmesh.ko /lib/modules/$(uname -r)
         depmod -a
         modprobe kmesh
 fi
