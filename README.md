@@ -95,6 +95,7 @@ Note: * Planning
   [root@ ~]# kubectl apply -f clusterrole.yaml
   [root@ ~]# kubectl apply -f clusterrolebinding.yaml
   [root@ ~]# kubectl apply -f serviceaccount.yaml
+  [root@ ~]# kubectl apply -f l7-envoyfilter.yaml
   ```
   
   By default, the Kmesh base function is used, other function can be selected by adjusting the startup parameters in the yaml file.
@@ -124,6 +125,30 @@ Note: * Planning
   ```
   
   More compilation methods of Kmesh, See: [Kmesh Compilation and Construction](docs/kmesh_compile.md)
+
+- Kmesh L7
+
+  - Install waypoint
+
+    ```
+    [root@ ~]# istioctl x waypoint apply --service-account default
+    [root@ ~]# kubectl get pods
+    NAME                                      READY   STATUS         RESTARTS        AGE
+    default-istio-waypoint-6d9df77746-njjq5   1/1     Running        0               10s
+    nginx-55b99db5d6-ddpb2                    1/1     Running        0               10d
+    sleep-865b99bb57-qzjcj                    1/1     Running        0               10d
+    ```
+  
+  - Replace the waypoint image with the kmesh customized image.
+
+    ```
+    [root@ ~]# kubectl get gateways.gateway.networking.k8s.io
+    NAME      CLASS            ADDRESS         PROGRAMMED   AGE
+    default   istio-waypoint   10.96.143.232   True         5m7s
+    ```
+
+    Add annotation "sidecar.istio.io/proxyImage: ghcr.io/kmesh-net/waypoint:v0.3.0" to the `default` gateway. Then gateway pod will
+    restart. Now kmesh is L7 enabled!
 
 ## Kmesh Performance
 

@@ -96,6 +96,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   [root@ ~]# kubectl apply -f clusterrole.yaml
   [root@ ~]# kubectl apply -f clusterrolebinding.yaml
   [root@ ~]# kubectl apply -f serviceaccount.yaml
+  [root@ ~]# kubectl apply -f l7-envoyfilter.yaml
   ```
   
   默认使用Kmesh功能，可通过调整yaml文件中的启动参数进行功能选择
@@ -116,15 +117,38 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
     time="2024-02-19T10:16:53Z" level=info msg="bpf Start successful" subsys=manager
     time="2024-02-19T10:16:53Z" level=info msg="controller Start successful" subsys=manager
     time="2024-02-19T10:16:53Z" level=info msg="command StartServer successful" subsys=manager
-  time="2024-02-19T10:16:53Z" level=info msg="start write CNI config\n" subsys="cni installer"
-  time="2024-02-19T10:16:53Z" level=info msg="kmesh cni use chained\n" subsys="cni installer"
-  time="2024-02-19T10:16:54Z" level=info msg="Copied /usr/bin/kmesh-cni to /opt/cni/bin." subsys="cni installer"
-  time="2024-02-19T10:16:54Z" level=info msg="kubeconfig either does not exist or is out of date, writing a new one" subsys="cni installer"
-  time="2024-02-19T10:16:54Z" level=info msg="wrote kubeconfig file /etc/cni/net.d/kmesh-cni-kubeconfig" subsys="cni installer"
-  time="2024-02-19T10:16:54Z" level=info msg="command Start cni successful" subsys=manager
+    time="2024-02-19T10:16:53Z" level=info msg="start write CNI config\n" subsys="cni installer"
+    time="2024-02-19T10:16:53Z" level=info msg="kmesh cni use chained\n" subsys="cni installer"
+    time="2024-02-19T10:16:54Z" level=info msg="Copied /usr/bin/kmesh-cni to /opt/cni/bin." subsys="cni installer"
+    time="2024-02-19T10:16:54Z" level=info msg="kubeconfig either does not exist or is out of date, writing a new one" subsys="cni installer"
+    time="2024-02-19T10:16:54Z" level=info msg="wrote kubeconfig file /etc/cni/net.d/kmesh-cni-kubeconfig" subsys="cni installer"
+    time="2024-02-19T10:16:54Z" level=info msg="command Start cni successful" subsys=manager
   ```
   
   更多Kmesh编译构建方式，请参考[Kmesh编译构建](docs/kmesh_compile-zh.md)
+
+- Kmesh L7
+
+  - 安装waypoint
+
+    ```
+    [root@ ~]# istioctl x waypoint apply --service-account default
+    [root@ ~]# kubectl get pods 
+    NAME                                      READY   STATUS         RESTARTS        AGE
+    default-istio-waypoint-6d9df77746-njjq5   1/1     Running        0               10s
+    nginx-55b99db5d6-ddpb2                    1/1     Running        0               10d
+    sleep-865b99bb57-qzjcj                    1/1     Running        0               10d
+    ```
+  
+  - 用kmesh自定义的镜像替换waypoint的原生镜像
+
+    ```
+    [root@ ~]# kubectl get gateway
+    NAME      CLASS            ADDRESS         PROGRAMMED   AGE
+    default   istio-waypoint   10.96.143.232   True         5m7s
+    ```
+
+    在`default` gateway的annotations当中添加`sidecar.istio.io/proxyImage: ghcr.io/kmesh-net/waypoint:v0.3.0`。在gateway pod重启之后，kmesh就具备L7能力了！
 
 ## Kmesh性能
 
