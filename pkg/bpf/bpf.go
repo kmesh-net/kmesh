@@ -158,6 +158,7 @@ func mountCgroup2(cfg *Config) error {
 	}
 
 	if err := syscall.Mount("none", cfg.Cgroup2Path, "cgroup2", 0, ""); err != nil {
+		cleanupMountPath()
 		log.Errorf("failed to mount %s: %v", cfg.Cgroup2Path, err)
 		return err
 	}
@@ -182,4 +183,14 @@ func checkKmeshMod() error {
 	}
 
 	return exec.Command("modprobe", "kmesh").Run()
+}
+
+func cleanupMountPath() {
+	if err := syscall.Unmount("/mnt/kmesh_cgroup2", 0); err != nil {
+		log.Errorf("unmount /mnt/kmesh_cgroup2 error: ", err)
+	}
+
+	if err := os.RemoveAll("/mnt/kmesh_cgroup2"); err != nil {
+		log.Errorf("remove /mnt/kmesh_cgroup2 error: ", err)
+	}
 }
