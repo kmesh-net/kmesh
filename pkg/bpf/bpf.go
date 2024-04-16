@@ -89,6 +89,10 @@ func Start() error {
 		return err
 	}
 
+	if err = checkKmeshMod(); err != nil {
+		return err
+	}
+
 	if err = mountCgroup2(&config); err != nil {
 		return err
 	}
@@ -159,4 +163,23 @@ func mountCgroup2(cfg *Config) error {
 	}
 
 	return nil
+}
+
+func checkKmeshMod() error {
+	output, err := exec.Command("lsmod", "|", "grep", "kmesh").Output()
+	if err != nil {
+		return err
+	}
+
+	if len(output) != 0 {
+		if err := exec.Command("rmmod", "kmesh").Run(); err != nil {
+			return err
+		}
+	}
+
+	if err := exec.Command("depmod", "-a").Run(); err != nil {
+		return err
+	}
+
+	return exec.Command("modprobe", "kmesh").Run()
 }
