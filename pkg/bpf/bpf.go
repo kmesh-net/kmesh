@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,16 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 
- * Author: LemmyHuang
- * Create: 2021-10-09
  */
 
 package bpf
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -89,6 +89,10 @@ func Start() error {
 		return err
 	}
 
+	if err = mountCgroup2(&config); err != nil {
+		return err
+	}
+
 	if config.EnableKmesh {
 		if err = StartKmesh(); err != nil {
 			return err
@@ -141,4 +145,18 @@ func Stop() {
 			return
 		}
 	}
+}
+
+func mountCgroup2(cfg *Config) error {
+	if err := os.MkdirAll(cfg.Cgroup2Path, 0755); err != nil {
+		log.Errorf("failed to create dir %s: %v", cfg.Cgroup2Path, err)
+		return err
+	}
+
+	if err := syscall.Mount("none", cfg.Cgroup2Path, "cgroup2", 0, ""); err != nil {
+		log.Errorf("failed to mount %s: %v", cfg.Cgroup2Path, err)
+		return err
+	}
+
+	return nil
 }
