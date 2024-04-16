@@ -159,7 +159,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 			Address: binary.BigEndian.Uint32(conn.srcIp),
 		})
 	}
-	allowPolices, denyPolicies := r.aggregate(workload)
+	allowPolicies, denyPolicies := r.aggregate(workload)
 
 	// 1. If there is ANY deny policy, deny the request
 	for _, denyPolicy := range denyPolicies {
@@ -169,12 +169,12 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	}
 
 	// 2. If there is NO allow policy for the workload, allow the request
-	if len(allowPolices) == 0 {
+	if len(allowPolicies) == 0 {
 		return true
 	}
 
 	// 3. If there is ANY allow policy matched, allow the request
-	for _, allowPolicy := range allowPolices {
+	for _, allowPolicy := range allowPolicies {
 		if matches(conn, allowPolicy) {
 			return true
 		}
