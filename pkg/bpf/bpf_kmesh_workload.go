@@ -268,6 +268,127 @@ func (so *BpfSockOpsWorkload) Detach() error {
 	return nil
 }
 
+func (so *BpfSockOpsWorkload) GetSockMapFD() int {
+	return so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.MapOfKmeshHashmap.FD()
+}
+
+type BpfSendMsgWorkload struct {
+	Info     BpfInfo
+	AttachFD int
+	bpf2go.KmeshSendmsgObjects
+}
+
+func (sm *BpfSendMsgWorkload) NewBpf(cfg *Config) error {
+	sm.Info.Config = *cfg
+	sm.Info.MapPath = sm.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
+	sm.Info.BpfFsPath += "/bpf_kmesh_workload/sendmsg/"
+
+	if err := os.MkdirAll(sm.Info.MapPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	if err := os.MkdirAll(sm.Info.BpfFsPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	return nil
+}
+
+func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, error) {
+	var (
+		err  error
+		spec *ebpf.CollectionSpec
+		opts ebpf.CollectionOptions
+	)
+	opts.Maps.PinPath = sm.Info.MapPath
+	opts.Programs.LogSize = sm.Info.BpfVerifyLogSize
+
+	if spec, err = bpf2go.LoadKmeshSendmsg(); err != nil {
+		return nil, err
+	}
+
+	setMapPinType(spec, ebpf.PinByName)
+	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
+		return nil, err
+	}
+
+	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
+		return nil, err
+	}
+
+	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
+	if err = pinPrograms(&value, sm.Info.BpfFsPath); err != nil {
+		return nil, err
+	}
+	return spec, nil
+}
+
+func (sm *BpfSendMsgWorkload) LoadSendMsg() error {
+	/* load kmesh sendmsg main bpf prog */
+	spec, err := sm.loadKmeshSendmsgObjects()
+	if err != nil {
+		return err
+	}
+
+	prog := spec.Programs["sendmsg"]
+	sm.Info.Type = prog.Type
+	sm.Info.AttachType = prog.AttachType
+	return nil
+}
+
+func (sm *BpfSendMsgWorkload) Attach() error {
+	// Use a program handle that cannot be closed by the caller
+	clone, err := sm.KmeshSendmsgObjects.KmeshSendmsgPrograms.Sendmsg.Clone()
+	if err != nil {
+		return err
+	}
+
+	sm.AttachFD = ObjWorkload.KmeshWorkload.SockOps.GetSockMapFD()
+	args := link.RawAttachProgramOptions{
+		Target:  sm.AttachFD,
+		Program: clone,
+		Flags:   0,
+		Attach:  ebpf.AttachSkMsgVerdict,
+	}
+
+	if err = link.RawAttachProgram(args); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (sm *BpfSendMsgWorkload) Detach() error {
+	if sm.AttachFD > 0 {
+		args := link.RawDetachProgramOptions{
+			Target:  sm.AttachFD,
+			Program: sm.KmeshSendmsgObjects.KmeshSendmsgPrograms.Sendmsg,
+			Attach:  ebpf.AttachSkMsgVerdict,
+		}
+
+		if err := link.RawDetachProgram(args); err != nil {
+			return err
+		}
+	}
+
+	program_value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
+	if err := unpinPrograms(&program_value); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll(sm.Info.BpfFsPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if err := sm.KmeshSendmsgObjects.Close(); err != nil {
+		return err
+	}
+	return nil
+}
+
 type BpfXdpAuthWorkload struct {
 	Info BpfInfo
 	Link link.Link
