@@ -25,7 +25,6 @@ import (
 	"google.golang.org/grpc"
 
 	"kmesh.net/kmesh/pkg/auth"
-	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/workload"
@@ -73,12 +72,12 @@ func (c *XdsClient) createStreamClient() error {
 
 	c.client = service_discovery_v3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
-	if bpfConfig.EnableKmesh {
+	if bpfConfig.AdsEnabled() {
 		if err = c.AdsStream.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create ads stream failed, %s", err)
 		}
-	} else if bpfConfig.EnableKmeshWorkload {
+	} else if bpfConfig.WdsEnabled() {
 		if err = c.workloadStream.WorklaodStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
@@ -125,14 +124,14 @@ func (c *XdsClient) clientResponseProcess(ctx context.Context) {
 				reconnect = false
 			}
 
-			if bpfConfig.EnableKmesh {
+			if bpfConfig.AdsEnabled() {
 				if err = c.AdsStream.AdsStreamProcess(); err != nil {
 					_ = c.AdsStream.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
 				}
-			} else if bpfConfig.EnableKmeshWorkload {
+			} else if bpfConfig.WdsEnabled() {
 				if err = c.workloadStream.WorkloadStreamProcess(c.rbac); err != nil {
 					_ = c.workloadStream.Stream.CloseSend()
 					_ = c.grpcConn.Close()
@@ -150,7 +149,7 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	}
 
 	go c.clientResponseProcess(c.ctx)
-	if bpfConfig.Mode == bpf.WorkloadMode {
+	if bpfConfig.WdsEnabled() {
 		go c.rbac.Run(c.ctx)
 	}
 
@@ -167,11 +166,11 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *XdsClient) closeStreamClient() {
-	if bpfConfig.EnableKmesh {
+	if bpfConfig.AdsEnabled() {
 		if c.AdsStream != nil && c.AdsStream.Stream != nil {
 			_ = c.AdsStream.Stream.CloseSend()
 		}
-	} else if bpfConfig.EnableKmeshWorkload {
+	} else if bpfConfig.WdsEnabled() {
 		if c.workloadStream != nil && c.workloadStream.Stream != nil {
 			_ = c.workloadStream.Stream.CloseSend()
 		}
@@ -183,11 +182,11 @@ func (c *XdsClient) closeStreamClient() {
 }
 
 func (c *XdsClient) Close() error {
-	if bpfConfig.EnableKmesh {
+	if bpfConfig.AdsEnabled() {
 		if c.AdsStream != nil && c.AdsStream.Event != nil {
 			c.AdsStream.Event.Destroy()
 		}
-	} else if bpfConfig.EnableKmeshWorkload {
+	} else if bpfConfig.WdsEnabled() {
 		if c.workloadStream != nil && c.workloadStream.Event != nil {
 			c.workloadStream.Event.Destroy()
 		}

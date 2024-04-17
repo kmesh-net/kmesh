@@ -8,7 +8,7 @@ deploy:
       tag: latest
     imagePullPolicy: IfNotPresent
     containers:
-      kmeshDaemonArgs: "--mode=ads"
+      kmeshDaemonArgs: "--mode=workload"
     resources:
       limits:
         cpu: "1"

@@ -74,7 +74,7 @@ func (c *XdsConfig) AttachFlags(cmd *cobra.Command) {
 }
 
 func (c *XdsConfig) ParseConfig() error {
-	if bpf.GetConfig().EnableKmesh || bpf.GetConfig().EnableMda || bpf.GetConfig().EnableKmeshWorkload {
+	if bpf.GetConfig().AdsEnabled() || bpf.GetConfig().EnableMda || bpf.GetConfig().WdsEnabled() {
 		c = &config
 	}
 

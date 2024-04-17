@@ -76,15 +76,13 @@ func Execute() error {
 	log.Info("controller Start successful")
 	defer controller.Stop()
 
-	if bpf.GetConfig().EnableKmesh {
-		if err := dump.StartServer(); err != nil {
-			return err
-		}
-		log.Info("dump StartServer successful")
-		defer func() {
-			_ = dump.StopServer()
-		}()
+	if err := dump.StartServer(); err != nil {
+		return err
 	}
+	log.Info("dump StartServer successful")
+	defer func() {
+		_ = dump.StopServer()
+	}()
 
 	if err := cni.Start(); err != nil {
 		return err

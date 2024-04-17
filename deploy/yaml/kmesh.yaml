@@ -52,7 +52,7 @@ spec:
            image: ghcr.io/kmesh-net/kmesh:latest
            imagePullPolicy: IfNotPresent
            command: ["/bin/sh", "-c"]
-           args: ["./start_kmesh.sh --mode=ads"]
+           args: ["./start_kmesh.sh --mode=workload"]
            securityContext:
              privileged: true
              capabilities:
