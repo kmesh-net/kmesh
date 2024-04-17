@@ -54,26 +54,18 @@ Kmesh需要在拥有Kmesh内核增强特性的Linux环境中编译构建。当�
   可以由用户指定参数构建，示例如下：
 
   ```bash
-  #用户自定义HUB TARGET TAG BUILD_ENV内容，若未指定则采用默认值：
+  #用户自定义HUB TARGET TAG内容，若未指定则采用默认值：
   HUB=ghcr.io/kmesh-net
   TARGET=kmesh
   TAG= #git sha
-  BUILD_ENV= latest #该参数用于指定编译镜像的版本，方便用户在编译不同版本kmesh时选择对应版本编译镜像
   
   [root@localhost kmesh]# make docker
   ...
   Successfully tagged ghcr.io/kmesh-net/kmesh:b68790eb07830e757f4ce6d1c478d0046ee79730
   
-  [root@localhost kmesh]# make docker HUB=ghcr.io/kmesh-net TARGET=kmesh TAG=latest BUILD_ENV=latest
+  [root@localhost kmesh]# make docker HUB=ghcr.io/kmesh-net TARGET=kmesh TAG=latest
   ...
   Successfully tagged ghcr.io/kmesh-net/kmesh:latest
-  
-  #编译其他稳定版本kmesh，例如v0.2.0
-  #切换源码到0.2.0版本并编译镜像
-  [root@localhost kmesh]# git checkout v0.2.0  
-  [root@localhost kmesh]# make docker HUB=ghcr.io/kmesh-net TARGET=kmesh TAG=v0.2.0 BUILD_ENV=v0.2.0
-  ...
-  Successfully tagged ghcr.io/kmesh-net/kmesh:v0.2.0
   ```
   
   查看本地镜像仓库已有Kmesh镜像
