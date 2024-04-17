@@ -42,6 +42,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
 	int ret;
 	frontend_value *frontend_v = NULL;
+	bool direct_backend = false;
 
 	if (!check_sock_enable_kmesh())
 		return 0;
@@ -50,18 +51,41 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
 	BPF_LOG(DEBUG, KMESH, "origin addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
 	frontend_v = map_lookup_frontend(&address);
-	if (frontend_v == NULL) {
-		BPF_LOG(ERR, KMESH, "find frontend failed\n");
-		return -ENOENT;
+	if (!frontend_v) {
+		address.service_port = 0;
+		frontend_v = map_lookup_frontend(&address);
+		if (!frontend_v) {
+			BPF_LOG(ERR, KMESH, "find frontend failed\n");
+			return -ENOENT;
+		}
+		direct_backend = true;
 	}
+
 	BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
 
-	ret = frontend_manager(ctx, frontend_v);
-	if (ret != 0) {
-		BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
-		return ret;
-	}
+	if (direct_backend) {
+		backend_key backend_k = {0};
+		backend_value *backend_v = NULL;
 
+		backend_k.backend_uid = frontend_v->service_id;
+		backend_v = map_lookup_backend(&backend_k);
+		if (!backend_v) {
+			BPF_LOG(ERR, KMESH, "find backend failed\n");
+			return -ENOENT;
+		}
+		BPF_LOG(DEBUG, KMESH, "find pod frontend\n");
+		ret = backend_manager(ctx, backend_v);
+		if (ret < 0) {
+			BPF_LOG(ERR, KMESH, "backend_manager failed, ret:%d\n", ret);
+			return ret;
+		}
+	} else {
+		ret = frontend_manager(ctx, frontend_v);
+		if (ret != 0) {
+			BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
+			return ret;
+		}
+	}
 	return 0;
 }
 

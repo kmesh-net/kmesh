@@ -99,6 +99,13 @@ func (sc *BpfSockConnWorkload) LoadSockConn() error {
 	sc.Info.Type = prog.Type
 	sc.Info.AttachType = prog.AttachType
 
+	if err = sc.MapOfTailCallProg.Update(
+		uint32(0),
+		uint32(sc.CgroupConnect4Prog.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
+
 	return nil
 }
 

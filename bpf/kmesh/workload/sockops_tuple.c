@@ -20,6 +20,7 @@
 #include "bpf_log.h"
 #include "workload.h"
 #include "config.h"
+#include "encoder.h"
 
 #define FORMAT_IP_LENGTH		(16) 
 
@@ -140,6 +141,14 @@ static inline void clean_auth_map(struct bpf_sock_ops *skops)
 		BPF_LOG(INFO, SOCKOPS, "map_of_auth bpf_map_delete_elem failed, ret: %d\n", ret);
 }
 
+static inline void clean_dstinfo_map(struct bpf_sock_ops *skops)
+{
+    __u32 *key = (__u32 *)skops->sk;
+    long ret = bpf_map_delete_elem(&map_of_dst_info, &key);
+    if(ret && ret != -ENOENT)
+        BPF_LOG(INFO, SOCKOPS, "bpf map delete destination info failed, ret: %d\n", ret);
+}
+
 // insert an IPv4 tuple into the ringbuf
 static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
 {
@@ -193,6 +202,7 @@ int record_tuple(struct bpf_sock_ops *skops)
 			if(skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT 
 			|| skops->args[1] == BPF_TCP_FIN_WAIT1)
 				clean_auth_map(skops);
+				clean_dstinfo_map(skops);
 			break;
 		default:
 			break;
