@@ -61,11 +61,6 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
-BUILD_ENV ?= latest
-ifeq ($(BUILD_ENV),)
-  $(error "BUILD_ENV cannot be empty")
-endif
-
 TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	config/kmesh_marcos_def.h \
 	mk/api-v2-c.pc \
@@ -140,7 +135,7 @@ uninstall:
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
 
 build:
-	./kmesh_compile.sh $(BUILD_ENV)
+	./kmesh_compile.sh
 	
 docker: build
 	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .

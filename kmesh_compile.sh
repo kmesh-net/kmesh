@@ -1,11 +1,9 @@
 #!/bin/bash
 
-BUILD_ENV=$1
-
 function prepare() {
     local arch
     arch=$(get_arch)
-    docker pull "ghcr.io/kmesh-net/kmesh-build-${arch}:${BUILD_ENV}"
+    docker pull "ghcr.io/kmesh-net/kmesh-build-${arch}:v0.2.0"
 }
 
 function run_docker_container() {
@@ -21,7 +19,7 @@ function run_docker_container() {
         -v /sys/fs/bpf:/sys/fs/bpf \
         -v /lib/modules:/lib/modules \
         -v "$(pwd)":/kmesh \
-        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:${BUILD_ENV}")
+        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:v0.2.0")
 
     echo "$container_id"
 }
