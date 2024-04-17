@@ -28,7 +28,7 @@ import (
 
 const (
 	adsMode      = "ads"
-	workloadMode = "workload"
+	WorkloadMode = "workload"
 )
 
 var (
@@ -60,7 +60,7 @@ func (c *Config) ParseConfig() error {
 	var err error
 
 	c.EnableKmesh = true
-	if c.Mode == workloadMode {
+	if c.Mode == WorkloadMode {
 		c.EnableKmeshWorkload = true
 		c.EnableKmesh = false
 	}

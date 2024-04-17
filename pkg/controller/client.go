@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 
 	"kmesh.net/kmesh/pkg/auth"
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/workload"
@@ -149,7 +150,9 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	}
 
 	go c.clientResponseProcess(c.ctx)
-	go c.rbac.Run(c.ctx)
+	if bpfConfig.Mode == bpf.WorkloadMode {
+		go c.rbac.Run(c.ctx)
+	}
 
 	go func() {
 		<-stopCh
