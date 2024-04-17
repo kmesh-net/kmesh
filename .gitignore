@@ -45,6 +45,8 @@ bpf/kmesh/bpf2go/kmeshsockopsworkload_bpfeb.go
 bpf/kmesh/bpf2go/kmeshsockopsworkload_bpfel.go
 bpf/kmesh/bpf2go/kmeshxdpauth_bpfeb.go
 bpf/kmesh/bpf2go/kmeshxdpauth_bpfel.go
+bpf/kmesh/bpf2go/kmeshsendmsg_bpfeb.go
+bpf/kmesh/bpf2go/kmeshsendmsg_bpfel.go
 oncn-mda/build/
 oncn-mda/deploy/
 test/mugen-master/
