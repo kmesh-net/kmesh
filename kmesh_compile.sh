@@ -3,7 +3,7 @@
 function prepare() {
     local arch
     arch=$(get_arch)
-    docker pull "ghcr.io/kmesh-net/kmesh-build-${arch}:v0.2.0"
+    docker pull "ghcr.io/kmesh-net/kmesh-build-${arch}:latest"
 }
 
 function run_docker_container() {
@@ -19,7 +19,7 @@ function run_docker_container() {
         -v /sys/fs/bpf:/sys/fs/bpf \
         -v /lib/modules:/lib/modules \
         -v "$(pwd)":/kmesh \
-        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:v0.2.0")
+        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:latest")
 
     echo "$container_id"
 }
