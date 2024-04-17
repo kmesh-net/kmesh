@@ -34,6 +34,7 @@
 #define map_of_service			kmesh_service
 #define map_of_endpoint			kmesh_endpoint
 #define map_of_backend			kmesh_backend
+#define map_of_manager	        kmesh_manage
 
 #endif // _CONFIG_H_
 

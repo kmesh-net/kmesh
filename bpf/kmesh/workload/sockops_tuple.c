@@ -17,6 +17,7 @@
 #include <sys/socket.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
+#include <stdbool.h>
 #include "bpf_log.h"
 #include "workload.h"
 #include "config.h"
@@ -34,48 +35,6 @@ struct ringbuf_msg_type {
 	struct bpf_sock_tuple tuple;
 };
 
-/*
- * containerID: hash for container id
- * ipaddress: pod ip managed by Kmesh
- * Either containerID or ipaddress must be set to 0.
- * index: if ipaddress is set, index must be 0
- *        if containerID is set, index == 0, map value is number of ips in containerID
- *        if containerID is set, index > 0, map value is an ip for the containerID
- * eg:
- * there have a containerID and its hash is 64334212, it have 3 ip address in pod
- * there have 7 record in thie map.
- *      |containerID        |ip     |index      |||value        |
- * 1.   |64334214           |0      |0          |||3            |
- * 2.   |64334214           |0      |1          |||ip1          |
- * 3.   |64334214           |0      |2          |||ip2          |
- * 4.   |64334214           |0      |3          |||ip3          |
- * 5.   |0                  |ip1    |0          |||0            |
- * 6.   |0                  |ip2    |0          |||0            |
- * 7.   |0                  |ip3    |0          |||0            |
- *
- * Why design it that way?
- * We need a way to mark in the cni whether the current ip is managed by Kmesh.
- * The cni inserts the ip address into the map when the pod is created and removes the ip
- * address from the map when the pod is destroyed.
- * However, according to the cni guide, when deleting the data, only the CONTAINER and IFNAME
- * (https://github.com/containernetworking/cni.dev/blob/main/content/docs/spec.md#del-remove-container-from-network-or-un-apply-modifications)
- * must be transferred. The IP address is not transferred in the cni. Therefore, the
- * containerID and IP address must be bound and stored in the map for subsequent deletion.
- */
-struct kmesh_manager_key {
-	__u64 containerID;
-	__u32 ipaddress;
-	__u32 index;
-};
-
-struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, struct kmesh_manager_key);
-	__type(value, __u32);
-	__uint(max_entries, MAP_SIZE_OF_MANAGER);
-	__uint(map_flags, 0);
-} map_of_kmesh_manager SEC(".maps");
-
 struct {
 	__uint(type, BPF_MAP_TYPE_SOCKHASH);
 	__type(key, struct bpf_sock_tuple);
@@ -84,14 +43,10 @@ struct {
 	__uint(map_flags, 0);
 } map_of_kmesh_hashmap SEC(".maps");
 
-static inline int is_managed_by_kmesh(__u32 ip)
+static inline bool is_managed_by_kmesh(__u32 ip)
 {
-	struct kmesh_manager_key key = {0};
-	key.ipaddress = ip;
-	__u8 *value = bpf_map_lookup_elem(&map_of_kmesh_manager, &key);
-	if (value)
-		return 1;
-	return 0;
+	__u64 key = ip;
+	return bpf_map_lookup_elem(&map_of_manager, &key);
 }
 
 static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops,
@@ -177,6 +132,48 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
 		BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d\n", err);
 }
 
+static inline void record_ip(__u32 ip)
+{
+	int err;
+	__u32 value = 0;
+	__u64 key = ip;
+	err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
+	if (err)
+		BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
+}
+
+static inline void remove_ip(__u32 ip)
+{
+	int err;
+	__u64 key = ip;
+	err = bpf_map_delete_elem(&map_of_manager, &key);
+	if (err && err != -ENOENT)
+		BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
+}
+
+
+static inline bool conn_from_cni_sim_add(struct bpf_sock_ops *skops)
+{
+	// cni sim connect 0.0.0.1:929(0x3a1)
+	// 0x3a1 is the specific port handled by the cni for enable Kmesh
+#if !OE_23_03
+	return ((bpf_ntohl(skops->remote_ip4) == 1) &&
+			(bpf_ntohl(skops->remote_port) == 0x3a1));
+#else
+	return ((bpf_ntohl(skops->remote_ip4) == 1) &&
+			(bpf_ntohl(skops->remote_port) == 0xa1030000));
+#endif
+}
+
+static inline bool conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
+{
+	// cni sim connect 0.0.0.1:930(0x3a2)
+	// 0x3a2 is the specific port handled by the cni for disable Kmesh
+	return ((bpf_ntohl(skops->remote_ip4) == 1) &&
+			(bpf_ntohl(skops->remote_port) == 0x3a2));
+}
+
+
 SEC("sockops")
 int record_tuple(struct bpf_sock_ops *skops)
 {
@@ -184,6 +181,12 @@ int record_tuple(struct bpf_sock_ops *skops)
 	if (skops->family != AF_INET)
 		return 0;
 	switch (skops->op) {
+		case BPF_SOCK_OPS_TCP_CONNECT_CB:
+			if (conn_from_cni_sim_add(skops))
+				record_ip(skops->local_ip4);
+			if (conn_from_cni_sim_delete(skops))
+				remove_ip(skops->local_ip4);
+			break;
 		case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
 			if (!is_managed_by_kmesh(skops->local_ip4)) // local ip4 is client ip
 				break;
