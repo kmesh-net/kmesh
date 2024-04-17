@@ -75,6 +75,14 @@ struct {
 	__uint(map_flags, 0);
 } map_of_kmesh_manager SEC(".maps");
 
+struct {
+	__uint(type, BPF_MAP_TYPE_SOCKHASH);
+	__type(key, struct bpf_sock_tuple);
+	__type(value, __u32);
+	__uint(max_entries, MAP_SIZE_OF_MANAGER);
+	__uint(map_flags, 0);
+} map_of_kmesh_hashmap SEC(".maps");
+
 static inline int is_managed_by_kmesh(__u32 ip)
 {
 	struct kmesh_manager_key key = {0};
@@ -83,6 +91,22 @@ static inline int is_managed_by_kmesh(__u32 ip)
 	if (value)
 		return 1;
 	return 0;
+}
+
+static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops,
+	struct bpf_sock_tuple *tuple_key)
+{
+	tuple_key->ipv4.saddr = skops->local_ip4;
+	tuple_key->ipv4.daddr = skops->remote_ip4;
+	// local_port is host byteorder
+	tuple_key->ipv4.sport = bpf_htonl(skops->local_port) >> FORMAT_IP_LENGTH;
+	// remote_port is network byteorder
+	// openEuler 2303 convert remote port different than other linux vendor
+#if !OE_23_03
+	tuple_key->ipv4.dport = skops->remote_port >> FORMAT_IP_LENGTH;
+#else
+	tuple_key->ipv4.dport = skops->remote_port;
+#endif
 }
 
 static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops,
@@ -94,7 +118,7 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops,
 	// openEuler 2303 convert remote port different than other linux vendor
 #if !OE_23_03
 	tuple_key->ipv4.sport = skops->remote_port >> FORMAT_IP_LENGTH;
-#else	
+#else
 	tuple_key->ipv4.sport = skops->remote_port;
 #endif
 	// local_port is host byteorder
@@ -134,6 +158,16 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
 	bpf_ringbuf_submit(msg, 0);
 }
 
+static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
+{
+	int err;
+	struct bpf_sock_tuple tuple_info = {0};
+	extract_skops_to_tuple(skops, &tuple_info);
+	err = bpf_sock_hash_update(skops, &map_of_kmesh_hashmap, &tuple_info, BPF_ANY);
+	if (err)
+		BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d\n", err);
+}
+
 SEC("sockops")
 int record_tuple(struct bpf_sock_ops *skops)
 {
@@ -146,6 +180,7 @@ int record_tuple(struct bpf_sock_ops *skops)
 				break;
 			if(bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
 				BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
+			enable_encoding_metadata(skops);
 			break;
 		case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
 			if (!is_managed_by_kmesh(skops->local_ip4)) // local ip4 is server ip
