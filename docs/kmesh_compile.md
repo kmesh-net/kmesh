@@ -54,18 +54,26 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
   Users can specify parameters for building, as shown in the example below:
 
   ```sh
-  User-defined HUB, TARGET, TAG values. If not specified, default values will be used.
+  User-defined HUB, TARGET, TAG, BUILD_ENV values. If not specified, default values will be used.
   HUB=ghcr.io/kmesh-net
   TARGET=kmesh
   TAG= #git sha
+  BUILD_ENV= latest #This parameter is used to specify the version of the compilation image, making it convenient for users to choose the corresponding version compilation image when compiling different versions of kmesh.
   
   [root@localhost kmesh]# make docker
   ...
   Successfully tagged ghcr.io/kmesh-net/kmesh:b68790eb07830e757f4ce6d1c478d0046ee79730
   
-  [root@localhost kmesh]# make docker HUB=ghcr.io/kmesh-net TARGET=kmesh TAG=latest
+  [root@localhost kmesh]# make docker HUB=ghcr.io/kmesh-net TARGET=kmesh TAG=latest BUILD_ENV=latest
   ...
   Successfully tagged ghcr.io/kmesh-net/kmesh:latest
+  
+  #Compile other stable versions of kmesh, such as v0.2.0.
+  #Switch the source code to version 0.2.0 and compile the image.
+  [root@localhost kmesh]# git checkout v0.2.0  
+  [root@localhost kmesh]# make docker HUB=ghcr.io/kmesh-net TARGET=kmesh TAG=v0.2.0 BUILD_ENV=v0.2.0
+  ...
+  Successfully tagged ghcr.io/kmesh-net/kmesh:v0.2.0
   ```
   
   Check the existing Kmesh image in the local image repository：
