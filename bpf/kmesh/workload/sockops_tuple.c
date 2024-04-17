@@ -14,101 +14,155 @@
  * limitations under the License.
  */
 #include <linux/bpf.h>
+#include <sys/socket.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 #include "bpf_log.h"
 #include "workload.h"
+#include "config.h"
 
-#define AF_INET  (2)
-#define AF_INET6 (10)
+#define FORMAT_IP_LENGTH		(16) 
 
 enum family_type {
-    IPV4,
-    IPV6,
+	IPV4,
+	IPV6,
 };
 
 struct ringbuf_msg_type {
-    __u32 type; 
-    struct bpf_sock_tuple tuple;
+	__u32 type;
+	struct bpf_sock_tuple tuple;
 };
 
-// return 1 if pod with skops.daddr is managed by Kmesh, else return 0
-static inline int dst_is_managed(struct bpf_sock_ops *skops)
+/*
+ * containerID: hash for container id
+ * ipaddress: pod ip managed by Kmesh
+ * Either containerID or ipaddress must be set to 0.
+ * index: if ipaddress is set, index must be 0
+ *        if containerID is set, index == 0, map value is number of ips in containerID
+ *        if containerID is set, index > 0, map value is an ip for the containerID
+ * eg:
+ * there have a containerID and its hash is 64334212, it have 3 ip address in pod
+ * there have 7 record in thie map.
+ *      |containerID        |ip     |index      |||value        |
+ * 1.   |64334214           |0      |0          |||3            |
+ * 2.   |64334214           |0      |1          |||ip1          |
+ * 3.   |64334214           |0      |2          |||ip2          |
+ * 4.   |64334214           |0      |3          |||ip3          |
+ * 5.   |0                  |ip1    |0          |||0            |
+ * 6.   |0                  |ip2    |0          |||0            |
+ * 7.   |0                  |ip3    |0          |||0            |
+ *
+ * Why design it that way?
+ * We need a way to mark in the cni whether the current ip is managed by Kmesh.
+ * The cni inserts the ip address into the map when the pod is created and removes the ip
+ * address from the map when the pod is destroyed.
+ * However, according to the cni guide, when deleting the data, only the CONTAINER and IFNAME
+ * (https://github.com/containernetworking/cni.dev/blob/main/content/docs/spec.md#del-remove-container-from-network-or-un-apply-modifications)
+ * must be transferred. The IP address is not transferred in the cni. Therefore, the
+ * containerID and IP address must be bound and stored in the map for subsequent deletion.
+ */
+struct kmesh_manager_key {
+	__u64 containerID;
+	__u32 ipaddress;
+	__u32 index;
+};
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, struct kmesh_manager_key);
+	__type(value, __u32);
+	__uint(max_entries, MAP_SIZE_OF_MANAGER);
+	__uint(map_flags, 0);
+} map_of_kmesh_manager SEC(".maps");
+
+static inline int is_managed_by_kmesh(__u32 ip)
 {
-    return 0;
+	struct kmesh_manager_key key = {0};
+	key.ipaddress = ip;
+	__u8 *value = bpf_map_lookup_elem(&map_of_kmesh_manager, &key);
+	if (value)
+		return 1;
+	return 0;
 }
 
-static inline void build_auth_key(struct bpf_sock_ops *skops, struct bpf_sock_tuple* key)
+static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops,
+	struct bpf_sock_tuple *tuple_key)
 {
-    if(key) {
-        key->ipv4.saddr = skops->remote_ip4;
-        key->ipv4.sport = skops->remote_port >> 16;
-        key->ipv4.daddr = skops->local_ip4;
-        key->ipv4.dport = bpf_htonl(skops->local_port) >> 16;
-    }
+	tuple_key->ipv4.saddr = skops->remote_ip4;
+	tuple_key->ipv4.daddr = skops->local_ip4;
+	// remote_port is network byteorder
+	// openEuler 2303 convert remote port different than other linux vendor
+#if !OE_23_03
+	tuple_key->ipv4.sport = skops->remote_port >> FORMAT_IP_LENGTH;
+#else	
+	tuple_key->ipv4.sport = skops->remote_port;
+#endif
+	// local_port is host byteorder
+	tuple_key->ipv4.dport = bpf_htonl(skops->local_port) >> FORMAT_IP_LENGTH;
 }
 
 // clean map_of_auth
 static inline void clean_auth_map(struct bpf_sock_ops *skops)
 {
-    struct bpf_sock_tuple tuple_key = {0};
-    build_auth_key(skops, &tuple_key);
-    long ret = bpf_map_delete_elem(&map_of_auth, &tuple_key);
-    if(ret && ret != -ENOENT) {
-        BPF_LOG(INFO, SOCKOPS, "map_of_auth bpf_map_delete_elem failed, ret: %d\n", ret);
-    }
+	struct bpf_sock_tuple tuple_key = {0};
+	// auth run PASSIVE ESTABLISHED CB now. In thie state cb
+	// tuple info src is server info, dst is client info
+	// During the auth, src must set the client info and dst set
+	// the server info when we transmitted to the kmesh auth info.
+	// In this way, auth can be performed normally.
+	extract_skops_to_tuple_reverse(skops, &tuple_key);
+	long ret = bpf_map_delete_elem(&map_of_auth, &tuple_key);
+	if(ret && ret != -ENOENT)
+		BPF_LOG(INFO, SOCKOPS, "map_of_auth bpf_map_delete_elem failed, ret: %d\n", ret);
 }
 
 // insert an IPv4 tuple into the ringbuf
-static inline void insert_ipv4_tuple(struct bpf_sock_ops *skops)
+static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
 {
-    if (skops->family == AF_INET) {
-        struct ringbuf_msg_type *msg = bpf_ringbuf_reserve(&map_of_tuple, sizeof(*msg), 0);
-        if (!msg) {
-            BPF_LOG(WARN, SOCKOPS, "can not alloc new ringbuf in map_of_tuple");
-            return;
-        }
-        (*msg).tuple.ipv4.daddr = skops->local_ip4;
-        (*msg).tuple.ipv4.saddr = skops->remote_ip4;
-        // local_port is host byteorder
-        (*msg).tuple.ipv4.dport = bpf_htonl(skops->local_port) >> 16;
-        // remote_port is network byteorder
-        (*msg).tuple.ipv4.sport = skops->remote_port >> 16;
-        (*msg).type = (__u32)IPV4;
-        bpf_ringbuf_submit(msg, 0);
-    }
+	struct ringbuf_msg_type *msg = bpf_ringbuf_reserve(&map_of_tuple, sizeof(*msg), 0);
+	if (!msg) {
+		BPF_LOG(WARN, SOCKOPS, "can not alloc new ringbuf in map_of_tuple");
+		return;
+	}
+	// auth run PASSIVE ESTABLISHED CB now. In thie state cb
+	// tuple info src is server info, dst is client info
+	// During the auth, src must set the client info and dst set
+	// the server info when we transmitted to the kmesh auth info.
+	// In this way, auth can be performed normally.
+	extract_skops_to_tuple_reverse(skops, &(*msg).tuple);
+	(*msg).type = (__u32)IPV4;
+	bpf_ringbuf_submit(msg, 0);
 }
 
 SEC("sockops")
 int record_tuple(struct bpf_sock_ops *skops)
 {
-    if(!dst_is_managed(skops)) {
-        return 0;
-    }
-
-    switch (skops->op) {
-        case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-            if(bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0){
-                BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
-            }
-            break;
-        case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-            if(bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0){
-                BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
-            }           
-            insert_ipv4_tuple(skops);
-            break;
-        case BPF_SOCK_OPS_STATE_CB:
-            if(skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT 
-            || skops->args[1] == BPF_TCP_FIN_WAIT1) {
-                clean_auth_map(skops);
-            }
-            // not support IPV6
-            break;
-        default:
-            break;
-    }
-    return 0;
+	// only support IPV4
+	if (skops->family != AF_INET)
+		return 0;
+	switch (skops->op) {
+		case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
+			if (!is_managed_by_kmesh(skops->local_ip4)) // local ip4 is client ip
+				break;
+			if(bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
+				BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
+			break;
+		case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
+			if (!is_managed_by_kmesh(skops->local_ip4)) // local ip4 is server ip
+				break;
+			if(bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
+				BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
+			auth_ip_tuple(skops);
+			break;
+		case BPF_SOCK_OPS_STATE_CB:
+			if(skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT 
+			|| skops->args[1] == BPF_TCP_FIN_WAIT1)
+				clean_auth_map(skops);
+			break;
+		default:
+			break;
+	}
+	return 0;
 }
 
 char _license[] SEC("license") = "GPL";

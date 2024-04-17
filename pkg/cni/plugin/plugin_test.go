@@ -126,7 +126,7 @@ func TestCheckKmesh(t *testing.T) {
 	}
 }
 
-func TestEnableKmeshControl(t *testing.T) {
+func TestKmeshCtlByClassid(t *testing.T) {
 	utPod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			UID:       types.UID("utpod"),
@@ -189,7 +189,7 @@ func TestEnableKmeshControl(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
-			err := enableKmeshControl(fakeClient, utPod)
+			err := kmeshCtlByClassid(fakeClient, utPod)
 			if err != nil && !tt.wantErr {
 				t.Errorf("%v", err)
 			}
