@@ -19,11 +19,9 @@ package envoy
 import (
 	"fmt"
 	"os"
-	"reflect"
 	"syscall"
 	"testing"
 
-	"github.com/agiledragon/gomonkey/v2"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -34,7 +32,6 @@ import (
 	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
-	"k8s.io/apimachinery/pkg/util/sets"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
@@ -44,17 +41,11 @@ import (
 )
 
 func TestHandleCdsResponse(t *testing.T) {
+	initBpfMap(t)
+	t.Cleanup(cleanupBpfMap)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
-		patch := gomonkey.NewPatches()
-		defer patch.Reset()
-		clusterNames := sets.New[string]()
-
-		var c *cache_v2.ClusterCache
 		svc := NewServiceEvent()
 		svc.LastNonce.edsNonce = "utkmesh"
-		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
-			clusterNames = cache.GetResourceNames()
-		})
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -74,20 +65,12 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, sets.Set[string]{}, clusterNames)
 		assert.Equal(t, []string{"ut-cluster"}, svc.rqt.ResourceNames)
 		assert.Equal(t, svc.LastNonce.edsNonce, svc.rqt.ResponseNonce)
+		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
 	})
 
 	t.Run("new cluster, cluster type is not eds", func(t *testing.T) {
-		patch := gomonkey.NewPatches()
-		defer patch.Reset()
-		clusterNames := sets.New[string]()
-		var c *cache_v2.ClusterCache
-		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
-			clusterNames = cache.GetResourceNames()
-		})
-
 		svc := NewServiceEvent()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
@@ -108,19 +91,10 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, sets.Set[string]{"ut-cluster": sets.Empty{}}, clusterNames)
 		assert.Nil(t, svc.rqt)
 	})
 
 	t.Run("cluster update case", func(t *testing.T) {
-		patch := gomonkey.NewPatches()
-		defer patch.Reset()
-		clusterNames := sets.New[string]()
-		var c *cache_v2.ClusterCache
-		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
-			clusterNames = cache.GetResourceNames()
-		})
-
 		svc := NewServiceEvent()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
@@ -138,7 +112,12 @@ func TestHandleCdsResponse(t *testing.T) {
 		err = svc.handleCdsResponse(rsp)
 		assert.NoError(t, err)
 
-		cluster.AltStatName = "ut-name"
+		cluster = &config_cluster_v3.Cluster{
+			Name: "ut-cluster",
+			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
+				Type: config_cluster_v3.Cluster_STRICT_DNS,
+			},
+		}
 		anyCluster, err = anypb.New(cluster)
 		assert.NoError(t, err)
 		rsp = &service_discovery_v3.DiscoveryResponse{
@@ -152,19 +131,11 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, sets.Set[string]{"ut-cluster": sets.Empty{}}, clusterNames)
 		assert.Nil(t, svc.rqt)
+		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
 	})
 
 	t.Run("have multiClusters, add a new eds cluster", func(t *testing.T) {
-		patch := gomonkey.NewPatches()
-		defer patch.Reset()
-		clusterNames := sets.New[string]()
-		var c *cache_v2.ClusterCache
-		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
-			clusterNames = cache.GetResourceNames()
-		})
-
 		svc := NewServiceEvent()
 		svc.LastNonce.ldsNonce = "utEdstoLds"
 		multiClusters := []*config_cluster_v3.Cluster{
@@ -219,20 +190,11 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantOldClusterHash2 := hash.Sum64String(anyMultCluster2.String())
 		actualOldClusterHash2 := svc.DynamicLoader.ClusterCache.GetCdsHash(multiClusters[1].GetName())
 		assert.Equal(t, wantOldClusterHash2, actualOldClusterHash2)
-		assert.Equal(t, sets.Set[string]{}, clusterNames)
 		assert.Equal(t, []string{"new-ut-cluster"}, svc.rqt.ResourceNames)
 		assert.Equal(t, svc.LastNonce.edsNonce, svc.rqt.ResponseNonce)
 	})
 
 	t.Run("multiClusters in resp", func(t *testing.T) {
-		patch := gomonkey.NewPatches()
-		defer patch.Reset()
-		clusterNames := sets.New[string]()
-		var c *cache_v2.ClusterCache
-		patch.ApplyMethod(reflect.TypeOf(c), "Flush", func(cache *cache_v2.ClusterCache) {
-			clusterNames = cache.GetResourceNames()
-		})
-
 		svc := NewServiceEvent()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
@@ -281,12 +243,14 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash1, actualHash1)
 		actualHash2 := svc.DynamicLoader.ClusterCache.GetCdsHash(newCluster2.GetName())
 		assert.Equal(t, wantHash2, actualHash2)
-		assert.Equal(t, sets.Set[string]{}, clusterNames)
 		assert.Equal(t, []string{"new-ut-cluster2"}, svc.rqt.ResourceNames)
+		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
 	})
 }
 
 func TestHandleEdsResponse(t *testing.T) {
+	initBpfMap(t)
+	t.Cleanup(cleanupBpfMap)
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
 		svc := NewServiceEvent()
 		adsLoader := NewAdsLoader()
@@ -314,7 +278,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		}
 		err = svc.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_UPDATE)
+		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
 		assert.Equal(t, []string{"ut-far", "ut-cluster"}, svc.ack.ResourceNames)
 	})
 
@@ -345,7 +309,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		}
 		err = svc.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_UPDATE)
+		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
 		assert.Equal(t, []string{"ut-far", "ut-cluster"}, svc.ack.ResourceNames)
 	})
 
@@ -447,13 +411,20 @@ func initBpfMap(t *testing.T) {
 	}
 	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
 	if err != nil {
+		cleanupBpfMap()
 		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
+	}
+	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
+	if err != nil {
+		cleanupBpfMap()
+		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
 	}
 	config := bpf.GetConfig()
 	config.BpfFsPath = "/sys/fs/bpf"
 	config.Cgroup2Path = "/mnt/kmesh_cgroup2"
 	err = bpf.StartKmesh()
 	if err != nil {
+		cleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)
 	}
 }
@@ -463,6 +434,10 @@ func cleanupBpfMap() {
 	err := syscall.Unmount("/mnt/kmesh_cgroup2", 0)
 	if err != nil {
 		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
+	}
+	err = syscall.Unmount("/sys/fs/bpf", 0)
+	if err != nil {
+		fmt.Println("unmount /sys/fs/bpf error: ", err)
 	}
 	err = os.RemoveAll("/mnt/kmesh_cgroup2")
 	if err != nil {
@@ -565,8 +540,6 @@ func TestHandleLdsResponse(t *testing.T) {
 		err = svc.handleLdsResponse(rsp)
 		assert.NoError(t, err)
 		apiMethod = svc.DynamicLoader.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
-		// ApiStatus = core_v2.ApiStatus_UNCHANGED when svc.DynamicLoader.CreateApiListenerByLds is executed,
-		// it will keep the original state and not change apistatus.
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		wantHash := hash.Sum64String(anyListener.String())
 		actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
@@ -645,6 +618,8 @@ func TestHandleLdsResponse(t *testing.T) {
 }
 
 func TestHandleRdsResponse(t *testing.T) {
+	initBpfMap(t)
+	t.Cleanup(cleanupBpfMap)
 	t.Run("normal function test", func(t *testing.T) {
 		svc := NewServiceEvent()
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
