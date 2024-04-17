@@ -146,7 +146,7 @@ static inline void clean_dstinfo_map(struct bpf_sock_ops *skops)
     __u32 *key = (__u32 *)skops->sk;
     long ret = bpf_map_delete_elem(&map_of_dst_info, &key);
     if(ret && ret != -ENOENT)
-        BPF_LOG(INFO, SOCKOPS, "map_of_dst_info bpf_map_delete_elem failed, ret: %d\n", ret);
+        BPF_LOG(INFO, SOCKOPS, "bpf map delete destination info failed, ret: %d\n", ret);
 }
 
 // insert an IPv4 tuple into the ringbuf
