@@ -38,13 +38,14 @@ static inline int lb_random_handle(ctx_buff_t *ctx, int service_id, service_valu
 
 	endpoint_v = map_lookup_endpoint(&endpoint_k);
 	if (!endpoint_v) {
-		BPF_LOG(ERR, SERVICE, "find endpoint failed");
+		BPF_LOG(WARN, SERVICE, "find endpoint failed");
 		return -ENOENT;
 	}
 
 	ret = endpoint_manager(ctx, endpoint_v);
 	if (ret != 0) {
-		BPF_LOG(ERR, SERVICE, "endpoint_manager failed, ret:%d\n", ret);
+		if (ret != -ENOENT)
+			BPF_LOG(ERR, SERVICE, "endpoint_manager failed, ret:%d\n", ret);
 		return ret;
 	}
 

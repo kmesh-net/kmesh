@@ -62,7 +62,7 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
 	#pragma unroll
 	for (unsigned int i = 0; i < backend_v->port_count; i++) {
 		if (i >= MAX_PORT_COUNT) {
-			BPF_LOG(ERR, BACKEND, "exceed the max port count\n");
+			BPF_LOG(WARN, BACKEND, "exceed the max port count\n");
 			return -EINVAL;
 		}
 
