@@ -20,6 +20,10 @@
 #define __ROUTE_BACKEND_H__
 
 #include "workload_common.h"
+#include "encoder.h"
+#include "tail_call.h"
+
+#define TAIL_CALL_CONNECT4_INDEX 0
 
 static inline backend_value *map_lookup_backend(const backend_key *key)
 {
@@ -28,7 +32,31 @@ static inline backend_value *map_lookup_backend(const backend_key *key)
 
 static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
 {
+	int ret;
 	address_t target_addr;
+	__u32 *sk = (__u32 *)ctx->sk;
+	struct bpf_sock_tuple value_tuple= {0};
+
+	if (backend_v->waypoint_addr != 0 && backend_v->waypoint_port != 0) {
+		BPF_LOG(DEBUG, BACKEND, "find waypoint addr=[%u:%u]\n", backend_v->waypoint_addr,
+			backend_v->waypoint_port);
+		value_tuple.ipv4.daddr = ctx->user_ip4;
+		value_tuple.ipv4.dport = ctx->user_port;
+
+		ret = bpf_map_update_elem(&map_of_dst_info, &sk, &value_tuple, BPF_NOEXIST);
+		if  (ret) {
+			BPF_LOG(ERR, BACKEND, "record metadata origin address and port failed, ret is %d\n", ret);
+			return ret;
+		}
+		target_addr.ipv4 = backend_v->waypoint_addr;
+		target_addr.port = backend_v->waypoint_port;
+		SET_CTX_ADDRESS(ctx, target_addr);
+		kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT4_INDEX);
+
+		// if tail call failed will run this code
+		BPF_LOG(ERR, BACKEND, "workload tail call failed, err is %d\n", ret);
+		return -ENOEXEC;
+	}
 
 	DECLARE_VAR_ADDRESS(ctx, address);
 	#pragma unroll
