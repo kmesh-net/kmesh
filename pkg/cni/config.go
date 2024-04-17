@@ -47,7 +47,7 @@ func (c *Config) AttachFlags(cmd *cobra.Command) {
 func (c *Config) ParseConfig() error {
 	var err error
 
-	if !bpf.GetConfig().EnableKmesh {
+	if !bpf.GetConfig().AdsEnabled() && !bpf.GetConfig().WdsEnabled() {
 		return nil
 	}
 
