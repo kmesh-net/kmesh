@@ -24,18 +24,29 @@
 #include "ctx/sock_addr.h"
 #include "frontend.h"
 
-static inline bool check_sock_enable_kmesh()
+static inline void record_netns_cookie(struct bpf_sock_addr *ctx)
 {
-	/* currently, namespace that use Kmesh are marked by using the
-	 * specified number in net_cls.classid of cgroupv1.
-	 * When the container is started, the CNI adds the corresponding
-	 * tag to the classid file of the container. eBPF obtains the tag
-	 * to determine whether to manage the container in Kmesh.
-	 */
-	__u64 classid = bpf_get_cgroup_classid(NULL);
-	if (classid != KMESH_CLASSID_MARK)
-		return false;
-	return true;
+	int err;
+	int value = 0;
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	err = bpf_map_update_elem(&map_of_manager, &cookie, &value, BPF_NOEXIST);
+	if (err)
+		BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
+}
+
+static inline void remove_netns_cookie(struct bpf_sock_addr *ctx)
+{
+	int err;
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	err = bpf_map_delete_elem(&map_of_manager, &cookie);
+	if (err && err != -ENOENT)
+		BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
+}
+
+static inline bool check_kmesh_enabled(struct bpf_sock_addr *ctx)
+{
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	return bpf_map_lookup_elem(&map_of_manager, &cookie);
 }
 
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
@@ -44,7 +55,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	frontend_value *frontend_v = NULL;
 	bool direct_backend = false;
 
-	if (!check_sock_enable_kmesh())
+	if (!check_kmesh_enabled(ctx))
 		return 0;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
@@ -55,7 +66,6 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 		address.service_port = 0;
 		frontend_v = map_lookup_frontend(&address);
 		if (!frontend_v) {
-			BPF_LOG(ERR, KMESH, "find frontend failed\n");
 			return -ENOENT;
 		}
 		direct_backend = true;
@@ -76,22 +86,51 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 		BPF_LOG(DEBUG, KMESH, "find pod frontend\n");
 		ret = backend_manager(ctx, backend_v);
 		if (ret < 0) {
-			BPF_LOG(ERR, KMESH, "backend_manager failed, ret:%d\n", ret);
+			if (ret != -ENOENT)
+				BPF_LOG(ERR, KMESH, "backend_manager failed, ret:%d\n", ret);
 			return ret;
 		}
 	} else {
 		ret = frontend_manager(ctx, frontend_v);
 		if (ret != 0) {
-			BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
+			if (ret != -ENOENT)
+				BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
 			return ret;
 		}
 	}
 	return 0;
 }
 
+static inline bool conn_from_cni_sim_add(struct bpf_sock_addr *ctx)
+{
+	// cni sim connect 0.0.0.0:929(0x3a1)
+	// 0x3a1 is the specific port handled by the cni for enable Kmesh
+	return ((bpf_ntohl(ctx->user_ip4) == 1) &&
+			(bpf_ntohl(ctx->user_port) == 0x3a10000));
+}
+
+static inline bool conn_from_cni_sim_delete(struct bpf_sock_addr *ctx)
+{
+	// cni sim connect 0.0.0.1:930(0x3a2)
+	// 0x3a2 is the specific port handled by the cni for disable Kmesh
+	return ((bpf_ntohl(ctx->user_ip4) == 1) &&
+			(bpf_ntohl(ctx->user_port) == 0x3a20000));
+}
+
+
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
+	if (conn_from_cni_sim_add(ctx)) {
+		record_netns_cookie(ctx);
+		// return failed, cni sim connect 0.0.0.1:929(0x3a1)
+		// A normal program will not connect to this IP address
+		return CGROUP_SOCK_OK;
+	}
+	if (conn_from_cni_sim_delete(ctx)) {
+		remove_netns_cookie(ctx);
+		return CGROUP_SOCK_OK;
+	}
 	int ret = sock4_traffic_control(ctx);
 	return CGROUP_SOCK_OK;
 }
