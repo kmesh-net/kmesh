@@ -38,6 +38,7 @@ import (
 	"github.com/vishvananda/netlink"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
 	"kmesh.net/kmesh/pkg/logger"
@@ -210,6 +211,12 @@ func enableKmeshControl(ns string) error {
 
 const KmeshRedirection = "kmesh.net/redirection"
 
+var annotationPatch = []byte(fmt.Sprintf(
+	`{"metadata":{"annotations":{"%s":"%s"}}}`,
+	KmeshRedirection,
+	"enabled",
+))
+
 func getPrevCniResult(conf *cniConf) (*cniv1.Result, error) {
 	var err error
 	if conf.RawPrevResult == nil {
@@ -258,6 +265,17 @@ func enableXdpAuth(ifname string) error {
 	return nil
 }
 
+func patchKmeshAnnotation(client kubernetes.Interface, pod *v1.Pod) error {
+	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(),
+		pod.Name,
+		k8stypes.MergePatchType,
+		annotationPatch,
+		metav1.PatchOptions{},
+	)
+	return err
+}
+
 // if cmdadd failed, then we cannot return failed, do nothing and print pre result
 func CmdAdd(args *skel.CmdArgs) error {
 	var err error
@@ -303,6 +321,10 @@ func CmdAdd(args *skel.CmdArgs) error {
 	if err := enableKmeshControl(args.Netns); err != nil {
 		log.Errorf("failed to enable kmesh control, err is %v\n", err)
 		return err
+	}
+
+	if err := patchKmeshAnnotation(client, pod); err != nil {
+		log.Errorf("failed to annotate kmesh redirection, err is %v\n", err)
 	}
 
 	enableXDPFunc := func(netns.NetNS) error {
