@@ -21,7 +21,6 @@ import (
 	"os"
 	"syscall"
 	"testing"
-	"time"
 
 	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -358,29 +357,6 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash2, actualHash2)
 		assert.Equal(t, []string{"new-ut-cluster2"}, svc.rqt.ResourceNames)
 		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
-	})
-
-	t.Run("cluster bpf write test", func(t *testing.T) {
-		result := testing.Benchmark(func(b *testing.B) {
-			start := time.Now()
-			for i := 0; i < b.N; i++ {
-				svc := NewServiceEvent()
-				cluster := createCluster()
-				svc.DynamicLoader.edsClusterNames = []string{"inbound|9080|http|reviews.default.svc.cluster.local"}
-				anyCluster, _ := anypb.New(cluster)
-				rsp := &service_discovery_v3.DiscoveryResponse{
-					Resources: []*anypb.Any{
-						anyCluster,
-					},
-				}
-				err := svc.handleCdsResponse(rsp)
-				assert.NoError(t, err)
-				assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
-			}
-			duration := time.Since(start)
-			b.ReportMetric(duration.Seconds(), "seconds")
-		})
-		t.Logf("write cluster map average time: %fms\n", float64(result.NsPerOp())/1e6)
 	})
 }
 
@@ -751,38 +727,6 @@ func TestHandleLdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-rds"}, svc.rqt.ResourceNames)
 	})
-
-	t.Run("listener map write test", func(t *testing.T) {
-		result := testing.Benchmark(func(b *testing.B) {
-			start := time.Now()
-			listener := createListener()
-			for i := 0; i < b.N; i++ {
-				adsLoader := NewAdsLoader()
-				adsLoader.routeNames = []string{
-					"ut-route-to-client",
-					"ut-route-to-service",
-				}
-				svc := NewServiceEvent()
-				svc.DynamicLoader = adsLoader
-				svc.LastNonce.rdsNonce = "utLdstoRds"
-				listener.Name = rand.String(6)
-				anyListener, err := anypb.New(listener)
-				assert.NoError(t, err)
-				rsp := &service_discovery_v3.DiscoveryResponse{
-					Resources: []*anypb.Any{
-						anyListener,
-					},
-				}
-				err = svc.handleLdsResponse(rsp)
-				assert.NoError(t, err)
-				apiMethod := svc.DynamicLoader.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
-				assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
-			}
-			duration := time.Since(start)
-			b.ReportMetric(duration.Seconds(), "seconds")
-		})
-		t.Logf("write listener map average time: %fms\n", float64(result.NsPerOp())/1e6)
-	})
 }
 
 func TestHandleRdsResponse(t *testing.T) {
@@ -939,4 +883,57 @@ func TestHandleRdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash2, actualHash2)
 		assert.Equal(t, []string{"ut-routeconfig1", "ut-routeconfig2"}, svc.ack.ResourceNames)
 	})
+}
+
+func BenchmarkClusterMapWrite(b *testing.B) {
+	t := &testing.T{}
+	initBpfMap(t)
+	t.Cleanup(cleanupBpfMap)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		svc := NewServiceEvent()
+		cluster := createCluster()
+		svc.DynamicLoader.edsClusterNames = []string{"inbound|9080|http|reviews.default.svc.cluster.local"}
+		anyCluster, _ := anypb.New(cluster)
+		rsp := &service_discovery_v3.DiscoveryResponse{
+			Resources: []*anypb.Any{
+				anyCluster,
+			},
+		}
+		err := svc.handleCdsResponse(rsp)
+		assert.NoError(t, err)
+		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
+	}
+}
+
+func BenchmarkListenerMapWrite(b *testing.B) {
+	t := &testing.T{}
+	initBpfMap(t)
+	t.Cleanup(cleanupBpfMap)
+
+	b.ResetTimer()
+	listener := createListener()
+	for i := 0; i < b.N; i++ {
+		adsLoader := NewAdsLoader()
+		adsLoader.routeNames = []string{
+			"ut-route-to-client",
+			"ut-route-to-service",
+		}
+		svc := NewServiceEvent()
+		svc.DynamicLoader = adsLoader
+		svc.LastNonce.rdsNonce = "utLdstoRds"
+		listener.Name = rand.String(6)
+		anyListener, err := anypb.New(listener)
+		assert.NoError(t, err)
+		rsp := &service_discovery_v3.DiscoveryResponse{
+			Resources: []*anypb.Any{
+				anyListener,
+			},
+		}
+		err = svc.handleLdsResponse(rsp)
+		assert.NoError(t, err)
+		apiMethod := svc.DynamicLoader.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
+		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
+	}
 }
