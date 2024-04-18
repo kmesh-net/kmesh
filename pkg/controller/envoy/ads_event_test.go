@@ -21,17 +21,27 @@ import (
 	"os"
 	"syscall"
 	"testing"
+	"time"
 
+	accesslogv3 "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	v31 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	config_listener_v3 "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	filters_network_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	tcp_proxyv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/structpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/util/protoconv"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
@@ -39,6 +49,109 @@ import (
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
+
+func createCluster() *config_cluster_v3.Cluster {
+	return &config_cluster_v3.Cluster{
+		Name: "inbound|9080|http|reviews.default.svc.cluster.local",
+		ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
+			Type: config_cluster_v3.Cluster_EDS,
+		},
+		ConnectTimeout: &duration.Duration{
+			Seconds: int64(1),
+		},
+		LoadAssignment: &v31.ClusterLoadAssignment{
+			ClusterName: "inbound|9080|http|reviews.default.svc.cluster.local",
+			Endpoints: []*v31.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*v31.LbEndpoint{
+						{
+							HostIdentifier: &v31.LbEndpoint_Endpoint{
+								Endpoint: &v31.Endpoint{
+									Address: &core_v3.Address{
+										Address: &core_v3.Address_SocketAddress{
+											SocketAddress: &core_v3.SocketAddress{
+												Address: "127.0.0.1",
+												PortSpecifier: &core_v3.SocketAddress_PortValue{
+													PortValue: uint32(9080),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		CircuitBreakers: &config_cluster_v3.CircuitBreakers{
+			Thresholds: []*config_cluster_v3.CircuitBreakers_Thresholds{
+				{
+					MaxConnections:     wrapperspb.UInt32(4294967295),
+					MaxPendingRequests: wrapperspb.UInt32(4294967295),
+					MaxRequests:        wrapperspb.UInt32(4294967295),
+					MaxRetries:         wrapperspb.UInt32(4294967295),
+				},
+			},
+		},
+	}
+}
+
+func createListener() *config_listener_v3.Listener {
+	return &config_listener_v3.Listener{
+		Name: "10.96.0.10_53",
+		Address: &core_v3.Address{
+			Address: &core_v3.Address_SocketAddress{
+				SocketAddress: &core_v3.SocketAddress{
+					Address: "10.96.0.10",
+					PortSpecifier: &core_v3.SocketAddress_PortValue{
+						PortValue: uint32(53),
+					},
+				},
+			},
+		},
+		FilterChains: []*config_listener_v3.FilterChain{
+			{
+				Filters: []*config_listener_v3.Filter{
+					{
+						Name: "istio.stats",
+						ConfigType: &config_listener_v3.Filter_TypedConfig{
+							TypedConfig: protoconv.MessageToAny(&tcp_proxyv3.TcpProxy{
+								StatPrefix: "outbound|53||kube-dns.kube-system.svc.cluster.local",
+								ClusterSpecifier: &tcp_proxyv3.TcpProxy_Cluster{
+									Cluster: "outbound|53||kube-dns.kube-system.svc.cluster.local",
+								},
+								AccessLog: []*accesslogv3.AccessLog{
+									{
+										Name: "envoy.access_loggers.file",
+										ConfigType: &accesslogv3.AccessLog_TypedConfig{
+											TypedConfig: protoconv.MessageToAny(&meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider{
+												Path: "/dev/stdout",
+												LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat{
+													LogFormat: &meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLogProvider_LogFormat_Labels{
+														Labels: &structpb.Struct{},
+													},
+												},
+											}),
+										},
+									},
+								},
+							}),
+						},
+					},
+				},
+			},
+		},
+		ListenerFiltersTimeout: &duration.Duration{
+			Seconds: int64(0),
+		},
+		ContinueOnListenerFiltersTimeout: true,
+		TrafficDirection:                 core_v3.TrafficDirection_OUTBOUND,
+		BindToPort: &wrapperspb.BoolValue{
+			Value: false,
+		},
+	}
+}
 
 func TestHandleCdsResponse(t *testing.T) {
 	initBpfMap(t)
@@ -245,6 +358,29 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash2, actualHash2)
 		assert.Equal(t, []string{"new-ut-cluster2"}, svc.rqt.ResourceNames)
 		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
+	})
+
+	t.Run("cluster bpf write test", func(t *testing.T) {
+		result := testing.Benchmark(func(b *testing.B) {
+			start := time.Now()
+			for i := 0; i < b.N; i++ {
+				svc := NewServiceEvent()
+				cluster := createCluster()
+				svc.DynamicLoader.edsClusterNames = []string{"inbound|9080|http|reviews.default.svc.cluster.local"}
+				anyCluster, _ := anypb.New(cluster)
+				rsp := &service_discovery_v3.DiscoveryResponse{
+					Resources: []*anypb.Any{
+						anyCluster,
+					},
+				}
+				err := svc.handleCdsResponse(rsp)
+				assert.NoError(t, err)
+				assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
+			}
+			duration := time.Since(start)
+			b.ReportMetric(duration.Seconds(), "seconds")
+		})
+		t.Logf("write cluster map average time: %fms\n", float64(result.NsPerOp())/1e6)
 	})
 }
 
@@ -614,6 +750,38 @@ func TestHandleLdsResponse(t *testing.T) {
 		actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-rds"}, svc.rqt.ResourceNames)
+	})
+
+	t.Run("listener map write test", func(t *testing.T) {
+		result := testing.Benchmark(func(b *testing.B) {
+			start := time.Now()
+			listener := createListener()
+			for i := 0; i < b.N; i++ {
+				adsLoader := NewAdsLoader()
+				adsLoader.routeNames = []string{
+					"ut-route-to-client",
+					"ut-route-to-service",
+				}
+				svc := NewServiceEvent()
+				svc.DynamicLoader = adsLoader
+				svc.LastNonce.rdsNonce = "utLdstoRds"
+				listener.Name = rand.String(6)
+				anyListener, err := anypb.New(listener)
+				assert.NoError(t, err)
+				rsp := &service_discovery_v3.DiscoveryResponse{
+					Resources: []*anypb.Any{
+						anyListener,
+					},
+				}
+				err = svc.handleLdsResponse(rsp)
+				assert.NoError(t, err)
+				apiMethod := svc.DynamicLoader.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
+				assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
+			}
+			duration := time.Since(start)
+			b.ReportMetric(duration.Seconds(), "seconds")
+		})
+		t.Logf("write listener map average time: %fms\n", float64(result.NsPerOp())/1e6)
 	})
 }
 
