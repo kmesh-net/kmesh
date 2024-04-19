@@ -343,7 +343,6 @@ func CmdAdd(args *skel.CmdArgs) error {
 
 	if err := netns.WithNetNSPath(string(args.Netns), enableXDPFunc); err != nil {
 		log.Error(err)
-		return err
 	}
 
 	return types.PrintResult(preResult, cniConf.CNIVersion)
