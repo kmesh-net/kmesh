@@ -69,6 +69,11 @@ spec:
              valueFrom:
                fieldRef:
                  fieldPath: metadata.namespace
+           - name: NODE_NAME
+             valueFrom:
+               fieldRef:
+                 apiVersion: v1
+                 fieldPath: spec.nodeName
            - name: INSTANCE_IP
              valueFrom:
                fieldRef:
@@ -114,3 +119,4 @@ spec:
                cpu: "1"
        priorityClassName: system-node-critical
        serviceAccountName: kmesh
+       hostPID: true
