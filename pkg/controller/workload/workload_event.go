@@ -310,7 +310,7 @@ func storeServiceCache(workload_uid string, serviceName string, portList *worklo
 	endpointCaches[workload_uid] = endpoint
 }
 
-func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, waypoint *workloadapi.GatewayAddress) error {
+func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, waypoint *workloadapi.GatewayAddress, serviceName string) error {
 	var (
 		err error
 		bk  = BackendKey{}
@@ -322,7 +322,7 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, 
 		if waypoint != nil {
 			addr := waypoint.GetAddress().Address
 			bv.WaypointAddr = nets.ConvertIpByteToUint32(addr)
-			bv.WaypointPort = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+			bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 		}
 
 		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
@@ -333,7 +333,11 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, 
 				break
 			}
 			bv.ServicePort[i] = nets.ConvertPortToBigEndian(portPair.ServicePort)
-			bv.TargetPort[i] = nets.ConvertPortToBigEndian(portPair.TargetPort)
+			if strings.Contains(serviceName, "waypoint") {
+				bv.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+			} else {
+				bv.TargetPort[i] = nets.ConvertPortToBigEndian(portPair.TargetPort)
+			}
 			if err = BackendUpdate(&bk, &bv); err != nil {
 				log.Errorf("Update backend map failed, err:%s", err)
 				return err
@@ -384,10 +388,10 @@ func handleDataWithService(workload *workloadapi.Workload) error {
 		}
 	}
 
-	for _, portList := range workload.GetServices() {
+	for serviceName, portList := range workload.GetServices() {
 		// store workload info in backend map, after service come, add the endpoint relationship
 		ips := workload.GetAddresses()
-		if err = storeBackendData(backend_uid, ips, portList, workload.GetWaypoint()); err != nil {
+		if err = storeBackendData(backend_uid, ips, portList, workload.GetWaypoint(), serviceName); err != nil {
 			log.Errorf("storeBackendData failed, err:%s", err)
 			return err
 		}
@@ -408,7 +412,7 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 		if waypoint := workload.GetWaypoint(); waypoint != nil {
 			addr := waypoint.GetAddress().Address
 			bv.WaypointAddr = nets.ConvertIpByteToUint32(addr)
-			bv.WaypointPort = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+			bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 		}
 
 		bk.BackendUid = uid
