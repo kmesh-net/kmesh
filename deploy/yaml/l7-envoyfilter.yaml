@@ -55,8 +55,8 @@ spec:
         name: envoy.filters.network.tcp_proxy
         typed_config:
           "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
-          stat_prefix: kmesh_connect_originate
-          cluster: kmesh_connect_originate
+          stat_prefix: kmesh_original_dst_cluster
+          cluster: kmesh_original_dst_cluster
 
 ---
 

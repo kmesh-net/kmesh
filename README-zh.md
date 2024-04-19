@@ -148,7 +148,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
     default   istio-waypoint   10.96.143.232   True         5m7s
     ```
 
-    在`default` gateway的annotations当中添加`sidecar.istio.io/proxyImage: ghcr.io/kmesh-net/waypoint:v0.3.0`。在gateway pod重启之后，kmesh就具备L7能力了！
+    在`default` gateway的annotations当中添加`sidecar.istio.io/proxyImage: ghcr.io/kmesh-net/waypoint-{arch}:v0.3.0`，将`{arch}`转换为所在宿主机的架构，当前可选的取值为`x86`和`arm`。在gateway pod重启之后，kmesh就具备L7能力了！
 
 ## Kmesh性能
 
