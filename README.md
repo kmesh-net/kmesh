@@ -147,8 +147,7 @@ Note: * Planning
     default   istio-waypoint   10.96.143.232   True         5m7s
     ```
 
-    Add annotation "sidecar.istio.io/proxyImage: ghcr.io/kmesh-net/waypoint:v0.3.0" to the `default` gateway. Then gateway pod will
-    restart. Now kmesh is L7 enabled!
+    Add annotation "sidecar.istio.io/proxyImage: ghcr.io/kmesh-net/waypoint-{arch}:v0.3.0" to the `default` gateway, convert `{arch}` to the architecture of the host, current optional values are `x86` and `arm`. Then gateway pod will restart. Now kmesh is L7 enabled!
 
 ## Kmesh Performance
 
