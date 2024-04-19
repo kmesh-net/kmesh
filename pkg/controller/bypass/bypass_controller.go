@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 The Kmesh Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package bypass
 
 import (
@@ -22,6 +38,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -51,7 +68,7 @@ func StartByPassController(client kubernetes.Interface) error {
 
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 
-	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			pod, ok := obj.(*corev1.Pod)
 			if !ok {
@@ -67,7 +84,10 @@ func StartByPassController(client kubernetes.Interface) error {
 			}
 
 			nspath, _ := getnspath(pod)
-			addIptables(nspath)
+			if err := addIptables(nspath); err != nil {
+				log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
+				return
+			}
 		},
 		DeleteFunc: func(obj interface{}) {
 			if _, ok := obj.(cache.DeletedFinalStateUnknown); ok {
@@ -90,9 +110,14 @@ func StartByPassController(client kubernetes.Interface) error {
 			}
 			log.Infof("%s/%s: DELETED", pod.GetNamespace(), pod.GetName())
 			nspath, _ := getnspath(pod)
-			deleteIptables(nspath)
+			if err := deleteIptables(nspath); err != nil {
+				log.Errorf("failed to delete iptables rules for %s: %v", nspath, err)
+				return
+			}
 		},
-	})
+	}); err != nil {
+		return fmt.Errorf("error adding event handler to podInformer: %v", err)
+	}
 
 	go podInformer.Run(stopChan)
 
@@ -119,7 +144,7 @@ func addIptables(ns string) error {
 		return nil
 	}
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		return fmt.Errorf("enter ns path: %v, run command failed: %v", ns, err)
+		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
 	}
 	return nil
 }
@@ -143,7 +168,7 @@ func deleteIptables(ns string) error {
 	}
 
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		return fmt.Errorf("enter ns path: %v, run command failed: %v", ns, err)
+		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
 	}
 	return nil
 }
@@ -154,8 +179,7 @@ func checkSidecar(client kubernetes.Interface, pod *corev1.Pod) (bool, error) {
 		return false, err
 	}
 
-	injectLabel := namespace.Labels["istio-injection"]
-	if injectLabel == "enabled" {
+	if value, ok := namespace.Labels["istio-injection"]; ok && value == "enable" {
 		return true, nil
 	}
 
