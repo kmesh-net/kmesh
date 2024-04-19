@@ -49,18 +49,63 @@ static inline bool check_kmesh_enabled(struct bpf_sock_addr *ctx)
 	return bpf_map_lookup_elem(&map_of_manager, &cookie);
 }
 
+static inline bool check_bypass_enabled(struct bpf_sock_addr *ctx)
+{
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	return bpf_map_lookup_elem(&map_of_bypass, &cookie);
+}
+
+static inline void record_bypass_netns_cookie(struct bpf_sock_addr *ctx)
+{
+	BPF_LOG(INFO, KMESH, "record_bypass_netns_cookie");
+	int err;
+	int value = 0;
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	err = bpf_map_update_elem(&map_of_bypass, &cookie, &value, BPF_NOEXIST);
+	if (err)
+		BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
+}
+
+static inline void remove_bypass_netns_cookie(struct bpf_sock_addr *ctx)
+{
+	int err;
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	err = bpf_map_delete_elem(&map_of_bypass, &cookie);
+	if (err && err != -ENOENT)
+		BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
+}
+
+static inline bool conn_from_bypass_sim_add(struct bpf_sock_addr *ctx)
+{
+	// daemon sim connect 0.0.0.0:931(0x3a3)
+	// 0x3a3 is the specific port handled by the daemon for enable Kmesh
+	return ((bpf_ntohl(ctx->user_ip4) == 1) &&
+			(bpf_ntohl(ctx->user_port) == 0x3a30000));
+}
+
+static inline bool conn_from_bypass_sim_delete(struct bpf_sock_addr *ctx)
+{
+	// daemon sim connect 0.0.0.1:932(0x3a4)
+	// 0x3a4 is the specific port handled by the daemon for disable Kmesh
+	return ((bpf_ntohl(ctx->user_ip4) == 1) &&
+			(bpf_ntohl(ctx->user_port) == 0x3a40000));
+}
+
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
 	int ret;
 	frontend_value *frontend_v = NULL;
 	bool direct_backend = false;
 
+	if (check_bypass_enabled(ctx)) 
+		return 0;
+
 	if (!check_kmesh_enabled(ctx))
 		return 0;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
 
-	BPF_LOG(DEBUG, KMESH, "origin addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
+	BPF_LOG(INFO, KMESH, "origin addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
 	frontend_v = map_lookup_frontend(&address);
 	if (!frontend_v) {
 		address.service_port = 0;
@@ -131,11 +176,17 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 		remove_netns_cookie(ctx);
 		return CGROUP_SOCK_OK;
 	}
+	if (conn_from_bypass_sim_add(ctx)) {
+		record_bypass_netns_cookie(ctx);
+		return CGROUP_SOCK_OK;
+	}
+	if (conn_from_bypass_sim_delete(ctx)) {
+		remove_bypass_netns_cookie(ctx);
+		return CGROUP_SOCK_OK;
+	}
 	int ret = sock4_traffic_control(ctx);
 	return CGROUP_SOCK_OK;
 }
 
 char _license[] SEC("license") = "GPL";
 int _version SEC("version") = 1;
-
-

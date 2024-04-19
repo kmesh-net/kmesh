@@ -130,5 +130,13 @@ struct {
 	__uint(max_entries, MAP_SIZE_OF_MANAGER);
 	__uint(map_flags, 0);
 } map_of_manager SEC(".maps");
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u64);
+	__type(value, __u32);
+	__uint(max_entries, MAP_SIZE_OF_MANAGER);
+	__uint(map_flags, 0);
+} map_of_bypass SEC(".maps");
 #endif
 

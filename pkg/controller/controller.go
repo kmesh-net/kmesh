@@ -34,12 +34,6 @@ var (
 )
 
 func Start() error {
-	if !bpfConfig.AdsEnabled() && !bpfConfig.WdsEnabled() {
-		return fmt.Errorf("controller start failed")
-	}
-
-	client = NewXdsClient()
-
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		panic(err)
@@ -49,6 +43,12 @@ func Start() error {
 	if err != nil {
 		return fmt.Errorf("failed to start bypass controller: %v", err)
 	}
+
+	if !bpfConfig.AdsEnabled() && !bpfConfig.WdsEnabled() {
+		return fmt.Errorf("controller start failed")
+	}
+
+	client = NewXdsClient()
 
 	return client.Run(stopCh)
 }
