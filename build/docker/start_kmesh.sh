@@ -3,7 +3,8 @@
 # docker image compile online, if not compile online, the following lines also have no effect 
 
 lsmod | grep kmesh > /dev/null
-if [ $? -ne 0 ]; then
+if [ $? -ne 0 ] && [ -f kmesh.ko ]; then
+	cp kmesh.ko /lib/modules/$(uname -r)
         depmod -a
         modprobe kmesh
 fi
@@ -15,6 +16,14 @@ if [ $? -ne 0 ]; then
         if [ $? -ne 0 ]; then
                 echo "mount cgroup2 failed"
         fi
+fi
+
+mount | grep "type bpf"
+if [ $? -ne 0 ]; then
+	mount -t bpf none /sys/fs/bpf
+	if [ $? -ne 0 ]; then
+		echo "mount bpf failed"
+	fi
 fi
 
 kmesh-daemon $@ &

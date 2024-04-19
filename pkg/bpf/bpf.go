@@ -89,11 +89,11 @@ func Start() error {
 		return err
 	}
 
-	if config.EnableKmesh {
+	if config.AdsEnabled() {
 		if err = StartKmesh(); err != nil {
 			return err
 		}
-	} else if config.EnableKmeshWorkload {
+	} else if config.WdsEnabled() {
 		if err = StartKmeshWorkload(); err != nil {
 			return err
 		}
@@ -123,12 +123,12 @@ func StopMda() error {
 func Stop() {
 	var err error
 
-	if config.EnableKmesh {
+	if config.AdsEnabled() {
 		if err = Obj.Kmesh.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
-	} else if config.EnableKmeshWorkload {
+	} else if config.WdsEnabled() {
 		if err = ObjWorkload.KmeshWorkload.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return

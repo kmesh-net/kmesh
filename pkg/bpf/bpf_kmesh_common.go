@@ -118,6 +118,7 @@ func (sc *BpfSockConn) LoadSockConn() error {
 	/* load kmesh sockops main bpf prog */
 	spec, err := sc.loadKmeshSockConnObjects()
 	if err != nil {
+		log.Errorf("loadKmeshSockConnObjects failed: %v", err)
 		return err
 	}
 

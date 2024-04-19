@@ -22,6 +22,7 @@ import (
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -58,7 +59,7 @@ func (ws *WorkloadStream) WorklaodStreamCreateAndSend(client service_discovery_v
 	return nil
 }
 
-func (ws *WorkloadStream) WorkloadStreamProcess() error {
+func (ws *WorkloadStream) WorkloadStreamProcess(rbac *auth.Rbac) error {
 	var (
 		err      error
 		rspDelta *service_discovery_v3.DeltaDiscoveryResponse
@@ -68,7 +69,7 @@ func (ws *WorkloadStream) WorkloadStreamProcess() error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	ws.Event.processWorkloadResponse(rspDelta)
+	ws.Event.processWorkloadResponse(rspDelta, rbac)
 
 	if err = ws.Stream.Send(ws.Event.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)

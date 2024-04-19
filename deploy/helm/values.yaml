@@ -2,13 +2,13 @@ deploy:
   kmesh:
     env:
       bpfLogSize: "12800"
-      meshController: istiod.istio-system.svc:15012
+      xdsAddress: istiod.istio-system.svc:15012
     image:
       repository: ghcr.io/kmesh-net/kmesh
       tag: latest
     imagePullPolicy: IfNotPresent
     containers:
-      kmeshDaemonArgs: "-mode=ads"
+      kmeshDaemonArgs: "--mode=workload"
     resources:
       limits:
         cpu: "1"

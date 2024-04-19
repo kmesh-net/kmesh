@@ -27,6 +27,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -176,6 +177,7 @@ func TestAdsStream_AdsStreamProcess(t *testing.T) {
 						}
 						anyCluster, _ := anypb.New(cluster)
 						return &discoveryv3.DiscoveryResponse{
+							TypeUrl: resource_v3.ClusterType,
 							Resources: []*anypb.Any{
 								anyCluster,
 							},
@@ -203,6 +205,7 @@ func TestAdsStream_AdsStreamProcess(t *testing.T) {
 						}
 						anyCluster, _ := anypb.New(cluster)
 						return &discoveryv3.DiscoveryResponse{
+							TypeUrl: resource_v3.ClusterType,
 							Resources: []*anypb.Any{
 								anyCluster,
 							},

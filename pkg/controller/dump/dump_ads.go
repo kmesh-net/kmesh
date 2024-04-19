@@ -31,15 +31,12 @@ import (
 )
 
 const (
-	adminAddr   = "localhost:15200"
-	adminUrl    = "http://" + adminAddr
-	contentType = "application/json"
+	adminAddr = "localhost:15200"
 
-	patternHelp                 = "/help"
-	patternOptions              = "/options"
-	patternBpfKmeshMaps         = "/bpf/kmesh/maps"
-	patternControllerEnvoy      = "/controller/envoy"
-	patternControllerKubernetes = "/controller/kubernetes"
+	patternHelp            = "/help"
+	patternOptions         = "/options"
+	patternBpfKmeshMaps    = "/bpf/kmesh/maps"
+	patternControllerEnvoy = "/controller/envoy"
 
 	httpTimeout = time.Second * 20
 )
@@ -64,7 +61,6 @@ func newHttpServer() *httpServer {
 	s.mux.HandleFunc(patternOptions, httpOptions)
 	s.mux.HandleFunc(patternBpfKmeshMaps, httpBpfKmeshMaps)
 	s.mux.HandleFunc(patternControllerEnvoy, httpControllerEnvoy)
-	s.mux.HandleFunc(patternControllerKubernetes, httpControllerKubernetes)
 
 	return s
 }
@@ -80,8 +76,6 @@ func httpHelp(w http.ResponseWriter, r *http.Request) {
 		"print bpf kmesh maps in kernel")
 	fmt.Fprintf(w, "\t%s: %s\n", patternControllerEnvoy,
 		"print control-plane in envoy cache")
-	fmt.Fprintf(w, "\t%s: %s\n", patternControllerKubernetes,
-		"print control-plane in kubernetes cache")
 }
 
 func httpOptions(w http.ResponseWriter, r *http.Request) {
@@ -140,13 +134,6 @@ func httpControllerEnvoy(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{
 		DynamicResources: dynamicRes,
 	}))
-}
-
-func httpControllerKubernetes(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusNotImplemented)
-
-	fmt.Fprintf(w, "%s: %s\n", patternControllerKubernetes,
-		"TODO")
 }
 
 var cmdServer = newHttpServer()

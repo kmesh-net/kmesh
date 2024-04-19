@@ -12,17 +12,15 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Author: bitcoffee
- * Create: 2023-11-19
  */
 
 package cni
 
 import (
-	"flag"
 	"os"
 	"path/filepath"
+
+	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/options"
@@ -35,23 +33,21 @@ func init() {
 }
 
 type Config struct {
-	CniMountNetEtcDIR string `json:"-cni-etc-path"`
-	CniConfigName     string `json:"-cni-config-name"`
-	CniConfigChained  bool   `json:"-cni-config-chained"`
+	CniMountNetEtcDIR string
+	CniConfigName     string
+	CniConfigChained  bool
 }
 
-func (c *Config) SetArgs() error {
-	flag.StringVar(&c.CniMountNetEtcDIR, "cni-etc-path", "/etc/cni/net.d", "cni etc path")
-	flag.StringVar(&c.CniConfigName, "conflist-name", "", "cni conflist name")
-
-	flag.BoolVar(&c.CniConfigChained, "plugin-cni-chained", true, "kmesh cni plugins chained to anthor cni")
-	return nil
+func (c *Config) AttachFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().StringVar(&c.CniMountNetEtcDIR, "cni-etc-path", "/etc/cni/net.d", "cni etc path")
+	cmd.PersistentFlags().StringVar(&c.CniConfigName, "conflist-name", "", "cni conflist name")
+	cmd.PersistentFlags().BoolVar(&c.CniConfigChained, "plugin-cni-chained", true, "kmesh cni plugins chained to anthor cni")
 }
 
 func (c *Config) ParseConfig() error {
 	var err error
 
-	if !bpf.GetConfig().EnableKmesh {
+	if !bpf.GetConfig().AdsEnabled() && !bpf.GetConfig().WdsEnabled() {
 		return nil
 	}
 

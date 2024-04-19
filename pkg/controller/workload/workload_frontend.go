@@ -22,13 +22,15 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 )
 
+// Generally, frontend_key store Service ip and port, for app access Service,
+// Specifically, for app access Pod directly: FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
 type FrontendKey struct {
-	IPv4 uint32 // service vip
-	Port uint32 // service port
+	IPv4 uint32 // Service ip or Pod ip
+	Port uint32 // actual port for Service or 0 for Pod
 }
 
 type FrontendValue struct {
-	ServiceId uint32 // service id
+	ServiceId uint32 // service id for Service or backend uid for Pod
 }
 
 func FrontendUpdate(key *FrontendKey, value *FrontendValue) error {

@@ -43,7 +43,7 @@ func (as *AdsStream) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 		return fmt.Errorf("StreamAggregatedResources failed, %s", err)
 	}
 
-	if err := as.Stream.Send(newAdsRequest(resource_v3.ClusterType, nil)); err != nil {
+	if err := as.Stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
 

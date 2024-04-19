@@ -34,7 +34,7 @@ var (
 )
 
 func Start() error {
-	if !bpfConfig.EnableKmesh && !bpfConfig.EnableKmeshWorkload {
+	if !bpfConfig.AdsEnabled() && !bpfConfig.WdsEnabled() {
 		return fmt.Errorf("controller start failed")
 	}
 
