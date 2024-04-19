@@ -30,20 +30,39 @@
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_HTTP
 
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__type(key, __u64);
+	__type(value, __u32);
+	__uint(max_entries, MAP_SIZE_OF_MANAGER);
+	__uint(map_flags, 0);
+} map_of_manager SEC(".maps");
+
 static const char kmesh_module_name[] = "kmesh_defer";
 
-static inline bool check_sock_enable_kmesh()
+static inline void record_netns_cookie(struct bpf_sock_addr *ctx)
 {
-	/* currently, namespace that use Kmesh are marked by using the
-	 * specified number in net_cls.classid of cgroupv1.
-	 * When the container is started, the CNI adds the corresponding
-	 * tag to the classid file of the container. eBPF obtains the tag
-	 * to determine whether to manage the container in Kmesh.
-	 */
-	__u64 classid = bpf_get_cgroup_classid(NULL);
-	if (classid != KMESH_CLASSID_MARK)
-		return false;
-	return true;
+	int err;
+	int value = 0;
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	err = bpf_map_update_elem(&map_of_manager, &cookie, &value, BPF_NOEXIST);
+	if (err)
+		BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
+}
+
+static inline void remove_netns_cookie(struct bpf_sock_addr *ctx)
+{
+	int err;
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	err = bpf_map_delete_elem(&map_of_manager, &cookie);
+	if (err && err != -ENOENT)
+		BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
+}
+
+static inline bool check_kmesh_enabled(struct bpf_sock_addr *ctx)
+{
+	__u64 cookie = bpf_get_netns_cookie(ctx);
+	return bpf_map_lookup_elem(&map_of_manager, &cookie);
 }
 
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
@@ -52,7 +71,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
 	Listener__Listener *listener = NULL;
 
-	if (!check_sock_enable_kmesh())
+	if (!check_kmesh_enabled(ctx))
 		return 0;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
@@ -83,9 +102,35 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	return 0;
 }
 
+static inline bool conn_from_cni_sim_add(struct bpf_sock_addr *ctx)
+{
+	// cni sim connect 0.0.0.0:929(0x3a1)
+	// 0x3a1 is the specific port handled by the cni for enable Kmesh
+	return ((bpf_ntohl(ctx->user_ip4) == 1) &&
+			(bpf_ntohl(ctx->user_port) == 0x3a10000));
+}
+
+static inline bool conn_from_cni_sim_delete(struct bpf_sock_addr *ctx)
+{
+	// cni sim connect 0.0.0.1:930(0x3a2)
+	// 0x3a2 is the specific port handled by the cni for disable Kmesh
+	return ((bpf_ntohl(ctx->user_ip4) == 1) &&
+			(bpf_ntohl(ctx->user_port) == 0x3a20000));
+}
+
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
+	if (conn_from_cni_sim_add(ctx)) {
+		record_netns_cookie(ctx);
+		// return failed, cni sim connect 0.0.0.1:929(0x3a1)
+		// A normal program will not connect to this IP address
+		return CGROUP_SOCK_OK;
+	}
+	if (conn_from_cni_sim_delete(ctx)) {
+		remove_netns_cookie(ctx);
+		return CGROUP_SOCK_OK;
+	}
 	int ret = sock4_traffic_control(ctx);
 	return CGROUP_SOCK_OK;
 }
