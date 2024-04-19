@@ -17,9 +17,6 @@
 package envoy
 
 import (
-	"fmt"
-	"os"
-	"syscall"
 	"testing"
 
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -35,14 +32,14 @@ import (
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
-	"kmesh.net/kmesh/pkg/bpf"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	"kmesh.net/kmesh/pkg/utils/hash"
+	"kmesh.net/kmesh/pkg/utils/test"
 )
 
 func TestHandleCdsResponse(t *testing.T) {
-	initBpfMap(t)
-	t.Cleanup(cleanupBpfMap)
+	test.InitBpfMap(t)
+	t.Cleanup(test.CleanupBpfMap)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
 		svc := NewServiceEvent()
 		svc.LastNonce.edsNonce = "utkmesh"
@@ -249,8 +246,8 @@ func TestHandleCdsResponse(t *testing.T) {
 }
 
 func TestHandleEdsResponse(t *testing.T) {
-	initBpfMap(t)
-	t.Cleanup(cleanupBpfMap)
+	test.InitBpfMap(t)
+	t.Cleanup(test.CleanupBpfMap)
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
 		svc := NewServiceEvent()
 		adsLoader := NewAdsLoader()
@@ -404,50 +401,9 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 }
 
-func initBpfMap(t *testing.T) {
-	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
-	if err != nil {
-		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
-	}
-	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
-	if err != nil {
-		cleanupBpfMap()
-		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
-	}
-	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
-	if err != nil {
-		cleanupBpfMap()
-		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
-	}
-	config := bpf.GetConfig()
-	config.BpfFsPath = "/sys/fs/bpf"
-	config.Cgroup2Path = "/mnt/kmesh_cgroup2"
-	err = bpf.StartKmesh()
-	if err != nil {
-		cleanupBpfMap()
-		t.Fatalf("bpf init failed: %v", err)
-	}
-}
-
-func cleanupBpfMap() {
-	bpf.Stop()
-	err := syscall.Unmount("/mnt/kmesh_cgroup2", 0)
-	if err != nil {
-		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
-	}
-	err = syscall.Unmount("/sys/fs/bpf", 0)
-	if err != nil {
-		fmt.Println("unmount /sys/fs/bpf error: ", err)
-	}
-	err = os.RemoveAll("/mnt/kmesh_cgroup2")
-	if err != nil {
-		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
-	}
-}
-
 func TestHandleLdsResponse(t *testing.T) {
-	initBpfMap(t)
-	t.Cleanup(cleanupBpfMap)
+	test.InitBpfMap(t)
+	t.Cleanup(test.CleanupBpfMap)
 	t.Run("normal function test", func(t *testing.T) {
 		adsLoader := NewAdsLoader()
 		adsLoader.routeNames = []string{
@@ -618,8 +574,8 @@ func TestHandleLdsResponse(t *testing.T) {
 }
 
 func TestHandleRdsResponse(t *testing.T) {
-	initBpfMap(t)
-	t.Cleanup(cleanupBpfMap)
+	test.InitBpfMap(t)
+	t.Cleanup(test.CleanupBpfMap)
 	t.Run("normal function test", func(t *testing.T) {
 		svc := NewServiceEvent()
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
