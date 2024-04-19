@@ -179,7 +179,7 @@ func checkSidecar(client kubernetes.Interface, pod *corev1.Pod) (bool, error) {
 		return false, err
 	}
 
-	if value, ok := namespace.Labels["istio-injection"]; ok && value == "enable" {
+	if value, ok := namespace.Labels["istio-injection"]; ok && value == "enabled" {
 		return true, nil
 	}
 
