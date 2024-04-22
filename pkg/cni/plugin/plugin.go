@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Author: bitcoffee
- * Create: 2023-11-19
  */
 
 package plugin
@@ -28,27 +25,25 @@ import (
 	"strings"
 	"syscall"
 
-	netns "github.com/containernetworking/plugins/pkg/ns"
-
 	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
+	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
 var (
-	log               = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
-	ENABLE_KMESH_MARK = "0x1000"
-	XDP_PROG_NAME     = "xdp_shutdown"
+	log = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
 )
 
 // Config is whatever you expect your configuration json to be. This is whatever
@@ -256,7 +251,7 @@ func enableXdpAuth(ifname string) error {
 		link netlink.Link
 	)
 
-	if xdp, err = utils.GetProgramByName(XDP_PROG_NAME); err != nil {
+	if xdp, err = utils.GetProgramByName(constants.XDP_PROG_NAME); err != nil {
 		return err
 	}
 
