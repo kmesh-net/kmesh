@@ -17,5 +17,8 @@
 package constants
 
 const (
+	AdsMode      = "ads"
+	WorkloadMode = "workload"
+
 	XDP_PROG_NAME = "xdp_shutdown"
 )

@@ -46,7 +46,7 @@ var (
 	log = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
 )
 
-// Config is whatever you expect your configuration json to be. This is whatever
+// cniConf is whatever you expect your configuration json to be. This is whatever
 // is passed in on stdin. Your plugin may wish to expose its functionality via
 // runtime args, see CONVENTIONS.md in the CNI spec.
 type cniConf struct {
@@ -54,13 +54,12 @@ type cniConf struct {
 
 	// Add plugin-specific flags here
 	KubeConfig string `json:"kubeconfig,omitempty"`
+	Mode       string `json:"mode,omitempty"`
 }
 
-/*
- * K8sArgs parameter is used to transfer the k8s information transferred
- * when the cni plugin is invoked.
- * The field names need to match exact keys in kubelet args for unmarshalling
- */
+// K8sArgs parameter is used to transfer the k8s information transferred
+// when the cni plugin is invoked.
+// The field names need to match exact keys in kubelet args for unmarshalling
 type k8sArgs struct {
 	types.CommonArgs
 	K8S_POD_NAME      types.UnmarshallableString
@@ -320,24 +319,27 @@ func CmdAdd(args *skel.CmdArgs) error {
 	}
 
 	if err := enableKmeshControl(args.Netns); err != nil {
-		log.Errorf("failed to enable kmesh control, err is %v\n", err)
+		log.Errorf("failed to enable kmesh control, err is %v", err)
 		return err
 	}
 
 	if err := patchKmeshAnnotation(client, pod); err != nil {
-		log.Errorf("failed to annotate kmesh redirection, err is %v\n", err)
+		log.Errorf("failed to annotate kmesh redirection, err is %v", err)
 	}
 
-	enableXDPFunc := func(netns.NetNS) error {
-		if err := enableXdpAuth(args.IfName); err != nil {
-			err = fmt.Errorf("failed to set xdp to dev %v, err is %v", args.IfName, err)
+	if cniConf.Mode == constants.WorkloadMode {
+		enableXDPFunc := func(netns.NetNS) error {
+			if err := enableXdpAuth(args.IfName); err != nil {
+				err = fmt.Errorf("failed to set xdp to dev %v, err is %v", args.IfName, err)
+				return err
+			}
+			return nil
+		}
+
+		if err := netns.WithNetNSPath(string(args.Netns), enableXDPFunc); err != nil {
+			log.Error(err)
 			return err
 		}
-		return nil
-	}
-
-	if err := netns.WithNetNSPath(string(args.Netns), enableXDPFunc); err != nil {
-		log.Error(err)
 	}
 
 	return types.PrintResult(preResult, cniConf.CNIVersion)
@@ -349,8 +351,9 @@ func CmdCheck(args *skel.CmdArgs) (err error) {
 
 func CmdDelete(args *skel.CmdArgs) error {
 	// clean
-	err := disableKmeshControl(args.Netns)
-	log.Errorf("failed to disable Kmesh control, err: %v\n", err)
+	if err := disableKmeshControl(args.Netns); err != nil {
+		log.Errorf("failed to disable Kmesh control, err: %v", err)
+	}
 
 	// cmd delete must be return nil
 	return nil
