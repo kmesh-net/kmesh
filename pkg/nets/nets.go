@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2021-12-07
  */
 
 // Package nets : net connection provider
@@ -28,10 +25,17 @@ import (
 // ConvertIpToUint32 converts ip to little-endian uint32 format
 func ConvertIpToUint32(ip string) uint32 {
 	netIP := net.ParseIP(ip) // BigEndian
+	if netIP == nil {
+		return 0
+	}
+	// TODO: is this right?
 	if len(netIP) == net.IPv6len {
 		return binary.LittleEndian.Uint32(netIP.To4())
 	}
-	return binary.LittleEndian.Uint32(netIP)
+	if len(netIP) == net.IPv4len {
+		return binary.LittleEndian.Uint32(netIP)
+	}
+	return 0
 }
 
 // ConvertUint32ToIp converts big-endian uint32 to ip format
