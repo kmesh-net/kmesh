@@ -106,7 +106,8 @@ func newApiClusterLoadAssignment(
 			apiEndpoint := &endpoint_v2.Endpoint{
 				Address: newApiSocketAddress(endpoint.GetEndpoint().GetAddress()),
 			}
-			if apiEndpoint.GetAddress() == nil {
+			if apiEndpoint.GetAddress() == nil || apiEndpoint.Address.Ipv4 == 0 {
+				log.Warnf("cluster %s endpoint address %v is nil or invalid", loadAssignment.GetClusterName(), endpoint.GetEndpoint().GetAddress())
 				continue
 			}
 			apiLocalityLb.LbEndpoints = append(apiLocalityLb.LbEndpoints, apiEndpoint)
