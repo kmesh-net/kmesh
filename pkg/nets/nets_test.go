@@ -25,7 +25,7 @@ import (
 func Test_ConvertIpToUint32(t *testing.T) {
 	ip := "192.168.0.1"
 	val := ConvertIpToUint32(ip)
-	assert.Equal(t, 0x100a8c0, val)
+	assert.Equal(t, uint32(0x100a8c0), val)
 
 	// It can not panic even for invalid ip
 	val = ConvertIpToUint32("a.b.c.d")
