@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 type BpfSockConnWorkload struct {
@@ -459,7 +460,7 @@ func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
 		return err
 	}
 
-	prog := spec.Programs["xdp_shutdown"]
+	prog := spec.Programs[constants.XDP_PROG_NAME]
 	xa.Info.Type = prog.Type
 	xa.Info.AttachType = prog.AttachType
 

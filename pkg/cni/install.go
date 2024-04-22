@@ -26,13 +26,13 @@ import (
 
 var log = logger.NewLoggerField("cni installer")
 
-func addCniConfig() error {
+func addCniConfig(mode string) error {
 	var err error
 	if config.CniConfigChained {
 		// "chained" is an cni type
 		// information: www.cni.dev/docs/spec/#overview-1
 		log.Infof("kmesh cni use chained\n")
-		err = chainedKmeshCniPlugin()
+		err = chainedKmeshCniPlugin(mode)
 		if err != nil {
 			return err
 		}
@@ -52,7 +52,7 @@ func removeCniConfig() error {
 func Start() error {
 	if bpf.GetConfig().AdsEnabled() || bpf.GetConfig().WdsEnabled() {
 		log.Info("start write CNI config\n")
-		return addCniConfig()
+		return addCniConfig(bpf.GetConfig().Mode)
 	}
 	return nil
 }

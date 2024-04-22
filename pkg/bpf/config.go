@@ -23,12 +23,8 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/options"
-)
-
-const (
-	AdsMode      = "ads"
-	WorkloadMode = "workload"
 )
 
 var (
@@ -87,9 +83,9 @@ func GetConfig() *Config {
 }
 
 func (c *Config) AdsEnabled() bool {
-	return c.Mode == AdsMode
+	return c.Mode == constants.AdsMode
 }
 
 func (c *Config) WdsEnabled() bool {
-	return c.Mode == WorkloadMode
+	return c.Mode == constants.WorkloadMode
 }

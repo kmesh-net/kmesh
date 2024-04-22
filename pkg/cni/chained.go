@@ -26,9 +26,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	"kmesh.net/kmesh/pkg/utils"
-
 	"github.com/containernetworking/cni/libcni"
+
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 const (
@@ -89,7 +89,7 @@ func getCniConfigPath() (string, error) {
 	return confFile, nil
 }
 
-func insertCNIConfig(oldconfig []byte) ([]byte, error) {
+func insertCNIConfig(oldconfig []byte, mode string) ([]byte, error) {
 	var cniConfigMap map[string]interface{}
 	err := json.Unmarshal(oldconfig, &cniConfigMap)
 	if err != nil {
@@ -124,6 +124,7 @@ func insertCNIConfig(oldconfig []byte) ([]byte, error) {
 	// add kmesh-cni configuration
 	kmeshConfig["type"] = kmeshCniPluginName
 	kmeshConfig["kubeConfig"] = kubeconfigFilepath
+	kmeshConfig["mode"] = mode // provide mode here, so that kmesh-cni can decide how to run
 	if kmeshIndex >= 0 {
 		plugins[kmeshIndex] = kmeshConfig
 		cniConfigMap["plugins"] = plugins
@@ -187,7 +188,7 @@ func deleteCNIConfig(oldconfig []byte) ([]byte, error) {
 	return byte, nil
 }
 
-func chainedKmeshCniPlugin() error {
+func chainedKmeshCniPlugin(mode string) error {
 	// Install binaries
 	// Currently we _always_ do this, since the binaries do not live in a shared location
 	// and we harm no one by doing so.
@@ -221,7 +222,7 @@ func chainedKmeshCniPlugin() error {
 		return err
 	}
 
-	newCNIConfig, err := insertCNIConfig(existCNIConfig)
+	newCNIConfig, err := insertCNIConfig(existCNIConfig, mode)
 	if err != nil {
 		log.Error("failed to assemble cni config")
 		return err

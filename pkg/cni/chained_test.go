@@ -298,7 +298,7 @@ func TestInsertCNIConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
-			_, err := insertCNIConfig(tt.utconfig)
+			_, err := insertCNIConfig(tt.utconfig, "workload")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("insertCNIConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
