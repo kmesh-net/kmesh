@@ -57,9 +57,6 @@ spec:
         image: {{ .Values.deploy.kmesh.image.repository }}:{{ .Values.deploy.kmesh.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.deploy.kmesh.imagePullPolicy }}
         name: kmesh
-        ports:
-        - containerPort: 6789
-          hostPort: 6789
         resources: {{- toYaml .Values.deploy.kmesh.resources | nindent 10 }}
         securityContext:
           privileged: true
