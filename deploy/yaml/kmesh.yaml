@@ -57,9 +57,6 @@ spec:
              privileged: true
              capabilities:
                add: ["all"]
-           ports:
-           - containerPort: 6789
-             hostPort: 6789
            env:
            - name: POD_NAME
              valueFrom:
