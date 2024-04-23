@@ -23,11 +23,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
 	"istio.io/istio/pkg/slices"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/api/v2/filter"
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
+	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils/hash"
+	"kmesh.net/kmesh/pkg/utils/test"
 )
 
 func TestListenerFlush(t *testing.T) {
@@ -179,4 +183,111 @@ func TestListenerFlush(t *testing.T) {
 		assert.Equal(t, []*core_v2.SocketAddress{}, updateListenerAddress)
 		assert.Equal(t, []*core_v2.SocketAddress{}, deleteListenerAddress)
 	})
+}
+
+func BenchmarkFlush(b *testing.B) {
+	t := &testing.T{}
+	test.InitBpfMap(t)
+	b.Cleanup(test.CleanupBpfMap)
+
+	listener := &listener_v2.Listener{
+		ApiStatus: core_v2.ApiStatus_UPDATE,
+		Address: &core_v2.SocketAddress{
+			Port: uint32(80),
+			Ipv4: nets.ConvertIpToUint32("192.168.127.244"),
+		},
+		FilterChains: []*listener_v2.FilterChain{
+			{
+				Filters: []*listener_v2.Filter{
+					{
+						Name: "filter1",
+						ConfigType: &listener_v2.Filter_TcpProxy{
+							TcpProxy: &filter.TcpProxy{
+								StatPrefix: "outbound|53||kube-dns.kube-system.svc.cluster.local",
+								ClusterSpecifier: &filter.TcpProxy_Cluster{
+									Cluster: "outbound|53||kube-dns.kube-system.svc.cluster.local",
+								},
+								MaxConnectAttempts: uint32(60),
+							},
+						},
+					},
+				},
+			},
+			{
+				Filters: []*listener_v2.Filter{
+					{
+						Name: "filter2",
+						ConfigType: &listener_v2.Filter_TcpProxy{
+							TcpProxy: &filter.TcpProxy{
+								StatPrefix: "outbound|80||kube-dns.kube-system.svc.cluster.local",
+								ClusterSpecifier: &filter.TcpProxy_Cluster{
+									Cluster: "outbound|80||kube-dns.kube-system.svc.cluster.local",
+								},
+								MaxConnectAttempts: uint32(60),
+							},
+						},
+					},
+				},
+			},
+			{
+				Filters: []*listener_v2.Filter{
+					{
+						Name: "filter3",
+						ConfigType: &listener_v2.Filter_TcpProxy{
+							TcpProxy: &filter.TcpProxy{
+								StatPrefix: "outbound|443||kube-dns.kube-system.svc.cluster.local",
+								ClusterSpecifier: &filter.TcpProxy_Cluster{
+									Cluster: "outbound|443||kube-dns.kube-system.svc.cluster.local",
+								},
+								MaxConnectAttempts: uint32(60),
+							},
+						},
+					},
+				},
+			},
+			{
+				Filters: []*listener_v2.Filter{
+					{
+						Name: "filter4",
+						ConfigType: &listener_v2.Filter_TcpProxy{
+							TcpProxy: &filter.TcpProxy{
+								StatPrefix: "outbound|9090||kube-dns.kube-system.svc.cluster.local",
+								ClusterSpecifier: &filter.TcpProxy_Cluster{
+									Cluster: "outbound|9090||kube-dns.kube-system.svc.cluster.local",
+								},
+								MaxConnectAttempts: uint32(60),
+							},
+						},
+					},
+				},
+			},
+			{
+				Filters: []*listener_v2.Filter{
+					{
+						Name: "filter5",
+						ConfigType: &listener_v2.Filter_TcpProxy{
+							TcpProxy: &filter.TcpProxy{
+								StatPrefix: "outbound|15001||kube-dns.kube-system.svc.cluster.local",
+								ClusterSpecifier: &filter.TcpProxy_Cluster{
+									Cluster: "outbound|15001||kube-dns.kube-system.svc.cluster.local",
+								},
+								MaxConnectAttempts: uint32(60),
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cache := NewListenerCache()
+		listener.ApiStatus = core_v2.ApiStatus_UPDATE
+		listener.Name = rand.String(6)
+		cache.SetApiListener(listener.Name, listener)
+
+		cache.Flush()
+		assert.Equal(t, listener.GetApiStatus(), core_v2.ApiStatus_NONE)
+	}
 }
