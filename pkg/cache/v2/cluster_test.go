@@ -17,16 +17,23 @@
 package cache_v2
 
 import (
+	"fmt"
+	"os"
+	"syscall"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
 	"istio.io/istio/pkg/slices"
+	"k8s.io/apimachinery/pkg/util/rand"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/api/v2/endpoint"
+	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
+	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
@@ -170,4 +177,179 @@ func TestClusterFlush(t *testing.T) {
 		assert.Equal(t, []string{}, updateClusterName)
 		assert.Equal(t, []string{}, deleteClusterName)
 	})
+}
+
+func initBpfMap(t *testing.T) {
+	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
+	if err != nil {
+		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
+	}
+	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
+	if err != nil {
+		cleanupBpfMap()
+		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
+	}
+	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
+	if err != nil {
+		cleanupBpfMap()
+		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
+	}
+	config := bpf.GetConfig()
+	config.BpfFsPath = "/sys/fs/bpf"
+	config.Cgroup2Path = "/mnt/kmesh_cgroup2"
+	err = bpf.StartKmesh()
+	if err != nil {
+		cleanupBpfMap()
+		t.Fatalf("bpf init failed: %v", err)
+	}
+}
+
+func cleanupBpfMap() {
+	bpf.Stop()
+	err := syscall.Unmount("/mnt/kmesh_cgroup2", 0)
+	if err != nil {
+		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
+	}
+	err = syscall.Unmount("/sys/fs/bpf", 0)
+	if err != nil {
+		fmt.Println("unmount /sys/fs/bpf error: ", err)
+	}
+	err = os.RemoveAll("/mnt/kmesh_cgroup2")
+	if err != nil {
+		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
+	}
+}
+
+func BenchmarkClusterFlush(b *testing.B) {
+	t := &testing.T{}
+	initBpfMap(t)
+	t.Cleanup(cleanupBpfMap)
+
+	cluster := cluster_v2.Cluster{
+		ApiStatus:      core_v2.ApiStatus_UPDATE,
+		ConnectTimeout: uint32(1),
+		CircuitBreakers: &cluster_v2.CircuitBreakers{
+			MaxConnections:     uint32(4294967295),
+			MaxPendingRequests: uint32(4294967295),
+			MaxRequests:        uint32(4294967295),
+			MaxRetries:         uint32(4294967295),
+		},
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
+			ClusterName: "inbound|9080|http|reviews.default.svc.cluster.local",
+			Endpoints: []*endpoint.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9090),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.240"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9091),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.241"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9092),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.242"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9293),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.243"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9294),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.244"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9095),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.245"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9096),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.246"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9097),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.247"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9098),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.248"),
+							},
+						},
+					},
+				},
+				{
+					LbEndpoints: []*endpoint.Endpoint{
+						{
+							Address: &core_v2.SocketAddress{
+								Port: uint32(9099),
+								Ipv4: nets.ConvertIpToUint32("192.168.127.249"),
+							},
+						},
+					},
+				},
+			},
+		},
+		LbPolicy: cluster_v2.Cluster_ROUND_ROBIN,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		cache := NewClusterCache()
+		cluster.Name = rand.String(6)
+		cluster.ApiStatus = core_v2.ApiStatus_UPDATE
+		cache.SetApiCluster(cluster.Name, &cluster)
+
+		cache.Flush()
+		assert.Equal(t, core_v2.ApiStatus_NONE, cluster.GetApiStatus())
+	}
 }
