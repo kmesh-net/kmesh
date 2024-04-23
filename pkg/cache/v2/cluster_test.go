@@ -346,6 +346,7 @@ func BenchmarkClusterFlush(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		cache := NewClusterCache()
 		cluster.Name = rand.String(6)
+		cluster.ApiStatus = core_v2.ApiStatus_UPDATE
 		cache.SetApiCluster(cluster.Name, &cluster)
 
 		cache.Flush()
