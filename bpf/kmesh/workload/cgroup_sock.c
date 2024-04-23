@@ -26,116 +26,111 @@
 
 static inline void record_netns_cookie(struct bpf_sock_addr *ctx)
 {
-	int err;
-	int value = 0;
-	__u64 cookie = bpf_get_netns_cookie(ctx);
-	err = bpf_map_update_elem(&map_of_manager, &cookie, &value, BPF_NOEXIST);
-	if (err)
-		BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
+    int err;
+    int value = 0;
+    __u64 cookie = bpf_get_netns_cookie(ctx);
+    err = bpf_map_update_elem(&map_of_manager, &cookie, &value, BPF_NOEXIST);
+    if (err)
+        BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
 }
 
 static inline void remove_netns_cookie(struct bpf_sock_addr *ctx)
 {
-	int err;
-	__u64 cookie = bpf_get_netns_cookie(ctx);
-	err = bpf_map_delete_elem(&map_of_manager, &cookie);
-	if (err && err != -ENOENT)
-		BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
+    int err;
+    __u64 cookie = bpf_get_netns_cookie(ctx);
+    err = bpf_map_delete_elem(&map_of_manager, &cookie);
+    if (err && err != -ENOENT)
+        BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
 }
 
 static inline bool check_kmesh_enabled(struct bpf_sock_addr *ctx)
 {
-	__u64 cookie = bpf_get_netns_cookie(ctx);
-	return bpf_map_lookup_elem(&map_of_manager, &cookie);
+    __u64 cookie = bpf_get_netns_cookie(ctx);
+    return bpf_map_lookup_elem(&map_of_manager, &cookie);
 }
 
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
-	int ret;
-	frontend_value *frontend_v = NULL;
-	bool direct_backend = false;
+    int ret;
+    frontend_value *frontend_v = NULL;
+    bool direct_backend = false;
 
-	if (!check_kmesh_enabled(ctx))
-		return 0;
+    if (!check_kmesh_enabled(ctx))
+        return 0;
 
-	DECLARE_VAR_ADDRESS(ctx, address);
+    DECLARE_VAR_ADDRESS(ctx, address);
 
-	BPF_LOG(DEBUG, KMESH, "origin addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
-	frontend_v = map_lookup_frontend(&address);
-	if (!frontend_v) {
-		address.service_port = 0;
-		frontend_v = map_lookup_frontend(&address);
-		if (!frontend_v) {
-			return -ENOENT;
-		}
-		direct_backend = true;
-	}
+    BPF_LOG(DEBUG, KMESH, "origin addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
+    frontend_v = map_lookup_frontend(&address);
+    if (!frontend_v) {
+        address.service_port = 0;
+        frontend_v = map_lookup_frontend(&address);
+        if (!frontend_v) {
+            return -ENOENT;
+        }
+        direct_backend = true;
+    }
 
-	BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
+    BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
 
-	if (direct_backend) {
-		backend_key backend_k = {0};
-		backend_value *backend_v = NULL;
+    if (direct_backend) {
+        backend_key backend_k = {0};
+        backend_value *backend_v = NULL;
 
-		backend_k.backend_uid = frontend_v->upstream_id;
-		backend_v = map_lookup_backend(&backend_k);
-		if (!backend_v) {
-			BPF_LOG(ERR, KMESH, "find backend failed\n");
-			return -ENOENT;
-		}
-		BPF_LOG(DEBUG, KMESH, "find pod frontend\n");
-		ret = backend_manager(ctx, backend_v);
-		if (ret < 0) {
-			if (ret != -ENOENT)
-				BPF_LOG(ERR, KMESH, "backend_manager failed, ret:%d\n", ret);
-			return ret;
-		}
-	} else {
-		ret = frontend_manager(ctx, frontend_v);
-		if (ret != 0) {
-			if (ret != -ENOENT)
-				BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
-			return ret;
-		}
-	}
-	return 0;
+        backend_k.backend_uid = frontend_v->upstream_id;
+        backend_v = map_lookup_backend(&backend_k);
+        if (!backend_v) {
+            BPF_LOG(ERR, KMESH, "find backend failed\n");
+            return -ENOENT;
+        }
+        BPF_LOG(DEBUG, KMESH, "find pod frontend\n");
+        ret = backend_manager(ctx, backend_v);
+        if (ret < 0) {
+            if (ret != -ENOENT)
+                BPF_LOG(ERR, KMESH, "backend_manager failed, ret:%d\n", ret);
+            return ret;
+        }
+    } else {
+        ret = frontend_manager(ctx, frontend_v);
+        if (ret != 0) {
+            if (ret != -ENOENT)
+                BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
+            return ret;
+        }
+    }
+    return 0;
 }
 
 static inline bool conn_from_cni_sim_add(struct bpf_sock_addr *ctx)
 {
-	// cni sim connect 0.0.0.0:929(0x3a1)
-	// 0x3a1 is the specific port handled by the cni for enable Kmesh
-	return ((bpf_ntohl(ctx->user_ip4) == 1) &&
-			(bpf_ntohl(ctx->user_port) == 0x3a10000));
+    // cni sim connect 0.0.0.0:929(0x3a1)
+    // 0x3a1 is the specific port handled by the cni for enable Kmesh
+    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohl(ctx->user_port) == 0x3a10000));
 }
 
 static inline bool conn_from_cni_sim_delete(struct bpf_sock_addr *ctx)
 {
-	// cni sim connect 0.0.0.1:930(0x3a2)
-	// 0x3a2 is the specific port handled by the cni for disable Kmesh
-	return ((bpf_ntohl(ctx->user_ip4) == 1) &&
-			(bpf_ntohl(ctx->user_port) == 0x3a20000));
+    // cni sim connect 0.0.0.1:930(0x3a2)
+    // 0x3a2 is the specific port handled by the cni for disable Kmesh
+    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohl(ctx->user_port) == 0x3a20000));
 }
-
 
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
-	if (conn_from_cni_sim_add(ctx)) {
-		record_netns_cookie(ctx);
-		// return failed, cni sim connect 0.0.0.1:929(0x3a1)
-		// A normal program will not connect to this IP address
-		return CGROUP_SOCK_OK;
-	}
-	if (conn_from_cni_sim_delete(ctx)) {
-		remove_netns_cookie(ctx);
-		return CGROUP_SOCK_OK;
-	}
-	int ret = sock4_traffic_control(ctx);
-	return CGROUP_SOCK_OK;
+    if (conn_from_cni_sim_add(ctx)) {
+        record_netns_cookie(ctx);
+        // return failed, cni sim connect 0.0.0.1:929(0x3a1)
+        // A normal program will not connect to this IP address
+        return CGROUP_SOCK_OK;
+    }
+    if (conn_from_cni_sim_delete(ctx)) {
+        remove_netns_cookie(ctx);
+        return CGROUP_SOCK_OK;
+    }
+    int ret = sock4_traffic_control(ctx);
+    return CGROUP_SOCK_OK;
 }
 
 char _license[] SEC("license") = "GPL";
 int _version SEC("version") = 1;
-
-

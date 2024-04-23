@@ -25,17 +25,10 @@
 #include <stdarg.h>
 #include "securec.h"
 
-enum LOG_LEVEL {
-	FATAL = 0,
-	ERR,
-	WARN,
-	INFO,
-	DEBUG
-};
+enum LOG_LEVEL { FATAL = 0, ERR, WARN, INFO, DEBUG };
 
-void ma_log(enum LOG_LEVEL level, const char* format, ...);
+void ma_log(enum LOG_LEVEL level, const char *format, ...);
 
-#define macli_log(level, format, ...) \
-		ma_log(level, format, ##__VA_ARGS__)
+#define macli_log(level, format, ...) ma_log(level, format, ##__VA_ARGS__)
 
 #endif // MACLI_LOG_H

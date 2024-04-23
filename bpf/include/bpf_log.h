@@ -22,30 +22,30 @@
 
 #include "common.h"
 
-#define BPF_DEBUG_ON		0
-#define BPF_DEBUG_OFF		(-1)
+#define BPF_DEBUG_ON  0
+#define BPF_DEBUG_OFF (-1)
 
-#define BPF_LOG_LEVEL		BPF_LOG_DEBUG
+#define BPF_LOG_LEVEL BPF_LOG_DEBUG
 
-#define BPF_LOGTYPE_SOCKMAP		BPF_DEBUG_OFF
-#define BPF_LOGTYPE_KMESH		BPF_DEBUG_ON
-#define BPF_LOGTYPE_SOCKOPS		BPF_DEBUG_OFF
-#define BPF_LOGTYPE_XDP			BPF_DEBUG_OFF
-#define BPF_LOGTYPE_SENDMSG		BPF_DEBUG_OFF
+#define BPF_LOGTYPE_SOCKMAP BPF_DEBUG_OFF
+#define BPF_LOGTYPE_KMESH   BPF_DEBUG_ON
+#define BPF_LOGTYPE_SOCKOPS BPF_DEBUG_OFF
+#define BPF_LOGTYPE_XDP     BPF_DEBUG_OFF
+#define BPF_LOGTYPE_SENDMSG BPF_DEBUG_OFF
 enum bpf_loglevel {
-	BPF_LOG_ERR = 0,
-	BPF_LOG_WARN,
-	BPF_LOG_INFO,
-	BPF_LOG_DEBUG,
+    BPF_LOG_ERR = 0,
+    BPF_LOG_WARN,
+    BPF_LOG_INFO,
+    BPF_LOG_DEBUG,
 };
 
-#define BPF_LOG(l, t, f, ...)	\
-	do {							\
-		int loglevel = BPF_MIN((int)BPF_LOG_LEVEL, ((int)BPF_LOG_DEBUG + (int)(BPF_LOGTYPE_ ## t)));	\
-		if ((int)(BPF_LOG_ ## l) <= loglevel) {		\
-			char fmt[] = "["# t"] " # l": " f"";		\
-			bpf_trace_printk(fmt, sizeof(fmt), ##__VA_ARGS__);	\
-		} \
-	} while (0)
+#define BPF_LOG(l, t, f, ...)                                                                                          \
+    do {                                                                                                               \
+        int loglevel = BPF_MIN((int)BPF_LOG_LEVEL, ((int)BPF_LOG_DEBUG + (int)(BPF_LOGTYPE_##t)));                     \
+        if ((int)(BPF_LOG_##l) <= loglevel) {                                                                          \
+            char fmt[] = "[" #t "] " #l ": " f "";                                                                     \
+            bpf_trace_printk(fmt, sizeof(fmt), ##__VA_ARGS__);                                                         \
+        }                                                                                                              \
+    } while (0)
 
 #endif // _BPF_LOG_H_

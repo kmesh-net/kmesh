@@ -15,36 +15,27 @@
 #include <linux/bpf.h>
 #include <linux/percpu.h>
 
-enum kmesh_l7_proto_type {
-	PROTO_UNKNOW 	= 0,
-	PROTO_HTTP_1_1,
-	PROTO_HTTP_2_0
-};
+enum kmesh_l7_proto_type { PROTO_UNKNOW = 0, PROTO_HTTP_1_1, PROTO_HTTP_2_0 };
 
-enum kmesh_l7_msg_type {
-	MSG_UNKNOW	= 0,
-	MSG_REQUEST,
-	MSG_MID_REPONSE,
-	MSG_FINAL_RESPONSE
-};
+enum kmesh_l7_msg_type { MSG_UNKNOW = 0, MSG_REQUEST, MSG_MID_REPONSE, MSG_FINAL_RESPONSE };
 
 #define KMESH_PROTO_TYPE_WIDTH (8)
 
-#define SET_RET_PROTO_TYPE(n, type) (n) = (((n) & 0xff00) | ((u32)(type) & 0xff ))
-#define GET_RET_PROTO_TYPE(n) ((n) & 0xff)
+#define SET_RET_PROTO_TYPE(n, type) (n) = (((n)&0xff00) | ((u32)(type)&0xff))
+#define GET_RET_PROTO_TYPE(n)       ((n)&0xff)
 
-#define SET_RET_MSG_TYPE(n, type) (n) = (((n) & 0xff) | (((u32)(type) & 0xff) << KMESH_PROTO_TYPE_WIDTH))
-#define GET_RET_MSG_TYPE(n) (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
+#define SET_RET_MSG_TYPE(n, type) (n) = (((n)&0xff) | (((u32)(type)&0xff) << KMESH_PROTO_TYPE_WIDTH))
+#define GET_RET_MSG_TYPE(n)       (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
 
 struct kmesh_data_node {
-	struct rb_node node;
-	char *keystring;
-	struct bpf_mem_ptr value;
+    struct rb_node node;
+    char *keystring;
+    struct bpf_mem_ptr value;
 };
 
 struct msg_protocol {
-	struct list_head list;
-	u32 (*parse_protocol_msg)(const struct bpf_mem_ptr *msg);
+    struct list_head list;
+    u32 (*parse_protocol_msg)(const struct bpf_mem_ptr *msg);
 };
 
 extern struct rb_root *g_kmesh_data_root;
@@ -64,4 +55,3 @@ int __init proto_common_init(void);
 void __exit proto_common_exit(void);
 
 #endif /* KMESH_PARSE_PROTOCOL_DATA */
-

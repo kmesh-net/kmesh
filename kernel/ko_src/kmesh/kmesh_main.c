@@ -23,24 +23,24 @@
 
 static int __init kmesh_init(void)
 {
-	int ret;
+    int ret;
 
-	ret = defer_conn_init();
-	if (ret)
-		return ret;
+    ret = defer_conn_init();
+    if (ret)
+        return ret;
 
-	ret = proto_common_init();
-	if (ret)
-		return ret;
+    ret = proto_common_init();
+    if (ret)
+        return ret;
 
-	ret = kmesh_register_http_1_1_init();
-	return ret;
+    ret = kmesh_register_http_1_1_init();
+    return ret;
 }
 
 static void __exit kmesh_exit(void)
 {
-	defer_conn_exit();
-	proto_common_exit();
+    defer_conn_exit();
+    proto_common_exit();
 }
 
 module_init(kmesh_init);

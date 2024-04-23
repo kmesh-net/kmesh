@@ -100,7 +100,8 @@ tidy:
 
 .PHONY: gen
 gen: tidy\
-	gen-proto
+	gen-proto \
+	format
 
 .PHONY: gen-check
 gen-check: gen
@@ -139,6 +140,9 @@ build:
 	
 docker: build
 	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .
+
+format:
+	./hack/format.sh
 
 clean:
 	$(QUIET) rm -rf ./out
