@@ -128,12 +128,17 @@ func (cache *ClusterCache) BpfMapFlush() {
 				case core_v2.ApiStatus_UPDATE:
 					if err := maps_v2.ClusterUpdate(name, cluster); err != nil {
 						log.Errorf("cluster %s update failed: %v", name, err)
+						// Rollback on update failure
+						cache.apiClusterCache = cacheDeepCopy.apiClusterCache
+						cache.resourceHash = cacheDeepCopy.resourceHash
 					} else {
 						cluster.ApiStatus = core_v2.ApiStatus_NONE
 					}
 				case core_v2.ApiStatus_DELETE:
 					if err := maps_v2.ClusterDelete(name); err != nil {
 						log.Errorf("cluster %s delete failed: %v", name, err)
+						cache.apiClusterCache = cacheDeepCopy.apiClusterCache
+						cache.resourceHash = cacheDeepCopy.resourceHash
 					}
 				}
 			}
