@@ -105,28 +105,71 @@ func (cache *ClusterCache) SetEdsHash(key string, value uint64) {
 
 // Flush flushes the cluster to bpf map.
 func (cache *ClusterCache) Flush() {
-	var err error
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
 	for name, cluster := range cache.apiClusterCache {
 		switch cluster.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
-			err = maps_v2.ClusterUpdate(name, cluster)
-			if err == nil {
-				// reset api status after successfully updated
-				cluster.ApiStatus = core_v2.ApiStatus_NONE
-			}
+			cluster.ApiStatus = core_v2.ApiStatus_NONE
 		case core_v2.ApiStatus_DELETE:
-			err = maps_v2.ClusterDelete(name)
-			if err == nil {
-				delete(cache.apiClusterCache, name)
-				delete(cache.resourceHash, name)
-			}
-		}
-		if err != nil {
-			log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
+			delete(cache.apiClusterCache, name)
+			delete(cache.resourceHash, name)
 		}
 	}
+}
+
+var cacheDeepCopy *ClusterCache
+
+func (cache *ClusterCache) BpfMapFlush() {
+	for {
+		// if cacheDeepCopy not equal cache, need flush
+		if !clusterEqualFromHash(cacheDeepCopy, cache) {
+			cacheDeepCopy = cache.DeepCopy()
+			for name, cluster := range cacheDeepCopy.apiClusterCache {
+				switch cluster.GetApiStatus() {
+				case core_v2.ApiStatus_UPDATE:
+					if err := maps_v2.ClusterUpdate(name, cluster); err != nil {
+						log.Errorf("cluster %s update failed: %v", name, err)
+					} else {
+						cluster.ApiStatus = core_v2.ApiStatus_NONE
+					}
+				case core_v2.ApiStatus_DELETE:
+					if err := maps_v2.ClusterDelete(name); err != nil {
+						log.Errorf("cluster %s delete failed: %v", name, err)
+					}
+				}
+			}
+		} else {
+			break
+		}
+	}
+}
+
+func clusterEqualFromHash(cache1, cache2 *ClusterCache) bool {
+	if (cache1 == nil && cache2 != nil) || (cache2 == nil && cache1 != nil) {
+		return false
+	}
+
+	if len(cache1.resourceHash) != len(cache2.resourceHash) {
+		return false
+	}
+
+	for k, v := range cache1.resourceHash {
+		if valueInCache2, ok := cache2.resourceHash[k]; !ok || v != valueInCache2 {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (cache *ClusterCache) DeepCopy() *ClusterCache {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+
+	cacheCopy := NewClusterCache()
+	cacheCopy.resourceHash = cache.resourceHash
+	cacheCopy.apiClusterCache = cache.apiClusterCache
+
+	return &cacheCopy
 }
 
 func (cache *ClusterCache) StatusLookup() []*cluster_v2.Cluster {

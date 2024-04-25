@@ -183,6 +183,8 @@ func (svc *ServiceEvent) handleCdsResponse(resp *service_discovery_v3.DiscoveryR
 		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.DynamicLoader.edsClusterNames, svc.LastNonce.edsNonce)
 	} else {
 		svc.DynamicLoader.ClusterCache.Flush()
+
+		go svc.DynamicLoader.ClusterCache.BpfMapFlush()
 	}
 	return nil
 }

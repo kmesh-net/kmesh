@@ -202,6 +202,9 @@ func TestAdsStream_AdsStreamProcess(t *testing.T) {
 						// create resource of rsq
 						cluster := &config_cluster_v3.Cluster{
 							Name: "ut-cluster",
+							ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
+								Type: config_cluster_v3.Cluster_EDS,
+							},
 						}
 						anyCluster, _ := anypb.New(cluster)
 						return &discoveryv3.DiscoveryResponse{
