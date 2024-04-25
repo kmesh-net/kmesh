@@ -205,7 +205,7 @@ int record_tuple(struct bpf_sock_ops *skops)
 			auth_ip_tuple(skops);
 			break;
 		case BPF_SOCK_OPS_STATE_CB:
-			if (skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT 
+			if (skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT
 			|| skops->args[1] == BPF_TCP_FIN_WAIT1) {
 				clean_auth_map(skops);
 				clean_dstinfo_map(skops);
