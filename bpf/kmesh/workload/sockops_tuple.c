@@ -173,12 +173,15 @@ static inline bool conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
 			(bpf_ntohl(skops->remote_port) == 0x3a2));
 }
 
+static inline bool ipv4_mapped_addr(__u32 ip6[4])
+{
+	return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
+}
 
 SEC("sockops")
 int record_tuple(struct bpf_sock_ops *skops)
 {
-	// only support IPV4
-	if (skops->family != AF_INET)
+	if (skops->family != AF_INET && !ipv4_mapped_addr(skops->local_ip6))
 		return 0;
 	switch (skops->op) {
 		case BPF_SOCK_OPS_TCP_CONNECT_CB:
@@ -202,10 +205,11 @@ int record_tuple(struct bpf_sock_ops *skops)
 			auth_ip_tuple(skops);
 			break;
 		case BPF_SOCK_OPS_STATE_CB:
-			if(skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT 
-			|| skops->args[1] == BPF_TCP_FIN_WAIT1)
+			if (skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT 
+			|| skops->args[1] == BPF_TCP_FIN_WAIT1) {
 				clean_auth_map(skops);
 				clean_dstinfo_map(skops);
+			}
 			break;
 		default:
 			break;
