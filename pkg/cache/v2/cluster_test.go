@@ -17,9 +17,6 @@
 package cache_v2
 
 import (
-	"fmt"
-	"os"
-	"syscall"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -31,10 +28,10 @@ import (
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/api/v2/endpoint"
-	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils/hash"
+	"kmesh.net/kmesh/pkg/utils/test"
 )
 
 func TestClusterFlush(t *testing.T) {
@@ -179,51 +176,10 @@ func TestClusterFlush(t *testing.T) {
 	})
 }
 
-func initBpfMap(t *testing.T) {
-	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
-	if err != nil {
-		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
-	}
-	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
-	if err != nil {
-		cleanupBpfMap()
-		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
-	}
-	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
-	if err != nil {
-		cleanupBpfMap()
-		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
-	}
-	config := bpf.GetConfig()
-	config.BpfFsPath = "/sys/fs/bpf"
-	config.Cgroup2Path = "/mnt/kmesh_cgroup2"
-	err = bpf.StartKmesh()
-	if err != nil {
-		cleanupBpfMap()
-		t.Fatalf("bpf init failed: %v", err)
-	}
-}
-
-func cleanupBpfMap() {
-	bpf.Stop()
-	err := syscall.Unmount("/mnt/kmesh_cgroup2", 0)
-	if err != nil {
-		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
-	}
-	err = syscall.Unmount("/sys/fs/bpf", 0)
-	if err != nil {
-		fmt.Println("unmount /sys/fs/bpf error: ", err)
-	}
-	err = os.RemoveAll("/mnt/kmesh_cgroup2")
-	if err != nil {
-		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
-	}
-}
-
 func BenchmarkClusterFlush(b *testing.B) {
 	t := &testing.T{}
-	initBpfMap(t)
-	t.Cleanup(cleanupBpfMap)
+	test.InitBpfMap(t)
+	b.Cleanup(test.CleanupBpfMap)
 
 	cluster := cluster_v2.Cluster{
 		ApiStatus:      core_v2.ApiStatus_UPDATE,
