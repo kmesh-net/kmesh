@@ -33,14 +33,14 @@ static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v)
 	service_key service_k = {0};
 	service_value *service_v = NULL;
 
-	service_k.service_id = frontend_v->service_id;
+	service_k.service_id = frontend_v->upstream_id;
 	service_v = map_lookup_service(&service_k);
 	if (!service_v) {
 		BPF_LOG(WARN, FRONTEND, "find service failed\n");
 		return -ENOENT;
 	}
 
-	ret = service_manager(ctx, frontend_v->service_id, service_v);
+	ret = service_manager(ctx, frontend_v->upstream_id, service_v);
 	if (ret != 0) {
 		if (ret != -ENOENT)
 			BPF_LOG(ERR, FRONTEND, "service_manager failed, ret:%d\n", ret);

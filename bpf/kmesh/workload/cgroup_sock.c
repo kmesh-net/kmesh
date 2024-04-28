@@ -77,7 +77,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 		backend_key backend_k = {0};
 		backend_value *backend_v = NULL;
 
-		backend_k.backend_uid = frontend_v->service_id;
+		backend_k.backend_uid = frontend_v->upstream_id;
 		backend_v = map_lookup_backend(&backend_k);
 		if (!backend_v) {
 			BPF_LOG(ERR, KMESH, "find backend failed\n");
