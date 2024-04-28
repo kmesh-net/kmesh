@@ -142,7 +142,7 @@ func storePodFrontendData(uid uint32, ip []byte) error {
 	// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
 	fk.IPv4 = binary.LittleEndian.Uint32(ip)
 	fk.Port = 0
-	fv.ServiceId = uid
+	fv.UpstreamId = uid
 	if err := FrontendUpdate(&fk, &fv); err != nil {
 		log.Errorf("Update frontend map failed, err:%s", err)
 		return err
@@ -458,7 +458,7 @@ func storeServiceFrontendData(serviceId uint32, service *workloadapi.Service) er
 		fv  = FrontendValue{}
 	)
 
-	fv.ServiceId = serviceId
+	fv.UpstreamId = serviceId
 	for _, networkAddress := range service.GetAddresses() {
 		address := networkAddress.Address
 		fk.IPv4 = nets.ConvertIpByteToUint32(address)

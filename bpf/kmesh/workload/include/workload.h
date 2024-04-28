@@ -27,7 +27,7 @@
 
 // frontend map
 // Generally, frontend_key store Service ip and port, for app access Service,
-// Specifically, for app access Pod directly: frontend_key:{ipv4:<PodIP>, service_port:0}, frontend_value:{service_id:backend_uid}
+// Specifically, for app access Pod directly: frontend_key:{ipv4:<PodIP>, service_port:0}, frontend_value:{upstream_id:backend_uid}
 typedef struct
 {
     __u32 ipv4;         // Service ip or Pod ip
@@ -36,7 +36,7 @@ typedef struct
 
 typedef struct
 {
-    __u32 service_id; // service id for Service or backend uid for Pod
+    __u32 upstream_id; // service id for Service access or backend uid for Pod access
 } __attribute__((packed)) frontend_value;
 
 // service map

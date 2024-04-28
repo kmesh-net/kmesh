@@ -23,14 +23,14 @@ import (
 )
 
 // Generally, frontend_key store Service ip and port, for app access Service,
-// Specifically, for app access Pod directly: FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
+// Specifically, for app access Pod directly: FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{UpstreamId:BackendUid}
 type FrontendKey struct {
 	IPv4 uint32 // Service ip or Pod ip
 	Port uint32 // actual port for Service or 0 for Pod
 }
 
 type FrontendValue struct {
-	ServiceId uint32 // service id for Service or backend uid for Pod
+	UpstreamId uint32 // service id for Service access or backend uid for Pod access
 }
 
 func FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
@@ -51,8 +51,8 @@ func FrontendLookup(key *FrontendKey, value *FrontendValue) error {
 		Lookup(key, value)
 }
 
-func FrontendIterFindKey(serviceId uint32) []FrontendKey {
-	log.Debugf("FrontendIterFindKey [%#v]", serviceId)
+func FrontendIterFindKey(upstreamId uint32) []FrontendKey {
+	log.Debugf("FrontendIterFindKey [%#v]", upstreamId)
 	var (
 		key   = FrontendKey{}
 		value = FrontendValue{}
@@ -61,7 +61,7 @@ func FrontendIterFindKey(serviceId uint32) []FrontendKey {
 
 	res := make([]FrontendKey, 0)
 	for iter.Next(&key, &value) {
-		if value.ServiceId == serviceId {
+		if value.UpstreamId == upstreamId {
 			res = append(res, key)
 		}
 	}
