@@ -22,56 +22,49 @@
 
 #include "config.h"
 
-#define MAX_PORT_COUNT   10
-#define RINGBUF_SIZE (1 << 12)
+#define MAX_PORT_COUNT 10
+#define RINGBUF_SIZE   (1 << 12)
 
 // frontend map
 // Generally, frontend_key store Service ip and port, for app access Service,
-// Specifically, for app access Pod directly: frontend_key:{ipv4:<PodIP>, service_port:0}, frontend_value:{upstream_id:backend_uid}
-typedef struct
-{
+// Specifically, for app access Pod directly: frontend_key:{ipv4:<PodIP>, service_port:0},
+// frontend_value:{upstream_id:backend_uid}
+typedef struct {
     __u32 ipv4;         // Service ip or Pod ip
-    __u32 service_port;	// actual port for Service or 0 for Pod
+    __u32 service_port; // actual port for Service or 0 for Pod
 } __attribute__((packed)) frontend_key;
 
-typedef struct
-{
+typedef struct {
     __u32 upstream_id; // service id for Service access or backend uid for Pod access
 } __attribute__((packed)) frontend_value;
 
 // service map
-typedef struct
-{
-    __u32 service_id;	    // service id
+typedef struct {
+    __u32 service_id; // service id
 } __attribute__((packed)) service_key;
 
-typedef struct
-{
-	__u32 endpoint_count;   // endpoint count of current service
-    __u32 lb_policy;		// load balancing algorithm, currently only supports random algorithm
+typedef struct {
+    __u32 endpoint_count; // endpoint count of current service
+    __u32 lb_policy;      // load balancing algorithm, currently only supports random algorithm
 } __attribute__((packed)) service_value;
 
 // endpoint map
-typedef struct
-{
-    __u32 service_id;       // service id
-    __u32 backend_index;    // if endpoint_count = 3, then backend_index = 0/1/2
+typedef struct {
+    __u32 service_id;    // service id
+    __u32 backend_index; // if endpoint_count = 3, then backend_index = 0/1/2
 } __attribute__((packed)) endpoint_key;
 
-typedef struct
-{
-    __u32 backend_uid;      // workload_uid to uint32
+typedef struct {
+    __u32 backend_uid; // workload_uid to uint32
 } __attribute__((packed)) endpoint_value;
 
 // backend map
-typedef struct
-{
-    __u32 backend_uid;      // workload_uid to uint32
+typedef struct {
+    __u32 backend_uid; // workload_uid to uint32
 } __attribute__((packed)) backend_key;
 
-typedef struct
-{
-    __u32 ipv4;    // backend ip
+typedef struct {
+    __u32 ipv4; // backend ip
     __u32 port_count;
     __u32 service_port[MAX_PORT_COUNT];
     __u32 target_port[MAX_PORT_COUNT];
@@ -124,11 +117,10 @@ struct {
 } map_of_tuple SEC(".maps");
 
 struct {
-	__uint(type, BPF_MAP_TYPE_HASH);
-	__type(key, __u64);
-	__type(value, __u32);
-	__uint(max_entries, MAP_SIZE_OF_MANAGER);
-	__uint(map_flags, 0);
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u64);
+    __type(value, __u32);
+    __uint(max_entries, MAP_SIZE_OF_MANAGER);
+    __uint(map_flags, 0);
 } map_of_manager SEC(".maps");
 #endif
-

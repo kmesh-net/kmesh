@@ -33,19 +33,19 @@
  *
  * When only the dst information needs to be transferred, the information
  * added to the payload is as follows:
- * |0x01|8|[dst ip][dst port]| 
+ * |0x01|8|[dst ip][dst port]|
  *   ===> [dst ip] 4bytes, [dst port] 2bytes, data length 6 bytes, total 11 bytes
  * |0xfe| 0|
  * payload..
  * total need add (1 + 4 + 4 + 2) + (1 + 4) = 16 bytes
  */
 
-#define TLV_TYPE_SIZE 1
+#define TLV_TYPE_SIZE   1
 #define TLV_LENGTH_SIZE 4
 
 #define TLV_DST_LENGTH 6
-#define TLV_DST_SIZE 11
-#define TLV_END_SIZE 5
+#define TLV_DST_SIZE   11
+#define TLV_END_SIZE   5
 
 #define FORMAT_IP_LENGTH 16
 
@@ -149,13 +149,13 @@ static inline void encode_metadata_dst(struct sk_msg_md *msg, __u32 off)
 
 static inline void encode_metadata(struct sk_msg_md *msg, enum TLV_TYPE type, __u32 off)
 {
-    switch(type) {
-        case TLV_DST_INFO: {
-            encode_metadata_dst(msg, off);
-            break;
-        }
-        default:
-            break;
+    switch (type) {
+    case TLV_DST_INFO: {
+        encode_metadata_dst(msg, off);
+        break;
+    }
+    default:
+        break;
     }
 }
 

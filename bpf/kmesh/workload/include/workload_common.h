@@ -25,28 +25,26 @@
 #include "config.h"
 #include "workload.h"
 
-#define KMESH_CLASSID_MARK	0x1000
+#define KMESH_CLASSID_MARK 0x1000
 
-#define BPF_LOGTYPE_FRONTEND    BPF_DEBUG_OFF
-#define BPF_LOGTYPE_SERVICE     BPF_DEBUG_OFF
-#define BPF_LOGTYPE_ENDPOINT    BPF_DEBUG_OFF
-#define BPF_LOGTYPE_BACKEND     BPF_DEBUG_OFF
+#define BPF_LOGTYPE_FRONTEND BPF_DEBUG_OFF
+#define BPF_LOGTYPE_SERVICE  BPF_DEBUG_OFF
+#define BPF_LOGTYPE_ENDPOINT BPF_DEBUG_OFF
+#define BPF_LOGTYPE_BACKEND  BPF_DEBUG_OFF
 
 // bpf return value
-#define CGROUP_SOCK_ERR		0
-#define CGROUP_SOCK_OK		1
+#define CGROUP_SOCK_ERR 0
+#define CGROUP_SOCK_OK  1
 
 // loadbalance type
 typedef enum {
-	LB_POLICY_RANDOM = 0,
+    LB_POLICY_RANDOM = 0,
 } lb_policy_t;
 
-typedef struct
-{
-	__u32 protocol;
+typedef struct {
+    __u32 protocol;
     __u32 ipv4;
     __u32 port;
 } __attribute__((packed)) address_t;
 
 #endif // _WORKLOAD_COMMON_H_
-

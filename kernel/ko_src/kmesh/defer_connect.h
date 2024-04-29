@@ -14,5 +14,4 @@
 int __init defer_conn_init(void);
 void __exit defer_conn_exit(void);
 
-
-#endif	/* KMESH_DEFER_CONN_H */
+#endif /* KMESH_DEFER_CONN_H */

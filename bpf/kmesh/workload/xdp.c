@@ -25,10 +25,10 @@
 #include "workload.h"
 
 #define AUTH_PASS   0
-#define AUTH_FORBID   1
+#define AUTH_FORBID 1
 
 #define PARSER_FAILED 1
-#define PARSER_SUCC 0
+#define PARSER_SUCC   0
 
 struct xdp_info {
     struct ethhdr *ethh;
@@ -36,8 +36,7 @@ struct xdp_info {
     struct tcphdr *tcph;
 };
 
-static inline int get_hdr_ptr(struct xdp_md *ctx, struct ethhdr **ethh,
-    struct iphdr **iph, struct tcphdr **tcph)
+static inline int get_hdr_ptr(struct xdp_md *ctx, struct ethhdr **ethh, struct iphdr **iph, struct tcphdr **tcph)
 {
     void *begin = (void *)(ctx->data);
     void *end = (void *)(ctx->data_end);
@@ -57,7 +56,7 @@ static inline int get_hdr_ptr(struct xdp_md *ctx, struct ethhdr **ethh,
     *tcph = (struct tcphdr *)(*iph + 1);
     if ((void *)((*tcph) + 1) > end)
         return PARSER_FAILED;
-    
+
     return PARSER_SUCC;
 }
 
@@ -81,10 +80,13 @@ static inline void shutdown_tuple(struct xdp_info *info)
 static inline int should_shutdown(struct bpf_sock_tuple *tuple_info)
 {
     __u32 *value = bpf_map_lookup_elem(&map_of_auth, tuple_info);
-    if (value)
-    {
-        BPF_LOG(INFO, XDP, "auth denied, src ip: %u, port: %u\n",
-         bpf_ntohl(tuple_info->ipv4.saddr), bpf_ntohs(tuple_info->ipv4.sport));
+    if (value) {
+        BPF_LOG(
+            INFO,
+            XDP,
+            "auth denied, src ip: %u, port: %u\n",
+            bpf_ntohl(tuple_info->ipv4.saddr),
+            bpf_ntohs(tuple_info->ipv4.sport));
         bpf_map_delete_elem(&map_of_auth, tuple_info);
         return AUTH_FORBID;
     }
@@ -107,9 +109,9 @@ int xdp_shutdown(struct xdp_md *ctx)
 
     // never failed
     parser_tuple(&info, &tuple_info);
-    if (should_shutdown(&tuple_info) == AUTH_FORBID) 
+    if (should_shutdown(&tuple_info) == AUTH_FORBID)
         shutdown_tuple(&info);
-    
+
     // If auth denied, it still returns XDP_PASS here, so next time when a client package is
     // sent to server, it will be shutdown since server's RST has been set
     return XDP_PASS;
