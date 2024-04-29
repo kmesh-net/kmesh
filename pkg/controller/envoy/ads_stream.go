@@ -50,7 +50,7 @@ func (as *AdsStream) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 	return nil
 }
 
-func (as *AdsStream) AdsStreamProcess() error {
+func (as *AdsStream) HandleAdsStream() error {
 	var (
 		err error
 		rsp *service_discovery_v3.DiscoveryResponse

@@ -227,9 +227,9 @@ func TestAdsStream_AdsStreamProcess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
-			err := adsStream.AdsStreamProcess()
+			err := adsStream.HandleAdsStream()
 			if (err != nil) != tt.wantErr {
-				t.Errorf("adsStream.AdsStreamProcess() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("adsStream.HandleAdsStream() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			tt.afterFunc()

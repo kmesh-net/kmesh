@@ -48,7 +48,7 @@ var (
 
 type ServiceEvent struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
-	rqt *service_discovery_v3.DeltaDiscoveryRequest
+	req *service_discovery_v3.DeltaDiscoveryRequest
 }
 
 type Endpoints map[string]Endpoint
@@ -63,7 +63,7 @@ type Endpoint struct {
 func NewServiceEvent() *ServiceEvent {
 	return &ServiceEvent{
 		ack: nil,
-		rqt: nil,
+		req: nil,
 	}
 }
 
