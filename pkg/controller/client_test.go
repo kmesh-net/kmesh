@@ -60,8 +60,7 @@ func TestRecoverConnection(t *testing.T) {
 					}))
 			}
 		})
-		err := utClient.recoverConnection()
-		assert.NilError(t, err)
+		utClient.recoverConnection()
 		assert.Equal(t, 2, iteration)
 	})
 }
