@@ -44,5 +44,32 @@ Kmesh is synchronised with the istiod control surfaces through the six steps des
   So we should use a parallel update of the bpf map and serviceEvent.cache to optimise the response handling.
 
   Next, I will describe a programme:
-  
-  
+  The refresh time of bpf map is much longer than the refresh time of serviceEvent cache. When bpf map is refreshing, serviceEvent cache continues to process messages from istiod and keeps updating the cache. After each refresh of bpf map finishes, it compares the contents of serviceEvent.cache and the contents refreshed into bpf map. If they are different, it will deep copy the cache and lock at this stage to ensure consistency during deep copying. Then it continues executing the map cache. If they are the same, it ends the bpf map flush until the next update handling. If bpf map flush fails, it will roll back ServiceEvent.Cache to the copy of bpf map refresh to ensure consistency and report an error.
+
+  ```console
+  func responseHandling() {
+      go service.cache.flush()
+      go bpf_map.flush()
+  }
+
+  func service.cache.flush() {
+      service.cache.update()
+  }
+
+  cacheDeepcopy := service.cache.DeepCopy()
+
+  func bpf_map.flush() {
+    for {
+      if serviceEvent.Cache == cacheDeepCopy {
+          break
+      } else {
+          if err := bpf_map.Update(); err != nil {
+              serviceEvent.Cache = cacheDeepcopy
+              log
+          }
+      }
+    }
+  }
+  ```
+
+However, there is a problem with this solution: there is no guarantee that the order in which cds/lds/eds/rds are refreshed in bpf map.
