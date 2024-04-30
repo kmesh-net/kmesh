@@ -379,7 +379,7 @@ static void clean_ops_map(struct bpf_sock_ops *const skops)
     struct sock_key key;
     struct sock_key *reverse_key = NULL;
     extract_key4_from_ops(skops, &key);
-    long ret;
+    int ret;
 
 #if MDA_GID_UID_FILTER
     ret = bpf_map_delete_elem(&SOCK_OPS_HELPER_MAP_NAME, &key);
