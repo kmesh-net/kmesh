@@ -73,15 +73,15 @@ func (c *XdsClient) createGrpcStreamClient() error {
 
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
-	if bpfConfig.AdsEnabled() {
-		if err = c.AdsStream.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
-			_ = c.grpcConn.Close()
-			return fmt.Errorf("create ads stream failed, %s", err)
-		}
-	} else if bpfConfig.WdsEnabled() {
+	if bpfConfig.WdsEnabled() {
 		if err = c.workloadStream.WorklaodStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
+		}
+	} else if bpfConfig.AdsEnabled() {
+		if err = c.AdsStream.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
+			_ = c.grpcConn.Close()
+			return fmt.Errorf("create ads stream failed, %s", err)
 		}
 	}
 
