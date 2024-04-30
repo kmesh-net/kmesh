@@ -31,7 +31,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/anypb"
-	"istio.io/istio/pilot/test/xdstest"
+
+	"kmesh.net/kmesh/pkg/controller/xdstest"
 )
 
 func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
