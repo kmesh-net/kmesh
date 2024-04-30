@@ -24,80 +24,17 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
-	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/test/bufconn"
 	"gotest.tools/assert"
 
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/workload"
+	"kmesh.net/kmesh/pkg/controller/xdstest"
 	"kmesh.net/kmesh/pkg/nets"
 )
-
-type MockDiscovery struct {
-	Listener       *bufconn.Listener
-	responses      chan *discoveryv3.DiscoveryResponse
-	deltaResponses chan *discoveryv3.DeltaDiscoveryResponse
-	close          chan struct{}
-}
-
-func NewMockServer(t *testing.T) *MockDiscovery {
-	s := &MockDiscovery{
-		close:          make(chan struct{}),
-		responses:      make(chan *discoveryv3.DiscoveryResponse),
-		deltaResponses: make(chan *discoveryv3.DeltaDiscoveryResponse),
-	}
-
-	buffer := 1024 * 1024
-	listener := bufconn.Listen(buffer)
-	grpcServer := grpc.NewServer()
-	discoveryv3.RegisterAggregatedDiscoveryServiceServer(grpcServer, s)
-	go func() {
-		if err := grpcServer.Serve(listener); err != nil && !(err == grpc.ErrServerStopped || err.Error() == "closed") {
-			return
-		}
-	}()
-	t.Cleanup(func() {
-		grpcServer.Stop()
-		close(s.close)
-	})
-	s.Listener = listener
-	return s
-}
-
-func (f *MockDiscovery) StreamAggregatedResources(server discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
-	numberOfSends := 0
-	for {
-		select {
-		case <-f.close:
-			return nil
-		case resp := <-f.responses:
-			numberOfSends++
-			log.Infof("sending response from mock: %v", numberOfSends)
-			if err := server.Send(resp); err != nil {
-				return err
-			}
-		}
-	}
-}
-
-func (f *MockDiscovery) DeltaAggregatedResources(server discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
-	numberOfSends := 0
-	for {
-		select {
-		case <-f.close:
-			return nil
-		case resp := <-f.deltaResponses:
-			numberOfSends++
-			log.Infof("sending delta response from mock: %v", numberOfSends)
-			if err := server.Send(resp); err != nil {
-				return err
-			}
-		}
-	}
-}
 
 func TestRecoverConnection(t *testing.T) {
 	t.Run("test reconnect success", func(t *testing.T) {
@@ -114,7 +51,7 @@ func TestRecoverConnection(t *testing.T) {
 				return nil, errors.New("failed to create grpc connect")
 			} else {
 				// returns a fake grpc connection
-				mockDiscovery := NewMockServer(t)
+				mockDiscovery := xdstest.NewMockServer(t)
 				return grpc.Dial("buffcon",
 					grpc.WithTransportCredentials(insecure.NewCredentials()),
 					grpc.WithBlock(),
@@ -131,14 +68,13 @@ func TestRecoverConnection(t *testing.T) {
 
 func TestClientResponseProcess(t *testing.T) {
 	utConfig := bpf.GetConfig()
-	utConfig.EnableKmesh = true
-	utConfig.EnableKmeshWorkload = false
+	utConfig.Mode = constants.AdsMode
 	bpfConfig = utConfig
 	t.Run("ads stream process failed, test reconnect", func(t *testing.T) {
 		netPatches := gomonkey.NewPatches()
 		defer netPatches.Reset()
 		netPatches.ApplyFunc(nets.GrpcConnect, func(addr string) (*grpc.ClientConn, error) {
-			mockDiscovery := NewMockServer(t)
+			mockDiscovery := xdstest.NewMockServer(t)
 			return grpc.Dial("buffcon",
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 				grpc.WithBlock(),
@@ -182,13 +118,11 @@ func TestClientResponseProcess(t *testing.T) {
 	})
 
 	t.Run("workload stream process failed, test reconnect", func(t *testing.T) {
-		utConfig.EnableKmesh = false
-		utConfig.EnableKmeshWorkload = true
-
+		utConfig.Mode = constants.WorkloadMode
 		netPatches := gomonkey.NewPatches()
 		defer netPatches.Reset()
 		netPatches.ApplyFunc(nets.GrpcConnect, func(addr string) (*grpc.ClientConn, error) {
-			mockDiscovery := NewMockServer(t)
+			mockDiscovery := xdstest.NewMockServer(t)
 			return grpc.Dial("buffcon",
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 				grpc.WithBlock(),
