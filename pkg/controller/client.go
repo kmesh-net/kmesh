@@ -26,8 +26,11 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 
 	"kmesh.net/kmesh/pkg/auth"
+<<<<<<< HEAD
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
+=======
+>>>>>>> 998400f (ads controller refactor)
 	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/workload"
@@ -39,6 +42,7 @@ const (
 )
 
 type XdsClient struct {
+<<<<<<< HEAD
 	mode           string
 	ctx            context.Context
 	cancel         context.CancelFunc
@@ -48,25 +52,43 @@ type XdsClient struct {
 	workloadStream *workload.WorkloadStream
 	xdsConfig      *config.XdsConfig
 	rbac           *auth.Rbac
+=======
+	mode               string
+	ctx                context.Context
+	cancel             context.CancelFunc
+	grpcConn           *grpc.ClientConn
+	client             service_discovery_v3.AggregatedDiscoveryServiceClient
+	AdsController      *ads.Controller
+	workloadController *workload.WorkloadStream
+	xdsConfig          *config.XdsConfig
+	rbac               *auth.Rbac
+>>>>>>> 998400f (ads controller refactor)
 }
 
 func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(),
-		AdsStream: &ads.AdsStream{
-			Event: ads.NewServiceEvent(),
+		AdsController: &ads.Controller{
+			Processor: ads.NewAdsProcessor(),
 		},
-		workloadStream: &workload.WorkloadStream{
+		workloadController: &workload.WorkloadStream{
 			Event: workload.NewServiceEvent(),
 		},
 	}
 
-	client.ctx, client.cancel = context.WithCancel(context.Background())
 	if mode == constants.WorkloadMode {
+		client.AdsController = &ads.Controller{
+			Processor: ads.NewAdsProcessor(),
+		}
 		client.rbac = auth.NewRbac(bpfWorkloadObj)
+	} else if mode == constants.AdsMode {
+		client.workloadController = &workload.WorkloadStream{
+			Event: workload.NewServiceEvent(),
+		}
 	}
 
+	client.ctx, client.cancel = context.WithCancel(context.Background())
 	return client
 }
 
@@ -80,12 +102,12 @@ func (c *XdsClient) createGrpcStreamClient() error {
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
 	if c.mode == constants.WorkloadMode {
-		if err = c.workloadStream.WorklaodStreamCreateAndSend(c.client, c.ctx); err != nil {
+		if err = c.workloadController.WorklaodStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
 		}
 	} else if c.mode == constants.AdsMode {
-		if err = c.AdsStream.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
+		if err = c.AdsController.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create ads stream failed, %s", err)
 		}
@@ -129,12 +151,27 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 			}
 
 			if c.mode == constants.AdsMode {
+<<<<<<< HEAD
 				if err = c.AdsStream.AdsStreamProcess(); err != nil {
 					_ = c.AdsStream.Stream.CloseSend()
 				}
 			} else if c.mode == constants.WorkloadMode {
 				if err = c.workloadStream.WorkloadStreamProcess(c.rbac); err != nil {
 					_ = c.workloadStream.Stream.CloseSend()
+=======
+				if err = c.AdsController.AdsStreamProcess(); err != nil {
+					_ = c.AdsController.Stream.CloseSend()
+					_ = c.grpcConn.Close()
+					reconnect = true
+					continue
+				}
+			} else if c.mode == constants.WorkloadMode {
+				if err = c.workloadController.WorkloadStreamProcess(c.rbac); err != nil {
+					_ = c.workloadController.Stream.CloseSend()
+					_ = c.grpcConn.Close()
+					reconnect = true
+					continue
+>>>>>>> 998400f (ads controller refactor)
 				}
 			}
 			if err != nil && !istiogrpc.IsExpectedGRPCError(err) {
@@ -167,11 +204,11 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *XdsClient) closeStreamClient() {
-	if c.AdsStream != nil && c.AdsStream.Stream != nil {
-		_ = c.AdsStream.Stream.CloseSend()
+	if c.AdsController != nil && c.AdsController.Stream != nil {
+		_ = c.AdsController.Stream.CloseSend()
 	}
-	if c.workloadStream != nil && c.workloadStream.Stream != nil {
-		_ = c.workloadStream.Stream.CloseSend()
+	if c.workloadController != nil && c.workloadController.Stream != nil {
+		_ = c.workloadController.Stream.CloseSend()
 	}
 
 	if c.grpcConn != nil {
@@ -180,12 +217,12 @@ func (c *XdsClient) closeStreamClient() {
 }
 
 func (c *XdsClient) Close() error {
-	if c.AdsStream != nil && c.AdsStream.Event != nil {
-		c.AdsStream.Event.Destroy()
+	if c.AdsController != nil && c.AdsController.Processor != nil {
+		c.AdsController.Processor.Destroy()
 	}
 
-	if c.workloadStream != nil && c.workloadStream.Event != nil {
-		c.workloadStream.Event.Destroy()
+	if c.workloadController != nil && c.workloadController.Event != nil {
+		c.workloadController.Event.Destroy()
 	}
 
 	return nil

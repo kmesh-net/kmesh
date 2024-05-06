@@ -37,8 +37,7 @@ import (
 )
 
 const (
-	apiVersionInfo   = "v2"
-	maxAdminRequests = 16
+	apiVersionInfo = "v2"
 )
 
 type lastNonce struct {
@@ -47,20 +46,19 @@ type lastNonce struct {
 	ldsNonce string
 	rdsNonce string
 }
-type ServiceEvent struct {
-	DynamicLoader *AdsLoader
+type Processor struct {
+	DynamicLoader *AdsCache
 	ack           *service_discovery_v3.DiscoveryRequest
 	req           *service_discovery_v3.DiscoveryRequest
 	adminChan     chan *admin_v2.ConfigResources
 	LastNonce     *lastNonce
 }
 
-func NewServiceEvent() *ServiceEvent {
-	return &ServiceEvent{
-		DynamicLoader: NewAdsLoader(),
+func NewAdsProcessor() *Processor {
+	return &Processor{
+		DynamicLoader: NewAdsCache(),
 		ack:           nil,
 		req:           nil,
-		adminChan:     make(chan *admin_v2.ConfigResources, maxAdminRequests),
 		LastNonce:     NewLastNonce(),
 	}
 }
@@ -74,12 +72,7 @@ func NewLastNonce() *lastNonce {
 	}
 }
 
-func (svc *ServiceEvent) Destroy() {
-	if svc.adminChan != nil {
-		close(svc.adminChan)
-	}
-	*svc = ServiceEvent{}
-}
+func (svc *Processor) Destroy() {}
 
 func newAdsRequest(typeUrl string, names []string, nonce string) *service_discovery_v3.DiscoveryRequest {
 	return &service_discovery_v3.DiscoveryRequest{
@@ -111,7 +104,7 @@ func newAckRequest(resp *service_discovery_v3.DiscoveryResponse) *service_discov
 // * RDS updates related to the newly added listeners must arrive after CDS/EDS/LDS updates.
 // * VHDS updates (if any) related to the newly added RouteConfigurations must arrive after RDS updates.
 // * Stale CDS clusters and related EDS endpoints (ones no longer being referenced) can then be removed.
-func (svc *ServiceEvent) processAdsResponse(resp *service_discovery_v3.DiscoveryResponse) {
+func (svc *Processor) processAdsResponse(resp *service_discovery_v3.DiscoveryResponse) {
 	var err error
 
 	log.Debugf("handle ads response, %#v\n", resp.GetTypeUrl())
@@ -139,7 +132,7 @@ func (svc *ServiceEvent) processAdsResponse(resp *service_discovery_v3.Discovery
 	}
 }
 
-func (svc *ServiceEvent) handleCdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
+func (svc *Processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err     error
 		cluster = &config_cluster_v3.Cluster{}
@@ -187,7 +180,7 @@ func (svc *ServiceEvent) handleCdsResponse(resp *service_discovery_v3.DiscoveryR
 	return nil
 }
 
-func (svc *ServiceEvent) handleEdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
+func (svc *Processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err            error
 		loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
@@ -221,7 +214,7 @@ func (svc *ServiceEvent) handleEdsResponse(resp *service_discovery_v3.DiscoveryR
 	return nil
 }
 
-func (svc *ServiceEvent) handleLdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
+func (svc *Processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err      error
 		listener = &config_listener_v3.Listener{}
@@ -261,7 +254,7 @@ func (svc *ServiceEvent) handleLdsResponse(resp *service_discovery_v3.DiscoveryR
 	return nil
 }
 
-func (svc *ServiceEvent) handleRdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
+func (svc *Processor) handleRdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
 	var (
 		err                error
 		routeConfiguration = &config_route_v3.RouteConfiguration{}
@@ -297,7 +290,8 @@ func (svc *ServiceEvent) handleRdsResponse(resp *service_discovery_v3.DiscoveryR
 	return nil
 }
 
-func (svc *ServiceEvent) NewAdminRequest(resources *admin_v2.ConfigResources) {
+// TODO(hzxuzhonghu): remove it as not used at all
+func (svc *Processor) NewAdminRequest(resources *admin_v2.ConfigResources) {
 	svc.adminChan <- resources
 }
 

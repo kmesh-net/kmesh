@@ -41,7 +41,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	test.InitBpfMap(t)
 	t.Cleanup(test.CleanupBpfMap)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.LastNonce.edsNonce = "utkmesh"
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
@@ -68,7 +68,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	})
 
 	t.Run("new cluster, cluster type is not eds", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -92,7 +92,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	})
 
 	t.Run("cluster update case", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -133,7 +133,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	})
 
 	t.Run("have multiClusters, add a new eds cluster", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.LastNonce.ldsNonce = "utEdstoLds"
 		multiClusters := []*config_cluster_v3.Cluster{
 			{
@@ -192,7 +192,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	})
 
 	t.Run("multiClusters in resp", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -249,8 +249,8 @@ func TestHandleEdsResponse(t *testing.T) {
 	test.InitBpfMap(t)
 	t.Cleanup(test.CleanupBpfMap)
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
-		svc := NewServiceEvent()
-		adsLoader := NewAdsLoader()
+		svc := NewAdsProcessor()
+		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
@@ -280,14 +280,14 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 
 	t.Run("not apiStatus_UPDATE", func(t *testing.T) {
-		adsLoader := NewAdsLoader()
+		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
 			ApiStatus: core_v2.ApiStatus_ALL,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.DynamicLoader = adsLoader
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
@@ -311,14 +311,14 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 
 	t.Run("already have cluster, not update", func(t *testing.T) {
-		adsLoader := NewAdsLoader()
+		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
 			ApiStatus: core_v2.ApiStatus_ALL,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.DynamicLoader = adsLoader
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
@@ -345,11 +345,11 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 
 	t.Run("no apicluster, svc.ack not be changed", func(t *testing.T) {
-		adsLoader := NewAdsLoader()
+		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{}
 		adsLoader.ClusterCache.SetApiCluster("", cluster)
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.DynamicLoader = adsLoader
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
@@ -372,14 +372,14 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 
 	t.Run("empty loadAssignment", func(t *testing.T) {
-		adsLoader := NewAdsLoader()
+		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
 			ApiStatus: core_v2.ApiStatus_ALL,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.DynamicLoader = adsLoader
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
@@ -405,12 +405,12 @@ func TestHandleLdsResponse(t *testing.T) {
 	test.InitBpfMap(t)
 	t.Cleanup(test.CleanupBpfMap)
 	t.Run("normal function test", func(t *testing.T) {
-		adsLoader := NewAdsLoader()
+		adsLoader := NewAdsCache()
 		adsLoader.routeNames = []string{
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.DynamicLoader = adsLoader
 		svc.LastNonce.rdsNonce = "utLdstoRds"
 		filterHttp := &filters_network_http.HttpConnectionManager{
@@ -464,12 +464,12 @@ func TestHandleLdsResponse(t *testing.T) {
 	})
 
 	t.Run("listenerCache already has resource and it has not been changed", func(t *testing.T) {
-		adsLoader := NewAdsLoader()
+		adsLoader := NewAdsCache()
 		adsLoader.routeNames = []string{
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.DynamicLoader = adsLoader
 		listener := &config_listener_v3.Listener{
 			Name: "ut-listener",
@@ -503,12 +503,12 @@ func TestHandleLdsResponse(t *testing.T) {
 	})
 
 	t.Run("listenerCache already has resource and it has been changed", func(t *testing.T) {
-		adsLoader := NewAdsLoader()
+		adsLoader := NewAdsCache()
 		adsLoader.routeNames = []string{
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.DynamicLoader = adsLoader
 		listener := &config_listener_v3.Listener{
 			Name: "ut-listener",
@@ -577,7 +577,7 @@ func TestHandleRdsResponse(t *testing.T) {
 	test.InitBpfMap(t)
 	t.Cleanup(test.CleanupBpfMap)
 	t.Run("normal function test", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
@@ -607,7 +607,7 @@ func TestHandleRdsResponse(t *testing.T) {
 	})
 
 	t.Run("empty routeConfig", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
@@ -630,7 +630,7 @@ func TestHandleRdsResponse(t *testing.T) {
 	})
 
 	t.Run("already have a Rds, RdsHash has been changed", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
@@ -672,7 +672,7 @@ func TestHandleRdsResponse(t *testing.T) {
 	})
 
 	t.Run("already have a Rds, RdsHash has been change. And have multiRouteconfig in resp", func(t *testing.T) {
-		svc := NewServiceEvent()
+		svc := NewAdsProcessor()
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",

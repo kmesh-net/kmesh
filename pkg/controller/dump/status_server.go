@@ -18,6 +18,7 @@ package dump
 
 import (
 	"fmt"
+	"kmesh.net/kmesh/pkg/controller/ads"
 	"net/http"
 	"time"
 
@@ -92,15 +93,15 @@ func (s *StatusServer) httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) 
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
 		return
-	} else if client.AdsStream.Event == nil {
+	} else if client.AdsController.Processor == nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", "none client.Event")
+		fmt.Fprintf(w, "\t%s\n", "none client.Processor")
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		dynamicLd := client.AdsStream.Event.DynamicLoader
+		dynamicLd := client.AdsController.Processor.DynamicLoader
 		dynamicRes := &admin_v2.ConfigResources{}
 
 		dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusLookup()...)
@@ -126,7 +127,7 @@ func (s *StatusServer) httpControllerEnvoy(w http.ResponseWriter, r *http.Reques
 		fmt.Fprintf(w, "\t%s\n", "invalid bpf.BpfConfig.ClientMode")
 		return
 	}
-	dynamicLd := client.AdsStream.Event.DynamicLoader
+	dynamicLd := client.AdsController.Processor.DynamicLoader
 	dynamicRes := &admin_v2.ConfigResources{}
 
 	dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusRead()...)

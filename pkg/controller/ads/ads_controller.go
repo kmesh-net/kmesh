@@ -30,12 +30,12 @@ var (
 	log = logger.NewLoggerField("controller/envoy")
 )
 
-type AdsStream struct {
-	Stream service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	Event  *ServiceEvent
+type Controller struct {
+	Stream    service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	Processor *Processor
 }
 
-func (as *AdsStream) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
+func (as *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
 	var err error
 
 	as.Stream, err = client.StreamAggregatedResources(ctx)
@@ -50,7 +50,7 @@ func (as *AdsStream) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 	return nil
 }
 
-func (as *AdsStream) HandleAdsStream() error {
+func (as *Controller) HandleAdsStream() error {
 	var (
 		err error
 		rsp *service_discovery_v3.DiscoveryResponse
@@ -60,14 +60,14 @@ func (as *AdsStream) HandleAdsStream() error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	as.Event.processAdsResponse(rsp)
+	as.Processor.processAdsResponse(rsp)
 
-	if err = as.Stream.Send(as.Event.ack); err != nil {
+	if err = as.Stream.Send(as.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
-	if as.Event.req != nil {
-		if err = as.Stream.Send(as.Event.req); err != nil {
+	if as.Processor.req != nil {
+		if err = as.Stream.Send(as.Processor.rqt); err != nil {
 			return fmt.Errorf("stream send req failed, %s", err)
 		}
 	}

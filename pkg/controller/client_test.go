@@ -101,7 +101,7 @@ func TestClientResponseProcess(t *testing.T) {
 			})
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
-		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsStream), "HandleAdsStream",
+		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsController), "HandleAdsStream",
 			func(_ *ads.AdsStream) error {
 				// if the number of loops is less than or equal to two, an error is reported and a retry is triggered.
 				if iteration < 2 {
@@ -149,7 +149,7 @@ func TestClientResponseProcess(t *testing.T) {
 			})
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
-		streamPatches.ApplyMethod(reflect.TypeOf(utClient.workloadStream), "HandleWorkloadStream",
+		streamPatches.ApplyMethod(reflect.TypeOf(utClient.workloadController), "HandleWorkloadStream",
 			func(_ *workload.WorkloadStream) error {
 				if iteration < 2 {
 					return errors.New("stream recv failed")
