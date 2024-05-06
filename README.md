@@ -53,7 +53,7 @@ Note: * Planning
 
 ## Quick Start
 
-Please refer to [quick start](https://kmesh.net/en/docs/setup/quickstart/)
+Please refer to [quick start](https://kmesh.net/en/docs/setup/quickstart/).
 
 ## Kmesh Performance
 
@@ -70,8 +70,8 @@ For a complete performance test, please refer to [Kmesh Performance Test](test/p
 The main components of Kmesh include:
 
 - Kmesh-daemon: The management program responsible for Kmesh lifecycle management, XDS protocol integration, observability, and other functions.
-- Ebpf orchestiation: The traffic orchestration implemented based on eBPF, including routing, canary deployments, load balancing, and more.
-- waypoint: Modify istio's waypoint to adapt to Kmesh protocols, responsible for L7 traffic governance.
+- Ebpf orchestration: The traffic orchestration implemented based on eBPF, including routing, canary deployments, load balancing, and more.
+- Waypoint: Based on istio proxy to adapt to Kmesh protocol, responsible for L7 traffic governance.
 
 ## Feature Description
 
