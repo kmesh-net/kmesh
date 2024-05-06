@@ -32,15 +32,21 @@ const (
 )
 
 var (
-	log = logger.NewLoggerField("controller/workload")
+	log = logger.NewLoggerField("workload_controller")
 )
 
-type WorkloadStream struct {
-	Stream service_discovery_v3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
-	Event  *ServiceEvent
+type Controller struct {
+	Stream    service_discovery_v3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	Processor *Processor
 }
 
-func (ws *WorkloadStream) WorklaodStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
+func NewController() *Controller {
+	return &Controller{
+		Processor: NewProcessor(),
+	}
+}
+
+func (ws *Controller) WorklaodStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
 	var err error
 
 	ws.Stream, err = client.DeltaAggregatedResources(ctx)
@@ -59,7 +65,7 @@ func (ws *WorkloadStream) WorklaodStreamCreateAndSend(client service_discovery_v
 	return nil
 }
 
-func (ws *WorkloadStream) HandleWorkloadStream(rbac *auth.Rbac) error {
+func (ws *Controller) HandleWorkloadStream(rbac *auth.Rbac) error {
 	var (
 		err      error
 		rspDelta *service_discovery_v3.DeltaDiscoveryResponse
@@ -69,14 +75,14 @@ func (ws *WorkloadStream) HandleWorkloadStream(rbac *auth.Rbac) error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	ws.Event.processWorkloadResponse(rspDelta, rbac)
+	ws.Processor.processWorkloadResponse(rspDelta, rbac)
 
-	if err = ws.Stream.Send(ws.Event.ack); err != nil {
+	if err = ws.Stream.Send(ws.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
-	if ws.Event.req != nil {
-		if err = ws.Stream.Send(ws.Event.req); err != nil {
+	if ws.Processor.req != nil {
+		if err = ws.Stream.Send(ws.Processor.req); err != nil {
 			return fmt.Errorf("stream send req failed, %s", err)
 		}
 	}

@@ -34,19 +34,17 @@ import (
 )
 
 const (
-	ConverNumBase     = 10
 	MaxPortPairNum    = 10
 	LbPolicyRandom    = 0
-	RandTimeSed       = 1000
 	KmeshWaypointPort = 15019 // use this fixed port instead of the HboneMtlsPort in kmesh
 )
 
 var (
-	hashName                          = NewHashName()
-	ServiceCache map[string]Endpoints = make(map[string]Endpoints)
+	hashName     = NewHashName()
+	ServiceCache = make(map[string]Endpoints)
 )
 
-type ServiceEvent struct {
+type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
 	req *service_discovery_v3.DeltaDiscoveryRequest
 }
@@ -60,16 +58,14 @@ type Endpoint struct {
 	portList    []*workloadapi.Port
 }
 
-func NewServiceEvent() *ServiceEvent {
-	return &ServiceEvent{
+func NewProcessor() *Processor {
+	return &Processor{
 		ack: nil,
 		req: nil,
 	}
 }
 
-func (svc *ServiceEvent) Destroy() {
-	*svc = ServiceEvent{}
-}
+func (svc *Processor) Destroy() {}
 
 func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.DeltaDiscoveryRequest {
 	return &service_discovery_v3.DeltaDiscoveryRequest{
@@ -91,7 +87,7 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 	}
 }
 
-func (svc *ServiceEvent) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
+func (svc *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
 	var err error
 
 	svc.ack = newAckRequest(rsp)
@@ -603,7 +599,7 @@ func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse)
 	return err
 }
 
-func (svc *ServiceEvent) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) error {
+func (svc *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) error {
 	// update resource
 	for _, resource := range rsp.GetResources() {
 		auth := &security.Authorization{}

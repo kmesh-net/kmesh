@@ -59,7 +59,7 @@ type XdsClient struct {
 	grpcConn           *grpc.ClientConn
 	client             service_discovery_v3.AggregatedDiscoveryServiceClient
 	AdsController      *ads.Controller
-	workloadController *workload.WorkloadStream
+	workloadController *workload.Controller
 	xdsConfig          *config.XdsConfig
 	rbac               *auth.Rbac
 >>>>>>> 998400f (ads controller refactor)
@@ -75,9 +75,7 @@ func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient 
 		client.AdsController = ads.NewController()
 		client.rbac = auth.NewRbac(bpfWorkloadObj)
 	} else if mode == constants.AdsMode {
-		client.workloadController = &workload.WorkloadStream{
-			Event: workload.NewServiceEvent(),
-		}
+		client.workloadController = workload.NewController()
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
@@ -213,8 +211,8 @@ func (c *XdsClient) Close() error {
 		c.AdsController.Processor.Destroy()
 	}
 
-	if c.workloadController != nil && c.workloadController.Event != nil {
-		c.workloadController.Event.Destroy()
+	if c.workloadController != nil && c.workloadController.Processor != nil {
+		c.workloadController.Processor.Destroy()
 	}
 
 	return nil

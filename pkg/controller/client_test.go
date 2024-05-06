@@ -149,8 +149,13 @@ func TestClientResponseProcess(t *testing.T) {
 			})
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
+<<<<<<< HEAD
 		streamPatches.ApplyMethod(reflect.TypeOf(utClient.workloadController), "HandleWorkloadStream",
 			func(_ *workload.WorkloadStream) error {
+=======
+		streamPatches.ApplyMethod(reflect.TypeOf(utClient.workloadController), "WorkloadStreamProcess",
+			func(_ *workload.Controller) error {
+>>>>>>> e83862c (workload controller refactor)
 				if iteration < 2 {
 					return errors.New("stream recv failed")
 				} else {
