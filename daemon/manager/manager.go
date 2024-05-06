@@ -29,6 +29,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
+	"kmesh.net/kmesh/pkg/controller/bypass"
 	"kmesh.net/kmesh/pkg/controller/dump"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/options"
@@ -75,6 +76,10 @@ func Execute() error {
 	}
 	log.Info("controller Start successful")
 	defer controller.Stop()
+
+	if err := bypass.StartByPass(); err != nil {
+		return err
+	}
 
 	if err := dump.StartServer(); err != nil {
 		return err

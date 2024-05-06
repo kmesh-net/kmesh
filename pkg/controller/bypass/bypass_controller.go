@@ -53,7 +53,7 @@ const (
 	LabelSelectorBypass       = "kmesh.net/bypass=enabled"
 )
 
-func StartByPassController(client kubernetes.Interface) error {
+func startByPassController(client kubernetes.Interface) error {
 	stopChan := make(chan struct{})
 	nodeName := os.Getenv("NODE_NAME")
 
@@ -289,4 +289,17 @@ func processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter types.UID, 
 	log.Debugf("found pod to netns: %s %d", uid, inode)
 
 	return netnsName, nil
+}
+
+func StartByPass() error {
+	clientset, err := utils.GetK8sclient()
+	if err != nil {
+		panic(err)
+	}
+
+	if err := startByPassController(clientset); err != nil {
+		return fmt.Errorf("failed to start bypass controller: %v", err)
+	}
+
+	return nil
 }
