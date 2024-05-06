@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"kmesh.net/kmesh/pkg/constants"
+
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -37,6 +39,7 @@ const (
 )
 
 type XdsClient struct {
+	mode           string
 	ctx            context.Context
 	cancel         context.CancelFunc
 	grpcConn       *grpc.ClientConn
@@ -47,8 +50,9 @@ type XdsClient struct {
 	rbac           *auth.Rbac
 }
 
-func NewXdsClient() *XdsClient {
+func NewXdsClient(mode string) *XdsClient {
 	client := &XdsClient{
+		mode:      mode,
 		xdsConfig: config.GetConfig(),
 		AdsStream: &envoy.AdsStream{
 			Event: envoy.NewServiceEvent(),
@@ -56,10 +60,12 @@ func NewXdsClient() *XdsClient {
 		workloadStream: &workload.WorkloadStream{
 			Event: workload.NewServiceEvent(),
 		},
-		rbac: auth.NewRbac(),
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
+	if mode == constants.WorkloadMode {
+		client.rbac = auth.NewRbac()
+	}
 
 	return client
 }
@@ -73,7 +79,7 @@ func (c *XdsClient) createGrpcStreamClient() error {
 
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
-	if bpfConfig.WdsEnabled() {
+	if c.mode == constants.WorkloadMode {
 		if err = c.workloadStream.WorklaodStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
@@ -122,12 +128,12 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 				reconnect = false
 			}
 
-			if bpfConfig.AdsEnabled() {
-				if err = c.AdsStream.HandleAdsStream(); err != nil {
+			if c.mode == constants.AdsMode {
+				if err = c.AdsStream.AdsStreamProcess(); err != nil {
 					_ = c.AdsStream.Stream.CloseSend()
 				}
-			} else if bpfConfig.WdsEnabled() {
-				if err = c.workloadStream.HandleWorkloadStream(c.rbac); err != nil {
+			} else if c.mode == constants.WorkloadMode {
+				if err = c.workloadStream.WorkloadStreamProcess(c.rbac); err != nil {
 					_ = c.workloadStream.Stream.CloseSend()
 				}
 			}
@@ -145,14 +151,13 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	}
 
 	go c.handleUpstream(c.ctx)
-	if bpfConfig.WdsEnabled() {
+	if c.rbac != nil {
 		go c.rbac.Run(c.ctx)
 	}
 
 	go func() {
 		<-stopCh
-
-		c.closeGrpcStreamClient()
+		c.closeStreamClient()
 		if c.cancel != nil {
 			c.cancel()
 		}
@@ -161,15 +166,12 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func (c *XdsClient) closeGrpcStreamClient() {
-	if bpfConfig.AdsEnabled() {
-		if c.AdsStream != nil && c.AdsStream.Stream != nil {
-			_ = c.AdsStream.Stream.CloseSend()
-		}
-	} else if bpfConfig.WdsEnabled() {
-		if c.workloadStream != nil && c.workloadStream.Stream != nil {
-			_ = c.workloadStream.Stream.CloseSend()
-		}
+func (c *XdsClient) closeStreamClient() {
+	if c.AdsStream != nil && c.AdsStream.Stream != nil {
+		_ = c.AdsStream.Stream.CloseSend()
+	}
+	if c.workloadStream != nil && c.workloadStream.Stream != nil {
+		_ = c.workloadStream.Stream.CloseSend()
 	}
 
 	if c.grpcConn != nil {
@@ -178,16 +180,13 @@ func (c *XdsClient) closeGrpcStreamClient() {
 }
 
 func (c *XdsClient) Close() error {
-	if bpfConfig.AdsEnabled() {
-		if c.AdsStream != nil && c.AdsStream.Event != nil {
-			c.AdsStream.Event.Destroy()
-		}
-	} else if bpfConfig.WdsEnabled() {
-		if c.workloadStream != nil && c.workloadStream.Event != nil {
-			c.workloadStream.Event.Destroy()
-		}
+	if c.AdsStream != nil && c.AdsStream.Event != nil {
+		c.AdsStream.Event.Destroy()
 	}
 
-	*c = XdsClient{}
+	if c.workloadStream != nil && c.workloadStream.Event != nil {
+		c.workloadStream.Event.Destroy()
+	}
+
 	return nil
 }

@@ -21,6 +21,7 @@ package bpf
 
 import (
 	"fmt"
+	"kmesh.net/kmesh/daemon/options"
 )
 
 type BpfKmeshWorkload struct {
@@ -36,7 +37,7 @@ type BpfObjectWorkload struct {
 
 var ObjWorkload BpfObjectWorkload
 
-func NewBpfKmeshWorkload(cfg *Config) (BpfKmeshWorkload, error) {
+func InitWorkloadBpf(cfg *options.BpfConfig) (BpfKmeshWorkload, error) {
 	var err error
 
 	sc := BpfKmeshWorkload{}
@@ -60,10 +61,10 @@ func NewBpfKmeshWorkload(cfg *Config) (BpfKmeshWorkload, error) {
 	return sc, nil
 }
 
-func StartKmeshWorkload() error {
+func (l *BpfLoader) StartWorkloadMode() error {
 	var err error
 
-	if ObjWorkload.KmeshWorkload, err = NewBpfKmeshWorkload(&config); err != nil {
+	if ObjWorkload.KmeshWorkload, err = InitWorkloadBpf(l.config); err != nil {
 		return err
 	}
 

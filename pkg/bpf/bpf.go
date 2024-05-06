@@ -12,15 +12,13 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2021-10-09
  */
 
 package bpf
 
 import (
 	"fmt"
+	"kmesh.net/kmesh/daemon/options"
 	"os/exec"
 	"strings"
 
@@ -33,7 +31,7 @@ import (
 var log = logger.NewLoggerField("pkg/bpf")
 
 type BpfInfo struct {
-	Config
+	config     *options.BpfConfig
 	MapPath    string
 	Type       ebpf.ProgramType
 	AttachType ebpf.AttachType
@@ -45,25 +43,37 @@ type BpfObject struct {
 
 var Obj BpfObject
 
-func StartKmesh() error {
-	var err error
+type BpfLoader struct {
+	config *options.BpfConfig
 
-	if Obj.Kmesh, err = NewBpfKmesh(&config); err != nil {
+	obj BpfObject
+}
+
+func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
+	return &BpfLoader{
+		config: config,
+	}
+}
+
+func (l *BpfLoader) StartAdsMode() (err error) {
+	if Obj.Kmesh, err = NewBpfKmesh(l.config); err != nil {
 		return err
 	}
 
-	if err = Obj.Kmesh.Load(); err != nil {
-		Stop()
+	defer func() {
+		if err != nil {
+			l.Stop()
+		}
+	}()
+	if err = l.obj.Kmesh.Load(); err != nil {
 		return fmt.Errorf("bpf Load failed, %s", err)
 	}
 
-	if err = Obj.Kmesh.Attach(); err != nil {
-		Stop()
+	if err = l.obj.Kmesh.Attach(); err != nil {
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
 
 	if err = Obj.Kmesh.ApiEnvCfg(); err != nil {
-		Stop()
 		return fmt.Errorf("api env config failed, %s", err)
 	}
 
@@ -82,7 +92,7 @@ func StartMda() error {
 	return nil
 }
 
-func Start() error {
+func (l *BpfLoader) Start(config *options.BpfConfig) error {
 	var err error
 
 	if err = rlimit.RemoveMemlock(); err != nil {
@@ -90,11 +100,11 @@ func Start() error {
 	}
 
 	if config.AdsEnabled() {
-		if err = StartKmesh(); err != nil {
+		if err = l.StartAdsMode(); err != nil {
 			return err
 		}
 	} else if config.WdsEnabled() {
-		if err = StartKmeshWorkload(); err != nil {
+		if err = l.StartWorkloadMode(); err != nil {
 			return err
 		}
 	}
@@ -120,22 +130,22 @@ func StopMda() error {
 	return nil
 }
 
-func Stop() {
+func (l *BpfLoader) Stop() {
 	var err error
 
-	if config.AdsEnabled() {
+	if l.config.AdsEnabled() {
 		if err = Obj.Kmesh.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
-	} else if config.WdsEnabled() {
+	} else if l.config.WdsEnabled() {
 		if err = ObjWorkload.KmeshWorkload.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
 	}
 
-	if config.EnableMda {
+	if l.config.EnableMda {
 		if err = StopMda(); err != nil {
 			log.Errorf("failed disable mda when stop kmesh, err:%s", err)
 			return

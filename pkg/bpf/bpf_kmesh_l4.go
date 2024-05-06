@@ -23,6 +23,7 @@
 package bpf
 
 import (
+	"kmesh.net/kmesh/daemon/options"
 	"os"
 	"strconv"
 
@@ -33,7 +34,7 @@ type BpfKmesh struct {
 	SockConn BpfSockConn
 }
 
-func NewBpfKmesh(cfg *Config) (BpfKmesh, error) {
+func NewBpfKmesh(cfg *options.BpfConfig) (BpfKmesh, error) {
 	var err error
 
 	sc := BpfKmesh{}

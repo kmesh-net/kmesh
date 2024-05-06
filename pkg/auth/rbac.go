@@ -72,6 +72,9 @@ func NewRbac() *Rbac {
 }
 
 func (r *Rbac) Run(ctx context.Context) {
+	if r == nil {
+		return
+	}
 	reader, err := ringbuf.NewReader(bpf.ObjWorkload.KmeshWorkload.SockOps.MapOfTuple)
 	if err != nil {
 		log.Errorf("open ringbuf map FAILED, err: %v", err)

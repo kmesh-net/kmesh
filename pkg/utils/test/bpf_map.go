@@ -43,7 +43,7 @@ func InitBpfMap(t *testing.T) {
 	config := bpf.GetConfig()
 	config.BpfFsPath = "/sys/fs/bpf"
 	config.Cgroup2Path = "/mnt/kmesh_cgroup2"
-	err = bpf.StartKmesh()
+	err = bpf.StartAdsMode()
 	if err != nil {
 		CleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)
