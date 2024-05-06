@@ -25,12 +25,13 @@ import (
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 
-	workloadapi "kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/auth"
-	"kmesh.net/kmesh/pkg/controller/common/cache"
 	"kmesh.net/kmesh/pkg/controller/config"
-	nets "kmesh.net/kmesh/pkg/nets"
+	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
+	"kmesh.net/kmesh/pkg/controller/workload/cache"
+	"kmesh.net/kmesh/pkg/nets"
 )
 
 const (
@@ -39,14 +40,13 @@ const (
 	KmeshWaypointPort = 15019 // use this fixed port instead of the HboneMtlsPort in kmesh
 )
 
-var (
-	hashName     = NewHashName()
-	ServiceCache = make(map[string]Endpoints)
-)
-
 type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
 	req *service_discovery_v3.DeltaDiscoveryRequest
+
+	hashName           *HashName
+	endpointsByService map[string]Endpoints
+	bpf                *bpf.Cache
 }
 
 type Endpoints map[string]Endpoint
@@ -62,10 +62,14 @@ func NewProcessor() *Processor {
 	return &Processor{
 		ack: nil,
 		req: nil,
+
+		hashName:           NewHashName(),
+		endpointsByService: make(map[string]Endpoints),
+		bpf:                bpf.NewCache(nil),
 	}
 }
 
-func (svc *Processor) Destroy() {}
+func (p *Processor) Destroy() {}
 
 func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.DeltaDiscoveryRequest {
 	return &service_discovery_v3.DeltaDiscoveryRequest{
@@ -87,15 +91,15 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 	}
 }
 
-func (svc *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
+func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
 	var err error
 
-	svc.ack = newAckRequest(rsp)
+	p.ack = newAckRequest(rsp)
 	switch rsp.GetTypeUrl() {
 	case AddressType:
-		err = handleAddressTypeResponse(rsp)
+		err = p.handleAddressTypeResponse(rsp)
 	case AuthorizationType:
-		err = svc.handleAuthorizationTypeResponse(rsp, rbac)
+		err = p.handleAuthorizationTypeResponse(rsp, rbac)
 	default:
 		err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
 	}
@@ -104,21 +108,21 @@ func (svc *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDis
 	}
 }
 
-func deletePodFrontendData(uid uint32) error {
+func (p *Processor) deletePodFrontendData(uid uint32) error {
 	var (
 		err error
-		bk  = BackendKey{}
-		bv  = BackendValue{}
-		fk  = FrontendKey{}
+		bk  = bpf.BackendKey{}
+		bv  = bpf.BackendValue{}
+		fk  = bpf.FrontendKey{}
 	)
 
 	bk.BackendUid = uid
-	if err = BackendLookup(&bk, &bv); err == nil {
+	if err = p.bpf.BackendLookup(&bk, &bv); err == nil {
 		log.Debugf("Find BackendValue: [%#v]", bv)
 		if bv.PortCount == 0 {
 			fk.IPv4 = bv.IPv4
 			fk.Port = 0
-			if err = FrontendDelete(&fk); err != nil {
+			if err = p.bpf.FrontendDelete(&fk); err != nil {
 				log.Errorf("FrontendDelete failed: %s", err)
 				return err
 			}
@@ -128,10 +132,10 @@ func deletePodFrontendData(uid uint32) error {
 	return nil
 }
 
-func storePodFrontendData(uid uint32, ip []byte) error {
+func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 	var (
-		fk = FrontendKey{}
-		fv = FrontendValue{}
+		fk = bpf.FrontendKey{}
+		fv = bpf.FrontendValue{}
 	)
 
 	// stored PodIP in the frontend map for Pod to Pod access.
@@ -139,7 +143,7 @@ func storePodFrontendData(uid uint32, ip []byte) error {
 	fk.IPv4 = binary.LittleEndian.Uint32(ip)
 	fk.Port = 0
 	fv.UpstreamId = uid
-	if err := FrontendUpdate(&fk, &fv); err != nil {
+	if err := p.bpf.FrontendUpdate(&fk, &fv); err != nil {
 		log.Errorf("Update frontend map failed, err:%s", err)
 		return err
 	}
@@ -147,49 +151,49 @@ func storePodFrontendData(uid uint32, ip []byte) error {
 	return nil
 }
 
-func removeWorkloadResource(removed_resources []string) error {
+func (p *Processor) removeWorkloadResource(removed_resources []string) error {
 	var (
 		err      error
-		skUpdate = ServiceKey{}
-		svUpdate = ServiceValue{}
-		ekUpdate = EndpointKey{}
-		evUpdate = EndpointValue{}
-		ekDelete = EndpointKey{}
-		evDelete = EndpointValue{}
-		bkDelete = BackendKey{}
+		skUpdate = bpf.ServiceKey{}
+		svUpdate = bpf.ServiceValue{}
+		ekUpdate = bpf.EndpointKey{}
+		evUpdate = bpf.EndpointValue{}
+		ekDelete = bpf.EndpointKey{}
+		evDelete = bpf.EndpointValue{}
+		bkDelete = bpf.BackendKey{}
 	)
 
 	for _, workloadUid := range removed_resources {
 		cache.WorkloadCache.DeleteWorkload(workloadUid)
 
-		backendUid := hashName.StrToNum(workloadUid)
+		backendUid := p.hashName.StrToNum(workloadUid)
 		// for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
-		if err = deletePodFrontendData(backendUid); err != nil {
+		if err = p.deletePodFrontendData(backendUid); err != nil {
 			log.Errorf("deletePodFrontendData failed: %s", err)
 			goto failed
 		}
 
-		if eks := EndpointIterFindKey(backendUid); len(eks) != 0 {
+		if eks := p.bpf.EndpointIterFindKey(backendUid); len(eks) != 0 {
 			for _, ekUpdate = range eks {
 				log.Debugf("Find EndpointKey: [%#v]", ekUpdate)
 				skUpdate.ServiceId = ekUpdate.ServiceId
-				if err = ServiceLookup(&skUpdate, &svUpdate); err == nil {
+				if err = p.bpf.ServiceLookup(&skUpdate, &svUpdate); err == nil {
 					log.Debugf("Find ServiceValue: [%#v]", svUpdate)
 					ekDelete.ServiceId = skUpdate.ServiceId
 					ekDelete.BackendIndex = svUpdate.EndpointCount
-					if err = EndpointLookup(&ekDelete, &evDelete); err == nil {
+					if err = p.bpf.EndpointLookup(&ekDelete, &evDelete); err == nil {
 						log.Debugf("Find EndpointValue: [%#v]", evDelete)
 						evUpdate.BackendUid = evDelete.BackendUid
-						if err = EndpointUpdate(&ekUpdate, &evUpdate); err != nil {
+						if err = p.bpf.EndpointUpdate(&ekUpdate, &evUpdate); err != nil {
 							log.Errorf("EndpointUpdate failed: %s", err)
 							goto failed
 						}
-						if err = EndpointDelete(&ekDelete); err != nil {
+						if err = p.bpf.EndpointDelete(&ekDelete); err != nil {
 							log.Errorf("EndpointDelete failed: %s", err)
 							goto failed
 						}
 						svUpdate.EndpointCount = svUpdate.EndpointCount - 1
-						if err = ServiceUpdate(&skUpdate, &svUpdate); err != nil {
+						if err = p.bpf.ServiceUpdate(&skUpdate, &svUpdate); err != nil {
 							log.Errorf("ServiceUpdate failed: %s", err)
 							goto failed
 						}
@@ -199,27 +203,27 @@ func removeWorkloadResource(removed_resources []string) error {
 		}
 
 		bkDelete.BackendUid = backendUid
-		if err = BackendDelete(&bkDelete); err != nil {
+		if err = p.bpf.BackendDelete(&bkDelete); err != nil {
 			log.Errorf("BackendDelete failed: %s", err)
 			goto failed
 		}
-		hashName.Delete(workloadUid)
+		p.hashName.Delete(workloadUid)
 	}
 
 failed:
 	return err
 }
 
-func deleteFrontendData(id uint32) error {
+func (p *Processor) deleteFrontendData(id uint32) error {
 	var (
 		err error
-		fk  = FrontendKey{}
+		fk  = bpf.FrontendKey{}
 	)
-	if fks := FrontendIterFindKey(id); len(fks) != 0 {
+	if fks := p.bpf.FrontendIterFindKey(id); len(fks) != 0 {
 		log.Debugf("Find Key Count %d", len(fks))
 		for _, fk = range fks {
 			log.Debugf("deleteFrontendData Key [%#v]", fk)
-			if err = FrontendDelete(&fk); err != nil {
+			if err = p.bpf.FrontendDelete(&fk); err != nil {
 				log.Errorf("FrontendDelete failed: %s", err)
 				return err
 			}
@@ -229,24 +233,24 @@ func deleteFrontendData(id uint32) error {
 	return nil
 }
 
-func removeServiceResource(removed_resources []string) error {
+func (p *Processor) removeServiceResource(resources []string) error {
 	var (
 		err      error
-		skDelete = ServiceKey{}
-		svDelete = ServiceValue{}
-		ekDelete = EndpointKey{}
+		skDelete = bpf.ServiceKey{}
+		svDelete = bpf.ServiceValue{}
+		ekDelete = bpf.EndpointKey{}
 	)
 
-	for _, name := range removed_resources {
-		serviceId := hashName.StrToNum(name)
+	for _, name := range resources {
+		serviceId := p.hashName.StrToNum(name)
 		skDelete.ServiceId = serviceId
-		if err = ServiceLookup(&skDelete, &svDelete); err == nil {
-			if err = deleteFrontendData(serviceId); err != nil {
+		if err = p.bpf.ServiceLookup(&skDelete, &svDelete); err == nil {
+			if err = p.deleteFrontendData(serviceId); err != nil {
 				log.Errorf("deleteFrontendData failed: %s", err)
 				goto failed
 			}
 
-			if err = ServiceDelete(&skDelete); err != nil {
+			if err = p.bpf.ServiceDelete(&skDelete); err != nil {
 				log.Errorf("ServiceDelete failed: %s", err)
 				goto failed
 			}
@@ -255,34 +259,34 @@ func removeServiceResource(removed_resources []string) error {
 			for i = 1; i <= svDelete.EndpointCount; i++ {
 				ekDelete.ServiceId = serviceId
 				ekDelete.BackendIndex = i
-				if err = EndpointDelete(&ekDelete); err != nil {
+				if err = p.bpf.EndpointDelete(&ekDelete); err != nil {
 					log.Errorf("EndpointDelete failed: %s", err)
 					goto failed
 				}
 			}
 		}
-		hashName.Delete(name)
+		p.hashName.Delete(name)
 	}
 
 failed:
 	return err
 }
 
-func storeEndpointWithService(sk *ServiceKey, sv *ServiceValue, uid uint32) error {
+func (p *Processor) storeEndpointWithService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, uid uint32) error {
 	var (
 		err error
-		ek  = EndpointKey{}
-		ev  = EndpointValue{}
+		ek  = bpf.EndpointKey{}
+		ev  = bpf.EndpointValue{}
 	)
 	sv.EndpointCount++
 	ek.BackendIndex = sv.EndpointCount
 	ek.ServiceId = sk.ServiceId
 	ev.BackendUid = uid
-	if err = EndpointUpdate(&ek, &ev); err != nil {
+	if err = p.bpf.EndpointUpdate(&ek, &ev); err != nil {
 		log.Errorf("Update endpoint map failed, err:%s", err)
 		return err
 	}
-	if err = ServiceUpdate(sk, sv); err != nil {
+	if err = p.bpf.ServiceUpdate(sk, sv); err != nil {
 		log.Errorf("Update ServiceUpdate map failed, err:%s", err)
 		return err
 	}
@@ -290,27 +294,27 @@ func storeEndpointWithService(sk *ServiceKey, sv *ServiceValue, uid uint32) erro
 	return nil
 }
 
-func storeServiceCache(workload_uid string, serviceName string, portList *workloadapi.PortList) {
+func (p *Processor) storeServiceCache(workload_uid string, serviceName string, portList *workloadapi.PortList) {
 	var endpoint Endpoint
 	endpoint.workloadUid = workload_uid
 	endpoint.serviceName = serviceName
 	endpoint.portCount = uint32(len(portList.Ports))
 	endpoint.portList = portList.Ports
 
-	endpointCaches, ok := ServiceCache[serviceName]
+	endpointCaches, ok := p.endpointsByService[serviceName]
 	if !ok {
-		ServiceCache[serviceName] = make(Endpoints)
-		endpointCaches = ServiceCache[serviceName]
+		p.endpointsByService[serviceName] = make(Endpoints)
+		endpointCaches = p.endpointsByService[serviceName]
 	}
 
 	endpointCaches[workload_uid] = endpoint
 }
 
-func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, waypoint *workloadapi.GatewayAddress, serviceName string) error {
+func (p *Processor) storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, waypoint *workloadapi.GatewayAddress, serviceName string) error {
 	var (
 		err error
-		bk  = BackendKey{}
-		bv  = BackendValue{}
+		bk  = bpf.BackendKey{}
+		bv  = bpf.BackendValue{}
 	)
 
 	bk.BackendUid = uid
@@ -334,7 +338,7 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, 
 			} else {
 				bv.TargetPort[i] = nets.ConvertPortToBigEndian(portPair.TargetPort)
 			}
-			if err = BackendUpdate(&bk, &bv); err != nil {
+			if err = p.bpf.BackendUpdate(&bk, &bv); err != nil {
 				log.Errorf("Update backend map failed, err:%s", err)
 				return err
 			}
@@ -342,7 +346,7 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, 
 
 		// stored PodIP in the frontend map for Pod to Pod access.
 		// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
-		if err = storePodFrontendData(uid, ip); err != nil {
+		if err = p.storePodFrontendData(uid, ip); err != nil {
 			log.Errorf("storePodFrontendData failed, err:%s", err)
 			return err
 		}
@@ -350,19 +354,19 @@ func storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, 
 	return nil
 }
 
-func handleDataWithService(workload *workloadapi.Workload) error {
+func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error {
 	var (
 		err error
-		sk  = ServiceKey{}
-		sv  = ServiceValue{}
+		sk  = bpf.ServiceKey{}
+		sv  = bpf.ServiceValue{}
 
-		bk = BackendKey{}
-		bv = BackendValue{}
+		bk = bpf.BackendKey{}
+		bv = bpf.BackendValue{}
 	)
-	backend_uid := hashName.StrToNum(workload.GetUid())
+	backend_uid := p.hashName.StrToNum(workload.GetUid())
 	// a Pod may be added to a certain service in the future, so it is necessary to delete the Pod info
 	// that was previously added as an independent Pod to the frontend map.
-	if err = deletePodFrontendData(backend_uid); err != nil {
+	if err = p.deletePodFrontendData(backend_uid); err != nil {
 		log.Errorf("deletePodFrontendData failed, err:%s", err)
 		return err
 	}
@@ -370,16 +374,16 @@ func handleDataWithService(workload *workloadapi.Workload) error {
 	for serviceName, portList := range workload.GetServices() {
 		bk.BackendUid = backend_uid
 		// for update sense, if the backend is exist, just need update it
-		if err = BackendLookup(&bk, &bv); err != nil {
-			sk.ServiceId = hashName.StrToNum(serviceName)
+		if err = p.bpf.BackendLookup(&bk, &bv); err != nil {
+			sk.ServiceId = p.hashName.StrToNum(serviceName)
 			// the service already stored in map, add endpoint
-			if err = ServiceLookup(&sk, &sv); err == nil {
-				if err = storeEndpointWithService(&sk, &sv, backend_uid); err != nil {
+			if err = p.bpf.ServiceLookup(&sk, &sv); err == nil {
+				if err = p.storeEndpointWithService(&sk, &sv, backend_uid); err != nil {
 					log.Errorf("storeEndpointWithService failed, err:%s", err)
 					return err
 				}
-			} else { // the service has not exist in the map yet, we need store it in the ServiceCache cache
-				storeServiceCache(workload.GetUid(), serviceName, portList)
+			} else { // the service has not exist in the map yet, we need store it in the endpointsByService
+				p.storeServiceCache(workload.GetUid(), serviceName, portList)
 			}
 		}
 	}
@@ -387,7 +391,7 @@ func handleDataWithService(workload *workloadapi.Workload) error {
 	for serviceName, portList := range workload.GetServices() {
 		// store workload info in backend map, after service come, add the endpoint relationship
 		ips := workload.GetAddresses()
-		if err = storeBackendData(backend_uid, ips, portList, workload.GetWaypoint(), serviceName); err != nil {
+		if err = p.storeBackendData(backend_uid, ips, portList, workload.GetWaypoint(), serviceName); err != nil {
 			log.Errorf("storeBackendData failed, err:%s", err)
 			return err
 		}
@@ -396,13 +400,13 @@ func handleDataWithService(workload *workloadapi.Workload) error {
 	return nil
 }
 
-func handleDataWithoutService(workload *workloadapi.Workload) error {
+func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) error {
 	var (
 		err error
-		bk  = BackendKey{}
-		bv  = BackendValue{}
+		bk  = bpf.BackendKey{}
+		bv  = bpf.BackendValue{}
 	)
-	uid := hashName.StrToNum(workload.GetUid())
+	uid := p.hashName.StrToNum(workload.GetUid())
 	ips := workload.GetAddresses()
 	for _, ip := range ips {
 		if waypoint := workload.GetWaypoint(); waypoint != nil {
@@ -413,14 +417,14 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 
 		bk.BackendUid = uid
 		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
-		if err = BackendUpdate(&bk, &bv); err != nil {
+		if err = p.bpf.BackendUpdate(&bk, &bv); err != nil {
 			log.Errorf("Update backend map failed, err:%s", err)
 			return err
 		}
 
 		// stored PodIP in the frontend map for Pod to Pod access.
 		// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
-		if err = storePodFrontendData(uid, ip); err != nil {
+		if err = p.storePodFrontendData(uid, ip); err != nil {
 			log.Errorf("storePodFrontendData failed, err:%s", err)
 			return err
 		}
@@ -428,17 +432,17 @@ func handleDataWithoutService(workload *workloadapi.Workload) error {
 	return nil
 }
 
-func handleWorkloadData(workload *workloadapi.Workload) error {
+func (p *Processor) handleWorkloadData(workload *workloadapi.Workload) error {
 	log.Debugf("workload uid: %s", workload.Uid)
 	cache.WorkloadCache.AddWorkload(workload)
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
-		if err := handleDataWithService(workload); err != nil {
+		if err := p.handleDataWithService(workload); err != nil {
 			log.Errorf("handleDataWithService %s failed: %v", workload.Uid, err)
 			return err
 		}
 	} else { // independent workload without service
-		if err := handleDataWithoutService(workload); err != nil {
+		if err := p.handleDataWithoutService(workload); err != nil {
 			log.Errorf("handleDataWithoutService %s failed: %v", workload.Uid, err)
 			return err
 		}
@@ -447,11 +451,11 @@ func handleWorkloadData(workload *workloadapi.Workload) error {
 	return nil
 }
 
-func storeServiceFrontendData(serviceId uint32, service *workloadapi.Service) error {
+func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workloadapi.Service) error {
 	var (
 		err error
-		fk  = FrontendKey{}
-		fv  = FrontendValue{}
+		fk  = bpf.FrontendKey{}
+		fv  = bpf.FrontendValue{}
 	)
 
 	fv.UpstreamId = serviceId
@@ -460,7 +464,7 @@ func storeServiceFrontendData(serviceId uint32, service *workloadapi.Service) er
 		fk.IPv4 = nets.ConvertIpByteToUint32(address)
 		for _, portPair := range service.GetPorts() {
 			fk.Port = nets.ConvertPortToBigEndian(portPair.ServicePort)
-			if err = FrontendUpdate(&fk, &fv); err != nil {
+			if err = p.bpf.FrontendUpdate(&fk, &fv); err != nil {
 				log.Errorf("Update Frontend failed, err:%s", err)
 				return err
 			}
@@ -469,74 +473,74 @@ func storeServiceFrontendData(serviceId uint32, service *workloadapi.Service) er
 	return nil
 }
 
-func storeServiceData(serviceName string) error {
+func (p *Processor) storeServiceData(serviceName string) error {
 	var (
 		err error
-		ek  = EndpointKey{}
-		ev  = EndpointValue{}
-		sk  = ServiceKey{}
-		sv  = ServiceValue{}
+		ek  = bpf.EndpointKey{}
+		ev  = bpf.EndpointValue{}
+		sk  = bpf.ServiceKey{}
+		sv  = bpf.ServiceValue{}
 	)
 
-	sk.ServiceId = hashName.StrToNum(serviceName)
+	sk.ServiceId = p.hashName.StrToNum(serviceName)
 	sv.LbPolicy = LbPolicyRandom
 	sv.EndpointCount = 0 // there are 0 endpoints in the initial state
-	endpointCaches, ok := ServiceCache[serviceName]
+	endpointCaches, ok := p.endpointsByService[serviceName]
 	if ok {
 		for workloadUid, endpoint := range endpointCaches {
 			sv.EndpointCount++
-			ek.ServiceId = hashName.StrToNum(endpoint.serviceName)
+			ek.ServiceId = p.hashName.StrToNum(endpoint.serviceName)
 			ek.BackendIndex = sv.EndpointCount
-			ev.BackendUid = hashName.StrToNum(workloadUid)
+			ev.BackendUid = p.hashName.StrToNum(workloadUid)
 
-			if err = EndpointUpdate(&ek, &ev); err != nil {
+			if err = p.bpf.EndpointUpdate(&ek, &ev); err != nil {
 				log.Errorf("Update Endpoint failed, err:%s", err)
 				return err
 			}
 		}
-		delete(ServiceCache, serviceName)
+		delete(p.endpointsByService, serviceName)
 	}
 
-	if err = ServiceUpdate(&sk, &sv); err != nil {
+	if err = p.bpf.ServiceUpdate(&sk, &sv); err != nil {
 		log.Errorf("Update Service failed, err:%s", err)
 	}
 
 	return nil
 }
 
-func handleServiceData(service *workloadapi.Service) error {
+func (p *Processor) handleServiceData(service *workloadapi.Service) error {
 	log.Debugf("service resource name: %s/%s", service.Namespace, service.Hostname)
 	var (
 		err error
-		sk  = ServiceKey{}
-		sv  = ServiceValue{}
+		sk  = bpf.ServiceKey{}
+		sv  = bpf.ServiceValue{}
 	)
 
 	NamespaceHostname := []string{service.GetNamespace(), service.GetHostname()}
 	serviceName := strings.Join(NamespaceHostname, "/")
 
-	serviceId := hashName.StrToNum(serviceName)
+	serviceId := p.hashName.StrToNum(serviceName)
 	sk.ServiceId = serviceId
 	// if service has exist, just need update frontend port info
-	if err = ServiceLookup(&sk, &sv); err == nil {
+	if err = p.bpf.ServiceLookup(&sk, &sv); err == nil {
 		// update: delete then store
-		if err = deleteFrontendData(serviceId); err != nil {
+		if err = p.deleteFrontendData(serviceId); err != nil {
 			log.Errorf("deleteFrontendData failed: %s", err)
 			return err
 		}
-		if err = storeServiceFrontendData(serviceId, service); err != nil {
+		if err = p.storeServiceFrontendData(serviceId, service); err != nil {
 			log.Errorf("storeServiceFrontendData failed, err:%s", err)
 			return err
 		}
 	} else {
 		// store in frontend
-		if err = storeServiceFrontendData(serviceId, service); err != nil {
+		if err = p.storeServiceFrontendData(serviceId, service); err != nil {
 			log.Errorf("storeServiceFrontendData failed, err:%s", err)
 			return err
 		}
 
 		// get endpoint from ServiceCache, and update service and endpoint map
-		if err = storeServiceData(serviceName); err != nil {
+		if err = p.storeServiceData(serviceName); err != nil {
 			log.Errorf("storeServiceData failed, err:%s", err)
 			return err
 		}
@@ -544,7 +548,7 @@ func handleServiceData(service *workloadapi.Service) error {
 	return nil
 }
 
-func handleRemovedAddresses(removed []string) error {
+func (p *Processor) handleRemovedAddresses(removed []string) error {
 	var workloadNames []string
 	var serviceNames []string
 	for _, res := range removed {
@@ -557,17 +561,17 @@ func handleRemovedAddresses(removed []string) error {
 		}
 	}
 
-	if err := removeWorkloadResource(workloadNames); err != nil {
+	if err := p.removeWorkloadResource(workloadNames); err != nil {
 		log.Errorf("RemoveWorkloadResource failed: %v", err)
 	}
-	if err := removeServiceResource(serviceNames); err != nil {
+	if err := p.removeServiceResource(serviceNames); err != nil {
 		log.Errorf("RemoveServiceResource failed: %v", err)
 	}
 
 	return nil
 }
 
-func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
+func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
 	var (
 		err     error
 		address = &workloadapi.Address{}
@@ -582,10 +586,10 @@ func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse)
 		switch address.GetType().(type) {
 		case *workloadapi.Address_Workload:
 			workload := address.GetWorkload()
-			err = handleWorkloadData(workload)
+			err = p.handleWorkloadData(workload)
 		case *workloadapi.Address_Service:
 			service := address.GetService()
-			err = handleServiceData(service)
+			err = p.handleServiceData(service)
 		default:
 			log.Errorf("unknow type")
 		}
@@ -594,12 +598,12 @@ func handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse)
 		log.Error(err)
 	}
 
-	_ = handleRemovedAddresses(rsp.RemovedResources)
+	_ = p.handleRemovedAddresses(rsp.RemovedResources)
 
 	return err
 }
 
-func (svc *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) error {
+func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) error {
 	// update resource
 	for _, resource := range rsp.GetResources() {
 		auth := &security.Authorization{}

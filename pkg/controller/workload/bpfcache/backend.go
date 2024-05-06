@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package workload
+package bpfcache
 
 import (
 	"github.com/cilium/ebpf"
 
-	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/controller/workload"
 )
 
 type BackendKey struct {
 	BackendUid uint32 // workloadUid to uint32
 }
 
-type ServicePorts [MaxPortPairNum]uint32
-type TargetPorts [MaxPortPairNum]uint32
+type ServicePorts [workload.MaxPortPairNum]uint32
+type TargetPorts [workload.MaxPortPairNum]uint32
 
 type BackendValue struct {
 	IPv4         uint32 // backend ip
@@ -38,20 +38,17 @@ type BackendValue struct {
 	WaypointPort uint32
 }
 
-func BackendUpdate(key *BackendKey, value *BackendValue) error {
+func (c *Cache) BackendUpdate(key *BackendKey, value *BackendValue) error {
 	log.Debugf("BackendUpdate [%#v], [%#v]", *key, *value)
-	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
-		Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmeshBackend.Update(key, value, ebpf.UpdateAny)
 }
 
-func BackendDelete(key *BackendKey) error {
+func (c *Cache) BackendDelete(key *BackendKey) error {
 	log.Debugf("BackendDelete [%#v]", *key)
-	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
-		Delete(key)
+	return c.bpfMap.KmeshBackend.Delete(key)
 }
 
-func BackendLookup(key *BackendKey, value *BackendValue) error {
+func (c *Cache) BackendLookup(key *BackendKey, value *BackendValue) error {
 	log.Debugf("BackendLookup [%#v]", *key)
-	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
-		Lookup(key, value)
+	return c.bpfMap.KmeshBackend.Lookup(key, value)
 }

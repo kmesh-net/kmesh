@@ -19,6 +19,7 @@ package workload
 import (
 	"context"
 	"fmt"
+	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -31,18 +32,16 @@ const (
 	AuthorizationType = "type.googleapis.com/istio.security.Authorization"
 )
 
-var (
-	log = logger.NewLoggerField("workload_controller")
-)
+var log = logger.NewLoggerField("workload_controller")
 
 type Controller struct {
 	Stream    service_discovery_v3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 	Processor *Processor
 }
 
-func NewController() *Controller {
+func NewController(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Controller {
 	return &Controller{
-		Processor: NewProcessor(),
+		Processor: NewProcessor(workloadMap),
 	}
 }
 
