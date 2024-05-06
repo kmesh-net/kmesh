@@ -27,48 +27,64 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("controller/envoy")
+	log = logger.NewLoggerField("ads_controller")
 )
 
 type Controller struct {
 	Stream    service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	Processor *Processor
+	Processor *processor
 }
 
-func (as *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
+func NewController() *Controller {
+	return &Controller{
+		Processor: newProcessor(),
+	}
+}
+
+func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
 	var err error
 
-	as.Stream, err = client.StreamAggregatedResources(ctx)
+	c.Stream, err = client.StreamAggregatedResources(ctx)
 	if err != nil {
 		return fmt.Errorf("StreamAggregatedResources failed, %s", err)
 	}
 
-	if err := as.Stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
+	if err := c.Stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
 
 	return nil
 }
 
+<<<<<<< HEAD
 func (as *Controller) HandleAdsStream() error {
+=======
+func (c *Controller) AdsStreamProcess() error {
+>>>>>>> c1e5e30 (ads controller refactor)
 	var (
 		err error
 		rsp *service_discovery_v3.DiscoveryResponse
 	)
 
-	if rsp, err = as.Stream.Recv(); err != nil {
+	if rsp, err = c.Stream.Recv(); err != nil {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	as.Processor.processAdsResponse(rsp)
+	c.Processor.processAdsResponse(rsp)
 
-	if err = as.Stream.Send(as.Processor.ack); err != nil {
+	if err = c.Stream.Send(c.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
+<<<<<<< HEAD
 	if as.Processor.req != nil {
 		if err = as.Stream.Send(as.Processor.rqt); err != nil {
 			return fmt.Errorf("stream send req failed, %s", err)
+=======
+	if c.Processor.rqt != nil {
+		if err = c.Stream.Send(c.Processor.rqt); err != nil {
+			return fmt.Errorf("stream send rqt failed, %s", err)
+>>>>>>> c1e5e30 (ads controller refactor)
 		}
 	}
 

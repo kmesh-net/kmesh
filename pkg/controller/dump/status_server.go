@@ -95,13 +95,13 @@ func (s *StatusServer) httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) 
 		return
 	} else if client.AdsController.Processor == nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", "none client.Processor")
+		fmt.Fprintf(w, "\t%s\n", "none client.processor")
 		return
 	}
 
 	switch r.Method {
 	case http.MethodGet:
-		dynamicLd := client.AdsController.Processor.DynamicLoader
+		dynamicLd := client.AdsController.Processor.Cache
 		dynamicRes := &admin_v2.ConfigResources{}
 
 		dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusLookup()...)
@@ -127,7 +127,7 @@ func (s *StatusServer) httpControllerEnvoy(w http.ResponseWriter, r *http.Reques
 		fmt.Fprintf(w, "\t%s\n", "invalid bpf.BpfConfig.ClientMode")
 		return
 	}
-	dynamicLd := client.AdsController.Processor.DynamicLoader
+	dynamicLd := client.AdsController.Processor.Cache
 	dynamicRes := &admin_v2.ConfigResources{}
 
 	dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusRead()...)

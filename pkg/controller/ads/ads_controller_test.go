@@ -123,9 +123,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 func TestAdsStream_AdsStreamProcess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	adsStream := Controller{
-		Processor: NewAdsProcessor(),
-	}
+	adsStream := NewController()
 
 	// create a fake grpc service client
 	mockDiscovery := xdstest.NewMockServer(t)
