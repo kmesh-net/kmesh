@@ -35,19 +35,19 @@ type FrontendValue struct {
 
 func FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendUpdate [%#v], [%#v]", *key, *value)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
 		Update(key, value, ebpf.UpdateAny)
 }
 
 func FrontendDelete(key *FrontendKey) error {
 	log.Debugf("FrontendDelete [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
 		Delete(key)
 }
 
 func FrontendLookup(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendLookup [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
 		Lookup(key, value)
 }
 
@@ -56,7 +56,7 @@ func FrontendIterFindKey(upstreamId uint32) []FrontendKey {
 	var (
 		key   = FrontendKey{}
 		value = FrontendValue{}
-		iter  = bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.Iterate()
+		iter  = bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.Iterate()
 	)
 
 	res := make([]FrontendKey, 0)

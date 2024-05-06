@@ -24,8 +24,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var config DaemonConfig
-
 type configFactory interface {
 	AttachFlags(cmd *cobra.Command)
 	ParseConfig() error

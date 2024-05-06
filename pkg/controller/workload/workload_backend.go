@@ -40,18 +40,18 @@ type BackendValue struct {
 
 func BackendUpdate(key *BackendKey, value *BackendValue) error {
 	log.Debugf("BackendUpdate [%#v], [%#v]", *key, *value)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
 		Update(key, value, ebpf.UpdateAny)
 }
 
 func BackendDelete(key *BackendKey) error {
 	log.Debugf("BackendDelete [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
 		Delete(key)
 }
 
 func BackendLookup(key *BackendKey, value *BackendValue) error {
 	log.Debugf("BackendLookup [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
 		Lookup(key, value)
 }

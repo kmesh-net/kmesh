@@ -49,6 +49,7 @@ var (
 
 type Rbac struct {
 	policyStore *policyStore
+	bpfWorkload *bpf.BpfKmeshWorkload
 }
 
 type Identity struct {
@@ -65,9 +66,10 @@ type rbacConnection struct {
 	dstPort     uint32
 }
 
-func NewRbac() *Rbac {
+func NewRbac(workloadObj *bpf.BpfKmeshWorkload) *Rbac {
 	return &Rbac{
 		policyStore: newPolicystore(),
+		bpfWorkload: workloadObj,
 	}
 }
 
@@ -75,7 +77,7 @@ func (r *Rbac) Run(ctx context.Context) {
 	if r == nil {
 		return
 	}
-	reader, err := ringbuf.NewReader(bpf.ObjWorkload.KmeshWorkload.SockOps.MapOfTuple)
+	reader, err := ringbuf.NewReader(r.bpfWorkload.SockOps.MapOfTuple)
 	if err != nil {
 		log.Errorf("open ringbuf map FAILED, err: %v", err)
 		return

@@ -21,13 +21,13 @@ import (
 	"fmt"
 	"time"
 
-	"kmesh.net/kmesh/pkg/constants"
-
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 
 	"kmesh.net/kmesh/pkg/auth"
+	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/workload"
@@ -50,7 +50,7 @@ type XdsClient struct {
 	rbac           *auth.Rbac
 }
 
-func NewXdsClient(mode string) *XdsClient {
+func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(),
@@ -64,7 +64,7 @@ func NewXdsClient(mode string) *XdsClient {
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
 	if mode == constants.WorkloadMode {
-		client.rbac = auth.NewRbac()
+		client.rbac = auth.NewRbac(bpfWorkloadObj)
 	}
 
 	return client
@@ -84,7 +84,7 @@ func (c *XdsClient) createGrpcStreamClient() error {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
 		}
-	} else if bpfConfig.AdsEnabled() {
+	} else if c.mode == constants.AdsMode {
 		if err = c.AdsStream.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create ads stream failed, %s", err)

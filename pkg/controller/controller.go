@@ -18,6 +18,7 @@ package controller
 
 import (
 	"fmt"
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
 	"kmesh.net/kmesh/pkg/logger"
@@ -30,13 +31,15 @@ var (
 )
 
 type Controller struct {
-	mode   string
-	client *XdsClient
+	mode           string
+	bpfWorkloadObj *bpf.BpfKmeshWorkload
+	client         *XdsClient
 }
 
-func NewController(mode string) *Controller {
+func NewController(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controller {
 	return &Controller{
-		mode: mode,
+		mode:           mode,
+		bpfWorkloadObj: bpfWorkloadObj,
 	}
 }
 
@@ -45,7 +48,7 @@ func (c *Controller) Start() error {
 		return nil
 	}
 
-	c.client = NewXdsClient(c.mode)
+	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 
 	clientset, err := utils.GetK8sclient()
 	if err != nil {

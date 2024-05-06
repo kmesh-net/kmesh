@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: kwb0523
- * Create: 2024-01-08
  */
 
 package bpf
@@ -31,52 +28,48 @@ type BpfKmeshWorkload struct {
 	SendMsg  BpfSendMsgWorkload
 }
 
-type BpfObjectWorkload struct {
-	KmeshWorkload BpfKmeshWorkload
-}
+var ObjWorkload BpfKmeshWorkload
 
-var ObjWorkload BpfObjectWorkload
+func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
+	workloadObj := &BpfKmeshWorkload{}
 
-func InitWorkloadBpf(cfg *options.BpfConfig) (BpfKmeshWorkload, error) {
-	var err error
-
-	sc := BpfKmeshWorkload{}
-
-	if err = sc.SockConn.NewBpf(cfg); err != nil {
-		return sc, err
+	if err := workloadObj.SockConn.NewBpf(cfg); err != nil {
+		return nil, err
 	}
 
-	if err = sc.SockOps.NewBpf(cfg); err != nil {
-		return sc, err
+	if err := workloadObj.SockOps.NewBpf(cfg); err != nil {
+		return nil, err
 	}
 
-	if err = sc.XdpAuth.NewBpf(cfg); err != nil {
-		return sc, err
+	if err := workloadObj.XdpAuth.NewBpf(cfg); err != nil {
+		return nil, err
 	}
 
-	if err = sc.SendMsg.NewBpf(cfg); err != nil {
-		return sc, err
+	if err := workloadObj.SendMsg.NewBpf(cfg, sc.SockOps); err != nil {
+		return nil, err
 	}
 
-	return sc, nil
+	return workloadObj, nil
 }
 
 func (l *BpfLoader) StartWorkloadMode() error {
 	var err error
 
-	if ObjWorkload.KmeshWorkload, err = InitWorkloadBpf(l.config); err != nil {
+	if l.workloadObj, err = newWorkloadBpf(l.config); err != nil {
 		return err
 	}
 
-	if err = ObjWorkload.KmeshWorkload.Load(); err != nil {
-		Stop()
+	if err = l.workloadObj.Load(); err != nil {
+		l.Stop()
 		return fmt.Errorf("bpf Load failed, %s", err)
 	}
 
-	if err = ObjWorkload.KmeshWorkload.Attach(); err != nil {
-		Stop()
+	if err = l.workloadObj.Attach(); err != nil {
+		l.Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
+
+	ObjWorkload = *l.workloadObj
 
 	return nil
 }

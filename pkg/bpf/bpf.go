@@ -37,16 +37,11 @@ type BpfInfo struct {
 	AttachType ebpf.AttachType
 }
 
-type BpfObject struct {
-	Kmesh BpfKmesh
-}
-
-var Obj BpfObject
-
 type BpfLoader struct {
 	config *options.BpfConfig
 
-	obj BpfObject
+	obj         BpfKmesh
+	workloadObj *BpfKmeshWorkload
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
@@ -56,7 +51,7 @@ func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
 }
 
 func (l *BpfLoader) StartAdsMode() (err error) {
-	if Obj.Kmesh, err = NewBpfKmesh(l.config); err != nil {
+	if l.obj, err = NewBpfKmesh(l.config); err != nil {
 		return err
 	}
 
@@ -65,15 +60,15 @@ func (l *BpfLoader) StartAdsMode() (err error) {
 			l.Stop()
 		}
 	}()
-	if err = l.obj.Kmesh.Load(); err != nil {
+	if err = l.obj.Load(); err != nil {
 		return fmt.Errorf("bpf Load failed, %s", err)
 	}
 
-	if err = l.obj.Kmesh.Attach(); err != nil {
+	if err = l.obj.Attach(); err != nil {
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
 
-	if err = Obj.Kmesh.ApiEnvCfg(); err != nil {
+	if err = l.obj.ApiEnvCfg(); err != nil {
 		return fmt.Errorf("api env config failed, %s", err)
 	}
 
@@ -134,12 +129,12 @@ func (l *BpfLoader) Stop() {
 	var err error
 
 	if l.config.AdsEnabled() {
-		if err = Obj.Kmesh.Detach(); err != nil {
+		if err = l.obj.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
 	} else if l.config.WdsEnabled() {
-		if err = ObjWorkload.KmeshWorkload.Detach(); err != nil {
+		if err = l.workloadObj.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}

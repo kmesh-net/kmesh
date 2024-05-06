@@ -33,19 +33,19 @@ type EndpointValue struct {
 
 func EndpointUpdate(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointUpdate [%#v], [%#v]", *key, *value)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
 		Update(key, value, ebpf.UpdateAny)
 }
 
 func EndpointDelete(key *EndpointKey) error {
 	log.Debugf("EndpointDelete [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
 		Delete(key)
 }
 
 func EndpointLookup(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointLookup [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
+	return bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
 		Lookup(key, value)
 }
 
@@ -54,7 +54,7 @@ func EndpointIterFindKey(workloadUid uint32) []EndpointKey {
 	var (
 		key   = EndpointKey{}
 		value = EndpointValue{}
-		iter  = bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.Iterate()
+		iter  = bpf.ObjWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.Iterate()
 	)
 
 	res := make([]EndpointKey, 0)

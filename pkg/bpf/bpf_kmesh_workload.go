@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: kwb0523
- * Create: 2024-01-08
  */
 
 package bpf
@@ -24,6 +21,7 @@ package bpf
 
 import (
 	"fmt"
+	"kmesh.net/kmesh/daemon/options"
 	"os"
 	"reflect"
 	"syscall"
@@ -41,7 +39,7 @@ type BpfSockConnWorkload struct {
 	bpf2go.KmeshCgroupSockWorkloadObjects
 }
 
-func (sc *BpfSockConnWorkload) NewBpf(cfg *Config) error {
+func (sc *BpfSockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.Config = *cfg
 	sc.Info.MapPath = sc.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sc.Info.BpfFsPath += "/bpf_kmesh_workload/sockconn/"
@@ -284,12 +282,15 @@ type BpfSendMsgWorkload struct {
 	Info     BpfInfo
 	AttachFD int
 	bpf2go.KmeshSendmsgObjects
+
+	sockOpsWorkloadObj BpfSockOpsWorkload
 }
 
-func (sm *BpfSendMsgWorkload) NewBpf(cfg *Config) error {
+func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj BpfSockOpsWorkload) error {
 	sm.Info.Config = *cfg
 	sm.Info.MapPath = sm.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sm.Info.BpfFsPath += "/bpf_kmesh_workload/sendmsg/"
+	sm.sockOpsWorkloadObj = sockOpsWorkloadObj
 
 	if err := os.MkdirAll(sm.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -355,7 +356,7 @@ func (sm *BpfSendMsgWorkload) Attach() error {
 		return err
 	}
 
-	sm.AttachFD = ObjWorkload.KmeshWorkload.SockOps.GetSockMapFD()
+	sm.AttachFD = sm.sockOpsWorkloadObj.GetSockMapFD()
 	args := link.RawAttachProgramOptions{
 		Target:  sm.AttachFD,
 		Program: clone,
