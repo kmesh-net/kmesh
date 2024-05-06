@@ -1,6 +1,8 @@
 name: Kmesh CI Workflow
 
-on: pull_request
+on:
+  pull_request:
+  merge_group: # enable merge queue
 
 jobs:
 
