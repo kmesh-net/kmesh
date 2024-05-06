@@ -28,8 +28,8 @@ import (
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/config"
-	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/nets"
 )
@@ -44,7 +44,7 @@ type XdsClient struct {
 	cancel         context.CancelFunc
 	grpcConn       *grpc.ClientConn
 	client         discoveryv3.AggregatedDiscoveryServiceClient
-	AdsStream      *envoy.AdsStream
+	AdsStream      *ads.AdsStream
 	workloadStream *workload.WorkloadStream
 	xdsConfig      *config.XdsConfig
 	rbac           *auth.Rbac
@@ -54,8 +54,8 @@ func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient 
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(),
-		AdsStream: &envoy.AdsStream{
-			Event: envoy.NewServiceEvent(),
+		AdsStream: &ads.AdsStream{
+			Event: ads.NewServiceEvent(),
 		},
 		workloadStream: &workload.WorkloadStream{
 			Event: workload.NewServiceEvent(),

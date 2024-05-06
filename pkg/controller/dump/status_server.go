@@ -27,7 +27,6 @@ import (
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/controller"
-	"kmesh.net/kmesh/pkg/controller/envoy"
 )
 
 const (
@@ -107,7 +106,7 @@ func (s *StatusServer) httpBpfKmeshMaps(w http.ResponseWriter, r *http.Request) 
 		dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusLookup()...)
 		dynamicRes.ListenerConfigs = append(dynamicRes.ListenerConfigs, dynamicLd.ListenerCache.StatusLookup()...)
 		dynamicRes.RouteConfigs = append(dynamicRes.RouteConfigs, dynamicLd.RouteCache.StatusLookup()...)
-		envoy.SetApiVersionInfo(dynamicRes)
+		ads.SetApiVersionInfo(dynamicRes)
 
 		fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{
 			DynamicResources: dynamicRes,
@@ -133,7 +132,7 @@ func (s *StatusServer) httpControllerEnvoy(w http.ResponseWriter, r *http.Reques
 	dynamicRes.ClusterConfigs = append(dynamicRes.ClusterConfigs, dynamicLd.ClusterCache.StatusRead()...)
 	dynamicRes.ListenerConfigs = append(dynamicRes.ListenerConfigs, dynamicLd.ListenerCache.StatusRead()...)
 	dynamicRes.RouteConfigs = append(dynamicRes.RouteConfigs, dynamicLd.RouteCache.StatusRead()...)
-	envoy.SetApiVersionInfo(dynamicRes)
+	ads.SetApiVersionInfo(dynamicRes)
 
 	fmt.Fprintln(w, protojson.Format(&admin_v2.ConfigDump{
 		DynamicResources: dynamicRes,

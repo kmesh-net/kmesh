@@ -30,7 +30,7 @@ import (
 
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
-	"kmesh.net/kmesh/pkg/controller/envoy"
+	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 	"kmesh.net/kmesh/pkg/nets"
@@ -102,7 +102,7 @@ func TestClientResponseProcess(t *testing.T) {
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
 		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsStream), "HandleAdsStream",
-			func(_ *envoy.AdsStream) error {
+			func(_ *ads.AdsStream) error {
 				// if the number of loops is less than or equal to two, an error is reported and a retry is triggered.
 				if iteration < 2 {
 					return errors.New("stream recv failed")
