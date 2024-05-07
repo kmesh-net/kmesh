@@ -20,11 +20,12 @@
 package bpf
 
 import (
-	"kmesh.net/kmesh/daemon/options"
 	"os"
 	"strconv"
 
 	"github.com/cilium/ebpf"
+
+	"kmesh.net/kmesh/daemon/options"
 )
 
 type BpfKmesh struct {

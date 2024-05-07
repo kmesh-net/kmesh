@@ -50,14 +50,14 @@ type XdsClient struct {
 	rbac               *auth.Rbac
 }
 
-func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient {
+func NewXdsClient(mode string, bpfWorkloadObj bpf.BpfKmeshWorkload) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(),
 	}
 
 	if mode == constants.WorkloadMode {
-		client.rbac = auth.NewRbac(bpfWorkloadObj)
+		client.rbac = auth.NewRbac(&bpfWorkloadObj)
 		client.workloadController = workload.NewController(bpfWorkloadObj.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
 	} else if mode == constants.AdsMode {
 		client.AdsController = ads.NewController()

@@ -20,11 +20,10 @@ import (
 	"encoding/json"
 	"strings"
 
-	"istio.io/istio/pilot/pkg/model"
-
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/env"
 

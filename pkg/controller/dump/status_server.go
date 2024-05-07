@@ -18,9 +18,10 @@ package dump
 
 import (
 	"fmt"
-	"kmesh.net/kmesh/pkg/controller/ads"
 	"net/http"
 	"time"
+
+	"kmesh.net/kmesh/pkg/controller/ads"
 
 	// nolint
 	"google.golang.org/protobuf/encoding/protojson"
@@ -140,12 +141,11 @@ func (s *StatusServer) httpControllerEnvoy(w http.ResponseWriter, r *http.Reques
 	}))
 }
 
-func (s *StatusServer) StartServer() error {
+func (s *StatusServer) StartServer() {
 	go func() {
 		// TODO: handle the error
 		_ = s.server.ListenAndServe()
 	}()
-	return nil
 }
 
 func (s *StatusServer) StopServer() error {

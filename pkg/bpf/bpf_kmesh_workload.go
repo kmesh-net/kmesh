@@ -43,6 +43,7 @@ func (sc *BpfSockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockconn/"
 	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -167,6 +168,7 @@ func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
 	so.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	so.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockops/"
 	so.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	so.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(so.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -290,6 +292,7 @@ func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj 
 	sm.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sm.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sendmsg/"
 	sm.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	sm.Info.Cgroup2Path = cfg.Cgroup2Path
 	sm.sockOpsWorkloadObj = sockOpsWorkloadObj
 
 	if err := os.MkdirAll(sm.Info.MapPath,
@@ -408,6 +411,7 @@ func (xa *BpfXdpAuthWorkload) NewBpf(cfg *options.BpfConfig) error {
 	xa.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	xa.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/xdpauth/"
 	xa.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	xa.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(xa.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|

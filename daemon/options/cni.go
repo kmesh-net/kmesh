@@ -36,7 +36,6 @@ func (c *cniConfig) AttachFlags(cmd *cobra.Command) {
 
 func (c *cniConfig) ParseConfig() error {
 	var err error
-	
 	if c.CniMountNetEtcDIR, err = filepath.Abs(c.CniMountNetEtcDIR); err != nil {
 		return err
 	}

@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"net"
 	"strings"
 
@@ -30,6 +29,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 

@@ -49,7 +49,7 @@ func (c *Controller) Start() error {
 		return nil
 	}
 
-	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
+	c.client = NewXdsClient(c.mode, *c.bpfWorkloadObj)
 
 	clientset, err := utils.GetK8sclient()
 	if err != nil {

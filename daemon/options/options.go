@@ -24,11 +24,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type configFactory interface {
-	AttachFlags(cmd *cobra.Command)
-	ParseConfig() error
-}
-
 type BootstrapConfigs struct {
 	BpfConfig *BpfConfig
 	CniConfig *cniConfig
