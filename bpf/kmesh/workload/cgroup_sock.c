@@ -36,9 +36,8 @@ static inline void record_netns_cookie(struct bpf_sock_addr *ctx)
 
 static inline void remove_netns_cookie(struct bpf_sock_addr *ctx)
 {
-    int err;
     __u64 cookie = bpf_get_netns_cookie(ctx);
-    err = bpf_map_delete_elem(&map_of_manager, &cookie);
+    int err = bpf_map_delete_elem(&map_of_manager, &cookie);
     if (err && err != -ENOENT)
         BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
 }

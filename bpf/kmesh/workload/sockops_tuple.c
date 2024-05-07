@@ -89,17 +89,17 @@ static inline void clean_auth_map(struct bpf_sock_ops *skops)
     // the server info when we transmitted to the kmesh auth info.
     // In this way, auth can be performed normally.
     extract_skops_to_tuple_reverse(skops, &tuple_key);
-    long ret = bpf_map_delete_elem(&map_of_auth, &tuple_key);
+    int ret = bpf_map_delete_elem(&map_of_auth, &tuple_key);
     if (ret && ret != -ENOENT)
-        BPF_LOG(INFO, SOCKOPS, "map_of_auth bpf_map_delete_elem failed, ret: %d\n", ret);
+        BPF_LOG(ERR, SOCKOPS, "map_of_auth bpf_map_delete_elem failed, ret: %d", ret);
 }
 
 static inline void clean_dstinfo_map(struct bpf_sock_ops *skops)
 {
     __u32 *key = (__u32 *)skops->sk;
-    long ret = bpf_map_delete_elem(&map_of_dst_info, &key);
+    int ret = bpf_map_delete_elem(&map_of_dst_info, &key);
     if (ret && ret != -ENOENT)
-        BPF_LOG(INFO, SOCKOPS, "bpf map delete destination info failed, ret: %d\n", ret);
+        BPF_LOG(ERR, SOCKOPS, "bpf map delete destination info failed, ret: %d", ret);
 }
 
 // insert an IPv4 tuple into the ringbuf
@@ -127,7 +127,7 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
     extract_skops_to_tuple(skops, &tuple_info);
     err = bpf_sock_hash_update(skops, &map_of_kmesh_hashmap, &tuple_info, BPF_ANY);
     if (err)
-        BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d\n", err);
+        BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d", err);
 }
 
 static inline void record_ip(__u32 ip)
@@ -142,9 +142,8 @@ static inline void record_ip(__u32 ip)
 
 static inline void remove_ip(__u32 ip)
 {
-    int err;
     __u64 key = ip;
-    err = bpf_map_delete_elem(&map_of_manager, &key);
+    int err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
         BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
 }
@@ -199,8 +198,7 @@ int record_tuple(struct bpf_sock_ops *skops)
         auth_ip_tuple(skops);
         break;
     case BPF_SOCK_OPS_STATE_CB:
-        if (skops->args[1] == BPF_TCP_CLOSE || skops->args[1] == BPF_TCP_CLOSE_WAIT
-            || skops->args[1] == BPF_TCP_FIN_WAIT1) {
+        if (skops->args[1] == BPF_TCP_CLOSE) {
             clean_auth_map(skops);
             clean_dstinfo_map(skops);
         }
