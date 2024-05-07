@@ -18,16 +18,19 @@ package bpfcache
 
 import (
 	"github.com/cilium/ebpf"
+)
 
-	"kmesh.net/kmesh/pkg/controller/workload"
+const (
+	ConverNumBase  = 10
+	MaxPortPairNum = 10
 )
 
 type BackendKey struct {
 	BackendUid uint32 // workloadUid to uint32
 }
 
-type ServicePorts [workload.MaxPortPairNum]uint32
-type TargetPorts [workload.MaxPortPairNum]uint32
+type ServicePorts [MaxPortPairNum]uint32
+type TargetPorts [MaxPortPairNum]uint32
 
 type BackendValue struct {
 	IPv4         uint32 // backend ip
