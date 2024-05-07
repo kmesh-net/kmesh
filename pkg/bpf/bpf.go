@@ -18,9 +18,10 @@ package bpf
 
 import (
 	"fmt"
-	"kmesh.net/kmesh/daemon/options"
 	"os/exec"
 	"strings"
+
+	"kmesh.net/kmesh/daemon/options"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -31,8 +32,11 @@ import (
 var log = logger.NewLoggerField("pkg/bpf")
 
 type BpfInfo struct {
-	config     *options.BpfConfig
-	MapPath    string
+	MapPath          string
+	BpfFsPath        string
+	BpfVerifyLogSize int
+	Cgroup2Path      string
+
 	Type       ebpf.ProgramType
 	AttachType ebpf.AttachType
 }
@@ -111,6 +115,13 @@ func (l *BpfLoader) Start(config *options.BpfConfig) error {
 	}
 
 	return nil
+}
+
+func (l *BpfLoader) GetBpfKmeshWorkload() *BpfKmeshWorkload {
+	if l == nil {
+		return nil
+	}
+	return l.workloadObj
 }
 
 func StopMda() error {

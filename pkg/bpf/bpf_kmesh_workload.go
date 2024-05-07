@@ -21,7 +21,6 @@ package bpf
 
 import (
 	"fmt"
-	"kmesh.net/kmesh/daemon/options"
 	"os"
 	"reflect"
 	"syscall"
@@ -30,6 +29,7 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/constants"
 )
 
@@ -40,9 +40,9 @@ type BpfSockConnWorkload struct {
 }
 
 func (sc *BpfSockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
-	sc.Info.Config = *cfg
-	sc.Info.MapPath = sc.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
-	sc.Info.BpfFsPath += "/bpf_kmesh_workload/sockconn/"
+	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
+	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockconn/"
+	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -163,10 +163,10 @@ type BpfSockOpsWorkload struct {
 	bpf2go.KmeshSockopsWorkloadObjects
 }
 
-func (so *BpfSockOpsWorkload) NewBpf(cfg *Config) error {
-	so.Info.Config = *cfg
-	so.Info.MapPath = so.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
-	so.Info.BpfFsPath += "/bpf_kmesh_workload/sockops/"
+func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
+	so.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
+	so.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockops/"
+	so.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 
 	if err := os.MkdirAll(so.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -287,9 +287,9 @@ type BpfSendMsgWorkload struct {
 }
 
 func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj BpfSockOpsWorkload) error {
-	sm.Info.Config = *cfg
-	sm.Info.MapPath = sm.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
-	sm.Info.BpfFsPath += "/bpf_kmesh_workload/sendmsg/"
+	sm.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
+	sm.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sendmsg/"
+	sm.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sm.sockOpsWorkloadObj = sockOpsWorkloadObj
 
 	if err := os.MkdirAll(sm.Info.MapPath,
@@ -404,10 +404,10 @@ type BpfXdpAuthWorkload struct {
 	bpf2go.KmeshXDPAuthObjects
 }
 
-func (xa *BpfXdpAuthWorkload) NewBpf(cfg *Config) error {
-	xa.Info.Config = *cfg
-	xa.Info.MapPath = xa.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
-	xa.Info.BpfFsPath += "/bpf_kmesh_workload/xdpauth/"
+func (xa *BpfXdpAuthWorkload) NewBpf(cfg *options.BpfConfig) error {
+	xa.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
+	xa.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/xdpauth/"
+	xa.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 
 	if err := os.MkdirAll(xa.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|

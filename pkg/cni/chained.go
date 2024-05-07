@@ -39,10 +39,10 @@ const (
 
 var cniConfigFilePath string
 
-func getCniConfigPath() (string, error) {
+func (i *Installer) getCniConfigPath() (string, error) {
 	var confFile string
-	if len(config.CniConfigName) != 0 {
-		confFile = filepath.Join(config.CniMountNetEtcDIR, config.CniConfigName)
+	if len(i.CniConfigName) != 0 {
+		confFile = filepath.Join(i.CniMountNetEtcDIR, i.CniConfigName)
 		confList, err := libcni.ConfListFromFile(confFile)
 		if err != nil {
 			err = fmt.Errorf("failed to read conflist %v : %v", confFile, err)
@@ -55,9 +55,9 @@ func getCniConfigPath() (string, error) {
 			return "", err
 		}
 	} else {
-		files, err := libcni.ConfFiles(config.CniMountNetEtcDIR, []string{".conflist"})
+		files, err := libcni.ConfFiles(i.CniMountNetEtcDIR, []string{".conflist"})
 		if err != nil {
-			err = fmt.Errorf("failed to load conflist from dir :%v, : %v", config.CniMountNetEtcDIR, err)
+			err = fmt.Errorf("failed to load conflist from dir :%v, : %v", i.CniMountNetEtcDIR, err)
 			log.Error(err)
 			return "", err
 		}
@@ -89,7 +89,7 @@ func getCniConfigPath() (string, error) {
 	return confFile, nil
 }
 
-func insertCNIConfig(oldconfig []byte, mode string) ([]byte, error) {
+func (i *Installer) insertCNIConfig(oldconfig []byte, mode string) ([]byte, error) {
 	var cniConfigMap map[string]interface{}
 	err := json.Unmarshal(oldconfig, &cniConfigMap)
 	if err != nil {
@@ -120,7 +120,7 @@ func insertCNIConfig(oldconfig []byte, mode string) ([]byte, error) {
 	}
 
 	kmeshConfig := map[string]string{}
-	kubeconfigFilepath := filepath.Join(config.CniMountNetEtcDIR, kmeshCniKubeConfig)
+	kubeconfigFilepath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)
 	// add kmesh-cni configuration
 	kmeshConfig["type"] = kmeshCniPluginName
 	kmeshConfig["kubeConfig"] = kubeconfigFilepath
@@ -188,7 +188,7 @@ func deleteCNIConfig(oldconfig []byte) ([]byte, error) {
 	return byte, nil
 }
 
-func chainedKmeshCniPlugin(mode string) error {
+func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string) error {
 	// Install binaries
 	// Currently we _always_ do this, since the binaries do not live in a shared location
 	// and we harm no one by doing so.
@@ -200,12 +200,12 @@ func chainedKmeshCniPlugin(mode string) error {
 	// Install kubeconfig (if needed) - we write/update this in the shared node CNI bin dir,
 	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
 	// unless it's missing or the contents are not what we expect.
-	kubeconfigFilepath := filepath.Join(config.CniMountNetEtcDIR, kmeshCniKubeConfig)
+	kubeconfigFilepath := filepath.Join(cniMountNetEtcDIR, kmeshCniKubeConfig)
 	if err := maybeWriteKubeConfigFile(kubeconfigFilepath); err != nil {
 		return fmt.Errorf("write kubeconfig: %v", err)
 	}
 
-	cniConfigFilePath, err = getCniConfigPath()
+	cniConfigFilePath, err = i.getCniConfigPath()
 	if err != nil {
 		return err
 	}
@@ -222,7 +222,7 @@ func chainedKmeshCniPlugin(mode string) error {
 		return err
 	}
 
-	newCNIConfig, err := insertCNIConfig(existCNIConfig, mode)
+	newCNIConfig, err := i.insertCNIConfig(existCNIConfig, mode)
 	if err != nil {
 		log.Error("failed to assemble cni config")
 		return err
@@ -248,7 +248,7 @@ func chainedKmeshCniPlugin(mode string) error {
 	return nil
 }
 
-func removeChainedKmeshCniPlugin() error {
+func (i *Installer) removeChainedKmeshCniPlugin() error {
 	var err error
 	var newCNIConfig []byte
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
@@ -277,7 +277,7 @@ func removeChainedKmeshCniPlugin() error {
 	}
 
 	// remove kubeconfig file
-	if kubeconfigFilepath := filepath.Join(config.CniMountNetEtcDIR, kmeshCniKubeConfig); fileExists(kubeconfigFilepath) {
+	if kubeconfigFilepath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig); fileExists(kubeconfigFilepath) {
 		kubeconfigFilepath := filepath.Join(MountedCNIBinDir, kmeshCniKubeConfig)
 		log.Infof("Removing Kmesh CNI kubeconfig file: %s", kubeconfigFilepath)
 		if err := os.Remove(kubeconfigFilepath); err != nil {

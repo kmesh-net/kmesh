@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	"kmesh.net/kmesh/daemon/options"
 )
 
 var KMESH_TAIL_CALL_LISTENER = uint32(C.KMESH_TAIL_CALL_LISTENER)
@@ -47,10 +48,10 @@ type BpfSockConn struct {
 	bpf2go.KmeshCgroupSockObjects
 }
 
-func (sc *BpfSockConn) NewBpf(cfg *Config) error {
-	sc.Info.Config = *cfg
-	sc.Info.MapPath = sc.Info.BpfFsPath + "/bpf_kmesh/map/"
-	sc.Info.BpfFsPath += "/bpf_kmesh/sockconn/"
+func (sc *BpfSockConn) NewBpf(cfg *options.BpfConfig) error {
+	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh/map/"
+	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh/sockconn/"
+	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|

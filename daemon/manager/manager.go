@@ -72,7 +72,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("bpf Start successful")
 	defer bpfLoader.Stop()
 
-	c := controller.NewController(configs.BpfConfig.Mode)
+	c := controller.NewController(configs.BpfConfig.Mode, bpfLoader.GetBpfKmeshWorkload())
 	if err := c.Start(); err != nil {
 		return err
 	}
@@ -86,11 +86,13 @@ func Execute(configs *options.BootstrapConfigs) error {
 		_ = statusServer.StopServer()
 	}()
 
-	if err := cni.Start(); err != nil {
+	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
+		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained)
+	if err := cniInstaller.Start(); err != nil {
 		return err
 	}
 	log.Info("command Start cni successful")
-	defer cni.Stop()
+	defer cniInstaller.Stop()
 
 	setupCloseHandler()
 	return nil

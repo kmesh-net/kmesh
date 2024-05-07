@@ -20,19 +20,19 @@
 package cni
 
 import (
-	"kmesh.net/kmesh/pkg/bpf" // nolint
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 var log = logger.NewLoggerField("cni installer")
 
-func addCniConfig(mode string) error {
+func (i *Installer) addCniConfig() error {
 	var err error
-	if config.CniConfigChained {
+	if i.CniConfigChained {
 		// "chained" is an cni type
 		// information: www.cni.dev/docs/spec/#overview-1
 		log.Infof("kmesh cni use chained\n")
-		err = chainedKmeshCniPlugin(mode)
+		err = i.chainedKmeshCniPlugin(i.Mode, i.CniMountNetEtcDIR)
 		if err != nil {
 			return err
 		}
@@ -42,25 +42,44 @@ func addCniConfig(mode string) error {
 	return nil
 }
 
-func removeCniConfig() error {
-	if config.CniConfigChained {
-		return removeChainedKmeshCniPlugin()
+func (i *Installer) removeCniConfig() error {
+	if i.CniConfigChained {
+		return i.removeChainedKmeshCniPlugin()
 	}
 	return nil
 }
 
-func Start() error {
-	if bpf.GetConfig().AdsEnabled() || bpf.GetConfig().WdsEnabled() {
+type Installer struct {
+	Mode              string
+	CniMountNetEtcDIR string
+	CniConfigName     string
+	CniConfigChained  bool
+}
+
+func NewInstaller(mode string,
+	cniMountNetEtcDIR string,
+	cniConfigName string,
+	cniConfigChained bool) *Installer {
+	return &Installer{
+		Mode:              mode,
+		CniMountNetEtcDIR: cniMountNetEtcDIR,
+		CniConfigName:     cniConfigName,
+		CniConfigChained:  cniConfigChained,
+	}
+}
+
+func (i *Installer) Start() error {
+	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
 		log.Info("start write CNI config\n")
-		return addCniConfig(bpf.GetConfig().Mode)
+		return i.addCniConfig()
 	}
 	return nil
 }
 
-func Stop() {
-	if bpf.GetConfig().AdsEnabled() || bpf.GetConfig().WdsEnabled() {
+func (i *Installer) Stop() {
+	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
 		log.Info("start remove CNI config\n")
-		if err := removeCniConfig(); err != nil {
+		if err := i.removeCniConfig(); err != nil {
 			log.Error("remove CNI config failed, please remove manual")
 		}
 	}

@@ -18,6 +18,7 @@ package bpf
 
 import (
 	"fmt"
+
 	"kmesh.net/kmesh/daemon/options"
 )
 
@@ -43,7 +44,7 @@ func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
 		return nil, err
 	}
 
-	if err := workloadObj.SendMsg.NewBpf(cfg, sc.SockOps); err != nil {
+	if err := workloadObj.SendMsg.NewBpf(cfg, workloadObj.SockOps); err != nil {
 		return nil, err
 	}
 
