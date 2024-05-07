@@ -1,6 +1,9 @@
 package bpfcache
 
-import "kmesh.net/kmesh/pkg/logger"
+import (
+	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	"kmesh.net/kmesh/pkg/logger"
+)
 
 var log = logger.NewLoggerField("workload_cache")
 

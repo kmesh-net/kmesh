@@ -89,8 +89,6 @@ func NewLastNonce() *lastNonce {
 	}
 }
 
-func (svc *processor) Destroy() {}
-
 func newAdsRequest(typeUrl string, names []string, nonce string) *service_discovery_v3.DiscoveryRequest {
 	return &service_discovery_v3.DiscoveryRequest{
 		TypeUrl:       typeUrl,

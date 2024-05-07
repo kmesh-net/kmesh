@@ -19,6 +19,7 @@ package workload
 import (
 	"encoding/binary"
 	"fmt"
+	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"strings"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -44,12 +45,11 @@ type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
 	req *service_discovery_v3.DeltaDiscoveryRequest
 
-	hashName           *HashName
-	endpointsByService map[string]Endpoints
+	hashName *HashName
+	// endpoint indexer, svc key -> workload id -> endpoint
+	endpointsByService map[string]map[string]Endpoint
 	bpf                *bpf.Cache
 }
-
-type Endpoints map[string]Endpoint
 
 type Endpoint struct {
 	workloadUid string
@@ -58,18 +58,16 @@ type Endpoint struct {
 	portList    []*workloadapi.Port
 }
 
-func NewProcessor() *Processor {
+func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	return &Processor{
 		ack: nil,
 		req: nil,
 
 		hashName:           NewHashName(),
-		endpointsByService: make(map[string]Endpoints),
-		bpf:                bpf.NewCache(nil),
+		endpointsByService: make(map[string]map[string]Endpoint),
+		bpf:                bpf.NewCache(workloadMap),
 	}
 }
-
-func (p *Processor) Destroy() {}
 
 func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.DeltaDiscoveryRequest {
 	return &service_discovery_v3.DeltaDiscoveryRequest{
@@ -153,14 +151,12 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 
 func (p *Processor) removeWorkloadResource(removed_resources []string) error {
 	var (
-		err      error
-		skUpdate = bpf.ServiceKey{}
-		svUpdate = bpf.ServiceValue{}
-		ekUpdate = bpf.EndpointKey{}
-		evUpdate = bpf.EndpointValue{}
-		ekDelete = bpf.EndpointKey{}
-		evDelete = bpf.EndpointValue{}
-		bkDelete = bpf.BackendKey{}
+		err               error
+		skUpdate          = bpf.ServiceKey{}
+		svUpdate          = bpf.ServiceValue{}
+		lastEndpointKey   = bpf.EndpointKey{}
+		lastEndpointValue = bpf.EndpointValue{}
+		bkDelete          = bpf.BackendKey{}
 	)
 
 	for _, workloadUid := range removed_resources {
@@ -173,22 +169,25 @@ func (p *Processor) removeWorkloadResource(removed_resources []string) error {
 			goto failed
 		}
 
+		// 1. find all endpoint keys related to this workload
 		if eks := p.bpf.EndpointIterFindKey(backendUid); len(eks) != 0 {
-			for _, ekUpdate = range eks {
-				log.Debugf("Find EndpointKey: [%#v]", ekUpdate)
-				skUpdate.ServiceId = ekUpdate.ServiceId
+			for _, ek := range eks {
+				log.Debugf("Find EndpointKey: [%#v]", ek)
+				// 2. find the service
+				skUpdate.ServiceId = ek.ServiceId
 				if err = p.bpf.ServiceLookup(&skUpdate, &svUpdate); err == nil {
 					log.Debugf("Find ServiceValue: [%#v]", svUpdate)
-					ekDelete.ServiceId = skUpdate.ServiceId
-					ekDelete.BackendIndex = svUpdate.EndpointCount
-					if err = p.bpf.EndpointLookup(&ekDelete, &evDelete); err == nil {
-						log.Debugf("Find EndpointValue: [%#v]", evDelete)
-						evUpdate.BackendUid = evDelete.BackendUid
-						if err = p.bpf.EndpointUpdate(&ekUpdate, &evUpdate); err != nil {
+					// 3. find the last indexed endpoint of the service
+					lastEndpointKey.ServiceId = skUpdate.ServiceId
+					lastEndpointKey.BackendIndex = svUpdate.EndpointCount
+					if err = p.bpf.EndpointLookup(&lastEndpointKey, &lastEndpointValue); err == nil {
+						log.Debugf("Find EndpointValue: [%#v]", lastEndpointValue)
+						// 4. switch the index of the last with the current removed endpoint
+						if err = p.bpf.EndpointUpdate(&ek, &lastEndpointValue); err != nil {
 							log.Errorf("EndpointUpdate failed: %s", err)
 							goto failed
 						}
-						if err = p.bpf.EndpointDelete(&ekDelete); err != nil {
+						if err = p.bpf.EndpointDelete(&lastEndpointKey); err != nil {
 							log.Errorf("EndpointDelete failed: %s", err)
 							goto failed
 						}
@@ -197,6 +196,18 @@ func (p *Processor) removeWorkloadResource(removed_resources []string) error {
 							log.Errorf("ServiceUpdate failed: %s", err)
 							goto failed
 						}
+					} else {
+						// last indexed endpoint not exists, this should not occur
+						// we should delete the endpoint just in case leak
+						if err = p.bpf.EndpointDelete(&ek); err != nil {
+							log.Errorf("EndpointDelete failed: %s", err)
+							goto failed
+						}
+					}
+				} else { // service not exist, we should delete the endpoint
+					if err = p.bpf.EndpointDelete(&ek); err != nil {
+						log.Errorf("EndpointDelete failed: %s", err)
+						goto failed
 					}
 				}
 			}
@@ -303,7 +314,7 @@ func (p *Processor) storeServiceCache(workload_uid string, serviceName string, p
 
 	endpointCaches, ok := p.endpointsByService[serviceName]
 	if !ok {
-		p.endpointsByService[serviceName] = make(Endpoints)
+		p.endpointsByService[serviceName] = make(map[string]Endpoint)
 		endpointCaches = p.endpointsByService[serviceName]
 	}
 
@@ -432,7 +443,7 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 	return nil
 }
 
-func (p *Processor) handleWorkloadData(workload *workloadapi.Workload) error {
+func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("workload uid: %s", workload.Uid)
 	cache.WorkloadCache.AddWorkload(workload)
 	// if have the service name, the workload belongs to a service
@@ -508,7 +519,7 @@ func (p *Processor) storeServiceData(serviceName string) error {
 	return nil
 }
 
-func (p *Processor) handleServiceData(service *workloadapi.Service) error {
+func (p *Processor) handleService(service *workloadapi.Service) error {
 	log.Debugf("service resource name: %s/%s", service.Namespace, service.Hostname)
 	var (
 		err error
@@ -586,10 +597,10 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		switch address.GetType().(type) {
 		case *workloadapi.Address_Workload:
 			workload := address.GetWorkload()
-			err = p.handleWorkloadData(workload)
+			err = p.handleWorkload(workload)
 		case *workloadapi.Address_Service:
 			service := address.GetService()
-			err = p.handleServiceData(service)
+			err = p.handleService(service)
 		default:
 			log.Errorf("unknow type")
 		}

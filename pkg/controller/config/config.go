@@ -95,6 +95,7 @@ func GetConfig() *XdsConfig {
 	return NewXDSConfig()
 }
 
+// TODO(hzxuzhonhu): this is frequently called, cache the node later
 func (c *XdsConfig) GetNode() *config_core_v3.Node {
 	nodeMetadata, err := nodeMetadataToStruct(c.Metadata)
 	if err != nil {

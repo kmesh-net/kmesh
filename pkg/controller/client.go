@@ -26,11 +26,8 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 
 	"kmesh.net/kmesh/pkg/auth"
-<<<<<<< HEAD
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
-=======
->>>>>>> 998400f (ads controller refactor)
 	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/workload"
@@ -42,27 +39,15 @@ const (
 )
 
 type XdsClient struct {
-<<<<<<< HEAD
-	mode           string
-	ctx            context.Context
-	cancel         context.CancelFunc
-	grpcConn       *grpc.ClientConn
-	client         discoveryv3.AggregatedDiscoveryServiceClient
-	AdsStream      *ads.AdsStream
-	workloadStream *workload.WorkloadStream
-	xdsConfig      *config.XdsConfig
-	rbac           *auth.Rbac
-=======
 	mode               string
 	ctx                context.Context
 	cancel             context.CancelFunc
 	grpcConn           *grpc.ClientConn
-	client             service_discovery_v3.AggregatedDiscoveryServiceClient
+	client             discoveryv3.AggregatedDiscoveryServiceClient
 	AdsController      *ads.Controller
 	workloadController *workload.Controller
 	xdsConfig          *config.XdsConfig
 	rbac               *auth.Rbac
->>>>>>> 998400f (ads controller refactor)
 }
 
 func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient {
@@ -141,27 +126,18 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 			}
 
 			if c.mode == constants.AdsMode {
-<<<<<<< HEAD
-				if err = c.AdsStream.AdsStreamProcess(); err != nil {
-					_ = c.AdsStream.Stream.CloseSend()
-				}
-			} else if c.mode == constants.WorkloadMode {
-				if err = c.workloadStream.WorkloadStreamProcess(c.rbac); err != nil {
-					_ = c.workloadStream.Stream.CloseSend()
-=======
-				if err = c.AdsController.AdsStreamProcess(); err != nil {
+				if err = c.AdsController.HandleAdsStream(); err != nil {
 					_ = c.AdsController.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
 				}
 			} else if c.mode == constants.WorkloadMode {
-				if err = c.workloadController.WorkloadStreamProcess(c.rbac); err != nil {
+				if err = c.workloadController.HandleWorkloadStream(c.rbac); err != nil {
 					_ = c.workloadController.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
->>>>>>> 998400f (ads controller refactor)
 				}
 			}
 			if err != nil && !istiogrpc.IsExpectedGRPCError(err) {
@@ -207,13 +183,5 @@ func (c *XdsClient) closeStreamClient() {
 }
 
 func (c *XdsClient) Close() error {
-	if c.AdsController != nil && c.AdsController.Processor != nil {
-		c.AdsController.Processor.Destroy()
-	}
-
-	if c.workloadController != nil && c.workloadController.Processor != nil {
-		c.workloadController.Processor.Destroy()
-	}
-
 	return nil
 }

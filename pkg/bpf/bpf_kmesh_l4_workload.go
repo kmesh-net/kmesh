@@ -28,8 +28,6 @@ type BpfKmeshWorkload struct {
 	SendMsg  BpfSendMsgWorkload
 }
 
-var ObjWorkload BpfKmeshWorkload
-
 func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
 	workloadObj := &BpfKmeshWorkload{}
 
@@ -68,8 +66,6 @@ func (l *BpfLoader) StartWorkloadMode() error {
 		l.Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
-
-	ObjWorkload = *l.workloadObj
 
 	return nil
 }

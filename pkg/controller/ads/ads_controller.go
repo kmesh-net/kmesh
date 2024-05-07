@@ -56,11 +56,7 @@ func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 	return nil
 }
 
-<<<<<<< HEAD
-func (as *Controller) HandleAdsStream() error {
-=======
-func (c *Controller) AdsStreamProcess() error {
->>>>>>> c1e5e30 (ads controller refactor)
+func (c *Controller) HandleAdsStream() error {
 	var (
 		err error
 		rsp *service_discovery_v3.DiscoveryResponse
@@ -76,15 +72,9 @@ func (c *Controller) AdsStreamProcess() error {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
-<<<<<<< HEAD
-	if as.Processor.req != nil {
-		if err = as.Stream.Send(as.Processor.rqt); err != nil {
-			return fmt.Errorf("stream send req failed, %s", err)
-=======
-	if c.Processor.rqt != nil {
-		if err = c.Stream.Send(c.Processor.rqt); err != nil {
+	if c.Processor.req != nil {
+		if err = c.Stream.Send(c.Processor.req); err != nil {
 			return fmt.Errorf("stream send rqt failed, %s", err)
->>>>>>> c1e5e30 (ads controller refactor)
 		}
 	}
 

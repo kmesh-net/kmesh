@@ -19,10 +19,10 @@ package workload
 import (
 	"context"
 	"fmt"
+
+	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
-
-	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -35,17 +35,17 @@ const (
 var log = logger.NewLoggerField("workload_controller")
 
 type Controller struct {
-	Stream    service_discovery_v3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	Stream    discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 	Processor *Processor
 }
 
 func NewController(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Controller {
 	return &Controller{
-		Processor: NewProcessor(workloadMap),
+		Processor: newProcessor(workloadMap),
 	}
 }
 
-func (ws *Controller) WorklaodStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
+func (ws *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
 	var err error
 
 	ws.Stream, err = client.DeltaAggregatedResources(ctx)
@@ -67,7 +67,7 @@ func (ws *Controller) WorklaodStreamCreateAndSend(client service_discovery_v3.Ag
 func (ws *Controller) HandleWorkloadStream(rbac *auth.Rbac) error {
 	var (
 		err      error
-		rspDelta *service_discovery_v3.DeltaDiscoveryResponse
+		rspDelta *discoveryv3.DeltaDiscoveryResponse
 	)
 
 	if rspDelta, err = ws.Stream.Recv(); err != nil {

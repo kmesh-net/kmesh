@@ -41,8 +41,7 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 
 func (c *Cache) EndpointLookup(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointLookup [%#v]", *key)
-	return c.bpfMap.KmeshEndpoint.
-		Lookup(key, value)
+	return c.bpfMap.KmeshEndpoint.Lookup(key, value)
 }
 
 func (c *Cache) EndpointIterFindKey(workloadUid uint32) []EndpointKey {

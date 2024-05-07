@@ -18,7 +18,6 @@ package bpfcache
 
 import (
 	"github.com/cilium/ebpf"
-	"kmesh.net/kmesh/pkg/controller/workload"
 )
 
 // Generally, frontend_key store Service ip and port, for app access Service,
@@ -33,19 +32,19 @@ type FrontendValue struct {
 }
 
 func (c *Cache) FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
-	workload.log.Debugf("FrontendUpdate [%#v], [%#v]", *key, *value)
+	log.Debugf("FrontendUpdate [%#v], [%#v]", *key, *value)
 	return c.bpfMap.KmeshFrontend.
 		Update(key, value, ebpf.UpdateAny)
 }
 
 func (c *Cache) FrontendDelete(key *FrontendKey) error {
-	workload.log.Debugf("FrontendDelete [%#v]", *key)
+	log.Debugf("FrontendDelete [%#v]", *key)
 	return c.bpfMap.KmeshFrontend.
 		Delete(key)
 }
 
 func (c *Cache) FrontendLookup(key *FrontendKey, value *FrontendValue) error {
-	workload.log.Debugf("FrontendLookup [%#v]", *key)
+	log.Debugf("FrontendLookup [%#v]", *key)
 	return c.bpfMap.KmeshFrontend.
 		Lookup(key, value)
 }
