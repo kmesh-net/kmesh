@@ -21,11 +21,10 @@ import (
 	"os/exec"
 	"strings"
 
-	"kmesh.net/kmesh/daemon/options"
-
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
 
+	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -64,6 +63,7 @@ func (l *BpfLoader) StartAdsMode() (err error) {
 			l.Stop()
 		}
 	}()
+
 	if err = l.obj.Load(); err != nil {
 		return fmt.Errorf("bpf Load failed, %s", err)
 	}

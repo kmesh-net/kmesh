@@ -41,8 +41,8 @@ func TestHandleCdsResponse(t *testing.T) {
 	cleanup := test.InitBpfMap(t)
 	t.Cleanup(cleanup)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
-		svc := newProcessor()
-		svc.LastNonce.edsNonce = "utkmesh"
+		p := newProcessor()
+		p.LastNonce.edsNonce = "utkmesh"
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -56,19 +56,19 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster,
 			},
 		}
-		err = svc.handleCdsResponse(rsp)
+		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"ut-cluster"}, svc.Cache.edsClusterNames)
+		assert.Equal(t, []string{"ut-cluster"}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
-		actualHash := svc.Cache.ClusterCache.GetCdsHash(cluster.GetName())
+		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-cluster"}, svc.req.ResourceNames)
-		assert.Equal(t, svc.LastNonce.edsNonce, svc.req.ResponseNonce)
-		assert.Equal(t, svc.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
+		assert.Equal(t, []string{"ut-cluster"}, p.req.ResourceNames)
+		assert.Equal(t, p.LastNonce.edsNonce, p.req.ResponseNonce)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
 	})
 
 	t.Run("new cluster, cluster type is not eds", func(t *testing.T) {
-		svc := newProcessor()
+		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -82,17 +82,17 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster,
 			},
 		}
-		err = svc.handleCdsResponse(rsp)
+		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{}, svc.Cache.edsClusterNames)
+		assert.Equal(t, []string{}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
-		actualHash := svc.Cache.ClusterCache.GetCdsHash(cluster.GetName())
+		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Nil(t, svc.req)
+		assert.Nil(t, p.req)
 	})
 
 	t.Run("cluster update case", func(t *testing.T) {
-		svc := newProcessor()
+		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -106,7 +106,7 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster,
 			},
 		}
-		err = svc.handleCdsResponse(rsp)
+		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
 
 		cluster = &config_cluster_v3.Cluster{
@@ -122,19 +122,19 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster,
 			},
 		}
-		err = svc.handleCdsResponse(rsp)
+		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{}, svc.Cache.edsClusterNames)
+		assert.Equal(t, []string{}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
-		actualHash := svc.Cache.ClusterCache.GetCdsHash(cluster.GetName())
+		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Nil(t, svc.req)
-		assert.Equal(t, svc.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Nil(t, p.req)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
 	})
 
 	t.Run("have multiClusters, add a new eds cluster", func(t *testing.T) {
-		svc := newProcessor()
-		svc.LastNonce.ldsNonce = "utEdstoLds"
+		p := newProcessor()
+		p.LastNonce.ldsNonce = "utEdstoLds"
 		multiClusters := []*config_cluster_v3.Cluster{
 			{
 				Name: "ut-cluster1",
@@ -159,7 +159,7 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyMultCluster2,
 			},
 		}
-		err := svc.handleCdsResponse(rsp)
+		err := p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
 
 		newCluster := &config_cluster_v3.Cluster{
@@ -175,24 +175,24 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster,
 			},
 		}
-		err = svc.handleCdsResponse(rsp)
+		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"new-ut-cluster"}, svc.Cache.edsClusterNames)
+		assert.Equal(t, []string{"new-ut-cluster"}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
-		actualHash := svc.Cache.ClusterCache.GetCdsHash(newCluster.GetName())
+		actualHash := p.Cache.ClusterCache.GetCdsHash(newCluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		wantOldClusterHash1 := hash.Sum64String(anyMultCluster1.String())
-		actualOldClusterHash1 := svc.Cache.ClusterCache.GetCdsHash(multiClusters[0].GetName())
+		actualOldClusterHash1 := p.Cache.ClusterCache.GetCdsHash(multiClusters[0].GetName())
 		assert.Equal(t, wantOldClusterHash1, actualOldClusterHash1)
 		wantOldClusterHash2 := hash.Sum64String(anyMultCluster2.String())
-		actualOldClusterHash2 := svc.Cache.ClusterCache.GetCdsHash(multiClusters[1].GetName())
+		actualOldClusterHash2 := p.Cache.ClusterCache.GetCdsHash(multiClusters[1].GetName())
 		assert.Equal(t, wantOldClusterHash2, actualOldClusterHash2)
-		assert.Equal(t, []string{"new-ut-cluster"}, svc.req.ResourceNames)
-		assert.Equal(t, svc.LastNonce.edsNonce, svc.req.ResponseNonce)
+		assert.Equal(t, []string{"new-ut-cluster"}, p.req.ResourceNames)
+		assert.Equal(t, p.LastNonce.edsNonce, p.req.ResponseNonce)
 	})
 
 	t.Run("multiClusters in resp", func(t *testing.T) {
-		svc := newProcessor()
+		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -206,7 +206,7 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster,
 			},
 		}
-		err = svc.handleCdsResponse(rsp)
+		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
 
 		newCluster1 := &config_cluster_v3.Cluster{
@@ -231,17 +231,17 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster2,
 			},
 		}
-		err = svc.handleCdsResponse(rsp)
+		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"new-ut-cluster2"}, svc.Cache.edsClusterNames)
+		assert.Equal(t, []string{"new-ut-cluster2"}, p.Cache.edsClusterNames)
 		wantHash1 := hash.Sum64String(anyCluster1.String())
 		wantHash2 := hash.Sum64String(anyCluster2.String())
-		actualHash1 := svc.Cache.ClusterCache.GetCdsHash(newCluster1.GetName())
+		actualHash1 := p.Cache.ClusterCache.GetCdsHash(newCluster1.GetName())
 		assert.Equal(t, wantHash1, actualHash1)
-		actualHash2 := svc.Cache.ClusterCache.GetCdsHash(newCluster2.GetName())
+		actualHash2 := p.Cache.ClusterCache.GetCdsHash(newCluster2.GetName())
 		assert.Equal(t, wantHash2, actualHash2)
-		assert.Equal(t, []string{"new-ut-cluster2"}, svc.req.ResourceNames)
-		assert.Equal(t, svc.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
+		assert.Equal(t, []string{"new-ut-cluster2"}, p.req.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
 	})
 }
 
@@ -249,7 +249,7 @@ func TestHandleEdsResponse(t *testing.T) {
 	cleanup := test.InitBpfMap(t)
 	t.Cleanup(cleanup)
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
-		svc := newProcessor()
+		p := newProcessor()
 		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
@@ -257,8 +257,8 @@ func TestHandleEdsResponse(t *testing.T) {
 			ApiStatus: core_v2.ApiStatus_UPDATE,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		svc.Cache = adsLoader
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p.Cache = adsLoader
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-far",
 			},
@@ -273,10 +273,10 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
-		err = svc.handleEdsResponse(rsp)
+		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, svc.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
-		assert.Equal(t, []string{"ut-far", "ut-cluster"}, svc.ack.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, []string{"ut-far", "ut-cluster"}, p.ack.ResourceNames)
 	})
 
 	t.Run("not apiStatus_UPDATE", func(t *testing.T) {
@@ -287,9 +287,9 @@ func TestHandleEdsResponse(t *testing.T) {
 			ApiStatus: core_v2.ApiStatus_ALL,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		svc := newProcessor()
-		svc.Cache = adsLoader
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p := newProcessor()
+		p.Cache = adsLoader
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-far",
 			},
@@ -304,10 +304,10 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
-		err = svc.handleEdsResponse(rsp)
+		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, svc.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
-		assert.Equal(t, []string{"ut-far", "ut-cluster"}, svc.ack.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, []string{"ut-far", "ut-cluster"}, p.ack.ResourceNames)
 	})
 
 	t.Run("already have cluster, not update", func(t *testing.T) {
@@ -318,9 +318,9 @@ func TestHandleEdsResponse(t *testing.T) {
 			ApiStatus: core_v2.ApiStatus_ALL,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		svc := newProcessor()
-		svc.Cache = adsLoader
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p := newProcessor()
+		p.Cache = adsLoader
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-far",
 			},
@@ -331,27 +331,27 @@ func TestHandleEdsResponse(t *testing.T) {
 		anyLoadAssignment, err := anypb.New(loadAssignment)
 		assert.NoError(t, err)
 		hashLoadAssignment := hash.Sum64String(anyLoadAssignment.String())
-		svc.Cache.ClusterCache.SetEdsHash(loadAssignment.GetClusterName(), hashLoadAssignment)
+		p.Cache.ClusterCache.SetEdsHash(loadAssignment.GetClusterName(), hashLoadAssignment)
 
 		rsp := &service_discovery_v3.DiscoveryResponse{
 			Resources: []*anypb.Any{
 				anyLoadAssignment,
 			},
 		}
-		err = svc.handleEdsResponse(rsp)
+		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, svc.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_ALL)
-		assert.Equal(t, []string{"ut-far", "ut-cluster"}, svc.ack.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_ALL)
+		assert.Equal(t, []string{"ut-far", "ut-cluster"}, p.ack.ResourceNames)
 	})
 
-	t.Run("no apicluster, svc.ack not be changed", func(t *testing.T) {
+	t.Run("no apicluster, p.ack not be changed", func(t *testing.T) {
 		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{}
 		adsLoader.ClusterCache.SetApiCluster("", cluster)
-		svc := newProcessor()
-		svc.Cache = adsLoader
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p := newProcessor()
+		p.Cache = adsLoader
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-far",
 			},
@@ -366,9 +366,9 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
-		err = svc.handleEdsResponse(rsp)
+		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"ut-far"}, svc.ack.ResourceNames)
+		assert.Equal(t, []string{"ut-far"}, p.ack.ResourceNames)
 	})
 
 	t.Run("empty loadAssignment", func(t *testing.T) {
@@ -379,9 +379,9 @@ func TestHandleEdsResponse(t *testing.T) {
 			ApiStatus: core_v2.ApiStatus_ALL,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		svc := newProcessor()
-		svc.Cache = adsLoader
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p := newProcessor()
+		p.Cache = adsLoader
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-far",
 			},
@@ -394,10 +394,10 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
-		err = svc.handleEdsResponse(rsp)
+		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, svc.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_ALL)
-		assert.Equal(t, []string{"ut-far"}, svc.ack.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_ALL)
+		assert.Equal(t, []string{"ut-far"}, p.ack.ResourceNames)
 	})
 }
 
@@ -410,9 +410,9 @@ func TestHandleLdsResponse(t *testing.T) {
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		svc := newProcessor()
-		svc.Cache = adsLoader
-		svc.LastNonce.rdsNonce = "utLdstoRds"
+		p := newProcessor()
+		p.Cache = adsLoader
+		p.LastNonce.rdsNonce = "utLdstoRds"
 		filterHttp := &filters_network_http.HttpConnectionManager{
 			RouteSpecifier: &filters_network_http.HttpConnectionManager_Rds{
 				Rds: &filters_network_http.Rds{
@@ -452,15 +452,15 @@ func TestHandleLdsResponse(t *testing.T) {
 				anyListener,
 			},
 		}
-		err = svc.handleLdsResponse(rsp)
+		err = p.handleLdsResponse(rsp)
 		assert.NoError(t, err)
-		apiMethod := svc.Cache.ListenerCache.GetApiListener("ut-listener").ApiStatus
+		apiMethod := p.Cache.ListenerCache.GetApiListener("ut-listener").ApiStatus
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		wantHash := hash.Sum64String(anyListener.String())
-		actualHash := svc.Cache.ListenerCache.GetLdsHash(listener.GetName())
+		actualHash := p.Cache.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-rds"}, svc.req.ResourceNames)
-		assert.Equal(t, svc.LastNonce.rdsNonce, svc.req.ResponseNonce)
+		assert.Equal(t, []string{"ut-rds"}, p.req.ResourceNames)
+		assert.Equal(t, p.LastNonce.rdsNonce, p.req.ResponseNonce)
 	})
 
 	t.Run("listenerCache already has resource and it has not been changed", func(t *testing.T) {
@@ -469,8 +469,8 @@ func TestHandleLdsResponse(t *testing.T) {
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		svc := newProcessor()
-		svc.Cache = adsLoader
+		p := newProcessor()
+		p.Cache = adsLoader
 		listener := &config_listener_v3.Listener{
 			Name: "ut-listener",
 			Address: &core_v3.Address{
@@ -489,16 +489,16 @@ func TestHandleLdsResponse(t *testing.T) {
 				anyListener,
 			},
 		}
-		err = svc.handleLdsResponse(rsp)
+		err = p.handleLdsResponse(rsp)
 		assert.NoError(t, err)
-		apiMethod := svc.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
+		apiMethod := p.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
-		err = svc.handleLdsResponse(rsp)
+		err = p.handleLdsResponse(rsp)
 		assert.NoError(t, err)
-		apiMethod = svc.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
+		apiMethod = p.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		wantHash := hash.Sum64String(anyListener.String())
-		actualHash := svc.Cache.ListenerCache.GetLdsHash(listener.GetName())
+		actualHash := p.Cache.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
 	})
 
@@ -508,8 +508,8 @@ func TestHandleLdsResponse(t *testing.T) {
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		svc := newProcessor()
-		svc.Cache = adsLoader
+		p := newProcessor()
+		p.Cache = adsLoader
 		listener := &config_listener_v3.Listener{
 			Name: "ut-listener",
 			Address: &core_v3.Address{
@@ -549,9 +549,9 @@ func TestHandleLdsResponse(t *testing.T) {
 				anyListener,
 			},
 		}
-		err = svc.handleLdsResponse(rsp)
+		err = p.handleLdsResponse(rsp)
 		assert.NoError(t, err)
-		apiMethod := svc.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
+		apiMethod := p.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 
 		listener.FilterChains = filterChains
@@ -562,14 +562,14 @@ func TestHandleLdsResponse(t *testing.T) {
 				anyListener,
 			},
 		}
-		err = svc.handleLdsResponse(rsp)
+		err = p.handleLdsResponse(rsp)
 		assert.NoError(t, err)
-		apiMethod = svc.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
+		apiMethod = p.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
 		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		wantHash := hash.Sum64String(anyListener.String())
-		actualHash := svc.Cache.ListenerCache.GetLdsHash(listener.GetName())
+		actualHash := p.Cache.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-rds"}, svc.req.ResourceNames)
+		assert.Equal(t, []string{"ut-rds"}, p.req.ResourceNames)
 	})
 }
 
@@ -577,8 +577,8 @@ func TestHandleRdsResponse(t *testing.T) {
 	cleanup := test.InitBpfMap(t)
 	t.Cleanup(cleanup)
 	t.Run("normal function test", func(t *testing.T) {
-		svc := newProcessor()
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p := newProcessor()
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
 			},
@@ -598,17 +598,17 @@ func TestHandleRdsResponse(t *testing.T) {
 				anyRouteConfig,
 			},
 		}
-		err = svc.handleRdsResponse(rsp)
+		err = p.handleRdsResponse(rsp)
 		assert.NoError(t, err)
 		wantHash := hash.Sum64String(anyRouteConfig.String())
-		actualHash := svc.Cache.RouteCache.GetRdsHash(routeConfig.GetName())
+		actualHash := p.Cache.RouteCache.GetRdsHash(routeConfig.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-routeclient", "ut-routeconfig"}, svc.ack.ResourceNames)
+		assert.Equal(t, []string{"ut-routeclient", "ut-routeconfig"}, p.ack.ResourceNames)
 	})
 
 	t.Run("empty routeConfig", func(t *testing.T) {
-		svc := newProcessor()
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p := newProcessor()
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
 			},
@@ -621,17 +621,17 @@ func TestHandleRdsResponse(t *testing.T) {
 				anyRouteConfig,
 			},
 		}
-		err = svc.handleRdsResponse(rsp)
+		err = p.handleRdsResponse(rsp)
 		assert.NoError(t, err)
 		wantHash := hash.Sum64String(anyRouteConfig.String())
-		actualHash := svc.Cache.RouteCache.GetRdsHash(routeConfig.GetName())
+		actualHash := p.Cache.RouteCache.GetRdsHash(routeConfig.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-routeclient"}, svc.ack.ResourceNames)
+		assert.Equal(t, []string{"ut-routeclient"}, p.ack.ResourceNames)
 	})
 
 	t.Run("already have a Rds, RdsHash has been changed", func(t *testing.T) {
-		svc := newProcessor()
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p := newProcessor()
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
 			},
@@ -651,7 +651,7 @@ func TestHandleRdsResponse(t *testing.T) {
 				anyRouteConfig,
 			},
 		}
-		err = svc.handleRdsResponse(rsp)
+		err = p.handleRdsResponse(rsp)
 		assert.NoError(t, err)
 
 		routeConfig.VirtualHosts = append(routeConfig.VirtualHosts, &config_route_v3.VirtualHost{Name: "new-ut-host"})
@@ -662,18 +662,18 @@ func TestHandleRdsResponse(t *testing.T) {
 				anyRouteConfig,
 			},
 		}
-		svc.ack = newAckRequest(rsp)
-		err = svc.handleRdsResponse(rsp)
+		p.ack = newAckRequest(rsp)
+		err = p.handleRdsResponse(rsp)
 		assert.NoError(t, err)
 		wantHash := hash.Sum64String(anyRouteConfig.String())
-		actualHash := svc.Cache.RouteCache.GetRdsHash(routeConfig.GetName())
+		actualHash := p.Cache.RouteCache.GetRdsHash(routeConfig.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-routeconfig"}, svc.ack.ResourceNames)
+		assert.Equal(t, []string{"ut-routeconfig"}, p.ack.ResourceNames)
 	})
 
 	t.Run("already have a Rds, RdsHash has been change. And have multiRouteconfig in resp", func(t *testing.T) {
-		svc := newProcessor()
-		svc.ack = &service_discovery_v3.DiscoveryRequest{
+		p := newProcessor()
+		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
 			},
@@ -693,7 +693,7 @@ func TestHandleRdsResponse(t *testing.T) {
 				anyRouteConfig1,
 			},
 		}
-		err1 = svc.handleRdsResponse(rsp)
+		err1 = p.handleRdsResponse(rsp)
 		assert.NoError(t, err1)
 		routeConfig1.VirtualHosts = append(routeConfig1.VirtualHosts, &config_route_v3.VirtualHost{Name: "new-ut-host"})
 		anyRouteConfig1, err1 = anypb.New(routeConfig1)
@@ -716,15 +716,15 @@ func TestHandleRdsResponse(t *testing.T) {
 				anyRouteConfig2,
 			},
 		}
-		svc.ack = newAckRequest(rsp)
-		err := svc.handleRdsResponse(rsp)
+		p.ack = newAckRequest(rsp)
+		err := p.handleRdsResponse(rsp)
 		assert.NoError(t, err)
 		wantHash1 := hash.Sum64String(anyRouteConfig1.String())
-		actualHash1 := svc.Cache.RouteCache.GetRdsHash(routeConfig1.GetName())
+		actualHash1 := p.Cache.RouteCache.GetRdsHash(routeConfig1.GetName())
 		assert.Equal(t, wantHash1, actualHash1)
 		wantHash2 := hash.Sum64String(anyRouteConfig2.String())
-		actualHash2 := svc.Cache.RouteCache.GetRdsHash(routeConfig2.GetName())
+		actualHash2 := p.Cache.RouteCache.GetRdsHash(routeConfig2.GetName())
 		assert.Equal(t, wantHash2, actualHash2)
-		assert.Equal(t, []string{"ut-routeconfig1", "ut-routeconfig2"}, svc.ack.ResourceNames)
+		assert.Equal(t, []string{"ut-routeconfig1", "ut-routeconfig2"}, p.ack.ResourceNames)
 	})
 }
