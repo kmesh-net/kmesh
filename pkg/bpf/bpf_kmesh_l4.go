@@ -32,13 +32,13 @@ type BpfKmesh struct {
 	SockConn BpfSockConn
 }
 
-func NewBpfKmesh(cfg *options.BpfConfig) (BpfKmesh, error) {
+func NewBpfKmesh(cfg *options.BpfConfig) (*BpfKmesh, error) {
 	var err error
 
-	sc := BpfKmesh{}
+	sc := &BpfKmesh{}
 
 	if err = sc.SockConn.NewBpf(cfg); err != nil {
-		return sc, err
+		return nil, err
 	}
 	return sc, nil
 }

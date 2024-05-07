@@ -44,7 +44,8 @@ func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
 		return nil, err
 	}
 
-	if err := workloadObj.SendMsg.NewBpf(cfg, workloadObj.SockOps); err != nil {
+	// we must pass pointer here, because workloadObj.SockOps will be modified during loading
+	if err := workloadObj.SendMsg.NewBpf(cfg, &workloadObj.SockOps); err != nil {
 		return nil, err
 	}
 

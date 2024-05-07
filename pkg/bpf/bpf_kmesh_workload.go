@@ -285,10 +285,10 @@ type BpfSendMsgWorkload struct {
 	AttachFD int
 	bpf2go.KmeshSendmsgObjects
 
-	sockOpsWorkloadObj BpfSockOpsWorkload
+	sockOpsWorkloadObj *BpfSockOpsWorkload
 }
 
-func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj BpfSockOpsWorkload) error {
+func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj *BpfSockOpsWorkload) error {
 	sm.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sm.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sendmsg/"
 	sm.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
@@ -327,11 +327,6 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
 		return nil, err
 	}
-
-	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
-		return nil, err
-	}
-
 	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
 	if err = pinPrograms(&value, sm.Info.BpfFsPath); err != nil {
 		return nil, err

@@ -44,7 +44,7 @@ type BpfInfo struct {
 type BpfLoader struct {
 	config *options.BpfConfig
 
-	obj         BpfKmesh
+	obj         *BpfKmesh
 	workloadObj *BpfKmeshWorkload
 }
 

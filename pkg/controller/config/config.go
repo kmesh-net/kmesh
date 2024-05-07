@@ -94,7 +94,8 @@ func GetConfig() *XdsConfig {
 	if config != nil {
 		return config
 	}
-	return NewXDSConfig()
+	config = NewXDSConfig()
+	return config
 }
 
 // TODO(hzxuzhonhu): this is frequently called, cache the node later
