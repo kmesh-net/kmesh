@@ -38,8 +38,8 @@ import (
 )
 
 func TestHandleCdsResponse(t *testing.T) {
-	test.InitBpfMap(t)
-	t.Cleanup(test.CleanupBpfMap)
+	cleanup:=test.InitBpfMap(t)
+	t.Cleanup(cleanup)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
 		svc := newProcessor()
 		svc.LastNonce.edsNonce = "utkmesh"
@@ -251,19 +251,14 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash1, actualHash1)
 		actualHash2 := svc.Cache.ClusterCache.GetCdsHash(newCluster2.GetName())
 		assert.Equal(t, wantHash2, actualHash2)
-<<<<<<< HEAD
 		assert.Equal(t, []string{"new-ut-cluster2"}, svc.req.ResourceNames)
-		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
-=======
-		assert.Equal(t, []string{"new-ut-cluster2"}, svc.rqt.ResourceNames)
 		assert.Equal(t, svc.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
->>>>>>> c1e5e30 (ads controller refactor)
 	})
 }
 
 func TestHandleEdsResponse(t *testing.T) {
-	test.InitBpfMap(t)
-	t.Cleanup(test.CleanupBpfMap)
+	cleanup:= test.InitBpfMap(t)
+	t.Cleanup(cleanup)
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
 		svc := newProcessor()
 		adsLoader := NewAdsCache()
@@ -418,8 +413,8 @@ func TestHandleEdsResponse(t *testing.T) {
 }
 
 func TestHandleLdsResponse(t *testing.T) {
-	test.InitBpfMap(t)
-	t.Cleanup(test.CleanupBpfMap)
+	cleanup:=test.InitBpfMap(t)
+	t.Cleanup(cleanup)
 	t.Run("normal function test", func(t *testing.T) {
 		adsLoader := NewAdsCache()
 		adsLoader.routeNames = []string{
@@ -581,7 +576,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		err = svc.handleLdsResponse(rsp)
 		assert.NoError(t, err)
 		apiMethod = svc.Cache.ListenerCache.GetApiListener(listener.GetName()).ApiStatus
-		assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
+		 assert.Equal(t, core_v2.ApiStatus_NONE, apiMethod)
 		wantHash := hash.Sum64String(anyListener.String())
 		actualHash := svc.Cache.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
@@ -590,8 +585,8 @@ func TestHandleLdsResponse(t *testing.T) {
 }
 
 func TestHandleRdsResponse(t *testing.T) {
-	test.InitBpfMap(t)
-	t.Cleanup(test.CleanupBpfMap)
+	cleanup:=test.InitBpfMap(t)
+	t.Cleanup(cleanup)
 	t.Run("normal function test", func(t *testing.T) {
 		svc := newProcessor()
 		svc.ack = &service_discovery_v3.DiscoveryRequest{
