@@ -21,8 +21,9 @@ import (
 	"fmt"
 	"time"
 
-	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/controller/config"
@@ -39,7 +40,7 @@ type XdsClient struct {
 	ctx            context.Context
 	cancel         context.CancelFunc
 	grpcConn       *grpc.ClientConn
-	client         service_discovery_v3.AggregatedDiscoveryServiceClient
+	client         discoveryv3.AggregatedDiscoveryServiceClient
 	AdsStream      *envoy.AdsStream
 	workloadStream *workload.WorkloadStream
 	xdsConfig      *config.XdsConfig
@@ -63,48 +64,49 @@ func NewXdsClient() *XdsClient {
 	return client
 }
 
-func (c *XdsClient) createStreamClient() error {
+func (c *XdsClient) createGrpcStreamClient() error {
 	var err error
 
 	if c.grpcConn, err = nets.GrpcConnect(c.xdsConfig.DiscoveryAddress); err != nil {
 		return fmt.Errorf("grpc connect failed: %s", err)
 	}
 
-	c.client = service_discovery_v3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
+	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
-	if bpfConfig.AdsEnabled() {
-		if err = c.AdsStream.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
-			_ = c.grpcConn.Close()
-			return fmt.Errorf("create ads stream failed, %s", err)
-		}
-	} else if bpfConfig.WdsEnabled() {
+	if bpfConfig.WdsEnabled() {
 		if err = c.workloadStream.WorklaodStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
+		}
+	} else if bpfConfig.AdsEnabled() {
+		if err = c.AdsStream.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
+			_ = c.grpcConn.Close()
+			return fmt.Errorf("create ads stream failed, %s", err)
 		}
 	}
 
 	return nil
 }
 
-func (c *XdsClient) recoverConnection() error {
+func (c *XdsClient) recoverConnection() {
 	var (
 		err      error
 		interval = time.Second
 	)
 
 	for {
-		if err = c.createStreamClient(); err == nil {
-			return nil
+		if err = c.createGrpcStreamClient(); err == nil {
+			log.Infof("grpc reconnect succeed")
+			return
 		}
 
-		log.Errorf("grpc connect failed, %s", err)
+		log.Errorf("grpc reconnect failed, %s", err)
 		time.Sleep(interval + nets.CalculateRandTime(RandTimeSed))
 		interval = nets.CalculateInterval(interval)
 	}
 }
 
-func (c *XdsClient) clientResponseProcess(ctx context.Context) {
+func (c *XdsClient) handleUpstream(ctx context.Context) {
 	var (
 		err       error
 		reconnect = false
@@ -116,39 +118,33 @@ func (c *XdsClient) clientResponseProcess(ctx context.Context) {
 			return
 		default:
 			if reconnect {
-				log.Warnf("reconnect due to %s", err)
-				if err = c.recoverConnection(); err != nil {
-					log.Errorf("recover connection failed, %s", err)
-					return
-				}
+				c.recoverConnection()
 				reconnect = false
 			}
 
 			if bpfConfig.AdsEnabled() {
-				if err = c.AdsStream.AdsStreamProcess(); err != nil {
+				if err = c.AdsStream.HandleAdsStream(); err != nil {
 					_ = c.AdsStream.Stream.CloseSend()
-					_ = c.grpcConn.Close()
-					reconnect = true
-					continue
 				}
 			} else if bpfConfig.WdsEnabled() {
-				if err = c.workloadStream.WorkloadStreamProcess(c.rbac); err != nil {
+				if err = c.workloadStream.HandleWorkloadStream(c.rbac); err != nil {
 					_ = c.workloadStream.Stream.CloseSend()
-					_ = c.grpcConn.Close()
-					reconnect = true
-					continue
 				}
+			}
+			if err != nil && !istiogrpc.IsExpectedGRPCError(err) {
+				_ = c.grpcConn.Close()
+				reconnect = true
 			}
 		}
 	}
 }
 
 func (c *XdsClient) Run(stopCh <-chan struct{}) error {
-	if err := c.createStreamClient(); err != nil {
+	if err := c.createGrpcStreamClient(); err != nil {
 		return fmt.Errorf("create client and stream failed, %s", err)
 	}
 
-	go c.clientResponseProcess(c.ctx)
+	go c.handleUpstream(c.ctx)
 	if bpfConfig.WdsEnabled() {
 		go c.rbac.Run(c.ctx)
 	}
@@ -156,7 +152,7 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	go func() {
 		<-stopCh
 
-		c.closeStreamClient()
+		c.closeGrpcStreamClient()
 		if c.cancel != nil {
 			c.cancel()
 		}
@@ -165,7 +161,7 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func (c *XdsClient) closeStreamClient() {
+func (c *XdsClient) closeGrpcStreamClient() {
 	if bpfConfig.AdsEnabled() {
 		if c.AdsStream != nil && c.AdsStream.Stream != nil {
 			_ = c.AdsStream.Stream.CloseSend()

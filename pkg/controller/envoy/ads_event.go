@@ -50,7 +50,7 @@ type lastNonce struct {
 type ServiceEvent struct {
 	DynamicLoader *AdsLoader
 	ack           *service_discovery_v3.DiscoveryRequest
-	rqt           *service_discovery_v3.DiscoveryRequest
+	req           *service_discovery_v3.DiscoveryRequest
 	adminChan     chan *admin_v2.ConfigResources
 	LastNonce     *lastNonce
 }
@@ -59,7 +59,7 @@ func NewServiceEvent() *ServiceEvent {
 	return &ServiceEvent{
 		DynamicLoader: NewAdsLoader(),
 		ack:           nil,
-		rqt:           nil,
+		req:           nil,
 		adminChan:     make(chan *admin_v2.ConfigResources, maxAdminRequests),
 		LastNonce:     NewLastNonce(),
 	}
@@ -180,7 +180,7 @@ func (svc *ServiceEvent) handleCdsResponse(resp *service_discovery_v3.DiscoveryR
 
 	// when the list of eds typed clusters subscribed changed, we should resubscrbe to new eds.
 	if !slices.EqualUnordered(svc.DynamicLoader.edsClusterNames, lastEdsClusterNames) {
-		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.DynamicLoader.edsClusterNames, svc.LastNonce.edsNonce)
+		svc.req = newAdsRequest(resource_v3.EndpointType, svc.DynamicLoader.edsClusterNames, svc.LastNonce.edsNonce)
 	} else {
 		svc.DynamicLoader.ClusterCache.Flush()
 	}
@@ -216,7 +216,7 @@ func (svc *ServiceEvent) handleEdsResponse(resp *service_discovery_v3.DiscoveryR
 		svc.ack.ResourceNames = append(svc.ack.ResourceNames, loadAssignment.GetClusterName())
 	}
 
-	svc.rqt = newAdsRequest(resource_v3.ListenerType, nil, svc.LastNonce.ldsNonce)
+	svc.req = newAdsRequest(resource_v3.ListenerType, nil, svc.LastNonce.ldsNonce)
 	svc.DynamicLoader.ClusterCache.Flush()
 	return nil
 }
@@ -256,7 +256,7 @@ func (svc *ServiceEvent) handleLdsResponse(resp *service_discovery_v3.DiscoveryR
 	svc.DynamicLoader.ListenerCache.Flush()
 
 	if !slices.EqualUnordered(svc.DynamicLoader.routeNames, lastRouteNames) {
-		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.DynamicLoader.routeNames, svc.LastNonce.rdsNonce)
+		svc.req = newAdsRequest(resource_v3.RouteType, svc.DynamicLoader.routeNames, svc.LastNonce.rdsNonce)
 	}
 	return nil
 }
@@ -292,7 +292,7 @@ func (svc *ServiceEvent) handleRdsResponse(resp *service_discovery_v3.DiscoveryR
 		svc.DynamicLoader.RouteCache.UpdateApiRouteStatus(key, core_v2.ApiStatus_DELETE)
 	}
 
-	svc.rqt = nil
+	svc.req = nil
 	svc.DynamicLoader.RouteCache.Flush()
 	return nil
 }

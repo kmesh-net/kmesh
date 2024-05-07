@@ -62,8 +62,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-cluster"}, svc.rqt.ResourceNames)
-		assert.Equal(t, svc.LastNonce.edsNonce, svc.rqt.ResponseNonce)
+		assert.Equal(t, []string{"ut-cluster"}, svc.req.ResourceNames)
+		assert.Equal(t, svc.LastNonce.edsNonce, svc.req.ResponseNonce)
 		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
 	})
 
@@ -88,7 +88,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Nil(t, svc.rqt)
+		assert.Nil(t, svc.req)
 	})
 
 	t.Run("cluster update case", func(t *testing.T) {
@@ -128,7 +128,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := svc.DynamicLoader.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Nil(t, svc.rqt)
+		assert.Nil(t, svc.req)
 		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
 	})
 
@@ -187,8 +187,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantOldClusterHash2 := hash.Sum64String(anyMultCluster2.String())
 		actualOldClusterHash2 := svc.DynamicLoader.ClusterCache.GetCdsHash(multiClusters[1].GetName())
 		assert.Equal(t, wantOldClusterHash2, actualOldClusterHash2)
-		assert.Equal(t, []string{"new-ut-cluster"}, svc.rqt.ResourceNames)
-		assert.Equal(t, svc.LastNonce.edsNonce, svc.rqt.ResponseNonce)
+		assert.Equal(t, []string{"new-ut-cluster"}, svc.req.ResourceNames)
+		assert.Equal(t, svc.LastNonce.edsNonce, svc.req.ResponseNonce)
 	})
 
 	t.Run("multiClusters in resp", func(t *testing.T) {
@@ -240,7 +240,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash1, actualHash1)
 		actualHash2 := svc.DynamicLoader.ClusterCache.GetCdsHash(newCluster2.GetName())
 		assert.Equal(t, wantHash2, actualHash2)
-		assert.Equal(t, []string{"new-ut-cluster2"}, svc.rqt.ResourceNames)
+		assert.Equal(t, []string{"new-ut-cluster2"}, svc.req.ResourceNames)
 		assert.Equal(t, svc.DynamicLoader.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
 	})
 }
@@ -459,8 +459,8 @@ func TestHandleLdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyListener.String())
 		actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-rds"}, svc.rqt.ResourceNames)
-		assert.Equal(t, svc.LastNonce.rdsNonce, svc.rqt.ResponseNonce)
+		assert.Equal(t, []string{"ut-rds"}, svc.req.ResourceNames)
+		assert.Equal(t, svc.LastNonce.rdsNonce, svc.req.ResponseNonce)
 	})
 
 	t.Run("listenerCache already has resource and it has not been changed", func(t *testing.T) {
@@ -569,7 +569,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyListener.String())
 		actualHash := svc.DynamicLoader.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Equal(t, []string{"ut-rds"}, svc.rqt.ResourceNames)
+		assert.Equal(t, []string{"ut-rds"}, svc.req.ResourceNames)
 	})
 }
 

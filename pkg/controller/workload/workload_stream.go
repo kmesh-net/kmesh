@@ -59,7 +59,7 @@ func (ws *WorkloadStream) WorklaodStreamCreateAndSend(client service_discovery_v
 	return nil
 }
 
-func (ws *WorkloadStream) WorkloadStreamProcess(rbac *auth.Rbac) error {
+func (ws *WorkloadStream) HandleWorkloadStream(rbac *auth.Rbac) error {
 	var (
 		err      error
 		rspDelta *service_discovery_v3.DeltaDiscoveryResponse
@@ -75,9 +75,9 @@ func (ws *WorkloadStream) WorkloadStreamProcess(rbac *auth.Rbac) error {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
-	if ws.Event.rqt != nil {
-		if err = ws.Stream.Send(ws.Event.rqt); err != nil {
-			return fmt.Errorf("stream send rqt failed, %s", err)
+	if ws.Event.req != nil {
+		if err = ws.Stream.Send(ws.Event.req); err != nil {
+			return fmt.Errorf("stream send req failed, %s", err)
 		}
 	}
 

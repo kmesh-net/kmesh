@@ -60,8 +60,7 @@ func TestRecoverConnection(t *testing.T) {
 					}))
 			}
 		})
-		err := utClient.recoverConnection()
-		assert.NilError(t, err)
+		utClient.recoverConnection()
 		assert.Equal(t, 2, iteration)
 	})
 }
@@ -84,13 +83,13 @@ func TestClientResponseProcess(t *testing.T) {
 		})
 
 		utClient := NewXdsClient()
-		err := utClient.createStreamClient()
+		err := utClient.createGrpcStreamClient()
 		assert.NilError(t, err)
 
 		reConnectPatches := gomonkey.NewPatches()
 		defer reConnectPatches.Reset()
 		iteration := 0
-		reConnectPatches.ApplyPrivateMethod(reflect.TypeOf(utClient), "createStreamClient",
+		reConnectPatches.ApplyPrivateMethod(reflect.TypeOf(utClient), "createGrpcStreamClient",
 			func(_ *XdsClient) error {
 				// more than 2 link failures will result in a long test time
 				if iteration < 2 {
@@ -102,7 +101,7 @@ func TestClientResponseProcess(t *testing.T) {
 			})
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
-		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsStream), "AdsStreamProcess",
+		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsStream), "HandleAdsStream",
 			func(_ *envoy.AdsStream) error {
 				// if the number of loops is less than or equal to two, an error is reported and a retry is triggered.
 				if iteration < 2 {
@@ -113,7 +112,7 @@ func TestClientResponseProcess(t *testing.T) {
 					return nil
 				}
 			})
-		utClient.clientResponseProcess(utClient.ctx)
+		utClient.handleUpstream(utClient.ctx)
 		assert.Equal(t, 2, iteration)
 	})
 
@@ -132,13 +131,13 @@ func TestClientResponseProcess(t *testing.T) {
 		})
 
 		utClient := NewXdsClient()
-		err := utClient.createStreamClient()
+		err := utClient.createGrpcStreamClient()
 		assert.NilError(t, err)
 
 		reConnectPatches := gomonkey.NewPatches()
 		defer reConnectPatches.Reset()
 		iteration := 0
-		reConnectPatches.ApplyPrivateMethod(reflect.TypeOf(utClient), "createStreamClient",
+		reConnectPatches.ApplyPrivateMethod(reflect.TypeOf(utClient), "createGrpcStreamClient",
 			func(_ *XdsClient) error {
 				// more than 2 link failures will result in a long test time
 				if iteration < 2 {
@@ -150,7 +149,7 @@ func TestClientResponseProcess(t *testing.T) {
 			})
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
-		streamPatches.ApplyMethod(reflect.TypeOf(utClient.workloadStream), "WorkloadStreamProcess",
+		streamPatches.ApplyMethod(reflect.TypeOf(utClient.workloadStream), "HandleWorkloadStream",
 			func(_ *workload.WorkloadStream) error {
 				if iteration < 2 {
 					return errors.New("stream recv failed")
@@ -159,7 +158,7 @@ func TestClientResponseProcess(t *testing.T) {
 					return nil
 				}
 			})
-		utClient.clientResponseProcess(utClient.ctx)
+		utClient.handleUpstream(utClient.ctx)
 		assert.Equal(t, 2, iteration)
 	})
 }

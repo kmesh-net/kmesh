@@ -50,7 +50,7 @@ func (as *AdsStream) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 	return nil
 }
 
-func (as *AdsStream) AdsStreamProcess() error {
+func (as *AdsStream) HandleAdsStream() error {
 	var (
 		err error
 		rsp *service_discovery_v3.DiscoveryResponse
@@ -66,9 +66,9 @@ func (as *AdsStream) AdsStreamProcess() error {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
-	if as.Event.rqt != nil {
-		if err = as.Stream.Send(as.Event.rqt); err != nil {
-			return fmt.Errorf("stream send rqt failed, %s", err)
+	if as.Event.req != nil {
+		if err = as.Stream.Send(as.Event.req); err != nil {
+			return fmt.Errorf("stream send req failed, %s", err)
 		}
 	}
 
