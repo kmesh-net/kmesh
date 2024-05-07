@@ -77,7 +77,7 @@ func (c *XdsClient) createGrpcStreamClient() error {
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
 	if c.mode == constants.WorkloadMode {
-		if err = c.workloadController.WorklaodStreamCreateAndSend(c.client, c.ctx); err != nil {
+		if err = c.workloadController.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
 		}

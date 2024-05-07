@@ -46,26 +46,10 @@ type lastNonce struct {
 	ldsNonce string
 	rdsNonce string
 }
-<<<<<<< HEAD
-type Processor struct {
-	DynamicLoader *AdsCache
-	ack           *service_discovery_v3.DiscoveryRequest
-	req           *service_discovery_v3.DiscoveryRequest
-	adminChan     chan *admin_v2.ConfigResources
-	LastNonce     *lastNonce
-}
-
-func NewAdsProcessor() *Processor {
-	return &Processor{
-		DynamicLoader: NewAdsCache(),
-		ack:           nil,
-		req:           nil,
-		LastNonce:     NewLastNonce(),
-=======
 type processor struct {
 	Cache     *AdsCache
 	ack       *service_discovery_v3.DiscoveryRequest
-	rqt       *service_discovery_v3.DiscoveryRequest
+	req       *service_discovery_v3.DiscoveryRequest
 	adminChan chan *admin_v2.ConfigResources
 	LastNonce *lastNonce
 }
@@ -74,9 +58,8 @@ func newProcessor() *processor {
 	return &processor{
 		Cache:     NewAdsCache(),
 		ack:       nil,
-		rqt:       nil,
+		req:       nil,
 		LastNonce: NewLastNonce(),
->>>>>>> c1e5e30 (ads controller refactor)
 	}
 }
 
@@ -187,13 +170,8 @@ func (svc *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryResp
 	// TODO: maybe we don't need to wait until all clusters ready before loading, like cluster delete
 
 	// when the list of eds typed clusters subscribed changed, we should resubscrbe to new eds.
-<<<<<<< HEAD
-	if !slices.EqualUnordered(svc.DynamicLoader.edsClusterNames, lastEdsClusterNames) {
-		svc.req = newAdsRequest(resource_v3.EndpointType, svc.DynamicLoader.edsClusterNames, svc.LastNonce.edsNonce)
-=======
 	if !slices.EqualUnordered(svc.Cache.edsClusterNames, lastEdsClusterNames) {
-		svc.rqt = newAdsRequest(resource_v3.EndpointType, svc.Cache.edsClusterNames, svc.LastNonce.edsNonce)
->>>>>>> c1e5e30 (ads controller refactor)
+		svc.req = newAdsRequest(resource_v3.EndpointType, svc.Cache.edsClusterNames, svc.LastNonce.edsNonce)
 	} else {
 		svc.Cache.ClusterCache.Flush()
 	}
@@ -229,13 +207,8 @@ func (svc *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryResp
 		svc.ack.ResourceNames = append(svc.ack.ResourceNames, loadAssignment.GetClusterName())
 	}
 
-<<<<<<< HEAD
 	svc.req = newAdsRequest(resource_v3.ListenerType, nil, svc.LastNonce.ldsNonce)
-	svc.DynamicLoader.ClusterCache.Flush()
-=======
-	svc.rqt = newAdsRequest(resource_v3.ListenerType, nil, svc.LastNonce.ldsNonce)
 	svc.Cache.ClusterCache.Flush()
->>>>>>> c1e5e30 (ads controller refactor)
 	return nil
 }
 
@@ -273,13 +246,8 @@ func (svc *processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryResp
 
 	svc.Cache.ListenerCache.Flush()
 
-<<<<<<< HEAD
-	if !slices.EqualUnordered(svc.DynamicLoader.routeNames, lastRouteNames) {
-		svc.req = newAdsRequest(resource_v3.RouteType, svc.DynamicLoader.routeNames, svc.LastNonce.rdsNonce)
-=======
 	if !slices.EqualUnordered(svc.Cache.routeNames, lastRouteNames) {
-		svc.rqt = newAdsRequest(resource_v3.RouteType, svc.Cache.routeNames, svc.LastNonce.rdsNonce)
->>>>>>> c1e5e30 (ads controller refactor)
+		svc.req = newAdsRequest(resource_v3.RouteType, svc.Cache.routeNames, svc.LastNonce.rdsNonce)
 	}
 	return nil
 }
@@ -315,13 +283,8 @@ func (svc *processor) handleRdsResponse(resp *service_discovery_v3.DiscoveryResp
 		svc.Cache.RouteCache.UpdateApiRouteStatus(key, core_v2.ApiStatus_DELETE)
 	}
 
-<<<<<<< HEAD
 	svc.req = nil
-	svc.DynamicLoader.RouteCache.Flush()
-=======
-	svc.rqt = nil
 	svc.Cache.RouteCache.Flush()
->>>>>>> c1e5e30 (ads controller refactor)
 	return nil
 }
 
