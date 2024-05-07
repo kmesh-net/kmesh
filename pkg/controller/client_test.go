@@ -28,9 +28,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"gotest.tools/assert"
 
-	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
-	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 	"kmesh.net/kmesh/pkg/nets"
@@ -38,7 +36,7 @@ import (
 
 func TestRecoverConnection(t *testing.T) {
 	t.Run("test reconnect success", func(t *testing.T) {
-		utClient := NewXdsClient()
+		utClient := NewXdsClient("ads", nil)
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		iteration := 0
@@ -66,9 +64,6 @@ func TestRecoverConnection(t *testing.T) {
 }
 
 func TestClientResponseProcess(t *testing.T) {
-	utConfig := bpf.GetConfig()
-	utConfig.Mode = constants.AdsMode
-	bpfConfig = utConfig
 	t.Run("ads stream process failed, test reconnect", func(t *testing.T) {
 		netPatches := gomonkey.NewPatches()
 		defer netPatches.Reset()
@@ -82,7 +77,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient()
+		utClient := NewXdsClient(constants.AdsMode, nil)
 		err := utClient.createGrpcStreamClient()
 		assert.NilError(t, err)
 
@@ -102,7 +97,7 @@ func TestClientResponseProcess(t *testing.T) {
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
 		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsController), "HandleAdsStream",
-			func(_ *ads.AdsStream) error {
+			func() error {
 				// if the number of loops is less than or equal to two, an error is reported and a retry is triggered.
 				if iteration < 2 {
 					return errors.New("stream recv failed")
@@ -117,7 +112,6 @@ func TestClientResponseProcess(t *testing.T) {
 	})
 
 	t.Run("workload stream process failed, test reconnect", func(t *testing.T) {
-		utConfig.Mode = constants.WorkloadMode
 		netPatches := gomonkey.NewPatches()
 		defer netPatches.Reset()
 		netPatches.ApplyFunc(nets.GrpcConnect, func(addr string) (*grpc.ClientConn, error) {
@@ -130,7 +124,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient()
+		utClient := NewXdsClient(constants.WorkloadMode, nil)
 		err := utClient.createGrpcStreamClient()
 		assert.NilError(t, err)
 
@@ -149,13 +143,8 @@ func TestClientResponseProcess(t *testing.T) {
 			})
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
-<<<<<<< HEAD
 		streamPatches.ApplyMethod(reflect.TypeOf(utClient.workloadController), "HandleWorkloadStream",
-			func(_ *workload.WorkloadStream) error {
-=======
-		streamPatches.ApplyMethod(reflect.TypeOf(utClient.workloadController), "WorkloadStreamProcess",
 			func(_ *workload.Controller) error {
->>>>>>> e83862c (workload controller refactor)
 				if iteration < 2 {
 					return errors.New("stream recv failed")
 				} else {

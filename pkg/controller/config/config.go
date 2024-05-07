@@ -18,8 +18,9 @@ package config
 
 import (
 	"encoding/json"
-	"istio.io/istio/pilot/pkg/model"
 	"strings"
+
+	"istio.io/istio/pilot/pkg/model"
 
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
@@ -55,7 +56,9 @@ type XdsConfig struct {
 }
 
 func NewXDSConfig() *XdsConfig {
-	c := &XdsConfig{}
+	c := &XdsConfig{
+		Metadata: &model.BootstrapNodeMetadata{},
+	}
 	podIP := env.Register("INSTANCE_IP", "", "").Get()
 	podName := env.Register("POD_NAME", "", "").Get()
 	podNamespace := env.Register("POD_NAMESPACE", "", "").Get()
