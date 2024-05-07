@@ -27,10 +27,9 @@ typedef enum {
 
 typedef struct bpf_sock_addr ctx_buff_t;
 
-#define DECLARE_VAR_ADDRESS(ctx, name)                                                                                 \
-    frontend_key name = {0};                                                                                           \
-    name.ipv4 = (ctx)->user_ip4;                                                                                       \
-    name.service_port = (ctx)->user_port
+#define DECLARE_FRONTEND_KEY(ctx, key)                                                                                 \
+    frontend_key key = {0};                                                                                            \
+    key.ipv4 = (ctx)->user_ip4
 
 #define SET_CTX_ADDRESS(ctx, address)                                                                                  \
     (ctx)->user_ip4 = (address).ipv4;                                                                                  \

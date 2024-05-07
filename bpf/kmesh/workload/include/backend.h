@@ -57,7 +57,6 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
         return -ENOEXEC;
     }
 
-    DECLARE_VAR_ADDRESS(ctx, address);
 #pragma unroll
     for (unsigned int i = 0; i < backend_v->port_count; i++) {
         if (i >= MAX_PORT_COUNT) {
@@ -65,7 +64,7 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
             return -EINVAL;
         }
 
-        if (address.service_port == backend_v->service_port[i]) {
+        if (ctx->user_port == backend_v->service_port[i]) {
             target_addr.ipv4 = backend_v->ipv4;
             target_addr.port = backend_v->target_port[i];
             SET_CTX_ADDRESS(ctx, target_addr);
