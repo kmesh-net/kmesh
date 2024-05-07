@@ -19,7 +19,6 @@ package workload
 import (
 	"encoding/binary"
 	"fmt"
-	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"strings"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -28,6 +27,7 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/controller/config"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
