@@ -155,7 +155,7 @@ static inline bool conn_from_cni_sim_add(struct bpf_sock_ops *skops)
 #if !OE_23_03
     return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0x3a1));
 #else
-    return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0xa1030000));
+    return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0x3a10000));
 #endif
 }
 
@@ -163,7 +163,11 @@ static inline bool conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
 {
     // cni sim connect 0.0.0.1:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni for disable Kmesh
+#if !OE_23_03
     return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0x3a2));
+#else
+    return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0x3a20000));
+#endif
 }
 
 static inline bool ipv4_mapped_addr(__u32 ip6[4])
