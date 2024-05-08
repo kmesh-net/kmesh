@@ -19,4 +19,6 @@ function install_clang_format () {
     fi
 }
 
+install_clang_format
+
 find ./ -path "./api/v2-c" -prune -o -name "*.[ch]" -exec clang-format -i {} \;
