@@ -28,9 +28,9 @@ documentation such as release notes or a development roadmap.
 A good summary is probably at least a paragraph in length.
 -->
 
-Envoy supports many different cluster types, including `Strict Dns`, `Logical DNS`. However, given to kmesh works in the kernel with ebpf. Previously kmesh does not either of the DNS typed clusters. For traffic matches these kind of cluster, it will be dropped. 
+Envoy supports many different cluster types, including `Strict DNS`, `Logical DNS`. However, given to Kmesh works in the kernel with ebpf. Previously Kmesh does not either of the DNS typed clusters. For traffic matches these kind of cluster, it will be dropped. 
 
-In this propsosal, I would suggest to improve kmesh to support DNS types cluster, so we can support all kinds of clusters afterwards.
+In this propsosal, I would suggest to improve Kmesh to support DNS types cluster, so we can support all kinds of clusters afterwards.
 
 
 ### Motivation
@@ -40,9 +40,9 @@ This section is for explicitly listing the motivation, goals, and non-goals of
 this KEP.  Describe why the change is important and the benefits to users.
 -->
 
-In istio, [External Name service](https://kubernetes.io/docs/concepts/services-networking/service/#externalname) and DNS resolution typed ServiceEntry are widely used. For both kind of configs, istiod will generate associated DNS typed clusters.
+In istio, [External Name service](https://kubernetes.io/docs/concepts/services-networking/service/#externalname) and DNS resolution typed [ServiceEntry](https://istio.io/latest/docs/reference/config/networking/service-entry/#ServiceEntry-Resolution) are widely used. For both kind of configs, istiod will generate associated DNS typed clusters.
 
-So many people have depend on this kind services, kmesh have to support it to make people migrate to it seamlessly.
+So many people have depend on this kind services, Kmesh have to support it to make people migrate to it seamlessly.
 
 Suppose we create a ServiceEntry like below:
 
@@ -134,7 +134,7 @@ and make progress.
 
 - Donot provide node local dns service for application, at least this is not the goal of this proposal. 
 
-- Since istid doesnot support workload dns resolution, kmesh does not support it in workload mode either. 
+- Since istid doesnot support workload dns resolution, Kmesh does not support it in workload mode either. 
 
 
 ### Proposal
@@ -148,7 +148,7 @@ The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-We shold implement a new component to do dns resove, called `dns resolver`. It should basically do:
+We shold implement a new component to do dns resolve, called `dns resolver`. It should basically do:
 
 - DNS resolve for endpoints within DNS typed clusters
 
@@ -168,7 +168,7 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
-In theory, we can think of implementing dns resolver either in kernel or userspace. Considering the complexity, I suggest we do that in kmesh daemon.
+In theory, we can think of implementing dns resolver either in kernel or userspace. Considering the complexity, I suggest we do that in Kmesh daemon.
 
 ![DNS Resolver Arch](./pics/dns-resolver.svg)
 
@@ -176,7 +176,7 @@ In theory, we can think of implementing dns resolver either in kernel or userspa
 
 - ads controller is responsible of subscribing the xDS from istiod, when it receives a cluster with dns type, it notifies the `DNS Resolver` via a channel.
 
-- `DNS Resolver` is responsible of resolving the dns domain with the dns configuration within kmesh daemon.
+- `DNS Resolver` is responsible of resolving the dns domain with the dns configuration within Kmesh daemon.
 
 - After resolved, `DNS Resolver` will set the name table via updating the bpf hash map.
 
@@ -185,7 +185,7 @@ In theory, we can think of implementing dns resolver either in kernel or userspa
 
 As to the dns resolution, package `github.com/miekg/dns` provide good libs that can be used to do no matter dns resolve or dns serving. Though it is not the target to support dns serving here, we should choose a package that do have such capabilities, so that we can extend it to do in the future. Another reason why suggest using this package it that, coredns also make use of it, so it is widely used in production. 
 
-We should make sure no dns name can be leaked. It is very common a cluster can be removed following a service deletion. Now in kmesh we use Stow xDS, each time it receives CDS response it would include all clusters within the mesh. And ads controller parses them, respond and then store them in user space cache and bpf maps. We can make ads controller do `Stow` notification too. To be more clearly, when ads controller parses all the clusters, it should send all the dns domains that need to be resolved to `DNS Resolver`.
+We should make sure no dns name can be leaked. It is very common a cluster can be removed following a service deletion. Now in Kmesh we use Stow xDS, each time it receives CDS response it would include all clusters within the mesh. And ads controller parses them, respond and then store them in user space cache and bpf maps. We can make ads controller do `Stow` notification too. To be more clearly, when ads controller parses all the clusters, it should send all the dns domains that need to be resolved to `DNS Resolver`.
 
 Since the notification is by golang channel, it is vety efficient, `Stow` should be good to go. In `DNS Resolver`, it should create a map to record all the dns domains it need to resolve. So evety notification it should be able to distinguish new added, deleted and unchanged dns domains. 
 
