@@ -20,11 +20,8 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-// Generally, frontend_key store Service ip and port, for app access Service,
-// Specifically, for app access Pod directly: FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{UpstreamId:BackendUid}
 type FrontendKey struct {
 	IPv4 uint32 // Service ip or Pod ip
-	Port uint32 // actual port for Service or 0 for Pod
 }
 
 type FrontendValue struct {

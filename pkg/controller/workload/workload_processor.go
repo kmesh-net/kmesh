@@ -119,7 +119,6 @@ func (p *Processor) deletePodFrontendData(uid uint32) error {
 		log.Debugf("Find BackendValue: [%#v]", bv)
 		if bv.PortCount == 0 {
 			fk.IPv4 = bv.IPv4
-			fk.Port = 0
 			if err = p.bpf.FrontendDelete(&fk); err != nil {
 				log.Errorf("FrontendDelete failed: %s", err)
 				return err
@@ -136,10 +135,7 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 		fv = bpf.FrontendValue{}
 	)
 
-	// stored PodIP in the frontend map for Pod to Pod access.
-	// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
 	fk.IPv4 = binary.LittleEndian.Uint32(ip)
-	fk.Port = 0
 	fv.UpstreamId = uid
 	if err := p.bpf.FrontendUpdate(&fk, &fv); err != nil {
 		log.Errorf("Update frontend map failed, err:%s", err)
@@ -355,8 +351,6 @@ func (p *Processor) storeBackendData(uid uint32, ips [][]byte, portList *workloa
 			}
 		}
 
-		// stored PodIP in the frontend map for Pod to Pod access.
-		// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
 		if err = p.storePodFrontendData(uid, ip); err != nil {
 			log.Errorf("storePodFrontendData failed, err:%s", err)
 			return err
@@ -433,8 +427,6 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 			return err
 		}
 
-		// stored PodIP in the frontend map for Pod to Pod access.
-		// FrontendKey:{IPv4:<PodIP>, Port:0}, FrontendValue:{ServiceID:BackendUid}
 		if err = p.storePodFrontendData(uid, ip); err != nil {
 			log.Errorf("storePodFrontendData failed, err:%s", err)
 			return err
@@ -473,12 +465,9 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 	for _, networkAddress := range service.GetAddresses() {
 		address := networkAddress.Address
 		fk.IPv4 = nets.ConvertIpByteToUint32(address)
-		for _, portPair := range service.GetPorts() {
-			fk.Port = nets.ConvertPortToBigEndian(portPair.ServicePort)
-			if err = p.bpf.FrontendUpdate(&fk, &fv); err != nil {
-				log.Errorf("Update Frontend failed, err:%s", err)
-				return err
-			}
+		if err = p.bpf.FrontendUpdate(&fk, &fv); err != nil {
+			log.Errorf("Update Frontend failed, err:%s", err)
+			return err
 		}
 	}
 	return nil

@@ -26,12 +26,8 @@
 #define RINGBUF_SIZE   (1 << 12)
 
 // frontend map
-// Generally, frontend_key store Service ip and port, for app access Service,
-// Specifically, for app access Pod directly: frontend_key:{ipv4:<PodIP>, service_port:0},
-// frontend_value:{upstream_id:backend_uid}
 typedef struct {
-    __u32 ipv4;         // Service ip or Pod ip
-    __u32 service_port; // actual port for Service or 0 for Pod
+    __u32 ipv4; // Service ip or Pod ip
 } __attribute__((packed)) frontend_key;
 
 typedef struct {
