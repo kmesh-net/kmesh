@@ -43,7 +43,7 @@ static inline Route__RouteConfiguration *map_lookup_route_config(const char *rou
 }
 
 static inline int
-virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *uri)
+virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *host)
 {
     int i;
     void *domains = NULL;
@@ -51,14 +51,14 @@ virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buf
     void *ptr;
     __u32 ptr_length;
 
-    if (!uri)
+    if (!host)
         return 0;
 
-    ptr = _(uri->ptr);
+    ptr = _(host->ptr);
     if (!ptr)
         return 0;
 
-    ptr_length = _(uri->size);
+    ptr_length = _(host->size);
 
     if (!virt_host->domains)
         return 0;
@@ -105,8 +105,8 @@ virtual_host_match(Route__RouteConfiguration *route_config, address_t *addr, ctx
     void *ptrs = NULL;
     Route__VirtualHost *virt_host = NULL;
     Route__VirtualHost *virt_host_allow_any = NULL;
-    char uri_key[4] = {'U', 'R', 'I', '\0'};
-    struct bpf_mem_ptr *uri;
+    char host_key[5] = {'H', 'o', 's', 't', '\0'};
+    struct bpf_mem_ptr *host;
 
     if (route_config->n_virtual_hosts <= 0 || route_config->n_virtual_hosts > KMESH_PER_VIRT_HOST_NUM) {
         BPF_LOG(WARN, ROUTER_CONFIG, "invalid virt hosts num=%d\n", route_config->n_virtual_hosts);
@@ -119,8 +119,8 @@ virtual_host_match(Route__RouteConfiguration *route_config, address_t *addr, ctx
         return NULL;
     }
 
-    uri = bpf_get_msg_header_element(uri_key);
-    if (!uri) {
+    host = bpf_get_msg_header_element(host_key);
+    if (!host) {
         BPF_LOG(ERR, ROUTER_CONFIG, "failed to get URI in msg\n");
         return NULL;
     }
@@ -139,11 +139,11 @@ virtual_host_match(Route__RouteConfiguration *route_config, address_t *addr, ctx
             continue;
         }
 
-        if (virtual_host_match_check(virt_host, addr, ctx, uri))
+        if (virtual_host_match_check(virt_host, addr, ctx, host))
             return virt_host;
     }
     // allow_any as the default virt_host
-    if (virt_host_allow_any && virtual_host_match_check(virt_host_allow_any, addr, ctx, uri))
+    if (virt_host_allow_any && virtual_host_match_check(virt_host_allow_any, addr, ctx, host))
         return virt_host_allow_any;
     return NULL;
 }
