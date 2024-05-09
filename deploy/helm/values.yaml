@@ -9,6 +9,7 @@ deploy:
     imagePullPolicy: IfNotPresent
     containers:
       kmeshDaemonArgs: "--mode=workload"
+      kmeshByPass: "--bypass=false"
     resources:
       limits:
         cpu: "1"

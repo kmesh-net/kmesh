@@ -31,6 +31,7 @@ type BpfConfig struct {
 	BpfFsPath        string
 	Cgroup2Path      string
 	EnableMda        bool
+	EnableByPass     bool
 	BpfVerifyLogSize int
 }
 
@@ -39,6 +40,7 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
 	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "workload", "controller plane mode, valid values are [ads, workload]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
+	cmd.PersistentFlags().BoolVar(&c.EnableByPass, "bypass", false, "optional of start bypass, default is false")
 }
 
 func (c *BpfConfig) ParseConfig() error {
