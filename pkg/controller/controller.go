@@ -45,22 +45,21 @@ func NewController(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controlle
 }
 
 func (c *Controller) Start() error {
-	if c.mode != constants.WorkloadMode && c.mode != constants.AdsMode {
-		return nil
-	}
-
-	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
-
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		panic(err)
 	}
 
-	// TODO(hzxuzhonghu): move before xds client inititation
 	err = bypass.StartByPassController(clientset)
 	if err != nil {
 		return fmt.Errorf("failed to start bypass controller: %v", err)
 	}
+
+	if c.mode != constants.WorkloadMode && c.mode != constants.AdsMode {
+		return nil
+	}
+
+	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 
 	return c.client.Run(stopCh)
 }

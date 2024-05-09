@@ -18,7 +18,7 @@ spec:
       {{- include "kmesh.selectorLabels" . | nindent 8 }}
     spec:
       containers:
-      - args: ["./start_kmesh.sh {{ .Values.deploy.kmesh.containers.kmeshDaemonArgs }}"]
+      - args: ["./start_kmesh.sh {{ .Values.deploy.kmesh.containers.kmeshDaemonArgs }} {{ .Values.deploy.kmesh.containers.kmeshByPass }}"]
         command:
         - /bin/sh
         - -c
