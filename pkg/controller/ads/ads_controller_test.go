@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package envoy
+package ads
 
 import (
 	"context"
@@ -38,8 +38,8 @@ import (
 func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	adsStream := AdsStream{
-		Event: nil,
+	adsStream := Controller{
+		Processor: nil,
 	}
 
 	// create a fake grpc service client
@@ -123,9 +123,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 func TestAdsStream_AdsStreamProcess(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
-	adsStream := AdsStream{
-		Event: NewServiceEvent(),
-	}
+	adsStream := NewController()
 
 	// create a fake grpc service client
 	mockDiscovery := xdstest.NewMockServer(t)

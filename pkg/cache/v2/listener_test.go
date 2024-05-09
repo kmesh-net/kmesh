@@ -187,8 +187,8 @@ func TestListenerFlush(t *testing.T) {
 
 func BenchmarkFlush(b *testing.B) {
 	t := &testing.T{}
-	test.InitBpfMap(t)
-	b.Cleanup(test.CleanupBpfMap)
+	cleanup := test.InitBpfMap(t)
+	b.Cleanup(cleanup)
 
 	listener := &listener_v2.Listener{
 		ApiStatus: core_v2.ApiStatus_UPDATE,

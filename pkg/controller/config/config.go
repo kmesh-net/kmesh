@@ -22,7 +22,6 @@ import (
 
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	structpb "github.com/golang/protobuf/ptypes/struct"
-	"github.com/spf13/cobra"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -33,15 +32,10 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3" // nolint
 
-	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/options"
 )
 
 const (
-	pkgSubsys  = "xds"
-	Decimalism = 10
-
 	// TODO(YaoZengzeng): use appropriate role, "sidecar" or "ztunnel".
 	nodeRole                  = "sidecar"
 	localHostIPv4             = "127.0.0.1"
@@ -51,9 +45,7 @@ const (
 
 var (
 	log    = logger.NewLoggerField("controller/config")
-	config = XdsConfig{
-		Metadata: &model.BootstrapNodeMetadata{},
-	}
+	config *XdsConfig
 )
 
 type XdsConfig struct {
@@ -62,30 +54,10 @@ type XdsConfig struct {
 	Metadata         *model.BootstrapNodeMetadata
 }
 
-type NodeMetadata struct {
-	ClusterID string
-}
-
-func init() {
-	options.Register(&config)
-}
-
-func (c *XdsConfig) AttachFlags(cmd *cobra.Command) {
-}
-
-func (c *XdsConfig) ParseConfig() error {
-	if bpf.GetConfig().AdsEnabled() || bpf.GetConfig().EnableMda || bpf.GetConfig().WdsEnabled() {
-		c = &config
+func NewXDSConfig() *XdsConfig {
+	c := &XdsConfig{
+		Metadata: &model.BootstrapNodeMetadata{},
 	}
-
-	return c.Init()
-}
-
-func GetConfig() *XdsConfig {
-	return &config
-}
-
-func (c *XdsConfig) Init() error {
 	podIP := env.Register("INSTANCE_IP", "", "").Get()
 	podName := env.Register("POD_NAME", "", "").Get()
 	podNamespace := env.Register("POD_NAMESPACE", "", "").Get()
@@ -115,9 +87,18 @@ func (c *XdsConfig) Init() error {
 	c.Metadata.NodeName = nodeName
 	c.Metadata.NodeMetadata.ServiceAccount = sa
 
-	return nil
+	return c
 }
 
+func GetConfig() *XdsConfig {
+	if config != nil {
+		return config
+	}
+	config = NewXDSConfig()
+	return config
+}
+
+// TODO(hzxuzhonhu): this is frequently called, cache the node later
 func (c *XdsConfig) GetNode() *config_core_v3.Node {
 	nodeMetadata, err := nodeMetadataToStruct(c.Metadata)
 	if err != nil {

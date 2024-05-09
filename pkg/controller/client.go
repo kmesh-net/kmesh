@@ -26,8 +26,10 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 
 	"kmesh.net/kmesh/pkg/auth"
+	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/config"
-	"kmesh.net/kmesh/pkg/controller/envoy"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/nets"
 )
@@ -37,30 +39,31 @@ const (
 )
 
 type XdsClient struct {
-	ctx            context.Context
-	cancel         context.CancelFunc
-	grpcConn       *grpc.ClientConn
-	client         discoveryv3.AggregatedDiscoveryServiceClient
-	AdsStream      *envoy.AdsStream
-	workloadStream *workload.WorkloadStream
-	xdsConfig      *config.XdsConfig
-	rbac           *auth.Rbac
+	mode               string
+	ctx                context.Context
+	cancel             context.CancelFunc
+	grpcConn           *grpc.ClientConn
+	client             discoveryv3.AggregatedDiscoveryServiceClient
+	AdsController      *ads.Controller
+	workloadController *workload.Controller
+	xdsConfig          *config.XdsConfig
+	rbac               *auth.Rbac
 }
 
-func NewXdsClient() *XdsClient {
+func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient {
 	client := &XdsClient{
+		mode:      mode,
 		xdsConfig: config.GetConfig(),
-		AdsStream: &envoy.AdsStream{
-			Event: envoy.NewServiceEvent(),
-		},
-		workloadStream: &workload.WorkloadStream{
-			Event: workload.NewServiceEvent(),
-		},
-		rbac: auth.NewRbac(),
+	}
+
+	if mode == constants.WorkloadMode {
+		client.rbac = auth.NewRbac(bpfWorkloadObj)
+		client.workloadController = workload.NewController(bpfWorkloadObj.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
+	} else if mode == constants.AdsMode {
+		client.AdsController = ads.NewController()
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
-
 	return client
 }
 
@@ -73,13 +76,13 @@ func (c *XdsClient) createGrpcStreamClient() error {
 
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
-	if bpfConfig.WdsEnabled() {
-		if err = c.workloadStream.WorklaodStreamCreateAndSend(c.client, c.ctx); err != nil {
+	if c.mode == constants.WorkloadMode {
+		if err = c.workloadController.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
 		}
-	} else if bpfConfig.AdsEnabled() {
-		if err = c.AdsStream.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
+	} else if c.mode == constants.AdsMode {
+		if err = c.AdsController.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create ads stream failed, %s", err)
 		}
@@ -122,13 +125,19 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 				reconnect = false
 			}
 
-			if bpfConfig.AdsEnabled() {
-				if err = c.AdsStream.HandleAdsStream(); err != nil {
-					_ = c.AdsStream.Stream.CloseSend()
+			if c.mode == constants.AdsMode {
+				if err = c.AdsController.HandleAdsStream(); err != nil {
+					_ = c.AdsController.Stream.CloseSend()
+					_ = c.grpcConn.Close()
+					reconnect = true
+					continue
 				}
-			} else if bpfConfig.WdsEnabled() {
-				if err = c.workloadStream.HandleWorkloadStream(c.rbac); err != nil {
-					_ = c.workloadStream.Stream.CloseSend()
+			} else if c.mode == constants.WorkloadMode {
+				if err = c.workloadController.HandleWorkloadStream(c.rbac); err != nil {
+					_ = c.workloadController.Stream.CloseSend()
+					_ = c.grpcConn.Close()
+					reconnect = true
+					continue
 				}
 			}
 			if err != nil && !istiogrpc.IsExpectedGRPCError(err) {
@@ -145,14 +154,13 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	}
 
 	go c.handleUpstream(c.ctx)
-	if bpfConfig.WdsEnabled() {
+	if c.rbac != nil {
 		go c.rbac.Run(c.ctx)
 	}
 
 	go func() {
 		<-stopCh
-
-		c.closeGrpcStreamClient()
+		c.closeStreamClient()
 		if c.cancel != nil {
 			c.cancel()
 		}
@@ -161,15 +169,12 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	return nil
 }
 
-func (c *XdsClient) closeGrpcStreamClient() {
-	if bpfConfig.AdsEnabled() {
-		if c.AdsStream != nil && c.AdsStream.Stream != nil {
-			_ = c.AdsStream.Stream.CloseSend()
-		}
-	} else if bpfConfig.WdsEnabled() {
-		if c.workloadStream != nil && c.workloadStream.Stream != nil {
-			_ = c.workloadStream.Stream.CloseSend()
-		}
+func (c *XdsClient) closeStreamClient() {
+	if c.AdsController != nil && c.AdsController.Stream != nil {
+		_ = c.AdsController.Stream.CloseSend()
+	}
+	if c.workloadController != nil && c.workloadController.Stream != nil {
+		_ = c.workloadController.Stream.CloseSend()
 	}
 
 	if c.grpcConn != nil {
@@ -178,16 +183,5 @@ func (c *XdsClient) closeGrpcStreamClient() {
 }
 
 func (c *XdsClient) Close() error {
-	if bpfConfig.AdsEnabled() {
-		if c.AdsStream != nil && c.AdsStream.Event != nil {
-			c.AdsStream.Event.Destroy()
-		}
-	} else if bpfConfig.WdsEnabled() {
-		if c.workloadStream != nil && c.workloadStream.Event != nil {
-			c.workloadStream.Event.Destroy()
-		}
-	}
-
-	*c = XdsClient{}
 	return nil
 }

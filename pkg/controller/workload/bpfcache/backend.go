@@ -14,12 +14,15 @@
  * limitations under the License.
  */
 
-package workload
+package bpfcache
 
 import (
 	"github.com/cilium/ebpf"
+)
 
-	"kmesh.net/kmesh/pkg/bpf"
+const (
+	ConverNumBase  = 10
+	MaxPortPairNum = 10
 )
 
 type BackendKey struct {
@@ -38,20 +41,17 @@ type BackendValue struct {
 	WaypointPort uint32
 }
 
-func BackendUpdate(key *BackendKey, value *BackendValue) error {
+func (c *Cache) BackendUpdate(key *BackendKey, value *BackendValue) error {
 	log.Debugf("BackendUpdate [%#v], [%#v]", *key, *value)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
-		Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmeshBackend.Update(key, value, ebpf.UpdateAny)
 }
 
-func BackendDelete(key *BackendKey) error {
+func (c *Cache) BackendDelete(key *BackendKey) error {
 	log.Debugf("BackendDelete [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
-		Delete(key)
+	return c.bpfMap.KmeshBackend.Delete(key)
 }
 
-func BackendLookup(key *BackendKey, value *BackendValue) error {
+func (c *Cache) BackendLookup(key *BackendKey, value *BackendValue) error {
 	log.Debugf("BackendLookup [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshBackend.
-		Lookup(key, value)
+	return c.bpfMap.KmeshBackend.Lookup(key, value)
 }

@@ -1,3 +1,4 @@
+//go:build enhanced
 // +build enhanced
 
 /*
@@ -30,6 +31,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	"kmesh.net/kmesh/daemon/options"
 )
 
 type BpfTracePoint struct {
@@ -46,18 +48,22 @@ type BpfSockOps struct {
 
 type BpfKmesh struct {
 	TracePoint BpfTracePoint
-	SockConn BpfSockConn
-	SockOps  BpfSockOps
+	SockConn   BpfSockConn
+	SockOps    BpfSockOps
 }
 
-func (sc *BpfTracePoint) NewBpf(cfg *Config) {
-	sc.Info.Config = *cfg
+func (sc *BpfTracePoint) NewBpf(cfg *options.BpfConfig) {
+	sc.Info.MapPath = cfg.BpfFsPath
+	sc.Info.BpfFsPath = cfg.BpfFsPath
+	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 }
 
-func (sc *BpfSockOps) NewBpf(cfg *Config) error {
-	sc.Info.Config = *cfg
-	sc.Info.MapPath = sc.Info.BpfFsPath + "/bpf_kmesh/map/"
-	sc.Info.BpfFsPath += "/bpf_kmesh/sockops/"
+func (sc *BpfSockOps) NewBpf(cfg *options.BpfConfig) error {
+	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh/map/"
+	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh/sockops/"
+	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -74,7 +80,7 @@ func (sc *BpfSockOps) NewBpf(cfg *Config) error {
 	return nil
 }
 
-func NewBpfKmesh(cfg *Config) (BpfKmesh, error) {
+func NewBpfKmesh(cfg *options.BpfConfig) (BpfKmesh, error) {
 	var err error
 
 	sc := BpfKmesh{}
@@ -93,7 +99,7 @@ func NewBpfKmesh(cfg *Config) (BpfKmesh, error) {
 
 func (sc *BpfTracePoint) loadKmeshTracePointObjects() (*ebpf.CollectionSpec, error) {
 	var (
-		err error
+		err  error
 		spec *ebpf.CollectionSpec
 		opts ebpf.CollectionOptions
 	)
@@ -314,7 +320,7 @@ func (sc *BpfKmesh) ApiEnvCfg() error {
 }
 
 func (sc *BpfTracePoint) Attach() error {
-	tpopt := link.RawTracepointOptions {
+	tpopt := link.RawTracepointOptions{
 		Name:    "connect_ret",
 		Program: sc.KmeshTracePointObjects.ConnectRet,
 	}

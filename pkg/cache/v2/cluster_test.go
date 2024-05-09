@@ -178,8 +178,8 @@ func TestClusterFlush(t *testing.T) {
 
 func BenchmarkClusterFlush(b *testing.B) {
 	t := &testing.T{}
-	test.InitBpfMap(t)
-	b.Cleanup(test.CleanupBpfMap)
+	cleanup := test.InitBpfMap(t)
+	b.Cleanup(cleanup)
 
 	cluster := cluster_v2.Cluster{
 		ApiStatus:      core_v2.ApiStatus_UPDATE,

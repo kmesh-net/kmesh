@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package envoy
+package ads
 
 import (
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -39,10 +39,10 @@ import (
 	"kmesh.net/kmesh/pkg/nets"
 )
 
-type AdsLoader struct {
-	// subscribe to EDS by cluster Name
+type AdsCache struct {
+	// eds names to be subscribed, which is inferred from cluster
 	edsClusterNames []string
-	// subscribe to RDS by RouteConfiguration Name
+	// route names to be subscribed, which is inferred from listener
 	routeNames []string
 
 	ListenerCache cache_v2.ListenerCache
@@ -50,15 +50,15 @@ type AdsLoader struct {
 	RouteCache    cache_v2.RouteConfigCache
 }
 
-func NewAdsLoader() *AdsLoader {
-	return &AdsLoader{
+func NewAdsCache() *AdsCache {
+	return &AdsCache{
 		ListenerCache: cache_v2.NewListenerCache(),
 		ClusterCache:  cache_v2.NewClusterCache(),
 		RouteCache:    cache_v2.NewRouteConfigCache(),
 	}
 }
 
-func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) {
+func (load *AdsCache) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) {
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus:       status,
 		Name:            cluster.GetName(),
@@ -73,11 +73,11 @@ func (load *AdsLoader) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *
 	load.ClusterCache.SetApiCluster(cluster.GetName(), apiCluster)
 }
 
-func (load *AdsLoader) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
+func (load *AdsCache) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
 	load.ClusterCache.UpdateApiClusterStatus(key, status)
 }
 
-func (load *AdsLoader) CreateApiClusterByEds(status core_v2.ApiStatus,
+func (load *AdsCache) CreateApiClusterByEds(status core_v2.ApiStatus,
 	loadAssignment *config_endpoint_v3.ClusterLoadAssignment,
 ) {
 	apiCluster := load.ClusterCache.GetApiCluster(loadAssignment.GetClusterName())
@@ -166,11 +166,11 @@ func newApiCircuitBreakers(cb *config_cluster_v3.CircuitBreakers) *cluster_v2.Ci
 	}
 }
 
-func (load *AdsLoader) UpdateApiListenerStatus(key string, status core_v2.ApiStatus) {
+func (load *AdsCache) UpdateApiListenerStatus(key string, status core_v2.ApiStatus) {
 	load.ListenerCache.UpdateApiListenerStatus(key, status)
 }
 
-func (load *AdsLoader) CreateApiListenerByLds(status core_v2.ApiStatus, listener *config_listener_v3.Listener) {
+func (load *AdsCache) CreateApiListenerByLds(status core_v2.ApiStatus, listener *config_listener_v3.Listener) {
 	if listener == nil {
 		return
 	}
@@ -287,13 +287,13 @@ func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.F
 	return apiFilter, routeName
 }
 
-func (load *AdsLoader) CreateApiRouteByRds(status core_v2.ApiStatus, routeConfig *config_route_v3.RouteConfiguration) {
+func (load *AdsCache) CreateApiRouteByRds(status core_v2.ApiStatus, routeConfig *config_route_v3.RouteConfiguration) {
 	apiRouteConfig := newApiRouteConfiguration(routeConfig)
 	apiRouteConfig.ApiStatus = status
 	load.RouteCache.SetApiRouteConfig(apiRouteConfig.GetName(), apiRouteConfig)
 }
 
-func (load *AdsLoader) UpateApiRouteStatus(key string, status core_v2.ApiStatus) {
+func (load *AdsCache) UpateApiRouteStatus(key string, status core_v2.ApiStatus) {
 	load.RouteCache.UpdateApiRouteStatus(key, status)
 }
 

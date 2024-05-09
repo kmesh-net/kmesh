@@ -12,15 +12,14 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: kwb0523
- * Create: 2024-01-08
  */
 
 package bpf
 
 import (
 	"fmt"
+
+	"kmesh.net/kmesh/daemon/options"
 )
 
 type BpfKmeshWorkload struct {
@@ -30,50 +29,43 @@ type BpfKmeshWorkload struct {
 	SendMsg  BpfSendMsgWorkload
 }
 
-type BpfObjectWorkload struct {
-	KmeshWorkload BpfKmeshWorkload
+func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
+	workloadObj := &BpfKmeshWorkload{}
+
+	if err := workloadObj.SockConn.NewBpf(cfg); err != nil {
+		return nil, err
+	}
+
+	if err := workloadObj.SockOps.NewBpf(cfg); err != nil {
+		return nil, err
+	}
+
+	if err := workloadObj.XdpAuth.NewBpf(cfg); err != nil {
+		return nil, err
+	}
+
+	// we must pass pointer here, because workloadObj.SockOps will be modified during loading
+	if err := workloadObj.SendMsg.NewBpf(cfg, &workloadObj.SockOps); err != nil {
+		return nil, err
+	}
+
+	return workloadObj, nil
 }
 
-var ObjWorkload BpfObjectWorkload
-
-func NewBpfKmeshWorkload(cfg *Config) (BpfKmeshWorkload, error) {
+func (l *BpfLoader) StartWorkloadMode() error {
 	var err error
 
-	sc := BpfKmeshWorkload{}
-
-	if err = sc.SockConn.NewBpf(cfg); err != nil {
-		return sc, err
-	}
-
-	if err = sc.SockOps.NewBpf(cfg); err != nil {
-		return sc, err
-	}
-
-	if err = sc.XdpAuth.NewBpf(cfg); err != nil {
-		return sc, err
-	}
-
-	if err = sc.SendMsg.NewBpf(cfg); err != nil {
-		return sc, err
-	}
-
-	return sc, nil
-}
-
-func StartKmeshWorkload() error {
-	var err error
-
-	if ObjWorkload.KmeshWorkload, err = NewBpfKmeshWorkload(&config); err != nil {
+	if l.workloadObj, err = newWorkloadBpf(l.config); err != nil {
 		return err
 	}
 
-	if err = ObjWorkload.KmeshWorkload.Load(); err != nil {
-		Stop()
+	if err = l.workloadObj.Load(); err != nil {
+		l.Stop()
 		return fmt.Errorf("bpf Load failed, %s", err)
 	}
 
-	if err = ObjWorkload.KmeshWorkload.Attach(); err != nil {
-		Stop()
+	if err = l.workloadObj.Attach(); err != nil {
+		l.Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
 

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package envoy
+package ads
 
 import (
 	envoy_filters_tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"

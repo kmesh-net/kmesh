@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-package workload
+package bpfcache
 
 import (
 	"github.com/cilium/ebpf"
-
-	"kmesh.net/kmesh/pkg/bpf"
 )
 
 type EndpointKey struct {
@@ -31,30 +29,27 @@ type EndpointValue struct {
 	BackendUid uint32 // workloadUid to uint32
 }
 
-func EndpointUpdate(key *EndpointKey, value *EndpointValue) error {
+func (c *Cache) EndpointUpdate(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointUpdate [%#v], [%#v]", *key, *value)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
-		Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmeshEndpoint.Update(key, value, ebpf.UpdateAny)
 }
 
-func EndpointDelete(key *EndpointKey) error {
+func (c *Cache) EndpointDelete(key *EndpointKey) error {
 	log.Debugf("EndpointDelete [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
-		Delete(key)
+	return c.bpfMap.KmeshEndpoint.Delete(key)
 }
 
-func EndpointLookup(key *EndpointKey, value *EndpointValue) error {
+func (c *Cache) EndpointLookup(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointLookup [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.
-		Lookup(key, value)
+	return c.bpfMap.KmeshEndpoint.Lookup(key, value)
 }
 
-func EndpointIterFindKey(workloadUid uint32) []EndpointKey {
+func (c *Cache) EndpointIterFindKey(workloadUid uint32) []EndpointKey {
 	log.Debugf("EndpointIterFindKey [%#v]", workloadUid)
 	var (
 		key   = EndpointKey{}
 		value = EndpointValue{}
-		iter  = bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshEndpoint.Iterate()
+		iter  = c.bpfMap.KmeshEndpoint.Iterate()
 	)
 
 	res := make([]EndpointKey, 0)

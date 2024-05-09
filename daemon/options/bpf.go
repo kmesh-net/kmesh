@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package bpf
+package options
 
 import (
 	"os"
@@ -24,18 +24,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/pkg/constants"
-	"kmesh.net/kmesh/pkg/options"
 )
 
-var (
-	config Config
-)
-
-func init() {
-	options.Register(&config)
-}
-
-type Config struct {
+type BpfConfig struct {
 	Mode             string
 	BpfFsPath        string
 	Cgroup2Path      string
@@ -43,14 +34,14 @@ type Config struct {
 	BpfVerifyLogSize int
 }
 
-func (c *Config) AttachFlags(cmd *cobra.Command) {
+func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
 	cmd.PersistentFlags().StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
 	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "workload", "controller plane mode, valid values are [ads, workload]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 }
 
-func (c *Config) ParseConfig() error {
+func (c *BpfConfig) ParseConfig() error {
 	var err error
 
 	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
@@ -78,14 +69,10 @@ func (c *Config) ParseConfig() error {
 	return nil
 }
 
-func GetConfig() *Config {
-	return &config
-}
-
-func (c *Config) AdsEnabled() bool {
+func (c *BpfConfig) AdsEnabled() bool {
 	return c.Mode == constants.AdsMode
 }
 
-func (c *Config) WdsEnabled() bool {
+func (c *BpfConfig) WdsEnabled() bool {
 	return c.Mode == constants.WorkloadMode
 }

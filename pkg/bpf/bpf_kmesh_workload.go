@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: kwb0523
- * Create: 2024-01-08
  */
 
 package bpf
@@ -32,6 +29,7 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/constants"
 )
 
@@ -41,10 +39,11 @@ type BpfSockConnWorkload struct {
 	bpf2go.KmeshCgroupSockWorkloadObjects
 }
 
-func (sc *BpfSockConnWorkload) NewBpf(cfg *Config) error {
-	sc.Info.Config = *cfg
-	sc.Info.MapPath = sc.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
-	sc.Info.BpfFsPath += "/bpf_kmesh_workload/sockconn/"
+func (sc *BpfSockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
+	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
+	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockconn/"
+	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -165,10 +164,11 @@ type BpfSockOpsWorkload struct {
 	bpf2go.KmeshSockopsWorkloadObjects
 }
 
-func (so *BpfSockOpsWorkload) NewBpf(cfg *Config) error {
-	so.Info.Config = *cfg
-	so.Info.MapPath = so.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
-	so.Info.BpfFsPath += "/bpf_kmesh_workload/sockops/"
+func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
+	so.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
+	so.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockops/"
+	so.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	so.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(so.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -284,12 +284,16 @@ type BpfSendMsgWorkload struct {
 	Info     BpfInfo
 	AttachFD int
 	bpf2go.KmeshSendmsgObjects
+
+	sockOpsWorkloadObj *BpfSockOpsWorkload
 }
 
-func (sm *BpfSendMsgWorkload) NewBpf(cfg *Config) error {
-	sm.Info.Config = *cfg
-	sm.Info.MapPath = sm.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
-	sm.Info.BpfFsPath += "/bpf_kmesh_workload/sendmsg/"
+func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj *BpfSockOpsWorkload) error {
+	sm.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
+	sm.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sendmsg/"
+	sm.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	sm.Info.Cgroup2Path = cfg.Cgroup2Path
+	sm.sockOpsWorkloadObj = sockOpsWorkloadObj
 
 	if err := os.MkdirAll(sm.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -323,11 +327,6 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
 		return nil, err
 	}
-
-	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
-		return nil, err
-	}
-
 	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
 	if err = pinPrograms(&value, sm.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -355,7 +354,7 @@ func (sm *BpfSendMsgWorkload) Attach() error {
 		return err
 	}
 
-	sm.AttachFD = ObjWorkload.KmeshWorkload.SockOps.GetSockMapFD()
+	sm.AttachFD = sm.sockOpsWorkloadObj.GetSockMapFD()
 	args := link.RawAttachProgramOptions{
 		Target:  sm.AttachFD,
 		Program: clone,
@@ -403,10 +402,11 @@ type BpfXdpAuthWorkload struct {
 	bpf2go.KmeshXDPAuthObjects
 }
 
-func (xa *BpfXdpAuthWorkload) NewBpf(cfg *Config) error {
-	xa.Info.Config = *cfg
-	xa.Info.MapPath = xa.Info.BpfFsPath + "/bpf_kmesh_workload/map/"
-	xa.Info.BpfFsPath += "/bpf_kmesh_workload/xdpauth/"
+func (xa *BpfXdpAuthWorkload) NewBpf(cfg *options.BpfConfig) error {
+	xa.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
+	xa.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/xdpauth/"
+	xa.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
+	xa.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(xa.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|

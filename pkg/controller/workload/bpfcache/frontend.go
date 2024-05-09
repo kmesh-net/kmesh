@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-package workload
+package bpfcache
 
 import (
 	"github.com/cilium/ebpf"
-
-	"kmesh.net/kmesh/pkg/bpf"
 )
 
 // Generally, frontend_key store Service ip and port, for app access Service,
@@ -33,30 +31,30 @@ type FrontendValue struct {
 	UpstreamId uint32 // service id for Service access or backend uid for Pod access
 }
 
-func FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
+func (c *Cache) FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendUpdate [%#v], [%#v]", *key, *value)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
+	return c.bpfMap.KmeshFrontend.
 		Update(key, value, ebpf.UpdateAny)
 }
 
-func FrontendDelete(key *FrontendKey) error {
+func (c *Cache) FrontendDelete(key *FrontendKey) error {
 	log.Debugf("FrontendDelete [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
+	return c.bpfMap.KmeshFrontend.
 		Delete(key)
 }
 
-func FrontendLookup(key *FrontendKey, value *FrontendValue) error {
+func (c *Cache) FrontendLookup(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendLookup [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.
+	return c.bpfMap.KmeshFrontend.
 		Lookup(key, value)
 }
 
-func FrontendIterFindKey(upstreamId uint32) []FrontendKey {
+func (c *Cache) FrontendIterFindKey(upstreamId uint32) []FrontendKey {
 	log.Debugf("FrontendIterFindKey [%#v]", upstreamId)
 	var (
 		key   = FrontendKey{}
 		value = FrontendValue{}
-		iter  = bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshFrontend.Iterate()
+		iter  = c.bpfMap.KmeshFrontend.Iterate()
 	)
 
 	res := make([]FrontendKey, 0)

@@ -14,21 +14,21 @@
  * limitations under the License.
  */
 
-package config
+package bpfcache
 
 import (
-	"os"
-	"testing"
-
-	"gotest.tools/assert"
+	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
-func TestInit(t *testing.T) {
-	os.Setenv("INSTANCE_IP", "10.244.0.81")
-	os.Setenv("POD_NAME", "test")
-	os.Setenv("POD_NAMESPACE", "testNs")
-	os.Setenv("XDS_ADDRESS", "istiod.istio-system.svc:15012")
-	config := GetConfig()
-	assert.Equal(t, "sidecar~10.244.0.81~test.testNs~testNs.svc.cluster.local", config.ServiceNode)
-	assert.Equal(t, "istiod.istio-system.svc:15012", config.DiscoveryAddress)
+var log = logger.NewLoggerField("workload_bpfcache")
+
+type Cache struct {
+	bpfMap bpf2go.KmeshCgroupSockWorkloadMaps
+}
+
+func NewCache(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Cache {
+	return &Cache{
+		bpfMap: workloadMap,
+	}
 }

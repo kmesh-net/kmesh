@@ -21,8 +21,8 @@ import (
 
 	"google.golang.org/protobuf/proto"
 
-	workloadapi "kmesh.net/kmesh/api/v2/workloadapi"
-	nets "kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/pkg/nets"
 )
 
 var (

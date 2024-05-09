@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package envoy
+package ads
 
 import (
 	"context"
@@ -27,48 +27,54 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("controller/envoy")
+	log = logger.NewLoggerField("ads_controller")
 )
 
-type AdsStream struct {
-	Stream service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	Event  *ServiceEvent
+type Controller struct {
+	Stream    service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	Processor *processor
 }
 
-func (as *AdsStream) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
+func NewController() *Controller {
+	return &Controller{
+		Processor: newProcessor(),
+	}
+}
+
+func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
 	var err error
 
-	as.Stream, err = client.StreamAggregatedResources(ctx)
+	c.Stream, err = client.StreamAggregatedResources(ctx)
 	if err != nil {
 		return fmt.Errorf("StreamAggregatedResources failed, %s", err)
 	}
 
-	if err := as.Stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
+	if err := c.Stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
 
 	return nil
 }
 
-func (as *AdsStream) HandleAdsStream() error {
+func (c *Controller) HandleAdsStream() error {
 	var (
 		err error
 		rsp *service_discovery_v3.DiscoveryResponse
 	)
 
-	if rsp, err = as.Stream.Recv(); err != nil {
+	if rsp, err = c.Stream.Recv(); err != nil {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	as.Event.processAdsResponse(rsp)
+	c.Processor.processAdsResponse(rsp)
 
-	if err = as.Stream.Send(as.Event.ack); err != nil {
+	if err = c.Stream.Send(c.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
-	if as.Event.req != nil {
-		if err = as.Stream.Send(as.Event.req); err != nil {
-			return fmt.Errorf("stream send req failed, %s", err)
+	if c.Processor.req != nil {
+		if err = c.Stream.Send(c.Processor.req); err != nil {
+			return fmt.Errorf("stream send rqt failed, %s", err)
 		}
 	}
 

@@ -24,21 +24,29 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/containernetworking/cni/libcni"
 	"github.com/containernetworking/cni/pkg/types"
+
+	"kmesh.net/kmesh/pkg/constants"
 )
+
+type opts struct {
+	CniMountNetEtcDIR string
+	CniConfigName     string
+	CniConfigChained  bool
+}
 
 func TestGetCniConfigPath(t *testing.T) {
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()
 	tests := []struct {
 		name       string
-		utconfig   Config
+		utconfig   opts
 		beforeFunc func()
 		afterFunc  func()
 		wantErr    bool
 	}{
 		{
 			name: "test1: have CniConfigName, get error in libcni.ConfListFromFile, should return error",
-			utconfig: Config{
+			utconfig: opts{
 				CniConfigName:     "utTest.conflist",
 				CniMountNetEtcDIR: "/etc/cni/net.d",
 			},
@@ -53,7 +61,7 @@ func TestGetCniConfigPath(t *testing.T) {
 			wantErr: true,
 		}, {
 			name: "test2: have CniConfigName, no Plugins, should return error",
-			utconfig: Config{
+			utconfig: opts{
 				CniConfigName:     "utTest.conflist",
 				CniMountNetEtcDIR: "/etc/cni/net.d",
 			},
@@ -72,7 +80,7 @@ func TestGetCniConfigPath(t *testing.T) {
 			wantErr: true,
 		}, {
 			name: "test3: no CniConfigName, get error in libcni.ConfFiles, should return error",
-			utconfig: Config{
+			utconfig: opts{
 				CniMountNetEtcDIR: "/etc/cni/net.d",
 			},
 			beforeFunc: func() {
@@ -86,7 +94,7 @@ func TestGetCniConfigPath(t *testing.T) {
 			wantErr: true,
 		}, {
 			name: "test 4: no CniConfigName, get error in libcni.ConfListFromFile, should return error",
-			utconfig: Config{
+			utconfig: opts{
 				CniMountNetEtcDIR: "/etc/cni/net.d",
 			},
 			beforeFunc: func() {
@@ -107,7 +115,7 @@ func TestGetCniConfigPath(t *testing.T) {
 			wantErr: true,
 		}, {
 			name: "test 5: no CniConfigName, no Plugins, should return error",
-			utconfig: Config{
+			utconfig: opts{
 				CniMountNetEtcDIR: "/etc/cni/net.d",
 			},
 			beforeFunc: func() {
@@ -132,7 +140,7 @@ func TestGetCniConfigPath(t *testing.T) {
 			wantErr: true,
 		}, {
 			name: "test 6: have CniConfigName, get CnifigPath successful, should return nil",
-			utconfig: Config{
+			utconfig: opts{
 				CniConfigName:     "utTest.conflist",
 				CniMountNetEtcDIR: "/etc/cni/net.d",
 			},
@@ -159,7 +167,7 @@ func TestGetCniConfigPath(t *testing.T) {
 			wantErr: false,
 		}, {
 			name: "test 7: no CniConfigName, Successful, should return nil",
-			utconfig: Config{
+			utconfig: opts{
 				CniMountNetEtcDIR: "/etc/cni/net.d",
 			},
 			beforeFunc: func() {
@@ -194,9 +202,10 @@ func TestGetCniConfigPath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config = tt.utconfig
+			config := tt.utconfig
 			tt.beforeFunc()
-			_, err := getCniConfigPath()
+			i := NewInstaller(constants.AdsMode, config.CniMountNetEtcDIR, config.CniConfigName, config.CniConfigChained)
+			_, err := i.getCniConfigPath()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getCniConfigPath() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -298,7 +307,8 @@ func TestInsertCNIConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
-			_, err := insertCNIConfig(tt.utconfig, "workload")
+			i := NewInstaller(constants.AdsMode, "", "", true)
+			_, err := i.insertCNIConfig(tt.utconfig, "workload")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("insertCNIConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return

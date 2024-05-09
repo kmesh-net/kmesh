@@ -29,7 +29,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/bpf"
-	"kmesh.net/kmesh/pkg/controller/common/cache"
+	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -49,6 +49,7 @@ var (
 
 type Rbac struct {
 	policyStore *policyStore
+	bpfWorkload *bpf.BpfKmeshWorkload
 }
 
 type Identity struct {
@@ -65,14 +66,18 @@ type rbacConnection struct {
 	dstPort     uint32
 }
 
-func NewRbac() *Rbac {
+func NewRbac(workloadObj *bpf.BpfKmeshWorkload) *Rbac {
 	return &Rbac{
 		policyStore: newPolicystore(),
+		bpfWorkload: workloadObj,
 	}
 }
 
 func (r *Rbac) Run(ctx context.Context) {
-	reader, err := ringbuf.NewReader(bpf.ObjWorkload.KmeshWorkload.SockOps.MapOfTuple)
+	if r == nil {
+		return
+	}
+	reader, err := ringbuf.NewReader(r.bpfWorkload.SockOps.MapOfTuple)
 	if err != nil {
 		log.Errorf("open ringbuf map FAILED, err: %v", err)
 		return

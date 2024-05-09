@@ -14,12 +14,10 @@
  * limitations under the License.
  */
 
-package workload
+package bpfcache
 
 import (
 	"github.com/cilium/ebpf"
-
-	"kmesh.net/kmesh/pkg/bpf"
 )
 
 type ServiceKey struct {
@@ -31,20 +29,17 @@ type ServiceValue struct {
 	LbPolicy      uint32 // load balancing algorithm, currently only supports random algorithm
 }
 
-func ServiceUpdate(key *ServiceKey, value *ServiceValue) error {
+func (c *Cache) ServiceUpdate(key *ServiceKey, value *ServiceValue) error {
 	log.Debugf("ServiceUpdate [%#v], [%#v]", *key, *value)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshService.
-		Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmeshService.Update(key, value, ebpf.UpdateAny)
 }
 
-func ServiceDelete(key *ServiceKey) error {
+func (c *Cache) ServiceDelete(key *ServiceKey) error {
 	log.Debugf("ServiceDelete [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshService.
-		Delete(key)
+	return c.bpfMap.KmeshService.Delete(key)
 }
 
-func ServiceLookup(key *ServiceKey, value *ServiceValue) error {
+func (c *Cache) ServiceLookup(key *ServiceKey, value *ServiceValue) error {
 	log.Debugf("ServiceLookup [%#v]", *key)
-	return bpf.ObjWorkload.KmeshWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps.KmeshService.
-		Lookup(key, value)
+	return c.bpfMap.KmeshService.Lookup(key, value)
 }

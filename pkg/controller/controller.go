@@ -20,46 +20,61 @@ import (
 	"fmt"
 
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
-	"kmesh.net/kmesh/pkg/controller/interfaces"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
 var (
-	stopCh    = make(chan struct{})
-	client    interfaces.ClientFactory
-	log       = logger.NewLoggerField("controller")
-	bpfConfig = bpf.GetConfig()
+	stopCh = make(chan struct{})
+	log    = logger.NewLoggerField("controller")
 )
 
-func Start() error {
-	if !bpfConfig.AdsEnabled() && !bpfConfig.WdsEnabled() {
-		return fmt.Errorf("controller start failed")
+type Controller struct {
+	mode           string
+	bpfWorkloadObj *bpf.BpfKmeshWorkload
+	client         *XdsClient
+}
+
+func NewController(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controller {
+	return &Controller{
+		mode:           mode,
+		bpfWorkloadObj: bpfWorkloadObj,
+	}
+}
+
+func (c *Controller) Start() error {
+	if c.mode != constants.WorkloadMode && c.mode != constants.AdsMode {
+		return nil
 	}
 
-	client = NewXdsClient()
+	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		panic(err)
 	}
 
+	// TODO(hzxuzhonghu): move before xds client inititation
 	err = bypass.StartByPassController(clientset)
 	if err != nil {
 		return fmt.Errorf("failed to start bypass controller: %v", err)
 	}
 
-	return client.Run(stopCh)
+	return c.client.Run(stopCh)
 }
 
-func Stop() {
-	var obj struct{}
-	stopCh <- obj
+func (c *Controller) Stop() {
+	if c == nil {
+		return
+	}
 	close(stopCh)
-	client.Close()
+	if c.client != nil {
+		c.client.Close()
+	}
 }
 
-func GetXdsClient() *XdsClient {
-	return client.(*XdsClient)
+func (c *Controller) GetXdsClient() *XdsClient {
+	return c.client
 }

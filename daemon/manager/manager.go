@@ -26,12 +26,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
+	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/dump"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/options"
 )
 
 const (
@@ -41,54 +41,58 @@ const (
 var log = logger.NewLoggerField(pkgSubsys)
 
 func NewCommand() *cobra.Command {
+	configs := options.NewBootstrapConfigs()
 	cmd := &cobra.Command{
 		Use:          "kmesh-daemon",
 		Short:        "Start kmesh daemon",
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			printFlags(cmd.Flags())
-			if err := options.ParseConfigs(); err != nil {
+			if err := configs.ParseConfigs(); err != nil {
 				return err
 			}
-			return Execute()
+			return Execute(configs)
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			UnknownFlags: true,
 		},
 	}
 
-	addFlags(cmd)
+	addFlags(cmd, configs)
 
 	return cmd
 }
 
 // Execute start daemon manager process
-func Execute() error {
-	if err := bpf.Start(); err != nil {
+func Execute(configs *options.BootstrapConfigs) error {
+	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
+	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
 		return err
 	}
 	log.Info("bpf Start successful")
-	defer bpf.Stop()
+	defer bpfLoader.Stop()
 
-	if err := controller.Start(); err != nil {
+	c := controller.NewController(configs.BpfConfig.Mode, bpfLoader.GetBpfKmeshWorkload())
+	if err := c.Start(); err != nil {
 		return err
 	}
 	log.Info("controller Start successful")
-	defer controller.Stop()
+	defer c.Stop()
 
-	if err := dump.StartServer(); err != nil {
-		return err
-	}
+	statusServer := dump.NewStatusServer(c, configs)
+	statusServer.StartServer()
 	log.Info("dump StartServer successful")
 	defer func() {
-		_ = dump.StopServer()
+		_ = statusServer.StopServer()
 	}()
 
-	if err := cni.Start(); err != nil {
+	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
+		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained)
+	if err := cniInstaller.Start(); err != nil {
 		return err
 	}
 	log.Info("command Start cni successful")
-	defer cni.Stop()
+	defer cniInstaller.Stop()
 
 	setupCloseHandler()
 	return nil
@@ -110,7 +114,7 @@ func printFlags(flags *pflag.FlagSet) {
 	})
 }
 
-func addFlags(cmd *cobra.Command) {
-	options.AttachFlags(cmd)
+func addFlags(cmd *cobra.Command, config *options.BootstrapConfigs) {
+	config.AttachFlags(cmd)
 	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 }
