@@ -359,6 +359,10 @@ func (p *Processor) storeBackendData(uid uint32, ips [][]byte, portList *workloa
 	return nil
 }
 
+func (p *Processor) HandleDataWithService(workload *workloadapi.Workload) error {
+	return p.handleDataWithService(workload)
+}
+
 func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error {
 	var (
 		err error

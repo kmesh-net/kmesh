@@ -24,11 +24,12 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 type CleanupFn func()
 
-func InitBpfMap(t *testing.T) CleanupFn {
+func InitBpfMap(t *testing.T, config options.BpfConfig) CleanupFn {
 	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
 	if err != nil {
 		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
@@ -43,13 +44,16 @@ func InitBpfMap(t *testing.T) CleanupFn {
 		CleanupBpfMap()
 		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
 	}
-	config := options.BpfConfig{
-		Mode:        "ads",
-		BpfFsPath:   "/sys/fs/bpf",
-		Cgroup2Path: "/mnt/kmesh_cgroup2",
-	}
+
 	loader := bpf.NewBpfLoader(&config)
-	err = loader.StartAdsMode()
+
+	if config.Mode == constants.AdsMode {
+		err = loader.StartAdsMode()
+	}
+	if config.Mode == constants.WorkloadMode {
+		err = loader.StartWorkloadMode()
+	}
+
 	if err != nil {
 		CleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)
