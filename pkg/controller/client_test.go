@@ -20,14 +20,18 @@ import (
 	"context"
 	"errors"
 	"net"
+	"net/netip"
 	"reflect"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"gotest.tools/assert"
+	"k8s.io/apimachinery/pkg/util/rand"
 
+	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload"
@@ -80,7 +84,7 @@ func TestClientResponseProcess(t *testing.T) {
 
 		utClient := NewXdsClient(constants.AdsMode, &bpf.BpfKmeshWorkload{})
 		err := utClient.createGrpcStreamClient()
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 
 		reConnectPatches := gomonkey.NewPatches()
 		defer reConnectPatches.Reset()
@@ -127,7 +131,7 @@ func TestClientResponseProcess(t *testing.T) {
 
 		utClient := NewXdsClient(constants.WorkloadMode, &bpf.BpfKmeshWorkload{})
 		err := utClient.createGrpcStreamClient()
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 
 		reConnectPatches := gomonkey.NewPatches()
 		defer reConnectPatches.Reset()
@@ -156,4 +160,74 @@ func TestClientResponseProcess(t *testing.T) {
 		utClient.handleUpstream(utClient.ctx)
 		assert.Equal(t, 2, iteration)
 	})
+}
+
+func BenchmarkHandleDataWithService(b *testing.B) {
+	t := &testing.T{}
+	config := options.BpfConfig{
+		Mode:        constants.WorkloadMode,
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+		EnableMda:   false,
+	}
+
+	workload := &workloadapi.Workload{
+		Uid:               "cluster0/networking.istio.io/WorkloadEntry/ns/name",
+		Namespace:         "ns",
+		Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
+		Network:           "testnetwork",
+		CanonicalName:     "foo",
+		CanonicalRevision: "latest",
+		WorkloadType:      workloadapi.WorkloadType_POD,
+		WorkloadName:      "name",
+		Status:            workloadapi.WorkloadStatus_HEALTHY,
+		ClusterId:         "cluster0",
+		Services: map[string]*workloadapi.PortList{
+			"ns/hostname": {
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: 80,
+						TargetPort:  8080,
+					},
+					{
+						ServicePort: 81,
+						TargetPort:  8180,
+					},
+					{
+						ServicePort: 82,
+						TargetPort:  82,
+					},
+				},
+			},
+		},
+	}
+
+	netPatches := gomonkey.NewPatches()
+	defer netPatches.Reset()
+	netPatches.ApplyFunc(nets.GrpcConnect, func(addr string) (*grpc.ClientConn, error) {
+		mockDiscovery := xdstest.NewMockServer(t)
+		return grpc.Dial("buffcon",
+			grpc.WithTransportCredentials(insecure.NewCredentials()),
+			grpc.WithBlock(),
+			grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
+				return mockDiscovery.Listener.Dial()
+			}))
+	})
+
+	utBpfLoad := bpf.NewBpfLoader(&config)
+	err := utBpfLoad.Start(&config)
+	assert.NoError(t, err)
+	defer utBpfLoad.Stop()
+	controller := NewController(config.Mode, utBpfLoad.GetBpfKmeshWorkload())
+	controller.client = NewXdsClient(controller.mode, controller.bpfWorkloadObj)
+	err = controller.client.createGrpcStreamClient()
+	assert.NoError(t, err)
+
+	utClient := controller.client
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		workload.Name = rand.String(6)
+		err := utClient.workloadController.Processor.HandleDataWithService(workload)
+		assert.NoError(t, err)
+	}
 }

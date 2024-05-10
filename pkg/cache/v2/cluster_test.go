@@ -28,6 +28,7 @@ import (
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/api/v2/endpoint"
+	"kmesh.net/kmesh/daemon/options"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils/hash"
@@ -178,7 +179,12 @@ func TestClusterFlush(t *testing.T) {
 
 func BenchmarkClusterFlush(b *testing.B) {
 	t := &testing.T{}
-	cleanup := test.InitBpfMap(t)
+	config := options.BpfConfig{
+		Mode:        "ads",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup := test.InitBpfMap(t, config)
 	b.Cleanup(cleanup)
 
 	cluster := cluster_v2.Cluster{
