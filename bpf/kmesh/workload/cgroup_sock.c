@@ -53,7 +53,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
     int ret;
     frontend_value *frontend_v = NULL;
 
-    if (!check_kmesh_enabled(ctx))
+    if (!check_kmesh_enabled(ctx) || ctx->protocol != IPPROTO_TCP)
         return 0;
 
     DECLARE_FRONTEND_KEY(ctx, frontend_k);
