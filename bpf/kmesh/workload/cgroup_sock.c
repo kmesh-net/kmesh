@@ -55,7 +55,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 	frontend_value *frontend_v = NULL;
 	bool direct_backend = false;
 
-	if (!check_kmesh_enabled(ctx))
+	if (!check_kmesh_enabled(ctx) || ctx->protocol != IPPROTO_TCP)
 		return 0;
 
 	DECLARE_VAR_ADDRESS(ctx, address);
