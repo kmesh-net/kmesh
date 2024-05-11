@@ -80,10 +80,10 @@ func (sc *BpfSockOps) NewBpf(cfg *options.BpfConfig) error {
 	return nil
 }
 
-func NewBpfKmesh(cfg *options.BpfConfig) (BpfKmesh, error) {
+func NewBpfKmesh(cfg *options.BpfConfig) (*BpfKmesh, error) {
 	var err error
 
-	sc := BpfKmesh{}
+	sc := &BpfKmesh{}
 
 	sc.TracePoint.NewBpf(cfg)
 
