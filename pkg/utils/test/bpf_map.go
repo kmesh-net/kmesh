@@ -29,7 +29,7 @@ import (
 
 type CleanupFn func()
 
-func InitBpfMap(t *testing.T, config options.BpfConfig) CleanupFn {
+func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoader) {
 	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
 	if err != nil {
 		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
@@ -61,7 +61,7 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) CleanupFn {
 	return func() {
 		loader.Stop()
 		CleanupBpfMap()
-	}
+	}, loader
 }
 
 func CleanupBpfMap() {
