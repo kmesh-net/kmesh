@@ -24,9 +24,9 @@ import (
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"gotest.tools/assert"
 
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
@@ -80,7 +80,7 @@ func TestClientResponseProcess(t *testing.T) {
 
 		utClient := NewXdsClient(constants.AdsMode, &bpf.BpfKmeshWorkload{})
 		err := utClient.createGrpcStreamClient()
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 
 		reConnectPatches := gomonkey.NewPatches()
 		defer reConnectPatches.Reset()
@@ -127,7 +127,7 @@ func TestClientResponseProcess(t *testing.T) {
 
 		utClient := NewXdsClient(constants.WorkloadMode, &bpf.BpfKmeshWorkload{})
 		err := utClient.createGrpcStreamClient()
-		assert.NilError(t, err)
+		assert.NoError(t, err)
 
 		reConnectPatches := gomonkey.NewPatches()
 		defer reConnectPatches.Reset()
