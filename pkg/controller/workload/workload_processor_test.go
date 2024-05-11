@@ -40,9 +40,20 @@ func BenchmarkHandleDataWithService(b *testing.B) {
 	cleanup, bpfLoader := test.InitBpfMap(t, config)
 	b.Cleanup(cleanup)
 
-	workload := &workloadapi.Workload{
-		Uid:               "cluster0/networking.istio.io/WorkloadEntry/ns/name",
+	workloadController := NewController(bpfLoader.GetBpfKmeshWorkload().SockConn.KmeshCgroupSockWorkloadMaps)
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		workload := createTestWorkload()
+		err := workloadController.Processor.handleDataWithService(workload)
+		assert.NoError(t, err)
+	}
+}
+
+func createTestWorkload() *workloadapi.Workload {
+	workload := workloadapi.Workload{
 		Namespace:         "ns",
+		Name:              "name",
 		Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
 		Network:           "testnetwork",
 		CanonicalName:     "foo",
@@ -70,13 +81,6 @@ func BenchmarkHandleDataWithService(b *testing.B) {
 			},
 		},
 	}
-
-	workloadController := NewController(bpfLoader.GetBpfKmeshWorkload().SockConn.KmeshCgroupSockWorkloadMaps)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		workload.Name = rand.String(6)
-		err := workloadController.Processor.HandleDataWithService(workload)
-		assert.NoError(t, err)
-	}
+	workload.Uid = "cluster0/" + rand.String(6)
+	return &workload
 }
