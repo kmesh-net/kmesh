@@ -193,7 +193,7 @@ func BenchmarkFlush(b *testing.B) {
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	cleanup := test.InitBpfMap(t, config)
+	cleanup, _ := test.InitBpfMap(t, config)
 	b.Cleanup(cleanup)
 
 	listener := &listener_v2.Listener{
