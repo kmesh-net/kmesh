@@ -44,7 +44,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	cleanup := test.InitBpfMap(t, config)
+	cleanup, _ := test.InitBpfMap(t, config)
 	t.Cleanup(cleanup)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
 		p := newProcessor()
@@ -257,7 +257,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	cleanup := test.InitBpfMap(t, config)
+	cleanup, _ := test.InitBpfMap(t, config)
 	t.Cleanup(cleanup)
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
 		p := newProcessor()
@@ -418,7 +418,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	cleanup := test.InitBpfMap(t, config)
+	cleanup, _ := test.InitBpfMap(t, config)
 	t.Cleanup(cleanup)
 	t.Run("normal function test", func(t *testing.T) {
 		adsLoader := NewAdsCache()
@@ -595,7 +595,7 @@ func TestHandleRdsResponse(t *testing.T) {
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	cleanup := test.InitBpfMap(t, config)
+	cleanup, _ := test.InitBpfMap(t, config)
 	t.Cleanup(cleanup)
 	t.Run("normal function test", func(t *testing.T) {
 		p := newProcessor()

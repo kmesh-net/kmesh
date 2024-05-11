@@ -184,7 +184,7 @@ func BenchmarkClusterFlush(b *testing.B) {
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	cleanup := test.InitBpfMap(t, config)
+	cleanup, _ := test.InitBpfMap(t, config)
 	b.Cleanup(cleanup)
 
 	cluster := cluster_v2.Cluster{
