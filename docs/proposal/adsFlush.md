@@ -44,54 +44,14 @@ Kmesh is synchronised with the istiod control surfaces through the six steps des
 
   When bpf map is refreshing, xDS.cache continues to process messages from istiod and keeps updating the cache. After each refresh of bpf map finishes, it compares the contents of xDS.cache and the contents refreshed into bpf map. If they are different, it will deep copy the cache and lock at this stage to ensure consistency during deep copying. Then it continues executing the map cache. If bpf map flush fails, it will roll back xDS.Cache to the copy of bpf map refresh to ensure consistency and report an error.
 
-  ```console
-  func (c *client) Run() {
-      ...
-      go c.responseHandle()
-      go c.bpfMapFlush()
-      ...
-  }
+![alt text](pics/map_flush.svg)
 
-  func (c *client) responseHandle() {
-      ...
-      xDS.cache.Update()
-  }
+As shown above, the Ads Controller continues to update the `xDS.Cache` at the time of the bpf map update.
 
-  func (c *client) bpfMapFlush() {
-    cacheDuplicate := c.Event.xDS.NewCache()
-    for {
-      if c.Event.xDS.cache == cacheDuplicate {
-          time.sleep(interval)
-      } else {
-          cacheDeepCopy := c.Event.xDS.DeepCopy()
-          if err := bpf_map.Update(cacheDeepCopy); err != nil {
-              bpf_map.Rollback(cacheDuplicate)
-              log
-          }
-          cacheDuplicate = cacheDeepCopy
-      }
-    }
-  }
+When the map flush controller starts a new process, it first gets a copy of the `xDS.Cache`. Compare this copy with the `Map cache`.
 
-  func bpt_map.Update(cache xDS.cache) error {
-      // refresh the corresponseding bpf map in the order of cds->lds->eds->rds 
-      switch cache.changed {
-      case clustercachechanged:
-          if err := clusterMap.Update; err != nil {
-              return err
-          }
-      case listenercachechanged:
-          if err := listenerMap.Update err != nil {
-              return err
-          }
-      case endpointcachechanged:
-          if err := endpointMap.Update err != nil {
-              return err
-          }
-      case Routecachechanged:
-          if err := RouteMap.Update err != nil {
-              return err
-          }
-      }
-  }
-  ```
+If they are different, update the bpf map based on `cache Deepcopy`.After successfully updating the bpf map, assign the `cache deepCopy` to the `map Cache`.
+
+If the update fails, the `map Cache` is send to the ads Controller for rollback.
+
+If the `xDS.Cache` is the same as the `map Cache`, the update will not be triggered. Wait for a interval, and then repeat the above steps.
