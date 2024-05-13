@@ -20,9 +20,9 @@ import (
 )
 
 type byPassConfig struct {
-	EnalbeByPass bool
+	EnableByPass bool
 }
 
 func (c *byPassConfig) AttachFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolVar(&c.EnalbeByPass, "enable-bypass", false, "whether to start bypass controller or not, default to false")
+	cmd.PersistentFlags().BoolVar(&c.EnableByPass, "enable-bypass", false, "whether to start bypass controller or not, default to false")
 }

@@ -5,7 +5,7 @@ deploy:
       xdsAddress: istiod.istio-system.svc:15012
     image:
       repository: ghcr.io/kmesh-net/kmesh
-      tag: 5.13.2
+      tag: latest
     imagePullPolicy: IfNotPresent
     containers:
       kmeshDaemonArgs: "--mode=workload --enable-bypass=false"
