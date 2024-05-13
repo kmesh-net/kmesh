@@ -58,7 +58,7 @@ func (c *Controller) Start() error {
 			return fmt.Errorf("failed to start bypass controller: %v", err)
 		}
 
-		log.Info("enable bypass successful")
+		log.Info("start bypass controller successfully")
 	}
 
 	if c.mode != constants.WorkloadMode && c.mode != constants.AdsMode {

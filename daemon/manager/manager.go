@@ -72,7 +72,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("bpf Start successful")
 	defer bpfLoader.Stop()
 
-	c := controller.NewController(configs.BpfConfig.Mode, configs.ByPassConfig.EnalbeByPass, bpfLoader.GetBpfKmeshWorkload())
+	c := controller.NewController(configs.BpfConfig.Mode, configs.ByPassConfig.EnableByPass, bpfLoader.GetBpfKmeshWorkload())
 	if err := c.Start(); err != nil {
 		return err
 	}
