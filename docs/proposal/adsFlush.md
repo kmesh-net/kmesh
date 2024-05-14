@@ -11,7 +11,7 @@ creation-date: 2024-04-28
 
 ## Backgroud
 
-Because Kmesh provides a new data plane architecture, the control plane still uses istiod. So still need `ads`` for Kmesh and Istiod synchronisation.
+Because Kmesh provides a new data plane architecture, the control plane still uses istiod. So still need `ads` for Kmesh and Istiod synchronisation.
 
 ## Kmesh xDS Mode Function Design
 
@@ -40,18 +40,24 @@ Kmesh is synchronised with the istiod control surfaces through the six steps des
 - Asynchronously update `bpf map` and `xDS.cache`:
   At this stage the bpf.map update takes much longer to process than the xDS.cache.
   The serial processing of updating xDS.cache and then updating the bpf map would greatly reduce the efficiency of Kmesh.
-  So we should use different threads to update bpf.map and xDS.cache.
+  So we should update the `bpf map` asynchronously to improve efficiency of Kmesh.
 
-  When bpf map is refreshing, xDS.cache continues to process messages from istiod and keeps updating the cache. After each refresh of bpf map finishes, it compares the contents of xDS.cache and the contents refreshed into bpf map. If they are different, it will deep copy the cache and lock at this stage to ensure consistency during deep copying. Then it continues executing the map cache. If bpf map flush fails, it will roll back xDS.Cache to the copy of bpf map refresh to ensure consistency and report an error.
+  When the bpf map is being updated, the xDS controller will continue processing configuration update messages from Istiod and update `xDS.Cache`. After each bpf map update is completed, it will check `xDS.Cache` through a semaphore to see if it has been updated. If updated, it will make a deep copy of `xDS.Cache` and continue updating the bpf map.
 
 ![alt text](pics/map_flush.svg)
 
 As shown above, the Ads Controller continues to update the `xDS.Cache` at the time of the bpf map update.
 
-When the map flush controller starts a new process, it first gets a copy of the `xDS.Cache`. Compare this copy with the `Map cache`.
+When the map flush controller starts a new processing, it first checks `xDS.cache` through a semaphore to see if it has changed. If it has changed, it will make a deep copy of `xDS.Cache`.
 
-If they are different, update the bpf map based on `cache Deepcopy`.After successfully updating the bpf map, assign the `cache deepCopy` to the `map Cache`.
+Then update the bpf map based on `cache Deepcopy`. The Map Flush Controller maintains a copy of the previous cds, eds, lds, and rds configurations. When it receives an updated xDS configuration, it compares the new cds, rds, lds, and eds configurations against the stored previous versions. Based on the comparison results, the Map Flush Controller identifies any differences between the new and previous configurations. It then performs an incremental update of the BPF map by only updating the entries that changed, as indicated by the diff analysis.
 
-If the update fails, the `map Cache` is send to the ads Controller for rollback.
+- Adding new configuration resources.
+- Removing deleted resources.
+- Modifying updated resources.
 
-If the `xDS.Cache` is the same as the `map Cache`, the update will not be triggered. Wait for a interval, and then repeat the above steps.
+This allows the Map Flush Controller to optimize the BPF map update process by avoiding a full re-write and instead focusing the update on just the modified configuration resources. After successfully updating the bpf map, update the cds, eds, lds, and rds configurations in Map Flush Controller.
+
+If the update fails, Map Flush Controller will do a retry. And logs the error in the logs. The xDS Controller sends a Nack to istiod to inform that there is an error in the bpf map update of Kmesh.
+
+If the `xDS.Cache` is the same as the `map Cache`, the update will not be triggered. Until an update to xDS.Cache occurs, the `bpf map` begins update.
