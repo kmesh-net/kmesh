@@ -16,6 +16,10 @@
 
 package bpf
 
+// #cgo pkg-config: api-v2-c
+// #include "deserialization_to_bpf_map.h"
+// #include "cluster/cluster.pb-c.h"
+import "C"
 import (
 	"fmt"
 	"os/exec"
@@ -76,6 +80,11 @@ func (l *BpfLoader) StartAdsMode() (err error) {
 		return fmt.Errorf("api env config failed, %s", err)
 	}
 
+	ret := C.deserial_init()
+	if ret != 0 {
+		l.Stop()
+		return fmt.Errorf("deserial_init failed:%v", ret)
+	}
 	return nil
 }
 
@@ -140,6 +149,7 @@ func (l *BpfLoader) Stop() {
 	var err error
 
 	if l.config.AdsEnabled() {
+		C.deserial_uninit()
 		if err = l.obj.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
