@@ -17,6 +17,7 @@
 package cache_v2
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -186,7 +187,7 @@ func TestListenerFlush(t *testing.T) {
 	})
 }
 
-func BenchmarkFlush(b *testing.B) {
+func BenchmarkListenerFlush(b *testing.B) {
 	t := &testing.T{}
 	config := options.BpfConfig{
 		Mode:        "ads",
@@ -291,9 +292,16 @@ func BenchmarkFlush(b *testing.B) {
 		cache := NewListenerCache()
 		listener.ApiStatus = core_v2.ApiStatus_UPDATE
 		listener.Name = rand.String(6)
+		listener.Address.Ipv4 = nets.ConvertIpToUint32(randomIPv4())
 		cache.SetApiListener(listener.Name, listener)
 
 		cache.Flush()
 		assert.Equal(t, listener.GetApiStatus(), core_v2.ApiStatus_NONE)
 	}
+}
+
+func randomIPv4() string {
+	ip := uint32(rand.Intn(256))<<24 | uint32(rand.Intn(256))<<16 | uint32(rand.Intn(256))<<8 | uint32(rand.Intn(256))
+
+	return fmt.Sprintf("%d.%d.%d.%d", ip&0xff000000>>24, ip&0x00ff0000>>16, ip&0x0000ff00>>8, ip&0x000000ff)
 }
