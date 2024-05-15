@@ -18,7 +18,8 @@ Service mesh software represented by Istio has gradually become popular and beco
 Kmesh transparently intercept and forward traffic based on node local eBPF without introducing extra connection hops, both the latency and resource overhead are negligible.
 
 <div align="center">
-<img src="docs/pics/kmesh-arch.png" alt="kmesh-arch" width="800" />
+    <img src="docs/pics/kmesh-arch.png" alt="kmesh-arch" width="800" />
+    <p>Kmesh Architecture</p>
 </div>
 
 The main components of Kmesh include:
@@ -30,13 +31,15 @@ The main components of Kmesh include:
 Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to the kernel, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path.
 
 <div align="center">
-<img src="docs/pics/simple-mode.png" alt="simple-mode" width="600" />
+    <img src="docs/pics/simple-mode.png" alt="simple-mode" width="800" />
+    <p>Simple Mode</p>
 </div>
 
 Kmesh also provide an advanced mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allow you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
 
 <div align="center">
-<img src="docs/pics/advanced-mode.png" alt="advanced-mode" width="600" />
+    <img src="docs/pics/advanced-mode.png" alt="advanced-mode" width="800" />
+    <p>Advanced Mode</p>
 </div>
 
 ### Key features of Kmesh
