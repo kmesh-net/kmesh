@@ -2,118 +2,91 @@
 
 ## Introduction
 
-Kmesh is a high-performance service mesh data plane software based on programmable kernel. Provides high-performance service communication infrastructure in service mesh scenarios.
+Kmesh is a high-performance and low overhead service mesh data plane based on eBPF and programmable kernel. Kmesh brings traffic management, security and monitoring to service communication without needing application code changes. It is natively sidecarless, zero intrusion and without adding any resource cost to application container.
 
 ## Why Kmesh
 
 ### Challenges of the Service Mesh Data Plane
 
-The service mesh software represented by Istio has gradually become popular and has become an important component of cloud infrastructure. However, the current service mesh still face some challenges:
+Service mesh software represented by Istio has gradually become popular and become an important component of cloud native infrastructure. However, there are still some challenges faced:
 
-- **Extra latency overhead at the proxy layer**: Single hop service access increases by [2~3ms](https://istio.io/latest/docs/ops/deployment/performance-and-scalability/#data-plane-performance), which cannot meet the SLA requirements of latency-sensitive applications. Although the community has come up with a variety of data plane solutions to this problem, the overhead introduced by agents cannot be completely reduced.
-- **High resources occupation**: The agent occupies extra CPU/MEM overhead, and the deployment density of service container decreases.
+- **Extra latency overhead at the proxy layer**: Add [2~3ms](https://istio.io/v1.19/docs/ops/deployment/performance-and-scalability/) latency, which cannot meet the SLA requirements of latency-sensitive applications. Although the community has come up with a variety of optimizations, the overhead introduced by sidecar cannot be completely reduced.
+- **High resources occupation**: Occupy 0.5 vCPU and 50 MB memory per 1000 requests per second going through the proxy, and the deployment density of service container decreases.
 
-### Kmesh：Kernel-native traffic governance
+### Kmesh Architecture
 
-Kmesh innovatively proposes to move traffic governance to the OS, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path.
+Kmesh transparently intercept and forward traffic based on node local eBPF without introducing extra connection hops, both the latency and resource overhead are negligible.
 
-![image-20230927012356836](docs/pics/why-kmesh-arch-en.png)
+<div align="center">
+    <img src="docs/pics/kmesh-arch.png" alt="kmesh-arch" width="800" />
+    <p>Kmesh Architecture</p>
+</div>
+
+The main components of Kmesh include:
+
+- **Kmesh-daemon**: The management component per node responsible for bpf prog management, xDS configuration subscribe, observability, and etc.
+- **eBPF Orchestration**: The traffic orchestration implemented based on eBPF, supports L4 load balancing, traffic encryption, monitoring and simple L7 dynamic routing.
+- **Waypoint**: Responsible for advanced L7 traffic governance, can be deployed separately per namespace, per service.
+
+Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to the kernel, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path.
+
+<div align="center">
+    <img src="docs/pics/simple-mode.png" alt="simple-mode" width="800" />
+    <p>Simple Mode</p>
+</div>
+
+Kmesh also provide an advanced mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allow you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
+
+<div align="center">
+    <img src="docs/pics/advanced-mode.png" alt="advanced-mode" width="800" />
+    <p>Advanced Mode</p>
+</div>
 
 ### Key features of Kmesh
 
 **Smooth Compatibility**
 
 - Application-transparent Traffic Management
-- Automatically interconnecting with Istiod
 
 **High Performance**
 
 - Forwarding delay **60%↓**
-- Service startup performance **40%↑**
+- Workload startup performance **40%↑**
 
-**Low Overhead**
+**Low Resource Overhead**
 
 - ServiceMesh data plane overhead **70%↓**
+
+**Zero Trust**
+
+- Provide zero trust security with default mutual TLS
+- Policy enforcement both in eBPF and waypoints
 
 **Safety Isolation**
 
 - eBPF Virtual machine security
 - Cgroup level orchestration isolation
 
-**Full Stack Visualization**
-
-- E2E observation*
-- Integration with Mainstream Observability Platforms*
-
 **Open Ecology**
 
 - Supports XDS protocol standards
-
-Note: * Planning
+- Support [Gateway API](https://gateway-api.sigs.k8s.io/)
 
 ## Quick Start
 
-Please refer to [quick start](https://kmesh.net/en/docs/setup/quickstart/).
+Please refer to [quick start](https://kmesh.net/en/docs/setup/quickstart/) and [user guide](docs/kmesh_demo.md) to try Kmesh quickly.
 
-## Kmesh Performance
+## Performance
 
-Based on Fortio, the data plane execution performance of Kmesh and Envoy was compared and tested. The test results are as follows:
+Based on [Fortio](https://github.com/fortio/fortio), the performance of Kmesh and Envoy was tested. The test results are as follows:
 
 ![fortio_performance_test](docs/pics/fortio_performance_test.png)
 
-For a complete performance test, please refer to [Kmesh Performance Test](test/performance/README.md).
-
-## Software Architecture
-
-<img src="docs/pics/kmesh-arch.svg" alt="kmesh-arch" style="zoom:150%;" />
-
-The main components of Kmesh include:
-
-- Kmesh-daemon: The management program responsible for Kmesh lifecycle management, XDS protocol integration, observability, and other functions.
-- Ebpf orchestration: The traffic orchestration implemented based on eBPF, including routing, canary deployments, load balancing, and more.
-- Waypoint: Based on istio proxy to adapt to Kmesh protocol, responsible for L7 traffic governance.
-
-## Feature Description
-
-- Command List
-
-  [Kmesh Command List](docs/kmesh_commands.md)
-
-- Demo
-
-  [Kmesh demo demonstration](docs/kmesh_demo.md)
-
-## Kmesh Capability Map
-
-| Feature Field       | Feature                     |          2023.H1           |          2023.H2           |          2024.H1           |          2024.H2           |
-| ------------ | ------------------------ | :------------------------: | :------------------------: | :------------------------: | :------------------------: |
-| Traffic management     | sidecarless mesh data  plane   | √ |                            |                            |                            |
-|              | sockmap accelerate       |                            | √ |                            |                            |
-|              | Programmable governance based on ebpf | √ |                            |                            |                            |
-|              | http1.1 protocol         | √ |                            |                            |                            |
-|              | http2 protocol           |                            |                            |                            | √ |
-|              | grpc protocol            |                            |                            |                            | √ |
-|              | quic protocol            |                            |                            |                            | √ |
-|              | tcp protocol             |                            | √ |                            |                            |
-|              | Retry                    |                            |                            | √ |                            |
-|              | Routing                  | √ |                            |                            |                            |
-|              | load balance             | √ |                            |                            |                            |
-|              | Fault injection |                            |                            | √ |                            |
-|              | Gray release   |                            | √ |                            |                            |
-|              | Circuit Breaker |                            |                            | √ |                            |
-|              | Rate Limits    |                            |                            | √ |                            |
-| Service security | mTLS |                            |                            |                            | √ |
-|              | L7 authorization |                            |                            |                            | √ |
-|              | Cgroup-level isolation | √ |                            |                            |                            |
-| Traffic monitoring | Governance indicator monitoring |                            | √ |                            |                            |
-|              | End-to-End observability |                            |                            |                            | √ |
-| Programmable | Plug-in expansion capability |                            |                            |                            | √ |
-| Ecosystem collaboration | Data plane collaboration (Envoy etc.) |                            | √ |                            |                            |
-| Operating environment support | container                | √ |                            |                            |                            |
+For a complete performance test result, please refer to [Kmesh Performance Test](test/performance/README.md).
 
 ## Contact
 
-If you have questions, feel free to reach out to us in the following ways:
+If you have any question, feel free to reach out to us in the following ways:
 
 - [meeting notes](https://docs.google.com/document/d/1fFqolwWMVMk92yXPHvWGrMgsrb8Xru_v4Cve5ummjbk)
 - [mailing list](https://groups.google.com/forum/#!forum/kmesh)
@@ -122,7 +95,7 @@ If you have questions, feel free to reach out to us in the following ways:
 
 ## Contributing
 
-If you're interested in being a contributor and want to get involved in developing the Kmesh code, please see [CONTRIBUTING](CONTRIBUTING.md) for details on submitting patches and the contribution workflow.
+If you're interested in being a contributor and want to get involved in developing Kmesh, please see [CONTRIBUTING](CONTRIBUTING.md) for more details on submitting patches and the contribution workflow.
 
 ## License
 
