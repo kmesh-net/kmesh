@@ -19,6 +19,8 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <securec.h>
+#include <pthread.h>
+#include <semaphore.h>
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
@@ -68,6 +70,27 @@ struct op_context {
         (context).curr_info = (m_info);                                                                                \
         (context).curr_fd = (fd);                                                                                      \
     } while (0)
+
+#define TASK_SIZE (100)
+struct inner_map_stat {
+    int map_fd;
+    unsigned int used : 1;
+    unsigned int in_outer_map : 1;
+    unsigned int resv : 30;
+};
+struct inner_map_mng {
+    struct inner_map_stat inner_maps[MAX_OUTTER_MAP_ENTRIES];
+    int used_cnt;
+    int init;
+    sem_t fin_tasks;
+};
+
+struct task_contex {
+    int outter_fd;
+    int task_id;
+};
+
+struct inner_map_mng g_inner_map_mng = {0};
 
 static int update_bpf_map(struct op_context *ctx);
 static void *create_struct(struct op_context *ctx, int *err);
@@ -160,7 +183,7 @@ static inline size_t sizeof_elt_in_repeated_array(ProtobufCType type)
 
 static inline int valid_outter_key(struct op_context *ctx, unsigned int outter_key)
 {
-    if (outter_key >= ctx->outter_info->max_entries || !outter_key)
+    if (outter_key < 0 || outter_key >= MAX_OUTTER_MAP_ENTRIES)
         return 0;
 
     return 1;
@@ -187,10 +210,19 @@ static void free_keys(struct op_context *ctx, void *keys, int n)
     }
 }
 
+static unsigned int get_map_id(const char *name)
+{
+    char *ptr = NULL;
+    char *map_id = getenv(name);
+    if (!map_id)
+        return 0;
+    return (unsigned int)strtol(map_id, &ptr, 10);
+}
+
 static int get_map_ids(const char *name, unsigned int *id, unsigned int *outter_id, unsigned int *inner_id)
 {
     char *ptr = NULL;
-    char *map_id, *map_in_map_id;
+    char *map_id;
 
     map_id = (name == NULL) ? getenv("MAP_ID") : getenv(name);
     if (!map_id) {
@@ -202,19 +234,17 @@ static int get_map_ids(const char *name, unsigned int *id, unsigned int *outter_
 
     *id = (unsigned int)strtol(map_id, &ptr, 10);
     if (!ptr[0]) {
-        map_in_map_id = getenv("OUTTER_MAP_ID");
-        if (!map_in_map_id)
-            return 0;
-        *outter_id = (unsigned int)strtol(map_in_map_id, &ptr, 10);
+        *outter_id = get_map_id("OUTTER_MAP_ID");
+        if (*outter_id == 0)
+            return -EINVAL;
     }
 
     if (!ptr[0]) {
-        map_in_map_id = getenv("INNER_MAP_ID");
-        if (!map_in_map_id) {
+        *inner_id = get_map_id("INNER_MAP_ID");
+        if (*inner_id == 0) {
             LOG_ERR("INNER_MAP_ID is not set\n");
             return -EINVAL;
         }
-        *inner_id = (unsigned int)strtol(map_in_map_id, &ptr, 10);
     }
     return -errno;
 }
@@ -233,164 +263,44 @@ static int get_map_fd_info(unsigned int id, int *map_fd, struct bpf_map_info *in
     return ret;
 }
 
-static int alloc_and_set_inner_map(struct op_context *ctx, int key)
-{
-    int fd, ret;
-    struct bpf_map_info *inner_info = ctx->inner_info;
-#if LIBBPF_HIGHER_0_6_0_VERSION
-    LIBBPF_OPTS(bpf_map_create_opts, opts, .map_flags = inner_info->map_flags);
-
-    fd = bpf_map_create(
-        inner_info->type, NULL, inner_info->key_size, inner_info->value_size, inner_info->max_entries, &opts);
-#else
-    fd = bpf_create_map_name(
-        inner_info->type,
-        NULL,
-        inner_info->key_size,
-        inner_info->value_size,
-        inner_info->max_entries,
-        inner_info->map_flags);
-#endif
-    if (fd < 0)
-        return fd;
-
-    ret = bpf_map_update_elem(ctx->outter_fd, &key, &fd, BPF_ANY);
-    close(fd);
-
-    return ret;
-}
-
-static int find_free_outter_map_entry(struct op_context *ctx, struct outter_map_alloc_control *a_ctl)
-{
-    int index;
-    unsigned int i;
-
-    for (i = 0; i < FREE_MAP_SIZE; i++) {
-        if (a_ctl->free_map[i]) {
-            index = __builtin_ffs(a_ctl->free_map[i]);
-            a_ctl->free_map[i] &= ~(1U << (index - 1));
-            return (index - 1 + (i * 32));
-        }
-    }
-
-    return -ENOENT;
-}
-
 static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 {
-    int ret;
-    int key = 0;
-    unsigned int i = *(unsigned int *)outter_key;
-    int inner_map_fd;
-    __u32 inner_map_id;
-    struct outter_map_alloc_control *a_ctl;
-    void *inner_map_object;
+    int key = *(int *)outter_key;
+    if (key < 0 || key >= MAX_OUTTER_MAP_ENTRIES)
+        return -1;
 
-    ret = bpf_map_delete_elem(ctx->outter_fd, outter_key);
-    if (ret)
-        return ret;
-
-    ret = bpf_map_lookup_elem(ctx->outter_fd, &key, &inner_map_id);
-    if (ret < 0)
-        return 0;
-
-    inner_map_fd = bpf_map_get_fd_by_id(inner_map_id);
-    if (inner_map_fd < 0)
-        return inner_map_fd;
-
-    inner_map_object = malloc(ctx->inner_info->value_size);
-    if (!inner_map_object) {
-        close(inner_map_fd);
-        return -ENOMEM;
+    if (g_inner_map_mng.inner_maps[key].used) {
+        g_inner_map_mng.inner_maps[key].used = 0;
+        g_inner_map_mng.used_cnt--;
     }
-
-    ret = bpf_map_lookup_elem(inner_map_fd, &key, inner_map_object);
-    if (ret < 0) {
-        close(inner_map_fd);
-        free(inner_map_object);
-        return ret;
-    }
-
-    a_ctl = (struct outter_map_alloc_control *)inner_map_object;
-    a_ctl->used--;
-    a_ctl->free_map[i / 32] |= (1U << (i % 32));
-    bpf_map_update_elem(inner_map_fd, &key, a_ctl, BPF_ANY);
-    free(inner_map_object);
-    close(inner_map_fd);
-
     return 0;
 }
 
 static int alloc_outter_map_entry(struct op_context *ctx)
 {
-    int ret;
-    unsigned int first = 0;
-    int key = 0, ret_key;
-    int inner_map_fd;
-    __u32 inner_map_id;
-    struct outter_map_alloc_control *a_ctl;
-
-retry:
-    ret = bpf_map_lookup_elem(ctx->outter_fd, &key, &inner_map_id);
-    if (ret < 0) {
-        if (-errno != -ENOENT)
-            return ret;
-        ret = alloc_and_set_inner_map(ctx, key);
-        if (ret)
-            return ret;
-
-        first = 1;
-        goto retry;
+    int i;
+    if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= MAX_OUTTER_MAP_ENTRIES) {
+        printf("[%d %d]alloc_outter_map_entry failed\n", g_inner_map_mng.init, g_inner_map_mng.used_cnt);
+        return -1;
     }
 
-    inner_map_fd = bpf_map_get_fd_by_id(inner_map_id);
-    if (inner_map_fd < 0)
-        return inner_map_fd;
-
-    ret = bpf_map_lookup_elem(inner_map_fd, &key, ctx->inner_map_object);
-    if (ret < 0) {
-        close(inner_map_fd);
-        return ret;
-    }
-
-    a_ctl = (struct outter_map_alloc_control *)ctx->inner_map_object;
-    if (a_ctl->used >= (int)ctx->outter_info->max_entries) {
-        LOG_ERR("outter map entries has consumed out\n");
-        close(inner_map_fd);
-        return -ENOENT;
-    }
-
-    if (first) {
-        memset_s(a_ctl->free_map, sizeof(a_ctl->free_map), 0xff, sizeof(a_ctl->free_map));
-        a_ctl->free_map[0] &= ~1U;
-    }
-
-    ret_key = find_free_outter_map_entry(ctx, a_ctl);
-    if (ret_key > 0) {
-        ret = alloc_and_set_inner_map(ctx, ret_key);
-        if (ret) {
-            close(inner_map_fd);
-            return ret;
+    for (i = 0; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+        if (g_inner_map_mng.inner_maps[i].used == 0) {
+            g_inner_map_mng.inner_maps[i].used = 1;
+            g_inner_map_mng.used_cnt++;
+            return i;
         }
-
-        a_ctl->used += first + 1;
-        bpf_map_update_elem(inner_map_fd, &key, a_ctl, BPF_ANY);
     }
 
-    close(inner_map_fd);
-    return ret_key;
+    printf("alloc_outter_map_entry all inner_maps in used\n");
+    return -1;
 }
 
 static int outter_key_to_inner_fd(struct op_context *ctx, unsigned int key)
 {
-    int ret;
-    __u32 inner_map_id;
-
-    ret = bpf_map_lookup_elem(ctx->outter_fd, &key, &inner_map_id);
-    if (ret < 0)
-        return ret;
-
-    return bpf_map_get_fd_by_id(inner_map_id);
+    if (g_inner_map_mng.inner_maps[key].in_outer_map)
+        return g_inner_map_mng.inner_maps[key].map_fd;
+    return -1;
 }
 
 static int copy_sfield_to_map(struct op_context *ctx, int o_index, const ProtobufCFieldDescriptor *field)
@@ -414,7 +324,6 @@ static int copy_sfield_to_map(struct op_context *ctx, int o_index, const Protobu
 
     strcpy_s(ctx->inner_map_object, ctx->inner_info->value_size, save_value);
     ret = bpf_map_update_elem(inner_fd, &key, ctx->inner_map_object, BPF_ANY);
-    close(inner_fd);
     return ret;
 }
 
@@ -448,14 +357,12 @@ static int copy_msg_field_to_map(struct op_context *ctx, int o_index, const Prot
 
     desc = ((ProtobufCMessage *)new_ctx.value)->descriptor;
     if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
-        close(inner_fd);
         return -EINVAL;
     }
 
     new_ctx.desc = desc;
 
     ret = update_bpf_map(&new_ctx);
-    close(inner_fd);
     return ret;
 }
 
@@ -502,7 +409,6 @@ static int copy_indirect_data_to_map(struct op_context *ctx, int outter_key, voi
 
         desc = ((ProtobufCMessage *)value)->descriptor;
         if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
-            close(inner_fd);
             return -EINVAL;
         }
 
@@ -517,7 +423,6 @@ static int copy_indirect_data_to_map(struct op_context *ctx, int outter_key, voi
         break;
     }
 
-    close(inner_fd);
     return ret;
 }
 
@@ -545,7 +450,6 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     outter_key = alloc_outter_map_entry(ctx);
     if (outter_key < 0)
         return outter_key;
-
     *(uintptr_t *)value = (size_t)outter_key;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
@@ -559,7 +463,6 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
 
     inner_map_object = calloc(1, ctx->inner_info->value_size);
     if (!inner_map_object) {
-        close(inner_fd);
         return -ENOMEM;
     }
 
@@ -595,8 +498,6 @@ end:
     }
 
     free(inner_map_object);
-    close(inner_fd);
-
     return ret;
 }
 
@@ -635,7 +536,7 @@ static int update_bpf_map(struct op_context *ctx)
         }
 
         if (ret) {
-            LOG_INFO("field[%d] handle fail\n", i);
+            LOG_INFO("desc.name:%s field[%d - %s] handle failed:%d\n", desc->short_name, i, desc->fields[i].name, ret);
             free(temp_val);
             return ret;
         }
@@ -746,14 +647,12 @@ static int query_string_field(struct op_context *ctx, const ProtobufCFieldDescri
 
     string = malloc(ctx->inner_info->value_size);
     if (!string) {
-        close(inner_fd);
         return -ENOMEM;
     }
 
     (*(uintptr_t *)outter_key) = (uintptr_t)string;
 
     ret = bpf_map_lookup_elem(inner_fd, &key, string);
-    close(inner_fd);
     return ret;
 }
 
@@ -778,7 +677,6 @@ static int query_message_field(struct op_context *ctx, const ProtobufCFieldDescr
 
     desc = (ProtobufCMessageDescriptor *)field->descriptor;
     if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
-        close(inner_fd);
         return -EINVAL;
     }
 
@@ -786,7 +684,6 @@ static int query_message_field(struct op_context *ctx, const ProtobufCFieldDescr
 
     message = create_struct(&new_ctx, &ret);
     *outter_key = (uintptr_t)message;
-    close(inner_fd);
     return ret;
 }
 
@@ -828,32 +725,27 @@ static void *create_indirect_struct(
         desc = (ProtobufCMessageDescriptor *)field->descriptor;
         if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
             *err = -EINVAL;
-            close(inner_fd);
             return NULL;
         }
 
         new_ctx.desc = desc;
         value = create_struct(&new_ctx, err);
-        close(inner_fd);
         return value;
     default:
         value = malloc(ctx->inner_info->value_size);
         if (!value) {
             *err = -ENOMEM;
-            close(inner_fd);
             return NULL;
         }
 
         *err = bpf_map_lookup_elem(inner_fd, &key, value);
         if (*err < 0) {
-            close(inner_fd);
             return value;
         }
 
         break;
     }
 
-    close(inner_fd);
     *err = 0;
     return value;
 }
@@ -874,14 +766,12 @@ static int repeat_field_query(struct op_context *ctx, const ProtobufCFieldDescri
 
     array = calloc(1, ctx->inner_info->value_size);
     if (!array) {
-        close(inner_fd);
         return -ENOMEM;
     }
 
     *outter_key = (uintptr_t)array;
     ret = bpf_map_lookup_elem(inner_fd, &key, array);
     if (ret < 0) {
-        close(inner_fd);
         return ret;
     }
 
@@ -899,7 +789,6 @@ static int repeat_field_query(struct op_context *ctx, const ProtobufCFieldDescri
         break;
     }
 
-    close(inner_fd);
     return ret;
 }
 
@@ -1028,13 +917,11 @@ static int indirect_field_del(struct op_context *ctx, unsigned int outter_key, c
     case PROTOBUF_C_TYPE_MESSAGE:
         desc = (ProtobufCMessageDescriptor *)field->descriptor;
         if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
-            close(inner_fd);
             return -EINVAL;
         }
 
         inner_map_object = malloc(ctx->inner_info->value_size);
         if (!inner_map_object) {
-            close(inner_fd);
             return -ENOMEM;
         }
 
@@ -1053,7 +940,6 @@ static int indirect_field_del(struct op_context *ctx, unsigned int outter_key, c
         break;
     }
 
-    close(inner_fd);
     return 0;
 }
 
@@ -1111,7 +997,6 @@ static int repeat_field_del(struct op_context *ctx, const ProtobufCFieldDescript
 end:
     if (inner_map_object != NULL)
         free(inner_map_object);
-    close(inner_fd);
     return ret;
 }
 
@@ -1167,12 +1052,10 @@ static int field_del(struct op_context *ctx, const ProtobufCFieldDescriptor *fie
         free_outter_map_entry(ctx, outter_key);
 
         if (field->type == PROTOBUF_C_TYPE_STRING) {
-            close(inner_fd);
             break;
         }
 
         msg_field_del(ctx, inner_fd, field);
-        close(inner_fd);
         break;
     default:
         break;
@@ -1212,7 +1095,7 @@ static int del_bpf_map(struct op_context *ctx, int is_inner)
     }
 
 end:
-    return (is_inner == 1) ? close(ctx->curr_fd) : bpf_map_delete_elem(ctx->curr_fd, ctx->key);
+    return (is_inner == 1) ?: bpf_map_delete_elem(ctx->curr_fd, ctx->key);
 }
 
 int deserial_delete_elem(void *key, const void *msg_desciptor)
@@ -1362,4 +1245,167 @@ void deserial_free_elem(void *value)
 
     free_elem(value);
     return;
+}
+
+int get_outer_inner_map_infos(
+    int *inner_fd, struct bpf_map_info *inner_info, int *outter_fd, struct bpf_map_info *outter_info)
+{
+    int ret;
+    unsigned int outter_id, inner_id;
+
+    outter_id = get_map_id("OUTTER_MAP_ID");
+    inner_id = get_map_id("INNER_MAP_ID");
+    if (!outter_id || !inner_id)
+        return -1;
+
+    ret = get_map_fd_info(inner_id, inner_fd, inner_info);
+    ret |= get_map_fd_info(outter_id, outter_fd, outter_info);
+    if (ret < 0 || map_info_check(outter_info, inner_info))
+        return -1;
+    return 0;
+}
+
+void *outter_map_update_task(void *arg)
+{
+    int i, end, ret = 0;
+    pthread_t tid = pthread_self();
+    struct task_contex *ctx = (struct task_contex *)arg;
+    if (!ctx)
+        return NULL;
+
+    i = ctx->task_id * TASK_SIZE;
+    end = ((i + TASK_SIZE) < MAX_OUTTER_MAP_ENTRIES) ? (i + TASK_SIZE) : MAX_OUTTER_MAP_ENTRIES;
+    for (; i < end; i++) {
+        ret = bpf_map_update_elem(ctx->outter_fd, &i, &g_inner_map_mng.inner_maps[i].map_fd, BPF_ANY);
+        if (ret)
+            break;
+        g_inner_map_mng.inner_maps[i].in_outer_map = 1;
+    }
+
+    if (ret)
+        printf("[%lu]outter_map_update_task %d failed:%d\n", tid, i, ret);
+    free(ctx);
+    sem_post(&g_inner_map_mng.fin_tasks);
+    return NULL;
+}
+
+void wait_sem_value(sem_t *sem, int wait_value)
+{
+    int sem_val;
+    do {
+        sem_getvalue(sem, &sem_val);
+    } while (sem_val < wait_value);
+}
+
+int outter_map_update(int outter_fd)
+{
+    int i, ret = 0;
+    pthread_t tid;
+    struct task_contex *task_ctx = NULL;
+    int threads = MAX_OUTTER_MAP_ENTRIES / TASK_SIZE + 1;
+
+    ret = sem_init(&g_inner_map_mng.fin_tasks, 0, 0);
+    if (ret) {
+        printf("sem_init failed:%d\n", ret);
+        return ret;
+    }
+
+    for (i = 0; i < threads; i++) {
+        task_ctx = (struct task_contex *)malloc(sizeof(struct task_contex));
+        if (!task_ctx)
+            break;
+
+        task_ctx->task_id = i;
+        task_ctx->outter_fd = outter_fd;
+        ret = pthread_create(&tid, NULL, outter_map_update_task, task_ctx);
+        if (ret)
+            break;
+    }
+
+    if (ret == 0)
+        wait_sem_value(&g_inner_map_mng.fin_tasks, threads);
+    return ret;
+}
+
+int inner_map_create(struct bpf_map_info *inner_info)
+{
+    int fd;
+#if LIBBPF_HIGHER_0_6_0_VERSION
+    LIBBPF_OPTS(bpf_map_create_opts, opts, .map_flags = inner_info->map_flags);
+
+    fd = bpf_map_create(
+        inner_info->type, NULL, inner_info->key_size, inner_info->value_size, inner_info->max_entries, &opts);
+#else
+    fd = bpf_create_map_name(
+        inner_info->type,
+        NULL,
+        inner_info->key_size,
+        inner_info->value_size,
+        inner_info->max_entries,
+        inner_info->map_flags);
+#endif
+    return fd;
+}
+
+int inner_map_create_all(struct bpf_map_info *inner_info)
+{
+    int i, fd;
+
+    for (i = 0; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+        fd = inner_map_create(inner_info);
+        if (fd < 0)
+            break;
+
+        g_inner_map_mng.inner_maps[i].map_fd = fd;
+    }
+
+    if (i < MAX_OUTTER_MAP_ENTRIES) {
+        printf("inner_map_create %d failed:%d\n", i, fd);
+    }
+    return 0;
+}
+
+void deserial_uninit()
+{
+    for (int i = 0; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+        g_inner_map_mng.inner_maps[i].in_outer_map = 0;
+        g_inner_map_mng.inner_maps[i].used = 0;
+        if (g_inner_map_mng.inner_maps[i].map_fd)
+            close(g_inner_map_mng.inner_maps[i].map_fd);
+    }
+
+    (void)sem_destroy(&g_inner_map_mng.fin_tasks);
+    g_inner_map_mng.used_cnt = 0;
+    g_inner_map_mng.init = 0;
+    return;
+}
+
+int deserial_init()
+{
+    int ret = 0;
+    int inner_fd = -1, outter_fd = -1;
+    struct bpf_map_info outter_info = {0}, inner_info = {0};
+
+    do {
+        ret = get_outer_inner_map_infos(&inner_fd, &inner_info, &outter_fd, &outter_info);
+        if (ret)
+            break;
+
+        ret = inner_map_create_all(&inner_info);
+        if (ret)
+            break;
+
+        ret = outter_map_update(outter_fd);
+        if (ret)
+            break;
+    } while (0);
+
+    close(inner_fd);
+    close(outter_fd);
+    if (ret) {
+        deserial_uninit();
+        return ret;
+    }
+    g_inner_map_mng.init = 1;
+    return 0;
 }
