@@ -96,7 +96,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
     __uint(key_size, sizeof(__u32));
     __uint(value_size, sizeof(__u32));
-    __uint(max_entries, MAP_SIZE_OF_MAX);
+    __uint(max_entries, MAP_SIZE_OF_OUTTER_MAP);
     __uint(map_flags, 0);
 } outer_map SEC(".maps");
 
