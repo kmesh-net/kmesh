@@ -35,32 +35,37 @@ type Controller struct {
 	mode           string
 	bpfWorkloadObj *bpf.BpfKmeshWorkload
 	client         *XdsClient
+	enableByPass   bool
 }
 
-func NewController(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controller {
+func NewController(mode string, enableByPass bool, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controller {
 	return &Controller{
 		mode:           mode,
+		enableByPass:   enableByPass,
 		bpfWorkloadObj: bpfWorkloadObj,
 	}
 }
 
 func (c *Controller) Start() error {
+	if c.enableByPass {
+		clientset, err := utils.GetK8sclient()
+		if err != nil {
+			return err
+		}
+
+		err = bypass.StartByPassController(clientset)
+		if err != nil {
+			return fmt.Errorf("failed to start bypass controller: %v", err)
+		}
+
+		log.Info("start bypass controller successfully")
+	}
+
 	if c.mode != constants.WorkloadMode && c.mode != constants.AdsMode {
 		return nil
 	}
 
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
-
-	clientset, err := utils.GetK8sclient()
-	if err != nil {
-		panic(err)
-	}
-
-	// TODO(hzxuzhonghu): move before xds client inititation
-	err = bypass.StartByPassController(clientset)
-	if err != nil {
-		return fmt.Errorf("failed to start bypass controller: %v", err)
-	}
 
 	return c.client.Run(stopCh)
 }
