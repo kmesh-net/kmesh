@@ -38,17 +38,19 @@ Kmesh is synchronised with the istiod control surfaces through the six steps des
 ## Optimisation of xds response handling
 
 - Asynchronously update `bpf map` and `xDS.cache`:
-  At this stage the bpf.map update takes much longer to process than the xDS.cache.
+  At this stage the bpf.map update takes longer to process than the xDS.cache.
   The serial processing of updating xDS.cache and then updating the bpf map would greatly reduce the efficiency of Kmesh.
   So we should update the `bpf map` asynchronously to improve efficiency of Kmesh.
 
-  When the bpf map is being updated, the xDS controller will continue processing configuration update messages from Istiod and update `xDS.Cache`. After each bpf map update is completed, it will check `xDS.Cache` through a semaphore to see if it has been updated. If updated, it will make a deep copy of `xDS.Cache` and continue updating the bpf map.
+  When the bpf map is being updated, the xDS controller will continue processing configuration update messages from Istiod and update `xDS.Cache`. After each bpf map update is completed, it will check `xDS.Cache` through a global variable to see if it has been changed. If changed, it will make a deep copy of `xDS.Cache` and continue updating the bpf map.
 
-![alt text](pics/map_flush.svg)
+<div align="center">
+<img src="pics/map_flush.svg" width="800" />
+</div>
 
 As shown above, the Ads Controller continues to update the `xDS.Cache` at the time of the bpf map update.
 
-When the map flush controller starts a new processing, it first checks `xDS.cache` through a semaphore to see if it has changed. If it has changed, it will make a deep copy of `xDS.Cache`.
+When the map flush controller starts a new processing, it first checks `xDS.cache` through a global variable to see if it has changed. The `map flush controller` is awakened by cond(A conditional variable in golang). The ads controller, after updating, will set the global variable change to true, and use cond to awaken the map flush controller waiting. If it has changed, it will make a deep copy of `xDS.Cache`.
 
 Then update the bpf map based on `cache Deepcopy`. The Map Flush Controller maintains a copy of the previous cds, eds, lds, and rds configurations. When it receives an updated xDS configuration, it compares the new cds, rds, lds, and eds configurations against the stored previous versions. Based on the comparison results, the Map Flush Controller identifies any differences between the new and previous configurations. It then performs an incremental update of the BPF map by only updating the entries that changed, as indicated by the diff analysis.
 
