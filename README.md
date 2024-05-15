@@ -23,9 +23,9 @@ Kmesh transparently intercept and forward traffic based on node local eBPF witho
 
 The main components of Kmesh include:
 
-- Kmesh-daemon: The management component per node responsible for bpf prog management, xDS configuration subscribe, observability, and etc.
-- Ebpf orchestration: The traffic orchestration implemented based on eBPF, supports L4 load balancing, traffic encryption, monitoring and Simple L7 dynamic routing.
-- Waypoint: Responsible for advanced L7 traffic governance, can be deployed separately per namespace, per service.
+- **Kmesh-daemon**: The management component per node responsible for bpf prog management, xDS configuration subscribe, observability, and etc.
+- **eBPF Orchestration**: The traffic orchestration implemented based on eBPF, supports L4 load balancing, traffic encryption, monitoring and simple L7 dynamic routing.
+- **Waypoint**: Responsible for advanced L7 traffic governance, can be deployed separately per namespace, per service.
 
 Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to the kernel, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path.
 
