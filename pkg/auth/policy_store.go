@@ -54,12 +54,16 @@ func (ps *policyStore) updatePolicy(auth *security.Authorization) error {
 
 	var ns string
 	switch authPolicy.GetScope() {
+	case security.Scope_WORKLOAD_SELECTOR:
+		ps.rwLock.Lock()
+		defer ps.rwLock.Unlock()
+		// only update 'byKey' cache for Scope_WORKLOAD_SELECTOR
+		ps.byKey[key] = authPolicy
+		return nil
 	case security.Scope_GLOBAL:
 		ns = ""
 	case security.Scope_NAMESPACE:
 		ns = authPolicy.GetNamespace()
-	case security.Scope_WORKLOAD_SELECTOR:
-		// do nothing
 	default:
 		return fmt.Errorf("invalid scope %v of authorization policy", authPolicy.GetScope())
 	}
@@ -72,7 +76,6 @@ func (ps *policyStore) updatePolicy(auth *security.Authorization) error {
 	} else {
 		s.Insert(key)
 	}
-
 	ps.byKey[key] = authPolicy
 	return nil
 }
