@@ -1,3 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kmesh-system
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -10,105 +15,105 @@ spec:
     matchLabels:
       app: kmesh
   template:
-     metadata:
-       labels:
-         app: kmesh
-     spec:
-       volumes:
-         # use cgroup requires
-         - name: mnt
-           hostPath:
-             path: /mnt
-         # for eBPF program into the host machine
-         - name: sys-fs-bpf
-           hostPath:
-             path: /sys/fs/bpf
-         # required for compiling and building ko
-         - name: lib-modules
-           hostPath:
-             path: /lib/modules
-         # k8s default cni conflist path
-         - name: cni 
-           hostPath:
-             path: /etc/cni/net.d
-         # k8s deafult cni path 
-         - name: kmesh-cni-install-path
-           hostPath:
-             path: /opt/cni/bin
-         - name: istiod-ca-cert
-           configMap:
-             defaultMode: 420
-             name: istio-ca-root-cert
-         - name: istio-token
-           projected:
-             defaultMode: 420
-             sources:
-             - serviceAccountToken:
-                 audience: istio-ca
-                 expirationSeconds: 43200
-                 path: istio-token
-       containers:
-         - name: kmesh
-           image: ghcr.io/kmesh-net/kmesh:latest
-           imagePullPolicy: IfNotPresent
-           command: ["/bin/sh", "-c"]
-           args: ["./start_kmesh.sh --mode=workload"]
-           securityContext:
-             privileged: true
-             capabilities:
-               add: ["all"]
-           env:
-           - name: POD_NAME
-             valueFrom:
-               fieldRef:
-                 fieldPath: metadata.name
-           - name: POD_NAMESPACE
-             valueFrom:
-               fieldRef:
-                 fieldPath: metadata.namespace
-           - name: INSTANCE_IP
-             valueFrom:
-               fieldRef:
-                 fieldPath: status.podIP
-           - name: XDS_ADDRESS
-             value: "istiod.istio-system.svc:15012"
-           - name: BPF_LOG_SIZE
-             value: "12800"
-           - name: SERVICE_ACCOUNT
-             valueFrom:
-               fieldRef:
-                 fieldPath: spec.serviceAccountName
-           - name: NODE_NAME
-             valueFrom:
-               fieldRef:
-                 fieldPath: spec.nodeName
-           volumeMounts:
-           - name: mnt
-             mountPath: /mnt
-             readOnly: false
-           - name: sys-fs-bpf
-             mountPath: /sys/fs/bpf
-             readOnly: false
-           - name: lib-modules
-             mountPath: /lib/modules
-             readOnly: false
-           # k8s default cni conflist path
-           - name: cni
-             mountPath: /etc/cni/net.d
-             readOnly: false
-           # k8s deafult cni path
-           - name: kmesh-cni-install-path
-             mountPath: /opt/cni/bin
-             readOnly: false
-           - name: istiod-ca-cert
-             mountPath: /var/run/secrets/istio
-           - name: istio-token
-             mountPath: /var/run/secrets/tokens
-           resources:
-             limits:
-               # image online-compile needs 800Mi, or only 200Mi
-               memory: "800Mi"
-               cpu: "1"
-       priorityClassName: system-node-critical
-       serviceAccountName: kmesh
-       hostPID: true
+    metadata:
+      labels:
+        app: kmesh
+    spec:
+      volumes:
+        # use cgroup requires
+        - name: mnt
+          hostPath:
+            path: /mnt
+        # for eBPF program into the host machine
+        - name: sys-fs-bpf
+          hostPath:
+            path: /sys/fs/bpf
+        # required for compiling and building ko
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        # k8s default cni conflist path
+        - name: cni
+          hostPath:
+            path: /etc/cni/net.d
+        # k8s deafult cni path
+        - name: kmesh-cni-install-path
+          hostPath:
+            path: /opt/cni/bin
+        - name: istiod-ca-cert
+          configMap:
+            defaultMode: 420
+            name: istio-ca-root-cert
+        - name: istio-token
+          projected:
+            defaultMode: 420
+            sources:
+              - serviceAccountToken:
+                  audience: istio-ca
+                  expirationSeconds: 43200
+                  path: istio-token
+      containers:
+        - name: kmesh
+          image: ghcr.io/kmesh-net/kmesh:latest
+          imagePullPolicy: IfNotPresent
+          command: ["/bin/sh", "-c"]
+          args: ["./start_kmesh.sh --mode=workload"]
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["all"]
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: INSTANCE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: XDS_ADDRESS
+              value: "istiod.istio-system.svc:15012"
+            - name: BPF_LOG_SIZE
+              value: "12800"
+            - name: SERVICE_ACCOUNT
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.serviceAccountName
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          volumeMounts:
+            - name: mnt
+              mountPath: /mnt
+              readOnly: false
+            - name: sys-fs-bpf
+              mountPath: /sys/fs/bpf
+              readOnly: false
+            - name: lib-modules
+              mountPath: /lib/modules
+              readOnly: false
+            # k8s default cni conflist path
+            - name: cni
+              mountPath: /etc/cni/net.d
+              readOnly: false
+            # k8s deafult cni path
+            - name: kmesh-cni-install-path
+              mountPath: /opt/cni/bin
+              readOnly: false
+            - name: istiod-ca-cert
+              mountPath: /var/run/secrets/istio
+            - name: istio-token
+              mountPath: /var/run/secrets/tokens
+          resources:
+            limits:
+              # image online-compile needs 800Mi, or only 200Mi
+              memory: "800Mi"
+              cpu: "1"
+      priorityClassName: system-node-critical
+      serviceAccountName: kmesh
+      hostPID: true
