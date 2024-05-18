@@ -21,4 +21,6 @@ const (
 	WorkloadMode = "workload"
 
 	XDP_PROG_NAME = "xdp_shutdown"
+
+	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
 )
