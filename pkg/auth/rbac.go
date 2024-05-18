@@ -157,14 +157,13 @@ func (r *Rbac) RemovePolicy(policyKey string) {
 }
 
 func (r *Rbac) doRbac(conn *rbacConnection) bool {
-	if len(conn.srcIp) == 0 || len(conn.dstIp) == 0 {
-		return false
+	var dstWorkload *workloadapi.Workload
+	if len(conn.dstIp) > 0 {
+		dstWorkload = cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
+			Network: conn.dstNetwork,
+			Address: binary.BigEndian.Uint32(conn.dstIp),
+		})
 	}
-
-	dstWorkload := cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
-		Network: conn.dstNetwork,
-		Address: binary.BigEndian.Uint32(conn.dstIp),
-	})
 
 	allowPolicies, denyPolicies := r.aggregate(dstWorkload)
 
