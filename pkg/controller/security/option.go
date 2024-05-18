@@ -23,6 +23,12 @@ import (
 	"istio.io/istio/pkg/security"
 )
 
+const (
+	ApplyCert     = 1
+	DeleteCert    = 0
+	maxGoroutines = 8 //max coroutines for certificate application
+)
+
 func NewSecurityOptions() *security.Options {
 	return &security.Options{
 		WorkloadRSAKeySize: workloadRSAKeySizeEnv,

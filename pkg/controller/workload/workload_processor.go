@@ -24,12 +24,14 @@ import (
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/spiffe"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/controller/config"
+	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
@@ -49,6 +51,7 @@ type Processor struct {
 	// endpoint indexer, svc key -> workload id -> endpoint
 	endpointsByService map[string]map[string]Endpoint
 	bpf                *bpf.Cache
+	Sm                 *kmeshsecurity.SecretManager
 }
 
 type Endpoint struct {
@@ -66,6 +69,7 @@ func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		hashName:           NewHashName(),
 		endpointsByService: make(map[string]map[string]Endpoint),
 		bpf:                bpf.NewCache(workloadMap),
+		Sm:                 nil,
 	}
 }
 
@@ -87,6 +91,29 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 		ErrorDetail:            nil,
 		Node:                   config.GetConfig().GetNode(),
 	}
+}
+
+func GetIdentitybyUid(workloadUid string) string {
+	workload := cache.WorkloadCache.GetWorkloadByUid(workloadUid)
+	if workload == nil {
+		log.Errorf("workloadCache %v is nil", workloadUid)
+		return ""
+	}
+
+	Identity := (&spiffe.Identity{
+		TrustDomain:    workload.TrustDomain,
+		Namespace:      workload.Namespace,
+		ServiceAccount: workload.ServiceAccount,
+	}).String()
+	return Identity
+}
+
+func isManagedWorkload(workloadUid string) bool {
+	// TODO: Currently, there is no good way to accurately judge whether a workload
+	// is managed by kmesh when new ones are added or deleted.
+	// In the future, we plan to add a cache to implement this functionality.
+
+	return true
 }
 
 func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
@@ -156,6 +183,10 @@ func (p *Processor) removeWorkloadResource(removed_resources []string) error {
 	)
 
 	for _, workloadUid := range removed_resources {
+		if isManagedWorkload(workloadUid) {
+			Identity := GetIdentitybyUid(workloadUid)
+			p.Sm.SendData(Identity, kmeshsecurity.DeleteCert)
+		}
 		cache.WorkloadCache.DeleteWorkload(workloadUid)
 
 		backendUid := p.hashName.StrToNum(workloadUid)
@@ -437,7 +468,15 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("workload uid: %s", workload.Uid)
+	exist := cache.WorkloadCache.GetWorkloadByUid(workload.Uid)
 	cache.WorkloadCache.AddWorkload(workload)
+
+	// The grpc connection is disconnected every half hour and the workload will be resubscribed.
+	// We need to determine whether it already exists in the cache.
+	if exist == nil && isManagedWorkload(workload.Uid) {
+		Identity := GetIdentitybyUid(workload.Uid)
+		p.Sm.SendData(Identity, kmeshsecurity.ApplyCert)
+	}
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
 		if err := p.handleDataWithService(workload); err != nil {

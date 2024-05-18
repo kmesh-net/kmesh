@@ -33,26 +33,26 @@ import (
 	"kmesh.net/kmesh/pkg/nets"
 )
 
-var tlsOpts *TLSOptions
-
-type CaClient struct {
-	tlsOpts *TLSOptions
+type caClient struct {
+	tlsOpts *tlsOptions
 	client  pb.IstioCertificateServiceClient
 	conn    *grpc.ClientConn
 	opts    *security.Options
 }
 
-type TLSOptions struct {
+type tlsOptions struct {
 	RootCert string
 	Key      string
 	Cert     string
 }
 
 // NewCaClient create a CA client for CSR sign.
-func NewCaClient(opts *security.Options, tlsOpts *TLSOptions) (*CaClient, error) {
+// The following function is adapted from istio NewCitadelClient
+// (https://github.com/istio/istio/blob/master/security/pkg/nodeagent/caclient/providers/citadel/client.go)
+func newCaClient(opts *security.Options, tlsOpts *tlsOptions) (*caClient, error) {
 	var err error
 
-	c := &CaClient{
+	c := &caClient{
 		tlsOpts: tlsOpts,
 		opts:    opts,
 	}
@@ -67,12 +67,14 @@ func NewCaClient(opts *security.Options, tlsOpts *TLSOptions) (*CaClient, error)
 	return c, nil
 }
 
-// CSRSend send a grpc request to istio and sign a CSR.
-func (c *CaClient) CSRSend(csrPEM []byte, certValidsec int64, Identity string) ([]string, error) {
+// csrSend send a grpc request to istio and sign a CSR.
+// The following function is adapted from istio CSRSign
+// (https://github.com/istio/istio/blob/master/security/pkg/nodeagent/caclient/providers/citadel/client.go)
+func (c *caClient) csrSend(csrPEM []byte, certValidsec int64, identity string) ([]string, error) {
 	crMeta := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			security.ImpersonatedIdentity: {
-				Kind: &structpb.Value_StringValue{StringValue: Identity},
+				Kind: &structpb.Value_StringValue{StringValue: identity},
 			},
 		},
 	}
@@ -117,11 +119,13 @@ func standardCerts(certsPEM []string) []byte {
 	return []byte(certChain.String())
 }
 
-func (c *CaClient) fetchCert(Identity string) (*security.SecretItem, error) {
+// The following function is adapted from istio generateNewSecret
+// (https://github.com/istio/istio/blob/master/security/pkg/nodeagent/cache/secretcache.go)
+func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 	var rootCertPEM []byte
 
 	options := pkiutil.CertOptions{
-		Host:       Identity,
+		Host:       identity,
 		RSAKeySize: c.opts.WorkloadRSAKeySize,
 		PKCS8Key:   c.opts.Pkcs8Keys,
 		ECSigAlg:   pkiutil.SupportedECSignatureAlgorithms(c.opts.ECCSigAlg),
@@ -131,36 +135,36 @@ func (c *CaClient) fetchCert(Identity string) (*security.SecretItem, error) {
 	// Generate the cert/key, send CSR to CA.
 	csrPEM, keyPEM, err := pkiutil.GenCSR(options)
 	if err != nil {
-		log.Errorf("%s failed to generate key and certificate for CSR: %v", Identity, err)
+		log.Errorf("%s failed to generate key and certificate for CSR: %v", identity, err)
 		return nil, err
 	}
-	certChainPEM, err := c.CSRSend(csrPEM, int64(c.opts.SecretTTL.Seconds()), Identity)
+	certChainPEM, err := c.csrSend(csrPEM, int64(c.opts.SecretTTL.Seconds()), identity)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get certChainPEM")
 	}
 
 	certChain := standardCerts(certChainPEM)
-	var expireTime time.Time
 
-	if expireTime, err = nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain); err != nil {
+	expireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain)
+	if err != nil {
 		return nil, fmt.Errorf("%s failed to extract expire time from server certificate in CSR response %+v: %v",
-			Identity, certChainPEM, err)
+			identity, certChainPEM, err)
 	}
 
 	rootCertPEM = []byte(certChainPEM[len(certChainPEM)-1])
 
-	log.Debugf("cert for %v ExpireTime :%v", Identity, expireTime)
+	log.Debugf("cert for %v ExpireTime :%v", identity, expireTime)
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
-		ResourceName:     Identity,
+		ResourceName:     identity,
 		CreatedTime:      time.Now(),
 		ExpireTime:       expireTime,
 		RootCert:         rootCertPEM,
 	}, nil
 }
 
-func (c *CaClient) reconnect() error {
+func (c *caClient) reconnect() error {
 	if err := c.conn.Close(); err != nil {
 		return fmt.Errorf("failed to close connection: %v", err)
 	}
