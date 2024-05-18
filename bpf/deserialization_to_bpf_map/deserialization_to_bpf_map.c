@@ -36,13 +36,6 @@
 #define LOG_WARN(fmt, args...) printf(fmt, ##args)
 #define LOG_INFO(fmt, args...) printf(fmt, ##args)
 
-#define FREE_MAP_SIZE (MAX_OUTTER_MAP_ENTRIES / (sizeof(uint32_t) * 8))
-
-struct outter_map_alloc_control {
-    unsigned int used;
-    uint32_t free_map[FREE_MAP_SIZE];
-};
-
 struct op_context {
     void *key;
     void *value;
@@ -563,12 +556,6 @@ static int map_info_check(struct bpf_map_info *outter_info, struct bpf_map_info 
         LOG_ERR("outter map max_entries must be in[2,%d]\n", MAX_OUTTER_MAP_ENTRIES);
         return -EINVAL;
     }
-
-    if (inner_info->value_size < sizeof(struct outter_map_alloc_control)) {
-        LOG_ERR("inner map value_size must be large than %lu(bytes)\n", sizeof(struct outter_map_alloc_control));
-        return -EINVAL;
-    }
-
     return 0;
 }
 
