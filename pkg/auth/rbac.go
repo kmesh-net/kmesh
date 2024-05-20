@@ -60,7 +60,7 @@ type Identity struct {
 
 type rbacConnection struct {
 	srcIdentity Identity
-	srcNetwork  string
+	dstNetwork  string
 	srcIp       []byte
 	dstIp       []byte
 	dstPort     uint32
@@ -157,14 +157,15 @@ func (r *Rbac) RemovePolicy(policyKey string) {
 }
 
 func (r *Rbac) doRbac(conn *rbacConnection) bool {
-	var workload *workloadapi.Workload
-	if len(conn.srcIp) > 0 {
-		workload = cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
-			Network: conn.srcNetwork,
-			Address: binary.BigEndian.Uint32(conn.srcIp),
+	var dstWorkload *workloadapi.Workload
+	if len(conn.dstIp) > 0 {
+		dstWorkload = cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
+			Network: conn.dstNetwork,
+			Address: binary.BigEndian.Uint32(conn.dstIp),
 		})
 	}
-	allowPolicies, denyPolicies := r.aggregate(workload)
+
+	allowPolicies, denyPolicies := r.aggregate(dstWorkload)
 
 	// 1. If there is ANY deny policy, deny the request
 	for _, denyPolicy := range denyPolicies {
