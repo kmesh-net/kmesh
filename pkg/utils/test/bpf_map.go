@@ -22,6 +22,8 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/cilium/ebpf/rlimit"
+
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
@@ -43,6 +45,11 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 	if err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
+	}
+
+	if err = rlimit.RemoveMemlock(); err != nil {
+		CleanupBpfMap()
+		t.Fatalf("Failed to remove mem limit: %v", err)
 	}
 
 	loader := bpf.NewBpfLoader(&config)
