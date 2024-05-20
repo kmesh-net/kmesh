@@ -36,13 +36,6 @@
 #define LOG_WARN(fmt, args...) printf(fmt, ##args)
 #define LOG_INFO(fmt, args...) printf(fmt, ##args)
 
-#define FREE_MAP_SIZE (MAX_OUTTER_MAP_ENTRIES / (sizeof(uint32_t) * 8))
-
-struct outter_map_alloc_control {
-    unsigned int used;
-    uint32_t free_map[FREE_MAP_SIZE];
-};
-
 struct op_context {
     void *key;
     void *value;
@@ -106,7 +99,6 @@ static int normalize_key(struct op_context *ctx, void *key, const char *map_name
     if (!map_name)
         return -errno;
 
-    // TODO
     if (!strncmp(map_name, "Listener", strlen(map_name)))
         memcpy_s(ctx->key, ctx->curr_info->key_size, key, ctx->curr_info->key_size);
     else
@@ -280,7 +272,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
 {
     int i;
     if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= MAX_OUTTER_MAP_ENTRIES) {
-        printf("[%d %d]alloc_outter_map_entry failed\n", g_inner_map_mng.init, g_inner_map_mng.used_cnt);
+        LOG_ERR("[%d %d]alloc_outter_map_entry failed\n", g_inner_map_mng.init, g_inner_map_mng.used_cnt);
         return -1;
     }
 
@@ -292,7 +284,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
         }
     }
 
-    printf("alloc_outter_map_entry all inner_maps in used\n");
+    LOG_ERR("alloc_outter_map_entry all inner_maps in used\n");
     return -1;
 }
 
@@ -536,7 +528,13 @@ static int update_bpf_map(struct op_context *ctx)
         }
 
         if (ret) {
-            LOG_INFO("desc.name:%s field[%d - %s] handle failed:%d\n", desc->short_name, i, desc->fields[i].name, ret);
+            LOG_INFO(
+                "desc.name:%s field[%d - %s] handle failed:%d, errno:%d\n",
+                desc->short_name,
+                i,
+                desc->fields[i].name,
+                ret,
+                errno);
             free(temp_val);
             return ret;
         }
@@ -558,12 +556,6 @@ static int map_info_check(struct bpf_map_info *outter_info, struct bpf_map_info 
         LOG_ERR("outter map max_entries must be in[2,%d]\n", MAX_OUTTER_MAP_ENTRIES);
         return -EINVAL;
     }
-
-    if (inner_info->value_size < sizeof(struct outter_map_alloc_control)) {
-        LOG_ERR("inner map value_size must be large than %lu(bytes)\n", sizeof(struct outter_map_alloc_control));
-        return -EINVAL;
-    }
-
     return 0;
 }
 
@@ -590,7 +582,7 @@ int deserial_update_elem(void *key, void *value)
 
     ret = get_map_fd_info(id, &map_fd, &info);
     if (ret < 0) {
-        LOG_ERR("invlid MAP_ID: %d\n", id);
+        LOG_ERR("invlid MAP_ID: %d, errno:%d\n", id, errno);
         return ret;
     }
 
@@ -1276,6 +1268,10 @@ void *outter_map_update_task(void *arg)
     i = ctx->task_id * TASK_SIZE;
     end = ((i + TASK_SIZE) < MAX_OUTTER_MAP_ENTRIES) ? (i + TASK_SIZE) : MAX_OUTTER_MAP_ENTRIES;
     for (; i < end; i++) {
+        if (!g_inner_map_mng.inner_maps[i].map_fd) {
+            continue;
+        }
+
         ret = bpf_map_update_elem(ctx->outter_fd, &i, &g_inner_map_mng.inner_maps[i].map_fd, BPF_ANY);
         if (ret)
             break;
@@ -1283,7 +1279,7 @@ void *outter_map_update_task(void *arg)
     }
 
     if (ret)
-        printf("[%lu]outter_map_update_task %d failed:%d\n", tid, i, ret);
+        LOG_ERR("[%lu]outter_map_update_task %d failed:%d\n", tid, i, ret);
     free(ctx);
     sem_post(&g_inner_map_mng.fin_tasks);
     return NULL;
@@ -1306,7 +1302,7 @@ int outter_map_update(int outter_fd)
 
     ret = sem_init(&g_inner_map_mng.fin_tasks, 0, 0);
     if (ret) {
-        printf("sem_init failed:%d\n", ret);
+        LOG_ERR("sem_init failed:%d\n", ret);
         return ret;
     }
 
@@ -1359,9 +1355,8 @@ int inner_map_create_all(struct bpf_map_info *inner_info)
         g_inner_map_mng.inner_maps[i].map_fd = fd;
     }
 
-    if (i < MAX_OUTTER_MAP_ENTRIES) {
-        printf("inner_map_create %d failed:%d\n", i, fd);
-    }
+    if (i < MAX_OUTTER_MAP_ENTRIES)
+        LOG_WARN("[warning]inner_map_create (%d->%d) failed:%d, errno:%d\n", i, MAX_OUTTER_MAP_ENTRIES, fd, errno);
     return 0;
 }
 
