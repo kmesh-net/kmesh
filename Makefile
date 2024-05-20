@@ -64,7 +64,8 @@ endif
 TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	config/kmesh_marcos_def.h \
 	mk/api-v2-c.pc \
-	mk/bpf.pc
+	mk/bpf.pc \
+	bpf/kmesh/include/config.h
 
 .PHONY: all install uninstall clean build docker
 
