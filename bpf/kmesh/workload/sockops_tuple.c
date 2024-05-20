@@ -22,6 +22,7 @@
 #include "workload.h"
 #include "config.h"
 #include "encoder.h"
+#include "bpf_common.h"
 
 #define FORMAT_IP_LENGTH (16)
 
@@ -148,7 +149,7 @@ static inline void remove_ip(__u32 ip)
         BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
 }
 
-static inline bool conn_from_cni_sim_add(struct bpf_sock_ops *skops)
+static inline bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)
 {
     // cni sim connect 0.0.0.1:929(0x3a1)
     // 0x3a1 is the specific port handled by the cni for enable Kmesh
@@ -159,7 +160,7 @@ static inline bool conn_from_cni_sim_add(struct bpf_sock_ops *skops)
 #endif
 }
 
-static inline bool conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
+static inline bool skops_conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
 {
     // cni sim connect 0.0.0.1:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni for disable Kmesh
@@ -182,9 +183,9 @@ int record_tuple(struct bpf_sock_ops *skops)
         return 0;
     switch (skops->op) {
     case BPF_SOCK_OPS_TCP_CONNECT_CB:
-        if (conn_from_cni_sim_add(skops))
+        if (skops_conn_from_cni_sim_add(skops))
             record_ip(skops->local_ip4);
-        if (conn_from_cni_sim_delete(skops))
+        if (skops_conn_from_cni_sim_delete(skops))
             remove_ip(skops->local_ip4);
         break;
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:

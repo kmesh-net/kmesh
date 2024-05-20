@@ -37,7 +37,7 @@ function fix_libbpf_bug() {
 function adapt_low_version_kernel() {
     # adapt less insn in kernel 4.19, only 4096, so modify KMESH_PER_ENDPOINT_NUM into 15
     if [ "$(uname -r | cut -d '.' -f 1)" -le 4 ]; then
-            sed -i 's/\(KMESH_PER_ENDPOINT_NUM\).*/\1 15/g' bpf/kmesh/include/config.h
+            sed -i 's/\(KMESH_PER_ENDPOINT_NUM\).*/\1 15/g' bpf/kmesh/ads/include/config.h
     fi
 }
 
@@ -48,7 +48,7 @@ function adapt_low_version_kernel() {
 # the current compilation environment during compilation.
 function adapt_include_env {
     if grep -q "struct bpf_mem_ptr {" /usr/include/linux/bpf.h; then
-        sed -i '/bpf_mem_ptr/{N;N;N;N;d;}' bpf/kmesh/include/kmesh_common.h
+        sed -i '/bpf_mem_ptr/{N;N;N;N;d;}' bpf/kmesh/ads/include/kmesh_common.h
     fi
 }
 

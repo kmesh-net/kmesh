@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright 2023 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
 
- * Author: kwb0523
- * Create: 2024-01-20
+ * Author: nlgwcy
+ * Create: 2022-02-14
  */
 
 #include <linux/in.h>
@@ -22,32 +22,50 @@
 #include <linux/tcp.h>
 #include "bpf_log.h"
 #include "ctx/sock_addr.h"
-#include "frontend.h"
+#include "listener.h"
+#include "listener/listener.pb-c.h"
+#include "filter.h"
+#include "cluster.h"
 #include "bpf_common.h"
+
+#if KMESH_ENABLE_IPV4
+#if KMESH_ENABLE_HTTP
+
+static const char kmesh_module_name[] = "kmesh_defer";
 
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
     int ret;
-    frontend_value *frontend_v = NULL;
+
+    Listener__Listener *listener = NULL;
 
     if (!check_kmesh_enabled(ctx) || ctx->protocol != IPPROTO_TCP)
         return 0;
 
-    DECLARE_FRONTEND_KEY(ctx, frontend_k);
+    DECLARE_VAR_ADDRESS(ctx, address);
 
-    BPF_LOG(DEBUG, KMESH, "origin addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
-    frontend_v = map_lookup_frontend(&frontend_k);
-    if (!frontend_v) {
-        return -ENOENT;
+    listener = map_lookup_listener(&address);
+    if (listener == NULL) {
+        address.ipv4 = 0;
+        listener = map_lookup_listener(&address);
+        if (!listener)
+            return -ENOENT;
     }
+    BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
 
-    BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
-    ret = frontend_manager(ctx, frontend_v);
+#if ENHANCED_KERNEL
+    // todo build when kernel support http parse and route
+    // defer conn
+    ret = bpf_setsockopt(ctx, IPPROTO_TCP, TCP_ULP, (void *)kmesh_module_name, sizeof(kmesh_module_name));
+    if (ret)
+        BPF_LOG(ERR, KMESH, "bpf set sockopt failed! ret:%d\n", ret);
+#else  // KMESH_ENABLE_HTTP
+    ret = listener_manager(ctx, listener, NULL);
     if (ret != 0) {
-        if (ret != -ENOENT)
-            BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
+        BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
         return ret;
     }
+#endif // KMESH_ENABLE_HTTP
 
     return 0;
 }
@@ -68,6 +86,9 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     int ret = sock4_traffic_control(ctx);
     return CGROUP_SOCK_OK;
 }
+
+#endif // KMESH_ENABLE_TCP
+#endif // KMESH_ENABLE_IPV4
 
 char _license[] SEC("license") = "GPL";
 int _version SEC("version") = 1;

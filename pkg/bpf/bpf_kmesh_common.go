@@ -20,7 +20,7 @@
 package bpf
 
 // #cgo pkg-config: bpf api-v2-c
-// #include "kmesh/include/kmesh_common.h"
+// #include "kmesh/ads/include/kmesh_common.h"
 import "C"
 import (
 	"os"
