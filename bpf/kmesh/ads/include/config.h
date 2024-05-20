@@ -44,7 +44,6 @@
 #define MAP_SIZE_OF_PER_ROUTE        8
 #define MAP_SIZE_OF_PER_CLUSTER      32
 #define MAP_SIZE_OF_PER_ENDPOINT     64
-#define MAP_SIZE_OF_MANAGER          8192
 
 #define MAP_SIZE_OF_MAX        8192
 #define MAP_SIZE_OF_OUTTER_MAP 8192
