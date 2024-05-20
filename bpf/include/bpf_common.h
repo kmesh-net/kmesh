@@ -17,6 +17,13 @@
 #define map_of_manager      kmesh_manage
 #define MAP_SIZE_OF_MANAGER 8192
 
+struct ip_addr {
+    union {
+        __u32 ip4;
+        __u32 ip6[4];
+    };
+};
+
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, __u64);

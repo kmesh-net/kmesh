@@ -27,7 +27,10 @@
 
 // frontend map
 typedef struct {
-    __u32 ipv4; // Service ip or Pod ip
+    union {
+        __u32 ipv4;    // Service ip or Pod ip
+        __u32 ipv6[4]; // for ipv6
+    };
 } __attribute__((packed)) frontend_key;
 
 typedef struct {
@@ -60,11 +63,17 @@ typedef struct {
 } __attribute__((packed)) backend_key;
 
 typedef struct {
-    __u32 ipv4; // backend ip
+    union {
+        __u32 ipv4; // backend ip
+        __u32 ipv6[4];
+    };
     __u32 port_count;
     __u32 service_port[MAX_PORT_COUNT];
     __u32 target_port[MAX_PORT_COUNT];
-    __u32 waypoint_addr;
+    union {
+        __u32 waypoint_addr;
+        __u32 wp_ipv6[4];
+    };
     __u32 waypoint_port;
 } __attribute__((packed)) backend_value;
 

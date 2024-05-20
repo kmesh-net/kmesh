@@ -22,7 +22,7 @@
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u32);
+    __type(key, void *);
     __type(value, struct bpf_sock_tuple);
     __uint(max_entries, MAP_SIZE_OF_DSTINFO);
     __uint(map_flags, 0);

@@ -34,12 +34,16 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
 {
     int ret;
     address_t target_addr;
-    __u32 *sk = (__u32 *)ctx->sk;
+    void *sk = (void *)ctx->sk;
     struct bpf_sock_tuple value_tuple = {0};
 
     if (backend_v->waypoint_addr != 0 && backend_v->waypoint_port != 0) {
         BPF_LOG(DEBUG, BACKEND, "find waypoint addr=[%u:%u]\n", backend_v->waypoint_addr, backend_v->waypoint_port);
-        value_tuple.ipv4.daddr = ctx->user_ip4;
+        if (ctx->user_family == AF_INET)
+            value_tuple.ipv4.daddr = ctx->user_ip4;
+        else
+            bpf_memcpy(value_tuple.ipv6.daddr, ctx->user_ip6, IPV6_ADDR_LEN);
+
         value_tuple.ipv4.dport = ctx->user_port;
 
         ret = bpf_map_update_elem(&map_of_dst_info, &sk, &value_tuple, BPF_NOEXIST);
@@ -47,7 +51,11 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
             BPF_LOG(ERR, BACKEND, "record metadata origin address and port failed, ret is %d\n", ret);
             return ret;
         }
-        target_addr.ipv4 = backend_v->waypoint_addr;
+
+        if (ctx->user_family == AF_INET)
+            target_addr.ipv4 = backend_v->waypoint_addr;
+        else
+            bpf_memcpy(target_addr.ipv6, backend_v->wp_ipv6, IPV6_ADDR_LEN);
         target_addr.port = backend_v->waypoint_port;
         SET_CTX_ADDRESS(ctx, target_addr);
         kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT4_INDEX);
@@ -65,7 +73,10 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
         }
 
         if (ctx->user_port == backend_v->service_port[i]) {
-            target_addr.ipv4 = backend_v->ipv4;
+            if (ctx->user_family == AF_INET)
+                target_addr.ipv4 = backend_v->ipv4;
+            else
+                bpf_memcpy(target_addr.ipv6, backend_v->ipv6, IPV6_ADDR_LEN);
             target_addr.port = backend_v->target_port[i];
             SET_CTX_ADDRESS(ctx, target_addr);
             BPF_LOG(DEBUG, BACKEND, "get the backend addr=[%u:%u]\n", target_addr.ipv4, target_addr.port);

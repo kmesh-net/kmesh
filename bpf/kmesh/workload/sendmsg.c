@@ -91,7 +91,7 @@ static inline int encode_metadata_end(struct sk_msg_md *msg, __u32 off)
 
 static inline int get_origin_dst(struct sk_msg_md *msg, __u32 *dst_ip, __u16 *dst_port)
 {
-    __u32 *current_sk = (__u32 *)msg->sk;
+    void *current_sk = (void *)msg->sk;
     struct bpf_sock_tuple *dst;
 
     dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);

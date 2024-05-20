@@ -25,14 +25,21 @@ typedef enum {
     PROTOCOL_UDP,
 } protocol_t;
 
+#define IPV6_ADDR_LEN 16
 typedef struct bpf_sock_addr ctx_buff_t;
 
 #define DECLARE_FRONTEND_KEY(ctx, key)                                                                                 \
     frontend_key key = {0};                                                                                            \
-    key.ipv4 = (ctx)->user_ip4
+    if (ctx->user_family == AF_INET)                                                                                   \
+        key.ipv4 = (ctx)->user_ip4;                                                                                    \
+    else if (ctx->user_family == AF_INET6)                                                                             \
+    bpf_memcpy(key.ipv6, (ctx)->user_ip6, IPV6_ADDR_LEN)
 
 #define SET_CTX_ADDRESS(ctx, address)                                                                                  \
-    (ctx)->user_ip4 = (address).ipv4;                                                                                  \
+    if (ctx->user_family == AF_INET)                                                                                   \
+        (ctx)->user_ip4 = (address).ipv4;                                                                              \
+    else                                                                                                               \
+        bpf_memcpy((ctx)->user_ip6, (address).ipv6, IPV6_ADDR_LEN);                                                    \
     (ctx)->user_port = (address).port
 
 #endif //__BPF_CTX_SOCK_ADDR_H

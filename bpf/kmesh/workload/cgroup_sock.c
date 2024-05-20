@@ -20,12 +20,13 @@
 #include <linux/in.h>
 #include <linux/bpf.h>
 #include <linux/tcp.h>
+#include <sys/socket.h>
 #include "bpf_log.h"
 #include "ctx/sock_addr.h"
 #include "frontend.h"
 #include "bpf_common.h"
 
-static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
+static inline int sock_traffic_control(struct bpf_sock_addr *ctx)
 {
     int ret;
     frontend_value *frontend_v = NULL;
@@ -35,7 +36,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
     DECLARE_FRONTEND_KEY(ctx, frontend_k);
 
-    BPF_LOG(DEBUG, KMESH, "origin addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
+    BPF_LOG(DEBUG, KMESH, "origin addr=[%u:%u:%u]\n", ctx->user_family, ctx->user_ip4, ctx->user_port);
     frontend_v = map_lookup_frontend(&frontend_k);
     if (!frontend_v) {
         return -ENOENT;
@@ -65,7 +66,16 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
         remove_netns_cookie(ctx);
         return CGROUP_SOCK_OK;
     }
-    int ret = sock4_traffic_control(ctx);
+    int ret = sock_traffic_control(ctx);
+    return CGROUP_SOCK_OK;
+}
+
+SEC("cgroup/connect6")
+int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
+{
+    int ret = sock_traffic_control(ctx);
+    if (!ret)
+        BPF_LOG(ERR, KMESH, "cgroup_connect6_prog failed:%d\n", ret);
     return CGROUP_SOCK_OK;
 }
 

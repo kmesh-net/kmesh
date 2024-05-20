@@ -43,7 +43,10 @@ typedef enum {
 
 typedef struct {
     __u32 protocol;
-    __u32 ipv4;
+    union {
+        __u32 ipv4;
+        __u32 ipv6[4];
+    };
     __u32 port;
 } __attribute__((packed)) address_t;
 
