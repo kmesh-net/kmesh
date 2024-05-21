@@ -157,7 +157,7 @@ Kmesh总体逻辑视图：
 ├── kernel				# kmesh-runtime相关模块
 │   ├── ko
 │   ├── ko_src			# kmesh.ko
-│   └── patches			# 内核增强特性：延迟建联、bpf hook、bpf-helper等
+│   └── patches			# 内核增强特性：延迟建链、bpf hook、bpf-helper等
 ├── kmesh.spec
 ├── LICENSE
 ├── Makefile
@@ -302,7 +302,7 @@ Kmesh主要功能模块分为：
 
   ![inet_ops_replace](pics/design/inet_ops_replace.png)
 
-  延迟建联逻辑：
+  延迟建链逻辑：
 
   ![defer-conn](pics/design/defer-conn.png)
 
