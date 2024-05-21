@@ -188,9 +188,9 @@ cni用于在集群创建新的Pod时，判断该Pod是否属于打上Kmesh标签
 	
 	iptables -t nat -I 1 OUTPUT -j RETURN
 
-#### ebpf cgroup/connectv4
+#### ebpf cgroup/connect4
 
-connectv4，获取当前进程的classid，如果为0x1000，则Kmesh ebpf进行纳管，走后续的4层转发或ULP框架替换。
+connect4，获取当前进程的classid，如果为0x1000，则Kmesh ebpf进行纳管，走后续的4层转发或ULP框架替换。
 
 ## 修改后默认行为对外变更
 

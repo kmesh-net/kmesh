@@ -189,9 +189,9 @@ All packets on the contract path are short-circuited to Envoy:
 
 	iptables -t nat -I 1 OUTPUT -j RETURN
 
-#### ebpf PID group/connectv4
+#### ebpf PID cgroup/connect4
 
-connectv4, get the classid of the current process.  If it is 0x1000, Kmesh ebpf will be used for management, and the subsequent 4-layer forwarding or ULP framework replacement will be used.
+connect4, get the classid of the current process. If it is 0x1000, Kmesh ebpf will be used for management, and the subsequent 4-layer forwarding or ULP framework replacement will be used.
 
 ## Default behavior after modification
 
