@@ -240,7 +240,41 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
+- **Accesslog**
 
+In istio's sidecar mode, istiod passes the access log format to envoy via the xDS.
+
+After the data plane parses the xDS to get the access log format, envoy collects and formats the access log according to the configuration.
+
+So if Kmesh needs to supplement the observability capabilities of access log, it needs to implement such a pattern as well.
+
+As shown in the follow figure, Kmesh's Ads controller passes the access log filter to the Accesslog Controller to parse out the access log format.
+
+Then according to the configuration, monitor the workload, collect the metrics to generate access log, and store the generated access log locally or send it to istiod.
+
+- **Metric**
+
+In istio, telemetry filters are generated through custom metrics or built-in metrics. which are then passed to the data plane by xDS.
+
+The data plane gets these metrics from the workload.
+
+After that the query is performed using Prometheus. The data plane is accessed by Prometheus through a specific port to get the metric from it.
+
+Therefore Kmesh needs to implement a two-part function to satisfy the metric in the observability feature: The first is to be able to parse the envoy filter sent by the control plane and get the required metrics from it. The second is to provide a port for Prometheus to access these metrics.
+
+<div align="center">
+<img src="pics/observability.svg" width="800" />
+</div>
+
+Observability should be achieved in both ads mode and workload mode.
+
+In Kmesh, whether it is the ads controller or the workload controller, when parsing out the `envoy.extensions.filters` from xDS, it will hand it over to Kmesh's telemetry controller.
+
+The xDS controller fetches the access log format and metric configurations from it. Then get the corresponding metrics from the workloads.
+
+The telemetry controller combines the metrics into an access log based on the access log format, and puts it in the envoyfilter to return to the control plane.
+
+For metric features, provide 15001 port for Prometheus queries.
 
 #### Test Plan
 
