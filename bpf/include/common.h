@@ -34,6 +34,14 @@
 #include <bpf_helper_defs_ext.h>
 #endif
 
+struct ip_addr {
+    union {
+        __u32 ip4;
+        __u32 ip6[4];
+    };
+};
+#define IPV6_ADDR_LEN 16
+
 #define bpf_unused __attribute__((__unused__))
 
 #define BPF_MAX(x, y) (((x) > (y)) ? (x) : (y))

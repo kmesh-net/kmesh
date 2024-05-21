@@ -37,8 +37,8 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
     void *sk = (void *)ctx->sk;
     struct bpf_sock_tuple value_tuple = {0};
 
-    if (backend_v->waypoint_addr != 0 && backend_v->waypoint_port != 0) {
-        BPF_LOG(DEBUG, BACKEND, "find waypoint addr=[%u:%u]\n", backend_v->waypoint_addr, backend_v->waypoint_port);
+    if (backend_v->wp_addr.ip4 != 0 && backend_v->waypoint_port != 0) {
+        BPF_LOG(DEBUG, BACKEND, "find waypoint addr=[%u:%u]\n", backend_v->wp_addr.ip4, backend_v->waypoint_port);
         if (ctx->user_family == AF_INET)
             value_tuple.ipv4.daddr = ctx->user_ip4;
         else
@@ -53,9 +53,9 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
         }
 
         if (ctx->user_family == AF_INET)
-            target_addr.ipv4 = backend_v->waypoint_addr;
+            target_addr.ipv4 = backend_v->wp_addr.ip4;
         else
-            bpf_memcpy(target_addr.ipv6, backend_v->wp_ipv6, IPV6_ADDR_LEN);
+            bpf_memcpy(target_addr.ipv6, backend_v->wp_addr.ip6, IPV6_ADDR_LEN);
         target_addr.port = backend_v->waypoint_port;
         SET_CTX_ADDRESS(ctx, target_addr);
         kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT4_INDEX);
@@ -74,9 +74,9 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
 
         if (ctx->user_port == backend_v->service_port[i]) {
             if (ctx->user_family == AF_INET)
-                target_addr.ipv4 = backend_v->ipv4;
+                target_addr.ipv4 = backend_v->addr.ip4;
             else
-                bpf_memcpy(target_addr.ipv6, backend_v->ipv6, IPV6_ADDR_LEN);
+                bpf_memcpy(target_addr.ipv6, backend_v->addr.ip6, IPV6_ADDR_LEN);
             target_addr.port = backend_v->target_port[i];
             SET_CTX_ADDRESS(ctx, target_addr);
             BPF_LOG(DEBUG, BACKEND, "get the backend addr=[%u:%u]\n", target_addr.ipv4, target_addr.port);

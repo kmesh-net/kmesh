@@ -44,16 +44,27 @@ struct {
     __uint(map_flags, 0);
 } map_of_kmesh_hashmap SEC(".maps");
 
-static inline bool is_managed_by_kmesh(__u32 family, __u32 ip, __u32 *ip6)
+static inline bool is_managed_by_kmesh(__u32 family, __u32 ip4, __u32 *ip6)
 {
-    __u64 key = ip;
+    struct manager_key key = {
+        .addr.ip4 = ip4,
+    };
+    if (family == AF_INET6)
+        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+
     return bpf_map_lookup_elem(&map_of_manager, &key);
 }
 
 static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
-    tuple_key->ipv4.saddr = skops->local_ip4;
-    tuple_key->ipv4.daddr = skops->remote_ip4;
+    if (skops->family == AF_INET) {
+        tuple_key->ipv4.saddr = skops->local_ip4;
+        tuple_key->ipv4.daddr = skops->remote_ip4;
+    } else {
+        bpf_memcpy(tuple_key->ipv6.saddr, skops->local_ip6, IPV6_ADDR_LEN);
+        bpf_memcpy(tuple_key->ipv6.daddr, skops->remote_ip6, IPV6_ADDR_LEN);
+    }
+
     // local_port is host byteorder
     tuple_key->ipv4.sport = bpf_htonl(skops->local_port) >> FORMAT_IP_LENGTH;
     // remote_port is network byteorder
@@ -67,8 +78,14 @@ static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf
 
 static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
-    tuple_key->ipv4.saddr = skops->remote_ip4;
-    tuple_key->ipv4.daddr = skops->local_ip4;
+    if (skops->family == AF_INET) {
+        tuple_key->ipv4.saddr = skops->remote_ip4;
+        tuple_key->ipv4.daddr = skops->local_ip4;
+    } else {
+        bpf_memcpy(tuple_key->ipv6.saddr, skops->remote_ip6, IPV6_ADDR_LEN);
+        bpf_memcpy(tuple_key->ipv6.daddr, skops->local_ip6, IPV6_ADDR_LEN);
+    }
+
     // remote_port is network byteorder
     // openEuler 2303 convert remote port different than other linux vendor
 #if !OE_23_03
@@ -131,19 +148,29 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
         BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d", err);
 }
 
-static inline void record_ip(__u32 ip)
+static inline void record_ip(__u32 family, __u32 ip4, __u32 *ip6)
 {
     int err;
     __u32 value = 0;
-    __u64 key = ip;
+    struct manager_key key = {
+        .addr.ip4 = ip4,
+    };
+    if (family == AF_INET6)
+        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
     if (err)
         BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
 }
 
-static inline void remove_ip(__u32 ip)
+static inline void remove_ip(__u32 family, __u32 ip4, __u32 *ip6)
 {
-    __u64 key = ip;
+    struct manager_key key = {
+        .addr.ip4 = ip4,
+    };
+    if (family == AF_INET6)
+        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+
     int err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
         BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
@@ -184,19 +211,19 @@ int record_tuple(struct bpf_sock_ops *skops)
     switch (skops->op) {
     case BPF_SOCK_OPS_TCP_CONNECT_CB:
         if (skops_conn_from_cni_sim_add(skops))
-            record_ip(skops->local_ip4);
+            record_ip(skops->family, skops->local_ip4, skops->local_ip6);
         if (skops_conn_from_cni_sim_delete(skops))
-            remove_ip(skops->local_ip4);
+            remove_ip(skops->family, skops->local_ip4, skops->local_ip6);
         break;
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, skops->local_ip6)) // local ip4 is client ip
+        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, skops->local_ip6)) // local ip is client ip
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, skops->local_ip6)) // local ip4 is server ip
+        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, skops->local_ip6)) // local ip is server ip
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");

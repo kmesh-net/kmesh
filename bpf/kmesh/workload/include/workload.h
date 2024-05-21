@@ -20,6 +20,7 @@
 #ifndef __KMESH_WORKLOAD_H__
 #define __KMESH_WORKLOAD_H__
 
+#include "common.h"
 #include "config.h"
 
 #define MAX_PORT_COUNT 10
@@ -27,10 +28,7 @@
 
 // frontend map
 typedef struct {
-    union {
-        __u32 ipv4;    // Service ip or Pod ip
-        __u32 ipv6[4]; // for ipv6
-    };
+    struct ip_addr addr;
 } __attribute__((packed)) frontend_key;
 
 typedef struct {
@@ -63,17 +61,11 @@ typedef struct {
 } __attribute__((packed)) backend_key;
 
 typedef struct {
-    union {
-        __u32 ipv4; // backend ip
-        __u32 ipv6[4];
-    };
+    struct ip_addr addr;
     __u32 port_count;
     __u32 service_port[MAX_PORT_COUNT];
     __u32 target_port[MAX_PORT_COUNT];
-    union {
-        __u32 waypoint_addr;
-        __u32 wp_ipv6[4];
-    };
+    struct ip_addr wp_addr;
     __u32 waypoint_port;
 } __attribute__((packed)) backend_value;
 

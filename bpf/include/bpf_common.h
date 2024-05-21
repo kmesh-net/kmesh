@@ -14,19 +14,24 @@
  * limitations under the License.
  */
 
+#ifndef __KMESH_BPF_COMMON_H__
+#define __KMESH_BPF_COMMON_H__
+
+#include "common.h"
+
 #define map_of_manager      kmesh_manage
 #define MAP_SIZE_OF_MANAGER 8192
 
-struct ip_addr {
+struct manager_key {
     union {
-        __u32 ip4;
-        __u32 ip6[4];
+        __u64 netns_cookie;
+        struct ip_addr addr;
     };
 };
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u64);
+    __type(key, struct manager_key);
     __type(value, __u32);
     __uint(max_entries, MAP_SIZE_OF_MANAGER);
     __uint(map_flags, 0);
@@ -36,8 +41,11 @@ static inline void record_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
     int value = 0;
-    __u64 cookie = bpf_get_netns_cookie(ctx);
-    err = bpf_map_update_elem(&map_of_manager, &cookie, &value, BPF_NOEXIST);
+    struct manager_key key = {
+        .netns_cookie = bpf_get_netns_cookie(ctx),
+    };
+
+    err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
     if (err)
         BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
 }
@@ -45,16 +53,21 @@ static inline void record_netns_cookie(struct bpf_sock_addr *ctx)
 static inline void remove_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
-    __u64 cookie = bpf_get_netns_cookie(ctx);
-    err = bpf_map_delete_elem(&map_of_manager, &cookie);
+    struct manager_key key = {
+        .netns_cookie = bpf_get_netns_cookie(ctx),
+    };
+
+    err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
         BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
 }
 
 static inline bool check_kmesh_enabled(struct bpf_sock_addr *ctx)
 {
-    __u64 cookie = bpf_get_netns_cookie(ctx);
-    return bpf_map_lookup_elem(&map_of_manager, &cookie);
+    struct manager_key key = {
+        .netns_cookie = bpf_get_netns_cookie(ctx),
+    };
+    return bpf_map_lookup_elem(&map_of_manager, &key);
 }
 
 static inline bool conn_from_cni_sim_add(struct bpf_sock_addr *ctx)
@@ -70,3 +83,5 @@ static inline bool conn_from_cni_sim_delete(struct bpf_sock_addr *ctx)
     // 0x3a2 is the specific port handled by the cni for disable Kmesh
     return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohl(ctx->user_port) == 0x3a20000));
 }
+
+#endif

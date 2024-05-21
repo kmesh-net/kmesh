@@ -20,20 +20,20 @@
 #ifndef __BPF_CTX_SOCK_ADDR_H
 #define __BPF_CTX_SOCK_ADDR_H
 
+#include "common.h"
 typedef enum {
     PROTOCOL_TCP = 0,
     PROTOCOL_UDP,
 } protocol_t;
 
-#define IPV6_ADDR_LEN 16
 typedef struct bpf_sock_addr ctx_buff_t;
 
 #define DECLARE_FRONTEND_KEY(ctx, key)                                                                                 \
     frontend_key key = {0};                                                                                            \
     if (ctx->user_family == AF_INET)                                                                                   \
-        key.ipv4 = (ctx)->user_ip4;                                                                                    \
+        key.addr.ip4 = (ctx)->user_ip4;                                                                                \
     else if (ctx->user_family == AF_INET6)                                                                             \
-    bpf_memcpy(key.ipv6, (ctx)->user_ip6, IPV6_ADDR_LEN)
+    bpf_memcpy(key.addr.ip6, (ctx)->user_ip6, IPV6_ADDR_LEN)
 
 #define SET_CTX_ADDRESS(ctx, address)                                                                                  \
     if (ctx->user_family == AF_INET)                                                                                   \
