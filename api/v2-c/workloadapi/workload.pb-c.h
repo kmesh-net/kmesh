@@ -17,10 +17,13 @@ PROTOBUF_C__BEGIN_DECLS
 
 typedef struct _Istio__Workload__Address Istio__Workload__Address;
 typedef struct _Istio__Workload__Service Istio__Workload__Service;
+typedef struct _Istio__Workload__LoadBalancing Istio__Workload__LoadBalancing;
 typedef struct _Istio__Workload__Workload Istio__Workload__Workload;
 typedef struct _Istio__Workload__Workload__ServicesEntry Istio__Workload__Workload__ServicesEntry;
+typedef struct _Istio__Workload__Locality Istio__Workload__Locality;
 typedef struct _Istio__Workload__PortList Istio__Workload__PortList;
 typedef struct _Istio__Workload__Port Istio__Workload__Port;
+typedef struct _Istio__Workload__ApplicationTunnel Istio__Workload__ApplicationTunnel;
 typedef struct _Istio__Workload__GatewayAddress Istio__Workload__GatewayAddress;
 typedef struct _Istio__Workload__NetworkAddress Istio__Workload__NetworkAddress;
 typedef struct _Istio__Workload__NamespacedHostname Istio__Workload__NamespacedHostname;
@@ -28,6 +31,70 @@ typedef struct _Istio__Workload__NamespacedHostname Istio__Workload__NamespacedH
 
 /* --- enums --- */
 
+typedef enum _Istio__Workload__LoadBalancing__Scope {
+  ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__UNSPECIFIED_SCOPE = 0,
+  /*
+   * Prefer traffic in the same region.
+   */
+  ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__REGION = 1,
+  /*
+   * Prefer traffic in the same zone.
+   */
+  ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__ZONE = 2,
+  /*
+   * Prefer traffic in the same subzone.
+   */
+  ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__SUBZONE = 3,
+  /*
+   * Prefer traffic on the same node.
+   */
+  ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__NODE = 4,
+  /*
+   * Prefer traffic in the same cluster.
+   */
+  ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__CLUSTER = 5,
+  /*
+   * Prefer traffic in the same network.
+   */
+  ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__NETWORK = 6
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE)
+} Istio__Workload__LoadBalancing__Scope;
+typedef enum _Istio__Workload__LoadBalancing__Mode {
+  ISTIO__WORKLOAD__LOAD_BALANCING__MODE__UNSPECIFIED_MODE = 0,
+  /*
+   * In STRICT mode, only endpoints that meets all of the routing preferences will be considered.
+   * This can be used, for instance, to keep traffic ONLY within the same cluster/node/region.
+   * This should be used with caution, as it can result in all traffic being dropped if there is no matching endpoints,
+   * even if there are endpoints outside of the preferences.
+   */
+  ISTIO__WORKLOAD__LOAD_BALANCING__MODE__STRICT = 1,
+  /*
+   * In FAILOVER mode, endpoint selection will prefer endpoints that match all preferences, but failover to groups of endpoints
+   * that match less (or, eventually, none) preferences.
+   * For instance, with `[NETWORK, REGION, ZONE]`, we will send to:
+   * 1. Endpoints matching `[NETWORK, REGION, ZONE]`
+   * 2. Endpoints matching `[NETWORK, REGION]`
+   * 3. Endpoints matching `[NETWORK]`
+   * 4. Any endpoints
+   */
+  ISTIO__WORKLOAD__LOAD_BALANCING__MODE__FAILOVER = 2
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ISTIO__WORKLOAD__LOAD_BALANCING__MODE)
+} Istio__Workload__LoadBalancing__Mode;
+typedef enum _Istio__Workload__ApplicationTunnel__Protocol {
+  /*
+   * Bytes are copied from the inner stream without modification.
+   */
+  ISTIO__WORKLOAD__APPLICATION_TUNNEL__PROTOCOL__NONE = 0,
+  /*
+   * Prepend PROXY protocol headers before copying bytes
+   * Standard PROXY source and destination information
+   * is included, along with potential extra TLV headers:
+   * 0xD0 - The SPIFFE identity of the source workload
+   * 0xD1 - The FQDN or Hostname of the targeted Service
+   */
+  ISTIO__WORKLOAD__APPLICATION_TUNNEL__PROTOCOL__PROXY = 1
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ISTIO__WORKLOAD__APPLICATION_TUNNEL__PROTOCOL)
+} Istio__Workload__ApplicationTunnel__Protocol;
 typedef enum _Istio__Workload__WorkloadStatus {
   /*
    * Workload is healthy and ready to serve traffic.
@@ -134,6 +201,7 @@ struct  _Istio__Workload__Service
   /*
    * Hostname represents the FQDN of the service.
    * For Kubernetes, this would be <name>.<namespace>.svc.<cluster domain>.
+   * TODO: support this field
    */
   char *hostname;
   /*
@@ -153,13 +221,44 @@ struct  _Istio__Workload__Service
   /*
    * Optional; if set, the SAN to verify for TLS connections.
    * Typically, this is not set and per-workload identity is used to verify
+   * TODO: support this field
    */
   size_t n_subject_alt_names;
   char **subject_alt_names;
+  /*
+   * Waypoint is the waypoint proxy for this service. When set, all incoming requests must go
+   * through the waypoint.
+   */
+  Istio__Workload__GatewayAddress *waypoint;
+  /*
+   * Load balancing policy for selecting endpoints.
+   * Note: this applies only to connecting directly to the workload; when waypoints are used, the waypoint's load_balancing
+   * configuration is used.
+   */
+  Istio__Workload__LoadBalancing *load_balancing;
 };
 #define ISTIO__WORKLOAD__SERVICE__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&istio__workload__service__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL }
+    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, 0,NULL, 0,NULL, NULL, NULL }
+
+
+struct  _Istio__Workload__LoadBalancing
+{
+  ProtobufCMessage base;
+  /*
+   * routing_preference defines what scopes we want to keep traffic within.
+   * The `mode` determines how these routing preferences are handled
+   */
+  size_t n_routing_preference;
+  Istio__Workload__LoadBalancing__Scope *routing_preference;
+  /*
+   * mode defines how we should handle the routing preferences.
+   */
+  Istio__Workload__LoadBalancing__Mode mode;
+};
+#define ISTIO__WORKLOAD__LOAD_BALANCING__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&istio__workload__load_balancing__descriptor) \
+    , 0,NULL, ISTIO__WORKLOAD__LOAD_BALANCING__MODE__UNSPECIFIED_MODE }
 
 
 struct  _Istio__Workload__Workload__ServicesEntry
@@ -221,6 +320,7 @@ struct  _Istio__Workload__Workload
    * a workload that backs a Kubernetes service will typically have only endpoints. A
    * workload that backs a headless Kubernetes service, however, will have both
    * addresses as well as a hostname used for direct access to the headless endpoint.
+   * TODO: support this field
    */
   char *hostname;
   /*
@@ -279,6 +379,11 @@ struct  _Istio__Workload__Workload
    */
   protobuf_c_boolean native_tunnel;
   /*
+   * If an application, such as a sandwiched waypoint proxy, supports directly
+   * receiving information from zTunnel they can set application_protocol.
+   */
+  Istio__Workload__ApplicationTunnel *application_tunnel;
+  /*
    * The services for which this workload is an endpoint.
    * The key is the NamespacedHostname string of the format namespace/hostname.
    */
@@ -297,10 +402,26 @@ struct  _Istio__Workload__Workload
    * The cluster ID that the workload instance belongs to
    */
   char *cluster_id;
+  /*
+   * The Locality defines information about where a workload is geographically deployed
+   */
+  Istio__Workload__Locality *locality;
 };
 #define ISTIO__WORKLOAD__WORKLOAD__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&istio__workload__workload__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__WORKLOAD__TUNNEL_PROTOCOL__NONE, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__WORKLOAD__WORKLOAD_TYPE__DEPLOYMENT, (char *)protobuf_c_empty_string, 0, 0,NULL, 0,NULL, ISTIO__WORKLOAD__WORKLOAD_STATUS__HEALTHY, (char *)protobuf_c_empty_string }
+    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__WORKLOAD__TUNNEL_PROTOCOL__NONE, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__WORKLOAD__WORKLOAD_TYPE__DEPLOYMENT, (char *)protobuf_c_empty_string, 0, NULL, 0,NULL, 0,NULL, ISTIO__WORKLOAD__WORKLOAD_STATUS__HEALTHY, (char *)protobuf_c_empty_string, NULL }
+
+
+struct  _Istio__Workload__Locality
+{
+  ProtobufCMessage base;
+  char *region;
+  char *zone;
+  char *subzone;
+};
+#define ISTIO__WORKLOAD__LOCALITY__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&istio__workload__locality__descriptor) \
+    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string }
 
 
 /*
@@ -332,6 +453,27 @@ struct  _Istio__Workload__Port
 #define ISTIO__WORKLOAD__PORT__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&istio__workload__port__descriptor) \
     , 0, 0 }
+
+
+/*
+ * ApplicationProtocol specifies a workload  (application or gateway) can
+ * consume tunnel information.
+ */
+struct  _Istio__Workload__ApplicationTunnel
+{
+  ProtobufCMessage base;
+  /*
+   * A target natively handles this type of traffic.
+   */
+  Istio__Workload__ApplicationTunnel__Protocol protocol;
+  /*
+   * optional: if set, traffic should be sent to this port after the last zTunnel hop
+   */
+  uint32_t port;
+};
+#define ISTIO__WORKLOAD__APPLICATION_TUNNEL__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&istio__workload__application_tunnel__descriptor) \
+    , ISTIO__WORKLOAD__APPLICATION_TUNNEL__PROTOCOL__NONE, 0 }
 
 
 typedef enum {
@@ -449,6 +591,25 @@ Istio__Workload__Service *
 void   istio__workload__service__free_unpacked
                      (Istio__Workload__Service *message,
                       ProtobufCAllocator *allocator);
+/* Istio__Workload__LoadBalancing methods */
+void   istio__workload__load_balancing__init
+                     (Istio__Workload__LoadBalancing         *message);
+size_t istio__workload__load_balancing__get_packed_size
+                     (const Istio__Workload__LoadBalancing   *message);
+size_t istio__workload__load_balancing__pack
+                     (const Istio__Workload__LoadBalancing   *message,
+                      uint8_t             *out);
+size_t istio__workload__load_balancing__pack_to_buffer
+                     (const Istio__Workload__LoadBalancing   *message,
+                      ProtobufCBuffer     *buffer);
+Istio__Workload__LoadBalancing *
+       istio__workload__load_balancing__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   istio__workload__load_balancing__free_unpacked
+                     (Istio__Workload__LoadBalancing *message,
+                      ProtobufCAllocator *allocator);
 /* Istio__Workload__Workload__ServicesEntry methods */
 void   istio__workload__workload__services_entry__init
                      (Istio__Workload__Workload__ServicesEntry         *message);
@@ -470,6 +631,25 @@ Istio__Workload__Workload *
                       const uint8_t       *data);
 void   istio__workload__workload__free_unpacked
                      (Istio__Workload__Workload *message,
+                      ProtobufCAllocator *allocator);
+/* Istio__Workload__Locality methods */
+void   istio__workload__locality__init
+                     (Istio__Workload__Locality         *message);
+size_t istio__workload__locality__get_packed_size
+                     (const Istio__Workload__Locality   *message);
+size_t istio__workload__locality__pack
+                     (const Istio__Workload__Locality   *message,
+                      uint8_t             *out);
+size_t istio__workload__locality__pack_to_buffer
+                     (const Istio__Workload__Locality   *message,
+                      ProtobufCBuffer     *buffer);
+Istio__Workload__Locality *
+       istio__workload__locality__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   istio__workload__locality__free_unpacked
+                     (Istio__Workload__Locality *message,
                       ProtobufCAllocator *allocator);
 /* Istio__Workload__PortList methods */
 void   istio__workload__port_list__init
@@ -508,6 +688,25 @@ Istio__Workload__Port *
                       const uint8_t       *data);
 void   istio__workload__port__free_unpacked
                      (Istio__Workload__Port *message,
+                      ProtobufCAllocator *allocator);
+/* Istio__Workload__ApplicationTunnel methods */
+void   istio__workload__application_tunnel__init
+                     (Istio__Workload__ApplicationTunnel         *message);
+size_t istio__workload__application_tunnel__get_packed_size
+                     (const Istio__Workload__ApplicationTunnel   *message);
+size_t istio__workload__application_tunnel__pack
+                     (const Istio__Workload__ApplicationTunnel   *message,
+                      uint8_t             *out);
+size_t istio__workload__application_tunnel__pack_to_buffer
+                     (const Istio__Workload__ApplicationTunnel   *message,
+                      ProtobufCBuffer     *buffer);
+Istio__Workload__ApplicationTunnel *
+       istio__workload__application_tunnel__unpack
+                     (ProtobufCAllocator  *allocator,
+                      size_t               len,
+                      const uint8_t       *data);
+void   istio__workload__application_tunnel__free_unpacked
+                     (Istio__Workload__ApplicationTunnel *message,
                       ProtobufCAllocator *allocator);
 /* Istio__Workload__GatewayAddress methods */
 void   istio__workload__gateway_address__init
@@ -574,17 +773,26 @@ typedef void (*Istio__Workload__Address_Closure)
 typedef void (*Istio__Workload__Service_Closure)
                  (const Istio__Workload__Service *message,
                   void *closure_data);
+typedef void (*Istio__Workload__LoadBalancing_Closure)
+                 (const Istio__Workload__LoadBalancing *message,
+                  void *closure_data);
 typedef void (*Istio__Workload__Workload__ServicesEntry_Closure)
                  (const Istio__Workload__Workload__ServicesEntry *message,
                   void *closure_data);
 typedef void (*Istio__Workload__Workload_Closure)
                  (const Istio__Workload__Workload *message,
                   void *closure_data);
+typedef void (*Istio__Workload__Locality_Closure)
+                 (const Istio__Workload__Locality *message,
+                  void *closure_data);
 typedef void (*Istio__Workload__PortList_Closure)
                  (const Istio__Workload__PortList *message,
                   void *closure_data);
 typedef void (*Istio__Workload__Port_Closure)
                  (const Istio__Workload__Port *message,
+                  void *closure_data);
+typedef void (*Istio__Workload__ApplicationTunnel_Closure)
+                 (const Istio__Workload__ApplicationTunnel *message,
                   void *closure_data);
 typedef void (*Istio__Workload__GatewayAddress_Closure)
                  (const Istio__Workload__GatewayAddress *message,
@@ -606,10 +814,16 @@ extern const ProtobufCEnumDescriptor    istio__workload__workload_type__descript
 extern const ProtobufCEnumDescriptor    istio__workload__tunnel_protocol__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__address__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__service__descriptor;
+extern const ProtobufCMessageDescriptor istio__workload__load_balancing__descriptor;
+extern const ProtobufCEnumDescriptor    istio__workload__load_balancing__scope__descriptor;
+extern const ProtobufCEnumDescriptor    istio__workload__load_balancing__mode__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__workload__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__workload__services_entry__descriptor;
+extern const ProtobufCMessageDescriptor istio__workload__locality__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__port_list__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__port__descriptor;
+extern const ProtobufCMessageDescriptor istio__workload__application_tunnel__descriptor;
+extern const ProtobufCEnumDescriptor    istio__workload__application_tunnel__protocol__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__gateway_address__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__network_address__descriptor;
 extern const ProtobufCMessageDescriptor istio__workload__namespaced_hostname__descriptor;
