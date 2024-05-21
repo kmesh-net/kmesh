@@ -33,13 +33,44 @@
 
 static const char kmesh_module_name[] = "kmesh_defer";
 
+static inline bool check_kmesh_managed_process(struct bpf_sock_addr *ctx)
+{
+    if (conn_from_cni_sim_add(ctx)) {
+        record_kmesh_netns_cookie(ctx);
+        // return failed, cni sim connect 0.0.0.1:929(0x3a1)
+        // A normal program will not connect to this IP address
+        return true;
+    }
+
+    if (conn_from_cni_sim_delete(ctx)) {
+        remove_kmesh_netns_cookie(ctx);
+        return true;
+    }
+    return false;
+}
+
+static inline bool check_bypass_process(struct bpf_sock_addr *ctx)
+{
+    if (conn_from_bypass_sim_add(ctx)) {
+        record_bypass_netns_cookie(ctx);
+        // return failed, cni sim connect 0.0.0.1:929(0x3a1)
+        // A normal program will not connect to this IP address
+        return true;
+    }
+    if (conn_from_bypass_sim_delete(ctx)) {
+        remove_bypass_netns_cookie(ctx);
+        return true;
+    }
+    return false;
+}
+
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
     int ret;
 
     Listener__Listener *listener = NULL;
 
-    if (!check_kmesh_enabled(ctx) || ctx->protocol != IPPROTO_TCP)
+    if (ctx->protocol != IPPROTO_TCP)
         return 0;
 
     DECLARE_VAR_ADDRESS(ctx, address);
@@ -73,14 +104,10 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
-    if (conn_from_cni_sim_add(ctx)) {
-        record_netns_cookie(ctx);
-        // return failed, cni sim connect 0.0.0.1:929(0x3a1)
-        // A normal program will not connect to this IP address
+    if (check_kmesh_managed_process(ctx) || !check_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
-    if (conn_from_cni_sim_delete(ctx)) {
-        remove_netns_cookie(ctx);
+    if (check_bypass_process(ctx) || check_bypass_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
     int ret = sock4_traffic_control(ctx);
