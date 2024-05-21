@@ -19,6 +19,7 @@ package manager
 
 import (
 	"flag"
+	"kmesh.net/kmesh/pkg/status"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,7 +31,6 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
-	"kmesh.net/kmesh/pkg/controller/dump"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -79,9 +79,8 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("controller Start successful")
 	defer c.Stop()
 
-	statusServer := dump.NewStatusServer(c, configs)
+	statusServer := status.NewServer(c, configs)
 	statusServer.StartServer()
-	log.Info("dump StartServer successful")
 	defer func() {
 		_ = statusServer.StopServer()
 	}()

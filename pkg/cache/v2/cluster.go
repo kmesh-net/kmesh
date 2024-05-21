@@ -129,7 +129,7 @@ func (cache *ClusterCache) Flush() {
 	}
 }
 
-func (cache *ClusterCache) StatusLookup() []*cluster_v2.Cluster {
+func (cache *ClusterCache) DumpBpf() []*cluster_v2.Cluster {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 	clusters := make([]*cluster_v2.Cluster, 0, len(cache.apiClusterCache))
@@ -147,7 +147,7 @@ func (cache *ClusterCache) StatusLookup() []*cluster_v2.Cluster {
 	return clusters
 }
 
-func (cache *ClusterCache) StatusRead() []*cluster_v2.Cluster {
+func (cache *ClusterCache) Dump() []*cluster_v2.Cluster {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 	clusters := make([]*cluster_v2.Cluster, 0, len(cache.apiClusterCache))
