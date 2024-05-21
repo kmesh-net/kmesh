@@ -31,6 +31,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/nets"
 )
 
 const (
@@ -161,7 +162,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	if len(conn.dstIp) > 0 {
 		dstWorkload = cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
 			Network: conn.dstNetwork,
-			Address: binary.BigEndian.Uint32(conn.dstIp),
+			Address: nets.ConvertIpByteToUint32(conn.dstIp),
 		})
 	}
 

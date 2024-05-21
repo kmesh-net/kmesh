@@ -40,7 +40,6 @@ const (
 	MaxPortPairNum    = 10
 	LbPolicyRandom    = 0
 	KmeshWaypointPort = 15019 // use this fixed port instead of the HboneMtlsPort in kmesh
-	mode              = constants.WorkloadMode
 )
 
 type Processor struct {
@@ -77,7 +76,7 @@ func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.De
 		ResourceNamesSubscribe: names,
 		ResponseNonce:          "",
 		ErrorDetail:            nil,
-		Node:                   config.GetConfig(mode).GetNode(),
+		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
 }
 
@@ -87,7 +86,7 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 		ResourceNamesSubscribe: []string{},
 		ResponseNonce:          rsp.GetNonce(),
 		ErrorDetail:            nil,
-		Node:                   config.GetConfig(mode).GetNode(),
+		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
 }
 

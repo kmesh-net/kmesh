@@ -37,7 +37,6 @@ import (
 )
 
 const (
-	// TODO(YaoZengzeng): use appropriate role, "sidecar" or "ztunnel".
 	sidecarNodeRole           = "sidecar"
 	ztunnelNodeRole           = "ztunnel"
 	localHostIPv4             = "127.0.0.1"
