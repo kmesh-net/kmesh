@@ -53,7 +53,7 @@ type XdsClient struct {
 func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
-		xdsConfig: config.GetConfig(),
+		xdsConfig: config.GetConfig(mode),
 	}
 
 	if mode == constants.WorkloadMode {
