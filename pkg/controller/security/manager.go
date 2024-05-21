@@ -81,7 +81,7 @@ func (s *SecretManager) handleCertRequests() {
 			certificate := s.certsCache.addOrUpdate(identity)
 			if certificate != nil {
 				log.Debugf("add identity: %v refCnt++ : %v\n", identity, certificate.refCnt)
-				return
+				continue
 			}
 			// sign cert if only no cert exists for this identity
 			go s.addCert(identity)
@@ -108,7 +108,6 @@ func newCertRotateQueue() *rotateQueue {
 }
 
 func (pq *rotateQueue) Push(x interface{}) {
-	n := len(pq.certs)
 	item := x.(*certExp)
 	pq.certs = append(pq.certs, item)
 }
@@ -200,12 +199,6 @@ func (c *certsCache) addOrUpdate(identity string) *certItem {
 	}
 	c.certs[identity] = cert
 	return nil
-}
-
-func (c *certsCache) delete(identity string) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	delete(c.certs, identity)
 }
 
 // NewSecretManager creates a new secretManager.s
