@@ -17,10 +17,9 @@
 package security
 
 import (
+	"container/heap"
 	"sync"
 	"time"
-
-	"container/heap"
 
 	istiosecurity "istio.io/istio/pkg/security"
 
@@ -33,20 +32,19 @@ var log = logger.NewLoggerField("security")
 type certExp struct {
 	identity string
 	exp      time.Time
-	index    int
 }
 
-type certCache struct {
+type certItem struct {
 	cert   *istiosecurity.SecretItem
 	refCnt int32
 }
 
 type certsCache struct {
-	certs map[string]*certCache
-	mu    sync.Mutex
+	certs map[string]*certItem
+	mu    sync.RWMutex
 }
 
-type securityData struct {
+type certRequest struct {
 	Identity  string
 	Operation int
 }
@@ -60,85 +58,89 @@ type SecretManager struct {
 	// storing certificates
 	certsCache *certsCache
 
-	// Prioritize certificates based on exp
-	certsQueue *certificateQueue
+	// certs rotation priority queue based on exp
+	certsRotateQueue *rotateQueue
 
-	certsOpChan chan securityData
+	certRequestChan chan certRequest
 }
 
-type certificateQueue struct {
+type rotateQueue struct {
 	certs []*certExp
 	mu    sync.Mutex
 }
 
-func (s *SecretManager) SendData(identity string, op int) {
-	data := securityData{Identity: identity, Operation: op}
-	s.certsOpChan <- data
+func (s *SecretManager) SendCertRequest(identity string, op int) {
+	s.certRequestChan <- certRequest{Identity: identity, Operation: op}
 }
 
-func (s *SecretManager) operateCerts() {
-	for data := range s.certsOpChan {
+func (s *SecretManager) handleCertRequests() {
+	for data := range s.certRequestChan {
 		identity, op := data.Identity, data.Operation
-
 		switch op {
-		case ApplyCert:
-			go s.addCerts(identity)
-		case DeleteCert:
-			go s.deleteCerts(identity)
+		case ADD:
+			certificate := s.certsCache.addOrUpdate(identity)
+			if certificate != nil {
+				log.Debugf("add identity: %v refCnt++ : %v\n", identity, certificate.refCnt)
+				return
+			}
+			// sign cert if only no cert exists for this identity
+			go s.addCert(identity)
+		case DELETE:
+			s.deleteCert(identity)
+		case Rotate:
+			go s.rotateCert(identity)
 		}
 	}
 }
 
 func newCertCache() *certsCache {
 	return &certsCache{
-		certs: make(map[string]*certCache),
-		mu:    sync.Mutex{},
+		certs: make(map[string]*certItem),
+		mu:    sync.RWMutex{},
 	}
 }
 
-func newPriorityQueue() *certificateQueue {
-	return &certificateQueue{
+func newCertRotateQueue() *rotateQueue {
+	return &rotateQueue{
 		certs: make([]*certExp, 0),
 		mu:    sync.Mutex{},
 	}
 }
 
-func (pq *certificateQueue) Push(x interface{}) {
+func (pq *rotateQueue) Push(x interface{}) {
 	n := len(pq.certs)
 	item := x.(*certExp)
-	item.index = n
 	pq.certs = append(pq.certs, item)
 }
 
-func (pq *certificateQueue) Pop() interface{} {
+func (pq *rotateQueue) Pop() interface{} {
 	old := pq.certs
 	n := len(old)
 	x := old[n-1]
 	old[n-1] = nil // avoid memory leak
-	x.index = -1
 	pq.certs = old[0 : n-1]
 	return x
 }
 
-func (pq *certificateQueue) Len() int {
+func (pq *rotateQueue) Len() int {
 	return len(pq.certs)
 }
 
-func (pq *certificateQueue) Less(i, j int) bool {
+func (pq *rotateQueue) Less(i, j int) bool {
 	return pq.certs[i].exp.Before(pq.certs[j].exp)
 }
 
-func (pq *certificateQueue) Swap(i, j int) {
+func (pq *rotateQueue) Swap(i, j int) {
 	pq.certs[i], pq.certs[j] = pq.certs[j], pq.certs[i]
 }
 
-func (pq *certificateQueue) addItem(certExp *certExp) {
+func (pq *rotateQueue) addItem(certExp *certExp) {
 	pq.mu.Lock()
 	defer pq.mu.Unlock()
 	heap.Push(pq, certExp)
 }
 
-func (pq *certificateQueue) delete(identity string) *certExp {
+func (pq *rotateQueue) delete(identity string) *certExp {
 	pq.mu.Lock()
 	defer pq.mu.Unlock()
 	for i := 0; i < len(pq.certs); i++ {
@@ -149,34 +151,43 @@ func (pq *certificateQueue) delete(identity string) *certExp {
 	return nil
 }
 
-// Find the top item and pop if it is about to expire
-func (pq *certificateQueue) lookupAndPop() *certExp {
+// pop a certificate that is about to expire
+func (pq *rotateQueue) pop() *certExp {
 	pq.mu.Lock()
 	defer pq.mu.Unlock()
-	top := pq.certs[0]
-	if time.Until(top.exp.Add(-10*time.Minute)) <= 0 {
-		return heap.Pop(pq).(*certExp)
-	}
-	return nil
+	return heap.Pop(pq).(*certExp)
 }
 
-func (s *SecretManager) lookupAndStoreCert(identity string, newCert *istiosecurity.SecretItem) {
+func (s *SecretManager) storeCert(identity string, newCert *istiosecurity.SecretItem) {
 	s.certsCache.mu.Lock()
 	defer s.certsCache.mu.Unlock()
 	// Check if the key exists in the map
-	// If refCnt == 0, then this certificate is about to be deleted, so do not perform a refresh.
-	certCache := s.certsCache.certs[identity]
-	if certCache != nil && certCache.refCnt != 0 {
-		certCache.cert = newCert
-		certExp := certExp{exp: newCert.ExpireTime, identity: identity}
-		s.certsQueue.addItem(&certExp)
-		log.Infof("cert %v add, exp:%v\n", identity, newCert.ExpireTime)
+	existing := s.certsCache.certs[identity]
+	if existing == nil {
+		// This can happen when delete immediately happens after add
+		log.Debugf("%v has been deleted", identity)
+		return
 	}
+	// if the new cert expire time is before the existing one, it means the new cert is actually signed earlier,
+	// just ignore it.
+	if existing.cert != nil && newCert.ExpireTime.Before(existing.cert.ExpireTime) {
+		return
+	}
+
+	existing.cert = newCert
+	certExp := certExp{
+		exp:      newCert.ExpireTime,
+		identity: identity,
+	}
+	// push to rotate queue
+	s.certsRotateQueue.addItem(&certExp)
+	log.Debugf("cert %v added to rotation queue, exp: %v\n", identity, newCert.ExpireTime)
 }
 
-// Check if the certificate already exists, if it does, increment the reference count by 1,
-// if it doesn't, request a new certificate.
-func (c *certsCache) lookupOrStore(identity string) *certCache {
+// addOrUpdate checks whether the certificate already exists.
+// If it exists, increment the reference count by 1,
+// Otherwise, request a new certificate.
+func (c *certsCache) addOrUpdate(identity string) *certItem {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	cert := c.certs[identity]
@@ -184,7 +195,7 @@ func (c *certsCache) lookupOrStore(identity string) *certCache {
 		cert.refCnt++
 		return cert
 	}
-	cert = &certCache{
+	cert = &certItem{
 		refCnt: 1,
 	}
 	c.certs[identity] = cert
@@ -208,71 +219,50 @@ func NewSecretManager() (*SecretManager, error) {
 	if err != nil {
 		return nil, err
 	}
-	certCache := newCertCache()
-	pq := newPriorityQueue()
+	pq := newCertRotateQueue()
 	heap.Init(pq)
-	certOpChan := make(chan securityData, maxGoroutines)
 
 	secretManager := SecretManager{
-		caClient:      caClient,
-		configOptions: options,
-		certsCache:    certCache,
-		certsQueue:    pq,
-		certsOpChan:   certOpChan,
+		caClient:         caClient,
+		configOptions:    options,
+		certsCache:       newCertCache(),
+		certsRotateQueue: pq,
+		certRequestChan:  make(chan certRequest, maxConcurrentCSR),
 	}
-	go secretManager.operateCerts()
-	go secretManager.refreshExpiringCerts()
+	go secretManager.handleCertRequests()
+	go secretManager.rotateCerts()
 	return &secretManager, nil
 }
 
-// Automatically check and refresh when the validity period expires
-// Store the identity in the priority queue according to the expiration time.
-// Check the highest priority element in the queue every 5 minutes.
-// If it is about to expire, pop up the element and reapply for the certificate.
-func (s *SecretManager) refreshExpiringCerts() {
+// Automatically check and rotate when the validity period expires
+func (s *SecretManager) rotateCerts() {
 	for {
-		if s.certsQueue.Len() != 0 {
-			// As long as the memory in the Go language is referenced by any pointer,
-			// it will not be released. The map stores pointers, so it is safe here.
-			top := s.certsQueue.lookupAndPop()
-			if top != nil {
-				log.Debugf("refresh identity: %v  exp: %v\n", top.identity, top.exp)
-				newCert, err := s.caClient.fetchCert(top.identity)
-				if err != nil {
-					log.Errorf("%v refresh fetchCert error : %v", top.identity, err)
-					return
-				}
-				s.lookupAndStoreCert(top.identity, newCert)
-				continue
-			}
+		if s.certsRotateQueue.Len() != 0 {
+			top := s.certsRotateQueue.pop()
+			time.Sleep(time.Until(top.exp.Add(-1 * time.Hour)))
+			s.SendCertRequest(top.identity, Rotate)
 		}
-		time.Sleep(5 * time.Minute)
 	}
 }
 
-// Initialize the certificate for the first time
-func (s *SecretManager) addCerts(identity string) {
-	certificate := s.certsCache.lookupOrStore(identity)
-	if certificate != nil {
-		log.Debugf("identity: %v refCnt++ : %v\n", identity, certificate.refCnt)
-		return
-	}
-
+// addCert signs a cert for the identity and cache it.
+func (s *SecretManager) addCert(identity string) {
 	newCert, err := s.caClient.fetchCert(identity)
 	if err != nil {
-		log.Errorf("%v fetcheCert error: %v", identity, err)
-		s.certsCache.delete(identity)
+		log.Errorf("fetcheCert %v error: %v", identity, err)
+		// in case fetchCert failed, retry
+		s.certRequestChan <- certRequest{Identity: identity, Operation: ADD}
 		return
 	}
 
 	// Save the new certificate in the map and add a record to the priority queue
 	// of the auto-refresh task when it expires
-	s.lookupAndStoreCert(identity, newCert)
+	s.storeCert(identity, newCert)
 }
 
-// Set the removed to true for the items in the certsQueue priority queue.
+// Set the removed to true for the items in the certsRotateQueue priority queue.
 // Delete the certificate and status map corresponding to the identity.
-func (s *SecretManager) deleteCerts(identity string) {
+func (s *SecretManager) deleteCert(identity string) {
 	s.certsCache.mu.Lock()
 	defer s.certsCache.mu.Unlock()
 	certificate := s.certsCache.certs[identity]
@@ -280,10 +270,23 @@ func (s *SecretManager) deleteCerts(identity string) {
 		return
 	}
 	certificate.refCnt--
-	log.Debugf("identity: %v refCnt-- : %v\n", identity, certificate.refCnt)
+	log.Debugf("remove identity: %v refCnt : %v", identity, certificate.refCnt)
 	if certificate.refCnt == 0 {
 		delete(s.certsCache.certs, identity)
-		s.certsQueue.delete(identity)
-		log.Debugf("identity: %v cert deleted\n", identity)
+		s.certsRotateQueue.delete(identity)
+		log.Debugf("identity: %v cert deleted", identity)
 	}
+}
+
+func (s *SecretManager) rotateCert(identity string) {
+	s.certsCache.mu.Lock()
+	certificate := s.certsCache.certs[identity]
+	if certificate == nil {
+		s.certsCache.mu.Unlock()
+		log.Debugf("identity: %v cert has been deleted", identity)
+		return
+	}
+	s.certsCache.mu.Unlock()
+
+	s.addCert(identity)
 }

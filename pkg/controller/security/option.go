@@ -24,9 +24,11 @@ import (
 )
 
 const (
-	ApplyCert     = 1
-	DeleteCert    = 0
-	maxGoroutines = 8 //max coroutines for certificate application
+	ADD = iota
+	DELETE
+	Rotate
+
+	maxConcurrentCSR = 128 // max concurrent CSR
 )
 
 func NewSecurityOptions() *security.Options {

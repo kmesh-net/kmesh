@@ -93,19 +93,18 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 	}
 }
 
-func GetIdentitybyUid(workloadUid string) string {
+func GetIdentityByUid(workloadUid string) string {
 	workload := cache.WorkloadCache.GetWorkloadByUid(workloadUid)
 	if workload == nil {
-		log.Errorf("workloadCache %v is nil", workloadUid)
+		log.Errorf("workload %v not found", workloadUid)
 		return ""
 	}
 
-	Identity := (&spiffe.Identity{
+	return spiffe.Identity{
 		TrustDomain:    workload.TrustDomain,
 		Namespace:      workload.Namespace,
 		ServiceAccount: workload.ServiceAccount,
-	}).String()
-	return Identity
+	}.String()
 }
 
 func isManagedWorkload(workloadUid string) bool {
@@ -184,8 +183,8 @@ func (p *Processor) removeWorkloadResource(removed_resources []string) error {
 
 	for _, workloadUid := range removed_resources {
 		if isManagedWorkload(workloadUid) {
-			Identity := GetIdentitybyUid(workloadUid)
-			p.Sm.SendData(Identity, kmeshsecurity.DeleteCert)
+			Identity := GetIdentityByUid(workloadUid)
+			p.Sm.SendCertRequest(Identity, kmeshsecurity.DELETE)
 		}
 		cache.WorkloadCache.DeleteWorkload(workloadUid)
 
@@ -474,8 +473,8 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	// The grpc connection is disconnected every half hour and the workload will be resubscribed.
 	// We need to determine whether it already exists in the cache.
 	if exist == nil && isManagedWorkload(workload.Uid) {
-		Identity := GetIdentitybyUid(workload.Uid)
-		p.Sm.SendData(Identity, kmeshsecurity.ApplyCert)
+		Identity := GetIdentityByUid(workload.Uid)
+		p.Sm.SendCertRequest(Identity, kmeshsecurity.ADD)
 	}
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
