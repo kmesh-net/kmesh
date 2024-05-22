@@ -47,7 +47,12 @@ struct {
 static inline bool is_managed_by_kmesh(__u32 ip)
 {
     __u64 key = ip;
-    return bpf_map_lookup_elem(&map_of_manager, &key);
+    int *value = bpf_map_lookup_elem(&map_of_manager, &key);
+
+    if (!value)
+        return false;
+
+    return (*value == 0);
 }
 
 static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
@@ -131,49 +136,98 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
         BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d", err);
 }
 
-static inline void record_ip(__u32 ip)
+static inline void record_kmesh_managed_ip(__u32 ip)
 {
     int err;
-    __u32 value = 0;
+    manager_value_t value = {
+        .is_bypassed = 0,
+    };
+
     __u64 key = ip;
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
     if (err)
-        BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
+        BPF_LOG(ERR, KMESH, "record ip failed!, err is %d\n", err);
 }
 
-static inline void remove_ip(__u32 ip)
+static inline void remove_kmesh_managed_ip(__u32 ip)
 {
     __u64 key = ip;
     int err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
-        BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
+        BPF_LOG(ERR, KMESH, "remove ip failed!, err is %d\n", err);
+}
+
+static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u32 port)
+{
+    __u32 rev_port = bpf_ntohl(skops->remote_port);
+    __u32 client_ip = bpf_ntohl(skops->remote_ip4);
+#if !OE_23_03
+    port >>= 16;
+#endif
+    return (client_ip == ip) && (port == rev_port);
 }
 
 static inline bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)
 {
     // cni sim connect 0.0.0.1:929(0x3a1)
-    // 0x3a1 is the specific port handled by the cni for enable Kmesh
-#if !OE_23_03
-    return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0x3a1));
-#else
-    return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0x3a10000));
-#endif
+    // 0x3a1 is the specific port handled by the cni to enable Kmesh
+    return conn_from_sim(skops, 1, ENABLE_KMESH_PORT);
 }
 
 static inline bool skops_conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
 {
     // cni sim connect 0.0.0.1:930(0x3a2)
-    // 0x3a2 is the specific port handled by the cni for disable Kmesh
-#if !OE_23_03
-    return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0x3a2));
-#else
-    return ((bpf_ntohl(skops->remote_ip4) == 1) && (bpf_ntohl(skops->remote_port) == 0x3a20000));
-#endif
+    // 0x3a2 is the specific port handled by the cni to disable Kmesh
+    return conn_from_sim(skops, 1, DISABLE_KMESH_PORT);
+}
+
+static inline bool skops_conn_from_bypass_sim_add(struct bpf_sock_ops *skops)
+{
+    // bypass sim connect 0.0.0.1:931(0x3a3)
+    // 0x3a3 is the specific port handled by daemon to enable bypass
+    return conn_from_sim(skops, 1, ENABLE_BYPASS_PORT);
+}
+
+static inline bool skops_conn_from_bypass_sim_delete(struct bpf_sock_ops *skops)
+{
+    // bypass sim connect 0.0.0.1:932(0x3a4)
+    // 0x3a4 is the specific port handled by the daemon to disable bypass
+    return conn_from_sim(skops, 1, DISABLE_BYPASS_PORT);
+}
+
+static inline void set_bypass_value(__u32 ip, int new_bypass_value)
+{
+    __u64 key = ip;
+    manager_value_t *current_value = bpf_map_lookup_elem(&map_of_manager, &key);
+    if (!current_value || current_value->is_bypassed == new_bypass_value)
+        return;
+
+    current_value->is_bypassed = new_bypass_value;
+
+    int err = bpf_map_update_elem(&map_of_manager, &key, current_value, BPF_EXIST);
+    if (err)
+        BPF_LOG(ERR, KMESH, "set bypass value failed!, err is %d\n", err);
 }
 
 static inline bool ipv4_mapped_addr(__u32 ip6[4])
 {
     return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
+}
+
+static inline void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops)
+{
+    if (skops_conn_from_cni_sim_add(skops))
+        record_kmesh_managed_ip(skops->local_ip4);
+    if (skops_conn_from_cni_sim_delete(skops))
+        remove_kmesh_managed_ip(skops->local_ip4);
+}
+
+static inline void skops_handle_bypass_process(struct bpf_sock_ops *skops)
+{
+    if (skops_conn_from_bypass_sim_add(skops))
+        set_bypass_value(skops->local_ip4, 1);
+    if (skops_conn_from_bypass_sim_delete(skops))
+        set_bypass_value(skops->local_ip4, 0);
 }
 
 SEC("sockops")
@@ -183,10 +237,8 @@ int record_tuple(struct bpf_sock_ops *skops)
         return 0;
     switch (skops->op) {
     case BPF_SOCK_OPS_TCP_CONNECT_CB:
-        if (skops_conn_from_cni_sim_add(skops))
-            record_ip(skops->local_ip4);
-        if (skops_conn_from_cni_sim_delete(skops))
-            remove_ip(skops->local_ip4);
+        skops_handle_kmesh_managed_process(skops);
+        skops_handle_bypass_process(skops);
         break;
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops->local_ip4)) // local ip4 is client ip
