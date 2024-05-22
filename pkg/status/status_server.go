@@ -21,14 +21,13 @@ import (
 	"net/http"
 	"time"
 
-	"kmesh.net/kmesh/pkg/controller/ads"
-
 	// nolint
 	"google.golang.org/protobuf/encoding/protojson"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/controller"
+	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -37,11 +36,11 @@ var log = logger.NewLoggerField("status")
 const (
 	adminAddr = "localhost:15200"
 
-	patternHelp        = "/help"
-	patternOptions     = "/options"
-	patternBpfAdsMaps  = "/debug/bpf/ads"
-	patternConfigDump  = "/debug/config_dump"
-	patternLReadyProbe = "/debug/ready"
+	patternHelp       = "/help"
+	patternOptions    = "/options"
+	patternBpfAdsMaps = "/debug/bpf/ads"
+	patternConfigDump = "/debug/config_dump"
+	patternReadyProbe = "/debug/ready"
 
 	httpTimeout = time.Second * 20
 )
@@ -70,7 +69,7 @@ func NewServer(c *controller.Controller, configs *options.BootstrapConfigs) *Ser
 	s.mux.HandleFunc(patternOptions, s.httpOptions)
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
 	s.mux.HandleFunc(patternConfigDump, s.configDump)
-	s.mux.HandleFunc(patternLReadyProbe, s.readyProbe)
+	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
 	return s
 }
 
@@ -137,6 +136,7 @@ func (s *Server) configDump(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
+	// TODO: Add some components check
 	w.WriteHeader(http.StatusOK)
 }
 

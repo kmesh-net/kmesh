@@ -19,7 +19,6 @@ package manager
 
 import (
 	"flag"
-	"kmesh.net/kmesh/pkg/status"
 	"os"
 	"os/signal"
 	"syscall"
@@ -32,6 +31,7 @@ import (
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/status"
 )
 
 const (
