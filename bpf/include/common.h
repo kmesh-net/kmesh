@@ -42,6 +42,15 @@ struct ip_addr {
 };
 #define IPV6_ADDR_LEN 16
 
+typedef void (*ctx_dnat_hook)(void *ctx, struct ip_addr *addr, __u32 port);
+
+struct ctx_info {
+    struct ip_addr vip;
+    struct ip_addr dnat_ip;
+    __u32 dnat_port;
+    bool via_waypoint;
+};
+
 #define bpf_unused __attribute__((__unused__))
 
 #define BPF_MAX(x, y) (((x) > (y)) ? (x) : (y))

@@ -30,19 +30,19 @@ static inline backend_value *map_lookup_backend(const backend_key *key)
     return kmesh_map_lookup_elem(&map_of_backend, key);
 }
 
-static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
+static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v, struct ctx_info *info)
 {
     int ret;
-    address_t target_addr;
+    struct ip_addr target_addr;
     void *sk = (void *)ctx->sk;
     struct bpf_sock_tuple value_tuple = {0};
 
     if (backend_v->wp_addr.ip4 != 0 && backend_v->waypoint_port != 0) {
         BPF_LOG(DEBUG, BACKEND, "find waypoint addr=[%u:%u]\n", backend_v->wp_addr.ip4, backend_v->waypoint_port);
         if (ctx->user_family == AF_INET)
-            value_tuple.ipv4.daddr = ctx->user_ip4;
+            value_tuple.ipv4.daddr = info->vip.ip4;
         else
-            bpf_memcpy(value_tuple.ipv6.daddr, ctx->user_ip6, IPV6_ADDR_LEN);
+            bpf_memcpy(value_tuple.ipv6.daddr, info->vip.ip6, IPV6_ADDR_LEN);
 
         value_tuple.ipv4.dport = ctx->user_port;
 
@@ -53,16 +53,12 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
         }
 
         if (ctx->user_family == AF_INET)
-            target_addr.ipv4 = backend_v->wp_addr.ip4;
+            info->dnat_ip.ip4 = backend_v->wp_addr.ip4;
         else
-            bpf_memcpy(target_addr.ipv6, backend_v->wp_addr.ip6, IPV6_ADDR_LEN);
-        target_addr.port = backend_v->waypoint_port;
-        SET_CTX_ADDRESS(ctx, target_addr);
-        kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT4_INDEX);
-
-        // if tail call failed will run this code
-        BPF_LOG(ERR, BACKEND, "workload tail call failed, err is %d\n", ret);
-        return -ENOEXEC;
+            bpf_memcpy(info->dnat_ip.ip6, backend_v->wp_addr.ip6, IPV6_ADDR_LEN);
+        info->dnat_port = backend_v->waypoint_port;
+        info->via_waypoint = true;
+        return 0;
     }
 
 #pragma unroll
@@ -74,12 +70,12 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
 
         if (ctx->user_port == backend_v->service_port[i]) {
             if (ctx->user_family == AF_INET)
-                target_addr.ipv4 = backend_v->addr.ip4;
+                info->dnat_ip.ip4 = backend_v->addr.ip4;
             else
-                bpf_memcpy(target_addr.ipv6, backend_v->addr.ip6, IPV6_ADDR_LEN);
-            target_addr.port = backend_v->target_port[i];
-            SET_CTX_ADDRESS(ctx, target_addr);
-            BPF_LOG(DEBUG, BACKEND, "get the backend addr=[%u:%u]\n", target_addr.ipv4, target_addr.port);
+                bpf_memcpy(info->dnat_ip.ip6, backend_v->addr.ip6, IPV6_ADDR_LEN);
+            info->dnat_port = backend_v->target_port[i];
+            info->via_waypoint = false;
+            BPF_LOG(DEBUG, BACKEND, "get the backend addr=[%u:%u]\n", backend_v->addr.ip4, backend_v->target_port[i]);
             return 0;
         }
     }

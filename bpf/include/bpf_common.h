@@ -41,9 +41,8 @@ static inline void record_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
     int value = 0;
-    struct manager_key key = {
-        .netns_cookie = bpf_get_netns_cookie(ctx),
-    };
+    struct manager_key key = {0};
+    key.netns_cookie = bpf_get_netns_cookie(ctx);
 
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
     if (err)
@@ -53,9 +52,8 @@ static inline void record_netns_cookie(struct bpf_sock_addr *ctx)
 static inline void remove_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
-    struct manager_key key = {
-        .netns_cookie = bpf_get_netns_cookie(ctx),
-    };
+    struct manager_key key = {0};
+    key.netns_cookie = bpf_get_netns_cookie(ctx);
 
     err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
@@ -64,9 +62,8 @@ static inline void remove_netns_cookie(struct bpf_sock_addr *ctx)
 
 static inline bool check_kmesh_enabled(struct bpf_sock_addr *ctx)
 {
-    struct manager_key key = {
-        .netns_cookie = bpf_get_netns_cookie(ctx),
-    };
+    struct manager_key key = {0};
+    key.netns_cookie = bpf_get_netns_cookie(ctx);
     return bpf_map_lookup_elem(&map_of_manager, &key);
 }
 

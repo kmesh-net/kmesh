@@ -28,7 +28,7 @@ static inline frontend_value *map_lookup_frontend(const frontend_key *key)
     return kmesh_map_lookup_elem(&map_of_frontend, key);
 }
 
-static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v)
+static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v, struct ctx_info *info)
 {
     int ret = 0;
     service_key service_k = {0};
@@ -50,14 +50,14 @@ static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v)
     }
 
     if (direct_backend) {
-        ret = backend_manager(ctx, backend_v);
+        ret = backend_manager(ctx, backend_v, info);
         if (ret != 0) {
             if (ret != -ENOENT)
                 BPF_LOG(ERR, FRONTEND, "backend_manager failed, ret:%d\n", ret);
             return ret;
         }
     } else {
-        ret = service_manager(ctx, frontend_v->upstream_id, service_v);
+        ret = service_manager(ctx, frontend_v->upstream_id, service_v, info);
         if (ret != 0) {
             if (ret != -ENOENT)
                 BPF_LOG(ERR, FRONTEND, "service_manager failed, ret:%d\n", ret);
