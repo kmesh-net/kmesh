@@ -32,12 +32,13 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3" // nolint
 
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 const (
-	// TODO(YaoZengzeng): use appropriate role, "sidecar" or "ztunnel".
-	nodeRole                  = "sidecar"
+	sidecarNodeRole           = "sidecar"
+	ztunnelNodeRole           = "ztunnel"
 	localHostIPv4             = "127.0.0.1"
 	serviceNodeSeparator      = "~"
 	defaultClusterLocalDomain = "cluster.local"
@@ -54,7 +55,7 @@ type XdsConfig struct {
 	Metadata         *model.BootstrapNodeMetadata
 }
 
-func NewXDSConfig() *XdsConfig {
+func NewXDSConfig(mode string) *XdsConfig {
 	c := &XdsConfig{
 		Metadata: &model.BootstrapNodeMetadata{},
 	}
@@ -74,7 +75,7 @@ func NewXDSConfig() *XdsConfig {
 	id := podName + "." + podNamespace
 	dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
 
-	c.ServiceNode = strings.Join([]string{nodeRole, ip, id, dnsDomain}, serviceNodeSeparator)
+	c.ServiceNode = strings.Join([]string{getNodeRole(mode), ip, id, dnsDomain}, serviceNodeSeparator)
 
 	log.Infof("service node %v connect to discovery address %v", c.ServiceNode, c.DiscoveryAddress)
 
@@ -90,11 +91,11 @@ func NewXDSConfig() *XdsConfig {
 	return c
 }
 
-func GetConfig() *XdsConfig {
+func GetConfig(mode string) *XdsConfig {
 	if config != nil {
 		return config
 	}
-	config = NewXDSConfig()
+	config = NewXDSConfig(mode)
 	return config
 }
 
@@ -120,4 +121,13 @@ func nodeMetadataToStruct(meta *model.BootstrapNodeMetadata) (*structpb.Struct, 
 		return nil, err
 	}
 	return pbs, nil
+}
+
+func getNodeRole(mode string) string {
+	switch mode {
+	case constants.WorkloadMode:
+		return ztunnelNodeRole
+	default:
+		return sidecarNodeRole
+	}
 }

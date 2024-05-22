@@ -32,6 +32,8 @@ import (
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
@@ -79,7 +81,7 @@ func newAdsRequest(typeUrl string, names []string, nonce string) *service_discov
 		ResourceNames: names,
 		ResponseNonce: nonce,
 		ErrorDetail:   nil,
-		Node:          config.GetConfig().GetNode(),
+		Node:          config.GetConfig(constants.AdsMode).GetNode(),
 	}
 }
 
@@ -90,7 +92,7 @@ func newAckRequest(resp *service_discovery_v3.DiscoveryResponse) *service_discov
 		ResourceNames: []string{},
 		ResponseNonce: resp.GetNonce(),
 		ErrorDetail:   nil,
-		Node:          config.GetConfig().GetNode(),
+		Node:          config.GetConfig(constants.AdsMode).GetNode(),
 	}
 }
 

@@ -29,6 +29,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/pkg/auth"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
@@ -75,7 +76,7 @@ func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.De
 		ResourceNamesSubscribe: names,
 		ResponseNonce:          "",
 		ErrorDetail:            nil,
-		Node:                   config.GetConfig().GetNode(),
+		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
 }
 
@@ -85,7 +86,7 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 		ResourceNamesSubscribe: []string{},
 		ResponseNonce:          rsp.GetNonce(),
 		ErrorDetail:            nil,
-		Node:                   config.GetConfig().GetNode(),
+		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
 }
 
