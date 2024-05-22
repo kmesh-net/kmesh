@@ -241,6 +241,8 @@ func (s *SecretManager) rotateCerts() {
 			top := s.certsRotateQueue.pop()
 			time.Sleep(time.Until(top.exp.Add(-1 * time.Hour)))
 			s.SendCertRequest(top.identity, Rotate)
+		} else {
+			time.Sleep(5 * time.Second)
 		}
 	}
 }
