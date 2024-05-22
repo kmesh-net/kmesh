@@ -1,6 +1,6 @@
 # xDS Response Handling in Kmesh
 
-Kmesh now makes use of StoW ADS to subscribe xDS resources from xDS control plane. Basically, there are four types of xDS subscribed， including CDS, EDS, LDS, RDS
+Kmesh now makes use of StoW ADS to subscribe xDS resources from xDS control plane. Basically, there are four types of xDS subscribed, including CDS, EDS, LDS, RDS
 We are going to make use of incremental ADS to subscribe `Address` resources, which is introduced from ambient mesh.
 
 The goal is to design a better xDS cache to suit for both StoW and Incremental ADS modes.
@@ -34,7 +34,7 @@ Detailed workflow is shown in the diagram:
 2. Store the Updated resources in the xDS cache with status `ApiStatus_UPDATE`
 3. Update the api status of the removed resources to `ApiStatus_DELETE`
 4. Flush the resources to bpf map. Delete the resource if the api status is `ApiStatus_DELETE`, and update the resource if the api status is `ApiStatus_UPDATE`. And then reset the api status from `ApiStatus_UPDATE` to `ApiStatus_NONE`.
-5. Delete resources marked `ApiStatus_DELETE` from the user space xDS cache
+5. Delete resources marked `ApiStatus_DELETE` from the user space xDS cache.
 
 
 
