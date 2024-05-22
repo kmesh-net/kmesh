@@ -222,7 +222,7 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 		return err
 	}
 
-	prog := spec.Programs["record_tuple"]
+	prog := spec.Programs["sockops_prog"]
 	so.Info.Type = prog.Type
 	so.Info.AttachType = prog.AttachType
 
@@ -233,7 +233,7 @@ func (so *BpfSockOpsWorkload) Attach() error {
 	cgopt := link.CgroupOptions{
 		Path:    so.Info.Cgroup2Path,
 		Attach:  so.Info.AttachType,
-		Program: so.KmeshSockopsWorkloadObjects.RecordTuple,
+		Program: so.KmeshSockopsWorkloadObjects.SockopsProg,
 	}
 
 	lk, err := link.AttachCgroup(cgopt)
@@ -277,7 +277,7 @@ func (so *BpfSockOpsWorkload) Detach() error {
 }
 
 func (so *BpfSockOpsWorkload) GetSockMapFD() int {
-	return so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.MapOfKmeshHashmap.FD()
+	return so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.MapOfKmeshSocket.FD()
 }
 
 type BpfSendMsgWorkload struct {

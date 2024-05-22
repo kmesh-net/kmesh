@@ -4,11 +4,11 @@ ROOT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 # adjust the range of BPF code compillation based on the kernel is enhanced
 function bpf_compile_range_adjust() {
     if [ "$ENHANCED_KERNEL" == "enhanced" ]; then
-            sed -i '/tracepoint\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-            sed -i '/sockops\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/ads\/tracepoint\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/ads\/sockops\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
     else
-            sed -i '/tracepoint\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-            sed -i '/sockops\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/ads\/tracepoint\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
+            sed -i '/ads\/sockops\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
     fi
 }
 
