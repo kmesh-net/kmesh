@@ -27,7 +27,7 @@ assignees: ''
   Two sponsors is enough, but better from different companies/organizations.
 -->
 
-## List of contributions to the Kurator project
+## List of contributions to the Kmesh project
 
 - PRs reviewed / authored:
 
