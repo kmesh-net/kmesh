@@ -21,22 +21,20 @@ import (
 )
 
 const (
-	ConverNumBase  = 10
-	MaxPortPairNum = 10
+	ConverNumBase = 10
+	MaxServiceNum = 10
 )
 
 type BackendKey struct {
 	BackendUid uint32 // workloadUid to uint32
 }
 
-type ServicePorts [MaxPortPairNum]uint32
-type TargetPorts [MaxPortPairNum]uint32
+type ServiceList [MaxServiceNum]uint32
 
 type BackendValue struct {
 	IPv4         uint32 // backend ip
-	PortCount    uint32
-	ServicePort  ServicePorts // ServicePort[i] and TargetPort[i] are a pair, i starts from 0 and max value is PortCount-1
-	TargetPort   TargetPorts
+	ServiceCount uint32
+	Services     ServiceList
 	WaypointAddr uint32
 	WaypointPort uint32
 }

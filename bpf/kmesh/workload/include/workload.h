@@ -22,8 +22,9 @@
 
 #include "config.h"
 
-#define MAX_PORT_COUNT 10
-#define RINGBUF_SIZE   (1 << 12)
+#define MAX_PORT_COUNT    10
+#define MAX_SERVICE_COUNT 10
+#define RINGBUF_SIZE      (1 << 12)
 
 // frontend map
 typedef struct {
@@ -40,8 +41,13 @@ typedef struct {
 } __attribute__((packed)) service_key;
 
 typedef struct {
-    __u32 endpoint_count; // endpoint count of current service
-    __u32 lb_policy;      // load balancing algorithm, currently only supports random algorithm
+    __u32 endpoint_count;               // endpoint count of current service
+    __u32 lb_policy;                    // load balancing algorithm, currently only supports random algorithm
+    __u32 service_port[MAX_PORT_COUNT]; // service_port[i] and target_port[i] are a pair, i starts from 0 and max value
+                                        // is MAX_PORT_COUNT-1
+    __u32 target_port[MAX_PORT_COUNT];
+    __u32 waypoint_addr;
+    __u32 waypoint_port;
 } __attribute__((packed)) service_value;
 
 // endpoint map
@@ -61,9 +67,8 @@ typedef struct {
 
 typedef struct {
     __u32 ipv4; // backend ip
-    __u32 port_count;
-    __u32 service_port[MAX_PORT_COUNT];
-    __u32 target_port[MAX_PORT_COUNT];
+    __u32 service_count;
+    __u32 service[MAX_SERVICE_COUNT];
     __u32 waypoint_addr;
     __u32 waypoint_port;
 } __attribute__((packed)) backend_value;

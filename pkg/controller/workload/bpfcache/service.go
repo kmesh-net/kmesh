@@ -20,13 +20,24 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+const (
+	MaxPortNum = 10
+)
+
 type ServiceKey struct {
 	ServiceId uint32 // service id
 }
 
+type ServicePorts [MaxPortNum]uint32
+type TargetPorts [MaxPortNum]uint32
+
 type ServiceValue struct {
-	EndpointCount uint32 // endpoint count of current service
-	LbPolicy      uint32 // load balancing algorithm, currently only supports random algorithm
+	EndpointCount uint32       // endpoint count of current service
+	LbPolicy      uint32       // load balancing algorithm, currently only supports random algorithm
+	ServicePort   ServicePorts // ServicePort[i] and TargetPort[i] are a pair, i starts from 0 and max value is MaxPortNum-1
+	TargetPort    TargetPorts
+	WaypointAddr  uint32
+	WaypointPort  uint32
 }
 
 func (c *Cache) ServiceUpdate(key *ServiceKey, value *ServiceValue) error {
