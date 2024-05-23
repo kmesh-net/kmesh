@@ -8,7 +8,7 @@ labels: question
 <!-- Please use this template while asking a new question. Thanks!
 Please make sure you have read the FAQ and searched the issue list.
 - FAQ: To be added
-- Issues: https://github.com/kurator-dev/kurator/issues?q=is%3Aissue+
+- Issues: https://github.com/kmesh-net/kmesh/issues?q=is%3Aissue+
 -->
 **Please provide an in-depth description of the question you have**:
 
