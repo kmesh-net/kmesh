@@ -16,7 +16,7 @@
 # Create: 2021-12-08
 VERSION ?= 1.0-dev
 GIT_COMMIT_HASH ?= $(shell git rev-parse HEAD)
-GIT_TREESTATE = "clean"
+GIT_TREESTATE=$(shell if [ -n "$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
