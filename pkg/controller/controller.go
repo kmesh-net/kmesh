@@ -22,6 +22,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
+	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -65,7 +66,13 @@ func (c *Controller) Start() error {
 		return nil
 	}
 
+	secertManager, err := security.NewSecretManager()
+	if err != nil {
+		return fmt.Errorf("secretManager create failed: %v", err)
+	}
+
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
+	c.client.workloadController.Processor.Sm = secertManager
 
 	return c.client.Run(stopCh)
 }

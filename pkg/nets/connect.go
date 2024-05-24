@@ -30,6 +30,8 @@ import (
 	istiosecurity "istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/credentialfetcher"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
+
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 const (
@@ -42,7 +44,6 @@ const (
 	credFetcherTypeEnv = "JWT"
 	trustDomainEnv     = "cluster.local"
 	jwtPath            = "/var/run/secrets/tokens/istio-token"
-	rootCertPath       = "/var/run/secrets/istio/root-cert.pem"
 )
 
 // IsIPAndPort returns true if the address format ip:port
@@ -65,7 +66,7 @@ func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	)
 
 	tlsOptions := &istiogrpc.TLSOptions{
-		RootCert:      rootCertPath,
+		RootCert:      constants.RootCertPath,
 		ServerAddress: addr,
 	}
 

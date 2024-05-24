@@ -22,6 +22,7 @@ require (
 	google.golang.org/protobuf v1.33.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gotest.tools v2.2.0+incompatible
+	istio.io/api v1.22.0-alpha.1.0.20240423182551-68cdbb256ce1
 	istio.io/istio v0.0.0-20240428042219-807f97b7c0c0
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
 	k8s.io/api v0.30.0
@@ -143,7 +144,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	istio.io/api v1.22.0-alpha.1.0.20240423182551-68cdbb256ce1 // indirect
 	istio.io/client-go v1.22.0-alpha.1.0.20240423183151-16424ed01f53 // indirect
 	k8s.io/apiextensions-apiserver v0.30.0 // indirect
 	k8s.io/apiserver v0.30.0 // indirect
