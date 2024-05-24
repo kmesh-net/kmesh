@@ -199,7 +199,7 @@ int filter_chain_manager(ctx_buff_t *ctx)
     /* filter match */
     ret = filter_chain_filter_match(filter_chain, &addr, ctx, &filter, &filter_idx);
     if (ret != 0) {
-        BPF_LOG(ERR, FILTERCHAIN, "no match filter, addr=%u\n", addr.ipv4);
+        BPF_LOG(ERR, FILTERCHAIN, "no match filter, addr=%pI4\n", &addr.ipv4);
         return KMESH_TAIL_CALL_RET(-1);
     }
 

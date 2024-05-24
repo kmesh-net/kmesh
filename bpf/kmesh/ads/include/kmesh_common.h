@@ -29,12 +29,9 @@
 #define BPF_LOGTYPE_FILTERCHAIN   BPF_DEBUG_OFF
 #define BPF_LOGTYPE_FILTER        BPF_DEBUG_OFF
 #define BPF_LOGTYPE_CLUSTER       BPF_DEBUG_OFF
-#define BPF_LOGTYPE_SOCKOPS       BPF_DEBUG_OFF
 #define BPF_LOGTYPE_ROUTER        BPF_DEBUG_OFF
 #define BPF_LOGTYPE_ROUTER_CONFIG BPF_DEBUG_OFF
 #define BPF_LOGTYPE_COMMON        BPF_DEBUG_OFF
-
-#define KMESH_CLASSID_MARK 0x1000
 
 #define BPF_DATA_MAX_LEN                                                                                               \
     192 /* this value should be                                                                                        \

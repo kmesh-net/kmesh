@@ -51,7 +51,8 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
         if (!listener)
             return -ENOENT;
     }
-    BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
+    DECLARE_VAR_IPV4(KMESH, ctx->user_ip4, ip);
+    BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
 
 #if ENHANCED_KERNEL
     // todo build when kernel support http parse and route

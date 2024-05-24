@@ -38,7 +38,12 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
     struct bpf_sock_tuple value_tuple = {0};
 
     if (backend_v->waypoint_addr != 0 && backend_v->waypoint_port != 0) {
-        BPF_LOG(DEBUG, BACKEND, "find waypoint addr=[%u:%u]\n", backend_v->waypoint_addr, backend_v->waypoint_port);
+        BPF_LOG(
+            DEBUG,
+            BACKEND,
+            "find waypoint addr=[%pI4h:%u]\n",
+            &backend_v->waypoint_addr,
+            bpf_ntohs(backend_v->waypoint_port));
         value_tuple.ipv4.daddr = ctx->user_ip4;
         value_tuple.ipv4.dport = ctx->user_port;
 
@@ -68,7 +73,8 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
             target_addr.ipv4 = backend_v->ipv4;
             target_addr.port = backend_v->target_port[i];
             SET_CTX_ADDRESS(ctx, target_addr);
-            BPF_LOG(DEBUG, BACKEND, "get the backend addr=[%u:%u]\n", target_addr.ipv4, target_addr.port);
+            BPF_LOG(
+                DEBUG, BACKEND, "get the backend addr=[%pI4h:%u]\n", &target_addr.ipv4, bpf_ntohs(target_addr.port));
             return 0;
         }
     }

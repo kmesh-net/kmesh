@@ -48,4 +48,12 @@ enum bpf_loglevel {
         }                                                                                                              \
     } while (0)
 
+/* add this macro to get ip addr from ctx variable, include bpf_sock_addr or bpf_sock_ops, weird
+reason is direct access would not be print ipaddr when pass `&ctx->remote_ipv4` to bpf_trace_printk */
+#define DECLARE_VAR_IPV4(t, ctx_ip, name)                                                                              \
+    __u32 ip = 0;                                                                                                      \
+    if ((int)(BPF_LOGTYPE_##t) == BPF_DEBUG_ON) {                                                                      \
+        ip = ctx_ip;                                                                                                   \
+    }
+
 #endif // _BPF_LOG_H_
