@@ -28,7 +28,7 @@ import (
 type MockDiscovery struct {
 	Listener       *bufconn.Listener
 	responses      chan *discoveryv3.DiscoveryResponse
-	deltaResponses chan *discoveryv3.DeltaDiscoveryResponse
+	DeltaResponses chan *discoveryv3.DeltaDiscoveryResponse
 	close          chan struct{}
 }
 
@@ -36,7 +36,7 @@ func NewMockServer(t *testing.T) *MockDiscovery {
 	s := &MockDiscovery{
 		close:          make(chan struct{}),
 		responses:      make(chan *discoveryv3.DiscoveryResponse),
-		deltaResponses: make(chan *discoveryv3.DeltaDiscoveryResponse),
+		DeltaResponses: make(chan *discoveryv3.DeltaDiscoveryResponse),
 	}
 
 	buffer := 1024 * 1024
@@ -78,7 +78,7 @@ func (f *MockDiscovery) DeltaAggregatedResources(server discoveryv3.AggregatedDi
 		select {
 		case <-f.close:
 			return nil
-		case resp := <-f.deltaResponses:
+		case resp := <-f.DeltaResponses:
 			numberOfSends++
 			log.Infof("sending delta response from mock: %v", numberOfSends)
 			if err := server.Send(resp); err != nil {
