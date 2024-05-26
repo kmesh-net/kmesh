@@ -42,7 +42,7 @@ static inline int endpoint_manager(ctx_buff_t *ctx, endpoint_value *endpoint_v)
     }
 
     ret = backend_manager(ctx, backend_v);
-    if (ret != 0) {
+    if (ret < 0) {
         if (ret != -ENOENT)
             BPF_LOG(ERR, ENDPOINT, "backend_manager failed, ret:%d\n", ret);
         return ret;
