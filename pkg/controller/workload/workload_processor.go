@@ -19,6 +19,7 @@ package workload
 import (
 	"encoding/binary"
 	"fmt"
+	"os"
 	"strings"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -53,6 +54,7 @@ type Processor struct {
 	endpointsByService map[string]map[string]Endpoint
 	bpf                *bpf.Cache
 	Sm                 *kmeshsecurity.SecretManager
+	nodeName           string
 }
 
 type Endpoint struct {
@@ -71,6 +73,7 @@ func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		endpointsByService: make(map[string]map[string]Endpoint),
 		bpf:                bpf.NewCache(workloadMap),
 		Sm:                 nil,
+		nodeName:           os.Getenv("NODE_NAME"),
 	}
 }
 
@@ -94,7 +97,7 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 	}
 }
 
-func GetIdentityByUid(workloadUid string) string {
+func getIdentityByUid(workloadUid string) string {
 	workload := cache.WorkloadCache.GetWorkloadByUid(workloadUid)
 	if workload == nil {
 		log.Errorf("workload %v not found", workloadUid)
@@ -108,10 +111,13 @@ func GetIdentityByUid(workloadUid string) string {
 	}.String()
 }
 
-func isManagedWorkload(workloadUid string) bool {
+func (p *Processor) isManagedWorkload(workload *workloadapi.Workload) bool {
 	// TODO: Currently, there is no good way to accurately judge whether a workload
 	// is managed by kmesh when new ones are added or deleted.
 	// In the future, we plan to add a cache to implement this functionality.
+	if workload.Node == os.Getenv("NODE_NAME") {
+		return true
+	}
 
 	return true
 }
@@ -172,7 +178,7 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 	return nil
 }
 
-func (p *Processor) removeWorkloadResource(removed_resources []string) error {
+func (p *Processor) removeWorkloadResource(removedResources []string) error {
 	var (
 		err               error
 		skUpdate          = bpf.ServiceKey{}
@@ -182,14 +188,15 @@ func (p *Processor) removeWorkloadResource(removed_resources []string) error {
 		bkDelete          = bpf.BackendKey{}
 	)
 
-	for _, workloadUid := range removed_resources {
-		if isManagedWorkload(workloadUid) {
-			Identity := GetIdentityByUid(workloadUid)
+	for _, uid := range removedResources {
+		exist := cache.WorkloadCache.GetWorkloadByUid(uid)
+		if exist != nil && p.isManagedWorkload(exist) {
+			Identity := getIdentityByUid(uid)
 			p.Sm.SendCertRequest(Identity, kmeshsecurity.DELETE)
 		}
-		cache.WorkloadCache.DeleteWorkload(workloadUid)
+		cache.WorkloadCache.DeleteWorkload(uid)
 
-		backendUid := p.hashName.StrToNum(workloadUid)
+		backendUid := p.hashName.StrToNum(uid)
 		// for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
 		if err = p.deletePodFrontendData(backendUid); err != nil {
 			log.Errorf("deletePodFrontendData failed: %s", err)
@@ -245,7 +252,7 @@ func (p *Processor) removeWorkloadResource(removed_resources []string) error {
 			log.Errorf("BackendDelete failed: %s", err)
 			goto failed
 		}
-		p.hashName.Delete(workloadUid)
+		p.hashName.Delete(uid)
 	}
 
 failed:
@@ -467,16 +474,26 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 }
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
-	log.Debugf("workload uid: %s", workload.Uid)
-	exist := cache.WorkloadCache.GetWorkloadByUid(workload.Uid)
+	log.Debugf("handle workload: %s", workload.Uid)
+	if p.isManagedWorkload(workload) {
+		oldIdentity := getIdentityByUid(workload.Uid)
+		newIdentity := spiffe.Identity{
+			TrustDomain:    workload.TrustDomain,
+			Namespace:      workload.Namespace,
+			ServiceAccount: workload.ServiceAccount,
+		}.String()
+		if oldIdentity == "" {
+			// This is the case workload added first time
+			p.Sm.SendCertRequest(newIdentity, kmeshsecurity.ADD)
+		} else if oldIdentity != newIdentity {
+			// This is the case that workload identity has been updated
+			p.Sm.SendCertRequest(oldIdentity, kmeshsecurity.DELETE)
+			p.Sm.SendCertRequest(newIdentity, kmeshsecurity.ADD)
+		}
+	}
+
 	cache.WorkloadCache.AddWorkload(workload)
 
-	// The grpc connection is disconnected every half hour and the workload will be resubscribed.
-	// We need to determine whether it already exists in the cache.
-	if exist == nil && isManagedWorkload(workload.Uid) {
-		Identity := GetIdentityByUid(workload.Uid)
-		p.Sm.SendCertRequest(Identity, kmeshsecurity.ADD)
-	}
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
 		if err := p.handleDataWithService(workload); err != nil {
