@@ -39,7 +39,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
     Listener__Listener *listener = NULL;
 
-    if (!check_kmesh_enabled(ctx) || ctx->protocol != IPPROTO_TCP)
+    if (ctx->protocol != IPPROTO_TCP)
         return 0;
 
     DECLARE_VAR_ADDRESS(ctx, address);
@@ -74,14 +74,10 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
-    if (conn_from_cni_sim_add(ctx)) {
-        record_netns_cookie(ctx);
-        // return failed, cni sim connect 0.0.0.1:929(0x3a1)
-        // A normal program will not connect to this IP address
+    if (handle_kmesh_manage_process(ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
-    if (conn_from_cni_sim_delete(ctx)) {
-        remove_netns_cookie(ctx);
+    if (handle_bypass_process(ctx) || is_bypass_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
     int ret = sock4_traffic_control(ctx);

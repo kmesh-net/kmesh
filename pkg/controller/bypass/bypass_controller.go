@@ -23,9 +23,11 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"net"
 	"os"
 	"path"
 	"strings"
+	"syscall"
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -51,6 +53,8 @@ var (
 const (
 	DefaultInformerSyncPeriod = 30 * time.Second
 	LabelSelectorBypass       = "kmesh.net/bypass=enabled"
+	KmeshAnnotation           = "kmesh.net/redirection"
+	SidecarAnnotation         = "sidecar.istio.io/inject"
 )
 
 func StartByPassController(client kubernetes.Interface) error {
@@ -76,17 +80,27 @@ func StartByPassController(client kubernetes.Interface) error {
 				return
 			}
 
-			log.Infof("%s/%s: ADDED", pod.GetNamespace(), pod.GetName())
+			log.Infof("%s/%s: enable bypass control", pod.GetNamespace(), pod.GetName())
 			enableSidecar, _ := checkSidecar(client, pod)
-			if !enableSidecar {
-				log.Info("do not need add iptables rules, pod is not managed by sidecar")
+			enableKmesh := isKmeshManaged(pod)
+			if !enableSidecar && !enableKmesh {
+				log.Info("do not need process, pod is not managed by sidecar or kmesh")
 				return
 			}
 
 			nspath, _ := getnspath(pod)
-			if err := addIptables(nspath); err != nil {
-				log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
-				return
+
+			if enableSidecar {
+				if err := addIptables(nspath); err != nil {
+					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
+					return
+				}
+			}
+			if enableKmesh {
+				if err := handleKmeshBypass(nspath, 1); err != nil {
+					log.Errorf("failed to enable bypass control")
+					return
+				}
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
@@ -103,16 +117,24 @@ func StartByPassController(client kubernetes.Interface) error {
 				log.Debugf("%s/%s: Pod is being deleted, skipping further processing", pod.GetNamespace(), pod.GetName())
 				return
 			}
+
+			log.Infof("%s/%s: disable bypass control", pod.GetNamespace(), pod.GetName())
 			enableSidecar, _ := checkSidecar(client, pod)
-			if !enableSidecar {
-				log.Info("do not need delete iptables rules, pod is not managed by sidecar")
-				return
+			enableKmesh := isKmeshManaged(pod)
+
+			if enableSidecar {
+				nspath, _ := getnspath(pod)
+				if err := deleteIptables(nspath); err != nil {
+					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
+					return
+				}
 			}
-			log.Infof("%s/%s: DELETED", pod.GetNamespace(), pod.GetName())
-			nspath, _ := getnspath(pod)
-			if err := deleteIptables(nspath); err != nil {
-				log.Errorf("failed to delete iptables rules for %s: %v", nspath, err)
-				return
+			if enableKmesh {
+				nspath, _ := getnspath(pod)
+				if err := handleKmeshBypass(nspath, 0); err != nil {
+					log.Errorf("failed to disable bypass control")
+					return
+				}
 			}
 		},
 	}); err != nil {
@@ -121,6 +143,53 @@ func StartByPassController(client kubernetes.Interface) error {
 
 	go podInformer.Run(stopChan)
 
+	return nil
+}
+
+func handleKmeshBypass(ns string, oper int) error {
+	execFunc := func(netns.NetNS) error {
+		/*
+		 * This function is used to process pods that are marked
+		 * or deleted with the bypass label on the current node.
+		 * Attempt to connect to a special IP address. The
+		 * connection triggers the cgroup/connect4 ebpf
+		 * program and records the netns cookie information
+		 * of the current connection. The cookie can be used
+		 * to determine whether the pod is been bypass.
+		 * 0.0.0.1:<port> is "cipher key" for cgroup/connect4
+		 * ebpf program. 931/932 is the specific port handled by
+		 * daemon to enable/disable bypass
+		 */
+		simip := net.ParseIP("0.0.0.1")
+		port := 931
+		if oper == 0 {
+			port = 932
+		}
+		sockfd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
+		if err != nil {
+			return err
+		}
+		if err = syscall.SetNonblock(sockfd, true); err != nil {
+			return err
+		}
+		err = syscall.Connect(sockfd, &syscall.SockaddrInet4{
+			Port: port,
+			Addr: [4]byte(simip.To4()),
+		})
+		if err == nil {
+			return err
+		}
+		errno, ok := err.(syscall.Errno)
+		if ok && errno == 115 { // -EINPROGRESS, Operation now in progress
+			return nil
+		}
+		return err
+	}
+
+	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
+		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
+		return err
+	}
 	return nil
 }
 
@@ -183,11 +252,21 @@ func checkSidecar(client kubernetes.Interface, pod *corev1.Pod) (bool, error) {
 		return true, nil
 	}
 
-	if _, ok := pod.Annotations["sidecar.istio.io/inject"]; ok {
+	if _, ok := pod.Annotations[SidecarAnnotation]; ok {
 		return true, nil
 	}
 
 	return false, nil
+}
+
+func isKmeshManaged(pod *corev1.Pod) bool {
+	annotations := pod.Annotations
+	if annotations != nil {
+		if value, ok := annotations[KmeshAnnotation]; ok && value == "enabled" {
+			return true
+		}
+	}
+	return false
 }
 
 func getnspath(pod *corev1.Pod) (string, error) {
