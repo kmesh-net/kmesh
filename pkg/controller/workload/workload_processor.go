@@ -39,7 +39,6 @@ import (
 )
 
 const (
-	MaxPortPairNum    = 10
 	LbPolicyRandom    = 0
 	KmeshWaypointPort = 15019 // use this fixed port instead of the HboneMtlsPort in kmesh
 )
@@ -135,21 +134,18 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 
 func (p *Processor) deletePodFrontendData(uid uint32) error {
 	var (
-		err error
-		bk  = bpf.BackendKey{}
-		bv  = bpf.BackendValue{}
-		fk  = bpf.FrontendKey{}
+		bk = bpf.BackendKey{}
+		bv = bpf.BackendValue{}
+		fk = bpf.FrontendKey{}
 	)
 
 	bk.BackendUid = uid
-	if err = p.bpf.BackendLookup(&bk, &bv); err == nil {
+	if err := p.bpf.BackendLookup(&bk, &bv); err == nil {
 		log.Debugf("Find BackendValue: [%#v]", bv)
-		if bv.PortCount == 0 {
-			fk.IPv4 = bv.IPv4
-			if err = p.bpf.FrontendDelete(&fk); err != nil {
-				log.Errorf("FrontendDelete failed: %s", err)
-				return err
-			}
+		fk.IPv4 = bv.IPv4
+		if err = p.bpf.FrontendDelete(&fk); err != nil {
+			log.Errorf("FrontendDelete failed: %s", err)
+			return err
 		}
 	}
 
@@ -348,45 +344,39 @@ func (p *Processor) storeServiceCache(workload_uid string, serviceName string, p
 	endpointCaches[workload_uid] = endpoint
 }
 
-func (p *Processor) storeBackendData(uid uint32, ips [][]byte, portList *workloadapi.PortList, waypoint *workloadapi.GatewayAddress, serviceName string) error {
+func (p *Processor) storeBackendData(uid uint32, ip []byte, waypoint *workloadapi.GatewayAddress, portList map[string]*workloadapi.PortList) error {
 	var (
-		err error
-		bk  = bpf.BackendKey{}
-		bv  = bpf.BackendValue{}
+		bk = bpf.BackendKey{}
+		bv = bpf.BackendValue{}
 	)
 
 	bk.BackendUid = uid
-	for _, ip := range ips {
-		if waypoint != nil {
-			addr := waypoint.GetAddress().Address
-			bv.WaypointAddr = nets.ConvertIpByteToUint32(addr)
-			bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
-		}
-
-		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
-		bv.PortCount = uint32(len(portList.Ports))
-		for i, portPair := range portList.Ports {
-			if i >= MaxPortPairNum {
-				log.Warnf("exceed the max port count")
-				break
-			}
-			bv.ServicePort[i] = nets.ConvertPortToBigEndian(portPair.ServicePort)
-			if strings.Contains(serviceName, "waypoint") {
-				bv.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
-			} else {
-				bv.TargetPort[i] = nets.ConvertPortToBigEndian(portPair.TargetPort)
-			}
-			if err = p.bpf.BackendUpdate(&bk, &bv); err != nil {
-				log.Errorf("Update backend map failed, err:%s", err)
-				return err
-			}
-		}
-
-		if err = p.storePodFrontendData(uid, ip); err != nil {
-			log.Errorf("storePodFrontendData failed, err:%s", err)
-			return err
+	bv.IPv4 = nets.ConvertIpByteToUint32(ip)
+	bv.ServiceCount = 0
+	for serviceName := range portList {
+		bv.Services[bv.ServiceCount] = p.hashName.StrToNum(serviceName)
+		bv.ServiceCount++
+		if bv.ServiceCount >= bpf.MaxServiceNum {
+			log.Warnf("exceed the max service count, currently, a pod can belong to a maximum of 10 services")
+			break
 		}
 	}
+
+	if waypoint != nil {
+		bv.WaypointAddr = nets.ConvertIpByteToUint32(waypoint.GetAddress().Address)
+		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
+	}
+
+	if err := p.bpf.BackendUpdate(&bk, &bv); err != nil {
+		log.Errorf("Update backend map failed, err:%s", err)
+		return err
+	}
+
+	if err := p.storePodFrontendData(uid, ip); err != nil {
+		log.Errorf("storePodFrontendData failed, err:%s", err)
+		return err
+	}
+
 	return nil
 }
 
@@ -424,10 +414,12 @@ func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error 
 		}
 	}
 
-	for serviceName, portList := range workload.GetServices() {
-		// store workload info in backend map, after service come, add the endpoint relationship
-		ips := workload.GetAddresses()
-		if err = p.storeBackendData(backend_uid, ips, portList, workload.GetWaypoint(), serviceName); err != nil {
+	if len(workload.GetAddresses()) > 1 {
+		log.Warnf("current only supprt single ip of a pod")
+	}
+
+	for _, ip := range workload.GetAddresses() { // current only support signle ip, if a pod have multi ips, the last one will be stored finally
+		if err = p.storeBackendData(backend_uid, ip, workload.GetWaypoint(), workload.GetServices()); err != nil {
 			log.Errorf("storeBackendData failed, err:%s", err)
 			return err
 		}
@@ -512,7 +504,7 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 	return nil
 }
 
-func (p *Processor) storeServiceData(serviceName string) error {
+func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.GatewayAddress, ports []*workloadapi.Port) error {
 	var (
 		err error
 		ek  = bpf.EndpointKey{}
@@ -524,6 +516,26 @@ func (p *Processor) storeServiceData(serviceName string) error {
 	sk.ServiceId = p.hashName.StrToNum(serviceName)
 	sv.LbPolicy = LbPolicyRandom
 	sv.EndpointCount = 0 // there are 0 endpoints in the initial state
+
+	if waypoint != nil {
+		sv.WaypointAddr = nets.ConvertIpByteToUint32(waypoint.GetAddress().Address)
+		sv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
+	}
+
+	for i, port := range ports {
+		if i >= bpf.MaxPortNum {
+			log.Warnf("exceed the max port count,current only support maximum of 10 ports")
+			break
+		}
+
+		sv.ServicePort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
+		if strings.Contains(serviceName, "waypoint") {
+			sv.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+		} else {
+			sv.TargetPort[i] = nets.ConvertPortToBigEndian(port.TargetPort)
+		}
+	}
+
 	endpointCaches, ok := p.endpointsByService[serviceName]
 	if ok {
 		for workloadUid, endpoint := range endpointCaches {
@@ -579,7 +591,7 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		}
 
 		// get endpoint from ServiceCache, and update service and endpoint map
-		if err = p.storeServiceData(serviceName); err != nil {
+		if err = p.storeServiceData(serviceName, service.GetWaypoint(), service.GetPorts()); err != nil {
 			log.Errorf("storeServiceData failed, err:%s", err)
 			return err
 		}
