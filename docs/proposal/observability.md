@@ -41,155 +41,61 @@ This section is for explicitly listing the motivation, goals, and non-goals of
 this KEP.  Describe why the change is important and the benefits to users.
 -->
 
-**access log:**
+#### Accesslog
 
-In istio, use [telemetry](https://istio.io/latest/docs/tasks/observability/logs/access-log/) to enable access logs and define the access log format there. The default access log format is as follows:
+In [istio ztunnel](https://github.com/istio/ztunnel?tab=readme-ov-file#logging), the Layer 4 access log contains the following metrics:
 
-```console
-[%START_TIME%] \"%REQ(:METHOD)% %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)% %PROTOCOL%\" %RESPONSE_CODE% %RESPONSE_FLAGS% %RESPONSE_CODE_DETAILS% %CONNECTION_TERMINATION_DETAILS%
-\"%UPSTREAM_TRANSPORT_FAILURE_REASON%\" %BYTES_RECEIVED% %BYTES_SENT% %DURATION% %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)% \"%REQ(X-FORWARDED-FOR)%\" \"%REQ(USER-AGENT)%\" \"%REQ(X-REQUEST-ID)%\"
-\"%REQ(:AUTHORITY)%\" \"%UPSTREAM_HOST%\" %UPSTREAM_CLUSTER% %UPSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_LOCAL_ADDRESS% %DOWNSTREAM_REMOTE_ADDRESS% %REQUESTED_SERVER_NAME% %ROUTE_NAME%\n
-```
+src.addr
+src.workload
+src.namespace
+src.identity
 
-- %START_TIME%: Request start time, used to calculate request duration.
-- %REQ(:METHOD)%：Request method, such as GET, POST etc.
-- %REQ(X-ENVOY-ORIGINAL-PATH?:PATH)%：The URL path of the request, excluding the host and port information.
-- %PROTOCOL%：The network protocol and version used for the request.
-- %RESPONSE_CODE%：The HTTP status code returned by the server when responding to the request, such as 200, 404 etc.
-- %RESPONSE_FLAGS%：Response flags indicating additional information like whether the response included a content-length or was a chunked response.
-- %RESPONSE_CODE_DETAILS%: More detailed explanation of the status code, such as the specific reason for a 4xx error.
-- %CONNECTION_TERMINATION_DETAILS%: How the connection was terminated, such as idle timeout or proxy timeout.
-- %UPSTREAM_TRANSPORT_FAILURE_REASON%:
-- %BYTES_RECEIVED%: The total number of bytes received by the proxy from the downstream client.
-- %BYTES_SENT%: The total number of bytes sent by the proxy to the upstream host.
-- %DURATION%: The total time taken for the request to pass through the proxy from receipt to response, in milliseconds.
-- %RESP(X-ENVOY-UPSTREAM-SERVICE-TIME)%: The actual time taken by the upstream service to process the request and generate the response.
-- %REQ(X-FORWARDED-FOR)%: The original client IP address, with each proxied hop's IP appended.
-- %REQ(USER-AGENT)%: The client's user-agent software and version identification string.
-- %REQ(X-REQUEST-ID)%: A unique identifier for the request.
-- %REQ(:AUTHORITY)%: The value of the HTTP request's Host header field.
-- %UPSTREAM_HOST%: The real IP address or hostname of the upstream host.
-- %UPSTREAM_CLUSTER%: The name of the cluster that the upstream host belongs to.
-- %UPSTREAM_LOCAL_ADDRESS%: The local IP address of the proxy for its connection to the upstream node.
-- %DOWNSTREAM_LOCAL_ADDRESS%: The IP and port on which the proxy listens for client connections.
-- %DOWNSTREAM_REMOTE_ADDRESS%: The IP and port on which the proxy listens for client connections.
-- %REQUESTED_SERVER_NAME%: The server name specified in the request.
-- %ROUTE_NAME%: The name of the route that the request matched and used.
+dst.addr
+dst.hbone_addr
+dst.service
+dst.workload
+dst.namespace
+dst.identity
 
-These metrics are all provided by envoy.
+direction
 
-In order for users to be able to use Kmesh smoothly, Kmesh needs to support these metrics at a minimum.
+bytes_sent
+bytes_recv
+duration
 
-In addition to these metrics that must be supported, we need to discuss whether Kmesh can take advantage of eEPF to access data on other user relationships. To enhance our competitiveness.
-
-**metric:**
-
-To monitor service behavior, Istio generates metrics for all service traffic in, out, and within an Istio service mesh. These metrics provide information on behaviors such as the overall volume of traffic, the error rates within the traffic, and the response times for requests.
-
-The built-in support for istio's detection metrics is as follows:
+An example of the accesslog obtained is shown below:
 
 ```console
-// refer to https://github.com/istio/api/blob/master/telemetry/v1/telemetry.pb.go
-
-// Use of this enum indicates that the override should apply to all Istio
-// default metrics.
-MetricSelector_ALL_METRICS MetricSelector_IstioMetric = 0
-// Counter of requests to/from an application, generated for HTTP, HTTP/2,
-// and GRPC traffic.
-//
-// The Prometheus provider exports this metric as: `istio_requests_total`.
-//
-// The Stackdriver provider exports this metric as:
-//
-// - `istio.io/service/server/request_count` (SERVER mode)
-// - `istio.io/service/client/request_count` (CLIENT mode)
-MetricSelector_REQUEST_COUNT MetricSelector_IstioMetric = 1
-// Histogram of request durations, generated for HTTP, HTTP/2, and GRPC
-// traffic.
-//
-// The Prometheus provider exports this metric as:
-// `istio_request_duration_milliseconds`.
-//
-// The Stackdriver provider exports this metric as:
-//
-// - `istio.io/service/server/response_latencies` (SERVER mode)
-// - `istio.io/service/client/roundtrip_latencies` (CLIENT mode)
-MetricSelector_REQUEST_DURATION MetricSelector_IstioMetric = 2
-// Histogram of request body sizes, generated for HTTP, HTTP/2, and GRPC
-// traffic.
-//
-// The Prometheus provider exports this metric as: `istio_request_bytes`.
-//
-// The Stackdriver provider exports this metric as:
-//
-// - `istio.io/service/server/request_bytes` (SERVER mode)
-// - `istio.io/service/client/request_bytes` (CLIENT mode)
-MetricSelector_REQUEST_SIZE MetricSelector_IstioMetric = 3
-// Histogram of response body sizes, generated for HTTP, HTTP/2, and GRPC
-// traffic.
-//
-// The Prometheus provider exports this metric as: `istio_response_bytes`.
-//
-// The Stackdriver provider exports this metric as:
-//
-// - `istio.io/service/server/response_bytes` (SERVER mode)
-// - `istio.io/service/client/response_bytes` (CLIENT mode)
-MetricSelector_RESPONSE_SIZE MetricSelector_IstioMetric = 4
-// Counter of TCP connections opened over lifetime of workload.
-//
-// The Prometheus provider exports this metric as:
-// `istio_tcp_connections_opened_total`.
-//
-// The Stackdriver provider exports this metric as:
-//
-// - `istio.io/service/server/connection_open_count` (SERVER mode)
-// - `istio.io/service/client/connection_open_count` (CLIENT mode)
-MetricSelector_TCP_OPENED_CONNECTIONS MetricSelector_IstioMetric = 5
-// Counter of TCP connections closed over lifetime of workload.
-//
-// The Prometheus provider exports this metric as:
-// `istio_tcp_connections_closed_total`.
-//
-// The Stackdriver provider exports this metric as:
-//
-// - `istio.io/service/server/connection_close_count` (SERVER mode)
-// - `istio.io/service/client/connection_close_count` (CLIENT mode)
-MetricSelector_TCP_CLOSED_CONNECTIONS MetricSelector_IstioMetric = 6
-// Counter of bytes sent during a response over a TCP connection.
-//
-// The Prometheus provider exports this metric as:
-// `istio_tcp_sent_bytes_total`.
-//
-// The Stackdriver provider exports this metric as:
-//
-// - `istio.io/service/server/sent_bytes_count` (SERVER mode)
-// - `istio.io/service/client/sent_bytes_count` (CLIENT mode)
-MetricSelector_TCP_SENT_BYTES MetricSelector_IstioMetric = 7
-// Counter of bytes received during a request over a TCP connection.
-//
-// The Prometheus provider exports this metric as:
-// `istio_tcp_received_bytes_total`.
-//
-// The Stackdriver provider exports this metric as:
-//
-// - `istio.io/service/server/received_bytes_count` (SERVER mode)
-// - `istio.io/service/client/received_bytes_count` (CLIENT mode)
-MetricSelector_TCP_RECEIVED_BYTES MetricSelector_IstioMetric = 8
-// Counter incremented for every gRPC messages sent from a client.
-//
-// The Prometheus provider exports this metric as:
-// `istio_request_messages_total`
-MetricSelector_GRPC_REQUEST_MESSAGES MetricSelector_IstioMetric = 9
-// Counter incremented for every gRPC messages sent from a server.
-//
-// The Prometheus provider exports this metric as:
-// `istio_response_messages_total`
-MetricSelector_GRPC_RESPONSE_MESSAGES MetricSelector_IstioMetric = 10
+2024-04-11T15:38:42.182974Z  INFO access: connection complete
+    src.addr=10.244.0.24:46238 src.workload="shell-6d8bcd654d-t88gp" src.namespace="default" src.identity="spiffe://cluster.local/ns/default/sa/default"
+    dst.addr=10.244.0.42:15008 dst.hbone_addr=10.96.108.116:80 dst.service="echo.default.svc.cluster.local"
+    direction="outbound" bytes_sent=67 bytes_recv=490 duration="13ms"
 ```
 
-In addition to the above metrics, istio provides the [customMetric API](https://istio.io/latest/docs/tasks/observability/metrics/customize-metrics/) to customise the metrics and get the corresponding information from the [envoy](https://www.envoyproxy.io/docs/envoy/latest/intro/arch_overview/advanced/attributes).
+The accesslog needs to contain the identities(address/workload/namespace/identity) of the destination and source. In addition, the required metrics are the size of the message sent(bytes_sent), the size of the message received(bytes_recv) and the duration of the link.
 
-Therefore Kmesh first needs to support istio's built-in metrics, which will be gradually improved in subsequent updates, taking into account the metrics supported by envoy.
+In order for users to be able to use Kmesh smoothly, Kmesh needs to support these accesslog.
+
+#### Metrics
+
+To monitor service behavior, Istio generates metrics for all service traffic in, out, and within an Istio service mesh. These metrics provide information on behaviors.
+
+Refer to [istio ztunnel metric](https://github.com/istio/ztunnel/blob/6532c553946856b4acc326f3b9ca6cc6abc718d0/src/proxy/metrics.rs#L369) , at Layer L4, the required metric is:
+
+```console
+connection_opens: The total number of TCP connections opened
+connection_close: The total number of TCP connections closed
+received_bytes: The size of total bytes received during request in case of a TCP connection
+sent_bytes: The size of total bytes sent during response in case of a TCP connection
+on_demand_dns: The total number of requests that used on-demand DNS (unstable)
+on_demand_dns_cache_misses: The total number of cache misses for requests on-demand DNS (unstable)
+```
+
+DNS-related metrics in the above metrics, as Kmesh does not yet support DNS, we will consider supporting it after the Kmesh DNS functionality is implemented.
+
+Therefore Kmesh first needs to support `connection_opens`, `connection_close`, `received_bytes`, `sent_bytes`.
+
+In addition to the metrics already available for istio, as Kmesh is able to get [richer metrics](https://gitee.com/openeuler/gala-docs/blob/master/gopher_tech.md#tcp%E6%8C%87%E6%A0%87) from the kernel. This will be an advantage for Kmesh.
 
 #### Goals
 
@@ -200,9 +106,9 @@ know that this has succeeded?
 
 It is now clear that in order to enhance the observability of Kmesh, we need to:
 
-- Support for metrics for accesslog.
-- Support for istio's built-in metrics.
-- Support promethues scratch.
+- Getting the required metrics from ebpf.
+- Generation of accesslog from acquired data
+- Support for querying metrics through Prometheus
 
 #### Non-Goals
 
@@ -211,7 +117,8 @@ What is out of scope for this KEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-Support for more envoy-supported metrics in subsequent update.
+- Dns related indicators.
+- Metrics for the L7 layer.
 
 ### Proposal
 
@@ -224,12 +131,7 @@ The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-Because Kmesh uses eBPF, it is designed to be implemented in the kernel state. We first need to divide the metrics to be implemented into two categories, those that can be accessed in the user state and those that can be accessed in the kernel state.  Then implement the code for the actual metric collection.
-
-After getting the metrics, we need to:
-
-- Implement an `access_log filter` to send the access log to the istio control plane.
-- Integrates with Prometheus to support Prometheus scraping.
+Kmesh needs to collect metrics through the kernel and pass them on to the user mode. In the user mode, accesslog is generated from metrics. And support querying metrics through kemsh localhost:15020.
 
 ### Design Details
 
@@ -240,6 +142,28 @@ required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
 
+This is because Kmesh needs to get metrics from the kernel and sent them to the user mode. We need a bpf map to record the metrics, as a vehicle for transferring.
+
+So we need to define a bpf map that contains all the required metrics:
+
+```console
+struct conn_value {
+  u64 connection_opens;
+  u64 connection_closes;
+  u64 received_bytes;
+  u64 sent_bytes;
+  u64 duration;
+
+  __u32 destination; 
+  __u32 source;
+};
+```
+
+The destination and source will contain their identity information.
+
+<!--
+This part has not been modified.
+-->
 - **Accesslog**
 
 In istio's sidecar mode, istiod passes the access log format to envoy via the xDS.
@@ -272,9 +196,9 @@ In Kmesh, whether it is the ads controller or the workload controller, when pars
 
 The xDS controller fetches the access log format and metric configurations from it. Then get the corresponding metrics from the workloads.
 
-The telemetry controller combines the metrics into an access log based on the access log format, and puts it in the envoyfilter to return to the control plane.
+The telemetry controller combines the metrics into an access log based on the access log format.
 
-For metric features, provide 15001 port for Prometheus queries.
+For metric features, provide 15020 port for Prometheus queries.
 
 #### Test Plan
 
