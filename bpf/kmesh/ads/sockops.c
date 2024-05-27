@@ -47,7 +47,7 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
         }
     }
 
-    DECLARE_VAR_IPV4(SOCKOPS, skops->remote_ip4, ip)
+    DECLARE_VAR_IPV4(skops->remote_ip4, ip)
     BPF_LOG(
         DEBUG,
         SOCKOPS,

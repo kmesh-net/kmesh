@@ -51,7 +51,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
         if (!listener)
             return -ENOENT;
     }
-    DECLARE_VAR_IPV4(KMESH, ctx->user_ip4, ip);
+    DECLARE_VAR_IPV4(ctx->user_ip4, ip);
     BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
 
 #if ENHANCED_KERNEL
