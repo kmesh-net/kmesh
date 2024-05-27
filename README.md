@@ -80,7 +80,9 @@ Please refer to [quick start](https://kmesh.net/en/docs/setup/quickstart/) and [
 
 Based on [Fortio](https://github.com/fortio/fortio), the performance of Kmesh and Envoy was tested. The test results are as follows:
 
-![fortio_performance_test](docs/pics/fortio_performance_test.png)
+<div align="center">
+    <img src="docs/pics/fortio_performance_test.png" />
+</div>
 
 For a complete performance test result, please refer to [Kmesh Performance Test](test/performance/README.md).
 
