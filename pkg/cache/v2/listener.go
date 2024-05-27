@@ -127,7 +127,7 @@ func (cache *ListenerCache) Flush() {
 	}
 }
 
-func (cache *ListenerCache) StatusLookup() []*listener_v2.Listener {
+func (cache *ListenerCache) DumpBpf() []*listener_v2.Listener {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 	listeners := make([]*listener_v2.Listener, 0, len(cache.apiListenerCache))
@@ -145,7 +145,7 @@ func (cache *ListenerCache) StatusLookup() []*listener_v2.Listener {
 	return listeners
 }
 
-func (cache *ListenerCache) StatusRead() []*listener_v2.Listener {
+func (cache *ListenerCache) Dump() []*listener_v2.Listener {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 	listeners := make([]*listener_v2.Listener, 0, len(cache.apiListenerCache))

@@ -34,7 +34,7 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v)
 {
     int ret;
     address_t target_addr;
-    __u32 *sk = (__u32 *)ctx->sk;
+    __u64 *sk = (__u64 *)ctx->sk;
     struct bpf_sock_tuple value_tuple = {0};
 
     if (backend_v->waypoint_addr != 0 && backend_v->waypoint_port != 0) {

@@ -97,7 +97,7 @@ static inline void clean_auth_map(struct bpf_sock_ops *skops)
 
 static inline void clean_dstinfo_map(struct bpf_sock_ops *skops)
 {
-    __u32 *key = (__u32 *)skops->sk;
+    __u64 *key = (__u64 *)skops->sk;
     int ret = bpf_map_delete_elem(&map_of_dst_info, &key);
     if (ret && ret != -ENOENT)
         BPF_LOG(ERR, SOCKOPS, "bpf map delete destination info failed, ret: %d", ret);
