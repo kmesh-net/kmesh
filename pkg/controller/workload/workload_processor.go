@@ -70,6 +70,7 @@ func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		hashName:           NewHashName(),
 		endpointsByService: make(map[string]map[string]Endpoint),
 		bpf:                bpf.NewCache(workloadMap),
+		nodeName:           os.Getenv("NODE_NAME"),
 		WorkloadCache:      cache.NewWorkloadCache(),
 	}
 }
@@ -109,10 +110,8 @@ func (p *Processor) getIdentityByUid(workloadUid string) string {
 }
 
 func (p *Processor) isManagedWorkload(workload *workloadapi.Workload) bool {
-	// TODO: Currently, there is no good way to accurately judge whether a workload
-	// is managed by kmesh when new ones are added or deleted.
-	// In the future, we plan to add a cache to implement this functionality.
-	if workload.Node == os.Getenv("NODE_NAME") {
+	// TODO: check the workload is managed by namespace and pod label
+	if workload.Node == p.nodeName {
 		return true
 	}
 
