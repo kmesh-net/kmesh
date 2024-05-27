@@ -84,8 +84,8 @@ static inline int should_shutdown(struct bpf_sock_tuple *tuple_info)
         BPF_LOG(
             INFO,
             XDP,
-            "auth denied, src ip: %u, port: %u\n",
-            bpf_ntohl(tuple_info->ipv4.saddr),
+            "auth denied, src ip: %pI4h, port: %u\n",
+            &tuple_info->ipv4.saddr,
             bpf_ntohs(tuple_info->ipv4.sport));
         bpf_map_delete_elem(&map_of_auth, tuple_info);
         return AUTH_FORBID;

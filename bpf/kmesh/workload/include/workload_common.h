@@ -25,8 +25,6 @@
 #include "config.h"
 #include "workload.h"
 
-#define KMESH_CLASSID_MARK 0x1000
-
 #define BPF_LOGTYPE_FRONTEND BPF_DEBUG_OFF
 #define BPF_LOGTYPE_SERVICE  BPF_DEBUG_OFF
 #define BPF_LOGTYPE_ENDPOINT BPF_DEBUG_OFF

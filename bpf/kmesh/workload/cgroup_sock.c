@@ -35,13 +35,14 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 
     DECLARE_FRONTEND_KEY(ctx, frontend_k);
 
-    BPF_LOG(DEBUG, KMESH, "origin addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
+    DECLARE_VAR_IPV4(ctx->user_ip4, ip);
+    BPF_LOG(DEBUG, KMESH, "origin addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
     frontend_v = map_lookup_frontend(&frontend_k);
     if (!frontend_v) {
         return -ENOENT;
     }
 
-    BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%u:%u]\n", ctx->user_ip4, ctx->user_port);
+    BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
     ret = frontend_manager(ctx, frontend_v);
     if (ret != 0) {
         if (ret != -ENOENT)
