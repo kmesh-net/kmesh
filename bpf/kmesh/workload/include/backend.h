@@ -65,7 +65,7 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v, __u
         BPF_LOG(
             DEBUG,
             BACKEND,
-            "find waypoint addr=[%pI4h:%u]\n",
+            "find waypoint addr=[%pI4h:%u]",
             &backend_v->waypoint_addr,
             bpf_ntohs(backend_v->waypoint_port));
         ret = waypoint_manager(ctx, backend_v->waypoint_addr, backend_v->waypoint_port);
@@ -77,8 +77,8 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v, __u
 
 #pragma unroll
     for (__u32 i = 0; i < backend_v->service_count; i++) {
-        if (i >= MAX_SERVICE_COUNT) {
-            BPF_LOG(WARN, BACKEND, "exceed the max port count:%d\n", MAX_SERVICE_COUNT);
+        if (i >= MAX_PORT_COUNT) {
+            BPF_LOG(WARN, BACKEND, "exceed the max port count:%d", MAX_PORT_COUNT);
             return -EINVAL;
         }
         if (service_id == backend_v->service[i]) {
@@ -92,7 +92,7 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v, __u
                     BPF_LOG(
                         DEBUG,
                         BACKEND,
-                        "get the backend addr=[%pI4h:%u]\n",
+                        "get the backend addr=[%pI4h:%u]",
                         &target_addr.ipv4,
                         bpf_ntohs(target_addr.port));
                     return 0;

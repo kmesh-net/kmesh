@@ -55,7 +55,7 @@ static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v)
             BPF_LOG(
                 DEBUG,
                 FRONTEND,
-                "find waypoint addr=[%pI4h:%u]\n",
+                "find waypoint addr=[%pI4h:%u]",
                 &backend_v->waypoint_addr,
                 bpf_ntohs(backend_v->waypoint_port));
             ret = waypoint_manager(ctx, backend_v->waypoint_addr, backend_v->waypoint_port);

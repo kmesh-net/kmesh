@@ -60,7 +60,7 @@ static inline int service_manager(ctx_buff_t *ctx, __u32 service_id, service_val
         BPF_LOG(
             DEBUG,
             SERVICE,
-            "find waypoint addr=[%pI4h:%u]\n",
+            "find waypoint addr=[%pI4h:%u]",
             &service_v->waypoint_addr,
             bpf_ntohs(service_v->waypoint_port));
         ret = waypoint_manager(ctx, service_v->waypoint_addr, service_v->waypoint_port);
