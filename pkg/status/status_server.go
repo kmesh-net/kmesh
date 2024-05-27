@@ -105,7 +105,7 @@ func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
 
 	dynamicRes.ClusterConfigs = cache.ClusterCache.DumpBpf()
 	dynamicRes.ListenerConfigs = cache.ListenerCache.DumpBpf()
-	dynamicRes.RouteConfigs = cache.RouteCache.StatusLookup()
+	dynamicRes.RouteConfigs = cache.RouteCache.DumpBpf()
 	ads.SetApiVersionInfo(dynamicRes)
 
 	fmt.Fprintln(w, protojson.Format(&adminv2.ConfigDump{

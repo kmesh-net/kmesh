@@ -113,7 +113,7 @@ func (cache *RouteConfigCache) Flush() {
 	}
 }
 
-func (cache *RouteConfigCache) StatusLookup() []*route_v2.RouteConfiguration {
+func (cache *RouteConfigCache) DumpBpf() []*route_v2.RouteConfiguration {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 	mapCache := make([]*route_v2.RouteConfiguration, 0, len(cache.apiRouteConfigCache))
