@@ -27,7 +27,7 @@ import (
 
 func TestAddWorkload(t *testing.T) {
 	t.Run("adding a workload when none exists", func(t *testing.T) {
-		w := newWorkloadStore()
+		w := NewWorkloadCache()
 		workload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",
@@ -46,7 +46,7 @@ func TestAddWorkload(t *testing.T) {
 	})
 
 	t.Run("modify addresses in workload", func(t *testing.T) {
-		w := newWorkloadStore()
+		w := NewWorkloadCache()
 		workload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",
@@ -82,7 +82,7 @@ func TestAddWorkload(t *testing.T) {
 	})
 
 	t.Run("add addresses to the same workload", func(t *testing.T) {
-		w := newWorkloadStore()
+		w := NewWorkloadCache()
 		workload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",
@@ -116,7 +116,7 @@ func TestAddWorkload(t *testing.T) {
 
 func TestDeleteWorkload(t *testing.T) {
 	t.Run("normal function test", func(t *testing.T) {
-		w := newWorkloadStore()
+		w := NewWorkloadCache()
 		workload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",

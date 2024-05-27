@@ -55,6 +55,7 @@ type Processor struct {
 	bpf                *bpf.Cache
 	Sm                 *kmeshsecurity.SecretManager
 	nodeName           string
+	WorkloadCache      cache.WorkloadCache
 }
 
 type Endpoint struct {
@@ -66,14 +67,10 @@ type Endpoint struct {
 
 func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	return &Processor{
-		ack: nil,
-		req: nil,
-
 		hashName:           NewHashName(),
 		endpointsByService: make(map[string]map[string]Endpoint),
 		bpf:                bpf.NewCache(workloadMap),
-		Sm:                 nil,
-		nodeName:           os.Getenv("NODE_NAME"),
+		WorkloadCache:      cache.NewWorkloadCache(),
 	}
 }
 
@@ -97,8 +94,8 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 	}
 }
 
-func getIdentityByUid(workloadUid string) string {
-	workload := cache.WorkloadCache.GetWorkloadByUid(workloadUid)
+func (p *Processor) getIdentityByUid(workloadUid string) string {
+	workload := p.WorkloadCache.GetWorkloadByUid(workloadUid)
 	if workload == nil {
 		log.Errorf("workload %v not found", workloadUid)
 		return ""
@@ -189,12 +186,12 @@ func (p *Processor) removeWorkloadResource(removedResources []string) error {
 	)
 
 	for _, uid := range removedResources {
-		exist := cache.WorkloadCache.GetWorkloadByUid(uid)
+		exist := p.WorkloadCache.GetWorkloadByUid(uid)
 		if exist != nil && p.isManagedWorkload(exist) {
-			Identity := getIdentityByUid(uid)
+			Identity := p.getIdentityByUid(uid)
 			p.Sm.SendCertRequest(Identity, kmeshsecurity.DELETE)
 		}
-		cache.WorkloadCache.DeleteWorkload(uid)
+		p.WorkloadCache.DeleteWorkload(uid)
 
 		backendUid := p.hashName.StrToNum(uid)
 		// for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
@@ -476,7 +473,7 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
 	if p.isManagedWorkload(workload) {
-		oldIdentity := getIdentityByUid(workload.Uid)
+		oldIdentity := p.getIdentityByUid(workload.Uid)
 		newIdentity := spiffe.Identity{
 			TrustDomain:    workload.TrustDomain,
 			Namespace:      workload.Namespace,
@@ -492,7 +489,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		}
 	}
 
-	cache.WorkloadCache.AddWorkload(workload)
+	p.WorkloadCache.AddWorkload(workload)
 
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
