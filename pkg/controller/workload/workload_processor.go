@@ -473,17 +473,13 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
 	if p.isManagedWorkload(workload) {
 		oldIdentity := p.getIdentityByUid(workload.Uid)
-		newIdentity := spiffe.Identity{
-			TrustDomain:    workload.TrustDomain,
-			Namespace:      workload.Namespace,
-			ServiceAccount: workload.ServiceAccount,
-		}.String()
 		if oldIdentity == "" {
+			newIdentity := spiffe.Identity{
+				TrustDomain:    workload.TrustDomain,
+				Namespace:      workload.Namespace,
+				ServiceAccount: workload.ServiceAccount,
+			}.String()
 			// This is the case workload added first time
-			p.Sm.SendCertRequest(newIdentity, kmeshsecurity.ADD)
-		} else if oldIdentity != newIdentity {
-			// This is the case that workload identity has been updated
-			p.Sm.SendCertRequest(oldIdentity, kmeshsecurity.DELETE)
 			p.Sm.SendCertRequest(newIdentity, kmeshsecurity.ADD)
 		}
 	}
