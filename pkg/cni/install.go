@@ -80,7 +80,7 @@ func (i *Installer) Stop() {
 	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
 		log.Info("start remove CNI config\n")
 		if err := i.removeCniConfig(); err != nil {
-			log.Error("remove CNI config failed, please remove manual")
+			log.Errorf("err:%v, remove CNI config failed, please remove manual", err)
 		}
 	}
 }
