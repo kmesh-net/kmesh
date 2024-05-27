@@ -97,6 +97,14 @@ If you have any question, feel free to reach out to us in the following ways:
 
 If you're interested in being a contributor and want to get involved in developing Kmesh, please see [CONTRIBUTING](CONTRIBUTING.md) for more details on submitting patches and the contribution workflow.
 
+## How to Become Member of Kmesh
+
+Kmesh community welcomes all interested developers to become members of the Kmesh community!
+
+Responsibilities and related requirements for community roles can be found in [Membership doc](https://github.com/kmesh-net/website/blob/main/content/en/docs/community/membership.md).
+
+If you want to become a member of the Kmesh community, you can start by submitting a [issue](https://github.com/kmesh-net/kmesh/issues/new?assignees=&labels=&projects=&template=membership-request.md&title=REQUEST%3A+New+membership+for+%3Cyour+name%3E) and then gradually fulfilling the conditions listed there.
+
 ## License
 
 Kmesh is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
