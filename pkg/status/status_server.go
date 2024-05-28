@@ -19,6 +19,7 @@ package status
 import (
 	"fmt"
 	"net/http"
+	"net/http/pprof"
 	"time"
 
 	// nolint
@@ -70,6 +71,13 @@ func NewServer(c *controller.Controller, configs *options.BootstrapConfigs) *Ser
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
 	s.mux.HandleFunc(patternConfigDump, s.configDump)
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
+
+	// support pprof
+	s.mux.HandleFunc("/debug/pprof/", pprof.Index)
+	s.mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	s.mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	s.mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	s.mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	return s
 }
 
