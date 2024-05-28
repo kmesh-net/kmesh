@@ -17,29 +17,21 @@
 package bypass
 
 import (
-	"bytes"
 	"context"
-	"embed"
 	"fmt"
-	"io"
-	"io/fs"
 	"os"
-	"path"
-	"strings"
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
-	nd "istio.io/istio/cni/pkg/nodeagent"
-	"istio.io/istio/pkg/util/sets"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"kmesh.net/kmesh/pkg/constants"
+	ns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
@@ -47,7 +39,6 @@ import (
 
 var (
 	log = logger.NewLoggerField("bypass")
-	FS  embed.FS
 )
 
 const (
@@ -88,7 +79,7 @@ func StartByPassController(client kubernetes.Interface) error {
 				return
 			}
 
-			nspath, _ := getnspath(pod)
+			nspath, _ := ns.GetNSpath(pod)
 
 			if enableSidecar {
 				if err := addIptables(nspath); err != nil {
@@ -123,14 +114,14 @@ func StartByPassController(client kubernetes.Interface) error {
 			enableKmesh := isKmeshManaged(pod)
 
 			if enableSidecar {
-				nspath, _ := getnspath(pod)
+				nspath, _ := ns.GetNSpath(pod)
 				if err := deleteIptables(nspath); err != nil {
 					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
 					return
 				}
 			}
 			if enableKmesh {
-				nspath, _ := getnspath(pod)
+				nspath, _ := ns.GetNSpath(pod)
 				if err := handleKmeshBypass(nspath, 0); err != nil {
 					log.Errorf("failed to disable bypass control")
 					return
@@ -248,105 +239,4 @@ func isKmeshManaged(pod *corev1.Pod) bool {
 		}
 	}
 	return false
-}
-
-func getnspath(pod *corev1.Pod) (string, error) {
-	res, err := FindNetnsForPod(pod)
-	if err != nil {
-		return "", err
-	}
-	res = path.Join("/host/proc", res)
-	return res, nil
-}
-
-func BuiltinOrDir(dir string) fs.FS {
-	if dir == "" {
-		return FS
-	}
-	return os.DirFS(dir)
-}
-
-func FindNetnsForPod(pod *corev1.Pod) (string, error) {
-	netnsObserved := sets.New[uint64]()
-	fd := BuiltinOrDir("/host/proc")
-
-	entries, err := fs.ReadDir(fd, ".")
-	if err != nil {
-		return "", err
-	}
-
-	desiredUID := pod.UID
-	for _, entry := range entries {
-		res, err := processEntry(fd, netnsObserved, desiredUID, entry)
-		if err != nil {
-			log.Debugf("error processing entry: %s %v", entry.Name(), err)
-			continue
-		}
-		if res != "" {
-			return res, nil
-		}
-	}
-	return "", fmt.Errorf("No matching network namespace found")
-}
-
-func isNotNumber(r rune) bool {
-	return r < '0' || r > '9'
-}
-
-func isProcess(entry fs.DirEntry) bool {
-	if !entry.IsDir() {
-		return false
-	}
-
-	if strings.IndexFunc(entry.Name(), isNotNumber) != -1 {
-		return false
-	}
-	return true
-}
-
-// copied from istio/cni/pkg/nodeagent/podcgroupns.go
-func processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter types.UID, entry fs.DirEntry) (string, error) {
-	if !isProcess(entry) {
-		return "", nil
-	}
-
-	netnsName := path.Join(entry.Name(), "ns", "net")
-	fi, err := fs.Stat(proc, netnsName)
-	if err != nil {
-		return "", err
-	}
-
-	inode, err := nd.GetInode(fi)
-	if err != nil {
-		return "", err
-	}
-	if _, ok := netnsObserved[inode]; ok {
-		log.Debugf("netns: %d already processed. skipping", inode)
-		return "", nil
-	}
-
-	cgroup, err := proc.Open(path.Join(entry.Name(), "cgroup"))
-	if err != nil {
-		return "", nil
-	}
-	defer cgroup.Close()
-
-	var cgroupData bytes.Buffer
-	_, err = io.Copy(&cgroupData, cgroup)
-	if err != nil {
-		return "", nil
-	}
-
-	uid, _, err := nd.GetPodUIDAndContainerID(cgroupData)
-	if err != nil {
-		return "", err
-	}
-
-	if filter != uid {
-		return "", nil
-	}
-
-	log.Debugf("found pod to netns: %s %d", uid, inode)
-
-	return netnsName, nil
 }

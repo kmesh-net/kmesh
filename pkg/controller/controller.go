@@ -24,6 +24,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
+	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
@@ -57,12 +58,19 @@ func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshW
 }
 
 func (c *Controller) Start() error {
-	if c.enableByPass {
-		clientset, err := utils.GetK8sclient()
-		if err != nil {
-			return err
-		}
+	clientset, err := utils.GetK8sclient()
+	if err != nil {
+		return err
+	}
 
+	err = manage.NewKmeshManageController(clientset)
+	if err != nil {
+		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
+	}
+
+	log.Info("start kmesh manage controller successfully")
+
+	if c.enableByPass {
 		err = bypass.StartByPassController(clientset)
 		if err != nil {
 			return fmt.Errorf("failed to start bypass controller: %v", err)
