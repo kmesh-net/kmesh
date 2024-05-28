@@ -22,7 +22,8 @@ This article aims to explain how Kmesh achieves layer 4 authorization functional
 
 ### Design details
 
-#### ![](pics\kmesh_l4_authorization.svg)
+
+![l4_authz](pics/kmesh_l4_authorization.svg)
 
 #### Map definition
 
