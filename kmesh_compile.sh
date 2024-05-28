@@ -19,6 +19,8 @@ function run_docker_container() {
         -v /sys/fs/bpf:/sys/fs/bpf \
         -v /lib/modules:/lib/modules \
         -v "$(pwd)":/kmesh \
+        -v "$(go env GOCACHE)":/root/.cache/go-build \
+        -v "$(go env GOMODCACHE)":/go/pkg/mod \
         --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:latest")
 
     echo "$container_id"
