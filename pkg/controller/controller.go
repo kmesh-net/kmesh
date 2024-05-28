@@ -70,6 +70,7 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return fmt.Errorf("secretManager create failed: %v", err)
 	}
+	go secertManager.Run(stopCh)
 
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 	if c.client.workloadController != nil {

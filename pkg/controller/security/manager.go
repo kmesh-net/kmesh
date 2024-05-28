@@ -68,14 +68,20 @@ func (s *SecretManager) SendCertRequest(identity string, op int) {
 	s.certRequestChan <- certRequest{Identity: identity, Operation: op}
 }
 
-func (s *SecretManager) handleCertRequests() {
+func (s *SecretManager) handleCertRequests(stop <-chan struct{}) {
 	for data := range s.certRequestChan {
+		select {
+		case <-stop:
+			return
+		default:
+		}
+
 		identity, op := data.Identity, data.Operation
 		switch op {
 		case ADD:
 			certificate := s.certsCache.addOrUpdate(identity)
 			if certificate != nil {
-				log.Debugf("add identity: %v refCnt++ : %v\n", identity, certificate.refCnt)
+				log.Debugf("add identity: %v refCnt: %v\n", identity, certificate.refCnt)
 				continue
 			}
 			// sign cert if only no cert exists for this identity
@@ -139,7 +145,7 @@ func (c *certsCache) addOrUpdate(identity string) *certItem {
 	return nil
 }
 
-// NewSecretManager creates a new secretManager.s
+// NewSecretManager creates a new secretManager
 func NewSecretManager() (*SecretManager, error) {
 	tlsOpts := &tlsOptions{
 		RootCert: constants.RootCertPath,
@@ -158,9 +164,15 @@ func NewSecretManager() (*SecretManager, error) {
 		certsRotateQueue: workqueue.New(),
 		certRequestChan:  make(chan certRequest, maxConcurrentCSR),
 	}
-	go secretManager.handleCertRequests()
-	go secretManager.rotateCerts()
 	return &secretManager, nil
+}
+
+func (s *SecretManager) Run(stop <-chan struct{}) {
+	go s.handleCertRequests(stop)
+	go s.rotateCerts()
+	<-stop
+	s.certsRotateQueue.ShutDown()
+	s.caClient.close()
 }
 
 // Automatically check and rotate when the validity period expires
