@@ -22,6 +22,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
+	"kmesh.net/kmesh/pkg/controller/profile"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -35,6 +36,7 @@ type Controller struct {
 	mode           string
 	bpfWorkloadObj *bpf.BpfKmeshWorkload
 	client         *XdsClient
+	profiler       *profile.Profiler
 	enableByPass   bool
 }
 
@@ -64,6 +66,10 @@ func (c *Controller) Start() error {
 	if c.mode != constants.WorkloadMode && c.mode != constants.AdsMode {
 		return nil
 	}
+
+	c.profiler = profile.NewProfiler()
+	go c.profiler.Run()
+	log.Info("start profiler successfully")
 
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 
