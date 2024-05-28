@@ -274,14 +274,14 @@ func (s *SecretManager) deleteCert(identity string) {
 }
 
 func (s *SecretManager) rotateCert(identity string) {
-	s.certsCache.mu.Lock()
+	s.certsCache.mu.RLock()
 	certificate := s.certsCache.certs[identity]
 	if certificate == nil {
-		s.certsCache.mu.Unlock()
+		s.certsCache.mu.RUnlock()
 		log.Debugf("identity: %v cert has been deleted", identity)
 		return
 	}
-	s.certsCache.mu.Unlock()
+	s.certsCache.mu.RUnlock()
 
 	s.addCert(identity)
 }

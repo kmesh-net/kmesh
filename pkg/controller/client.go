@@ -57,8 +57,9 @@ func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient 
 	}
 
 	if mode == constants.WorkloadMode {
-		client.rbac = auth.NewRbac(bpfWorkloadObj)
 		client.workloadController = workload.NewController(bpfWorkloadObj.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
+
+		client.rbac = auth.NewRbac(bpfWorkloadObj, client.workloadController.Processor.WorkloadCache)
 	} else if mode == constants.AdsMode {
 		client.AdsController = ads.NewController()
 	}

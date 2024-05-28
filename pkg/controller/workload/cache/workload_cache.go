@@ -25,35 +25,38 @@ import (
 	"kmesh.net/kmesh/pkg/nets"
 )
 
-var (
-	WorkloadCache = newWorkloadStore()
-)
+type WorkloadCache interface {
+	GetWorkloadByUid(uid string) *workloadapi.Workload
+	GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload
+	AddWorkload(workload *workloadapi.Workload)
+	DeleteWorkload(uid string)
+}
 
 type NetworkAddress struct {
 	Network string
 	Address uint32
 }
 
-type workloadStore struct {
+type cache struct {
 	byUid  map[string]*workloadapi.Workload
 	byAddr map[NetworkAddress]*workloadapi.Workload
 	mutex  sync.RWMutex
 }
 
-func newWorkloadStore() *workloadStore {
-	return &workloadStore{
+func NewWorkloadCache() *cache {
+	return &cache{
 		byUid:  make(map[string]*workloadapi.Workload),
 		byAddr: make(map[NetworkAddress]*workloadapi.Workload),
 	}
 }
 
-func (w *workloadStore) GetWorkloadByUid(uid string) *workloadapi.Workload {
+func (w *cache) GetWorkloadByUid(uid string) *workloadapi.Workload {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	return w.byUid[uid]
 }
 
-func (w *workloadStore) GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload {
+func (w *cache) GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload {
 	w.mutex.RLock()
 	defer w.mutex.RUnlock()
 	return w.byAddr[networkAddress]
@@ -68,7 +71,7 @@ func composeNetworkAddress(network string, addr uint32) NetworkAddress {
 	return networkAddress
 }
 
-func (w *workloadStore) AddWorkload(workload *workloadapi.Workload) {
+func (w *cache) AddWorkload(workload *workloadapi.Workload) {
 	uid := workload.Uid
 
 	w.mutex.Lock()
@@ -95,7 +98,7 @@ func (w *workloadStore) AddWorkload(workload *workloadapi.Workload) {
 	}
 }
 
-func (w *workloadStore) DeleteWorkload(uid string) {
+func (w *cache) DeleteWorkload(uid string) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 

@@ -49,8 +49,9 @@ var (
 )
 
 type Rbac struct {
-	policyStore *policyStore
-	bpfWorkload *bpf.BpfKmeshWorkload
+	policyStore   *policyStore
+	workloadCache cache.WorkloadCache
+	bpfWorkload   *bpf.BpfKmeshWorkload
 }
 
 type Identity struct {
@@ -67,10 +68,11 @@ type rbacConnection struct {
 	dstPort     uint32
 }
 
-func NewRbac(workloadObj *bpf.BpfKmeshWorkload) *Rbac {
+func NewRbac(workloadObj *bpf.BpfKmeshWorkload, workloadCache cache.WorkloadCache) *Rbac {
 	return &Rbac{
-		policyStore: newPolicystore(),
-		bpfWorkload: workloadObj,
+		policyStore:   newPolicystore(),
+		workloadCache: workloadCache,
+		bpfWorkload:   workloadObj,
 	}
 }
 
@@ -160,7 +162,7 @@ func (r *Rbac) RemovePolicy(policyKey string) {
 func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	var dstWorkload *workloadapi.Workload
 	if len(conn.dstIp) > 0 {
-		dstWorkload = cache.WorkloadCache.GetWorkloadByAddr(cache.NetworkAddress{
+		dstWorkload = r.workloadCache.GetWorkloadByAddr(cache.NetworkAddress{
 			Network: conn.dstNetwork,
 			Address: nets.ConvertIpByteToUint32(conn.dstIp),
 		})

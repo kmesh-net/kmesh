@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
 
 const (
@@ -1855,7 +1856,8 @@ func TestRbac_doRbac(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rbac := &Rbac{
-				policyStore: tt.fields.policyStore,
+				policyStore:   tt.fields.policyStore,
+				workloadCache: cache.NewWorkloadCache(),
 			}
 			if got := rbac.doRbac(tt.args.conn); got != tt.want {
 				t.Errorf("Rbac.DoRbac() = %v, want %v", got, tt.want)
