@@ -170,3 +170,7 @@ clean:
 	$(QUIET) make clean -C bpf/deserialization_to_bpf_map
 	$(call printlog, CLEAN, "kernel")
 	$(QUIET) make clean -C kernel/ko_src
+
+	$(QUIET) if docker ps -a -q -f name=kmesh-build | grep -q .; then \
+		docker rm -f kmesh-build; \
+	fi
