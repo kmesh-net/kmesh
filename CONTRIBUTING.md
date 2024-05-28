@@ -2,19 +2,20 @@
 
 Welcome to Kmesh!
 
--   [Before you get started](#before-you-get-started)
-    -   [Code of Conduct](#code-of-conduct)
-    -   [Community Expectations](#community-expectations)
--   [Getting started](#getting-started)
--   [Your First Contribution](#your-first-contribution)
-    -   [Find something to work on](#find-something-to-work-on)
-        -   [Find a good first topic](#find-a-good-first-topic)
-        -   [Work on an Issue](#work-on-an-issue)
-        -   [File an Issue](#file-an-issue)
--   [Contributor Workflow](#contributor-workflow)
-    -   [Creating Pull Requests](#creating-pull-requests)
-    -   [Code Review](#code-review)
-    -   [Testing](#testing)
+- [Contributing](#contributing)
+- [Before you get started](#before-you-get-started)
+  - [Code of Conduct](#code-of-conduct)
+  - [Community Expectations](#community-expectations)
+- [Getting started](#getting-started)
+- [Your First Contribution](#your-first-contribution)
+  - [Find something to work on](#find-something-to-work-on)
+    - [Find a good first topic](#find-a-good-first-topic)
+      - [Work on an issue](#work-on-an-issue)
+    - [File an Issue](#file-an-issue)
+- [Contributor Workflow](#contributor-workflow)
+  - [Creating Pull Requests](#creating-pull-requests)
+  - [Code Review](#code-review)
+- [Memebership](#memebership)
 
 # Before you get started
 
@@ -33,7 +34,6 @@ and intended to realize multi-cloud centralized management, high availability, f
 - Fork the repository on GitHub.
 - Make your changes on your fork repository.
 - Submit a PR.
-
 
 # Your First Contribution
 
@@ -104,3 +104,11 @@ To make it easier for your PR to receive reviews, consider the reviewers will ne
 * follow [good coding guidelines](https://github.com/golang/go/wiki/CodeReviewComments).
 * write [good commit messages](https://chris.beams.io/posts/git-commit/).
 * break large changes into a logical series of smaller patches which individually make easily understandable changes, and in aggregate solve a broader issue.
+
+# Memebership
+
+We encourage all contributors to become members. Learn more about requirements and responsibilities of membership in our [Community Membership doc](https://github.com/kmesh-net/website/blob/main/content/en/docs/community/membership.md).
+
+If you have made contributions that meet the requirements of becoming KMesh member, simply file an [issue](https://github.com/kmesh-net/kmesh/issues/new?assignees=&labels=&projects=&template=membership-request.md&title=REQUEST%3A+New+membership+for+%3Cyour+name%3E) to apply.
+
+Kmesh community welcomes all interested developers to become members of the Kmesh community!
