@@ -18,12 +18,12 @@ creation-date: 2024-05-28
 
 ### Summary
 
-This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authentication features, please refer to:[TCP Authorization | Kmesh](https://kmesh.net/en/docs/userguide/tcp_authorization/)
+This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authentication features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/)
 
 ### Design details
 
 
-![l4_authz](pics/kmesh_l4_authorization.svg)
+![l4_authz](pics/kmesh_l4_authorization.svg#pic_center)
 
 #### Map definition
 
@@ -54,7 +54,7 @@ struct {
 3. **xdp-bpf**: When the client sends a message and the server receives it, passing through the xdp bpf program:
    - 3.1: It matches data in `auth_map` using the five-tuple information. If a match is found with the value set to `init`, indicating the migration authentication is not yet complete, the message is temporarily discarded.
    - 3.2: If the matched record shows `value=deny`, it alters the message flag, sends an RST message to the server, clears the corresponding `auth_map` record. If no record is matched, implying authorization is allowed, the message is passed through.
-4. **client retry**: The client attempts to send another message but, since the server has closed the connection, the client receives a "reset by peer" signal and subsequently closes its own channel.
+4. **client retry**: The client attempts to send another message, but because the server has closed the connection, the client receives a "reset by peer" signal and subsequently closes its own channel.
 
 
 
