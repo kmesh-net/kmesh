@@ -159,32 +159,23 @@ struct conn_value {
 };
 ```
 
-The destination and source will contain their identity information.
+The above destinations and sources are bpf maps that contain workload identity information.
 
-<!--
-This part has not been modified.
--->
-- **Accesslog**
+#### Access log
 
-In istio's sidecar mode, istiod passes the access log format to envoy via the xDS.
+On termination of the TCP link, ebpf sents the data from this link to kmesh-daemon through bpf map.
 
-After the data plane parses the xDS to get the access log format, envoy collects and formats the access log according to the configuration.
+Relying on this data to generate accesslog, which is then printed by kmesh log.
 
-So if Kmesh needs to supplement the observability capabilities of access log, it needs to implement such a pattern as well.
+#### Metrics
 
-As shown in the follow figure, Kmesh's Ads controller passes the access log filter to the Accesslog Controller to parse out the access log format.
+Metric is obtained in the same way as accesslog.
 
-Then according to the configuration, monitor the workload, collect the metrics to generate access log, and store the generated access log locally or send it to istiod.
+After obtaining the metric through bpf map, we also have to support the Prometheus query.
 
-- **Metric**
-
-In istio, telemetry filters are generated through custom metrics or built-in metrics. which are then passed to the data plane by xDS.
-
-The data plane gets these metrics from the workload.
-
-After that the query is performed using Prometheus. The data plane is accessed by Prometheus through a specific port to get the metric from it.
-
-Therefore Kmesh needs to implement a two-part function to satisfy the metric in the observability feature: The first is to be able to parse the envoy filter sent by the control plane and get the required metrics from it. The second is to provide a port for Prometheus to access these metrics.
+1.Expose metrics to Prometheus RegistryEnable HTTP listening interface.
+2.Enable HTTP listening interface.
+3.Regular updating of metrics. Update metrics every time a link is broken.
 
 <div align="center">
 <img src="pics/observability.svg" width="800" />
@@ -192,11 +183,7 @@ Therefore Kmesh needs to implement a two-part function to satisfy the metric in 
 
 Observability should be achieved in both ads mode and workload mode.
 
-In Kmesh, whether it is the ads controller or the workload controller, when parsing out the `envoy.extensions.filters` from xDS, it will hand it over to Kmesh's telemetry controller.
-
-The xDS controller fetches the access log format and metric configurations from it. Then get the corresponding metrics from the workloads.
-
-The telemetry controller combines the metrics into an access log based on the access log format.
+We now consider the realisation of only l4 layers of observability.
 
 For metric features, provide 15020 port for Prometheus queries.
 
