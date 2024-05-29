@@ -76,12 +76,11 @@ In the subsequent traffic management of kmesh, based on the IP and Port accessed
 typedef struct
 {
     __be32 ipv4; // service ip
-    __be16 service_port;
 } __attribute__((packed)) frontend_key;
 
 typedef struct
 {
-    __u32 service_id; // service id, through <namespace>/<hostname> string convert to uint32 variable
+    __u32 upstream_id; // service id for Service access or backend uid for Pod access.
 } __attribute__((packed)) frontend_value;
 
 // service map
@@ -92,8 +91,13 @@ typedef struct
 
 typedef struct
 {
-	__u32 endpoint_count; // the endpoint count of the service
-	__u32 lb_policy;	  // current only support random lb policy
+    __u32 endpoint_count;               // endpoint count of current service
+    __u32 lb_policy;                    // load balancing algorithm
+    __u32 service_port[MAX_PORT_COUNT]; // service_port[i] and target_port[i] are a pair, i starts from 0 and max value
+                                        // is MAX_PORT_COUNT-1
+    __u32 target_port[MAX_PORT_COUNT];
+    __u32 waypoint_addr;
+    __u32 waypoint_port;
 } __attribute__((packed)) service_value;
 
 // endpoint map
@@ -116,26 +120,24 @@ typedef struct
 
 typedef struct
 {
-    __be32 ipv4; 				   // backend ip
-    __u32 port_count;
-    __u32 service_port[MAX_COUNT]; // MAX_ COUNT fixed at 10, currently
-    __u32 target_port[MAX_COUNT];
+    __be32 ipv4; // backend ip
+    __u32 service[MAX_SERVICE_COUNT];
+    __u32 waypoint_addr;
+    __u32 waypoint_port;
 } __attribute__((packed)) backend_value;
 
 ```
 
-## Subscription data processing flow
-![new_workload.svg](./pics/new_workload.svg)
-
-![delete_workload.svg](./pics/delete_workload.svg)
-
-![update_workload.svg](./pics/update_workload.svg)
-
 ## Traffic governance process
 
-![traffic_governance](./pics/traffic_governance.svg)
+<p align="center">
+  <img src="./pics/traffic_governance.svg" />
+</p>
 
-* Client Access Service: Search the serviceinfo map based on the IP and Port accessed by the client, find the corresponding service_id, and then search the service map based on the service_id to find the endpoint_count of the backend Pod in the service. Then, search the endpoint map based on the service_id and the random backend_index generated based on the count to find the corresponding backend_uid. Finally, use the backenduid to find the IP and Port of the backend.
-* Client access Pod: Access directly through Pod's IP and Port.
+**traffic governance process**
 
+- Search the frontend map based on the IP accessed by the client, find the corresponding upstream_id, and then use this upstream_id to search for the service map and backend map:
+  - If the corresponding service is found in service map, and get the endpoint_count of the backend Pod in the service. Then, search the endpoint map based on the service_id and the random backend_index generated based on the count to find the corresponding backend_uid. Finally, use the backenduid to find the IP and Port of the backend.
+  - If the corresponding backend is found in backend map, it is a directly pod access.
+- Additionally, if the service or backend contains a waypoint, it will redirect to the waypoint.
 
