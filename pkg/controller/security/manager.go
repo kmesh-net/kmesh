@@ -29,11 +29,6 @@ import (
 
 var log = logger.NewLoggerField("security")
 
-type certExp struct {
-	identity string
-	exp      time.Time
-}
-
 type certItem struct {
 	cert   *istiosecurity.SecretItem
 	refCnt int32
@@ -59,7 +54,7 @@ type SecretManager struct {
 	certsCache *certsCache
 
 	// certs rotation priority queue based on exp
-	certsRotateQueue workqueue.Interface
+	certsRotateQueue workqueue.DelayingInterface
 
 	certRequestChan chan certRequest
 }
@@ -117,13 +112,8 @@ func (s *SecretManager) storeCert(identity string, newCert *istiosecurity.Secret
 		return
 	}
 
-	existing.cert = newCert
-	certExp := certExp{
-		exp:      newCert.ExpireTime,
-		identity: identity,
-	}
-	// push to rotate queue
-	s.certsRotateQueue.Add(certExp)
+	// push to rotate queue one hour before cert expire
+	s.certsRotateQueue.AddAfter(identity, time.Until(newCert.ExpireTime.Add(-1*time.Hour)))
 	log.Debugf("cert %v added to rotation queue, exp: %v", identity, newCert.ExpireTime)
 }
 
@@ -161,7 +151,7 @@ func NewSecretManager() (*SecretManager, error) {
 		caClient:         caClient,
 		configOptions:    options,
 		certsCache:       newCertCache(),
-		certsRotateQueue: workqueue.New(),
+		certsRotateQueue: workqueue.NewDelayingQueue(),
 		certRequestChan:  make(chan certRequest, maxConcurrentCSR),
 	}
 	return &secretManager, nil
@@ -183,9 +173,8 @@ func (s *SecretManager) rotateCerts() {
 			return
 		}
 
-		certExp := element.(certExp)
-		time.Sleep(time.Until(certExp.exp.Add(-1 * time.Hour)))
-		s.SendCertRequest(certExp.identity, Rotate)
+		identity := element.(string)
+		s.SendCertRequest(identity, Rotate)
 		s.certsRotateQueue.Done(element)
 	}
 }
@@ -230,6 +219,11 @@ func (s *SecretManager) rotateCert(identity string) {
 		return
 	}
 	s.certsCache.mu.Unlock()
+
+	if time.Until(certificate.cert.ExpireTime) >= 1*time.Hour {
+		// This can happen when delete a certificate following adding the same one later.
+		log.Debugf("cert %s expire at %T, skip rotate now", identity, certificate.cert.ExpireTime)
+	}
 
 	s.addCert(identity)
 }
