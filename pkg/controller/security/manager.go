@@ -182,11 +182,11 @@ func (s *SecretManager) rotateCerts() {
 		if quit {
 			return
 		}
-		defer s.certsRotateQueue.Done(element)
 
 		certExp := element.(certExp)
 		time.Sleep(time.Until(certExp.exp.Add(-1 * time.Hour)))
 		s.SendCertRequest(certExp.identity, Rotate)
+		s.certsRotateQueue.Done(element)
 	}
 }
 
