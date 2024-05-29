@@ -89,7 +89,9 @@ func (s *Server) httpHelp(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "\t%s: %s\n", patternBpfAdsMaps,
 		"print bpf kmesh maps in kernel")
 	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpAds,
-		"print control-plane in envoy cache")
+		"dump xDS[Listener, Route, Cluster] configurations")
+	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpWorkload,
+		"dump workload configurations")
 }
 
 func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
