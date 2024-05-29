@@ -17,12 +17,14 @@
 package status
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	// nolint
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/daemon/options"
@@ -36,11 +38,13 @@ var log = logger.NewLoggerField("status")
 const (
 	adminAddr = "localhost:15200"
 
-	patternHelp       = "/help"
-	patternOptions    = "/options"
-	patternBpfAdsMaps = "/debug/bpf/ads"
-	patternConfigDump = "/debug/config_dump"
-	patternReadyProbe = "/debug/ready"
+	patternHelp               = "/help"
+	patternOptions            = "/options"
+	patternBpfAdsMaps         = "/debug/bpf/ads"
+	configDumpPrefix          = "/debug/config_dump"
+	patternConfigDumpAds      = configDumpPrefix + "/ads"
+	patternConfigDumpWorkload = configDumpPrefix + "/workload"
+	patternReadyProbe         = "/debug/ready"
 
 	httpTimeout = time.Second * 20
 )
@@ -68,7 +72,9 @@ func NewServer(c *controller.Controller, configs *options.BootstrapConfigs) *Ser
 	s.mux.HandleFunc(patternHelp, s.httpHelp)
 	s.mux.HandleFunc(patternOptions, s.httpOptions)
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
-	s.mux.HandleFunc(patternConfigDump, s.configDump)
+	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
+	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
+	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
 	return s
 }
@@ -82,7 +88,7 @@ func (s *Server) httpHelp(w http.ResponseWriter, r *http.Request) {
 		"print config options")
 	fmt.Fprintf(w, "\t%s: %s\n", patternBpfAdsMaps,
 		"print bpf kmesh maps in kernel")
-	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDump,
+	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpAds,
 		"print control-plane in envoy cache")
 }
 
@@ -113,7 +119,7 @@ func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
-func (s *Server) configDump(w http.ResponseWriter, r *http.Request) {
+func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 	client := s.controller.GetXdsClient()
 	if client == nil || client.AdsController == nil {
 		w.WriteHeader(http.StatusBadRequest)
@@ -127,12 +133,26 @@ func (s *Server) configDump(w http.ResponseWriter, r *http.Request) {
 
 	dynamicRes.ClusterConfigs = cache.ClusterCache.Dump()
 	dynamicRes.ListenerConfigs = cache.ListenerCache.Dump()
-	dynamicRes.RouteConfigs = cache.RouteCache.StatusRead()
+	dynamicRes.RouteConfigs = cache.RouteCache.Dump()
 	ads.SetApiVersionInfo(dynamicRes)
 
 	fmt.Fprintln(w, protojson.Format(&adminv2.ConfigDump{
 		DynamicResources: dynamicRes,
 	}))
+}
+
+func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
+	client := s.controller.GetXdsClient()
+	if client == nil || client.WorkloadController == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	workloads := client.WorkloadController.Processor.WorkloadCache.List()
+	data, _ := Marshal(workloads)
+	fmt.Fprintln(w, string(data))
 }
 
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
@@ -151,4 +171,25 @@ func (s *Server) StartServer() {
 
 func (s *Server) StopServer() error {
 	return s.server.Close()
+}
+
+// Marshal marshals a slice of proto messages to json.
+func Marshal[S ~[]E, E proto.Message](s S) ([]byte, error) {
+	raw := make([]json.RawMessage, len(s))
+	for i, w := range s {
+		data, err := marshalWithIndent(w)
+		if err != nil {
+			return nil, err
+		}
+		raw[i] = data
+	}
+	return json.MarshalIndent(raw, "", "  ")
+}
+
+// marshalWithIndent marshals a proto message with indent to json.
+func marshalWithIndent(msg proto.Message) ([]byte, error) {
+	return protojson.MarshalOptions{
+		Multiline: true,
+		Indent:    "  ",
+	}.Marshal(msg)
 }

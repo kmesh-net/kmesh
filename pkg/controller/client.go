@@ -45,7 +45,7 @@ type XdsClient struct {
 	grpcConn           *grpc.ClientConn
 	client             discoveryv3.AggregatedDiscoveryServiceClient
 	AdsController      *ads.Controller
-	workloadController *workload.Controller
+	WorkloadController *workload.Controller
 	xdsConfig          *config.XdsConfig
 	rbac               *auth.Rbac
 }
@@ -57,9 +57,8 @@ func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient 
 	}
 
 	if mode == constants.WorkloadMode {
-		client.workloadController = workload.NewController(bpfWorkloadObj.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
-
-		client.rbac = auth.NewRbac(bpfWorkloadObj, client.workloadController.Processor.WorkloadCache)
+		client.WorkloadController = workload.NewController(bpfWorkloadObj.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
+		client.rbac = auth.NewRbac(bpfWorkloadObj, client.WorkloadController.Processor.WorkloadCache)
 	} else if mode == constants.AdsMode {
 		client.AdsController = ads.NewController()
 	}
@@ -78,7 +77,7 @@ func (c *XdsClient) createGrpcStreamClient() error {
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
 	if c.mode == constants.WorkloadMode {
-		if err = c.workloadController.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
+		if err = c.WorkloadController.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
 		}
@@ -134,8 +133,8 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 					continue
 				}
 			} else if c.mode == constants.WorkloadMode {
-				if err = c.workloadController.HandleWorkloadStream(c.rbac); err != nil {
-					_ = c.workloadController.Stream.CloseSend()
+				if err = c.WorkloadController.HandleWorkloadStream(c.rbac); err != nil {
+					_ = c.WorkloadController.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
@@ -174,8 +173,8 @@ func (c *XdsClient) closeStreamClient() {
 	if c.AdsController != nil && c.AdsController.Stream != nil {
 		_ = c.AdsController.Stream.CloseSend()
 	}
-	if c.workloadController != nil && c.workloadController.Stream != nil {
-		_ = c.workloadController.Stream.CloseSend()
+	if c.WorkloadController != nil && c.WorkloadController.Stream != nil {
+		_ = c.WorkloadController.Stream.CloseSend()
 	}
 
 	if c.grpcConn != nil {

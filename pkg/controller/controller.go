@@ -72,8 +72,8 @@ func (c *Controller) Start() error {
 	}
 
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
-	if c.client.workloadController != nil {
-		c.client.workloadController.Processor.Sm = secertManager
+	if c.client.WorkloadController != nil {
+		c.client.WorkloadController.Processor.Sm = secertManager
 	}
 
 	return c.client.Run(stopCh)
