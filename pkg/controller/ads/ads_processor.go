@@ -51,7 +51,6 @@ type processor struct {
 	Cache     *AdsCache
 	ack       *service_discovery_v3.DiscoveryRequest
 	req       *service_discovery_v3.DiscoveryRequest
-	adminChan chan *admin_v2.ConfigResources
 	LastNonce *lastNonce
 }
 
