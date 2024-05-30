@@ -60,14 +60,11 @@ static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf
     tuple_key->ipv4.saddr = skops->local_ip4;
     tuple_key->ipv4.daddr = skops->remote_ip4;
     // local_port is host byteorder
-    tuple_key->ipv4.sport = bpf_htonl(skops->local_port) >> FORMAT_IP_LENGTH;
+    tuple_key->ipv4.sport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
     // remote_port is network byteorder
     // openEuler 2303 convert remote port different than other linux vendor
-#if !OE_23_03
-    tuple_key->ipv4.dport = skops->remote_port >> FORMAT_IP_LENGTH;
-#else
-    tuple_key->ipv4.dport = skops->remote_port;
-#endif
+
+    tuple_key->ipv4.dport = GET_SKOPS_REMOTE_PORT(skops);
 }
 
 static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
@@ -75,14 +72,9 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, st
     tuple_key->ipv4.saddr = skops->remote_ip4;
     tuple_key->ipv4.daddr = skops->local_ip4;
     // remote_port is network byteorder
-    // openEuler 2303 convert remote port different than other linux vendor
-#if !OE_23_03
-    tuple_key->ipv4.sport = skops->remote_port >> FORMAT_IP_LENGTH;
-#else
-    tuple_key->ipv4.sport = skops->remote_port;
-#endif
+    tuple_key->ipv4.sport = GET_SKOPS_REMOTE_PORT(skops);
     // local_port is host byteorder
-    tuple_key->ipv4.dport = bpf_htonl(skops->local_port) >> FORMAT_IP_LENGTH;
+    tuple_key->ipv4.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
 }
 
 // clean map_of_auth
@@ -158,14 +150,12 @@ static inline void remove_kmesh_managed_ip(__u32 ip)
         BPF_LOG(ERR, KMESH, "remove ip failed!, err is %d\n", err);
 }
 
-static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u32 port)
+static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 port)
 {
-    __u32 rev_port = bpf_ntohl(skops->remote_port);
+    __u16 remote_port = GET_SKOPS_REMOTE_PORT(skops);
     __u32 client_ip = bpf_ntohl(skops->remote_ip4);
-#if !OE_23_03
-    port >>= 16;
-#endif
-    return (client_ip == ip) && (port == rev_port);
+
+    return (client_ip == ip) && (bpf_ntohs(remote_port) == port);
 }
 
 static inline bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)

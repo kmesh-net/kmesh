@@ -234,14 +234,10 @@ static void extract_key4_from_ops(struct bpf_sock_ops *const ops, struct sock_ke
      * optimized to think that only 16-bit data needs to be read here, but most kernels do not support this,
      * causing the BPF validator to fail.
      */
-    key->sport = (bpf_htonl(ops->local_port) >> FORMAT_IP_LENGTH);
+    key->sport = bpf_htons(GET_SKOPS_LOCAL_PORT(ops));
     key->dip4 = ops->remote_ip4;
+    key->dport = GET_SKOPS_REMOTE_PORT(ops);
 
-#if !OE_23_03
-    key->dport = (force_read(ops->remote_port) >> FORMAT_IP_LENGTH);
-#else
-    key->dport = (force_read(ops->remote_port));
-#endif
     bpf_log(DEBUG, "sip:%u, sport:%u\n", key->sip4, key->sport);
     bpf_log(DEBUG, "dip:%u, dport:%u\n", key->dip4, key->dport);
 
@@ -389,7 +385,7 @@ static void clean_ops_map(struct bpf_sock_ops *const skops)
     reverse_key = bpf_map_lookup_elem(&SOCK_OPS_PROXY_MAP_NAME, &key);
     ret = bpf_map_delete_elem(&SOCK_OPS_PROXY_MAP_NAME, &key);
     if (ret && ret != -ENOENT)
-        bpf_log(INFO, "bpf map delete proxy elem key failed! ret:%d\n", ret);
+        bpf_log(INFO, "bpf map delete prox elem key failed! ret:%d\n", ret);
 
     if (reverse_key == NULL)
         return;

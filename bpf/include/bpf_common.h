@@ -16,14 +16,14 @@
 
 #define map_of_manager      kmesh_manage
 #define MAP_SIZE_OF_MANAGER 8192
-/*0x3a10000 is the specific port handled by the cni to enable kmesh*/
-#define ENABLE_KMESH_PORT 0x3a10000
-/*0x3a20000 is the specific port handled by the cni to enable kmesh*/
-#define DISABLE_KMESH_PORT 0x3a20000
-/*0x3a30000 is the specific port handled by the daemon to enable bypass*/
-#define ENABLE_BYPASS_PORT 0x3a30000
-/*0x3a40000 is the specific port handled by the daemon to enable bypass*/
-#define DISABLE_BYPASS_PORT 0x3a40000
+/*0x3a1(929) is the specific port handled by the cni to enable kmesh*/
+#define ENABLE_KMESH_PORT 0x3a1
+/*0x3a2(930) is the specific port handled by the cni to enable kmesh*/
+#define DISABLE_KMESH_PORT 0x3a2
+/*0x3a3(931) is the specific port handled by the daemon to enable bypass*/
+#define ENABLE_BYPASS_PORT 0x3a3
+/*0x3a4(932) is the specific port handled by the daemon to enable bypass*/
+#define DISABLE_BYPASS_PORT 0x3a4
 
 typedef struct {
     __u32 is_bypassed;
@@ -104,28 +104,28 @@ static inline bool conn_from_bypass_sim_add(struct bpf_sock_addr *ctx)
 {
     // daemon sim connect 0.0.0.0:931(0x3a3)
     // 0x3a3 is the specific port handled by the daemon to enable bypass
-    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohl(ctx->user_port) == ENABLE_BYPASS_PORT));
+    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohs(ctx->user_port) == ENABLE_BYPASS_PORT));
 }
 
 static inline bool conn_from_bypass_sim_delete(struct bpf_sock_addr *ctx)
 {
     // daemon sim connect 0.0.0.1:932(0x3a4)
     // 0x3a4 is the specific port handled by the daemon to disable bypass
-    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohl(ctx->user_port) == DISABLE_BYPASS_PORT));
+    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohs(ctx->user_port) == DISABLE_BYPASS_PORT));
 }
 
 static inline bool conn_from_cni_sim_add(struct bpf_sock_addr *ctx)
 {
     // cni sim connect 0.0.0.0:929(0x3a1)
     // 0x3a1 is the specific port handled by the cni to enable Kmesh
-    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohl(ctx->user_port) == ENABLE_KMESH_PORT));
+    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohs(ctx->user_port) == ENABLE_KMESH_PORT));
 }
 
 static inline bool conn_from_cni_sim_delete(struct bpf_sock_addr *ctx)
 {
     // cni sim connect 0.0.0.1:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni to disable Kmesh
-    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohl(ctx->user_port) == DISABLE_KMESH_PORT));
+    return ((bpf_ntohl(ctx->user_ip4) == 1) && (bpf_ntohs(ctx->user_port) == DISABLE_KMESH_PORT));
 }
 
 /* This function is used to store and delete cookie
