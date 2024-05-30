@@ -42,7 +42,7 @@ struct {
     __type(value, __u32);
     __uint(max_entries, MAP_SIZE_OF_MANAGER);
     __uint(map_flags, 0);
-} map_of_kmesh_hashmap SEC(".maps");
+} map_of_kmesh_socket SEC(".maps");
 
 static inline bool is_managed_by_kmesh(__u32 ip)
 {
@@ -126,12 +126,13 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
     bpf_ringbuf_submit(msg, 0);
 }
 
+// update sockmap to trigger sk_msg prog to encode metadata before sending to waypoint
 static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
 {
     int err;
     struct bpf_sock_tuple tuple_info = {0};
     extract_skops_to_tuple(skops, &tuple_info);
-    err = bpf_sock_hash_update(skops, &map_of_kmesh_hashmap, &tuple_info, BPF_ANY);
+    err = bpf_sock_hash_update(skops, &map_of_kmesh_socket, &tuple_info, BPF_ANY);
     if (err)
         BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d", err);
 }
@@ -231,7 +232,7 @@ static inline void skops_handle_bypass_process(struct bpf_sock_ops *skops)
 }
 
 SEC("sockops")
-int record_tuple(struct bpf_sock_ops *skops)
+int sockops_prog(struct bpf_sock_ops *skops)
 {
     if (skops->family != AF_INET && !ipv4_mapped_addr(skops->local_ip6))
         return 0;
@@ -245,7 +246,10 @@ int record_tuple(struct bpf_sock_ops *skops)
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
-        enable_encoding_metadata(skops);
+        __u64 *current_sk = (__u64 *)skops->sk;
+        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
+        if (dst != NULL)
+            enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops->local_ip4)) // local ip4 is server ip
