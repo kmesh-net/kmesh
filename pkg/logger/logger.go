@@ -17,17 +17,31 @@
 package logger
 
 import (
+	"context"
+	"encoding/binary"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/ringbuf"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 const (
-	logSubsys = "subsys"
+	logSubsys   = "subsys"
+	mapName     = "kmesh_events"
+	MAX_MSG_LEN = 255
 )
+
+type LogEvent struct {
+	len uint32
+	Msg string
+}
 
 var (
 	defaultLogger  = InitializeDefaultLogger(false)
@@ -79,4 +93,63 @@ func NewLoggerField(pkgSubsys string) *logrus.Entry {
 // NewLoggerFieldFileOnly don't output log to stdout
 func NewLoggerFieldWithoutStdout(pkgSubsys string) *logrus.Entry {
 	return fileOnlyLogger.WithField(logSubsys, pkgSubsys)
+}
+
+/*
+print bpf log to daemon process.
+*/
+func StartRingBufReader(ctx context.Context, mode string, bpfFsPath string) error {
+	var path string
+
+	if mode == constants.AdsMode {
+		path = bpfFsPath + "/bpf_kmesh/map"
+	} else if mode == constants.WorkloadMode {
+		path = bpfFsPath + "/bpf_kmesh_workload/map"
+	} else {
+		return fmt.Errorf("invalid start mode:%s", mode)
+	}
+	path = filepath.Join(path, mapName)
+	rbMap, err := ebpf.LoadPinnedMap(path, nil)
+	if err != nil {
+		return err
+	}
+
+	go handleLogEvents(ctx, rbMap)
+
+	return nil
+}
+
+func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {
+	log := NewLoggerField("ebpf")
+	events, err := ringbuf.NewReader(rbMap)
+	if err != nil {
+		log.Errorf("ringbuf new reader from rb map failed:%v", err)
+		return
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			record, err := events.Read()
+			if err != nil {
+				return
+			}
+			le, err := decodeRecord(record.RawSample)
+			if err != nil {
+				log.Errorf("ringbuf decode data failed:%v", err)
+			}
+			log.Infof("ebpf_log:%v", le.Msg)
+		}
+	}
+}
+
+// 4 is the msg length, -1 is the '\0' teminate character
+func decodeRecord(data []byte) (*LogEvent, error) {
+	le := LogEvent{}
+	lenOfMsg := binary.NativeEndian.Uint32(data[0:4])
+	le.len = uint32(lenOfMsg)
+	le.Msg = string(data[4 : 4+lenOfMsg-1])
+	return &le, nil
 }

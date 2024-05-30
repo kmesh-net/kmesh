@@ -17,6 +17,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 
 	"kmesh.net/kmesh/daemon/options"
@@ -29,8 +30,9 @@ import (
 )
 
 var (
-	stopCh = make(chan struct{})
-	log    = logger.NewLoggerField("controller")
+	stopCh      = make(chan struct{})
+	ctx, cancle = context.WithCancel(context.Background())
+	log         = logger.NewLoggerField("controller")
 )
 
 type Controller struct {
@@ -39,14 +41,18 @@ type Controller struct {
 	client              *XdsClient
 	enableByPass        bool
 	enableSecretManager bool
+	bpfFsPath      string
+	enableBpfLog   bool
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload, bpfFsPath string, enableBpfLog bool) *Controller {
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,
 		bpfWorkloadObj:      bpfWorkloadObj,
 		enableSecretManager: opts.SecretManagerConfig.Enable,
+		bpfFsPath:      bpfFsPath,
+		enableBpfLog:   enableBpfLog,
 	}
 }
 
@@ -69,6 +75,11 @@ func (c *Controller) Start() error {
 		return nil
 	}
 
+if c.enableBpfLog {
+	if err := logger.StartRingBufReader(ctx, c.mode, c.bpfFsPath); err != nil {
+		return fmt.Errorf("fail to start ringbuf reader: %v", err)
+	}
+}
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 	if c.client.WorkloadController != nil {
 		if c.enableSecretManager {
@@ -89,6 +100,7 @@ func (c *Controller) Stop() {
 		return
 	}
 	close(stopCh)
+	cancle()
 	if c.client != nil {
 		c.client.Close()
 	}
