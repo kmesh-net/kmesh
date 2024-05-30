@@ -1,0 +1,27 @@
+name: Latest Release
+
+on:
+  push:
+    branches:
+      - "main"
+    paths-ignore:
+      - "**/*.png"
+      - "**/*.svg"
+      - "**/*.yaml"
+      - "**/*.md"
+
+jobs:
+  latest-release:
+    name: Push image to ghcr.io
+    runs-on: ubuntu-22.04
+    steps:
+      - name: checkout code
+        uses: actions/checkout@v3
+      - name: docker build
+        # master branch alway use latest tag
+        run: TAG=latest make docker
+      - name: login registry
+        # This is where you will update the PAT to GITHUB_TOKEN
+        run: echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u $ --password-stdin
+      - name: docker push
+        run: docker push ghcr.io/kmesh-net/kmesh:latest
