@@ -45,11 +45,13 @@ Common scenarios that trigger circuit breakers include:
 
 #### Implement the state machine of a circuit breaker
 
-![](./pics/circuit_breaker_state_machine.png)
+<div align="center">
+    <img src="./pics/circuit_breaker_state_machine.png" />
+</div>
 
 We can implement a circuit breaker mechanism to ensure system stability and reliability while minimizing access to faulty services. First, we need to implement a circuit breaker with three states: closed, open, and half-open.
 
-In the closed state, all requests pass through normally and are sent to the target service, even if occasional failures occur, without triggering the circuit breaker. However, when the number of failed requests exceeds a preset threshold, the circuit breaker quickly switches to the open state. In this state, all requests immediately fail, avoiding sending requests to a service known to be failing, thus reducing the system's burden.
+In the closed state, all requests pass through normally and are sent to the target service, even if occasional failures occur, without triggering the circuit breaker. However, when the number of failed requests exceeds a preset threshold, the circuit breaker quickly switches to the open state. In this state, all requests fail immediately, reducing the burden on the system by avoiding sending requests to service that is known to fail.
 
 In the open state, the circuit breaker starts a timeout timer. After the timeout period, the circuit breaker transitions to the half-open state. In the half-open state, the system allows a small number of requests to go through to test whether the target service has recovered. If these requests succeed, the circuit breaker closes again, allowing the service to handle more requests. If the requests fail, the circuit breaker reopens, maintaining protection for the system against the potentially faulty service.
 
@@ -59,7 +61,9 @@ To implement the aforementioned functionality, we can maintain several counters 
 
 #### Implement the outlier detection function
 
-![](./pics/outlier_detection.png)
+<div align="center">
+    <img src="./pics/outlier_detection.png" />
+</div>
 
 Outlier Detection in Istio and Envoy is a mechanism used to enhance the resilience and stability of microservice systems. Its primary goal is to detect and isolate instances of services that are performing abnormally, preventing these instances from affecting the overall performance and availability of the system.
 
@@ -77,7 +81,9 @@ In Istio, circuit breaking can be configured in the `TrafficPolicy` field of the
 
 The diagram below shows the relevant configurations in Istio and Envoy.
 
-![](./pics/circuit_breaker_config.png)
+<div align="center">
+    <img src="./pics/circuit_breaker_config.png" />
+</div>
 
 We can utilize the existing CircuitBreaker data structure (this data structure is stored within the Cluster workload). If necessary, we can also add new fields to this data structure:
 
@@ -94,5 +100,7 @@ message CircuitBreakers {
 
 Here is the control flow depicted in the following diagram.
 
-![](./pics/circuit_breaker_control_flow.png)
+<div align="center">
+    <img src="./pics/circuit_breaker_control_flow.png" />
+</div>
 
