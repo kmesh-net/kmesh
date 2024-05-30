@@ -37,6 +37,14 @@ enum bpf_loglevel {
 
 #define BPF_LOGLEVEL BPF_LOG_ERROR
 
+#if OE_23_03
+#define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port)
+#else
+#define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port >> 16)
+#endif
+
+#define GET_SKOPS_LOCAL_PORT(sk_ops) (__u16)((sk_ops)->local_port)
+
 #ifndef bpf_printk
 #define bpf_printk(fmt, ...)                                                                                           \
     ({                                                                                                                 \

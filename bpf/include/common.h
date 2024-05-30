@@ -69,7 +69,12 @@ static inline int kmesh_map_update_elem(void *map, const void *key, const void *
 }
 
 #if OE_23_03
-#define bpf__strncmp bpf_strncmp
+#define bpf__strncmp                  bpf_strncmp
+#define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port)
+#else
+#define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port >> 16)
 #endif
+
+#define GET_SKOPS_LOCAL_PORT(sk_ops) (__u16)((sk_ops)->local_port)
 
 #endif // _COMMON_H_

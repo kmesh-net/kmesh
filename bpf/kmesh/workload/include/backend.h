@@ -82,7 +82,7 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v, __u
             return -EINVAL;
         }
         if (service_id == backend_v->service[i]) {
-            BPF_LOG(DEBUG, BACKEND, "access the backend by service:%d\n", service_id);
+            BPF_LOG(DEBUG, BACKEND, "access the backend by service:%u\n", service_id);
 #pragma unroll
             for (__u32 j = 0; j < MAX_PORT_COUNT; j++) {
                 if (user_port == service_v->service_port[j]) {

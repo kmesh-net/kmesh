@@ -33,9 +33,8 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
     int ret;
     /* 1 lookup listener */
     DECLARE_VAR_ADDRESS(skops, addr);
-#if !OE_23_03
-    addr.port = addr.port >> 16;
-#endif
+    addr.port = GET_SKOPS_REMOTE_PORT(skops);
+
     Listener__Listener *listener = map_lookup_listener(&addr);
 
     if (!listener) {
