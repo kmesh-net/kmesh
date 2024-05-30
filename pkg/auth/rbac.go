@@ -117,7 +117,7 @@ func (r *Rbac) Run(ctx context.Context) {
 					log.Errorf("deserialize IPv4 FAILED, err: %v", err)
 					continue
 				}
-				conn = buildConnV4(&tupleV4)
+				conn = r.buildConnV4(&tupleV4)
 			case MSG_TYPE_IPV6:
 				buf = bytes.NewBuffer(rec.RawSample[4:])
 				if err = binary.Read(buf, binary.LittleEndian, &tupleV6); err != nil {
@@ -434,11 +434,12 @@ func internalMatchNamespace(srcNs string, namespaces []*security.StringMatch) bo
 	return false
 }
 
-func buildConnV4(tupleV4 *bpfSockTupleV4) rbacConnection {
+func (r *Rbac) buildConnV4(tupleV4 *bpfSockTupleV4) rbacConnection {
 	conn := rbacConnection{}
 	conn.srcIp = binary.LittleEndian.AppendUint32(conn.srcIp, tupleV4.SrcAddr)
 	conn.dstIp = binary.LittleEndian.AppendUint32(conn.dstIp, tupleV4.DstAddr)
 	conn.dstPort = uint32(tupleV4.DstPort<<8 | tupleV4.DstPort>>8)
+	conn.srcIdentity = r.getIdentityByIp(conn.srcIp)
 	return conn
 }
 
@@ -462,4 +463,16 @@ func isEmptyMatch(m *security.Match) bool {
 		m.GetDestinationPorts() == nil && m.GetNotDestinationPorts() == nil &&
 		m.GetPrincipals() == nil && m.GetNotPrincipals() == nil &&
 		m.GetNamespaces() == nil && m.GetNotNamespaces() == nil
+}
+
+// todo : get identity form tls connection
+func (r *Rbac) getIdentityByIp(ip []byte) Identity {
+	workload := r.workloadCache.GetWorkloadByAddr(cache.NetworkAddress{
+		Address: nets.ConvertIpByteToUint32(ip),
+	})
+	return Identity{
+		trustDomain:    workload.GetTrustDomain(),
+		namespace:      workload.GetNamespace(),
+		serviceAccount: workload.GetServiceAccount(),
+	}
 }
