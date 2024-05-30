@@ -48,6 +48,7 @@ type XdsClient struct {
 	WorkloadController *workload.Controller
 	xdsConfig          *config.XdsConfig
 	rbac               *auth.Rbac
+	bpfWorkloadObj     *bpf.BpfKmeshWorkload
 }
 
 func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient {
@@ -58,7 +59,8 @@ func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient 
 
 	if mode == constants.WorkloadMode {
 		client.WorkloadController = workload.NewController(bpfWorkloadObj.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
-		client.rbac = auth.NewRbac(bpfWorkloadObj, client.WorkloadController.Processor.WorkloadCache)
+		client.bpfWorkloadObj = bpfWorkloadObj
+		client.rbac = auth.NewRbac(client.WorkloadController.Processor.WorkloadCache)
 	} else if mode == constants.AdsMode {
 		client.AdsController = ads.NewController()
 	}
@@ -155,7 +157,7 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 
 	go c.handleUpstream(c.ctx)
 	if c.rbac != nil {
-		go c.rbac.Run(c.ctx)
+		go c.rbac.Run(c.ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
 	}
 
 	go func() {
