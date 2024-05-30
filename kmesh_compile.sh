@@ -36,6 +36,7 @@ function get_arch() {
 
 function build_kmesh() {
     local container_id=$1
+    docker exec $container_id git config --global --add safe.directory /kmesh
     docker exec $container_id sh /kmesh/build.sh
     docker exec $container_id sh /kmesh/build.sh -i
     docker exec $container_id sh -c "$(declare -f copy_to_host); copy_to_host"
