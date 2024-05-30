@@ -95,6 +95,42 @@ DNS-related metrics in the above metrics, as Kmesh does not yet support DNS, we 
 
 Therefore Kmesh first needs to support `connection_opens`, `connection_close`, `received_bytes`, `sent_bytes`.
 
+The above metrics also include the labels shown below:
+
+```console
+reporter
+
+source_workload
+source_canonical_service
+source_canonical_revision
+source_workload_namespace
+source_principal
+source_app
+source_version
+source_cluster
+
+destination_service
+destination_service_namespace
+destination_service_name
+
+destination_workload
+destination_canonical_service
+destination_canonical_revision
+destination_workload_namespace
+destination_principal
+destination_app
+destination_version
+destination_cluster
+
+request_protocol
+response_flag
+connection_security_policy
+```
+
+`Report` shows whether the metric is on the sender or the receiver. Then there is some identity information about the source and destination. These are similar to labels in accesslog.
+
+Then is `request_protocol`, `response_flag` and `connection_security_policy`. The values of `connection_security_policy` are mutual_tls and unknown.
+
 In addition to the metrics already available for istio, as Kmesh is able to get [richer metrics](https://gitee.com/openeuler/gala-docs/blob/master/gopher_tech.md#tcp%E6%8C%87%E6%A0%87) from the kernel. This will be an advantage for Kmesh.
 
 #### Goals
