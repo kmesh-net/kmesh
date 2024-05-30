@@ -45,17 +45,17 @@ this KEP.  Describe why the change is important and the benefits to users.
 
 In [istio ztunnel](https://github.com/istio/ztunnel?tab=readme-ov-file#logging), the Layer 4 access log contains the following metrics:
 
-src.addr
-src.workload
-src.namespace
-src.identity
+source.addr
+source.workload
+source.namespace
+source.identity
 
-dst.addr
-dst.hbone_addr
-dst.service
-dst.workload
-dst.namespace
-dst.identity
+destination.addr
+destination.hbone_addr
+destination.service
+destination.workload
+destination.namespace
+destination.identity
 
 direction
 
@@ -66,10 +66,11 @@ duration
 An example of the accesslog obtained is shown below:
 
 ```console
-2024-04-11T15:38:42.182974Z  INFO access: connection complete
-    src.addr=10.244.0.24:46238 src.workload="shell-6d8bcd654d-t88gp" src.namespace="default" src.identity="spiffe://cluster.local/ns/default/sa/default"
-    dst.addr=10.244.0.42:15008 dst.hbone_addr=10.96.108.116:80 dst.service="echo.default.svc.cluster.local"
-    direction="outbound" bytes_sent=67 bytes_recv=490 duration="13ms"
+2024-05-30T12:18:10.172761Z	info access	connection complete
+    src.addr=10.244.0.10:47667 src.workload=sleep-7656cf8794-9v2gv src.namespace=ambient-demo src.identity="spiffe://cluster.local/ns/ambient-demo/sa/sleep" 
+    dst.addr=10.244.0.7:8080 dst.hbone_addr=10.244.0.7:8080 dst.service=httpbin.ambient-demo.svc.cluster.local dst.workload=httpbin-86b8ffc5ff-bhvxx dst.namespace=ambient-demo 
+    dst.identity="spiffe://cluster.local/ns/ambient-demo/sa/httpbin" 
+    direction="inbound" bytes_sent=239 bytes_recv=76 duration="2ms"
 ```
 
 The accesslog needs to contain the identities(address/workload/namespace/identity) of the destination and source. In addition, the required metrics are the size of the message sent(bytes_sent), the size of the message received(bytes_recv) and the duration of the link.
@@ -125,6 +126,17 @@ destination_cluster
 request_protocol
 response_flag
 connection_security_policy
+
+istio_tcp_sent_bytes_total{
+    reporter="destination",
+
+    source_workload="sleep",source_canonical_service="sleep",source_canonical_revision="latest",source_workload_namespace="ambient-demo",
+    source_principal="spiffe://cluster.local/ns/ambient-demo/sa/sleep",source_app="sleep",source_version="latest",source_cluster="Kubernetes",
+    
+    destination_service="tcp-echo.ambient-demo.svc.cluster.local",destination_service_namespace="ambient-demo",destination_service_name="tcp-echo",destination_workload="tcp-echo",destination_canonical_service="tcp-echo",destination_canonical_revision="v1",destination_workload_namespace="ambient-demo",
+    destination_principal="spiffe://cluster.local/ns/ambient-demo/sa/default",destination_app="tcp-echo",destination_version="v1",destination_cluster="Kubernetes",
+    
+    request_protocol="tcp",response_flags="-",connection_security_policy="mutual_tls"} 16
 ```
 
 `Report` shows whether the metric is on the sender or the receiver. Then there is some identity information about the source and destination. These are similar to labels in accesslog.
