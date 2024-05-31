@@ -19,7 +19,7 @@ creation-date: 2024-05-29
 
 ### Summary
 
-Roadmap:
+Main target:
 
 + Support circuit breaker.
 + Support outlier detection.
@@ -58,6 +58,25 @@ In the open state, the circuit breaker starts a timeout timer. After the timeout
 This mechanism effectively monitors the health of the service and dynamically adjusts the state of the circuit breaker based on the actual situation, ensuring the system can quickly respond appropriately to failures. This, in turn, enhances system stability and reliability.
 
 To implement the aforementioned functionality, we can maintain several counters in eBPF to calculate the number of requests reaching each cluster (including the number of successful requests, timed-out requests, failed requests, etc.). Once certain conditions are met, we can trigger the circuit breaker mechanism to reject traffic destined for a particular cluster.
+
+We can use [timers](https://ebpf-docs.dylanreimerink.nl/linux/concepts/timers/) in eBPF to implement the open state of the circuit breaker. When the circuit breaker breaker is open, it will start a timer by the following code:
+
+```c
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 1000);
+    __type(key, int);
+    __type(value, struct map_elem);
+} hmap SEC(".maps");
+
+bpf_timer_init(&val->timer, &hmap, CLOCK_REALTIME);
+bpf_timer_set_callback(&val->timer, timer_cb);
+bpf_timer_start(&val->timer, 1000 /* call timer_cb in 1 usec */, 0);
+```
+
+we can hook a callback here, to do some handle logic.
+
+When the circuit breaker is open, we can reject the traffic in the `cluster_manager`, and `endpoint_manager` (it's for outlier detection).
 
 #### Implement the outlier detection function
 
