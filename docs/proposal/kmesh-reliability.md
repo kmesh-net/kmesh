@@ -42,57 +42,70 @@ Currently, this document focuses on the Kmesh daemon restart scenario. The follo
 
 ### Proposal
 
-<!--
-This is where we get down to the specifics of what the proposal actually is.
-This should have enough detail that reviewers can understand exactly what
-you're proposing, but should not include things like API designs or
-implementation. What is the desired outcome and how do we measure success?.
-The "Design Details" section below is for the real
-nitty-gritty.
--->
+The persistence capability of the bpf map and the configuration restoration capability after the Kmesh restart need to be supported, including:
 
-#### User Stories (Optional)
+1. When the Kmesh is restarted, the bpf map and bpf prog need to be maintained without being deleted, which is the basis for maintaining the data plane governance capability.
+2. After the Kmesh is restarted, the configuration restoration module is added to restore the governance information of the pods managed by the Kmesh on the node.
+3. In the scenario where the Kmesh is deleted, the bpf prog and bpf map resources must be cleared in a timely manner to ensure that no resource leakage occurs.
 
-<!--
-Detail the things that people will be able to do if this KEP is implemented.
-Include as much detail as possible so that people can understand the "how" of
-the system. The goal here is to make this feel real for users without getting
-bogged down.
--->
-
-##### Story 1
-
-##### Story 2
-
-#### Notes/Constraints/Caveats (Optional)
-
-<!--
-What are the caveats to the proposal?
-What are some important details that didn't come across above?
-Go in to as much detail as necessary here.
-This might be a good place to talk about core concepts and how they relate.
--->
-
-#### Risks and Mitigations
-
-<!--
-What are the risks of this proposal, and how do we mitigate?
-
-How will security be reviewed, and by whom?
-
-How will UX be reviewed, and by whom?
-
-Consider including folks who also work outside the SIG or subproject.
--->
+When the Kmesh is started, the bpf prog and bpf map may already exist on the node. In this case, compatibility processing is required.
 
 ### Design Details
 
-<!--
-This section should contain enough information that the specifics of your
-change are understandable. This may include API specs (though not always
-required) or even code snippets. If there's any ambiguity about HOW your
-proposal will be implemented, this is the place to discuss them.
--->
+#### Status Quo and Strategy Analysis
+
+The following uses the workload mode as an example to describe the operations on each BPF map during Kmesh governance:
+
+![](pics/kmesh-workload-bpf-map.svg)
+
+As shown in the preceding figure, these BPF maps are classified by feature as follows:
+
+- Workload Model
+  - maps: kmesh_frontend | kmesh_service | kmesh_endpoint | kmesh_backend
+  - Data source/Time: When the cluster is changed, the Istiod management and control plane delivers the data.
+- Kmesh management
+  - maps: map_of_manager
+  - Data source/Time: kmesh-plg, which is triggered when a pod is created or deleted;
+- Kmesh byPass
+  - maps: map_of_manager
+  - Data source/Time: kmesh-daemon subscribes to pod change information and triggers the update based on the label.
+- Authentication
+  - maps: map_of_tuple | map_of_auth
+  - Data source/Time: map_of_tuple is the table that reports the quintuple to be authenticated in the passive connect phase. The daemon authentication module updates the link information to be denied to map_of_auth in user mode. In the xdp packet receiving process, deny is performed based on map_of_auth.
+- Waypoint interconnection
+  - maps: map_of_dst_info
+  - Data source/Time: If ndat needs to be delivered to the waypoint in the active connect phase, the original link information is added to the map_of_dst_info, and the map_of_kmesh_socket sockhash table is added to replace the send/recv hook of the socket (to facilitate the BPF hook in the triggering of the receive and transmit processes). Reads the map_of_dst_info record from the BPF prog in the send phase, constructs meta data, and adds the data to the TCP packet.
+
+Impacts of the Kmesh restart on the preceding tables are as follows:
+
+- During the Kmesh restart:
+
+  | Scenario     | workload model | Kmesh management | Kmesh byPass | Auth | waypoint Interconnection                                     |
+  | ------------ | -------------- | ---------------- | ------------ | ---- | ------------------------------------------------------------ |
+  | Existed link | Y              | Y                | Y            | Y    | P(If the connection is complete but the send request has not been sent) |
+  | New link     | N              | N                | N            | N    | N                                                            |
+
+  Countermeasures:
+
+  - The bpf prog and map need to be maintained during restart.
+
+- After the Kmesh is restarted:
+
+  | Scenario     | workload model | Kmesh management | Kmesh byPass | Auth | waypoint Interconnection |
+  | ------------ | -------------- | ---------------- | ------------ | ---- | ------------------------ |
+  | Existed link | Y              | Y                | Y            | Y    | Y                        |
+  | New link     | Y              | N                | Y            | N    | N                        |
+
+  Countermeasures:
+
+  - The bpf prog and map need to be maintained during restart.
+  - After the Kmesh is started, the data in the map needs to be restored and the data needs to be synchronized with the control plane.
+
+  Note: Currently, Kmesh supports only link-level authentication.
+
+#### Solutions
+
+
 
 #### Test Plan
 
