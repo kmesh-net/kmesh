@@ -105,7 +105,35 @@ Impacts of the Kmesh restart on the preceding tables are as follows:
 
 #### Solutions
 
+![](pics/reliability-arch.svg)
 
+- eBPF management
+
+  - To keep the governance capability during the Kmesh restart, you need to place the bpf prog and bpf map pin to the /sys/fs/bpf directory on the node.
+  - During the startup of the Kmesh, the BPF PROG is replaced and the BPF MAP is inherited.
+
+- Configure recovery
+
+  - Workload resources
+    - During the startup of the Kmesh, the local bpf map data is restored to the user-mode cache before the Kmesh subscribes to workload model data from the Istiod.
+    - Incremental subscription to Istiod based on workload resources in the local cache;
+  - Kmesh management/byPass
+    - Move the management logic from kmesh-plg to kmesh-daemon.
+    - After the restart, synchronize the configuration based on the information restored by the bpf map and the annotation information on the subscribed pod. (The data needs to be compared by the Kmesh.)
+  - Authentication
+    - Restore the user-mode authentication cache information based on the authentication rule delivered by the Istiod.
+  - Waypoint interconnection
+    - Restore the user-mode authentication cache information based on the authentication rule delivered by the Istiod. The procedure is the same as that for restoring workload resources.
+
+- Resource recycling
+
+  In the scenario where the Kmesh is uninstalled, the bpf prog and bpf map need to be cleared.
+
+  - Postponed clearance
+
+    When the Kmesh exits, start a delay clearing task on the node. If the Kmesh restarts abnormally, delete the scheduled task after the restart.
+
+  
 
 #### Test Plan
 
