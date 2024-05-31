@@ -11,9 +11,9 @@ RUN \
     --mount=type=cache,target=/var/cache/dnf \
     yum install -y kmod util-linux iptables
 
-ADD out/$arch/*so* /usr/lib64/
-ADD out/$arch/kmesh-daemon /usr/bin/
-ADD out/$arch/kmesh-cni /usr/bin/
-ADD out/$arch/mdacore /usr/bin/
-ADD build/docker/start_kmesh.sh /kmesh
-ADD out/$arch/ko /kmesh
+COPY out/$arch/*so* /usr/lib64/
+COPY out/$arch/kmesh-daemon /usr/bin/
+COPY out/$arch/kmesh-cni /usr/bin/
+COPY out/$arch/mdacore /usr/bin/
+COPY build/docker/start_kmesh.sh /kmesh
+COPY out/$arch/ko /kmesh
