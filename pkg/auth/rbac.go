@@ -470,6 +470,10 @@ func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 	workload := r.workloadCache.GetWorkloadByAddr(cache.NetworkAddress{
 		Address: nets.ConvertIpByteToUint32(ip),
 	})
+	if workload == nil {
+		log.Warnf("get worload from ip %v FAILED", ip)
+		return Identity{}
+	}
 	return Identity{
 		trustDomain:    workload.GetTrustDomain(),
 		namespace:      workload.GetNamespace(),
