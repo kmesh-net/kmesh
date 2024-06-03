@@ -105,5 +105,5 @@ int xdp_shutdown(struct xdp_md *ctx)
     return XDP_PASS;
 }
 
-char _license[] SEC("license") = "GPL";
+char _license[] SEC("license") = "Dual BSD/GPL";
 int _version SEC("version") = 1;

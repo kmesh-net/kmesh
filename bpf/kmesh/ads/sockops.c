@@ -62,5 +62,5 @@ int sockops_prog(struct bpf_sock_ops *skops)
 
 #endif
 #endif
-char _license[] SEC("license") = "GPL";
+char _license[] SEC("license") = "Dual BSD/GPL";
 int _version SEC("version") = 1;

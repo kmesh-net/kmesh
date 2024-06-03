@@ -101,7 +101,7 @@ If you're interested in being a contributor and want to get involved in developi
 
 The Kmesh user space components are licensed under the
 [Apache License, Version 2.0](./LICENSE).
-The BPF code templates and ko(kernel module) are dual-licensed under the
+The BPF code templates, ko(kernel module) and mesh data accelerate are dual-licensed under the
 [General Public License, Version 2.0 (only)](./bpf/LICENSE.GPL-2.0)
 and the [2-Clause BSD License](./bpf/LICENSE.GPL-2.0)
 (you can use the terms of either license, at your option).

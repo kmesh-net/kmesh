@@ -153,5 +153,5 @@ int sendmsg(struct sk_msg_md *msg)
     return SK_PASS;
 }
 
-char _license[] SEC("license") = "GPL";
+char _license[] SEC("license") = "Dual BSD/GPL";
 int _version SEC("version") = 1;

@@ -71,5 +71,5 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 #endif // KMESH_ENABLE_TCP
 #endif // KMESH_ENABLE_IPV4
 
-char _license[] SEC("license") = "GPL";
+char _license[] SEC("license") = "Dual BSD/GPL";
 int _version SEC("version") = 1;
