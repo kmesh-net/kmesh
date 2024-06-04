@@ -127,6 +127,4 @@ func TestServer_configDumpWorkload(t *testing.T) {
 	util.RefreshGoldenFile(t, w.Body.Bytes(), "./testdata/workload_configdump.json")
 
 	util.CompareContent(t, w.Body.Bytes(), "./testdata/workload_configdump.json")
-
-	// TODO: Add more assertions to validate the response body
 }
