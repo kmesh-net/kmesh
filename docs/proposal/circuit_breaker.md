@@ -34,6 +34,8 @@ Common scenarios that trigger circuit breakers include:
 + High latency in the service
 + Exhaustion of service resources
 + Service unavailability
++ Service requests hit the maximum limit
++ Service connections hit the maximum limit
 
 #### Goals
 
@@ -57,26 +59,13 @@ In the open state, the circuit breaker starts a timeout timer. After the timeout
 
 This mechanism effectively monitors the health of the service and dynamically adjusts the state of the circuit breaker based on the actual situation, ensuring the system can quickly respond appropriately to failures. This, in turn, enhances system stability and reliability.
 
-To implement the aforementioned functionality, we can maintain several counters in eBPF to calculate the number of requests reaching each cluster (including the number of successful requests, timed-out requests, failed requests, etc.). Once certain conditions are met, we can trigger the circuit breaker mechanism to reject traffic destined for a particular cluster.
+To implement the aforementioned functionality, we can maintain a map in eBPF. The key of the map is the identifier of a circuit breaker. Since a circuit breaker is bound to a cluster, we can use the cluster name. The value is a structure storing statistical information, including the number of requests reaching each cluster (including the number of successful requests, timed-out requests, failed requests, etc.).
 
-We can use [timers](https://ebpf-docs.dylanreimerink.nl/linux/concepts/timers/) in eBPF to implement the open state of the circuit breaker. When the circuit breaker breaker is open, it will start a timer by the following code:
+To collect information like `http connections`, `http response code`, etc., we can use eBPF kprobe to hook some functions in system call following the example: https://github.com/weaveworks-plugins/scope-http-statistics/blob/master/ebpf-http-statistics.c or https://github.com/eunomia-bpf/bpf-developer-tutorial/blob/main/src/23-http/accept.bpf.c.
 
-```c
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(max_entries, 1000);
-    __type(key, int);
-    __type(value, struct map_elem);
-} hmap SEC(".maps");
+Once certain conditions are met(e.g., the failed requests reaches the upper bound), we can open the circuit breaker mechanism, rejecting traffic destined for a particular cluster in `cluster_manager`.
 
-bpf_timer_init(&val->timer, &hmap, CLOCK_REALTIME);
-bpf_timer_set_callback(&val->timer, timer_cb);
-bpf_timer_start(&val->timer, 1000 /* call timer_cb in 1 usec */, 0);
-```
-
-we can hook a callback here, to do some handle logic.
-
-When the circuit breaker is open, we can reject the traffic in the `cluster_manager`, and `endpoint_manager` (it's for outlier detection).
+We can implement circuit breaker logic using golang in userspace, and interact with the kernel by accessing the shared statistic information map.
 
 #### Implement the outlier detection function
 
@@ -93,6 +82,8 @@ It has two main functions:
 + Once an anomaly is detected, Outlier Detection temporarily removes the instance from the load balancing pool, effectively "ejecting" the instance to prevent it from receiving new requests. After a certain period, the system will reassess the health status of the instance and, if it has returned to normal, will reintegrate it into the load balancing pool.
 
 We can monitor HTTP return statuses in eBPF to determine if a service is experiencing 5xx errors. When the number of such errors reaches a certain threshold, we need to exclude the corresponding endpoints from the load balancing selection.
+
+The process of monitor and traffic management is similar to circuit breaker.
 
 #### Circuit breaker and outlier detection config
 
