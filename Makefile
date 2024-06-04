@@ -71,7 +71,8 @@ TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	config/kmesh_marcos_def.h \
 	mk/api-v2-c.pc \
 	mk/bpf.pc \
-	bpf/kmesh/ads/include/config.h
+	bpf/kmesh/ads/include/config.h \
+	bpf/include/bpf_helper_defs_ext.h
 
 .PHONY: all install uninstall clean build docker
 
