@@ -51,17 +51,17 @@ const (
 )
 
 type Server struct {
-	config     *options.BootstrapConfigs
-	controller *controller.Controller
-	mux        *http.ServeMux
-	server     *http.Server
+	config    *options.BootstrapConfigs
+	xdsClient *controller.XdsClient
+	mux       *http.ServeMux
+	server    *http.Server
 }
 
-func NewServer(c *controller.Controller, configs *options.BootstrapConfigs) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs) *Server {
 	s := &Server{
-		config:     configs,
-		controller: c,
-		mux:        http.NewServeMux(),
+		config:    configs,
+		xdsClient: c,
+		mux:       http.NewServeMux(),
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -109,7 +109,7 @@ func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
-	client := s.controller.GetXdsClient()
+	client := s.xdsClient
 	if client == nil || client.AdsController == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
@@ -131,7 +131,7 @@ func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
-	client := s.controller.GetXdsClient()
+	client := s.xdsClient
 	if client == nil || client.AdsController == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
@@ -159,7 +159,7 @@ type WorkloadDump struct {
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
-	client := s.controller.GetXdsClient()
+	client := s.xdsClient
 	if client == nil || client.WorkloadController == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
