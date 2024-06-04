@@ -177,3 +177,7 @@ func (c *caClient) reconnect() error {
 	c.client = pb.NewIstioCertificateServiceClient(conn)
 	return nil
 }
+
+func (c *caClient) close() error {
+	return c.conn.Close()
+}
