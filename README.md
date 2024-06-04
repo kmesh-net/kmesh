@@ -99,9 +99,12 @@ If you're interested in being a contributor and want to get involved in developi
 
 ## License
 
-Kmesh is under the Apache 2.0 license. See the [LICENSE](LICENSE) file for details.
-
-Kmesh documentation is under the [CC-BY-4.0 license](https://creativecommons.org/licenses/by/4.0/legalcode).
+The Kmesh user space components are licensed under the
+[Apache License, Version 2.0](./LICENSE).
+The BPF code templates, ko(kernel module) and mesh data accelerate are dual-licensed under the
+[General Public License, Version 2.0 (only)](./bpf/LICENSE.GPL-2.0)
+and the [2-Clause BSD License](./bpf/LICENSE.GPL-2.0)
+(you can use the terms of either license, at your option).
 
 ## Credit
 
