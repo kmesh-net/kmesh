@@ -30,6 +30,7 @@ type WorkloadCache interface {
 	GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload
 	AddWorkload(workload *workloadapi.Workload)
 	DeleteWorkload(uid string)
+	List() []*workloadapi.Workload
 }
 
 type NetworkAddress struct {
@@ -112,4 +113,15 @@ func (w *cache) DeleteWorkload(uid string) {
 
 		delete(w.byUid, uid)
 	}
+}
+
+func (w *cache) List() []*workloadapi.Workload {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	out := make([]*workloadapi.Workload, 0, len(w.byUid))
+	for _, workload := range w.byUid {
+		out = append(out, workload)
+	}
+
+	return out
 }

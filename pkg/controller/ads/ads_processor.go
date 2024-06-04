@@ -32,7 +32,6 @@ import (
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
-
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/utils/hash"
@@ -52,7 +51,6 @@ type processor struct {
 	Cache     *AdsCache
 	ack       *service_discovery_v3.DiscoveryRequest
 	req       *service_discovery_v3.DiscoveryRequest
-	adminChan chan *admin_v2.ConfigResources
 	LastNonce *lastNonce
 }
 
@@ -288,11 +286,6 @@ func (svc *processor) handleRdsResponse(resp *service_discovery_v3.DiscoveryResp
 	svc.req = nil
 	svc.Cache.RouteCache.Flush()
 	return nil
-}
-
-// TODO(hzxuzhonghu): remove it as not used at all
-func (svc *processor) NewAdminRequest(resources *admin_v2.ConfigResources) {
-	svc.adminChan <- resources
 }
 
 func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {

@@ -130,7 +130,7 @@ func (cache *RouteConfigCache) DumpBpf() []*route_v2.RouteConfiguration {
 	return mapCache
 }
 
-func (cache *RouteConfigCache) StatusRead() []*route_v2.RouteConfiguration {
+func (cache *RouteConfigCache) Dump() []*route_v2.RouteConfiguration {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
 	mapCache := make([]*route_v2.RouteConfiguration, 0, len(cache.apiRouteConfigCache))
