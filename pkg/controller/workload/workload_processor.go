@@ -55,6 +55,7 @@ type Processor struct {
 	Sm                 *kmeshsecurity.SecretManager
 	nodeName           string
 	WorkloadCache      cache.WorkloadCache
+	ServiceCache       cache.ServiceCache
 }
 
 type Endpoint struct {
@@ -71,6 +72,7 @@ func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		bpf:                bpf.NewCache(workloadMap),
 		nodeName:           os.Getenv("NODE_NAME"),
 		WorkloadCache:      cache.NewWorkloadCache(),
+		ServiceCache:       cache.NewServiceCache(),
 	}
 }
 
