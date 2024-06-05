@@ -91,7 +91,7 @@ func (c *caClient) csrSend(csrPEM []byte, certValidsec int64, identity string) (
 	// when certificate acquisition fails. If it still fails, return an error.
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
-		log.Errorf("create certificate: %v reconnect...", err)
+		log.Errorf("create certificate failed: %v reconnect...", err)
 		if err := c.reconnect(); err != nil {
 			return nil, fmt.Errorf("reconnect error: %v", err)
 		}
@@ -141,7 +141,7 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 	}
 	certChainPEM, err := c.csrSend(csrPEM, int64(c.opts.SecretTTL.Seconds()), identity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get certChainPEM: %v", err)
+		return nil, err
 	}
 
 	certChain := standardCerts(certChainPEM)
@@ -154,7 +154,7 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 
 	rootCertPEM = []byte(certChainPEM[len(certChainPEM)-1])
 
-	log.Debugf("cert for %v ExpireTime :%v", identity, expireTime)
+	log.Debugf("cert for %v expireTime :%v", identity, expireTime)
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,

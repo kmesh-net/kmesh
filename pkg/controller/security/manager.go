@@ -184,8 +184,6 @@ func (s *SecretManager) addCert(identity string) {
 	newCert, err := s.caClient.fetchCert(identity)
 	if err != nil {
 		log.Errorf("fetcheCert %v error: %v", identity, err)
-		// in case fetchCert failed, retry
-		s.certRequestChan <- certRequest{Identity: identity, Operation: ADD}
 		return
 	}
 
