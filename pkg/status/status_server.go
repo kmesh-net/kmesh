@@ -155,7 +155,8 @@ func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 type WorkloadDump struct {
 	Workloads []*Workload
 	Services  []*Service
-	Policies  []*security.Authorization
+	// TODO: add authorization
+	Policies []*security.Authorization
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
@@ -184,6 +185,7 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add some components check
 	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("OK"))
 }
 
 func (s *Server) StartServer() {
@@ -207,5 +209,5 @@ func printWorkloadDump(w http.ResponseWriter, wd WorkloadDump) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	w.Write(data)
+	_, _ = w.Write(data)
 }
