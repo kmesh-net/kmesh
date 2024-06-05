@@ -52,7 +52,7 @@ type Processor struct {
 	// endpoint indexer, svc key -> workload id -> endpoint
 	endpointsByService map[string]map[string]Endpoint
 	bpf                *bpf.Cache
-	Sm                 *kmeshsecurity.SecretManager
+	SecretManager      *kmeshsecurity.SecretManager
 	nodeName           string
 	WorkloadCache      cache.WorkloadCache
 	ServiceCache       cache.ServiceCache
@@ -183,13 +183,15 @@ func (p *Processor) removeWorkloadResource(removedResources []string) error {
 	)
 
 	for _, uid := range removedResources {
-		exist := p.WorkloadCache.GetWorkloadByUid(uid)
-		if exist != nil && p.isManagedWorkload(exist) {
-			Identity := p.getIdentityByUid(uid)
-			p.Sm.SendCertRequest(Identity, kmeshsecurity.DELETE)
+		if p.SecretManager != nil {
+			exist := p.WorkloadCache.GetWorkloadByUid(uid)
+			if exist != nil && p.isManagedWorkload(exist) {
+				Identity := p.getIdentityByUid(uid)
+				p.SecretManager.SendCertRequest(Identity, kmeshsecurity.DELETE)
+			}
 		}
-		p.WorkloadCache.DeleteWorkload(uid)
 
+		p.WorkloadCache.DeleteWorkload(uid)
 		backendUid := p.hashName.StrToNum(uid)
 		// for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
 		if err = p.deletePodFrontendData(backendUid); err != nil {
@@ -466,7 +468,7 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
-	if p.isManagedWorkload(workload) {
+	if p.SecretManager != nil && p.isManagedWorkload(workload) {
 		wl := p.WorkloadCache.GetWorkloadByUid(workload.Uid)
 		// only send cert request for a workload once
 		// because workload identity can be updated
@@ -477,7 +479,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 				ServiceAccount: workload.ServiceAccount,
 			}.String()
 			// This is the case workload added first time
-			p.Sm.SendCertRequest(identity, kmeshsecurity.ADD)
+			p.SecretManager.SendCertRequest(identity, kmeshsecurity.ADD)
 		}
 	}
 
