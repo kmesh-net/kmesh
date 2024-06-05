@@ -158,20 +158,6 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 	}, nil
 }
 
-func (c *caClient) reconnect() error {
-	if err := c.conn.Close(); err != nil {
-		return fmt.Errorf("failed to close connection: %v", err)
-	}
-
-	conn, err := nets.GrpcConnect(caAddress)
-	if err != nil {
-		return err
-	}
-	c.conn = conn
-	c.client = pb.NewIstioCertificateServiceClient(conn)
-	return nil
-}
-
 func (c *caClient) close() error {
 	return c.conn.Close()
 }
