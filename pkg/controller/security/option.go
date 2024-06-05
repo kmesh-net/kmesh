@@ -26,6 +26,7 @@ import (
 const (
 	ADD = iota
 	DELETE
+	RETRY
 	Rotate
 
 	maxConcurrentCSR = 128 // max concurrent CSR
@@ -42,8 +43,8 @@ func NewSecurityOptions() *security.Options {
 }
 
 var (
-	CSRSignAddress = env.Register("CA_CONTROLLER", "istiod.istio-system.svc:15012", "").Get()
-	secretTTLEnv   = env.Register("SECRET_TTL", 24*time.Hour,
+	caAddress    = env.Register("CA_ADDRESS", "istiod.istio-system.svc:15012", "").Get()
+	secretTTLEnv = env.Register("SECRET_TTL", 24*time.Hour,
 		"The cert lifetime requested by kmesh CA agent").Get()
 
 	workloadRSAKeySizeEnv = env.Register("WORKLOAD_RSA_KEY_SIZE", 2048,

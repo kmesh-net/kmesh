@@ -80,11 +80,13 @@ func (s *SecretManager) handleCertRequests(stop <-chan struct{}) {
 				continue
 			}
 			// sign cert if only no cert exists for this identity
-			go s.addCert(identity)
+			go s.fetchCert(identity)
+		case RETRY:
+			s.retryFetchCert(identity)
 		case DELETE:
 			s.deleteCert(identity)
 		case Rotate:
-			go s.rotateCert(identity)
+			s.rotateCert(identity)
 		}
 	}
 }
@@ -180,10 +182,14 @@ func (s *SecretManager) rotateCerts() {
 }
 
 // addCert signs a cert for the identity and cache it.
-func (s *SecretManager) addCert(identity string) {
+func (s *SecretManager) fetchCert(identity string) {
 	newCert, err := s.caClient.fetchCert(identity)
 	if err != nil {
 		log.Errorf("fetcheCert %v error: %v", identity, err)
+		// TODO: backoff retry
+		time.AfterFunc(time.Second, func() {
+			s.SendCertRequest(identity, RETRY)
+		})
 		return
 	}
 
@@ -223,5 +229,18 @@ func (s *SecretManager) rotateCert(identity string) {
 		log.Debugf("cert %s expire at %T, skip rotate now", identity, certificate.cert.ExpireTime)
 	}
 
-	s.addCert(identity)
+	go s.fetchCert(identity)
+}
+
+func (s *SecretManager) retryFetchCert(identity string) {
+	s.certsCache.mu.RLock()
+	certificate := s.certsCache.certs[identity]
+	if certificate == nil {
+		s.certsCache.mu.RUnlock()
+		log.Debugf("identity: %v cert has been deleted", identity)
+		return
+	}
+	s.certsCache.mu.RUnlock()
+
+	go s.fetchCert(identity)
 }
