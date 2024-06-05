@@ -25,9 +25,9 @@ import (
 
 	// nolint
 	"google.golang.org/protobuf/encoding/protojson"
-	"google.golang.org/protobuf/proto"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
+	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
@@ -51,17 +51,17 @@ const (
 )
 
 type Server struct {
-	config     *options.BootstrapConfigs
-	controller *controller.Controller
-	mux        *http.ServeMux
-	server     *http.Server
+	config    *options.BootstrapConfigs
+	xdsClient *controller.XdsClient
+	mux       *http.ServeMux
+	server    *http.Server
 }
 
-func NewServer(c *controller.Controller, configs *options.BootstrapConfigs) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs) *Server {
 	s := &Server{
-		config:     configs,
-		controller: c,
-		mux:        http.NewServeMux(),
+		config:    configs,
+		xdsClient: c,
+		mux:       http.NewServeMux(),
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -75,6 +75,7 @@ func NewServer(c *controller.Controller, configs *options.BootstrapConfigs) *Ser
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
+
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
 
@@ -108,7 +109,7 @@ func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
-	client := s.controller.GetXdsClient()
+	client := s.xdsClient
 	if client == nil || client.AdsController == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
@@ -130,7 +131,7 @@ func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
-	client := s.controller.GetXdsClient()
+	client := s.xdsClient
 	if client == nil || client.AdsController == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
@@ -151,23 +152,40 @@ func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 	}))
 }
 
+type WorkloadDump struct {
+	Workloads []*Workload
+	Services  []*Service
+	// TODO: add authorization
+	Policies []*security.Authorization
+}
+
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
-	client := s.controller.GetXdsClient()
+	client := s.xdsClient
 	if client == nil || client.WorkloadController == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
 	workloads := client.WorkloadController.Processor.WorkloadCache.List()
-	data, _ := Marshal(workloads)
-	fmt.Fprintln(w, string(data))
+	services := client.WorkloadController.Processor.ServiceCache.List()
+	workloadDump := WorkloadDump{
+		Workloads: make([]*Workload, 0, len(workloads)),
+		Services:  make([]*Service, 0, len(services)),
+	}
+	for _, w := range workloads {
+		workloadDump.Workloads = append(workloadDump.Workloads, ConvertWorkload(w))
+	}
+	for _, s := range services {
+		workloadDump.Services = append(workloadDump.Services, ConvertService(s))
+	}
+	printWorkloadDump(w, workloadDump)
 }
 
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add some components check
 	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (s *Server) StartServer() {
@@ -183,23 +201,13 @@ func (s *Server) StopServer() error {
 	return s.server.Close()
 }
 
-// Marshal marshals a slice of proto messages to json.
-func Marshal[S ~[]E, E proto.Message](s S) ([]byte, error) {
-	raw := make([]json.RawMessage, len(s))
-	for i, w := range s {
-		data, err := marshalWithIndent(w)
-		if err != nil {
-			return nil, err
-		}
-		raw[i] = data
+func printWorkloadDump(w http.ResponseWriter, wd WorkloadDump) {
+	data, err := json.MarshalIndent(wd, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal WorkloadDump: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
-	return json.MarshalIndent(raw, "", "  ")
-}
-
-// marshalWithIndent marshals a proto message with indent to json.
-func marshalWithIndent(msg proto.Message) ([]byte, error) {
-	return protojson.MarshalOptions{
-		Multiline: true,
-		Indent:    "  ",
-	}.Marshal(msg)
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }

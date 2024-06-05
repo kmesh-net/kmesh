@@ -55,6 +55,7 @@ type Processor struct {
 	Sm                 *kmeshsecurity.SecretManager
 	nodeName           string
 	WorkloadCache      cache.WorkloadCache
+	ServiceCache       cache.ServiceCache
 }
 
 type Endpoint struct {
@@ -71,6 +72,7 @@ func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		bpf:                bpf.NewCache(workloadMap),
 		nodeName:           os.Getenv("NODE_NAME"),
 		WorkloadCache:      cache.NewWorkloadCache(),
+		ServiceCache:       cache.NewServiceCache(),
 	}
 }
 
@@ -279,6 +281,7 @@ func (p *Processor) removeServiceResource(resources []string) error {
 	)
 
 	for _, name := range resources {
+		p.ServiceCache.DeleteService(name)
 		serviceId := p.hashName.StrToNum(name)
 		skDelete.ServiceId = serviceId
 		if err = p.bpf.ServiceLookup(&skDelete, &svDelete); err == nil {
@@ -575,10 +578,8 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		sk  = bpf.ServiceKey{}
 		sv  = bpf.ServiceValue{}
 	)
-
-	NamespaceHostname := []string{service.GetNamespace(), service.GetHostname()}
-	serviceName := strings.Join(NamespaceHostname, "/")
-
+	p.ServiceCache.AddOrUpdateService(service)
+	serviceName := service.ResourceName()
 	serviceId := p.hashName.StrToNum(serviceName)
 	sk.ServiceId = serviceId
 	// if service has exist, just need update frontend port info

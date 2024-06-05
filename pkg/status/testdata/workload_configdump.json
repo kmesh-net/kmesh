@@ -1,0 +1,54 @@
+{
+    "Workloads": [
+        {
+            "uid": "cluster0//Pod/ns/name",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.10"
+            },
+            "protocol": "NONE",
+            "name": "name",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster0",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "HEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            }
+        }
+    ],
+    "Services": [
+        {
+            "name": "svc",
+            "namespace": "ns",
+            "hostname": "hostname",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 80,
+                    "target_port": 8080
+                },
+                {
+                    "service_port": 81
+                },
+                {
+                    "service_port": 82
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        }
+    ],
+    "Policies": null
+}
