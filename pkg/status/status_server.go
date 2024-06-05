@@ -185,7 +185,7 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add some components check
 	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("OK"))
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (s *Server) StartServer() {
