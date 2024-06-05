@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
@@ -84,8 +85,8 @@ func (c *caClient) csrSend(csrPEM []byte, certValidsec int64, identity string) (
 		Metadata:         crMeta,
 	}
 
-	ctx := context.Background()
-
+	// TODO: support customize clusterID, which is needed for multicluster mesh
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", "Kubernetes"))
 	// To handle potential grpc connection disconnection and retry once
 	// when certificate acquisition fails. If it still fails, return an error.
 	resp, err := c.client.CreateCertificate(ctx, req)
@@ -140,7 +141,7 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 	}
 	certChainPEM, err := c.csrSend(csrPEM, int64(c.opts.SecretTTL.Seconds()), identity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get certChainPEM")
+		return nil, fmt.Errorf("failed to get certChainPEM: %v", err)
 	}
 
 	certChain := standardCerts(certChainPEM)

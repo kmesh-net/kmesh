@@ -467,15 +467,17 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
 	if p.isManagedWorkload(workload) {
-		oldIdentity := p.getIdentityByUid(workload.Uid)
-		if oldIdentity == "" {
-			newIdentity := spiffe.Identity{
+		wl := p.WorkloadCache.GetWorkloadByUid(workload.Uid)
+		// only send cert request for a workload once
+		// because workload identity can be updated
+		if wl == nil {
+			identity := spiffe.Identity{
 				TrustDomain:    workload.TrustDomain,
 				Namespace:      workload.Namespace,
 				ServiceAccount: workload.ServiceAccount,
 			}.String()
 			// This is the case workload added first time
-			p.Sm.SendCertRequest(newIdentity, kmeshsecurity.ADD)
+			p.Sm.SendCertRequest(identity, kmeshsecurity.ADD)
 		}
 	}
 
