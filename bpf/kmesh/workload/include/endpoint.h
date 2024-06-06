@@ -22,7 +22,7 @@ endpoint_manager(ctx_buff_t *ctx, endpoint_value *endpoint_v, __u32 service_id, 
     backend_k.backend_uid = endpoint_v->backend_uid;
     backend_v = map_lookup_backend(&backend_k);
     if (!backend_v) {
-        BPF_LOG(WARN, ENDPOINT, "find backend failed");
+        BPF_LOG(WARN, ENDPOINT, "find backend %u failed", backend_k.backend_uid);
         return -ENOENT;
     }
 
