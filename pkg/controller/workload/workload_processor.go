@@ -390,8 +390,7 @@ func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error 
 		return err
 	}
 
-	for serviceName, _ := range workload.GetServices() {
-		p.storeServiceEndpoint(workload.GetUid(), serviceName)
+	for serviceName := range workload.GetServices() {
 		bk.BackendUid = backend_uid
 		// for update sense, if the backend is exist, just need update it
 		if err = p.bpf.BackendLookup(&bk, &bv); err != nil {
@@ -402,6 +401,8 @@ func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error 
 					log.Errorf("storeEndpointWithService failed, err:%s", err)
 					return err
 				}
+			} else {
+				p.storeServiceEndpoint(workload.GetUid(), serviceName)
 			}
 		}
 	}
