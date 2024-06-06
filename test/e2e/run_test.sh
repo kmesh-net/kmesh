@@ -26,6 +26,17 @@ function setup_kind_cluster() {
     fi    
 }
 
-setup_kind_cluster
+while (( "$#" )); do
+    case "$1" in
+    --skip-setup)
+      SKIP_SETUP=true
+      shift
+    ;;
+    esac
+done
+
+if [[ -z "${SKIP_SETUP:-}" ]]; then
+    setup_kind_cluster
+fi
 
 go test -tags=integ ./test/e2e/...
