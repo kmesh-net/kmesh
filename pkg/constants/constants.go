@@ -20,6 +20,11 @@ const (
 	AdsMode      = "ads"
 	WorkloadMode = "workload"
 
+	// DataPlaneModeLabel is the label used to indicate the data plane mode
+	DataPlaneModeLabel = "istio.io/dataplane-mode"
+	// DataPlaneModeKmesh is the value of the label to indicate the data plane mode is kmesh
+	DataPlaneModeKmesh = "kmesh"
+
 	XDP_PROG_NAME = "xdp_shutdown"
 
 	RootCertPath = "/var/run/secrets/istio/root-cert.pem"

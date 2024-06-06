@@ -112,14 +112,15 @@ func checkKmesh(client kubernetes.Interface, pod *v1.Pod) (bool, error) {
 		return false, nil
 	}
 
+	// Exclude istio managed gateway
 	if gateway, ok := pod.Labels["gateway.istio.io/managed"]; ok {
 		if strings.EqualFold(gateway, "istio.io-mesh-controller") {
 			return false, nil
 		}
 	}
 
-	mode := namespace.Labels["istio.io/dataplane-mode"]
-	if strings.EqualFold(mode, "Kmesh") {
+	mode := namespace.Labels[constants.DataPlaneModeLabel]
+	if strings.EqualFold(mode, constants.DataPlaneModeKmesh) {
 		return true, nil
 	}
 
