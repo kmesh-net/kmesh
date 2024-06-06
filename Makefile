@@ -149,6 +149,9 @@ build:
 docker: build
 	docker build --build-arg arch=$(DIR) -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
+e2e:
+	./test/e2e/run_test.sh
+
 format:
 	./hack/format.sh
 
