@@ -19,6 +19,7 @@ package controller
 import (
 	"fmt"
 
+	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
@@ -33,17 +34,19 @@ var (
 )
 
 type Controller struct {
-	mode           string
-	bpfWorkloadObj *bpf.BpfKmeshWorkload
-	client         *XdsClient
-	enableByPass   bool
+	mode                string
+	bpfWorkloadObj      *bpf.BpfKmeshWorkload
+	client              *XdsClient
+	enableByPass        bool
+	enableSecretManager bool
 }
 
-func NewController(mode string, enableByPass bool, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controller {
 	return &Controller{
-		mode:           mode,
-		enableByPass:   enableByPass,
-		bpfWorkloadObj: bpfWorkloadObj,
+		mode:                opts.BpfConfig.Mode,
+		enableByPass:        opts.ByPassConfig.EnableByPass,
+		bpfWorkloadObj:      bpfWorkloadObj,
+		enableSecretManager: opts.SecretManagerConfig.Enable,
 	}
 }
 
@@ -66,15 +69,16 @@ func (c *Controller) Start() error {
 		return nil
 	}
 
-	secertManager, err := security.NewSecretManager()
-	if err != nil {
-		return fmt.Errorf("secretManager create failed: %v", err)
-	}
-	go secertManager.Run(stopCh)
-
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Processor.Sm = secertManager
+		if c.enableSecretManager {
+			secertManager, err := security.NewSecretManager()
+			if err != nil {
+				return fmt.Errorf("secretManager create failed: %v", err)
+			}
+			go secertManager.Run(stopCh)
+			c.client.WorkloadController.Processor.SecretManager = secertManager
+		}
 	}
 
 	return c.client.Run(stopCh)
