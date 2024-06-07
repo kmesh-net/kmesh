@@ -23,7 +23,7 @@ static inline int lb_random_handle(ctx_buff_t *ctx, __u32 service_id, service_va
 
     endpoint_v = map_lookup_endpoint(&endpoint_k);
     if (!endpoint_v) {
-        BPF_LOG(WARN, SERVICE, "find endpoint failed");
+        BPF_LOG(WARN, SERVICE, "find endpoint [%u/%u] failed", service_id, endpoint_k.backend_index);
         return -ENOENT;
     }
 
