@@ -10,8 +10,12 @@ import (
 	"runtime"
 	"testing"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/security/util/cert"
@@ -24,6 +28,17 @@ var (
 	KmeshSrc = getDefaultKmeshSrc()
 
 	KmeshNS = "kmesh-system"
+
+	apps = &EchoDeployments{}
+)
+
+type EchoDeployments struct {
+	// Namespace echo apps will be deployed
+	Namespace namespace.Instance
+}
+
+const (
+	WorkloadAddressedWaypoint = "workload-addressed-waypoint"
 )
 
 func getDefaultKmeshSrc() string {
@@ -61,6 +76,9 @@ func TestMain(m *testing.M) {
 
 			return nil
 		}).
+		Setup(func(t resource.Context) error {
+			return SetupApps(t, i, apps)
+		}).
 		Run()
 }
 
@@ -92,4 +110,58 @@ func getKmeshYamls() ([]string, error) {
 	}
 
 	return results, nil
+}
+
+func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
+	var err error
+	apps.Namespace, err = namespace.New(t, namespace.Config{
+		Prefix: "echo",
+		Inject: false,
+		Labels: map[string]string{
+			constants.DataplaneModeLabel: "ambient",
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	builder := deployment.New(t).
+		WithClusters(t.Clusters()...).
+		WithConfig(echo.Config{
+			Service:   WorkloadAddressedWaypoint,
+			Namespace: apps.Namespace,
+			// ports:                 ports.All(),
+			ServiceAccount:        true,
+			WorkloadWaypointProxy: "waypoint",
+			Subsets: []echo.SubsetConfig{
+				{
+					Replicas: 1,
+					Version:  "v1",
+					Labels: map[string]string{
+						"app":                             WorkloadAddressedWaypoint,
+						"version":                         "v1",
+						constants.AmbientUseWaypointLabel: "waypoint",
+					},
+				},
+				{
+					Replicas: 1,
+					Version:  "v2",
+					Labels: map[string]string{
+						"app":                             WorkloadAddressedWaypoint,
+						"version":                         "v2",
+						constants.AmbientUseWaypointLabel: "waypoint",
+					},
+				},
+			},
+		})
+
+	echos, err := builder.Build()
+	if err != nil {
+		return err
+	}
+	for _, b := range echos {
+		scopes.Framework.Infof("built %v", b.Config().Service)
+	}
+
+	return nil
 }
