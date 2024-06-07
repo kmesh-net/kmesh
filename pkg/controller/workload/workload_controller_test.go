@@ -37,7 +37,7 @@ import (
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 )
 
-func TestWorklaodStreamCreateAndSend(t *testing.T) {
+func TestWorkloadStreamCreateAndSend(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 	workloadStream := Controller{
