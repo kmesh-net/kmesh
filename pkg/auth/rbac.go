@@ -146,7 +146,24 @@ func (r *Rbac) Run(ctx context.Context) {
 					log.Errorf("INVALID msg type: %v", msgType)
 					continue
 				}
+			} else {
+				switch msgType {
+				case MSG_TYPE_IPV4:
+					if err = clearAuthInitStateV4(&xdpHandlerKeyV4{Tuple: tupleV4}); err != nil {
+						log.Errorf("XdpHandlerUpdateV4 FAILED, err: %v", err)
+						continue
+					}
+				case MSG_TYPE_IPV6:
+					if err = clearAuthInitStateV6(&xdpHandlerKeyV6{tuple: tupleV6}); err != nil {
+						log.Errorf("XdpHandlerUpdateV6 FAILED, err: %v", err)
+						continue
+					}
+				default:
+					log.Errorf("INVALID msg type: %v", msgType)
+					continue
+				}
 			}
+
 		}
 	}
 }
@@ -471,7 +488,7 @@ func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 	networkAddress.Address, _ = netip.AddrFromSlice(ip)
 	workload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	if workload == nil {
-		log.Warnf("get worload from ip %v FAILED", ip)
+		log.Warnf("get worload from ip %v failed", ip)
 		return Identity{}
 	}
 	return Identity{

@@ -18,6 +18,7 @@ package auth
 
 import (
 	"github.com/cilium/ebpf"
+	"istio.io/pkg/log"
 
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -77,4 +78,28 @@ func xdpNotifyConnRstV6(key *xdpHandlerKeyV6) error {
 	// Insert the socket tuple into the auth map, so xdp_auth_handler can know that socket with
 	// this tuple is denied by policy
 	return authMap.Update(key, uint32(1), ebpf.UpdateAny)
+}
+
+func clearAuthInitStateV4(key *xdpHandlerKeyV4) error {
+	var (
+		authMap *ebpf.Map
+		err     error
+	)
+	if authMap, err = utils.GetMapByName(XDP_AUTH_MAP_NAME); err != nil {
+		log.Errorf("GetMapByName in clearAuthInitStateV6 failed, err: %v", err)
+		return err
+	}
+	return authMap.Delete(key)
+}
+
+func clearAuthInitStateV6(key *xdpHandlerKeyV6) error {
+	var (
+		authMap *ebpf.Map
+		err     error
+	)
+	if authMap, err = utils.GetMapByName(XDP_AUTH_MAP_NAME); err != nil {
+		log.Errorf("GetMapByName in  clearAuthInitStateV6 failed, err: %v", err)
+		return err
+	}
+	return authMap.Delete(key)
 }

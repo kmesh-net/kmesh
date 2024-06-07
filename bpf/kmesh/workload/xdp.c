@@ -15,6 +15,7 @@
 
 #define AUTH_PASS   0
 #define AUTH_FORBID 1
+#define AUTH_INIT 2
 
 #define PARSER_FAILED 1
 #define PARSER_SUCC   0
@@ -83,11 +84,12 @@ static inline int should_shutdown(struct bpf_sock_tuple *tuple_info)
         BPF_LOG(
             INFO,
             XDP,
-            "auth denied, src ip: %pI4h, port: %u\n",
+            "auth denied(%u), src ip: %pI4h, port: %u\n",
+            *value,
             &tuple_info->ipv4.saddr,
             bpf_ntohs(tuple_info->ipv4.sport));
         bpf_map_delete_elem(&map_of_auth, tuple_info);
-        return AUTH_FORBID;
+        return *value;
     }
     return AUTH_PASS;
 }
@@ -100,6 +102,7 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 SEC("xdp_auth")
 int xdp_shutdown(struct xdp_md *ctx)
 {
+    int ret = 0;
     struct xdp_info info = {0};
     struct bpf_sock_tuple tuple_info = {0};
 
@@ -111,9 +114,12 @@ int xdp_shutdown(struct xdp_md *ctx)
 
     // never failed
     parser_tuple(&info, &tuple_info);
-    if (should_shutdown(&tuple_info) == AUTH_FORBID)
-        shutdown_tuple(&info);
+    ret = should_shutdown(&tuple_info);
+    if （ret == AUTH_INIT)
+        return XDP_DROP;
 
+    if (ret == AUTH_FORBID) {
+        shutdown_tuple(&info);
     // If auth denied, it still returns XDP_PASS here, so next time when a client package is
     // sent to server, it will be shutdown since server's RST has been set
     return XDP_PASS;
