@@ -12,10 +12,7 @@
 #include "config.h"
 #include "bpf_log.h"
 #include "workload.h"
-
-#define AUTH_PASS   0
-#define AUTH_FORBID 1
-#define AUTH_INIT 2
+#include "bpf_common.h"
 
 #define PARSER_FAILED 1
 #define PARSER_SUCC   0
@@ -115,7 +112,7 @@ int xdp_shutdown(struct xdp_md *ctx)
     // never failed
     parser_tuple(&info, &tuple_info);
     ret = should_shutdown(&tuple_info);
-    if （ret == AUTH_INIT)
+    if （ret == AUTH_PROCESSING)
         return XDP_DROP;
 
     if (ret == AUTH_FORBID) {

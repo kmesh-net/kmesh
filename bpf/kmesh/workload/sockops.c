@@ -122,15 +122,16 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
     // In this way, auth can be performed normally.
     extract_skops_to_tuple_reverse(skops, &(*msg).tuple);
     (*msg).type = (skops->family == AF_INET) ? IPV4 : IPV6;
+    record_auth_running(skops);
     bpf_ringbuf_submit(msg, 0);
 }
 
 // insert an init state to auth_map, indicates that auth is being performed 
-static inline void auth_init(struct bpf_sock_ops *skops)
+static inline void record_auth_running(struct bpf_sock_ops *skops)
 {
     struct bpf_sock_tuple tuple_info = {0};
     extract_skops_to_tuple(skops, &tuple_info);
-    int err = bpf_map_update_elem(&map_of_auth, &tuple_info, 2, BPF_ANY);
+    int err = bpf_map_update_elem(&map_of_auth, &tuple_info, AUTH_PROCESSING, BPF_ANY);
     if (err)
         BPF_LOG(ERR, SOCKOPS, "insert auth init record failed!, err is %d", err);
 }
@@ -278,7 +279,6 @@ int sockops_prog(struct bpf_sock_ops *skops)
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         auth_ip_tuple(skops);
-        auth_init();
         break;
     case BPF_SOCK_OPS_STATE_CB:
         if (skops->args[1] == BPF_TCP_CLOSE) {
