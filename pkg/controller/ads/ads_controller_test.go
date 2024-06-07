@@ -34,7 +34,7 @@ import (
 
 func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 	// create a fake grpc service client
-	mockDiscovery := xdstest.NewMockServer(t)
+	mockDiscovery := xdstest.NewXdsServer(t)
 
 	client, err := xdstest.NewClient(mockDiscovery)
 	if err != nil {
@@ -109,7 +109,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 func TestAdsStream_AdsStreamProcess(t *testing.T) {
 
 	// create a fake grpc service client
-	mockDiscovery := xdstest.NewMockServer(t)
+	mockDiscovery := xdstest.NewXdsServer(t)
 	fakeClient, err := xdstest.NewClient(mockDiscovery)
 	if err != nil {
 		t.Errorf("grpc connection client create failed, %s", err)

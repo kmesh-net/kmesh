@@ -32,7 +32,7 @@ type XDSServer struct {
 	close          chan struct{}
 }
 
-func NewMockServer(t *testing.T) *XDSServer {
+func NewXdsServer(t *testing.T) *XDSServer {
 	s := &XDSServer{
 		close:          make(chan struct{}),
 		responses:      make(chan *discoveryv3.DiscoveryResponse),
