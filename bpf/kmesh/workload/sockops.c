@@ -48,24 +48,40 @@ static inline bool is_managed_by_kmesh(__u32 family, __u32 ip4, __u32 *ip6)
 
 static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
-    tuple_key->ipv4.saddr = skops->local_ip4;
-    tuple_key->ipv4.daddr = skops->remote_ip4;
-    // local_port is host byteorder
-    tuple_key->ipv4.sport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
-    // remote_port is network byteorder
-    // openEuler 2303 convert remote port different than other linux vendor
-
-    tuple_key->ipv4.dport = GET_SKOPS_REMOTE_PORT(skops);
+    if (skops->family == AF_INET) {
+        tuple_key->ipv4.saddr = skops->local_ip4;
+        tuple_key->ipv4.daddr = skops->remote_ip4;
+        // local_port is host byteorder, need to htons
+        tuple_key->ipv4.sport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
+        // remote_port is network byteorder
+        tuple_key->ipv4.dport = GET_SKOPS_REMOTE_PORT(skops);
+    } else {
+        bpf_memcpy(tuple_key->ipv6.saddr, skops->local_ip6, IPV6_ADDR_LEN);
+        bpf_memcpy(tuple_key->ipv6.daddr, skops->remote_ip6, IPV6_ADDR_LEN);
+        // local_port is host byteorder, need to htons
+        tuple_key->ipv6.sport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
+        // remote_port is network byteorder
+        tuple_key->ipv6.dport = GET_SKOPS_REMOTE_PORT(skops);
+    }
 }
 
 static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
-    tuple_key->ipv4.saddr = skops->remote_ip4;
-    tuple_key->ipv4.daddr = skops->local_ip4;
-    // remote_port is network byteorder
-    tuple_key->ipv4.sport = GET_SKOPS_REMOTE_PORT(skops);
-    // local_port is host byteorder
-    tuple_key->ipv4.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
+    if (skops->family == AF_INET) {
+        tuple_key->ipv4.saddr = skops->remote_ip4;
+        tuple_key->ipv4.daddr = skops->local_ip4;
+        // remote_port is network byteorder
+        tuple_key->ipv4.sport = GET_SKOPS_REMOTE_PORT(skops);
+        // local_port is host byteorder
+        tuple_key->ipv4.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
+    } else {
+        bpf_memcpy(tuple_key->ipv6.saddr, skops->remote_ip6, IPV6_ADDR_LEN);
+        bpf_memcpy(tuple_key->ipv6.daddr, skops->local_ip6, IPV6_ADDR_LEN);
+        // remote_port is network byteorder
+        tuple_key->ipv6.sport = GET_SKOPS_REMOTE_PORT(skops);
+        // local_port is host byteorder
+        tuple_key->ipv6.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
+    }
 }
 
 // clean map_of_auth
@@ -105,7 +121,7 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
     // the server info when we transmitted to the kmesh auth info.
     // In this way, auth can be performed normally.
     extract_skops_to_tuple_reverse(skops, &(*msg).tuple);
-    (*msg).type = (__u32)IPV4;
+    (*msg).type = (skops->family == AF_INET) ? IPV4 : IPV6;
     bpf_ringbuf_submit(msg, 0);
 }
 

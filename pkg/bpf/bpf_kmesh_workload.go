@@ -349,7 +349,7 @@ func (sm *BpfSendMsgWorkload) LoadSendMsg() error {
 
 func (sm *BpfSendMsgWorkload) Attach() error {
 	// Use a program handle that cannot be closed by the caller
-	clone, err := sm.KmeshSendmsgObjects.KmeshSendmsgPrograms.Sendmsg.Clone()
+	clone, err := sm.KmeshSendmsgObjects.KmeshSendmsgPrograms.SendmsgProg.Clone()
 	if err != nil {
 		return err
 	}
@@ -372,7 +372,7 @@ func (sm *BpfSendMsgWorkload) Detach() error {
 	if sm.AttachFD > 0 {
 		args := link.RawDetachProgramOptions{
 			Target:  sm.AttachFD,
-			Program: sm.KmeshSendmsgObjects.KmeshSendmsgPrograms.Sendmsg,
+			Program: sm.KmeshSendmsgObjects.KmeshSendmsgPrograms.SendmsgProg,
 			Attach:  ebpf.AttachSkMsgVerdict,
 		}
 

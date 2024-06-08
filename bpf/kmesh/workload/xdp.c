@@ -50,10 +50,12 @@ static inline int get_hdr_ptr(struct xdp_md *ctx, struct ethhdr **ethh, struct i
 
 static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
-    tuple_info->ipv4.saddr = info->iph->saddr;
-    tuple_info->ipv4.daddr = info->iph->daddr;
-    tuple_info->ipv4.sport = info->tcph->source;
-    tuple_info->ipv4.dport = info->tcph->dest;
+    if (info->iph->version == 4) {
+        tuple_info->ipv4.saddr = info->iph->saddr;
+        tuple_info->ipv4.daddr = info->iph->daddr;
+        tuple_info->ipv4.sport = info->tcph->source;
+        tuple_info->ipv4.dport = info->tcph->dest;
+    }
 }
 
 static inline void shutdown_tuple(struct xdp_info *info)

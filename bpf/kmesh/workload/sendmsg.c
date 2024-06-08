@@ -2,6 +2,7 @@
 /* Copyright Authors of Kmesh */
 
 #include <linux/bpf.h>
+#include <sys/socket.h>
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 #include "bpf_log.h"
@@ -76,7 +77,7 @@ static inline int encode_metadata_end(struct sk_msg_md *msg, __u32 off)
     return off;
 }
 
-static inline int get_origin_dst(struct sk_msg_md *msg, __u32 *dst_ip, __u16 *dst_port)
+static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, __u16 *dst_port)
 {
     __u64 *current_sk = (__u64 *)msg->sk;
     struct bpf_sock_tuple *dst;
@@ -84,8 +85,15 @@ static inline int get_origin_dst(struct sk_msg_md *msg, __u32 *dst_ip, __u16 *ds
     dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
     if (!dst)
         return -ENOENT;
-    *dst_ip = dst->ipv4.daddr;
-    *dst_port = dst->ipv4.dport;
+
+    if (msg->family == AF_INET) {
+        dst_ip->ip4 = dst->ipv4.daddr;
+        *dst_port = dst->ipv4.dport;
+    } else {
+        bpf_memcpy(dst_ip->ip6, dst->ipv6.daddr, IPV6_ADDR_LEN);
+        *dst_port = dst->ipv6.dport;
+    }
+
     bpf_map_delete_elem(&map_of_dst_info, &current_sk);
     return 0;
 }
@@ -103,7 +111,7 @@ static inline int alloc_dst_length(struct sk_msg_md *msg, __u32 length)
 
 static inline void encode_metadata_dst(struct sk_msg_md *msg, __u32 off)
 {
-    __u32 dst_ip;
+    struct ip_addr dst_ip = {0};
     __u16 dst_port;
     __u32 *msg_dst_ip_loc;
     __u16 *msg_dst_port_loc;
@@ -122,7 +130,7 @@ static inline void encode_metadata_dst(struct sk_msg_md *msg, __u32 off)
     msg_dst_ip_loc = (__u32 *)((__u8 *)msg->data + off);
     if (check_overflow(msg, (__u8 *)msg_dst_ip_loc, 4))
         return;
-    *msg_dst_ip_loc = dst_ip;
+    *msg_dst_ip_loc = dst_ip.ip4;
     off += 4;
 
     msg_dst_port_loc = (__u16 *)((__u8 *)msg->data + off);
@@ -147,7 +155,7 @@ static inline void encode_metadata(struct sk_msg_md *msg, enum TLV_TYPE type, __
 }
 
 SEC("sk_msg")
-int sendmsg(struct sk_msg_md *msg)
+int sendmsg_prog(struct sk_msg_md *msg)
 {
     encode_metadata(msg, TLV_DST_INFO, 0);
     return SK_PASS;
