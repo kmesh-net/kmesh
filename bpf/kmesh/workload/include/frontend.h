@@ -13,7 +13,7 @@ static inline frontend_value *map_lookup_frontend(const frontend_key *key)
     return kmesh_map_lookup_elem(&map_of_frontend, key);
 }
 
-static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v)
+static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v, struct ctx_info *info)
 {
     int ret = 0;
     service_key service_k = {0};
@@ -36,21 +36,21 @@ static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v)
 
     if (direct_backend) {
         // For pod direct access, if a pod has watpoint captured, we will redirect to waypoint, otherwise we do nothing.
-        if (backend_v->waypoint_addr != 0 && backend_v->waypoint_port != 0) {
+        if (backend_v->wp_addr.ip4 != 0 && backend_v->waypoint_port != 0) {
             BPF_LOG(
                 DEBUG,
                 FRONTEND,
                 "find waypoint addr=[%pI4h:%u]",
-                &backend_v->waypoint_addr,
+                &backend_v->wp_addr.ip4,
                 bpf_ntohs(backend_v->waypoint_port));
-            ret = waypoint_manager(ctx, backend_v->waypoint_addr, backend_v->waypoint_port);
+            ret = waypoint_manager(ctx, info, &backend_v->wp_addr, backend_v->waypoint_port);
             if (ret == -ENOEXEC) {
                 BPF_LOG(ERR, BACKEND, "waypoint_manager failed, ret:%d\n", ret);
                 return ret;
             }
         }
     } else {
-        ret = service_manager(ctx, frontend_v->upstream_id, service_v);
+        ret = service_manager(ctx, info, frontend_v->upstream_id, service_v);
         if (ret != 0) {
             if (ret != -ENOENT)
                 BPF_LOG(ERR, FRONTEND, "service_manager failed, ret:%d\n", ret);

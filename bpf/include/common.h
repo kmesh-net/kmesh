@@ -44,6 +44,15 @@ struct ip_addr {
 };
 #define IPV6_ADDR_LEN 16
 
+struct ctx_info {
+    // input
+    struct ip_addr vip;
+
+    // output
+    struct ip_addr dnat_ip;
+    __u32 dnat_port;
+    bool via_waypoint;
+};
 
 static inline void *kmesh_map_lookup_elem(void *map, const void *key)
 {
