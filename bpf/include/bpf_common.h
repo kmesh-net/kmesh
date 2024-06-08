@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Kmesh */
+#ifndef __KMESH_BPF_COMMON_H__
+#define __KMESH_BPF_COMMON_H__
+
+#include "common.h"
 
 #define map_of_manager      kmesh_manage
 #define MAP_SIZE_OF_MANAGER 8192
@@ -11,6 +15,13 @@
 #define ENABLE_BYPASS_PORT 0x3a3
 /*0x3a4(932) is the specific port handled by the daemon to enable bypass*/
 #define DISABLE_BYPASS_PORT 0x3a4
+
+struct manager_key {
+    union {
+        __u64 netns_cookie;
+        struct ip_addr addr;
+    };
+};
 
 typedef struct {
     __u32 is_bypassed;
@@ -28,49 +39,53 @@ typedef struct {
  */
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u64);
+    __type(key, struct manager_key);
     __type(value, manager_value_t);
     __uint(max_entries, MAP_SIZE_OF_MANAGER);
     __uint(map_flags, 0);
 } map_of_manager SEC(".maps");
 
-static inline void record_manager_netns_cookie(struct bpf_map *map, struct bpf_sock_addr *ctx)
+static inline void record_manager_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
+    struct manager_key key = {0};
+    key.netns_cookie = bpf_get_netns_cookie(ctx);
     manager_value_t value = {
         .is_bypassed = 0,
     };
 
-    __u64 cookie = bpf_get_netns_cookie(ctx);
-    err = bpf_map_update_elem(map, &cookie, &value, BPF_NOEXIST);
+    err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
     if (err)
         BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
 }
 
-static inline void set_netns_bypass_value(struct bpf_sock_addr *sock_addr, int new_bypass_value)
+static inline void set_netns_bypass_value(struct bpf_sock_addr *ctx, int new_bypass_value)
 {
-    __u64 cookie = bpf_get_netns_cookie(sock_addr);
-    manager_value_t *current_value = bpf_map_lookup_elem(&map_of_manager, &cookie);
+    struct manager_key key = {0};
+    key.netns_cookie = bpf_get_netns_cookie(ctx);
+    manager_value_t *current_value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!current_value || current_value->is_bypassed == new_bypass_value)
         return;
 
     current_value->is_bypassed = new_bypass_value;
 
-    int err = bpf_map_update_elem(&map_of_manager, &cookie, current_value, BPF_EXIST);
+    int err = bpf_map_update_elem(&map_of_manager, &key, current_value, BPF_EXIST);
     if (err)
         BPF_LOG(ERR, KMESH, "set netcookie failed!, err is %d\n", err);
 }
 
 static inline bool is_kmesh_enabled(struct bpf_sock_addr *ctx)
 {
-    __u64 cookie = bpf_get_netns_cookie(ctx);
-    return bpf_map_lookup_elem(&map_of_manager, &cookie);
+    struct manager_key key = {0};
+    key.netns_cookie = bpf_get_netns_cookie(ctx);
+    return bpf_map_lookup_elem(&map_of_manager, &key);
 }
 
 static inline bool is_bypass_enabled(struct bpf_sock_addr *ctx)
 {
-    __u64 cookie = bpf_get_netns_cookie(ctx);
-    manager_value_t *value = bpf_map_lookup_elem(&map_of_manager, &cookie);
+    struct manager_key key = {0};
+    key.netns_cookie = bpf_get_netns_cookie(ctx);
+    manager_value_t *value = bpf_map_lookup_elem(&map_of_manager, &key);
 
     if (!value)
         return false;
@@ -78,11 +93,13 @@ static inline bool is_bypass_enabled(struct bpf_sock_addr *ctx)
     return value->is_bypassed;
 }
 
-static inline void remove_manager_netns_cookie(struct bpf_map *map, struct bpf_sock_addr *ctx)
+static inline void remove_manager_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
-    __u64 cookie = bpf_get_netns_cookie(ctx);
-    err = bpf_map_delete_elem(map, &cookie);
+    struct manager_key key = {0};
+    key.netns_cookie = bpf_get_netns_cookie(ctx);
+
+    err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
         BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
 }
@@ -122,14 +139,14 @@ static inline bool conn_from_cni_sim_delete(struct bpf_sock_addr *ctx)
 static inline bool handle_kmesh_manage_process(struct bpf_sock_addr *ctx)
 {
     if (conn_from_cni_sim_add(ctx)) {
-        record_manager_netns_cookie(&map_of_manager, ctx);
+        record_manager_netns_cookie(ctx);
         // return failed, cni sim connect 0.0.0.1:929(0x3a1)
         // A normal program will not connect to this IP address
         return true;
     }
 
     if (conn_from_cni_sim_delete(ctx)) {
-        remove_manager_netns_cookie(&map_of_manager, ctx);
+        remove_manager_netns_cookie(ctx);
         return true;
     }
     return false;
@@ -152,3 +169,5 @@ static inline bool handle_bypass_process(struct bpf_sock_addr *ctx)
     }
     return false;
 }
+
+#endif

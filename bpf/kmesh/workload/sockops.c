@@ -32,14 +32,17 @@ struct {
     __uint(map_flags, 0);
 } map_of_kmesh_socket SEC(".maps");
 
-static inline bool is_managed_by_kmesh(__u32 ip)
+static inline bool is_managed_by_kmesh(__u32 family, __u32 ip4, __u32 *ip6)
 {
-    __u64 key = ip;
-    int *value = bpf_map_lookup_elem(&map_of_manager, &key);
+    struct manager_key key = {
+        .addr.ip4 = ip4,
+    };
+    if (family == AF_INET6)
+        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
 
+    int *value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!value)
         return false;
-
     return (*value == 0);
 }
 
@@ -117,22 +120,31 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
         BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d", err);
 }
 
-static inline void record_kmesh_managed_ip(__u32 ip)
+static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 {
     int err;
     manager_value_t value = {
         .is_bypassed = 0,
     };
+    struct manager_key key = {
+        .addr.ip4 = ip4,
+    };
+    if (family == AF_INET6)
+        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
 
-    __u64 key = ip;
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
     if (err)
         BPF_LOG(ERR, KMESH, "record ip failed!, err is %d\n", err);
 }
 
-static inline void remove_kmesh_managed_ip(__u32 ip)
+static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 {
-    __u64 key = ip;
+    struct manager_key key = {
+        .addr.ip4 = ip4,
+    };
+    if (family == AF_INET6)
+        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+
     int err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
         BPF_LOG(ERR, KMESH, "remove ip failed!, err is %d\n", err);
@@ -174,9 +186,14 @@ static inline bool skops_conn_from_bypass_sim_delete(struct bpf_sock_ops *skops)
     return conn_from_sim(skops, 1, DISABLE_BYPASS_PORT);
 }
 
-static inline void set_bypass_value(__u32 ip, int new_bypass_value)
+static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new_bypass_value)
 {
-    __u64 key = ip;
+    struct manager_key key = {
+        .addr.ip4 = ip4,
+    };
+    if (family == AF_INET6)
+        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+
     manager_value_t *current_value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!current_value || current_value->is_bypassed == new_bypass_value)
         return;
@@ -196,17 +213,17 @@ static inline bool ipv4_mapped_addr(__u32 ip6[4])
 static inline void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops)
 {
     if (skops_conn_from_cni_sim_add(skops))
-        record_kmesh_managed_ip(skops->local_ip4);
+        record_kmesh_managed_ip(skops->family, skops->local_ip4, skops->local_ip6);
     if (skops_conn_from_cni_sim_delete(skops))
-        remove_kmesh_managed_ip(skops->local_ip4);
+        remove_kmesh_managed_ip(skops->family, skops->local_ip4, skops->local_ip6);
 }
 
 static inline void skops_handle_bypass_process(struct bpf_sock_ops *skops)
 {
     if (skops_conn_from_bypass_sim_add(skops))
-        set_bypass_value(skops->local_ip4, 1);
+        set_bypass_value(skops->family, skops->local_ip4, skops->local_ip6, 1);
     if (skops_conn_from_bypass_sim_delete(skops))
-        set_bypass_value(skops->local_ip4, 0);
+        set_bypass_value(skops->family, skops->local_ip4, skops->local_ip6, 0);
 }
 
 SEC("sockops")
@@ -220,7 +237,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
         skops_handle_bypass_process(skops);
         break;
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->local_ip4)) // local ip4 is client ip
+        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, NULL)) // local ip4 is client ip
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
@@ -230,7 +247,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
             enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->local_ip4)) // local ip4 is server ip
+        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, NULL)) // local ip4 is server ip
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");

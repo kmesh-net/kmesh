@@ -36,6 +36,15 @@
 #endif
 #define SEC_TAIL(ID, KEY) SEC(__stringify(ID) "/" __stringify(KEY))
 
+struct ip_addr {
+    union {
+        __u32 ip4;
+        __u32 ip6[4];
+    };
+};
+#define IPV6_ADDR_LEN 16
+
+
 static inline void *kmesh_map_lookup_elem(void *map, const void *key)
 {
     return bpf_map_lookup_elem(map, key);
