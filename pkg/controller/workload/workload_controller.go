@@ -47,8 +47,8 @@ func NewController(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Controller {
 
 func (ws *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
 	var (
-		err                  error
-		addressResourceNames []string
+		err                     error
+		initialResourceVersions map[string]string
 	)
 
 	ws.Stream, err = client.DeltaAggregatedResources(ctx)
@@ -59,21 +59,21 @@ func (ws *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedD
 	if ws.Processor != nil {
 		cachedServices := ws.Processor.ServiceCache.List()
 		cachedWorkloads := ws.Processor.WorkloadCache.List()
-		addressResourceNames = make([]string, 0, len(cachedServices)+len(cachedWorkloads))
+		initialResourceVersions = make(map[string]string)
 
 		// add cached resource names
 		for _, service := range cachedServices {
-			addressResourceNames = append(addressResourceNames, service.ResourceName())
+			initialResourceVersions[service.ResourceName()] = ""
 		}
 
 		for _, workload := range cachedWorkloads {
-			addressResourceNames = append(addressResourceNames, workload.ResourceName())
+			initialResourceVersions[workload.ResourceName()] = ""
 		}
 	}
 
-	log.Debugf("Initial address resource names: %v", addressResourceNames)
+	log.Debugf("Initial address resources: %v", initialResourceVersions)
 
-	if err := ws.Stream.Send(newWorkloadRequest(AddressType, addressResourceNames)); err != nil {
+	if err := ws.Stream.Send(newInitialWorkloadRequest(AddressType, nil, initialResourceVersions)); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
 
