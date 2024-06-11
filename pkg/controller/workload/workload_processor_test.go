@@ -31,16 +31,6 @@ import (
 	"kmesh.net/kmesh/pkg/utils/test"
 )
 
-func createBackendData(ip []byte) *bpfcache.BackendValue {
-	return &bpfcache.BackendValue{
-		IPv4:         nets.ConvertIpByteToUint32(ip),
-		ServiceCount: 1,
-		Services:     bpfcache.ServiceList{1},
-		WaypointAddr: nets.ConvertIpByteToUint32([]byte{10, 240, 10, 1}),
-		WaypointPort: nets.ConvertPortToBigEndian(15008),
-	}
-}
-
 func Test_handleWorkload(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
@@ -77,12 +67,12 @@ func Test_handleWorkload(t *testing.T) {
 	svcID := checkFrontEndMap(t, fakeSvc.Addresses[0].Address, p)
 
 	// 2.2 check service map contains service
-	err := checkServiceMap(t, p, svcID, fakeSvc, 1)
+	checkServiceMap(t, p, svcID, fakeSvc, 1)
 
 	// 2.3 check endpoint map now contains the workloads
 	ek.BackendIndex = 1
 	ek.ServiceId = svcID
-	err = p.bpf.EndpointLookup(&ek, &ev)
+	err := p.bpf.EndpointLookup(&ek, &ev)
 	assert.NoError(t, err)
 	assert.Equal(t, ev.BackendUid, workloadID)
 
@@ -102,19 +92,19 @@ func Test_handleWorkload(t *testing.T) {
 	checkServiceMap(t, p, svcID, fakeSvc, 2)
 }
 
-func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workloadapi.Service, endpointCountchan uint32) error {
+func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workloadapi.Service, endpointCountchan uint32) {
 	var sv bpfcache.ServiceValue
 	err := p.bpf.ServiceLookup(&bpfcache.ServiceKey{ServiceId: svcId}, &sv)
 	assert.NoError(t, err)
 	assert.Equal(t, sv.EndpointCount, endpointCountchan)
 	assert.Equal(t, sv.WaypointAddr, nets.ConvertIpByteToUint32(fakeSvc.GetWaypoint().GetAddress().Address))
 	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(15008))
-	return err
 }
 
 func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workloadapi.Workload) {
 	var bv bpfcache.BackendValue
-	p.bpf.BackendLookup(&bpfcache.BackendKey{BackendUid: workloadID}, &bv)
+	err := p.bpf.BackendLookup(&bpfcache.BackendKey{BackendUid: workloadID}, &bv)
+	assert.NoError(t, err)
 	assert.Equal(t, bv.IPv4, nets.ConvertIpByteToUint32(wl.Addresses[0]))
 	assert.Equal(t, bv.WaypointAddr, nets.ConvertIpByteToUint32(wl.GetWaypoint().GetAddress().GetAddress()))
 	assert.Equal(t, bv.WaypointPort, nets.ConvertPortToBigEndian(wl.GetWaypoint().GetHboneMtlsPort()))

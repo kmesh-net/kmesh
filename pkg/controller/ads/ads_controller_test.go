@@ -106,8 +106,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 	}
 }
 
-func TestAdsStream_AdsStreamProcess(t *testing.T) {
-
+func TestHandleAdsStream(t *testing.T) {
 	// create a fake grpc service client
 	mockDiscovery := xdstest.NewXdsServer(t)
 	fakeClient, err := xdstest.NewClient(mockDiscovery)

@@ -63,10 +63,10 @@ func NewClient(xdsServer *XDSServer) (*XDSClient, error) {
 
 func (c *XDSClient) Cleanup() {
 	if c.AdsClient != nil {
-		c.AdsClient.CloseSend()
+		_ = c.AdsClient.CloseSend()
 	}
 	if c.DeltaClient != nil {
-		c.DeltaClient.CloseSend()
+		_ = c.DeltaClient.CloseSend()
 	}
 	c.conn.Close()
 }

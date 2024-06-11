@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 )
 
