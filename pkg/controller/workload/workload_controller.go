@@ -56,14 +56,16 @@ func (ws *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedD
 		return fmt.Errorf("DeltaAggregatedResources failed, %s", err)
 	}
 
-	for _, service := range ws.Processor.ServiceCache.List() {
-		// The xds primary key is "namespace/hostname"
-		addressResourceNames = append(addressResourceNames, fmt.Sprintf("%s/%s", service.Namespace, service.Hostname))
-	}
+	if ws.Processor != nil {
+		for _, service := range ws.Processor.ServiceCache.List() {
+			// The xds primary key is "namespace/hostname"
+			addressResourceNames = append(addressResourceNames, fmt.Sprintf("%s/%s", service.Namespace, service.Hostname))
+		}
 
-	for _, workload := range ws.Processor.WorkloadCache.List() {
-		// The xds primary key is "uid"
-		addressResourceNames = append(addressResourceNames, workload.Uid)
+		for _, workload := range ws.Processor.WorkloadCache.List() {
+			// The xds primary key is "uid"
+			addressResourceNames = append(addressResourceNames, workload.Uid)
+		}
 	}
 
 	log.Infof("Address resource names: %v", addressResourceNames)
