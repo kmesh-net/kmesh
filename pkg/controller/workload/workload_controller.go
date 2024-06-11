@@ -57,18 +57,21 @@ func (ws *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedD
 	}
 
 	if ws.Processor != nil {
-		for _, service := range ws.Processor.ServiceCache.List() {
-			// The xds primary key is "namespace/hostname"
-			addressResourceNames = append(addressResourceNames, fmt.Sprintf("%s/%s", service.Namespace, service.Hostname))
+		cachedServices := ws.Processor.ServiceCache.List()
+		cachedWorkloads := ws.Processor.WorkloadCache.List()
+		addressResourceNames = make([]string, 0, len(cachedServices)+len(cachedWorkloads))
+
+		// add cached resource names
+		for _, service := range cachedServices {
+			addressResourceNames = append(addressResourceNames, service.ResourceName())
 		}
 
-		for _, workload := range ws.Processor.WorkloadCache.List() {
-			// The xds primary key is "uid"
-			addressResourceNames = append(addressResourceNames, workload.Uid)
+		for _, workload := range cachedWorkloads {
+			addressResourceNames = append(addressResourceNames, workload.ResourceName())
 		}
 	}
 
-	log.Infof("Address resource names: %v", addressResourceNames)
+	log.Debugf("Initial address resource names: %v", addressResourceNames)
 
 	if err := ws.Stream.Send(newWorkloadRequest(AddressType, addressResourceNames)); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
