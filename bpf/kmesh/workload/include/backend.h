@@ -44,7 +44,8 @@ static inline int waypoint_manager(ctx_buff_t *ctx, struct ctx_info *info, struc
     return 0;
 }
 
-static inline int backend_manager(ctx_buff_t *ctx, struct ctx_info *info, backend_value *backend_v, __u32 service_id, service_value *service_v)
+static inline int backend_manager(
+    ctx_buff_t *ctx, struct ctx_info *info, backend_value *backend_v, __u32 service_id, service_value *service_v)
 {
     int ret;
     __u32 user_port = ctx->user_port;

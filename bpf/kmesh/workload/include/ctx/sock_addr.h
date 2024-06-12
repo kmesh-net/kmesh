@@ -11,7 +11,7 @@ typedef enum {
 
 typedef struct bpf_sock_addr ctx_buff_t;
 
-#define DECLARE_FRONTEND_KEY(ctx, ctx_vip, key)                                                                                 \
+#define DECLARE_FRONTEND_KEY(ctx, ctx_vip, key)                                                                        \
     frontend_key key = {0};                                                                                            \
     if (ctx->user_family == AF_INET)                                                                                   \
         key.addr.ip4 = (ctx_vip)->ip4;                                                                                 \
