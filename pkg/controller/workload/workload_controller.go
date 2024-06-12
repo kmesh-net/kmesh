@@ -59,7 +59,7 @@ func (ws *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedD
 	if ws.Processor != nil {
 		cachedServices := ws.Processor.ServiceCache.List()
 		cachedWorkloads := ws.Processor.WorkloadCache.List()
-		initialResourceVersions = make(map[string]string)
+		initialResourceVersions = make(map[string]string, len(cachedServices)+len(cachedWorkloads))
 
 		// add cached resource names
 		for _, service := range cachedServices {
