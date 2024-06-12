@@ -274,7 +274,7 @@ func getnspath(pod *corev1.Pod) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	res = path.Join("/proc", res)
+	res = path.Join("/host/proc", res)
 	return res, nil
 }
 
@@ -287,7 +287,7 @@ func BuiltinOrDir(dir string) fs.FS {
 
 func FindNetnsForPod(pod *corev1.Pod) (string, error) {
 	netnsObserved := sets.New[uint64]()
-	fd := BuiltinOrDir("/proc")
+	fd := BuiltinOrDir("/host/proc")
 
 	entries, err := fs.ReadDir(fd, ".")
 	if err != nil {
