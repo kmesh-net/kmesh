@@ -17,12 +17,12 @@
 package cache
 
 import (
+	"net/netip"
 	"sync"
 
 	"google.golang.org/protobuf/proto"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
-	"kmesh.net/kmesh/pkg/nets"
 )
 
 type WorkloadCache interface {
@@ -35,7 +35,7 @@ type WorkloadCache interface {
 
 type NetworkAddress struct {
 	Network string
-	Address uint32
+	Address netip.Addr
 }
 
 type cache struct {
@@ -63,7 +63,7 @@ func (w *cache) GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Wo
 	return w.byAddr[networkAddress]
 }
 
-func composeNetworkAddress(network string, addr uint32) NetworkAddress {
+func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 	networkAddress := NetworkAddress{
 		Network: network,
 		Address: addr,
@@ -85,7 +85,7 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) {
 		}
 		// remove same uid but old address workload, avoid leak worklaod by address.
 		for _, ip := range workloadByUid.Addresses {
-			addr := nets.ConvertIpByteToUint32(ip)
+			addr, _ := netip.AddrFromSlice(ip)
 			networkAddress := composeNetworkAddress(workloadByUid.Network, addr)
 			delete(w.byAddr, networkAddress)
 		}
@@ -93,7 +93,7 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) {
 
 	w.byUid[uid] = workload
 	for _, ip := range workload.Addresses {
-		addr := nets.ConvertIpByteToUint32(ip)
+		addr, _ := netip.AddrFromSlice(ip)
 		networkAddress := composeNetworkAddress(workload.Network, addr)
 		w.byAddr[networkAddress] = workload
 	}
@@ -106,7 +106,7 @@ func (w *cache) DeleteWorkload(uid string) {
 	workload, exist := w.byUid[uid]
 	if exist {
 		for _, ip := range workload.Addresses {
-			addr := nets.ConvertIpByteToUint32(ip)
+			addr, _ := netip.AddrFromSlice(ip)
 			networkAddress := composeNetworkAddress(workload.Network, addr)
 			delete(w.byAddr, networkAddress)
 		}

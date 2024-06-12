@@ -17,7 +17,6 @@
 package workload
 
 import (
-	"encoding/binary"
 	"fmt"
 	"os"
 	"strings"
@@ -139,7 +138,7 @@ func (p *Processor) deletePodFrontendData(uid uint32) error {
 	bk.BackendUid = uid
 	if err := p.bpf.BackendLookup(&bk, &bv); err == nil {
 		log.Debugf("Find BackendValue: [%#v]", bv)
-		fk.IPv4 = bv.IPv4
+		fk.Ip = bv.Ip
 		if err = p.bpf.FrontendDelete(&fk); err != nil {
 			log.Errorf("FrontendDelete failed: %s", err)
 			return err
@@ -155,7 +154,8 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 		fv = bpf.FrontendValue{}
 	)
 
-	fk.IPv4 = binary.LittleEndian.Uint32(ip)
+	nets.CopyIpByteFromSlice(&fk.Ip, &ip)
+
 	fv.UpstreamId = uid
 	if err := p.bpf.FrontendUpdate(&fk, &fv); err != nil {
 		log.Errorf("Update frontend map failed, err:%s", err)
@@ -346,7 +346,7 @@ func (p *Processor) storeBackendData(uid uint32, ip []byte, waypoint *workloadap
 	)
 
 	bk.BackendUid = uid
-	bv.IPv4 = nets.ConvertIpByteToUint32(ip)
+	nets.CopyIpByteFromSlice(&bv.Ip, &ip)
 	bv.ServiceCount = 0
 	for serviceName := range portList {
 		bv.Services[bv.ServiceCount] = p.hashName.StrToNum(serviceName)
@@ -358,7 +358,7 @@ func (p *Processor) storeBackendData(uid uint32, ip []byte, waypoint *workloadap
 	}
 
 	if waypoint != nil {
-		bv.WaypointAddr = nets.ConvertIpByteToUint32(waypoint.GetAddress().Address)
+		nets.CopyIpByteFromSlice(&bv.WaypointAddr, &waypoint.GetAddress().Address)
 		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 	}
 
@@ -429,17 +429,18 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 		bk  = bpf.BackendKey{}
 		bv  = bpf.BackendValue{}
 	)
+
 	uid := p.hashName.StrToNum(workload.GetUid())
 	ips := workload.GetAddresses()
 	for _, ip := range ips {
 		if waypoint := workload.GetWaypoint(); waypoint != nil {
-			addr := waypoint.GetAddress().Address
-			bv.WaypointAddr = nets.ConvertIpByteToUint32(addr)
+			nets.CopyIpByteFromSlice(&bv.WaypointAddr, &waypoint.GetAddress().Address)
 			bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 		}
 
 		bk.BackendUid = uid
-		bv.IPv4 = nets.ConvertIpByteToUint32(ip)
+
+		nets.CopyIpByteFromSlice(&bv.Ip, &ip)
 		if err = p.bpf.BackendUpdate(&bk, &bv); err != nil {
 			log.Errorf("Update backend map failed, err:%s", err)
 			return err
@@ -497,8 +498,7 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 
 	fv.UpstreamId = serviceId
 	for _, networkAddress := range service.GetAddresses() {
-		address := networkAddress.Address
-		fk.IPv4 = nets.ConvertIpByteToUint32(address)
+		nets.CopyIpByteFromSlice(&fk.Ip, &networkAddress.Address)
 		if err = p.bpf.FrontendUpdate(&fk, &fv); err != nil {
 			log.Errorf("Update Frontend failed, err:%s", err)
 			return err
@@ -521,7 +521,7 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	newValue := bpf.ServiceValue{}
 	newValue.LbPolicy = LbPolicyRandom
 	if waypoint != nil {
-		newValue.WaypointAddr = nets.ConvertIpByteToUint32(waypoint.GetAddress().Address)
+		nets.CopyIpByteFromSlice(&newValue.WaypointAddr, &waypoint.GetAddress().Address)
 		newValue.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 	}
 

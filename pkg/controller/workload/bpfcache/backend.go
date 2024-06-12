@@ -32,10 +32,10 @@ type BackendKey struct {
 type ServiceList [MaxServiceNum]uint32
 
 type BackendValue struct {
-	IPv4         uint32 // backend ip
+	Ip           [16]byte
 	ServiceCount uint32
 	Services     ServiceList
-	WaypointAddr uint32
+	WaypointAddr [16]byte
 	WaypointPort uint32
 }
 

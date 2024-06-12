@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/cilium/ebpf/ringbuf"
@@ -31,7 +32,6 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/nets"
 )
 
 const (
@@ -162,10 +162,10 @@ func (r *Rbac) RemovePolicy(policyKey string) {
 func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	var dstWorkload *workloadapi.Workload
 	if len(conn.dstIp) > 0 {
-		dstWorkload = r.workloadCache.GetWorkloadByAddr(cache.NetworkAddress{
-			Network: conn.dstNetwork,
-			Address: nets.ConvertIpByteToUint32(conn.dstIp),
-		})
+		var networkAddress cache.NetworkAddress
+		networkAddress.Network = conn.dstNetwork
+		networkAddress.Address, _ = netip.AddrFromSlice(conn.dstIp)
+		dstWorkload = r.workloadCache.GetWorkloadByAddr(networkAddress)
 	}
 
 	allowPolicies, denyPolicies := r.aggregate(dstWorkload)
@@ -467,9 +467,9 @@ func isEmptyMatch(m *security.Match) bool {
 
 // todo : get identity form tls connection
 func (r *Rbac) getIdentityByIp(ip []byte) Identity {
-	workload := r.workloadCache.GetWorkloadByAddr(cache.NetworkAddress{
-		Address: nets.ConvertIpByteToUint32(ip),
-	})
+	var networkAddress cache.NetworkAddress
+	networkAddress.Address, _ = netip.AddrFromSlice(ip)
+	workload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	if workload == nil {
 		log.Warnf("get worload from ip %v FAILED", ip)
 		return Identity{}

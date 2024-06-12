@@ -18,11 +18,11 @@ package cache
 
 import (
 	"testing"
+	"net/netip"
 
 	"github.com/stretchr/testify/assert"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
-	"kmesh.net/kmesh/pkg/nets"
 )
 
 func TestAddWorkload(t *testing.T) {
@@ -39,8 +39,8 @@ func TestAddWorkload(t *testing.T) {
 		}
 		w.AddWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
-		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
-		addr2 := nets.ConvertIpByteToUint32([]byte("1.2.3.4"))
+		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
+		addr2, _ := netip.AddrFromSlice([]byte("1.2.3.4"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr1}])
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
 	})
@@ -58,8 +58,8 @@ func TestAddWorkload(t *testing.T) {
 		}
 		w.AddWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
-		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
-		addr2 := nets.ConvertIpByteToUint32([]byte("1.2.3.4"))
+		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
+		addr2, _ := netip.AddrFromSlice([]byte("1.2.3.4"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr1}])
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
 		newWorkload := &workloadapi.Workload{
@@ -73,8 +73,8 @@ func TestAddWorkload(t *testing.T) {
 		}
 		w.AddWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
-		addr3 := nets.ConvertIpByteToUint32([]byte("192.168.10.25"))
-		addr4 := nets.ConvertIpByteToUint32([]byte("2.3.4.5"))
+		addr3, _ := netip.AddrFromSlice([]byte("192.168.10.25"))
+		addr4, _ := netip.AddrFromSlice([]byte("2.3.4.5"))
 		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr3}])
 		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr4}])
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: workload.Network, Address: addr1}])
@@ -93,7 +93,7 @@ func TestAddWorkload(t *testing.T) {
 		}
 		w.AddWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
-		addr := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
+		addr, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
 		newWorkload := &workloadapi.Workload{
 			Name:    "ut-workload",
@@ -106,8 +106,8 @@ func TestAddWorkload(t *testing.T) {
 		}
 		w.AddWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
-		addr1 := nets.ConvertIpByteToUint32([]byte("192.168.224.22"))
-		addr2 := nets.ConvertIpByteToUint32([]byte("2.3.4.5"))
+		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
+		addr2, _ := netip.AddrFromSlice([]byte("2.3.4.5"))
 		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr1}])
 		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr2}])
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
@@ -130,8 +130,8 @@ func TestDeleteWorkload(t *testing.T) {
 		assert.Equal(t, workload, w.byUid["123456"])
 		w.DeleteWorkload("123456")
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byUid["123456"])
-		addr1 := nets.ConvertIpByteToUint32([]byte("hello"))
-		addr2 := nets.ConvertIpByteToUint32([]byte("world"))
+		addr1, _ := netip.AddrFromSlice([]byte("hello"))
+		addr2, _ := netip.AddrFromSlice([]byte("world"))
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: "ut-net", Address: addr1}])
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: "ut-net", Address: addr2}])
 	})
