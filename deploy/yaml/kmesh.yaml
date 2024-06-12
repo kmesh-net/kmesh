@@ -40,6 +40,10 @@ spec:
         - name: kmesh-cni-install-path
           hostPath:
             path: /opt/cni/bin
+        - name: host-procfs
+          hostPath:
+            path: /proc
+            type: Directory
         - name: istiod-ca-cert
           configMap:
             defaultMode: 420
@@ -105,6 +109,9 @@ spec:
             - name: kmesh-cni-install-path
               mountPath: /opt/cni/bin
               readOnly: false
+            - mountPath: /host/proc
+              name: host-procfs
+              readOnly: true
             - name: istiod-ca-cert
               mountPath: /var/run/secrets/istio
             - name: istio-token
@@ -116,4 +123,3 @@ spec:
               cpu: "1"
       priorityClassName: system-node-critical
       serviceAccountName: kmesh
-      hostPID: true
