@@ -31,7 +31,7 @@ func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
 		Type:       ebpf.Hash,
 		KeySize:    uint32(unsafe.Sizeof(BackendKey{})),
 		ValueSize:  uint32(unsafe.Sizeof(BackendValue{})),
-		MaxEntries: 1024, // 1024
+		MaxEntries: 1024,
 	})
 	if err != nil {
 		t.Fatalf("create backEndMap map failed, err is %v", err)
@@ -42,7 +42,7 @@ func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
 		Type:       ebpf.Hash,
 		KeySize:    uint32(unsafe.Sizeof(EndpointKey{})),
 		ValueSize:  uint32(unsafe.Sizeof(EndpointValue{})),
-		MaxEntries: 1024, // 1024
+		MaxEntries: 1024,
 	})
 	if err != nil {
 		t.Fatalf("create endpointMap map failed, err is %v", err)
@@ -53,7 +53,7 @@ func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
 		Type:       ebpf.Hash,
 		KeySize:    uint32(unsafe.Sizeof(FrontendKey{})),
 		ValueSize:  uint32(unsafe.Sizeof(FrontendValue{})),
-		MaxEntries: 1024, // 1024
+		MaxEntries: 1024,
 	})
 	if err != nil {
 		t.Fatalf("create frontendMap map failed, err is %v", err)
@@ -64,7 +64,7 @@ func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
 		Type:       ebpf.Hash,
 		KeySize:    uint32(unsafe.Sizeof(ServiceKey{})),
 		ValueSize:  uint32(unsafe.Sizeof(ServiceValue{})),
-		MaxEntries: 1024, // 1024
+		MaxEntries: 1024,
 	})
 	if err != nil {
 		t.Fatalf("create serviceMap map failed, err is %v", err)

@@ -92,11 +92,11 @@ func Test_handleWorkload(t *testing.T) {
 	checkServiceMap(t, p, svcID, fakeSvc, 2)
 }
 
-func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workloadapi.Service, endpointCountchan uint32) {
+func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workloadapi.Service, endpointCount uint32) {
 	var sv bpfcache.ServiceValue
 	err := p.bpf.ServiceLookup(&bpfcache.ServiceKey{ServiceId: svcId}, &sv)
 	assert.NoError(t, err)
-	assert.Equal(t, sv.EndpointCount, endpointCountchan)
+	assert.Equal(t, sv.EndpointCount, endpointCount)
 	assert.Equal(t, sv.WaypointAddr, nets.ConvertIpByteToUint32(fakeSvc.GetWaypoint().GetAddress().Address))
 	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(15008))
 }
