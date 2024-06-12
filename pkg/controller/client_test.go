@@ -50,7 +50,7 @@ func TestRecoverConnection(t *testing.T) {
 				return nil, errors.New("failed to create grpc connect")
 			} else {
 				// returns a fake grpc connection
-				mockDiscovery := xdstest.NewMockServer(t)
+				mockDiscovery := xdstest.NewXdsServer(t)
 				return grpc.Dial("buffcon",
 					grpc.WithTransportCredentials(insecure.NewCredentials()),
 					grpc.WithBlock(),
@@ -69,7 +69,7 @@ func TestClientResponseProcess(t *testing.T) {
 		netPatches := gomonkey.NewPatches()
 		defer netPatches.Reset()
 		netPatches.ApplyFunc(nets.GrpcConnect, func(addr string) (*grpc.ClientConn, error) {
-			mockDiscovery := xdstest.NewMockServer(t)
+			mockDiscovery := xdstest.NewXdsServer(t)
 			return grpc.Dial("buffcon",
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 				grpc.WithBlock(),
@@ -116,7 +116,7 @@ func TestClientResponseProcess(t *testing.T) {
 		netPatches := gomonkey.NewPatches()
 		defer netPatches.Reset()
 		netPatches.ApplyFunc(nets.GrpcConnect, func(addr string) (*grpc.ClientConn, error) {
-			mockDiscovery := xdstest.NewMockServer(t)
+			mockDiscovery := xdstest.NewXdsServer(t)
 			return grpc.Dial("buffcon",
 				grpc.WithTransportCredentials(insecure.NewCredentials()),
 				grpc.WithBlock(),

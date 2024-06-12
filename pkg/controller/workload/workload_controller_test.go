@@ -19,16 +19,13 @@ package workload
 import (
 	"context"
 	"errors"
-	"net"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
@@ -37,31 +34,18 @@ import (
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 )
 
-func TestWorklaodStreamCreateAndSend(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
+func TestWorkloadStreamCreateAndSend(t *testing.T) {
+	// create a fake grpc service client
+	mockDiscovery := xdstest.NewXdsServer(t)
+	fakeClient, err := xdstest.NewClient(mockDiscovery)
+	if err != nil {
+		t.Errorf("create stream failed, %s", err)
+	}
+	defer fakeClient.Cleanup()
 	workloadStream := Controller{
 		Processor: nil,
+		Stream:    fakeClient.DeltaClient,
 	}
-
-	// create a fake grpc service client
-	mockDiscovery := xdstest.NewMockServer(t)
-	conn, err := grpc.Dial("buffcon",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return mockDiscovery.Listener.Dial()
-		}))
-	if err != nil {
-		t.Errorf("grpc connection client create failed, %s", err)
-	}
-	defer conn.Close()
-	client := discoveryv3.NewAggregatedDiscoveryServiceClient(conn)
-	stream, streamErr := client.DeltaAggregatedResources(ctx)
-	if streamErr != nil {
-		t.Errorf("create stream failed, %s", streamErr)
-	}
-	workloadStream.Stream = stream
 
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()
@@ -74,9 +58,9 @@ func TestWorklaodStreamCreateAndSend(t *testing.T) {
 		{
 			name: "test1: send request failed, should return error",
 			beforeFunc: func() {
-				patches1.ApplyMethod(reflect.TypeOf(client), "DeltaAggregatedResources",
+				patches1.ApplyMethod(reflect.TypeOf(fakeClient.Client), "DeltaAggregatedResources",
 					func(_ discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context, opts ...grpc.CallOption) (discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient, error) {
-						return stream, nil
+						return fakeClient.DeltaClient, nil
 					})
 				patches2.ApplyMethod(reflect.TypeOf(workloadStream.Stream), "Send",
 					func(_ discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient, req *discoveryv3.DeltaDiscoveryRequest) error {
@@ -116,7 +100,7 @@ func TestWorklaodStreamCreateAndSend(t *testing.T) {
 		{
 			name: "test3: fail to create workloadStream, should return error",
 			beforeFunc: func() {
-				patches1.ApplyMethod(reflect.TypeOf(client), "DeltaAggregatedResources",
+				patches1.ApplyMethod(reflect.TypeOf(fakeClient.Client), "DeltaAggregatedResources",
 					func(_ discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context, opts ...grpc.CallOption) (discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient, error) {
 						return nil, errors.New("fail to create adsstream")
 					})
@@ -130,7 +114,7 @@ func TestWorklaodStreamCreateAndSend(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
-			err := workloadStream.WorkloadStreamCreateAndSend(client, context.TODO())
+			err := workloadStream.WorkloadStreamCreateAndSend(fakeClient.Client, context.TODO())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("worklaodStream.WorklaodStreamCreateAndSend() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -141,9 +125,6 @@ func TestWorklaodStreamCreateAndSend(t *testing.T) {
 }
 
 func TestAdsStream_AdsStreamProcess(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-
 	workloadStream := Controller{
 		Processor: &Processor{
 			ack: &discoveryv3.DeltaDiscoveryRequest{},
@@ -151,23 +132,13 @@ func TestAdsStream_AdsStreamProcess(t *testing.T) {
 	}
 
 	// create a fake grpc service client
-	mockDiscovery := xdstest.NewMockServer(t)
-	conn, err := grpc.Dial("buffcon",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return mockDiscovery.Listener.Dial()
-		}))
+	mockDiscovery := xdstest.NewXdsServer(t)
+	fakeClient, err := xdstest.NewClient(mockDiscovery)
 	if err != nil {
-		t.Errorf("grpc connection client create failed, %s", err)
+		t.Errorf("create stream failed, %s", err)
 	}
-	defer conn.Close()
-	client := discoveryv3.NewAggregatedDiscoveryServiceClient(conn)
-	stream, streamErr := client.DeltaAggregatedResources(ctx)
-	if streamErr != nil {
-		t.Errorf("create stream failed, %s", streamErr)
-	}
-	workloadStream.Stream = stream
+	defer fakeClient.Cleanup()
+	workloadStream.Stream = fakeClient.DeltaClient
 
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()
