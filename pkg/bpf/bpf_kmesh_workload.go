@@ -341,7 +341,7 @@ func (sm *BpfSendMsgWorkload) LoadSendMsg() error {
 		return err
 	}
 
-	prog := spec.Programs["sendmsg"]
+	prog := spec.Programs["sendmsg_prog"]
 	sm.Info.Type = prog.Type
 	sm.Info.AttachType = prog.AttachType
 	return nil

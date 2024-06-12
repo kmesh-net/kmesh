@@ -34,10 +34,10 @@ struct {
 
 static inline bool is_managed_by_kmesh(__u32 family, __u32 ip4, __u32 *ip6)
 {
-    struct manager_key key = {
-        .addr.ip4 = ip4,
-    };
-    if (family == AF_INET6)
+    struct manager_key key = {0};
+    if (family == AF_INET)
+        key.addr.ip4 = ip4;
+    if (family == AF_INET6 && ip6)
         bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
 
     int *value = bpf_map_lookup_elem(&map_of_manager, &key);
@@ -142,10 +142,10 @@ static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
     manager_value_t value = {
         .is_bypassed = 0,
     };
-    struct manager_key key = {
-        .addr.ip4 = ip4,
-    };
-    if (family == AF_INET6)
+    struct manager_key key = {0};
+    if (family == AF_INET)
+        key.addr.ip4 = ip4;
+    if (family == AF_INET6 && ip6)
         bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
 
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
@@ -155,10 +155,10 @@ static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 
 static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 {
-    struct manager_key key = {
-        .addr.ip4 = ip4,
-    };
-    if (family == AF_INET6)
+    struct manager_key key = {0};
+    if (family == AF_INET)
+        key.addr.ip4 = ip4;
+    if (family == AF_INET6 && ip6)
         bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
 
     int err = bpf_map_delete_elem(&map_of_manager, &key);
@@ -204,10 +204,10 @@ static inline bool skops_conn_from_bypass_sim_delete(struct bpf_sock_ops *skops)
 
 static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new_bypass_value)
 {
-    struct manager_key key = {
-        .addr.ip4 = ip4,
-    };
-    if (family == AF_INET6)
+    struct manager_key key = {0};
+    if (family == AF_INET)
+        key.addr.ip4 = ip4;
+    if (family == AF_INET6 && ip6)
         bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
 
     manager_value_t *current_value = bpf_map_lookup_elem(&map_of_manager, &key);
