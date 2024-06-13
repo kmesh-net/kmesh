@@ -4,6 +4,9 @@
 package kmesh
 
 import (
+	"context"
+	"fmt"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
@@ -11,8 +14,12 @@ import (
 	"testing"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
+	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -20,8 +27,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/security/util/cert"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var (
@@ -62,6 +73,8 @@ const (
 	ServiceAddressedWaypoint  = "service-addressed-waypoint"
 	Captured                  = "captured"
 	Uncaptured                = "uncaptured"
+	WaypointImageAnnotation   = "sidecar.istio.io/proxyImage"
+	KmeshCustomWaypointImage  = "ghcr.io/kmesh-net/waypoint-x86:v0.3.0"
 )
 
 func getDefaultKmeshSrc() string {
@@ -253,12 +266,16 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 
+	if apps.WaypointProxies == nil {
+		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
+	}
+
 	for _, echo := range echos {
 		svcwp := echo.Config().ServiceWaypointProxy
 		wlwp := echo.Config().WorkloadWaypointProxy
 		if svcwp != "" {
 			if _, found := apps.WaypointProxies[svcwp]; !found {
-				apps.WaypointProxies[svcwp], err = ambient.NewWaypointProxy(t, apps.Namespace, svcwp)
+				apps.WaypointProxies[svcwp], err = newWaypointProxy(t, apps.Namespace, svcwp)
 				if err != nil {
 					return err
 				}
@@ -266,7 +283,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		}
 		if wlwp != "" {
 			if _, found := apps.WaypointProxies[wlwp]; !found {
-				apps.WaypointProxies[wlwp], err = ambient.NewWaypointProxy(t, apps.Namespace, wlwp)
+				apps.WaypointProxies[wlwp], err = newWaypointProxy(t, apps.Namespace, wlwp)
 				if err != nil {
 					return err
 				}
@@ -275,4 +292,115 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	return nil
+}
+
+var _ io.Closer = &kubeComponent{}
+
+type kubeComponent struct {
+	id resource.ID
+
+	ns       namespace.Instance
+	inbound  istioKube.PortForwarder
+	outbound istioKube.PortForwarder
+	pod      v1.Pod
+}
+
+func (k kubeComponent) Namespace() namespace.Instance {
+	return k.ns
+}
+
+func (k kubeComponent) PodIP() string {
+	return k.pod.Status.PodIP
+}
+
+func (k kubeComponent) Inbound() string {
+	return k.inbound.Address()
+}
+
+func (k kubeComponent) Outbound() string {
+	return k.outbound.Address()
+}
+
+func (k kubeComponent) ID() resource.ID {
+	return k.id
+}
+
+func (k kubeComponent) Close() error {
+	if k.inbound != nil {
+		k.inbound.Close()
+	}
+	if k.outbound != nil {
+		k.outbound.Close()
+	}
+	return nil
+}
+
+func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) (ambient.WaypointProxy, error) {
+	err := crd.DeployGatewayAPI(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	gw := &gateway.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       gvk.KubernetesGateway_v1.Kind,
+			APIVersion: gvk.KubernetesGateway_v1.GroupVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   ns.Name(),
+			Annotations: make(map[string]string, 0),
+		},
+		Spec: gateway.GatewaySpec{
+			GatewayClassName: constants.WaypointGatewayClassName,
+			Listeners: []gateway.Listener{{
+				Name:     "mesh",
+				Port:     15008,
+				Protocol: gateway.ProtocolType(protocol.HBONE),
+			}},
+		},
+	}
+
+	gw.Annotations[WaypointImageAnnotation] = KmeshCustomWaypointImage
+
+	cls := ctx.Clusters().Default()
+
+	gwc := cls.GatewayAPI().GatewayV1().Gateways(ns.Name())
+
+	_, err = gwc.Create(context.Background(), gw, metav1.CreateOptions{
+		FieldManager: "istioctl",
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, name))
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
+	if err != nil {
+		return nil, err
+	}
+	pod := pods[0]
+	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
+	if err != nil {
+		return nil, err
+	}
+
+	outbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15001)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := outbound.Start(); err != nil {
+		return nil, err
+	}
+
+	server := &kubeComponent{
+		ns: ns,
+	}
+	server.id = ctx.TrackResource(server)
+	server.inbound = inbound
+	server.outbound = outbound
+	server.pod = pod
+
+	return server, nil
 }

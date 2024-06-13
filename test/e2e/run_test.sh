@@ -7,7 +7,7 @@
 # Exit immediately for non zero status
 set -e
 
-DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.30.0"
+DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
 # Provision a kind clustr for testing.
 function setup_kind_cluster() {
@@ -39,4 +39,4 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kind_cluster
 fi
 
-go test -tags=integ ./test/e2e/...
+go test -v -tags=integ ./test/e2e/...

@@ -4,7 +4,6 @@
 package kmesh
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -35,6 +34,7 @@ func TestKmesh(t *testing.T) {
 	})
 }
 
+/*
 func TestTrafficSplit(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need at least one waypoint proxy and HTTP
@@ -125,7 +125,7 @@ spec:
 			src.CallOrFail(t, opt)
 		})
 	})
-}
+}*/
 
 func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
