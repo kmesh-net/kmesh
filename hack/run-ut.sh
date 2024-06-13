@@ -6,13 +6,14 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 
 function docker_run_go_ut() {
     local container_id=$1
-    docker exec $container_id go test -v -vet=off -coverprofile=coverage.out ./pkg/...
+    docker exec $container_id go test -v -vet=off ./pkg/...
 }
 
 function run_go_ut_local() {
     bash $ROOT_DIR/build.sh
     export PKG_CONFIG_PATH=$ROOT_DIR/mk
-    go test -v -vet=off -coverprofile=coverage.out ./pkg/...    
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64
+    go test -v -vet=off ./pkg/...    
 }
 
 function run_go_ut_in_docker() {
@@ -25,7 +26,6 @@ function run_go_ut_in_docker() {
 
 function clean() {
     make clean $ROOT_DIR
-    rm -rf $ROOT_DIR/coverage.out
 }
 
 # Running go ut with docker by default
