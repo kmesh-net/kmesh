@@ -63,7 +63,7 @@ func ConvertIpByteToUint32(ip []byte) uint32 {
 
 func CopyIpByteFromSlice(dst *[16]byte, src *[]byte) {
 	len := len(*src)
-	if (len != 4 && len != 16) {
+	if len != 4 && len != 16 {
 		return
 	}
 

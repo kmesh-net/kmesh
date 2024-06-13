@@ -17,8 +17,8 @@
 package cache
 
 import (
-	"testing"
 	"net/netip"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
 
