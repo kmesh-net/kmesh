@@ -151,7 +151,8 @@ docker: build
 format:
 	./hack/format.sh
 
-test: build
+.PHONY: test
+test:
 	./hack/run-ut.sh
 
 clean:
