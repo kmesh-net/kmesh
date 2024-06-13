@@ -23,6 +23,7 @@ import (
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
+	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -31,14 +32,22 @@ var (
 )
 
 type Controller struct {
-	Stream    service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
-	Processor *processor
+	Stream      service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	Processor   *processor
+	dnsResolver *dns.DNSResolver
 }
 
-func NewController() *Controller {
-	return &Controller{
-		Processor: newProcessor(),
+func NewController() (*Controller, error) {
+	dnsResolver, err := dns.NewDNSResolver()
+	if err != nil {
+		return nil, err
 	}
+
+	c := &Controller{
+		Processor:   newProcessor(dnsResolver.DnsResolverChan),
+		dnsResolver: dnsResolver,
+	}
+	return c, nil
 }
 
 func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
@@ -55,6 +64,10 @@ func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 	}
 
 	return nil
+}
+
+func (c *Controller) StartDNSResolver() {
+	c.dnsResolver.Start()
 }
 
 func (c *Controller) HandleAdsStream() error {

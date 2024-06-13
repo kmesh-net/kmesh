@@ -51,7 +51,7 @@ type XdsClient struct {
 	bpfWorkloadObj     *bpf.BpfKmeshWorkload
 }
 
-func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient {
+func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) (*XdsClient, error) {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(mode),
@@ -62,11 +62,15 @@ func NewXdsClient(mode string, bpfWorkloadObj *bpf.BpfKmeshWorkload) *XdsClient 
 		client.bpfWorkloadObj = bpfWorkloadObj
 		client.rbac = auth.NewRbac(client.WorkloadController.Processor.WorkloadCache)
 	} else if mode == constants.AdsMode {
-		client.AdsController = ads.NewController()
+		c, err := ads.NewController()
+		if err != nil {
+			return nil, fmt.Errorf("create ads controller failed: %s", err)
+		}
+		client.AdsController = c
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
-	return client
+	return client, nil
 }
 
 func (c *XdsClient) createGrpcStreamClient() error {
@@ -84,6 +88,8 @@ func (c *XdsClient) createGrpcStreamClient() error {
 			return fmt.Errorf("create workload stream failed, %s", err)
 		}
 	} else if c.mode == constants.AdsMode {
+		// start dns resolver
+		c.AdsController.StartDNSResolver()
 		if err = c.AdsController.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create ads stream failed, %s", err)

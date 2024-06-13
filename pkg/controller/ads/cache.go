@@ -17,6 +17,8 @@
 package ads
 
 import (
+	"time"
+
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -43,8 +45,8 @@ type AdsCache struct {
 	// eds names to be subscribed, which is inferred from cluster
 	edsClusterNames []string
 	// route names to be subscribed, which is inferred from listener
-	routeNames []string
-
+	routeNames    []string
+	dnsClusters   map[string]time.Duration
 	ListenerCache cache_v2.ListenerCache
 	ClusterCache  cache_v2.ClusterCache
 	RouteCache    cache_v2.RouteConfigCache

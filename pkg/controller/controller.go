@@ -80,7 +80,12 @@ func (c *Controller) Start() error {
 			return fmt.Errorf("fail to start ringbuf reader: %v", err)
 		}
 	}
-	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
+	client, err := NewXdsClient(c.mode, c.bpfWorkloadObj)
+	if err != nil {
+		return err
+	}
+	c.client = client
+
 	if c.client.WorkloadController != nil {
 		if c.enableSecretManager {
 			secertManager, err := security.NewSecretManager()

@@ -18,6 +18,7 @@ package ads
 
 import (
 	"fmt"
+	"time"
 
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -34,6 +35,7 @@ import (
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
+	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
@@ -52,12 +54,26 @@ type processor struct {
 	ack       *service_discovery_v3.DiscoveryRequest
 	req       *service_discovery_v3.DiscoveryRequest
 	lastNonce *lastNonce
+	// the channel used to send domains to dns resolver. key is domain name and value is refreshrate
+	dnsResolverChan chan map[string]time.Duration
 }
 
-func newProcessor() *processor {
+func newProcessor(dnsResolverChan chan map[string]time.Duration) *processor {
 	return &processor{
-		Cache:     NewAdsCache(),
-		lastNonce: &lastNonce{},
+		Cache:           NewAdsCache(),
+		ack:             nil,
+		req:             nil,
+		lastNonce:       NewLastNonce(),
+		dnsResolverChan: dnsResolverChan,
+	}
+}
+
+func NewLastNonce() *lastNonce {
+	return &lastNonce{
+		cdsNonce: "",
+		edsNonce: "",
+		ldsNonce: "",
+		rdsNonce: "",
 	}
 }
 
@@ -129,6 +145,8 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	current := sets.New[string]()
 	lastEdsClusterNames := p.Cache.edsClusterNames
 	p.Cache.edsClusterNames = nil
+	p.Cache.dnsClusters = make(map[string]time.Duration)
+
 	for _, resource := range resp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
 			continue
@@ -136,6 +154,12 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		current.Insert(cluster.GetName())
 		if cluster.GetType() == config_cluster_v3.Cluster_EDS {
 			p.Cache.edsClusterNames = append(p.Cache.edsClusterNames, cluster.GetName())
+		} else if cluster.GetType() == config_cluster_v3.Cluster_STRICT_DNS {
+			name, refreshRate := dns.GetDoaminAndRefreshRateFromCluster(cluster)
+			// only when the domain name is successfully parsed will be sent to dns resolver
+			if name != "" {
+				p.Cache.dnsClusters[name] = refreshRate
+			}
 		}
 		// compare part[0] CDS now
 		// Cluster_EDS need compare tow parts, compare part[1] EDS in EDS handler
@@ -156,7 +180,8 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 			log.Debugf("unchanged cluster %s", cluster.GetName())
 		}
 	}
-
+	// send domain and refreshrate map to dns resolver via channel
+	p.dnsResolverChan <- p.Cache.dnsClusters
 	removed := p.Cache.ClusterCache.GetResourceNames().Difference(current)
 	for key := range removed {
 		p.Cache.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
