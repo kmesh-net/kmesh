@@ -19,8 +19,10 @@ package auth
 import (
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"istio.io/istio/pkg/util/sets"
 
+	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
@@ -1277,7 +1279,8 @@ func TestRbac_doRbac(t *testing.T) {
 		policyStore *policyStore
 	}
 	type args struct {
-		conn *rbacConnection
+		conn     *rbacConnection
+		workload *workloadapi.Workload
 	}
 	tests := []struct {
 		name   string
@@ -1294,7 +1297,7 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
+				conn: &rbacConnection{
 					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      GLOBAL_NAMESPACE,
@@ -1303,6 +1306,9 @@ func TestRbac_doRbac(t *testing.T) {
 					srcIp:   []byte{192, 168, 122, 3},
 					dstIp:   []byte{192, 168, 122, 4},
 					dstPort: 8888,
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 4}},
 				},
 			},
 			true,
@@ -1316,7 +1322,11 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
+			args{
+				conn: &rbacConnection{dstIp: []byte{192, 168, 122, 2}},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 		{
@@ -1327,7 +1337,11 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
+			args{
+				conn: &rbacConnection{dstIp: []byte{192, 168, 122, 2}},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			false,
 		},
 		{
@@ -1341,7 +1355,11 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
+			args{
+				conn: &rbacConnection{dstIp: []byte{192, 168, 122, 2}},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			false,
 		},
 		{
@@ -1352,7 +1370,11 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&rbacConnection{dstIp: []byte{192, 168, 122, 2}}},
+			args{
+				conn: &rbacConnection{dstIp: []byte{192, 168, 122, 2}},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 
@@ -1364,7 +1386,14 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
+			args{
+				conn: &rbacConnection{
+					srcIp: []byte{192, 168, 122, 10},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 		{
@@ -1375,8 +1404,14 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
-			false,
+			args{
+				conn: &rbacConnection{
+					srcIp: []byte{192, 168, 122, 10},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}}, false,
 		},
 		{
 			"3-3. Source IP deny match, deny",
@@ -1389,8 +1424,14 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
-			false,
+			args{
+				conn: &rbacConnection{
+					srcIp: []byte{192, 168, 122, 10},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}}, false,
 		},
 		{
 			"3-4. Source IP deny mismatch, allow",
@@ -1400,8 +1441,14 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&rbacConnection{srcIp: []byte{192, 168, 122, 10}}},
-			true,
+			args{
+				conn: &rbacConnection{
+					srcIp: []byte{192, 168, 122, 10},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}}, true,
 		},
 
 		{
@@ -1412,7 +1459,14 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&rbacConnection{dstPort: 8888}},
+			args{
+				conn: &rbacConnection{
+					dstIp:   []byte{192, 168, 122, 2},
+					dstPort: 8888,
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 		{
@@ -1423,7 +1477,14 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&rbacConnection{dstPort: 8888}},
+			args{
+				conn: &rbacConnection{
+					dstIp:   []byte{192, 168, 122, 2},
+					dstPort: 8888,
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			false,
 		},
 		{
@@ -1437,7 +1498,14 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&rbacConnection{dstPort: 8888}},
+			args{
+				conn: &rbacConnection{
+					dstIp:   []byte{192, 168, 122, 2},
+					dstPort: 8888,
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			false,
 		},
 		{
@@ -1448,7 +1516,14 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&rbacConnection{dstPort: 8888}},
+			args{
+				conn: &rbacConnection{
+					dstIp:   []byte{192, 168, 122, 2},
+					dstPort: 8888,
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 
@@ -1461,14 +1536,17 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
+				conn: &rbacConnection{
 					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
+					dstIp: []byte{192, 168, 122, 2},
 				},
-			},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 		{
@@ -1480,14 +1558,17 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
+				conn: &rbacConnection{
 					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
+					dstIp: []byte{192, 168, 122, 2},
 				},
-			},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			false,
 		},
 		{
@@ -1502,14 +1583,17 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
+				conn: &rbacConnection{
 					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
+					dstIp: []byte{192, 168, 122, 2},
 				},
-			},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			false,
 		},
 		{
@@ -1521,14 +1605,17 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
+				conn: &rbacConnection{
 					srcIdentity: Identity{
 						trustDomain:    "cluster.local",
 						namespace:      GLOBAL_NAMESPACE,
 						serviceAccount: "sleep",
 					},
+					dstIp: []byte{192, 168, 122, 2},
 				},
-			},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 
@@ -1541,8 +1628,15 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{srcIdentity: Identity{namespace: GLOBAL_NAMESPACE}},
-			},
+				conn: &rbacConnection{
+					srcIdentity: Identity{
+						namespace: GLOBAL_NAMESPACE,
+					},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 		{
@@ -1553,8 +1647,16 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllow,
 				},
 			},
-			args{&rbacConnection{srcIdentity: Identity{namespace: GLOBAL_NAMESPACE}}},
-			false,
+			args{
+				conn: &rbacConnection{
+					srcIdentity: Identity{
+						namespace: GLOBAL_NAMESPACE,
+					},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}}, false,
 		},
 		{
 			"6-3. Namespace deny match, deny",
@@ -1567,7 +1669,16 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceAllowDeny,
 				},
 			},
-			args{&rbacConnection{srcIdentity: Identity{namespace: GLOBAL_NAMESPACE}}},
+			args{
+				conn: &rbacConnection{
+					srcIdentity: Identity{
+						namespace: GLOBAL_NAMESPACE,
+					},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			false,
 		},
 		{
@@ -1578,7 +1689,16 @@ func TestRbac_doRbac(t *testing.T) {
 					byNamespace: byNamespaceDeny,
 				},
 			},
-			args{&rbacConnection{srcIdentity: Identity{namespace: GLOBAL_NAMESPACE}}},
+			args{
+				conn: &rbacConnection{
+					srcIdentity: Identity{
+						namespace: GLOBAL_NAMESPACE,
+					},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 
@@ -1591,11 +1711,13 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 4},
+					dstIp: []byte{192, 168, 122, 2},
 				},
-			},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+				}},
 			true,
 		},
 		{
@@ -1607,9 +1729,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 5},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1623,9 +1748,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 4},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1639,9 +1767,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 5},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			true,
@@ -1656,9 +1787,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 4},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1672,9 +1806,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 3},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			true,
@@ -1688,9 +1825,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 4},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			true,
@@ -1704,9 +1844,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 3},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1721,9 +1864,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 4},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			true,
@@ -1737,9 +1883,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 5},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1753,9 +1902,12 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 4},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1769,23 +1921,76 @@ func TestRbac_doRbac(t *testing.T) {
 				},
 			},
 			args{
-				&rbacConnection{
-					dstIp: []byte{192, 168, 122, 2},
+				conn: &rbacConnection{
 					srcIp: []byte{192, 168, 122, 5},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+				workload: &workloadapi.Workload{
+					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
 				},
 			},
 			true,
 		},
+		{
+			"9-4-1. no workload found, deny",
+			fields{
+				&policyStore{
+					byKey:       map[string]*security.Authorization{DENY_POLICY: policy9_4},
+					byNamespace: byNamespaceDeny,
+				},
+			},
+			args{
+				conn: &rbacConnection{
+					srcIp: []byte{192, 168, 122, 5},
+					dstIp: []byte{192, 168, 122, 2},
+				},
+			},
+			false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			workloadCache := cache.NewWorkloadCache()
+			workloadCache.AddWorkload(tt.args.workload)
 			rbac := &Rbac{
 				policyStore:   tt.fields.policyStore,
-				workloadCache: cache.NewWorkloadCache(),
+				workloadCache: workloadCache,
 			}
 			if got := rbac.doRbac(tt.args.conn); got != tt.want {
 				t.Errorf("Rbac.DoRbac() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func Test_handleAuthorizationTypeResponse(t *testing.T) {
+	policy1 := &security.Authorization{
+		Name:      "p1",
+		Namespace: "test",
+		Scope:     security.Scope_WORKLOAD_SELECTOR,
+		Action:    security.Action_ALLOW,
+		Rules:     []*security.Rule{},
+	}
+
+	policy2 := &security.Authorization{
+		Name:      "p2",
+		Namespace: "test",
+		Scope:     security.Scope_NAMESPACE,
+		Action:    security.Action_ALLOW,
+		Rules:     []*security.Rule{},
+	}
+
+	rbac := NewRbac(nil, nil) // Initialize your rbac object here
+
+	err := rbac.UpdatePolicy(policy1)
+	assert.NoError(t, err)
+
+	err = rbac.UpdatePolicy(policy2)
+	assert.NoError(t, err)
+
+	rbac.RemovePolicy(policy1.ResourceName())
+
+	if !rbac.policyStore.byNamespace["test"].Contains(policy2.ResourceName()) {
+		t.Errorf("policy2 should still be in the policy store")
 	}
 }

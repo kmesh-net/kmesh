@@ -64,15 +64,16 @@ func (w *cache) GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Wo
 }
 
 func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
-	networkAddress := NetworkAddress{
+	return NetworkAddress{
 		Network: network,
 		Address: addr,
 	}
-
-	return networkAddress
 }
 
 func (w *cache) AddWorkload(workload *workloadapi.Workload) {
+	if workload == nil {
+		return
+	}
 	uid := workload.Uid
 
 	w.mutex.Lock()
