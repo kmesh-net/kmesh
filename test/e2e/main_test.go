@@ -154,7 +154,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		Prefix: "echo",
 		Inject: false,
 		Labels: map[string]string{
-			constants.DataplaneModeLabel: "ambient",
+			constants.DataplaneModeLabel: "Kmesh",
 		},
 	})
 	if err != nil {
@@ -163,33 +163,34 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
-		WithConfig(echo.Config{
-			Service:               WorkloadAddressedWaypoint,
-			Namespace:             apps.Namespace,
-			Ports:                 ports.All(),
-			ServiceAccount:        true,
-			WorkloadWaypointProxy: "waypoint",
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-					Labels: map[string]string{
-						"app":                             WorkloadAddressedWaypoint,
-						"version":                         "v1",
-						constants.AmbientUseWaypointLabel: "waypoint",
+		/*
+			WithConfig(echo.Config{
+				Service:               WorkloadAddressedWaypoint,
+				Namespace:             apps.Namespace,
+				Ports:                 ports.All(),
+				ServiceAccount:        true,
+				WorkloadWaypointProxy: "waypoint",
+				Subsets: []echo.SubsetConfig{
+					{
+						Replicas: 1,
+						Version:  "v1",
+						Labels: map[string]string{
+							"app":                             WorkloadAddressedWaypoint,
+							"version":                         "v1",
+							constants.AmbientUseWaypointLabel: "waypoint",
+						},
+					},
+					{
+						Replicas: 1,
+						Version:  "v2",
+						Labels: map[string]string{
+							"app":                             WorkloadAddressedWaypoint,
+							"version":                         "v2",
+							constants.AmbientUseWaypointLabel: "waypoint",
+						},
 					},
 				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-					Labels: map[string]string{
-						"app":                             WorkloadAddressedWaypoint,
-						"version":                         "v2",
-						constants.AmbientUseWaypointLabel: "waypoint",
-					},
-				},
-			},
-		}).
+			}).*/
 		WithConfig(echo.Config{
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
@@ -231,7 +232,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Version:  "v2",
 				},
 			},
-		}).
+		}) /*.
 		WithConfig(echo.Config{
 			Service:        Uncaptured,
 			Namespace:      apps.Namespace,
@@ -249,7 +250,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Labels:   map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
 				},
 			},
-		})
+		})*/
 
 	echos, err := builder.Build()
 	if err != nil {
