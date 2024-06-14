@@ -58,7 +58,7 @@ spec:
                   path: istio-token
       containers:
         - name: kmesh
-          image: ghcr.io/kmesh-net/kmesh:latest
+          image: localhost:5000/kmesh:latest
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args: ["./start_kmesh.sh --mode=workload"]
