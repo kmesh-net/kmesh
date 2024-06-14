@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,7 +33,7 @@ type DNSResolver struct {
 	client            *dns.Client
 	resolvConfServers []string
 	cache             map[string]domainCacheEntry
-	sync.Mutex
+	sync.RWMutex
 }
 
 // domainCacheEntry stores dns result with expiry time, and also response to trigger dns refresh
@@ -67,7 +67,7 @@ func NewDNSResolver() (*DNSResolver, error) {
 	return r, nil
 }
 
-func (r *DNSResolver) Start() {
+func (r *DNSResolver) StartDNSResolver() {
 	go r.startResolver()
 }
 
@@ -80,8 +80,8 @@ func (r *DNSResolver) startResolver() {
 
 // resolveDomains takes a map of hostnames and refresh rate
 func (r *DNSResolver) resolveDomains(domains map[string]time.Duration) {
-	r.Lock()
-	defer r.Unlock()
+	r.RLock()
+	defer r.RUnlock()
 
 	// Stow domain updates, need to remove unwatched domains first
 	r.removeUnwatchedDomain(domains)
@@ -140,10 +140,10 @@ func (r *DNSResolver) resolve(name string, refreshRate time.Duration) []string {
 // up via removeUnwatchedDomain.
 func (r *DNSResolver) refreshDNS(name string, refreshRate time.Duration) func() {
 	return func() {
-		r.Lock()
+		r.RLock()
 		old := r.cache[name]
 		addrs := r.resolve(name, refreshRate)
-		r.Unlock()
+		r.RUnlock()
 
 		if !slices.Equal(old.value, addrs) {
 			r.refreshBPFMap()

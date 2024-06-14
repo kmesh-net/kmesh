@@ -67,7 +67,7 @@ func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 }
 
 func (c *Controller) StartDNSResolver() {
-	c.dnsResolver.Start()
+	c.dnsResolver.StartDNSResolver()
 }
 
 func (c *Controller) HandleAdsStream() error {
