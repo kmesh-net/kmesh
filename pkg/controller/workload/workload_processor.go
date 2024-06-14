@@ -68,6 +68,17 @@ func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	}
 }
 
+func newInitialWorkloadRequest(typeUrl string, names []string, initialResourceVersions map[string]string) *service_discovery_v3.DeltaDiscoveryRequest {
+	return &service_discovery_v3.DeltaDiscoveryRequest{
+		TypeUrl:                 typeUrl,
+		ResourceNamesSubscribe:  names,
+		InitialResourceVersions: initialResourceVersions,
+		ResponseNonce:           "",
+		ErrorDetail:             nil,
+		Node:                    config.GetConfig(constants.WorkloadMode).GetNode(),
+	}
+}
+
 func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.DeltaDiscoveryRequest {
 	return &service_discovery_v3.DeltaDiscoveryRequest{
 		TypeUrl:                typeUrl,
@@ -360,6 +371,9 @@ func (p *Processor) storeBackendData(uid uint32, ip []byte, waypoint *workloadap
 	if waypoint != nil {
 		nets.CopyIpByteFromSlice(&bv.WaypointAddr, &waypoint.GetAddress().Address)
 		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
+
+		fmt.Printf("addr %x", bv.WaypointAddr)
+		fmt.Printf("port %x", bv.WaypointPort)
 	}
 
 	if err := p.bpf.BackendUpdate(&bk, &bv); err != nil {

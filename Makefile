@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Author: LemmyHuang
-# Create: 2021-12-08
 VERSION ?= 1.0-dev
 GIT_COMMIT_HASH ?= $(shell git rev-parse HEAD)
 GIT_TREESTATE=$(shell if [ -n "$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
@@ -143,6 +141,7 @@ uninstall:
 	$(call printlog, UNINSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
 
+.PHONY: build
 build:
 	./kmesh_compile.sh
 	
@@ -151,6 +150,9 @@ docker: build
 
 format:
 	./hack/format.sh
+
+test: build
+	./hack/run-ut.sh
 
 clean:
 	$(QUIET) rm -rf ./out
