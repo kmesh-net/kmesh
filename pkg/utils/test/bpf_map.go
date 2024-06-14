@@ -87,9 +87,12 @@ func CleanupBpfMap() {
 }
 
 func EqualIp(src [16]byte, dst []byte) bool {
+	if dst == nil {
+		return false
+	}
 	size := len(dst)
 	if size == 0 {
-		return true
+		return false
 	}
 	if size != 4 && size != 16 {
 		return false
