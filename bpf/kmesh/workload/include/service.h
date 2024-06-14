@@ -49,10 +49,10 @@ static inline int service_manager(ctx_buff_t *ctx, struct ctx_info *info, __u32 
             &service_v->wp_addr.ip4,
             bpf_ntohs(service_v->waypoint_port));
         ret = waypoint_manager(ctx, info, &service_v->wp_addr, service_v->waypoint_port);
-        if (ret == -ENOEXEC) {
+        if (ret != 0) {
             BPF_LOG(ERR, BACKEND, "waypoint_manager failed, ret:%d\n", ret);
-            return ret;
         }
+        return ret;
     }
 
     BPF_LOG(DEBUG, SERVICE, "load balance type:%u", service_v->lb_policy);

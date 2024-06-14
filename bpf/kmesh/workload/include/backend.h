@@ -58,10 +58,10 @@ static inline int backend_manager(
             &backend_v->wp_addr.ip4,
             bpf_ntohs(backend_v->waypoint_port));
         ret = waypoint_manager(ctx, info, &backend_v->wp_addr, backend_v->waypoint_port);
-        if (ret == -ENOEXEC) {
+        if (ret != 0) {
             BPF_LOG(ERR, BACKEND, "waypoint_manager failed, ret:%d\n", ret);
-            return ret;
         }
+        return ret;
     }
 
 #pragma unroll
