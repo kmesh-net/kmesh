@@ -107,6 +107,17 @@ static inline void clean_dstinfo_map(struct bpf_sock_ops *skops)
         BPF_LOG(ERR, SOCKOPS, "bpf map delete destination info failed, ret: %d", ret);
 }
 
+// insert an init state to auth_map, indicates that auth is being performed
+static inline void record_auth_processing(struct bpf_sock_ops *skops)
+{
+    struct bpf_sock_tuple tuple_info = {0};
+    __u32 auth_process = (__u32)AUTH_PROCESSING;
+    extract_skops_to_tuple_reverse(skops, &tuple_info);
+    int err = bpf_map_update_elem(&map_of_auth, &tuple_info, &auth_process, BPF_ANY);
+    if (err)
+        BPF_LOG(ERR, SOCKOPS, "insert auth init record failed!, err is %d", err);
+}
+
 // insert an IPv4 tuple into the ringbuf
 static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
 {
@@ -122,18 +133,8 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
     // In this way, auth can be performed normally.
     extract_skops_to_tuple_reverse(skops, &(*msg).tuple);
     (*msg).type = (skops->family == AF_INET) ? IPV4 : IPV6;
-    record_auth_running(skops);
+    record_auth_processing(skops);
     bpf_ringbuf_submit(msg, 0);
-}
-
-// insert an init state to auth_map, indicates that auth is being performed 
-static inline void record_auth_running(struct bpf_sock_ops *skops)
-{
-    struct bpf_sock_tuple tuple_info = {0};
-    extract_skops_to_tuple(skops, &tuple_info);
-    int err = bpf_map_update_elem(&map_of_auth, &tuple_info, AUTH_PROCESSING, BPF_ANY);
-    if (err)
-        BPF_LOG(ERR, SOCKOPS, "insert auth init record failed!, err is %d", err);
 }
 
 // update sockmap to trigger sk_msg prog to encode metadata before sending to waypoint

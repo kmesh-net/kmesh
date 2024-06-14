@@ -163,7 +163,6 @@ func (r *Rbac) Run(ctx context.Context) {
 					continue
 				}
 			}
-
 		}
 	}
 }

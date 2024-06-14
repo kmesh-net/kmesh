@@ -74,7 +74,7 @@ static inline void shutdown_tuple(struct xdp_info *info)
     info->tcph->ack = 0;
 }
 
-static inline int should_shutdown(struct bpf_sock_tuple *tuple_info)
+static inline int check_auth(struct bpf_sock_tuple *tuple_info)
 {
     __u32 *value = bpf_map_lookup_elem(&map_of_auth, tuple_info);
     if (value) {
@@ -84,8 +84,7 @@ static inline int should_shutdown(struct bpf_sock_tuple *tuple_info)
             "auth denied(%u), src ip: %pI4h, port: %u\n",
             *value,
             &tuple_info->ipv4.saddr,
-            bpf_ntohs(tuple_info->ipv4.sport));
-        bpf_map_delete_elem(&map_of_auth, tuple_info);
+            bpf_ntohs(tuple_info->ipv4.sport));   
         return *value;
     }
     return AUTH_PASS;
@@ -111,12 +110,14 @@ int xdp_shutdown(struct xdp_md *ctx)
 
     // never failed
     parser_tuple(&info, &tuple_info);
-    ret = should_shutdown(&tuple_info);
-    if （ret == AUTH_PROCESSING)
+    ret = check_auth(&tuple_info);
+    if (ret == AUTH_PROCESSING)
         return XDP_DROP;
 
     if (ret == AUTH_FORBID) {
         shutdown_tuple(&info);
+        bpf_map_delete_elem(&map_of_auth, &tuple_info);
+    }
     // If auth denied, it still returns XDP_PASS here, so next time when a client package is
     // sent to server, it will be shutdown since server's RST has been set
     return XDP_PASS;

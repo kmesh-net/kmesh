@@ -18,7 +18,6 @@ package auth
 
 import (
 	"github.com/cilium/ebpf"
-	"istio.io/pkg/log"
 
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -98,7 +97,7 @@ func clearAuthInitStateV6(key *xdpHandlerKeyV6) error {
 		err     error
 	)
 	if authMap, err = utils.GetMapByName(XDP_AUTH_MAP_NAME); err != nil {
-		log.Errorf("GetMapByName in  clearAuthInitStateV6 failed, err: %v", err)
+		log.Errorf("GetMapByName in clearAuthInitStateV6 failed, err: %v", err)
 		return err
 	}
 	return authMap.Delete(key)

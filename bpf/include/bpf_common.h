@@ -17,8 +17,8 @@
 /*0x3a4(932) is the specific port handled by the daemon to enable bypass*/
 #define DISABLE_BYPASS_PORT 0x3a4
 
-#define AUTH_PASS   0
-#define AUTH_FORBID 1
+#define AUTH_PASS       0
+#define AUTH_FORBID     1
 #define AUTH_PROCESSING 2
 
 struct manager_key {
