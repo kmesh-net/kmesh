@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
 /* Copyright Authors of Kmesh */
 
-#include "config.h"
-#include "common.h"
-
 #ifndef __ENCODER_H__
 #define __ENCODER_H__
+
+#include "config.h"
+#include "common.h"
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);

@@ -6,6 +6,7 @@
 #include <bpf/bpf_endian.h>
 #include <linux/in.h>
 #include <linux/ip.h>
+#include <linux/ipv6.h>
 #include <linux/tcp.h>
 #include <linux/if_ether.h>
 #include "config.h"
@@ -20,7 +21,10 @@
 
 struct xdp_info {
     struct ethhdr *ethh;
-    struct iphdr *iph;
+    union {
+        struct iphdr *iph;
+        struct ipv6hdr *ip6h;
+    };
     struct tcphdr *tcph;
 };
 
@@ -55,6 +59,11 @@ static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tu
         tuple_info->ipv4.daddr = info->iph->daddr;
         tuple_info->ipv4.sport = info->tcph->source;
         tuple_info->ipv4.dport = info->tcph->dest;
+    } else {
+        bpf_memcpy((__u8 *)tuple_info->ipv6.saddr, info->ip6h->saddr.in6_u.u6_addr8, IPV6_ADDR_LEN);
+        bpf_memcpy((__u8 *)tuple_info->ipv6.daddr, info->ip6h->daddr.in6_u.u6_addr8, IPV6_ADDR_LEN);
+        tuple_info->ipv6.sport = info->tcph->source;
+        tuple_info->ipv6.dport = info->tcph->dest;
     }
 }
 
@@ -95,6 +104,9 @@ int xdp_shutdown(struct xdp_md *ctx)
     struct bpf_sock_tuple tuple_info = {0};
 
     if (parser_xdp_info(ctx, &info) == PARSER_FAILED)
+        return XDP_PASS;
+
+    if (info.iph->version != 4 && info.iph->version != 6)
         return XDP_PASS;
 
     // never failed
