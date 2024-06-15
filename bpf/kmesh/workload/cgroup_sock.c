@@ -10,15 +10,16 @@
 #include "frontend.h"
 #include "bpf_common.h"
 
-static inline int sock4_traffic_control(struct bpf_sock_addr *ctx, struct ctx_info *info)
+static inline int sock4_traffic_control(struct kmesh_context *kmesh_ctx)
 {
     int ret;
     frontend_value *frontend_v = NULL;
+    struct bpf_sock_addr *ctx = kmesh_ctx->ctx;
 
     if (ctx->protocol != IPPROTO_TCP)
         return 0;
 
-    DECLARE_FRONTEND_KEY(ctx, &info->vip, frontend_k);
+    DECLARE_FRONTEND_KEY(ctx, &kmesh_ctx->vip, frontend_k);
 
     DECLARE_VAR_IPV4(ctx->user_ip4, ip);
     BPF_LOG(DEBUG, KMESH, "origin addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
@@ -28,7 +29,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx, struct ctx_in
     }
 
     BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
-    ret = frontend_manager(ctx, frontend_v, info);
+    ret = frontend_manager(kmesh_ctx, frontend_v);
     if (ret != 0) {
         if (ret != -ENOENT)
             BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
@@ -41,10 +42,11 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx, struct ctx_in
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
-    struct ctx_info info = {0};
-    info.vip.ip4 = ctx->user_ip4;
-    info.dnat_ip.ip4 = ctx->user_ip4;
-    info.dnat_port = ctx->user_port;
+    struct kmesh_context kmesh_ctx = {0};
+    kmesh_ctx.ctx = ctx;
+    kmesh_ctx.vip.ip4 = ctx->user_ip4;
+    kmesh_ctx.dnat_ip.ip4 = ctx->user_ip4;
+    kmesh_ctx.dnat_port = ctx->user_port;
 
     if (handle_kmesh_manage_process(ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
@@ -54,14 +56,14 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
         return CGROUP_SOCK_OK;
     }
 
-    int ret = sock4_traffic_control(ctx, &info);
+    int ret = sock4_traffic_control(&kmesh_ctx);
     if (ret) {
-        BPF_LOG(ERR, KMESH, "sock_traffic_control failed:%d\n", ret);
+        BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
         return CGROUP_SOCK_OK;
     }
 
-    SET_CTX_ADDRESS4(ctx, &info.dnat_ip, info.dnat_port);
-    if (info.via_waypoint) {
+    SET_CTX_ADDRESS4(ctx, &kmesh_ctx.dnat_ip, kmesh_ctx.dnat_port);
+    if (kmesh_ctx.via_waypoint) {
         kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT4_INDEX);
 
         // if tail call failed will run this code

@@ -13,7 +13,7 @@ static inline frontend_value *map_lookup_frontend(const frontend_key *key)
     return kmesh_map_lookup_elem(&map_of_frontend, key);
 }
 
-static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v, struct ctx_info *info)
+static inline int frontend_manager(struct kmesh_context *kmesh_ctx, frontend_value *frontend_v)
 {
     int ret = 0;
     service_key service_k = {0};
@@ -43,14 +43,14 @@ static inline int frontend_manager(ctx_buff_t *ctx, frontend_value *frontend_v, 
                 "find waypoint addr=[%pI4h:%u]",
                 &backend_v->wp_addr.ip4,
                 bpf_ntohs(backend_v->waypoint_port));
-            ret = waypoint_manager(ctx, info, &backend_v->wp_addr, backend_v->waypoint_port);
+            ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);
             if (ret != 0) {
                 BPF_LOG(ERR, BACKEND, "waypoint_manager failed, ret:%d\n", ret);
             }
             return ret;
         }
     } else {
-        ret = service_manager(ctx, info, frontend_v->upstream_id, service_v);
+        ret = service_manager(kmesh_ctx, frontend_v->upstream_id, service_v);
         if (ret != 0) {
             if (ret != -ENOENT)
                 BPF_LOG(ERR, FRONTEND, "service_manager failed, ret:%d\n", ret);

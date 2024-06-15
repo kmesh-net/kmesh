@@ -44,8 +44,16 @@ struct ip_addr {
 };
 #define IPV6_ADDR_LEN 16
 
-struct ctx_info {
+/*
+eBPF verify verifies the eBPF PROG, including the read and write permissions of the CTX parameters. In the V4 and V6
+scenarios, the governance logic is similar except for the address information. However, the eBPF verify strictly checks
+the read and write operations of the ctx members. For example, v6-related variables cannot be read or written in the v4
+context. Therefore, to reuse the governance logic, kmesh_context defined to cache the input and output information
+related to the address.
+*/
+struct kmesh_context {
     // input
+    void *ctx;
     struct ip_addr vip;
 
     // output
