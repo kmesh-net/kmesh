@@ -275,7 +275,7 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
 
     ep_identity = cluster_get_ep_identity_by_lb_policy(eps, cluster->lb_policy);
     if (!ep_identity) {
-        BPF_LOG(ERR, CLUSTER, "cluster=\"%s\" handle lb failed, %u\n", name);
+        BPF_LOG(ERR, CLUSTER, "cluster=\"%s\" handle lb failed\n", name);
         return -EAGAIN;
     }
 
