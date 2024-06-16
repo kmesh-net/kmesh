@@ -41,8 +41,8 @@ type Controller struct {
 	client              *XdsClient
 	enableByPass        bool
 	enableSecretManager bool
-	bpfFsPath      string
-	enableBpfLog   bool
+	bpfFsPath           string
+	enableBpfLog        bool
 }
 
 func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload, bpfFsPath string, enableBpfLog bool) *Controller {
@@ -51,8 +51,8 @@ func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshW
 		enableByPass:        opts.ByPassConfig.EnableByPass,
 		bpfWorkloadObj:      bpfWorkloadObj,
 		enableSecretManager: opts.SecretManagerConfig.Enable,
-		bpfFsPath:      bpfFsPath,
-		enableBpfLog:   enableBpfLog,
+		bpfFsPath:           bpfFsPath,
+		enableBpfLog:        enableBpfLog,
 	}
 }
 
@@ -75,11 +75,11 @@ func (c *Controller) Start() error {
 		return nil
 	}
 
-if c.enableBpfLog {
-	if err := logger.StartRingBufReader(ctx, c.mode, c.bpfFsPath); err != nil {
-		return fmt.Errorf("fail to start ringbuf reader: %v", err)
+	if c.enableBpfLog {
+		if err := logger.StartRingBufReader(ctx, c.mode, c.bpfFsPath); err != nil {
+			return fmt.Errorf("fail to start ringbuf reader: %v", err)
+		}
 	}
-}
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 	if c.client.WorkloadController != nil {
 		if c.enableSecretManager {

@@ -140,7 +140,7 @@ func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {
 			if err != nil {
 				log.Errorf("ringbuf decode data failed:%v", err)
 			}
-			log.Infof("ebpf_log:%v", le.Msg)
+			log.Infof("%v", le.Msg)
 		}
 	}
 }
