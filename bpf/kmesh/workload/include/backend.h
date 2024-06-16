@@ -59,8 +59,8 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
         BPF_LOG(
             DEBUG,
             BACKEND,
-            "find waypoint addr=[%pI4h:%u]",
-            &backend_v->wp_addr.ip4,
+            "find waypoint addr=[%s:%u]\n",
+            ip2str(&backend_v->waypoint_addr, 1),
             bpf_ntohs(backend_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);
         if (ret != 0) {
@@ -89,9 +89,9 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
                     BPF_LOG(
                         DEBUG,
                         BACKEND,
-                        "get the backend addr=[%pI4h:%u]",
-                        &kmesh_ctx->dnat_ip.ip4,
-                        bpf_ntohs(kmesh_ctx->dnat_port));
+                        "get the backend addr=[%s:%u]\n",
+                        ip2str(&target_addr.ipv4, 1),
+                        bpf_ntohs(target_addr.port));
                     return 0;
                 }
             }

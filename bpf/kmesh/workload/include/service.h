@@ -45,8 +45,8 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         BPF_LOG(
             DEBUG,
             SERVICE,
-            "find waypoint addr=[%pI4h:%u]",
-            &service_v->wp_addr.ip4,
+            "find waypoint addr=[%s:%u]\n",
+            ip2str(&service_v->waypoint_addr, 1),
             bpf_ntohs(service_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &service_v->wp_addr, service_v->waypoint_port);
         if (ret != 0) {

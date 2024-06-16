@@ -22,14 +22,14 @@ static inline int sock4_traffic_control(struct kmesh_context *kmesh_ctx)
     DECLARE_FRONTEND_KEY(ctx, &kmesh_ctx->orig_dst_addr, frontend_k);
 
     DECLARE_VAR_IPV4(ctx->user_ip4, ip);
-    BPF_LOG(DEBUG, KMESH, "origin addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
+    BPF_LOG(DEBUG, KMESH, "origin addr=[%s:%u]\n", ip2str(&ip, 1), bpf_ntohs(ctx->user_port));
     frontend_v = map_lookup_frontend(&frontend_k);
     if (!frontend_v) {
         return -ENOENT;
     }
 
-    BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
-    ret = frontend_manager(kmesh_ctx, frontend_v);
+    BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%s:%u]\n", ip2str(&ip, 1), bpf_ntohs(ctx->user_port));
+    ret = frontend_manager(ctx, frontend_v);
     if (ret != 0) {
         if (ret != -ENOENT)
             BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);

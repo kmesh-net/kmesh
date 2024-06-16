@@ -288,9 +288,9 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
     BPF_LOG(
         INFO,
         CLUSTER,
-        "cluster=\"%s\", loadbalance to addr=[%pI4h:%u]\n",
+        "cluster=\"%s\", loadbalance to addr=[%s:%u]\n",
         name,
-        &sock_addr->ipv4,
+        ip2str(&sock_addr->ipv4, 1),
         bpf_ntohs(sock_addr->port));
     SET_CTX_ADDRESS(ctx, sock_addr);
     return 0;
