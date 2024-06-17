@@ -36,7 +36,7 @@ static inline int frontend_manager(struct kmesh_context *kmesh_ctx, frontend_val
 
     if (direct_backend) {
         // For pod direct access, if a pod has watpoint captured, we will redirect to waypoint, otherwise we do nothing.
-        if (backend_v->wp_addr.ip4 != 0 && backend_v->waypoint_port != 0) {
+        if (backend_v->waypoint_port != 0) {
             BPF_LOG(
                 DEBUG,
                 FRONTEND,

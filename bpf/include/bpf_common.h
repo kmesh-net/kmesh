@@ -6,7 +6,7 @@
 
 #include "common.h"
 
-#define map_of_manager      kmesh_manage
+#define map_of_manager kmesh_manage
 #define MAP_SIZE_OF_MANAGER 8192
 /*0x3a1(929) is the specific port handled by the cni to enable kmesh*/
 #define ENABLE_KMESH_PORT 0x3a1
@@ -46,6 +46,10 @@ struct {
     __uint(map_flags, 0);
 } map_of_manager SEC(".maps");
 
+/*
+ * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
+ * hook. Therefore, ensure that function is correctly used.
+ */
 static inline void record_manager_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
@@ -60,6 +64,10 @@ static inline void record_manager_netns_cookie(struct bpf_sock_addr *ctx)
         BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
 }
 
+/*
+ * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
+ * hook. Therefore, ensure that function is correctly used.
+ */
 static inline void set_netns_bypass_value(struct bpf_sock_addr *ctx, int new_bypass_value)
 {
     struct manager_key key = {0};
@@ -75,6 +83,10 @@ static inline void set_netns_bypass_value(struct bpf_sock_addr *ctx, int new_byp
         BPF_LOG(ERR, KMESH, "set netcookie failed!, err is %d\n", err);
 }
 
+/*
+ * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
+ * hook. Therefore, ensure that function is correctly used.
+ */
 static inline bool is_kmesh_enabled(struct bpf_sock_addr *ctx)
 {
     struct manager_key key = {0};
@@ -82,6 +94,10 @@ static inline bool is_kmesh_enabled(struct bpf_sock_addr *ctx)
     return bpf_map_lookup_elem(&map_of_manager, &key);
 }
 
+/*
+ * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
+ * hook. Therefore, ensure that function is correctly used.
+ */
 static inline bool is_bypass_enabled(struct bpf_sock_addr *ctx)
 {
     struct manager_key key = {0};
@@ -94,6 +110,10 @@ static inline bool is_bypass_enabled(struct bpf_sock_addr *ctx)
     return value->is_bypassed;
 }
 
+/*
+ * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
+ * hook. Therefore, ensure that function is correctly used.
+ */
 static inline void remove_manager_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;

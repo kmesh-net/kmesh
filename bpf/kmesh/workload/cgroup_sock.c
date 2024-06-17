@@ -19,7 +19,7 @@ static inline int sock4_traffic_control(struct kmesh_context *kmesh_ctx)
     if (ctx->protocol != IPPROTO_TCP)
         return 0;
 
-    DECLARE_FRONTEND_KEY(ctx, &kmesh_ctx->vip, frontend_k);
+    DECLARE_FRONTEND_KEY(ctx, &kmesh_ctx->orig_dst_addr, frontend_k);
 
     DECLARE_VAR_IPV4(ctx->user_ip4, ip);
     BPF_LOG(DEBUG, KMESH, "origin addr=[%pI4h:%u]\n", &ip, bpf_ntohs(ctx->user_port));
@@ -44,7 +44,7 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
     struct kmesh_context kmesh_ctx = {0};
     kmesh_ctx.ctx = ctx;
-    kmesh_ctx.vip.ip4 = ctx->user_ip4;
+    kmesh_ctx.orig_dst_addr.ip4 = ctx->user_ip4;
     kmesh_ctx.dnat_ip.ip4 = ctx->user_ip4;
     kmesh_ctx.dnat_port = ctx->user_port;
 

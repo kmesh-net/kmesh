@@ -45,16 +45,16 @@ struct ip_addr {
 #define IPV6_ADDR_LEN 16
 
 /*
-eBPF verify verifies the eBPF PROG, including the read and write permissions of the CTX parameters. In the V4 and V6
-scenarios, the governance logic is similar except for the address information. However, the eBPF verify strictly checks
-the read and write operations of the ctx members. For example, v6-related variables cannot be read or written in the v4
-context. Therefore, to reuse the governance logic, kmesh_context defined to cache the input and output information
-related to the address.
+eBPF verifier verifies the eBPF PROG, including the read and write permissions of the CTX parameters. In the V4 and V6
+scenarios, the governance logic is similar except for the address information. However, the eBPF verifier strictly
+checks the read and write operations of the ctx members. For example, v6-related variables cannot be read or written in
+the v4 context. Therefore, to reuse the governance logic, kmesh_context defined to cache the input and output
+information related to the address.
 */
 struct kmesh_context {
     // input
-    void *ctx;
-    struct ip_addr vip;
+    struct bpf_sock_addr *ctx;
+    struct ip_addr orig_dst_addr;
 
     // output
     struct ip_addr dnat_ip;
@@ -79,7 +79,7 @@ static inline int kmesh_map_update_elem(void *map, const void *key, const void *
 }
 
 #if OE_23_03
-#define bpf__strncmp                  bpf_strncmp
+#define bpf__strncmp bpf_strncmp
 #define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port)
 #else
 #define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port >> 16)
@@ -87,4 +87,4 @@ static inline int kmesh_map_update_elem(void *map, const void *key, const void *
 
 #define GET_SKOPS_LOCAL_PORT(sk_ops) (__u16)((sk_ops)->local_port)
 
-#endif // _COMMON_H_
+#endif  // _COMMON_H_

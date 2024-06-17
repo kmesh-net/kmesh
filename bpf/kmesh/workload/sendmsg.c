@@ -43,10 +43,10 @@
 #define TLV_ORG_DST_ADDR6_LENGTH (TLV_IP6_LENGTH + TLV_PORT_LENGTH)
 
 /*
-[TYPE]      - 1 byte
-[length]    - 4 bytes
-[dst_ip4]   - TLV_ORG_DST_ADDR4_LENGTH bytes
-[dst_port]  - 2 bytes
+[TYPE]      - TLV_TYPE_SIZE byte
+[length]    - TLV_LENGTH_SIZE bytes
+[dst_ip4]   - TLV_IP4_LENGTH bytes
+[dst_port]  - TLV_PORT_LENGTH bytes
 */
 #define TLV_ORG_DST_ADDR4_SIZE (TLV_TYPE_SIZE + TLV_LENGTH_SIZE + TLV_ORG_DST_ADDR4_LENGTH)
 

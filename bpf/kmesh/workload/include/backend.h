@@ -24,10 +24,10 @@ static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_ad
     struct bpf_sock_tuple value_tuple = {0};
 
     if (ctx->family == AF_INET) {
-        value_tuple.ipv4.daddr = kmesh_ctx->vip.ip4;
+        value_tuple.ipv4.daddr = kmesh_ctx->orig_dst_addr.ip4;
         value_tuple.ipv4.dport = ctx->user_port;
     } else if (ctx->family == AF_INET6) {
-        bpf_memcpy(value_tuple.ipv6.daddr, kmesh_ctx->vip.ip6, IPV6_ADDR_LEN);
+        bpf_memcpy(value_tuple.ipv6.daddr, kmesh_ctx->orig_dst_addr.ip6, IPV6_ADDR_LEN);
         value_tuple.ipv6.dport = ctx->user_port;
     } else {
         BPF_LOG(ERR, BACKEND, "invalid ctx family: %u\n", ctx->family);
@@ -55,7 +55,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
     __u32 user_port = ctx->user_port;
 
-    if (backend_v->wp_addr.ip4 != 0 && backend_v->waypoint_port != 0) {
+    if (backend_v->waypoint_port != 0) {
         BPF_LOG(
             DEBUG,
             BACKEND,
