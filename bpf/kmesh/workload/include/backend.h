@@ -90,7 +90,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
                         DEBUG,
                         BACKEND,
                         "get the backend addr=[%s:%u]\n",
-                        ip2str(&backend_v->addr.ip4, 1),
+                        ip2str(&kmesh_ctx->dnat_ip.ip4, 1),
                         bpf_ntohs(service_v->target_port[j]));
                     return 0;
                 }
