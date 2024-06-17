@@ -31,7 +31,12 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dump",
 		Short: "Dump xds workloads",
-		Args:  cobra.ExactArgs(1),
+		Example: `Ads mode:
+		kmesh-daemon dump ads
+	  
+	  Workload mode:
+		kmesh-daemon dump workload`,
+		Args: cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = RunDump(cmd, args)
 		},
