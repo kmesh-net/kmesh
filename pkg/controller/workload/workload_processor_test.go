@@ -97,7 +97,10 @@ func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workload
 	err := p.bpf.ServiceLookup(&bpfcache.ServiceKey{ServiceId: svcId}, &sv)
 	assert.NoError(t, err)
 	assert.Equal(t, sv.EndpointCount, endpointCount)
-	assert.Equal(t, sv.WaypointAddr, nets.ConvertIpByteToUint32(fakeSvc.GetWaypoint().GetAddress().Address))
+	waypointAddr := fakeSvc.GetWaypoint().GetAddress().GetAddress()
+	if waypointAddr != nil {
+		assert.Equal(t, test.EqualIp(sv.WaypointAddr, waypointAddr), true)
+	}
 	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(15008))
 }
 
@@ -105,15 +108,18 @@ func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workload
 	var bv bpfcache.BackendValue
 	err := p.bpf.BackendLookup(&bpfcache.BackendKey{BackendUid: workloadID}, &bv)
 	assert.NoError(t, err)
-	assert.Equal(t, bv.IPv4, nets.ConvertIpByteToUint32(wl.Addresses[0]))
-	assert.Equal(t, bv.WaypointAddr, nets.ConvertIpByteToUint32(wl.GetWaypoint().GetAddress().GetAddress()))
+	assert.Equal(t, test.EqualIp(bv.Ip, wl.Addresses[0]), true)
+	waypointAddr := wl.GetWaypoint().GetAddress().GetAddress()
+	if waypointAddr != nil {
+		assert.Equal(t, test.EqualIp(bv.WaypointAddr, waypointAddr), true)
+	}
 	assert.Equal(t, bv.WaypointPort, nets.ConvertPortToBigEndian(wl.GetWaypoint().GetHboneMtlsPort()))
 }
 
 func checkFrontEndMap(t *testing.T, ip []byte, p *Processor) (upstreamId uint32) {
 	var fk bpfcache.FrontendKey
 	var fv bpfcache.FrontendValue
-	fk.IPv4 = nets.ConvertIpByteToUint32(ip)
+	nets.CopyIpByteFromSlice(&fk.Ip, &ip)
 	err := p.bpf.FrontendLookup(&fk, &fv)
 	assert.NoError(t, err)
 	upstreamId = fv.UpstreamId

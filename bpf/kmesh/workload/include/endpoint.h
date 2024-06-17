@@ -12,8 +12,8 @@ static inline endpoint_value *map_lookup_endpoint(const endpoint_key *key)
     return kmesh_map_lookup_elem(&map_of_endpoint, key);
 }
 
-static inline int
-endpoint_manager(ctx_buff_t *ctx, endpoint_value *endpoint_v, __u32 service_id, service_value *service_v)
+static inline int endpoint_manager(
+    struct kmesh_context *kmesh_ctx, endpoint_value *endpoint_v, __u32 service_id, service_value *service_v)
 {
     int ret = 0;
     backend_key backend_k = {0};
@@ -26,7 +26,7 @@ endpoint_manager(ctx_buff_t *ctx, endpoint_value *endpoint_v, __u32 service_id, 
         return -ENOENT;
     }
 
-    ret = backend_manager(ctx, backend_v, service_id, service_v);
+    ret = backend_manager(kmesh_ctx, backend_v, service_id, service_v);
     if (ret != 0) {
         if (ret != -ENOENT)
             BPF_LOG(ERR, ENDPOINT, "backend_manager failed, ret:%d\n", ret);

@@ -85,3 +85,23 @@ func CleanupBpfMap() {
 		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
 	}
 }
+
+func EqualIp(src [16]byte, dst []byte) bool {
+	if dst == nil {
+		return false
+	}
+	size := len(dst)
+	if size == 0 {
+		return false
+	}
+	if size != 4 && size != 16 {
+		return false
+	}
+
+	for i := 0; i < size; i++ {
+		if src[i] != dst[i] {
+			return false
+		}
+	}
+	return true
+}

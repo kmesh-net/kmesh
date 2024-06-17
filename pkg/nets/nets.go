@@ -63,3 +63,14 @@ func ConvertIpByteToUint32(ip []byte) uint32 {
 	}
 	return binary.LittleEndian.Uint32(ip)
 }
+
+func CopyIpByteFromSlice(dst *[16]byte, src *[]byte) {
+	len := len(*src)
+	if len != 4 && len != 16 {
+		return
+	}
+
+	for i := 0; i < len; i++ {
+		(*dst)[i] = (*src)[i]
+	}
+}
