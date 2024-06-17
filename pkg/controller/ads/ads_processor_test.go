@@ -35,7 +35,6 @@ import (
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/daemon/options"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
-	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
@@ -47,11 +46,9 @@ func TestHandleCdsResponse(t *testing.T) {
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
 	cleanup, _ := test.InitBpfMap(t, config)
-	dnsResolver, err := dns.NewDNSResolver()
-	assert.NoError(t, err)
 	t.Cleanup(cleanup)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -79,7 +76,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	})
 
 	t.Run("new cluster, cluster type is not eds", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -104,8 +101,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
 	})
 
-	t.Run("eds cluster update case", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+	t.Run("cluster update case", func(t *testing.T) {
+		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -155,8 +152,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	})
 
 	t.Run("multiClusters: add a new eds cluster", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
-		p.lastNonce.ldsNonce = "nonce"
+		p := newProcessor()
 		multiClusters := []*config_cluster_v3.Cluster{
 			{
 				Name: "ut-cluster1",
@@ -234,7 +230,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	})
 
 	t.Run("multiClusters: remove cluster", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -298,11 +294,9 @@ func TestHandleEdsResponse(t *testing.T) {
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
 	cleanup, _ := test.InitBpfMap(t, config)
-	dnsResolver, err := dns.NewDNSResolver()
-	assert.NoError(t, err)
 	t.Cleanup(cleanup)
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
@@ -335,7 +329,7 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 
 	t.Run("cluster's apiStatus is Waiting", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
@@ -370,7 +364,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			ApiStatus: core_v2.ApiStatus_ALL,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.Cache = adsLoader
 
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
@@ -399,7 +393,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			ApiStatus: core_v2.ApiStatus_WAITING,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.Cache = adsLoader
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
@@ -427,7 +421,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{}
 		adsLoader.ClusterCache.SetApiCluster("", cluster)
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.Cache = adsLoader
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
@@ -455,7 +449,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			ApiStatus: core_v2.ApiStatus_WAITING,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.Cache = adsLoader
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
@@ -483,8 +477,6 @@ func TestHandleLdsResponse(t *testing.T) {
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
 	cleanup, _ := test.InitBpfMap(t, config)
-	dnsResolver, err := dns.NewDNSResolver()
-	assert.NoError(t, err)
 	t.Cleanup(cleanup)
 	t.Run("normal function test", func(t *testing.T) {
 		adsLoader := NewAdsCache()
@@ -492,7 +484,7 @@ func TestHandleLdsResponse(t *testing.T) {
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.Cache = adsLoader
 		filterHttp := &filters_network_http.HttpConnectionManager{
 			RouteSpecifier: &filters_network_http.HttpConnectionManager_Rds{
@@ -552,7 +544,7 @@ func TestHandleLdsResponse(t *testing.T) {
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.Cache = adsLoader
 		listener := &config_listener_v3.Listener{
 			Name: "ut-listener",
@@ -591,7 +583,7 @@ func TestHandleLdsResponse(t *testing.T) {
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.Cache = adsLoader
 		listener := &config_listener_v3.Listener{
 			Name: "ut-listener",
@@ -663,11 +655,9 @@ func TestHandleRdsResponse(t *testing.T) {
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
 	cleanup, _ := test.InitBpfMap(t, config)
-	dnsResolver, err := dns.NewDNSResolver()
-	assert.NoError(t, err)
 	t.Cleanup(cleanup)
 	t.Run("normal function test", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
@@ -697,7 +687,7 @@ func TestHandleRdsResponse(t *testing.T) {
 	})
 
 	t.Run("empty routeConfig", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
@@ -720,7 +710,7 @@ func TestHandleRdsResponse(t *testing.T) {
 	})
 
 	t.Run("already have a Rds, RdsHash has been changed", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",
@@ -762,7 +752,7 @@ func TestHandleRdsResponse(t *testing.T) {
 	})
 
 	t.Run("already have a Rds, RdsHash has been change. And have multiRouteconfig in resp", func(t *testing.T) {
-		p := newProcessor(dnsResolver.DnsResolverChan)
+		p := newProcessor()
 		p.ack = &service_discovery_v3.DiscoveryRequest{
 			ResourceNames: []string{
 				"ut-routeclient",

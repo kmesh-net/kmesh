@@ -36,7 +36,7 @@ type fakeDNSServer struct {
 	failure bool
 
 	mu sync.Mutex
-	// map fqdn hostname -> successful query count
+	// map fqdn hostname -> ip suffix
 	hosts map[string]int
 }
 
@@ -47,7 +47,8 @@ func TestDNS(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	stopCh := make(chan struct{})
+	testDNSResolver.StartDNSResolver(stopCh)
 	testDNSResolver.resolvConfServers = []string{fakeDNSServer.Server.PacketConn.LocalAddr().String()}
 
 	testCases := []struct {
@@ -84,6 +85,18 @@ func TestDNS(t *testing.T) {
 			},
 		},
 		{
+			name:             "check dns refresh after ttl without update bpfmap",
+			domain:           "www.test.com.",
+			refreshRate:      10 * time.Second,
+			ttl:              3 * time.Second,
+			expected:         []string{"10.0.0.2", "fd00::2"},
+			expectedAfterTTL: []string{"10.0.0.2", "fd00::2"},
+			registerDomain: func(domain string) {
+				fakeDNSServer.setHosts(domain, 2)
+				fakeDNSServer.setTTL(uint32(3))
+			},
+		},
+		{
 			name:             "check dns refresh after refreshRate, ttl > refreshRate",
 			domain:           "www.baidu.com.",
 			refreshRate:      3 * time.Second,
@@ -105,13 +118,19 @@ func TestDNS(t *testing.T) {
 			expected:    []string{},
 		},
 	}
-
+	var wg sync.WaitGroup
 	for _, testcase := range testCases {
+		wg.Add(1)
 		if testcase.registerDomain != nil {
 			testcase.registerDomain(testcase.domain)
 		}
-		res := testDNSResolver.resolve(testcase.domain, testcase.refreshRate)
+		input := make(map[string]time.Duration)
+		input[testcase.domain] = testcase.refreshRate
+		testDNSResolver.DnsResolverChan <- input
 
+		time.Sleep(2 * time.Second)
+
+		res := testDNSResolver.GetCacheResult(testcase.domain)
 		if len(res) != 0 || len(testcase.expected) != 0 {
 			sort.Strings(res)
 			sort.Strings(testcase.expected)
@@ -121,17 +140,18 @@ func TestDNS(t *testing.T) {
 
 			if testcase.expectedAfterTTL != nil {
 				ttl := time.Duration(math.Min(float64(testcase.ttl), float64(testcase.refreshRate)))
-				time.Sleep(ttl)
-				res = testDNSResolver.resolve(testcase.domain, ttl)
+				time.Sleep(ttl + 1)
+				res = testDNSResolver.GetCacheResult(testcase.domain)
 				sort.Strings(res)
 				sort.Strings(testcase.expectedAfterTTL)
-
 				if !reflect.DeepEqual(res, testcase.expectedAfterTTL) {
 					t.Errorf("dns refresh after ttl failed, for %s do not match. \n got %v\nwant %v", testcase.domain, res, testcase.expectedAfterTTL)
 				}
 			}
 		}
+		wg.Done()
 	}
+	wg.Wait()
 }
 
 func newFakeDNSServer() *fakeDNSServer {

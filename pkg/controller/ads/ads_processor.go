@@ -31,11 +31,11 @@ import (
 	"istio.io/istio/pkg/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 
+	core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
-	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
@@ -55,16 +55,15 @@ type processor struct {
 	req       *service_discovery_v3.DiscoveryRequest
 	lastNonce *lastNonce
 	// the channel used to send domains to dns resolver. key is domain name and value is refreshrate
-	dnsResolverChan chan map[string]time.Duration
+	DnsResolverChan chan map[string]time.Duration
 }
 
-func newProcessor(dnsResolverChan chan map[string]time.Duration) *processor {
+func newProcessor() *processor {
 	return &processor{
-		Cache:           NewAdsCache(),
-		ack:             nil,
-		req:             nil,
-		lastNonce:       NewLastNonce(),
-		dnsResolverChan: dnsResolverChan,
+		Cache:     NewAdsCache(),
+		ack:       nil,
+		req:       nil,
+		lastNonce: NewLastNonce(),
 	}
 }
 
@@ -146,7 +145,6 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	lastEdsClusterNames := p.Cache.edsClusterNames
 	p.Cache.edsClusterNames = nil
 	p.Cache.dnsClusters = make(map[string]time.Duration)
-
 	for _, resource := range resp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
 			continue
@@ -154,10 +152,10 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		current.Insert(cluster.GetName())
 		if cluster.GetType() == config_cluster_v3.Cluster_EDS {
 			p.Cache.edsClusterNames = append(p.Cache.edsClusterNames, cluster.GetName())
-		} else if cluster.GetType() == config_cluster_v3.Cluster_STRICT_DNS {
-			name, refreshRate := dns.GetDoaminAndRefreshRateFromCluster(cluster)
-			// only when the domain name is successfully parsed will be sent to dns resolver
-			if name != "" {
+		} else if cluster.GetType() == config_cluster_v3.Cluster_STRICT_DNS ||
+			cluster.GetType() == config_cluster_v3.Cluster_LOGICAL_DNS {
+			clusterNames := getDoaminAndRefreshRateFromCluster(cluster)
+			for name, refreshRate := range clusterNames {
 				p.Cache.dnsClusters[name] = refreshRate
 			}
 		}
@@ -181,7 +179,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		}
 	}
 	// send domain and refreshrate map to dns resolver via channel
-	p.dnsResolverChan <- p.Cache.dnsClusters
+	p.DnsResolverChan <- p.Cache.dnsClusters
 	removed := p.Cache.ClusterCache.GetResourceNames().Difference(current)
 	for key := range removed {
 		p.Cache.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
@@ -353,4 +351,20 @@ func SetApiVersionInfo(resources *admin_v2.ConfigResources) {
 	if !ConfigResourcesIsEmpty(resources) {
 		resources.VersionInfo = apiVersionInfo
 	}
+}
+
+// Get domain name and refreshrate from cluster, the STRIC_DNS typed cluster name could be something like
+// outbound|8080||test.default.svc.cluster.local, and also it should contains the dns refresh rate.
+func getDoaminAndRefreshRateFromCluster(cluster *config_cluster_v3.Cluster) map[string]time.Duration {
+	res := make(map[string]time.Duration)
+	refreshRate := cluster.GetDnsRefreshRate().AsDuration()
+
+	for _, e := range cluster.LoadAssignment.Endpoints {
+		for _, le := range e.LbEndpoints {
+			socketAddr := le.GetEndpoint().GetAddress().GetAddress().(*core_v3.Address_SocketAddress)
+			res[socketAddr.SocketAddress.Address] = refreshRate
+		}
+	}
+
+	return res
 }

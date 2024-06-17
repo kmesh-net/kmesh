@@ -20,12 +20,17 @@ import (
 	"fmt"
 	"net"
 	"slices"
-	"strings"
+	"sort"
 	"sync"
 	"time"
 
-	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/miekg/dns"
+	"k8s.io/client-go/util/workqueue"
+	"kmesh.net/kmesh/pkg/logger"
+)
+
+var (
+	log = logger.NewLoggerField("ads_controller")
 )
 
 type DNSResolver struct {
@@ -33,6 +38,8 @@ type DNSResolver struct {
 	client            *dns.Client
 	resolvConfServers []string
 	cache             map[string]domainCacheEntry
+	// dns refresh priority queue based on exp
+	dnsRefreshQueue workqueue.DelayingInterface
 	sync.RWMutex
 }
 
@@ -40,13 +47,20 @@ type DNSResolver struct {
 type domainCacheEntry struct {
 	value  []string
 	expiry time.Time
-	timer  *time.Timer
 }
+
+type domainWithRefreshRate struct {
+	name        string
+	refreshRate time.Duration
+}
+
+const MaxConcurrency uint32 = 5
 
 func NewDNSResolver() (*DNSResolver, error) {
 	r := &DNSResolver{
 		DnsResolverChan: make(chan map[string]time.Duration),
 		cache:           map[string]domainCacheEntry{},
+		dnsRefreshQueue: workqueue.NewDelayingQueue(),
 		client: &dns.Client{
 			DialTimeout:  5 * time.Second,
 			ReadTimeout:  5 * time.Second,
@@ -67,53 +81,69 @@ func NewDNSResolver() (*DNSResolver, error) {
 	return r, nil
 }
 
-func (r *DNSResolver) StartDNSResolver() {
+func (r *DNSResolver) StartDNSResolver(stopCh <-chan struct{}) {
 	go r.startResolver()
+	go r.refreshDNS()
+	go func() {
+		<-stopCh
+		r.dnsRefreshQueue.ShutDown()
+		close(r.DnsResolverChan)
+	}()
 }
 
 // startResolver watches the DnsResolver Channel
 func (r *DNSResolver) startResolver() {
+	temp := make(chan struct{}, MaxConcurrency)
+	var wg sync.WaitGroup
 	for domains := range r.DnsResolverChan {
-		r.resolveDomains(domains)
+		temp <- struct{}{}
+		wg.Add(1)
+
+		go func(domains map[string]time.Duration) {
+			defer wg.Done()
+			defer func() { <-temp }()
+			r.resolveDomains(domains)
+		}(domains)
 	}
+	wg.Wait()
 }
 
 // resolveDomains takes a map of hostnames and refresh rate
 func (r *DNSResolver) resolveDomains(domains map[string]time.Duration) {
-	r.RLock()
-	defer r.RUnlock()
-
 	// Stow domain updates, need to remove unwatched domains first
 	r.removeUnwatchedDomain(domains)
 
 	for name, refreshRate := range domains {
-		r.resolve(name, refreshRate)
+		addrs := r.resolve(name, refreshRate)
+		log.Debugf("resolve dns , name: %s, addr: %v\n", name, addrs)
+		r.updateBPFMap(name, addrs)
 	}
-	r.refreshBPFMap()
 }
 
 // removeUnwatchedDomain cancels any scheduled re-resolve for names we no longer care about
 func (r *DNSResolver) removeUnwatchedDomain(domains map[string]time.Duration) {
-	for name, entry := range r.cache {
+	r.Lock()
+	defer r.Unlock()
+	for name := range r.cache {
 		if _, ok := domains[name]; ok {
 			continue
 		}
-		entry.timer.Stop()
 		delete(r.cache, name)
+		r.deleteBPFMap(name)
 	}
 }
 
-// This functions were copied and adapted from github.com/istio/istio.
+// This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) resolve(name string, refreshRate time.Duration) []string {
 	if entry, ok := r.cache[name]; ok && entry.expiry.After(time.Now()) {
 		return entry.value
 	}
+
+	r.Lock()
+	defer r.Unlock()
 	// ideally this will not happen more than once for each name and the cache auto-updates in the background
 	// even if it does, this happens on the SotW ingestion path (kube or meshnetworks changes)
-	entry, ok := r.cache[name]
-	if ok {
-		entry.timer.Stop()
-	}
+	entry := r.cache[name]
 	delete(r.cache, name)
 	addrs, ttl, err := r.doResolve(name, refreshRate)
 	// refresh the dns address periodically by respecting the dnsRefreshRate and ttl, which one is shorter
@@ -129,33 +159,59 @@ func (r *DNSResolver) resolve(name string, refreshRate time.Duration) []string {
 	r.cache[name] = domainCacheEntry{
 		value:  addrs,
 		expiry: expiry,
-		// TTL expires, try to refresh TODO should this be < ttl?
-		timer: time.AfterFunc(ttl, r.refreshDNS(name, refreshRate)),
 	}
 
+	dr := &domainWithRefreshRate{
+		name:        name,
+		refreshRate: refreshRate,
+	}
+	// push torefresh queue one second before dns expire
+	r.dnsRefreshQueue.AddAfter(dr, time.Until(expiry))
 	return addrs
 }
 
 // refreshDNS is triggered via time.AfterFunc and will recursively schedule itself that way until timer is cleaned
 // up via removeUnwatchedDomain.
-func (r *DNSResolver) refreshDNS(name string, refreshRate time.Duration) func() {
-	return func() {
+func (r *DNSResolver) refreshDNS() {
+	for {
+		element, quit := r.dnsRefreshQueue.Get()
+		if quit {
+			return
+		}
 		r.RLock()
-		old := r.cache[name]
-		addrs := r.resolve(name, refreshRate)
+		dr := element.(*domainWithRefreshRate)
+		old := r.cache[dr.name]
 		r.RUnlock()
-
+		addrs := r.resolve(dr.name, dr.refreshRate)
+		r.dnsRefreshQueue.Done(element)
+		sort.Strings(old.value)
+		sort.Strings(addrs)
 		if !slices.Equal(old.value, addrs) {
-			r.refreshBPFMap()
+			log.Debugf("update dns , name: %s, old addr: %v, new addr: %v\n", dr.name, old.value, addrs)
+			r.updateBPFMap(dr.name, addrs)
 		}
 	}
 }
 
-// TODO:: update the bpf map
-func (r *DNSResolver) refreshBPFMap() {
+func (r *DNSResolver) GetCacheResult(name string) []string {
+	var res []string
+	if entry, ok := r.cache[name]; ok {
+		res = entry.value
+	}
+	return res
 }
 
-// This functions were copied and adapted from github.com/istio/istio.
+// TODO:: update the bpf map
+func (r *DNSResolver) updateBPFMap(name string, addrs []string) {
+	// maps_v2.DNSUpdate(name, addrs)
+}
+
+// TODO:: delete the bpf map
+func (r *DNSResolver) deleteBPFMap(name string) {
+	// maps_v2.DNSDelete(name)
+}
+
+// This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) doResolve(domain string, refreshRate time.Duration) ([]string, time.Duration, error) {
 	var out []string
 	ttl := refreshRate
@@ -199,7 +255,7 @@ func (r *DNSResolver) doResolve(domain string, refreshRate time.Duration) ([]str
 	return out, ttl, nil
 }
 
-// This functions were copied and adapted from github.com/istio/istio.
+// This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) Query(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range r.resolvConfServers {
@@ -221,7 +277,7 @@ func (r *DNSResolver) Query(req *dns.Msg) *dns.Msg {
 	return response
 }
 
-// This functions were copied and adapted from github.com/istio/istio.
+// This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func getMinTTL(m *dns.Msg, refreshRate time.Duration) time.Duration {
 	// No records or OPT is the only record, return a short ttl as a fail safe.
 	if len(m.Answer)+len(m.Ns) == 0 &&
@@ -251,22 +307,4 @@ func getMinTTL(m *dns.Msg, refreshRate time.Duration) time.Duration {
 		}
 	}
 	return minTTL
-}
-
-// Get domain name and refreshrate from cluster, the STRIC_DNS typed cluster name could be something like
-// outbound|8080||test.default.svc.cluster.local, and also it should contains the dns refresh rate.
-func GetDoaminAndRefreshRateFromCluster(cluster *config_cluster_v3.Cluster) (string, time.Duration) {
-	var name string
-
-	clusterName := cluster.GetName()
-
-	parts := strings.Split(clusterName, "|")
-
-	if len(parts) == 4 {
-		name = parts[3]
-		refreshRate := cluster.GetDnsRefreshRate().AsDuration()
-		return name, refreshRate
-	}
-	// return 1 minute as default refreshrate to avord Infinite loop
-	return name, time.Minute
 }

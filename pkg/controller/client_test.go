@@ -37,8 +37,7 @@ import (
 
 func TestRecoverConnection(t *testing.T) {
 	t.Run("test reconnect success", func(t *testing.T) {
-		utClient, err := NewXdsClient("ads", &bpf.BpfKmeshWorkload{})
-		assert.NoError(t, err)
+		utClient := NewXdsClient(constants.AdsMode, &bpf.BpfKmeshWorkload{})
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		iteration := 0
@@ -79,9 +78,8 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient, err := NewXdsClient(constants.AdsMode, &bpf.BpfKmeshWorkload{})
-		assert.NoError(t, err)
-		err = utClient.createGrpcStreamClient()
+		utClient := NewXdsClient(constants.AdsMode, &bpf.BpfKmeshWorkload{})
+		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 
 		reConnectPatches := gomonkey.NewPatches()
@@ -127,9 +125,8 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient, err := NewXdsClient(constants.WorkloadMode, &bpf.BpfKmeshWorkload{})
-		assert.NoError(t, err)
-		err = utClient.createGrpcStreamClient()
+		utClient := NewXdsClient(constants.WorkloadMode, &bpf.BpfKmeshWorkload{})
+		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 
 		reConnectPatches := gomonkey.NewPatches()
