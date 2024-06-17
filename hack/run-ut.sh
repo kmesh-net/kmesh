@@ -12,7 +12,7 @@ function docker_run_go_ut() {
 function run_go_ut_local() {
     bash $ROOT_DIR/build.sh
     export PKG_CONFIG_PATH=$ROOT_DIR/mk
-    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/lib64
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ROOT_DIR/api/v2-c:$ROOT_DIR/bpf/deserialization_to_bpf_map
     go test -v -vet=off ./pkg/...    
 }
 
