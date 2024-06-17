@@ -49,6 +49,7 @@ func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 		return fmt.Errorf("StreamAggregatedResources failed, %s", err)
 	}
 
+	c.Processor.Reset()
 	if err := c.Stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
@@ -67,6 +68,10 @@ func (c *Controller) HandleAdsStream() error {
 	}
 
 	c.Processor.processAdsResponse(rsp)
+	defer func() {
+		c.Processor.req = nil
+		c.Processor.ack = nil
+	}()
 
 	if err = c.Stream.Send(c.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)
