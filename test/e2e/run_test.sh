@@ -39,7 +39,6 @@ EOF
 export KIND_REGISTRY_NAME="kind-registry"
 export KIND_REGISTRY_PORT="5000"
 export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"
-export HUB="${KIND_REGISTRY}"
 
 # Provision a local docker registry, so KinD nodes could pull images from.
 # https://kind.sigs.k8s.io/docs/user/local-registry/
@@ -87,7 +86,7 @@ EOF
 }
 
 function build_and_push_images() {
-    make docker.push
+    HUB="${KIND_REGISTRY}" make docker.push
 }
 
 while (( "$#" )); do
