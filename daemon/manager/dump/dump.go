@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+
 	"kmesh.net/kmesh/pkg/status"
 )
 
@@ -26,7 +27,6 @@ func RunDump(cmd *cobra.Command, args []string) error {
 	mode := args[0]
 	if mode != "ads" && mode != "workload" {
 		fmt.Println("Error: Argument must be 'ads' or 'workload'")
-		cmd.Usage()
 		os.Exit(1)
 	} else {
 		url := status.GetConfigDumpAddr(mode)
