@@ -156,8 +156,14 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		p.Cache.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
 	}
 	if len(removed) > 0 {
-		log.Info("removed cluster: ", removed)
+		log.Debugf("removed cluster: ", removed.UnsortedList())
 		p.Cache.ClusterCache.Delete()
+	}
+
+	// Only flush the cache when there is no eds cluster
+	// Eds cluster should always be flushed in the eds handler
+	if len(p.Cache.edsClusterNames) == 0 {
+		p.Cache.ClusterCache.Flush()
 	}
 
 	if p.lastNonce.edsNonce == "" {
@@ -172,12 +178,6 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		// There is a race: when xds server has pushed eds, but kmesh hasn't a chance to receive and process
 		// Then it will lead to this request been ignored, we will lose the new eds resource
 		p.req = newAdsRequest(resource_v3.EndpointType, p.Cache.edsClusterNames, "")
-	}
-
-	// Only flush the cache when there is no eds cluster
-	// Eds cluster should always be flushed in the eds handler
-	if len(p.Cache.edsClusterNames) == 0 {
-		p.Cache.ClusterCache.Flush()
 	}
 
 	return nil

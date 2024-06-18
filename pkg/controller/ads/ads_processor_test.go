@@ -212,7 +212,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_EDS,
+				Type: config_cluster_v3.Cluster_LOGICAL_DNS,
 			},
 		}
 		anyCluster, err := anypb.New(cluster)
@@ -247,8 +247,10 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster2,
 			},
 		}
+
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+		// only cluster2 is eds typed
 		assert.Equal(t, []string{"new-ut-cluster2"}, p.Cache.edsClusterNames)
 		wantHash1 := hash.Sum64String(anyCluster1.String())
 		wantHash2 := hash.Sum64String(anyCluster2.String())
@@ -258,7 +260,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash2, actualHash2)
 		assert.Equal(t, []string{"new-ut-cluster2"}, p.req.ResourceNames)
 		// `cluster` has been deleted
-		assert.True(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name) == nil)
+		assert.Nil(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name))
 	})
 }
 

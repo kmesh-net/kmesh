@@ -107,7 +107,7 @@ func ClusterDelete(key string) error {
 
 	ret := C.deserial_delete_elem(unsafe.Pointer(cKey), unsafe.Pointer(&C.cluster__cluster__descriptor))
 	if ret != 0 {
-		return fmt.Errorf("ClusterDelete deserial_delete_elem failed")
+		return fmt.Errorf("ClusterDelete deserial_delete_elem failed, ret %d", ret)
 	}
 	return nil
 }
