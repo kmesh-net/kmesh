@@ -21,6 +21,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
@@ -33,6 +34,15 @@ const (
 )
 
 func main() {
-	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
+	funcs := skel.CNIFuncs{
+		Add:   plugin.CmdAdd,
+		Del:   plugin.CmdDelete,
+		Check: plugin.CmdCheck,
+	}
+	err := skel.PluginMainFuncsWithError(funcs, version.All,
 		fmt.Sprintf("CNI plugin kmesh-cni %v", CNI_PLUGIN_VERSION))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+		os.Exit(1)
+	}
 }

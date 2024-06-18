@@ -82,7 +82,7 @@ func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	o := &istiosecurity.Options{
 		CredFetcher: credFetcher,
 	}
-	opts = append(opts, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(o)))
+	opts = append(opts, grpc.WithPerRPCCredentials(caclient.NewDefaultTokenProvider(o)))
 
 	if conn, err = grpc.Dial(addr, opts...); err != nil {
 		return nil, err
