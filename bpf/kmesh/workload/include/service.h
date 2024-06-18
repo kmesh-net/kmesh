@@ -55,7 +55,7 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         return ret;
     }
 
-    BPF_LOG(DEBUG, SERVICE, "load balance type:%u", service_v->lb_policy);
+    BPF_LOG(DEBUG, SERVICE, "load balance type:%u\n", service_v->lb_policy);
     switch (service_v->lb_policy) {
     case LB_POLICY_RANDOM:
         ret = lb_random_handle(kmesh_ctx, service_id, service_v);
