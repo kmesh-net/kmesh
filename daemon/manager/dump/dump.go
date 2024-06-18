@@ -30,7 +30,7 @@ import (
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dump",
-		Short: "Dump xds workloads",
+		Short: "Dump config of ads or workload mode",
 		Example: `Ads mode:
 		kmesh-daemon dump ads
 	  
