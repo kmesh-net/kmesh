@@ -1308,7 +1308,9 @@ func TestRbac_doRbac(t *testing.T) {
 					dstPort: 8888,
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 4}},
+					Addresses: [][]byte{
+						{192, 168, 122, 4},
+					},
 				},
 			},
 			true,
@@ -1325,7 +1327,7 @@ func TestRbac_doRbac(t *testing.T) {
 			args{
 				conn: &rbacConnection{dstIp: []byte{192, 168, 122, 2}},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1340,7 +1342,7 @@ func TestRbac_doRbac(t *testing.T) {
 			args{
 				conn: &rbacConnection{dstIp: []byte{192, 168, 122, 2}},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			false,
 		},
@@ -1358,7 +1360,7 @@ func TestRbac_doRbac(t *testing.T) {
 			args{
 				conn: &rbacConnection{dstIp: []byte{192, 168, 122, 2}},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			false,
 		},
@@ -1373,7 +1375,7 @@ func TestRbac_doRbac(t *testing.T) {
 			args{
 				conn: &rbacConnection{dstIp: []byte{192, 168, 122, 2}},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1392,7 +1394,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1410,7 +1412,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}}, false,
 		},
 		{
@@ -1430,7 +1432,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}}, false,
 		},
 		{
@@ -1447,7 +1449,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}}, true,
 		},
 
@@ -1465,7 +1467,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstPort: 8888,
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1483,7 +1485,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstPort: 8888,
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			false,
 		},
@@ -1504,7 +1506,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstPort: 8888,
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			false,
 		},
@@ -1522,7 +1524,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstPort: 8888,
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1545,7 +1547,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1567,7 +1569,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			false,
 		},
@@ -1592,7 +1594,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			false,
 		},
@@ -1614,7 +1616,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1635,7 +1637,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1655,7 +1657,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}}, false,
 		},
 		{
@@ -1677,7 +1679,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			false,
 		},
@@ -1697,7 +1699,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1716,7 +1718,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				}},
 			true,
 		},
@@ -1734,7 +1736,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1753,7 +1755,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1772,7 +1774,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			true,
@@ -1792,7 +1794,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1811,7 +1813,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			true,
@@ -1830,7 +1832,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			true,
@@ -1849,7 +1851,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1869,7 +1871,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			true,
@@ -1888,7 +1890,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1907,7 +1909,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			false,
@@ -1926,7 +1928,7 @@ func TestRbac_doRbac(t *testing.T) {
 					dstIp: []byte{192, 168, 122, 2},
 				},
 				workload: &workloadapi.Workload{
-					Addresses: [][]byte{[]byte{192, 168, 122, 2}},
+					Addresses: [][]byte{{192, 168, 122, 2}},
 				},
 			},
 			true,
