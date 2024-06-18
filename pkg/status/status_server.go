@@ -57,6 +57,10 @@ type Server struct {
 	server    *http.Server
 }
 
+func GetConfigDumpAddr(mode string) string {
+	return "http://" + adminAddr + configDumpPrefix + "/" + mode
+}
+
 func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs) *Server {
 	s := &Server{
 		config:    configs,
