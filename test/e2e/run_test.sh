@@ -89,8 +89,17 @@ function build_and_push_images() {
     HUB="${KIND_REGISTRY}" make docker.push
 }
 
+function install_dependencies() {
+    # 1. Install kind.
+    go install sigs.k8s.io/kind@v0.23.0
+}
+
 while (( "$#" )); do
     case "$1" in
+    --skip-install-dep)
+      SKIP_INSTALL_DEPENDENCIES=true
+      shift
+    ;;
     --skip-setup)
       SKIP_SETUP=true
       shift
@@ -101,6 +110,10 @@ while (( "$#" )); do
     ;;  
     esac
 done
+
+if [[ -z "${SKIP_INSTALL_DEPENDENCIES:-}" ]]; then
+    install_dependencies
+fi
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kind_cluster
