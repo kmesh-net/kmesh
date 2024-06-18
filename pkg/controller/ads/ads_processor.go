@@ -160,15 +160,26 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		p.Cache.ClusterCache.Delete()
 	}
 
+	if p.lastNonce.edsNonce == "" {
+		// initial subscribe to eds
+		p.req = newAdsRequest(resource_v3.EndpointType, p.Cache.edsClusterNames, "")
+		return nil
+	}
+
 	// when the list of eds typed clusters subscribed changed, we should resubscrbe to new eds.
 	if !slices.EqualUnordered(p.Cache.edsClusterNames, lastEdsClusterNames) {
 		// we cannot set the nonce here.
 		// There is a race: when xds server has pushed eds, but kmesh hasn't a chance to receive and process
 		// Then it will lead to this request been ignored, we will lose the new eds resource
 		p.req = newAdsRequest(resource_v3.EndpointType, p.Cache.edsClusterNames, "")
-	} else {
+	}
+
+	// Only flush the cache when there is no eds cluster
+	// Eds cluster should always be flushed in the eds handler
+	if len(p.Cache.edsClusterNames) == 0 {
 		p.Cache.ClusterCache.Flush()
 	}
+
 	return nil
 }
 
@@ -196,10 +207,10 @@ func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryRespon
 			newHash != p.Cache.ClusterCache.GetEdsHash(loadAssignment.GetClusterName()) {
 			apiStatus = core_v2.ApiStatus_UPDATE
 			p.Cache.ClusterCache.SetEdsHash(loadAssignment.GetClusterName(), newHash)
-			log.Infof("[CreateApiClusterByEds] update cluster %s", loadAssignment.GetClusterName())
+			log.Debugf("[CreateApiClusterByEds] update cluster %s", loadAssignment.GetClusterName())
 			p.Cache.CreateApiClusterByEds(apiStatus, loadAssignment)
 		} else {
-			log.Infof("handleEdsResponse: unchanged cluster %s", loadAssignment.GetClusterName())
+			log.Debugf("handleEdsResponse: unchanged cluster %s", loadAssignment.GetClusterName())
 		}
 		current.Insert(loadAssignment.GetClusterName())
 		p.ack.ResourceNames = append(p.ack.ResourceNames, loadAssignment.GetClusterName())
