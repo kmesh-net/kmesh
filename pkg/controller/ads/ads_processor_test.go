@@ -95,15 +95,15 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Nil(t, p.req)
+		assert.NotNil(t, p.req)
 	})
 
-	t.Run("cluster update case", func(t *testing.T) {
+	t.Run("eds cluster update case", func(t *testing.T) {
 		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_LOGICAL_DNS,
+				Type: config_cluster_v3.Cluster_EDS,
 			},
 		}
 		anyCluster, err := anypb.New(cluster)
@@ -112,15 +112,23 @@ func TestHandleCdsResponse(t *testing.T) {
 			Resources: []*anypb.Any{
 				anyCluster,
 			},
+			Nonce: "v1",
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+		assert.NotNil(t, p.req)
+
+		p.lastNonce.edsNonce = "v1"
+		// reset
+		p.req = nil
+		p.ack = nil
 
 		cluster = &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_STRICT_DNS,
+				Type: config_cluster_v3.Cluster_EDS,
 			},
+			LbPolicy: config_cluster_v3.Cluster_RING_HASH,
 		}
 		anyCluster, err = anypb.New(cluster)
 		assert.NoError(t, err)
@@ -128,15 +136,16 @@ func TestHandleCdsResponse(t *testing.T) {
 			Resources: []*anypb.Any{
 				anyCluster,
 			},
+			Nonce: "v2",
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{}, p.Cache.edsClusterNames)
+		assert.Equal(t, []string{"ut-cluster"}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Nil(t, p.req)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
 	})
 
 	t.Run("have multiClusters, add a new eds cluster", func(t *testing.T) {
