@@ -48,7 +48,6 @@ func TestHandleCdsResponse(t *testing.T) {
 	t.Cleanup(cleanup)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
 		p := newProcessor()
-		p.lastNonce.edsNonce = "utkmesh"
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -61,6 +60,7 @@ func TestHandleCdsResponse(t *testing.T) {
 			Resources: []*anypb.Any{
 				anyCluster,
 			},
+			Nonce: "newnonce",
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
@@ -69,7 +69,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-cluster"}, p.req.ResourceNames)
-		assert.Equal(t, p.lastNonce.edsNonce, p.req.ResponseNonce)
+		// send new eds subscribe to the new cluster with empty nonce
+		assert.Equal(t, p.lastNonce.edsNonce, "")
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
 	})
 
@@ -247,7 +248,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		actualHash2 := p.Cache.ClusterCache.GetCdsHash(newCluster2.GetName())
 		assert.Equal(t, wantHash2, actualHash2)
 		assert.Equal(t, []string{"new-ut-cluster2"}, p.req.ResourceNames)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
+		// `cluster` has been deleted
+		assert.True(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name) == nil)
 	})
 }
 
@@ -428,7 +430,6 @@ func TestHandleLdsResponse(t *testing.T) {
 		}
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.lastNonce.rdsNonce = "utLdstoRds"
 		filterHttp := &filters_network_http.HttpConnectionManager{
 			RouteSpecifier: &filters_network_http.HttpConnectionManager_Rds{
 				Rds: &filters_network_http.Rds{
@@ -467,6 +468,7 @@ func TestHandleLdsResponse(t *testing.T) {
 			Resources: []*anypb.Any{
 				anyListener,
 			},
+			Nonce: "nonce",
 		}
 		err = p.handleLdsResponse(rsp)
 		assert.NoError(t, err)
@@ -476,7 +478,8 @@ func TestHandleLdsResponse(t *testing.T) {
 		actualHash := p.Cache.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-rds"}, p.req.ResourceNames)
-		assert.Equal(t, p.lastNonce.rdsNonce, p.req.ResponseNonce)
+		assert.Equal(t, p.lastNonce.ldsNonce, "nonce")
+		assert.Equal(t, p.req.ResponseNonce, "")
 	})
 
 	t.Run("listenerCache already has resource and it has not been changed", func(t *testing.T) {

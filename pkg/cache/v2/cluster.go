@@ -116,6 +116,14 @@ func (cache *ClusterCache) Flush() {
 			} else {
 				log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 			}
+		} else if cluster.GetApiStatus() == core_v2.ApiStatus_DELETE {
+			err := maps_v2.ClusterDelete(name)
+			if err == nil {
+				delete(cache.apiClusterCache, name)
+				delete(cache.resourceHash, name)
+			} else {
+				log.Errorf("cluster %s delete failed: %v", name, err)
+			}
 		}
 	}
 }
