@@ -77,7 +77,7 @@ func Test_policyStore_updatePolicy(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ps := newPolicystore()
+			ps := newPolicyStore()
 			if err := ps.updatePolicy(tt.args.auth); (err != nil) != tt.wantErr {
 				t.Errorf("policyStore.updatePolicy() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -109,7 +109,7 @@ func Test_policyStore_removePolicy(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ps := newPolicystore()
+			ps := newPolicyStore()
 			ps.removePolicy(tt.args.policyKey)
 		})
 	}
