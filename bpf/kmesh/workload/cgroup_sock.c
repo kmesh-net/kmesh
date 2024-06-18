@@ -29,7 +29,7 @@ static inline int sock4_traffic_control(struct kmesh_context *kmesh_ctx)
     }
 
     BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%s:%u]\n", ip2str(&ip, 1), bpf_ntohs(ctx->user_port));
-    ret = frontend_manager(ctx, frontend_v);
+    ret = frontend_manager(kmesh_ctx, frontend_v);
     if (ret != 0) {
         if (ret != -ENOENT)
             BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
