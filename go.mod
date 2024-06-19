@@ -25,9 +25,9 @@ require (
 	istio.io/api v1.22.0-alpha.1.0.20240612140428-341dd53c476f
 	istio.io/istio v0.0.0-20240618015532-5764a24ec23c
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
-	k8s.io/api v0.30.1
-	k8s.io/apimachinery v0.30.1
-	k8s.io/client-go v0.30.1
+	k8s.io/api v0.30.2
+	k8s.io/apimachinery v0.30.2
+	k8s.io/client-go v0.30.2
 	sigs.k8s.io/yaml v1.4.0
 )
 
