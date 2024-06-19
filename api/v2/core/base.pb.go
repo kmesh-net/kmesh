@@ -30,6 +30,10 @@ const (
 	ApiStatus_UPDATE    ApiStatus = 2
 	ApiStatus_UNCHANGED ApiStatus = 3
 	ApiStatus_ALL       ApiStatus = 4
+
+	// Waiting for associated endpoints to be updated.
+	// Only apply to cluster now
+	ApiStatus_WAITING ApiStatus = 5
 )
 
 // Enum value maps for ApiStatus.
