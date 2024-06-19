@@ -92,7 +92,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{}, p.Cache.edsClusterNames)
+		assert.Equal(t, nil, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
