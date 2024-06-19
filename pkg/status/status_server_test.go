@@ -17,18 +17,108 @@
 package status
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
 	"testing"
 
+	"github.com/sirupsen/logrus"
 	"istio.io/istio/pilot/test/util"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
+	"kmesh.net/kmesh/pkg/logger"
 )
+
+func TestServer_getLoggerLevel(t *testing.T) {
+	server := &Server{
+		xdsClient: &controller.XdsClient{
+			WorkloadController: &workload.Controller{
+				Processor: nil,
+			},
+		},
+	}
+	loggerNames := logger.GetLoggerNames()
+	for _, loggerName := range loggerNames {
+		getLoggerUrl := patternLoggers + "?name=" + loggerName
+		req := httptest.NewRequest(http.MethodGet, getLoggerUrl, nil)
+		w := httptest.NewRecorder()
+		server.getLoggerLevel(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
+		}
+
+		var loggerInfo LoggerInfo
+		err := json.Unmarshal(w.Body.Bytes(), &loggerInfo)
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err.Error())
+		}
+
+		expectedLoggerLevel, err := logger.GetLoggerLevel(loggerName)
+		if err != nil {
+			t.Errorf("Unexpected error: %s", err.Error())
+		}
+
+		if expectedLoggerLevel.String() != loggerInfo.Level {
+			t.Errorf("Wrong logger level, expected %s, but got %s", expectedLoggerLevel.String(), loggerInfo.Level)
+		}
+
+		if loggerName != loggerInfo.Name {
+			t.Errorf("Wrong logger name, expected %s, but got %s", loggerName, loggerInfo.Name)
+		}
+	}
+}
+
+func TestServer_setLoggerLevel(t *testing.T) {
+	server := &Server{
+		xdsClient: &controller.XdsClient{
+			WorkloadController: &workload.Controller{
+				Processor: nil,
+			},
+		},
+	}
+	loggerNames := logger.GetLoggerNames()
+	testLoggerLevels := []string{
+		logrus.PanicLevel.String(),
+		logrus.FatalLevel.String(),
+		logrus.ErrorLevel.String(),
+		logrus.WarnLevel.String(),
+		logrus.InfoLevel.String(),
+		logrus.DebugLevel.String(),
+		logrus.TraceLevel.String(),
+	}
+	for _, loggerName := range loggerNames {
+		setLoggerUrl := patternLoggers
+		for _, testLoggerLevel := range testLoggerLevels {
+			loggerInfo := LoggerInfo{
+				Name:  loggerName,
+				Level: testLoggerLevel,
+			}
+			reqBody, _ := json.Marshal(loggerInfo)
+			req := httptest.NewRequest(http.MethodPost, setLoggerUrl, bytes.NewReader(reqBody))
+			w := httptest.NewRecorder()
+			server.setLoggerLevel(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
+			}
+
+			actualLoggerLevel, err := logger.GetLoggerLevel(loggerName)
+			if err != nil {
+				t.Errorf("Unexpected error: %s", err.Error())
+			}
+
+			if actualLoggerLevel.String() != loggerInfo.Level {
+				t.Errorf("Wrong logger level, expected %s, but got %s", loggerInfo.Level, actualLoggerLevel.String())
+			}
+		}
+	}
+}
 
 func TestServer_configDumpWorkload(t *testing.T) {
 	w1 := &workloadapi.Workload{

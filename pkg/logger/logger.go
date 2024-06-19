@@ -54,7 +54,37 @@ var (
 		DisableColors:    true,
 		DisableTimestamp: false,
 	}
+
+	loggerMap = map[string]*logrus.Logger{
+		"default":  defaultLogger,
+		"fileOnly": fileOnlyLogger,
+	}
 )
+
+func SetLoggerLevel(loggerName string, level logrus.Level) error {
+	logger, exists := loggerMap[loggerName]
+	if !exists || logger == nil {
+		return fmt.Errorf("logger %s does not exist", loggerName)
+	}
+	logger.SetLevel(level)
+	return nil
+}
+
+func GetLoggerLevel(loggerName string) (logrus.Level, error) {
+	logger, exists := loggerMap[loggerName]
+	if !exists || logger == nil {
+		return 0, fmt.Errorf("logger %s does not exist", loggerName)
+	}
+	return logger.Level, nil
+}
+
+func GetLoggerNames() []string {
+	names := make([]string, 0, len(loggerMap))
+	for loggerName := range loggerMap {
+		names = append(names, loggerName)
+	}
+	return names
+}
 
 // InitializeDefaultLogger return a initialized logger
 func InitializeDefaultLogger(onlyFile bool) *logrus.Logger {

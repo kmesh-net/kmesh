@@ -19,6 +19,7 @@ package status
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/pprof"
 	"regexp"
@@ -27,6 +28,7 @@ import (
 
 	// nolint
 	"github.com/cilium/ebpf"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
@@ -51,6 +53,7 @@ const (
 	patternConfigDumpAds      = configDumpPrefix + "/ads"
 	patternConfigDumpWorkload = configDumpPrefix + "/workload"
 	patternReadyProbe         = "/debug/ready"
+	patternLoggers            = "/debug/loggers"
 	patternBpfLogLevel        = "/debug/bpfLogLevel/"
 
 	httpTimeout = time.Second * 20
@@ -87,6 +90,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfWo
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
+	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
 	s.mux.HandleFunc(patternBpfLogLevel, s.bpfLogLevel)
 
 	// TODO: add dump certificate, authorizationPolicies and services
@@ -114,6 +118,8 @@ func (s *Server) httpHelp(w http.ResponseWriter, r *http.Request) {
 		"dump xDS[Listener, Route, Cluster] configurations")
 	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpWorkload,
 		"dump workload configurations")
+	fmt.Fprintf(w, "\t%s: %s\n", patternLoggers,
+		"get or set logger level")
 }
 
 func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
@@ -141,6 +147,79 @@ func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, protojson.Format(&adminv2.ConfigDump{
 		DynamicResources: dynamicRes,
 	}))
+}
+
+type LoggerInfo struct {
+	Name  string `json:"name,omitempty"`
+	Level string `json:"level,omitempty"`
+}
+
+func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		s.getLoggerLevel(w, r)
+	} else if r.Method == http.MethodPost {
+		s.setLoggerLevel(w, r)
+	} else {
+		// otherwise, return 404 not found
+		w.WriteHeader(http.StatusNotFound)
+	}
+}
+
+func (s *Server) getLoggerLevel(w http.ResponseWriter, r *http.Request) {
+	loggerName := r.URL.Query().Get("name")
+	loggerLevel, err := logger.GetLoggerLevel(loggerName)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "\t%s\n", err.Error())
+		return
+	}
+	loggerInfo := LoggerInfo{
+		Name:  loggerName,
+		Level: loggerLevel.String(),
+	}
+	data, err := json.MarshalIndent(&loggerInfo, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal logger info: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) setLoggerLevel(w http.ResponseWriter, r *http.Request) {
+	var (
+		loggerInfo  LoggerInfo
+		loggerLevel logrus.Level
+	)
+	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "\t%s: %s\n", "Error reading request body", err.Error())
+		return
+	}
+
+	if err = json.Unmarshal(body, &loggerInfo); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "\t%s: %s\n", "Invalid request body format", err.Error())
+		return
+	}
+
+	if loggerLevel, err = logrus.ParseLevel(loggerInfo.Level); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "\t%s: %s\n", "Invalid request body format", err.Error())
+		return
+	}
+
+	if err = logger.SetLoggerLevel(loggerInfo.Name, loggerLevel); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprintf(w, "\t%s\n", err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
