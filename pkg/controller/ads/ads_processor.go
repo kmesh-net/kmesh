@@ -156,9 +156,12 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		p.Cache.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
 	}
 	if len(removed) > 0 {
-		log.Debugf("removed cluster: ", removed.UnsortedList())
+		log.Debugf("removed cluster: %v", removed.UnsortedList())
 		p.Cache.ClusterCache.Delete()
 	}
+
+	// TODO(hzxuzhonghu): consider flush all the clusters except those of type EDS
+	// So DNS typed clusters can take effect immediately
 
 	// Only flush the cache when there is no eds cluster
 	// Eds cluster should always be flushed in the eds handler
