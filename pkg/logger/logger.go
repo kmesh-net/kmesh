@@ -17,7 +17,6 @@
 package logger
 
 import (
-
 	"context"
 	"encoding/binary"
 	"fmt"

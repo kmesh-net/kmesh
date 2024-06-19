@@ -27,8 +27,8 @@ import (
 	"time"
 
 	// nolint
-	"github.com/sirupsen/logrus"
 	"github.com/cilium/ebpf"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
