@@ -65,6 +65,14 @@ func GetLoggerLevel(loggerName string) (logrus.Level, error) {
 	return logger.Level, nil
 }
 
+func GetLoggerNames() []string {
+	names := make([]string, 0, len(loggerMap))
+	for loggerName := range loggerMap {
+		names = append(names, loggerName)
+	}
+	return names
+}
+
 // InitializeDefaultLogger return a initialized logger
 func InitializeDefaultLogger(onlyFile bool) *logrus.Logger {
 	logger := logrus.New()
