@@ -6,14 +6,14 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 
 function docker_run_go_ut() {
     local container_id=$1
-    docker exec $container_id go test -v -vet=off ./pkg/...
+    docker exec $container_id go test -v -race -vet=off ./pkg/...
 }
 
 function run_go_ut_local() {
     bash $ROOT_DIR/build.sh
     export PKG_CONFIG_PATH=$ROOT_DIR/mk
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ROOT_DIR/api/v2-c:$ROOT_DIR/bpf/deserialization_to_bpf_map
-    go test -v -vet=off ./pkg/...    
+    go test -v -race -vet=off ./pkg/...    
 }
 
 function run_go_ut_in_docker() {

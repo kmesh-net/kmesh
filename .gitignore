@@ -33,6 +33,9 @@ out/
 # build binaries       
 kmesh-cni
 kmesh-daemon
+
+# go test coverage
+coverage.out
 # build artifacts
 *.so
 *.o
