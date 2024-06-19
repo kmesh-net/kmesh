@@ -10,7 +10,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/ebpf v0.13.2
 	github.com/containernetworking/cni v1.2.0
-	github.com/containernetworking/plugins v1.5.0
+	github.com/containernetworking/plugins v1.5.1
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240614044803-82e2a76dbddd
 	github.com/golang/protobuf v1.5.4
 	github.com/sirupsen/logrus v1.9.3
