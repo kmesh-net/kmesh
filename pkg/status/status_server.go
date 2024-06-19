@@ -21,14 +21,19 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/pprof"
+	"regexp"
+	"strconv"
 	"time"
 
 	// nolint
+	"github.com/cilium/ebpf"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/logger"
@@ -46,26 +51,29 @@ const (
 	patternConfigDumpAds      = configDumpPrefix + "/ads"
 	patternConfigDumpWorkload = configDumpPrefix + "/workload"
 	patternReadyProbe         = "/debug/ready"
+	patternBpfLogLevel        = "/debug/bpfLogLevel/"
 
 	httpTimeout = time.Second * 20
 )
 
 type Server struct {
-	config    *options.BootstrapConfigs
-	xdsClient *controller.XdsClient
-	mux       *http.ServeMux
-	server    *http.Server
+	config         *options.BootstrapConfigs
+	xdsClient      *controller.XdsClient
+	mux            *http.ServeMux
+	server         *http.Server
+	bpfWorkloadObj *bpf.BpfKmeshWorkload
 }
 
 func GetConfigDumpAddr(mode string) string {
 	return "http://" + adminAddr + configDumpPrefix + "/" + mode
 }
 
-func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Server {
 	s := &Server{
-		config:    configs,
-		xdsClient: c,
-		mux:       http.NewServeMux(),
+		config:         configs,
+		xdsClient:      c,
+		mux:            http.NewServeMux(),
+		bpfWorkloadObj: bpfWorkloadObj,
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -79,6 +87,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs) *Serv
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
+	s.mux.HandleFunc(patternBpfLogLevel, s.bpfLogLevel)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -190,6 +199,27 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add some components check
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func (s *Server) bpfLogLevel(w http.ResponseWriter, r *http.Request) {
+	pattern := regexp.MustCompile(`^/debug/bpfLogLevel/(\d+)$`)
+	matches := pattern.FindStringSubmatch(r.URL.Path)
+	if len(matches) > 1 {
+		level, err := strconv.Atoi(matches[1])
+		if err != nil || (level < constants.BPF_LOG_ERR || level > constants.BPF_LOG_DEBUG) {
+			http.Error(w, "Invalid log level", http.StatusBadRequest)
+			return
+		}
+		key := uint32(0)
+		levelPtr := uint32(level)
+		if err := s.bpfWorkloadObj.SockConn.BpfLogLevel.Update(&key, &levelPtr, ebpf.UpdateAny); err != nil {
+			http.Error(w, fmt.Errorf("update log level error:%v", err).Error(), http.StatusBadRequest)
+			return
+		}
+		fmt.Fprintf(w, "BPF Log Level: %d\n", level)
+	} else {
+		http.NotFound(w, r)
+	}
 }
 
 func (s *Server) StartServer() {

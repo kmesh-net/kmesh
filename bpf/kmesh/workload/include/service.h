@@ -45,8 +45,8 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         BPF_LOG(
             DEBUG,
             SERVICE,
-            "find waypoint addr=[%pI4h:%u]",
-            &service_v->wp_addr.ip4,
+            "find waypoint addr=[%s:%u]\n",
+            ip2str(&service_v->wp_addr.ip4, 1),
             bpf_ntohs(service_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &service_v->wp_addr, service_v->waypoint_port);
         if (ret != 0) {
@@ -55,7 +55,7 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         return ret;
     }
 
-    BPF_LOG(DEBUG, SERVICE, "load balance type:%u", service_v->lb_policy);
+    BPF_LOG(DEBUG, SERVICE, "load balance type:%u\n", service_v->lb_policy);
     switch (service_v->lb_policy) {
     case LB_POLICY_RANDOM:
         ret = lb_random_handle(kmesh_ctx, service_id, service_v);

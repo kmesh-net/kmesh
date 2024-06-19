@@ -8,7 +8,7 @@ deploy:
       tag: latest
     imagePullPolicy: IfNotPresent
     containers:
-      kmeshDaemonArgs: "--mode=workload --enable-bypass=false"
+      kmeshDaemonArgs: "--mode=workload --enable-bypass=false --enable-bpf-log=true"
     resources:
       limits:
         cpu: "1"

@@ -81,3 +81,8 @@
  * is enabled accordingly.
  * */
 #define LIBBPF_HIGHER_0_6_0_VERSION 0
+
+/*
+
+ */
+#define KERNEL_VERSION_HIGHER_5_13_0 0

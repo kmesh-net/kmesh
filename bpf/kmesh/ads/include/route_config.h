@@ -362,13 +362,13 @@ int route_config_manager(ctx_buff_t *ctx)
 
     virt_host = virtual_host_match(route_config, &addr, ctx);
     if (!virt_host) {
-        BPF_LOG(ERR, ROUTER_CONFIG, "failed to match virtual host, addr=%pI4h\n", &addr.ipv4);
+        BPF_LOG(ERR, ROUTER_CONFIG, "failed to match virtual host, addr=%s\n", ip2str(&addr.ipv4, 1));
         return KMESH_TAIL_CALL_RET(-1);
     }
 
     route = virtual_host_route_match(virt_host, &addr, ctx, (struct bpf_mem_ptr *)ctx_val->msg);
     if (!route) {
-        BPF_LOG(ERR, ROUTER_CONFIG, "failed to match route action, addr=%pI4h\n", &addr.ipv4);
+        BPF_LOG(ERR, ROUTER_CONFIG, "failed to match route action, addr=%s\n", ip2str(&addr.ipv4, 1));
         return KMESH_TAIL_CALL_RET(-1);
     }
 

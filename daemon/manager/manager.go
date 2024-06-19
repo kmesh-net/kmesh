@@ -78,14 +78,14 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("bpf Start successful")
 	defer bpfLoader.Stop()
 
-	c := controller.NewController(configs, bpfLoader.GetBpfKmeshWorkload())
+	c := controller.NewController(configs, bpfLoader.GetBpfKmeshWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog)
 	if err := c.Start(); err != nil {
 		return err
 	}
 	log.Info("controller Start successful")
 	defer c.Stop()
 
-	statusServer := status.NewServer(c.GetXdsClient(), configs)
+	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetBpfKmeshWorkload())
 	statusServer.StartServer()
 	defer func() {
 		_ = statusServer.StopServer()
