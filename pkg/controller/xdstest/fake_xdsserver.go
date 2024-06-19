@@ -25,15 +25,15 @@ import (
 	"istio.io/pkg/log"
 )
 
-type MockDiscovery struct {
+type XDSServer struct {
 	Listener       *bufconn.Listener
 	responses      chan *discoveryv3.DiscoveryResponse
 	DeltaResponses chan *discoveryv3.DeltaDiscoveryResponse
 	close          chan struct{}
 }
 
-func NewMockServer(t *testing.T) *MockDiscovery {
-	s := &MockDiscovery{
+func NewXdsServer(t *testing.T) *XDSServer {
+	s := &XDSServer{
 		close:          make(chan struct{}),
 		responses:      make(chan *discoveryv3.DiscoveryResponse),
 		DeltaResponses: make(chan *discoveryv3.DeltaDiscoveryResponse),
@@ -56,7 +56,7 @@ func NewMockServer(t *testing.T) *MockDiscovery {
 	return s
 }
 
-func (f *MockDiscovery) StreamAggregatedResources(server discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+func (f *XDSServer) StreamAggregatedResources(server discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 	numberOfSends := 0
 	for {
 		select {
@@ -72,7 +72,7 @@ func (f *MockDiscovery) StreamAggregatedResources(server discoveryv3.AggregatedD
 	}
 }
 
-func (f *MockDiscovery) DeltaAggregatedResources(server discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+func (f *XDSServer) DeltaAggregatedResources(server discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 	numberOfSends := 0
 	for {
 		select {

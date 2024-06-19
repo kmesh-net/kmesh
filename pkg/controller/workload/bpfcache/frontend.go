@@ -21,7 +21,7 @@ import (
 )
 
 type FrontendKey struct {
-	IPv4 uint32 // Service ip or Pod ip
+	Ip [16]byte // Service ip or Pod ip
 }
 
 type FrontendValue struct {

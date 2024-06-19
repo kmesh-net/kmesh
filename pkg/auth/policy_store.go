@@ -27,7 +27,7 @@ import (
 
 type policyStore struct {
 	// byKey maintains a mapping of ns/name to policy
-	byKey map[string]authPolicy
+	byKey map[string]*security.Authorization
 
 	// byNamespace maintains a mapping of namespace (or "" for global) to policy names
 	byNamespace map[string]sets.Set[string]
@@ -35,28 +35,24 @@ type policyStore struct {
 	rwLock sync.RWMutex
 }
 
-func newPolicystore() *policyStore {
+func newPolicyStore() *policyStore {
 	return &policyStore{
-		byKey:       make(map[string]authPolicy),
+		byKey:       make(map[string]*security.Authorization),
 		byNamespace: make(map[string]sets.Set[string]),
 	}
 }
 
-func (ps *policyStore) updatePolicy(auth *security.Authorization) error {
-	if auth == nil {
+func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
+	if authPolicy == nil {
 		return nil
 	}
+	key := authPolicy.ResourceName()
 
-	authPolicy := authPolicy{
-		auth,
-	}
-	key := authPolicy.Key()
-
+	ps.rwLock.Lock()
+	defer ps.rwLock.Unlock()
 	var ns string
 	switch authPolicy.GetScope() {
 	case security.Scope_WORKLOAD_SELECTOR:
-		ps.rwLock.Lock()
-		defer ps.rwLock.Unlock()
 		// only update 'byKey' cache for Scope_WORKLOAD_SELECTOR
 		ps.byKey[key] = authPolicy
 		return nil
@@ -67,9 +63,6 @@ func (ps *policyStore) updatePolicy(auth *security.Authorization) error {
 	default:
 		return fmt.Errorf("invalid scope %v of authorization policy", authPolicy.GetScope())
 	}
-
-	ps.rwLock.Lock()
-	defer ps.rwLock.Unlock()
 
 	if s, ok := ps.byNamespace[ns]; !ok {
 		ps.byNamespace[ns] = sets.New(key)
@@ -89,6 +82,8 @@ func (ps *policyStore) removePolicy(policyKey string) {
 		log.Warnf("Auth policy key %s does not exist in byKey", policyKey)
 		return
 	}
+	// remove authPolicy from byKey
+	delete(ps.byKey, policyKey)
 
 	var ns string
 	switch authPolicy.Scope {
@@ -96,6 +91,8 @@ func (ps *policyStore) removePolicy(policyKey string) {
 		ns = ""
 	case security.Scope_NAMESPACE:
 		ns = authPolicy.GetNamespace()
+	default:
+		return
 	}
 
 	// remove authPolicy key from byNamespace
@@ -105,26 +102,15 @@ func (ps *policyStore) removePolicy(policyKey string) {
 			delete(ps.byNamespace, ns)
 		}
 	}
-
-	// remove authPolicy from byKey
-	delete(ps.byKey, policyKey)
 }
 
-// getByNamesapce returns a copied set of policy name in namespace, or an empty set if namespace not exists
-func (ps *policyStore) getByNamesapce(namespace string) sets.Set[string] {
+// getByNamespace returns a copied set of policy name in namespace, or an empty set if namespace not exists
+func (ps *policyStore) getByNamespace(namespace string) []string {
 	ps.rwLock.RLock()
 	defer ps.rwLock.RUnlock()
 
 	if s, ok := ps.byNamespace[namespace]; ok {
-		return s.Copy()
+		return s.UnsortedList()
 	}
-	return sets.New[string]()
-}
-
-type authPolicy struct {
-	*security.Authorization
-}
-
-func (ap *authPolicy) Key() string {
-	return fmt.Sprintf("%s/%s", ap.GetNamespace(), ap.GetName())
+	return nil
 }

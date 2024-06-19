@@ -30,7 +30,7 @@ A good summary is probably at least a paragraph in length.
 
 Envoy supports many different cluster types, including `Strict DNS`, `Logical DNS`. However, given to Kmesh works in the kernel with ebpf. Previously Kmesh does not either of the DNS typed clusters. For traffic matches these kind of cluster, it will be dropped. 
 
-In this propsosal, I would suggest to improve Kmesh to support DNS types cluster, so we can support all kinds of clusters afterwards.
+In this propsosal, I would suggest to improve Kmesh to support DNS typed cluster, so we can support all kinds of clusters afterwards.
 
 
 ### Motivation
@@ -119,7 +119,7 @@ know that this has succeeded?
 
 Now it is very clear, we want to:
 
-- Sypport dns resolution typed services management, a workload can access DNS services.
+- Support dns resolution typed services management, a workload can access DNS services.
 
 
 
@@ -134,7 +134,7 @@ and make progress.
 
 - Donot provide node local dns service for application, at least this is not the goal of this proposal. 
 
-- Since istid doesnot support workload dns resolution, Kmesh does not support it in workload mode either. 
+- Since istiod doesnot support workload dns resolution, Kmesh does not support it in workload mode either.
 
 
 ### Proposal
@@ -148,7 +148,7 @@ The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-We shold implement a new component to do dns resolve, called `dns resolver`. It should basically do:
+We should implement a new component to do dns resolve, called `dns resolver`. It should basically do:
 
 - DNS resolve for endpoints within DNS typed clusters
 
@@ -172,7 +172,7 @@ In theory, we can think of implementing dns resolver either in kernel or userspa
 
 ![DNS Resolver Arch](./pics/dns-resolver.svg)
 
-`DNS Resolver` works in ads mode, so it is run onky when ads is enabled. It collaborates with ads controller, and the whole workflow is :
+`DNS Resolver` works in ads mode, so it is run only when ads is enabled. It collaborates with ads controller, and the whole workflow is :
 
 - ads controller is responsible of subscribing the xDS from istiod, when it receives a cluster with dns type, it notifies the `DNS Resolver` via a channel.
 
@@ -183,11 +183,11 @@ In theory, we can think of implementing dns resolver either in kernel or userspa
 - It is important but not depicted in the graph, `DNS Resolver` should refresh the dns address periodically by respecting the `dnsRefreshRate` and ttl, which one is shorter.
 
 
-As to the dns resolution, package `github.com/miekg/dns` provide good libs that can be used to do no matter dns resolve or dns serving. Though it is not the target to support dns serving here, we should choose a package that do have such capabilities, so that we can extend it to do in the future. Another reason why suggest using this package it that, coredns also make use of it, so it is widely used in production. 
+As to the dns resolution, package `github.com/miekg/dns` provide good libs that can be used to do no matter dns resolve or dns serving. Though it is not the target to support dns serving here, we should choose a package that do have such capabilities, so that we can extend it to do in the future. Another reason why suggest using this package is that, coredns also make use of it, so it is widely used in production.
 
 We should make sure no dns name can be leaked. It is very common a cluster can be removed following a service deletion. Now in Kmesh we use Stow xDS, each time it receives CDS response it would include all clusters within the mesh. And ads controller parses them, respond and then store them in user space cache and bpf maps. We can make ads controller do `Stow` notification too. To be more clearly, when ads controller parses all the clusters, it should send all the dns domains that need to be resolved to `DNS Resolver`.
 
-Since the notification is by golang channel, it is vety efficient, `Stow` should be good to go. In `DNS Resolver`, it should create a map to record all the dns domains it need to resolve. So evety notification it should be able to distinguish new added, deleted and unchanged dns domains. 
+Since the notification is by golang channel, it is vety efficient, `Stow` should be good to go. In `DNS Resolver`, it should create a map to record all the dns domains it need to resolve. So every notification it should be able to distinguish new added, deleted and unchanged dns domains.
 
 For new added ones, it should resolve them immediately and write the result to dns name table, at last push them into the refresher queue. For the deleted ones, it should remove them from local cache and the periodical refresher queue. And for unchanged ones, it can do nothing.
 

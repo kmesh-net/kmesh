@@ -68,6 +68,9 @@ spec:
           name: cni
         - mountPath: /opt/cni/bin
           name: kmesh-cni-install-path
+        - mountPath: /host/proc
+          name: host-procfs
+          readOnly: true
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
@@ -90,6 +93,10 @@ spec:
       - hostPath:
           path: /opt/cni/bin
         name: kmesh-cni-install-path
+      - name: host-procfs
+        hostPath:
+          path: /proc
+          type: Directory
       - configMap:
           defaultMode: 420
           name: istio-ca-root-cert
@@ -102,4 +109,3 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      hostPID: true

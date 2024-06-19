@@ -22,6 +22,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"net"
+	"net/netip"
 	"strings"
 
 	"github.com/cilium/ebpf/ringbuf"
@@ -31,7 +32,6 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/nets"
 )
 
 const (
@@ -70,7 +70,7 @@ type rbacConnection struct {
 
 func NewRbac(workloadObj *bpf.BpfKmeshWorkload, workloadCache cache.WorkloadCache) *Rbac {
 	return &Rbac{
-		policyStore:   newPolicystore(),
+		policyStore:   newPolicyStore(),
 		workloadCache: workloadCache,
 		bpfWorkload:   workloadObj,
 	}
@@ -160,14 +160,16 @@ func (r *Rbac) RemovePolicy(policyKey string) {
 }
 
 func (r *Rbac) doRbac(conn *rbacConnection) bool {
-	var dstWorkload *workloadapi.Workload
-	if len(conn.dstIp) > 0 {
-		dstWorkload = r.workloadCache.GetWorkloadByAddr(cache.NetworkAddress{
-			Network: conn.dstNetwork,
-			Address: nets.ConvertIpByteToUint32(conn.dstIp),
-		})
+	var networkAddress cache.NetworkAddress
+	networkAddress.Network = conn.dstNetwork
+	networkAddress.Address, _ = netip.AddrFromSlice(conn.dstIp)
+	dstWorkload := r.workloadCache.GetWorkloadByAddr(networkAddress)
+	// If no workload found, deny
+	if dstWorkload == nil {
+		return false
 	}
 
+	// TODO: maybe cache them for performance issue
 	allowPolicies, denyPolicies := r.aggregate(dstWorkload)
 
 	// 1. If there is ANY deny policy, deny the request
@@ -193,17 +195,14 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	return false
 }
 
-func (r *Rbac) aggregate(workload *workloadapi.Workload) (allowPolicies, denyPolicies []authPolicy) {
-	allowPolicies = make([]authPolicy, 0)
-	denyPolicies = make([]authPolicy, 0)
+func (r *Rbac) aggregate(workload *workloadapi.Workload) (allowPolicies, denyPolicies []*security.Authorization) {
+	allowPolicies = make([]*security.Authorization, 0)
+	denyPolicies = make([]*security.Authorization, 0)
 
-	// Collect policy names from workload, global namespace and namespace
-	policyNames := r.policyStore.getByNamesapce("").UnsortedList()
-	if workload != nil {
-		policyNames = append(append(policyNames,
-			r.policyStore.getByNamesapce(workload.Namespace).UnsortedList()...),
-			workload.GetAuthorizationPolicies()...)
-	}
+	// Collect policy names from workload,  namespace and global(root namespace)
+	policyNames := workload.GetAuthorizationPolicies()
+	policyNames = append(policyNames, r.policyStore.getByNamespace(workload.Namespace)...)
+	policyNames = append(policyNames, r.policyStore.getByNamespace("")...)
 
 	for _, policyName := range policyNames {
 		if policy, ok := r.policyStore.byKey[policyName]; ok {
@@ -217,7 +216,7 @@ func (r *Rbac) aggregate(workload *workloadapi.Workload) (allowPolicies, denyPol
 	return
 }
 
-func matches(conn *rbacConnection, policy authPolicy) bool {
+func matches(conn *rbacConnection, policy *security.Authorization) bool {
 	if policy.GetRules() == nil {
 		return false
 	}
@@ -467,9 +466,9 @@ func isEmptyMatch(m *security.Match) bool {
 
 // todo : get identity form tls connection
 func (r *Rbac) getIdentityByIp(ip []byte) Identity {
-	workload := r.workloadCache.GetWorkloadByAddr(cache.NetworkAddress{
-		Address: nets.ConvertIpByteToUint32(ip),
-	})
+	var networkAddress cache.NetworkAddress
+	networkAddress.Address, _ = netip.AddrFromSlice(ip)
+	workload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	if workload == nil {
 		log.Warnf("get worload from ip %v FAILED", ip)
 		return Identity{}

@@ -15,49 +15,58 @@ static inline backend_value *map_lookup_backend(const backend_key *key)
     return kmesh_map_lookup_elem(&map_of_backend, key);
 }
 
-static inline int waypoint_manager(ctx_buff_t *ctx, __u32 addr, __u32 port)
+static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_addr *wp_addr, __u32 port)
 {
     int ret;
     address_t target_addr;
+    ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
     __u64 *sk = (__u64 *)ctx->sk;
     struct bpf_sock_tuple value_tuple = {0};
 
-    value_tuple.ipv4.daddr = ctx->user_ip4;
-    value_tuple.ipv4.dport = ctx->user_port;
-
-    ret = bpf_map_update_elem(&map_of_dst_info, &sk, &value_tuple, BPF_NOEXIST);
+    if (ctx->family == AF_INET) {
+        value_tuple.ipv4.daddr = kmesh_ctx->orig_dst_addr.ip4;
+        value_tuple.ipv4.dport = ctx->user_port;
+    } else if (ctx->family == AF_INET6) {
+        bpf_memcpy(value_tuple.ipv6.daddr, kmesh_ctx->orig_dst_addr.ip6, IPV6_ADDR_LEN);
+        value_tuple.ipv6.dport = ctx->user_port;
+    } else {
+        BPF_LOG(ERR, BACKEND, "invalid ctx family: %u\n", ctx->family);
+        return -1;
+    }
+    ret = bpf_map_update_elem(&map_of_dst_info, &(sk), &value_tuple, BPF_NOEXIST);
     if (ret) {
         BPF_LOG(ERR, BACKEND, "record metadata origin address and port failed, ret is %d\n", ret);
         return ret;
     }
-    target_addr.ipv4 = addr;
-    target_addr.port = port;
-    SET_CTX_ADDRESS(ctx, target_addr);
-    kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT4_INDEX);
 
-    // if tail call failed will run this code
-    BPF_LOG(ERR, BACKEND, "workload tail call failed, err is %d\n", ret);
-    return -ENOEXEC;
+    if (ctx->user_family == AF_INET)
+        kmesh_ctx->dnat_ip.ip4 = wp_addr->ip4;
+    else
+        bpf_memcpy(kmesh_ctx->dnat_ip.ip6, wp_addr->ip6, IPV6_ADDR_LEN);
+    kmesh_ctx->dnat_port = port;
+    kmesh_ctx->via_waypoint = true;
+    return 0;
 }
 
-static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v, __u32 service_id, service_value *service_v)
+static inline int
+backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32 service_id, service_value *service_v)
 {
     int ret;
-    address_t target_addr;
+    ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
     __u32 user_port = ctx->user_port;
 
-    if (backend_v->waypoint_addr != 0 && backend_v->waypoint_port != 0) {
+    if (backend_v->waypoint_port != 0) {
         BPF_LOG(
             DEBUG,
             BACKEND,
-            "find waypoint addr=[%pI4h:%u]",
-            &backend_v->waypoint_addr,
+            "find waypoint addr=[%s:%u]\n",
+            ip2str(&backend_v->wp_addr.ip4, 1),
             bpf_ntohs(backend_v->waypoint_port));
-        ret = waypoint_manager(ctx, backend_v->waypoint_addr, backend_v->waypoint_port);
-        if (ret == -ENOEXEC) {
-            BPF_LOG(ERR, BACKEND, "waypoint_manager failed, ret:%d\n", ret);
-            return ret;
+        ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);
+        if (ret != 0) {
+            BPF_LOG(ERR, BACKEND, "waypoint_manager failed, ret: %d\n", ret);
         }
+        return ret;
     }
 
 #pragma unroll
@@ -71,15 +80,18 @@ static inline int backend_manager(ctx_buff_t *ctx, backend_value *backend_v, __u
 #pragma unroll
             for (__u32 j = 0; j < MAX_PORT_COUNT; j++) {
                 if (user_port == service_v->service_port[j]) {
-                    target_addr.ipv4 = backend_v->ipv4;
-                    target_addr.port = service_v->target_port[j];
-                    SET_CTX_ADDRESS(ctx, target_addr);
+                    if (ctx->user_family == AF_INET)
+                        kmesh_ctx->dnat_ip.ip4 = backend_v->addr.ip4;
+                    else
+                        bpf_memcpy(kmesh_ctx->dnat_ip.ip6, backend_v->addr.ip6, IPV6_ADDR_LEN);
+                    kmesh_ctx->dnat_port = service_v->target_port[j];
+                    kmesh_ctx->via_waypoint = false;
                     BPF_LOG(
                         DEBUG,
                         BACKEND,
-                        "get the backend addr=[%pI4h:%u]",
-                        &target_addr.ipv4,
-                        bpf_ntohs(target_addr.port));
+                        "get the backend addr=[%s:%u]\n",
+                        ip2str(&kmesh_ctx->dnat_ip.ip4, 1),
+                        bpf_ntohs(service_v->target_port[j]));
                     return 0;
                 }
             }

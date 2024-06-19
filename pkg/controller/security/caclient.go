@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pkg/security"
@@ -57,7 +58,7 @@ func newCaClient(opts *security.Options, tlsOpts *tlsOptions) (*caClient, error)
 		opts:    opts,
 	}
 
-	conn, err := nets.GrpcConnect(CSRSignAddress)
+	conn, err := nets.GrpcConnect(caAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create grpcconnect : %v", err)
 	}
@@ -84,20 +85,13 @@ func (c *caClient) csrSend(csrPEM []byte, certValidsec int64, identity string) (
 		Metadata:         crMeta,
 	}
 
-	ctx := context.Background()
-
+	// TODO: support customize clusterID, which is needed for multicluster mesh
+	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", "Kubernetes"))
 	// To handle potential grpc connection disconnection and retry once
 	// when certificate acquisition fails. If it still fails, return an error.
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
-		log.Errorf("create certificate: %v reconnect...", err)
-		if err := c.reconnect(); err != nil {
-			return nil, fmt.Errorf("reconnect error: %v", err)
-		}
-		resp, err = c.client.CreateCertificate(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("create certificate: %v", err)
-		}
+		return nil, fmt.Errorf("create certificate failed: %v", err)
 	}
 
 	if len(resp.CertChain) <= 1 {
@@ -140,7 +134,7 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 	}
 	certChainPEM, err := c.csrSend(csrPEM, int64(c.opts.SecretTTL.Seconds()), identity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get certChainPEM")
+		return nil, err
 	}
 
 	certChain := standardCerts(certChainPEM)
@@ -153,7 +147,7 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 
 	rootCertPEM = []byte(certChainPEM[len(certChainPEM)-1])
 
-	log.Debugf("cert for %v ExpireTime :%v", identity, expireTime)
+	log.Debugf("cert for %v expireTime :%v", identity, expireTime)
 	return &security.SecretItem{
 		CertificateChain: certChain,
 		PrivateKey:       keyPEM,
@@ -162,20 +156,6 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 		ExpireTime:       expireTime,
 		RootCert:         rootCertPEM,
 	}, nil
-}
-
-func (c *caClient) reconnect() error {
-	if err := c.conn.Close(); err != nil {
-		return fmt.Errorf("failed to close connection: %v", err)
-	}
-
-	conn, err := nets.GrpcConnect(CSRSignAddress)
-	if err != nil {
-		return err
-	}
-	c.conn = conn
-	c.client = pb.NewIstioCertificateServiceClient(conn)
-	return nil
 }
 
 func (c *caClient) close() error {

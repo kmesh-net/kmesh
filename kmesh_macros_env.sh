@@ -1,6 +1,7 @@
 #!/bin/bash
   
 VERSION=$(uname -r | cut -d '.' -f 1)
+KERNEL_VERSION=$(uname -r | cut -d '-' -f 1)
 
 function set_config() {
     sed -i -r -e "s/($1)([ \t]*)([0-9]+)/\1\2$2/" config/kmesh_marcos_def.h
@@ -59,4 +60,10 @@ if [[ "$LIBBPF_VERSION" < "0.6.0" ]]; then
 	set_config LIBBPF_HIGHER_0_6_0_VERSION 0
 else
 	set_config LIBBPF_HIGHER_0_6_0_VERSION 1
+fi
+
+if [[ "$KERNEL_VERSION" < "5.13.0" ]]; then
+	set_config KERNEL_VERSION_HIGHER_5_13_0 0
+else
+	set_config KERNEL_VERSION_HIGHER_5_13_0 1
 fi

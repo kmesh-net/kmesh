@@ -1,5 +1,4 @@
-/*
- * Copyright 2024 The Kmesh Authors.
+/* Copyright 2024 The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +13,16 @@
  * limitations under the License.
  */
 
-package constants
+package options
 
-const (
-	AdsMode      = "ads"
-	WorkloadMode = "workload"
-
-	// DataPlaneModeLabel is the label used to indicate the data plane mode
-	DataPlaneModeLabel = "istio.io/dataplane-mode"
-	// DataPlaneModeKmesh is the value of the label to indicate the data plane mode is kmesh
-	DataPlaneModeKmesh = "kmesh"
-
-	XDP_PROG_NAME = "xdp_shutdown"
-
-	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
-
-	BPF_LOG_ERR   = 0
-	BPF_LOG_DEBUG = 3
+import (
+	"github.com/spf13/cobra"
 )
+
+type secretConfig struct {
+	Enable bool
+}
+
+func (c *secretConfig) AttachFlags(cmd *cobra.Command) {
+	cmd.PersistentFlags().BoolVar(&c.Enable, "enable-secret-manager", false, "whether to start secret manager or not, default to false")
+}

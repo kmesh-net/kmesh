@@ -11,12 +11,26 @@ typedef enum {
 
 typedef struct bpf_sock_addr ctx_buff_t;
 
-#define DECLARE_FRONTEND_KEY(ctx, key)                                                                                 \
+#define DECLARE_FRONTEND_KEY(ctx, ctx_vip, key)                                                                        \
     frontend_key key = {0};                                                                                            \
-    key.ipv4 = (ctx)->user_ip4
+    if (ctx->user_family == AF_INET)                                                                                   \
+        key.addr.ip4 = (ctx_vip)->ip4;                                                                                 \
+    else                                                                                                               \
+        bpf_memcpy(key.addr.ip6, (ctx_vip)->ip6, IPV6_ADDR_LEN)
 
-#define SET_CTX_ADDRESS(ctx, address)                                                                                  \
-    (ctx)->user_ip4 = (address).ipv4;                                                                                  \
-    (ctx)->user_port = (address).port
+#define SET_CTX_ADDRESS4(ctx, addr, port)                                                                              \
+    do {                                                                                                               \
+        if (ctx->user_family == AF_INET) {                                                                             \
+            (ctx)->user_ip4 = (addr)->ip4;                                                                             \
+            (ctx)->user_port = port;                                                                                   \
+        }                                                                                                              \
+    } while (0)
 
+#define SET_CTX_ADDRESS6(ctx, addr, port)                                                                              \
+    do {                                                                                                               \
+        if (ctx->user_family == AF_INET6) {                                                                            \
+            bpf_memcpy((ctx)->user_ip6, (addr)->ip6, IPV6_ADDR_LEN);                                                   \
+            (ctx)->user_port = port;                                                                                   \
+        }                                                                                                              \
+    } while (0)
 #endif //__BPF_CTX_SOCK_ADDR_H

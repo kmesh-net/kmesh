@@ -14,21 +14,9 @@
  * limitations under the License.
  */
 
-package constants
+package security
 
-const (
-	AdsMode      = "ads"
-	WorkloadMode = "workload"
-
-	// DataPlaneModeLabel is the label used to indicate the data plane mode
-	DataPlaneModeLabel = "istio.io/dataplane-mode"
-	// DataPlaneModeKmesh is the value of the label to indicate the data plane mode is kmesh
-	DataPlaneModeKmesh = "kmesh"
-
-	XDP_PROG_NAME = "xdp_shutdown"
-
-	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
-
-	BPF_LOG_ERR   = 0
-	BPF_LOG_DEBUG = 3
-)
+// ResourceName returns the unique key of Workload.
+func (x *Authorization) ResourceName() string {
+	return x.GetNamespace() + "/" + x.GetName()
+}

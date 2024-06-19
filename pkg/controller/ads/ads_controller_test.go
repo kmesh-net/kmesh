@@ -19,47 +19,33 @@ package ads
 import (
 	"context"
 	"errors"
-	"net"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/anypb"
 
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 )
 
 func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-	adsStream := Controller{
-		Processor: nil,
-	}
-
 	// create a fake grpc service client
-	mockDiscovery := xdstest.NewMockServer(t)
-	conn, err := grpc.Dial("buffcon",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return mockDiscovery.Listener.Dial()
-		}))
+	mockDiscovery := xdstest.NewXdsServer(t)
+
+	client, err := xdstest.NewClient(mockDiscovery)
 	if err != nil {
 		t.Errorf("grpc connection client create failed, %s", err)
 	}
-	defer conn.Close()
-	client := discoveryv3.NewAggregatedDiscoveryServiceClient(conn)
-	stream, streamErr := client.StreamAggregatedResources(ctx)
-	if streamErr != nil {
-		t.Errorf("create stream failed, %s", streamErr)
+	defer client.Cleanup()
+
+	adsStream := Controller{
+		Stream:    client.AdsClient,
+		Processor: nil,
 	}
-	adsStream.Stream = stream
 
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()
@@ -72,9 +58,9 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 		{
 			name: "test1: send request failed, should return error",
 			beforeFunc: func() {
-				patches1.ApplyMethod(reflect.TypeOf(client), "StreamAggregatedResources",
+				patches1.ApplyMethod(reflect.TypeOf(client.Client), "StreamAggregatedResources",
 					func(_ discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context, opts ...grpc.CallOption) (discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient, error) {
-						return stream, nil
+						return client.AdsClient, nil
 					})
 				patches2.ApplyMethod(reflect.TypeOf(adsStream.Stream), "Send",
 					func(_ discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient, req *discoveryv3.DiscoveryRequest) error {
@@ -88,7 +74,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:       "test2: no movk, send request successful, should return nil",
+			name:       "test2: send request successful, should return nil",
 			beforeFunc: func() {},
 			afterFunc:  func() {},
 			wantErr:    false,
@@ -96,7 +82,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 		{
 			name: "test3: fail to create adsstream, should return error",
 			beforeFunc: func() {
-				patches1.ApplyMethod(reflect.TypeOf(client), "StreamAggregatedResources",
+				patches1.ApplyMethod(reflect.TypeOf(client.Client), "StreamAggregatedResources",
 					func(_ discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context, opts ...grpc.CallOption) (discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient, error) {
 						return nil, errors.New("fail to create adsstream")
 					})
@@ -110,7 +96,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
-			err := adsStream.AdsStreamCreateAndSend(client, context.TODO())
+			err := adsStream.AdsStreamCreateAndSend(client.Client, context.TODO())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("adsStream.AdsStreamCreateAndSend() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -120,29 +106,17 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 	}
 }
 
-func TestAdsStream_AdsStreamProcess(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
-	defer cancel()
-	adsStream := NewController()
-
+func TestHandleAdsStream(t *testing.T) {
 	// create a fake grpc service client
-	mockDiscovery := xdstest.NewMockServer(t)
-	conn, err := grpc.Dial("buffcon",
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithBlock(),
-		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
-			return mockDiscovery.Listener.Dial()
-		}))
+	mockDiscovery := xdstest.NewXdsServer(t)
+	fakeClient, err := xdstest.NewClient(mockDiscovery)
 	if err != nil {
 		t.Errorf("grpc connection client create failed, %s", err)
 	}
-	defer conn.Close()
-	client := discoveryv3.NewAggregatedDiscoveryServiceClient(conn)
-	stream, streamErr := client.StreamAggregatedResources(ctx)
-	if streamErr != nil {
-		t.Errorf("create stream failed, %s", streamErr)
-	}
-	adsStream.Stream = stream
+	defer fakeClient.Cleanup()
+
+	adsStream := NewController()
+	adsStream.Stream = fakeClient.AdsClient
 
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()

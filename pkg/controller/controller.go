@@ -17,8 +17,10 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 
+	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
@@ -28,22 +30,29 @@ import (
 )
 
 var (
-	stopCh = make(chan struct{})
-	log    = logger.NewLoggerField("controller")
+	stopCh      = make(chan struct{})
+	ctx, cancle = context.WithCancel(context.Background())
+	log         = logger.NewLoggerField("controller")
 )
 
 type Controller struct {
-	mode           string
-	bpfWorkloadObj *bpf.BpfKmeshWorkload
-	client         *XdsClient
-	enableByPass   bool
+	mode                string
+	bpfWorkloadObj      *bpf.BpfKmeshWorkload
+	client              *XdsClient
+	enableByPass        bool
+	enableSecretManager bool
+	bpfFsPath           string
+	enableBpfLog        bool
 }
 
-func NewController(mode string, enableByPass bool, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload, bpfFsPath string, enableBpfLog bool) *Controller {
 	return &Controller{
-		mode:           mode,
-		enableByPass:   enableByPass,
-		bpfWorkloadObj: bpfWorkloadObj,
+		mode:                opts.BpfConfig.Mode,
+		enableByPass:        opts.ByPassConfig.EnableByPass,
+		bpfWorkloadObj:      bpfWorkloadObj,
+		enableSecretManager: opts.SecretManagerConfig.Enable,
+		bpfFsPath:           bpfFsPath,
+		enableBpfLog:        enableBpfLog,
 	}
 }
 
@@ -66,15 +75,21 @@ func (c *Controller) Start() error {
 		return nil
 	}
 
-	secertManager, err := security.NewSecretManager()
-	if err != nil {
-		return fmt.Errorf("secretManager create failed: %v", err)
+	if c.enableBpfLog {
+		if err := logger.StartRingBufReader(ctx, c.mode, c.bpfFsPath); err != nil {
+			return fmt.Errorf("fail to start ringbuf reader: %v", err)
+		}
 	}
-	go secertManager.Run(stopCh)
-
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Processor.Sm = secertManager
+		if c.enableSecretManager {
+			secertManager, err := security.NewSecretManager()
+			if err != nil {
+				return fmt.Errorf("secretManager create failed: %v", err)
+			}
+			go secertManager.Run(stopCh)
+			c.client.WorkloadController.Processor.SecretManager = secertManager
+		}
 	}
 
 	return c.client.Run(stopCh)
@@ -85,6 +100,7 @@ func (c *Controller) Stop() {
 		return
 	}
 	close(stopCh)
+	cancle()
 	if c.client != nil {
 		c.client.Close()
 	}

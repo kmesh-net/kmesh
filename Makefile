@@ -12,13 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# Author: LemmyHuang
-# Create: 2021-12-08
 VERSION ?= 1.0-dev
 GIT_COMMIT_HASH ?= $(shell git rev-parse HEAD)
 GIT_TREESTATE=$(shell if [ -n "$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 	GOBIN=$(shell go env GOPATH)/bin
@@ -143,6 +142,7 @@ uninstall:
 	$(call printlog, UNINSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
 
+.PHONY: build
 build:
 	./kmesh_compile.sh
 	
@@ -151,6 +151,15 @@ docker: build
 
 format:
 	./hack/format.sh
+
+.PHONY: test
+ifeq ($(RUN_IN_CONTAINER),1)
+test:
+	./hack/run-ut.sh --docker
+else
+test:
+	./hack/run-ut.sh --local
+endif
 
 clean:
 	$(QUIET) rm -rf ./out

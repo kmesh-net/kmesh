@@ -25,16 +25,18 @@ import (
 )
 
 type BootstrapConfigs struct {
-	BpfConfig    *BpfConfig
-	CniConfig    *cniConfig
-	ByPassConfig *byPassConfig
+	BpfConfig           *BpfConfig
+	CniConfig           *cniConfig
+	ByPassConfig        *byPassConfig
+	SecretManagerConfig *secretConfig
 }
 
 func NewBootstrapConfigs() *BootstrapConfigs {
 	return &BootstrapConfigs{
-		BpfConfig:    &BpfConfig{},
-		CniConfig:    &cniConfig{},
-		ByPassConfig: &byPassConfig{},
+		BpfConfig:           &BpfConfig{},
+		CniConfig:           &cniConfig{},
+		ByPassConfig:        &byPassConfig{},
+		SecretManagerConfig: &secretConfig{},
 	}
 }
 
@@ -51,6 +53,7 @@ func (c *BootstrapConfigs) AttachFlags(cmd *cobra.Command) {
 	c.BpfConfig.AttachFlags(cmd)
 	c.CniConfig.AttachFlags(cmd)
 	c.ByPassConfig.AttachFlags(cmd)
+	c.SecretManagerConfig.AttachFlags(cmd)
 }
 
 func (c *BootstrapConfigs) ParseConfigs() error {
