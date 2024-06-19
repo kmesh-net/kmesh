@@ -105,26 +105,42 @@ func (cache *ClusterCache) SetEdsHash(key string, value uint64) {
 
 // Flush flushes the cluster to bpf map.
 func (cache *ClusterCache) Flush() {
-	var err error
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 	for name, cluster := range cache.apiClusterCache {
-		switch cluster.GetApiStatus() {
-		case core_v2.ApiStatus_UPDATE:
-			err = maps_v2.ClusterUpdate(name, cluster)
+		if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
+			err := maps_v2.ClusterUpdate(name, cluster)
 			if err == nil {
 				// reset api status after successfully updated
 				cluster.ApiStatus = core_v2.ApiStatus_NONE
+			} else {
+				log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 			}
-		case core_v2.ApiStatus_DELETE:
-			err = maps_v2.ClusterDelete(name)
+		} else if cluster.GetApiStatus() == core_v2.ApiStatus_DELETE {
+			err := maps_v2.ClusterDelete(name)
 			if err == nil {
 				delete(cache.apiClusterCache, name)
 				delete(cache.resourceHash, name)
+			} else {
+				log.Errorf("cluster %s delete failed: %v", name, err)
 			}
 		}
-		if err != nil {
-			log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
+	}
+}
+
+// Delete delete the clusters marked Delete status.
+func (cache *ClusterCache) Delete() {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	for name, cluster := range cache.apiClusterCache {
+		if cluster.GetApiStatus() == core_v2.ApiStatus_DELETE {
+			err := maps_v2.ClusterDelete(name)
+			if err == nil {
+				delete(cache.apiClusterCache, name)
+				delete(cache.resourceHash, name)
+			} else {
+				log.Errorf("cluster %s delete failed: %v", name, err)
+			}
 		}
 	}
 }

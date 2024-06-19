@@ -48,7 +48,6 @@ func TestHandleCdsResponse(t *testing.T) {
 	t.Cleanup(cleanup)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
 		p := newProcessor()
-		p.LastNonce.edsNonce = "utkmesh"
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -61,6 +60,7 @@ func TestHandleCdsResponse(t *testing.T) {
 			Resources: []*anypb.Any{
 				anyCluster,
 			},
+			Nonce: "newnonce",
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
@@ -69,7 +69,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-cluster"}, p.req.ResourceNames)
-		assert.Equal(t, p.LastNonce.edsNonce, p.req.ResponseNonce)
+		// send new eds subscribe to the new cluster with empty nonce
+		assert.Equal(t, p.lastNonce.edsNonce, "")
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
 	})
 
@@ -94,15 +95,15 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
-		assert.Nil(t, p.req)
+		assert.NotNil(t, p.req)
 	})
 
-	t.Run("cluster update case", func(t *testing.T) {
+	t.Run("eds cluster update case", func(t *testing.T) {
 		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_LOGICAL_DNS,
+				Type: config_cluster_v3.Cluster_EDS,
 			},
 		}
 		anyCluster, err := anypb.New(cluster)
@@ -111,15 +112,23 @@ func TestHandleCdsResponse(t *testing.T) {
 			Resources: []*anypb.Any{
 				anyCluster,
 			},
+			Nonce: "v1",
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+		assert.NotNil(t, p.req)
+
+		p.lastNonce.edsNonce = "v1"
+		// reset
+		p.req = nil
+		p.ack = nil
 
 		cluster = &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_STRICT_DNS,
+				Type: config_cluster_v3.Cluster_EDS,
 			},
+			LbPolicy: config_cluster_v3.Cluster_RING_HASH,
 		}
 		anyCluster, err = anypb.New(cluster)
 		assert.NoError(t, err)
@@ -127,20 +136,21 @@ func TestHandleCdsResponse(t *testing.T) {
 			Resources: []*anypb.Any{
 				anyCluster,
 			},
+			Nonce: "v2",
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{}, p.Cache.edsClusterNames)
+		assert.Equal(t, []string{"ut-cluster"}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Nil(t, p.req)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
 	})
 
 	t.Run("have multiClusters, add a new eds cluster", func(t *testing.T) {
 		p := newProcessor()
-		p.LastNonce.ldsNonce = "utEdstoLds"
+		p.lastNonce.ldsNonce = "utEdstoLds"
 		multiClusters := []*config_cluster_v3.Cluster{
 			{
 				Name: "ut-cluster1",
@@ -194,7 +204,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		actualOldClusterHash2 := p.Cache.ClusterCache.GetCdsHash(multiClusters[1].GetName())
 		assert.Equal(t, wantOldClusterHash2, actualOldClusterHash2)
 		assert.Equal(t, []string{"new-ut-cluster"}, p.req.ResourceNames)
-		assert.Equal(t, p.LastNonce.edsNonce, p.req.ResponseNonce)
+		assert.Equal(t, p.lastNonce.edsNonce, p.req.ResponseNonce)
 	})
 
 	t.Run("multiClusters in resp", func(t *testing.T) {
@@ -202,7 +212,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_EDS,
+				Type: config_cluster_v3.Cluster_LOGICAL_DNS,
 			},
 		}
 		anyCluster, err := anypb.New(cluster)
@@ -237,8 +247,10 @@ func TestHandleCdsResponse(t *testing.T) {
 				anyCluster2,
 			},
 		}
+
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+		// only cluster2 is eds typed
 		assert.Equal(t, []string{"new-ut-cluster2"}, p.Cache.edsClusterNames)
 		wantHash1 := hash.Sum64String(anyCluster1.String())
 		wantHash2 := hash.Sum64String(anyCluster2.String())
@@ -247,7 +259,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		actualHash2 := p.Cache.ClusterCache.GetCdsHash(newCluster2.GetName())
 		assert.Equal(t, wantHash2, actualHash2)
 		assert.Equal(t, []string{"new-ut-cluster2"}, p.req.ResourceNames)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_DELETE)
+		// `cluster` has been deleted
+		assert.Nil(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name))
 	})
 }
 
@@ -428,7 +441,6 @@ func TestHandleLdsResponse(t *testing.T) {
 		}
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.LastNonce.rdsNonce = "utLdstoRds"
 		filterHttp := &filters_network_http.HttpConnectionManager{
 			RouteSpecifier: &filters_network_http.HttpConnectionManager_Rds{
 				Rds: &filters_network_http.Rds{
@@ -467,6 +479,7 @@ func TestHandleLdsResponse(t *testing.T) {
 			Resources: []*anypb.Any{
 				anyListener,
 			},
+			Nonce: "nonce",
 		}
 		err = p.handleLdsResponse(rsp)
 		assert.NoError(t, err)
@@ -476,7 +489,8 @@ func TestHandleLdsResponse(t *testing.T) {
 		actualHash := p.Cache.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-rds"}, p.req.ResourceNames)
-		assert.Equal(t, p.LastNonce.rdsNonce, p.req.ResponseNonce)
+		assert.Equal(t, p.lastNonce.ldsNonce, "nonce")
+		assert.Equal(t, p.req.ResponseNonce, "")
 	})
 
 	t.Run("listenerCache already has resource and it has not been changed", func(t *testing.T) {
