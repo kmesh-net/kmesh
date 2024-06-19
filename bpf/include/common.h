@@ -91,19 +91,6 @@ static inline int kmesh_map_update_elem(void *map, const void *key, const void *
 #define MAX_IP4_LEN 16
 #define MAX_IP6_LEN 40
 
-#ifndef u8
-#define u8 __u8
-#endif
-#ifndef u16
-#define u16 __u16
-#endif
-#ifndef u32
-#define u32 __u32
-#endif
-#ifndef u64
-#define u64 __u64
-#endif
-
 struct buf {
     char data[MAX_IP6_LEN];
 };
@@ -115,20 +102,20 @@ struct {
 } tmp_buf SEC(".maps");
 
 #if KERNEL_VERSION_HIGHER_5_13_0
-static inline int convert_v4(char *data, u32 *ip)
+static inline int convert_v4(char *data, __u32 *ip)
 {
     int ret = 0;
     ret = BPF_SNPRINTF(data, MAX_IP4_LEN, "%pI4h", ip);
     return ret;
 }
 #else
-static inline int convert_v4(char *data, u32 *ip_ptr)
+static inline int convert_v4(char *data, __u32 *ip_ptr)
 {
-    u32 ip = *ip_ptr;
-    u8 ip1 = (ip >> 24) & 0xFF;
-    u8 ip2 = (ip >> 16) & 0xFF;
-    u8 ip3 = (ip >> 8) & 0xFF;
-    u8 ip4 = (ip >> 0) & 0xFF;
+    __u32 ip = *ip_ptr;
+    __u8 ip1 = (ip >> 24) & 0xFF;
+    __u8 ip2 = (ip >> 16) & 0xFF;
+    __u8 ip3 = (ip >> 8) & 0xFF;
+    __u8 ip4 = (ip >> 0) & 0xFF;
 
     char tmp[MAX_IP4_LEN];
     tmp[2] = '0' + (ip1 % 10);
@@ -180,7 +167,7 @@ static inline int convert_v4(char *data, u32 *ip_ptr)
 #endif
 
 #if KERNEL_VERSION_HIGHER_5_13_0
-static inline int convert_v6(char *data, u32 *ip6)
+static inline int convert_v6(char *data, __u32 *ip6)
 {
     int ret = 0;
     ret = BPF_SNPRINTF(data, MAX_IP6_LEN, "%pI6", ip6);
@@ -188,17 +175,17 @@ static inline int convert_v6(char *data, u32 *ip6)
 }
 #else
 static const char hex_digits[16] = "0123456789abcdef";
-static inline int convert_v6(char *data, u32 *ip6)
+static inline int convert_v6(char *data, __u32 *ip6)
 {
 #pragma clang loop unroll(full)
     for (int i = 0; i < 4; i++) {
-        u32 ip = *(ip6 + i);
-        u16 ip_1 = (ip >> 0) & 0xFFFF;
-        u16 ip_2 = (ip >> 16) & 0xFFFF;
+        __u32 ip = *(ip6 + i);
+        __u16 ip_1 = (ip >> 0) & 0xFFFF;
+        __u16 ip_2 = (ip >> 16) & 0xFFFF;
         for (int j = 0; j < 2; j++) {
-            u16 ip_1 = (ip)&0xFFFF;
-            u8 h_1 = (ip_1 >> 0) & 0xFF;
-            u8 h_2 = (ip_1 >> 8) & 0xFF;
+            __u16 ip_1 = (ip)&0xFFFF;
+            __u8 h_1 = (ip_1 >> 0) & 0xFF;
+            __u8 h_2 = (ip_1 >> 8) & 0xFF;
             *data++ = hex_digits[(h_1 >> 4) & 0xF];
             *data++ = hex_digits[(h_1 >> 0) & 0xF];
             *data++ = hex_digits[(h_2 >> 4) & 0xF];
@@ -215,7 +202,7 @@ static inline int convert_v6(char *data, u32 *ip6)
 
 /* 2001:0db8:3333:4444:CCCC:DDDD:EEEE:FFFF */
 /* 192.168.000.001 */
-static inline char *ip2str(u32 *ip_ptr, bool v4)
+static inline char *ip2str(__u32 *ip_ptr, bool v4)
 {
     struct buf *buf;
     int zero = 0;

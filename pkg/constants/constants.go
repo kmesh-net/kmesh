@@ -28,4 +28,7 @@ const (
 	XDP_PROG_NAME = "xdp_shutdown"
 
 	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
+
+	BPF_LOG_ERR   = 0
+	BPF_LOG_DEBUG = 3
 )

@@ -33,6 +33,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/logger"
@@ -205,7 +206,7 @@ func (s *Server) bpfLogLevel(w http.ResponseWriter, r *http.Request) {
 	matches := pattern.FindStringSubmatch(r.URL.Path)
 	if len(matches) > 1 {
 		level, err := strconv.Atoi(matches[1])
-		if err != nil || (level < 0 || level > 3) {
+		if err != nil || (level < constants.BPF_LOG_ERR || level > constants.BPF_LOG_DEBUG) {
 			http.Error(w, "Invalid log level", http.StatusBadRequest)
 			return
 		}
