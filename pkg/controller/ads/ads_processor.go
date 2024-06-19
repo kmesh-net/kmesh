@@ -128,7 +128,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	p.lastNonce.cdsNonce = resp.Nonce
 	current := sets.New[string]()
 	lastEdsClusterNames := p.Cache.edsClusterNames
-	p.Cache.edsClusterNames = []string{}
+	p.Cache.edsClusterNames = nil
 	for _, resource := range resp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
 			continue
@@ -198,6 +198,7 @@ func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		cluster := p.Cache.ClusterCache.GetApiCluster(loadAssignment.GetClusterName())
 		// fix exceptional scenarios: receive eds push after cds has been deleted
 		if cluster == nil {
+			fmt.Println("------not found ")
 			continue
 		}
 		apiStatus := cluster.ApiStatus
@@ -212,8 +213,11 @@ func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		} else {
 			log.Debugf("handleEdsResponse: unchanged cluster %s", loadAssignment.GetClusterName())
 		}
-		p.ack.ResourceNames = append(p.ack.ResourceNames, loadAssignment.GetClusterName())
 	}
+
+	// EDS ack should contain all the eds cluster names, and since istiod can send partial eds to us, we use those set by handleCdsResponse
+	// Ad xds protocol spec, the non wildcard resource ack should contain all the names
+	p.ack.ResourceNames = p.Cache.edsClusterNames
 
 	if p.lastNonce.ldsNonce == "" {
 		// subscribe to lds only once per stream

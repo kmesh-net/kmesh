@@ -321,6 +321,8 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		// simulate we have received and processed cluster response
+		p.Cache.edsClusterNames = []string{"ut-far", "ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -348,6 +350,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			},
 		}
 		p.ack = newAckRequest(rsp)
+		p.Cache.edsClusterNames = []string{"ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -364,11 +367,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.ack = &service_discovery_v3.DiscoveryRequest{
-			ResourceNames: []string{
-				"ut-far",
-			},
-		}
+
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
 		}
@@ -379,6 +378,8 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		p.ack = newAckRequest(rsp)
+		p.Cache.edsClusterNames = []string{"ut-far", "ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -390,16 +391,11 @@ func TestHandleEdsResponse(t *testing.T) {
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
-			ApiStatus: core_v2.ApiStatus_ALL,
+			ApiStatus: core_v2.ApiStatus_WAITING,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.ack = &service_discovery_v3.DiscoveryRequest{
-			ResourceNames: []string{
-				"ut-far",
-			},
-		}
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
 		}
@@ -413,24 +409,19 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		p.ack = newAckRequest(rsp)
+		p.Cache.edsClusterNames = []string{"ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_ALL)
-		assert.Equal(t, []string{"ut-far", "ut-cluster"}, p.ack.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, []string{"ut-cluster"}, p.ack.ResourceNames)
 	})
 
 	t.Run("no apicluster, p.ack not be changed", func(t *testing.T) {
 		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
-		cluster := &cluster_v2.Cluster{}
-		adsLoader.ClusterCache.SetApiCluster("", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.ack = &service_discovery_v3.DiscoveryRequest{
-			ResourceNames: []string{
-				"ut-far",
-			},
-		}
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
 		}
@@ -441,9 +432,12 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		p.ack = newAckRequest(rsp)
+		// previously no eds cluster, but we received a eds response, not common
+		p.Cache.edsClusterNames = nil
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"ut-far"}, p.ack.ResourceNames)
+		assert.Nil(t, p.ack.ResourceNames)
 	})
 
 	t.Run("empty loadAssignment", func(t *testing.T) {
@@ -451,17 +445,14 @@ func TestHandleEdsResponse(t *testing.T) {
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
-			ApiStatus: core_v2.ApiStatus_ALL,
+			ApiStatus: core_v2.ApiStatus_WAITING,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.ack = &service_discovery_v3.DiscoveryRequest{
-			ResourceNames: []string{
-				"ut-far",
-			},
+		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
+			ClusterName: "ut-cluster",
 		}
-		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{}
 		anyLoadAssignment, err := anypb.New(loadAssignment)
 		assert.NoError(t, err)
 		rsp := &service_discovery_v3.DiscoveryResponse{
@@ -469,10 +460,12 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		p.ack = newAckRequest(rsp)
+		p.Cache.edsClusterNames = []string{"ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_ALL)
-		assert.Equal(t, []string{"ut-far"}, p.ack.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, []string{"ut-cluster"}, p.ack.ResourceNames)
 	})
 }
 
