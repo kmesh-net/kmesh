@@ -198,7 +198,7 @@ func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		cluster := p.Cache.ClusterCache.GetApiCluster(loadAssignment.GetClusterName())
 		// fix exceptional scenarios: receive eds push after cds has been deleted
 		if cluster == nil {
-			fmt.Println("------not found ")
+			log.Debugf("cluster %s is deleted", loadAssignment.GetClusterName())
 			continue
 		}
 		apiStatus := cluster.ApiStatus
