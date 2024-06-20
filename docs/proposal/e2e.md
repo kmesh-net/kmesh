@@ -67,3 +67,15 @@ NOTE: all the above steps are implemented by script and located at [here](/test/
 NOTE: this step is implemented at [here](/test/e2e/main_test.go), based on istio integration framework.
 
 6. Write various test cases based on a series of deployed test applications. We can write them [here](/test/e2e/baseline_test.go) or create a new file if necessary.
+
+#### Test case analysis
+
+istio integration framework has been well encapsulated and we can use built-in functions to easily create various configured test applications. We can create test cases according to following process:
+
+1. Use [namespace](https://github.com/istio/istio/blob/master/pkg/test/framework/components/namespace/namespace.go) package to create namespace for deploying test applications.
+
+2. Use [deployment](https://github.com/istio/istio/blob/master/pkg/test/framework/components/echo/deployment/builder.go) package to build test applications. `WithClusters()` can be used to specify the clusters where the test applications should be deployed. Each call to `WithConfig()` will generate a test application with corresponding configuration. Actually we create all test applications at the beginning. In each test case, we select some suitable applications for testing. And an application can be used as both a client and a server.
+
+3. Each test cases combines all test applications in pairs and also allow the applications to access itself. Use `CallOptions` of the [echo](https://github.com/istio/istio/blob/master/pkg/test/framework/components/echo/calloptions.go) package to define the options for calling an Endpoint, such as specify the protocol used for access, the number of requests and the `Checker` which also defined in [echo](https://github.com/istio/istio/blob/master/pkg/test/framework/components/echo/checker.go) package could be customized whether the access is successful.
+
+4. Istio integration framework is very convenient to use. We only need to make appropriate configurations and don't event need to worry about how test applications works underlying. Also it provides method to directly apply yamls to create resources such as `VirtualService` and `DestinationRule`.
