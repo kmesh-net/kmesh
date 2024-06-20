@@ -26,6 +26,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
 	"kmesh.net/kmesh/pkg/status"
 )
 
@@ -49,7 +50,7 @@ func NewCmd() *cobra.Command {
 
 func GetLoggerLevel(args []string) {
 	if len(args) != 1 {
-		fmt.Printf("Missing logger name argument")
+		fmt.Println("Missing logger name argument")
 		os.Exit(1)
 	}
 	loggerName := args[0]
@@ -87,7 +88,7 @@ func GetLoggerLevel(args []string) {
 
 func SetLoggerLevel(setFlag string) {
 	if !strings.Contains(setFlag, ":") {
-		fmt.Printf("Invalid set flag, which should be loggerName:loggerLevel (e.g. default:debug)")
+		fmt.Println("Invalid set flag, which should be loggerName:loggerLevel (e.g. default:debug)")
 		os.Exit(1)
 	}
 	splits := strings.Split(setFlag, ":")
