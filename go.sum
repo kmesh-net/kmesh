@@ -72,8 +72,8 @@ github.com/cncf/udpa/go v0.0.0-20191209042840-269d4d468f6f/go.mod h1:M8M6+tZqaGX
 github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b h1:ga8SEFjZ60pxLcmhnThWgvH2wg8376yUJmPhEH4H3kw=
 github.com/cncf/xds/go v0.0.0-20240423153145-555b57ec207b/go.mod h1:W+zGtBO5Y1IgJhy4+A9GOqVhqLpfZi+vwmdNXUehLA8=
 github.com/cockroachdb/datadriven v0.0.0-20190809214429-80d97fb3cbaa/go.mod h1:zn76sxSg3SzpJ0PPJaLDCu+Bu0Lg3sKTORVIj19EIF8=
-github.com/containernetworking/cni v1.2.0 h1:fEjhlfWwWAXEvlcMQu/i6z8DA0Kbu7EcmR5+zb6cm5I=
-github.com/containernetworking/cni v1.2.0/go.mod h1:/r+vA/7vrynNfbvSP9g8tIKEoy6win7sALJAw4ZiJks=
+github.com/containernetworking/cni v1.2.1 h1:PU9lIBbXNqdPIEuIxWGbtznlecv4Y+ZYqjX/j/2S7ug=
+github.com/containernetworking/cni v1.2.1/go.mod h1:m2nkpHY4lRZx89NUXHj4jahE5JCgaJuygB8cSwj0CTU=
 github.com/containernetworking/plugins v1.5.1 h1:T5ji+LPYjjgW0QM+KyrigZbLsZ8jaX+E5J/EcKOE4gQ=
 github.com/containernetworking/plugins v1.5.1/go.mod h1:MIQfgMayGuHYs0XdNudf31cLLAC+i242hNm6KuDGqCM=
 github.com/coreos/bbolt v1.3.2/go.mod h1:iRUV2dpdMOn7Bo10OQBFzIJO9kkE559Wcmn+qkEiiKk=
