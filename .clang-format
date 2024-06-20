@@ -82,8 +82,6 @@ BraceWrapping:
   BeforeCatch: false
   # else之前
   BeforeElse: false
-  # elseif之前
-  BeforeElseif: false
   # 缩进大括号
   IndentBraces: false
   # 分离空函数

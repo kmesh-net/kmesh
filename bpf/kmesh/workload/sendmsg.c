@@ -112,26 +112,24 @@ static inline int alloc_dst_length(struct sk_msg_md *msg, __u32 length)
     return 0;
 }
 
-static inline void sk_msg_write_buf(struct sk_msg_md *msg, __u32 *off, __u8 *data, __u32 len)
-{
-    __u8 *begin = (__u8 *)(msg->data) + *off;
-    if (check_overflow(msg, begin, len)) {
-        BPF_LOG(ERR, SENDMSG, "sk msg write buf overflow, off: %u, len: %u\n", *off, len);
-        return;
-    }
-
-    bpf_memcpy(begin, data, len);
-    *off += len;
-    return;
-}
+#define SK_MSG_WRITE_BUF(sk_msg, offset, payload, payloadlen)                                                          \
+    do {                                                                                                               \
+        __u8 *begin = (__u8 *)((sk_msg)->data) + *(offset);                                                            \
+        if (check_overflow((sk_msg), begin, payloadlen)) {                                                             \
+            BPF_LOG(ERR, SENDMSG, "sk msg write buf overflow, off: %u, len: %u\n", *(offset), payloadlen);             \
+            break;                                                                                                     \
+        }                                                                                                              \
+        bpf_memcpy(begin, payload, payloadlen);                                                                        \
+        *(offset) += (payloadlen);                                                                                     \
+    } while (0)
 
 static inline void encode_metadata_end(struct sk_msg_md *msg, __u32 *off)
 {
     __u8 type = TLV_PAYLOAD;
     __u32 size = 0;
 
-    sk_msg_write_buf(msg, off, &type, TLV_TYPE_SIZE);
-    sk_msg_write_buf(msg, off, &size, TLV_LENGTH_SIZE);
+    SK_MSG_WRITE_BUF(msg, off, &type, TLV_TYPE_SIZE);
+    SK_MSG_WRITE_BUF(msg, off, &size, TLV_LENGTH_SIZE);
     return;
 }
 
@@ -152,18 +150,18 @@ static inline void encode_metadata_org_dst_addr(struct sk_msg_md *msg, __u32 *of
     BPF_LOG(DEBUG, SENDMSG, "get valid dst, do encoding...\n");
 
     // write T
-    sk_msg_write_buf(msg, off, &type, TLV_TYPE_SIZE);
+    SK_MSG_WRITE_BUF(msg, off, &type, TLV_TYPE_SIZE);
 
     // write L
     addr_size = bpf_htonl(addr_size);
-    sk_msg_write_buf(msg, off, &addr_size, TLV_LENGTH_SIZE);
+    SK_MSG_WRITE_BUF(msg, off, &addr_size, TLV_LENGTH_SIZE);
 
     // write V
     if (v4)
-        sk_msg_write_buf(msg, off, (__u8 *)&dst_ip.ip4, TLV_IP4_LENGTH);
+        SK_MSG_WRITE_BUF(msg, off, (__u8 *)&dst_ip.ip4, TLV_IP4_LENGTH);
     else
-        sk_msg_write_buf(msg, off, (__u8 *)dst_ip.ip6, TLV_IP6_LENGTH);
-    sk_msg_write_buf(msg, off, &dst_port, TLV_PORT_LENGTH);
+        SK_MSG_WRITE_BUF(msg, off, (__u8 *)dst_ip.ip6, TLV_IP6_LENGTH);
+    SK_MSG_WRITE_BUF(msg, off, &dst_port, TLV_PORT_LENGTH);
 
     // write END
     encode_metadata_end(msg, off);
