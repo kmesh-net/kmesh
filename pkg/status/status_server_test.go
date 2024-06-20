@@ -56,12 +56,12 @@ func TestServer_getLoggerLevel(t *testing.T) {
 		var loggerInfo LoggerInfo
 		err := json.Unmarshal(w.Body.Bytes(), &loggerInfo)
 		if err != nil {
-			t.Errorf("Unexpected error: %s", err.Error())
+			t.Errorf("Unexpected error: %v", err)
 		}
 
 		expectedLoggerLevel, err := logger.GetLoggerLevel(loggerName)
 		if err != nil {
-			t.Errorf("Unexpected error: %s", err.Error())
+			t.Errorf("Unexpected error: %v", err)
 		}
 
 		if expectedLoggerLevel.String() != loggerInfo.Level {
@@ -110,7 +110,7 @@ func TestServer_setLoggerLevel(t *testing.T) {
 
 			actualLoggerLevel, err := logger.GetLoggerLevel(loggerName)
 			if err != nil {
-				t.Errorf("Unexpected error: %s", err.Error())
+				t.Errorf("Unexpected error: %v", err)
 			}
 
 			if actualLoggerLevel.String() != loggerInfo.Level {
