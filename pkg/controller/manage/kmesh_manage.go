@@ -28,11 +28,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"kmesh.net/kmesh/pkg/constants"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -41,25 +41,25 @@ var (
 	log                = logger.NewLoggerField("kmesh_manage")
 	annotationDelPatch = []byte(fmt.Sprintf(
 		`{"metadata":{"annotations":{"%s":null}}}`,
-		KmeshAnnotation,
+		KmeshRedirectionAnnotation,
 	))
 	annotationAddPatch = []byte(fmt.Sprintf(
 		`{"metadata":{"annotations":{"%s":"%s"}}}`,
-		KmeshAnnotation,
+		KmeshRedirectionAnnotation,
 		"enabled",
 	))
 )
 
 const (
-	DefaultInformerSyncPeriod = 30 * time.Second
-	SpecialIpForKmesh         = "0.0.0.1"
-	EnableKmeshPort           = 929
-	DisableKmeshPort          = 930
-	LabelSelectorKmesh        = "istio.io/dataplane-mode=Kmesh"
-	KmeshAnnotation           = "kmesh.net/redirection"
+	DefaultInformerSyncPeriod  = 30 * time.Second
+	SpecialIpForKmesh          = "0.0.0.1"
+	EnableKmeshPort            = 929
+	DisableKmeshPort           = 930
+	LabelSelectorKmesh         = constants.DataPlaneModeLabel + "=" + constants.DataPlaneModeKmesh
+	KmeshRedirectionAnnotation = "kmesh.net/redirection"
 )
 
-func NewKmeshManageController(client kubernetes.Interface) error {
+func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageController, error) {
 	stopChan := make(chan struct{})
 	nodeName := os.Getenv("NODE_NAME")
 
@@ -68,9 +68,6 @@ func NewKmeshManageController(client kubernetes.Interface) error {
 			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
 			options.LabelSelector = LabelSelectorKmesh
 		}))
-
-	informerFactory.Start(wait.NeverStop)
-	informerFactory.WaitForCacheSync(wait.NeverStop)
 
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 
@@ -82,7 +79,7 @@ func NewKmeshManageController(client kubernetes.Interface) error {
 				return
 			}
 
-			log.Infof("%s/%s: Kmesh manage pod:", pod.GetNamespace(), pod.GetName())
+			log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
 
 			nspath, _ := ns.GetNSpath(pod)
 
@@ -90,7 +87,7 @@ func NewKmeshManageController(client kubernetes.Interface) error {
 				log.Errorf("failed to enable Kmesh manage")
 				return
 			}
-			if err := patchKmeshAnnotation(client, pod, true); err != nil {
+			if err := addKmeshAnnotation(client, pod); err != nil {
 				log.Errorf("failed to add Kmesh annotation, err is %v", err)
 				return
 			}
@@ -118,34 +115,59 @@ func NewKmeshManageController(client kubernetes.Interface) error {
 				return
 			}
 
-			if err := patchKmeshAnnotation(client, pod, false); err != nil {
-				log.Errorf("failed to add Kmesh annotation, err is %v", err)
+			if err := delKmeshAnnotation(client, pod); err != nil {
+				log.Errorf("failed to delete Kmesh annotation, err is %v", err)
 				return
 			}
 		},
 	}); err != nil {
-		return fmt.Errorf("failed to add event handler to podInformer: %v", err)
+		return nil, fmt.Errorf("failed to add event handler to podInformer: %v", err)
 	}
 
-	go podInformer.Run(stopChan)
+	return &KmeshManageController{
+		stopChan:        stopChan,
+		informerFactory: informerFactory,
+		podInformer:     podInformer,
+	}, nil
+}
 
-	return nil
+type KmeshManageController struct {
+	stopChan        chan struct{}
+	informerFactory informers.SharedInformerFactory
+	podInformer     cache.SharedIndexInformer
+}
+
+func (c *KmeshManageController) Run() {
+	go func() {
+		c.informerFactory.Start(c.stopChan)
+		if !cache.WaitForCacheSync(c.stopChan, c.podInformer.HasSynced) {
+			log.Error("Timed out waiting for caches to sync")
+			return
+		}
+	}()
 }
 
 func isPodBeingDeleted(pod *corev1.Pod) bool {
 	return pod.ObjectMeta.DeletionTimestamp != nil
 }
 
-func patchKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod, op bool) error {
-	annotationPatch := annotationAddPatch
-	if !op {
-		annotationPatch = annotationDelPatch
-	}
+func addKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
 	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
 		context.Background(),
 		pod.Name,
 		k8stypes.MergePatchType,
-		annotationPatch,
+		annotationAddPatch,
+		metav1.PatchOptions{},
+	)
+	return err
+}
+
+func delKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
+	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(),
+		pod.Name,
+		k8stypes.MergePatchType,
+		annotationDelPatch,
 		metav1.PatchOptions{},
 	)
 	return err
@@ -153,18 +175,6 @@ func patchKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod, op bool)
 
 func handleKmeshManage(ns string, op bool) error {
 	execFunc := func(netns.NetNS) error {
-		/*
-		 * This function is used to process pods that are marked
-		 * or deleted with the bypass label on the current node.
-		 * Attempt to connect to a special IP address. The
-		 * connection triggers the cgroup/connect4 ebpf
-		 * program and records the netns cookie information
-		 * of the current connection. The cookie can be used
-		 * to determine whether the pod is been bypass.
-		 * 0.0.0.1:<port> is "cipher key" for cgroup/connect4
-		 * ebpf program. 929/930 is the specific port handled by
-		 * daemon to enable/disable kmesh manage
-		 */
 		simip := net.ParseIP(SpecialIpForKmesh)
 		port := EnableKmeshPort
 		if !op {
@@ -185,7 +195,7 @@ func handleKmeshManage(ns string, op bool) error {
 			return err
 		}
 		errno, ok := err.(syscall.Errno)
-		if ok && errno == syscall.EINPROGRESS { // Operation now in progress
+		if ok && errno == syscall.EINPROGRESS {
 			return nil
 		}
 		return err

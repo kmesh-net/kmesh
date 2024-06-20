@@ -63,10 +63,11 @@ func (c *Controller) Start() error {
 		return err
 	}
 
-	err = manage.NewKmeshManageController(clientset)
+	kmeshManageController, err := manage.NewKmeshManageController(clientset)
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
 	}
+	kmeshManageController.Run()
 
 	log.Info("start kmesh manage controller successfully")
 
