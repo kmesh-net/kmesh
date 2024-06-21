@@ -86,12 +86,19 @@ EOF
 }
 
 function build_and_push_images() {
-    HUB="${KIND_REGISTRY}" make docker.push
+    HUB="${KIND_REGISTRY}" TAG="latest" make docker.push
 }
 
 function install_dependencies() {
     # 1. Install kind.
     go install sigs.k8s.io/kind@v0.23.0
+    
+    # 2. Install helm.
+    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+
+    chmod 700 get_helm.sh
+
+    ./get_helm.sh
 }
 
 while (( "$#" )); do

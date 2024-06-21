@@ -7,11 +7,11 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"path"
 	"path/filepath"
 	"runtime"
 	"testing"
+	"time"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -19,6 +19,7 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
+	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -27,10 +28,12 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/helm"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/security/util/cert"
 	v1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -40,8 +43,6 @@ var (
 
 	// KmeshSrc is the location of Kmesh source.
 	KmeshSrc = getDefaultKmeshSrc()
-
-	KmeshNS = "kmesh-system"
 
 	apps = &EchoDeployments{}
 )
@@ -75,6 +76,9 @@ const (
 	Uncaptured                = "uncaptured"
 	WaypointImageAnnotation   = "sidecar.istio.io/proxyImage"
 	KmeshCustomWaypointImage  = "ghcr.io/kmesh-net/waypoint-x86:v0.3.0"
+	Timeout                   = 2 * time.Minute
+	KmeshReleaseName          = "kmesh"
+	KmeshNamespace            = "kmesh-system"
 )
 
 func getDefaultKmeshSrc() string {
@@ -119,33 +123,29 @@ func TestMain(m *testing.M) {
 }
 
 func SetupKmesh(ctx resource.Context) error {
-	yamls, err := getKmeshYamls()
-	if err != nil {
-		return err
-	}
+	cs := ctx.Clusters().Default().(*kubecluster.Cluster)
 
-	return ctx.Clusters().Default().ApplyYAMLFiles("", yamls...)
-}
-
-func getKmeshYamls() ([]string, error) {
-	KmeshInstallFilePath := path.Join(KmeshSrc, "deploy/yaml/")
-
-	files, err := os.ReadDir(KmeshInstallFilePath)
-	if err != nil {
-		return nil, err
-	}
-
-	results := []string{}
-	for _, file := range files {
-		if file.IsDir() {
-			// TODO: consider the situation of multiple directories in the future.
-			continue
+	if _, err := cs.Kube().CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: KmeshNamespace,
+		},
+	}, metav1.CreateOptions{}); err != nil {
+		if !kerrors.IsAlreadyExists(err) {
+			return fmt.Errorf("failed to create %v namespace: %v", KmeshNamespace, err)
 		}
-
-		results = append(results, filepath.Join(KmeshInstallFilePath, file.Name()))
 	}
 
-	return results, nil
+	h := helm.New(cs.Filename())
+
+	kmeshChartPath := path.Join(KmeshSrc, "deploy/helm/")
+
+	// Install Kmesh chart
+	err := h.InstallChartWithValues(KmeshReleaseName, kmeshChartPath, KmeshNamespace, []string{"--set deploy.kmesh.image.repository=localhost:5000/kmesh"}, Timeout)
+	if err != nil {
+		return fmt.Errorf("failed to install Kmesh chart: %v", err)
+	}
+
+	return nil
 }
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {

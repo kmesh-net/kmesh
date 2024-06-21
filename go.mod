@@ -5,6 +5,8 @@ go 1.22.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
+replace istio.io/api => istio.io/api v1.22.0-alpha.1.0.20240620154034-5b788fec62d2
+
 require (
 	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/cespare/xxhash/v2 v2.3.0
