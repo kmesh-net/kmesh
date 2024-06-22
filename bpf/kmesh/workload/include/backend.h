@@ -9,6 +9,7 @@
 #include "tail_call.h"
 
 #define TAIL_CALL_CONNECT4_INDEX 0
+#define TAIL_CALL_CONNECT6_INDEX 1
 
 static inline backend_value *map_lookup_backend(const backend_key *key)
 {

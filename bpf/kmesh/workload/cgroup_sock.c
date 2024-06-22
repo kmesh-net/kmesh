@@ -10,7 +10,7 @@
 #include "frontend.h"
 #include "bpf_common.h"
 
-static inline int sock4_traffic_control(struct kmesh_context *kmesh_ctx)
+static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 {
     int ret;
     frontend_value *frontend_v = NULL;
@@ -21,14 +21,23 @@ static inline int sock4_traffic_control(struct kmesh_context *kmesh_ctx)
 
     DECLARE_FRONTEND_KEY(ctx, &kmesh_ctx->orig_dst_addr, frontend_k);
 
-    DECLARE_VAR_IPV4(ctx->user_ip4, ip);
-    BPF_LOG(DEBUG, KMESH, "origin addr=[%s:%u]\n", ip2str(&ip, 1), bpf_ntohs(ctx->user_port));
+    BPF_LOG(
+        DEBUG,
+        KMESH,
+        "origin addr=[%s:%u]\n",
+        ip2str(&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
+        bpf_ntohs(ctx->user_port));
     frontend_v = map_lookup_frontend(&frontend_k);
     if (!frontend_v) {
         return -ENOENT;
     }
 
-    BPF_LOG(DEBUG, KMESH, "bpf find frontend addr=[%s:%u]\n", ip2str(&ip, 1), bpf_ntohs(ctx->user_port));
+    BPF_LOG(
+        DEBUG,
+        KMESH,
+        "bpf find frontend addr=[%s:%u]\n",
+        ip2str(&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
+        bpf_ntohs(ctx->user_port));
     ret = frontend_manager(kmesh_ctx, frontend_v);
     if (ret != 0) {
         if (ret != -ENOENT)
@@ -56,7 +65,7 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
         return CGROUP_SOCK_OK;
     }
 
-    int ret = sock4_traffic_control(&kmesh_ctx);
+    int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
         BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
         return CGROUP_SOCK_OK;
@@ -65,6 +74,35 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     SET_CTX_ADDRESS4(ctx, &kmesh_ctx.dnat_ip, kmesh_ctx.dnat_port);
     if (kmesh_ctx.via_waypoint) {
         kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT4_INDEX);
+
+        // if tail call failed will run this code
+        BPF_LOG(ERR, KMESH, "workload tail call failed, err is %d\n", ret);
+    }
+    return CGROUP_SOCK_OK;
+}
+
+SEC("cgroup/connect6")
+int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
+{
+    struct kmesh_context kmesh_ctx = {0};
+    kmesh_ctx.ctx = ctx;
+    bpf_memcpy(kmesh_ctx.vip.ip6, ctx->user_ip6, IPV6_ADDR_LEN);
+    bpf_memcpy(kmesh_ctx.dnat_ip.ip6, ctx->user_ip6, IPV6_ADDR_LEN);
+    kmesh_ctx.dnat_port = ctx->user_port;
+
+    if (!is_kmesh_enabled(ctx) || is_bypass_enabled(ctx)) {
+        return CGROUP_SOCK_OK;
+    }
+
+    int ret = sock_traffic_control(&kmesh_ctx);
+    if (ret) {
+        BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
+        return CGROUP_SOCK_OK;
+    }
+
+    SET_CTX_ADDRESS6(ctx, &kmesh_ctx.dnat_ip, kmesh_ctx.dnat_port);
+    if (kmesh_ctx.via_waypoint) {
+        kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT6_INDEX);
 
         // if tail call failed will run this code
         BPF_LOG(ERR, KMESH, "workload tail call failed, err is %d\n", ret);
