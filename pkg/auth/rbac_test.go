@@ -17,8 +17,15 @@
 package auth
 
 import (
+	"context"
+	"errors"
+	"net"
+	"syscall"
 	"testing"
+	"unsafe"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
 	"github.com/stretchr/testify/assert"
 	"istio.io/istio/pkg/util/sets"
 
@@ -218,6 +225,10 @@ var (
 									{
 										Address: []byte{192, 168, 122, 3},
 										Length:  32,
+									},
+									{
+										Address: net.ParseIP("fd80::2"),
+										Length:  128,
 									},
 								},
 							},
@@ -1272,6 +1283,8 @@ var (
 	byNamespaceDeny = map[string]sets.Set[string]{GLOBAL_NAMESPACE: sets.New(DENY_POLICY)}
 
 	byNamespaceAllowDeny = map[string]sets.Set[string]{GLOBAL_NAMESPACE: sets.New(ALLOW_POLICY, DENY_POLICY)}
+
+	emptyBPFContext = make([]byte, 15)
 )
 
 func TestRbac_doRbac(t *testing.T) {
@@ -1982,7 +1995,7 @@ func Test_handleAuthorizationTypeResponse(t *testing.T) {
 		Rules:     []*security.Rule{},
 	}
 
-	rbac := NewRbac(nil, nil) // Initialize your rbac object here
+	rbac := NewRbac(nil) // Initialize your rbac object here
 
 	err := rbac.UpdatePolicy(policy1)
 	assert.NoError(t, err)
@@ -1994,5 +2007,209 @@ func Test_handleAuthorizationTypeResponse(t *testing.T) {
 
 	if !rbac.policyStore.byNamespace["test"].Contains(policy2.ResourceName()) {
 		t.Errorf("policy2 should still be in the policy store")
+	}
+}
+
+func genRingbuf(t *testing.T, msgType uint32, msgSize int, flags int32) (*ebpf.Program, *ebpf.Map, error) {
+	rbMap, err := ebpf.NewMap(&ebpf.MapSpec{
+		Name:       "map_of_tuple",
+		Type:       ebpf.RingBuf,
+		MaxEntries: 4096,
+	})
+	if err != nil {
+		t.Error("Create rbMap failed, err: ", err)
+		return nil, nil, err
+	}
+
+	var msgData []uint64
+	switch msgType {
+	case MSG_TYPE_IPV4:
+		msgData = []uint64{
+			0x00000000C0A87801, // msgType = 0, srcIP = 192.168.120.1
+			0xC0A87A03C26C1F90, // dstIP = 192.168.122.3, srcPort = 27842, dstPort = 8080
+			// filled data
+			0,
+			0,
+			0,
+		}
+	case MSG_TYPE_IPV6:
+		msgData = []uint64{
+			0x0100000000000001, // msgType = 1, srcIP = fd80::1
+			0,
+			0xFD80000000000002,
+			0,
+			0xFD800000C26C1F90, // dstIP = fd80::2, srcPort = 27842, dstPort = 8080
+		}
+	default:
+		t.Fatal("Invalid msgType")
+	}
+
+	insns := asm.Instructions{
+		asm.Mov.Reg(asm.R9, asm.R1),
+	}
+
+	bufDwords := msgSize / 8
+	for i := 0; i < bufDwords; i++ {
+		insns = append(insns,
+			asm.LoadImm(asm.R0, int64(msgData[i]), asm.DWord),
+			asm.StoreMem(asm.RFP, int16(i+1)*-8, asm.R0, asm.DWord),
+		)
+	}
+
+	insns = append(insns,
+		asm.LoadMapPtr(asm.R1, rbMap.FD()),
+		asm.Mov.Imm(asm.R2, int32(msgSize)),
+		asm.Mov.Imm(asm.R3, int32(0)),
+		asm.FnRingbufReserve.Call(),
+		asm.JEq.Imm(asm.R0, 0, "exit"),
+		asm.Mov.Reg(asm.R5, asm.R0),
+	)
+	for i := 0; i < msgSize; i++ {
+		insns = append(insns,
+			asm.LoadMem(asm.R4, asm.RFP, int16(i+1)*-1, asm.Byte),
+			asm.StoreMem(asm.R5, int16(i), asm.R4, asm.Byte),
+		)
+	}
+	insns = append(insns,
+		asm.Mov.Reg(asm.R1, asm.R5),
+		asm.Mov.Imm(asm.R2, flags),
+		asm.FnRingbufSubmit.Call(),
+	)
+
+	insns = append(insns,
+		asm.Mov.Imm(asm.R0, int32(0)).WithSymbol("exit"),
+		asm.Return(),
+	)
+
+	rbProg, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		License:      "Dual BSD/GPL",
+		Type:         ebpf.XDP,
+		Instructions: insns,
+	})
+	if err != nil {
+		t.Error("Create rbProg failed, err: ", err)
+		rbMap.Close()
+		return nil, nil, err
+	}
+
+	return rbProg, rbMap, nil
+}
+
+func prepareMaps(t *testing.T, msgType uint32) (mapOfTuple, mapOfAuth *ebpf.Map) {
+	sockOpsProg, mapOfTuple, err := genRingbuf(t, msgType, MSG_LEN, 0)
+	if err != nil {
+		t.Fatal("Create mapOfTuple failed, err: ", err)
+	}
+	ret, _, err := sockOpsProg.Test(emptyBPFContext)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if errno := syscall.Errno(-int32(ret)); errno != 0 {
+		t.Fatal("Expected 0 as return value, got", errno)
+	}
+
+	mapOfAuth, err = ebpf.NewMap(&ebpf.MapSpec{
+		Name:       "map_of_auth",
+		Type:       ebpf.Hash,
+		KeySize:    uint32(unsafe.Sizeof(bpfSockTupleV6{})),
+		ValueSize:  uint32(unsafe.Sizeof(uint32(0))),
+		MaxEntries: 4096,
+	})
+	if err != nil {
+		t.Fatal("Create mapOfAuth failed, err: ", err)
+	}
+
+	sockOpsProg.Close()
+	return
+}
+
+func genIPv6LookupKey() []byte {
+	key := []byte{0, 0, 0, 0x01}
+	key = append(key, append(make([]byte, 8), 0xFD, 0x80)...)
+	key = append(key, append(make([]byte, 5), 0x02)...)
+	key = append(key, append(make([]byte, 8), 0xFD, 0x80, 0, 0, 0xC2, 0x6C, 0x1F, 0x90)...)
+	return key
+}
+
+func TestRbac_Run(t *testing.T) {
+	type args struct {
+		msgType   uint32
+		lookupKey []byte
+	}
+
+	// Common variables in test func
+	policyStore := &policyStore{
+		byKey:       map[string]*security.Authorization{DENY_POLICY: policy2_4},
+		byNamespace: byNamespaceDeny,
+	}
+
+	workloadCache := cache.NewWorkloadCache()
+	workloadCache.AddWorkload(&workloadapi.Workload{
+		Name: "ut-workload",
+		Uid:  "123456",
+		Addresses: [][]byte{
+			{192, 168, 120, 1},
+			net.ParseIP("fd80::1"),
+		},
+		AuthorizationPolicies: []string{DENY_AUTH},
+	})
+
+	tests := []struct {
+		name      string
+		args      args
+		wantFound bool
+	}{
+		{
+			"1. IPv4: Deny, records found in map_of_auth",
+			args{
+				msgType: MSG_TYPE_IPV4,
+				lookupKey: append([]byte{0xC0, 0xA8, 0x78, 0x01, 0xC0, 0xA8, 0x7A, 0x03, 0xC2, 0x6C, 0x1F, 0x90},
+					make([]byte, TUPLE_LEN-IPV4_TUPLE_LENGTH)...),
+			},
+			true,
+		},
+		{
+			"2. IPv6: Deny, records found in map_of_auth",
+			args{
+				msgType:   MSG_TYPE_IPV6,
+				lookupKey: genIPv6LookupKey(),
+			},
+			true,
+		},
+	}
+	for _, tt := range tests {
+		ctx, cancelFunc := context.WithCancel(context.Background())
+		mapOfTuple, mapOfAuth := prepareMaps(t, tt.args.msgType)
+		r := &Rbac{
+			policyStore:   policyStore,
+			workloadCache: workloadCache,
+			notifyFunc: func(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error {
+				defer cancelFunc()
+				if err := xdpNotifyConnRst(mapOfAuth, msgType, key); err != nil {
+					return err
+				}
+				return nil
+			},
+		}
+
+		// Perform auth runner and wait for return
+		r.Run(ctx, mapOfTuple, mapOfAuth)
+
+		// Do lookup
+		var val uint32
+		err := mapOfAuth.Lookup(tt.args.lookupKey, &val)
+		if err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+			t.Fatal("Do lookup failed, err: ", err)
+		}
+
+		// Judge results
+		found := val == 1
+		if found != tt.wantFound {
+			t.Errorf("want %v, but got %v", tt.wantFound, found)
+		}
+
+		// Close maps
+		mapOfTuple.Close()
+		mapOfAuth.Close()
 	}
 }

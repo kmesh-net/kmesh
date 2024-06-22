@@ -17,64 +17,25 @@
 package auth
 
 import (
+	"fmt"
+
 	"github.com/cilium/ebpf"
-
-	"kmesh.net/kmesh/pkg/utils"
 )
 
-const (
-	XDP_AUTH_MAP_NAME = "map_of_auth"
-)
+type notifyFunc func(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error
 
-type bpfSockTupleV4 struct {
-	SrcAddr uint32
-	DstAddr uint32
-	SrcPort uint16
-	DstPort uint16
-}
-
-type bpfSockTupleV6 struct {
-	SrcAddr [4]uint32
-	DstAddr [4]uint32
-	SrcPort uint16
-	DstPort uint16
-}
-
-type xdpHandlerKeyV4 struct {
-	Tuple  bpfSockTupleV4
-	Filled [24]byte
-}
-
-type xdpHandlerKeyV6 struct {
-	tuple bpfSockTupleV6
-}
-
-func xdpNotifyConnRstV4(key *xdpHandlerKeyV4) error {
-	log.Infof("XdpHandlerUpdateV4 [%#v]", *key)
-	var (
-		authMap *ebpf.Map
-		err     error
-	)
-	if authMap, err = utils.GetMapByName(XDP_AUTH_MAP_NAME); err != nil {
-		log.Errorf("GetMapByName in XdpHandlerUpdateV4 FAILED, err: %v", err)
-		return err
+func xdpNotifyConnRst(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error {
+	if mapOfAuth == nil {
+		return fmt.Errorf("map_of_auth is nil")
+	}
+	// The last TUPLE_LEN-IPV4_TUPLE_LENGTH bytes should be filled with zeros if msgType is
+	// MSG_TYPE_IPV4, so the key can be looked up successfully by XDP eBPF program
+	if msgType == MSG_TYPE_IPV4 {
+		for i := IPV4_TUPLE_LENGTH; i < len(key); i++ {
+			key[i] = 0
+		}
 	}
 	// Insert the socket tuple into the auth map, so xdp_auth_handler can know that socket with
-	// this tuple is denied by policy
-	return authMap.Update(key, uint32(1), ebpf.UpdateAny)
-}
-
-func xdpNotifyConnRstV6(key *xdpHandlerKeyV6) error {
-	log.Infof("XdpHandlerUpdateV6 [%#v]", *key)
-	var (
-		authMap *ebpf.Map
-		err     error
-	)
-	if authMap, err = utils.GetMapByName(XDP_AUTH_MAP_NAME); err != nil {
-		log.Errorf("GetMapByName in XdpHandlerUpdateV6 FAILED, err: %v", err)
-		return err
-	}
-	// Insert the socket tuple into the auth map, so xdp_auth_handler can know that socket with
-	// this tuple is denied by policy
-	return authMap.Update(key, uint32(1), ebpf.UpdateAny)
+	// this tuple is denied by policy, note that IP and port are big endian in auth map
+	return mapOfAuth.Update(key, uint32(1), ebpf.UpdateAny)
 }
