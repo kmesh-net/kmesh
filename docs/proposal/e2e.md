@@ -22,7 +22,7 @@ This proposal mainly introduces the motivation for introducing E2E testing in Km
 
 ### Motivation
 
-E2E testing is a software approach that tests an application's workflow from start to finish, simulating read-user scenarios. The main purpose of E2E testing is to validate the system as a whole,ensuring that all the individual components and integrations work together seamlessly. It helps to identify any issues or defects that may arise from the interation between different components of the appliction, ensuing the application works as expected under normal operating conditions.
+E2E testing is a software approach that tests an application's workflow from start to finish, simulating real user scenarios. The main purpose of E2E testing is to validate the system as a whole,ensuring that all the individual components and integrations work together seamlessly. It helps to identify any issues or defects that may arise from the interation between different components of the appliction, ensuing the application works as expected under normal operating conditions.
 
 We often encounter such situation during development: although all UTs have passed, when we compile the code to the binary, deploy the component to the test environment, or even worse, to the production envionment, we find some basic functions doesn't work, and the reason for the unavailability is obviously not caused by this modification. Apparently it is unrealistic to manually test all scenarios before merging the code everytime.
 
