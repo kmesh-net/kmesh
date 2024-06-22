@@ -245,7 +245,7 @@ static inline void skops_handle_bypass_process(struct bpf_sock_ops *skops)
 SEC("sockops")
 int sockops_prog(struct bpf_sock_ops *skops)
 {
-    if (skops->family != AF_INET && !ipv4_mapped_addr(skops->local_ip6))
+    if (skops->family != AF_INET && skops->family != AF_INET6)
         return 0;
     switch (skops->op) {
     case BPF_SOCK_OPS_TCP_CONNECT_CB:
@@ -253,7 +253,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
         skops_handle_bypass_process(skops);
         break;
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, NULL)) // local ip4 is client ip
+        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, skops->local_ip6)) // local ip4/6 is client ip
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
@@ -263,7 +263,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
             enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, NULL)) // local ip4 is server ip
+        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, skops->local_ip6)) // local ip4/6 is server ip
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");

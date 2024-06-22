@@ -86,7 +86,7 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
 {
     struct kmesh_context kmesh_ctx = {0};
     kmesh_ctx.ctx = ctx;
-    bpf_memcpy(kmesh_ctx.vip.ip6, ctx->user_ip6, IPV6_ADDR_LEN);
+    bpf_memcpy(kmesh_ctx.orig_dst_addr.ip6, ctx->user_ip6, IPV6_ADDR_LEN);
     bpf_memcpy(kmesh_ctx.dnat_ip.ip6, ctx->user_ip6, IPV6_ADDR_LEN);
     kmesh_ctx.dnat_port = ctx->user_port;
 
