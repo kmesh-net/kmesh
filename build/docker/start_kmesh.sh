@@ -40,9 +40,10 @@ function cleanup(){
                   rmmod kmesh
           fi
 
-          umount -t cgroup2 /mnt/kmesh_cgroup2/
-          rm -rf /mnt/kmesh_cgroup2
-          rm -rf /sys/fs/bpf/bpf_kmesh
+        #   umount -t cgroup2 /mnt/kmesh_cgroup2/
+        #   rm -rf /mnt/kmesh_cgroup2
+        #   rm -rf /sys/fs/bpf/bpf_kmesh
+        echo "close"
 }
 
 trap 'stop_kmesh' SIGTERM
