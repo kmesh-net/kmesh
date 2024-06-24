@@ -41,7 +41,7 @@ func NewCmd() *cobra.Command {
 		kmesh-daemon log default`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			_ = RunGetOrSetLoggerLevel(cmd, args)
+			RunGetOrSetLoggerLevel(cmd, args)
 		},
 	}
 	cmd.Flags().String("set", "", "Set the logger level (e.g., default:debug)")
@@ -133,12 +133,11 @@ func SetLoggerLevel(setFlag string) {
 	fmt.Println(string(body))
 }
 
-func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) error {
+func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 	setFlag, _ := cmd.Flags().GetString("set")
 	if setFlag == "" {
 		GetLoggerLevel(args)
 	} else {
 		SetLoggerLevel(setFlag)
 	}
-	return nil
 }
