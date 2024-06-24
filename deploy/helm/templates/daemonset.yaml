@@ -77,6 +77,13 @@ spec:
           name: istio-token
       priorityClassName: system-node-critical
       serviceAccountName: {{ include "kmesh.fullname" . }}
+      tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - key: CriticalAddonsOnly
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
       volumes:
       - hostPath:
           path: /mnt

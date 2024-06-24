@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -24,7 +25,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
-	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -51,17 +51,6 @@ type EchoDeployments struct {
 	// Namespace echo apps will be deployed
 	Namespace namespace.Instance
 
-	// AllWaypoint is a waypoint for all types
-	AllWaypoint echo.Instances
-	// WorkloadAddressedWaypoint is a workload only waypoint
-	WorkloadAddressedWaypoint echo.Instances
-	// ServiceAddressedWaypoint is a service only waypoint
-	ServiceAddressedWaypoint echo.Instances
-	// Captured echo service
-	Captured echo.Instances
-	// Uncaptured echo service
-	Uncaptured echo.Instances
-
 	// All echo services
 	All echo.Instances
 
@@ -75,7 +64,6 @@ const (
 	Captured                  = "captured"
 	Uncaptured                = "uncaptured"
 	WaypointImageAnnotation   = "sidecar.istio.io/proxyImage"
-	KmeshCustomWaypointImage  = "ghcr.io/kmesh-net/waypoint-x86:v0.3.0"
 	Timeout                   = 2 * time.Minute
 	KmeshReleaseName          = "kmesh"
 	KmeshNamespace            = "kmesh-system"
@@ -163,34 +151,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
-		/*
-			WithConfig(echo.Config{
-				Service:               WorkloadAddressedWaypoint,
-				Namespace:             apps.Namespace,
-				Ports:                 ports.All(),
-				ServiceAccount:        true,
-				WorkloadWaypointProxy: "waypoint",
-				Subsets: []echo.SubsetConfig{
-					{
-						Replicas: 1,
-						Version:  "v1",
-						Labels: map[string]string{
-							"app":                             WorkloadAddressedWaypoint,
-							"version":                         "v1",
-							constants.AmbientUseWaypointLabel: "waypoint",
-						},
-					},
-					{
-						Replicas: 1,
-						Version:  "v2",
-						Labels: map[string]string{
-							"app":                             WorkloadAddressedWaypoint,
-							"version":                         "v2",
-							constants.AmbientUseWaypointLabel: "waypoint",
-						},
-					},
-				},
-			}).*/
 		WithConfig(echo.Config{
 			Service:              ServiceAddressedWaypoint,
 			Namespace:            apps.Namespace,
@@ -232,25 +192,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Version:  "v2",
 				},
 			},
-		}) /*.
-		WithConfig(echo.Config{
-			Service:        Uncaptured,
-			Namespace:      apps.Namespace,
-			Ports:          ports.All(),
-			ServiceAccount: true,
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-					Labels:   map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
-				},
-				{
-					Replicas: 1,
-					Version:  "v2",
-					Labels:   map[string]string{constants.DataplaneModeLabel: constants.DataplaneModeNone},
-				},
-			},
-		})*/
+		})
 
 	echos, err := builder.Build()
 	if err != nil {
@@ -260,12 +202,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		scopes.Framework.Infof("built %v", b.Config().Service)
 	}
 	apps.All = echos
-	apps.WorkloadAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: WorkloadAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.ServiceAddressedWaypoint = match.ServiceName(echo.NamespacedName{Name: ServiceAddressedWaypoint, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.AllWaypoint = apps.AllWaypoint.Append(apps.WorkloadAddressedWaypoint)
-	apps.AllWaypoint = apps.AllWaypoint.Append(apps.ServiceAddressedWaypoint)
-	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Uncaptured = match.ServiceName(echo.NamespacedName{Name: Uncaptured, Namespace: apps.Namespace}).GetMatches(echos)
 
 	if apps.WaypointProxies == nil {
 		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
@@ -362,7 +298,12 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 		},
 	}
 
-	gw.Annotations[WaypointImageAnnotation] = KmeshCustomWaypointImage
+	waypointImage := os.Getenv("KMESH_WAYPOINT_IMAGE")
+	if waypointImage == "" {
+		return nil, fmt.Errorf("failed to get Kmesh custom waypoint image from env")
+	}
+
+	gw.Annotations[WaypointImageAnnotation] = waypointImage
 
 	cls := ctx.Clusters().Default()
 

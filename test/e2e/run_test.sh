@@ -9,6 +9,10 @@ set -e
 
 DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
+export KMESH_WAYPOINT_IMAGE="ghcr.io/kmesh-net/waypoint-x86:v0.3.0"
+
+ROOT_DIR=$(git rev-parse --show-toplevel)
+
 # Provision a kind clustr for testing.
 function setup_kind_cluster() {
     local NAME="${1:-kmesh-testing}"
@@ -24,6 +28,9 @@ function setup_kind_cluster() {
     cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+- role: control-plane
+- role: worker
 containerdConfigPatches:
 - |-
   [plugins."io.containerd.grpc.v1.cri".registry]
@@ -61,15 +68,12 @@ function setup_kind_registry() {
     # We want a consistent name that works from both ends, so we tell containerd to alias localhost:${reg_port}
     # to the registry container when pulling images
     REGISTRY_DIR="/etc/containerd/certs.d/localhost:${KIND_REGISTRY_PORT}"
-    for node in $(kind get nodes); do
+    for node in $(kind get nodes -A); do
         docker exec "${node}" mkdir -p "${REGISTRY_DIR}"
         cat << EOF | docker exec -i "${node}" cp /dev/stdin "${REGISTRY_DIR}/hosts.toml"
 [host."http://${KIND_REGISTRY_NAME}:5000"]
 EOF
     done
-
-    # Allow kind nodes to reach the registry
-    # docker network connect "kind" "${KIND_REGISTRY_NAME}"
 
     # Document the local registry
     cat <<EOF | kubectl apply -f -
@@ -99,6 +103,8 @@ function install_dependencies() {
     chmod 700 get_helm.sh
 
     ./get_helm.sh
+
+    rm get_helm.sh
 }
 
 while (( "$#" )); do
@@ -132,4 +138,4 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     build_and_push_images
 fi
 
-go test -v -tags=integ ./test/e2e/...
+go test -v -tags=integ $ROOT_DIR/test/e2e/...
