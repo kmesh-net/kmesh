@@ -157,7 +157,7 @@ func disableKmeshControl(ns string) error {
 			return err
 		}
 		errno, ok := err.(syscall.Errno)
-		if ok && errno == 115 { // -EINPROGRESS, Operation now in progress
+		if ok && (errno == 115 || errno == 101) { // -EINPROGRESS, Operation now in progress | Network is unreachable
 			return nil
 		}
 		return err
@@ -197,7 +197,7 @@ func enableKmeshControl(ns string) error {
 			return err
 		}
 		errno, ok := err.(syscall.Errno)
-		if ok && errno == 115 { // -EINPROGRESS, Operation now in progress
+		if ok && (errno == 115 || errno == 101) { // -EINPROGRESS, Operation now in progress | Network is unreachable
 			return nil
 		}
 		return err
