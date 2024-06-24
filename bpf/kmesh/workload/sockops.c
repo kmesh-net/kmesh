@@ -32,13 +32,13 @@ struct {
     __uint(map_flags, 0);
 } map_of_kmesh_socket SEC(".maps");
 
-static inline bool is_managed_by_kmesh(__u32 family, __u32 ip4, __u32 *ip6)
+static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
 {
     struct manager_key key = {0};
-    if (family == AF_INET)
-        key.addr.ip4 = ip4;
-    if (family == AF_INET6 && ip6)
-        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+    if (skops->family == AF_INET)
+        key.addr.ip4 = skops->local_ip4;
+    if (skops->family == AF_INET6)
+        IP6_COPY(key.addr.ip6, skops->local_ip6);
 
     int *value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!value)
@@ -221,11 +221,6 @@ static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new
         BPF_LOG(ERR, KMESH, "set bypass value failed!, err is %d\n", err);
 }
 
-static inline bool ipv4_mapped_addr(__u32 ip6[4])
-{
-    return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
-}
-
 static inline void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops)
 {
     if (skops_conn_from_cni_sim_add(skops))
@@ -253,7 +248,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
         skops_handle_bypass_process(skops);
         break;
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, skops->local_ip6)) // local ip4/6 is client ip
+        if (!is_managed_by_kmesh(skops))
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
@@ -263,7 +258,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
             enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, skops->local_ip6)) // local ip4/6 is server ip
+        if (!is_managed_by_kmesh(skops))
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");

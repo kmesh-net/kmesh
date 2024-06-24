@@ -19,14 +19,18 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     if (ctx->protocol != IPPROTO_TCP)
         return 0;
 
+    if (ctx->family == AF_INET6 && ipv4_mapped_addr(kmesh_ctx->orig_dst_addr.ip6))
+        V4_MAPPED_FMT_V4(kmesh_ctx->orig_dst_addr.ip6);
     DECLARE_FRONTEND_KEY(ctx, &kmesh_ctx->orig_dst_addr, frontend_k);
 
     BPF_LOG(
         DEBUG,
         KMESH,
-        "origin addr=[%s:%u]\n",
-        ip2str(&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
+        "origin addr=[%u:%s:%u]\n",
+        ctx->family,
+        ip2str(&frontend_k.addr.ip6, (ctx->family == AF_INET)),
         bpf_ntohs(ctx->user_port));
+
     frontend_v = map_lookup_frontend(&frontend_k);
     if (!frontend_v) {
         return -ENOENT;
@@ -35,7 +39,8 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     BPF_LOG(
         DEBUG,
         KMESH,
-        "bpf find frontend addr=[%s:%u]\n",
+        "bpf find frontend addr=[%u:%s:%u]\n",
+        ctx->family,
         ip2str(&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
         bpf_ntohs(ctx->user_port));
     ret = frontend_manager(kmesh_ctx, frontend_v);
@@ -86,13 +91,15 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
 {
     struct kmesh_context kmesh_ctx = {0};
     kmesh_ctx.ctx = ctx;
-    bpf_memcpy(kmesh_ctx.orig_dst_addr.ip6, ctx->user_ip6, IPV6_ADDR_LEN);
-    bpf_memcpy(kmesh_ctx.dnat_ip.ip6, ctx->user_ip6, IPV6_ADDR_LEN);
+    IP6_COPY(kmesh_ctx.orig_dst_addr.ip6, ctx->user_ip6);
+    IP6_COPY(kmesh_ctx.dnat_ip.ip6, kmesh_ctx.orig_dst_addr.ip6);
     kmesh_ctx.dnat_port = ctx->user_port;
 
     if (!is_kmesh_enabled(ctx) || is_bypass_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
+
+    BPF_LOG(DEBUG, KMESH, "enter cgroup/connect6\n");
 
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
@@ -100,7 +107,10 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
         return CGROUP_SOCK_OK;
     }
 
+    if (ipv4_mapped_addr(ctx->user_ip6))
+        V4_MAPPED_IN_V6(kmesh_ctx.dnat_ip.ip6);
     SET_CTX_ADDRESS6(ctx, &kmesh_ctx.dnat_ip, kmesh_ctx.dnat_port);
+
     if (kmesh_ctx.via_waypoint) {
         kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT6_INDEX);
 

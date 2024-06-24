@@ -78,6 +78,33 @@ static inline int kmesh_map_update_elem(void *map, const void *key, const void *
     return (int)bpf_map_update_elem(map, key, value, BPF_ANY);
 }
 
+static inline bool ipv4_mapped_addr(__u32 ip6[4])
+{
+    return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
+}
+
+#define V4_MAPPED_FMT_V4(v4_mapped)                                                                                    \
+    do {                                                                                                               \
+        (v4_mapped)[2] = 0;                                                                                            \
+        (v4_mapped)[0] = (v4_mapped)[3];                                                                               \
+        (v4_mapped)[3] = 0;                                                                                            \
+    } while (0)
+
+#define V4_MAPPED_IN_V6(ipv6)                                                                                          \
+    do {                                                                                                               \
+        (ipv6)[3] = (ipv6)[0];                                                                                         \
+        (ipv6)[0] = 0;                                                                                                 \
+        (ipv6)[2] = 0xFFFF0000;                                                                                        \
+    } while (0)
+
+#define IP6_COPY(dst, src)                                                                                             \
+    do {                                                                                                               \
+        (dst)[0] = (src)[0];                                                                                           \
+        (dst)[1] = (src)[1];                                                                                           \
+        (dst)[2] = (src)[2];                                                                                           \
+        (dst)[3] = (src)[3];                                                                                           \
+    } while (0)
+
 #if OE_23_03
 #define bpf__strncmp                  bpf_strncmp
 #define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port)
@@ -174,9 +201,9 @@ static inline int convert_v6(char *data, __u32 *ip6)
     return ret;
 }
 #else
-static const char hex_digits[16] = "0123456789abcdef";
 static inline int convert_v6(char *data, __u32 *ip6)
 {
+    const char hex_digits[16] = "0123456789abcdef";
 #pragma clang loop unroll(full)
     for (int i = 0; i < 4; i++) {
         __u32 ip = *(ip6 + i);
