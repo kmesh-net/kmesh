@@ -128,7 +128,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	p.lastNonce.cdsNonce = resp.Nonce
 	current := sets.New[string]()
 	lastEdsClusterNames := p.Cache.edsClusterNames
-	p.Cache.edsClusterNames = []string{}
+	p.Cache.edsClusterNames = nil
 	for _, resource := range resp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
 			continue
@@ -139,13 +139,19 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		}
 		// compare part[0] CDS now
 		// Cluster_EDS need compare tow parts, compare part[1] EDS in EDS handler
-		apiStatus := core_v2.ApiStatus_UPDATE
 		newHash := hash.Sum64String(resource.String())
 		if newHash != p.Cache.ClusterCache.GetCdsHash(cluster.GetName()) {
-			p.Cache.ClusterCache.SetCdsHash(cluster.GetName(), newHash)
+			var status core_v2.ApiStatus
+			if cluster.GetType() == config_cluster_v3.Cluster_EDS {
+				status = core_v2.ApiStatus_WAITING
+			} else {
+				status = core_v2.ApiStatus_UPDATE
+			}
+
 			log.Debugf("[CreateApiClusterByCds] update cluster %s, status %d, cluster.type %v",
-				cluster.GetName(), apiStatus, cluster.GetType())
-			p.Cache.CreateApiClusterByCds(apiStatus, cluster)
+				cluster.GetName(), status, cluster.GetType())
+			p.Cache.ClusterCache.SetCdsHash(cluster.GetName(), newHash)
+			p.Cache.CreateApiClusterByCds(status, cluster)
 		} else {
 			log.Debugf("unchanged cluster %s", cluster.GetName())
 		}
@@ -157,17 +163,13 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	}
 	if len(removed) > 0 {
 		log.Debugf("removed cluster: %v", removed.UnsortedList())
-		p.Cache.ClusterCache.Delete()
 	}
 
-	// TODO(hzxuzhonghu): consider flush all the clusters except those of type EDS
-	// So DNS typed clusters can take effect immediately
-
-	// Only flush the cache when there is no eds cluster
-	// Eds cluster should always be flushed in the eds handler
-	if len(p.Cache.edsClusterNames) == 0 {
-		p.Cache.ClusterCache.Flush()
-	}
+	// Fluh the clusters in these cases:
+	// 1. clusters need to be deleted
+	// 2. dns typed clusters update, we donot need to wait for eds update, because dns cluster has no eds following
+	// Note eds typed cluster, we donot flush to bpf map here, we need to wait for eds update.
+	p.Cache.ClusterCache.Flush()
 
 	if p.lastNonce.edsNonce == "" {
 		// initial subscribe to eds
@@ -187,26 +189,22 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 }
 
 func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
-	var (
-		err            error
-		loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
-	)
-
+	var loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
 	p.lastNonce.edsNonce = resp.Nonce
-	current := sets.New[string]()
 	for _, resource := range resp.GetResources() {
-		if err = anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
+		if err := anypb.UnmarshalTo(resource, loadAssignment, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
 		cluster := p.Cache.ClusterCache.GetApiCluster(loadAssignment.GetClusterName())
 		// fix exceptional scenarios: receive eds push after cds has been deleted
 		if cluster == nil {
+			log.Debugf("cluster %s is deleted", loadAssignment.GetClusterName())
 			continue
 		}
 		apiStatus := cluster.ApiStatus
 		newHash := hash.Sum64String(resource.String())
 		// part[0] CDS is different or part[1] EDS is different
-		if apiStatus == core_v2.ApiStatus_UPDATE ||
+		if apiStatus == core_v2.ApiStatus_WAITING ||
 			newHash != p.Cache.ClusterCache.GetEdsHash(loadAssignment.GetClusterName()) {
 			apiStatus = core_v2.ApiStatus_UPDATE
 			p.Cache.ClusterCache.SetEdsHash(loadAssignment.GetClusterName(), newHash)
@@ -215,15 +213,19 @@ func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		} else {
 			log.Debugf("handleEdsResponse: unchanged cluster %s", loadAssignment.GetClusterName())
 		}
-		current.Insert(loadAssignment.GetClusterName())
-		p.ack.ResourceNames = append(p.ack.ResourceNames, loadAssignment.GetClusterName())
 	}
+
+	// EDS ack should contain all the eds cluster names, and since istiod can send partial eds to us, we use those set by handleCdsResponse
+	// Ad xds protocol spec, the non wildcard resource ack should contain all the names
+	p.ack.ResourceNames = p.Cache.edsClusterNames
 
 	if p.lastNonce.ldsNonce == "" {
 		// subscribe to lds only once per stream
 		p.req = newAdsRequest(resource_v3.ListenerType, nil, "")
 	}
+
 	p.Cache.ClusterCache.Flush()
+
 	return nil
 }
 
