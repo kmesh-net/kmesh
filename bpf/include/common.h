@@ -174,9 +174,9 @@ static inline int convert_v6(char *data, __u32 *ip6)
     return ret;
 }
 #else
-static const char hex_digits[16] = "0123456789abcdef";
 static inline int convert_v6(char *data, __u32 *ip6)
 {
+    const char hex_digits[16] = "0123456789abcdef";
 #pragma clang loop unroll(full)
     for (int i = 0; i < 4; i++) {
         __u32 ip = *(ip6 + i);
