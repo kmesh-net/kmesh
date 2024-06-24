@@ -76,16 +76,24 @@ static inline void shutdown_tuple(struct xdp_info *info)
     info->tcph->ack = 0;
 }
 
-static inline int should_shutdown(struct bpf_sock_tuple *tuple_info)
+static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     __u32 *value = bpf_map_lookup_elem(&map_of_auth, tuple_info);
     if (value) {
-        BPF_LOG(
-            INFO,
-            XDP,
-            "auth denied, src ip: %s, port: %u\n",
-            ip2str(&tuple_info->ipv4.saddr, 1),
-            bpf_ntohs(tuple_info->ipv4.sport));
+        if (info->iph->version == 4)
+            BPF_LOG(
+                INFO,
+                XDP,
+                "auth denied, src ip: %s, port: %u\n",
+                ip2str(&tuple_info->ipv4.saddr, true),
+                bpf_ntohs(tuple_info->ipv4.sport));
+        else
+            BPF_LOG(
+                INFO,
+                XDP,
+                "auth denied, src ip: %s, port: %u\n",
+                ip2str(&tuple_info->ipv6.saddr, false),
+                bpf_ntohs(tuple_info->ipv6.sport));
         bpf_map_delete_elem(&map_of_auth, tuple_info);
         return AUTH_FORBID;
     }
@@ -111,7 +119,7 @@ int xdp_shutdown(struct xdp_md *ctx)
 
     // never failed
     parser_tuple(&info, &tuple_info);
-    if (should_shutdown(&tuple_info) == AUTH_FORBID)
+    if (should_shutdown(&info, &tuple_info) == AUTH_FORBID)
         shutdown_tuple(&info);
 
     // If auth denied, it still returns XDP_PASS here, so next time when a client package is

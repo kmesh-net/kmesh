@@ -28,7 +28,7 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
         KMESH,
         "origin addr=[%u:%s:%u]\n",
         ctx->family,
-        ip2str(&frontend_k.addr.ip6, (ctx->family == AF_INET)),
+        ip2str(&frontend_k.addr, (ctx->family == AF_INET)),
         bpf_ntohs(ctx->user_port));
 
     frontend_v = map_lookup_frontend(&frontend_k);
