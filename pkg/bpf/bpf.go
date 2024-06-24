@@ -50,6 +50,7 @@ type BpfLoader struct {
 	obj         *BpfKmesh
 	workloadObj *BpfKmeshWorkload
 	bpfLogLevel *ebpf.Map
+	Restart		bool
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
@@ -156,6 +157,11 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
+	log.Printf("Stop l.restart: %v", l.Restart)
+	if l.Restart {
+		log.Infof("kmesh restart, not clean bpf map and prog")
+		return
+	}
 
 	if l.config.AdsEnabled() {
 		C.deserial_uninit()

@@ -149,6 +149,17 @@ func (sc *BpfSockConnWorkload) Attach() error {
 	}
 
 	sc.Link6, err = link.AttachCgroup(cgopt)
+	_, err = os.Stat(sc.Info.BpfFsPath + "sockconn_prog")
+	if err == nil {
+		log.Printf("目录已存在%v", sc.Info.BpfFsPath + "sockconn_prog")
+		return nil
+	}
+
+	if err := sc.Link.Pin(sc.Info.BpfFsPath + "sockconn_prog"); err != nil {
+		log.Printf("目录已存在，pin失败%v", sc.Info.BpfFsPath + "sockconn_prog")
+		return err
+	}
+
 	return err
 }
 
@@ -269,6 +280,17 @@ func (so *BpfSockOpsWorkload) Attach() error {
 		return err
 	}
 	so.Link = lk
+
+	_, err = os.Stat(so.Info.BpfFsPath + "cgroup_sockops_prog")
+	if err == nil {
+		log.Printf("目录已存在%v", so.Info.BpfFsPath + "cgroup_sockops_prog")
+		return nil
+	}
+
+	if err := lk.Pin(so.Info.BpfFsPath + "cgroup_sockops_prog"); err != nil {
+		log.Printf("目录已存在，pin失败%v", so.Info.BpfFsPath + "cgroup_sockops_prog")
+		return err
+	}
 	return nil
 }
 
