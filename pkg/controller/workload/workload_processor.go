@@ -68,7 +68,7 @@ func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	}
 }
 
-func newInitialWorkloadRequest(typeUrl string, names []string, initialResourceVersions map[string]string) *service_discovery_v3.DeltaDiscoveryRequest {
+func newDeltaRequest(typeUrl string, names []string, initialResourceVersions map[string]string) *service_discovery_v3.DeltaDiscoveryRequest {
 	return &service_discovery_v3.DeltaDiscoveryRequest{
 		TypeUrl:                 typeUrl,
 		ResourceNamesSubscribe:  names,
@@ -76,16 +76,6 @@ func newInitialWorkloadRequest(typeUrl string, names []string, initialResourceVe
 		ResponseNonce:           "",
 		ErrorDetail:             nil,
 		Node:                    config.GetConfig(constants.WorkloadMode).GetNode(),
-	}
-}
-
-func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.DeltaDiscoveryRequest {
-	return &service_discovery_v3.DeltaDiscoveryRequest{
-		TypeUrl:                typeUrl,
-		ResourceNamesSubscribe: names,
-		ResponseNonce:          "",
-		ErrorDetail:            nil,
-		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
 }
 
