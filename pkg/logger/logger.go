@@ -61,6 +61,22 @@ var (
 	}
 )
 
+func PrintLogs() error {
+	logsPath := defaultLogFile
+	file, err := os.Open(logsPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Redirct file contents to STDOUT
+	_, err = io.Copy(os.Stdout, file)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func SetLoggerLevel(loggerName string, level logrus.Level) error {
 	logger, exists := loggerMap[loggerName]
 	if !exists || logger == nil {
