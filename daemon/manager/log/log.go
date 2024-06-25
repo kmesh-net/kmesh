@@ -27,6 +27,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/status"
 )
 
@@ -50,11 +51,19 @@ func NewCmd() *cobra.Command {
 
 func GetLoggerLevel(args []string) {
 	if len(args) != 1 {
-		fmt.Println("Missing logger name argument")
-		os.Exit(1)
+		names := logger.GetLoggerNames()
+		if len(names) > 0 {
+			fmt.Println("Existing loggers:")
+			for _, name := range names {
+				fmt.Println(name)
+			}
+		} else {
+			fmt.Println("No existing loggers.")
+		}
+		return
 	}
 	loggerName := args[0]
-	url := status.GetLoggerLevelAddr() + "?name=" + loggerName
+	url := status.GetLoggerURL() + "?name=" + loggerName
 
 	resp, err := http.Get(url)
 	if err != nil {
@@ -105,7 +114,7 @@ func SetLoggerLevel(setFlag string) {
 		return
 	}
 
-	url := status.GetLoggerLevelAddr()
+	url := status.GetLoggerURL()
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
 	if err != nil {
 		fmt.Printf("Error creating request: %v\n", err)

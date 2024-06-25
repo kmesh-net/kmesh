@@ -71,7 +71,7 @@ func GetConfigDumpAddr(mode string) string {
 	return "http://" + adminAddr + configDumpPrefix + "/" + mode
 }
 
-func GetLoggerLevelAddr() string {
+func GetLoggerURL() string {
 	return "http://" + adminAddr + patternLoggers
 }
 
