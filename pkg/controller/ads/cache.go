@@ -17,8 +17,6 @@
 package ads
 
 import (
-	"time"
-
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -46,7 +44,6 @@ type AdsCache struct {
 	edsClusterNames []string
 	// route names to be subscribed, which is inferred from listener
 	routeNames    []string
-	dnsClusters   map[string]time.Duration
 	ListenerCache cache_v2.ListenerCache
 	ClusterCache  cache_v2.ClusterCache
 	RouteCache    cache_v2.RouteConfigCache
@@ -109,7 +106,6 @@ func newApiClusterLoadAssignment(
 				Address: newApiSocketAddress(endpoint.GetEndpoint().GetAddress()),
 			}
 			if apiEndpoint.GetAddress() == nil || apiEndpoint.Address.Ipv4 == 0 {
-				log.Warnf("cluster %s endpoint address %v is nil or invalid", loadAssignment.GetClusterName(), endpoint.GetEndpoint().GetAddress())
 				continue
 			}
 			apiLocalityLb.LbEndpoints = append(apiLocalityLb.LbEndpoints, apiEndpoint)

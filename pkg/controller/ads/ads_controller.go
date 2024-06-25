@@ -36,10 +36,9 @@ type Controller struct {
 }
 
 func NewController() *Controller {
-	c := &Controller{
+	return &Controller{
 		Processor: newProcessor(),
 	}
-	return c
 }
 
 func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {

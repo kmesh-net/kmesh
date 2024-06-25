@@ -18,7 +18,6 @@ package ads
 
 import (
 	"fmt"
-	"time"
 
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -31,7 +30,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	"k8s.io/apimachinery/pkg/util/sets"
 
-	core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/constants"
@@ -55,7 +53,7 @@ type processor struct {
 	req       *service_discovery_v3.DiscoveryRequest
 	lastNonce *lastNonce
 	// the channel used to send domains to dns resolver. key is domain name and value is refreshrate
-	DnsResolverChan chan map[string]time.Duration
+	DnsResolverChan chan []*config_cluster_v3.Cluster
 }
 
 func newProcessor() *processor {
@@ -144,20 +142,19 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	current := sets.New[string]()
 	lastEdsClusterNames := p.Cache.edsClusterNames
 	p.Cache.edsClusterNames = nil
-	p.Cache.dnsClusters = make(map[string]time.Duration)
+	dnsClusters := []*config_cluster_v3.Cluster{}
 	for _, resource := range resp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
 		current.Insert(cluster.GetName())
+
 		if cluster.GetType() == config_cluster_v3.Cluster_EDS {
 			p.Cache.edsClusterNames = append(p.Cache.edsClusterNames, cluster.GetName())
 		} else if cluster.GetType() == config_cluster_v3.Cluster_STRICT_DNS ||
 			cluster.GetType() == config_cluster_v3.Cluster_LOGICAL_DNS {
-			clusterNames := getDoaminAndRefreshRateFromCluster(cluster)
-			for name, refreshRate := range clusterNames {
-				p.Cache.dnsClusters[name] = refreshRate
-			}
+			clonedCluster := proto.Clone(cluster).(*config_cluster_v3.Cluster)
+			dnsClusters = append(dnsClusters, clonedCluster)
 		}
 		// compare part[0] CDS now
 		// Cluster_EDS need compare tow parts, compare part[1] EDS in EDS handler
@@ -166,6 +163,10 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 			var status core_v2.ApiStatus
 			if cluster.GetType() == config_cluster_v3.Cluster_EDS {
 				status = core_v2.ApiStatus_WAITING
+			} else if cluster.GetType() == config_cluster_v3.Cluster_STRICT_DNS ||
+				cluster.GetType() == config_cluster_v3.Cluster_LOGICAL_DNS {
+				// dns typed cluster will be handled in dns module, skip update bpf map here
+				status = core_v2.ApiStatus_NONE
 			} else {
 				status = core_v2.ApiStatus_UPDATE
 			}
@@ -179,7 +180,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		}
 	}
 	// send domain and refreshrate map to dns resolver via channel
-	p.DnsResolverChan <- p.Cache.dnsClusters
+	p.DnsResolverChan <- dnsClusters
 	removed := p.Cache.ClusterCache.GetResourceNames().Difference(current)
 	for key := range removed {
 		p.Cache.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
@@ -351,20 +352,4 @@ func SetApiVersionInfo(resources *admin_v2.ConfigResources) {
 	if !ConfigResourcesIsEmpty(resources) {
 		resources.VersionInfo = apiVersionInfo
 	}
-}
-
-// Get domain name and refreshrate from cluster, the STRIC_DNS typed cluster name could be something like
-// outbound|8080||test.default.svc.cluster.local, and also it should contains the dns refresh rate.
-func getDoaminAndRefreshRateFromCluster(cluster *config_cluster_v3.Cluster) map[string]time.Duration {
-	res := make(map[string]time.Duration)
-	refreshRate := cluster.GetDnsRefreshRate().AsDuration()
-
-	for _, e := range cluster.LoadAssignment.Endpoints {
-		for _, le := range e.LbEndpoints {
-			socketAddr := le.GetEndpoint().GetAddress().GetAddress().(*core_v3.Address_SocketAddress)
-			res[socketAddr.SocketAddress.Address] = refreshRate
-		}
-	}
-
-	return res
 }

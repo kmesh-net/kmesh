@@ -124,9 +124,14 @@ func TestDNS(t *testing.T) {
 		if testcase.registerDomain != nil {
 			testcase.registerDomain(testcase.domain)
 		}
-		input := make(map[string]time.Duration)
-		input[testcase.domain] = testcase.refreshRate
-		testDNSResolver.DnsResolverChan <- input
+
+		input := &pendingResolveDomain{
+			domainName:  testcase.domain,
+			refreshRate: testcase.refreshRate,
+			port:        0,
+		}
+
+		testDNSResolver.resolve(input)
 
 		time.Sleep(2 * time.Second)
 
