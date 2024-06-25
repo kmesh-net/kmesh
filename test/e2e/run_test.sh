@@ -120,7 +120,13 @@ while (( "$#" )); do
     --skip-build)
       SKIP_BUILD=true
       shift
-    ;;  
+    ;;
+    --only-run-tests)
+      SKIP_INSTALL_DEPENDENCIES=true
+      SKIP_SETUP=true
+      SKIP_BUILD=true
+      shift
+    ;;
     esac
 done
 
@@ -138,4 +144,4 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     build_and_push_images
 fi
 
-go test -v -tags=integ $ROOT_DIR/test/e2e/...
+go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1

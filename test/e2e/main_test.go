@@ -59,14 +59,12 @@ type EchoDeployments struct {
 }
 
 const (
-	WorkloadAddressedWaypoint = "workload-addressed-waypoint"
-	ServiceAddressedWaypoint  = "service-addressed-waypoint"
-	Captured                  = "captured"
-	Uncaptured                = "uncaptured"
-	WaypointImageAnnotation   = "sidecar.istio.io/proxyImage"
-	Timeout                   = 2 * time.Minute
-	KmeshReleaseName          = "kmesh"
-	KmeshNamespace            = "kmesh-system"
+	ServiceAddressedWaypoint = "service-addressed-waypoint"
+	Enrolled                 = "enrolled"
+	WaypointImageAnnotation  = "sidecar.istio.io/proxyImage"
+	Timeout                  = 2 * time.Minute
+	KmeshReleaseName         = "kmesh"
+	KmeshNamespace           = "kmesh-system"
 )
 
 func getDefaultKmeshSrc() string {
@@ -178,7 +176,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			},
 		}).
 		WithConfig(echo.Config{
-			Service:        Captured,
+			Service:        Enrolled,
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
 			ServiceAccount: true,
