@@ -165,6 +165,14 @@ func (r *Rbac) RemovePolicy(policyKey string) {
 	r.policyStore.removePolicy(policyKey)
 }
 
+// GetAllPolicies returns all policy names in the policy store
+func (r *Rbac) GetAllPolicies() map[string]string {
+	if r == nil {
+		return nil
+	}
+	return r.policyStore.getAllPolicies()
+}
+
 func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	var networkAddress cache.NetworkAddress
 	networkAddress.Network = conn.dstNetwork

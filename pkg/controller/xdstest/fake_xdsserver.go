@@ -80,7 +80,7 @@ func (f *XDSServer) DeltaAggregatedResources(server discoveryv3.AggregatedDiscov
 			return nil
 		case resp := <-f.DeltaResponses:
 			numberOfSends++
-			log.Infof("sending delta response from mock: %v", numberOfSends)
+			log.Infof("========sending delta response from mock: %v", numberOfSends)
 			if err := server.Send(resp); err != nil {
 				return err
 			}

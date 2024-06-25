@@ -165,7 +165,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		log.Debugf("removed cluster: %v", removed.UnsortedList())
 	}
 
-	// Fluh the clusters in these cases:
+	// Flush the clusters in these cases:
 	// 1. clusters need to be deleted
 	// 2. dns typed clusters update, we donot need to wait for eds update, because dns cluster has no eds following
 	// Note eds typed cluster, we donot flush to bpf map here, we need to wait for eds update.
