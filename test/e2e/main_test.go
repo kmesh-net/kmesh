@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"path"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -20,7 +19,6 @@ import (
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
-	kubecluster "istio.io/istio/pkg/test/framework/components/cluster/kube"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
@@ -28,12 +26,9 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/helm"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/tests/integration/security/util/cert"
 	v1 "k8s.io/api/core/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 )
@@ -83,55 +78,10 @@ func TestMain(m *testing.M) {
 			t.Settings().Ambient = true
 			return nil
 		}).
-		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
-			// can't deploy VMs without eastwest gateway
-			ctx.Settings().SkipVMs()
-			cfg.EnableCNI = true
-			cfg.DeployEastWestGW = false
-		}, cert.CreateCASecretAlt)).
-		Setup(func(t resource.Context) error {
-			scopes.Framework.Info("=== BEGIN: Deploy Kmesh ===")
-
-			err := SetupKmesh(t)
-			if err != nil {
-				scopes.Framework.Info("=== FAILED: Deploy Kmesh ===")
-				return err
-			}
-
-			scopes.Framework.Info("=== SUCCEEDED: Deploy Kmesh ===")
-
-			return nil
-		}).
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
 		Run()
-}
-
-func SetupKmesh(ctx resource.Context) error {
-	cs := ctx.Clusters().Default().(*kubecluster.Cluster)
-
-	if _, err := cs.Kube().CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: KmeshNamespace,
-		},
-	}, metav1.CreateOptions{}); err != nil {
-		if !kerrors.IsAlreadyExists(err) {
-			return fmt.Errorf("failed to create %v namespace: %v", KmeshNamespace, err)
-		}
-	}
-
-	h := helm.New(cs.Filename())
-
-	kmeshChartPath := path.Join(KmeshSrc, "deploy/helm/")
-
-	// Install Kmesh chart
-	err := h.InstallChartWithValues(KmeshReleaseName, kmeshChartPath, KmeshNamespace, []string{"--set deploy.kmesh.image.repository=localhost:5000/kmesh"}, Timeout)
-	if err != nil {
-		return fmt.Errorf("failed to install Kmesh chart: %v", err)
-	}
-
-	return nil
 }
 
 func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) error {
