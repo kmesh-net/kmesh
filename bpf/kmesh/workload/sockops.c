@@ -146,7 +146,7 @@ static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
     if (family == AF_INET)
         key.addr.ip4 = ip4;
     if (family == AF_INET6 && ip6)
-        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+        IP6_COPY(key.addr.ip6, ip6);
 
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
     if (err)
@@ -159,7 +159,7 @@ static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
     if (family == AF_INET)
         key.addr.ip4 = ip4;
     if (family == AF_INET6 && ip6)
-        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+        IP6_COPY(key.addr.ip6, ip6);
 
     int err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
@@ -210,7 +210,7 @@ static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new
     if (family == AF_INET)
         key.addr.ip4 = ip4;
     if (family == AF_INET6 && ip6)
-        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+        IP6_COPY(key.addr.ip6, ip6);
 
     manager_value_t *current_value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!current_value || current_value->is_bypassed == new_bypass_value)
