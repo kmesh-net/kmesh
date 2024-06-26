@@ -19,7 +19,7 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     if (ctx->protocol != IPPROTO_TCP)
         return 0;
 
-    if (ctx->family == AF_INET6 && ipv4_mapped_addr(kmesh_ctx->orig_dst_addr.ip6))
+    if (ctx->family == AF_INET6 && is_ipv4_mapped_addr(kmesh_ctx->orig_dst_addr.ip6))
         V4_MAPPED_FMT_V4(kmesh_ctx->orig_dst_addr.ip6);
     DECLARE_FRONTEND_KEY(ctx, &kmesh_ctx->orig_dst_addr, frontend_k);
 
@@ -111,7 +111,7 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
         return CGROUP_SOCK_OK;
     }
 
-    if (ipv4_mapped_addr(ctx->user_ip6))
+    if (is_ipv4_mapped_addr(ctx->user_ip6))
         V4_MAPPED_IN_V6(kmesh_ctx.dnat_ip.ip6);
     SET_CTX_ADDRESS6(ctx, &kmesh_ctx.dnat_ip, kmesh_ctx.dnat_port);
 
@@ -119,7 +119,7 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
         kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT6_INDEX);
 
         // if tail call failed will run this code
-        BPF_LOG(ERR, KMESH, "workload tail call failed, err is %d\n", ret);
+        BPF_LOG(ERR, KMESH, "workload tail call6 failed, err is %d\n", ret);
     }
     return CGROUP_SOCK_OK;
 }

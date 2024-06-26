@@ -40,4 +40,8 @@ const (
 	OperDisableControl = 930
 	OperEnableBypass   = 931
 	OperDisableByPass  = 932
+
+	// tail call index in tail call prog map
+	TailCallConnect4Index = 0
+	TailCallConnect6Index = 1
 )

@@ -79,7 +79,7 @@ static inline int kmesh_map_update_elem(void *map, const void *key, const void *
     return (int)bpf_map_update_elem(map, key, value, BPF_ANY);
 }
 
-static inline bool ipv4_mapped_addr(__u32 ip6[4])
+static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
 {
     return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
 }

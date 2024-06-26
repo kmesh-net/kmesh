@@ -103,7 +103,7 @@ func (sc *BpfSockConnWorkload) LoadSockConn() error {
 	sc.Info.AttachType = prog.AttachType
 
 	if err = sc.MapOfTailCallProg.Update(
-		uint32(0),
+		uint32(constants.TailCallConnect4Index),
 		uint32(sc.CgroupConnect4Prog.FD()),
 		ebpf.UpdateAny); err != nil {
 		return err
@@ -114,7 +114,7 @@ func (sc *BpfSockConnWorkload) LoadSockConn() error {
 	sc.Info6.AttachType = prog.AttachType
 
 	if err = sc.MapOfTailCallProg.Update(
-		uint32(1),
+		uint32(constants.TailCallConnect6Index),
 		uint32(sc.CgroupConnect6Prog.FD()),
 		ebpf.UpdateAny); err != nil {
 		return err
