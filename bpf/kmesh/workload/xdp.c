@@ -28,30 +28,6 @@ struct xdp_info {
     struct tcphdr *tcph;
 };
 
-static inline int get_hdr_ptr(struct xdp_md *ctx, struct ethhdr **ethh, struct iphdr **iph, struct tcphdr **tcph)
-{
-    void *begin = (void *)(ctx->data);
-    void *end = (void *)(ctx->data_end);
-
-    *ethh = (struct ethhdr *)begin;
-    if ((void *)((*ethh) + 1) > end)
-        return PARSER_FAILED;
-    if ((*ethh)->h_proto != bpf_htons(ETH_P_IP))
-        return PARSER_FAILED;
-
-    *iph = (struct iphdr *)(*ethh + 1);
-    if ((void *)((*iph) + 1) > end)
-        return PARSER_FAILED;
-    if ((*iph)->protocol != IPPROTO_TCP)
-        return PARSER_FAILED;
-
-    *tcph = (struct tcphdr *)(*iph + 1);
-    if ((void *)((*tcph) + 1) > end)
-        return PARSER_FAILED;
-
-    return PARSER_SUCC;
-}
-
 static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     if (info->iph->version == 4) {
@@ -102,7 +78,35 @@ static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *
 
 static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 {
-    return get_hdr_ptr(ctx, &info->ethh, &info->iph, &info->tcph);
+    void *begin = (void *)(ctx->data);
+    void *end = (void *)(ctx->data_end);
+
+    // eth header
+    info->ethh = (struct ethhdr *)begin;
+    if ((void *)(info->ethh + 1) > end)
+        return PARSER_FAILED;
+
+    // ip4|ip6 header
+    begin = info->ethh + 1;
+    if ((begin + 1) > end)
+        return PARSER_FAILED;
+    if (((struct iphdr *)begin)->version == 4) {
+        info->iph = (struct iphdr *)begin;
+        if ((void *)(info->iph + 1) > end || (info->iph->protocol != IPPROTO_TCP))
+            return PARSER_FAILED;
+        begin = (info->iph + 1);
+    } else if (((struct iphdr *)begin)->version == 6) {
+        info->ip6h = (struct ipv6hdr *)begin;
+        if ((void *)(info->ip6h + 1) > end || (info->ip6h->nexthdr != IPPROTO_TCP))
+            return PARSER_FAILED;
+        begin = (info->ip6h + 1);
+    } else
+        return PARSER_FAILED;
+
+    info->tcph = (struct tcphdr *)begin;
+    if ((void *)(info->tcph + 1) > end)
+        return PARSER_FAILED;
+    return PARSER_SUCC;
 }
 
 SEC("xdp_auth")

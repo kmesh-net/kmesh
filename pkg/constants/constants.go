@@ -31,4 +31,13 @@ const (
 
 	BPF_LOG_ERR   = 0
 	BPF_LOG_DEBUG = 3
+
+	// Ip(0.0.0.2 | ::2) used for control command, e.g. KmeshControl | ByPass
+	ControlCommandIp4 = "0.0.0.2"
+	ControlCommandIp6 = "::2"
+	// Oper code for control command
+	OperEnableControl  = 929
+	OperDisableControl = 930
+	OperEnableBypass   = 931
+	OperDisableByPass  = 932
 )

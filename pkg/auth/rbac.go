@@ -468,8 +468,8 @@ func (r *Rbac) buildConnV6(buf *bytes.Buffer) (rbacConnection, error) {
 	}
 	// srcIp and dstIp are big endian, and dstPort is little endian, which is consistent with authorization policy flushed to Kmesh
 	for i := range tupleV6.SrcAddr {
-		conn.srcIp = binary.BigEndian.AppendUint32(conn.srcIp, tupleV6.SrcAddr[3-i])
-		conn.dstIp = binary.BigEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[3-i])
+		conn.srcIp = binary.BigEndian.AppendUint32(conn.srcIp, tupleV6.SrcAddr[i])
+		conn.dstIp = binary.BigEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[i])
 	}
 	conn.dstPort = uint32(tupleV6.DstPort)
 	conn.srcIdentity = r.getIdentityByIp(conn.srcIp)

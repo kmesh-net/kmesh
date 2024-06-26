@@ -23,11 +23,9 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"net"
 	"os"
 	"path"
 	"strings"
-	"syscall"
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -41,7 +39,9 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -152,38 +152,19 @@ func handleKmeshBypass(ns string, oper int) error {
 		 * This function is used to process pods that are marked
 		 * or deleted with the bypass label on the current node.
 		 * Attempt to connect to a special IP address. The
-		 * connection triggers the cgroup/connect4 ebpf
+		 * connection triggers the cgroup/connect4/6 ebpf
 		 * program and records the netns cookie information
 		 * of the current connection. The cookie can be used
 		 * to determine whether the pod is been bypass.
-		 * 0.0.0.1:<port> is "cipher key" for cgroup/connect4
+		 * ControlCommandIp4/6:<port> is "cipher key" for cgroup/connect4/6
 		 * ebpf program. 931/932 is the specific port handled by
 		 * daemon to enable/disable bypass
 		 */
-		simip := net.ParseIP("0.0.0.1")
-		port := 931
+		port := constants.OperEnableBypass
 		if oper == 0 {
-			port = 932
+			port = constants.OperDisableByPass
 		}
-		sockfd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
-		if err != nil {
-			return err
-		}
-		if err = syscall.SetNonblock(sockfd, true); err != nil {
-			return err
-		}
-		err = syscall.Connect(sockfd, &syscall.SockaddrInet4{
-			Port: port,
-			Addr: [4]byte(simip.To4()),
-		})
-		if err == nil {
-			return err
-		}
-		errno, ok := err.(syscall.Errno)
-		if ok && (errno == 115 || errno == 101) { // -EINPROGRESS, Operation now in progress | Network is unreachable
-			return nil
-		}
-		return err
+		return nets.TriggerControlCommand(port)
 	}
 
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {

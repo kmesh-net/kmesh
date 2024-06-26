@@ -170,36 +170,38 @@ static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 por
 {
     __u16 remote_port = GET_SKOPS_REMOTE_PORT(skops);
     __u32 client_ip = bpf_ntohl(skops->remote_ip4);
+    if (skops->family == AF_INET6)
+        client_ip = bpf_ntohl(skops->remote_ip6[3]);
 
     return (client_ip == ip) && (bpf_ntohs(remote_port) == port);
 }
 
 static inline bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)
 {
-    // cni sim connect 0.0.0.1:929(0x3a1)
+    // cni sim connect CONTROL_CMD_IP:929(0x3a1)
     // 0x3a1 is the specific port handled by the cni to enable Kmesh
-    return conn_from_sim(skops, 1, ENABLE_KMESH_PORT);
+    return conn_from_sim(skops, CONTROL_CMD_IP, ENABLE_KMESH_PORT);
 }
 
 static inline bool skops_conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
 {
-    // cni sim connect 0.0.0.1:930(0x3a2)
+    // cni sim connect CONTROL_CMD_IP:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni to disable Kmesh
-    return conn_from_sim(skops, 1, DISABLE_KMESH_PORT);
+    return conn_from_sim(skops, CONTROL_CMD_IP, DISABLE_KMESH_PORT);
 }
 
 static inline bool skops_conn_from_bypass_sim_add(struct bpf_sock_ops *skops)
 {
-    // bypass sim connect 0.0.0.1:931(0x3a3)
+    // bypass sim connect CONTROL_CMD_IP:931(0x3a3)
     // 0x3a3 is the specific port handled by daemon to enable bypass
-    return conn_from_sim(skops, 1, ENABLE_BYPASS_PORT);
+    return conn_from_sim(skops, CONTROL_CMD_IP, ENABLE_BYPASS_PORT);
 }
 
 static inline bool skops_conn_from_bypass_sim_delete(struct bpf_sock_ops *skops)
 {
-    // bypass sim connect 0.0.0.1:932(0x3a4)
+    // bypass sim connect CONTROL_CMD_IP:932(0x3a4)
     // 0x3a4 is the specific port handled by the daemon to disable bypass
-    return conn_from_sim(skops, 1, DISABLE_BYPASS_PORT);
+    return conn_from_sim(skops, CONTROL_CMD_IP, DISABLE_BYPASS_PORT);
 }
 
 static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new_bypass_value)

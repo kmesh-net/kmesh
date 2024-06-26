@@ -62,11 +62,11 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     kmesh_ctx.dnat_ip.ip4 = ctx->user_ip4;
     kmesh_ctx.dnat_port = ctx->user_port;
 
-    if (handle_kmesh_manage_process(ctx) || !is_kmesh_enabled(ctx)) {
+    if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
 
-    if (handle_bypass_process(ctx) || is_bypass_enabled(ctx)) {
+    if (handle_bypass_process(&kmesh_ctx) || is_bypass_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
 
@@ -95,7 +95,11 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
     IP6_COPY(kmesh_ctx.dnat_ip.ip6, kmesh_ctx.orig_dst_addr.ip6);
     kmesh_ctx.dnat_port = ctx->user_port;
 
-    if (!is_kmesh_enabled(ctx) || is_bypass_enabled(ctx)) {
+    if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
+        return CGROUP_SOCK_OK;
+    }
+
+    if (handle_bypass_process(&kmesh_ctx) || is_bypass_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
 

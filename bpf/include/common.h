@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <linux/bpf.h>
+#include <sys/socket.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
