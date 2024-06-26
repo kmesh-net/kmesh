@@ -108,6 +108,8 @@ func triggerControlCommandWithPortInV4(port int) error {
 	if err != nil {
 		return err
 	}
+	defer syscall.Close(sockfd)
+
 	if err = syscall.SetNonblock(sockfd, true); err != nil {
 		return err
 	}
@@ -131,6 +133,8 @@ func triggerControlCommandWithPortInV6(port int) error {
 	if err != nil {
 		return err
 	}
+	defer syscall.Close(sockfd)
+
 	if err = syscall.SetNonblock(sockfd, true); err != nil {
 		return err
 	}
