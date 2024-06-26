@@ -95,7 +95,7 @@ func (c *Controller) Start() error {
 	}
 
 	if c.client.AdsController != nil {
-		dnsResolver, err := dns.NewDNSResolver()
+		dnsResolver, err := dns.NewDNSResolver(c.client.AdsController.Processor.Cache)
 		if err != nil {
 			return fmt.Errorf("dns resolver create failed: %v", err)
 		}

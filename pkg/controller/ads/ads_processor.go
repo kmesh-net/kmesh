@@ -61,16 +61,7 @@ func newProcessor() *processor {
 		Cache:     NewAdsCache(),
 		ack:       nil,
 		req:       nil,
-		lastNonce: NewLastNonce(),
-	}
-}
-
-func NewLastNonce() *lastNonce {
-	return &lastNonce{
-		cdsNonce: "",
-		edsNonce: "",
-		ldsNonce: "",
-		rdsNonce: "",
+		lastNonce: &lastNonce{},
 	}
 }
 
@@ -166,7 +157,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 			} else if cluster.GetType() == config_cluster_v3.Cluster_STRICT_DNS ||
 				cluster.GetType() == config_cluster_v3.Cluster_LOGICAL_DNS {
 				// dns typed cluster will be handled in dns module, skip update bpf map here
-				status = core_v2.ApiStatus_NONE
+				status = core_v2.ApiStatus_WAITING
 			} else {
 				status = core_v2.ApiStatus_UPDATE
 			}
@@ -179,7 +170,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 			log.Debugf("unchanged cluster %s", cluster.GetName())
 		}
 	}
-	// send domain and refreshrate map to dns resolver via channel
+	// send dns clusters to dns resolver
 	p.DnsResolverChan <- dnsClusters
 	removed := p.Cache.ClusterCache.GetResourceNames().Difference(current)
 	for key := range removed {

@@ -28,6 +28,7 @@ import (
 
 	"github.com/miekg/dns"
 	"istio.io/istio/pkg/test/scopes"
+	"kmesh.net/kmesh/pkg/controller/ads"
 )
 
 type fakeDNSServer struct {
@@ -43,7 +44,7 @@ type fakeDNSServer struct {
 func TestDNS(t *testing.T) {
 	fakeDNSServer := newFakeDNSServer()
 
-	testDNSResolver, err := NewDNSResolver()
+	testDNSResolver, err := NewDNSResolver(ads.NewAdsCache())
 	if err != nil {
 		t.Fatal(err)
 	}

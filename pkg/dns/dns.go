@@ -19,30 +19,36 @@ package dns
 import (
 	"fmt"
 	"net"
-	"slices"
+	"net/netip"
 	"sort"
 	"sync"
 	"time"
 
-	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
-	core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"slices"
+
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/miekg/dns"
 	"k8s.io/client-go/util/workqueue"
+
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 var (
-	log = logger.NewLoggerField("ads_controller")
+	log = logger.NewLoggerField("pkg/dns")
 )
 
-const MaxConcurrency uint32 = 5
+const (
+	MaxConcurrency uint32 = 5
+	RetryAfter            = 5 * time.Millisecond
+)
 
 type DNSResolver struct {
-	DnsResolverChan   chan []*config_cluster_v3.Cluster
+	DnsResolverChan   chan []*clusterv3.Cluster
 	client            *dns.Client
 	resolvConfServers []string
 	cache             map[string]*domainCacheEntry
@@ -53,11 +59,9 @@ type DNSResolver struct {
 	sync.RWMutex
 }
 
-// domainCacheEntry stores dns result with expiry time, and also response to trigger dns refresh
 type domainCacheEntry struct {
 	clusterName string
-	value       []string
-	expiry      time.Time
+	addresses   []string
 }
 
 // pending resolve domain info,
@@ -67,54 +71,80 @@ type domainCacheEntry struct {
 type pendingResolveDomain struct {
 	domainName  string
 	port        uint32
-	cluster     *config_cluster_v3.Cluster
+	cluster     *clusterv3.Cluster
 	refreshRate time.Duration
 }
 
-func (p *pendingResolveDomain) setAddrsToCluster(addrs []string) {
-	lbEndpoints := []*config_endpoint_v3.LbEndpoint{}
-	for _, addr := range addrs {
-		ip := net.ParseIP(addr)
-		if ip == nil {
-			continue
-		}
-		if ip.To4() == nil {
-			continue
-		}
-		lbEndpoint := &config_endpoint_v3.LbEndpoint{
-			HealthStatus: v3.HealthStatus_HEALTHY,
-			HostIdentifier: &config_endpoint_v3.LbEndpoint_Endpoint{
-				Endpoint: &config_endpoint_v3.Endpoint{
-					Address: &v3.Address{
-						Address: &v3.Address_SocketAddress{
-							SocketAddress: &v3.SocketAddress{
-								Address: addr,
-								PortSpecifier: &v3.SocketAddress_PortValue{
-									PortValue: uint32(p.port),
+func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []string) bool {
+	buildLbEndpoints := func(port uint32) []*endpointv3.LbEndpoint {
+		lbEndpoints := make([]*endpointv3.LbEndpoint, 0, len(addrs))
+		for _, addr := range addrs {
+			ip := net.ParseIP(addr)
+			if ip == nil {
+				continue
+			}
+			if ip.To4() == nil {
+				continue
+			}
+			lbEndpoint := &endpointv3.LbEndpoint{
+				HealthStatus: v3.HealthStatus_HEALTHY,
+				HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+					Endpoint: &endpointv3.Endpoint{
+						Address: &v3.Address{
+							Address: &v3.Address_SocketAddress{
+								SocketAddress: &v3.SocketAddress{
+									Address: addr,
+									PortSpecifier: &v3.SocketAddress_PortValue{
+										PortValue: port,
+									},
 								},
 							},
 						},
 					},
 				},
-			},
+				// TODO: support LoadBalancingWeight
+				LoadBalancingWeight: &wrappers.UInt32Value{
+					Value: 1,
+				},
+			}
+			lbEndpoints = append(lbEndpoints, lbEndpoint)
 		}
-		lbEndpoints = append(lbEndpoints, lbEndpoint)
+		return lbEndpoints
 	}
 
-	if p.cluster.LoadAssignment != nil {
-		p.cluster.LoadAssignment.Endpoints = []*config_endpoint_v3.LocalityLbEndpoints{
-			{
-				LbEndpoints: lbEndpoints,
-			},
+	ready := true
+	for _, e := range cluster.LoadAssignment.Endpoints {
+		pos := -1
+		var lbEndpoints []*endpointv3.LbEndpoint
+		for i, le := range e.LbEndpoints {
+			socketAddr, ok := le.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
+			if !ok {
+				continue
+			}
+			_, err := netip.ParseAddr(socketAddr.SocketAddress.Address)
+			if err != nil {
+				if socketAddr.SocketAddress.Address == domain {
+					pos = i
+					lbEndpoints = buildLbEndpoints(socketAddr.SocketAddress.GetPortValue())
+				} else {
+					// There is other domains not resolved for this cluster
+					ready = false
+				}
+			}
+		}
+		if pos >= 0 {
+			e.LbEndpoints = slices.Replace(e.LbEndpoints, pos, pos+1, lbEndpoints...)
 		}
 	}
+
+	return ready
 }
 
-func NewDNSResolver() (*DNSResolver, error) {
+func NewDNSResolver(adsCache *ads.AdsCache) (*DNSResolver, error) {
 	r := &DNSResolver{
-		DnsResolverChan: make(chan []*config_cluster_v3.Cluster),
+		DnsResolverChan: make(chan []*clusterv3.Cluster),
 		cache:           map[string]*domainCacheEntry{},
-		adsCache:        ads.NewAdsCache(),
+		adsCache:        adsCache,
 		dnsRefreshQueue: workqueue.NewDelayingQueue(),
 		client: &dns.Client{
 			DialTimeout:  5 * time.Second,
@@ -138,7 +168,7 @@ func NewDNSResolver() (*DNSResolver, error) {
 
 func (r *DNSResolver) StartDNSResolver(stopCh <-chan struct{}) {
 	go r.startResolver()
-	go r.refreshDNS()
+	go r.refreshWorker()
 	go func() {
 		<-stopCh
 		r.dnsRefreshQueue.ShutDown()
@@ -148,119 +178,117 @@ func (r *DNSResolver) StartDNSResolver(stopCh <-chan struct{}) {
 
 // startResolver watches the DnsResolver Channel
 func (r *DNSResolver) startResolver() {
-	temp := make(chan struct{}, MaxConcurrency)
+	rasteLimitor := make(chan struct{}, MaxConcurrency)
 	for clusters := range r.DnsResolverChan {
-		temp <- struct{}{}
-
-		go func(clusters []*config_cluster_v3.Cluster) {
-			defer func() { <-temp }()
+		rasteLimitor <- struct{}{}
+		go func(clusters []*clusterv3.Cluster) {
+			defer func() { <-rasteLimitor }()
 			r.resolveDomains(clusters)
 		}(clusters)
 	}
 }
 
 // resolveDomains takes a map of hostnames and refresh rate
-func (r *DNSResolver) resolveDomains(clusters []*config_cluster_v3.Cluster) {
+func (r *DNSResolver) resolveDomains(clusters []*clusterv3.Cluster) {
 	domains := getPendingResolveDomain(clusters)
 
 	// Stow domain updates, need to remove unwatched domains first
 	r.removeUnwatchedDomain(domains)
 	for _, v := range domains {
-		r.resolve(v)
+		r.Lock()
+		if r.cache[v.domainName] == nil {
+			r.cache[v.domainName] = &domainCacheEntry{
+				clusterName: v.domainName,
+			}
+		}
+		r.Unlock()
+		r.dnsRefreshQueue.AddAfter(v, 0)
 	}
-	r.adsCache.ClusterCache.Flush()
 }
 
 // removeUnwatchedDomain cancels any scheduled re-resolve for names we no longer care about
 func (r *DNSResolver) removeUnwatchedDomain(domains map[string]*pendingResolveDomain) {
 	r.Lock()
 	defer r.Unlock()
-	for name, value := range r.cache {
-		if _, ok := domains[name]; ok {
+	for domain := range r.cache {
+		if _, ok := domains[domain]; ok {
 			continue
 		}
-		r.adsCache.UpdateApiClusterStatus(value.clusterName, core_v2.ApiStatus_DELETE)
-		delete(r.cache, name)
+		delete(r.cache, domain)
 	}
 }
 
 // This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) resolve(v *pendingResolveDomain) {
-	if entry, ok := r.cache[v.domainName]; ok && entry.expiry.After(time.Now()) {
+	r.RLock()
+	entry := r.cache[v.domainName]
+	// This can happen when the domain is deleted before the refresher tick reaches
+	if entry == nil {
+		r.RUnlock()
 		return
 	}
 
-	r.Lock()
-	// ideally this will not happen more than once for each name and the cache auto-updates in the background
-	// even if it does, this happens on the SotW ingestion path (kube or meshnetworks changes)
-	entry := r.cache[v.domainName]
-	delete(r.cache, v.domainName)
-	r.Unlock()
+	r.RUnlock()
 
 	addrs, ttl, err := r.doResolve(v.domainName, v.refreshRate)
-	// refresh the dns address periodically by respecting the dnsRefreshRate and ttl, which one is shorter
-	if ttl > v.refreshRate {
-		ttl = v.refreshRate
-	}
-	expiry := time.Now().Add(ttl)
-	if err != nil {
-		// gracefully retain old addresses in case the DNS server is unavailable
-		addrs = entry.value
-	}
+	if err == nil {
+		// for the newly resolved domain just push to bpf map
+		log.Infof("resolve dns name: %s, addr: %v", v.domainName, addrs)
+		// refresh the dns address periodically by respecting the dnsRefreshRate and ttl, which one is shorter
+		if ttl > v.refreshRate {
+			ttl = v.refreshRate
+		}
+		if !slices.Equal(entry.addresses, addrs) {
+			ready := overwriteDnsCluster(v.cluster, v.domainName, addrs)
+			if ready {
+				if !r.adsCache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, v.cluster) {
+					log.Debugf("cluster: %s is deleted", v.cluster.Name)
+					return
+				}
+			}
+		}
 
-	r.cache[v.domainName] = &domainCacheEntry{
-		value:       addrs,
-		clusterName: v.cluster.GetName(),
-		expiry:      expiry,
+		// update dns table
+		entry.addresses = addrs
+	} else {
+		ttl = RetryAfter
+		log.Errorf("resolve domain %s failed: %v, retry after %v", v.domainName, err, ttl)
 	}
 
 	// push to refresh queue
-	r.dnsRefreshQueue.AddAfter(v, time.Until(expiry))
+	r.dnsRefreshQueue.AddAfter(v, ttl)
+}
 
-	if entry == nil {
-		// for the newly resolved domain just push to bpf map
-		log.Infof("resolve dns , name: %s, addr: %v\n", v.domainName, addrs)
-		v.setAddrsToCluster(addrs)
-		r.adsCache.CreateApiClusterByCds(core_v2.ApiStatus_UPDATE, v.cluster)
-	} else {
-		// for the updated domain, push to bpf map only when there are changes
-		sort.Strings(entry.value)
-		sort.Strings(addrs)
-		if !slices.Equal(entry.value, addrs) {
-			log.Infof("resolve dns , name: %s, addr: %v\n", v.domainName, addrs)
-			v.setAddrsToCluster(addrs)
-			r.adsCache.CreateApiClusterByCds(core_v2.ApiStatus_UPDATE, v.cluster)
-		}
+func (r *DNSResolver) refreshWorker() {
+	for r.refreshDNS() {
 	}
 }
 
 // refreshDNS use a delay working queue to handle dns refresh
-func (r *DNSResolver) refreshDNS() {
-	for {
-		element, quit := r.dnsRefreshQueue.Get()
-		if quit {
-			return
-		}
-		r.RLock()
-		dr := element.(*pendingResolveDomain)
-		old := r.cache[dr.domainName]
-		r.RUnlock()
-
-		// is the domain is no longer watched, no need to refresh it
-		if old == nil {
-			return
-		}
-
-		r.resolve(dr)
-		r.adsCache.ClusterCache.Flush()
-		r.dnsRefreshQueue.Done(element)
+func (r *DNSResolver) refreshDNS() bool {
+	element, quit := r.dnsRefreshQueue.Get()
+	if quit {
+		return false
 	}
+	defer r.dnsRefreshQueue.Done(element)
+	dr := element.(*pendingResolveDomain)
+	r.RLock()
+	_, exist := r.cache[dr.domainName]
+	r.RUnlock()
+	// is the domain is no longer watched, no need to refresh it
+	if !exist {
+		return true
+	}
+
+	r.resolve(dr)
+	r.adsCache.ClusterCache.Flush()
+	return true
 }
 
 func (r *DNSResolver) GetCacheResult(name string) []string {
 	var res []string
 	if entry, ok := r.cache[name]; ok {
-		res = entry.value
+		res = entry.addresses
 	}
 	return res
 }
@@ -306,6 +334,8 @@ func (r *DNSResolver) doResolve(domain string, refreshRate time.Duration) ([]str
 		// return error only if all requests are failed
 		return out, refreshRate, fmt.Errorf("upstream dns failure")
 	}
+
+	sort.Strings(out)
 	return out, ttl, nil
 }
 
@@ -363,28 +393,28 @@ func getMinTTL(m *dns.Msg, refreshRate time.Duration) time.Duration {
 	return minTTL
 }
 
-// Get domain name and refreshrate from cluster, and also store cluster and port in the return value for later use
-func getPendingResolveDomain(clusters []*config_cluster_v3.Cluster) map[string]*pendingResolveDomain {
+// Get domain name and refreshrate from cluster, and also store cluster and port in the return addresses for later use
+func getPendingResolveDomain(clusters []*clusterv3.Cluster) map[string]*pendingResolveDomain {
 	domains := make(map[string]*pendingResolveDomain)
 
 	for _, cluster := range clusters {
-		refreshRate := cluster.GetDnsRefreshRate().AsDuration()
 		if cluster.LoadAssignment == nil {
-			continue
-		}
-		if cluster.LoadAssignment.Endpoints == nil {
 			continue
 		}
 
 		for _, e := range cluster.LoadAssignment.Endpoints {
 			for _, le := range e.LbEndpoints {
-				socketAddr := le.GetEndpoint().GetAddress().GetAddress().(*core_v3.Address_SocketAddress)
+				socketAddr, ok := le.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
+				if !ok {
+					continue
+				}
 				domainWithRefreshRate := &pendingResolveDomain{
 					domainName:  socketAddr.SocketAddress.Address,
 					port:        socketAddr.SocketAddress.GetPortValue(),
 					cluster:     cluster,
-					refreshRate: refreshRate,
+					refreshRate: cluster.GetDnsRefreshRate().AsDuration(),
 				}
+				// TODO: there is a case, one domain can map to multiple clusters
 				domains[socketAddr.SocketAddress.Address] = domainWithRefreshRate
 			}
 		}
