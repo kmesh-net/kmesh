@@ -84,18 +84,20 @@ static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
     return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
 }
 
-#define V4_MAPPED_FMT_V4(v4_mapped)                                                                                    \
+#define V4_MAPPED_REVERSE(v4_mapped)                                                                                   \
     do {                                                                                                               \
-        (v4_mapped)[2] = 0;                                                                                            \
         (v4_mapped)[0] = (v4_mapped)[3];                                                                               \
+        (v4_mapped)[1] = 0;                                                                                            \
+        (v4_mapped)[2] = 0;                                                                                            \
         (v4_mapped)[3] = 0;                                                                                            \
     } while (0)
 
-#define V4_MAPPED_IN_V6(ipv6)                                                                                          \
+#define V4_MAPPED_TO_V6(ipv4, ipv6)                                                                                    \
     do {                                                                                                               \
-        (ipv6)[3] = (ipv6)[0];                                                                                         \
-        (ipv6)[0] = 0;                                                                                                 \
+        (ipv6)[3] = (ipv4);                                                                                            \
         (ipv6)[2] = 0xFFFF0000;                                                                                        \
+        (ipv6)[1] = 0;                                                                                                 \
+        (ipv6)[0] = 0;                                                                                                 \
     } while (0)
 
 #define IP6_COPY(dst, src)                                                                                             \

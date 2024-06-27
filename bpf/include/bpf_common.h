@@ -130,7 +130,7 @@ static inline void remove_manager_netns_cookie(struct bpf_sock_addr *ctx)
 
 static inline bool conn_from_bypass_sim_add(struct kmesh_context *kmesh_ctx)
 {
-    // daemon sim connect 0.0.0.0:931 | ::1:931(0x3a3)
+    // daemon sim connect CONTROL_CMD_IP:931(0x3a3)
     // 0x3a3 is the specific port handled by the daemon to enable bypass
     __u32 ip = kmesh_ctx->orig_dst_addr.ip4;
     if (kmesh_ctx->ctx->family == AF_INET6)

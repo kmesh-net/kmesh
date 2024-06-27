@@ -169,11 +169,15 @@ static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 port)
 {
     __u16 remote_port = GET_SKOPS_REMOTE_PORT(skops);
-    __u32 client_ip = bpf_ntohl(skops->remote_ip4);
-    if (skops->family == AF_INET6)
-        client_ip = bpf_ntohl(skops->remote_ip6[3]);
+    if (bpf_ntohs(remote_port) != port)
+        return false;
 
-    return (client_ip == ip) && (bpf_ntohs(remote_port) == port);
+    if (skops->family == AF_INET)
+        return (bpf_ntohl(skops->remote_ip4) == ip);
+
+    return (
+        skops->remote_ip6[0] == 0 && skops->remote_ip6[1] == 0 && skops->remote_ip6[2] == 0
+        && bpf_ntohl(skops->remote_ip6[3] == ip));
 }
 
 static inline bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)
