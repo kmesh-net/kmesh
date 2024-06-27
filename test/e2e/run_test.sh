@@ -44,6 +44,34 @@ EOF
     if [ $status -ne 0 ]; then
         echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     fi
+
+    # Add the registry config to the nodes
+    #
+    # This is necessary because localhost resolves to loopback addresses that are network-namespace local.
+    # In other words: localhost in the container is not localhost on the host.
+    #
+    # We want a consistent name that works from both ends, so we tell containerd to alias localhost:${reg_port}
+    # to the registry container when pulling images
+    REGISTRY_DIR="/etc/containerd/certs.d/localhost:${KIND_REGISTRY_PORT}"
+    for node in $(kind get nodes --name="${NAME}"); do
+        docker exec "${node}" mkdir -p "${REGISTRY_DIR}"
+        cat << EOF | docker exec -i "${node}" cp /dev/stdin "${REGISTRY_DIR}/hosts.toml"
+[host."http://${KIND_REGISTRY_NAME}:5000"]
+EOF
+    done
+
+    # Document the local registry
+    cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: local-registry-hosting
+  namespace: kube-public
+data:
+  localRegistryHosting.v1: |
+    host: "localhost:${reg_port}"
+    help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
+EOF
 }
 
 function setup_istio() {
@@ -73,34 +101,6 @@ function setup_kind_registry() {
         # Allow kind nodes to reach the registry
         docker network connect "kind" "${KIND_REGISTRY_NAME}"
     fi
-
-    # Add the registry config to the nodes
-    #
-    # This is necessary because localhost resolves to loopback addresses that are network-namespace local.
-    # In other words: localhost in the container is not localhost on the host.
-    #
-    # We want a consistent name that works from both ends, so we tell containerd to alias localhost:${reg_port}
-    # to the registry container when pulling images
-    REGISTRY_DIR="/etc/containerd/certs.d/localhost:${KIND_REGISTRY_PORT}"
-    for node in $(kind get nodes -A); do
-        docker exec "${node}" mkdir -p "${REGISTRY_DIR}"
-        cat << EOF | docker exec -i "${node}" cp /dev/stdin "${REGISTRY_DIR}/hosts.toml"
-[host."http://${KIND_REGISTRY_NAME}:5000"]
-EOF
-    done
-
-    # Document the local registry
-    cat <<EOF | kubectl apply -f -
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: local-registry-hosting
-  namespace: kube-public
-data:
-  localRegistryHosting.v1: |
-    host: "localhost:${reg_port}"
-    help: "https://kind.sigs.k8s.io/docs/user/local-registry/"
-EOF
 }
 
 function build_and_push_images() {
