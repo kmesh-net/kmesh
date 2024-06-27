@@ -54,12 +54,12 @@ type EchoDeployments struct {
 }
 
 const (
-	ServiceAddressedWaypoint = "service-addressed-waypoint"
-	Enrolled                 = "enrolled"
-	WaypointImageAnnotation  = "sidecar.istio.io/proxyImage"
-	Timeout                  = 2 * time.Minute
-	KmeshReleaseName         = "kmesh"
-	KmeshNamespace           = "kmesh-system"
+	ServiceWithWaypointAtServiceGranularity = "service-with-waypoint-at-service-granularity"
+	EnrolledToKmesh                         = "enrolled-to-kmesh"
+	WaypointImageAnnotation                 = "sidecar.istio.io/proxyImage"
+	Timeout                                 = 2 * time.Minute
+	KmeshReleaseName                        = "kmesh"
+	KmeshNamespace                          = "kmesh-system"
 )
 
 func getDefaultKmeshSrc() string {
@@ -100,7 +100,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
-			Service:              ServiceAddressedWaypoint,
+			Service:              ServiceWithWaypointAtServiceGranularity,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
 			ServiceLabels:        map[string]string{constants.AmbientUseWaypointLabel: "waypoint"},
@@ -111,7 +111,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v1",
 					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
+						"app":     ServiceWithWaypointAtServiceGranularity,
 						"version": "v1",
 					},
 				},
@@ -119,14 +119,14 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Replicas: 1,
 					Version:  "v2",
 					Labels: map[string]string{
-						"app":     ServiceAddressedWaypoint,
+						"app":     ServiceWithWaypointAtServiceGranularity,
 						"version": "v2",
 					},
 				},
 			},
 		}).
 		WithConfig(echo.Config{
-			Service:        Enrolled,
+			Service:        EnrolledToKmesh,
 			Namespace:      apps.Namespace,
 			Ports:          ports.All(),
 			ServiceAccount: true,

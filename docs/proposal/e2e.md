@@ -79,3 +79,25 @@ istio integration framework has been well encapsulated and we can use built-in f
 3. Each test cases combines all test applications in pairs and also allow the applications to access itself. Use `CallOptions` of the [echo](https://github.com/istio/istio/blob/master/pkg/test/framework/components/echo/calloptions.go) package to define the options for calling an Endpoint, such as specify the protocol used for access, the number of requests and the `Checker` which also defined in [echo](https://github.com/istio/istio/blob/master/pkg/test/framework/components/echo/checker.go) package could be customized whether the access is successful.
 
 4. Istio integration framework is very convenient to use. We only need to make appropriate configurations and don't event need to worry about how test applications works underlying. Also it provides method to directly apply yamls to create resources such as `VirtualService` and `DestinationRule`.
+
+#### Usage
+
+We can run E2E test by calling script `./test/e2e/run_test.sh`. The complete E2E test includes the following steps:
+
+1. Install dependencies, such as kind, helm, istioctl ...
+2. Deploy the local image registry as a docker container, build Kmesh image and push to it
+3. Deploy k8s cluster, istio and Kmesh
+4. Deploy test applications and actually run the E2E test cases
+
+For Github CI environment, all the above steps shoud be executed in full. But when test locally, we often want to skip some of these steps. We provide the following flags to skip some steps of the test:
+
+--skip-install-dep      skip installing dependencies
+--skip-build            skip deploying the local image registry and building Kmesh image
+--skip-setup            skip deploying k8s, istio and Kmesh
+--only-run-tests        skip all other steps and only deploying test applications and running E2E tests
+
+For example, if we want to repeatedly run the E2E test locally, then except for the first time, subsequent executions can use the following command, avoid unnecessary download and build:
+
+```bash
+./test/e2e/run_test.sh --only-run-tests
+```

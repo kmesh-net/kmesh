@@ -109,19 +109,32 @@ function build_and_push_images() {
 
 function install_dependencies() {
     # 1. Install kind.
-    go install sigs.k8s.io/kind@v0.23.0
+    if ! which kind &> /dev/null
+    then
+        echo "install kind"
+
+        go install sigs.k8s.io/kind@v0.23.0
+    else
+        echo "kind is already installed"
+    fi
     
     # 2. Install helm.
-    curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
+    if ! which helm &> /dev/null
+    then
+        echo "install helm"
 
-    chmod 700 get_helm.sh
+        curl -fsSL -o get_helm.sh https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3
 
-    ./get_helm.sh
+        chmod 700 get_helm.sh
 
-    rm get_helm.sh
+        ./get_helm.sh
+
+        rm get_helm.sh
+    else
+        echo "helm is already installed"
+    fi
 
     # 3. Install istioctl
-
     curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} TARGET_ARCH=x86_64 sh -
 
     cp istio-${ISTIO_VERSION}/bin/istioctl /usr/local/bin/
@@ -158,14 +171,17 @@ fi
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kind_cluster
-    setup_istio
-    setup_kmesh
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
     setup_kind_registry
-
     build_and_push_images
+fi
+
+# make sure the Kmesh local image is ready.
+if [[ -z "${SKIP_SETUP:-}" ]]; then
+    setup_istio
+    setup_kmesh
 fi
 
 go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1
