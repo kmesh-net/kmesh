@@ -128,44 +128,45 @@ static inline void remove_manager_netns_cookie(struct bpf_sock_addr *ctx)
         BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
 }
 
+static inline bool is_control_connect(struct kmesh_context *kmesh_ctx, __u32 ip, __u32 port)
+{
+    if (bpf_ntohs(kmesh_ctx->ctx->user_port) != port)
+        return false;
+
+    if (kmesh_ctx->ctx->family == AF_INET)
+        return (bpf_ntohl(kmesh_ctx->orig_dst_addr.ip4) == ip);
+
+    return (
+        kmesh_ctx->orig_dst_addr.ip6[0] == 0 && kmesh_ctx->orig_dst_addr.ip6[1] == 0
+        && kmesh_ctx->orig_dst_addr.ip6[2] == 0 && bpf_ntohl(kmesh_ctx->orig_dst_addr.ip6[3]) == ip);
+}
+
 static inline bool conn_from_bypass_sim_add(struct kmesh_context *kmesh_ctx)
 {
     // daemon sim connect CONTROL_CMD_IP:931(0x3a3)
     // 0x3a3 is the specific port handled by the daemon to enable bypass
-    __u32 ip = kmesh_ctx->orig_dst_addr.ip4;
-    if (kmesh_ctx->ctx->family == AF_INET6)
-        ip = kmesh_ctx->orig_dst_addr.ip6[3];
-    return ((bpf_ntohl(ip) == CONTROL_CMD_IP) && (bpf_ntohs(kmesh_ctx->ctx->user_port) == ENABLE_BYPASS_PORT));
+    return is_control_connect(kmesh_ctx, CONTROL_CMD_IP, ENABLE_BYPASS_PORT);
 }
 
 static inline bool conn_from_bypass_sim_delete(struct kmesh_context *kmesh_ctx)
 {
     // daemon sim connect CONTROL_CMD_IP:932(0x3a4)
     // 0x3a4 is the specific port handled by the daemon to disable bypass
-    __u32 ip = kmesh_ctx->orig_dst_addr.ip4;
-    if (kmesh_ctx->ctx->family == AF_INET6)
-        ip = kmesh_ctx->orig_dst_addr.ip6[3];
-    return ((bpf_ntohl(ip) == CONTROL_CMD_IP) && (bpf_ntohs(kmesh_ctx->ctx->user_port) == DISABLE_BYPASS_PORT));
+    return is_control_connect(kmesh_ctx, CONTROL_CMD_IP, DISABLE_BYPASS_PORT);
 }
 
 static inline bool conn_from_cni_sim_add(struct kmesh_context *kmesh_ctx)
 {
     // cni sim connect CONTROL_CMD_IP:929(0x3a1)
     // 0x3a1 is the specific port handled by the cni to enable Kmesh
-    __u32 ip = kmesh_ctx->orig_dst_addr.ip4;
-    if (kmesh_ctx->ctx->family == AF_INET6)
-        ip = kmesh_ctx->orig_dst_addr.ip6[3];
-    return ((bpf_ntohl(ip) == CONTROL_CMD_IP) && (bpf_ntohs(kmesh_ctx->ctx->user_port) == ENABLE_KMESH_PORT));
+    return is_control_connect(kmesh_ctx, CONTROL_CMD_IP, ENABLE_KMESH_PORT);
 }
 
 static inline bool conn_from_cni_sim_delete(struct kmesh_context *kmesh_ctx)
 {
     // cni sim connect CONTROL_CMD_IP:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni to disable Kmesh
-    __u32 ip = kmesh_ctx->orig_dst_addr.ip4;
-    if (kmesh_ctx->ctx->family == AF_INET6)
-        ip = kmesh_ctx->orig_dst_addr.ip6[3];
-    return ((bpf_ntohl(ip) == CONTROL_CMD_IP) && (bpf_ntohs(kmesh_ctx->ctx->user_port) == DISABLE_KMESH_PORT));
+    is_control_connect(kmesh_ctx, CONTROL_CMD_IP, DISABLE_KMESH_PORT);
 }
 
 /* This function is used to store and delete cookie
