@@ -43,6 +43,10 @@ jobs:
     - name: Go Test
       run: |
         sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:$GITHUB_WORKSPACE/api/v2-c:$GITHUB_WORKSPACE/bpf/deserialization_to_bpf_map PKG_CONFIG_PATH=$GITHUB_WORKSPACE/mk go test -race -v -vet=off -coverprofile=coverage.out ./pkg/...
+    
+    - name: E2E Test
+      run: |
+        make e2e
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4.0.1
