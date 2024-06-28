@@ -19,6 +19,7 @@ package bpf
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/cilium/ebpf"
 )
@@ -94,7 +95,7 @@ func unpinMaps(value *reflect.Value) error {
 func setMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
 	for key, v := range spec.Maps {
 		// tail_call map dont support pinning when shared by different bpf types
-		if key == ".rodata" || key == ".bss" || key == "kmesh_tail_call_prog" ||
+		if strings.HasPrefix(key, ".rodata") || key == ".bss" || key == "kmesh_tail_call_prog" ||
 			key == "kmesh_tail_call_ctx" {
 			continue
 		}

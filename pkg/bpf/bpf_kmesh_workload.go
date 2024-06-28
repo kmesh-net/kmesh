@@ -34,8 +34,10 @@ import (
 )
 
 type BpfSockConnWorkload struct {
-	Info BpfInfo
-	Link link.Link
+	Info  BpfInfo
+	Link  link.Link
+	Info6 BpfInfo
+	Link6 link.Link
 	bpf2go.KmeshCgroupSockWorkloadObjects
 }
 
@@ -44,6 +46,7 @@ func (sc *BpfSockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockconn/"
 	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
+	sc.Info6 = sc.Info
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -100,12 +103,22 @@ func (sc *BpfSockConnWorkload) LoadSockConn() error {
 	sc.Info.AttachType = prog.AttachType
 
 	if err = sc.MapOfTailCallProg.Update(
-		uint32(0),
+		uint32(constants.TailCallConnect4Index),
 		uint32(sc.CgroupConnect4Prog.FD()),
 		ebpf.UpdateAny); err != nil {
 		return err
 	}
 
+	prog = spec.Programs["cgroup_connect6_prog"]
+	sc.Info6.Type = prog.Type
+	sc.Info6.AttachType = prog.AttachType
+
+	if err = sc.MapOfTailCallProg.Update(
+		uint32(constants.TailCallConnect6Index),
+		uint32(sc.CgroupConnect6Prog.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -117,19 +130,26 @@ func (sc *BpfSockConnWorkload) close() error {
 }
 
 func (sc *BpfSockConnWorkload) Attach() error {
+	var err error
 	cgopt := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect4Prog,
 	}
 
-	lk, err := link.AttachCgroup(cgopt)
+	sc.Link, err = link.AttachCgroup(cgopt)
 	if err != nil {
 		return err
 	}
-	sc.Link = lk
 
-	return nil
+	cgopt = link.CgroupOptions{
+		Path:    sc.Info6.Cgroup2Path,
+		Attach:  sc.Info6.AttachType,
+		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect6Prog,
+	}
+
+	sc.Link6, err = link.AttachCgroup(cgopt)
+	return err
 }
 
 func (sc *BpfSockConnWorkload) Detach() error {
@@ -154,6 +174,14 @@ func (sc *BpfSockConnWorkload) Detach() error {
 
 	if sc.Link != nil {
 		return sc.Link.Close()
+	}
+
+	if err := os.RemoveAll(sc.Info6.BpfFsPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if sc.Link6 != nil {
+		return sc.Link6.Close()
 	}
 	return nil
 }

@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <linux/bpf.h>
+#include <sys/socket.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 
@@ -77,6 +78,35 @@ static inline int kmesh_map_update_elem(void *map, const void *key, const void *
     // TODO: Duplicate element, status update
     return (int)bpf_map_update_elem(map, key, value, BPF_ANY);
 }
+
+static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
+{
+    return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
+}
+
+#define V4_MAPPED_REVERSE(v4_mapped)                                                                                   \
+    do {                                                                                                               \
+        (v4_mapped)[0] = (v4_mapped)[3];                                                                               \
+        (v4_mapped)[1] = 0;                                                                                            \
+        (v4_mapped)[2] = 0;                                                                                            \
+        (v4_mapped)[3] = 0;                                                                                            \
+    } while (0)
+
+#define V4_MAPPED_TO_V6(ipv4, ipv6)                                                                                    \
+    do {                                                                                                               \
+        (ipv6)[3] = (ipv4);                                                                                            \
+        (ipv6)[2] = 0xFFFF0000;                                                                                        \
+        (ipv6)[1] = 0;                                                                                                 \
+        (ipv6)[0] = 0;                                                                                                 \
+    } while (0)
+
+#define IP6_COPY(dst, src)                                                                                             \
+    do {                                                                                                               \
+        (dst)[0] = (src)[0];                                                                                           \
+        (dst)[1] = (src)[1];                                                                                           \
+        (dst)[2] = (src)[2];                                                                                           \
+        (dst)[3] = (src)[3];                                                                                           \
+    } while (0)
 
 #if OE_23_03
 #define bpf__strncmp                  bpf_strncmp
