@@ -52,7 +52,7 @@ metric_on_connect(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct soc
         data.direction = storage->direction;
         int err = bpf_map_update_elem(&map_of_metrics, &key, &data, BPF_NOEXIST);
         if (err)
-            BPF_LOG(ERR, PROBE, "metric_on_connect failed, err is %d\n", err);
+            BPF_LOG(ERR, PROBE, "metric_on_connect update failed, err is %d\n", err);
         return;
     }
 
@@ -72,12 +72,11 @@ metric_on_close(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_
     metric = (struct metric_data *)bpf_map_lookup_elem(&map_of_metrics, &key);
     if (!metric) {
         // connect failed
-        data.conn_open++;
         data.direction = storage->direction;
         data.conn_failed++;
         int err = bpf_map_update_elem(&map_of_metrics, &key, &data, BPF_NOEXIST);
         if (err)
-            BPF_LOG(ERR, PROBE, "metric_on_connect failed, err is %d\n", err);
+            BPF_LOG(ERR, PROBE, "metric_on_close update failed, err is %d\n", err);
         return;
     }
 

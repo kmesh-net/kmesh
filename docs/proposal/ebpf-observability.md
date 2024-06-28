@@ -18,11 +18,11 @@ creation-date: 2024-06-28
 
 ### Summary
 
-This proposal describes how to use the eBPF to implement observable information of Kmesh, and focuses on the design of logs and metrics.
+This proposal describes how to use the eBPF to implement observable information of Kmesh, and focuses on the design of access logs and metrics.
 
 ### Motivation
 
-Like other service grid data planes, observability is an important function of the grid data plane. Kmesh needs to provide observation methods to help O&M personnel better understand the current network status.
+Like other service mesh data planes, observability is an important ability of the mesh data plane. Kmesh needs to provide observation methods to help O&M personnel better understand the current network status.
 
 #### Non-Goals
 
@@ -32,13 +32,13 @@ NA
 
 As designed in [observability](https://github.com/kmesh-net/kmesh/blob/main/docs/proposal/observability.md), the following information needs to be reported in eBPF:
 
-logs:
+**access logs:**
 
 When a connection is closed, the following informations about the connection need reported: duration, sent_bytes, received bytes, whether the connection is set up successfully, and the close time.
 
-metrics:
+**metrics:**
 
-Counts the number of connections established between a pair of IP addresses, number of connections closed, sent_bytes, received bytes, and number of connection establishment failures.
+Counts the number of connections established between a pair of IP, number of connections closed, sent_bytes, received bytes, and number of connection establishment failures.
 
 ### Design Details
 

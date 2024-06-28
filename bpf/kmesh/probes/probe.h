@@ -12,7 +12,7 @@ static inline void observe_on_pre_connect(struct bpf_sock *sk)
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!storage) {
-        BPF_LOG(ERR, PROBE, "bpf_sk_storage_get failed\n");
+        BPF_LOG(ERR, PROBE, "pre_connect bpf_sk_storage_get failed\n");
         return;
     }
 
@@ -20,7 +20,7 @@ static inline void observe_on_pre_connect(struct bpf_sock *sk)
     return;
 }
 
-static inline void observe_on_connect(struct bpf_sock *sk, __u8 direction)
+static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 direction)
 {
     struct bpf_tcp_sock *tcp_sock = NULL;
     struct sock_storage_data *storage = NULL;
@@ -34,7 +34,7 @@ static inline void observe_on_connect(struct bpf_sock *sk, __u8 direction)
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, flags);
     if (!storage) {
-        BPF_LOG(ERR, PROBE, "bpf_sk_storage_get failed\n");
+        BPF_LOG(ERR, PROBE, "connect bpf_sk_storage_get failed\n");
         return;
     }
 
@@ -59,7 +59,7 @@ static inline void observe_on_close(struct bpf_sock *sk)
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
-        BPF_LOG(ERR, PROBE, "bpf_sk_storage_get failed\n");
+        BPF_LOG(ERR, PROBE, "close bpf_sk_storage_get failed\n");
         return;
     }
 
