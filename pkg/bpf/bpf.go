@@ -30,6 +30,7 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/logger"
+	pkgversion "kmesh.net/kmesh/pkg/version"
 )
 
 var log = logger.NewLoggerField("pkg/bpf")
@@ -49,12 +50,15 @@ type BpfLoader struct {
 
 	obj         *BpfKmesh
 	workloadObj *BpfKmeshWorkload
-	Restart		bool
+	Status      *int
+	StatusMap   *ebpf.Map
 }
 
-func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
+func NewBpfLoader(configs *options.BootstrapConfigs) *BpfLoader {
 	return &BpfLoader{
-		config: config,
+		config:    configs.BpfConfig,
+		StatusMap: pkgversion.NewVersionMap(configs),
+		Status:    configs.Status,
 	}
 }
 
@@ -148,11 +152,12 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	log.Printf("Stop l.restart: %v", l.Restart)
-	if l.Restart {
+	if *l.Status == Restart {
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
 	}
+
+	pkgversion.Close(l.StatusMap)
 
 	if l.config.AdsEnabled() {
 		C.deserial_uninit()
