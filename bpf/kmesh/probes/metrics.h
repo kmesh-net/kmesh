@@ -26,6 +26,11 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_metrics SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, RINGBUF_SIZE);
+} map_of_metric_notify SEC(".maps");
+
 static inline void construct_metric_key(struct bpf_sock *sk, struct metric_key *key)
 {
     if (sk->family == AF_INET) {
@@ -35,6 +40,19 @@ static inline void construct_metric_key(struct bpf_sock *sk, struct metric_key *
         IP6_COPY(key->src_ip.ip6, sk->src_ip6);
         IP6_COPY(key->dst_ip.ip6, sk->dst_ip6);
     }
+    return;
+}
+
+static inline void metric_notify(struct bpf_sock *sk)
+{
+    struct metric_key *key = bpf_ringbuf_reserve(&map_of_metric_notify, sizeof(struct metric_key), 0);
+    if (!key) {
+        BPF_LOG(ERR, PROBE, "metric_notify bpf_ringbuf_reserve failed\n");
+        return;
+    }
+
+    construct_metric_key(sk, key);
+    bpf_ringbuf_submit(key, 0);
     return;
 }
 
@@ -51,13 +69,17 @@ metric_on_connect(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct soc
         data.conn_open++;
         data.direction = storage->direction;
         int err = bpf_map_update_elem(&map_of_metrics, &key, &data, BPF_NOEXIST);
-        if (err)
+        if (err) {
             BPF_LOG(ERR, PROBE, "metric_on_connect update failed, err is %d\n", err);
-        return;
+            return;
+        }
+        goto notify;
     }
 
     metric->conn_open++;
     metric->direction = storage->direction;
+notify:
+    metric_notify(sk);
     return;
 }
 
@@ -75,15 +97,19 @@ metric_on_close(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_
         data.direction = storage->direction;
         data.conn_failed++;
         int err = bpf_map_update_elem(&map_of_metrics, &key, &data, BPF_NOEXIST);
-        if (err)
+        if (err) {
             BPF_LOG(ERR, PROBE, "metric_on_close update failed, err is %d\n", err);
-        return;
+            return;
+        }
+        goto notify;
     }
 
     // connect successed & closed
     metric->conn_close++;
     metric->sent_bytes += tcp_sock->delivered;
     metric->received_bytes += tcp_sock->bytes_received;
+notify:
+    metric_notify(sk);
     return;
 }
 
