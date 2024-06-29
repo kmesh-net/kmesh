@@ -43,8 +43,7 @@ type AdsCache struct {
 	// eds names to be subscribed, which is inferred from cluster
 	edsClusterNames []string
 	// route names to be subscribed, which is inferred from listener
-	routeNames []string
-
+	routeNames    []string
 	ListenerCache cache_v2.ListenerCache
 	ClusterCache  cache_v2.ClusterCache
 	RouteCache    cache_v2.RouteConfigCache
@@ -71,6 +70,22 @@ func (load *AdsCache) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *c
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
 	load.ClusterCache.SetApiCluster(cluster.GetName(), apiCluster)
+}
+
+// UpdateApiClusterIfExists only update api cluster if it exists
+func (load *AdsCache) UpdateApiClusterIfExists(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) bool {
+	apiCluster := &cluster_v2.Cluster{
+		ApiStatus:       status,
+		Name:            cluster.GetName(),
+		ConnectTimeout:  uint32(cluster.GetConnectTimeout().GetSeconds()),
+		LbPolicy:        cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
+		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),
+	}
+
+	if cluster.GetType() != config_cluster_v3.Cluster_EDS {
+		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
+	}
+	return load.ClusterCache.UpdateApiClusterIfExists(cluster.GetName(), apiCluster)
 }
 
 func (load *AdsCache) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
@@ -107,7 +122,6 @@ func newApiClusterLoadAssignment(
 				Address: newApiSocketAddress(endpoint.GetEndpoint().GetAddress()),
 			}
 			if apiEndpoint.GetAddress() == nil || apiEndpoint.Address.Ipv4 == 0 {
-				log.Warnf("cluster %s endpoint address %v is nil or invalid", loadAssignment.GetClusterName(), endpoint.GetEndpoint().GetAddress())
 				continue
 			}
 			apiLocalityLb.LbEndpoints = append(apiLocalityLb.LbEndpoints, apiEndpoint)

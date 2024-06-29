@@ -25,6 +25,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
 	"kmesh.net/kmesh/pkg/controller/security"
+	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -81,6 +82,7 @@ func (c *Controller) Start() error {
 		}
 	}
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
+
 	if c.client.WorkloadController != nil {
 		if c.enableSecretManager {
 			secertManager, err := security.NewSecretManager()
@@ -90,6 +92,15 @@ func (c *Controller) Start() error {
 			go secertManager.Run(stopCh)
 			c.client.WorkloadController.Processor.SecretManager = secertManager
 		}
+	}
+
+	if c.client.AdsController != nil {
+		dnsResolver, err := dns.NewDNSResolver(c.client.AdsController.Processor.Cache)
+		if err != nil {
+			return fmt.Errorf("dns resolver create failed: %v", err)
+		}
+		dnsResolver.StartDNSResolver(stopCh)
+		c.client.AdsController.Processor.DnsResolverChan = dnsResolver.DnsResolverChan
 	}
 
 	return c.client.Run(stopCh)

@@ -101,7 +101,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
 	})
 
-	t.Run("eds cluster update case", func(t *testing.T) {
+	t.Run("cluster update case", func(t *testing.T) {
 		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
@@ -153,7 +153,6 @@ func TestHandleCdsResponse(t *testing.T) {
 
 	t.Run("multiClusters: add a new eds cluster", func(t *testing.T) {
 		p := newProcessor()
-		p.lastNonce.ldsNonce = "nonce"
 		multiClusters := []*config_cluster_v3.Cluster{
 			{
 				Name: "ut-cluster1",
@@ -420,6 +419,8 @@ func TestHandleEdsResponse(t *testing.T) {
 	t.Run("no apicluster, p.ack not be changed", func(t *testing.T) {
 		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		cluster := &cluster_v2.Cluster{}
+		adsLoader.ClusterCache.SetApiCluster("", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
