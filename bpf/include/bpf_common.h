@@ -166,7 +166,7 @@ static inline bool conn_from_cni_sim_delete(struct kmesh_context *kmesh_ctx)
 {
     // cni sim connect CONTROL_CMD_IP:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni to disable Kmesh
-    is_control_connect(kmesh_ctx, CONTROL_CMD_IP, DISABLE_KMESH_PORT);
+    return is_control_connect(kmesh_ctx, CONTROL_CMD_IP, DISABLE_KMESH_PORT);
 }
 
 /* This function is used to store and delete cookie
