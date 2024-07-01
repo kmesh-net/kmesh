@@ -79,7 +79,7 @@ func StartByPassController(client kubernetes.Interface) error {
 				return
 			}
 
-			nspath, _ := ns.GetNSpath(pod)
+			nspath, _ := ns.GetPodNSpath(pod)
 
 			if enableSidecar {
 				if err := addIptables(nspath); err != nil {
@@ -114,14 +114,14 @@ func StartByPassController(client kubernetes.Interface) error {
 			enableKmesh := isKmeshManaged(pod)
 
 			if enableSidecar {
-				nspath, _ := ns.GetNSpath(pod)
+				nspath, _ := ns.GetPodNSpath(pod)
 				if err := deleteIptables(nspath); err != nil {
 					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
 					return
 				}
 			}
 			if enableKmesh {
-				nspath, _ := ns.GetNSpath(pod)
+				nspath, _ := ns.GetPodNSpath(pod)
 				if err := handleKmeshBypass(nspath, 0); err != nil {
 					log.Errorf("failed to disable bypass control")
 					return

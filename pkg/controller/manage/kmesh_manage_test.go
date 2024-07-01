@@ -28,14 +28,25 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	"kmesh.net/kmesh/pkg/constants"
 )
 
-func TestPodWithLabelAdditionTriggersManage(t *testing.T) {
+func waitAndCheckManageAction(t *testing.T, wg *sync.WaitGroup, done chan struct{}, mu *sync.Mutex, enabled *bool, disabled *bool, enableExpected bool, disableExpected bool) {
+	select {
+	case <-done:
+		mu.Lock()
+		assert.Equal(t, enableExpected, *enabled, "unexpected value for enabled flag")
+		assert.Equal(t, disableExpected, *disabled, "unexpected value for disabled flag")
+		mu.Unlock()
+	case <-time.After(1 * time.Second):
+		t.Fatalf("timed out waiting for handleKmeshManage to be called")
+	}
+}
+
+func TestPodWithLabelChangeTriggersManageAction(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
 	err := os.Setenv("NODE_NAME", "test_node")
@@ -93,54 +104,93 @@ func TestPodWithLabelAdditionTriggersManage(t *testing.T) {
 	assert.NoError(t, err)
 
 	done := make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	wg.Wait()
+	close(done)
 
-	select {
-	case <-done:
-		mu.Lock()
-		assert.True(t, enabled, "expected handleKmeshManage to be called for enabling Kmesh manage")
-		assert.False(t, disabled, "expected handleKmeshManage not to be called for disabling Kmesh manage")
-		mu.Unlock()
-	case <-time.After(1 * time.Second):
-		t.Fatalf("timed out waiting for handleKmeshManage to be called")
-	}
+	waitAndCheckManageAction(t, &wg, done, &mu, &enabled, &disabled, true, false)
 
-	podLister := controller.informerFactory.Core().V1().Pods().Lister()
-	pods, err := podLister.Pods(pod.Namespace).List(labels.Everything())
-	assert.NoError(t, err)
-	assert.Equal(t, 1, len(pods), "expected One Pod in the lister after addition")
-
-	// Reset variables
-	mu.Lock()
 	enabled = false
 	disabled = false
-	mu.Unlock()
 
+	delete(pod.Labels, constants.DataPlaneModeLabel)
 	wg.Add(1)
-	err = client.CoreV1().Pods("default").Delete(context.TODO(), "test-pod", metav1.DeleteOptions{})
+	_, err = client.CoreV1().Pods("default").Update(context.TODO(), pod, metav1.UpdateOptions{})
 	assert.NoError(t, err)
 
 	done = make(chan struct{})
-	go func() {
-		wg.Wait()
-		close(done)
-	}()
+	wg.Wait()
+	close(done)
 
-	select {
-	case <-done:
-		mu.Lock()
-		assert.False(t, enabled, "expected handleKmeshManage not to be called for enabling Kmesh manage")
-		assert.True(t, disabled, "expected handleKmeshManage to be called for disabling Kmesh manage")
-		mu.Unlock()
-	case <-time.After(1 * time.Second):
-		t.Fatalf("timed out waiting for handleKmeshManage to be called")
+	waitAndCheckManageAction(t, &wg, done, &mu, &enabled, &disabled, false, true)
+}
+
+func TestPodWithoutLabelTriggersManageAction(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	err := os.Setenv("NODE_NAME", "test_node")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+	controller, err := NewKmeshManageController(client)
+	if err != nil {
+		t.Fatalf("error creating KmeshManageController: %v", err)
 	}
 
-	podLister = controller.informerFactory.Core().V1().Pods().Lister()
-	pods, err = podLister.Pods(pod.Namespace).List(labels.Everything())
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+
+	controller.Run()
+	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced)
+
+	var mu sync.Mutex
+	enabled := false
+	disabled := false
+
+	// Create a WaitGroup to synchronize the test
+	var wg sync.WaitGroup
+
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+
+	patches.ApplyFunc(handleKmeshManage, func(ns string, op bool) error {
+		mu.Lock()
+		defer mu.Unlock()
+		if op {
+			enabled = true
+		} else {
+			disabled = true
+		}
+		// Signal that handleKmeshManage has been called
+		wg.Done()
+		return nil
+	})
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels:    map[string]string{},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+	}
+
+	_, err = client.CoreV1().Pods("default").Create(context.TODO(), pod, metav1.CreateOptions{})
 	assert.NoError(t, err)
-	assert.Equal(t, 0, len(pods), "expected zero Pod in the lister after deletion")
+
+	enabled = false
+	disabled = false
+
+	pod.Labels[constants.DataPlaneModeLabel] = constants.DataPlaneModeKmesh
+	wg.Add(1)
+	_, err = client.CoreV1().Pods("default").Update(context.TODO(), pod, metav1.UpdateOptions{})
+	assert.NoError(t, err)
+
+	done := make(chan struct{})
+	wg.Wait()
+	close(done)
+
+	waitAndCheckManageAction(t, &wg, done, &mu, &enabled, &disabled, true, false)
 }

@@ -37,7 +37,7 @@ var (
 	FS embed.FS
 )
 
-func GetNSpath(pod *corev1.Pod) (string, error) {
+func GetPodNSpath(pod *corev1.Pod) (string, error) {
 	res, err := FindNetnsForPod(pod)
 	if err != nil {
 		return "", err
