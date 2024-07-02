@@ -24,33 +24,31 @@ import (
 	"net/netip"
 	"reflect"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/ringbuf"
 	"istio.io/istio/pkg/slices"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
-	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
 )
 
 type Metric struct {
 	workloadCache cache.WorkloadCache
-	bpfWorkload   *bpf.BpfKmeshWorkload
 }
 
-func NewMetric(workloadObj *bpf.BpfKmeshWorkload, workloadCache cache.WorkloadCache) *Metric {
+func NewMetric(workloadCache cache.WorkloadCache) *Metric {
 	return &Metric{
-		bpfWorkload:   workloadObj,
 		workloadCache: workloadCache,
 	}
 }
 
-func (m *Metric) Run(ctx context.Context) {
+func (m *Metric) Run(ctx context.Context, mapOfTuple *ebpf.Map) {
 	if m == nil {
 		return
 	}
 
-	reader, err := ringbuf.NewReader(m.bpfWorkload.SockConn.MapOfTuple)
+	reader, err := ringbuf.NewReader(mapOfTuple)
 	if err != nil {
 		log.Errorf("open ringbuf map FAILED, err: %v", err)
 		return

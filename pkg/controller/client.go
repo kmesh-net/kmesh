@@ -61,7 +61,6 @@ func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
 
 	if mode == constants.WorkloadMode {
 		client.WorkloadController = workload.NewController(bpfWorkload)
-		client.telemetry = telemetry.NewMetric(bpfWorkloadObj, client.WorkloadController.Processor.WorkloadCache)
 	} else if mode == constants.AdsMode {
 		client.AdsController = ads.NewController()
 	}
@@ -161,7 +160,7 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 		go c.rbac.Run(c.ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
 	}
 
-	go c.telemetry.Run(c.ctx)
+	go c.telemetry.Run(c.ctx, c.bpfWorkloadObj.SockOps.MapOfTuple)
 
 	go func() {
 		<-stopCh
