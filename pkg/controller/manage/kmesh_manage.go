@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
+	"k8s.io/client-go/util/workqueue"
 
 	"kmesh.net/kmesh/pkg/constants"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
@@ -52,8 +53,16 @@ var (
 
 const (
 	DefaultInformerSyncPeriod  = 30 * time.Second
+	MaxRetries                 = 5
 	KmeshRedirectionAnnotation = "kmesh.net/redirection"
+	ActionAddAnnotation        = "add"
+	ActionDeleteAnnotation     = "delete"
 )
+
+type QueueItem struct {
+	pod    *corev1.Pod
+	action string
+}
 
 func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageController, error) {
 	stopChan := make(chan struct{})
@@ -65,6 +74,7 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 		}))
 
 	podInformer := informerFactory.Core().V1().Pods().Informer()
+	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
 
 	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
@@ -86,10 +96,7 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 				log.Errorf("failed to enable Kmesh manage")
 				return
 			}
-			if err := addKmeshAnnotation(client, pod); err != nil {
-				log.Errorf("failed to add Kmesh annotation, err is %v", err)
-				return
-			}
+			queue.AddRateLimited(QueueItem{pod: pod, action: ActionAddAnnotation})
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldPod, okOld := oldObj.(*corev1.Pod)
@@ -114,10 +121,7 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 					log.Errorf("failed to enable Kmesh manage")
 					return
 				}
-				if err := addKmeshAnnotation(client, newPod); err != nil {
-					log.Errorf("failed to add Kmesh annotation, err is %v", err)
-					return
-				}
+				queue.AddRateLimited(QueueItem{pod: newPod, action: ActionAddAnnotation})
 			}
 
 			//delete Kmesh manage label for disable Kmesh control
@@ -130,10 +134,7 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 					return
 				}
 
-				if err := delKmeshAnnotation(client, newPod); err != nil {
-					log.Errorf("failed to delete Kmesh annotation, err is %v", err)
-					return
-				}
+				queue.AddRateLimited(QueueItem{pod: newPod, action: ActionDeleteAnnotation})
 			}
 		},
 	}); err != nil {
@@ -144,6 +145,8 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 		stopChan:        stopChan,
 		informerFactory: informerFactory,
 		podInformer:     podInformer,
+		queue:           queue,
+		client:          client,
 	}, nil
 }
 
@@ -151,6 +154,8 @@ type KmeshManageController struct {
 	stopChan        chan struct{}
 	informerFactory informers.SharedInformerFactory
 	podInformer     cache.SharedIndexInformer
+	queue           workqueue.RateLimitingInterface
+	client          kubernetes.Interface
 }
 
 func (c *KmeshManageController) Run() {
@@ -160,7 +165,44 @@ func (c *KmeshManageController) Run() {
 			log.Error("Timed out waiting for caches to sync")
 			return
 		}
+		for {
+			c.processItems()
+		}
 	}()
+}
+
+func (c *KmeshManageController) processItems() {
+	key, quit := c.queue.Get()
+	if quit {
+		return
+	}
+	defer c.queue.Done(key)
+
+	queueItem, ok := key.(QueueItem)
+	if !ok {
+		log.Errorf("expected QueueItem but got %T", key)
+		return
+	}
+
+	var err error
+	if queueItem.action == ActionAddAnnotation {
+		err = addKmeshAnnotation(c.client, queueItem.pod)
+	} else if queueItem.action == ActionDeleteAnnotation {
+		err = delKmeshAnnotation(c.client, queueItem.pod)
+	}
+
+	if err != nil {
+		if c.queue.NumRequeues(key) < MaxRetries {
+			log.Errorf("failed to handle pod %s/%s action %s, err: %v, will retry", queueItem.pod.Namespace, queueItem.pod.Name, queueItem.action, err)
+			c.queue.AddRateLimited(key)
+		} else {
+			log.Errorf("failed to handle pod %s/%s action %s after %d retries, err: %v, giving up", queueItem.pod.Namespace, queueItem.pod.Name, queueItem.action, MaxRetries, err)
+			c.queue.Forget(key)
+		}
+		return
+	}
+
+	c.queue.Forget(key)
 }
 
 func isPodBeingDeleted(pod *corev1.Pod) bool {

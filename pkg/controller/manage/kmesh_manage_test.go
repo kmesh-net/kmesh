@@ -21,7 +21,6 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
@@ -34,16 +33,12 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 )
 
-func waitAndCheckManageAction(t *testing.T, wg *sync.WaitGroup, done chan struct{}, mu *sync.Mutex, enabled *bool, disabled *bool, enableExpected bool, disableExpected bool) {
-	select {
-	case <-done:
-		mu.Lock()
-		assert.Equal(t, enableExpected, *enabled, "unexpected value for enabled flag")
-		assert.Equal(t, disableExpected, *disabled, "unexpected value for disabled flag")
-		mu.Unlock()
-	case <-time.After(1 * time.Second):
-		t.Fatalf("timed out waiting for handleKmeshManage to be called")
-	}
+func waitAndCheckManageAction(t *testing.T, wg *sync.WaitGroup, mu *sync.Mutex, enabled *bool, disabled *bool, enableExpected bool, disableExpected bool) {
+	wg.Wait()
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, enableExpected, *enabled, "unexpected value for enabled flag")
+	assert.Equal(t, disableExpected, *disabled, "unexpected value for disabled flag")
 }
 
 func TestPodWithLabelChangeTriggersManageAction(t *testing.T) {
@@ -103,11 +98,7 @@ func TestPodWithLabelChangeTriggersManageAction(t *testing.T) {
 	_, err = client.CoreV1().Pods("default").Create(context.TODO(), pod, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
-	done := make(chan struct{})
-	wg.Wait()
-	close(done)
-
-	waitAndCheckManageAction(t, &wg, done, &mu, &enabled, &disabled, true, false)
+	waitAndCheckManageAction(t, &wg, &mu, &enabled, &disabled, true, false)
 
 	enabled = false
 	disabled = false
@@ -117,11 +108,7 @@ func TestPodWithLabelChangeTriggersManageAction(t *testing.T) {
 	_, err = client.CoreV1().Pods("default").Update(context.TODO(), pod, metav1.UpdateOptions{})
 	assert.NoError(t, err)
 
-	done = make(chan struct{})
-	wg.Wait()
-	close(done)
-
-	waitAndCheckManageAction(t, &wg, done, &mu, &enabled, &disabled, false, true)
+	waitAndCheckManageAction(t, &wg, &mu, &enabled, &disabled, false, true)
 }
 
 func TestPodWithoutLabelTriggersManageAction(t *testing.T) {
@@ -188,9 +175,5 @@ func TestPodWithoutLabelTriggersManageAction(t *testing.T) {
 	_, err = client.CoreV1().Pods("default").Update(context.TODO(), pod, metav1.UpdateOptions{})
 	assert.NoError(t, err)
 
-	done := make(chan struct{})
-	wg.Wait()
-	close(done)
-
-	waitAndCheckManageAction(t, &wg, done, &mu, &enabled, &disabled, true, false)
+	waitAndCheckManageAction(t, &wg, &mu, &enabled, &disabled, true, false)
 }
