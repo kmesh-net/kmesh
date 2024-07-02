@@ -30,6 +30,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/config"
+	"kmesh.net/kmesh/pkg/controller/telemetry"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/nets"
 )
@@ -49,6 +50,7 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 	rbac               *auth.Rbac
 	bpfWorkloadObj     *bpf.BpfKmeshWorkload
+	telemetry          *telemetry.Metric
 }
 
 func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
@@ -59,6 +61,7 @@ func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
 
 	if mode == constants.WorkloadMode {
 		client.WorkloadController = workload.NewController(bpfWorkload)
+		client.telemetry = telemetry.NewMetric(bpfWorkloadObj, client.WorkloadController.Processor.WorkloadCache)
 	} else if mode == constants.AdsMode {
 		client.AdsController = ads.NewController()
 	}
@@ -157,6 +160,8 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	if c.rbac != nil {
 		go c.rbac.Run(c.ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
 	}
+
+	go c.telemetry.Run(c.ctx)
 
 	go func() {
 		<-stopCh
