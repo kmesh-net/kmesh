@@ -26,7 +26,6 @@ import (
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
 	"kmesh.net/kmesh/api/v2/workloadapi"
-	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
 
@@ -399,7 +398,6 @@ func TestMetricGetWorkloadByAddress(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := Metric{
 				workloadCache: cache.NewWorkloadCache(),
-				bpfWorkload:   &bpf.BpfKmeshWorkload{},
 			}
 			m.workloadCache.AddWorkload(workload)
 			if got := m.getWorkloadByAddress(tt.args.address); !reflect.DeepEqual(got, tt.want) {
@@ -493,7 +491,6 @@ func TestMetricBuildMetric(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := Metric{
 				workloadCache: cache.NewWorkloadCache(),
-				bpfWorkload:   &bpf.BpfKmeshWorkload{},
 			}
 			m.workloadCache.AddWorkload(dstWorkload)
 			m.workloadCache.AddWorkload(srcWorkload)
