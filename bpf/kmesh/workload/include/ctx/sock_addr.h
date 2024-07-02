@@ -29,7 +29,10 @@ typedef struct bpf_sock_addr ctx_buff_t;
 #define SET_CTX_ADDRESS6(ctx, addr, port)                                                                              \
     do {                                                                                                               \
         if (ctx->user_family == AF_INET6) {                                                                            \
-            bpf_memcpy((ctx)->user_ip6, (addr)->ip6, IPV6_ADDR_LEN);                                                   \
+            (ctx)->user_ip6[0] = (addr)->ip6[0];                                                                       \
+            (ctx)->user_ip6[1] = (addr)->ip6[1];                                                                       \
+            (ctx)->user_ip6[2] = (addr)->ip6[2];                                                                       \
+            (ctx)->user_ip6[3] = (addr)->ip6[3];                                                                       \
             (ctx)->user_port = port;                                                                                   \
         }                                                                                                              \
     } while (0)

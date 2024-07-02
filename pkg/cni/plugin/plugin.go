@@ -20,10 +20,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -39,6 +37,7 @@ import (
 
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -131,36 +130,18 @@ func disableKmeshControl(ns string) error {
 	if ns == "" {
 		return nil
 	}
+
 	execFunc := func(netns.NetNS) error {
 		/*
 		 * Attempt to connect to a special IP address. The
-		 * connection triggers the cgroup/connect4 ebpf
+		 * connection triggers the cgroup/connect4/6 ebpf
 		 * program and records the netns cookie information
 		 * of the current connection. The cookie can be used
 		 * to determine whether the netns is managed by Kmesh.
-		 * 0.0.0.1:930(0x3a2) is "cipher key" for cgroup/connect4
+		 * ControlCommandIp4/6:930(0x3a2) is "cipher key" for cgroup/connect4/6
 		 * ebpf program disable kmesh control
 		 */
-		simip := net.ParseIP("0.0.0.1")
-		sockfd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
-		if err != nil {
-			return err
-		}
-		if err = syscall.SetNonblock(sockfd, true); err != nil {
-			return err
-		}
-		err = syscall.Connect(sockfd, &syscall.SockaddrInet4{
-			Port: 930,
-			Addr: [4]byte(simip.To4()),
-		})
-		if err == nil {
-			return err
-		}
-		errno, ok := err.(syscall.Errno)
-		if ok && errno == 115 { // -EINPROGRESS, Operation now in progress
-			return nil
-		}
-		return err
+		return nets.TriggerControlCommand(constants.OperDisableControl)
 	}
 
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
@@ -174,33 +155,14 @@ func enableKmeshControl(ns string) error {
 	execFunc := func(netns.NetNS) error {
 		/*
 		 * Attempt to connect to a special IP address. The
-		 * connection triggers the cgroup/connect4 ebpf
+		 * connection triggers the cgroup/connect4/6 ebpf
 		 * program and records the netns cookie information
 		 * of the current connection. The cookie can be used
 		 * to determine whether the netns is managed by Kmesh.
-		 * 0.0.0.1:929(0x3a1) is "cipher key" for cgroup/connect4
+		 * ControlCommandIp4/6:929(0x3a1) is "cipher key" for cgroup/connect4/6
 		 * ebpf program.
 		 */
-		simip := net.ParseIP("0.0.0.1")
-		sockfd, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)
-		if err != nil {
-			return err
-		}
-		if err = syscall.SetNonblock(sockfd, true); err != nil {
-			return err
-		}
-		err = syscall.Connect(sockfd, &syscall.SockaddrInet4{
-			Port: 929,
-			Addr: [4]byte(simip.To4()),
-		})
-		if err == nil {
-			return err
-		}
-		errno, ok := err.(syscall.Errno)
-		if ok && errno == 115 { // -EINPROGRESS, Operation now in progress
-			return nil
-		}
-		return err
+		return nets.TriggerControlCommand(constants.OperEnableControl)
 	}
 
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {

@@ -68,7 +68,7 @@ func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	}
 }
 
-func newInitialWorkloadRequest(typeUrl string, names []string, initialResourceVersions map[string]string) *service_discovery_v3.DeltaDiscoveryRequest {
+func newDeltaRequest(typeUrl string, names []string, initialResourceVersions map[string]string) *service_discovery_v3.DeltaDiscoveryRequest {
 	return &service_discovery_v3.DeltaDiscoveryRequest{
 		TypeUrl:                 typeUrl,
 		ResourceNamesSubscribe:  names,
@@ -76,16 +76,6 @@ func newInitialWorkloadRequest(typeUrl string, names []string, initialResourceVe
 		ResponseNonce:           "",
 		ErrorDetail:             nil,
 		Node:                    config.GetConfig(constants.WorkloadMode).GetNode(),
-	}
-}
-
-func newWorkloadRequest(typeUrl string, names []string) *service_discovery_v3.DeltaDiscoveryRequest {
-	return &service_discovery_v3.DeltaDiscoveryRequest{
-		TypeUrl:                typeUrl,
-		ResourceNamesSubscribe: names,
-		ResponseNonce:          "",
-		ErrorDetail:            nil,
-		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
 }
 
@@ -667,16 +657,16 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 			log.Errorf("unmarshal failed, err: %v", err)
 			continue
 		}
-		log.Debugf("handle auth xds, resource.name %s, auth %s", resource.GetName(), auth.String())
+		log.Debugf("handle authorization policy %s, auth %s", resource.GetName(), auth.String())
 		if err := rbac.UpdatePolicy(auth); err != nil {
 			return err
 		}
 	}
 
 	// delete resource by name
-	for _, rmResourceName := range rsp.GetRemovedResources() {
-		rbac.RemovePolicy(rmResourceName)
-		log.Debugf("handle rm resource %s", rmResourceName)
+	for _, resourceName := range rsp.GetRemovedResources() {
+		rbac.RemovePolicy(resourceName)
+		log.Debugf("remove authorization policy %s", resourceName)
 	}
 
 	return nil

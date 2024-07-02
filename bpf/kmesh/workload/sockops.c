@@ -32,13 +32,13 @@ struct {
     __uint(map_flags, 0);
 } map_of_kmesh_socket SEC(".maps");
 
-static inline bool is_managed_by_kmesh(__u32 family, __u32 ip4, __u32 *ip6)
+static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
 {
     struct manager_key key = {0};
-    if (family == AF_INET)
-        key.addr.ip4 = ip4;
-    if (family == AF_INET6 && ip6)
-        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+    if (skops->family == AF_INET)
+        key.addr.ip4 = skops->local_ip4;
+    if (skops->family == AF_INET6)
+        IP6_COPY(key.addr.ip6, skops->local_ip6);
 
     int *value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!value)
@@ -146,7 +146,7 @@ static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
     if (family == AF_INET)
         key.addr.ip4 = ip4;
     if (family == AF_INET6 && ip6)
-        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+        IP6_COPY(key.addr.ip6, ip6);
 
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
     if (err)
@@ -159,7 +159,7 @@ static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
     if (family == AF_INET)
         key.addr.ip4 = ip4;
     if (family == AF_INET6 && ip6)
-        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+        IP6_COPY(key.addr.ip6, ip6);
 
     int err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
@@ -169,37 +169,43 @@ static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 port)
 {
     __u16 remote_port = GET_SKOPS_REMOTE_PORT(skops);
-    __u32 client_ip = bpf_ntohl(skops->remote_ip4);
+    if (bpf_ntohs(remote_port) != port)
+        return false;
 
-    return (client_ip == ip) && (bpf_ntohs(remote_port) == port);
+    if (skops->family == AF_INET)
+        return (bpf_ntohl(skops->remote_ip4) == ip);
+
+    return (
+        skops->remote_ip6[0] == 0 && skops->remote_ip6[1] == 0 && skops->remote_ip6[2] == 0
+        && bpf_ntohl(skops->remote_ip6[3] == ip));
 }
 
 static inline bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)
 {
-    // cni sim connect 0.0.0.1:929(0x3a1)
+    // cni sim connect CONTROL_CMD_IP:929(0x3a1)
     // 0x3a1 is the specific port handled by the cni to enable Kmesh
-    return conn_from_sim(skops, 1, ENABLE_KMESH_PORT);
+    return conn_from_sim(skops, CONTROL_CMD_IP, ENABLE_KMESH_PORT);
 }
 
 static inline bool skops_conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
 {
-    // cni sim connect 0.0.0.1:930(0x3a2)
+    // cni sim connect CONTROL_CMD_IP:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni to disable Kmesh
-    return conn_from_sim(skops, 1, DISABLE_KMESH_PORT);
+    return conn_from_sim(skops, CONTROL_CMD_IP, DISABLE_KMESH_PORT);
 }
 
 static inline bool skops_conn_from_bypass_sim_add(struct bpf_sock_ops *skops)
 {
-    // bypass sim connect 0.0.0.1:931(0x3a3)
+    // bypass sim connect CONTROL_CMD_IP:931(0x3a3)
     // 0x3a3 is the specific port handled by daemon to enable bypass
-    return conn_from_sim(skops, 1, ENABLE_BYPASS_PORT);
+    return conn_from_sim(skops, CONTROL_CMD_IP, ENABLE_BYPASS_PORT);
 }
 
 static inline bool skops_conn_from_bypass_sim_delete(struct bpf_sock_ops *skops)
 {
-    // bypass sim connect 0.0.0.1:932(0x3a4)
+    // bypass sim connect CONTROL_CMD_IP:932(0x3a4)
     // 0x3a4 is the specific port handled by the daemon to disable bypass
-    return conn_from_sim(skops, 1, DISABLE_BYPASS_PORT);
+    return conn_from_sim(skops, CONTROL_CMD_IP, DISABLE_BYPASS_PORT);
 }
 
 static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new_bypass_value)
@@ -208,7 +214,7 @@ static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new
     if (family == AF_INET)
         key.addr.ip4 = ip4;
     if (family == AF_INET6 && ip6)
-        bpf_memcpy(key.addr.ip6, ip6, IPV6_ADDR_LEN);
+        IP6_COPY(key.addr.ip6, ip6);
 
     manager_value_t *current_value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!current_value || current_value->is_bypassed == new_bypass_value)
@@ -219,11 +225,6 @@ static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new
     int err = bpf_map_update_elem(&map_of_manager, &key, current_value, BPF_EXIST);
     if (err)
         BPF_LOG(ERR, KMESH, "set bypass value failed!, err is %d\n", err);
-}
-
-static inline bool ipv4_mapped_addr(__u32 ip6[4])
-{
-    return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
 }
 
 static inline void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops)
@@ -245,7 +246,7 @@ static inline void skops_handle_bypass_process(struct bpf_sock_ops *skops)
 SEC("sockops")
 int sockops_prog(struct bpf_sock_ops *skops)
 {
-    if (skops->family != AF_INET && !ipv4_mapped_addr(skops->local_ip6))
+    if (skops->family != AF_INET && skops->family != AF_INET6)
         return 0;
     switch (skops->op) {
     case BPF_SOCK_OPS_TCP_CONNECT_CB:
@@ -253,7 +254,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
         skops_handle_bypass_process(skops);
         break;
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, NULL)) // local ip4 is client ip
+        if (!is_managed_by_kmesh(skops))
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
@@ -263,7 +264,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
             enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops->family, skops->local_ip4, NULL)) // local ip4 is server ip
+        if (!is_managed_by_kmesh(skops))
             break;
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");

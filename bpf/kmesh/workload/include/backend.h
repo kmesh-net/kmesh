@@ -9,6 +9,7 @@
 #include "tail_call.h"
 
 #define TAIL_CALL_CONNECT4_INDEX 0
+#define TAIL_CALL_CONNECT6_INDEX 1
 
 static inline backend_value *map_lookup_backend(const backend_key *key)
 {
@@ -60,7 +61,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
             DEBUG,
             BACKEND,
             "find waypoint addr=[%s:%u]\n",
-            ip2str(&backend_v->wp_addr.ip4, 1),
+            ip2str(&backend_v->wp_addr, ctx->family == AF_INET),
             bpf_ntohs(backend_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);
         if (ret != 0) {
@@ -90,7 +91,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
                         DEBUG,
                         BACKEND,
                         "get the backend addr=[%s:%u]\n",
-                        ip2str(&kmesh_ctx->dnat_ip.ip4, 1),
+                        ip2str(&kmesh_ctx->dnat_ip, ctx->family == AF_INET),
                         bpf_ntohs(service_v->target_port[j]));
                     return 0;
                 }

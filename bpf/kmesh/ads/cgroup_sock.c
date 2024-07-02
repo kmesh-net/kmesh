@@ -58,10 +58,16 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
-    if (handle_kmesh_manage_process(ctx) || !is_kmesh_enabled(ctx)) {
+    struct kmesh_context kmesh_ctx = {0};
+    kmesh_ctx.ctx = ctx;
+    kmesh_ctx.orig_dst_addr.ip4 = ctx->user_ip4;
+    kmesh_ctx.dnat_ip.ip4 = ctx->user_ip4;
+    kmesh_ctx.dnat_port = ctx->user_port;
+
+    if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
-    if (handle_bypass_process(ctx) || is_bypass_enabled(ctx)) {
+    if (handle_bypass_process(&kmesh_ctx) || is_bypass_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
     int ret = sock4_traffic_control(ctx);

@@ -50,7 +50,7 @@ type tlsOptions struct {
 // NewCaClient create a CA client for CSR sign.
 // The following function is adapted from istio NewCitadelClient
 // (https://github.com/istio/istio/blob/master/security/pkg/nodeagent/caclient/providers/citadel/client.go)
-func newCaClient(opts *security.Options, tlsOpts *tlsOptions) (*caClient, error) {
+func newCaClient(opts *security.Options, tlsOpts *tlsOptions) (CaClient, error) {
 	var err error
 
 	c := &caClient{
@@ -68,10 +68,10 @@ func newCaClient(opts *security.Options, tlsOpts *tlsOptions) (*caClient, error)
 	return c, nil
 }
 
-// csrSend send a grpc request to istio and sign a CSR.
+// CsrSend send a grpc request to istio and sign a CSR.
 // The following function is adapted from istio CSRSign
 // (https://github.com/istio/istio/blob/master/security/pkg/nodeagent/caclient/providers/citadel/client.go)
-func (c *caClient) csrSend(csrPEM []byte, certValidsec int64, identity string) ([]string, error) {
+func (c caClient) CsrSend(csrPEM []byte, certValidsec int64, identity string) ([]string, error) {
 	crMeta := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			security.ImpersonatedIdentity: {
@@ -115,7 +115,7 @@ func standardCerts(certsPEM []string) []byte {
 
 // The following function is adapted from istio generateNewSecret
 // (https://github.com/istio/istio/blob/master/security/pkg/nodeagent/cache/secretcache.go)
-func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
+func (c *caClient) FetchCert(identity string) (*security.SecretItem, error) {
 	var rootCertPEM []byte
 
 	options := pkiutil.CertOptions{
@@ -132,7 +132,7 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 		log.Errorf("%s failed to generate key and certificate for CSR: %v", identity, err)
 		return nil, err
 	}
-	certChainPEM, err := c.csrSend(csrPEM, int64(c.opts.SecretTTL.Seconds()), identity)
+	certChainPEM, err := c.CsrSend(csrPEM, int64(c.opts.SecretTTL.Seconds()), identity)
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +158,6 @@ func (c *caClient) fetchCert(identity string) (*security.SecretItem, error) {
 	}, nil
 }
 
-func (c *caClient) close() error {
+func (c *caClient) Close() error {
 	return c.conn.Close()
 }

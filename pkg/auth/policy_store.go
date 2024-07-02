@@ -53,7 +53,6 @@ func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
 	var ns string
 	switch authPolicy.GetScope() {
 	case security.Scope_WORKLOAD_SELECTOR:
-		// only update 'byKey' cache for Scope_WORKLOAD_SELECTOR
 		ps.byKey[key] = authPolicy
 		return nil
 	case security.Scope_GLOBAL:
@@ -102,6 +101,18 @@ func (ps *policyStore) removePolicy(policyKey string) {
 			delete(ps.byNamespace, ns)
 		}
 	}
+}
+
+// getAllPolicies returns a copied set of all policy names
+func (ps *policyStore) getAllPolicies() map[string]string {
+	ps.rwLock.RLock()
+	defer ps.rwLock.RUnlock()
+
+	out := make(map[string]string, len(ps.byKey))
+	for k := range ps.byKey {
+		out[k] = ""
+	}
+	return out
 }
 
 // getByNamespace returns a copied set of policy name in namespace, or an empty set if namespace not exists

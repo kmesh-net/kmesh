@@ -71,6 +71,10 @@ func GetConfigDumpAddr(mode string) string {
 	return "http://" + adminAddr + configDumpPrefix + "/" + mode
 }
 
+func GetLoggerURL() string {
+	return "http://" + adminAddr + patternLoggers
+}
+
 func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Server {
 	s := &Server{
 		config:         configs,
@@ -170,7 +174,7 @@ func (s *Server) getLoggerLevel(w http.ResponseWriter, r *http.Request) {
 	loggerLevel, err := logger.GetLoggerLevel(loggerName)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", err.Error())
+		fmt.Fprintf(w, "\t%v\n", err)
 		return
 	}
 	loggerInfo := LoggerInfo{
@@ -196,25 +200,25 @@ func (s *Server) setLoggerLevel(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s: %s\n", "Error reading request body", err.Error())
+		fmt.Fprintf(w, "\t%s: %v\n", "Error reading request body", err)
 		return
 	}
 
 	if err = json.Unmarshal(body, &loggerInfo); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s: %s\n", "Invalid request body format", err.Error())
+		fmt.Fprintf(w, "\t%s: %v\n", "Invalid request body format", err)
 		return
 	}
 
 	if loggerLevel, err = logrus.ParseLevel(loggerInfo.Level); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s: %s\n", "Invalid request body format", err.Error())
+		fmt.Fprintf(w, "\t%s: %v\n", "Invalid request body format", err)
 		return
 	}
 
 	if err = logger.SetLoggerLevel(loggerInfo.Name, loggerLevel); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", err.Error())
+		fmt.Fprintf(w, "\t%v\n", err)
 		return
 	}
 
