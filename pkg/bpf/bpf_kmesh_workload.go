@@ -63,7 +63,7 @@ func (sc *BpfSockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	return nil
 }
 
-func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) {
+func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects(Status int) (*ebpf.CollectionSpec, error) {
 	var (
 		err  error
 		spec *ebpf.CollectionSpec
@@ -83,6 +83,10 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		return nil, err
 	}
 
+	if Status == Reload {
+		return spec, nil
+	}
+
 	value := reflect.ValueOf(sc.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadPrograms)
 	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -91,9 +95,9 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 	return spec, nil
 }
 
-func (sc *BpfSockConnWorkload) LoadSockConn() error {
+func (sc *BpfSockConnWorkload) LoadSockConn(Status int) error {
 	/* load kmesh sockops main bpf prog */
-	spec, err := sc.loadKmeshSockConnObjects()
+	spec, err := sc.loadKmeshSockConnObjects(Status)
 	if err != nil {
 		return err
 	}
@@ -129,7 +133,8 @@ func (sc *BpfSockConnWorkload) close() error {
 	return nil
 }
 
-func (sc *BpfSockConnWorkload) Attach() error {
+func (sc *BpfSockConnWorkload) Attach(Status int) error {
+
 	var err error
 	cgopt := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
@@ -149,6 +154,16 @@ func (sc *BpfSockConnWorkload) Attach() error {
 	}
 
 	sc.Link6, err = link.AttachCgroup(cgopt)
+
+	if Status == Reload {
+		return nil
+	}
+
+	if err := sc.Link.Pin(sc.Info.BpfFsPath + "sockconn_prog"); err != nil {
+		log.Printf("file exit %v", sc.Info.BpfFsPath+"sockconn_prog")
+		return err
+	}
+  
 	return err
 }
 
@@ -213,7 +228,7 @@ func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
 	return nil
 }
 
-func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
+func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects(Status int) (*ebpf.CollectionSpec, error) {
 	var (
 		err  error
 		spec *ebpf.CollectionSpec
@@ -236,6 +251,10 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
+	if Status == Reload {
+		return spec, nil
+	}
+
 	value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
 	if err = pinPrograms(&value, so.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -243,9 +262,10 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 
 	return spec, nil
 }
-func (so *BpfSockOpsWorkload) LoadSockOps() error {
+
+func (so *BpfSockOpsWorkload) LoadSockOps(Status int) error {
 	/* load kmesh sockops main bpf prog*/
-	spec, err := so.loadKmeshSockopsObjects()
+	spec, err := so.loadKmeshSockopsObjects(Status)
 	if err != nil {
 		return err
 	}
@@ -257,7 +277,7 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 	return nil
 }
 
-func (so *BpfSockOpsWorkload) Attach() error {
+func (so *BpfSockOpsWorkload) Attach(Status int) error {
 	cgopt := link.CgroupOptions{
 		Path:    so.Info.Cgroup2Path,
 		Attach:  so.Info.AttachType,
@@ -269,6 +289,14 @@ func (so *BpfSockOpsWorkload) Attach() error {
 		return err
 	}
 	so.Link = lk
+
+	if Status == Reload {
+		return nil
+	}
+
+	if err := lk.Pin(so.Info.BpfFsPath + "cgroup_sockops_prog"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -338,7 +366,7 @@ func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj 
 	return nil
 }
 
-func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, error) {
+func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects(Status int) (*ebpf.CollectionSpec, error) {
 	var (
 		err  error
 		spec *ebpf.CollectionSpec
@@ -355,6 +383,11 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
 		return nil, err
 	}
+
+	if Status == Reload {
+		return spec, nil
+	}
+
 	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
 	if err = pinPrograms(&value, sm.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -362,9 +395,9 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	return spec, nil
 }
 
-func (sm *BpfSendMsgWorkload) LoadSendMsg() error {
+func (sm *BpfSendMsgWorkload) LoadSendMsg(Status int) error {
 	/* load kmesh sendmsg main bpf prog */
-	spec, err := sm.loadKmeshSendmsgObjects()
+	spec, err := sm.loadKmeshSendmsgObjects(Status)
 	if err != nil {
 		return err
 	}
@@ -375,7 +408,7 @@ func (sm *BpfSendMsgWorkload) LoadSendMsg() error {
 	return nil
 }
 
-func (sm *BpfSendMsgWorkload) Attach() error {
+func (sm *BpfSendMsgWorkload) Attach(Status int) error {
 	// Use a program handle that cannot be closed by the caller
 	clone, err := sm.KmeshSendmsgObjects.KmeshSendmsgPrograms.SendmsgProg.Clone()
 	if err != nil {
@@ -451,7 +484,7 @@ func (xa *BpfXdpAuthWorkload) NewBpf(cfg *options.BpfConfig) error {
 	return nil
 }
 
-func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, error) {
+func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects(Status int) (*ebpf.CollectionSpec, error) {
 	var (
 		err  error
 		spec *ebpf.CollectionSpec
@@ -474,6 +507,10 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
+	if Status == Reload {
+		return spec, nil
+	}
+
 	value := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthPrograms)
 	if err = pinPrograms(&value, xa.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -482,8 +519,8 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	return spec, nil
 }
 
-func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
-	spec, err := xa.loadKmeshXdpAuthObjects()
+func (xa *BpfXdpAuthWorkload) LoadXdpAuth(Status int) error {
+	spec, err := xa.loadKmeshXdpAuthObjects(Status)
 	if err != nil {
 		return err
 	}

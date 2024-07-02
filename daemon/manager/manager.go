@@ -73,7 +73,7 @@ func NewCommand() *cobra.Command {
 
 // Execute start daemon manager process
 func Execute(configs *options.BootstrapConfigs) error {
-	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
+	bpfLoader := bpf.NewBpfLoader(configs)
 	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
 		return err
 	}
@@ -101,17 +101,23 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("command Start cni successful")
 	defer cniInstaller.Stop()
 
-	setupCloseHandler()
+	*configs.Status = setupCloseHandler()
+	log.Printf("bpfLoader.Restart %v", *configs.Status)
 	return nil
 }
 
-func setupCloseHandler() {
+func setupCloseHandler() int {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGABRT, syscall.SIGTSTP)
 
 	<-ch
 
 	log.Warn("exiting...")
+	
+	if bpf.GetDaemonset() {
+		return bpf.Restart
+	}
+	return bpf.NewStart
 }
 
 // printFlags print flags
@@ -125,3 +131,4 @@ func addFlags(cmd *cobra.Command, config *options.BootstrapConfigs) {
 	config.AttachFlags(cmd)
 	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 }
+

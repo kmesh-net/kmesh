@@ -59,12 +59,12 @@ func (l *BpfLoader) StartWorkloadMode() error {
 		return err
 	}
 
-	if err = l.workloadObj.Load(); err != nil {
+	if err = l.workloadObj.Load(*l.Status); err != nil {
 		l.Stop()
 		return fmt.Errorf("bpf Load failed, %s", err)
 	}
 
-	if err = l.workloadObj.Attach(); err != nil {
+	if err = l.workloadObj.Attach(*l.Status); err != nil {
 		l.Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
@@ -72,39 +72,39 @@ func (l *BpfLoader) StartWorkloadMode() error {
 	return nil
 }
 
-func (sc *BpfKmeshWorkload) Load() error {
+func (sc *BpfKmeshWorkload) Load(Status int) error {
 	var err error
 
-	if err = sc.SockConn.LoadSockConn(); err != nil {
+	if err = sc.SockConn.LoadSockConn(Status); err != nil {
 		return err
 	}
 
-	if err = sc.SockOps.LoadSockOps(); err != nil {
+	if err = sc.SockOps.LoadSockOps(Status); err != nil {
 		return err
 	}
 
-	if err = sc.XdpAuth.LoadXdpAuth(); err != nil {
+	if err = sc.XdpAuth.LoadXdpAuth(Status); err != nil {
 		return err
 	}
 
-	if err = sc.SendMsg.LoadSendMsg(); err != nil {
+	if err = sc.SendMsg.LoadSendMsg(Status); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (sc *BpfKmeshWorkload) Attach() error {
+func (sc *BpfKmeshWorkload) Attach(Status int) error {
 	var err error
 
-	if err = sc.SockConn.Attach(); err != nil {
+	if err = sc.SockConn.Attach(Status); err != nil {
 		return err
 	}
 
-	if err = sc.SockOps.Attach(); err != nil {
+	if err = sc.SockOps.Attach(Status); err != nil {
 		return err
 	}
 
-	if err = sc.SendMsg.Attach(); err != nil {
+	if err = sc.SendMsg.Attach(Status); err != nil {
 		return err
 	}
 
