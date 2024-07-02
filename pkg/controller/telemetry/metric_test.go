@@ -25,6 +25,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
@@ -375,7 +376,7 @@ func TestMetricGetWorkloadByAddress(t *testing.T) {
 		Name: "ut-workload",
 		Uid:  "123456",
 		Addresses: [][]byte{
-			[]byte{192, 168, 224, 22},
+			{192, 168, 224, 22},
 		},
 	}
 	type args struct {
@@ -419,7 +420,7 @@ func TestMetricBuildMetric(t *testing.T) {
 		ServiceAccount:    "default",
 		Uid:               "123456",
 		Addresses: [][]byte{
-			[]byte{192, 168, 224, 22},
+			{192, 168, 224, 22},
 		},
 	}
 	srcWorkload := &workloadapi.Workload{
@@ -433,7 +434,7 @@ func TestMetricBuildMetric(t *testing.T) {
 		ServiceAccount:    "default",
 		Uid:               "654321",
 		Addresses: [][]byte{
-			[]byte{10, 19, 25, 31},
+			{10, 19, 25, 31},
 		},
 	}
 	type args struct {

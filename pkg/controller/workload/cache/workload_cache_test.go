@@ -33,8 +33,8 @@ func TestAddWorkload(t *testing.T) {
 			Uid:     "123456",
 			Network: "ut-net",
 			Addresses: [][]byte{
-				[]byte{192, 168, 224, 22},
-				[]byte{1, 2, 3, 4},
+				{192, 168, 224, 22},
+				{1, 2, 3, 4},
 			},
 		}
 		w.AddWorkload(workload)
@@ -52,8 +52,8 @@ func TestAddWorkload(t *testing.T) {
 			Uid:     "123456",
 			Network: "ut-net",
 			Addresses: [][]byte{
-				[]byte{192, 168, 224, 22},
-				[]byte{1, 2, 3, 4},
+				{192, 168, 224, 22},
+				{1, 2, 3, 4},
 			},
 		}
 		w.AddWorkload(workload)
@@ -67,8 +67,8 @@ func TestAddWorkload(t *testing.T) {
 			Uid:     "123456",
 			Network: "new-net",
 			Addresses: [][]byte{
-				[]byte{192, 168, 10, 25},
-				[]byte{2, 3, 4, 5},
+				{192, 168, 10, 25},
+				{2, 3, 4, 5},
 			},
 		}
 		w.AddWorkload(newWorkload)
@@ -88,7 +88,7 @@ func TestAddWorkload(t *testing.T) {
 			Uid:     "123456",
 			Network: "ut-net",
 			Addresses: [][]byte{
-				[]byte{192, 168, 224, 22},
+				{192, 168, 224, 22},
 			},
 		}
 		w.AddWorkload(workload)
@@ -100,8 +100,8 @@ func TestAddWorkload(t *testing.T) {
 			Uid:     "123456",
 			Network: "new-net",
 			Addresses: [][]byte{
-				[]byte{192, 168, 224, 22},
-				[]byte{2, 3, 4, 5},
+				{192, 168, 224, 22},
+				{2, 3, 4, 5},
 			},
 		}
 		w.AddWorkload(newWorkload)
@@ -122,8 +122,8 @@ func TestDeleteWorkload(t *testing.T) {
 			Uid:     "123456",
 			Network: "ut-net",
 			Addresses: [][]byte{
-				[]byte{192, 168, 224, 22},
-				[]byte{1, 2, 3, 4},
+				{192, 168, 224, 22},
+				{1, 2, 3, 4},
 			},
 		}
 		w.AddWorkload(workload)
