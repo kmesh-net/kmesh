@@ -19,4 +19,4 @@ jobs:
     - name: E2E Test
       shell: bash
       run: |
-        sudo env "PATH=$PATH" bash ./test/e2e/run_test.sh
+        sudo make e2e
