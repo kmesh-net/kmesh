@@ -85,7 +85,7 @@ type requestMetric struct {
 	src []byte
 	dst []byte
 
-	// src or dst
+	// source or destination
 	reporter []byte
 
 	connectionOpened uint32

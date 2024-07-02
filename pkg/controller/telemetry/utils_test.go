@@ -17,6 +17,7 @@
 package telemetry
 
 import (
+	"context"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -24,7 +25,17 @@ import (
 
 func TestRegisterMetrics(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	go runPrometheusClient(registry)
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				runPrometheusClient(registry)
+			}
+		}
+	}()
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionClosed,
@@ -69,4 +80,5 @@ func TestRegisterMetrics(t *testing.T) {
 			t.Errorf("metric not register")
 		}
 	}
+	cancel()
 }

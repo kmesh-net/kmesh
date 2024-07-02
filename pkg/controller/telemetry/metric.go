@@ -95,12 +95,9 @@ func (m *Metric) buildMetric(data *requestMetric) (commonTrafficLabels, error) {
 	dstAddr := data.dst
 	srcAddr := data.src
 	dstWorkload := m.getWorkloadByAddress(dstAddr)
-	fmt.Printf("%#v\n", dstWorkload)
 	srcWorkload := m.getWorkloadByAddress(srcAddr)
-	fmt.Printf("%#v\n", srcWorkload)
 
 	trafficLabels := buildMetricFromWorkload(dstWorkload, srcWorkload)
-	fmt.Printf("%#v", trafficLabels)
 	trafficLabels.destinationService = nets.ConvertUint32ToIp(nets.ConvertIpByteToUint32(dstAddr))
 
 	reporter := data.reporter
