@@ -7,277 +7,277 @@
 #endif
 
 #include "workloadapi/security/authorization.pb-c.h"
-void   istio__security__authorization__init
-                     (Istio__Security__Authorization         *message)
+void   security__authorization__init
+                     (Security__Authorization         *message)
 {
-  static const Istio__Security__Authorization init_value = ISTIO__SECURITY__AUTHORIZATION__INIT;
+  static const Security__Authorization init_value = SECURITY__AUTHORIZATION__INIT;
   *message = init_value;
 }
-size_t istio__security__authorization__get_packed_size
-                     (const Istio__Security__Authorization *message)
+size_t security__authorization__get_packed_size
+                     (const Security__Authorization *message)
 {
-  assert(message->base.descriptor == &istio__security__authorization__descriptor);
+  assert(message->base.descriptor == &security__authorization__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__security__authorization__pack
-                     (const Istio__Security__Authorization *message,
+size_t security__authorization__pack
+                     (const Security__Authorization *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__security__authorization__descriptor);
+  assert(message->base.descriptor == &security__authorization__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__security__authorization__pack_to_buffer
-                     (const Istio__Security__Authorization *message,
+size_t security__authorization__pack_to_buffer
+                     (const Security__Authorization *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__security__authorization__descriptor);
+  assert(message->base.descriptor == &security__authorization__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Security__Authorization *
-       istio__security__authorization__unpack
+Security__Authorization *
+       security__authorization__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Security__Authorization *)
-     protobuf_c_message_unpack (&istio__security__authorization__descriptor,
+  return (Security__Authorization *)
+     protobuf_c_message_unpack (&security__authorization__descriptor,
                                 allocator, len, data);
 }
-void   istio__security__authorization__free_unpacked
-                     (Istio__Security__Authorization *message,
+void   security__authorization__free_unpacked
+                     (Security__Authorization *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__security__authorization__descriptor);
+  assert(message->base.descriptor == &security__authorization__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__security__rule__init
-                     (Istio__Security__Rule         *message)
+void   security__rule__init
+                     (Security__Rule         *message)
 {
-  static const Istio__Security__Rule init_value = ISTIO__SECURITY__RULE__INIT;
+  static const Security__Rule init_value = SECURITY__RULE__INIT;
   *message = init_value;
 }
-size_t istio__security__rule__get_packed_size
-                     (const Istio__Security__Rule *message)
+size_t security__rule__get_packed_size
+                     (const Security__Rule *message)
 {
-  assert(message->base.descriptor == &istio__security__rule__descriptor);
+  assert(message->base.descriptor == &security__rule__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__security__rule__pack
-                     (const Istio__Security__Rule *message,
+size_t security__rule__pack
+                     (const Security__Rule *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__security__rule__descriptor);
+  assert(message->base.descriptor == &security__rule__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__security__rule__pack_to_buffer
-                     (const Istio__Security__Rule *message,
+size_t security__rule__pack_to_buffer
+                     (const Security__Rule *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__security__rule__descriptor);
+  assert(message->base.descriptor == &security__rule__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Security__Rule *
-       istio__security__rule__unpack
+Security__Rule *
+       security__rule__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Security__Rule *)
-     protobuf_c_message_unpack (&istio__security__rule__descriptor,
+  return (Security__Rule *)
+     protobuf_c_message_unpack (&security__rule__descriptor,
                                 allocator, len, data);
 }
-void   istio__security__rule__free_unpacked
-                     (Istio__Security__Rule *message,
+void   security__rule__free_unpacked
+                     (Security__Rule *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__security__rule__descriptor);
+  assert(message->base.descriptor == &security__rule__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__security__clause__init
-                     (Istio__Security__Clause         *message)
+void   security__clause__init
+                     (Security__Clause         *message)
 {
-  static const Istio__Security__Clause init_value = ISTIO__SECURITY__CLAUSE__INIT;
+  static const Security__Clause init_value = SECURITY__CLAUSE__INIT;
   *message = init_value;
 }
-size_t istio__security__clause__get_packed_size
-                     (const Istio__Security__Clause *message)
+size_t security__clause__get_packed_size
+                     (const Security__Clause *message)
 {
-  assert(message->base.descriptor == &istio__security__clause__descriptor);
+  assert(message->base.descriptor == &security__clause__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__security__clause__pack
-                     (const Istio__Security__Clause *message,
+size_t security__clause__pack
+                     (const Security__Clause *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__security__clause__descriptor);
+  assert(message->base.descriptor == &security__clause__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__security__clause__pack_to_buffer
-                     (const Istio__Security__Clause *message,
+size_t security__clause__pack_to_buffer
+                     (const Security__Clause *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__security__clause__descriptor);
+  assert(message->base.descriptor == &security__clause__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Security__Clause *
-       istio__security__clause__unpack
+Security__Clause *
+       security__clause__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Security__Clause *)
-     protobuf_c_message_unpack (&istio__security__clause__descriptor,
+  return (Security__Clause *)
+     protobuf_c_message_unpack (&security__clause__descriptor,
                                 allocator, len, data);
 }
-void   istio__security__clause__free_unpacked
-                     (Istio__Security__Clause *message,
+void   security__clause__free_unpacked
+                     (Security__Clause *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__security__clause__descriptor);
+  assert(message->base.descriptor == &security__clause__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__security__match__init
-                     (Istio__Security__Match         *message)
+void   security__match__init
+                     (Security__Match         *message)
 {
-  static const Istio__Security__Match init_value = ISTIO__SECURITY__MATCH__INIT;
+  static const Security__Match init_value = SECURITY__MATCH__INIT;
   *message = init_value;
 }
-size_t istio__security__match__get_packed_size
-                     (const Istio__Security__Match *message)
+size_t security__match__get_packed_size
+                     (const Security__Match *message)
 {
-  assert(message->base.descriptor == &istio__security__match__descriptor);
+  assert(message->base.descriptor == &security__match__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__security__match__pack
-                     (const Istio__Security__Match *message,
+size_t security__match__pack
+                     (const Security__Match *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__security__match__descriptor);
+  assert(message->base.descriptor == &security__match__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__security__match__pack_to_buffer
-                     (const Istio__Security__Match *message,
+size_t security__match__pack_to_buffer
+                     (const Security__Match *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__security__match__descriptor);
+  assert(message->base.descriptor == &security__match__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Security__Match *
-       istio__security__match__unpack
+Security__Match *
+       security__match__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Security__Match *)
-     protobuf_c_message_unpack (&istio__security__match__descriptor,
+  return (Security__Match *)
+     protobuf_c_message_unpack (&security__match__descriptor,
                                 allocator, len, data);
 }
-void   istio__security__match__free_unpacked
-                     (Istio__Security__Match *message,
+void   security__match__free_unpacked
+                     (Security__Match *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__security__match__descriptor);
+  assert(message->base.descriptor == &security__match__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__security__address__init
-                     (Istio__Security__Address         *message)
+void   security__address__init
+                     (Security__Address         *message)
 {
-  static const Istio__Security__Address init_value = ISTIO__SECURITY__ADDRESS__INIT;
+  static const Security__Address init_value = SECURITY__ADDRESS__INIT;
   *message = init_value;
 }
-size_t istio__security__address__get_packed_size
-                     (const Istio__Security__Address *message)
+size_t security__address__get_packed_size
+                     (const Security__Address *message)
 {
-  assert(message->base.descriptor == &istio__security__address__descriptor);
+  assert(message->base.descriptor == &security__address__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__security__address__pack
-                     (const Istio__Security__Address *message,
+size_t security__address__pack
+                     (const Security__Address *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__security__address__descriptor);
+  assert(message->base.descriptor == &security__address__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__security__address__pack_to_buffer
-                     (const Istio__Security__Address *message,
+size_t security__address__pack_to_buffer
+                     (const Security__Address *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__security__address__descriptor);
+  assert(message->base.descriptor == &security__address__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Security__Address *
-       istio__security__address__unpack
+Security__Address *
+       security__address__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Security__Address *)
-     protobuf_c_message_unpack (&istio__security__address__descriptor,
+  return (Security__Address *)
+     protobuf_c_message_unpack (&security__address__descriptor,
                                 allocator, len, data);
 }
-void   istio__security__address__free_unpacked
-                     (Istio__Security__Address *message,
+void   security__address__free_unpacked
+                     (Security__Address *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__security__address__descriptor);
+  assert(message->base.descriptor == &security__address__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__security__string_match__init
-                     (Istio__Security__StringMatch         *message)
+void   security__string_match__init
+                     (Security__StringMatch         *message)
 {
-  static const Istio__Security__StringMatch init_value = ISTIO__SECURITY__STRING_MATCH__INIT;
+  static const Security__StringMatch init_value = SECURITY__STRING_MATCH__INIT;
   *message = init_value;
 }
-size_t istio__security__string_match__get_packed_size
-                     (const Istio__Security__StringMatch *message)
+size_t security__string_match__get_packed_size
+                     (const Security__StringMatch *message)
 {
-  assert(message->base.descriptor == &istio__security__string_match__descriptor);
+  assert(message->base.descriptor == &security__string_match__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__security__string_match__pack
-                     (const Istio__Security__StringMatch *message,
+size_t security__string_match__pack
+                     (const Security__StringMatch *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__security__string_match__descriptor);
+  assert(message->base.descriptor == &security__string_match__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__security__string_match__pack_to_buffer
-                     (const Istio__Security__StringMatch *message,
+size_t security__string_match__pack_to_buffer
+                     (const Security__StringMatch *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__security__string_match__descriptor);
+  assert(message->base.descriptor == &security__string_match__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Security__StringMatch *
-       istio__security__string_match__unpack
+Security__StringMatch *
+       security__string_match__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Security__StringMatch *)
-     protobuf_c_message_unpack (&istio__security__string_match__descriptor,
+  return (Security__StringMatch *)
+     protobuf_c_message_unpack (&security__string_match__descriptor,
                                 allocator, len, data);
 }
-void   istio__security__string_match__free_unpacked
-                     (Istio__Security__StringMatch *message,
+void   security__string_match__free_unpacked
+                     (Security__StringMatch *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__security__string_match__descriptor);
+  assert(message->base.descriptor == &security__string_match__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-static const ProtobufCFieldDescriptor istio__security__authorization__field_descriptors[5] =
+static const ProtobufCFieldDescriptor security__authorization__field_descriptors[5] =
 {
   {
     "name",
@@ -285,7 +285,7 @@ static const ProtobufCFieldDescriptor istio__security__authorization__field_desc
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Security__Authorization, name),
+    offsetof(Security__Authorization, name),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -297,7 +297,7 @@ static const ProtobufCFieldDescriptor istio__security__authorization__field_desc
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Security__Authorization, namespace_),
+    offsetof(Security__Authorization, namespace_),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -309,8 +309,8 @@ static const ProtobufCFieldDescriptor istio__security__authorization__field_desc
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(Istio__Security__Authorization, scope),
-    &istio__security__scope__descriptor,
+    offsetof(Security__Authorization, scope),
+    &security__scope__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -321,8 +321,8 @@ static const ProtobufCFieldDescriptor istio__security__authorization__field_desc
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(Istio__Security__Authorization, action),
-    &istio__security__action__descriptor,
+    offsetof(Security__Authorization, action),
+    &security__action__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -332,127 +332,127 @@ static const ProtobufCFieldDescriptor istio__security__authorization__field_desc
     5,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Authorization, n_rules),
-    offsetof(Istio__Security__Authorization, rules),
-    &istio__security__rule__descriptor,
+    offsetof(Security__Authorization, n_rules),
+    offsetof(Security__Authorization, rules),
+    &security__rule__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__security__authorization__field_indices_by_name[] = {
+static const unsigned security__authorization__field_indices_by_name[] = {
   3,   /* field[3] = action */
   0,   /* field[0] = name */
   1,   /* field[1] = namespace */
   4,   /* field[4] = rules */
   2,   /* field[2] = scope */
 };
-static const ProtobufCIntRange istio__security__authorization__number_ranges[1 + 1] =
+static const ProtobufCIntRange security__authorization__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 5 }
 };
-const ProtobufCMessageDescriptor istio__security__authorization__descriptor =
+const ProtobufCMessageDescriptor security__authorization__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.security.Authorization",
+  "security.Authorization",
   "Authorization",
-  "Istio__Security__Authorization",
-  "istio.security",
-  sizeof(Istio__Security__Authorization),
+  "Security__Authorization",
+  "security",
+  sizeof(Security__Authorization),
   5,
-  istio__security__authorization__field_descriptors,
-  istio__security__authorization__field_indices_by_name,
-  1,  istio__security__authorization__number_ranges,
-  (ProtobufCMessageInit) istio__security__authorization__init,
+  security__authorization__field_descriptors,
+  security__authorization__field_indices_by_name,
+  1,  security__authorization__number_ranges,
+  (ProtobufCMessageInit) security__authorization__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__security__rule__field_descriptors[1] =
+static const ProtobufCFieldDescriptor security__rule__field_descriptors[1] =
 {
   {
     "clauses",
     1,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Rule, n_clauses),
-    offsetof(Istio__Security__Rule, clauses),
-    &istio__security__clause__descriptor,
+    offsetof(Security__Rule, n_clauses),
+    offsetof(Security__Rule, clauses),
+    &security__clause__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__security__rule__field_indices_by_name[] = {
+static const unsigned security__rule__field_indices_by_name[] = {
   0,   /* field[0] = clauses */
 };
-static const ProtobufCIntRange istio__security__rule__number_ranges[1 + 1] =
+static const ProtobufCIntRange security__rule__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor istio__security__rule__descriptor =
+const ProtobufCMessageDescriptor security__rule__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.security.Rule",
+  "security.Rule",
   "Rule",
-  "Istio__Security__Rule",
-  "istio.security",
-  sizeof(Istio__Security__Rule),
+  "Security__Rule",
+  "security",
+  sizeof(Security__Rule),
   1,
-  istio__security__rule__field_descriptors,
-  istio__security__rule__field_indices_by_name,
-  1,  istio__security__rule__number_ranges,
-  (ProtobufCMessageInit) istio__security__rule__init,
+  security__rule__field_descriptors,
+  security__rule__field_indices_by_name,
+  1,  security__rule__number_ranges,
+  (ProtobufCMessageInit) security__rule__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__security__clause__field_descriptors[1] =
+static const ProtobufCFieldDescriptor security__clause__field_descriptors[1] =
 {
   {
     "matches",
     2,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Clause, n_matches),
-    offsetof(Istio__Security__Clause, matches),
-    &istio__security__match__descriptor,
+    offsetof(Security__Clause, n_matches),
+    offsetof(Security__Clause, matches),
+    &security__match__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__security__clause__field_indices_by_name[] = {
+static const unsigned security__clause__field_indices_by_name[] = {
   0,   /* field[0] = matches */
 };
-static const ProtobufCIntRange istio__security__clause__number_ranges[1 + 1] =
+static const ProtobufCIntRange security__clause__number_ranges[1 + 1] =
 {
   { 2, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor istio__security__clause__descriptor =
+const ProtobufCMessageDescriptor security__clause__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.security.Clause",
+  "security.Clause",
   "Clause",
-  "Istio__Security__Clause",
-  "istio.security",
-  sizeof(Istio__Security__Clause),
+  "Security__Clause",
+  "security",
+  sizeof(Security__Clause),
   1,
-  istio__security__clause__field_descriptors,
-  istio__security__clause__field_indices_by_name,
-  1,  istio__security__clause__number_ranges,
-  (ProtobufCMessageInit) istio__security__clause__init,
+  security__clause__field_descriptors,
+  security__clause__field_indices_by_name,
+  1,  security__clause__number_ranges,
+  (ProtobufCMessageInit) security__clause__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[10] =
+static const ProtobufCFieldDescriptor security__match__field_descriptors[10] =
 {
   {
     "namespaces",
     1,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Match, n_namespaces),
-    offsetof(Istio__Security__Match, namespaces),
-    &istio__security__string_match__descriptor,
+    offsetof(Security__Match, n_namespaces),
+    offsetof(Security__Match, namespaces),
+    &security__string_match__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -462,9 +462,9 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     2,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Match, n_not_namespaces),
-    offsetof(Istio__Security__Match, not_namespaces),
-    &istio__security__string_match__descriptor,
+    offsetof(Security__Match, n_not_namespaces),
+    offsetof(Security__Match, not_namespaces),
+    &security__string_match__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -474,9 +474,9 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     3,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Match, n_principals),
-    offsetof(Istio__Security__Match, principals),
-    &istio__security__string_match__descriptor,
+    offsetof(Security__Match, n_principals),
+    offsetof(Security__Match, principals),
+    &security__string_match__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -486,9 +486,9 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     4,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Match, n_not_principals),
-    offsetof(Istio__Security__Match, not_principals),
-    &istio__security__string_match__descriptor,
+    offsetof(Security__Match, n_not_principals),
+    offsetof(Security__Match, not_principals),
+    &security__string_match__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -498,9 +498,9 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     5,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Match, n_source_ips),
-    offsetof(Istio__Security__Match, source_ips),
-    &istio__security__address__descriptor,
+    offsetof(Security__Match, n_source_ips),
+    offsetof(Security__Match, source_ips),
+    &security__address__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -510,9 +510,9 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     6,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Match, n_not_source_ips),
-    offsetof(Istio__Security__Match, not_source_ips),
-    &istio__security__address__descriptor,
+    offsetof(Security__Match, n_not_source_ips),
+    offsetof(Security__Match, not_source_ips),
+    &security__address__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -522,9 +522,9 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     7,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Match, n_destination_ips),
-    offsetof(Istio__Security__Match, destination_ips),
-    &istio__security__address__descriptor,
+    offsetof(Security__Match, n_destination_ips),
+    offsetof(Security__Match, destination_ips),
+    &security__address__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -534,9 +534,9 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     8,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Security__Match, n_not_destination_ips),
-    offsetof(Istio__Security__Match, not_destination_ips),
-    &istio__security__address__descriptor,
+    offsetof(Security__Match, n_not_destination_ips),
+    offsetof(Security__Match, not_destination_ips),
+    &security__address__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -546,8 +546,8 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     9,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_UINT32,
-    offsetof(Istio__Security__Match, n_destination_ports),
-    offsetof(Istio__Security__Match, destination_ports),
+    offsetof(Security__Match, n_destination_ports),
+    offsetof(Security__Match, destination_ports),
     NULL,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
@@ -558,15 +558,15 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     10,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_UINT32,
-    offsetof(Istio__Security__Match, n_not_destination_ports),
-    offsetof(Istio__Security__Match, not_destination_ports),
+    offsetof(Security__Match, n_not_destination_ports),
+    offsetof(Security__Match, not_destination_ports),
     NULL,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__security__match__field_indices_by_name[] = {
+static const unsigned security__match__field_indices_by_name[] = {
   6,   /* field[6] = destination_ips */
   8,   /* field[8] = destination_ports */
   0,   /* field[0] = namespaces */
@@ -578,27 +578,27 @@ static const unsigned istio__security__match__field_indices_by_name[] = {
   2,   /* field[2] = principals */
   4,   /* field[4] = source_ips */
 };
-static const ProtobufCIntRange istio__security__match__number_ranges[1 + 1] =
+static const ProtobufCIntRange security__match__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 10 }
 };
-const ProtobufCMessageDescriptor istio__security__match__descriptor =
+const ProtobufCMessageDescriptor security__match__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.security.Match",
+  "security.Match",
   "Match",
-  "Istio__Security__Match",
-  "istio.security",
-  sizeof(Istio__Security__Match),
+  "Security__Match",
+  "security",
+  sizeof(Security__Match),
   10,
-  istio__security__match__field_descriptors,
-  istio__security__match__field_indices_by_name,
-  1,  istio__security__match__number_ranges,
-  (ProtobufCMessageInit) istio__security__match__init,
+  security__match__field_descriptors,
+  security__match__field_indices_by_name,
+  1,  security__match__number_ranges,
+  (ProtobufCMessageInit) security__match__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__security__address__field_descriptors[2] =
+static const ProtobufCFieldDescriptor security__address__field_descriptors[2] =
 {
   {
     "address",
@@ -606,7 +606,7 @@ static const ProtobufCFieldDescriptor istio__security__address__field_descriptor
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BYTES,
     0,   /* quantifier_offset */
-    offsetof(Istio__Security__Address, address),
+    offsetof(Security__Address, address),
     NULL,
     NULL,
     0,             /* flags */
@@ -618,46 +618,46 @@ static const ProtobufCFieldDescriptor istio__security__address__field_descriptor
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(Istio__Security__Address, length),
+    offsetof(Security__Address, length),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__security__address__field_indices_by_name[] = {
+static const unsigned security__address__field_indices_by_name[] = {
   0,   /* field[0] = address */
   1,   /* field[1] = length */
 };
-static const ProtobufCIntRange istio__security__address__number_ranges[1 + 1] =
+static const ProtobufCIntRange security__address__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor istio__security__address__descriptor =
+const ProtobufCMessageDescriptor security__address__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.security.Address",
+  "security.Address",
   "Address",
-  "Istio__Security__Address",
-  "istio.security",
-  sizeof(Istio__Security__Address),
+  "Security__Address",
+  "security",
+  sizeof(Security__Address),
   2,
-  istio__security__address__field_descriptors,
-  istio__security__address__field_indices_by_name,
-  1,  istio__security__address__number_ranges,
-  (ProtobufCMessageInit) istio__security__address__init,
+  security__address__field_descriptors,
+  security__address__field_indices_by_name,
+  1,  security__address__number_ranges,
+  (ProtobufCMessageInit) security__address__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__security__string_match__field_descriptors[3] =
+static const ProtobufCFieldDescriptor security__string_match__field_descriptors[3] =
 {
   {
     "exact",
     1,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
-    offsetof(Istio__Security__StringMatch, match_type_case),
-    offsetof(Istio__Security__StringMatch, exact),
+    offsetof(Security__StringMatch, match_type_case),
+    offsetof(Security__StringMatch, exact),
     NULL,
     &protobuf_c_empty_string,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
@@ -668,8 +668,8 @@ static const ProtobufCFieldDescriptor istio__security__string_match__field_descr
     2,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
-    offsetof(Istio__Security__StringMatch, match_type_case),
-    offsetof(Istio__Security__StringMatch, prefix),
+    offsetof(Security__StringMatch, match_type_case),
+    offsetof(Security__StringMatch, prefix),
     NULL,
     &protobuf_c_empty_string,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
@@ -680,94 +680,94 @@ static const ProtobufCFieldDescriptor istio__security__string_match__field_descr
     3,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
-    offsetof(Istio__Security__StringMatch, match_type_case),
-    offsetof(Istio__Security__StringMatch, suffix),
+    offsetof(Security__StringMatch, match_type_case),
+    offsetof(Security__StringMatch, suffix),
     NULL,
     &protobuf_c_empty_string,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__security__string_match__field_indices_by_name[] = {
+static const unsigned security__string_match__field_indices_by_name[] = {
   0,   /* field[0] = exact */
   1,   /* field[1] = prefix */
   2,   /* field[2] = suffix */
 };
-static const ProtobufCIntRange istio__security__string_match__number_ranges[1 + 1] =
+static const ProtobufCIntRange security__string_match__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 3 }
 };
-const ProtobufCMessageDescriptor istio__security__string_match__descriptor =
+const ProtobufCMessageDescriptor security__string_match__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.security.StringMatch",
+  "security.StringMatch",
   "StringMatch",
-  "Istio__Security__StringMatch",
-  "istio.security",
-  sizeof(Istio__Security__StringMatch),
+  "Security__StringMatch",
+  "security",
+  sizeof(Security__StringMatch),
   3,
-  istio__security__string_match__field_descriptors,
-  istio__security__string_match__field_indices_by_name,
-  1,  istio__security__string_match__number_ranges,
-  (ProtobufCMessageInit) istio__security__string_match__init,
+  security__string_match__field_descriptors,
+  security__string_match__field_indices_by_name,
+  1,  security__string_match__number_ranges,
+  (ProtobufCMessageInit) security__string_match__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCEnumValue istio__security__scope__enum_values_by_number[3] =
+static const ProtobufCEnumValue security__scope__enum_values_by_number[3] =
 {
-  { "GLOBAL", "ISTIO__SECURITY__SCOPE__GLOBAL", 0 },
-  { "NAMESPACE", "ISTIO__SECURITY__SCOPE__NAMESPACE", 1 },
-  { "WORKLOAD_SELECTOR", "ISTIO__SECURITY__SCOPE__WORKLOAD_SELECTOR", 2 },
+  { "GLOBAL", "SECURITY__SCOPE__GLOBAL", 0 },
+  { "NAMESPACE", "SECURITY__SCOPE__NAMESPACE", 1 },
+  { "WORKLOAD_SELECTOR", "SECURITY__SCOPE__WORKLOAD_SELECTOR", 2 },
 };
-static const ProtobufCIntRange istio__security__scope__value_ranges[] = {
+static const ProtobufCIntRange security__scope__value_ranges[] = {
 {0, 0},{0, 3}
 };
-static const ProtobufCEnumValueIndex istio__security__scope__enum_values_by_name[3] =
+static const ProtobufCEnumValueIndex security__scope__enum_values_by_name[3] =
 {
   { "GLOBAL", 0 },
   { "NAMESPACE", 1 },
   { "WORKLOAD_SELECTOR", 2 },
 };
-const ProtobufCEnumDescriptor istio__security__scope__descriptor =
+const ProtobufCEnumDescriptor security__scope__descriptor =
 {
   PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "istio.security.Scope",
+  "security.Scope",
   "Scope",
-  "Istio__Security__Scope",
-  "istio.security",
+  "Security__Scope",
+  "security",
   3,
-  istio__security__scope__enum_values_by_number,
+  security__scope__enum_values_by_number,
   3,
-  istio__security__scope__enum_values_by_name,
+  security__scope__enum_values_by_name,
   1,
-  istio__security__scope__value_ranges,
+  security__scope__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCEnumValue istio__security__action__enum_values_by_number[2] =
+static const ProtobufCEnumValue security__action__enum_values_by_number[2] =
 {
-  { "ALLOW", "ISTIO__SECURITY__ACTION__ALLOW", 0 },
-  { "DENY", "ISTIO__SECURITY__ACTION__DENY", 1 },
+  { "ALLOW", "SECURITY__ACTION__ALLOW", 0 },
+  { "DENY", "SECURITY__ACTION__DENY", 1 },
 };
-static const ProtobufCIntRange istio__security__action__value_ranges[] = {
+static const ProtobufCIntRange security__action__value_ranges[] = {
 {0, 0},{0, 2}
 };
-static const ProtobufCEnumValueIndex istio__security__action__enum_values_by_name[2] =
+static const ProtobufCEnumValueIndex security__action__enum_values_by_name[2] =
 {
   { "ALLOW", 0 },
   { "DENY", 1 },
 };
-const ProtobufCEnumDescriptor istio__security__action__descriptor =
+const ProtobufCEnumDescriptor security__action__descriptor =
 {
   PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "istio.security.Action",
+  "security.Action",
   "Action",
-  "Istio__Security__Action",
-  "istio.security",
+  "Security__Action",
+  "security",
   2,
-  istio__security__action__enum_values_by_number,
+  security__action__enum_values_by_number,
   2,
-  istio__security__action__enum_values_by_name,
+  security__action__enum_values_by_name,
   1,
-  istio__security__action__value_ranges,
+  security__action__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };

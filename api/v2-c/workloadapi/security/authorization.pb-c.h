@@ -15,49 +15,49 @@ PROTOBUF_C__BEGIN_DECLS
 #endif
 
 
-typedef struct _Istio__Security__Authorization Istio__Security__Authorization;
-typedef struct _Istio__Security__Rule Istio__Security__Rule;
-typedef struct _Istio__Security__Clause Istio__Security__Clause;
-typedef struct _Istio__Security__Match Istio__Security__Match;
-typedef struct _Istio__Security__Address Istio__Security__Address;
-typedef struct _Istio__Security__StringMatch Istio__Security__StringMatch;
+typedef struct _Security__Authorization Security__Authorization;
+typedef struct _Security__Rule Security__Rule;
+typedef struct _Security__Clause Security__Clause;
+typedef struct _Security__Match Security__Match;
+typedef struct _Security__Address Security__Address;
+typedef struct _Security__StringMatch Security__StringMatch;
 
 
 /* --- enums --- */
 
-typedef enum _Istio__Security__Scope {
+typedef enum _Security__Scope {
   /*
    * ALL means that the authorization policy will be applied to all workloads
    * in the mesh (any namespace).
    */
-  ISTIO__SECURITY__SCOPE__GLOBAL = 0,
+  SECURITY__SCOPE__GLOBAL = 0,
   /*
    * NAMESPACE means that the policy will only be applied to workloads in a
    * specific namespace.
    */
-  ISTIO__SECURITY__SCOPE__NAMESPACE = 1,
+  SECURITY__SCOPE__NAMESPACE = 1,
   /*
    * WORKLOAD_SELECTOR means that the policy will only be applied to specific
    * workloads that were selected by their labels.
    */
-  ISTIO__SECURITY__SCOPE__WORKLOAD_SELECTOR = 2
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ISTIO__SECURITY__SCOPE)
-} Istio__Security__Scope;
-typedef enum _Istio__Security__Action {
+  SECURITY__SCOPE__WORKLOAD_SELECTOR = 2
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(SECURITY__SCOPE)
+} Security__Scope;
+typedef enum _Security__Action {
   /*
    * Allow the request if it matches with the rules.
    */
-  ISTIO__SECURITY__ACTION__ALLOW = 0,
+  SECURITY__ACTION__ALLOW = 0,
   /*
    * Deny the request if it matches with the rules.
    */
-  ISTIO__SECURITY__ACTION__DENY = 1
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ISTIO__SECURITY__ACTION)
-} Istio__Security__Action;
+  SECURITY__ACTION__DENY = 1
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(SECURITY__ACTION)
+} Security__Action;
 
 /* --- messages --- */
 
-struct  _Istio__Security__Authorization
+struct  _Security__Authorization
 {
   ProtobufCMessage base;
   char *name;
@@ -66,12 +66,12 @@ struct  _Istio__Security__Authorization
    * Determine the scope of this RBAC policy.
    * If set to NAMESPACE, the 'namespace' field value will be used.
    */
-  Istio__Security__Scope scope;
+  Security__Scope scope;
   /*
    * The action to take if the request is matched with the rules.
    * Default is ALLOW if not specified.
    */
-  Istio__Security__Action action;
+  Security__Action action;
   /*
    * Set of RBAC policy rules each containing its cluases (To, From, When).
    * If at least one of the rules is matched the policy action will
@@ -79,14 +79,14 @@ struct  _Istio__Security__Authorization
    * Rules are OR-ed.
    */
   size_t n_rules;
-  Istio__Security__Rule **rules;
+  Security__Rule **rules;
 };
-#define ISTIO__SECURITY__AUTHORIZATION__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&istio__security__authorization__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__SECURITY__SCOPE__GLOBAL, ISTIO__SECURITY__ACTION__ALLOW, 0,NULL }
+#define SECURITY__AUTHORIZATION__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&security__authorization__descriptor) \
+    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, SECURITY__SCOPE__GLOBAL, SECURITY__ACTION__ALLOW, 0,NULL }
 
 
-struct  _Istio__Security__Rule
+struct  _Security__Rule
 {
   ProtobufCMessage base;
   /*
@@ -94,14 +94,14 @@ struct  _Istio__Security__Rule
    * This is a generic form of the authz policy's to, from and when
    */
   size_t n_clauses;
-  Istio__Security__Clause **clauses;
+  Security__Clause **clauses;
 };
-#define ISTIO__SECURITY__RULE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&istio__security__rule__descriptor) \
+#define SECURITY__RULE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&security__rule__descriptor) \
     , 0,NULL }
 
 
-struct  _Istio__Security__Clause
+struct  _Security__Clause
 {
   ProtobufCMessage base;
   /*
@@ -111,65 +111,65 @@ struct  _Istio__Security__Clause
    * Match is a generic form of the authz policy's expressions contained in To, From and When.
    */
   size_t n_matches;
-  Istio__Security__Match **matches;
+  Security__Match **matches;
 };
-#define ISTIO__SECURITY__CLAUSE__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&istio__security__clause__descriptor) \
+#define SECURITY__CLAUSE__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&security__clause__descriptor) \
     , 0,NULL }
 
 
-struct  _Istio__Security__Match
+struct  _Security__Match
 {
   ProtobufCMessage base;
   size_t n_namespaces;
-  Istio__Security__StringMatch **namespaces;
+  Security__StringMatch **namespaces;
   size_t n_not_namespaces;
-  Istio__Security__StringMatch **not_namespaces;
+  Security__StringMatch **not_namespaces;
   size_t n_principals;
-  Istio__Security__StringMatch **principals;
+  Security__StringMatch **principals;
   size_t n_not_principals;
-  Istio__Security__StringMatch **not_principals;
+  Security__StringMatch **not_principals;
   size_t n_source_ips;
-  Istio__Security__Address **source_ips;
+  Security__Address **source_ips;
   size_t n_not_source_ips;
-  Istio__Security__Address **not_source_ips;
+  Security__Address **not_source_ips;
   size_t n_destination_ips;
-  Istio__Security__Address **destination_ips;
+  Security__Address **destination_ips;
   size_t n_not_destination_ips;
-  Istio__Security__Address **not_destination_ips;
+  Security__Address **not_destination_ips;
   size_t n_destination_ports;
   uint32_t *destination_ports;
   size_t n_not_destination_ports;
   uint32_t *not_destination_ports;
 };
-#define ISTIO__SECURITY__MATCH__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&istio__security__match__descriptor) \
+#define SECURITY__MATCH__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&security__match__descriptor) \
     , 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL, 0,NULL }
 
 
-struct  _Istio__Security__Address
+struct  _Security__Address
 {
   ProtobufCMessage base;
   ProtobufCBinaryData address;
   uint32_t length;
 };
-#define ISTIO__SECURITY__ADDRESS__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&istio__security__address__descriptor) \
+#define SECURITY__ADDRESS__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&security__address__descriptor) \
     , {0,NULL}, 0 }
 
 
 typedef enum {
-  ISTIO__SECURITY__STRING_MATCH__MATCH_TYPE__NOT_SET = 0,
-  ISTIO__SECURITY__STRING_MATCH__MATCH_TYPE_EXACT = 1,
-  ISTIO__SECURITY__STRING_MATCH__MATCH_TYPE_PREFIX = 2,
-  ISTIO__SECURITY__STRING_MATCH__MATCH_TYPE_SUFFIX = 3
-    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ISTIO__SECURITY__STRING_MATCH__MATCH_TYPE)
-} Istio__Security__StringMatch__MatchTypeCase;
+  SECURITY__STRING_MATCH__MATCH_TYPE__NOT_SET = 0,
+  SECURITY__STRING_MATCH__MATCH_TYPE_EXACT = 1,
+  SECURITY__STRING_MATCH__MATCH_TYPE_PREFIX = 2,
+  SECURITY__STRING_MATCH__MATCH_TYPE_SUFFIX = 3
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(SECURITY__STRING_MATCH__MATCH_TYPE)
+} Security__StringMatch__MatchTypeCase;
 
-struct  _Istio__Security__StringMatch
+struct  _Security__StringMatch
 {
   ProtobufCMessage base;
-  Istio__Security__StringMatch__MatchTypeCase match_type_case;
+  Security__StringMatch__MatchTypeCase match_type_case;
   union {
     /*
      * exact string match
@@ -185,144 +185,144 @@ struct  _Istio__Security__StringMatch
     char *suffix;
   };
 };
-#define ISTIO__SECURITY__STRING_MATCH__INIT \
- { PROTOBUF_C_MESSAGE_INIT (&istio__security__string_match__descriptor) \
-    , ISTIO__SECURITY__STRING_MATCH__MATCH_TYPE__NOT_SET, {0} }
+#define SECURITY__STRING_MATCH__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&security__string_match__descriptor) \
+    , SECURITY__STRING_MATCH__MATCH_TYPE__NOT_SET, {0} }
 
 
-/* Istio__Security__Authorization methods */
-void   istio__security__authorization__init
-                     (Istio__Security__Authorization         *message);
-size_t istio__security__authorization__get_packed_size
-                     (const Istio__Security__Authorization   *message);
-size_t istio__security__authorization__pack
-                     (const Istio__Security__Authorization   *message,
+/* Security__Authorization methods */
+void   security__authorization__init
+                     (Security__Authorization         *message);
+size_t security__authorization__get_packed_size
+                     (const Security__Authorization   *message);
+size_t security__authorization__pack
+                     (const Security__Authorization   *message,
                       uint8_t             *out);
-size_t istio__security__authorization__pack_to_buffer
-                     (const Istio__Security__Authorization   *message,
+size_t security__authorization__pack_to_buffer
+                     (const Security__Authorization   *message,
                       ProtobufCBuffer     *buffer);
-Istio__Security__Authorization *
-       istio__security__authorization__unpack
+Security__Authorization *
+       security__authorization__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   istio__security__authorization__free_unpacked
-                     (Istio__Security__Authorization *message,
+void   security__authorization__free_unpacked
+                     (Security__Authorization *message,
                       ProtobufCAllocator *allocator);
-/* Istio__Security__Rule methods */
-void   istio__security__rule__init
-                     (Istio__Security__Rule         *message);
-size_t istio__security__rule__get_packed_size
-                     (const Istio__Security__Rule   *message);
-size_t istio__security__rule__pack
-                     (const Istio__Security__Rule   *message,
+/* Security__Rule methods */
+void   security__rule__init
+                     (Security__Rule         *message);
+size_t security__rule__get_packed_size
+                     (const Security__Rule   *message);
+size_t security__rule__pack
+                     (const Security__Rule   *message,
                       uint8_t             *out);
-size_t istio__security__rule__pack_to_buffer
-                     (const Istio__Security__Rule   *message,
+size_t security__rule__pack_to_buffer
+                     (const Security__Rule   *message,
                       ProtobufCBuffer     *buffer);
-Istio__Security__Rule *
-       istio__security__rule__unpack
+Security__Rule *
+       security__rule__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   istio__security__rule__free_unpacked
-                     (Istio__Security__Rule *message,
+void   security__rule__free_unpacked
+                     (Security__Rule *message,
                       ProtobufCAllocator *allocator);
-/* Istio__Security__Clause methods */
-void   istio__security__clause__init
-                     (Istio__Security__Clause         *message);
-size_t istio__security__clause__get_packed_size
-                     (const Istio__Security__Clause   *message);
-size_t istio__security__clause__pack
-                     (const Istio__Security__Clause   *message,
+/* Security__Clause methods */
+void   security__clause__init
+                     (Security__Clause         *message);
+size_t security__clause__get_packed_size
+                     (const Security__Clause   *message);
+size_t security__clause__pack
+                     (const Security__Clause   *message,
                       uint8_t             *out);
-size_t istio__security__clause__pack_to_buffer
-                     (const Istio__Security__Clause   *message,
+size_t security__clause__pack_to_buffer
+                     (const Security__Clause   *message,
                       ProtobufCBuffer     *buffer);
-Istio__Security__Clause *
-       istio__security__clause__unpack
+Security__Clause *
+       security__clause__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   istio__security__clause__free_unpacked
-                     (Istio__Security__Clause *message,
+void   security__clause__free_unpacked
+                     (Security__Clause *message,
                       ProtobufCAllocator *allocator);
-/* Istio__Security__Match methods */
-void   istio__security__match__init
-                     (Istio__Security__Match         *message);
-size_t istio__security__match__get_packed_size
-                     (const Istio__Security__Match   *message);
-size_t istio__security__match__pack
-                     (const Istio__Security__Match   *message,
+/* Security__Match methods */
+void   security__match__init
+                     (Security__Match         *message);
+size_t security__match__get_packed_size
+                     (const Security__Match   *message);
+size_t security__match__pack
+                     (const Security__Match   *message,
                       uint8_t             *out);
-size_t istio__security__match__pack_to_buffer
-                     (const Istio__Security__Match   *message,
+size_t security__match__pack_to_buffer
+                     (const Security__Match   *message,
                       ProtobufCBuffer     *buffer);
-Istio__Security__Match *
-       istio__security__match__unpack
+Security__Match *
+       security__match__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   istio__security__match__free_unpacked
-                     (Istio__Security__Match *message,
+void   security__match__free_unpacked
+                     (Security__Match *message,
                       ProtobufCAllocator *allocator);
-/* Istio__Security__Address methods */
-void   istio__security__address__init
-                     (Istio__Security__Address         *message);
-size_t istio__security__address__get_packed_size
-                     (const Istio__Security__Address   *message);
-size_t istio__security__address__pack
-                     (const Istio__Security__Address   *message,
+/* Security__Address methods */
+void   security__address__init
+                     (Security__Address         *message);
+size_t security__address__get_packed_size
+                     (const Security__Address   *message);
+size_t security__address__pack
+                     (const Security__Address   *message,
                       uint8_t             *out);
-size_t istio__security__address__pack_to_buffer
-                     (const Istio__Security__Address   *message,
+size_t security__address__pack_to_buffer
+                     (const Security__Address   *message,
                       ProtobufCBuffer     *buffer);
-Istio__Security__Address *
-       istio__security__address__unpack
+Security__Address *
+       security__address__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   istio__security__address__free_unpacked
-                     (Istio__Security__Address *message,
+void   security__address__free_unpacked
+                     (Security__Address *message,
                       ProtobufCAllocator *allocator);
-/* Istio__Security__StringMatch methods */
-void   istio__security__string_match__init
-                     (Istio__Security__StringMatch         *message);
-size_t istio__security__string_match__get_packed_size
-                     (const Istio__Security__StringMatch   *message);
-size_t istio__security__string_match__pack
-                     (const Istio__Security__StringMatch   *message,
+/* Security__StringMatch methods */
+void   security__string_match__init
+                     (Security__StringMatch         *message);
+size_t security__string_match__get_packed_size
+                     (const Security__StringMatch   *message);
+size_t security__string_match__pack
+                     (const Security__StringMatch   *message,
                       uint8_t             *out);
-size_t istio__security__string_match__pack_to_buffer
-                     (const Istio__Security__StringMatch   *message,
+size_t security__string_match__pack_to_buffer
+                     (const Security__StringMatch   *message,
                       ProtobufCBuffer     *buffer);
-Istio__Security__StringMatch *
-       istio__security__string_match__unpack
+Security__StringMatch *
+       security__string_match__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data);
-void   istio__security__string_match__free_unpacked
-                     (Istio__Security__StringMatch *message,
+void   security__string_match__free_unpacked
+                     (Security__StringMatch *message,
                       ProtobufCAllocator *allocator);
 /* --- per-message closures --- */
 
-typedef void (*Istio__Security__Authorization_Closure)
-                 (const Istio__Security__Authorization *message,
+typedef void (*Security__Authorization_Closure)
+                 (const Security__Authorization *message,
                   void *closure_data);
-typedef void (*Istio__Security__Rule_Closure)
-                 (const Istio__Security__Rule *message,
+typedef void (*Security__Rule_Closure)
+                 (const Security__Rule *message,
                   void *closure_data);
-typedef void (*Istio__Security__Clause_Closure)
-                 (const Istio__Security__Clause *message,
+typedef void (*Security__Clause_Closure)
+                 (const Security__Clause *message,
                   void *closure_data);
-typedef void (*Istio__Security__Match_Closure)
-                 (const Istio__Security__Match *message,
+typedef void (*Security__Match_Closure)
+                 (const Security__Match *message,
                   void *closure_data);
-typedef void (*Istio__Security__Address_Closure)
-                 (const Istio__Security__Address *message,
+typedef void (*Security__Address_Closure)
+                 (const Security__Address *message,
                   void *closure_data);
-typedef void (*Istio__Security__StringMatch_Closure)
-                 (const Istio__Security__StringMatch *message,
+typedef void (*Security__StringMatch_Closure)
+                 (const Security__StringMatch *message,
                   void *closure_data);
 
 /* --- services --- */
@@ -330,14 +330,14 @@ typedef void (*Istio__Security__StringMatch_Closure)
 
 /* --- descriptors --- */
 
-extern const ProtobufCEnumDescriptor    istio__security__scope__descriptor;
-extern const ProtobufCEnumDescriptor    istio__security__action__descriptor;
-extern const ProtobufCMessageDescriptor istio__security__authorization__descriptor;
-extern const ProtobufCMessageDescriptor istio__security__rule__descriptor;
-extern const ProtobufCMessageDescriptor istio__security__clause__descriptor;
-extern const ProtobufCMessageDescriptor istio__security__match__descriptor;
-extern const ProtobufCMessageDescriptor istio__security__address__descriptor;
-extern const ProtobufCMessageDescriptor istio__security__string_match__descriptor;
+extern const ProtobufCEnumDescriptor    security__scope__descriptor;
+extern const ProtobufCEnumDescriptor    security__action__descriptor;
+extern const ProtobufCMessageDescriptor security__authorization__descriptor;
+extern const ProtobufCMessageDescriptor security__rule__descriptor;
+extern const ProtobufCMessageDescriptor security__clause__descriptor;
+extern const ProtobufCMessageDescriptor security__match__descriptor;
+extern const ProtobufCMessageDescriptor security__address__descriptor;
+extern const ProtobufCMessageDescriptor security__string_match__descriptor;
 
 PROTOBUF_C__END_DECLS
 

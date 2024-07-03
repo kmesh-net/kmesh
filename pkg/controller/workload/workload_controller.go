@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	AddressType       = "type.googleapis.com/istio.workload.Address"
-	AuthorizationType = "type.googleapis.com/istio.security.Authorization"
+	AddressType       = "type.googleapis.com/workload.Address"
+	AuthorizationType = "type.googleapis.com/security.Authorization"
 )
 
 var log = logger.NewLoggerField("workload_controller")

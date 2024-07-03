@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package istio.security;
+package security;
 option go_package="kmesh.net/kmesh/api/workloadapi/security;security";
 
 message Authorization {

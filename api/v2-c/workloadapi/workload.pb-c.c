@@ -7,517 +7,517 @@
 #endif
 
 #include "workloadapi/workload.pb-c.h"
-void   istio__workload__address__init
-                     (Istio__Workload__Address         *message)
+void   workload__address__init
+                     (Workload__Address         *message)
 {
-  static const Istio__Workload__Address init_value = ISTIO__WORKLOAD__ADDRESS__INIT;
+  static const Workload__Address init_value = WORKLOAD__ADDRESS__INIT;
   *message = init_value;
 }
-size_t istio__workload__address__get_packed_size
-                     (const Istio__Workload__Address *message)
+size_t workload__address__get_packed_size
+                     (const Workload__Address *message)
 {
-  assert(message->base.descriptor == &istio__workload__address__descriptor);
+  assert(message->base.descriptor == &workload__address__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__address__pack
-                     (const Istio__Workload__Address *message,
+size_t workload__address__pack
+                     (const Workload__Address *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__address__descriptor);
+  assert(message->base.descriptor == &workload__address__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__address__pack_to_buffer
-                     (const Istio__Workload__Address *message,
+size_t workload__address__pack_to_buffer
+                     (const Workload__Address *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__address__descriptor);
+  assert(message->base.descriptor == &workload__address__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__Address *
-       istio__workload__address__unpack
+Workload__Address *
+       workload__address__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__Address *)
-     protobuf_c_message_unpack (&istio__workload__address__descriptor,
+  return (Workload__Address *)
+     protobuf_c_message_unpack (&workload__address__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__address__free_unpacked
-                     (Istio__Workload__Address *message,
+void   workload__address__free_unpacked
+                     (Workload__Address *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__address__descriptor);
+  assert(message->base.descriptor == &workload__address__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__service__init
-                     (Istio__Workload__Service         *message)
+void   workload__service__init
+                     (Workload__Service         *message)
 {
-  static const Istio__Workload__Service init_value = ISTIO__WORKLOAD__SERVICE__INIT;
+  static const Workload__Service init_value = WORKLOAD__SERVICE__INIT;
   *message = init_value;
 }
-size_t istio__workload__service__get_packed_size
-                     (const Istio__Workload__Service *message)
+size_t workload__service__get_packed_size
+                     (const Workload__Service *message)
 {
-  assert(message->base.descriptor == &istio__workload__service__descriptor);
+  assert(message->base.descriptor == &workload__service__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__service__pack
-                     (const Istio__Workload__Service *message,
+size_t workload__service__pack
+                     (const Workload__Service *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__service__descriptor);
+  assert(message->base.descriptor == &workload__service__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__service__pack_to_buffer
-                     (const Istio__Workload__Service *message,
+size_t workload__service__pack_to_buffer
+                     (const Workload__Service *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__service__descriptor);
+  assert(message->base.descriptor == &workload__service__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__Service *
-       istio__workload__service__unpack
+Workload__Service *
+       workload__service__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__Service *)
-     protobuf_c_message_unpack (&istio__workload__service__descriptor,
+  return (Workload__Service *)
+     protobuf_c_message_unpack (&workload__service__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__service__free_unpacked
-                     (Istio__Workload__Service *message,
+void   workload__service__free_unpacked
+                     (Workload__Service *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__service__descriptor);
+  assert(message->base.descriptor == &workload__service__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__load_balancing__init
-                     (Istio__Workload__LoadBalancing         *message)
+void   workload__load_balancing__init
+                     (Workload__LoadBalancing         *message)
 {
-  static const Istio__Workload__LoadBalancing init_value = ISTIO__WORKLOAD__LOAD_BALANCING__INIT;
+  static const Workload__LoadBalancing init_value = WORKLOAD__LOAD_BALANCING__INIT;
   *message = init_value;
 }
-size_t istio__workload__load_balancing__get_packed_size
-                     (const Istio__Workload__LoadBalancing *message)
+size_t workload__load_balancing__get_packed_size
+                     (const Workload__LoadBalancing *message)
 {
-  assert(message->base.descriptor == &istio__workload__load_balancing__descriptor);
+  assert(message->base.descriptor == &workload__load_balancing__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__load_balancing__pack
-                     (const Istio__Workload__LoadBalancing *message,
+size_t workload__load_balancing__pack
+                     (const Workload__LoadBalancing *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__load_balancing__descriptor);
+  assert(message->base.descriptor == &workload__load_balancing__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__load_balancing__pack_to_buffer
-                     (const Istio__Workload__LoadBalancing *message,
+size_t workload__load_balancing__pack_to_buffer
+                     (const Workload__LoadBalancing *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__load_balancing__descriptor);
+  assert(message->base.descriptor == &workload__load_balancing__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__LoadBalancing *
-       istio__workload__load_balancing__unpack
+Workload__LoadBalancing *
+       workload__load_balancing__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__LoadBalancing *)
-     protobuf_c_message_unpack (&istio__workload__load_balancing__descriptor,
+  return (Workload__LoadBalancing *)
+     protobuf_c_message_unpack (&workload__load_balancing__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__load_balancing__free_unpacked
-                     (Istio__Workload__LoadBalancing *message,
+void   workload__load_balancing__free_unpacked
+                     (Workload__LoadBalancing *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__load_balancing__descriptor);
+  assert(message->base.descriptor == &workload__load_balancing__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__workload__services_entry__init
-                     (Istio__Workload__Workload__ServicesEntry         *message)
+void   workload__workload__services_entry__init
+                     (Workload__Workload__ServicesEntry         *message)
 {
-  static const Istio__Workload__Workload__ServicesEntry init_value = ISTIO__WORKLOAD__WORKLOAD__SERVICES_ENTRY__INIT;
+  static const Workload__Workload__ServicesEntry init_value = WORKLOAD__WORKLOAD__SERVICES_ENTRY__INIT;
   *message = init_value;
 }
-void   istio__workload__workload__init
-                     (Istio__Workload__Workload         *message)
+void   workload__workload__init
+                     (Workload__Workload         *message)
 {
-  static const Istio__Workload__Workload init_value = ISTIO__WORKLOAD__WORKLOAD__INIT;
+  static const Workload__Workload init_value = WORKLOAD__WORKLOAD__INIT;
   *message = init_value;
 }
-size_t istio__workload__workload__get_packed_size
-                     (const Istio__Workload__Workload *message)
+size_t workload__workload__get_packed_size
+                     (const Workload__Workload *message)
 {
-  assert(message->base.descriptor == &istio__workload__workload__descriptor);
+  assert(message->base.descriptor == &workload__workload__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__workload__pack
-                     (const Istio__Workload__Workload *message,
+size_t workload__workload__pack
+                     (const Workload__Workload *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__workload__descriptor);
+  assert(message->base.descriptor == &workload__workload__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__workload__pack_to_buffer
-                     (const Istio__Workload__Workload *message,
+size_t workload__workload__pack_to_buffer
+                     (const Workload__Workload *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__workload__descriptor);
+  assert(message->base.descriptor == &workload__workload__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__Workload *
-       istio__workload__workload__unpack
+Workload__Workload *
+       workload__workload__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__Workload *)
-     protobuf_c_message_unpack (&istio__workload__workload__descriptor,
+  return (Workload__Workload *)
+     protobuf_c_message_unpack (&workload__workload__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__workload__free_unpacked
-                     (Istio__Workload__Workload *message,
+void   workload__workload__free_unpacked
+                     (Workload__Workload *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__workload__descriptor);
+  assert(message->base.descriptor == &workload__workload__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__locality__init
-                     (Istio__Workload__Locality         *message)
+void   workload__locality__init
+                     (Workload__Locality         *message)
 {
-  static const Istio__Workload__Locality init_value = ISTIO__WORKLOAD__LOCALITY__INIT;
+  static const Workload__Locality init_value = WORKLOAD__LOCALITY__INIT;
   *message = init_value;
 }
-size_t istio__workload__locality__get_packed_size
-                     (const Istio__Workload__Locality *message)
+size_t workload__locality__get_packed_size
+                     (const Workload__Locality *message)
 {
-  assert(message->base.descriptor == &istio__workload__locality__descriptor);
+  assert(message->base.descriptor == &workload__locality__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__locality__pack
-                     (const Istio__Workload__Locality *message,
+size_t workload__locality__pack
+                     (const Workload__Locality *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__locality__descriptor);
+  assert(message->base.descriptor == &workload__locality__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__locality__pack_to_buffer
-                     (const Istio__Workload__Locality *message,
+size_t workload__locality__pack_to_buffer
+                     (const Workload__Locality *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__locality__descriptor);
+  assert(message->base.descriptor == &workload__locality__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__Locality *
-       istio__workload__locality__unpack
+Workload__Locality *
+       workload__locality__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__Locality *)
-     protobuf_c_message_unpack (&istio__workload__locality__descriptor,
+  return (Workload__Locality *)
+     protobuf_c_message_unpack (&workload__locality__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__locality__free_unpacked
-                     (Istio__Workload__Locality *message,
+void   workload__locality__free_unpacked
+                     (Workload__Locality *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__locality__descriptor);
+  assert(message->base.descriptor == &workload__locality__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__port_list__init
-                     (Istio__Workload__PortList         *message)
+void   workload__port_list__init
+                     (Workload__PortList         *message)
 {
-  static const Istio__Workload__PortList init_value = ISTIO__WORKLOAD__PORT_LIST__INIT;
+  static const Workload__PortList init_value = WORKLOAD__PORT_LIST__INIT;
   *message = init_value;
 }
-size_t istio__workload__port_list__get_packed_size
-                     (const Istio__Workload__PortList *message)
+size_t workload__port_list__get_packed_size
+                     (const Workload__PortList *message)
 {
-  assert(message->base.descriptor == &istio__workload__port_list__descriptor);
+  assert(message->base.descriptor == &workload__port_list__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__port_list__pack
-                     (const Istio__Workload__PortList *message,
+size_t workload__port_list__pack
+                     (const Workload__PortList *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__port_list__descriptor);
+  assert(message->base.descriptor == &workload__port_list__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__port_list__pack_to_buffer
-                     (const Istio__Workload__PortList *message,
+size_t workload__port_list__pack_to_buffer
+                     (const Workload__PortList *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__port_list__descriptor);
+  assert(message->base.descriptor == &workload__port_list__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__PortList *
-       istio__workload__port_list__unpack
+Workload__PortList *
+       workload__port_list__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__PortList *)
-     protobuf_c_message_unpack (&istio__workload__port_list__descriptor,
+  return (Workload__PortList *)
+     protobuf_c_message_unpack (&workload__port_list__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__port_list__free_unpacked
-                     (Istio__Workload__PortList *message,
+void   workload__port_list__free_unpacked
+                     (Workload__PortList *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__port_list__descriptor);
+  assert(message->base.descriptor == &workload__port_list__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__port__init
-                     (Istio__Workload__Port         *message)
+void   workload__port__init
+                     (Workload__Port         *message)
 {
-  static const Istio__Workload__Port init_value = ISTIO__WORKLOAD__PORT__INIT;
+  static const Workload__Port init_value = WORKLOAD__PORT__INIT;
   *message = init_value;
 }
-size_t istio__workload__port__get_packed_size
-                     (const Istio__Workload__Port *message)
+size_t workload__port__get_packed_size
+                     (const Workload__Port *message)
 {
-  assert(message->base.descriptor == &istio__workload__port__descriptor);
+  assert(message->base.descriptor == &workload__port__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__port__pack
-                     (const Istio__Workload__Port *message,
+size_t workload__port__pack
+                     (const Workload__Port *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__port__descriptor);
+  assert(message->base.descriptor == &workload__port__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__port__pack_to_buffer
-                     (const Istio__Workload__Port *message,
+size_t workload__port__pack_to_buffer
+                     (const Workload__Port *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__port__descriptor);
+  assert(message->base.descriptor == &workload__port__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__Port *
-       istio__workload__port__unpack
+Workload__Port *
+       workload__port__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__Port *)
-     protobuf_c_message_unpack (&istio__workload__port__descriptor,
+  return (Workload__Port *)
+     protobuf_c_message_unpack (&workload__port__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__port__free_unpacked
-                     (Istio__Workload__Port *message,
+void   workload__port__free_unpacked
+                     (Workload__Port *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__port__descriptor);
+  assert(message->base.descriptor == &workload__port__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__application_tunnel__init
-                     (Istio__Workload__ApplicationTunnel         *message)
+void   workload__application_tunnel__init
+                     (Workload__ApplicationTunnel         *message)
 {
-  static const Istio__Workload__ApplicationTunnel init_value = ISTIO__WORKLOAD__APPLICATION_TUNNEL__INIT;
+  static const Workload__ApplicationTunnel init_value = WORKLOAD__APPLICATION_TUNNEL__INIT;
   *message = init_value;
 }
-size_t istio__workload__application_tunnel__get_packed_size
-                     (const Istio__Workload__ApplicationTunnel *message)
+size_t workload__application_tunnel__get_packed_size
+                     (const Workload__ApplicationTunnel *message)
 {
-  assert(message->base.descriptor == &istio__workload__application_tunnel__descriptor);
+  assert(message->base.descriptor == &workload__application_tunnel__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__application_tunnel__pack
-                     (const Istio__Workload__ApplicationTunnel *message,
+size_t workload__application_tunnel__pack
+                     (const Workload__ApplicationTunnel *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__application_tunnel__descriptor);
+  assert(message->base.descriptor == &workload__application_tunnel__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__application_tunnel__pack_to_buffer
-                     (const Istio__Workload__ApplicationTunnel *message,
+size_t workload__application_tunnel__pack_to_buffer
+                     (const Workload__ApplicationTunnel *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__application_tunnel__descriptor);
+  assert(message->base.descriptor == &workload__application_tunnel__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__ApplicationTunnel *
-       istio__workload__application_tunnel__unpack
+Workload__ApplicationTunnel *
+       workload__application_tunnel__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__ApplicationTunnel *)
-     protobuf_c_message_unpack (&istio__workload__application_tunnel__descriptor,
+  return (Workload__ApplicationTunnel *)
+     protobuf_c_message_unpack (&workload__application_tunnel__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__application_tunnel__free_unpacked
-                     (Istio__Workload__ApplicationTunnel *message,
+void   workload__application_tunnel__free_unpacked
+                     (Workload__ApplicationTunnel *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__application_tunnel__descriptor);
+  assert(message->base.descriptor == &workload__application_tunnel__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__gateway_address__init
-                     (Istio__Workload__GatewayAddress         *message)
+void   workload__gateway_address__init
+                     (Workload__GatewayAddress         *message)
 {
-  static const Istio__Workload__GatewayAddress init_value = ISTIO__WORKLOAD__GATEWAY_ADDRESS__INIT;
+  static const Workload__GatewayAddress init_value = WORKLOAD__GATEWAY_ADDRESS__INIT;
   *message = init_value;
 }
-size_t istio__workload__gateway_address__get_packed_size
-                     (const Istio__Workload__GatewayAddress *message)
+size_t workload__gateway_address__get_packed_size
+                     (const Workload__GatewayAddress *message)
 {
-  assert(message->base.descriptor == &istio__workload__gateway_address__descriptor);
+  assert(message->base.descriptor == &workload__gateway_address__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__gateway_address__pack
-                     (const Istio__Workload__GatewayAddress *message,
+size_t workload__gateway_address__pack
+                     (const Workload__GatewayAddress *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__gateway_address__descriptor);
+  assert(message->base.descriptor == &workload__gateway_address__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__gateway_address__pack_to_buffer
-                     (const Istio__Workload__GatewayAddress *message,
+size_t workload__gateway_address__pack_to_buffer
+                     (const Workload__GatewayAddress *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__gateway_address__descriptor);
+  assert(message->base.descriptor == &workload__gateway_address__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__GatewayAddress *
-       istio__workload__gateway_address__unpack
+Workload__GatewayAddress *
+       workload__gateway_address__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__GatewayAddress *)
-     protobuf_c_message_unpack (&istio__workload__gateway_address__descriptor,
+  return (Workload__GatewayAddress *)
+     protobuf_c_message_unpack (&workload__gateway_address__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__gateway_address__free_unpacked
-                     (Istio__Workload__GatewayAddress *message,
+void   workload__gateway_address__free_unpacked
+                     (Workload__GatewayAddress *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__gateway_address__descriptor);
+  assert(message->base.descriptor == &workload__gateway_address__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__network_address__init
-                     (Istio__Workload__NetworkAddress         *message)
+void   workload__network_address__init
+                     (Workload__NetworkAddress         *message)
 {
-  static const Istio__Workload__NetworkAddress init_value = ISTIO__WORKLOAD__NETWORK_ADDRESS__INIT;
+  static const Workload__NetworkAddress init_value = WORKLOAD__NETWORK_ADDRESS__INIT;
   *message = init_value;
 }
-size_t istio__workload__network_address__get_packed_size
-                     (const Istio__Workload__NetworkAddress *message)
+size_t workload__network_address__get_packed_size
+                     (const Workload__NetworkAddress *message)
 {
-  assert(message->base.descriptor == &istio__workload__network_address__descriptor);
+  assert(message->base.descriptor == &workload__network_address__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__network_address__pack
-                     (const Istio__Workload__NetworkAddress *message,
+size_t workload__network_address__pack
+                     (const Workload__NetworkAddress *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__network_address__descriptor);
+  assert(message->base.descriptor == &workload__network_address__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__network_address__pack_to_buffer
-                     (const Istio__Workload__NetworkAddress *message,
+size_t workload__network_address__pack_to_buffer
+                     (const Workload__NetworkAddress *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__network_address__descriptor);
+  assert(message->base.descriptor == &workload__network_address__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__NetworkAddress *
-       istio__workload__network_address__unpack
+Workload__NetworkAddress *
+       workload__network_address__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__NetworkAddress *)
-     protobuf_c_message_unpack (&istio__workload__network_address__descriptor,
+  return (Workload__NetworkAddress *)
+     protobuf_c_message_unpack (&workload__network_address__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__network_address__free_unpacked
-                     (Istio__Workload__NetworkAddress *message,
+void   workload__network_address__free_unpacked
+                     (Workload__NetworkAddress *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__network_address__descriptor);
+  assert(message->base.descriptor == &workload__network_address__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-void   istio__workload__namespaced_hostname__init
-                     (Istio__Workload__NamespacedHostname         *message)
+void   workload__namespaced_hostname__init
+                     (Workload__NamespacedHostname         *message)
 {
-  static const Istio__Workload__NamespacedHostname init_value = ISTIO__WORKLOAD__NAMESPACED_HOSTNAME__INIT;
+  static const Workload__NamespacedHostname init_value = WORKLOAD__NAMESPACED_HOSTNAME__INIT;
   *message = init_value;
 }
-size_t istio__workload__namespaced_hostname__get_packed_size
-                     (const Istio__Workload__NamespacedHostname *message)
+size_t workload__namespaced_hostname__get_packed_size
+                     (const Workload__NamespacedHostname *message)
 {
-  assert(message->base.descriptor == &istio__workload__namespaced_hostname__descriptor);
+  assert(message->base.descriptor == &workload__namespaced_hostname__descriptor);
   return protobuf_c_message_get_packed_size ((const ProtobufCMessage*)(message));
 }
-size_t istio__workload__namespaced_hostname__pack
-                     (const Istio__Workload__NamespacedHostname *message,
+size_t workload__namespaced_hostname__pack
+                     (const Workload__NamespacedHostname *message,
                       uint8_t       *out)
 {
-  assert(message->base.descriptor == &istio__workload__namespaced_hostname__descriptor);
+  assert(message->base.descriptor == &workload__namespaced_hostname__descriptor);
   return protobuf_c_message_pack ((const ProtobufCMessage*)message, out);
 }
-size_t istio__workload__namespaced_hostname__pack_to_buffer
-                     (const Istio__Workload__NamespacedHostname *message,
+size_t workload__namespaced_hostname__pack_to_buffer
+                     (const Workload__NamespacedHostname *message,
                       ProtobufCBuffer *buffer)
 {
-  assert(message->base.descriptor == &istio__workload__namespaced_hostname__descriptor);
+  assert(message->base.descriptor == &workload__namespaced_hostname__descriptor);
   return protobuf_c_message_pack_to_buffer ((const ProtobufCMessage*)message, buffer);
 }
-Istio__Workload__NamespacedHostname *
-       istio__workload__namespaced_hostname__unpack
+Workload__NamespacedHostname *
+       workload__namespaced_hostname__unpack
                      (ProtobufCAllocator  *allocator,
                       size_t               len,
                       const uint8_t       *data)
 {
-  return (Istio__Workload__NamespacedHostname *)
-     protobuf_c_message_unpack (&istio__workload__namespaced_hostname__descriptor,
+  return (Workload__NamespacedHostname *)
+     protobuf_c_message_unpack (&workload__namespaced_hostname__descriptor,
                                 allocator, len, data);
 }
-void   istio__workload__namespaced_hostname__free_unpacked
-                     (Istio__Workload__NamespacedHostname *message,
+void   workload__namespaced_hostname__free_unpacked
+                     (Workload__NamespacedHostname *message,
                       ProtobufCAllocator *allocator)
 {
   if(!message)
     return;
-  assert(message->base.descriptor == &istio__workload__namespaced_hostname__descriptor);
+  assert(message->base.descriptor == &workload__namespaced_hostname__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-static const ProtobufCFieldDescriptor istio__workload__address__field_descriptors[2] =
+static const ProtobufCFieldDescriptor workload__address__field_descriptors[2] =
 {
   {
     "workload",
     1,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Workload__Address, type_case),
-    offsetof(Istio__Workload__Address, workload),
-    &istio__workload__workload__descriptor,
+    offsetof(Workload__Address, type_case),
+    offsetof(Workload__Address, workload),
+    &workload__workload__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -527,39 +527,39 @@ static const ProtobufCFieldDescriptor istio__workload__address__field_descriptor
     2,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Workload__Address, type_case),
-    offsetof(Istio__Workload__Address, service),
-    &istio__workload__service__descriptor,
+    offsetof(Workload__Address, type_case),
+    offsetof(Workload__Address, service),
+    &workload__service__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__address__field_indices_by_name[] = {
+static const unsigned workload__address__field_indices_by_name[] = {
   1,   /* field[1] = service */
   0,   /* field[0] = workload */
 };
-static const ProtobufCIntRange istio__workload__address__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__address__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor istio__workload__address__descriptor =
+const ProtobufCMessageDescriptor workload__address__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.Address",
+  "workload.Address",
   "Address",
-  "Istio__Workload__Address",
-  "istio.workload",
-  sizeof(Istio__Workload__Address),
+  "Workload__Address",
+  "workload",
+  sizeof(Workload__Address),
   2,
-  istio__workload__address__field_descriptors,
-  istio__workload__address__field_indices_by_name,
-  1,  istio__workload__address__number_ranges,
-  (ProtobufCMessageInit) istio__workload__address__init,
+  workload__address__field_descriptors,
+  workload__address__field_indices_by_name,
+  1,  workload__address__number_ranges,
+  (ProtobufCMessageInit) workload__address__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__service__field_descriptors[8] =
+static const ProtobufCFieldDescriptor workload__service__field_descriptors[8] =
 {
   {
     "name",
@@ -567,7 +567,7 @@ static const ProtobufCFieldDescriptor istio__workload__service__field_descriptor
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Service, name),
+    offsetof(Workload__Service, name),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -579,7 +579,7 @@ static const ProtobufCFieldDescriptor istio__workload__service__field_descriptor
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Service, namespace_),
+    offsetof(Workload__Service, namespace_),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -591,7 +591,7 @@ static const ProtobufCFieldDescriptor istio__workload__service__field_descriptor
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Service, hostname),
+    offsetof(Workload__Service, hostname),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -602,9 +602,9 @@ static const ProtobufCFieldDescriptor istio__workload__service__field_descriptor
     4,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Workload__Service, n_addresses),
-    offsetof(Istio__Workload__Service, addresses),
-    &istio__workload__network_address__descriptor,
+    offsetof(Workload__Service, n_addresses),
+    offsetof(Workload__Service, addresses),
+    &workload__network_address__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -614,9 +614,9 @@ static const ProtobufCFieldDescriptor istio__workload__service__field_descriptor
     5,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Workload__Service, n_ports),
-    offsetof(Istio__Workload__Service, ports),
-    &istio__workload__port__descriptor,
+    offsetof(Workload__Service, n_ports),
+    offsetof(Workload__Service, ports),
+    &workload__port__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -626,8 +626,8 @@ static const ProtobufCFieldDescriptor istio__workload__service__field_descriptor
     6,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_STRING,
-    offsetof(Istio__Workload__Service, n_subject_alt_names),
-    offsetof(Istio__Workload__Service, subject_alt_names),
+    offsetof(Workload__Service, n_subject_alt_names),
+    offsetof(Workload__Service, subject_alt_names),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -639,8 +639,8 @@ static const ProtobufCFieldDescriptor istio__workload__service__field_descriptor
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Service, waypoint),
-    &istio__workload__gateway_address__descriptor,
+    offsetof(Workload__Service, waypoint),
+    &workload__gateway_address__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -651,14 +651,14 @@ static const ProtobufCFieldDescriptor istio__workload__service__field_descriptor
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Service, load_balancing),
-    &istio__workload__load_balancing__descriptor,
+    offsetof(Workload__Service, load_balancing),
+    &workload__load_balancing__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__service__field_indices_by_name[] = {
+static const unsigned workload__service__field_indices_by_name[] = {
   3,   /* field[3] = addresses */
   2,   /* field[2] = hostname */
   7,   /* field[7] = load_balancing */
@@ -668,40 +668,40 @@ static const unsigned istio__workload__service__field_indices_by_name[] = {
   5,   /* field[5] = subject_alt_names */
   6,   /* field[6] = waypoint */
 };
-static const ProtobufCIntRange istio__workload__service__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__service__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 8 }
 };
-const ProtobufCMessageDescriptor istio__workload__service__descriptor =
+const ProtobufCMessageDescriptor workload__service__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.Service",
+  "workload.Service",
   "Service",
-  "Istio__Workload__Service",
-  "istio.workload",
-  sizeof(Istio__Workload__Service),
+  "Workload__Service",
+  "workload",
+  sizeof(Workload__Service),
   8,
-  istio__workload__service__field_descriptors,
-  istio__workload__service__field_indices_by_name,
-  1,  istio__workload__service__number_ranges,
-  (ProtobufCMessageInit) istio__workload__service__init,
+  workload__service__field_descriptors,
+  workload__service__field_indices_by_name,
+  1,  workload__service__number_ranges,
+  (ProtobufCMessageInit) workload__service__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCEnumValue istio__workload__load_balancing__scope__enum_values_by_number[7] =
+static const ProtobufCEnumValue workload__load_balancing__scope__enum_values_by_number[7] =
 {
-  { "UNSPECIFIED_SCOPE", "ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__UNSPECIFIED_SCOPE", 0 },
-  { "REGION", "ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__REGION", 1 },
-  { "ZONE", "ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__ZONE", 2 },
-  { "SUBZONE", "ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__SUBZONE", 3 },
-  { "NODE", "ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__NODE", 4 },
-  { "CLUSTER", "ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__CLUSTER", 5 },
-  { "NETWORK", "ISTIO__WORKLOAD__LOAD_BALANCING__SCOPE__NETWORK", 6 },
+  { "UNSPECIFIED_SCOPE", "WORKLOAD__LOAD_BALANCING__SCOPE__UNSPECIFIED_SCOPE", 0 },
+  { "REGION", "WORKLOAD__LOAD_BALANCING__SCOPE__REGION", 1 },
+  { "ZONE", "WORKLOAD__LOAD_BALANCING__SCOPE__ZONE", 2 },
+  { "SUBZONE", "WORKLOAD__LOAD_BALANCING__SCOPE__SUBZONE", 3 },
+  { "NODE", "WORKLOAD__LOAD_BALANCING__SCOPE__NODE", 4 },
+  { "CLUSTER", "WORKLOAD__LOAD_BALANCING__SCOPE__CLUSTER", 5 },
+  { "NETWORK", "WORKLOAD__LOAD_BALANCING__SCOPE__NETWORK", 6 },
 };
-static const ProtobufCIntRange istio__workload__load_balancing__scope__value_ranges[] = {
+static const ProtobufCIntRange workload__load_balancing__scope__value_ranges[] = {
 {0, 0},{0, 7}
 };
-static const ProtobufCEnumValueIndex istio__workload__load_balancing__scope__enum_values_by_name[7] =
+static const ProtobufCEnumValueIndex workload__load_balancing__scope__enum_values_by_name[7] =
 {
   { "CLUSTER", 5 },
   { "NETWORK", 6 },
@@ -711,61 +711,61 @@ static const ProtobufCEnumValueIndex istio__workload__load_balancing__scope__enu
   { "UNSPECIFIED_SCOPE", 0 },
   { "ZONE", 2 },
 };
-const ProtobufCEnumDescriptor istio__workload__load_balancing__scope__descriptor =
+const ProtobufCEnumDescriptor workload__load_balancing__scope__descriptor =
 {
   PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "istio.workload.LoadBalancing.Scope",
+  "workload.LoadBalancing.Scope",
   "Scope",
-  "Istio__Workload__LoadBalancing__Scope",
-  "istio.workload",
+  "Workload__LoadBalancing__Scope",
+  "workload",
   7,
-  istio__workload__load_balancing__scope__enum_values_by_number,
+  workload__load_balancing__scope__enum_values_by_number,
   7,
-  istio__workload__load_balancing__scope__enum_values_by_name,
+  workload__load_balancing__scope__enum_values_by_name,
   1,
-  istio__workload__load_balancing__scope__value_ranges,
+  workload__load_balancing__scope__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCEnumValue istio__workload__load_balancing__mode__enum_values_by_number[3] =
+static const ProtobufCEnumValue workload__load_balancing__mode__enum_values_by_number[3] =
 {
-  { "UNSPECIFIED_MODE", "ISTIO__WORKLOAD__LOAD_BALANCING__MODE__UNSPECIFIED_MODE", 0 },
-  { "STRICT", "ISTIO__WORKLOAD__LOAD_BALANCING__MODE__STRICT", 1 },
-  { "FAILOVER", "ISTIO__WORKLOAD__LOAD_BALANCING__MODE__FAILOVER", 2 },
+  { "UNSPECIFIED_MODE", "WORKLOAD__LOAD_BALANCING__MODE__UNSPECIFIED_MODE", 0 },
+  { "STRICT", "WORKLOAD__LOAD_BALANCING__MODE__STRICT", 1 },
+  { "FAILOVER", "WORKLOAD__LOAD_BALANCING__MODE__FAILOVER", 2 },
 };
-static const ProtobufCIntRange istio__workload__load_balancing__mode__value_ranges[] = {
+static const ProtobufCIntRange workload__load_balancing__mode__value_ranges[] = {
 {0, 0},{0, 3}
 };
-static const ProtobufCEnumValueIndex istio__workload__load_balancing__mode__enum_values_by_name[3] =
+static const ProtobufCEnumValueIndex workload__load_balancing__mode__enum_values_by_name[3] =
 {
   { "FAILOVER", 2 },
   { "STRICT", 1 },
   { "UNSPECIFIED_MODE", 0 },
 };
-const ProtobufCEnumDescriptor istio__workload__load_balancing__mode__descriptor =
+const ProtobufCEnumDescriptor workload__load_balancing__mode__descriptor =
 {
   PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "istio.workload.LoadBalancing.Mode",
+  "workload.LoadBalancing.Mode",
   "Mode",
-  "Istio__Workload__LoadBalancing__Mode",
-  "istio.workload",
+  "Workload__LoadBalancing__Mode",
+  "workload",
   3,
-  istio__workload__load_balancing__mode__enum_values_by_number,
+  workload__load_balancing__mode__enum_values_by_number,
   3,
-  istio__workload__load_balancing__mode__enum_values_by_name,
+  workload__load_balancing__mode__enum_values_by_name,
   1,
-  istio__workload__load_balancing__mode__value_ranges,
+  workload__load_balancing__mode__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCFieldDescriptor istio__workload__load_balancing__field_descriptors[2] =
+static const ProtobufCFieldDescriptor workload__load_balancing__field_descriptors[2] =
 {
   {
     "routing_preference",
     1,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_ENUM,
-    offsetof(Istio__Workload__LoadBalancing, n_routing_preference),
-    offsetof(Istio__Workload__LoadBalancing, routing_preference),
-    &istio__workload__load_balancing__scope__descriptor,
+    offsetof(Workload__LoadBalancing, n_routing_preference),
+    offsetof(Workload__LoadBalancing, routing_preference),
+    &workload__load_balancing__scope__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -776,38 +776,38 @@ static const ProtobufCFieldDescriptor istio__workload__load_balancing__field_des
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__LoadBalancing, mode),
-    &istio__workload__load_balancing__mode__descriptor,
+    offsetof(Workload__LoadBalancing, mode),
+    &workload__load_balancing__mode__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__load_balancing__field_indices_by_name[] = {
+static const unsigned workload__load_balancing__field_indices_by_name[] = {
   1,   /* field[1] = mode */
   0,   /* field[0] = routing_preference */
 };
-static const ProtobufCIntRange istio__workload__load_balancing__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__load_balancing__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor istio__workload__load_balancing__descriptor =
+const ProtobufCMessageDescriptor workload__load_balancing__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.LoadBalancing",
+  "workload.LoadBalancing",
   "LoadBalancing",
-  "Istio__Workload__LoadBalancing",
-  "istio.workload",
-  sizeof(Istio__Workload__LoadBalancing),
+  "Workload__LoadBalancing",
+  "workload",
+  sizeof(Workload__LoadBalancing),
   2,
-  istio__workload__load_balancing__field_descriptors,
-  istio__workload__load_balancing__field_indices_by_name,
-  1,  istio__workload__load_balancing__number_ranges,
-  (ProtobufCMessageInit) istio__workload__load_balancing__init,
+  workload__load_balancing__field_descriptors,
+  workload__load_balancing__field_indices_by_name,
+  1,  workload__load_balancing__number_ranges,
+  (ProtobufCMessageInit) workload__load_balancing__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__workload__services_entry__field_descriptors[2] =
+static const ProtobufCFieldDescriptor workload__workload__services_entry__field_descriptors[2] =
 {
   {
     "key",
@@ -815,7 +815,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__services_entry_
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload__ServicesEntry, key),
+    offsetof(Workload__Workload__ServicesEntry, key),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -827,38 +827,38 @@ static const ProtobufCFieldDescriptor istio__workload__workload__services_entry_
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload__ServicesEntry, value),
-    &istio__workload__port_list__descriptor,
+    offsetof(Workload__Workload__ServicesEntry, value),
+    &workload__port_list__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__workload__services_entry__field_indices_by_name[] = {
+static const unsigned workload__workload__services_entry__field_indices_by_name[] = {
   0,   /* field[0] = key */
   1,   /* field[1] = value */
 };
-static const ProtobufCIntRange istio__workload__workload__services_entry__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__workload__services_entry__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor istio__workload__workload__services_entry__descriptor =
+const ProtobufCMessageDescriptor workload__workload__services_entry__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.Workload.ServicesEntry",
+  "workload.Workload.ServicesEntry",
   "ServicesEntry",
-  "Istio__Workload__Workload__ServicesEntry",
-  "istio.workload",
-  sizeof(Istio__Workload__Workload__ServicesEntry),
+  "Workload__Workload__ServicesEntry",
+  "workload",
+  sizeof(Workload__Workload__ServicesEntry),
   2,
-  istio__workload__workload__services_entry__field_descriptors,
-  istio__workload__workload__services_entry__field_indices_by_name,
-  1,  istio__workload__workload__services_entry__number_ranges,
-  (ProtobufCMessageInit) istio__workload__workload__services_entry__init,
+  workload__workload__services_entry__field_descriptors,
+  workload__workload__services_entry__field_indices_by_name,
+  1,  workload__workload__services_entry__number_ranges,
+  (ProtobufCMessageInit) workload__workload__services_entry__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__workload__field_descriptors[23] =
+static const ProtobufCFieldDescriptor workload__workload__field_descriptors[23] =
 {
   {
     "name",
@@ -866,7 +866,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, name),
+    offsetof(Workload__Workload, name),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -878,7 +878,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, namespace_),
+    offsetof(Workload__Workload, namespace_),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -889,8 +889,8 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     3,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_BYTES,
-    offsetof(Istio__Workload__Workload, n_addresses),
-    offsetof(Istio__Workload__Workload, addresses),
+    offsetof(Workload__Workload, n_addresses),
+    offsetof(Workload__Workload, addresses),
     NULL,
     NULL,
     0,             /* flags */
@@ -902,7 +902,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, network),
+    offsetof(Workload__Workload, network),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -914,8 +914,8 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, tunnel_protocol),
-    &istio__workload__tunnel_protocol__descriptor,
+    offsetof(Workload__Workload, tunnel_protocol),
+    &workload__tunnel_protocol__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -926,7 +926,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, trust_domain),
+    offsetof(Workload__Workload, trust_domain),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -938,7 +938,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, service_account),
+    offsetof(Workload__Workload, service_account),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -950,8 +950,8 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, waypoint),
-    &istio__workload__gateway_address__descriptor,
+    offsetof(Workload__Workload, waypoint),
+    &workload__gateway_address__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -962,7 +962,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, node),
+    offsetof(Workload__Workload, node),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -974,7 +974,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, canonical_name),
+    offsetof(Workload__Workload, canonical_name),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -986,7 +986,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, canonical_revision),
+    offsetof(Workload__Workload, canonical_revision),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -998,8 +998,8 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, workload_type),
-    &istio__workload__workload_type__descriptor,
+    offsetof(Workload__Workload, workload_type),
+    &workload__workload_type__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1010,7 +1010,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, workload_name),
+    offsetof(Workload__Workload, workload_name),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1022,7 +1022,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BOOL,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, native_tunnel),
+    offsetof(Workload__Workload, native_tunnel),
     NULL,
     NULL,
     0,             /* flags */
@@ -1033,8 +1033,8 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     16,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_STRING,
-    offsetof(Istio__Workload__Workload, n_authorization_policies),
-    offsetof(Istio__Workload__Workload, authorization_policies),
+    offsetof(Workload__Workload, n_authorization_policies),
+    offsetof(Workload__Workload, authorization_policies),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1046,8 +1046,8 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, status),
-    &istio__workload__workload_status__descriptor,
+    offsetof(Workload__Workload, status),
+    &workload__workload_status__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1058,7 +1058,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, cluster_id),
+    offsetof(Workload__Workload, cluster_id),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1070,8 +1070,8 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, network_gateway),
-    &istio__workload__gateway_address__descriptor,
+    offsetof(Workload__Workload, network_gateway),
+    &workload__gateway_address__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1082,7 +1082,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, uid),
+    offsetof(Workload__Workload, uid),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1094,7 +1094,7 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, hostname),
+    offsetof(Workload__Workload, hostname),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1105,9 +1105,9 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     22,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Workload__Workload, n_services),
-    offsetof(Istio__Workload__Workload, services),
-    &istio__workload__workload__services_entry__descriptor,
+    offsetof(Workload__Workload, n_services),
+    offsetof(Workload__Workload, services),
+    &workload__workload__services_entry__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1118,8 +1118,8 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, application_tunnel),
-    &istio__workload__application_tunnel__descriptor,
+    offsetof(Workload__Workload, application_tunnel),
+    &workload__application_tunnel__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1130,14 +1130,14 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Workload, locality),
-    &istio__workload__locality__descriptor,
+    offsetof(Workload__Workload, locality),
+    &workload__locality__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__workload__field_indices_by_name[] = {
+static const unsigned workload__workload__field_indices_by_name[] = {
   2,   /* field[2] = addresses */
   21,   /* field[21] = application_tunnel */
   14,   /* field[14] = authorization_policies */
@@ -1162,28 +1162,28 @@ static const unsigned istio__workload__workload__field_indices_by_name[] = {
   12,   /* field[12] = workload_name */
   11,   /* field[11] = workload_type */
 };
-static const ProtobufCIntRange istio__workload__workload__number_ranges[2 + 1] =
+static const ProtobufCIntRange workload__workload__number_ranges[2 + 1] =
 {
   { 1, 0 },
   { 16, 14 },
   { 0, 23 }
 };
-const ProtobufCMessageDescriptor istio__workload__workload__descriptor =
+const ProtobufCMessageDescriptor workload__workload__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.Workload",
+  "workload.Workload",
   "Workload",
-  "Istio__Workload__Workload",
-  "istio.workload",
-  sizeof(Istio__Workload__Workload),
+  "Workload__Workload",
+  "workload",
+  sizeof(Workload__Workload),
   23,
-  istio__workload__workload__field_descriptors,
-  istio__workload__workload__field_indices_by_name,
-  2,  istio__workload__workload__number_ranges,
-  (ProtobufCMessageInit) istio__workload__workload__init,
+  workload__workload__field_descriptors,
+  workload__workload__field_indices_by_name,
+  2,  workload__workload__number_ranges,
+  (ProtobufCMessageInit) workload__workload__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__locality__field_descriptors[3] =
+static const ProtobufCFieldDescriptor workload__locality__field_descriptors[3] =
 {
   {
     "region",
@@ -1191,7 +1191,7 @@ static const ProtobufCFieldDescriptor istio__workload__locality__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Locality, region),
+    offsetof(Workload__Locality, region),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1203,7 +1203,7 @@ static const ProtobufCFieldDescriptor istio__workload__locality__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Locality, zone),
+    offsetof(Workload__Locality, zone),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1215,77 +1215,77 @@ static const ProtobufCFieldDescriptor istio__workload__locality__field_descripto
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Locality, subzone),
+    offsetof(Workload__Locality, subzone),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__locality__field_indices_by_name[] = {
+static const unsigned workload__locality__field_indices_by_name[] = {
   0,   /* field[0] = region */
   2,   /* field[2] = subzone */
   1,   /* field[1] = zone */
 };
-static const ProtobufCIntRange istio__workload__locality__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__locality__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 3 }
 };
-const ProtobufCMessageDescriptor istio__workload__locality__descriptor =
+const ProtobufCMessageDescriptor workload__locality__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.Locality",
+  "workload.Locality",
   "Locality",
-  "Istio__Workload__Locality",
-  "istio.workload",
-  sizeof(Istio__Workload__Locality),
+  "Workload__Locality",
+  "workload",
+  sizeof(Workload__Locality),
   3,
-  istio__workload__locality__field_descriptors,
-  istio__workload__locality__field_indices_by_name,
-  1,  istio__workload__locality__number_ranges,
-  (ProtobufCMessageInit) istio__workload__locality__init,
+  workload__locality__field_descriptors,
+  workload__locality__field_indices_by_name,
+  1,  workload__locality__number_ranges,
+  (ProtobufCMessageInit) workload__locality__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__port_list__field_descriptors[1] =
+static const ProtobufCFieldDescriptor workload__port_list__field_descriptors[1] =
 {
   {
     "ports",
     1,
     PROTOBUF_C_LABEL_REPEATED,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Workload__PortList, n_ports),
-    offsetof(Istio__Workload__PortList, ports),
-    &istio__workload__port__descriptor,
+    offsetof(Workload__PortList, n_ports),
+    offsetof(Workload__PortList, ports),
+    &workload__port__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__port_list__field_indices_by_name[] = {
+static const unsigned workload__port_list__field_indices_by_name[] = {
   0,   /* field[0] = ports */
 };
-static const ProtobufCIntRange istio__workload__port_list__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__port_list__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 1 }
 };
-const ProtobufCMessageDescriptor istio__workload__port_list__descriptor =
+const ProtobufCMessageDescriptor workload__port_list__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.PortList",
+  "workload.PortList",
   "PortList",
-  "Istio__Workload__PortList",
-  "istio.workload",
-  sizeof(Istio__Workload__PortList),
+  "Workload__PortList",
+  "workload",
+  sizeof(Workload__PortList),
   1,
-  istio__workload__port_list__field_descriptors,
-  istio__workload__port_list__field_indices_by_name,
-  1,  istio__workload__port_list__number_ranges,
-  (ProtobufCMessageInit) istio__workload__port_list__init,
+  workload__port_list__field_descriptors,
+  workload__port_list__field_indices_by_name,
+  1,  workload__port_list__number_ranges,
+  (ProtobufCMessageInit) workload__port_list__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__port__field_descriptors[2] =
+static const ProtobufCFieldDescriptor workload__port__field_descriptors[2] =
 {
   {
     "service_port",
@@ -1293,7 +1293,7 @@ static const ProtobufCFieldDescriptor istio__workload__port__field_descriptors[2
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Port, service_port),
+    offsetof(Workload__Port, service_port),
     NULL,
     NULL,
     0,             /* flags */
@@ -1305,66 +1305,66 @@ static const ProtobufCFieldDescriptor istio__workload__port__field_descriptors[2
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__Port, target_port),
+    offsetof(Workload__Port, target_port),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__port__field_indices_by_name[] = {
+static const unsigned workload__port__field_indices_by_name[] = {
   0,   /* field[0] = service_port */
   1,   /* field[1] = target_port */
 };
-static const ProtobufCIntRange istio__workload__port__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__port__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor istio__workload__port__descriptor =
+const ProtobufCMessageDescriptor workload__port__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.Port",
+  "workload.Port",
   "Port",
-  "Istio__Workload__Port",
-  "istio.workload",
-  sizeof(Istio__Workload__Port),
+  "Workload__Port",
+  "workload",
+  sizeof(Workload__Port),
   2,
-  istio__workload__port__field_descriptors,
-  istio__workload__port__field_indices_by_name,
-  1,  istio__workload__port__number_ranges,
-  (ProtobufCMessageInit) istio__workload__port__init,
+  workload__port__field_descriptors,
+  workload__port__field_indices_by_name,
+  1,  workload__port__number_ranges,
+  (ProtobufCMessageInit) workload__port__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCEnumValue istio__workload__application_tunnel__protocol__enum_values_by_number[2] =
+static const ProtobufCEnumValue workload__application_tunnel__protocol__enum_values_by_number[2] =
 {
-  { "NONE", "ISTIO__WORKLOAD__APPLICATION_TUNNEL__PROTOCOL__NONE", 0 },
-  { "PROXY", "ISTIO__WORKLOAD__APPLICATION_TUNNEL__PROTOCOL__PROXY", 1 },
+  { "NONE", "WORKLOAD__APPLICATION_TUNNEL__PROTOCOL__NONE", 0 },
+  { "PROXY", "WORKLOAD__APPLICATION_TUNNEL__PROTOCOL__PROXY", 1 },
 };
-static const ProtobufCIntRange istio__workload__application_tunnel__protocol__value_ranges[] = {
+static const ProtobufCIntRange workload__application_tunnel__protocol__value_ranges[] = {
 {0, 0},{0, 2}
 };
-static const ProtobufCEnumValueIndex istio__workload__application_tunnel__protocol__enum_values_by_name[2] =
+static const ProtobufCEnumValueIndex workload__application_tunnel__protocol__enum_values_by_name[2] =
 {
   { "NONE", 0 },
   { "PROXY", 1 },
 };
-const ProtobufCEnumDescriptor istio__workload__application_tunnel__protocol__descriptor =
+const ProtobufCEnumDescriptor workload__application_tunnel__protocol__descriptor =
 {
   PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "istio.workload.ApplicationTunnel.Protocol",
+  "workload.ApplicationTunnel.Protocol",
   "Protocol",
-  "Istio__Workload__ApplicationTunnel__Protocol",
-  "istio.workload",
+  "Workload__ApplicationTunnel__Protocol",
+  "workload",
   2,
-  istio__workload__application_tunnel__protocol__enum_values_by_number,
+  workload__application_tunnel__protocol__enum_values_by_number,
   2,
-  istio__workload__application_tunnel__protocol__enum_values_by_name,
+  workload__application_tunnel__protocol__enum_values_by_name,
   1,
-  istio__workload__application_tunnel__protocol__value_ranges,
+  workload__application_tunnel__protocol__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCFieldDescriptor istio__workload__application_tunnel__field_descriptors[2] =
+static const ProtobufCFieldDescriptor workload__application_tunnel__field_descriptors[2] =
 {
   {
     "protocol",
@@ -1372,8 +1372,8 @@ static const ProtobufCFieldDescriptor istio__workload__application_tunnel__field
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_ENUM,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__ApplicationTunnel, protocol),
-    &istio__workload__application_tunnel__protocol__descriptor,
+    offsetof(Workload__ApplicationTunnel, protocol),
+    &workload__application_tunnel__protocol__descriptor,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1384,47 +1384,47 @@ static const ProtobufCFieldDescriptor istio__workload__application_tunnel__field
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__ApplicationTunnel, port),
+    offsetof(Workload__ApplicationTunnel, port),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__application_tunnel__field_indices_by_name[] = {
+static const unsigned workload__application_tunnel__field_indices_by_name[] = {
   1,   /* field[1] = port */
   0,   /* field[0] = protocol */
 };
-static const ProtobufCIntRange istio__workload__application_tunnel__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__application_tunnel__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor istio__workload__application_tunnel__descriptor =
+const ProtobufCMessageDescriptor workload__application_tunnel__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.ApplicationTunnel",
+  "workload.ApplicationTunnel",
   "ApplicationTunnel",
-  "Istio__Workload__ApplicationTunnel",
-  "istio.workload",
-  sizeof(Istio__Workload__ApplicationTunnel),
+  "Workload__ApplicationTunnel",
+  "workload",
+  sizeof(Workload__ApplicationTunnel),
   2,
-  istio__workload__application_tunnel__field_descriptors,
-  istio__workload__application_tunnel__field_indices_by_name,
-  1,  istio__workload__application_tunnel__number_ranges,
-  (ProtobufCMessageInit) istio__workload__application_tunnel__init,
+  workload__application_tunnel__field_descriptors,
+  workload__application_tunnel__field_indices_by_name,
+  1,  workload__application_tunnel__number_ranges,
+  (ProtobufCMessageInit) workload__application_tunnel__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__gateway_address__field_descriptors[4] =
+static const ProtobufCFieldDescriptor workload__gateway_address__field_descriptors[4] =
 {
   {
     "hostname",
     1,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Workload__GatewayAddress, destination_case),
-    offsetof(Istio__Workload__GatewayAddress, hostname),
-    &istio__workload__namespaced_hostname__descriptor,
+    offsetof(Workload__GatewayAddress, destination_case),
+    offsetof(Workload__GatewayAddress, hostname),
+    &workload__namespaced_hostname__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1434,9 +1434,9 @@ static const ProtobufCFieldDescriptor istio__workload__gateway_address__field_de
     2,
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_MESSAGE,
-    offsetof(Istio__Workload__GatewayAddress, destination_case),
-    offsetof(Istio__Workload__GatewayAddress, address),
-    &istio__workload__network_address__descriptor,
+    offsetof(Workload__GatewayAddress, destination_case),
+    offsetof(Workload__GatewayAddress, address),
+    &workload__network_address__descriptor,
     NULL,
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
@@ -1447,7 +1447,7 @@ static const ProtobufCFieldDescriptor istio__workload__gateway_address__field_de
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__GatewayAddress, hbone_mtls_port),
+    offsetof(Workload__GatewayAddress, hbone_mtls_port),
     NULL,
     NULL,
     0,             /* flags */
@@ -1459,40 +1459,40 @@ static const ProtobufCFieldDescriptor istio__workload__gateway_address__field_de
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_UINT32,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__GatewayAddress, hbone_single_tls_port),
+    offsetof(Workload__GatewayAddress, hbone_single_tls_port),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__gateway_address__field_indices_by_name[] = {
+static const unsigned workload__gateway_address__field_indices_by_name[] = {
   1,   /* field[1] = address */
   2,   /* field[2] = hbone_mtls_port */
   3,   /* field[3] = hbone_single_tls_port */
   0,   /* field[0] = hostname */
 };
-static const ProtobufCIntRange istio__workload__gateway_address__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__gateway_address__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 4 }
 };
-const ProtobufCMessageDescriptor istio__workload__gateway_address__descriptor =
+const ProtobufCMessageDescriptor workload__gateway_address__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.GatewayAddress",
+  "workload.GatewayAddress",
   "GatewayAddress",
-  "Istio__Workload__GatewayAddress",
-  "istio.workload",
-  sizeof(Istio__Workload__GatewayAddress),
+  "Workload__GatewayAddress",
+  "workload",
+  sizeof(Workload__GatewayAddress),
   4,
-  istio__workload__gateway_address__field_descriptors,
-  istio__workload__gateway_address__field_indices_by_name,
-  1,  istio__workload__gateway_address__number_ranges,
-  (ProtobufCMessageInit) istio__workload__gateway_address__init,
+  workload__gateway_address__field_descriptors,
+  workload__gateway_address__field_indices_by_name,
+  1,  workload__gateway_address__number_ranges,
+  (ProtobufCMessageInit) workload__gateway_address__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__network_address__field_descriptors[2] =
+static const ProtobufCFieldDescriptor workload__network_address__field_descriptors[2] =
 {
   {
     "network",
@@ -1500,7 +1500,7 @@ static const ProtobufCFieldDescriptor istio__workload__network_address__field_de
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__NetworkAddress, network),
+    offsetof(Workload__NetworkAddress, network),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1512,38 +1512,38 @@ static const ProtobufCFieldDescriptor istio__workload__network_address__field_de
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_BYTES,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__NetworkAddress, address),
+    offsetof(Workload__NetworkAddress, address),
     NULL,
     NULL,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__network_address__field_indices_by_name[] = {
+static const unsigned workload__network_address__field_indices_by_name[] = {
   1,   /* field[1] = address */
   0,   /* field[0] = network */
 };
-static const ProtobufCIntRange istio__workload__network_address__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__network_address__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor istio__workload__network_address__descriptor =
+const ProtobufCMessageDescriptor workload__network_address__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.NetworkAddress",
+  "workload.NetworkAddress",
   "NetworkAddress",
-  "Istio__Workload__NetworkAddress",
-  "istio.workload",
-  sizeof(Istio__Workload__NetworkAddress),
+  "Workload__NetworkAddress",
+  "workload",
+  sizeof(Workload__NetworkAddress),
   2,
-  istio__workload__network_address__field_descriptors,
-  istio__workload__network_address__field_indices_by_name,
-  1,  istio__workload__network_address__number_ranges,
-  (ProtobufCMessageInit) istio__workload__network_address__init,
+  workload__network_address__field_descriptors,
+  workload__network_address__field_indices_by_name,
+  1,  workload__network_address__number_ranges,
+  (ProtobufCMessageInit) workload__network_address__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__namespaced_hostname__field_descriptors[2] =
+static const ProtobufCFieldDescriptor workload__namespaced_hostname__field_descriptors[2] =
 {
   {
     "namespace",
@@ -1551,7 +1551,7 @@ static const ProtobufCFieldDescriptor istio__workload__namespaced_hostname__fiel
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__NamespacedHostname, namespace_),
+    offsetof(Workload__NamespacedHostname, namespace_),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
@@ -1563,122 +1563,122 @@ static const ProtobufCFieldDescriptor istio__workload__namespaced_hostname__fiel
     PROTOBUF_C_LABEL_NONE,
     PROTOBUF_C_TYPE_STRING,
     0,   /* quantifier_offset */
-    offsetof(Istio__Workload__NamespacedHostname, hostname),
+    offsetof(Workload__NamespacedHostname, hostname),
     NULL,
     &protobuf_c_empty_string,
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
-static const unsigned istio__workload__namespaced_hostname__field_indices_by_name[] = {
+static const unsigned workload__namespaced_hostname__field_indices_by_name[] = {
   1,   /* field[1] = hostname */
   0,   /* field[0] = namespace */
 };
-static const ProtobufCIntRange istio__workload__namespaced_hostname__number_ranges[1 + 1] =
+static const ProtobufCIntRange workload__namespaced_hostname__number_ranges[1 + 1] =
 {
   { 1, 0 },
   { 0, 2 }
 };
-const ProtobufCMessageDescriptor istio__workload__namespaced_hostname__descriptor =
+const ProtobufCMessageDescriptor workload__namespaced_hostname__descriptor =
 {
   PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
-  "istio.workload.NamespacedHostname",
+  "workload.NamespacedHostname",
   "NamespacedHostname",
-  "Istio__Workload__NamespacedHostname",
-  "istio.workload",
-  sizeof(Istio__Workload__NamespacedHostname),
+  "Workload__NamespacedHostname",
+  "workload",
+  sizeof(Workload__NamespacedHostname),
   2,
-  istio__workload__namespaced_hostname__field_descriptors,
-  istio__workload__namespaced_hostname__field_indices_by_name,
-  1,  istio__workload__namespaced_hostname__number_ranges,
-  (ProtobufCMessageInit) istio__workload__namespaced_hostname__init,
+  workload__namespaced_hostname__field_descriptors,
+  workload__namespaced_hostname__field_indices_by_name,
+  1,  workload__namespaced_hostname__number_ranges,
+  (ProtobufCMessageInit) workload__namespaced_hostname__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCEnumValue istio__workload__workload_status__enum_values_by_number[2] =
+static const ProtobufCEnumValue workload__workload_status__enum_values_by_number[2] =
 {
-  { "HEALTHY", "ISTIO__WORKLOAD__WORKLOAD_STATUS__HEALTHY", 0 },
-  { "UNHEALTHY", "ISTIO__WORKLOAD__WORKLOAD_STATUS__UNHEALTHY", 1 },
+  { "HEALTHY", "WORKLOAD__WORKLOAD_STATUS__HEALTHY", 0 },
+  { "UNHEALTHY", "WORKLOAD__WORKLOAD_STATUS__UNHEALTHY", 1 },
 };
-static const ProtobufCIntRange istio__workload__workload_status__value_ranges[] = {
+static const ProtobufCIntRange workload__workload_status__value_ranges[] = {
 {0, 0},{0, 2}
 };
-static const ProtobufCEnumValueIndex istio__workload__workload_status__enum_values_by_name[2] =
+static const ProtobufCEnumValueIndex workload__workload_status__enum_values_by_name[2] =
 {
   { "HEALTHY", 0 },
   { "UNHEALTHY", 1 },
 };
-const ProtobufCEnumDescriptor istio__workload__workload_status__descriptor =
+const ProtobufCEnumDescriptor workload__workload_status__descriptor =
 {
   PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "istio.workload.WorkloadStatus",
+  "workload.WorkloadStatus",
   "WorkloadStatus",
-  "Istio__Workload__WorkloadStatus",
-  "istio.workload",
+  "Workload__WorkloadStatus",
+  "workload",
   2,
-  istio__workload__workload_status__enum_values_by_number,
+  workload__workload_status__enum_values_by_number,
   2,
-  istio__workload__workload_status__enum_values_by_name,
+  workload__workload_status__enum_values_by_name,
   1,
-  istio__workload__workload_status__value_ranges,
+  workload__workload_status__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCEnumValue istio__workload__workload_type__enum_values_by_number[4] =
+static const ProtobufCEnumValue workload__workload_type__enum_values_by_number[4] =
 {
-  { "DEPLOYMENT", "ISTIO__WORKLOAD__WORKLOAD_TYPE__DEPLOYMENT", 0 },
-  { "CRONJOB", "ISTIO__WORKLOAD__WORKLOAD_TYPE__CRONJOB", 1 },
-  { "POD", "ISTIO__WORKLOAD__WORKLOAD_TYPE__POD", 2 },
-  { "JOB", "ISTIO__WORKLOAD__WORKLOAD_TYPE__JOB", 3 },
+  { "DEPLOYMENT", "WORKLOAD__WORKLOAD_TYPE__DEPLOYMENT", 0 },
+  { "CRONJOB", "WORKLOAD__WORKLOAD_TYPE__CRONJOB", 1 },
+  { "POD", "WORKLOAD__WORKLOAD_TYPE__POD", 2 },
+  { "JOB", "WORKLOAD__WORKLOAD_TYPE__JOB", 3 },
 };
-static const ProtobufCIntRange istio__workload__workload_type__value_ranges[] = {
+static const ProtobufCIntRange workload__workload_type__value_ranges[] = {
 {0, 0},{0, 4}
 };
-static const ProtobufCEnumValueIndex istio__workload__workload_type__enum_values_by_name[4] =
+static const ProtobufCEnumValueIndex workload__workload_type__enum_values_by_name[4] =
 {
   { "CRONJOB", 1 },
   { "DEPLOYMENT", 0 },
   { "JOB", 3 },
   { "POD", 2 },
 };
-const ProtobufCEnumDescriptor istio__workload__workload_type__descriptor =
+const ProtobufCEnumDescriptor workload__workload_type__descriptor =
 {
   PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "istio.workload.WorkloadType",
+  "workload.WorkloadType",
   "WorkloadType",
-  "Istio__Workload__WorkloadType",
-  "istio.workload",
+  "Workload__WorkloadType",
+  "workload",
   4,
-  istio__workload__workload_type__enum_values_by_number,
+  workload__workload_type__enum_values_by_number,
   4,
-  istio__workload__workload_type__enum_values_by_name,
+  workload__workload_type__enum_values_by_name,
   1,
-  istio__workload__workload_type__value_ranges,
+  workload__workload_type__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
-static const ProtobufCEnumValue istio__workload__tunnel_protocol__enum_values_by_number[2] =
+static const ProtobufCEnumValue workload__tunnel_protocol__enum_values_by_number[2] =
 {
-  { "NONE", "ISTIO__WORKLOAD__TUNNEL_PROTOCOL__NONE", 0 },
-  { "HBONE", "ISTIO__WORKLOAD__TUNNEL_PROTOCOL__HBONE", 1 },
+  { "NONE", "WORKLOAD__TUNNEL_PROTOCOL__NONE", 0 },
+  { "HBONE", "WORKLOAD__TUNNEL_PROTOCOL__HBONE", 1 },
 };
-static const ProtobufCIntRange istio__workload__tunnel_protocol__value_ranges[] = {
+static const ProtobufCIntRange workload__tunnel_protocol__value_ranges[] = {
 {0, 0},{0, 2}
 };
-static const ProtobufCEnumValueIndex istio__workload__tunnel_protocol__enum_values_by_name[2] =
+static const ProtobufCEnumValueIndex workload__tunnel_protocol__enum_values_by_name[2] =
 {
   { "HBONE", 1 },
   { "NONE", 0 },
 };
-const ProtobufCEnumDescriptor istio__workload__tunnel_protocol__descriptor =
+const ProtobufCEnumDescriptor workload__tunnel_protocol__descriptor =
 {
   PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
-  "istio.workload.TunnelProtocol",
+  "workload.TunnelProtocol",
   "TunnelProtocol",
-  "Istio__Workload__TunnelProtocol",
-  "istio.workload",
+  "Workload__TunnelProtocol",
+  "workload",
   2,
-  istio__workload__tunnel_protocol__enum_values_by_number,
+  workload__tunnel_protocol__enum_values_by_number,
   2,
-  istio__workload__tunnel_protocol__enum_values_by_name,
+  workload__tunnel_protocol__enum_values_by_name,
   1,
-  istio__workload__tunnel_protocol__value_ranges,
+  workload__tunnel_protocol__value_ranges,
   NULL,NULL,NULL,NULL   /* reserved[1234] */
 };

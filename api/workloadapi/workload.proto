@@ -14,7 +14,7 @@
 
 syntax = "proto3";
 
-package istio.workload;
+package workload;
 option go_package="kmesh.net/kmesh/api/workloadapi;workloadapi";
 
 // Address represents a unique address.
