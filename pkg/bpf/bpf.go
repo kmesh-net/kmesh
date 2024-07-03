@@ -49,6 +49,7 @@ type BpfLoader struct {
 
 	obj         *BpfKmesh
 	workloadObj *BpfKmeshWorkload
+	bpfLogLevel *ebpf.Map
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
@@ -80,6 +81,7 @@ func (l *BpfLoader) StartAdsMode() (err error) {
 		return fmt.Errorf("api env config failed, %s", err)
 	}
 
+	l.bpfLogLevel = l.obj.SockConn.BpfLogLevel
 	ret := C.deserial_init()
 	if ret != 0 {
 		l.Stop()
@@ -131,6 +133,13 @@ func (l *BpfLoader) GetBpfKmeshWorkload() *BpfKmeshWorkload {
 		return nil
 	}
 	return l.workloadObj
+}
+
+func (l *BpfLoader) GetBpfLogLevel() *ebpf.Map {
+	if l == nil {
+		return nil
+	}
+	return l.bpfLogLevel
 }
 
 func StopMda() error {
