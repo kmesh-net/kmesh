@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 The Kmesh Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package workload
 
 import (
@@ -84,7 +100,7 @@ func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
 		hashName.Delete(testString)
 	}
 
-	// testcase 2: call Delete, call StrToNum with another string, then call StrToNum with this string againw
+	// testcase 2: call Delete, call StrToNum with another string, then call StrToNum with this string again
 	originalNum := hashName.StrToNum("costarring")
 	hashName.Delete("costarring")
 	_ = hashName.StrToNum("liquid")
