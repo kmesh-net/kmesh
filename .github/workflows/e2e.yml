@@ -1,0 +1,22 @@
+name: E2E Test
+on: 
+  pull_request:
+jobs:
+  e2e-test:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        go-version: [ '1.22' ]
+    name: E2E Test
+    timeout-minutes: 40
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Setup Go
+      uses: actions/setup-go@v4.0.0
+      with:
+        go-version: ${{ matrix.go-version }}
+    - name: E2E Test
+      shell: bash
+      run: |
+        sudo make e2e
