@@ -31,7 +31,7 @@ include ./mk/bpf.print.mk
 
 # compiler flags
 GOFLAGS := $(EXTRA_GOFLAGS)
-LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
+LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=ignore \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
 			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
