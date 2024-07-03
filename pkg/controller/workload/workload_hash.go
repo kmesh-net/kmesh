@@ -25,25 +25,38 @@ var (
 	hash = fnv.New32a()
 )
 
+const tombstoneMarker = "\x00"
+
 // HashName converts a string to a uint32 integer as the key of bpf map
 type HashName struct {
 	numToStr map[uint32]string
+	// records its tombstone number given a string
+	tombstones map[string]uint32
 }
 
 func NewHashName() *HashName {
 	con := &HashName{}
 	con.numToStr = make(map[uint32]string)
+	con.tombstones = make(map[string]uint32)
 	return con
 }
 
 func (h *HashName) StrToNum(str string) uint32 {
 	var num uint32
 
+	if num, exists := h.tombstones[str]; exists {
+		h.numToStr[num] = str
+		delete(h.tombstones, str)
+		return num
+	}
+
 	hash.Reset()
 	hash.Write([]byte(str))
 
 	// Using linear probing to solve hash conflicts
 	for num = hash.Sum32(); num < math.MaxUint32; num++ {
+		// We will keep searching until we find an unused slot
+		// We won't use the slot with tombstone marker
 		if h.numToStr[num] == "" {
 			h.numToStr[num] = str
 			break
@@ -56,9 +69,16 @@ func (h *HashName) StrToNum(str string) uint32 {
 }
 
 func (h *HashName) NumToStr(num uint32) string {
-	return h.numToStr[num]
+	str := h.numToStr[num]
+	if str != tombstoneMarker {
+		return str
+	}
+	return ""
 }
 
 func (h *HashName) Delete(str string) {
-	delete(h.numToStr, h.StrToNum(str))
+	// instead of directly deleting, we put a tombstone here
+	num := h.StrToNum(str)
+	h.numToStr[num] = tombstoneMarker
+	h.tombstones[str] = num
 }
