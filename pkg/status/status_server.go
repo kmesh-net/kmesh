@@ -294,6 +294,10 @@ func (s *Server) bpfLogLevel(w http.ResponseWriter, r *http.Request) {
 		}
 		key := uint32(0)
 		levelPtr := uint32(level)
+		if s.bpfLogLevelMap == nil {
+			http.Error(w, fmt.Errorf("update log level error:%v", "bpfLogLevelMap is nil").Error(), http.StatusBadRequest)
+			return
+		}
 		if err := s.bpfLogLevelMap.Update(&key, &levelPtr, ebpf.UpdateAny); err != nil {
 			http.Error(w, fmt.Errorf("update log level error:%v", err).Error(), http.StatusBadRequest)
 			return
