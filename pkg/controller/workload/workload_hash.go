@@ -17,10 +17,12 @@
 package workload
 
 import (
-	"encoding/json"
+	"fmt"
 	"hash/fnv"
 	"math"
 	"os"
+
+	"gopkg.in/yaml.v3"
 )
 
 var (
@@ -28,7 +30,7 @@ var (
 )
 
 const (
-	persistPath = "/mnt/workload_hash_name.json"
+	persistPath = "/mnt/workload_hash_name.yaml"
 )
 
 // HashName converts a string to a uint32 integer as the key of bpf map
@@ -38,16 +40,17 @@ type HashName struct {
 }
 
 func NewHashName() *HashName {
-	hashName := &HashName{}
+	hashName := &HashName{
+		strToNum: make(map[string]uint32),
+	}
 	// if read failed, initialize with an empty map
 	if err := hashName.readFromPersistFile(); err != nil {
 		log.Errorf("error reading persist file: %v", err)
 		hashName.numToStr = make(map[uint32]string)
-		hashName.strToNum = make(map[string]uint32)
 	} else {
-		hashName.strToNum = make(map[string]uint32, len(hashName.numToStr))
-		for num, str := range hashName.numToStr {
-			hashName.strToNum[str] = num
+		hashName.numToStr = make(map[uint32]string, len(hashName.strToNum))
+		for str, num := range hashName.strToNum {
+			hashName.numToStr[num] = str
 		}
 	}
 	return hashName
@@ -59,17 +62,34 @@ func (h *HashName) readFromPersistFile() error {
 		return err
 	}
 
-	return json.Unmarshal(data, &h.numToStr)
+	return yaml.Unmarshal(data, &h.strToNum)
 }
 
 func (h *HashName) flush() error {
-	// We only need to flush numToStr here, since we can generate strToNum from it.
-	json, err := json.Marshal(h.numToStr)
+	// We only need to flush strToNum here, since we can generate numToStr from it.
+	if len(h.strToNum) == 0 {
+		return os.WriteFile(persistPath, nil, 0644)
+	}
+
+	yaml, err := yaml.Marshal(h.strToNum)
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(persistPath, json, 0644)
+	return os.WriteFile(persistPath, yaml, 0644)
+}
+
+// flushDelta is similar to flush, but it appends new item instead of flush all data
+func (h *HashName) flushDelta(str string, num uint32) error {
+	f, err := os.OpenFile(persistPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	data := fmt.Sprintf("%s: %d\n", str, num)
+	_, err = f.WriteString(data)
+	return err
 }
 
 func (h *HashName) StrToNum(str string) uint32 {
@@ -78,7 +98,7 @@ func (h *HashName) StrToNum(str string) uint32 {
 	hash.Reset()
 	hash.Write([]byte(str))
 
-	if num, exits := h.strToNum[str]; exits {
+	if num, exists := h.strToNum[str]; exists {
 		return num
 	}
 
@@ -89,10 +109,14 @@ func (h *HashName) StrToNum(str string) uint32 {
 			h.numToStr[num] = str
 			h.strToNum[str] = num
 			// Create a new item here, should flush
-			if err := h.flush(); err != nil {
+			if err := h.flushDelta(str, num); err != nil {
 				log.Errorf("error flushing when calling StrToNum: %v", err)
 			}
 			break
+		}
+		// It's a ring
+		if num == math.MaxUint32 {
+			num = 0
 		}
 	}
 
@@ -105,7 +129,7 @@ func (h *HashName) NumToStr(num uint32) string {
 
 func (h *HashName) Delete(str string) {
 	// only when the num exists, we do the logic
-	if num, exits := h.strToNum[str]; exits {
+	if num, exists := h.strToNum[str]; exists {
 		delete(h.numToStr, num)
 		delete(h.strToNum, str)
 		// delete an old item here, should flush

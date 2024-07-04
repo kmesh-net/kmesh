@@ -89,6 +89,18 @@ func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
 		strToNumMap[testString] = num
 	}
 
+	// create a new one to imutate the kmesh restart
+	hashName = NewHashName()
+	// we swap the two collided strings
+	testStrings[2], testStrings[3] = testStrings[3], testStrings[2]
+	for _, testString := range testStrings {
+		actualNum := hashName.StrToNum(testString)
+		expectedNum := strToNumMap[testString]
+		if actualNum != expectedNum {
+			t.Errorf("StrToNum(%s) = %d, want %d", testString, actualNum, expectedNum)
+		}
+	}
+
 	for _, testString := range testStrings {
 		hashName.Delete(testString)
 		originalNum := strToNumMap[testString]
@@ -96,16 +108,6 @@ func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
 		if gotString != "" {
 			t.Errorf("String of number %d should be empty, but got %s", originalNum, gotString)
 			return
-		}
-	}
-
-	// create a new one to imutate the kmesh restart
-	hashName = NewHashName()
-	for _, testString := range testStrings {
-		actualNum := hashName.StrToNum(testString)
-		expectedNum := strToNumMap[testString]
-		if actualNum != expectedNum {
-			t.Errorf("StrToNum(%s) = %d, want %d", testString, actualNum, expectedNum)
 		}
 	}
 }
