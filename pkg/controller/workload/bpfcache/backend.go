@@ -21,7 +21,6 @@ import (
 )
 
 const (
-	ConverNumBase = 10
 	MaxServiceNum = 10
 )
 

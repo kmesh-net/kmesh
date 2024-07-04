@@ -12,17 +12,12 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-01-14
  */
 
 package nets
 
 import (
 	"math/rand"
-	"net"
-	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -45,18 +40,6 @@ const (
 	trustDomainEnv     = "cluster.local"
 	jwtPath            = "/var/run/secrets/tokens/istio-token"
 )
-
-// IsIPAndPort returns true if the address format ip:port
-func IsIPAndPort(addr string) bool {
-	var idx int
-
-	if idx = strings.LastIndex(addr, ":"); idx < 0 {
-		return false
-	}
-
-	ip := addr[:idx]
-	return net.ParseIP(ip) != nil
-}
 
 // GrpcConnect creates a client connection to the given addr
 func GrpcConnect(addr string) (*grpc.ClientConn, error) {

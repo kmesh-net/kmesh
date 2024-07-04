@@ -80,15 +80,13 @@ func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDi
 		}
 	}
 
-	log.Infof("send initial request with address resources: %v", initialResourceVersions)
-
+	log.Debugf("send initial request with address resources: %v", initialResourceVersions)
 	if err := c.Stream.Send(newDeltaRequest(AddressType, nil, initialResourceVersions)); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
 
 	initialResourceVersions = c.Rbac.GetAllPolicies()
-	log.Infof("send initial requestr with authorization resources: %v", initialResourceVersions)
-
+	log.Debugf("send initial request with authorization resources: %v", initialResourceVersions)
 	if err = c.Stream.Send(newDeltaRequest(AuthorizationType, nil, initialResourceVersions)); err != nil {
 		return fmt.Errorf("authorization subscribe failed, %s", err)
 	}
