@@ -25,7 +25,6 @@ import (
 	"google.golang.org/grpc"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 
-	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/ads"
@@ -47,8 +46,6 @@ type XdsClient struct {
 	AdsController      *ads.Controller
 	WorkloadController *workload.Controller
 	xdsConfig          *config.XdsConfig
-	rbac               *auth.Rbac
-	bpfWorkloadObj     *bpf.BpfKmeshWorkload
 }
 
 func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
@@ -133,7 +130,7 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 					continue
 				}
 			} else if c.mode == constants.WorkloadMode {
-				if err = c.WorkloadController.HandleWorkloadStream(c.rbac); err != nil {
+				if err = c.WorkloadController.HandleWorkloadStream(); err != nil {
 					_ = c.WorkloadController.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
@@ -154,9 +151,6 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	}
 
 	go c.handleUpstream(c.ctx)
-	if c.rbac != nil {
-		go c.rbac.Run(c.ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
-	}
 
 	go func() {
 		<-stopCh

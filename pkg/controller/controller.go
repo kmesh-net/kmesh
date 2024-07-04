@@ -99,6 +99,9 @@ func (c *Controller) Start() error {
 			go secertManager.Run(stopCh)
 			c.client.WorkloadController.Processor.SecretManager = secertManager
 		}
+		if c.client.WorkloadController.Rbac != nil {
+			go c.client.WorkloadController.Rbac.Run(c.client.ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
+		}
 	}
 
 	return c.client.Run(stopCh)
