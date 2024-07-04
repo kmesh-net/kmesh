@@ -135,7 +135,6 @@ func TestDNS(t *testing.T) {
 		input := &pendingResolveDomain{
 			domainName:  testcase.domain,
 			refreshRate: testcase.refreshRate,
-			port:        0,
 		}
 		testDNSResolver.Lock()
 		testDNSResolver.cache[testcase.domain] = &domainCacheEntry{}

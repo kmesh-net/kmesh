@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("pkg/dns")
+	log = logger.NewLoggerField("dns_resolver")
 )
 
 const (
@@ -68,7 +68,6 @@ type domainCacheEntry struct {
 // port is used for creating the apicluster endpoint
 type pendingResolveDomain struct {
 	domainName  string
-	port        uint32
 	clusters    []*clusterv3.Cluster
 	refreshRate time.Duration
 }
@@ -176,11 +175,11 @@ func (r *DNSResolver) StartDNSResolver(stopCh <-chan struct{}) {
 
 // startResolver watches the DnsResolver Channel
 func (r *DNSResolver) startResolver() {
-	rasteLimitor := make(chan struct{}, MaxConcurrency)
+	rateLimiter := make(chan struct{}, MaxConcurrency)
 	for clusters := range r.DnsResolverChan {
-		rasteLimitor <- struct{}{}
+		rateLimiter <- struct{}{}
 		go func(clusters []*clusterv3.Cluster) {
-			defer func() { <-rasteLimitor }()
+			defer func() { <-rateLimiter }()
 			r.resolveDomains(clusters)
 		}(clusters)
 	}
@@ -273,7 +272,7 @@ func (r *DNSResolver) refreshDNS() bool {
 	r.RLock()
 	_, exist := r.cache[dr.domainName]
 	r.RUnlock()
-	// is the domain is no longer watched, no need to refresh it
+	// if the domain is no longer watched, no need to refresh it
 	if !exist {
 		return true
 	}
@@ -292,7 +291,7 @@ func (r *DNSResolver) GetCacheResult(name string) []string {
 	return res
 }
 
-// This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
+// doResolve is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) doResolve(domain string, refreshRate time.Duration) ([]string, time.Duration, error) {
 	var out []string
 	ttl := refreshRate
@@ -338,7 +337,7 @@ func (r *DNSResolver) doResolve(domain string, refreshRate time.Duration) ([]str
 	return out, ttl, nil
 }
 
-// This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
+// Query is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) Query(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
 	for _, upstream := range r.resolvConfServers {
@@ -408,13 +407,16 @@ func getPendingResolveDomain(clusters []*clusterv3.Cluster) map[string]*pendingR
 					continue
 				}
 				address := socketAddr.SocketAddress.Address
+				if _, err := netip.ParseAddr(address); err != nil {
+					// This is an ip address
+					continue
+				}
 
 				if v, ok := domains[address]; ok {
 					v.clusters = append(v.clusters, cluster)
 				} else {
 					domainWithRefreshRate := &pendingResolveDomain{
 						domainName:  address,
-						port:        socketAddr.SocketAddress.GetPortValue(),
 						clusters:    []*clusterv3.Cluster{cluster},
 						refreshRate: cluster.GetDnsRefreshRate().AsDuration(),
 					}
