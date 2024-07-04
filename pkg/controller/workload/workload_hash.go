@@ -39,12 +39,13 @@ type HashName struct {
 
 func NewHashName() *HashName {
 	hashName := &HashName{}
-	hashName.strToNum = make(map[string]uint32)
 	// if read failed, initialize with an empty map
 	if err := hashName.readFromPersistFile(); err != nil {
 		log.Errorf("error reading persist file: %v", err)
 		hashName.numToStr = make(map[uint32]string)
+		hashName.strToNum = make(map[string]uint32)
 	} else {
+		hashName.strToNum = make(map[string]uint32, len(hashName.numToStr))
 		for num, str := range hashName.numToStr {
 			hashName.strToNum[str] = num
 		}
