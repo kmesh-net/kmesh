@@ -91,10 +91,10 @@ We can run E2E test by calling script `./test/e2e/run_test.sh`. The complete E2E
 
 For Github CI environment, all the above steps shoud be executed in full. But when test locally, we often want to skip some of these steps. We provide the following flags to skip some steps of the test:
 
---skip-install-dep      skip installing dependencies
---skip-build            skip deploying the local image registry and building Kmesh image
---skip-setup            skip deploying k8s, istio and Kmesh
---only-run-tests        skip all other steps and only deploying test applications and running E2E tests
+- `--skip-install-dep`:      skip installing dependencies
+- `--skip-build`:            skip deploying the local image registry and building Kmesh image
+- `--skip-setup`:            skip deploying k8s, istio and Kmesh
+- `--only-run-tests`:        skip all other steps and only deploying test applications and running E2E tests
 
 For example, if we want to repeatedly run the E2E test locally, then except for the first time, subsequent executions can use the following command, avoid unnecessary download and build:
 
