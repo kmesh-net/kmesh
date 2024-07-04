@@ -157,10 +157,4 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     build_and_push_images
 fi
 
-# make sure the Kmesh local image is ready.
-if [[ -z "${SKIP_SETUP:-}" ]]; then
-    setup_istio
-    setup_kmesh
-fi
-
-go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1
+go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1 --istio.test.nocleanup
