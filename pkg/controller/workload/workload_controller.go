@@ -37,7 +37,7 @@ var log = logger.NewLoggerField("workload_controller")
 type Controller struct {
 	Stream         discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 	Processor      *Processor
-	rbac           *auth.Rbac
+	Rbac           *auth.Rbac
 	bpfWorkloadObj *bpf.BpfKmeshWorkload
 }
 
@@ -46,12 +46,12 @@ func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
 		Processor:      newProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
 		bpfWorkloadObj: bpfWorkload,
 	}
-	c.rbac = auth.NewRbac(c.Processor.WorkloadCache)
+	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
 	return c
 }
 
 func (c *Controller) Run(ctx context.Context) {
-	go c.rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
+	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
 }
 
 func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
@@ -86,7 +86,7 @@ func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDi
 		return fmt.Errorf("send request failed, %s", err)
 	}
 
-	initialResourceVersions = c.rbac.GetAllPolicies()
+	initialResourceVersions = c.Rbac.GetAllPolicies()
 	log.Infof("send initial requestr with authorization resources: %v", initialResourceVersions)
 
 	if err = c.Stream.Send(newDeltaRequest(AuthorizationType, nil, initialResourceVersions)); err != nil {
@@ -96,7 +96,7 @@ func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDi
 	return nil
 }
 
-func (c *Controller) HandleWorkloadStream(rbac *auth.Rbac) error {
+func (c *Controller) HandleWorkloadStream() error {
 	var (
 		err      error
 		rspDelta *discoveryv3.DeltaDiscoveryResponse
@@ -106,7 +106,7 @@ func (c *Controller) HandleWorkloadStream(rbac *auth.Rbac) error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	c.Processor.processWorkloadResponse(rspDelta, c.rbac)
+	c.Processor.processWorkloadResponse(rspDelta, c.Rbac)
 
 	if err = c.Stream.Send(c.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)

@@ -150,8 +150,8 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 				patches1.ApplyMethodReturn(fakeClient.Client, "DeltaAggregatedResources", fakeClient.DeltaClient, nil)
 
 				workloadController.Processor = newProcessor(workloadMap)
-				workloadController.rbac = auth.NewRbac(nil)
-				workloadController.rbac.UpdatePolicy(&security.Authorization{
+				workloadController.Rbac = auth.NewRbac(nil)
+				workloadController.Rbac.UpdatePolicy(&security.Authorization{
 					Name:      "p1",
 					Namespace: "test",
 					Scope:     security.Scope_WORKLOAD_SELECTOR,
@@ -295,8 +295,7 @@ func TestAdsStream_AdsStreamProcess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
-			rbac := auth.Rbac{}
-			err := workloadStream.HandleWorkloadStream(&rbac)
+			err := workloadStream.HandleWorkloadStream()
 
 			if (err != nil) != tt.wantErr {
 				t.Errorf("workloadStream.WorkloadStreamProcess() error = %v, wantErr %v", err, tt.wantErr)

@@ -650,6 +650,9 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 }
 
 func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) error {
+	if rbac == nil {
+		return fmt.Errorf("Rbac module uninitialized")
+	}
 	// update resource
 	for _, resource := range rsp.GetResources() {
 		auth := &security.Authorization{}
