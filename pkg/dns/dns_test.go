@@ -26,12 +26,13 @@ import (
 	"testing"
 	"time"
 
+	"slices"
+
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/miekg/dns"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	"slices"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/controller/ads"
