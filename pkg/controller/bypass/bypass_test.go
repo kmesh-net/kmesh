@@ -1,3 +1,19 @@
+/*
+ * Copyright 2024 The Kmesh Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package bypass
 
 import (
@@ -5,7 +21,6 @@ import (
 	"os"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
@@ -15,19 +30,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func waitAndCheckByPassAction(t *testing.T, wg *sync.WaitGroup, done chan struct{}, mu *sync.Mutex, enabled *bool, disabled *bool, enableExpected bool, disableExpected bool) {
-	select {
-	case <-done:
-		mu.Lock()
-		assert.Equal(t, enableExpected, *enabled, "unexpected value for enabled flag")
-		assert.Equal(t, disableExpected, *disabled, "unexpected value for disabled flag")
-		mu.Unlock()
-	case <-time.After(1 * time.Second):
-		t.Fatalf("timed out waiting for handleKmeshByPass to be called")
-	}
-}
-
-func TestPodKmeshLabelChangeTriggersByPassAction(t *testing.T) {
+func TestPodKmeshLabelChangeTriggersByPassKmeshAction(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
 	err := os.Setenv("NODE_NAME", "test_node")
@@ -39,9 +42,6 @@ func TestPodKmeshLabelChangeTriggersByPassAction(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating ByPassController: %v", err)
 	}
-
-	stopChan := make(chan struct{})
-	defer close(stopChan)
 
 	var mu sync.Mutex
 	enabled := false
@@ -85,14 +85,23 @@ func TestPodKmeshLabelChangeTriggersByPassAction(t *testing.T) {
 	_, err = client.CoreV1().Pods("default").Create(context.TODO(), pod, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
-	done := make(chan struct{})
 	wg.Wait()
-	close(done)
+	assert.Equal(t, true, enabled, "unexpected value for enabled flag")
+	assert.Equal(t, false, disabled, "unexpected value for disabled flag")
 
-	waitAndCheckByPassAction(t, &wg, done, &mu, &enabled, &disabled, true, false)
+	enabled = false
+	disabled = false
+
+	delete(pod.Labels, "kmesh.net/bypass")
+	wg.Add(1)
+	_, err = client.CoreV1().Pods("default").Update(context.TODO(), pod, metav1.UpdateOptions{})
+	assert.NoError(t, err)
+
+	wg.Wait()
+	assert.Equal(t, true, disabled, "unexpected value for enabled flag")
 }
 
-func TestPodSidecarLabelChangeTriggersByPassAction(t *testing.T) {
+func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
 	err := os.Setenv("NODE_NAME", "test_node")
@@ -105,22 +114,31 @@ func TestPodSidecarLabelChangeTriggersByPassAction(t *testing.T) {
 		t.Fatalf("error creating ByPassController: %v", err)
 	}
 
-	stopChan := make(chan struct{})
-	defer close(stopChan)
-
 	var mu sync.Mutex
 	enabled := false
 	disabled := false
 
 	var wg sync.WaitGroup
 
-	patches := gomonkey.NewPatches()
-	defer patches.Reset()
+	patches1 := gomonkey.NewPatches()
+	defer patches1.Reset()
 
-	patches.ApplyFunc(addIptables, func(ns string) error {
+	patches1.ApplyFunc(addIptables, func(ns string) error {
 		mu.Lock()
 		defer mu.Unlock()
 		enabled = true
+		// Signal that addIptables has been called
+		wg.Done()
+		return nil
+	})
+
+	patches2 := gomonkey.NewPatches()
+	defer patches2.Reset()
+
+	patches2.ApplyFunc(deleteIptables, func(ns string) error {
+		mu.Lock()
+		defer mu.Unlock()
+		disabled = true
 		// Signal that addIptables has been called
 		wg.Done()
 		return nil
@@ -155,9 +173,17 @@ func TestPodSidecarLabelChangeTriggersByPassAction(t *testing.T) {
 	_, err = client.CoreV1().Pods("default").Create(context.TODO(), pod, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
-	done := make(chan struct{})
 	wg.Wait()
-	close(done)
+	assert.Equal(t, true, enabled, "unexpected value for enabled flag")
 
-	waitAndCheckByPassAction(t, &wg, done, &mu, &enabled, &disabled, true, false)
+	enabled = false
+	disabled = false
+
+	delete(pod.Labels, "kmesh.net/bypass")
+	wg.Add(1)
+	_, err = client.CoreV1().Pods("default").Update(context.TODO(), pod, metav1.UpdateOptions{})
+	assert.NoError(t, err)
+
+	wg.Wait()
+	assert.Equal(t, true, disabled, "unexpected value for enabled flag")
 }
