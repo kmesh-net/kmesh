@@ -124,18 +124,15 @@ func (p *processor) processAdsResponse(resp *service_discovery_v3.DiscoveryRespo
 }
 
 func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
-	var (
-		err     error
-		cluster = &config_cluster_v3.Cluster{}
-	)
-
 	p.lastNonce.cdsNonce = resp.Nonce
 	current := sets.New[string]()
 	lastEdsClusterNames := p.Cache.edsClusterNames
 	p.Cache.edsClusterNames = nil
 	dnsClusters := []*config_cluster_v3.Cluster{}
 	for _, resource := range resp.GetResources() {
-		if err = anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
+		cluster := &config_cluster_v3.Cluster{}
+		if err := anypb.UnmarshalTo(resource, cluster, proto.UnmarshalOptions{}); err != nil {
+			log.Errorf("unmarshal cluster error: %v", err)
 			continue
 		}
 		current.Insert(cluster.GetName())
@@ -144,8 +141,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 			p.Cache.edsClusterNames = append(p.Cache.edsClusterNames, cluster.GetName())
 		} else if cluster.GetType() == config_cluster_v3.Cluster_STRICT_DNS ||
 			cluster.GetType() == config_cluster_v3.Cluster_LOGICAL_DNS {
-			clonedCluster := proto.Clone(cluster).(*config_cluster_v3.Cluster)
-			dnsClusters = append(dnsClusters, clonedCluster)
+			dnsClusters = append(dnsClusters, cluster)
 		}
 		// compare part[0] CDS now
 		// Cluster_EDS need compare tow parts, compare part[1] EDS in EDS handler
@@ -170,8 +166,11 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 			log.Debugf("unchanged cluster %s", cluster.GetName())
 		}
 	}
-	// send dns clusters to dns resolver
-	p.DnsResolverChan <- dnsClusters
+
+	if len(dnsClusters) > 0 {
+		// send dns clusters to dns resolver
+		p.DnsResolverChan <- dnsClusters
+	}
 	removed := p.Cache.ClusterCache.GetResourceNames().Difference(current)
 	for key := range removed {
 		p.Cache.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
