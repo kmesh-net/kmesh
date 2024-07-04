@@ -64,8 +64,7 @@ type domainCacheEntry struct {
 
 // pending resolve domain info,
 // domain name is used for dns resolution
-// cluster is used for create teh apicluster
-// port is used for creating the apicluster endpoint
+// cluster is used for create the apicluster
 type pendingResolveDomain struct {
 	domainName  string
 	clusters    []*clusterv3.Cluster
