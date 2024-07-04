@@ -63,7 +63,7 @@ function install_protoc () {
     if command -v protoc-gen-go > /dev/null; then
         echo "protoc-gen-go already installed"
     else
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
+        go install google.golang.org/protobuf/cmd/protoc-gen-go
     fi
 }
 

@@ -1,0 +1,153 @@
+# Copyright 2019 Istio Authors
+#
+#   Licensed under the Apache License, Version 2.0 (the "License");
+#   you may not use this file except in compliance with the License.
+#   You may obtain a copy of the License at
+#
+#       http://www.apache.org/licenses/LICENSE-2.0
+#
+#   Unless required by applicable law or agreed to in writing, software
+#   distributed under the License is distributed on an "AS IS" BASIS,
+#   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#   See the License for the specific language governing permissions and
+#   limitations under the License.
+
+labels:
+  - name: security.istio.io/tlsMode
+    featureStatus: Alpha
+    description: Specifies the TLS mode supported by a sidecar proxy. Valid values are 'istio', 'disabled'.
+      When injecting sidecars into Pods, the sidecar injector will set the value of this label to 'istio' indicating
+      that the sidecar is capable of supporting mTLS. Clients injected with sidecar proxies will
+      opportunistically use this label to determine whether or not to secure the traffic to this workload
+      using Istio mutual TLS.
+    hidden: true
+    deprecated: true
+    resources:
+      - Pod
+
+  - name: service.istio.io/canonical-name
+    featureStatus: Alpha
+    description: The name of the canonical service a workload belongs to
+    hidden: false
+    deprecated: false
+    resources:
+      - Pod
+
+  - name: networking.istio.io/gatewayPort
+    featureStatus: Alpha
+    description: IstioGatewayPortLabel overrides the default 15443 value to use for a multi-network gateway's port
+    deprecated: false
+    hidden: false
+    resources:
+      - Service
+
+  - name: service.istio.io/canonical-revision
+    featureStatus: Alpha
+    description: The name of a revision within a canonical service that the workload belongs to
+    hidden: false
+    deprecated: false
+    resources:
+      - Pod
+
+  - name: istio.io/rev
+    featureStatus: Alpha
+    description: Istio control plane revision associated with the resource; e.g. `canary`
+    hidden: false
+    deprecated: false
+    resources:
+      - Namespace
+
+  - name: operator.istio.io/component
+    featureStatus: Alpha
+    description: Istio operator component name of the resource, e.g. `Pilot`
+    hidden: true
+    deprecated: false
+    resources:
+      - Any
+
+  - name: operator.istio.io/managed
+    featureStatus: Alpha
+    description: Set to `Reconcile` if the Istio operator will reconcile the resource.
+    hidden: true
+    deprecated: false
+    resources:
+      - Any
+
+  - name: operator.istio.io/version
+    featureStatus: Alpha
+    description: The Istio operator version that installed the resource, e.g. `1.6.0`
+    hidden: true
+    deprecated: false
+    resources:
+      - Any
+
+  - name: topology.istio.io/subzone
+    featureStatus: Beta
+    description: User-provided node label for identifying the locality subzone of a workload.
+      This allows admins to specify a more granular level of locality than what is offered by
+      default with Kubernetes regions and zones.
+    hidden: false
+    deprecated: false
+    resources:
+      - Node
+
+  - name: topology.istio.io/network
+    featureStatus: Beta
+    description: |-
+      A label used to identify the network for one or more pods. This is used
+      internally by Istio to group pods resident in the same L3 domain/network.
+      Istio assumes that pods in the same network are directly reachable from
+      one another. When pods are in different networks, an Istio Gateway
+      (e.g. east-west gateway) is typically used to establish connectivity
+      (with AUTO_PASSTHROUGH mode). This label can be applied to the following
+      resources to help automate Istio's multi-network configuration.
+
+      * Istio System Namespace: Applying this label to the system namespace
+        establishes a default network for pods managed by the control plane.
+        This is typically configured during control plane installation using an
+        admin-specified value.
+
+      * Pod: Applying this label to a pod allows overriding the default network
+        on a per-pod basis. This is typically applied to the pod via webhook
+        injection, but can also be manually specified on the pod by the service
+        owner. The Istio installation in each cluster configures webhook injection
+        using an admin-specified value.
+
+      * Gateway Service: Applying this label to the Service for an Istio Gateway,
+        indicates that Istio should use this service as the gateway for the
+        network, when configuring cross-network traffic. Istio will configure
+        pods residing outside of the network to access the Gateway service
+        via `spec.externalIPs`, `status.loadBalancer.ingress[].ip`, or in the case
+        of a NodePort service, the Node's address. The label is configured when
+        installing the gateway (e.g. east-west gateway) and should match either
+        the default network for the control plane (as specified by the Istio System
+        Namespace label) or the network of the targeted pods.
+    hidden: false
+    deprecated: false
+    resources:
+      - Namespace
+      - Pod
+      - Service
+
+  - name: topology.istio.io/cluster
+    featureStatus: Alpha
+    description: This label is applied to a workload internally that identifies the Kubernetes cluster containing
+      the workload. The cluster ID is specified during Istio installation for each cluster via `values.global.multiCluster.clusterName`. 
+      It should be noted that this is only used internally within Istio and is not an actual label on workload pods. 
+      If a pod contains this label, it will be overridden by Istio internally with the cluster ID specified 
+      during Istio installation. This label provides a way to select workloads by cluster when using 
+      DestinationRules. For example, a service owner could create a DestinationRule containing a subset 
+      per cluster and then use these subsets to control traffic flow to each cluster independently.
+    hidden: false
+    deprecated: false
+    resources:
+      - Pod
+
+  - name: sidecar.istio.io/inject
+    featureStatus: Beta
+    description: Specifies whether or not an Envoy sidecar should be automatically
+      injected into the workload.
+    deprecated: false
+    hidden: false
+    resources:
+      - Pod

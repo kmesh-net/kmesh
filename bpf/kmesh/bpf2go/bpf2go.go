@@ -1,8 +1,15 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Kmesh */
 
+//go:build tools
+// +build tools
+
 // Package bpf2go  generate c to go struct
 package bpf2go
+
+import (
+	_ "github.com/cilium/ebpf/cmd/bpf2go"
+)
 
 // go run github.com/cilium/ebpf/cmd/bpf2go --help
 //go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang  --cflags $EXTRA_CFLAGS --cflags $EXTRA_CDEFINE KmeshCgroupSock ../ads/cgroup_sock.c -- -I../ads/include -I../../include -I../../../api/v2-c -DCGROUP_SOCK_MANAGE

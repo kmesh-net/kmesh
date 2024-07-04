@@ -21,7 +21,6 @@ tools/vagrant/.vagrant/
 *~
 # python artifacts
 *.pyc
-vendor
 # Contains the built artifacts
 out/
 # Go compiled tests

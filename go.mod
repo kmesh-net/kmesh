@@ -5,15 +5,13 @@ go 1.22.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-replace istio.io/api => istio.io/api v1.22.0-alpha.1.0.20240620154034-5b788fec62d2
-
 require (
 	github.com/agiledragon/gomonkey/v2 v2.11.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/ebpf v0.15.0
 	github.com/containernetworking/cni v1.2.2
 	github.com/containernetworking/plugins v1.5.1
-	github.com/envoyproxy/go-control-plane v0.12.1-0.20240614044803-82e2a76dbddd
+	github.com/envoyproxy/go-control-plane v0.12.1-0.20240628042141-fb8275a6aab4
 	github.com/golang/protobuf v1.5.4
 	github.com/miekg/dns v1.1.59
 	github.com/sirupsen/logrus v1.9.3
@@ -26,8 +24,8 @@ require (
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
-	istio.io/api v1.22.1
-	istio.io/istio v0.0.0-20240618015532-5764a24ec23c
+	istio.io/api v1.22.2
+	istio.io/istio v0.0.0-20240704081516-f63c7aa59263
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
 	k8s.io/api v0.30.2
 	k8s.io/apimachinery v0.30.2
@@ -38,12 +36,12 @@ require (
 
 require (
 	cel.dev/expr v0.15.0 // indirect
-	cloud.google.com/go v0.112.2 // indirect
+	cloud.google.com/go v0.112.1 // indirect
 	cloud.google.com/go/auth v0.2.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.0 // indirect
 	cloud.google.com/go/compute/metadata v0.3.0 // indirect
 	cloud.google.com/go/logging v1.9.0 // indirect
-	cloud.google.com/go/longrunning v0.5.6 // indirect
+	cloud.google.com/go/longrunning v0.5.5 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/BurntSushi/toml v1.3.2 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
@@ -217,14 +215,14 @@ require (
 	golang.org/x/tools v0.22.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
 	google.golang.org/api v0.174.0 // indirect
-	google.golang.org/genproto v0.0.0-20240401170217-c3f982113cda // indirect
+	google.golang.org/genproto v0.0.0-20240213162025-012b6fc9bca9 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20240604185151-ef581f913117 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240604185151-ef581f913117 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	helm.sh/helm/v3 v3.15.1 // indirect
-	istio.io/client-go v1.22.0-alpha.1.0.20240612141229-fd83cdce6c7d // indirect
+	istio.io/client-go v1.22.0-alpha.1.0.20240702004349-a12fd776730e // indirect
 	k8s.io/apiextensions-apiserver v0.30.1 // indirect
 	k8s.io/apiserver v0.30.1 // indirect
 	k8s.io/cli-runtime v0.30.1 // indirect
