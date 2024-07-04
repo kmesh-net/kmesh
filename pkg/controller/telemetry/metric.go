@@ -26,15 +26,16 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/ringbuf"
-	"istio.io/istio/pkg/slices"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
 )
 
 type Metric struct {
 	workloadCache cache.WorkloadCache
+	bpf           *bpf.Cache
 }
 
 func NewMetric(workloadCache cache.WorkloadCache) *Metric {
@@ -43,48 +44,59 @@ func NewMetric(workloadCache cache.WorkloadCache) *Metric {
 	}
 }
 
-func (m *Metric) Run(ctx context.Context, mapOfTuple *ebpf.Map) {
+func (m *Metric) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.Map) {
 	if m == nil {
 		return
 	}
 
-	reader, err := ringbuf.NewReader(mapOfTuple)
+	reader, err := ringbuf.NewReader(mapOfMetricNotify)
 	if err != nil {
-		log.Errorf("open ringbuf map FAILED, err: %v", err)
+		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
 		return
 	}
 	defer func() {
 		if err := reader.Close(); err != nil {
-			log.Errorf("reader Close FAILED, err: %v", err)
+			log.Errorf("tingbuf reader Close FAILED, err: %v", err)
 		}
 	}()
 
-	// Register metrics to Prometheus
+	// Register metrics to Prometheus and start Prometheus server
 	go RunPrometheusClient()
 
-	// TODO: Turn ringbuf fetch metrics into bpf map fetch
-	rec := ringbuf.Record{}
-	data := requestMetric{}
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			rec := ringbuf.Record{}
+			key := metricKey{}
+			value := metricValue{}
+			data := requestMetric{}
 			if err := reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
 			}
 
 			buf := bytes.NewBuffer(rec.RawSample)
-			if err = binary.Read(buf, binary.LittleEndian, &data); err != nil {
-				log.Errorf("deserialize request trafficLabels FAILED, err: %v", err)
+			if err = binary.Read(buf, binary.LittleEndian, &key); err != nil {
+				log.Error("deserialize request link info FAILED, err:", err)
 				continue
 			}
+
+			mapOfMetric.Lookup(&key, &value)
+			data.src = binary.LittleEndian.AppendUint32(data.src, key.srcIp)
+			data.dst = binary.LittleEndian.AppendUint32(data.dst, key.dstIp)
+			data.connectionClosed = value.connectionClose
+			data.connectionOpened = value.connectionOpen
+			data.sentBytes = value.sentBytes
+			data.receivedBytes = value.receivedBytes
+			data.success = true
 
 			commonTrafficLabels, err := m.buildMetric(&data)
 			if err != nil {
 				log.Warnf("reporter records error")
 			}
+			commonTrafficLabels.reporter = fmt.Sprintf("%d", value.direction)
 
 			buildMetricsToPrometheus(data, commonTrafficLabels)
 		}
@@ -99,15 +111,6 @@ func (m *Metric) buildMetric(data *requestMetric) (commonTrafficLabels, error) {
 
 	trafficLabels := buildMetricFromWorkload(dstWorkload, srcWorkload)
 	trafficLabels.destinationService = nets.ConvertUint32ToIp(nets.ConvertIpByteToUint32(dstAddr))
-
-	reporter := data.reporter
-	if slices.Equal(reporter, dstAddr) {
-		trafficLabels.reporter = "destination"
-	} else if slices.Equal(reporter, srcAddr) {
-		trafficLabels.reporter = "source"
-	} else {
-		return commonTrafficLabels{}, fmt.Errorf("reporter records error")
-	}
 
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"

@@ -461,7 +461,6 @@ func TestMetricBuildMetric(t *testing.T) {
 				},
 			},
 			want: commonTrafficLabels{
-				reporter:                     "destination",
 				sourceWorkload:               "kmesh-daemon",
 				sourceCanonicalService:       "srcCanonical",
 				sourceCanonicalRevision:      "srcVersion",

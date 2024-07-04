@@ -81,19 +81,30 @@ var (
 	}
 )
 
+type metricKey struct {
+	srcIp uint32
+	dstIp uint32
+}
+
+type metricValue struct {
+	direction        uint8
+	connectionOpen   uint32
+	connectionClose  uint32
+	connectionFailed uint32
+	sentBytes        uint32
+	receivedBytes    uint32
+}
+
 type requestMetric struct {
 	src []byte
 	dst []byte
-
 	// source or destination
-	reporter []byte
-
+	reporter         []byte
 	connectionOpened uint32
 	connectionClosed uint32
 	receivedBytes    uint32
 	sentBytes        uint32
-
-	success bool
+	success          bool
 }
 
 type commonTrafficLabels struct {
