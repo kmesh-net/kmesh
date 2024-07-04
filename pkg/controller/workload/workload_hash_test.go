@@ -18,6 +18,7 @@ package workload
 
 import (
 	"hash/fnv"
+	"os"
 	"testing"
 )
 
@@ -32,7 +33,13 @@ func getHashValueMap(testStrings []string) map[string]uint32 {
 	return hashValueMap
 }
 
+// clean persist file for test
+func cleanPersistFile() {
+	_ = os.Remove(persistPath)
+}
+
 func TestWorkloadHash_Basic(t *testing.T) {
+	cleanPersistFile()
 	hashName := NewHashName()
 
 	// "foo" does not collide with "bar"
@@ -71,12 +78,12 @@ func TestWorkloadHash_Basic(t *testing.T) {
 }
 
 func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
+	cleanPersistFile()
 	testStrings := []string{
 		"foo", "bar", "costarring", "liquid",
 	}
 	strToNumMap := make(map[string]uint32)
 	hashName := NewHashName()
-	// testcase 1: call StrToNum immediately after Delete
 	for _, testString := range testStrings {
 		num := hashName.StrToNum(testString)
 		strToNumMap[testString] = num
@@ -88,24 +95,17 @@ func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
 		gotString := hashName.NumToStr(originalNum)
 		if gotString != "" {
 			t.Errorf("String of number %d should be empty, but got %s", originalNum, gotString)
-		}
-		currNum := hashName.StrToNum(testString)
-		if currNum != originalNum {
-			t.Errorf("StrToNum(%s) = %d, want %d", testString, currNum, originalNum)
+			return
 		}
 	}
 
-	// cleanup
+	// create a new one to imutate the kmesh restart
+	hashName = NewHashName()
 	for _, testString := range testStrings {
-		hashName.Delete(testString)
-	}
-
-	// testcase 2: call Delete, call StrToNum with another string, then call StrToNum with this string again
-	originalNum := hashName.StrToNum("costarring")
-	hashName.Delete("costarring")
-	_ = hashName.StrToNum("liquid")
-	currNum := hashName.StrToNum("costarring")
-	if currNum != originalNum {
-		t.Errorf("StrToNum(%s) = %d, want %d", "costarring", currNum, originalNum)
+		actualNum := hashName.StrToNum(testString)
+		expectedNum := strToNumMap[testString]
+		if actualNum != expectedNum {
+			t.Errorf("StrToNum(%s) = %d, want %d", testString, actualNum, expectedNum)
+		}
 	}
 }

@@ -17,50 +17,80 @@
 package workload
 
 import (
+	"encoding/json"
 	"hash/fnv"
 	"math"
+	"os"
 )
 
 var (
 	hash = fnv.New32a()
 )
 
-const tombstoneMarker = "\x00"
+const (
+	persistPath = "/mnt/workload_hash_name.json"
+)
 
 // HashName converts a string to a uint32 integer as the key of bpf map
 type HashName struct {
 	numToStr map[uint32]string
-	// records its tombstone number given a string
-	tombstones map[string]uint32
+	strToNum map[string]uint32
 }
 
 func NewHashName() *HashName {
-	con := &HashName{}
-	con.numToStr = make(map[uint32]string)
-	con.tombstones = make(map[string]uint32)
-	return con
+	hashName := &HashName{}
+	hashName.strToNum = make(map[string]uint32)
+	// if read failed, initialize with an empty map
+	if err := hashName.readFromPersistFile(); err != nil {
+		log.Errorf("error reading persist file: %v", err)
+		hashName.numToStr = make(map[uint32]string)
+	} else {
+		for num, str := range hashName.numToStr {
+			hashName.strToNum[str] = num
+		}
+	}
+	return hashName
+}
+
+func (h *HashName) readFromPersistFile() error {
+	data, err := os.ReadFile(persistPath)
+	if err != nil {
+		return err
+	}
+
+	return json.Unmarshal(data, &h.numToStr)
+}
+
+func (h *HashName) flush() error {
+	// We only need to flush numToStr here, since we can generate strToNum from it.
+	json, err := json.Marshal(h.numToStr)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(persistPath, json, 0644)
 }
 
 func (h *HashName) StrToNum(str string) uint32 {
 	var num uint32
 
-	if num, exists := h.tombstones[str]; exists {
-		h.numToStr[num] = str
-		delete(h.tombstones, str)
-		return num
-	}
-
 	hash.Reset()
 	hash.Write([]byte(str))
 
+	if num, exits := h.strToNum[str]; exits {
+		return num
+	}
+
 	// Using linear probing to solve hash conflicts
 	for num = hash.Sum32(); num < math.MaxUint32; num++ {
-		// We will keep searching until we find an unused slot
-		// We won't use the slot with tombstone marker
-		if h.numToStr[num] == "" {
+		// Create a new item if we find an empty slot
+		if _, exists := h.numToStr[num]; !exists {
 			h.numToStr[num] = str
-			break
-		} else if h.numToStr[num] == str {
+			h.strToNum[str] = num
+			// Create a new item here, should flush
+			if err := h.flush(); err != nil {
+				log.Errorf("error flushing when calling StrToNum: %v", err)
+			}
 			break
 		}
 	}
@@ -69,16 +99,17 @@ func (h *HashName) StrToNum(str string) uint32 {
 }
 
 func (h *HashName) NumToStr(num uint32) string {
-	str := h.numToStr[num]
-	if str != tombstoneMarker {
-		return str
-	}
-	return ""
+	return h.numToStr[num]
 }
 
 func (h *HashName) Delete(str string) {
-	// instead of directly deleting, we put a tombstone here
-	num := h.StrToNum(str)
-	h.numToStr[num] = tombstoneMarker
-	h.tombstones[str] = num
+	// only when the num exists, we do the logic
+	if num, exits := h.strToNum[str]; exits {
+		delete(h.numToStr, num)
+		delete(h.strToNum, str)
+		// delete an old item here, should flush
+		if err := h.flush(); err != nil {
+			log.Errorf("error flushing when calling Delete: %v", err)
+		}
+	}
 }
