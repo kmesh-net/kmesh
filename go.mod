@@ -23,6 +23,7 @@ require (
 	google.golang.org/grpc v1.65.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
+	gopkg.in/yaml.v3 v3.0.1
 	gotest.tools v2.2.0+incompatible
 	istio.io/api v1.22.1
 	istio.io/istio v0.0.0-20240618015532-5764a24ec23c
@@ -222,7 +223,6 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 	helm.sh/helm/v3 v3.15.1 // indirect
 	istio.io/client-go v1.22.0-alpha.1.0.20240612141229-fd83cdce6c7d // indirect
 	k8s.io/apiextensions-apiserver v0.30.1 // indirect
