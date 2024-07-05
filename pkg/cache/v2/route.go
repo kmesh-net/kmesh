@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-02-15
  */
 
 package cache_v2
@@ -28,8 +25,6 @@ import (
 	route_v2 "kmesh.net/kmesh/api/v2/route"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 )
-
-var RWRoute sync.RWMutex
 
 type RouteConfigCache struct {
 	mutex               sync.RWMutex

@@ -77,6 +77,7 @@ func TestHandleCdsResponse(t *testing.T) {
 
 	t.Run("new cluster, cluster type is not eds", func(t *testing.T) {
 		p := newProcessor()
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -92,16 +93,18 @@ func TestHandleCdsResponse(t *testing.T) {
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+		dnsClusters := <-p.DnsResolverChan
+		assert.Equal(t, len(dnsClusters), 1)
 		assert.Empty(t, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.NotNil(t, p.req)
-		// dns cluster has been flushed
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_NONE)
+		// dns cluster is waiting
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_WAITING)
 	})
 
-	t.Run("eds cluster update case", func(t *testing.T) {
+	t.Run("cluster update case", func(t *testing.T) {
 		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
@@ -153,7 +156,7 @@ func TestHandleCdsResponse(t *testing.T) {
 
 	t.Run("multiClusters: add a new eds cluster", func(t *testing.T) {
 		p := newProcessor()
-		p.lastNonce.ldsNonce = "nonce"
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
 		multiClusters := []*config_cluster_v3.Cluster{
 			{
 				Name: "ut-cluster1",
@@ -192,7 +195,9 @@ func TestHandleCdsResponse(t *testing.T) {
 		p.ack = newAckRequest(rsp)
 		err := p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[0].Name).ApiStatus, core_v2.ApiStatus_NONE)
+		dnsClusters := <-p.DnsResolverChan
+		assert.Equal(t, len(dnsClusters), 1)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[0].Name).ApiStatus, core_v2.ApiStatus_WAITING)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[1].Name).ApiStatus, core_v2.ApiStatus_WAITING)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[2].Name).ApiStatus, core_v2.ApiStatus_NONE)
 
@@ -216,6 +221,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		p.ack = newAckRequest(rsp)
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+		dnsClusters = <-p.DnsResolverChan
+		assert.Equal(t, len(dnsClusters), 1)
 		assert.Equal(t, []string{"ut-cluster2", "new-ut-cluster"}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(newCluster.GetName())
@@ -232,12 +239,14 @@ func TestHandleCdsResponse(t *testing.T) {
 
 	t.Run("multiClusters: remove cluster", func(t *testing.T) {
 		p := newProcessor()
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_LOGICAL_DNS,
+				Type: config_cluster_v3.Cluster_STATIC,
 			},
 		}
+
 		anyCluster, err := anypb.New(cluster)
 		assert.NoError(t, err)
 		rsp := &service_discovery_v3.DiscoveryResponse{
@@ -248,7 +257,6 @@ func TestHandleCdsResponse(t *testing.T) {
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-
 		newCluster1 := &config_cluster_v3.Cluster{
 			Name: "new-ut-cluster1",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -420,6 +428,8 @@ func TestHandleEdsResponse(t *testing.T) {
 	t.Run("no apicluster, p.ack not be changed", func(t *testing.T) {
 		adsLoader := NewAdsCache()
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		cluster := &cluster_v2.Cluster{}
+		adsLoader.ClusterCache.SetApiCluster("", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{

@@ -71,12 +71,31 @@ func (cache *ClusterCache) SetApiCluster(key string, value *cluster_v2.Cluster) 
 	cache.apiClusterCache[key] = value
 }
 
+func (cache *ClusterCache) UpdateApiClusterIfExists(key string, value *cluster_v2.Cluster) bool {
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	if cache.apiClusterCache[key] == nil {
+		return false
+	}
+	cache.apiClusterCache[key] = value
+	return true
+}
+
 func (cache *ClusterCache) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 	if cluster := cache.apiClusterCache[key]; cluster != nil {
 		cluster.ApiStatus = status
 	}
+}
+
+func (cache *ClusterCache) GetApiClusterStatus(key string) core_v2.ApiStatus {
+	cache.mutex.RLock()
+	defer cache.mutex.RUnlock()
+	if cluster := cache.apiClusterCache[key]; cluster != nil {
+		return cluster.ApiStatus
+	}
+	return core_v2.ApiStatus_NONE
 }
 
 func (cache *ClusterCache) GetCdsHash(key string) uint64 {
