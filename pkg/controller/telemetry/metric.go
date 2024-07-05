@@ -83,6 +83,7 @@ func (m *Metric) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.M
 				continue
 			}
 
+			fmt.Printf("==========%#v, %#v============\n", key, value)
 			mapOfMetric.Lookup(&key, &value)
 			data.src = binary.LittleEndian.AppendUint32(data.src, key.srcIp)
 			data.dst = binary.LittleEndian.AppendUint32(data.dst, key.dstIp)
@@ -108,6 +109,7 @@ func (m *Metric) buildMetric(data *requestMetric) (commonTrafficLabels, error) {
 	srcAddr := data.src
 	dstWorkload := m.getWorkloadByAddress(dstAddr)
 	srcWorkload := m.getWorkloadByAddress(srcAddr)
+	fmt.Printf("==========%#v, %#v============\n", dstWorkload, srcWorkload)
 
 	trafficLabels := buildMetricFromWorkload(dstWorkload, srcWorkload)
 	trafficLabels.destinationService = nets.ConvertUint32ToIp(nets.ConvertIpByteToUint32(dstAddr))

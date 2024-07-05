@@ -92,6 +92,8 @@ func (c *Controller) Start() error {
 		}
 	}
 
+	go c.client.WorkloadController.Run(ctx)
+
 	return c.client.Run(stopCh)
 }
 
