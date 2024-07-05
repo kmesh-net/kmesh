@@ -34,7 +34,6 @@ import (
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
@@ -64,7 +63,7 @@ type Server struct {
 	xdsClient      *controller.XdsClient
 	mux            *http.ServeMux
 	server         *http.Server
-	bpfWorkloadObj *bpf.BpfKmeshWorkload
+	bpfLogLevelMap *ebpf.Map
 }
 
 func GetConfigDumpAddr(mode string) string {
@@ -75,12 +74,12 @@ func GetLoggerURL() string {
 	return "http://" + adminAddr + patternLoggers
 }
 
-func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfLogLevel *ebpf.Map) *Server {
 	s := &Server{
 		config:         configs,
 		xdsClient:      c,
 		mux:            http.NewServeMux(),
-		bpfWorkloadObj: bpfWorkloadObj,
+		bpfLogLevelMap: bpfLogLevel,
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -295,7 +294,11 @@ func (s *Server) bpfLogLevel(w http.ResponseWriter, r *http.Request) {
 		}
 		key := uint32(0)
 		levelPtr := uint32(level)
-		if err := s.bpfWorkloadObj.SockConn.BpfLogLevel.Update(&key, &levelPtr, ebpf.UpdateAny); err != nil {
+		if s.bpfLogLevelMap == nil {
+			http.Error(w, fmt.Errorf("update log level error:%v", "bpfLogLevelMap is nil").Error(), http.StatusBadRequest)
+			return
+		}
+		if err := s.bpfLogLevelMap.Update(&key, &levelPtr, ebpf.UpdateAny); err != nil {
 			http.Error(w, fmt.Errorf("update log level error:%v", err).Error(), http.StatusBadRequest)
 			return
 		}
