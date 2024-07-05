@@ -9,9 +9,6 @@ set -e
 
 DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
-# support testing multiple istio version in the future.
-ISTIO_VERSION=1.22.0
-
 export KMESH_WAYPOINT_IMAGE="ghcr.io/kmesh-net/waypoint-x86:v0.3.0"
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
@@ -74,17 +71,6 @@ data:
 EOF
 }
 
-function setup_istio() {
-    kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
-        { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0" | kubectl apply -f -; }
-
-    istioctl install --set profile=ambient --skip-confirmation
-}
-
-function setup_kmesh() {
-    helm install kmesh $ROOT_DIR/deploy/helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh
-}
-
 export KIND_REGISTRY_NAME="kind-registry"
 export KIND_REGISTRY_PORT="5000"
 export KIND_REGISTRY="localhost:${KIND_REGISTRY_PORT}"
@@ -133,13 +119,6 @@ function install_dependencies() {
     else
         echo "helm is already installed"
     fi
-
-    # 3. Install istioctl
-    curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} TARGET_ARCH=x86_64 sh -
-
-    cp istio-${ISTIO_VERSION}/bin/istioctl /usr/local/bin/
-
-    rm -rf istio-${ISTIO_VERSION}
 }
 
 while (( "$#" )); do
