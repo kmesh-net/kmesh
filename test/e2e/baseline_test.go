@@ -4,6 +4,7 @@
 package kmesh
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -84,6 +85,16 @@ spec:
 			opt = opt.DeepCopy()
 			opt.Count = 5
 			opt.Timeout = time.Second * 10
+			opt.Check = check.And(
+				check.OK(),
+				func(result echo.CallResult, _ error) error {
+					for _, r := range result.Responses {
+						if r.Version != "v1" {
+							return fmt.Errorf("expected service version %q, got %q", "v1", r.Version)
+						}
+					}
+					return nil
+				})
 			src.CallOrFail(t, opt)
 		})
 
@@ -94,6 +105,17 @@ spec:
 			if opt.HTTP.Headers == nil {
 				opt.HTTP.Headers = map[string][]string{}
 			}
+			opt.HTTP.Headers.Set("user", "istio-custom-user")
+			opt.Check = check.And(
+				check.OK(),
+				func(result echo.CallResult, _ error) error {
+					for _, r := range result.Responses {
+						if r.Version != "v2" {
+							return fmt.Errorf("expected service version %q, got %q", "v2", r.Version)
+						}
+					}
+					return nil
+				})
 			opt.HTTP.Headers.Set("user", "istio-custom-user")
 			src.CallOrFail(t, opt)
 		})

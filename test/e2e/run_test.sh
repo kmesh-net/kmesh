@@ -78,11 +78,34 @@ function setup_istio() {
     kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
         { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0" | kubectl apply -f -; }
 
-    istioctl install --set profile=ambient --skip-confirmation
+    istioctl install --set profile=ambient --set meshConfig.accessLogFile="/dev/stdout" --skip-confirmation
 }
 
 function setup_kmesh() {
     helm install kmesh $ROOT_DIR/deploy/helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh
+
+    # Wait for all Kmesh pods to be ready.
+    while true; do
+        pod_statuses=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
+
+        running_pods=0
+        total_pods=0
+
+        while read -r pod_name pod_status; do
+            total_pods=$((total_pods + 1))
+            if [ "$pod_status" = "Running" ]; then
+                running_pods=$((running_pods + 1))
+            fi
+        done <<< "$pod_statuses"
+
+        if [ "$running_pods" -eq "$total_pods" ]; then
+            echo "All pods of Kmesh daemon are in Running state."
+            break
+        fi
+
+        echo "Waiting for pods of Kmesh daemon to enter Running state..."
+        sleep 1
+    done
 }
 
 export KIND_REGISTRY_NAME="kind-registry"
