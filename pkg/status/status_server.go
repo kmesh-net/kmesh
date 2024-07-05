@@ -22,7 +22,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/pprof"
-	"regexp"
 	"strconv"
 	"time"
 
@@ -54,6 +53,8 @@ const (
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
 	patternBpfLogLevel        = "/debug/bpfLogLevel/"
+
+	bpfLoggerName = "bpf"
 
 	httpTimeout = time.Second * 20
 )
@@ -94,7 +95,6 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfLo
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
-	s.mux.HandleFunc(patternBpfLogLevel, s.bpfLogLevel)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -209,6 +209,11 @@ func (s *Server) setLoggerLevel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if loggerInfo.Name == bpfLoggerName {
+		s.setBpfLogLevel(w, loggerInfo.Level)
+		return
+	}
+
 	if loggerLevel, err = logrus.ParseLevel(loggerInfo.Level); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprintf(w, "\t%s: %v\n", "Invalid request body format", err)
@@ -283,29 +288,36 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("OK"))
 }
 
-func (s *Server) bpfLogLevel(w http.ResponseWriter, r *http.Request) {
-	pattern := regexp.MustCompile(`^/debug/bpfLogLevel/(\d+)$`)
-	matches := pattern.FindStringSubmatch(r.URL.Path)
-	if len(matches) > 1 {
-		level, err := strconv.Atoi(matches[1])
-		if err != nil || (level < constants.BPF_LOG_ERR || level > constants.BPF_LOG_DEBUG) {
+func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
+	level, err := strconv.Atoi(levelStr)
+	if err != nil {
+		logLevelMap := map[string]int{
+			"error": constants.BPF_LOG_ERR,
+			"warn":  constants.BPF_LOG_WARN,
+			"info":  constants.BPF_LOG_INFO,
+			"debug": constants.BPF_LOG_DEBUG,
+		}
+		var exists bool
+		if level, exists = logLevelMap[levelStr]; !exists {
 			http.Error(w, "Invalid log level", http.StatusBadRequest)
 			return
 		}
-		key := uint32(0)
-		levelPtr := uint32(level)
-		if s.bpfLogLevelMap == nil {
-			http.Error(w, fmt.Errorf("update log level error:%v", "bpfLogLevelMap is nil").Error(), http.StatusBadRequest)
-			return
-		}
-		if err := s.bpfLogLevelMap.Update(&key, &levelPtr, ebpf.UpdateAny); err != nil {
-			http.Error(w, fmt.Errorf("update log level error:%v", err).Error(), http.StatusBadRequest)
-			return
-		}
-		fmt.Fprintf(w, "BPF Log Level: %d\n", level)
-	} else {
-		http.NotFound(w, r)
 	}
+	if level < constants.BPF_LOG_ERR || level > constants.BPF_LOG_DEBUG {
+		http.Error(w, "Invalid log level", http.StatusBadRequest)
+		return
+	}
+	key := uint32(0)
+	value := uint32(level)
+	if s.bpfLogLevelMap == nil {
+		http.Error(w, fmt.Sprintf("update log level error: %v", "bpfLogLevelMap is nil"), http.StatusBadRequest)
+		return
+	}
+	if err = s.bpfLogLevelMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
+		http.Error(w, fmt.Sprintf("update log level error: %v", err), http.StatusBadRequest)
+		return
+	}
+	fmt.Fprintf(w, "set BPF Log Level: %d\n", level)
 }
 
 func (s *Server) StartServer() {
