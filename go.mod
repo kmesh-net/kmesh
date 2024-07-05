@@ -15,7 +15,7 @@ require (
 	github.com/containernetworking/plugins v1.5.1
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240614044803-82e2a76dbddd
 	github.com/golang/protobuf v1.5.4
-	github.com/miekg/dns v1.1.59
+	github.com/miekg/dns v1.1.61
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
