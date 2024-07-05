@@ -65,7 +65,6 @@ type QueueItem struct {
 }
 
 func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageController, error) {
-	stopChan := make(chan struct{})
 	nodeName := os.Getenv("NODE_NAME")
 
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
@@ -142,7 +141,6 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 	}
 
 	return &KmeshManageController{
-		stopChan:        stopChan,
 		informerFactory: informerFactory,
 		podInformer:     podInformer,
 		queue:           queue,
@@ -151,17 +149,16 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 }
 
 type KmeshManageController struct {
-	stopChan        chan struct{}
 	informerFactory informers.SharedInformerFactory
 	podInformer     cache.SharedIndexInformer
 	queue           workqueue.RateLimitingInterface
 	client          kubernetes.Interface
 }
 
-func (c *KmeshManageController) Run() {
+func (c *KmeshManageController) Run(stopChan <-chan struct{}) {
 	go func() {
-		c.informerFactory.Start(c.stopChan)
-		if !cache.WaitForCacheSync(c.stopChan, c.podInformer.HasSynced) {
+		c.informerFactory.Start(stopChan)
+		if !cache.WaitForCacheSync(stopChan, c.podInformer.HasSynced) {
 			log.Error("Timed out waiting for caches to sync")
 			return
 		}

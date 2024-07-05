@@ -33,7 +33,7 @@ import (
 
 var (
 	stopCh      = make(chan struct{})
-	ctx, cancle = context.WithCancel(context.Background())
+	ctx, cancel = context.WithCancel(context.Background())
 	log         = logger.NewLoggerField("controller")
 )
 
@@ -68,12 +68,12 @@ func (c *Controller) Start() error {
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
 	}
-	kmeshManageController.Run()
+	kmeshManageController.Run(stopCh)
 
 	log.Info("start kmesh manage controller successfully")
 
 	if c.enableByPass {
-		err = bypass.StartByPassController(clientset)
+		err = bypass.StartByPassController(clientset, stopCh)
 		if err != nil {
 			return fmt.Errorf("failed to start bypass controller: %v", err)
 		}
@@ -123,7 +123,7 @@ func (c *Controller) Stop() {
 		return
 	}
 	close(stopCh)
-	cancle()
+	cancel()
 	if c.client != nil {
 		c.client.Close()
 	}
