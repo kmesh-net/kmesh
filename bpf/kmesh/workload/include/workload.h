@@ -10,19 +10,20 @@
 #define MAX_SERVICE_COUNT 10
 #define RINGBUF_SIZE      (1 << 12)
 
+#pragma pack(1)
 // frontend map
 typedef struct {
     struct ip_addr addr; // Service ip or Pod ip
-} __attribute__((packed)) frontend_key;
+} frontend_key;
 
 typedef struct {
     __u32 upstream_id; // service id for Service access or backend uid for Pod access
-} __attribute__((packed)) frontend_value;
+} frontend_value;
 
 // service map
 typedef struct {
     __u32 service_id; // service id
-} __attribute__((packed)) service_key;
+} service_key;
 
 typedef struct {
     __u32 endpoint_count;               // endpoint count of current service
@@ -32,30 +33,30 @@ typedef struct {
     __u32 target_port[MAX_PORT_COUNT];
     struct ip_addr wp_addr;
     __u32 waypoint_port;
-} __attribute__((packed)) service_value;
+} service_value;
 
 // endpoint map
 typedef struct {
     __u32 service_id;    // service id
     __u32 backend_index; // if endpoint_count = 3, then backend_index = 0/1/2
-} __attribute__((packed)) endpoint_key;
+} endpoint_key;
 
 typedef struct {
     __u32 backend_uid; // workload_uid to uint32
-} __attribute__((packed)) endpoint_value;
+} endpoint_value;
 
 // backend map
 typedef struct {
     __u32 backend_uid; // workload_uid to uint32
-} __attribute__((packed)) backend_key;
-
+} backend_key;
 typedef struct {
     struct ip_addr addr;
     __u32 service_count;
     __u32 service[MAX_SERVICE_COUNT];
     struct ip_addr wp_addr;
     __u32 waypoint_port;
-} __attribute__((packed)) backend_value;
+} backend_value;
+#pragma pack()
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);

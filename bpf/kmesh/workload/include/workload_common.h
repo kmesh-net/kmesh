@@ -23,10 +23,11 @@ typedef enum {
     LB_POLICY_RANDOM = 0,
 } lb_policy_t;
 
+#pragma pack(1)
 typedef struct {
     __u32 protocol;
     __u32 ipv4;
     __u32 port;
-} __attribute__((packed)) address_t;
-
+} address_t;
+#pragma pack()
 #endif // _WORKLOAD_COMMON_H_
