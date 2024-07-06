@@ -67,7 +67,7 @@ static struct bpf_object *get_program_object(struct mesh_prog_info *const prog_i
         return NULL;
     }
 
-    struct bpf_object *obj = bpf_object__open_xattr(prog_info->xattr);
+    struct bpf_object *obj = bpf_object__open_file(prog_info->xattr->file, NULL);
     if (obj == NULL) {
         macli_log(ERR, "can not open bpf program, path:%s, errno:%d\n", prog_info->xattr->file, errno);
         return NULL;
