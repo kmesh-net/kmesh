@@ -46,7 +46,7 @@ struct {
     __type(key, struct manager_key);
     __type(value, manager_value_t);
     __uint(max_entries, MAP_SIZE_OF_MANAGER);
-    __uint(map_flags, 0);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_manager SEC(".maps");
 
 /*
