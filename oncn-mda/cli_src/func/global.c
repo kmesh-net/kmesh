@@ -22,7 +22,7 @@ const char pinprog_file_path[][PATH_MAX] = {
     "/sys/fs/bpf/meshAccelerate/sock_redirect",
 };
 
-struct bpf_create_map_attr g_sock_param_map_xattr = {
+struct create_map_attr g_sock_param_map_xattr = {
     .name = to_str(SOCK_PARAM_MAP_NAME),
     .map_type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
@@ -30,7 +30,7 @@ struct bpf_create_map_attr g_sock_param_map_xattr = {
     .max_entries = 1,
 };
 
-struct bpf_create_map_attr g_sock_ops_map_xattr = {
+struct create_map_attr g_sock_ops_map_xattr = {
     .name = to_str(SOCK_OPS_MAP_NAME),
     .map_type = BPF_MAP_TYPE_SOCKHASH,
     .key_size = sizeof(struct sock_key),
@@ -39,7 +39,7 @@ struct bpf_create_map_attr g_sock_ops_map_xattr = {
 };
 
 #if MDA_GID_UID_FILTER
-struct bpf_create_map_attr g_sock_ops_helper_map_xattr = {
+struct create_map_attr g_sock_ops_helper_map_xattr = {
     .name = to_str(SOCK_OPS_HELPER_MAP_NAME),
     .map_type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(struct sock_key),
@@ -48,7 +48,7 @@ struct bpf_create_map_attr g_sock_ops_helper_map_xattr = {
 };
 #endif
 
-struct bpf_create_map_attr g_sock_ops_proxy_map_xattr = {
+struct create_map_attr g_sock_ops_proxy_map_xattr = {
     .name = to_str(SOCK_OPS_PROXY_MAP_NAME),
     .map_type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(struct sock_key),
@@ -56,7 +56,7 @@ struct bpf_create_map_attr g_sock_ops_proxy_map_xattr = {
     .max_entries = SKOPS_MAP_SIZE,
 };
 
-struct bpf_create_map_attr g_sock_dump_map = {
+struct create_map_attr g_sock_dump_map = {
     .name = to_str(SOCK_DUMP_MAP_I_NAME),
     .map_type = BPF_MAP_TYPE_QUEUE,
     .key_size = 0,
@@ -64,7 +64,7 @@ struct bpf_create_map_attr g_sock_dump_map = {
     .max_entries = DUMP_QUEUE_LENGTH,
 };
 
-struct bpf_create_map_attr g_sock_dump_data_map = {
+struct create_map_attr g_sock_dump_data_map = {
     .name = to_str(SOCK_DUMP_CPU_ARRAY_NAME),
     .map_type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
@@ -72,12 +72,12 @@ struct bpf_create_map_attr g_sock_dump_data_map = {
     .max_entries = 1,
 };
 
-struct bpf_object_open_attr g_sock_ops_xattr = {
+struct object_open_attr g_sock_ops_xattr = {
     .prog_type = BPF_PROG_TYPE_SOCK_OPS,
     .file = SOCK_OPS_PATH_INIT,
 };
 
-struct bpf_object_open_attr g_sock_redirect_xattr = {
+struct object_open_attr g_sock_redirect_xattr = {
     .prog_type = BPF_PROG_TYPE_SK_MSG,
     .file = SOCK_REDIRECT_PATH_INIT,
 };
@@ -162,7 +162,7 @@ static int init_mesh_map(
     struct mesh_map_info *const fds_map,
     const char *const pin_file_path,
     const char *const map_name,
-    struct bpf_create_map_attr *const map_attr)
+    struct create_map_attr *const map_attr)
 {
     int ret = EOK;
     ret += strcpy_s(fds_map->name, BPF_OBJ_NAME_LEN, map_name);
@@ -180,7 +180,7 @@ static int init_mesh_map(
 static int init_mesh_prog(
     struct mesh_prog_info *const fds_prog,
     const char *const prog_name,
-    struct bpf_object_open_attr *const prog_attr,
+    struct object_open_attr *const prog_attr,
     enum bpf_attach_type attach_type,
     int attach_fd)
 {

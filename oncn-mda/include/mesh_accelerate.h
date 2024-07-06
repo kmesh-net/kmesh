@@ -58,53 +58,53 @@ enum bpf_loglevel {
 
 #define LOOPBACK_ADDR 16777343
 
-struct bpf_map_def SEC("maps") SOCK_OPS_MAP_NAME = {
-    .type = BPF_MAP_TYPE_SOCKHASH,
-    .key_size = sizeof(struct sock_key),
-    .value_size = sizeof(int),
-    .max_entries = SKOPS_MAP_SIZE,
-    .map_flags = 0,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_SOCKHASH);
+    __type(key, struct sock_key);
+    __type(value, int);
+    __uint(max_entries, SKOPS_MAP_SIZE);
+    __uint(map_flags, 0);
+} SOCK_OPS_MAP_NAME SEC(".maps");
 
-struct bpf_map_def SEC("maps") SOCK_PARAM_MAP_NAME = {
-    .type = BPF_MAP_TYPE_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(struct sock_param),
-    .max_entries = 1,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, struct sock_param);
+    __uint(max_entries, 1);
+} SOCK_PARAM_MAP_NAME SEC(".maps");
 
-struct bpf_map_def SEC("maps") SOCK_OPS_PROXY_MAP_NAME = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(struct sock_key),
-    .value_size = sizeof(struct sock_key),
-    .max_entries = SKOPS_MAP_SIZE,
-    .map_flags = 0,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, struct sock_key);
+    __type(value, struct sock_key);
+    __uint(max_entries, SKOPS_MAP_SIZE);
+    __uint(map_flags, 0);
+} SOCK_OPS_PROXY_MAP_NAME SEC(".maps");
 
 #if MDA_GID_UID_FILTER
-struct bpf_map_def SEC("maps") SOCK_OPS_HELPER_MAP_NAME = {
-    .type = BPF_MAP_TYPE_HASH,
-    .key_size = sizeof(struct sock_key),
-    .value_size = sizeof(struct uid_gid_info),
-    .max_entries = SKOPS_MAP_SIZE,
-    .map_flags = 0,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, struct sock_key);
+    __type(value, struct uid_gid_info);
+    __uint(max_entries, SKOPS_MAP_SIZE);
+    __uint(map_flags, 0);
+} SOCK_OPS_HELPER_MAP_NAME SEC(".maps");
 #endif
 
-struct bpf_map_def SEC("maps") SOCK_DUMP_MAP_I_NAME = {
-    .type = BPF_MAP_TYPE_QUEUE,
-    .key_size = 0,
-    .value_size = sizeof(struct dump_data),
-    .max_entries = DUMP_QUEUE_LENGTH,
-    .map_flags = 0,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_QUEUE);
+    __uint(key_size, 0);
+    __type(value, struct dump_data);
+    __uint(max_entries, DUMP_QUEUE_LENGTH);
+    __uint(map_flags, 0);
+} SOCK_DUMP_MAP_I_NAME SEC(".maps");
 
-struct bpf_map_def SEC("maps") SOCK_DUMP_CPU_ARRAY_NAME = {
-    .type = BPF_MAP_TYPE_PERCPU_ARRAY,
-    .key_size = sizeof(__u32),
-    .value_size = sizeof(struct dump_data),
-    .max_entries = 1,
-};
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __type(key, __u32);
+    __type(value, struct dump_data);
+    __uint(max_entries, 1);
+} SOCK_DUMP_CPU_ARRAY_NAME SEC(".maps");
 
 #if MDA_LOOPBACK_ADDR
 static inline void set_netns_cookie(void *const ctx, struct sock_key *const key)

@@ -67,7 +67,7 @@ static struct bpf_object *get_program_object(struct mesh_prog_info *const prog_i
         return NULL;
     }
 
-    struct bpf_object *obj = bpf_object__open_xattr(prog_info->xattr);
+    struct bpf_object *obj = bpf_object__open_file(prog_info->xattr->file, NULL);
     if (obj == NULL) {
         macli_log(ERR, "can not open bpf program, path:%s, errno:%d\n", prog_info->xattr->file, errno);
         return NULL;
@@ -79,7 +79,7 @@ static int set_program_type(const struct mesh_prog_info *const prog_info, const 
 {
     enum bpf_prog_type prog_type = prog_info->xattr->prog_type;
     enum bpf_attach_type expected_attach_type = prog_info->attach_type;
-    struct bpf_program *pos = bpf_program__next(NULL, obj);
+    struct bpf_program *pos = bpf_object__next_program(obj, NULL);
     if (pos == NULL) {
         macli_log(ERR, "obj:%s not contain a ebpf program!\n", prog_info->xattr->file);
         return FAILED;
@@ -113,7 +113,7 @@ static int pinned_program_file(const struct mesh_prog_info *const prog_info, str
         macli_log(ERR, "open bpf obj:%s failed! errno:%d\n", prog_info->xattr->file, errno);
         return FAILED;
     }
-    prog = bpf_program__next(NULL, obj);
+    prog = bpf_object__next_program(obj, NULL);
     if (!prog) {
         macli_log(ERR, "object file:%s doesn't contain any bpf program\n", prog_info->xattr->file);
         return FAILED;
@@ -156,7 +156,13 @@ static int create_map(struct mesh_service_info *const fds)
 {
     for (unsigned int i = 0; i < MESH_MAP_NUM; ++i) {
         if (fds->map_fds[i].fd == -1) {
-            fds->map_fds[i].fd = bpf_create_map_xattr(fds->map_fds[i].xattr);
+            fds->map_fds[i].fd = bpf_map_create(
+                fds->map_fds[i].xattr->map_type,
+                fds->map_fds[i].xattr->name,
+                fds->map_fds[i].xattr->key_size,
+                fds->map_fds[i].xattr->value_size,
+                fds->map_fds[i].xattr->max_entries,
+                NULL);
             if (fds->map_fds[i].fd < 0) {
                 macli_log(ERR, "create %s failed! errno:%d\n", fds->map_fds[i].name, errno);
                 return FAILED;
