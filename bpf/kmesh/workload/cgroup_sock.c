@@ -9,6 +9,7 @@
 #include "ctx/sock_addr.h"
 #include "frontend.h"
 #include "bpf_common.h"
+#include "probe.h"
 
 static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 {
