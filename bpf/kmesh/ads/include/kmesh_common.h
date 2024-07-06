@@ -37,7 +37,7 @@ struct bpf_mem_ptr {
 };
 
 #if !ENHANCED_KERNEL
-static inline int bpf__strncmp(char *dst, int n, const char *src)
+static inline int bpf__strncmp(const char *dst, int n, const char *src)
 {
     if (dst == NULL || src == NULL)
         return -1;

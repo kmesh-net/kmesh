@@ -61,7 +61,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
             DEBUG,
             BACKEND,
             "find waypoint addr=[%s:%u]\n",
-            ip2str(&backend_v->wp_addr, ctx->family == AF_INET),
+            ip2str((__u32 *)&backend_v->wp_addr, ctx->family == AF_INET),
             bpf_ntohs(backend_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);
         if (ret != 0) {
@@ -71,10 +71,10 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
     }
 
 #pragma unroll
-    for (__u32 i = 0; i < backend_v->service_count; i++) {
-        if (i >= MAX_PORT_COUNT) {
-            BPF_LOG(WARN, BACKEND, "exceed the max port count:%d", MAX_PORT_COUNT);
-            return -EINVAL;
+    for (__u32 i = 0; i < MAX_SERVICE_COUNT; i++) {
+        if (i >= backend_v->service_count) {
+            BPF_LOG(WARN, BACKEND, "exceed the max backend service count:%d", backend_v->service_count);
+            break;
         }
         if (service_id == backend_v->service[i]) {
             BPF_LOG(DEBUG, BACKEND, "access the backend by service:%u\n", service_id);
@@ -91,7 +91,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
                         DEBUG,
                         BACKEND,
                         "get the backend addr=[%s:%u]\n",
-                        ip2str(&kmesh_ctx->dnat_ip, ctx->family == AF_INET),
+                        ip2str((__u32 *)&kmesh_ctx->dnat_ip, ctx->family == AF_INET),
                         bpf_ntohs(service_v->target_port[j]));
                     return 0;
                 }
