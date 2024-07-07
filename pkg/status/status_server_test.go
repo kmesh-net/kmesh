@@ -132,7 +132,7 @@ func TestServer_setBpfLevel(t *testing.T) {
 				server.bpfLogLevelMap.Lookup(&key, &actualLoggerLevel)
 
 				if actualLoggerLevel != expectedLoggerLevel {
-					t.Errorf("Wrong logger level, expected %s, but got %s", expectedLoggerLevel, actualLoggerLevel)
+					t.Errorf("Wrong logger level, expected %d, but got %d", expectedLoggerLevel, actualLoggerLevel)
 				}
 			}
 		}
