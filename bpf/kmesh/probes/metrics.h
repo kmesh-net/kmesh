@@ -37,17 +37,17 @@ static inline void construct_metric_key(struct bpf_sock *sk, struct metric_key *
         key->src_ip.ip4 = sk->src_ip4;
         key->dst_ip.ip4 = sk->dst_ip4;
     } else {
-        IP6_COPY(key->src_ip.ip6, sk->src_ip6);
-        IP6_COPY(key->dst_ip.ip6, sk->dst_ip6);
+        bpf_memcpy(key->src_ip.ip6, sk->src_ip6, IPV6_ADDR_LEN);
+        bpf_memcpy(key->dst_ip.ip6, sk->dst_ip6, IPV6_ADDR_LEN);
     }
     return;
 }
 
-static inline void metric_notify(struct bpf_sock *sk)
+static inline void report_metrics(struct bpf_sock *sk)
 {
     struct metric_key *key = bpf_ringbuf_reserve(&map_of_metric_notify, sizeof(struct metric_key), 0);
     if (!key) {
-        BPF_LOG(ERR, PROBE, "metric_notify bpf_ringbuf_reserve failed\n");
+        BPF_LOG(ERR, PROBE, "report_metrics bpf_ringbuf_reserve failed\n");
         return;
     }
 
@@ -79,7 +79,7 @@ metric_on_connect(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct soc
     metric->conn_open++;
     metric->direction = storage->direction;
 notify:
-    metric_notify(sk);
+    report_metrics(sk);
     return;
 }
 
@@ -109,7 +109,7 @@ metric_on_close(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_
     metric->sent_bytes += tcp_sock->delivered;
     metric->received_bytes += tcp_sock->bytes_received;
 notify:
-    metric_notify(sk);
+    report_metrics(sk);
     return;
 }
 

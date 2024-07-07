@@ -6,8 +6,8 @@
 // access log
 enum {
     INVALID_DIRECTION = 0,
-    INGRESS = 1,
-    EGRESS = 2,
+    INBOUND = 1,
+    OUTBOUND = 2,
 };
 
 struct access_log {
@@ -35,8 +35,8 @@ static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tu
         tuple->ipv4.sport = sk->src_port;
         tuple->ipv4.dport = sk->dst_port;
     } else {
-        IP6_COPY(tuple->ipv6.saddr, sk->src_ip6);
-        IP6_COPY(tuple->ipv6.daddr, sk->dst_ip6);
+        bpf_memcpy(tuple->ipv6.saddr, sk->src_ip6, IPV6_ADDR_LEN);
+        bpf_memcpy(tuple->ipv6.daddr, sk->dst_ip6, IPV6_ADDR_LEN);
         tuple->ipv6.sport = sk->src_port;
         tuple->ipv6.dport = sk->dst_port;
     }
@@ -48,7 +48,7 @@ report_access_log(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct soc
 {
     struct access_log *log = NULL;
 
-    // strore tuple
+    // store tuple
     log = bpf_ringbuf_reserve(&map_of_access_log, sizeof(struct access_log), 0);
     if (!log) {
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve access_log failed\n");

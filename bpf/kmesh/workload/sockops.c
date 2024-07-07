@@ -257,7 +257,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops))
             break;
-        observe_on_connect_established(skops->sk, EGRESS);
+        observe_on_connect_established(skops->sk, OUTBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         __u64 *current_sk = (__u64 *)skops->sk;
@@ -268,7 +268,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops))
             break;
-        observe_on_connect_established(skops->sk, INGRESS);
+        observe_on_connect_established(skops->sk, INBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         auth_ip_tuple(skops);

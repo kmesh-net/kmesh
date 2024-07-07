@@ -24,7 +24,7 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 dire
 {
     struct bpf_tcp_sock *tcp_sock = NULL;
     struct sock_storage_data *storage = NULL;
-    __u64 flags = (direction == EGRESS) ? 0 : BPF_LOCAL_STORAGE_GET_F_CREATE;
+    __u64 flags = (direction == OUTBOUND) ? 0 : BPF_LOCAL_STORAGE_GET_F_CREATE;
 
     if (!sk)
         return;
@@ -38,8 +38,8 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 dire
         return;
     }
 
-    // INGRESS senario
-    if (direction == INGRESS)
+    // INBOUND senario
+    if (direction == INBOUND)
         storage->connect_ns = bpf_ktime_get_ns();
     storage->direction = direction;
     storage->connect_success = true;
