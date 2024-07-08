@@ -32,7 +32,6 @@ import (
 )
 
 var (
-	stopCh      = make(chan struct{})
 	ctx, cancel = context.WithCancel(context.Background())
 	log         = logger.NewLoggerField("controller")
 )
@@ -58,7 +57,7 @@ func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshW
 	}
 }
 
-func (c *Controller) Start() error {
+func (c *Controller) Start(stopCh <-chan struct{}) error {
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		return err
@@ -122,7 +121,6 @@ func (c *Controller) Stop() {
 	if c == nil {
 		return
 	}
-	close(stopCh)
 	cancel()
 	if c.client != nil {
 		c.client.Close()
