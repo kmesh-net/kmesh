@@ -9,9 +9,13 @@ ARG arch
 
 RUN \
     --mount=type=cache,target=/var/cache/dnf \
-    yum install -y kmod util-linux iptables
+    yum install -y kmod util-linux iptables && \
+    mkdir -p /usr/share/oncn-mda && \
+    mkdir -p /etc/oncn-mda
 
 COPY out/$arch/*so* /usr/lib64/
+COPY out/$arch/*.o /usr/share/oncn-mda/
+COPY out/$arch/oncn-mda.conf /etc/oncn-mda/
 COPY out/$arch/kmesh-daemon /usr/bin/
 COPY out/$arch/kmesh-cni /usr/bin/
 COPY out/$arch/mdacore /usr/bin/

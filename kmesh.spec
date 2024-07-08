@@ -32,7 +32,6 @@ cd %{_builddir}/%{name}-%{version}
 %install
 mkdir -p %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/kmesh-daemon %{buildroot}%{_bindir}
-install %{_builddir}/%{name}-%{version}/kmesh-cmd %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/kmesh-cni %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/build/kmesh-start-pre.sh %{buildroot}%{_bindir}
 install %{_builddir}/%{name}-%{version}/build/kmesh-stop-post.sh %{buildroot}%{_bindir}
@@ -89,7 +88,6 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root)
 %attr(0500,root,root) %{_bindir}/kmesh-daemon
-%attr(0500,root,root) %{_bindir}/kmesh-cmd
 %attr(0500,root,root) %{_bindir}/kmesh-cni
 %attr(0500,root,root) %{_bindir}/mdacore
 
@@ -105,7 +103,6 @@ rm -rf %{buildroot}
 
 %attr(0700,root,root) %dir %{_sysconfdir}/kmesh
 %attr(0700,root,root) %dir %{_sysconfdir}/oncn-mda
-%config(noreplace) %attr(0600,root,root) %{_sysconfdir}/kmesh/kmesh.json
 %config(noreplace) %attr(0600,root,root) %{_sysconfdir}/oncn-mda/oncn-mda.conf
 %config(noreplace) %attr(0600,root,root) /usr/lib/systemd/system/kmesh.service
 %attr(0500,root,root) /usr/bin/kmesh-start-pre.sh
