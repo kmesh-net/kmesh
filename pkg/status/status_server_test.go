@@ -99,44 +99,45 @@ func TestServer_setBpfLevel(t *testing.T) {
 	key := uint32(0)
 	actualLoggerLevel := uint32(0)
 	for _, config := range configs {
-		cleanup, bpfLoader := test.InitBpfMap(t, config)
-
-		server := &Server{
-			xdsClient: &controller.XdsClient{
-				WorkloadController: &workload.Controller{
-					Processor: nil,
+		t.Run(config.Mode, func(t *testing.T) {
+			cleanup, bpfLoader := test.InitBpfMap(t, config)
+			defer cleanup()
+			server := &Server{
+				xdsClient: &controller.XdsClient{
+					WorkloadController: &workload.Controller{
+						Processor: nil,
+					},
 				},
-			},
-			bpfLogLevelMap: bpfLoader.GetBpfLogLevel(),
-		}
+				bpfLogLevelMap: bpfLoader.GetBpfLogLevel(),
+			}
 
-		setLoggerUrl := patternLoggers
-		for logLevelStr, logLevelInt := range testLoggerLevelMap {
-			// We support both string and number
-			testLoggerLevels := []string{logLevelStr, strconv.FormatInt(int64(logLevelInt), 10)}
-			expectedLoggerLevel := uint32(logLevelInt)
-			for _, testLoggerLevel := range testLoggerLevels {
-				loggerInfo := LoggerInfo{
-					Name:  bpfLoggerName,
-					Level: testLoggerLevel,
-				}
-				reqBody, _ := json.Marshal(loggerInfo)
-				req := httptest.NewRequest(http.MethodPost, setLoggerUrl, bytes.NewReader(reqBody))
-				w := httptest.NewRecorder()
-				server.setLoggerLevel(w, req)
+			setLoggerUrl := patternLoggers
+			for logLevelStr, logLevelInt := range testLoggerLevelMap {
+				// We support both string and number
+				testLoggerLevels := []string{logLevelStr, strconv.FormatInt(int64(logLevelInt), 10)}
+				expectedLoggerLevel := uint32(logLevelInt)
+				for _, testLoggerLevel := range testLoggerLevels {
+					loggerInfo := LoggerInfo{
+						Name:  bpfLoggerName,
+						Level: testLoggerLevel,
+					}
+					reqBody, _ := json.Marshal(loggerInfo)
+					req := httptest.NewRequest(http.MethodPost, setLoggerUrl, bytes.NewReader(reqBody))
+					w := httptest.NewRecorder()
+					server.setLoggerLevel(w, req)
 
-				if w.Code != http.StatusOK {
-					t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
-				}
+					if w.Code != http.StatusOK {
+						t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
+					}
 
-				server.bpfLogLevelMap.Lookup(&key, &actualLoggerLevel)
+					server.bpfLogLevelMap.Lookup(&key, &actualLoggerLevel)
 
-				if actualLoggerLevel != expectedLoggerLevel {
-					t.Errorf("Wrong logger level, expected %d, but got %d", expectedLoggerLevel, actualLoggerLevel)
+					if actualLoggerLevel != expectedLoggerLevel {
+						t.Errorf("Wrong logger level, expected %d, but got %d", expectedLoggerLevel, actualLoggerLevel)
+					}
 				}
 			}
-		}
-		cleanup()
+		})
 	}
 }
 
