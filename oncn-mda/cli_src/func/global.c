@@ -22,7 +22,11 @@ const char pinprog_file_path[][PATH_MAX] = {
     "/sys/fs/bpf/meshAccelerate/sock_redirect",
 };
 
+#if LIBBPF_HIGHER_0_6_0_VERSION
+struct create_map_attr g_sock_param_map_xattr = {
+#else
 struct bpf_create_map_attr g_sock_param_map_xattr = {
+#endif
     .name = to_str(SOCK_PARAM_MAP_NAME),
     .map_type = BPF_MAP_TYPE_ARRAY,
     .key_size = sizeof(__u32),
@@ -30,7 +34,11 @@ struct bpf_create_map_attr g_sock_param_map_xattr = {
     .max_entries = 1,
 };
 
+#if LIBBPF_HIGHER_0_6_0_VERSION
+struct create_map_attr g_sock_ops_map_xattr = {
+#else
 struct bpf_create_map_attr g_sock_ops_map_xattr = {
+#endif
     .name = to_str(SOCK_OPS_MAP_NAME),
     .map_type = BPF_MAP_TYPE_SOCKHASH,
     .key_size = sizeof(struct sock_key),
@@ -39,7 +47,11 @@ struct bpf_create_map_attr g_sock_ops_map_xattr = {
 };
 
 #if MDA_GID_UID_FILTER
+#if LIBBPF_HIGHER_0_6_0_VERSION
+struct create_map_attr g_sock_ops_helper_map_xattr = {
+#else
 struct bpf_create_map_attr g_sock_ops_helper_map_xattr = {
+#endif
     .name = to_str(SOCK_OPS_HELPER_MAP_NAME),
     .map_type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(struct sock_key),
@@ -48,7 +60,11 @@ struct bpf_create_map_attr g_sock_ops_helper_map_xattr = {
 };
 #endif
 
+#if LIBBPF_HIGHER_0_6_0_VERSION
+struct create_map_attr g_sock_ops_proxy_map_xattr = {
+#else
 struct bpf_create_map_attr g_sock_ops_proxy_map_xattr = {
+#endif
     .name = to_str(SOCK_OPS_PROXY_MAP_NAME),
     .map_type = BPF_MAP_TYPE_HASH,
     .key_size = sizeof(struct sock_key),
@@ -56,7 +72,11 @@ struct bpf_create_map_attr g_sock_ops_proxy_map_xattr = {
     .max_entries = SKOPS_MAP_SIZE,
 };
 
+#if LIBBPF_HIGHER_0_6_0_VERSION
+struct create_map_attr g_sock_dump_map = {
+#else
 struct bpf_create_map_attr g_sock_dump_map = {
+#endif
     .name = to_str(SOCK_DUMP_MAP_I_NAME),
     .map_type = BPF_MAP_TYPE_QUEUE,
     .key_size = 0,
@@ -64,7 +84,11 @@ struct bpf_create_map_attr g_sock_dump_map = {
     .max_entries = DUMP_QUEUE_LENGTH,
 };
 
+#if LIBBPF_HIGHER_0_6_0_VERSION
+struct create_map_attr g_sock_dump_data_map = {
+#else
 struct bpf_create_map_attr g_sock_dump_data_map = {
+#endif
     .name = to_str(SOCK_DUMP_CPU_ARRAY_NAME),
     .map_type = BPF_MAP_TYPE_PERCPU_ARRAY,
     .key_size = sizeof(__u32),
@@ -162,7 +186,11 @@ static int init_mesh_map(
     struct mesh_map_info *const fds_map,
     const char *const pin_file_path,
     const char *const map_name,
+#if LIBBPF_HIGHER_0_6_0_VERSION
+    struct create_map_attr *const map_attr)
+#else
     struct bpf_create_map_attr *const map_attr)
+#endif
 {
     int ret = EOK;
     ret += strcpy_s(fds_map->name, BPF_OBJ_NAME_LEN, map_name);
