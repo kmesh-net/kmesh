@@ -57,6 +57,9 @@ function copy_to_host() {
     cp /usr/lib64/libkmesh_api_v2_c.so out/$arch
     cp /usr/lib64/libkmesh_deserial.so out/$arch
     cp /usr/lib64/libboundscheck.so out/$arch
+    cp oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o out/$arch
+    cp oncn-mda/etc/oncn-mda.conf out/$arch
+    cp oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o out/$arch
     find /usr/lib64 -name 'libbpf.so*' -exec cp {} out/$arch \;
     find /usr/lib64 -name 'libprotobuf-c.so*' -exec cp {} out/$arch \;
     cp /usr/bin/kmesh-daemon out/$arch

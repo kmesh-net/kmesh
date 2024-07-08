@@ -10,8 +10,10 @@
 #define SKOPS_MAP_SIZE   196608
 #define MAX_PARAM_LENGTH 10
 
-#define DUMP_QUEUE_LENGTH  4096
-#define MAX_DUMP_DATA_SIZE 4096
+#define DUMP_QUEUE_LENGTH   4096
+#define MAX_DUMP_DATA_SIZE  4096
+#define SK_BPF_GID_UID      18000
+#define BPF_SO_ORIGINAL_DST 800
 
 #define SUCCESS 0
 #define FAILED  1
@@ -140,4 +142,16 @@ struct dump_data {
 };
 
 #pragma pack()
+struct create_map_attr {
+    const char *name;
+    enum bpf_map_type map_type;
+    __u32 key_size;
+    __u32 value_size;
+    __u32 max_entries;
+};
+
+struct object_open_attr {
+    const char *file;
+    enum bpf_prog_type prog_type;
+};
 #endif

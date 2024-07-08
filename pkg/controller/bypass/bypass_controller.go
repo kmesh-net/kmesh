@@ -48,8 +48,7 @@ const (
 	SidecarAnnotation         = "sidecar.istio.io/inject"
 )
 
-func StartByPassController(client kubernetes.Interface) error {
-	stopChan := make(chan struct{})
+func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}) error {
 	nodeName := os.Getenv("NODE_NAME")
 
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,

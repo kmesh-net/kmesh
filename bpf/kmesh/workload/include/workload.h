@@ -95,6 +95,7 @@ struct {
     __type(key, struct bpf_sock_tuple);
     __type(value, __u32);
     __uint(max_entries, MAP_SIZE_OF_AUTH);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_auth SEC(".maps");
 
 struct {
