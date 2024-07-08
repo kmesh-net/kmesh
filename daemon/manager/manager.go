@@ -80,8 +80,11 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("bpf Start successful")
 	defer bpfLoader.Stop()
 
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	c := controller.NewController(configs, bpfLoader.GetBpfKmeshWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog)
-	if err := c.Start(); err != nil {
+	if err := c.Start(stopCh); err != nil {
 		return err
 	}
 	log.Info("controller Start successful")
