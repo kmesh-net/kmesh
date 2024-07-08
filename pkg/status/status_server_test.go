@@ -22,16 +22,20 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"strconv"
 	"testing"
 
 	"github.com/sirupsen/logrus"
 	"istio.io/istio/pilot/test/util"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/utils/test"
 )
 
 func TestServer_getLoggerLevel(t *testing.T) {
@@ -71,6 +75,69 @@ func TestServer_getLoggerLevel(t *testing.T) {
 		if loggerName != loggerInfo.Name {
 			t.Errorf("Wrong logger name, expected %s, but got %s", loggerName, loggerInfo.Name)
 		}
+	}
+}
+
+func TestServer_setBpfLevel(t *testing.T) {
+	// Test in two modes
+	configs := []options.BpfConfig{{
+		Mode:        "ads",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}, {
+		Mode:        "workload",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}}
+
+	testLoggerLevelMap := map[string]int{
+		"error": constants.BPF_LOG_ERR,
+		"warn":  constants.BPF_LOG_WARN,
+		"info":  constants.BPF_LOG_INFO,
+		"debug": constants.BPF_LOG_DEBUG,
+	}
+	key := uint32(0)
+	actualLoggerLevel := uint32(0)
+	for _, config := range configs {
+		t.Run(config.Mode, func(t *testing.T) {
+			cleanup, bpfLoader := test.InitBpfMap(t, config)
+			defer cleanup()
+			server := &Server{
+				xdsClient: &controller.XdsClient{
+					WorkloadController: &workload.Controller{
+						Processor: nil,
+					},
+				},
+				bpfLogLevelMap: bpfLoader.GetBpfLogLevel(),
+			}
+
+			setLoggerUrl := patternLoggers
+			for logLevelStr, logLevelInt := range testLoggerLevelMap {
+				// We support both string and number
+				testLoggerLevels := []string{logLevelStr, strconv.FormatInt(int64(logLevelInt), 10)}
+				expectedLoggerLevel := uint32(logLevelInt)
+				for _, testLoggerLevel := range testLoggerLevels {
+					loggerInfo := LoggerInfo{
+						Name:  bpfLoggerName,
+						Level: testLoggerLevel,
+					}
+					reqBody, _ := json.Marshal(loggerInfo)
+					req := httptest.NewRequest(http.MethodPost, setLoggerUrl, bytes.NewReader(reqBody))
+					w := httptest.NewRecorder()
+					server.setLoggerLevel(w, req)
+
+					if w.Code != http.StatusOK {
+						t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
+					}
+
+					server.bpfLogLevelMap.Lookup(&key, &actualLoggerLevel)
+
+					if actualLoggerLevel != expectedLoggerLevel {
+						t.Errorf("Wrong logger level, expected %d, but got %d", expectedLoggerLevel, actualLoggerLevel)
+					}
+				}
+			}
+		})
 	}
 }
 

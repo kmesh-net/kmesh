@@ -5,10 +5,14 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 . $ROOT_DIR/hack/utils.sh
 
 function get_go_test_command() {
+    if [ -z "$TEST_PKG" ]; then
+        TEST_PKG="./pkg/..."
+    fi
+
     if [ -z "$TEST_TARGET" ]; then
-        echo "go test -v -race -vet=off ./pkg/..."
+        echo "go test -v -race -vet=off $TEST_PKG"
     else
-        echo "go test -v -race -vet=off -run $TEST_TARGET ./pkg/..."
+        echo "go test -v -race -vet=off -run $TEST_TARGET $TEST_PKG"
     fi
 }
 
