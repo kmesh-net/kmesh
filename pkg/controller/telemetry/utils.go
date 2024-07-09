@@ -83,61 +83,6 @@ var (
 	}
 )
 
-type metricKey struct {
-	SrcIp [4]uint32
-	DstIp [4]uint32
-}
-
-type metricValue struct {
-	Direction        uint8
-	ConnectionOpen   uint32
-	ConnectionClose  uint32
-	ConnectionFailed uint32
-	SentBytes        uint32
-	ReceivedBytes    uint32
-}
-
-type requestMetric struct {
-	src []byte
-	dst []byte
-	// flow direction
-	direction        []byte
-	connectionOpened uint32
-	connectionClosed uint32
-	receivedBytes    uint32
-	sentBytes        uint32
-	success          bool
-}
-
-type commonTrafficLabels struct {
-	direction string
-
-	sourceWorkload          string
-	sourceCanonicalService  string
-	sourceCanonicalRevision string
-	sourceWorkloadNamespace string
-	sourcePrincipal         string
-	sourceApp               string
-	sourceVersion           string
-	sourceCluster           string
-
-	destinationService           string
-	destinationServiceNamespace  string
-	destinationServiceName       string
-	destinationWorkload          string
-	destinationCanonicalService  string
-	destinationCanonicalRevision string
-	destinationWorkloadNamespace string
-	destinationPrincipal         string
-	destinationApp               string
-	destinationVersion           string
-	destinationCluster           string
-
-	requestProtocol          string
-	responseFlags            string
-	connectionSecurityPolicy string
-}
-
 var (
 	tcpConnectionOpened = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kmesh_tcp_connections_opened_total",

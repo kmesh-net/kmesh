@@ -217,9 +217,8 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 			name: "test build metrisc to Prometheus",
 			args: args{
 				data: requestMetric{
-					src:              []byte("10.244.1.10"),
-					dst:              []byte("10.244.0.7"),
-					direction:        []byte("10.244.0.7"),
+					src:              [4]uint32{183763210, 0, 0, 0},
+					dst:              [4]uint32{183762951, 0, 0, 0},
 					connectionOpened: 0x1000000,
 					connectionClosed: 0x2000000,
 					sentBytes:        0x3000000,
@@ -227,8 +226,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					success:          true,
 				},
 				labels: commonTrafficLabels{
-					direction: "destination",
-
+					direction:                    "INBOUND",
 					sourceWorkload:               "sleep",
 					sourceCanonicalService:       "sleep",
 					sourceCanonicalRevision:      "latest",
@@ -388,11 +386,11 @@ func TestMetricGetWorkloadByAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := Metric{
+			m := MetricController{
 				workloadCache: cache.NewWorkloadCache(),
 			}
 			m.workloadCache.AddWorkload(workload)
-			if got := m.getWorkloadByAddress(tt.args.address); !reflect.DeepEqual(got, tt.want) {
+			if got, _ := m.getWorkloadByAddress(tt.args.address); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Metric.getWorkloadByAddress() = %v, want %v", got, tt.want)
 			}
 		})
@@ -441,9 +439,8 @@ func TestMetricBuildMetric(t *testing.T) {
 			name: "normal capability test",
 			args: args{
 				data: &requestMetric{
-					src:              []byte{31, 25, 19, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-					dst:              []byte{22, 224, 168, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-					direction:        []byte{22, 224, 168, 192, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+					src:              [4]uint32{521736970, 0, 0, 0},
+					dst:              [4]uint32{383822016, 0, 0, 0},
 					connectionOpened: uint32(16),
 					connectionClosed: uint32(8),
 					sentBytes:        uint32(156),
@@ -480,7 +477,7 @@ func TestMetricBuildMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := Metric{
+			m := MetricController{
 				workloadCache: cache.NewWorkloadCache(),
 			}
 			m.workloadCache.AddWorkload(dstWorkload)
@@ -511,20 +508,20 @@ func TestByteToIpByte(t *testing.T) {
 			args: args{
 				bytes: []byte{71, 0, 244, 10, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
 			},
-			want: []byte{10, 244, 0, 71},
+			want: []byte{71, 0, 244, 10},
 		},
 		{
 			name: "IPv6 data change",
 			args: args{
 				bytes: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
 			},
-			want: []byte{16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1},
+			want: []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ByteToIpByte(tt.args.bytes); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("ByteToIpByte() = %v, want %v", got, tt.want)
+			if got := restoreIPv4(tt.args.bytes); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("restoreIPv4() = %v, want %v", got, tt.want)
 			}
 		})
 	}

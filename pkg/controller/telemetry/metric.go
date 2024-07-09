@@ -29,24 +29,75 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
-	"kmesh.net/kmesh/pkg/bpf"
-	bpfCache "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
 
-type Metric struct {
+type MetricController struct {
 	workloadCache cache.WorkloadCache
-	bpf           *bpfCache.Cache
 }
 
-func NewMetric(workloadCache cache.WorkloadCache, bpfWorkload *bpf.BpfKmeshWorkload) *Metric {
-	return &Metric{
+type metricKey struct {
+	SrcIp [4]uint32
+	DstIp [4]uint32
+}
+
+type metricValue struct {
+	Direction        uint8
+	ConnectionOpen   uint32
+	ConnectionClose  uint32
+	ConnectionFailed uint32
+	SentBytes        uint32
+	ReceivedBytes    uint32
+}
+
+type requestMetric struct {
+	src [4]uint32
+	dst [4]uint32
+	// flow direction
+	direction        []byte
+	connectionOpened uint32
+	connectionClosed uint32
+	receivedBytes    uint32
+	sentBytes        uint32
+	success          bool
+}
+
+type commonTrafficLabels struct {
+	direction string
+
+	sourceWorkload          string
+	sourceCanonicalService  string
+	sourceCanonicalRevision string
+	sourceWorkloadNamespace string
+	sourcePrincipal         string
+	sourceApp               string
+	sourceVersion           string
+	sourceCluster           string
+
+	destinationService           string
+	destinationServiceNamespace  string
+	destinationServiceName       string
+	destinationWorkload          string
+	destinationCanonicalService  string
+	destinationCanonicalRevision string
+	destinationWorkloadNamespace string
+	destinationPrincipal         string
+	destinationApp               string
+	destinationVersion           string
+	destinationCluster           string
+
+	requestProtocol          string
+	responseFlags            string
+	connectionSecurityPolicy string
+}
+
+func NewMetric(workloadCache cache.WorkloadCache) *MetricController {
+	return &MetricController{
 		workloadCache: workloadCache,
-		bpf:           bpfCache.NewCache(bpfWorkload.SockConn.KmeshCgroupSockWorkloadMaps),
 	}
 }
 
-func (m *Metric) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.Map) {
+func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.Map) {
 	if m == nil {
 		return
 	}
@@ -65,15 +116,16 @@ func (m *Metric) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.M
 	// Register metrics to Prometheus and start Prometheus server
 	go RunPrometheusClient()
 
+	rec := ringbuf.Record{}
+	key := metricKey{}
+	value := metricValue{}
+	data := requestMetric{}
+
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			rec := ringbuf.Record{}
-			key := metricKey{}
-			value := metricValue{}
-			data := requestMetric{}
 			if err := reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
@@ -81,19 +133,13 @@ func (m *Metric) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.M
 
 			buf := bytes.NewBuffer(rec.RawSample)
 			if err := binary.Read(buf, binary.LittleEndian, &key); err != nil {
-				log.Error("deserialize request link info FAILED, err:", err)
+				log.Error("get metric key FAILED, err:", err)
 				continue
 			}
 
-			if err := mapOfMetric.Lookup(&key, &value); err != nil {
-				log.Error("get bpf map of metrics FAILED, err:", err)
-				continue
-			}
-			// The data in the Key is in IPv6 format
-			for i := range key.SrcIp {
-				data.src = binary.BigEndian.AppendUint32(data.src, key.SrcIp[i])
-				data.dst = binary.BigEndian.AppendUint32(data.dst, key.DstIp[i])
-			}
+			_ = mapOfMetric.Lookup(&key, &value)
+			data.src = key.SrcIp
+			data.dst = key.DstIp
 			data.connectionClosed = value.ConnectionClose
 			data.connectionOpened = value.ConnectionOpen
 			data.sentBytes = value.SentBytes
@@ -119,15 +165,18 @@ func (m *Metric) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.M
 	}
 }
 
-func (m *Metric) buildMetric(data *requestMetric) (commonTrafficLabels, error) {
+func (m *MetricController) buildMetric(data *requestMetric) (commonTrafficLabels, error) {
 	var dstAddr, srcAddr []byte
-	dstAddr = ByteToIpByte(data.dst)
-	srcAddr = ByteToIpByte(data.src)
-	dstWorkload := m.getWorkloadByAddress(dstAddr)
-	srcWorkload := m.getWorkloadByAddress(srcAddr)
+	for i := range data.dst {
+		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
+		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.src[i])
+	}
+
+	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
+	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
 	trafficLabels := buildMetricFromWorkload(dstWorkload, srcWorkload)
-	trafficLabels.destinationService = ConvertUint32ToIp(ConvertIpByteToUint32(dstAddr))
+	trafficLabels.destinationService = dstIP
 
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
@@ -136,15 +185,15 @@ func (m *Metric) buildMetric(data *requestMetric) (commonTrafficLabels, error) {
 	return trafficLabels, nil
 }
 
-func (m *Metric) getWorkloadByAddress(address []byte) *workloadapi.Workload {
+func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Workload, string) {
 	networkAddr := cache.NetworkAddress{}
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
 	workload := m.workloadCache.GetWorkloadByAddr(networkAddr)
 	if workload == nil {
 		log.Warnf("get worload from ip %v FAILED", address)
-		return nil
+		return nil, ""
 	}
-	return workload
+	return workload, networkAddr.Address.String()
 }
 
 func buildMetricFromWorkload(dstWorkload, srcWorkload *workloadapi.Workload) commonTrafficLabels {
@@ -244,19 +293,12 @@ func ConvertIpByteToUint32(ip []byte) uint32 {
 }
 
 // Converting IPv4 data reported in IPv6 form to IPv4
-func ByteToIpByte(bytes []byte) []byte {
-	l := len(bytes)
-	result := make([]byte, l)
-
-	for i := 0; i < l; i++ {
-		result[i] = bytes[l-i-1]
-	}
-
-	for i := 0; i < 12; i++ {
-		if result[i] != byte(0) {
-			return result
+func restoreIPv4(bytes []byte) []byte {
+	for i := 4; i < 16; i++ {
+		if bytes[i] != 0 {
+			return bytes
 		}
 	}
 
-	return result[12:]
+	return bytes[:4]
 }
