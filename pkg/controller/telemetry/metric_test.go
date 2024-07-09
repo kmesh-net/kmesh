@@ -219,10 +219,10 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				data: requestMetric{
 					src:              [4]uint32{183763210, 0, 0, 0},
 					dst:              [4]uint32{183762951, 0, 0, 0},
-					connectionOpened: 0x1000000,
-					connectionClosed: 0x2000000,
-					sentBytes:        0x3000000,
-					receivedBytes:    0x4000000,
+					connectionOpened: 0x0000001,
+					connectionClosed: 0x0000002,
+					sentBytes:        0x0000003,
+					receivedBytes:    0x0000004,
 					success:          true,
 				},
 				labels: commonTrafficLabels{

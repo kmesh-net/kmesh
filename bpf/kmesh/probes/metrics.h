@@ -9,7 +9,7 @@ struct metric_key {
 };
 
 struct metric_data {
-    __u8 direction;       // update on connect
+    __u32 direction;      // update on connect
     __u32 conn_open;      // update on connect
     __u32 conn_close;     // update on close
     __u32 conn_failed;    // update on close

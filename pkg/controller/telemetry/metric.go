@@ -42,7 +42,7 @@ type metricKey struct {
 }
 
 type metricValue struct {
-	Direction        uint8
+	Direction        uint32
 	ConnectionOpen   uint32
 	ConnectionClose  uint32
 	ConnectionFailed uint32
@@ -54,7 +54,6 @@ type requestMetric struct {
 	src [4]uint32
 	dst [4]uint32
 	// flow direction
-	direction        []byte
 	connectionOpened uint32
 	connectionClosed uint32
 	receivedBytes    uint32
@@ -137,7 +136,11 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 				continue
 			}
 
-			_ = mapOfMetric.Lookup(&key, &value)
+			if err := mapOfMetric.Lookup(&key, &value); err != nil {
+				log.Error("get bpf map of metric FAILED, err:", err)
+				continue
+			}
+
 			data.src = key.SrcIp
 			data.dst = key.DstIp
 			data.connectionClosed = value.ConnectionClose
@@ -236,10 +239,10 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 
 func buildMetricsToPrometheus(data requestMetric, labels commonTrafficLabels) {
 	connectionOpened, connectionClosed, receivedBytes, sentBytes := []byte{}, []byte{}, []byte{}, []byte{}
-	connectionOpened = binary.BigEndian.AppendUint32(connectionOpened, data.connectionOpened)
-	connectionClosed = binary.BigEndian.AppendUint32(connectionClosed, data.connectionClosed)
-	receivedBytes = binary.BigEndian.AppendUint32(receivedBytes, data.receivedBytes)
-	sentBytes = binary.BigEndian.AppendUint32(sentBytes, data.sentBytes)
+	connectionOpened = binary.LittleEndian.AppendUint32(connectionOpened, data.connectionOpened)
+	connectionClosed = binary.LittleEndian.AppendUint32(connectionClosed, data.connectionClosed)
+	receivedBytes = binary.LittleEndian.AppendUint32(receivedBytes, data.receivedBytes)
+	sentBytes = binary.LittleEndian.AppendUint32(sentBytes, data.sentBytes)
 
 	commonLabels := commonTrafficLabels2map(&labels)
 	tcpConnectionOpened.With(commonLabels).Set(byteToFloat64(connectionOpened))
