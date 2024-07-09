@@ -84,19 +84,17 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 				return
 			}
 
-			if !shouldEnroll(pod) {
-				return
+			if shouldEnroll(pod) || pod.Annotations[KmeshRedirectionAnnotation] == "enabled" {
+				log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
+
+				nspath, _ := ns.GetPodNSpath(pod)
+
+				if err := handleKmeshManage(nspath, true); err != nil {
+					log.Errorf("failed to enable Kmesh manage")
+					return
+				}
+				queue.AddRateLimited(QueueItem{pod: pod, action: ActionAddAnnotation})
 			}
-
-			log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
-
-			nspath, _ := ns.GetPodNSpath(pod)
-
-			if err := handleKmeshManage(nspath, true); err != nil {
-				log.Errorf("failed to enable Kmesh manage")
-				return
-			}
-			queue.AddRateLimited(QueueItem{pod: pod, action: ActionAddAnnotation})
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldPod, okOld := oldObj.(*corev1.Pod)
