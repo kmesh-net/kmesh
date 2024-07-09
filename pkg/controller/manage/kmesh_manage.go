@@ -84,17 +84,19 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 				return
 			}
 
-			if shouldEnroll(pod) || pod.Annotations[KmeshRedirectionAnnotation] == "enabled" {
-				log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
-
-				nspath, _ := ns.GetPodNSpath(pod)
-
-				if err := handleKmeshManage(nspath, true); err != nil {
-					log.Errorf("failed to enable Kmesh manage")
-					return
-				}
-				queue.AddRateLimited(QueueItem{pod: pod, action: ActionAddAnnotation})
+			if !shouldEnroll(pod) {
+				return
 			}
+
+			log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
+
+			nspath, _ := ns.GetPodNSpath(pod)
+
+			if err := handleKmeshManage(nspath, true); err != nil {
+				log.Errorf("failed to enable Kmesh manage")
+				return
+			}
+			queue.AddRateLimited(QueueItem{pod: pod, action: ActionAddAnnotation})
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldPod, okOld := oldObj.(*corev1.Pod)
@@ -208,8 +210,14 @@ func isPodBeingDeleted(pod *corev1.Pod) bool {
 }
 
 func shouldEnroll(pod *corev1.Pod) bool {
-	mode := pod.Labels[constants.DataPlaneModeLabel]
-	return strings.EqualFold(mode, constants.DataPlaneModeKmesh)
+	// Check if the Pod's label indicates it should be managed by Kmesh
+	if strings.EqualFold(pod.Labels[constants.DataPlaneModeLabel], constants.DataPlaneModeKmesh) {
+		return true
+	}
+	if pod.Annotations[KmeshRedirectionAnnotation] == "enabled" {
+		return true
+	}
+	return false
 }
 
 func addKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
