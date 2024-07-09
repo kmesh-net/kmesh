@@ -24,6 +24,8 @@ const (
 	DataPlaneModeLabel = "istio.io/dataplane-mode"
 	// DataPlaneModeKmesh is the value of the label to indicate the data plane mode is kmesh
 	DataPlaneModeKmesh = "kmesh"
+	// This annotation is used to indicate traffic redirection settings specific to Kmesh
+	KmeshRedirectionAnnotation = "kmesh.net/redirection"
 
 	XDP_PROG_NAME = "xdp_shutdown"
 

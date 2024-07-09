@@ -42,21 +42,20 @@ var (
 	log                = logger.NewLoggerField("manage_controller")
 	annotationDelPatch = []byte(fmt.Sprintf(
 		`{"metadata":{"annotations":{"%s":null}}}`,
-		KmeshRedirectionAnnotation,
+		constants.KmeshRedirectionAnnotation,
 	))
 	annotationAddPatch = []byte(fmt.Sprintf(
 		`{"metadata":{"annotations":{"%s":"%s"}}}`,
-		KmeshRedirectionAnnotation,
+		constants.KmeshRedirectionAnnotation,
 		"enabled",
 	))
 )
 
 const (
-	DefaultInformerSyncPeriod  = 30 * time.Second
-	MaxRetries                 = 5
-	KmeshRedirectionAnnotation = "kmesh.net/redirection"
-	ActionAddAnnotation        = "add"
-	ActionDeleteAnnotation     = "delete"
+	DefaultInformerSyncPeriod = 30 * time.Second
+	MaxRetries                = 5
+	ActionAddAnnotation       = "add"
+	ActionDeleteAnnotation    = "delete"
 )
 
 type QueueItem struct {
@@ -214,7 +213,7 @@ func shouldEnroll(client kubernetes.Interface, pod *corev1.Pod) bool {
 	if strings.EqualFold(pod.Labels[constants.DataPlaneModeLabel], constants.DataPlaneModeKmesh) {
 		return true
 	}
-	if pod.Annotations[KmeshRedirectionAnnotation] == "enabled" {
+	if pod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" {
 		return true
 	}
 
@@ -231,8 +230,8 @@ func shouldEnroll(client kubernetes.Interface, pod *corev1.Pod) bool {
 }
 
 func addKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
-	if value, exists := pod.Annotations[KmeshRedirectionAnnotation]; exists && value == "enabled" {
-		log.Debugf("Pod %s in namespace %s already has annotation %s with value %s", pod.Name, pod.Namespace, KmeshRedirectionAnnotation, value)
+	if value, exists := pod.Annotations[constants.KmeshRedirectionAnnotation]; exists && value == "enabled" {
+		log.Debugf("Pod %s in namespace %s already has annotation %s with value %s", pod.Name, pod.Namespace, constants.KmeshRedirectionAnnotation, value)
 		return nil
 	}
 	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
@@ -246,8 +245,8 @@ func addKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
 }
 
 func delKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
-	if _, exists := pod.Annotations[KmeshRedirectionAnnotation]; !exists {
-		log.Debugf("Pod %s in namespace %s does not have annotation %s", pod.Name, pod.Namespace, KmeshRedirectionAnnotation)
+	if _, exists := pod.Annotations[constants.KmeshRedirectionAnnotation]; !exists {
+		log.Debugf("Pod %s in namespace %s does not have annotation %s", pod.Name, pod.Namespace, constants.KmeshRedirectionAnnotation)
 		return nil
 	}
 	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
