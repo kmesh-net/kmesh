@@ -24,6 +24,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 
@@ -130,7 +131,7 @@ func (l *BpfLoader) Start(config *options.BpfConfig) error {
 		}
 	}
 
-	if GetKmeshStartStatus() == Reload {
+	if GetKmeshStartStatus() == Restart {
 		log.Infof("bpf load from last pinPath")
 	}
 	return nil
@@ -196,14 +197,14 @@ func (l *BpfLoader) Stop() {
 func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	var versionPath string
 	if config.AdsEnabled() {
-		versionPath = config.BpfFsPath + "/bpf_kmesh/map/"
+		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
 	} else if config.WdsEnabled() {
-		versionPath = config.BpfFsPath + "/bpf_kmesh_workload/map/"
+		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/")
 	}
 
 	_, err := os.Stat(versionPath)
 	if err == nil {
-		m := RecoverMap(config, versionPath)
+		m := RecoverVersionMap(config, versionPath)
 		if m != nil {
 			SetStartStatus(m)
 			return m
@@ -228,18 +229,18 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 		return nil
 	}
 
-	err = m.Pin(versionPath + "kmesh_version")
+	err = m.Pin(filepath.Join(versionPath + "kmesh_version"))
 	if err != nil {
 		log.Errorf("kmesh_version pin failed: %v", err)
 		return nil
 	}
 
-	Put(m)
+	storeVersionInfo(m)
 	SetKmeshStartStatus(NewStart)
 	return m
 }
 
-func Put(versionMap *ebpf.Map) {
+func storeVersionInfo(versionMap *ebpf.Map) {
 	key := uint32(0)
 	var value [16]byte
 	copy(value[:], version.Get().GitVersion)
@@ -258,7 +259,7 @@ func GetMap(m *ebpf.Map, key uint32) [16]byte {
 	return valueBytes
 }
 
-func RecoverMap(config *options.BpfConfig, versionPath string) *ebpf.Map {
+func RecoverVersionMap(config *options.BpfConfig, versionPath string) *ebpf.Map {
 	opts := &ebpf.LoadPinOptions{
 		ReadOnly:  false,
 		WriteOnly: false,
@@ -270,7 +271,7 @@ func RecoverMap(config *options.BpfConfig, versionPath string) *ebpf.Map {
 		log.Debugf("kmesh version map LoadPinnedMap failed: %v, Start normal", err)
 		return nil
 	}
-	log.Debugf("RecoverMap success")
+	log.Debugf("RecoverVersionMap success")
 
 	return versionMap
 }

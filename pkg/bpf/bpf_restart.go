@@ -32,7 +32,6 @@ const (
 	NewStart = iota
 	Restart
 	Update
-	Reload
 )
 
 const (
@@ -78,7 +77,7 @@ func SetStartStatus(versionMap *ebpf.Map) {
 	copy(GitVersion[:], version.Get().GitVersion)
 	log.Debugf("oldGitVersion:%v\nGitVersion:%v", oldGitVersion, GitVersion)
 	if GitVersion == oldGitVersion {
-		SetKmeshStartStatus(Reload)
+		SetKmeshStartStatus(Restart)
 	} else {
 		SetKmeshStartStatus(Update)
 	}
@@ -86,10 +85,10 @@ func SetStartStatus(versionMap *ebpf.Map) {
 
 func cleanupMountPath() {
 	if err := syscall.Unmount("/mnt/kmesh_cgroup2", 0); err != nil {
-		log.Errorf("unmount /mnt/kmesh_cgroup2 error: ", err)
+		log.Errorf("unmount /mnt/kmesh_cgroup2 error: %v", err)
 	}
 
 	if err := os.RemoveAll("/mnt/kmesh_cgroup2"); err != nil {
-		log.Errorf("remove /mnt/kmesh_cgroup2 error: ", err)
+		log.Errorf("remove /mnt/kmesh_cgroup2 error: %v", err)
 	}
 }
