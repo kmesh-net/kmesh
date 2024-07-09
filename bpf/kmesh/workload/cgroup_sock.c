@@ -26,7 +26,7 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
         KMESH,
         "origin addr=[%u:%s:%u]\n",
         ctx->family,
-        ip2str(&frontend_k.addr, (ctx->family == AF_INET)),
+        ip2str((__u32 *)&frontend_k.addr, (ctx->family == AF_INET)),
         bpf_ntohs(ctx->user_port));
 
     frontend_v = map_lookup_frontend(&frontend_k);
@@ -39,7 +39,7 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
         KMESH,
         "bpf find frontend addr=[%u:%s:%u]\n",
         ctx->family,
-        ip2str(&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
+        ip2str((__u32 *)&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
         bpf_ntohs(ctx->user_port));
     ret = frontend_manager(kmesh_ctx, frontend_v);
     if (ret != 0) {

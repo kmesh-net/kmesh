@@ -47,7 +47,7 @@ struct {
     __uint(max_entries, 1);
 } map_of_cluster_eps_data SEC(".maps");
 
-static inline Cluster__Cluster *map_lookup_cluster_eps_data()
+static inline struct cluster_endpoints *map_lookup_cluster_eps_data()
 {
     int location = 0;
     return kmesh_map_lookup_elem(&map_of_cluster_eps_data, &location);

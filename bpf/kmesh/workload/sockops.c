@@ -177,7 +177,7 @@ static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 por
 
     return (
         skops->remote_ip6[0] == 0 && skops->remote_ip6[1] == 0 && skops->remote_ip6[2] == 0
-        && bpf_ntohl(skops->remote_ip6[3] == ip));
+        && bpf_ntohl(skops->remote_ip6[3]) == ip);
 }
 
 static inline bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)

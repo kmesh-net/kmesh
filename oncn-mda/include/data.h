@@ -42,6 +42,7 @@
 #define to_str__(X) #X
 #define to_str(X)   to_str__(X)
 
+#pragma pack(1)
 struct sock_key {
     __u32 sip4;
     __u32 dip4;
@@ -50,17 +51,17 @@ struct sock_key {
 #if MDA_LOOPBACK_ADDR
     __u64 netns_cookie;
 #endif
-} __attribute__((packed));
+};
 
 struct cidr {
     __u32 ip4;
     __u32 mask;
-} __attribute__((packed));
+};
 
 struct port_range {
     __u32 begin_port;
     __u32 end_port;
-} __attribute__((packed));
+};
 
 struct dump_prarm {
     __u32 switch_on;
@@ -68,7 +69,8 @@ struct dump_prarm {
     __u8 current_port_num; // Indicates the number of ports to be filtered
     struct cidr dump_cidr[MAX_PARAM_LENGTH];
     struct port_range dump_port[MAX_PARAM_LENGTH];
-} __attribute__((packed));
+};
+
 // When modifying the following structure, place PARAM_SIZE last
 enum ma_param_type {
     ACCEPT_IP = 0,
@@ -90,12 +92,12 @@ enum ma_param_type {
 struct input_cidr {
     __u8 current_cidr_num;
     struct cidr cidrs[MAX_PARAM_LENGTH];
-} __attribute__((packed));
+};
 
 struct input_port {
     __u8 current_port_num;
     struct port_range ports[MAX_PARAM_LENGTH];
-} __attribute__((packed));
+};
 
 #if MDA_GID_UID_FILTER
 struct uid_gid_info {
@@ -103,17 +105,17 @@ struct uid_gid_info {
     __u32 cgid;
     __u32 puid;
     __u32 pgid;
-} __attribute__((packed));
+};
 
 struct input_uid {
     __u8 current_uid_num;
     __u32 uids[MAX_PARAM_LENGTH];
-} __attribute__((packed));
+};
 
 struct input_gid {
     __u8 current_gid_num;
     __u32 gids[MAX_PARAM_LENGTH];
-} __attribute__((packed));
+};
 #endif
 
 struct sock_param {
@@ -128,7 +130,7 @@ struct sock_param {
     struct input_gid return_gids;
 #endif
     struct dump_prarm dump_params;
-} __attribute__((packed));
+};
 
 struct dump_data {
     __u64 timestamp;
@@ -139,6 +141,7 @@ struct dump_data {
     __u32 data_length;
 };
 
+#pragma pack()
 struct create_map_attr {
     const char *name;
     enum bpf_map_type map_type;
@@ -151,5 +154,4 @@ struct object_open_attr {
     const char *file;
     enum bpf_prog_type prog_type;
 };
-
 #endif

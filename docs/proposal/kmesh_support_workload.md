@@ -76,18 +76,18 @@ In the subsequent traffic management of kmesh, based on the IP and Port accessed
 typedef struct
 {
     __be32 ipv4; // service ip
-} __attribute__((packed)) frontend_key;
+} frontend_key;
 
 typedef struct
 {
     __u32 upstream_id; // service id for Service access or backend uid for Pod access.
-} __attribute__((packed)) frontend_value;
+} frontend_value;
 
 // service map
 typedef struct
 {
     __u32 service_id; // service id, through <namespace>/<hostname> string convert to uint32 variable
-} __attribute__((packed)) service_key;
+} service_key;
 
 typedef struct
 {
@@ -98,25 +98,25 @@ typedef struct
     __u32 target_port[MAX_PORT_COUNT];
     __u32 waypoint_addr;
     __u32 waypoint_port;
-} __attribute__((packed)) service_value;
+} service_value;
 
 // endpoint map
 typedef struct
 {
     __u32 service_id;	 // service id, through <namespace>/<hostname> string convert to uint32 variable
     __u32 backend_index; // backend index，The relationship of backend_index and endpoint_count：if endpoint_count is 3，then backend_index can be 1/2/3;
-} __attribute__((packed)) endpoint_key;
+} endpoint_key;
 
 typedef struct
 {
     __u32 backend_uid; // backend uid, through workload_uid string convert to uint32 variable
-} __attribute__((packed)) endpoint_value;
+} endpoint_value;
 
 // backend map
 typedef struct
 {
     __u32 backend_uid; // backend uid, through workload_uid string convert to uint32 variable
-} __attribute__((packed)) backend_key;
+} backend_key;
 
 typedef struct
 {
@@ -124,7 +124,7 @@ typedef struct
     __u32 service[MAX_SERVICE_COUNT];
     __u32 waypoint_addr;
     __u32 waypoint_port;
-} __attribute__((packed)) backend_value;
+} backend_value;
 
 ```
 

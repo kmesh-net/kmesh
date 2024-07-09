@@ -68,7 +68,7 @@ static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *
                 INFO,
                 XDP,
                 "auth denied, src ip: %s, port: %u\n",
-                ip2str(&tuple_info->ipv6.saddr, false),
+                ip2str(&tuple_info->ipv6.saddr[0], false),
                 bpf_ntohs(tuple_info->ipv6.sport));
         bpf_map_delete_elem(&map_of_auth, tuple_info);
         return AUTH_FORBID;
@@ -78,8 +78,8 @@ static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *
 
 static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 {
-    void *begin = (void *)(ctx->data);
-    void *end = (void *)(ctx->data_end);
+    void *begin = (void *)(long)(ctx->data);
+    void *end = (void *)(long)(ctx->data_end);
 
     // eth header
     info->ethh = (struct ethhdr *)begin;
