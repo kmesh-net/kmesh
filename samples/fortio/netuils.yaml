@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netutils
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netutils
+  template:
+    metadata:
+      labels:
+        app: netutils
+    spec:
+      containers:
+      - name: netutils
+        image: hwchiu/netutils:latest
+        imagePullPolicy: IfNotPresent
