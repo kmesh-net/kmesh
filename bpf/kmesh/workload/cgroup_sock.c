@@ -9,6 +9,7 @@
 #include "ctx/sock_addr.h"
 #include "frontend.h"
 #include "bpf_common.h"
+#include "probe.h"
 
 static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 {
@@ -81,6 +82,8 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
         // if tail call failed will run this code
         BPF_LOG(ERR, KMESH, "workload tail call failed, err is %d\n", ret);
     }
+
+    observe_on_pre_connect(ctx->sk);
     return CGROUP_SOCK_OK;
 }
 
@@ -124,6 +127,8 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
         // if tail call failed will run this code
         BPF_LOG(ERR, KMESH, "workload tail call6 failed, err is %d\n", ret);
     }
+
+    observe_on_pre_connect(ctx->sk);
     return CGROUP_SOCK_OK;
 }
 

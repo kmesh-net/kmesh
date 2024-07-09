@@ -49,6 +49,19 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_manager SEC(".maps");
 
+struct sock_storage_data {
+    __u64 connect_ns;
+    __u8 direction;
+    __u8 connect_success;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_SK_STORAGE);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __type(key, int);
+    __type(value, struct sock_storage_data);
+} map_of_sock_storage SEC(".maps");
+
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
  * hook. Therefore, ensure that function is correctly used.
