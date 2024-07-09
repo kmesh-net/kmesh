@@ -37,7 +37,7 @@ import (
 
 func TestRecoverConnection(t *testing.T) {
 	t.Run("test reconnect success", func(t *testing.T) {
-		utClient := NewXdsClient("ads", &bpf.BpfKmeshWorkload{})
+		utClient := NewXdsClient(constants.AdsMode, &bpf.BpfKmeshWorkload{})
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		iteration := 0

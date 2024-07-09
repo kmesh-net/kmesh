@@ -26,6 +26,7 @@ import (
 	config_route_v3 "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	filters_network_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -71,11 +72,12 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, []string{"ut-cluster"}, p.req.ResourceNames)
 		// send new eds subscribe to the new cluster with empty nonce
 		assert.Equal(t, p.lastNonce.edsNonce, "")
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_WAITING)
 	})
 
 	t.Run("new cluster, cluster type is not eds", func(t *testing.T) {
 		p := newProcessor()
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -91,14 +93,18 @@ func TestHandleCdsResponse(t *testing.T) {
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{}, p.Cache.edsClusterNames)
+		dnsClusters := <-p.DnsResolverChan
+		assert.Equal(t, len(dnsClusters), 1)
+		assert.Empty(t, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.NotNil(t, p.req)
+		// dns cluster is waiting
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_WAITING)
 	})
 
-	t.Run("eds cluster update case", func(t *testing.T) {
+	t.Run("cluster update case", func(t *testing.T) {
 		p := newProcessor()
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
@@ -145,12 +151,12 @@ func TestHandleCdsResponse(t *testing.T) {
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Nil(t, p.req)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_UPDATE)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_WAITING)
 	})
 
-	t.Run("have multiClusters, add a new eds cluster", func(t *testing.T) {
+	t.Run("multiClusters: add a new eds cluster", func(t *testing.T) {
 		p := newProcessor()
-		p.lastNonce.ldsNonce = "utEdstoLds"
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
 		multiClusters := []*config_cluster_v3.Cluster{
 			{
 				Name: "ut-cluster1",
@@ -164,19 +170,36 @@ func TestHandleCdsResponse(t *testing.T) {
 					Type: config_cluster_v3.Cluster_EDS,
 				},
 			},
+			{
+				Name: "ut-cluster3",
+				ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
+					Type: config_cluster_v3.Cluster_STATIC,
+				},
+			},
 		}
 		anyMultCluster1, err1 := anypb.New(multiClusters[0])
 		anyMultCluster2, err2 := anypb.New(multiClusters[1])
+		anyMultCluster3, err3 := anypb.New(multiClusters[2])
 		assert.NoError(t, err1)
 		assert.NoError(t, err2)
+		assert.NoError(t, err3)
+
 		rsp := &service_discovery_v3.DiscoveryResponse{
+			TypeUrl: resource_v3.EndpointType,
 			Resources: []*anypb.Any{
 				anyMultCluster1,
 				anyMultCluster2,
+				anyMultCluster3,
 			},
 		}
+		p.ack = newAckRequest(rsp)
 		err := p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+		dnsClusters := <-p.DnsResolverChan
+		assert.Equal(t, len(dnsClusters), 1)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[0].Name).ApiStatus, core_v2.ApiStatus_WAITING)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[1].Name).ApiStatus, core_v2.ApiStatus_WAITING)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[2].Name).ApiStatus, core_v2.ApiStatus_NONE)
 
 		newCluster := &config_cluster_v3.Cluster{
 			Name: "new-ut-cluster",
@@ -187,13 +210,20 @@ func TestHandleCdsResponse(t *testing.T) {
 		anyCluster, err := anypb.New(newCluster)
 		assert.NoError(t, err)
 		rsp = &service_discovery_v3.DiscoveryResponse{
+			TypeUrl: resource_v3.EndpointType,
 			Resources: []*anypb.Any{
+				anyMultCluster1,
+				anyMultCluster2,
+				anyMultCluster3,
 				anyCluster,
 			},
 		}
+		p.ack = newAckRequest(rsp)
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"new-ut-cluster"}, p.Cache.edsClusterNames)
+		dnsClusters = <-p.DnsResolverChan
+		assert.Equal(t, len(dnsClusters), 1)
+		assert.Equal(t, []string{"ut-cluster2", "new-ut-cluster"}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(newCluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
@@ -203,28 +233,30 @@ func TestHandleCdsResponse(t *testing.T) {
 		wantOldClusterHash2 := hash.Sum64String(anyMultCluster2.String())
 		actualOldClusterHash2 := p.Cache.ClusterCache.GetCdsHash(multiClusters[1].GetName())
 		assert.Equal(t, wantOldClusterHash2, actualOldClusterHash2)
-		assert.Equal(t, []string{"new-ut-cluster"}, p.req.ResourceNames)
+		assert.Equal(t, []string{"ut-cluster2", "new-ut-cluster"}, p.req.ResourceNames)
 		assert.Equal(t, p.lastNonce.edsNonce, p.req.ResponseNonce)
 	})
 
-	t.Run("multiClusters in resp", func(t *testing.T) {
+	t.Run("multiClusters: remove cluster", func(t *testing.T) {
 		p := newProcessor()
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_LOGICAL_DNS,
+				Type: config_cluster_v3.Cluster_STATIC,
 			},
 		}
+
 		anyCluster, err := anypb.New(cluster)
 		assert.NoError(t, err)
 		rsp := &service_discovery_v3.DiscoveryResponse{
+			TypeUrl: resource_v3.EndpointType,
 			Resources: []*anypb.Any{
 				anyCluster,
 			},
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-
 		newCluster1 := &config_cluster_v3.Cluster{
 			Name: "new-ut-cluster1",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -297,10 +329,40 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		// simulate we have received and processed cluster response
+		p.Cache.edsClusterNames = []string{"ut-far", "ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
 		assert.Equal(t, []string{"ut-far", "ut-cluster"}, p.ack.ResourceNames)
+	})
+
+	t.Run("cluster's apiStatus is Waiting", func(t *testing.T) {
+		p := newProcessor()
+		adsLoader := NewAdsCache()
+		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		cluster := &cluster_v2.Cluster{
+			Name:      "ut-cluster",
+			ApiStatus: core_v2.ApiStatus_WAITING,
+		}
+		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
+		p.Cache = adsLoader
+		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
+			ClusterName: "ut-cluster",
+		}
+		anyLoadAssignment, err := anypb.New(loadAssignment)
+		assert.NoError(t, err)
+		rsp := &service_discovery_v3.DiscoveryResponse{
+			Resources: []*anypb.Any{
+				anyLoadAssignment,
+			},
+		}
+		p.ack = newAckRequest(rsp)
+		p.Cache.edsClusterNames = []string{"ut-cluster"}
+		err = p.handleEdsResponse(rsp)
+		assert.NoError(t, err)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, []string{"ut-cluster"}, p.ack.ResourceNames)
 	})
 
 	t.Run("not apiStatus_UPDATE", func(t *testing.T) {
@@ -313,11 +375,7 @@ func TestHandleEdsResponse(t *testing.T) {
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.ack = &service_discovery_v3.DiscoveryRequest{
-			ResourceNames: []string{
-				"ut-far",
-			},
-		}
+
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
 		}
@@ -328,6 +386,8 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		p.ack = newAckRequest(rsp)
+		p.Cache.edsClusterNames = []string{"ut-far", "ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -339,16 +399,11 @@ func TestHandleEdsResponse(t *testing.T) {
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
-			ApiStatus: core_v2.ApiStatus_ALL,
+			ApiStatus: core_v2.ApiStatus_WAITING,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.ack = &service_discovery_v3.DiscoveryRequest{
-			ResourceNames: []string{
-				"ut-far",
-			},
-		}
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
 		}
@@ -362,10 +417,12 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		p.ack = newAckRequest(rsp)
+		p.Cache.edsClusterNames = []string{"ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_ALL)
-		assert.Equal(t, []string{"ut-far", "ut-cluster"}, p.ack.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, []string{"ut-cluster"}, p.ack.ResourceNames)
 	})
 
 	t.Run("no apicluster, p.ack not be changed", func(t *testing.T) {
@@ -375,11 +432,6 @@ func TestHandleEdsResponse(t *testing.T) {
 		adsLoader.ClusterCache.SetApiCluster("", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.ack = &service_discovery_v3.DiscoveryRequest{
-			ResourceNames: []string{
-				"ut-far",
-			},
-		}
 		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
 			ClusterName: "ut-cluster",
 		}
@@ -390,9 +442,12 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		p.ack = newAckRequest(rsp)
+		// previously no eds cluster, but we received a eds response, not common
+		p.Cache.edsClusterNames = nil
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"ut-far"}, p.ack.ResourceNames)
+		assert.Nil(t, p.ack.ResourceNames)
 	})
 
 	t.Run("empty loadAssignment", func(t *testing.T) {
@@ -400,17 +455,14 @@ func TestHandleEdsResponse(t *testing.T) {
 		adsLoader.ClusterCache = cache_v2.NewClusterCache()
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
-			ApiStatus: core_v2.ApiStatus_ALL,
+			ApiStatus: core_v2.ApiStatus_WAITING,
 		}
 		adsLoader.ClusterCache.SetApiCluster("ut-cluster", cluster)
 		p := newProcessor()
 		p.Cache = adsLoader
-		p.ack = &service_discovery_v3.DiscoveryRequest{
-			ResourceNames: []string{
-				"ut-far",
-			},
+		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{
+			ClusterName: "ut-cluster",
 		}
-		loadAssignment := &config_endpoint_v3.ClusterLoadAssignment{}
 		anyLoadAssignment, err := anypb.New(loadAssignment)
 		assert.NoError(t, err)
 		rsp := &service_discovery_v3.DiscoveryResponse{
@@ -418,10 +470,12 @@ func TestHandleEdsResponse(t *testing.T) {
 				anyLoadAssignment,
 			},
 		}
+		p.ack = newAckRequest(rsp)
+		p.Cache.edsClusterNames = []string{"ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_ALL)
-		assert.Equal(t, []string{"ut-far"}, p.ack.ResourceNames)
+		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
+		assert.Equal(t, []string{"ut-cluster"}, p.ack.ResourceNames)
 	})
 }
 

@@ -66,8 +66,7 @@ tlv struct
 [value]     - 'length' bytes, payload
 */
 enum TLV_TYPE {
-    TLV_ORG_DST_ADDR4 = 0x01,
-    TLV_ORG_DST_ADDR6 = 0x02,
+    TLV_ORG_DST_ADDR = 0x01,
     TLV_PAYLOAD = 0xfe,
 };
 
@@ -137,7 +136,7 @@ static inline void encode_metadata_org_dst_addr(struct sk_msg_md *msg, __u32 *of
 {
     struct ip_addr dst_ip = {0};
     __u16 dst_port;
-    __u8 type = (v4 ? TLV_ORG_DST_ADDR4 : TLV_ORG_DST_ADDR6);
+    __u8 type = TLV_ORG_DST_ADDR;
     __u32 tlv_size = (v4 ? TLV_ORG_DST_ADDR4_SIZE : TLV_ORG_DST_ADDR6_SIZE);
     __u32 addr_size = (v4 ? TLV_ORG_DST_ADDR4_LENGTH : TLV_ORG_DST_ADDR6_LENGTH);
 

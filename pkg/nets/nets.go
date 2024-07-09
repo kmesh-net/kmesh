@@ -41,13 +41,6 @@ func ConvertIpToUint32(ip string) uint32 {
 	return 0
 }
 
-// ConvertUint32ToIp converts big-endian uint32 to ip format
-func ConvertUint32ToIp(big uint32) string {
-	netIP := make(net.IP, 4)
-	binary.LittleEndian.PutUint32(netIP, big)
-	return netIP.String()
-}
-
 // ConvertPortToBigEndian convert uint32 to network order
 func ConvertPortToBigEndian(little uint32) uint32 {
 	// first convert to uint16, then convert the byte order,
@@ -57,14 +50,6 @@ func ConvertPortToBigEndian(little uint32) uint32 {
 	binary.BigEndian.PutUint16(tmp, little16)
 	big16 := binary.LittleEndian.Uint16(tmp)
 	return uint32(big16)
-}
-
-// ConvertIpByteToUint32 converts ip to little-endian uint32 format
-func ConvertIpByteToUint32(ip []byte) uint32 {
-	if len(ip) != 4 {
-		return 0
-	}
-	return binary.LittleEndian.Uint32(ip)
 }
 
 func CopyIpByteFromSlice(dst *[16]byte, src *[]byte) {

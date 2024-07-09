@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"kmesh.net/kmesh/daemon/manager/dump"
+	logcmd "kmesh.net/kmesh/daemon/manager/log"
 	"kmesh.net/kmesh/daemon/manager/version"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
@@ -65,6 +66,7 @@ func NewCommand() *cobra.Command {
 	// add sub commands
 	cmd.AddCommand(version.NewCmd())
 	cmd.AddCommand(dump.NewCmd())
+	cmd.AddCommand(logcmd.NewCmd())
 
 	return cmd
 }
@@ -78,14 +80,17 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("bpf Start successful")
 	defer bpfLoader.Stop()
 
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
 	c := controller.NewController(configs, bpfLoader.GetBpfKmeshWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog)
-	if err := c.Start(); err != nil {
+	if err := c.Start(stopCh); err != nil {
 		return err
 	}
 	log.Info("controller Start successful")
 	defer c.Stop()
 
-	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetBpfKmeshWorkload())
+	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetBpfLogLevel())
 	statusServer.StartServer()
 	defer func() {
 		_ = statusServer.StopServer()

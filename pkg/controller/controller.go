@@ -24,14 +24,15 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
+	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
+	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
 var (
-	stopCh      = make(chan struct{})
-	ctx, cancle = context.WithCancel(context.Background())
+	ctx, cancel = context.WithCancel(context.Background())
 	log         = logger.NewLoggerField("controller")
 )
 
@@ -56,14 +57,22 @@ func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshW
 	}
 }
 
-func (c *Controller) Start() error {
-	if c.enableByPass {
-		clientset, err := utils.GetK8sclient()
-		if err != nil {
-			return err
-		}
+func (c *Controller) Start(stopCh <-chan struct{}) error {
+	clientset, err := utils.GetK8sclient()
+	if err != nil {
+		return err
+	}
 
-		err = bypass.StartByPassController(clientset)
+	kmeshManageController, err := manage.NewKmeshManageController(clientset)
+	if err != nil {
+		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
+	}
+	kmeshManageController.Run(stopCh)
+
+	log.Info("start kmesh manage controller successfully")
+
+	if c.enableByPass {
+		err = bypass.StartByPassController(clientset, stopCh)
 		if err != nil {
 			return fmt.Errorf("failed to start bypass controller: %v", err)
 		}
@@ -81,6 +90,7 @@ func (c *Controller) Start() error {
 		}
 	}
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
+
 	if c.client.WorkloadController != nil {
 		if c.enableSecretManager {
 			secertManager, err := security.NewSecretManager()
@@ -90,6 +100,16 @@ func (c *Controller) Start() error {
 			go secertManager.Run(stopCh)
 			c.client.WorkloadController.Processor.SecretManager = secertManager
 		}
+		c.client.WorkloadController.Run(ctx)
+	}
+
+	if c.client.AdsController != nil {
+		dnsResolver, err := dns.NewDNSResolver(c.client.AdsController.Processor.Cache)
+		if err != nil {
+			return fmt.Errorf("dns resolver create failed: %v", err)
+		}
+		dnsResolver.StartDNSResolver(stopCh)
+		c.client.AdsController.Processor.DnsResolverChan = dnsResolver.DnsResolverChan
 	}
 
 	return c.client.Run(stopCh)
@@ -99,8 +119,7 @@ func (c *Controller) Stop() {
 	if c == nil {
 		return
 	}
-	close(stopCh)
-	cancle()
+	cancel()
 	if c.client != nil {
 		c.client.Close()
 	}

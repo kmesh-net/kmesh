@@ -28,7 +28,12 @@ typedef enum _Core__ApiStatus {
   CORE__API_STATUS__DELETE = 1,
   CORE__API_STATUS__UPDATE = 2,
   CORE__API_STATUS__UNCHANGED = 3,
-  CORE__API_STATUS__ALL = 4
+  CORE__API_STATUS__ALL = 4,
+  /*
+   * Waiting for associated endpoints before updating bpf map
+   * Currently only apply to cluster resource.
+   */
+  CORE__API_STATUS__WAITING = 5
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(CORE__API_STATUS)
 } Core__ApiStatus;
 typedef enum _Core__RoutingPriority {

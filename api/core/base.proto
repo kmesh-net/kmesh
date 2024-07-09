@@ -11,6 +11,9 @@ enum ApiStatus {
   UPDATE = 2;
   UNCHANGED = 3;
   ALL = 4;
+  // Waiting for associated endpoints before updating bpf map
+  // Currently only apply to cluster resource.
+  WAITING = 5;
 }
 
 enum RoutingPriority {

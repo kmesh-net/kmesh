@@ -4,16 +4,30 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 
 . $ROOT_DIR/hack/utils.sh
 
+function get_go_test_command() {
+    if [ -z "$TEST_PKG" ]; then
+        TEST_PKG="./pkg/..."
+    fi
+
+    if [ -z "$TEST_TARGET" ]; then
+        echo "go test -v -race -vet=off $TEST_PKG"
+    else
+        echo "go test -v -race -vet=off -run $TEST_TARGET $TEST_PKG"
+    fi
+}
+
+go_test_command=$(get_go_test_command)
+
 function docker_run_go_ut() {
     local container_id=$1
-    docker exec $container_id go test -v -race -vet=off ./pkg/...
+    docker exec $container_id $go_test_command
 }
 
 function run_go_ut_local() {
     bash $ROOT_DIR/build.sh
     export PKG_CONFIG_PATH=$ROOT_DIR/mk
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$ROOT_DIR/api/v2-c:$ROOT_DIR/bpf/deserialization_to_bpf_map
-    go test -v -race -vet=off ./pkg/...    
+    eval "$go_test_command"  
 }
 
 function run_go_ut_in_docker() {

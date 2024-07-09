@@ -17,29 +17,21 @@
 package bypass
 
 import (
-	"bytes"
 	"context"
-	"embed"
 	"fmt"
-	"io"
-	"io/fs"
 	"os"
-	"path"
-	"strings"
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
-	nd "istio.io/istio/cni/pkg/nodeagent"
-	"istio.io/istio/pkg/util/sets"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	"kmesh.net/kmesh/pkg/constants"
+	ns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
@@ -47,7 +39,6 @@ import (
 
 var (
 	log = logger.NewLoggerField("bypass")
-	FS  embed.FS
 )
 
 const (
@@ -57,8 +48,7 @@ const (
 	SidecarAnnotation         = "sidecar.istio.io/inject"
 )
 
-func StartByPassController(client kubernetes.Interface) error {
-	stopChan := make(chan struct{})
+func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}) error {
 	nodeName := os.Getenv("NODE_NAME")
 
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
@@ -88,7 +78,7 @@ func StartByPassController(client kubernetes.Interface) error {
 				return
 			}
 
-			nspath, _ := getnspath(pod)
+			nspath, _ := ns.GetPodNSpath(pod)
 
 			if enableSidecar {
 				if err := addIptables(nspath); err != nil {
@@ -103,37 +93,37 @@ func StartByPassController(client kubernetes.Interface) error {
 				}
 			}
 		},
-		DeleteFunc: func(obj interface{}) {
-			if _, ok := obj.(cache.DeletedFinalStateUnknown); ok {
-				return
-			}
-			pod, ok := obj.(*corev1.Pod)
-			if !ok {
-				log.Errorf("expected *corev1.Pod but got %T", obj)
-				return
-			}
-
-			if isPodBeingDeleted(pod) {
-				log.Debugf("%s/%s: Pod is being deleted, skipping further processing", pod.GetNamespace(), pod.GetName())
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			oldPod, okOld := oldObj.(*corev1.Pod)
+			newPod, okNew := newObj.(*corev1.Pod)
+			if !okOld || !okNew {
+				log.Errorf("expected *corev1.Pod but got %T and %T", oldObj, newObj)
 				return
 			}
 
-			log.Infof("%s/%s: disable bypass control", pod.GetNamespace(), pod.GetName())
-			enableSidecar, _ := checkSidecar(client, pod)
-			enableKmesh := isKmeshManaged(pod)
+			if isPodBeingDeleted(newPod) {
+				log.Debugf("%s/%s: Pod is being deleted, skipping further processing", newPod.GetNamespace(), newPod.GetName())
+				return
+			}
 
-			if enableSidecar {
-				nspath, _ := getnspath(pod)
-				if err := deleteIptables(nspath); err != nil {
-					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
-					return
+			if shouldEnroll(oldPod) && !shouldEnroll(newPod) {
+				log.Infof("%s/%s: disable bypass control", newPod.GetNamespace(), newPod.GetName())
+				enableSidecar, _ := checkSidecar(client, newPod)
+				enableKmesh := isKmeshManaged(newPod)
+
+				if enableSidecar {
+					nspath, _ := ns.GetPodNSpath(newPod)
+					if err := deleteIptables(nspath); err != nil {
+						log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
+						return
+					}
 				}
-			}
-			if enableKmesh {
-				nspath, _ := getnspath(pod)
-				if err := handleKmeshBypass(nspath, 0); err != nil {
-					log.Errorf("failed to disable bypass control")
-					return
+				if enableKmesh {
+					nspath, _ := ns.GetPodNSpath(newPod)
+					if err := handleKmeshBypass(nspath, 0); err != nil {
+						log.Errorf("failed to disable bypass control")
+						return
+					}
 				}
 			}
 		},
@@ -144,6 +134,11 @@ func StartByPassController(client kubernetes.Interface) error {
 	go podInformer.Run(stopChan)
 
 	return nil
+}
+
+func shouldEnroll(pod *corev1.Pod) bool {
+	enabled := pod.Labels["kmesh.net/bypass"]
+	return enabled == "enabled"
 }
 
 func handleKmeshBypass(ns string, oper int) error {
@@ -248,105 +243,4 @@ func isKmeshManaged(pod *corev1.Pod) bool {
 		}
 	}
 	return false
-}
-
-func getnspath(pod *corev1.Pod) (string, error) {
-	res, err := FindNetnsForPod(pod)
-	if err != nil {
-		return "", err
-	}
-	res = path.Join("/host/proc", res)
-	return res, nil
-}
-
-func BuiltinOrDir(dir string) fs.FS {
-	if dir == "" {
-		return FS
-	}
-	return os.DirFS(dir)
-}
-
-func FindNetnsForPod(pod *corev1.Pod) (string, error) {
-	netnsObserved := sets.New[uint64]()
-	fd := BuiltinOrDir("/host/proc")
-
-	entries, err := fs.ReadDir(fd, ".")
-	if err != nil {
-		return "", err
-	}
-
-	desiredUID := pod.UID
-	for _, entry := range entries {
-		res, err := processEntry(fd, netnsObserved, desiredUID, entry)
-		if err != nil {
-			log.Debugf("error processing entry: %s %v", entry.Name(), err)
-			continue
-		}
-		if res != "" {
-			return res, nil
-		}
-	}
-	return "", fmt.Errorf("No matching network namespace found")
-}
-
-func isNotNumber(r rune) bool {
-	return r < '0' || r > '9'
-}
-
-func isProcess(entry fs.DirEntry) bool {
-	if !entry.IsDir() {
-		return false
-	}
-
-	if strings.IndexFunc(entry.Name(), isNotNumber) != -1 {
-		return false
-	}
-	return true
-}
-
-// copied from istio/cni/pkg/nodeagent/podcgroupns.go
-func processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter types.UID, entry fs.DirEntry) (string, error) {
-	if !isProcess(entry) {
-		return "", nil
-	}
-
-	netnsName := path.Join(entry.Name(), "ns", "net")
-	fi, err := fs.Stat(proc, netnsName)
-	if err != nil {
-		return "", err
-	}
-
-	inode, err := nd.GetInode(fi)
-	if err != nil {
-		return "", err
-	}
-	if _, ok := netnsObserved[inode]; ok {
-		log.Debugf("netns: %d already processed. skipping", inode)
-		return "", nil
-	}
-
-	cgroup, err := proc.Open(path.Join(entry.Name(), "cgroup"))
-	if err != nil {
-		return "", nil
-	}
-	defer cgroup.Close()
-
-	var cgroupData bytes.Buffer
-	_, err = io.Copy(&cgroupData, cgroup)
-	if err != nil {
-		return "", nil
-	}
-
-	uid, _, err := nd.GetPodUIDAndContainerID(cgroupData)
-	if err != nil {
-		return "", err
-	}
-
-	if filter != uid {
-		return "", nil
-	}
-
-	log.Debugf("found pod to netns: %s %d", uid, inode)
-
-	return netnsName, nil
 }

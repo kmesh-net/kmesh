@@ -22,8 +22,8 @@ import (
 
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/pkg/auth"
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -35,30 +35,39 @@ const (
 var log = logger.NewLoggerField("workload_controller")
 
 type Controller struct {
-	Stream    discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
-	Processor *Processor
+	Stream         discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	Processor      *Processor
+	Rbac           *auth.Rbac
+	bpfWorkloadObj *bpf.BpfKmeshWorkload
 }
 
-func NewController(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Controller {
-	return &Controller{
-		Processor: newProcessor(workloadMap),
+func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
+	c := &Controller{
+		Processor:      newProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
+		bpfWorkloadObj: bpfWorkload,
 	}
+	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
+	return c
 }
 
-func (ws *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
+func (c *Controller) Run(ctx context.Context) {
+	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
+}
+
+func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
 	var (
 		err                     error
 		initialResourceVersions map[string]string
 	)
 
-	ws.Stream, err = client.DeltaAggregatedResources(ctx)
+	c.Stream, err = client.DeltaAggregatedResources(ctx)
 	if err != nil {
 		return fmt.Errorf("DeltaAggregatedResources failed, %s", err)
 	}
 
-	if ws.Processor != nil {
-		cachedServices := ws.Processor.ServiceCache.List()
-		cachedWorkloads := ws.Processor.WorkloadCache.List()
+	if c.Processor != nil {
+		cachedServices := c.Processor.ServiceCache.List()
+		cachedWorkloads := c.Processor.WorkloadCache.List()
 		initialResourceVersions = make(map[string]string, len(cachedServices)+len(cachedWorkloads))
 
 		// add cached resource names
@@ -71,37 +80,38 @@ func (ws *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedD
 		}
 	}
 
-	log.Debugf("Initial address resources: %v", initialResourceVersions)
-
-	if err := ws.Stream.Send(newInitialWorkloadRequest(AddressType, nil, initialResourceVersions)); err != nil {
+	log.Debugf("send initial request with address resources: %v", initialResourceVersions)
+	if err := c.Stream.Send(newDeltaRequest(AddressType, nil, initialResourceVersions)); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
 
-	if err = ws.Stream.Send(newWorkloadRequest(AuthorizationType, nil)); err != nil {
+	initialResourceVersions = c.Rbac.GetAllPolicies()
+	log.Debugf("send initial request with authorization resources: %v", initialResourceVersions)
+	if err = c.Stream.Send(newDeltaRequest(AuthorizationType, nil, initialResourceVersions)); err != nil {
 		return fmt.Errorf("authorization subscribe failed, %s", err)
 	}
 
 	return nil
 }
 
-func (ws *Controller) HandleWorkloadStream(rbac *auth.Rbac) error {
+func (c *Controller) HandleWorkloadStream() error {
 	var (
 		err      error
 		rspDelta *discoveryv3.DeltaDiscoveryResponse
 	)
 
-	if rspDelta, err = ws.Stream.Recv(); err != nil {
+	if rspDelta, err = c.Stream.Recv(); err != nil {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	ws.Processor.processWorkloadResponse(rspDelta, rbac)
+	c.Processor.processWorkloadResponse(rspDelta, c.Rbac)
 
-	if err = ws.Stream.Send(ws.Processor.ack); err != nil {
+	if err = c.Stream.Send(c.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
-	if ws.Processor.req != nil {
-		if err = ws.Stream.Send(ws.Processor.req); err != nil {
+	if c.Processor.req != nil {
+		if err = c.Stream.Send(c.Processor.req); err != nil {
 			return fmt.Errorf("stream send req failed, %s", err)
 		}
 	}

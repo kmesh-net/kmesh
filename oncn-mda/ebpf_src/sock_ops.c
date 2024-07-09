@@ -141,13 +141,20 @@ filter_gid(const struct uid_gid_info *const current_uid_gid, const struct input_
     return !filter_flag;
 }
 
-static void get_current_uid_gid(struct uid_gid_info *const current_uid_gid, struct bpf_sock_ops *const skops)
+static int get_current_uid_gid(struct uid_gid_info *const current_uid_gid, struct bpf_sock_ops *const skops)
 {
-    __u64 uid_gid = bpf_get_sockops_uid_gid(skops);
+    __u64 uid_gid;
+    int uid_gid_len = sizeof(uid_gid);
+    int ret = bpf_getsockopt(skops, SOL_IP, SK_BPF_GID_UID, &uid_gid, uid_gid_len);
+    if (ret < 0) {
+        bpf_log(ERROR, "bpf_getsockopt bpf_sock_ops_get_uid_gid failed, ret = %u\n", ret);
+        return ret;
+    }
     current_uid_gid->cuid = (uid_gid & 0xffffffff);
     current_uid_gid->cgid = (uid_gid >> UID_LENGTH);
     current_uid_gid->puid = 0;
     current_uid_gid->pgid = 0;
+    return 0;
 }
 
 static int get_peer_uid_gid(const struct sock_key *const peer_key, struct uid_gid_info *const current_uid_gid)
@@ -190,7 +197,10 @@ filter(const struct sock_key *const key, const struct sock_key *const peer_key, 
         return FILTER_PASS;
 
     struct uid_gid_info current_uid_gid = {0};
-    get_current_uid_gid(&current_uid_gid, skops);
+    if (get_current_uid_gid(&current_uid_gid, skops) < 0) {
+        return FILTER_RETURN;
+    }
+
     if (get_peer_uid_gid(peer_key, &current_uid_gid) != SUCCESS) {
         // The UID and GID of the peer are not found. mey be in other node
         bpf_log(INFO, "can not found the peer helper info! peer key:%u:%u\n", peer_key->sport, peer_key->sip4);
@@ -262,7 +272,7 @@ get_peer_addr(struct bpf_sock_ops *const skops, const struct sock_key *const key
 #if MDA_NAT_ACCEL
     struct sockaddr_in target = {0};
     int target_len = sizeof(target);
-    int ret = bpf_sk_original_addr(skops, SO_ORIGINAL_DST, (void *)&target, target_len);
+    int ret = bpf_getsockopt(skops, SOL_IP, BPF_SO_ORIGINAL_DST, &target, target_len);
     if (ret == 0) {
         peer_key->sip4 = key->dip4;
         peer_key->sport = key->dport;
@@ -311,7 +321,9 @@ static void active_ops_ipv4(struct bpf_sock_ops *const skops)
 
 #if MDA_GID_UID_FILTER
     struct uid_gid_info current_uid_gid = {0};
-    get_current_uid_gid(&current_uid_gid, skops);
+    if (get_current_uid_gid(&current_uid_gid, skops) < 0) {
+        return;
+    }
     if (add_helper_hash(&key, &current_uid_gid)) {
         bpf_log(ERROR, "active_ops_ipv4 failed!\n");
         (void)clean_ops(&key);

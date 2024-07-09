@@ -80,14 +80,18 @@ enum MESH_PROG {
 struct mesh_map_info {
     char name[BPF_OBJ_NAME_LEN];
     char pin_file_path[PATH_MAX];
+#if LIBBPF_HIGHER_0_6_0_VERSION
+    struct create_map_attr *xattr;
+#else
     struct bpf_create_map_attr *xattr;
+#endif
     int fd;
 };
 
 struct mesh_prog_info {
     char name[BPF_OBJ_NAME_LEN];
     char pin_file_path[PATH_MAX];
-    struct bpf_object_open_attr *xattr;
+    struct object_open_attr *xattr;
     enum bpf_attach_type attach_type;
     int attach_fd;
     int fd;
