@@ -81,7 +81,7 @@ static inline void set_netns_bypass_value(struct bpf_sock_addr *ctx, int new_byp
 
     current_value->is_bypassed = new_bypass_value;
 
-    int err = bpf_map_update_elem(&map_of_manager, &key, current_value, BPF_EXIST);
+    int err = bpf_map_update_elem(&map_of_manager, &key, current_value, BPF_ANY);
     if (err)
         BPF_LOG(ERR, KMESH, "set netcookie failed!, err is %d\n", err);
 }

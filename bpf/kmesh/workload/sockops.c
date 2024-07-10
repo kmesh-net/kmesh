@@ -148,7 +148,7 @@ static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
     if (family == AF_INET6 && ip6)
         IP6_COPY(key.addr.ip6, ip6);
 
-    err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
+    err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_ANY);
     if (err)
         BPF_LOG(ERR, KMESH, "record ip failed!, err is %d\n", err);
 }
