@@ -13,6 +13,8 @@
 
 static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 {
+    observe_on_operation_start(1);
+
     int ret;
     frontend_value *frontend_v = NULL;
     struct bpf_sock_addr *ctx = kmesh_ctx->ctx;
@@ -48,6 +50,8 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
             BPF_LOG(ERR, KMESH, "frontend_manager failed, ret:%d\n", ret);
         return ret;
     }
+
+    observe_on_operation_end(1);
 
     return 0;
 }
