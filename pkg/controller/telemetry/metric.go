@@ -21,7 +21,6 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"net"
 	"net/netip"
 	"reflect"
 
@@ -52,9 +51,8 @@ type metricValue struct {
 }
 
 type requestMetric struct {
-	src [4]uint32
-	dst [4]uint32
-	// flow direction
+	src              [4]uint32
+	dst              [4]uint32
 	connectionOpened uint32
 	connectionClosed uint32
 	receivedBytes    uint32
@@ -260,20 +258,6 @@ func commonTrafficLabels2map(labels *commonTrafficLabels) map[string]string {
 	}
 
 	return trafficLabelsMap
-}
-
-// ConvertUint32ToIp converts big-endian uint32 to ip format
-func ConvertUint32ToIp(big uint32) string {
-	netIP := make(net.IP, 4)
-	binary.LittleEndian.PutUint32(netIP, big)
-	return netIP.String()
-}
-
-func ConvertIpByteToUint32(ip []byte) uint32 {
-	if len(ip) != 4 {
-		return 0
-	}
-	return binary.LittleEndian.Uint32(ip)
 }
 
 // Converting IPv4 data reported in IPv6 form to IPv4
