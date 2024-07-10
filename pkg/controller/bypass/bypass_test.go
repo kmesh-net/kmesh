@@ -172,7 +172,7 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 	}
 
 	wg.Add(1)
-	_, err = client.CoreV1().Pods("default").Create(context.TODO(), pod, metav1.CreateOptions{})
+	_, err = client.CoreV1().Pods(namespaceName).Create(context.TODO(), pod, metav1.CreateOptions{})
 	assert.NoError(t, err)
 
 	wg.Wait()
@@ -181,9 +181,10 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 	enabled = false
 	disabled = false
 
-	delete(pod.Labels, "kmesh.net/bypass")
+	newPod := pod.DeepCopy()
+	delete(newPod.Labels, "kmesh.net/bypass")
 	wg.Add(1)
-	_, err = client.CoreV1().Pods("default").Update(context.TODO(), pod, metav1.UpdateOptions{})
+	_, err = client.CoreV1().Pods(namespaceName).Update(context.TODO(), newPod, metav1.UpdateOptions{})
 	assert.NoError(t, err)
 
 	wg.Wait()

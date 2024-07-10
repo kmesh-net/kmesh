@@ -54,7 +54,6 @@ func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
-			options.LabelSelector = LabelSelectorBypass
 		}))
 
 	informerFactory.Start(wait.NeverStop)
@@ -67,6 +66,9 @@ func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}
 			pod, ok := obj.(*corev1.Pod)
 			if !ok {
 				log.Errorf("expected *corev1.Pod but got %T", obj)
+				return
+			}
+			if !shouldEnroll(pod) {
 				return
 			}
 
@@ -127,6 +129,8 @@ func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}
 				}
 			}
 		},
+		// We donot need to process delete here, because in bpf mode, it will be handled by kmesh-cni.
+		// In istio sidecar mode, we donot need to delete the iptables.
 	}); err != nil {
 		return fmt.Errorf("error adding event handler to podInformer: %v", err)
 	}
