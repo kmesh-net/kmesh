@@ -4,5 +4,8 @@ coverage:
       default:
         # basic
         target: auto #default
-        threshold: 35%
+        threshold: 50%
         base: auto 
+comment:                  # this is a top-level key
+  layout: "header, files, footer" # remove "new" from "header" and "footer"
+  hide_project_coverage: false # set to false
