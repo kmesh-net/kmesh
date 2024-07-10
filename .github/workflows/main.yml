@@ -47,7 +47,11 @@ jobs:
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4.0.1
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        files: coverage.out
-        flags: unittests
-        fail_ci_if_error: false
+          # Even though token upload token is not required for public repos,
+          # but adding a token might increase successful uploads as per:
+          # https://community.codecov.com/t/upload-issues-unable-to-locate-build-via-github-actions-api/3954
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.out
+          flags: unittests
+          fail_ci_if_error: false
+          verbose: true
