@@ -45,7 +45,6 @@ func NewHashName() *HashName {
 	}
 	// if read failed, initialize with an empty map
 	if err := hashName.readFromPersistFile(); err != nil {
-		log.Errorf("error reading persist file: %v", err)
 		hashName.numToStr = make(map[uint32]string)
 	} else {
 		hashName.numToStr = make(map[uint32]string, len(hashName.strToNum))
