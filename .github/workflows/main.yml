@@ -3,6 +3,10 @@ name: Kmesh CI Workflow
 on:
   pull_request:
   merge_group: # enable merge queue
+  workflow_call:
+    secrets:
+      CODECOV_TOKEN:
+        required: true
 
 jobs:
 
@@ -45,7 +49,7 @@ jobs:
         sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:$GITHUB_WORKSPACE/api/v2-c:$GITHUB_WORKSPACE/bpf/deserialization_to_bpf_map PKG_CONFIG_PATH=$GITHUB_WORKSPACE/mk go test -v -vet=off -coverprofile=coverage.out ./pkg/...
 
     - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v4.0.1
+      uses: codecov/codecov-action@v4
       with:
           # Even though token upload token is not required for public repos,
           # but adding a token might increase successful uploads as per:
