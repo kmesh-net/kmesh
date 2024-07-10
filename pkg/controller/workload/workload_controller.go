@@ -24,6 +24,7 @@ import (
 
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/controller/telemetry"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -35,10 +36,11 @@ const (
 var log = logger.NewLoggerField("workload_controller")
 
 type Controller struct {
-	Stream         discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
-	Processor      *Processor
-	Rbac           *auth.Rbac
-	bpfWorkloadObj *bpf.BpfKmeshWorkload
+	Stream           discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	Processor        *Processor
+	Rbac             *auth.Rbac
+	MetricController *telemetry.MetricController
+	bpfWorkloadObj   *bpf.BpfKmeshWorkload
 }
 
 func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
@@ -47,11 +49,13 @@ func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
 		bpfWorkloadObj: bpfWorkload,
 	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
+	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache)
 	return c
 }
 
 func (c *Controller) Run(ctx context.Context) {
 	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
+	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapOfMetricNotify, c.bpfWorkloadObj.SockConn.MapOfMetrics)
 }
 
 func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
