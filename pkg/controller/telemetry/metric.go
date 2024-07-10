@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
 
@@ -113,7 +114,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 	}()
 
 	// Register metrics to Prometheus and start Prometheus server
-	go RunPrometheusClient()
+	go RunPrometheusClient(ctx)
 
 	rec := ringbuf.Record{}
 	key := metricKey{}
@@ -154,13 +155,12 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 				log.Warnf("reporter records error")
 			}
 
-			reporter := fmt.Sprintf("%d", value.Direction)
-			if reporter == "1" {
+			commonTrafficLabels.direction = "-"
+			if value.Direction == constants.INBOUND {
 				commonTrafficLabels.direction = "INBOUND"
-			} else if reporter == "2" {
+			}
+			if value.Direction == constants.OUTBOUND {
 				commonTrafficLabels.direction = "OUTBOUND"
-			} else {
-				commonTrafficLabels.direction = "-"
 			}
 
 			buildMetricsToPrometheus(data, commonTrafficLabels)
@@ -238,17 +238,11 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 }
 
 func buildMetricsToPrometheus(data requestMetric, labels commonTrafficLabels) {
-	connectionOpened, connectionClosed, receivedBytes, sentBytes := []byte{}, []byte{}, []byte{}, []byte{}
-	connectionOpened = binary.LittleEndian.AppendUint32(connectionOpened, data.connectionOpened)
-	connectionClosed = binary.LittleEndian.AppendUint32(connectionClosed, data.connectionClosed)
-	receivedBytes = binary.LittleEndian.AppendUint32(receivedBytes, data.receivedBytes)
-	sentBytes = binary.LittleEndian.AppendUint32(sentBytes, data.sentBytes)
-
 	commonLabels := commonTrafficLabels2map(&labels)
-	tcpConnectionOpened.With(commonLabels).Set(byteToFloat64(connectionOpened))
-	tcpConnectionClosed.With(commonLabels).Set(byteToFloat64(connectionClosed))
-	tcpReceivedBytes.With(commonLabels).Set(byteToFloat64(receivedBytes))
-	tcpSentBytes.With(commonLabels).Set(byteToFloat64(sentBytes))
+	tcpConnectionOpened.With(commonLabels).Set(float64(data.connectionOpened))
+	tcpConnectionClosed.With(commonLabels).Set(float64(data.connectionClosed))
+	tcpReceivedBytes.With(commonLabels).Set(float64(data.receivedBytes))
+	tcpSentBytes.With(commonLabels).Set(float64(data.sentBytes))
 }
 
 func commonTrafficLabels2map(labels *commonTrafficLabels) map[string]string {
@@ -266,19 +260,6 @@ func commonTrafficLabels2map(labels *commonTrafficLabels) map[string]string {
 	}
 
 	return trafficLabelsMap
-}
-
-func byteToFloat64(bytesData []byte) float64 {
-	var i int64
-	if len(bytesData) != 8 {
-		u32 := binary.LittleEndian.Uint32(bytesData)
-		u64 := uint64(u32)
-		i = int64(u64)
-	} else {
-		u64 := binary.LittleEndian.Uint64(bytesData)
-		i = int64(u64)
-	}
-	return float64(i)
 }
 
 // ConvertUint32ToIp converts big-endian uint32 to ip format

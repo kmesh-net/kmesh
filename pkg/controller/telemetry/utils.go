@@ -17,6 +17,7 @@
 package telemetry
 
 import (
+	"context"
 	"net/http"
 	"sync"
 
@@ -108,9 +109,16 @@ var (
 		}, trafficLabels)
 )
 
-func RunPrometheusClient() {
+func RunPrometheusClient(ctx context.Context) {
 	registry := prometheus.NewRegistry()
-	runPrometheusClient(registry)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			runPrometheusClient(registry)
+		}
+	}
 }
 
 func runPrometheusClient(registry *prometheus.Registry) {

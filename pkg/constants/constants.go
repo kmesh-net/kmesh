@@ -46,4 +46,7 @@ const (
 	// tail call index in tail call prog map
 	TailCallConnect4Index = 0
 	TailCallConnect6Index = 1
+
+	INBOUND  = uint32(1)
+	OUTBOUND = uint32(2)
 )

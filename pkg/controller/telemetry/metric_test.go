@@ -29,32 +29,6 @@ import (
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
 
-func Test_byteToFloat64(t *testing.T) {
-	type args struct {
-		bytes []byte
-	}
-	tests := []struct {
-		name string
-		args args
-		want float64
-	}{
-		{
-			name: "From byte to float64",
-			args: args{
-				bytes: []byte{34, 1, 0, 0},
-			},
-			want: float64(290),
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := byteToFloat64(tt.args.bytes); got != tt.want {
-				t.Errorf("byteToFloat64() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestCommonTrafficLabels2map(t *testing.T) {
 	type args struct {
 		labels *commonTrafficLabels
@@ -262,16 +236,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
-			go func() {
-				for {
-					select {
-					case <-ctx.Done():
-						return
-					default:
-						RunPrometheusClient()
-					}
-				}
-			}()
+			go RunPrometheusClient(ctx)
 			buildMetricsToPrometheus(tt.args.data, tt.args.labels)
 			commonLabels := commonTrafficLabels2map(&tt.args.labels)
 			for index, metric := range metrics {
