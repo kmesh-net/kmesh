@@ -52,7 +52,6 @@ const (
 	patternConfigDumpWorkload = configDumpPrefix + "/workload"
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
-	patternBpfLogLevel        = "/debug/bpfLogLevel/"
 
 	bpfLoggerName = "bpf"
 
@@ -168,17 +167,40 @@ func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) getLoggerLevel(w http.ResponseWriter, r *http.Request) {
-	loggerName := r.URL.Query().Get("name")
-	loggerLevel, err := logger.GetLoggerLevel(loggerName)
+func (s *Server) getLoggerNames(w http.ResponseWriter, r *http.Request) {
+	loggerNames := append(logger.GetLoggerNames(), bpfLoggerName)
+	data, err := json.MarshalIndent(&loggerNames, "", "    ")
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%v\n", err)
+		log.Errorf("Failed to marshal logger names: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-	loggerInfo := LoggerInfo{
-		Name:  loggerName,
-		Level: loggerLevel.String(),
+	_, _ = w.Write(data)
+}
+
+func (s *Server) getLoggerLevel(w http.ResponseWriter, r *http.Request) {
+	loggerName := r.URL.Query().Get("name")
+	if loggerName == "" {
+		s.getLoggerNames(w, r)
+		return
+	}
+	var loggerInfo *LoggerInfo
+	if loggerName != bpfLoggerName {
+		loggerLevel, err := logger.GetLoggerLevel(loggerName)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			fmt.Fprintf(w, "\t%v\n", err)
+			return
+		}
+		loggerInfo = &LoggerInfo{
+			Name:  loggerName,
+			Level: loggerLevel.String(),
+		}
+	} else {
+		loggerInfo = s.getBpfLogLevel(w)
+		if loggerInfo == nil {
+			return
+		}
 	}
 	data, err := json.MarshalIndent(&loggerInfo, "", "    ")
 	if err != nil {
@@ -286,6 +308,33 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add some components check
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func (s *Server) getBpfLogLevel(w http.ResponseWriter) *LoggerInfo {
+	key := uint32(0)
+	value := uint32(0)
+	if err := s.bpfLogLevelMap.Lookup(&key, &value); err != nil {
+		http.Error(w, fmt.Sprintf("get log level error: %v", err), http.StatusBadRequest)
+		return nil
+	}
+
+	logLevelMap := map[int]string{
+		constants.BPF_LOG_ERR:   "error",
+		constants.BPF_LOG_WARN:  "warn",
+		constants.BPF_LOG_INFO:  "info",
+		constants.BPF_LOG_DEBUG: "debug",
+	}
+
+	loggerLevel, exists := logLevelMap[int(value)]
+	if !exists {
+		http.Error(w, fmt.Sprintf("unexpected invalid log level: %d", value), http.StatusInternalServerError)
+		return nil
+	}
+
+	return &LoggerInfo{
+		Name:  bpfLoggerName,
+		Level: loggerLevel,
+	}
 }
 
 func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {

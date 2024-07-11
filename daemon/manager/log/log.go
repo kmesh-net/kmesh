@@ -27,7 +27,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/daemon/helper"
 	"kmesh.net/kmesh/pkg/status"
 )
 
@@ -49,47 +49,25 @@ func NewCmd() *cobra.Command {
 	return cmd
 }
 
+func GetLoggerNames() {
+	url := status.GetLoggerURL()
+	var loggerNames []string
+	helper.GetJson(url, &loggerNames)
+	fmt.Printf("Existing Loggers:\n")
+	for _, logger := range loggerNames {
+		fmt.Printf("\t%s\n", logger)
+	}
+}
+
 func GetLoggerLevel(args []string) {
-	if len(args) != 1 {
-		names := logger.GetLoggerNames()
-		if len(names) > 0 {
-			fmt.Println("Existing loggers:")
-			for _, name := range names {
-				fmt.Println(name)
-			}
-		} else {
-			fmt.Println("No existing loggers.")
-		}
+	if len(args) == 0 {
+		GetLoggerNames()
 		return
 	}
 	loggerName := args[0]
 	url := status.GetLoggerURL() + "?name=" + loggerName
-
-	resp, err := http.Get(url)
-	if err != nil {
-		fmt.Printf("Error making GET request: %v\n", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
-		return
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Error: received status code %d\n", resp.StatusCode)
-		fmt.Printf("Response body: %s\n", body)
-		return
-	}
-
 	var loggerInfo status.LoggerInfo
-	err = json.Unmarshal(body, &loggerInfo)
-	if err != nil {
-		fmt.Printf("Error unmarshaling response body: %v\n", err)
-		return
-	}
+	helper.GetJson(url, &loggerInfo)
 
 	fmt.Printf("Logger Name: %s\n", loggerInfo.Name)
 	fmt.Printf("Logger Level: %s\n", loggerInfo.Level)
