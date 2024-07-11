@@ -1,4 +1,5 @@
 #!/bin/bash
+
 ROOT_DIR=$(git rev-parse --show-toplevel)
 
 go_copyright_path=$ROOT_DIR/hack/copyright/apache.txt
@@ -8,8 +9,6 @@ c_copyright_path2=$ROOT_DIR/hack/copyright/BSDandGPL2.txt
 
 go_dirs="$ROOT_DIR/pkg"
 c_dirs="$ROOT_DIR/bpf"
-
-check=true
 
 function check_go_copyright() {
     target_file=$1
@@ -36,7 +35,7 @@ function check_go_copyright() {
     if [ "$all_lines_present" != true ]; then
         echo "The target file does not contain all lines from the copyright file."
         echo $target_file
-    fi  
+    fi
 }
 
 function check_c_copyright() {
@@ -101,12 +100,28 @@ function c_check_dir() {
     done
 }
 
-for dir in ${go_dirs}; do
-    go_check_dir $dir
-done
+function copyright_check() {
+    for dir in ${go_dirs}; do
+        go_check_dir $dir
+    done
 
-for dir in ${c_dirs}; do
-    c_check_dir $dir
-done
+    for dir in ${c_dirs}; do
+        c_check_dir $dir
+    done
+}
 
-echo "Copyright check passed!"
+# Confirmation of whether there are files with wrong copyright
+if [ -z "$1" -o "$1" == "-c" -o "$1" == "--check" ]; then
+    result=$(copyright_check | grep -c 'not contain')
+    if [ "$result" != 0 ]; then
+        echo "ERROR: Some files need to be update copyright, please run "./hack/copyright-check -g" and update and include any changed files in your PR"
+        exit 1
+    else
+        echo "pass copyright check"
+    fi
+fi
+
+# Obtaining the name of a file that with wrong copyright
+if [ "$1" == "-g" -o "$1" == "--get" ]; then
+    copyright_check
+fi
