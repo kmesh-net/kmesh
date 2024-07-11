@@ -20,11 +20,15 @@ package bpf
 // #include "kmesh/include/kmesh_common.h"
 
 import (
+	"bufio"
+	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
+	"github.com/cilium/coverbee"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
@@ -206,6 +210,7 @@ type BpfSockOpsWorkload struct {
 	Info BpfInfo
 	Link link.Link
 	bpf2go.KmeshSockopsWorkloadObjects
+	Coll *ebpf.Collection
 }
 
 func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
@@ -213,6 +218,7 @@ func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
 	so.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockops/"
 	so.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	so.Info.Cgroup2Path = cfg.Cgroup2Path
+	so.Info.EnableCoverage = cfg.EnableBpfCoverage
 
 	if err := os.MkdirAll(so.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -237,7 +243,8 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = so.Info.MapPath
-	opts.Programs.LogSize = so.Info.BpfVerifyLogSize
+	// Log size too small can cause 'no space left on device' error in coverbee.InstrumentAndLoadCollection
+	opts.Programs.LogSize = 1 << 26
 
 	spec, err = bpf2go.LoadKmeshSockopsWorkload()
 	if err != nil {
@@ -248,17 +255,64 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 	}
 
 	setMapPinType(spec, ebpf.PinByName)
-	if err = spec.LoadAndAssign(&so.KmeshSockopsWorkloadObjects, &opts); err != nil {
-		return nil, err
-	}
 
-	if GetStartType() == Restart {
-		return spec, nil
-	}
+	if !so.Info.EnableCoverage {
+		if err = spec.LoadAndAssign(&so.KmeshSockopsWorkloadObjects, &opts); err != nil {
+			return nil, err
+		}
 
-	value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
-	if err = pinPrograms(&value, so.Info.BpfFsPath); err != nil {
-		return nil, err
+		if GetStartType() == Restart {
+			return spec, nil
+		}
+
+		value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
+		if err = pinPrograms(&value, so.Info.BpfFsPath); err != nil {
+			return nil, err
+		}
+	} else {
+		// Create parameter logWriter passed to coverbee InstrumentAndLoadCollection()
+		logFile, err := os.Create("/kmesh/instrument-load.log")
+		if err != nil {
+			return nil, fmt.Errorf("open log file: %w", err)
+		}
+		defer logFile.Close()
+		logWriter := bufio.NewWriter(logFile)
+		defer logWriter.Flush()
+
+		// Instrument and load ELF
+		coll, cfg, err := coverbee.InstrumentAndLoadCollection(spec, opts, logWriter)
+		if err != nil {
+			return nil, fmt.Errorf("error while instrumenting and loading program: %w", err)
+		}
+		so.Coll = coll
+
+		if GetStartType() == Restart {
+			return spec, nil
+		}
+
+		// Pin programs
+		for name, prog := range coll.Programs {
+			if err = prog.Pin(filepath.Join(so.Info.BpfFsPath, name)); err != nil {
+				return nil, fmt.Errorf("error pinning program '%s': %w", name, err)
+			}
+		}
+
+		// Pin coverage map
+		if err = coll.Maps["coverbee_covermap"].Pin(filepath.Join(so.Info.MapPath, "coverbee_covermap")); err != nil {
+			return nil, fmt.Errorf("error pinning covermap: %w", err)
+		}
+
+		// Create block list and exported to a file
+		blockList := coverbee.CFGToBlockList(cfg)
+		blockListFile, err := os.Create("/kmesh/sockops-blocklist.json")
+		if err != nil {
+			return nil, fmt.Errorf("error create block-list: %w", err)
+		}
+		defer blockListFile.Close()
+
+		if err = json.NewEncoder(blockListFile).Encode(&blockList); err != nil {
+			return nil, fmt.Errorf("error encoding block-list: %w", err)
+		}
 	}
 
 	return spec, nil
@@ -280,9 +334,13 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 
 func (so *BpfSockOpsWorkload) Attach() error {
 	cgopt := link.CgroupOptions{
-		Path:    so.Info.Cgroup2Path,
-		Attach:  so.Info.AttachType,
-		Program: so.KmeshSockopsWorkloadObjects.SockopsProg,
+		Path:   so.Info.Cgroup2Path,
+		Attach: so.Info.AttachType,
+	}
+	if !so.Info.EnableCoverage {
+		cgopt.Program = so.KmeshSockopsWorkloadObjects.SockopsProg
+	} else {
+		cgopt.Program = so.Coll.Programs["sockops_prog"]
 	}
 
 	lk, err := link.AttachCgroup(cgopt)
@@ -309,18 +367,72 @@ func (so *BpfSockOpsWorkload) close() error {
 }
 
 func (so *BpfSockOpsWorkload) Detach() error {
-	if err := so.close(); err != nil {
-		return err
-	}
+	if !so.Info.EnableCoverage {
+		if err := so.close(); err != nil {
+			return err
+		}
 
-	program_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
-	if err := unpinPrograms(&program_value); err != nil {
-		return err
-	}
+		program_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
+		if err := unpinPrograms(&program_value); err != nil {
+			return err
+		}
 
-	map_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps)
-	if err := unpinMaps(&map_value); err != nil {
-		return err
+		map_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps)
+		if err := unpinMaps(&map_value); err != nil {
+			return err
+		}
+	} else {
+		// Generate coverage info before close
+		// Load coverage map
+		coverMap, err := ebpf.LoadPinnedMap(filepath.Join(so.Info.MapPath, "coverbee_covermap"), nil)
+		if err != nil {
+			return fmt.Errorf("load covermap pin: %w", err)
+		}
+
+		// Open block list file and get coverage info from coverage map
+		blockList := make([][]coverbee.CoverBlock, 0)
+		blockListPath, err := os.Open("/kmesh/sockops-blocklist.json")
+		if err != nil {
+			return fmt.Errorf("open block-list: %w", err)
+		}
+
+		if err = json.NewDecoder(blockListPath).Decode(&blockList); err != nil {
+			return fmt.Errorf("decode block-list: %w", err)
+		}
+
+		if err = coverbee.ApplyCoverMapToBlockList(coverMap, blockList); err != nil {
+			return fmt.Errorf("apply covermap: %w", err)
+		}
+
+		outBlocks, err := coverbee.SourceCodeInterpolation(blockList, nil)
+		if err != nil {
+			fmt.Printf("Warning error while interpolating using source files, falling back: %s", err.Error())
+			outBlocks = blockList
+		}
+
+		output, err := os.Create("/kmesh/sockops-cov.html")
+		if err != nil {
+			return fmt.Errorf("error creating output file: %w", err)
+		}
+		defer output.Close()
+
+		// Generate HTML coverage report
+		if err = coverbee.BlockListToHTML(outBlocks, output, "count"); err != nil {
+			return fmt.Errorf("block list to HTML: %w", err)
+		}
+
+		// Unpin progs and maps, then close the Collection
+		for _, p := range so.Coll.Programs {
+			if err := p.Unpin(); err != nil {
+				return err
+			}
+		}
+		for _, m := range so.Coll.Maps {
+			if err := m.Unpin(); err != nil {
+				return err
+			}
+		}
+		so.Coll.Close()
 	}
 
 	if err := os.RemoveAll(so.Info.BpfFsPath); err != nil && !os.IsNotExist(err) {
@@ -334,7 +446,23 @@ func (so *BpfSockOpsWorkload) Detach() error {
 }
 
 func (so *BpfSockOpsWorkload) GetSockMapFD() int {
-	return so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.MapOfKmeshSocket.FD()
+	var fd int
+	if !so.Info.EnableCoverage {
+		fd = so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.MapOfKmeshSocket.FD()
+	} else {
+		fd = so.Coll.Maps["map_of_kmesh_socket"].FD()
+	}
+	return fd
+}
+
+func (so *BpfSockOpsWorkload) GetMapOfTuple() *ebpf.Map {
+	var m *ebpf.Map
+	if !so.Info.EnableCoverage {
+		m = so.MapOfTuple
+	} else {
+		m = so.Coll.Maps["map_of_tuple"]
+	}
+	return m
 }
 
 type BpfSendMsgWorkload struct {

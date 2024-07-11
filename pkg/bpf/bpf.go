@@ -47,6 +47,7 @@ type BpfInfo struct {
 	BpfFsPath        string
 	BpfVerifyLogSize int
 	Cgroup2Path      string
+	EnableCoverage   bool
 
 	Type       ebpf.ProgramType
 	AttachType ebpf.AttachType
@@ -173,7 +174,7 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if GetStartType() == Restart {
+	if GetStartType() == Restart && !l.config.EnableBpfCoverage {
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
 	}
