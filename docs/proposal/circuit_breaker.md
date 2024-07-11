@@ -45,33 +45,276 @@ Common scenarios that trigger circuit breakers include:
 
 ### Design Details
 
-#### Implement the state machine of a circuit breaker
+#### Circuit Breaker in Istio
+
+Envoy supports cluster and per-host thresholds(but only the `max_connections` field is now available in per-host thresholds). For more details, please check the [official document](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/cluster/v3/circuit_breaker.proto).
+
+> per_host_thresholds
+> (repeated config.cluster.v3.CircuitBreakers.Thresholds) Optional per-host limits that apply to each host in a cluster.
+
+Here is the comparison table for settings between Envoy and Istio.
+
+| Envoy                       | Target Object            | Istio                    | Target Object |
+| --------------------------- | ------------------------ | ------------------------ | ------------- |
+| max_connection              | cluster.circuit_breakers | maxConnection            | TcpSettings   |
+| max_pending_requests        | cluster.circuit_breakers | http1MaxPendingRequests  | HttpSettings  |
+| max_requests                | cluster.circuit_breakers | http2MaxRequests         | HttpSettings  |
+| max_retries                 | cluster.circuit_breakers | maxRetries               | HttpSettings  |
+| connection_timeout_ms       | cluster                  | connectTimeout           | TcpSettings   |
+| max_requests_per_connection | cluster                  | maxRequestsPerConnection | HttpSettings  |
+
+The Circuit Breaker used by Envoy does not adopt the traditional "Open"-"Half Open"-"Close" three-state definition, but instead, once the threshold is exceeded (or falls below), the circuit breaker will open (close).
 
 <div align="center">
-    <img src="./pics/circuit_breaker_state_machine.png" />
+    <img src="./pics/circuit_breaker_example.png" />
 </div>
 
-We can implement a circuit breaker mechanism to ensure system stability and reliability while minimizing access to faulty services. First, we need to implement a circuit breaker with three states: closed, open, and half-open.
+Here is the example based on the figure above:
 
-In the closed state, all requests pass through normally and are sent to the target service, even if occasional failures occur, without triggering the circuit breaker. However, when the number of failed requests exceeds a preset threshold, the circuit breaker quickly switches to the open state. In this state, all requests fail immediately, reducing the burden on the system by avoiding sending requests to service that is known to fail.
+1. When the requests from the frontend service to the target service `forecast` do not exceed the configured maximum connection count, they are allowed through.
+2. When the requests from the frontend service to the target service `forecast` do not exceed the configured maximum pending requests count, they enter the connection pool to wait.
+3. When the requests from the frontend service to the target service `forecast` exceed the configured maximum pending requests count, they are directly rejected.
 
-In the open state, the circuit breaker starts a timeout timer. After the timeout period, the circuit breaker transitions to the half-open state. In the half-open state, the system allows a small number of requests to go through to test whether the target service has recovered. If these requests succeed, the circuit breaker closes again, allowing the service to handle more requests. If the requests fail, the circuit breaker reopens, maintaining protection for the system against the potentially faulty service.
+Take threshold `max_connection,` for example; if the number of active connections exceeds the threshold, it will open a circuit breaker.
 
-This mechanism effectively monitors the health of the service and dynamically adjusts the state of the circuit breaker based on the actual situation, ensuring the system can quickly respond appropriately to failures. This, in turn, enhances system stability and reliability.
+`canCreateConnection` simply checks whether the number of active actions is below the cluster or per host's thresholds.
 
-To implement the aforementioned functionality, we can maintain a map in eBPF. The key of the map is the identifier of a circuit breaker. Since a circuit breaker is bound to a cluster, we can use the cluster name. The value is a structure storing statistical information, including the number of requests reaching each cluster (including the number of successful requests, timed-out requests, failed requests, etc.).
+```c++
+bool canCreateConnection(Upstream::ResourcePriority priority) const override {
+    if (stats().cx_active_.value() >= cluster().resourceManager(priority).maxConnectionsPerHost()) {
+        return false;
+    }
+    return cluster().resourceManager(priority).connections().canCreate();
+}
+```
 
-To collect information like `http connections`, `http response code`, etc., we can use eBPF kprobe to hook some functions in system call following the example: https://github.com/weaveworks-plugins/scope-http-statistics/blob/master/ebpf-http-statistics.c or https://github.com/eunomia-bpf/bpf-developer-tutorial/blob/main/src/23-http/accept.bpf.c.
+If cannot create a new connection, the `upstream_cx_overflow_` counter in cluster traffic stats will be increased.
 
-Once certain conditions are met(e.g., the failed requests reaches the upper bound), we can open the circuit breaker mechanism, rejecting traffic destined for a particular cluster in `cluster_manager`.
+```c++
+ConnPoolImplBase::tryCreateNewConnection(float global_preconnect_ratio) {
+    const bool can_create_connection = host_->canCreateConnection(priority_);
 
-We can implement circuit breaker logic using golang in userspace, and interact with the kernel by accessing the shared statistic information map.
+    if (!can_create_connection) {
+        host_->cluster().trafficStats()->upstream_cx_overflow_.inc();
+    }
 
-#### Implement the outlier detection function
+    // If we are at the connection circuit-breaker limit due to other upstreams having
+    // too many open connections, and this upstream has no connections, always create one, to
+    // prevent pending streams being queued to this upstream with no way to be processed.
+    if (can_create_connection || (ready_clients_.empty() && busy_clients_.empty() &&
+                                    connecting_clients_.empty() && early_data_clients_.empty())) {
+        ENVOY_LOG(debug, "creating a new connection (connecting={})", connecting_clients_.size());
+        // here are some logics for establishing a connection 
+    } else {
+        ENVOY_LOG(trace, "not creating a new connection: connection constrained");
+        return ConnectionResult::NoConnectionRateLimited;
+    }
+}
+```
+
+Envoy also supports outlier detection. If an endpoint produces too many exceptions (e.g., returning 5xx HTTP status), it will be temporarily removed from the connection pool.
 
 <div align="center">
     <img src="./pics/outlier_detection.png" />
 </div>
+
+After some time, it will be added back, but if it continues to fail, it will be removed again. Each time it's removed, the wait time to be added back increases.
+
+So, Istio's circuit breaker has two main functionalities that involve both L4 and L7 management, as shown in the table below:
+
+| Function                 | Network Management                                   |
+| ------------------------ | ---------------------------------------------------- |
+| Connection Pool Settings | L4, connection statistic, traffic control            |
+| Outlier Detection        | L4 & L7, http status code statistic, traffic control |
+
+#### Implement the connection pool settings
+
+Here are some counters and gauges in Envoy:
+
++ Host Stats
+
+    | Variable        | Type    |
+    | --------------- | ------- |
+    | cx_connect_fail | COUNTER |
+    | cx_total        | COUNTER |
+    | rq_error        | COUNTER |
+    | rq_success      | COUNTER |
+    | rq_timeout      | COUNTER |
+    | rq_total        | COUNTER |
+    | cx_active       | GAUGE   |
+    | rq_active       | GAUGE   |
+
++ Cluster Stats
+
+    Please check [config-cluster-manager-cluster-stats](https://www.envoyproxy.io/docs/envoy/latest/configuration/upstream/cluster_manager/cluster_stats#config-cluster-manager-cluster-stats).
+
+We can define similar bpf map for cluster resources and cluster traffic stats. We can define some bpf maps like following:
+
+```c
+struct resource {
+    __u64 curr;
+    __u64 max;
+};
+
+struct cluster_resources {
+    struct resource connections;
+};
+
+struct cluster_traffic_stats {
+    __u64 upstream_cx_overflow;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, CLUSTER_NAME_MAX_LEN);
+    __uint(value_size, sizeof(struct cluster_resources));
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __uint(max_entries, MAP_SIZE_OF_CLUSTER);
+} map_of_cluster_resources SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, CLUSTER_NAME_MAX_LEN);
+    __uint(value_size, sizeof(struct cluster_traffic_stats));
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __uint(max_entries, MAP_SIZE_OF_CLUSTER);
+} map_of_cluster_traffic_stats SEC(".maps");
+```
+
+We can initialize the max value of cluster resources through the given istio config (please check the first table). We can do this in user space, when calling `ClusterUpdate` or `ClusterDelete` in `ClusterCache.Flush`:
+
+```c
+// Flush flushes the cluster to bpf map.
+func (cache *ClusterCache) Flush() {
+	var err error
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
+	for name, cluster := range cache.apiClusterCache {
+		switch cluster.GetApiStatus() {
+		case core_v2.ApiStatus_UPDATE:
+			err = maps_v2.ClusterUpdate(name, cluster)
+			if err == nil {
+				// reset api status after successfully updated
+				cluster.ApiStatus = core_v2.ApiStatus_NONE
+			}
+            // TODO:Update cluster resources here
+		case core_v2.ApiStatus_DELETE:
+			err = maps_v2.ClusterDelete(name)
+			if err == nil {
+				delete(cache.apiClusterCache, name)
+				delete(cache.resourceHash, name)
+			}
+            // TODO:Update cluster resources here
+		}
+		if err != nil {
+			log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
+		}
+	}
+}
+```
+
+To monitor current active tcp connections, we need to create a `BPF_MAP_TYPE_SK_STORAGE` map:
+
+```c
+struct cluster_sock_data {
+    char cluster_name[BPF_DATA_MAX_LEN];
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_SK_STORAGE);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __type(key, int);
+    __type(value, struct cluster_sock_data);
+} map_of_cluster_sock SEC(".maps");
+```
+
+We can manage the lifecycle of a socket based on it.
+
+Then, we can follow the flow chart below:
+
+<div align="center">
+    <img src="./pics/kmesh_circuit_breaker_flow.png" />
+</div>
+
+We can monitor socket operations in eBPF "sockops" hooks. First, we judge whether the active connections for a cluster have reaches max thresholds. If so, we should reject the connection (how to do so is still TBD). Otherwise, we allow the connection, and handle it based on the type of socket op.
+
++ TCP_DEFER_CONNECT:
+
+    We will enter sockops traffic control flow in this branch. It will trigger a series of chain calls, finally reaching `cluster_manager` (check the following image).
+
+    <div align="center">
+        <img src="./pics/kmesh_ads_mode_sockops_flow.png" />
+    </div>
+
+    We will get cluster information here (e.g, cluster name). We can store the cluster name (as the identifier of the cluster) in the `cluster_sock_data`. Here, we have bound the cluster to the socket.
+
+    We can do so by calling this function below in `cluster_manager`:
+
+    ```c
+    static inline void on_cluster_sock_bind(struct bpf_sock *sk, const char* cluster_name) {
+        BPF_LOG(DEBUG, KMESH, "record sock bind for cluster %s\n", cluster_name);
+        struct cluster_sock_data *data = NULL;
+        if (!sk) {
+            BPF_LOG(WARN, KMESH, "provided sock is NULL\n");
+            return;
+        }
+
+        data = bpf_sk_storage_get(&map_of_cluster_sock, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
+        if (!data) {
+            BPF_LOG(ERR, KMESH, "record_cluster_sock call bpf_sk_storage_get failed\n");
+            return;
+        }
+
+        bpf_strncpy(data->cluster_name, BPF_DATA_MAX_LEN, (char *)cluster_name);
+        BPF_LOG(DEBUG, KMESH, "record sock bind for cluster %s done\n", cluster_name);
+    }
+    ```
+
++ PASSIVE/ACTIVE ESTABLISHED
+
+    Here, the tcp connection has been established. We can check whether the current socket targets a cluster. If so, we should increase cluster connection counter here.
+
+    We can call the function here:
+
+    ```c
+    static inline struct cluster_sock_data* get_cluster_sk_data(struct bpf_sock *sk) {
+        struct cluster_sock_data *data = NULL;
+        if (!sk) {
+            BPF_LOG(DEBUG, KMESH, "provided sock is NULL\n");
+            return NULL;
+        }
+
+        data = bpf_sk_storage_get(&map_of_cluster_sock, sk, 0, 0);
+        return data;
+    }
+
+    static inline void on_cluster_sock_connect(struct bpf_sock *sk) {
+        struct cluster_sock_data *data = get_cluster_sk_data(sk);
+        if (!data) {
+            return;
+        }
+        BPF_LOG(DEBUG, KMESH, "record sock connection for cluster %s\n", data->cluster_name);
+        // increase cluster connection counter here.
+    }
+    ```
+
++ TCP CLOSE
+
+    Once the tcp connection is closed. We should decrease the counter:
+
+    ```c
+    static inline void on_cluster_sock_close(struct bpf_sock *sk) {
+        struct cluster_sock_data *data = get_cluster_sk_data(sk);
+        if (!data) {
+            return;
+        }
+        BPF_LOG(DEBUG, KMESH, "record sock close for cluster %s", data->cluster_name);
+    }
+    ```
+
+
+
+#### Implement the outlier detection function
 
 Outlier Detection in Istio and Envoy is a mechanism used to enhance the resilience and stability of microservice systems. Its primary goal is to detect and isolate instances of services that are performing abnormally, preventing these instances from affecting the overall performance and availability of the system.
 
@@ -83,34 +326,4 @@ It has two main functions:
 
 We can monitor HTTP return statuses in eBPF to determine if a service is experiencing 5xx errors. When the number of such errors reaches a certain threshold, we need to exclude the corresponding endpoints from the load balancing selection.
 
-The process of monitor and traffic management is similar to circuit breaker.
-
-#### Circuit breaker and outlier detection config
-
-In Istio, circuit breaking can be configured in the `TrafficPolicy` field of the Istio CRD `Destination Rule`. Under `TrafficPolicy`, there are two fields related to circuit breaking: `ConnectionPoolSettings` and `OutlierDetection`. In `ConnectionPoolSettings`, you can configure the number of connections for a service. `OutlierDetection` is used to control the eviction of unhealthy services from the load balancing pool. For example, `ConnectionPoolSettings` controls the maximum number of requests, pending requests, retries, or timeouts, while `OutlierDetection` controls the number of errors a service must have before being ejected from the connection pool, and you can set the minimum ejection duration and the maximum ejection percentage (Istio [related documentation](https://istio.io/latest/docs/reference/config/networking/destination-rule/#ConnectionPoolSettings)).
-
-The diagram below shows the relevant configurations in Istio and Envoy.
-
-<div align="center">
-    <img src="./pics/circuit_breaker_config.png" />
-</div>
-
-We can utilize the existing CircuitBreaker data structure (this data structure is stored within the Cluster workload). If necessary, we can also add new fields to this data structure:
-
-```protobuf
-message CircuitBreakers {
-  core.RoutingPriority priority = 1;
-  uint32 max_connections = 2;
-  uint32 max_pending_requests = 3;
-  uint32 max_requests = 4;
-  uint32 max_retries = 5;
-  uint32 max_connection_pools = 7;
-}
-```
-
-Here is the control flow depicted in the following diagram.
-
-<div align="center">
-    <img src="./pics/circuit_breaker_control_flow.png" />
-</div>
-
+The process of monitor and traffic management is similar to the function of connection pool settings.
