@@ -70,6 +70,52 @@ static inline char *bpf_strncpy(char *dst, int n, const char *src)
 }
 #endif
 
+struct cluster_sock_data {
+    char cluster_name[BPF_DATA_MAX_LEN];
+};
+
+struct resource {
+    // current value
+    __u64 curr;
+    __u64 max;
+};
+
+struct cluster_resources {
+    struct resource connections;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_SK_STORAGE);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __type(key, int);
+    __type(value, struct cluster_sock_data);
+} map_of_cluster_sock SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, MAP_SIZE_OF_OUTTER_MAP);
+    __uint(map_flags, 0);
+} outer_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, BPF_INNER_MAP_DATA_LEN);
+    __uint(max_entries, 1);
+    __uint(map_flags, 0);
+} inner_map SEC(".maps");
+
+typedef enum {
+    KMESH_TAIL_CALL_LISTENER = 1,
+    KMESH_TAIL_CALL_FILTER_CHAIN,
+    KMESH_TAIL_CALL_FILTER,
+    KMESH_TAIL_CALL_ROUTER,
+    KMESH_TAIL_CALL_CLUSTER,
+    KMESH_TAIL_CALL_ROUTER_CONFIG,
+} tail_call_index_t;
+
 typedef Core__SocketAddress address_t;
 
 // bpf return value
