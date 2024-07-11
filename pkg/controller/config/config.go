@@ -1,5 +1,5 @@
 /*
- * Copyright 2023 The Kmesh Authors.
+ * Copyright The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,7 +30,7 @@ import (
 	// in order to fix: could not resolve Any message type
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3" // nolint
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"

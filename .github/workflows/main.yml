@@ -28,6 +28,10 @@ jobs:
       run: |
         make gen-check
 
+    - name: Run Copyright-check
+      run : |
+        make ./hack/copyright-check.sh
+
     - name: Build Kmesh
       shell: bash
       run: |
