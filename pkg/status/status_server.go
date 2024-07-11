@@ -197,8 +197,10 @@ func (s *Server) getLoggerLevel(w http.ResponseWriter, r *http.Request) {
 			Level: loggerLevel.String(),
 		}
 	} else {
-		loggerInfo = s.getBpfLogLevel(w)
-		if loggerInfo == nil {
+		var err error
+		loggerInfo, err = s.getBpfLogLevel()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -310,12 +312,11 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte("OK"))
 }
 
-func (s *Server) getBpfLogLevel(w http.ResponseWriter) *LoggerInfo {
+func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 	key := uint32(0)
 	value := uint32(0)
 	if err := s.bpfLogLevelMap.Lookup(&key, &value); err != nil {
-		http.Error(w, fmt.Sprintf("get log level error: %v", err), http.StatusBadRequest)
-		return nil
+		return nil, fmt.Errorf("get log level error: %v", err)
 	}
 
 	logLevelMap := map[int]string{
@@ -327,14 +328,13 @@ func (s *Server) getBpfLogLevel(w http.ResponseWriter) *LoggerInfo {
 
 	loggerLevel, exists := logLevelMap[int(value)]
 	if !exists {
-		http.Error(w, fmt.Sprintf("unexpected invalid log level: %d", value), http.StatusInternalServerError)
-		return nil
+		return nil, fmt.Errorf("unexpected invalid log level: %d", value)
 	}
 
 	return &LoggerInfo{
 		Name:  bpfLoggerName,
 		Level: loggerLevel,
-	}
+	}, nil
 }
 
 func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
