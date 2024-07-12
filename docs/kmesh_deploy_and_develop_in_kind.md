@@ -1,6 +1,6 @@
 # Kmesh Deploy and Develop in Kind
 
-[Kind](https://github.com/kubernetes-sigs/kind) is a convenient tool for quickly deploying kubernetes cluster locally. We can use `kind` to create an `istio` cluster and deploy `kmesh` on it.
+[Kind](https://github.com/kubernetes-sigs/kind) is a convenient tool for quickly deploying kubernetes cluster locally. We can use `kind` to create an `istio` cluster and deploy `kmesh`.
 
 ## Deploy Kmesh in Kind
 
@@ -143,7 +143,7 @@ You can follow the steps below to develop in kind:
     make clean
     ```
 
-    to cleanup this changes before you execute `git add` command.
+    to cleanup these changes before you execute `git add` command.
 
 ## Reference
 + Getting Started: https://istio.io/latest/docs/ambient/getting-started/
