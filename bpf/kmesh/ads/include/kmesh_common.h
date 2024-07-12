@@ -70,27 +70,6 @@ static inline char *bpf_strncpy(char *dst, int n, const char *src)
 }
 #endif
 
-struct cluster_sock_data {
-    char cluster_name[BPF_DATA_MAX_LEN];
-};
-
-struct resource {
-    // current value
-    __u64 curr;
-    __u64 max;
-};
-
-struct cluster_resources {
-    struct resource connections;
-};
-
-struct {
-    __uint(type, BPF_MAP_TYPE_SK_STORAGE);
-    __uint(map_flags, BPF_F_NO_PREALLOC);
-    __type(key, int);
-    __type(value, struct cluster_sock_data);
-} map_of_cluster_sock SEC(".maps");
-
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
     __uint(key_size, sizeof(__u32));
