@@ -27,7 +27,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/status"
 )
 
@@ -49,32 +48,17 @@ func NewCmd() *cobra.Command {
 	return cmd
 }
 
-func GetLoggerLevel(args []string) {
-	if len(args) != 1 {
-		names := logger.GetLoggerNames()
-		if len(names) > 0 {
-			fmt.Println("Existing loggers:")
-			for _, name := range names {
-				fmt.Println(name)
-			}
-		} else {
-			fmt.Println("No existing loggers.")
-		}
-		return
-	}
-	loggerName := args[0]
-	url := status.GetLoggerURL() + "?name=" + loggerName
-
+func GetJson(url string, val any) {
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Printf("Error making GET request: %v\n", err)
+		fmt.Printf("Error making GET request(%s): %v\n", url, err)
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
+		fmt.Printf("Error reading response body(%s): %v\n", url, err)
 		return
 	}
 
@@ -84,12 +68,32 @@ func GetLoggerLevel(args []string) {
 		return
 	}
 
-	var loggerInfo status.LoggerInfo
-	err = json.Unmarshal(body, &loggerInfo)
+	err = json.Unmarshal(body, val)
 	if err != nil {
 		fmt.Printf("Error unmarshaling response body: %v\n", err)
 		return
 	}
+}
+
+func GetLoggerNames() {
+	url := status.GetLoggerURL()
+	var loggerNames []string
+	GetJson(url, &loggerNames)
+	fmt.Printf("Existing Loggers:\n")
+	for _, logger := range loggerNames {
+		fmt.Printf("\t%s\n", logger)
+	}
+}
+
+func GetLoggerLevel(args []string) {
+	if len(args) == 0 {
+		GetLoggerNames()
+		return
+	}
+	loggerName := args[0]
+	url := status.GetLoggerURL() + "?name=" + loggerName
+	var loggerInfo status.LoggerInfo
+	GetJson(url, &loggerInfo)
 
 	fmt.Printf("Logger Name: %s\n", loggerInfo.Name)
 	fmt.Printf("Logger Level: %s\n", loggerInfo.Level)

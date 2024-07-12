@@ -22,10 +22,12 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"sort"
 	"strconv"
 	"testing"
 
 	"github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"istio.io/istio/pilot/test/util"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
@@ -53,32 +55,35 @@ func TestServer_getLoggerLevel(t *testing.T) {
 		w := httptest.NewRecorder()
 		server.getLoggerLevel(w, req)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
-		}
+		assert.Equal(t, http.StatusOK, w.Code)
 
 		var loggerInfo LoggerInfo
 		err := json.Unmarshal(w.Body.Bytes(), &loggerInfo)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.Nil(t, err)
 
 		expectedLoggerLevel, err := logger.GetLoggerLevel(loggerName)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.Nil(t, err)
 
-		if expectedLoggerLevel.String() != loggerInfo.Level {
-			t.Errorf("Wrong logger level, expected %s, but got %s", expectedLoggerLevel.String(), loggerInfo.Level)
-		}
-
-		if loggerName != loggerInfo.Name {
-			t.Errorf("Wrong logger name, expected %s, but got %s", loggerName, loggerInfo.Name)
-		}
+		assert.Equal(t, loggerInfo.Level, expectedLoggerLevel.String())
+		assert.Equal(t, loggerInfo.Name, loggerName)
 	}
+
+	req := httptest.NewRequest(http.MethodGet, patternLoggers, nil)
+	w := httptest.NewRecorder()
+	server.getLoggerLevel(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	expectedLoggerNames := append(logger.GetLoggerNames(), bpfLoggerName)
+	var actualLoggerNames []string
+	err := json.Unmarshal(w.Body.Bytes(), &actualLoggerNames)
+	assert.Nil(t, err)
+
+	sort.Strings(expectedLoggerNames)
+	sort.Strings(actualLoggerNames)
+	assert.Equal(t, expectedLoggerNames, actualLoggerNames)
 }
 
-func TestServer_setBpfLevel(t *testing.T) {
+func TestServer_getAndSetBpfLevel(t *testing.T) {
 	// Test in two modes
 	configs := []options.BpfConfig{{
 		Mode:        "ads",
@@ -126,17 +131,30 @@ func TestServer_setBpfLevel(t *testing.T) {
 					w := httptest.NewRecorder()
 					server.setLoggerLevel(w, req)
 
-					if w.Code != http.StatusOK {
-						t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
-					}
-
+					assert.Equal(t, http.StatusOK, w.Code)
 					server.bpfLogLevelMap.Lookup(&key, &actualLoggerLevel)
-
-					if actualLoggerLevel != expectedLoggerLevel {
-						t.Errorf("Wrong logger level, expected %d, but got %d", expectedLoggerLevel, actualLoggerLevel)
-					}
+					assert.Equal(t, expectedLoggerLevel, actualLoggerLevel)
 				}
 			}
+
+			// test get bpf log level
+			getLoggerUrl := patternLoggers + "?name=" + bpfLoggerName
+			req := httptest.NewRequest(http.MethodGet, getLoggerUrl, nil)
+			w := httptest.NewRecorder()
+			server.getLoggerLevel(w, req)
+
+			var (
+				actualLoggerInfo   LoggerInfo
+				expectedLoggerInfo *LoggerInfo
+			)
+			err := json.Unmarshal(w.Body.Bytes(), &actualLoggerInfo)
+			assert.Nil(t, err)
+
+			expectedLoggerInfo, err = server.getBpfLogLevel()
+			assert.Nil(t, err)
+			assert.NotNil(t, expectedLoggerInfo)
+			assert.Equal(t, expectedLoggerInfo.Level, actualLoggerInfo.Level)
+			assert.Equal(t, expectedLoggerInfo.Name, actualLoggerInfo.Name)
 		})
 	}
 }
@@ -171,18 +189,10 @@ func TestServer_setLoggerLevel(t *testing.T) {
 			w := httptest.NewRecorder()
 			server.setLoggerLevel(w, req)
 
-			if w.Code != http.StatusOK {
-				t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
-			}
-
+			assert.Equal(t, http.StatusOK, w.Code)
 			actualLoggerLevel, err := logger.GetLoggerLevel(loggerName)
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-
-			if actualLoggerLevel.String() != loggerInfo.Level {
-				t.Errorf("Wrong logger level, expected %s, but got %s", loggerInfo.Level, actualLoggerLevel.String())
-			}
+			assert.Nil(t, err)
+			assert.Equal(t, loggerInfo.Level, actualLoggerLevel.String())
 		}
 	}
 }
