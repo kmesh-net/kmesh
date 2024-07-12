@@ -213,9 +213,6 @@ func shouldEnroll(client kubernetes.Interface, pod *corev1.Pod) bool {
 	if strings.EqualFold(pod.Labels[constants.DataPlaneModeLabel], constants.DataPlaneModeKmesh) {
 		return true
 	}
-	if pod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" {
-		return true
-	}
 
 	ns, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
 	if err != nil {
