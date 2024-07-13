@@ -1,3 +1,6 @@
+/* SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause) */
+/* Copyright Authors of Kmesh */
+
 #include "bpf_log.h"
 #include "kmesh_common.h"
 #include "bpf_common.h"
@@ -111,7 +114,12 @@ static inline void on_cluster_sock_connect(struct bpf_sock_ops *ctx)
     struct cluster_stats_key key = {0};
     key.netns_cookie = cookie;
     key.cluster_id = data->cluster_id;
-    BPF_LOG(DEBUG, KMESH, "increase cluster active connections(netns_cookie = %lld, cluster = %lld)", key.netns_cookie, key.cluster_id);
+    BPF_LOG(
+        DEBUG,
+        KMESH,
+        "increase cluster active connections(netns_cookie = %lld, cluster = %lld)",
+        key.netns_cookie,
+        key.cluster_id);
     update_cluster_active_connections(&key, 1);
     BPF_LOG(DEBUG, KMESH, "record sock connection for cluster %lld\n", data->cluster_id);
 }
@@ -131,7 +139,12 @@ static inline void on_cluster_sock_close(struct bpf_sock_ops *ctx)
     key.netns_cookie = cookie;
     key.cluster_id = data->cluster_id;
     update_cluster_active_connections(&key, -1);
-    BPF_LOG(DEBUG, KMESH, "decrease cluster active connections(netns_cookie = %lld, cluster = %lld)", key.netns_cookie, key.cluster_id);
+    BPF_LOG(
+        DEBUG,
+        KMESH,
+        "decrease cluster active connections(netns_cookie = %lld, cluster = %lld)",
+        key.netns_cookie,
+        key.cluster_id);
     BPF_LOG(DEBUG, KMESH, "record sock close for cluster %lld", data->cluster_id);
 }
 
