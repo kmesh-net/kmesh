@@ -459,7 +459,7 @@ static int clean_proxy_map(const struct mesh_service_info *const fds)
 {
     /*
      * Clear the remaining data in the Sock proxy map to preventing data residue
-     * param: serviceMesh’s map prog infomation
+     * param: serviceMesh’s map prog information
      * return: SUCCESS
      *		FAILED
      */
