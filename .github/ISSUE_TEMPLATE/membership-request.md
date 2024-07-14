@@ -16,7 +16,7 @@ assignees: ''
 
 - [ ] I have reviewed the [community membership guidelines]
 - [ ] I have joined in the community [mailing group] and [slack]
-- [ ] I have watched Kmest-net/kmesh on GitHub to subscribe updates (My account appears in the [watchers list])
+- [ ] I have watched Kmesh-net/kmesh on GitHub to subscribe updates (My account appears in the [watchers list])
 - [ ] I have enabled [two-factor authentication] on my GitHub account
 - [ ] I am actively contributing to 1 or more Kmesh subprojects
 - [ ] I have spoken to my sponsors ahead of this application, and they have agreed to sponsor my application

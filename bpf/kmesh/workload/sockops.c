@@ -89,7 +89,7 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, st
 static inline void clean_auth_map(struct bpf_sock_ops *skops)
 {
     struct bpf_sock_tuple tuple_key = {0};
-    // auth run PASSIVE ESTABLISHED CB now. In thie state cb
+    // auth run PASSIVE ESTABLISHED CB now. In this state cb
     // tuple info src is server info, dst is client info
     // During the auth, src must set the client info and dst set
     // the server info when we transmitted to the kmesh auth info.
@@ -116,7 +116,7 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
         BPF_LOG(WARN, SOCKOPS, "can not alloc new ringbuf in map_of_tuple");
         return;
     }
-    // auth run PASSIVE ESTABLISHED CB now. In thie state cb
+    // auth run PASSIVE ESTABLISHED CB now. In this state cb
     // tuple info src is server info, dst is client info
     // During the auth, src must set the client info and dst set
     // the server info when we transmitted to the kmesh auth info.
@@ -134,7 +134,7 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
     extract_skops_to_tuple(skops, &tuple_info);
     err = bpf_sock_hash_update(skops, &map_of_kmesh_socket, &tuple_info, BPF_ANY);
     if (err)
-        BPF_LOG(ERR, SOCKOPS, "enable encoding metadta failed!, err is %d", err);
+        BPF_LOG(ERR, SOCKOPS, "enable encoding metadata failed!, err is %d", err);
 }
 
 static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)

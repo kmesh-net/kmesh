@@ -15,7 +15,7 @@ Welcome to Kmesh!
 - [Contributor Workflow](#contributor-workflow)
   - [Creating Pull Requests](#creating-pull-requests)
   - [Code Review](#code-review)
-- [Memebership](#memebership)
+- [Membership](#membership)
 
 # Before you get started
 
@@ -105,7 +105,7 @@ To make it easier for your PR to receive reviews, consider the reviewers will ne
 * write [good commit messages](https://chris.beams.io/posts/git-commit/).
 * break large changes into a logical series of smaller patches which individually make easily understandable changes, and in aggregate solve a broader issue.
 
-# Memebership
+# Membership
 
 We encourage all contributors to become members. Learn more about requirements and responsibilities of membership in our [Community Membership doc](https://github.com/kmesh-net/website/blob/main/content/en/docs/community/membership.md).
 
