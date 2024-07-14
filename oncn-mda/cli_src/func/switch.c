@@ -411,7 +411,7 @@ err:
 static int enable_service(struct mesh_service_info *fds, const struct sock_param *const filter_rules)
 {
     /*
-     * start ServiceMesh acclerating
+     * start ServiceMesh accelerating
      * param: fds:ServiceMesh's map collection
      *	  filter_rules:
      * return: SUCCESS

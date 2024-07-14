@@ -191,7 +191,7 @@ func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {
 	}
 }
 
-// 4 is the msg length, -1 is the '\0' teminate character
+// 4 is the msg length, -1 is the '\0' terminate character
 func decodeRecord(data []byte) (*LogEvent, error) {
 	le := LogEvent{}
 	lenOfMsg := binary.NativeEndian.Uint32(data[0:4])

@@ -129,8 +129,8 @@ func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}
 				}
 			}
 		},
-		// We donot need to process delete here, because in bpf mode, it will be handled by kmesh-cni.
-		// In istio sidecar mode, we donot need to delete the iptables.
+		// We do not need to process delete here, because in bpf mode, it will be handled by kmesh-cni.
+		// In istio sidecar mode, we do not need to delete the iptables.
 	}); err != nil {
 		return fmt.Errorf("error adding event handler to podInformer: %v", err)
 	}

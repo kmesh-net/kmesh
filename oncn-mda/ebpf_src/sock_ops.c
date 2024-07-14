@@ -202,7 +202,7 @@ filter(const struct sock_key *const key, const struct sock_key *const peer_key, 
     }
 
     if (get_peer_uid_gid(peer_key, &current_uid_gid) != SUCCESS) {
-        // The UID and GID of the peer are not found. mey be in other node
+        // The UID and GID of the peer are not found. may be in other node
         bpf_log(INFO, "can not found the peer helper info! peer key:%u:%u\n", peer_key->sport, peer_key->sip4);
         return FILTER_RETURN;
     }

@@ -34,7 +34,7 @@ As designed in [observability](https://github.com/kmesh-net/kmesh/blob/main/docs
 
 **access logs:**
 
-When a connection is closed, the following informations about the connection need reported: duration, sent_bytes, received bytes, whether the connection is set up successfully, and the close time.
+When a connection is closed, the following information about the connection need reported: duration, sent_bytes, received bytes, whether the connection is set up successfully, and the close time.
 
 **metrics:**
 

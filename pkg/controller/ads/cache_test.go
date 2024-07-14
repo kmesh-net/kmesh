@@ -421,7 +421,7 @@ func TestNewApiSocketAddress(t *testing.T) {
 }
 
 func TestCreateApiListenerByLds(t *testing.T) {
-	t.Run("listener fillter configtype is filter_typedconfig", func(t *testing.T) {
+	t.Run("listener filter configtype is filter_typedconfig", func(t *testing.T) {
 		loader := NewAdsCache()
 		loader.routeNames = []string{
 			"ut-route",
@@ -474,7 +474,7 @@ func TestCreateApiListenerByLds(t *testing.T) {
 		assert.Equal(t, []string{"ut-route"}, loader.routeNames)
 	})
 
-	t.Run("listener fillter configtype is filter_ConfigDiscover", func(t *testing.T) {
+	t.Run("listener filter configtype is filter_ConfigDiscover", func(t *testing.T) {
 		loader := NewAdsCache()
 		loader.routeNames = []string{
 			"ut-route",

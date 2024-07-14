@@ -1,3 +1,3 @@
 [codespell]
-skip = .git,go.sum,go.mod
-ignore-words-list = kmesh
+skip = .git,go.sum,go.mod,*.png,*.svg
+ignore-words-list = kmesh,outter,nd,Donot,donot,doesnot
