@@ -20,12 +20,12 @@ spec:
         app: kmesh
     spec:
       tolerations:
-      - effect: NoSchedule
-        operator: Exists
-      - key: CriticalAddonsOnly
-        operator: Exists
-      - effect: NoExecute
-        operator: Exists
+        - effect: NoSchedule
+          operator: Exists
+        - key: CriticalAddonsOnly
+          operator: Exists
+        - effect: NoExecute
+          operator: Exists
       volumes:
         # use cgroup requires
         - name: mnt
@@ -43,7 +43,7 @@ spec:
         - name: cni
           hostPath:
             path: /etc/cni/net.d
-        # k8s deafult cni path
+        # k8s default cni path
         - name: kmesh-cni-install-path
           hostPath:
             path: /opt/cni/bin
@@ -68,7 +68,10 @@ spec:
           image: ghcr.io/kmesh-net/kmesh:latest
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
-          args: ["./start_kmesh.sh --mode=workload --enable-bypass=false --enable-bpf-log=true"]
+          args:
+            [
+              "./start_kmesh.sh --mode=workload --enable-bypass=false --enable-bpf-log=true",
+            ]
           securityContext:
             privileged: true
             capabilities:
@@ -112,7 +115,7 @@ spec:
             - name: cni
               mountPath: /etc/cni/net.d
               readOnly: false
-            # k8s deafult cni path
+            # k8s default cni path
             - name: kmesh-cni-install-path
               mountPath: /opt/cni/bin
               readOnly: false

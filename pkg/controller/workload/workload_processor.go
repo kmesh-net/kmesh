@@ -122,7 +122,7 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	case AuthorizationType:
 		err = p.handleAuthorizationTypeResponse(rsp, rbac)
 	default:
-		err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
+		err = fmt.Errorf("unsupported type url %s", rsp.GetTypeUrl())
 	}
 	if err != nil {
 		log.Error(err)

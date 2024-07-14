@@ -115,7 +115,7 @@ func (p *processor) processAdsResponse(resp *service_discovery_v3.DiscoveryRespo
 	case resource_v3.RouteType:
 		err = p.handleRdsResponse(resp)
 	default:
-		err = fmt.Errorf("unsupport type url %s", resp.GetTypeUrl())
+		err = fmt.Errorf("unsupported type url %s", resp.GetTypeUrl())
 	}
 
 	if err != nil {

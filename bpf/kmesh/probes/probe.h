@@ -41,7 +41,7 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 dire
         return;
     }
 
-    // INBOUND senario
+    // INBOUND scenario
     if (direction == INBOUND)
         storage->connect_ns = bpf_ktime_get_ns();
     storage->direction = direction;

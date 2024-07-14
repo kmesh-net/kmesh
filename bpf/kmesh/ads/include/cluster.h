@@ -228,7 +228,7 @@ static inline void *cluster_get_ep_identity_by_lb_policy(struct cluster_endpoint
         ep_identity = loadbalance_round_robin(eps);
         break;
     default:
-        BPF_LOG(INFO, CLUSTER, "%d lb_policy is unsupport, defaut:ROUND_ROBIN\n", lb_policy);
+        BPF_LOG(INFO, CLUSTER, "%d lb_policy is unsupported, default:ROUND_ROBIN\n", lb_policy);
         ep_identity = loadbalance_round_robin(eps);
         break;
     }
