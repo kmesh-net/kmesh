@@ -11,11 +11,11 @@
 
 #define BPF_LOG_LEVEL BPF_LOG_DEBUG
 
-#define BPF_LOGTYPE_SOCKMAP BPF_DEBUG_OFF
+#define BPF_LOGTYPE_SOCKMAP BPF_DEBUG_ON
 #define BPF_LOGTYPE_KMESH   BPF_DEBUG_ON
-#define BPF_LOGTYPE_SOCKOPS BPF_DEBUG_OFF
-#define BPF_LOGTYPE_XDP     BPF_DEBUG_OFF
-#define BPF_LOGTYPE_SENDMSG BPF_DEBUG_OFF
+#define BPF_LOGTYPE_SOCKOPS BPF_DEBUG_ON
+#define BPF_LOGTYPE_XDP     BPF_DEBUG_ON
+#define BPF_LOGTYPE_SENDMSG BPF_DEBUG_ON
 #define BPF_LOGTYPE_PROBE   BPF_DEBUG_ON
 #define MAX_MSG_LEN         255
 
@@ -101,7 +101,7 @@ static inline int map_lookup_log_level()
     int *value = NULL;
     value = kmesh_map_lookup_elem(&bpf_log_level, &zero);
     if (!value)
-        return 0;
+        return BPF_LOG_INFO;
     return *value;
 }
 
