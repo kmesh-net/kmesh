@@ -122,7 +122,7 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	case AuthorizationType:
 		err = p.handleAuthorizationTypeResponse(rsp, rbac)
 	default:
-		err = fmt.Errorf("unsupport type url %s", rsp.GetTypeUrl())
+		err = fmt.Errorf("unsupported type url %s", rsp.GetTypeUrl())
 	}
 	if err != nil {
 		log.Error(err)
@@ -411,10 +411,10 @@ func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error 
 	}
 
 	if len(workload.GetAddresses()) > 1 {
-		log.Warnf("current only supprt single ip of a pod")
+		log.Warnf("current only support single ip of a pod")
 	}
 
-	for _, ip := range workload.GetAddresses() { // current only support signle ip, if a pod have multi ips, the last one will be stored finally
+	for _, ip := range workload.GetAddresses() { // current only support single ip, if a pod have multi ips, the last one will be stored finally
 		if err = p.storeBackendData(backend_uid, ip, workload.GetWaypoint(), workload.GetServices()); err != nil {
 			log.Errorf("storeBackendData failed, err:%s", err)
 			return err
@@ -634,7 +634,7 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 			service := address.GetService()
 			err = p.handleService(service)
 		default:
-			log.Errorf("unknow type")
+			log.Errorf("unknown type")
 		}
 	}
 	if err != nil {

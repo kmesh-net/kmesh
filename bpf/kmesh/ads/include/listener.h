@@ -106,7 +106,7 @@ static inline int listener_manager(ctx_buff_t *ctx, Listener__Listener *listener
         BPF_LOG(
             WARN,
             LISTENER,
-            "filterchain mismatch, unsupport addr=%s:%u\n",
+            "filterchain mismatch, unsupported addr=%s:%u\n",
             ip2str(&addr.ipv4, 1),
             bpf_ntohs(addr.port));
         return -1;

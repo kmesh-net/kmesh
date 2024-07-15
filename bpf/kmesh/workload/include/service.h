@@ -60,8 +60,8 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
     case LB_POLICY_RANDOM:
         ret = lb_random_handle(kmesh_ctx, service_id, service_v);
         break;
-    defalut:
-        BPF_LOG(ERR, SERVICE, "unsupport load balance type:%u\n", service_v->lb_policy);
+    default:
+        BPF_LOG(ERR, SERVICE, "unsupported load balance type:%u\n", service_v->lb_policy);
         ret = -EINVAL;
         break;
     }

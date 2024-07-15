@@ -63,7 +63,7 @@ Note: The above configuration about workload model is related to the basic netwo
 ## How kmesh subscribe and use the workload model info
 
 1. kmesh's xds client subscribes to the workload model from Istiod through Delta manner, and the type_url is: "type.googleapis.com/istio.workload.Address";
-2. The workload data of Address type is divided into two sub resources: Service and Workload, which are responsed to kmesh and then parsed and converted into internal structures, stored in the bpf map;
+2. The workload data of Address type is divided into two sub resources: Service and Workload, which are responded to kmesh and then parsed and converted into internal structures, stored in the bpf map;
 
 ![kmesh subscribe workload](./pics/kmesh_workload_subscribe.svg)
 

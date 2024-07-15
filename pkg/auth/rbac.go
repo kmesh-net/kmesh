@@ -356,14 +356,14 @@ func matchPrincipal(srcId string, match *security.Match) bool {
 
 func matchNamespace(srcNs string, match *security.Match) bool {
 	var pm, nm bool
-	// Positive match means if ANY namesapce pattern in namespaces matches srcNs, it does match
+	// Positive match means if ANY namespace pattern in namespaces matches srcNs, it does match
 	// If there is no namespace pattern in namespaces, it does match
 	if len(match.GetNamespaces()) == 0 {
 		pm = true
 	} else {
 		pm = internalMatchNamespace(srcNs, match.GetNamespaces())
 	}
-	// Negative match means if ANY namesapce pattern in not_namespaces matches srcNs, it does NOT match
+	// Negative match means if ANY namespace pattern in not_namespaces matches srcNs, it does NOT match
 	// If there is no namespace pattern in not_namespaces, it does match
 	if len(match.GetNotNamespaces()) == 0 {
 		nm = true
@@ -502,7 +502,7 @@ func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 	networkAddress.Address, _ = netip.AddrFromSlice(ip)
 	workload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	if workload == nil {
-		log.Warnf("get worload from ip %v FAILED", ip)
+		log.Warnf("get workload from ip %v FAILED", ip)
 		return Identity{}
 	}
 	return Identity{

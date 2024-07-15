@@ -191,7 +191,7 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
 	workload := m.workloadCache.GetWorkloadByAddr(networkAddr)
 	if workload == nil {
-		log.Warnf("get worload from ip %v FAILED", address)
+		log.Warnf("get workload from ip %v FAILED", address)
 		return nil, ""
 	}
 	return workload, networkAddr.Address.String()

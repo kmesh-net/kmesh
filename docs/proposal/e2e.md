@@ -22,15 +22,15 @@ This proposal mainly introduces the motivation for introducing E2E testing in Km
 
 ### Motivation
 
-E2E testing is a software approach that tests an application's workflow from start to finish, simulating real user scenarios. The main purpose of E2E testing is to validate the system as a whole,ensuring that all the individual components and integrations work together seamlessly. It helps to identify any issues or defects that may arise from the interation between different components of the appliction, ensuing the application works as expected under normal operating conditions.
+E2E testing is a software approach that tests an application's workflow from start to finish, simulating real user scenarios. The main purpose of E2E testing is to validate the system as a whole,ensuring that all the individual components and integrations work together seamlessly. It helps to identify any issues or defects that may arise from the interaction between different components of the application, ensuing the application works as expected under normal operating conditions.
 
-We often encounter such situation during development: although all UTs have passed, when we compile the code to the binary, deploy the component to the test environment, or even worse, to the production envionment, we find some basic functions doesn't work, and the reason for the unavailability is obviously not caused by this modification. Apparently it is unrealistic to manually test all scenarios before merging the code everytime.
+We often encounter such situation during development: although all UTs have passed, when we compile the code to the binary, deploy the component to the test environment, or even worse, to the production environment, we find some basic functions doesn't work, and the reason for the unavailability is obviously not caused by this modification. Apparently it is unrealistic to manually test all scenarios before merging the code every time.
 
 Therefore, we introduced E2E testing in Kmesh. Before each PR is merged, the cod modification must be compiled into binary, deployed to the test environment and pass asll basic tests. This ensures that existing functions will not be unavailable due to newly merged code. E2E test, combined with UT, ensures the robustness of the project from multiple dimensions.
 
 ### Goals
 
-Ensure that each merge of code will not break existing functions and ensures the stablity and availability of Kmesh.
+Ensure that each merge of code will not break existing functions and ensures the stability and availability of Kmesh.
 
 ### Proposal
 
@@ -42,7 +42,7 @@ Pros:
 
 1. Avoid reinventing the wheel: istio integration framework has encapsulated a lot of basic functions and has a complete workflow, such as deploying local image registry, k8s cluster and istio. We can easily call it to avoid cumbersome development. And just insert the compilation and deployment of Kmesh in appropriate places of workflow.
 
-2. Comprehensive test cases: istio integration framework already contains a large number of test cases, which could be used directly or modified to meet the comformance of istio.
+2. Comprehensive test cases: istio integration framework already contains a large number of test cases, which could be used directly or modified to meet the conformance of istio.
 
 Cons:
 
@@ -89,7 +89,7 @@ We can run E2E test by calling script `./test/e2e/run_test.sh`. The complete E2E
 3. Deploy k8s cluster, istio and Kmesh
 4. Deploy test applications and actually run the E2E test cases
 
-For Github CI environment, all the above steps shoud be executed in full. But when test locally, we often want to skip some of these steps. We provide the following flags to skip some steps of the test:
+For Github CI environment, all the above steps should be executed in full. But when test locally, we often want to skip some of these steps. We provide the following flags to skip some steps of the test:
 
 - `--skip-install-dep`:      skip installing dependencies
 - `--skip-build`:            skip deploying the local image registry and building Kmesh image

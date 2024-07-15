@@ -427,7 +427,7 @@ func parseStringMatch(configHeader *config_route_v3.HeaderMatcher, apiHeader *ro
 			PrefixMatch: configHeader.GetStringMatch().GetPrefix(),
 		}
 	default:
-		log.Infof("unsupport, type is %T", configHeader.GetStringMatch().GetMatchPattern())
+		log.Infof("unsupported, type is %T", configHeader.GetStringMatch().GetMatchPattern())
 	}
 }
 

@@ -130,9 +130,9 @@ What is out of scope for this KEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Donot capture application dns resolution requests.
+- Do not capture application dns resolution requests.
 
-- Donot provide node local dns service for application, at least this is not the goal of this proposal. 
+- Do not provide node local dns service for application, at least this is not the goal of this proposal. 
 
 - Since istiod doesnot support workload dns resolution, Kmesh does not support it in workload mode either.
 

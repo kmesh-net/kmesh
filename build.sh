@@ -1,7 +1,7 @@
 #!/bin/bash
 ROOT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
 
-# adjust the range of BPF code compillation based on the kernel is enhanced
+# adjust the range of BPF code compilation based on the kernel is enhanced
 function bpf_compile_range_adjust() {
     if [ "$ENHANCED_KERNEL" == "enhanced" ]; then
             sed -i '/ads\/tracepoint\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go

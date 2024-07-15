@@ -31,7 +31,7 @@ type cniConfig struct {
 func (c *cniConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.CniMountNetEtcDIR, "cni-etc-path", "/etc/cni/net.d", "cni etc path")
 	cmd.PersistentFlags().StringVar(&c.CniConfigName, "conflist-name", "", "cni conflist name")
-	cmd.PersistentFlags().BoolVar(&c.CniConfigChained, "plugin-cni-chained", true, "kmesh cni plugins chained to anthor cni")
+	cmd.PersistentFlags().BoolVar(&c.CniConfigChained, "plugin-cni-chained", true, "kmesh cni plugins chained to another cni")
 }
 
 func (c *cniConfig) ParseConfig() error {

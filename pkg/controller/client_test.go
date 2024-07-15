@@ -90,7 +90,7 @@ func TestClientResponseProcess(t *testing.T) {
 				// more than 2 link failures will result in a long test time
 				if iteration < 2 {
 					iteration++
-					return errors.New("cant connect to client")
+					return errors.New("can't connect to client")
 				} else {
 					return nil
 				}
@@ -137,7 +137,7 @@ func TestClientResponseProcess(t *testing.T) {
 				// more than 2 link failures will result in a long test time
 				if iteration < 2 {
 					iteration++
-					return errors.New("cant connect to client")
+					return errors.New("can't connect to client")
 				} else {
 					return nil
 				}

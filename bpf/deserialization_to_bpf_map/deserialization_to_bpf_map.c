@@ -569,7 +569,7 @@ int deserial_update_elem(void *key, void *value)
 
     ret = get_map_fd_info(id, &map_fd, &info);
     if (ret < 0) {
-        LOG_ERR("invlid MAP_ID: %d, errno:%d\n", id, errno);
+        LOG_ERR("invalid MAP_ID: %d, errno:%d\n", id, errno);
         return ret;
     }
 
@@ -846,7 +846,7 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
 
     ret = get_map_fd_info(id, &map_fd, &info);
     if (ret < 0) {
-        LOG_ERR("invlid MAP_ID: %d\n", id);
+        LOG_ERR("invalid MAP_ID: %d\n", id);
         return NULL;
     }
 
@@ -933,7 +933,7 @@ static int repeat_field_del(struct op_context *ctx, const ProtobufCFieldDescript
 
     ret = bpf_map_lookup_elem(ctx->curr_fd, ctx->key, ctx->value);
     if (ret < 0) {
-        LOG_WARN("faild to find map(%d) elem: %d.", ctx->curr_fd, ret);
+        LOG_WARN("failed to find map(%d) elem: %d.", ctx->curr_fd, ret);
         return ret;
     }
 
@@ -1101,7 +1101,7 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 
     ret = get_map_fd_info(id, &map_fd, &info);
     if (ret < 0) {
-        LOG_ERR("invlid MAP_ID: %d\n", id);
+        LOG_ERR("invalid MAP_ID: %d\n", id);
         return ret;
     }
 

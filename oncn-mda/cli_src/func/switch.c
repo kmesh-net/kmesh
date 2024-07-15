@@ -411,7 +411,7 @@ err:
 static int enable_service(struct mesh_service_info *fds, const struct sock_param *const filter_rules)
 {
     /*
-     * start ServiceMesh acclerating
+     * start ServiceMesh accelerating
      * param: fds:ServiceMesh's map collection
      *	  filter_rules:
      * return: SUCCESS
@@ -459,7 +459,7 @@ static int clean_proxy_map(const struct mesh_service_info *const fds)
 {
     /*
      * Clear the remaining data in the Sock proxy map to preventing data residue
-     * param: serviceMesh’s map prog infomation
+     * param: serviceMesh’s map prog information
      * return: SUCCESS
      *		FAILED
      */

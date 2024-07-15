@@ -57,7 +57,7 @@ func unpinPrograms(value *reflect.Value) error {
 	return nil
 }
 
-// Due to the golint issuse, comment unused functions temporaryly
+// Due to the golint issue, comment unused functions temporaryly
 
 // func pinMaps(value *reflect.Value, path string) error {
 // 	for i := 0; i < value.NumField(); i++ {
@@ -103,7 +103,7 @@ func setMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
 	}
 }
 
-// Due to the golint issuse, comment unused functions temporaryly
+// Due to the golint issue, comment unused functions temporaryly
 
 // func setProgBpfType(spec *ebpf.CollectionSpec, typ ebpf.ProgramType, atyp ebpf.AttachType) {
 // 	for _, v := range spec.Programs {

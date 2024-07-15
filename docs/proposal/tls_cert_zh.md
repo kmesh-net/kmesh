@@ -10,7 +10,7 @@ Kmesh需要为纳管workload提供TLS能力，需要能够便捷的申请与管�
 
 #### 目标
 
-1. 为纳管workload所在的sa(service accont)申请证书
+1. 为纳管workload所在的sa(service account)申请证书
 2. 证书有效期到期自动刷新
 
 #### 非目标
@@ -22,7 +22,7 @@ Kmesh需要为纳管workload提供TLS能力，需要能够便捷的申请与管�
 
 实现一个证书申请模块和证书管理模块，其中
 
-证书申请模块：与istod建立一个加密grpc连接，为纳管workload所在的sa(service accont)构造出CSR请求和对应的私钥，并使用CSR请求与istiod进行交互，由istiod进行签名后返回证书
+证书申请模块：与istod建立一个加密grpc连接，为纳管workload所在的sa(service account)构造出CSR请求和对应的私钥，并使用CSR请求与istiod进行交互，由istiod进行签名后返回证书
 
 证书管理模块：
 

@@ -17,7 +17,7 @@ Flags:
       --enable-mda             enable mda
   -h, --help                   help for kmesh-daemon
       --mode string            controller plane mode, valid values are [ads, workload] (default "ads")
-      --plugin-cni-chained     kmesh cni plugins chained to anthor cni (default true)
+      --plugin-cni-chained     kmesh cni plugins chained to another cni (default true)
 
 # example
 ./kmesh-daemon --mode=ads

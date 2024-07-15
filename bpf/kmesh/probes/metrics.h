@@ -107,7 +107,7 @@ metric_on_close(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_
         goto notify;
     }
 
-    // connect successed & closed
+    // connect succeeded & closed
     metric->conn_close++;
     metric->sent_bytes += tcp_sock->delivered;
     metric->received_bytes += tcp_sock->bytes_received;

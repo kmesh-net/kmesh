@@ -29,7 +29,7 @@ enum state {
     ST_SPACE_BEFORE_URI,
     ST_URI,
     ST_SPACE_BEFORE_VERSION,
-    // respose
+    // response
     ST_SPACE_BEFORE_STATUS_CODE,
     ST_STATUS_CODE,
     ST_SPACE_BEFORE_REASON,

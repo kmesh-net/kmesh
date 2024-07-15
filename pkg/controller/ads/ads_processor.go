@@ -115,7 +115,7 @@ func (p *processor) processAdsResponse(resp *service_discovery_v3.DiscoveryRespo
 	case resource_v3.RouteType:
 		err = p.handleRdsResponse(resp)
 	default:
-		err = fmt.Errorf("unsupport type url %s", resp.GetTypeUrl())
+		err = fmt.Errorf("unsupported type url %s", resp.GetTypeUrl())
 	}
 
 	if err != nil {
@@ -181,8 +181,8 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 
 	// Flush the clusters in these cases:
 	// 1. clusters need to be deleted
-	// 2. dns typed clusters update, we donot need to wait for eds update, because dns cluster has no eds following
-	// Note eds typed cluster, we donot flush to bpf map here, we need to wait for eds update.
+	// 2. dns typed clusters update, we do not need to wait for eds update, because dns cluster has no eds following
+	// Note eds typed cluster, we do not flush to bpf map here, we need to wait for eds update.
 	p.Cache.ClusterCache.Flush()
 
 	if p.lastNonce.edsNonce == "" {
