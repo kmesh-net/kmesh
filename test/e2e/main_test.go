@@ -17,6 +17,10 @@
  * limitations under the License.
  */
 
+// NOTE: THE CODE IN THIS FILE IS MAINLY REFERENCED FROM ISTIO INTEGRATION
+// FRAMEWORK(https://github.com/istio/istio/tree/master/tests/integration)
+// AND ADAPTED FOR KMESH.
+
 package kmesh
 
 import (

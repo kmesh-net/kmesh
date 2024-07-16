@@ -17,6 +17,10 @@
  * limitations under the License.
  */
 
+// NOTE: THE CODE IN THIS FILE IS MAINLY REFERENCED FROM ISTIO INTEGRATION
+// FRAMEWORK(https://github.com/istio/istio/tree/master/tests/integration)
+// AND ADAPTED FOR KMESH.
+
 package kmesh
 
 import (
@@ -73,7 +77,7 @@ spec:
   - match:
     - headers:
         user:
-          exact: istio-custom-user
+          exact: kmesh-custom-user
     route:
     - destination:
         host: "{{.Destination}}"
@@ -123,7 +127,7 @@ spec:
 			if opt.HTTP.Headers == nil {
 				opt.HTTP.Headers = map[string][]string{}
 			}
-			opt.HTTP.Headers.Set("user", "istio-custom-user")
+			opt.HTTP.Headers.Set("user", "kmesh-custom-user")
 			opt.Check = check.And(
 				check.OK(),
 				func(result echo.CallResult, _ error) error {
@@ -134,7 +138,7 @@ spec:
 					}
 					return nil
 				})
-			opt.HTTP.Headers.Set("user", "istio-custom-user")
+			opt.HTTP.Headers.Set("user", "kmesh-custom-user")
 			src.CallOrFail(t, opt)
 		})
 	})
@@ -212,17 +216,17 @@ spec:
   - headers:
       request:
         add:
-          istio-custom-header: user-defined-value
+          kmesh-custom-header: user-defined-value
     route:
     - destination:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
 				opt.Check = check.And(
 					check.OK(),
-					check.RequestHeader("Istio-Custom-Header", "user-defined-value"))
+					check.RequestHeader("Kmesh-Custom-Header", "user-defined-value"))
 				src.CallOrFail(t, opt)
 			})
-			t.NewSubTest("subset").Run(func(t framework.TestContext) {
+			t.NewSubTest("route to a specific subnet").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
 				}, `apiVersion: networking.istio.io/v1alpha3
