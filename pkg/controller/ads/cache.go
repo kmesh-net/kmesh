@@ -37,6 +37,7 @@ import (
 	route_v2 "kmesh.net/kmesh/api/v2/route"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 type AdsCache struct {
@@ -47,20 +48,25 @@ type AdsCache struct {
 	ListenerCache cache_v2.ListenerCache
 	ClusterCache  cache_v2.ClusterCache
 	RouteCache    cache_v2.RouteConfigCache
+	hashName      *utils.HashName
 }
 
 func NewAdsCache() *AdsCache {
+	hashName := utils.NewHashName()
 	return &AdsCache{
 		ListenerCache: cache_v2.NewListenerCache(),
-		ClusterCache:  cache_v2.NewClusterCache(),
+		ClusterCache:  cache_v2.NewClusterCache(hashName),
 		RouteCache:    cache_v2.NewRouteConfigCache(),
+		hashName:      hashName,
 	}
 }
 
 func (load *AdsCache) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) {
+	clusterName := cluster.GetName()
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus:       status,
-		Name:            cluster.GetName(),
+		Name:            clusterName,
+		Id:              load.hashName.StrToNum(clusterName),
 		ConnectTimeout:  uint32(cluster.GetConnectTimeout().GetSeconds()),
 		LbPolicy:        cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
 		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),
@@ -69,14 +75,16 @@ func (load *AdsCache) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *c
 	if cluster.GetType() != config_cluster_v3.Cluster_EDS {
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
-	load.ClusterCache.SetApiCluster(cluster.GetName(), apiCluster)
+	load.ClusterCache.SetApiCluster(clusterName, apiCluster)
 }
 
 // UpdateApiClusterIfExists only update api cluster if it exists
 func (load *AdsCache) UpdateApiClusterIfExists(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) bool {
+	clusterName := cluster.GetName()
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus:       status,
-		Name:            cluster.GetName(),
+		Name:            clusterName,
+		Id:              load.hashName.StrToNum(clusterName),
 		ConnectTimeout:  uint32(cluster.GetConnectTimeout().GetSeconds()),
 		LbPolicy:        cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
 		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),
@@ -84,7 +92,7 @@ func (load *AdsCache) UpdateApiClusterIfExists(status core_v2.ApiStatus, cluster
 	if cluster.GetType() != config_cluster_v3.Cluster_EDS {
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
-	return load.ClusterCache.UpdateApiClusterIfExists(cluster.GetName(), apiCluster)
+	return load.ClusterCache.UpdateApiClusterIfExists(clusterName, apiCluster)
 }
 
 func (load *AdsCache) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
