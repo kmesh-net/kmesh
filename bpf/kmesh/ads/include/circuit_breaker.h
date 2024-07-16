@@ -16,7 +16,7 @@ struct cluster_stats {
 
 struct cluster_stats_key {
     __u64 netns_cookie;
-    __u64 cluster_id;
+    __u32 cluster_id;
 };
 
 struct {
@@ -28,7 +28,7 @@ struct {
 } map_of_cluster_stats SEC(".maps");
 
 struct cluster_sock_data {
-    __u64 cluster_id;
+    __u32 cluster_id;
 };
 
 struct {
@@ -51,7 +51,7 @@ static inline void update_cluster_active_connections(const struct cluster_stats_
         BPF_LOG(
             DEBUG,
             KMESH,
-            "create new stats(netns_cookie = %lld, cluster_id = %lld)",
+            "create new stats(netns_cookie = %lld, cluster_id = %ld)",
             key->netns_cookie,
             key->cluster_id);
         kmesh_map_update_elem(&map_of_cluster_stats, key, &new_stats);
@@ -61,15 +61,15 @@ static inline void update_cluster_active_connections(const struct cluster_stats_
         BPF_LOG(
             DEBUG,
             KMESH,
-            "update existing stats(netns_cookie = %lld, cluster_id = %lld)",
+            "update existing stats(netns_cookie = %lld, cluster_id = %ld)",
             key->netns_cookie,
             key->cluster_id);
     }
 }
 
-static inline void on_cluster_sock_bind(struct bpf_sock *sk, const char *cluster_name)
+static inline void on_cluster_sock_bind(struct bpf_sock *sk, __u32 cluster_id)
 {
-    BPF_LOG(DEBUG, KMESH, "record sock bind for cluster %s\n", cluster_name);
+    BPF_LOG(DEBUG, KMESH, "record sock bind for cluster id = %ld\n", cluster_id);
     struct cluster_sock_data *data = NULL;
     if (!sk) {
         BPF_LOG(WARN, KMESH, "provided sock is NULL\n");
@@ -78,14 +78,10 @@ static inline void on_cluster_sock_bind(struct bpf_sock *sk, const char *cluster
 
     data = bpf_sk_storage_get(&map_of_cluster_sock, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!data) {
-        BPF_LOG(ERR, KMESH, "record_cluster_sock call bpf_sk_storage_get failed\n");
+        BPF_LOG(ERR, KMESH, "on_cluster_sock_bind call bpf_sk_storage_get failed\n");
         return;
     }
-
-    // bpf_strncpy(data->cluster_name, CLUSTER_NAME_MAX_LEN, (char *)cluster_name);
-    // TODO(lzh): how to map cluster to id?
-    data->cluster_id = 1;
-    BPF_LOG(DEBUG, KMESH, "record sock bind for cluster %s done\n", cluster_name);
+    data->cluster_id = cluster_id;
 }
 
 static inline struct cluster_sock_data *get_cluster_sk_data(struct bpf_sock *sk)
@@ -110,18 +106,17 @@ static inline void on_cluster_sock_connect(struct bpf_sock_ops *ctx)
         return;
     }
     __u64 cookie = bpf_get_netns_cookie(ctx);
-    BPF_LOG(INFO, KMESH, "here we got netns cookie: %lld", cookie);
     struct cluster_stats_key key = {0};
     key.netns_cookie = cookie;
     key.cluster_id = data->cluster_id;
     BPF_LOG(
         DEBUG,
         KMESH,
-        "increase cluster active connections(netns_cookie = %lld, cluster = %lld)",
+        "increase cluster active connections(netns_cookie = %lld, cluster id = %ld)",
         key.netns_cookie,
         key.cluster_id);
     update_cluster_active_connections(&key, 1);
-    BPF_LOG(DEBUG, KMESH, "record sock connection for cluster %lld\n", data->cluster_id);
+    BPF_LOG(DEBUG, KMESH, "record sock connection for cluster id = %ld\n", data->cluster_id);
 }
 
 static inline void on_cluster_sock_close(struct bpf_sock_ops *ctx)
@@ -134,7 +129,6 @@ static inline void on_cluster_sock_close(struct bpf_sock_ops *ctx)
         return;
     }
     __u64 cookie = bpf_get_netns_cookie(ctx);
-    BPF_LOG(INFO, KMESH, "here we got netns cookie: %lld", cookie);
     struct cluster_stats_key key = {0};
     key.netns_cookie = cookie;
     key.cluster_id = data->cluster_id;
@@ -142,10 +136,10 @@ static inline void on_cluster_sock_close(struct bpf_sock_ops *ctx)
     BPF_LOG(
         DEBUG,
         KMESH,
-        "decrease cluster active connections(netns_cookie = %lld, cluster = %lld)",
+        "decrease cluster active connections(netns_cookie = %lld, cluster id = %ld)",
         key.netns_cookie,
         key.cluster_id);
-    BPF_LOG(DEBUG, KMESH, "record sock close for cluster %lld", data->cluster_id);
+    BPF_LOG(DEBUG, KMESH, "record sock close for cluster id = %ld", data->cluster_id);
 }
 
 #endif

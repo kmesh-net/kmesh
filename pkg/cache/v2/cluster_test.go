@@ -33,6 +33,7 @@ import (
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
@@ -57,7 +58,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache()
+		cache := NewClusterCache(utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UPDATE,
 			Name:           "ut-cluster1",
@@ -100,7 +101,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache()
+		cache := NewClusterCache(utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UPDATE,
 			Name:           "ut-cluster1",
@@ -154,7 +155,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache()
+		cache := NewClusterCache(utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UNCHANGED,
 			Name:           "ut-cluster1",
@@ -335,7 +336,7 @@ func BenchmarkClusterFlush(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cache := NewClusterCache()
+		cache := NewClusterCache(utils.NewHashName())
 		cluster.Name = rand.String(6)
 		cluster.ApiStatus = core_v2.ApiStatus_UPDATE
 		cache.SetApiCluster(cluster.Name, &cluster)

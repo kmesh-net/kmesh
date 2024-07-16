@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package workload
+package utils
 
 import (
 	"hash/fnv"

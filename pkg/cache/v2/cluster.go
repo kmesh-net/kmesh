@@ -27,6 +27,7 @@ import (
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 type ClusterCache struct {
@@ -34,12 +35,14 @@ type ClusterCache struct {
 	apiClusterCache apiClusterCache
 	// resourceHash[0]:cds  resourceHash[1]:eds
 	resourceHash map[string][2]uint64
+	hashName     *utils.HashName
 }
 
-func NewClusterCache() ClusterCache {
+func NewClusterCache(hashName *utils.HashName) ClusterCache {
 	return ClusterCache{
 		apiClusterCache: newApiClusterCache(),
 		resourceHash:    make(map[string][2]uint64),
+		hashName:        hashName,
 	}
 }
 
@@ -140,6 +143,7 @@ func (cache *ClusterCache) Flush() {
 			if err == nil {
 				delete(cache.apiClusterCache, name)
 				delete(cache.resourceHash, name)
+				cache.hashName.Delete(name)
 			} else {
 				log.Errorf("cluster %s delete failed: %v", name, err)
 			}
@@ -157,6 +161,7 @@ func (cache *ClusterCache) Delete() {
 			if err == nil {
 				delete(cache.apiClusterCache, name)
 				delete(cache.resourceHash, name)
+				cache.hashName.Delete(name)
 			} else {
 				log.Errorf("cluster %s delete failed: %v", name, err)
 			}

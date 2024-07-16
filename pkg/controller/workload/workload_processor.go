@@ -41,6 +41,7 @@ import (
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 const (
@@ -52,11 +53,13 @@ type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
 	req *service_discovery_v3.DeltaDiscoveryRequest
 
-	hashName      *HashName
-	bpf           *bpf.Cache
-	nodeName      string
-	WorkloadCache cache.WorkloadCache
-	ServiceCache  cache.ServiceCache
+	hashName *utils.HashName
+	// workloads indexer, svc key -> workload id
+	endpointsByService map[string]map[string]struct{}
+	bpf                *bpf.Cache
+	nodeName           string
+	WorkloadCache      cache.WorkloadCache
+	ServiceCache       cache.ServiceCache
 
 	once      sync.Once
 	authzOnce sync.Once
@@ -64,7 +67,7 @@ type Processor struct {
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	return &Processor{
-		hashName:      NewHashName(),
+		hashName:      utils.NewHashName(),
 		bpf:           bpf.NewCache(workloadMap),
 		nodeName:      os.Getenv("NODE_NAME"),
 		WorkloadCache: cache.NewWorkloadCache(),

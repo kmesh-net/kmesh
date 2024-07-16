@@ -331,7 +331,7 @@ int cluster_manager(ctx_buff_t *ctx)
     if (cluster == NULL)
         return KMESH_TAIL_CALL_RET(ENOENT);
 
-    on_cluster_sock_bind(ctx->sk, (const char *)ctx_val->data);
+    on_cluster_sock_bind(ctx->sk, cluster->id);
     ret = cluster_handle_loadbalance(cluster, &addr, ctx);
     return KMESH_TAIL_CALL_RET(ret);
 }
