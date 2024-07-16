@@ -35,6 +35,7 @@ import (
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/daemon/options"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
+	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
@@ -307,7 +308,7 @@ func TestHandleEdsResponse(t *testing.T) {
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
 		p := newProcessor()
 		adsLoader := NewAdsCache()
-		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		adsLoader.ClusterCache = cache_v2.NewClusterCache(utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
 			ApiStatus: core_v2.ApiStatus_UPDATE,
@@ -340,7 +341,7 @@ func TestHandleEdsResponse(t *testing.T) {
 	t.Run("cluster's apiStatus is Waiting", func(t *testing.T) {
 		p := newProcessor()
 		adsLoader := NewAdsCache()
-		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		adsLoader.ClusterCache = cache_v2.NewClusterCache(utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
 			ApiStatus: core_v2.ApiStatus_WAITING,
@@ -367,7 +368,7 @@ func TestHandleEdsResponse(t *testing.T) {
 
 	t.Run("not apiStatus_UPDATE", func(t *testing.T) {
 		adsLoader := NewAdsCache()
-		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		adsLoader.ClusterCache = cache_v2.NewClusterCache(utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
 			ApiStatus: core_v2.ApiStatus_ALL,
@@ -396,7 +397,7 @@ func TestHandleEdsResponse(t *testing.T) {
 
 	t.Run("already have cluster, not update", func(t *testing.T) {
 		adsLoader := NewAdsCache()
-		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		adsLoader.ClusterCache = cache_v2.NewClusterCache(utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
 			ApiStatus: core_v2.ApiStatus_WAITING,
@@ -427,7 +428,7 @@ func TestHandleEdsResponse(t *testing.T) {
 
 	t.Run("no apicluster, p.ack not be changed", func(t *testing.T) {
 		adsLoader := NewAdsCache()
-		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		adsLoader.ClusterCache = cache_v2.NewClusterCache(utils.NewHashName())
 		cluster := &cluster_v2.Cluster{}
 		adsLoader.ClusterCache.SetApiCluster("", cluster)
 		p := newProcessor()
@@ -452,7 +453,7 @@ func TestHandleEdsResponse(t *testing.T) {
 
 	t.Run("empty loadAssignment", func(t *testing.T) {
 		adsLoader := NewAdsCache()
-		adsLoader.ClusterCache = cache_v2.NewClusterCache()
+		adsLoader.ClusterCache = cache_v2.NewClusterCache(utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
 			ApiStatus: core_v2.ApiStatus_WAITING,
