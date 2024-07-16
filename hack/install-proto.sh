@@ -1,17 +1,17 @@
 #!/bin/bash
 
-function install_tool () {
+function install_tool() {
     tool=${1}
-    if command -v apt > /dev/null; then
+    if command -v apt >/dev/null; then
         sudo apt-get update
-	    sudo apt-get install -y $tool
-    elif command -v yum > /dev/null; then
-	    # yum install
-	    sudo yum install -y $tool
+        sudo apt-get install -y $tool
+    elif command -v yum >/dev/null; then
+        # yum install
+        sudo yum install -y $tool
     fi
 }
 
-function install_protoc () {
+function install_protoc() {
     desired_version="3.17.3"
     # Check if protoc is installed
     if command -v protoc >/dev/null 2>&1; then
@@ -40,26 +40,25 @@ function install_protoc () {
 
     tools=()
 
-    if command -v protoc > /dev/null; then
+    if command -v protoc >/dev/null; then
         echo "protoc already installed"
     else
         tools+=(protobuf-compiler)
     fi
 
-    if command -v protoc-c > /dev/null; then
+    if command -v protoc-c >/dev/null; then
         echo "protoc-c already installed"
     else
         tools+=(protobuf-c-compiler)
     fi
 
     if [ ${#tools[@]} -gt 0 ]; then
-        for element in "${tools[@]}"
-        do
+        for element in "${tools[@]}"; do
             install_tool $element
         done
     fi
 
-    if command -v protoc-gen-go > /dev/null; then
+    if command -v protoc-gen-go >/dev/null; then
         echo "protoc-gen-go already installed"
     else
         go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
