@@ -3,6 +3,7 @@
 function install_tool () {
     tool=${1}
     if command -v apt > /dev/null; then
+        sudo apt-get update
 	    sudo apt-get install -y $tool
     elif command -v yum > /dev/null; then
 	    # yum install
@@ -52,13 +53,11 @@ function install_protoc () {
     fi
 
     if [ ${#tools[@]} -gt 0 ]; then
-        sudo apt-get update
         for element in "${tools[@]}"
         do
             install_tool $element
         done
     fi
-
 
     if command -v protoc-gen-go > /dev/null; then
         echo "protoc-gen-go already installed"
