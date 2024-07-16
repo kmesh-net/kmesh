@@ -48,16 +48,13 @@ type AdsCache struct {
 	ListenerCache cache_v2.ListenerCache
 	ClusterCache  cache_v2.ClusterCache
 	RouteCache    cache_v2.RouteConfigCache
-	hashName      *utils.HashName
 }
 
 func NewAdsCache() *AdsCache {
-	hashName := utils.NewHashName()
 	return &AdsCache{
 		ListenerCache: cache_v2.NewListenerCache(),
-		ClusterCache:  cache_v2.NewClusterCache(hashName),
+		ClusterCache:  cache_v2.NewClusterCache(utils.NewHashName()),
 		RouteCache:    cache_v2.NewRouteConfigCache(),
-		hashName:      hashName,
 	}
 }
 
@@ -66,7 +63,6 @@ func (load *AdsCache) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *c
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus:       status,
 		Name:            clusterName,
-		Id:              load.hashName.StrToNum(clusterName),
 		ConnectTimeout:  uint32(cluster.GetConnectTimeout().GetSeconds()),
 		LbPolicy:        cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
 		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),
@@ -84,7 +80,6 @@ func (load *AdsCache) UpdateApiClusterIfExists(status core_v2.ApiStatus, cluster
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus:       status,
 		Name:            clusterName,
-		Id:              load.hashName.StrToNum(clusterName),
 		ConnectTimeout:  uint32(cluster.GetConnectTimeout().GetSeconds()),
 		LbPolicy:        cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
 		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),

@@ -135,6 +135,7 @@ func (cache *ClusterCache) Flush() {
 			if err == nil {
 				// reset api status after successfully updated
 				cluster.ApiStatus = core_v2.ApiStatus_NONE
+				cluster.Id = cache.hashName.StrToNum(name)
 			} else {
 				log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 			}
