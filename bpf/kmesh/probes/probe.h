@@ -63,7 +63,7 @@ static inline void observe_on_close(struct bpf_sock *sk)
         return;
     }
 
-    report_access_log(sk, tcp_sock, storage);
+    // report_access_log(sk, tcp_sock, storage);
     metric_on_close(sk, tcp_sock, storage);
 }
 #endif
