@@ -25,19 +25,46 @@ package kmesh
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
 
+	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/util/sets"
 )
 
+func IsL7() echo.Checker {
+	return check.Each(func(r echot.Response) error {
+		// TODO: response headers?
+		_, f := r.RequestHeaders[http.CanonicalHeaderKey("X-Request-Id")]
+		if !f {
+			return fmt.Errorf("X-Request-Id not set, is L7 processing enabled?")
+		}
+		return nil
+	})
+}
+
+func IsL4() echo.Checker {
+	return check.Each(func(r echot.Response) error {
+		// TODO: response headers?
+		_, f := r.RequestHeaders[http.CanonicalHeaderKey("X-Request-Id")]
+		if f {
+			return fmt.Errorf("X-Request-Id set, is L7 processing enabled unexpectedly?")
+		}
+		return nil
+	})
+}
+
 var (
-	callOptions = []echo.CallOptions{
+	httpValidator = check.And(check.OK(), IsL7())
+	tcpValidator  = check.And(check.OK(), IsL4())
+	callOptions   = []echo.CallOptions{
 		{
 			Port:   echo.Port{Name: "http"},
 			Scheme: scheme.HTTP,
@@ -50,6 +77,82 @@ var (
 		},
 	}
 )
+
+func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
+	s := src.Config().HasSidecar()
+	d := dst.Config().HasSidecar() || dst.Config().HasAnyWaypointProxy()
+	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
+	return (s || d) && isL7Scheme
+}
+
+func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checker {
+	// Check that each response saw one of the workload IPs for the src echo instance
+	addresses := sets.New(src.WorkloadsOrFail(t).Addresses()...)
+	return check.Each(func(response echot.Response) error {
+		if !addresses.Contains(response.IP) {
+			return fmt.Errorf("expected original source (%v) to be propogated, but got %v", addresses.UnsortedList(), response.IP)
+		}
+		return nil
+	})
+}
+
+// Test access to service, enabling L7 processing and propagating original src when  appropriate.
+func TestServices(t *testing.T) {
+	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		if supportsL7(opt, src, dst) {
+			opt.Check = httpValidator
+		} else {
+			opt.Check = tcpValidator
+		}
+
+		if !dst.Config().HasServiceAddressedWaypointProxy() {
+			// Check original source, unless there is a waypoint in the path. For waypoint, we don't (yet?) propagate original src.
+			opt.Check = check.And(opt.Check, OriginalSourceCheck(t, src))
+		}
+
+		src.CallOrFail(t, opt)
+	})
+}
+
+// Test access directly using pod IP.
+func TestPodIP(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		for _, src := range apps.All {
+			for _, srcWl := range src.WorkloadsOrFail(t) {
+				srcWl := srcWl
+				t.NewSubTestf("from %v %v", src.Config().Service, srcWl.Address()).Run(func(t framework.TestContext) {
+					for _, dst := range apps.All {
+						for _, dstWl := range dst.WorkloadsOrFail(t) {
+							t.NewSubTestf("to %v %v", dst.Config().Service, dstWl.Address()).Run(func(t framework.TestContext) {
+								src, dst, srcWl, dstWl := src, dst, srcWl, dstWl
+								if src.Config().HasSidecar() {
+									t.Skip("not supported yet")
+								}
+								for _, opt := range callOptions {
+									opt := opt.DeepCopy()
+									opt.Check = tcpValidator
+
+									opt.Address = dstWl.Address()
+									opt.Check = check.And(opt.Check, check.Hostname(dstWl.PodName()))
+
+									opt.Port = echo.Port{ServicePort: ports.All().MustForName(opt.Port.Name).WorkloadPort}
+									opt.ToWorkload = dst.WithWorkloads(dstWl)
+
+									t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
+										src.WithWorkloads(srcWl).CallOrFail(t, opt)
+									})
+								}
+							})
+						}
+					}
+				})
+			}
+		}
+	})
+}
 
 func TestTrafficSplit(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
