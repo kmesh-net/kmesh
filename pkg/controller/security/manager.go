@@ -65,12 +65,12 @@ type SecretManager struct {
 	certRequestChan chan certRequest
 }
 
-// When inline optimization is turned on, in some test cases, 
-// the function is too small and cannot be replaced by gomonkey piling, 
+// When inline optimization is turned on, in some test cases,
+// the function is too small and cannot be replaced by gomonkey piling,
 // causing the test case to fail.
+
 //go:noinline
 func (s *SecretManager) SendCertRequest(identity string, op int) {
-	log.Printf("----------------------------")
 	s.certRequestChan <- certRequest{Identity: identity, Operation: op}
 }
 
