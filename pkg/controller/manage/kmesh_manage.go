@@ -23,9 +23,8 @@ import (
 	"strings"
 	"time"
 
-	"istio.io/istio/pkg/spiffe"
-
 	netns "github.com/containernetworking/plugins/pkg/ns"
+	"istio.io/istio/pkg/spiffe"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -55,7 +54,7 @@ var (
 )
 
 const (
-	DefaultInformerSyncPeriod = 30 * time.Second
+	DefaultInformerSyncPeriod = 2 * time.Second
 	MaxRetries                = 5
 	ActionAddAnnotation       = "add"
 	ActionDeleteAnnotation    = "delete"
@@ -138,8 +137,16 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 		DeleteFunc: func(obj interface{}) {
 			pod, ok := obj.(*corev1.Pod)
 			if !ok {
-				log.Errorf("expected *corev1.Pod but got %T", obj)
-				return
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Errorf("couldn't get object from tombstone %#v", obj)
+					return
+				}
+				pod, ok = tombstone.Obj.(*corev1.Pod)
+				if !ok {
+					log.Errorf("tombstone contained object that is not a Job %#v", obj)
+					return
+				}
 			}
 			if shouldEnroll(client, pod) {
 				log.Infof("%s/%s: Pod managed by Kmesh is being deleted", pod.GetNamespace(), pod.GetName())
