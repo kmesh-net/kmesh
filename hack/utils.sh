@@ -1,14 +1,10 @@
 #!/bin/bash
 
 function prepare() {
-    local arch
-    arch=$(get_arch)
-    docker pull "ghcr.io/kmesh-net/kmesh-build-${arch}:latest"
+    docker pull "ghcr.io/kmesh-net/kmesh-build:latest"
 }
 
 function run_docker_container() {
-    local arch
-    arch=$(get_arch)
     local container_id
     container_id=$(docker run -itd --privileged=true \
         -v /usr/src:/usr/src \
@@ -22,7 +18,7 @@ function run_docker_container() {
         -v "$(go env GOCACHE)":/root/.cache/go-build \
         -v "$(go env GOMODCACHE)":/go/pkg/mod \
         -e PKG_CONFIG_PATH=/kmesh/mk \
-        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build-${arch}:latest")
+        --name kmesh-build "ghcr.io/kmesh-net/kmesh-build:latest")
 
     echo "$container_id"
 }
@@ -44,29 +40,21 @@ function build_kmesh() {
 }
 
 function copy_to_host() {
-    local arch=""
-    if [ "$(arch)" == "x86_64" ]; then
-        arch="amd64"
-    else
-        arch="aarch64"
-    fi
+    mkdir -p "./out/ko"
 
-    mkdir -p "./out/$arch"
-    mkdir -p "./out/$arch/ko"
-
-    cp /usr/lib64/libkmesh_api_v2_c.so out/$arch
-    cp /usr/lib64/libkmesh_deserial.so out/$arch
-    cp /usr/lib64/libboundscheck.so out/$arch
-    cp oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o out/$arch
-    cp oncn-mda/etc/oncn-mda.conf out/$arch
-    cp oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o out/$arch
-    find /usr/lib64 -name 'libbpf.so*' -exec cp {} out/$arch \;
-    find /usr/lib64 -name 'libprotobuf-c.so*' -exec cp {} out/$arch \;
-    cp /usr/bin/kmesh-daemon out/$arch
-    cp /usr/bin/kmesh-cni out/$arch
-    cp /usr/bin/mdacore out/$arch
+    cp /usr/lib64/libkmesh_api_v2_c.so out/
+    cp /usr/lib64/libkmesh_deserial.so out/
+    cp /usr/lib64/libboundscheck.so out/
+    cp oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o out/
+    cp oncn-mda/etc/oncn-mda.conf out/
+    cp oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o out/
+    find /usr/lib64 -name 'libbpf.so*' -exec cp {} out/ \;
+    find /usr/lib64 -name 'libprotobuf-c.so*' -exec cp {} out/ \;
+    cp /usr/bin/kmesh-daemon out/
+    cp /usr/bin/kmesh-cni out/
+    cp /usr/bin/mdacore out/
     if [ -f "/lib/modules/kmesh/kmesh.ko" ]; then
-        cp /lib/modules/kmesh/kmesh.ko out/$arch/ko
+        cp /lib/modules/kmesh/kmesh.ko out/ko
     fi
 }
 
