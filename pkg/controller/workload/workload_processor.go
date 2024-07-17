@@ -385,14 +385,8 @@ func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error 
 		bk = bpf.BackendKey{}
 		bv = bpf.BackendValue{}
 	)
-	backend_uid := p.hashName.StrToNum(workload.GetUid())
-	// a Pod may be added to a certain service in the future, so it is necessary to delete the Pod info
-	// that was previously added as an independent Pod to the frontend map.
-	if err = p.deletePodFrontendData(backend_uid); err != nil {
-		log.Errorf("deletePodFrontendData failed, err:%s", err)
-		return err
-	}
 
+	backend_uid := p.hashName.StrToNum(workload.GetUid())
 	for serviceName := range workload.GetServices() {
 		bk.BackendUid = backend_uid
 		// for update sense, if the backend is exist, just need update it
