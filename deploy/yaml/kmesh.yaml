@@ -18,6 +18,10 @@ spec:
     metadata:
       labels:
         app: kmesh
+      annotations:
+        prometheus.io/path: "status/metric"
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
     spec:
       tolerations:
         - effect: NoSchedule

@@ -16,6 +16,10 @@ spec:
       labels:
         app: kmesh
       {{- include "kmesh.selectorLabels" . | nindent 8 }}
+      annotations:
+        prometheus.io/path: "status/metric"
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
     spec:
       containers:
       - args: ["./start_kmesh.sh {{ .Values.deploy.kmesh.containers.kmeshDaemonArgs }}"]
