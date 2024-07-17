@@ -33,6 +33,7 @@ struct {
 
 static inline void construct_metric_key(struct bpf_sock *sk, struct metric_key *key)
 {
+    bpf_memset(key, 0, sizeof(struct metric_key));
     if (sk->family == AF_INET) {
         key->src_ip.ip4 = sk->src_ip4;
         key->dst_ip.ip4 = sk->dst_ip4;
