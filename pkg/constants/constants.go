@@ -30,6 +30,7 @@ const (
 	XDP_PROG_NAME = "xdp_shutdown"
 
 	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
+	TrustDomain  = "cluster.local"
 
 	BPF_LOG_ERR   = 0
 	BPF_LOG_WARN  = 1

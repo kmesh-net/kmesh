@@ -24,6 +24,7 @@ import (
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
+	"istio.io/istio/pkg/spiffe"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8stypes "k8s.io/apimachinery/pkg/types"
@@ -34,6 +35,7 @@ import (
 
 	"kmesh.net/kmesh/pkg/constants"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
+	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/nets"
 )
@@ -52,7 +54,7 @@ var (
 )
 
 const (
-	DefaultInformerSyncPeriod = 30 * time.Second
+	DefaultInformerSyncPeriod = 2 * time.Second
 	MaxRetries                = 5
 	ActionAddAnnotation       = "add"
 	ActionDeleteAnnotation    = "delete"
@@ -63,7 +65,7 @@ type QueueItem struct {
 	action string
 }
 
-func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageController, error) {
+func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecurity.SecretManager) (*KmeshManageController, error) {
 	nodeName := os.Getenv("NODE_NAME")
 
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
@@ -81,7 +83,6 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 				log.Errorf("expected *corev1.Pod but got %T", obj)
 				return
 			}
-
 			if !shouldEnroll(client, pod) {
 				return
 			}
@@ -95,17 +96,13 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 				return
 			}
 			queue.AddRateLimited(QueueItem{pod: pod, action: ActionAddAnnotation})
+			sendCertRequest(security, pod, kmeshsecurity.ADD)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldPod, okOld := oldObj.(*corev1.Pod)
 			newPod, okNew := newObj.(*corev1.Pod)
 			if !okOld || !okNew {
 				log.Errorf("expected *corev1.Pod but got %T and %T", oldObj, newObj)
-				return
-			}
-
-			if isPodBeingDeleted(newPod) {
-				log.Debugf("%s/%s: Pod is being deleted, skipping further processing", newPod.GetNamespace(), newPod.GetName())
 				return
 			}
 
@@ -120,6 +117,7 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 					return
 				}
 				queue.AddRateLimited(QueueItem{pod: newPod, action: ActionAddAnnotation})
+				sendCertRequest(security, newPod, kmeshsecurity.ADD)
 			}
 
 			//delete Kmesh manage label for disable Kmesh control
@@ -133,6 +131,26 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 				}
 
 				queue.AddRateLimited(QueueItem{pod: newPod, action: ActionDeleteAnnotation})
+				sendCertRequest(security, oldPod, kmeshsecurity.DELETE)
+			}
+		},
+		DeleteFunc: func(obj interface{}) {
+			pod, ok := obj.(*corev1.Pod)
+			if !ok {
+				tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+				if !ok {
+					log.Errorf("couldn't get object from tombstone %#v", obj)
+					return
+				}
+				pod, ok = tombstone.Obj.(*corev1.Pod)
+				if !ok {
+					log.Errorf("tombstone contained object that is not a Job %#v", obj)
+					return
+				}
+			}
+			if shouldEnroll(client, pod) {
+				log.Infof("%s/%s: Pod managed by Kmesh is being deleted", pod.GetNamespace(), pod.GetName())
+				sendCertRequest(security, pod, kmeshsecurity.DELETE)
 			}
 		},
 	}); err != nil {
@@ -201,16 +219,9 @@ func (c *KmeshManageController) processItems() {
 	c.queue.Forget(key)
 }
 
-func isPodBeingDeleted(pod *corev1.Pod) bool {
-	return pod.ObjectMeta.DeletionTimestamp != nil
-}
-
 func shouldEnroll(client kubernetes.Interface, pod *corev1.Pod) bool {
 	// Check if the Pod's label indicates it should be managed by Kmesh
 	if strings.EqualFold(pod.Labels[constants.DataPlaneModeLabel], constants.DataPlaneModeKmesh) {
-		return true
-	}
-	if pod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" {
 		return true
 	}
 
@@ -270,4 +281,15 @@ func handleKmeshManage(ns string, op bool) error {
 		return err
 	}
 	return nil
+}
+
+func sendCertRequest(security *kmeshsecurity.SecretManager, pod *corev1.Pod, op int) {
+	if security != nil {
+		Identity := spiffe.Identity{
+			TrustDomain:    constants.TrustDomain,
+			Namespace:      pod.Namespace,
+			ServiceAccount: pod.Spec.ServiceAccountName,
+		}.String()
+		security.SendCertRequest(Identity, op)
+	}
 }

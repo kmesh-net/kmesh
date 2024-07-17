@@ -58,12 +58,21 @@ func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshW
 }
 
 func (c *Controller) Start(stopCh <-chan struct{}) error {
+	var secertManager *security.SecretManager
+	var err error
+	if c.mode == constants.WorkloadMode && c.enableSecretManager {
+		secertManager, err = security.NewSecretManager()
+		if err != nil {
+			return fmt.Errorf("secretManager create failed: %v", err)
+		}
+		go secertManager.Run(stopCh)
+	}
+
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		return err
 	}
-
-	kmeshManageController, err := manage.NewKmeshManageController(clientset)
+	kmeshManageController, err := manage.NewKmeshManageController(clientset, secertManager)
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
 	}
@@ -92,14 +101,6 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
 
 	if c.client.WorkloadController != nil {
-		if c.enableSecretManager {
-			secertManager, err := security.NewSecretManager()
-			if err != nil {
-				return fmt.Errorf("secretManager create failed: %v", err)
-			}
-			go secertManager.Run(stopCh)
-			c.client.WorkloadController.Processor.SecretManager = secertManager
-		}
 		c.client.WorkloadController.Run(ctx)
 	}
 

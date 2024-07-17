@@ -24,7 +24,6 @@ import (
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"istio.io/istio/pkg/spiffe"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
@@ -32,7 +31,6 @@ import (
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
-	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
@@ -51,7 +49,6 @@ type Processor struct {
 	// workloads indexer, svc key -> workload id
 	endpointsByService map[string]map[string]struct{}
 	bpf                *bpf.Cache
-	SecretManager      *kmeshsecurity.SecretManager
 	nodeName           string
 	WorkloadCache      cache.WorkloadCache
 	ServiceCache       cache.ServiceCache
@@ -87,29 +84,6 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 		ErrorDetail:            nil,
 		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
-}
-
-func (p *Processor) getIdentityByUid(workloadUid string) string {
-	workload := p.WorkloadCache.GetWorkloadByUid(workloadUid)
-	if workload == nil {
-		log.Errorf("workload %v not found", workloadUid)
-		return ""
-	}
-
-	return spiffe.Identity{
-		TrustDomain:    workload.TrustDomain,
-		Namespace:      workload.Namespace,
-		ServiceAccount: workload.ServiceAccount,
-	}.String()
-}
-
-func (p *Processor) isManagedWorkload(workload *workloadapi.Workload) bool {
-	// TODO: check the workload is managed by namespace and pod label
-	if workload.Node == p.nodeName {
-		return true
-	}
-
-	return true
 }
 
 func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
@@ -177,14 +151,6 @@ func (p *Processor) removeWorkloadResource(removedResources []string) error {
 	)
 
 	for _, uid := range removedResources {
-		if p.SecretManager != nil {
-			exist := p.WorkloadCache.GetWorkloadByUid(uid)
-			if exist != nil && p.isManagedWorkload(exist) {
-				Identity := p.getIdentityByUid(uid)
-				p.SecretManager.SendCertRequest(Identity, kmeshsecurity.DELETE)
-			}
-		}
-
 		p.WorkloadCache.DeleteWorkload(uid)
 		backendUid := p.hashName.StrToNum(uid)
 		// for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
@@ -451,21 +417,6 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
-	if p.SecretManager != nil && p.isManagedWorkload(workload) {
-		wl := p.WorkloadCache.GetWorkloadByUid(workload.Uid)
-		// only send cert request for a workload once
-		// because workload identity can be updated
-		if wl == nil {
-			identity := spiffe.Identity{
-				TrustDomain:    workload.TrustDomain,
-				Namespace:      workload.Namespace,
-				ServiceAccount: workload.ServiceAccount,
-			}.String()
-			// This is the case workload added first time
-			p.SecretManager.SendCertRequest(identity, kmeshsecurity.ADD)
-		}
-	}
-
 	p.WorkloadCache.AddWorkload(workload)
 
 	// if have the service name, the workload belongs to a service

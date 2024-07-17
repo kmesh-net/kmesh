@@ -19,6 +19,7 @@ package kmeshmanage
 import (
 	"context"
 	"os"
+	"reflect"
 	"sync"
 	"testing"
 
@@ -31,6 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kmesh.net/kmesh/pkg/constants"
+	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
 )
 
 func waitAndCheckManageAction(t *testing.T, wg *sync.WaitGroup, mu *sync.Mutex, enabled *bool, disabled *bool, enableExpected bool, disableExpected bool) {
@@ -49,7 +51,7 @@ func TestPodWithLabelChangeTriggersManageAction(t *testing.T) {
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	controller, err := NewKmeshManageController(client)
+	controller, err := NewKmeshManageController(client, nil)
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)
 	}
@@ -119,7 +121,7 @@ func TestPodWithoutLabelTriggersManageAction(t *testing.T) {
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	controller, err := NewKmeshManageController(client)
+	controller, err := NewKmeshManageController(client, nil)
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)
 	}
@@ -176,4 +178,54 @@ func TestPodWithoutLabelTriggersManageAction(t *testing.T) {
 	assert.NoError(t, err)
 
 	waitAndCheckManageAction(t, &wg, &mu, &enabled, &disabled, true, false)
+}
+
+func TestPodDeleteTriggersManageAction(t *testing.T) {
+	isSend := false
+	// Create a WaitGroup to synchronize the test
+	var wg sync.WaitGroup
+	client := fake.NewSimpleClientset()
+
+	err := os.Setenv("NODE_NAME", "test_node")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+
+	SecretManager := &kmeshsecurity.SecretManager{}
+	patches1 := gomonkey.NewPatches()
+	patches1.ApplyMethod(reflect.TypeOf(SecretManager), "SendCertRequest", func(_ *kmeshsecurity.SecretManager, identity string, op int) {
+		isSend = true
+		wg.Done()
+	})
+	defer patches1.Reset()
+
+	controller, err := NewKmeshManageController(client, SecretManager)
+	if err != nil {
+		t.Fatalf("error creating KmeshManageController: %v", err)
+	}
+
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+
+	controller.Run(stopChan)
+	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced)
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-pod",
+			Namespace: "default",
+			Labels:    map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+	}
+	wg.Add(1)
+	_, err = client.CoreV1().Pods("default").Create(context.TODO(), pod, metav1.CreateOptions{})
+	assert.NoError(t, err)
+	err = client.CoreV1().Pods("default").Delete(context.TODO(), pod.Name, metav1.DeleteOptions{})
+	assert.NoError(t, err)
+	wg.Wait()
+	assert.Equal(t, true, isSend, "unexpected value for enabled flag")
 }
