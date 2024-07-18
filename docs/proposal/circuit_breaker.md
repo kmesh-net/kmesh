@@ -281,7 +281,7 @@ We can monitor socket operations in eBPF "sockops" hooks. First, we judge whethe
     }
     ```
 
-+ PASSIVE/ACTIVE ESTABLISHED
++ ACTIVE ESTABLISHED
 
     Here, the tcp connection has been established. We can check whether the current socket targets a cluster. If so, we should increase cluster connection counter here.
 
