@@ -67,8 +67,6 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0) {
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
-        } else {
-            on_cluster_sock_connect(skops);
         }
         break;
     case BPF_SOCK_OPS_STATE_CB:
