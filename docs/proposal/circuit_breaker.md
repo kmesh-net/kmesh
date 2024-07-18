@@ -254,7 +254,7 @@ We can monitor socket operations in eBPF "sockops" hooks. First, we judge whethe
     We will enter sockops traffic control flow in this branch. It will trigger a series of chain calls, finally reaching `cluster_manager` (check the following image).
 
     <div align="center">
-        <img src="./pics/kmesh_ads_mode_sockops_flow.png" />
+        <img src="./pics/kmesh_ads_mode_sockops_flow.png" width="50%" />
     </div>
 
     We will get cluster information here (e.g, cluster id). We can store the cluster id in the `cluster_sock_data`. At this stage, we have bound the cluster to the socket.
