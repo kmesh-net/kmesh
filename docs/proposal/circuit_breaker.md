@@ -150,66 +150,77 @@ Here are some counters and gauges in Envoy:
 
 We can define similar bpf map for cluster resources and cluster traffic stats. We can define some bpf maps like following:
 
+We should record the status of each cluster, using the following data structure and bpf map:
+
 ```c
-struct resource {
-    __u64 curr;
-    __u64 max;
+struct cluster_stats {
+    __u32 active_connections;
 };
 
-struct cluster_resources {
-    struct resource connections;
-};
-
-struct cluster_traffic_stats {
-    __u64 upstream_cx_overflow;
+struct cluster_stats_key {
+    __u64 netns_cookie;
+    __u32 cluster_id;
 };
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(key_size, CLUSTER_NAME_MAX_LEN);
-    __uint(value_size, sizeof(struct cluster_resources));
+    __uint(key_size, sizeof(struct cluster_stats_key));
+    __uint(value_size, sizeof(struct cluster_stats));
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_CLUSTER);
-} map_of_cluster_resources SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(key_size, CLUSTER_NAME_MAX_LEN);
-    __uint(value_size, sizeof(struct cluster_traffic_stats));
-    __uint(map_flags, BPF_F_NO_PREALLOC);
-    __uint(max_entries, MAP_SIZE_OF_CLUSTER);
-} map_of_cluster_traffic_stats SEC(".maps");
+} map_of_cluster_stats SEC(".maps");
 ```
 
-We can initialize the max value of cluster resources through the given istio config (please check the first table). We can do this in user space, when calling `ClusterUpdate` or `ClusterDelete` in `ClusterCache.Flush`:
+Here, the key consists of two parts: `netns_cookie` and `cluster_id`. The former is used to identify a pod, while the latter stands for a cluster. However, the identifier of cluster is its name. If we use the name as `cluster_id`, we will easily exceed the size limit of bpf stack. So, we need to map cluster name to an integer using hash:
 
 ```c
 // Flush flushes the cluster to bpf map.
 func (cache *ClusterCache) Flush() {
-	var err error
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 	for name, cluster := range cache.apiClusterCache {
-		switch cluster.GetApiStatus() {
-		case core_v2.ApiStatus_UPDATE:
-			err = maps_v2.ClusterUpdate(name, cluster)
+		if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
+			err := maps_v2.ClusterUpdate(name, cluster)
 			if err == nil {
 				// reset api status after successfully updated
 				cluster.ApiStatus = core_v2.ApiStatus_NONE
+				cluster.Id = cache.hashName.StrToNum(name)
+			} else {
+				log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 			}
-            // TODO:Update cluster resources here
-		case core_v2.ApiStatus_DELETE:
-			err = maps_v2.ClusterDelete(name)
+		} else if cluster.GetApiStatus() == core_v2.ApiStatus_DELETE {
+			err := maps_v2.ClusterDelete(name)
 			if err == nil {
 				delete(cache.apiClusterCache, name)
 				delete(cache.resourceHash, name)
+				cache.hashName.Delete(name)
+			} else {
+				log.Errorf("cluster %s delete failed: %v", name, err)
 			}
-            // TODO:Update cluster resources here
-		}
-		if err != nil {
-			log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 		}
 	}
+}
+```
+You can see that we introduce a hashName to map string to integer.
+
+Here we also add a new field `id` to cluster:
+
+```protobuf
+message Cluster {
+  enum LbPolicy {
+    ROUND_ROBIN = 0;
+    LEAST_REQUEST = 1;
+    RANDOM = 3;
+  }
+
+  core.ApiStatus api_status = 128;
+  string name = 1;
+  uint32 id = 2;
+  uint32 connect_timeout = 4;
+  LbPolicy lb_policy = 6;
+
+  endpoint.ClusterLoadAssignment load_assignment = 33;
+  CircuitBreakers circuit_breakers = 10;
 }
 ```
 
@@ -217,7 +228,7 @@ To monitor current active tcp connections, we need to create a `BPF_MAP_TYPE_SK_
 
 ```c
 struct cluster_sock_data {
-    char cluster_name[BPF_DATA_MAX_LEN];
+    __u32 cluster_id;
 };
 
 struct {
@@ -246,7 +257,7 @@ We can monitor socket operations in eBPF "sockops" hooks. First, we judge whethe
         <img src="./pics/kmesh_ads_mode_sockops_flow.png" />
     </div>
 
-    We will get cluster information here (e.g, cluster name). We can store the cluster name (as the identifier of the cluster) in the `cluster_sock_data`. Here, we have bound the cluster to the socket.
+    We will get cluster information here (e.g, cluster id). We can store the cluster id in the `cluster_sock_data`. At this stage, we have bound the cluster to the socket.
 
     We can do so by calling this function below in `cluster_manager`:
 
@@ -277,24 +288,27 @@ We can monitor socket operations in eBPF "sockops" hooks. First, we judge whethe
     We can call the function here:
 
     ```c
-    static inline struct cluster_sock_data* get_cluster_sk_data(struct bpf_sock *sk) {
-        struct cluster_sock_data *data = NULL;
-        if (!sk) {
-            BPF_LOG(DEBUG, KMESH, "provided sock is NULL\n");
-            return NULL;
+    static inline void on_cluster_sock_connect(struct bpf_sock_ops *ctx)
+    {
+        if (!ctx) {
+            return;
         }
-
-        data = bpf_sk_storage_get(&map_of_cluster_sock, sk, 0, 0);
-        return data;
-    }
-
-    static inline void on_cluster_sock_connect(struct bpf_sock *sk) {
-        struct cluster_sock_data *data = get_cluster_sk_data(sk);
+        struct cluster_sock_data *data = get_cluster_sk_data(ctx->sk);
         if (!data) {
             return;
         }
-        BPF_LOG(DEBUG, KMESH, "record sock connection for cluster %s\n", data->cluster_name);
-        // increase cluster connection counter here.
+        __u64 cookie = bpf_get_netns_cookie(ctx);
+        struct cluster_stats_key key = {0};
+        key.netns_cookie = cookie;
+        key.cluster_id = data->cluster_id;
+        BPF_LOG(
+            DEBUG,
+            KMESH,
+            "increase cluster active connections(netns_cookie = %lld, cluster id = %ld)",
+            key.netns_cookie,
+            key.cluster_id);
+        update_cluster_active_connections(&key, 1);
+        BPF_LOG(DEBUG, KMESH, "record sock connection for cluster id = %ld\n", data->cluster_id);
     }
     ```
 
@@ -303,16 +317,47 @@ We can monitor socket operations in eBPF "sockops" hooks. First, we judge whethe
     Once the tcp connection is closed. We should decrease the counter:
 
     ```c
-    static inline void on_cluster_sock_close(struct bpf_sock *sk) {
-        struct cluster_sock_data *data = get_cluster_sk_data(sk);
+    static inline void on_cluster_sock_close(struct bpf_sock_ops *ctx)
+    {
+        if (!ctx) {
+            return;
+        }
+        struct cluster_sock_data *data = get_cluster_sk_data(ctx->sk);
         if (!data) {
             return;
         }
-        BPF_LOG(DEBUG, KMESH, "record sock close for cluster %s", data->cluster_name);
+        __u64 cookie = bpf_get_netns_cookie(ctx);
+        struct cluster_stats_key key = {0};
+        key.netns_cookie = cookie;
+        key.cluster_id = data->cluster_id;
+        update_cluster_active_connections(&key, -1);
+        BPF_LOG(
+            DEBUG,
+            KMESH,
+            "decrease cluster active connections(netns_cookie = %lld, cluster id = %ld)",
+            key.netns_cookie,
+            key.cluster_id);
+        BPF_LOG(DEBUG, KMESH, "record sock close for cluster id = %ld", data->cluster_id);
     }
     ```
 
-
+We can get the circuit breaker information from cluster data:
+```c
+static inline Cluster__CircuitBreakers *get_cluster_circuit_breakers(const char *cluster_name)
+{
+    const Cluster__Cluster *cluster = NULL;
+    cluster = map_lookup_cluster(cluster_name);
+    if (!cluster) {
+        return NULL;
+    }
+    Cluster__CircuitBreakers *cbs = NULL;
+    cbs = kmesh_get_ptr_val(cluster->circuit_breakers);
+    if (cbs != NULL)
+        BPF_LOG(DEBUG, KMESH, "get cluster's circuit breaker: max connections = %ld\n", cbs->max_connections);
+    return cbs;
+}
+```
+Then, we can get all the thresholds from `Cluster__CircuitBreakers`, and determine whether the circuit breaker should open.
 
 #### Implement the outlier detection function
 
