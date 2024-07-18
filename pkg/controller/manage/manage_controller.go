@@ -171,29 +171,27 @@ type KmeshManageController struct {
 }
 
 func (c *KmeshManageController) Run(stopChan <-chan struct{}) {
-	go func() {
-		c.informerFactory.Start(stopChan)
-		if !cache.WaitForCacheSync(stopChan, c.podInformer.HasSynced) {
-			log.Error("Timed out waiting for caches to sync")
-			return
-		}
-		for {
-			c.processItems()
-		}
-	}()
+	defer c.queue.ShutDown()
+	c.informerFactory.Start(stopChan)
+	if !cache.WaitForCacheSync(stopChan, c.podInformer.HasSynced) {
+		log.Error("Timed out waiting for caches to sync")
+		return
+	}
+	for c.processItems() {
+	}
 }
 
-func (c *KmeshManageController) processItems() {
+func (c *KmeshManageController) processItems() bool {
 	key, quit := c.queue.Get()
 	if quit {
-		return
+		return false
 	}
 	defer c.queue.Done(key)
 
 	queueItem, ok := key.(QueueItem)
 	if !ok {
 		log.Errorf("expected QueueItem but got %T", key)
-		return
+		return true
 	}
 
 	var err error
@@ -211,10 +209,11 @@ func (c *KmeshManageController) processItems() {
 			log.Errorf("failed to handle pod %s/%s action %s after %d retries, err: %v, giving up", queueItem.pod.Namespace, queueItem.pod.Name, queueItem.action, MaxRetries, err)
 			c.queue.Forget(key)
 		}
-		return
+		return true
 	}
 
 	c.queue.Forget(key)
+	return true
 }
 
 func shouldEnroll(client kubernetes.Interface, pod *corev1.Pod) bool {

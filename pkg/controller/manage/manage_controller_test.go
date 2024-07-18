@@ -60,7 +60,7 @@ func TestPodWithLabelChangeTriggersManageAction(t *testing.T) {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
-	controller.Run(stopChan)
+	go controller.Run(stopChan)
 	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced)
 
 	var mu sync.Mutex
@@ -130,7 +130,7 @@ func TestPodWithoutLabelTriggersManageAction(t *testing.T) {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
-	controller.Run(stopChan)
+	go controller.Run(stopChan)
 	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced)
 
 	var mu sync.Mutex
@@ -209,7 +209,7 @@ func TestPodDeleteTriggersManageAction(t *testing.T) {
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 
-	controller.Run(stopChan)
+	go controller.Run(stopChan)
 	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced)
 
 	pod := &corev1.Pod{
