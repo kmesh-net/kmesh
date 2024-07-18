@@ -167,10 +167,8 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		}
 	}
 
-	if len(dnsClusters) > 0 {
-		// send dns clusters to dns resolver
-		p.DnsResolverChan <- dnsClusters
-	}
+	// send dns clusters to dns resolver
+	p.DnsResolverChan <- dnsClusters
 	removed := p.Cache.ClusterCache.GetResourceNames().Difference(current)
 	for key := range removed {
 		p.Cache.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
