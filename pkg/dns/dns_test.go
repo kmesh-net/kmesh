@@ -22,18 +22,16 @@ import (
 	"math/rand"
 	"net"
 	"reflect"
+	"slices"
 	"sync"
 	"testing"
 	"time"
-
-	"slices"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/miekg/dns"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/controller/ads"
 )
@@ -323,4 +321,62 @@ func (s *fakeDNSServer) setTTL(ttl uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ttl = ttl
+}
+
+func TestGetPendingResolveDomain(t *testing.T) {
+	utCluster := []*clusterv3.Cluster{
+		{
+			Name: "testCluster",
+			LoadAssignment: &endpointv3.ClusterLoadAssignment{
+				Endpoints: []*endpointv3.LocalityLbEndpoints{
+					{
+						LbEndpoints: []*endpointv3.LbEndpoint{
+							{
+								HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+									Endpoint: &endpointv3.Endpoint{
+										Address: &v3.Address{
+											Address: &v3.Address_SocketAddress{
+												SocketAddress: &v3.SocketAddress{
+													Address: "192.168.10.244",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	type args struct {
+		clusters []*clusterv3.Cluster
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]*pendingResolveDomain
+	}{
+		{
+			name: "empty domains test",
+			args: args{
+				utCluster,
+			},
+			want: map[string]*pendingResolveDomain{
+				"192.168.10.244": &pendingResolveDomain{
+					domainName: "192.168.10.244",
+					clusters:   []*clusterv3.Cluster{utCluster[0]},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getPendingResolveDomain(tt.args.clusters); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getPendingResolveDomain() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
