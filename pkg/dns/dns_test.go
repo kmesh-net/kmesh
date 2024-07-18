@@ -32,6 +32,7 @@ import (
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/miekg/dns"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/controller/ads"
 )
@@ -365,7 +366,7 @@ func TestGetPendingResolveDomain(t *testing.T) {
 				utCluster,
 			},
 			want: map[string]*pendingResolveDomain{
-				"192.168.10.244": &pendingResolveDomain{
+				"192.168.10.244": {
 					domainName: "192.168.10.244",
 					clusters:   []*clusterv3.Cluster{utCluster[0]},
 				},
