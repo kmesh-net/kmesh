@@ -39,10 +39,8 @@ func TestPodKmeshLabelChangeTriggersByPassKmeshAction(t *testing.T) {
 		os.Unsetenv("NODE_NAME")
 	})
 	stopCh := make(chan struct{})
-	err = StartByPassController(client, stopCh)
-	if err != nil {
-		t.Fatalf("error creating ByPassController: %v", err)
-	}
+	c := NewByPassController(client)
+	go c.Run(stopCh)
 
 	var mu sync.Mutex
 	enabled := false
@@ -111,11 +109,8 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 		os.Unsetenv("NODE_NAME")
 	})
 	stopCh := make(<-chan struct{})
-	err = StartByPassController(client, stopCh)
-	if err != nil {
-		t.Fatalf("error creating ByPassController: %v", err)
-	}
-
+	c := NewByPassController(client)
+	go c.Run(stopCh)
 	var mu sync.Mutex
 	enabled := false
 	disabled := false

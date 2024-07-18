@@ -76,16 +76,12 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
 	}
-	kmeshManageController.Run(stopCh)
-
+	go kmeshManageController.Run(stopCh)
 	log.Info("start kmesh manage controller successfully")
 
 	if c.enableByPass {
-		err = bypass.StartByPassController(clientset, stopCh)
-		if err != nil {
-			return fmt.Errorf("failed to start bypass controller: %v", err)
-		}
-
+		c := bypass.NewByPassController(clientset)
+		go c.Run(stopCh)
 		log.Info("start bypass controller successfully")
 	}
 
