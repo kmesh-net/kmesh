@@ -54,7 +54,7 @@ var (
 )
 
 const (
-	DefaultInformerSyncPeriod = 2 * time.Second
+	DefaultInformerSyncPeriod = 30 * time.Second
 	MaxRetries                = 5
 	ActionAddAnnotation       = "add"
 	ActionDeleteAnnotation    = "delete"
