@@ -18,6 +18,7 @@ package bpf
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"syscall"
 
@@ -83,12 +84,17 @@ func SetStartStatus(versionMap *ebpf.Map) {
 	}
 }
 
-func cleanupMountPath() {
-	if err := syscall.Unmount("/mnt/kmesh_cgroup2", 0); err != nil {
-		log.Errorf("unmount /mnt/kmesh_cgroup2 error: %v", err)
+func CleanupBpfMap() {
+	err := syscall.Unmount("/mnt/kmesh_cgroup2", 0)
+	if err != nil {
+		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
 	}
-
-	if err := os.RemoveAll("/mnt/kmesh_cgroup2"); err != nil {
-		log.Errorf("remove /mnt/kmesh_cgroup2 error: %v", err)
+	err = syscall.Unmount("/sys/fs/bpf", 0)
+	if err != nil {
+		fmt.Println("unmount /sys/fs/bpf error: ", err)
+	}
+	err = os.RemoveAll("/mnt/kmesh_cgroup2")
+	if err != nil {
+		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
 	}
 }

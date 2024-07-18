@@ -191,7 +191,7 @@ func (l *BpfLoader) Stop() {
 			return
 		}
 	}
-	cleanupMountPath()
+	CleanupBpfMap()
 }
 
 func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
