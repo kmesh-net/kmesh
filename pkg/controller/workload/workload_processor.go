@@ -140,14 +140,62 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 	return nil
 }
 
-func (p *Processor) removeWorkloadResource(removedResources []string) error {
+func (p *Processor) deleteEndpointRecords(endpoint_keys []bpf.EndpointKey) error {
 	var (
 		err               error
 		skUpdate          = bpf.ServiceKey{}
 		svUpdate          = bpf.ServiceValue{}
 		lastEndpointKey   = bpf.EndpointKey{}
 		lastEndpointValue = bpf.EndpointValue{}
-		bkDelete          = bpf.BackendKey{}
+	)
+
+	for _, ek := range endpoint_keys {
+		log.Debugf("Find EndpointKey: [%#v]", ek)
+		// 2. find the service
+		skUpdate.ServiceId = ek.ServiceId
+		if err = p.bpf.ServiceLookup(&skUpdate, &svUpdate); err == nil {
+			log.Debugf("Find ServiceValue: [%#v]", svUpdate)
+			// 3. find the last indexed endpoint of the service
+			lastEndpointKey.ServiceId = skUpdate.ServiceId
+			lastEndpointKey.BackendIndex = svUpdate.EndpointCount
+			if err = p.bpf.EndpointLookup(&lastEndpointKey, &lastEndpointValue); err == nil {
+				log.Debugf("Find EndpointValue: [%#v]", lastEndpointValue)
+				// 4. switch the index of the last with the current removed endpoint
+				if err = p.bpf.EndpointUpdate(&ek, &lastEndpointValue); err != nil {
+					log.Errorf("EndpointUpdate failed: %s", err)
+					return err
+				}
+				if err = p.bpf.EndpointDelete(&lastEndpointKey); err != nil {
+					log.Errorf("EndpointDelete failed: %s", err)
+					return err
+				}
+				svUpdate.EndpointCount = svUpdate.EndpointCount - 1
+				if err = p.bpf.ServiceUpdate(&skUpdate, &svUpdate); err != nil {
+					log.Errorf("ServiceUpdate failed: %s", err)
+					return err
+				}
+			} else {
+				// last indexed endpoint not exists, this should not occur
+				// we should delete the endpoint just in case leak
+				if err = p.bpf.EndpointDelete(&ek); err != nil {
+					log.Errorf("EndpointDelete failed: %s", err)
+					return err
+				}
+			}
+		} else { // service not exist, we should delete the endpoint
+			if err = p.bpf.EndpointDelete(&ek); err != nil {
+				log.Errorf("EndpointDelete failed: %s", err)
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (p *Processor) removeWorkloadResource(removedResources []string) error {
+	var (
+		err      error
+		bkDelete = bpf.BackendKey{}
 	)
 
 	for _, uid := range removedResources {
@@ -161,45 +209,9 @@ func (p *Processor) removeWorkloadResource(removedResources []string) error {
 
 		// 1. find all endpoint keys related to this workload
 		if eks := p.bpf.EndpointIterFindKey(backendUid); len(eks) != 0 {
-			for _, ek := range eks {
-				log.Debugf("Find EndpointKey: [%#v]", ek)
-				// 2. find the service
-				skUpdate.ServiceId = ek.ServiceId
-				if err = p.bpf.ServiceLookup(&skUpdate, &svUpdate); err == nil {
-					log.Debugf("Find ServiceValue: [%#v]", svUpdate)
-					// 3. find the last indexed endpoint of the service
-					lastEndpointKey.ServiceId = skUpdate.ServiceId
-					lastEndpointKey.BackendIndex = svUpdate.EndpointCount
-					if err = p.bpf.EndpointLookup(&lastEndpointKey, &lastEndpointValue); err == nil {
-						log.Debugf("Find EndpointValue: [%#v]", lastEndpointValue)
-						// 4. switch the index of the last with the current removed endpoint
-						if err = p.bpf.EndpointUpdate(&ek, &lastEndpointValue); err != nil {
-							log.Errorf("EndpointUpdate failed: %s", err)
-							goto failed
-						}
-						if err = p.bpf.EndpointDelete(&lastEndpointKey); err != nil {
-							log.Errorf("EndpointDelete failed: %s", err)
-							goto failed
-						}
-						svUpdate.EndpointCount = svUpdate.EndpointCount - 1
-						if err = p.bpf.ServiceUpdate(&skUpdate, &svUpdate); err != nil {
-							log.Errorf("ServiceUpdate failed: %s", err)
-							goto failed
-						}
-					} else {
-						// last indexed endpoint not exists, this should not occur
-						// we should delete the endpoint just in case leak
-						if err = p.bpf.EndpointDelete(&ek); err != nil {
-							log.Errorf("EndpointDelete failed: %s", err)
-							goto failed
-						}
-					}
-				} else { // service not exist, we should delete the endpoint
-					if err = p.bpf.EndpointDelete(&ek); err != nil {
-						log.Errorf("EndpointDelete failed: %s", err)
-						goto failed
-					}
-				}
+			err = p.deleteEndpointRecords(eks)
+			if err != nil {
+				goto failed
 			}
 		}
 
@@ -342,6 +354,31 @@ func (p *Processor) storeBackendData(uid uint32, ip []byte, waypoint *workloadap
 	return nil
 }
 
+func (p *Processor) removeResidualEndpointsServices(workload *workloadapi.Workload, services []string) error {
+	var (
+		err       error
+		serviceId uint32
+	)
+
+	if len(services) == 0 {
+		return nil
+	}
+
+	serviceIds := make(map[uint32]string)
+	for _, serviceName := range services {
+		serviceId = p.hashName.StrToNum(serviceName)
+		serviceIds[serviceId] = serviceName
+	}
+
+	workloadUid := p.hashName.StrToNum(workload.GetUid())
+	eks := p.bpf.GetServiceEndpointKey(serviceIds, workloadUid)
+	err = p.deleteEndpointRecords(eks)
+	if err != nil {
+		log.Errorf("removeResidualServices delete endpoint failed:%v", err)
+	}
+	return err
+}
+
 func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error {
 	var (
 		err error
@@ -416,8 +453,16 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 }
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
+	var diffServices []string
 	log.Debugf("handle workload: %s", workload.Uid)
-	p.WorkloadCache.AddWorkload(workload)
+
+	diffServices = p.WorkloadCache.AddWorkload(workload)
+
+	// delete residual endpoint with services
+	if err := p.removeResidualEndpointsServices(workload, diffServices); err != nil {
+		log.Errorf("removeResidualEndpointsServices %s failed: %v", workload.GetUid(), err)
+		return err
+	}
 
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {

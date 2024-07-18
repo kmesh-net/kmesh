@@ -28,7 +28,7 @@ import (
 type WorkloadCache interface {
 	GetWorkloadByUid(uid string) *workloadapi.Workload
 	GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload
-	AddWorkload(workload *workloadapi.Workload)
+	AddWorkload(workload *workloadapi.Workload) []string
 	DeleteWorkload(uid string)
 	List() []*workloadapi.Workload
 }
@@ -70,9 +70,22 @@ func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 	}
 }
 
-func (w *cache) AddWorkload(workload *workloadapi.Workload) {
+func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Workload) []string {
+	var diff []string
+
+	for key, value := range workload1.Services {
+		if value2, ok := workload2.Services[key]; !ok || value2 != value {
+			diff = append(diff, key)
+		}
+	}
+
+	return diff
+}
+
+func (w *cache) AddWorkload(workload *workloadapi.Workload) []string {
+	var diffServices []string
 	if workload == nil {
-		return
+		return diffServices
 	}
 	uid := workload.Uid
 
@@ -82,14 +95,17 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) {
 	workloadByUid, exist := w.byUid[uid]
 	if exist {
 		if proto.Equal(workload, workloadByUid) {
-			return
+			return diffServices
 		}
-		// remove same uid but old address workload, avoid leak worklaod by address.
+		// remove same uid but old address workload, avoid leak workload by address.
 		for _, ip := range workloadByUid.Addresses {
 			addr, _ := netip.AddrFromSlice(ip)
 			networkAddress := composeNetworkAddress(workloadByUid.Network, addr)
 			delete(w.byAddr, networkAddress)
 		}
+
+		// compare services
+		diffServices = w.compareWorkloadServices(workloadByUid, workload)
 	}
 
 	w.byUid[uid] = workload
@@ -98,6 +114,7 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) {
 		networkAddress := composeNetworkAddress(workload.Network, addr)
 		w.byAddr[networkAddress] = workload
 	}
+	return diffServices
 }
 
 func (w *cache) DeleteWorkload(uid string) {
