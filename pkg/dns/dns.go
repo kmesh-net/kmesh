@@ -407,7 +407,7 @@ func getPendingResolveDomain(clusters []*clusterv3.Cluster) map[string]*pendingR
 					continue
 				}
 				address := socketAddr.SocketAddress.Address
-				if _, err := netip.ParseAddr(address); err != nil {
+				if _, err := netip.ParseAddr(address); err == nil {
 					// This is an ip address
 					continue
 				}

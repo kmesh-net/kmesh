@@ -396,12 +396,7 @@ func TestGetPendingResolveDomain(t *testing.T) {
 					&utCluster,
 				},
 			},
-			want: map[string]*pendingResolveDomain{
-				"192.168.2.1": {
-					domainName: "192.168.2.1",
-					clusters:   []*clusterv3.Cluster{&utCluster},
-				},
-			},
+			want: map[string]*pendingResolveDomain{},
 		},
 		{
 			name: "cluster domain is not IP",
@@ -410,7 +405,12 @@ func TestGetPendingResolveDomain(t *testing.T) {
 					&utClusterWithHost,
 				},
 			},
-			want: map[string]*pendingResolveDomain{},
+			want: map[string]*pendingResolveDomain{
+				"www.google.com": {
+					domainName: "www.google.com",
+					clusters:   []*clusterv3.Cluster{&utClusterWithHost},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
