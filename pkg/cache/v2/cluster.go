@@ -131,11 +131,11 @@ func (cache *ClusterCache) Flush() {
 	defer cache.mutex.Unlock()
 	for name, cluster := range cache.apiClusterCache {
 		if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
+			cluster.Id = cache.hashName.StrToNum(name)
 			err := maps_v2.ClusterUpdate(name, cluster)
 			if err == nil {
 				// reset api status after successfully updated
 				cluster.ApiStatus = core_v2.ApiStatus_NONE
-				cluster.Id = cache.hashName.StrToNum(name)
 			} else {
 				log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 			}
