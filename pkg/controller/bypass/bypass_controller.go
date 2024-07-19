@@ -29,10 +29,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"kmesh.net/kmesh/pkg/constants"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -44,7 +42,6 @@ const (
 	DefaultInformerSyncPeriod = 30 * time.Second
 	ByPassLabel               = "kmesh.net/bypass"
 	ByPassValue               = "enabled"
-	KmeshAnnotation           = "kmesh.net/redirection"
 )
 
 type Controller struct {
@@ -60,18 +57,20 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 		}))
 
 	podInformer := informerFactory.Core().V1().Pods().Informer()
-	podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			pod, ok := obj.(*corev1.Pod)
 			if !ok {
 				log.Errorf("expected *corev1.Pod but got %T", obj)
 				return
 			}
-			if !shouldBypass(pod) {
-				return
-			}
 			if !podHasSidecar(pod) {
 				log.Infof("pod %s/%s does not have sidecar injected, skip", pod.GetNamespace(), pod.GetName())
+				return
+			}
+
+			if !shouldBypass(pod) {
+				// TODO: add delete iptables in case we missed skip bypass during kmesh restart
 				return
 			}
 
@@ -95,19 +94,30 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				return
 			}
 
+			if !podHasSidecar(newPod) {
+				log.Debugf("pod %s/%s does not have a sidecar", newPod.GetNamespace(), newPod.GetName())
+				return
+			}
+
 			if shouldBypass(oldPod) && !shouldBypass(newPod) {
-				if podHasSidecar(newPod) {
-					log.Debugf("%s/%s: enable bypass control", newPod.GetNamespace(), newPod.GetName())
-					nspath, _ := ns.GetPodNSpath(newPod)
-					if err := deleteIptables(nspath); err != nil {
-						log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
-						return
-					}
+				log.Debugf("%s/%s: restore sidecar control", newPod.GetNamespace(), newPod.GetName())
+				nspath, _ := ns.GetPodNSpath(newPod)
+				if err := deleteIptables(nspath); err != nil {
+					log.Errorf("failed to delete iptables rules for %s: %v", nspath, err)
+					return
+				}
+			}
+			if !shouldBypass(oldPod) && shouldBypass(newPod) {
+				log.Debugf("%s/%s: enable bypass control", newPod.GetNamespace(), newPod.GetName())
+				nspath, _ := ns.GetPodNSpath(newPod)
+				if err := addIptables(nspath); err != nil {
+					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
+					return
 				}
 			}
 		},
-		// We do not need to process delete here, because in bpf mode, it will be handled by kmesh-cni.
-		// In istio sidecar mode, we do not need to delete the iptables.
+		// We do not need to process delete here, because
+		// in istio sidecar mode, we do not need to delete the iptables.
 	})
 
 	c := &Controller{
@@ -129,38 +139,11 @@ func shouldBypass(pod *corev1.Pod) bool {
 	return pod.Labels[ByPassLabel] == ByPassValue
 }
 
-func handleKmeshBypass(ns string, oper int) error {
-	execFunc := func(netns.NetNS) error {
-		/*
-		 * This function is used to process pods that are marked
-		 * or deleted with the bypass label on the current node.
-		 * Attempt to connect to a special IP address. The
-		 * connection triggers the cgroup/connect4/6 ebpf
-		 * program and records the netns cookie information
-		 * of the current connection. The cookie can be used
-		 * to determine whether the pod is been bypass.
-		 * ControlCommandIp4/6:<port> is "cipher key" for cgroup/connect4/6
-		 * ebpf program. 931/932 is the specific port handled by
-		 * daemon to enable/disable bypass
-		 */
-		port := constants.OperEnableBypass
-		if oper == 0 {
-			port = constants.OperDisableByPass
-		}
-		return nets.TriggerControlCommand(port)
-	}
-
-	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
-		return err
-	}
-	return nil
-}
-
 func isPodBeingDeleted(pod *corev1.Pod) bool {
 	return pod.ObjectMeta.DeletionTimestamp != nil
 }
 
+// TODO: make it a idempotent operation
 func addIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-I", "PREROUTING", "1", "-j", "RETURN"},
@@ -182,6 +165,7 @@ func addIptables(ns string) error {
 	return nil
 }
 
+// TODO: make it a idempotent operation
 func deleteIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-D", "PREROUTING", "-j", "RETURN"},
@@ -211,15 +195,5 @@ func podHasSidecar(pod *corev1.Pod) bool {
 		return true
 	}
 
-	return false
-}
-
-func isKmeshManaged(pod *corev1.Pod) bool {
-	annotations := pod.Annotations
-	if annotations != nil {
-		if value, ok := annotations[constants.KmeshRedirectionAnnotation]; ok && value == "enabled" {
-			return true
-		}
-	}
 	return false
 }
