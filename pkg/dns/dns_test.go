@@ -325,20 +325,49 @@ func (s *fakeDNSServer) setTTL(ttl uint32) {
 }
 
 func TestGetPendingResolveDomain(t *testing.T) {
-	utCluster := []*clusterv3.Cluster{
-		{
-			Name: "testCluster",
-			LoadAssignment: &endpointv3.ClusterLoadAssignment{
-				Endpoints: []*endpointv3.LocalityLbEndpoints{
-					{
-						LbEndpoints: []*endpointv3.LbEndpoint{
-							{
-								HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
-									Endpoint: &endpointv3.Endpoint{
-										Address: &v3.Address{
-											Address: &v3.Address_SocketAddress{
-												SocketAddress: &v3.SocketAddress{
-													Address: "192.168.10.244",
+	utCluster := clusterv3.Cluster{
+		Name: "testCluster",
+		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+			Endpoints: []*endpointv3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpointv3.LbEndpoint{
+						{
+							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+								Endpoint: &endpointv3.Endpoint{
+									Address: &v3.Address{
+										Address: &v3.Address_SocketAddress{
+											SocketAddress: &v3.SocketAddress{
+												Address: "192.168.2.1",
+												PortSpecifier: &v3.SocketAddress_PortValue{
+													PortValue: uint32(9898),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	utClusterWithHost := clusterv3.Cluster{
+		Name: "testCluster",
+		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+			Endpoints: []*endpointv3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpointv3.LbEndpoint{
+						{
+							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+								Endpoint: &endpointv3.Endpoint{
+									Address: &v3.Address{
+										Address: &v3.Address_SocketAddress{
+											SocketAddress: &v3.SocketAddress{
+												Address: "www.google.com",
+												PortSpecifier: &v3.SocketAddress_PortValue{
+													PortValue: uint32(9898),
 												},
 											},
 										},
@@ -363,14 +392,25 @@ func TestGetPendingResolveDomain(t *testing.T) {
 		{
 			name: "empty domains test",
 			args: args{
-				utCluster,
-			},
-			want: map[string]*pendingResolveDomain{
-				"192.168.10.244": {
-					domainName: "192.168.10.244",
-					clusters:   []*clusterv3.Cluster{utCluster[0]},
+				clusters: []*clusterv3.Cluster{
+					&utCluster,
 				},
 			},
+			want: map[string]*pendingResolveDomain{
+				"192.168.2.1": {
+					domainName: "192.168.2.1",
+					clusters:   []*clusterv3.Cluster{&utCluster},
+				},
+			},
+		},
+		{
+			name: "cluster domain is not IP",
+			args: args{
+				clusters: []*clusterv3.Cluster{
+					&utClusterWithHost,
+				},
+			},
+			want: map[string]*pendingResolveDomain{},
 		},
 	}
 	for _, tt := range tests {
