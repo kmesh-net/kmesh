@@ -32,7 +32,7 @@ var (
 	mu  sync.Mutex
 
 	trafficLabels = []string{
-		"direction",
+		"reporter",
 		"source_workload",
 		"source_canonical_service",
 		"source_canonical_revision",
@@ -58,7 +58,7 @@ var (
 	}
 
 	labelsMap = map[string]string{
-		"direction":                    "direction",
+		"reporter":                     "reporter",
 		"sourceWorkload":               "source_workload",
 		"sourceCanonicalService":       "source_canonical_service",
 		"sourceCanonicalRevision":      "source_canonical_revision",

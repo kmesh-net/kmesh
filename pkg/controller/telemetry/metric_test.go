@@ -42,7 +42,7 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 			name: "normal commonTrafficLabels to map test",
 			args: args{
 				labels: &commonTrafficLabels{
-					direction: "INBOUND",
+					reporter: "destination",
 
 					sourceWorkload:               "sleep",
 					sourceCanonicalService:       "sleep",
@@ -69,7 +69,7 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 				},
 			},
 			want: map[string]string{
-				"direction":                      "INBOUND",
+				"reporter":                       "destination",
 				"source_workload":                "sleep",
 				"source_canonical_service":       "sleep",
 				"source_canonical_revision":      "latest",
@@ -100,7 +100,7 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 				labels: &commonTrafficLabels{},
 			},
 			want: map[string]string{
-				"direction":                      "-",
+				"reporter":                       "-",
 				"source_workload":                "-",
 				"source_canonical_service":       "-",
 				"source_canonical_revision":      "-",
@@ -129,13 +129,13 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 			name: "Only some fields in the commonTrafficLabels have values",
 			args: args{
 				labels: &commonTrafficLabels{
-					direction:           "OUTBOUND",
+					reporter:            "source",
 					sourceWorkload:      "sleep",
 					destinationWorkload: "tcp-echo",
 				},
 			},
 			want: map[string]string{
-				"direction":                      "OUTBOUND",
+				"reporter":                       "source",
 				"source_workload":                "sleep",
 				"source_canonical_service":       "-",
 				"source_canonical_revision":      "-",
@@ -200,7 +200,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					success:          true,
 				},
 				labels: commonTrafficLabels{
-					direction:                    "INBOUND",
+					reporter:                     "destination",
 					sourceWorkload:               "sleep",
 					sourceCanonicalService:       "sleep",
 					sourceCanonicalRevision:      "latest",
@@ -289,7 +289,7 @@ func TestBuildMetricFromWorkload(t *testing.T) {
 				},
 			},
 			want: commonTrafficLabels{
-				direction:                    "-",
+				reporter:                     "-",
 				sourceWorkload:               "kmesh-daemon",
 				sourceCanonicalService:       "srcCanonical",
 				sourceCanonicalRevision:      "srcVersion",

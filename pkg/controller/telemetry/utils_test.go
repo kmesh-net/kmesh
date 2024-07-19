@@ -45,7 +45,7 @@ func TestRegisterMetrics(t *testing.T) {
 	}
 
 	testlabels := map[string]string{
-		"direction":                      "INBOUND",
+		"reporter":                       "destination",
 		"source_workload":                "sleep",
 		"source_canonical_service":       "sleep",
 		"source_canonical_revision":      "latest",

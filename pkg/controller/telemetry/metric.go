@@ -61,7 +61,8 @@ type requestMetric struct {
 }
 
 type commonTrafficLabels struct {
-	direction string
+	// direction string
+	reporter string
 
 	sourceWorkload          string
 	sourceCanonicalService  string
@@ -153,12 +154,12 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 				log.Warnf("reporter records error")
 			}
 
-			commonTrafficLabels.direction = "-"
+			commonTrafficLabels.reporter = "-"
 			if value.Direction == constants.INBOUND {
-				commonTrafficLabels.direction = "INBOUND"
+				commonTrafficLabels.reporter = "destination"
 			}
 			if value.Direction == constants.OUTBOUND {
-				commonTrafficLabels.direction = "OUTBOUND"
+				commonTrafficLabels.reporter = "source"
 			}
 
 			buildMetricsToPrometheus(data, commonTrafficLabels)
