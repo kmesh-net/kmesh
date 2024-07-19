@@ -20,12 +20,12 @@ import (
 	"context"
 	"os"
 	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/atomic"
 	"istio.io/api/annotation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,8 +43,8 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 	stopCh := make(<-chan struct{})
 	c := NewByPassController(client)
 	go c.Run(stopCh)
-	enabled := atomic.NewBool(false)
-	disabled := atomic.NewBool(false)
+	enabled := atomic.Bool{}
+	disabled := atomic.Bool{}
 
 	var wg sync.WaitGroup
 
@@ -131,7 +131,7 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 	_, err = client.CoreV1().Pods(namespaceName).Update(context.TODO(), newPod, metav1.UpdateOptions{})
 	assert.NoError(t, err)
 	wg.Wait()
-	assert.Equal(t, false, enabled.Load(), "unexpected value for disabled flag")
+	assert.Equal(t, false, enabled.Load(), "unexpected value for enabled flag")
 	assert.Equal(t, true, disabled.Load(), "unexpected value for disabled flag")
 
 	enabled.Store(false)
