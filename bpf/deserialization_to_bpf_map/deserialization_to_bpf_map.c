@@ -75,10 +75,16 @@ struct inner_map_stat {
     unsigned int resv : 30;
 };
 struct inner_map_mng {
+    int inner_fd;
+    int outter_fd;
+    struct bpf_map_info inner_info;
+    struct bpf_map_info outter_info;
     struct inner_map_stat inner_maps[MAX_OUTTER_MAP_ENTRIES];
     int used_cnt;
+    int max_idx; // max index, there may be holes.
     int init;
     sem_t fin_tasks;
+    int elastic_task_exit; // elastic scaling thread exit flag
 };
 
 struct task_contex {
@@ -274,13 +280,13 @@ static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 static int alloc_outter_map_entry(struct op_context *ctx)
 {
     int i;
-    if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= MAX_OUTTER_MAP_ENTRIES) {
+    if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= g_inner_map_mng.max_idx) {
         LOG_ERR("[%d %d]alloc_outter_map_entry failed\n", g_inner_map_mng.init, g_inner_map_mng.used_cnt);
         return -1;
     }
 
-    for (i = 1; i < MAX_OUTTER_MAP_ENTRIES; i++) {
-        if (g_inner_map_mng.inner_maps[i].used == 0) {
+    for (i = 0; i < g_inner_map_mng.max_idx; i++) {
+        if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].in_outer_map) {
             g_inner_map_mng.inner_maps[i].used = 1;
             g_inner_map_mng.used_cnt++;
             return i;
@@ -557,7 +563,7 @@ static int map_info_check(struct bpf_map_info *outter_info, struct bpf_map_info 
 
     if (outter_info->max_entries < 2 || outter_info->max_entries > MAX_OUTTER_MAP_ENTRIES) {
         LOG_ERR("outter map max_entries must be in[2,%d]\n", MAX_OUTTER_MAP_ENTRIES);
-        return -EINVAL;
+        // return -EINVAL;
     }
     return 0;
 }
@@ -1374,7 +1380,8 @@ void *outter_map_update_task(void *arg)
     if (!ctx)
         return NULL;
 
-    i = (ctx->task_id * TASK_SIZE) ? (ctx->task_id * TASK_SIZE) : 1;
+
+    i = ctx->task_id * TASK_SIZE + g_inner_map_mng.max_idx;
     end = ((i + TASK_SIZE) < MAX_OUTTER_MAP_ENTRIES) ? (i + TASK_SIZE) : MAX_OUTTER_MAP_ENTRIES;
     for (; i < end; i++) {
         if (!g_inner_map_mng.inner_maps[i].map_fd) {
@@ -1402,19 +1409,25 @@ void wait_sem_value(sem_t *sem, int wait_value)
     } while (sem_val < wait_value);
 }
 
+void reset_sem_value(sem_t *sem)
+{
+    int val;
+    while (sem_getvalue(sem, &val) == 0 && val > 0) {
+        if (sem_trywait(sem) != 0) {
+            break;
+        }
+    }
+    return;
+}
+
 int outter_map_update(int outter_fd)
 {
     int i, ret = 0;
     pthread_t tid;
     struct task_contex *task_ctx = NULL;
-    int threads = MAX_OUTTER_MAP_ENTRIES / TASK_SIZE + 1;
+    int threads = INIT_OUTTER_MAP_ENTRIES / TASK_SIZE + 1;
 
-    ret = sem_init(&g_inner_map_mng.fin_tasks, 0, 0);
-    if (ret) {
-        LOG_ERR("sem_init failed:%d\n", ret);
-        return ret;
-    }
-
+    reset_sem_value(&g_inner_map_mng.fin_tasks);
     for (i = 0; i < threads; i++) {
         task_ctx = (struct task_contex *)malloc(sizeof(struct task_contex));
         if (!task_ctx)
@@ -1427,8 +1440,10 @@ int outter_map_update(int outter_fd)
             break;
     }
 
-    if (ret == 0)
+    if (ret == 0) {
         wait_sem_value(&g_inner_map_mng.fin_tasks, threads);
+        g_inner_map_mng.max_idx += INIT_OUTTER_MAP_ENTRIES;
+    }
     return ret;
 }
 
@@ -1452,26 +1467,30 @@ int inner_map_create(struct bpf_map_info *inner_info)
     return fd;
 }
 
-int inner_map_create_all(struct bpf_map_info *inner_info)
+int inner_map_batch_create(struct bpf_map_info *inner_info)
 {
     int i, fd;
 
-    for (i = 1; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+    if (g_inner_map_mng.max_idx + INIT_OUTTER_MAP_ENTRIES > MAX_OUTTER_MAP_ENTRIES)
+        return 0;
+
+    for (i = 0; i < INIT_OUTTER_MAP_ENTRIES; i++) {
         fd = inner_map_create(inner_info);
         if (fd < 0)
             break;
 
-        g_inner_map_mng.inner_maps[i].map_fd = fd;
+        g_inner_map_mng.inner_maps[g_inner_map_mng.max_idx + i].map_fd = fd;
     }
 
-    if (i < MAX_OUTTER_MAP_ENTRIES)
+    if (i < INIT_OUTTER_MAP_ENTRIES)
         LOG_WARN("[warning]inner_map_create (%d->%d) failed:%d, errno:%d\n", i, MAX_OUTTER_MAP_ENTRIES, fd, errno);
     return 0;
 }
 
 void deserial_uninit()
 {
-    for (int i = 1; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+
+    for (int i = 0; i < g_inner_map_mng.max_idx; i++) {
         g_inner_map_mng.inner_maps[i].in_outer_map = 0;
         g_inner_map_mng.inner_maps[i].used = 0;
         if (g_inner_map_mng.inner_maps[i].map_fd)
@@ -1479,33 +1498,96 @@ void deserial_uninit()
     }
 
     (void)sem_destroy(&g_inner_map_mng.fin_tasks);
+    g_inner_map_mng.elastic_task_exit = 1;
     g_inner_map_mng.used_cnt = 0;
     g_inner_map_mng.init = 0;
+
+    close(g_inner_map_mng.inner_fd);
+    close(g_inner_map_mng.outter_fd);
     return;
+}
+
+void inner_map_scaleup()
+{
+    int ret;
+    do {
+        ret = inner_map_batch_create(&g_inner_map_mng.inner_info);
+        if (ret)
+            break;
+
+        ret = outter_map_update(g_inner_map_mng.outter_fd);
+        if (ret)
+            break;
+    } while (0);
+
+    if (ret) {
+        LOG_ERR("inner_map_scaleup failed:%d\n", ret);
+    }
+    return;
+}
+
+void inner_map_scalein()
+{
+    // TODO
+}
+
+void *inner_map_elastic_scaling_task(void *arg)
+{
+    float percent;
+
+    for (;;) {
+        if (g_inner_map_mng.elastic_task_exit) {
+            LOG_WARN("Receive exit signal for inner-map elastic scaling task.\n");
+            break;
+        }
+
+        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.max_idx);
+        if (percent > OUTTER_MAP_USAGE_HIGH_PERCENT) {
+            LOG_WARN("Remaining resources are insufficient, and capacity expansion is required.");
+            inner_map_scaleup();
+        }
+        if (g_inner_map_mng.max_idx > INIT_OUTTER_MAP_ENTRIES && percent < OUTTER_MAP_USAGE_LOW_PERCENT) {
+            LOG_WARN("The remaining resources are sufficient and scale-in is required.");
+            inner_map_scalein();
+        }
+        sleep(5);
+    }
+    return NULL;
+}
+
+int inner_map_elastic_scaling()
+{
+    pthread_t tid;
+    return pthread_create(&tid, NULL, inner_map_elastic_scaling_task, NULL);
 }
 
 int deserial_init()
 {
     int ret = 0;
-    int inner_fd = -1, outter_fd = -1;
-    struct bpf_map_info outter_info = {0}, inner_info = {0};
 
     do {
-        ret = get_outer_inner_map_infos(&inner_fd, &inner_info, &outter_fd, &outter_info);
+        sem_init(&g_inner_map_mng.fin_tasks, 0, 0);
+        ret = get_outer_inner_map_infos(
+            &g_inner_map_mng.inner_fd,
+            &g_inner_map_mng.inner_info,
+            &g_inner_map_mng.outter_fd,
+            &g_inner_map_mng.outter_info);
         if (ret)
             break;
 
-        ret = inner_map_create_all(&inner_info);
+        ret = inner_map_batch_create(&g_inner_map_mng.inner_info);
         if (ret)
             break;
 
-        ret = outter_map_update(outter_fd);
+        ret = outter_map_update(g_inner_map_mng.outter_fd);
+        if (ret)
+            break;
+
+        ret = inner_map_elastic_scaling();
         if (ret)
             break;
     } while (0);
 
-    close(inner_fd);
-    close(outter_fd);
     if (ret) {
         deserial_uninit();
         return ret;
