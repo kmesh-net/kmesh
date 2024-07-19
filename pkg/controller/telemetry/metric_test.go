@@ -24,7 +24,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
-
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
@@ -276,6 +275,15 @@ func TestBuildMetricFromWorkload(t *testing.T) {
 					ClusterId:         "Kubernetes",
 					TrustDomain:       "cluster.local",
 					ServiceAccount:    "default",
+					Services: map[string]*workloadapi.PortList{
+						"kmesh-system/kmesh.kmesh-system.svc.cluster.local": &workloadapi.PortList{
+							Ports: []*workloadapi.Port{
+								{
+									ServicePort: uint32(90),
+								},
+							},
+						},
+					},
 				},
 				srcWorkload: &workloadapi.Workload{
 					Namespace:         "kmesh-system",
@@ -298,7 +306,7 @@ func TestBuildMetricFromWorkload(t *testing.T) {
 				sourceApp:                    "srcCanonical",
 				sourceVersion:                "srcVersion",
 				sourceCluster:                "Kubernetes",
-				destinationService:           "-",
+				destinationService:           "kmesh.kmesh-system.svc.cluster.local",
 				destinationServiceNamespace:  "kmesh-system",
 				destinationServiceName:       "kmesh",
 				destinationWorkload:          "kmesh-daemon",
@@ -376,6 +384,15 @@ func TestMetricBuildMetric(t *testing.T) {
 		Addresses: [][]byte{
 			{192, 168, 224, 22},
 		},
+		Services: map[string]*workloadapi.PortList{
+			"kmesh-system/kmesh.kmesh-system.svc.cluster.local": &workloadapi.PortList{
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: uint32(90),
+					},
+				},
+			},
+		},
 	}
 	srcWorkload := &workloadapi.Workload{
 		Namespace:         "kmesh-system",
@@ -422,7 +439,7 @@ func TestMetricBuildMetric(t *testing.T) {
 				sourceApp:                    "srcCanonical",
 				sourceVersion:                "srcVersion",
 				sourceCluster:                "Kubernetes",
-				destinationService:           "192.168.224.22",
+				destinationService:           "kmesh.kmesh-system.svc.cluster.local",
 				destinationServiceNamespace:  "kmesh-system",
 				destinationServiceName:       "kmesh",
 				destinationWorkload:          "kmesh-daemon",

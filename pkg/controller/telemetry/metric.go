@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/ringbuf"
@@ -61,7 +62,6 @@ type requestMetric struct {
 }
 
 type commonTrafficLabels struct {
-	// direction string
 	reporter string
 
 	sourceWorkload          string
@@ -174,11 +174,10 @@ func (m *MetricController) buildMetric(data *requestMetric) (commonTrafficLabels
 		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.src[i])
 	}
 
-	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
+	dstWorkload, _ := m.getWorkloadByAddress(restoreIPv4(dstAddr))
 	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
 	trafficLabels := buildMetricFromWorkload(dstWorkload, srcWorkload)
-	trafficLabels.destinationService = dstIP
 
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
@@ -204,9 +203,15 @@ func buildMetricFromWorkload(dstWorkload, srcWorkload *workloadapi.Workload) com
 	}
 
 	trafficLabels := commonTrafficLabels{}
+	services := dstWorkload.Services
+	svcHost := ""
+	for k, _ := range services {
+		svcHost = strings.Split(k, "/")[1]
+	}
+	svcName := strings.Split(svcHost, ".")[0]
 
 	trafficLabels.destinationServiceNamespace = dstWorkload.Namespace
-	trafficLabels.destinationServiceName = dstWorkload.Name
+	trafficLabels.destinationServiceName = svcName
 	trafficLabels.destinationWorkload = dstWorkload.WorkloadName
 	trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
 	trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
@@ -225,6 +230,8 @@ func buildMetricFromWorkload(dstWorkload, srcWorkload *workloadapi.Workload) com
 
 	trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
 	trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+
+	trafficLabels.destinationService = svcHost
 
 	return trafficLabels
 }
