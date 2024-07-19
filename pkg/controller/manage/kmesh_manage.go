@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	"istio.io/istio/pkg/spiffe"
@@ -54,10 +53,9 @@ var (
 )
 
 const (
-	DefaultInformerSyncPeriod = 2 * time.Second
-	MaxRetries                = 5
-	ActionAddAnnotation       = "add"
-	ActionDeleteAnnotation    = "delete"
+	MaxRetries             = 5
+	ActionAddAnnotation    = "add"
+	ActionDeleteAnnotation = "delete"
 )
 
 type QueueItem struct {
@@ -68,7 +66,7 @@ type QueueItem struct {
 func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecurity.SecretManager) (*KmeshManageController, error) {
 	nodeName := os.Getenv("NODE_NAME")
 
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, 0,
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
 		}))

@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	corev1 "k8s.io/api/core/v1"
@@ -42,16 +41,13 @@ var (
 )
 
 const (
-	DefaultInformerSyncPeriod = 30 * time.Second
-	LabelSelectorBypass       = "kmesh.net/bypass=enabled"
-	KmeshAnnotation           = "kmesh.net/redirection"
-	SidecarAnnotation         = "sidecar.istio.io/inject"
+	SidecarAnnotation = "sidecar.istio.io/inject"
 )
 
 func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}) error {
 	nodeName := os.Getenv("NODE_NAME")
 
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, 0,
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
 		}))
@@ -242,7 +238,7 @@ func checkSidecar(client kubernetes.Interface, pod *corev1.Pod) (bool, error) {
 func isKmeshManaged(pod *corev1.Pod) bool {
 	annotations := pod.Annotations
 	if annotations != nil {
-		if value, ok := annotations[KmeshAnnotation]; ok && value == "enabled" {
+		if value, ok := annotations[constants.KmeshRedirectionAnnotation]; ok && value == "enabled" {
 			return true
 		}
 	}
