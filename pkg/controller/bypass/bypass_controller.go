@@ -41,7 +41,6 @@ var (
 )
 
 const (
-	KmeshAnnotation   = "kmesh.net/redirection"
 	SidecarAnnotation = "sidecar.istio.io/inject"
 )
 
@@ -239,7 +238,7 @@ func checkSidecar(client kubernetes.Interface, pod *corev1.Pod) (bool, error) {
 func isKmeshManaged(pod *corev1.Pod) bool {
 	annotations := pod.Annotations
 	if annotations != nil {
-		if value, ok := annotations[KmeshAnnotation]; ok && value == "enabled" {
+		if value, ok := annotations[constants.KmeshRedirectionAnnotation]; ok && value == "enabled" {
 			return true
 		}
 	}
