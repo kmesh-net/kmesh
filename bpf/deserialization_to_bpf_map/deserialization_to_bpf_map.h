@@ -6,10 +6,10 @@
 
 /* equal MAP_SIZE_OF_OUTTER_MAP */
 #define MAX_OUTTER_MAP_ENTRIES        (1 << 20)
-#define INIT_OUTTER_MAP_ENTRIES       (8192)
-#define OUTTER_MAP_ENTRIES_STEP       (1024)
+#define OUTTER_MAP_ELASTIC_SIZE       (8192)
 #define OUTTER_MAP_USAGE_HIGH_PERCENT (0.7)
 #define OUTTER_MAP_USAGE_LOW_PERCENT  (0.4)
+#define TASK_SIZE                     (128)
 
 struct element_list_node {
     void *elem;

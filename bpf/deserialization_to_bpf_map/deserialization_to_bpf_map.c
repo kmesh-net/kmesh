@@ -67,7 +67,6 @@ struct op_context {
         }                                                                                                              \
     } while (0)
 
-#define TASK_SIZE (100)
 struct inner_map_stat {
     int map_fd;
     unsigned int used : 1;
@@ -80,7 +79,9 @@ struct inner_map_mng {
     struct bpf_map_info inner_info;
     struct bpf_map_info outter_info;
     struct inner_map_stat inner_maps[MAX_OUTTER_MAP_ENTRIES];
+    int elastic_slots[OUTTER_MAP_ELASTIC_SIZE];
     int used_cnt;
+    int alloced_cnt;
     int max_idx; // max index, there may be holes.
     int init;
     sem_t fin_tasks;
@@ -280,8 +281,12 @@ static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 static int alloc_outter_map_entry(struct op_context *ctx)
 {
     int i;
-    if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= g_inner_map_mng.max_idx) {
-        LOG_ERR("[%d %d]alloc_outter_map_entry failed\n", g_inner_map_mng.init, g_inner_map_mng.used_cnt);
+    if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= g_inner_map_mng.alloced_cnt) {
+        LOG_ERR(
+            "[%d %d %d]alloc_outter_map_entry failed\n",
+            g_inner_map_mng.init,
+            g_inner_map_mng.used_cnt,
+            g_inner_map_mng.alloced_cnt);
         return -1;
     }
 
@@ -293,7 +298,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
         }
     }
 
-    LOG_ERR("alloc_outter_map_entry all inner_maps in used\n");
+    LOG_ERR("alloc_outter_map_entry all inner_maps in used:%d-%d-%d\n", g_inner_map_mng.used_cnt, g_inner_map_mng.alloced_cnt, g_inner_map_mng.max_idx);
     return -1;
 }
 
@@ -1374,28 +1379,28 @@ int get_outer_inner_map_infos(
 
 void *outter_map_update_task(void *arg)
 {
-    int i, end, ret = 0;
+    int i, end, idx, ret = 0;
     pthread_t tid = pthread_self();
     struct task_contex *ctx = (struct task_contex *)arg;
     if (!ctx)
         return NULL;
 
-
-    i = ctx->task_id * TASK_SIZE + g_inner_map_mng.max_idx;
-    end = ((i + TASK_SIZE) < MAX_OUTTER_MAP_ENTRIES) ? (i + TASK_SIZE) : MAX_OUTTER_MAP_ENTRIES;
+    i = ctx->task_id * TASK_SIZE;
+    end = (i + TASK_SIZE);
     for (; i < end; i++) {
-        if (!g_inner_map_mng.inner_maps[i].map_fd) {
+        idx = g_inner_map_mng.elastic_slots[i];
+        if (!g_inner_map_mng.inner_maps[idx].map_fd) {
             continue;
         }
 
-        ret = bpf_map_update_elem(ctx->outter_fd, &i, &g_inner_map_mng.inner_maps[i].map_fd, BPF_ANY);
+        ret = bpf_map_update_elem(ctx->outter_fd, &idx, &g_inner_map_mng.inner_maps[idx].map_fd, BPF_ANY);
         if (ret)
             break;
-        g_inner_map_mng.inner_maps[i].in_outer_map = 1;
+        g_inner_map_mng.inner_maps[idx].in_outer_map = 1;
     }
 
     if (ret)
-        LOG_ERR("[%lu]outter_map_update_task %d failed:%d\n", tid, i, ret);
+        LOG_ERR("[%lu]outter_map_update_task %d-%d failed:%d\n", tid, i, idx, ret);
     free(ctx);
     sem_post(&g_inner_map_mng.fin_tasks);
     return NULL;
@@ -1425,7 +1430,7 @@ int outter_map_update(int outter_fd)
     int i, ret = 0;
     pthread_t tid;
     struct task_contex *task_ctx = NULL;
-    int threads = INIT_OUTTER_MAP_ENTRIES / TASK_SIZE + 1;
+    int threads = OUTTER_MAP_ELASTIC_SIZE / TASK_SIZE + 1;
 
     reset_sem_value(&g_inner_map_mng.fin_tasks);
     for (i = 0; i < threads; i++) {
@@ -1442,7 +1447,9 @@ int outter_map_update(int outter_fd)
 
     if (ret == 0) {
         wait_sem_value(&g_inner_map_mng.fin_tasks, threads);
-        g_inner_map_mng.max_idx += INIT_OUTTER_MAP_ENTRIES;
+        g_inner_map_mng.alloced_cnt += OUTTER_MAP_ELASTIC_SIZE;
+        if (g_inner_map_mng.elastic_slots[OUTTER_MAP_ELASTIC_SIZE - 1] > g_inner_map_mng.max_idx)
+            g_inner_map_mng.max_idx = g_inner_map_mng.elastic_slots[OUTTER_MAP_ELASTIC_SIZE - 1];
     }
     return ret;
 }
@@ -1467,22 +1474,43 @@ int inner_map_create(struct bpf_map_info *inner_info)
     return fd;
 }
 
+void collect_outter_map_scaleup_slots()
+{
+    int i = 0, j = 0;
+    memset(g_inner_map_mng.elastic_slots, 0, sizeof(int) * OUTTER_MAP_ELASTIC_SIZE);
+    for (; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+        if (g_inner_map_mng.inner_maps[i].in_outer_map == 0) {
+            g_inner_map_mng.elastic_slots[j++] = i;
+            if (j >= OUTTER_MAP_ELASTIC_SIZE)
+                break;
+        }
+    }
+    LOG_WARN("collect_outter_map_scaleup_slots:%d-%d-%d\n", i, j, g_inner_map_mng.elastic_slots[j - 1]);
+    return;
+}
+
+
+void collect_outter_map_elastic_slots(bool scaleup)
+{
+    if (scaleup)
+        collect_outter_map_scaleup_slots();
+    return;
+}
+
 int inner_map_batch_create(struct bpf_map_info *inner_info)
 {
     int i, fd;
 
-    if (g_inner_map_mng.max_idx + INIT_OUTTER_MAP_ENTRIES > MAX_OUTTER_MAP_ENTRIES)
-        return 0;
-
-    for (i = 0; i < INIT_OUTTER_MAP_ENTRIES; i++) {
+    collect_outter_map_elastic_slots(true);
+    for (i = 0; i < OUTTER_MAP_ELASTIC_SIZE; i++) {
         fd = inner_map_create(inner_info);
         if (fd < 0)
             break;
 
-        g_inner_map_mng.inner_maps[g_inner_map_mng.max_idx + i].map_fd = fd;
+        g_inner_map_mng.inner_maps[g_inner_map_mng.elastic_slots[i]].map_fd = fd;
     }
 
-    if (i < INIT_OUTTER_MAP_ENTRIES)
+    if (i < OUTTER_MAP_ELASTIC_SIZE)
         LOG_WARN("[warning]inner_map_create (%d->%d) failed:%d, errno:%d\n", i, MAX_OUTTER_MAP_ENTRIES, fd, errno);
     return 0;
 }
@@ -1541,16 +1569,16 @@ void *inner_map_elastic_scaling_task(void *arg)
             break;
         }
 
-        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.max_idx);
+        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.alloced_cnt);
         if (percent > OUTTER_MAP_USAGE_HIGH_PERCENT) {
             LOG_WARN("Remaining resources are insufficient, and capacity expansion is required.");
             inner_map_scaleup();
         }
-        if (g_inner_map_mng.max_idx > INIT_OUTTER_MAP_ENTRIES && percent < OUTTER_MAP_USAGE_LOW_PERCENT) {
+        if (g_inner_map_mng.alloced_cnt > OUTTER_MAP_ELASTIC_SIZE && percent < OUTTER_MAP_USAGE_LOW_PERCENT) {
             LOG_WARN("The remaining resources are sufficient and scale-in is required.");
             inner_map_scalein();
         }
-        sleep(5);
+        usleep(1000);
     }
     return NULL;
 }
