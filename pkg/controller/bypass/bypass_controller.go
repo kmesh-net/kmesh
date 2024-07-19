@@ -122,6 +122,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 
 	c := &Controller{
 		informerFactory: informerFactory,
+		pod:             podInformer,
 	}
 
 	return c
