@@ -211,6 +211,11 @@ func shouldEnroll(client kubernetes.Interface, pod *corev1.Pod) bool {
 		return true
 	}
 
+	// If it is a Pod of waypoint, it should not be managed by Kmesh
+	if strings.Contains(pod.Name, "waypoint") {
+		return false
+	}
+
 	ns, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
 	if err != nil {
 		log.Errorf("failed to get namespace %s: %v", pod.Namespace, err)

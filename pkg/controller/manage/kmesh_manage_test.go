@@ -27,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
@@ -176,4 +177,169 @@ func TestPodWithoutLabelTriggersManageAction(t *testing.T) {
 	assert.NoError(t, err)
 
 	waitAndCheckManageAction(t, &wg, &mu, &enabled, &disabled, true, false)
+}
+
+func Test_shouldEnroll(t *testing.T) {
+	type args struct {
+		namespace *corev1.Namespace
+		client    kubernetes.Interface
+		pod       *corev1.Pod
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "pod managed by Kmesh",
+			args: args{
+				client: fake.NewSimpleClientset(),
+				namespace: &corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Namespace",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ut-test",
+					},
+				},
+				pod: &corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ut-test",
+						Name:      "ut-pod",
+						Labels: map[string]string{
+							constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh,
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "pod not managed by Kmesh",
+			args: args{
+				client: fake.NewSimpleClientset(),
+				namespace: &corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Namespace",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ut-test",
+					},
+				},
+				pod: &corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ut-test",
+						Name:      "ut-pod",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "pod in namespace should managed by Kmesh",
+			args: args{
+				client: fake.NewSimpleClientset(),
+				namespace: &corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Namespace",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ut-test",
+						Labels: map[string]string{
+							constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh,
+						},
+					},
+				},
+				pod: &corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ut-test",
+						Name:      "ut-pod",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "pod in namespace should not managed by Kmesh",
+			args: args{
+				client: fake.NewSimpleClientset(),
+				namespace: &corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Namespace",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ut-test",
+					},
+				},
+				pod: &corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ut-test",
+						Name:      "ut-pod",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "waypoint should not managed by Kmesh",
+			args: args{
+				client: fake.NewSimpleClientset(),
+				namespace: &corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Namespace",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ut-test",
+						Annotations: map[string]string{
+							constants.KmeshRedirectionAnnotation: "enable",
+						},
+					},
+				},
+				pod: &corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ut-test",
+						Name:      "ut-waypoint",
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, nsErr := tt.args.client.CoreV1().Namespaces().Create(context.TODO(), tt.args.namespace, metav1.CreateOptions{})
+			assert.NoError(t, nsErr, "create test namespace failed")
+			_, podErr := tt.args.client.CoreV1().Pods("ut-test").Create(context.TODO(), tt.args.pod, metav1.CreateOptions{})
+			assert.NoError(t, podErr, "create test pod failed")
+
+			if got := shouldEnroll(tt.args.client, tt.args.pod); got != tt.want {
+				t.Errorf("shouldEnroll() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
