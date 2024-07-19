@@ -80,12 +80,12 @@ struct inner_map_mng {
     struct bpf_map_info outter_info;
     struct inner_map_stat inner_maps[MAX_OUTTER_MAP_ENTRIES];
     int elastic_slots[OUTTER_MAP_ELASTIC_SIZE];
-    int used_cnt;
-    int alloced_cnt;
-    int max_idx; // max index, there may be holes.
+    int used_cnt;           // real used count
+    int alloced_cnt;        // real alloced count
+    int max_alloced_idx;    // max alloced index, there may be holes.
     int init;
     sem_t fin_tasks;
-    int elastic_task_exit; // elastic scaling thread exit flag
+    int elastic_task_exit;  // elastic scaling thread exit flag
 };
 
 struct task_contex {
@@ -291,7 +291,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
         return -1;
     }
 
-    for (i = 0; i < g_inner_map_mng.max_idx; i++) {
+    for (i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
         if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].in_outer_map) {
             g_inner_map_mng.inner_maps[i].used = 1;
             g_inner_map_mng.used_cnt++;
@@ -303,7 +303,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
         "alloc_outter_map_entry all inner_maps in used:%d-%d-%d\n",
         g_inner_map_mng.used_cnt,
         g_inner_map_mng.alloced_cnt,
-        g_inner_map_mng.max_idx);
+        g_inner_map_mng.max_alloced_idx);
     return -1;
 }
 
@@ -1493,13 +1493,6 @@ int outter_map_update(int outter_fd, bool scaleup)
     }
 
     wait_sem_value(&g_inner_map_mng.fin_tasks, threads);
-    if (scaleup) {
-        g_inner_map_mng.alloced_cnt += OUTTER_MAP_ELASTIC_SIZE;
-        if (g_inner_map_mng.elastic_slots[OUTTER_MAP_ELASTIC_SIZE - 1] > g_inner_map_mng.max_idx)
-            g_inner_map_mng.max_idx = g_inner_map_mng.elastic_slots[OUTTER_MAP_ELASTIC_SIZE - 1];
-    } else {
-        g_inner_map_mng.alloced_cnt -= OUTTER_MAP_ELASTIC_SIZE;
-    }
     return ret;
 }
 
@@ -1542,7 +1535,7 @@ void collect_outter_map_scalein_slots()
 {
     int i, j = 0;
     memset(g_inner_map_mng.elastic_slots, 0, sizeof(int) * OUTTER_MAP_ELASTIC_SIZE);
-    for (i = g_inner_map_mng.max_idx; i >= 0; i--) {
+    for (i = g_inner_map_mng.max_alloced_idx; i >= 0; i--) {
         if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].in_outer_map == 1) {
             g_inner_map_mng.elastic_slots[j++] = i;
             if (j >= OUTTER_MAP_ELASTIC_SIZE)
@@ -1587,8 +1580,7 @@ void inner_map_batch_delete()
 
 void deserial_uninit()
 {
-
-    for (int i = 0; i < g_inner_map_mng.max_idx; i++) {
+    for (int i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
         g_inner_map_mng.inner_maps[i].in_outer_map = 0;
         g_inner_map_mng.inner_maps[i].used = 0;
         if (g_inner_map_mng.inner_maps[i].map_fd)
@@ -1605,7 +1597,7 @@ void deserial_uninit()
     return;
 }
 
-void inner_map_scaleup()
+int inner_map_scaleup()
 {
     int ret;
     do {
@@ -1616,24 +1608,37 @@ void inner_map_scaleup()
         ret = outter_map_update(g_inner_map_mng.outter_fd, true);
         if (ret)
             break;
+
+        g_inner_map_mng.alloced_cnt += OUTTER_MAP_ELASTIC_SIZE;
+        if (g_inner_map_mng.elastic_slots[OUTTER_MAP_ELASTIC_SIZE - 1] > g_inner_map_mng.max_alloced_idx)
+            g_inner_map_mng.max_alloced_idx = g_inner_map_mng.elastic_slots[OUTTER_MAP_ELASTIC_SIZE - 1];
     } while (0);
 
     if (ret) {
         LOG_ERR("inner_map_scaleup failed:%d\n", ret);
     }
-    return;
+    return ret;
 }
 
-void inner_map_scalein()
+int inner_map_scalein()
 {
-    int ret;
+    int i, ret;
 
     inner_map_batch_delete();
     ret = outter_map_update(g_inner_map_mng.outter_fd, false);
     if (ret) {
         LOG_ERR("inner_map_scalein failed:%d\n", ret);
+        return ret;
     }
-    return;
+
+    g_inner_map_mng.alloced_cnt -= OUTTER_MAP_ELASTIC_SIZE;
+    for (i = g_inner_map_mng.max_alloced_idx; i >= 0; i--) {
+        if (g_inner_map_mng.inner_maps[i].in_outer_map) {
+            g_inner_map_mng.max_alloced_idx = i;
+            break;
+        }
+    }
+    return ret;
 }
 
 void *inner_map_elastic_scaling_task(void *arg)
@@ -1680,11 +1685,7 @@ int deserial_init()
         if (ret)
             break;
 
-        ret = inner_map_batch_create(&g_inner_map_mng.inner_info);
-        if (ret)
-            break;
-
-        ret = outter_map_update(g_inner_map_mng.outter_fd, true);
+        ret = inner_map_scaleup();
         if (ret)
             break;
 
