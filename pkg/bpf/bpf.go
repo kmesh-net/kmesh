@@ -158,7 +158,7 @@ func (l *BpfLoader) Stop() {
 	var err error
 
 	if l.config.AdsEnabled() {
-		C.deserial_uninit()
+		C.deserial_uninit(false)
 		if err = l.obj.Detach(); err != nil {
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
