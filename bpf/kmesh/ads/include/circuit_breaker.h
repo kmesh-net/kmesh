@@ -81,7 +81,12 @@ static inline int on_cluster_sock_bind(ctx_buff_t *ctx, const Cluster__Cluster *
         Cluster__CircuitBreakers *cbs = NULL;
         cbs = kmesh_get_ptr_val(cluster->circuit_breakers);
         if (cbs != NULL && stats->active_connections >= cbs->max_connections) {
-            BPF_LOG(DEBUG, KMESH, "Current active connections %d exceeded max connections %d, reject connection\n", stats->active_connections, cbs->max_connections);
+            BPF_LOG(
+                DEBUG,
+                KMESH,
+                "Current active connections %d exceeded max connections %d, reject connection\n",
+                stats->active_connections,
+                cbs->max_connections);
             return 0;
         }
     }
