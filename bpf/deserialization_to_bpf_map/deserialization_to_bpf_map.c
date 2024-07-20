@@ -1786,7 +1786,7 @@ int inner_map_restore()
         return 0;
 
     read_size = (int)fread(&p, sizeof(unsigned char), sizeof(struct persist_info), f);
-    if (read_size != sizeof(struct persist_info)) {
+    if (read_size != sizeof(struct persist_info) || p.magic != MAGIC_NUMBER) {
         LOG_WARN("inner_map_restore invalid size:%d/%lu\n", read_size, sizeof(struct persist_info));
         fclose(f);
         return 0;
