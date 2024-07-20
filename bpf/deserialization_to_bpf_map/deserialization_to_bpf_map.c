@@ -1322,7 +1322,7 @@ void outter_map_delete(struct task_contex *ctx)
     }
 
     if (ret)
-        LOG_ERR("[%lu]outter_map_delete %d-%d failed:%d\n", tid, i, idx, ret);
+        LOG_ERR("[%lu]outter_map_delete %d-%d failed:%d, err:%d\n", tid, i, idx, ret, errno);
     return;
 }
 
@@ -1489,6 +1489,8 @@ void deserial_uninit(bool persist)
     (void)sem_destroy(&g_inner_map_mng.fin_tasks);
     g_inner_map_mng.elastic_task_exit = 1;
     g_inner_map_mng.used_cnt = 0;
+    g_inner_map_mng.alloced_cnt = 0;
+    g_inner_map_mng.max_alloced_idx = 0;
     g_inner_map_mng.init = 0;
 
     close(g_inner_map_mng.inner_fd);
@@ -1499,6 +1501,18 @@ void deserial_uninit(bool persist)
 int inner_map_scaleup()
 {
     int ret;
+    float percent = 1;
+
+    if (g_inner_map_mng.alloced_cnt)
+        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.alloced_cnt);
+    if (percent < OUTTER_MAP_USAGE_HIGH_PERCENT)
+        return 0;
+
+    LOG_WARN(
+        "Remaining resources are insufficient(%d/%d), and capacity expansion is required.\n",
+        g_inner_map_mng.used_cnt,
+        g_inner_map_mng.alloced_cnt);
+
     do {
         ret = inner_map_batch_create(&g_inner_map_mng.inner_info);
         if (ret)
@@ -1522,6 +1536,17 @@ int inner_map_scaleup()
 int inner_map_scalein()
 {
     int i, ret;
+    float percent = 1;
+
+    if (g_inner_map_mng.alloced_cnt > OUTTER_MAP_ELASTIC_SIZE)
+        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.alloced_cnt);
+    if (percent > OUTTER_MAP_USAGE_LOW_PERCENT)
+        return 0;
+
+    LOG_WARN(
+        "The remaining resources are sufficient(%d/%d) and scale-in is required.\n",
+        g_inner_map_mng.used_cnt,
+        g_inner_map_mng.alloced_cnt);
 
     inner_map_batch_delete();
     ret = outter_map_update(g_inner_map_mng.outter_fd, false);
@@ -1542,23 +1567,14 @@ int inner_map_scalein()
 
 void *inner_map_elastic_scaling_task(void *arg)
 {
-    float percent;
-
     for (;;) {
         if (g_inner_map_mng.elastic_task_exit) {
             LOG_WARN("Receive exit signal for inner-map elastic scaling task.\n");
             break;
         }
 
-        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.alloced_cnt);
-        if (percent > OUTTER_MAP_USAGE_HIGH_PERCENT) {
-            LOG_WARN("Remaining resources are insufficient, and capacity expansion is required.");
-            inner_map_scaleup();
-        }
-        if (g_inner_map_mng.alloced_cnt > OUTTER_MAP_ELASTIC_SIZE && percent < OUTTER_MAP_USAGE_LOW_PERCENT) {
-            LOG_WARN("The remaining resources are sufficient and scale-in is required.");
-            inner_map_scalein();
-        }
+        inner_map_scaleup();
+        inner_map_scalein();
         usleep(1000);
     }
     return NULL;
