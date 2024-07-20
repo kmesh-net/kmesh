@@ -69,20 +69,6 @@ static inline int map_add_cluster_eps(const char *cluster_name, const struct clu
     return kmesh_map_update_elem(&map_of_cluster_eps, cluster_name, eps);
 }
 
-static inline Cluster__CircuitBreakers *get_cluster_circuit_breakers(const char *cluster_name)
-{
-    const Cluster__Cluster *cluster = NULL;
-    cluster = map_lookup_cluster(cluster_name);
-    if (!cluster) {
-        return NULL;
-    }
-    Cluster__CircuitBreakers *cbs = NULL;
-    cbs = kmesh_get_ptr_val(cluster->circuit_breakers);
-    if (cbs != NULL)
-        BPF_LOG(DEBUG, KMESH, "get cluster's circuit breaker: max connections = %ld\n", cbs->max_connections);
-    return cbs;
-}
-
 static inline int
 cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct cluster_endpoints *cluster_eps)
 {
@@ -331,7 +317,12 @@ int cluster_manager(ctx_buff_t *ctx)
     if (cluster == NULL)
         return KMESH_TAIL_CALL_RET(ENOENT);
 
-    on_cluster_sock_bind(ctx->sk, cluster->id);
+    ret = on_cluster_sock_bind(ctx, cluster);
+    if (!ret) {
+        // open circuit breaker, should reject here.
+        MARK_REJECTED(ctx);
+        return KMESH_TAIL_CALL_RET(ret);
+    }
     ret = cluster_handle_loadbalance(cluster, &addr, ctx);
     return KMESH_TAIL_CALL_RET(ret);
 }
