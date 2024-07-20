@@ -181,7 +181,7 @@ func (l *BpfLoader) Stop() {
 	closeMap(l.versionMap)
 
 	if l.config.AdsEnabled() {
-		C.deserial_uninit()
+		C.deserial_uninit(false)
 		if err = l.obj.Detach(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed detach when stop kmesh, err:%s", err)

@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <securec.h>
@@ -73,6 +74,7 @@ struct inner_map_stat {
     unsigned int alloced : 1;
     unsigned int resv : 30;
 };
+
 struct inner_map_mng {
     int inner_fd;
     int outter_fd;
@@ -80,18 +82,34 @@ struct inner_map_mng {
     struct bpf_map_info outter_info;
     struct inner_map_stat inner_maps[MAX_OUTTER_MAP_ENTRIES];
     int elastic_slots[OUTTER_MAP_ELASTIC_SIZE];
-    int used_cnt;           // real used count
-    int alloced_cnt;        // real alloced count
-    int max_alloced_idx;    // max alloced index, there may be holes.
+    int used_cnt;        // real used count
+    int alloced_cnt;     // real alloced count
+    int max_alloced_idx; // max alloced index, there may be holes.
     int init;
     sem_t fin_tasks;
-    int elastic_task_exit;  // elastic scaling thread exit flag
+    int elastic_task_exit; // elastic scaling thread exit flag
 };
 
 struct task_contex {
     int outter_fd;
     int task_id;
     bool scaleup;
+};
+
+#define MAP_IN_MAP_MNG_PERSIST_FILE_PATH "/mnt/mim_mng_persist"
+#define MAGIC_NUMBER                     0xb809b8c3
+
+struct inner_map_persist_stat {
+    unsigned char used : 1;
+    unsigned char alloced : 1;
+    unsigned char resv : 6;
+};
+struct persist_info {
+    unsigned int magic;
+    int used_cnt;        // real used count
+    int alloced_cnt;     // real alloced count
+    int max_alloced_idx; // max alloced index, there may be holes.
+    struct inner_map_persist_stat inner_map_stat[0];
 };
 
 struct inner_map_mng g_inner_map_mng = {0};
@@ -1578,8 +1596,11 @@ void inner_map_batch_delete()
     return;
 }
 
-void deserial_uninit()
+void deserial_uninit(bool persist)
 {
+    if (persist)
+        inner_map_mng_persist();
+
     for (int i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
         g_inner_map_mng.inner_maps[i].alloced = 0;
         g_inner_map_mng.inner_maps[i].used = 0;
@@ -1671,6 +1692,44 @@ int inner_map_elastic_scaling()
     return pthread_create(&tid, NULL, inner_map_elastic_scaling_task, NULL);
 }
 
+int inner_map_mng_persist()
+{
+    int i, size;
+    FILE *f = NULL;
+    struct persist_info *p = NULL;
+
+    if (g_inner_map_mng.init == 0 || g_inner_map_mng.used_cnt == 0)
+        return 0;
+
+    size = sizeof(struct persist_info) + sizeof(struct inner_map_persist_stat) * (g_inner_map_mng.max_alloced_idx + 1);
+    p = (struct persist_info *)malloc(size);
+    if (!p) {
+        LOG_ERR("inner_map_mng_persist malloc failed.\n");
+        return -1;
+    }
+
+    p->magic = MAGIC_NUMBER;
+    p->alloced_cnt = g_inner_map_mng.alloced_cnt;
+    p->used_cnt = g_inner_map_mng.used_cnt;
+    p->max_alloced_idx = g_inner_map_mng.max_alloced_idx;
+    for (i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
+        p->inner_map_stat[i].used = g_inner_map_mng.inner_maps[i].used;
+        p->inner_map_stat[i].alloced = g_inner_map_mng.inner_maps[i].alloced;
+    }
+
+    f = fopen(MAP_IN_MAP_MNG_PERSIST_FILE_PATH, "wb");
+    if (f == NULL) {
+        LOG_ERR("inner_map_mng_persist fopen failed:%d.\n", errno);
+        free(p);
+        return -1;
+    }
+
+    (void)fwrite(p, sizeof(unsigned char), size, f);
+    fclose(f);
+    LOG_INFO("inner_map_mng_persist succeed.\n");
+    return 0;
+}
+
 int deserial_init()
 {
     int ret = 0;
@@ -1695,7 +1754,7 @@ int deserial_init()
     } while (0);
 
     if (ret) {
-        deserial_uninit();
+        deserial_uninit(false);
         return ret;
     }
     g_inner_map_mng.init = 1;

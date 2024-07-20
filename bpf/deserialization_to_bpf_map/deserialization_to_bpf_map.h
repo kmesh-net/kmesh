@@ -4,6 +4,8 @@
 #ifndef __DESERIALIZATION_TO_BPF_MAP_H__
 #define __DESERIALIZATION_TO_BPF_MAP_H__
 
+#include <stdbool.h>
+
 /* equal MAP_SIZE_OF_OUTTER_MAP */
 #define MAX_OUTTER_MAP_ENTRIES        (1 << 20)
 #define OUTTER_MAP_ELASTIC_SIZE       (8192)
@@ -24,6 +26,7 @@ void deserial_free_elem_list(struct element_list_node *head);
 int deserial_delete_elem(void *key, const void *msg_desciptor);
 
 int deserial_init();
-void deserial_uninit();
+void deserial_uninit(bool persist);
+int inner_map_mng_persist();
 
 #endif /* __DESERIALIZATION_TO_BPF_MAP_H__ */
