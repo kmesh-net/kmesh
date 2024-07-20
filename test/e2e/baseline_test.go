@@ -79,10 +79,8 @@ var (
 )
 
 func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
-	s := src.Config().HasSidecar()
-	d := dst.Config().HasSidecar() || dst.Config().HasAnyWaypointProxy()
 	isL7Scheme := opt.Scheme == scheme.HTTP || opt.Scheme == scheme.GRPC || opt.Scheme == scheme.WebSocket
-	return (s || d) && isL7Scheme
+	return dst.Config().HasAnyWaypointProxy() && isL7Scheme
 }
 
 func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checker {
