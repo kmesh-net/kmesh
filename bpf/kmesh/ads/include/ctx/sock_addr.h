@@ -21,4 +21,6 @@ typedef struct bpf_sock_addr ctx_buff_t;
     (ctx)->user_ip4 = (address)->ipv4;                                                                                 \
     (ctx)->user_port = (address)->port
 
+#define MARK_REJECTED(ctx)
+
 #endif //__BPF_CTX_SOCK_ADDR_H
