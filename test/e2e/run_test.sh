@@ -158,11 +158,16 @@ function install_dependencies() {
     fi
 
     # 3. Install istioctl
-    curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} TARGET_ARCH=x86_64 sh -
+    if ! which istioctl &> /dev/null
+    then
+        curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} TARGET_ARCH=x86_64 sh -
 
-    cp istio-${ISTIO_VERSION}/bin/istioctl /usr/local/bin/
+        cp istio-${ISTIO_VERSION}/bin/istioctl /usr/local/bin/
 
-    rm -rf istio-${ISTIO_VERSION}
+        rm -rf istio-${ISTIO_VERSION}
+    else
+        echo "istioctl is already installed"
+    fi 
 }
 
 while (( "$#" )); do
