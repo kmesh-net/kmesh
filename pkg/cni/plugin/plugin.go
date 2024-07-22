@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -38,7 +37,6 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
-	"kmesh.net/kmesh/pkg/utils/istio"
 )
 
 var (
@@ -84,35 +82,6 @@ func parseSkelArgs(args *skel.CmdArgs) (*cniConf, *k8sArgs, *cniv1.Result, error
 		return nil, nil, result, err
 	}
 	return &cniConf, &k8sCommonArgs, result, nil
-}
-
-// shouldEnroll checks whether we should enable kmesh management for the given pod
-func shouldEnroll(client kubernetes.Interface, pod *v1.Pod) (bool, error) {
-	// If sidecar inject enabled, kmesh do not take charge of it.
-	if istio.PodHasSidecar(pod) {
-		return false, nil
-	}
-
-	// Exclude istio managed gateway
-	if gateway, ok := pod.Labels["gateway.istio.io/managed"]; ok {
-		if strings.EqualFold(gateway, "istio.io-mesh-controller") {
-			return false, nil
-		}
-	}
-	namespace, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	mode := namespace.Labels[constants.DataPlaneModeLabel]
-	podMode := pod.Labels[constants.DataPlaneModeLabel]
-	if strings.EqualFold(mode, constants.DataPlaneModeKmesh) {
-		return true, nil
-	}
-	if strings.EqualFold(mode, constants.DataPlaneModeKmesh) && podMode != "none" {
-		return true, nil
-	}
-
-	return false, nil
 }
 
 func disableKmeshControl(ns string) error {
@@ -260,22 +229,23 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
-	enableKmesh, err := shouldEnroll(client, pod)
+	namespace, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
 	if err != nil {
-		log.Errorf("failed to check enable kmesh information: %v", err)
-		return err
+		return fmt.Errorf("failed to get namespace %s: %v", pod.Namespace, err)
 	}
+
+	enableKmesh := utils.ShouldEnroll(pod, namespace)
 
 	if !enableKmesh {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	if err := enableKmeshControl(args.Netns); err != nil {
+	if err := utils.HandleKmeshManage(args.Netns, true); err != nil {
 		log.Errorf("failed to enable kmesh control, err is %v", err)
 		return err
 	}
 
-	if err := patchKmeshAnnotation(client, pod); err != nil {
+	if err := utils.PatchKmeshRedirectAnnotation(client, pod); err != nil {
 		log.Errorf("failed to annotate kmesh redirection, err is %v", err)
 	}
 
@@ -303,7 +273,7 @@ func CmdCheck(args *skel.CmdArgs) (err error) {
 
 func CmdDelete(args *skel.CmdArgs) error {
 	// clean
-	if err := disableKmeshControl(args.Netns); err != nil {
+	if err := utils.HandleKmeshManage(args.Netns, false); err != nil {
 		log.Errorf("failed to disable Kmesh control, err: %v", err)
 	}
 

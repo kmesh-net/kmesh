@@ -43,8 +43,6 @@ const (
 	// Oper code for control command
 	OperEnableControl  = 929
 	OperDisableControl = 930
-	OperEnableBypass   = 931
-	OperDisableByPass  = 932
 
 	// tail call index in tail call prog map
 	TailCallConnect4Index = 0
