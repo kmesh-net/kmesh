@@ -19,7 +19,7 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
   Note: The `kmesh-build` image needs to match the version of the source code.
   
   ```
-  docker pull ghcr.io/kmesh-net/kmesh-build-x86:latest
+  docker pull ghcr.io/kmesh-net/kmesh-build:latest
   ```
 
 ### build from source
