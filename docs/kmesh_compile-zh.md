@@ -19,7 +19,7 @@ Kmesh需要在拥有Kmesh内核增强特性的Linux环境中编译构建。当�
   注意：kmesh-build镜像需要和源码版本相匹配
   
   ```bash
-  docker pull ghcr.io/kmesh-net/kmesh-build-x86:latest
+  docker pull ghcr.io/kmesh-net/kmesh-build:latest
   ```
 
 ### 源码编译
