@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/cilium/ebpf"
@@ -39,6 +38,7 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/utils/istio"
 )
 
 var (
@@ -86,28 +86,10 @@ func parseSkelArgs(args *skel.CmdArgs) (*cniConf, *k8sArgs, *cniv1.Result, error
 	return &cniConf, &k8sCommonArgs, result, nil
 }
 
-// checkKmesh checks whether we should enable kmesh for the given pod
-func checkKmesh(client kubernetes.Interface, pod *v1.Pod) (bool, error) {
-	namespace, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	var enableSidecar bool
-	injectLabel := namespace.Labels["istio-injection"]
-	if injectLabel == "enabled" {
-		enableSidecar = true
-	}
-	// According to istio, it support per pod config.
-	injValue := pod.Annotations["sidecar.istio.io/inject"]
-	if v, ok := pod.Labels["sidecar.istio.io/inject"]; ok {
-		injValue = v
-	}
-	if inject, err := strconv.ParseBool(injValue); err == nil {
-		enableSidecar = inject
-	}
-
+// shouldEnroll checks whether we should enable kmesh management for the given pod
+func shouldEnroll(client kubernetes.Interface, pod *v1.Pod) (bool, error) {
 	// If sidecar inject enabled, kmesh do not take charge of it.
-	if enableSidecar {
+	if istio.PodHasSidecar(pod) {
 		return false, nil
 	}
 
@@ -117,9 +99,16 @@ func checkKmesh(client kubernetes.Interface, pod *v1.Pod) (bool, error) {
 			return false, nil
 		}
 	}
-
+	namespace, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
 	mode := namespace.Labels[constants.DataPlaneModeLabel]
+	podMode := pod.Labels[constants.DataPlaneModeLabel]
 	if strings.EqualFold(mode, constants.DataPlaneModeKmesh) {
+		return true, nil
+	}
+	if strings.EqualFold(mode, constants.DataPlaneModeKmesh) && podMode != "none" {
 		return true, nil
 	}
 
@@ -271,7 +260,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
-	enableKmesh, err := checkKmesh(client, pod)
+	enableKmesh, err := shouldEnroll(client, pod)
 	if err != nil {
 		log.Errorf("failed to check enable kmesh information: %v", err)
 		return err

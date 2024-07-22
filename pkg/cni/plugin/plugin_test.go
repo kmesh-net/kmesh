@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Author: bitcoffee
- * Create: 2023-11-19
  */
 
 package plugin
@@ -28,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 )
 
-func TestCheckKmesh(t *testing.T) {
+func TestShouldEnroll(t *testing.T) {
 	type args struct {
 		client kubernetes.Interface
 		pod    *corev1.Pod
@@ -106,13 +103,13 @@ func TestCheckKmesh(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := checkKmesh(tt.args.client, tt.args.pod)
+			got, err := shouldEnroll(tt.args.client, tt.args.pod)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("checkKmesh() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("shouldEnroll() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if got != tt.want {
-				t.Errorf("checkKmesh() = %v, want %v", got, tt.want)
+				t.Errorf("shouldEnroll() = %v, want %v", got, tt.want)
 			}
 		})
 	}
