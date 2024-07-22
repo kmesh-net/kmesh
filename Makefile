@@ -148,6 +148,8 @@ docker.push: docker
 
 e2e:
 	./test/e2e/run_test.sh
+	
+	./test/e2e/run_test.sh --ipv6
 
 format:
 	./hack/format.sh
