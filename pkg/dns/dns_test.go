@@ -22,11 +22,10 @@ import (
 	"math/rand"
 	"net"
 	"reflect"
+	"slices"
 	"sync"
 	"testing"
 	"time"
-
-	"slices"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -323,4 +322,102 @@ func (s *fakeDNSServer) setTTL(ttl uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ttl = ttl
+}
+
+func TestGetPendingResolveDomain(t *testing.T) {
+	utCluster := clusterv3.Cluster{
+		Name: "testCluster",
+		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+			Endpoints: []*endpointv3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpointv3.LbEndpoint{
+						{
+							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+								Endpoint: &endpointv3.Endpoint{
+									Address: &v3.Address{
+										Address: &v3.Address_SocketAddress{
+											SocketAddress: &v3.SocketAddress{
+												Address: "192.168.2.1",
+												PortSpecifier: &v3.SocketAddress_PortValue{
+													PortValue: uint32(9898),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	utClusterWithHost := clusterv3.Cluster{
+		Name: "testCluster",
+		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+			Endpoints: []*endpointv3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpointv3.LbEndpoint{
+						{
+							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+								Endpoint: &endpointv3.Endpoint{
+									Address: &v3.Address{
+										Address: &v3.Address_SocketAddress{
+											SocketAddress: &v3.SocketAddress{
+												Address: "www.google.com",
+												PortSpecifier: &v3.SocketAddress_PortValue{
+													PortValue: uint32(9898),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	type args struct {
+		clusters []*clusterv3.Cluster
+	}
+	tests := []struct {
+		name string
+		args args
+		want map[string]*pendingResolveDomain
+	}{
+		{
+			name: "empty domains test",
+			args: args{
+				clusters: []*clusterv3.Cluster{
+					&utCluster,
+				},
+			},
+			want: map[string]*pendingResolveDomain{},
+		},
+		{
+			name: "cluster domain is not IP",
+			args: args{
+				clusters: []*clusterv3.Cluster{
+					&utClusterWithHost,
+				},
+			},
+			want: map[string]*pendingResolveDomain{
+				"www.google.com": {
+					domainName: "www.google.com",
+					clusters:   []*clusterv3.Cluster{&utClusterWithHost},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getPendingResolveDomain(tt.args.clusters); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("getPendingResolveDomain() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
