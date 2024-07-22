@@ -28,14 +28,10 @@ import (
 	"github.com/containernetworking/cni/pkg/version"
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
-	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8stypes "k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/kubernetes"
 
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -84,60 +80,6 @@ func parseSkelArgs(args *skel.CmdArgs) (*cniConf, *k8sArgs, *cniv1.Result, error
 	return &cniConf, &k8sCommonArgs, result, nil
 }
 
-func disableKmeshControl(ns string) error {
-	if ns == "" {
-		return nil
-	}
-
-	execFunc := func(netns.NetNS) error {
-		/*
-		 * Attempt to connect to a special IP address. The
-		 * connection triggers the cgroup/connect4/6 ebpf
-		 * program and records the netns cookie information
-		 * of the current connection. The cookie can be used
-		 * to determine whether the netns is managed by Kmesh.
-		 * ControlCommandIp4/6:930(0x3a2) is "cipher key" for cgroup/connect4/6
-		 * ebpf program disable kmesh control
-		 */
-		return nets.TriggerControlCommand(constants.OperDisableControl)
-	}
-
-	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
-		return err
-	}
-	return nil
-}
-
-func enableKmeshControl(ns string) error {
-	execFunc := func(netns.NetNS) error {
-		/*
-		 * Attempt to connect to a special IP address. The
-		 * connection triggers the cgroup/connect4/6 ebpf
-		 * program and records the netns cookie information
-		 * of the current connection. The cookie can be used
-		 * to determine whether the netns is managed by Kmesh.
-		 * ControlCommandIp4/6:929(0x3a1) is "cipher key" for cgroup/connect4/6
-		 * ebpf program.
-		 */
-		return nets.TriggerControlCommand(constants.OperEnableControl)
-	}
-
-	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
-		return err
-	}
-	return nil
-}
-
-const KmeshRedirection = "kmesh.net/redirection"
-
-var annotationPatch = []byte(fmt.Sprintf(
-	`{"metadata":{"annotations":{"%s":"%s"}}}`,
-	KmeshRedirection,
-	"enabled",
-))
-
 func getPrevCniResult(conf *cniConf) (*cniv1.Result, error) {
 	var err error
 	if conf.RawPrevResult == nil {
@@ -184,17 +126,6 @@ func enableXdpAuth(ifname string) error {
 	}
 
 	return nil
-}
-
-func patchKmeshAnnotation(client kubernetes.Interface, pod *v1.Pod) error {
-	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
-		context.Background(),
-		pod.Name,
-		k8stypes.MergePatchType,
-		annotationPatch,
-		metav1.PatchOptions{},
-	)
-	return err
 }
 
 // if cmdadd failed, then we cannot return failed, do nothing and print pre result

@@ -21,7 +21,6 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
 
 	"kmesh.net/kmesh/pkg/constants"
 )
@@ -90,7 +89,6 @@ func TestShouldEnroll(t *testing.T) {
 func TestShouldEnroll2(t *testing.T) {
 	type args struct {
 		namespace *corev1.Namespace
-		client    kubernetes.Interface
 		pod       *corev1.Pod
 	}
 	tests := []struct {
