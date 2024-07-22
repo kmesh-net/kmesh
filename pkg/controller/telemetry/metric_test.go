@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
@@ -276,7 +277,7 @@ func TestBuildMetricFromWorkload(t *testing.T) {
 					TrustDomain:       "cluster.local",
 					ServiceAccount:    "default",
 					Services: map[string]*workloadapi.PortList{
-						"kmesh-system/kmesh.kmesh-system.svc.cluster.local": &workloadapi.PortList{
+						"kmesh-system/kmesh.kmesh-system.svc.cluster.local": {
 							Ports: []*workloadapi.Port{
 								{
 									ServicePort: uint32(90),
@@ -385,7 +386,7 @@ func TestMetricBuildMetric(t *testing.T) {
 			{192, 168, 224, 22},
 		},
 		Services: map[string]*workloadapi.PortList{
-			"kmesh-system/kmesh.kmesh-system.svc.cluster.local": &workloadapi.PortList{
+			"kmesh-system/kmesh.kmesh-system.svc.cluster.local": {
 				Ports: []*workloadapi.Port{
 					{
 						ServicePort: uint32(90),

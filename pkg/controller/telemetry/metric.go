@@ -205,7 +205,7 @@ func buildMetricFromWorkload(dstWorkload, srcWorkload *workloadapi.Workload) com
 	trafficLabels := commonTrafficLabels{}
 	services := dstWorkload.Services
 	svcHost := ""
-	for k, _ := range services {
+	for k := range services {
 		svcHost = strings.Split(k, "/")[1]
 	}
 	svcName := strings.Split(svcHost, ".")[0]
