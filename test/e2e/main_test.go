@@ -248,7 +248,7 @@ func (k kubeComponent) Close() error {
 
 func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {
 	if _, err := newWaypointProxy(ctx, ns, name); err != nil {
-		t.Fatal("craete new waypoint proxy failed: %v", err)
+		t.Fatal("create new waypoint proxy failed: %v", err)
 	}
 }
 
