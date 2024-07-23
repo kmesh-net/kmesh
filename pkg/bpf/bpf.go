@@ -54,13 +54,13 @@ type BpfLoader struct {
 	obj         *BpfKmesh
 	workloadObj *BpfKmeshWorkload
 	bpfLogLevel *ebpf.Map
-	StatusMap   *ebpf.Map
+	VersionMap  *ebpf.Map
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
 	return &BpfLoader{
-		config:    config,
-		StatusMap: NewVersionMap(config),
+		config:     config,
+		VersionMap: NewVersionMap(config),
 	}
 }
 
@@ -131,7 +131,7 @@ func (l *BpfLoader) Start(config *options.BpfConfig) error {
 		}
 	}
 
-	if GetKmeshStartStatus() == Restart {
+	if GetKmeshStatus() == Restart {
 		log.Infof("bpf load from last pinPath")
 	}
 	return nil
@@ -165,12 +165,12 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if GetKmeshStartStatus() == Restart {
+	if GetKmeshStatus() == Restart {
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
 	}
 
-	Close(l.StatusMap)
+	Close(l.VersionMap)
 
 	if l.config.AdsEnabled() {
 		C.deserial_uninit()
@@ -236,7 +236,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	}
 
 	storeVersionInfo(m)
-	SetKmeshStartStatus(NewStart)
+	SetKmeshStatus(Normal)
 	return m
 }
 

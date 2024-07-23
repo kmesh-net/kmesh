@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,12 +25,22 @@ import (
 	"github.com/cilium/ebpf"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/version"
 )
 
+// Indicates how to start kmesh on the next launch or how to close kmesh.
+// Start:
+// Normal: a normal new start
+// Restart: reusing the previous kmesh configuration
+// Update: upgrading kmesh and reusing part of previous kmesh configuration
+// Close:
+// Normal: normal close
+// Restart: not clean kmesh configuration, for next launch
+// Update: not clean part of kmesh configuration, for next launch
 const (
-	NewStart = iota
+	Normal = iota
 	Restart
 	Update
 )
@@ -40,17 +50,17 @@ const (
 	namespace     = "kmesh-system"
 )
 
-var kmeshStartStatus int
+var kmeshStatus int
 
-func GetKmeshStartStatus() int {
-	return kmeshStartStatus
+func GetKmeshStatus() int {
+	return kmeshStatus
 }
 
-func SetKmeshStartStatus(Status int) {
-	kmeshStartStatus = Status
+func SetKmeshStatus(Status int) {
+	kmeshStatus = Status
 }
 
-func GetDaemonset() bool {
+func InferRestartStatus() bool {
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		return false
@@ -65,10 +75,10 @@ func GetDaemonset() bool {
 }
 
 func SetCloseStatus() {
-	if GetDaemonset() {
-		SetKmeshStartStatus(Restart)
+	if InferRestartStatus() {
+		SetKmeshStatus(Restart)
 	} else {
-		SetKmeshStartStatus(NewStart)
+		SetKmeshStatus(Normal)
 	}
 }
 
@@ -78,22 +88,22 @@ func SetStartStatus(versionMap *ebpf.Map) {
 	copy(GitVersion[:], version.Get().GitVersion)
 	log.Debugf("oldGitVersion:%v\nGitVersion:%v", oldGitVersion, GitVersion)
 	if GitVersion == oldGitVersion {
-		SetKmeshStartStatus(Restart)
+		SetKmeshStatus(Restart)
 	} else {
-		SetKmeshStartStatus(Update)
+		SetKmeshStatus(Update)
 	}
 }
 
 func CleanupBpfMap() {
-	err := syscall.Unmount("/mnt/kmesh_cgroup2", 0)
+	err := syscall.Unmount(constants.Cgroup2Path, 0)
 	if err != nil {
 		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
 	}
-	err = syscall.Unmount("/sys/fs/bpf", 0)
+	err = syscall.Unmount(constants.BpfFsPath, 0)
 	if err != nil {
 		fmt.Println("unmount /sys/fs/bpf error: ", err)
 	}
-	err = os.RemoveAll("/mnt/kmesh_cgroup2")
+	err = os.RemoveAll(constants.Cgroup2Path)
 	if err != nil {
 		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
 	}

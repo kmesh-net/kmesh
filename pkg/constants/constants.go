@@ -52,4 +52,7 @@ const (
 
 	INBOUND  = uint32(1)
 	OUTBOUND = uint32(2)
+
+	Cgroup2Path = "/mnt/kmesh_cgroup2"
+	BpfFsPath   = "/sys/fs/bpf"
 )
