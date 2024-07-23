@@ -90,7 +90,6 @@ func TestHandleKmeshManage(t *testing.T) {
 			t.Logf("expected QueueItem but got %T", item)
 			return
 		}
-		t.Logf("---------handle pod %s/%s annotation action %s", queueItem.podNs, queueItem.podName, queueItem.action)
 		pod, err := controller.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
 		if err != nil {
 			if apierrors.IsNotFound(err) {
@@ -104,13 +103,12 @@ func TestHandleKmeshManage(t *testing.T) {
 			namespace, _ := controller.namespaceLister.Get(pod.Namespace)
 			if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
 				t.Logf("add annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = addKmeshAnnotation(controller.client, pod)
+				err = utils.PatchKmeshRedirectAnnotation(controller.client, pod)
 			} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
 				t.Logf("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = delKmeshAnnotation(controller.client, pod)
+				err = utils.DelKmeshRedirectAnnotation(controller.client, pod)
 			}
 		}
-
 		if err != nil {
 			t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
 		}

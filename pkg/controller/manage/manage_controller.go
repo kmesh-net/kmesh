@@ -37,18 +37,7 @@ import (
 	"kmesh.net/kmesh/pkg/utils"
 )
 
-var (
-	log                = logger.NewLoggerField("manage_controller")
-	annotationDelPatch = []byte(fmt.Sprintf(
-		`{"metadata":{"annotations":{"%s":null}}}`,
-		constants.KmeshRedirectionAnnotation,
-	))
-	annotationAddPatch = []byte(fmt.Sprintf(
-		`{"metadata":{"annotations":{"%s":"%s"}}}`,
-		constants.KmeshRedirectionAnnotation,
-		"enabled",
-	))
-)
+var log = logger.NewLoggerField("manage_controller")
 
 const (
 	MaxRetries             = 5
