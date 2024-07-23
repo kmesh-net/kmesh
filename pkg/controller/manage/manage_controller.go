@@ -17,7 +17,6 @@
 package kmeshmanage
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -25,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8stypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/listers/core/v1"
@@ -231,10 +229,10 @@ func (c *KmeshManageController) processItems() bool {
 		namespace, _ := c.namespaceLister.Get(pod.Namespace)
 		if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
 			log.Infof("add annotation for pod %s/%s", pod.Namespace, pod.Name)
-			err = addKmeshAnnotation(c.client, pod)
+			err = utils.PatchKmeshRedirectAnnotation(c.client, pod)
 		} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
 			log.Infof("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
-			err = delKmeshAnnotation(c.client, pod)
+			err = utils.DelKmeshRedirectAnnotation(c.client, pod)
 		}
 	}
 
@@ -250,36 +248,6 @@ func (c *KmeshManageController) processItems() bool {
 	}
 	c.queue.Forget(key)
 	return true
-}
-
-func addKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
-	if value, exists := pod.Annotations[constants.KmeshRedirectionAnnotation]; exists && value == "enabled" {
-		log.Debugf("Pod %s in namespace %s already has annotation %s with value %s", pod.Name, pod.Namespace, constants.KmeshRedirectionAnnotation, value)
-		return nil
-	}
-	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
-		context.Background(),
-		pod.Name,
-		k8stypes.MergePatchType,
-		annotationAddPatch,
-		metav1.PatchOptions{},
-	)
-	return err
-}
-
-func delKmeshAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
-	if _, exists := pod.Annotations[constants.KmeshRedirectionAnnotation]; !exists {
-		log.Debugf("Pod %s in namespace %s does not have annotation %s", pod.Name, pod.Namespace, constants.KmeshRedirectionAnnotation)
-		return nil
-	}
-	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
-		context.Background(),
-		pod.Name,
-		k8stypes.MergePatchType,
-		annotationDelPatch,
-		metav1.PatchOptions{},
-	)
-	return err
 }
 
 func sendCertRequest(security *kmeshsecurity.SecretManager, pod *corev1.Pod, op int) {
