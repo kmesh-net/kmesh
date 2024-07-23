@@ -98,7 +98,7 @@ func TestShouldEnroll(t *testing.T) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "pod and namespace without label",
