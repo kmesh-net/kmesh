@@ -101,9 +101,10 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 			}
 			namespace, err := namespaceLister.Get(pod.Namespace)
 			if err != nil {
-				log.Errorf("failed to get pod namespace %s: %v", namespace, err)
+				log.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
 				return
 			}
+
 			if !utils.ShouldEnroll(pod, namespace) {
 				// TODO: check if pod has redirection annotation, then handleKmeshManage(nspath, false)
 				return
@@ -128,14 +129,13 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 
 			namespace, err := namespaceLister.Get(newPod.Namespace)
 			if err != nil {
-				log.Errorf("failed to get pod namespace %s: %v", namespace, err)
+				log.Errorf("failed to get pod namespace %s: %v", newPod.Namespace, err)
 				return
 			}
 			// enable kmesh manage
 			if oldPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && utils.ShouldEnroll(newPod, namespace) {
 				log.Infof("%s/%s: enable Kmesh manage", newPod.GetNamespace(), newPod.GetName())
 				nspath, _ := ns.GetPodNSpath(newPod)
-
 				if err := utils.HandleKmeshManage(nspath, true); err != nil {
 					log.Errorf("failed to enable Kmesh manage")
 					return
@@ -218,19 +218,22 @@ func (c *KmeshManageController) processItems() bool {
 		return true
 	}
 
-	pod, err := c.podLister.Pods(queueItem.podNs).Get(queueItem.podNs)
+	pod, err := c.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Infof("pod %s/%s has been deleted", queueItem.podNs, queueItem.podNs)
+			log.Infof("pod %s/%s has been deleted", queueItem.podNs, queueItem.podName)
 			return true
 		}
+		log.Errorf("failed to get pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
 	}
 	if pod != nil {
 		// TODO: handle error
 		namespace, _ := c.namespaceLister.Get(pod.Namespace)
 		if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
+			log.Infof("add annotation for pod %s/%s", pod.Namespace, pod.Name)
 			err = addKmeshAnnotation(c.client, pod)
 		} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
+			log.Infof("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
 			err = delKmeshAnnotation(c.client, pod)
 		}
 	}
