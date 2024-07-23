@@ -46,29 +46,29 @@ static inline void update_cluster_active_connections(const struct cluster_stats_
     struct cluster_stats *stats = NULL;
     stats = kmesh_map_lookup_elem(&map_of_cluster_stats, key);
     if (!stats) {
-        struct cluster_stats new_stats = {0};
-        if (delta < 0) {
-            BPF_LOG(DEBUG, KMESH, "invalid delta update");
-            return;
-        }
-        new_stats.active_connections = delta;
-        BPF_LOG(
-            DEBUG,
-            KMESH,
-            "create new stats(netns_cookie = %lld, cluster_id = %ld)",
-            key->netns_cookie,
-            key->cluster_id);
-        kmesh_map_update_elem(&map_of_cluster_stats, key, &new_stats);
-    } else {
-        stats->active_connections += delta;
-        kmesh_map_update_elem(&map_of_cluster_stats, key, stats);
-        BPF_LOG(
-            DEBUG,
-            KMESH,
-            "update existing stats(netns_cookie = %lld, cluster_id = %ld)",
-            key->netns_cookie,
-            key->cluster_id);
+        struct cluster_stats init_value = {0};
+        bpf_map_update_elem(&map_of_cluster_stats, key, &init_value, BPF_NOEXIST);
+        stats = kmesh_map_lookup_elem(&map_of_cluster_stats, key);
     }
+
+    if (!stats) {
+        BPF_LOG(ERR, KMESH, "failed to get cluster stats");
+        return;
+    }
+    if (delta < 0 && -delta > stats->active_connections) {
+        BPF_LOG(ERR, KMESH, "invalid delta update");
+        return;
+    }
+
+    __sync_fetch_and_add(&stats->active_connections, delta);
+    BPF_LOG(DEBUG, KMESH, "current active connections: %d\n", stats->active_connections);
+
+    BPF_LOG(
+        DEBUG,
+        KMESH,
+        "update existing stats(netns_cookie = %lld, cluster_id = %ld)",
+        key->netns_cookie,
+        key->cluster_id);
 }
 
 static inline int on_cluster_sock_bind(ctx_buff_t *ctx, const Cluster__Cluster *cluster)
