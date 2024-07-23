@@ -421,3 +421,85 @@ func TestGetPendingResolveDomain(t *testing.T) {
 		})
 	}
 }
+
+func TestRemoveUnwatchedCluster(t *testing.T) {
+	fakeDNSServer := newFakeDNSServer()
+
+	testDNSResolver, err := NewDNSResolver(ads.NewAdsCache())
+	if err != nil {
+		t.Fatal(err)
+	}
+	stopCh := make(chan struct{})
+	testDNSResolver.StartDNSResolver(stopCh)
+	testDNSResolver.resolvConfServers = []string{fakeDNSServer.Server.PacketConn.LocalAddr().String()}
+
+	utClusterWithHost := clusterv3.Cluster{
+		Name: "testCluster",
+		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+			Endpoints: []*endpointv3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpointv3.LbEndpoint{
+						{
+							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+								Endpoint: &endpointv3.Endpoint{
+									Address: &v3.Address{
+										Address: &v3.Address_SocketAddress{
+											SocketAddress: &v3.SocketAddress{
+												Address: "www.example.com",
+												PortSpecifier: &v3.SocketAddress_PortValue{
+													PortValue: uint32(9898),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	type args struct {
+		clusters []*clusterv3.Cluster
+	}
+
+	tests := []struct {
+		name   string
+		domain string
+		args   args
+		want   bool
+	}{
+		{
+			name:   "stow send cluster test domain add",
+			domain: "www.example.com",
+			args: args{
+				clusters: []*clusterv3.Cluster{
+					&utClusterWithHost,
+				},
+			},
+			want: true,
+		},
+		{
+			name:   "stow send empty cluster test domain removal",
+			domain: "www.example.com",
+			args: args{
+				clusters: []*clusterv3.Cluster{},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.domain != "" {
+				fakeDNSServer.setHosts(tt.domain, 1)
+			}
+			testDNSResolver.resolveDomains(tt.args.clusters)
+			if _, ok := testDNSResolver.cache[tt.domain]; ok != tt.want {
+				t.Errorf("TestRemoveUnwatchedCluster() = %v, want %v", ok, tt.want)
+			}
+		})
+	}
+}
