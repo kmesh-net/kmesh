@@ -40,7 +40,6 @@ import (
 )
 
 func waitAndCheckManageAction(t *testing.T, enabled *atomic.Bool, disabled *atomic.Bool, enableExpected bool, disableExpected bool) {
-
 	retry.UntilSuccess(func() error {
 		// Wait for the handleKmeshManage to be called
 		if enableExpected != enabled.Load() || disableExpected != disabled.Load() {
