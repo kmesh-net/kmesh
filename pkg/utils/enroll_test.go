@@ -17,10 +17,16 @@
 package utils
 
 import (
+	"context"
+	"fmt"
+	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"istio.io/api/annotation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
 
 	"kmesh.net/kmesh/pkg/constants"
 )
@@ -57,6 +63,37 @@ func TestShouldEnroll(t *testing.T) {
 						Name:      "ut-pod",
 						Labels: map[string]string{
 							constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh,
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "sidecar misconfigured label",
+			args: args{
+				namespace: &corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Namespace",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ut-test",
+					},
+				},
+				pod: &corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ut-test",
+						Name:      "ut-pod",
+						Labels: map[string]string{
+							constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh,
+						},
+						Annotations: map[string]string{
+							annotation.SidecarStatus.Name: "",
 						},
 					},
 				},
@@ -201,26 +238,118 @@ func TestHandleKmeshManage(t *testing.T) {
 		{
 			name: "enroll true",
 			args: args{
-				ns:     "test-namespace",
 				enroll: true,
 			},
-			wantErr: true,
+			wantErr: false,
 		},
 		{
 			name: "enroll false",
 			args: args{
-				ns:     "test-namespace",
+				enroll: false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "enroll false",
+			args: args{
+				ns:     "invalid ns",
 				enroll: false,
 			},
 			wantErr: true,
 		},
 	}
+	pid := os.Getpid()
+	ns := fmt.Sprintf("/proc/%d/ns/net", pid)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := HandleKmeshManage(tt.args.ns, tt.args.enroll)
+			var err error
+			if tt.args.ns != "" {
+				err = HandleKmeshManage(tt.args.ns, tt.args.enroll)
+			} else {
+				err = HandleKmeshManage(ns, tt.args.enroll)
+			}
 			if (err != nil) != tt.wantErr {
 				t.Errorf("HandleKmeshManage() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
+	}
+}
+func TestPatchKmeshRedirectAnnotation(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	namespace := "test-namespace"
+	podName := "test-pod"
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      podName,
+		},
+	}
+
+	_, err := client.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	assert.NoError(t, err)
+
+	err = PatchKmeshRedirectAnnotation(client, pod)
+	if err != nil {
+		t.Errorf("PatchKmeshRedirectAnnotation() returned an error: %v", err)
+	}
+
+	got, err := client.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Failed to get the patched pod: %v", err)
+	}
+
+	if got.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" {
+		t.Errorf("Expected annotation %s to be 'enabled', got '%s'", constants.KmeshRedirectionAnnotation, got.Annotations[constants.KmeshRedirectionAnnotation])
+	}
+
+	err = PatchKmeshRedirectAnnotation(client, got)
+	if err != nil {
+		t.Errorf("PatchKmeshRedirectAnnotation() returned an error: %v", err)
+	}
+
+	got, err = client.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Failed to get the patched pod: %v", err)
+	}
+
+	if got.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" {
+		t.Errorf("Expected annotation %s to be 'enabled', got '%s'", constants.KmeshRedirectionAnnotation, got.Annotations[constants.KmeshRedirectionAnnotation])
+	}
+}
+
+func TestDelKmeshRedirectAnnotation(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	namespace := "test-namespace"
+	podName := "test-pod"
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      podName,
+			Annotations: map[string]string{
+				constants.KmeshRedirectionAnnotation: "enabled",
+			},
+		},
+	}
+
+	_, err := client.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	assert.NoError(t, err)
+
+	err = DelKmeshRedirectAnnotation(client, pod)
+	if err != nil {
+		t.Errorf("DelKmeshRedirectAnnotation() returned an error: %v", err)
+	}
+
+	got, err := client.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		t.Errorf("Failed to get patched pod: %v", err)
+	}
+
+	if _, exists := got.Annotations[constants.KmeshRedirectionAnnotation]; exists {
+		t.Errorf("Annotation %s was not deleted from pod %s in namespace %s", constants.KmeshRedirectionAnnotation, podName, namespace)
+	}
+
+	err = DelKmeshRedirectAnnotation(client, pod)
+	if err != nil {
+		t.Errorf("DelKmeshRedirectAnnotation() returned an error: %v", err)
 	}
 }
