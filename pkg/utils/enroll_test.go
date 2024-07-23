@@ -36,68 +36,7 @@ func TestShouldEnroll(t *testing.T) {
 		want bool
 	}{
 		{
-			name: "test1: namespace with istio-injection=enabled, pod with sidecar inject annotation, should return false",
-			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "utPod",
-						Namespace: "utNs",
-						Annotations: map[string]string{
-							"sidecar.istio.io/inject": "true",
-						},
-					},
-				},
-			},
-			want: false,
-		}, {
-			name: "test2: namespace with dataplane-mode=Kmesh, pod without sidecar inject annotation, should return true",
-			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "utPod",
-						Namespace: "utNs",
-					},
-				},
-			},
-			want: true,
-		}, {
-			name: "test: namespace not found, should return error",
-			args: args{
-				pod: &corev1.Pod{
-					ObjectMeta: metav1.ObjectMeta{
-						Name:      "utPod",
-						Namespace: "utNs",
-						Labels: map[string]string{
-							"istio.io/dataplane-mode": "Kmesh",
-						},
-					},
-				},
-			},
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := ShouldEnroll(tt.args.pod, tt.args.namespace)
-			if got != tt.want {
-				t.Errorf("shouldEnroll() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestShouldEnroll2(t *testing.T) {
-	type args struct {
-		namespace *corev1.Namespace
-		pod       *corev1.Pod
-	}
-	tests := []struct {
-		name string
-		args args
-		want bool
-	}{
-		{
-			name: "pod managed by Kmesh",
+			name: "pod with label",
 			args: args{
 				namespace: &corev1.Namespace{
 					TypeMeta: metav1.TypeMeta{
@@ -125,7 +64,7 @@ func TestShouldEnroll2(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "pod not managed by Kmesh",
+			name: "pod and namespace wihout label",
 			args: args{
 				namespace: &corev1.Namespace{
 					TypeMeta: metav1.TypeMeta{
@@ -150,7 +89,7 @@ func TestShouldEnroll2(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "pod in namespace should managed by Kmesh",
+			name: "namespace with label",
 			args: args{
 				namespace: &corev1.Namespace{
 					TypeMeta: metav1.TypeMeta{
@@ -178,7 +117,7 @@ func TestShouldEnroll2(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "pod in namespace should not managed by Kmesh",
+			name: "pod with none label not managed by Kmesh",
 			args: args{
 				namespace: &corev1.Namespace{
 					TypeMeta: metav1.TypeMeta{
@@ -187,6 +126,9 @@ func TestShouldEnroll2(t *testing.T) {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "ut-test",
+						Labels: map[string]string{
+							constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh,
+						},
 					},
 				},
 				pod: &corev1.Pod{
@@ -197,6 +139,9 @@ func TestShouldEnroll2(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ut-test",
 						Name:      "ut-pod",
+						Labels: map[string]string{
+							constants.DataPlaneModeLabel: "none",
+						},
 					},
 				},
 			},
@@ -212,8 +157,8 @@ func TestShouldEnroll2(t *testing.T) {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name: "ut-test",
-						Annotations: map[string]string{
-							constants.KmeshRedirectionAnnotation: "enable",
+						Labels: map[string]string{
+							constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh,
 						},
 					},
 				},
@@ -225,6 +170,9 @@ func TestShouldEnroll2(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Namespace: "ut-test",
 						Name:      "ut-waypoint",
+						Labels: map[string]string{
+							"gateway.istio.io/managed": "istio.io-mesh-controller",
+						},
 					},
 				},
 			},
