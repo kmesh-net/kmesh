@@ -19,6 +19,8 @@ package bpf
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strconv"
 
 	"github.com/cilium/ebpf"
 
@@ -79,6 +81,11 @@ func (l *BpfLoader) StartWorkloadMode() error {
 	if err = l.workloadObj.Attach(); err != nil {
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
+
+	if err = l.workloadObj.ApiEnvCfg(); err != nil {
+		return fmt.Errorf("failed to set api env")
+	}
+
 	l.bpfLogLevel = l.workloadObj.SockConn.BpfLogLevel
 	return nil
 }
@@ -141,5 +148,38 @@ func (sc *BpfKmeshWorkload) Detach() error {
 		return err
 	}
 
+	return nil
+}
+
+func (sc *BpfKmeshWorkload) ApiEnvCfg() error {
+	var err error
+	var info *ebpf.MapInfo
+	var id ebpf.MapID
+
+	info, err = sc.XdpAuth.KmeshXDPAuthMaps.MapOfAuthz.Info()
+
+	if err != nil {
+		return err
+	}
+
+	id, _ = info.ID()
+	stringId := strconv.Itoa(int(id))
+	if err = os.Setenv("Authorization", stringId); err != nil {
+		return err
+	}
+
+	info, _ = sc.XdpAuth.KmeshXDPAuthMaps.OuterMap.Info()
+	id, _ = info.ID()
+	stringId = strconv.Itoa(int(id))
+	if err = os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
+		return err
+	}
+
+	info, _ = sc.XdpAuth.KmeshXDPAuthMaps.InnerMap.Info()
+	id, _ = info.ID()
+	stringId = strconv.Itoa(int(id))
+	if err = os.Setenv("INNER_MAP_ID", stringId); err != nil {
+		return err
+	}
 	return nil
 }

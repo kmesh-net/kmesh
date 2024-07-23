@@ -6,7 +6,7 @@
 
 #include "bpf_log.h"
 #include "common.h"
-#include "config.h"
+#include "bpf_common.h"
 #include "core/address.pb-c.h"
 
 #define BPF_LOGTYPE_LISTENER      BPF_DEBUG_ON
@@ -17,10 +17,6 @@
 #define BPF_LOGTYPE_ROUTER_CONFIG BPF_DEBUG_ON
 #define BPF_LOGTYPE_COMMON        BPF_DEBUG_ON
 
-#define BPF_DATA_MAX_LEN                                                                                               \
-    192 /* this value should be                                                                                        \
-small that make compile success */
-#define BPF_INNER_MAP_DATA_LEN 1300
 
 #define BPF_OK 1
 
@@ -73,22 +69,6 @@ static inline char *bpf_strncpy(char *dst, int n, const char *src)
 }
 #endif
 
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
-    __uint(key_size, sizeof(__u32));
-    __uint(value_size, sizeof(__u32));
-    __uint(max_entries, MAP_SIZE_OF_OUTTER_MAP);
-    __uint(map_flags, 0);
-} outer_map SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(key_size, sizeof(__u32));
-    __uint(value_size, BPF_INNER_MAP_DATA_LEN);
-    __uint(max_entries, 1);
-    __uint(map_flags, 0);
-} inner_map SEC(".maps");
-
 typedef enum {
     KMESH_TAIL_CALL_LISTENER = 1,
     KMESH_TAIL_CALL_FILTER_CHAIN,
@@ -112,31 +92,4 @@ enum kmesh_l7_msg_type { MSG_UNKNOW = 0, MSG_REQUEST, MSG_MID_REPONSE, MSG_FINAL
 #define GET_RET_PROTO_TYPE(n)  ((n)&0xff)
 #define GET_RET_MSG_TYPE(n)    (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
 
-static inline void *kmesh_get_ptr_val(const void *ptr)
-{
-    /*
-        map_in_map -- outer_map:
-        key		value
-        idx1	inner_map_fd1	// point to inner map1
-        idx2	 inner_map_fd2	// point to inner map2
-
-        structA.ptr_member1 = idx1;	// store idx in outer_map
-    */
-    void *inner_map_instance = NULL;
-    __u32 inner_idx = 0;
-    __u64 idx = (__u64)ptr;
-
-    if (!ptr) {
-        return NULL;
-    }
-
-    /* get inner_map_instance by idx */
-    inner_map_instance = kmesh_map_lookup_elem(&outer_map, &idx);
-    if (!inner_map_instance) {
-        return NULL;
-    }
-
-    /* get inner_map_instance value */
-    return kmesh_map_lookup_elem(inner_map_instance, &inner_idx);
-}
 #endif // _KMESH_COMMON_H_
