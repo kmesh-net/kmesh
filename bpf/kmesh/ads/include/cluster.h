@@ -318,7 +318,7 @@ int cluster_manager(ctx_buff_t *ctx)
         return KMESH_TAIL_CALL_RET(ENOENT);
 
     ret = on_cluster_sock_bind(ctx, cluster);
-    if (!ret) {
+    if (ret) {
         // open circuit breaker, should reject here.
         MARK_REJECTED(ctx);
         return KMESH_TAIL_CALL_RET(ret);
