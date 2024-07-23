@@ -47,6 +47,10 @@ static inline void update_cluster_active_connections(const struct cluster_stats_
     stats = kmesh_map_lookup_elem(&map_of_cluster_stats, key);
     if (!stats) {
         struct cluster_stats new_stats = {0};
+        if (delta < 0) {
+            BPF_LOG(DEBUG, KMESH, "invalid delta update");
+            return;
+        }
         new_stats.active_connections = delta;
         BPF_LOG(
             DEBUG,
@@ -87,7 +91,7 @@ static inline int on_cluster_sock_bind(ctx_buff_t *ctx, const Cluster__Cluster *
                 "Current active connections %d exceeded max connections %d, reject connection\n",
                 stats->active_connections,
                 cbs->max_connections);
-            return 0;
+            return 1;
         }
     }
 
@@ -96,15 +100,15 @@ static inline int on_cluster_sock_bind(ctx_buff_t *ctx, const Cluster__Cluster *
     struct cluster_sock_data *data = NULL;
     if (!ctx->sk) {
         BPF_LOG(WARN, KMESH, "provided sock is NULL\n");
-        return 1;
+        return 0;
     }
     data = bpf_sk_storage_get(&map_of_cluster_sock, ctx->sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!data) {
         BPF_LOG(ERR, KMESH, "on_cluster_sock_bind call bpf_sk_storage_get failed\n");
-        return 1;
+        return 0;
     }
     data->cluster_id = cluster_id;
-    return 1;
+    return 0;
 }
 
 static inline struct cluster_sock_data *get_cluster_sk_data(struct bpf_sock *sk)
