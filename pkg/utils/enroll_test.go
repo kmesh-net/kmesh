@@ -64,7 +64,7 @@ func TestShouldEnroll(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "pod and namespace wihout label",
+			name: "pod and namespace without label",
 			args: args{
 				namespace: &corev1.Namespace{
 					TypeMeta: metav1.TypeMeta{
@@ -183,6 +183,43 @@ func TestShouldEnroll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ShouldEnroll(tt.args.pod, tt.args.namespace); got != tt.want {
 				t.Errorf("shouldEnroll() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestHandleKmeshManage(t *testing.T) {
+	type args struct {
+		ns     string
+		enroll bool
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "enroll true",
+			args: args{
+				ns:     "test-namespace",
+				enroll: true,
+			},
+			wantErr: true,
+		},
+		{
+			name: "enroll false",
+			args: args{
+				ns:     "test-namespace",
+				enroll: false,
+			},
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := HandleKmeshManage(tt.args.ns, tt.args.enroll)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("HandleKmeshManage() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})
 	}
