@@ -20,7 +20,7 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 include ../../mk/bpf.vars.mk
 include ../../mk/bpf.print.mk
 
-INCLUDES = -I./
+INCLUDES = -I./ -I./wokloadapi
 
 # compiler flags
 LDFLAGS := -lprotobuf-c
@@ -28,7 +28,7 @@ CFLAGS := $(EXTRA_CFLAGS) $(EXTRA_CDEFINE)
 CFLAGS += -fstack-protector -fPIC
 CFLAGS += -Wall -Werror
 
-SOURCES = $(wildcard */*.c)
+SOURCES = $(wildcard */*.c) $(wildcard workloadapi/security/*.c)
 OBJECTS = $(subst .c,.o,$(SOURCES))
 # target
 APPS := libkmesh_api_v2_c.so

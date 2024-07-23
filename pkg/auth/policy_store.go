@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 )
 
 type policyStore struct {
@@ -42,11 +43,17 @@ func newPolicyStore() *policyStore {
 	}
 }
 
+func flushAuthzMap(policyName string, authzPolicy *security.Authorization) error {
+	return maps_v2.AuthorizationUpdate(policyName, authzPolicy)
+}
+
 func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
 	if authPolicy == nil {
 		return nil
 	}
 	key := authPolicy.ResourceName()
+	//todo
+	flushAuthzMap(key, authPolicy)
 
 	ps.rwLock.Lock()
 	defer ps.rwLock.Unlock()

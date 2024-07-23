@@ -6,6 +6,7 @@
 
 #include "bpf_log.h"
 #include "kmesh_common.h"
+#include "bpf_common.h"
 #include "tail_call.h"
 #include "cluster/cluster.pb-c.h"
 #include "endpoint/endpoint.pb-c.h"
