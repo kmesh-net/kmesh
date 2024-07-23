@@ -73,6 +73,8 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
     daddr = sk->sk_daddr;
     dport = sk->sk_dport;
 
+    // daddr == 0 && dport == 0 are special flags meaning the circuit breaker is open
+    // Should reject connection here
     if (daddr == 0 && dport == 0) {
         tcp_set_state(sk, TCP_CLOSE);
         sk->sk_route_caps = 0;

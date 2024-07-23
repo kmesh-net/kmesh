@@ -25,7 +25,7 @@ typedef struct bpf_sock_ops ctx_buff_t;
     (ctx)->remote_port = (address)->port
 
 #define MARK_REJECTED(ctx)                                                                                             \
-    BPF_LOG(INFO, KMESH, "mark reject");                                                                               \
+    BPF_LOG(DEBUG, KMESH, "mark reject");                                                                              \
     (ctx)->remote_ip4 = 0;                                                                                             \
     (ctx)->remote_port = 0
 #else
