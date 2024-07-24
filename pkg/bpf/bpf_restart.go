@@ -30,15 +30,17 @@ import (
 	"kmesh.net/kmesh/pkg/version"
 )
 
-// Indicates how to start kmesh on the next launch or how to close kmesh.
-// Start:
-// Normal: a normal new start
-// Restart: reusing the previous kmesh configuration
-// Update: upgrading kmesh and reusing part of previous kmesh configuration
-// Close:
-// Normal: normal close
-// Restart: not clean kmesh configuration, for next launch
-// Update: not clean part of kmesh configuration, for next launch
+/*
+ * Indicates how to start kmesh on the next launch or how to close kmesh.
+ * Start Kmesh:
+ *		Normal: a normal new start
+ *		Restart: reusing the previous kmesh configuration
+ *		Update: upgrading kmesh and reusing part of previous kmesh configuration
+ * Close Kmesh:
+ *		Normal: normal close, cleanup all the bpf prog and maps
+ *		Restart: not clean kmesh configuration and bpf map, for next launch
+ *		Update: not clean part of kmesh configuration, for next launch
+ */
 const (
 	Normal = iota
 	Restart
