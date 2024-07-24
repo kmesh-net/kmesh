@@ -186,7 +186,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		wlwp := echo.Config().WorkloadWaypointProxy
 		if svcwp != "" {
 			if _, found := apps.WaypointProxies[svcwp]; !found {
-				apps.WaypointProxies[svcwp], err = newWaypointProxy(t, apps.Namespace, svcwp)
+				apps.WaypointProxies[svcwp], err = newWaypointProxy(t, apps.Namespace, svcwp, constants.ServiceTraffic)
 				if err != nil {
 					return err
 				}
@@ -194,7 +194,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		}
 		if wlwp != "" {
 			if _, found := apps.WaypointProxies[wlwp]; !found {
-				apps.WaypointProxies[wlwp], err = newWaypointProxy(t, apps.Namespace, wlwp)
+				apps.WaypointProxies[wlwp], err = newWaypointProxy(t, apps.Namespace, wlwp, constants.WorkloadTraffic)
 				if err != nil {
 					return err
 				}
@@ -246,13 +246,13 @@ func (k kubeComponent) Close() error {
 	return nil
 }
 
-func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {
-	if _, err := newWaypointProxy(ctx, ns, name); err != nil {
+func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string, trafficType string) {
+	if _, err := newWaypointProxy(ctx, ns, name, trafficType); err != nil {
 		t.Fatal("create new waypoint proxy failed: %v", err)
 	}
 }
 
-func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) (ambient.WaypointProxy, error) {
+func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, trafficType string) (ambient.WaypointProxy, error) {
 	err := crd.DeployGatewayAPI(ctx)
 	if err != nil {
 		return nil, err
@@ -267,6 +267,9 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 			Name:        name,
 			Namespace:   ns.Name(),
 			Annotations: make(map[string]string, 0),
+			Labels: map[string]string{
+				constants.AmbientWaypointForTrafficTypeLabel: trafficType,
+			},
 		},
 		Spec: gateway.GatewaySpec{
 			GatewayClassName: constants.WaypointGatewayClassName,

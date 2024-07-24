@@ -448,59 +448,130 @@ spec:
 	})
 }
 
-func TestRemoveAddWaypoint(t *testing.T) {
+// Test add/remove waypoint at pod granularity.
+func TestAddRemovePodWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		newWaypointProxyOrFail(t, t, apps.Namespace, "service-waypoint")
+		waypoint := "pod-waypoint"
+		newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.WorkloadTraffic)
 
 		t.Cleanup(func() {
-			deleteWaypointProxyOrFail(t, t, apps.Namespace, "service-waypoint")
+			deleteWaypointProxyOrFail(t, t, apps.Namespace, waypoint)
 		})
 
+		dst := apps.EnrolledToKmesh
 		t.NewSubTest("before").Run(func(t framework.TestContext) {
-			dst := apps.EnrolledToKmesh
 			for _, src := range apps.All {
 				if src.Config().IsUncaptured() {
 					continue
 				}
-				t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
-					c := IsL4()
-					if src.Config().HasSidecar() {
-						c = IsL7()
-					}
-					opt := echo.CallOptions{
-						To:     dst,
-						Port:   echo.Port{Name: "http"},
-						Scheme: scheme.HTTP,
-						Count:  10,
-						Check:  check.And(check.OK(), c),
-					}
-					src.CallOrFail(t, opt)
-				})
+				for _, dstWl := range dst.WorkloadsOrFail(t) {
+					t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+						c := IsL4()
+						opt := echo.CallOptions{
+							Address: dstWl.Address(),
+							Port:    echo.Port{ServicePort: ports.All().MustForName("http").WorkloadPort},
+							Scheme:  scheme.HTTP,
+							Count:   10,
+							Check:   check.And(check.OK(), c),
+						}
+						src.CallOrFail(t, opt)
+					})
+				}
+
 			}
 		})
 
-		SetWaypoint(t, EnrolledToKmesh, "service-waypoint")
+		// Configure pods to use waypoint.
+		for _, dstWl := range dst.WorkloadsOrFail(t) {
+			SetWaypoint(t, apps.Namespace.Name(), dstWl.PodName(), waypoint, Workload)
+		}
 
-		// Now should always be L7
+		// Now should always be L7.
 		t.NewSubTest("after").Run(func(t framework.TestContext) {
-			dst := apps.EnrolledToKmesh
 			for _, src := range apps.All {
 				if src.Config().IsUncaptured() {
 					continue
 				}
-				t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
-					opt := echo.CallOptions{
-						To:     dst,
-						Port:   echo.Port{Name: "http"},
-						Scheme: scheme.HTTP,
-						Count:  10,
-						Check:  check.And(check.OK(), IsL7()),
-					}
-					src.CallOrFail(t, opt)
-				})
+				for _, dstWl := range dst.WorkloadsOrFail(t) {
+					t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+						c := IsL4()
+						opt := echo.CallOptions{
+							Address: dstWl.Address(),
+							Port:    echo.Port{ServicePort: ports.All().MustForName("http").WorkloadPort},
+							Scheme:  scheme.HTTP,
+							Count:   10,
+							Check:   check.And(check.OK(), c),
+						}
+						src.CallOrFail(t, opt)
+					})
+				}
+
 			}
 		})
 	})
+}
+
+// Test add/remove waypoint at ns or service granularity.
+func TestRemoveAddNsOrServiceWaypoint(t *testing.T) {
+	for _, granularity := range []Granularity{Service /*,Namespace*/} {
+		framework.NewTest(t).Run(func(t framework.TestContext) {
+			var waypoint string
+			switch granularity {
+			case Namespace:
+				waypoint = "namespace-waypoint"
+			case Service:
+				waypoint = "service-waypoint"
+			}
+
+			newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.ServiceTraffic)
+
+			t.Cleanup(func() {
+				deleteWaypointProxyOrFail(t, t, apps.Namespace, waypoint)
+			})
+
+			t.NewSubTest("before").Run(func(t framework.TestContext) {
+				dst := apps.EnrolledToKmesh
+				for _, src := range apps.All {
+					if src.Config().IsUncaptured() {
+						continue
+					}
+					t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+						c := IsL4()
+						opt := echo.CallOptions{
+							To:     dst,
+							Port:   echo.Port{Name: "http"},
+							Scheme: scheme.HTTP,
+							Count:  10,
+							Check:  check.And(check.OK(), c),
+						}
+						src.CallOrFail(t, opt)
+					})
+				}
+			})
+
+			SetWaypoint(t, apps.Namespace.Name(), EnrolledToKmesh, waypoint, granularity)
+
+			// Now should always be L7
+			t.NewSubTest("after").Run(func(t framework.TestContext) {
+				dst := apps.EnrolledToKmesh
+				for _, src := range apps.All {
+					if src.Config().IsUncaptured() {
+						continue
+					}
+					t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+						opt := echo.CallOptions{
+							To:     dst,
+							Port:   echo.Port{Name: "http"},
+							Scheme: scheme.HTTP,
+							Count:  10,
+							Check:  check.And(check.OK(), IsL7()),
+						}
+						src.CallOrFail(t, opt)
+					})
+				}
+			})
+		})
+	}
 }
 
 func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
@@ -548,11 +619,15 @@ func runTestContext(t framework.TestContext, f func(t framework.TestContext, src
 	}
 }
 
-func SetWaypoint(t framework.TestContext, svc string, waypoint string) {
-	setWaypointInternal(t, svc, apps.Namespace.Name(), waypoint, true)
-}
+type Granularity int
 
-func setWaypointInternal(t framework.TestContext, name, ns string, waypoint string, service bool) {
+const (
+	Namespace Granularity = iota
+	Service
+	Workload
+)
+
+func SetWaypoint(t framework.TestContext, ns string, name string, waypoint string, granularity Granularity) {
 	for _, c := range t.Clusters() {
 		setWaypoint := func(waypoint string) error {
 			if waypoint == "" {
@@ -560,14 +635,21 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 			} else {
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
-			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`,
-				constants.AmbientUseWaypointLabel, waypoint))
-			if service {
+			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`, constants.AmbientUseWaypointLabel, waypoint))
+
+			switch granularity {
+			case Namespace:
+				_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), ns, types.MergePatchType, label, metav1.PatchOptions{})
+				return err
+			case Service:
 				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
 				return err
+			case Workload:
+				_, err := c.Kube().CoreV1().Pods(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+				return err
 			}
-			_, err := c.Istio().NetworkingV1beta1().ServiceEntries(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
-			return err
+
+			return nil
 		}
 
 		if err := setWaypoint(waypoint); err != nil {
@@ -575,7 +657,7 @@ func setWaypointInternal(t framework.TestContext, name, ns string, waypoint stri
 		}
 		t.Cleanup(func() {
 			if err := setWaypoint(""); err != nil {
-				scopes.Framework.Errorf("failed resetting waypoint for %s", name)
+				scopes.Framework.Errorf("failed resetting waypoint for %s/%s", ns, name)
 			}
 		})
 	}
