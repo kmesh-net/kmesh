@@ -160,7 +160,10 @@ func (cache *ClusterCache) clearClusterStats(clusterName string) {
 	}
 	if len(keysToDelete) > 0 {
 		log.Debugf("remove cluster stats: %v", keysToDelete)
-		cache.clusterStatsMap.BatchDelete(keysToDelete, nil)
+		_, err := cache.clusterStatsMap.BatchDelete(keysToDelete, nil)
+		if err != nil {
+			log.Errorf("failed to remove cluster stats: %v", err)
+		}
 	}
 
 	if err := it.Err(); err != nil {
