@@ -141,6 +141,13 @@ func (l *BpfLoader) Start(config *options.BpfConfig) error {
 	return nil
 }
 
+func (l *BpfLoader) GetBpfKmesh() *BpfKmesh {
+	if l == nil {
+		return nil
+	}
+	return l.obj
+}
+
 func (l *BpfLoader) GetBpfKmeshWorkload() *BpfKmeshWorkload {
 	if l == nil {
 		return nil

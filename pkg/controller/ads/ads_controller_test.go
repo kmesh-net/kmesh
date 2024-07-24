@@ -115,7 +115,7 @@ func TestHandleAdsStream(t *testing.T) {
 	}
 	defer fakeClient.Cleanup()
 
-	adsStream := NewController()
+	adsStream := NewController(nil)
 	adsStream.Stream = fakeClient.AdsClient
 
 	patches1 := gomonkey.NewPatches()
