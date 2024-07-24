@@ -10,6 +10,7 @@
 
 #define CLUSTER_NAME_MAX_LEN BPF_DATA_MAX_LEN
 
+#pragma pack(1)
 struct cluster_stats {
     __u32 active_connections;
 };
@@ -18,6 +19,7 @@ struct cluster_stats_key {
     __u64 netns_cookie;
     __u32 cluster_id;
 };
+#pragma pack()
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
