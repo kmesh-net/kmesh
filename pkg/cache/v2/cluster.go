@@ -148,16 +148,21 @@ func (cache *ClusterCache) clearClusterStats(clusterName string) {
 	}
 	clusterId := cache.hashName.StrToNum(clusterName)
 	var key ClusterStatsKey
+	var value ClusterStatsValue
+	var keysToDelete []ClusterStatsKey
 	it := cache.clusterStatsMap.Iterate()
-	for it.Next(&key, nil) {
+
+	for it.Next(&key, &value) {
 		if key.ClusterId == clusterId {
-			if err := cache.clusterStatsMap.Delete(&key); err != nil {
-				log.Errorf("failed to delete key %v: %s", key, err)
-			} else {
-				log.Debugf("remove cluster stats with key %v", key)
-			}
+			log.Debugf("remove cluster stats with key %v", key)
+			keysToDelete = append(keysToDelete, key)
 		}
 	}
+	if len(keysToDelete) > 0 {
+		log.Debugf("remove cluster stats: %v", keysToDelete)
+		cache.clusterStatsMap.BatchDelete(keysToDelete, nil)
+	}
+
 	if err := it.Err(); err != nil {
 		log.Errorf("delete iteration error: %s", err)
 	}
@@ -178,11 +183,11 @@ func (cache *ClusterCache) Flush() {
 				log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 			}
 		} else if cluster.GetApiStatus() == core_v2.ApiStatus_DELETE {
+			cache.clearClusterStats(name)
 			err := maps_v2.ClusterDelete(name)
 			if err == nil {
 				delete(cache.apiClusterCache, name)
 				delete(cache.resourceHash, name)
-				cache.clearClusterStats(name)
 				cache.hashName.Delete(name)
 			} else {
 				log.Errorf("cluster %s delete failed: %v", name, err)
