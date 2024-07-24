@@ -124,6 +124,14 @@ func (h *HashName) NumToStr(num uint32) string {
 	return h.numToStr[num]
 }
 
+func (h *HashName) StrToNum(str string) uint32 {
+	return h.strToNum[str]
+}
+
+func (h *HashName) GetStrToNum() map[string]uint32 {
+	return h.strToNum
+}
+
 func (h *HashName) Delete(str string) {
 	// only when the num exists, we do the logic
 	if num, exists := h.strToNum[str]; exists {

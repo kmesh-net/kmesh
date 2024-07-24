@@ -633,7 +633,7 @@ func (p *Processor) handleRemovedAddressesDuringRestart() {
 	// but not in userspace cache, that means the data in the bpf map load
 	// from the last epoch is inconsistent with the data that should
 	// actually be stored now. then we should delete it from bpf map
-	for str, num := range p.hashName.strToNum {
+	for str, num := range p.hashName.GetStrToNum() {
 		if p.WorkloadCache.GetWorkloadByUid(str) == nil && p.ServiceCache.GetService(str) == nil {
 			log.Debugf("GetWorkloadByUid and GetService nil:%v", str)
 
@@ -705,7 +705,7 @@ func (p *Processor) handleRemovedAuthzPolicyDuringRestart(rbac *auth.Rbac) {
 	 * actually be stored now. then we should delete it from bpf map
 	 */
 	policyCache := rbac.GetAllPolicies()
-	for str, num := range p.hashName.strToNum {
+	for str, num := range p.hashName.GetStrToNum() {
 		if _, exists := policyCache[str]; !exists {
 			if err := maps_v2.AuthorizationLookup(num, &policyValue); err == nil {
 				log.Debugf("Find policy: [%v:%v] Remove authz policy", str, num)

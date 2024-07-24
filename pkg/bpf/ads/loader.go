@@ -141,6 +141,10 @@ func (sc *BpfAds) Detach() error {
 	return nil
 }
 
+func (sc *BpfAds) GetClusterStatsMap() *ebpf.Map {
+	return nil
+}
+
 func AdsL7Enabled() bool {
 	return false
 }

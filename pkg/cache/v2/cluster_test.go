@@ -58,7 +58,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache(utils.NewHashName())
+		cache := NewClusterCache(nil, utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UPDATE,
 			Name:           "ut-cluster1",
@@ -101,7 +101,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache(utils.NewHashName())
+		cache := NewClusterCache(nil, utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UPDATE,
 			Name:           "ut-cluster1",
@@ -155,7 +155,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache(utils.NewHashName())
+		cache := NewClusterCache(nil, utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UNCHANGED,
 			Name:           "ut-cluster1",
@@ -336,7 +336,7 @@ func BenchmarkClusterFlush(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cache := NewClusterCache(utils.NewHashName())
+		cache := NewClusterCache(nil, utils.NewHashName())
 		cluster.Name = rand.String(6)
 		cluster.ApiStatus = core_v2.ApiStatus_UPDATE
 		cache.SetApiCluster(cluster.Name, &cluster)

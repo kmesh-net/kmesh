@@ -22,27 +22,44 @@ package cache_v2
 import (
 	"sync"
 
+	"github.com/cilium/ebpf"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/utils"
 )
+
+type ClusterStatsKey struct {
+	NetnsCookie uint64
+	ClusterId   uint32
+}
+
+type ClusterStatsValue struct {
+	ActiveConnections uint32
+}
 
 type ClusterCache struct {
 	mutex           sync.RWMutex
 	apiClusterCache apiClusterCache
 	// resourceHash[0]:cds  resourceHash[1]:eds
-	resourceHash map[string][2]uint64
-	hashName     *utils.HashName
+	resourceHash    map[string][2]uint64
+	hashName        *utils.HashName
+	clusterStatsMap *ebpf.Map
 }
 
-func NewClusterCache(hashName *utils.HashName) ClusterCache {
+func NewClusterCache(bpfAds *bpfads.BpfAds, hashName *utils.HashName) ClusterCache {
+	var clusterStatsMap *ebpf.Map
+	if bpfAds != nil {
+		clusterStatsMap = bpfAds.GetClusterStatsMap()
+	}
 	return ClusterCache{
 		apiClusterCache: newApiClusterCache(),
 		resourceHash:    make(map[string][2]uint64),
 		hashName:        hashName,
+		clusterStatsMap: clusterStatsMap,
 	}
 }
 
@@ -125,6 +142,27 @@ func (cache *ClusterCache) SetEdsHash(key string, value uint64) {
 	cache.resourceHash[key] = [2]uint64{cache.resourceHash[key][0], value}
 }
 
+func (cache *ClusterCache) clearClusterStats(clusterName string) {
+	if cache.clusterStatsMap == nil {
+		return
+	}
+	clusterId := cache.hashName.StrToNum(clusterName)
+	var key ClusterStatsKey
+	it := cache.clusterStatsMap.Iterate()
+	for it.Next(&key, nil) {
+		if key.ClusterId == clusterId {
+			if err := cache.clusterStatsMap.Delete(&key); err != nil {
+				log.Errorf("failed to delete key %v: %s", key, err)
+			} else {
+				log.Debugf("remove cluster stats with key %v", key)
+			}
+		}
+	}
+	if err := it.Err(); err != nil {
+		log.Errorf("delete iteration error: %s", err)
+	}
+}
+
 // Flush flushes the cluster to bpf map.
 func (cache *ClusterCache) Flush() {
 	cache.mutex.Lock()
@@ -144,6 +182,7 @@ func (cache *ClusterCache) Flush() {
 			if err == nil {
 				delete(cache.apiClusterCache, name)
 				delete(cache.resourceHash, name)
+				cache.clearClusterStats(name)
 				cache.hashName.Delete(name)
 			} else {
 				log.Errorf("cluster %s delete failed: %v", name, err)

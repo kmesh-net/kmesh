@@ -35,6 +35,7 @@ import (
 	filter_v2 "kmesh.net/kmesh/api/v2/filter"
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
 	route_v2 "kmesh.net/kmesh/api/v2/route"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
@@ -50,10 +51,11 @@ type AdsCache struct {
 	RouteCache    cache_v2.RouteConfigCache
 }
 
-func NewAdsCache() *AdsCache {
+func NewAdsCache(bpfAds *bpfads.BpfAds) *AdsCache {
+	hashName := utils.NewHashName()
 	return &AdsCache{
 		ListenerCache: cache_v2.NewListenerCache(),
-		ClusterCache:  cache_v2.NewClusterCache(utils.NewHashName()),
+		ClusterCache:  cache_v2.NewClusterCache(bpfAds, hashName),
 		RouteCache:    cache_v2.NewRouteConfigCache(),
 	}
 }
