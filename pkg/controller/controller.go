@@ -38,6 +38,7 @@ var (
 
 type Controller struct {
 	mode                string
+	bpfAdsObj           *bpf.BpfKmesh
 	bpfWorkloadObj      *bpf.BpfKmeshWorkload
 	client              *XdsClient
 	enableByPass        bool
@@ -46,10 +47,11 @@ type Controller struct {
 	enableBpfLog        bool
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload, bpfFsPath string, enableBpfLog bool) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpf.BpfKmesh, bpfWorkloadObj *bpf.BpfKmeshWorkload, bpfFsPath string, enableBpfLog bool) *Controller {
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,
+		bpfAdsObj:           bpfAdsObj,
 		bpfWorkloadObj:      bpfWorkloadObj,
 		enableSecretManager: opts.SecretManagerConfig.Enable,
 		bpfFsPath:           bpfFsPath,
@@ -89,7 +91,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("fail to start ringbuf reader: %v", err)
 		}
 	}
-	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
+	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj)
 
 	if c.client.WorkloadController != nil {
 		if c.enableSecretManager {
