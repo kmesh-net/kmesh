@@ -83,7 +83,7 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		return nil, err
 	}
 
-	if kmeshStatus == Restart {
+	if GetKmeshStatus() == Restart {
 		return spec, nil
 	}
 
@@ -154,7 +154,7 @@ func (sc *BpfSockConnWorkload) Attach() error {
 
 	sc.Link6, err = link.AttachCgroup(cgopt)
 
-	if kmeshStatus == Restart {
+	if GetKmeshStatus() == Restart {
 		return err
 	}
 
@@ -252,7 +252,7 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
-	if kmeshStatus == Restart {
+	if GetKmeshStatus() == Restart {
 		return spec, nil
 	}
 
@@ -291,7 +291,7 @@ func (so *BpfSockOpsWorkload) Attach() error {
 	}
 	so.Link = lk
 
-	if kmeshStatus == Restart {
+	if GetKmeshStatus() == Restart {
 		return nil
 	}
 
@@ -385,7 +385,7 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
-	if kmeshStatus == Restart {
+	if GetKmeshStatus() == Restart {
 		return spec, nil
 	}
 
@@ -508,7 +508,7 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
-	if kmeshStatus == Restart {
+	if GetKmeshStatus() == Restart {
 		return spec, nil
 	}
 

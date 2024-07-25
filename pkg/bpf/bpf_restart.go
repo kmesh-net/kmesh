@@ -20,9 +20,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"syscall"
 
 	"github.com/cilium/ebpf"
+	"istio.io/pkg/env"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kmesh.net/kmesh/pkg/constants"
@@ -41,57 +43,59 @@ import (
  *		Restart: not clean kmesh configuration and bpf map, for next launch
  *		Update: not clean part of kmesh configuration, for next launch
  */
+
+type StartType uint8
+
 const (
-	Normal = iota
+	Normal StartType = iota
 	Restart
 	Update
 )
 
-const (
-	daemonSetName = "kmesh"
-	namespace     = "kmesh-system"
-)
+var kmeshStatus StartType
 
-var kmeshStatus int
-
-func GetKmeshStatus() int {
+func GetKmeshStatus() StartType {
 	return kmeshStatus
 }
 
-func SetKmeshStatus(Status int) {
+func SetKmeshStatus(Status StartType) {
 	kmeshStatus = Status
 }
 
-func InferRestartStatus() bool {
+func inferRestartStatus() StartType {
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
-		return false
+		return Normal
 	}
-
-	daemonSet, err := clientset.AppsV1().DaemonSets(namespace).Get(context.TODO(), daemonSetName, metav1.GetOptions{})
+	podName := strings.Split(env.Register("POD_NAME", "", "").Get(), "-")
+	daemonSetName := podName[0]
+	daemonSetNamespace := env.Register("POD_NAMESPACE", "", "").Get()
+	log.Infof("DaemonSet %s in namespace %s\n", daemonSetName, daemonSetNamespace)
+	daemonSet, err := clientset.AppsV1().DaemonSets(daemonSetNamespace).Get(context.TODO(), daemonSetName, metav1.GetOptions{})
 	if err == nil {
 		log.Debugf("Found DaemonSet %s in namespace %s\n", daemonSet.Name, daemonSet.Namespace)
-		return true
+		return Restart
 	}
-	return false
+	log.Infof("DaemonSet %s in namespace %s\n", daemonSet.Name, daemonSet.Namespace)
+	return Normal
 }
 
 func SetCloseStatus() {
-	if InferRestartStatus() {
-		SetKmeshStatus(Restart)
-	} else {
-		SetKmeshStatus(Normal)
-	}
+	SetKmeshStatus(inferRestartStatus())
 }
 
-func SetStartStatus(versionMap *ebpf.Map) {
-	var GitVersion [16]byte
-	oldGitVersion := GetMap(versionMap, 0)
-	copy(GitVersion[:], version.Get().GitVersion)
+func CompareOldGitVersion(versionMap *ebpf.Map) {
+	var GitVersion uint32
+	hash.Reset()
+	hash.Write([]byte(version.Get().GitVersion))
+	GitVersion = hash.Sum32()
+	oldGitVersion := getOldVersionFromMap(versionMap, 0)
 	log.Debugf("oldGitVersion:%v\nGitVersion:%v", oldGitVersion, GitVersion)
 	if GitVersion == oldGitVersion {
+		log.Infof("kmesh start with Restart, load bpf maps and prog from last")
 		SetKmeshStatus(Restart)
 	} else {
+		log.Infof("kmesh start with Update")
 		SetKmeshStatus(Update)
 	}
 }

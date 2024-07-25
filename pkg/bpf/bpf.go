@@ -22,6 +22,7 @@ package bpf
 import "C"
 import (
 	"fmt"
+	"hash/fnv"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +38,10 @@ import (
 )
 
 var log = logger.NewLoggerField("pkg/bpf")
+
+var (
+	hash = fnv.New32a()
+)
 
 type BpfInfo struct {
 	MapPath          string
@@ -113,6 +118,10 @@ func (l *BpfLoader) Start(config *options.BpfConfig) error {
 
 	if err = rlimit.RemoveMemlock(); err != nil {
 		return err
+	}
+
+	if l.VersionMap == nil {
+		return fmt.Errorf("NewVersionMap failed")
 	}
 
 	if config.AdsEnabled() {
@@ -204,9 +213,9 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 
 	_, err := os.Stat(versionPath)
 	if err == nil {
-		m := RecoverVersionMap(config, versionPath)
+		m := recoverVersionMap(config, versionPath)
 		if m != nil {
-			SetStartStatus(m)
+			CompareOldGitVersion(m)
 			return m
 		}
 	}
@@ -215,12 +224,13 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 		Name:       "kmesh_version",
 		Type:       ebpf.Array,
 		KeySize:    4,
-		ValueSize:  16,
+		ValueSize:  4,
 		MaxEntries: 1,
 	}
 	m, err := ebpf.NewMap(mapSpec)
 	if err != nil {
 		log.Errorf("Create kmesh_version map failed, err is %v", err)
+		return nil
 	}
 
 	if err := os.MkdirAll(versionPath,
@@ -229,49 +239,53 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 		return nil
 	}
 
-	err = m.Pin(filepath.Join(versionPath + "kmesh_version"))
+	err = m.Pin(filepath.Join(versionPath + "/kmesh_version"))
 	if err != nil {
 		log.Errorf("kmesh_version pin failed: %v", err)
 		return nil
 	}
 
 	storeVersionInfo(m)
+	log.Infof("kmesh start with Normal")
 	SetKmeshStatus(Normal)
 	return m
 }
 
 func storeVersionInfo(versionMap *ebpf.Map) {
 	key := uint32(0)
-	var value [16]byte
-	copy(value[:], version.Get().GitVersion)
+	var value uint32
+	hash.Reset()
+	hash.Write([]byte(version.Get().GitVersion))
+	value = hash.Sum32()
 	if err := versionMap.Put(&key, &value); err != nil {
 		log.Errorf("Add Version Map failed, err is %v", err)
 	}
 }
 
-func GetMap(m *ebpf.Map, key uint32) [16]byte {
-	var valueBytes [16]byte
-	err := m.Lookup(&key, &valueBytes)
+func getOldVersionFromMap(m *ebpf.Map, key uint32) uint32 {
+	var value uint32
+	err := m.Lookup(&key, &value)
 	if err != nil {
 		log.Errorf("lookup failed: %v", err)
-		return [16]byte{}
+		return value
 	}
-	return valueBytes
+	return value
 }
 
-func RecoverVersionMap(config *options.BpfConfig, versionPath string) *ebpf.Map {
+func recoverVersionMap(config *options.BpfConfig, versionPath string) *ebpf.Map {
 	opts := &ebpf.LoadPinOptions{
 		ReadOnly:  false,
 		WriteOnly: false,
 		Flags:     0,
 	}
 
-	versionMap, err := ebpf.LoadPinnedMap(versionPath+"kmesh_version", opts)
+	versionMap, err := ebpf.LoadPinnedMap(filepath.Join(versionPath+"/kmesh_version"), opts)
 	if err != nil {
-		log.Debugf("kmesh version map LoadPinnedMap failed: %v, Start normal", err)
+		log.Infof("kmesh version map loadfailed: %v, start normally", err)
+
 		return nil
 	}
-	log.Debugf("RecoverVersionMap success")
+	log.Debugf("recoverVersionMap success")
 
 	return versionMap
 }
