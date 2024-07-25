@@ -22,7 +22,6 @@ import (
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
-	"istio.io/api/annotation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
@@ -32,6 +31,7 @@ import (
 	ns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/utils/istio"
 )
 
 var (
@@ -64,7 +64,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				log.Errorf("expected *corev1.Pod but got %T", obj)
 				return
 			}
-			if !podHasSidecar(pod) {
+			if !istio.PodHasSidecar(pod) {
 				log.Infof("pod %s/%s does not have sidecar injected, skip", pod.GetNamespace(), pod.GetName())
 				return
 			}
@@ -94,7 +94,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				return
 			}
 
-			if !podHasSidecar(newPod) {
+			if !istio.PodHasSidecar(newPod) {
 				log.Debugf("pod %s/%s does not have a sidecar", newPod.GetNamespace(), newPod.GetName())
 				return
 			}
@@ -189,12 +189,4 @@ func deleteIptables(ns string) error {
 		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
 	}
 	return nil
-}
-
-func podHasSidecar(pod *corev1.Pod) bool {
-	if _, f := pod.GetAnnotations()[annotation.SidecarStatus.Name]; f {
-		return true
-	}
-
-	return false
 }
