@@ -42,6 +42,11 @@ func ShouldEnroll(pod *corev1.Pod, ns *corev1.Namespace) bool {
 		return false
 	}
 
+	// exclude pod with host network set, otherwise it will cause other pods with host network to be managed by kmesh
+	if pod.Spec.HostNetwork {
+		return false
+	}
+
 	// If it is a Pod of waypoint, it should not be managed by Kmesh
 	// Exclude istio managed gateway
 	if gateway, ok := pod.Labels["gateway.istio.io/managed"]; ok {
