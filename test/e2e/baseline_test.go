@@ -689,6 +689,72 @@ func TestBookinfo(t *testing.T) {
 	})
 }
 
+var CheckDeny = check.Or(
+	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
+	check.ErrorContains("EOF"),                                // TCP envoy
+	check.ErrorContains("read: connection reset by peer"),     // TCP Kmesh
+	check.NoErrorAndStatus(http.StatusForbidden),              // HTTP
+	check.NoErrorAndStatus(http.StatusServiceUnavailable),     // HTTP client, TCP server
+)
+
+func TestAuthorizationL4(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.NewSubTest("allow").Run(func(t framework.TestContext) {
+			src := apps.ServiceWithWaypointAtServiceGranularity
+			clients := src.WorkloadsOrFail(t)
+			dst := apps.EnrolledToKmesh
+
+			addresses := clients.Addresses()
+			if len(addresses) < 2 {
+				t.Fatal(fmt.Errorf("need at least 2 clients"))
+			}
+			selectedAddress = addresses[0]
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": dst.Config().Service,
+				"Namespace":   apps.Namespace.Name(),
+				"Ip":          selectedAddress,
+			}, `
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: policy
+  namespace: "{{ .Namespace }}"
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  action: ALLOW
+  rules:
+  - from:
+    - source:
+	    ipBlocks:
+		- "{{ .Ip }}"
+`).ApplyOrFail(t)
+
+			for _, clent := range clients {
+				opt := echo.CallOptions{
+					To:     dst,
+					Port:   echo.Port{Name: "http"},
+					Scheme: scheme.HTTP,
+					Count:  10,
+					// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
+					NewConnectionPerRequest: true,
+					Timeout:                 time.Minute * 2,
+					Check:                   check.OK(),
+				}
+
+				if client.Address() != selectedAddress {
+					opt.Check = CheckDeny
+				}
+
+				t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
+					src.WithWorkloads(client).CallOrFail(t, opt)
+				})
+			}
+		})
+	})
+}
+
 func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		runTestContext(t, f)

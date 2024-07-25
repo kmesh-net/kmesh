@@ -177,10 +177,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas: 1,
 					Version:  "v1",
+					Labels: map[string]string{
+						"app":     EnrolledToKmesh,
+						"version": "v1",
+					},
 				},
 				{
 					Replicas: 1,
 					Version:  "v2",
+					Labels: map[string]string{
+						"app":     EnrolledToKmesh,
+						"version": "v2",
+					},
 				},
 			},
 		})
