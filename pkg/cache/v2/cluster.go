@@ -27,7 +27,6 @@ import (
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
-	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -50,11 +49,7 @@ type ClusterCache struct {
 	clusterStatsMap *ebpf.Map
 }
 
-func NewClusterCache(bpfAds *bpf.BpfKmesh, hashName *utils.HashName) ClusterCache {
-	var clusterStatsMap *ebpf.Map
-	if bpfAds != nil {
-		clusterStatsMap = bpfAds.GetClusterStatsMap()
-	}
+func NewClusterCache(clusterStatsMap *ebpf.Map, hashName *utils.HashName) ClusterCache {
 	return ClusterCache{
 		apiClusterCache: newApiClusterCache(),
 		resourceHash:    make(map[string][2]uint64),

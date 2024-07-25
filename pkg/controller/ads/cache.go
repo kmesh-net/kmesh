@@ -17,6 +17,7 @@
 package ads
 
 import (
+	"github.com/cilium/ebpf"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -53,9 +54,13 @@ type AdsCache struct {
 
 func NewAdsCache(bpfAds *bpf.BpfKmesh) *AdsCache {
 	hashName := utils.NewHashName()
+	var clusterStatsMap *ebpf.Map
+	if bpfAds != nil {
+		clusterStatsMap = bpfAds.GetClusterStatsMap()
+	}
 	return &AdsCache{
 		ListenerCache: cache_v2.NewListenerCache(),
-		ClusterCache:  cache_v2.NewClusterCache(bpfAds, hashName),
+		ClusterCache:  cache_v2.NewClusterCache(clusterStatsMap, hashName),
 		RouteCache:    cache_v2.NewRouteConfigCache(),
 	}
 }
