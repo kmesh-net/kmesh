@@ -140,9 +140,7 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
 static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 {
     int err;
-    manager_value_t value = {
-        .is_bypassed = 0,
-    };
+    __u32 value = 0;
     struct manager_key key = {0};
     if (family == AF_INET)
         key.addr.ip4 = ip4;
@@ -195,53 +193,12 @@ static inline bool skops_conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
     return conn_from_sim(skops, CONTROL_CMD_IP, DISABLE_KMESH_PORT);
 }
 
-static inline bool skops_conn_from_bypass_sim_add(struct bpf_sock_ops *skops)
-{
-    // bypass sim connect CONTROL_CMD_IP:931(0x3a3)
-    // 0x3a3 is the specific port handled by daemon to enable bypass
-    return conn_from_sim(skops, CONTROL_CMD_IP, ENABLE_BYPASS_PORT);
-}
-
-static inline bool skops_conn_from_bypass_sim_delete(struct bpf_sock_ops *skops)
-{
-    // bypass sim connect CONTROL_CMD_IP:932(0x3a4)
-    // 0x3a4 is the specific port handled by the daemon to disable bypass
-    return conn_from_sim(skops, CONTROL_CMD_IP, DISABLE_BYPASS_PORT);
-}
-
-static inline void set_bypass_value(__u32 family, __u32 ip4, __u32 *ip6, int new_bypass_value)
-{
-    struct manager_key key = {0};
-    if (family == AF_INET)
-        key.addr.ip4 = ip4;
-    if (family == AF_INET6 && ip6)
-        IP6_COPY(key.addr.ip6, ip6);
-
-    manager_value_t *current_value = bpf_map_lookup_elem(&map_of_manager, &key);
-    if (!current_value || current_value->is_bypassed == new_bypass_value)
-        return;
-
-    current_value->is_bypassed = new_bypass_value;
-
-    int err = bpf_map_update_elem(&map_of_manager, &key, current_value, BPF_EXIST);
-    if (err)
-        BPF_LOG(ERR, KMESH, "set bypass value failed!, err is %d\n", err);
-}
-
 static inline void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops)
 {
     if (skops_conn_from_cni_sim_add(skops))
         record_kmesh_managed_ip(skops->family, skops->local_ip4, skops->local_ip6);
     if (skops_conn_from_cni_sim_delete(skops))
         remove_kmesh_managed_ip(skops->family, skops->local_ip4, skops->local_ip6);
-}
-
-static inline void skops_handle_bypass_process(struct bpf_sock_ops *skops)
-{
-    if (skops_conn_from_bypass_sim_add(skops))
-        set_bypass_value(skops->family, skops->local_ip4, skops->local_ip6, 1);
-    if (skops_conn_from_bypass_sim_delete(skops))
-        set_bypass_value(skops->family, skops->local_ip4, skops->local_ip6, 0);
 }
 
 SEC("sockops")
@@ -252,7 +209,6 @@ int sockops_prog(struct bpf_sock_ops *skops)
     switch (skops->op) {
     case BPF_SOCK_OPS_TCP_CONNECT_CB:
         skops_handle_kmesh_managed_process(skops);
-        skops_handle_bypass_process(skops);
         break;
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops))
