@@ -29,11 +29,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
-	"k8s.io/client-go/tools/cache"
 )
 
 func TestBypassController(t *testing.T) {
-	err := os.Setenv("NODE_NAME", "test_node")
+	nodeName := "test_node"
+	err := os.Setenv("NODE_NAME", nodeName)
 	assert.NoError(t, err)
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
@@ -55,8 +55,7 @@ func TestBypassController(t *testing.T) {
 	}
 	client := fake.NewSimpleClientset(namespace)
 	c := NewByPassController(client)
-	go c.Run(stopCh)
-	cache.WaitForCacheSync(stopCh, c.pod.HasSynced)
+	c.Run(stopCh)
 
 	enabled := atomic.Bool{}
 	disabled := atomic.Bool{}
@@ -92,7 +91,7 @@ func TestBypassController(t *testing.T) {
 			},
 		},
 		Spec: corev1.PodSpec{
-			NodeName: "test-node",
+			NodeName: nodeName,
 		},
 	}
 
@@ -114,7 +113,7 @@ func TestBypassController(t *testing.T) {
 			},
 		},
 		Spec: corev1.PodSpec{
-			NodeName: "test-node",
+			NodeName: nodeName,
 		},
 	}
 
