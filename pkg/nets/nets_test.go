@@ -34,7 +34,6 @@ func Test_ConvertIpToUint32(t *testing.T) {
 }
 
 func TestCopyIpByteFromSlice(t *testing.T) {
-
 	v6addr, _ := netip.ParseAddr("2001::1")
 	v6Slices := v6addr.AsSlice()
 	testcases := []struct {
@@ -67,5 +66,4 @@ func TestCopyIpByteFromSlice(t *testing.T) {
 			assert.Equal(t, tc.expected, out)
 		})
 	}
-
 }
