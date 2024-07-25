@@ -184,6 +184,23 @@ function install_dependencies() {
     rm -rf istio-${ISTIO_VERSION}
 }
 
+function cleanup_kind_cluster() {
+    local NAME="${1:-kmesh-testing}"
+    echo "Deleting KinD cluster with name=${NAME}"
+    kind delete cluster --name="${NAME}"
+    echo "KinD cluster ${NAME} cleaned up"
+}
+
+function cleanup_docker_registry() {
+    local REG_NAME="${KIND_REGISTRY_NAME:-kind-registry}"
+
+    echo "Stopping Docker registry named '${REG_NAME}'..."
+    docker stop "${REG_NAME}" || echo "Failed to stop or no such registry '${REG_NAME}'."
+
+    echo "Removing Docker registry named '${REG_NAME}'..."
+    docker rm "${REG_NAME}" || echo "Failed to remove or no such registry '${REG_NAME}'."
+}
+
 while (( "$#" )); do
     case "$1" in
     --skip-install-dep)
@@ -206,6 +223,19 @@ while (( "$#" )); do
     ;;
     --ipv6)
       IPV6=true
+      shift
+    ;;
+    --cleanup-kind)
+      CLEANUP_KIND=true
+      shift
+    ;;
+    --cleanup-registry)
+      CLEANUP_REGISTRY=true
+      shift
+    ;;
+    --cleanup-all)
+      CLEANUP_KIND=true
+      CLEANUP_REGISTRY=true
       shift
     ;;
     esac
@@ -231,3 +261,11 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
 fi
 
 go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1
+
+if [[ -n "${CLEANUP_KIND}" ]]; then
+    cleanup_kind_cluster
+fi
+
+if [[ -n "${CLEANUP_REGISTRY}" ]]; then
+    cleanup_docker_registry
+fi
