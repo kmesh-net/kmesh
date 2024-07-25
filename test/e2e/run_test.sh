@@ -28,7 +28,25 @@ function setup_kind_cluster() {
     fi
 
     # Create KinD cluster.
-    cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
+
+    if [[ -n "${IPV6:-}" ]]; then
+        # Create IPv6 KinD cluster
+        cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ipv6
+nodes:
+- role: control-plane
+- role: worker
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+EOF
+    else
+        # Create default IPv4 KinD cluster
+        cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -39,6 +57,7 @@ containerdConfigPatches:
   [plugins."io.containerd.grpc.v1.cri".registry]
     config_path = "/etc/containerd/certs.d"
 EOF
+    fi
 
     status=$?
     if [ $status -ne 0 ]; then
@@ -183,6 +202,10 @@ while (( "$#" )); do
       SKIP_INSTALL_DEPENDENCIES=true
       SKIP_SETUP=true
       SKIP_BUILD=true
+      shift
+    ;;
+    --ipv6)
+      IPV6=true
       shift
     ;;
     esac
