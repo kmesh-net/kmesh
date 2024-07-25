@@ -31,3 +31,32 @@ func Test_ConvertIpToUint32(t *testing.T) {
 	val = ConvertIpToUint32("a.b.c.d")
 	assert.Equal(t, uint32(0), val)
 }
+
+func TestCopyIpByteFromSlice(t *testing.T) {
+	testcases := []struct {
+		name     string
+		input    []byte
+		expected [16]byte
+	}{
+		{
+			name:     "ipv4",
+			input:    []byte{192, 168, 1, 1},
+			expected: [16]byte{192, 168, 1, 1},
+		},
+		{
+			name:     "ipv6",
+			input:    []byte{192, 168, 1, 1},
+			expected: [16]byte{192, 168, 1, 1},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out [16]byte
+
+			CopyIpByteFromSlice(&out, tc.input)
+			assert.Equal(t, tc.expected, out)
+		})
+	}
+
+}
