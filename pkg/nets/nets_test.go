@@ -17,6 +17,7 @@
 package nets
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -33,6 +34,9 @@ func Test_ConvertIpToUint32(t *testing.T) {
 }
 
 func TestCopyIpByteFromSlice(t *testing.T) {
+
+	v6addr, _ := netip.ParseAddr("2001::1")
+	v6Slices := v6addr.AsSlice()
 	testcases := []struct {
 		name     string
 		input    []byte
@@ -45,8 +49,13 @@ func TestCopyIpByteFromSlice(t *testing.T) {
 		},
 		{
 			name:     "ipv6",
-			input:    []byte{192, 168, 1, 1},
-			expected: [16]byte{192, 168, 1, 1},
+			input:    v6Slices,
+			expected: [16]byte{0x20, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1},
+		},
+		{
+			name:     "invalid",
+			input:    []byte{192, 168, 1, 1, 1, 1},
+			expected: [16]byte{},
 		},
 	}
 
