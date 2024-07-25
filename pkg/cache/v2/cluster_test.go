@@ -345,3 +345,48 @@ func BenchmarkClusterFlush(b *testing.B) {
 		assert.Equal(t, core_v2.ApiStatus_NONE, cluster.GetApiStatus())
 	}
 }
+
+func TestClearClusterStats(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        "ads",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, loader := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+
+	adsObj := loader.GetBpfKmesh()
+	hashName := utils.NewHashName()
+	clusterCache := NewClusterCache(adsObj, hashName)
+	testClusters := []string{"test_cluster1", "test_cluster2", "test_cluster3"}
+	testKeys := []ClusterStatsKey{
+		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[0])},
+		{NetnsCookie: 1, ClusterId: hashName.StrToNum(testClusters[0])},
+		{NetnsCookie: 2, ClusterId: hashName.StrToNum(testClusters[0])},
+		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[1])},
+		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[2])},
+	}
+
+	testValues := []ClusterStatsValue{
+		{ActiveConnections: 1},
+		{ActiveConnections: 2},
+		{ActiveConnections: 3},
+		{ActiveConnections: 4},
+		{ActiveConnections: 5},
+	}
+
+	clusterStatsMap := adsObj.GetClusterStatsMap()
+	clusterStatsMap.BatchUpdate(testKeys, testValues, nil)
+
+	var key ClusterStatsKey
+	var value ClusterStatsValue
+	for _, cluster := range testClusters {
+		clusterCache.clearClusterStats(cluster)
+		iter := clusterStatsMap.Iterate()
+		clusterId := hashName.StrToNum(cluster)
+		for iter.Next(&key, &value) {
+			assert.NotEqual(t, clusterId, key.ClusterId)
+		}
+		assert.Nil(t, iter.Err())
+	}
+}
