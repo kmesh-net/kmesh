@@ -16,6 +16,9 @@
 
 package bpf
 
+// #cgo pkg-config: api-v2-c
+// #include "deserialization_to_bpf_map.h"
+import "C"
 import (
 	"errors"
 	"fmt"
@@ -86,6 +89,11 @@ func (l *BpfLoader) StartWorkloadMode() error {
 		return fmt.Errorf("failed to set api env")
 	}
 
+	ret := C.deserial_init()
+	if ret != 0 {
+		l.Stop()
+		return fmt.Errorf("deserial_init failed:%v", ret)
+	}
 	l.bpfLogLevel = l.workloadObj.SockConn.BpfLogLevel
 	return nil
 }
