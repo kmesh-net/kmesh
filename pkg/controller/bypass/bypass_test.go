@@ -25,24 +25,39 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"istio.io/api/annotation"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/tools/cache"
 )
 
-func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
-	client := fake.NewSimpleClientset()
-
+func TestBypassController(t *testing.T) {
 	err := os.Setenv("NODE_NAME", "test_node")
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	stopCh := make(<-chan struct{})
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	namespaceName := "default"
+	namespace := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: namespaceName,
+			Labels: map[string]string{
+				"istio-injection": "enabled",
+			},
+		},
+	}
+	client := fake.NewSimpleClientset(namespace)
 	c := NewByPassController(client)
 	go c.Run(stopCh)
+	cache.WaitForCacheSync(stopCh, c.pod.HasSynced)
+
 	enabled := atomic.Bool{}
 	disabled := atomic.Bool{}
 
@@ -57,30 +72,18 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 		wg.Done()
 		return nil
 	})
-
-	patches2 := gomonkey.NewPatches()
-	defer patches2.Reset()
-
-	patches2.ApplyFunc(deleteIptables, func(ns string) error {
+	patches1.ApplyFunc(deleteIptables, func(ns string) error {
 		disabled.Store(true)
 		// Signal that addIptables has been called
 		wg.Done()
 		return nil
 	})
 
-	namespaceName := "default"
-	namespace := &corev1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: namespaceName,
-			Labels: map[string]string{
-				"istio-injection": "enabled",
-			},
-		},
-	}
-	_, err = client.CoreV1().Namespaces().Create(context.TODO(), namespace, metav1.CreateOptions{})
-	require.NoError(t, err)
-
 	podWithBypassButNoSidecar := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "test-pod-no-sidecar",
 			Namespace: namespaceName,
@@ -93,6 +96,7 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 		},
 	}
 
+	// case 1: pod with bypass label but no sidecar
 	_, err = client.CoreV1().Pods(namespaceName).Create(context.TODO(), podWithBypassButNoSidecar, metav1.CreateOptions{})
 	assert.NoError(t, err)
 	assert.Equal(t, false, enabled.Load(), "unexpected value for enabled flag")
@@ -114,6 +118,7 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 		},
 	}
 
+	// case 2: pod with bypass label and sidecar
 	wg.Add(1)
 	_, err = client.CoreV1().Pods(namespaceName).Create(context.TODO(), podWithBypass, metav1.CreateOptions{})
 	assert.NoError(t, err)
@@ -124,6 +129,7 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 	enabled.Store(false)
 	disabled.Store(false)
 
+	// case 3: pod update by removing bypass label
 	// Update pod by removing the bypass label
 	newPod := podWithBypass.DeepCopy()
 	delete(newPod.Labels, ByPassLabel)
@@ -136,7 +142,7 @@ func TestPodSidecarLabelChangeTriggersAddIptablesAction(t *testing.T) {
 
 	enabled.Store(false)
 	disabled.Store(false)
-	// Update pod by adding the bypass label
+	// case 4: Update pod by adding the bypass label
 	newPod = podWithBypass.DeepCopy()
 	newPod.Labels[ByPassLabel] = ByPassValue
 	wg.Add(1)
