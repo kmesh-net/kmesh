@@ -52,14 +52,14 @@ const (
 	Update
 )
 
-var kmeshStatus StartType
+var kmeshStartType StartType
 
-func GetKmeshStatus() StartType {
-	return kmeshStatus
+func GetStartType() StartType {
+	return kmeshStartType
 }
 
-func SetKmeshStatus(Status StartType) {
-	kmeshStatus = Status
+func SetStartType(Status StartType) {
+	kmeshStartType = Status
 }
 
 func inferRestartStatus() StartType {
@@ -81,10 +81,10 @@ func inferRestartStatus() StartType {
 }
 
 func SetCloseStatus() {
-	SetKmeshStatus(inferRestartStatus())
+	SetStartType(inferRestartStatus())
 }
 
-func CompareOldGitVersion(versionMap *ebpf.Map) {
+func SetStartStatus(versionMap *ebpf.Map) {
 	var GitVersion uint32
 	hash.Reset()
 	hash.Write([]byte(version.Get().GitVersion))
@@ -93,10 +93,10 @@ func CompareOldGitVersion(versionMap *ebpf.Map) {
 	log.Debugf("oldGitVersion:%v\nGitVersion:%v", oldGitVersion, GitVersion)
 	if GitVersion == oldGitVersion {
 		log.Infof("kmesh start with Restart, load bpf maps and prog from last")
-		SetKmeshStatus(Restart)
+		SetStartType(Restart)
 	} else {
 		log.Infof("kmesh start with Update")
-		SetKmeshStatus(Update)
+		SetStartType(Update)
 	}
 }
 

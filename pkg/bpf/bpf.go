@@ -37,9 +37,8 @@ import (
 	"kmesh.net/kmesh/pkg/version"
 )
 
-var log = logger.NewLoggerField("pkg/bpf")
-
 var (
+	log  = logger.NewLoggerField("pkg/bpf")
 	hash = fnv.New32a()
 )
 
@@ -140,7 +139,7 @@ func (l *BpfLoader) Start(config *options.BpfConfig) error {
 		}
 	}
 
-	if GetKmeshStatus() == Restart {
+	if GetStartType() == Restart {
 		log.Infof("bpf load from last pinPath")
 	}
 	return nil
@@ -174,7 +173,7 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if GetKmeshStatus() == Restart {
+	if GetStartType() == Restart {
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
 	}
@@ -215,7 +214,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	if err == nil {
 		m := recoverVersionMap(config, versionPath)
 		if m != nil {
-			CompareOldGitVersion(m)
+			SetStartStatus(m)
 			return m
 		}
 	}
@@ -247,7 +246,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 
 	storeVersionInfo(m)
 	log.Infof("kmesh start with Normal")
-	SetKmeshStatus(Normal)
+	SetStartType(Normal)
 	return m
 }
 

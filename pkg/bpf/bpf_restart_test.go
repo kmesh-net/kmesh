@@ -74,9 +74,9 @@ func runTestNormal(t *testing.T) {
 	if err := bpfLoader.Start(&config); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
-	assert.Equal(t, Normal, GetKmeshStatus(), "set kmesh start status failed")
+	assert.Equal(t, Normal, GetStartType(), "set kmesh start status failed")
 	SetCloseStatus()
-	assert.Equal(t, Normal, GetKmeshStatus(), "set kmesh close status failed")
+	assert.Equal(t, Normal, GetStartType(), "set kmesh close status failed")
 	bpfLoader.Stop()
 }
 
@@ -88,10 +88,10 @@ func runTestRestart(t *testing.T) {
 	if err := bpfLoader.Start(&config); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
-	assert.Equal(t, Normal, GetKmeshStatus(), "set kmesh start status:Normal failed")
-	SetKmeshStatus(Restart)
+	assert.Equal(t, Normal, GetStartType(), "set kmesh start status:Normal failed")
+	SetStartType(Restart)
 	bpfLoader.Stop()
-	assert.Equal(t, Restart, GetKmeshStatus(), "set kmesh close status:Restart failed")
+	assert.Equal(t, Restart, GetStartType(), "set kmesh close status:Restart failed")
 
 	if config.AdsEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
@@ -106,7 +106,7 @@ func runTestRestart(t *testing.T) {
 	if err := bpfLoader.Start(&config); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
-	assert.Equal(t, Restart, GetKmeshStatus(), "set kmesh start status:Restart failed")
-	SetKmeshStatus(Normal)
+	assert.Equal(t, Restart, GetStartType(), "set kmesh start status:Restart failed")
+	SetStartType(Normal)
 	bpfLoader.Stop()
 }
