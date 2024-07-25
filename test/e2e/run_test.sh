@@ -211,7 +211,6 @@ while (( "$#" )); do
       shift
     ;;
     --select-cases)
-      echo "params is \"$2\""
       PARAMS+="-test.run \"$2\""
       shift 2
     ;;
