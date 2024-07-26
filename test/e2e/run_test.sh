@@ -242,4 +242,4 @@ fi
 
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1 $PARAMS"
 
-eval $cmd
+bash -c "$cmd"
