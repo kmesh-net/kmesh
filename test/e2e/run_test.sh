@@ -184,6 +184,8 @@ function install_dependencies() {
     rm -rf istio-${ISTIO_VERSION}
 }
 
+PARAMS=""
+
 while (( "$#" )); do
     case "$1" in
     --skip-install-dep)
@@ -208,6 +210,14 @@ while (( "$#" )); do
       IPV6=true
       shift
     ;;
+    --select-cases)
+      PARAMS+="-test.run \"$2\""
+      shift 2
+    ;;
+    --skip-cases)
+      PARAMS+="-test.skip \"$2\""
+      shift 2
+    ;;
     esac
 done
 
@@ -230,4 +240,6 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
-go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1
+cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1 $PARAMS"
+
+bash -c "$cmd"
