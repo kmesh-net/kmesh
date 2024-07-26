@@ -700,7 +700,11 @@ var CheckDeny = check.Or(
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("allow").Run(func(t framework.TestContext) {
-			src := apps.ServiceWithWaypointAtServiceGranularity
+			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
+				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
+			}
+			src := apps.ServiceWithWaypointAtServiceGranularity[0]
+
 			clients := src.WorkloadsOrFail(t)
 			dst := apps.EnrolledToKmesh
 
@@ -708,34 +712,31 @@ func TestAuthorizationL4(t *testing.T) {
 			if len(addresses) < 2 {
 				t.Fatal(fmt.Errorf("need at least 2 clients"))
 			}
-			selectedAddress = addresses[0]
+			selectedAddress := addresses[0]
 			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 				"Destination": dst.Config().Service,
-				"Namespace":   apps.Namespace.Name(),
 				"Ip":          selectedAddress,
-			}, `
-apiVersion: security.istio.io/v1beta1
+			}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy
-  namespace: "{{ .Namespace }}"
 spec:
   selector:
     matchLabels:
-      app: "{{ .Destination }}"
+      app: "{{.Destination}}"
   action: ALLOW
   rules:
   - from:
     - source:
-	    ipBlocks:
-		- "{{ .Ip }}"
+        ipBlocks:
+        - "{{.Ip}}"
 `).ApplyOrFail(t)
 
-			for _, clent := range clients {
+			for _, client := range clients {
 				opt := echo.CallOptions{
 					To:     dst,
-					Port:   echo.Port{Name: "http"},
-					Scheme: scheme.HTTP,
+					Port:   echo.Port{Name: "tcp"},
+					Scheme: scheme.TCP,
 					Count:  10,
 					// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
 					NewConnectionPerRequest: true,
@@ -743,12 +744,16 @@ spec:
 					Check:                   check.OK(),
 				}
 
+				fmt.Printf("--- client.Address() is %v, selectedAddress is %v\n", client.Address(), selectedAddress)
+
 				if client.Address() != selectedAddress {
+					fmt.Printf("--- Use CheckDeny\n")
 					opt.Check = CheckDeny
 				}
 
-				t.NewSubTestf("%v", opt.Scheme).RunParallel(func(t framework.TestContext) {
-					src.WithWorkloads(client).CallOrFail(t, opt)
+				t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
+					result := src.WithWorkloads(client).CallOrFail(t, opt)
+					fmt.Printf("-- call result is %v\n", result.Responses)
 				})
 			}
 		})
