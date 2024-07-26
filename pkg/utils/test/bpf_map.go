@@ -17,7 +17,6 @@
 package test
 
 import (
-	"fmt"
 	"os"
 	"syscall"
 	"testing"
@@ -38,17 +37,17 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 	}
 	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
 	if err != nil {
-		CleanupBpfMap()
+		bpf.CleanupBpfMap()
 		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 	}
 	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
 	if err != nil {
-		CleanupBpfMap()
+		bpf.CleanupBpfMap()
 		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
 	}
 
 	if err = rlimit.RemoveMemlock(); err != nil {
-		CleanupBpfMap()
+		bpf.CleanupBpfMap()
 		t.Fatalf("Failed to remove mem limit: %v", err)
 	}
 
@@ -62,28 +61,13 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 	}
 
 	if err != nil {
-		CleanupBpfMap()
+		bpf.CleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)
 	}
 	return func() {
 		loader.Stop()
-		CleanupBpfMap()
+		bpf.CleanupBpfMap()
 	}, loader
-}
-
-func CleanupBpfMap() {
-	err := syscall.Unmount("/mnt/kmesh_cgroup2", 0)
-	if err != nil {
-		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
-	}
-	err = syscall.Unmount("/sys/fs/bpf", 0)
-	if err != nil {
-		fmt.Println("unmount /sys/fs/bpf error: ", err)
-	}
-	err = os.RemoveAll("/mnt/kmesh_cgroup2")
-	if err != nil {
-		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
-	}
 }
 
 func EqualIp(src [16]byte, dst []byte) bool {

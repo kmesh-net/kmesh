@@ -83,6 +83,10 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		return nil, err
 	}
 
+	if GetStartType() == Restart {
+		return spec, nil
+	}
+
 	value := reflect.ValueOf(sc.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadPrograms)
 	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -149,6 +153,18 @@ func (sc *BpfSockConnWorkload) Attach() error {
 	}
 
 	sc.Link6, err = link.AttachCgroup(cgopt)
+
+	if GetStartType() == Restart {
+		return err
+	}
+
+	if err := sc.Link.Pin(sc.Info.BpfFsPath + "sockconn_prog"); err != nil {
+		return err
+	}
+	if err := sc.Link6.Pin(sc.Info.BpfFsPath + "sockconn6_prog"); err != nil {
+		return err
+	}
+
 	return err
 }
 
@@ -236,6 +252,10 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
+	if GetStartType() == Restart {
+		return spec, nil
+	}
+
 	value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
 	if err = pinPrograms(&value, so.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -243,6 +263,7 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 
 	return spec, nil
 }
+
 func (so *BpfSockOpsWorkload) LoadSockOps() error {
 	/* load kmesh sockops main bpf prog*/
 	spec, err := so.loadKmeshSockopsObjects()
@@ -269,6 +290,14 @@ func (so *BpfSockOpsWorkload) Attach() error {
 		return err
 	}
 	so.Link = lk
+
+	if GetStartType() == Restart {
+		return nil
+	}
+
+	if err := lk.Pin(so.Info.BpfFsPath + "cgroup_sockops_prog"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -355,6 +384,11 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
 		return nil, err
 	}
+
+	if GetStartType() == Restart {
+		return spec, nil
+	}
+
 	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
 	if err = pinPrograms(&value, sm.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -472,6 +506,10 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	setMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
 		return nil, err
+	}
+
+	if GetStartType() == Restart {
+		return spec, nil
 	}
 
 	value := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthPrograms)
