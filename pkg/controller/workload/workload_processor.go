@@ -603,7 +603,7 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 	}
 
 	_ = p.handleRemovedAddresses(rsp.RemovedResources)
-	p.compareWorkloadAndService()
+	p.compareWorkloadAndServiceWithHashName()
 
 	return err
 }
@@ -611,7 +611,7 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 // When processing the workload's response for the first time,
 // fetch the data from the /mnt/workload_hash_name.yaml file
 // and compare it with the data in the cache.
-func (p *Processor) compareWorkloadAndService() {
+func (p *Processor) compareWorkloadAndServiceWithHashName() {
 	var (
 		bk = bpf.BackendKey{}
 		bv = bpf.BackendValue{}
