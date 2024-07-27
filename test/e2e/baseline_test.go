@@ -699,7 +699,7 @@ var CheckDeny = check.Or(
 
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		t.NewSubTest("allow").Run(func(t framework.TestContext) {
+		t.NewSubTest("L4 Authorization").Run(func(t framework.TestContext) {
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
 			}
@@ -713,10 +713,51 @@ func TestAuthorizationL4(t *testing.T) {
 				t.Fatal(fmt.Errorf("need at least 2 clients"))
 			}
 			selectedAddress := addresses[0]
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": dst.Config().Service,
-				"Ip":          selectedAddress,
-			}, `apiVersion: security.istio.io/v1beta1
+
+			authzCases := []struct {
+				name string
+				spec string
+			}{
+				{
+					name: "allow",
+					spec: `
+  action: ALLOW
+`,
+				},
+				{
+					name: "deny",
+					spec: `
+  action: DENY
+`,
+				},
+			}
+
+			chooseChecker := func(action string, ip string) echo.Checker {
+				switch action {
+				case "allow":
+					if ip != selectedAddress {
+						return CheckDeny
+					} else {
+						return check.OK()
+					}
+				case "deny":
+					if ip != selectedAddress {
+						return check.OK()
+					} else {
+						return CheckDeny
+					}
+				default:
+					t.Fatal("invalid action")
+				}
+
+				return check.OK()
+			}
+
+			for _, tc := range authzCases {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Ip":          selectedAddress,
+				}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: policy
@@ -724,7 +765,7 @@ spec:
   selector:
     matchLabels:
       app: "{{.Destination}}"
-  action: ALLOW
+`+tc.spec+`
   rules:
   - from:
     - source:
@@ -732,29 +773,31 @@ spec:
         - "{{.Ip}}"
 `).ApplyOrFail(t)
 
-			for _, client := range clients {
-				opt := echo.CallOptions{
-					To:     dst,
-					Port:   echo.Port{Name: "tcp"},
-					Scheme: scheme.TCP,
-					Count:  10,
-					// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-					NewConnectionPerRequest: true,
-					Timeout:                 time.Minute * 2,
-					Check:                   check.OK(),
+				for _, client := range clients {
+					opt := echo.CallOptions{
+						To:     dst,
+						Port:   echo.Port{Name: "tcp"},
+						Scheme: scheme.TCP,
+						Count:  10,
+						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
+						NewConnectionPerRequest: true,
+						Timeout:                 time.Minute * 2,
+						Check:                   check.OK(),
+					}
+
+					var name string
+					if client.Address() != selectedAddress {
+						name = tc.name + ", not selected address"
+					} else {
+						name = tc.name + ", selected address"
+					}
+
+					opt.Check = chooseChecker(tc.name, client.Address())
+
+					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
+						src.WithWorkloads(client).CallOrFail(t, opt)
+					})
 				}
-
-				fmt.Printf("--- client.Address() is %v, selectedAddress is %v\n", client.Address(), selectedAddress)
-
-				if client.Address() != selectedAddress {
-					fmt.Printf("--- Use CheckDeny\n")
-					opt.Check = CheckDeny
-				}
-
-				t.NewSubTestf("%v", opt.Scheme).Run(func(t framework.TestContext) {
-					result := src.WithWorkloads(client).CallOrFail(t, opt)
-					fmt.Printf("-- call result is %v\n", result.Responses)
-				})
 			}
 		})
 	})
