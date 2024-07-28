@@ -70,6 +70,37 @@ func TestShouldEnroll(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "pod with hostnetwork",
+			args: args{
+				namespace: &corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Namespace",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ut-test",
+					},
+				},
+				pod: &corev1.Pod{
+					TypeMeta: metav1.TypeMeta{
+						Kind:       "Pod",
+						APIVersion: "v1",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ut-test",
+						Name:      "ut-pod",
+						Labels: map[string]string{
+							constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh,
+						},
+					},
+					Spec: corev1.PodSpec{
+						HostNetwork: true,
+					},
+				},
+			},
+			want: false,
+		},
+		{
 			name: "sidecar misconfigured label",
 			args: args{
 				namespace: &corev1.Namespace{
