@@ -67,9 +67,6 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
-    if (handle_bypass_process(&kmesh_ctx) || is_bypass_enabled(ctx)) {
-        return CGROUP_SOCK_OK;
-    }
     int ret = sock4_traffic_control(ctx);
     return CGROUP_SOCK_OK;
 }
