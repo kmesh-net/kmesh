@@ -74,6 +74,12 @@ use hash value get an table index, which is <code>index=hash%len(table)</code>;
 <li>then execute above second step.</li>
 </ol>
 
+##### risk in l4 implement
+In cgroup level, because of lacking saddr and sport, cant do l4 lb effectively. 
+
+By the advice of @supercharge-xsy, add (net namespace cookie + daddr + dport ) to compute hash value.
+
+
 #### L7 implement
 ```
 apiVersion: networking.istio.io/v1alpha3
@@ -156,3 +162,6 @@ This way can get full ip address info to do lb.
 <li>Table mapping is even distribution</li>
 <li>Add or remove a endpoint only affect few connections</li>
 </ol>
+
+#### Ring hash implement reference
+https://github.com/envoyproxy/envoy/blob/b0cc284f86e328a33525d6d2b8f6ab00fff240b8/source/extensions/load_balancing_policies/ring_hash/ring_hash_lb.cc#L92
