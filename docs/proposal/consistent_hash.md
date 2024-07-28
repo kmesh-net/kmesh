@@ -75,7 +75,7 @@ use hash value get an table index, which is <code>index=hash%len(table)</code>;
 </ol>
 
 ##### risk in l4 implement
-In cgroup level, because of lacking saddr and sport, cant do l4 lb effectively. 
+In cgroup level, because of lacking saddr and sport, can't do l4 lb effectively. 
 
 By the advice of @supercharge-xsy, add (net namespace cookie + daddr + dport ) to compute hash value.
 
@@ -149,7 +149,7 @@ static inline __u32 lb_hash_based_header(unsigned char *header_name) {
 
 
 #### Cgroup level
-Directly througth lb logic, to change the daddr and dport of socket.
+Directly through lb logic, to change the daddr and dport of socket.
 
 #### Tc level
 Do lb algorithm based on network packet or message, to change the daddr and dport of packet.
