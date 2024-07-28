@@ -68,6 +68,10 @@ use hash value get an table index, which is <code>index=hash%len(table)</code>;
 </ol>
 
 
+##### maglev lookup table
+Use a compact table, table entry is bit width of endpoint count.
+For the table size default is 16381.
+
 #### L4 implement
 <ol>
 <li>(saddr,daddr,sport,dport,protocol)-->hash</li>
