@@ -424,7 +424,6 @@ func TestGetPendingResolveDomain(t *testing.T) {
 
 func TestRemoveUnwatchedCluster(t *testing.T) {
 	fakeDNSServer := newFakeDNSServer()
-
 	testDNSResolver, err := NewDNSResolver(ads.NewAdsCache())
 	if err != nil {
 		t.Fatal(err)
