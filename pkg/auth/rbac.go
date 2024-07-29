@@ -146,6 +146,11 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 				continue
 			}
 
+			if msgType == MSG_TYPE_IPV6 {
+				conn.dstIp = restoreIPv4(conn.dstIp)
+				conn.srcIp = restoreIPv4(conn.srcIp)
+			}
+
 			if !r.doRbac(&conn) {
 				log.Infof("Auth denied for connection: %+v", conn)
 				// If conn is denied, write tuples into XDP map, which includes source/destination IP/Port
@@ -510,4 +515,15 @@ func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 		namespace:      workload.GetNamespace(),
 		serviceAccount: workload.GetServiceAccount(),
 	}
+}
+
+// Converting IPv4 data reported in IPv6 form to IPv4
+func restoreIPv4(bytes []byte) []byte {
+	for i := 4; i < 16; i++ {
+		if bytes[i] != 0 {
+			return bytes
+		}
+	}
+
+	return bytes[:4]
 }

@@ -14,7 +14,6 @@ struct metric_key {
 };
 
 struct metric_data {
-    __u32 direction;      // update on connect
     __u32 conn_open;      // update on connect
     __u32 conn_close;     // update on close
     __u32 conn_failed;    // update on close
@@ -45,21 +44,38 @@ static inline void construct_metric_key(struct bpf_sock *sk, __u8 direction, str
         if (sk->family == AF_INET) {
             key->src_ip.ip4 = sk->src_ip4;
             key->dst_ip.ip4 = sk->dst_ip4;
-        } else {
+        }
+        if (sk->family == AF_INET6) {
             bpf_memcpy(key->src_ip.ip6, sk->src_ip6, IPV6_ADDR_LEN);
             bpf_memcpy(key->dst_ip.ip6, sk->dst_ip6, IPV6_ADDR_LEN);
         }
-        key->dst_port = bpf_ntohl(sk->dst_port);
-    } else {
+        key->dst_port = bpf_ntohs(sk->dst_port);
+    }
+    if (direction == INBOUND) {
         if (sk->family == AF_INET) {
             key->src_ip.ip4 = sk->dst_ip4;
             key->dst_ip.ip4 = sk->src_ip4;
-        } else {
+        }
+        if (sk->family == AF_INET6) {
             bpf_memcpy(key->src_ip.ip6, sk->dst_ip6, IPV6_ADDR_LEN);
             bpf_memcpy(key->dst_ip.ip6, sk->src_ip6, IPV6_ADDR_LEN);
         }
         key->dst_port = sk->src_port;
     }
+
+    if (is_ipv4_mapped_addr(key->src_ip.ip6)) {
+        key->src_ip.ip4 = key->src_ip.ip6[3];
+        key->dst_ip.ip4 = key->dst_ip.ip6[3];
+        key->src_ip.ip6[0] = key->src_ip.ip4;
+        key->dst_ip.ip6[0] = key->dst_ip.ip4;
+        key->src_ip.ip6[1] = 0;
+        key->src_ip.ip6[2] = 0;
+        key->src_ip.ip6[3] = 0;
+        key->dst_ip.ip6[1] = 0;
+        key->dst_ip.ip6[2] = 0;
+        key->dst_ip.ip6[3] = 0;
+    }
+
     return;
 }
 
@@ -87,7 +103,6 @@ metric_on_connect(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct soc
     metric = (struct metric_data *)bpf_map_lookup_elem(&map_of_metrics, &key);
     if (!metric) {
         data.conn_open++;
-        data.direction = storage->direction;
         int err = bpf_map_update_elem(&map_of_metrics, &key, &data, BPF_NOEXIST);
         if (err) {
             BPF_LOG(ERR, PROBE, "metric_on_connect update failed, err is %d\n", err);
@@ -97,7 +112,6 @@ metric_on_connect(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct soc
     }
 
     metric->conn_open++;
-    metric->direction = storage->direction;
 notify:
     report_metrics(&key);
     return;
@@ -114,7 +128,6 @@ metric_on_close(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_
     metric = (struct metric_data *)bpf_map_lookup_elem(&map_of_metrics, &key);
     if (!metric) {
         // connect failed
-        data.direction = storage->direction;
         data.conn_failed++;
         int err = bpf_map_update_elem(&map_of_metrics, &key, &data, BPF_NOEXIST);
         if (err) {
