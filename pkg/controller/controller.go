@@ -58,20 +58,11 @@ func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshW
 }
 
 func (c *Controller) Start(stopCh <-chan struct{}) error {
-	var secertManager *security.SecretManager
-	var err error
-	if c.mode == constants.WorkloadMode && c.enableSecretManager {
-		secertManager, err = security.NewSecretManager()
-		if err != nil {
-			return fmt.Errorf("secretManager create failed: %v", err)
-		}
-		go secertManager.Run(stopCh)
-	}
-
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		return err
 	}
+<<<<<<< HEAD
 	kmeshManageController, err := manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpShutdown.FD(), c.mode)
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
@@ -79,18 +70,37 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	go kmeshManageController.Run(stopCh)
 	log.Info("start kmesh manage controller successfully")
 
+=======
+>>>>>>> 5be0c21 (Donot start up kmesh manage controller when bypass enabled)
 	if c.enableByPass {
 		c := bypass.NewByPassController(clientset)
 		go c.Run(stopCh)
 		log.Info("start bypass controller successfully")
+		return nil
 	}
 
 	if c.mode != constants.WorkloadMode && c.mode != constants.AdsMode {
 		return nil
 	}
 
+	var secretManager *security.SecretManager
+	if c.mode == constants.WorkloadMode && c.enableSecretManager {
+		secretManager, err := security.NewSecretManager()
+		if err != nil {
+			return fmt.Errorf("secretManager create failed: %v", err)
+		}
+		go secretManager.Run(stopCh)
+	}
+
+	kmeshManageController, err := manage.NewKmeshManageController(clientset, secretManager)
+	if err != nil {
+		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
+	}
+	go kmeshManageController.Run(stopCh)
+	log.Info("start kmesh manage controller successfully")
+
 	if c.enableBpfLog {
-		if err := logger.StartRingBufReader(ctx, c.mode, c.bpfFsPath); err != nil {
+		if err := logger.NewBpfLogger(ctx, c.mode, c.bpfFsPath); err != nil {
 			return fmt.Errorf("fail to start ringbuf reader: %v", err)
 		}
 	}
