@@ -38,14 +38,18 @@ func TestRegisterMetrics(t *testing.T) {
 	}()
 
 	exportMetrics := []*prometheus.GaugeVec{
-		tcpConnectionClosed,
-		tcpConnectionOpened,
-		tcpReceivedBytes,
-		tcpSentBytes,
+		tcpConnectionClosedInWorkload,
+		tcpConnectionOpenedInWorkload,
+		tcpReceivedBytesInWorkload,
+		tcpSentBytesInWorkload,
+		tcpConnectionClosedInService,
+		tcpConnectionOpenedInService,
+		tcpReceivedBytesInService,
+		tcpSentBytesInService,
 	}
 
-	testlabels := map[string]string{
-		"direction":                      "INBOUND",
+	workloadLabels := map[string]string{
+		"reporter":                       "destination",
 		"source_workload":                "sleep",
 		"source_canonical_service":       "sleep",
 		"source_canonical_revision":      "latest",
@@ -54,7 +58,33 @@ func TestRegisterMetrics(t *testing.T) {
 		"source_app":                     "sleep",
 		"source_version":                 "latest",
 		"source_cluster":                 "Kubernetes",
-		"destination_service":            "tcp-echo.ambient-demo.svc.cluster.local",
+		"destination_pod_address":        "192.068.10.25",
+		"destination_pod_namespace":      "ambient-demo",
+		"destination_pod_name":           "tcp-echo",
+		"destination_workload":           "tcp-echo",
+		"destination_canonical_service":  "tcp-echo",
+		"destination_canonical_revision": "v1",
+		"destination_workload_namespace": "ambient-demo",
+		"destination_principal":          "spiffe://cluster.local/ns/ambient-demo/sa/default",
+		"destination_app":                "tcp-echo",
+		"destination_version":            "v1",
+		"destination_cluster":            "Kubernetes",
+		"request_protocol":               "tcp",
+		"response_flags":                 "-",
+		"connection_security_policy":     "mutual_tls",
+	}
+
+	serviceLabels := map[string]string{
+		"reporter":                       "destination",
+		"source_workload":                "sleep",
+		"source_canonical_service":       "sleep",
+		"source_canonical_revision":      "latest",
+		"source_workload_namespace":      "ambient-demo",
+		"source_principal":               "spiffe://cluster.local/ns/ambient-demo/sa/sleep",
+		"source_app":                     "sleep",
+		"source_version":                 "latest",
+		"source_cluster":                 "Kubernetes",
+		"destination_service":            "sleep.ambient.svc.cluster.local",
 		"destination_service_namespace":  "ambient-demo",
 		"destination_service_name":       "tcp-echo",
 		"destination_workload":           "tcp-echo",
@@ -70,10 +100,15 @@ func TestRegisterMetrics(t *testing.T) {
 		"connection_security_policy":     "mutual_tls",
 	}
 
-	tcpConnectionClosed.With(testlabels).Set(2)
-	tcpConnectionOpened.With(testlabels).Set(4)
-	tcpReceivedBytes.With(testlabels).Set(12.64)
-	tcpSentBytes.With(testlabels).Set(11.45)
+	tcpConnectionClosedInWorkload.With(workloadLabels).Set(2)
+	tcpConnectionOpenedInWorkload.With(workloadLabels).Set(4)
+	tcpReceivedBytesInWorkload.With(workloadLabels).Set(12.64)
+	tcpSentBytesInWorkload.With(workloadLabels).Set(11.45)
+
+	tcpConnectionClosedInService.With(serviceLabels).Set(4)
+	tcpReceivedBytesInService.With(serviceLabels).Set(8)
+	tcpSentBytesInService.With(serviceLabels).Set(9)
+	tcpConnectionOpenedInService.With(serviceLabels).Set(16.25)
 
 	for _, metric := range exportMetrics {
 		if err := prometheus.Register(metric); err != nil {

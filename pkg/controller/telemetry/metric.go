@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/ringbuf"
@@ -37,12 +38,13 @@ type MetricController struct {
 }
 
 type metricKey struct {
-	SrcIp [4]uint32
-	DstIp [4]uint32
+	SrcIp     [4]uint32
+	DstIp     [4]uint32
+	Direction uint32
+	DstPort   uint32
 }
 
 type metricValue struct {
-	Direction        uint32
 	ConnectionOpen   uint32
 	ConnectionClose  uint32
 	ConnectionFailed uint32
@@ -53,15 +55,45 @@ type metricValue struct {
 type requestMetric struct {
 	src              [4]uint32
 	dst              [4]uint32
+	dstPort          uint32
+	direction        uint32
 	connectionOpened uint32
 	connectionClosed uint32
 	receivedBytes    uint32
 	sentBytes        uint32
-	success          bool
 }
 
-type commonTrafficLabels struct {
-	direction string
+type workloadMetricLabels struct {
+	reporter string
+
+	sourceWorkload          string
+	sourceCanonicalService  string
+	sourceCanonicalRevision string
+	sourceWorkloadNamespace string
+	sourcePrincipal         string
+	sourceApp               string
+	sourceVersion           string
+	sourceCluster           string
+
+	destinationPodAddress        string
+	destinationPodNamespace      string
+	destinationPodName           string
+	destinationWorkload          string
+	destinationCanonicalService  string
+	destinationCanonicalRevision string
+	destinationWorkloadNamespace string
+	destinationPrincipal         string
+	destinationApp               string
+	destinationVersion           string
+	destinationCluster           string
+
+	requestProtocol          string
+	responseFlags            string
+	connectionSecurityPolicy string
+}
+
+type serviceMetricLabels struct {
+	reporter string
 
 	sourceWorkload          string
 	sourceCanonicalService  string
@@ -142,31 +174,34 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 
 			data.src = key.SrcIp
 			data.dst = key.DstIp
+			data.direction = key.Direction
+			data.dstPort = key.DstPort
 			data.connectionClosed = value.ConnectionClose
 			data.connectionOpened = value.ConnectionOpen
 			data.sentBytes = value.SentBytes
 			data.receivedBytes = value.ReceivedBytes
-			data.success = true
 
-			commonTrafficLabels, err := m.buildMetric(&data)
-			if err != nil {
-				log.Warnf("reporter records error")
+			workloadLabels := m.buildWorkloadMetric(&data)
+			serviceLabels := m.buildServiceMetric(&data)
+
+			workloadLabels.reporter = "-"
+			serviceLabels.reporter = "-"
+			if key.Direction == constants.INBOUND {
+				workloadLabels.reporter = "destination"
+				serviceLabels.reporter = "destination"
+			}
+			if key.Direction == constants.OUTBOUND {
+				workloadLabels.reporter = "source"
+				serviceLabels.reporter = "source"
 			}
 
-			commonTrafficLabels.direction = "-"
-			if value.Direction == constants.INBOUND {
-				commonTrafficLabels.direction = "INBOUND"
-			}
-			if value.Direction == constants.OUTBOUND {
-				commonTrafficLabels.direction = "OUTBOUND"
-			}
-
-			buildMetricsToPrometheus(data, commonTrafficLabels)
+			buildWorkloadMetricsToPrometheus(data, workloadLabels)
+			buildServiceMetricsToPrometheus(data, serviceLabels)
 		}
 	}
 }
 
-func (m *MetricController) buildMetric(data *requestMetric) (commonTrafficLabels, error) {
+func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetricLabels {
 	var dstAddr, srcAddr []byte
 	for i := range data.dst {
 		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
@@ -176,14 +211,31 @@ func (m *MetricController) buildMetric(data *requestMetric) (commonTrafficLabels
 	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
 	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
-	trafficLabels := buildMetricFromWorkload(dstWorkload, srcWorkload)
-	trafficLabels.destinationService = dstIP
-
+	trafficLabels := buildWorkloadMetric(dstWorkload, srcWorkload)
+	trafficLabels.destinationPodAddress = dstIP
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	return trafficLabels, nil
+	return trafficLabels
+}
+
+func (m *MetricController) buildServiceMetric(data *requestMetric) serviceMetricLabels {
+	var dstAddr, srcAddr []byte
+	for i := range data.dst {
+		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
+		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.src[i])
+	}
+
+	dstWorkload, _ := m.getWorkloadByAddress(restoreIPv4(dstAddr))
+	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
+
+	trafficLabels := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
+	trafficLabels.requestProtocol = "tcp"
+	trafficLabels.responseFlags = "-"
+	trafficLabels.connectionSecurityPolicy = "mutual_tls"
+
+	return trafficLabels
 }
 
 func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Workload, string) {
@@ -197,15 +249,73 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 	return workload, networkAddr.Address.String()
 }
 
-func buildMetricFromWorkload(dstWorkload, srcWorkload *workloadapi.Workload) commonTrafficLabels {
+func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloadMetricLabels {
 	if dstWorkload == nil || srcWorkload == nil {
-		return commonTrafficLabels{}
+		return workloadMetricLabels{}
 	}
 
-	trafficLabels := commonTrafficLabels{}
+	trafficLabels := workloadMetricLabels{}
 
-	trafficLabels.destinationServiceNamespace = dstWorkload.Namespace
-	trafficLabels.destinationServiceName = dstWorkload.Name
+	trafficLabels.destinationPodNamespace = dstWorkload.Namespace
+	trafficLabels.destinationPodName = dstWorkload.Name
+	trafficLabels.destinationWorkload = dstWorkload.WorkloadName
+	trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
+	trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
+	trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
+	trafficLabels.destinationApp = dstWorkload.CanonicalName
+	trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
+	trafficLabels.destinationCluster = dstWorkload.ClusterId
+
+	trafficLabels.sourceWorkload = srcWorkload.WorkloadName
+	trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
+	trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
+	trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
+	trafficLabels.sourceApp = srcWorkload.CanonicalName
+	trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
+	trafficLabels.sourceCluster = srcWorkload.ClusterId
+
+	trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
+	trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+
+	return trafficLabels
+}
+
+func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint32) serviceMetricLabels {
+	if dstWorkload == nil || srcWorkload == nil {
+		return serviceMetricLabels{}
+	}
+
+	trafficLabels := serviceMetricLabels{}
+
+	namespacedhost := ""
+	for k, portList := range dstWorkload.Services {
+		for _, port := range portList.Ports {
+			if port.TargetPort == dstPort {
+				namespacedhost = k
+				break
+			}
+		}
+		if namespacedhost != "" {
+			break
+		}
+	}
+	if namespacedhost == "" {
+		log.Infof("can't find service correspond workload: %s", dstWorkload.Name)
+	}
+
+	svcHost := ""
+	svcNamespace := ""
+	if len(strings.Split(namespacedhost, "/")) != 2 {
+		log.Info("get destination service host failed")
+	} else {
+		svcNamespace = strings.Split(namespacedhost, "/")[0]
+		svcHost = strings.Split(namespacedhost, "/")[1]
+	}
+
+	trafficLabels.destinationService = svcHost
+	trafficLabels.destinationServiceNamespace = svcNamespace
+	trafficLabels.destinationServiceName = svcHost
+
 	trafficLabels.destinationWorkload = dstWorkload.WorkloadName
 	trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
 	trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
@@ -235,29 +345,41 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 	return "-"
 }
 
-func buildMetricsToPrometheus(data requestMetric, labels commonTrafficLabels) {
-	commonLabels := commonTrafficLabels2map(&labels)
-	tcpConnectionOpened.With(commonLabels).Set(float64(data.connectionOpened))
-	tcpConnectionClosed.With(commonLabels).Set(float64(data.connectionClosed))
-	tcpReceivedBytes.With(commonLabels).Set(float64(data.receivedBytes))
-	tcpSentBytes.With(commonLabels).Set(float64(data.sentBytes))
+func buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricLabels) {
+	commonLabels := struct2map(labels)
+	tcpConnectionOpenedInWorkload.With(commonLabels).Set(float64(data.connectionOpened))
+	tcpConnectionClosedInWorkload.With(commonLabels).Set(float64(data.connectionClosed))
+	tcpReceivedBytesInWorkload.With(commonLabels).Set(float64(data.receivedBytes))
+	tcpSentBytesInWorkload.With(commonLabels).Set(float64(data.sentBytes))
 }
 
-func commonTrafficLabels2map(labels *commonTrafficLabels) map[string]string {
-	trafficLabelsMap := make(map[string]string)
+func buildServiceMetricsToPrometheus(data requestMetric, labels serviceMetricLabels) {
+	commonLabels := struct2map(labels)
+	tcpConnectionOpenedInService.With(commonLabels).Add(float64(data.connectionOpened))
+	tcpConnectionClosedInService.With(commonLabels).Add(float64(data.connectionClosed))
+	tcpReceivedBytesInService.With(commonLabels).Add(float64(data.receivedBytes))
+	tcpSentBytesInService.With(commonLabels).Add(float64(data.sentBytes))
+}
 
-	val := reflect.ValueOf(labels).Elem()
-	num := val.NumField()
-	for i := 0; i < num; i++ {
-		fieldInfo := val.Type().Field(i)
-		if val.Field(i).String() == "" {
-			trafficLabelsMap[labelsMap[fieldInfo.Name]] = "-"
-		} else {
-			trafficLabelsMap[labelsMap[fieldInfo.Name]] = val.Field(i).String()
+func struct2map(labels interface{}) map[string]string {
+	if reflect.TypeOf(labels).Kind() == reflect.Struct {
+		trafficLabelsMap := make(map[string]string)
+		val := reflect.ValueOf(labels)
+		num := val.NumField()
+		for i := 0; i < num; i++ {
+			fieldInfo := val.Type().Field(i)
+			if val.Field(i).String() == "" {
+				trafficLabelsMap[labelsMap[fieldInfo.Name]] = "-"
+			} else {
+				trafficLabelsMap[labelsMap[fieldInfo.Name]] = val.Field(i).String()
+			}
 		}
-	}
 
-	return trafficLabelsMap
+		return trafficLabelsMap
+	} else {
+		log.Error("failed to convert struct to map")
+	}
+	return nil
 }
 
 // Converting IPv4 data reported in IPv6 form to IPv4
