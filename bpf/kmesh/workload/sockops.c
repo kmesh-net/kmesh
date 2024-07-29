@@ -79,7 +79,7 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, st
         tuple_key->ipv4.sport = GET_SKOPS_REMOTE_PORT(skops);
         // local_port is host byteorder
         tuple_key->ipv4.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
-    } 
+    }
     if (skops->family == AF_INET6) {
         bpf_memcpy(tuple_key->ipv6.saddr, skops->remote_ip6, IPV6_ADDR_LEN);
         bpf_memcpy(tuple_key->ipv6.daddr, skops->local_ip6, IPV6_ADDR_LEN);
