@@ -5,7 +5,6 @@
 #define __KMESH_BPF_PROBE_H__
 
 #include "access_log.h"
-#include "metrics.h"
 
 static inline void observe_on_pre_connect(struct bpf_sock *sk)
 {
@@ -47,7 +46,6 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 dire
     storage->direction = direction;
     storage->connect_success = true;
 
-    metric_on_connect(sk, tcp_sock, storage);
 }
 
 static inline void observe_on_close(struct bpf_sock *sk)
@@ -67,6 +65,5 @@ static inline void observe_on_close(struct bpf_sock *sk)
     }
 
     // report_access_log(sk, tcp_sock, storage);
-    metric_on_close(sk, tcp_sock, storage);
 }
 #endif
