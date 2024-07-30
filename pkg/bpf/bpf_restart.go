@@ -70,13 +70,13 @@ func inferRestartStatus() StartType {
 	podName := strings.Split(env.Register("POD_NAME", "", "").Get(), "-")
 	daemonSetName := podName[0]
 	daemonSetNamespace := env.Register("POD_NAMESPACE", "", "").Get()
-	log.Infof("DaemonSet %s in namespace %s\n", daemonSetName, daemonSetNamespace)
+	log.Infof("trying to get daemonSet %s in namespace %s", daemonSetName, daemonSetNamespace)
 	daemonSet, err := clientset.AppsV1().DaemonSets(daemonSetNamespace).Get(context.TODO(), daemonSetName, metav1.GetOptions{})
 	if err == nil {
-		log.Debugf("Found DaemonSet %s in namespace %s\n", daemonSet.Name, daemonSet.Namespace)
+		log.Infof("found daemonSet %s in namespace %s", daemonSet.Name, daemonSet.Namespace)
 		return Restart
 	}
-	log.Infof("DaemonSet %s in namespace %s\n", daemonSet.Name, daemonSet.Namespace)
+	log.Infof("unable to find daemonSet %s in namespace %s: %v ", daemonSetName, daemonSetNamespace, err)
 	return Normal
 }
 
@@ -90,7 +90,7 @@ func SetStartStatus(versionMap *ebpf.Map) {
 	hash.Write([]byte(version.Get().GitVersion))
 	GitVersion = hash.Sum32()
 	oldGitVersion := getOldVersionFromMap(versionMap, 0)
-	log.Debugf("oldGitVersion:%v\nGitVersion:%v", oldGitVersion, GitVersion)
+	log.Infof("oldGitVersion: %v newGitVersion: %v", oldGitVersion, GitVersion)
 	if GitVersion == oldGitVersion {
 		log.Infof("kmesh start with Restart, load bpf maps and prog from last")
 		SetStartType(Restart)
