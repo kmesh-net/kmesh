@@ -31,7 +31,7 @@ pid=$!
 
 # pass SIGTERM to kmesh process
 function stop_kmesh() {
-        echo "received SIGTERM, stoppping kmesh"
+        echo "received SIGTERM, stopping kmesh"
         kill $pid
 }
 
