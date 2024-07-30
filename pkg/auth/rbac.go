@@ -146,8 +146,11 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 				continue
 			}
 
+			fmt.Printf("\n------- %#v ---------\n", conn)
+
 			if !r.doRbac(&conn) {
 				log.Infof("Auth denied for connection: %+v", conn)
+				fmt.Printf("\n-------- %#v ---------\n", tupleData)
 				// If conn is denied, write tuples into XDP map, which includes source/destination IP/Port
 				if err = r.notifyFunc(mapOfAuth, msgType, tupleData); err != nil {
 					log.Error("authmap update FAILED, err: ", err)
@@ -180,6 +183,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	dstWorkload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	// If no workload found, deny
 	if dstWorkload == nil {
+		log.Warnf("get destination workload from ip %v FAILED", conn.dstIp)
 		return false
 	}
 
@@ -189,23 +193,27 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	// 1. If there is ANY deny policy, deny the request
 	for _, denyPolicy := range denyPolicies {
 		if matches(conn, denyPolicy) {
+			log.Infof("Auth denied for connection: %+v", conn)
 			return false
 		}
 	}
 
 	// 2. If there is NO allow policy for the workload, allow the request
 	if len(allowPolicies) == 0 {
+		log.Infof("Auth allowed for connection: %+v", conn)
 		return true
 	}
 
 	// 3. If there is ANY allow policy matched, allow the request
 	for _, allowPolicy := range allowPolicies {
 		if matches(conn, allowPolicy) {
+			log.Infof("Auth allowed for connection: %+v", conn)
 			return true
 		}
 	}
 
 	// 4. If 1,2 and 3 unsatisfied, deny the request
+	log.Infof("Auth denied for connection: %+v", conn)
 	return false
 }
 
@@ -480,7 +488,10 @@ func (r *Rbac) buildConnV6(buf *bytes.Buffer) (rbacConnection, error) {
 		conn.dstIp = binary.BigEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[i])
 	}
 	conn.dstPort = uint32(tupleV6.DstPort)
+	// conn.dstIp = restoreIPv4(conn.dstIp)
+	// conn.srcIp = restoreIPv4(conn.srcIp)
 	conn.srcIdentity = r.getIdentityByIp(conn.srcIp)
+
 	return conn, nil
 }
 
@@ -511,3 +522,20 @@ func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 		serviceAccount: workload.GetServiceAccount(),
 	}
 }
+
+// Converting IPv4 data reported in IPv6 form to IPv4
+// func restoreIPv4(bytes []byte) []byte {
+// 	fmt.Printf("********** %#v ***********", bytes)
+// 	constantSlice := []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255}
+// 	if slices.EqualUnordered(bytes[:12], constantSlice) {
+// 		return bytes[12:]
+// 	}
+
+// 	for i := 4; i < 16; i++ {
+// 		if bytes[i] != 0 {
+// 			return bytes
+// 		}
+// 	}
+
+// 	return bytes[:4]
+// }

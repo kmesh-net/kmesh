@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/stretchr/testify/assert"
 	"istio.io/istio/pkg/util/sets"
-
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
@@ -2149,7 +2148,7 @@ func TestRbac_Run(t *testing.T) {
 		Uid:  "123456",
 		Addresses: [][]byte{
 			{192, 168, 120, 1},
-			net.ParseIP("fd80::1"),
+			net.ParseIP("0:1::fd80:0"),
 		},
 		AuthorizationPolicies: []string{DENY_AUTH},
 	})
@@ -2163,6 +2162,7 @@ func TestRbac_Run(t *testing.T) {
 			"1. IPv4: Deny, records found in map_of_auth",
 			args{
 				msgType: MSG_TYPE_IPV4,
+				// 192, 168, 120, 1, 192, 168, 122, 3, , , 8080
 				lookupKey: append([]byte{0xC0, 0xA8, 0x78, 0x01, 0xC0, 0xA8, 0x7A, 0x03, 0xC2, 0x6C, 0x1F, 0x90},
 					make([]byte, TUPLE_LEN-IPV4_TUPLE_LENGTH)...),
 			},
@@ -2213,3 +2213,35 @@ func TestRbac_Run(t *testing.T) {
 		mapOfAuth.Close()
 	}
 }
+
+// func TestRestoreIPv4(t *testing.T) {
+// 	type args struct {
+// 		bytes []byte
+// 	}
+// 	tests := []struct {
+// 		name string
+// 		args args
+// 		want []byte
+// 	}{
+// 		{
+// 			name: "maped by kmesh",
+// 			args: args{
+// 				bytes: []byte{10, 244, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+// 			},
+// 			want: []byte{10, 244, 0, 13},
+// 		},
+// 		{
+// 			name: "ipv4 to ipv6",
+// 			args: args{
+// 				bytes: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 10, 244, 0, 13},
+// 			},
+// 			want: []byte{10, 244, 0, 13},
+// 		},
+// 	}
+// 	for _, tt := range tests {
+// 		t.Run(tt.name, func(t *testing.T) {
+// 			got := restoreIPv4(tt.args.bytes)
+// 			assert.Equal(t, tt.want, got)
+// 		})
+// 	}
+// }

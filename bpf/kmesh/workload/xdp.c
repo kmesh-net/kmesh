@@ -115,14 +115,17 @@ int xdp_shutdown(struct xdp_md *ctx)
     struct xdp_info info = {0};
     struct bpf_sock_tuple tuple_info = {0};
 
+    BPF_LOG(INFO, XDP, "check package");
     if (parser_xdp_info(ctx, &info) == PARSER_FAILED)
         return XDP_PASS;
-
+    BPF_LOG(INFO, XDP, "check address family %u", info.iph->version);
     if (info.iph->version != 4 && info.iph->version != 6)
         return XDP_PASS;
 
     // never failed
     parser_tuple(&info, &tuple_info);
+    BPF_LOG(INFO, XDP, "tup_info source ipv4: %d, Ipv6: %d", tuple_info.ipv4.saddr, tuple_info.ipv6.saddr);
+    BPF_LOG(INFO, XDP, "tup_info destination ipv4: %d, Ipv6: %d", tuple_info.ipv4.daddr, tuple_info.ipv6.daddr);
     if (should_shutdown(&info, &tuple_info) == AUTH_FORBID)
         shutdown_tuple(&info);
 
