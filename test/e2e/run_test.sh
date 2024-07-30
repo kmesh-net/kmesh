@@ -184,6 +184,21 @@ function install_dependencies() {
     rm -rf istio-${ISTIO_VERSION}
 }
 
+function cleanup_kind_cluster() {
+    local NAME="${1:-kmesh-testing}"
+    echo "Deleting KinD cluster with name=${NAME}"
+    kind delete cluster --name="${NAME}"
+    echo "KinD cluster ${NAME} cleaned up"
+}
+
+function cleanup_docker_registry() {
+    echo "Stopping Docker registry named '${KIND_REGISTRY_NAME}'..."
+    docker stop "${KIND_REGISTRY_NAME}" || echo "Failed to stop or no such registry '${KIND_REGISTRY_NAME}'."
+
+    echo "Removing Docker registry named '${KIND_REGISTRY_NAME}'..."
+    docker rm "${KIND_REGISTRY_NAME}" || echo "Failed to remove or no such registry '${KIND_REGISTRY_NAME}'."
+}
+
 PARAMS=""
 
 while (( "$#" )); do
@@ -208,6 +223,11 @@ while (( "$#" )); do
     ;;
     --ipv6)
       IPV6=true
+      shift
+    ;;
+    --cleanup)
+      CLEANUP_KIND=true
+      CLEANUP_REGISTRY=true
       shift
     ;;
     --select-cases)
@@ -243,3 +263,11 @@ fi
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1 $PARAMS"
 
 bash -c "$cmd"
+
+if [[ -n "${CLEANUP_KIND}" ]]; then
+    cleanup_kind_cluster
+fi
+
+if [[ -n "${CLEANUP_REGISTRY}" ]]; then
+    cleanup_docker_registry
+fi
