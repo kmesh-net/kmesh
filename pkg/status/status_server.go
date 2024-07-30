@@ -371,7 +371,7 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 func (s *Server) StartServer() {
 	go func() {
 		err := s.server.ListenAndServe()
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start status server: %v", err)
 		}
 	}()
