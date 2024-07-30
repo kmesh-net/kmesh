@@ -35,7 +35,6 @@ func TestController_Start(t *testing.T) {
 	patch.ApplyFunc(utils.GetK8sclient, func() (kubernetes.Interface, error) {
 		client := fake.NewSimpleClientset()
 		return client, nil
-
 	})
 	defer patch.Reset()
 
@@ -47,9 +46,7 @@ func TestController_Start(t *testing.T) {
 		}
 
 		err := c.Start(stopCh)
-
 		assert.NoError(t, err)
-		// Add assertions for the expected behavior when bypass is enabled
 	})
 
 	t.Run("Workload Mode", func(t *testing.T) {
@@ -77,7 +74,6 @@ func TestController_Start(t *testing.T) {
 
 		err := c.Start(stopCh)
 		assert.Error(t, err)
-
 		// Add assertions for the expected behavior in ads mode
 	})
 
