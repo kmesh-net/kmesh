@@ -2213,35 +2213,3 @@ func TestRbac_Run(t *testing.T) {
 		mapOfAuth.Close()
 	}
 }
-
-// func TestRestoreIPv4(t *testing.T) {
-// 	type args struct {
-// 		bytes []byte
-// 	}
-// 	tests := []struct {
-// 		name string
-// 		args args
-// 		want []byte
-// 	}{
-// 		{
-// 			name: "maped by kmesh",
-// 			args: args{
-// 				bytes: []byte{10, 244, 0, 13, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-// 			},
-// 			want: []byte{10, 244, 0, 13},
-// 		},
-// 		{
-// 			name: "ipv4 to ipv6",
-// 			args: args{
-// 				bytes: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 10, 244, 0, 13},
-// 			},
-// 			want: []byte{10, 244, 0, 13},
-// 		},
-// 	}
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			got := restoreIPv4(tt.args.bytes)
-// 			assert.Equal(t, tt.want, got)
-// 		})
-// 	}
-// }

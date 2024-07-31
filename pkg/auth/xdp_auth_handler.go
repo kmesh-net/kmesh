@@ -25,8 +25,6 @@ import (
 type notifyFunc func(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error
 
 func xdpNotifyConnRst(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error {
-	fmt.Printf("\n---------- %#v ------------\n", key)
-	fmt.Printf("\n---------- %#v ------------\n", msgType)
 	if mapOfAuth == nil {
 		return fmt.Errorf("map_of_auth is nil")
 	}
@@ -37,7 +35,6 @@ func xdpNotifyConnRst(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error {
 			key[i] = 0
 		}
 	}
-	fmt.Printf("\n---------- %#v ------------\n", key)
 	// Insert the socket tuple into the auth map, so xdp_auth_handler can know that socket with
 	// this tuple is denied by policy, note that IP and port are big endian in auth map
 	return mapOfAuth.Update(key, uint32(1), ebpf.UpdateAny)
