@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/ebpf/asm"
 	"github.com/stretchr/testify/assert"
 	"istio.io/istio/pkg/util/sets"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"

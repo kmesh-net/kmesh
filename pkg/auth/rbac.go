@@ -501,7 +501,7 @@ func isEmptyMatch(m *security.Match) bool {
 		m.GetNamespaces() == nil && m.GetNotNamespaces() == nil
 }
 
-// todo : get identity form tls connection
+// todo : get identity from tls connection
 func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 	var networkAddress cache.NetworkAddress
 	networkAddress.Address, _ = netip.AddrFromSlice(ip)
