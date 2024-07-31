@@ -44,7 +44,7 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
         else
             IP6_COPY(key.addr.ip6, skops->local_ip6);
     }
-    
+
     int *value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!value)
         return false;
@@ -73,7 +73,6 @@ static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf
 
 static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
-
     if (skops->family == AF_INET) {
         tuple_key->ipv4.saddr = skops->remote_ip4;
         tuple_key->ipv4.daddr = skops->local_ip4;
