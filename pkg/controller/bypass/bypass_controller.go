@@ -74,7 +74,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				return
 			}
 
-			log.Debugf("%s/%s: enable bypass control", pod.GetNamespace(), pod.GetName())
+			log.Infof("%s/%s: bypass sidecar control", pod.GetNamespace(), pod.GetName())
 			nspath, _ := ns.GetPodNSpath(pod)
 			if err := addIptables(nspath); err != nil {
 				log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
@@ -100,7 +100,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 			}
 
 			if shouldBypass(oldPod) && !shouldBypass(newPod) {
-				log.Debugf("%s/%s: restore sidecar control", newPod.GetNamespace(), newPod.GetName())
+				log.Infof("%s/%s: restore sidecar control", newPod.GetNamespace(), newPod.GetName())
 				nspath, _ := ns.GetPodNSpath(newPod)
 				if err := deleteIptables(nspath); err != nil {
 					log.Errorf("failed to delete iptables rules for %s: %v", nspath, err)
@@ -108,7 +108,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				}
 			}
 			if !shouldBypass(oldPod) && shouldBypass(newPod) {
-				log.Debugf("%s/%s: enable bypass control", newPod.GetNamespace(), newPod.GetName())
+				log.Infof("%s/%s: bypass sidecar control", newPod.GetNamespace(), newPod.GetName())
 				nspath, _ := ns.GetPodNSpath(newPod)
 				if err := addIptables(nspath); err != nil {
 					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
