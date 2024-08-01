@@ -31,6 +31,7 @@ pid=$!
 
 # pass SIGTERM to kmesh process
 function stop_kmesh() {
+        echo "received SIGTERM, stopping kmesh"
         kill $pid
 }
 
@@ -43,8 +44,14 @@ function cleanup(){
           umount -t cgroup2 /mnt/kmesh_cgroup2/
           rm -rf /mnt/kmesh_cgroup2
           rm -rf /sys/fs/bpf/bpf_kmesh
+          echo "kmesh exit"
 }
 
 trap 'stop_kmesh' SIGTERM
-wait # wait child process exit
+
+# wait for kmesh process to exit, cannot use wait $pid here, because the script received SIGTERM, wait will return immediately
+while kill -0 $pid 2>/dev/null; do
+  sleep 1
+done
+
 cleanup
