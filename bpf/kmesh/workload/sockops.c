@@ -38,8 +38,12 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
     struct manager_key key = {0};
     if (skops->family == AF_INET)
         key.addr.ip4 = skops->local_ip4;
-    if (skops->family == AF_INET6)
-        IP6_COPY(key.addr.ip6, skops->local_ip6);
+    if (skops->family == AF_INET6) {
+        if (is_ipv4_mapped_addr(skops->local_ip6))
+            key.addr.ip4 = skops->local_ip6[3];
+        else
+            IP6_COPY(key.addr.ip6, skops->local_ip6);
+    }
 
     int *value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!value)
@@ -56,7 +60,8 @@ static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf
         tuple_key->ipv4.sport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
         // remote_port is network byteorder
         tuple_key->ipv4.dport = GET_SKOPS_REMOTE_PORT(skops);
-    } else {
+    }
+    if (skops->family == AF_INET6) {
         bpf_memcpy(tuple_key->ipv6.saddr, skops->local_ip6, IPV6_ADDR_LEN);
         bpf_memcpy(tuple_key->ipv6.daddr, skops->remote_ip6, IPV6_ADDR_LEN);
         // local_port is host byteorder, need to htons
@@ -75,13 +80,21 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, st
         tuple_key->ipv4.sport = GET_SKOPS_REMOTE_PORT(skops);
         // local_port is host byteorder
         tuple_key->ipv4.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
-    } else {
+    }
+    if (skops->family == AF_INET6) {
         bpf_memcpy(tuple_key->ipv6.saddr, skops->remote_ip6, IPV6_ADDR_LEN);
         bpf_memcpy(tuple_key->ipv6.daddr, skops->local_ip6, IPV6_ADDR_LEN);
         // remote_port is network byteorder
         tuple_key->ipv6.sport = GET_SKOPS_REMOTE_PORT(skops);
         // local_port is host byteorder
         tuple_key->ipv6.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
+    }
+
+    if (is_ipv4_mapped_addr(tuple_key->ipv6.daddr) || is_ipv4_mapped_addr(tuple_key->ipv6.saddr)) {
+        tuple_key->ipv4.saddr = tuple_key->ipv6.saddr[3];
+        tuple_key->ipv4.daddr = tuple_key->ipv6.daddr[3];
+        tuple_key->ipv4.sport = tuple_key->ipv6.sport;
+        tuple_key->ipv4.dport = tuple_key->ipv6.dport;
     }
 }
 
@@ -123,6 +136,9 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
     // In this way, auth can be performed normally.
     extract_skops_to_tuple_reverse(skops, &(*msg).tuple);
     (*msg).type = (skops->family == AF_INET) ? IPV4 : IPV6;
+    if (is_ipv4_mapped_addr(skops->local_ip6)) {
+        (*msg).type = IPV4;
+    }
     bpf_ringbuf_submit(msg, 0);
 }
 
