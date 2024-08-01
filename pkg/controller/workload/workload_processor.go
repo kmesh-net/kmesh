@@ -19,6 +19,7 @@ package workload
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -534,6 +535,16 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 
 func (p *Processor) handleService(service *workloadapi.Service) error {
 	log.Debugf("service resource name: %s/%s", service.Namespace, service.Hostname)
+
+	// Preprocee service, remove the waypoint from waypoint service, otherwise it will fall into a loop in bpf
+	if service.Waypoint != nil {
+		// Currently istiod only set the waypoint address to the first address of the service
+		// TODO: remove when upstream istiod will not set the waypoint address for itself
+		if slices.Equal(service.GetWaypoint().GetAddress().Address, service.Addresses[0].Address) {
+			service.Waypoint = nil
+		}
+	}
+
 	p.ServiceCache.AddOrUpdateService(service)
 	serviceName := service.ResourceName()
 	serviceId := p.hashName.StrToNum(serviceName)

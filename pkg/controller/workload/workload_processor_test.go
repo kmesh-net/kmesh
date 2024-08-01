@@ -91,6 +91,16 @@ func Test_handleWorkload(t *testing.T) {
 
 	// 3.2 check service map contains service
 	checkServiceMap(t, p, svcID, fakeSvc, 2)
+
+	// 4. add namespace scoped waypoint service
+	wpSvc := createFakeService("waypoint", "10.240.10.5", "10.240.10.5")
+	_ = p.handleService(wpSvc)
+	assert.Nil(t, wpSvc.Waypoint)
+	// 4.1 check front end map contains service
+	svcID = checkFrontEndMap(t, wpSvc.Addresses[0].Address, p)
+	// 4.2 check service map contains service, but no waypoint address
+	checkServiceMap(t, p, svcID, wpSvc, 0)
+
 	hashNameClean(p)
 }
 
@@ -103,7 +113,8 @@ func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workload
 	if waypointAddr != nil {
 		assert.Equal(t, test.EqualIp(sv.WaypointAddr, waypointAddr), true)
 	}
-	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(15008))
+
+	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(fakeSvc.Waypoint.GetHboneMtlsPort()))
 }
 
 func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workloadapi.Workload) {
@@ -223,7 +234,7 @@ func createFakeService(name, ip, waypoint string) *workloadapi.Service {
 	return &workloadapi.Service{
 		Name:      name,
 		Namespace: "default",
-		Hostname:  "testsvc.default.svc.cluster.local",
+		Hostname:  name + ".default.svc.cluster.local",
 		Addresses: []*workloadapi.NetworkAddress{
 			{
 				Address: netip.MustParseAddr(ip).AsSlice(),
