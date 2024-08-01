@@ -126,8 +126,51 @@ func TestHandleKmeshManage(t *testing.T) {
 		Spec: corev1.PodSpec{
 			NodeName: "test-node",
 		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	podNotReadyWithoutLabel := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "ut-pod",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
 	}
 	podWithLabel := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "ut-pod",
+			Labels:    map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	podNotReadyWithLabel := &corev1.Pod{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Pod",
 			APIVersion: "v1",
@@ -284,6 +327,26 @@ func TestHandleKmeshManage(t *testing.T) {
 				pod:       podWithNoneLabel,
 				delete:    true,
 			},
+			expectDisManaged: false,
+		},
+		{
+			name: "9. ns without label, pod is not ready with label",
+			args: args{
+				namespace: nsWithoutLabel,
+				pod:       podNotReadyWithLabel,
+				create:    true,
+			},
+			expectManaged:    false,
+			expectDisManaged: false,
+		},
+		{
+			name: "9.1. ns without label, pod is not ready update without label",
+			args: args{
+				namespace: nsWithoutLabel,
+				pod:       podNotReadyWithoutLabel,
+				update:    true,
+			},
+			expectManaged:    false,
 			expectDisManaged: false,
 		},
 	}

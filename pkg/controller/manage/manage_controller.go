@@ -63,6 +63,15 @@ type KmeshManageController struct {
 	client            kubernetes.Interface
 }
 
+func isPodReady(pod *corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecurity.SecretManager) (*KmeshManageController, error) {
 	nodeName := os.Getenv("NODE_NAME")
 
@@ -86,6 +95,12 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 				log.Errorf("expected *corev1.Pod but got %T", obj)
 				return
 			}
+
+			if !isPodReady(pod) {
+				log.Debugf("%s/%s: Pod is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
+				return
+			}
+
 			namespace, err := namespaceLister.Get(pod.Namespace)
 			if err != nil {
 				log.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
@@ -113,7 +128,10 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 				log.Errorf("expected *corev1.Pod but got %T and %T", oldObj, newObj)
 				return
 			}
-
+			if !isPodReady(newPod) {
+				log.Debugf("%s/%s: Pod is not ready, skipping Kmesh manage enable", newPod.GetNamespace(), newPod.GetName())
+				return
+			}
 			namespace, err := namespaceLister.Get(newPod.Namespace)
 			if err != nil {
 				log.Errorf("failed to get pod namespace %s: %v", newPod.Namespace, err)
