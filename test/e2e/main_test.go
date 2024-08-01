@@ -74,7 +74,7 @@ type EchoDeployments struct {
 	// The echo service which is enrolled to Kmesh without waypoint.
 	EnrolledToKmesh echo.Instances
 
-	// The echo service which is enrolled to Kmesh and wiht service waypoint.
+	// The echo service which is enrolled to Kmesh and with service waypoint.
 	ServiceWithWaypointAtServiceGranularity echo.Instances
 
 	// WaypointProxies by
