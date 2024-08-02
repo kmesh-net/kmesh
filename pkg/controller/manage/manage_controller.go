@@ -97,7 +97,7 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 			}
 
 			if !isPodReady(pod) {
-				log.Debugf("%s/%s: Pod is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
+				log.Debugf("Pod add event: %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
 				return
 			}
 
@@ -129,7 +129,7 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 				return
 			}
 			if !isPodReady(newPod) {
-				log.Debugf("%s/%s: Pod is not ready, skipping Kmesh manage enable", newPod.GetNamespace(), newPod.GetName())
+				log.Debugf("Pod update event: %s/%s is not ready, skipping Kmesh manage enable", newPod.GetNamespace(), newPod.GetName())
 				return
 			}
 			namespace, err := namespaceLister.Get(newPod.Namespace)
