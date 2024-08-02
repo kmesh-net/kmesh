@@ -180,6 +180,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	dstWorkload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	// If no workload found, deny
 	if dstWorkload == nil {
+		log.Warnf("Auth denied for connection: %v because destination workload not found", conn.dstIp)
 		return false
 	}
 
@@ -189,6 +190,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	// 1. If there is ANY deny policy, deny the request
 	for _, denyPolicy := range denyPolicies {
 		if matches(conn, denyPolicy) {
+			log.Infof("Auth denied for connection: %+v because authorization policy", conn)
 			return false
 		}
 	}
@@ -480,7 +482,10 @@ func (r *Rbac) buildConnV6(buf *bytes.Buffer) (rbacConnection, error) {
 		conn.dstIp = binary.BigEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[i])
 	}
 	conn.dstPort = uint32(tupleV6.DstPort)
+	// conn.dstIp = restoreIPv4(conn.dstIp)
+	// conn.srcIp = restoreIPv4(conn.srcIp)
 	conn.srcIdentity = r.getIdentityByIp(conn.srcIp)
+
 	return conn, nil
 }
 
@@ -496,7 +501,7 @@ func isEmptyMatch(m *security.Match) bool {
 		m.GetNamespaces() == nil && m.GetNotNamespaces() == nil
 }
 
-// todo : get identity form tls connection
+// todo : get identity from tls connection
 func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 	var networkAddress cache.NetworkAddress
 	networkAddress.Address, _ = netip.AddrFromSlice(ip)

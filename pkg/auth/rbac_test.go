@@ -2149,7 +2149,7 @@ func TestRbac_Run(t *testing.T) {
 		Uid:  "123456",
 		Addresses: [][]byte{
 			{192, 168, 120, 1},
-			net.ParseIP("fd80::1"),
+			net.ParseIP("0:1::fd80:0"),
 		},
 		AuthorizationPolicies: []string{DENY_AUTH},
 	})
@@ -2163,6 +2163,7 @@ func TestRbac_Run(t *testing.T) {
 			"1. IPv4: Deny, records found in map_of_auth",
 			args{
 				msgType: MSG_TYPE_IPV4,
+				// 192, 168, 120, 1, 192, 168, 122, 3, , , 8080
 				lookupKey: append([]byte{0xC0, 0xA8, 0x78, 0x01, 0xC0, 0xA8, 0x7A, 0x03, 0xC2, 0x6C, 0x1F, 0x90},
 					make([]byte, TUPLE_LEN-IPV4_TUPLE_LENGTH)...),
 			},
