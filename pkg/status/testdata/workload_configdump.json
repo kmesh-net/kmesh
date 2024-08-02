@@ -5,9 +5,7 @@
             "addresses": [
                 "1.2.3.4"
             ],
-            "waypoint": {
-                "destination": "testnetwork/192.168.1.10"
-            },
+            "waypoint": "testnetwork/192.168.1.10",
             "protocol": "NONE",
             "name": "name",
             "namespace": "ns",
@@ -23,7 +21,10 @@
             "status": "HEALTHY",
             "applicationTunnel": {
                 "protocol": ""
-            }
+            },
+            "services": [
+                "ns/hostname"
+            ]
         }
     ],
     "Services": [
