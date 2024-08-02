@@ -96,11 +96,6 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 				return
 			}
 
-			if !isPodReady(pod) {
-				log.Debugf("Pod add event: %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
-				return
-			}
-
 			namespace, err := namespaceLister.Get(pod.Namespace)
 			if err != nil {
 				log.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
@@ -112,6 +107,13 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 				return
 			}
 
+			sendCertRequest(security, pod, kmeshsecurity.ADD)
+
+			if !isPodReady(pod) {
+				log.Debugf("Pod add event: %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
+				return
+			}
+
 			log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
 			nspath, _ := ns.GetPodNSpath(pod)
 			if err := utils.HandleKmeshManage(nspath, true); err != nil {
@@ -119,17 +121,12 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 				return
 			}
 			queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
-			sendCertRequest(security, pod, kmeshsecurity.ADD)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			oldPod, okOld := oldObj.(*corev1.Pod)
 			newPod, okNew := newObj.(*corev1.Pod)
 			if !okOld || !okNew {
 				log.Errorf("expected *corev1.Pod but got %T and %T", oldObj, newObj)
-				return
-			}
-			if !isPodReady(newPod) {
-				log.Debugf("Pod update event: %s/%s is not ready, skipping Kmesh manage enable", newPod.GetNamespace(), newPod.GetName())
 				return
 			}
 			namespace, err := namespaceLister.Get(newPod.Namespace)
@@ -139,6 +136,11 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 			}
 			// enable kmesh manage
 			if oldPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && utils.ShouldEnroll(newPod, namespace) {
+				sendCertRequest(security, newPod, kmeshsecurity.ADD)
+				if !isPodReady(newPod) {
+					log.Debugf("Pod update event: %s/%s is not ready, skipping Kmesh manage enable", newPod.GetNamespace(), newPod.GetName())
+					return
+				}
 				log.Infof("%s/%s: enable Kmesh manage", newPod.GetNamespace(), newPod.GetName())
 				nspath, _ := ns.GetPodNSpath(newPod)
 				if err := utils.HandleKmeshManage(nspath, true); err != nil {
@@ -146,11 +148,15 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 					return
 				}
 				queue.AddRateLimited(QueueItem{podName: newPod.Name, podNs: newPod.Namespace, action: ActionAddAnnotation})
-				sendCertRequest(security, newPod, kmeshsecurity.ADD)
 			}
 
 			// disable kmesh manage
 			if oldPod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" && !utils.ShouldEnroll(newPod, namespace) {
+				sendCertRequest(security, oldPod, kmeshsecurity.DELETE)
+				if !isPodReady(newPod) {
+					log.Debugf("Pod update event: %s/%s is not ready, skipping Kmesh manage disable", newPod.GetNamespace(), newPod.GetName())
+					return
+				}
 				log.Infof("%s/%s: disable Kmesh manage", newPod.GetNamespace(), newPod.GetName())
 				nspath, _ := ns.GetPodNSpath(newPod)
 				if err := utils.HandleKmeshManage(nspath, false); err != nil {
@@ -158,7 +164,6 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 					return
 				}
 				queue.AddRateLimited(QueueItem{podName: newPod.Name, podNs: newPod.Namespace, action: ActionDeleteAnnotation})
-				sendCertRequest(security, oldPod, kmeshsecurity.DELETE)
 			}
 		},
 		DeleteFunc: func(obj interface{}) {
