@@ -64,6 +64,15 @@ type QueueItem struct {
 	action string
 }
 
+func isPodReady(pod *corev1.Pod) bool {
+	for _, condition := range pod.Status.Conditions {
+		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
+			return true
+		}
+	}
+	return false
+}
+
 func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageController, error) {
 	nodeName := os.Getenv("NODE_NAME")
 
@@ -80,6 +89,10 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 			pod, ok := obj.(*corev1.Pod)
 			if !ok {
 				log.Errorf("expected *corev1.Pod but got %T", obj)
+				return
+			}
+			if !isPodReady(pod) {
+				log.Debugf("Pod add event: %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
 				return
 			}
 
@@ -102,6 +115,10 @@ func NewKmeshManageController(client kubernetes.Interface) (*KmeshManageControll
 			newPod, okNew := newObj.(*corev1.Pod)
 			if !okOld || !okNew {
 				log.Errorf("expected *corev1.Pod but got %T and %T", oldObj, newObj)
+				return
+			}
+			if !isPodReady(newPod) {
+				log.Debugf("Pod add event: %s/%s is not ready, skipping Kmesh manage enable", newPod.GetNamespace(), newPod.GetName())
 				return
 			}
 

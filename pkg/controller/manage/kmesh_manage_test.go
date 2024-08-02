@@ -92,6 +92,14 @@ func TestPodWithLabelChangeTriggersManageAction(t *testing.T) {
 		Spec: corev1.PodSpec{
 			NodeName: "test-node",
 		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
 	}
 
 	wg.Add(1)
@@ -161,6 +169,14 @@ func TestPodWithoutLabelTriggersManageAction(t *testing.T) {
 		},
 		Spec: corev1.PodSpec{
 			NodeName: "test-node",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
 		},
 	}
 
