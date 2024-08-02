@@ -17,6 +17,7 @@
 package kmeshmanage
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -24,6 +25,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	v1 "k8s.io/client-go/listers/core/v1"
@@ -102,6 +104,17 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 		return nil, fmt.Errorf("failed to add event handler to podInformer: %v", err)
 	}
 
+	if _, err := namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(Obj interface{}) {
+			handleNamespaceAddFunc(Obj, podLister, queue, security)
+		},
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			handleNamespaceUpdateFunc(oldObj, newObj, podLister, queue, security)
+		},
+	}); err != nil {
+		return nil, fmt.Errorf("failed to add event handler to namespaceInformer: %v", err)
+	}
+
 	return &KmeshManageController{
 		informerFactory:   informerFactory,
 		podInformer:       podInformer,
@@ -128,7 +141,9 @@ func handlePodAddFunc(obj interface{}, namespaceLister v1.NamespaceLister, queue
 	}
 
 	if !utils.ShouldEnroll(pod, namespace) {
-		// TODO: check if pod has redirection annotation, then handleKmeshManage(nspath, false)
+		if pod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" {
+			disableKmeshManage(pod, queue, security)
+		}
 		return
 	}
 	enableKmeshManage(pod, queue, security)
@@ -182,6 +197,34 @@ func handlePodDeleteFunc(obj interface{}, security *kmeshsecurity.SecretManager)
 	}
 }
 
+func handleNamespaceAddFunc(Obj interface{}, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
+	NS := Obj.(*corev1.Namespace)
+	if utils.ShouldEnroll(nil, NS) {
+		log.Infof("enable Kmesh for all pods in namespace: %s", NS.Name)
+		enableKmeshForPodsInNamespace(NS.Name, podLister, queue, security)
+	}
+}
+
+func handleNamespaceUpdateFunc(oldObj, newObj interface{}, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
+	oldNS, okOld := oldObj.(*corev1.Namespace)
+	newNS, okNew := newObj.(*corev1.Namespace)
+	if !okOld || !okNew {
+		log.Errorf("Expected *corev1.Namespace but got %T and %T", oldObj, newObj)
+		return
+	}
+
+	// Compare labels to check if they have actually changed
+	if !utils.ShouldEnroll(nil, oldNS) && utils.ShouldEnroll(nil, newNS) {
+		log.Infof("Enabling Kmesh for all pods in namespace: %s", newNS.Name)
+		enableKmeshForPodsInNamespace(newNS.Name, podLister, queue, security)
+	}
+
+	if utils.ShouldEnroll(nil, oldNS) && !utils.ShouldEnroll(nil, newNS) {
+		log.Infof("Disabling Kmesh for all pods in namespace: %s", newNS.Name)
+		disableKmeshForPodsInNamespace(newNS.Name, podLister, queue, security)
+	}
+}
+
 func enableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
 	sendCertRequest(security, pod, kmeshsecurity.ADD)
 	if !isPodReady(pod) {
@@ -195,7 +238,6 @@ func enableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, s
 		return
 	}
 	queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
-
 }
 
 func disableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
@@ -211,6 +253,48 @@ func disableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, 
 		return
 	}
 	queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
+}
+
+func enableKmeshForPodsInNamespace(namespace string, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
+	pods, err := podLister.Pods(namespace).List(labels.Everything())
+	if err != nil {
+		log.Errorf("Error listing pods: %v", err)
+		return
+	}
+
+	if len(pods) == 0 {
+		clientset, err := utils.GetK8sclient()
+		if err != nil {
+			log.Errorf("Error getting Kubernetes client: %v", err)
+			return
+		}
+
+		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
+		if err != nil {
+			log.Errorf("Error listing pods from API server for namespace %s: %v", namespace, err)
+			return
+		}
+		for i := range podList.Items {
+			pod := &podList.Items[i]
+			enableKmeshManage(pod, queue, security)
+		}
+	} else {
+		for _, pod := range pods {
+			enableKmeshManage(pod, queue, security)
+		}
+	}
+}
+
+func disableKmeshForPodsInNamespace(namespace string, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
+	pods, err := podLister.Pods(namespace).List(labels.Everything())
+	if err != nil {
+		log.Errorf("Error listing pods in namespace %s: %v", namespace, err)
+		return
+	}
+
+	for _, pod := range pods {
+		disableKmeshManage(pod, queue, security)
+	}
 }
 
 func (c *KmeshManageController) Run(stopChan <-chan struct{}) {
