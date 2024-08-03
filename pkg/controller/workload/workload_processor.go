@@ -144,14 +144,14 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 func (p *Processor) removeWorkloadResource(removedResources []string) error {
 	for _, uid := range removedResources {
 		p.WorkloadCache.DeleteWorkload(uid)
-		if err := p.removeWorkloadResourceByUid(uid); err != nil {
+		if err := p.removeWorkloadFromBpfMap(uid); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (p *Processor) removeWorkloadResourceByUid(uid string) error {
+func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	var (
 		err               error
 		skUpdate          = bpf.ServiceKey{}
@@ -246,14 +246,14 @@ func (p *Processor) removeServiceResource(resources []string) error {
 	var err error
 	for _, name := range resources {
 		p.ServiceCache.DeleteService(name)
-		if err = p.removeServiceResourceByUid(name); err != nil {
+		if err = p.removeServiceResourceFromBpfMap(name); err != nil {
 			return err
 		}
 	}
 	return err
 }
 
-func (p *Processor) removeServiceResourceByUid(name string) error {
+func (p *Processor) removeServiceResourceFromBpfMap(name string) error {
 	var (
 		err      error
 		skDelete = bpf.ServiceKey{}
@@ -615,27 +615,33 @@ func (p *Processor) compareWorkloadAndServiceWithHashName() {
 	var (
 		bk = bpf.BackendKey{}
 		bv = bpf.BackendValue{}
+		sk = bpf.ServiceKey{}
+		sv = bpf.ServiceValue{}
 	)
 
-	if kmeshbpf.GetStartType() == kmeshbpf.Normal {
+	if kmeshbpf.GetStartType() != kmeshbpf.Restart {
 		return
 	}
 
 	log.Infof("reload workload config from last start")
 	kmeshbpf.SetStartType(kmeshbpf.Normal)
+
+	// The record exists in the hashName file, exists in Backend or Service bpfmap,
+	// and does not exist in cache.
 	for str, num := range p.hashName.strToNum {
 		if p.WorkloadCache.GetWorkloadByUid(str) == nil && p.ServiceCache.GetService(str) == nil {
 			log.Debugf("GetWorkloadByUid and GetService nil:%v", str)
 
 			bk.BackendUid = num
+			sk.ServiceId = num
 			if err := p.bpf.BackendLookup(&bk, &bv); err == nil {
 				log.Debugf("Find BackendValue: [%#v] RemoveWorkloadResource", bv)
-				if err := p.removeWorkloadResourceByUid(str); err != nil {
+				if err := p.removeWorkloadFromBpfMap(str); err != nil {
 					log.Errorf("RemoveWorkloadResource failed: %v", err)
 				}
-			} else {
-				log.Debugf("RemoveServiceResource")
-				if err := p.removeServiceResourceByUid(str); err != nil {
+			} else if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
+				log.Debugf("Find ServiceValue: [%#v] RemoveServiceResource", sv)
+				if err := p.removeServiceResourceFromBpfMap(str); err != nil {
 					log.Errorf("RemoveServiceResource failed: %v", err)
 				}
 			}

@@ -292,11 +292,11 @@ func Test_deleteWorkloadWithRestart(t *testing.T) {
 // If it is not cleaned, it will affect other use cases.
 func hashNameClean(p *Processor) {
 	for str := range p.hashName.strToNum {
-		if err := p.removeWorkloadResourceByUid(str); err != nil {
+		if err := p.removeWorkloadFromBpfMap(str); err != nil {
 			log.Errorf("RemoveWorkloadResource failed: %v", err)
 		}
 
-		if err := p.removeServiceResourceByUid(str); err != nil {
+		if err := p.removeServiceResourceFromBpfMap(str); err != nil {
 			log.Errorf("RemoveServiceResource failed: %v", err)
 		}
 		p.hashName.Delete(str)
