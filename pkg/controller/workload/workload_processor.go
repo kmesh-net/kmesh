@@ -318,42 +318,6 @@ func (p *Processor) storeServiceEndpoint(workload_uid string, serviceName string
 	wls[workload_uid] = struct{}{}
 }
 
-func (p *Processor) storeBackendData(uid uint32, ip []byte, waypoint *workloadapi.GatewayAddress, portList map[string]*workloadapi.PortList) error {
-	var (
-		bk = bpf.BackendKey{}
-		bv = bpf.BackendValue{}
-	)
-
-	bk.BackendUid = uid
-	nets.CopyIpByteFromSlice(&bv.Ip, &ip)
-	bv.ServiceCount = 0
-	for serviceName := range portList {
-		bv.Services[bv.ServiceCount] = p.hashName.StrToNum(serviceName)
-		bv.ServiceCount++
-		if bv.ServiceCount >= bpf.MaxServiceNum {
-			log.Warnf("exceed the max service count, currently, a pod can belong to a maximum of 10 services")
-			break
-		}
-	}
-
-	if waypoint != nil {
-		nets.CopyIpByteFromSlice(&bv.WaypointAddr, &waypoint.GetAddress().Address)
-		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
-	}
-
-	if err := p.bpf.BackendUpdate(&bk, &bv); err != nil {
-		log.Errorf("Update backend map failed, err:%s", err)
-		return err
-	}
-
-	if err := p.storePodFrontendData(uid, ip); err != nil {
-		log.Errorf("storePodFrontendData failed, err:%s", err)
-		return err
-	}
-
-	return nil
-}
-
 func (p *Processor) deleteResidualServicesWithWorkload(workload *workloadapi.Workload, services []string) error {
 	var (
 		err       error

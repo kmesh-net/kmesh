@@ -40,8 +40,9 @@ func Test_handleWorkload(t *testing.T) {
 	// 1. handle workload with service, but service not handled yet
 	// In this case, only frontend map and backend map should be updated.
 	wl := createTestWorkloadWithService()
-	newServices := p.WorkloadCache.GetUniqueServicesOnLeftWorkload(wl, nil)
-	_ = p.addNewServicesWithWorkload(createTestWorkloadWithService(), newServices)
+	err := p.handleWorkload(wl)
+	assert.NoError(t, err)
+
 	var (
 		ek bpfcache.EndpointKey
 		ev bpfcache.EndpointValue
@@ -73,14 +74,14 @@ func Test_handleWorkload(t *testing.T) {
 	// 2.3 check endpoint map now contains the workloads
 	ek.BackendIndex = 1
 	ek.ServiceId = svcID
-	err := p.bpf.EndpointLookup(&ek, &ev)
+	err = p.bpf.EndpointLookup(&ek, &ev)
 	assert.NoError(t, err)
 	assert.Equal(t, ev.BackendUid, workloadID)
 
 	// 3. add another workload with service
 	workload2 := createFakeWorkload("1.2.3.5")
-	newServices = p.WorkloadCache.GetUniqueServicesOnLeftWorkload(workload2, nil)
-	_ = p.addNewServicesWithWorkload(workload2, newServices)
+	err = p.handleWorkload(workload2)
+	assert.NoError(t, err)
 
 	// 3.1 check endpoint map now contains the new workloads
 	workload2ID := checkFrontEndMap(t, workload2.Addresses[0], p)
