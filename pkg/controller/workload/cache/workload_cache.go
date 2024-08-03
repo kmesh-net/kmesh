@@ -73,8 +73,8 @@ func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Workload) []string {
 	var diff []string
 
-	for key, value := range workload1.Services {
-		if value2, ok := workload2.Services[key]; !ok || value2 != value {
+	for key := range workload1.Services {
+		if _, ok := workload2.Services[key]; !ok {
 			diff = append(diff, key)
 		}
 	}
