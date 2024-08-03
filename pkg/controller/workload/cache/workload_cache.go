@@ -28,9 +28,10 @@ import (
 type WorkloadCache interface {
 	GetWorkloadByUid(uid string) *workloadapi.Workload
 	GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload
-	AddWorkload(workload *workloadapi.Workload) []string
+	AddWorkload(workload *workloadapi.Workload) ([]string, []string)
 	DeleteWorkload(uid string)
 	List() []*workloadapi.Workload
+	GetUniqueServicesOnLeftWorkload(workload1, workload2 *workloadapi.Workload) []string
 }
 
 type NetworkAddress struct {
@@ -70,22 +71,36 @@ func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 	}
 }
 
-func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Workload) []string {
+func (w *cache) GetUniqueServicesOnLeftWorkload(workload1, workload2 *workloadapi.Workload) []string {
 	var diff []string
+	if workload1 == nil {
+		return diff
+	}
 
 	for key := range workload1.Services {
-		if _, ok := workload2.Services[key]; !ok {
+		if workload2 == nil {
+			diff = append(diff, key)
+			continue
+		}
+		if _, exist := workload2.Services[key]; !exist {
 			diff = append(diff, key)
 		}
 	}
-
 	return diff
 }
 
-func (w *cache) AddWorkload(workload *workloadapi.Workload) []string {
-	var diffServices []string
+func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Workload) ([]string, []string) {
+	dels := w.GetUniqueServicesOnLeftWorkload(workload1, workload2)
+	news := w.GetUniqueServicesOnLeftWorkload(workload2, workload1)
+	return dels, news
+}
+
+func (w *cache) AddWorkload(workload *workloadapi.Workload) ([]string, []string) {
+	var deleteServices []string
+	var newServices []string
+
 	if workload == nil {
-		return diffServices
+		return deleteServices, newServices
 	}
 	uid := workload.Uid
 
@@ -95,7 +110,7 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) []string {
 	workloadByUid, exist := w.byUid[uid]
 	if exist {
 		if proto.Equal(workload, workloadByUid) {
-			return diffServices
+			return deleteServices, newServices
 		}
 		// remove same uid but old address workload, avoid leak workload by address.
 		for _, ip := range workloadByUid.Addresses {
@@ -105,7 +120,9 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) []string {
 		}
 
 		// compare services
-		diffServices = w.compareWorkloadServices(workloadByUid, workload)
+		deleteServices, newServices = w.compareWorkloadServices(workloadByUid, workload)
+	} else {
+		newServices = w.GetUniqueServicesOnLeftWorkload(workload, workloadByUid)
 	}
 
 	w.byUid[uid] = workload
@@ -114,7 +131,7 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) []string {
 		networkAddress := composeNetworkAddress(workload.Network, addr)
 		w.byAddr[networkAddress] = workload
 	}
-	return diffServices
+	return deleteServices, newServices
 }
 
 func (w *cache) DeleteWorkload(uid string) {

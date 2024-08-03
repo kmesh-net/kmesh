@@ -354,7 +354,7 @@ func (p *Processor) storeBackendData(uid uint32, ip []byte, waypoint *workloadap
 	return nil
 }
 
-func (p *Processor) removeResidualEndpointsServices(workload *workloadapi.Workload, services []string) error {
+func (p *Processor) deleteResidualServicesWithWorkload(workload *workloadapi.Workload, services []string) error {
 	var (
 		err       error
 		serviceId uint32
@@ -379,49 +379,30 @@ func (p *Processor) removeResidualEndpointsServices(workload *workloadapi.Worklo
 	return err
 }
 
-func (p *Processor) handleDataWithService(workload *workloadapi.Workload) error {
+func (p *Processor) addNewServicesWithWorkload(workload *workloadapi.Workload, newServices []string) error {
 	var (
 		err error
 		sk  = bpf.ServiceKey{}
 		sv  = bpf.ServiceValue{}
-
-		bk = bpf.BackendKey{}
-		bv = bpf.BackendValue{}
 	)
 
 	backend_uid := p.hashName.StrToNum(workload.GetUid())
-	for serviceName := range workload.GetServices() {
-		bk.BackendUid = backend_uid
-		// for update sense, if the backend is exist, just need update it
-		if err = p.bpf.BackendLookup(&bk, &bv); err != nil {
-			sk.ServiceId = p.hashName.StrToNum(serviceName)
-			// the service already stored in map, add endpoint
-			if err = p.bpf.ServiceLookup(&sk, &sv); err == nil {
-				if err = p.storeEndpointWithService(&sk, &sv, backend_uid); err != nil {
-					log.Errorf("storeEndpointWithService failed, err:%s", err)
-					return err
-				}
-			} else {
-				p.storeServiceEndpoint(workload.GetUid(), serviceName)
+	for _, serviceName := range newServices {
+		sk.ServiceId = p.hashName.StrToNum(serviceName)
+		// the service already stored in map, add endpoint
+		if err = p.bpf.ServiceLookup(&sk, &sv); err == nil {
+			if err = p.storeEndpointWithService(&sk, &sv, backend_uid); err != nil {
+				log.Errorf("storeEndpointWithService failed, err:%s", err)
+				return err
 			}
+		} else {
+			p.storeServiceEndpoint(workload.GetUid(), serviceName)
 		}
 	}
-
-	if len(workload.GetAddresses()) > 1 {
-		log.Warnf("current only support single ip of a pod")
-	}
-
-	for _, ip := range workload.GetAddresses() { // current only support single ip, if a pod have multi ips, the last one will be stored finally
-		if err = p.storeBackendData(backend_uid, ip, workload.GetWaypoint(), workload.GetServices()); err != nil {
-			log.Errorf("storeBackendData failed, err:%s", err)
-			return err
-		}
-	}
-
 	return nil
 }
 
-func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) error {
+func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 	var (
 		err error
 		bk  = bpf.BackendKey{}
@@ -453,28 +434,29 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 }
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
-	var diffServices []string
+	var deleteServices []string
+	var newServices []string
 	log.Debugf("handle workload: %s", workload.Uid)
 
-	diffServices = p.WorkloadCache.AddWorkload(workload)
+	deleteServices, newServices = p.WorkloadCache.AddWorkload(workload)
+	log.Debugf("delServices:%v, newServices:%v", deleteServices, newServices)
 
-	// delete residual endpoint with services
-	if err := p.removeResidualEndpointsServices(workload, diffServices); err != nil {
-		log.Errorf("removeResidualEndpointsServices %s failed: %v", workload.GetUid(), err)
+	// Delete Residual Services on the Workload
+	if err := p.deleteResidualServicesWithWorkload(workload, deleteServices); err != nil {
+		log.Errorf("deleteResidualServicesWithWorkload %s failed: %v", workload.GetUid(), err)
 		return err
 	}
 
-	// if have the service name, the workload belongs to a service
-	if workload.GetServices() != nil {
-		if err := p.handleDataWithService(workload); err != nil {
-			log.Errorf("handleDataWithService %s failed: %v", workload.Uid, err)
-			return err
-		}
-	} else { // independent workload without service
-		if err := p.handleDataWithoutService(workload); err != nil {
-			log.Errorf("handleDataWithoutService %s failed: %v", workload.Uid, err)
-			return err
-		}
+	// Add new services associated with the workload
+	if err := p.addNewServicesWithWorkload(workload, newServices); err != nil {
+		log.Errorf("addNewServicesWithWorkload %s failed: %v", workload.Uid, err)
+		return err
+	}
+
+	// Update workload
+	if err := p.updateWorkload(workload); err != nil {
+		log.Errorf("updateWorkload %s failed: %v", workload.Uid, err)
+		return err
 	}
 
 	return nil

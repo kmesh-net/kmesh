@@ -40,7 +40,8 @@ func Test_handleWorkload(t *testing.T) {
 	// 1. handle workload with service, but service not handled yet
 	// In this case, only frontend map and backend map should be updated.
 	wl := createTestWorkloadWithService()
-	_ = p.handleDataWithService(createTestWorkloadWithService())
+	newServices := p.WorkloadCache.GetUniqueServicesOnLeftWorkload(wl, nil)
+	_ = p.addNewServicesWithWorkload(createTestWorkloadWithService(), newServices)
 	var (
 		ek bpfcache.EndpointKey
 		ev bpfcache.EndpointValue
@@ -78,7 +79,8 @@ func Test_handleWorkload(t *testing.T) {
 
 	// 3. add another workload with service
 	workload2 := createFakeWorkload("1.2.3.5")
-	_ = p.handleDataWithService(workload2)
+	newServices = p.WorkloadCache.GetUniqueServicesOnLeftWorkload(workload2, nil)
+	_ = p.addNewServicesWithWorkload(workload2, newServices)
 
 	// 3.1 check endpoint map now contains the new workloads
 	workload2ID := checkFrontEndMap(t, workload2.Addresses[0], p)
@@ -126,7 +128,7 @@ func checkFrontEndMap(t *testing.T, ip []byte, p *Processor) (upstreamId uint32)
 	return
 }
 
-func BenchmarkHandleDataWithService(b *testing.B) {
+func BenchmarkaddNewServicesWithWorkload(b *testing.B) {
 	t := &testing.T{}
 	config := options.BpfConfig{
 		Mode:        constants.WorkloadMode,
@@ -142,7 +144,8 @@ func BenchmarkHandleDataWithService(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		workload := createTestWorkloadWithService()
-		err := workloadController.Processor.handleDataWithService(workload)
+		newServices := workloadController.Processor.WorkloadCache.GetUniqueServicesOnLeftWorkload(workload, nil)
+		err := workloadController.Processor.addNewServicesWithWorkload(workload, newServices)
 		assert.NoError(t, err)
 	}
 }
