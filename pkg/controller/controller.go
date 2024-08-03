@@ -72,7 +72,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	kmeshManageController, err := manage.NewKmeshManageController(clientset, secertManager)
+	kmeshManageController, err := manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpShutdown.FD(), c.mode)
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
 	}
