@@ -39,6 +39,113 @@ import (
 	"kmesh.net/kmesh/pkg/utils"
 )
 
+var (
+	podWithoutLabel = &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "ut-pod",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	podNotReadyWithoutLabel = &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "ut-pod",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+	}
+	podWithLabel = &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "ut-pod",
+			Labels:    map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
+	podNotReadyWithLabel = &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "ut-pod",
+			Labels:    map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+	}
+	podWithNoneLabel = &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "ut-pod",
+			Labels:    map[string]string{constants.DataPlaneModeLabel: "none"},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+	}
+
+	nsWithoutLabel = &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default",
+		},
+	}
+	nsWithLabel = &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "default",
+			Labels: map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh},
+		},
+	}
+)
+
 func waitAndCheckManageAction(t *testing.T, enabled *atomic.Bool, disabled *atomic.Bool, enableExpected bool, disableExpected bool) {
 	retry.UntilSuccess(func() error {
 		// Wait for the handleKmeshManage to be called
@@ -113,111 +220,6 @@ func TestHandleKmeshManage(t *testing.T) {
 			t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
 		}
 	})
-
-	podWithoutLabel := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "ut-pod",
-		},
-		Spec: corev1.PodSpec{
-			NodeName: "test-node",
-		},
-		Status: corev1.PodStatus{
-			Conditions: []corev1.PodCondition{
-				{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionTrue,
-				},
-			},
-		},
-	}
-	podNotReadyWithoutLabel := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "ut-pod",
-		},
-		Spec: corev1.PodSpec{
-			NodeName: "test-node",
-		},
-	}
-	podWithLabel := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "ut-pod",
-			Labels:    map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh},
-		},
-		Spec: corev1.PodSpec{
-			NodeName: "test-node",
-		},
-		Status: corev1.PodStatus{
-			Conditions: []corev1.PodCondition{
-				{
-					Type:   corev1.PodReady,
-					Status: corev1.ConditionTrue,
-				},
-			},
-		},
-	}
-	podNotReadyWithLabel := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "ut-pod",
-			Labels:    map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh},
-		},
-		Spec: corev1.PodSpec{
-			NodeName: "test-node",
-		},
-	}
-	podWithNoneLabel := &corev1.Pod{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Pod",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
-			Name:      "ut-pod",
-			Labels:    map[string]string{constants.DataPlaneModeLabel: "none"},
-		},
-		Spec: corev1.PodSpec{
-			NodeName: "test-node",
-		},
-	}
-
-	nsWithoutLabel := &corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Namespace",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "default",
-		},
-	}
-	nsWithLabel := &corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Namespace",
-			APIVersion: "v1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:   "default",
-			Labels: map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh},
-		},
-	}
 
 	type args struct {
 		namespace              *corev1.Namespace
@@ -383,6 +385,141 @@ func TestHandleKmeshManage(t *testing.T) {
 				assert.NoError(t, err)
 			}
 
+			waitAndCheckManageAction(t, &enabled, &disabled, tt.expectManaged, tt.expectDisManaged)
+		})
+	}
+}
+
+func TestNsInformerHandleKmeshManage(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	err := os.Setenv("NODE_NAME", "test_node")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+	controller, err := NewKmeshManageController(client, nil)
+	if err != nil {
+		t.Fatalf("error creating KmeshManageController: %v", err)
+	}
+
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+
+	go controller.Run(stopChan)
+	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced, controller.namespaceInformer.HasSynced)
+
+	enabled := atomic.Bool{}
+	disabled := atomic.Bool{}
+
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(utils.HandleKmeshManage, func(ns string, op bool) error {
+		if op {
+			enabled.Store(true)
+		} else {
+			disabled.Store(true)
+		}
+		return nil
+	})
+
+	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
+		queueItem, ok := item.(QueueItem)
+		if !ok {
+			t.Logf("expected QueueItem but got %T", item)
+			return
+		}
+		pod, err := controller.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
+		if err != nil {
+			if apierrors.IsNotFound(err) {
+				t.Logf("pod %s/%s has been deleted", queueItem.podNs, queueItem.podName)
+				return
+			}
+			t.Errorf("failed to get pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
+		}
+
+		if pod != nil {
+			namespace, _ := controller.namespaceLister.Get(pod.Namespace)
+			if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
+				t.Logf("add annotation for pod %s/%s", pod.Namespace, pod.Name)
+				err = utils.PatchKmeshRedirectAnnotation(controller.client, pod)
+			} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
+				t.Logf("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
+				err = utils.DelKmeshRedirectAnnotation(controller.client, pod)
+			}
+		}
+		if err != nil {
+			t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
+		}
+	})
+
+	type args struct {
+		namespace      *corev1.Namespace
+		pod            *corev1.Pod
+		create, update bool
+	}
+	tests := []struct {
+		name             string
+		args             args
+		expectManaged    bool
+		expectDisManaged bool
+	}{
+		{
+			name: "1. ns add without label",
+			args: args{
+				namespace: nsWithoutLabel,
+				pod:       podWithoutLabel,
+				create:    true,
+			},
+			expectManaged:    false,
+			expectDisManaged: false,
+		},
+		{
+			name: "2. ns update with label",
+			args: args{
+				namespace: nsWithLabel,
+				pod:       podWithoutLabel,
+				update:    true,
+			},
+			expectManaged:    true,
+			expectDisManaged: false,
+		},
+		{
+			name: "3. ns update without label",
+			args: args{
+				namespace: nsWithoutLabel,
+				pod:       podWithoutLabel,
+				update:    true,
+			},
+			expectManaged:    false,
+			expectDisManaged: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// TODO: find a way to wait for namespace informer to sync
+			time.Sleep(5 * time.Millisecond)
+
+			enabled.Store(false)
+			disabled.Store(false)
+
+			if tt.args.create {
+				pod := tt.args.pod.DeepCopy()
+				_, err = client.CoreV1().Namespaces().Create(context.TODO(), tt.args.namespace, metav1.CreateOptions{})
+				assert.NoError(t, err)
+				_, err = client.CoreV1().Pods(tt.args.namespace.Name).Create(context.TODO(), pod, metav1.CreateOptions{})
+
+				assert.NoError(t, err)
+			}
+
+			if tt.args.update {
+				namespace, _ := client.CoreV1().Namespaces().Get(context.TODO(), tt.args.namespace.Name, metav1.GetOptions{})
+				if namespace != nil {
+					namespace.Labels = tt.args.namespace.Labels
+				}
+				_, err = client.CoreV1().Namespaces().Update(context.TODO(), namespace, metav1.UpdateOptions{})
+				assert.NoError(t, err)
+			}
 			waitAndCheckManageAction(t, &enabled, &disabled, tt.expectManaged, tt.expectDisManaged)
 		})
 	}

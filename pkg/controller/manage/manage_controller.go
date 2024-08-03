@@ -17,7 +17,6 @@
 package kmeshmanage
 
 import (
-	"context"
 	"fmt"
 	"os"
 
@@ -141,7 +140,7 @@ func handlePodAddFunc(obj interface{}, namespaceLister v1.NamespaceLister, queue
 	}
 
 	if !utils.ShouldEnroll(pod, namespace) {
-		if pod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" {
+		if pod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" {
 			disableKmeshManage(pod, queue, security)
 		}
 		return
@@ -164,12 +163,12 @@ func handlePodUpdateFunc(oldObj, newObj interface{}, namespaceLister v1.Namespac
 	}
 
 	// enable kmesh manage
-	if oldPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && utils.ShouldEnroll(newPod, namespace) {
+	if oldPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && newPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && utils.ShouldEnroll(newPod, namespace) {
 		enableKmeshManage(newPod, queue, security)
 	}
 
 	// disable kmesh manage
-	if oldPod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" && !utils.ShouldEnroll(newPod, namespace) {
+	if oldPod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" && newPod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" && !utils.ShouldEnroll(newPod, namespace) {
 		disableKmeshManage(newPod, queue, security)
 	}
 }
@@ -197,8 +196,8 @@ func handlePodDeleteFunc(obj interface{}, security *kmeshsecurity.SecretManager)
 	}
 }
 
-func handleNamespaceAddFunc(Obj interface{}, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
-	NS := Obj.(*corev1.Namespace)
+func handleNamespaceAddFunc(obj interface{}, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
+	NS := obj.(*corev1.Namespace)
 	if utils.ShouldEnroll(nil, NS) {
 		log.Infof("enable Kmesh for all pods in namespace: %s", NS.Name)
 		enableKmeshForPodsInNamespace(NS.Name, podLister, queue, security)
@@ -226,9 +225,13 @@ func handleNamespaceUpdateFunc(oldObj, newObj interface{}, podLister v1.PodListe
 }
 
 func enableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
+	if pod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" {
+		log.Infof("%s/%s: has been managed by Kmesh, skip following steps", pod.GetNamespace(), pod.GetName())
+		return
+	}
 	sendCertRequest(security, pod, kmeshsecurity.ADD)
 	if !isPodReady(pod) {
-		log.Debugf("Pod add event: %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
+		log.Debugf("Pod is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
 		return
 	}
 	log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
@@ -243,7 +246,7 @@ func enableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, s
 func disableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
 	sendCertRequest(security, pod, kmeshsecurity.DELETE)
 	if !isPodReady(pod) {
-		log.Debugf("Pod add event: %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
+		log.Debugf("%s/%s is not ready, skipping Kmesh manage disable", pod.GetNamespace(), pod.GetName())
 		return
 	}
 	log.Infof("%s/%s: disable Kmesh manage", pod.GetNamespace(), pod.GetName())
@@ -262,26 +265,8 @@ func enableKmeshForPodsInNamespace(namespace string, podLister v1.PodLister, que
 		return
 	}
 
-	if len(pods) == 0 {
-		clientset, err := utils.GetK8sclient()
-		if err != nil {
-			log.Errorf("Error getting Kubernetes client: %v", err)
-			return
-		}
-
-		podList, err := clientset.CoreV1().Pods(namespace).List(context.TODO(), metav1.ListOptions{})
-		if err != nil {
-			log.Errorf("Error listing pods from API server for namespace %s: %v", namespace, err)
-			return
-		}
-		for i := range podList.Items {
-			pod := &podList.Items[i]
-			enableKmeshManage(pod, queue, security)
-		}
-	} else {
-		for _, pod := range pods {
-			enableKmeshManage(pod, queue, security)
-		}
+	for _, pod := range pods {
+		enableKmeshManage(pod, queue, security)
 	}
 }
 
@@ -293,7 +278,9 @@ func disableKmeshForPodsInNamespace(namespace string, podLister v1.PodLister, qu
 	}
 
 	for _, pod := range pods {
-		disableKmeshManage(pod, queue, security)
+		if !utils.ShouldEnroll(pod, nil) {
+			disableKmeshManage(pod, queue, security)
+		}
 	}
 }
 
