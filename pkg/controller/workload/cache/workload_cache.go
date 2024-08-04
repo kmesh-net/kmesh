@@ -31,7 +31,6 @@ type WorkloadCache interface {
 	AddWorkload(workload *workloadapi.Workload) ([]string, []string)
 	DeleteWorkload(uid string)
 	List() []*workloadapi.Workload
-	GetUniqueServicesOnLeftWorkload(workload1, workload2 *workloadapi.Workload) []string
 }
 
 type NetworkAddress struct {
@@ -71,7 +70,7 @@ func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 	}
 }
 
-func (w *cache) GetUniqueServicesOnLeftWorkload(workload1, workload2 *workloadapi.Workload) []string {
+func (w *cache) getUniqueServicesOnLeftWorkload(workload1, workload2 *workloadapi.Workload) []string {
 	var diff []string
 	if workload1 == nil {
 		return diff
@@ -90,8 +89,8 @@ func (w *cache) GetUniqueServicesOnLeftWorkload(workload1, workload2 *workloadap
 }
 
 func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Workload) ([]string, []string) {
-	dels := w.GetUniqueServicesOnLeftWorkload(workload1, workload2)
-	news := w.GetUniqueServicesOnLeftWorkload(workload2, workload1)
+	dels := w.getUniqueServicesOnLeftWorkload(workload1, workload2)
+	news := w.getUniqueServicesOnLeftWorkload(workload2, workload1)
 	return dels, news
 }
 
@@ -122,7 +121,7 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) ([]string, []string)
 		// compare services
 		deleteServices, newServices = w.compareWorkloadServices(workloadByUid, workload)
 	} else {
-		newServices = w.GetUniqueServicesOnLeftWorkload(workload, workloadByUid)
+		newServices = w.getUniqueServicesOnLeftWorkload(workload, workloadByUid)
 	}
 
 	w.byUid[uid] = workload
