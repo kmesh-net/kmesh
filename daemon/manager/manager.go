@@ -105,6 +105,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	defer cniInstaller.Stop()
 
 	setupCloseHandler()
+	bpf.SetCloseStatus()
 	return nil
 }
 
@@ -113,7 +114,6 @@ func setupCloseHandler() {
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGABRT, syscall.SIGTSTP)
 
 	<-ch
-
 	log.Warn("exiting...")
 }
 

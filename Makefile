@@ -36,6 +36,7 @@ LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=w
 			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
 			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE)"
+EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 
 # target
 APPS1 := kmesh-daemon
@@ -79,7 +80,7 @@ all:
 	
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -ldflags "-linkmode=external -extldflags $(EXTLDFLAGS)" -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
 	
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
@@ -89,7 +90,7 @@ all:
 
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -ldflags "-linkmode=external -extldflags $(EXTLDFLAGS)" -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 
 .PHONY: gen-proto
 gen-proto:
@@ -148,6 +149,9 @@ docker.push: docker
 
 e2e:
 	./test/e2e/run_test.sh
+
+e2e-ipv6:
+	./test/e2e/run_test.sh --ipv6
 
 format:
 	./hack/format.sh

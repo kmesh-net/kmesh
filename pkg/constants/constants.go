@@ -43,8 +43,6 @@ const (
 	// Oper code for control command
 	OperEnableControl  = 929
 	OperDisableControl = 930
-	OperEnableBypass   = 931
-	OperDisableByPass  = 932
 
 	// tail call index in tail call prog map
 	TailCallConnect4Index = 0
@@ -52,4 +50,7 @@ const (
 
 	INBOUND  = uint32(1)
 	OUTBOUND = uint32(2)
+
+	Cgroup2Path = "/mnt/kmesh_cgroup2"
+	BpfFsPath   = "/sys/fs/bpf"
 )

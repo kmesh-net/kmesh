@@ -17,6 +17,7 @@
 package nets
 
 import (
+	"net/netip"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,4 +31,39 @@ func Test_ConvertIpToUint32(t *testing.T) {
 	// It can not panic even for invalid ip
 	val = ConvertIpToUint32("a.b.c.d")
 	assert.Equal(t, uint32(0), val)
+}
+
+func TestCopyIpByteFromSlice(t *testing.T) {
+	v6addr, _ := netip.ParseAddr("2001::1")
+	v6Slices := v6addr.AsSlice()
+	testcases := []struct {
+		name     string
+		input    []byte
+		expected [16]byte
+	}{
+		{
+			name:     "ipv4",
+			input:    []byte{192, 168, 1, 1},
+			expected: [16]byte{192, 168, 1, 1},
+		},
+		{
+			name:     "ipv6",
+			input:    v6Slices,
+			expected: [16]byte{0x20, 0x1, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1},
+		},
+		{
+			name:     "invalid",
+			input:    []byte{192, 168, 1, 1, 1, 1},
+			expected: [16]byte{},
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.name, func(t *testing.T) {
+			var out [16]byte
+
+			CopyIpByteFromSlice(&out, tc.input)
+			assert.Equal(t, tc.expected, out)
+		})
+	}
 }

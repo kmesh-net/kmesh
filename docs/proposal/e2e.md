@@ -101,3 +101,4 @@ For example, if we want to repeatedly run the E2E test locally, then except for 
 ```bash
 ./test/e2e/run_test.sh --only-run-tests
 ```
+NOTE: As the Kmesh E2E test framework is still evolving rapidly, please refer to the [official doc](https://kmesh.net/en/docs/developer/e2e-guide/) for more complete and fresh usage.

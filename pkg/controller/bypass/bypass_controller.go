@@ -17,7 +17,6 @@
 package bypass
 
 import (
-	"context"
 	"fmt"
 	"os"
 	"time"
@@ -25,16 +24,14 @@ import (
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
-	"kmesh.net/kmesh/pkg/constants"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/utils/istio"
 )
 
 var (
@@ -43,56 +40,45 @@ var (
 
 const (
 	DefaultInformerSyncPeriod = 30 * time.Second
-	LabelSelectorBypass       = "kmesh.net/bypass=enabled"
-	KmeshAnnotation           = "kmesh.net/redirection"
-	SidecarAnnotation         = "sidecar.istio.io/inject"
+	ByPassLabel               = "kmesh.net/bypass"
+	ByPassValue               = "enabled"
 )
 
-func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}) error {
-	nodeName := os.Getenv("NODE_NAME")
+type Controller struct {
+	pod             cache.SharedIndexInformer
+	informerFactory informers.SharedInformerFactory
+}
 
+func NewByPassController(client kubernetes.Interface) *Controller {
+	nodeName := os.Getenv("NODE_NAME")
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
 			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
 		}))
 
-	informerFactory.Start(wait.NeverStop)
-	informerFactory.WaitForCacheSync(wait.NeverStop)
-
 	podInformer := informerFactory.Core().V1().Pods().Informer()
-
-	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, _ = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			pod, ok := obj.(*corev1.Pod)
 			if !ok {
 				log.Errorf("expected *corev1.Pod but got %T", obj)
 				return
 			}
-			if !shouldEnroll(pod) {
+			if !istio.PodHasSidecar(pod) {
+				log.Infof("pod %s/%s does not have sidecar injected, skip", pod.GetNamespace(), pod.GetName())
 				return
 			}
 
-			log.Infof("%s/%s: enable bypass control", pod.GetNamespace(), pod.GetName())
-			enableSidecar, _ := checkSidecar(client, pod)
-			enableKmesh := isKmeshManaged(pod)
-			if !enableSidecar && !enableKmesh {
-				log.Info("do not need process, pod is not managed by sidecar or kmesh")
+			if !shouldBypass(pod) {
+				// TODO: add delete iptables in case we missed skip bypass during kmesh restart
 				return
 			}
 
+			log.Infof("%s/%s: bypass sidecar control", pod.GetNamespace(), pod.GetName())
 			nspath, _ := ns.GetPodNSpath(pod)
-
-			if enableSidecar {
-				if err := addIptables(nspath); err != nil {
-					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
-					return
-				}
-			}
-			if enableKmesh {
-				if err := handleKmeshBypass(nspath, 1); err != nil {
-					log.Errorf("failed to enable bypass control")
-					return
-				}
+			if err := addIptables(nspath); err != nil {
+				log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
+				return
 			}
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
@@ -108,75 +94,57 @@ func StartByPassController(client kubernetes.Interface, stopChan <-chan struct{}
 				return
 			}
 
-			if shouldEnroll(oldPod) && !shouldEnroll(newPod) {
-				log.Infof("%s/%s: disable bypass control", newPod.GetNamespace(), newPod.GetName())
-				enableSidecar, _ := checkSidecar(client, newPod)
-				enableKmesh := isKmeshManaged(newPod)
+			if !istio.PodHasSidecar(newPod) {
+				log.Debugf("pod %s/%s does not have a sidecar", newPod.GetNamespace(), newPod.GetName())
+				return
+			}
 
-				if enableSidecar {
-					nspath, _ := ns.GetPodNSpath(newPod)
-					if err := deleteIptables(nspath); err != nil {
-						log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
-						return
-					}
+			if shouldBypass(oldPod) && !shouldBypass(newPod) {
+				log.Infof("%s/%s: restore sidecar control", newPod.GetNamespace(), newPod.GetName())
+				nspath, _ := ns.GetPodNSpath(newPod)
+				if err := deleteIptables(nspath); err != nil {
+					log.Errorf("failed to delete iptables rules for %s: %v", nspath, err)
+					return
 				}
-				if enableKmesh {
-					nspath, _ := ns.GetPodNSpath(newPod)
-					if err := handleKmeshBypass(nspath, 0); err != nil {
-						log.Errorf("failed to disable bypass control")
-						return
-					}
+			}
+			if !shouldBypass(oldPod) && shouldBypass(newPod) {
+				log.Infof("%s/%s: bypass sidecar control", newPod.GetNamespace(), newPod.GetName())
+				nspath, _ := ns.GetPodNSpath(newPod)
+				if err := addIptables(nspath); err != nil {
+					log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
+					return
 				}
 			}
 		},
-		// We do not need to process delete here, because in bpf mode, it will be handled by kmesh-cni.
-		// In istio sidecar mode, we do not need to delete the iptables.
-	}); err != nil {
-		return fmt.Errorf("error adding event handler to podInformer: %v", err)
+		// We do not need to process delete here, because
+		// in istio sidecar mode, we do not need to delete the iptables.
+	})
+
+	c := &Controller{
+		informerFactory: informerFactory,
+		pod:             podInformer,
 	}
 
-	go podInformer.Run(stopChan)
-
-	return nil
+	return c
 }
 
-func shouldEnroll(pod *corev1.Pod) bool {
-	enabled := pod.Labels["kmesh.net/bypass"]
-	return enabled == "enabled"
+func (c *Controller) Run(stop <-chan struct{}) {
+	c.informerFactory.Start(stop)
+	if !cache.WaitForCacheSync(stop, c.pod.HasSynced) {
+		log.Error("failed to wait pod cache sync")
+	}
 }
 
-func handleKmeshBypass(ns string, oper int) error {
-	execFunc := func(netns.NetNS) error {
-		/*
-		 * This function is used to process pods that are marked
-		 * or deleted with the bypass label on the current node.
-		 * Attempt to connect to a special IP address. The
-		 * connection triggers the cgroup/connect4/6 ebpf
-		 * program and records the netns cookie information
-		 * of the current connection. The cookie can be used
-		 * to determine whether the pod is been bypass.
-		 * ControlCommandIp4/6:<port> is "cipher key" for cgroup/connect4/6
-		 * ebpf program. 931/932 is the specific port handled by
-		 * daemon to enable/disable bypass
-		 */
-		port := constants.OperEnableBypass
-		if oper == 0 {
-			port = constants.OperDisableByPass
-		}
-		return nets.TriggerControlCommand(port)
-	}
-
-	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
-		return err
-	}
-	return nil
+// checks whether there is a bypass label
+func shouldBypass(pod *corev1.Pod) bool {
+	return pod.Labels[ByPassLabel] == ByPassValue
 }
 
 func isPodBeingDeleted(pod *corev1.Pod) bool {
 	return pod.ObjectMeta.DeletionTimestamp != nil
 }
 
+// TODO: make it a idempotent operation
 func addIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-I", "PREROUTING", "1", "-j", "RETURN"},
@@ -198,6 +166,7 @@ func addIptables(ns string) error {
 	return nil
 }
 
+// TODO: make it a idempotent operation
 func deleteIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-D", "PREROUTING", "-j", "RETURN"},
@@ -220,31 +189,4 @@ func deleteIptables(ns string) error {
 		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
 	}
 	return nil
-}
-
-func checkSidecar(client kubernetes.Interface, pod *corev1.Pod) (bool, error) {
-	namespace, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-
-	if value, ok := namespace.Labels["istio-injection"]; ok && value == "enabled" {
-		return true, nil
-	}
-
-	if _, ok := pod.Annotations[SidecarAnnotation]; ok {
-		return true, nil
-	}
-
-	return false, nil
-}
-
-func isKmeshManaged(pod *corev1.Pod) bool {
-	annotations := pod.Annotations
-	if annotations != nil {
-		if value, ok := annotations[KmeshAnnotation]; ok && value == "enabled" {
-			return true
-		}
-	}
-	return false
 }

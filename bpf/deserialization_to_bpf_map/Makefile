@@ -10,9 +10,11 @@ INCLUDES =
 
 # compiler flags
 LDFLAGS := -lbpf -lboundscheck
+LDFLAGS += -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack
 CFLAGS := $(EXTRA_CFLAGS) $(EXTRA_CDEFINE)
-CFLAGS += -fstack-protector -fPIC
+CFLAGS += -fstack-protector-strong -fPIC
 CFLAGS += -Wall -Werror
+CFLAGS += -D_FORTIFY_SOURCE=2 -O2
 
 SOURCES = $(wildcard *.c)
 OBJECTS = $(subst .c,.o,$(SOURCES))

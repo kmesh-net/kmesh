@@ -122,7 +122,7 @@ func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workload
 func checkFrontEndMap(t *testing.T, ip []byte, p *Processor) (upstreamId uint32) {
 	var fk bpfcache.FrontendKey
 	var fv bpfcache.FrontendValue
-	nets.CopyIpByteFromSlice(&fk.Ip, &ip)
+	nets.CopyIpByteFromSlice(&fk.Ip, ip)
 	err := p.bpf.FrontendLookup(&fk, &fv)
 	assert.NoError(t, err)
 	upstreamId = fv.UpstreamId

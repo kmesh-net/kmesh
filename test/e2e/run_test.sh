@@ -28,7 +28,25 @@ function setup_kind_cluster() {
     fi
 
     # Create KinD cluster.
-    cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
+
+    if [[ -n "${IPV6:-}" ]]; then
+        # Create IPv6 KinD cluster
+        cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ipv6
+nodes:
+- role: control-plane
+- role: worker
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+EOF
+    else
+        # Create default IPv4 KinD cluster
+        cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -39,6 +57,7 @@ containerdConfigPatches:
   [plugins."io.containerd.grpc.v1.cri".registry]
     config_path = "/etc/containerd/certs.d"
 EOF
+    fi
 
     status=$?
     if [ $status -ne 0 ]; then
@@ -165,6 +184,23 @@ function install_dependencies() {
     rm -rf istio-${ISTIO_VERSION}
 }
 
+function cleanup_kind_cluster() {
+    local NAME="${1:-kmesh-testing}"
+    echo "Deleting KinD cluster with name=${NAME}"
+    kind delete cluster --name="${NAME}"
+    echo "KinD cluster ${NAME} cleaned up"
+}
+
+function cleanup_docker_registry() {
+    echo "Stopping Docker registry named '${KIND_REGISTRY_NAME}'..."
+    docker stop "${KIND_REGISTRY_NAME}" || echo "Failed to stop or no such registry '${KIND_REGISTRY_NAME}'."
+
+    echo "Removing Docker registry named '${KIND_REGISTRY_NAME}'..."
+    docker rm "${KIND_REGISTRY_NAME}" || echo "Failed to remove or no such registry '${KIND_REGISTRY_NAME}'."
+}
+
+PARAMS=""
+
 while (( "$#" )); do
     case "$1" in
     --skip-install-dep)
@@ -184,6 +220,23 @@ while (( "$#" )); do
       SKIP_SETUP=true
       SKIP_BUILD=true
       shift
+    ;;
+    --ipv6)
+      IPV6=true
+      shift
+    ;;
+    --cleanup)
+      CLEANUP_KIND=true
+      CLEANUP_REGISTRY=true
+      shift
+    ;;
+    --select-cases)
+      PARAMS+="-test.run \"$2\""
+      shift 2
+    ;;
+    --skip-cases)
+      PARAMS+="-test.skip \"$2\""
+      shift 2
     ;;
     esac
 done
@@ -207,4 +260,14 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
-go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1
+cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1 $PARAMS"
+
+bash -c "$cmd"
+
+if [[ -n "${CLEANUP_KIND}" ]]; then
+    cleanup_kind_cluster
+fi
+
+if [[ -n "${CLEANUP_REGISTRY}" ]]; then
+    cleanup_docker_registry
+fi

@@ -117,7 +117,6 @@ int xdp_shutdown(struct xdp_md *ctx)
 
     if (parser_xdp_info(ctx, &info) == PARSER_FAILED)
         return XDP_PASS;
-
     if (info.iph->version != 4 && info.iph->version != 6)
         return XDP_PASS;
 

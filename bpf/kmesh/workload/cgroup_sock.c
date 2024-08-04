@@ -64,11 +64,6 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
-
-    if (handle_bypass_process(&kmesh_ctx) || is_bypass_enabled(ctx)) {
-        return CGROUP_SOCK_OK;
-    }
-
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
         BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
@@ -97,10 +92,6 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
     kmesh_ctx.dnat_port = ctx->user_port;
 
     if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
-        return CGROUP_SOCK_OK;
-    }
-
-    if (handle_bypass_process(&kmesh_ctx) || is_bypass_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
 

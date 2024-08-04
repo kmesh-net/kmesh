@@ -11,7 +11,7 @@ require (
 	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/cilium/ebpf v0.15.0
-	github.com/containernetworking/cni v1.2.2
+	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.5.1
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240614044803-82e2a76dbddd
 	github.com/golang/protobuf v1.5.4
@@ -31,9 +31,9 @@ require (
 	istio.io/api v1.22.1
 	istio.io/istio v0.0.0-20240618015532-5764a24ec23c
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
-	k8s.io/api v0.30.2
-	k8s.io/apimachinery v0.30.2
-	k8s.io/client-go v0.30.2
+	k8s.io/api v0.30.3
+	k8s.io/apimachinery v0.30.3
+	k8s.io/client-go v0.30.3
 	sigs.k8s.io/gateway-api v1.1.0
 	sigs.k8s.io/yaml v1.4.0
 )

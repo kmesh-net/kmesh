@@ -129,7 +129,7 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 		fv = bpf.FrontendValue{}
 	)
 
-	nets.CopyIpByteFromSlice(&fk.Ip, &ip)
+	nets.CopyIpByteFromSlice(&fk.Ip, ip)
 
 	fv.UpstreamId = uid
 	if err := p.bpf.FrontendUpdate(&fk, &fv); err != nil {
@@ -377,13 +377,13 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 	ips := workload.GetAddresses()
 	for _, ip := range ips {
 		if waypoint := workload.GetWaypoint(); waypoint != nil {
-			nets.CopyIpByteFromSlice(&bv.WaypointAddr, &waypoint.GetAddress().Address)
+			nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
 			bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 		}
 
 		bk.BackendUid = uid
 
-		nets.CopyIpByteFromSlice(&bv.Ip, &ip)
+		nets.CopyIpByteFromSlice(&bv.Ip, ip)
 		if err = p.bpf.BackendUpdate(&bk, &bv); err != nil {
 			log.Errorf("Update backend map failed, err:%s", err)
 			return err
@@ -435,7 +435,7 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 
 	fv.UpstreamId = serviceId
 	for _, networkAddress := range service.GetAddresses() {
-		nets.CopyIpByteFromSlice(&fk.Ip, &networkAddress.Address)
+		nets.CopyIpByteFromSlice(&fk.Ip, networkAddress.Address)
 		if err = p.bpf.FrontendUpdate(&fk, &fv); err != nil {
 			log.Errorf("Update Frontend failed, err:%s", err)
 			return err
@@ -458,7 +458,7 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	newValue := bpf.ServiceValue{}
 	newValue.LbPolicy = LbPolicyRandom
 	if waypoint != nil {
-		nets.CopyIpByteFromSlice(&newValue.WaypointAddr, &waypoint.GetAddress().Address)
+		nets.CopyIpByteFromSlice(&newValue.WaypointAddr, waypoint.GetAddress().Address)
 		newValue.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 	}
 
