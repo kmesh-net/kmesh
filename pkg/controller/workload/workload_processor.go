@@ -375,12 +375,22 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 
 	uid := p.hashName.StrToNum(workload.GetUid())
 	ips := workload.GetAddresses()
-	for _, ip := range ips {
-		if waypoint := workload.GetWaypoint(); waypoint != nil {
-			nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
-			bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
-		}
 
+	if waypoint := workload.GetWaypoint(); waypoint != nil {
+		nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
+		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
+	}
+
+	for serviceName := range workload.GetServices() {
+		bv.Services[bv.ServiceCount] = p.hashName.StrToNum(serviceName)
+		bv.ServiceCount++
+		if bv.ServiceCount >= bpf.MaxServiceNum {
+			log.Warnf("exceed the max service count, currently, a pod can belong to a maximum of 10 services")
+			break
+		}
+	}
+
+	for _, ip := range ips {
 		bk.BackendUid = uid
 
 		nets.CopyIpByteFromSlice(&bv.Ip, ip)
