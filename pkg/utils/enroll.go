@@ -38,34 +38,39 @@ import (
 // Excluding cases: a pod has sidecar injected, or the pod is istio managed waypoint
 // https://github.com/istio/istio/blob/33539491628fe5f3ad4f5f1fb339b0da9455c028/manifests/charts/istio-control/istio-discovery/files/waypoint.yaml#L35
 func ShouldEnroll(pod *corev1.Pod, ns *corev1.Namespace) bool {
-	if istio.PodHasSidecar(pod) {
-		return false
-	}
-
-	// exclude pod with host network set, otherwise it will cause other pods with host network to be managed by kmesh
-	if pod.Spec.HostNetwork {
-		return false
-	}
-
-	// If it is a Pod of waypoint, it should not be managed by Kmesh
-	// Exclude istio managed gateway
-	if gateway, ok := pod.Labels["gateway.istio.io/managed"]; ok {
-		if strings.EqualFold(gateway, "istio.io-mesh-controller") {
+	if pod != nil {
+		if istio.PodHasSidecar(pod) {
 			return false
+		}
+
+		// exclude pod with host network set, otherwise it will cause other pods with host network to be managed by kmesh
+		if pod.Spec.HostNetwork {
+			return false
+		}
+
+		// If it is a Pod of waypoint, it should not be managed by Kmesh
+		// Exclude istio managed gateway
+		if gateway, ok := pod.Labels["gateway.istio.io/managed"]; ok {
+			if strings.EqualFold(gateway, "istio.io-mesh-controller") {
+				return false
+			}
+		}
+
+		podMode := pod.Labels[constants.DataPlaneModeLabel]
+		// Check if pod label contains istio.io/dataplane-mode: kmesh
+		if strings.EqualFold(podMode, constants.DataPlaneModeKmesh) {
+			return true
 		}
 	}
 
+	// If namespace is not nil, check the namespace's label
 	var nsMode string
 	if ns != nil {
 		nsMode = ns.Labels[constants.DataPlaneModeLabel]
 	}
-	podMode := pod.Labels[constants.DataPlaneModeLabel]
-	// check if pod label contains istio.io/dataplane-mode: kmesh
-	if strings.EqualFold(podMode, constants.DataPlaneModeKmesh) {
-		return true
-	}
-	// check if ns label contains istio.io/dataplane-mode: kmesh, but pod is not excluded
-	if strings.EqualFold(nsMode, constants.DataPlaneModeKmesh) && podMode != "none" {
+
+	// Check if ns label contains istio.io/dataplane-mode: kmesh, but pod is not excluded
+	if strings.EqualFold(nsMode, constants.DataPlaneModeKmesh) && (pod == nil || pod.Labels[constants.DataPlaneModeLabel] != "none") {
 		return true
 	}
 	return false
