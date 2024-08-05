@@ -137,6 +137,7 @@ func Test_handleWorkload(t *testing.T) {
 	err = p.bpf.EndpointLookup(&ek, &ev)
 	assert.NoError(t, err)
 	assert.Equal(t, workload2ID, ev.BackendUid)
+
 	// 6. add namespace scoped waypoint service
 	wpSvc := createFakeService("waypoint", "10.240.10.5", "10.240.10.5")
 	_ = p.handleService(wpSvc)
@@ -322,8 +323,9 @@ func Test_deleteWorkloadWithRestart(t *testing.T) {
 
 	// 1. handle workload with service, but service not handled yet
 	// In this case, only frontend map and backend map should be updated.
-	wl := createTestWorkloadWithService()
-	_ = p.handleDataWithService(createTestWorkloadWithService())
+	wl := createTestWorkloadWithService(true)
+	err := p.handleWorkload(wl)
+	assert.NoError(t, err)
 
 	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
 	checkBackendMap(t, p, workloadID, wl)
