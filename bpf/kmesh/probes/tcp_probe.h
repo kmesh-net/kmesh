@@ -17,7 +17,7 @@ struct tcp_probe_info {
     __u32 received_bytes;
     __u32 conn_success;
     __u32 direction;
-    __u32 state;   /* tcp state */
+    __u32 state; /* tcp state */
     __u32 protocol;
     __u64 duration; // ns
     __u64 close_ns;
@@ -47,7 +47,7 @@ static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tu
             tuple->ipv4.daddr = sk->dst_ip4;
             tuple->ipv4.sport = sk->src_port;
             tuple->ipv4.dport = bpf_ntohs(sk->dst_port);
-        } 
+        }
         if (sk->family == AF_INET6) {
             bpf_memcpy(tuple->ipv6.saddr, sk->src_ip6, IPV6_ADDR_LEN);
             bpf_memcpy(tuple->ipv6.daddr, sk->dst_ip6, IPV6_ADDR_LEN);
@@ -61,7 +61,7 @@ static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tu
             tuple->ipv4.saddr = sk->dst_ip4;
             tuple->ipv4.dport = sk->src_port;
             tuple->ipv4.sport = bpf_ntohs(sk->dst_port);
-        } 
+        }
         if (sk->family == AF_INET6) {
             bpf_memcpy(tuple->ipv6.saddr, sk->dst_ip6, IPV6_ADDR_LEN);
             bpf_memcpy(tuple->ipv6.daddr, sk->src_ip6, IPV6_ADDR_LEN);
@@ -120,7 +120,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
     if (is_ipv4_mapped_addr(sk->dst_ip6)) {
         (*info).family = AF_INET;
     }
-   
+
     bpf_ringbuf_submit(info, 0);
 }
 
