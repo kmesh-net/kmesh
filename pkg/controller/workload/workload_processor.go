@@ -623,11 +623,14 @@ func (p *Processor) compareWorkloadAndServiceWithHashName() {
 		return
 	}
 
-	log.Infof("reload workload config from last start")
+	log.Infof("reload workload config from last epoch")
 	kmeshbpf.SetStartType(kmeshbpf.Normal)
 
-	// The record exists in the hashName file, exists in Backend or Service bpfmap,
-	// and does not exist in cache.
+	/* We traverse hashName, if there is a record exists in bpf map
+	 * but not in usercache, that means the data in the bpf map load
+	 * from the last epoch is inconsistent with the data that should
+	 * actually be stored now. then we should delete it from bpf map
+	 */
 	for str, num := range p.hashName.strToNum {
 		if p.WorkloadCache.GetWorkloadByUid(str) == nil && p.ServiceCache.GetService(str) == nil {
 			log.Debugf("GetWorkloadByUid and GetService nil:%v", str)
