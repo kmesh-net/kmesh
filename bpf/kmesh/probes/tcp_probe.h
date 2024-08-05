@@ -10,28 +10,43 @@ enum {
     OUTBOUND = 2,
 };
 
+// struct connect_info {
+//     __u32 type;
+//     struct tcp_probe_info *tcp_info;
+// };
+
+// struct tcp_probe_info {
+//     __u32 type;
+//     struct bpf_sock_tuple tuple;
+//     __u64 duration; // ns
+//     __u32 protocol;
+//     __u64 close_ns;
+//     __u32 direction;
+//     __u32 sent_bytes;
+//     __u32 received_bytes;
+//     __u32 conn_success;
+//     __u32 state;   /* tcp state */
+//     __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
+//     __u32 rtt_min;
+//     __u32 mss_cache;     /* Cached effective mss, not including SACKS */
+//     __u32 total_retrans; /* Total retransmits for entire connection */
+//     __u32 segs_in;       /* RFC4898 tcpEStatsPerfSegsIn
+//                           * total number of segments in.
+//                           */
+//     __u32 segs_out;      /* RFC4898 tcpEStatsPerfSegsOut
+//                           * The total number of segments sent.
+//                           */
+//     __u32 lost_out;      /* Lost packets			*/
+// };
+
 struct tcp_probe_info {
-    struct bpf_sock_tuple tuple;
-    __u64 duration; // ns
-    __u64 close_ns;
     __u32 family;
-    __u32 protocol;
-    __u32 direction;
+    struct bpf_sock_tuple tuple;
     __u32 sent_bytes;
     __u32 received_bytes;
     __u32 conn_success;
+    __u32 direction;
     __u32 state;   /* tcp state */
-    __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
-    __u32 rtt_min;
-    __u32 mss_cache;     /* Cached effective mss, not including SACKS */
-    __u32 total_retrans; /* Total retransmits for entire connection */
-    __u32 segs_in;       /* RFC4898 tcpEStatsPerfSegsIn
-                          * total number of segments in.
-                          */
-    __u32 segs_out;      /* RFC4898 tcpEStatsPerfSegsOut
-                          * The total number of segments sent.
-                          */
-    __u32 lost_out;      /* Lost packets			*/
 };
 
 struct {
@@ -39,19 +54,56 @@ struct {
     __uint(max_entries, RINGBUF_SIZE);
 } map_of_tcp_info SEC(".maps");
 
-static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple)
+static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
 {
-    if (sk->family == AF_INET) {
-        tuple->ipv4.saddr = sk->src_ip4;
-        tuple->ipv4.daddr = sk->dst_ip4;
-        tuple->ipv4.sport = sk->src_port;
-        tuple->ipv4.dport = bpf_ntohs(sk->dst_port);
-    } else {
-        bpf_memcpy(tuple->ipv6.saddr, sk->src_ip6, IPV6_ADDR_LEN);
-        bpf_memcpy(tuple->ipv6.daddr, sk->dst_ip6, IPV6_ADDR_LEN);
-        tuple->ipv6.sport = sk->src_port;
-        tuple->ipv6.dport = bpf_ntohs(sk->dst_port);
+    if (direction == OUTBOUND) {
+        if (sk->family == AF_INET) {
+            tuple->ipv4.saddr = sk->src_ip4;
+            tuple->ipv4.daddr = sk->dst_ip4;
+            tuple->ipv4.sport = sk->src_port;
+            tuple->ipv4.dport = bpf_ntohs(sk->dst_port);
+        } 
+        if (sk->family == AF_INET6) {
+            bpf_memcpy(tuple->ipv6.saddr, sk->src_ip6, IPV6_ADDR_LEN);
+            bpf_memcpy(tuple->ipv6.daddr, sk->dst_ip6, IPV6_ADDR_LEN);
+            tuple->ipv6.sport = sk->src_port;
+            tuple->ipv6.dport = bpf_ntohs(sk->dst_port);
+        }
     }
+    if (direction == INBOUND) {
+        if (sk->family == AF_INET) {
+            tuple->ipv4.daddr = sk->src_ip4;
+            tuple->ipv4.saddr = sk->dst_ip4;
+            tuple->ipv4.dport = sk->src_port;
+            tuple->ipv4.sport = bpf_ntohs(sk->dst_port);
+        } 
+        if (sk->family == AF_INET6) {
+            bpf_memcpy(tuple->ipv6.saddr, sk->dst_ip6, IPV6_ADDR_LEN);
+            bpf_memcpy(tuple->ipv6.daddr, sk->src_ip6, IPV6_ADDR_LEN);
+            tuple->ipv6.dport = sk->src_port;
+            tuple->ipv6.sport = bpf_ntohs(sk->dst_port);
+        }
+    }
+    // if (sk->family == AF_INET) {
+    //     tuple->ipv4.saddr = sk->src_ip4;
+    //     tuple->ipv4.daddr = sk->dst_ip4;
+    //     tuple->ipv4.sport = sk->src_port;
+    //     tuple->ipv4.dport = bpf_ntohs(sk->dst_port);
+    // } 
+    // if (sk->family == AF_INET6) {
+    //     bpf_memcpy(tuple->ipv6.saddr, sk->src_ip6, IPV6_ADDR_LEN);
+    //     bpf_memcpy(tuple->ipv6.daddr, sk->dst_ip6, IPV6_ADDR_LEN);
+    //     tuple->ipv6.sport = sk->src_port;
+    //     tuple->ipv6.dport = bpf_ntohs(sk->dst_port);
+    // }
+
+    if (is_ipv4_mapped_addr(tuple->ipv6.daddr)) {
+        tuple->ipv4.saddr = tuple->ipv6.saddr[3];
+        tuple->ipv4.daddr = tuple->ipv6.daddr[3];
+        tuple->ipv4.sport = tuple->ipv6.sport;
+        tuple->ipv4.dport = tuple->ipv6.dport;
+    }
+
     return;
 }
 
@@ -59,19 +111,20 @@ static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_
 {
     info->sent_bytes = tcp_sock->delivered;
     info->received_bytes = tcp_sock->bytes_received;
-    info->srtt_us = tcp_sock->srtt_us;
-    info->rtt_min = tcp_sock->rtt_min;
-    info->mss_cache = tcp_sock->mss_cache;
-    info->total_retrans = tcp_sock->total_retrans;
-    info->segs_in = tcp_sock->segs_in;
-    info->segs_out = tcp_sock->segs_out;
-    info->lost_out = tcp_sock->lost_out;
+    // info->srtt_us = tcp_sock->srtt_us;
+    // info->rtt_min = tcp_sock->rtt_min;
+    // info->mss_cache = tcp_sock->mss_cache;
+    // info->total_retrans = tcp_sock->total_retrans;
+    // info->segs_in = tcp_sock->segs_in;
+    // info->segs_out = tcp_sock->segs_out;
+    // info->lost_out = tcp_sock->lost_out;
     return;
 }
 
 static inline void
 tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
+    // struct connect_info *info = NULL;
     struct tcp_probe_info *info = NULL;
 
     // store tuple
@@ -81,16 +134,30 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
         return;
     }
 
-    constuct_tuple(sk, &info->tuple);
+    constuct_tuple(sk, &info->tuple, storage->direction);
     info->state = state;
     info->direction = storage->direction;
-    if (state == BPF_TCP_CLOSE) {
-        info->close_ns = bpf_ktime_get_ns();
-        info->duration = info->close_ns - storage->connect_ns;
-    }
+    // if (state == BPF_TCP_CLOSE) {
+    //     info->close_ns = bpf_ktime_get_ns();
+    //     info->duration = info->close_ns - storage->connect_ns;
+    // }
     info->conn_success = storage->connect_success;
     get_tcp_probe_info(tcp_sock, info);
+    (*info).family = (sk->family == AF_INET) ? AF_INET : AF_INET6;
+    if (is_ipv4_mapped_addr(sk->dst_ip6)) {
+        (*info).family = AF_INET;
+    }
 
+    BPF_LOG(DEBUG, SOCKOPS, "connect family id %u, direction is %u", info->family, info->direction);
+    BPF_LOG(DEBUG, SOCKOPS, "connect src addr is: %u, dst addr is %u", info->tuple.ipv4.saddr, info->tuple.ipv4.daddr);
+    BPF_LOG(DEBUG, SOCKOPS, "connect src addr is: %u, %u, %u, %u, dst addr is %u, %u, %u, %u", info->tuple.ipv6.saddr[0], info->tuple.ipv6.saddr[1], info->tuple.ipv6.saddr[2], info->tuple.ipv6.saddr[3], 
+    info->tuple.ipv6.daddr[0], info->tuple.ipv6.daddr[1], info->tuple.ipv6.daddr[2], info->tuple.ipv6.daddr[3]);
+    BPF_LOG(DEBUG, SOCKOPS, "connection direction is %u", info->direction);
+    BPF_LOG(DEBUG, SOCKOPS, "connect dst port is %u, %u, src port is %u, %u", info->tuple.ipv4.dport, info->tuple.ipv6.dport, info->tuple.ipv4.sport, info->tuple.ipv6.sport);
+
+    BPF_LOG(DEBUG, SOCKOPS, "sentbytes is %u, receivedbytesis %u", info->sent_bytes, info->received_bytes);
+    BPF_LOG(DEBUG, SOCKOPS, "size of sock_tuple is %d", sizeof(info->tuple));
+    
     bpf_ringbuf_submit(info, 0);
 }
 

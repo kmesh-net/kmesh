@@ -24,6 +24,7 @@ import (
 	"net/netip"
 	"reflect"
 	"strings"
+	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/ringbuf"
@@ -33,34 +34,66 @@ import (
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
 
+const (
+	MSG_TYPE_IPV4 = uint32(2)
+	MSG_TYPE_IPV6 = uint32(10)
+)
+
 type MetricController struct {
 	workloadCache cache.WorkloadCache
 }
 
-type metricKey struct {
-	SrcIp     [4]uint32
-	DstIp     [4]uint32
-	Direction uint32
-	DstPort   uint32
+// type metricKey struct {
+// 	SrcIp     [4]uint32
+// 	DstIp     [4]uint32
+// 	Direction uint32
+// 	DstPort   uint32
+// }
+
+// type metricValue struct {
+// 	ConnectionOpen   uint32
+// 	ConnectionClose  uint32
+// 	ConnectionFailed uint32
+// 	SentBytes        uint32
+// 	ReceivedBytes    uint32
+// }
+
+type connectionDataV4 struct {
+	SrcAddr        uint32
+	DstAddr        uint32
+	SrcPort        uint16
+	DstPort        uint16
+	RedundantData  [6]uint32
+	SentBytes      uint32
+	ReceivedBytes  uint32
+	ConnectSuccess uint32
+	Direction      uint32
+	State          uint32
 }
 
-type metricValue struct {
-	ConnectionOpen   uint32
-	ConnectionClose  uint32
-	ConnectionFailed uint32
-	SentBytes        uint32
-	ReceivedBytes    uint32
+type connectionDataV6 struct {
+	SrcAddr        [4]uint32
+	DstAddr        [4]uint32
+	SrcPort        uint16
+	DstPort        uint16
+	SentBytes      uint32
+	ReceivedBytes  uint32
+	ConnectSuccess uint32
+	Direction      uint32
+	State          uint32
 }
 
 type requestMetric struct {
 	src              [4]uint32
 	dst              [4]uint32
-	dstPort          uint32
+	dstPort          uint16
 	direction        uint32
 	connectionOpened uint32
 	connectionClosed uint32
 	receivedBytes    uint32
 	sentBytes        uint32
+	state            uint32
+	success          uint32
 }
 
 type workloadMetricLabels struct {
@@ -127,12 +160,12 @@ func NewMetric(workloadCache cache.WorkloadCache) *MetricController {
 	}
 }
 
-func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.Map) {
+func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	if m == nil {
 		return
 	}
 
-	reader, err := ringbuf.NewReader(mapOfMetricNotify)
+	reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
 		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
 		return
@@ -147,8 +180,8 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 	go RunPrometheusClient(ctx)
 
 	rec := ringbuf.Record{}
-	key := metricKey{}
-	value := metricValue{}
+	// key := metricKey{}
+	// value := metricValue{}
 	data := requestMetric{}
 
 	for {
@@ -161,36 +194,36 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 				continue
 			}
 
-			buf := bytes.NewBuffer(rec.RawSample)
-			if err := binary.Read(buf, binary.LittleEndian, &key); err != nil {
-				log.Error("get metric key FAILED, err:", err)
+			connectType := binary.LittleEndian.Uint32(rec.RawSample)
+			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
+			fmt.Printf("\n***************** %#v ************\n", originInfo)
+			buf := bytes.NewBuffer(originInfo)
+			switch connectType {
+			case MSG_TYPE_IPV4:
+				data, err = connV4BuildData(buf)
+			case MSG_TYPE_IPV6:
+				data, err = connV6BuildData(buf)
+			default:
+				log.Errorf("get connection info failed: %v", err)
 				continue
 			}
 
-			if err := mapOfMetric.Lookup(&key, &value); err != nil {
-				log.Error("get bpf map of metric FAILED, err:", err)
+			fmt.Printf("\n-----------request data is : %#v ---------\n", data)
+
+			if data.state != uint32(7) {
 				continue
 			}
-
-			data.src = key.SrcIp
-			data.dst = key.DstIp
-			data.direction = key.Direction
-			data.dstPort = key.DstPort
-			data.connectionClosed = value.ConnectionClose
-			data.connectionOpened = value.ConnectionOpen
-			data.sentBytes = value.SentBytes
-			data.receivedBytes = value.ReceivedBytes
 
 			workloadLabels := m.buildWorkloadMetric(&data)
 			serviceLabels := m.buildServiceMetric(&data)
 
 			workloadLabels.reporter = "-"
 			serviceLabels.reporter = "-"
-			if key.Direction == constants.INBOUND {
+			if data.direction == constants.INBOUND {
 				workloadLabels.reporter = "destination"
 				serviceLabels.reporter = "destination"
 			}
-			if key.Direction == constants.OUTBOUND {
+			if data.direction == constants.OUTBOUND {
 				workloadLabels.reporter = "source"
 				serviceLabels.reporter = "source"
 			}
@@ -199,6 +232,50 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 			buildServiceMetricsToPrometheus(data, serviceLabels)
 		}
 	}
+}
+
+func connV4BuildData(buf *bytes.Buffer) (requestMetric, error) {
+	data := requestMetric{}
+	connectData := connectionDataV4{}
+	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
+		return data, err
+	}
+
+	fmt.Printf("\n----------- v4 info is: %#v ---------\n", connectData)
+	data.src[0] = connectData.SrcAddr
+	data.dst[0] = connectData.DstAddr
+	data.direction = connectData.Direction
+	data.dstPort = connectData.DstPort
+	// data.connectionClosed = value.ConnectionClose
+	// data.connectionOpened = value.ConnectionOpen
+	data.sentBytes = connectData.SentBytes
+	data.receivedBytes = connectData.ReceivedBytes
+	data.state = connectData.State
+	data.success = connectData.ConnectSuccess
+
+	return data, nil
+}
+
+func connV6BuildData(buf *bytes.Buffer) (requestMetric, error) {
+	data := requestMetric{}
+	connectData := connectionDataV6{}
+	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
+		return data, err
+	}
+
+	fmt.Printf("\n----------- v6 info is: %#v ---------\n", connectData)
+	data.src = connectData.SrcAddr
+	data.dst = connectData.DstAddr
+	data.direction = connectData.Direction
+	data.dstPort = connectData.DstPort
+	// data.connectionClosed = value.ConnectionClose
+	// data.connectionOpened = value.ConnectionOpen
+	data.sentBytes = connectData.SentBytes
+	data.receivedBytes = connectData.ReceivedBytes
+	data.state = connectData.State
+	data.success = connectData.ConnectSuccess
+
+	return data, nil
 }
 
 func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetricLabels {
@@ -280,17 +357,20 @@ func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloa
 	return trafficLabels
 }
 
-func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint32) serviceMetricLabels {
+func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) serviceMetricLabels {
 	if dstWorkload == nil || srcWorkload == nil {
 		return serviceMetricLabels{}
 	}
 
 	trafficLabels := serviceMetricLabels{}
 
+	fmt.Printf("\n-=-=-=-=- %#v, %#v  -=-=-=-=\n", dstWorkload, srcWorkload)
 	namespacedhost := ""
 	for k, portList := range dstWorkload.Services {
+		fmt.Printf("\n ****------- %#v, %#v -------*******\n", k, portList)
 		for _, port := range portList.Ports {
-			if port.TargetPort == dstPort {
+			fmt.Printf("\n ****------- %#v -------*******\n", port)
+			if port.TargetPort == uint32(dstPort) {
 				namespacedhost = k
 				break
 			}
@@ -347,16 +427,22 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 
 func buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricLabels) {
 	commonLabels := struct2map(labels)
-	tcpConnectionOpenedInWorkload.With(commonLabels).Set(float64(data.connectionOpened))
-	tcpConnectionClosedInWorkload.With(commonLabels).Set(float64(data.connectionClosed))
-	tcpReceivedBytesInWorkload.With(commonLabels).Set(float64(data.receivedBytes))
-	tcpSentBytesInWorkload.With(commonLabels).Set(float64(data.sentBytes))
+	tcpConnectionOpenedInWorkload.With(commonLabels).Add(float64(1))
+	tcpConnectionClosedInWorkload.With(commonLabels).Add(float64(1))
+	if data.success != uint32(1) {
+		tcpConnectionFailedInWorkload.With(commonLabels).Add(float64(1))
+	}
+	tcpReceivedBytesInWorkload.With(commonLabels).Add(float64(data.receivedBytes))
+	tcpSentBytesInWorkload.With(commonLabels).Add(float64(data.sentBytes))
 }
 
 func buildServiceMetricsToPrometheus(data requestMetric, labels serviceMetricLabels) {
 	commonLabels := struct2map(labels)
-	tcpConnectionOpenedInService.With(commonLabels).Add(float64(data.connectionOpened))
-	tcpConnectionClosedInService.With(commonLabels).Add(float64(data.connectionClosed))
+	tcpConnectionOpenedInService.With(commonLabels).Add(float64(1))
+	tcpConnectionClosedInService.With(commonLabels).Add(float64(1))
+	if data.success != uint32(1) {
+		tcpConnectionFailedInService.With(commonLabels).Add(float64(1))
+	}
 	tcpReceivedBytesInService.With(commonLabels).Add(float64(data.receivedBytes))
 	tcpSentBytesInService.With(commonLabels).Add(float64(data.sentBytes))
 }

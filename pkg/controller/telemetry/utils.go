@@ -137,6 +137,12 @@ var (
 			Help: "The size of the total number of bytes sent in response to a workload over a TCP connection.",
 		}, workloadLabels)
 
+	tcpConnectionFailedInWorkload = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_conntectiond_failed_total",
+			Help: "The total number of TCP connections failed to a workload.",
+		}, workloadLabels)
+
 	tcpConnectionOpenedInService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kmesh_tcp_service_connections_opened_total",
 		Help: "The total number of TCP connections opened to a service",
@@ -159,6 +165,12 @@ var (
 			Name: "kmesh_tcp_service_sent_bytes_total",
 			Help: "The size of the total number of bytes sent in response to a service over a TCP connection.",
 		}, serviceLabels)
+
+	tcpConnectionFailedInService = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_service_conntectiond_failed_total",
+			Help: "The total number of TCP connections failed to a service.",
+		}, workloadLabels)
 )
 
 func RunPrometheusClient(ctx context.Context) {
