@@ -104,9 +104,6 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 	}
 
 	if _, err := namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(Obj interface{}) {
-			handleNamespaceAddFunc(Obj, podLister, queue, security)
-		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			handleNamespaceUpdateFunc(oldObj, newObj, podLister, queue, security)
 		},
@@ -149,10 +146,9 @@ func handlePodAddFunc(obj interface{}, namespaceLister v1.NamespaceLister, queue
 }
 
 func handlePodUpdateFunc(oldObj, newObj interface{}, namespaceLister v1.NamespaceLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
-	oldPod, okOld := oldObj.(*corev1.Pod)
 	newPod, okNew := newObj.(*corev1.Pod)
-	if !okOld || !okNew {
-		log.Errorf("expected *corev1.Pod but got %T and %T", oldObj, newObj)
+	if !okNew {
+		log.Errorf("expected *corev1.Pod but got %T", newObj)
 		return
 	}
 
@@ -163,12 +159,12 @@ func handlePodUpdateFunc(oldObj, newObj interface{}, namespaceLister v1.Namespac
 	}
 
 	// enable kmesh manage
-	if oldPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && newPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && utils.ShouldEnroll(newPod, namespace) {
+	if newPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && utils.ShouldEnroll(newPod, namespace) {
 		enableKmeshManage(newPod, queue, security)
 	}
 
 	// disable kmesh manage
-	if oldPod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" && newPod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" && !utils.ShouldEnroll(newPod, namespace) {
+	if newPod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" && !utils.ShouldEnroll(newPod, namespace) {
 		disableKmeshManage(newPod, queue, security)
 	}
 }
@@ -193,14 +189,6 @@ func handlePodDeleteFunc(obj interface{}, security *kmeshsecurity.SecretManager)
 		sendCertRequest(security, pod, kmeshsecurity.DELETE)
 		// We donot need to do handleKmeshManage for delete, because we may have no change to execute a cmd in pod net ns.
 		// And we have done this in kmesh-cni
-	}
-}
-
-func handleNamespaceAddFunc(obj interface{}, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
-	NS := obj.(*corev1.Namespace)
-	if utils.ShouldEnroll(nil, NS) {
-		log.Infof("enable Kmesh for all pods in namespace: %s", NS.Name)
-		enableKmeshForPodsInNamespace(NS.Name, podLister, queue, security)
 	}
 }
 

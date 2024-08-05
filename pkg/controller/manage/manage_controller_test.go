@@ -124,6 +124,30 @@ var (
 			NodeName: "test-node",
 		},
 	}
+	podReadyWithAnnotation = &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "ut-pod-1",
+			Annotations: map[string]string{
+				"kmesh.net/redirection": "enabled",
+			},
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:   corev1.PodReady,
+					Status: corev1.ConditionTrue,
+				},
+			},
+		},
+	}
 
 	nsWithoutLabel = &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
@@ -347,6 +371,16 @@ func TestHandleKmeshManage(t *testing.T) {
 				namespace: nsWithoutLabel,
 				pod:       podNotReadyWithoutLabel,
 				update:    true,
+			},
+			expectManaged:    false,
+			expectDisManaged: false,
+		},
+		{
+			name: "10. ns without label, pod ready add without annotation",
+			args: args{
+				namespace: nsWithoutLabel,
+				pod:       podReadyWithAnnotation,
+				create:    true,
 			},
 			expectManaged:    false,
 			expectDisManaged: false,
