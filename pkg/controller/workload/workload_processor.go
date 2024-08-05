@@ -363,15 +363,15 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 }
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
-	var deleteServices []string
+	var deletedServices []string
 	var newServices []string
 	log.Debugf("handle workload: %s", workload.Uid)
 
-	deleteServices, newServices = p.WorkloadCache.AddWorkload(workload)
-	log.Debugf("delServices:%v, newServices:%v", deleteServices, newServices)
+	deletedServices, newServices = p.WorkloadCache.AddOrUpdateWorkload(workload)
+	log.Debugf("delServices:%v, newServices:%v", deletedServices, newServices)
 
 	// Delete Residual Services on the Workload
-	if err := p.deleteResidualServicesWithWorkload(workload, deleteServices); err != nil {
+	if err := p.deleteResidualServicesWithWorkload(workload, deletedServices); err != nil {
 		log.Errorf("deleteResidualServicesWithWorkload %s failed: %v", workload.GetUid(), err)
 		return err
 	}

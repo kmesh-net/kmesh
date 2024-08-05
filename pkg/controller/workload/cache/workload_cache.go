@@ -28,7 +28,7 @@ import (
 type WorkloadCache interface {
 	GetWorkloadByUid(uid string) *workloadapi.Workload
 	GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload
-	AddWorkload(workload *workloadapi.Workload) ([]string, []string)
+	AddOrUpdateWorkload(workload *workloadapi.Workload) (deletedServices []string, newServices []string)
 	DeleteWorkload(uid string)
 	List() []*workloadapi.Workload
 }
@@ -94,7 +94,7 @@ func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Worklo
 	return dels, news
 }
 
-func (w *cache) AddWorkload(workload *workloadapi.Workload) ([]string, []string) {
+func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) ([]string, []string) {
 	var deleteServices []string
 	var newServices []string
 
@@ -106,22 +106,22 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) ([]string, []string)
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	workloadByUid, exist := w.byUid[uid]
+	oldWorkload, exist := w.byUid[uid]
 	if exist {
-		if proto.Equal(workload, workloadByUid) {
+		if proto.Equal(workload, oldWorkload) {
 			return deleteServices, newServices
 		}
 		// remove same uid but old address workload, avoid leak workload by address.
-		for _, ip := range workloadByUid.Addresses {
+		for _, ip := range oldWorkload.Addresses {
 			addr, _ := netip.AddrFromSlice(ip)
-			networkAddress := composeNetworkAddress(workloadByUid.Network, addr)
+			networkAddress := composeNetworkAddress(oldWorkload.Network, addr)
 			delete(w.byAddr, networkAddress)
 		}
 
 		// compare services
-		deleteServices, newServices = w.compareWorkloadServices(workloadByUid, workload)
+		deleteServices, newServices = w.compareWorkloadServices(oldWorkload, workload)
 	} else {
-		newServices = w.getUniqueServicesOnLeftWorkload(workload, workloadByUid)
+		newServices = w.getUniqueServicesOnLeftWorkload(workload, oldWorkload)
 	}
 
 	w.byUid[uid] = workload

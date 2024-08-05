@@ -25,7 +25,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
-func TestAddWorkload(t *testing.T) {
+func TestAddOrUpdateWorkload(t *testing.T) {
 	t.Run("adding a workload when none exists", func(t *testing.T) {
 		w := NewWorkloadCache()
 		workload := &workloadapi.Workload{
@@ -37,7 +37,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("1.2.3.4"),
 			},
 		}
-		w.AddWorkload(workload)
+		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		addr2, _ := netip.AddrFromSlice([]byte("1.2.3.4"))
@@ -56,7 +56,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("1.2.3.4"),
 			},
 		}
-		w.AddWorkload(workload)
+		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		addr2, _ := netip.AddrFromSlice([]byte("1.2.3.4"))
@@ -71,7 +71,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("2.3.4.5"),
 			},
 		}
-		w.AddWorkload(newWorkload)
+		w.AddOrUpdateWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
 		addr3, _ := netip.AddrFromSlice([]byte("192.168.10.25"))
 		addr4, _ := netip.AddrFromSlice([]byte("2.3.4.5"))
@@ -91,7 +91,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("192.168.224.22"),
 			},
 		}
-		w.AddWorkload(workload)
+		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
@@ -104,7 +104,7 @@ func TestAddWorkload(t *testing.T) {
 				[]byte("2.3.4.5"),
 			},
 		}
-		w.AddWorkload(newWorkload)
+		w.AddOrUpdateWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
 		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		addr2, _ := netip.AddrFromSlice([]byte("2.3.4.5"))
@@ -126,7 +126,7 @@ func TestDeleteWorkload(t *testing.T) {
 				[]byte("world"),
 			},
 		}
-		w.AddWorkload(workload)
+		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		w.DeleteWorkload("123456")
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byUid["123456"])
