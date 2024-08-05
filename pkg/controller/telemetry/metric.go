@@ -43,21 +43,6 @@ type MetricController struct {
 	workloadCache cache.WorkloadCache
 }
 
-// type metricKey struct {
-// 	SrcIp     [4]uint32
-// 	DstIp     [4]uint32
-// 	Direction uint32
-// 	DstPort   uint32
-// }
-
-// type metricValue struct {
-// 	ConnectionOpen   uint32
-// 	ConnectionClose  uint32
-// 	ConnectionFailed uint32
-// 	SentBytes        uint32
-// 	ReceivedBytes    uint32
-// }
-
 type connectionDataV4 struct {
 	SrcAddr        uint32
 	DstAddr        uint32

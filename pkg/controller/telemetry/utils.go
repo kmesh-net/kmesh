@@ -170,7 +170,7 @@ var (
 		prometheus.GaugeOpts{
 			Name: "kmesh_tcp_service_conntectiond_failed_total",
 			Help: "The total number of TCP connections failed to a service.",
-		}, workloadLabels)
+		}, serviceLabels)
 )
 
 func RunPrometheusClient(ctx context.Context) {

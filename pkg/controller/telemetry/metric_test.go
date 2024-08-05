@@ -192,12 +192,10 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 			name: "test build metrisc to Prometheus",
 			args: args{
 				data: requestMetric{
-					src:              [4]uint32{183763210, 0, 0, 0},
-					dst:              [4]uint32{183762951, 0, 0, 0},
-					connectionOpened: 0x0000001,
-					connectionClosed: 0x0000002,
-					sentBytes:        0x0000003,
-					receivedBytes:    0x0000004,
+					src:           [4]uint32{183763210, 0, 0, 0},
+					dst:           [4]uint32{183762951, 0, 0, 0},
+					sentBytes:     0x0000003,
+					receivedBytes: 0x0000004,
 				},
 				labels: workloadMetricLabels{
 					reporter:                     "destination",
@@ -226,7 +224,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				},
 			},
 			want: []float64{
-				2,
+				1,
 				1,
 				4,
 				3,
@@ -404,12 +402,10 @@ func TestBuildworkloadMetric(t *testing.T) {
 			name: "normal capability test",
 			args: args{
 				data: &requestMetric{
-					src:              [4]uint32{521736970, 0, 0, 0},
-					dst:              [4]uint32{383822016, 0, 0, 0},
-					connectionOpened: uint32(16),
-					connectionClosed: uint32(8),
-					sentBytes:        uint32(156),
-					receivedBytes:    uint32(1024),
+					src:           [4]uint32{521736970, 0, 0, 0},
+					dst:           [4]uint32{383822016, 0, 0, 0},
+					sentBytes:     uint32(156),
+					receivedBytes: uint32(1024),
 				},
 			},
 			want: workloadMetricLabels{
@@ -539,14 +535,12 @@ func TestBuildServiceMetric(t *testing.T) {
 			name: "normal capability test",
 			args: args{
 				data: &requestMetric{
-					src:              [4]uint32{521736970, 0, 0, 0},
-					dst:              [4]uint32{383822016, 0, 0, 0},
-					dstPort:          uint32(80),
-					direction:        uint32(2),
-					connectionOpened: uint32(16),
-					connectionClosed: uint32(8),
-					sentBytes:        uint32(156),
-					receivedBytes:    uint32(1024),
+					src:           [4]uint32{521736970, 0, 0, 0},
+					dst:           [4]uint32{383822016, 0, 0, 0},
+					dstPort:       uint16(80),
+					direction:     uint32(2),
+					sentBytes:     uint32(156),
+					receivedBytes: uint32(1024),
 				},
 			},
 			want: serviceMetricLabels{

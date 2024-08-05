@@ -42,10 +42,12 @@ func TestRegisterMetrics(t *testing.T) {
 		tcpConnectionOpenedInWorkload,
 		tcpReceivedBytesInWorkload,
 		tcpSentBytesInWorkload,
+		tcpConnectionFailedInWorkload,
 		tcpConnectionClosedInService,
 		tcpConnectionOpenedInService,
 		tcpReceivedBytesInService,
 		tcpSentBytesInService,
+		tcpConnectionFailedInService,
 	}
 
 	workloadLabels := map[string]string{
@@ -104,11 +106,13 @@ func TestRegisterMetrics(t *testing.T) {
 	tcpConnectionOpenedInWorkload.With(workloadLabels).Set(4)
 	tcpReceivedBytesInWorkload.With(workloadLabels).Set(12.64)
 	tcpSentBytesInWorkload.With(workloadLabels).Set(11.45)
+	tcpConnectionFailedInWorkload.With(workloadLabels).Set(1.0)
 
 	tcpConnectionClosedInService.With(serviceLabels).Set(4)
 	tcpReceivedBytesInService.With(serviceLabels).Set(8)
 	tcpSentBytesInService.With(serviceLabels).Set(9)
 	tcpConnectionOpenedInService.With(serviceLabels).Set(16.25)
+	tcpConnectionFailedInService.With(serviceLabels).Set(6.0)
 
 	for _, metric := range exportMetrics {
 		if err := prometheus.Register(metric); err != nil {
