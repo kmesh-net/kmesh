@@ -81,15 +81,14 @@ lower than 22.09, compile would report an error of bpf_snprintf dont exist */
     ({                                                                                                                 \
         struct log_event *e;                                                                                           \
         __u32 ret = 0;                                                                                                 \
-        int zero = 0;                                                                                                  \
-        e = bpf_map_lookup_elem(&tmp_log_buf, &zero);                                                                  \
+        e = bpf_ringbuf_reserve(&kmesh_events, sizeof(struct log_event), 0);                                           \
         if (!e)                                                                                                        \
             break;                                                                                                     \
         ret = Kmesh_BPF_SNPRINTF(e->msg, sizeof(e->msg), fmt, args);                                                   \
         e->ret = ret;                                                                                                  \
         if (ret < 0)                                                                                                   \
             break;                                                                                                     \
-        bpf_ringbuf_output(&kmesh_events, e, sizeof(*e), 0);                                                           \
+        bpf_ringbuf_submit(e, 0);                                                                                      \
     })
 #else
 #define BPF_LOG_U(fmt, args...)

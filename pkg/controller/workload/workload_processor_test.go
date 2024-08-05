@@ -25,6 +25,7 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/nets"
@@ -136,6 +137,16 @@ func Test_handleWorkload(t *testing.T) {
 	err = p.bpf.EndpointLookup(&ek, &ev)
 	assert.NoError(t, err)
 	assert.Equal(t, workload2ID, ev.BackendUid)
+	// 6. add namespace scoped waypoint service
+	wpSvc := createFakeService("waypoint", "10.240.10.5", "10.240.10.5")
+	_ = p.handleService(wpSvc)
+	assert.Nil(t, wpSvc.Waypoint)
+	// 6.1 check front end map contains service
+	svcID = checkFrontEndMap(t, wpSvc.Addresses[0].Address, p)
+	// 6.2 check service map contains service, but no waypoint address
+	checkServiceMap(t, p, svcID, wpSvc, 0)
+
+	hashNameClean(p)
 }
 
 func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workloadapi.Service, endpointCount uint32) {
@@ -147,7 +158,8 @@ func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workload
 	if waypointAddr != nil {
 		assert.Equal(t, test.EqualIp(sv.WaypointAddr, waypointAddr), true)
 	}
-	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(15008))
+
+	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(fakeSvc.Waypoint.GetHboneMtlsPort()))
 }
 
 func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workloadapi.Workload) {
@@ -271,7 +283,7 @@ func createFakeService(name, ip, waypoint string) *workloadapi.Service {
 	return &workloadapi.Service{
 		Name:      name,
 		Namespace: "default",
-		Hostname:  "testsvc.default.svc.cluster.local",
+		Hostname:  name + ".default.svc.cluster.local",
 		Addresses: []*workloadapi.NetworkAddress{
 			{
 				Address: netip.MustParseAddr(ip).AsSlice(),
@@ -299,5 +311,54 @@ func createFakeService(name, ip, waypoint string) *workloadapi.Service {
 			},
 			HboneMtlsPort: 15008,
 		},
+	}
+}
+
+func Test_deleteWorkloadWithRestart(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := newProcessor(workloadMap)
+
+	// 1. handle workload with service, but service not handled yet
+	// In this case, only frontend map and backend map should be updated.
+	wl := createTestWorkloadWithService()
+	_ = p.handleDataWithService(createTestWorkloadWithService())
+
+	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
+	checkBackendMap(t, p, workloadID, wl)
+
+	epKeys := p.bpf.EndpointIterFindKey(workloadID)
+	assert.Equal(t, len(epKeys), 0)
+	for svcName := range wl.Services {
+		endpoints := p.endpointsByService[svcName]
+		assert.Len(t, endpoints, 1)
+		if _, ok := endpoints[wl.Uid]; ok {
+			assert.True(t, ok)
+		}
+	}
+
+	// Set a restart label and simulate missing data in the cache
+	bpf.SetStartType(bpf.Restart)
+	for key := range wl.GetServices() {
+		p.ServiceCache.DeleteService(key)
+	}
+
+	p.compareWorkloadAndServiceWithHashName()
+	hashNameClean(p)
+}
+
+// The hashname will be saved as a file by default.
+// If it is not cleaned, it will affect other use cases.
+func hashNameClean(p *Processor) {
+	for str := range p.hashName.strToNum {
+		if err := p.removeWorkloadFromBpfMap(str); err != nil {
+			log.Errorf("RemoveWorkloadResource failed: %v", err)
+		}
+
+		if err := p.removeServiceResourceFromBpfMap(str); err != nil {
+			log.Errorf("RemoveServiceResource failed: %v", err)
+		}
+		p.hashName.Delete(str)
 	}
 }

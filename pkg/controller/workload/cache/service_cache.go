@@ -26,6 +26,7 @@ type ServiceCache interface {
 	List() []*workloadapi.Service
 	AddOrUpdateService(svc *workloadapi.Service)
 	DeleteService(resourceName string)
+	GetService(resourceName string) *workloadapi.Service
 }
 
 type serviceCache struct {
@@ -61,4 +62,10 @@ func (s *serviceCache) List() []*workloadapi.Service {
 	}
 
 	return out
+}
+
+func (s *serviceCache) GetService(resourceName string) *workloadapi.Service {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.servicesByResourceName[resourceName]
 }

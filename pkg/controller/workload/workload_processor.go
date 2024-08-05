@@ -19,6 +19,7 @@ package workload
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -29,6 +30,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/pkg/auth"
+	kmeshbpf "kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
@@ -202,6 +204,17 @@ func (p *Processor) deleteFrontendData(id uint32) error {
 }
 
 func (p *Processor) removeServiceResource(resources []string) error {
+	var err error
+	for _, name := range resources {
+		p.ServiceCache.DeleteService(name)
+		if err = p.removeServiceResourceFromBpfMap(name); err != nil {
+			return err
+		}
+	}
+	return err
+}
+
+func (p *Processor) removeServiceResourceFromBpfMap(name string) error {
 	var (
 		err      error
 		skDelete = bpf.ServiceKey{}
@@ -209,34 +222,31 @@ func (p *Processor) removeServiceResource(resources []string) error {
 		ekDelete = bpf.EndpointKey{}
 	)
 
-	for _, name := range resources {
-		p.ServiceCache.DeleteService(name)
-		serviceId := p.hashName.StrToNum(name)
-		skDelete.ServiceId = serviceId
-		if err = p.bpf.ServiceLookup(&skDelete, &svDelete); err == nil {
-			if err = p.deleteFrontendData(serviceId); err != nil {
-				log.Errorf("deleteFrontendData failed: %s", err)
-				goto failed
-			}
+	p.ServiceCache.DeleteService(name)
+	serviceId := p.hashName.StrToNum(name)
+	skDelete.ServiceId = serviceId
+	if err = p.bpf.ServiceLookup(&skDelete, &svDelete); err == nil {
+		if err = p.deleteFrontendData(serviceId); err != nil {
+			log.Errorf("deleteFrontendData failed: %s", err)
+			goto failed
+		}
 
-			if err = p.bpf.ServiceDelete(&skDelete); err != nil {
-				log.Errorf("ServiceDelete failed: %s", err)
-				goto failed
-			}
+		if err = p.bpf.ServiceDelete(&skDelete); err != nil {
+			log.Errorf("ServiceDelete failed: %s", err)
+			goto failed
+		}
 
-			var i uint32
-			for i = 1; i <= svDelete.EndpointCount; i++ {
-				ekDelete.ServiceId = serviceId
-				ekDelete.BackendIndex = i
-				if err = p.bpf.EndpointDelete(&ekDelete); err != nil {
-					log.Errorf("EndpointDelete failed: %s", err)
-					goto failed
-				}
+		var i uint32
+		for i = 1; i <= svDelete.EndpointCount; i++ {
+			ekDelete.ServiceId = serviceId
+			ekDelete.BackendIndex = i
+			if err = p.bpf.EndpointDelete(&ekDelete); err != nil {
+				log.Errorf("EndpointDelete failed: %s", err)
+				goto failed
 			}
 		}
-		p.hashName.Delete(name)
 	}
-
+	p.hashName.Delete(name)
 failed:
 	return err
 }
@@ -474,6 +484,16 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 
 func (p *Processor) handleService(service *workloadapi.Service) error {
 	log.Debugf("service resource name: %s/%s", service.Namespace, service.Hostname)
+
+	// Preprocess service, remove the waypoint from waypoint service, otherwise it will fall into a loop in bpf
+	if service.Waypoint != nil {
+		// Currently istiod only set the waypoint address to the first address of the service
+		// TODO: remove when upstream istiod will not set the waypoint address for itself
+		if slices.Equal(service.GetWaypoint().GetAddress().Address, service.Addresses[0].Address) {
+			service.Waypoint = nil
+		}
+	}
+
 	p.ServiceCache.AddOrUpdateService(service)
 	serviceName := service.ResourceName()
 	serviceId := p.hashName.StrToNum(serviceName)
@@ -543,8 +563,53 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 	}
 
 	_ = p.handleRemovedAddresses(rsp.RemovedResources)
+	p.compareWorkloadAndServiceWithHashName()
 
 	return err
+}
+
+// When processing the workload's response for the first time,
+// fetch the data from the /mnt/workload_hash_name.yaml file
+// and compare it with the data in the cache.
+func (p *Processor) compareWorkloadAndServiceWithHashName() {
+	var (
+		bk = bpf.BackendKey{}
+		bv = bpf.BackendValue{}
+		sk = bpf.ServiceKey{}
+		sv = bpf.ServiceValue{}
+	)
+
+	if kmeshbpf.GetStartType() != kmeshbpf.Restart {
+		return
+	}
+
+	log.Infof("reload workload config from last epoch")
+	kmeshbpf.SetStartType(kmeshbpf.Normal)
+
+	/* We traverse hashName, if there is a record exists in bpf map
+	 * but not in usercache, that means the data in the bpf map load
+	 * from the last epoch is inconsistent with the data that should
+	 * actually be stored now. then we should delete it from bpf map
+	 */
+	for str, num := range p.hashName.strToNum {
+		if p.WorkloadCache.GetWorkloadByUid(str) == nil && p.ServiceCache.GetService(str) == nil {
+			log.Debugf("GetWorkloadByUid and GetService nil:%v", str)
+
+			bk.BackendUid = num
+			sk.ServiceId = num
+			if err := p.bpf.BackendLookup(&bk, &bv); err == nil {
+				log.Debugf("Find BackendValue: [%#v] RemoveWorkloadResource", bv)
+				if err := p.removeWorkloadFromBpfMap(str); err != nil {
+					log.Errorf("RemoveWorkloadResource failed: %v", err)
+				}
+			} else if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
+				log.Debugf("Find ServiceValue: [%#v] RemoveServiceResource", sv)
+				if err := p.removeServiceResourceFromBpfMap(str); err != nil {
+					log.Errorf("RemoveServiceResource failed: %v", err)
+				}
+			}
+		}
+	}
 }
 
 func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) error {

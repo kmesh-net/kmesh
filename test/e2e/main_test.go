@@ -74,6 +74,9 @@ type EchoDeployments struct {
 	// The echo service which is enrolled to Kmesh without waypoint.
 	EnrolledToKmesh echo.Instances
 
+	// The echo service which is enrolled to Kmesh and with service waypoint.
+	ServiceWithWaypointAtServiceGranularity echo.Instances
+
 	// WaypointProxies by
 	WaypointProxies map[string]ambient.WaypointProxy
 }
@@ -84,6 +87,7 @@ const (
 	WaypointImageAnnotation                 = "sidecar.istio.io/proxyImage"
 	Timeout                                 = 2 * time.Minute
 	KmeshReleaseName                        = "kmesh"
+	KmeshDaemonsetName                      = "kmesh"
 	KmeshNamespace                          = "kmesh-system"
 )
 
@@ -176,6 +180,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 	apps.All = echos
 	apps.EnrolledToKmesh = match.ServiceName(echo.NamespacedName{Name: EnrolledToKmesh, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServiceWithWaypointAtServiceGranularity = match.ServiceName(echo.NamespacedName{Name: ServiceWithWaypointAtServiceGranularity, Namespace: apps.Namespace}).GetMatches(echos)
 
 	if apps.WaypointProxies == nil {
 		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
