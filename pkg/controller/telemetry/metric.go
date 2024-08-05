@@ -84,16 +84,14 @@ type connectionDataV6 struct {
 }
 
 type requestMetric struct {
-	src              [4]uint32
-	dst              [4]uint32
-	dstPort          uint16
-	direction        uint32
-	connectionOpened uint32
-	connectionClosed uint32
-	receivedBytes    uint32
-	sentBytes        uint32
-	state            uint32
-	success          uint32
+	src           [4]uint32
+	dst           [4]uint32
+	dstPort       uint16
+	direction     uint32
+	receivedBytes uint32
+	sentBytes     uint32
+	state         uint32
+	success       uint32
 }
 
 type workloadMetricLabels struct {
