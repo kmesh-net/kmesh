@@ -163,8 +163,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	go RunPrometheusClient(ctx)
 
 	rec := ringbuf.Record{}
-	// key := metricKey{}
-	// value := metricValue{}
 	data := requestMetric{}
 
 	for {
@@ -179,7 +177,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 
 			connectType := binary.LittleEndian.Uint32(rec.RawSample)
 			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
-			fmt.Printf("\n***************** %#v ************\n", originInfo)
 			buf := bytes.NewBuffer(originInfo)
 			switch connectType {
 			case MSG_TYPE_IPV4:
@@ -190,8 +187,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("get connection info failed: %v", err)
 				continue
 			}
-
-			fmt.Printf("\n-----------request data is : %#v ---------\n", data)
 
 			if data.state != uint32(7) {
 				continue
@@ -224,13 +219,10 @@ func connV4BuildData(buf *bytes.Buffer) (requestMetric, error) {
 		return data, err
 	}
 
-	fmt.Printf("\n----------- v4 info is: %#v ---------\n", connectData)
 	data.src[0] = connectData.SrcAddr
 	data.dst[0] = connectData.DstAddr
 	data.direction = connectData.Direction
 	data.dstPort = connectData.DstPort
-	// data.connectionClosed = value.ConnectionClose
-	// data.connectionOpened = value.ConnectionOpen
 	data.sentBytes = connectData.SentBytes
 	data.receivedBytes = connectData.ReceivedBytes
 	data.state = connectData.State
@@ -246,13 +238,11 @@ func connV6BuildData(buf *bytes.Buffer) (requestMetric, error) {
 		return data, err
 	}
 
-	fmt.Printf("\n----------- v6 info is: %#v ---------\n", connectData)
 	data.src = connectData.SrcAddr
 	data.dst = connectData.DstAddr
 	data.direction = connectData.Direction
 	data.dstPort = connectData.DstPort
-	// data.connectionClosed = value.ConnectionClose
-	// data.connectionOpened = value.ConnectionOpen
+
 	data.sentBytes = connectData.SentBytes
 	data.receivedBytes = connectData.ReceivedBytes
 	data.state = connectData.State
@@ -347,12 +337,9 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 
 	trafficLabels := serviceMetricLabels{}
 
-	fmt.Printf("\n-=-=-=-=- %#v, %#v  -=-=-=-=\n", dstWorkload, srcWorkload)
 	namespacedhost := ""
 	for k, portList := range dstWorkload.Services {
-		fmt.Printf("\n ****------- %#v, %#v -------*******\n", k, portList)
 		for _, port := range portList.Ports {
-			fmt.Printf("\n ****------- %#v -------*******\n", port)
 			if port.TargetPort == uint32(dstPort) {
 				namespacedhost = k
 				break
