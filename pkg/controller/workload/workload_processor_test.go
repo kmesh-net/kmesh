@@ -25,6 +25,7 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/nets"
@@ -90,6 +91,7 @@ func Test_handleWorkload(t *testing.T) {
 
 	// 3.2 check service map contains service
 	checkServiceMap(t, p, svcID, fakeSvc, 2)
+	hashNameClean(p)
 }
 
 func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workloadapi.Service, endpointCount uint32) {
@@ -249,5 +251,54 @@ func createFakeService(name, ip, waypoint string) *workloadapi.Service {
 			},
 			HboneMtlsPort: 15008,
 		},
+	}
+}
+
+func Test_deleteWorkloadWithRestart(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := newProcessor(workloadMap)
+
+	// 1. handle workload with service, but service not handled yet
+	// In this case, only frontend map and backend map should be updated.
+	wl := createTestWorkloadWithService()
+	_ = p.handleDataWithService(createTestWorkloadWithService())
+
+	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
+	checkBackendMap(t, p, workloadID, wl)
+
+	epKeys := p.bpf.EndpointIterFindKey(workloadID)
+	assert.Equal(t, len(epKeys), 0)
+	for svcName := range wl.Services {
+		endpoints := p.endpointsByService[svcName]
+		assert.Len(t, endpoints, 1)
+		if _, ok := endpoints[wl.Uid]; ok {
+			assert.True(t, ok)
+		}
+	}
+
+	// Set a restart label and simulate missing data in the cache
+	bpf.SetStartType(bpf.Restart)
+	for key := range wl.GetServices() {
+		p.ServiceCache.DeleteService(key)
+	}
+
+	p.compareWorkloadAndServiceWithHashName()
+	hashNameClean(p)
+}
+
+// The hashname will be saved as a file by default.
+// If it is not cleaned, it will affect other use cases.
+func hashNameClean(p *Processor) {
+	for str := range p.hashName.strToNum {
+		if err := p.removeWorkloadFromBpfMap(str); err != nil {
+			log.Errorf("RemoveWorkloadResource failed: %v", err)
+		}
+
+		if err := p.removeServiceResourceFromBpfMap(str); err != nil {
+			log.Errorf("RemoveServiceResource failed: %v", err)
+		}
+		p.hashName.Delete(str)
 	}
 }
