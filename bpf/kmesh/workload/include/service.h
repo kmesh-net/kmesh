@@ -55,7 +55,11 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         return ret;
     }
 
-    BPF_LOG(DEBUG, SERVICE, "load balance type:%u\n", service_v->lb_policy);
+    if (service_v->endpoint_count == 0) {
+        BPF_LOG(DEBUG, SERVICE, "service %u has no endpoint", service_id);
+        return 0;
+    }
+
     switch (service_v->lb_policy) {
     case LB_POLICY_RANDOM:
         ret = lb_random_handle(kmesh_ctx, service_id, service_v);
