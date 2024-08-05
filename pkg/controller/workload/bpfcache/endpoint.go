@@ -62,7 +62,7 @@ func (c *Cache) EndpointIterFindKey(workloadUid uint32) []EndpointKey {
 	return res
 }
 
-func (c *Cache) GetServiceEndpointKey(serviceIds map[uint32]string, workloadUid uint32) []EndpointKey {
+func (c *Cache) GetServiceEndpointKey(serviceIds map[uint32]struct{}, workloadUid uint32) []EndpointKey {
 	var (
 		key   = EndpointKey{}
 		value = EndpointValue{}

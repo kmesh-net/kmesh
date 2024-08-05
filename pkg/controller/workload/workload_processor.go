@@ -283,10 +283,10 @@ func (p *Processor) deleteResidualServicesWithWorkload(workload *workloadapi.Wor
 		return nil
 	}
 
-	serviceIds := make(map[uint32]string)
+	serviceIds := make(map[uint32]struct{})
 	for _, serviceName := range services {
 		serviceId = p.hashName.StrToNum(serviceName)
-		serviceIds[serviceId] = serviceName
+		serviceIds[serviceId] = struct{}{}
 	}
 
 	workloadUid := p.hashName.StrToNum(workload.GetUid())
