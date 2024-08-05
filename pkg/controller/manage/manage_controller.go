@@ -213,13 +213,9 @@ func handleNamespaceUpdateFunc(oldObj, newObj interface{}, podLister v1.PodListe
 }
 
 func enableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager) {
-	if pod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" {
-		log.Infof("%s/%s: has been managed by Kmesh, skip following steps", pod.GetNamespace(), pod.GetName())
-		return
-	}
 	sendCertRequest(security, pod, kmeshsecurity.ADD)
 	if !isPodReady(pod) {
-		log.Debugf("Pod is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
+		log.Debugf("Pod %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
 		return
 	}
 	log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())

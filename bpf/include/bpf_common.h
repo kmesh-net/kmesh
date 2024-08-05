@@ -59,7 +59,7 @@ static inline void record_manager_netns_cookie(struct bpf_sock_addr *ctx)
     key.netns_cookie = bpf_get_netns_cookie(ctx);
     __u32 value = 0;
 
-    err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_NOEXIST);
+    err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_ANY);
     if (err)
         BPF_LOG(ERR, KMESH, "record netcookie failed!, err is %d\n", err);
 }
