@@ -55,7 +55,7 @@ func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
 
 func (c *Controller) Run(ctx context.Context) {
 	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
-	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapOfMetricNotify, c.bpfWorkloadObj.SockConn.MapOfMetrics)
+	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapOfTcpInfo)
 }
 
 func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
