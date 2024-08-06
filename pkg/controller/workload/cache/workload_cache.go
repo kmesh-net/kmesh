@@ -31,6 +31,9 @@ type WorkloadCache interface {
 	AddOrUpdateWorkload(workload *workloadapi.Workload) (deletedServices []string, newServices []string)
 	DeleteWorkload(uid string)
 	List() []*workloadapi.Workload
+	GetRelationShip(workloadId uint32, serviceId uint32) (uint32, bool)
+	UpdateRelationShip(workloadId uint32, serviceId uint32, relationId uint32)
+	DeleteRelationShip(serviceId uint32, relationId uint32)
 }
 
 type NetworkAddress struct {
@@ -38,16 +41,76 @@ type NetworkAddress struct {
 	Address netip.Addr
 }
 
+type ServiceRelationShipByWorkload struct {
+	workloadId uint32
+	serviceId  uint32
+}
+
+type ServiceRelationShipById struct {
+	serviceId  uint32
+	relationId uint32
+}
+
 type cache struct {
-	byUid  map[string]*workloadapi.Workload
-	byAddr map[NetworkAddress]*workloadapi.Workload
-	mutex  sync.RWMutex
+	byUid                  map[string]*workloadapi.Workload
+	byAddr                 map[NetworkAddress]*workloadapi.Workload
+	relationShipByWorkload map[ServiceRelationShipByWorkload]uint32
+	relationShipById       map[ServiceRelationShipById]uint32
+	mutex                  sync.RWMutex
 }
 
 func NewWorkloadCache() *cache {
 	return &cache{
-		byUid:  make(map[string]*workloadapi.Workload),
-		byAddr: make(map[NetworkAddress]*workloadapi.Workload),
+		byUid:                  make(map[string]*workloadapi.Workload),
+		byAddr:                 make(map[NetworkAddress]*workloadapi.Workload),
+		relationShipByWorkload: make(map[ServiceRelationShipByWorkload]uint32),
+		relationShipById:       make(map[ServiceRelationShipById]uint32),
+	}
+}
+
+func (w *cache) GetRelationShip(workloadId uint32, serviceId uint32) (uint32, bool) {
+	var relationKey = ServiceRelationShipByWorkload{
+		workloadId: workloadId,
+		serviceId:  serviceId,
+	}
+
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+	relationId, exist := w.relationShipByWorkload[relationKey]
+	return relationId, exist
+}
+
+func (w *cache) UpdateRelationShip(workloadId uint32, serviceId uint32, relationId uint32) {
+	var relationKey = ServiceRelationShipByWorkload{
+		workloadId: workloadId,
+		serviceId:  serviceId,
+	}
+	var relationKeyById = ServiceRelationShipById{
+		serviceId:  serviceId,
+		relationId: relationId,
+	}
+
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	w.relationShipByWorkload[relationKey] = relationId
+	w.relationShipById[relationKeyById] = workloadId
+}
+
+func (w *cache) DeleteRelationShip(serviceId uint32, relationId uint32) {
+	var relationKeyById = ServiceRelationShipById{
+		serviceId:  serviceId,
+		relationId: relationId,
+	}
+
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	if workloadId, ok := w.relationShipById[relationKeyById]; ok {
+		delete(w.relationShipById, relationKeyById)
+		var relationKey = ServiceRelationShipByWorkload{
+			workloadId: workloadId,
+			serviceId:  serviceId,
+		}
+		delete(w.relationShipByWorkload, relationKey)
 	}
 }
 

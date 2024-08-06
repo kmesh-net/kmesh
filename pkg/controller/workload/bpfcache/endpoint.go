@@ -61,21 +61,3 @@ func (c *Cache) EndpointIterFindKey(workloadUid uint32) []EndpointKey {
 
 	return res
 }
-
-func (c *Cache) GetServiceEndpointKey(serviceIds map[uint32]struct{}, workloadUid uint32) []EndpointKey {
-	var (
-		key   = EndpointKey{}
-		value = EndpointValue{}
-		iter  = c.bpfMap.KmeshEndpoint.Iterate()
-	)
-
-	res := make([]EndpointKey, 0)
-	for iter.Next(&key, &value) {
-		if value.BackendUid == workloadUid {
-			if _, ok := serviceIds[key.ServiceId]; ok {
-				res = append(res, key)
-			}
-		}
-	}
-	return res
-}
