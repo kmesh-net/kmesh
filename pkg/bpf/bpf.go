@@ -30,7 +30,6 @@ import (
 	"syscall"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/rlimit"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/logger"
