@@ -88,6 +88,8 @@ func (ps *policyStore) removePolicy(policyKey string) {
 		log.Warnf("Auth policy key %s does not exist in byKey", policyKey)
 		return
 	}
+	// todo
+	maps_v2.AuthorizationDelete(policyKey)
 	// remove authPolicy from byKey
 	delete(ps.byKey, policyKey)
 
