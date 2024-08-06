@@ -18,12 +18,10 @@ package bypass
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
@@ -50,11 +48,7 @@ type Controller struct {
 }
 
 func NewByPassController(client kubernetes.Interface) *Controller {
-	nodeName := os.Getenv("NODE_NAME")
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
-		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
-		}))
+	informerFactory := utils.GetInformerFactory(client)
 
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	_, _ = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
