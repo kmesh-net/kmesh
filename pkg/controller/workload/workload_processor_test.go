@@ -28,6 +28,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
+	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
@@ -41,7 +42,7 @@ func Test_handleWorkload(t *testing.T) {
 	// 1. handle workload with service, but service not handled yet
 	// In this case, only frontend map and backend map should be updated.
 	wl := createTestWorkloadWithService()
-	_ = p.handleDataWithService(createTestWorkloadWithService())
+	_ = p.handleWorkload(createTestWorkloadWithService())
 	var (
 		ek bpfcache.EndpointKey
 		ev bpfcache.EndpointValue
@@ -79,7 +80,7 @@ func Test_handleWorkload(t *testing.T) {
 
 	// 3. add another workload with service
 	workload2 := createFakeWorkload("1.2.3.5")
-	_ = p.handleDataWithService(workload2)
+	_ = p.handleWorkload(workload2)
 
 	// 3.1 check endpoint map now contains the new workloads
 	workload2ID := checkFrontEndMap(t, workload2.Addresses[0], p)
@@ -100,6 +101,27 @@ func Test_handleWorkload(t *testing.T) {
 	svcID = checkFrontEndMap(t, wpSvc.Addresses[0].Address, p)
 	// 4.2 check service map contains service, but no waypoint address
 	checkServiceMap(t, p, svcID, wpSvc, 0)
+
+	// 5. add unhealthy workload
+	workload3 := createFakeWorkload("1.2.3.6")
+	workload3.Status = workloadapi.WorkloadStatus_UNHEALTHY
+	_ = p.handleWorkload(workload3)
+
+	addr, _ := netip.AddrFromSlice(workload3.Addresses[0])
+	networkAddress := cache.NetworkAddress{
+		Network: workload3.Network,
+		Address: addr,
+	}
+	got := p.WorkloadCache.GetWorkloadByAddr(networkAddress)
+	assert.NotNil(t, got)
+	assert.Equal(t, got.Status, workloadapi.WorkloadStatus_UNHEALTHY)
+
+	// 5.1 check unhealthy workload does not exists
+	var fk bpfcache.FrontendKey
+	var fv bpfcache.FrontendValue
+	nets.CopyIpByteFromSlice(&fk.Ip, workload3.Addresses[0])
+	err = p.bpf.FrontendLookup(&fk, &fv)
+	assert.ErrorContains(t, err, "key does not exist")
 
 	hashNameClean(p)
 }
