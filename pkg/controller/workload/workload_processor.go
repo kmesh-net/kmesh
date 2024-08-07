@@ -248,6 +248,7 @@ func (p *Processor) deleteFrontendData(id uint32) error {
 func (p *Processor) removeServiceResource(resources []string) error {
 	var err error
 	for _, name := range resources {
+		telemetry.DeleteServiceMetric(name)
 		p.ServiceCache.DeleteService(name)
 		if err = p.removeServiceResourceFromBpfMap(name); err != nil {
 			return err

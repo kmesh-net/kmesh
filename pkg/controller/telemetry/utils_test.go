@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
@@ -202,7 +203,86 @@ func TestDeleteWorkloadMetric(t *testing.T) {
 					t.Errorf("metric not clean up")
 				}
 			}
+		})
+	}
+	cancel()
+}
 
+func TestDeleteServiceMetric(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				runPrometheusClient(registry)
+			}
+		}
+	}()
+
+	exportMetrics := []*prometheus.GaugeVec{
+		tcpConnectionClosedInService,
+		tcpConnectionOpenedInService,
+		tcpReceivedBytesInService,
+		tcpSentBytesInService,
+		tcpConnectionFailedInService,
+	}
+	serviceLabels := map[string]string{
+		"reporter":                       "destination",
+		"source_workload":                "sleep",
+		"source_canonical_service":       "sleep",
+		"source_canonical_revision":      "latest",
+		"source_workload_namespace":      "ambient-demo",
+		"source_principal":               "spiffe://cluster.local/ns/ambient-demo/sa/sleep",
+		"source_app":                     "sleep",
+		"source_version":                 "latest",
+		"source_cluster":                 "Kubernetes",
+		"destination_service":            "sleep.ambient.svc.cluster.local",
+		"destination_service_namespace":  "ambient-demo",
+		"destination_service_name":       "tcp-echo",
+		"destination_workload":           "tcp-echo",
+		"destination_canonical_service":  "tcp-echo",
+		"destination_canonical_revision": "v1",
+		"destination_workload_namespace": "ambient-demo",
+		"destination_principal":          "spiffe://cluster.local/ns/ambient-demo/sa/default",
+		"destination_app":                "tcp-echo",
+		"destination_version":            "v1",
+		"destination_cluster":            "Kubernetes",
+		"request_protocol":               "tcp",
+		"response_flags":                 "-",
+		"connection_security_policy":     "mutual_tls",
+	}
+
+	type args struct {
+		serviceName string
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "delete service",
+			args: args{
+				serviceName: "ambient-demo/tcp-echo",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tcpConnectionClosedInService.With(serviceLabels).Set(4)
+			tcpReceivedBytesInService.With(serviceLabels).Set(8)
+			tcpSentBytesInService.With(serviceLabels).Set(9)
+			tcpConnectionOpenedInService.With(serviceLabels).Set(16.25)
+			tcpConnectionFailedInService.With(serviceLabels).Set(6.0)
+
+			DeleteServiceMetric(tt.args.serviceName)
+			for _, metric := range exportMetrics {
+				if err := prometheus.Register(metric); err == nil {
+					t.Errorf("metric not clean up")
+				}
+			}
 		})
 	}
 	cancel()
