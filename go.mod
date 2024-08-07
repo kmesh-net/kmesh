@@ -10,7 +10,7 @@ replace istio.io/api => istio.io/api v1.22.0-alpha.1.0.20240620154034-5b788fec62
 require (
 	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/ebpf v0.15.0
+	github.com/cilium/ebpf v0.16.0
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.5.1
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240614044803-82e2a76dbddd
