@@ -34,6 +34,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
+	"kmesh.net/kmesh/pkg/controller/telemetry"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
@@ -185,7 +186,7 @@ func (p *Processor) removeWorkloadResource(removedResources []string) error {
 				p.SecretManager.SendCertRequest(Identity, kmeshsecurity.DELETE)
 			}
 		}
-
+		telemetry.DeleteWorkloadMetric(p.WorkloadCache.GetWorkloadByUid(uid))
 		p.WorkloadCache.DeleteWorkload(uid)
 		backendUid := p.hashName.StrToNum(uid)
 		// for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records

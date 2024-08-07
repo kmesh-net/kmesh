@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
 func TestRegisterMetrics(t *testing.T) {
@@ -118,6 +119,91 @@ func TestRegisterMetrics(t *testing.T) {
 		if err := prometheus.Register(metric); err != nil {
 			t.Errorf("metric not register")
 		}
+	}
+	cancel()
+}
+
+func TestDeleteWorkloadMetric(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	ctx, cancel := context.WithCancel(context.Background())
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				runPrometheusClient(registry)
+			}
+		}
+	}()
+
+	exportMetrics := []*prometheus.GaugeVec{
+		tcpConnectionClosedInWorkload,
+		tcpConnectionOpenedInWorkload,
+		tcpReceivedBytesInWorkload,
+		tcpSentBytesInWorkload,
+		tcpConnectionFailedInWorkload,
+	}
+
+	workloadLabels := map[string]string{
+		"reporter":                       "destination",
+		"source_workload":                "sleep",
+		"source_canonical_service":       "sleep",
+		"source_canonical_revision":      "latest",
+		"source_workload_namespace":      "ambient-demo",
+		"source_principal":               "spiffe://cluster.local/ns/ambient-demo/sa/sleep",
+		"source_app":                     "sleep",
+		"source_version":                 "latest",
+		"source_cluster":                 "Kubernetes",
+		"destination_pod_address":        "192.068.10.25",
+		"destination_pod_namespace":      "ambient-demo",
+		"destination_pod_name":           "httpbin-hjsrf",
+		"destination_workload":           "tcp-echo",
+		"destination_canonical_service":  "tcp-echo",
+		"destination_canonical_revision": "v1",
+		"destination_workload_namespace": "ambient-demo",
+		"destination_principal":          "spiffe://cluster.local/ns/ambient-demo/sa/default",
+		"destination_app":                "tcp-echo",
+		"destination_version":            "v1",
+		"destination_cluster":            "Kubernetes",
+		"request_protocol":               "tcp",
+		"response_flags":                 "-",
+		"connection_security_policy":     "mutual_tls",
+	}
+	type args struct {
+		workload *workloadapi.Workload
+	}
+	tests := []struct {
+		name string
+		args args
+	}{
+		{
+			name: "delete workload",
+			args: args{
+				workload: &workloadapi.Workload{
+					Name:      "httpbin-hjsrf",
+					Namespace: "ambient-demo",
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tcpConnectionClosedInWorkload.With(workloadLabels).Set(2)
+			tcpConnectionOpenedInWorkload.With(workloadLabels).Set(4)
+			tcpReceivedBytesInWorkload.With(workloadLabels).Set(12.64)
+			tcpSentBytesInWorkload.With(workloadLabels).Set(11.45)
+			tcpConnectionFailedInWorkload.With(workloadLabels).Set(1.0)
+
+			DeleteWorkloadMetric(tt.args.workload)
+
+			for _, metric := range exportMetrics {
+				if err := prometheus.Register(metric); err == nil {
+					t.Errorf("metric not clean up")
+				}
+			}
+
+		})
 	}
 	cancel()
 }

@@ -35,8 +35,12 @@ import (
 )
 
 const (
-	MSG_TYPE_IPV4 = uint32(2)
-	MSG_TYPE_IPV6 = uint32(10)
+	TCP_ESTABLISHED = uint32(1)
+	TCP_CLOST       = uint32(7)
+
+	connection_success = uint32(1)
+
+	MSG_LEN = 112
 )
 
 type MetricController struct {
@@ -174,21 +178,21 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
 			}
+			if len(rec.RawSample) != MSG_LEN {
+				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), MSG_LEN)
+				continue
+			}
 
 			connectType := binary.LittleEndian.Uint32(rec.RawSample)
 			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
 			buf := bytes.NewBuffer(originInfo)
 			switch connectType {
-			case MSG_TYPE_IPV4:
-				data, err = connV4BuildData(buf)
-			case MSG_TYPE_IPV6:
-				data, err = connV6BuildData(buf)
+			case constants.MSG_TYPE_IPV4:
+				data, err = buildV4Metric(buf)
+			case constants.MSG_TYPE_IPV6:
+				data, err = buildV6Metric(buf)
 			default:
 				log.Errorf("get connection info failed: %v", err)
-				continue
-			}
-
-			if data.state != uint32(7) {
 				continue
 			}
 
@@ -212,7 +216,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	}
 }
 
-func connV4BuildData(buf *bytes.Buffer) (requestMetric, error) {
+func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data := requestMetric{}
 	connectData := connectionDataV4{}
 	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
@@ -231,7 +235,7 @@ func connV4BuildData(buf *bytes.Buffer) (requestMetric, error) {
 	return data, nil
 }
 
-func connV6BuildData(buf *bytes.Buffer) (requestMetric, error) {
+func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data := requestMetric{}
 	connectData := connectionDataV6{}
 	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
@@ -300,7 +304,7 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 }
 
 func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloadMetricLabels {
-	if dstWorkload == nil || srcWorkload == nil {
+	if dstWorkload == nil && srcWorkload == nil {
 		return workloadMetricLabels{}
 	}
 
@@ -331,7 +335,7 @@ func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloa
 }
 
 func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) serviceMetricLabels {
-	if dstWorkload == nil || srcWorkload == nil {
+	if dstWorkload == nil && srcWorkload == nil {
 		return serviceMetricLabels{}
 	}
 
@@ -397,9 +401,14 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 
 func buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricLabels) {
 	commonLabels := struct2map(labels)
-	tcpConnectionOpenedInWorkload.With(commonLabels).Add(float64(1))
-	tcpConnectionClosedInWorkload.With(commonLabels).Add(float64(1))
-	if data.success != uint32(1) {
+
+	if data.state == TCP_ESTABLISHED {
+		tcpConnectionOpenedInWorkload.With(commonLabels).Add(float64(1))
+	}
+	if data.state == TCP_CLOST {
+		tcpConnectionClosedInWorkload.With(commonLabels).Add(float64(1))
+	}
+	if data.success != connection_success {
 		tcpConnectionFailedInWorkload.With(commonLabels).Add(float64(1))
 	}
 	tcpReceivedBytesInWorkload.With(commonLabels).Add(float64(data.receivedBytes))
@@ -408,8 +417,13 @@ func buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricL
 
 func buildServiceMetricsToPrometheus(data requestMetric, labels serviceMetricLabels) {
 	commonLabels := struct2map(labels)
-	tcpConnectionOpenedInService.With(commonLabels).Add(float64(1))
-	tcpConnectionClosedInService.With(commonLabels).Add(float64(1))
+
+	if data.state == TCP_ESTABLISHED {
+		tcpConnectionOpenedInService.With(commonLabels).Add(float64(1))
+	}
+	if data.state == TCP_CLOST {
+		tcpConnectionClosedInService.With(commonLabels).Add(float64(1))
+	}
 	if data.success != uint32(1) {
 		tcpConnectionFailedInService.With(commonLabels).Add(float64(1))
 	}
