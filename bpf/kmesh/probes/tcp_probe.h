@@ -13,8 +13,13 @@ enum {
     OUTBOUND = 2,
 };
 
+enum family_type {
+    IPV4,
+    IPV6,
+};
+
 struct tcp_probe_info {
-    __u32 family;
+    __u32 type;
     struct bpf_sock_tuple tuple;
     __u32 sent_bytes;
     __u32 received_bytes;
@@ -119,9 +124,9 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
     }
     info->conn_success = storage->connect_success;
     get_tcp_probe_info(tcp_sock, info);
-    (*info).family = (sk->family == AF_INET) ? AF_INET : AF_INET6;
+    (*info).type = (sk->family == AF_INET) ? IPV4 : IPV6;
     if (is_ipv4_mapped_addr(sk->dst_ip6)) {
-        (*info).family = AF_INET;
+        (*info).type = IPV4;
     }
 
     bpf_ringbuf_submit(info, 0);

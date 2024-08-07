@@ -24,6 +24,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
+	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -128,7 +129,7 @@ var (
 	tcpReceivedBytesInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kmesh_tcp_received_bytes_total",
-			Help: "The size of the total number of bytes reveiced in response to a workload over a TCP connection.",
+			Help: "The size of the total number of bytes received in response to a workload over a TCP connection.",
 		}, workloadLabels)
 
 	tcpSentBytesInWorkload = prometheus.NewGaugeVec(
@@ -139,7 +140,7 @@ var (
 
 	tcpConnectionFailedInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_conntectiond_failed_total",
+			Name: "kmesh_tcp_conntections_failed_total",
 			Help: "The total number of TCP connections failed to a workload.",
 		}, workloadLabels)
 
@@ -168,7 +169,7 @@ var (
 
 	tcpConnectionFailedInService = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_service_conntectiond_failed_total",
+			Name: "kmesh_tcp_service_conntections_failed_total",
 			Help: "The total number of TCP connections failed to a service.",
 		}, serviceLabels)
 )
@@ -198,4 +199,16 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	if err := http.ListenAndServe(":15020", nil); err != nil {
 		log.Fatalf("start prometheus client port failed: %v", err)
 	}
+}
+
+func DeleteWorkloadMetric(workload *workloadapi.Workload) {
+	if workload == nil {
+		return
+	}
+
+	_ = tcpConnectionClosedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	_ = tcpConnectionFailedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	_ = tcpConnectionOpenedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	_ = tcpReceivedBytesInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	_ = tcpSentBytesInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 }

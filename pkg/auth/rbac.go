@@ -31,20 +31,19 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 const (
 	SPIFFE_PREFIX = "spiffe://"
-	MSG_TYPE_IPV4 = uint32(0)
-	MSG_TYPE_IPV6 = uint32(1)
 	// IPV4_TUPLE_LENGTH is the fixed length of IPv4 source/destination address(4 bytes each) and port(2 bytes each)
 	IPV4_TUPLE_LENGTH = int(unsafe.Sizeof(bpfSockTupleV4{}))
 	// TUPLE_LEN is the fixed length of 4-tuple(source/dest IP/port) in a record from map of tuple
 	TUPLE_LEN = int(unsafe.Sizeof(bpfSockTupleV6{}))
 	// MSG_LEN is the fixed length of one record we retrieve from map of tuple
-	MSG_LEN = TUPLE_LEN + int(unsafe.Sizeof(MSG_TYPE_IPV4))
+	MSG_LEN = TUPLE_LEN + int(unsafe.Sizeof(constants.MSG_TYPE_IPV4))
 )
 
 var (
@@ -134,9 +133,9 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 			tupleData := rec.RawSample[unsafe.Sizeof(msgType):]
 			buf := bytes.NewBuffer(tupleData)
 			switch msgType {
-			case MSG_TYPE_IPV4:
+			case constants.MSG_TYPE_IPV4:
 				conn, err = r.buildConnV4(buf)
-			case MSG_TYPE_IPV6:
+			case constants.MSG_TYPE_IPV6:
 				conn, err = r.buildConnV6(buf)
 			default:
 				log.Error("invalid msg type: ", msgType)
@@ -144,11 +143,6 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 			}
 			if err != nil {
 				continue
-			}
-
-			if msgType == MSG_TYPE_IPV6 {
-				conn.dstIp = restoreIPv4(conn.dstIp)
-				conn.srcIp = restoreIPv4(conn.srcIp)
 			}
 
 			if !r.doRbac(&conn) {
@@ -520,15 +514,4 @@ func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 		namespace:      workload.GetNamespace(),
 		serviceAccount: workload.GetServiceAccount(),
 	}
-}
-
-// Converting IPv4 data reported in IPv6 form to IPv4
-func restoreIPv4(bytes []byte) []byte {
-	for i := 4; i < 16; i++ {
-		if bytes[i] != 0 {
-			return bytes
-		}
-	}
-
-	return bytes[:4]
 }

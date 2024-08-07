@@ -196,6 +196,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					dst:           [4]uint32{183762951, 0, 0, 0},
 					sentBytes:     0x0000003,
 					receivedBytes: 0x0000004,
+					state:         TCP_ESTABLISHED,
 				},
 				labels: workloadMetricLabels{
 					reporter:                     "destination",
@@ -224,7 +225,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				},
 			},
 			want: []float64{
-				1,
+				0,
 				1,
 				4,
 				3,
@@ -450,7 +451,7 @@ func TestBuildworkloadMetric(t *testing.T) {
 	}
 }
 
-func TestByteToIpByte(t *testing.T) {
+func TestRestoreIPv4(t *testing.T) {
 	type args struct {
 		bytes []byte
 	}
