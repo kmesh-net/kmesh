@@ -19,6 +19,7 @@ package telemetry
 import (
 	"context"
 	"net/http"
+	"strings"
 	"sync"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -211,4 +212,25 @@ func DeleteWorkloadMetric(workload *workloadapi.Workload) {
 	_ = tcpConnectionOpenedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpReceivedBytesInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpSentBytesInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+}
+
+func DeleteServiceMetric(serviceName string) {
+	if serviceName == "" {
+		return
+	}
+	svcHost := ""
+	svcNamespace := ""
+	if len(strings.Split(serviceName, "/")) != 2 {
+		log.Info("get destination service host failed")
+		return
+	} else {
+		svcNamespace = strings.Split(serviceName, "/")[0]
+		svcHost = strings.Split(serviceName, "/")[1]
+	}
+
+	_ = tcpConnectionClosedInService.DeletePartialMatch(prometheus.Labels{"destination_service_name": svcHost, "destination_service_namespace": svcNamespace})
+	_ = tcpConnectionFailedInService.DeletePartialMatch(prometheus.Labels{"destination_service_name": svcHost, "destination_service_namespace": svcNamespace})
+	_ = tcpConnectionOpenedInService.DeletePartialMatch(prometheus.Labels{"destination_service_name": svcHost, "destination_service_namespace": svcNamespace})
+	_ = tcpReceivedBytesInService.DeletePartialMatch(prometheus.Labels{"destination_service_name": svcHost, "destination_service_namespace": svcNamespace})
+	_ = tcpSentBytesInService.DeletePartialMatch(prometheus.Labels{"destination_service_name": svcHost, "destination_service_namespace": svcNamespace})
 }

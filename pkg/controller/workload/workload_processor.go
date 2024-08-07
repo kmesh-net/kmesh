@@ -279,6 +279,7 @@ func (p *Processor) removeServiceResource(resources []string) error {
 	)
 
 	for _, name := range resources {
+		telemetry.DeleteServiceMetric(name)
 		p.ServiceCache.DeleteService(name)
 		serviceId := p.hashName.StrToNum(name)
 		skDelete.ServiceId = serviceId
