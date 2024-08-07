@@ -33,6 +33,7 @@ import (
 	kmeshbpf "kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
+	"kmesh.net/kmesh/pkg/controller/telemetry"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
@@ -144,6 +145,7 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 
 func (p *Processor) removeWorkloadResource(removedResources []string) error {
 	for _, uid := range removedResources {
+		telemetry.DeleteWorkloadMetric(p.WorkloadCache.GetWorkloadByUid(uid))
 		p.WorkloadCache.DeleteWorkload(uid)
 		if err := p.removeWorkloadFromBpfMap(uid); err != nil {
 			return err
@@ -246,6 +248,7 @@ func (p *Processor) deleteFrontendData(id uint32) error {
 func (p *Processor) removeServiceResource(resources []string) error {
 	var err error
 	for _, name := range resources {
+		telemetry.DeleteServiceMetric(name)
 		p.ServiceCache.DeleteService(name)
 		if err = p.removeServiceResourceFromBpfMap(name); err != nil {
 			return err
