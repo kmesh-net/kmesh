@@ -304,90 +304,89 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 }
 
 func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloadMetricLabels {
-	if dstWorkload == nil && srcWorkload == nil {
-		return workloadMetricLabels{}
-	}
-
 	trafficLabels := workloadMetricLabels{}
 
-	trafficLabels.destinationPodNamespace = dstWorkload.Namespace
-	trafficLabels.destinationPodName = dstWorkload.Name
-	trafficLabels.destinationWorkload = dstWorkload.WorkloadName
-	trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
-	trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
-	trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
-	trafficLabels.destinationApp = dstWorkload.CanonicalName
-	trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
-	trafficLabels.destinationCluster = dstWorkload.ClusterId
+	if dstWorkload != nil {
+		trafficLabels.destinationPodNamespace = dstWorkload.Namespace
+		trafficLabels.destinationPodName = dstWorkload.Name
+		trafficLabels.destinationWorkload = dstWorkload.WorkloadName
+		trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
+		trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
+		trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
+		trafficLabels.destinationApp = dstWorkload.CanonicalName
+		trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
+		trafficLabels.destinationCluster = dstWorkload.ClusterId
+		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
+	}
 
-	trafficLabels.sourceWorkload = srcWorkload.WorkloadName
-	trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
-	trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
-	trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
-	trafficLabels.sourceApp = srcWorkload.CanonicalName
-	trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
-	trafficLabels.sourceCluster = srcWorkload.ClusterId
-
-	trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
-	trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+	if srcWorkload != nil {
+		trafficLabels.sourceWorkload = srcWorkload.WorkloadName
+		trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
+		trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
+		trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
+		trafficLabels.sourceApp = srcWorkload.CanonicalName
+		trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
+		trafficLabels.sourceCluster = srcWorkload.ClusterId
+		trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+	}
 
 	return trafficLabels
 }
 
 func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) serviceMetricLabels {
-	if dstWorkload == nil && srcWorkload == nil {
-		return serviceMetricLabels{}
-	}
-
 	trafficLabels := serviceMetricLabels{}
 
-	namespacedhost := ""
-	for k, portList := range dstWorkload.Services {
-		for _, port := range portList.Ports {
-			if port.TargetPort == uint32(dstPort) {
-				namespacedhost = k
+	if dstWorkload != nil {
+		namespacedhost := ""
+		for k, portList := range dstWorkload.Services {
+			for _, port := range portList.Ports {
+				if port.TargetPort == uint32(dstPort) {
+					namespacedhost = k
+					break
+				}
+			}
+			if namespacedhost != "" {
 				break
 			}
 		}
-		if namespacedhost != "" {
-			break
+		if namespacedhost == "" {
+			log.Infof("can't find service correspond workload: %s", dstWorkload.Name)
 		}
+
+		svcHost := ""
+		svcNamespace := ""
+		if len(strings.Split(namespacedhost, "/")) != 2 {
+			log.Info("get destination service host failed")
+		} else {
+			svcNamespace = strings.Split(namespacedhost, "/")[0]
+			svcHost = strings.Split(namespacedhost, "/")[1]
+		}
+
+		trafficLabels.destinationService = svcHost
+		trafficLabels.destinationServiceNamespace = svcNamespace
+		trafficLabels.destinationServiceName = svcHost
+
+		trafficLabels.destinationWorkload = dstWorkload.WorkloadName
+		trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
+		trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
+		trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
+		trafficLabels.destinationApp = dstWorkload.CanonicalName
+		trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
+		trafficLabels.destinationCluster = dstWorkload.ClusterId
+		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
+		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
 	}
-	if namespacedhost == "" {
-		log.Infof("can't find service correspond workload: %s", dstWorkload.Name)
+
+	if srcWorkload != nil {
+		trafficLabels.sourceWorkload = srcWorkload.WorkloadName
+		trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
+		trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
+		trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
+		trafficLabels.sourceApp = srcWorkload.CanonicalName
+		trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
+		trafficLabels.sourceCluster = srcWorkload.ClusterId
+		trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
 	}
-
-	svcHost := ""
-	svcNamespace := ""
-	if len(strings.Split(namespacedhost, "/")) != 2 {
-		log.Info("get destination service host failed")
-	} else {
-		svcNamespace = strings.Split(namespacedhost, "/")[0]
-		svcHost = strings.Split(namespacedhost, "/")[1]
-	}
-
-	trafficLabels.destinationService = svcHost
-	trafficLabels.destinationServiceNamespace = svcNamespace
-	trafficLabels.destinationServiceName = svcHost
-
-	trafficLabels.destinationWorkload = dstWorkload.WorkloadName
-	trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
-	trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
-	trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
-	trafficLabels.destinationApp = dstWorkload.CanonicalName
-	trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
-	trafficLabels.destinationCluster = dstWorkload.ClusterId
-
-	trafficLabels.sourceWorkload = srcWorkload.WorkloadName
-	trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
-	trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
-	trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
-	trafficLabels.sourceApp = srcWorkload.CanonicalName
-	trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
-	trafficLabels.sourceCluster = srcWorkload.ClusterId
-
-	trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
-	trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
 
 	return trafficLabels
 }
