@@ -439,6 +439,11 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
 	p.WorkloadCache.AddWorkload(workload)
 
+	// Exclude the unhealthy workload, which means the workload is not ready
+	if workload.Status == workloadapi.WorkloadStatus_UNHEALTHY {
+		return nil
+	}
+
 	// if have the service name, the workload belongs to a service
 	if workload.GetServices() != nil {
 		if err := p.handleDataWithService(workload); err != nil {
