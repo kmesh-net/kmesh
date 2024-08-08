@@ -158,6 +158,7 @@ func BenchmarkHandleDataWithService(b *testing.B) {
 		err := workloadController.Processor.handleDataWithService(workload)
 		assert.NoError(t, err)
 	}
+	workloadController.Processor.hashName.Reset()
 }
 
 func createTestWorkloadWithService() *workloadapi.Workload {
@@ -312,4 +313,5 @@ func hashNameClean(p *Processor) {
 		}
 		p.hashName.Delete(str)
 	}
+	p.hashName.Reset()
 }
