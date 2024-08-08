@@ -17,7 +17,10 @@
 package bypass
 
 import (
+	"bytes"
 	"fmt"
+	"os/exec"
+	"strings"
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -59,7 +62,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				return
 			}
 			if !istio.PodHasSidecar(pod) {
-				log.Infof("pod %s/%s does not have sidecar injected, skip", pod.GetNamespace(), pod.GetName())
+				log.Debugf("pod %s/%s does not have sidecar injected, skip", pod.GetNamespace(), pod.GetName())
 				return
 			}
 
@@ -138,7 +141,25 @@ func isPodBeingDeleted(pod *corev1.Pod) bool {
 	return pod.ObjectMeta.DeletionTimestamp != nil
 }
 
-// TODO: make it a idempotent operation
+func RuleExists(args []string) (error, bool) {
+	checkArgs := append(args[:2], append([]string{"-C"}, args[2:]...)...)
+	log.Printf("RuleExists CheckArgs: iptables %v", checkArgs)
+	cmd := exec.Command("iptables", checkArgs...)
+
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	if err != nil {
+		if strings.Contains(err.Error(), "Bad rule") {
+			return nil, false
+		} else {
+			return fmt.Errorf(stderr.String()), false
+		}
+	}
+	return nil, true
+}
+
 func addIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-I", "PREROUTING", "1", "-j", "RETURN"},
@@ -147,6 +168,14 @@ func addIptables(ns string) error {
 
 	execFunc := func(netns.NetNS) error {
 		log.Infof("Running add iptables rule in namespace:%s", ns)
+		//To avoid iptables rules being added multiple times due to problems with k8s resource synchronization
+		delIptArgs := [][]string{
+			{"-t", "nat", "-D", "PREROUTING", "-j", "RETURN"},
+			{"-t", "nat", "-D", "OUTPUT", "-j", "RETURN"},
+		}
+		for _, delargs := range delIptArgs {
+			utils.Execute("iptables", delargs)
+		}
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
 				return fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
@@ -160,7 +189,6 @@ func addIptables(ns string) error {
 	return nil
 }
 
-// TODO: make it a idempotent operation
 func deleteIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-D", "PREROUTING", "-j", "RETURN"},
