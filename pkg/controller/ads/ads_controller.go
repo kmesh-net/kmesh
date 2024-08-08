@@ -23,6 +23,7 @@ import (
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 
+	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -35,9 +36,9 @@ type Controller struct {
 	Processor *processor
 }
 
-func NewController() *Controller {
+func NewController(bpfAds *bpf.BpfKmesh) *Controller {
 	return &Controller{
-		Processor: newProcessor(),
+		Processor: newProcessor(bpfAds),
 	}
 }
 

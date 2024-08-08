@@ -9,6 +9,7 @@
 #include "tail_call.h"
 #include "cluster/cluster.pb-c.h"
 #include "endpoint/endpoint.pb-c.h"
+#include "circuit_breaker.h"
 
 #define CLUSTER_NAME_MAX_LEN BPF_DATA_MAX_LEN
 
@@ -263,7 +264,7 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
 
     name = kmesh_get_ptr_val(cluster->name);
     if (!name) {
-        BPF_LOG(ERR, CLUSTER, "filed to get cluster\n");
+        BPF_LOG(ERR, CLUSTER, "failed to get cluster\n");
         return -EAGAIN;
     }
 
@@ -316,6 +317,12 @@ int cluster_manager(ctx_buff_t *ctx)
     if (cluster == NULL)
         return KMESH_TAIL_CALL_RET(ENOENT);
 
+    ret = on_cluster_sock_bind(ctx, cluster);
+    if (ret) {
+        // open circuit breaker, should reject here.
+        MARK_REJECTED(ctx);
+        return KMESH_TAIL_CALL_RET(ret);
+    }
     ret = cluster_handle_loadbalance(cluster, &addr, ctx);
     return KMESH_TAIL_CALL_RET(ret);
 }

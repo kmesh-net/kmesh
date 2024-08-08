@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package workload
+package utils
 
 import (
 	"fmt"
@@ -30,7 +30,7 @@ var (
 )
 
 const (
-	persistPath = "/mnt/workload_hash_name.yaml"
+	persistPath = "/mnt/hash_name.yaml"
 )
 
 // HashName converts a string to a uint32 integer as the key of bpf map

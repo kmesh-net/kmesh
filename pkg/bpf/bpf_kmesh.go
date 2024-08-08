@@ -449,3 +449,7 @@ func (sc *BpfKmesh) Detach() error {
 	}
 	return nil
 }
+
+func (sc *BpfKmesh) GetClusterStatsMap() *ebpf.Map {
+	return sc.SockOps.KmeshSockopsMaps.MapOfClusterStats
+}
