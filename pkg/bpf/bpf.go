@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -206,9 +207,9 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	var versionPath string
 	var versionMap *ebpf.Map
 	if config.AdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/kmesh_version")
+		versionPath = filepath.Join(config.BpfFsPath + constants.VersionPath)
 	} else if config.WdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/kmesh_version")
+		versionPath = filepath.Join(config.BpfFsPath + constants.WorkloadVersionPath)
 	}
 
 	_, err := os.Stat(versionPath)

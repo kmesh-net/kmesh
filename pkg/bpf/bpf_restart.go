@@ -97,7 +97,7 @@ func SetStartStatus(versionMap *ebpf.Map) {
 	} else {
 		log.Infof("kmesh start with Update")
 		// TODO : update mode has not been fully developed and is currently consistent with normal mode
-		log.Infof("Update mode support is under development, Will be started in Normal mode.")
+		log.Warnf("Update mode support is under development, Will be started in Normal mode.")
 		SetStartType(Update)
 	}
 }
