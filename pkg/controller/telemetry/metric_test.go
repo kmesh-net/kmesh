@@ -441,8 +441,8 @@ func TestBuildworkloadMetric(t *testing.T) {
 			m := MetricController{
 				workloadCache: cache.NewWorkloadCache(),
 			}
-			m.workloadCache.AddWorkload(dstWorkload)
-			m.workloadCache.AddWorkload(srcWorkload)
+			m.workloadCache.AddOrUpdateWorkload(dstWorkload)
+			m.workloadCache.AddOrUpdateWorkload(srcWorkload)
 			got := m.buildWorkloadMetric(tt.args.data)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Metric.buildMetric() = %v, want %v", got, tt.want)
