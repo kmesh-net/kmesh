@@ -93,10 +93,15 @@ func (w *cache) AddWorkload(workload *workloadapi.Workload) {
 	}
 
 	w.byUid[uid] = workload
-	for _, ip := range workload.Addresses {
-		addr, _ := netip.AddrFromSlice(ip)
-		networkAddress := composeNetworkAddress(workload.Network, addr)
-		w.byAddr[networkAddress] = workload
+
+	// We should exclude the workloads that use host network mode
+	// Since they are using the host ip, we can not use address to identify them
+	if workload.NetworkMode != workloadapi.NetworkMode_HOST_NETWORK {
+		for _, ip := range workload.Addresses {
+			addr, _ := netip.AddrFromSlice(ip)
+			networkAddress := composeNetworkAddress(workload.Network, addr)
+			w.byAddr[networkAddress] = workload
+		}
 	}
 }
 
