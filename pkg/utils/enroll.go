@@ -110,6 +110,7 @@ func PatchKmeshRedirectAnnotation(client kubernetes.Interface, pod *corev1.Pod) 
 		log.Debugf("Pod %s in namespace %s already has annotation %s", pod.Name, pod.Namespace, constants.KmeshRedirectionAnnotation)
 		return nil
 	}
+	log.Infof("add %s annotation for pod %s/%s", constants.KmeshRedirectionAnnotation, pod.Namespace, pod.Name)
 	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
 		context.Background(),
 		pod.Name,
@@ -125,6 +126,7 @@ func DelKmeshRedirectAnnotation(client kubernetes.Interface, pod *corev1.Pod) er
 		log.Debugf("Pod %s in namespace %s does not have annotation %s", pod.Name, pod.Namespace, constants.KmeshRedirectionAnnotation)
 		return nil
 	}
+	log.Infof("delete %s annotation for pod %s/%s", constants.KmeshRedirectionAnnotation, pod.Namespace, pod.Name)
 	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
 		context.Background(),
 		pod.Name,

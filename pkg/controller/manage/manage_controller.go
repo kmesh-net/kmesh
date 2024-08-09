@@ -305,10 +305,8 @@ func (c *KmeshManageController) processItems() bool {
 		// TODO: handle error
 		namespace, _ := c.namespaceLister.Get(pod.Namespace)
 		if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
-			log.Infof("add annotation for pod %s/%s", pod.Namespace, pod.Name)
 			err = utils.PatchKmeshRedirectAnnotation(c.client, pod)
 		} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
-			log.Infof("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
 			err = utils.DelKmeshRedirectAnnotation(c.client, pod)
 		}
 	}
