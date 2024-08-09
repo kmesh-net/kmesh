@@ -95,6 +95,18 @@ typedef enum _Istio__Workload__ApplicationTunnel__Protocol {
   ISTIO__WORKLOAD__APPLICATION_TUNNEL__PROTOCOL__PROXY = 1
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ISTIO__WORKLOAD__APPLICATION_TUNNEL__PROTOCOL)
 } Istio__Workload__ApplicationTunnel__Protocol;
+typedef enum _Istio__Workload__NetworkMode {
+  /*
+   * STANDARD means that the workload is uniquely identified by its address (within its network).
+   */
+  ISTIO__WORKLOAD__NETWORK_MODE__STANDARD = 0,
+  /*
+   * HOST_NETWORK means the workload has an IP address that is shared by many workloads. The data plane should avoid
+   * attempting to lookup these workloads by IP address (which could return the wrong result).
+   */
+  ISTIO__WORKLOAD__NETWORK_MODE__HOST_NETWORK = 1
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ISTIO__WORKLOAD__NETWORK_MODE)
+} Istio__Workload__NetworkMode;
 typedef enum _Istio__Workload__WorkloadStatus {
   /*
    * Workload is healthy and ready to serve traffic.
@@ -406,10 +418,11 @@ struct  Istio__Workload__Workload
    * The Locality defines information about where a workload is geographically deployed
    */
   Istio__Workload__Locality *locality;
+  Istio__Workload__NetworkMode network_mode;
 };
 #define ISTIO__WORKLOAD__WORKLOAD__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&istio__workload__workload__descriptor) \
-    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__WORKLOAD__TUNNEL_PROTOCOL__NONE, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__WORKLOAD__WORKLOAD_TYPE__DEPLOYMENT, (char *)protobuf_c_empty_string, 0, NULL, 0,NULL, 0,NULL, ISTIO__WORKLOAD__WORKLOAD_STATUS__HEALTHY, (char *)protobuf_c_empty_string, NULL }
+    , (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, 0,NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__WORKLOAD__TUNNEL_PROTOCOL__NONE, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, NULL, NULL, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, (char *)protobuf_c_empty_string, ISTIO__WORKLOAD__WORKLOAD_TYPE__DEPLOYMENT, (char *)protobuf_c_empty_string, 0, NULL, 0,NULL, 0,NULL, ISTIO__WORKLOAD__WORKLOAD_STATUS__HEALTHY, (char *)protobuf_c_empty_string, NULL, ISTIO__WORKLOAD__NETWORK_MODE__STANDARD }
 
 
 struct  Istio__Workload__Locality
@@ -809,6 +822,7 @@ typedef void (*Istio__Workload__NamespacedHostname_Closure)
 
 /* --- descriptors --- */
 
+extern const ProtobufCEnumDescriptor    istio__workload__network_mode__descriptor;
 extern const ProtobufCEnumDescriptor    istio__workload__workload_status__descriptor;
 extern const ProtobufCEnumDescriptor    istio__workload__workload_type__descriptor;
 extern const ProtobufCEnumDescriptor    istio__workload__tunnel_protocol__descriptor;
