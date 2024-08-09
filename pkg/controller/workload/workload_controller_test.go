@@ -30,6 +30,7 @@ import (
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
@@ -122,7 +123,7 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 				patches1.ApplyMethodReturn(fakeClient.Client, "DeltaAggregatedResources", fakeClient.DeltaClient, nil)
 
 				workloadController.Processor = newProcessor(workloadMap)
-				workload := createFakeWorkload("10.10.10.1")
+				workload := createFakeWorkload("10.10.10.1", workloadapi.NetworkMode_STANDARD)
 				workloadController.Processor.WorkloadCache.AddWorkload(workload)
 				patches2.ApplyMethodFunc(fakeClient.DeltaClient, "Send",
 					func(req *discoveryv3.DeltaDiscoveryRequest) error {

@@ -355,6 +355,7 @@ func (p *Processor) storeBackendData(uid uint32, ip []byte, waypoint *workloadap
 	}
 
 	// we should not store frontend data of hostname network mode pods
+	// because host network pod cannot be managed by kmesh
 	// please see https://github.com/kmesh-net/kmesh/issues/631
 	if networkMode != workloadapi.NetworkMode_HOST_NETWORK {
 		if err := p.storePodFrontendData(uid, ip); err != nil {
@@ -432,6 +433,8 @@ func (p *Processor) handleDataWithoutService(workload *workloadapi.Workload) err
 		}
 
 		// we should not store frontend data of hostname network mode pods
+		// because host network pod cannot be managed by kmesh
+		// please see https://github.com/kmesh-net/kmesh/issues/631
 		if workload.GetNetworkMode() != workloadapi.NetworkMode_HOST_NETWORK {
 			if err = p.storePodFrontendData(uid, ip); err != nil {
 				log.Errorf("storePodFrontendData failed, err:%s", err)
