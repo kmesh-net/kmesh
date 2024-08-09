@@ -68,7 +68,7 @@ func NewWorkloadCache() *cache {
 	}
 }
 
-// go:noinline
+//go:noinline
 func (w *cache) GetRelationShip(workloadId uint32, serviceId uint32) (uint32, bool) {
 	var relationKey = ServiceRelationShipByWorkload{
 		workloadId: workloadId,
