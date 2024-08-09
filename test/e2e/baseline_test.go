@@ -101,9 +101,6 @@ func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checke
 // Test access to service, enabling L7 processing and propagating original src when  appropriate.
 func TestServices(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		if opt.Scheme != scheme.HTTP {
-			return
-		}
 		if supportsL7(opt, src, dst) {
 			opt.Check = httpValidator
 		} else {

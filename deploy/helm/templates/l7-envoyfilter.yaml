@@ -24,8 +24,19 @@ spec:
               protocol: TCP
               address: "::"
               port_value: 15019
+        default_filter_chain:
+          filters:
+          - name: envoy.filters.network.tcp_proxy
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.tcp_proxy.v3.TcpProxy
+              stat_prefix: kmesh
+              cluster: main_internal
         filter_chains:
-        - filters:
+        - filter_chain_match:
+            application_protocols:
+            - "http/1.1"
+            - "h2c"
+          filters:
           - name: envoy.filters.network.http_connection_manager
             typed_config:
               "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
@@ -58,6 +69,9 @@ spec:
           typed_config:
             "@type": "type.googleapis.com/udpa.type.v1.TypedStruct"
             "type_url": "type.googleapis.com/envoy.listener.kmesh_tlv.config.KmeshTlv"
+        - name: "envoy.filters.listener.http_inspector"
+          typed_config:
+            "@type": "type.googleapis.com/envoy.extensions.filters.listener.http_inspector.v3.HttpInspector"
 
 ---
 
