@@ -123,20 +123,20 @@ func Test_hostnameNetworkMode(t *testing.T) {
 	checkFrontEndMapWithNetworkMode(t, workloadHostname.Addresses[0], p, workloadHostname.NetworkMode)
 }
 
-func checkWorkloadCache(t *testing.T, p *Processor, worload *workloadapi.Workload) {
-	ip := worload.Addresses[0]
+func checkWorkloadCache(t *testing.T, p *Processor, workload *workloadapi.Workload) {
+	ip := workload.Addresses[0]
 	address := cache.NetworkAddress{
-		Network: worload.Network,
+		Network: workload.Network,
 	}
 	address.Address, _ = netip.AddrFromSlice(ip)
 	// host network mode is not managed by kmesh
-	if worload.NetworkMode == workloadapi.NetworkMode_HOST_NETWORK {
+	if workload.NetworkMode == workloadapi.NetworkMode_HOST_NETWORK {
 		assert.Nil(t, p.WorkloadCache.GetWorkloadByAddr(address))
 	} else {
 		assert.NotNil(t, p.WorkloadCache.GetWorkloadByAddr(address))
 	}
 	// We store pods by their uids regardless of their network mode
-	assert.NotNil(t, p.WorkloadCache.GetWorkloadByUid(worload.Uid))
+	assert.NotNil(t, p.WorkloadCache.GetWorkloadByUid(workload.Uid))
 }
 
 func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workloadapi.Service, endpointCount uint32) {
