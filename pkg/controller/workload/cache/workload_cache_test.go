@@ -144,7 +144,7 @@ func TestWorkloadRelationShip(t *testing.T) {
 		var serviceId uint32 = 12345678
 		var relationId uint32 = 87654321
 		var workloadId uint32 = 12341234
-		
+
 		var relationKey = ServiceRelationShipByWorkload{
 			workloadId: workloadId,
 			serviceId:  serviceId,
