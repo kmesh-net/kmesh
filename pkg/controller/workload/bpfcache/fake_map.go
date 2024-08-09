@@ -21,11 +21,13 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/rlimit"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 )
 
 func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
+	_ = rlimit.RemoveMemlock()
 	backEndMap, err := ebpf.NewMap(&ebpf.MapSpec{
 		Name:       "kmesh_backend",
 		Type:       ebpf.Hash,

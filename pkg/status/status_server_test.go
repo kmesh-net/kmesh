@@ -265,7 +265,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 		}}
 	fakeWorkloadCache := cache.NewWorkloadCache()
 	fakeServiceCache := cache.NewServiceCache()
-	fakeWorkloadCache.AddWorkload(w1)
+	fakeWorkloadCache.AddOrUpdateWorkload(w1)
 	fakeServiceCache.AddOrUpdateService(svc)
 	// Create a new instance of the Server struct
 	server := &Server{
