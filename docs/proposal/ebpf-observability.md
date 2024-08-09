@@ -57,7 +57,7 @@ struct sock_storage_data {
 access log：
 
 ```c
-struct access_log {
+struct tcp_probe_info {
     struct bpf_sock_tuple tuple;
     __u64 duration; // ns
     __u64 close_ns;
@@ -73,7 +73,7 @@ struct access_log {
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, RINGBUF_SIZE);
-} map_of_access_log SEC(".maps");
+} map_of_tcp_info SEC(".maps");
 ```
 
 metrics:

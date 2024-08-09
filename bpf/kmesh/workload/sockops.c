@@ -15,11 +15,6 @@
 
 #define FORMAT_IP_LENGTH (16)
 
-enum family_type {
-    IPV4,
-    IPV6,
-};
-
 struct ringbuf_msg_type {
     __u32 type;
     struct bpf_sock_tuple tuple;

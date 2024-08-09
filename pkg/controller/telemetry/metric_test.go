@@ -31,7 +31,7 @@ import (
 
 func TestCommonTrafficLabels2map(t *testing.T) {
 	type args struct {
-		labels *commonTrafficLabels
+		labels interface{}
 	}
 	tests := []struct {
 		name string
@@ -41,8 +41,8 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 		{
 			name: "normal commonTrafficLabels to map test",
 			args: args{
-				labels: &commonTrafficLabels{
-					direction: "INBOUND",
+				labels: workloadMetricLabels{
+					reporter: "destination",
 
 					sourceWorkload:               "sleep",
 					sourceCanonicalService:       "sleep",
@@ -52,9 +52,9 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 					sourceApp:                    "sleep",
 					sourceVersion:                "latest",
 					sourceCluster:                "Kubernetes",
-					destinationService:           "tcp-echo.ambient-demo.svc.cluster.local",
-					destinationServiceNamespace:  "ambient-demo",
-					destinationServiceName:       "tcp-echo",
+					destinationPodAddress:        "192.168.10.24",
+					destinationPodNamespace:      "ambient-demo",
+					destinationPodName:           "tcp-echo",
 					destinationWorkload:          "tcp-echo",
 					destinationCanonicalService:  "tcp-echo",
 					destinationCanonicalRevision: "v1",
@@ -69,7 +69,7 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 				},
 			},
 			want: map[string]string{
-				"direction":                      "INBOUND",
+				"reporter":                       "destination",
 				"source_workload":                "sleep",
 				"source_canonical_service":       "sleep",
 				"source_canonical_revision":      "latest",
@@ -78,9 +78,9 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 				"source_app":                     "sleep",
 				"source_version":                 "latest",
 				"source_cluster":                 "Kubernetes",
-				"destination_service":            "tcp-echo.ambient-demo.svc.cluster.local",
-				"destination_service_namespace":  "ambient-demo",
-				"destination_service_name":       "tcp-echo",
+				"destination_pod_address":        "192.168.10.24",
+				"destination_pod_namespace":      "ambient-demo",
+				"destination_pod_name":           "tcp-echo",
 				"destination_workload":           "tcp-echo",
 				"destination_canonical_service":  "tcp-echo",
 				"destination_canonical_revision": "v1",
@@ -97,10 +97,10 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 		{
 			name: "empty commonTrafficLabels to map test",
 			args: args{
-				labels: &commonTrafficLabels{},
+				labels: workloadMetricLabels{},
 			},
 			want: map[string]string{
-				"direction":                      "-",
+				"reporter":                       "-",
 				"source_workload":                "-",
 				"source_canonical_service":       "-",
 				"source_canonical_revision":      "-",
@@ -109,9 +109,9 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 				"source_app":                     "-",
 				"source_version":                 "-",
 				"source_cluster":                 "-",
-				"destination_service":            "-",
-				"destination_service_namespace":  "-",
-				"destination_service_name":       "-",
+				"destination_pod_address":        "-",
+				"destination_pod_namespace":      "-",
+				"destination_pod_name":           "-",
 				"destination_workload":           "-",
 				"destination_canonical_service":  "-",
 				"destination_canonical_revision": "-",
@@ -128,14 +128,14 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 		{
 			name: "Only some fields in the commonTrafficLabels have values",
 			args: args{
-				labels: &commonTrafficLabels{
-					direction:           "OUTBOUND",
+				labels: workloadMetricLabels{
+					reporter:            "source",
 					sourceWorkload:      "sleep",
 					destinationWorkload: "tcp-echo",
 				},
 			},
 			want: map[string]string{
-				"direction":                      "OUTBOUND",
+				"reporter":                       "source",
 				"source_workload":                "sleep",
 				"source_canonical_service":       "-",
 				"source_canonical_revision":      "-",
@@ -144,9 +144,9 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 				"source_app":                     "-",
 				"source_version":                 "-",
 				"source_cluster":                 "-",
-				"destination_service":            "-",
-				"destination_service_namespace":  "-",
-				"destination_service_name":       "-",
+				"destination_pod_address":        "-",
+				"destination_pod_namespace":      "-",
+				"destination_pod_name":           "-",
 				"destination_workload":           "tcp-echo",
 				"destination_canonical_service":  "-",
 				"destination_canonical_revision": "-",
@@ -163,8 +163,9 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := commonTrafficLabels2map(tt.args.labels); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("commonTrafficLabels2map() = %v, want %v", got, tt.want)
+			if got := struct2map(tt.args.labels); !reflect.DeepEqual(got, tt.want) {
+				assert.Equal(t, tt.want, got)
+				t.Errorf("struct2map() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -172,15 +173,15 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 
 func TestBuildMetricsToPrometheus(t *testing.T) {
 	metrics := []*prometheus.GaugeVec{
-		tcpConnectionClosed,
-		tcpConnectionOpened,
-		tcpReceivedBytes,
-		tcpSentBytes,
+		tcpConnectionClosedInWorkload,
+		tcpConnectionOpenedInWorkload,
+		tcpReceivedBytesInWorkload,
+		tcpSentBytesInWorkload,
 	}
 
 	type args struct {
 		data   requestMetric
-		labels commonTrafficLabels
+		labels workloadMetricLabels
 	}
 	tests := []struct {
 		name string
@@ -191,16 +192,14 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 			name: "test build metrisc to Prometheus",
 			args: args{
 				data: requestMetric{
-					src:              [4]uint32{183763210, 0, 0, 0},
-					dst:              [4]uint32{183762951, 0, 0, 0},
-					connectionOpened: 0x0000001,
-					connectionClosed: 0x0000002,
-					sentBytes:        0x0000003,
-					receivedBytes:    0x0000004,
-					success:          true,
+					src:           [4]uint32{183763210, 0, 0, 0},
+					dst:           [4]uint32{183762951, 0, 0, 0},
+					sentBytes:     0x0000003,
+					receivedBytes: 0x0000004,
+					state:         TCP_ESTABLISHED,
 				},
-				labels: commonTrafficLabels{
-					direction:                    "INBOUND",
+				labels: workloadMetricLabels{
+					reporter:                     "destination",
 					sourceWorkload:               "sleep",
 					sourceCanonicalService:       "sleep",
 					sourceCanonicalRevision:      "latest",
@@ -209,9 +208,9 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					sourceApp:                    "sleep",
 					sourceVersion:                "latest",
 					sourceCluster:                "Kubernetes",
-					destinationService:           "tcp-echo.ambient-demo.svc.cluster.local",
-					destinationServiceNamespace:  "ambient-demo",
-					destinationServiceName:       "tcp-echo",
+					destinationPodAddress:        "192.168.20.25",
+					destinationPodNamespace:      "ambient-demo",
+					destinationPodName:           "tcp-echo",
 					destinationWorkload:          "tcp-echo",
 					destinationCanonicalService:  "tcp-echo",
 					destinationCanonicalRevision: "v1",
@@ -226,7 +225,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				},
 			},
 			want: []float64{
-				2,
+				0,
 				1,
 				4,
 				3,
@@ -237,8 +236,8 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			go RunPrometheusClient(ctx)
-			buildMetricsToPrometheus(tt.args.data, tt.args.labels)
-			commonLabels := commonTrafficLabels2map(&tt.args.labels)
+			buildWorkloadMetricsToPrometheus(tt.args.data, tt.args.labels)
+			commonLabels := struct2map(tt.args.labels)
 			for index, metric := range metrics {
 				if gauge, err := metric.GetMetricWith(commonLabels); err != nil {
 					t.Errorf("use labels to get %v failed", metric)
@@ -254,7 +253,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 	}
 }
 
-func TestBuildMetricFromWorkload(t *testing.T) {
+func TestBuildWorkloadMetric(t *testing.T) {
 	type args struct {
 		dstWorkload *workloadapi.Workload
 		srcWorkload *workloadapi.Workload
@@ -262,7 +261,7 @@ func TestBuildMetricFromWorkload(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want commonTrafficLabels
+		want workloadMetricLabels
 	}{
 		{
 			name: "normal capability test",
@@ -288,8 +287,8 @@ func TestBuildMetricFromWorkload(t *testing.T) {
 					ServiceAccount:    "default",
 				},
 			},
-			want: commonTrafficLabels{
-				direction:                    "-",
+			want: workloadMetricLabels{
+				reporter:                     "-",
 				sourceWorkload:               "kmesh-daemon",
 				sourceCanonicalService:       "srcCanonical",
 				sourceCanonicalRevision:      "srcVersion",
@@ -298,9 +297,9 @@ func TestBuildMetricFromWorkload(t *testing.T) {
 				sourceApp:                    "srcCanonical",
 				sourceVersion:                "srcVersion",
 				sourceCluster:                "Kubernetes",
-				destinationService:           "-",
-				destinationServiceNamespace:  "kmesh-system",
-				destinationServiceName:       "kmesh",
+				destinationPodAddress:        "-",
+				destinationPodNamespace:      "kmesh-system",
+				destinationPodName:           "kmesh",
 				destinationWorkload:          "kmesh-daemon",
 				destinationCanonicalService:  "dstCanonical",
 				destinationCanonicalRevision: "dstVersion",
@@ -317,9 +316,9 @@ func TestBuildMetricFromWorkload(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actualLabels := buildMetricFromWorkload(tt.args.dstWorkload, tt.args.srcWorkload)
-			expectMap := commonTrafficLabels2map(&tt.want)
-			actualMap := commonTrafficLabels2map(&actualLabels)
+			actualLabels := buildWorkloadMetric(tt.args.dstWorkload, tt.args.srcWorkload)
+			expectMap := struct2map(tt.want)
+			actualMap := struct2map(actualLabels)
 			assert.Equal(t, expectMap, actualMap)
 		})
 	}
@@ -362,7 +361,7 @@ func TestMetricGetWorkloadByAddress(t *testing.T) {
 	}
 }
 
-func TestMetricBuildMetric(t *testing.T) {
+func TestBuildworkloadMetric(t *testing.T) {
 	dstWorkload := &workloadapi.Workload{
 		Namespace:         "kmesh-system",
 		Name:              "kmesh",
@@ -397,23 +396,20 @@ func TestMetricBuildMetric(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    commonTrafficLabels
+		want    workloadMetricLabels
 		wantErr bool
 	}{
 		{
 			name: "normal capability test",
 			args: args{
 				data: &requestMetric{
-					src:              [4]uint32{521736970, 0, 0, 0},
-					dst:              [4]uint32{383822016, 0, 0, 0},
-					connectionOpened: uint32(16),
-					connectionClosed: uint32(8),
-					sentBytes:        uint32(156),
-					receivedBytes:    uint32(1024),
-					success:          true,
+					src:           [4]uint32{521736970, 0, 0, 0},
+					dst:           [4]uint32{383822016, 0, 0, 0},
+					sentBytes:     uint32(156),
+					receivedBytes: uint32(1024),
 				},
 			},
-			want: commonTrafficLabels{
+			want: workloadMetricLabels{
 				sourceWorkload:               "kmesh-daemon",
 				sourceCanonicalService:       "srcCanonical",
 				sourceCanonicalRevision:      "srcVersion",
@@ -422,9 +418,9 @@ func TestMetricBuildMetric(t *testing.T) {
 				sourceApp:                    "srcCanonical",
 				sourceVersion:                "srcVersion",
 				sourceCluster:                "Kubernetes",
-				destinationService:           "192.168.224.22",
-				destinationServiceNamespace:  "kmesh-system",
-				destinationServiceName:       "kmesh",
+				destinationPodAddress:        "192.168.224.22",
+				destinationPodNamespace:      "kmesh-system",
+				destinationPodName:           "kmesh",
 				destinationWorkload:          "kmesh-daemon",
 				destinationCanonicalService:  "dstCanonical",
 				destinationCanonicalRevision: "dstVersion",
@@ -447,11 +443,7 @@ func TestMetricBuildMetric(t *testing.T) {
 			}
 			m.workloadCache.AddWorkload(dstWorkload)
 			m.workloadCache.AddWorkload(srcWorkload)
-			got, err := m.buildMetric(tt.args.data)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Metric.buildMetric() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
+			got := m.buildWorkloadMetric(tt.args.data)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Metric.buildMetric() = %v, want %v", got, tt.want)
 			}
@@ -459,7 +451,7 @@ func TestMetricBuildMetric(t *testing.T) {
 	}
 }
 
-func TestByteToIpByte(t *testing.T) {
+func TestRestoreIPv4(t *testing.T) {
 	type args struct {
 		bytes []byte
 	}
@@ -488,6 +480,229 @@ func TestByteToIpByte(t *testing.T) {
 			if got := restoreIPv4(tt.args.bytes); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("restoreIPv4() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestBuildServiceMetric(t *testing.T) {
+	dstWorkload := &workloadapi.Workload{
+		Namespace:         "kmesh-system",
+		Name:              "kmesh",
+		WorkloadName:      "kmesh-daemon",
+		CanonicalName:     "dstCanonical",
+		CanonicalRevision: "dstVersion",
+		ClusterId:         "Kubernetes",
+		TrustDomain:       "cluster.local",
+		ServiceAccount:    "default",
+		Uid:               "123456",
+		Addresses: [][]byte{
+			{192, 168, 224, 22},
+		},
+		Services: map[string]*workloadapi.PortList{
+			"kmesh-system/kmesh.kmesh-system.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
+					{
+						TargetPort:  80,
+						ServicePort: 8000,
+					},
+				},
+			},
+		},
+	}
+	srcWorkload := &workloadapi.Workload{
+		Namespace:         "kmesh-system",
+		Name:              "kmesh",
+		WorkloadName:      "kmesh-daemon",
+		CanonicalName:     "srcCanonical",
+		CanonicalRevision: "srcVersion",
+		ClusterId:         "Kubernetes",
+		TrustDomain:       "cluster.local",
+		ServiceAccount:    "default",
+		Uid:               "654321",
+		Addresses: [][]byte{
+			{10, 19, 25, 31},
+		},
+	}
+	type args struct {
+		data *requestMetric
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    serviceMetricLabels
+		wantErr bool
+	}{
+		{
+			name: "normal capability test",
+			args: args{
+				data: &requestMetric{
+					src:           [4]uint32{521736970, 0, 0, 0},
+					dst:           [4]uint32{383822016, 0, 0, 0},
+					dstPort:       uint16(80),
+					direction:     uint32(2),
+					sentBytes:     uint32(156),
+					receivedBytes: uint32(1024),
+				},
+			},
+			want: serviceMetricLabels{
+				sourceWorkload:               "kmesh-daemon",
+				sourceCanonicalService:       "srcCanonical",
+				sourceCanonicalRevision:      "srcVersion",
+				sourceWorkloadNamespace:      "kmesh-system",
+				sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+				sourceApp:                    "srcCanonical",
+				sourceVersion:                "srcVersion",
+				sourceCluster:                "Kubernetes",
+				destinationService:           "kmesh.kmesh-system.svc.cluster.local",
+				destinationServiceNamespace:  "kmesh-system",
+				destinationServiceName:       "kmesh.kmesh-system.svc.cluster.local",
+				destinationWorkload:          "kmesh-daemon",
+				destinationCanonicalService:  "dstCanonical",
+				destinationCanonicalRevision: "dstVersion",
+				destinationWorkloadNamespace: "kmesh-system",
+				destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+				destinationApp:               "dstCanonical",
+				destinationVersion:           "dstVersion",
+				destinationCluster:           "Kubernetes",
+				requestProtocol:              "tcp",
+				responseFlags:                "-",
+				connectionSecurityPolicy:     "mutual_tls",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MetricController{
+				workloadCache: cache.NewWorkloadCache(),
+			}
+			m.workloadCache.AddWorkload(dstWorkload)
+			m.workloadCache.AddWorkload(srcWorkload)
+			got := m.buildServiceMetric(tt.args.data)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_buildServiceMetric(t *testing.T) {
+	type args struct {
+		dstWorkload *workloadapi.Workload
+		srcWorkload *workloadapi.Workload
+		dstPort     uint16
+	}
+	tests := []struct {
+		name string
+		args args
+		want serviceMetricLabels
+	}{
+		{
+			name: "normal capability test",
+			args: args{
+				dstWorkload: &workloadapi.Workload{
+					Namespace:         "kmesh-system",
+					Name:              "kmesh",
+					WorkloadName:      "kmesh-daemon",
+					CanonicalName:     "dstCanonical",
+					CanonicalRevision: "dstVersion",
+					ClusterId:         "Kubernetes",
+					TrustDomain:       "cluster.local",
+					ServiceAccount:    "default",
+					Services: map[string]*workloadapi.PortList{
+						"kmesh-system/kmesh": {
+							Ports: []*workloadapi.Port{
+								{
+									ServicePort: 80,
+									TargetPort:  8000,
+								},
+							},
+						},
+					},
+				},
+				srcWorkload: &workloadapi.Workload{
+					Namespace:         "kmesh-system",
+					Name:              "kmesh",
+					WorkloadName:      "kmesh-daemon",
+					CanonicalName:     "srcCanonical",
+					CanonicalRevision: "srcVersion",
+					ClusterId:         "Kubernetes",
+					TrustDomain:       "cluster.local",
+					ServiceAccount:    "default",
+				},
+				dstPort: uint16(8000),
+			},
+			want: serviceMetricLabels{
+				reporter:                     "",
+				sourceWorkload:               "kmesh-daemon",
+				sourceCanonicalService:       "srcCanonical",
+				sourceCanonicalRevision:      "srcVersion",
+				sourceWorkloadNamespace:      "kmesh-system",
+				sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+				sourceApp:                    "srcCanonical",
+				sourceVersion:                "srcVersion",
+				sourceCluster:                "Kubernetes",
+				destinationService:           "kmesh",
+				destinationServiceNamespace:  "kmesh-system",
+				destinationServiceName:       "kmesh",
+				destinationWorkload:          "kmesh-daemon",
+				destinationCanonicalService:  "dstCanonical",
+				destinationCanonicalRevision: "dstVersion",
+				destinationWorkloadNamespace: "kmesh-system",
+				destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+				destinationApp:               "dstCanonical",
+				destinationVersion:           "dstVersion",
+				destinationCluster:           "Kubernetes",
+				requestProtocol:              "",
+				responseFlags:                "",
+				connectionSecurityPolicy:     "",
+			},
+		},
+		{
+			name: "nil destination workload",
+			args: args{
+				dstWorkload: &workloadapi.Workload{},
+				srcWorkload: &workloadapi.Workload{
+					Namespace:         "kmesh-system",
+					Name:              "kmesh",
+					WorkloadName:      "kmesh-daemon",
+					CanonicalName:     "srcCanonical",
+					CanonicalRevision: "srcVersion",
+					ClusterId:         "Kubernetes",
+					TrustDomain:       "cluster.local",
+					ServiceAccount:    "default",
+				},
+				dstPort: uint16(8000),
+			},
+			want: serviceMetricLabels{
+				reporter:                     "",
+				sourceWorkload:               "kmesh-daemon",
+				sourceCanonicalService:       "srcCanonical",
+				sourceCanonicalRevision:      "srcVersion",
+				sourceWorkloadNamespace:      "kmesh-system",
+				sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+				sourceApp:                    "srcCanonical",
+				sourceVersion:                "srcVersion",
+				sourceCluster:                "Kubernetes",
+				destinationService:           "",
+				destinationServiceNamespace:  "",
+				destinationServiceName:       "",
+				destinationWorkload:          "",
+				destinationCanonicalService:  "",
+				destinationCanonicalRevision: "",
+				destinationWorkloadNamespace: "",
+				destinationPrincipal:         "-",
+				destinationApp:               "",
+				destinationVersion:           "",
+				destinationCluster:           "",
+				requestProtocol:              "",
+				responseFlags:                "",
+				connectionSecurityPolicy:     "",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildServiceMetric(tt.args.dstWorkload, tt.args.srcWorkload, tt.args.dstPort)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
