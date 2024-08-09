@@ -109,17 +109,22 @@ func Test_hostnameNetworkMode(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	p := newProcessor(workloadMap)
 	workload := createFakeWorkload("1.2.3.4", workloadapi.NetworkMode_STANDARD)
-	workloadHostname := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_HOST_NETWORK)
+	workloadWithoutService := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
+	workloadWithoutService.Services = nil
+	workloadHostname := createFakeWorkload("1.2.3.6", workloadapi.NetworkMode_HOST_NETWORK)
 
 	p.handleWorkload(workload)
+	p.handleWorkload(workloadWithoutService)
 	p.handleWorkload(workloadHostname)
 
 	// Check Workload Cache
 	checkWorkloadCache(t, p, workload)
+	checkWorkloadCache(t, p, workloadWithoutService)
 	checkWorkloadCache(t, p, workloadHostname)
 
 	// Check Frontend Map
 	checkFrontEndMapWithNetworkMode(t, workload.Addresses[0], p, workload.NetworkMode)
+	checkFrontEndMapWithNetworkMode(t, workloadWithoutService.Addresses[0], p, workloadWithoutService.NetworkMode)
 	checkFrontEndMapWithNetworkMode(t, workloadHostname.Addresses[0], p, workloadHostname.NetworkMode)
 }
 
