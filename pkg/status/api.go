@@ -23,24 +23,26 @@ import (
 )
 
 type Workload struct {
-	Uid               string            `json:"uid,omitempty"`
-	Addresses         []string          `json:"addresses"`
-	Waypoint          *Waypoint         `json:"waypoint,omitempty"`
-	Protocol          string            `json:"protocol"`
-	Name              string            `json:"name"`
-	Namespace         string            `json:"namespace"`
-	ServiceAccount    string            `json:"serviceAccount"`
-	WorkloadName      string            `json:"workloadName"`
-	WorkloadType      string            `json:"workloadType"`
-	CanonicalName     string            `json:"canonicalName"`
-	CanonicalRevision string            `json:"canonicalRevision"`
-	ClusterID         string            `json:"clusterId"`
-	TrustDomain       string            `json:"trustDomain,omitempty"`
-	Locality          Locality          `json:"locality,omitempty"`
-	Node              string            `json:"node"`
-	Network           string            `json:"network,omitempty"`
-	Status            string            `json:"status"`
-	ApplicationTunnel ApplicationTunnel `json:"applicationTunnel,omitempty"`
+	Uid                   string            `json:"uid,omitempty"`
+	Addresses             []string          `json:"addresses"`
+	Waypoint              string            `json:"waypoint,omitempty"`
+	Protocol              string            `json:"protocol"`
+	Name                  string            `json:"name"`
+	Namespace             string            `json:"namespace"`
+	ServiceAccount        string            `json:"serviceAccount"`
+	WorkloadName          string            `json:"workloadName"`
+	WorkloadType          string            `json:"workloadType"`
+	CanonicalName         string            `json:"canonicalName"`
+	CanonicalRevision     string            `json:"canonicalRevision"`
+	ClusterID             string            `json:"clusterId"`
+	TrustDomain           string            `json:"trustDomain,omitempty"`
+	Locality              Locality          `json:"locality,omitempty"`
+	Node                  string            `json:"node"`
+	Network               string            `json:"network,omitempty"`
+	Status                string            `json:"status"`
+	ApplicationTunnel     ApplicationTunnel `json:"applicationTunnel,omitempty"`
+	Services              []string          `json:"services,omitempty"`
+	AuthorizationPolicies []string          `json:"authorizationPolicies,omitempty"`
 }
 
 type Locality struct {
@@ -93,22 +95,23 @@ func ConvertWorkload(w *workloadapi.Workload) *Workload {
 	}
 
 	out := &Workload{
-		Uid:               w.Uid,
-		Addresses:         ips,
-		Waypoint:          &Waypoint{Destination: waypoint},
-		Protocol:          w.TunnelProtocol.String(),
-		Name:              w.Name,
-		Namespace:         w.Namespace,
-		ServiceAccount:    w.ServiceAccount,
-		WorkloadName:      w.WorkloadName,
-		WorkloadType:      w.WorkloadType.String(),
-		CanonicalName:     w.CanonicalName,
-		CanonicalRevision: w.CanonicalRevision,
-		ClusterID:         w.ClusterId,
-		TrustDomain:       w.TrustDomain,
-		Node:              w.Node,
-		Network:           w.Network,
-		Status:            w.Status.String(),
+		Uid:                   w.Uid,
+		Addresses:             ips,
+		Waypoint:              waypoint,
+		Protocol:              w.TunnelProtocol.String(),
+		Name:                  w.Name,
+		Namespace:             w.Namespace,
+		ServiceAccount:        w.ServiceAccount,
+		WorkloadName:          w.WorkloadName,
+		WorkloadType:          w.WorkloadType.String(),
+		CanonicalName:         w.CanonicalName,
+		CanonicalRevision:     w.CanonicalRevision,
+		ClusterID:             w.ClusterId,
+		TrustDomain:           w.TrustDomain,
+		Node:                  w.Node,
+		Network:               w.Network,
+		Status:                w.Status.String(),
+		AuthorizationPolicies: w.AuthorizationPolicies,
 	}
 	if w.Locality != nil {
 		out.Locality = Locality{Region: w.Locality.Region, Zone: w.Locality.Zone, Subzone: w.Locality.Subzone}
@@ -116,6 +119,15 @@ func ConvertWorkload(w *workloadapi.Workload) *Workload {
 	if w.ApplicationTunnel != nil {
 		out.ApplicationTunnel = ApplicationTunnel{Protocol: w.ApplicationTunnel.Protocol.String(), Port: w.ApplicationTunnel.Port}
 	}
+
+	if len(w.Services) > 0 {
+		services := make([]string, 0, len(w.Services))
+		for svc := range w.Services {
+			services = append(services, svc)
+		}
+		out.Services = services
+	}
+
 	return out
 }
 

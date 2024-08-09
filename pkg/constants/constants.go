@@ -37,6 +37,10 @@ const (
 	BPF_LOG_INFO  = 2
 	BPF_LOG_DEBUG = 3
 
+	// IP family
+	MSG_TYPE_IPV4 = uint32(0)
+	MSG_TYPE_IPV6 = uint32(1)
+
 	// Ip(0.0.0.2 | ::2) used for control command, e.g. KmeshControl | ByPass
 	ControlCommandIp4 = "0.0.0.2"
 	ControlCommandIp6 = "::2"
