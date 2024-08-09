@@ -576,8 +576,8 @@ func TestBuildServiceMetric(t *testing.T) {
 			m := MetricController{
 				workloadCache: cache.NewWorkloadCache(),
 			}
-			m.workloadCache.AddWorkload(dstWorkload)
-			m.workloadCache.AddWorkload(srcWorkload)
+			m.workloadCache.AddOrUpdateWorkload(dstWorkload)
+			m.workloadCache.AddOrUpdateWorkload(srcWorkload)
 			got := m.buildServiceMetric(tt.args.data)
 			assert.Equal(t, tt.want, got)
 		})
