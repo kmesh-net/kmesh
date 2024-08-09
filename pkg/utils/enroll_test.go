@@ -329,7 +329,7 @@ func TestPatchKmeshRedirectAnnotation(t *testing.T) {
 		t.Errorf("Failed to get the patched pod: %v", err)
 	}
 
-	if got.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" {
+	if !AnnotationEnabled(got.Annotations[constants.KmeshRedirectionAnnotation]) {
 		t.Errorf("Expected annotation %s to be 'enabled', got '%s'", constants.KmeshRedirectionAnnotation, got.Annotations[constants.KmeshRedirectionAnnotation])
 	}
 
@@ -343,7 +343,7 @@ func TestPatchKmeshRedirectAnnotation(t *testing.T) {
 		t.Errorf("Failed to get the patched pod: %v", err)
 	}
 
-	if got.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" {
+	if !AnnotationEnabled(got.Annotations[constants.KmeshRedirectionAnnotation]) {
 		t.Errorf("Expected annotation %s to be 'enabled', got '%s'", constants.KmeshRedirectionAnnotation, got.Annotations[constants.KmeshRedirectionAnnotation])
 	}
 }

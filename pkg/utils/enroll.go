@@ -106,7 +106,7 @@ var (
 )
 
 func PatchKmeshRedirectAnnotation(client kubernetes.Interface, pod *corev1.Pod) error {
-	if pod.Annotations[constants.KmeshRedirectionAnnotation] == "enabled" {
+	if AnnotationEnabled(pod.Annotations[constants.KmeshRedirectionAnnotation]) {
 		log.Debugf("Pod %s in namespace %s already has annotation %s", pod.Name, pod.Namespace, constants.KmeshRedirectionAnnotation)
 		return nil
 	}
@@ -133,4 +133,8 @@ func DelKmeshRedirectAnnotation(client kubernetes.Interface, pod *corev1.Pod) er
 		metav1.PatchOptions{},
 	)
 	return err
+}
+
+func AnnotationEnabled(annotation string) bool {
+	return annotation == "enabled"
 }
