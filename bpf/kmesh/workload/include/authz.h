@@ -13,7 +13,7 @@
 #define UNMATCHED 0
 #define MATCHED 1
 #define UNSUPPORTED 2
-#define MAX_MEMBER_NUM_PER_POLICY 16
+#define MAX_MEMBER_NUM_PER_POLICY 8
 #define TYPE_SRCIP   (1)
 #define TYPE_DSTIP   (1 << 1)
 #define TYPE_DSTPORT (1 << 2)
@@ -40,7 +40,7 @@ static inline Istio__Security__Authorization *map_lookup_authz(const char *key)
 	return (Istio__Security__Authorization*)kmesh_map_lookup_elem(&map_of_authz, key);
 }
 
-
+#ifdef SUPPORT_IP_MATCH
 static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_data)
 {
 	if (ipv4_data->len != 4) {
@@ -143,6 +143,7 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 	}
 	return UNMATCHED;
 }
+#endif
 
 static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
@@ -161,7 +162,7 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_t
             return UNMATCHED;
         }
 
-		for (i = 0; i <MAX_MEMBER_NUM_PER_POLICY; i++) {
+		for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
 			if (i >= match->n_not_destination_ports) {
 				break;
 			}
@@ -200,10 +201,11 @@ static inline int match_check(Istio__Security__Match *match, struct bpf_sock_tup
 	
 	// todo: if some type not supported, need retun UNSUPPORT and allow this packet
 	// if multiple types are set, they are AND-ed, all matched is a match
+	/*
 	matchResult = matchSrcIPs(match, tuple_info);
 	if (matchResult != MATCHED) {
 		return matchResult;
-	}
+	}*/
 
 	matchResult = matchDstPorts(match, tuple_info);
 	return matchResult;
@@ -322,6 +324,9 @@ static inline int match_workload_scope(struct bpf_sock_tuple *tuple_info)
 	int ret = 0;
 	char policy_key[BPF_DATA_MAX_LEN] = "test-policy"; // 键为 "test-policy"
 	Istio__Security__Authorization *policy = map_lookup_authz(policy_key);
+	if (!policy) {
+		return AUTH_ALLOW;
+	}
 	ret = policy_manage(policy, tuple_info);
 	if (ret == AUTH_DENY) {
 		BPF_LOG(ERR, AUTH, "policy %s manage result deny\n", kmesh_get_ptr_val(policy->name));
