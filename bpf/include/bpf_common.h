@@ -163,24 +163,6 @@ static inline bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
     return false;
 }
 
-/* This function is used to modify the value of the
- * record in the manager map. When the value is 0, it
- * means that it has not been bypassed. When it is 1,
- * it means that it has been bypassed.
- */
-static inline bool handle_bypass_process(struct kmesh_context *kmesh_ctx)
-{
-    if (conn_from_bypass_sim_add(kmesh_ctx)) {
-        set_netns_bypass_value(kmesh_ctx->ctx, 1);
-        return true;
-    }
-    if (conn_from_bypass_sim_delete(kmesh_ctx)) {
-        set_netns_bypass_value(kmesh_ctx->ctx, 0);
-        return true;
-    }
-    return false;
-}
-
 static inline void *kmesh_get_ptr_val(const void *ptr)
 {
     /*
