@@ -26,8 +26,12 @@ import (
 	"time"
 
 	"github.com/agiledragon/gomonkey/v2"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/asm"
+	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 	"istio.io/istio/pkg/test/util/retry"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -190,7 +194,7 @@ func TestHandleKmeshManage(t *testing.T) {
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	controller, err := NewKmeshManageController(client, nil)
+	controller, err := NewKmeshManageController(client, nil, 0, "")
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)
 	}
@@ -432,7 +436,7 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	controller, err := NewKmeshManageController(client, nil)
+	controller, err := NewKmeshManageController(client, nil, 0, "")
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)
 	}
@@ -555,6 +559,132 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 				assert.NoError(t, err)
 			}
 			waitAndCheckManageAction(t, &enabled, &disabled, tt.expectManaged, tt.expectDisManaged)
+		})
+	}
+}
+
+func newTextXdpProg(t *testing.T, name string) *ebpf.Program {
+	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type: ebpf.XDP,
+		Name: name,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 0),
+			asm.Return(),
+		},
+		License: "GPL",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		prog.Close()
+	})
+	return prog
+}
+
+// Create a test netns, link an old XDP program on veth0 created inside the netns
+func newTestNetNs(t *testing.T) ns.NetNS {
+	testNs, err := ns.GetCurrentNS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		testNs.Close()
+	})
+
+	testNs.Do(func(_ ns.NetNS) error {
+		veth := &netlink.Veth{
+			LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
+			PeerName:  "veth1",
+		}
+		if err := netlink.LinkAdd(veth); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			netlink.LinkDel(veth)
+		})
+		prog := newTextXdpProg(t, "old_xdp")
+		err := netlink.LinkSetXdpFd(veth, prog.FD())
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		return nil
+	})
+
+	return testNs
+}
+
+// Test link a new XDP program on an linked interface
+func Test_linkXdp(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	testNetNs := newTestNetNs(t)
+	patches.ApplyFunc(ns.GetNS, func(_ string) (ns.NetNS, error) {
+		return testNetNs, nil
+	})
+
+	type args struct {
+		netNsPath string
+		xdpProgFd int
+		mode      string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			"Link a new XDP program, no error",
+			args{
+				"test_ns_path",
+				newTextXdpProg(t, "new_xdp").FD(),
+				constants.WorkloadMode,
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := linkXdp(tt.args.netNsPath, tt.args.xdpProgFd, tt.args.mode); (err != nil) != tt.wantErr {
+				t.Errorf("linkXdp() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// Test unlink a new XDP program on an linked interface
+func Test_unlinkXdp(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	testNetNs := newTestNetNs(t)
+	patches.ApplyFunc(ns.GetNS, func(_ string) (ns.NetNS, error) {
+		return testNetNs, nil
+	})
+
+	type args struct {
+		netNsPath string
+		mode      string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			"UnLink XDP program, no error",
+			args{
+				"test_ns_path",
+				constants.WorkloadMode,
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := unlinkXdp(tt.args.netNsPath, tt.args.mode); (err != nil) != tt.wantErr {
+				t.Errorf("unlinkXdp() error = %v, wantErr %v", err, tt.wantErr)
+			}
 		})
 	}
 }

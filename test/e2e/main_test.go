@@ -50,6 +50,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
@@ -344,5 +345,22 @@ func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace
 func deleteWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) error {
 	cls := ctx.Clusters().Default()
 
-	return cls.GatewayAPI().GatewayV1().Gateways(ns.Name()).Delete(context.Background(), name, metav1.DeleteOptions{})
+	if err := cls.GatewayAPI().GatewayV1().Gateways(ns.Name()).Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
+		return err
+	}
+
+	// Make sure the pods associated with the waypoint have been deleted to prevent affecting other test cases.
+	return retry.UntilSuccess(func() error {
+		pods, err := cls.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", constants.GatewayNameLabel, name),
+		})
+		if err != nil {
+			return err
+		}
+		if len(pods.Items) != 0 {
+			return fmt.Errorf("pods have not been completely deleted")
+		}
+
+		return nil
+	}, retry.Timeout(time.Minute*10), retry.BackoffDelay(time.Millisecond*200))
 }
