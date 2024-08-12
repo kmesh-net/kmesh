@@ -148,6 +148,7 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
 	__u32 *notPorts = NULL;
+	__u32 *ports  = NULL;
 	__u32 i;
 
 	if (match->n_destination_ports == 0 && match->n_not_destination_ports == 0) {
@@ -155,13 +156,13 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_t
 	}
 
 	if (match->n_not_destination_ports != 0) {
-	    //match->not_destination_ports
+		//match->not_destination_ports
 		notPorts = kmesh_get_ptr_val(match->not_destination_ports);
 		if (!notPorts) {
-            BPF_LOG(ERR, AUTH, "failed to get not_destination_ports ptr\n");
-            return UNMATCHED;
-        }
-
+			BPF_LOG(ERR, AUTH, "failed to get not_destination_ports ptr\n");
+			return UNMATCHED;
+		}
+#pragma unroll
 		for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
 			if (i >= match->n_not_destination_ports) {
 				break;
@@ -176,21 +177,21 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_t
 	}
 
 	if (match->n_destination_ports != 0) {
-		__u32 *ports = kmesh_get_ptr_val(match->destination_ports);
-        if (!ports) {
-            BPF_LOG(ERR, AUTH, "failed to get destination_ports ptr\n");
-            return UNMATCHED;
-        }
+		ports = kmesh_get_ptr_val(match->destination_ports);
+		if (!ports) {
+			BPF_LOG(ERR, AUTH, "failed to get destination_ports ptr\n");
+			return UNMATCHED;
+		}
+#pragma unroll
+		for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
+			if (i >= match->n_destination_ports) {
+				break;
+			}
 
-        for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
-            if (i >= match->n_destination_ports) {
-                break;
-            }
-
-            if (ports[i] == tuple_info->ipv4.dport || ports[i] == tuple_info->ipv6.dport) {
-                return MATCHED;
-            }
-        }
+			if (ports[i] == tuple_info->ipv4.dport || ports[i] == tuple_info->ipv6.dport) {
+				return MATCHED;
+			}
+		}
 	}
 	return UNMATCHED;
 }
@@ -214,6 +215,7 @@ static inline int match_check(Istio__Security__Match *match, struct bpf_sock_tup
 static inline int clause_match_check(Istio__Security__Clause *cl, struct bpf_sock_tuple *tuple_info)
 {
 	void *matchsPtr = NULL;
+	Istio__Security__Match *match = NULL;
 	__u32 i;
 
 	if (cl->n_matches == 0) {
@@ -231,7 +233,7 @@ static inline int clause_match_check(Istio__Security__Clause *cl, struct bpf_soc
 		if (i >= cl->n_matches) {
 			break;
 		}
-		Istio__Security__Match *match = (Istio__Security__Match *)kmesh_get_ptr_val((void *)*((__u64 *)matchsPtr + i));
+		match = (Istio__Security__Match *)kmesh_get_ptr_val((void *)*((__u64 *)matchsPtr + i));
 		if (!match) {
 			continue;
 		}
@@ -246,6 +248,7 @@ static inline int clause_match_check(Istio__Security__Clause *cl, struct bpf_soc
 static inline int rule_match_check(Istio__Security__Rule *rule, struct bpf_sock_tuple *tuple_info)
 {
 	void *clausesPtr = NULL;
+	Istio__Security__Clause *clause = NULL;
 	__u32 i;
 
 	if (rule->n_clauses == 0) {
@@ -264,7 +267,7 @@ static inline int rule_match_check(Istio__Security__Rule *rule, struct bpf_sock_
 		if (i >= rule->n_clauses) {
 			break;
 		}
-		Istio__Security__Clause *clause = (Istio__Security__Clause *)kmesh_get_ptr_val((void *)*((__u64 *)clausesPtr + i));
+		clause = (Istio__Security__Clause *)kmesh_get_ptr_val((void *)*((__u64 *)clausesPtr + i));
 		if (!clause) {
 			continue;
 		}
@@ -279,13 +282,13 @@ static inline int rule_match_check(Istio__Security__Rule *rule, struct bpf_sock_
 static inline int policy_manage(Istio__Security__Authorization* policy, struct bpf_sock_tuple *tuple_info)
 {
 	void *rulesPtr = NULL;
-	Istio__Security__Rule * rule = NULL;
+	Istio__Security__Rule *rule = NULL;
 	int matchFlag = 0;
 	__u32 i;
 
 	if (policy->n_rules == 0) {
 		BPF_LOG(ERR, AUTH, "auth policy %s has no rules\n", kmesh_get_ptr_val(policy->name));
-		return AUTH_DENY;
+		return AUTH_ALLOW;
 	}
 	
 	// Rules are OR-ed.
@@ -305,17 +308,20 @@ static inline int policy_manage(Istio__Security__Authorization* policy, struct b
 			continue;
 		}
 		if (rule_match_check(rule, tuple_info) == MATCHED) {
-			matchFlag = 1;
-			break;
+			if (policy->action == ISTIO__SECURITY__ACTION__DENY) {
+				return AUTH_DENY;
+			} else {
+				return AUTH_ALLOW;
+			}
 		}
 	}
 
-	if (policy->action == ISTIO__SECURITY__ACTION__ALLOW) {
-		return matchFlag ? AUTH_ALLOW : AUTH_DENY;
-	} else if (policy->action == ISTIO__SECURITY__ACTION__DENY) {
-		return matchFlag ? AUTH_DENY : AUTH_ALLOW;
-	}
-	return AUTH_ALLOW;
+	// there means no match rules
+	if (policy->action == ISTIO__SECURITY__ACTION__DENY) {
+        return AUTH_ALLOW;
+    } else {
+        return AUTH_DENY;
+    }
 }
 
 static inline int match_workload_scope(struct bpf_sock_tuple *tuple_info)
