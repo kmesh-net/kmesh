@@ -1,5 +1,5 @@
 FROM ghcr.io/kmesh-net/kmesh-build:latest AS builder
-Copy . /kmesh
+COPY . /kmesh
 WORKDIR /kmesh
 RUN ./build.sh && ./build.sh -i
 # Copy the kmesh.ko to /kmesh
