@@ -220,15 +220,20 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 		}
 	}
 
-	if GetStartType() == Restart {
+	switch GetStartType() {
+	case Restart:
 		return versionMap
+	case Update:
+		// TODO : update mode has not been fully developed and is currently consistent with normal mode
+		log.Warnf("Update mode support is under development, Will be started in Normal mode.")
+	default:
 	}
 
 	// Make sure the directory about to use is clean
-	kmeshBpfPath := filepath.Dir(filepath.Dir(versionPath))
+	kmeshBpfPath := filepath.Dir(versionPath)
 	err = os.RemoveAll(kmeshBpfPath)
 	if err != nil {
-		log.Errorf("Clean bpf Path failed, err is:%v", err)
+		log.Errorf("Clean bpf maps and progs failed, err is:%v", err)
 		return nil
 	}
 
