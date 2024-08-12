@@ -141,8 +141,8 @@ uninstall:
 build:
 	./kmesh_compile.sh
 	
-docker: build
-	docker build -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .
+docker:
+	docker build -f dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 docker.push: docker
 	docker push $(HUB)/$(TARGET):$(TAG)
