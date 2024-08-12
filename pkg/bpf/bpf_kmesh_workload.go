@@ -460,7 +460,6 @@ type BpfXdpAuthWorkload struct {
 func (xa *BpfXdpAuthWorkload) NewBpf(cfg *options.BpfConfig) error {
 	xa.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	xa.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/xdpauth/"
-	xa.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	xa.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(xa.Info.MapPath,
@@ -486,8 +485,6 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = xa.Info.MapPath
-	opts.Programs.LogSize = xa.Info.BpfVerifyLogSize
-
 	spec, err = bpf2go.LoadKmeshXDPAuth()
 	if err != nil {
 		return nil, err
