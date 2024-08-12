@@ -19,7 +19,6 @@ package options
 import (
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/spf13/cobra"
 
@@ -27,12 +26,11 @@ import (
 )
 
 type BpfConfig struct {
-	Mode             string
-	BpfFsPath        string
-	Cgroup2Path      string
-	EnableMda        bool
-	BpfVerifyLogSize int
-	EnableBpfLog     bool
+	Mode         string
+	BpfFsPath    string
+	Cgroup2Path  string
+	EnableMda    bool
+	EnableBpfLog bool
 }
 
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
@@ -58,14 +56,6 @@ func (c *BpfConfig) ParseConfig() error {
 	}
 	if _, err = os.Stat(c.BpfFsPath); err != nil {
 		return err
-	}
-
-	bpfLogsize := os.Getenv("BPF_LOG_SIZE")
-	if bpfLogsize != "" {
-		c.BpfVerifyLogSize, err = strconv.Atoi(bpfLogsize)
-		if err != nil {
-			c.BpfVerifyLogSize = 0
-		}
 	}
 
 	return nil

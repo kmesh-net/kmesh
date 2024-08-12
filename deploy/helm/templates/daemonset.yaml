@@ -41,8 +41,6 @@ spec:
               fieldPath: status.podIP
         - name: XDS_ADDRESS
           value: {{ quote .Values.deploy.kmesh.env.xdsAddress }}
-        - name: BPF_LOG_SIZE
-          value: {{ quote .Values.deploy.kmesh.env.bpfLogSize }}
         - name: KUBERNETES_CLUSTER_DOMAIN
           value: {{ quote .Values.kubernetesClusterDomain }}
         - name: SERVICE_ACCOUNT
