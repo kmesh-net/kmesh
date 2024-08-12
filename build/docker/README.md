@@ -27,9 +27,9 @@
 
 ### 构建镜像
 
-kmesh构建镜像是用于方便用户编译kmesh和构建出当前OS版本可用的kmesh镜像而发布，用户执行make docker命令的时候会使用本目录下的kmesh.dockerfile，将编译输出件和运行依赖放入新的镜像中
+kmesh构建镜像是用于方便用户编译kmesh和构建出当前OS版本可用的kmesh镜像而发布，用户执行make docker命令的时候会使用本目录下的dockerfile，将编译输出件和运行依赖放入新的镜像中
 
-#### kmesh.dockerfile
+#### dockerfile
 
 使用该文件用于制作当前OS版本上可运行的kmesh镜像
 

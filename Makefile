@@ -142,7 +142,7 @@ build:
 	./kmesh_compile.sh
 	
 docker:
-	docker build -f dockerfile -t $(HUB)/$(TARGET):$(TAG) .
+	docker build -f build/docker/dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 docker.push: docker
 	docker push $(HUB)/$(TARGET):$(TAG)
