@@ -20,6 +20,7 @@ COPY --from=builder /usr/lib64/libboundscheck.so /usr/lib64/
 COPY --from=builder /kmesh/*.ko /kmesh
 COPY --from=builder /kmesh/oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o /usr/share/oncn-mda/
 COPY --from=builder /kmesh/oncn-mda/etc/oncn-mda.conf /usr/share/oncn-mda/
+COPY --from=builder /kmesh/oncn-mda/etc/oncn-mda.conf /etc/oncn-mda/
 COPY --from=builder /usr/bin/kmesh-daemon /usr/bin/
 COPY --from=builder /usr/bin/kmesh-cni /usr/bin/
 COPY --from=builder /usr/bin/mdacore /usr/bin/
