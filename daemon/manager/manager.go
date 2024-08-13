@@ -80,11 +80,15 @@ func Execute(configs *options.BootstrapConfigs) error {
 	}
 
 	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
+<<<<<<< HEAD
 	if err = bpfLoader.Start(configs.BpfConfig); err != nil {
+=======
+	defer bpfLoader.Stop()
+	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
+>>>>>>> e6e5bf1 (Improve cni uninstall)
 		return err
 	}
-	log.Info("bpf Start successful")
-	defer bpfLoader.Stop()
+	log.Info("bpf loader start successfully")
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -93,7 +97,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	if err := c.Start(stopCh); err != nil {
 		return err
 	}
-	log.Info("controller Start successful")
+	log.Info("controller start successfully")
 	defer c.Stop()
 
 	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetBpfLogLevel())
@@ -104,18 +108,19 @@ func Execute(configs *options.BootstrapConfigs) error {
 
 	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
 		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained)
+	// even though Start failed, we should run Stop to clean up
+	defer cniInstaller.Stop()
 	if err := cniInstaller.Start(); err != nil {
 		return err
 	}
-	log.Info("command Start cni successful")
-	defer cniInstaller.Stop()
+	log.Info("start cni successfully")
 
-	setupCloseHandler()
+	setupSignalHandler()
 	bpf.SetCloseStatus()
 	return nil
 }
 
-func setupCloseHandler() {
+func setupSignalHandler() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGABRT, syscall.SIGTSTP)
 
