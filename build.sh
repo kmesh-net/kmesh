@@ -99,6 +99,12 @@ if [ -z "$1" -o "$1" == "-b"  -o  "$1" == "--build" ]; then
     exit
 fi
 
+if [ "$1" == "-k"  -o  "$1" == "--kmesh-controller" ]; then
+    prepare
+    make controller
+    exit
+fi
+
 if [ "$1" == "-i"  -o  "$1" == "--install" ]; then
     make install
     install
