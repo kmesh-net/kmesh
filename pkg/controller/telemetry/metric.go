@@ -57,6 +57,8 @@ type connectionDataV4 struct {
 	ReceivedBytes  uint32
 	ConnectSuccess uint32
 	Direction      uint32
+	Duration       uint64
+	CloseTime      uint64
 	State          uint32
 }
 
@@ -69,18 +71,23 @@ type connectionDataV6 struct {
 	ReceivedBytes  uint32
 	ConnectSuccess uint32
 	Direction      uint32
+	Duration       uint64
+	CloseTime      uint64
 	State          uint32
 }
 
 type requestMetric struct {
 	src           [4]uint32
 	dst           [4]uint32
+	srcPort       uint16
 	dstPort       uint16
 	direction     uint32
 	receivedBytes uint32
 	sentBytes     uint32
 	state         uint32
 	success       uint32
+	duration      uint64
+	closeTime     uint64
 }
 
 type workloadMetricLabels struct {
@@ -166,14 +173,13 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	// Register metrics to Prometheus and start Prometheus server
 	go RunPrometheusClient(ctx)
 
-	rec := ringbuf.Record{}
-	data := requestMetric{}
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			data := requestMetric{}
+			rec := ringbuf.Record{}
 			if err := reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
@@ -197,19 +203,25 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 
 			workloadLabels := m.buildWorkloadMetric(&data)
-			serviceLabels := m.buildServiceMetric(&data)
+			serviceLabels, accesslog := m.buildServiceMetric(&data)
 
 			workloadLabels.reporter = "-"
 			serviceLabels.reporter = "-"
+			accesslog.direction = "-"
 			if data.direction == constants.INBOUND {
 				workloadLabels.reporter = "destination"
 				serviceLabels.reporter = "destination"
+				accesslog.direction = "INBOUND"
 			}
 			if data.direction == constants.OUTBOUND {
 				workloadLabels.reporter = "source"
 				serviceLabels.reporter = "source"
+				accesslog.direction = "OUTBOUND"
 			}
 
+			if data.state == TCP_CLOST {
+				RunAccesslog(data, accesslog)
+			}
 			buildWorkloadMetricsToPrometheus(data, workloadLabels)
 			buildServiceMetricsToPrometheus(data, serviceLabels)
 		}
@@ -227,10 +239,14 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.dst[0] = connectData.DstAddr
 	data.direction = connectData.Direction
 	data.dstPort = connectData.DstPort
+	data.srcPort = connectData.SrcPort
+
 	data.sentBytes = connectData.SentBytes
 	data.receivedBytes = connectData.ReceivedBytes
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
+	data.duration = connectData.Duration
+	data.closeTime = connectData.CloseTime
 
 	return data, nil
 }
@@ -241,16 +257,18 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
 		return data, err
 	}
-
 	data.src = connectData.SrcAddr
 	data.dst = connectData.DstAddr
 	data.direction = connectData.Direction
 	data.dstPort = connectData.DstPort
+	data.srcPort = connectData.SrcPort
 
 	data.sentBytes = connectData.SentBytes
 	data.receivedBytes = connectData.ReceivedBytes
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
+	data.duration = connectData.Duration
+	data.closeTime = connectData.CloseTime
 
 	return data, nil
 }
@@ -274,22 +292,24 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 	return trafficLabels
 }
 
-func (m *MetricController) buildServiceMetric(data *requestMetric) serviceMetricLabels {
+func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {
 	var dstAddr, srcAddr []byte
 	for i := range data.dst {
 		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
 		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.src[i])
 	}
 
-	dstWorkload, _ := m.getWorkloadByAddress(restoreIPv4(dstAddr))
-	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
+	dstWorkload, dstIp := m.getWorkloadByAddress(restoreIPv4(dstAddr))
+	srcWorkload, srcIp := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
-	trafficLabels := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
+	trafficLabels, accesslog := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
+	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
+	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)
 
-	return trafficLabels
+	return trafficLabels, accesslog
 }
 
 func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Workload, string) {
@@ -332,8 +352,9 @@ func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloa
 	return trafficLabels
 }
 
-func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) serviceMetricLabels {
+func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) (serviceMetricLabels, logInfo) {
 	trafficLabels := serviceMetricLabels{}
+	accesslog := logInfo{}
 
 	if dstWorkload != nil {
 		namespacedhost := ""
@@ -369,6 +390,10 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 		trafficLabels.destinationCluster = dstWorkload.ClusterId
 		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
 		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
+
+		accesslog.destinationWorkload = dstWorkload.Name
+		accesslog.destinationNamespace = svcNamespace
+		accesslog.destinationService = svcHost
 	}
 
 	if srcWorkload != nil {
@@ -380,9 +405,12 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 		trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
 		trafficLabels.sourceCluster = srcWorkload.ClusterId
 		trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+
+		accesslog.sourceNamespace = srcWorkload.Namespace
+		accesslog.sourceWorkload = srcWorkload.Name
 	}
 
-	return trafficLabels
+	return trafficLabels, accesslog
 }
 
 func buildPrincipal(workload *workloadapi.Workload) string {

@@ -5,6 +5,7 @@
 #define __KMESH_BPF_ACCESS_LOG_H__
 
 #include "bpf_common.h"
+#include "linux/mmtimer.h"
 
 // direction
 enum {
@@ -25,10 +26,10 @@ struct tcp_probe_info {
     __u32 received_bytes;
     __u32 conn_success;
     __u32 direction;
-    __u32 state; /* tcp state */
-    __u32 protocol;
     __u64 duration; // ns
     __u64 close_ns;
+    __u32 state; /* tcp state */
+    __u32 protocol;
     __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
     __u32 rtt_min;
     __u32 mss_cache;     /* Cached effective mss, not including SACKS */
