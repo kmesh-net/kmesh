@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/ebpf/rlimit"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -204,19 +205,36 @@ func (l *BpfLoader) Stop() {
 
 func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	var versionPath string
+	var versionMap *ebpf.Map
 	if config.AdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
+		versionPath = filepath.Join(config.BpfFsPath + constants.VersionPath)
 	} else if config.WdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/")
+		versionPath = filepath.Join(config.BpfFsPath + constants.WorkloadVersionPath)
 	}
 
 	_, err := os.Stat(versionPath)
 	if err == nil {
-		m := recoverVersionMap(config, versionPath)
-		if m != nil {
-			SetStartStatus(m)
-			return m
+		versionMap = recoverVersionMap(config, versionPath)
+		if versionMap != nil {
+			SetStartStatus(versionMap)
 		}
+	}
+
+	switch GetStartType() {
+	case Restart:
+		return versionMap
+	case Update:
+		// TODO : update mode has not been fully developed and is currently consistent with normal mode
+		log.Warnf("Update mode support is under development, Will be started in Normal mode.")
+	default:
+	}
+
+	// Make sure the directory about to use is clean
+	kmeshBpfPath := filepath.Dir(versionPath)
+	err = os.RemoveAll(kmeshBpfPath)
+	if err != nil {
+		log.Errorf("Clean bpf maps and progs failed, err is:%v", err)
+		return nil
 	}
 
 	mapSpec := &ebpf.MapSpec{

@@ -57,4 +57,7 @@ const (
 
 	Cgroup2Path = "/mnt/kmesh_cgroup2"
 	BpfFsPath   = "/sys/fs/bpf"
+
+	VersionPath         = "/bpf_kmesh/map/"
+	WorkloadVersionPath = "/bpf_kmesh_workload/map/"
 )
