@@ -162,12 +162,14 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 		return
 	}
 
-	var err error
-	osStartTime, err = getOSBootTime()
-	if err != nil {
-		log.Errorf("get latest os boot time for accesslog failed: %v", err)
-	}
+	ch := make(chan []byte, 1000)
+	// Register metrics to Prometheus and start Prometheus server
+	go RunPrometheusClient(ctx)
+	go m.getConnectDataFromRingBuf(ctx, ch, mapOfTcpInfo)
+	go m.buildMetric(ctx, ch)
+}
 
+func (m *MetricController) getConnectDataFromRingBuf(ctx context.Context, ch chan []byte, mapOfTcpInfo *ebpf.Map) {
 	reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
 		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
@@ -179,15 +181,11 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 		}
 	}()
 
-	// Register metrics to Prometheus and start Prometheus server
-	go RunPrometheusClient(ctx)
-
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
-			data := requestMetric{}
 			rec := ringbuf.Record{}
 			if err := reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
@@ -197,9 +195,22 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), MSG_LEN)
 				continue
 			}
+			ch <- rec.RawSample
+		}
+	}
+}
 
-			connectType := binary.LittleEndian.Uint32(rec.RawSample)
-			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
+func (m *MetricController) buildMetric(ctx context.Context, ch chan []byte) {
+	data := requestMetric{}
+	var err error
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			bytesData := <-ch
+			connectType := binary.LittleEndian.Uint32(bytesData)
+			originInfo := bytesData[unsafe.Sizeof(connectType):]
 			buf := bytes.NewBuffer(originInfo)
 			switch connectType {
 			case constants.MSG_TYPE_IPV4:
@@ -207,8 +218,13 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			case constants.MSG_TYPE_IPV6:
 				data, err = buildV6Metric(buf)
 			default:
-				log.Errorf("get connection info failed: %v", err)
-				continue
+				log.Errorf("Unsupported IP family")
+				return
+			}
+
+			if err != nil {
+				log.Errorf("get data failed: %v", err)
+				return
 			}
 
 			workloadLabels := m.buildWorkloadMetric(&data)
