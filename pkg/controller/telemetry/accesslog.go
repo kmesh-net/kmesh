@@ -25,11 +25,7 @@ import (
 )
 
 type logInfo struct {
-	direction     string
-	sentBytes     uint32
-	receivedBytes uint32
-	duration      uint64
-
+	direction       string
 	sourceAddress   string
 	sourceWorkload  string
 	sourceNamespace string
@@ -65,14 +61,14 @@ func getOSBootTime() time.Time {
 	if err != nil {
 		fmt.Println(err)
 	}
-	cmd.Start()
+	_ = cmd.Start()
 	reader := bufio.NewReader(stdout)
 	timeStr, err2 := reader.ReadString('\n')
 	if err2 != nil {
 		log.Errorf("get system last start time error: %v", err2)
 	}
 	timeStr = strings.Trim(timeStr, "\n")
-	bootTime, err := time.Parse("2006-01-02 15:04:05", timeStr)
+	bootTime, _ := time.Parse("2006-01-02 15:04:05", timeStr)
 	return bootTime
 }
 
