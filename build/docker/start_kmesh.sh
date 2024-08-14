@@ -11,7 +11,7 @@ fi
 
 mount | grep /mnt/kmesh_cgroup2
 if [ $? -ne 0 ]; then
-        mkdir /mnt/kmesh_cgroup2
+        mkdir -p /mnt/kmesh_cgroup2
         mount -t cgroup2 none /mnt/kmesh_cgroup2/
         if [ $? -ne 0 ]; then
                 echo "mount cgroup2 failed"
