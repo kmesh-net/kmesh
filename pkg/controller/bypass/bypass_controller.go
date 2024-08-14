@@ -17,10 +17,7 @@
 package bypass
 
 import (
-	"bytes"
 	"fmt"
-	"os/exec"
-	"strings"
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -62,7 +59,7 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				return
 			}
 			if !istio.PodHasSidecar(pod) {
-				log.Debugf("pod %s/%s does not have sidecar injected, skip", pod.GetNamespace(), pod.GetName())
+				log.Infof("pod %s/%s does not have sidecar injected, skip", pod.GetNamespace(), pod.GetName())
 				return
 			}
 
@@ -141,25 +138,6 @@ func isPodBeingDeleted(pod *corev1.Pod) bool {
 	return pod.ObjectMeta.DeletionTimestamp != nil
 }
 
-func RuleExists(args []string) (error, bool) {
-	checkArgs := append(args[:2], append([]string{"-C"}, args[2:]...)...)
-	log.Printf("RuleExists CheckArgs: iptables %v", checkArgs)
-	cmd := exec.Command("iptables", checkArgs...)
-
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
-	if err != nil {
-		if strings.Contains(err.Error(), "Bad rule") {
-			return nil, false
-		} else {
-			return fmt.Errorf(stderr.String()), false
-		}
-	}
-	return nil, true
-}
-
 func addIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-I", "PREROUTING", "1", "-j", "RETURN"},
@@ -174,7 +152,7 @@ func addIptables(ns string) error {
 			{"-t", "nat", "-D", "OUTPUT", "-j", "RETURN"},
 		}
 		for _, delargs := range delIptArgs {
-			utils.Execute("iptables", delargs)
+			_ = utils.Execute("iptables", delargs)
 		}
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
