@@ -68,8 +68,7 @@ TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	bpf/include/bpf_helper_defs_ext.h \
 	depends/include/bpf_helper_defs_ext.h
 
-.PHONY: all install uninstall clean build docker
-
+.PHONY: all
 all:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 
@@ -109,6 +108,7 @@ gen: tidy\
 gen-check: gen
 	hack/gen-check.sh
 
+.PHONY: install
 install:
 	$(QUIET) make install -C api/v2-c
 	$(QUIET) make install -C bpf/deserialization_to_bpf_map
@@ -125,6 +125,7 @@ install:
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) install -Dp -m 0500 $(APPS3) $(INSTALL_BIN)
 
+.PHONY: uninstall
 uninstall:
 	$(QUIET) make uninstall -C api/v2-c
 	$(QUIET) make uninstall -C bpf/deserialization_to_bpf_map
@@ -140,19 +141,23 @@ uninstall:
 .PHONY: build
 build:
 	./kmesh_compile.sh
-	
+
+.PHONY: docker
 docker:
 	docker build -f build/docker/dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 docker.push: docker
 	docker push $(HUB)/$(TARGET):$(TAG)
 
+.PHONY: e2e
 e2e:
 	./test/e2e/run_test.sh
 
+.PHONY: e2e-ipv6
 e2e-ipv6:
 	./test/e2e/run_test.sh --ipv6
 
+.PHONY: format
 format:
 	./hack/format.sh
 
@@ -165,6 +170,7 @@ test:
 	./hack/run-ut.sh --local
 endif
 
+.PHONY: clean
 clean:
 	$(QUIET) rm -rf ./out
 	$(QUIET) rm -rf ./config/linux-bpf.h
