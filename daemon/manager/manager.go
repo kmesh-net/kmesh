@@ -29,6 +29,7 @@ import (
 
 	"kmesh.net/kmesh/daemon/manager/dump"
 	logcmd "kmesh.net/kmesh/daemon/manager/log"
+	"kmesh.net/kmesh/daemon/manager/uninstall"
 	"kmesh.net/kmesh/daemon/manager/version"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
@@ -68,6 +69,7 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(version.NewCmd())
 	cmd.AddCommand(dump.NewCmd())
 	cmd.AddCommand(logcmd.NewCmd())
+	cmd.AddCommand(uninstall.NewUninstallCmd())
 
 	return cmd
 }
