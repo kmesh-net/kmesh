@@ -188,6 +188,9 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 			if (err != nil) != tt.wantErr {
 				t.Errorf("workloadStream.WorklaodStreamCreateAndSend() error = %v, wantErr %v", err, tt.wantErr)
 			}
+			if workloadController.Processor != nil {
+				workloadController.Processor.hashName.Reset()
+			}
 			tt.afterFunc()
 		})
 	}
