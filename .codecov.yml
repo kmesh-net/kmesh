@@ -4,7 +4,6 @@ coverage:
       default:
         # basic
         target: auto #default
-        threshold: 50%
         base: auto 
 comment:                  # this is a top-level key
   layout: "header, files, footer" # remove "new" from "header" and "footer"
