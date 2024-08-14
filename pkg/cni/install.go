@@ -71,7 +71,11 @@ func NewInstaller(mode string,
 func (i *Installer) Start() error {
 	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
 		log.Info("start write CNI config")
-		return i.addCniConfig()
+		err := i.addCniConfig()
+		if err != nil {
+			i.Stop()
+			return err
+		}
 	}
 	return nil
 }

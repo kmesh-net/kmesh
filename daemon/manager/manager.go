@@ -80,14 +80,10 @@ func Execute(configs *options.BootstrapConfigs) error {
 	}
 
 	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
-<<<<<<< HEAD
-	if err = bpfLoader.Start(configs.BpfConfig); err != nil {
-=======
-	defer bpfLoader.Stop()
 	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
->>>>>>> e6e5bf1 (Improve cni uninstall)
 		return err
 	}
+	defer bpfLoader.Stop()
 	log.Info("bpf loader start successfully")
 
 	stopCh := make(chan struct{})
@@ -108,11 +104,10 @@ func Execute(configs *options.BootstrapConfigs) error {
 
 	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
 		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained)
-	// even though Start failed, we should run Stop to clean up
-	defer cniInstaller.Stop()
 	if err := cniInstaller.Start(); err != nil {
 		return err
 	}
+	defer cniInstaller.Stop()
 	log.Info("start cni successfully")
 
 	setupSignalHandler()
