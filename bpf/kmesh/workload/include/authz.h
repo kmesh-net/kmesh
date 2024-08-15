@@ -26,20 +26,24 @@ struct {
 	__uint(max_entries, MAP_SIZE_OF_AUTH);
 } map_of_authz SEC(".maps");
 
-struct xdp_info {
-	struct ethhdr *ethh;
-	union {
-		struct iphdr *iph;
-		struct ipv6hdr *ip6h;
-	};
-	struct tcphdr *tcph;
+struct policyNames { 
+	char policyNames[MAX_MEMBER_NUM_PER_POLICY][128];
 };
+
+struct {
+	__uint(type, BPF_MAP_TYPE_HASH);
+	__uint(key_size, sizeof(__u32));
+	__uint(value_size, sizeof( struct policyNames));
+	__uint(map_flags, BPF_F_NO_PREALLOC);
+	__uint(max_entries, MAP_SIZE_OF_AUTH);
+} workload_policies SEC(".maps");
 
 static inline Istio__Security__Authorization *map_lookup_authz(const char *key)
 {
 	return (Istio__Security__Authorization*)kmesh_map_lookup_elem(&map_of_authz, key);
 }
 
+/*
 #ifdef SUPPORT_IP_MATCH
 static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_data)
 {
@@ -144,6 +148,7 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 	return UNMATCHED;
 }
 #endif
+*/
 
 static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
@@ -168,8 +173,8 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_t
 				break;
 			}
 
-			if (notPorts[i] == tuple_info->ipv4.dport || notPorts[i] == tuple_info->ipv6.dport) {
-				BPF_LOG(INFO, AUTH, "match not_ports[i]: %d\n", notPorts[i]);
+			if (bpf_htons(notPorts[i]) == tuple_info->ipv4.dport || bpf_htons(notPorts[i]) == tuple_info->ipv6.dport) {
+				BPF_LOG(INFO, AUTH, "match not_ports: %d\n", notPorts[i]);
 				return UNMATCHED;
 			}
 		}
@@ -187,8 +192,8 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_t
 			if (i >= match->n_destination_ports) {
 				break;
 			}
-
-			if (ports[i] == tuple_info->ipv4.dport || ports[i] == tuple_info->ipv6.dport) {
+			if (bpf_htons(ports[i]) == tuple_info->ipv4.dport || bpf_htons(ports[i])  == tuple_info->ipv6.dport) {
+				BPF_LOG(INFO, AUTH, "match ports: %d\n", ports[i]);
 				return MATCHED;
 			}
 		}
@@ -284,7 +289,7 @@ static inline int policy_manage(Istio__Security__Authorization* policy, struct b
 	void *rulesPtr = NULL;
 	Istio__Security__Rule *rule = NULL;
 	int matchFlag = 0;
-	__u32 i;
+	__u32 i = 0;
 
 	if (policy->n_rules == 0) {
 		BPF_LOG(ERR, AUTH, "auth policy %s has no rules\n", kmesh_get_ptr_val(policy->name));
@@ -299,7 +304,7 @@ static inline int policy_manage(Istio__Security__Authorization* policy, struct b
 	}
 
 #pragma unroll
-	for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
+	for (i = 0; i < 1; i++) {
 		if (i >= policy->n_rules) {
 			break;
 		}
@@ -328,7 +333,7 @@ static inline int match_workload_scope(struct bpf_sock_tuple *tuple_info)
 {
 	// todo:for workloadPolicys, do lookup policyInfo from authMap & check match
 	int ret = 0;
-	char policy_key[BPF_DATA_MAX_LEN] = "test-policy"; // 键为 "test-policy"
+	char policy_key[BPF_DATA_MAX_LEN] = "default/test-policy"; // 键为 "ns/test-policy"
 	Istio__Security__Authorization *policy = map_lookup_authz(policy_key);
 	if (!policy) {
 		return AUTH_ALLOW;
@@ -339,19 +344,6 @@ static inline int match_workload_scope(struct bpf_sock_tuple *tuple_info)
 	}
 	return ret;
 
-}
-
-static inline int xdp_deny_packet(struct xdp_info *info)
-{
-	return XDP_DROP;
-}
-
-static inline int rbac_manage(struct xdp_info *info, struct bpf_sock_tuple *tuple_info) 
-{
-	int workloadMatchAction = match_workload_scope(tuple_info);
-	if (workloadMatchAction == AUTH_ALLOW)
-		return XDP_PASS;
-	return xdp_deny_packet(info);
 }
 
 #endif

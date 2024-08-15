@@ -23,22 +23,15 @@
 
 #define AUTH_BY_XDP 1
 
-// struct {
-//     __uint(type, BPF_MAP_TYPE_HASH);
-//     __uint(key_size, BPF_DATA_MAX_LEN);
-//     __uint(value_size, sizeof(Istio__Security__Authorization));
-//     __uint(map_flags, BPF_F_NO_PREALLOC);
-//     __uint(max_entries, MAP_SIZE_OF_AUTH);
-// } map_of_authz SEC(".maps");
 
-// struct xdp_info {
-//     struct ethhdr *ethh;
-//     union {
-//         struct iphdr *iph;
-//         struct ipv6hdr *ip6h;
-//     };
-//     struct tcphdr *tcph;
-// };
+struct xdp_info {
+    struct ethhdr *ethh;
+    union {
+        struct iphdr *iph;
+        struct ipv6hdr *ip6h;
+    };
+    struct tcphdr *tcph;
+};
 
 static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
@@ -121,6 +114,20 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
     return PARSER_SUCC;
 }
 
+
+static inline int xdp_deny_packet(struct xdp_info *info)
+{
+	return XDP_DROP;
+}
+
+static inline int xdp_rbac_manage(struct xdp_info *info, struct bpf_sock_tuple *tuple_info) 
+{
+	int workloadMatchAction = match_workload_scope(tuple_info);
+	if (workloadMatchAction == AUTH_ALLOW)
+		return XDP_PASS;
+	return xdp_deny_packet(info);
+}
+
 SEC("xdp_auth")
 int xdp_shutdown(struct xdp_md *ctx)
 {
@@ -135,7 +142,7 @@ int xdp_shutdown(struct xdp_md *ctx)
     // never failed
     parser_tuple(&info, &tuple_info);
 #ifdef AUTH_BY_XDP
-        return rbac_manage(&info, &tuple_info);
+        return xdp_rbac_manage(&info, &tuple_info);
 
 #endif
     if (should_shutdown(&info, &tuple_info) == AUTH_FORBID)
