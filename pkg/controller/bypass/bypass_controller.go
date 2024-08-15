@@ -27,6 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	ns "kmesh.net/kmesh/pkg/controller/netns"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/utils/istio"
@@ -48,7 +49,7 @@ type Controller struct {
 }
 
 func NewByPassController(client kubernetes.Interface) *Controller {
-	informerFactory := utils.GetInformerFactory(client)
+	informerFactory := kube.GetInformerFactory(client)
 
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	_, _ = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{

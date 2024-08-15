@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package utils
+package kube
 
 import (
 	"os"
@@ -30,8 +30,6 @@ func TestGetInformerFactory(t *testing.T) {
 	defer os.Unsetenv("NODE_NAME")
 
 	client := fake.NewSimpleClientset()
-
-	informerFactory = nil
 	once = sync.Once{}
 
 	factory := GetInformerFactory(client)
@@ -40,4 +38,23 @@ func TestGetInformerFactory(t *testing.T) {
 
 	newFactory := GetInformerFactory(client)
 	assert.Equal(t, factory, newFactory, "informerFactory should be the same instance")
+}
+
+func TestStopInformerFactory(t *testing.T) {
+	nodeName := "test-node"
+	os.Setenv("NODE_NAME", nodeName)
+	defer os.Unsetenv("NODE_NAME")
+
+	client := fake.NewSimpleClientset()
+	once = sync.Once{}
+
+	factory := GetInformerFactory(client)
+	assert.NotNil(t, factory, "informerFactory should not be nil")
+
+	originalFactory := informerManager.factory
+
+	StopInformerFactory()
+
+	assert.Nil(t, informerManager.factory, "informerFactory should be nil after StopInformerFactory")
+	assert.NotEqual(t, originalFactory, informerManager.factory, "informerFactory should have been reset")
 }

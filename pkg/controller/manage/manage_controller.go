@@ -36,6 +36,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
 	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -76,7 +77,7 @@ func isPodReady(pod *corev1.Pod) bool {
 }
 
 func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) (*KmeshManageController, error) {
-	informerFactory := utils.GetInformerFactory(client)
+	informerFactory := kube.GetInformerFactory(client)
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	podLister := informerFactory.Core().V1().Pods().Lister()
 
