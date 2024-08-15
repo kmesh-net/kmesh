@@ -40,7 +40,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kmesh.net/kmesh/pkg/constants"
-	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -195,7 +194,6 @@ func TestHandleKmeshManage(t *testing.T) {
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	kube.StopInformerFactory()
 	controller, err := NewKmeshManageController(client, nil, 0, "")
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)
@@ -437,7 +435,6 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	kube.StopInformerFactory()
 	controller, err := NewKmeshManageController(client, nil, 0, "")
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)

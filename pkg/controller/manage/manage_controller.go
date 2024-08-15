@@ -77,7 +77,7 @@ func isPodReady(pod *corev1.Pod) bool {
 }
 
 func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) (*KmeshManageController, error) {
-	informerFactory := kube.GetInformerFactory(client)
+	informerFactory := kube.NewInformerFactory(client)
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	podLister := informerFactory.Core().V1().Pods().Lister()
 

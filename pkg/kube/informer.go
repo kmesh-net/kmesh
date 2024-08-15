@@ -16,68 +16,19 @@
 package kube
 
 import (
-	"os"
-	"sync"
-
 	"fmt"
+	"os"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 )
 
-var informerManager *InformerManager
-var once sync.Once
-
-type InformerManager struct {
-	client  kubernetes.Interface
-	mutex   sync.Mutex
-	factory informers.SharedInformerFactory
-}
-
-func NewInformerManager(client kubernetes.Interface) *InformerManager {
-	return &InformerManager{
-		client: client,
-	}
-}
-
-func getInformerFactory() informers.SharedInformerFactory {
-	informerManager.mutex.Lock()
-	defer informerManager.mutex.Unlock()
-
-	if informerManager.factory == nil {
-		nodeName := os.Getenv("NODE_NAME")
-		informerManager.factory = informers.NewSharedInformerFactoryWithOptions(informerManager.client, 0,
-			informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-				options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
-			}))
-	}
-
-	return informerManager.factory
-}
-
-func stopInformerFactory() {
-	informerManager.mutex.Lock()
-	defer informerManager.mutex.Unlock()
-
-	if informerManager.factory != nil {
-		informerManager.factory.Shutdown()
-		informerManager.factory.WaitForCacheSync(make(chan struct{}))
-		informerManager.factory = nil
-		once = sync.Once{}
-	}
-}
-
-func GetInformerFactory(client kubernetes.Interface) informers.SharedInformerFactory {
-	once.Do(func() {
-		informerManager = NewInformerManager(client)
-	})
-
-	return getInformerFactory()
-}
-
-func StopInformerFactory() {
-	if informerManager != nil {
-		stopInformerFactory()
-	}
+func NewInformerFactory(client kubernetes.Interface) informers.SharedInformerFactory {
+	nodeName := os.Getenv("NODE_NAME")
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, 0,
+		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
+			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
+		}))
+	return informerFactory
 }
