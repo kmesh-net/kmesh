@@ -41,6 +41,7 @@ func cleanPersistFile() {
 func TestWorkloadHash_Basic(t *testing.T) {
 	cleanPersistFile()
 	hashName := NewHashName()
+	defer hashName.Reset()
 
 	// "foo" does not collide with "bar"
 	// while "costarring" collides with "liquid"
@@ -110,4 +111,6 @@ func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
 			return
 		}
 	}
+
+	hashName.Reset()
 }

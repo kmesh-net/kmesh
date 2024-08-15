@@ -344,9 +344,10 @@ func (p *Processor) addNewServicesWithWorkload(workload *workloadapi.Workload, n
 
 func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 	var (
-		err error
-		bk  = bpf.BackendKey{}
-		bv  = bpf.BackendValue{}
+		err         error
+		bk          = bpf.BackendKey{}
+		bv          = bpf.BackendValue{}
+		networkMode = workload.GetNetworkMode()
 	)
 
 	uid := p.hashName.StrToNum(workload.GetUid())
@@ -375,9 +376,13 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 			return err
 		}
 
-		if err = p.storePodFrontendData(uid, ip); err != nil {
-			log.Errorf("storePodFrontendData failed, err:%s", err)
-			return err
+		// we should not store frontend data of hostname network mode pods
+		// please see https://github.com/kmesh-net/kmesh/issues/631
+		if networkMode != workloadapi.NetworkMode_HOST_NETWORK {
+			if err = p.storePodFrontendData(uid, ip); err != nil {
+				log.Errorf("storePodFrontendData failed, err:%s", err)
+				return err
+			}
 		}
 	}
 	return nil

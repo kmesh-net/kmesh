@@ -858,7 +858,7 @@ const ProtobufCMessageDescriptor istio__workload__workload__services_entry__desc
   (ProtobufCMessageInit) istio__workload__workload__services_entry__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__workload__field_descriptors[23] =
+static const ProtobufCFieldDescriptor istio__workload__workload__field_descriptors[24] =
 {
   {
     "name",
@@ -1136,6 +1136,18 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "network_mode",
+    25,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_ENUM,
+    0,   /* quantifier_offset */
+    offsetof(Istio__Workload__Workload, network_mode),
+    &istio__workload__network_mode__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned istio__workload__workload__field_indices_by_name[] = {
   2,   /* field[2] = addresses */
@@ -1151,6 +1163,7 @@ static const unsigned istio__workload__workload__field_indices_by_name[] = {
   13,   /* field[13] = native_tunnel */
   3,   /* field[3] = network */
   17,   /* field[17] = network_gateway */
+  23,   /* field[23] = network_mode */
   8,   /* field[8] = node */
   6,   /* field[6] = service_account */
   20,   /* field[20] = services */
@@ -1166,7 +1179,7 @@ static const ProtobufCIntRange istio__workload__workload__number_ranges[2 + 1] =
 {
   { 1, 0 },
   { 16, 14 },
-  { 0, 23 }
+  { 0, 24 }
 };
 const ProtobufCMessageDescriptor istio__workload__workload__descriptor =
 {
@@ -1176,7 +1189,7 @@ const ProtobufCMessageDescriptor istio__workload__workload__descriptor =
   "Istio__Workload__Workload",
   "istio.workload",
   sizeof(Istio__Workload__Workload),
-  23,
+  24,
   istio__workload__workload__field_descriptors,
   istio__workload__workload__field_indices_by_name,
   2,  istio__workload__workload__number_ranges,
@@ -1593,6 +1606,34 @@ const ProtobufCMessageDescriptor istio__workload__namespaced_hostname__descripto
   1,  istio__workload__namespaced_hostname__number_ranges,
   (ProtobufCMessageInit) istio__workload__namespaced_hostname__init,
   NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCEnumValue istio__workload__network_mode__enum_values_by_number[2] =
+{
+  { "STANDARD", "ISTIO__WORKLOAD__NETWORK_MODE__STANDARD", 0 },
+  { "HOST_NETWORK", "ISTIO__WORKLOAD__NETWORK_MODE__HOST_NETWORK", 1 },
+};
+static const ProtobufCIntRange istio__workload__network_mode__value_ranges[] = {
+{0, 0},{0, 2}
+};
+static const ProtobufCEnumValueIndex istio__workload__network_mode__enum_values_by_name[2] =
+{
+  { "HOST_NETWORK", 1 },
+  { "STANDARD", 0 },
+};
+const ProtobufCEnumDescriptor istio__workload__network_mode__descriptor =
+{
+  PROTOBUF_C__ENUM_DESCRIPTOR_MAGIC,
+  "istio.workload.NetworkMode",
+  "NetworkMode",
+  "Istio__Workload__NetworkMode",
+  "istio.workload",
+  2,
+  istio__workload__network_mode__enum_values_by_number,
+  2,
+  istio__workload__network_mode__enum_values_by_name,
+  1,
+  istio__workload__network_mode__value_ranges,
+  NULL,NULL,NULL,NULL   /* reserved[1234] */
 };
 static const ProtobufCEnumValue istio__workload__workload_status__enum_values_by_number[2] =
 {

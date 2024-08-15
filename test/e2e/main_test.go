@@ -90,6 +90,7 @@ const (
 	KmeshReleaseName                        = "kmesh"
 	KmeshDaemonsetName                      = "kmesh"
 	KmeshNamespace                          = "kmesh-system"
+	DataplaneModeKmesh                      = "Kmesh"
 )
 
 func getDefaultKmeshSrc() string {
@@ -120,7 +121,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		Prefix: "echo",
 		Inject: false,
 		Labels: map[string]string{
-			constants.DataplaneModeLabel: "Kmesh",
+			constants.DataplaneModeLabel: DataplaneModeKmesh,
 		},
 	})
 	if err != nil {

@@ -28,6 +28,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
+	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
@@ -80,7 +81,7 @@ func Test_handleWorkload(t *testing.T) {
 	assert.Equal(t, ev.BackendUid, workloadID)
 
 	// 3. add another workload with service
-	workload2 := createFakeWorkload("1.2.3.5")
+	workload2 := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
 	err = p.handleWorkload(workload2)
 	assert.NoError(t, err)
 
@@ -150,6 +151,45 @@ func Test_handleWorkload(t *testing.T) {
 	hashNameClean(p)
 }
 
+func Test_hostnameNetworkMode(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	p := newProcessor(workloadMap)
+	workload := createFakeWorkload("1.2.3.4", workloadapi.NetworkMode_STANDARD)
+	workloadWithoutService := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
+	workloadWithoutService.Services = nil
+	workloadHostname := createFakeWorkload("1.2.3.6", workloadapi.NetworkMode_HOST_NETWORK)
+
+	p.handleWorkload(workload)
+	p.handleWorkload(workloadWithoutService)
+	p.handleWorkload(workloadHostname)
+
+	// Check Workload Cache
+	checkWorkloadCache(t, p, workload)
+	checkWorkloadCache(t, p, workloadWithoutService)
+	checkWorkloadCache(t, p, workloadHostname)
+
+	// Check Frontend Map
+	checkFrontEndMapWithNetworkMode(t, workload.Addresses[0], p, workload.NetworkMode)
+	checkFrontEndMapWithNetworkMode(t, workloadWithoutService.Addresses[0], p, workloadWithoutService.NetworkMode)
+	checkFrontEndMapWithNetworkMode(t, workloadHostname.Addresses[0], p, workloadHostname.NetworkMode)
+}
+
+func checkWorkloadCache(t *testing.T, p *Processor, workload *workloadapi.Workload) {
+	ip := workload.Addresses[0]
+	address := cache.NetworkAddress{
+		Network: workload.Network,
+	}
+	address.Address, _ = netip.AddrFromSlice(ip)
+	// host network mode is not managed by kmesh
+	if workload.NetworkMode == workloadapi.NetworkMode_HOST_NETWORK {
+		assert.Nil(t, p.WorkloadCache.GetWorkloadByAddr(address))
+	} else {
+		assert.NotNil(t, p.WorkloadCache.GetWorkloadByAddr(address))
+	}
+	// We store pods by their uids regardless of their network mode
+	assert.NotNil(t, p.WorkloadCache.GetWorkloadByUid(workload.Uid))
+}
+
 func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workloadapi.Service, endpointCount uint32) {
 	var sv bpfcache.ServiceValue
 	err := p.bpf.ServiceLookup(&bpfcache.ServiceKey{ServiceId: svcId}, &sv)
@@ -173,6 +213,20 @@ func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workload
 		assert.Equal(t, test.EqualIp(bv.WaypointAddr, waypointAddr), true)
 	}
 	assert.Equal(t, bv.WaypointPort, nets.ConvertPortToBigEndian(wl.GetWaypoint().GetHboneMtlsPort()))
+}
+
+func checkFrontEndMapWithNetworkMode(t *testing.T, ip []byte, p *Processor, networkMode workloadapi.NetworkMode) (upstreamId uint32) {
+	var fk bpfcache.FrontendKey
+	var fv bpfcache.FrontendValue
+	nets.CopyIpByteFromSlice(&fk.Ip, ip)
+	err := p.bpf.FrontendLookup(&fk, &fv)
+	if networkMode != workloadapi.NetworkMode_HOST_NETWORK {
+		assert.NoError(t, err)
+		upstreamId = fv.UpstreamId
+	} else {
+		assert.Error(t, err)
+	}
+	return
 }
 
 func checkFrontEndMap(t *testing.T, ip []byte, p *Processor) (upstreamId uint32) {
@@ -204,6 +258,7 @@ func BenchmarkAddNewServicesWithWorkload(b *testing.B) {
 		err := workloadController.Processor.handleWorkload(workload)
 		assert.NoError(t, err)
 	}
+	workloadController.Processor.hashName.Reset()
 }
 
 func createTestWorkloadWithService(withService bool) *workloadapi.Workload {
@@ -245,7 +300,7 @@ func createTestWorkloadWithService(withService bool) *workloadapi.Workload {
 	return &workload
 }
 
-func createFakeWorkload(ip string) *workloadapi.Workload {
+func createFakeWorkload(ip string, networkMode workloadapi.NetworkMode) *workloadapi.Workload {
 	workload := workloadapi.Workload{
 		Namespace:         "ns",
 		Name:              "name",
@@ -257,6 +312,7 @@ func createFakeWorkload(ip string) *workloadapi.Workload {
 		WorkloadName:      "name",
 		Status:            workloadapi.WorkloadStatus_HEALTHY,
 		ClusterId:         "cluster0",
+		NetworkMode:       networkMode,
 		Services: map[string]*workloadapi.PortList{
 			"default/testsvc.default.svc.cluster.local": {
 				Ports: []*workloadapi.Port{
@@ -363,4 +419,5 @@ func hashNameClean(p *Processor) {
 		}
 		p.hashName.Delete(str)
 	}
+	p.hashName.Reset()
 }
