@@ -61,8 +61,7 @@ static inline void observe_on_close(struct bpf_sock *sk)
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
-        BPF_LOG(ERR, PROBE, "close bpf_sk_storage_get failed\n");
-        return;
+        BPF_LOG(INFO, PROBE, "TCP Connection closed or map_of_sock_storage cleaned up\n");
     }
 
     tcp_report(sk, tcp_sock, storage, BPF_TCP_CLOSE);
