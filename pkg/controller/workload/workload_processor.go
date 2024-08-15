@@ -549,11 +549,23 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 func (p *Processor) handleService(service *workloadapi.Service) error {
 	log.Debugf("service resource name: %s/%s", service.Namespace, service.Hostname)
 
+	containsPort := func(port uint32) bool {
+		for _, p := range service.GetPorts() {
+			if p.GetServicePort() == port {
+				return true
+			}
+		}
+
+		return false
+	}
+
 	// Preprocess service, remove the waypoint from waypoint service, otherwise it will fall into a loop in bpf
 	if service.Waypoint != nil {
 		// Currently istiod only set the waypoint address to the first address of the service
+		// When waypoints of different granularities are deployed together, the only waypoint service to be determined
+		// is whether it contains port 15021, ref: https://github.com/kmesh-net/kmesh/issues/691
 		// TODO: remove when upstream istiod will not set the waypoint address for itself
-		if slices.Equal(service.GetWaypoint().GetAddress().Address, service.Addresses[0].Address) {
+		if slices.Equal(service.GetWaypoint().GetAddress().Address, service.Addresses[0].Address) || containsPort(15021) {
 			service.Waypoint = nil
 		}
 	}
