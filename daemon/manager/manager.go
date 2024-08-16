@@ -23,6 +23,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
@@ -73,8 +74,13 @@ func NewCommand() *cobra.Command {
 
 // Execute start daemon manager process
 func Execute(configs *options.BootstrapConfigs) error {
+	err := rlimit.RemoveMemlock()
+	if err != nil {
+		log.Warn("rlimit.RemoveMemlock failed")
+	}
+
 	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
-	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
+	if err = bpfLoader.Start(configs.BpfConfig); err != nil {
 		return err
 	}
 	log.Info("bpf Start successful")

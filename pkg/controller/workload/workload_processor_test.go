@@ -41,8 +41,10 @@ func Test_handleWorkload(t *testing.T) {
 
 	// 1. handle workload with service, but service not handled yet
 	// In this case, only frontend map and backend map should be updated.
-	wl := createTestWorkloadWithService()
-	_ = p.handleDataWithService(createTestWorkloadWithService())
+	wl := createTestWorkloadWithService(true)
+	err := p.handleWorkload(wl)
+	assert.NoError(t, err)
+
 	var (
 		ek bpfcache.EndpointKey
 		ev bpfcache.EndpointValue
@@ -74,13 +76,14 @@ func Test_handleWorkload(t *testing.T) {
 	// 2.3 check endpoint map now contains the workloads
 	ek.BackendIndex = 1
 	ek.ServiceId = svcID
-	err := p.bpf.EndpointLookup(&ek, &ev)
+	err = p.bpf.EndpointLookup(&ek, &ev)
 	assert.NoError(t, err)
 	assert.Equal(t, ev.BackendUid, workloadID)
 
 	// 3. add another workload with service
 	workload2 := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
-	_ = p.handleDataWithService(workload2)
+	err = p.handleWorkload(workload2)
+	assert.NoError(t, err)
 
 	// 3.1 check endpoint map now contains the new workloads
 	workload2ID := checkFrontEndMap(t, workload2.Addresses[0], p)
@@ -93,13 +96,56 @@ func Test_handleWorkload(t *testing.T) {
 	// 3.2 check service map contains service
 	checkServiceMap(t, p, svcID, fakeSvc, 2)
 
-	// 4. add namespace scoped waypoint service
+	// 4 modify workload2 attribute not relationship with services
+	workload2.Waypoint = &workloadapi.GatewayAddress{
+		Destination: &workloadapi.GatewayAddress_Address{
+			Address: &workloadapi.NetworkAddress{
+				Address: netip.MustParseAddr("10.10.10.10").AsSlice(),
+			},
+		},
+		HboneMtlsPort: 15008,
+	}
+
+	err = p.handleWorkload(workload2)
+	assert.NoError(t, err)
+
+	// 4.1 check endpoint map now contains the new workloads
+	workload2ID = checkFrontEndMap(t, workload2.Addresses[0], p)
+	ek.BackendIndex = 2
+	ek.ServiceId = svcID
+	err = p.bpf.EndpointLookup(&ek, &ev)
+	assert.NoError(t, err)
+	assert.Equal(t, ev.BackendUid, workload2ID)
+
+	// 4.2 check service map contains service
+	checkServiceMap(t, p, svcID, fakeSvc, 2)
+
+	// 4.3 check backend map contains waypoint
+	checkBackendMap(t, p, workload2ID, workload2)
+
+	// 5 remove relationship with workload and service
+	workload5 := createTestWorkloadWithService(false)
+	workload5.Uid = wl.Uid
+	err = p.handleWorkload(workload5)
+	assert.NoError(t, err)
+
+	// 5.1 check service map
+	checkServiceMap(t, p, svcID, fakeSvc, 1)
+
+	// 5.2 check endpoint map
+	ek.BackendIndex = 1
+	ek.ServiceId = svcID
+	err = p.bpf.EndpointLookup(&ek, &ev)
+	assert.NoError(t, err)
+	assert.Equal(t, workload2ID, ev.BackendUid)
+
+	// 6. add namespace scoped waypoint service
 	wpSvc := createFakeService("waypoint", "10.240.10.5", "10.240.10.5")
 	_ = p.handleService(wpSvc)
 	assert.Nil(t, wpSvc.Waypoint)
-	// 4.1 check front end map contains service
+	// 6.1 check front end map contains service
 	svcID = checkFrontEndMap(t, wpSvc.Addresses[0].Address, p)
-	// 4.2 check service map contains service, but no waypoint address
+	// 6.2 check service map contains service, but no waypoint address
 	checkServiceMap(t, p, svcID, wpSvc, 0)
 
 	hashNameClean(p)
@@ -148,7 +194,7 @@ func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workload
 	var sv bpfcache.ServiceValue
 	err := p.bpf.ServiceLookup(&bpfcache.ServiceKey{ServiceId: svcId}, &sv)
 	assert.NoError(t, err)
-	assert.Equal(t, sv.EndpointCount, endpointCount)
+	assert.Equal(t, endpointCount, sv.EndpointCount)
 	waypointAddr := fakeSvc.GetWaypoint().GetAddress().GetAddress()
 	if waypointAddr != nil {
 		assert.Equal(t, test.EqualIp(sv.WaypointAddr, waypointAddr), true)
@@ -193,7 +239,7 @@ func checkFrontEndMap(t *testing.T, ip []byte, p *Processor) (upstreamId uint32)
 	return
 }
 
-func BenchmarkHandleDataWithService(b *testing.B) {
+func BenchmarkAddNewServicesWithWorkload(b *testing.B) {
 	t := &testing.T{}
 	config := options.BpfConfig{
 		Mode:        constants.WorkloadMode,
@@ -208,14 +254,14 @@ func BenchmarkHandleDataWithService(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		workload := createTestWorkloadWithService()
-		err := workloadController.Processor.handleDataWithService(workload)
+		workload := createTestWorkloadWithService(true)
+		err := workloadController.Processor.handleWorkload(workload)
 		assert.NoError(t, err)
 	}
 	workloadController.Processor.hashName.Reset()
 }
 
-func createTestWorkloadWithService() *workloadapi.Workload {
+func createTestWorkloadWithService(withService bool) *workloadapi.Workload {
 	workload := workloadapi.Workload{
 		Namespace:         "ns",
 		Name:              "name",
@@ -227,7 +273,11 @@ func createTestWorkloadWithService() *workloadapi.Workload {
 		WorkloadName:      "name",
 		Status:            workloadapi.WorkloadStatus_HEALTHY,
 		ClusterId:         "cluster0",
-		Services: map[string]*workloadapi.PortList{
+		Services:          map[string]*workloadapi.PortList{},
+	}
+
+	if withService == true {
+		workload.Services = map[string]*workloadapi.PortList{
 			"default/testsvc.default.svc.cluster.local": {
 				Ports: []*workloadapi.Port{
 					{
@@ -244,7 +294,7 @@ func createTestWorkloadWithService() *workloadapi.Workload {
 					},
 				},
 			},
-		},
+		}
 	}
 	workload.Uid = "cluster0/" + rand.String(6)
 	return &workload
@@ -329,8 +379,9 @@ func Test_deleteWorkloadWithRestart(t *testing.T) {
 
 	// 1. handle workload with service, but service not handled yet
 	// In this case, only frontend map and backend map should be updated.
-	wl := createTestWorkloadWithService()
-	_ = p.handleDataWithService(createTestWorkloadWithService())
+	wl := createTestWorkloadWithService(true)
+	err := p.handleWorkload(wl)
+	assert.NoError(t, err)
 
 	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
 	checkBackendMap(t, p, workloadID, wl)

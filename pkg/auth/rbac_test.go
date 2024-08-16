@@ -1967,7 +1967,7 @@ func TestRbac_doRbac(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			workloadCache := cache.NewWorkloadCache()
-			workloadCache.AddWorkload(tt.args.workload)
+			workloadCache.AddOrUpdateWorkload(tt.args.workload)
 			rbac := &Rbac{
 				policyStore:   tt.fields.policyStore,
 				workloadCache: workloadCache,
@@ -2145,7 +2145,7 @@ func TestRbac_Run(t *testing.T) {
 	}
 
 	workloadCache := cache.NewWorkloadCache()
-	workloadCache.AddWorkload(&workloadapi.Workload{
+	workloadCache.AddOrUpdateWorkload(&workloadapi.Workload{
 		Name: "ut-workload",
 		Uid:  "123456",
 		Addresses: [][]byte{

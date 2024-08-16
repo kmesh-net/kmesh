@@ -124,7 +124,7 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 
 				workloadController.Processor = newProcessor(workloadMap)
 				workload := createFakeWorkload("10.10.10.1", workloadapi.NetworkMode_STANDARD)
-				workloadController.Processor.WorkloadCache.AddWorkload(workload)
+				workloadController.Processor.WorkloadCache.AddOrUpdateWorkload(workload)
 				patches2.ApplyMethodFunc(fakeClient.DeltaClient, "Send",
 					func(req *discoveryv3.DeltaDiscoveryRequest) error {
 						if req.TypeUrl == AddressType {

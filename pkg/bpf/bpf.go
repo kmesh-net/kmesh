@@ -30,7 +30,6 @@ import (
 	"syscall"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/rlimit"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/constants"
@@ -115,10 +114,6 @@ func StartMda() error {
 
 func (l *BpfLoader) Start(config *options.BpfConfig) error {
 	var err error
-
-	if err = rlimit.RemoveMemlock(); err != nil {
-		return err
-	}
 
 	if l.VersionMap == nil {
 		return fmt.Errorf("NewVersionMap failed")

@@ -353,7 +353,7 @@ func TestMetricGetWorkloadByAddress(t *testing.T) {
 			m := MetricController{
 				workloadCache: cache.NewWorkloadCache(),
 			}
-			m.workloadCache.AddWorkload(workload)
+			m.workloadCache.AddOrUpdateWorkload(workload)
 			if got, _ := m.getWorkloadByAddress(tt.args.address); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Metric.getWorkloadByAddress() = %v, want %v", got, tt.want)
 			}
@@ -441,8 +441,8 @@ func TestBuildworkloadMetric(t *testing.T) {
 			m := MetricController{
 				workloadCache: cache.NewWorkloadCache(),
 			}
-			m.workloadCache.AddWorkload(dstWorkload)
-			m.workloadCache.AddWorkload(srcWorkload)
+			m.workloadCache.AddOrUpdateWorkload(dstWorkload)
+			m.workloadCache.AddOrUpdateWorkload(srcWorkload)
 			got := m.buildWorkloadMetric(tt.args.data)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Metric.buildMetric() = %v, want %v", got, tt.want)
@@ -576,8 +576,8 @@ func TestBuildServiceMetric(t *testing.T) {
 			m := MetricController{
 				workloadCache: cache.NewWorkloadCache(),
 			}
-			m.workloadCache.AddWorkload(dstWorkload)
-			m.workloadCache.AddWorkload(srcWorkload)
+			m.workloadCache.AddOrUpdateWorkload(dstWorkload)
+			m.workloadCache.AddOrUpdateWorkload(srcWorkload)
 			got := m.buildServiceMetric(tt.args.data)
 			assert.Equal(t, tt.want, got)
 		})
