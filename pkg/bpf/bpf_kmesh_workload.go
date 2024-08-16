@@ -22,6 +22,7 @@ package bpf
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
@@ -83,15 +84,6 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		return nil, err
 	}
 
-	if GetStartType() == Restart {
-		return spec, nil
-	}
-
-	value := reflect.ValueOf(sc.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
 }
 
@@ -135,34 +127,54 @@ func (sc *BpfSockConnWorkload) close() error {
 
 func (sc *BpfSockConnWorkload) Attach() error {
 	var err error
-	cgopt := link.CgroupOptions{
+	cgopt4 := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect4Prog,
 	}
 
-	sc.Link, err = link.AttachCgroup(cgopt)
-	if err != nil {
-		return err
-	}
-
-	cgopt = link.CgroupOptions{
+	cgopt6 := link.CgroupOptions{
 		Path:    sc.Info6.Cgroup2Path,
 		Attach:  sc.Info6.AttachType,
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect6Prog,
 	}
 
-	sc.Link6, err = link.AttachCgroup(cgopt)
-
 	if GetStartType() == Restart {
-		return err
-	}
+		pinPath4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_prog")
+		sclink4, err := link.LoadPinnedLink(pinPath4, &ebpf.LoadPinOptions{})
+		if err != nil {
+			return err
+		}
+		if err = sclink4.Update(cgopt4.Program); err != nil {
+			return fmt.Errorf("updating link %s %w", pinPath4, err)
+		}
 
-	if err := sc.Link.Pin(sc.Info.BpfFsPath + "sockconn_prog"); err != nil {
-		return err
-	}
-	if err := sc.Link6.Pin(sc.Info.BpfFsPath + "sockconn6_prog"); err != nil {
-		return err
+		pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
+		sclink6, err := link.LoadPinnedLink(pinPath6, &ebpf.LoadPinOptions{})
+		if err != nil {
+			return err
+		}
+		if err = sclink6.Update(cgopt6.Program); err != nil {
+			return fmt.Errorf("updating link %s %w", pinPath6, err)
+		}
+	} else {
+		sc.Link, err = link.AttachCgroup(cgopt4)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.Link.Pin(sc.Info.BpfFsPath + "sockconn_prog"); err != nil {
+			return err
+		}
+
+		sc.Link6, err = link.AttachCgroup(cgopt6)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.Link6.Pin(sc.Info.BpfFsPath + "sockconn6_prog"); err != nil {
+			return err
+		}
 	}
 
 	return err
@@ -252,15 +264,6 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
-	if GetStartType() == Restart {
-		return spec, nil
-	}
-
-	value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
-	if err = pinPrograms(&value, so.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
 }
 
@@ -285,19 +288,27 @@ func (so *BpfSockOpsWorkload) Attach() error {
 		Program: so.KmeshSockopsWorkloadObjects.SockopsProg,
 	}
 
-	lk, err := link.AttachCgroup(cgopt)
-	if err != nil {
-		return err
-	}
-	so.Link = lk
-
 	if GetStartType() == Restart {
-		return nil
+		pinPath := filepath.Join(so.Info.BpfFsPath, "cgroup_sockops_prog")
+		solink, err := link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
+		if err != nil {
+			return err
+		}
+		if err = solink.Update(cgopt.Program); err != nil {
+			return fmt.Errorf("updating link %s %w", pinPath, err)
+		}
+	} else {
+		lk, err := link.AttachCgroup(cgopt)
+		if err != nil {
+			return err
+		}
+		so.Link = lk
+
+		if err := lk.Pin(so.Info.BpfFsPath + "cgroup_sockops_prog"); err != nil {
+			return err
+		}
 	}
 
-	if err := lk.Pin(so.Info.BpfFsPath + "cgroup_sockops_prog"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -385,14 +396,6 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
-	if GetStartType() == Restart {
-		return spec, nil
-	}
-
-	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
-	if err = pinPrograms(&value, sm.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
 	return spec, nil
 }
 
@@ -505,15 +508,6 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 
 	setMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	if GetStartType() == Restart {
-		return spec, nil
-	}
-
-	value := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthPrograms)
-	if err = pinPrograms(&value, xa.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
