@@ -162,7 +162,7 @@ func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) ([]string, [
 	var newServices []string
 
 	if workload == nil {
-		return deletedServices, newServices
+		return nil, nil
 	}
 	uid := workload.Uid
 
@@ -172,7 +172,7 @@ func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) ([]string, [
 	oldWorkload, exist := w.byUid[uid]
 	if exist {
 		if proto.Equal(workload, oldWorkload) {
-			return deletedServices, newServices
+			return nil, nil
 		}
 		// remove same uid but old address workload, avoid leak workload by address.
 		for _, ip := range oldWorkload.Addresses {
@@ -184,6 +184,7 @@ func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) ([]string, [
 		// compare services
 		deletedServices, newServices = w.compareWorkloadServices(oldWorkload, workload)
 	} else {
+		deletedServices = nil
 		newServices = w.getUniqueServicesOnLeftWorkload(workload, oldWorkload)
 	}
 

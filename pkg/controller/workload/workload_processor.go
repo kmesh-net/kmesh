@@ -171,19 +171,18 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	if eks := p.bpf.EndpointIterFindKey(backendUid); len(eks) != 0 {
 		err = p.deleteEndpointRecords(eks)
 		if err != nil {
-			goto failed
+			return err
 		}
 	}
 
 	bkDelete.BackendUid = backendUid
 	if err = p.bpf.BackendDelete(&bkDelete); err != nil {
 		log.Errorf("BackendDelete failed: %s", err)
-		goto failed
+		return err
 	}
-	p.hashName.Delete(uid)
 
-failed:
-	return err
+	p.hashName.Delete(uid)
+	return nil
 }
 
 func (p *Processor) deleteFrontendData(id uint32) error {
@@ -294,10 +293,11 @@ func (p *Processor) deleteResidualServicesWithWorkload(workload *workloadapi.Wor
 		serviceId uint32
 	)
 
-	if len(services) == 0 {
+	if services == nil {
 		return nil
 	}
 
+	log.Infof("deleteResidualServicesWithWorkload: %v", services)
 	eks := make([]bpf.EndpointKey, 0)
 	workloadUid := p.hashName.StrToNum(workload.GetUid())
 	serviceIds := make(map[uint32]struct{})
@@ -326,6 +326,11 @@ func (p *Processor) addNewServicesWithWorkload(workload *workloadapi.Workload, n
 		sv  = bpf.ServiceValue{}
 	)
 
+	if newServices == nil {
+		return nil
+	}
+
+	log.Infof("addNewServicesWithWorkload: %v", newServices)
 	backend_uid := p.hashName.StrToNum(workload.GetUid())
 	for _, serviceName := range newServices {
 		sk.ServiceId = p.hashName.StrToNum(serviceName)
@@ -394,7 +399,6 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
 
 	deletedServices, newServices = p.WorkloadCache.AddOrUpdateWorkload(workload)
-	log.Debugf("delServices:%v, newServices:%v", deletedServices, newServices)
 
 	// Delete Residual Services on the Workload
 	if err := p.deleteResidualServicesWithWorkload(workload, deletedServices); err != nil {
