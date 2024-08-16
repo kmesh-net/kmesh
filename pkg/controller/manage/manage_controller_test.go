@@ -198,7 +198,6 @@ func TestHandleKmeshManage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)
 	}
-
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 

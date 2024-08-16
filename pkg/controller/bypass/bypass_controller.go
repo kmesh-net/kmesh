@@ -18,17 +18,16 @@ package bypass
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
 	ns "kmesh.net/kmesh/pkg/controller/netns"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/utils/istio"
@@ -50,11 +49,7 @@ type Controller struct {
 }
 
 func NewByPassController(client kubernetes.Interface) *Controller {
-	nodeName := os.Getenv("NODE_NAME")
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, DefaultInformerSyncPeriod,
-		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
-		}))
+	informerFactory := kube.NewInformerFactory(client)
 
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	_, _ = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -144,7 +139,6 @@ func isPodBeingDeleted(pod *corev1.Pod) bool {
 	return pod.ObjectMeta.DeletionTimestamp != nil
 }
 
-// TODO: make it a idempotent operation
 func addIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-I", "PREROUTING", "1", "-j", "RETURN"},
@@ -153,6 +147,14 @@ func addIptables(ns string) error {
 
 	execFunc := func(netns.NetNS) error {
 		log.Infof("Running add iptables rule in namespace:%s", ns)
+		//To avoid iptables rules being added multiple times due to problems with k8s resource synchronization
+		delIptArgs := [][]string{
+			{"-t", "nat", "-D", "PREROUTING", "-j", "RETURN"},
+			{"-t", "nat", "-D", "OUTPUT", "-j", "RETURN"},
+		}
+		for _, delargs := range delIptArgs {
+			_ = utils.Execute("iptables", delargs)
+		}
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
 				return fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
@@ -166,7 +168,6 @@ func addIptables(ns string) error {
 	return nil
 }
 
-// TODO: make it a idempotent operation
 func deleteIptables(ns string) error {
 	iptArgs := [][]string{
 		{"-t", "nat", "-D", "PREROUTING", "-j", "RETURN"},

@@ -19,7 +19,6 @@ package kmeshmanage
 import (
 	"fmt"
 	"net"
-	"os"
 
 	"github.com/cilium/ebpf/link"
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -27,7 +26,6 @@ import (
 	"istio.io/istio/pkg/spiffe"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
@@ -38,6 +36,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
 	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -78,12 +77,7 @@ func isPodReady(pod *corev1.Pod) bool {
 }
 
 func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) (*KmeshManageController, error) {
-	nodeName := os.Getenv("NODE_NAME")
-
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, 0,
-		informers.WithTweakListOptions(func(options *metav1.ListOptions) {
-			options.FieldSelector = fmt.Sprintf("spec.nodeName=%s", nodeName)
-		}))
+	informerFactory := kube.NewInformerFactory(client)
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	podLister := informerFactory.Core().V1().Pods().Lister()
 
