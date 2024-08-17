@@ -7,10 +7,11 @@
 #include "config.h"
 #include "bpf_common.h"
 
-#define MAX_PORT_COUNT    10
-#define MAX_SERVICE_COUNT 10
-#define RINGBUF_SIZE      (1 << 12)
-#define AUTHZ_NAME_MAX_LEN BPF_DATA_MAX_LEN
+#define MAX_PORT_COUNT            10
+#define MAX_SERVICE_COUNT         10
+#define RINGBUF_SIZE              (1 << 12)
+#define AUTHZ_NAME_MAX_LEN        128
+#define MAX_MEMBER_NUM_PER_POLICY 8
 
 #pragma pack(1)
 // frontend map
@@ -104,5 +105,17 @@ struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, RINGBUF_SIZE);
 } map_of_tuple SEC(".maps");
+
+typedef struct {
+    char policyNames[MAX_MEMBER_NUM_PER_POLICY][AUTHZ_NAME_MAX_LEN];
+} wk_policies_v;
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(wk_policies_v));
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __uint(max_entries, MAP_SIZE_OF_AUTH);
+} map_of_workload_policy SEC(".maps");
 
 #endif

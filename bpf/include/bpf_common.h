@@ -16,15 +16,12 @@
 /* Ip(0.0.0.2 | ::2) used for control command, e.g. KmeshControl */
 #define CONTROL_CMD_IP 2
 
-
 #define MAP_SIZE_OF_OUTTER_MAP 8192
 
 #define BPF_DATA_MAX_LEN                                                                                               \
     192 /* this value should be                                                                                        \
 small that make compile success */
 #define BPF_INNER_MAP_DATA_LEN 1300
-
-
 
 struct manager_key {
     union {

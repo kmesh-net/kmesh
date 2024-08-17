@@ -52,8 +52,9 @@ func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
 		return nil
 	}
 	key := authPolicy.ResourceName()
-	//todo
-	flushAuthzMap(key, authPolicy)
+	if err := flushAuthzMap(key, authPolicy); err != nil {
+		return fmt.Errorf("flushAuthzMap failed  %v ", err)
+	}
 
 	ps.rwLock.Lock()
 	defer ps.rwLock.Unlock()
@@ -88,8 +89,10 @@ func (ps *policyStore) removePolicy(policyKey string) {
 		log.Warnf("Auth policy key %s does not exist in byKey", policyKey)
 		return
 	}
-	// todo
-	maps_v2.AuthorizationDelete(policyKey)
+
+	if err := maps_v2.AuthorizationDelete(policyKey); err != nil {
+		log.Warnf("Auth policy key %s delete failed: %v", policyKey, err)
+	}
 	// remove authPolicy from byKey
 	delete(ps.byKey, policyKey)
 

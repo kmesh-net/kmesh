@@ -107,7 +107,7 @@ func AuthorizationDelete(key string) error {
 
 	ret := C.deserial_delete_elem(unsafe.Pointer(cKey), unsafe.Pointer(&C.istio__security__authorization__descriptor))
 	if ret != 0 {
-		return fmt.Errorf("AuthorizationDelete deserial_delete_elem failed")
+		return fmt.Errorf("AuthorizationDelete deserial_delete_elem failed:%v", ret)
 	}
 	return nil
 }

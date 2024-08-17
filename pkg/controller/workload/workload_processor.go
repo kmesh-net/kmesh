@@ -158,8 +158,9 @@ func (p *Processor) removeWorkloadResource(removedResources []string) error {
 
 func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	var (
-		err      error
-		bkDelete = bpf.BackendKey{}
+		err       error
+		bkDelete  = bpf.BackendKey{}
+		wpkDelete = bpf.WorkloadPolicy_key{}
 	)
 
 	backendUid := p.hashName.Hash(uid)
@@ -182,6 +183,14 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	if err = p.bpf.BackendDelete(&bkDelete); err != nil {
 		log.Errorf("BackendDelete %d failed: %v", backendUid, err)
 		return err
+	}
+
+	if len(p.WorkloadCache.GetWorkloadByUid(uid).AuthorizationPolicies) > 0 {
+		wpkDelete.WorklodId = backendUid
+		if err = p.bpf.WorkloadPolicyDelete(&wpkDelete); err != nil {
+			log.Errorf("WorkloadPolicyDelete failed: %s", err)
+			return err
+		}
 	}
 
 	p.hashName.Delete(uid)
@@ -371,6 +380,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
 
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
+	p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
 
 	unboundedEndpointKeys, newServices := p.compareWorkloadServices(workload)
 	if err := p.handleWorkloadUnboundServices(workload, unboundedEndpointKeys); err != nil {
@@ -640,6 +650,29 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 	}
 
 	return nil
+}
+
+func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
+	var (
+		key   = bpf.WorkloadPolicy_key{}
+		value = bpf.WorkloadPolicy_value{}
+	)
+	if len(polices) == 0 {
+		return
+	}
+	key.WorklodId = p.hashName.StrToNum(uid)
+	for i, v := range polices {
+		if i < len(value.PolicyNames) {
+			copy(value.PolicyNames[i][:], []byte(v))
+		} else {
+			log.Warnf("Exceeded the number of elements in PolicyNames.")
+			break
+		}
+	}
+
+	if err := p.bpf.WorkloadPolicyUpdate(&key, &value); err != nil {
+		log.Errorf("storeWorkloadPolicies failed, err: %s", err)
+	}
 }
 
 // deleteEndpointRecords deletes endpoint from endpoint map and simultaneously update service map

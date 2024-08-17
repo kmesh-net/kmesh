@@ -17,7 +17,6 @@
 #define BPF_LOGTYPE_ROUTER_CONFIG BPF_DEBUG_ON
 #define BPF_LOGTYPE_COMMON        BPF_DEBUG_ON
 
-
 #define BPF_OK 1
 
 #define _(P)                                                                                                           \
