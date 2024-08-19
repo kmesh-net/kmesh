@@ -17,10 +17,14 @@
 package telemetry
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"reflect"
 	"testing"
+	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"github.com/prometheus/client_golang/prometheus"
 	dto "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
@@ -705,4 +709,199 @@ func Test_buildServiceMetric(t *testing.T) {
 			assert.Equal(t, tt.want, got)
 		})
 	}
+}
+
+func TestMetricController_buildMetric(t *testing.T) {
+	t.Run("Ipv4 address build metrics test", func(t *testing.T) {
+		workloadMetrics := []*prometheus.GaugeVec{
+			tcpReceivedBytesInWorkload,
+			tcpSentBytesInWorkload,
+		}
+		serviceMetrics := []*prometheus.GaugeVec{
+			tcpReceivedBytesInService,
+			tcpSentBytesInService,
+		}
+		ch := make(chan []byte, 100)
+		byteData := []byte{0x0, 0x0, 0x0, 0x0, 0xa, 0xf4, 0x0, 0xa, 0xa, 0xf4, 0x0, 0xb, 0x94, 0xd6, 0x50, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x57, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x7, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x28, 0xef, 0x30, 0x0, 0x0, 0x0, 0x0, 0x0, 0x92, 0x78, 0x6, 0x80, 0xa6, 0xf5, 0xb, 0x0}
+		ch <- byteData
+		ctx, cancel := context.WithCancel(context.Background())
+		m := MetricController{
+			workloadCache: cache.NewWorkloadCache(),
+		}
+		go RunPrometheusClient(ctx)
+		go m.buildMetric(ctx, ch)
+		serviceLabels := map[string]string{
+			"connection_security_policy":     "mutual_tls",
+			"destination_app":                "-",
+			"destination_canonical_revision": "-",
+			"destination_canonical_service":  "-",
+			"destination_cluster":            "-",
+			"destination_principal":          "-",
+			"destination_service":            "-",
+			"destination_service_name":       "-",
+			"destination_service_namespace":  "-",
+			"destination_version":            "-",
+			"destination_workload":           "-",
+			"destination_workload_namespace": "-",
+			"reporter":                       "destination",
+			"request_protocol":               "tcp",
+			"response_flags":                 "-",
+			"source_app":                     "-",
+			"source_canonical_revision":      "-",
+			"source_canonical_service":       "-",
+			"source_cluster":                 "-",
+			"source_principal":               "-",
+			"source_version":                 "-",
+			"source_workload":                "-",
+			"source_workload_namespace":      "-",
+		}
+		workloadLabels := map[string]string{
+			"connection_security_policy":     "mutual_tls",
+			"destination_app":                "-",
+			"destination_canonical_revision": "-",
+			"destination_canonical_service":  "-",
+			"destination_cluster":            "-",
+			"destination_pod_address":        "-",
+			"destination_pod_name":           "-",
+			"destination_pod_namespace":      "-",
+			"destination_principal":          "-",
+			"destination_version":            "-",
+			"destination_workload":           "-",
+			"destination_workload_namespace": "-",
+			"reporter":                       "destination",
+			"request_protocol":               "tcp",
+			"response_flags":                 "-",
+			"source_app":                     "-",
+			"source_canonical_revision":      "-",
+			"source_canonical_service":       "-",
+			"source_cluster":                 "-",
+			"source_principal":               "-",
+			"source_version":                 "-",
+			"source_workload":                "-",
+			"source_workload_namespace":      "-",
+		}
+		time.Sleep(50 * time.Millisecond)
+		for _, metric := range serviceMetrics {
+			_, err := metric.GetMetricWith(serviceLabels)
+			assert.NoError(t, err)
+		}
+		for _, metric := range workloadMetrics {
+			_, err := metric.GetMetricWith(workloadLabels)
+			assert.NoError(t, err)
+		}
+		cancel()
+	})
+
+	t.Run("Ipv6 address build metrics test", func(t *testing.T) {
+		workloadMetrics := []*prometheus.GaugeVec{
+			tcpReceivedBytesInWorkload,
+			tcpSentBytesInWorkload,
+		}
+		serviceMetrics := []*prometheus.GaugeVec{
+			tcpReceivedBytesInService,
+			tcpSentBytesInService,
+		}
+		ch := make(chan []byte, 100)
+		byteData := []byte{0x1, 0x0, 0x0, 0x0, 0xa, 0xf4, 0x0, 0xa, 0xa, 0xf4, 0x0, 0xb, 0x94, 0xd6, 0x50, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x57, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x7, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x28, 0xef, 0x30, 0x0, 0x0, 0x0, 0x0, 0x0, 0x92, 0x78, 0x6, 0x80, 0xa6, 0xf5, 0xb, 0x0}
+		ch <- byteData
+		ctx, cancel := context.WithCancel(context.Background())
+		m := MetricController{
+			workloadCache: cache.NewWorkloadCache(),
+		}
+		go RunPrometheusClient(ctx)
+		go m.buildMetric(ctx, ch)
+		serviceLabels := map[string]string{
+			"connection_security_policy":     "mutual_tls",
+			"destination_app":                "-",
+			"destination_canonical_revision": "-",
+			"destination_canonical_service":  "-",
+			"destination_cluster":            "-",
+			"destination_principal":          "-",
+			"destination_service":            "-",
+			"destination_service_name":       "-",
+			"destination_service_namespace":  "-",
+			"destination_version":            "-",
+			"destination_workload":           "-",
+			"destination_workload_namespace": "-",
+			"reporter":                       "source",
+			"request_protocol":               "tcp",
+			"response_flags":                 "-",
+			"source_app":                     "-",
+			"source_canonical_revision":      "-",
+			"source_canonical_service":       "-",
+			"source_cluster":                 "-",
+			"source_principal":               "-",
+			"source_version":                 "-",
+			"source_workload":                "-",
+			"source_workload_namespace":      "-",
+		}
+		workloadLabels := map[string]string{
+			"connection_security_policy":     "mutual_tls",
+			"destination_app":                "-",
+			"destination_canonical_revision": "-",
+			"destination_canonical_service":  "-",
+			"destination_cluster":            "-",
+			"destination_pod_address":        "-",
+			"destination_pod_name":           "-",
+			"destination_pod_namespace":      "-",
+			"destination_principal":          "-",
+			"destination_version":            "-",
+			"destination_workload":           "-",
+			"destination_workload_namespace": "-",
+			"reporter":                       "source",
+			"request_protocol":               "tcp",
+			"response_flags":                 "-",
+			"source_app":                     "-",
+			"source_canonical_revision":      "-",
+			"source_canonical_service":       "-",
+			"source_cluster":                 "-",
+			"source_principal":               "-",
+			"source_version":                 "-",
+			"source_workload":                "-",
+			"source_workload_namespace":      "-",
+		}
+		time.Sleep(50 * time.Millisecond)
+		for _, metric := range serviceMetrics {
+			_, err := metric.GetMetricWith(serviceLabels)
+			assert.NoError(t, err)
+		}
+		for _, metric := range workloadMetrics {
+			_, err := metric.GetMetricWith(workloadLabels)
+			assert.NoError(t, err)
+		}
+		cancel()
+	})
+
+	t.Run("unsupport ip family", func(t *testing.T) {
+		ch := make(chan []byte, 100)
+		byteData := []byte{0x1, 0x1, 0x0, 0x0, 0xa, 0xf4, 0x0, 0xa, 0xa, 0xf4, 0x0, 0xb, 0x94, 0xd6, 0x50, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x57, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x2, 0x0, 0x0, 0x0, 0x7, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x28, 0xef, 0x30, 0x0, 0x0, 0x0, 0x0, 0x0, 0x92, 0x78, 0x6, 0x80, 0xa6, 0xf5, 0xb, 0x0}
+		ch <- byteData
+		ctx, cancel := context.WithCancel(context.Background())
+		m := MetricController{
+			workloadCache: cache.NewWorkloadCache(),
+		}
+		go RunPrometheusClient(ctx)
+		go m.buildMetric(ctx, ch)
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	})
+
+	t.Run("build requestdata error", func(t *testing.T) {
+		ch := make(chan []byte, 100)
+		byteData := []byte{0x0, 0x0, 0x0, 0x0, 0xa, 0xf4, 0x0, 0xa, 0xa, 0xf4, 0x0, 0xb, 0x94, 0xd6, 0x50, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x3, 0x0, 0x0, 0x0, 0x57, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x7, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x28, 0xef, 0x30, 0x0, 0x0, 0x0, 0x0, 0x0, 0x92, 0x78, 0x6, 0x80, 0xa6, 0xf5, 0xb, 0x0}
+		ch <- byteData
+		ctx, cancel := context.WithCancel(context.Background())
+		m := MetricController{
+			workloadCache: cache.NewWorkloadCache(),
+		}
+		go RunPrometheusClient(ctx)
+		patch := gomonkey.NewPatches()
+		patch.ApplyFunc(buildV4Metric, func(_ *bytes.Buffer) (requestMetric, error) {
+			return requestMetric{}, fmt.Errorf("build requestdata failed")
+		})
+		m.buildMetric(ctx, ch)
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+		patch.Reset()
+	})
 }
