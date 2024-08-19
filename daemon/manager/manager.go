@@ -69,7 +69,7 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(version.NewCmd())
 	cmd.AddCommand(dump.NewCmd())
 	cmd.AddCommand(logcmd.NewCmd())
-	cmd.AddCommand(uninstall.NewUninstallCmd())
+	cmd.AddCommand(uninstall.NewCmd())
 
 	return cmd
 }
