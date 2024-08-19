@@ -4,7 +4,14 @@ coverage:
       default:
         # basic
         target: auto #default
-        base: auto 
+        # Allow the coverage to drop by <number>%, and posting a success status.
+        threshold: 5
+        base: auto
+    patch:
+      default:
+        target: 50%
+        informational: false
+        if_ci_failed: error
 comment:                  # this is a top-level key
   layout: "header, files, footer" # remove "new" from "header" and "footer"
   hide_project_coverage: false # set to false
