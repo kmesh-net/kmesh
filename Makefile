@@ -143,7 +143,7 @@ build:
 	./kmesh_compile.sh
 
 .PHONY: docker
-docker: build
+docker:
 	docker build -f build/docker/dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 docker.push: docker
