@@ -40,6 +40,10 @@ When a connection is closed, the following information about the connection need
 
 Counts the number of connections established between a pair of IP, number of connections closed, sent_bytes, received bytes, and number of connection establishment failures.
 
+Send_bytes, receive_bytes and connection_establishment_failures are reported in the kernel.
+
+Counts the number of connections established between a pair of IP and number of connections closed will be statistics in the user space.
+
 ### Design Details
 
 sk_storage：
@@ -54,19 +58,31 @@ struct sock_storage_data {
 };
 ```
 
-access log：
+Link Metrics：
 
 ```c
 struct tcp_probe_info {
+    __u32 type;
     struct bpf_sock_tuple tuple;
-    __u64 duration; // ns
-    __u64 close_ns;
-    __u32 family;
-    __u32 protocol;
-    __u8 direction;
     __u32 sent_bytes;
     __u32 received_bytes;
     __u32 conn_success;
+    __u32 direction;
+    __u32 state; /* tcp state */
+    __u32 protocol;
+    __u64 duration; // ns
+    __u64 close_ns;
+    __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
+    __u32 rtt_min;
+    __u32 mss_cache;     /* Cached effective mss, not including SACKS */
+    __u32 total_retrans; /* Total retransmits for entire connection */
+    __u32 segs_in;       /* RFC4898 tcpEStatsPerfSegsIn
+                          * total number of segments in.
+                          */
+    __u32 segs_out;      /* RFC4898 tcpEStatsPerfSegsOut
+                          * The total number of segments sent.
+                          */
+    __u32 lost_out;      /* Lost packets			*/
 };
 
 // ringbuf
@@ -74,35 +90,6 @@ struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, RINGBUF_SIZE);
 } map_of_tcp_info SEC(".maps");
-```
-
-metrics:
-
-```c
-// key:
-struct metric_key {
-    struct ip_addr src_ip;
-    struct ip_addr dst_ip;
-};
-
-// value:
-struct metric_data {
-    __u8 direction;       // update on connect
-    __u32 conn_open;      // update on connect
-    __u32 conn_close;     // update on close
-    __u32 conn_failed;    // update on close
-    __u32 sent_bytes;     // update on close
-    __u32 received_bytes; // update on close
-};
-
-#define MAP_SIZE_OF_METRICS 100000
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, struct metric_key);
-    __type(value, struct metric_data);
-    __uint(max_entries, MAP_SIZE_OF_METRICS);
-    __uint(map_flags, BPF_F_NO_PREALLOC);
-} map_of_metrics SEC(".maps");
 ```
 
 ![](pics/probe.svg)
