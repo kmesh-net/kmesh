@@ -117,60 +117,60 @@ var (
 
 var (
 	tcpConnectionOpenedInWorkload = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "kmesh_tcp_connections_opened_total",
+		Name: "kmesh_tcp_workload_connections_opened_total",
 		Help: "The total number of TCP connections opened to a workload",
 	}, workloadLabels)
 
 	tcpConnectionClosedInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_connections_closed_total",
+			Name: "kmesh_tcp_workload_connections_closed_total",
 			Help: "The total number of TCP connections closed to a workload",
 		}, workloadLabels)
 
 	tcpReceivedBytesInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_received_bytes_total",
+			Name: "kmesh_tcp_workload_received_bytes_total",
 			Help: "The size of the total number of bytes received in response to a workload over a TCP connection.",
 		}, workloadLabels)
 
 	tcpSentBytesInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_sent_bytes_total",
+			Name: "kmesh_tcp_workload_sent_bytes_total",
 			Help: "The size of the total number of bytes sent in response to a workload over a TCP connection.",
 		}, workloadLabels)
 
 	tcpConnectionFailedInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_conntections_failed_total",
+			Name: "kmesh_tcp_workload_conntections_failed_total",
 			Help: "The total number of TCP connections failed to a workload.",
 		}, workloadLabels)
 
 	tcpConnectionOpenedInService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "kmesh_tcp_service_connections_opened_total",
+		Name: "kmesh_tcp_connections_opened_total",
 		Help: "The total number of TCP connections opened to a service",
 	}, serviceLabels)
 
 	tcpConnectionClosedInService = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_service_connections_closed_total",
+			Name: "kmesh_tcp_connections_closed_total",
 			Help: "The total number of TCP connections closed to a service",
 		}, serviceLabels)
 
 	tcpReceivedBytesInService = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_service_received_bytes_total",
+			Name: "kmesh_tcp_received_bytes_total",
 			Help: "The size of the total number of bytes reveiced in response to a service over a TCP connection.",
 		}, serviceLabels)
 
 	tcpSentBytesInService = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_service_sent_bytes_total",
+			Name: "kmesh_tcp_sent_bytes_total",
 			Help: "The size of the total number of bytes sent in response to a service over a TCP connection.",
 		}, serviceLabels)
 
 	tcpConnectionFailedInService = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_service_conntections_failed_total",
+			Name: "kmesh_tcp_conntections_failed_total",
 			Help: "The total number of TCP connections failed to a service.",
 		}, serviceLabels)
 )
