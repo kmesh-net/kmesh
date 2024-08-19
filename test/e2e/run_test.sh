@@ -204,7 +204,7 @@ function cleanup_docker_registry() {
     docker rm "${KIND_REGISTRY_NAME}" || echo "Failed to remove or no such registry '${KIND_REGISTRY_NAME}'."
 }
 
-PARAMS=""
+PARAMS=()
 
 while (( "$#" )); do
     case "$1" in
@@ -235,13 +235,9 @@ while (( "$#" )); do
       CLEANUP_REGISTRY=true
       shift
     ;;
-    --select-cases)
-      PARAMS+="-test.run \"$2\""
-      shift 2
-    ;;
-    --skip-cases)
-      PARAMS+="-test.skip \"$2\""
-      shift 2
+    *)
+      PARAMS+=("$1")
+      shift
     ;;
     esac
 done
@@ -265,7 +261,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
-cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1 $PARAMS"
+cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... ${PARAMS[*]}"
 
 bash -c "$cmd"
 
