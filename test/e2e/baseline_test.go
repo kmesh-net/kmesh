@@ -574,6 +574,36 @@ func TestRemoveAddNsOrServiceWaypoint(t *testing.T) {
 	}
 }
 
+// Test when ns waypoint and service waypoint are deployed together, applications can access each other
+// and all pass through waypoint.
+func TestMixNsAndServiceWaypoint(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		waypoint := "namespace-waypoint"
+
+		newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.ServiceTraffic)
+		t.Cleanup(func() {
+			deleteWaypointProxyOrFail(t, t, apps.Namespace, waypoint)
+		})
+
+		SetWaypoint(t, apps.Namespace.Name(), "", waypoint, Namespace)
+		t.Cleanup(func() {
+			UnsetWaypoint(t, apps.Namespace.Name(), "", Namespace)
+		})
+
+		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+			if opt.Scheme != scheme.HTTP {
+				return
+			}
+			opt.Check = check.And(
+				check.OK(),
+				// All traffic should pass through waypoint.
+				IsL7(),
+			)
+			src.CallOrFail(t, opt)
+		})
+	})
+}
+
 func runTest(t *testing.T, f func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions)) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		runTestContext(t, f)
