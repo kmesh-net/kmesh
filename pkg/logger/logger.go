@@ -33,9 +33,8 @@ import (
 )
 
 const (
-	logSubsys   = "subsys"
-	mapName     = "kmesh_events"
-	MAX_MSG_LEN = 255
+	logSubsys = "subsys"
+	mapName   = "kmesh_events"
 )
 
 type LogEvent struct {
@@ -60,22 +59,6 @@ var (
 		"fileOnly": fileOnlyLogger,
 	}
 )
-
-func PrintLogs() error {
-	logsPath := defaultLogFile
-	file, err := os.Open(logsPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Redirct file contents to STDOUT
-	_, err = io.Copy(os.Stdout, file)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func SetLoggerLevel(loggerName string, level logrus.Level) error {
 	logger, exists := loggerMap[loggerName]
@@ -136,15 +119,13 @@ func NewLoggerField(pkgSubsys string) *logrus.Entry {
 	return defaultLogger.WithField(logSubsys, pkgSubsys)
 }
 
-// NewLoggerFieldFileOnly don't output log to stdout
+// NewLoggerFieldWithoutStdout don't output log to stdout
 func NewLoggerFieldWithoutStdout(pkgSubsys string) *logrus.Entry {
 	return fileOnlyLogger.WithField(logSubsys, pkgSubsys)
 }
 
-/*
-print bpf log to daemon process.
-*/
-func StartRingBufReader(ctx context.Context, mode string, bpfFsPath string) error {
+// export bpf log to daemon process.
+func NewBpfLogger(ctx context.Context, mode string, bpfFsPath string) error {
 	var path string
 
 	if mode == constants.AdsMode {

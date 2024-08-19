@@ -54,6 +54,9 @@ func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
 }
 
 func (c *Controller) Run(ctx context.Context) {
+	if c == nil {
+		return
+	}
 	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
 	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapOfTcpInfo)
 }
