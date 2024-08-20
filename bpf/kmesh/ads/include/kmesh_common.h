@@ -7,6 +7,7 @@
 #include "bpf_log.h"
 #include "common.h"
 #include "bpf_common.h"
+#include "config.h"
 #include "core/address.pb-c.h"
 
 #define BPF_LOGTYPE_LISTENER      BPF_DEBUG_ON

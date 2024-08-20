@@ -6,7 +6,6 @@
 
 #include "filter/tcp_proxy.pb-c.h"
 #include "kmesh_common.h"
-#include "config.h"
 #include "tail_call.h"
 
 static inline char *select_tcp_weight_cluster(const Filter__TcpProxy *tcpProxy)

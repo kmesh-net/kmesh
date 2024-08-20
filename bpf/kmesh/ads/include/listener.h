@@ -5,7 +5,6 @@
 #define __KMESH_LISTENER_H__
 
 #include "kmesh_common.h"
-#include "config.h"
 #include "tail_call.h"
 #include "listener/listener.pb-c.h"
 
