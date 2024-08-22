@@ -22,6 +22,7 @@ jobs:
     - name: Fetch kmesh build image digest
       run: |
         DOCKER_IMAGE_CACHE_KEY=$(docker manifest inspect ghcr.io/kmesh-net/kmesh-build | grep -m 1 '"digest"' | awk -F'"' '{print $4}' || 'default_cache_key')
+        echo "DOCKER_IMAGE_CACHE_KEY=$DOCKER_IMAGE_CACHE_KEY" >> $GITHUB_ENV
         echo "Fetched cache key: $DOCKER_IMAGE_CACHE_KEY"
 
     - name: Restore Kmesh Build Image Cache if it exists
