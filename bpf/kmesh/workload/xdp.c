@@ -164,8 +164,7 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
         return AUTH_ALLOW;
     }
 
-#pragma unroll
-    for (int i = 0; i < 1; i++) {
+    for (int i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
         policy_name = policies->policyNames[i];
         if (policy_name[0] != '\0') {
             policy = map_lookup_authz(policy_name);

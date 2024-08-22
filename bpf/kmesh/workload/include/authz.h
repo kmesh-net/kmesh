@@ -180,8 +180,7 @@ static inline int policy_manage(Istio__Security__Authorization *policy, struct b
         return AUTH_DENY;
     }
 
-#pragma unroll
-    for (i = 0; i < 1; i++) {
+    for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
         if (i >= policy->n_rules) {
             break;
         }
