@@ -29,18 +29,18 @@ jobs:
       id: cache-docker-kmesh
       uses: actions/cache@v3
       with:
-        path: ci/cache/docker/kmesh
+        path: /var/cache/docker/kmesh
         key: ${{ env.DOCKER_IMAGE_CACHE_KEY }}
 
     - name: Update Kmesh Image Cache if cache miss
       if: steps.cache-docker-kmesh.outputs.cache-hit != 'true'
       run: |
         IMAGE_NAME=ghcr.io/kmesh-net/kmesh-build:latest
-        docker pull $IMAGE_NAME && mkdir -p ci/cache/docker/kmesh && docker image save $IMAGE_NAME --output ./ci/cache/docker/kmesh/kmesh_build.tar
+        docker pull $IMAGE_NAME && mkdir -p /var/cache/docker/kmesh && docker image save $IMAGE_NAME --output /var/cache/docker/kmesh/kmesh_build.tar
       
     - name: Use Kmesh Image Cache if cache hit
       if: steps.cache-docker-kmesh.outputs.cache-hit == 'true'
-      run: docker image load --input ./ci/cache/docker/kmesh/kmesh_build.tar
+      run: docker image load --input /var/cache/docker/kmesh/kmesh_build.tar
 
     - name: Setup Go
       uses: actions/setup-go@v4.0.0
