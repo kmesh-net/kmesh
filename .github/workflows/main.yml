@@ -36,7 +36,7 @@ jobs:
       if: steps.cache-docker-kmesh.outputs.cache-hit != 'true'
       run: |
         IMAGE_NAME=ghcr.io/kmesh-net/kmesh-build:latest
-        docker pull $IMAGE_NAME && mkdir -p /var/cache/docker/kmesh && docker image save $IMAGE_NAME --output /var/cache/docker/kmesh/kmesh_build.tar
+        docker pull $IMAGE_NAME && sudo mkdir -p /var/cache/docker/kmesh && docker image save $IMAGE_NAME --output /var/cache/docker/kmesh/kmesh_build.tar
       
     - name: Use Kmesh Image Cache if cache hit
       if: steps.cache-docker-kmesh.outputs.cache-hit == 'true'
