@@ -625,7 +625,7 @@ func (p *Processor) compareWorkloadAndServiceWithHashName() {
 	 * from the last epoch is inconsistent with the data that should
 	 * actually be stored now. then we should delete it from bpf map
 	 */
-	for str, num := range p.hashName.strToNum {
+	for str, num := range p.hashName.GetStrToNum() {
 		if p.WorkloadCache.GetWorkloadByUid(str) == nil && p.ServiceCache.GetService(str) == nil {
 			log.Debugf("GetWorkloadByUid and GetService nil:%v", str)
 

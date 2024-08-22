@@ -63,6 +63,10 @@ func (h *HashName) readFromPersistFile() error {
 	return yaml.Unmarshal(data, &h.strToNum)
 }
 
+func (h *HashName) GetStrToNum() map[string]uint32 {
+	return h.strToNum
+}
+
 func (h *HashName) flush() error {
 	// We only need to flush strToNum here, since we can generate numToStr from it.
 	if len(h.strToNum) == 0 {
