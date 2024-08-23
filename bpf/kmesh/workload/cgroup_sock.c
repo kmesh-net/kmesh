@@ -15,12 +15,25 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 {
     int ret;
     frontend_value *frontend_v = NULL;
+    frontend_key frontend_k = {0};
     struct bpf_sock_addr *ctx = kmesh_ctx->ctx;
+    struct ip_addr orig_dst_addr = {0};
 
     if (ctx->protocol != IPPROTO_TCP)
         return 0;
 
-    DECLARE_FRONTEND_KEY(ctx, &kmesh_ctx->orig_dst_addr, frontend_k);
+    if (ctx->family == AF_INET) {
+        orig_dst_addr.ip4 = kmesh_ctx->orig_dst_addr.ip4;
+        frontend_k.addr.ip4 = orig_dst_addr.ip4;
+    } else if (ctx->family == AF_INET6) {
+        IP6_COPY(orig_dst_addr.ip6, kmesh_ctx->orig_dst_addr.ip6);
+        // Java applications use IPv6 for communication. In the IPv4 network environment, the control plane delivers the
+        // IPv4 address to the bpf map but obtains the IPv4 mapped address from the bpf prog context. Therefore, address
+        // translation is required before and after traffic manager.
+        if (is_ipv4_mapped_addr(orig_dst_addr.ip6))
+            V4_MAPPED_REVERSE(orig_dst_addr.ip6);
+        bpf_memcpy(frontend_k.addr.ip6, orig_dst_addr.ip6, IPV6_ADDR_LEN);
+    }
 
     BPF_LOG(
         DEBUG,
@@ -97,11 +110,6 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
 
     BPF_LOG(DEBUG, KMESH, "enter cgroup/connect6\n");
 
-    // Java applications use IPv6 for communication. In the IPv4 network environment, the control plane delivers the
-    // IPv4 address to the bpf map but obtains the IPv4 mapped address from the bpf prog context. Therefore, address
-    // translation is required before and after traffic manager.
-    if (is_ipv4_mapped_addr(kmesh_ctx.orig_dst_addr.ip6))
-        V4_MAPPED_REVERSE(kmesh_ctx.orig_dst_addr.ip6);
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
         BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
