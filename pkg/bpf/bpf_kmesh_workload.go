@@ -508,15 +508,6 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
-	if GetStartType() == Restart {
-		return spec, nil
-	}
-
-	value := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthPrograms)
-	if err = pinPrograms(&value, xa.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
 }
 
