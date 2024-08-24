@@ -145,8 +145,8 @@ func (sc *BpfSockConnWorkload) Attach() error {
 		if err != nil {
 			return err
 		}
-		if err = sclink4.Update(cgopt4.Program); err != nil {
-			return fmt.Errorf("updating link %s %w", pinPath4, err)
+		if err := sclink4.Update(cgopt4.Program); err != nil {
+			return fmt.Errorf("updating link %s failed: %w", pinPath4, err)
 		}
 
 		pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
@@ -154,8 +154,8 @@ func (sc *BpfSockConnWorkload) Attach() error {
 		if err != nil {
 			return err
 		}
-		if err = sclink6.Update(cgopt6.Program); err != nil {
-			return fmt.Errorf("updating link %s %w", pinPath6, err)
+		if err := sclink6.Update(cgopt6.Program); err != nil {
+			return fmt.Errorf("updating link %s failed: %w", pinPath6, err)
 		}
 	} else {
 		sc.Link, err = link.AttachCgroup(cgopt4)
@@ -294,8 +294,8 @@ func (so *BpfSockOpsWorkload) Attach() error {
 		if err != nil {
 			return err
 		}
-		if err = solink.Update(cgopt.Program); err != nil {
-			return fmt.Errorf("updating link %s %w", pinPath, err)
+		if err := solink.Update(cgopt.Program); err != nil {
+			return fmt.Errorf("updating link %s failed: %w", pinPath, err)
 		}
 	} else {
 		lk, err := link.AttachCgroup(cgopt)
@@ -396,6 +396,31 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
+	// sendmsg ebpf prog is mounted on sockmap and processed for each socket.
+	// It has the following characteristics:
+	// 1. Multiple sk_msg ebpf prog can exist at the same time
+	// 2. If the old sk_msg ebpf program is not pinned, it will wait until all
+	// sockets on the old sk_msg ebpf prog are disconnected before automatically detaching.
+	// Therefore, the following methods are used to achieve seamless replacement
+	// 1) loading new sk_msg prog
+	// 2) unpin old psk_msg rog
+	// 3) pin new sk_msg prog
+	// 4) attach new sk_msg prog
+	if GetStartType() == Restart {
+		oldSkMsg, err := ebpf.LoadPinnedProgram(sm.Info.BpfFsPath+"/sendmsg_prog", nil)
+		if err != nil {
+			log.Errorf("LoadPinnedProgram failed:%v", err)
+		}
+
+		if err = oldSkMsg.Unpin(); err != nil {
+			return nil, err
+		}
+	}
+
+	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
+	if err = pinPrograms(&value, sm.Info.BpfFsPath); err != nil {
+		return nil, err
+	}
 	return spec, nil
 }
 
