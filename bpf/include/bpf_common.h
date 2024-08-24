@@ -174,7 +174,6 @@ static inline void *kmesh_get_ptr_val(const void *ptr)
     __u32 inner_idx = 0;
     __u64 idx = (__u64)ptr;
 
-    BPF_LOG(DEBUG, KMESH, "kmesh_get_ptr_val idx=%u\n", idx);
     if (!ptr) {
         return NULL;
     }
