@@ -7,7 +7,7 @@ on:
     tags:
       - "v*.*.*"
 env:
-  REGISTRY_IMAGE: ghcr.io/kmesh-net/kmesh
+  REGISTRY_IMAGE: ghcr.io/lec-bit/kmesh
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -46,7 +46,7 @@ jobs:
       
       - name: Build 
         run: |
-          ./kmesh_compile.sh
+          sudo bash ./kmesh_compile.sh
 
       - name: Push by digest
         id: build
