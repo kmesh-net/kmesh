@@ -405,11 +405,12 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	// sockets on the old sk_msg ebpf prog are disconnected before automatically detaching.
 	// Therefore, the following methods are used to achieve seamless replacement
 	// 1) loading new sk_msg prog
-	// 2) unpin old psk_msg rog
+	// 2) unpin old sk_msg prog: If sockmap is deleted, sk_msg will also be cleaned up
 	// 3) pin new sk_msg prog
-	// 4) attach new sk_msg prog
+	// 4) attach new sk_msg prog(in SendMsg.Attach): Replace the old sk_msg prog
 	if GetStartType() == Restart {
-		oldSkMsg, err := ebpf.LoadPinnedProgram(sm.Info.BpfFsPath+"/sendmsg_prog", nil)
+		pinPath := filepath.Join(sm.Info.BpfFsPath, "sendmsg_prog")
+		oldSkMsg, err := ebpf.LoadPinnedProgram(pinPath, nil)
 		if err != nil {
 			log.Errorf("LoadPinnedProgram failed:%v", err)
 		}
