@@ -13,7 +13,7 @@ require (
 	github.com/cilium/ebpf v0.15.0
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.5.1
-	github.com/envoyproxy/go-control-plane v0.12.1-0.20240614044803-82e2a76dbddd
+	github.com/envoyproxy/go-control-plane v0.13.0
 	github.com/golang/protobuf v1.5.4
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_golang v1.20.1
