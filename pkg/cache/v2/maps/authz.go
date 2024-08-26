@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: xsy
- * Create: 2024-07-11
  */
 
 package maps
@@ -88,9 +85,6 @@ func AuthorizationUpdate(key string, value *security_v2.Authorization) error {
 	}
 	defer authorizationFreeClang(cMsg)
 
-	testString(key, cKey)
-	testAuthorization(value, cMsg)
-
 	ret := C.deserial_update_elem(unsafe.Pointer(cKey), unsafe.Pointer(cMsg))
 	if ret != 0 {
 		return fmt.Errorf("authorizationUpdate %s deserial_update_elem failed", key)
@@ -110,16 +104,4 @@ func AuthorizationDelete(key string) error {
 		return fmt.Errorf("AuthorizationDelete deserial_delete_elem failed:%v", ret)
 	}
 	return nil
-}
-
-func testAuthorization(goMsg *security_v2.Authorization, cMsg *C.Istio__Security__Authorization) {
-	msg := &security_v2.Authorization{}
-
-	if err := authorizationToGolang(msg, cMsg); err != nil {
-		log.Errorf("testAuthorization authorizationToGolang failed")
-	}
-	if goMsg.String() != msg.String() {
-		log.Errorf("testAuthorization invalid message")
-		log.Errorf("testAuthorization [%s]", msg.String())
-	}
 }

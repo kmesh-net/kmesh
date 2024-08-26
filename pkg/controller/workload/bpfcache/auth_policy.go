@@ -25,7 +25,7 @@ type WorkloadPolicy_key struct {
 }
 
 type WorkloadPolicy_value struct {
-	PolicyNames [8][128]byte // name length is AUTHZ_NAME_MAX_LEN
+	PolicyNames [4][128]byte // name length is [MAX_MEMBER_NUM_PER_POLICY][AUTHZ_NAME_MAX_LEN]
 }
 
 func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicy_key, value *WorkloadPolicy_value) error {

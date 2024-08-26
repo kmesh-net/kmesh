@@ -13,16 +13,13 @@
 #define UNMATCHED    0
 #define MATCHED      1
 #define UNSUPPORTED  2
-#define TYPE_SRCIP   (1)
-#define TYPE_DSTIP   (1 << 1)
-#define TYPE_DSTPORT (1 << 2)
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, AUTHZ_NAME_MAX_LEN);
     __uint(value_size, sizeof(Istio__Security__Authorization));
     __uint(map_flags, BPF_F_NO_PREALLOC);
-    __uint(max_entries, MAP_SIZE_OF_AUTH);
+    __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
 } map_of_authz SEC(".maps");
 
 static inline Istio__Security__Authorization *map_lookup_authz(const char *key)
@@ -30,9 +27,9 @@ static inline Istio__Security__Authorization *map_lookup_authz(const char *key)
     return (Istio__Security__Authorization *)kmesh_map_lookup_elem(&map_of_authz, key);
 }
 
-static inline wk_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
+static inline wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
 {
-    return (wk_policies_v *)kmesh_map_lookup_elem(&map_of_workload_policy, &workload_uid);
+    return (wl_policies_v *)kmesh_map_lookup_elem(&map_of_workload_policy, &workload_uid);
 }
 
 static inline int matchDstPorts(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
@@ -161,7 +158,7 @@ static inline int rule_match_check(Istio__Security__Rule *rule, struct bpf_sock_
     return MATCHED;
 }
 
-static inline int policy_manage(Istio__Security__Authorization *policy, struct bpf_sock_tuple *tuple_info)
+static inline int do_auth(Istio__Security__Authorization *policy, struct bpf_sock_tuple *tuple_info)
 {
     void *rulesPtr = NULL;
     Istio__Security__Rule *rule = NULL;

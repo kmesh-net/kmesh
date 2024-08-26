@@ -132,7 +132,7 @@ static inline int xdp_deny_packet(struct xdp_info *info, struct bpf_sock_tuple *
     return XDP_DROP;
 }
 
-static inline wk_policies_v *get_workload_policies(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     frontend_key frontend_k = {};
     frontend_value *frontend_v = NULL;
@@ -141,6 +141,8 @@ static inline wk_policies_v *get_workload_policies(struct xdp_info *info, struct
     if (info->iph->version == 4) {
         frontend_k.addr.ip4 = tuple_info->ipv4.daddr;
     } else {
+        if (is_ipv4_mapped_addr(tuple_info->ipv6.daddr))
+            V4_MAPPED_REVERSE(tuple_info->ipv6.daddr);
         bpf_memcpy(frontend_k.addr.ip6, tuple_info->ipv6.daddr, IPV6_ADDR_LEN);
     }
     frontend_v = kmesh_map_lookup_elem(&map_of_frontend, &frontend_k);
@@ -155,7 +157,7 @@ static inline wk_policies_v *get_workload_policies(struct xdp_info *info, struct
 static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     int ret = 0;
-    wk_policies_v *policies;
+    wl_policies_v *policies;
     char *policy_name;
     Istio__Security__Authorization *policy;
 
@@ -171,7 +173,7 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
             if (!policy) {
                 continue;
             }
-            if (policy_manage(policy, tuple_info) == AUTH_DENY) {
+            if (do_auth(policy, tuple_info) == AUTH_DENY) {
                 BPF_LOG(ERR, AUTH, "policy %s manage result deny\n", policy_name);
                 return AUTH_DENY;
             }

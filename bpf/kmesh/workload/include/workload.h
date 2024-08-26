@@ -108,14 +108,14 @@ struct {
 
 typedef struct {
     char policyNames[MAX_MEMBER_NUM_PER_POLICY][AUTHZ_NAME_MAX_LEN];
-} wk_policies_v;
+} wl_policies_v;
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
-    __uint(value_size, sizeof(wk_policies_v));
+    __uint(value_size, sizeof(wl_policies_v));
     __uint(map_flags, BPF_F_NO_PREALLOC);
-    __uint(max_entries, MAP_SIZE_OF_AUTH);
+    __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
 } map_of_workload_policy SEC(".maps");
 
 #endif
