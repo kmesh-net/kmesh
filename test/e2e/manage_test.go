@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 /*
  * Copyright 2024 The Kmesh Authors.
  *
