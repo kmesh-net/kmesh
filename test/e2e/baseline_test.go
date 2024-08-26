@@ -1,5 +1,8 @@
+//go:build integ
+// +build integ
+
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -696,10 +699,9 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 }
 
 func TestL4Telemetry(t *testing.T) {
-	fmt.Printf("-=--------- test ------\n")
 	framework.NewTest(t).Run(func(tc framework.TestContext) {
-		for _, src := range apps.Captured {
-			for _, dst := range apps.Captured {
+		for _, src := range apps.All {
+			for _, dst := range apps.All {
 				tc.NewSubTestf("from %q to %q", src.Config().Service, dst.Config().Service).Run(func(stc framework.TestContext) {
 					localDst := dst
 					localSrc := src

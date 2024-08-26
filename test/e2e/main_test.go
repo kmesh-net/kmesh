@@ -1,5 +1,8 @@
+//go:build integ
+// +build integ
+
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,9 +84,6 @@ type EchoDeployments struct {
 
 	// WaypointProxies by
 	WaypointProxies map[string]ambient.WaypointProxy
-
-	// Captured echo service
-	Captured echo.Instances
 }
 
 const (
@@ -95,7 +95,6 @@ const (
 	KmeshDaemonsetName                      = "kmesh"
 	KmeshNamespace                          = "kmesh-system"
 	DataplaneModeKmesh                      = "Kmesh"
-	Captured                                = "captured"
 )
 
 func getDefaultKmeshSrc() string {
@@ -117,7 +116,7 @@ func TestMain(m *testing.M) {
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
-		SetupParallel(
+		Setup(
 			func(t resource.Context) (err error) {
 				prom, err = prometheus.New(t, prometheus.Config{})
 				if err != nil {
@@ -162,10 +161,10 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				},
 				{
 					Replicas: 1,
-					Version:  "v1",
+					Version:  "v2",
 					Labels: map[string]string{
 						"app":     ServiceWithWaypointAtServiceGranularity,
-						"version": "v1",
+						"version": "v2",
 					},
 				},
 			},
@@ -185,18 +184,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Version:  "v2",
 				},
 			},
-		}).
-		WithConfig(echo.Config{
-			Service:        Captured,
-			Namespace:      apps.Namespace,
-			Ports:          ports.All(),
-			ServiceAccount: true,
-			Subsets: []echo.SubsetConfig{
-				{
-					Replicas: 1,
-					Version:  "v1",
-				},
-			},
 		})
 
 	echos, err := builder.Build()
@@ -209,7 +196,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.All = echos
 	apps.EnrolledToKmesh = match.ServiceName(echo.NamespacedName{Name: EnrolledToKmesh, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.ServiceWithWaypointAtServiceGranularity = match.ServiceName(echo.NamespacedName{Name: ServiceWithWaypointAtServiceGranularity, Namespace: apps.Namespace}).GetMatches(echos)
-	apps.Captured = match.ServiceName(echo.NamespacedName{Name: Captured, Namespace: apps.Namespace}).GetMatches(echos)
 
 	if apps.WaypointProxies == nil {
 		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
