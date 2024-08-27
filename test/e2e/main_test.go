@@ -116,14 +116,13 @@ func TestMain(m *testing.M) {
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
-		Setup(
-			func(t resource.Context) (err error) {
-				prom, err = prometheus.New(t, prometheus.Config{})
-				if err != nil {
-					return err
-				}
-				return
-			},
+		Setup(func(t resource.Context) (err error) {
+			prom, err = prometheus.New(t, prometheus.Config{})
+			if err != nil {
+				return err
+			}
+			return
+		},
 		).
 		Run()
 }

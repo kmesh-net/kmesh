@@ -700,8 +700,8 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 
 func TestL4Telemetry(t *testing.T) {
 	framework.NewTest(t).Run(func(tc framework.TestContext) {
-		for _, src := range apps.All {
-			for _, dst := range apps.All {
+		for _, src := range apps.EnrolledToKmesh {
+			for _, dst := range apps.EnrolledToKmesh {
 				tc.NewSubTestf("from %q to %q", src.Config().Service, dst.Config().Service).Run(func(stc framework.TestContext) {
 					localDst := dst
 					localSrc := src
