@@ -44,7 +44,6 @@ type BpfSockConnWorkload struct {
 func (sc *BpfSockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockconn/"
-	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 	sc.Info6 = sc.Info
 
@@ -70,8 +69,6 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
-
 	spec, err = bpf2go.LoadKmeshCgroupSockWorkload()
 
 	if err != nil || spec == nil {
@@ -211,7 +208,6 @@ type BpfSockOpsWorkload struct {
 func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
 	so.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	so.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockops/"
-	so.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	so.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(so.Info.MapPath,
@@ -237,7 +233,6 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = so.Info.MapPath
-	opts.Programs.LogSize = so.Info.BpfVerifyLogSize
 
 	spec, err = bpf2go.LoadKmeshSockopsWorkload()
 	if err != nil {
@@ -348,7 +343,6 @@ type BpfSendMsgWorkload struct {
 func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj *BpfSockOpsWorkload) error {
 	sm.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sm.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sendmsg/"
-	sm.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sm.Info.Cgroup2Path = cfg.Cgroup2Path
 	sm.sockOpsWorkloadObj = sockOpsWorkloadObj
 
@@ -373,9 +367,8 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 		spec *ebpf.CollectionSpec
 		opts ebpf.CollectionOptions
 	)
-	opts.Maps.PinPath = sm.Info.MapPath
-	opts.Programs.LogSize = sm.Info.BpfVerifyLogSize
 
+	opts.Maps.PinPath = sm.Info.MapPath
 	if spec, err = bpf2go.LoadKmeshSendmsg(); err != nil {
 		return nil, err
 	}
@@ -467,7 +460,6 @@ type BpfXdpAuthWorkload struct {
 func (xa *BpfXdpAuthWorkload) NewBpf(cfg *options.BpfConfig) error {
 	xa.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	xa.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/xdpauth/"
-	xa.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	xa.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(xa.Info.MapPath,
@@ -493,8 +485,6 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = xa.Info.MapPath
-	opts.Programs.LogSize = xa.Info.BpfVerifyLogSize
-
 	spec, err = bpf2go.LoadKmeshXDPAuth()
 	if err != nil {
 		return nil, err

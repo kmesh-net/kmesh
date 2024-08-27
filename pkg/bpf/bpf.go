@@ -43,10 +43,9 @@ var (
 )
 
 type BpfInfo struct {
-	MapPath          string
-	BpfFsPath        string
-	BpfVerifyLogSize int
-	Cgroup2Path      string
+	MapPath     string
+	BpfFsPath   string
+	Cgroup2Path string
 
 	Type       ebpf.ProgramType
 	AttachType ebpf.AttachType
