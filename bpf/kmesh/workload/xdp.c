@@ -13,23 +13,7 @@
 #include "bpf_log.h"
 #include "workload.h"
 #include "authz.h"
-
-#define AUTH_PASS   0
-#define AUTH_FORBID 1
-
-#define PARSER_FAILED 1
-#define PARSER_SUCC   0
-
-#define AUTH_BY_XDP 1
-
-struct xdp_info {
-    struct ethhdr *ethh;
-    union {
-        struct iphdr *iph;
-        struct ipv6hdr *ip6h;
-    };
-    struct tcphdr *tcph;
-};
+#include "xdp.h"
 
 static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
@@ -158,7 +142,7 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
 {
     int ret = 0;
     wl_policies_v *policies;
-    char *policy_name;
+    __u32 policyId;
     Istio__Security__Authorization *policy;
 
     policies = get_workload_policies(info, tuple_info);
@@ -167,14 +151,14 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
     }
 
     for (int i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
-        policy_name = policies->policyNames[i];
-        if (policy_name[0] != '\0') {
-            policy = map_lookup_authz(policy_name);
+        policyId = policies->policyIds[i];
+        if (policyId != 0) {
+            policy = map_lookup_authz(policyId);
             if (!policy) {
                 continue;
             }
-            if (do_auth(policy, tuple_info) == AUTH_DENY) {
-                BPF_LOG(ERR, AUTH, "policy %s manage result deny\n", policy_name);
+            if (do_auth(policy, info, tuple_info) == AUTH_DENY) {
+                BPF_LOG(ERR, AUTH, "policy %u manage result deny\n", policyId);
                 return AUTH_DENY;
             }
         }
@@ -182,7 +166,7 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
     return AUTH_ALLOW;
 }
 
-static inline int xdp_rbac_manage(struct xdp_md *ctx, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline int xdp_rbac_manage(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     return match_workload_policy(info, tuple_info);
 }
@@ -204,7 +188,7 @@ int xdp_shutdown(struct xdp_md *ctx)
     // Before the authentication types supported by eBPF XDP are fully implemented,
     // this section only processes AUTH_DENY. If get AUTH_ALLOW,
     // it will still depend on the user-space authentication process to match other rule types.
-    if (xdp_rbac_manage(ctx, &info, &tuple_info) == AUTH_DENY) {
+    if (xdp_rbac_manage(&info, &tuple_info) == AUTH_DENY) {
         return xdp_deny_packet(&info, &tuple_info);
     }
 

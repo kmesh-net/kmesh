@@ -44,8 +44,8 @@ func newPolicyStore() *policyStore {
 }
 
 //go:noinline
-func FlushAuthzMap(policyName string, authzPolicy *security.Authorization) error {
-	return maps_v2.AuthorizationUpdate(policyName, authzPolicy)
+func FlushAuthzMap(policyid uint32, authzPolicy *security.Authorization) error {
+	return maps_v2.AuthorizationUpdate(policyid, authzPolicy)
 }
 
 func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
@@ -53,10 +53,6 @@ func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
 		return nil
 	}
 	key := authPolicy.ResourceName()
-	if err := FlushAuthzMap(key, authPolicy); err != nil {
-		return fmt.Errorf("flushAuthzMap failed  %v ", err)
-	}
-
 	ps.rwLock.Lock()
 	defer ps.rwLock.Unlock()
 	var ns string

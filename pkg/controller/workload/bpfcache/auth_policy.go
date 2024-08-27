@@ -25,7 +25,7 @@ type WorkloadPolicy_key struct {
 }
 
 type WorkloadPolicy_value struct {
-	PolicyNames [4][128]byte // name length is [MAX_MEMBER_NUM_PER_POLICY][AUTHZ_NAME_MAX_LEN]
+	PolicyIds [4]uint32 // name length is [MAX_MEMBER_NUM_PER_POLICY]
 }
 
 func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicy_key, value *WorkloadPolicy_value) error {
@@ -36,9 +36,4 @@ func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicy_key, value *WorkloadPol
 func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicy_key) error {
 	log.Debugf("workload policy delete: [%#v]", *key)
 	return c.bpfMap.MapOfWorkloadPolicy.Delete(key)
-}
-
-func (c *Cache) WorkloadPolicyLookup(key *WorkloadPolicy_key, value *WorkloadPolicy_value) error {
-	log.Debugf("workload policy lookup [%#v]", *key)
-	return c.bpfMap.MapOfWorkloadPolicy.Lookup(key, value)
 }

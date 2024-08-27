@@ -10,7 +10,6 @@
 #define MAX_PORT_COUNT            10
 #define MAX_SERVICE_COUNT         10
 #define RINGBUF_SIZE              (1 << 12)
-#define AUTHZ_NAME_MAX_LEN        128
 #define MAX_MEMBER_NUM_PER_POLICY 4
 
 #pragma pack(1)
@@ -107,7 +106,7 @@ struct {
 } map_of_tuple SEC(".maps");
 
 typedef struct {
-    char policyNames[MAX_MEMBER_NUM_PER_POLICY][AUTHZ_NAME_MAX_LEN];
+    __u32 policyIds[MAX_MEMBER_NUM_PER_POLICY];
 } wl_policies_v;
 
 struct {

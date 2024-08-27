@@ -632,14 +632,18 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 	}
 	// update resource
 	for _, resource := range rsp.GetResources() {
-		auth := &security.Authorization{}
-		if err := anypb.UnmarshalTo(resource.Resource, auth, proto.UnmarshalOptions{}); err != nil {
+		authPolicy := &security.Authorization{}
+		if err := anypb.UnmarshalTo(resource.Resource, authPolicy, proto.UnmarshalOptions{}); err != nil {
 			log.Errorf("unmarshal failed, err: %v", err)
 			continue
 		}
-		log.Debugf("handle authorization policy %s, auth %s", resource.GetName(), auth.String())
-		if err := rbac.UpdatePolicy(auth); err != nil {
+		log.Debugf("handle authorization policy %s, auth %s", resource.GetName(), authPolicy.String())
+		if err := rbac.UpdatePolicy(authPolicy); err != nil {
 			return err
+		}
+		policyKey := authPolicy.ResourceName()
+		if err := auth.FlushAuthzMap(p.hashName.StrToNum(policyKey), authPolicy); err != nil {
+			return fmt.Errorf("flushAuthz %s failed %v ", policyKey, err)
 		}
 	}
 
@@ -662,16 +666,16 @@ func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
 	}
 	key.WorklodId = p.hashName.StrToNum(uid)
 	for i, v := range polices {
-		if i < len(value.PolicyNames) {
-			copy(value.PolicyNames[i][:], []byte(v))
+		if i < len(value.PolicyIds) {
+			value.PolicyIds[i] = p.hashName.StrToNum(v)
 		} else {
-			log.Warnf("Exceeded the number of elements in PolicyNames.")
+			log.Warnf("Exceeded the number of elements in PolicyIds.")
 			break
 		}
 	}
 
 	if err := p.bpf.WorkloadPolicyUpdate(&key, &value); err != nil {
-		log.Errorf("storeWorkloadPolicies failed, err: %s", err)
+		log.Errorf("storeWorkloadPolicies failed, workload %s, err: %s", uid, err)
 	}
 }
 

@@ -73,21 +73,17 @@ func authorizationLookup(key string, value *security_v2.Authorization) error {
 	return err
 }
 
-func AuthorizationUpdate(key string, value *security_v2.Authorization) error {
-	log.Debugf("AuthorizationUpdate [%s], [%s]", key, value.String())
-
-	cKey := stringToClang(key)
-	defer stringFreeClang(cKey)
-
+func AuthorizationUpdate(policyKey uint32, value *security_v2.Authorization) error {
+	cKey := C.uint(policyKey)
 	cMsg, err := authorizationToClang(value)
 	if err != nil {
 		return fmt.Errorf("authorizationUpdate %s", err)
 	}
 	defer authorizationFreeClang(cMsg)
 
-	ret := C.deserial_update_elem(unsafe.Pointer(cKey), unsafe.Pointer(cMsg))
+	ret := C.deserial_update_elem(unsafe.Pointer(&cKey), unsafe.Pointer(cMsg))
 	if ret != 0 {
-		return fmt.Errorf("authorizationUpdate %s deserial_update_elem failed", key)
+		return fmt.Errorf("authorizationUpdate %v deserial_update_elem failed", policyKey)
 	}
 
 	return nil
