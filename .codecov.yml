@@ -8,3 +8,4 @@ coverage:
 comment:                  # this is a top-level key
   layout: "header, files, footer" # remove "new" from "header" and "footer"
   hide_project_coverage: false # set to false
+github_checks: false
