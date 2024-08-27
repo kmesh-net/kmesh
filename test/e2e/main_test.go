@@ -2,7 +2,7 @@
 // +build integ
 
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
@@ -63,6 +64,9 @@ var (
 	KmeshSrc = getDefaultKmeshSrc()
 
 	apps = &EchoDeployments{}
+
+	// used to validate telemetry in-cluster
+	prom prometheus.Instance
 )
 
 type EchoDeployments struct {
@@ -112,6 +116,14 @@ func TestMain(m *testing.M) {
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
+		Setup(func(t resource.Context) (err error) {
+			prom, err = prometheus.New(t, prometheus.Config{})
+			if err != nil {
+				return err
+			}
+			return
+		},
+		).
 		Run()
 }
 

@@ -2,7 +2,7 @@
 // +build integ
 
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,17 +27,23 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/prometheus/common/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -689,5 +695,144 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 		if err := setWaypoint(waypoint); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func TestL4Telemetry(t *testing.T) {
+	framework.NewTest(t).Run(func(tc framework.TestContext) {
+		for _, src := range apps.EnrolledToKmesh {
+			for _, dst := range apps.EnrolledToKmesh {
+				tc.NewSubTestf("from %q to %q", src.Config().Service, dst.Config().Service).Run(func(stc framework.TestContext) {
+					localDst := dst
+					localSrc := src
+					opt := echo.CallOptions{
+						Port:    echo.Port{Name: "tcp"},
+						Scheme:  scheme.TCP,
+						Count:   5,
+						Timeout: time.Second,
+						Check:   check.OK(),
+						To:      localDst,
+					}
+
+					query := buildL4Query(localSrc, localDst)
+					stc.Logf("prometheus query: %#v", query)
+					err := retry.Until(func() bool {
+						stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
+						localSrc.CallOrFail(stc, opt)
+						reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
+						if err != nil {
+							stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+							return false
+						}
+						if reqs == 0.0 {
+							stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+							return false
+						}
+						return true
+					}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+					if err != nil {
+						PromDiff(t, prom, localSrc.Config().Cluster, query)
+						stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+					}
+				})
+			}
+		}
+	})
+}
+
+func buildL4Query(src, dst echo.Instance) prometheus.Query {
+	query := prometheus.Query{}
+
+	srcns := src.NamespaceName()
+	destns := dst.NamespaceName()
+
+	labels := map[string]string{
+		"reporter":                       "destination",
+		"connection_security_policy":     "mutual_tls",
+		"response_flags":                 "-",
+		"request_protocol":               "tcp",
+		"destination_canonical_service":  dst.ServiceName(),
+		"destination_canonical_revision": dst.Config().Version,
+		"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
+		"destination_service_name":       fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
+		"destination_service_namespace":  destns,
+		"destination_principal":          "-",
+		"destination_version":            dst.Config().Version,
+		"destination_workload":           deployName(dst),
+		"destination_workload_namespace": destns,
+		"destination_cluster":            "Kubernetes",
+		"source_canonical_service":       src.ServiceName(),
+		"source_canonical_revision":      src.Config().Version,
+		"source_principal":               "-",
+		"source_version":                 src.Config().Version,
+		"source_workload":                deployName(src),
+		"source_workload_namespace":      srcns,
+		"source_cluster":                 "Kubernetes",
+	}
+
+	query.Metric = "kmesh_tcp_connections_opened_total"
+	query.Labels = labels
+
+	return query
+}
+
+func deployName(inst echo.Instance) string {
+	return inst.ServiceName() + "-" + inst.Config().Version
+}
+
+func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, query prometheus.Query) {
+	t.Helper()
+	unlabelled := prometheus.Query{Metric: query.Metric}
+	v, _ := prom.Query(cluster, unlabelled)
+	if v == nil {
+		t.Logf("no metrics found for %v", unlabelled)
+		return
+	}
+	switch v.Type() {
+	case model.ValVector:
+		value := v.(model.Vector)
+		var allMismatches []map[string]string
+		full := []model.Metric{}
+		for _, s := range value {
+			misMatched := map[string]string{}
+			for k, want := range query.Labels {
+				got := string(s.Metric[model.LabelName(k)])
+				if want != got {
+					misMatched[k] = got
+				}
+			}
+			if len(misMatched) == 0 {
+				continue
+			}
+			allMismatches = append(allMismatches, misMatched)
+			full = append(full, s.Metric)
+		}
+		if len(allMismatches) == 0 {
+			t.Logf("no diff found")
+			return
+		}
+		sort.Slice(allMismatches, func(i, j int) bool {
+			return len(allMismatches[i]) < len(allMismatches[j])
+		})
+		t.Logf("query %q returned %v series, but none matched our query exactly.", query.Metric, len(value))
+		t.Logf("Original query: %v", query.String())
+		for i, m := range allMismatches {
+			t.Logf("Series %d (source: %v/%v)", i, full[i]["namespace"], full[i]["pod"])
+			missing := []string{}
+			for k, v := range m {
+				if v == "" {
+					missing = append(missing, k)
+				} else {
+					t.Logf("  for label %q, wanted %q but got %q", k, query.Labels[k], v)
+				}
+			}
+			if len(missing) > 0 {
+				t.Logf("  missing labels: %v", missing)
+			}
+		}
+
+	default:
+		t.Fatalf("PromDiff expects Vector, got %v", v.Type())
+
 	}
 }
