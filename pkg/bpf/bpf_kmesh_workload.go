@@ -125,6 +125,17 @@ func (sc *BpfSockConnWorkload) close() error {
 	return nil
 }
 
+func bpfProgUpdate(pinPath string, cgopt link.CgroupOptions) error {
+	sclink, err := link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
+	if err != nil {
+		return err
+	}
+	if err := sclink.Update(cgopt.Program); err != nil {
+		return fmt.Errorf("updating link %s failed: %w", pinPath, err)
+	}
+	return nil
+}
+
 func (sc *BpfSockConnWorkload) Attach() error {
 	var err error
 	cgopt4 := link.CgroupOptions{
@@ -143,20 +154,12 @@ func (sc *BpfSockConnWorkload) Attach() error {
 	pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
 
 	if GetStartType() == Restart {
-		sclink4, err := link.LoadPinnedLink(pinPath4, &ebpf.LoadPinOptions{})
-		if err != nil {
+		if err = bpfProgUpdate(pinPath4, cgopt4); err != nil {
 			return err
-		}
-		if err := sclink4.Update(cgopt4.Program); err != nil {
-			return fmt.Errorf("updating link %s failed: %w", pinPath4, err)
 		}
 
-		sclink6, err := link.LoadPinnedLink(pinPath6, &ebpf.LoadPinOptions{})
-		if err != nil {
+		if err = bpfProgUpdate(pinPath6, cgopt6); err != nil {
 			return err
-		}
-		if err := sclink6.Update(cgopt6.Program); err != nil {
-			return fmt.Errorf("updating link %s failed: %w", pinPath6, err)
 		}
 	} else {
 		sc.Link, err = link.AttachCgroup(cgopt4)
@@ -291,13 +294,8 @@ func (so *BpfSockOpsWorkload) Attach() error {
 	pinPath := filepath.Join(so.Info.BpfFsPath, "cgroup_sockops_prog")
 
 	if GetStartType() == Restart {
-		
-		solink, err := link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
-		if err != nil {
+		if err := bpfProgUpdate(pinPath, cgopt); err != nil {
 			return err
-		}
-		if err := solink.Update(cgopt.Program); err != nil {
-			return fmt.Errorf("updating link %s failed: %w", pinPath, err)
 		}
 	} else {
 		lk, err := link.AttachCgroup(cgopt)
