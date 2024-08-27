@@ -297,7 +297,6 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
 	workload := m.workloadCache.GetWorkloadByAddr(networkAddr)
 	if workload == nil {
-		log.Warnf("get workload from ip %v FAILED", address)
 		return nil, ""
 	}
 	return workload, networkAddr.Address.String()
@@ -349,15 +348,10 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 				break
 			}
 		}
-		if namespacedhost == "" {
-			log.Infof("can't find service correspond workload: %s", dstWorkload.Name)
-		}
 
 		svcHost := ""
 		svcNamespace := ""
-		if len(strings.Split(namespacedhost, "/")) != 2 {
-			log.Info("get destination service host failed")
-		} else {
+		if len(strings.Split(namespacedhost, "/")) == 2 {
 			svcNamespace = strings.Split(namespacedhost, "/")[0]
 			svcHost = strings.Split(namespacedhost, "/")[1]
 		}
