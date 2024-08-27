@@ -22,6 +22,7 @@ package bpf
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
@@ -80,15 +81,6 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		return nil, err
 	}
 
-	if GetStartType() == Restart {
-		return spec, nil
-	}
-
-	value := reflect.ValueOf(sc.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
 }
 
@@ -130,36 +122,60 @@ func (sc *BpfSockConnWorkload) close() error {
 	return nil
 }
 
+func bpfProgUpdate(pinPath string, cgopt link.CgroupOptions) error {
+	sclink, err := link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
+	if err != nil {
+		return err
+	}
+	if err := sclink.Update(cgopt.Program); err != nil {
+		return fmt.Errorf("updating link %s failed: %w", pinPath, err)
+	}
+	return nil
+}
+
 func (sc *BpfSockConnWorkload) Attach() error {
 	var err error
-	cgopt := link.CgroupOptions{
+	cgopt4 := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect4Prog,
 	}
 
-	sc.Link, err = link.AttachCgroup(cgopt)
-	if err != nil {
-		return err
-	}
-
-	cgopt = link.CgroupOptions{
+	cgopt6 := link.CgroupOptions{
 		Path:    sc.Info6.Cgroup2Path,
 		Attach:  sc.Info6.AttachType,
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect6Prog,
 	}
 
-	sc.Link6, err = link.AttachCgroup(cgopt)
+	pinPath4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_prog")
+	pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
 
 	if GetStartType() == Restart {
-		return err
-	}
+		if err = bpfProgUpdate(pinPath4, cgopt4); err != nil {
+			return err
+		}
 
-	if err := sc.Link.Pin(sc.Info.BpfFsPath + "sockconn_prog"); err != nil {
-		return err
-	}
-	if err := sc.Link6.Pin(sc.Info.BpfFsPath + "sockconn6_prog"); err != nil {
-		return err
+		if err = bpfProgUpdate(pinPath6, cgopt6); err != nil {
+			return err
+		}
+	} else {
+		sc.Link, err = link.AttachCgroup(cgopt4)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.Link.Pin(pinPath4); err != nil {
+			return err
+		}
+
+		sc.Link6, err = link.AttachCgroup(cgopt6)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.Link6.Pin(pinPath6); err != nil {
+			return err
+		}
 	}
 
 	return err
@@ -247,15 +263,6 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
-	if GetStartType() == Restart {
-		return spec, nil
-	}
-
-	value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
-	if err = pinPrograms(&value, so.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
 }
 
@@ -279,20 +286,24 @@ func (so *BpfSockOpsWorkload) Attach() error {
 		Attach:  so.Info.AttachType,
 		Program: so.KmeshSockopsWorkloadObjects.SockopsProg,
 	}
-
-	lk, err := link.AttachCgroup(cgopt)
-	if err != nil {
-		return err
-	}
-	so.Link = lk
+	pinPath := filepath.Join(so.Info.BpfFsPath, "cgroup_sockops_prog")
 
 	if GetStartType() == Restart {
-		return nil
+		if err := bpfProgUpdate(pinPath, cgopt); err != nil {
+			return err
+		}
+	} else {
+		lk, err := link.AttachCgroup(cgopt)
+		if err != nil {
+			return err
+		}
+		so.Link = lk
+
+		if err := lk.Pin(pinPath); err != nil {
+			return err
+		}
 	}
 
-	if err := lk.Pin(so.Info.BpfFsPath + "cgroup_sockops_prog"); err != nil {
-		return err
-	}
 	return nil
 }
 
@@ -378,8 +389,26 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
+	// sendmsg ebpf prog is mounted on sockmap and processed for each socket.
+	// It has the following characteristics:
+	// 1. Multiple sk_msg ebpf prog can exist at the same time
+	// 2. If the old sk_msg ebpf program is not pinned, it will wait until all
+	// sockets on the old sk_msg ebpf prog are disconnected before automatically detaching.
+	// Therefore, the following methods are used to achieve seamless replacement
+	// 1) loading new sk_msg prog
+	// 2) unpin old sk_msg prog: If sockmap is deleted, sk_msg will also be cleaned up
+	// 3) pin new sk_msg prog
+	// 4) attach new sk_msg prog(in SendMsg.Attach): Replace the old sk_msg prog
 	if GetStartType() == Restart {
-		return spec, nil
+		pinPath := filepath.Join(sm.Info.BpfFsPath, "sendmsg_prog")
+		oldSkMsg, err := ebpf.LoadPinnedProgram(pinPath, nil)
+		if err != nil {
+			log.Errorf("LoadPinnedProgram failed:%v", err)
+		}
+
+		if err = oldSkMsg.Unpin(); err != nil {
+			return nil, err
+		}
 	}
 
 	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
