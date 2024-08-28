@@ -20,8 +20,8 @@ import (
 	"net/netip"
 	"testing"
 
-	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
