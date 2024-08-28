@@ -37,13 +37,13 @@ type logInfo struct {
 }
 
 func RunAccesslog(data requestMetric, accesslog logInfo) {
-	_ = buildAccesslog(data, accesslog)
+	logStr := buildAccesslog(data, accesslog)
+	fmt.Println("accesslog:", logStr)
 }
 
 func buildAccesslog(data requestMetric, accesslog logInfo) string {
 	closeTime := data.closeTime
-	startTime := getOSBootTime()
-	uptime := calculateUptime(startTime, closeTime)
+	uptime := calculateUptime(osStartTime, closeTime)
 
 	timeInfo := fmt.Sprintf("%v", uptime)
 	sourceInfo := fmt.Sprintf("src.addr=%s, src.workload=%s, src.namespace=%s", accesslog.sourceAddress, accesslog.sourceWorkload, accesslog.sourceNamespace)
@@ -51,25 +51,34 @@ func buildAccesslog(data requestMetric, accesslog logInfo) string {
 	connectionInfo := fmt.Sprintf("direction=%s, sent_bytes=%d, received_bytes=%d, duration=%vms", accesslog.direction, data.sentBytes, data.receivedBytes, (float64(data.duration) / 1000000.0))
 
 	logResult := fmt.Sprintf("%s %s, %s, %s", timeInfo, sourceInfo, destinationInfo, connectionInfo)
-	log.Infof("%s", logResult)
 	return logResult
 }
 
-func getOSBootTime() time.Time {
+func getOSBootTime() (time.Time, error) {
 	cmd := exec.Command("uptime", "-s")
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
-		fmt.Println(err)
+		return time.Time{}, err
 	}
-	_ = cmd.Start()
+
+	err = cmd.Start()
+	if err != nil {
+		return time.Time{}, err
+	}
+
 	reader := bufio.NewReader(stdout)
-	timeStr, err2 := reader.ReadString('\n')
-	if err2 != nil {
-		log.Errorf("get system last start time error: %v", err2)
+	timeStr, err := reader.ReadString('\n')
+	if err != nil {
+		return time.Time{}, err
 	}
+
 	timeStr = strings.Trim(timeStr, "\n")
-	bootTime, _ := time.Parse("2006-01-02 15:04:05", timeStr)
-	return bootTime
+	bootTime, err := time.Parse("2006-01-02 15:04:05", timeStr)
+	if err != nil {
+		return time.Time{}, err
+	}
+
+	return bootTime, nil
 }
 
 func calculateUptime(startTime time.Time, elapsedTimeNs uint64) time.Time {

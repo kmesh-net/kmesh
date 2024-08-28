@@ -24,6 +24,7 @@ import (
 	"net/netip"
 	"reflect"
 	"strings"
+	"time"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
@@ -36,12 +37,14 @@ import (
 
 const (
 	TCP_ESTABLISHED = uint32(1)
-	TCP_CLOST       = uint32(7)
+	TCP_CLOSTED     = uint32(7)
 
 	connection_success = uint32(1)
 
 	MSG_LEN = 112
 )
+
+var osStartTime time.Time
 
 type MetricController struct {
 	workloadCache cache.WorkloadCache
@@ -159,6 +162,12 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 		return
 	}
 
+	var err error
+	osStartTime, err = getOSBootTime()
+	if err != nil {
+		log.Errorf("get latest os boot time for accesslog failed: %v", err)
+	}
+
 	reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
 		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
@@ -219,7 +228,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				accesslog.direction = "OUTBOUND"
 			}
 
-			if data.state == TCP_CLOST {
+			if data.state == TCP_CLOSTED {
 				RunAccesslog(data, accesslog)
 			}
 			buildWorkloadMetricsToPrometheus(data, workloadLabels)
@@ -426,7 +435,7 @@ func buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricL
 	if data.state == TCP_ESTABLISHED {
 		tcpConnectionOpenedInWorkload.With(commonLabels).Add(float64(1))
 	}
-	if data.state == TCP_CLOST {
+	if data.state == TCP_CLOSTED {
 		tcpConnectionClosedInWorkload.With(commonLabels).Add(float64(1))
 	}
 	if data.success != connection_success {
@@ -442,7 +451,7 @@ func buildServiceMetricsToPrometheus(data requestMetric, labels serviceMetricLab
 	if data.state == TCP_ESTABLISHED {
 		tcpConnectionOpenedInService.With(commonLabels).Add(float64(1))
 	}
-	if data.state == TCP_CLOST {
+	if data.state == TCP_CLOSTED {
 		tcpConnectionClosedInService.With(commonLabels).Add(float64(1))
 	}
 	if data.success != uint32(1) {

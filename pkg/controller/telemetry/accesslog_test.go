@@ -17,11 +17,9 @@
 package telemetry
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -58,11 +56,7 @@ func Test_buildAccesslog(t *testing.T) {
 			want: "2024-08-14 10:11:27.005837715 +0000 UTC src.addr=10.244.0.10:47667, src.workload=sleep-7656cf8794-9v2gv, src.namespace=kmesh-system, dst.addr=10.244.0.7:8080, dst.service=httpbin.ambient-demo.svc.cluster.local, dst.workload=httpbin-86b8ffc5ff-bhvxx, dst.namespace=kmesh-system, direction=INBOUND, sent_bytes=60, received_bytes=172, duration=2.236ms",
 		},
 	}
-	patch := gomonkey.NewPatches()
-	patch.ApplyFunc(getOSBootTime, func() time.Time {
-		return time.Date(2024, 7, 4, 20, 14, 0, 0, time.UTC)
-	})
-	defer patch.Reset()
+	osStartTime = time.Date(2024, 7, 4, 20, 14, 0, 0, time.UTC)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := buildAccesslog(tt.args.data, tt.args.accesslog)
@@ -73,8 +67,8 @@ func Test_buildAccesslog(t *testing.T) {
 
 func Test_getOSBootTime(t *testing.T) {
 	t.Run("function test", func(t *testing.T) {
-		data := getOSBootTime()
-		fmt.Printf("%v", data)
+		_, err := getOSBootTime()
+		assert.NoError(t, err)
 	})
 }
 
