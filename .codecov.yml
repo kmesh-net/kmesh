@@ -1,11 +1,12 @@
 coverage:
   status:
-    project: #add everything under here, more options at https://docs.codecov.com/docs/commit-status
+    project: off
+    # https://docs.codecov.com/docs/commit-status#patch-status
+    patch:
       default:
-        # basic
-        target: auto #default
-        base: auto 
+        target: 80%
+        informational: false
+        if_ci_failed: error
 comment:                  # this is a top-level key
   layout: "header, files, footer" # remove "new" from "header" and "footer"
   hide_project_coverage: false # set to false
-github_checks: false
