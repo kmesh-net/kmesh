@@ -13,7 +13,7 @@ require (
 	github.com/cilium/ebpf v0.16.0
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.5.1
-	github.com/envoyproxy/go-control-plane v0.12.1-0.20240614044803-82e2a76dbddd
+	github.com/envoyproxy/go-control-plane v0.12.1-0.20240621013728-1eb8caab5155
 	github.com/golang/protobuf v1.5.4
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_golang v1.20.2
@@ -24,7 +24,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.9.0
 	github.com/vishvananda/netlink v1.2.1-beta.2.0.20240411215012-578e95cc3190
-	google.golang.org/grpc v1.65.0
+	google.golang.org/grpc v1.66.0
 	google.golang.org/protobuf v1.34.2
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
