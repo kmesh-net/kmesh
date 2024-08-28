@@ -19,13 +19,13 @@ package workload
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"slices"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
@@ -398,7 +398,6 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 
 	deletedServices, newServices = p.WorkloadCache.AddOrUpdateWorkload(workload)
 
-	// Delete Residual Services on the Workload
 	if err := p.handleWorkloadUnboundServices(workload, deletedServices); err != nil {
 		log.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.GetUid(), err)
 		return err

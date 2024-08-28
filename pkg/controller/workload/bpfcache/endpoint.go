@@ -90,7 +90,7 @@ func (c *Cache) EndpointSwap(currentIndex, lastIndex uint32, serviceId uint32) e
 	}
 
 	// delete the duplicate last endpoint
-	if err := c.bpfMap.KmeshEndpoint.Delete(lastIndex); err != nil {
+	if err := c.bpfMap.KmeshEndpoint.Delete(lastKey); err != nil {
 		return err
 	}
 

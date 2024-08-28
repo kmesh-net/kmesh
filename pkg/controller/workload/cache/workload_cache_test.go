@@ -136,33 +136,3 @@ func TestDeleteWorkload(t *testing.T) {
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: "ut-net", Address: addr2}])
 	})
 }
-
-func TestWorkloadRelationShip(t *testing.T) {
-	t.Run("normal function test", func(t *testing.T) {
-		w := NewWorkloadCache()
-
-		var serviceId uint32 = 12345678
-		var relationId uint32 = 87654321
-		var workloadId uint32 = 12341234
-
-		var relationKey = serviceAndWorkload{
-			workloadId: workloadId,
-			serviceId:  serviceId,
-		}
-		var relationKeyById = ServiceRelationShipById{
-			serviceId:  serviceId,
-			relationId: relationId,
-		}
-
-		w.UpdateEndpointIndex(workloadId, serviceId, relationId)
-		assert.Equal(t, workloadId, w.relationShipById[relationKeyById])
-		assert.Equal(t, relationId, w.endpointIndexes[relationKey])
-
-		val, ok := w.GetEndpointIndex(workloadId, serviceId)
-		assert.Equal(t, ok, true)
-		assert.Equal(t, val, relationId)
-
-		w.DeleteEndpointIndex(serviceId, relationId)
-		assert.Equal(t, (uint32)(0), w.relationShipById[relationKeyById])
-	})
-}

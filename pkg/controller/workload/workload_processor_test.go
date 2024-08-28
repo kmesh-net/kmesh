@@ -20,6 +20,7 @@ import (
 	"net/netip"
 	"testing"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/util/rand"
 
@@ -123,10 +124,10 @@ func Test_handleWorkload(t *testing.T) {
 	// 4.3 check backend map contains waypoint
 	checkBackendMap(t, p, workload2ID, workload2)
 
-	// 5 remove relationship with workload and service
-	workload5 := createTestWorkloadWithService(false)
-	workload5.Uid = wl.Uid
-	err = p.handleWorkload(workload5)
+	// 5 update workload to remove the bound services
+	wl3 := proto.Clone(wl).(*workloadapi.Workload)
+	wl3.Services = nil
+	err = p.handleWorkload(wl3)
 	assert.NoError(t, err)
 
 	// 5.1 check service map
