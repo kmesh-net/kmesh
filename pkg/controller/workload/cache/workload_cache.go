@@ -21,6 +21,7 @@ import (
 	"sync"
 
 	"google.golang.org/protobuf/proto"
+	"istio.io/istio/pkg/util/sets"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
@@ -36,16 +37,6 @@ type WorkloadCache interface {
 type NetworkAddress struct {
 	Network string
 	Address netip.Addr
-}
-
-type serviceAndWorkload struct {
-	workloadId uint32
-	serviceId  uint32
-}
-
-type ServiceRelationShipById struct {
-	serviceId  uint32
-	relationId uint32
 }
 
 type cache struct {
@@ -80,62 +71,48 @@ func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 	}
 }
 
-func (w *cache) getUniqueServicesOnLeftWorkload(workload1, workload2 *workloadapi.Workload) []string {
-	var diff []string
-	if workload1 == nil {
-		return diff
+func getServicesOnWorkload(workload *workloadapi.Workload) sets.String {
+	if workload == nil {
+		return nil
 	}
 
-	for key := range workload1.Services {
-		if workload2 == nil {
-			diff = append(diff, key)
-			continue
-		}
-		if _, exist := workload2.Services[key]; !exist {
-			diff = append(diff, key)
-		}
+	sets := sets.New[string]()
+	for key := range workload.Services {
+		sets.Insert(key)
 	}
-	return diff
+	return sets
 }
 
 func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Workload) ([]string, []string) {
-	dels := w.getUniqueServicesOnLeftWorkload(workload1, workload2)
-	news := w.getUniqueServicesOnLeftWorkload(workload2, workload1)
-	return dels, news
+	left := getServicesOnWorkload(workload1)
+	right := getServicesOnWorkload(workload2)
+	return left.Diff(right)
 }
 
 func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) ([]string, []string) {
-	var deletedServices []string
-	var newServices []string
+	var deletedServices, newServices []string
 
 	if workload == nil {
 		return nil, nil
 	}
-	uid := workload.Uid
 
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	oldWorkload, exist := w.byUid[uid]
+	oldWorkload, exist := w.byUid[workload.Uid]
 	if exist {
 		if proto.Equal(workload, oldWorkload) {
 			return nil, nil
 		}
-		// remove same uid but old address workload, avoid leak workload by address.
-		for _, ip := range oldWorkload.Addresses {
-			addr, _ := netip.AddrFromSlice(ip)
-			networkAddress := composeNetworkAddress(oldWorkload.Network, addr)
-			delete(w.byAddr, networkAddress)
-		}
-
 		// compare services
 		deletedServices, newServices = w.compareWorkloadServices(oldWorkload, workload)
 	} else {
-		deletedServices = nil
-		newServices = w.getUniqueServicesOnLeftWorkload(workload, oldWorkload)
+		for key := range workload.Services {
+			newServices = append(newServices, key)
+		}
 	}
 
-	w.byUid[uid] = workload
+	w.byUid[workload.Uid] = workload
 
 	// We should exclude the workloads that use host network mode
 	// Since they are using the host ip, we can not use address to identify them

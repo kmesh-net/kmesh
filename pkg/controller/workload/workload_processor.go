@@ -697,20 +697,3 @@ func (p *Processor) deleteEndpointRecords(workloadId uint32, endpointKeys []bpf.
 	}
 	return nil
 }
-
-// updateEndpointIndex update the endpoint index for the given service and workload
-func (p *Processor) updateEndpointIndex(workloadId uint32, serviceId uint32, index uint32) error {
-	var ek = bpf.EndpointKey{
-		ServiceId:    serviceId,
-		BackendIndex: index,
-	}
-	var ev = bpf.EndpointValue{
-		BackendUid: workloadId,
-	}
-
-	if err := p.bpf.EndpointUpdate(&ek, &ev); err != nil {
-		log.Errorf("EndpointUpdate %#v failed: %s", ek, err)
-		return err
-	}
-	return nil
-}

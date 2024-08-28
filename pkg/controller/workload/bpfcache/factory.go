@@ -17,8 +17,6 @@
 package bpfcache
 
 import (
-	"sync"
-
 	"istio.io/istio/pkg/util/sets"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
@@ -29,7 +27,6 @@ var log = logger.NewLoggerField("workload_bpfcache")
 
 type Cache struct {
 	bpfMap bpf2go.KmeshCgroupSockWorkloadMaps
-	mutex  sync.RWMutex
 	// endpointKeys by workload uid
 	endpointKeys map[uint32]sets.Set[EndpointKey]
 }
