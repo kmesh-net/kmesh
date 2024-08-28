@@ -43,6 +43,14 @@ func Test_handleWorkload(t *testing.T) {
 	// 1. handle workload with service, but service not handled yet
 	// In this case, only frontend map and backend map should be updated.
 	wl := createTestWorkloadWithService(true)
+	// add another service
+	wl.Services["default/testsvc2"] = &workloadapi.PortList{
+		Ports: []*workloadapi.Port{
+			{
+				ServicePort: 80,
+				TargetPort:  8080,
+			},
+		}}
 	err := p.handleWorkload(wl)
 	assert.NoError(t, err)
 
@@ -97,7 +105,7 @@ func Test_handleWorkload(t *testing.T) {
 	// 3.2 check service map contains service
 	checkServiceMap(t, p, svcID, fakeSvc, 2)
 
-	// 4 modify workload2 attribute not relationship with services
+	// 4 modify workload2 attribute not related with services
 	workload2.Waypoint = &workloadapi.GatewayAddress{
 		Destination: &workloadapi.GatewayAddress_Address{
 			Address: &workloadapi.NetworkAddress{
@@ -109,6 +117,7 @@ func Test_handleWorkload(t *testing.T) {
 
 	err = p.handleWorkload(workload2)
 	assert.NoError(t, err)
+	checkBackendMap(t, p, workload2ID, workload2)
 
 	// 4.1 check endpoint map now contains the new workloads
 	workload2ID = checkFrontEndMap(t, workload2.Addresses[0], p)
