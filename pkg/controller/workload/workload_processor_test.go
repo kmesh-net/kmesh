@@ -53,7 +53,7 @@ func Test_handleWorkload(t *testing.T) {
 	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
 	checkBackendMap(t, p, workloadID, wl)
 
-	epKeys := p.bpf.EndpointIterFindKey(workloadID)
+	epKeys := p.bpf.GetEndpointKeys(workloadID)
 	assert.Equal(t, len(epKeys), 0)
 	for svcName := range wl.Services {
 		endpoints := p.endpointsByService[svcName]
@@ -386,7 +386,7 @@ func Test_deleteWorkloadWithRestart(t *testing.T) {
 	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
 	checkBackendMap(t, p, workloadID, wl)
 
-	epKeys := p.bpf.EndpointIterFindKey(workloadID)
+	epKeys := p.bpf.GetEndpointKeys(workloadID)
 	assert.Equal(t, len(epKeys), 0)
 	for svcName := range wl.Services {
 		endpoints := p.endpointsByService[svcName]

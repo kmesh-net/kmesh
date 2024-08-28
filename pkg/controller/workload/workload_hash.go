@@ -90,7 +90,7 @@ func (h *HashName) flushDelta(str string, num uint32) error {
 	return err
 }
 
-func (h *HashName) StrToNum(str string) uint32 {
+func (h *HashName) Hash(str string) uint32 {
 	var num uint32
 
 	if num, exists := h.strToNum[str]; exists {
@@ -107,7 +107,7 @@ func (h *HashName) StrToNum(str string) uint32 {
 			h.strToNum[str] = num
 			// Create a new item here, should flush
 			if err := h.flushDelta(str, num); err != nil {
-				log.Errorf("error flushing when calling StrToNum: %v", err)
+				log.Errorf("error flushing when calling Hash: %v", err)
 			}
 			break
 		}

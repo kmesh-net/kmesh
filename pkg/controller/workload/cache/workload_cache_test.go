@@ -145,7 +145,7 @@ func TestWorkloadRelationShip(t *testing.T) {
 		var relationId uint32 = 87654321
 		var workloadId uint32 = 12341234
 
-		var relationKey = ServiceRelationShipByWorkload{
+		var relationKey = serviceAndWorkload{
 			workloadId: workloadId,
 			serviceId:  serviceId,
 		}
@@ -154,15 +154,15 @@ func TestWorkloadRelationShip(t *testing.T) {
 			relationId: relationId,
 		}
 
-		w.UpdateRelationShip(workloadId, serviceId, relationId)
+		w.UpdateEndpointIndex(workloadId, serviceId, relationId)
 		assert.Equal(t, workloadId, w.relationShipById[relationKeyById])
-		assert.Equal(t, relationId, w.relationShipByWorkload[relationKey])
+		assert.Equal(t, relationId, w.endpointIndexes[relationKey])
 
-		val, ok := w.GetRelationShip(workloadId, serviceId)
+		val, ok := w.GetEndpointIndex(workloadId, serviceId)
 		assert.Equal(t, ok, true)
 		assert.Equal(t, val, relationId)
 
-		w.DeleteRelationShip(serviceId, relationId)
+		w.DeleteEndpointIndex(serviceId, relationId)
 		assert.Equal(t, (uint32)(0), w.relationShipById[relationKeyById])
 	})
 }
