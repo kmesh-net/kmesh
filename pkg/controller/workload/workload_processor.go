@@ -19,13 +19,13 @@ package workload
 import (
 	"fmt"
 	"os"
-	"slices"
 	"strings"
 	"sync"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"slices"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
@@ -266,6 +266,12 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 		ek  = bpf.EndpointKey{}
 		ev  = bpf.EndpointValue{}
 	)
+
+	// TODO: make this check on run on restart once
+	if !p.shouldAddEndpoint(uid, sk.ServiceId) {
+		return nil
+	}
+
 	sv.EndpointCount++
 	ek.BackendIndex = sv.EndpointCount
 	ek.ServiceId = sk.ServiceId
@@ -398,6 +404,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 
 	deletedServices, newServices = p.WorkloadCache.AddOrUpdateWorkload(workload)
 
+	// TODO: how can we know service on restart? maybe also rely on endpoint index
 	if err := p.handleWorkloadUnboundServices(workload, deletedServices); err != nil {
 		log.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.GetUid(), err)
 		return err
@@ -499,6 +506,18 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	return nil
 }
 
+// TODO: make this check run once on restart
+func (p *Processor) shouldAddEndpoint(wlUid uint32, serviceUid uint32) bool {
+	eks := p.bpf.GetEndpointKeys(wlUid)
+	for k := range eks {
+		if k.ServiceId == serviceUid {
+			log.Debugf("workload %d has been storred as endpoint of service %d", wlUid, serviceUid)
+			return false
+		}
+	}
+	return true
+}
+
 func (p *Processor) handleService(service *workloadapi.Service) error {
 	log.Debugf("handle service resource: %s", service.ResourceName())
 
@@ -565,30 +584,38 @@ func (p *Processor) handleRemovedAddresses(removed []string) error {
 }
 
 func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
-	var (
-		err     error
-		address = &workloadapi.Address{}
-	)
-
+	var err error
+	// sort resources, first process services, then workload
+	var services []*workloadapi.Service
+	var workloads []*workloadapi.Workload
 	for _, resource := range rsp.GetResources() {
+		address := &workloadapi.Address{}
 		if err = anypb.UnmarshalTo(resource.Resource, address, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
 
-		log.Debugf("resource, %v", address)
 		switch address.GetType().(type) {
 		case *workloadapi.Address_Workload:
-			workload := address.GetWorkload()
-			err = p.handleWorkload(workload)
+			workloads = append(workloads, address.GetWorkload())
 		case *workloadapi.Address_Service:
-			service := address.GetService()
-			err = p.handleService(service)
+			services = append(services, address.GetService())
 		default:
 			log.Errorf("unknown type")
 		}
 	}
-	if err != nil {
-		log.Error(err)
+
+	for _, service := range services {
+		log.Debugf("handle service %v", service.ResourceName())
+		if err = p.handleService(service); err != nil {
+			log.Errorf("handle service failed, err: %v", err)
+		}
+	}
+
+	for _, workload := range workloads {
+		log.Debugf("handle workload %v", workload.ResourceName())
+		if err = p.handleWorkload(workload); err != nil {
+			log.Errorf("handle workload failed, err: %v", err)
+		}
 	}
 
 	_ = p.handleRemovedAddresses(rsp.RemovedResources)

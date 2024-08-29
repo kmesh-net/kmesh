@@ -110,3 +110,22 @@ func (c *Cache) EndpointLookup(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointLookup [%#v]", *key)
 	return c.bpfMap.KmeshEndpoint.Lookup(key, value)
 }
+
+// RestoreEndpointKeys called on restart to construct endpoint indexes from bpf map
+func (c *Cache) RestoreEndpointKeys() {
+	log.Debugf("init endpoint keys")
+	var (
+		key   = EndpointKey{}
+		value = EndpointValue{}
+	)
+
+	iter := c.bpfMap.KmeshEndpoint.Iterate()
+	for iter.Next(&key, &value) {
+		// update endpointKeys index
+		if c.endpointKeys[value.BackendUid] == nil {
+			c.endpointKeys[value.BackendUid] = sets.New[EndpointKey](key)
+		} else {
+			c.endpointKeys[value.BackendUid].Insert(key)
+		}
+	}
+}

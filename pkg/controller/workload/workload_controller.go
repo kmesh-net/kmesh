@@ -48,6 +48,11 @@ func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
 		Processor:      newProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
 		bpfWorkloadObj: bpfWorkload,
 	}
+	// do some initialization when restart
+	// restore endpoint index, otherwise endpoint number can double
+	if bpf.GetStartType() == bpf.Restart {
+		c.Processor.bpf.RestoreEndpointKeys()
+	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
 	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache)
 	return c
