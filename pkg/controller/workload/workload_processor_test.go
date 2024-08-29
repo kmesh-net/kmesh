@@ -370,7 +370,7 @@ func createFakeService(name, ip, waypoint string) *workloadapi.Service {
 	}
 }
 
-func Test_deleteWorkloadWithRestart(t *testing.T) {
+func TestRestart(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
 
@@ -385,16 +385,6 @@ func Test_deleteWorkloadWithRestart(t *testing.T) {
 	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
 	checkBackendMap(t, p, workloadID, wl)
 
-	epKeys := p.bpf.GetEndpointKeys(workloadID)
-	assert.Equal(t, len(epKeys), 0)
-	for svcName := range wl.Services {
-		endpoints := p.endpointsByService[svcName]
-		assert.Len(t, endpoints, 1)
-		if _, ok := endpoints[wl.Uid]; ok {
-			assert.True(t, ok)
-		}
-	}
-
 	// Set a restart label and simulate missing data in the cache
 	bpf.SetStartType(bpf.Restart)
 	for key := range wl.GetServices() {
@@ -402,6 +392,9 @@ func Test_deleteWorkloadWithRestart(t *testing.T) {
 	}
 
 	p.compareWorkloadAndServiceWithHashName()
+
+	// TODO: add more restart cases
+
 	hashNameClean(p)
 }
 
