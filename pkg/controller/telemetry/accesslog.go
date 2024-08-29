@@ -17,10 +17,8 @@
 package telemetry
 
 import (
-	"bufio"
 	"fmt"
-	"os/exec"
-	"strings"
+	"syscall"
 	"time"
 )
 
@@ -36,7 +34,7 @@ type logInfo struct {
 	destinationNamespace string
 }
 
-func RunAccesslog(data requestMetric, accesslog logInfo) {
+func OutputAccesslog(data requestMetric, accesslog logInfo) {
 	logStr := buildAccesslog(data, accesslog)
 	fmt.Println("accesslog:", logStr)
 }
@@ -55,30 +53,18 @@ func buildAccesslog(data requestMetric, accesslog logInfo) string {
 }
 
 func getOSBootTime() (time.Time, error) {
-	cmd := exec.Command("uptime", "-s")
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
+	now := time.Now()
+	now = now.Round(time.Duration(now.Second()))
+
+	sysinfo := &syscall.Sysinfo_t{}
+	if err := syscall.Sysinfo(sysinfo); err != nil {
 		return time.Time{}, err
 	}
 
-	err = cmd.Start()
-	if err != nil {
-		return time.Time{}, err
-	}
+	uptime := time.Duration(sysinfo.Uptime) * time.Second
+	lastRebootTime := now.Add(-uptime)
 
-	reader := bufio.NewReader(stdout)
-	timeStr, err := reader.ReadString('\n')
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	timeStr = strings.Trim(timeStr, "\n")
-	bootTime, err := time.Parse("2006-01-02 15:04:05", timeStr)
-	if err != nil {
-		return time.Time{}, err
-	}
-
-	return bootTime, nil
+	return lastRebootTime, nil
 }
 
 func calculateUptime(startTime time.Time, elapsedTimeNs uint64) time.Time {

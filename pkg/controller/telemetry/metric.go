@@ -229,7 +229,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 
 			if data.state == TCP_CLOSTED {
-				RunAccesslog(data, accesslog)
+				OutputAccesslog(data, accesslog)
 			}
 			buildWorkloadMetricsToPrometheus(data, workloadLabels)
 			buildServiceMetricsToPrometheus(data, serviceLabels)
