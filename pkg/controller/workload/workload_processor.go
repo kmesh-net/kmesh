@@ -392,13 +392,13 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 
 	// TODO: how can we know service on restart? maybe also rely on endpoint index
 	if err := p.handleWorkloadUnboundServices(workload, deletedServices); err != nil {
-		log.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.GetUid(), err)
+		log.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.ResourceName(), err)
 		return err
 	}
 
 	// Add new services associated with the workload
 	if err := p.handleWorkloadNewBoundServices(workload, newServices); err != nil {
-		log.Errorf("handleWorkloadNewBoundServices %s failed: %v", workload.Uid, err)
+		log.Errorf("handleWorkloadNewBoundServices %s failed: %v", workload.ResourceName(), err)
 		return err
 	}
 
@@ -475,7 +475,7 @@ func (p *Processor) shouldAddEndpoint(wlUid uint32, serviceUid uint32) bool {
 	eks := p.bpf.GetEndpointKeys(wlUid)
 	for k := range eks {
 		if k.ServiceId == serviceUid {
-			log.Debugf("workload %d has been storred as endpoint of service %d", wlUid, serviceUid)
+			log.Debugf("workload %d has been stored as endpoint of service %d", wlUid, serviceUid)
 			return false
 		}
 	}
