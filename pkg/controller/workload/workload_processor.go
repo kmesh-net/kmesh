@@ -19,13 +19,13 @@ package workload
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
-	"slices"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
@@ -267,7 +267,7 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 		ev  = bpf.EndpointValue{}
 	)
 
-	// TODO: make this check on run on restart once
+	// TODO: make this check only run once on restart
 	if !p.shouldAddEndpoint(uid, sk.ServiceId) {
 		return nil
 	}
@@ -506,7 +506,6 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	return nil
 }
 
-// TODO: make this check run once on restart
 func (p *Processor) shouldAddEndpoint(wlUid uint32, serviceUid uint32) bool {
 	eks := p.bpf.GetEndpointKeys(wlUid)
 	for k := range eks {
