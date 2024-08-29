@@ -9,8 +9,7 @@ set -e
 
 DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
-# support testing multiple istio version in the future.
-ISTIO_VERSION=1.22.0
+ISTIO_VERSION=${ISTIO_VERSION:-"1.22.0"}
 
 export KMESH_WAYPOINT_IMAGE=${KMESH_WAYPOINT_IMAGE:-"ghcr.io/kmesh-net/waypoint:latest"}
 
