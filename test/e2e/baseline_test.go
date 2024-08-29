@@ -43,6 +43,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -607,6 +609,77 @@ func TestMixNsAndServiceWaypoint(t *testing.T) {
 			)
 			src.CallOrFail(t, opt)
 		})
+	})
+}
+
+func TestBookinfo(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		namespace := apps.Namespace.Name()
+		// Install bookinfo.
+		if _, err := shell.Execute(true, fmt.Sprintf("kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.22/samples/bookinfo/platform/kube/bookinfo.yaml -n %s", namespace)); err != nil {
+			t.Fatalf("failed to install bookinfo: %v", err)
+		}
+		t.Cleanup(func() {
+			if _, err := shell.Execute(true, fmt.Sprintf("kubectl delete -f https://raw.githubusercontent.com/istio/istio/release-1.22/samples/bookinfo/platform/kube/bookinfo.yaml -n %s", namespace)); err != nil {
+				t.Fatalf("failed to delete bookinfo: %v", err)
+			}
+		})
+
+		// Install sleep as client.
+		if _, err := shell.Execute(true, fmt.Sprintf("kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.21/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
+			t.Fatalf("failed to install sleep as client of bookinfo: %v", err)
+		}
+		t.Cleanup(func() {
+			if _, err := shell.Execute(true, fmt.Sprintf("kubectl delete -f https://raw.githubusercontent.com/istio/istio/release-1.21/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
+				t.Fatalf("failed to delete sleep as client of bookinfo: %v", err)
+			}
+		})
+
+		fetchFn := testKube.NewSinglePodFetch(t.Clusters().Default(), namespace)
+		if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
+			t.Fatalf("failed to wait bookinfo pods to be ready: %v", err)
+		}
+
+		// It's used to check that all services of bookinfo are accessed correctly.
+		checkBookinfo := func() bool {
+			output, err := shell.Execute(true, fmt.Sprintf("kubectl exec deploy/sleep -n %s -- curl -s http://productpage:9080/productpage", namespace))
+			if err != nil {
+				t.Logf("failed to execute access command: %v, output is %s", err, output)
+				return false
+			}
+
+			// Check the response content to confirm that the details, reviews and ratings services were accessed correctly.
+			for _, key := range []string{"Book Details", "Book Reviews", "full stars"} {
+				if !strings.Contains(output, key) {
+					t.Logf("response doesn't contain keyword %s", key)
+					return false
+				}
+			}
+
+			return true
+		}
+
+		if err := retry.Until(checkBookinfo, retry.Timeout(60*time.Second), retry.BackoffDelay(1*time.Second)); err != nil {
+			t.Fatal("failed to access bookinfo correctly: %v", err)
+		}
+
+		// Set namespace waypoint to verify that bookinfo could be accessed normally event if each hop
+		// is processed by waypoint.
+		waypoint := "namespace-waypoint"
+
+		newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.ServiceTraffic)
+		t.Cleanup(func() {
+			deleteWaypointProxyOrFail(t, t, apps.Namespace, waypoint)
+		})
+
+		SetWaypoint(t, namespace, "", waypoint, Namespace)
+		t.Cleanup(func() {
+			UnsetWaypoint(t, namespace, "", Namespace)
+		})
+
+		if err := retry.Until(checkBookinfo, retry.Timeout(60*time.Second), retry.BackoffDelay(1*time.Second)); err != nil {
+			t.Fatal("failed to access bookinfo correctly when there is a namespace waypoint: %v", err)
+		}
 	})
 }
 
