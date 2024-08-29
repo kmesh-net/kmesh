@@ -20,7 +20,7 @@ ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 include ../../mk/bpf.vars.mk
 include ../../mk/bpf.print.mk
 
-INCLUDES = -I./ -I./wokloadapi
+INCLUDES = -I./
 
 # compiler flags
 LDFLAGS := -lprotobuf-c
