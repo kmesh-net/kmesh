@@ -62,12 +62,11 @@ type Processor struct {
 
 func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	return &Processor{
-		hashName:           NewHashName(),
-		endpointsByService: make(map[string]map[string]struct{}),
-		bpf:                bpf.NewCache(workloadMap),
-		nodeName:           os.Getenv("NODE_NAME"),
-		WorkloadCache:      cache.NewWorkloadCache(),
-		ServiceCache:       cache.NewServiceCache(),
+		hashName:      NewHashName(),
+		bpf:           bpf.NewCache(workloadMap),
+		nodeName:      os.Getenv("NODE_NAME"),
+		WorkloadCache: cache.NewWorkloadCache(),
+		ServiceCache:  cache.NewServiceCache(),
 	}
 }
 
@@ -121,7 +120,7 @@ func (p *Processor) deletePodFrontendData(uid uint32) error {
 		log.Debugf("Find BackendValue: [%#v]", bv)
 		fk.Ip = bv.Ip
 		if err = p.bpf.FrontendDelete(&fk); err != nil {
-			log.Errorf("FrontendDelete failed: %s", err)
+			log.Errorf("FrontendDelete failed: %v", err)
 			return err
 		}
 	}
@@ -167,7 +166,7 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	backendUid := p.hashName.Hash(uid)
 	// 1. for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
 	if err = p.deletePodFrontendData(backendUid); err != nil {
-		log.Errorf("deletePodFrontendData failed: %s", err)
+		log.Errorf("deletePodFrontendData %d failed: %v", backendUid, err)
 		return err
 	}
 
@@ -182,7 +181,7 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	// 3. delete workload from backend map
 	bkDelete.BackendUid = backendUid
 	if err = p.bpf.BackendDelete(&bkDelete); err != nil {
-		log.Errorf("BackendDelete failed %v: %s", backendUid, err)
+		log.Errorf("BackendDelete %d failed: %v", backendUid, err)
 		return err
 	}
 
@@ -287,24 +286,13 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 	return nil
 }
 
-// storeServiceEndpoint is to cache workload when the service has not been received
-func (p *Processor) storeServiceEndpoint(uid string, serviceName string) {
-	wls, ok := p.endpointsByService[serviceName]
-	if !ok {
-		p.endpointsByService[serviceName] = make(map[string]struct{})
-		wls = p.endpointsByService[serviceName]
-	}
-
-	wls[uid] = struct{}{}
-}
-
 // handleWorkloadUnboundServices handles when a workload's belonging services removed
 func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload, services []string) error {
 	if len(services) == 0 {
 		return nil
 	}
 
-	log.Infof("handleWorkloadUnboundServices %s: %v", workload.Uid, services)
+	log.Debugf("handleWorkloadUnboundServices %s: %v", workload.ResourceName(), services)
 	workloadUid := p.hashName.Hash(workload.GetUid())
 	allEks := p.bpf.GetEndpointKeys(workloadUid)
 	needRemove := make([]bpf.EndpointKey, 0, len(services))
@@ -336,18 +324,16 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 		return nil
 	}
 
-	log.Infof("handleWorkloadNewBoundServices %s: %v", workload.Uid, newServices)
+	log.Debugf("handleWorkloadNewBoundServices %s: %v", workload.ResourceName(), newServices)
 	workloadId := p.hashName.Hash(workload.GetUid())
 	for _, serviceName := range newServices {
 		sk.ServiceId = p.hashName.Hash(serviceName)
 		// the service already stored in map, add endpoint
 		if err = p.bpf.ServiceLookup(&sk, &sv); err == nil {
 			if err = p.addWorkloadToService(&sk, &sv, workloadId); err != nil {
-				log.Errorf("addWorkloadToService failed, err:%s", err)
+				log.Errorf("addWorkloadToService workload %d service %d failed: %v", workloadId, sk.ServiceId, err)
 				return err
 			}
-		} else {
-			p.storeServiceEndpoint(workload.GetUid(), serviceName)
 		}
 	}
 	return nil
@@ -446,8 +432,6 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.GatewayAddress, ports []*workloadapi.Port) error {
 	var (
 		err      error
-		ek       = bpf.EndpointKey{}
-		ev       = bpf.EndpointValue{}
 		sk       = bpf.ServiceKey{}
 		oldValue = bpf.ServiceValue{}
 	)
@@ -478,25 +462,6 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	// Already exists, it means this is service update.
 	if err = p.bpf.ServiceLookup(&sk, &oldValue); err == nil {
 		newValue.EndpointCount = oldValue.EndpointCount
-	} else {
-		// Only update the endpoint map when the service is first time added
-		endpointCaches, ok := p.endpointsByService[serviceName]
-		if ok {
-			newValue.EndpointCount = uint32(len(endpointCaches))
-			endpointIndex := uint32(0)
-			for workloadUid := range endpointCaches {
-				endpointIndex++
-				ek.ServiceId = sk.ServiceId
-				ek.BackendIndex = endpointIndex
-				ev.BackendUid = p.hashName.Hash(workloadUid)
-
-				if err = p.bpf.EndpointUpdate(&ek, &ev); err != nil {
-					log.Errorf("Update Endpoint failed, err:%s", err)
-					return err
-				}
-			}
-		}
-		delete(p.endpointsByService, serviceName)
 	}
 
 	if err = p.bpf.ServiceUpdate(&sk, &newValue); err != nil {

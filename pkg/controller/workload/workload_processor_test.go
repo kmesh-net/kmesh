@@ -40,8 +40,16 @@ func Test_handleWorkload(t *testing.T) {
 
 	p := newProcessor(workloadMap)
 
-	// 1. handle workload with service, but service not handled yet
-	// In this case, only frontend map and backend map should be updated.
+	var (
+		ek bpfcache.EndpointKey
+		ev bpfcache.EndpointValue
+	)
+
+	// 1. add related service
+	fakeSvc := createFakeService("testsvc", "10.240.10.1", "10.240.10.2")
+	_ = p.handleService(fakeSvc)
+
+	// 2. add workload
 	wl := createTestWorkloadWithService(true)
 	// add another service
 	wl.Services["default/testsvc2"] = &workloadapi.PortList{
@@ -54,27 +62,8 @@ func Test_handleWorkload(t *testing.T) {
 	err := p.handleWorkload(wl)
 	assert.NoError(t, err)
 
-	var (
-		ek bpfcache.EndpointKey
-		ev bpfcache.EndpointValue
-	)
-
 	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
 	checkBackendMap(t, p, workloadID, wl)
-
-	epKeys := p.bpf.GetEndpointKeys(workloadID)
-	assert.Equal(t, len(epKeys), 0)
-	for svcName := range wl.Services {
-		endpoints := p.endpointsByService[svcName]
-		assert.Len(t, endpoints, 1)
-		if _, ok := endpoints[wl.Uid]; ok {
-			assert.True(t, ok)
-		}
-	}
-
-	// 2. add related service
-	fakeSvc := createFakeService("testsvc", "10.240.10.1", "10.240.10.2")
-	_ = p.handleService(fakeSvc)
 
 	// 2.1 check front end map contains service
 	svcID := checkFrontEndMap(t, fakeSvc.Addresses[0].Address, p)
