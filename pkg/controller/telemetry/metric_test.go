@@ -578,7 +578,7 @@ func TestBuildServiceMetric(t *testing.T) {
 			}
 			m.workloadCache.AddOrUpdateWorkload(dstWorkload)
 			m.workloadCache.AddOrUpdateWorkload(srcWorkload)
-			got := m.buildServiceMetric(tt.args.data)
+			got, _ := m.buildServiceMetric(tt.args.data)
 			assert.Equal(t, tt.want, got)
 		})
 	}
@@ -701,7 +701,7 @@ func Test_buildServiceMetric(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildServiceMetric(tt.args.dstWorkload, tt.args.srcWorkload, tt.args.dstPort)
+			got, _ := buildServiceMetric(tt.args.dstWorkload, tt.args.srcWorkload, tt.args.dstPort)
 			assert.Equal(t, tt.want, got)
 		})
 	}
