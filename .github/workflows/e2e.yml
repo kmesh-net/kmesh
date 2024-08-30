@@ -1,4 +1,4 @@
-name: E2E Test
+name: E2E Test(istio 1.22)
 on: 
   pull_request:
 jobs:

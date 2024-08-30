@@ -1,4 +1,4 @@
-name: E2E IPv6 Test/istio-1.23
+name: E2E IPv6 Test(istio 1.23)
 on: 
   pull_request:
 jobs:  
