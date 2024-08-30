@@ -20,6 +20,11 @@
 package cni
 
 import (
+	"fmt"
+	"path/filepath"
+
+	"github.com/fsnotify/fsnotify"
+
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -54,6 +59,7 @@ type Installer struct {
 	CniMountNetEtcDIR string
 	CniConfigName     string
 	CniConfigChained  bool
+	Watcher           *fsnotify.Watcher
 }
 
 func NewInstaller(mode string,
@@ -76,6 +82,43 @@ func (i *Installer) Start() error {
 			i.Stop()
 			return err
 		}
+
+		watcher, err := fsnotify.NewWatcher()
+		if err != nil {
+			return fmt.Errorf("failed to create fsnotify watcher: %v", err)
+		}
+		i.Watcher = watcher
+
+		if err = watcher.Add(ServiceAccountPath); err != nil {
+			return fmt.Errorf("failed to add fsnotify watcher for path %s: %v", ServiceAccountPath, err)
+		}
+
+		// Start listening for events.
+		go func() {
+			log.Infof("start watching directory %s", ServiceAccountPath)
+
+			for {
+				select {
+				case _, ok := <-watcher.Events:
+					if !ok {
+						log.Info("events channel of fsnotify watcher was closed")
+						return
+					}
+
+					// NOTE: due to the update mechanism of service account path, try to update
+					// kubeconfig of Kmesh cni regardless of any events.
+					if err := maybeWriteKubeConfigFile(filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
+						log.Errorf("failed try to update kubeconfig of Kmesh cni: %v", err)
+					}
+				case err, ok := <-watcher.Errors:
+					if !ok {
+						log.Info("errors channel of fsnotify watcher was closed")
+						return
+					}
+					log.Infof("error from errors channel of fsnotify watcher: %v", err)
+				}
+			}
+		}()
 	}
 	return nil
 }
@@ -85,6 +128,9 @@ func (i *Installer) Stop() {
 		log.Info("start remove CNI config")
 		if err := i.removeCniConfig(); err != nil {
 			log.Errorf("remove CNI config failed: %v, please remove manually", err)
+		}
+		if err := i.Watcher.Close(); err != nil {
+			log.Errorf("failed to close fsnotify watcher: %v", err)
 		}
 		log.Info("remove CNI config done")
 	}
