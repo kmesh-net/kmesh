@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package workload
+package utils
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	persistPath = "/mnt/workload_hash_name.yaml"
+	persistPath = "/mnt/hash_name.yaml"
 )
 
 // HashName converts a string to a uint32 integer as the key of bpf map
@@ -61,6 +61,10 @@ func (h *HashName) readFromPersistFile() error {
 	}
 
 	return yaml.Unmarshal(data, &h.strToNum)
+}
+
+func (h *HashName) GetStrToNum() map[string]uint32 {
+	return h.strToNum
 }
 
 func (h *HashName) flush() error {

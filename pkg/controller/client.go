@@ -48,7 +48,7 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 }
 
-func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
+func NewXdsClient(mode string, bpfAds *bpf.BpfKmesh, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(mode),
@@ -57,7 +57,7 @@ func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
 	if mode == constants.WorkloadMode {
 		client.WorkloadController = workload.NewController(bpfWorkload)
 	} else if mode == constants.AdsMode {
-		client.AdsController = ads.NewController()
+		client.AdsController = ads.NewController(bpfAds)
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())

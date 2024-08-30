@@ -409,7 +409,7 @@ func Test_deleteWorkloadWithRestart(t *testing.T) {
 // The hashname will be saved as a file by default.
 // If it is not cleaned, it will affect other use cases.
 func hashNameClean(p *Processor) {
-	for str := range p.hashName.strToNum {
+	for str := range p.hashName.GetStrToNum() {
 		if err := p.removeWorkloadFromBpfMap(str); err != nil {
 			log.Errorf("RemoveWorkloadResource failed: %v", err)
 		}

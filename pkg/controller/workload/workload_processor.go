@@ -37,6 +37,7 @@ import (
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 const (
@@ -48,7 +49,7 @@ type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
 	req *service_discovery_v3.DeltaDiscoveryRequest
 
-	hashName *HashName
+	hashName *utils.HashName
 	// workloads indexer, svc key -> workload id
 	endpointsByService map[string]map[string]struct{}
 	bpf                *bpf.Cache
@@ -59,7 +60,7 @@ type Processor struct {
 
 func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	return &Processor{
-		hashName:           NewHashName(),
+		hashName:           utils.NewHashName(),
 		endpointsByService: make(map[string]map[string]struct{}),
 		bpf:                bpf.NewCache(workloadMap),
 		nodeName:           os.Getenv("NODE_NAME"),
@@ -624,7 +625,7 @@ func (p *Processor) compareWorkloadAndServiceWithHashName() {
 	 * from the last epoch is inconsistent with the data that should
 	 * actually be stored now. then we should delete it from bpf map
 	 */
-	for str, num := range p.hashName.strToNum {
+	for str, num := range p.hashName.GetStrToNum() {
 		if p.WorkloadCache.GetWorkloadByUid(str) == nil && p.ServiceCache.GetService(str) == nil {
 			log.Debugf("GetWorkloadByUid and GetService nil:%v", str)
 
