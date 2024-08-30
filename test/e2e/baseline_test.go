@@ -626,11 +626,11 @@ func TestBookinfo(t *testing.T) {
 		})
 
 		// Install sleep as client.
-		if _, err := shell.Execute(true, fmt.Sprintf("kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.21/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
+		if _, err := shell.Execute(true, fmt.Sprintf("kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.22/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
 			t.Fatalf("failed to install sleep as client of bookinfo: %v", err)
 		}
 		t.Cleanup(func() {
-			if _, err := shell.Execute(true, fmt.Sprintf("kubectl delete -f https://raw.githubusercontent.com/istio/istio/release-1.21/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
+			if _, err := shell.Execute(true, fmt.Sprintf("kubectl delete -f https://raw.githubusercontent.com/istio/istio/release-1.22/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
 				t.Fatalf("failed to delete sleep as client of bookinfo: %v", err)
 			}
 		})
