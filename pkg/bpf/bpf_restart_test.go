@@ -75,7 +75,7 @@ func runTestNormal(t *testing.T) {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	assert.Equal(t, Normal, GetStartType(), "set kmesh start status failed")
-	SetCloseStatus()
+	SetExitType()
 	assert.Equal(t, Normal, GetStartType(), "set kmesh close status failed")
 	bpfLoader.Stop()
 }
