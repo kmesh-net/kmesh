@@ -389,6 +389,7 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 		return nil, err
 	}
 
+	// bpflink for sk_msg is supported in kernel 6.13, so we update sendmsg manually here
 	// sendmsg ebpf prog is mounted on sockmap and processed for each socket.
 	// It has the following characteristics:
 	// 1. Multiple sk_msg ebpf prog can exist at the same time
@@ -404,6 +405,7 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 		oldSkMsg, err := ebpf.LoadPinnedProgram(pinPath, nil)
 		if err != nil {
 			log.Errorf("LoadPinnedProgram failed:%v", err)
+			return nil, err
 		}
 
 		if err = oldSkMsg.Unpin(); err != nil {
