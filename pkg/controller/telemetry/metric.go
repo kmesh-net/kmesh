@@ -533,14 +533,14 @@ func (m *MetricController) buildServiceMetricsToPrometheus(data requestMetric, l
 }
 
 func (m *MetricController) updatePrometheusMetric() error {
-	val := reflect.ValueOf(m.metricCache)
-	typ := reflect.TypeOf(m.metricCache)
+	metricInfo := m.metricCache
+	val := reflect.ValueOf(metricInfo)
+	typ := reflect.TypeOf(metricInfo)
 
 	// check if has pointer in struct
 	if typ.Kind() == reflect.Ptr {
 		val = val.Elem()
 		typ = typ.Elem()
-
 	}
 	num := val.NumField()
 	for i := 0; i < num; i++ {
