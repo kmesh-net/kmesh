@@ -70,17 +70,22 @@ func NewInstaller(mode string,
 
 func (i *Installer) Start() error {
 	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
-		log.Info("start write CNI config\n")
-		return i.addCniConfig()
+		log.Info("start write CNI config")
+		err := i.addCniConfig()
+		if err != nil {
+			i.Stop()
+			return err
+		}
 	}
 	return nil
 }
 
 func (i *Installer) Stop() {
 	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
-		log.Info("start remove CNI config\n")
+		log.Info("start remove CNI config")
 		if err := i.removeCniConfig(); err != nil {
 			log.Errorf("remove CNI config failed: %v, please remove manually", err)
 		}
+		log.Info("remove CNI config done")
 	}
 }

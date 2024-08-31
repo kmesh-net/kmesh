@@ -29,6 +29,7 @@ import (
 
 	"kmesh.net/kmesh/daemon/manager/dump"
 	logcmd "kmesh.net/kmesh/daemon/manager/log"
+	"kmesh.net/kmesh/daemon/manager/uninstall"
 	"kmesh.net/kmesh/daemon/manager/version"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
@@ -68,6 +69,7 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(version.NewCmd())
 	cmd.AddCommand(dump.NewCmd())
 	cmd.AddCommand(logcmd.NewCmd())
+	cmd.AddCommand(uninstall.NewCmd())
 
 	return cmd
 }
@@ -80,11 +82,11 @@ func Execute(configs *options.BootstrapConfigs) error {
 	}
 
 	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
-	if err = bpfLoader.Start(configs.BpfConfig); err != nil {
+	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
 		return err
 	}
-	log.Info("bpf Start successful")
 	defer bpfLoader.Stop()
+	log.Info("bpf loader start successfully")
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -93,7 +95,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	if err := c.Start(stopCh); err != nil {
 		return err
 	}
-	log.Info("controller Start successful")
+	log.Info("controller start successfully")
 	defer c.Stop()
 
 	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetBpfLogLevel())
@@ -107,15 +109,15 @@ func Execute(configs *options.BootstrapConfigs) error {
 	if err := cniInstaller.Start(); err != nil {
 		return err
 	}
-	log.Info("command Start cni successful")
 	defer cniInstaller.Stop()
+	log.Info("start cni successfully")
 
-	setupCloseHandler()
+	setupSignalHandler()
 	bpf.SetCloseStatus()
 	return nil
 }
 
-func setupCloseHandler() {
+func setupSignalHandler() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGABRT, syscall.SIGTSTP)
 

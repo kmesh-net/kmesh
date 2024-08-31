@@ -37,8 +37,6 @@ const (
 	MountedCNIBinDir   = "/opt/cni/bin"
 )
 
-var cniConfigFilePath string
-
 func (i *Installer) getCniConfigPath() (string, error) {
 	var confFile string
 	if len(i.CniConfigName) != 0 {
@@ -205,7 +203,7 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 		return fmt.Errorf("write kubeconfig: %v", err)
 	}
 
-	cniConfigFilePath, err = i.getCniConfigPath()
+	cniConfigFilePath, err := i.getCniConfigPath()
 	if err != nil {
 		return err
 	}
@@ -251,6 +249,10 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 func (i *Installer) removeChainedKmeshCniPlugin() error {
 	var err error
 	var newCNIConfig []byte
+	cniConfigFilePath, err := i.getCniConfigPath()
+	if err != nil {
+		return err
+	}
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {
 		err = fmt.Errorf("failed to read cni config file %v : %v", cniConfigFilePath, err)
