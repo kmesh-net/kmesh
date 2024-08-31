@@ -31,12 +31,13 @@ include ./mk/bpf.print.mk
 
 # compiler flags
 GOFLAGS := $(EXTRA_GOFLAGS)
+EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
 			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
-			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE)"
-EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
+			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
+			-linkmode=external -extldflags $(EXTLDFLAGS)"
 
 # target
 APPS1 := kmesh-daemon
@@ -79,7 +80,7 @@ all:
 	
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -ldflags "-linkmode=external -extldflags $(EXTLDFLAGS)" -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
 	
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
@@ -89,7 +90,7 @@ all:
 
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -ldflags "-linkmode=external -extldflags $(EXTLDFLAGS)" -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 
 .PHONY: gen-proto
 gen-proto:
