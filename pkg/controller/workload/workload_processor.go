@@ -26,6 +26,7 @@ import (
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/util/sets"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
@@ -285,24 +286,23 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 }
 
 // handleWorkloadUnboundServices handles when a workload's belonging services removed
-func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload, services []string) error {
-	if len(services) == 0 {
-		return nil
+func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload) error {
+	workloadUid := p.hashName.Hash(workload.Uid)
+	svcSets := sets.New[uint32]()
+	for svcKey := range workload.Services {
+		svcSets.Insert(p.hashName.Hash(svcKey))
 	}
-
-	log.Debugf("handleWorkloadUnboundServices %s: %v", workload.ResourceName(), services)
-	workloadUid := p.hashName.Hash(workload.GetUid())
-	allEks := p.bpf.GetEndpointKeys(workloadUid)
-	needRemove := make([]bpf.EndpointKey, 0, len(services))
-	for _, serviceName := range services {
-		serviceId := p.hashName.Hash(serviceName)
-		for ek := range allEks {
-			if ek.ServiceId == serviceId {
-				needRemove = append(needRemove, ek)
-			}
+	unboundedServices := []uint32{}
+	eks := p.bpf.GetEndpointKeys(workloadUid)
+	needRemove := []bpf.EndpointKey{}
+	for ek := range eks {
+		if !svcSets.Contains(ek.ServiceId) {
+			unboundedServices = append(unboundedServices, ek.ServiceId)
+			needRemove = append(needRemove, ek)
 		}
 	}
 
+	log.Debugf("handleWorkloadUnboundServices %s: %v", workload.ResourceName(), unboundedServices)
 	err := p.deleteEndpointRecords(workloadUid, needRemove)
 	if err != nil {
 		log.Errorf("removeResidualServices delete endpoint failed:%v", err)
@@ -382,14 +382,13 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 }
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
-	var deletedServices []string
 	var newServices []string
 	log.Debugf("handle workload: %s", workload.Uid)
 
-	deletedServices, newServices = p.WorkloadCache.AddOrUpdateWorkload(workload)
+	_, newServices = p.WorkloadCache.AddOrUpdateWorkload(workload)
 
 	// TODO: how can we know service on restart? maybe also rely on endpoint index
-	if err := p.handleWorkloadUnboundServices(workload, deletedServices); err != nil {
+	if err := p.handleWorkloadUnboundServices(workload); err != nil {
 		log.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.ResourceName(), err)
 		return err
 	}
@@ -612,14 +611,14 @@ func (p *Processor) compareWorkloadAndServiceWithHashName() {
 			bk.BackendUid = num
 			sk.ServiceId = num
 			if err := p.bpf.BackendLookup(&bk, &bv); err == nil {
-				log.Debugf("Find BackendValue: [%#v] RemoveWorkloadResource", bv)
+				log.Debugf("found BackendValue: [%#v] and removeWorkloadFromBpfMap", bv)
 				if err := p.removeWorkloadFromBpfMap(str); err != nil {
-					log.Errorf("RemoveWorkloadResource failed: %v", err)
+					log.Errorf("removeWorkloadFromBpfMap failed: %v", err)
 				}
 			} else if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
-				log.Debugf("Find ServiceValue: [%#v] RemoveServiceResource", sv)
+				log.Debugf("found ServiceValue: [%#v] and removeServiceResourceFromBpfMap", sv)
 				if err := p.removeServiceResourceFromBpfMap(str); err != nil {
-					log.Errorf("RemoveServiceResource failed: %v", err)
+					log.Errorf("removeServiceResourceFromBpfMap failed: %v", err)
 				}
 			}
 		}

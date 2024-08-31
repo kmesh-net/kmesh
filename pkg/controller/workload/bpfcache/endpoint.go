@@ -129,3 +129,23 @@ func (c *Cache) RestoreEndpointKeys() {
 		}
 	}
 }
+
+// GetAllEndpointsForService returns all the endpoints for a service
+// Note only used for testing
+func (c *Cache) GetAllEndpointsForService(serviceId uint32) []EndpointValue {
+	log.Debugf("init endpoint keys")
+	var (
+		key   = EndpointKey{}
+		value = EndpointValue{}
+	)
+
+	var res []EndpointValue
+
+	iter := c.bpfMap.KmeshEndpoint.Iterate()
+	for iter.Next(&key, &value) {
+		if key.ServiceId == serviceId {
+			res = append(res, value)
+		}
+	}
+	return res
+}
