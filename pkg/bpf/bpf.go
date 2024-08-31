@@ -81,7 +81,6 @@ func (l *BpfLoader) StartAdsMode() (err error) {
 	}()
 
 	if err = l.obj.Load(); err != nil {
-		l.Stop()
 		if errors.As(err, &ve) {
 			return fmt.Errorf("bpf Load failed: %+v", ve)
 		}

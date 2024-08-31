@@ -69,8 +69,7 @@ func (l *BpfLoader) StartWorkloadMode() error {
 		}
 	}()
 
-	if err = l.obj.Load(); err != nil {
-		l.Stop()
+	if err = l.workloadObj.Load(); err != nil {
 		if errors.As(err, &ve) {
 			return fmt.Errorf("bpf Load failed: %+v", ve)
 		}
@@ -78,7 +77,6 @@ func (l *BpfLoader) StartWorkloadMode() error {
 	}
 
 	if err = l.workloadObj.Attach(); err != nil {
-		l.Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
 	l.bpfLogLevel = l.workloadObj.SockConn.BpfLogLevel
