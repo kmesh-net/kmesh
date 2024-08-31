@@ -475,19 +475,6 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 }
 
 func (m *MetricController) buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricLabels) {
-	// commonLabels := struct2map(labels)
-
-	// if data.state == TCP_ESTABLISHED {
-	// 	tcpConnectionOpenedInWorkload.With(commonLabels).Add(float64(1))
-	// }
-	// if data.state == TCP_CLOSTED {
-	// 	tcpConnectionClosedInWorkload.With(commonLabels).Add(float64(1))
-	// }
-	// if data.success != connection_success {
-	// 	tcpConnectionFailedInWorkload.With(commonLabels).Add(float64(1))
-	// }
-	// tcpReceivedBytesInWorkload.With(commonLabels).Add(float64(data.receivedBytes))
-	// tcpSentBytesInWorkload.With(commonLabels).Add(float64(data.sentBytes))
 	_, ok := m.metricCache.WorkloadConnReceivedBytes[labels]
 	if ok {
 		if data.state == TCP_ESTABLISHED {
@@ -517,19 +504,6 @@ func (m *MetricController) buildWorkloadMetricsToPrometheus(data requestMetric, 
 }
 
 func (m *MetricController) buildServiceMetricsToPrometheus(data requestMetric, labels serviceMetricLabels) {
-	// commonLabels := struct2map(labels)
-
-	// if data.state == TCP_ESTABLISHED {
-	// 	tcpConnectionOpenedInService.With(commonLabels).Add(float64(1))
-	// }
-	// if data.state == TCP_CLOSTED {
-	// 	tcpConnectionClosedInService.With(commonLabels).Add(float64(1))
-	// }
-	// if data.success != uint32(1) {
-	// 	tcpConnectionFailedInService.With(commonLabels).Add(float64(1))
-	// }
-	// tcpReceivedBytesInService.With(commonLabels).Add(float64(data.receivedBytes))
-	// tcpSentBytesInService.With(commonLabels).Add(float64(data.sentBytes))
 	_, ok := m.metricCache.ServiceConnReceivedBytes[labels]
 	if ok {
 		if data.state == TCP_ESTABLISHED {
@@ -573,12 +547,10 @@ func (m *MetricController) updatePrometheusMetric() error {
 		sType := typ.Field(i)
 		sVal := val.Field(i).Interface()
 		workloadMap, isWorkload := sVal.(map[workloadMetricLabels]float64)
-		// fmt.Printf("\n ------- %v, \n%v -------- \n", workloadMap, isWorkload)
 		if isWorkload {
 			for k, v := range workloadMap {
 				name := sType.Name
 				commonLabels := struct2map(k)
-				// fmt.Printf("name is %v, value is: %v", name, v)
 				switch name {
 				case "WorkloadConnOpened":
 					tcpConnectionOpenedInWorkload.With(commonLabels).Set(float64(v))
@@ -594,7 +566,6 @@ func (m *MetricController) updatePrometheusMetric() error {
 			}
 		}
 		serviceMap, isService := sVal.(map[serviceMetricLabels]float64)
-		// fmt.Printf("\n ------- %v, \n%v -------- \n", serviceMap, isService)
 		if isService {
 			for k, v := range serviceMap {
 				name := sType.Name
