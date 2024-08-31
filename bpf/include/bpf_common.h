@@ -172,7 +172,7 @@ static inline void *kmesh_get_ptr_val(const void *ptr)
     */
     void *inner_map_instance = NULL;
     __u32 inner_idx = 0;
-    __u64 idx = (__u64)ptr;
+    __u32 idx = (__u32)(uintptr_t)ptr;
 
     if (!ptr) {
         return NULL;
