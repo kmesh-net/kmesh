@@ -17,7 +17,10 @@
 package bpf
 
 import (
+	"errors"
 	"fmt"
+
+	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
 )
@@ -54,14 +57,24 @@ func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
 
 func (l *BpfLoader) StartWorkloadMode() error {
 	var err error
+	var ve *ebpf.VerifierError
 
 	if l.workloadObj, err = newWorkloadBpf(l.config); err != nil {
 		return err
 	}
 
-	if err = l.workloadObj.Load(); err != nil {
+	defer func() {
+		if err != nil {
+			l.Stop()
+		}
+	}()
+
+	if err = l.obj.Load(); err != nil {
 		l.Stop()
-		return fmt.Errorf("bpf Load failed, %s", err)
+		if errors.As(err, &ve) {
+			return fmt.Errorf("bpf Load failed: %+v", ve)
+		}
+		return fmt.Errorf("bpf Load failed: %v", err)
 	}
 
 	if err = l.workloadObj.Attach(); err != nil {
