@@ -24,6 +24,7 @@ import (
 	"net/netip"
 	"reflect"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
@@ -49,6 +50,7 @@ var osStartTime time.Time
 type MetricController struct {
 	workloadCache cache.WorkloadCache
 	metricCache   metricInfoCache
+	mutex         sync.RWMutex
 }
 
 type metricInfoCache struct {
@@ -533,7 +535,10 @@ func (m *MetricController) buildServiceMetricsToPrometheus(data requestMetric, l
 }
 
 func (m *MetricController) updatePrometheusMetric() error {
+	m.mutex.RLock()
 	metricInfo := m.metricCache
+	m.mutex.RUnlock()
+
 	val := reflect.ValueOf(metricInfo)
 	typ := reflect.TypeOf(metricInfo)
 
