@@ -22,7 +22,7 @@ import (
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
-	dto "github.com/prometheus/client_model/go"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
@@ -172,13 +172,6 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 }
 
 func TestBuildMetricsToPrometheus(t *testing.T) {
-	metrics := []*prometheus.GaugeVec{
-		tcpConnectionClosedInWorkload,
-		tcpConnectionOpenedInWorkload,
-		tcpReceivedBytesInWorkload,
-		tcpSentBytesInWorkload,
-	}
-
 	type args struct {
 		data   requestMetric
 		labels workloadMetricLabels
@@ -189,7 +182,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 		want []float64
 	}{
 		{
-			name: "test build metrisc to Prometheus",
+			name: "test build workload metrisc to metricCache",
 			args: args{
 				data: requestMetric{
 					src:           [4]uint32{183763210, 0, 0, 0},
@@ -234,21 +227,83 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx, cancel := context.WithCancel(context.Background())
-			go RunPrometheusClient(ctx)
-			buildWorkloadMetricsToPrometheus(tt.args.data, tt.args.labels)
-			commonLabels := struct2map(tt.args.labels)
-			for index, metric := range metrics {
-				if gauge, err := metric.GetMetricWith(commonLabels); err != nil {
-					t.Errorf("use labels to get %v failed", metric)
-				} else {
-					var m dto.Metric
-					gauge.Write(&m)
-					value := m.Gauge.Value
-					assert.Equal(t, tt.want[index], *value)
-				}
+			m := MetricController{
+				workloadCache: cache.NewWorkloadCache(),
+				metricCache:   newMetricCache(),
 			}
-			cancel()
+			m.buildWorkloadMetricsToPrometheus(tt.args.data, tt.args.labels)
+			assert.Equal(t, m.metricCache.WorkloadConnClosed[tt.args.labels], tt.want[0])
+			assert.Equal(t, m.metricCache.WorkloadConnOpened[tt.args.labels], tt.want[1])
+			assert.Equal(t, m.metricCache.WorkloadConnReceivedBytes[tt.args.labels], tt.want[2])
+			assert.Equal(t, m.metricCache.WorkloadConnSentBytes[tt.args.labels], tt.want[3])
+		})
+	}
+}
+
+func TestBuildServiceMetricsToPrometheus(t *testing.T) {
+	type args struct {
+		data   requestMetric
+		labels serviceMetricLabels
+	}
+	tests := []struct {
+		name string
+		args args
+		want []float64
+	}{
+		{
+			name: "build service metrics in metricCache",
+			args: args{
+				data: requestMetric{
+					src:           [4]uint32{183763210, 0, 0, 0},
+					dst:           [4]uint32{183762951, 0, 0, 0},
+					sentBytes:     0x0000009,
+					receivedBytes: 0x0000008,
+					state:         TCP_ESTABLISHED,
+				},
+				labels: serviceMetricLabels{
+					sourceWorkload:               "kmesh-daemon",
+					sourceCanonicalService:       "srcCanonical",
+					sourceCanonicalRevision:      "srcVersion",
+					sourceWorkloadNamespace:      "kmesh-system",
+					sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+					sourceApp:                    "srcCanonical",
+					sourceVersion:                "srcVersion",
+					sourceCluster:                "Kubernetes",
+					destinationService:           "kmesh.kmesh-system.svc.cluster.local",
+					destinationServiceNamespace:  "kmesh-system",
+					destinationServiceName:       "kmesh.kmesh-system.svc.cluster.local",
+					destinationWorkload:          "kmesh-daemon",
+					destinationCanonicalService:  "dstCanonical",
+					destinationCanonicalRevision: "dstVersion",
+					destinationWorkloadNamespace: "kmesh-system",
+					destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+					destinationApp:               "dstCanonical",
+					destinationVersion:           "dstVersion",
+					destinationCluster:           "Kubernetes",
+					requestProtocol:              "tcp",
+					responseFlags:                "-",
+					connectionSecurityPolicy:     "mutual_tls",
+				},
+			},
+			want: []float64{
+				0,
+				1,
+				8,
+				9,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MetricController{
+				workloadCache: cache.NewWorkloadCache(),
+				metricCache:   newMetricCache(),
+			}
+			m.buildServiceMetricsToPrometheus(tt.args.data, tt.args.labels)
+			assert.Equal(t, m.metricCache.ServiceConnClosed[tt.args.labels], tt.want[0])
+			assert.Equal(t, m.metricCache.ServiceConnOpened[tt.args.labels], tt.want[1])
+			assert.Equal(t, m.metricCache.ServiceConnReceivedBytes[tt.args.labels], tt.want[2])
+			assert.Equal(t, m.metricCache.ServiceConnSentBytes[tt.args.labels], tt.want[3])
 		})
 	}
 }
@@ -703,6 +758,215 @@ func Test_buildServiceMetric(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, _ := buildServiceMetric(tt.args.dstWorkload, tt.args.srcWorkload, tt.args.dstPort)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestMetricController_updatePrometheusMetric(t *testing.T) {
+	testworkloadLabel1 := workloadMetricLabels{
+		sourceWorkload:               "kmesh-daemon",
+		sourceCanonicalService:       "srcCanonical",
+		sourceCanonicalRevision:      "srcVersion",
+		sourceWorkloadNamespace:      "kmesh-system",
+		sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+		sourceApp:                    "srcCanonical",
+		sourceVersion:                "srcVersion",
+		sourceCluster:                "Kubernetes",
+		destinationPodAddress:        "192.168.224.22",
+		destinationPodNamespace:      "kmesh-system",
+		destinationPodName:           "kmesh",
+		destinationWorkload:          "kmesh-daemon",
+		destinationCanonicalService:  "dstCanonical",
+		destinationCanonicalRevision: "dstVersion",
+		destinationWorkloadNamespace: "kmesh-system",
+		destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+		destinationApp:               "dstCanonical",
+		destinationVersion:           "dstVersion",
+		destinationCluster:           "Kubernetes",
+		requestProtocol:              "tcp",
+		responseFlags:                "-",
+		connectionSecurityPolicy:     "mutual_tls",
+	}
+	testworkloadLabel2 := workloadMetricLabels{
+		sourceWorkload:               "kmesh-daemon",
+		sourceCanonicalService:       "srcCanonical",
+		sourceCanonicalRevision:      "srcVersion",
+		sourceWorkloadNamespace:      "kmesh-system",
+		sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+		sourceApp:                    "srcCanonical",
+		sourceVersion:                "srcVersion",
+		sourceCluster:                "Kubernetes",
+		destinationPodAddress:        "192.168.224.22",
+		destinationPodNamespace:      "kmesh-system",
+		destinationPodName:           "sleep",
+		destinationWorkload:          "sleep",
+		destinationCanonicalService:  "dstCanonical",
+		destinationCanonicalRevision: "dstVersion",
+		destinationWorkloadNamespace: "kmesh-system",
+		destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+		destinationApp:               "dstCanonical",
+		destinationVersion:           "dstVersion",
+		destinationCluster:           "Kubernetes",
+		requestProtocol:              "tcp",
+		responseFlags:                "-",
+		connectionSecurityPolicy:     "mutual_tls",
+	}
+
+	testServiceLabel1 := serviceMetricLabels{
+		sourceWorkload:               "kmesh-daemon",
+		sourceCanonicalService:       "srcCanonical",
+		sourceCanonicalRevision:      "srcVersion",
+		sourceWorkloadNamespace:      "kmesh-system",
+		sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+		sourceApp:                    "srcCanonical",
+		sourceVersion:                "srcVersion",
+		sourceCluster:                "Kubernetes",
+		destinationService:           "kmesh.kmesh-system.svc.cluster.local",
+		destinationServiceNamespace:  "kmesh-system",
+		destinationServiceName:       "kmesh.kmesh-system.svc.cluster.local",
+		destinationWorkload:          "kmesh-daemon",
+		destinationCanonicalService:  "dstCanonical",
+		destinationCanonicalRevision: "dstVersion",
+		destinationWorkloadNamespace: "kmesh-system",
+		destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+		destinationApp:               "dstCanonical",
+		destinationVersion:           "dstVersion",
+		destinationCluster:           "Kubernetes",
+		requestProtocol:              "tcp",
+		responseFlags:                "-",
+		connectionSecurityPolicy:     "mutual_tls",
+	}
+	testServiceLabel2 := serviceMetricLabels{
+		sourceWorkload:               "kmesh-daemon",
+		sourceCanonicalService:       "srcCanonical",
+		sourceCanonicalRevision:      "srcVersion",
+		sourceWorkloadNamespace:      "kmesh-system",
+		sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+		sourceApp:                    "srcCanonical",
+		sourceVersion:                "srcVersion",
+		sourceCluster:                "Kubernetes",
+		destinationService:           "sleep.kmesh-system.svc.cluster.local",
+		destinationServiceNamespace:  "kmesh-system",
+		destinationServiceName:       "sleep.kmesh-system.svc.cluster.local",
+		destinationWorkload:          "kmesh-daemon",
+		destinationCanonicalService:  "dstCanonical",
+		destinationCanonicalRevision: "dstVersion",
+		destinationWorkloadNamespace: "kmesh-system",
+		destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+		destinationApp:               "dstCanonical",
+		destinationVersion:           "dstVersion",
+		destinationCluster:           "Kubernetes",
+		requestProtocol:              "tcp",
+		responseFlags:                "-",
+		connectionSecurityPolicy:     "mutual_tls",
+	}
+	workloadPrometheusLabel1 := struct2map(testworkloadLabel1)
+	workloadPrometheusLabel2 := struct2map(testworkloadLabel2)
+	servicePrometheusLabel1 := struct2map(testServiceLabel1)
+	servicePrometheusLabel2 := struct2map(testServiceLabel2)
+	tests := []struct {
+		name          string
+		metricCache   metricInfoCache
+		exportMetrics []*prometheus.GaugeVec
+		labels        []map[string]string
+		want          []float64
+	}{
+		{
+			name: "update workload metric in Prometheus",
+			metricCache: metricInfoCache{
+				WorkloadConnOpened: map[workloadMetricLabels]float64{
+					testworkloadLabel1: float64(1),
+					testworkloadLabel2: float64(2),
+				},
+				WorkloadConnClosed: map[workloadMetricLabels]float64{
+					testworkloadLabel1: float64(3),
+					testworkloadLabel2: float64(4),
+				},
+				WorkloadConnSentBytes: map[workloadMetricLabels]float64{
+					testworkloadLabel1: float64(5),
+					testworkloadLabel2: float64(6),
+				},
+				WorkloadConnReceivedBytes: map[workloadMetricLabels]float64{
+					testworkloadLabel1: float64(7),
+					testworkloadLabel2: float64(8),
+				},
+				WorkloadConnFailed: map[workloadMetricLabels]float64{
+					testworkloadLabel1: float64(9),
+					testworkloadLabel2: float64(10),
+				},
+			},
+			exportMetrics: []*prometheus.GaugeVec{
+				tcpConnectionOpenedInWorkload,
+				tcpConnectionClosedInWorkload,
+				tcpSentBytesInWorkload,
+				tcpReceivedBytesInWorkload,
+				tcpConnectionFailedInWorkload,
+			},
+			labels: []map[string]string{
+				workloadPrometheusLabel1, workloadPrometheusLabel2,
+			},
+			want: []float64{
+				1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+			},
+		},
+		{
+			name: "update service metrics in Prometheus",
+			metricCache: metricInfoCache{
+				ServiceConnOpened: map[serviceMetricLabels]float64{
+					testServiceLabel1: float64(11),
+					testServiceLabel2: float64(12),
+				},
+				ServiceConnClosed: map[serviceMetricLabels]float64{
+					testServiceLabel1: float64(13),
+					testServiceLabel2: float64(14),
+				},
+				ServiceConnSentBytes: map[serviceMetricLabels]float64{
+					testServiceLabel1: float64(15),
+					testServiceLabel2: float64(16),
+				},
+				ServiceConnReceivedBytes: map[serviceMetricLabels]float64{
+					testServiceLabel1: float64(17),
+					testServiceLabel2: float64(18),
+				},
+				ServiceConnFailed: map[serviceMetricLabels]float64{
+					testServiceLabel1: float64(19),
+					testServiceLabel2: float64(20),
+				},
+			},
+			exportMetrics: []*prometheus.GaugeVec{
+				tcpConnectionOpenedInService,
+				tcpConnectionClosedInService,
+				tcpSentBytesInService,
+				tcpReceivedBytesInService,
+				tcpConnectionFailedInService,
+			},
+			labels: []map[string]string{
+				servicePrometheusLabel1, servicePrometheusLabel2,
+			},
+			want: []float64{
+				11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			go RunPrometheusClient(ctx)
+			m := &MetricController{
+				workloadCache: cache.NewWorkloadCache(),
+				metricCache:   tt.metricCache,
+			}
+			err := m.updatePrometheusMetric()
+			assert.NoError(t, err)
+			index := 0
+			for _, metric := range tt.exportMetrics {
+				v1 := testutil.ToFloat64(metric.With(tt.labels[0]))
+				assert.Equal(t, tt.want[index], v1)
+				v2 := testutil.ToFloat64(metric.With(tt.labels[1]))
+				assert.Equal(t, tt.want[index+1], v2)
+				index = index + 2
+			}
+			cancel()
 		})
 	}
 }
