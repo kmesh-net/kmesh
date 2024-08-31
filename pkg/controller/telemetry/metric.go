@@ -165,11 +165,11 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	ch := make(chan []byte, 1000)
 	// Register metrics to Prometheus and start Prometheus server
 	go RunPrometheusClient(ctx)
-	go m.getConnectDataFromRingBuf(ctx, ch, mapOfTcpInfo)
+	go m.readTCPProbeInfo(ctx, ch, mapOfTcpInfo)
 	go m.buildMetric(ctx, ch)
 }
 
-func (m *MetricController) getConnectDataFromRingBuf(ctx context.Context, ch chan []byte, mapOfTcpInfo *ebpf.Map) {
+func (m *MetricController) readTCPProbeInfo(ctx context.Context, ch chan []byte, mapOfTcpInfo *ebpf.Map) {
 	reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
 		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
@@ -219,12 +219,12 @@ func (m *MetricController) buildMetric(ctx context.Context, ch chan []byte) {
 				data, err = buildV6Metric(buf)
 			default:
 				log.Errorf("Unsupported IP family")
-				return
+				continue
 			}
 
 			if err != nil {
 				log.Errorf("get data failed: %v", err)
-				return
+				continue
 			}
 
 			workloadLabels := m.buildWorkloadMetric(&data)

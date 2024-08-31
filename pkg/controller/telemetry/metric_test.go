@@ -899,8 +899,8 @@ func TestMetricController_buildMetric(t *testing.T) {
 		patch.ApplyFunc(buildV4Metric, func(_ *bytes.Buffer) (requestMetric, error) {
 			return requestMetric{}, fmt.Errorf("build requestdata failed")
 		})
-		m.buildMetric(ctx, ch)
-		time.Sleep(50 * time.Millisecond)
+		go m.buildMetric(ctx, ch)
+		time.Sleep(500 * time.Millisecond)
 		cancel()
 		patch.Reset()
 	})
