@@ -286,24 +286,10 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 }
 
 // handleWorkloadUnboundServices handles when a workload's belonging services removed
-func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload) error {
+func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload, unboundedEndpointKeys []bpf.EndpointKey) error {
 	workloadUid := p.hashName.Hash(workload.Uid)
-	svcSets := sets.New[uint32]()
-	for svcKey := range workload.Services {
-		svcSets.Insert(p.hashName.Hash(svcKey))
-	}
-	unboundedServices := []uint32{}
-	eks := p.bpf.GetEndpointKeys(workloadUid)
-	needRemove := []bpf.EndpointKey{}
-	for ek := range eks {
-		if !svcSets.Contains(ek.ServiceId) {
-			unboundedServices = append(unboundedServices, ek.ServiceId)
-			needRemove = append(needRemove, ek)
-		}
-	}
-
-	log.Debugf("handleWorkloadUnboundServices %s: %v", workload.ResourceName(), unboundedServices)
-	err := p.deleteEndpointRecords(workloadUid, needRemove)
+	log.Debugf("handleWorkloadUnboundServices %s: %v", workload.ResourceName(), unboundedEndpointKeys)
+	err := p.deleteEndpointRecords(workloadUid, unboundedEndpointKeys)
 	if err != nil {
 		log.Errorf("removeResidualServices delete endpoint failed:%v", err)
 	}
@@ -311,7 +297,7 @@ func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload
 }
 
 // handleWorkloadNewBoundServices handles when a workload's belonging services added
-func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workload, newServices []string) error {
+func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workload, newServices []uint32) error {
 	var (
 		err error
 		sk  = bpf.ServiceKey{}
@@ -324,8 +310,8 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 
 	log.Debugf("handleWorkloadNewBoundServices %s: %v", workload.ResourceName(), newServices)
 	workloadId := p.hashName.Hash(workload.GetUid())
-	for _, serviceName := range newServices {
-		sk.ServiceId = p.hashName.Hash(serviceName)
+	for _, svcUid := range newServices {
+		sk.ServiceId = svcUid
 		// the service already stored in map, add endpoint
 		if err = p.bpf.ServiceLookup(&sk, &sv); err == nil {
 			if err = p.addWorkloadToService(&sk, &sv, workloadId); err != nil {
@@ -382,13 +368,12 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 }
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
-	var newServices []string
 	log.Debugf("handle workload: %s", workload.Uid)
 
-	_, newServices = p.WorkloadCache.AddOrUpdateWorkload(workload)
+	p.WorkloadCache.AddOrUpdateWorkload(workload)
 
-	// TODO: how can we know service on restart? maybe also rely on endpoint index
-	if err := p.handleWorkloadUnboundServices(workload); err != nil {
+	unboundedEndpointKeys, newServices := p.compareWorkloadServices(workload)
+	if err := p.handleWorkloadUnboundServices(workload, unboundedEndpointKeys); err != nil {
 		log.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.ResourceName(), err)
 		return err
 	}
@@ -406,6 +391,25 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	}
 
 	return nil
+}
+
+// compareWorkloadServices compares workload.Services with existing ones and return the unbounded EndpointKeys and new bound services IDs.
+func (p *Processor) compareWorkloadServices(workload *workloadapi.Workload) ([]bpf.EndpointKey, []uint32) {
+	workloadUid := p.hashName.Hash(workload.Uid)
+	allServices := sets.New[uint32]()
+	for svcKey := range workload.Services {
+		allServices.Insert(p.hashName.Hash(svcKey))
+	}
+	unboundedEndpointKeys := []bpf.EndpointKey{}
+	eks := p.bpf.GetEndpointKeys(workloadUid)
+	for ek := range eks {
+		if !allServices.Contains(ek.ServiceId) {
+			unboundedEndpointKeys = append(unboundedEndpointKeys, ek)
+		}
+		allServices.Delete(ek.ServiceId)
+	}
+	newServices := allServices.UnsortedList()
+	return unboundedEndpointKeys, newServices
 }
 
 func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workloadapi.Service) error {
