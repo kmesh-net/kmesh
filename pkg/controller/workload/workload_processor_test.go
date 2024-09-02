@@ -257,7 +257,6 @@ func checkNotExistInFrontEndMap(t *testing.T, ip []byte, p *Processor) {
 	if err == nil {
 		t.Fatalf("expected not exist error")
 	}
-	return
 }
 
 func BenchmarkAddNewServicesWithWorkload(b *testing.B) {
