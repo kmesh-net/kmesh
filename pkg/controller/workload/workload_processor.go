@@ -224,7 +224,7 @@ func (p *Processor) removeServiceResource(resources []string) error {
 	for _, name := range resources {
 		telemetry.DeleteServiceMetric(name)
 		svc := p.ServiceCache.DeleteService(name)
-		p.removeServiceResourceFromBpfMap(svc, name)
+		_ = p.removeServiceResourceFromBpfMap(svc, name)
 	}
 	return nil
 }
@@ -544,8 +544,6 @@ func (p *Processor) handleRemovedAddresses(removed []string) {
 	if err := p.removeServiceResource(serviceNames); err != nil {
 		log.Errorf("RemoveServiceResource failed: %v", err)
 	}
-
-	return
 }
 
 func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
