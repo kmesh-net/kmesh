@@ -210,11 +210,8 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				return
 			default:
 				// Metrics updated every 3 seconds
-				time.Sleep(3 * time.Second)
+				time.Sleep(5 * time.Second)
 				m.updatePrometheusMetric()
-				if err != nil {
-					log.Errorf("update Kmesh metrics failed: %v\n", err)
-				}
 			}
 		}
 	}()
@@ -265,8 +262,10 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			if data.state == TCP_CLOSTED {
 				OutputAccesslog(data, accesslog)
 			}
-			m.buildWorkloadMetricsToPrometheus(data, workloadLabels)
-			m.buildServiceMetricsToPrometheus(data, serviceLabels)
+			m.mutex.RLock()
+			m.updateWorkloadMetricCache(data, workloadLabels)
+			m.updateServiceMetricCache(data, serviceLabels)
+			m.mutex.RUnlock()
 		}
 	}
 }
@@ -463,7 +462,7 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 	return "-"
 }
 
-func (m *MetricController) buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricLabels) {
+func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels) {
 	v, ok := m.workloadMetricCache[labels]
 	if ok {
 		if data.state == TCP_ESTABLISHED {
@@ -494,7 +493,7 @@ func (m *MetricController) buildWorkloadMetricsToPrometheus(data requestMetric, 
 	}
 }
 
-func (m *MetricController) buildServiceMetricsToPrometheus(data requestMetric, labels serviceMetricLabels) {
+func (m *MetricController) updateServiceMetricCache(data requestMetric, labels serviceMetricLabels) {
 	v, ok := m.serviceMetricCache[labels]
 	if ok {
 		if data.state == TCP_ESTABLISHED {
