@@ -57,10 +57,11 @@ func (i *Installer) removeCniConfig() error {
 }
 
 type Installer struct {
-	Mode              string
-	CniMountNetEtcDIR string
-	CniConfigName     string
-	CniConfigChained  bool
+	Mode               string
+	CniMountNetEtcDIR  string
+	CniConfigName      string
+	CniConfigChained   bool
+	ServiceAccountPath string
 
 	Watcher filewatcher.FileWatcher
 }
@@ -68,14 +69,43 @@ type Installer struct {
 func NewInstaller(mode string,
 	cniMountNetEtcDIR string,
 	cniConfigName string,
+	serviceAccountPath string,
 	cniConfigChained bool) *Installer {
 	return &Installer{
-		Mode:              mode,
-		CniMountNetEtcDIR: cniMountNetEtcDIR,
-		CniConfigName:     cniConfigName,
-		CniConfigChained:  cniConfigChained,
-		Watcher:           filewatcher.NewWatcher(),
+		Mode:               mode,
+		CniMountNetEtcDIR:  cniMountNetEtcDIR,
+		CniConfigName:      cniConfigName,
+		CniConfigChained:   cniConfigChained,
+		ServiceAccountPath: serviceAccountPath,
+		Watcher:            filewatcher.NewWatcher(),
 	}
+}
+
+func (i *Installer) WatchServiceAccountToken() error {
+	tokenPath := i.ServiceAccountPath + "/token"
+	if err := i.Watcher.Add(tokenPath); err != nil {
+		return fmt.Errorf("failed to add %s to file watcher: %v", tokenPath, err)
+	}
+
+	// Start listening for events.
+	go func() {
+		log.Infof("start watching file %s", tokenPath)
+
+		for {
+			select {
+			case gotEvent := <-i.Watcher.Events(tokenPath):
+				log.Infof("got event %s", gotEvent.String())
+
+				if err := maybeWriteKubeConfigFile(i.ServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
+					log.Errorf("failed try to update Kmesh cni kubeconfig: %v", err)
+				}
+			case err := <-i.Watcher.Errors(tokenPath):
+				log.Infof("error from errors channel of file watcher: %v", err)
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (i *Installer) Start() error {
@@ -87,29 +117,11 @@ func (i *Installer) Start() error {
 			return err
 		}
 
-		tokenPath := DefaultServiceAccountPath + "/token"
-		if err := i.Watcher.Add(tokenPath); err != nil {
-			return fmt.Errorf("failed to add %s to file watcher: %v", tokenPath, err)
+		if err := i.WatchServiceAccountToken(); err != nil {
+			return err
 		}
-
-		// Start listening for events.
-		go func() {
-			log.Infof("start watching file %s", tokenPath)
-
-			for {
-				select {
-				case gotEvent := <-i.Watcher.Events(tokenPath):
-					log.Infof("got event %s", gotEvent.String())
-
-					if err := maybeWriteKubeConfigFile(DefaultServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
-						log.Errorf("failed try to update kubeconfig of Kmesh cni: %v", err)
-					}
-				case err := <-i.Watcher.Errors(tokenPath):
-					log.Infof("error from errors channel of file watcher: %v", err)
-				}
-			}
-		}()
 	}
+
 	return nil
 }
 
