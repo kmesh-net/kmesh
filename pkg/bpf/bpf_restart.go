@@ -52,7 +52,10 @@ const (
 	Update
 )
 
+// kmeshStartType is used during bootstrap to indicate how to initiate bpf prog and maps
 var kmeshStartType StartType
+
+// kmeshStartType is used during exit to indicate how to cleanup bpf prog and maps
 var kmeshExitType StartType
 
 func GetStartType() StartType {
