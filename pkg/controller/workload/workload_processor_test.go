@@ -463,20 +463,24 @@ func TestRestart(t *testing.T) {
 	for _, svc := range []*workloadapi.Service{svc1, svc2, svc3} {
 		checkFrontEndMap(t, svc.Addresses[0].Address, p)
 	}
+	assert.Equal(t, 6, p.bpf.FrontendCount())
 	// check service map
 	t.Log("1. check service map")
 	checkServiceMap(t, p, p.hashName.Hash(svc1.ResourceName()), svc1, 1)
 	checkServiceMap(t, p, p.hashName.Hash(svc2.ResourceName()), svc2, 2)
 	checkServiceMap(t, p, p.hashName.Hash(svc3.ResourceName()), svc3, 2)
+	assert.Equal(t, 3, p.bpf.ServiceCount())
 	// check endpoint map
 	t.Log("1. check endpoint map")
 	checkEndpointMap(t, p, svc1, []uint32{p.hashName.Hash(wl1.ResourceName())})
 	checkEndpointMap(t, p, svc2, []uint32{p.hashName.Hash(wl1.ResourceName()), p.hashName.Hash(wl2.ResourceName())})
 	checkEndpointMap(t, p, svc3, []uint32{p.hashName.Hash(wl2.ResourceName()), p.hashName.Hash(wl3.ResourceName())})
+	assert.Equal(t, 5, p.bpf.EndpointCount())
 	// check backend map
 	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl3} {
 		checkBackendMap(t, p, p.hashName.Hash(wl.ResourceName()), wl)
 	}
+	assert.Equal(t, 3, p.bpf.BackendCount())
 
 	// 2. Second simulate restart
 	// Set a restart label and simulate missing data in the cache
@@ -537,22 +541,25 @@ func TestRestart(t *testing.T) {
 	for _, svc := range []*workloadapi.Service{svc1, svc2, svc3, svc4} {
 		checkFrontEndMap(t, svc.Addresses[0].Address, p)
 	}
-	// TODO(hzxuzhonghu) check front end map elements number
+	assert.Equal(t, 7, p.bpf.FrontendCount())
 
 	// check service map
 	checkServiceMap(t, p, p.hashName.Hash(svc1.ResourceName()), svc1, 2) // svc1 has 2 wl1, wl2
 	checkServiceMap(t, p, p.hashName.Hash(svc2.ResourceName()), svc2, 1) // svc2 has 1  wl2
 	checkServiceMap(t, p, p.hashName.Hash(svc3.ResourceName()), svc3, 1) // svc3 has 1  wl2
 	checkServiceMap(t, p, p.hashName.Hash(svc4.ResourceName()), svc4, 1) // svc4 has 1  wl4
+	assert.Equal(t, 4, p.bpf.ServiceCount())
 	// check endpoint map
 	checkEndpointMap(t, p, svc1, []uint32{p.hashName.Hash(wl1.ResourceName()), p.hashName.Hash(wl2.ResourceName())})
 	checkEndpointMap(t, p, svc2, []uint32{p.hashName.Hash(wl2.ResourceName())})
 	checkEndpointMap(t, p, svc3, []uint32{p.hashName.Hash(wl2.ResourceName())})
 	checkEndpointMap(t, p, svc4, []uint32{p.hashName.Hash(wl4.ResourceName())})
+	assert.Equal(t, 5, p.bpf.EndpointCount())
 	// check backend map
 	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl4} {
 		checkBackendMap(t, p, p.hashName.Hash(wl.ResourceName()), wl)
 	}
+	assert.Equal(t, 3, p.bpf.BackendCount())
 
 	hashNameClean(p)
 }

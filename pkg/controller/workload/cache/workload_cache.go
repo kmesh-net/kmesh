@@ -20,8 +20,6 @@ import (
 	"net/netip"
 	"sync"
 
-	"istio.io/istio/pkg/util/sets"
-
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
@@ -68,24 +66,6 @@ func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 		Network: network,
 		Address: addr,
 	}
-}
-
-func getServicesOnWorkload(workload *workloadapi.Workload) sets.String {
-	if workload == nil {
-		return nil
-	}
-
-	sets := sets.New[string]()
-	for key := range workload.Services {
-		sets.Insert(key)
-	}
-	return sets
-}
-
-func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Workload) ([]string, []string) {
-	left := getServicesOnWorkload(workload1)
-	right := getServicesOnWorkload(workload2)
-	return left.Diff(right)
 }
 
 func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) {
