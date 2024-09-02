@@ -23,13 +23,15 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"github.com/fsnotify/fsnotify"
+	"istio.io/istio/pkg/filewatcher"
 
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 var log = logger.NewLoggerField("cni installer")
+
+const DefaultServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 
 func (i *Installer) addCniConfig() error {
 	var err error
@@ -59,7 +61,8 @@ type Installer struct {
 	CniMountNetEtcDIR string
 	CniConfigName     string
 	CniConfigChained  bool
-	Watcher           *fsnotify.Watcher
+
+	Watcher filewatcher.FileWatcher
 }
 
 func NewInstaller(mode string,
@@ -71,6 +74,7 @@ func NewInstaller(mode string,
 		CniMountNetEtcDIR: cniMountNetEtcDIR,
 		CniConfigName:     cniConfigName,
 		CniConfigChained:  cniConfigChained,
+		Watcher:           filewatcher.NewWatcher(),
 	}
 }
 
@@ -83,39 +87,25 @@ func (i *Installer) Start() error {
 			return err
 		}
 
-		watcher, err := fsnotify.NewWatcher()
-		if err != nil {
-			return fmt.Errorf("failed to create fsnotify watcher: %v", err)
-		}
-		i.Watcher = watcher
-
-		if err = watcher.Add(ServiceAccountPath); err != nil {
-			return fmt.Errorf("failed to add fsnotify watcher for path %s: %v", ServiceAccountPath, err)
+		tokenPath := DefaultServiceAccountPath + "/token"
+		if err := i.Watcher.Add(tokenPath); err != nil {
+			return fmt.Errorf("failed to add %s to file watcher: %v", tokenPath, err)
 		}
 
 		// Start listening for events.
 		go func() {
-			log.Infof("start watching directory %s", ServiceAccountPath)
+			log.Infof("start watching file %s", tokenPath)
 
 			for {
 				select {
-				case _, ok := <-watcher.Events:
-					if !ok {
-						log.Info("events channel of fsnotify watcher was closed")
-						return
-					}
+				case gotEvent := <-i.Watcher.Events(tokenPath):
+					log.Infof("got event %s", gotEvent.String())
 
-					// NOTE: due to the update mechanism of service account path, try to update
-					// kubeconfig of Kmesh cni regardless of any events.
-					if err := maybeWriteKubeConfigFile(filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
+					if err := maybeWriteKubeConfigFile(DefaultServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
 						log.Errorf("failed try to update kubeconfig of Kmesh cni: %v", err)
 					}
-				case err, ok := <-watcher.Errors:
-					if !ok {
-						log.Info("errors channel of fsnotify watcher was closed")
-						return
-					}
-					log.Infof("error from errors channel of fsnotify watcher: %v", err)
+				case err := <-i.Watcher.Errors(tokenPath):
+					log.Infof("error from errors channel of file watcher: %v", err)
 				}
 			}
 		}()

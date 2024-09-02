@@ -199,7 +199,7 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	// which may be watched by other CNIs, and so we don't want to trigger writes to this file
 	// unless it's missing or the contents are not what we expect.
 	kubeconfigFilepath := filepath.Join(cniMountNetEtcDIR, kmeshCniKubeConfig)
-	if err := maybeWriteKubeConfigFile(kubeconfigFilepath); err != nil {
+	if err := maybeWriteKubeConfigFile(DefaultServiceAccountPath, kubeconfigFilepath); err != nil {
 		return fmt.Errorf("write kubeconfig: %v", err)
 	}
 
