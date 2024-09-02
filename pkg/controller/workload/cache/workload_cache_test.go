@@ -45,44 +45,9 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
 	})
 
-	t.Run("modify addresses in workload", func(t *testing.T) {
+	t.Run("workload bound service update", func(t *testing.T) {
 		w := NewWorkloadCache()
-		workload := &workloadapi.Workload{
-			Name:    "ut-workload",
-			Uid:     "123456",
-			Network: "ut-net",
-			Addresses: [][]byte{
-				[]byte("192.168.224.22"),
-				[]byte("1.2.3.4"),
-			},
-		}
-		w.AddOrUpdateWorkload(workload)
-		assert.Equal(t, workload, w.byUid["123456"])
-		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
-		addr2, _ := netip.AddrFromSlice([]byte("1.2.3.4"))
-		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr1}])
-		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
-		newWorkload := &workloadapi.Workload{
-			Name:    "ut-workload",
-			Uid:     "123456",
-			Network: "new-net",
-			Addresses: [][]byte{
-				[]byte("192.168.10.25"),
-				[]byte("2.3.4.5"),
-			},
-		}
-		w.AddOrUpdateWorkload(newWorkload)
-		assert.Equal(t, newWorkload, w.byUid["123456"])
-		addr3, _ := netip.AddrFromSlice([]byte("192.168.10.25"))
-		addr4, _ := netip.AddrFromSlice([]byte("2.3.4.5"))
-		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr3}])
-		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr4}])
-		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: workload.Network, Address: addr1}])
-		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
-	})
 
-	t.Run("add addresses to the same workload", func(t *testing.T) {
-		w := NewWorkloadCache()
 		workload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",
@@ -91,26 +56,81 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 				[]byte("192.168.224.22"),
 			},
 		}
-		w.AddOrUpdateWorkload(workload)
+		workload.Services = map[string]*workloadapi.PortList{
+			"default/testsvc1.default.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: 80,
+						TargetPort:  8080,
+					},
+					{
+						ServicePort: 81,
+						TargetPort:  8180,
+					},
+					{
+						ServicePort: 82,
+						TargetPort:  82,
+					},
+				},
+			},
+			"default/testsvc2.default.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: 80,
+						TargetPort:  8080,
+					},
+				},
+			},
+		}
+		deleted, newServices := w.AddOrUpdateWorkload(workload)
+		assert.Equal(t, 0, len(deleted))
+		for svc := range workload.Services {
+			assert.Contains(t, newServices, svc)
+		}
+		assert.Equal(t, len(newServices), len(workload.Services))
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
+
 		newWorkload := &workloadapi.Workload{
 			Name:    "ut-workload",
 			Uid:     "123456",
 			Network: "new-net",
 			Addresses: [][]byte{
 				[]byte("192.168.224.22"),
-				[]byte("2.3.4.5"),
 			},
 		}
-		w.AddOrUpdateWorkload(newWorkload)
+		newWorkload.Services = map[string]*workloadapi.PortList{
+			"default/testsvc1.default.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: 80,
+						TargetPort:  8080,
+					},
+					{
+						ServicePort: 81,
+						TargetPort:  8180,
+					},
+					{
+						ServicePort: 82,
+						TargetPort:  82,
+					},
+				},
+			},
+			"default/testsvc3.default.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: 80,
+						TargetPort:  8080,
+					},
+				},
+			},
+		}
+		deleted, newServices = w.AddOrUpdateWorkload(newWorkload)
+		assert.Equal(t, deleted, []string{"default/testsvc2.default.svc.cluster.local"})
+		assert.Equal(t, newServices, []string{"default/testsvc3.default.svc.cluster.local"})
 		assert.Equal(t, newWorkload, w.byUid["123456"])
-		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
-		addr2, _ := netip.AddrFromSlice([]byte("2.3.4.5"))
-		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr1}])
-		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr2}])
-		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
+		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr}])
 	})
 }
 
@@ -134,35 +154,5 @@ func TestDeleteWorkload(t *testing.T) {
 		addr2, _ := netip.AddrFromSlice([]byte("world"))
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: "ut-net", Address: addr1}])
 		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: "ut-net", Address: addr2}])
-	})
-}
-
-func TestWorkloadRelationShip(t *testing.T) {
-	t.Run("normal function test", func(t *testing.T) {
-		w := NewWorkloadCache()
-
-		var serviceId uint32 = 12345678
-		var relationId uint32 = 87654321
-		var workloadId uint32 = 12341234
-
-		var relationKey = ServiceRelationShipByWorkload{
-			workloadId: workloadId,
-			serviceId:  serviceId,
-		}
-		var relationKeyById = ServiceRelationShipById{
-			serviceId:  serviceId,
-			relationId: relationId,
-		}
-
-		w.UpdateRelationShip(workloadId, serviceId, relationId)
-		assert.Equal(t, workloadId, w.relationShipById[relationKeyById])
-		assert.Equal(t, relationId, w.relationShipByWorkload[relationKey])
-
-		val, ok := w.GetRelationShip(workloadId, serviceId)
-		assert.Equal(t, ok, true)
-		assert.Equal(t, val, relationId)
-
-		w.DeleteRelationShip(serviceId, relationId)
-		assert.Equal(t, (uint32)(0), w.relationShipById[relationKeyById])
 	})
 }
