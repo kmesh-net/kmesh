@@ -43,6 +43,8 @@ const (
 	connection_success = uint32(1)
 
 	MSG_LEN = 112
+
+	metricFlushInterval = 5 * time.Second
 )
 
 var osStartTime time.Time
@@ -209,8 +211,8 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			case <-ctx.Done():
 				return
 			default:
-				// Metrics updated every 3 seconds
-				time.Sleep(5 * time.Second)
+				// Metrics updated every 5 seconds
+				time.Sleep(metricFlushInterval)
 				m.updatePrometheusMetric()
 			}
 		}
@@ -262,10 +264,10 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			if data.state == TCP_CLOSTED {
 				OutputAccesslog(data, accesslog)
 			}
-			m.mutex.RLock()
+			m.mutex.Lock()
 			m.updateWorkloadMetricCache(data, workloadLabels)
 			m.updateServiceMetricCache(data, serviceLabels)
-			m.mutex.RUnlock()
+			m.mutex.Unlock()
 		}
 	}
 }
@@ -525,12 +527,12 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 }
 
 func (m *MetricController) updatePrometheusMetric() {
-	m.mutex.RLock()
+	m.mutex.Lock()
 	workloadInfoCache := m.workloadMetricCache
 	serviceInfoCache := m.serviceMetricCache
 	m.workloadMetricCache = map[workloadMetricLabels]workloadMetricInfo{}
 	m.serviceMetricCache = map[serviceMetricLabels]serviceMetricInfo{}
-	m.mutex.RUnlock()
+	m.mutex.Unlock()
 
 	for k, v := range workloadInfoCache {
 		workloadLabels := struct2map(k)
