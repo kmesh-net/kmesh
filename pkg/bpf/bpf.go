@@ -21,6 +21,7 @@ package bpf
 // #include "cluster/cluster.pb-c.h"
 import "C"
 import (
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"os"
@@ -68,6 +69,7 @@ func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
 }
 
 func (l *BpfLoader) StartAdsMode() (err error) {
+	var ve *ebpf.VerifierError
 	if l.obj, err = NewBpfKmesh(l.config); err != nil {
 		return err
 	}
@@ -79,7 +81,10 @@ func (l *BpfLoader) StartAdsMode() (err error) {
 	}()
 
 	if err = l.obj.Load(); err != nil {
-		return fmt.Errorf("bpf Load failed, %s", err)
+		if errors.As(err, &ve) {
+			return fmt.Errorf("bpf Load failed: %+v", ve)
+		}
+		return fmt.Errorf("bpf Load failed: %v", err)
 	}
 
 	if err = l.obj.Attach(); err != nil {
