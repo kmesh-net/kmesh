@@ -188,15 +188,28 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	return nil
 }
 
-func (p *Processor) deleteFrontendData(id uint32) error {
+func (p *Processor) deleteServiceFrontendData(service *workloadapi.Service, id uint32) error {
 	var (
 		err error
 		fk  = bpf.FrontendKey{}
 	)
+
+	// If old service exist, use its address
+	if service != nil {
+		for _, networkAddress := range service.GetAddresses() {
+			nets.CopyIpByteFromSlice(&fk.Ip, networkAddress.Address)
+			if err = p.bpf.FrontendDelete(&fk); err != nil {
+				log.Errorf("delete service %s frontend key %v, err: %v", service.ResourceName(), fk, err)
+			}
+		}
+		return nil
+	}
+
+	// Otherwise fall back to iterating over the map, this can only occur on restart
 	if fks := p.bpf.FrontendIterFindKey(id); len(fks) != 0 {
 		log.Debugf("Find Key Count %d", len(fks))
 		for _, fk = range fks {
-			log.Debugf("deleteFrontendData Key [%#v]", fk)
+			log.Debugf("deleteServiceFrontendData Key [%#v]", fk)
 			if err = p.bpf.FrontendDelete(&fk); err != nil {
 				log.Errorf("FrontendDelete failed: %s", err)
 				return err
@@ -208,53 +221,44 @@ func (p *Processor) deleteFrontendData(id uint32) error {
 }
 
 func (p *Processor) removeServiceResource(resources []string) error {
-	var err error
 	for _, name := range resources {
 		telemetry.DeleteServiceMetric(name)
-		p.ServiceCache.DeleteService(name)
-		if err = p.removeServiceResourceFromBpfMap(name); err != nil {
-			return err
-		}
+		svc := p.ServiceCache.DeleteService(name)
+		p.removeServiceResourceFromBpfMap(svc, name)
 	}
-	return err
+	return nil
 }
 
-func (p *Processor) removeServiceResourceFromBpfMap(name string) error {
+func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, name string) error {
 	var (
-		err      error
 		skDelete = bpf.ServiceKey{}
 		svDelete = bpf.ServiceValue{}
-		ekDelete = bpf.EndpointKey{}
 	)
 
-	p.ServiceCache.DeleteService(name)
 	serviceId := p.hashName.Hash(name)
 	skDelete.ServiceId = serviceId
-	if err = p.bpf.ServiceLookup(&skDelete, &svDelete); err == nil {
-		if err = p.deleteFrontendData(serviceId); err != nil {
-			log.Errorf("deleteFrontendData failed: %s", err)
-			goto failed
+	if err := p.bpf.ServiceLookup(&skDelete, &svDelete); err == nil {
+		if err = p.deleteServiceFrontendData(svc, serviceId); err != nil {
+			log.Errorf("deleteServiceFrontendData for service %s failed: %v", name, err)
 		}
 
 		if err = p.bpf.ServiceDelete(&skDelete); err != nil {
-			log.Errorf("ServiceDelete failed: %s", err)
-			goto failed
+			log.Errorf("service map delete %s failed: %v", name, err)
 		}
 
 		var i uint32
 		for i = 1; i <= svDelete.EndpointCount; i++ {
-			ekDelete.ServiceId = serviceId
-			ekDelete.BackendIndex = i
-
+			ekDelete := bpf.EndpointKey{
+				ServiceId:    serviceId,
+				BackendIndex: i,
+			}
 			if err = p.bpf.EndpointDelete(&ekDelete); err != nil {
-				log.Errorf("EndpointDelete failed: %s", err)
-				goto failed
+				log.Errorf("delete [%#v] from endpoint map failed: %s", ekDelete, err)
 			}
 		}
 	}
 	p.hashName.Delete(name)
-failed:
-	return err
+	return nil
 }
 
 // addWorkloadToService update service & endpoint bpf map when a workload has new bound services
@@ -521,7 +525,7 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	return nil
 }
 
-func (p *Processor) handleRemovedAddresses(removed []string) error {
+func (p *Processor) handleRemovedAddresses(removed []string) {
 	var workloadNames []string
 	var serviceNames []string
 	for _, res := range removed {
@@ -541,7 +545,7 @@ func (p *Processor) handleRemovedAddresses(removed []string) error {
 		log.Errorf("RemoveServiceResource failed: %v", err)
 	}
 
-	return nil
+	return
 }
 
 func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
@@ -579,7 +583,7 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		}
 	}
 
-	_ = p.handleRemovedAddresses(rsp.RemovedResources)
+	p.handleRemovedAddresses(rsp.RemovedResources)
 	p.once.Do(p.compareWorkloadAndServiceWithHashName)
 	return err
 }
@@ -617,7 +621,7 @@ func (p *Processor) compareWorkloadAndServiceWithHashName() {
 				}
 			} else if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
 				log.Debugf("found ServiceValue: [%#v] and removeServiceResourceFromBpfMap", sv)
-				if err := p.removeServiceResourceFromBpfMap(str); err != nil {
+				if err := p.removeServiceResourceFromBpfMap(nil, str); err != nil {
 					log.Errorf("removeServiceResourceFromBpfMap failed: %v", err)
 				}
 			}
