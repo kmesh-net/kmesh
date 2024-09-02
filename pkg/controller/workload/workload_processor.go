@@ -265,11 +265,6 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 		ev  = bpf.EndpointValue{}
 	)
 
-	// TODO: make this check only run once on restart
-	if !p.shouldAddEndpoint(uid, sk.ServiceId) {
-		return nil
-	}
-
 	sv.EndpointCount++
 	ek.BackendIndex = sv.EndpointCount
 	ek.ServiceId = sk.ServiceId
@@ -470,17 +465,6 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	}
 
 	return nil
-}
-
-func (p *Processor) shouldAddEndpoint(wlUid uint32, serviceUid uint32) bool {
-	eks := p.bpf.GetEndpointKeys(wlUid)
-	for k := range eks {
-		if k.ServiceId == serviceUid {
-			log.Debugf("workload %d has been stored as endpoint of service %d", wlUid, serviceUid)
-			return false
-		}
-	}
-	return true
 }
 
 func (p *Processor) handleService(service *workloadapi.Service) error {
