@@ -228,14 +228,15 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MetricController{
-				workloadCache: cache.NewWorkloadCache(),
-				metricCache:   newMetricCache(),
+				workloadCache:       cache.NewWorkloadCache(),
+				workloadMetricCache: map[workloadMetricLabels]workloadMetricInfo{},
+				serviceMetricCache:  map[serviceMetricLabels]serviceMetricInfo{},
 			}
 			m.buildWorkloadMetricsToPrometheus(tt.args.data, tt.args.labels)
-			assert.Equal(t, m.metricCache.WorkloadConnClosed[tt.args.labels], tt.want[0])
-			assert.Equal(t, m.metricCache.WorkloadConnOpened[tt.args.labels], tt.want[1])
-			assert.Equal(t, m.metricCache.WorkloadConnReceivedBytes[tt.args.labels], tt.want[2])
-			assert.Equal(t, m.metricCache.WorkloadConnSentBytes[tt.args.labels], tt.want[3])
+			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnClosed, tt.want[0])
+			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnOpened, tt.want[1])
+			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnReceivedBytes, tt.want[2])
+			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnSentBytes, tt.want[3])
 		})
 	}
 }
@@ -296,14 +297,15 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MetricController{
-				workloadCache: cache.NewWorkloadCache(),
-				metricCache:   newMetricCache(),
+				workloadCache:       cache.NewWorkloadCache(),
+				workloadMetricCache: map[workloadMetricLabels]workloadMetricInfo{},
+				serviceMetricCache:  map[serviceMetricLabels]serviceMetricInfo{},
 			}
 			m.buildServiceMetricsToPrometheus(tt.args.data, tt.args.labels)
-			assert.Equal(t, m.metricCache.ServiceConnClosed[tt.args.labels], tt.want[0])
-			assert.Equal(t, m.metricCache.ServiceConnOpened[tt.args.labels], tt.want[1])
-			assert.Equal(t, m.metricCache.ServiceConnReceivedBytes[tt.args.labels], tt.want[2])
-			assert.Equal(t, m.metricCache.ServiceConnSentBytes[tt.args.labels], tt.want[3])
+			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnClosed, tt.want[0])
+			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnOpened, tt.want[1])
+			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnReceivedBytes, tt.want[2])
+			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnSentBytes, tt.want[3])
 		})
 	}
 }
@@ -865,86 +867,45 @@ func TestMetricController_updatePrometheusMetric(t *testing.T) {
 	servicePrometheusLabel1 := struct2map(testServiceLabel1)
 	servicePrometheusLabel2 := struct2map(testServiceLabel2)
 	tests := []struct {
-		name          string
-		metricCache   metricInfoCache
-		exportMetrics []*prometheus.GaugeVec
-		labels        []map[string]string
-		want          []float64
+		name                  string
+		workloadMetricCache   workloadMetricInfo
+		serviceMetricCache    serviceMetricInfo
+		exportWorkloadMetrics []*prometheus.GaugeVec
+		exportServiceMetrics  []*prometheus.GaugeVec
+		want                  []float64
 	}{
 		{
 			name: "update workload metric in Prometheus",
-			metricCache: metricInfoCache{
-				WorkloadConnOpened: map[workloadMetricLabels]float64{
-					testworkloadLabel1: float64(1),
-					testworkloadLabel2: float64(2),
-				},
-				WorkloadConnClosed: map[workloadMetricLabels]float64{
-					testworkloadLabel1: float64(3),
-					testworkloadLabel2: float64(4),
-				},
-				WorkloadConnSentBytes: map[workloadMetricLabels]float64{
-					testworkloadLabel1: float64(5),
-					testworkloadLabel2: float64(6),
-				},
-				WorkloadConnReceivedBytes: map[workloadMetricLabels]float64{
-					testworkloadLabel1: float64(7),
-					testworkloadLabel2: float64(8),
-				},
-				WorkloadConnFailed: map[workloadMetricLabels]float64{
-					testworkloadLabel1: float64(9),
-					testworkloadLabel2: float64(10),
-				},
+			workloadMetricCache: workloadMetricInfo{
+				WorkloadConnOpened:        1,
+				WorkloadConnClosed:        2,
+				WorkloadConnFailed:        3,
+				WorkloadConnSentBytes:     4,
+				WorkloadConnReceivedBytes: 5,
 			},
-			exportMetrics: []*prometheus.GaugeVec{
+			serviceMetricCache: serviceMetricInfo{
+				ServiceConnOpened:        6,
+				ServiceConnClosed:        7,
+				ServiceConnFailed:        8,
+				ServiceConnSentBytes:     9,
+				ServiceConnReceivedBytes: 10,
+			},
+			exportWorkloadMetrics: []*prometheus.GaugeVec{
 				tcpConnectionOpenedInWorkload,
 				tcpConnectionClosedInWorkload,
+				tcpConnectionFailedInWorkload,
 				tcpSentBytesInWorkload,
 				tcpReceivedBytesInWorkload,
-				tcpConnectionFailedInWorkload,
 			},
-			labels: []map[string]string{
-				workloadPrometheusLabel1, workloadPrometheusLabel2,
+			exportServiceMetrics: []*prometheus.GaugeVec{
+				tcpConnectionOpenedInService,
+				tcpConnectionClosedInService,
+				tcpConnectionFailedInService,
+				tcpSentBytesInService,
+				tcpReceivedBytesInService,
 			},
 			want: []float64{
 				1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
-			},
-		},
-		{
-			name: "update service metrics in Prometheus",
-			metricCache: metricInfoCache{
-				ServiceConnOpened: map[serviceMetricLabels]float64{
-					testServiceLabel1: float64(11),
-					testServiceLabel2: float64(12),
-				},
-				ServiceConnClosed: map[serviceMetricLabels]float64{
-					testServiceLabel1: float64(13),
-					testServiceLabel2: float64(14),
-				},
-				ServiceConnSentBytes: map[serviceMetricLabels]float64{
-					testServiceLabel1: float64(15),
-					testServiceLabel2: float64(16),
-				},
-				ServiceConnReceivedBytes: map[serviceMetricLabels]float64{
-					testServiceLabel1: float64(17),
-					testServiceLabel2: float64(18),
-				},
-				ServiceConnFailed: map[serviceMetricLabels]float64{
-					testServiceLabel1: float64(19),
-					testServiceLabel2: float64(20),
-				},
-			},
-			exportMetrics: []*prometheus.GaugeVec{
-				tcpConnectionOpenedInService,
-				tcpConnectionClosedInService,
-				tcpSentBytesInService,
-				tcpReceivedBytesInService,
-				tcpConnectionFailedInService,
-			},
-			labels: []map[string]string{
-				servicePrometheusLabel1, servicePrometheusLabel2,
-			},
-			want: []float64{
-				11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
 			},
 		},
 	}
@@ -954,17 +915,30 @@ func TestMetricController_updatePrometheusMetric(t *testing.T) {
 			go RunPrometheusClient(ctx)
 			m := &MetricController{
 				workloadCache: cache.NewWorkloadCache(),
-				metricCache:   tt.metricCache,
+				workloadMetricCache: map[workloadMetricLabels]workloadMetricInfo{
+					testworkloadLabel1: tt.workloadMetricCache,
+					testworkloadLabel2: tt.workloadMetricCache,
+				},
+				serviceMetricCache: map[serviceMetricLabels]serviceMetricInfo{
+					testServiceLabel1: tt.serviceMetricCache,
+					testServiceLabel2: tt.serviceMetricCache,
+				},
 			}
-			err := m.updatePrometheusMetric()
-			assert.NoError(t, err)
+			m.updatePrometheusMetric()
 			index := 0
-			for _, metric := range tt.exportMetrics {
-				v1 := testutil.ToFloat64(metric.With(tt.labels[0]))
+			for _, metric := range tt.exportWorkloadMetrics {
+				v1 := testutil.ToFloat64(metric.With(workloadPrometheusLabel1))
 				assert.Equal(t, tt.want[index], v1)
-				v2 := testutil.ToFloat64(metric.With(tt.labels[1]))
-				assert.Equal(t, tt.want[index+1], v2)
-				index = index + 2
+				v2 := testutil.ToFloat64(metric.With(workloadPrometheusLabel2))
+				assert.Equal(t, tt.want[index], v2)
+				index = index + 1
+			}
+			for _, metric := range tt.exportServiceMetrics {
+				v1 := testutil.ToFloat64(metric.With(servicePrometheusLabel1))
+				assert.Equal(t, tt.want[index], v1)
+				v2 := testutil.ToFloat64(metric.With(servicePrometheusLabel2))
+				assert.Equal(t, tt.want[index], v2)
+				index = index + 1
 			}
 			cancel()
 		})

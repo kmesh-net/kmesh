@@ -48,22 +48,26 @@ const (
 var osStartTime time.Time
 
 type MetricController struct {
-	workloadCache cache.WorkloadCache
-	metricCache   metricInfoCache
-	mutex         sync.RWMutex
+	workloadCache       cache.WorkloadCache
+	workloadMetricCache map[workloadMetricLabels]workloadMetricInfo
+	serviceMetricCache  map[serviceMetricLabels]serviceMetricInfo
+	mutex               sync.RWMutex
 }
 
-type metricInfoCache struct {
-	WorkloadConnOpened        map[workloadMetricLabels]float64
-	WorkloadConnClosed        map[workloadMetricLabels]float64
-	WorkloadConnSentBytes     map[workloadMetricLabels]float64
-	WorkloadConnReceivedBytes map[workloadMetricLabels]float64
-	WorkloadConnFailed        map[workloadMetricLabels]float64
-	ServiceConnOpened         map[serviceMetricLabels]float64
-	ServiceConnClosed         map[serviceMetricLabels]float64
-	ServiceConnSentBytes      map[serviceMetricLabels]float64
-	ServiceConnReceivedBytes  map[serviceMetricLabels]float64
-	ServiceConnFailed         map[serviceMetricLabels]float64
+type workloadMetricInfo struct {
+	WorkloadConnOpened        float64
+	WorkloadConnClosed        float64
+	WorkloadConnSentBytes     float64
+	WorkloadConnReceivedBytes float64
+	WorkloadConnFailed        float64
+}
+
+type serviceMetricInfo struct {
+	ServiceConnOpened        float64
+	ServiceConnClosed        float64
+	ServiceConnSentBytes     float64
+	ServiceConnReceivedBytes float64
+	ServiceConnFailed        float64
 }
 
 type connectionDataV4 struct {
@@ -169,23 +173,9 @@ type serviceMetricLabels struct {
 
 func NewMetric(workloadCache cache.WorkloadCache) *MetricController {
 	return &MetricController{
-		workloadCache: workloadCache,
-		metricCache:   newMetricCache(),
-	}
-}
-
-func newMetricCache() metricInfoCache {
-	return metricInfoCache{
-		WorkloadConnOpened:        map[workloadMetricLabels]float64{},
-		WorkloadConnClosed:        map[workloadMetricLabels]float64{},
-		WorkloadConnSentBytes:     map[workloadMetricLabels]float64{},
-		WorkloadConnReceivedBytes: map[workloadMetricLabels]float64{},
-		WorkloadConnFailed:        map[workloadMetricLabels]float64{},
-		ServiceConnOpened:         map[serviceMetricLabels]float64{},
-		ServiceConnClosed:         map[serviceMetricLabels]float64{},
-		ServiceConnSentBytes:      map[serviceMetricLabels]float64{},
-		ServiceConnReceivedBytes:  map[serviceMetricLabels]float64{},
-		ServiceConnFailed:         map[serviceMetricLabels]float64{},
+		workloadCache:       workloadCache,
+		workloadMetricCache: map[workloadMetricLabels]workloadMetricInfo{},
+		serviceMetricCache:  map[serviceMetricLabels]serviceMetricInfo{},
 	}
 }
 
@@ -221,9 +211,9 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			default:
 				// Metrics updated every 3 seconds
 				time.Sleep(3 * time.Second)
-				err := m.updatePrometheusMetric()
+				m.updatePrometheusMetric()
 				if err != nil {
-					log.Errorf("update Kmesh metrics failed: %v", err)
+					log.Errorf("update Kmesh metrics failed: %v\n", err)
 				}
 			}
 		}
@@ -244,7 +234,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), MSG_LEN)
 				continue
 			}
-
 			connectType := binary.LittleEndian.Uint32(rec.RawSample)
 			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
 			buf := bytes.NewBuffer(originInfo)
@@ -257,7 +246,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("get connection info failed: %v", err)
 				continue
 			}
-
 			workloadLabels := m.buildWorkloadMetric(&data)
 			serviceLabels, accesslog := m.buildServiceMetric(&data)
 
@@ -274,7 +262,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				serviceLabels.reporter = "source"
 				accesslog.direction = "OUTBOUND"
 			}
-
 			if data.state == TCP_CLOSTED {
 				OutputAccesslog(data, accesslog)
 			}
@@ -477,123 +464,92 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 }
 
 func (m *MetricController) buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricLabels) {
-	_, ok := m.metricCache.WorkloadConnReceivedBytes[labels]
+	v, ok := m.workloadMetricCache[labels]
 	if ok {
 		if data.state == TCP_ESTABLISHED {
-			m.metricCache.WorkloadConnOpened[labels] = m.metricCache.WorkloadConnOpened[labels] + 1
+			v.WorkloadConnOpened = v.WorkloadConnOpened + 1
 		}
 		if data.state == TCP_CLOSTED {
-			m.metricCache.WorkloadConnClosed[labels] = m.metricCache.WorkloadConnClosed[labels] + 1
+			v.WorkloadConnClosed = v.WorkloadConnClosed + 1
 		}
 		if data.success != connection_success {
-			m.metricCache.WorkloadConnFailed[labels] = m.metricCache.WorkloadConnFailed[labels] + 1
+			v.WorkloadConnFailed = v.WorkloadConnFailed + 1
 		}
-		m.metricCache.WorkloadConnReceivedBytes[labels] = m.metricCache.WorkloadConnReceivedBytes[labels] + float64(data.receivedBytes)
-		m.metricCache.WorkloadConnSentBytes[labels] = m.metricCache.WorkloadConnSentBytes[labels] + float64(data.sentBytes)
+		v.WorkloadConnReceivedBytes = v.WorkloadConnReceivedBytes + float64(data.receivedBytes)
+		v.WorkloadConnSentBytes = v.WorkloadConnSentBytes + float64(data.sentBytes)
 	} else {
+		newWorkloadMetricInfo := workloadMetricInfo{}
 		if data.state == TCP_ESTABLISHED {
-			m.metricCache.WorkloadConnOpened[labels] = 1
+			newWorkloadMetricInfo.WorkloadConnOpened = 1
 		}
 		if data.state == TCP_CLOSTED {
-			m.metricCache.WorkloadConnClosed[labels] = 1
+			newWorkloadMetricInfo.WorkloadConnClosed = 1
 		}
 		if data.success != connection_success {
-			m.metricCache.WorkloadConnFailed[labels] = 1
+			newWorkloadMetricInfo.WorkloadConnFailed = 1
 		}
-		m.metricCache.WorkloadConnReceivedBytes[labels] = float64(data.receivedBytes)
-		m.metricCache.WorkloadConnSentBytes[labels] = float64(data.sentBytes)
+		newWorkloadMetricInfo.WorkloadConnReceivedBytes = float64(data.receivedBytes)
+		newWorkloadMetricInfo.WorkloadConnSentBytes = float64(data.sentBytes)
+		m.workloadMetricCache[labels] = newWorkloadMetricInfo
 	}
 }
 
 func (m *MetricController) buildServiceMetricsToPrometheus(data requestMetric, labels serviceMetricLabels) {
-	_, ok := m.metricCache.ServiceConnReceivedBytes[labels]
+	v, ok := m.serviceMetricCache[labels]
 	if ok {
 		if data.state == TCP_ESTABLISHED {
-			m.metricCache.ServiceConnOpened[labels] = m.metricCache.ServiceConnOpened[labels] + 1
+			v.ServiceConnOpened = v.ServiceConnOpened + 1
 		}
 		if data.state == TCP_CLOSTED {
-			m.metricCache.ServiceConnClosed[labels] = m.metricCache.ServiceConnClosed[labels] + 1
+			v.ServiceConnClosed = v.ServiceConnClosed + 1
 		}
 		if data.success != connection_success {
-			m.metricCache.ServiceConnFailed[labels] = m.metricCache.ServiceConnFailed[labels] + 1
+			v.ServiceConnFailed = v.ServiceConnFailed + 1
 		}
-		m.metricCache.ServiceConnReceivedBytes[labels] = m.metricCache.ServiceConnReceivedBytes[labels] + float64(data.receivedBytes)
-		m.metricCache.ServiceConnSentBytes[labels] = m.metricCache.ServiceConnSentBytes[labels] + float64(data.sentBytes)
+		v.ServiceConnReceivedBytes = v.ServiceConnReceivedBytes + float64(data.receivedBytes)
+		v.ServiceConnSentBytes = v.ServiceConnSentBytes + float64(data.sentBytes)
 	} else {
+		newServiceMetricInfo := serviceMetricInfo{}
 		if data.state == TCP_ESTABLISHED {
-			m.metricCache.ServiceConnOpened[labels] = 1
+			newServiceMetricInfo.ServiceConnOpened = 1
 		}
 		if data.state == TCP_CLOSTED {
-			m.metricCache.ServiceConnClosed[labels] = 1
+			newServiceMetricInfo.ServiceConnClosed = 1
 		}
 		if data.success != connection_success {
-			m.metricCache.ServiceConnFailed[labels] = 1
+			newServiceMetricInfo.ServiceConnFailed = 1
 		}
-		m.metricCache.ServiceConnReceivedBytes[labels] = float64(data.receivedBytes)
-		m.metricCache.ServiceConnSentBytes[labels] = float64(data.sentBytes)
+		newServiceMetricInfo.ServiceConnReceivedBytes = float64(data.receivedBytes)
+		newServiceMetricInfo.ServiceConnSentBytes = float64(data.sentBytes)
+		m.serviceMetricCache[labels] = newServiceMetricInfo
 	}
 }
 
-func (m *MetricController) updatePrometheusMetric() error {
+func (m *MetricController) updatePrometheusMetric() {
 	m.mutex.RLock()
-	metricInfo := m.metricCache
+	workloadInfoCache := m.workloadMetricCache
+	serviceInfoCache := m.serviceMetricCache
+	m.workloadMetricCache = map[workloadMetricLabels]workloadMetricInfo{}
+	m.serviceMetricCache = map[serviceMetricLabels]serviceMetricInfo{}
 	m.mutex.RUnlock()
 
-	val := reflect.ValueOf(metricInfo)
-	typ := reflect.TypeOf(metricInfo)
+	for k, v := range workloadInfoCache {
+		workloadLabels := struct2map(k)
+		tcpConnectionOpenedInWorkload.With(workloadLabels).Add(v.WorkloadConnOpened)
+		tcpConnectionClosedInWorkload.With(workloadLabels).Add(v.WorkloadConnClosed)
+		tcpSentBytesInWorkload.With(workloadLabels).Add(v.WorkloadConnSentBytes)
+		tcpReceivedBytesInWorkload.With(workloadLabels).Add(v.WorkloadConnReceivedBytes)
+		tcpConnectionFailedInWorkload.With(workloadLabels).Add(v.WorkloadConnFailed)
+	}
 
-	// check if has pointer in struct
-	if typ.Kind() == reflect.Ptr {
-		val = val.Elem()
-		typ = typ.Elem()
+	for k, v := range serviceInfoCache {
+		serviceLabels := struct2map(k)
+		tcpConnectionOpenedInService.With(serviceLabels).Add(v.ServiceConnOpened)
+		tcpConnectionClosedInService.With(serviceLabels).Add(v.ServiceConnClosed)
+		tcpConnectionFailedInService.With(serviceLabels).Add(v.ServiceConnFailed)
+		tcpReceivedBytesInService.With(serviceLabels).Add(v.ServiceConnReceivedBytes)
+		tcpSentBytesInService.With(serviceLabels).Add(v.ServiceConnSentBytes)
 	}
-	num := val.NumField()
-	for i := 0; i < num; i++ {
-		sType := typ.Field(i)
-		sVal := val.Field(i).Interface()
-		workloadMap, isWorkload := sVal.(map[workloadMetricLabels]float64)
-		if isWorkload {
-			for k, v := range workloadMap {
-				name := sType.Name
-				commonLabels := struct2map(k)
-				switch name {
-				case "WorkloadConnOpened":
-					tcpConnectionOpenedInWorkload.With(commonLabels).Set(float64(v))
-				case "WorkloadConnClosed":
-					tcpConnectionClosedInWorkload.With(commonLabels).Set(float64(v))
-				case "WorkloadConnSentBytes":
-					tcpSentBytesInWorkload.With(commonLabels).Set(float64(v))
-				case "WorkloadConnReceivedBytes":
-					tcpReceivedBytesInWorkload.With(commonLabels).Set(float64(v))
-				case "WorkloadConnFailed":
-					tcpConnectionFailedInWorkload.With(commonLabels).Set(float64(v))
-				}
-			}
-		}
-		serviceMap, isService := sVal.(map[serviceMetricLabels]float64)
-		if isService {
-			for k, v := range serviceMap {
-				name := sType.Name
-				commonLabels := struct2map(k)
-				switch name {
-				case "ServiceConnOpened":
-					tcpConnectionOpenedInService.With(commonLabels).Set(float64(v))
-				case "ServiceConnClosed":
-					tcpConnectionClosedInService.With(commonLabels).Set(float64(v))
-				case "ServiceConnSentBytes":
-					tcpSentBytesInService.With(commonLabels).Set(float64(v))
-				case "ServiceConnReceivedBytes":
-					tcpReceivedBytesInService.With(commonLabels).Set(float64(v))
-				case "ServiceConnFailed":
-					tcpConnectionFailedInService.With(commonLabels).Set(float64(v))
-				}
-			}
-		}
-		if !isWorkload && !isService {
-			return fmt.Errorf("get metricCahce data failed")
-		}
-	}
-	return nil
 }
 
 func struct2map(labels interface{}) map[string]string {
