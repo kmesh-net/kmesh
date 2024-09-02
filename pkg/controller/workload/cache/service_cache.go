@@ -25,7 +25,7 @@ import (
 type ServiceCache interface {
 	List() []*workloadapi.Service
 	AddOrUpdateService(svc *workloadapi.Service)
-	DeleteService(resourceName string) *workloadapi.Service
+	DeleteService(resourceName string)
 	GetService(resourceName string) *workloadapi.Service
 }
 
@@ -47,12 +47,10 @@ func (s *serviceCache) AddOrUpdateService(svc *workloadapi.Service) {
 	s.servicesByResourceName[svc.ResourceName()] = svc
 }
 
-func (s *serviceCache) DeleteService(resourceName string) *workloadapi.Service {
+func (s *serviceCache) DeleteService(resourceName string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	exist := s.servicesByResourceName[resourceName]
 	delete(s.servicesByResourceName, resourceName)
-	return exist
 }
 
 func (s *serviceCache) List() []*workloadapi.Service {

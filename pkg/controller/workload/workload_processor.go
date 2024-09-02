@@ -223,7 +223,8 @@ func (p *Processor) deleteServiceFrontendData(service *workloadapi.Service, id u
 func (p *Processor) removeServiceResource(resources []string) error {
 	for _, name := range resources {
 		telemetry.DeleteServiceMetric(name)
-		svc := p.ServiceCache.DeleteService(name)
+		svc := p.ServiceCache.GetService(name)
+		p.ServiceCache.DeleteService(name)
 		_ = p.removeServiceResourceFromBpfMap(svc, name)
 	}
 	return nil
@@ -582,14 +583,14 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 	}
 
 	p.handleRemovedAddresses(rsp.RemovedResources)
-	p.once.Do(p.compareWorkloadAndServiceWithHashName)
+	p.once.Do(p.handleRemovedAddressesDuringRestart)
 	return err
 }
 
-// When processing the workload's response for the first time,
-// fetch the data from the /mnt/workload_hash_name.yaml file
-// and compare it with the data in the cache.
-func (p *Processor) compareWorkloadAndServiceWithHashName() {
+// After restart, we can get the removed addresses by comparing the
+// hash table with the cache. If the address is in the hash table but not in the cache, this is a removed address
+// We need to delete these addresses from the bpf map only once after restart.
+func (p *Processor) handleRemovedAddressesDuringRestart() {
 	var (
 		bk = bpf.BackendKey{}
 		bv = bpf.BackendValue{}
