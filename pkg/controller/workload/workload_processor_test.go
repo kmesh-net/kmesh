@@ -565,7 +565,7 @@ func hashNameClean(p *Processor) {
 			log.Errorf("RemoveWorkloadResource failed: %v", err)
 		}
 
-		if err := p.removeServiceResourceFromBpfMap(str); err != nil {
+		if err := p.removeServiceResourceFromBpfMap(nil, str); err != nil {
 			log.Errorf("RemoveServiceResource failed: %v", err)
 		}
 		p.hashName.Delete(str)
