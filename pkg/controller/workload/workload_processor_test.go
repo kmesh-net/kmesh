@@ -54,14 +54,6 @@ func Test_handleWorkload(t *testing.T) {
 
 	// 2. add workload
 	wl := createTestWorkloadWithService(true)
-	// add another service
-	wl.Services["default/testsvc2"] = &workloadapi.PortList{
-		Ports: []*workloadapi.Port{
-			{
-				ServicePort: 80,
-				TargetPort:  8080,
-			},
-		}}
 	err := p.handleWorkload(wl)
 	assert.NoError(t, err)
 
@@ -149,6 +141,10 @@ func Test_handleWorkload(t *testing.T) {
 	svcID = checkFrontEndMap(t, wpSvc.Addresses[0].Address, p)
 	// 6.2 check service map contains service, but no waypoint address
 	checkServiceMap(t, p, svcID, wpSvc, 0)
+
+	// 7. delete service
+	p.handleRemovedAddresses([]string{fakeSvc.ResourceName()})
+	checkNotExistInFrontEndMap(t, fakeSvc.Addresses[0].Address, p)
 
 	hashNameClean(p)
 }
@@ -250,6 +246,17 @@ func checkFrontEndMap(t *testing.T, ip []byte, p *Processor) (upstreamId uint32)
 	err := p.bpf.FrontendLookup(&fk, &fv)
 	assert.NoError(t, err)
 	upstreamId = fv.UpstreamId
+	return
+}
+
+func checkNotExistInFrontEndMap(t *testing.T, ip []byte, p *Processor) {
+	var fk bpfcache.FrontendKey
+	var fv bpfcache.FrontendValue
+	nets.CopyIpByteFromSlice(&fk.Ip, ip)
+	err := p.bpf.FrontendLookup(&fk, &fv)
+	if err == nil {
+		t.Fatalf("expected not exist error")
+	}
 	return
 }
 
