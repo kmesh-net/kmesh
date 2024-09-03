@@ -9,11 +9,10 @@
 #include "xdp.h"
 #include "workloadapi/security/authorization.pb-c.h"
 
-#define AUTH_ALLOW  0
-#define AUTH_DENY   1
-#define UNMATCHED   0
-#define MATCHED     1
-#define UNSUPPORTED 2
+#define AUTH_ALLOW 0
+#define AUTH_DENY  1
+#define UNMATCHED  0
+#define MATCHED    1
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -30,7 +29,7 @@ static inline Istio__Security__Authorization *map_lookup_authz(__u32 policyKey)
 
 static inline wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
 {
-    return (wl_policies_v *)kmesh_map_lookup_elem(&map_of_workload_policy, &workload_uid);
+    return (wl_policies_v *)kmesh_map_lookup_elem(&map_of_wl_policy, &workload_uid);
 }
 
 static inline int matchDstPorts(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
@@ -64,25 +63,27 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct xdp_info *
             }
         }
     }
+    // if not match not_destination_ports && has no destination_ports, return MATCHED
+    if (match->n_destination_ports == 0) {
+        return MATCHED;
+    }
 
-    if (match->n_destination_ports != 0) {
-        ports = kmesh_get_ptr_val(match->destination_ports);
-        if (!ports) {
-            return UNMATCHED;
-        }
+    ports = kmesh_get_ptr_val(match->destination_ports);
+    if (!ports) {
+        return UNMATCHED;
+    }
 #pragma unroll
-        for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
-            if (i >= match->n_destination_ports) {
-                break;
+    for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
+        if (i >= match->n_destination_ports) {
+            break;
+        }
+        if (info->iph->version == 4) {
+            if (bpf_htons(ports[i]) == tuple_info->ipv4.dport) {
+                return MATCHED;
             }
-            if (info->iph->version == 4) {
-                if (bpf_htons(ports[i]) == tuple_info->ipv4.dport) {
-                    return MATCHED;
-                }
-            } else {
-                if (bpf_htons(ports[i]) == tuple_info->ipv6.dport) {
-                    return MATCHED;
-                }
+        } else {
+            if (bpf_htons(ports[i]) == tuple_info->ipv6.dport) {
+                return MATCHED;
             }
         }
     }

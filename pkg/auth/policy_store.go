@@ -23,7 +23,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
-	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 )
 
 type policyStore struct {
@@ -41,11 +40,6 @@ func newPolicyStore() *policyStore {
 		byKey:       make(map[string]*security.Authorization),
 		byNamespace: make(map[string]sets.Set[string]),
 	}
-}
-
-//go:noinline
-func FlushAuthzMap(policyid uint32, authzPolicy *security.Authorization) error {
-	return maps_v2.AuthorizationUpdate(policyid, authzPolicy)
 }
 
 func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
@@ -85,10 +79,6 @@ func (ps *policyStore) removePolicy(policyKey string) {
 	if !ok {
 		log.Warnf("Auth policy key %s does not exist in byKey", policyKey)
 		return
-	}
-
-	if err := maps_v2.AuthorizationDelete(policyKey); err != nil {
-		log.Warnf("Auth policy key %s delete failed: %v", policyKey, err)
 	}
 	// remove authPolicy from byKey
 	delete(ps.byKey, policyKey)

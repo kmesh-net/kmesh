@@ -56,20 +56,18 @@ func authorizationFreeClang(cMsg *C.Istio__Security__Authorization) {
 	C.istio__security__authorization__free_unpacked(cMsg, nil)
 }
 
-func authorizationLookup(key string, value *security_v2.Authorization) error {
+func AuthorizationLookup(key uint32, value *security_v2.Authorization) error {
 	var err error
 
-	cKey := stringToClang(key)
-	defer stringFreeClang(cKey)
-
-	cMsg := C.deserial_lookup_elem(unsafe.Pointer(cKey), unsafe.Pointer(&C.istio__security__authorization__descriptor))
+	cKey := C.uint(key)
+	cMsg := C.deserial_lookup_elem(unsafe.Pointer(&cKey), unsafe.Pointer(&C.istio__security__authorization__descriptor))
 	if cMsg == nil {
 		return fmt.Errorf("authorizationLookup deserial_lookup_elem failed")
 	}
 	defer C.deserial_free_elem(unsafe.Pointer(cMsg))
 
 	err = authorizationToGolang(value, (*C.Istio__Security__Authorization)(cMsg))
-	log.Debugf("authorizationLookup [%s], [%s]", key, value.String())
+	log.Debugf("authorizationLookup [%v], [%v]", key, value.String())
 	return err
 }
 
@@ -89,13 +87,10 @@ func AuthorizationUpdate(policyKey uint32, value *security_v2.Authorization) err
 	return nil
 }
 
-func AuthorizationDelete(key string) error {
-	log.Debugf("AuthorizationDelete [%s]", key)
-
-	cKey := stringToClang(key)
-	defer stringFreeClang(cKey)
-
-	ret := C.deserial_delete_elem(unsafe.Pointer(cKey), unsafe.Pointer(&C.istio__security__authorization__descriptor))
+func AuthorizationDelete(key uint32) error {
+	log.Debugf("AuthorizationDelete [%v]", key)
+	cKey := C.uint(key)
+	ret := C.deserial_delete_elem(unsafe.Pointer(&cKey), unsafe.Pointer(&C.istio__security__authorization__descriptor))
 	if ret != 0 {
 		return fmt.Errorf("AuthorizationDelete deserial_delete_elem failed:%v", ret)
 	}

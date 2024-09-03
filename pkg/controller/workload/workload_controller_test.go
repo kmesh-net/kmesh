@@ -33,6 +33,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/auth"
+	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 )
@@ -149,7 +150,7 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 		{
 			name: "should take initial authorization versions",
 			beforeFunc: func(t *testing.T) {
-				patches0.ApplyFuncReturn(auth.FlushAuthzMap, nil)
+				patches0.ApplyFuncReturn(maps_v2.AuthorizationUpdate, nil)
 				patches1.ApplyMethodReturn(fakeClient.Client, "DeltaAggregatedResources", fakeClient.DeltaClient, nil)
 				workloadController.Processor = newProcessor(workloadMap)
 				workloadController.Rbac = auth.NewRbac(nil)

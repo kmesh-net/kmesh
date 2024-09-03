@@ -115,6 +115,6 @@ struct {
     __uint(value_size, sizeof(wl_policies_v));
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
-} map_of_workload_policy SEC(".maps");
+} map_of_wl_policy SEC(".maps");
 
 #endif

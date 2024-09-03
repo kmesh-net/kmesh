@@ -29,11 +29,11 @@ type WorkloadPolicy_value struct {
 }
 
 func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicy_key, value *WorkloadPolicy_value) error {
-	log.Debugf("workload policy update: [%#v], [%#v]", *key, value)
-	return c.bpfMap.MapOfWorkloadPolicy.Update(key, value, ebpf.UpdateAny)
+	log.Debugf("workload policy update: [%#v], [%#v]", *key, *value)
+	return c.bpfMap.MapOfWlPolicy.Update(key, value, ebpf.UpdateAny)
 }
 
 func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicy_key) error {
 	log.Debugf("workload policy delete: [%#v]", *key)
-	return c.bpfMap.MapOfWorkloadPolicy.Delete(key)
+	return c.bpfMap.MapOfWlPolicy.Delete(key)
 }
