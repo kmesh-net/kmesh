@@ -81,5 +81,4 @@ func TestWatchTokenFile(t *testing.T) {
 
 		return nil
 	}, retry.Timeout(3*time.Second))
-
 }

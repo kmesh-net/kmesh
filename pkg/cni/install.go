@@ -31,8 +31,6 @@ import (
 
 var log = logger.NewLoggerField("cni installer")
 
-const DefaultServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
-
 func (i *Installer) addCniConfig() error {
 	var err error
 	if i.CniConfigChained {
