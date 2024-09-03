@@ -196,7 +196,7 @@ func TestDeleteWorkloadMetric(t *testing.T) {
 			tcpSentBytesInWorkload.With(workloadLabels).Set(11.45)
 			tcpConnectionFailedInWorkload.With(workloadLabels).Set(1.0)
 
-			DeleteWorkloadMetric(tt.args.workload)
+			deleteWorkloadMetricInPrometheus(tt.args.workload)
 
 			for _, metric := range exportMetrics {
 				if err := prometheus.Register(metric); err == nil {
@@ -277,7 +277,7 @@ func TestDeleteServiceMetric(t *testing.T) {
 			tcpConnectionOpenedInService.With(serviceLabels).Set(16.25)
 			tcpConnectionFailedInService.With(serviceLabels).Set(6.0)
 
-			DeleteServiceMetric(tt.args.serviceName)
+			deleteServiceMetricInPrometheus(tt.args.serviceName)
 			for _, metric := range exportMetrics {
 				if err := prometheus.Register(metric); err == nil {
 					t.Errorf("metric not clean up")

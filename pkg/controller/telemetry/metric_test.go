@@ -229,8 +229,8 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MetricController{
 				workloadCache:       cache.NewWorkloadCache(),
-				workloadMetricCache: map[workloadMetricLabels]workloadMetricInfo{},
-				serviceMetricCache:  map[serviceMetricLabels]serviceMetricInfo{},
+				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
+				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 			}
 			m.updateWorkloadMetricCache(tt.args.data, tt.args.labels)
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnClosed, tt.want[0])
@@ -298,8 +298,8 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := MetricController{
 				workloadCache:       cache.NewWorkloadCache(),
-				workloadMetricCache: map[workloadMetricLabels]workloadMetricInfo{},
-				serviceMetricCache:  map[serviceMetricLabels]serviceMetricInfo{},
+				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
+				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 			}
 			m.updateServiceMetricCache(tt.args.data, tt.args.labels)
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnClosed, tt.want[0])
@@ -915,13 +915,13 @@ func TestMetricController_updatePrometheusMetric(t *testing.T) {
 			go RunPrometheusClient(ctx)
 			m := &MetricController{
 				workloadCache: cache.NewWorkloadCache(),
-				workloadMetricCache: map[workloadMetricLabels]workloadMetricInfo{
-					testworkloadLabel1: tt.workloadMetricCache,
-					testworkloadLabel2: tt.workloadMetricCache,
+				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{
+					testworkloadLabel1: &tt.workloadMetricCache,
+					testworkloadLabel2: &tt.workloadMetricCache,
 				},
-				serviceMetricCache: map[serviceMetricLabels]serviceMetricInfo{
-					testServiceLabel1: tt.serviceMetricCache,
-					testServiceLabel2: tt.serviceMetricCache,
+				serviceMetricCache: map[serviceMetricLabels]*serviceMetricInfo{
+					testServiceLabel1: &tt.serviceMetricCache,
+					testServiceLabel2: &tt.serviceMetricCache,
 				},
 			}
 			m.updatePrometheusMetric()

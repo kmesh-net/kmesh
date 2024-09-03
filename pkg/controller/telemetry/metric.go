@@ -51,8 +51,8 @@ var osStartTime time.Time
 
 type MetricController struct {
 	workloadCache       cache.WorkloadCache
-	workloadMetricCache map[workloadMetricLabels]workloadMetricInfo
-	serviceMetricCache  map[serviceMetricLabels]serviceMetricInfo
+	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
+	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
 	mutex               sync.RWMutex
 }
 
@@ -176,8 +176,8 @@ type serviceMetricLabels struct {
 func NewMetric(workloadCache cache.WorkloadCache) *MetricController {
 	return &MetricController{
 		workloadCache:       workloadCache,
-		workloadMetricCache: map[workloadMetricLabels]workloadMetricInfo{},
-		serviceMetricCache:  map[serviceMetricLabels]serviceMetricInfo{},
+		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
+		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
 }
 
@@ -491,7 +491,7 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		}
 		newWorkloadMetricInfo.WorkloadConnReceivedBytes = float64(data.receivedBytes)
 		newWorkloadMetricInfo.WorkloadConnSentBytes = float64(data.sentBytes)
-		m.workloadMetricCache[labels] = newWorkloadMetricInfo
+		m.workloadMetricCache[labels] = &newWorkloadMetricInfo
 	}
 }
 
@@ -522,7 +522,7 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 		}
 		newServiceMetricInfo.ServiceConnReceivedBytes = float64(data.receivedBytes)
 		newServiceMetricInfo.ServiceConnSentBytes = float64(data.sentBytes)
-		m.serviceMetricCache[labels] = newServiceMetricInfo
+		m.serviceMetricCache[labels] = &newServiceMetricInfo
 	}
 }
 
@@ -530,8 +530,8 @@ func (m *MetricController) updatePrometheusMetric() {
 	m.mutex.Lock()
 	workloadInfoCache := m.workloadMetricCache
 	serviceInfoCache := m.serviceMetricCache
-	m.workloadMetricCache = map[workloadMetricLabels]workloadMetricInfo{}
-	m.serviceMetricCache = map[serviceMetricLabels]serviceMetricInfo{}
+	m.workloadMetricCache = map[workloadMetricLabels]*workloadMetricInfo{}
+	m.serviceMetricCache = map[serviceMetricLabels]*serviceMetricInfo{}
 	m.mutex.Unlock()
 
 	for k, v := range workloadInfoCache {
@@ -551,6 +551,18 @@ func (m *MetricController) updatePrometheusMetric() {
 		tcpReceivedBytesInService.With(serviceLabels).Add(v.ServiceConnReceivedBytes)
 		tcpSentBytesInService.With(serviceLabels).Add(v.ServiceConnSentBytes)
 	}
+
+	// delete metrics
+	workloadDeleteLength := len(deleteWorkload)
+	serviceDeleteLength := len(deleteService)
+	for i := 0; i < workloadDeleteLength; i++ {
+		deleteWorkloadMetricInPrometheus(deleteWorkload[i])
+	}
+	for i := 0; i < serviceDeleteLength; i++ {
+		deleteServiceMetricInPrometheus(deleteService[i])
+	}
+	deleteWorkload = deleteWorkload[workloadDeleteLength:]
+	deleteService = deleteService[serviceDeleteLength:]
 }
 
 func struct2map(labels interface{}) map[string]string {
