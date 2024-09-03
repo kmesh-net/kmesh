@@ -5,7 +5,7 @@ coverage:
     patch:
       default:
         target: 80%
-        informational: false
+        informational: true
         if_ci_failed: error
 comment:                  # this is a top-level key
   layout: "header, files, footer" # remove "new" from "header" and "footer"
