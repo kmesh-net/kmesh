@@ -24,6 +24,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/util/retry"
+
 	"kmesh.net/kmesh/pkg/constants"
 )
 

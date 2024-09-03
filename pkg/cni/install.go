@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/fsnotify/fsnotify"
 	"istio.io/istio/pkg/filewatcher"
 
 	"kmesh.net/kmesh/pkg/constants"
@@ -91,14 +92,19 @@ func (i *Installer) WatchServiceAccountToken() error {
 
 		for {
 			select {
-			case gotEvent := <-i.Watcher.Events(tokenPath):
-				log.Infof("got event %s", gotEvent.String())
+			case event := <-i.Watcher.Events(tokenPath):
+				log.Infof("got event %s", event.String())
 
-				if err := maybeWriteKubeConfigFile(i.ServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
-					log.Errorf("failed try to update Kmesh cni kubeconfig: %v", err)
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					if err := maybeWriteKubeConfigFile(i.ServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
+						log.Errorf("failed try to update Kmesh cni kubeconfig: %v", err)
+					}
 				}
 			case err := <-i.Watcher.Errors(tokenPath):
-				log.Infof("error from errors channel of file watcher: %v", err)
+				if err != nil {
+					log.Errorf("error from errors channel of file watcher: %v", err)
+					return
+				}
 			}
 		}
 	}()
