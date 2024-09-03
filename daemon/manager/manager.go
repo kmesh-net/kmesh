@@ -105,7 +105,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	}()
 
 	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
-		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained)
+		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained, configs.CniConfig.ServiceAccountPath)
 	if err := cniInstaller.Start(); err != nil {
 		return err
 	}

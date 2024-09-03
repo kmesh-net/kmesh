@@ -42,7 +42,7 @@ func TestWatchTokenFile(t *testing.T) {
 
 	cniDir := t.TempDir()
 
-	i := NewInstaller(constants.WorkloadMode, cniDir, "conflist-name", serviceAccountPath, true)
+	i := NewInstaller(constants.WorkloadMode, cniDir, "conflist-name", true, serviceAccountPath)
 
 	kubeconfigPath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)
 	if err := maybeWriteKubeConfigFile(serviceAccountPath, kubeconfigPath); err != nil {

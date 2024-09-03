@@ -23,15 +23,17 @@ import (
 )
 
 type cniConfig struct {
-	CniMountNetEtcDIR string
-	CniConfigName     string
-	CniConfigChained  bool
+	CniMountNetEtcDIR  string
+	CniConfigName      string
+	CniConfigChained   bool
+	ServiceAccountPath string
 }
 
 func (c *cniConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.CniMountNetEtcDIR, "cni-etc-path", "/etc/cni/net.d", "cni etc path")
 	cmd.PersistentFlags().StringVar(&c.CniConfigName, "conflist-name", "", "cni conflist name")
 	cmd.PersistentFlags().BoolVar(&c.CniConfigChained, "plugin-cni-chained", true, "kmesh cni plugins chained to another cni")
+	cmd.PersistentFlags().StringVar(&c.ServiceAccountPath, "service-account-token", "/var/run/secrets/kubernetes.io/serviceaccount", "service account path")
 }
 
 func (c *cniConfig) ParseConfig() error {

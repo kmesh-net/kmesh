@@ -69,8 +69,8 @@ type Installer struct {
 func NewInstaller(mode string,
 	cniMountNetEtcDIR string,
 	cniConfigName string,
-	serviceAccountPath string,
-	cniConfigChained bool) *Installer {
+	cniConfigChained bool,
+	serviceAccountPath string) *Installer {
 	return &Installer{
 		Mode:               mode,
 		CniMountNetEtcDIR:  cniMountNetEtcDIR,
