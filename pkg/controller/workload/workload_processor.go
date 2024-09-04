@@ -188,8 +188,10 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 		return err
 	}
 
-	if len(p.WorkloadCache.GetWorkloadByUid(uid).AuthorizationPolicies) > 0 {
-		wpkDelete.WorklodId = backendUid
+	// 4. delete auth policy of workload
+	wpkValue := bpf.WorkloadPolicy_value{}
+	wpkDelete.WorklodId = backendUid
+	if err = p.bpf.WorkloadPolicyLookup(&wpkDelete, &wpkValue); err == nil {
 		if err = p.bpf.WorkloadPolicyDelete(&wpkDelete); err != nil {
 			log.Errorf("WorkloadPolicyDelete failed: %s", err)
 			return err
@@ -695,29 +697,6 @@ func (p *Processor) handleRemovedAuthzPolicyDuringRestart(rbac *auth.Rbac) {
 	}
 }
 
-func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
-	var (
-		key   = bpf.WorkloadPolicy_key{}
-		value = bpf.WorkloadPolicy_value{}
-	)
-	if len(polices) == 0 {
-		return
-	}
-	key.WorklodId = p.hashName.Hash(uid)
-	for i, v := range polices {
-		if i < len(value.PolicyIds) {
-			value.PolicyIds[i] = p.hashName.Hash(v)
-		} else {
-			log.Warnf("Exceeded the number of elements in PolicyIds.")
-			break
-		}
-	}
-
-	if err := p.bpf.WorkloadPolicyUpdate(&key, &value); err != nil {
-		log.Errorf("storeWorkloadPolicies failed, workload %s, err: %s", uid, err)
-	}
-}
-
 // deleteEndpointRecords deletes endpoint from endpoint map and simultaneously update service map
 func (p *Processor) deleteEndpointRecords(workloadId uint32, endpointKeys []bpf.EndpointKey) error {
 	var (
@@ -751,4 +730,27 @@ func (p *Processor) deleteEndpointRecords(workloadId uint32, endpointKeys []bpf.
 		}
 	}
 	return nil
+}
+
+func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
+	var (
+		key   = bpf.WorkloadPolicy_key{}
+		value = bpf.WorkloadPolicy_value{}
+	)
+	if len(polices) == 0 {
+		return
+	}
+	key.WorklodId = p.hashName.Hash(uid)
+	for i, v := range polices {
+		if i < len(value.PolicyIds) {
+			value.PolicyIds[i] = p.hashName.Hash(v)
+		} else {
+			log.Warnf("Exceeded the number of elements in PolicyIds.")
+			break
+		}
+	}
+
+	if err := p.bpf.WorkloadPolicyUpdate(&key, &value); err != nil {
+		log.Errorf("storeWorkloadPolicies failed, workload %s, err: %s", uid, err)
+	}
 }

@@ -37,3 +37,8 @@ func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicy_key) error {
 	log.Debugf("workload policy delete: [%#v]", *key)
 	return c.bpfMap.MapOfWlPolicy.Delete(key)
 }
+
+func (c *Cache) WorkloadPolicyLookup(key *WorkloadPolicy_key, value *WorkloadPolicy_value) error {
+	log.Debugf("workload policy lookup: [%#v]", *key)
+	return c.bpfMap.MapOfWlPolicy.Lookup(key, value)
+}
