@@ -195,3 +195,38 @@ clean:
 	$(QUIET) if docker ps -a -q -f name=kmesh-build | grep -q .; then \
 		docker rm -f kmesh-build; \
 	fi
+
+
+##@ Helm
+
+CHARTS_FOLDER := deploy/charts
+CHARTS := $(wildcard $(CHARTS_FOLDER)/*)
+CHART_VERSION ?= v0.0.0-latest
+CHART_OCI_REGISTRY ?= oci://$(HUB)
+CHART_OUTPUT_DIR ?= out/charts
+
+.PHONY: helm-package.%
+helm-package.%: # Package Helm chart
+	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	$(eval CHART_NAME := $(COMMAND))
+	helm lint $(CHARTS_FOLDER)/${CHART_NAME}
+	helm package $(CHARTS_FOLDER)/${CHART_NAME} --app-version ${VERSION} --version ${CHART_VERSION} --destination ${CHART_OUTPUT_DIR}/
+
+.PHONY: helm-push.%
+helm-push.%: helm-package.%
+	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	$(eval CHART_NAME := $(COMMAND))
+	helm push ${CHART_OUTPUT_DIR}/${CHART_NAME}-${CHART_VERSION}.tgz ${CHART_OCI_REGISTRY}
+
+.PHONY: helm-package
+helm-package:
+	@for chart in $(CHARTS); do \
+      	$(MAKE) $(addprefix helm-package., $$(basename $${chart})); \
+	done
+
+.PHONY: helm-push
+helm-push: helm-package
+	# run other make targets
+	@for chart in $(CHARTS); do \
+	  	$(MAKE) $(addprefix helm-push., $$(basename $${chart})); \
+	done
