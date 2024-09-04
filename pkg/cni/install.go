@@ -22,6 +22,7 @@ package cni
 import (
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"istio.io/istio/pkg/filewatcher"
@@ -90,14 +91,22 @@ func (i *Installer) WatchServiceAccountToken() error {
 	go func() {
 		log.Infof("start watching file %s", tokenPath)
 
+		var timerC <-chan time.Time
 		for {
 			select {
+			case <-timerC:
+				timerC = nil
+
+				if err := maybeWriteKubeConfigFile(i.ServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
+					log.Errorf("failed try to update Kmesh cni kubeconfig: %v", err)
+				}
+
 			case event := <-i.Watcher.Events(tokenPath):
 				log.Infof("got event %s", event.String())
 
 				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
-					if err := maybeWriteKubeConfigFile(i.ServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
-						log.Errorf("failed try to update Kmesh cni kubeconfig: %v", err)
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond)
 					}
 				}
 			case err := <-i.Watcher.Errors(tokenPath):
