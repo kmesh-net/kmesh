@@ -33,6 +33,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
+	"kmesh.net/kmesh/pkg/grpcdata"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/status"
 )
@@ -71,18 +72,41 @@ func NewCommand() *cobra.Command {
 	return cmd
 }
 
-// Execute start daemon manager process
-func Execute(configs *options.BootstrapConfigs) error {
-	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
+func ExecuteBpf(configs *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) error {
+	go grpcdata.GrpcInitServer()
 	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
 		return err
 	}
 	log.Info("bpf Start successful")
 	defer bpfLoader.Stop()
 
+	setupCloseHandler()
+	return nil
+}
+
+func Execute(configs *options.BootstrapConfigs) error {
+	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
+
+	component := getEnv("COMPONENT", "")
+
+	if component == "bpf" {
+		return ExecuteBpf(configs, bpfLoader)
+	} else {
+		return ExecuteDaemon(configs, bpfLoader)
+	}
+}
+
+// Execute start daemon manager process
+func ExecuteDaemon(configs *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) error {
+
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-
+	log.Infof("before init client")
+	gc, conn := grpcdata.GrpcInitClient()
+	if gc == nil {
+		return nil
+	}
+	defer conn.Close()
 	c := controller.NewController(configs, bpfLoader.GetBpfKmeshWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog)
 	if err := c.Start(stopCh); err != nil {
 		return err
@@ -104,7 +128,6 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("command Start cni successful")
 	defer cniInstaller.Stop()
 
-	setupCloseHandler()
 	return nil
 }
 
@@ -127,4 +150,11 @@ func printFlags(flags *pflag.FlagSet) {
 func addFlags(cmd *cobra.Command, config *options.BootstrapConfigs) {
 	config.AttachFlags(cmd)
 	cmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
+}
+
+func getEnv(key, fallback string) string {
+	if value, ok := os.LookupEnv(key); ok {
+		return value
+	}
+	return fallback
 }

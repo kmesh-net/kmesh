@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+package grpcdata;
+
+option go_package = "kmesh.net/kmesh/api/grpcdata;grpcdata";
+
+message MsgRequest {
+    string Name = 1;
+    XdsOpt XdsOpt = 2;
+    bytes msg = 3;
+}
+
+message MsgResponse {
+  error error_code = 1;
+  bytes msg = 2;
+}
+
+message XdsOpt {
+  XdsNmae XdsNmae = 1;
+  Opteration Opt = 2;
+}
+
+enum XdsNmae {
+  Cluster = 0;
+  Listener = 1;
+  Route = 2;
+}
+
+enum Opteration {
+  UPDATE = 0;
+  LOOKUP = 1;
+  DELETE = 2;
+}
+
+service kmeshMsgService {
+  rpc HandleMsg (MsgRequest) returns (MsgResponse);
+}
+

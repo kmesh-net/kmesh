@@ -22,11 +22,13 @@ package cache_v2
 import (
 	"sync"
 
+	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
+	"kmesh.net/kmesh/pkg/grpcdata"
 )
 
 type ClusterCache struct {
@@ -128,7 +130,9 @@ func (cache *ClusterCache) Flush() {
 	defer cache.mutex.Unlock()
 	for name, cluster := range cache.apiClusterCache {
 		if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
-			err := maps_v2.ClusterUpdate(name, cluster)
+			valueMsg, err := proto.Marshal(cluster)
+			grpcdata.SendMsg(grpcdata.ConnClient, name, valueMsg)
+			//err := maps_v2.ClusterUpdate(name, cluster)
 			if err == nil {
 				// reset api status after successfully updated
 				cluster.ApiStatus = core_v2.ApiStatus_NONE

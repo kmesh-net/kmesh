@@ -77,7 +77,7 @@ func ClusterLookup(key string, value *cluster_v2.Cluster) error {
 }
 
 func ClusterUpdate(key string, value *cluster_v2.Cluster) error {
-	log.Debugf("ClusterUpdate [%s], [%s]", key, value.String())
+	log.Printf("ClusterUpdate [%s], [%s]", key, value.String())
 
 	cKey := stringToClang(key)
 	defer stringFreeClang(cKey)
