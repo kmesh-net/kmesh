@@ -38,9 +38,9 @@ linters:
     - staticcheck
     - typecheck
     - unused
-    - gci
     - misspell
     - whitespace
+    #- gosec
     #- revive
 
 linters-settings:
@@ -49,11 +49,6 @@ linters-settings:
   gocyclo:
     # minimal cyclomatic complexity to report
     min-complexity: 15
-  gci:
-    sections:
-      - standard # Captures all standard packages if they do not match another section.
-      - default # Contains all imports that could not be matched to another section type.
-      - prefix(kmesh.net) # Groups all imports with the specified Prefix.
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
   # But independently from this option we use default exclude patterns,
