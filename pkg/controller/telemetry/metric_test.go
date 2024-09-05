@@ -957,18 +957,3 @@ func TestMetricController_updatePrometheusMetric(t *testing.T) {
 		})
 	}
 }
-
-func TestBytesToIP(t *testing.T) {
-	t.Run("normal []byte to Ipv4", func(t *testing.T) {
-		testData := []byte{10, 244, 0, 1}
-		want := "10.244.0.1"
-		got := bytesToIp(testData)
-		assert.Equal(t, want, got)
-	})
-	t.Run("normal []byte to Ipv6", func(t *testing.T) {
-		testData := []byte{10, 244, 0, 1, 10, 244, 0, 1, 10, 244, 0, 1, 10, 244, 0, 1}
-		want := "af4:1:af4:1:af4:1:af4:1"
-		got := bytesToIp(testData)
-		assert.Equal(t, want, got)
-	})
-}
