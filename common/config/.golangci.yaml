@@ -25,6 +25,7 @@ run:
   #            the dependency descriptions in go.mod.
   modules-download-mode: readonly
 linters:
+  disable-all: true
   enable:
     # linters maintained by golang.org
     - gofmt
@@ -37,10 +38,7 @@ linters:
     - staticcheck
     - typecheck
     - unused
-    # other linters supported by golangci-lint.
-    #- gocyclo
-    #- gosec
-    # - gci
+    - gci
     - misspell
     - whitespace
     #- revive
