@@ -36,7 +36,9 @@ type logInfo struct {
 
 func OutputAccesslog(data requestMetric, accesslog logInfo) {
 	logStr := buildAccesslog(data, accesslog)
-	fmt.Println("accesslog:", logStr)
+	if accesslog.destinationService != "" || data.dstPort == uint16(15019) {
+		fmt.Println("accesslog:", logStr)
+	}
 }
 
 func buildAccesslog(data requestMetric, accesslog logInfo) string {

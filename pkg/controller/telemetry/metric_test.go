@@ -584,10 +584,11 @@ func TestBuildServiceMetric(t *testing.T) {
 		data *requestMetric
 	}
 	tests := []struct {
-		name    string
-		args    args
-		want    serviceMetricLabels
-		wantErr bool
+		name        string
+		args        args
+		want        serviceMetricLabels
+		wantErr     bool
+		wantLogInfo logInfo
 	}{
 		{
 			name: "normal capability test",
@@ -596,6 +597,7 @@ func TestBuildServiceMetric(t *testing.T) {
 					src:           [4]uint32{521736970, 0, 0, 0},
 					dst:           [4]uint32{383822016, 0, 0, 0},
 					dstPort:       uint16(80),
+					srcPort:       uint16(8000),
 					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
@@ -626,6 +628,16 @@ func TestBuildServiceMetric(t *testing.T) {
 				connectionSecurityPolicy:     "mutual_tls",
 			},
 			wantErr: false,
+			wantLogInfo: logInfo{
+				direction:            "-",
+				sourceAddress:        "10.19.25.31:8000",
+				sourceWorkload:       "kmesh",
+				sourceNamespace:      "kmesh-system",
+				destinationAddress:   "192.168.224.22:80",
+				destinationService:   "kmesh.kmesh-system.svc.cluster.local",
+				destinationWorkload:  "kmesh",
+				destinationNamespace: "kmesh-system",
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -635,8 +647,9 @@ func TestBuildServiceMetric(t *testing.T) {
 			}
 			m.workloadCache.AddOrUpdateWorkload(dstWorkload)
 			m.workloadCache.AddOrUpdateWorkload(srcWorkload)
-			got, _ := m.buildServiceMetric(tt.args.data)
+			got, accesslog := m.buildServiceMetric(tt.args.data)
 			assert.Equal(t, tt.want, got)
+			assert.Equal(t, tt.wantLogInfo, accesslog)
 		})
 	}
 }
@@ -943,4 +956,19 @@ func TestMetricController_updatePrometheusMetric(t *testing.T) {
 			cancel()
 		})
 	}
+}
+
+func TestBytesToIP(t *testing.T) {
+	t.Run("normal []byte to Ipv4", func(t *testing.T) {
+		testData := []byte{10, 244, 0, 1}
+		want := "10.244.0.1"
+		got := bytesToIp(testData)
+		assert.Equal(t, want, got)
+	})
+	t.Run("normal []byte to Ipv6", func(t *testing.T) {
+		testData := []byte{10, 244, 0, 1, 10, 244, 0, 1, 10, 244, 0, 1, 10, 244, 0, 1}
+		want := "af4:1:af4:1:af4:1:af4:1"
+		got := bytesToIp(testData)
+		assert.Equal(t, want, got)
+	})
 }

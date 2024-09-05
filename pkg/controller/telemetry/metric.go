@@ -250,7 +250,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 
 			workloadLabels.reporter = "-"
 			serviceLabels.reporter = "-"
-			accesslog.direction = "-"
 			if data.direction == constants.INBOUND {
 				workloadLabels.reporter = "destination"
 				serviceLabels.reporter = "destination"
@@ -343,15 +342,15 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.src[i])
 	}
 
-	dstWorkload, dstIp := m.getWorkloadByAddress(restoreIPv4(dstAddr))
-	srcWorkload, srcIp := m.getWorkloadByAddress(restoreIPv4(srcAddr))
+	dstWorkload, _ := m.getWorkloadByAddress(restoreIPv4(dstAddr))
+	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
 	trafficLabels, accesslog := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
-	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
-	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)
+	accesslog.destinationAddress = bytesToIp(restoreIPv4(dstAddr)) + ":" + fmt.Sprintf("%d", data.dstPort)
+	accesslog.sourceAddress = bytesToIp(restoreIPv4(srcAddr)) + ":" + fmt.Sprintf("%d", data.srcPort)
 
 	return trafficLabels, accesslog
 }
@@ -399,7 +398,16 @@ func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloa
 
 func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) (serviceMetricLabels, logInfo) {
 	trafficLabels := serviceMetricLabels{}
-	accesslog := logInfo{}
+	accesslog := logInfo{
+		direction:            "-",
+		sourceAddress:        "-",
+		sourceWorkload:       "-",
+		sourceNamespace:      "-",
+		destinationAddress:   "-",
+		destinationService:   "-",
+		destinationWorkload:  "-",
+		destinationNamespace: "-",
+	}
 
 	if dstWorkload != nil {
 		namespacedhost := ""
@@ -437,8 +445,12 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
 
 		accesslog.destinationWorkload = dstWorkload.Name
-		accesslog.destinationNamespace = svcNamespace
-		accesslog.destinationService = svcHost
+		if svcNamespace != "" {
+			accesslog.destinationNamespace = svcNamespace
+		}
+		if svcHost != "" {
+			accesslog.destinationService = svcHost
+		}
 	}
 
 	if srcWorkload != nil {
@@ -587,6 +599,16 @@ func struct2map(labels interface{}) map[string]string {
 	return nil
 }
 
+func bytesToIp(ip []byte) string {
+	if len(ip) == 4 {
+		return bytesToIPv4(ip)
+	}
+	if len(ip) == 16 {
+		return bytesToIPv6(ip)
+	}
+	return ""
+}
+
 // Converting IPv4 data reported in IPv6 form to IPv4
 func restoreIPv4(bytes []byte) []byte {
 	for i := 4; i < 16; i++ {
@@ -596,4 +618,23 @@ func restoreIPv4(bytes []byte) []byte {
 	}
 
 	return bytes[:4]
+}
+
+func bytesToIPv4(ip []byte) string {
+	return fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+}
+
+func bytesToIPv6(bytes []byte) string {
+	// IPv6 addresses are represented by eight 16-bit integers
+	var ip [8]uint16
+
+	// Align to read 16-bit integers
+	for i := 0; i < len(bytes); i += 2 {
+		ip[i/2] = uint16(bytes[i])<<8 + uint16(bytes[i+1])
+	}
+
+	// Formatted output as IPv6 address strings
+	return fmt.Sprintf("%x:%x:%x:%x:%x:%x:%x:%x",
+		ip[0], ip[1], ip[2], ip[3],
+		ip[4], ip[5], ip[6], ip[7])
 }
