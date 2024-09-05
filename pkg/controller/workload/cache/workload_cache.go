@@ -20,16 +20,13 @@ import (
 	"net/netip"
 	"sync"
 
-	"google.golang.org/protobuf/proto"
-	"istio.io/istio/pkg/util/sets"
-
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
 type WorkloadCache interface {
 	GetWorkloadByUid(uid string) *workloadapi.Workload
 	GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload
-	AddOrUpdateWorkload(workload *workloadapi.Workload) (deletedServices []string, newServices []string)
+	AddOrUpdateWorkload(workload *workloadapi.Workload)
 	DeleteWorkload(uid string)
 	List() []*workloadapi.Workload
 }
@@ -71,46 +68,13 @@ func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 	}
 }
 
-func getServicesOnWorkload(workload *workloadapi.Workload) sets.String {
+func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) {
 	if workload == nil {
-		return nil
-	}
-
-	sets := sets.New[string]()
-	for key := range workload.Services {
-		sets.Insert(key)
-	}
-	return sets
-}
-
-func (w *cache) compareWorkloadServices(workload1, workload2 *workloadapi.Workload) ([]string, []string) {
-	left := getServicesOnWorkload(workload1)
-	right := getServicesOnWorkload(workload2)
-	return left.Diff(right)
-}
-
-func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) ([]string, []string) {
-	var deletedServices, newServices []string
-
-	if workload == nil {
-		return nil, nil
+		return
 	}
 
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-
-	oldWorkload, exist := w.byUid[workload.Uid]
-	if exist {
-		if proto.Equal(workload, oldWorkload) {
-			return nil, nil
-		}
-		// compare services
-		deletedServices, newServices = w.compareWorkloadServices(oldWorkload, workload)
-	} else {
-		for key := range workload.Services {
-			newServices = append(newServices, key)
-		}
-	}
 
 	w.byUid[workload.Uid] = workload
 
@@ -123,7 +87,6 @@ func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) ([]string, [
 			w.byAddr[networkAddress] = workload
 		}
 	}
-	return deletedServices, newServices
 }
 
 func (w *cache) DeleteWorkload(uid string) {

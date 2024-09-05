@@ -45,7 +45,7 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr2}])
 	})
 
-	t.Run("workload bound service update", func(t *testing.T) {
+	t.Run("workload service update", func(t *testing.T) {
 		w := NewWorkloadCache()
 
 		workload := &workloadapi.Workload{
@@ -82,12 +82,7 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 				},
 			},
 		}
-		deleted, newServices := w.AddOrUpdateWorkload(workload)
-		assert.Equal(t, 0, len(deleted))
-		for svc := range workload.Services {
-			assert.Contains(t, newServices, svc)
-		}
-		assert.Equal(t, len(newServices), len(workload.Services))
+		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
@@ -126,9 +121,7 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 				},
 			},
 		}
-		deleted, newServices = w.AddOrUpdateWorkload(newWorkload)
-		assert.Equal(t, deleted, []string{"default/testsvc2.default.svc.cluster.local"})
-		assert.Equal(t, newServices, []string{"default/testsvc3.default.svc.cluster.local"})
+		w.AddOrUpdateWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
 		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr}])
 	})
