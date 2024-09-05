@@ -10,8 +10,6 @@
 #define PARSER_FAILED 1
 #define PARSER_SUCC   0
 
-#define AUTH_BY_XDP 1
-
 struct xdp_info {
     struct ethhdr *ethh;
     union {

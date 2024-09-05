@@ -186,7 +186,6 @@ int xdp_shutdown(struct xdp_md *ctx)
 
     // never failed
     parser_tuple(&info, &tuple_info);
-#ifdef AUTH_BY_XDP
     // Before the authentication types supported by eBPF XDP are fully implemented,
     // this section only processes AUTH_DENY. If get AUTH_ALLOW,
     // it will still depend on the user-space authentication process to match other rule types.
@@ -194,7 +193,6 @@ int xdp_shutdown(struct xdp_md *ctx)
         return xdp_deny_packet(&info, &tuple_info);
     }
 
-#endif
     if (should_shutdown(&info, &tuple_info) == AUTH_FORBID)
         shutdown_tuple(&info);
 

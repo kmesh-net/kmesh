@@ -107,7 +107,6 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	if err != nil {
 		log.Error(err)
 	}
-	kmeshbpf.SetStartType(kmeshbpf.Normal)
 }
 
 func (p *Processor) deletePodFrontendData(uid uint32) error {
@@ -661,7 +660,9 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 		log.Debugf("remove authorization policy %s", resourceName)
 	}
 
-	p.handleRemovedAuthzPolicyDuringRestart(rbac)
+	p.once.Do(func() {
+		p.handleRemovedAuthzPolicyDuringRestart(rbac)
+	})
 	return nil
 }
 
@@ -673,10 +674,6 @@ func (p *Processor) handleRemovedAuthzPolicyDuringRestart(rbac *auth.Rbac) {
 		policyValue = security_v2.Authorization{}
 	)
 
-	if kmeshbpf.GetStartType() != kmeshbpf.Restart {
-		return
-	}
-
 	log.Infof("reload authz config from last epoch")
 	/* We traverse hashName, if there is a record exists in bpf map
 	 * but not in usercache, that means the data in the bpf map load
@@ -686,7 +683,6 @@ func (p *Processor) handleRemovedAuthzPolicyDuringRestart(rbac *auth.Rbac) {
 	policyCache := rbac.GetAllPolicies()
 	for str, num := range p.hashName.strToNum {
 		if _, exists := policyCache[str]; !exists {
-			log.Debugf("policyCache[%v] not exists", str)
 			if err := maps_v2.AuthorizationLookup(num, &policyValue); err == nil {
 				log.Debugf("Find policy: [%v:%v] Remove authz policy", str, num)
 				if err := maps_v2.AuthorizationDelete(num); err != nil {
