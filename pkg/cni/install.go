@@ -20,6 +20,13 @@
 package cni
 
 import (
+	"fmt"
+	"path/filepath"
+	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"istio.io/istio/pkg/filewatcher"
+
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -50,22 +57,68 @@ func (i *Installer) removeCniConfig() error {
 }
 
 type Installer struct {
-	Mode              string
-	CniMountNetEtcDIR string
-	CniConfigName     string
-	CniConfigChained  bool
+	Mode               string
+	CniMountNetEtcDIR  string
+	CniConfigName      string
+	CniConfigChained   bool
+	ServiceAccountPath string
+
+	Watcher filewatcher.FileWatcher
 }
 
 func NewInstaller(mode string,
 	cniMountNetEtcDIR string,
 	cniConfigName string,
-	cniConfigChained bool) *Installer {
+	cniConfigChained bool,
+	serviceAccountPath string) *Installer {
 	return &Installer{
-		Mode:              mode,
-		CniMountNetEtcDIR: cniMountNetEtcDIR,
-		CniConfigName:     cniConfigName,
-		CniConfigChained:  cniConfigChained,
+		Mode:               mode,
+		CniMountNetEtcDIR:  cniMountNetEtcDIR,
+		CniConfigName:      cniConfigName,
+		CniConfigChained:   cniConfigChained,
+		ServiceAccountPath: serviceAccountPath,
+		Watcher:            filewatcher.NewWatcher(),
 	}
+}
+
+func (i *Installer) WatchServiceAccountToken() error {
+	tokenPath := i.ServiceAccountPath + "/token"
+	if err := i.Watcher.Add(tokenPath); err != nil {
+		return fmt.Errorf("failed to add %s to file watcher: %v", tokenPath, err)
+	}
+
+	// Start listening for events.
+	go func() {
+		log.Infof("start watching file %s", tokenPath)
+
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+
+				if err := maybeWriteKubeConfigFile(i.ServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
+					log.Errorf("failed try to update Kmesh cni kubeconfig: %v", err)
+				}
+
+			case event := <-i.Watcher.Events(tokenPath):
+				log.Infof("got event %s", event.String())
+
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond)
+					}
+				}
+			case err := <-i.Watcher.Errors(tokenPath):
+				if err != nil {
+					log.Errorf("error from errors channel of file watcher: %v", err)
+					return
+				}
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (i *Installer) Start() error {
@@ -76,7 +129,12 @@ func (i *Installer) Start() error {
 			i.Stop()
 			return err
 		}
+
+		if err := i.WatchServiceAccountToken(); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
@@ -85,6 +143,9 @@ func (i *Installer) Stop() {
 		log.Info("start remove CNI config")
 		if err := i.removeCniConfig(); err != nil {
 			log.Errorf("remove CNI config failed: %v, please remove manually", err)
+		}
+		if err := i.Watcher.Close(); err != nil {
+			log.Errorf("failed to close fsnotify watcher: %v", err)
 		}
 		log.Info("remove CNI config done")
 	}

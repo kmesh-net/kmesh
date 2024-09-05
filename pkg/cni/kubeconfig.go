@@ -43,9 +43,7 @@ import (
 	"kmesh.net/kmesh/pkg/utils"
 )
 
-const ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
-
-func createKubeConfig() (string, error) {
+func createKubeConfig(serviceAccountPath string) (string, error) {
 	k8sServiceHost := os.Getenv("KUBERNETES_SERVICE_HOST")
 	if len(k8sServiceHost) == 0 {
 		return "", fmt.Errorf("KUBERNETES_SERVICE_HOST not set. Is this not running within a pod?")
@@ -59,14 +57,14 @@ func createKubeConfig() (string, error) {
 		Server: fmt.Sprintf("https://%s", net.JoinHostPort(k8sServiceHost, k8sServicePort)),
 	}
 
-	caFile := ServiceAccountPath + "/ca.crt"
+	caFile := serviceAccountPath + "/ca.crt"
 	caContents, err := os.ReadFile(caFile)
 	if err != nil {
 		return "", err
 	}
 	cluster.CertificateAuthorityData = caContents
 
-	token, err := os.ReadFile(ServiceAccountPath + "/token")
+	token, err := os.ReadFile(serviceAccountPath + "/token")
 	if err != nil {
 		return "", err
 	}
@@ -109,8 +107,8 @@ func createKubeConfig() (string, error) {
 }
 
 // maybeWriteKubeConfigFile will validate the existing kubeConfig file, and rewrite/replace it if required.
-func maybeWriteKubeConfigFile(kubeconfigFilepath string) error {
-	kc, err := createKubeConfig()
+func maybeWriteKubeConfigFile(serviceAccountPath, kubeconfigFilepath string) error {
+	kc, err := createKubeConfig(serviceAccountPath)
 	if err != nil {
 		return err
 	}
