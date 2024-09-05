@@ -13,3 +13,4 @@ deploy:
         cpu: "1"
         memory: 800Mi
 kubernetesClusterDomain: cluster.local
+fullnameOverride: kmesh

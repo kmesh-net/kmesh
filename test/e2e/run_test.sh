@@ -106,7 +106,7 @@ function setup_istio() {
 }
 
 function setup_kmesh() {
-    helm install kmesh $ROOT_DIR/deploy/helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh
+    helm install kmesh $ROOT_DIR/deploy/charts/kmesh-helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh
 
     # Wait for all Kmesh pods to be ready.
     while true; do
