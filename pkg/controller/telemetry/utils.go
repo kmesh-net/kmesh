@@ -30,8 +30,10 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("pkg/telemetry")
-	mu  sync.Mutex
+	log            = logger.NewLoggerField("pkg/telemetry")
+	mu             sync.Mutex
+	deleteWorkload = []*workloadapi.Workload{}
+	deleteService  = []string{}
 
 	workloadLabels = []string{
 		"reporter",
@@ -188,7 +190,7 @@ func RunPrometheusClient(ctx context.Context) {
 }
 
 func runPrometheusClient(registry *prometheus.Registry) {
-	// ensure not occur matche the same requests as /status/metric panic
+	// ensure not occur matche the same requests as /status/metric panic in unit test
 	mu.Lock()
 	defer mu.Unlock()
 	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload)
@@ -206,7 +208,10 @@ func DeleteWorkloadMetric(workload *workloadapi.Workload) {
 	if workload == nil {
 		return
 	}
+	deleteWorkload = append(deleteWorkload, workload)
+}
 
+func deleteWorkloadMetricInPrometheus(workload *workloadapi.Workload) {
 	_ = tcpConnectionClosedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpConnectionFailedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpConnectionOpenedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
@@ -218,6 +223,10 @@ func DeleteServiceMetric(serviceName string) {
 	if serviceName == "" {
 		return
 	}
+	deleteService = append(deleteService, serviceName)
+}
+
+func deleteServiceMetricInPrometheus(serviceName string) {
 	svcHost := ""
 	svcNamespace := ""
 	if len(strings.Split(serviceName, "/")) != 2 {
