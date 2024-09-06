@@ -144,16 +144,25 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 	return nil
 }
 
-func (p *Processor) removeWorkloadResource(removedResources []string) error {
+func (p *Processor) removeWorkloadResources(removedResources []string) error {
 	for _, uid := range removedResources {
-		wl := p.WorkloadCache.GetWorkloadByUid(uid)
-		p.WorkloadCache.DeleteWorkload(uid)
-		telemetry.DeleteWorkloadMetric(wl)
-		if err := p.removeWorkloadFromBpfMap(uid); err != nil {
-			return err
+		err := p.removeWorkload(uid)
+		if err != nil {
+			log.Warnf("removeWorkload %s failed: %v", uid, err)
+			continue
 		}
 	}
 	return nil
+}
+
+func (p *Processor) removeWorkload(uid string) error {
+	wl := p.WorkloadCache.GetWorkloadByUid(uid)
+	if wl == nil {
+		return nil
+	}
+	p.WorkloadCache.DeleteWorkload(uid)
+	telemetry.DeleteWorkloadMetric(wl)
+	return p.removeWorkloadFromBpfMap(uid)
 }
 
 func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
@@ -220,7 +229,7 @@ func (p *Processor) deleteServiceFrontendData(service *workloadapi.Service, id u
 	return nil
 }
 
-func (p *Processor) removeServiceResource(resources []string) error {
+func (p *Processor) removeServiceResources(resources []string) error {
 	for _, name := range resources {
 		telemetry.DeleteServiceMetric(name)
 		svc := p.ServiceCache.GetService(name)
@@ -368,9 +377,17 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 }
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
-	log.Debugf("handle workload: %s", workload.Uid)
+	log.Debugf("handle workload: %s", workload.ResourceName())
 
+	// Keep track of the workload no matter it is healthy, unhealthy workload is just for debugging
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
+
+	// Exclude unhealthy workload, which is not ready to serve traffic
+	if workload.Status == workloadapi.WorkloadStatus_UNHEALTHY {
+		log.Debugf("workload %s is unhealthy", workload.ResourceName())
+		// If the workload is updated to unhealthy, we should remove it from the bpf map
+		return p.removeWorkloadFromBpfMap(workload.Uid)
+	}
 
 	unboundedEndpointKeys, newServices := p.compareWorkloadServices(workload)
 	if err := p.handleWorkloadUnboundServices(workload, unboundedEndpointKeys); err != nil {
@@ -527,10 +544,10 @@ func (p *Processor) handleRemovedAddresses(removed []string) {
 		}
 	}
 
-	if err := p.removeWorkloadResource(workloadNames); err != nil {
-		log.Errorf("RemoveWorkloadResource failed: %v", err)
+	if err := p.removeWorkloadResources(workloadNames); err != nil {
+		log.Errorf("removeWorkloadResources failed: %v", err)
 	}
-	if err := p.removeServiceResource(serviceNames); err != nil {
+	if err := p.removeServiceResources(serviceNames); err != nil {
 		log.Errorf("RemoveServiceResource failed: %v", err)
 	}
 }
@@ -552,21 +569,19 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		case *workloadapi.Address_Service:
 			services = append(services, address.GetService())
 		default:
-			log.Errorf("unknown type")
+			log.Errorf("unknown type, should not reach here")
 		}
 	}
 
 	for _, service := range services {
-		log.Debugf("handle service %v", service.ResourceName())
 		if err = p.handleService(service); err != nil {
-			log.Errorf("handle service failed, err: %v", err)
+			log.Errorf("handle service %v failed, err: %v", service.ResourceName(), err)
 		}
 	}
 
 	for _, workload := range workloads {
-		log.Debugf("handle workload %v", workload.ResourceName())
 		if err = p.handleWorkload(workload); err != nil {
-			log.Errorf("handle workload failed, err: %v", err)
+			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 		}
 	}
 
