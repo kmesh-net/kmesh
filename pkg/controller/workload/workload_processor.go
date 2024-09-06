@@ -58,7 +58,8 @@ type Processor struct {
 	WorkloadCache cache.WorkloadCache
 	ServiceCache  cache.ServiceCache
 
-	once sync.Once
+	once      sync.Once
+	authzOnce sync.Once
 }
 
 func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
@@ -660,7 +661,7 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 		log.Debugf("remove authorization policy %s", resourceName)
 	}
 
-	p.once.Do(func() {
+	p.authzOnce.Do(func() {
 		p.handleRemovedAuthzPolicyDuringRestart(rbac)
 	})
 	return nil
