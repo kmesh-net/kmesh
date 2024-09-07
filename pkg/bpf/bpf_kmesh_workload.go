@@ -76,6 +76,7 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		return nil, err
 	}
 
+	SetInnerMap(spec)
 	setMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockWorkloadObjects, &opts); err != nil {
 		return nil, err
@@ -258,6 +259,7 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshSockopsObjects() spec is nil")
 	}
 
+	SetInnerMap(spec)
 	setMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&so.KmeshSockopsWorkloadObjects, &opts); err != nil {
 		return nil, err
@@ -524,6 +526,7 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshXdpAuthObjects() spec is nil")
 	}
 
+	SetInnerMap(spec)
 	setMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
 		return nil, err

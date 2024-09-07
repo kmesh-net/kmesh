@@ -16,6 +16,13 @@
 /* Ip(0.0.0.2 | ::2) used for control command, e.g. KmeshControl */
 #define CONTROL_CMD_IP 2
 
+#define MAP_SIZE_OF_OUTTER_MAP 8192
+
+#define BPF_DATA_MAX_LEN                                                                                               \
+    192 /* this value should be                                                                                        \
+small that make compile success */
+#define BPF_INNER_MAP_DATA_LEN 1300
+
 struct manager_key {
     union {
         __u64 netns_cookie;
@@ -47,6 +54,22 @@ struct {
     __type(key, int);
     __type(value, struct sock_storage_data);
 } map_of_sock_storage SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, MAP_SIZE_OF_OUTTER_MAP);
+    __uint(map_flags, 0);
+} outer_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, BPF_INNER_MAP_DATA_LEN);
+    __uint(max_entries, 1);
+    __uint(map_flags, 0);
+} inner_map SEC(".maps");
 
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
@@ -137,4 +160,31 @@ static inline bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
     return false;
 }
 
+static inline void *kmesh_get_ptr_val(const void *ptr)
+{
+    /*
+        map_in_map -- outer_map:
+        key		value
+        idx1	inner_map_fd1	// point to inner map1
+        idx2	 inner_map_fd2	// point to inner map2
+
+        structA.ptr_member1 = idx1;	// store idx in outer_map
+    */
+    void *inner_map_instance = NULL;
+    __u32 inner_idx = 0;
+    __u32 idx = (__u32)(uintptr_t)ptr;
+
+    if (!ptr) {
+        return NULL;
+    }
+
+    /* get inner_map_instance by idx */
+    inner_map_instance = kmesh_map_lookup_elem(&outer_map, &idx);
+    if (!inner_map_instance) {
+        return NULL;
+    }
+
+    /* get inner_map_instance value */
+    return kmesh_map_lookup_elem(inner_map_instance, &inner_idx);
+}
 #endif

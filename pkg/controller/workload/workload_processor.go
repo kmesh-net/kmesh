@@ -30,9 +30,11 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	security_v2 "kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/pkg/auth"
 	kmeshbpf "kmesh.net/kmesh/pkg/bpf"
+	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/telemetry"
@@ -56,7 +58,8 @@ type Processor struct {
 	WorkloadCache cache.WorkloadCache
 	ServiceCache  cache.ServiceCache
 
-	once sync.Once
+	once      sync.Once
+	authzOnce sync.Once
 }
 
 func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
@@ -158,8 +161,9 @@ func (p *Processor) removeWorkloadResource(removedResources []string) error {
 
 func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	var (
-		err      error
-		bkDelete = bpf.BackendKey{}
+		err       error
+		bkDelete  = bpf.BackendKey{}
+		wpkDelete = bpf.WorkloadPolicy_key{}
 	)
 
 	backendUid := p.hashName.Hash(uid)
@@ -182,6 +186,16 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	if err = p.bpf.BackendDelete(&bkDelete); err != nil {
 		log.Errorf("BackendDelete %d failed: %v", backendUid, err)
 		return err
+	}
+
+	// 4. delete auth policy of workload
+	wpkValue := bpf.WorkloadPolicy_value{}
+	wpkDelete.WorklodId = backendUid
+	if err = p.bpf.WorkloadPolicyLookup(&wpkDelete, &wpkValue); err == nil {
+		if err = p.bpf.WorkloadPolicyDelete(&wpkDelete); err != nil {
+			log.Errorf("WorkloadPolicyDelete failed: %s", err)
+			return err
+		}
 	}
 
 	p.hashName.Delete(uid)
@@ -371,6 +385,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.Uid)
 
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
+	p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
 
 	unboundedEndpointKeys, newServices := p.compareWorkloadServices(workload)
 	if err := p.handleWorkloadUnboundServices(workload, unboundedEndpointKeys); err != nil {
@@ -622,24 +637,61 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 	}
 	// update resource
 	for _, resource := range rsp.GetResources() {
-		auth := &security.Authorization{}
-		if err := anypb.UnmarshalTo(resource.Resource, auth, proto.UnmarshalOptions{}); err != nil {
+		authPolicy := &security.Authorization{}
+		if err := anypb.UnmarshalTo(resource.Resource, authPolicy, proto.UnmarshalOptions{}); err != nil {
 			log.Errorf("unmarshal failed, err: %v", err)
 			continue
 		}
-		log.Debugf("handle authorization policy %s, auth %s", resource.GetName(), auth.String())
-		if err := rbac.UpdatePolicy(auth); err != nil {
+		log.Debugf("handle authorization policy %s, auth %s", resource.GetName(), authPolicy.String())
+		if err := rbac.UpdatePolicy(authPolicy); err != nil {
 			return err
+		}
+		policyKey := authPolicy.ResourceName()
+		if err := maps_v2.AuthorizationUpdate(p.hashName.Hash(policyKey), authPolicy); err != nil {
+			return fmt.Errorf("AuthorizationUpdate %s failed %v ", policyKey, err)
 		}
 	}
 
 	// delete resource by name
 	for _, resourceName := range rsp.GetRemovedResources() {
 		rbac.RemovePolicy(resourceName)
+		if err := maps_v2.AuthorizationDelete(p.hashName.Hash(resourceName)); err != nil {
+			log.Errorf("remove authorization policy %s failed :%v", resourceName, err)
+		}
 		log.Debugf("remove authorization policy %s", resourceName)
 	}
 
+	p.authzOnce.Do(func() {
+		p.handleRemovedAuthzPolicyDuringRestart(rbac)
+	})
 	return nil
+}
+
+// When processing the Authorization's response for the first time,
+// fetch the data from the /mnt/workload_hash_name.yaml file
+// and compare it with the data in the cache.
+func (p *Processor) handleRemovedAuthzPolicyDuringRestart(rbac *auth.Rbac) {
+	var (
+		policyValue = security_v2.Authorization{}
+	)
+
+	log.Infof("reload authz config from last epoch")
+	/* We traverse hashName, if there is a record exists in bpf map
+	 * but not in usercache, that means the data in the bpf map load
+	 * from the last epoch is inconsistent with the data that should
+	 * actually be stored now. then we should delete it from bpf map
+	 */
+	policyCache := rbac.GetAllPolicies()
+	for str, num := range p.hashName.strToNum {
+		if _, exists := policyCache[str]; !exists {
+			if err := maps_v2.AuthorizationLookup(num, &policyValue); err == nil {
+				log.Debugf("Find policy: [%v:%v] Remove authz policy", str, num)
+				if err := maps_v2.AuthorizationDelete(num); err != nil {
+					log.Errorf("RemoveWorkloadResource failed: %v", err)
+				}
+			}
+		}
+	}
 }
 
 // deleteEndpointRecords deletes endpoint from endpoint map and simultaneously update service map
@@ -675,4 +727,27 @@ func (p *Processor) deleteEndpointRecords(workloadId uint32, endpointKeys []bpf.
 		}
 	}
 	return nil
+}
+
+func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
+	var (
+		key   = bpf.WorkloadPolicy_key{}
+		value = bpf.WorkloadPolicy_value{}
+	)
+	if len(polices) == 0 {
+		return
+	}
+	key.WorklodId = p.hashName.Hash(uid)
+	for i, v := range polices {
+		if i < len(value.PolicyIds) {
+			value.PolicyIds[i] = p.hashName.Hash(v)
+		} else {
+			log.Warnf("Exceeded the number of elements in PolicyIds.")
+			break
+		}
+	}
+
+	if err := p.bpf.WorkloadPolicyUpdate(&key, &value); err != nil {
+		log.Errorf("storeWorkloadPolicies failed, workload %s, err: %s", uid, err)
+	}
 }
