@@ -76,6 +76,35 @@ func ClusterLookup(key string, value *cluster_v2.Cluster) error {
 	return err
 }
 
+func ClusterLookupAll() ([]*cluster_v2.Cluster, error) {
+	var (
+		err      error
+		clusters []*cluster_v2.Cluster
+	)
+
+	cMsg := C.deserial_lookup_all_elems(unsafe.Pointer(&C.cluster__cluster__descriptor))
+	if cMsg == nil {
+		return nil, fmt.Errorf("ClusterLookupAll deserial_lookup_all_elems failed")
+	}
+
+	elem_list_head := (*C.struct_element_list_node)(cMsg)
+	defer C.deserial_free_elem_list(elem_list_head)
+
+	for elem_list_head != nil {
+		cValue := elem_list_head.elem
+		elem_list_head = elem_list_head.next
+		cluster := cluster_v2.Cluster{}
+		err = clusterToGolang(&cluster, (*C.Cluster__Cluster)(cValue))
+		log.Debugf("ClusterLookupAll, value [%s]", cluster.String())
+		if err != nil {
+			return nil, err
+		}
+		clusters = append(clusters, &cluster)
+	}
+
+	return clusters, nil
+}
+
 func ClusterUpdate(key string, value *cluster_v2.Cluster) error {
 	log.Debugf("ClusterUpdate [%s], [%s]", key, value.String())
 
