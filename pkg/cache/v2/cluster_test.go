@@ -17,6 +17,7 @@
 package cache_v2
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -175,6 +176,39 @@ func TestClusterFlush(t *testing.T) {
 		assert.Equal(t, []string{}, updateClusterName)
 		assert.Equal(t, []string{}, deleteClusterName)
 	})
+}
+
+func TestClusterLookupAll(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        "ads",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, _ := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+	test_cluster_1 := cluster_v2.Cluster{
+		ApiStatus:      core_v2.ApiStatus_UPDATE,
+		ConnectTimeout: uint32(1),
+		Name:           "ut-cluster-1",
+		LbPolicy:       cluster_v2.Cluster_ROUND_ROBIN,
+	}
+	test_cluster_2 := cluster_v2.Cluster{
+		ApiStatus:      core_v2.ApiStatus_UPDATE,
+		ConnectTimeout: uint32(1),
+		Name:           "ut-cluster-2",
+		LbPolicy:       cluster_v2.Cluster_ROUND_ROBIN,
+	}
+	maps_v2.ClusterUpdate(test_cluster_1.Name, &test_cluster_1)
+	maps_v2.ClusterUpdate(test_cluster_2.Name, &test_cluster_2)
+
+	c := cluster_v2.Cluster{}
+	maps_v2.ClusterLookup(test_cluster_1.Name, &c)
+	fmt.Printf("lookup: %s", c.Name)
+
+	clusters, err := maps_v2.ClusterLookupAll()
+	assert.Nil(t, err)
+	assert.Equal(t, 2, len(clusters))
+	fmt.Printf("cluster: %s, %s\n", clusters[0].String(), clusters[1].String())
 }
 
 func BenchmarkClusterFlush(b *testing.B) {
