@@ -24,6 +24,7 @@ package maps
 // #include "cluster/cluster.pb-c.h"
 import "C"
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -77,19 +78,17 @@ func ClusterLookup(key string, value *cluster_v2.Cluster) error {
 }
 
 func ClusterLookupAll() ([]*cluster_v2.Cluster, error) {
-	var (
-		err      error
-		clusters []*cluster_v2.Cluster
-	)
+	var err error
 
 	cMsg := C.deserial_lookup_all_elems(unsafe.Pointer(&C.cluster__cluster__descriptor))
 	if cMsg == nil {
-		return nil, fmt.Errorf("ClusterLookupAll deserial_lookup_all_elems failed")
+		return nil, errors.New("ClusterLookupAll deserial_lookup_all_elems failed")
 	}
 
 	elem_list_head := (*C.struct_element_list_node)(cMsg)
 	defer C.deserial_free_elem_list(elem_list_head)
 
+	var clusters []*cluster_v2.Cluster
 	for elem_list_head != nil {
 		cValue := elem_list_head.elem
 		elem_list_head = elem_list_head.next
