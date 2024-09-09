@@ -152,7 +152,8 @@ func StartRingBufReader(ctx context.Context, mode string, bpfFsPath string) erro
 	} else if mode == constants.WorkloadMode {
 		path = bpfFsPath + "/bpf_kmesh_workload/map"
 	} else {
-		return fmt.Errorf("invalid start mode:%s", mode)
+		// Shouldn't happen here.
+		panic("invalid start mode, should be \"ads\" or \"workload\"")
 	}
 	path = filepath.Join(path, mapName)
 	rbMap, err := ebpf.LoadPinnedMap(path, nil)

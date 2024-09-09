@@ -92,10 +92,6 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		log.Info("start bypass controller successfully")
 	}
 
-	if c.mode != constants.WorkloadMode && c.mode != constants.AdsMode {
-		return nil
-	}
-
 	if c.enableBpfLog {
 		if err := logger.StartRingBufReader(ctx, c.mode, c.bpfFsPath); err != nil {
 			return fmt.Errorf("fail to start ringbuf reader: %v", err)

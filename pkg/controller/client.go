@@ -58,6 +58,9 @@ func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
 		client.WorkloadController = workload.NewController(bpfWorkload)
 	} else if mode == constants.AdsMode {
 		client.AdsController = ads.NewController()
+	} else {
+		// Shouldn't happen here.
+		panic("invalid start mode, should be \"ads\" or \"workload\"")
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
@@ -83,6 +86,9 @@ func (c *XdsClient) createGrpcStreamClient() error {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create ads stream failed, %s", err)
 		}
+	} else {
+		// Shouldn't happen here.
+		panic("invalid start mode, should be \"ads\" or \"workload\"")
 	}
 
 	return nil
@@ -136,6 +142,9 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 					reconnect = true
 					continue
 				}
+			} else {
+				// Shouldn't happen here.
+				panic("invalid start mode, should be `ads` or `workload`")
 			}
 			if err != nil && !istiogrpc.IsExpectedGRPCError(err) {
 				_ = c.grpcConn.Close()

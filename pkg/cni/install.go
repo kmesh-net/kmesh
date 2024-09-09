@@ -27,7 +27,6 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"istio.io/istio/pkg/filewatcher"
 
-	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -122,31 +121,26 @@ func (i *Installer) WatchServiceAccountToken() error {
 }
 
 func (i *Installer) Start() error {
-	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
-		log.Info("start write CNI config")
-		err := i.addCniConfig()
-		if err != nil {
-			i.Stop()
-			return err
-		}
-
-		if err := i.WatchServiceAccountToken(); err != nil {
-			return err
-		}
+	log.Info("start write CNI config")
+	err := i.addCniConfig()
+	if err != nil {
+		i.Stop()
+		return err
 	}
 
+	if err := i.WatchServiceAccountToken(); err != nil {
+		return err
+	}
 	return nil
 }
 
 func (i *Installer) Stop() {
-	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
-		log.Info("start remove CNI config")
-		if err := i.removeCniConfig(); err != nil {
-			log.Errorf("remove CNI config failed: %v, please remove manually", err)
-		}
-		if err := i.Watcher.Close(); err != nil {
-			log.Errorf("failed to close fsnotify watcher: %v", err)
-		}
-		log.Info("remove CNI config done")
+	log.Info("start remove CNI config")
+	if err := i.removeCniConfig(); err != nil {
+		log.Errorf("remove CNI config failed: %v, please remove manually", err)
 	}
+	if err := i.Watcher.Close(); err != nil {
+		log.Errorf("failed to close fsnotify watcher: %v", err)
+	}
+	log.Info("remove CNI config done")
 }
