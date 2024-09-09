@@ -92,7 +92,7 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 			handlePodAddFunc(obj, namespaceLister, queue, security, xdpProgFd, mode)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			handlePodUpdateFunc(oldObj, newObj, namespaceLister, queue, security, xdpProgFd, mode)
+			handlePodUpdateFunc(newObj, namespaceLister, queue, security, xdpProgFd, mode)
 		},
 		DeleteFunc: func(obj interface{}) {
 			handlePodDeleteFunc(obj, security)
@@ -143,7 +143,7 @@ func handlePodAddFunc(obj interface{}, namespaceLister v1.NamespaceLister, queue
 	enableKmeshManage(pod, queue, security, xdpProgFd, mode)
 }
 
-func handlePodUpdateFunc(oldObj, newObj interface{}, namespaceLister v1.NamespaceLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) {
+func handlePodUpdateFunc(newObj interface{}, namespaceLister v1.NamespaceLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) {
 	newPod, okNew := newObj.(*corev1.Pod)
 	if !okNew {
 		log.Errorf("expected *corev1.Pod but got %T", newObj)
@@ -235,7 +235,7 @@ func disableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, 
 	log.Infof("%s/%s: disable Kmesh manage", pod.GetNamespace(), pod.GetName())
 	nspath, _ := ns.GetPodNSpath(pod)
 	if err := utils.HandleKmeshManage(nspath, false); err != nil {
-		log.Errorf("failed to disable Kmesh manage")
+		log.Error("failed to disable Kmesh manage")
 		return
 	}
 	queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
