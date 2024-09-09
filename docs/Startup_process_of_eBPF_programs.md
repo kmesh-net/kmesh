@@ -1,9 +1,5 @@
 ---
 title: Startup Process of eBPF programs
-authors:
-- "@weli-l"
-approvers:
-- "@robot"
 creation-date: 2024-09-02
 
 ---

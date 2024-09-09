@@ -1,9 +1,5 @@
 ---
 title: Startup Process of eBPF programs
-authors:
-- "@weli-l"
-approvers:
-- "@robot"
 creation-date: 2024-09-05
 
 ---
@@ -12,7 +8,7 @@ creation-date: 2024-09-05
 
 Kmesh sinks into the kernel and uses short-circuiting network protocol stacks to achieve network acceleration. However, the data plane needs to cooperate with the control plane to achieve the effect of accelerating network forwarding. The control plane is responsible for issuing xDS configurations, and the data plane needs to convert these configurations into data structures that can be read and written by eBPF programs to forward data package, and finally achieve network acceleration，This chapter will introduce the forward principle of data plane
 
-### How  to record socket
+### How to record socket
 
 In Kmesh, there is a cgroup_connect4_prog eBPF program that is used to mark all pods managed by kmesh with a delayed link establishment flag, and then the specific traffic management process is carried out in sockops_prog
 
