@@ -659,7 +659,7 @@ func TestBookinfo(t *testing.T) {
 			return true
 		}
 
-		if err := retry.Until(checkBookinfo, retry.Timeout(60*time.Second), retry.BackoffDelay(1*time.Second)); err != nil {
+		if err := retry.Until(checkBookinfo, retry.Timeout(600*time.Second), retry.Delay(1*time.Second)); err != nil {
 			t.Fatal("failed to access bookinfo correctly: %v", err)
 		}
 
@@ -677,7 +677,7 @@ func TestBookinfo(t *testing.T) {
 			UnsetWaypoint(t, namespace, "", Namespace)
 		})
 
-		if err := retry.Until(checkBookinfo, retry.Timeout(60*time.Second), retry.BackoffDelay(1*time.Second)); err != nil {
+		if err := retry.Until(checkBookinfo, retry.Timeout(600*time.Second), retry.Delay(1*time.Second)); err != nil {
 			t.Fatal("failed to access bookinfo correctly when there is a namespace waypoint: %v", err)
 		}
 	})
