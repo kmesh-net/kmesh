@@ -27,10 +27,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/agiledragon/gomonkey/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
-	"github.com/agiledragon/gomonkey/v2"
 	pb "istio.io/api/security/v1alpha1"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	testutil "istio.io/istio/pilot/test/util"

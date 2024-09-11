@@ -20,11 +20,10 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"sort"
 	"sync"
 	"time"
-
-	"slices"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"

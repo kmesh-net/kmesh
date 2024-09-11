@@ -572,14 +572,12 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 	}
 
 	for _, service := range services {
-		log.Debugf("handle service %v", service.ResourceName())
 		if err = p.handleService(service); err != nil {
 			log.Errorf("handle service failed, err: %v", err)
 		}
 	}
 
 	for _, workload := range workloads {
-		log.Debugf("handle workload %v", workload.ResourceName())
 		if err = p.handleWorkload(workload); err != nil {
 			log.Errorf("handle workload failed, err: %v", err)
 		}
