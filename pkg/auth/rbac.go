@@ -506,7 +506,7 @@ func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 	networkAddress.Address, _ = netip.AddrFromSlice(ip)
 	workload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	if workload == nil {
-		log.Warnf("get workload from ip %v FAILED", ip)
+		log.Debugf("cannot find workload %v", networkAddress.Address.String())
 		return Identity{}
 	}
 	return Identity{
