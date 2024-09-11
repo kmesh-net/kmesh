@@ -18,6 +18,7 @@ package workload
 
 import (
 	"net/netip"
+	"strings"
 	"testing"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -168,6 +169,21 @@ func Test_handleWorkload(t *testing.T) {
 	checkNotExistInFrontEndMap(t, fakeSvc.Addresses[0].Address, p)
 
 	hashNameClean(p)
+}
+
+func Test_handleServiceWithWaypoint(t *testing.T) {
+	// Mainly used to test whether processor can correctly handle
+	// different types of waypoint address without panic.
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	p := newProcessor(workloadMap)
+
+	// Waypoint with network address.
+	svc1 := createFakeService("svc1", "10.240.10.1", "10.240.10.200")
+	// Waypoint with hostname.
+	svc2 := createFakeService("svc2", "10.240.10.1", "gateway.example.com/default")
+
+	assert.NoError(t, p.handleService(svc1))
+	assert.NoError(t, p.handleService(svc2))
 }
 
 func Test_hostnameNetworkMode(t *testing.T) {
@@ -378,6 +394,29 @@ func createFakeWorkload(ip string, networkMode workloadapi.NetworkMode) *workloa
 }
 
 func createFakeService(name, ip, waypoint string) *workloadapi.Service {
+	var w *workloadapi.GatewayAddress
+	res := strings.Split(waypoint, "/")
+	if len(res) == 2 {
+		w = &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Hostname{
+				Hostname: &workloadapi.NamespacedHostname{
+					Namespace: res[1],
+					Hostname:  res[0],
+				},
+			},
+			HboneMtlsPort: 15008,
+		}
+	} else {
+		w = &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Address{
+				Address: &workloadapi.NetworkAddress{
+					Address: netip.MustParseAddr(waypoint).AsSlice(),
+				},
+			},
+			HboneMtlsPort: 15008,
+		}
+	}
+
 	return &workloadapi.Service{
 		Name:      name,
 		Namespace: "default",
@@ -401,14 +440,7 @@ func createFakeService(name, ip, waypoint string) *workloadapi.Service {
 				TargetPort:  82,
 			},
 		},
-		Waypoint: &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{
-				Address: &workloadapi.NetworkAddress{
-					Address: netip.MustParseAddr(waypoint).AsSlice(),
-				},
-			},
-			HboneMtlsPort: 15008,
-		},
+		Waypoint: w,
 	}
 }
 

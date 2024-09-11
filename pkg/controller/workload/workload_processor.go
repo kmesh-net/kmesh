@@ -473,7 +473,7 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 
 	newValue := bpf.ServiceValue{}
 	newValue.LbPolicy = LbPolicyRandom
-	if waypoint != nil {
+	if waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&newValue.WaypointAddr, waypoint.GetAddress().Address)
 		newValue.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 	}
@@ -518,7 +518,7 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	}
 
 	// Preprocess service, remove the waypoint from waypoint service, otherwise it will fall into a loop in bpf
-	if service.Waypoint != nil {
+	if service.Waypoint != nil && service.GetWaypoint().GetAddress() != nil && len(service.Addresses) != 0 {
 		// Currently istiod only set the waypoint address to the first address of the service
 		// When waypoints of different granularities are deployed together, the only waypoint service to be determined
 		// is whether it contains port 15021, ref: https://github.com/kmesh-net/kmesh/issues/691
