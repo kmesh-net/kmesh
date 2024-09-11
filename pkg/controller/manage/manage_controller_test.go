@@ -379,7 +379,7 @@ func TestHandleKmeshManage(t *testing.T) {
 			expectDisManaged: false,
 		},
 		{
-			name: "10. ns without label, pod ready add without annotation",
+			name: "10. ns without label, pod ready add with annotation",
 			args: args{
 				namespace: nsWithoutLabel,
 				pod:       podReadyWithAnnotation,
