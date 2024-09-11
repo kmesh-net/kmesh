@@ -33,6 +33,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test/util/retry"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/controller/ads"
@@ -49,7 +50,7 @@ type fakeDNSServer struct {
 }
 
 func TestDNS(t *testing.T) {
-	fakeDNSServer := NewFakeDNSServer()
+	fakeDNSServer := newFakeDNSServer()
 
 	testDNSResolver, err := NewDNSResolver(ads.NewAdsCache())
 	if err != nil {
@@ -256,7 +257,7 @@ func TestOverwriteDNSCluster(t *testing.T) {
 	}
 }
 
-func NewFakeDNSServer() *fakeDNSServer {
+func newFakeDNSServer() *fakeDNSServer {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	s := &fakeDNSServer{
@@ -514,10 +515,9 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			// notify dns resolver
 			dnsResolver.DnsResolverChan <- tc.clusters
-			time.Sleep(1 * time.Second)
-			if !slices.EqualUnordered(tc.expected, dnsResolver.GetAllCachedDomains()) {
-				t.Errorf("expected domain %v, but found %v", tc.expected, dnsResolver.GetAllCachedDomains())
-			}
+			retry.UntilOrFail(t, func() bool {
+				return slices.EqualUnordered(tc.expected, dnsResolver.GetAllCachedDomains())
+			}, retry.Timeout(1*time.Second))
 		})
 	}
 }
