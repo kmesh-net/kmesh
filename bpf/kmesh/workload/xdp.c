@@ -160,7 +160,7 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
                 continue;
             }
             if (do_auth(policy, info, tuple_info) == AUTH_DENY) {
-                BPF_LOG(ERR, AUTH, "policy %u manage result deny\n", policyId);
+                BPF_LOG(INFO, AUTH, "policy %u manage result deny\n", policyId);
                 return AUTH_DENY;
             }
         }

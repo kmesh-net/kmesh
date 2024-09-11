@@ -47,11 +47,31 @@ static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_d
 		return 0;
 	}
 
-	BPF_LOG(ERR, AUTH, "ip:%u.%u.%u.%u\n", data[0], data[1], data[2], data[3]);
 	return (data[3] << 24) |
 		   (data[2] << 16) |
 		   (data[1] << 8)  |
 		   (data[0] << 0);
+}
+
+
+static inline __u32 convert_ipv6_to_u32(struct ip_addr *rule_addr, const struct ProtobufCBinaryData *ipv6_data)
+{
+	if (!ipv6_data->data || ipv6_data->len != 16) {
+		return 1;
+	}
+
+	unsigned char *v6addr = kmesh_get_ptr_val(ipv6_data->data);
+	if (!v6addr) {
+		return 1;
+	}
+
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			rule_addr->ip6[i] |= (v6addr[i * 4 + j] << (i * 8));
+		}
+	}
+
+	return 0;
 }
 
 static inline int matchIpv4(__u32 ruleIp, __u32 preFixLen, __be32 targetIP)
@@ -63,12 +83,45 @@ static inline int matchIpv4(__u32 ruleIp, __u32 preFixLen, __be32 targetIP)
 	}
 
 	mask = 0xFFFFFFFF >> (32 - preFixLen);
-	BPF_LOG(ERR, KMESH, "mask = %u, ruleIp & mask = %u, targetIP & mask = %u\n", mask, ruleIp & mask, targetIP & mask);
 	if ((ruleIp & mask) == (targetIP & mask)) {
-		BPF_LOG(DEBUG, KMESH, "match it\n");
+		BPF_LOG(DEBUG, KMESH, "match ipv4\n");
 		return MATCHED;
 	}
 	return 0;
+}
+
+// reference cilium https://github.com/cilium/cilium/blob/main/bpf/lib/ipv6.h#L122
+#define GET_PREFIX(PREFIX)						\
+	bpf_htonl(PREFIX <= 0 ? 0 : PREFIX < 32 ? ((1<<PREFIX) - 1) << (32-PREFIX)	\
+			      : 0xFFFFFFFF)
+
+static inline void ipv6_addr_clear_suffix(union v6addr *addr,
+						   int prefix)
+{
+	addr->p1 &= GET_PREFIX(prefix);
+	prefix -= 32;
+	addr->p2 &= GET_PREFIX(prefix);
+	prefix -= 32;
+	addr->p3 &= GET_PREFIX(prefix);
+	prefix -= 32;
+	addr->p4 &= GET_PREFIX(prefix);
+}
+
+static inline int matchIpv6(struct ip_addr *rule_addr, struct ip_addr *target_addr, __u32 prefixLen)
+{
+	if (prefixLen > 128)
+		return UNMATCHED;
+
+	ipv6_addr_clear_suffix(target_addr, prefixLen);
+	if (rule_addr->ip6[0] == target_addr->ip6[0] &&
+		rule_addr->ip6[1] == target_addr->ip6[1] &&
+		rule_addr->ip6[2] == target_addr->ip6[2] &&
+		rule_addr->ip6[3] == target_addr->ip6[3]) {
+        BPF_LOG(DEBUG, KMESH, "match ipv6\n");
+		return MATCHED;
+	}
+
+	return UNMATCHED;
 }
 
 static inline int matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
@@ -77,9 +130,19 @@ static inline int matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen,
 		if (type & TYPE_SRCIP) {
 			return matchIpv4(convert_ipv4_to_u32(addrInfo), preFixLen, tuple_info->ipv4.saddr);
 		} 
-	} 
+	} else if (addrInfo->len == 16) {
+		if (type & TYPE_SRCIP) {
+			struct ip_addr rule_addr = {0};
+			struct ip_addr target_addr = {0};
+			int ret = convert_ipv6_to_u32(&rule_addr, addrInfo);
+			if (ret != 0) {
+				BPF_LOG(ERR, AUTH, "failed to convert ipv6 addr to u32 format\n");
+			}
+			IP6_COPY(target_addr.ip6, tuple_info->ipv6.saddr);
+			return matchIpv6(&rule_addr, &target_addr, preFixLen);
+		}
+	}
 	return UNMATCHED;
-
 }
 
 static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
@@ -134,8 +197,6 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 			if (!srcAddr) {
 				continue;
 			}
-			// todo: ProtobufCBinaryData address是否需要使用mesh_get_ptr_val
-			BPF_LOG(ERR, AUTH, "srcAddr->length = %u\n", srcAddr->length);
 			if (matchIp(&srcAddr->address, srcAddr->length, tuple_info, TYPE_SRCIP) == MATCHED) {
 				return MATCHED;
 			}
@@ -206,12 +267,12 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct xdp_info *
 static inline int match_check(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     if (!matchDstPorts(match, info, tuple_info)) {
-        BPF_LOG(INFO, AUTH, "match dstport!, port is %u\n", bpf_ntohs(tuple_info->ipv4.sport));
+        BPF_LOG(INFO, AUTH, "match dstport, port is %u\n", bpf_ntohs(tuple_info->ipv4.sport));
         return MATCHED;
     }
 
     if (!matchSrcIPs(match, tuple_info)) {
-        BPF_LOG(INFO, AUTH, "match srcIP!, IP is %s\n", ip2str(&tuple_info->ipv4.saddr,true));
+        BPF_LOG(INFO, AUTH, "match srcIP, IP is %s\n", ip2str(&tuple_info->ipv4.saddr,true));
         return MATCHED;
     }
     return UNMATCHED;
