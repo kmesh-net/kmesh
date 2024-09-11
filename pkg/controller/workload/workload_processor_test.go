@@ -53,12 +53,12 @@ func Test_handleWorkload(t *testing.T) {
 	_ = p.handleService(fakeSvc)
 
 	// 2. add workload
-	wl := createTestWorkloadWithService(true)
-	err := p.handleWorkload(wl)
+	workload1 := createTestWorkloadWithService(true)
+	err := p.handleWorkload(workload1)
 	assert.NoError(t, err)
 
-	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
-	checkBackendMap(t, p, workloadID, wl)
+	workloadID := checkFrontEndMap(t, workload1.Addresses[0], p)
+	checkBackendMap(t, p, workloadID, workload1)
 
 	// 2.1 check front end map contains service
 	svcID := checkFrontEndMap(t, fakeSvc.Addresses[0].Address, p)
@@ -118,9 +118,9 @@ func Test_handleWorkload(t *testing.T) {
 	checkBackendMap(t, p, workload2ID, workload2)
 
 	// 5 update workload to remove the bound services
-	wl3 := proto.Clone(wl).(*workloadapi.Workload)
-	wl3.Services = nil
-	err = p.handleWorkload(wl3)
+	workload1Updated := proto.Clone(workload1).(*workloadapi.Workload)
+	workload1Updated.Services = nil
+	err = p.handleWorkload(workload1Updated)
 	assert.NoError(t, err)
 
 	// 5.1 check service map
@@ -142,7 +142,28 @@ func Test_handleWorkload(t *testing.T) {
 	// 6.2 check service map contains service, but no waypoint address
 	checkServiceMap(t, p, svcID, wpSvc, 0)
 
-	// 7. delete service
+	// 7. test add unhealthy workload
+	workload3 := createFakeWorkload("1.2.3.7", workloadapi.NetworkMode_STANDARD)
+	workload3.Status = workloadapi.WorkloadStatus_UNHEALTHY
+	_ = p.handleWorkload(workload3)
+
+	addr, _ := netip.AddrFromSlice(workload3.Addresses[0])
+	networkAddress := cache.NetworkAddress{
+		Network: workload3.Network,
+		Address: addr,
+	}
+	got := p.WorkloadCache.GetWorkloadByAddr(networkAddress)
+	t.Logf("workload3: %v", got)
+	assert.NotNil(t, got)
+	assert.Equal(t, got.Status, workloadapi.WorkloadStatus_UNHEALTHY)
+	checkNotExistInFrontEndMap(t, workload3.Addresses[0], p)
+
+	// 8. update workload from healthy to unhealthy, should remove it from bpf map
+	workload2.Status = workloadapi.WorkloadStatus_UNHEALTHY
+	_ = p.handleWorkload(workload2)
+	checkNotExistInFrontEndMap(t, workload2.Addresses[0], p)
+
+	// 9. delete service
 	p.handleRemovedAddresses([]string{fakeSvc.ResourceName()})
 	checkNotExistInFrontEndMap(t, fakeSvc.Addresses[0].Address, p)
 
