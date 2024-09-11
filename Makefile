@@ -30,6 +30,8 @@ include ./mk/bpf.vars.mk
 include ./mk/bpf.print.mk
 
 # compiler flags
+CC=clang
+CXX=clang++
 GOFLAGS := $(EXTRA_GOFLAGS)
 EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
