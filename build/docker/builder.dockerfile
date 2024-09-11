@@ -24,8 +24,6 @@ RUN yum install -y kmod \
     && yum install -y util-linux iptables
 
 RUN go env -w GO111MODULE=on \
-    && export GONOSUMDB=* \
-    && go env -w GOPROXY=https://goproxy.cn,direct \
     && go mod download \
     && go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
 
