@@ -58,13 +58,13 @@ type BpfLoader struct {
 	obj         *BpfKmesh
 	workloadObj *BpfKmeshWorkload
 	bpfLogLevel *ebpf.Map
-	VersionMap  *ebpf.Map
+	versionMap  *ebpf.Map
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
 	return &BpfLoader{
 		config:     config,
-		VersionMap: NewVersionMap(config),
+		versionMap: NewVersionMap(config),
 	}
 }
 
@@ -119,7 +119,7 @@ func StartMda() error {
 func (l *BpfLoader) Start(config *options.BpfConfig) error {
 	var err error
 
-	if l.VersionMap == nil {
+	if l.versionMap == nil {
 		return fmt.Errorf("NewVersionMap failed")
 	}
 
@@ -173,12 +173,12 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if GetStartType() == Restart {
+	if GetExitType() == Restart {
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
 	}
 
-	Close(l.VersionMap)
+	closeMap(l.versionMap)
 
 	if l.config.AdsEnabled() {
 		C.deserial_uninit()
@@ -206,14 +206,15 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	var versionPath string
 	var versionMap *ebpf.Map
 	if config.AdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath + constants.VersionPath)
+		versionPath = filepath.Join(config.BpfFsPath, constants.VersionPath)
 	} else if config.WdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath + constants.WorkloadVersionPath)
+		versionPath = filepath.Join(config.BpfFsPath, constants.WorkloadVersionPath)
 	}
 
+	versionMapPinPath := filepath.Join(versionPath, "kmesh_version")
 	_, err := os.Stat(versionPath)
 	if err == nil {
-		versionMap = recoverVersionMap(config, versionPath)
+		versionMap = recoverVersionMap(versionMapPinPath)
 		if versionMap != nil {
 			SetStartStatus(versionMap)
 		}
@@ -229,8 +230,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	}
 
 	// Make sure the directory about to use is clean
-	kmeshBpfPath := filepath.Dir(versionPath)
-	err = os.RemoveAll(kmeshBpfPath)
+	err = os.RemoveAll(versionPath)
 	if err != nil {
 		log.Errorf("Clean bpf maps and progs failed, err is:%v", err)
 		return nil
@@ -255,7 +255,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 		return nil
 	}
 
-	err = m.Pin(filepath.Join(versionPath + "/kmesh_version"))
+	err = m.Pin(versionMapPinPath)
 	if err != nil {
 		log.Errorf("kmesh_version pin failed: %v", err)
 		return nil
@@ -288,14 +288,14 @@ func getOldVersionFromMap(m *ebpf.Map, key uint32) uint32 {
 	return value
 }
 
-func recoverVersionMap(config *options.BpfConfig, versionPath string) *ebpf.Map {
+func recoverVersionMap(pinPath string) *ebpf.Map {
 	opts := &ebpf.LoadPinOptions{
 		ReadOnly:  false,
 		WriteOnly: false,
 		Flags:     0,
 	}
 
-	versionMap, err := ebpf.LoadPinnedMap(filepath.Join(versionPath+"/kmesh_version"), opts)
+	versionMap, err := ebpf.LoadPinnedMap(pinPath, opts)
 	if err != nil {
 		log.Infof("kmesh version map loadfailed: %v, start normally", err)
 
@@ -306,17 +306,17 @@ func recoverVersionMap(config *options.BpfConfig, versionPath string) *ebpf.Map 
 	return versionMap
 }
 
-func Close(m *ebpf.Map) {
+func closeMap(m *ebpf.Map) {
 	var err error
 	err = m.Unpin()
 	if err != nil {
-		log.Errorf("Failed to Unpin kmesh_version :%v", err)
+		log.Errorf("Failed to unpin kmesh_version: %v", err)
 	}
 
 	err = m.Close()
 	if err != nil {
-		log.Errorf("Failed to Close kmesh_version :%v", err)
+		log.Errorf("Failed to close kmesh_version: %v", err)
 	}
 
-	log.Infof("Clean kmesh_version map and bpf prog")
+	log.Infof("cleaned kmesh_version map")
 }

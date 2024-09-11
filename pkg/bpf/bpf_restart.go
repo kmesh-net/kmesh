@@ -38,10 +38,10 @@ import (
  *		Normal: a normal new start
  *		Restart: reusing the previous kmesh configuration
  *		Update: upgrading kmesh and reusing part of previous kmesh configuration
- * Close Kmesh:
+ * Exit Kmesh:
  *		Normal: normal close, cleanup all the bpf prog and maps
  *		Restart: not clean kmesh configuration and bpf map, for next launch
- *		Update: not clean part of kmesh configuration, for next launch
+ *		Update: not supported yet
  */
 
 type StartType uint8
@@ -52,7 +52,11 @@ const (
 	Update
 )
 
+// kmeshStartType is used during bootstrap to indicate how to initiate bpf prog and maps
 var kmeshStartType StartType
+
+// kmeshStartType is used during exit to indicate how to cleanup bpf prog and maps
+var kmeshExitType StartType
 
 func GetStartType() StartType {
 	return kmeshStartType
@@ -62,7 +66,15 @@ func SetStartType(Status StartType) {
 	kmeshStartType = Status
 }
 
-func inferRestartStatus() StartType {
+func SetExitType() {
+	kmeshExitType = inferNextStartType()
+}
+
+func GetExitType() StartType {
+	return kmeshExitType
+}
+
+func inferNextStartType() StartType {
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		return Normal
@@ -80,10 +92,6 @@ func inferRestartStatus() StartType {
 	return Normal
 }
 
-func SetCloseStatus() {
-	SetStartType(inferRestartStatus())
-}
-
 func SetStartStatus(versionMap *ebpf.Map) {
 	var GitVersion uint32
 	hash.Reset()
@@ -94,6 +102,10 @@ func SetStartStatus(versionMap *ebpf.Map) {
 	if GitVersion == oldGitVersion {
 		log.Infof("kmesh start with Restart, load bpf maps and prog from last")
 		SetStartType(Restart)
+	} else if oldGitVersion == 0 {
+		// version not found, it is a fresh start
+		log.Infof("kmesh start with Normal")
+		SetStartType(Normal)
 	} else {
 		log.Infof("kmesh start with Update")
 		SetStartType(Update)

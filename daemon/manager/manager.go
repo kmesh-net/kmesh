@@ -113,7 +113,8 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("start cni successfully")
 
 	setupSignalHandler()
-	bpf.SetCloseStatus()
+	// set exit type, which can be used by bpf loader to decide whether to cleanup bpf prog
+	bpf.SetExitType()
 	return nil
 }
 
