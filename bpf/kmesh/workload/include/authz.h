@@ -13,6 +13,9 @@
 #define AUTH_DENY  1
 #define UNMATCHED  0
 #define MATCHED    1
+#define SUPPORT_IP_MATCH 1
+#define TYPE_SRCIP   (1)
+#define TYPE_DSTIP   (1 << 1)
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -31,6 +34,116 @@ static inline wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
 {
     return (wl_policies_v *)kmesh_map_lookup_elem(&map_of_wl_policy, &workload_uid);
 }
+
+#ifdef SUPPORT_IP_MATCH
+static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_data)
+{
+	if (!ipv4_data->data || ipv4_data->len != 4) {
+		return 0;
+	}
+
+	unsigned char *data = kmesh_get_ptr_val(ipv4_data->data);
+	if (!data) {
+		return 0;
+	}
+
+	BPF_LOG(ERR, AUTH, "ip:%u.%u.%u.%u\n", data[0], data[1], data[2], data[3]);
+	return (data[3] << 24) |
+		   (data[2] << 16) |
+		   (data[1] << 8)  |
+		   (data[0] << 0);
+}
+
+static inline int matchIpv4(__u32 ruleIp, __u32 preFixLen, __be32 targetIP)
+{
+	__u32 mask = 0;
+
+	if (preFixLen > 32) {
+		return UNMATCHED;
+	}
+
+	mask = 0xFFFFFFFF >> (32 - preFixLen);
+	BPF_LOG(ERR, KMESH, "mask = %u, ruleIp & mask = %u, targetIP & mask = %u\n", mask, ruleIp & mask, targetIP & mask);
+	if ((ruleIp & mask) == (targetIP & mask)) {
+		BPF_LOG(DEBUG, KMESH, "match it\n");
+		return MATCHED;
+	}
+	return 0;
+}
+
+static inline int matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
+{
+	if (addrInfo->len == 4) {
+		if (type & TYPE_SRCIP) {
+			return matchIpv4(convert_ipv4_to_u32(addrInfo), preFixLen, tuple_info->ipv4.saddr);
+		} 
+	} 
+	return UNMATCHED;
+
+}
+
+static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+{
+	void *srcPtrs = NULL;
+	void *notSrcPtrs = NULL;
+	__u32 inSrcList = 0;
+	__u32 i;
+
+	if (match->n_source_ips == 0 && match->n_not_source_ips == 0) {
+		return MATCHED;
+	}
+
+	// match not_srcIPs
+	if (match->n_not_source_ips != 0) {
+		notSrcPtrs = kmesh_get_ptr_val(match->not_source_ips);
+		if (!notSrcPtrs) {
+			BPF_LOG(ERR, AUTH, "failed to get not_srcips ptr\n");
+			return UNMATCHED;
+		}
+
+#pragma unroll   
+		for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
+			if (i >= match-> n_not_source_ips) {
+				break;
+			}
+			Istio__Security__Address *srcAddr = (Istio__Security__Address *)kmesh_get_ptr_val((void *)*((__u64 *)notSrcPtrs + i));
+			if (!srcAddr) {
+				continue;
+			}
+			// todo: ProtobufCBinaryData address是否需要使用mesh_get_ptr_val
+			// in n_src_ips means in blacklist, return unmatch
+			if (matchIp(&srcAddr->address, srcAddr->length, tuple_info, TYPE_SRCIP) == MATCHED) {
+				return UNMATCHED;
+			}  
+		}
+	}
+
+	if (match->n_source_ips != 0) {
+		srcPtrs = kmesh_get_ptr_val(match->source_ips);
+		if (!srcPtrs) {
+			BPF_LOG(ERR, AUTH, "failed to get srcips ptr\n");
+			return UNMATCHED;
+		}
+
+#pragma unroll   
+		for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
+			if (i >= match->n_source_ips) {
+				break;
+			}
+			Istio__Security__Address *srcAddr = (Istio__Security__Address *)kmesh_get_ptr_val((void *)*((__u64 *)srcPtrs + i));
+			if (!srcAddr) {
+				continue;
+			}
+			// todo: ProtobufCBinaryData address是否需要使用mesh_get_ptr_val
+			BPF_LOG(ERR, AUTH, "srcAddr->length = %u\n", srcAddr->length);
+			if (matchIp(&srcAddr->address, srcAddr->length, tuple_info, TYPE_SRCIP) == MATCHED) {
+				return MATCHED;
+			}
+		}
+	}
+	return UNMATCHED;
+}
+#endif
 
 static inline int matchDstPorts(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
@@ -92,12 +205,16 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct xdp_info *
 
 static inline int match_check(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
-    __u32 matchResult;
+    if (!matchDstPorts(match, info, tuple_info)) {
+        BPF_LOG(INFO, AUTH, "match dstport!, port is %u\n", bpf_ntohs(tuple_info->ipv4.sport));
+        return MATCHED;
+    }
 
-    // if multiple types are set, they are AND-ed, all matched is a match
-    // todo: add other match types
-    matchResult = matchDstPorts(match, info, tuple_info);
-    return matchResult;
+    if (!matchSrcIPs(match, tuple_info)) {
+        BPF_LOG(INFO, AUTH, "match srcIP!, IP is %s\n", ip2str(&tuple_info->ipv4.saddr,true));
+        return MATCHED;
+    }
+    return UNMATCHED;
 }
 
 static inline int
