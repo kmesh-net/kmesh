@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("cache/v2/maps")
+	log = logger.NewLoggerScope("cache/v2/maps")
 )
 
 func listenerToGolang(goMsg *listener_v2.Listener, cMsg *C.Listener__Listener) error {

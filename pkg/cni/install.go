@@ -31,7 +31,7 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("cni installer")
+var log = logger.NewLoggerScope("cni installer")
 
 func (i *Installer) addCniConfig() error {
 	var err error

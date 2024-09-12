@@ -47,7 +47,7 @@ const (
 )
 
 var (
-	log = logger.NewLoggerField("pkg/auth")
+	log = logger.NewLoggerScope("pkg/auth")
 )
 
 type Rbac struct {

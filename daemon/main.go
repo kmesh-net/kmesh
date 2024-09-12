@@ -25,7 +25,7 @@ import (
 )
 
 func main() {
-	var log = logger.NewLoggerField("main")
+	var log = logger.NewLoggerScope("main")
 	cmd := manager.NewCommand()
 	if err := cmd.Execute(); err != nil {
 		log.Error(err)

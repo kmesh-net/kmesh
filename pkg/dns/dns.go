@@ -38,7 +38,7 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("dns_resolver")
+	log = logger.NewLoggerScope("dns_resolver")
 )
 
 const (

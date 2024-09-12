@@ -23,7 +23,7 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("workload_bpfcache")
+var log = logger.NewLoggerScope("workload_bpfcache")
 
 type Cache struct {
 	bpfMap bpf2go.KmeshCgroupSockWorkloadMaps
