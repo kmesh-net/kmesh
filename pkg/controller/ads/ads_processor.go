@@ -167,7 +167,9 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		}
 	}
 	// send dns clusters to dns resolver, even dnsClusters is empty, we need to send empty list to dns resolver to clear the cache
-	p.DnsResolverChan <- dnsClusters
+	if p.DnsResolverChan != nil {
+		p.DnsResolverChan <- dnsClusters
+	}
 	removed := p.Cache.ClusterCache.GetResourceNames().Difference(current)
 	for key := range removed {
 		p.Cache.UpdateApiClusterStatus(key, core_v2.ApiStatus_DELETE)
