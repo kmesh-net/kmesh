@@ -8,6 +8,16 @@
 
 #define MAP_SIZE_OF_TAIL_CALL_PROG 4
 
+typedef struct bpf_sock_addr ctx_buff_t;
+
+typedef enum {
+	TAIL_CALL_CONNECT4_INDEX = 0,
+    TAIL_CALL_CONNECT6_INDEX,
+    TAIL_CALL_PORT_MATCH,
+    TAIL_CALL_SRCIP_MATCH,
+    TAIL_CALL_DSTIP_MATCH,
+} workload_tail_call_index_t;
+
 struct {
     __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
     __uint(key_size, sizeof(__u32));

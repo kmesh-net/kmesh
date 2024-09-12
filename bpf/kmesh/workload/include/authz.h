@@ -7,6 +7,7 @@
 #include "workload_common.h"
 #include "bpf_log.h"
 #include "xdp.h"
+#include "tail_call.h"
 #include "workloadapi/security/authorization.pb-c.h"
 
 #define AUTH_ALLOW 0
@@ -24,6 +25,21 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
 } map_of_authz SEC(".maps");
+
+struct match_result {
+    __u32 action;      // Action: deny or allow
+    __u32 match_res;    // Match result: true or false
+    __u32 ipv4;
+    Istio__Security__Match *match;
+    struct bpf_sock_tuple *tuple_info;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(struct match_result));
+    __uint(max_entries, 1);
+} map_of_shared_data SEC(".maps");
 
 static inline Istio__Security__Authorization *map_lookup_authz(__u32 policyKey)
 {
@@ -206,80 +222,110 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 }
 #endif
 
-static inline int matchDstPorts(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+SEC("xdp_auth")
+int matchDstPorts(struct xdp_md *ctx)
 {
+    struct match_result *res;
+    __u32 key = 0;
     __u32 *notPorts = NULL;
     __u32 *ports = NULL;
     __u32 i;
+    __u16 dport; // Destination port
 
-    if (match->n_destination_ports == 0 && match->n_not_destination_ports == 0) {
-        return MATCHED;
+    // Fetch the data from the shared BPF map
+    res = bpf_map_lookup_elem(&map_of_shared_data, &key);
+    if (!res) {
+        return XDP_DROP;
     }
 
+    Istio__Security__Match *match = kmesh_get_ptr_val(res->match);
+    struct bpf_sock_tuple *tuple_info = res->tuple_info;
+
+    // Determine destination port based on IP version
+    if (res->ipv4) {
+        dport = tuple_info->ipv4.dport;
+    } else {
+        dport = tuple_info->ipv6.dport;
+    }
+
+    // Check if no destination ports are defined
+    if (match->n_destination_ports == 0 && match->n_not_destination_ports == 0) {
+        res->match_res = MATCHED;
+        goto check_action;
+    }
+
+    // Check the not_destination_ports array
     if (match->n_not_destination_ports != 0) {
         notPorts = kmesh_get_ptr_val(match->not_destination_ports);
         if (!notPorts) {
-            return UNMATCHED;
+            res->match_res = UNMATCHED;
+            goto check_action;
         }
 #pragma unroll
         for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
             if (i >= match->n_not_destination_ports) {
                 break;
             }
-            if (info->iph->version == 4) {
-                if (bpf_htons(notPorts[i]) == tuple_info->ipv4.dport) {
-                    return UNMATCHED;
-                }
-            } else {
-                if (bpf_htons(notPorts[i]) == tuple_info->ipv6.dport) {
-                    return UNMATCHED;
-                }
+            // Check the not_destination_ports based on IP version
+            if (bpf_htons(notPorts[i]) == dport) {
+                res->match_res = UNMATCHED;
+                goto check_action;
             }
         }
     }
-    // if not match not_destination_ports && has no destination_ports, return MATCHED
+
+    // If there are no destination ports to match, set result as matched
     if (match->n_destination_ports == 0) {
-        return MATCHED;
+        res->match_res = MATCHED;
+        goto check_action;
     }
 
+    // Check the destination_ports array
     ports = kmesh_get_ptr_val(match->destination_ports);
     if (!ports) {
-        return UNMATCHED;
+        res->match_res = UNMATCHED;
+        goto check_action;
     }
+
 #pragma unroll
     for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
         if (i >= match->n_destination_ports) {
             break;
         }
-        if (info->iph->version == 4) {
-            if (bpf_htons(ports[i]) == tuple_info->ipv4.dport) {
-                return MATCHED;
-            }
-        } else {
-            if (bpf_htons(ports[i]) == tuple_info->ipv6.dport) {
-                return MATCHED;
-            }
+        // Check the destination_ports based on IP version
+        if (bpf_htons(ports[i]) == dport) {
+            res->match_res = MATCHED;
+            goto check_action;
         }
     }
-    return UNMATCHED;
+
+    // If no ports matched, set result as unmatched
+    res->match_res = UNMATCHED;
+
+check_action:
+    // Check the action and return corresponding XDP result
+    return (res->action == AUTH_DENY) ? (res->match_res == MATCHED ? XDP_DROP : XDP_PASS) : (res->match_res == MATCHED ? XDP_PASS : XDP_DROP);
 }
 
-static inline int match_check(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
-{
-    if (!matchDstPorts(match, info, tuple_info)) {
-        BPF_LOG(INFO, AUTH, "match dstport, port is %u\n", bpf_ntohs(tuple_info->ipv4.sport));
-        return MATCHED;
-    }
 
-    if (!matchSrcIPs(match, tuple_info)) {
-        BPF_LOG(INFO, AUTH, "match srcIP, IP is %s\n", ip2str(&tuple_info->ipv4.saddr,true));
-        return MATCHED;
+static inline int match_check(struct xdp_md *ctx, Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+{
+    __u32 key = 0;
+    struct match_result res;
+    res.action = 0;
+    res.match_res = UNMATCHED; 
+    res.match = match; 
+    res.tuple_info = tuple_info;  
+
+    int ret = bpf_map_update_elem(&map_of_shared_data, &key, &res, BPF_ANY);
+    if (ret < 0) {
+        return XDP_DROP;
     }
-    return UNMATCHED;
+    bpf_tail_call(ctx, &map_of_tail_call_prog, TAIL_CALL_PORT_MATCH);
 }
 
 static inline int
-clause_match_check(Istio__Security__Clause *cl, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+clause_match_check(struct xdp_md *ctx, Istio__Security__Clause *cl, struct bpf_sock_tuple *tuple_info)
 {
     void *matchsPtr = NULL;
     Istio__Security__Match *match = NULL;
@@ -303,7 +349,7 @@ clause_match_check(Istio__Security__Clause *cl, struct xdp_info *info, struct bp
             continue;
         }
         // if any match matches, it is a match
-        if (match_check(match, info, tuple_info) == MATCHED) {
+        if (match_check(ctx, match, tuple_info) == MATCHED) {
             return MATCHED;
         }
     }
@@ -311,7 +357,7 @@ clause_match_check(Istio__Security__Clause *cl, struct xdp_info *info, struct bp
 }
 
 static inline int
-rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+rule_match_check(struct xdp_md *ctx, Istio__Security__Rule *rule, struct bpf_sock_tuple *tuple_info)
 {
     void *clausesPtr = NULL;
     Istio__Security__Clause *clause = NULL;
@@ -337,7 +383,7 @@ rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, struct bpf_
         if (!clause) {
             continue;
         }
-        if (clause_match_check(clause, info, tuple_info) == UNMATCHED) {
+        if (clause_match_check(ctx, clause, tuple_info) == UNMATCHED) {
             return UNMATCHED;
         }
     }
@@ -345,12 +391,14 @@ rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, struct bpf_
 }
 
 static inline int
-do_auth(Istio__Security__Authorization *policy, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+do_auth(struct xdp_md *ctx, Istio__Security__Authorization *policy, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     void *rulesPtr = NULL;
     Istio__Security__Rule *rule = NULL;
     int matchFlag = 0;
     __u32 i = 0;
+    __u32 key = 0;
+    struct match_result res;
 
     if (policy->n_rules == 0) {
         BPF_LOG(ERR, AUTH, "auth policy %s has no rules\n", kmesh_get_ptr_val(policy->name));
@@ -364,6 +412,14 @@ do_auth(Istio__Security__Authorization *policy, struct xdp_info *info, struct bp
         return AUTH_DENY;
     }
 
+    res.action = policy->action;
+    if (info->iph->version == 4) {
+        res.ipv4 = 1;
+    } else {
+        res.ipv4 = 0;
+    }
+    bpf_map_update_elem(&map_of_shared_data, &key, &res, BPF_ANY);
+
     for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
         if (i >= policy->n_rules) {
             break;
@@ -372,7 +428,7 @@ do_auth(Istio__Security__Authorization *policy, struct xdp_info *info, struct bp
         if (!rule) {
             continue;
         }
-        if (rule_match_check(rule, info, tuple_info) == MATCHED) {
+        if (rule_match_check(ctx, rule, tuple_info) == MATCHED) {
             if (policy->action == ISTIO__SECURITY__ACTION__DENY) {
                 return AUTH_DENY;
             } else {

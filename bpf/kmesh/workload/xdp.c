@@ -140,7 +140,7 @@ static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct
     return get_workload_policies_by_uid(workload_uid);
 }
 
-static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline int match_workload_policy(struct xdp_md *ctx, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     int ret = 0;
     wl_policies_v *policies;
@@ -159,7 +159,7 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
             if (!policy) {
                 continue;
             }
-            if (do_auth(policy, info, tuple_info) == AUTH_DENY) {
+            if (do_auth(ctx, policy, info, tuple_info) == AUTH_DENY) {
                 BPF_LOG(INFO, AUTH, "policy %u manage result deny\n", policyId);
                 return AUTH_DENY;
             }
@@ -168,9 +168,9 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
     return AUTH_ALLOW;
 }
 
-static inline int xdp_rbac_manage(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline int xdp_rbac_manage(struct xdp_md *ctx, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
-    return match_workload_policy(info, tuple_info);
+    return match_workload_policy(ctx, info, tuple_info);
 }
 
 SEC("xdp_auth")
@@ -189,7 +189,7 @@ int xdp_shutdown(struct xdp_md *ctx)
     // Before the authentication types supported by eBPF XDP are fully implemented,
     // this section only processes AUTH_DENY. If get AUTH_ALLOW,
     // it will still depend on the user-space authentication process to match other rule types.
-    if (xdp_rbac_manage(&info, &tuple_info) == AUTH_DENY) {
+    if (xdp_rbac_manage(ctx, &info, &tuple_info) == AUTH_DENY) {
         return xdp_deny_packet(&info, &tuple_info);
     }
 
