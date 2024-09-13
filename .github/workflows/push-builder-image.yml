@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - "main"
+    paths:
+      - "build/docker/builder.dockerfile"
+      - "go.mod"
     tags:
       - "v*.*.*"
 env:
