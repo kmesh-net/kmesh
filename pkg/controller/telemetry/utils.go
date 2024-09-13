@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	log            = logger.NewLoggerScope("pkg/telemetry")
+	log            = logger.NewLoggerScope("telemetry")
 	mu             sync.Mutex
 	deleteWorkload = []*workloadapi.Workload{}
 	deleteService  = []string{}
