@@ -73,5 +73,5 @@ func (c *Cache) FrontendCount() int {
 
 func (c *Cache) FrontendLookupAll() []FrontendValue {
 	log.Debugf("FrontendLookupAll")
-	return LookupAll[FrontendValue](c.bpfMap.KmeshFrontend)
+	return LookupAll[FrontendKey, FrontendValue](c.bpfMap.KmeshFrontend)
 }

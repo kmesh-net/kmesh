@@ -158,5 +158,5 @@ func (c *Cache) EndpointCount() int {
 
 func (c *Cache) EndpointLookupAll() []EndpointValue {
 	log.Debugf("EndpointLookupAll")
-	return LookupAll[EndpointValue](c.bpfMap.KmeshEndpoint)
+	return LookupAll[EndpointKey, EndpointValue](c.bpfMap.KmeshEndpoint)
 }

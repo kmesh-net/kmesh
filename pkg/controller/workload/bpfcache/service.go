@@ -63,5 +63,5 @@ func (c *Cache) ServiceCount() int {
 
 func (c *Cache) ServiceLookupAll() []ServiceValue {
 	log.Debugf("ServiceLookupAll")
-	return LookupAll[ServiceValue](c.bpfMap.KmeshService)
+	return LookupAll[ServiceKey, ServiceValue](c.bpfMap.KmeshService)
 }

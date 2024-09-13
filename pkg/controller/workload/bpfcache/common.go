@@ -4,11 +4,11 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-func LookupAll[T any](bpfMap *ebpf.Map) []T {
+func LookupAll[K any, V any](bpfMap *ebpf.Map) []V {
 	var (
-		key   T
-		value T
-		ret   []T
+		key   K
+		value V
+		ret   []V
 	)
 
 	iter := bpfMap.Iterate()

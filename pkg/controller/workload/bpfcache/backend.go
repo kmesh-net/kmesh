@@ -61,5 +61,5 @@ func (c *Cache) BackendCount() int {
 
 func (c *Cache) BackendLookupAll() []BackendValue {
 	log.Debugf("BackendLookupAll")
-	return LookupAll[BackendValue](c.bpfMap.KmeshBackend)
+	return LookupAll[BackendKey, BackendValue](c.bpfMap.KmeshBackend)
 }

@@ -298,8 +298,12 @@ func TestServer_configDumpWorkload(t *testing.T) {
 	util.CompareContent(t, w.Body.Bytes(), "./testdata/workload_configdump.json")
 }
 
+func toJsonString(v any) string {
+	bytes, _ := json.Marshal(v)
+	return string(bytes)
+}
+
 func TestServer_dumpWorkloadBpfMap(t *testing.T) {
-	// Create a new instance of the Server struct
 	t.Run("Ads mode test", func(t *testing.T) {
 		config := options.BpfConfig{
 			Mode:        "ads",
@@ -387,10 +391,10 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		dump := WorkloadBpfDump{}
 		json.Unmarshal(body, &dump)
 
-		assert.ObjectsAreEqual(testWorkloadPolicyVals, dump.AuthPolicies)
-		assert.ObjectsAreEqual(testBackendVals, dump.Backends)
-		assert.ObjectsAreEqual(testEndpointVals, dump.Endpoints)
-		assert.ObjectsAreEqual(testFrontendVals, dump.Frontends)
-		assert.ObjectsAreEqual(testServiceVals, dump.Services)
+		assert.JSONEq(t, toJsonString(testWorkloadPolicyVals), toJsonString(dump.AuthPolicies))
+		assert.JSONEq(t, toJsonString(testBackendVals), toJsonString(dump.Backends))
+		assert.JSONEq(t, toJsonString(testEndpointVals), toJsonString(dump.Endpoints))
+		assert.JSONEq(t, toJsonString(testFrontendVals), toJsonString(dump.Frontends))
+		assert.JSONEq(t, toJsonString(testServiceVals), toJsonString(dump.Services))
 	})
 }
