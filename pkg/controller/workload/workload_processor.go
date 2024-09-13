@@ -62,7 +62,7 @@ type Processor struct {
 	authzOnce sync.Once
 }
 
-func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
+func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	return &Processor{
 		hashName:      NewHashName(),
 		bpf:           bpf.NewCache(workloadMap),
@@ -91,6 +91,10 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 		ErrorDetail:            nil,
 		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
+}
+
+func (p *Processor) GetBpfCache() *bpf.Cache {
+	return p.bpf
 }
 
 func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {

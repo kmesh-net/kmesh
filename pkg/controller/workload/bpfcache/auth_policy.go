@@ -42,3 +42,8 @@ func (c *Cache) WorkloadPolicyLookup(key *WorkloadPolicy_key, value *WorkloadPol
 	log.Debugf("workload policy lookup: [%#v]", *key)
 	return c.bpfMap.MapOfWlPolicy.Lookup(key, value)
 }
+
+func (c *Cache) WorkloadPolicyLookupAll() []WorkloadPolicy_value {
+	log.Debugf("WorkloadPolicyLookupAll")
+	return LookupAll[WorkloadPolicy_value](c.bpfMap.MapOfWlPolicy)
+}

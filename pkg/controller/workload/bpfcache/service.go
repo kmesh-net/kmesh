@@ -58,15 +58,10 @@ func (c *Cache) ServiceLookup(key *ServiceKey, value *ServiceValue) error {
 // ServiceCount returns the length of service map
 // Note only used for testing
 func (c *Cache) ServiceCount() int {
-	var (
-		key   = ServiceKey{}
-		value = ServiceValue{}
-	)
+	return len(c.ServiceLookupAll())
+}
 
-	res := 0
-	iter := c.bpfMap.KmeshService.Iterate()
-	for iter.Next(&key, &value) {
-		res++
-	}
-	return res
+func (c *Cache) ServiceLookupAll() []ServiceValue {
+	log.Debugf("ServiceLookupAll")
+	return LookupAll[ServiceValue](c.bpfMap.KmeshService)
 }

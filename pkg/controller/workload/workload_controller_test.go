@@ -124,7 +124,7 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 			beforeFunc: func(t *testing.T) {
 				patches1.ApplyMethodReturn(fakeClient.Client, "DeltaAggregatedResources", fakeClient.DeltaClient, nil)
 
-				workloadController.Processor = newProcessor(workloadMap)
+				workloadController.Processor = NewProcessor(workloadMap)
 				workload := createFakeWorkload("10.10.10.1", workloadapi.NetworkMode_STANDARD)
 				workloadController.Processor.WorkloadCache.AddOrUpdateWorkload(workload)
 				patches2.ApplyMethodFunc(fakeClient.DeltaClient, "Send",
@@ -152,7 +152,7 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 			beforeFunc: func(t *testing.T) {
 				patches0.ApplyFuncReturn(maps_v2.AuthorizationUpdate, nil)
 				patches1.ApplyMethodReturn(fakeClient.Client, "DeltaAggregatedResources", fakeClient.DeltaClient, nil)
-				workloadController.Processor = newProcessor(workloadMap)
+				workloadController.Processor = NewProcessor(workloadMap)
 				workloadController.Rbac = auth.NewRbac(nil)
 				workloadController.Rbac.UpdatePolicy(&security.Authorization{
 					Name:      "p1",

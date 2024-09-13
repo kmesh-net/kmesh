@@ -153,15 +153,10 @@ func (c *Cache) GetAllEndpointsForService(serviceId uint32) []EndpointValue {
 // EndpointCount returns the length of endpoint map
 // Note only used for testing
 func (c *Cache) EndpointCount() int {
-	var (
-		key   = EndpointKey{}
-		value = EndpointValue{}
-	)
+	return len(c.EndpointLookupAll())
+}
 
-	res := 0
-	iter := c.bpfMap.KmeshEndpoint.Iterate()
-	for iter.Next(&key, &value) {
-		res++
-	}
-	return res
+func (c *Cache) EndpointLookupAll() []EndpointValue {
+	log.Debugf("EndpointLookupAll")
+	return LookupAll[EndpointValue](c.bpfMap.KmeshEndpoint)
 }

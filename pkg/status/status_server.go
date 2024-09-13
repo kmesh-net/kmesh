@@ -35,6 +35,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -46,6 +47,7 @@ const (
 	patternHelp               = "/help"
 	patternOptions            = "/options"
 	patternBpfAdsMaps         = "/debug/bpf/ads"
+	patternBpfWorkloadMaps    = "/debug/bpf/worload"
 	configDumpPrefix          = "/debug/config_dump"
 	patternConfigDumpAds      = configDumpPrefix + "/ads"
 	patternConfigDumpWorkload = configDumpPrefix + "/workload"
@@ -55,6 +57,8 @@ const (
 	bpfLoggerName = "bpf"
 
 	httpTimeout = time.Second * 20
+
+	invalidModeErrMessage = "\tInvalid Client Mode\n"
 )
 
 type Server struct {
@@ -128,11 +132,56 @@ func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, s.config.String())
 }
 
+func (s *Server) checkWorkloadMode(w http.ResponseWriter) bool {
+	client := s.xdsClient
+	if client == nil || client.WorkloadController == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, invalidModeErrMessage)
+		return false
+	}
+	return true
+}
+
+type WorkloadBpfDump struct {
+	AuthPolicies []bpfcache.WorkloadPolicy_value
+	Backends     []bpfcache.BackendValue
+	Endpoints    []bpfcache.EndpointValue
+	Frontends    []bpfcache.FrontendValue
+	Services     []bpfcache.ServiceValue
+}
+
+func (s *Server) bpfWorkloadMaps(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+	client := s.xdsClient
+	bpfMaps := client.WorkloadController.Processor.GetBpfCache()
+	workloadBpfDump := WorkloadBpfDump{
+		AuthPolicies: bpfMaps.WorkloadPolicyLookupAll(),
+		Backends:     bpfMaps.BackendLookupAll(),
+		Endpoints:    bpfMaps.EndpointLookupAll(),
+		Frontends:    bpfMaps.FrontendLookupAll(),
+		Services:     bpfMaps.ServiceLookupAll(),
+	}
+	printWorkloadBpfDump(w, workloadBpfDump)
+}
+
+func printWorkloadBpfDump(w http.ResponseWriter, wbd WorkloadBpfDump) {
+	data, err := json.MarshalIndent(wbd, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal WorkloadBpfDump: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
 func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
 	client := s.xdsClient
 	if client == nil || client.AdsController == nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
+		fmt.Fprint(w, invalidModeErrMessage)
 		return
 	}
 
@@ -257,7 +306,7 @@ func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 	client := s.xdsClient
 	if client == nil || client.AdsController == nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
+		fmt.Fprint(w, invalidModeErrMessage)
 		return
 	}
 
@@ -283,12 +332,11 @@ type WorkloadDump struct {
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
-	client := s.xdsClient
-	if client == nil || client.WorkloadController == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
+	if !s.checkWorkloadMode(w) {
 		return
 	}
+
+	client := s.xdsClient
 
 	workloads := client.WorkloadController.Processor.WorkloadCache.List()
 	services := client.WorkloadController.Processor.ServiceCache.List()

@@ -19,6 +19,7 @@ package status
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -35,6 +36,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/workload"
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils/test"
@@ -294,4 +296,102 @@ func TestServer_configDumpWorkload(t *testing.T) {
 	util.RefreshGoldenFile(t, w.Body.Bytes(), "./testdata/workload_configdump.json")
 
 	util.CompareContent(t, w.Body.Bytes(), "./testdata/workload_configdump.json")
+}
+
+func TestServer_dumpWorkloadBpfMap(t *testing.T) {
+	// Create a new instance of the Server struct
+	t.Run("Ads mode test", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        "ads",
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, _ := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		// ads mode will failed
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodPost, patternBpfWorkloadMaps, nil)
+		w := httptest.NewRecorder()
+		server.configDumpWorkload(w, req)
+
+		body, err := io.ReadAll(w.Body)
+		assert.Nil(t, err)
+		assert.Equal(t, invalidModeErrMessage, string(body))
+	})
+
+	t.Run("Workload mode test", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        "workload",
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, bpfLoader := test.InitBpfMap(t, config)
+		bpfMaps := bpfLoader.GetBpfKmeshWorkload().SockConn.KmeshCgroupSockWorkloadMaps
+		defer cleanup()
+
+		// ads mode will failed
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					Processor: workload.NewProcessor(bpfMaps),
+				},
+			},
+		}
+		req := httptest.NewRequest(http.MethodPost, patternBpfWorkloadMaps, nil)
+		w := httptest.NewRecorder()
+		server.configDumpWorkload(w, req)
+
+		// do some updates
+		testWorkloadPolicyKeys := []bpfcache.WorkloadPolicy_key{
+			{WorklodId: 1}, {WorklodId: 2},
+		}
+		testWorkloadPolicyVals := []bpfcache.WorkloadPolicy_value{
+			{PolicyIds: [4]uint32{1, 2, 3, 4}}, {PolicyIds: [4]uint32{5, 6, 7, 8}},
+		}
+		bpfMaps.MapOfAuth.BatchUpdate(testWorkloadPolicyKeys, testWorkloadPolicyVals, nil)
+
+		testBackendKeys := []bpfcache.BackendKey{
+			{BackendUid: 1}, {BackendUid: 2},
+		}
+		testBackendVals := []bpfcache.BackendValue{
+			{WaypointPort: 1234}, {WaypointPort: 5678},
+		}
+		bpfMaps.KmeshBackend.BatchUpdate(testBackendKeys, testBackendVals, nil)
+
+		testEndpointKeys := []bpfcache.EndpointKey{
+			{ServiceId: 1}, {ServiceId: 2},
+		}
+		testEndpointVals := []bpfcache.EndpointValue{
+			{BackendUid: 1234}, {BackendUid: 5678},
+		}
+		bpfMaps.KmeshEndpoint.BatchUpdate(testEndpointKeys, testEndpointVals, nil)
+
+		testFrontendKeys := []bpfcache.FrontendKey{
+			{Ip: [16]byte{1, 2, 3, 4}}, {Ip: [16]byte{5, 6, 7, 8}},
+		}
+		testFrontendVals := []bpfcache.FrontendValue{
+			{UpstreamId: 1234}, {UpstreamId: 5678},
+		}
+		bpfMaps.KmeshFrontend.BatchUpdate(testFrontendKeys, testFrontendVals, nil)
+
+		testServiceKeys := []bpfcache.ServiceKey{
+			{ServiceId: 1}, {ServiceId: 2},
+		}
+		testServiceVals := []bpfcache.ServiceValue{
+			{EndpointCount: 1234}, {EndpointCount: 5678},
+		}
+		bpfMaps.KmeshService.BatchUpdate(testServiceKeys, testServiceVals, nil)
+
+		body, err := io.ReadAll(w.Body)
+		assert.Nil(t, err)
+		dump := WorkloadBpfDump{}
+		json.Unmarshal(body, &dump)
+
+		assert.ObjectsAreEqual(testWorkloadPolicyVals, dump.AuthPolicies)
+		assert.ObjectsAreEqual(testBackendVals, dump.Backends)
+		assert.ObjectsAreEqual(testEndpointVals, dump.Endpoints)
+		assert.ObjectsAreEqual(testFrontendVals, dump.Frontends)
+		assert.ObjectsAreEqual(testServiceVals, dump.Services)
+	})
 }

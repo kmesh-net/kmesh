@@ -42,7 +42,7 @@ func Test_handleWorkload(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
 
-	p := newProcessor(workloadMap)
+	p := NewProcessor(workloadMap)
 
 	var (
 		ek bpfcache.EndpointKey
@@ -175,7 +175,7 @@ func Test_handleServiceWithWaypoint(t *testing.T) {
 	// Mainly used to test whether processor can correctly handle
 	// different types of waypoint address without panic.
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
-	p := newProcessor(workloadMap)
+	p := NewProcessor(workloadMap)
 
 	// Waypoint with network address.
 	svc1 := createFakeService("svc1", "10.240.10.1", "10.240.10.200")
@@ -188,7 +188,7 @@ func Test_handleServiceWithWaypoint(t *testing.T) {
 
 func Test_hostnameNetworkMode(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
-	p := newProcessor(workloadMap)
+	p := NewProcessor(workloadMap)
 	workload := createFakeWorkload("1.2.3.4", workloadapi.NetworkMode_STANDARD)
 	workloadWithoutService := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
 	workloadWithoutService.Services = nil
@@ -485,7 +485,7 @@ func TestRestart(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
 
-	p := newProcessor(workloadMap)
+	p := NewProcessor(workloadMap)
 
 	res := &service_discovery_v3.DeltaDiscoveryResponse{}
 
@@ -545,7 +545,7 @@ func TestRestart(t *testing.T) {
 	// Set a restart label and simulate missing data in the cache
 	bpf.SetStartType(bpf.Restart)
 	// reconstruct a new processor
-	p = newProcessor(workloadMap)
+	p = NewProcessor(workloadMap)
 	p.bpf.RestoreEndpointKeys()
 	// 2.1 simulate workload add/delete during restart
 	// simulate workload update during restart
