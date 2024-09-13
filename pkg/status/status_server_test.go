@@ -330,7 +330,6 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		bpfMaps := bpfLoader.GetBpfKmeshWorkload().SockConn.KmeshCgroupSockWorkloadMaps
 		defer cleanup()
 
-		// ads mode will failed
 		server := &Server{
 			xdsClient: &controller.XdsClient{
 				WorkloadController: &workload.Controller{

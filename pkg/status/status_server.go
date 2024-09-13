@@ -47,7 +47,7 @@ const (
 	patternHelp               = "/help"
 	patternOptions            = "/options"
 	patternBpfAdsMaps         = "/debug/bpf/ads"
-	patternBpfWorkloadMaps    = "/debug/bpf/worload"
+	patternBpfWorkloadMaps    = "/debug/bpf/workload"
 	configDumpPrefix          = "/debug/config_dump"
 	patternConfigDumpAds      = configDumpPrefix + "/ads"
 	patternConfigDumpWorkload = configDumpPrefix + "/workload"
@@ -94,6 +94,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfLo
 	s.mux.HandleFunc(patternHelp, s.httpHelp)
 	s.mux.HandleFunc(patternOptions, s.httpOptions)
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
+	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
@@ -118,7 +119,9 @@ func (s *Server) httpHelp(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "\t%s: %s\n", patternOptions,
 		"print config options")
 	fmt.Fprintf(w, "\t%s: %s\n", patternBpfAdsMaps,
-		"print bpf kmesh maps in kernel")
+		"print bpf kmesh maps of ads mode in kernel")
+	fmt.Fprintf(w, "\t%s: %s\n", patternBpfWorkloadMaps,
+		"print bpf kmesh maps of workload mode in kernel")
 	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpAds,
 		"dump xDS[Listener, Route, Cluster] configurations")
 	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpWorkload,
