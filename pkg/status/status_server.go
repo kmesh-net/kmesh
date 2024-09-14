@@ -146,11 +146,11 @@ func (s *Server) checkWorkloadMode(w http.ResponseWriter) bool {
 }
 
 type WorkloadBpfDump struct {
-	AuthPolicies []bpfcache.WorkloadPolicy_value
-	Backends     []bpfcache.BackendValue
-	Endpoints    []bpfcache.EndpointValue
-	Frontends    []bpfcache.FrontendValue
-	Services     []bpfcache.ServiceValue
+	WorkloadPolicies []bpfcache.WorkloadPolicy_value
+	Backends         []bpfcache.BackendValue
+	Endpoints        []bpfcache.EndpointValue
+	Frontends        []bpfcache.FrontendValue
+	Services         []bpfcache.ServiceValue
 }
 
 func (s *Server) bpfWorkloadMaps(w http.ResponseWriter, r *http.Request) {
@@ -160,11 +160,11 @@ func (s *Server) bpfWorkloadMaps(w http.ResponseWriter, r *http.Request) {
 	client := s.xdsClient
 	bpfMaps := client.WorkloadController.Processor.GetBpfCache()
 	workloadBpfDump := WorkloadBpfDump{
-		AuthPolicies: bpfMaps.WorkloadPolicyLookupAll(),
-		Backends:     bpfMaps.BackendLookupAll(),
-		Endpoints:    bpfMaps.EndpointLookupAll(),
-		Frontends:    bpfMaps.FrontendLookupAll(),
-		Services:     bpfMaps.ServiceLookupAll(),
+		WorkloadPolicies: bpfMaps.WorkloadPolicyLookupAll(),
+		Backends:         bpfMaps.BackendLookupAll(),
+		Endpoints:        bpfMaps.EndpointLookupAll(),
+		Frontends:        bpfMaps.FrontendLookupAll(),
+		Services:         bpfMaps.ServiceLookupAll(),
 	}
 	printWorkloadBpfDump(w, workloadBpfDump)
 }
