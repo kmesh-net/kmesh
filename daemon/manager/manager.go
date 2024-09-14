@@ -43,7 +43,7 @@ const (
 	pkgSubsys = "manager"
 )
 
-var log = logger.NewLoggerField(pkgSubsys)
+var log = logger.NewLoggerScope(pkgSubsys)
 
 func NewCommand() *cobra.Command {
 	configs := options.NewBootstrapConfigs()

@@ -39,7 +39,7 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("status")
+var log = logger.NewLoggerScope("status")
 
 const (
 	adminAddr = "localhost:15200"

@@ -41,7 +41,7 @@ import (
 	"kmesh.net/kmesh/pkg/utils"
 )
 
-var log = logger.NewLoggerField("manage_controller")
+var log = logger.NewLoggerScope("manage_controller")
 
 const (
 	MaxRetries             = 5

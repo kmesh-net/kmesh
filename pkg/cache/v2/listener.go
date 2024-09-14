@@ -32,7 +32,7 @@ import (
 
 var RWListener sync.RWMutex
 
-var log = logger.NewLoggerField("cache/v2")
+var log = logger.NewLoggerScope("cache/v2")
 
 type ListenerCache struct {
 	mutex            sync.RWMutex

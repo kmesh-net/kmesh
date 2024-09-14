@@ -27,7 +27,7 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("ads_controller")
+	log = logger.NewLoggerScope("ads_controller")
 )
 
 type Controller struct {

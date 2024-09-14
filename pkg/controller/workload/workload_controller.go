@@ -33,7 +33,7 @@ const (
 	AuthorizationType = "type.googleapis.com/istio.security.Authorization"
 )
 
-var log = logger.NewLoggerField("workload_controller")
+var log = logger.NewLoggerScope("workload_controller")
 
 type Controller struct {
 	Stream           discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient

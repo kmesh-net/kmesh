@@ -33,7 +33,7 @@ import (
 
 var (
 	ctx, cancel = context.WithCancel(context.Background())
-	log         = logger.NewLoggerField("controller")
+	log         = logger.NewLoggerScope("controller")
 )
 
 type Controller struct {

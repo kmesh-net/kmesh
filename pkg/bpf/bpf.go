@@ -39,7 +39,7 @@ import (
 )
 
 var (
-	log  = logger.NewLoggerField("pkg/bpf")
+	log  = logger.NewLoggerScope("bpf")
 	hash = fnv.New32a()
 )
 
