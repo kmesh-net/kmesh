@@ -62,7 +62,7 @@ type Processor struct {
 	authzOnce sync.Once
 }
 
-func newProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
+func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	return &Processor{
 		hashName:      NewHashName(),
 		bpf:           bpf.NewCache(workloadMap),
@@ -91,6 +91,10 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 		ErrorDetail:            nil,
 		Node:                   config.GetConfig(constants.WorkloadMode).GetNode(),
 	}
+}
+
+func (p *Processor) GetBpfCache() *bpf.Cache {
+	return p.bpf
 }
 
 func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
@@ -172,7 +176,7 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	var (
 		err       error
 		bkDelete  = bpf.BackendKey{}
-		wpkDelete = bpf.WorkloadPolicy_key{}
+		wpkDelete = bpf.WorkloadPolicyKey{}
 	)
 
 	backendUid := p.hashName.Hash(uid)
@@ -198,7 +202,7 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	}
 
 	// 4. delete auth policy of workload
-	wpkValue := bpf.WorkloadPolicy_value{}
+	wpkValue := bpf.WorkloadPolicyValue{}
 	wpkDelete.WorklodId = backendUid
 	if err = p.bpf.WorkloadPolicyLookup(&wpkDelete, &wpkValue); err == nil {
 		if err = p.bpf.WorkloadPolicyDelete(&wpkDelete); err != nil {
@@ -746,8 +750,8 @@ func (p *Processor) deleteEndpointRecords(workloadId uint32, endpointKeys []bpf.
 
 func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
 	var (
-		key   = bpf.WorkloadPolicy_key{}
-		value = bpf.WorkloadPolicy_value{}
+		key   = bpf.WorkloadPolicyKey{}
+		value = bpf.WorkloadPolicyValue{}
 	)
 	if len(polices) == 0 {
 		return

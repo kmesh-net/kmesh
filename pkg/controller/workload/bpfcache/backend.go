@@ -56,15 +56,10 @@ func (c *Cache) BackendLookup(key *BackendKey, value *BackendValue) error {
 // BackendCount returns the length of backend map
 // Note only used for testing
 func (c *Cache) BackendCount() int {
-	var (
-		key   = BackendKey{}
-		value = BackendValue{}
-	)
+	return len(c.BackendLookupAll())
+}
 
-	res := 0
-	iter := c.bpfMap.KmeshBackend.Iterate()
-	for iter.Next(&key, &value) {
-		res++
-	}
-	return res
+func (c *Cache) BackendLookupAll() []BackendValue {
+	log.Debugf("BackendLookupAll")
+	return LookupAll[BackendKey, BackendValue](c.bpfMap.KmeshBackend)
 }

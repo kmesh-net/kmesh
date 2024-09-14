@@ -45,7 +45,7 @@ type Controller struct {
 
 func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
 	c := &Controller{
-		Processor:      newProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
+		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
 		bpfWorkloadObj: bpfWorkload,
 	}
 	// do some initialization when restart
