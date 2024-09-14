@@ -250,7 +250,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 
 			workloadLabels.reporter = "-"
 			serviceLabels.reporter = "-"
-			accesslog.direction = "-"
 			if data.direction == constants.INBOUND {
 				workloadLabels.reporter = "destination"
 				serviceLabels.reporter = "destination"
@@ -261,7 +260,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				serviceLabels.reporter = "source"
 				accesslog.direction = "OUTBOUND"
 			}
-			if data.state == TCP_CLOSTED {
+			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" {
 				OutputAccesslog(data, accesslog)
 			}
 			m.mutex.Lock()
@@ -350,6 +349,7 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
+
 	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
 	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)
 
@@ -361,8 +361,7 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
 	workload := m.workloadCache.GetWorkloadByAddr(networkAddr)
 	if workload == nil {
-		log.Debugf("cannot find workload %s", networkAddr.Address.String())
-		return nil, ""
+		return nil, networkAddr.Address.String()
 	}
 	return workload, networkAddr.Address.String()
 }
@@ -399,7 +398,16 @@ func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloa
 
 func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) (serviceMetricLabels, logInfo) {
 	trafficLabels := serviceMetricLabels{}
-	accesslog := logInfo{}
+	accesslog := logInfo{
+		direction:            "-",
+		sourceAddress:        "-",
+		sourceWorkload:       "-",
+		sourceNamespace:      "-",
+		destinationAddress:   "-",
+		destinationService:   "-",
+		destinationWorkload:  "-",
+		destinationNamespace: "-",
+	}
 
 	if dstWorkload != nil {
 		namespacedhost := ""
@@ -437,8 +445,12 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
 
 		accesslog.destinationWorkload = dstWorkload.Name
-		accesslog.destinationNamespace = svcNamespace
-		accesslog.destinationService = svcHost
+		if svcNamespace != "" {
+			accesslog.destinationNamespace = svcNamespace
+		}
+		if svcHost != "" {
+			accesslog.destinationService = svcHost
+		}
 	}
 
 	if srcWorkload != nil {
