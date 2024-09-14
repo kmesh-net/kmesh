@@ -38,23 +38,19 @@ func TestRestart(t *testing.T) {
 }
 
 func setDir(t *testing.T) options.BpfConfig {
-	CleanupBpfMap()
-	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
-	if err != nil {
+	if err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755); err != nil {
 		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
 	}
-	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
-	if err != nil {
+	if err := syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, ""); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 	}
-	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
-	if err != nil {
+	if err := syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
 	}
 
-	if err = rlimit.RemoveMemlock(); err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to remove mem limit: %v", err)
 	}

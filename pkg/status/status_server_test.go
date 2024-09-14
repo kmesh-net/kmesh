@@ -106,7 +106,6 @@ func TestServer_getAndSetBpfLevel(t *testing.T) {
 	for _, config := range configs {
 		t.Run(config.Mode, func(t *testing.T) {
 			cleanup, bpfLoader := test.InitBpfMap(t, config)
-			defer cleanup()
 			server := &Server{
 				xdsClient: &controller.XdsClient{
 					WorkloadController: &workload.Controller{
@@ -155,6 +154,7 @@ func TestServer_getAndSetBpfLevel(t *testing.T) {
 			assert.NotNil(t, expectedLoggerInfo)
 			assert.Equal(t, expectedLoggerInfo.Level, actualLoggerInfo.Level)
 			assert.Equal(t, expectedLoggerInfo.Name, actualLoggerInfo.Name)
+			cleanup()
 		})
 	}
 }

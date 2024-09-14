@@ -166,7 +166,7 @@ func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) getLoggerNames(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getLoggerNames(w http.ResponseWriter) {
 	loggerNames := append(logger.GetLoggerNames(), bpfLoggerName)
 	data, err := json.MarshalIndent(&loggerNames, "", "    ")
 	if err != nil {
@@ -180,7 +180,7 @@ func (s *Server) getLoggerNames(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getLoggerLevel(w http.ResponseWriter, r *http.Request) {
 	loggerName := r.URL.Query().Get("name")
 	if loggerName == "" {
-		s.getLoggerNames(w, r)
+		s.getLoggerNames(w)
 		return
 	}
 	var loggerInfo *LoggerInfo
