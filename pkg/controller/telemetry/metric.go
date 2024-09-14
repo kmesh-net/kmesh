@@ -260,7 +260,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				serviceLabels.reporter = "source"
 				accesslog.direction = "OUTBOUND"
 			}
-			if data.state == TCP_CLOSTED {
+			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" {
 				OutputAccesslog(data, accesslog)
 			}
 			m.mutex.Lock()
