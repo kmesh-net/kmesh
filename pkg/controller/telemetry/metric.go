@@ -361,12 +361,7 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
 	workload := m.workloadCache.GetWorkloadByAddr(networkAddr)
 	if workload == nil {
-<<<<<<< HEAD
-		log.Debugf("cannot find workload %s", networkAddr.Address.String())
-		return nil, ""
-=======
 		return nil, networkAddr.Address.String()
->>>>>>> 6abe3a1 (change Ip conversion)
 	}
 	return workload, networkAddr.Address.String()
 }
