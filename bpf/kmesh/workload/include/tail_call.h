@@ -6,7 +6,7 @@
 
 #include "workload_common.h"
 
-#define MAP_SIZE_OF_TAIL_CALL_PROG 4
+#define MAP_SIZE_OF_TAIL_CALL_PROG 8
 
 typedef struct bpf_sock_addr ctx_buff_t;
 
@@ -25,6 +25,14 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
     __uint(map_flags, 0);
 } map_of_tail_call_prog SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
+    __uint(map_flags, 0);
+} map_of_tail_call_prog_for_xdp SEC(".maps");
 
 static inline void kmesh_workload_tail_call(ctx_buff_t *ctx, const __u32 index)
 {

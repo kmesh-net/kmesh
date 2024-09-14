@@ -29,9 +29,8 @@ struct {
 struct match_result {
     __u32 action;      // Action: deny or allow
     __u32 match_res;    // Match result: true or false
-    __u32 ipv4;
+    __u16 dport;
     Istio__Security__Match *match;
-    struct bpf_sock_tuple *tuple_info;
 };
 
 struct {
@@ -238,15 +237,16 @@ int matchDstPorts(struct xdp_md *ctx)
         return XDP_DROP;
     }
 
-    Istio__Security__Match *match = kmesh_get_ptr_val(res->match);
-    struct bpf_sock_tuple *tuple_info = res->tuple_info;
-
-    // Determine destination port based on IP version
-    if (res->ipv4) {
-        dport = tuple_info->ipv4.dport;
-    } else {
-        dport = tuple_info->ipv6.dport;
+    if (!res->match) {
+        return XDP_DROP;
     }
+
+    Istio__Security__Match *match = kmesh_get_ptr_val(res->match);
+    if (!match) {
+        return XDP_DROP;
+    }
+
+    dport = res->dport;
 
     // Check if no destination ports are defined
     if (match->n_destination_ports == 0 && match->n_not_destination_ports == 0) {
@@ -255,7 +255,7 @@ int matchDstPorts(struct xdp_md *ctx)
     }
 
     // Check the not_destination_ports array
-    if (match->n_not_destination_ports != 0) {
+    if (match && match->n_not_destination_ports != 0) {
         notPorts = kmesh_get_ptr_val(match->not_destination_ports);
         if (!notPorts) {
             res->match_res = UNMATCHED;
@@ -275,11 +275,14 @@ int matchDstPorts(struct xdp_md *ctx)
     }
 
     // If there are no destination ports to match, set result as matched
-    if (match->n_destination_ports == 0) {
+    if (match && match->n_destination_ports == 0) {
         res->match_res = MATCHED;
         goto check_action;
     }
 
+    if (!match) {
+        return XDP_DROP;
+    }
     // Check the destination_ports array
     ports = kmesh_get_ptr_val(match->destination_ports);
     if (!ports) {
@@ -312,16 +315,14 @@ static inline int match_check(struct xdp_md *ctx, Istio__Security__Match *match,
 {
     __u32 key = 0;
     struct match_result res;
-    res.action = 0;
     res.match_res = UNMATCHED; 
-    res.match = match; 
-    res.tuple_info = tuple_info;  
+    res.match = match;  
 
     int ret = bpf_map_update_elem(&map_of_shared_data, &key, &res, BPF_ANY);
     if (ret < 0) {
         return XDP_DROP;
     }
-    bpf_tail_call(ctx, &map_of_tail_call_prog, TAIL_CALL_PORT_MATCH);
+    bpf_tail_call(ctx, &map_of_tail_call_prog_for_xdp, TAIL_CALL_PORT_MATCH);
 }
 
 static inline int
@@ -414,9 +415,9 @@ do_auth(struct xdp_md *ctx, Istio__Security__Authorization *policy, struct xdp_i
 
     res.action = policy->action;
     if (info->iph->version == 4) {
-        res.ipv4 = 1;
+        res.dport = tuple_info->ipv4.dport;
     } else {
-        res.ipv4 = 0;
+        res.dport = tuple_info->ipv6.dport;
     }
     bpf_map_update_elem(&map_of_shared_data, &key, &res, BPF_ANY);
 

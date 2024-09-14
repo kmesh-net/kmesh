@@ -62,6 +62,11 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	var err error
 	var kmeshManageController *manage.KmeshManageController
 
+	xdpProg := manage.XdpProg{
+		XdpShutdownFD: c.bpfWorkloadObj.XdpAuth.XdpShutdown.FD(),
+		XdpMatchDstFD: c.bpfWorkloadObj.XdpAuth.MatchDstPorts.FD(),
+	}
+
 	if c.mode == constants.WorkloadMode && c.enableSecretManager {
 		secertManager, err = security.NewSecretManager()
 		if err != nil {
@@ -76,9 +81,13 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	}
 
 	if c.mode == constants.WorkloadMode {
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpShutdown.FD(), c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, xdpProg, c.mode)
 	} else {
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, -1, c.mode)
+		xdpProg = manage.XdpProg{
+			XdpShutdownFD: -1,
+			XdpMatchDstFD: -1,
+		}
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, xdpProg, c.mode)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
