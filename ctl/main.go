@@ -17,9 +17,11 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
+	"istio.io/istio/pkg/kube"
 
 	logcmd "kmesh.net/kmesh/ctl/log"
 )
@@ -33,6 +35,24 @@ func main() {
 			DisableDefaultCmd: true,
 		},
 	}
+
+	kubeconfig := ""
+	configContext := ""
+	revision := ""
+
+	rc, err := kube.DefaultRestConfig(kubeconfig, configContext)
+	if err != nil {
+		fmt.Printf("failed to get rest config: %v", err)
+		os.Exit(1)
+	}
+
+	kubecli, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), kube.WithRevision(revision))
+	if err != nil {
+		fmt.Printf("failed to create kubecli: %v", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("kubecli.Revision() is %s", kubecli.Revision())
 
 	rootCmd.AddCommand(logcmd.NewCmd())
 

@@ -33,6 +33,7 @@ out/
 # build binaries       
 kmesh-cni
 kmesh-daemon
+kmeshctl
 
 # go test coverage
 coverage.out
