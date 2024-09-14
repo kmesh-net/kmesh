@@ -20,30 +20,30 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type WorkloadPolicy_key struct {
+type WorkloadPolicyKey struct {
 	WorklodId uint32 // workloadIp to uint32
 }
 
-type WorkloadPolicy_value struct {
+type WorkloadPolicyValue struct {
 	PolicyIds [4]uint32 // name length is [MAX_MEMBER_NUM_PER_POLICY]
 }
 
-func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicy_key, value *WorkloadPolicy_value) error {
+func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicyKey, value *WorkloadPolicyValue) error {
 	log.Debugf("workload policy update: [%#v], [%#v]", *key, *value)
 	return c.bpfMap.MapOfWlPolicy.Update(key, value, ebpf.UpdateAny)
 }
 
-func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicy_key) error {
+func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicyKey) error {
 	log.Debugf("workload policy delete: [%#v]", *key)
 	return c.bpfMap.MapOfWlPolicy.Delete(key)
 }
 
-func (c *Cache) WorkloadPolicyLookup(key *WorkloadPolicy_key, value *WorkloadPolicy_value) error {
+func (c *Cache) WorkloadPolicyLookup(key *WorkloadPolicyKey, value *WorkloadPolicyValue) error {
 	log.Debugf("workload policy lookup: [%#v]", *key)
 	return c.bpfMap.MapOfWlPolicy.Lookup(key, value)
 }
 
-func (c *Cache) WorkloadPolicyLookupAll() []WorkloadPolicy_value {
+func (c *Cache) WorkloadPolicyLookupAll() []WorkloadPolicyValue {
 	log.Debugf("WorkloadPolicyLookupAll")
-	return LookupAll[WorkloadPolicy_key, WorkloadPolicy_value](c.bpfMap.MapOfWlPolicy)
+	return LookupAll[WorkloadPolicyKey, WorkloadPolicyValue](c.bpfMap.MapOfWlPolicy)
 }

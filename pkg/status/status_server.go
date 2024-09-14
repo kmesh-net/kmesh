@@ -46,8 +46,8 @@ const (
 
 	patternHelp               = "/help"
 	patternOptions            = "/options"
-	patternBpfAdsMaps         = "/debug/bpf/ads"
-	patternBpfWorkloadMaps    = "/debug/bpf/workload"
+	patternBpfAdsMaps         = "/debug/config_dump/bpf/ads"
+	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/workload"
 	configDumpPrefix          = "/debug/config_dump"
 	patternConfigDumpAds      = configDumpPrefix + "/ads"
 	patternConfigDumpWorkload = configDumpPrefix + "/workload"
@@ -145,8 +145,18 @@ func (s *Server) checkWorkloadMode(w http.ResponseWriter) bool {
 	return true
 }
 
+func (s *Server) checkAdsMode(w http.ResponseWriter) bool {
+	client := s.xdsClient
+	if client == nil || client.AdsController == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, invalidModeErrMessage)
+		return false
+	}
+	return true
+}
+
 type WorkloadBpfDump struct {
-	WorkloadPolicies []bpfcache.WorkloadPolicy_value
+	WorkloadPolicies []bpfcache.WorkloadPolicyValue
 	Backends         []bpfcache.BackendValue
 	Endpoints        []bpfcache.EndpointValue
 	Frontends        []bpfcache.FrontendValue
@@ -181,13 +191,11 @@ func printWorkloadBpfDump(w http.ResponseWriter, wbd WorkloadBpfDump) {
 }
 
 func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
-	client := s.xdsClient
-	if client == nil || client.AdsController == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, invalidModeErrMessage)
+	if !s.checkAdsMode(w) {
 		return
 	}
 
+	client := s.xdsClient
 	w.WriteHeader(http.StatusOK)
 	cache := client.AdsController.Processor.Cache
 	dynamicRes := &adminv2.ConfigResources{}
@@ -306,13 +314,11 @@ func (s *Server) setLoggerLevel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
-	client := s.xdsClient
-	if client == nil || client.AdsController == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, invalidModeErrMessage)
+	if !s.checkAdsMode(w) {
 		return
 	}
 
+	client := s.xdsClient
 	w.WriteHeader(http.StatusOK)
 	cache := client.AdsController.Processor.Cache
 	dynamicRes := &adminv2.ConfigResources{}

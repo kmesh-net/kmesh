@@ -75,8 +75,8 @@ func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
 	wlPolicyMap, err := ebpf.NewMap(&ebpf.MapSpec{
 		Name:       "workload_policy",
 		Type:       ebpf.Hash,
-		KeySize:    uint32(unsafe.Sizeof(WorkloadPolicy_key{})),
-		ValueSize:  uint32(unsafe.Sizeof(WorkloadPolicy_value{})),
+		KeySize:    uint32(unsafe.Sizeof(WorkloadPolicyKey{})),
+		ValueSize:  uint32(unsafe.Sizeof(WorkloadPolicyValue{})),
 		MaxEntries: 512,
 	})
 	if err != nil {

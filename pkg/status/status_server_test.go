@@ -339,10 +339,10 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		}
 
 		// do some updates
-		testWorkloadPolicyKeys := []bpfcache.WorkloadPolicy_key{
+		testWorkloadPolicyKeys := []bpfcache.WorkloadPolicyKey{
 			{WorklodId: 1}, {WorklodId: 2},
 		}
-		testWorkloadPolicyVals := []bpfcache.WorkloadPolicy_value{
+		testWorkloadPolicyVals := []bpfcache.WorkloadPolicyValue{
 			{PolicyIds: [4]uint32{1, 2, 3, 4}}, {PolicyIds: [4]uint32{5, 6, 7, 8}},
 		}
 		_, err := bpfMaps.MapOfWlPolicy.BatchUpdate(testWorkloadPolicyKeys, testWorkloadPolicyVals, nil)
