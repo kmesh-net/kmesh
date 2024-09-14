@@ -27,7 +27,7 @@ function install_protoc() {
     local arch_suffix
     local download_url
     local installed_version
-    local desired_version="3.17.3"
+    local desired_version="28.1"
 
     # check the architecture
     arch=$(uname -m)
@@ -83,9 +83,14 @@ function install_protoc() {
     fi
 
     if command -v protoc-gen-go >/dev/null; then
-        echo "protoc-gen-go already installed"
+        installed_version=$(protoc-gen-go --version | awk '{print $2}')
+        if [[ "$installed_version" == "v1.34.2" ]]; then
+            echo "Installed protoc-gen-go version matches the desired version."
+        else
+            go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
+        fi
     else
-        go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.32.0
+        go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.34.2
     fi
 }
 
