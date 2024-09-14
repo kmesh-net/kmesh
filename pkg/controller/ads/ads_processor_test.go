@@ -485,8 +485,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	cleanup, _ := test.InitBpfMap(t, config)
-	t.Cleanup(cleanup)
+	_, loader := test.InitBpfMap(t, config)
 	t.Run("normal function test", func(t *testing.T) {
 		adsLoader := NewAdsCache()
 		adsLoader.routeNames = []string{
@@ -655,6 +654,7 @@ func TestHandleLdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-rds"}, p.req.ResourceNames)
 	})
+	loader.Stop()
 }
 
 func TestHandleRdsResponse(t *testing.T) {
@@ -663,8 +663,7 @@ func TestHandleRdsResponse(t *testing.T) {
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	cleanup, _ := test.InitBpfMap(t, config)
-	t.Cleanup(cleanup)
+	_, loader := test.InitBpfMap(t, config)
 	t.Run("normal function test", func(t *testing.T) {
 		p := newProcessor()
 		p.ack = &service_discovery_v3.DiscoveryRequest{
@@ -816,4 +815,5 @@ func TestHandleRdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash2, actualHash2)
 		assert.Equal(t, []string{"ut-routeconfig1", "ut-routeconfig2"}, p.ack.ResourceNames)
 	})
+	loader.Stop()
 }

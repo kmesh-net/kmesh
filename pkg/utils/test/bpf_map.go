@@ -66,7 +66,6 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 	}
 	return func() {
 		loader.Stop()
-		bpf.CleanupBpfMap()
 	}, loader
 }
 

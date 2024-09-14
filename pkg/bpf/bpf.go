@@ -183,11 +183,13 @@ func (l *BpfLoader) Stop() {
 	if l.config.AdsEnabled() {
 		C.deserial_uninit()
 		if err = l.obj.Detach(); err != nil {
+			CleanupBpfMap()
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
 	} else if l.config.WdsEnabled() {
 		if err = l.workloadObj.Detach(); err != nil {
+			CleanupBpfMap()
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
@@ -195,6 +197,7 @@ func (l *BpfLoader) Stop() {
 
 	if l.config.EnableMda {
 		if err = StopMda(); err != nil {
+			CleanupBpfMap()
 			log.Errorf("failed disable mda when stop kmesh, err:%s", err)
 			return
 		}
