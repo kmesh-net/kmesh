@@ -36,6 +36,7 @@ import (
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
 	route_v2 "kmesh.net/kmesh/api/v2/route"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
+	"kmesh.net/kmesh/pkg/controller/ads/extensions"
 	"kmesh.net/kmesh/pkg/nets"
 )
 
@@ -292,6 +293,10 @@ func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.F
 				}
 			}
 			apiFilter.ConfigType = &apiFilterHttp
+		case extensions.LocalRateLimit:
+			if apiFilter.ConfigType, err = extensions.NewLocalRateLimit(filter); err != nil {
+				return nil, ""
+			}
 		default:
 		}
 	case *config_listener_v3.Filter_ConfigDiscovery:
