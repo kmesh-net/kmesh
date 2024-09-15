@@ -17,8 +17,10 @@
 package logger
 
 import (
+	"bytes"
 	"context"
 	"encoding/binary"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -33,13 +35,35 @@ import (
 )
 
 const (
-	logSubsys = "subsys"
-	mapName   = "kmesh_events"
+	logSubsys      = "subsys"
+	mapName        = "kmesh_events"
+	mapNameV0      = "kmesh_events_v0"
+	MAX_MSG_LEN    = 255
+	MAX_FORMAT_ARG = 50
+)
+
+const (
+	ARG_0 = 1 << iota // 00001
+	ARG_1             // 00010
+	ARG_2             // 00100
+	ARG_3             // 01000
+	ARG_4             // 10000
 )
 
 type LogEvent struct {
 	len uint32
 	Msg string
+}
+
+type LogEventV0 struct {
+	Ret  uint32
+	Flag uint32
+	Fmt  [MAX_MSG_LEN]byte
+	Arg0 [MAX_FORMAT_ARG]byte
+	Arg1 [MAX_FORMAT_ARG]byte
+	Arg2 uint32
+	Arg3 uint32
+	Arg4 uint32
 }
 
 var (
@@ -125,22 +149,30 @@ func NewFileLogger(pkgSubsys string) *logrus.Entry {
 
 // print bpf log in daemon process
 func StartRingBufReader(ctx context.Context, mode string, bpfFsPath string) error {
+	var mapPath string
 	var path string
 
 	if mode == constants.AdsMode {
-		path = bpfFsPath + "/bpf_kmesh/map"
+		mapPath = bpfFsPath + "/bpf_kmesh/map"
 	} else if mode == constants.WorkloadMode {
-		path = bpfFsPath + "/bpf_kmesh_workload/map"
+		mapPath = bpfFsPath + "/bpf_kmesh_workload/map"
 	} else {
 		return fmt.Errorf("invalid start mode:%s", mode)
 	}
-	path = filepath.Join(path, mapName)
+	path = filepath.Join(mapPath, mapName)
 	rbMap, err := ebpf.LoadPinnedMap(path, nil)
 	if err != nil {
 		return err
 	}
 
+	path = filepath.Join(mapPath, mapNameV0)
+	rbMapV0, err := ebpf.LoadPinnedMap(path, nil)
+	if err != nil {
+		return err
+	}
+
 	go handleLogEvents(ctx, rbMap)
+	go handleLogEventsV0(ctx, rbMapV0)
 
 	return nil
 }
@@ -171,6 +203,32 @@ func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {
 	}
 }
 
+func handleLogEventsV0(ctx context.Context, rbMapV0 *ebpf.Map) {
+	log := NewLoggerScope("ebpf")
+	events, err := ringbuf.NewReader(rbMapV0)
+	if err != nil {
+		log.Errorf("ringbuf new reader from rb map v0 failed:%v", err)
+		return
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			record, err := events.Read()
+			if err != nil {
+				return
+			}
+			le, err := decodeRecordV0(record.RawSample)
+			if err != nil {
+				log.Errorf("ringbuf decode data failed:%v", err)
+			}
+			log.Infof("%v", le.Msg)
+		}
+	}
+}
+
 // 4 is the msg length, -1 is the '\0' terminate character
 func decodeRecord(data []byte) (*LogEvent, error) {
 	le := LogEvent{}
@@ -178,4 +236,18 @@ func decodeRecord(data []byte) (*LogEvent, error) {
 	le.len = uint32(lenOfMsg)
 	le.Msg = string(data[4 : 4+lenOfMsg-1])
 	return &le, nil
+}
+
+func decodeRecordV0(data []byte) (*LogEvent, error) {
+	var event LogEventV0
+    err := binary.Read(bytes.NewReader(data), binary.NativeEndian, &event)
+    if err != nil {
+		return nil, err
+    }
+	flag := event.Flag
+	if (flag & ARG_0) != 0 && (flag & ARG_2) != 0 {
+		// format arg0 and arg2 to fmt here
+	}
+
+	return nil, nil
 }

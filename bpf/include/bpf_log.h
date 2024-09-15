@@ -18,6 +18,12 @@
 #define BPF_LOGTYPE_SENDMSG BPF_DEBUG_ON
 #define BPF_LOGTYPE_PROBE   BPF_DEBUG_ON
 #define MAX_MSG_LEN         255
+#define MAX_FORMAT_ARG      50
+#define ARG_0 (1 << 0) // 00001
+#define ARG_1 (1 << 1) // 00010
+#define ARG_2 (1 << 2) // 00100
+#define ARG_3 (1 << 3) // 01000
+#define ARG_4 (1 << 4) // 10000
 
 enum bpf_loglevel {
     BPF_LOG_ERR = 0,
@@ -30,10 +36,28 @@ struct log_event {
     __u32 ret;
     char msg[MAX_MSG_LEN];
 };
+
+// 
+struct __attribute__((packed)) log_event_v0 {
+    __u32 ret;
+    __u32 flag;
+    char fmt[MAX_MSG_LEN];
+    char arg0[MAX_FORMAT_ARG];
+    char arg1[MAX_FORMAT_ARG];
+    __u32 arg2;
+    __u32 arg3;
+    __u32 arg4;
+};
+
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 256 * 1024 /* 256 KB */);
 } kmesh_events SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 256 * 1024 /* 256 KB */);
+} kmesh_events_v0 SEC(".maps")
 
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
@@ -114,6 +138,30 @@ static inline int map_lookup_log_level()
                 bpf_trace_printk(fmt, sizeof(fmt), ##__VA_ARGS__);                                                     \
             else                                                                                                       \
                 BPF_LOG_U(fmt, ##__VA_ARGS__);                                                                         \
+        }                                                                                                              \
+    } while (0)
+/*
+Add a convention: for print ip port info, only support %s-->%u
+ */
+#define BPF_LOG_1_1(l, t, f, arg0, arg1)                                                                               \
+    do {                                                                                                               \
+        int level = map_lookup_log_level();                                                                            \
+        int loglevel = BPF_MIN((int)level, ((int)BPF_LOG_DEBUG + (int)(BPF_LOGTYPE_##t)));                             \
+        if ((int)(BPF_LOG_##l) <= loglevel) {                                                                          \
+            static const char fmt[] = "[" #t "] " #l ": " f "";                                                        \
+            struct log_event_v0 *e;                                                                                    \
+            __u32 ret = 0;                                                                                             \
+            __U32 flag = 0;                                                                                            \
+            e = bpf_ringbuf_reserve(&kmesh_events_v0, sizeof(struct log_event_v0), 0);                                 \
+            if (!e)                                                                                                    \
+                break;                                                                                                 \
+            e->fmt = fmt;                                                                                              \
+            e->arg0 = arg0;                                                                                            \
+            e->arg2 = arg1;                                                                                            \
+            flag |= ARG_0;                                                                                             \
+            flag |= ARG_2;                                                                                             \
+            e->flag = flag;                                                                                            \
+            bpf_ringbuf_submit(e, 0);                                                                                  \
         }                                                                                                              \
     } while (0)
 
