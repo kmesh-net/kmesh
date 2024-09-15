@@ -142,7 +142,7 @@ void   listener__filter_chain__free_unpacked
   assert(message->base.descriptor == &listener__filter_chain__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
-static const ProtobufCFieldDescriptor listener__filter__field_descriptors[3] =
+static const ProtobufCFieldDescriptor listener__filter__field_descriptors[4] =
 {
   {
     "name",
@@ -180,16 +180,29 @@ static const ProtobufCFieldDescriptor listener__filter__field_descriptors[3] =
     0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "local_rate_limit",
+    4,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Listener__Filter, config_type_case),
+    offsetof(Listener__Filter, local_rate_limit),
+    &filter__local_rate_limit__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned listener__filter__field_indices_by_name[] = {
   2,   /* field[2] = http_connection_manager */
+  3,   /* field[3] = local_rate_limit */
   0,   /* field[0] = name */
   1,   /* field[1] = tcp_proxy */
 };
 static const ProtobufCIntRange listener__filter__number_ranges[1 + 1] =
 {
   { 1, 0 },
-  { 0, 3 }
+  { 0, 4 }
 };
 const ProtobufCMessageDescriptor listener__filter__descriptor =
 {
@@ -199,7 +212,7 @@ const ProtobufCMessageDescriptor listener__filter__descriptor =
   "Listener__Filter",
   "listener",
   sizeof(Listener__Filter),
-  3,
+  4,
   listener__filter__field_descriptors,
   listener__filter__field_indices_by_name,
   1,  listener__filter__number_ranges,
