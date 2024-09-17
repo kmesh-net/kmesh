@@ -25,7 +25,7 @@ type WorkloadPolicy_key struct {
 }
 
 type WorkloadPolicy_value struct {
-	PolicyIds [2]uint32 // name length is [MAX_MEMBER_NUM_PER_POLICY]
+	PolicyIds [4]uint32 // name length is [MAX_MEMBER_NUM_PER_POLICY]
 }
 
 func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicy_key, value *WorkloadPolicy_value) error {

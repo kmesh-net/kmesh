@@ -30,6 +30,7 @@ struct match_result {
     __u32 action;      // Action: deny or allow
     __u32 match_res;    // Match result: true or false
     __u16 dport;
+    struct bpf_sock_tuple *tuple_info;
     Istio__Security__Match *match;
 };
 
@@ -160,15 +161,33 @@ static inline int matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen,
 	return UNMATCHED;
 }
 
-static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+SEC("xdp_auth")
+int matchSrcIPs(struct xdp_md *ctx)
 {
+    struct match_result *res;
+	__u32 key = 0;
 	void *srcPtrs = NULL;
 	void *notSrcPtrs = NULL;
 	__u32 inSrcList = 0;
 	__u32 i;
 
+    res = bpf_map_lookup_elem(&map_of_shared_data, &key);
+    if (!res) {
+        return XDP_DROP;
+    }
+
+    if (!res->match) {
+        return XDP_DROP;
+    }
+
+    Istio__Security__Match *match = kmesh_get_ptr_val(res->match);
+    if (!match) {
+        return XDP_DROP;
+    }
+
 	if (match->n_source_ips == 0 && match->n_not_source_ips == 0) {
-		return MATCHED;
+		res->match_res = MATCHED;
+        goto check_action;
 	}
 
 	// match not_srcIPs
@@ -176,7 +195,8 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 		notSrcPtrs = kmesh_get_ptr_val(match->not_source_ips);
 		if (!notSrcPtrs) {
 			BPF_LOG(ERR, AUTH, "failed to get not_srcips ptr\n");
-			return UNMATCHED;
+			res->match_res = UNMATCHED;
+            goto check_action;
 		}
 
 #pragma unroll   
@@ -188,10 +208,9 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 			if (!srcAddr) {
 				continue;
 			}
-			// todo: ProtobufCBinaryData address是否需要使用mesh_get_ptr_val
-			// in n_src_ips means in blacklist, return unmatch
 			if (matchIp(&srcAddr->address, srcAddr->length, tuple_info, TYPE_SRCIP) == MATCHED) {
-				return UNMATCHED;
+				res->match_res = UNMATCHED;
+                goto check_action;
 			}  
 		}
 	}
@@ -199,8 +218,8 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 	if (match->n_source_ips != 0) {
 		srcPtrs = kmesh_get_ptr_val(match->source_ips);
 		if (!srcPtrs) {
-			BPF_LOG(ERR, AUTH, "failed to get srcips ptr\n");
-			return UNMATCHED;
+			res->match_res = UNMATCHED;
+            goto check_action;
 		}
 
 #pragma unroll   
@@ -213,11 +232,16 @@ static inline int matchSrcIPs(Istio__Security__Match *match, struct bpf_sock_tup
 				continue;
 			}
 			if (matchIp(&srcAddr->address, srcAddr->length, tuple_info, TYPE_SRCIP) == MATCHED) {
-				return MATCHED;
+				res->match_res = MATCHED;
+                goto check_action;
 			}
 		}
 	}
-	return UNMATCHED;
+    
+    return XDP_PASS;
+
+check_action:
+    return (res->action == AUTH_DENY) ? (res->match_res == MATCHED ? XDP_DROP : XDP_PASS) : (res->match_res == MATCHED ? XDP_PASS : XDP_DROP);
 }
 #endif
 
@@ -247,6 +271,14 @@ int matchDstPorts(struct xdp_md *ctx)
     }
 
     dport = res->dport;
+
+    if (!res->tuple_info) {
+        return XDP_DROP;
+    }
+    struct bpf_sock_tuple *tuple_info = res->tuple_info;
+    if(!tuple_info) {
+        return XDP_DROP;
+    }
 
     // Check if no destination ports are defined
     if (match->n_destination_ports == 0 && match->n_not_destination_ports == 0) {
@@ -414,6 +446,7 @@ do_auth(struct xdp_md *ctx, Istio__Security__Authorization *policy, struct xdp_i
     }
 
     res.action = policy->action;
+    res.tuple_info = tuple_info;
     if (info->iph->version == 4) {
         res.dport = tuple_info->ipv4.dport;
     } else {
