@@ -46,10 +46,13 @@ func NewCmd() *cobra.Command {
 		Use:   "log",
 		Short: "Get or set kmesh-daemon's logger level",
 		Example: `# Set default logger's level as "debug":
-kmeshctl log --set default:debug
+kmeshctl log <kmesh-daemon-pod> --set default:debug
+
+# Get all loggers' name
+kmeshctl log <kmesh-daemon-pod>
 	  
 # Get default logger's level:
-kmeshctl log default`,
+kmeshctl log <kmesh-daemon-pod> default`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			RunGetOrSetLoggerLevel(cmd, args)
@@ -86,13 +89,21 @@ func GetJson(url string, val any) {
 	}
 }
 
-func GetLoggerLevel(url string) {
+func GetLoggerNames(url string) {
 	var loggerNames []string
 	GetJson(url, &loggerNames)
 	fmt.Printf("Existing Loggers:\n")
 	for _, logger := range loggerNames {
 		fmt.Printf("\t%s\n", logger)
 	}
+}
+
+func GetLoggerLevel(url string) {
+	var loggerInfo LoggerInfo
+	GetJson(url, &loggerInfo)
+
+	fmt.Printf("Logger Name: %s\n", loggerInfo.Name)
+	fmt.Printf("Logger Level: %s\n", loggerInfo.Level)
 }
 
 func SetLoggerLevel(url string, setFlag string) {
@@ -167,10 +178,17 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 	}
 	defer fw.Close()
 
+	url := fmt.Sprintf("http://%s/%s", fw.Address(), patternLoggers)
+
 	setFlag, _ := cmd.Flags().GetString("set")
 	if setFlag == "" {
-		GetLoggerLevel(fmt.Sprintf("http://%s/%s", fw.Address(), patternLoggers))
+		if len(args) >= 2 {
+			url += fmt.Sprintf("?name=%s", args[1])
+			GetLoggerLevel(url)
+		} else {
+			GetLoggerNames(url)
+		}
 	} else {
-		SetLoggerLevel(setFlag, fmt.Sprintf("http://%s/%s", fw.Address(), patternLoggers))
+		SetLoggerLevel(url, setFlag)
 	}
 }
