@@ -1,5 +1,5 @@
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,29 @@
 package logs
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
+	"net/http"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
+	"istio.io/istio/pkg/kube"
 )
+
+const (
+	KmeshNamespace = "kmesh-system"
+	KmeshAdminPort = 15200
+
+	patternLoggers = "/debug/loggers"
+)
+
+type LoggerInfo struct {
+	Name  string `json:"name,omitempty"`
+	Level string `json:"level,omitempty"`
+}
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -31,7 +50,7 @@ kmeshctl log --set default:debug
 	  
 # Get default logger's level:
 kmeshctl log default`,
-		Args: cobra.MaximumNArgs(1),
+		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			RunGetOrSetLoggerLevel(cmd, args)
 		},
@@ -40,7 +59,6 @@ kmeshctl log default`,
 	return cmd
 }
 
-/*
 func GetJson(url string, val any) {
 	resp, err := http.Get(url)
 	if err != nil {
@@ -68,8 +86,7 @@ func GetJson(url string, val any) {
 	}
 }
 
-func GetLoggerNames() {
-	url := status.GetLoggerURL()
+func GetLoggerLevel(url string) {
 	var loggerNames []string
 	GetJson(url, &loggerNames)
 	fmt.Printf("Existing Loggers:\n")
@@ -78,21 +95,7 @@ func GetLoggerNames() {
 	}
 }
 
-func GetLoggerLevel(args []string) {
-	if len(args) == 0 {
-		GetLoggerNames()
-		return
-	}
-	loggerName := args[0]
-	url := status.GetLoggerURL() + "?name=" + loggerName
-	var loggerInfo status.LoggerInfo
-	GetJson(url, &loggerInfo)
-
-	fmt.Printf("Logger Name: %s\n", loggerInfo.Name)
-	fmt.Printf("Logger Level: %s\n", loggerInfo.Level)
-}
-
-func SetLoggerLevel(setFlag string) {
+func SetLoggerLevel(url string, setFlag string) {
 	if !strings.Contains(setFlag, ":") {
 		fmt.Println("Invalid set flag, which should be loggerName:loggerLevel (e.g. default:debug)")
 		os.Exit(1)
@@ -101,7 +104,7 @@ func SetLoggerLevel(setFlag string) {
 	loggerName := splits[0]
 	loggerLevel := splits[1]
 
-	loggerInfo := status.LoggerInfo{
+	loggerInfo := LoggerInfo{
 		Name:  loggerName,
 		Level: loggerLevel,
 	}
@@ -111,7 +114,6 @@ func SetLoggerLevel(setFlag string) {
 		return
 	}
 
-	url := status.GetLoggerURL()
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
 	if err != nil {
 		fmt.Printf("Error creating request: %v\n", err)
@@ -140,15 +142,35 @@ func SetLoggerLevel(setFlag string) {
 }
 
 func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
+	rc, err := kube.DefaultRestConfig("", "")
+	if err != nil {
+		fmt.Printf("failed to get rest.Config for given kube config file and context: %v", err)
+		os.Exit(1)
+	}
+
+	cli, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc))
+	if err != nil {
+		fmt.Printf("failed to create kube client: %v", err)
+		os.Exit(1)
+	}
+
+	podName := args[0]
+
+	fw, err := cli.NewPortForwarder(podName, KmeshNamespace, "", 0, KmeshAdminPort)
+	if err != nil {
+		fmt.Printf("failed to create port forwarder: %v", err)
+		os.Exit(1)
+	}
+	if err := fw.Start(); err != nil {
+		fmt.Printf("failed to start port forwarder: %v", err)
+		os.Exit(1)
+	}
+	defer fw.Close()
+
 	setFlag, _ := cmd.Flags().GetString("set")
 	if setFlag == "" {
-		GetLoggerLevel(args)
+		GetLoggerLevel(fmt.Sprintf("http://%s/%s", fw.Address(), patternLoggers))
 	} else {
-		SetLoggerLevel(setFlag)
+		SetLoggerLevel(setFlag, fmt.Sprintf("http://%s/%s", fw.Address(), patternLoggers))
 	}
-}
-*/
-
-func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
-	fmt.Println("Do nothing")
 }
