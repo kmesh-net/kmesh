@@ -50,6 +50,7 @@ const (
 var osStartTime time.Time
 
 type MetricController struct {
+	enableAccesslog     bool
 	workloadCache       cache.WorkloadCache
 	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
 	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
@@ -173,8 +174,9 @@ type serviceMetricLabels struct {
 	connectionSecurityPolicy string
 }
 
-func NewMetric(workloadCache cache.WorkloadCache) *MetricController {
+func NewMetric(workloadCache cache.WorkloadCache, enableAccesslog bool) *MetricController {
 	return &MetricController{
+		enableAccesslog:     enableAccesslog,
 		workloadCache:       workloadCache,
 		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
@@ -260,7 +262,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				serviceLabels.reporter = "source"
 				accesslog.direction = "OUTBOUND"
 			}
-			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" {
+			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" && m.enableAccesslog {
 				OutputAccesslog(data, accesslog)
 			}
 			m.mutex.Lock()
