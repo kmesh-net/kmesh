@@ -42,8 +42,9 @@ var (
 )
 
 const (
-	MaxConcurrency uint32 = 5
-	RetryAfter            = 5 * time.Millisecond
+	MaxConcurrency    uint32 = 5
+	RetryAfter               = 5 * time.Millisecond
+	DeRefreshInterval        = 15 * time.Second
 )
 
 type DNSResolver struct {
@@ -232,6 +233,9 @@ func (r *DNSResolver) resolve(v *pendingResolveDomain) {
 		if ttl > v.refreshRate {
 			ttl = v.refreshRate
 		}
+		if ttl == 0 {
+			ttl = DeRefreshInterval
+		}
 		if !slices.Equal(entry.addresses, addrs) {
 			for _, c := range v.clusters {
 				ready := overwriteDnsCluster(c, v.domainName, addrs)
@@ -280,14 +284,23 @@ func (r *DNSResolver) refreshDNS() bool {
 	return true
 }
 
-func (r *DNSResolver) GetCacheResult(name string) []string {
-	var res []string
+func (r *DNSResolver) GetDNSAddresses(domain string) []string {
 	r.RLock()
 	defer r.RUnlock()
-	if entry, ok := r.cache[name]; ok {
-		res = entry.addresses
+	if entry, ok := r.cache[domain]; ok {
+		return entry.addresses
 	}
-	return res
+	return nil
+}
+
+func (r *DNSResolver) GetAllCachedDomains() []string {
+	r.RLock()
+	defer r.RUnlock()
+	out := make([]string, 0, len(r.cache))
+	for domain := range r.cache {
+		out = append(out, domain)
+	}
+	return out
 }
 
 // doResolve is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.

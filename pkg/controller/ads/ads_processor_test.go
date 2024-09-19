@@ -49,6 +49,7 @@ func TestHandleCdsResponse(t *testing.T) {
 	t.Cleanup(cleanup)
 	t.Run("new cluster, cluster type is eds", func(t *testing.T) {
 		p := newProcessor()
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 5)
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -77,7 +78,7 @@ func TestHandleCdsResponse(t *testing.T) {
 
 	t.Run("new cluster, cluster type is not eds", func(t *testing.T) {
 		p := newProcessor()
-		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 5)
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -106,6 +107,7 @@ func TestHandleCdsResponse(t *testing.T) {
 
 	t.Run("cluster update case", func(t *testing.T) {
 		p := newProcessor()
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 5)
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -156,7 +158,7 @@ func TestHandleCdsResponse(t *testing.T) {
 
 	t.Run("multiClusters: add a new eds cluster", func(t *testing.T) {
 		p := newProcessor()
-		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 5)
 		multiClusters := []*config_cluster_v3.Cluster{
 			{
 				Name: "ut-cluster1",
@@ -239,7 +241,7 @@ func TestHandleCdsResponse(t *testing.T) {
 
 	t.Run("multiClusters: remove cluster", func(t *testing.T) {
 		p := newProcessor()
-		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 1)
+		p.DnsResolverChan = make(chan []*config_cluster_v3.Cluster, 5)
 		cluster := &config_cluster_v3.Cluster{
 			Name: "ut-cluster",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -257,40 +259,33 @@ func TestHandleCdsResponse(t *testing.T) {
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+		dnsClusters := <-p.DnsResolverChan
+		assert.Equal(t, len(dnsClusters), 0)
 		newCluster1 := &config_cluster_v3.Cluster{
 			Name: "new-ut-cluster1",
-			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
-				Type: config_cluster_v3.Cluster_LOGICAL_DNS,
-			},
-		}
-		newCluster2 := &config_cluster_v3.Cluster{
-			Name: "new-ut-cluster2",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
 				Type: config_cluster_v3.Cluster_EDS,
 			},
 		}
-		anyCluster1, err1 := anypb.New(newCluster1)
-		assert.NoError(t, err1)
-		anyCluster2, err2 := anypb.New(newCluster2)
-		assert.NoError(t, err2)
+		anyCluster1, err := anypb.New(newCluster1)
+		assert.NoError(t, err)
 		rsp = &service_discovery_v3.DiscoveryResponse{
 			Resources: []*anypb.Any{
 				anyCluster1,
-				anyCluster2,
 			},
 		}
 
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
+
+		dnsClusters = <-p.DnsResolverChan
+		assert.Equal(t, len(dnsClusters), 0)
 		// only cluster2 is eds typed
-		assert.Equal(t, []string{"new-ut-cluster2"}, p.Cache.edsClusterNames)
+		assert.Equal(t, []string{"new-ut-cluster1"}, p.Cache.edsClusterNames)
 		wantHash1 := hash.Sum64String(anyCluster1.String())
-		wantHash2 := hash.Sum64String(anyCluster2.String())
 		actualHash1 := p.Cache.ClusterCache.GetCdsHash(newCluster1.GetName())
 		assert.Equal(t, wantHash1, actualHash1)
-		actualHash2 := p.Cache.ClusterCache.GetCdsHash(newCluster2.GetName())
-		assert.Equal(t, wantHash2, actualHash2)
-		assert.Equal(t, []string{"new-ut-cluster2"}, p.req.ResourceNames)
+		assert.Equal(t, []string{"new-ut-cluster1"}, p.req.ResourceNames)
 		// `cluster` has been deleted
 		assert.Nil(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name))
 	})
