@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Author: bitcoffee
- * Create: 2023-11-19
  */
 
 package cni
@@ -102,7 +99,7 @@ func (i *Installer) WatchServiceAccountToken() error {
 				}
 
 			case event := <-i.Watcher.Events(tokenPath):
-				log.Infof("got event %s", event.String())
+				log.Debugf("got event %s", event.String())
 
 				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
 					if timerC == nil {
