@@ -20,24 +20,10 @@ function setup_kind_cluster() {
     local NAME="${1:-kmesh-testing}"
     local IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
 
-    local FORCE_RECREATE=false
-
-    if [ "$NAME" == "kmesh-testing" ]; then
-        FORCE_RECREATE=true
-    fi
-    
-
-    if (kind get clusters | grep -q "^${NAME}$"); then
-        if [ "$FORCE_RECREATE" = true ]; then
-            echo "Deleting previous KinD cluster with name=${NAME}"
-            if ! (kind delete cluster --name="${NAME}" -v9) > /dev/null; then
-                echo "Failed to delete existing kind cluster with name ${NAME}. Continuing with creation..."
-            fi
-        else
-            echo "Cluster ${NAME} exists. Skipping creation."
-            kubectl config use-context "$NAME"
-            return
-        fi
+    # Delete any previous KinD cluster.
+    echo "Deleting previous KinD cluster with name=${NAME}"
+    if ! (kind delete cluster --name="${NAME}" -v9) > /dev/null; then
+        echo "No existing kind cluster with name ${NAME}. Continue..."
     fi
 
     # Create KinD cluster.
@@ -219,7 +205,6 @@ function cleanup_docker_registry() {
 }
 
 PARAMS=()
-USE_EXISTING_CLUSTER=false
 
 while (( "$#" )); do
     case "$1" in
@@ -241,19 +226,14 @@ while (( "$#" )); do
       SKIP_BUILD=true
       shift
     ;;
-    --use-cluster)
-      if [ -n "$2" ] && [[ "$2" != --* ]]; then
-        NAME="$2"
-        USE_EXISTING_CLUSTER=true
-        if ! kubectl config get-contexts | grep -q "$NAME"; then
-        echo "Error: Cluster context '$NAME' does not exist."
+    --cluster)
+      NAME="$2"
+      if ! kind get clusters | grep -qw "$NAME"; then
+        echo "Error: Cluster '$NAME' does not exist."
         exit 1
-        fi
-        shift
-      else
-          echo "Error: Missing cluster name for --use-cluster"
-          exit 1
       fi
+      SKIP_SETUP=true
+      echo "Using existing cluster '$NAME'. Setup will be skipped."
       shift
     ;;
     --ipv6)
@@ -276,7 +256,7 @@ if [[ -z "${SKIP_INSTALL_DEPENDENCIES:-}" ]]; then
     install_dependencies
 fi
 
-if [[ -z "${SKIP_SETUP:-}" ]] && [[ "$USE_EXISTING_CLUSTER" = false ]]; then
+if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kind_cluster "$NAME"
 fi
 
@@ -285,13 +265,9 @@ if [[ -z "${SKIP_BUILD:-}" ]]; then
     build_and_push_images
 fi
 
-kubectl config use-context "$NAME"
+kubectl config use-context "kind-$NAME"
 echo "Running tests in cluster '$NAME'"
 
-if [[ "$USE_EXISTING_CLUSTER" = false ]]; then
-    setup_kind_registry
-    build_and_push_images
-fi
 
 # make sure the Kmesh local image is ready.
 if [[ -z "${SKIP_SETUP:-}" ]]; then
