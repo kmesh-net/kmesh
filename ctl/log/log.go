@@ -178,7 +178,7 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s/%s", fw.Address(), patternLoggers)
+	url := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
 
 	setFlag, _ := cmd.Flags().GetString("set")
 	if setFlag == "" {
