@@ -245,7 +245,7 @@ static int get_map_fd_info(unsigned int id, int *map_fd, struct bpf_map_info *in
 static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 {
     int key = *(int *)outter_key;
-    if (key < 0 || key >= MAX_OUTTER_MAP_ENTRIES)
+    if (key <= 0 || key >= MAX_OUTTER_MAP_ENTRIES)
         return -1;
 
     if (g_inner_map_mng.inner_maps[key].used) {
@@ -263,7 +263,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
         return -1;
     }
 
-    for (i = 0; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+    for (i = 1; i < MAX_OUTTER_MAP_ENTRIES; i++) {
         if (g_inner_map_mng.inner_maps[i].used == 0) {
             g_inner_map_mng.inner_maps[i].used = 1;
             g_inner_map_mng.used_cnt++;
@@ -1252,7 +1252,7 @@ void *outter_map_update_task(void *arg)
     if (!ctx)
         return NULL;
 
-    i = ctx->task_id * TASK_SIZE;
+    i = (ctx->task_id * TASK_SIZE) ? (ctx->task_id * TASK_SIZE) : 1;
     end = ((i + TASK_SIZE) < MAX_OUTTER_MAP_ENTRIES) ? (i + TASK_SIZE) : MAX_OUTTER_MAP_ENTRIES;
     for (; i < end; i++) {
         if (!g_inner_map_mng.inner_maps[i].map_fd) {
@@ -1334,7 +1334,7 @@ int inner_map_create_all(struct bpf_map_info *inner_info)
 {
     int i, fd;
 
-    for (i = 0; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+    for (i = 1; i < MAX_OUTTER_MAP_ENTRIES; i++) {
         fd = inner_map_create(inner_info);
         if (fd < 0)
             break;
@@ -1349,7 +1349,7 @@ int inner_map_create_all(struct bpf_map_info *inner_info)
 
 void deserial_uninit()
 {
-    for (int i = 0; i < MAX_OUTTER_MAP_ENTRIES; i++) {
+    for (int i = 1; i < MAX_OUTTER_MAP_ENTRIES; i++) {
         g_inner_map_mng.inner_maps[i].in_outer_map = 0;
         g_inner_map_mng.inner_maps[i].used = 0;
         if (g_inner_map_mng.inner_maps[i].map_fd)
