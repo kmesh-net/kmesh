@@ -52,7 +52,9 @@ function adapt_include_env {
     fi
 }
 
-dependency_pkg_install
+if [ "${SKIP_DEPENDENCY_INSTALL}" != "true" ]; then
+	dependency_pkg_install
+fi
 fix_libbpf_bug
 adapt_low_version_kernel
 adapt_include_env
