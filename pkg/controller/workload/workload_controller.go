@@ -43,7 +43,7 @@ type Controller struct {
 	bpfWorkloadObj   *bpf.BpfKmeshWorkload
 }
 
-func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
+func NewController(bpfWorkload *bpf.BpfKmeshWorkload, enableAccesslog bool) *Controller {
 	c := &Controller{
 		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
 		bpfWorkloadObj: bpfWorkload,
@@ -54,7 +54,7 @@ func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
 		c.Processor.bpf.RestoreEndpointKeys()
 	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
-	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache)
+	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, enableAccesslog)
 	return c
 }
 
