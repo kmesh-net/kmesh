@@ -114,7 +114,6 @@ func maybeWriteKubeConfigFile(serviceAccountPath, kubeconfigFilepath string) err
 	}
 
 	if shouldCreateKubeConfigFile(kc, kubeconfigFilepath) {
-		log.Info("kubeconfig either does not exist or is out of date, writing a new one")
 		if err := utils.AtomicWrite(kubeconfigFilepath, []byte(kc), os.FileMode(0o600)); err != nil {
 			return err
 		}
