@@ -38,7 +38,7 @@ const (
 	patternLoggers = "/debug/loggers"
 )
 
-var log = logger.NewLoggerField("kmeshctl/log")
+var log = logger.NewLoggerScope("kmeshctl/log")
 
 type LoggerInfo struct {
 	Name  string `json:"name,omitempty"`
