@@ -31,6 +31,9 @@ import (
 
 func authorizationToGolang(goMsg *security_v2.Authorization, cMsg *C.Istio__Security__Authorization) error {
 	buf := make([]byte, C.istio__security__authorization__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.istio__security__authorization__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -43,6 +46,10 @@ func authorizationToClang(goMsg *security_v2.Authorization) (*C.Istio__Security_
 	buf, err := proto.Marshal(goMsg)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(buf) == 0 {
+		return nil, nil
 	}
 
 	cMsg := C.istio__security__authorization__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
