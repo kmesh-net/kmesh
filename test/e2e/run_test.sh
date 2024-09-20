@@ -232,8 +232,6 @@ while (( "$#" )); do
         echo "Error: Cluster '$NAME' does not exist."
         exit 1
       fi
-      SKIP_SETUP=true
-      echo "Using existing cluster '$NAME'. Setup will be skipped."
       shift
     ;;
     --ipv6)
