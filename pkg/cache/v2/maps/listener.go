@@ -21,6 +21,7 @@ package maps
 // #include "listener/listener.pb-c.h"
 import "C"
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -66,6 +67,34 @@ func listenerToClang(goMsg *listener_v2.Listener) (*C.Listener__Listener, error)
 
 func listenerFreeClang(cMsg *C.Listener__Listener) {
 	C.listener__listener__free_unpacked(cMsg, nil)
+}
+
+func ListenerLookupAll() ([]*listener_v2.Listener, error) {
+	cMsg := C.deserial_lookup_all_elems(unsafe.Pointer(&C.listener__listener__descriptor))
+	if cMsg == nil {
+		return nil, errors.New("ListenerLookupAll deserial_lookup_all_elems failed")
+	}
+
+	elem_list_head := (*C.struct_element_list_node)(cMsg)
+	defer C.deserial_free_elem_list(elem_list_head)
+
+	var (
+		listeners []*listener_v2.Listener
+		err       error
+	)
+	for elem_list_head != nil {
+		cValue := elem_list_head.elem
+		elem_list_head = elem_list_head.next
+		listener := listener_v2.Listener{}
+		err = listenerToGolang(&listener, (*C.Listener__Listener)(cValue))
+		log.Debugf("ListenerLookupAll, value [%s]", listener.String())
+		if err != nil {
+			return nil, err
+		}
+		listeners = append(listeners, &listener)
+	}
+
+	return listeners, nil
 }
 
 func ListenerLookup(key *core_v2.SocketAddress, value *listener_v2.Listener) error {

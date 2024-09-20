@@ -165,20 +165,10 @@ func (cache *ClusterCache) Delete() {
 }
 
 func (cache *ClusterCache) DumpBpf() []*cluster_v2.Cluster {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
-	clusters := make([]*cluster_v2.Cluster, 0, len(cache.apiClusterCache))
-	for name, c := range cache.apiClusterCache {
-		tmp := &cluster_v2.Cluster{}
-		if err := maps_v2.ClusterLookup(name, tmp); err != nil {
-			log.Errorf("ClusterLookup failed, %s", name)
-			continue
-		}
-
-		tmp.ApiStatus = c.ApiStatus
-		clusters = append(clusters, tmp)
+	clusters, err := maps_v2.ClusterLookupAll()
+	if err != nil {
+		log.Errorf("ClusterLookup failed, %v", err)
 	}
-
 	return clusters
 }
 
