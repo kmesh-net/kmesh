@@ -128,20 +128,10 @@ func (cache *ListenerCache) Flush() {
 }
 
 func (cache *ListenerCache) DumpBpf() []*listener_v2.Listener {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
-	listeners := make([]*listener_v2.Listener, 0, len(cache.apiListenerCache))
-	for name, listener := range cache.apiListenerCache {
-		tmp := &listener_v2.Listener{}
-		if err := maps_v2.ListenerLookup(listener.GetAddress(), tmp); err != nil {
-			log.Errorf("ListenerLookup failed, %s", name)
-			continue
-		}
-
-		tmp.ApiStatus = listener.ApiStatus
-		listeners = append(listeners, tmp)
+	listeners, err := maps_v2.ListenerLookupAll()
+	if err != nil {
+		log.Errorf("ListenerLookupAll failed, %v", err)
 	}
-
 	return listeners
 }
 
