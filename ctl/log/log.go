@@ -27,6 +27,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"istio.io/istio/pkg/kube"
+
+	"kmesh.net/kmesh/pkg/logger"
 )
 
 const (
@@ -35,6 +37,8 @@ const (
 
 	patternLoggers = "/debug/loggers"
 )
+
+var log = logger.NewLoggerField("kmeshctl/log")
 
 type LoggerInfo struct {
 	Name  string `json:"name,omitempty"`
@@ -62,36 +66,37 @@ kmeshctl log <kmesh-daemon-pod> default`,
 	return cmd
 }
 
-func GetJson(url string, val any) {
+func GetJson(url string, val any) error {
 	resp, err := http.Get(url)
 	if err != nil {
-		fmt.Printf("Error making GET request(%s): %v\n", url, err)
-		return
+		return fmt.Errorf("failed making GET request(%s): %v", url, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body(%s): %v\n", url, err)
-		return
+		return fmt.Errorf("failed reading response body(%s): %v", url, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Error: received status code %d\n", resp.StatusCode)
-		fmt.Printf("Response body: %s\n", body)
-		return
+		return fmt.Errorf("received status code %d, Response body: %s", resp.StatusCode, body)
 	}
 
 	err = json.Unmarshal(body, val)
 	if err != nil {
-		fmt.Printf("Error unmarshaling response body: %v\n", err)
-		return
+		return fmt.Errorf("failed to unmarshal response body: %v", err)
 	}
+
+	return nil
 }
 
 func GetLoggerNames(url string) {
 	var loggerNames []string
-	GetJson(url, &loggerNames)
+	if err := GetJson(url, &loggerNames); err != nil {
+		log.Errorf("failed to get logger names: %v", err)
+		return
+	}
+
 	fmt.Printf("Existing Loggers:\n")
 	for _, logger := range loggerNames {
 		fmt.Printf("\t%s\n", logger)
@@ -100,7 +105,10 @@ func GetLoggerNames(url string) {
 
 func GetLoggerLevel(url string) {
 	var loggerInfo LoggerInfo
-	GetJson(url, &loggerInfo)
+	if err := GetJson(url, &loggerInfo); err != nil {
+		log.Errorf("failed to get logger level: %v", err)
+		return
+	}
 
 	fmt.Printf("Logger Name: %s\n", loggerInfo.Name)
 	fmt.Printf("Logger Level: %s\n", loggerInfo.Level)
@@ -108,7 +116,7 @@ func GetLoggerLevel(url string) {
 
 func SetLoggerLevel(url string, setFlag string) {
 	if !strings.Contains(setFlag, ":") {
-		fmt.Println("Invalid set flag, which should be loggerName:loggerLevel (e.g. default:debug)")
+		log.Errorf("Invalid set flag, which should be loggerName:loggerLevel (e.g. default:debug)")
 		os.Exit(1)
 	}
 	splits := strings.Split(setFlag, ":")
@@ -121,32 +129,32 @@ func SetLoggerLevel(url string, setFlag string) {
 	}
 	data, err := json.Marshal(loggerInfo)
 	if err != nil {
-		fmt.Printf("Error marshaling logger info: %v\n", err)
+		log.Errorf("Error marshaling logger info: %v", err)
 		return
 	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
 	if err != nil {
-		fmt.Printf("Error creating request: %v\n", err)
+		log.Errorf("Error creating request: %v", err)
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		fmt.Printf("Error making request: %v\n", err)
+		log.Errorf("Error making request: %v", err)
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		fmt.Printf("Error: received status code %d\n", resp.StatusCode)
+		log.Errorf("Error: received status code %d", resp.StatusCode)
 		return
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
+		log.Errorf("Error reading response body: %v", err)
 		return
 	}
 	fmt.Println(string(body))
@@ -155,13 +163,13 @@ func SetLoggerLevel(url string, setFlag string) {
 func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 	rc, err := kube.DefaultRestConfig("", "")
 	if err != nil {
-		fmt.Printf("failed to get rest.Config for given kube config file and context: %v", err)
+		log.Errorf("failed to get rest.Config for given kube config file and context: %v", err)
 		os.Exit(1)
 	}
 
 	cli, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc))
 	if err != nil {
-		fmt.Printf("failed to create kube client: %v", err)
+		log.Errorf("failed to create kube client: %v", err)
 		os.Exit(1)
 	}
 
@@ -169,11 +177,11 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 
 	fw, err := cli.NewPortForwarder(podName, KmeshNamespace, "", 0, KmeshAdminPort)
 	if err != nil {
-		fmt.Printf("failed to create port forwarder: %v", err)
+		log.Errorf("failed to create port forwarder: %v", err)
 		os.Exit(1)
 	}
 	if err := fw.Start(); err != nil {
-		fmt.Printf("failed to start port forwarder: %v", err)
+		log.Errorf("failed to start port forwarder: %v", err)
 		os.Exit(1)
 	}
 	defer fw.Close()
