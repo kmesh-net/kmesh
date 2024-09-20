@@ -164,14 +164,6 @@ func (cache *ClusterCache) Delete() {
 	}
 }
 
-func (cache *ClusterCache) DumpBpf() []*cluster_v2.Cluster {
-	clusters, err := maps_v2.ClusterLookupAll()
-	if err != nil {
-		log.Errorf("ClusterLookup failed, %v", err)
-	}
-	return clusters
-}
-
 func (cache *ClusterCache) Dump() []*cluster_v2.Cluster {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()
