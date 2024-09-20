@@ -47,9 +47,8 @@ var log = logger.NewLoggerScope(pkgSubsys)
 func NewCommand() *cobra.Command {
 	configs := options.NewBootstrapConfigs()
 	cmd := &cobra.Command{
-		Use:          "kmesh-daemon",
-		Short:        "Start kmesh daemon",
-		SilenceUsage: true,
+		Use:   "kmesh-daemon",
+		Short: "Start kmesh daemon",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			printFlags(cmd.Flags())
 			if err := configs.ParseConfigs(); err != nil {
@@ -57,8 +56,8 @@ func NewCommand() *cobra.Command {
 			}
 			return Execute(configs)
 		},
-		FParseErrWhitelist: cobra.FParseErrWhitelist{
-			UnknownFlags: true,
+		CompletionOptions: cobra.CompletionOptions{
+			DisableDefaultCmd: true,
 		},
 	}
 
