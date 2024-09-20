@@ -23,7 +23,6 @@ import (
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	route_v2 "kmesh.net/kmesh/api/v2/route"
-	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 )
 
@@ -107,19 +106,6 @@ func (cache *RouteConfigCache) Flush() {
 			log.Errorf("routeConfig %s %s flush failed: %v", name, route.ApiStatus, err)
 		}
 	}
-}
-
-func (cache *RouteConfigCache) DumpBpf() []*route_v2.RouteConfiguration {
-	// if L7 not enabled, should just return nil
-	if !bpf.AdsL7Enabled() {
-		return nil
-	}
-
-	routes, err := maps_v2.RouteConfigLookupAll()
-	if err != nil {
-		log.Errorf("RouteConfigLookupAll failed, %v", err)
-	}
-	return routes
 }
 
 func (cache *RouteConfigCache) Dump() []*route_v2.RouteConfiguration {
