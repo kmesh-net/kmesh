@@ -53,9 +53,6 @@ linters-settings:
   depguard:
     rules:
       main:
-        allow:
-          - google.golang.org/protobuf
-          - sigs.k8s.io/yaml
         deny:
           - pkg: "github.com/golang/protobuf"
             desc: "Please use google.golang.org/protobuf instead."
