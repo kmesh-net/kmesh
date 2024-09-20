@@ -98,7 +98,7 @@ all:
 
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
 
 .PHONY: gen-proto
 gen-proto:
@@ -136,9 +136,6 @@ install:
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) install -Dp -m 0500 $(APPS3) $(INSTALL_BIN)
 
-	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS4))
-	$(QUIET) install -Dp -m 0500 $(APPS4) $(INSTALL_BIN)
-
 .PHONY: uninstall
 uninstall:
 	$(QUIET) make uninstall -C api/v2-c
@@ -151,8 +148,6 @@ uninstall:
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS2)
 	$(call printlog, UNINSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
-	$(call printlog, UNINSTALL, $(INSTALL_BIN)/$(APPS4))
-	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS4)
 
 .PHONY: build
 build:
