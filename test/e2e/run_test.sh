@@ -226,6 +226,14 @@ while (( "$#" )); do
       SKIP_BUILD=true
       shift
     ;;
+    --cluster)
+      NAME="$2"
+      if ! kind get clusters | grep -qw "$NAME"; then
+        echo "Error: Cluster '$NAME' does not exist."
+        exit 1
+      fi
+      shift 2
+    ;;
     --ipv6)
       IPV6=true
       shift
@@ -242,18 +250,24 @@ while (( "$#" )); do
     esac
 done
 
+NAME="${NAME:-kmesh-testing}"
+
 if [[ -z "${SKIP_INSTALL_DEPENDENCIES:-}" ]]; then
     install_dependencies
 fi
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-    setup_kind_cluster
+    setup_kind_cluster "$NAME"
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
     setup_kind_registry
     build_and_push_images
 fi
+
+kubectl config use-context "kind-$NAME"
+echo "Running tests in cluster '$NAME'"
+
 
 # make sure the Kmesh local image is ready.
 if [[ -z "${SKIP_SETUP:-}" ]]; then
