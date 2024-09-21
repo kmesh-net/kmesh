@@ -1591,6 +1591,7 @@ void inner_map_batch_delete()
         idx = g_inner_map_mng.elastic_slots[i];
         if (g_inner_map_mng.inner_maps[idx].used == 0 && g_inner_map_mng.inner_maps[idx].map_fd) {
             close(g_inner_map_mng.inner_maps[idx].map_fd);
+            g_inner_map_mng.inner_maps[idx].map_fd = 0;
         }
     }
     return;
@@ -1714,7 +1715,7 @@ int inner_map_mng_persist()
     FILE *f = NULL;
     struct persist_info *p = NULL;
 
-    if (g_inner_map_mng.init == 0 || g_inner_map_mng.used_cnt == 0)
+    if (g_inner_map_mng.init == 0)
         return 0;
 
     size = sizeof(struct persist_info) + sizeof(struct inner_map_persist_stat) * (g_inner_map_mng.max_alloced_idx + 1);
