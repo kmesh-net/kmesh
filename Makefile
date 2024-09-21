@@ -117,8 +117,6 @@ install:
 	$(QUIET) make install -C bpf/deserialization_to_bpf_map
 	$(QUIET) make install -C kernel/ko_src
 
-	$(QUIET) go install github.com/OpenPeeDeeP/depguard/cmd/depguard@latest
-
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS1))
 	$(QUIET) install -Dp -m 0500 $(APPS1) $(INSTALL_BIN)
 	
