@@ -232,7 +232,7 @@ while (( "$#" )); do
         echo "Error: Cluster '$NAME' does not exist."
         exit 1
       fi
-      shift
+      shift 2
     ;;
     --ipv6)
       IPV6=true
@@ -249,6 +249,8 @@ while (( "$#" )); do
     ;;
     esac
 done
+
+NAME="${NAME:-kmesh-testing}"
 
 if [[ -z "${SKIP_INSTALL_DEPENDENCIES:-}" ]]; then
     install_dependencies
