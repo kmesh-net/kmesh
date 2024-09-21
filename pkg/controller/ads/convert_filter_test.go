@@ -20,8 +20,9 @@ import (
 	"testing"
 
 	envoy_filters_tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	//"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 	"gotest.tools/assert"
 
 	"kmesh.net/kmesh/api/v2/filter"
@@ -31,7 +32,7 @@ func TestNewFilterTcpProxy(t *testing.T) {
 	t.Run("ClusterSpecifier is Cluster", func(t *testing.T) {
 		envoyTcpProxy := &envoy_filters_tcp_proxy.TcpProxy{
 			StatPrefix: "ut-test",
-			MaxConnectAttempts: &wrappers.UInt32Value{
+			MaxConnectAttempts: &wrapperspb.UInt32Value{
 				Value: uint32(3),
 			},
 			ClusterSpecifier: &envoy_filters_tcp_proxy.TcpProxy_Cluster{
@@ -55,7 +56,7 @@ func TestNewFilterTcpProxy(t *testing.T) {
 		}
 		envoyTcpProxy := &envoy_filters_tcp_proxy.TcpProxy{
 			StatPrefix: "ut-test",
-			MaxConnectAttempts: &wrappers.UInt32Value{
+			MaxConnectAttempts: &wrapperspb.UInt32Value{
 				Value: uint32(3),
 			},
 			ClusterSpecifier: &envoy_filters_tcp_proxy.TcpProxy_WeightedClusters{

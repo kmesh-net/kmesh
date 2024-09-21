@@ -26,7 +26,7 @@ import (
 	filters_network_http "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	filters_network_tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	//"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -429,7 +429,7 @@ func TestCreateApiListenerByLds(t *testing.T) {
 		status := core_v2.ApiStatus_UPDATE
 		typedConfig := &filters_network_tcp.TcpProxy{
 			StatPrefix: "ut-test",
-			MaxConnectAttempts: &wrappers.UInt32Value{
+			MaxConnectAttempts: &wrapperspb.UInt32Value{
 				Value: uint32(3),
 			},
 			ClusterSpecifier: &filters_network_tcp.TcpProxy_Cluster{
@@ -482,7 +482,7 @@ func TestCreateApiListenerByLds(t *testing.T) {
 		status := core_v2.ApiStatus_UPDATE
 		typedConfig := &filters_network_tcp.TcpProxy{
 			StatPrefix: "ut-test",
-			MaxConnectAttempts: &wrappers.UInt32Value{
+			MaxConnectAttempts: &wrapperspb.UInt32Value{
 				Value: uint32(3),
 			},
 			ClusterSpecifier: &filters_network_tcp.TcpProxy_Cluster{
@@ -534,7 +534,7 @@ func TestCreateApiListenerByLds(t *testing.T) {
 		status := core_v2.ApiStatus_UNCHANGED
 		typedConfig := &filters_network_tcp.TcpProxy{
 			StatPrefix: "ut-test",
-			MaxConnectAttempts: &wrappers.UInt32Value{
+			MaxConnectAttempts: &wrapperspb.UInt32Value{
 				Value: uint32(3),
 			},
 			ClusterSpecifier: &filters_network_tcp.TcpProxy_Cluster{
