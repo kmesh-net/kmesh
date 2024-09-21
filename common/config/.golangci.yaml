@@ -58,6 +58,11 @@ linters-settings:
             desc: "Please use google.golang.org/protobuf instead."
           - pkg: 'gopkg.in/yaml.v3'
             desc: "Please use sigs.k8s.io/yaml instead."
+          - pkg: "gopkg.in/yaml.v2"
+            desc: "Please use sigs.k8s.io/yaml instead."
+          - pkg: "github.com/ghodss/yaml"
+            desc: "Please use sigs.k8s.io/yaml instead."
+
 
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
