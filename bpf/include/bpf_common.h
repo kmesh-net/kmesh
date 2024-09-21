@@ -16,7 +16,7 @@
 /* Ip(0.0.0.2 | ::2) used for control command, e.g. KmeshControl */
 #define CONTROL_CMD_IP 2
 
-#define MAP_SIZE_OF_OUTTER_MAP 8192
+#define MAP_SIZE_OF_OUTTER_MAP (1 << 20)
 
 #define BPF_DATA_MAX_LEN                                                                                               \
     192 /* this value should be                                                                                        \
