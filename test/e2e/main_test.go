@@ -2,7 +2,7 @@
 // +build integ
 
 /*
- * Copyright 2024 The Kmesh Authors.
+ * Copyright The Kmesh Authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,17 +37,21 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
@@ -60,6 +64,9 @@ var (
 	KmeshSrc = getDefaultKmeshSrc()
 
 	apps = &EchoDeployments{}
+
+	// used to validate telemetry in-cluster
+	prom prometheus.Instance
 )
 
 type EchoDeployments struct {
@@ -68,6 +75,12 @@ type EchoDeployments struct {
 
 	// All echo services
 	All echo.Instances
+
+	// The echo service which is enrolled to Kmesh without waypoint.
+	EnrolledToKmesh echo.Instances
+
+	// The echo service which is enrolled to Kmesh and with service waypoint.
+	ServiceWithWaypointAtServiceGranularity echo.Instances
 
 	// WaypointProxies by
 	WaypointProxies map[string]ambient.WaypointProxy
@@ -79,7 +92,9 @@ const (
 	WaypointImageAnnotation                 = "sidecar.istio.io/proxyImage"
 	Timeout                                 = 2 * time.Minute
 	KmeshReleaseName                        = "kmesh"
+	KmeshDaemonsetName                      = "kmesh"
 	KmeshNamespace                          = "kmesh-system"
+	DataplaneModeKmesh                      = "Kmesh"
 )
 
 func getDefaultKmeshSrc() string {
@@ -101,6 +116,14 @@ func TestMain(m *testing.M) {
 		Setup(func(t resource.Context) error {
 			return SetupApps(t, i, apps)
 		}).
+		Setup(func(t resource.Context) (err error) {
+			prom, err = prometheus.New(t, prometheus.Config{})
+			if err != nil {
+				return err
+			}
+			return
+		},
+		).
 		Run()
 }
 
@@ -110,7 +133,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		Prefix: "echo",
 		Inject: false,
 		Labels: map[string]string{
-			constants.DataplaneModeLabel: "Kmesh",
+			constants.DataplaneModeLabel: DataplaneModeKmesh,
 		},
 	})
 	if err != nil {
@@ -170,6 +193,8 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		scopes.Framework.Infof("built %v", b.Config().Service)
 	}
 	apps.All = echos
+	apps.EnrolledToKmesh = match.ServiceName(echo.NamespacedName{Name: EnrolledToKmesh, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.ServiceWithWaypointAtServiceGranularity = match.ServiceName(echo.NamespacedName{Name: ServiceWithWaypointAtServiceGranularity, Namespace: apps.Namespace}).GetMatches(echos)
 
 	if apps.WaypointProxies == nil {
 		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
@@ -180,7 +205,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		wlwp := echo.Config().WorkloadWaypointProxy
 		if svcwp != "" {
 			if _, found := apps.WaypointProxies[svcwp]; !found {
-				apps.WaypointProxies[svcwp], err = newWaypointProxy(t, apps.Namespace, svcwp)
+				apps.WaypointProxies[svcwp], err = newWaypointProxy(t, apps.Namespace, svcwp, constants.ServiceTraffic)
 				if err != nil {
 					return err
 				}
@@ -188,7 +213,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		}
 		if wlwp != "" {
 			if _, found := apps.WaypointProxies[wlwp]; !found {
-				apps.WaypointProxies[wlwp], err = newWaypointProxy(t, apps.Namespace, wlwp)
+				apps.WaypointProxies[wlwp], err = newWaypointProxy(t, apps.Namespace, wlwp, constants.WorkloadTraffic)
 				if err != nil {
 					return err
 				}
@@ -240,7 +265,13 @@ func (k kubeComponent) Close() error {
 	return nil
 }
 
-func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) (ambient.WaypointProxy, error) {
+func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string, trafficType string) {
+	if _, err := newWaypointProxy(ctx, ns, name, trafficType); err != nil {
+		t.Fatal("create new waypoint proxy failed: %v", err)
+	}
+}
+
+func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, trafficType string) (ambient.WaypointProxy, error) {
 	err := crd.DeployGatewayAPI(ctx)
 	if err != nil {
 		return nil, err
@@ -255,6 +286,9 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 			Name:        name,
 			Namespace:   ns.Name(),
 			Annotations: make(map[string]string, 0),
+			Labels: map[string]string{
+				constants.AmbientWaypointForTrafficTypeLabel: trafficType,
+			},
 		},
 		Spec: gateway.GatewaySpec{
 			GatewayClassName: constants.WaypointGatewayClassName,
@@ -313,4 +347,33 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) 
 	server.pod = pod
 
 	return server, nil
+}
+
+func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {
+	if err := deleteWaypointProxy(ctx, ns, name); err != nil {
+		t.Fatal("delete waypoint proxy failed: %v", err)
+	}
+}
+
+func deleteWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) error {
+	cls := ctx.Clusters().Default()
+
+	if err := cls.GatewayAPI().GatewayV1().Gateways(ns.Name()).Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
+		return err
+	}
+
+	// Make sure the pods associated with the waypoint have been deleted to prevent affecting other test cases.
+	return retry.UntilSuccess(func() error {
+		pods, err := cls.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: fmt.Sprintf("%s=%s", constants.GatewayNameLabel, name),
+		})
+		if err != nil {
+			return err
+		}
+		if len(pods.Items) != 0 {
+			return fmt.Errorf("pods have not been completely deleted")
+		}
+
+		return nil
+	}, retry.Timeout(time.Minute*10), retry.BackoffDelay(time.Millisecond*200))
 }

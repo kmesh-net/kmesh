@@ -9,10 +9,9 @@ set -e
 
 DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
-# support testing multiple istio version in the future.
-ISTIO_VERSION=1.22.0
+ISTIO_VERSION=${ISTIO_VERSION:-"1.22.0"}
 
-export KMESH_WAYPOINT_IMAGE="ghcr.io/kmesh-net/waypoint:latest"
+export KMESH_WAYPOINT_IMAGE=${KMESH_WAYPOINT_IMAGE:-"ghcr.io/kmesh-net/waypoint:latest"}
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
 
@@ -28,7 +27,25 @@ function setup_kind_cluster() {
     fi
 
     # Create KinD cluster.
-    cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
+
+    if [[ -n "${IPV6:-}" ]]; then
+        # Create IPv6 KinD cluster
+        cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ipv6
+nodes:
+- role: control-plane
+- role: worker
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry]
+    config_path = "/etc/containerd/certs.d"
+EOF
+    else
+        # Create default IPv4 KinD cluster
+        cat <<EOF | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" --config=-
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
@@ -39,6 +56,7 @@ containerdConfigPatches:
   [plugins."io.containerd.grpc.v1.cri".registry]
     config_path = "/etc/containerd/certs.d"
 EOF
+    fi
 
     status=$?
     if [ $status -ne 0 ]; then
@@ -60,6 +78,11 @@ EOF
 EOF
     done
 
+    # For KinD environment we need to mount bpf for each node, ref: https://github.com/kmesh-net/kmesh/issues/662
+    for node in $(kind get nodes --name="${NAME}"); do
+        docker exec "${node}" sh -c "mount -t bpf none /sys/fs/bpf"
+    done
+
     # Document the local registry
     cat <<EOF | kubectl apply -f -
 apiVersion: v1
@@ -75,6 +98,7 @@ EOF
 }
 
 function setup_istio() {
+    echo "install istio $ISTIO_VERSION"
     kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
         { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0" | kubectl apply -f -; }
 
@@ -82,7 +106,7 @@ function setup_istio() {
 }
 
 function setup_kmesh() {
-    helm install kmesh $ROOT_DIR/deploy/helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh
+    helm install kmesh $ROOT_DIR/deploy/charts/kmesh-helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh
 
     # Wait for all Kmesh pods to be ready.
     while true; do
@@ -165,6 +189,23 @@ function install_dependencies() {
     rm -rf istio-${ISTIO_VERSION}
 }
 
+function cleanup_kind_cluster() {
+    local NAME="${1:-kmesh-testing}"
+    echo "Deleting KinD cluster with name=${NAME}"
+    kind delete cluster --name="${NAME}"
+    echo "KinD cluster ${NAME} cleaned up"
+}
+
+function cleanup_docker_registry() {
+    echo "Stopping Docker registry named '${KIND_REGISTRY_NAME}'..."
+    docker stop "${KIND_REGISTRY_NAME}" || echo "Failed to stop or no such registry '${KIND_REGISTRY_NAME}'."
+
+    echo "Removing Docker registry named '${KIND_REGISTRY_NAME}'..."
+    docker rm "${KIND_REGISTRY_NAME}" || echo "Failed to remove or no such registry '${KIND_REGISTRY_NAME}'."
+}
+
+PARAMS=()
+
 while (( "$#" )); do
     case "$1" in
     --skip-install-dep)
@@ -183,6 +224,19 @@ while (( "$#" )); do
       SKIP_INSTALL_DEPENDENCIES=true
       SKIP_SETUP=true
       SKIP_BUILD=true
+      shift
+    ;;
+    --ipv6)
+      IPV6=true
+      shift
+    ;;
+    --cleanup)
+      CLEANUP_KIND=true
+      CLEANUP_REGISTRY=true
+      shift
+    ;;
+    *)
+      PARAMS+=("$1")
       shift
     ;;
     esac
@@ -207,4 +261,14 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
-go test -v -tags=integ $ROOT_DIR/test/e2e/... -count=1
+cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... ${PARAMS[*]}"
+
+bash -c "$cmd"
+
+if [[ -n "${CLEANUP_KIND}" ]]; then
+    cleanup_kind_cluster
+fi
+
+if [[ -n "${CLEANUP_REGISTRY}" ]]; then
+    cleanup_docker_registry
+fi

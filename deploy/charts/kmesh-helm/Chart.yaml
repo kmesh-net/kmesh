@@ -1,5 +1,5 @@
 apiVersion: v2
-name: kmesh
+name: kmesh-helm
 description: A Helm chart for Kmesh in Kubernetes
 # A chart can be either an 'application' or a 'library' chart.
 #

@@ -51,7 +51,6 @@ type BpfSockConn struct {
 func (sc *BpfSockConn) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh/map/"
 	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh/sockconn/"
-	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(sc.Info.MapPath,
@@ -94,7 +93,6 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
 	spec, err = bpf2go.LoadKmeshCgroupSock()
 

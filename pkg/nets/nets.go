@@ -52,15 +52,12 @@ func ConvertPortToBigEndian(little uint32) uint32 {
 	return uint32(big16)
 }
 
-func CopyIpByteFromSlice(dst *[16]byte, src *[]byte) {
-	len := len(*src)
+func CopyIpByteFromSlice(dst *[16]byte, src []byte) {
+	len := len(src)
 	if len != 4 && len != 16 {
 		return
 	}
-
-	for i := 0; i < len; i++ {
-		(*dst)[i] = (*src)[i]
-	}
+	copy(dst[:], src)
 }
 
 func checkIPVersion() (ipv4, ipv6 bool) {

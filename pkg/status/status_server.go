@@ -35,17 +35,19 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("status")
+var log = logger.NewLoggerScope("status")
 
 const (
 	adminAddr = "localhost:15200"
 
 	patternHelp               = "/help"
 	patternOptions            = "/options"
-	patternBpfAdsMaps         = "/debug/bpf/ads"
+	patternBpfAdsMaps         = "/debug/config_dump/bpf/ads"
+	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/workload"
 	configDumpPrefix          = "/debug/config_dump"
 	patternConfigDumpAds      = configDumpPrefix + "/ads"
 	patternConfigDumpWorkload = configDumpPrefix + "/workload"
@@ -55,6 +57,8 @@ const (
 	bpfLoggerName = "bpf"
 
 	httpTimeout = time.Second * 20
+
+	invalidModeErrMessage = "\tInvalid Client Mode\n"
 )
 
 type Server struct {
@@ -90,6 +94,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfLo
 	s.mux.HandleFunc(patternHelp, s.httpHelp)
 	s.mux.HandleFunc(patternOptions, s.httpOptions)
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
+	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
@@ -114,7 +119,9 @@ func (s *Server) httpHelp(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, "\t%s: %s\n", patternOptions,
 		"print config options")
 	fmt.Fprintf(w, "\t%s: %s\n", patternBpfAdsMaps,
-		"print bpf kmesh maps in kernel")
+		"print bpf kmesh maps of ads mode in kernel")
+	fmt.Fprintf(w, "\t%s: %s\n", patternBpfWorkloadMaps,
+		"print bpf kmesh maps of workload mode in kernel")
 	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpAds,
 		"dump xDS[Listener, Route, Cluster] configurations")
 	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpWorkload,
@@ -128,14 +135,67 @@ func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, s.config.String())
 }
 
-func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
+func (s *Server) checkWorkloadMode(w http.ResponseWriter) bool {
+	client := s.xdsClient
+	if client == nil || client.WorkloadController == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, invalidModeErrMessage)
+		return false
+	}
+	return true
+}
+
+func (s *Server) checkAdsMode(w http.ResponseWriter) bool {
 	client := s.xdsClient
 	if client == nil || client.AdsController == nil {
 		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
+		fmt.Fprint(w, invalidModeErrMessage)
+		return false
+	}
+	return true
+}
+
+type WorkloadBpfDump struct {
+	WorkloadPolicies []bpfcache.WorkloadPolicyValue
+	Backends         []bpfcache.BackendValue
+	Endpoints        []bpfcache.EndpointValue
+	Frontends        []bpfcache.FrontendValue
+	Services         []bpfcache.ServiceValue
+}
+
+func (s *Server) bpfWorkloadMaps(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+	client := s.xdsClient
+	bpfMaps := client.WorkloadController.Processor.GetBpfCache()
+	workloadBpfDump := WorkloadBpfDump{
+		WorkloadPolicies: bpfMaps.WorkloadPolicyLookupAll(),
+		Backends:         bpfMaps.BackendLookupAll(),
+		Endpoints:        bpfMaps.EndpointLookupAll(),
+		Frontends:        bpfMaps.FrontendLookupAll(),
+		Services:         bpfMaps.ServiceLookupAll(),
+	}
+	printWorkloadBpfDump(w, workloadBpfDump)
+}
+
+func printWorkloadBpfDump(w http.ResponseWriter, wbd WorkloadBpfDump) {
+	data, err := json.MarshalIndent(wbd, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal WorkloadBpfDump: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
+	if !s.checkAdsMode(w) {
 		return
 	}
 
+	client := s.xdsClient
 	w.WriteHeader(http.StatusOK)
 	cache := client.AdsController.Processor.Cache
 	dynamicRes := &adminv2.ConfigResources{}
@@ -166,7 +226,7 @@ func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) getLoggerNames(w http.ResponseWriter, r *http.Request) {
+func (s *Server) getLoggerNames(w http.ResponseWriter) {
 	loggerNames := append(logger.GetLoggerNames(), bpfLoggerName)
 	data, err := json.MarshalIndent(&loggerNames, "", "    ")
 	if err != nil {
@@ -180,7 +240,7 @@ func (s *Server) getLoggerNames(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getLoggerLevel(w http.ResponseWriter, r *http.Request) {
 	loggerName := r.URL.Query().Get("name")
 	if loggerName == "" {
-		s.getLoggerNames(w, r)
+		s.getLoggerNames(w)
 		return
 	}
 	var loggerInfo *LoggerInfo
@@ -254,13 +314,11 @@ func (s *Server) setLoggerLevel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
-	client := s.xdsClient
-	if client == nil || client.AdsController == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
+	if !s.checkAdsMode(w) {
 		return
 	}
 
+	client := s.xdsClient
 	w.WriteHeader(http.StatusOK)
 	cache := client.AdsController.Processor.Cache
 	dynamicRes := &adminv2.ConfigResources{}
@@ -283,12 +341,11 @@ type WorkloadDump struct {
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
-	client := s.xdsClient
-	if client == nil || client.WorkloadController == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprintf(w, "\t%s\n", "invalid ClientMode")
+	if !s.checkWorkloadMode(w) {
 		return
 	}
+
+	client := s.xdsClient
 
 	workloads := client.WorkloadController.Processor.WorkloadCache.List()
 	services := client.WorkloadController.Processor.ServiceCache.List()
@@ -371,7 +428,7 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 func (s *Server) StartServer() {
 	go func() {
 		err := s.server.ListenAndServe()
-		if err != nil {
+		if err != nil && err != http.ErrServerClosed {
 			log.Errorf("Failed to start status server: %v", err)
 		}
 	}()

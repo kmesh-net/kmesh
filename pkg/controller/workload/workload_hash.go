@@ -18,15 +18,12 @@ package workload
 
 import (
 	"fmt"
+	"hash"
 	"hash/fnv"
 	"math"
 	"os"
 
 	"gopkg.in/yaml.v3"
-)
-
-var (
-	hash = fnv.New32a()
 )
 
 const (
@@ -37,11 +34,13 @@ const (
 type HashName struct {
 	numToStr map[uint32]string
 	strToNum map[string]uint32
+	hash     hash.Hash32
 }
 
 func NewHashName() *HashName {
 	hashName := &HashName{
 		strToNum: make(map[string]uint32),
+		hash:     fnv.New32a(),
 	}
 	// if read failed, initialize with an empty map
 	if err := hashName.readFromPersistFile(); err != nil {
@@ -91,25 +90,24 @@ func (h *HashName) flushDelta(str string, num uint32) error {
 	return err
 }
 
-func (h *HashName) StrToNum(str string) uint32 {
+func (h *HashName) Hash(str string) uint32 {
 	var num uint32
-
-	hash.Reset()
-	hash.Write([]byte(str))
 
 	if num, exists := h.strToNum[str]; exists {
 		return num
 	}
 
+	h.hash.Reset()
+	h.hash.Write([]byte(str))
 	// Using linear probing to solve hash conflicts
-	for num = hash.Sum32(); num < math.MaxUint32; num++ {
+	for num = h.hash.Sum32(); num < math.MaxUint32; num++ {
 		// Create a new item if we find an empty slot
 		if _, exists := h.numToStr[num]; !exists {
 			h.numToStr[num] = str
 			h.strToNum[str] = num
 			// Create a new item here, should flush
 			if err := h.flushDelta(str, num); err != nil {
-				log.Errorf("error flushing when calling StrToNum: %v", err)
+				log.Errorf("error flushing when calling Hash: %v", err)
 			}
 			break
 		}
@@ -136,4 +134,9 @@ func (h *HashName) Delete(str string) {
 			log.Errorf("error flushing when calling Delete: %v", err)
 		}
 	}
+}
+
+// Should only be used by test
+func (h *HashName) Reset() {
+	os.Remove(persistPath)
 }

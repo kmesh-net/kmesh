@@ -23,11 +23,13 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/cilium/ebpf/rlimit"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
 	"kmesh.net/kmesh/daemon/manager/dump"
 	logcmd "kmesh.net/kmesh/daemon/manager/log"
+	"kmesh.net/kmesh/daemon/manager/uninstall"
 	"kmesh.net/kmesh/daemon/manager/version"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
@@ -41,7 +43,7 @@ const (
 	pkgSubsys = "manager"
 )
 
-var log = logger.NewLoggerField(pkgSubsys)
+var log = logger.NewLoggerScope(pkgSubsys)
 
 func NewCommand() *cobra.Command {
 	configs := options.NewBootstrapConfigs()
@@ -67,27 +69,33 @@ func NewCommand() *cobra.Command {
 	cmd.AddCommand(version.NewCmd())
 	cmd.AddCommand(dump.NewCmd())
 	cmd.AddCommand(logcmd.NewCmd())
+	cmd.AddCommand(uninstall.NewCmd())
 
 	return cmd
 }
 
 // Execute start daemon manager process
 func Execute(configs *options.BootstrapConfigs) error {
+	err := rlimit.RemoveMemlock()
+	if err != nil {
+		log.Warn("rlimit.RemoveMemlock failed")
+	}
+
 	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
 	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
 		return err
 	}
-	log.Info("bpf Start successful")
 	defer bpfLoader.Stop()
+	log.Info("bpf loader start successfully")
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	c := controller.NewController(configs, bpfLoader.GetBpfKmeshWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog)
+	c := controller.NewController(configs, bpfLoader.GetBpfKmeshWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog, configs.BpfConfig.EnableAccesslog)
 	if err := c.Start(stopCh); err != nil {
 		return err
 	}
-	log.Info("controller Start successful")
+	log.Info("controller start successfully")
 	defer c.Stop()
 
 	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetBpfLogLevel())
@@ -97,23 +105,24 @@ func Execute(configs *options.BootstrapConfigs) error {
 	}()
 
 	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
-		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained)
+		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained, configs.CniConfig.ServiceAccountPath)
 	if err := cniInstaller.Start(); err != nil {
 		return err
 	}
-	log.Info("command Start cni successful")
 	defer cniInstaller.Stop()
+	log.Info("start cni successfully")
 
-	setupCloseHandler()
+	setupSignalHandler()
+	// set exit type, which can be used by bpf loader to decide whether to cleanup bpf prog
+	bpf.SetExitType()
 	return nil
 }
 
-func setupCloseHandler() {
+func setupSignalHandler() {
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT, syscall.SIGHUP, syscall.SIGABRT, syscall.SIGTSTP)
 
 	<-ch
-
 	log.Warn("exiting...")
 }
 

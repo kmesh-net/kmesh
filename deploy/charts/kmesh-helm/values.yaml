@@ -1,7 +1,6 @@
 deploy:
   kmesh:
     env:
-      bpfLogSize: "12800"
       xdsAddress: istiod.istio-system.svc:15012
     image:
       repository: ghcr.io/kmesh-net/kmesh
@@ -14,3 +13,4 @@ deploy:
         cpu: "1"
         memory: 800Mi
 kubernetesClusterDomain: cluster.local
+fullnameOverride: kmesh

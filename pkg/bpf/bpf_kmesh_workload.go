@@ -22,6 +22,7 @@ package bpf
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
@@ -44,7 +45,6 @@ type BpfSockConnWorkload struct {
 func (sc *BpfSockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockconn/"
-	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 	sc.Info6 = sc.Info
 
@@ -70,21 +70,15 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
-
 	spec, err = bpf2go.LoadKmeshCgroupSockWorkload()
 
 	if err != nil || spec == nil {
 		return nil, err
 	}
 
+	SetInnerMap(spec)
 	setMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockWorkloadObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	value := reflect.ValueOf(sc.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
@@ -129,26 +123,62 @@ func (sc *BpfSockConnWorkload) close() error {
 	return nil
 }
 
+func bpfProgUpdate(pinPath string, cgopt link.CgroupOptions) error {
+	sclink, err := link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
+	if err != nil {
+		return err
+	}
+	if err := sclink.Update(cgopt.Program); err != nil {
+		return fmt.Errorf("updating link %s failed: %w", pinPath, err)
+	}
+	return nil
+}
+
 func (sc *BpfSockConnWorkload) Attach() error {
 	var err error
-	cgopt := link.CgroupOptions{
+	cgopt4 := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect4Prog,
 	}
 
-	sc.Link, err = link.AttachCgroup(cgopt)
-	if err != nil {
-		return err
-	}
-
-	cgopt = link.CgroupOptions{
+	cgopt6 := link.CgroupOptions{
 		Path:    sc.Info6.Cgroup2Path,
 		Attach:  sc.Info6.AttachType,
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect6Prog,
 	}
 
-	sc.Link6, err = link.AttachCgroup(cgopt)
+	pinPath4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_prog")
+	pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
+
+	if GetStartType() == Restart {
+		if err = bpfProgUpdate(pinPath4, cgopt4); err != nil {
+			return err
+		}
+
+		if err = bpfProgUpdate(pinPath6, cgopt6); err != nil {
+			return err
+		}
+	} else {
+		sc.Link, err = link.AttachCgroup(cgopt4)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.Link.Pin(pinPath4); err != nil {
+			return err
+		}
+
+		sc.Link6, err = link.AttachCgroup(cgopt6)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.Link6.Pin(pinPath6); err != nil {
+			return err
+		}
+	}
+
 	return err
 }
 
@@ -195,7 +225,6 @@ type BpfSockOpsWorkload struct {
 func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
 	so.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	so.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockops/"
-	so.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	so.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(so.Info.MapPath,
@@ -221,7 +250,6 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = so.Info.MapPath
-	opts.Programs.LogSize = so.Info.BpfVerifyLogSize
 
 	spec, err = bpf2go.LoadKmeshSockopsWorkload()
 	if err != nil {
@@ -231,18 +259,15 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshSockopsObjects() spec is nil")
 	}
 
+	SetInnerMap(spec)
 	setMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&so.KmeshSockopsWorkloadObjects, &opts); err != nil {
 		return nil, err
 	}
 
-	value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
-	if err = pinPrograms(&value, so.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
 }
+
 func (so *BpfSockOpsWorkload) LoadSockOps() error {
 	/* load kmesh sockops main bpf prog*/
 	spec, err := so.loadKmeshSockopsObjects()
@@ -263,12 +288,24 @@ func (so *BpfSockOpsWorkload) Attach() error {
 		Attach:  so.Info.AttachType,
 		Program: so.KmeshSockopsWorkloadObjects.SockopsProg,
 	}
+	pinPath := filepath.Join(so.Info.BpfFsPath, "cgroup_sockops_prog")
 
-	lk, err := link.AttachCgroup(cgopt)
-	if err != nil {
-		return err
+	if GetStartType() == Restart {
+		if err := bpfProgUpdate(pinPath, cgopt); err != nil {
+			return err
+		}
+	} else {
+		lk, err := link.AttachCgroup(cgopt)
+		if err != nil {
+			return err
+		}
+		so.Link = lk
+
+		if err := lk.Pin(pinPath); err != nil {
+			return err
+		}
 	}
-	so.Link = lk
+
 	return nil
 }
 
@@ -319,7 +356,6 @@ type BpfSendMsgWorkload struct {
 func (sm *BpfSendMsgWorkload) NewBpf(cfg *options.BpfConfig, sockOpsWorkloadObj *BpfSockOpsWorkload) error {
 	sm.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	sm.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sendmsg/"
-	sm.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sm.Info.Cgroup2Path = cfg.Cgroup2Path
 	sm.sockOpsWorkloadObj = sockOpsWorkloadObj
 
@@ -344,9 +380,8 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 		spec *ebpf.CollectionSpec
 		opts ebpf.CollectionOptions
 	)
-	opts.Maps.PinPath = sm.Info.MapPath
-	opts.Programs.LogSize = sm.Info.BpfVerifyLogSize
 
+	opts.Maps.PinPath = sm.Info.MapPath
 	if spec, err = bpf2go.LoadKmeshSendmsg(); err != nil {
 		return nil, err
 	}
@@ -355,6 +390,31 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	if err = spec.LoadAndAssign(&sm.KmeshSendmsgObjects, &opts); err != nil {
 		return nil, err
 	}
+
+	// bpflink for sk_msg is supported in kernel 6.13, so we update sendmsg manually here
+	// sendmsg ebpf prog is mounted on sockmap and processed for each socket.
+	// It has the following characteristics:
+	// 1. Multiple sk_msg ebpf prog can exist at the same time
+	// 2. If the old sk_msg ebpf program is not pinned, it will wait until all
+	// sockets on the old sk_msg ebpf prog are disconnected before automatically detaching.
+	// Therefore, the following methods are used to achieve seamless replacement
+	// 1) loading new sk_msg prog
+	// 2) unpin old sk_msg prog: If sockmap is deleted, sk_msg will also be cleaned up
+	// 3) pin new sk_msg prog
+	// 4) attach new sk_msg prog(in SendMsg.Attach): Replace the old sk_msg prog
+	if GetStartType() == Restart {
+		pinPath := filepath.Join(sm.Info.BpfFsPath, "sendmsg_prog")
+		oldSkMsg, err := ebpf.LoadPinnedProgram(pinPath, nil)
+		if err != nil {
+			log.Errorf("LoadPinnedProgram failed:%v", err)
+			return nil, err
+		}
+
+		if err = oldSkMsg.Unpin(); err != nil {
+			return nil, err
+		}
+	}
+
 	value := reflect.ValueOf(sm.KmeshSendmsgObjects.KmeshSendmsgPrograms)
 	if err = pinPrograms(&value, sm.Info.BpfFsPath); err != nil {
 		return nil, err
@@ -433,7 +493,6 @@ type BpfXdpAuthWorkload struct {
 func (xa *BpfXdpAuthWorkload) NewBpf(cfg *options.BpfConfig) error {
 	xa.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	xa.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/xdpauth/"
-	xa.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	xa.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(xa.Info.MapPath,
@@ -459,8 +518,6 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = xa.Info.MapPath
-	opts.Programs.LogSize = xa.Info.BpfVerifyLogSize
-
 	spec, err = bpf2go.LoadKmeshXDPAuth()
 	if err != nil {
 		return nil, err
@@ -469,13 +526,9 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshXdpAuthObjects() spec is nil")
 	}
 
+	SetInnerMap(spec)
 	setMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	value := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthPrograms)
-	if err = pinPrograms(&value, xa.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 

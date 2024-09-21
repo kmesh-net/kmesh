@@ -11,7 +11,7 @@ fi
 
 mount | grep /mnt/kmesh_cgroup2
 if [ $? -ne 0 ]; then
-        mkdir /mnt/kmesh_cgroup2
+        mkdir -p /mnt/kmesh_cgroup2
         mount -t cgroup2 none /mnt/kmesh_cgroup2/
         if [ $? -ne 0 ]; then
                 echo "mount cgroup2 failed"
@@ -31,6 +31,7 @@ pid=$!
 
 # pass SIGTERM to kmesh process
 function stop_kmesh() {
+        echo "received SIGTERM, stopping kmesh"
         kill $pid
 }
 
@@ -40,11 +41,16 @@ function cleanup(){
                   rmmod kmesh
           fi
 
-          umount -t cgroup2 /mnt/kmesh_cgroup2/
-          rm -rf /mnt/kmesh_cgroup2
-          rm -rf /sys/fs/bpf/bpf_kmesh
+        echo "kmesh exit"
 }
 
 trap 'stop_kmesh' SIGTERM
-wait # wait child process exit
+
+# wait for kmesh process to exit, cannot use wait $pid here, because the script received SIGTERM, wait will return immediately
+while kill -0 $pid 2>/dev/null; do
+  sleep 1
+done
+
+kmesh-daemon uninstall $@
+
 cleanup

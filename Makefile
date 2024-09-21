@@ -30,12 +30,16 @@ include ./mk/bpf.vars.mk
 include ./mk/bpf.print.mk
 
 # compiler flags
+CC=clang
+CXX=clang++
 GOFLAGS := $(EXTRA_GOFLAGS)
+EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
 			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
-			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE)"
+			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
+			-linkmode=external -extldflags $(EXTLDFLAGS)"
 
 # target
 APPS1 := kmesh-daemon
@@ -67,8 +71,7 @@ TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	bpf/include/bpf_helper_defs_ext.h \
 	depends/include/bpf_helper_defs_ext.h
 
-.PHONY: all install uninstall clean build docker
-
+.PHONY: all
 all:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 
@@ -108,6 +111,7 @@ gen: tidy\
 gen-check: gen
 	hack/gen-check.sh
 
+.PHONY: install
 install:
 	$(QUIET) make install -C api/v2-c
 	$(QUIET) make install -C bpf/deserialization_to_bpf_map
@@ -124,6 +128,7 @@ install:
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) install -Dp -m 0500 $(APPS3) $(INSTALL_BIN)
 
+.PHONY: uninstall
 uninstall:
 	$(QUIET) make uninstall -C api/v2-c
 	$(QUIET) make uninstall -C bpf/deserialization_to_bpf_map
@@ -138,17 +143,24 @@ uninstall:
 
 .PHONY: build
 build:
-	./kmesh_compile.sh
-	
+	 VERSION=$(VERSION) ./kmesh_compile.sh
+
+.PHONY: docker
 docker: build
-	docker build -f build/docker/kmesh.dockerfile -t $(HUB)/$(TARGET):$(TAG) .
+	docker build -f build/docker/dockerfile -t $(HUB)/$(TARGET):$(TAG) .
 
 docker.push: docker
 	docker push $(HUB)/$(TARGET):$(TAG)
 
+.PHONY: e2e
 e2e:
 	./test/e2e/run_test.sh
 
+.PHONY: e2e-ipv6
+e2e-ipv6:
+	./test/e2e/run_test.sh --ipv6
+
+.PHONY: format
 format:
 	./hack/format.sh
 
@@ -161,6 +173,7 @@ test:
 	./hack/run-ut.sh --local
 endif
 
+.PHONY: clean
 clean:
 	$(QUIET) rm -rf ./out
 	$(QUIET) rm -rf ./config/linux-bpf.h
@@ -184,3 +197,38 @@ clean:
 	$(QUIET) if docker ps -a -q -f name=kmesh-build | grep -q .; then \
 		docker rm -f kmesh-build; \
 	fi
+
+
+##@ Helm
+
+CHARTS_FOLDER := deploy/charts
+CHARTS := $(wildcard $(CHARTS_FOLDER)/*)
+CHART_VERSION ?= v0.0.0-latest
+CHART_OCI_REGISTRY ?= oci://$(HUB)
+CHART_OUTPUT_DIR ?= out/charts
+
+.PHONY: helm-package.%
+helm-package.%: # Package Helm chart
+	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	$(eval CHART_NAME := $(COMMAND))
+	helm lint $(CHARTS_FOLDER)/${CHART_NAME}
+	helm package $(CHARTS_FOLDER)/${CHART_NAME} --app-version ${VERSION} --version ${CHART_VERSION} --destination ${CHART_OUTPUT_DIR}/
+
+.PHONY: helm-push.%
+helm-push.%: helm-package.%
+	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	$(eval CHART_NAME := $(COMMAND))
+	helm push ${CHART_OUTPUT_DIR}/${CHART_NAME}-${CHART_VERSION}.tgz ${CHART_OCI_REGISTRY}
+
+.PHONY: helm-package
+helm-package:
+	@for chart in $(CHARTS); do \
+      	$(MAKE) $(addprefix helm-package., $$(basename $${chart})); \
+	done
+
+.PHONY: helm-push
+helm-push: helm-package
+	# run other make targets
+	@for chart in $(CHARTS); do \
+	  	$(MAKE) $(addprefix helm-push., $$(basename $${chart})); \
+	done

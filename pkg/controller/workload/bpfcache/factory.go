@@ -17,18 +17,31 @@
 package bpfcache
 
 import (
+	"istio.io/istio/pkg/util/sets"
+
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("workload_bpfcache")
+var log = logger.NewLoggerScope("workload_bpfcache")
 
 type Cache struct {
 	bpfMap bpf2go.KmeshCgroupSockWorkloadMaps
+	// endpointKeys by workload uid
+	endpointKeys map[uint32]sets.Set[EndpointKey]
 }
 
 func NewCache(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Cache {
 	return &Cache{
-		bpfMap: workloadMap,
+		bpfMap:       workloadMap,
+		endpointKeys: make(map[uint32]sets.Set[EndpointKey]),
 	}
+}
+
+func (c *Cache) GetEndpointKeys(workloadID uint32) sets.Set[EndpointKey] {
+	if c == nil {
+		return nil
+	}
+
+	return c.endpointKeys[workloadID]
 }

@@ -27,9 +27,9 @@
 
 ### 构建镜像
 
-kmesh构建镜像是用于方便用户编译kmesh和构建出当前OS版本可用的kmesh镜像而发布，用户执行make docker命令的时候会使用本目录下的kmesh.dockerfile，将编译输出件和运行依赖放入新的镜像中
+kmesh构建镜像是用于方便用户编译kmesh和构建出当前OS版本可用的kmesh镜像而发布，用户执行make docker命令的时候会使用本目录下的dockerfile，将编译输出件和运行依赖放入新的镜像中
 
-#### kmesh.dockerfile
+#### dockerfile
 
 使用该文件用于制作当前OS版本上可运行的kmesh镜像
 
@@ -56,7 +56,6 @@ kmesh构建镜像是用于方便用户编译kmesh和构建出当前OS版本可�
 | volume    | ko-build-path                | kmesh的七层治理能力需要对内核进行增强并插入kmesh.ko文件，内核模块的编译环境需要和宿主机环境保持一致，所以需要将宿主机上的/lib/module/build目录映射到镜像中，大多数环境中该目录都是软链接到/usr/src/$(uname -r) 目录，所以需要将/usr/src目录映射至镜像中 | - name: ko-build-path<br/>           hostPath:<br/>             path: /usr/src | 可选项，兼容模式镜像需要使用                       |
 | args      |                              | 镜像启动时的执行动作，可自定义修改                           | ["./start_kmesh.sh -mode=ads"]          | 默认使用ads控制面                                  |
 | env       | XDS_ADDRESS              | 指定使用的网络控制平面服务                                   | - name: XDS_ADDRESS<br/>  value: istio-system:istiod     | 可以根据当前集群环境                               |
-| env       | BPF_LOG_SIZE                 | 指定一个环境变量BPF_LOG_SIZE,用于规定查看bpf报错信息时的最长信息规格 | - name: BPF_LOG_SIZE<br/>  value: "12800"                    | 如果log信息过长被截断，可以修改为更大的值          |
 | resources | memory                       | 镜像所需要的内存空间大小                                     | memory: "800Mi"                                              | 兼容模式镜像建议800Mi以上                          |
 
 #### start_kmesh.sh

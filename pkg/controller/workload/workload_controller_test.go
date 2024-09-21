@@ -30,8 +30,10 @@ import (
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/pkg/auth"
+	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 )
@@ -53,6 +55,7 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 		Stream:    fakeClient.DeltaClient,
 	}
 
+	patches0 := gomonkey.NewPatches()
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()
 	tests := []struct {
@@ -121,9 +124,9 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 			beforeFunc: func(t *testing.T) {
 				patches1.ApplyMethodReturn(fakeClient.Client, "DeltaAggregatedResources", fakeClient.DeltaClient, nil)
 
-				workloadController.Processor = newProcessor(workloadMap)
-				workload := createFakeWorkload("10.10.10.1")
-				workloadController.Processor.WorkloadCache.AddWorkload(workload)
+				workloadController.Processor = NewProcessor(workloadMap)
+				workload := createFakeWorkload("10.10.10.1", workloadapi.NetworkMode_STANDARD)
+				workloadController.Processor.WorkloadCache.AddOrUpdateWorkload(workload)
 				patches2.ApplyMethodFunc(fakeClient.DeltaClient, "Send",
 					func(req *discoveryv3.DeltaDiscoveryRequest) error {
 						if req.TypeUrl == AddressType {
@@ -147,9 +150,9 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 		{
 			name: "should take initial authorization versions",
 			beforeFunc: func(t *testing.T) {
+				patches0.ApplyFuncReturn(maps_v2.AuthorizationUpdate, nil)
 				patches1.ApplyMethodReturn(fakeClient.Client, "DeltaAggregatedResources", fakeClient.DeltaClient, nil)
-
-				workloadController.Processor = newProcessor(workloadMap)
+				workloadController.Processor = NewProcessor(workloadMap)
 				workloadController.Rbac = auth.NewRbac(nil)
 				workloadController.Rbac.UpdatePolicy(&security.Authorization{
 					Name:      "p1",
@@ -186,6 +189,9 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 			err := workloadController.WorkloadStreamCreateAndSend(fakeClient.Client, context.TODO())
 			if (err != nil) != tt.wantErr {
 				t.Errorf("workloadStream.WorklaodStreamCreateAndSend() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if workloadController.Processor != nil {
+				workloadController.Processor.hashName.Reset()
 			}
 			tt.afterFunc()
 		})

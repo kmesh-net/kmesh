@@ -33,7 +33,7 @@ import (
 
 var (
 	ctx, cancel = context.WithCancel(context.Background())
-	log         = logger.NewLoggerField("controller")
+	log         = logger.NewLoggerScope("controller")
 )
 
 type Controller struct {
@@ -44,9 +44,10 @@ type Controller struct {
 	enableSecretManager bool
 	bpfFsPath           string
 	enableBpfLog        bool
+	enableAccesslog     bool
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload, bpfFsPath string, enableBpfLog bool) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload, bpfFsPath string, enableBpfLog bool, enableAccesslog bool) *Controller {
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,
@@ -54,12 +55,15 @@ func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshW
 		enableSecretManager: opts.SecretManagerConfig.Enable,
 		bpfFsPath:           bpfFsPath,
 		enableBpfLog:        enableBpfLog,
+		enableAccesslog:     enableAccesslog,
 	}
 }
 
 func (c *Controller) Start(stopCh <-chan struct{}) error {
 	var secertManager *security.SecretManager
 	var err error
+	var kmeshManageController *manage.KmeshManageController
+
 	if c.mode == constants.WorkloadMode && c.enableSecretManager {
 		secertManager, err = security.NewSecretManager()
 		if err != nil {
@@ -72,20 +76,21 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	if err != nil {
 		return err
 	}
-	kmeshManageController, err := manage.NewKmeshManageController(clientset, secertManager)
+
+	if c.mode == constants.WorkloadMode {
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpShutdown.FD(), c.mode)
+	} else {
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, -1, c.mode)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
 	}
-	kmeshManageController.Run(stopCh)
-
+	go kmeshManageController.Run(stopCh)
 	log.Info("start kmesh manage controller successfully")
 
 	if c.enableByPass {
-		err = bypass.StartByPassController(clientset, stopCh)
-		if err != nil {
-			return fmt.Errorf("failed to start bypass controller: %v", err)
-		}
-
+		c := bypass.NewByPassController(clientset)
+		go c.Run(stopCh)
 		log.Info("start bypass controller successfully")
 	}
 
@@ -98,7 +103,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("fail to start ringbuf reader: %v", err)
 		}
 	}
-	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj)
+	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj, c.enableAccesslog)
 
 	if c.client.WorkloadController != nil {
 		c.client.WorkloadController.Run(ctx)

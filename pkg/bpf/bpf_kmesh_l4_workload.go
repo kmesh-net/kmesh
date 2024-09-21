@@ -16,8 +16,16 @@
 
 package bpf
 
+// #cgo pkg-config: api-v2-c
+// #include "deserialization_to_bpf_map.h"
+import "C"
 import (
+	"errors"
 	"fmt"
+	"os"
+	"strconv"
+
+	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
 )
@@ -54,19 +62,37 @@ func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
 
 func (l *BpfLoader) StartWorkloadMode() error {
 	var err error
+	var ve *ebpf.VerifierError
 
 	if l.workloadObj, err = newWorkloadBpf(l.config); err != nil {
 		return err
 	}
 
+	defer func() {
+		if err != nil {
+			l.Stop()
+		}
+	}()
+
 	if err = l.workloadObj.Load(); err != nil {
-		l.Stop()
-		return fmt.Errorf("bpf Load failed, %s", err)
+		if errors.As(err, &ve) {
+			return fmt.Errorf("bpf Load failed: %+v", ve)
+		}
+		return fmt.Errorf("bpf Load failed: %v", err)
 	}
 
 	if err = l.workloadObj.Attach(); err != nil {
-		l.Stop()
 		return fmt.Errorf("bpf Attach failed, %s", err)
+	}
+
+	if err = l.workloadObj.ApiEnvCfg(); err != nil {
+		return fmt.Errorf("failed to set api env")
+	}
+
+	ret := C.deserial_init()
+	if ret != 0 {
+		l.Stop()
+		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
 	l.bpfLogLevel = l.workloadObj.SockConn.BpfLogLevel
 	return nil
@@ -130,5 +156,38 @@ func (sc *BpfKmeshWorkload) Detach() error {
 		return err
 	}
 
+	return nil
+}
+
+func (sc *BpfKmeshWorkload) ApiEnvCfg() error {
+	var err error
+	var info *ebpf.MapInfo
+	var id ebpf.MapID
+
+	info, err = sc.XdpAuth.KmeshXDPAuthMaps.MapOfAuthz.Info()
+
+	if err != nil {
+		return err
+	}
+
+	id, _ = info.ID()
+	stringId := strconv.Itoa(int(id))
+	if err = os.Setenv("Authorization", stringId); err != nil {
+		return err
+	}
+
+	info, _ = sc.XdpAuth.KmeshXDPAuthMaps.OuterMap.Info()
+	id, _ = info.ID()
+	stringId = strconv.Itoa(int(id))
+	if err = os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
+		return err
+	}
+
+	info, _ = sc.XdpAuth.KmeshXDPAuthMaps.InnerMap.Info()
+	id, _ = info.ID()
+	stringId = strconv.Itoa(int(id))
+	if err = os.Setenv("INNER_MAP_ID", stringId); err != nil {
+		return err
+	}
 	return nil
 }

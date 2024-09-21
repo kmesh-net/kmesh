@@ -28,7 +28,7 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("utils")
+var log = logger.NewLoggerScope("utils")
 
 func ExecuteWithRedirect(cmd string, args []string, stdout io.Writer) error {
 	var err error
@@ -41,7 +41,6 @@ func ExecuteWithRedirect(cmd string, args []string, stdout io.Writer) error {
 	err = executeCore(cmd, args, stdout, stderr)
 	if len(stderr.String()) != 0 {
 		err = fmt.Errorf("command error output: %s", stderr.String())
-		log.Error(err)
 		return err
 	}
 	return err
@@ -59,7 +58,6 @@ func Execute(cmd string, args []string) error {
 
 	if len(stderr.String()) != 0 {
 		err = fmt.Errorf("command error output: %s", stderr.String())
-		log.Error(err)
 		return err
 	}
 	return err

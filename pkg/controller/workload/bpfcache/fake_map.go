@@ -21,11 +21,13 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/rlimit"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 )
 
 func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
+	_ = rlimit.RemoveMemlock()
 	backEndMap, err := ebpf.NewMap(&ebpf.MapSpec{
 		Name:       "kmesh_backend",
 		Type:       ebpf.Hash,
@@ -70,6 +72,16 @@ func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
 		t.Fatalf("create serviceMap map failed, err is %v", err)
 	}
 
+	wlPolicyMap, err := ebpf.NewMap(&ebpf.MapSpec{
+		Name:       "workload_policy",
+		Type:       ebpf.Hash,
+		KeySize:    uint32(unsafe.Sizeof(WorkloadPolicyKey{})),
+		ValueSize:  uint32(unsafe.Sizeof(WorkloadPolicyValue{})),
+		MaxEntries: 512,
+	})
+	if err != nil {
+		t.Fatalf("create wlPolicyMap map failed, err is %v", err)
+	}
 	// TODO: add other maps when needed
 
 	return bpf2go.KmeshCgroupSockWorkloadMaps{
@@ -77,6 +89,7 @@ func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
 		KmeshEndpoint: endpointMap,
 		KmeshFrontend: frontendMap,
 		KmeshService:  serviceMap,
+		MapOfWlPolicy: wlPolicyMap,
 	}
 }
 
@@ -85,4 +98,5 @@ func CleanupFakeWorkloadMap(maps bpf2go.KmeshCgroupSockWorkloadMaps) {
 	maps.KmeshEndpoint.Close()
 	maps.KmeshFrontend.Close()
 	maps.KmeshService.Close()
+	maps.MapOfWlPolicy.Close()
 }

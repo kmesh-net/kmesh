@@ -33,9 +33,8 @@ import (
 )
 
 const (
-	logSubsys   = "subsys"
-	mapName     = "kmesh_events"
-	MAX_MSG_LEN = 255
+	logSubsys = "subsys"
+	mapName   = "kmesh_events"
 )
 
 type LogEvent struct {
@@ -44,8 +43,8 @@ type LogEvent struct {
 }
 
 var (
-	defaultLogger  = InitializeDefaultLogger(false)
-	fileOnlyLogger = InitializeDefaultLogger(true)
+	defaultLogger  = initDefaultLogger()
+	fileOnlyLogger = initFileLogger()
 
 	defaultLogLevel = logrus.InfoLevel
 	defaultLogFile  = "/var/run/kmesh/daemon.log"
@@ -60,22 +59,6 @@ var (
 		"fileOnly": fileOnlyLogger,
 	}
 )
-
-func PrintLogs() error {
-	logsPath := defaultLogFile
-	file, err := os.Open(logsPath)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	// Redirct file contents to STDOUT
-	_, err = io.Copy(os.Stdout, file)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func SetLoggerLevel(loggerName string, level logrus.Level) error {
 	logger, exists := loggerMap[loggerName]
@@ -102,12 +85,17 @@ func GetLoggerNames() []string {
 	return names
 }
 
-// InitializeDefaultLogger return a initialized logger
-func InitializeDefaultLogger(onlyFile bool) *logrus.Logger {
+// initDefaultLogger return a default logger
+func initDefaultLogger() *logrus.Logger {
 	logger := logrus.New()
 	logger.SetFormatter(defaultLogFormat)
 	logger.SetLevel(defaultLogLevel)
+	return logger
+}
 
+// initFileLogger return a file only logger
+func initFileLogger() *logrus.Logger {
+	logger := initDefaultLogger()
 	path, _ := filepath.Split(defaultLogFile)
 	err := os.MkdirAll(path, 0o700)
 	if err != nil {
@@ -121,29 +109,21 @@ func InitializeDefaultLogger(onlyFile bool) *logrus.Logger {
 		MaxAge:     28,    //days
 		Compress:   false, // disabled by default
 	}
-
-	if onlyFile {
-		logger.SetOutput(io.Writer(logfile))
-	} else {
-		logger.SetOutput(io.MultiWriter(os.Stdout, logfile))
-	}
-
+	logger.SetOutput(io.Writer(logfile))
 	return logger
 }
 
-// NewLoggerField allocates a new log entry and adds a field to it.
-func NewLoggerField(pkgSubsys string) *logrus.Entry {
-	return defaultLogger.WithField(logSubsys, pkgSubsys)
+// NewLoggerScope allocates a new log entry for a specific scope.
+func NewLoggerScope(scope string) *logrus.Entry {
+	return defaultLogger.WithField(logSubsys, scope)
 }
 
-// NewLoggerFieldFileOnly don't output log to stdout
-func NewLoggerFieldWithoutStdout(pkgSubsys string) *logrus.Entry {
+// NewFileLogger don't output log to stdout
+func NewFileLogger(pkgSubsys string) *logrus.Entry {
 	return fileOnlyLogger.WithField(logSubsys, pkgSubsys)
 }
 
-/*
-print bpf log to daemon process.
-*/
+// print bpf log in daemon process
 func StartRingBufReader(ctx context.Context, mode string, bpfFsPath string) error {
 	var path string
 
@@ -166,7 +146,7 @@ func StartRingBufReader(ctx context.Context, mode string, bpfFsPath string) erro
 }
 
 func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {
-	log := NewLoggerField("ebpf")
+	log := NewLoggerScope("ebpf")
 	events, err := ringbuf.NewReader(rbMap)
 	if err != nil {
 		log.Errorf("ringbuf new reader from rb map failed:%v", err)

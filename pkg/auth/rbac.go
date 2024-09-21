@@ -31,24 +31,23 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 const (
 	SPIFFE_PREFIX = "spiffe://"
-	MSG_TYPE_IPV4 = uint32(0)
-	MSG_TYPE_IPV6 = uint32(1)
 	// IPV4_TUPLE_LENGTH is the fixed length of IPv4 source/destination address(4 bytes each) and port(2 bytes each)
 	IPV4_TUPLE_LENGTH = int(unsafe.Sizeof(bpfSockTupleV4{}))
 	// TUPLE_LEN is the fixed length of 4-tuple(source/dest IP/port) in a record from map of tuple
 	TUPLE_LEN = int(unsafe.Sizeof(bpfSockTupleV6{}))
 	// MSG_LEN is the fixed length of one record we retrieve from map of tuple
-	MSG_LEN = TUPLE_LEN + int(unsafe.Sizeof(MSG_TYPE_IPV4))
+	MSG_LEN = TUPLE_LEN + int(unsafe.Sizeof(constants.MSG_TYPE_IPV4))
 )
 
 var (
-	log = logger.NewLoggerField("pkg/auth")
+	log = logger.NewLoggerScope("auth")
 )
 
 type Rbac struct {
@@ -134,9 +133,9 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 			tupleData := rec.RawSample[unsafe.Sizeof(msgType):]
 			buf := bytes.NewBuffer(tupleData)
 			switch msgType {
-			case MSG_TYPE_IPV4:
+			case constants.MSG_TYPE_IPV4:
 				conn, err = r.buildConnV4(buf)
-			case MSG_TYPE_IPV6:
+			case constants.MSG_TYPE_IPV6:
 				conn, err = r.buildConnV6(buf)
 			default:
 				log.Error("invalid msg type: ", msgType)
@@ -180,6 +179,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	dstWorkload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	// If no workload found, deny
 	if dstWorkload == nil {
+		log.Warnf("Auth denied for connection: %v because destination workload not found", conn.dstIp)
 		return false
 	}
 
@@ -189,6 +189,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	// 1. If there is ANY deny policy, deny the request
 	for _, denyPolicy := range denyPolicies {
 		if matches(conn, denyPolicy) {
+			log.Infof("Auth denied for connection: %+v because authorization policy", conn)
 			return false
 		}
 	}
@@ -480,7 +481,10 @@ func (r *Rbac) buildConnV6(buf *bytes.Buffer) (rbacConnection, error) {
 		conn.dstIp = binary.BigEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[i])
 	}
 	conn.dstPort = uint32(tupleV6.DstPort)
+	// conn.dstIp = restoreIPv4(conn.dstIp)
+	// conn.srcIp = restoreIPv4(conn.srcIp)
 	conn.srcIdentity = r.getIdentityByIp(conn.srcIp)
+
 	return conn, nil
 }
 
@@ -496,13 +500,13 @@ func isEmptyMatch(m *security.Match) bool {
 		m.GetNamespaces() == nil && m.GetNotNamespaces() == nil
 }
 
-// todo : get identity form tls connection
+// todo : get identity from tls connection
 func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 	var networkAddress cache.NetworkAddress
 	networkAddress.Address, _ = netip.AddrFromSlice(ip)
 	workload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	if workload == nil {
-		log.Warnf("get workload from ip %v FAILED", ip)
+		log.Debugf("cannot find workload %v", networkAddress.Address.String())
 		return Identity{}
 	}
 	return Identity{

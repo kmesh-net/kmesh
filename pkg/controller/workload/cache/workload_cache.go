@@ -20,15 +20,13 @@ import (
 	"net/netip"
 	"sync"
 
-	"google.golang.org/protobuf/proto"
-
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
 type WorkloadCache interface {
 	GetWorkloadByUid(uid string) *workloadapi.Workload
 	GetWorkloadByAddr(networkAddress NetworkAddress) *workloadapi.Workload
-	AddWorkload(workload *workloadapi.Workload)
+	AddOrUpdateWorkload(workload *workloadapi.Workload)
 	DeleteWorkload(uid string)
 	List() []*workloadapi.Workload
 }
@@ -70,33 +68,24 @@ func composeNetworkAddress(network string, addr netip.Addr) NetworkAddress {
 	}
 }
 
-func (w *cache) AddWorkload(workload *workloadapi.Workload) {
+func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) {
 	if workload == nil {
 		return
 	}
-	uid := workload.Uid
 
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	workloadByUid, exist := w.byUid[uid]
-	if exist {
-		if proto.Equal(workload, workloadByUid) {
-			return
-		}
-		// remove same uid but old address workload, avoid leak worklaod by address.
-		for _, ip := range workloadByUid.Addresses {
-			addr, _ := netip.AddrFromSlice(ip)
-			networkAddress := composeNetworkAddress(workloadByUid.Network, addr)
-			delete(w.byAddr, networkAddress)
-		}
-	}
+	w.byUid[workload.Uid] = workload
 
-	w.byUid[uid] = workload
-	for _, ip := range workload.Addresses {
-		addr, _ := netip.AddrFromSlice(ip)
-		networkAddress := composeNetworkAddress(workload.Network, addr)
-		w.byAddr[networkAddress] = workload
+	// We should exclude the workloads that use host network mode
+	// Since they are using the host ip, we can not use address to identify them
+	if workload.NetworkMode != workloadapi.NetworkMode_HOST_NETWORK {
+		for _, ip := range workload.Addresses {
+			addr, _ := netip.AddrFromSlice(ip)
+			networkAddress := composeNetworkAddress(workload.Network, addr)
+			w.byAddr[networkAddress] = workload
+		}
 	}
 }
 

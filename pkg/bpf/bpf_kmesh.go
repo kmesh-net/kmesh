@@ -56,14 +56,12 @@ type BpfKmesh struct {
 func (sc *BpfTracePoint) NewBpf(cfg *options.BpfConfig) {
 	sc.Info.MapPath = cfg.BpfFsPath
 	sc.Info.BpfFsPath = cfg.BpfFsPath
-	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 }
 
 func (sc *BpfSockOps) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh/map/"
 	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh/sockops/"
-	sc.Info.BpfVerifyLogSize = cfg.BpfVerifyLogSize
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 
 	if err := os.MkdirAll(sc.Info.MapPath,
@@ -104,7 +102,6 @@ func (sc *BpfTracePoint) loadKmeshTracePointObjects() (*ebpf.CollectionSpec, err
 		spec *ebpf.CollectionSpec
 		opts ebpf.CollectionOptions
 	)
-	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
 	spec, err = bpf2go.LoadKmeshTracePoint()
 	if err != nil || spec == nil {
@@ -137,8 +134,8 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 		spec *ebpf.CollectionSpec
 		opts ebpf.CollectionOptions
 	)
+
 	opts.Maps.PinPath = sc.Info.MapPath
-	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
 	spec, err = bpf2go.LoadKmeshSockops()
 
@@ -166,9 +163,8 @@ func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 		spec *ebpf.CollectionSpec
 		opts ebpf.CollectionOptions
 	)
-	opts.Maps.PinPath = sc.Info.MapPath
-	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
 
+	opts.Maps.PinPath = sc.Info.MapPath
 	err = sc.KmeshTailCallProg.Update(
 		uint32(KMESH_TAIL_CALL_FILTER_CHAIN),
 		uint32(sc.FilterChainManager.FD()),
@@ -195,8 +191,6 @@ func (sc *BpfSockOps) loadRouteConfigObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
-
 	err = sc.KmeshTailCallProg.Update(
 		uint32(KMESH_TAIL_CALL_ROUTER_CONFIG),
 		uint32(sc.RouteConfigManager.FD()),
@@ -215,8 +209,6 @@ func (sc *BpfSockOps) loadKmeshClusterObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	opts.Programs.LogSize = sc.Info.BpfVerifyLogSize
-
 	err = sc.KmeshTailCallProg.Update(
 		uint32(KMESH_TAIL_CALL_CLUSTER),
 		uint32(sc.ClusterManager.FD()),

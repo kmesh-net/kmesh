@@ -23,6 +23,10 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
+	"strings"
+	"sync"
+	"time"
+	"unsafe"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/ringbuf"
@@ -32,36 +36,117 @@ import (
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 )
 
+const (
+	TCP_ESTABLISHED = uint32(1)
+	TCP_CLOSTED     = uint32(7)
+
+	connection_success = uint32(1)
+
+	MSG_LEN = 112
+
+	metricFlushInterval = 5 * time.Second
+)
+
+var osStartTime time.Time
+
 type MetricController struct {
-	workloadCache cache.WorkloadCache
+	enableAccesslog     bool
+	workloadCache       cache.WorkloadCache
+	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
+	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
+	mutex               sync.RWMutex
 }
 
-type metricKey struct {
-	SrcIp [4]uint32
-	DstIp [4]uint32
+type workloadMetricInfo struct {
+	WorkloadConnOpened        float64
+	WorkloadConnClosed        float64
+	WorkloadConnSentBytes     float64
+	WorkloadConnReceivedBytes float64
+	WorkloadConnFailed        float64
 }
 
-type metricValue struct {
-	Direction        uint32
-	ConnectionOpen   uint32
-	ConnectionClose  uint32
-	ConnectionFailed uint32
-	SentBytes        uint32
-	ReceivedBytes    uint32
+type serviceMetricInfo struct {
+	ServiceConnOpened        float64
+	ServiceConnClosed        float64
+	ServiceConnSentBytes     float64
+	ServiceConnReceivedBytes float64
+	ServiceConnFailed        float64
+}
+
+type connectionDataV4 struct {
+	SrcAddr        uint32
+	DstAddr        uint32
+	SrcPort        uint16
+	DstPort        uint16
+	RedundantData  [6]uint32
+	SentBytes      uint32
+	ReceivedBytes  uint32
+	ConnectSuccess uint32
+	Direction      uint32
+	Duration       uint64
+	CloseTime      uint64
+	State          uint32
+}
+
+type connectionDataV6 struct {
+	SrcAddr        [4]uint32
+	DstAddr        [4]uint32
+	SrcPort        uint16
+	DstPort        uint16
+	SentBytes      uint32
+	ReceivedBytes  uint32
+	ConnectSuccess uint32
+	Direction      uint32
+	Duration       uint64
+	CloseTime      uint64
+	State          uint32
 }
 
 type requestMetric struct {
-	src              [4]uint32
-	dst              [4]uint32
-	connectionOpened uint32
-	connectionClosed uint32
-	receivedBytes    uint32
-	sentBytes        uint32
-	success          bool
+	src           [4]uint32
+	dst           [4]uint32
+	srcPort       uint16
+	dstPort       uint16
+	direction     uint32
+	receivedBytes uint32
+	sentBytes     uint32
+	state         uint32
+	success       uint32
+	duration      uint64
+	closeTime     uint64
 }
 
-type commonTrafficLabels struct {
-	direction string
+type workloadMetricLabels struct {
+	reporter string
+
+	sourceWorkload          string
+	sourceCanonicalService  string
+	sourceCanonicalRevision string
+	sourceWorkloadNamespace string
+	sourcePrincipal         string
+	sourceApp               string
+	sourceVersion           string
+	sourceCluster           string
+
+	destinationPodAddress        string
+	destinationPodNamespace      string
+	destinationPodName           string
+	destinationWorkload          string
+	destinationCanonicalService  string
+	destinationCanonicalRevision string
+	destinationWorkloadNamespace string
+	destinationPrincipal         string
+	destinationApp               string
+	destinationVersion           string
+	destinationCluster           string
+
+	requestProtocol          string
+	responseFlags            string
+	connectionSecurityPolicy string
+}
+
+type serviceMetricLabels struct {
+	reporter string
 
 	sourceWorkload          string
 	sourceCanonicalService  string
@@ -89,18 +174,27 @@ type commonTrafficLabels struct {
 	connectionSecurityPolicy string
 }
 
-func NewMetric(workloadCache cache.WorkloadCache) *MetricController {
+func NewMetric(workloadCache cache.WorkloadCache, enableAccesslog bool) *MetricController {
 	return &MetricController{
-		workloadCache: workloadCache,
+		enableAccesslog:     enableAccesslog,
+		workloadCache:       workloadCache,
+		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
+		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
 }
 
-func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetric *ebpf.Map) {
+func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	if m == nil {
 		return
 	}
 
-	reader, err := ringbuf.NewReader(mapOfMetricNotify)
+	var err error
+	osStartTime, err = getOSBootTime()
+	if err != nil {
+		log.Errorf("get latest os boot time for accesslog failed: %v", err)
+	}
+
+	reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
 		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
 		return
@@ -113,60 +207,118 @@ func (m *MetricController) Run(ctx context.Context, mapOfMetricNotify, mapOfMetr
 
 	// Register metrics to Prometheus and start Prometheus server
 	go RunPrometheusClient(ctx)
-
-	rec := ringbuf.Record{}
-	key := metricKey{}
-	value := metricValue{}
-	data := requestMetric{}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				// Metrics updated every 5 seconds
+				time.Sleep(metricFlushInterval)
+				m.updatePrometheusMetric()
+			}
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			data := requestMetric{}
+			rec := ringbuf.Record{}
 			if err := reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
 			}
-
-			buf := bytes.NewBuffer(rec.RawSample)
-			if err := binary.Read(buf, binary.LittleEndian, &key); err != nil {
-				log.Error("get metric key FAILED, err:", err)
+			if len(rec.RawSample) != MSG_LEN {
+				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), MSG_LEN)
 				continue
 			}
-
-			if err := mapOfMetric.Lookup(&key, &value); err != nil {
-				log.Error("get bpf map of metric FAILED, err:", err)
+			connectType := binary.LittleEndian.Uint32(rec.RawSample)
+			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
+			buf := bytes.NewBuffer(originInfo)
+			switch connectType {
+			case constants.MSG_TYPE_IPV4:
+				data, err = buildV4Metric(buf)
+			case constants.MSG_TYPE_IPV6:
+				data, err = buildV6Metric(buf)
+			default:
+				log.Errorf("get connection info failed: %v", err)
 				continue
 			}
+			workloadLabels := m.buildWorkloadMetric(&data)
+			serviceLabels, accesslog := m.buildServiceMetric(&data)
 
-			data.src = key.SrcIp
-			data.dst = key.DstIp
-			data.connectionClosed = value.ConnectionClose
-			data.connectionOpened = value.ConnectionOpen
-			data.sentBytes = value.SentBytes
-			data.receivedBytes = value.ReceivedBytes
-			data.success = true
-
-			commonTrafficLabels, err := m.buildMetric(&data)
-			if err != nil {
-				log.Warnf("reporter records error")
+			workloadLabels.reporter = "-"
+			serviceLabels.reporter = "-"
+			if data.direction == constants.INBOUND {
+				workloadLabels.reporter = "destination"
+				serviceLabels.reporter = "destination"
+				accesslog.direction = "INBOUND"
 			}
-
-			commonTrafficLabels.direction = "-"
-			if value.Direction == constants.INBOUND {
-				commonTrafficLabels.direction = "INBOUND"
+			if data.direction == constants.OUTBOUND {
+				workloadLabels.reporter = "source"
+				serviceLabels.reporter = "source"
+				accesslog.direction = "OUTBOUND"
 			}
-			if value.Direction == constants.OUTBOUND {
-				commonTrafficLabels.direction = "OUTBOUND"
+			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" && m.enableAccesslog {
+				OutputAccesslog(data, accesslog)
 			}
-
-			buildMetricsToPrometheus(data, commonTrafficLabels)
+			m.mutex.Lock()
+			m.updateWorkloadMetricCache(data, workloadLabels)
+			m.updateServiceMetricCache(data, serviceLabels)
+			m.mutex.Unlock()
 		}
 	}
 }
 
-func (m *MetricController) buildMetric(data *requestMetric) (commonTrafficLabels, error) {
+func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
+	data := requestMetric{}
+	connectData := connectionDataV4{}
+	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
+		return data, err
+	}
+
+	data.src[0] = connectData.SrcAddr
+	data.dst[0] = connectData.DstAddr
+	data.direction = connectData.Direction
+	data.dstPort = connectData.DstPort
+	data.srcPort = connectData.SrcPort
+
+	data.sentBytes = connectData.SentBytes
+	data.receivedBytes = connectData.ReceivedBytes
+	data.state = connectData.State
+	data.success = connectData.ConnectSuccess
+	data.duration = connectData.Duration
+	data.closeTime = connectData.CloseTime
+
+	return data, nil
+}
+
+func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
+	data := requestMetric{}
+	connectData := connectionDataV6{}
+	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
+		return data, err
+	}
+	data.src = connectData.SrcAddr
+	data.dst = connectData.DstAddr
+	data.direction = connectData.Direction
+	data.dstPort = connectData.DstPort
+	data.srcPort = connectData.SrcPort
+
+	data.sentBytes = connectData.SentBytes
+	data.receivedBytes = connectData.ReceivedBytes
+	data.state = connectData.State
+	data.success = connectData.ConnectSuccess
+	data.duration = connectData.Duration
+	data.closeTime = connectData.CloseTime
+
+	return data, nil
+}
+
+func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetricLabels {
 	var dstAddr, srcAddr []byte
 	for i := range data.dst {
 		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
@@ -176,14 +328,34 @@ func (m *MetricController) buildMetric(data *requestMetric) (commonTrafficLabels
 	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
 	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
-	trafficLabels := buildMetricFromWorkload(dstWorkload, srcWorkload)
-	trafficLabels.destinationService = dstIP
-
+	trafficLabels := buildWorkloadMetric(dstWorkload, srcWorkload)
+	trafficLabels.destinationPodAddress = dstIP
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	return trafficLabels, nil
+	return trafficLabels
+}
+
+func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {
+	var dstAddr, srcAddr []byte
+	for i := range data.dst {
+		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
+		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.src[i])
+	}
+
+	dstWorkload, dstIp := m.getWorkloadByAddress(restoreIPv4(dstAddr))
+	srcWorkload, srcIp := m.getWorkloadByAddress(restoreIPv4(srcAddr))
+
+	trafficLabels, accesslog := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
+	trafficLabels.requestProtocol = "tcp"
+	trafficLabels.responseFlags = "-"
+	trafficLabels.connectionSecurityPolicy = "mutual_tls"
+
+	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
+	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)
+
+	return trafficLabels, accesslog
 }
 
 func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Workload, string) {
@@ -191,41 +363,113 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
 	workload := m.workloadCache.GetWorkloadByAddr(networkAddr)
 	if workload == nil {
-		log.Warnf("get workload from ip %v FAILED", address)
-		return nil, ""
+		return nil, networkAddr.Address.String()
 	}
 	return workload, networkAddr.Address.String()
 }
 
-func buildMetricFromWorkload(dstWorkload, srcWorkload *workloadapi.Workload) commonTrafficLabels {
-	if dstWorkload == nil || srcWorkload == nil {
-		return commonTrafficLabels{}
+func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloadMetricLabels {
+	trafficLabels := workloadMetricLabels{}
+
+	if dstWorkload != nil {
+		trafficLabels.destinationPodNamespace = dstWorkload.Namespace
+		trafficLabels.destinationPodName = dstWorkload.Name
+		trafficLabels.destinationWorkload = dstWorkload.WorkloadName
+		trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
+		trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
+		trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
+		trafficLabels.destinationApp = dstWorkload.CanonicalName
+		trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
+		trafficLabels.destinationCluster = dstWorkload.ClusterId
+		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
 	}
 
-	trafficLabels := commonTrafficLabels{}
-
-	trafficLabels.destinationServiceNamespace = dstWorkload.Namespace
-	trafficLabels.destinationServiceName = dstWorkload.Name
-	trafficLabels.destinationWorkload = dstWorkload.WorkloadName
-	trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
-	trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
-	trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
-	trafficLabels.destinationApp = dstWorkload.CanonicalName
-	trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
-	trafficLabels.destinationCluster = dstWorkload.ClusterId
-
-	trafficLabels.sourceWorkload = srcWorkload.WorkloadName
-	trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
-	trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
-	trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
-	trafficLabels.sourceApp = srcWorkload.CanonicalName
-	trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
-	trafficLabels.sourceCluster = srcWorkload.ClusterId
-
-	trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
-	trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+	if srcWorkload != nil {
+		trafficLabels.sourceWorkload = srcWorkload.WorkloadName
+		trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
+		trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
+		trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
+		trafficLabels.sourceApp = srcWorkload.CanonicalName
+		trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
+		trafficLabels.sourceCluster = srcWorkload.ClusterId
+		trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+	}
 
 	return trafficLabels
+}
+
+func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) (serviceMetricLabels, logInfo) {
+	trafficLabels := serviceMetricLabels{}
+	accesslog := logInfo{
+		direction:            "-",
+		sourceAddress:        "-",
+		sourceWorkload:       "-",
+		sourceNamespace:      "-",
+		destinationAddress:   "-",
+		destinationService:   "-",
+		destinationWorkload:  "-",
+		destinationNamespace: "-",
+	}
+
+	if dstWorkload != nil {
+		namespacedhost := ""
+		for k, portList := range dstWorkload.Services {
+			for _, port := range portList.Ports {
+				if port.TargetPort == uint32(dstPort) {
+					namespacedhost = k
+					break
+				}
+			}
+			if namespacedhost != "" {
+				break
+			}
+		}
+
+		svcHost := ""
+		svcNamespace := ""
+		if len(strings.Split(namespacedhost, "/")) == 2 {
+			svcNamespace = strings.Split(namespacedhost, "/")[0]
+			svcHost = strings.Split(namespacedhost, "/")[1]
+		}
+
+		trafficLabels.destinationService = svcHost
+		trafficLabels.destinationServiceNamespace = svcNamespace
+		trafficLabels.destinationServiceName = svcHost
+
+		trafficLabels.destinationWorkload = dstWorkload.WorkloadName
+		trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
+		trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
+		trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
+		trafficLabels.destinationApp = dstWorkload.CanonicalName
+		trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
+		trafficLabels.destinationCluster = dstWorkload.ClusterId
+		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
+		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
+
+		accesslog.destinationWorkload = dstWorkload.Name
+		if svcNamespace != "" {
+			accesslog.destinationNamespace = svcNamespace
+		}
+		if svcHost != "" {
+			accesslog.destinationService = svcHost
+		}
+	}
+
+	if srcWorkload != nil {
+		trafficLabels.sourceWorkload = srcWorkload.WorkloadName
+		trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
+		trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
+		trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
+		trafficLabels.sourceApp = srcWorkload.CanonicalName
+		trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
+		trafficLabels.sourceCluster = srcWorkload.ClusterId
+		trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+
+		accesslog.sourceNamespace = srcWorkload.Namespace
+		accesslog.sourceWorkload = srcWorkload.Name
+	}
+
+	return trafficLabels, accesslog
 }
 
 func buildPrincipal(workload *workloadapi.Workload) string {
@@ -235,29 +479,126 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 	return "-"
 }
 
-func buildMetricsToPrometheus(data requestMetric, labels commonTrafficLabels) {
-	commonLabels := commonTrafficLabels2map(&labels)
-	tcpConnectionOpened.With(commonLabels).Set(float64(data.connectionOpened))
-	tcpConnectionClosed.With(commonLabels).Set(float64(data.connectionClosed))
-	tcpReceivedBytes.With(commonLabels).Set(float64(data.receivedBytes))
-	tcpSentBytes.With(commonLabels).Set(float64(data.sentBytes))
+func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels) {
+	v, ok := m.workloadMetricCache[labels]
+	if ok {
+		if data.state == TCP_ESTABLISHED {
+			v.WorkloadConnOpened = v.WorkloadConnOpened + 1
+		}
+		if data.state == TCP_CLOSTED {
+			v.WorkloadConnClosed = v.WorkloadConnClosed + 1
+		}
+		if data.success != connection_success {
+			v.WorkloadConnFailed = v.WorkloadConnFailed + 1
+		}
+		v.WorkloadConnReceivedBytes = v.WorkloadConnReceivedBytes + float64(data.receivedBytes)
+		v.WorkloadConnSentBytes = v.WorkloadConnSentBytes + float64(data.sentBytes)
+	} else {
+		newWorkloadMetricInfo := workloadMetricInfo{}
+		if data.state == TCP_ESTABLISHED {
+			newWorkloadMetricInfo.WorkloadConnOpened = 1
+		}
+		if data.state == TCP_CLOSTED {
+			newWorkloadMetricInfo.WorkloadConnClosed = 1
+		}
+		if data.success != connection_success {
+			newWorkloadMetricInfo.WorkloadConnFailed = 1
+		}
+		newWorkloadMetricInfo.WorkloadConnReceivedBytes = float64(data.receivedBytes)
+		newWorkloadMetricInfo.WorkloadConnSentBytes = float64(data.sentBytes)
+		m.workloadMetricCache[labels] = &newWorkloadMetricInfo
+	}
 }
 
-func commonTrafficLabels2map(labels *commonTrafficLabels) map[string]string {
-	trafficLabelsMap := make(map[string]string)
-
-	val := reflect.ValueOf(labels).Elem()
-	num := val.NumField()
-	for i := 0; i < num; i++ {
-		fieldInfo := val.Type().Field(i)
-		if val.Field(i).String() == "" {
-			trafficLabelsMap[labelsMap[fieldInfo.Name]] = "-"
-		} else {
-			trafficLabelsMap[labelsMap[fieldInfo.Name]] = val.Field(i).String()
+func (m *MetricController) updateServiceMetricCache(data requestMetric, labels serviceMetricLabels) {
+	v, ok := m.serviceMetricCache[labels]
+	if ok {
+		if data.state == TCP_ESTABLISHED {
+			v.ServiceConnOpened = v.ServiceConnOpened + 1
 		}
+		if data.state == TCP_CLOSTED {
+			v.ServiceConnClosed = v.ServiceConnClosed + 1
+		}
+		if data.success != connection_success {
+			v.ServiceConnFailed = v.ServiceConnFailed + 1
+		}
+		v.ServiceConnReceivedBytes = v.ServiceConnReceivedBytes + float64(data.receivedBytes)
+		v.ServiceConnSentBytes = v.ServiceConnSentBytes + float64(data.sentBytes)
+	} else {
+		newServiceMetricInfo := serviceMetricInfo{}
+		if data.state == TCP_ESTABLISHED {
+			newServiceMetricInfo.ServiceConnOpened = 1
+		}
+		if data.state == TCP_CLOSTED {
+			newServiceMetricInfo.ServiceConnClosed = 1
+		}
+		if data.success != connection_success {
+			newServiceMetricInfo.ServiceConnFailed = 1
+		}
+		newServiceMetricInfo.ServiceConnReceivedBytes = float64(data.receivedBytes)
+		newServiceMetricInfo.ServiceConnSentBytes = float64(data.sentBytes)
+		m.serviceMetricCache[labels] = &newServiceMetricInfo
+	}
+}
+
+func (m *MetricController) updatePrometheusMetric() {
+	m.mutex.Lock()
+	workloadInfoCache := m.workloadMetricCache
+	serviceInfoCache := m.serviceMetricCache
+	m.workloadMetricCache = map[workloadMetricLabels]*workloadMetricInfo{}
+	m.serviceMetricCache = map[serviceMetricLabels]*serviceMetricInfo{}
+	m.mutex.Unlock()
+
+	for k, v := range workloadInfoCache {
+		workloadLabels := struct2map(k)
+		tcpConnectionOpenedInWorkload.With(workloadLabels).Add(v.WorkloadConnOpened)
+		tcpConnectionClosedInWorkload.With(workloadLabels).Add(v.WorkloadConnClosed)
+		tcpSentBytesInWorkload.With(workloadLabels).Add(v.WorkloadConnSentBytes)
+		tcpReceivedBytesInWorkload.With(workloadLabels).Add(v.WorkloadConnReceivedBytes)
+		tcpConnectionFailedInWorkload.With(workloadLabels).Add(v.WorkloadConnFailed)
 	}
 
-	return trafficLabelsMap
+	for k, v := range serviceInfoCache {
+		serviceLabels := struct2map(k)
+		tcpConnectionOpenedInService.With(serviceLabels).Add(v.ServiceConnOpened)
+		tcpConnectionClosedInService.With(serviceLabels).Add(v.ServiceConnClosed)
+		tcpConnectionFailedInService.With(serviceLabels).Add(v.ServiceConnFailed)
+		tcpReceivedBytesInService.With(serviceLabels).Add(v.ServiceConnReceivedBytes)
+		tcpSentBytesInService.With(serviceLabels).Add(v.ServiceConnSentBytes)
+	}
+
+	// delete metrics
+	workloadDeleteLength := len(deleteWorkload)
+	serviceDeleteLength := len(deleteService)
+	for i := 0; i < workloadDeleteLength; i++ {
+		deleteWorkloadMetricInPrometheus(deleteWorkload[i])
+	}
+	for i := 0; i < serviceDeleteLength; i++ {
+		deleteServiceMetricInPrometheus(deleteService[i])
+	}
+	deleteWorkload = deleteWorkload[workloadDeleteLength:]
+	deleteService = deleteService[serviceDeleteLength:]
+}
+
+func struct2map(labels interface{}) map[string]string {
+	if reflect.TypeOf(labels).Kind() == reflect.Struct {
+		trafficLabelsMap := make(map[string]string)
+		val := reflect.ValueOf(labels)
+		num := val.NumField()
+		for i := 0; i < num; i++ {
+			fieldInfo := val.Type().Field(i)
+			if val.Field(i).String() == "" {
+				trafficLabelsMap[labelsMap[fieldInfo.Name]] = "-"
+			} else {
+				trafficLabelsMap[labelsMap[fieldInfo.Name]] = val.Field(i).String()
+			}
+		}
+
+		return trafficLabelsMap
+	} else {
+		log.Error("failed to convert struct to map")
+	}
+	return nil
 }
 
 // Converting IPv4 data reported in IPv6 form to IPv4

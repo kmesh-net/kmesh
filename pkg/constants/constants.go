@@ -37,14 +37,16 @@ const (
 	BPF_LOG_INFO  = 2
 	BPF_LOG_DEBUG = 3
 
+	// IP family
+	MSG_TYPE_IPV4 = uint32(0)
+	MSG_TYPE_IPV6 = uint32(1)
+
 	// Ip(0.0.0.2 | ::2) used for control command, e.g. KmeshControl | ByPass
 	ControlCommandIp4 = "0.0.0.2"
 	ControlCommandIp6 = "::2"
 	// Oper code for control command
 	OperEnableControl  = 929
 	OperDisableControl = 930
-	OperEnableBypass   = 931
-	OperDisableByPass  = 932
 
 	// tail call index in tail call prog map
 	TailCallConnect4Index = 0
@@ -52,4 +54,10 @@ const (
 
 	INBOUND  = uint32(1)
 	OUTBOUND = uint32(2)
+
+	Cgroup2Path = "/mnt/kmesh_cgroup2"
+	BpfFsPath   = "/sys/fs/bpf"
+
+	VersionPath         = "/bpf_kmesh/map/"
+	WorkloadVersionPath = "/bpf_kmesh_workload/map/"
 )

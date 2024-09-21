@@ -271,7 +271,7 @@ static int get_map_fd_info(unsigned int id, int *map_fd, struct bpf_map_info *in
 static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 {
     int key = *(int *)outter_key;
-    if (key < 0 || key >= MAX_OUTTER_MAP_ENTRIES)
+    if (key <= 0 || key >= MAX_OUTTER_MAP_ENTRIES)
         return -1;
 
     if (g_inner_map_mng.inner_maps[key].used) {
@@ -293,7 +293,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
         return -1;
     }
 
-    for (i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
+    for (i = 1; i <= g_inner_map_mng.max_alloced_idx; i++) {
         if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].alloced) {
             g_inner_map_mng.inner_maps[i].used = 1;
             g_inner_map_mng.used_cnt++;
@@ -1283,8 +1283,8 @@ void outter_map_insert(struct task_contex *ctx)
     int i, end, idx, ret = 0;
     pthread_t tid = pthread_self();
 
-    i = ctx->task_id * TASK_SIZE;
-    end = (i + TASK_SIZE);
+    i = (ctx->task_id * TASK_SIZE) ? (ctx->task_id * TASK_SIZE) : 1;
+    end = ((i + TASK_SIZE) < MAX_OUTTER_MAP_ENTRIES) ? (i + TASK_SIZE) : MAX_OUTTER_MAP_ENTRIES;
     for (; i < end; i++) {
         idx = g_inner_map_mng.elastic_slots[i];
         if (!g_inner_map_mng.inner_maps[idx].map_fd) {
@@ -1449,7 +1449,7 @@ int inner_map_batch_create(struct bpf_map_info *inner_info)
     int i, fd;
 
     collect_outter_map_scaleup_slots();
-    for (i = 0; i < OUTTER_MAP_SCALEUP_STEP; i++) {
+    for (i = 1; i < OUTTER_MAP_SCALEUP_STEP; i++) {
         fd = inner_map_create(inner_info);
         if (fd < 0)
             break;
@@ -1482,7 +1482,7 @@ void deserial_uninit(bool persist)
     if (persist)
         inner_map_mng_persist();
 
-    for (int i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
+    for (int i = 1; i <= g_inner_map_mng.max_alloced_idx; i++) {
         g_inner_map_mng.inner_maps[i].alloced = 0;
         g_inner_map_mng.inner_maps[i].used = 0;
         if (g_inner_map_mng.inner_maps[i].map_fd)

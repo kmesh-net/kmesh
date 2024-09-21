@@ -45,7 +45,7 @@ const (
 )
 
 var (
-	log    = logger.NewLoggerField("controller/config")
+	log    = logger.NewLoggerScope("controller/config")
 	config *XdsConfig
 )
 

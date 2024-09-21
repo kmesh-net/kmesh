@@ -31,7 +31,10 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
+	"kmesh.net/kmesh/pkg/utils/test"
 )
 
 const (
@@ -1966,7 +1969,7 @@ func TestRbac_doRbac(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			workloadCache := cache.NewWorkloadCache()
-			workloadCache.AddWorkload(tt.args.workload)
+			workloadCache.AddOrUpdateWorkload(tt.args.workload)
 			rbac := &Rbac{
 				policyStore:   tt.fields.policyStore,
 				workloadCache: workloadCache,
@@ -1979,6 +1982,14 @@ func TestRbac_doRbac(t *testing.T) {
 }
 
 func Test_handleAuthorizationTypeResponse(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        "workload",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, _ := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+
 	policy1 := &security.Authorization{
 		Name:      "p1",
 		Namespace: "test",
@@ -2023,7 +2034,7 @@ func genRingbuf(t *testing.T, msgType uint32, msgSize int, flags int32) (*ebpf.P
 
 	var msgData []uint64
 	switch msgType {
-	case MSG_TYPE_IPV4:
+	case constants.MSG_TYPE_IPV4:
 		msgData = []uint64{
 			0x00000000C0A87801, // msgType = 0, srcIP = 192.168.120.1
 			0xC0A87A03C26C1F90, // dstIP = 192.168.122.3, srcPort = 27842, dstPort = 8080
@@ -2032,7 +2043,7 @@ func genRingbuf(t *testing.T, msgType uint32, msgSize int, flags int32) (*ebpf.P
 			0,
 			0,
 		}
-	case MSG_TYPE_IPV6:
+	case constants.MSG_TYPE_IPV6:
 		msgData = []uint64{
 			0x0100000000000001, // msgType = 1, srcIP = fd80::1
 			0,
@@ -2144,12 +2155,12 @@ func TestRbac_Run(t *testing.T) {
 	}
 
 	workloadCache := cache.NewWorkloadCache()
-	workloadCache.AddWorkload(&workloadapi.Workload{
+	workloadCache.AddOrUpdateWorkload(&workloadapi.Workload{
 		Name: "ut-workload",
 		Uid:  "123456",
 		Addresses: [][]byte{
 			{192, 168, 120, 1},
-			net.ParseIP("fd80::1"),
+			net.ParseIP("0:1::fd80:0"),
 		},
 		AuthorizationPolicies: []string{DENY_AUTH},
 	})
@@ -2162,7 +2173,8 @@ func TestRbac_Run(t *testing.T) {
 		{
 			"1. IPv4: Deny, records found in map_of_auth",
 			args{
-				msgType: MSG_TYPE_IPV4,
+				msgType: constants.MSG_TYPE_IPV4,
+				// 192, 168, 120, 1, 192, 168, 122, 3, , , 8080
 				lookupKey: append([]byte{0xC0, 0xA8, 0x78, 0x01, 0xC0, 0xA8, 0x7A, 0x03, 0xC2, 0x6C, 0x1F, 0x90},
 					make([]byte, TUPLE_LEN-IPV4_TUPLE_LENGTH)...),
 			},
@@ -2171,7 +2183,7 @@ func TestRbac_Run(t *testing.T) {
 		{
 			"2. IPv6: Deny, records found in map_of_auth",
 			args{
-				msgType:   MSG_TYPE_IPV6,
+				msgType:   constants.MSG_TYPE_IPV6,
 				lookupKey: genIPv6LookupKey(),
 			},
 			true,
