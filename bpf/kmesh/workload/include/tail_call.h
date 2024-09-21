@@ -32,7 +32,7 @@ struct {
     __uint(value_size, sizeof(__u32));
     __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
     __uint(map_flags, 0);
-} map_of_tail_call_prog_for_xdp SEC(".maps");
+} xdp_tailcall_map SEC(".maps");
 
 static inline void kmesh_workload_tail_call(ctx_buff_t *ctx, const __u32 index)
 {

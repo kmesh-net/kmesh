@@ -36,11 +36,11 @@ struct match_result {
  * xdp_auth needs to pass during the tail call
  */
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
     __uint(value_size, sizeof(struct match_result));
-    __uint(max_entries, 1);
-} map_of_t_data SEC(".maps");
+    __uint(max_entries, 256);
+} tailcall_info_map SEC(".maps");
 
 static inline Istio__Security__Authorization *map_lookup_authz(__u32 policyKey)
 {
@@ -56,14 +56,14 @@ SEC("xdp_auth")
 int matchDstPorts(struct xdp_md *ctx)
 {
     struct match_result *res;
-    __u32 key = 0;
+    __u32 key = bpf_get_smp_processor_id();
     __u32 *notPorts = NULL;
     __u32 *ports = NULL;
     __u32 i;
     __u16 dport; // Destination port
     Istio__Security__Match *match = NULL;
 
-    res = bpf_map_lookup_elem(&map_of_t_data, &key);
+    res = bpf_map_lookup_elem(&tailcall_info_map, &key);
     if (!res) {
         BPF_LOG(ERR, AUTH, "Failed to retrieve res from map\n");
         return XDP_PASS;
@@ -133,10 +133,10 @@ check_action:
 
 static inline int match_check(struct xdp_md *ctx, void *match, struct bpf_sock_tuple *tuple_info)
 {
-    __u32 key = 0;
+    __u32 key = bpf_get_smp_processor_id();
     struct match_result *res;
 
-    res = bpf_map_lookup_elem(&map_of_t_data, &key);
+    res = bpf_map_lookup_elem(&tailcall_info_map, &key);
     if (!res) {
         BPF_LOG(ERR, AUTH, "Failed to lookup map element\n");
         return XDP_DROP;
@@ -145,13 +145,13 @@ static inline int match_check(struct xdp_md *ctx, void *match, struct bpf_sock_t
     res->match_res = UNMATCHED;
     res->match = match;
 
-    int ret = bpf_map_update_elem(&map_of_t_data, &key, res, BPF_ANY);
+    int ret = bpf_map_update_elem(&tailcall_info_map, &key, res, BPF_ANY);
     if (ret < 0) {
         BPF_LOG(ERR, AUTH, "Failed to update map, error: %d\n", ret);
         return XDP_DROP;
     }
 
-    bpf_tail_call(ctx, &map_of_tail_call_prog_for_xdp, TAIL_CALL_PORT_MATCH);
+    bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_PORT_MATCH);
     return XDP_PASS;
 }
 
@@ -229,7 +229,7 @@ static inline int do_auth(
     Istio__Security__Rule *rule = NULL;
     int matchFlag = 0;
     __u32 i = 0;
-    __u32 key = 0;
+    __u32 key = bpf_get_smp_processor_id();
     struct match_result res;
 
     if (policy->n_rules == 0) {
@@ -251,7 +251,7 @@ static inline int do_auth(
     } else {
         res.dport = tuple_info->ipv6.dport;
     }
-    bpf_map_update_elem(&map_of_t_data, &key, &res, BPF_ANY);
+    bpf_map_update_elem(&tailcall_info_map, &key, &res, BPF_ANY);
 
     for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
         if (i >= policy->n_rules) {
