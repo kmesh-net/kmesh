@@ -8,10 +8,17 @@
 
 /* equal MAP_SIZE_OF_OUTTER_MAP */
 #define MAX_OUTTER_MAP_ENTRIES        (1 << 20)
-#define OUTTER_MAP_ELASTIC_SIZE       (8192)
 #define OUTTER_MAP_USAGE_HIGH_PERCENT (0.7)
-#define OUTTER_MAP_USAGE_LOW_PERCENT  (0.4)
-#define TASK_SIZE                     (128)
+#define OUTTER_MAP_USAGE_LOW_PERCENT  (0.2)
+#define TASK_SIZE                     (512)
+
+// 32,768
+#define OUTTER_MAP_SCALEUP_STEP (1 << 15)
+// 8,192
+#define OUTTER_MAP_SCALEIN_STEP (1 << 13)
+
+#define ELASTIC_SLOTS_NUM                                                                                              \
+    ((OUTTER_MAP_SCALEUP_STEP > OUTTER_MAP_SCALEIN_STEP) ? OUTTER_MAP_SCALEUP_STEP : OUTTER_MAP_SCALEIN_STEP)
 
 int deserial_update_elem(void *key, void *value);
 void *deserial_lookup_elem(void *key, const void *msg_desciptor);

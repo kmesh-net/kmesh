@@ -65,7 +65,7 @@ struct inner_map_mng {
     struct bpf_map_info inner_info;
     struct bpf_map_info outter_info;
     struct inner_map_stat inner_maps[MAX_OUTTER_MAP_ENTRIES];
-    int elastic_slots[OUTTER_MAP_ELASTIC_SIZE];
+    int elastic_slots[ELASTIC_SLOTS_NUM];
     int used_cnt;        // real used count
     int alloced_cnt;     // real alloced count
     int max_alloced_idx; // max alloced index, there may be holes.
@@ -1365,7 +1365,9 @@ int outter_map_update(int outter_fd, bool scaleup)
     int i, ret = 0;
     pthread_t tid;
     struct task_contex *task_ctx = NULL;
-    int threads = OUTTER_MAP_ELASTIC_SIZE / TASK_SIZE + 1;
+    int threads = OUTTER_MAP_SCALEIN_STEP / TASK_SIZE;
+    if (scaleup)
+        threads = OUTTER_MAP_SCALEUP_STEP / TASK_SIZE;
 
     reset_sem_value(&g_inner_map_mng.fin_tasks);
     for (i = 0; i < threads; i++) {
@@ -1415,11 +1417,11 @@ int inner_map_create(struct bpf_map_info *inner_info)
 void collect_outter_map_scaleup_slots()
 {
     int i = 0, j = 0;
-    memset(g_inner_map_mng.elastic_slots, 0, sizeof(int) * OUTTER_MAP_ELASTIC_SIZE);
+    memset(g_inner_map_mng.elastic_slots, 0, sizeof(int) * ELASTIC_SLOTS_NUM);
     for (; i < MAX_OUTTER_MAP_ENTRIES; i++) {
         if (g_inner_map_mng.inner_maps[i].alloced == 0) {
             g_inner_map_mng.elastic_slots[j++] = i;
-            if (j >= OUTTER_MAP_ELASTIC_SIZE)
+            if (j >= OUTTER_MAP_SCALEUP_STEP)
                 break;
         }
     }
@@ -1430,11 +1432,11 @@ void collect_outter_map_scaleup_slots()
 void collect_outter_map_scalein_slots()
 {
     int i, j = 0;
-    memset(g_inner_map_mng.elastic_slots, 0, sizeof(int) * OUTTER_MAP_ELASTIC_SIZE);
+    memset(g_inner_map_mng.elastic_slots, 0, sizeof(int) * ELASTIC_SLOTS_NUM);
     for (i = g_inner_map_mng.max_alloced_idx; i >= 0; i--) {
         if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].alloced == 1) {
             g_inner_map_mng.elastic_slots[j++] = i;
-            if (j >= OUTTER_MAP_ELASTIC_SIZE)
+            if (j >= OUTTER_MAP_SCALEIN_STEP)
                 break;
         }
     }
@@ -1447,7 +1449,7 @@ int inner_map_batch_create(struct bpf_map_info *inner_info)
     int i, fd;
 
     collect_outter_map_scaleup_slots();
-    for (i = 0; i < OUTTER_MAP_ELASTIC_SIZE; i++) {
+    for (i = 0; i < OUTTER_MAP_SCALEUP_STEP; i++) {
         fd = inner_map_create(inner_info);
         if (fd < 0)
             break;
@@ -1455,7 +1457,7 @@ int inner_map_batch_create(struct bpf_map_info *inner_info)
         g_inner_map_mng.inner_maps[g_inner_map_mng.elastic_slots[i]].map_fd = fd;
     }
 
-    if (i < OUTTER_MAP_ELASTIC_SIZE)
+    if (i < OUTTER_MAP_SCALEUP_STEP)
         LOG_WARN("[warning]inner_map_create (%d->%d) failed:%d, errno:%d\n", i, MAX_OUTTER_MAP_ENTRIES, fd, errno);
     return 0;
 }
@@ -1465,7 +1467,7 @@ void inner_map_batch_delete()
     int i, idx;
 
     collect_outter_map_scalein_slots();
-    for (i = 0; i < OUTTER_MAP_ELASTIC_SIZE; i++) {
+    for (i = 0; i < OUTTER_MAP_SCALEIN_STEP; i++) {
         idx = g_inner_map_mng.elastic_slots[i];
         if (g_inner_map_mng.inner_maps[idx].used == 0 && g_inner_map_mng.inner_maps[idx].map_fd) {
             close(g_inner_map_mng.inner_maps[idx].map_fd);
@@ -1523,9 +1525,9 @@ int inner_map_scaleup()
         if (ret)
             break;
 
-        g_inner_map_mng.alloced_cnt += OUTTER_MAP_ELASTIC_SIZE;
-        if (g_inner_map_mng.elastic_slots[OUTTER_MAP_ELASTIC_SIZE - 1] > g_inner_map_mng.max_alloced_idx)
-            g_inner_map_mng.max_alloced_idx = g_inner_map_mng.elastic_slots[OUTTER_MAP_ELASTIC_SIZE - 1];
+        g_inner_map_mng.alloced_cnt += OUTTER_MAP_SCALEUP_STEP;
+        if (g_inner_map_mng.elastic_slots[OUTTER_MAP_SCALEUP_STEP - 1] > g_inner_map_mng.max_alloced_idx)
+            g_inner_map_mng.max_alloced_idx = g_inner_map_mng.elastic_slots[OUTTER_MAP_SCALEUP_STEP - 1];
     } while (0);
 
     if (ret) {
@@ -1539,7 +1541,7 @@ int inner_map_scalein()
     int i, ret;
     float percent = 1;
 
-    if (g_inner_map_mng.alloced_cnt > OUTTER_MAP_ELASTIC_SIZE)
+    if (g_inner_map_mng.alloced_cnt > OUTTER_MAP_SCALEUP_STEP)
         percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.alloced_cnt);
     if (percent > OUTTER_MAP_USAGE_LOW_PERCENT)
         return 0;
@@ -1556,7 +1558,7 @@ int inner_map_scalein()
         return ret;
     }
 
-    g_inner_map_mng.alloced_cnt -= OUTTER_MAP_ELASTIC_SIZE;
+    g_inner_map_mng.alloced_cnt -= OUTTER_MAP_SCALEIN_STEP;
     for (i = g_inner_map_mng.max_alloced_idx; i >= 0; i--) {
         if (g_inner_map_mng.inner_maps[i].alloced) {
             g_inner_map_mng.max_alloced_idx = i;
