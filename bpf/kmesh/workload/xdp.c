@@ -189,6 +189,25 @@ int xdp_shutdown(struct xdp_md *ctx)
     // tail call will be executed in it, so there will be no return value, ignore it.
     xdp_rbac_manage(ctx, &info, &tuple_info);
 
+    // If auth denied, it still returns XDP_PASS here, so next time when a client package is
+    // sent to server, it will be shutdown since server's RST has been set
+    return XDP_PASS;
+}
+
+SEC("xdp_auth")
+int xdp_shutdown_in_userspace(struct xdp_md *ctx)
+{
+    struct xdp_info info = {0};
+    struct bpf_sock_tuple tuple_info = {0};
+
+    if (parser_xdp_info(ctx, &info) == PARSER_FAILED)
+        return XDP_PASS;
+    if (info.iph->version != 4 && info.iph->version != 6)
+        return XDP_PASS;
+
+    // never failed
+    parser_tuple(&info, &tuple_info);
+
     if (should_shutdown(&info, &tuple_info) == AUTH_FORBID)
         shutdown_tuple(&info);
 

@@ -16,6 +16,7 @@ typedef enum {
     TAIL_CALL_PORT_MATCH,
     TAIL_CALL_SRCIP_MATCH,
     TAIL_CALL_DSTIP_MATCH,
+    TAIL_CALL_AUTH_IN_USER_SPACE,
 } workload_tail_call_index_t;
 
 struct {
