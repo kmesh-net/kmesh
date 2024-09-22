@@ -10,6 +10,8 @@
 #define MAX_PORT_COUNT            10
 #define MAX_SERVICE_COUNT         10
 #define RINGBUF_SIZE              (1 << 12)
+#define MAX_PRIO                  6
+#define MAX_PRIO_COUNT            MAX_PRIO + 1 // 6 means match all scope, 0 means match nothing
 #define MAX_MEMBER_NUM_PER_POLICY 4
 
 #pragma pack(1)
@@ -28,8 +30,10 @@ typedef struct {
 } service_key;
 
 typedef struct {
-    __u32 endpoint_count;               // endpoint count of current service
-    __u32 lb_policy;                    // load balancing algorithm, currently only supports random algorithm
+    __u32 prio_endpoint_count[MAX_PRIO_COUNT]; // endpoint count of current service with prio, prio from 6->0
+    __u32 lb_policy;       // load balancing algorithm, currently supports random algorithm, locality loadbalance
+                           // Failover/strict mode
+    __u32 lb_strict_index; // for failover strict mode
     __u32 service_port[MAX_PORT_COUNT]; // service_port[i] and target_port[i] are a pair, i starts from 0 and max value
                                         // is MAX_PORT_COUNT-1
     __u32 target_port[MAX_PORT_COUNT];
@@ -40,6 +44,7 @@ typedef struct {
 // endpoint map
 typedef struct {
     __u32 service_id;    // service id
+    __u32 prio;          // prio means rank, 6 means match all, and 0 means match nothing
     __u32 backend_index; // if endpoint_count = 3, then backend_index = 0/1/2
 } endpoint_key;
 
