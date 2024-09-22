@@ -57,6 +57,16 @@ struct op_context {
         (context).curr_fd = (fd);                                                                                      \
     } while (0)
 
+#define append_new_node(elem_list_head, curr_elem_list_node, new_node)                                                 \
+    do {                                                                                                               \
+        if (curr_elem_list_node == NULL) {                                                                             \
+            curr_elem_list_node = elem_list_head = new_node;                                                           \
+        } else {                                                                                                       \
+            curr_elem_list_node->next = new_node;                                                                      \
+            curr_elem_list_node = new_node;                                                                            \
+        }                                                                                                              \
+    } while (0)
+
 #define TASK_SIZE (100)
 struct inner_map_stat {
     int map_fd;
@@ -800,10 +810,9 @@ static void *create_struct_list(struct op_context *ctx, int *err)
         prev_key = ctx->key;
 
         value = create_struct(ctx, err);
-        if (*err != 0) {
+        if (*err) {
             LOG_ERR("create_struct failed, err = %d\n", err);
-            deserial_free_elem_list(elem_list_head);
-            value = NULL;
+            break;
         }
 
         if (value == NULL) {
@@ -812,17 +821,17 @@ static void *create_struct_list(struct op_context *ctx, int *err)
 
         struct element_list_node *new_node = (struct element_list_node *)calloc(1, sizeof(struct element_list_node));
         if (!new_node) {
-            deserial_free_elem_list(elem_list_head);
-            return NULL;
+            *err = -1;
+            break;
         }
+
         new_node->elem = value;
         new_node->next = NULL;
-        if (curr_elem_list_node == NULL) {
-            curr_elem_list_node = elem_list_head = new_node;
-        } else {
-            curr_elem_list_node->next = new_node;
-            curr_elem_list_node = new_node;
-        }
+        append_new_node(elem_list_head, curr_elem_list_node, new_node);
+    }
+    if (*err) {
+        deserial_free_elem_list(elem_list_head);
+        return NULL;
     }
     return elem_list_head;
 }
@@ -870,8 +879,13 @@ static void *create_struct(struct op_context *ctx, int *err)
         if (ret) {
             LOG_INFO("field[%d] query fail\n", i);
             *err = 1;
-            return value;
+            break;
         }
+    }
+
+    if (*err) {
+        deserial_free_elem(value);
+        return NULL;
     }
 
     return value;
@@ -916,8 +930,6 @@ struct element_list_node *deserial_lookup_all_elems(const void *msg_desciptor)
     value_list_head = create_struct_list(&context, &err);
     if (err != 0) {
         LOG_ERR("create_struct_list failed, err = %d", err);
-        deserial_free_elem_list(value_list_head);
-        value_list_head = NULL;
     }
 
 end:
@@ -971,8 +983,7 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
     normalize_key(&context, key, map_name);
     value = create_struct(&context, &err);
     if (err != 0) {
-        deserial_free_elem(value);
-        value = NULL;
+        LOG_ERR("create_struct failed, err = %d\n", err);
     }
 
 end:
