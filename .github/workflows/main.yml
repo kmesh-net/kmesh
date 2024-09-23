@@ -2,6 +2,10 @@ name: Kmesh CI Workflow
 
 on:
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - '**.svg'
+      - '**.png'
   merge_group: # enable merge queue
   workflow_call:
     secrets:
