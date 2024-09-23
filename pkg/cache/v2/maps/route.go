@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-03-01
  */
 
 package maps
@@ -34,6 +31,9 @@ import (
 
 func routeConfigToGolang(goMsg *route_v2.RouteConfiguration, cMsg *C.Route__RouteConfiguration) error {
 	buf := make([]byte, C.route__route_configuration__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.route__route_configuration__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -46,6 +46,9 @@ func routeConfigToClang(goMsg *route_v2.RouteConfiguration) (*C.Route__RouteConf
 	buf, err := proto.Marshal(goMsg)
 	if err != nil {
 		return nil, err
+	}
+	if len(buf) == 0 {
+		return nil, nil
 	}
 
 	cMsg := C.route__route_configuration__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
@@ -85,6 +88,9 @@ func RouteConfigUpdate(key string, value *route_v2.RouteConfiguration) error {
 	cMsg, err := routeConfigToClang(value)
 	if err != nil {
 		return fmt.Errorf("RouteConfigUpdate %s", err)
+	}
+	if cMsg == nil {
+		return nil
 	}
 	defer routeConfigFreeClang(cMsg)
 

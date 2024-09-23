@@ -34,6 +34,9 @@ import (
 
 func clusterToGolang(goMsg *cluster_v2.Cluster, cMsg *C.Cluster__Cluster) error {
 	buf := make([]byte, C.cluster__cluster__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.cluster__cluster__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -46,6 +49,9 @@ func clusterToClang(goMsg *cluster_v2.Cluster) (*C.Cluster__Cluster, error) {
 	buf, err := proto.Marshal(goMsg)
 	if err != nil {
 		return nil, err
+	}
+	if len(buf) == 0 {
+		return nil, nil
 	}
 
 	cMsg := C.cluster__cluster__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
@@ -85,6 +91,9 @@ func ClusterUpdate(key string, value *cluster_v2.Cluster) error {
 	cMsg, err := clusterToClang(value)
 	if err != nil {
 		return fmt.Errorf("ClusterUpdate %s", err)
+	}
+	if cMsg == nil {
+		return nil
 	}
 	defer clusterFreeClang(cMsg)
 
