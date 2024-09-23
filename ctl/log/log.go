@@ -26,15 +26,12 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/pkg/kube"
 
+	"kmesh.net/kmesh/ctl/utils"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 const (
-	KmeshNamespace = "kmesh-system"
-	KmeshAdminPort = 15200
-
 	patternLoggers = "/debug/loggers"
 )
 
@@ -142,7 +139,7 @@ func SetLoggerLevel(url string, setFlag string) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Errorf("Error making request: %v", err)
+		log.Errorf("failed to make HTTP request: %v", err)
 		return
 	}
 	defer resp.Body.Close()
@@ -154,34 +151,22 @@ func SetLoggerLevel(url string, setFlag string) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("Error reading response body: %v", err)
+		log.Errorf("failed to read HTTP response body: %v", err)
 		return
 	}
 	fmt.Println(string(body))
 }
 
 func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
-	rc, err := kube.DefaultRestConfig("", "")
-	if err != nil {
-		log.Errorf("failed to get rest.Config for given kube config file and context: %v", err)
-		os.Exit(1)
-	}
-
-	cli, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc))
-	if err != nil {
-		log.Errorf("failed to create kube client: %v", err)
-		os.Exit(1)
-	}
-
 	podName := args[0]
 
-	fw, err := cli.NewPortForwarder(podName, KmeshNamespace, "", 0, KmeshAdminPort)
+	fw, err := utils.CreateKmeshPortForwarder(podName)
 	if err != nil {
-		log.Errorf("failed to create port forwarder: %v", err)
+		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
 		os.Exit(1)
 	}
 	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder: %v", err)
+		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
 		os.Exit(1)
 	}
 	defer fw.Close()
