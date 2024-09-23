@@ -54,17 +54,19 @@
 
 // ************
 // array len
-#define KMESH_NAME_LEN               64
-#define KMESH_TYPE_LEN               64
-#define KMESH_HOST_LEN               128
-#define KMESH_FILTER_CHAINS_LEN      64
-#define KMESH_HTTP_DOMAIN_NUM        32
-#define KMESH_HTTP_DOMAIN_LEN        128
-#define KMESH_PER_FILTER_CHAIN_NUM   MAP_SIZE_OF_PER_FILTER_CHAIN
-#define KMESH_PER_FILTER_NUM         MAP_SIZE_OF_PER_FILTER
-#define KMESH_PER_VIRT_HOST_NUM      MAP_SIZE_OF_PER_VIRTUAL_HOST
-#define KMESH_PER_ROUTE_NUM          MAP_SIZE_OF_PER_ROUTE
-#define KMESH_PER_ENDPOINT_NUM       MAP_SIZE_OF_PER_ENDPOINT
-#define KMESH_PER_HEADER_MUM         32
-#define KMESH_PER_WEIGHT_CLUSTER_NUM 32
+#define KMESH_NAME_LEN                       64
+#define KMESH_TYPE_LEN                       64
+#define KMESH_HOST_LEN                       128
+#define KMESH_FILTER_CHAINS_LEN              64
+#define KMESH_HTTP_DOMAIN_NUM                32
+#define KMESH_HTTP_DOMAIN_LEN                128
+#define KMESH_PER_FILTER_CHAIN_NUM           MAP_SIZE_OF_PER_FILTER_CHAIN
+#define KMESH_PER_FILTER_NUM                 MAP_SIZE_OF_PER_FILTER
+#define KMESH_PER_VIRT_HOST_NUM              MAP_SIZE_OF_PER_VIRTUAL_HOST
+#define KMESH_PER_ROUTE_NUM                  MAP_SIZE_OF_PER_ROUTE
+#define KMESH_PER_ENDPOINT_NUM               MAP_SIZE_OF_PER_ENDPOINT
+#define KMESH_PER_HEADER_MUM                 32
+#define KMESH_PER_WEIGHT_CLUSTER_NUM         32
+#define KMESH_PER_HASH_POLICY_NUM            1
+#define KMESH_PER_HASH_POLICY_MSG_HEADER_LEN 10
 #endif // _CONFIG_H_
