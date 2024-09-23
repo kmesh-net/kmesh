@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"kmesh.net/kmesh/ctl/dump"
 	logcmd "kmesh.net/kmesh/ctl/log"
 )
 
@@ -35,6 +36,7 @@ func main() {
 	}
 
 	rootCmd.AddCommand(logcmd.NewCmd())
+	rootCmd.AddCommand(dump.NewCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
