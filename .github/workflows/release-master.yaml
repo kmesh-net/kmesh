@@ -84,7 +84,7 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
-          version: '3.9.0'
+          version: '3.12.3'
           token: ${{ secrets.GH_PAT }}
       
       - name: Build and Push the Helm Charts to GitHub Container Registry
