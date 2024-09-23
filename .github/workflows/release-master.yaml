@@ -72,6 +72,24 @@ jobs:
           path: /tmp/digests/*
           if-no-files-found: error
           retention-days: 1
+  helm:
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          token: ${{ secrets.GH_PAT }}
+      
+      - name: Build and Push the Helm Charts to GitHub Container Registry
+        uses: JimCronqvist/action-helm-chart-repo@master
+        with:
+          token: ${{ secrets.GH_PAT }}
 
   merge:
     runs-on: ubuntu-latest
