@@ -71,6 +71,12 @@ static inline char *bpf_strncpy(char *dst, int n, const char *src)
 }
 #endif
 
+struct {
+    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
+    __uint(key_size, sizeof(int));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, 1);
+} map_of_lb_hash SEC(".maps");
 typedef Core__SocketAddress address_t;
 
 // bpf return value

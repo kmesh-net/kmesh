@@ -30,6 +30,7 @@ import (
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 )
 
 type ClusterStatsKey struct {
@@ -178,6 +179,12 @@ func (cache *ClusterCache) Flush() {
 		if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
 			cluster.Id = cache.hashName.StrToNum(name)
 			err := maps_v2.ClusterUpdate(name, cluster)
+			if cluster.GetLbPolicy() == cluster_v2.Cluster_MAGLEV {
+				// create consistent lb here
+				if err := maglev.CreateLB(cluster);err != nil {
+					log.Errorf("maglev lb update %v cluster failed: %v",name, err)
+				}
+			}
 			if err == nil {
 				// reset api status after successfully updated
 				cluster.ApiStatus = core_v2.ApiStatus_NONE

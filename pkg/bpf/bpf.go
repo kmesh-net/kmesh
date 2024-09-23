@@ -36,6 +36,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
+	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 )
 
 var (
