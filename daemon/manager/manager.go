@@ -60,6 +60,9 @@ func NewCommand() *cobra.Command {
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			UnknownFlags: true,
 		},
+		CompletionOptions: cobra.CompletionOptions{
+			DisableDefaultCmd: true,
+		},
 	}
 
 	addFlags(cmd, configs)
