@@ -49,9 +49,17 @@ data:
     scrape_configs:
     - job_name: prometheus
       metrics_path: /status/metric
-      static_configs:
-      - targets:
-        - localhost:15020
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+      - action: keep
+        regex: kmesh
+        source_labels: [__meta_kubernetes_pod_label_app]
+      - action: replace
+        source_labels: [__meta_kubernetes_pod_ip]
+        target_label: __address__
+        replacement: $1:15020  
+
     - bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
       job_name: kubernetes-apiservers
       kubernetes_sd_configs:
