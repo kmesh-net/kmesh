@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-02-28
  */
 
 package maps
@@ -40,6 +37,9 @@ var (
 
 func listenerToGolang(goMsg *listener_v2.Listener, cMsg *C.Listener__Listener) error {
 	buf := make([]byte, C.listener__listener__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.listener__listener__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -52,6 +52,9 @@ func listenerToClang(goMsg *listener_v2.Listener) (*C.Listener__Listener, error)
 	buf, err := proto.Marshal(goMsg)
 	if err != nil {
 		return nil, err
+	}
+	if len(buf) == 0 {
+		return nil, nil
 	}
 
 	cMsg := C.listener__listener__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
@@ -107,6 +110,9 @@ func ListenerUpdate(key *core_v2.SocketAddress, value *listener_v2.Listener) err
 	cMsg, err := listenerToClang(value)
 	if err != nil {
 		return fmt.Errorf("ListenerUpdate %s", err)
+	}
+	if cMsg == nil {
+		return nil
 	}
 	defer listenerFreeClang(cMsg)
 
