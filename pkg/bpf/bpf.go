@@ -36,6 +36,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
+	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 )
 
 var (
@@ -101,6 +102,12 @@ func (l *BpfLoader) StartAdsMode() (err error) {
 		l.Stop()
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
+
+	if err = maglev.InitMaglevMap(); err != nil {
+		l.Stop()
+		return fmt.Errorf("lb maglev init failed, %s", err)
+	}
+
 	return nil
 }
 
