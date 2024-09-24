@@ -43,7 +43,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 	defer client.Cleanup()
 
 	adsStream := Controller{
-		Stream:    client.AdsClient,
+		con:       &connection{Stream: client.AdsClient},
 		Processor: nil,
 	}
 
@@ -62,7 +62,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 					func(_ discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context, opts ...grpc.CallOption) (discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient, error) {
 						return client.AdsClient, nil
 					})
-				patches2.ApplyMethod(reflect.TypeOf(adsStream.Stream), "Send",
+				patches2.ApplyMethod(reflect.TypeOf(adsStream.con.Stream), "Send",
 					func(_ discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient, req *discoveryv3.DiscoveryRequest) error {
 						return errors.New("timeout")
 					})
@@ -116,7 +116,7 @@ func TestHandleAdsStream(t *testing.T) {
 	defer fakeClient.Cleanup()
 
 	adsStream := NewController()
-	adsStream.Stream = fakeClient.AdsClient
+	adsStream.con = &connection{Stream: fakeClient.AdsClient}
 
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()
@@ -129,7 +129,7 @@ func TestHandleAdsStream(t *testing.T) {
 		{
 			name: "test1: stream Revc failed, should return error",
 			beforeFunc: func() {
-				patches1.ApplyMethod(reflect.TypeOf(adsStream.Stream), "Recv",
+				patches1.ApplyMethod(reflect.TypeOf(adsStream.con.Stream), "Recv",
 					func(_ discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient) (*discoveryv3.DiscoveryResponse, error) {
 						return nil, errors.New("failed to recv message")
 					})
@@ -140,37 +140,9 @@ func TestHandleAdsStream(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "test2: stream Send failed, should return error",
-			beforeFunc: func() {
-				patches1.ApplyMethod(reflect.TypeOf(adsStream.Stream), "Recv",
-					func(_ discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient) (*discoveryv3.DiscoveryResponse, error) {
-						// create resource of rsq
-						cluster := &config_cluster_v3.Cluster{
-							Name: "ut-cluster",
-						}
-						anyCluster, _ := anypb.New(cluster)
-						return &discoveryv3.DiscoveryResponse{
-							TypeUrl: resource_v3.ClusterType,
-							Resources: []*anypb.Any{
-								anyCluster,
-							},
-						}, nil
-					})
-				patches2.ApplyMethod(reflect.TypeOf(adsStream.Stream), "Send",
-					func(_ discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-						return errors.New("failed to send message")
-					})
-			},
-			afterFunc: func() {
-				patches1.Reset()
-				patches2.Reset()
-			},
-			wantErr: true,
-		},
-		{
 			name: "test3: handle success, should return nil",
 			beforeFunc: func() {
-				patches1.ApplyMethod(reflect.TypeOf(adsStream.Stream), "Recv",
+				patches1.ApplyMethod(reflect.TypeOf(adsStream.con.Stream), "Recv",
 					func(_ discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient) (*discoveryv3.DiscoveryResponse, error) {
 						// create resource of rsq
 						cluster := &config_cluster_v3.Cluster{
@@ -183,10 +155,6 @@ func TestHandleAdsStream(t *testing.T) {
 								anyCluster,
 							},
 						}, nil
-					})
-				patches2.ApplyMethod(reflect.TypeOf(adsStream.Stream), "Send",
-					func(_ discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient) error {
-						return nil
 					})
 			},
 			afterFunc: func() {

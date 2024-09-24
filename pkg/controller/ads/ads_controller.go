@@ -22,6 +22,7 @@ import (
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"istio.io/istio/pkg/channels"
 
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -31,8 +32,14 @@ var (
 )
 
 type Controller struct {
-	Stream    service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
 	Processor *processor
+	con       *connection
+}
+
+type connection struct {
+	Stream       service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	requestsChan *channels.Unbounded[*service_discovery_v3.DiscoveryRequest]
+	stopCh       chan struct{}
 }
 
 func NewController() *Controller {
@@ -42,17 +49,26 @@ func NewController() *Controller {
 }
 
 func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
-	var err error
+	if c.con != nil {
+		close(c.con.stopCh)
+	}
 
-	c.Stream, err = client.StreamAggregatedResources(ctx)
+	stream, err := client.StreamAggregatedResources(ctx)
 	if err != nil {
 		return fmt.Errorf("StreamAggregatedResources failed, %s", err)
 	}
 
+	c.con = &connection{
+		Stream:       stream,
+		requestsChan: channels.NewUnbounded[*service_discovery_v3.DiscoveryRequest](),
+		stopCh:       make(chan struct{}),
+	}
+
 	c.Processor.Reset()
-	if err := c.Stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
+	if err := stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
+	go sendUpstream(c.con)
 
 	return nil
 }
@@ -62,26 +78,39 @@ func (c *Controller) HandleAdsStream() error {
 		err error
 		rsp *service_discovery_v3.DiscoveryResponse
 	)
-
-	if rsp, err = c.Stream.Recv(); err != nil {
+	if rsp, err = c.con.Stream.Recv(); err != nil {
+		c.con.Stream.CloseSend()
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
 	c.Processor.processAdsResponse(rsp)
-	defer func() {
-		c.Processor.req = nil
-		c.Processor.ack = nil
-	}()
-
-	if err = c.Stream.Send(c.Processor.ack); err != nil {
-		return fmt.Errorf("stream send ack failed, %s", err)
-	}
-
+	c.con.requestsChan.Put(c.Processor.ack)
 	if c.Processor.req != nil {
-		if err = c.Stream.Send(c.Processor.req); err != nil {
-			return fmt.Errorf("stream send rqt failed, %s", err)
-		}
+		c.con.requestsChan.Put(c.Processor.req)
+		c.Processor.req = nil
 	}
 
 	return nil
+}
+
+func sendUpstream(con *connection) {
+	for {
+		select {
+		case req := <-con.requestsChan.Get():
+			con.requestsChan.Load()
+			if err := con.Stream.Send(req); err != nil {
+				log.Errorf("send error for type url %s: %v", req.TypeUrl, err)
+				return
+			}
+		case <-con.stopCh:
+			return
+		}
+	}
+}
+
+func (c *Controller) Close() {
+	if c.con != nil {
+		close(c.con.stopCh)
+		c.con.Stream.CloseSend()
+	}
 }

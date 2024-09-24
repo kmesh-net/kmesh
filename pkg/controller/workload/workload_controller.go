@@ -110,6 +110,7 @@ func (c *Controller) HandleWorkloadStream() error {
 	)
 
 	if rspDelta, err = c.Stream.Recv(); err != nil {
+		c.Stream.CloseSend()
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
