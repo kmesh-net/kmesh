@@ -9,6 +9,7 @@
 #include "bpf_common.h"
 #include "config.h"
 #include "core/address.pb-c.h"
+#include "tail_call_index.h"
 
 #define BPF_LOGTYPE_LISTENER      BPF_DEBUG_ON
 #define BPF_LOGTYPE_FILTERCHAIN   BPF_DEBUG_ON
@@ -68,15 +69,6 @@ static inline char *bpf_strncpy(char *dst, int n, const char *src)
     return dst;
 }
 #endif
-
-typedef enum {
-    KMESH_TAIL_CALL_LISTENER = 1,
-    KMESH_TAIL_CALL_FILTER_CHAIN,
-    KMESH_TAIL_CALL_FILTER,
-    KMESH_TAIL_CALL_ROUTER,
-    KMESH_TAIL_CALL_CLUSTER,
-    KMESH_TAIL_CALL_ROUTER_CONFIG,
-} tail_call_index_t;
 
 typedef Core__SocketAddress address_t;
 

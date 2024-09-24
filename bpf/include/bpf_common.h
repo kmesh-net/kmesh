@@ -5,6 +5,7 @@
 #define __KMESH_BPF_COMMON_H__
 
 #include "common.h"
+#include "inner_map_defs.h"
 
 #define map_of_manager      kmesh_manage
 #define MAP_SIZE_OF_MANAGER 8192
@@ -21,7 +22,6 @@
 #define BPF_DATA_MAX_LEN                                                                                               \
     192 /* this value should be                                                                                        \
 small that make compile success */
-#define BPF_INNER_MAP_DATA_LEN 1300
 
 struct manager_key {
     union {
