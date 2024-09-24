@@ -32,6 +32,7 @@ import (
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfSockConnWorkload struct {
@@ -70,14 +71,21 @@ func (sc *BpfSockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec,
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	spec, err = bpf2go.LoadKmeshCgroupSockWorkload()
 
-	if err != nil || spec == nil {
+	if utils.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshCgroupSockWorkloadCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshCgroupSockWorkload()
+	}
+	if err != nil {
 		return nil, err
 	}
 
 	SetInnerMap(spec)
 	setMapPinType(spec, ebpf.PinByName)
+	// The real difference is in the .o file. The prog and map structures of the structure are exactly the same,
+	// and the .o file has been loaded into the spec in bpf2go.LoadXX(),so when assigning spec to KmeshCgroupSockWorkloadObjects
+	// here, there is no need to distinguish the type.
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockWorkloadObjects, &opts); err != nil {
 		return nil, err
 	}
@@ -251,12 +259,13 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 
 	opts.Maps.PinPath = so.Info.MapPath
 
-	spec, err = bpf2go.LoadKmeshSockopsWorkload()
+	if utils.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshSockopsWorkloadCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshSockopsWorkload()
+	}
 	if err != nil {
 		return nil, err
-	}
-	if spec == nil {
-		return nil, fmt.Errorf("error: loadKmeshSockopsObjects() spec is nil")
 	}
 
 	SetInnerMap(spec)
@@ -382,7 +391,13 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = sm.Info.MapPath
-	if spec, err = bpf2go.LoadKmeshSendmsg(); err != nil {
+
+	if utils.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshSendmsgCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshSendmsg()
+	}
+	if err != nil {
 		return nil, err
 	}
 
@@ -518,12 +533,14 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = xa.Info.MapPath
-	spec, err = bpf2go.LoadKmeshXDPAuth()
+
+	if utils.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshXDPAuthCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshXDPAuth()
+	}
 	if err != nil {
 		return nil, err
-	}
-	if spec == nil {
-		return nil, fmt.Errorf("error: loadKmeshXdpAuthObjects() spec is nil")
 	}
 
 	SetInnerMap(spec)
