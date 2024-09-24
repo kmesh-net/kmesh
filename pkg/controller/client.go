@@ -124,14 +124,12 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 
 			if c.mode == constants.AdsMode {
 				if err = c.AdsController.HandleAdsStream(); err != nil {
-					_ = c.AdsController.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
 				}
 			} else if c.mode == constants.WorkloadMode {
 				if err = c.WorkloadController.HandleWorkloadStream(); err != nil {
-					_ = c.WorkloadController.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
@@ -164,8 +162,8 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *XdsClient) closeStreamClient() {
-	if c.AdsController != nil && c.AdsController.Stream != nil {
-		_ = c.AdsController.Stream.CloseSend()
+	if c.AdsController != nil {
+		c.AdsController.Close()
 	}
 	if c.WorkloadController != nil && c.WorkloadController.Stream != nil {
 		_ = c.WorkloadController.Stream.CloseSend()
