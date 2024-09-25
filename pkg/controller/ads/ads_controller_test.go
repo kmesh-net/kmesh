@@ -25,9 +25,11 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/channels"
 
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 )
@@ -43,7 +45,7 @@ func TestAdsStreamAdsStreamCreateAndSend(t *testing.T) {
 	defer client.Cleanup()
 
 	adsStream := Controller{
-		con:       &connection{Stream: client.AdsClient},
+		con:       &connection{Stream: client.AdsClient, stopCh: make(chan struct{})},
 		Processor: nil,
 	}
 
@@ -116,7 +118,7 @@ func TestHandleAdsStream(t *testing.T) {
 	defer fakeClient.Cleanup()
 
 	adsStream := NewController()
-	adsStream.con = &connection{Stream: fakeClient.AdsClient}
+	adsStream.con = &connection{Stream: fakeClient.AdsClient, requestsChan: channels.NewUnbounded[*service_discovery_v3.DiscoveryRequest](), stopCh: make(chan struct{})}
 
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()
@@ -140,7 +142,7 @@ func TestHandleAdsStream(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "test3: handle success, should return nil",
+			name: "test2: handle success, should return nil",
 			beforeFunc: func() {
 				patches1.ApplyMethod(reflect.TypeOf(adsStream.con.Stream), "Recv",
 					func(_ discoveryv3.AggregatedDiscoveryService_StreamAggregatedResourcesClient) (*discoveryv3.DiscoveryResponse, error) {
