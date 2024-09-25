@@ -1,6 +1,10 @@
 name: E2E IPv6 Test(istio 1.22)
 on: 
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - '**.svg'
+      - '**.png'
 jobs:  
   e2e-ipv6-test:
     runs-on: ubuntu-22.04

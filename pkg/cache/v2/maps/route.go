@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-03-01
  */
 
 package maps
@@ -24,6 +21,7 @@ package maps
 // #include "route/route.pb-c.h"
 import "C"
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -34,6 +32,9 @@ import (
 
 func routeConfigToGolang(goMsg *route_v2.RouteConfiguration, cMsg *C.Route__RouteConfiguration) error {
 	buf := make([]byte, C.route__route_configuration__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.route__route_configuration__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -47,6 +48,9 @@ func routeConfigToClang(goMsg *route_v2.RouteConfiguration) (*C.Route__RouteConf
 	if err != nil {
 		return nil, err
 	}
+	if len(buf) == 0 {
+		return nil, nil
+	}
 
 	cMsg := C.route__route_configuration__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
 	if cMsg == nil {
@@ -57,6 +61,34 @@ func routeConfigToClang(goMsg *route_v2.RouteConfiguration) (*C.Route__RouteConf
 
 func routeConfigFreeClang(cMsg *C.Route__RouteConfiguration) {
 	C.route__route_configuration__free_unpacked(cMsg, nil)
+}
+
+func RouteConfigLookupAll() ([]*route_v2.RouteConfiguration, error) {
+	cMsg := C.deserial_lookup_all_elems(unsafe.Pointer(&C.route__route_configuration__descriptor))
+	if cMsg == nil {
+		return nil, errors.New("RouteConfigLookupAll deserial_lookup_all_elems failed")
+	}
+
+	elem_list_head := (*C.struct_element_list_node)(cMsg)
+	defer C.deserial_free_elem_list(elem_list_head)
+
+	var (
+		routes []*route_v2.RouteConfiguration
+		err    error
+	)
+	for elem_list_head != nil {
+		cValue := elem_list_head.elem
+		elem_list_head = elem_list_head.next
+		route := route_v2.RouteConfiguration{}
+		err = routeConfigToGolang(&route, (*C.Route__RouteConfiguration)(cValue))
+		log.Debugf("RouteConfigLookupAll, value [%s]", route.String())
+		if err != nil {
+			return nil, err
+		}
+		routes = append(routes, &route)
+	}
+
+	return routes, nil
 }
 
 func RouteConfigLookup(key string, value *route_v2.RouteConfiguration) error {
@@ -85,6 +117,9 @@ func RouteConfigUpdate(key string, value *route_v2.RouteConfiguration) error {
 	cMsg, err := routeConfigToClang(value)
 	if err != nil {
 		return fmt.Errorf("RouteConfigUpdate %s", err)
+	}
+	if cMsg == nil {
+		return nil
 	}
 	defer routeConfigFreeClang(cMsg)
 

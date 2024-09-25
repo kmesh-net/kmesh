@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION ?= 1.0-dev
+VERSION ?= 0.5.0-rc.0
 GIT_COMMIT_HASH ?= $(shell git rev-parse HEAD)
 GIT_TREESTATE=$(shell if [ -n "$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -45,6 +45,8 @@ LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=w
 APPS1 := kmesh-daemon
 APPS2 := mdacore
 APPS3 := kmesh-cni
+APPS4 := kmeshctl
+
 
 # If the hub is not explicitly set, use default to kmesh-net.
 HUB ?= ghcr.io/kmesh-net
@@ -93,6 +95,10 @@ all:
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+
+	$(call printlog, BUILD, $(APPS4))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -ldflags $(LDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
 
 .PHONY: gen-proto
 gen-proto:
@@ -188,6 +194,9 @@ clean:
 
 	$(call printlog, CLEAN, $(APPS3))
 	$(QUIET) rm -rf $(APPS1) $(APPS3)
+
+	$(call printlog, CLEAN, $(APPS4))
+	$(QUIET) rm -rf $(APPS1) $(APPS4)
 
 	$(QUIET) make clean -C api/v2-c
 	$(QUIET) make clean -C bpf/deserialization_to_bpf_map

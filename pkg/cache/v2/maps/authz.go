@@ -21,6 +21,7 @@ package maps
 // #include "workloadapi/security/authorization.pb-c.h"
 import "C"
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -31,6 +32,9 @@ import (
 
 func authorizationToGolang(goMsg *security_v2.Authorization, cMsg *C.Istio__Security__Authorization) error {
 	buf := make([]byte, C.istio__security__authorization__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.istio__security__authorization__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -43,6 +47,10 @@ func authorizationToClang(goMsg *security_v2.Authorization) (*C.Istio__Security_
 	buf, err := proto.Marshal(goMsg)
 	if err != nil {
 		return nil, err
+	}
+
+	if len(buf) == 0 {
+		return nil, nil
 	}
 
 	cMsg := C.istio__security__authorization__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
@@ -69,6 +77,34 @@ func AuthorizationLookup(key uint32, value *security_v2.Authorization) error {
 	err = authorizationToGolang(value, (*C.Istio__Security__Authorization)(cMsg))
 	log.Debugf("authorizationLookup [%v], [%v]", key, value.String())
 	return err
+}
+
+func AuthorizationLookupAll() ([]*security_v2.Authorization, error) {
+	cMsg := C.deserial_lookup_all_elems(unsafe.Pointer(&C.istio__security__authorization__descriptor))
+	if cMsg == nil {
+		return nil, errors.New("AuthorizationLookupAll deserial_lookup_all_elems failed")
+	}
+
+	elem_list_head := (*C.struct_element_list_node)(cMsg)
+	defer C.deserial_free_elem_list(elem_list_head)
+
+	var (
+		authorizations []*security_v2.Authorization
+		err            error
+	)
+	for elem_list_head != nil {
+		cValue := elem_list_head.elem
+		elem_list_head = elem_list_head.next
+		authorization := security_v2.Authorization{}
+		err = authorizationToGolang(&authorization, (*C.Istio__Security__Authorization)(cValue))
+		log.Debugf("AuthorizationLookupAll, value [%s]", authorization.String())
+		if err != nil {
+			return nil, err
+		}
+		authorizations = append(authorizations, &authorization)
+	}
+
+	return authorizations, nil
 }
 
 func AuthorizationUpdate(policyKey uint32, value *security_v2.Authorization) error {

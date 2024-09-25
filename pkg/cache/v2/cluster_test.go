@@ -17,6 +17,7 @@
 package cache_v2
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -175,6 +176,33 @@ func TestClusterFlush(t *testing.T) {
 		assert.Equal(t, []string{}, updateClusterName)
 		assert.Equal(t, []string{}, deleteClusterName)
 	})
+}
+
+func TestClusterLookupAll(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        "ads",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, _ := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+	testClusterNames := []string{"ut-cluster-1", "ut-cluster-2", "ut-cluster-3"}
+	for _, testClusterName := range testClusterNames {
+		err := maps_v2.ClusterUpdate(testClusterName, &cluster_v2.Cluster{Name: testClusterName})
+		assert.Nil(t, err)
+	}
+
+	clusters, err := maps_v2.ClusterLookupAll()
+	assert.Nil(t, err)
+
+	var actualClusterNames []string
+
+	for _, cluster := range clusters {
+		actualClusterNames = append(actualClusterNames, cluster.Name)
+	}
+
+	sort.Strings(actualClusterNames)
+	assert.Equal(t, actualClusterNames, testClusterNames)
 }
 
 func BenchmarkClusterFlush(b *testing.B) {

@@ -21,7 +21,7 @@ import (
 	"strings"
 
 	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	structpb "github.com/golang/protobuf/ptypes/struct"
+	"google.golang.org/protobuf/types/known/structpb"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/model"
 	"istio.io/istio/pkg/util/protomarshal"

@@ -20,9 +20,16 @@
 #define ELASTIC_SLOTS_NUM                                                                                              \
     ((OUTTER_MAP_SCALEUP_STEP > OUTTER_MAP_SCALEIN_STEP) ? OUTTER_MAP_SCALEUP_STEP : OUTTER_MAP_SCALEIN_STEP)
 
+struct element_list_node {
+    void *elem;
+    struct element_list_node *next;
+};
+
 int deserial_update_elem(void *key, void *value);
 void *deserial_lookup_elem(void *key, const void *msg_desciptor);
+struct element_list_node *deserial_lookup_all_elems(const void *msg_desciptor);
 void deserial_free_elem(void *value);
+void deserial_free_elem_list(struct element_list_node *head);
 int deserial_delete_elem(void *key, const void *msg_desciptor);
 
 int deserial_init();

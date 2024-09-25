@@ -33,6 +33,7 @@ out/
 # build binaries       
 kmesh-cni
 kmesh-daemon
+kmeshctl
 
 # go test coverage
 coverage.out
@@ -53,6 +54,17 @@ bpf/kmesh/bpf2go/kmeshsockops_bpfeb.go
 bpf/kmesh/bpf2go/kmeshsockops_bpfel.go
 bpf/kmesh/bpf2go/kmeshtracepoint_bpfeb.go
 bpf/kmesh/bpf2go/kmeshtracepoint_bpfel.go
+
+bpf/kmesh/bpf2go/kmeshcgroupsockcompat_bpfeb.go
+bpf/kmesh/bpf2go/kmeshcgroupsockcompat_bpfel.go
+bpf/kmesh/bpf2go/kmeshcgroupsockworkloadcompat_bpfeb.go
+bpf/kmesh/bpf2go/kmeshcgroupsockworkloadcompat_bpfel.go
+bpf/kmesh/bpf2go/kmeshsendmsgcompat_bpfeb.go
+bpf/kmesh/bpf2go/kmeshsendmsgcompat_bpfel.go
+bpf/kmesh/bpf2go/kmeshsockopsworkloadcompat_bpfeb.go
+bpf/kmesh/bpf2go/kmeshsockopsworkloadcompat_bpfel.go
+bpf/kmesh/bpf2go/kmeshxdpauthcompat_bpfeb.go
+bpf/kmesh/bpf2go/kmeshxdpauthcompat_bpfel.go
 
 kernel/**/*.ko
 kernel/**/*.cmd

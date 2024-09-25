@@ -441,3 +441,7 @@ func (sc *BpfKmesh) Detach() error {
 	}
 	return nil
 }
+
+func AdsL7Enabled() bool {
+	return true
+}

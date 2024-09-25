@@ -1,9 +1,5 @@
 #!/bin/bash
 
-function prepare() {
-    docker pull "ghcr.io/kmesh-net/kmesh-build:latest"
-}
-
 function run_docker_container() {
     local container_id
     container_id=$(docker run -itd --privileged=true \
