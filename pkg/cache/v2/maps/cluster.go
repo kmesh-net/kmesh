@@ -24,6 +24,7 @@ package maps
 // #include "cluster/cluster.pb-c.h"
 import "C"
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -34,6 +35,9 @@ import (
 
 func clusterToGolang(goMsg *cluster_v2.Cluster, cMsg *C.Cluster__Cluster) error {
 	buf := make([]byte, C.cluster__cluster__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.cluster__cluster__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -46,6 +50,9 @@ func clusterToClang(goMsg *cluster_v2.Cluster) (*C.Cluster__Cluster, error) {
 	buf, err := proto.Marshal(goMsg)
 	if err != nil {
 		return nil, err
+	}
+	if len(buf) == 0 {
+		return nil, nil
 	}
 
 	cMsg := C.cluster__cluster__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
@@ -76,6 +83,34 @@ func ClusterLookup(key string, value *cluster_v2.Cluster) error {
 	return err
 }
 
+func ClusterLookupAll() ([]*cluster_v2.Cluster, error) {
+	cMsg := C.deserial_lookup_all_elems(unsafe.Pointer(&C.cluster__cluster__descriptor))
+	if cMsg == nil {
+		return nil, errors.New("ClusterLookupAll deserial_lookup_all_elems failed")
+	}
+
+	elem_list_head := (*C.struct_element_list_node)(cMsg)
+	defer C.deserial_free_elem_list(elem_list_head)
+
+	var (
+		clusters []*cluster_v2.Cluster
+		err      error
+	)
+	for elem_list_head != nil {
+		cValue := elem_list_head.elem
+		elem_list_head = elem_list_head.next
+		cluster := cluster_v2.Cluster{}
+		err = clusterToGolang(&cluster, (*C.Cluster__Cluster)(cValue))
+		log.Debugf("ClusterLookupAll, value [%s]", cluster.String())
+		if err != nil {
+			return nil, err
+		}
+		clusters = append(clusters, &cluster)
+	}
+
+	return clusters, nil
+}
+
 func ClusterUpdate(key string, value *cluster_v2.Cluster) error {
 	log.Debugf("ClusterUpdate [%s], [%s]", key, value.String())
 
@@ -85,6 +120,9 @@ func ClusterUpdate(key string, value *cluster_v2.Cluster) error {
 	cMsg, err := clusterToClang(value)
 	if err != nil {
 		return fmt.Errorf("ClusterUpdate %s", err)
+	}
+	if cMsg == nil {
+		return nil
 	}
 	defer clusterFreeClang(cMsg)
 

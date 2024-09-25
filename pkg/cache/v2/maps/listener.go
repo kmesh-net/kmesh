@@ -12,9 +12,6 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: LemmyHuang
- * Create: 2022-02-28
  */
 
 package maps
@@ -24,6 +21,7 @@ package maps
 // #include "listener/listener.pb-c.h"
 import "C"
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -40,6 +38,9 @@ var (
 
 func listenerToGolang(goMsg *listener_v2.Listener, cMsg *C.Listener__Listener) error {
 	buf := make([]byte, C.listener__listener__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.listener__listener__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -53,6 +54,9 @@ func listenerToClang(goMsg *listener_v2.Listener) (*C.Listener__Listener, error)
 	if err != nil {
 		return nil, err
 	}
+	if len(buf) == 0 {
+		return nil, nil
+	}
 
 	cMsg := C.listener__listener__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
 	if cMsg == nil {
@@ -65,12 +69,43 @@ func listenerFreeClang(cMsg *C.Listener__Listener) {
 	C.listener__listener__free_unpacked(cMsg, nil)
 }
 
+func ListenerLookupAll() ([]*listener_v2.Listener, error) {
+	cMsg := C.deserial_lookup_all_elems(unsafe.Pointer(&C.listener__listener__descriptor))
+	if cMsg == nil {
+		return nil, errors.New("ListenerLookupAll deserial_lookup_all_elems failed")
+	}
+
+	elem_list_head := (*C.struct_element_list_node)(cMsg)
+	defer C.deserial_free_elem_list(elem_list_head)
+
+	var (
+		listeners []*listener_v2.Listener
+		err       error
+	)
+	for elem_list_head != nil {
+		cValue := elem_list_head.elem
+		elem_list_head = elem_list_head.next
+		listener := listener_v2.Listener{}
+		err = listenerToGolang(&listener, (*C.Listener__Listener)(cValue))
+		log.Debugf("ListenerLookupAll, value [%s]", listener.String())
+		if err != nil {
+			return nil, err
+		}
+		listeners = append(listeners, &listener)
+	}
+
+	return listeners, nil
+}
+
 func ListenerLookup(key *core_v2.SocketAddress, value *listener_v2.Listener) error {
 	var err error
 
 	cKey, err := socketAddressToClang(key)
 	if err != nil {
 		return fmt.Errorf("ListenerLookup %s", err)
+	}
+	if cKey == nil {
+		return nil
 	}
 	defer socketAddressFreeClang(cKey)
 
@@ -96,11 +131,17 @@ func ListenerUpdate(key *core_v2.SocketAddress, value *listener_v2.Listener) err
 	if err != nil {
 		return fmt.Errorf("ListenerLookup %s", err)
 	}
+	if cKey == nil {
+		return nil
+	}
 	defer socketAddressFreeClang(cKey)
 
 	cMsg, err := listenerToClang(value)
 	if err != nil {
 		return fmt.Errorf("ListenerUpdate %s", err)
+	}
+	if cMsg == nil {
+		return nil
 	}
 	defer listenerFreeClang(cMsg)
 
@@ -124,6 +165,9 @@ func ListenerDelete(key *core_v2.SocketAddress) error {
 	cKey, err := socketAddressToClang(key)
 	if err != nil {
 		return fmt.Errorf("ListenerLookup %s", err)
+	}
+	if cKey == nil {
+		return nil
 	}
 	defer socketAddressFreeClang(cKey)
 

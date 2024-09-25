@@ -18,6 +18,7 @@ package cache_v2
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -35,6 +36,35 @@ import (
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
+
+func TestListenerLookupAll(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        "ads",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, _ := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+	testListenerNames := []string{"ut-listener-1", "ut-listener-2", "ut-listener-3"}
+	for i, testListenerName := range testListenerNames {
+		err := maps_v2.ListenerUpdate(&core_v2.SocketAddress{
+			Port: uint32(i + 1),
+		}, &listener_v2.Listener{Name: testListenerName})
+		assert.Nil(t, err)
+	}
+
+	listeners, err := maps_v2.ListenerLookupAll()
+	assert.Nil(t, err)
+
+	var actualListenerNames []string
+
+	for _, listener := range listeners {
+		actualListenerNames = append(actualListenerNames, listener.Name)
+	}
+
+	sort.Strings(actualListenerNames)
+	assert.Equal(t, actualListenerNames, testListenerNames)
+}
 
 func TestListenerFlush(t *testing.T) {
 	t.Run("listener status is UPDATE", func(t *testing.T) {

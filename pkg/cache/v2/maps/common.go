@@ -39,6 +39,9 @@ func convertToPack(buf []byte) *C.uint8_t {
 
 func socketAddressToGolang(goMsg *core_v2.SocketAddress, cMsg *C.Core__SocketAddress) error {
 	buf := make([]byte, C.core__socket_address__get_packed_size(cMsg))
+	if len(buf) == 0 {
+		return nil
+	}
 
 	C.core__socket_address__pack(cMsg, convertToPack(buf))
 	if err := proto.Unmarshal(buf, goMsg); err != nil {
@@ -52,7 +55,9 @@ func socketAddressToClang(goMsg *core_v2.SocketAddress) (*C.Core__SocketAddress,
 	if err != nil {
 		return nil, err
 	}
-
+	if len(buf) == 0 {
+		return nil, nil
+	}
 	cMsg := C.core__socket_address__unpack(nil, C.size_t(len(buf)), convertToPack(buf))
 	if cMsg == nil {
 		return nil, fmt.Errorf("core__socket_address__unpack failed")

@@ -19,9 +19,15 @@
 #include "deserialization_to_bpf_map.h"
 #include "../../config/kmesh_marcos_def.h"
 
-#define LOG_ERR(fmt, args...)  printf(fmt, ##args)
-#define LOG_WARN(fmt, args...) printf(fmt, ##args)
-#define LOG_INFO(fmt, args...) printf(fmt, ##args)
+#define PRINTF(fmt, args...)                                                                                           \
+    do {                                                                                                               \
+        printf(fmt, ##args);                                                                                           \
+        fflush(stdout);                                                                                                \
+    } while (0)
+
+#define LOG_ERR(fmt, args...)  PRINTF(fmt, ##args)
+#define LOG_WARN(fmt, args...) PRINTF(fmt, ##args)
+#define LOG_INFO(fmt, args...) PRINTF(fmt, ##args)
 
 struct op_context {
     void *key;
@@ -37,10 +43,10 @@ struct op_context {
     const ProtobufCMessageDescriptor *desc;
 };
 
-#define init_op_context(context, key, val, desc, o_fd, fd, o_info, i_info, m_info)                                     \
+#define init_op_context(context, k, v, desc, o_fd, fd, o_info, i_info, m_info)                                         \
     do {                                                                                                               \
-        (context).key = (key);                                                                                         \
-        (context).value = (val);                                                                                       \
+        (context).key = (k);                                                                                           \
+        (context).value = (v);                                                                                         \
         (context).desc = (desc);                                                                                       \
         (context).outter_fd = (o_fd);                                                                                  \
         (context).map_fd = (fd);                                                                                       \
@@ -49,6 +55,16 @@ struct op_context {
         (context).info = (m_info);                                                                                     \
         (context).curr_info = (m_info);                                                                                \
         (context).curr_fd = (fd);                                                                                      \
+    } while (0)
+
+#define append_new_node(elem_list_head, curr_elem_list_node, new_node)                                                 \
+    do {                                                                                                               \
+        if (curr_elem_list_node == NULL) {                                                                             \
+            curr_elem_list_node = elem_list_head = new_node;                                                           \
+        } else {                                                                                                       \
+            curr_elem_list_node->next = new_node;                                                                      \
+            curr_elem_list_node = new_node;                                                                            \
+        }                                                                                                              \
     } while (0)
 
 #define TASK_SIZE (100)
@@ -771,6 +787,55 @@ static int repeat_field_query(struct op_context *ctx, const ProtobufCFieldDescri
     return ret;
 }
 
+void deserial_free_elem_list(struct element_list_node *head)
+{
+    while (head != NULL) {
+        struct element_list_node *n = head;
+        deserial_free_elem(n->elem);
+        head = n->next;
+        free(n);
+    }
+}
+
+static void *create_struct_list(struct op_context *ctx, int *err)
+{
+    void *prev_key = NULL;
+    void *value;
+    struct element_list_node *elem_list_head = NULL;
+    struct element_list_node *curr_elem_list_node = NULL;
+
+    *err = 0;
+    ctx->key = calloc(1, ctx->curr_info->key_size);
+    while (!bpf_map_get_next_key(ctx->curr_fd, prev_key, ctx->key)) {
+        prev_key = ctx->key;
+
+        value = create_struct(ctx, err);
+        if (*err) {
+            LOG_ERR("create_struct failed, err = %d\n", err);
+            break;
+        }
+
+        if (value == NULL) {
+            continue;
+        }
+
+        struct element_list_node *new_node = (struct element_list_node *)calloc(1, sizeof(struct element_list_node));
+        if (!new_node) {
+            *err = -1;
+            break;
+        }
+
+        new_node->elem = value;
+        new_node->next = NULL;
+        append_new_node(elem_list_head, curr_elem_list_node, new_node);
+    }
+    if (*err) {
+        deserial_free_elem_list(elem_list_head);
+        return NULL;
+    }
+    return elem_list_head;
+}
+
 static void *create_struct(struct op_context *ctx, int *err)
 {
     void *value;
@@ -814,11 +879,69 @@ static void *create_struct(struct op_context *ctx, int *err)
         if (ret) {
             LOG_INFO("field[%d] query fail\n", i);
             *err = 1;
-            return value;
+            break;
         }
     }
 
+    if (*err) {
+        deserial_free_elem(value);
+        return NULL;
+    }
+
     return value;
+}
+
+struct element_list_node *deserial_lookup_all_elems(const void *msg_desciptor)
+{
+    int ret, err;
+    struct element_list_node *value_list_head = NULL;
+    const char *map_name = NULL;
+    struct op_context context = {.inner_map_object = NULL};
+    const ProtobufCMessageDescriptor *desc;
+    struct bpf_map_info outter_info = {0}, inner_info = {0}, info = {0};
+    int map_fd, outter_fd = 0, inner_fd = 0;
+    unsigned int id, outter_id = 0, inner_id = 0;
+
+    if (msg_desciptor == NULL)
+        return NULL;
+
+    desc = (ProtobufCMessageDescriptor *)msg_desciptor;
+    if (desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
+        return NULL;
+
+    map_name = desc->short_name;
+    ret = get_map_ids(map_name, &id, &outter_id, &inner_id);
+    if (ret)
+        return NULL;
+
+    ret = get_map_fd_info(id, &map_fd, &info);
+    if (ret < 0) {
+        LOG_ERR("invalid MAP_ID: %d\n", id);
+        return NULL;
+    }
+
+    ret = get_map_fd_info(inner_id, &inner_fd, &inner_info);
+    ret |= get_map_fd_info(outter_id, &outter_fd, &outter_info);
+    if (ret < 0 || map_info_check(&outter_info, &inner_info))
+        goto end;
+
+    init_op_context(context, NULL, NULL, desc, outter_fd, map_fd, &outter_info, &inner_info, &info);
+
+    value_list_head = create_struct_list(&context, &err);
+    if (err != 0) {
+        LOG_ERR("create_struct_list failed, err = %d", err);
+    }
+
+end:
+    if (context.key != NULL)
+        free(context.key);
+    if (map_fd > 0)
+        close(map_fd);
+    if (outter_fd > 0)
+        close(outter_fd);
+    if (inner_fd > 0)
+        close(inner_fd);
+    return value_list_head;
 }
 
 void *deserial_lookup_elem(void *key, const void *msg_desciptor)
@@ -860,8 +983,7 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
     normalize_key(&context, key, map_name);
     value = create_struct(&context, &err);
     if (err != 0) {
-        deserial_free_elem(value);
-        value = NULL;
+        LOG_ERR("create_struct failed, err = %d\n", err);
     }
 
 end:

@@ -32,6 +32,8 @@ import (
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
+	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
@@ -194,17 +196,25 @@ func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
 	if !s.checkAdsMode(w) {
 		return
 	}
-
-	client := s.xdsClient
-	w.WriteHeader(http.StatusOK)
-	cache := client.AdsController.Processor.Cache
+	var err error
 	dynamicRes := &adminv2.ConfigResources{}
-
-	dynamicRes.ClusterConfigs = cache.ClusterCache.DumpBpf()
-	dynamicRes.ListenerConfigs = cache.ListenerCache.DumpBpf()
-	dynamicRes.RouteConfigs = cache.RouteCache.DumpBpf()
+	dynamicRes.ClusterConfigs, err = maps_v2.ClusterLookupAll()
+	if err != nil {
+		log.Errorf("ClusterLookupAll failed: %v", err)
+	}
+	dynamicRes.ListenerConfigs, err = maps_v2.ListenerLookupAll()
+	if err != nil {
+		log.Errorf("ListenerLookupAll failed: %v", err)
+	}
+	if bpf.AdsL7Enabled() {
+		dynamicRes.RouteConfigs, err = maps_v2.RouteConfigLookupAll()
+		if err != nil {
+			log.Errorf("RouteConfigLookupAll failed: %v", err)
+		}
+	}
 	ads.SetApiVersionInfo(dynamicRes)
 
+	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, protojson.Format(&adminv2.ConfigDump{
 		DynamicResources: dynamicRes,
 	}))

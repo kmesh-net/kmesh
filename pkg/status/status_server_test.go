@@ -30,12 +30,19 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/protobuf/encoding/protojson"
 	"istio.io/istio/pilot/test/util"
 
+	"kmesh.net/kmesh/api/v2/admin"
+	"kmesh.net/kmesh/api/v2/cluster"
+	"kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/api/v2/listener"
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/daemon/options"
+	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
+	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
@@ -401,5 +408,78 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		assert.Equal(t, len(testServiceVals), len(dump.Services))
 
 		fmt.Printf("Dump: %v\n", dump)
+	})
+}
+
+func TestServer_dumpAdsBpfMap(t *testing.T) {
+	t.Run("Workload mode test", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        "workload",
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, _ := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		// workload mode will failed
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodGet, patternBpfWorkloadMaps, nil)
+		w := httptest.NewRecorder()
+		server.configDumpWorkload(w, req)
+
+		body, err := io.ReadAll(w.Body)
+		assert.Nil(t, err)
+		assert.Equal(t, invalidModeErrMessage, string(body))
+	})
+
+	t.Run("Ads mode test", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        "ads",
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, _ := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				AdsController: &ads.Controller{},
+			},
+		}
+
+		testClusterKeys := []string{"t1", "t2"}
+		testClusters := []*cluster.Cluster{
+			{Name: testClusterKeys[0]},
+			{Name: testClusterKeys[1]},
+		}
+
+		for index, testClusterKey := range testClusterKeys {
+			testCluster := testClusters[index]
+			maps_v2.ClusterUpdate(testClusterKey, testCluster)
+		}
+
+		testListenerKeys := []*core.SocketAddress{
+			{Port: 1}, {Port: 2},
+		}
+		testListeners := []*listener.Listener{{Name: "t1"}, {Name: "t2"}}
+
+		for index, testListenerKey := range testListenerKeys {
+			testListener := testListeners[index]
+			maps_v2.ListenerUpdate(testListenerKey, testListener)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternBpfAdsMaps, nil)
+		w := httptest.NewRecorder()
+		server.bpfAdsMaps(w, req)
+		body, err := io.ReadAll(w.Body)
+		fmt.Printf("dump: %s\n", string(body))
+		assert.Nil(t, err)
+
+		dump := admin.ConfigDump{}
+		err = protojson.Unmarshal(body, &dump)
+		assert.Nil(t, err)
+
+		assert.Equal(t, len(testClusters), len(dump.DynamicResources.ClusterConfigs))
+		assert.Equal(t, len(testListeners), len(dump.DynamicResources.ListenerConfigs))
 	})
 }
