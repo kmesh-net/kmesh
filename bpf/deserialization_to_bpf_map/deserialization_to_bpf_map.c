@@ -71,7 +71,7 @@ struct op_context {
 struct inner_map_stat {
     int map_fd;
     unsigned int used : 1;
-    unsigned int alloced : 1;
+    unsigned int allocated : 1;
     unsigned int resv : 30;
 };
 
@@ -82,9 +82,9 @@ struct inner_map_mng {
     struct bpf_map_info outter_info;
     struct inner_map_stat inner_maps[MAX_OUTTER_MAP_ENTRIES];
     int elastic_slots[ELASTIC_SLOTS_NUM];
-    int used_cnt;        // real used count
-    int alloced_cnt;     // real alloced count
-    int max_alloced_idx; // max alloced index, there may be holes.
+    int used_cnt;          // real used count
+    int allocated_cnt;     // real allocated count
+    int max_allocated_idx; // max allocated index, there may be holes.
     int init;
     sem_t fin_tasks;
     int elastic_task_exit; // elastic scaling thread exit flag
@@ -101,14 +101,14 @@ struct task_contex {
 
 struct inner_map_persist_stat {
     unsigned char used : 1;
-    unsigned char alloced : 1;
+    unsigned char allocated : 1;
     unsigned char resv : 6;
 };
 struct persist_info {
     unsigned int magic;
-    int used_cnt;        // real used count
-    int alloced_cnt;     // real alloced count
-    int max_alloced_idx; // max alloced index, there may be holes.
+    int used_cnt;          // real used count
+    int allocated_cnt;     // real allocated count
+    int max_allocated_idx; // max allocated index, there may be holes.
     struct inner_map_persist_stat inner_map_stat[0];
 };
 
@@ -300,17 +300,17 @@ static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 static int alloc_outter_map_entry(struct op_context *ctx)
 {
     int i;
-    if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= g_inner_map_mng.alloced_cnt) {
+    if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= g_inner_map_mng.allocated_cnt) {
         LOG_ERR(
             "[%d %d %d]alloc_outter_map_entry failed\n",
             g_inner_map_mng.init,
             g_inner_map_mng.used_cnt,
-            g_inner_map_mng.alloced_cnt);
+            g_inner_map_mng.allocated_cnt);
         return -1;
     }
 
-    for (i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
-        if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].alloced) {
+    for (i = 1; i <= g_inner_map_mng.max_allocated_idx; i++) {
+        if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].allocated) {
             g_inner_map_mng.inner_maps[i].used = 1;
             g_inner_map_mng.used_cnt++;
             return i;
@@ -320,14 +320,14 @@ static int alloc_outter_map_entry(struct op_context *ctx)
     LOG_ERR(
         "alloc_outter_map_entry all inner_maps in used:%d-%d-%d\n",
         g_inner_map_mng.used_cnt,
-        g_inner_map_mng.alloced_cnt,
-        g_inner_map_mng.max_alloced_idx);
+        g_inner_map_mng.allocated_cnt,
+        g_inner_map_mng.max_allocated_idx);
     return -1;
 }
 
 static int outter_key_to_inner_fd(struct op_context *ctx, unsigned int key)
 {
-    if (g_inner_map_mng.inner_maps[key].alloced)
+    if (g_inner_map_mng.inner_maps[key].allocated)
         return g_inner_map_mng.inner_maps[key].map_fd;
     return -1;
 }
@@ -591,7 +591,7 @@ static int map_info_check(struct bpf_map_info *outter_info, struct bpf_map_info 
 
     if (outter_info->max_entries < 2 || outter_info->max_entries > MAX_OUTTER_MAP_ENTRIES) {
         LOG_ERR("outter map max_entries must be in[2,%d]\n", MAX_OUTTER_MAP_ENTRIES);
-        // return -EINVAL;
+        return -EINVAL;
     }
     return 0;
 }
@@ -1416,7 +1416,7 @@ void outter_map_insert(struct task_contex *ctx)
         ret = bpf_map_update_elem(ctx->outter_fd, &idx, &g_inner_map_mng.inner_maps[idx].map_fd, BPF_ANY);
         if (ret)
             break;
-        g_inner_map_mng.inner_maps[idx].alloced = 1;
+        g_inner_map_mng.inner_maps[idx].allocated = 1;
     }
 
     if (ret)
@@ -1440,7 +1440,7 @@ void outter_map_delete(struct task_contex *ctx)
         ret = bpf_map_delete_elem(ctx->outter_fd, &idx);
         if (ret)
             break;
-        g_inner_map_mng.inner_maps[idx].alloced = 0;
+        g_inner_map_mng.inner_maps[idx].allocated = 0;
     }
 
     if (ret)
@@ -1541,7 +1541,7 @@ void collect_outter_map_scaleup_slots()
     int i = 0, j = 0;
     memset(g_inner_map_mng.elastic_slots, 0, sizeof(int) * ELASTIC_SLOTS_NUM);
     for (; i < MAX_OUTTER_MAP_ENTRIES; i++) {
-        if (g_inner_map_mng.inner_maps[i].alloced == 0) {
+        if (g_inner_map_mng.inner_maps[i].allocated == 0) {
             g_inner_map_mng.elastic_slots[j++] = i;
             if (j >= OUTTER_MAP_SCALEUP_STEP)
                 break;
@@ -1555,8 +1555,8 @@ void collect_outter_map_scalein_slots()
 {
     int i, j = 0;
     memset(g_inner_map_mng.elastic_slots, 0, sizeof(int) * ELASTIC_SLOTS_NUM);
-    for (i = g_inner_map_mng.max_alloced_idx; i >= 0; i--) {
-        if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].alloced == 1) {
+    for (i = g_inner_map_mng.max_allocated_idx; i >= 0; i--) {
+        if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].allocated == 1) {
             g_inner_map_mng.elastic_slots[j++] = i;
             if (j >= OUTTER_MAP_SCALEIN_STEP)
                 break;
@@ -1604,8 +1604,8 @@ void deserial_uninit(bool persist)
     if (persist)
         inner_map_mng_persist();
 
-    for (int i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
-        g_inner_map_mng.inner_maps[i].alloced = 0;
+    for (int i = 1; i <= g_inner_map_mng.max_allocated_idx; i++) {
+        g_inner_map_mng.inner_maps[i].allocated = 0;
         g_inner_map_mng.inner_maps[i].used = 0;
         if (g_inner_map_mng.inner_maps[i].map_fd)
             close(g_inner_map_mng.inner_maps[i].map_fd);
@@ -1614,8 +1614,8 @@ void deserial_uninit(bool persist)
     (void)sem_destroy(&g_inner_map_mng.fin_tasks);
     g_inner_map_mng.elastic_task_exit = 1;
     g_inner_map_mng.used_cnt = 0;
-    g_inner_map_mng.alloced_cnt = 0;
-    g_inner_map_mng.max_alloced_idx = 0;
+    g_inner_map_mng.allocated_cnt = 0;
+    g_inner_map_mng.max_allocated_idx = 0;
     g_inner_map_mng.init = 0;
 
     close(g_inner_map_mng.inner_fd);
@@ -1628,15 +1628,15 @@ int inner_map_scaleup()
     int ret;
     float percent = 1;
 
-    if (g_inner_map_mng.alloced_cnt)
-        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.alloced_cnt);
+    if (g_inner_map_mng.allocated_cnt)
+        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.allocated_cnt);
     if (percent < OUTTER_MAP_USAGE_HIGH_PERCENT)
         return 0;
 
     LOG_WARN(
         "Remaining resources are insufficient(%d/%d), and capacity expansion is required.\n",
         g_inner_map_mng.used_cnt,
-        g_inner_map_mng.alloced_cnt);
+        g_inner_map_mng.allocated_cnt);
 
     do {
         ret = inner_map_batch_create(&g_inner_map_mng.inner_info);
@@ -1647,9 +1647,9 @@ int inner_map_scaleup()
         if (ret)
             break;
 
-        g_inner_map_mng.alloced_cnt += OUTTER_MAP_SCALEUP_STEP;
-        if (g_inner_map_mng.elastic_slots[OUTTER_MAP_SCALEUP_STEP - 1] > g_inner_map_mng.max_alloced_idx)
-            g_inner_map_mng.max_alloced_idx = g_inner_map_mng.elastic_slots[OUTTER_MAP_SCALEUP_STEP - 1];
+        g_inner_map_mng.allocated_cnt += OUTTER_MAP_SCALEUP_STEP;
+        if (g_inner_map_mng.elastic_slots[OUTTER_MAP_SCALEUP_STEP - 1] > g_inner_map_mng.max_allocated_idx)
+            g_inner_map_mng.max_allocated_idx = g_inner_map_mng.elastic_slots[OUTTER_MAP_SCALEUP_STEP - 1];
     } while (0);
 
     if (ret) {
@@ -1663,15 +1663,15 @@ int inner_map_scalein()
     int i, ret;
     float percent = 1;
 
-    if (g_inner_map_mng.alloced_cnt > OUTTER_MAP_SCALEUP_STEP)
-        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.alloced_cnt);
+    if (g_inner_map_mng.allocated_cnt > OUTTER_MAP_SCALEUP_STEP)
+        percent = ((float)g_inner_map_mng.used_cnt) / ((float)g_inner_map_mng.allocated_cnt);
     if (percent > OUTTER_MAP_USAGE_LOW_PERCENT)
         return 0;
 
     LOG_WARN(
         "The remaining resources are sufficient(%d/%d) and scale-in is required.\n",
         g_inner_map_mng.used_cnt,
-        g_inner_map_mng.alloced_cnt);
+        g_inner_map_mng.allocated_cnt);
 
     inner_map_batch_delete();
     ret = outter_map_update(g_inner_map_mng.outter_fd, false);
@@ -1680,10 +1680,10 @@ int inner_map_scalein()
         return ret;
     }
 
-    g_inner_map_mng.alloced_cnt -= OUTTER_MAP_SCALEIN_STEP;
-    for (i = g_inner_map_mng.max_alloced_idx; i >= 0; i--) {
-        if (g_inner_map_mng.inner_maps[i].alloced) {
-            g_inner_map_mng.max_alloced_idx = i;
+    g_inner_map_mng.allocated_cnt -= OUTTER_MAP_SCALEIN_STEP;
+    for (i = g_inner_map_mng.max_allocated_idx; i >= 0; i--) {
+        if (g_inner_map_mng.inner_maps[i].allocated) {
+            g_inner_map_mng.max_allocated_idx = i;
             break;
         }
     }
@@ -1720,7 +1720,8 @@ int inner_map_mng_persist()
     if (g_inner_map_mng.init == 0)
         return 0;
 
-    size = sizeof(struct persist_info) + sizeof(struct inner_map_persist_stat) * (g_inner_map_mng.max_alloced_idx + 1);
+    size =
+        sizeof(struct persist_info) + sizeof(struct inner_map_persist_stat) * (g_inner_map_mng.max_allocated_idx + 1);
     p = (struct persist_info *)malloc(size);
     if (!p) {
         LOG_ERR("inner_map_mng_persist malloc failed.\n");
@@ -1728,12 +1729,12 @@ int inner_map_mng_persist()
     }
 
     p->magic = MAGIC_NUMBER;
-    p->alloced_cnt = g_inner_map_mng.alloced_cnt;
+    p->allocated_cnt = g_inner_map_mng.allocated_cnt;
     p->used_cnt = g_inner_map_mng.used_cnt;
-    p->max_alloced_idx = g_inner_map_mng.max_alloced_idx;
-    for (i = 0; i <= g_inner_map_mng.max_alloced_idx; i++) {
+    p->max_allocated_idx = g_inner_map_mng.max_allocated_idx;
+    for (i = 0; i <= g_inner_map_mng.max_allocated_idx; i++) {
         p->inner_map_stat[i].used = g_inner_map_mng.inner_maps[i].used;
-        p->inner_map_stat[i].alloced = g_inner_map_mng.inner_maps[i].alloced;
+        p->inner_map_stat[i].allocated = g_inner_map_mng.inner_maps[i].allocated;
     }
 
     f = fopen(MAP_IN_MAP_MNG_PERSIST_FILE_PATH, "wb");
@@ -1756,23 +1757,23 @@ int inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_m
     unsigned int *key = NULL;
     unsigned int *pre_key = NULL;
 
-    while (bpf_map_get_next_key(g_inner_map_mng.outter_fd, pre_key, &key) == 0 && i <= p->max_alloced_idx) {
+    while (bpf_map_get_next_key(g_inner_map_mng.outter_fd, pre_key, &key) == 0 && i <= p->max_allocated_idx) {
         if (bpf_map_lookup_elem(g_inner_map_mng.outter_fd, &key, &map_fd) != 0)
             continue;
 
-        if ((map_fd == 0 && stat->alloced) || (map_fd != 0 && stat->alloced == 0)) {
-            LOG_ERR("restore_by_persist_stat inconsistent %d: %d-%d\n", i, map_fd, stat->alloced);
+        if ((map_fd == 0 && stat->allocated) || (map_fd != 0 && stat->allocated == 0)) {
+            LOG_ERR("restore_by_persist_stat inconsistent %d: %d-%d\n", i, map_fd, stat->allocated);
             return -1;
         }
 
         g_inner_map_mng.inner_maps[i].map_fd = map_fd;
         g_inner_map_mng.inner_maps[i].used = stat[i].used;
-        g_inner_map_mng.inner_maps[i].alloced = stat[i].alloced;
+        g_inner_map_mng.inner_maps[i].allocated = stat[i].allocated;
     }
 
     g_inner_map_mng.used_cnt = p->used_cnt;
-    g_inner_map_mng.alloced_cnt = p->alloced_cnt;
-    g_inner_map_mng.max_alloced_idx = p->max_alloced_idx;
+    g_inner_map_mng.allocated_cnt = p->allocated_cnt;
+    g_inner_map_mng.max_allocated_idx = p->max_allocated_idx;
     return 0;
 }
 
@@ -1795,7 +1796,7 @@ int inner_map_restore()
         return 0;
     }
 
-    size = sizeof(struct inner_map_persist_stat) * (p.max_alloced_idx + 1);
+    size = sizeof(struct inner_map_persist_stat) * (p.max_allocated_idx + 1);
     stat = (struct inner_map_persist_stat *)malloc(size);
     if (!stat) {
         LOG_ERR("inner_map_restore alloc failed.\n");
@@ -1803,7 +1804,7 @@ int inner_map_restore()
         return -1;
     }
 
-    read_size = (int)fread(stat, sizeof(struct inner_map_persist_stat), (p.max_alloced_idx + 1), f);
+    read_size = (int)fread(stat, sizeof(struct inner_map_persist_stat), (p.max_allocated_idx + 1), f);
     if (read_size != size) {
         LOG_WARN("inner_map_restore invalid size:%d/%d\n", read_size, size);
         fclose(f);
