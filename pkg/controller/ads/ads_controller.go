@@ -79,7 +79,7 @@ func (c *Controller) HandleAdsStream() error {
 		rsp *service_discovery_v3.DiscoveryResponse
 	)
 	if rsp, err = c.con.Stream.Recv(); err != nil {
-		c.con.Stream.CloseSend()
+		_ = c.con.Stream.CloseSend()
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
@@ -111,6 +111,6 @@ func sendUpstream(con *connection) {
 func (c *Controller) Close() {
 	if c.con != nil {
 		close(c.con.stopCh)
-		c.con.Stream.CloseSend()
+		_ = c.con.Stream.CloseSend()
 	}
 }
