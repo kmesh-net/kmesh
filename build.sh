@@ -45,7 +45,7 @@ function prepare() {
     if [ "$(arch)" == "aarch64" ]; then
             export C_INCLUDE_PATH=/usr/include/aarch64-linux-gnu:$C_INCLUDE_PATH
     fi
-    export EXTRA_GOFLAGS="-gcflags=\"-N -l\""
+    export EXTRA_GOFLAGS="-gcflags=\"-N -l\" -buildmode=pie"
     export EXTRA_CFLAGS="-O0 -g"    
     
     bpf_compile_range_adjust
