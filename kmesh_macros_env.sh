@@ -61,9 +61,3 @@ if [[ "$LIBBPF_VERSION" < "0.6.0" ]]; then
 else
 	set_config LIBBPF_HIGHER_0_6_0_VERSION 1
 fi
-
-if [[ "$KERNEL_VERSION" < "5.13.0" ]]; then
-	set_config KERNEL_VERSION_HIGHER_5_13_0 0
-else
-	set_config KERNEL_VERSION_HIGHER_5_13_0 1
-fi
