@@ -36,6 +36,8 @@ jobs:
       run : |
         make ./hack/copyright-check.sh
 
+    
+
     - name: Build Kmesh
       shell: bash
       run: |
@@ -67,3 +69,38 @@ jobs:
           flags: unittests
           fail_ci_if_error: false
           verbose: true
+  helm:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: '3.12.3'
+          token: ${{ secrets.GH_PAT }}
+
+      - name: Check for Changes
+        id: check_changes
+        run: |
+          git diff --exit-code deploy/charts/kmesh-helm/Chart.yaml || echo "changed" >> $GITHUB_ENV
+
+       - name: Bump Version
+         if: env.changed == 'changed'
+         run: |
+          # With this we read the current version
+          current_version=$(grep 'version:' deploy/charts/kmesh-helm/Chart.yaml | awk '{print $2}')
+          IFS='.' read -r major minor patch <<< "$current_version"
+          
+          # Now we increment the patch version
+          new_patch=$((patch + 1))
+          new_version="$major.$minor.$new_patch"
+          
+          # And don't forget to update Chart.yaml with the new version
+          sed -i "s/version: .*/version: $new_version/" deploy/charts/kmesh-helm/Chart.yaml
+
+      - name: Update Image Tag
+        if: env.changed == 'changed'
+        run: |
+          sed -i "s/image: .*/image: my-image:new_version/" deploy/kubernetes/deployment.yaml
