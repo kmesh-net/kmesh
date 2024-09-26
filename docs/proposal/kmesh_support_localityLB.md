@@ -37,64 +37,43 @@ What is locality strict mode? In locality strict mode, the LB (load balancing) a
 
 ### Design Details
 
-Maintain a prio map in both user space and kernel space, where the key is a combination of service ID and rank, and the value consists of a count and a UID list. In user space, compute the rank for each backend corresponding to a service and store it in a BPF map named KmeshPrio. In kernel space, iterate through the ranks using the service ID to query KmeshPrio and perform locality load balancing on the UID list.
+Introduce a priority (rank) between the existing service and endpoint to achieve finer-grained traffic control and service management. The newly designed endPointKey will consist of the service ID, priority level, and backend index, with its corresponding value being the backendKey. Development will be carried out in both user space and kernel space to implement the functionality.
 
 ![locality_lb_pic](pics/locality_lb.svg)
 
 #### Control plane（user-space）
-1. The user-space kmesh process maintains locality, clusterId, and network information, which is updated when xDS receives information about the workload currently on this node. [handleWorkload]
-2. The user-space kmesh also maintains routingPreference, which is updated when xDS receives information about the service currently on this node. [storeServiceData]
-3. The user-space kmesh maintains a map, `backendsByService`, storing all services present within the current kmesh process along with their respective backends, which will participate in the locality rank calculation.
-4. Once both sets of information are maintained, the locality rank is calculated and the locality load balancing policy is updated in the BPF map `KmeshPrio` via the method `[updateLocalityLBPrio]`:
-  - `updateLocalityLBPrio`: Iterates through and compares the locality information of the kmesh process with every backend associated with the service, matching according to the routing rules defined in the service's load balance scope. For example, if the service is configured with a region scope, the region of the kmesh process is compared with the region of the target backend, incrementing the rank value if they match. After comparing each backend, store the UID of that backend in the `UidList` of `PrioValue` corresponding to its rank value and service ID as the key. Each rank corresponds to a set of backends for that priority level.
-  - In `handleWorkload`, when handling workloads with service information, first execute the existing logic `handleDataWithService` to handle the service, then use `storeServiceBackend` to store the backend in `backendsByService`, and finally call `updateLocalityLBPrio`.
-  - In `handleService`, call `updateLocalityLBPrio`.
-  - In `removeWorkloadFromLocalityLBPrio`, perform a full update (since removing a workload requires updating the entire map, as the current `prio map` stores the backend UID list in an array form, making selective deletion of map elements impractical).
+1. The user-space kmesh process needs to maintain locality, clusterId, and network information, which is updated when the xDS receives information about the workload currently on that node.
+2. The user-space kmesh process also needs to maintain routingPreference, which is updated when the xDS receives information about the service currently on that node.
+3. Once the above information has been successfully obtained by the user-space, for each incoming workload, its locality information is compared with the kmesh process's locality to calculate a priority.
+   Calculation Process: Match according to the routing rules defined in the service load balancing scope. For example, if a service is configured with a region, the kmesh process's region is compared with the target backend's region. If they are the same, the priority value is incremented. After calculating the rank, the corresponding endpointKey is generated using the service ID, backend ID, and rank, thereby associating the service with the backend.
 
 #### Data plane（kernel-space）
-When a request is made for a service, the BPF program queries the backend UID list from the prio map using the request's service ID and iterates through the ranks. 
-- In strict mode, it selects backends that match all scopes.
-- In failover mode, it traverses the backend UID array starting from the highest rank and decrementing step by step. 
-- From the queried backend UIDs, a backend is randomly selected to serve the request.
-
+When a request is made to a service, the BPF program traverses the endpoint map to query the backend ID based on the requested service ID and count, following the priority rank. 
+- In strict mode, only backends that match all scopes are considered.
+- In failover mode, the BPF program will iterate through the ranks starting from the highest and moving downward. If there are backends stored at a particular priority level, one of the queried backends is selected at random to serve the request.
 
 #### data struct
-1. prio map
-
-workload.h
+1. workload.h
 ```
 typedef struct {
-    __u32 service_id; // service id
-    __u32 rank; // rank
-} prio_key;
-typedef struct {
-    __u32 count; // count of current prio
-    __u32 uid_list[MAP_SIZE_OF_PRIO]; // workload_uid to backend
-} prio_value;
-
-struct {
-    __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(key_size, sizeof(prio_key));
-    __uint(value_size, sizeof(prio_value));
-    __uint(max_entries, MAP_SIZE_OF_SERVICE*MAX_PRIO);
-    __uint(map_flags, BPF_F_NO_PREALLOC);
-} map_of_prio SEC(".maps");
-
+    __u32 service_id;    // service id
+    __u32 prio;          // prio means rank, 6 means match all, and 0 means match nothing
+    __u32 backend_index; // if endpoint_count = 3, then backend_index = 0/1/2
+} endpoint_key;
 ```
 
 2. service
 
 workload.h
 ```
+#define MAX_PRIO                  6
+#define MAX_PRIO_COUNT            MAX_PRIO + 1 // 6 means match all scope, 0 means match nothing
+
 typedef struct {
-    __u32 endpoint_count;               // endpoint count of current service
+    __u32 prio_endpoint_count[MAX_PRIO_COUNT];// endpoint count of current service with prio, prio from 6->0, 7是未被分配的workload暂存区
     __u32 lb_policy;                    // load balancing algorithm, currently supports random algorithm, locality loadbalance Failover/strict mode
-    __u32 lb_strict_index;
-    __u32 service_port[MAX_PORT_COUNT]; // service_port[i] and target_port[i] are a pair, i starts from 0 and max value
-                                        // is MAX_PORT_COUNT-1
-    __u32 target_port[MAX_PORT_COUNT];
-    struct ip_addr wp_addr;
-    __u32 waypoint_port;
+    __u32 lb_strict_index;              // for failover strict mode
+    ...
 } service_value;
 ```
 
@@ -110,45 +89,39 @@ typedef enum {
 } lb_policy_t;
 ```
 
-4. prio
-
-priority.go
+4. locality_cache.go
 ```
 const (
-	MaxPrio       = 7
-	MaxSizeOfPrio = 1000
+	MaxPrio    = 6
+	MaxPrioNum = 7
 )
 
-type PrioKey struct {
-	ServiceId uint32
-	Rank      uint32
+type localityInfo struct {
+	region    string // init from workload.GetLocality().GetRegion()
+	zone      string // init from workload.GetLocality().GetZone()
+	subZone   string // init from workload.GetLocality().GetSubZone()
+	nodeName  string // init from os.Getenv("NODE_NAME"), workload.GetNode()
+	clusterId string // init from workload.GetClusterId()
+	network   string // workload.GetNetwork()
+	mask      uint32 // mask
 }
-type PrioValue struct {
-	Count   uint32                // count of current prio
-	UidList [MaxSizeOfPrio]uint32 // workload_uid to backend
+
+type LocalityCache struct {
+	LbPolicy               uint32
+	localityInfo           localityInfo
+	LbStrictIndex          uint32 // for failover strict mode
+	isLocalityInfoSet      bool
+	RoutingPreference      []workloadapi.LoadBalancing_Scope
+	isRoutingPreferenceSet bool
+	workloadWaitQueue      map[*workloadapi.Workload]struct{}
 }
-...
 ```
 
-5. add new locality info to kmesh process
+5. endpoint.go
 ```
-type Processor struct {
-	ack *service_discovery_v3.DeltaDiscoveryRequest
-	req *service_discovery_v3.DeltaDiscoveryRequest
-
-	hashName *HashName
-	// workloads indexer, svc key -> workload id
-	endpointsByService      map[string]map[string]struct{}
-	backendsByService       map[string]map[string]*workloadapi.Workload
-	bpf                     *bpf.Cache
-	nodeName                string                            // init from env("NODE_NAME")
-	clusterId               string                            // init from workload
-	network                 string                            // init from workload
-	routingPreference       []workloadapi.LoadBalancing_Scope // init from service
-	locality                workloadapi.Locality              // the locality of node, init from workload
-	WorkloadCache           cache.WorkloadCache
-	ServiceCache            cache.ServiceCache
-	is_locality_ok          bool
-	is_routingPreference_ok bool
+type EndpointKey struct {
+	ServiceId    uint32 // service id
+	Prio         uint32
+	BackendIndex uint32 // if endpoint_count = 3, then backend_index = 1/2/3
 }
 ```
