@@ -60,6 +60,13 @@ var (
 	trafficType       = ""
 	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
+	DataplaneModeKmesh               = "Kmesh"
+	KmeshUseWaypointLabel            = "istio.io/use-waypoint"
+	KmeshWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
+
+	WaypointImageAnnotation = "sidecar.istio.io/proxyImage"
+	KmeshWaypointImage      = "ghcr.io/kmesh-net/waypoint:latest"
+
 	waypointName    = constants.DefaultNamespaceWaypoint
 	enrollNamespace bool
 	overwrite       bool
@@ -88,8 +95,9 @@ func NewCmd() *cobra.Command {
 				APIVersion: gvk.KubernetesGateway_v1.GroupVersion(),
 			},
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      waypointName,
-				Namespace: ns,
+				Name:        waypointName,
+				Namespace:   ns,
+				Annotations: make(map[string]string, 0),
 			},
 			Spec: gateway.GatewaySpec{
 				GatewayClassName: constants.WaypointGatewayClassName,
@@ -100,6 +108,8 @@ func NewCmd() *cobra.Command {
 				}},
 			},
 		}
+
+		gw.Annotations[WaypointImageAnnotation] = KmeshWaypointImage
 
 		// only label if the user has provided their own value, otherwise we let istiod choose a default at runtime (service)
 		// this will allow for gateway class to provide a default for that class rather than always forcing service or requiring users to configure correctly
@@ -112,7 +122,7 @@ func NewCmd() *cobra.Command {
 				gw.Labels = map[string]string{}
 			}
 
-			gw.Labels[constants.AmbientWaypointForTrafficTypeLabel] = trafficType
+			gw.Labels[KmeshWaypointForTrafficTypeLabel] = trafficType
 		}
 
 		if revision != "" {
@@ -166,14 +176,14 @@ func NewCmd() *cobra.Command {
 			}
 			// ns := ctx.NamespaceOrDefault(ctx.Namespace())
 			ns := namespace
-			// If a user decides to enroll their namespace with a waypoint, verify that they have labeled their namespace as ambient.
-			// If they don't, the user will be warned and be presented with the command to label their namespace as ambient if they
+			// If a user decides to enroll their namespace with a waypoint, verify that they have labeled their namespace as Kmesh.
+			// If they don't, the user will be warned and be presented with the command to label their namespace as Kmesh if they
 			// choose to do so.
 			//
-			// NOTE: This is a warning and not an error because the user may not intend to label their namespace as ambient.
+			// NOTE: This is a warning and not an error because the user may not intend to label their namespace as Kmesh.
 			//
-			// e.g. Users are handling ambient redirection per workload rather than at the namespace level.
-			hasWaypoint, err := namespaceHasLabel(kubeClient, ns, constants.AmbientUseWaypointLabel)
+			// e.g. Users are handling Kmesh redirection per workload rather than at the namespace level.
+			hasWaypoint, err := namespaceHasLabel(kubeClient, ns, KmeshUseWaypointLabel)
 			if err != nil {
 				return err
 			}
@@ -185,13 +195,13 @@ func NewCmd() *cobra.Command {
 						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
 					return nil
 				}
-				namespaceIsLabeledAmbient, err := namespaceHasLabelWithValue(kubeClient, ns, constants.DataplaneModeLabel, constants.DataplaneModeAmbient)
+				namespaceIsLabeledKmesh, err := namespaceHasLabelWithValue(kubeClient, ns, constants.DataplaneModeLabel, DataplaneModeKmesh)
 				if err != nil {
-					return fmt.Errorf("failed to check if namespace is labeled ambient: %v", err)
+					return fmt.Errorf("failed to check if namespace is labeled Kmesh: %v", err)
 				}
-				if !namespaceIsLabeledAmbient {
-					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace is not enrolled in ambient. Consider running\t"+
-						"`"+"kubectl label namespace %s istio.io/dataplane-mode=ambient"+"`\n", ns)
+				if !namespaceIsLabeledKmesh {
+					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace is not enrolled in Kmesh. Consider running\t"+
+						"`"+"kubectl label namespace %s istio.io/dataplane-mode=Kmesh"+"`\n", ns)
 				}
 			}
 			gw, err := makeGateway(true)
@@ -251,7 +261,7 @@ func NewCmd() *cobra.Command {
 				}
 				// fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
 				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", namespace,
-					constants.AmbientUseWaypointLabel, gw.Name)
+					KmeshUseWaypointLabel, gw.Name)
 			}
 			return nil
 		},
@@ -568,7 +578,7 @@ func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
 	if nsObj.Labels == nil {
 		nsObj.Labels = map[string]string{}
 	}
-	nsObj.Labels[constants.AmbientUseWaypointLabel] = waypointName
+	nsObj.Labels[KmeshUseWaypointLabel] = waypointName
 	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
 	}
