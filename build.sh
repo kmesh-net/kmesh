@@ -13,13 +13,13 @@ function bpf_compile_range_adjust() {
 }
 
 function set_enhanced_kernel_env() {
-    # we use /usr/include/linux/bpf.h to determine the runtime environment’s 
-    # support for kmesh. Considering the case of online image compilation, a 
+    # we use /usr/include/linux/bpf.h to determine the runtime environment’s
+    # support for kmesh. Considering the case of online image compilation, a
     # variable KERNEL_HEADER_LINUX_BPF is used here to specify the path of the
-    # source of macro definition. 
-    # When using an online compiled image, /usr/include/linux/bpf.h in host 
-    # machine  will be mounted to config/linux-bpf.h. 
-    # Otherwise, /usr/include/linux/bpf.h from the current compilation 
+    # source of macro definition.
+    # When using an online compiled image, /usr/include/linux/bpf.h in host
+    # machine  will be mounted to config/linux-bpf.h.
+    # Otherwise, /usr/include/linux/bpf.h from the current compilation
     # environment will be obtained
     export KERNEL_HEADER_LINUX_BPF=$ROOT_DIR/config/linux-bpf.h
     if [ ! -f "$KERNEL_HEADER_LINUX_BPF" ]; then
@@ -46,8 +46,8 @@ function prepare() {
             export C_INCLUDE_PATH=/usr/include/aarch64-linux-gnu:$C_INCLUDE_PATH
     fi
     export EXTRA_GOFLAGS="-gcflags=\"-N -l\" -buildmode=pie"
-    export EXTRA_CFLAGS="-O0 -g"    
-    
+    export EXTRA_CFLAGS="-O0 -g"
+
     bpf_compile_range_adjust
 }
 
@@ -93,7 +93,7 @@ fi
 
 if [ -z "$1" -o "$1" == "-b"  -o  "$1" == "--build" ]; then
     prepare
-    make
+    make BINARIES="$BINARIES"
     exit
 fi
 
