@@ -173,7 +173,8 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if GetExitType() == Restart {
+	if GetExitType() == Restart && l.config.WdsEnabled() {
+		C.deserial_uninit(true)
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
 	}
@@ -188,7 +189,7 @@ func (l *BpfLoader) Stop() {
 			return
 		}
 	} else if l.config.WdsEnabled() {
-		C.deserial_uninit(true)
+		C.deserial_uninit(false)
 		if err = l.workloadObj.Detach(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
