@@ -1603,6 +1603,8 @@ void deserial_uninit(bool persist)
 {
     if (persist)
         inner_map_mng_persist();
+    else
+        remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
 
     for (int i = 1; i <= g_inner_map_mng.max_allocated_idx; i++) {
         g_inner_map_mng.inner_maps[i].allocated = 0;
