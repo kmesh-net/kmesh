@@ -1405,8 +1405,8 @@ void outter_map_insert(struct task_contex *ctx)
     int i, end, idx, ret = 0;
     pthread_t tid = pthread_self();
 
-    i = ctx->task_id * TASK_SIZE;
-    end = (i + TASK_SIZE);
+    i = (ctx->task_id * TASK_SIZE) ? (ctx->task_id * TASK_SIZE) : 1;
+    end = ((i + TASK_SIZE) < MAX_OUTTER_MAP_ENTRIES) ? (i + TASK_SIZE) : MAX_OUTTER_MAP_ENTRIES;
     for (; i < end; i++) {
         idx = g_inner_map_mng.elastic_slots[i];
         if (!g_inner_map_mng.inner_maps[idx].map_fd) {
@@ -1571,7 +1571,7 @@ int inner_map_batch_create(struct bpf_map_info *inner_info)
     int i, fd;
 
     collect_outter_map_scaleup_slots();
-    for (i = 0; i < OUTTER_MAP_SCALEUP_STEP; i++) {
+    for (i = 1; i < OUTTER_MAP_SCALEUP_STEP; i++) {
         fd = inner_map_create(inner_info);
         if (fd < 0)
             break;
