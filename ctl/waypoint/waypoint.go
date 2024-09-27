@@ -32,7 +32,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v2"
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
@@ -44,6 +43,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/yaml"
 
 	"kmesh.net/kmesh/ctl/utils"
 )
@@ -517,7 +517,7 @@ func errorWithMessage(errMsg string, gwc *gateway.Gateway, err error) error {
 	if err != nil {
 		errorMsg += fmt.Sprintf(": %s", err)
 	}
-	return fmt.Errorf(errorMsg)
+	return fmt.Errorf("%s", errorMsg)
 }
 
 func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gw []gateway.Gateway) error {
