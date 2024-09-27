@@ -188,6 +188,7 @@ func (l *BpfLoader) Stop() {
 			return
 		}
 	} else if l.config.WdsEnabled() {
+		C.deserial_uninit(true)
 		if err = l.workloadObj.Detach(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
