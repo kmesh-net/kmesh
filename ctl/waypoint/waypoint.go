@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/version"
 )
 
 var (
@@ -64,7 +65,7 @@ var (
 	KmeshWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
 
 	WaypointImageAnnotation = "sidecar.istio.io/proxyImage"
-	KmeshWaypointImage      = "ghcr.io/kmesh-net/waypoint:latest"
+	image                   = ""
 
 	waypointName    = constants.DefaultNamespaceWaypoint
 	enrollNamespace bool
@@ -100,6 +101,7 @@ func NewCmd() *cobra.Command {
 
 	waypointCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
 	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", constants.DefaultNamespaceWaypoint, "name of the waypoint")
+	waypointCmd.PersistentFlags().StringVarP(&image, "image", "", "", "image of the waypoint")
 
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := namespaceOrDefault(namespace)
@@ -133,7 +135,7 @@ func NewCmd() *cobra.Command {
 			},
 		}
 
-		gw.Annotations[WaypointImageAnnotation] = KmeshWaypointImage
+		gw.Annotations[WaypointImageAnnotation] = getKmeshWaypointImage()
 
 		// only label if the user has provided their own value, otherwise we let istiod choose a default at runtime (service)
 		// this will allow for gateway class to provide a default for that class rather than always forcing service or requiring users to configure correctly
@@ -613,4 +615,14 @@ func namespaceOrDefault(namespace string) string {
 	}
 
 	return namespace
+}
+
+func getKmeshWaypointImage() string {
+	if image != "" {
+		return image
+	}
+
+	ver := version.Get().GitVersion
+
+	return fmt.Sprintf("ghcr.io/kmesh-net/waypoint:v%s", ver)
 }
