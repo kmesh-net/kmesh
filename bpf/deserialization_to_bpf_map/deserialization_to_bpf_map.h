@@ -9,7 +9,7 @@
 /* equal MAP_SIZE_OF_OUTTER_MAP */
 #define MAX_OUTTER_MAP_ENTRIES        (1 << 20)
 #define OUTTER_MAP_USAGE_HIGH_PERCENT (0.7)
-#define OUTTER_MAP_USAGE_LOW_PERCENT  (0.2)
+#define OUTTER_MAP_USAGE_LOW_PERCENT  (0.3)
 #define TASK_SIZE                     (512)
 
 // 32,768
