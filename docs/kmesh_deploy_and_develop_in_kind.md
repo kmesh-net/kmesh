@@ -121,12 +121,12 @@ You can follow the steps below to develop in kind:
     You can change the logger level by:
 
     ```shell
-    kubectl exec -it $kmesh_pod_name -n kmesh-system -- kmesh-daemon log --set default:debug
+    kmeshctl log $kmesh_pod_name --set default:debug
     ```
 
     Specially, for bpf logs:
     ```shell
-    kubectl exec -it $kmesh_pod_name -n kmesh-system -- kmesh-daemon log --set bpf:debug
+    kmeshctl log $kmesh_pod_name --set bpf:debug
     ```
 
     You can use `uname -r` to check your kernel version. If it's higher than `5.13.0`, the bpf logs will be pushed to the user space. We can check them in the log file (with `subsys=ebpf`). Otherwise, you should use `bpftool` to check them:
