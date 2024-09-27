@@ -1760,8 +1760,10 @@ int inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_m
     unsigned int *pre_key = NULL;
 
     while (bpf_map_get_next_key(g_inner_map_mng.outter_fd, pre_key, &key) == 0 && i <= p->max_allocated_idx) {
-        if (bpf_map_lookup_elem(g_inner_map_mng.outter_fd, &key, &map_fd) != 0)
+        if (bpf_map_lookup_elem(g_inner_map_mng.outter_fd, &key, &map_fd) != 0) {
+            i++;
             continue;
+        }
 
         if ((map_fd == 0 && stat->allocated) || (map_fd != 0 && stat->allocated == 0)) {
             LOG_ERR("restore_by_persist_stat inconsistent %d: %d-%d\n", i, map_fd, stat->allocated);
@@ -1771,6 +1773,7 @@ int inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_m
         g_inner_map_mng.inner_maps[i].map_fd = map_fd;
         g_inner_map_mng.inner_maps[i].used = stat[i].used;
         g_inner_map_mng.inner_maps[i].allocated = stat[i].allocated;
+        i++;
     }
 
     g_inner_map_mng.used_cnt = p->used_cnt;
