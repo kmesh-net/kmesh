@@ -313,6 +313,11 @@ func recoverVersionMap(pinPath string) *ebpf.Map {
 
 func closeMap(m *ebpf.Map) {
 	var err error
+
+	if m == nil {
+		return
+	}
+
 	err = m.Unpin()
 	if err != nil {
 		log.Errorf("Failed to unpin kmesh_version: %v", err)
