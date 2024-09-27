@@ -43,7 +43,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
 	"kmesh.net/kmesh/ctl/utils"
@@ -75,13 +74,38 @@ var (
 const waitTimeout = 90 * time.Second
 
 func NewCmd() *cobra.Command {
+	waypointCmd := &cobra.Command{
+		Use:   "waypoint",
+		Short: "Manage waypoint configuration",
+		Long:  "A group of commands used to manage waypoint configuration",
+		Example: `  # Apply a waypoint to the current namespace
+  kmeshctl waypoint apply
+
+  # Generate a waypoint as yaml
+  kmeshctl waypoint generate --namespace default
+
+  # List all waypoints in a specific namespace
+  kmeshctl waypoint list --namespace default`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) != 0 {
+				return fmt.Errorf("unknown subcommand %q", args[0])
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cmd.HelpFunc()(cmd, args)
+			return nil
+		},
+	}
+
+	waypointCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
+	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", constants.DefaultNamespaceWaypoint, "name of the waypoint")
+
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
-		/*
-			ns := ctx.NamespaceOrDefault(ctx.Namespace())
-			if ctx.Namespace() == "" && !forApply {
-				ns = ""
-			}*/
-		ns := namespace
+		ns := namespaceOrDefault(namespace)
+		if namespace == "" && !forApply {
+			ns = ""
+		}
 
 		// If a user sets the waypoint name to an empty string, set it to the default namespace waypoint name.
 		if waypointName == "" {
@@ -174,8 +198,7 @@ func NewCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			// ns := ctx.NamespaceOrDefault(ctx.Namespace())
-			ns := namespace
+			ns := namespaceOrDefault(namespace)
 			// If a user decides to enroll their namespace with a waypoint, verify that they have labeled their namespace as Kmesh.
 			// If they don't, the user will be warned and be presented with the command to label their namespace as Kmesh if they
 			// choose to do so.
@@ -208,14 +231,8 @@ func NewCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create gateway: %v", err)
 			}
-			// gwc := kubeClient.GatewayAPI().GatewayV1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace()))
-			gwc := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace)
-			b, err := yaml.Marshal(gw)
-			if err != nil {
-				return err
-			}
-			_, err = gwc.Patch(context.Background(), gw.Name, types.ApplyPatchType, b, metav1.PatchOptions{
-				Force:        nil,
+
+			_, err = kubeClient.GatewayAPI().GatewayV1().Gateways(ns).Create(context.Background(), gw, metav1.CreateOptions{
 				FieldManager: "kmeshctl",
 			})
 			if err != nil {
@@ -231,8 +248,7 @@ func NewCmd() *cobra.Command {
 				defer ticker.Stop()
 				for range ticker.C {
 					programmed := false
-					// gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
-					gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+					gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).Get(context.TODO(), gw.Name, metav1.GetOptions{})
 					if err == nil {
 						// Check if gateway has Programmed condition set to true
 						for _, cond := range gwc.Status.Conditions {
@@ -259,8 +275,7 @@ func NewCmd() *cobra.Command {
 				if err != nil {
 					return fmt.Errorf("failed to label namespace with waypoint: %v", err)
 				}
-				// fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ctx.NamespaceOrDefault(ctx.Namespace()),
-				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", namespace,
+				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ns,
 					KmeshUseWaypointLabel, gw.Name)
 			}
 			return nil
@@ -299,7 +314,7 @@ func NewCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			ns := namespace
+			ns := namespaceOrDefault(namespace)
 			gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).
 				List(context.Background(), metav1.ListOptions{})
 			if err != nil {
@@ -361,7 +376,7 @@ func NewCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			ns := namespace
+			ns := namespaceOrDefault(namespace)
 
 			// Delete all waypoints if the --all flag is set
 			if deleteAll {
@@ -393,7 +408,7 @@ func NewCmd() *cobra.Command {
 			if allNamespaces {
 				ns = ""
 			} else {
-				ns = namespace
+				ns = namespaceOrDefault(namespace)
 			}
 			gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).
 				List(context.Background(), metav1.ListOptions{})
@@ -445,30 +460,6 @@ func NewCmd() *cobra.Command {
 	}
 	waypointListCmd.Flags().BoolVarP(&allNamespaces, "all-namespaces", "A", false, "List all waypoints in all namespaces")
 
-	waypointCmd := &cobra.Command{
-		Use:   "waypoint",
-		Short: "Manage waypoint configuration",
-		Long:  "A group of commands used to manage waypoint configuration",
-		Example: `  # Apply a waypoint to the current namespace
-  kmeshctl waypoint apply
-
-  # Generate a waypoint as yaml
-  kmeshctl waypoint generate --namespace default
-
-  # List all waypoints in a specific namespace
-  kmeshctl waypoint list --namespace default`,
-		Args: func(cmd *cobra.Command, args []string) error {
-			if len(args) != 0 {
-				return fmt.Errorf("unknown subcommand %q", args[0])
-			}
-			return nil
-		},
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cmd.HelpFunc()(cmd, args)
-			return nil
-		},
-	}
-
 	waypointApplyCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointApplyCmd.Flags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
 	waypointGenerateCmd.Flags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
@@ -477,7 +468,6 @@ func NewCmd() *cobra.Command {
 	waypointCmd.AddCommand(waypointStatusCmd)
 	waypointCmd.AddCommand(waypointGenerateCmd)
 	waypointCmd.AddCommand(waypointApplyCmd)
-	waypointCmd.Flags().StringVarP(&namespace, "namespace", "n", "default", "Kubernetes namespace")
 
 	return waypointCmd
 }
@@ -543,7 +533,7 @@ func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gw []ga
 	for _, gw := range gw {
 		for range ticker.C {
 			programmed := false
-			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespaceOrDefault(namespace)).Get(context.TODO(), gw.Name, metav1.GetOptions{})
 			if err == nil {
 				// Check if gateway has Programmed condition set to true
 				for _, cond = range gwc.Status.Conditions {
@@ -615,4 +605,12 @@ func namespaceHasLabelWithValue(kubeClient kube.CLIClient, ns string, label, lab
 		return false, nil
 	}
 	return nsObj.Labels[label] == labelValue, nil
+}
+
+func namespaceOrDefault(namespace string) string {
+	if namespace == "" {
+		return "default"
+	}
+
+	return namespace
 }
