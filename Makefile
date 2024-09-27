@@ -166,7 +166,7 @@ uninstall:
 
 .PHONY: build
 build:
-	 VERSION=$(VERSION) BINARIES=$(BINARIES) ./kmesh_compile.sh
+	 VERSION=$(VERSION) BINARIES="$(BINARIES)" ./kmesh_compile.sh
 
 .PHONY: docker
 docker: build
