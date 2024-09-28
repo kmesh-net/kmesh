@@ -173,7 +173,8 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if GetExitType() == Restart {
+	if GetExitType() == Restart && l.config.WdsEnabled() {
+		C.deserial_uninit(true)
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
 	}
@@ -181,13 +182,14 @@ func (l *BpfLoader) Stop() {
 	closeMap(l.versionMap)
 
 	if l.config.AdsEnabled() {
-		C.deserial_uninit()
+		C.deserial_uninit(false)
 		if err = l.obj.Detach(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
 			return
 		}
 	} else if l.config.WdsEnabled() {
+		C.deserial_uninit(false)
 		if err = l.workloadObj.Detach(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed detach when stop kmesh, err:%s", err)
@@ -311,6 +313,11 @@ func recoverVersionMap(pinPath string) *ebpf.Map {
 
 func closeMap(m *ebpf.Map) {
 	var err error
+
+	if m == nil {
+		return
+	}
+
 	err = m.Unpin()
 	if err != nil {
 		log.Errorf("Failed to unpin kmesh_version: %v", err)

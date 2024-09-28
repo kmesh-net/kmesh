@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION ?= 0.5.0-rc.0
+VERSION ?= 1.0-dev
 GIT_COMMIT_HASH ?= $(shell git rev-parse HEAD)
 GIT_TREESTATE=$(shell if [ -n "$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
