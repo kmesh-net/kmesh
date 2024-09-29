@@ -17,7 +17,8 @@
 package ads
 
 // #cgo pkg-config: bpf api-v2-c
-// #include "kmesh/ads/include/kmesh_common.h"
+// #include "kmesh/ads/include/tail_call_index.h"
+// #include "inner_map_defs.h"
 import "C"
 import (
 	"os"

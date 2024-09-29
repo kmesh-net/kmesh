@@ -78,7 +78,7 @@ func (sc *BpfAds) Start() {
 }
 
 func (sc *BpfAds) Stop() {
-	C.deserial_uninit()
+	C.deserial_uninit(false)
 	if err := sc.Detach(); err != nil {
 		log.Errorf("failed detach when stop kmesh, err: %v", err)
 		return
@@ -192,4 +192,8 @@ func (sc *BpfAds) Detach() error {
 		return err
 	}
 	return nil
+}
+
+func AdsL7Enabled() bool {
+	return false
 }

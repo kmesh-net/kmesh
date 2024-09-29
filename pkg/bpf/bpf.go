@@ -16,6 +16,9 @@
 
 package bpf
 
+// #cgo pkg-config: api-v2-c
+// #include "deserialization_to_bpf_map.h"
+import "C"
 import (
 	"hash/fnv"
 	"os"
@@ -138,10 +141,9 @@ func (l *BpfLoader) Stop() {
 	closeMap(l.versionMap)
 
 	if l.config.AdsEnabled() {
-		C.deserial_uninit(false)
-		if err = l.obj.Detach(); err != nil {
+		if err = l.obj.Stop(); err != nil {
 			CleanupBpfMap()
-			log.Errorf("failed detach when stop kmesh, err:%s", err)
+			log.Errorf("failed stop bpf, err: %v", err)
 			return
 		}
 	} else if l.config.WdsEnabled() {

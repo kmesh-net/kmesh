@@ -79,12 +79,9 @@ func (sc *BpfAds) GetBpfLogLevelMap() *ebpf.Map {
 	return sc.SockConn.BpfLogLevel
 }
 
-func (sc *BpfAds) Stop() {
-	C.deserial_uninit()
-	if err := sc.Detach(); err != nil {
-		log.Errorf("failed detach when stop kmesh, err: %v", err)
-		return
-	}
+func (sc *BpfAds) Stop() error {
+	C.deserial_uninit(false)
+	return sc.Detach()
 }
 
 func (sc *BpfAds) Load() error {
@@ -143,4 +140,8 @@ func (sc *BpfAds) Detach() error {
 		return err
 	}
 	return nil
+}
+
+func AdsL7Enabled() bool {
+	return false
 }
