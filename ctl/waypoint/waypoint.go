@@ -162,7 +162,10 @@ func NewCmd() *cobra.Command {
 		Short: "Generate a waypoint configuration",
 		Long:  "Generate a waypoint configuration as YAML",
 		Example: `  # Generate a waypoint as yaml
-  kmeshctl waypoint generate --namespace default`,
+  kmeshctl waypoint generate --namespace default
+
+  # Generate a waypoint that can process traffic for service in default namespace
+  kmeshctl waypoint generate --for service -n default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw, err := makeGateway(false)
 			if err != nil {
@@ -194,7 +197,10 @@ func NewCmd() *cobra.Command {
   kmeshctl waypoint apply
 
   # Apply a waypoint to a specific namespace and wait for it to be ready
-  kmeshctl waypoint apply --namespace default --wait`,
+  kmeshctl waypoint apply --namespace default --wait
+ 
+  # Apply a waypoint to a specific pod
+  kmesh waypoint apply -n default --name reviews-v2-pod-waypoint --for workload`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := utils.CreateKubeClient()
 			if err != nil {
