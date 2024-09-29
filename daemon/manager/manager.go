@@ -31,6 +31,7 @@ import (
 	"kmesh.net/kmesh/daemon/manager/version"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/cni"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/logger"
@@ -81,7 +82,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	}
 
 	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
-	if err := bpfLoader.Start(configs.BpfConfig); err != nil {
+	if err := bpfLoader.Start(); err != nil {
 		return err
 	}
 	defer bpfLoader.Stop()
@@ -90,7 +91,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	c := controller.NewController(configs, bpfLoader.GetBpfKmeshWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog, configs.BpfConfig.EnableAccesslog)
+	c := controller.NewController(configs, bpfLoader.GetBpfWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog, EnableAccesslog)
 	if err := c.Start(stopCh); err != nil {
 		return err
 	}
@@ -113,7 +114,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 
 	setupSignalHandler()
 	// set exit type, which can be used by bpf loader to decide whether to cleanup bpf prog
-	bpf.SetExitType()
+	restart.SetExitType(restart.InferNextStartType())
 	return nil
 }
 

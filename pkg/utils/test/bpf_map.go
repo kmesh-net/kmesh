@@ -25,7 +25,6 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
-	"kmesh.net/kmesh/pkg/constants"
 )
 
 type CleanupFn func()
@@ -52,13 +51,7 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 	}
 
 	loader := bpf.NewBpfLoader(&config)
-
-	if config.Mode == constants.AdsMode {
-		err = loader.StartAdsMode()
-	}
-	if config.Mode == constants.WorkloadMode {
-		err = loader.StartWorkloadMode()
-	}
+	err = loader.Start()
 
 	if err != nil {
 		bpf.CleanupBpfMap()

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package bpf
+package utils
 
 import (
 	"fmt"
@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-func pinPrograms(value *reflect.Value, path string) error {
+func PinPrograms(value *reflect.Value, path string) error {
 	for i := 0; i < value.NumField(); i++ {
 		tp, ok := value.Field(i).Interface().(*ebpf.Program)
 		if tp == nil || !ok {
@@ -43,7 +43,7 @@ func pinPrograms(value *reflect.Value, path string) error {
 	return nil
 }
 
-func unpinPrograms(value *reflect.Value) error {
+func UnpinPrograms(value *reflect.Value) error {
 	for i := 0; i < value.NumField(); i++ {
 		tp, ok := value.Field(i).Interface().(*ebpf.Program)
 		if !ok || tp == nil {
@@ -57,28 +57,7 @@ func unpinPrograms(value *reflect.Value) error {
 	return nil
 }
 
-// Due to the golint issue, comment unused functions temporaryly
-
-// func pinMaps(value *reflect.Value, path string) error {
-// 	for i := 0; i < value.NumField(); i++ {
-// 		tp, ok := value.Field(i).Interface().(*ebpf.Map)
-// 		if tp == nil || !ok {
-// 			return fmt.Errorf("invalid pinMaps ptr")
-// 		}
-
-// 		info, err := tp.Info()
-// 		if err != nil {
-// 			return fmt.Errorf("get map info failed, %s", err)
-// 		}
-// 		if err := tp.Pin(path + info.Name); err != nil {
-// 			return fmt.Errorf("pin map failed, %s", err)
-// 		}
-// 	}
-
-// 	return nil
-// }
-
-func unpinMaps(value *reflect.Value) error {
+func UnpinMaps(value *reflect.Value) error {
 	for i := 0; i < value.NumField(); i++ {
 		tp, ok := value.Field(i).Interface().(*ebpf.Map)
 		if tp == nil || !ok {
@@ -92,7 +71,7 @@ func unpinMaps(value *reflect.Value) error {
 	return nil
 }
 
-func setMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
+func SetMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
 	for key, v := range spec.Maps {
 		// tail_call map dont support pinning when shared by different bpf types
 		if strings.HasPrefix(key, ".rodata") || key == ".bss" || key == "kmesh_tail_call_prog" ||
@@ -102,12 +81,3 @@ func setMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
 		v.Pinning = pinType
 	}
 }
-
-// Due to the golint issue, comment unused functions temporaryly
-
-// func setProgBpfType(spec *ebpf.CollectionSpec, typ ebpf.ProgramType, atyp ebpf.AttachType) {
-// 	for _, v := range spec.Programs {
-// 		v.Type = typ
-// 		v.AttachType = atyp
-// 	}
-// }

@@ -28,7 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
-	"kmesh.net/kmesh/pkg/bpf"
+	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/xdstest"
@@ -37,7 +37,7 @@ import (
 
 func TestRecoverConnection(t *testing.T) {
 	t.Run("test reconnect success", func(t *testing.T) {
-		utClient := NewXdsClient(constants.AdsMode, &bpf.BpfKmeshWorkload{}, false)
+		utClient := NewXdsClient(constants.AdsMode, &bpfwl.BpfWorkload{}, false)
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		iteration := 0
@@ -78,7 +78,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient(constants.AdsMode, &bpf.BpfKmeshWorkload{}, false)
+		utClient := NewXdsClient(constants.AdsMode, &bpfwl.BpfWorkload{}, false)
 		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 
@@ -125,7 +125,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient(constants.WorkloadMode, &bpf.BpfKmeshWorkload{}, false)
+		utClient := NewXdsClient(constants.WorkloadMode, &bpfwl.BpfWorkload{}, false)
 		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 

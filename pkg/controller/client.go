@@ -24,8 +24,9 @@ import (
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/pkg/log"
 
-	"kmesh.net/kmesh/pkg/bpf"
+	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/config"
@@ -48,7 +49,7 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 }
 
-func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload, enableAccesslog bool) *XdsClient {
+func NewXdsClient(mode string, bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(mode),

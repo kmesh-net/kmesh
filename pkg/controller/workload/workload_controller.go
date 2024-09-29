@@ -23,7 +23,8 @@ import (
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"kmesh.net/kmesh/pkg/auth"
-	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/bpf/restart"
+	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/controller/telemetry"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -40,17 +41,17 @@ type Controller struct {
 	Processor        *Processor
 	Rbac             *auth.Rbac
 	MetricController *telemetry.MetricController
-	bpfWorkloadObj   *bpf.BpfKmeshWorkload
+	bpfWorkloadObj   *bpfwl.BpfWorkload
 }
 
-func NewController(bpfWorkload *bpf.BpfKmeshWorkload, enableAccesslog bool) *Controller {
+func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *Controller {
 	c := &Controller{
 		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
 		bpfWorkloadObj: bpfWorkload,
 	}
 	// do some initialization when restart
 	// restore endpoint index, otherwise endpoint number can double
-	if bpf.GetStartType() == bpf.Restart {
+	if restart.GetStartType() == restart.Restart {
 		c.Processor.bpf.RestoreEndpointKeys()
 	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)

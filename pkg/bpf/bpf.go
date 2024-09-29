@@ -16,13 +16,7 @@
 
 package bpf
 
-// #cgo pkg-config: api-v2-c
-// #include "deserialization_to_bpf_map.h"
-// #include "cluster/cluster.pb-c.h"
-import "C"
 import (
-	"errors"
-	"fmt"
 	"hash/fnv"
 	"os"
 	"os/exec"
@@ -33,6 +27,9 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/ads"
+	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
@@ -43,20 +40,11 @@ var (
 	hash = fnv.New32a()
 )
 
-type BpfInfo struct {
-	MapPath     string
-	BpfFsPath   string
-	Cgroup2Path string
-
-	Type       ebpf.ProgramType
-	AttachType ebpf.AttachType
-}
-
 type BpfLoader struct {
 	config *options.BpfConfig
 
-	obj         *BpfKmesh
-	workloadObj *BpfKmeshWorkload
+	obj         *ads.BpfKmesh
+	workloadObj *workload.BpfWorkload
 	bpfLogLevel *ebpf.Map
 	versionMap  *ebpf.Map
 }
@@ -66,42 +54,6 @@ func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
 		config:     config,
 		versionMap: NewVersionMap(config),
 	}
-}
-
-func (l *BpfLoader) StartAdsMode() (err error) {
-	var ve *ebpf.VerifierError
-	if l.obj, err = NewBpfKmesh(l.config); err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			l.Stop()
-		}
-	}()
-
-	if err = l.obj.Load(); err != nil {
-		if errors.As(err, &ve) {
-			return fmt.Errorf("bpf Load failed: %+v", ve)
-		}
-		return fmt.Errorf("bpf Load failed: %v", err)
-	}
-
-	if err = l.obj.Attach(); err != nil {
-		return fmt.Errorf("bpf Attach failed, %s", err)
-	}
-
-	if err = l.obj.ApiEnvCfg(); err != nil {
-		return fmt.Errorf("api env config failed, %s", err)
-	}
-
-	l.bpfLogLevel = l.obj.SockConn.BpfLogLevel
-	ret := C.deserial_init(GetStartType() == Restart)
-	if ret != 0 {
-		l.Stop()
-		return fmt.Errorf("deserial_init failed:%v", ret)
-	}
-	return nil
 }
 
 func StartMda() error {
@@ -116,36 +68,40 @@ func StartMda() error {
 	return nil
 }
 
-func (l *BpfLoader) Start(config *options.BpfConfig) error {
+func (l *BpfLoader) Start() error {
 	var err error
-
-	if l.versionMap == nil {
-		return fmt.Errorf("NewVersionMap failed")
-	}
-
-	if config.AdsEnabled() {
-		if err = l.StartAdsMode(); err != nil {
+	if l.config.AdsEnabled() {
+		if l.obj, err = ads.NewBpfKmesh(l.config); err != nil {
 			return err
 		}
-	} else if config.WdsEnabled() {
-		if err = l.StartWorkloadMode(); err != nil {
+		if err = l.obj.Start(); err != nil {
 			return err
 		}
+		l.bpfLogLevel = l.obj.GetBpfLogLevelMap()
+	} else if l.config.WdsEnabled() {
+		if l.workloadObj, err = workload.NewBpfWorkload(l.config); err != nil {
+			return err
+		}
+		if err = l.workloadObj.Start(); err != nil {
+			return err
+		}
+		l.bpfLogLevel = l.workloadObj.GetBpfLogLevelMap()
 	}
 
-	if config.EnableMda {
+	// TODO: move start mds out of bpf loader
+	if l.config.EnableMda {
 		if err = StartMda(); err != nil {
 			return err
 		}
 	}
 
-	if GetStartType() == Restart {
+	if restart.GetStartType() == restart.Restart {
 		log.Infof("bpf load from last pinPath")
 	}
 	return nil
 }
 
-func (l *BpfLoader) GetBpfKmeshWorkload() *BpfKmeshWorkload {
+func (l *BpfLoader) GetBpfWorkload() *workload.BpfWorkload {
 	if l == nil {
 		return nil
 	}
@@ -173,7 +129,7 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if GetExitType() == Restart && l.config.WdsEnabled() {
+	if restart.GetExitType() == restart.Restart && l.config.WdsEnabled() {
 		C.deserial_uninit(true)
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
@@ -189,21 +145,19 @@ func (l *BpfLoader) Stop() {
 			return
 		}
 	} else if l.config.WdsEnabled() {
-		C.deserial_uninit(false)
-		if err = l.workloadObj.Detach(); err != nil {
+		if err = l.workloadObj.Stop(); err != nil {
 			CleanupBpfMap()
-			log.Errorf("failed detach when stop kmesh, err:%s", err)
+			log.Errorf("failed stop bpf workload, err: %v", err)
 			return
 		}
 	}
 
 	if l.config.EnableMda {
 		if err = StopMda(); err != nil {
-			CleanupBpfMap()
 			log.Errorf("failed disable mda when stop kmesh, err:%s", err)
-			return
 		}
 	}
+
 	CleanupBpfMap()
 }
 
@@ -221,14 +175,14 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	if err == nil {
 		versionMap = recoverVersionMap(versionMapPinPath)
 		if versionMap != nil {
-			SetStartStatus(versionMap)
+			restart.SetStartStatus(versionMap)
 		}
 	}
 
-	switch GetStartType() {
-	case Restart:
+	switch restart.GetStartType() {
+	case restart.Restart:
 		return versionMap
-	case Update:
+	case restart.Update:
 		// TODO : update mode has not been fully developed and is currently consistent with normal mode
 		log.Warnf("Update mode support is under development, Will be started in Normal mode.")
 	default:
@@ -268,7 +222,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 
 	storeVersionInfo(m)
 	log.Infof("kmesh start with Normal")
-	SetStartType(Normal)
+	restart.SetStartType(restart.Normal)
 	return m
 }
 
@@ -281,16 +235,6 @@ func storeVersionInfo(versionMap *ebpf.Map) {
 	if err := versionMap.Put(&key, &value); err != nil {
 		log.Errorf("Add Version Map failed, err is %v", err)
 	}
-}
-
-func getOldVersionFromMap(m *ebpf.Map, key uint32) uint32 {
-	var value uint32
-	err := m.Lookup(&key, &value)
-	if err != nil {
-		log.Errorf("lookup failed: %v", err)
-		return value
-	}
-	return value
 }
 
 func recoverVersionMap(pinPath string) *ebpf.Map {
@@ -312,21 +256,33 @@ func recoverVersionMap(pinPath string) *ebpf.Map {
 }
 
 func closeMap(m *ebpf.Map) {
-	var err error
-
 	if m == nil {
 		return
 	}
 
-	err = m.Unpin()
-	if err != nil {
+	if err := m.Unpin(); err != nil {
 		log.Errorf("Failed to unpin kmesh_version: %v", err)
 	}
 
-	err = m.Close()
-	if err != nil {
+	if err := m.Close(); err != nil {
 		log.Errorf("Failed to close kmesh_version: %v", err)
 	}
 
 	log.Infof("cleaned kmesh_version map")
+}
+
+func CleanupBpfMap() {
+	err := syscall.Unmount(constants.Cgroup2Path, 0)
+	if err != nil {
+		log.Errorf("unmount /mnt/kmesh_cgroup2 error: %v", err)
+	}
+	err = syscall.Unmount(constants.BpfFsPath, 0)
+	if err != nil {
+		log.Errorf("unmount /sys/fs/bpf error: %v", err)
+	}
+	err = os.RemoveAll(constants.Cgroup2Path)
+	if err != nil {
+		log.Errorf("remove /mnt/kmesh_cgroup2 error: %v", err)
+	}
+	log.Info("cleanup bpf map success")
 }
