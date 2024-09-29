@@ -47,6 +47,11 @@ APPS2 := mdacore
 APPS3 := kmesh-cni
 APPS4 := kmeshctl
 
+APPS := kmesh-daemon mdacore kmesh-cni kmeshctl
+
+ifeq ($(BINARIES),)
+    BINARIES := $(APPS)
+endif
 
 # If the hub is not explicitly set, use default to kmesh-net.
 HUB ?= ghcr.io/kmesh-net
@@ -82,23 +87,38 @@ all:
 	
 	$(QUIET) $(GO) generate bpf/kmesh/bpf2go/bpf2go.go
 	
-	$(call printlog, BUILD, $(APPS1))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
-	
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
 
+	$(QUIET) $(foreach app,$(BINARIES),$(call build_app,$(app)))
+
+.PHONY: build_kmesh-daemon
+build_kmesh-daemon:
+	$(call printlog, BUILD, $(APPS1))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
+
+.PHONY: build_mdacore
+build_mdacore:
 	$(call printlog, BUILD, $(APPS2))
 	$(QUIET) cd oncn-mda && cmake . -B build && make -C build
 
+.PHONY: build_kmesh-cni
+build_kmesh-cni:
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 
+.PHONY: build_kmeshctl
+build_kmeshctl:
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -ldflags $(LDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
+
+define build_app
+    $(if $(filter $1,$(BINARIES)),$(call build_$1))
+endef
+
 
 .PHONY: gen-proto
 gen-proto:
@@ -151,7 +171,7 @@ uninstall:
 
 .PHONY: build
 build:
-	 VERSION=$(VERSION) ./kmesh_compile.sh
+	 VERSION=$(VERSION) BINARIES="$(BINARIES)" ./kmesh_compile.sh
 
 .PHONY: docker
 docker: build

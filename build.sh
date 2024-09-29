@@ -93,7 +93,7 @@ fi
 
 if [ -z "$1" -o "$1" == "-b"  -o  "$1" == "--build" ]; then
     prepare
-    make
+    make BINARIES="$BINARIES"
     exit
 fi
 
