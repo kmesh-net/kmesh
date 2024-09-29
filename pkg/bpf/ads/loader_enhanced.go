@@ -41,7 +41,7 @@ type BpfAds struct {
 	SockOps    BpfSockOps
 }
 
-func NewBpfKmesh(cfg *options.BpfConfig) (*BpfAds, error) {
+func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
 	sc.TracePoint.NewBpf(cfg)
 

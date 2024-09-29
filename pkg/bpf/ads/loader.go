@@ -38,19 +38,19 @@ import (
 
 var log = logger.NewLoggerScope("bpf_ads")
 
-type BpfKmesh struct {
+type BpfAds struct {
 	SockConn BpfSockConn
 }
 
-func NewBpfKmesh(cfg *options.BpfConfig) (*BpfKmesh, error) {
-	sc := &BpfKmesh{}
+func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
+	sc := &BpfAds{}
 	if err := sc.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
 	}
 	return sc, nil
 }
 
-func (sc *BpfKmesh) Start() error {
+func (sc *BpfAds) Start() error {
 	var ve *ebpf.VerifierError
 
 	if err := sc.Load(); err != nil {
@@ -75,11 +75,11 @@ func (sc *BpfKmesh) Start() error {
 	return nil
 }
 
-func (sc *BpfKmesh) GetBpfLogLevelMap() *ebpf.Map {
+func (sc *BpfAds) GetBpfLogLevelMap() *ebpf.Map {
 	return sc.SockConn.BpfLogLevel
 }
 
-func (sc *BpfKmesh) Stop() {
+func (sc *BpfAds) Stop() {
 	C.deserial_uninit()
 	if err := sc.Detach(); err != nil {
 		log.Errorf("failed detach when stop kmesh, err: %v", err)
@@ -87,7 +87,7 @@ func (sc *BpfKmesh) Stop() {
 	}
 }
 
-func (sc *BpfKmesh) Load() error {
+func (sc *BpfAds) Load() error {
 	if err := sc.SockConn.Load(); err != nil {
 		return err
 	}
@@ -95,7 +95,7 @@ func (sc *BpfKmesh) Load() error {
 	return nil
 }
 
-func (sc *BpfKmesh) ApiEnvCfg() error {
+func (sc *BpfAds) ApiEnvCfg() error {
 	info, err := sc.SockConn.KmeshCgroupSockMaps.KmeshListener.Info()
 	if err != nil {
 		return err
@@ -130,7 +130,7 @@ func (sc *BpfKmesh) ApiEnvCfg() error {
 	return nil
 }
 
-func (sc *BpfKmesh) Attach() error {
+func (sc *BpfAds) Attach() error {
 	if err := sc.SockConn.Attach(); err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (sc *BpfKmesh) Attach() error {
 	return nil
 }
 
-func (sc *BpfKmesh) Detach() error {
+func (sc *BpfAds) Detach() error {
 	if err := sc.SockConn.Detach(); err != nil {
 		return err
 	}

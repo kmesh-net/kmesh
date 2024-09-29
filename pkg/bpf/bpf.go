@@ -43,7 +43,7 @@ var (
 type BpfLoader struct {
 	config *options.BpfConfig
 
-	obj         *ads.BpfKmesh
+	obj         *ads.BpfAds
 	workloadObj *workload.BpfWorkload
 	bpfLogLevel *ebpf.Map
 	versionMap  *ebpf.Map
@@ -71,7 +71,7 @@ func StartMda() error {
 func (l *BpfLoader) Start() error {
 	var err error
 	if l.config.AdsEnabled() {
-		if l.obj, err = ads.NewBpfKmesh(l.config); err != nil {
+		if l.obj, err = ads.NewBpfAds(l.config); err != nil {
 			return err
 		}
 		if err = l.obj.Start(); err != nil {
