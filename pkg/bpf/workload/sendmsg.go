@@ -30,6 +30,7 @@ import (
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 func bpfProgUpdate(pinPath string, cgopt link.CgroupOptions) error {
@@ -80,7 +81,12 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = sm.Info.MapPath
-	if spec, err = bpf2go.LoadKmeshSendmsg(); err != nil {
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshSendmsgCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshSendmsg()
+	}
+	if err != nil || spec == nil {
 		return nil, err
 	}
 

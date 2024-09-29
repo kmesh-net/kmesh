@@ -31,6 +31,7 @@ import (
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type SockConnWorkload struct {
@@ -69,8 +70,11 @@ func (sc *SockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, er
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	spec, err = bpf2go.LoadKmeshCgroupSockWorkload()
-
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshCgroupSockWorkloadCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshCgroupSockWorkload()
+	}
 	if err != nil || spec == nil {
 		return nil, err
 	}

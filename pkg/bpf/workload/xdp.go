@@ -30,6 +30,7 @@ import (
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/constants"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfXdpAuthWorkload struct {
@@ -66,7 +67,11 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = xa.Info.MapPath
-	spec, err = bpf2go.LoadKmeshXDPAuth()
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshXDPAuthCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshXDPAuth()
+	}
 	if err != nil {
 		return nil, err
 	}
