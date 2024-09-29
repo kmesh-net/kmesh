@@ -17,6 +17,7 @@
 package bpf
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -30,6 +31,7 @@ import (
 )
 
 func TestRestart(t *testing.T) {
+	CleanupBpfMap()
 	t.Run("new start", func(t *testing.T) {
 		runTestNormal(t)
 	})
@@ -49,17 +51,17 @@ func bpfConfig() options.BpfConfig {
 // Test Kmesh Normal
 func runTestNormal(t *testing.T) {
 	config := bpfConfig()
-	cleanup, _ := initFakeBpfMap(t, config)
+	cleanup, _ := runFakeLoader(t, config)
 	defer cleanup()
 	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status failed")
 	restart.SetExitType(restart.Normal)
 }
 
-// Test Kmesh Restart Normal
+// Test Kmesh Restart
 func runTestRestart(t *testing.T) {
 	var versionPath string
 	config := bpfConfig()
-	cleanup, _ := initFakeBpfMap(t, config)
+	cleanup, _ := runFakeLoader(t, config)
 	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status:Normal failed")
 	restart.SetExitType(restart.Restart)
 	cleanup()
@@ -86,7 +88,7 @@ func runTestRestart(t *testing.T) {
 
 type CleanupFn func()
 
-func initFakeBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *BpfLoader) {
+func runFakeLoader(t *testing.T, config options.BpfConfig) (CleanupFn, *BpfLoader) {
 	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
 	if err != nil {
 		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
@@ -108,7 +110,9 @@ func initFakeBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *BpfLoad
 	}
 
 	loader := NewBpfLoader(&config)
+	fmt.Println("loader start:")
 	err = loader.Start()
+	fmt.Println("loader start: done")
 
 	if err != nil {
 		CleanupBpfMap()

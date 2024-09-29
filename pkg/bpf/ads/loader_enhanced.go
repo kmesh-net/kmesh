@@ -21,7 +21,6 @@ package ads
 
 // #cgo pkg-config: api-v2-c
 // #include "deserialization_to_bpf_map.h"
-// #include "cluster/cluster.pb-c.h"
 import "C"
 import (
 	"errors"
