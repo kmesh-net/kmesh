@@ -15,6 +15,7 @@ require (
 	github.com/containernetworking/plugins v1.5.1
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240621013728-1eb8caab5155
 	github.com/fsnotify/fsnotify v1.7.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_golang v1.20.4
 	github.com/prometheus/common v0.59.1
@@ -108,7 +109,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
 	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
