@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dump
+package version
 
 import (
 	"fmt"
@@ -26,38 +26,37 @@ import (
 
 	"kmesh.net/kmesh/ctl/utils"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/version"
 )
 
-const (
-	configDumpPrefix = "/debug/config_dump"
-)
-
-var log = logger.NewLoggerScope("kmeshctl/dump")
+var log = logger.NewLoggerScope("kmeshctl/version")
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "dump",
-		Short: "Dump config of ads or workload mode",
-		Example: `# Ads mode:
-kmeshctl dump <kmesh-daemon-pod> ads
-	  
-# Workload mode:
-kmeshctl dump <kmesh-daemon-pod> workload`,
-		Args: cobra.ExactArgs(2),
+		Use:   "version",
+		Short: "Prints out build version info",
+		Example: `# Show version of kmeshctl
+kmeshctl version
+
+# Show version info of a specific Kmesh daemon
+kmesh version <kmesh-daemon-pod>`,
 		Run: func(cmd *cobra.Command, args []string) {
-			_ = RunDump(cmd, args)
+			_ = RunVersion(cmd, args)
 		},
 	}
 	return cmd
 }
 
-func RunDump(cmd *cobra.Command, args []string) error {
-	podName := args[0]
-	mode := args[1]
-	if mode != "ads" && mode != "workload" {
-		log.Errorf("Error: Argument must be 'ads' or 'workload'")
-		os.Exit(1)
+// RunVersion provides the version info of kmeshctl or specific Kmesh daemon.
+func RunVersion(cmd *cobra.Command, args []string) error {
+	if len(args) == 0 {
+		v := version.Get()
+		fmt.Printf("%s\n", v.GitVersion)
+
+		return nil
 	}
+
+	podName := args[0]
 
 	fw, err := utils.CreateKmeshPortForwarder(podName)
 	if err != nil {
@@ -66,9 +65,11 @@ func RunDump(cmd *cobra.Command, args []string) error {
 	}
 	if err := fw.Start(); err != nil {
 		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		os.Exit(1)
 	}
+	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), configDumpPrefix, mode)
+	url := fmt.Sprintf("http://%s/version", fw.Address())
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)
@@ -83,5 +84,6 @@ func RunDump(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println(string(body))
+
 	return nil
 }

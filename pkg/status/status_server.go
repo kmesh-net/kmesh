@@ -39,6 +39,7 @@ import (
 	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/version"
 )
 
 var log = logger.NewLoggerScope("status")
@@ -48,6 +49,7 @@ const (
 
 	patternHelp               = "/help"
 	patternOptions            = "/options"
+	patternVersion            = "/version"
 	patternBpfAdsMaps         = "/debug/config_dump/bpf/ads"
 	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/workload"
 	configDumpPrefix          = "/debug/config_dump"
@@ -95,6 +97,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfLo
 
 	s.mux.HandleFunc(patternHelp, s.httpHelp)
 	s.mux.HandleFunc(patternOptions, s.httpOptions)
+	s.mux.HandleFunc(patternVersion, s.version)
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
 	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
@@ -135,6 +138,20 @@ func (s *Server) httpHelp(w http.ResponseWriter, r *http.Request) {
 func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	fmt.Fprintln(w, s.config.String())
+}
+
+func (s *Server) version(w http.ResponseWriter, r *http.Request) {
+	v := version.Get()
+
+	data, err := json.MarshalIndent(&v, "", "  ")
+	if err != nil {
+		log.Errorf("Failed to marshal version info: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) checkWorkloadMode(w http.ResponseWriter) bool {
