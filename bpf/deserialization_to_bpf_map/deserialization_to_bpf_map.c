@@ -98,18 +98,12 @@ struct task_contex {
 
 #define MAP_IN_MAP_MNG_PERSIST_FILE_PATH "/mnt/mim_mng_persist"
 #define MAGIC_NUMBER                     0xb809b8c3
-
-struct inner_map_persist_stat {
-    unsigned char used : 1;
-    unsigned char allocated : 1;
-    unsigned char resv : 6;
-};
 struct persist_info {
     unsigned int magic;
     int used_cnt;          // real used count
     int allocated_cnt;     // real allocated count
     int max_allocated_idx; // max allocated index, there may be holes.
-    struct inner_map_persist_stat inner_map_stat[0];
+    struct inner_map_stat inner_map_stat[0];
 };
 
 struct inner_map_mng g_inner_map_mng = {0};
@@ -1722,8 +1716,7 @@ int inner_map_mng_persist()
     if (g_inner_map_mng.init == 0)
         return 0;
 
-    size =
-        sizeof(struct persist_info) + sizeof(struct inner_map_persist_stat) * (g_inner_map_mng.max_allocated_idx + 1);
+    size = sizeof(struct persist_info) + sizeof(struct inner_map_stat) * (g_inner_map_mng.max_allocated_idx + 1);
     p = (struct persist_info *)malloc(size);
     if (!p) {
         LOG_ERR("inner_map_mng_persist malloc failed.\n");
@@ -1735,6 +1728,7 @@ int inner_map_mng_persist()
     p->used_cnt = g_inner_map_mng.used_cnt;
     p->max_allocated_idx = g_inner_map_mng.max_allocated_idx;
     for (i = 0; i <= g_inner_map_mng.max_allocated_idx; i++) {
+        p->inner_map_stat[i].map_fd = g_inner_map_mng.inner_maps[i].map_fd;
         p->inner_map_stat[i].used = g_inner_map_mng.inner_maps[i].used;
         p->inner_map_stat[i].allocated = g_inner_map_mng.inner_maps[i].allocated;
     }
@@ -1752,43 +1746,28 @@ int inner_map_mng_persist()
     return 0;
 }
 
-int inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_map_persist_stat *stat)
+void inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_map_stat *stat)
 {
-    int i = 0;
-    unsigned int map_fd = 0;
-    unsigned int *key = NULL;
-    unsigned int *pre_key = NULL;
-
-    while (bpf_map_get_next_key(g_inner_map_mng.outter_fd, pre_key, &key) == 0 && i <= p->max_allocated_idx) {
-        if (bpf_map_lookup_elem(g_inner_map_mng.outter_fd, &key, &map_fd) != 0) {
-            i++;
-            continue;
-        }
-
-        if ((map_fd == 0 && stat->allocated) || (map_fd != 0 && stat->allocated == 0)) {
-            LOG_ERR("restore_by_persist_stat inconsistent %d: %d-%d\n", i, map_fd, stat->allocated);
-            return -1;
-        }
-
-        g_inner_map_mng.inner_maps[i].map_fd = map_fd;
-        g_inner_map_mng.inner_maps[i].used = stat[i].used;
-        g_inner_map_mng.inner_maps[i].allocated = stat[i].allocated;
-        i++;
-    }
+    memcpy(g_inner_map_mng.inner_maps, stat, sizeof(struct inner_map_stat) * (p->max_allocated_idx + 1));
 
     g_inner_map_mng.used_cnt = p->used_cnt;
     g_inner_map_mng.allocated_cnt = p->allocated_cnt;
     g_inner_map_mng.max_allocated_idx = p->max_allocated_idx;
-    return 0;
+    return;
 }
 
-int inner_map_restore()
+int inner_map_restore(bool restore)
 {
-    int ret, size;
+    int size;
     int read_size;
     FILE *f = NULL;
     struct persist_info p;
-    struct inner_map_persist_stat *stat = NULL;
+    struct inner_map_stat *stat = NULL;
+
+    if (!restore) {
+        remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
+        return 0;
+    }
 
     f = fopen(MAP_IN_MAP_MNG_PERSIST_FILE_PATH, "rb");
     if (f == NULL)
@@ -1801,29 +1780,29 @@ int inner_map_restore()
         return 0;
     }
 
-    size = sizeof(struct inner_map_persist_stat) * (p.max_allocated_idx + 1);
-    stat = (struct inner_map_persist_stat *)malloc(size);
+    size = sizeof(struct inner_map_stat) * (p.max_allocated_idx + 1);
+    stat = (struct inner_map_stat *)malloc(size);
     if (!stat) {
         LOG_ERR("inner_map_restore alloc failed.\n");
         fclose(f);
         return -1;
     }
 
-    read_size = (int)fread(stat, sizeof(struct inner_map_persist_stat), (p.max_allocated_idx + 1), f);
+    read_size = (int)fread(stat, sizeof(unsigned char), size, f);
     if (read_size != size) {
-        LOG_WARN("inner_map_restore invalid size:%d/%d\n", read_size, size);
+        LOG_WARN("inner_map_restore persist_stat invalid size:%d/%d\n", read_size, size);
         fclose(f);
         free(stat);
         return 0;
     }
 
-    ret = inner_map_mng_restore_by_persist_stat(&p, stat);
+    inner_map_mng_restore_by_persist_stat(&p, stat);
     free(stat);
     fclose(f);
-    return ret;
+    return 0;
 }
 
-int deserial_init()
+int deserial_init(bool restore)
 {
     int ret = 0;
 
@@ -1837,7 +1816,7 @@ int deserial_init()
         if (ret)
             break;
 
-        ret = inner_map_restore();
+        ret = inner_map_restore(restore);
         if (ret)
             break;
 
