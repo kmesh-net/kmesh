@@ -64,3 +64,14 @@ func (c *Cache) FrontendIterFindKey(upstreamId uint32) []FrontendKey {
 	log.Debugf("res:[%#v]", res)
 	return res
 }
+
+// FrontendCount returns the length of frontend map
+// Note only used for testing
+func (c *Cache) FrontendCount() int {
+	return len(c.FrontendLookupAll())
+}
+
+func (c *Cache) FrontendLookupAll() []FrontendValue {
+	log.Debugf("FrontendLookupAll")
+	return LookupAll[FrontendKey, FrontendValue](c.bpfMap.KmeshFrontend)
+}

@@ -20,16 +20,16 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"sort"
 	"sync"
 	"time"
 
-	"slices"
-
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	"github.com/golang/protobuf/ptypes/wrappers"
+	"google.golang.org/protobuf/types/known/wrapperspb"
+
 	"github.com/miekg/dns"
 	"k8s.io/client-go/util/workqueue"
 
@@ -39,12 +39,13 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("dns_resolver")
+	log = logger.NewLoggerScope("dns_resolver")
 )
 
 const (
-	MaxConcurrency uint32 = 5
-	RetryAfter            = 5 * time.Millisecond
+	MaxConcurrency    uint32 = 5
+	RetryAfter               = 5 * time.Millisecond
+	DeRefreshInterval        = 15 * time.Second
 )
 
 type DNSResolver struct {
@@ -100,7 +101,7 @@ func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []stri
 					},
 				},
 				// TODO: support LoadBalancingWeight
-				LoadBalancingWeight: &wrappers.UInt32Value{
+				LoadBalancingWeight: &wrapperspb.UInt32Value{
 					Value: 1,
 				},
 			}
@@ -233,6 +234,9 @@ func (r *DNSResolver) resolve(v *pendingResolveDomain) {
 		if ttl > v.refreshRate {
 			ttl = v.refreshRate
 		}
+		if ttl == 0 {
+			ttl = DeRefreshInterval
+		}
 		if !slices.Equal(entry.addresses, addrs) {
 			for _, c := range v.clusters {
 				ready := overwriteDnsCluster(c, v.domainName, addrs)
@@ -281,14 +285,23 @@ func (r *DNSResolver) refreshDNS() bool {
 	return true
 }
 
-func (r *DNSResolver) GetCacheResult(name string) []string {
-	var res []string
+func (r *DNSResolver) GetDNSAddresses(domain string) []string {
 	r.RLock()
 	defer r.RUnlock()
-	if entry, ok := r.cache[name]; ok {
-		res = entry.addresses
+	if entry, ok := r.cache[domain]; ok {
+		return entry.addresses
 	}
-	return res
+	return nil
+}
+
+func (r *DNSResolver) GetAllCachedDomains() []string {
+	r.RLock()
+	defer r.RUnlock()
+	out := make([]string, 0, len(r.cache))
+	for domain := range r.cache {
+		out = append(out, domain)
+	}
+	return out
 }
 
 // doResolve is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.

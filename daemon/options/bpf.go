@@ -26,11 +26,12 @@ import (
 )
 
 type BpfConfig struct {
-	Mode         string
-	BpfFsPath    string
-	Cgroup2Path  string
-	EnableMda    bool
-	EnableBpfLog bool
+	Mode            string
+	BpfFsPath       string
+	Cgroup2Path     string
+	EnableMda       bool
+	EnableBpfLog    bool
+	EnableAccesslog bool
 }
 
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
@@ -39,6 +40,7 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "workload", "controller plane mode, valid values are [ads, workload]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 	cmd.PersistentFlags().BoolVar(&c.EnableBpfLog, "enable-bpf-log", false, "enable ebpf log in daemon process")
+	cmd.PersistentFlags().BoolVar(&c.EnableAccesslog, "enable-accesslog", false, "enable accesslog in daemon process")
 }
 
 func (c *BpfConfig) ParseConfig() error {

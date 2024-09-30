@@ -166,9 +166,8 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 			log.Debugf("unchanged cluster %s", cluster.GetName())
 		}
 	}
-
-	if len(dnsClusters) > 0 {
-		// send dns clusters to dns resolver
+	// send dns clusters to dns resolver, even dnsClusters is empty, we need to send empty list to dns resolver to clear the cache
+	if p.DnsResolverChan != nil {
 		p.DnsResolverChan <- dnsClusters
 	}
 	removed := p.Cache.ClusterCache.GetResourceNames().Difference(current)

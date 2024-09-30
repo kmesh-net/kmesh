@@ -27,7 +27,7 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("security")
+var log = logger.NewLoggerScope("security")
 
 type certItem struct {
 	cert   *istiosecurity.SecretItem

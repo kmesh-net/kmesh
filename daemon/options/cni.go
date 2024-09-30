@@ -23,9 +23,10 @@ import (
 )
 
 type cniConfig struct {
-	CniMountNetEtcDIR string
-	CniConfigName     string
-	CniConfigChained  bool
+	CniMountNetEtcDIR  string
+	CniConfigName      string
+	CniConfigChained   bool
+	ServiceAccountPath string
 }
 
 func (c *cniConfig) AttachFlags(cmd *cobra.Command) {
@@ -43,6 +44,8 @@ func (c *cniConfig) ParseConfig() error {
 	if _, err = os.Stat(c.CniMountNetEtcDIR); err != nil {
 		return err
 	}
+
+	c.ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 
 	return nil
 }

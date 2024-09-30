@@ -17,6 +17,7 @@
 package cache_v2
 
 import (
+	"sort"
 	"testing"
 
 	"github.com/agiledragon/gomonkey/v2"
@@ -26,9 +27,43 @@ import (
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	route_v2 "kmesh.net/kmesh/api/v2/route"
+	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/utils/hash"
+	"kmesh.net/kmesh/pkg/utils/test"
 )
+
+func TestRouteConfigLookupAll(t *testing.T) {
+	// We only use route configuration when L7 enabled
+	if !bpf.AdsL7Enabled() {
+		return
+	}
+	config := options.BpfConfig{
+		Mode:        "ads",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, _ := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+	testRouteNames := []string{"ut-route-1", "ut-route-2", "ut-route-3"}
+	for _, testRouteName := range testRouteNames {
+		err := maps_v2.RouteConfigUpdate(testRouteName, &route_v2.RouteConfiguration{Name: testRouteName})
+		assert.Nil(t, err)
+	}
+
+	routes, err := maps_v2.RouteConfigLookupAll()
+	assert.Nil(t, err)
+
+	var actualRouteNames []string
+
+	for _, route := range routes {
+		actualRouteNames = append(actualRouteNames, route.Name)
+	}
+
+	sort.Strings(actualRouteNames)
+	assert.Equal(t, actualRouteNames, testRouteNames)
+}
 
 func TestRouteFlush(t *testing.T) {
 	t.Run("route status is UPDATE", func(t *testing.T) {

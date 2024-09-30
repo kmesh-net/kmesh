@@ -30,18 +30,23 @@ include ./mk/bpf.vars.mk
 include ./mk/bpf.print.mk
 
 # compiler flags
+CC=clang
+CXX=clang++
 GOFLAGS := $(EXTRA_GOFLAGS)
+EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
 			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
-			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE)"
-EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
+			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
+			-linkmode=external -extldflags $(EXTLDFLAGS)"
 
 # target
 APPS1 := kmesh-daemon
 APPS2 := mdacore
 APPS3 := kmesh-cni
+APPS4 := kmeshctl
+
 
 # If the hub is not explicitly set, use default to kmesh-net.
 HUB ?= ghcr.io/kmesh-net
@@ -79,7 +84,7 @@ all:
 	
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -ldflags "-linkmode=external -extldflags $(EXTLDFLAGS)" -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
 	
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
@@ -89,7 +94,11 @@ all:
 
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -ldflags "-linkmode=external -extldflags $(EXTLDFLAGS)" -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+
+	$(call printlog, BUILD, $(APPS4))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -ldflags $(LDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
 
 .PHONY: gen-proto
 gen-proto:
@@ -140,7 +149,7 @@ uninstall:
 
 .PHONY: build
 build:
-	./kmesh_compile.sh
+	 VERSION=$(VERSION) ./kmesh_compile.sh
 
 .PHONY: docker
 docker: build
@@ -186,6 +195,9 @@ clean:
 	$(call printlog, CLEAN, $(APPS3))
 	$(QUIET) rm -rf $(APPS1) $(APPS3)
 
+	$(call printlog, CLEAN, $(APPS4))
+	$(QUIET) rm -rf $(APPS1) $(APPS4)
+
 	$(QUIET) make clean -C api/v2-c
 	$(QUIET) make clean -C bpf/deserialization_to_bpf_map
 	$(call printlog, CLEAN, "kernel")
@@ -194,3 +206,38 @@ clean:
 	$(QUIET) if docker ps -a -q -f name=kmesh-build | grep -q .; then \
 		docker rm -f kmesh-build; \
 	fi
+
+
+##@ Helm
+
+CHARTS_FOLDER := deploy/charts
+CHARTS := $(wildcard $(CHARTS_FOLDER)/*)
+CHART_VERSION ?= v0.0.0-latest
+CHART_OCI_REGISTRY ?= oci://$(HUB)
+CHART_OUTPUT_DIR ?= out/charts
+
+.PHONY: helm-package.%
+helm-package.%: # Package Helm chart
+	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	$(eval CHART_NAME := $(COMMAND))
+	helm lint $(CHARTS_FOLDER)/${CHART_NAME}
+	helm package $(CHARTS_FOLDER)/${CHART_NAME} --app-version ${VERSION} --version ${CHART_VERSION} --destination ${CHART_OUTPUT_DIR}/
+
+.PHONY: helm-push.%
+helm-push.%: helm-package.%
+	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
+	$(eval CHART_NAME := $(COMMAND))
+	helm push ${CHART_OUTPUT_DIR}/${CHART_NAME}-${CHART_VERSION}.tgz ${CHART_OCI_REGISTRY}
+
+.PHONY: helm-package
+helm-package:
+	@for chart in $(CHARTS); do \
+      	$(MAKE) $(addprefix helm-package., $$(basename $${chart})); \
+	done
+
+.PHONY: helm-push
+helm-push: helm-package
+	# run other make targets
+	@for chart in $(CHARTS); do \
+	  	$(MAKE) $(addprefix helm-push., $$(basename $${chart})); \
+	done

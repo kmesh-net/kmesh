@@ -48,14 +48,14 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 }
 
-func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload) *XdsClient {
+func NewXdsClient(mode string, bpfWorkload *bpf.BpfKmeshWorkload, enableAccesslog bool) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(mode),
 	}
 
 	if mode == constants.WorkloadMode {
-		client.WorkloadController = workload.NewController(bpfWorkload)
+		client.WorkloadController = workload.NewController(bpfWorkload, enableAccesslog)
 	} else if mode == constants.AdsMode {
 		client.AdsController = ads.NewController()
 	}
@@ -124,14 +124,12 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 
 			if c.mode == constants.AdsMode {
 				if err = c.AdsController.HandleAdsStream(); err != nil {
-					_ = c.AdsController.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
 				}
 			} else if c.mode == constants.WorkloadMode {
 				if err = c.WorkloadController.HandleWorkloadStream(); err != nil {
-					_ = c.WorkloadController.Stream.CloseSend()
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
@@ -164,8 +162,8 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *XdsClient) closeStreamClient() {
-	if c.AdsController != nil && c.AdsController.Stream != nil {
-		_ = c.AdsController.Stream.CloseSend()
+	if c.AdsController != nil {
+		c.AdsController.Close()
 	}
 	if c.WorkloadController != nil && c.WorkloadController.Stream != nil {
 		_ = c.WorkloadController.Stream.CloseSend()

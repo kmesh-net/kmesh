@@ -23,7 +23,6 @@ import (
 
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/pkg/security"
 
 	camock "kmesh.net/kmesh/pkg/controller/security/mock"

@@ -20,9 +20,19 @@ import (
 	"testing"
 
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/utils/test"
 )
 
 func Test_policyStore_updatePolicy(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        "workload",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, _ := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+
 	type args struct {
 		auth *security.Authorization
 	}
@@ -86,6 +96,14 @@ func Test_policyStore_updatePolicy(t *testing.T) {
 }
 
 func Test_policyStore_removePolicy(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        "workload",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, _ := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+
 	type args struct {
 		policyKey string
 	}

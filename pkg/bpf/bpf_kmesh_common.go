@@ -20,7 +20,8 @@
 package bpf
 
 // #cgo pkg-config: bpf api-v2-c
-// #include "kmesh/ads/include/kmesh_common.h"
+// #include "kmesh/ads/include/tail_call_index.h"
+// #include "inner_map_defs.h"
 import "C"
 import (
 	"os"
@@ -32,6 +33,7 @@ import (
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 var KMESH_TAIL_CALL_LISTENER = uint32(C.KMESH_TAIL_CALL_LISTENER)
@@ -94,9 +96,12 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
-	spec, err = bpf2go.LoadKmeshCgroupSock()
-
-	if err != nil || spec == nil {
+	if utils.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshCgroupSockCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshCgroupSock()
+	}
+	if err != nil {
 		return nil, err
 	}
 

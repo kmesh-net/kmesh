@@ -25,11 +25,13 @@ run:
   #            the dependency descriptions in go.mod.
   modules-download-mode: readonly
 linters:
+  disable-all: true
   enable:
     # linters maintained by golang.org
     - gofmt
     - goimports
     - govet
+    - depguard
     # linters default enabled by golangci-lint .
     - errcheck
     - gosimple
@@ -37,12 +39,9 @@ linters:
     - staticcheck
     - typecheck
     - unused
-    # other linters supported by golangci-lint.
-    #- gocyclo
-    #- gosec
-    # - gci
     - misspell
     - whitespace
+    #- gosec
     #- revive
 
 linters-settings:
@@ -51,11 +50,20 @@ linters-settings:
   gocyclo:
     # minimal cyclomatic complexity to report
     min-complexity: 15
-  gci:
-    sections:
-      - standard # Captures all standard packages if they do not match another section.
-      - default # Contains all imports that could not be matched to another section type.
-      - prefix(kmesh.net) # Groups all imports with the specified Prefix.
+  depguard:
+    rules:
+      main:
+        deny:
+          - pkg: "github.com/golang/protobuf"
+            desc: "Please use google.golang.org/protobuf instead."
+          - pkg: 'gopkg.in/yaml.v3'
+            desc: "Please use sigs.k8s.io/yaml instead."
+          - pkg: "gopkg.in/yaml.v2"
+            desc: "Please use sigs.k8s.io/yaml instead."
+          - pkg: "github.com/ghodss/yaml"
+            desc: "Please use sigs.k8s.io/yaml instead."
+
+
 issues:
   # List of regexps of issue texts to exclude, empty list by default.
   # But independently from this option we use default exclude patterns,

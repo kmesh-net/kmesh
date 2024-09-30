@@ -47,7 +47,6 @@ func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
 		return nil
 	}
 	key := authPolicy.ResourceName()
-
 	ps.rwLock.Lock()
 	defer ps.rwLock.Unlock()
 	var ns string

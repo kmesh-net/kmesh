@@ -12,19 +12,23 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- *
- * Author: bitcoffee
- * Create: 2023-11-19
  */
 
 package cni
 
 import (
+	"fmt"
+	"path/filepath"
+	"time"
+
+	"github.com/fsnotify/fsnotify"
+	"istio.io/istio/pkg/filewatcher"
+
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-var log = logger.NewLoggerField("cni installer")
+var log = logger.NewLoggerScope("cni installer")
 
 func (i *Installer) addCniConfig() error {
 	var err error
@@ -50,37 +54,96 @@ func (i *Installer) removeCniConfig() error {
 }
 
 type Installer struct {
-	Mode              string
-	CniMountNetEtcDIR string
-	CniConfigName     string
-	CniConfigChained  bool
+	Mode               string
+	CniMountNetEtcDIR  string
+	CniConfigName      string
+	CniConfigChained   bool
+	ServiceAccountPath string
+
+	Watcher filewatcher.FileWatcher
 }
 
 func NewInstaller(mode string,
 	cniMountNetEtcDIR string,
 	cniConfigName string,
-	cniConfigChained bool) *Installer {
+	cniConfigChained bool,
+	serviceAccountPath string) *Installer {
 	return &Installer{
-		Mode:              mode,
-		CniMountNetEtcDIR: cniMountNetEtcDIR,
-		CniConfigName:     cniConfigName,
-		CniConfigChained:  cniConfigChained,
+		Mode:               mode,
+		CniMountNetEtcDIR:  cniMountNetEtcDIR,
+		CniConfigName:      cniConfigName,
+		CniConfigChained:   cniConfigChained,
+		ServiceAccountPath: serviceAccountPath,
+		Watcher:            filewatcher.NewWatcher(),
 	}
+}
+
+func (i *Installer) WatchServiceAccountToken() error {
+	tokenPath := i.ServiceAccountPath + "/token"
+	if err := i.Watcher.Add(tokenPath); err != nil {
+		return fmt.Errorf("failed to add %s to file watcher: %v", tokenPath, err)
+	}
+
+	// Start listening for events.
+	go func() {
+		log.Infof("start watching file %s", tokenPath)
+
+		var timerC <-chan time.Time
+		for {
+			select {
+			case <-timerC:
+				timerC = nil
+
+				if err := maybeWriteKubeConfigFile(i.ServiceAccountPath, filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)); err != nil {
+					log.Errorf("failed try to update Kmesh cni kubeconfig: %v", err)
+				}
+
+			case event := <-i.Watcher.Events(tokenPath):
+				log.Debugf("got event %s", event.String())
+
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					if timerC == nil {
+						timerC = time.After(100 * time.Millisecond)
+					}
+				}
+			case err := <-i.Watcher.Errors(tokenPath):
+				if err != nil {
+					log.Errorf("error from errors channel of file watcher: %v", err)
+					return
+				}
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (i *Installer) Start() error {
 	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
-		log.Info("start write CNI config\n")
-		return i.addCniConfig()
+		log.Info("start write CNI config")
+		err := i.addCniConfig()
+		if err != nil {
+			i.Stop()
+			return err
+		}
+
+		if err := i.WatchServiceAccountToken(); err != nil {
+			return err
+		}
 	}
+
 	return nil
 }
 
 func (i *Installer) Stop() {
 	if i.Mode == constants.AdsMode || i.Mode == constants.WorkloadMode {
-		log.Info("start remove CNI config\n")
+		log.Info("start remove CNI config")
 		if err := i.removeCniConfig(); err != nil {
 			log.Errorf("remove CNI config failed: %v, please remove manually", err)
 		}
+		if err := i.Watcher.Close(); err != nil {
+			log.Errorf("failed to close fsnotify watcher: %v", err)
+		}
+		log.Info("remove CNI config done")
 	}
 }

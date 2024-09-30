@@ -108,23 +108,6 @@ func (cache *RouteConfigCache) Flush() {
 	}
 }
 
-func (cache *RouteConfigCache) DumpBpf() []*route_v2.RouteConfiguration {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
-	mapCache := make([]*route_v2.RouteConfiguration, 0, len(cache.apiRouteConfigCache))
-	for name, route := range cache.apiRouteConfigCache {
-		tmp := &route_v2.RouteConfiguration{}
-		if err := maps_v2.RouteConfigLookup(name, tmp); err != nil {
-			log.Errorf("RouteConfigLookup failed, %s", name)
-			continue
-		}
-
-		tmp.ApiStatus = route.ApiStatus
-		mapCache = append(mapCache, tmp)
-	}
-	return mapCache
-}
-
 func (cache *RouteConfigCache) Dump() []*route_v2.RouteConfiguration {
 	cache.mutex.RLock()
 	defer cache.mutex.RUnlock()

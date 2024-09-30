@@ -24,6 +24,8 @@ import (
 	"net/netip"
 	"reflect"
 	"strings"
+	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
@@ -36,15 +38,39 @@ import (
 
 const (
 	TCP_ESTABLISHED = uint32(1)
-	TCP_CLOST       = uint32(7)
+	TCP_CLOSTED     = uint32(7)
 
 	connection_success = uint32(1)
 
 	MSG_LEN = 112
+
+	metricFlushInterval = 5 * time.Second
 )
 
+var osStartTime time.Time
+
 type MetricController struct {
-	workloadCache cache.WorkloadCache
+	enableAccesslog     bool
+	workloadCache       cache.WorkloadCache
+	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
+	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
+	mutex               sync.RWMutex
+}
+
+type workloadMetricInfo struct {
+	WorkloadConnOpened        float64
+	WorkloadConnClosed        float64
+	WorkloadConnSentBytes     float64
+	WorkloadConnReceivedBytes float64
+	WorkloadConnFailed        float64
+}
+
+type serviceMetricInfo struct {
+	ServiceConnOpened        float64
+	ServiceConnClosed        float64
+	ServiceConnSentBytes     float64
+	ServiceConnReceivedBytes float64
+	ServiceConnFailed        float64
 }
 
 type connectionDataV4 struct {
@@ -57,6 +83,8 @@ type connectionDataV4 struct {
 	ReceivedBytes  uint32
 	ConnectSuccess uint32
 	Direction      uint32
+	Duration       uint64
+	CloseTime      uint64
 	State          uint32
 }
 
@@ -69,18 +97,23 @@ type connectionDataV6 struct {
 	ReceivedBytes  uint32
 	ConnectSuccess uint32
 	Direction      uint32
+	Duration       uint64
+	CloseTime      uint64
 	State          uint32
 }
 
 type requestMetric struct {
 	src           [4]uint32
 	dst           [4]uint32
+	srcPort       uint16
 	dstPort       uint16
 	direction     uint32
 	receivedBytes uint32
 	sentBytes     uint32
 	state         uint32
 	success       uint32
+	duration      uint64
+	closeTime     uint64
 }
 
 type workloadMetricLabels struct {
@@ -141,15 +174,24 @@ type serviceMetricLabels struct {
 	connectionSecurityPolicy string
 }
 
-func NewMetric(workloadCache cache.WorkloadCache) *MetricController {
+func NewMetric(workloadCache cache.WorkloadCache, enableAccesslog bool) *MetricController {
 	return &MetricController{
-		workloadCache: workloadCache,
+		enableAccesslog:     enableAccesslog,
+		workloadCache:       workloadCache,
+		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
+		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
 }
 
 func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	if m == nil {
 		return
+	}
+
+	var err error
+	osStartTime, err = getOSBootTime()
+	if err != nil {
+		log.Errorf("get latest os boot time for accesslog failed: %v", err)
 	}
 
 	reader, err := ringbuf.NewReader(mapOfTcpInfo)
@@ -165,15 +207,26 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 
 	// Register metrics to Prometheus and start Prometheus server
 	go RunPrometheusClient(ctx)
-
-	rec := ringbuf.Record{}
-	data := requestMetric{}
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				// Metrics updated every 5 seconds
+				time.Sleep(metricFlushInterval)
+				m.updatePrometheusMetric()
+			}
+		}
+	}()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		default:
+			data := requestMetric{}
+			rec := ringbuf.Record{}
 			if err := reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
@@ -182,7 +235,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), MSG_LEN)
 				continue
 			}
-
 			connectType := binary.LittleEndian.Uint32(rec.RawSample)
 			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
 			buf := bytes.NewBuffer(originInfo)
@@ -195,23 +247,28 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("get connection info failed: %v", err)
 				continue
 			}
-
 			workloadLabels := m.buildWorkloadMetric(&data)
-			serviceLabels := m.buildServiceMetric(&data)
+			serviceLabels, accesslog := m.buildServiceMetric(&data)
 
 			workloadLabels.reporter = "-"
 			serviceLabels.reporter = "-"
 			if data.direction == constants.INBOUND {
 				workloadLabels.reporter = "destination"
 				serviceLabels.reporter = "destination"
+				accesslog.direction = "INBOUND"
 			}
 			if data.direction == constants.OUTBOUND {
 				workloadLabels.reporter = "source"
 				serviceLabels.reporter = "source"
+				accesslog.direction = "OUTBOUND"
 			}
-
-			buildWorkloadMetricsToPrometheus(data, workloadLabels)
-			buildServiceMetricsToPrometheus(data, serviceLabels)
+			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" && m.enableAccesslog {
+				OutputAccesslog(data, accesslog)
+			}
+			m.mutex.Lock()
+			m.updateWorkloadMetricCache(data, workloadLabels)
+			m.updateServiceMetricCache(data, serviceLabels)
+			m.mutex.Unlock()
 		}
 	}
 }
@@ -227,10 +284,14 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.dst[0] = connectData.DstAddr
 	data.direction = connectData.Direction
 	data.dstPort = connectData.DstPort
+	data.srcPort = connectData.SrcPort
+
 	data.sentBytes = connectData.SentBytes
 	data.receivedBytes = connectData.ReceivedBytes
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
+	data.duration = connectData.Duration
+	data.closeTime = connectData.CloseTime
 
 	return data, nil
 }
@@ -241,16 +302,18 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
 		return data, err
 	}
-
 	data.src = connectData.SrcAddr
 	data.dst = connectData.DstAddr
 	data.direction = connectData.Direction
 	data.dstPort = connectData.DstPort
+	data.srcPort = connectData.SrcPort
 
 	data.sentBytes = connectData.SentBytes
 	data.receivedBytes = connectData.ReceivedBytes
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
+	data.duration = connectData.Duration
+	data.closeTime = connectData.CloseTime
 
 	return data, nil
 }
@@ -274,22 +337,25 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 	return trafficLabels
 }
 
-func (m *MetricController) buildServiceMetric(data *requestMetric) serviceMetricLabels {
+func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {
 	var dstAddr, srcAddr []byte
 	for i := range data.dst {
 		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
 		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.src[i])
 	}
 
-	dstWorkload, _ := m.getWorkloadByAddress(restoreIPv4(dstAddr))
-	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
+	dstWorkload, dstIp := m.getWorkloadByAddress(restoreIPv4(dstAddr))
+	srcWorkload, srcIp := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
-	trafficLabels := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
+	trafficLabels, accesslog := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	return trafficLabels
+	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
+	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)
+
+	return trafficLabels, accesslog
 }
 
 func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Workload, string) {
@@ -297,7 +363,7 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
 	workload := m.workloadCache.GetWorkloadByAddr(networkAddr)
 	if workload == nil {
-		return nil, ""
+		return nil, networkAddr.Address.String()
 	}
 	return workload, networkAddr.Address.String()
 }
@@ -332,8 +398,18 @@ func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloa
 	return trafficLabels
 }
 
-func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) serviceMetricLabels {
+func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) (serviceMetricLabels, logInfo) {
 	trafficLabels := serviceMetricLabels{}
+	accesslog := logInfo{
+		direction:            "-",
+		sourceAddress:        "-",
+		sourceWorkload:       "-",
+		sourceNamespace:      "-",
+		destinationAddress:   "-",
+		destinationService:   "-",
+		destinationWorkload:  "-",
+		destinationNamespace: "-",
+	}
 
 	if dstWorkload != nil {
 		namespacedhost := ""
@@ -369,6 +445,14 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 		trafficLabels.destinationCluster = dstWorkload.ClusterId
 		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
 		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
+
+		accesslog.destinationWorkload = dstWorkload.Name
+		if svcNamespace != "" {
+			accesslog.destinationNamespace = svcNamespace
+		}
+		if svcHost != "" {
+			accesslog.destinationService = svcHost
+		}
 	}
 
 	if srcWorkload != nil {
@@ -380,9 +464,12 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 		trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
 		trafficLabels.sourceCluster = srcWorkload.ClusterId
 		trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
+
+		accesslog.sourceNamespace = srcWorkload.Namespace
+		accesslog.sourceWorkload = srcWorkload.Name
 	}
 
-	return trafficLabels
+	return trafficLabels, accesslog
 }
 
 func buildPrincipal(workload *workloadapi.Workload) string {
@@ -392,36 +479,105 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 	return "-"
 }
 
-func buildWorkloadMetricsToPrometheus(data requestMetric, labels workloadMetricLabels) {
-	commonLabels := struct2map(labels)
-
-	if data.state == TCP_ESTABLISHED {
-		tcpConnectionOpenedInWorkload.With(commonLabels).Add(float64(1))
+func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels) {
+	v, ok := m.workloadMetricCache[labels]
+	if ok {
+		if data.state == TCP_ESTABLISHED {
+			v.WorkloadConnOpened = v.WorkloadConnOpened + 1
+		}
+		if data.state == TCP_CLOSTED {
+			v.WorkloadConnClosed = v.WorkloadConnClosed + 1
+		}
+		if data.success != connection_success {
+			v.WorkloadConnFailed = v.WorkloadConnFailed + 1
+		}
+		v.WorkloadConnReceivedBytes = v.WorkloadConnReceivedBytes + float64(data.receivedBytes)
+		v.WorkloadConnSentBytes = v.WorkloadConnSentBytes + float64(data.sentBytes)
+	} else {
+		newWorkloadMetricInfo := workloadMetricInfo{}
+		if data.state == TCP_ESTABLISHED {
+			newWorkloadMetricInfo.WorkloadConnOpened = 1
+		}
+		if data.state == TCP_CLOSTED {
+			newWorkloadMetricInfo.WorkloadConnClosed = 1
+		}
+		if data.success != connection_success {
+			newWorkloadMetricInfo.WorkloadConnFailed = 1
+		}
+		newWorkloadMetricInfo.WorkloadConnReceivedBytes = float64(data.receivedBytes)
+		newWorkloadMetricInfo.WorkloadConnSentBytes = float64(data.sentBytes)
+		m.workloadMetricCache[labels] = &newWorkloadMetricInfo
 	}
-	if data.state == TCP_CLOST {
-		tcpConnectionClosedInWorkload.With(commonLabels).Add(float64(1))
-	}
-	if data.success != connection_success {
-		tcpConnectionFailedInWorkload.With(commonLabels).Add(float64(1))
-	}
-	tcpReceivedBytesInWorkload.With(commonLabels).Add(float64(data.receivedBytes))
-	tcpSentBytesInWorkload.With(commonLabels).Add(float64(data.sentBytes))
 }
 
-func buildServiceMetricsToPrometheus(data requestMetric, labels serviceMetricLabels) {
-	commonLabels := struct2map(labels)
+func (m *MetricController) updateServiceMetricCache(data requestMetric, labels serviceMetricLabels) {
+	v, ok := m.serviceMetricCache[labels]
+	if ok {
+		if data.state == TCP_ESTABLISHED {
+			v.ServiceConnOpened = v.ServiceConnOpened + 1
+		}
+		if data.state == TCP_CLOSTED {
+			v.ServiceConnClosed = v.ServiceConnClosed + 1
+		}
+		if data.success != connection_success {
+			v.ServiceConnFailed = v.ServiceConnFailed + 1
+		}
+		v.ServiceConnReceivedBytes = v.ServiceConnReceivedBytes + float64(data.receivedBytes)
+		v.ServiceConnSentBytes = v.ServiceConnSentBytes + float64(data.sentBytes)
+	} else {
+		newServiceMetricInfo := serviceMetricInfo{}
+		if data.state == TCP_ESTABLISHED {
+			newServiceMetricInfo.ServiceConnOpened = 1
+		}
+		if data.state == TCP_CLOSTED {
+			newServiceMetricInfo.ServiceConnClosed = 1
+		}
+		if data.success != connection_success {
+			newServiceMetricInfo.ServiceConnFailed = 1
+		}
+		newServiceMetricInfo.ServiceConnReceivedBytes = float64(data.receivedBytes)
+		newServiceMetricInfo.ServiceConnSentBytes = float64(data.sentBytes)
+		m.serviceMetricCache[labels] = &newServiceMetricInfo
+	}
+}
 
-	if data.state == TCP_ESTABLISHED {
-		tcpConnectionOpenedInService.With(commonLabels).Add(float64(1))
+func (m *MetricController) updatePrometheusMetric() {
+	m.mutex.Lock()
+	workloadInfoCache := m.workloadMetricCache
+	serviceInfoCache := m.serviceMetricCache
+	m.workloadMetricCache = map[workloadMetricLabels]*workloadMetricInfo{}
+	m.serviceMetricCache = map[serviceMetricLabels]*serviceMetricInfo{}
+	m.mutex.Unlock()
+
+	for k, v := range workloadInfoCache {
+		workloadLabels := struct2map(k)
+		tcpConnectionOpenedInWorkload.With(workloadLabels).Add(v.WorkloadConnOpened)
+		tcpConnectionClosedInWorkload.With(workloadLabels).Add(v.WorkloadConnClosed)
+		tcpSentBytesInWorkload.With(workloadLabels).Add(v.WorkloadConnSentBytes)
+		tcpReceivedBytesInWorkload.With(workloadLabels).Add(v.WorkloadConnReceivedBytes)
+		tcpConnectionFailedInWorkload.With(workloadLabels).Add(v.WorkloadConnFailed)
 	}
-	if data.state == TCP_CLOST {
-		tcpConnectionClosedInService.With(commonLabels).Add(float64(1))
+
+	for k, v := range serviceInfoCache {
+		serviceLabels := struct2map(k)
+		tcpConnectionOpenedInService.With(serviceLabels).Add(v.ServiceConnOpened)
+		tcpConnectionClosedInService.With(serviceLabels).Add(v.ServiceConnClosed)
+		tcpConnectionFailedInService.With(serviceLabels).Add(v.ServiceConnFailed)
+		tcpReceivedBytesInService.With(serviceLabels).Add(v.ServiceConnReceivedBytes)
+		tcpSentBytesInService.With(serviceLabels).Add(v.ServiceConnSentBytes)
 	}
-	if data.success != uint32(1) {
-		tcpConnectionFailedInService.With(commonLabels).Add(float64(1))
+
+	// delete metrics
+	workloadDeleteLength := len(deleteWorkload)
+	serviceDeleteLength := len(deleteService)
+	for i := 0; i < workloadDeleteLength; i++ {
+		deleteWorkloadMetricInPrometheus(deleteWorkload[i])
 	}
-	tcpReceivedBytesInService.With(commonLabels).Add(float64(data.receivedBytes))
-	tcpSentBytesInService.With(commonLabels).Add(float64(data.sentBytes))
+	for i := 0; i < serviceDeleteLength; i++ {
+		deleteServiceMetricInPrometheus(deleteService[i])
+	}
+	deleteWorkload = deleteWorkload[workloadDeleteLength:]
+	deleteService = deleteService[serviceDeleteLength:]
 }
 
 func struct2map(labels interface{}) map[string]string {

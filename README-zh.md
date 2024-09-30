@@ -85,7 +85,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   -  Helm安装方式
   
    ```sh
-  [root@ ~]# helm install kmesh ./deploy/helm -n kmesh-system --create-namespace
+  [root@ ~]# helm install kmesh ./deploy/charts/kmesh-helm -n kmesh-system --create-namespace
    ```
 
   - Yaml安装方式

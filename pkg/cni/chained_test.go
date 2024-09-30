@@ -204,7 +204,7 @@ func TestGetCniConfigPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			config := tt.utconfig
 			tt.beforeFunc()
-			i := NewInstaller(constants.AdsMode, config.CniMountNetEtcDIR, config.CniConfigName, config.CniConfigChained)
+			i := NewInstaller(constants.AdsMode, config.CniMountNetEtcDIR, config.CniConfigName, config.CniConfigChained, "")
 			_, err := i.getCniConfigPath()
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getCniConfigPath() error = %v, wantErr %v", err, tt.wantErr)
@@ -307,7 +307,7 @@ func TestInsertCNIConfig(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
-			i := NewInstaller(constants.AdsMode, "", "", true)
+			i := NewInstaller(constants.AdsMode, "", "", true, "")
 			_, err := i.insertCNIConfig(tt.utconfig, "workload")
 			if (err != nil) != tt.wantErr {
 				t.Errorf("insertCNIConfig() error = %v, wantErr %v", err, tt.wantErr)

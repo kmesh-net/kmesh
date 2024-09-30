@@ -36,7 +36,7 @@ import (
 )
 
 var (
-	log = logger.NewLoggerFieldWithoutStdout("plugin/cniplugin")
+	log = logger.NewFileLogger("cniplugin")
 )
 
 // cniConf is whatever you expect your configuration json to be. This is whatever

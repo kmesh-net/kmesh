@@ -33,7 +33,7 @@ const (
 	AuthorizationType = "type.googleapis.com/istio.security.Authorization"
 )
 
-var log = logger.NewLoggerField("workload_controller")
+var log = logger.NewLoggerScope("workload_controller")
 
 type Controller struct {
 	Stream           discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
@@ -43,13 +43,18 @@ type Controller struct {
 	bpfWorkloadObj   *bpf.BpfKmeshWorkload
 }
 
-func NewController(bpfWorkload *bpf.BpfKmeshWorkload) *Controller {
+func NewController(bpfWorkload *bpf.BpfKmeshWorkload, enableAccesslog bool) *Controller {
 	c := &Controller{
-		Processor:      newProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
+		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
 		bpfWorkloadObj: bpfWorkload,
 	}
+	// do some initialization when restart
+	// restore endpoint index, otherwise endpoint number can double
+	if bpf.GetStartType() == bpf.Restart {
+		c.Processor.bpf.RestoreEndpointKeys()
+	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
-	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache)
+	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, enableAccesslog)
 	return c
 }
 
@@ -105,6 +110,7 @@ func (c *Controller) HandleWorkloadStream() error {
 	)
 
 	if rspDelta, err = c.Stream.Recv(); err != nil {
+		_ = c.Stream.CloseSend()
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 

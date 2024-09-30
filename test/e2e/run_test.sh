@@ -9,8 +9,7 @@ set -e
 
 DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
-# support testing multiple istio version in the future.
-ISTIO_VERSION=1.22.0
+ISTIO_VERSION=${ISTIO_VERSION:-"1.22.0"}
 
 export KMESH_WAYPOINT_IMAGE=${KMESH_WAYPOINT_IMAGE:-"ghcr.io/kmesh-net/waypoint:latest"}
 
@@ -99,6 +98,7 @@ EOF
 }
 
 function setup_istio() {
+    echo "install istio $ISTIO_VERSION"
     kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
         { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0" | kubectl apply -f -; }
 
@@ -106,7 +106,7 @@ function setup_istio() {
 }
 
 function setup_kmesh() {
-    helm install kmesh $ROOT_DIR/deploy/helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh
+    helm install kmesh $ROOT_DIR/deploy/charts/kmesh-helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh
 
     # Wait for all Kmesh pods to be ready.
     while true; do
@@ -226,6 +226,14 @@ while (( "$#" )); do
       SKIP_BUILD=true
       shift
     ;;
+    --cluster)
+      NAME="$2"
+      if ! kind get clusters | grep -qw "$NAME"; then
+        echo "Error: Cluster '$NAME' does not exist."
+        exit 1
+      fi
+      shift 2
+    ;;
     --ipv6)
       IPV6=true
       shift
@@ -242,18 +250,24 @@ while (( "$#" )); do
     esac
 done
 
+NAME="${NAME:-kmesh-testing}"
+
 if [[ -z "${SKIP_INSTALL_DEPENDENCIES:-}" ]]; then
     install_dependencies
 fi
 
 if [[ -z "${SKIP_SETUP:-}" ]]; then
-    setup_kind_cluster
+    setup_kind_cluster "$NAME"
 fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
     setup_kind_registry
     build_and_push_images
 fi
+
+kubectl config use-context "kind-$NAME"
+echo "Running tests in cluster '$NAME'"
+
 
 # make sure the Kmesh local image is ready.
 if [[ -z "${SKIP_SETUP:-}" ]]; then

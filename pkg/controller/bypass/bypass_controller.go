@@ -34,7 +34,7 @@ import (
 )
 
 var (
-	log = logger.NewLoggerField("bypass")
+	log = logger.NewLoggerScope("bypass")
 )
 
 const (

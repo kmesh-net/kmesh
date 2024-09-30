@@ -65,9 +65,9 @@ func TestWorkloadHash_Basic(t *testing.T) {
 		str := testcase.str
 		expectedNum := testcase.expectedNum
 
-		actualNum := hashName.StrToNum(str)
+		actualNum := hashName.Hash(str)
 		if actualNum != expectedNum {
-			t.Errorf("StrToNum(%s) = %d, want %d", str, actualNum, expectedNum)
+			t.Errorf("Hash(%s) = %d, want %d", str, actualNum, expectedNum)
 		}
 
 		// Test Number to String
@@ -86,7 +86,7 @@ func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
 	strToNumMap := make(map[string]uint32)
 	hashName := NewHashName()
 	for _, testString := range testStrings {
-		num := hashName.StrToNum(testString)
+		num := hashName.Hash(testString)
 		strToNumMap[testString] = num
 	}
 
@@ -95,10 +95,10 @@ func TestWorkloadHash_StrToNumAfterDelete(t *testing.T) {
 	// we swap the two collided strings
 	testStrings[2], testStrings[3] = testStrings[3], testStrings[2]
 	for _, testString := range testStrings {
-		actualNum := hashName.StrToNum(testString)
+		actualNum := hashName.Hash(testString)
 		expectedNum := strToNumMap[testString]
 		if actualNum != expectedNum {
-			t.Errorf("StrToNum(%s) = %d, want %d", testString, actualNum, expectedNum)
+			t.Errorf("Hash(%s) = %d, want %d", testString, actualNum, expectedNum)
 		}
 	}
 

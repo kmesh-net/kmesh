@@ -38,23 +38,19 @@ func TestRestart(t *testing.T) {
 }
 
 func setDir(t *testing.T) options.BpfConfig {
-	CleanupBpfMap()
-	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
-	if err != nil {
+	if err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755); err != nil {
 		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
 	}
-	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
-	if err != nil {
+	if err := syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, ""); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 	}
-	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
-	if err != nil {
+	if err := syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
 	}
 
-	if err = rlimit.RemoveMemlock(); err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to remove mem limit: %v", err)
 	}
@@ -75,8 +71,8 @@ func runTestNormal(t *testing.T) {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	assert.Equal(t, Normal, GetStartType(), "set kmesh start status failed")
-	SetCloseStatus()
-	assert.Equal(t, Normal, GetStartType(), "set kmesh close status failed")
+
+	SetExitType()
 	bpfLoader.Stop()
 }
 
@@ -89,9 +85,8 @@ func runTestRestart(t *testing.T) {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	assert.Equal(t, Normal, GetStartType(), "set kmesh start status:Normal failed")
-	SetStartType(Restart)
+	kmeshExitType = Restart
 	bpfLoader.Stop()
-	assert.Equal(t, Restart, GetStartType(), "set kmesh close status:Restart failed")
 
 	if config.AdsEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
@@ -99,7 +94,7 @@ func runTestRestart(t *testing.T) {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/")
 	}
 	_, err := os.Stat(versionPath)
-	assert.ErrorIsf(t, err, nil, "bpfLoader Stop failed,versionPath is not exist: %v", err)
+	assert.ErrorIsf(t, err, nil, "bpfLoader Stop failed, versionPath is not exist: %v", err)
 
 	// Restart
 	bpfLoader = NewBpfLoader(&config)
@@ -107,6 +102,6 @@ func runTestRestart(t *testing.T) {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	assert.Equal(t, Restart, GetStartType(), "set kmesh start status:Restart failed")
-	SetStartType(Normal)
+	kmeshExitType = Normal
 	bpfLoader.Stop()
 }
