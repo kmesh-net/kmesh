@@ -33,6 +33,7 @@ import (
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfTracePoint struct {
@@ -103,7 +104,11 @@ func (sc *BpfTracePoint) loadKmeshTracePointObjects() (*ebpf.CollectionSpec, err
 		opts ebpf.CollectionOptions
 	)
 
-	spec, err = bpf2go.LoadKmeshTracePoint()
+	if utils.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshTracePointCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshTracePoint()
+	}
 	if err != nil || spec == nil {
 		return nil, err
 	}
@@ -137,7 +142,11 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 
 	opts.Maps.PinPath = sc.Info.MapPath
 
-	spec, err = bpf2go.LoadKmeshSockops()
+	if utils.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshSockopsCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshSockops()
+	}
 
 	if err != nil || spec == nil {
 		return nil, err
