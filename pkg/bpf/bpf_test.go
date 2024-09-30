@@ -38,14 +38,6 @@ func TestRestart(t *testing.T) {
 	})
 }
 
-func bpfConfig() options.BpfConfig {
-	return options.BpfConfig{
-		Mode:        "workload",
-		BpfFsPath:   "/sys/fs/bpf",
-		Cgroup2Path: "/mnt/kmesh_cgroup2",
-	}
-}
-
 func setDir(t *testing.T) options.BpfConfig {
 	if err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755); err != nil {
 		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
