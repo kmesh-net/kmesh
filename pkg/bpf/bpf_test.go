@@ -46,74 +46,70 @@ func bpfConfig() options.BpfConfig {
 	}
 }
 
-// Test Kmesh Normal
-func runTestNormal(t *testing.T) {
-	config := bpfConfig()
-	cleanup, _ := runFakeLoader(t, config)
-	defer cleanup()
-	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status failed")
-	restart.SetExitType(restart.Normal)
-}
-
-// Test Kmesh Restart
-func runTestRestart(t *testing.T) {
-	var versionPath string
-	config := bpfConfig()
-	cleanup, _ := runFakeLoader(t, config)
-	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status:Normal failed")
-	restart.SetExitType(restart.Restart)
-	cleanup()
-
-	if config.AdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath, "/bpf_kmesh/map/")
-	} else if config.WdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath, "/bpf_kmesh_workload/map/")
-	}
-	_, err := os.Stat(versionPath)
-	assert.ErrorIsf(t, err, nil, "bpfLoader Stop failed, versionPath does not exist: %v", err)
-
-	// Restart
-	loader := NewBpfLoader(&config)
-	err = loader.Start()
-	if err != nil {
-		CleanupBpfMap()
-		t.Fatalf("bpf init failed: %v", err)
-	}
-	defer loader.Stop()
-	assert.Equal(t, restart.Restart, restart.GetStartType(), "set kmesh start status:Restart failed")
-	restart.SetExitType(restart.Normal)
-}
-
-type CleanupFn func()
-
-func runFakeLoader(t *testing.T, config options.BpfConfig) (CleanupFn, *BpfLoader) {
-	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
-	if err != nil {
+func setDir(t *testing.T) options.BpfConfig {
+	if err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755); err != nil {
 		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
 	}
-	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
-	if err != nil {
+	if err := syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, ""); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 	}
-	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
-	if err != nil {
+	if err := syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
 	}
 
-	if err = rlimit.RemoveMemlock(); err != nil {
+	if err := rlimit.RemoveMemlock(); err != nil {
 		CleanupBpfMap()
 		t.Fatalf("Failed to remove mem limit: %v", err)
 	}
 
-	loader := NewBpfLoader(&config)
-	err = loader.Start()
-	if err != nil {
-		CleanupBpfMap()
-		t.Fatalf("bpf init failed: %v", err)
+	return options.BpfConfig{
+		Mode:        "workload",
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
-	return func() {
-		loader.Stop()
-	}, loader
+}
+
+// Test Kmesh Normal
+func runTestNormal(t *testing.T) {
+	config := setDir(t)
+
+	bpfLoader := NewBpfLoader(&config)
+	if err := bpfLoader.Start(); err != nil {
+		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
+	}
+	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status failed")
+	restart.SetExitType(restart.Normal)
+	bpfLoader.Stop()
+}
+
+// Test Kmesh Restart Normal
+func runTestRestart(t *testing.T) {
+	var versionPath string
+	config := setDir(t)
+	bpfLoader := NewBpfLoader(&config)
+	if err := bpfLoader.Start(); err != nil {
+		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
+	}
+	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status failed")
+	restart.SetExitType(restart.Restart)
+	bpfLoader.Stop()
+
+	if config.AdsEnabled() {
+		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
+	} else if config.WdsEnabled() {
+		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/")
+	}
+	_, err := os.Stat(versionPath)
+	assert.ErrorIsf(t, err, nil, "bpfLoader Stop failed, versionPath is not exist: %v", err)
+
+	// Restart
+	bpfLoader = NewBpfLoader(&config)
+	if err := bpfLoader.Start(); err != nil {
+		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
+	}
+	assert.Equal(t, restart.Restart, restart.GetStartType(), "set kmesh start status:Restart failed")
+	restart.SetExitType(restart.Normal)
+	bpfLoader.Stop()
 }
