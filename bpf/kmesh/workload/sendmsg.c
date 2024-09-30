@@ -70,6 +70,10 @@ enum TLV_TYPE {
     TLV_PAYLOAD = 0xfe,
 };
 
+struct sk_msg_md g_msg = {0};
+struct bpf_sock_tuple g_dst_info = {0};
+__u32 g_encoded_length = 0;
+
 static inline int check_overflow(struct sk_msg_md *msg, __u8 *begin, __u32 length)
 {
     if (msg->data_end < (void *)(begin + length)) {
@@ -84,7 +88,9 @@ static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, 
     __u64 *current_sk = (__u64 *)msg->sk;
     struct bpf_sock_tuple *dst;
 
-    dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
+    // dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
+    // 使用全局变量 g_dst_info 代替 map 查找
+    dst = &g_dst_info;
     if (!dst)
         return -ENOENT;
 
@@ -176,6 +182,8 @@ int sendmsg_prog(struct sk_msg_md *msg)
 
     // encode org dst addr
     encode_metadata_org_dst_addr(msg, &off, (msg->family == AF_INET));
+    // 为测试目的，保存编码后的长度
+    g_encoded_length = off;
     return SK_PASS;
 }
 
