@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"kmesh.net/kmesh/daemon/options"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfTracePoint struct {
@@ -44,8 +45,11 @@ func (sc *BpfTracePoint) loadKmeshTracePointObjects() (*ebpf.CollectionSpec, err
 		spec *ebpf.CollectionSpec
 		opts ebpf.CollectionOptions
 	)
-
-	spec, err = bpf2go.LoadKmeshTracePoint()
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshTracePointCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshTracePoint()
+	}
 	if err != nil || spec == nil {
 		return nil, err
 	}

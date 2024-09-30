@@ -29,6 +29,7 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/utils"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfSockOps struct {
@@ -65,9 +66,11 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 	)
 
 	opts.Maps.PinPath = sc.Info.MapPath
-
-	spec, err = bpf2go.LoadKmeshSockops()
-
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshSockopsCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshSockops()
+	}
 	if err != nil || spec == nil {
 		return nil, err
 	}
