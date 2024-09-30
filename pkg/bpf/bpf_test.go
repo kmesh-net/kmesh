@@ -17,7 +17,6 @@
 package bpf
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -31,7 +30,6 @@ import (
 )
 
 func TestRestart(t *testing.T) {
-	CleanupBpfMap()
 	t.Run("new start", func(t *testing.T) {
 		runTestNormal(t)
 	})
@@ -67,12 +65,12 @@ func runTestRestart(t *testing.T) {
 	cleanup()
 
 	if config.AdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
+		versionPath = filepath.Join(config.BpfFsPath, "/bpf_kmesh/map/")
 	} else if config.WdsEnabled() {
-		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/")
+		versionPath = filepath.Join(config.BpfFsPath, "/bpf_kmesh_workload/map/")
 	}
 	_, err := os.Stat(versionPath)
-	assert.ErrorIsf(t, err, nil, "bpfLoader Stop failed, versionPath is not exist: %v", err)
+	assert.ErrorIsf(t, err, nil, "bpfLoader Stop failed, versionPath does not exist: %v", err)
 
 	// Restart
 	loader := NewBpfLoader(&config)
@@ -110,10 +108,7 @@ func runFakeLoader(t *testing.T, config options.BpfConfig) (CleanupFn, *BpfLoade
 	}
 
 	loader := NewBpfLoader(&config)
-	fmt.Println("loader start:")
 	err = loader.Start()
-	fmt.Println("loader start: done")
-
 	if err != nil {
 		CleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)
