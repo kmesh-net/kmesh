@@ -181,7 +181,7 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 		wpkDelete = bpf.WorkloadPolicyKey{}
 	)
 
-	log.Warnf("== removeWorkloadFromBpfMap: workload uid: %#v, backendUid: %#v", uid, p.hashName.Hash(uid))
+	log.Debugf("removeWorkloadFromBpfMap: workload %s, backendUid %d", uid, p.hashName.Hash(uid))
 	backendUid := p.hashName.Hash(uid)
 	// 1. for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
 	if err = p.deletePodFrontendData(backendUid); err != nil {
@@ -278,15 +278,14 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 		}
 
 		var i uint32
-		var j uint32
-		for j = 0; j <= bpf.MaxPrio; j++ {
+		for j := 0; j <= bpf.MaxPrio; j++ {
 			if svDelete.EndpointCount[j] == 0 {
 				continue
 			}
 			for i = 1; i <= svDelete.EndpointCount[j]; i++ {
 				ekDelete := bpf.EndpointKey{
 					ServiceId:    serviceId,
-					Prio:         j,
+					Prio:         uint32(j),
 					BackendIndex: i,
 				}
 				if err = p.bpf.EndpointDelete(&ekDelete); err != nil {
@@ -300,17 +299,17 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 }
 
 // addWorkloadToService update service & endpoint bpf map when a workload has new bound services
-func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, uid uint32, Prio uint32) error {
+func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, uid uint32, priority uint32) error {
 	var (
 		err error
 		ek  = bpf.EndpointKey{}
 		ev  = bpf.EndpointValue{}
 	)
 
-	sv.EndpointCount[Prio]++
-	ek.BackendIndex = sv.EndpointCount[Prio]
+	sv.EndpointCount[priority]++
+	ek.BackendIndex = sv.EndpointCount[priority]
 	ek.ServiceId = sk.ServiceId
-	ek.Prio = Prio
+	ek.Prio = priority
 	ev.BackendUid = uid
 	if err = p.bpf.EndpointUpdate(&ek, &ev); err != nil {
 		log.Errorf("Update endpoint map failed, err:%s", err)
@@ -382,7 +381,7 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 	)
 
 	uid := p.hashName.Hash(workload.GetUid())
-	log.Warnf("=in= updateWorkload: workload uid: %#v, backendUid: %#v", workload.GetUid(), uid)
+	log.Debugf("updateWorkload: workload %s, backendUid: %v", workload.GetUid(), uid)
 
 	if waypoint := workload.GetWaypoint(); waypoint != nil {
 		nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
@@ -508,7 +507,7 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	newValue.LbPolicy = uint32(lb.GetMode()) // set loadbalance mode
 	p.locality.SetRoutingPreference(lb.GetRoutingPreference())
 	p.locality.LbPolicy = newValue.LbPolicy
-	log.Debugf("lbPolicy:%#v, routingPreference:%#v, strictIndex:%#v", newValue.LbPolicy, p.locality.RoutingPreference, p.locality.LbStrictIndex)
+	log.Debugf("lbPolicy:%v, routingPreference:%v, strictIndex:%v", newValue.LbPolicy, p.locality.RoutingPreference, p.locality.LbStrictIndex)
 	newValue.LbStrictIndex = p.locality.LbStrictIndex
 
 	if waypoint != nil && waypoint.GetAddress() != nil {
