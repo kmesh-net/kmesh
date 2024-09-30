@@ -96,7 +96,7 @@ func (l *BpfLoader) StartAdsMode() (err error) {
 	}
 
 	l.bpfLogLevel = l.obj.SockConn.BpfLogLevel
-	ret := C.deserial_init()
+	ret := C.deserial_init(GetStartType() == Restart)
 	if ret != 0 {
 		l.Stop()
 		return fmt.Errorf("deserial_init failed:%v", ret)
