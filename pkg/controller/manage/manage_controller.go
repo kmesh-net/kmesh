@@ -67,6 +67,11 @@ type KmeshManageController struct {
 	client            kubernetes.Interface
 }
 
+type XdpProg struct {
+	XdpShutdownFD int
+	XdpMatchDstFD int
+}
+
 func isPodReady(pod *corev1.Pod) bool {
 	for _, condition := range pod.Status.Conditions {
 		if condition.Type == corev1.PodReady && condition.Status == corev1.ConditionTrue {
@@ -76,7 +81,7 @@ func isPodReady(pod *corev1.Pod) bool {
 	return false
 }
 
-func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) (*KmeshManageController, error) {
+func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecurity.SecretManager, xdpProg XdpProg, mode string) (*KmeshManageController, error) {
 	informerFactory := kube.NewInformerFactory(client)
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	podLister := informerFactory.Core().V1().Pods().Lister()
@@ -89,10 +94,10 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 
 	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			handlePodAddFunc(obj, namespaceLister, queue, security, xdpProgFd, mode)
+			handlePodAddFunc(obj, namespaceLister, queue, security, xdpProg, mode)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			handlePodUpdateFunc(newObj, namespaceLister, queue, security, xdpProgFd, mode)
+			handlePodUpdateFunc(newObj, namespaceLister, queue, security, xdpProg, mode)
 		},
 		DeleteFunc: func(obj interface{}) {
 			handlePodDeleteFunc(obj, security)
@@ -103,7 +108,7 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 
 	if _, err := namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: func(oldObj, newObj interface{}) {
-			handleNamespaceUpdateFunc(oldObj, newObj, podLister, queue, security, xdpProgFd, mode)
+			handleNamespaceUpdateFunc(oldObj, newObj, podLister, queue, security, xdpProg, mode)
 		},
 	}); err != nil {
 		return nil, fmt.Errorf("failed to add event handler to namespaceInformer: %v", err)
@@ -121,7 +126,7 @@ func NewKmeshManageController(client kubernetes.Interface, security *kmeshsecuri
 	}, nil
 }
 
-func handlePodAddFunc(obj interface{}, namespaceLister v1.NamespaceLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) {
+func handlePodAddFunc(obj interface{}, namespaceLister v1.NamespaceLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProg XdpProg, mode string) {
 	pod, ok := obj.(*corev1.Pod)
 	if !ok {
 		log.Errorf("expected *corev1.Pod but got %T", obj)
@@ -140,10 +145,10 @@ func handlePodAddFunc(obj interface{}, namespaceLister v1.NamespaceLister, queue
 		}
 		return
 	}
-	enableKmeshManage(pod, queue, security, xdpProgFd, mode)
+	enableKmeshManage(pod, queue, security, xdpProg, mode)
 }
 
-func handlePodUpdateFunc(newObj interface{}, namespaceLister v1.NamespaceLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) {
+func handlePodUpdateFunc(newObj interface{}, namespaceLister v1.NamespaceLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProg XdpProg, mode string) {
 	newPod, okNew := newObj.(*corev1.Pod)
 	if !okNew {
 		log.Errorf("expected *corev1.Pod but got %T", newObj)
@@ -158,7 +163,7 @@ func handlePodUpdateFunc(newObj interface{}, namespaceLister v1.NamespaceLister,
 
 	// enable kmesh manage
 	if newPod.Annotations[constants.KmeshRedirectionAnnotation] != "enabled" && utils.ShouldEnroll(newPod, namespace) {
-		enableKmeshManage(newPod, queue, security, xdpProgFd, mode)
+		enableKmeshManage(newPod, queue, security, xdpProg, mode)
 	}
 
 	// disable kmesh manage
@@ -190,7 +195,7 @@ func handlePodDeleteFunc(obj interface{}, security *kmeshsecurity.SecretManager)
 	}
 }
 
-func handleNamespaceUpdateFunc(oldObj, newObj interface{}, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) {
+func handleNamespaceUpdateFunc(oldObj, newObj interface{}, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProg XdpProg, mode string) {
 	oldNS, okOld := oldObj.(*corev1.Namespace)
 	newNS, okNew := newObj.(*corev1.Namespace)
 	if !okOld || !okNew {
@@ -201,7 +206,7 @@ func handleNamespaceUpdateFunc(oldObj, newObj interface{}, podLister v1.PodListe
 	// Compare labels to check if they have actually changed
 	if !utils.ShouldEnroll(nil, oldNS) && utils.ShouldEnroll(nil, newNS) {
 		log.Infof("Enabling Kmesh for all pods in namespace: %s", newNS.Name)
-		enableKmeshForPodsInNamespace(newNS.Name, podLister, queue, security, xdpProgFd, mode)
+		enableKmeshForPodsInNamespace(newNS.Name, podLister, queue, security, xdpProg, mode)
 	}
 
 	if utils.ShouldEnroll(nil, oldNS) && !utils.ShouldEnroll(nil, newNS) {
@@ -210,7 +215,7 @@ func handleNamespaceUpdateFunc(oldObj, newObj interface{}, podLister v1.PodListe
 	}
 }
 
-func enableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) {
+func enableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProg XdpProg, mode string) {
 	sendCertRequest(security, pod, kmeshsecurity.ADD)
 	if !isPodReady(pod) {
 		log.Debugf("Pod %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
@@ -223,7 +228,7 @@ func enableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, s
 		return
 	}
 	queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
-	_ = linkXdp(nspath, xdpProgFd, mode)
+	_ = linkXdp(nspath, xdpProg, mode)
 }
 
 func disableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, mode string) {
@@ -242,7 +247,7 @@ func disableKmeshManage(pod *corev1.Pod, queue workqueue.RateLimitingInterface, 
 	_ = unlinkXdp(nspath, mode)
 }
 
-func enableKmeshForPodsInNamespace(namespace string, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProgFd int, mode string) {
+func enableKmeshForPodsInNamespace(namespace string, podLister v1.PodLister, queue workqueue.RateLimitingInterface, security *kmeshsecurity.SecretManager, xdpProg XdpProg, mode string) {
 	pods, err := podLister.Pods(namespace).List(labels.Everything())
 	if err != nil {
 		log.Errorf("Error listing pods: %v", err)
@@ -250,7 +255,7 @@ func enableKmeshForPodsInNamespace(namespace string, podLister v1.PodLister, que
 	}
 
 	for _, pod := range pods {
-		enableKmeshManage(pod, queue, security, xdpProgFd, mode)
+		enableKmeshManage(pod, queue, security, xdpProg, mode)
 	}
 }
 
@@ -338,7 +343,7 @@ func sendCertRequest(security *kmeshsecurity.SecretManager, pod *corev1.Pod, op 
 	}
 }
 
-func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
+func linkXdp(netNsPath string, xdpProg XdpProg, mode string) error {
 	// Currently only support workload mode
 	if mode != constants.WorkloadMode {
 		return nil
@@ -360,7 +365,11 @@ func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
 				return err
 			}
 			// Always let new XDP program replace the old one, to ensure that there is always only one XDP program at the same time
-			if err := netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
+			if err := netlink.LinkSetXdpFd(ifLink, xdpProg.XdpShutdownFD); err != nil {
+				return err
+			}
+
+			if err := netlink.LinkSetXdpFd(ifLink, xdpProg.XdpMatchDstFD); err != nil {
 				return err
 			}
 		}

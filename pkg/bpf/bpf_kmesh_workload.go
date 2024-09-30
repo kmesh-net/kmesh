@@ -562,6 +562,13 @@ func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
 	xa.Info.Type = prog.Type
 	xa.Info.AttachType = prog.AttachType
 
+	if err = xa.MapOfTailCallProgForXdp.Update(
+		uint32(constants.TailCallDstPortMatch),
+		uint32(xa.MatchDstPorts.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -326,6 +326,31 @@ static int outter_key_to_inner_fd(struct op_context *ctx, unsigned int key)
     return -1;
 }
 
+static int copy_byte_field_to_map(struct op_context *ctx, int o_index, const ProtobufCFieldDescriptor *field)
+{
+    int ret;
+    int key = 0;
+    int inner_fd;
+
+    struct ProtobufCBinaryData *bytes = (struct ProtobufCBinaryData *)((char *)ctx->value + field->offset);
+    unsigned char *save_value = bytes->data;
+    *(uintptr_t *)&bytes->data = (size_t)o_index;
+
+    ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
+    if (ret) {
+        free_outter_map_entry(ctx, &o_index);
+        return ret;
+    }
+
+    inner_fd = outter_key_to_inner_fd(ctx, o_index);
+    if (inner_fd < 0)
+        return inner_fd;
+
+    memcpy_s(ctx->inner_map_object, ctx->inner_info->value_size, save_value, bytes->len);
+    ret = bpf_map_update_elem(inner_fd, &key, ctx->inner_map_object, BPF_ANY);
+    return ret;
+}
+
 static int copy_sfield_to_map(struct op_context *ctx, int o_index, const ProtobufCFieldDescriptor *field)
 {
     int ret;
@@ -393,7 +418,7 @@ static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *
 {
     int key = 0;
 
-    if (field->type == PROTOBUF_C_TYPE_MESSAGE || field->type == PROTOBUF_C_TYPE_STRING) {
+    if (field->type == PROTOBUF_C_TYPE_MESSAGE || field->type == PROTOBUF_C_TYPE_STRING || field->type == PROTOBUF_C_TYPE_BYTES) {
         key = alloc_outter_map_entry(ctx);
         if (key < 0)
             return key;
@@ -404,6 +429,8 @@ static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *
         return copy_msg_field_to_map(ctx, key, field);
     case PROTOBUF_C_TYPE_STRING:
         return copy_sfield_to_map(ctx, key, field);
+    case PROTOBUF_C_TYPE_BYTES:
+        return copy_byte_field_to_map(ctx, key, field);
     default:
         break;
     }
