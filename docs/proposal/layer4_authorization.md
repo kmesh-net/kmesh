@@ -15,7 +15,7 @@ creation-date: 2024-05-28
 
 ### Summary
 
-This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authentication features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/). Currently, kmesh supports two authentication architectures, packet first go through XDP authentication processing, if the type is not supported, the quintuple information is passed to Userspace authentication via a ring buffer, the ultimate goal is to completely handle authentication within XDP.[Userspace authentication](#Userspace-authentication)
+This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authentication features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/). Currently, kmesh supports two authentication architectures, packet first go through XDP authentication processing, if the type is not supported, the quintuple information is passed to Userspace authentication via a ring buffer, the ultimate goal is to completely handle authentication within XDP.
 
 ### Userspace authentication
 
@@ -54,17 +54,17 @@ struct {
    - 3.2: If the matched record shows `value=deny`, it alters the message flag, sends an RST message to the server, clears the corresponding `auth_map` record. If no record is matched, implying authorization is allowed, the message is passed through.
 4. **client retry**: The client attempts to send another message, but because the server has closed the connection, the client receives a "reset by peer" signal and subsequently closes its own channel.
 
-### Xdp-authentication
+### Xdp authentication
 
-#### Desing detail
+#### Design detail
 
-![l4_authz](pics/kmesh_l4_authorization_xdp.svg#pic_center)
+![l4_authz_xdp](pics/kmesh_l4_authorization_xdp.svg#pic_center)
 
 #### Map definition
 
 map_of_wl_policy: records the policies that are configured for the workload.
 
-map_of_authz: records the authz rules of policys
+map_of_authz: records the authz rules of policies.
 
 ```.c
 struct {
@@ -73,7 +73,7 @@ struct {
     __uint(value_size, sizeof(wl_policies_v));
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
-} map_of_wl_policy SEC(".maps");
+}    SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
