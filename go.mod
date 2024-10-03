@@ -1,6 +1,6 @@
 module kmesh.net/kmesh
 
-go 1.22.0
+go 1.23.2
 
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
