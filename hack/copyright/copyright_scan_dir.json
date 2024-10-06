@@ -1,0 +1,17 @@
+{
+  "go_dirs": [
+    "/pkg",
+    "/cniplugin",
+    "/ctl",
+    "/daemon",
+    "/test"
+  ],
+  "c_dirs": [
+    "/bpf",
+    "/config",
+    "/depends",
+    "/kernel",
+    "/oncn-mda"
+  ],
+  "exclude_dirs": []
+}

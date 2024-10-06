@@ -7,9 +7,6 @@ go_copyright_path=$ROOT_DIR/hack/copyright/apache.txt
 c_copyright_path1=$ROOT_DIR/hack/copyright/BSDandGPL1.txt
 c_copyright_path2=$ROOT_DIR/hack/copyright/BSDandGPL2.txt
 
-go_dirs="$ROOT_DIR/pkg"
-c_dirs="$ROOT_DIR/bpf"
-
 function check_go_copyright() {
     target_file=$1
     copyright_file=$go_copyright_path
@@ -94,6 +91,7 @@ function c_check_dir() {
     dir=$1
     find $dir -type f -name "*.c" -o -name "*.h" | while read file; do
         # echo $file
+        exclude_dirs=$(jq -r '.exclude_dirs[]' ./copyright/copyright_scan_dir.json)
         if ! echo $exclude_dirs | grep -q $(dirname $file); then
             check_c_copyright $file
         fi 
@@ -101,6 +99,10 @@ function c_check_dir() {
 }
 
 function copyright_check() {
+
+    go_dirs=$(jq -r '.go_dirs[]' ./copyright/copyright_scan_dir.json)
+    c_dirs=$(jq -r '.c_dirs[]' ./copyright/copyright_scan_dir.json)
+
     for dir in ${go_dirs}; do
         go_check_dir $dir
     done
