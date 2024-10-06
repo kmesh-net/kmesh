@@ -81,7 +81,8 @@ function go_check_dir() {
     dir=$1
     find $dir -type f -name "*.go" | while read file; do
         # echo $file
-        if ! echo $exclude_dirs | grep -q $(dirname $file); then
+        exclude_dirs=$(jq -r '.exclude_dirs[]' ./copyright/copyright_scan_dir.json)
+        if ! echo $ROOT_DIR$exclude_dirs | grep -q $(dirname $file); then
             check_go_copyright $file
         fi 
     done
@@ -92,7 +93,7 @@ function c_check_dir() {
     find $dir -type f -name "*.c" -o -name "*.h" | while read file; do
         # echo $file
         exclude_dirs=$(jq -r '.exclude_dirs[]' ./copyright/copyright_scan_dir.json)
-        if ! echo $exclude_dirs | grep -q $(dirname $file); then
+        if ! echo $ROOT_DIR$exclude_dirs | grep -q $(dirname $file); then
             check_c_copyright $file
         fi 
     done
@@ -104,11 +105,11 @@ function copyright_check() {
     c_dirs=$(jq -r '.c_dirs[]' ./copyright/copyright_scan_dir.json)
 
     for dir in ${go_dirs}; do
-        go_check_dir $dir
+        go_check_dir "$ROOT_DIR$dir"
     done
 
     for dir in ${c_dirs}; do
-        c_check_dir $dir
+        c_check_dir "$ROOT_DIR$dir"
     done
 }
 

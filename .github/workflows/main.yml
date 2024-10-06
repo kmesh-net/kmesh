@@ -35,7 +35,7 @@ jobs:
     - name: Run Copyright-check
       run : |
         jq --version
-        make ./hack/copyright-check.sh
+        sh ./hack/copyright-check.sh
 
     - name: Build Kmesh
       shell: bash
