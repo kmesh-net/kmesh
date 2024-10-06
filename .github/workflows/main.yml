@@ -34,7 +34,7 @@ jobs:
 
     - name: Run Copyright-check
       run : |
-        apt-get install jq
+        jq --version
         make ./hack/copyright-check.sh
 
     - name: Build Kmesh
