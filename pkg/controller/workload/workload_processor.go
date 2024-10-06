@@ -638,7 +638,7 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 	}
 
 	workloadInQueue := p.locality.GetFromWaitQueue() // locality LB mode
-	for workload, _ := range workloadInQueue {
+	for workload := range workloadInQueue {
 		if err = p.handleWorkload(workload); err != nil {
 			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 		}
