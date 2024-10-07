@@ -1,12 +1,11 @@
+// SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
+/* Copyright Authors of Kmesh */
+
 /*
- * Copyright 2023 The Kmesh Authors.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 as
- * published by the Free Software Foundation
  * Author: liuxin
  * Create: 2022-08-24
  */
+
 #include "kmesh_parse_protocol_data.h"
 
 struct rb_root __percpu *g_kmesh_data_root;
