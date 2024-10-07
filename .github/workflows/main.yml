@@ -34,7 +34,6 @@ jobs:
 
     - name: Run Copyright-check
       run : |
-        jq --version
         make copyright-check
 
     - name: Build Kmesh
