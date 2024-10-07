@@ -119,7 +119,7 @@ gen-check: gen
 
 .PHONY: copyright-check
 copyright-check:
-	hack/copy-right.sh
+	hack/copyright-check.sh
 
 .PHONY: install
 install:
