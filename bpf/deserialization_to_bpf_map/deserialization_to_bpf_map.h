@@ -32,7 +32,7 @@ void deserial_free_elem(void *value);
 void deserial_free_elem_list(struct element_list_node *head);
 int deserial_delete_elem(void *key, const void *msg_desciptor);
 
-int deserial_init();
+int deserial_init(bool restore);
 void deserial_uninit(bool persist);
 int inner_map_mng_persist();
 

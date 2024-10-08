@@ -89,7 +89,7 @@ func (l *BpfLoader) StartWorkloadMode() error {
 		return fmt.Errorf("failed to set api env")
 	}
 
-	ret := C.deserial_init()
+	ret := C.deserial_init(GetStartType() == Restart)
 	if ret != 0 {
 		l.Stop()
 		return fmt.Errorf("deserial_init failed:%v", ret)
