@@ -55,9 +55,11 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 
 	if config.Mode == constants.AdsMode {
 		err = loader.StartAdsMode()
-	}
-	if config.Mode == constants.WorkloadMode {
+	} else if config.Mode == constants.WorkloadMode {
 		err = loader.StartWorkloadMode()
+	} else {
+		// Shouldn't happen here.
+		panic("invalid start mode, should be \"ads\" or \"workload\"")
 	}
 
 	if err != nil {

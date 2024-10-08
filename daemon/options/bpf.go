@@ -17,6 +17,7 @@
 package options
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -45,6 +46,10 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 
 func (c *BpfConfig) ParseConfig() error {
 	var err error
+
+	if c.Mode != constants.AdsMode && c.Mode != constants.WorkloadMode {
+		return fmt.Errorf("invalid mode value, should be `ads` or `workload`")
+	}
 
 	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
 		return err
