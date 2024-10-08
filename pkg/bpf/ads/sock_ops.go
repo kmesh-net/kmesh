@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
+	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	helper "kmesh.net/kmesh/pkg/utils"
@@ -82,7 +83,7 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 	}
 
 	value := reflect.ValueOf(sc.KmeshSockopsObjects.KmeshSockopsPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
+	if err = utils.PinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 

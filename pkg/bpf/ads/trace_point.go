@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
+	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
@@ -90,7 +91,7 @@ func (sc *BpfTracePoint) Attach() error {
 }
 
 func (sc *BpfTracePoint) Detach() error {
-	if err := sc.KmeshTracePointObjects.Close()(); err != nil {
+	if err := sc.KmeshTracePointObjects.Close(); err != nil {
 		return err
 	}
 

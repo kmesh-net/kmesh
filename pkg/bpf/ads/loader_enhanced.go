@@ -32,7 +32,10 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/logger"
 )
+
+var log = logger.NewLoggerScope("bpf_ads")
 
 type BpfAds struct {
 	TracePoint BpfTracePoint
@@ -54,7 +57,9 @@ func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	return sc, nil
 }
 
-func (sc *BpfAds) Start() {
+func (sc *BpfAds) Start() error {
+	var ve *ebpf.VerifierError
+
 	if err := sc.Load(); err != nil {
 		if errors.As(err, &ve) {
 			return fmt.Errorf("bpf Load failed: %+v", ve)
@@ -74,14 +79,16 @@ func (sc *BpfAds) Start() {
 	if ret != 0 {
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
+	return nil
 }
 
-func (sc *BpfAds) Stop() {
+func (sc *BpfAds) Stop() error {
 	C.deserial_uninit(false)
 	if err := sc.Detach(); err != nil {
 		log.Errorf("failed detach when stop kmesh, err: %v", err)
-		return
+		return err
 	}
+	return nil
 }
 
 func (sc *BpfAds) GetBpfLogLevelMap() *ebpf.Map {
@@ -158,21 +165,6 @@ func (sc *BpfAds) Attach() error {
 	}
 
 	if err := sc.SockConn.Attach(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (sc *BpfAds) close() error {
-	if err := sc.SockOps.close(); err != nil {
-		return err
-	}
-
-	if err := sc.SockConn.close(); err != nil {
-		return err
-	}
-
-	if err := sc.TracePoint.close(); err != nil {
 		return err
 	}
 	return nil
