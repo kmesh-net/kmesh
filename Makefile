@@ -117,6 +117,10 @@ gen: tidy\
 gen-check: gen
 	hack/gen-check.sh
 
+.PHONY: copyright-check
+copyright-check:
+	hack/copyright-check.sh
+
 .PHONY: install
 install:
 	$(QUIET) make install -C api/v2-c

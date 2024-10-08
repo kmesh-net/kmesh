@@ -34,7 +34,7 @@ jobs:
 
     - name: Run Copyright-check
       run : |
-        make ./hack/copyright-check.sh
+        make copyright-check
 
     - name: Build Kmesh
       shell: bash
