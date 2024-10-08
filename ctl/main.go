@@ -21,6 +21,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"kmesh.net/kmesh/ctl/accesslog"
 	"kmesh.net/kmesh/ctl/dump"
 	logcmd "kmesh.net/kmesh/ctl/log"
 	"kmesh.net/kmesh/ctl/version"
@@ -41,6 +42,7 @@ func main() {
 	rootCmd.AddCommand(dump.NewCmd())
 	rootCmd.AddCommand(waypoint.NewCmd())
 	rootCmd.AddCommand(version.NewCmd())
+	rootCmd.AddCommand(accesslog.NewCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)

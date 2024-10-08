@@ -43,6 +43,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
+	"kmesh.net/kmesh/pkg/controller/telemetry"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
@@ -481,5 +482,36 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 
 		assert.Equal(t, len(testClusters), len(dump.DynamicResources.ClusterConfigs))
 		assert.Equal(t, len(testListeners), len(dump.DynamicResources.ListenerConfigs))
+	})
+}
+
+func TestServerAccesslogHandler(t *testing.T) {
+	t.Run("change accesslog config info", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:            "workload",
+			BpfFsPath:       "/sys/fs/bpf",
+			Cgroup2Path:     "/mnt/kmesh_cgroup2",
+			EnableMda:       false,
+			EnableBpfLog:    false,
+			EnableAccesslog: true,
+		}
+		cleanup, _ := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+		}
+		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(true)
+
+		url := fmt.Sprintf("%s?enable=%s", patternAccesslog, "false")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.accesslogHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetAccesslogTrigger(), false)
 	})
 }

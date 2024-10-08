@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
@@ -50,7 +51,7 @@ const (
 var osStartTime time.Time
 
 type MetricController struct {
-	enableAccesslog     bool
+	EnableAccesslog     atomic.Bool
 	workloadCache       cache.WorkloadCache
 	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
 	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
@@ -175,12 +176,13 @@ type serviceMetricLabels struct {
 }
 
 func NewMetric(workloadCache cache.WorkloadCache, enableAccesslog bool) *MetricController {
-	return &MetricController{
-		enableAccesslog:     enableAccesslog,
+	m := &MetricController{
 		workloadCache:       workloadCache,
 		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
+	m.EnableAccesslog.Store(enableAccesslog)
+	return m
 }
 
 func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
@@ -262,7 +264,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				serviceLabels.reporter = "source"
 				accesslog.direction = "OUTBOUND"
 			}
-			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" && m.enableAccesslog {
+			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" && m.EnableAccesslog.Load() {
 				OutputAccesslog(data, accesslog)
 			}
 			m.mutex.Lock()

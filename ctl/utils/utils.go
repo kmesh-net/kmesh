@@ -24,23 +24,9 @@ import (
 
 const (
 	KmeshNamespace = "kmesh-system"
+	KmeshLabel     = "app=kmesh"
 	KmeshAdminPort = 15200
 )
-
-// Create a new PortForwarder configured for the given Kmesh daemon pod.
-func CreateKmeshPortForwarder(podName string) (kube.PortForwarder, error) {
-	cli, err := CreateKubeClient()
-	if err != nil {
-		return nil, err
-	}
-
-	fw, err := cli.NewPortForwarder(podName, KmeshNamespace, "", 0, KmeshAdminPort)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create port forwarder: %v", err)
-	}
-
-	return fw, nil
-}
 
 func CreateKubeClient() (kube.CLIClient, error) {
 	rc, err := kube.DefaultRestConfig("", "")
@@ -54,4 +40,19 @@ func CreateKubeClient() (kube.CLIClient, error) {
 	}
 
 	return cli, nil
+}
+
+// Create a new PortForwarder configured for the given Kmesh daemon pod.
+func CreateKmeshPortForwarder(cliClient kube.CLIClient, podName string) (kube.PortForwarder, error) {
+	// cli, err := CreateKubeClient()
+	// if err != nil {
+	// 	return nil, err
+	// }
+
+	fw, err := cliClient.NewPortForwarder(podName, KmeshNamespace, "", 0, KmeshAdminPort)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create port forwarder: %v", err)
+	}
+
+	return fw, nil
 }
