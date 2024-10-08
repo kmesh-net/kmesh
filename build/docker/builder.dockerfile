@@ -8,7 +8,7 @@
 FROM openeuler/openeuler:23.09
 
 # Setup Go
-COPY --from=golang:1.22.7 /usr/local/go/ /usr/local/go/
+COPY --from=golang:1.23.2 /usr/local/go/ /usr/local/go/
 RUN mkdir -p /go
 ENV GOROOT /usr/local/go
 ENV GOPATH /go
