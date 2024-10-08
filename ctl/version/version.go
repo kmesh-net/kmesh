@@ -51,7 +51,7 @@ kmesh version <kmesh-daemon-pod>`,
 func RunVersion(cmd *cobra.Command, args []string) error {
 	if len(args) == 0 {
 		v := version.Get()
-		fmt.Printf("%s\n", v.GitVersion)
+		cmd.Printf("%s\n", v.GitVersion)
 
 		return nil
 	}
@@ -83,7 +83,7 @@ func RunVersion(cmd *cobra.Command, args []string) error {
 		os.Exit(1)
 	}
 
-	fmt.Println(string(body))
+	cmd.Println(string(body))
 
 	return nil
 }
