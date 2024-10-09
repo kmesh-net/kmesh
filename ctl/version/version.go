@@ -39,7 +39,7 @@ func NewCmd() *cobra.Command {
 kmeshctl version
 
 # Show version info of a specific Kmesh daemon
-kmesh version <kmesh-daemon-pod>`,
+kmeshctl version <kmesh-daemon-pod>`,
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = RunVersion(cmd, args)
 		},
