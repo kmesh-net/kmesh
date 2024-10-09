@@ -21,8 +21,14 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+const (
+	MaxPrio    = 6
+	MaxPrioNum = 7
+)
+
 type EndpointKey struct {
 	ServiceId    uint32 // service id
+	Prio         uint32
 	BackendIndex uint32 // if endpoint_count = 3, then backend_index = 1/2/3
 }
 
@@ -59,15 +65,17 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 }
 
 // EndpointSwap update the last endpoint index and remove the current endpoint
-func (c *Cache) EndpointSwap(currentIndex, lastIndex uint32, serviceId uint32) error {
+func (c *Cache) EndpointSwap(currentIndex, lastIndex uint32, serviceId uint32, prio uint32) error {
 	if currentIndex == lastIndex {
 		return c.EndpointDelete(&EndpointKey{
 			ServiceId:    serviceId,
+			Prio:         prio,
 			BackendIndex: lastIndex,
 		})
 	}
 	lastKey := &EndpointKey{
 		ServiceId:    serviceId,
+		Prio:         prio,
 		BackendIndex: lastIndex,
 	}
 	lastValue := &EndpointValue{}
@@ -77,6 +85,7 @@ func (c *Cache) EndpointSwap(currentIndex, lastIndex uint32, serviceId uint32) e
 
 	currentKey := &EndpointKey{
 		ServiceId:    serviceId,
+		Prio:         prio,
 		BackendIndex: currentIndex,
 	}
 	currentValue := &EndpointValue{}
