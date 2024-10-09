@@ -23,10 +23,8 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
 } map_of_authz SEC(".maps");
 
-struct __attribute__((aligned(8))) match_result {
+struct match_ctx {
     __u32 action;
-    __u16 dport;
-    void *tuple_info;
     void *match;
 };
 
@@ -36,8 +34,8 @@ struct __attribute__((aligned(8))) match_result {
  */
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __uint(key_size, sizeof(__u32));
-    __uint(value_size, sizeof(struct match_result));
+    __uint(key_size, sizeof(struct bpf_sock_tuple));
+    __uint(value_size, sizeof(struct match_ctx));
     __uint(max_entries, 256);
 } tailcall_info_map SEC(".maps");
 
@@ -51,30 +49,99 @@ static inline wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
     return (wl_policies_v *)kmesh_map_lookup_elem(&map_of_wl_policy, &workload_uid);
 }
 
+static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
+{
+    void *begin = (void *)(long)(ctx->data);
+    void *end = (void *)(long)(ctx->data_end);
+
+    // eth header
+    info->ethh = (struct ethhdr *)begin;
+    if ((void *)(info->ethh + 1) > end)
+        return PARSER_FAILED;
+
+    // ip4|ip6 header
+    begin = info->ethh + 1;
+    if ((begin + 1) > end)
+        return PARSER_FAILED;
+    if (((struct iphdr *)begin)->version == 4) {
+        info->iph = (struct iphdr *)begin;
+        if ((void *)(info->iph + 1) > end || (info->iph->protocol != IPPROTO_TCP))
+            return PARSER_FAILED;
+        begin = (info->iph + 1);
+    } else if (((struct iphdr *)begin)->version == 6) {
+        info->ip6h = (struct ipv6hdr *)begin;
+        if ((void *)(info->ip6h + 1) > end || (info->ip6h->nexthdr != IPPROTO_TCP))
+            return PARSER_FAILED;
+        begin = (info->ip6h + 1);
+    } else
+        return PARSER_FAILED;
+
+    info->tcph = (struct tcphdr *)begin;
+    if ((void *)(info->tcph + 1) > end)
+        return PARSER_FAILED;
+    return PARSER_SUCC;
+}
+
+static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+{
+    if (info->iph->version == 4) {
+        tuple_info->ipv4.saddr = info->iph->saddr;
+        tuple_info->ipv4.daddr = info->iph->daddr;
+        tuple_info->ipv4.sport = info->tcph->source;
+        tuple_info->ipv4.dport = info->tcph->dest;
+    } else {
+        bpf_memcpy((__u8 *)tuple_info->ipv6.saddr, info->ip6h->saddr.in6_u.u6_addr8, IPV6_ADDR_LEN);
+        bpf_memcpy((__u8 *)tuple_info->ipv6.daddr, info->ip6h->daddr.in6_u.u6_addr8, IPV6_ADDR_LEN);
+        tuple_info->ipv6.sport = info->tcph->source;
+        tuple_info->ipv6.dport = info->tcph->dest;
+    }
+}
+
+static inline int get_tuple_key(struct xdp_md *ctx, struct bpf_sock_tuple *tuple_info, struct xdp_info *info)
+{
+    int ret = parser_xdp_info(ctx, info);
+    if (ret != PARSER_SUCC) {
+        BPF_LOG(ERR, AUTH, "Failed to parse xdp_info\n");
+        return PARSER_FAILED;
+    }
+
+    parser_tuple(info, tuple_info);
+
+    return PARSER_SUCC;
+}
+
 SEC("xdp_auth")
 int matchDstPorts(struct xdp_md *ctx)
 {
-    struct match_result *res;
-    __u32 key = bpf_get_smp_processor_id();
+    struct match_ctx *res;
     __u32 *notPorts = NULL;
     __u32 *ports = NULL;
     __u32 i;
-    __u16 dport = 0; // Destination port
+    __u16 dport = 0;
     Istio__Security__Match *match = NULL;
-    struct bpf_sock_tuple *tuple_info;
+    struct bpf_sock_tuple tuple_key;
+    struct xdp_info info = {0};
+    int ret;
 
-    res = bpf_map_lookup_elem(&tailcall_info_map, &key);
+    if (get_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
+        BPF_LOG(ERR, AUTH, "Failed to get tuple key\n");
+        return XDP_ABORTED;
+    }
+
+    res = bpf_map_lookup_elem(&tailcall_info_map, &tuple_key);
     if (!res) {
         BPF_LOG(ERR, AUTH, "Failed to retrieve res from map\n");
         return XDP_PASS;
     }
 
-    tuple_info = res->tuple_info;
-    if (!tuple_info) {
-        BPF_LOG(ERR, AUTH, "tuple_info is null\n");
+    if (info.iph->version == 4) {
+        dport = tuple_key.ipv4.dport;
+    } else if (info.ip6h->version == 6) {
+        dport = tuple_key.ipv6.dport;
+    } else {
+        BPF_LOG(ERR, AUTH, "Invalid IP version.\n");
         return XDP_PASS;
     }
-    dport = res->dport;
     match = (Istio__Security__Match *)kmesh_get_ptr_val(res->match);
     if (!match) {
         BPF_LOG(ERR, AUTH, "match pointer is null\n");
@@ -141,26 +208,26 @@ static inline int match_check(
     struct bpf_sock_tuple *tuple_info,
     Istio__Security__Action action)
 {
-    __u32 key = bpf_get_smp_processor_id();
-    struct match_result res;
+    struct match_ctx res;
+    struct bpf_sock_tuple tuple_key;
+    int ret;
 
+    if (get_tuple_key(ctx, &tuple_key, info) != PARSER_SUCC) {
+        BPF_LOG(ERR, AUTH, "Failed to get tuple key\n");
+        return XDP_ABORTED;
+    }
     res.match = match;
     res.action = action;
-    res.tuple_info = tuple_info;
-    if (info->iph->version == 4) {
-        res.dport = tuple_info->ipv4.dport;
-    } else if (info->iph->version == 6) {
-        res.dport = tuple_info->ipv6.dport;
-    } else {
-        BPF_LOG(ERR, AUTH, "Invalid IP version: %u\n", info->iph->version);
-        return XDP_PASS;
+    if (!info->iph) {
+        BPF_LOG(ERR, AUTH, "Null IP header in info structure\n");
+        return XDP_ABORTED;
     }
-    int ret = bpf_map_update_elem(&tailcall_info_map, &key, &res, BPF_ANY);
+
+    ret = bpf_map_update_elem(&tailcall_info_map, &tuple_key, &res, BPF_ANY);
     if (ret < 0) {
         BPF_LOG(ERR, AUTH, "Failed to update map, error: %d\n", ret);
         return XDP_DROP;
     }
-
     bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_PORT_MATCH);
     return XDP_PASS;
 }
