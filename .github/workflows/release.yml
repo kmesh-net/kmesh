@@ -1,0 +1,12 @@
+on:
+  release:
+    types:
+    - published
+name: Build Release
+permission:
+  contents: read
+jobs:
+  release-assests:
+    permission:
+      contents: write # for softprops/action-gh-release to create GitHub release
+      
