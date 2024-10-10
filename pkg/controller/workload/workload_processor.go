@@ -28,7 +28,7 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
-	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	"github.com/lec-bit/my-code/pkg/bpf2go"
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"

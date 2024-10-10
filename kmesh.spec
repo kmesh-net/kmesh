@@ -8,7 +8,6 @@ Source0:       %{name}-%{version}.tar.gz
 
 BuildRequires: cmake make pkgconf dracut
 BuildRequires: protobuf protobuf-c protobuf-c-devel
-BuildRequires: golang >= 1.16
 BuildRequires: clang >= 10.0.1 llvm >= 10.0.1
 BuildRequires: libbpf-devel kernel-devel >= 5.10
 BuildRequires: libboundscheck
@@ -21,6 +20,12 @@ Requires: libboundscheck
 %{name} is a eBPF-based service mesh kernel solution.
 
 ExclusiveArch: x86_64 aarch64
+
+%package devel
+Summary: Development files
+
+%description devel
+Development files
 
 %prep
 %autosetup -n %{name}-%{version}
@@ -49,12 +54,14 @@ mkdir -p %{buildroot}/lib/modules/kmesh
 install %{_builddir}/%{name}-%{version}/kernel/ko/kmesh.ko %{buildroot}/lib/modules/kmesh
 
 mkdir -p %{buildroot}/%{_sysconfdir}/kmesh
-install %{_builddir}/%{name}-%{version}/config/kmesh.json %{buildroot}/%{_sysconfdir}/kmesh
 mkdir -p %{buildroot}/%{_sysconfdir}/oncn-mda
 install %{_builddir}/%{name}-%{version}/oncn-mda/etc/oncn-mda.conf %{buildroot}/%{_sysconfdir}/oncn-mda/
 
 mkdir -p %{buildroot}/usr/lib/systemd/system
 install %{_builddir}/%{name}-%{version}/build/kmesh.service %{buildroot}/usr/lib/systemd/system
+
+mkdir -p %{buildroot}/usr/share/kmesh
+find %{_builddir}/%{name}-%{version}/bpf/kmesh/bpf2go -type f ! -name 'bpf2go.go' -exec install -m 644 {} %{buildroot}/usr/share/kmesh \;
 
 %check
 cd %{_builddir}/%{name}-%{version}
@@ -91,15 +98,9 @@ rm -rf %{buildroot}
 %attr(0500,root,root) %{_bindir}/kmesh-cni
 %attr(0500,root,root) %{_bindir}/mdacore
 
-%attr(0500,root,root) /usr/lib64/libkmesh_deserial.so
-%attr(0500,root,root) /usr/lib64/libkmesh_api_v2_c.so
-
 %attr(0500,root,root) %dir /usr/share/oncn-mda
 %attr(0500,root,root) /usr/share/oncn-mda/sock_ops.c.o
 %attr(0500,root,root) /usr/share/oncn-mda/sock_redirect.c.o
-
-%attr(0500,root,root) %dir /lib/modules/kmesh
-%attr(0400,root,root) /lib/modules/kmesh/kmesh.ko
 
 %attr(0700,root,root) %dir %{_sysconfdir}/kmesh
 %attr(0700,root,root) %dir %{_sysconfdir}/oncn-mda
@@ -107,6 +108,16 @@ rm -rf %{buildroot}
 %config(noreplace) %attr(0600,root,root) /usr/lib/systemd/system/kmesh.service
 %attr(0500,root,root) /usr/bin/kmesh-start-pre.sh
 %attr(0500,root,root) /usr/bin/kmesh-stop-post.sh
+
+%files devel
+%attr(0500,root,root) %dir /lib/modules/kmesh
+%attr(0400,root,root) /lib/modules/kmesh/kmesh.ko
+
+%attr(0500,root,root) /usr/lib64/libkmesh_deserial.so
+%attr(0500,root,root) /usr/lib64/libkmesh_api_v2_c.so
+
+%attr(0500,root,root) %dir /usr/share/kmesh
+%attr(0500,root,root) /usr/share/kmesh
 
 %changelog
 * Wed Sep 27 2023 kwb0523<kwb0523@163.com> - 0.0.1-1
