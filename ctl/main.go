@@ -23,6 +23,7 @@ import (
 
 	"kmesh.net/kmesh/ctl/dump"
 	logcmd "kmesh.net/kmesh/ctl/log"
+	"kmesh.net/kmesh/ctl/version"
 	"kmesh.net/kmesh/ctl/waypoint"
 )
 
@@ -39,6 +40,7 @@ func main() {
 	rootCmd.AddCommand(logcmd.NewCmd())
 	rootCmd.AddCommand(dump.NewCmd())
 	rootCmd.AddCommand(waypoint.NewCmd())
+	rootCmd.AddCommand(version.NewCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
