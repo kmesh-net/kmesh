@@ -1,0 +1,61 @@
+name: Build Release
+
+on:
+  release:
+    types:
+    - published
+  
+permissions:
+  contents: read
+jobs:
+  kmeshctl-assets:
+    permissions:
+      contents: write # for softprops/action-gh-release to create GitHub release
+    name: release kmeshctl
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        go-version: [ '1.23' ]
+        target:
+          - kmeshctl
+        os:
+          - linux
+        arch:
+          - amd64
+          - arm64
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup go
+      uses: actions/setup-go@v4.0.0
+      with:
+        go-version: ${{ matrix.go-version }}
+
+    - name: Making and packaging
+      env:
+        GOOS: ${{ matrix.os }}
+        GOARCH: ${{ matrix.arch }}
+      run: make kmeshctl OUT=kmeshctl-${{ matrix.os }}-${{ matrix.arch }}
+    - name: Uploading kmeshctl assets
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          kmeshctl-${{ matrix.os }}-${{ matrix.arch }}
+  
+  kmesh-helm:
+    permissions:
+      contents: write # for softprops/action-gh-release to create GitHub release
+    name: Release helm
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v4
+    - name: Making helm package
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: make helm-package CHART_VERSION=${{ github.ref_name }}
+    - name: Uploading kmesh helm package
+      uses: softprops/action-gh-release@v2
+      with:
+        files: |
+          out/charts/kmesh-helm-${{ github.ref_name }}.tgz
