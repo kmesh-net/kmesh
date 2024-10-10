@@ -56,9 +56,15 @@ func RunVersion(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	cli, err := utils.CreateKubeClient()
+	if err != nil {
+		log.Errorf("failed to create cli client: %v", err)
+		os.Exit(1)
+	}
+
 	podName := args[0]
 
-	fw, err := utils.CreateKmeshPortForwarder(podName)
+	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
 	if err != nil {
 		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
 		os.Exit(1)
