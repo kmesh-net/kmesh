@@ -44,11 +44,6 @@ func CreateKubeClient() (kube.CLIClient, error) {
 
 // Create a new PortForwarder configured for the given Kmesh daemon pod.
 func CreateKmeshPortForwarder(cliClient kube.CLIClient, podName string) (kube.PortForwarder, error) {
-	// cli, err := CreateKubeClient()
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	fw, err := cliClient.NewPortForwarder(podName, KmeshNamespace, "", 0, KmeshAdminPort)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create port forwarder: %v", err)
