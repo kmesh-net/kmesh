@@ -26,13 +26,14 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 )
 
 func TestRestart(t *testing.T) {
-	t.Run("TestRestartnewStart", func(t *testing.T) {
+	t.Run("new start", func(t *testing.T) {
 		runTestNormal(t)
 	})
-	t.Run("TestRestartReload", func(t *testing.T) {
+	t.Run("restart", func(t *testing.T) {
 		runTestRestart(t)
 	})
 }
@@ -67,12 +68,11 @@ func runTestNormal(t *testing.T) {
 	config := setDir(t)
 
 	bpfLoader := NewBpfLoader(&config)
-	if err := bpfLoader.Start(&config); err != nil {
+	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
-	assert.Equal(t, Normal, GetStartType(), "set kmesh start status failed")
-
-	SetExitType()
+	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status failed")
+	restart.SetExitType(restart.Normal)
 	bpfLoader.Stop()
 }
 
@@ -81,11 +81,11 @@ func runTestRestart(t *testing.T) {
 	var versionPath string
 	config := setDir(t)
 	bpfLoader := NewBpfLoader(&config)
-	if err := bpfLoader.Start(&config); err != nil {
+	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
-	assert.Equal(t, Normal, GetStartType(), "set kmesh start status:Normal failed")
-	kmeshExitType = Restart
+	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status failed")
+	restart.SetExitType(restart.Restart)
 	bpfLoader.Stop()
 
 	if config.AdsEnabled() {
@@ -98,10 +98,10 @@ func runTestRestart(t *testing.T) {
 
 	// Restart
 	bpfLoader = NewBpfLoader(&config)
-	if err := bpfLoader.Start(&config); err != nil {
+	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
-	assert.Equal(t, Restart, GetStartType(), "set kmesh start status:Restart failed")
-	kmeshExitType = Normal
+	assert.Equal(t, restart.Restart, restart.GetStartType(), "set kmesh start status:Restart failed")
+	restart.SetExitType(restart.Normal)
 	bpfLoader.Stop()
 }

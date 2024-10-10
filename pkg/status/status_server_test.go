@@ -334,7 +334,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
 		cleanup, bpfLoader := test.InitBpfMap(t, config)
-		bpfMaps := bpfLoader.GetBpfKmeshWorkload().SockConn.KmeshCgroupSockWorkloadMaps
+		bpfMaps := bpfLoader.GetBpfWorkload().SockConn.KmeshCgroupSockWorkloadMaps
 		defer cleanup()
 
 		server := &Server{

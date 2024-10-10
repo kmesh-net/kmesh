@@ -21,7 +21,7 @@ import (
 	"fmt"
 
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf"
+	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
 	manage "kmesh.net/kmesh/pkg/controller/manage"
@@ -38,7 +38,7 @@ var (
 
 type Controller struct {
 	mode                string
-	bpfWorkloadObj      *bpf.BpfKmeshWorkload
+	bpfWorkloadObj      *bpfwl.BpfWorkload
 	client              *XdsClient
 	enableByPass        bool
 	enableSecretManager bool
@@ -47,7 +47,7 @@ type Controller struct {
 	enableAccesslog     bool
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpf.BpfKmeshWorkload, bpfFsPath string, enableBpfLog bool, enableAccesslog bool) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpfwl.BpfWorkload, bpfFsPath string, enableBpfLog, enableAccesslog bool) *Controller {
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,

@@ -14,23 +14,24 @@
  * limitations under the License.
  */
 
-package bpf
+package restart
 
 import (
 	"context"
-	"fmt"
-	"os"
+	"hash/fnv"
 	"strings"
-	"syscall"
 
 	"github.com/cilium/ebpf"
 	"istio.io/pkg/env"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/version"
 )
+
+var hash = fnv.New32a()
+var log = logger.NewLoggerScope("restart")
 
 /*
  * Indicates how to start kmesh on the next launch or how to close kmesh.
@@ -66,15 +67,15 @@ func SetStartType(Status StartType) {
 	kmeshStartType = Status
 }
 
-func SetExitType() {
-	kmeshExitType = inferNextStartType()
+func SetExitType(status StartType) {
+	kmeshExitType = status
 }
 
 func GetExitType() StartType {
 	return kmeshExitType
 }
 
-func inferNextStartType() StartType {
+func InferNextStartType() StartType {
 	clientset, err := utils.GetK8sclient()
 	if err != nil {
 		return Normal
@@ -112,17 +113,12 @@ func SetStartStatus(versionMap *ebpf.Map) {
 	}
 }
 
-func CleanupBpfMap() {
-	err := syscall.Unmount(constants.Cgroup2Path, 0)
+func getOldVersionFromMap(m *ebpf.Map, key uint32) uint32 {
+	var value uint32
+	err := m.Lookup(&key, &value)
 	if err != nil {
-		fmt.Println("unmount /mnt/kmesh_cgroup2 error: ", err)
+		log.Errorf("lookup old version failed: %v", err)
+		return value
 	}
-	err = syscall.Unmount(constants.BpfFsPath, 0)
-	if err != nil {
-		fmt.Println("unmount /sys/fs/bpf error: ", err)
-	}
-	err = os.RemoveAll(constants.Cgroup2Path)
-	if err != nil {
-		fmt.Println("remove /mnt/kmesh_cgroup2 error: ", err)
-	}
+	return value
 }

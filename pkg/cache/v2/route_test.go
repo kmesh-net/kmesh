@@ -28,7 +28,7 @@ import (
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	route_v2 "kmesh.net/kmesh/api/v2/route"
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
@@ -36,7 +36,7 @@ import (
 
 func TestRouteConfigLookupAll(t *testing.T) {
 	// We only use route configuration when L7 enabled
-	if !bpf.AdsL7Enabled() {
+	if !bpfads.AdsL7Enabled() {
 		return
 	}
 	config := options.BpfConfig{

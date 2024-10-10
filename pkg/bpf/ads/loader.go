@@ -17,54 +17,87 @@
  * limitations under the License.
  */
 
-package bpf
+package ads
 
+// #cgo pkg-config: api-v2-c
+// #include "deserialization_to_bpf_map.h"
+import "C"
 import (
+	"errors"
+	"fmt"
 	"os"
 	"strconv"
 
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
-type BpfKmesh struct {
+var log = logger.NewLoggerScope("bpf_ads")
+
+type BpfAds struct {
 	SockConn BpfSockConn
 }
 
-func NewBpfKmesh(cfg *options.BpfConfig) (*BpfKmesh, error) {
-	var err error
-
-	sc := &BpfKmesh{}
-
-	if err = sc.SockConn.NewBpf(cfg); err != nil {
+func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
+	sc := &BpfAds{}
+	if err := sc.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
 	}
 	return sc, nil
 }
 
-func (sc *BpfKmesh) Load() error {
-	var err error
+func (sc *BpfAds) Start() error {
+	var ve *ebpf.VerifierError
 
-	if err = sc.SockConn.LoadSockConn(); err != nil {
+	if err := sc.Load(); err != nil {
+		if errors.As(err, &ve) {
+			return fmt.Errorf("bpf load failed: %+v", ve)
+		}
+		return fmt.Errorf("bpf load failed: %v", err)
+	}
+
+	if err := sc.Attach(); err != nil {
+		return fmt.Errorf("bpf attach failed, %s", err)
+	}
+
+	if err := sc.ApiEnvCfg(); err != nil {
+		return fmt.Errorf("api env config failed, %s", err)
+	}
+
+	ret := C.deserial_init(restart.GetStartType() == restart.Restart)
+	if ret != 0 {
+		return fmt.Errorf("deserial_init failed:%v", ret)
+	}
+	return nil
+}
+
+func (sc *BpfAds) GetBpfLogLevelMap() *ebpf.Map {
+	return sc.SockConn.BpfLogLevel
+}
+
+func (sc *BpfAds) Stop() error {
+	C.deserial_uninit(false)
+	return sc.Detach()
+}
+
+func (sc *BpfAds) Load() error {
+	if err := sc.SockConn.Load(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (sc *BpfKmesh) ApiEnvCfg() error {
-	var err error
-	var info *ebpf.MapInfo
-	var id ebpf.MapID
-
-	info, err = sc.SockConn.KmeshCgroupSockMaps.KmeshListener.Info()
-
+func (sc *BpfAds) ApiEnvCfg() error {
+	info, err := sc.SockConn.KmeshCgroupSockMaps.KmeshListener.Info()
 	if err != nil {
 		return err
 	}
 
-	id, _ = info.ID()
+	id, _ := info.ID()
 	stringId := strconv.Itoa(int(id))
 	if err = os.Setenv("Listener", stringId); err != nil {
 		return err
@@ -93,20 +126,16 @@ func (sc *BpfKmesh) ApiEnvCfg() error {
 	return nil
 }
 
-func (sc *BpfKmesh) Attach() error {
-	var err error
-
-	if err = sc.SockConn.Attach(); err != nil {
+func (sc *BpfAds) Attach() error {
+	if err := sc.SockConn.Attach(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (sc *BpfKmesh) Detach() error {
-	var err error
-
-	if err = sc.SockConn.Detach(); err != nil {
+func (sc *BpfAds) Detach() error {
+	if err := sc.SockConn.Detach(); err != nil {
 		return err
 	}
 	return nil

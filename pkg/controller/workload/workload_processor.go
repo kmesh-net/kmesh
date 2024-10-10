@@ -33,7 +33,7 @@ import (
 	security_v2 "kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/pkg/auth"
-	kmeshbpf "kmesh.net/kmesh/pkg/bpf"
+	kmeshbpf "kmesh.net/kmesh/pkg/bpf/restart"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"

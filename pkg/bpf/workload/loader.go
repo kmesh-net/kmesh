@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package bpf
+package workload
 
 // #cgo pkg-config: api-v2-c
 // #include "deserialization_to_bpf_map.h"
@@ -28,17 +28,30 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
-type BpfKmeshWorkload struct {
-	SockConn BpfSockConnWorkload
+var log = logger.NewLoggerScope("bpf_workload")
+
+type BpfWorkload struct {
+	SockConn SockConnWorkload
 	SockOps  BpfSockOpsWorkload
 	XdpAuth  BpfXdpAuthWorkload
 	SendMsg  BpfSendMsgWorkload
 }
 
-func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
-	workloadObj := &BpfKmeshWorkload{}
+type BpfInfo struct {
+	MapPath     string
+	BpfFsPath   string
+	Cgroup2Path string
+
+	Type       ebpf.ProgramType
+	AttachType ebpf.AttachType
+}
+
+func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
+	workloadObj := &BpfWorkload{}
 
 	if err := workloadObj.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
@@ -60,133 +73,118 @@ func newWorkloadBpf(cfg *options.BpfConfig) (*BpfKmeshWorkload, error) {
 	return workloadObj, nil
 }
 
-func (l *BpfLoader) StartWorkloadMode() error {
-	var err error
+func (w *BpfWorkload) Start() error {
 	var ve *ebpf.VerifierError
 
-	if l.workloadObj, err = newWorkloadBpf(l.config); err != nil {
-		return err
-	}
-
-	defer func() {
-		if err != nil {
-			l.Stop()
-		}
-	}()
-
-	if err = l.workloadObj.Load(); err != nil {
+	if err := w.Load(); err != nil {
 		if errors.As(err, &ve) {
 			return fmt.Errorf("bpf Load failed: %+v", ve)
 		}
 		return fmt.Errorf("bpf Load failed: %v", err)
 	}
 
-	if err = l.workloadObj.Attach(); err != nil {
+	if err := w.Attach(); err != nil {
 		return fmt.Errorf("bpf Attach failed, %s", err)
 	}
 
-	if err = l.workloadObj.ApiEnvCfg(); err != nil {
+	if err := w.ApiEnvCfg(); err != nil {
 		return fmt.Errorf("failed to set api env")
 	}
 
-	ret := C.deserial_init(GetStartType() == Restart)
+	ret := C.deserial_init(restart.GetStartType() == restart.Restart)
 	if ret != 0 {
-		l.Stop()
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
-	l.bpfLogLevel = l.workloadObj.SockConn.BpfLogLevel
 	return nil
 }
 
-func (sc *BpfKmeshWorkload) Load() error {
-	var err error
+func (w *BpfWorkload) Stop() error {
+	C.deserial_uninit(false)
+	return w.Detach()
+}
 
-	if err = sc.SockConn.LoadSockConn(); err != nil {
+func (w *BpfWorkload) GetBpfLogLevelMap() *ebpf.Map {
+	return w.SockConn.BpfLogLevel
+}
+
+func (w *BpfWorkload) Load() error {
+	if err := w.SockConn.LoadSockConn(); err != nil {
 		return err
 	}
 
-	if err = sc.SockOps.LoadSockOps(); err != nil {
+	if err := w.SockOps.LoadSockOps(); err != nil {
 		return err
 	}
 
-	if err = sc.XdpAuth.LoadXdpAuth(); err != nil {
+	if err := w.XdpAuth.LoadXdpAuth(); err != nil {
 		return err
 	}
 
-	if err = sc.SendMsg.LoadSendMsg(); err != nil {
+	if err := w.SendMsg.LoadSendMsg(); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (sc *BpfKmeshWorkload) Attach() error {
-	var err error
-
-	if err = sc.SockConn.Attach(); err != nil {
+func (w *BpfWorkload) Attach() error {
+	if err := w.SockConn.Attach(); err != nil {
 		return err
 	}
 
-	if err = sc.SockOps.Attach(); err != nil {
+	if err := w.SockOps.Attach(); err != nil {
 		return err
 	}
 
-	if err = sc.SendMsg.Attach(); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (sc *BpfKmeshWorkload) Detach() error {
-	var err error
-
-	if err = sc.SockConn.Detach(); err != nil {
-		return err
-	}
-
-	if err = sc.SendMsg.Detach(); err != nil {
-		return err
-	}
-
-	if err = sc.SockOps.Detach(); err != nil {
-		return err
-	}
-
-	if err = sc.XdpAuth.Close(); err != nil {
+	if err := w.SendMsg.Attach(); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (sc *BpfKmeshWorkload) ApiEnvCfg() error {
-	var err error
-	var info *ebpf.MapInfo
-	var id ebpf.MapID
+func (w *BpfWorkload) Detach() error {
+	if err := w.SockConn.Detach(); err != nil {
+		return err
+	}
 
-	info, err = sc.XdpAuth.KmeshXDPAuthMaps.MapOfAuthz.Info()
+	if err := w.SendMsg.Detach(); err != nil {
+		return err
+	}
 
+	if err := w.SockOps.Detach(); err != nil {
+		return err
+	}
+
+	if err := w.XdpAuth.Close(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (w *BpfWorkload) ApiEnvCfg() error {
+	info, err := w.XdpAuth.KmeshXDPAuthMaps.MapOfAuthz.Info()
 	if err != nil {
 		return err
 	}
 
-	id, _ = info.ID()
+	id, _ := info.ID()
 	stringId := strconv.Itoa(int(id))
 	if err = os.Setenv("Authorization", stringId); err != nil {
 		return err
 	}
 
-	info, _ = sc.XdpAuth.KmeshXDPAuthMaps.OuterMap.Info()
+	info, _ = w.XdpAuth.KmeshXDPAuthMaps.OuterMap.Info()
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))
 	if err = os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
 		return err
 	}
 
-	info, _ = sc.XdpAuth.KmeshXDPAuthMaps.InnerMap.Info()
+	info, _ = w.XdpAuth.KmeshXDPAuthMaps.InnerMap.Info()
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))
-	if err = os.Setenv("INNER_MAP_ID", stringId); err != nil {
+	if err := os.Setenv("INNER_MAP_ID", stringId); err != nil {
 		return err
 	}
 	return nil

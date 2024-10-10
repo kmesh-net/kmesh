@@ -30,7 +30,7 @@ import (
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
@@ -307,7 +307,7 @@ func BenchmarkAddNewServicesWithWorkload(b *testing.B) {
 	cleanup, bpfLoader := test.InitBpfMap(t, config)
 	b.Cleanup(cleanup)
 
-	workloadController := NewController(bpfLoader.GetBpfKmeshWorkload(), false)
+	workloadController := NewController(bpfLoader.GetBpfWorkload(), false)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -543,7 +543,7 @@ func TestRestart(t *testing.T) {
 
 	// 2. Second simulate restart
 	// Set a restart label and simulate missing data in the cache
-	bpf.SetStartType(bpf.Restart)
+	restart.SetStartType(restart.Restart)
 	// reconstruct a new processor
 	p = NewProcessor(workloadMap)
 	p.bpf.RestoreEndpointKeys()

@@ -12,12 +12,9 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
-
- * Author: lec-bit
- * Create: 2023-11-02
  */
 
-package bpf
+package ads
 
 // #cgo pkg-config: bpf api-v2-c
 // #include "kmesh/ads/include/tail_call_index.h"
@@ -33,7 +30,8 @@ import (
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/utils"
+	"kmesh.net/kmesh/pkg/bpf/utils"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 var KMESH_TAIL_CALL_LISTENER = uint32(C.KMESH_TAIL_CALL_LISTENER)
@@ -43,6 +41,15 @@ var KMESH_TAIL_CALL_ROUTER = uint32(C.KMESH_TAIL_CALL_ROUTER)
 var KMESH_TAIL_CALL_CLUSTER = uint32(C.KMESH_TAIL_CALL_CLUSTER)
 var KMESH_TAIL_CALL_ROUTER_CONFIG = uint32(C.KMESH_TAIL_CALL_ROUTER_CONFIG)
 var BPF_INNER_MAP_DATA_LEN = uint32(C.BPF_INNER_MAP_DATA_LEN)
+
+type BpfInfo struct {
+	MapPath     string
+	BpfFsPath   string
+	Cgroup2Path string
+
+	Type       ebpf.ProgramType
+	AttachType ebpf.AttachType
+}
 
 type BpfSockConn struct {
 	Info BpfInfo
@@ -70,24 +77,6 @@ func (sc *BpfSockConn) NewBpf(cfg *options.BpfConfig) error {
 	return nil
 }
 
-func SetInnerMap(spec *ebpf.CollectionSpec) {
-	var (
-		InnerMapKeySize    uint32 = 4
-		InnerMapDataLength uint32 = BPF_INNER_MAP_DATA_LEN
-		InnerMapMaxEntries uint32 = 1
-	)
-	for _, v := range spec.Maps {
-		if v.Name == "outer_map" {
-			v.InnerMap = &ebpf.MapSpec{
-				Type:       ebpf.Array,
-				KeySize:    InnerMapKeySize,
-				ValueSize:  InnerMapDataLength, // C.BPF_INNER_MAP_DATA_LEN
-				MaxEntries: InnerMapMaxEntries,
-			}
-		}
-	}
-}
-
 func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) {
 	var (
 		err  error
@@ -96,30 +85,30 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
-	if utils.KernelVersionLowerThan5_13() {
+	if helper.KernelVersionLowerThan5_13() {
 		spec, err = bpf2go.LoadKmeshCgroupSockCompat()
 	} else {
 		spec, err = bpf2go.LoadKmeshCgroupSock()
 	}
-	if err != nil {
+	if err != nil || spec == nil {
 		return nil, err
 	}
 
-	SetInnerMap(spec)
-	setMapPinType(spec, ebpf.PinByName)
+	utils.SetInnerMap(spec)
+	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockObjects, &opts); err != nil {
 		return nil, err
 	}
 
 	value := reflect.ValueOf(sc.KmeshCgroupSockObjects.KmeshCgroupSockPrograms)
-	if err = pinPrograms(&value, sc.Info.BpfFsPath); err != nil {
+	if err = utils.PinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
 	return spec, nil
 }
 
-func (sc *BpfSockConn) LoadSockConn() error {
+func (sc *BpfSockConn) Load() error {
 	/* load kmesh sockops main bpf prog */
 	spec, err := sc.loadKmeshSockConnObjects()
 	if err != nil {
@@ -190,11 +179,11 @@ func (sc *BpfSockConn) Detach() error {
 	}
 
 	value = reflect.ValueOf(sc.KmeshCgroupSockObjects.KmeshCgroupSockPrograms)
-	if err := unpinPrograms(&value); err != nil {
+	if err := utils.UnpinPrograms(&value); err != nil {
 		return err
 	}
 	value = reflect.ValueOf(sc.KmeshCgroupSockObjects.KmeshCgroupSockMaps)
-	if err := unpinMaps(&value); err != nil {
+	if err := utils.UnpinMaps(&value); err != nil {
 		return err
 	}
 

@@ -32,7 +32,7 @@ import (
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
@@ -223,7 +223,7 @@ func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Errorf("ListenerLookupAll failed: %v", err)
 	}
-	if bpf.AdsL7Enabled() {
+	if bpfads.AdsL7Enabled() {
 		dynamicRes.RouteConfigs, err = maps_v2.RouteConfigLookupAll()
 		if err != nil {
 			log.Errorf("RouteConfigLookupAll failed: %v", err)
