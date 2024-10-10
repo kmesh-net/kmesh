@@ -1,6 +1,8 @@
 module kmesh.net/kmesh
 
-go 1.22.0
+go 1.22.4
+
+toolchain go1.22.8
 
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
@@ -10,11 +12,12 @@ replace istio.io/api => istio.io/api v1.22.0-alpha.1.0.20240620154034-5b788fec62
 require (
 	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/ebpf v0.15.0
+	github.com/cilium/ebpf v0.16.0
 	github.com/containernetworking/cni v1.2.2
 	github.com/containernetworking/plugins v1.5.1
 	github.com/envoyproxy/go-control-plane v0.12.1-0.20240614044803-82e2a76dbddd
 	github.com/golang/protobuf v1.5.4
+	github.com/lec-bit/my-code v0.0.0-20241010013906-f8220bbf2e58
 	github.com/miekg/dns v1.1.61
 	github.com/prometheus/client_golang v1.19.1
 	github.com/prometheus/client_model v0.6.1
