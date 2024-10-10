@@ -21,4 +21,4 @@ function install_clang_format () {
 
 install_clang_format
 
-find ./ -path "./api/v2-c" -prune -o -name "*.[ch]" -exec clang-format -i {} \;
+find ./ -name "*.[ch]" |grep -v pb-c |xargs clang-format -i
