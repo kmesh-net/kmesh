@@ -119,7 +119,7 @@ int matchDstPorts(struct xdp_md *ctx)
     __u32 i;
     __u16 dport = 0;
     Istio__Security__Match *match = NULL;
-    struct bpf_sock_tuple tuple_key;
+    struct bpf_sock_tuple tuple_key = {0};
     struct xdp_info info = {0};
     int ret;
 
@@ -149,6 +149,7 @@ int matchDstPorts(struct xdp_md *ctx)
     }
 
     if (match->n_destination_ports == 0 && match->n_not_destination_ports == 0) {
+        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
         return (res->action == AUTH_DENY) ? XDP_PASS : XDP_DROP;
     }
 
@@ -174,6 +175,7 @@ int matchDstPorts(struct xdp_md *ctx)
     }
 
     if (match->n_destination_ports == 0) {
+        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
         return (res->action == AUTH_DENY) ? XDP_DROP : XDP_PASS;
     }
 
@@ -201,27 +203,19 @@ int matchDstPorts(struct xdp_md *ctx)
     return XDP_PASS;
 }
 
-static inline int match_check(
-    struct xdp_md *ctx,
-    void *match,
-    struct xdp_info *info,
-    struct bpf_sock_tuple *tuple_info,
-    Istio__Security__Action action)
+static inline int match_check(struct xdp_md *ctx, void *match, Istio__Security__Action action)
 {
     struct match_ctx res;
-    struct bpf_sock_tuple tuple_key;
+    struct bpf_sock_tuple tuple_key = {0};
+    struct xdp_info info = {0};
     int ret;
 
-    if (get_tuple_key(ctx, &tuple_key, info) != PARSER_SUCC) {
+    if (get_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
         BPF_LOG(ERR, AUTH, "Failed to get tuple key\n");
         return XDP_ABORTED;
     }
     res.match = match;
     res.action = action;
-    if (!info->iph) {
-        BPF_LOG(ERR, AUTH, "Null IP header in info structure\n");
-        return XDP_ABORTED;
-    }
 
     ret = bpf_map_update_elem(&tailcall_info_map, &tuple_key, &res, BPF_ANY);
     if (ret < 0) {
@@ -232,12 +226,7 @@ static inline int match_check(
     return XDP_PASS;
 }
 
-static inline int clause_match_check(
-    struct xdp_md *ctx,
-    Istio__Security__Clause *cl,
-    struct xdp_info *info,
-    struct bpf_sock_tuple *tuple_info,
-    Istio__Security__Action action)
+static inline int clause_match_check(struct xdp_md *ctx, Istio__Security__Clause *cl, Istio__Security__Action action)
 {
     void *matchsPtr = NULL;
     void *match = NULL;
@@ -261,19 +250,14 @@ static inline int clause_match_check(
             continue;
         }
         // if any match matches, it is a match
-        if (match_check(ctx, match, info, tuple_info, action) == MATCHED) {
+        if (match_check(ctx, match, action) == MATCHED) {
             return MATCHED;
         }
     }
     return UNMATCHED;
 }
 
-static inline int rule_match_check(
-    struct xdp_md *ctx,
-    Istio__Security__Rule *rule,
-    struct xdp_info *info,
-    struct bpf_sock_tuple *tuple_info,
-    Istio__Security__Action action)
+static inline int rule_match_check(struct xdp_md *ctx, Istio__Security__Rule *rule, Istio__Security__Action action)
 {
     void *clausesPtr = NULL;
     Istio__Security__Clause *clause = NULL;
@@ -299,18 +283,14 @@ static inline int rule_match_check(
         if (!clause) {
             continue;
         }
-        if (clause_match_check(ctx, clause, info, tuple_info, action) == UNMATCHED) {
+        if (clause_match_check(ctx, clause, action) == UNMATCHED) {
             return UNMATCHED;
         }
     }
     return MATCHED;
 }
 
-static inline int do_auth(
-    struct xdp_md *ctx,
-    Istio__Security__Authorization *policy,
-    struct xdp_info *info,
-    struct bpf_sock_tuple *tuple_info)
+static inline int do_auth(struct xdp_md *ctx, Istio__Security__Authorization *policy)
 {
     void *rulesPtr = NULL;
     Istio__Security__Rule *rule = NULL;
@@ -337,7 +317,7 @@ static inline int do_auth(
         if (!rule) {
             continue;
         }
-        if (rule_match_check(ctx, rule, info, tuple_info, policy->action) == MATCHED) {
+        if (rule_match_check(ctx, rule, policy->action) == MATCHED) {
             if (policy->action == ISTIO__SECURITY__ACTION__DENY) {
                 return AUTH_DENY;
             } else {
