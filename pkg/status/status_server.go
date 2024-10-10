@@ -57,6 +57,7 @@ const (
 	patternConfigDumpWorkload = configDumpPrefix + "/workload"
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
+	patternAccesslog          = "/accesslog"
 
 	bpfLoggerName = "bpf"
 
@@ -103,6 +104,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfLo
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
+	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -251,6 +253,23 @@ func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
 		// otherwise, return 404 not found
 		w.WriteHeader(http.StatusNotFound)
 	}
+}
+
+func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		log.Errorf("accesslogHandler export POST method but get %v", r.Method)
+		return
+	}
+
+	var info bool
+	accesslogInfo := r.URL.Query().Get("enable")
+	if accesslogInfo == "true" {
+		info = true
+	} else {
+		info = false
+	}
+	s.xdsClient.WorkloadController.SetAccesslogTrigger(info)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) getLoggerNames(w http.ResponseWriter) {
