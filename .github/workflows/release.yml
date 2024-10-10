@@ -1,8 +1,10 @@
+name: Build Release
+
 on:
   release:
     types:
     - published
-name: Build Release
+  
 permissions:
   contents: read
 jobs:
@@ -14,6 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        go-version: [ '1.23' ]
         target:
           - kmeshctl
         os:
@@ -27,15 +30,14 @@ jobs:
     - name: Setup go
       uses: actions/setup-go@v4.0.0
       with:
-        go-version-file: go.mod
+        go-version: ${{ matrix.go-version }}
 
     - name: Making and packaging
       env:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.arch }}
-      run: make build-kmeshctl OUT=kmeshctl-${{ matrix.os }}-${{ matrix.arch }}
+      run: make kmeshctl OUT=kmeshctl-${{ matrix.os }}-${{ matrix.arch }}
     - name: Uploading kmeshctl assets
-      if: ${{ !env.ACT }}
       uses: softprops/action-gh-release@v2
       with:
         files: |
@@ -53,7 +55,6 @@ jobs:
         VERSION: ${{ github.ref_name }}
       run: make helm-package CHART_VERSION=${{ github.ref_name }}
     - name: Uploading kmesh helm package
-      if: ${{ !env.ACT }}
       uses: softprops/action-gh-release@v2
       with:
         files: |

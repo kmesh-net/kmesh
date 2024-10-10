@@ -101,8 +101,8 @@ all:
 		$(GO) build -ldflags $(LDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
 
 OUT ?= kmeshctl
-.PHONY: build-kmeshctl
-build-kmeshctl:
+.PHONY: kmeshctl
+kmeshctl:
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -o $(OUT) $(GOFLAGS) ./ctl/main.go)
