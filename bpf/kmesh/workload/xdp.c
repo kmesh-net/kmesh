@@ -15,21 +15,6 @@
 #include "authz.h"
 #include "xdp.h"
 
-static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
-{
-    if (info->iph->version == 4) {
-        tuple_info->ipv4.saddr = info->iph->saddr;
-        tuple_info->ipv4.daddr = info->iph->daddr;
-        tuple_info->ipv4.sport = info->tcph->source;
-        tuple_info->ipv4.dport = info->tcph->dest;
-    } else {
-        bpf_memcpy((__u8 *)tuple_info->ipv6.saddr, info->ip6h->saddr.in6_u.u6_addr8, IPV6_ADDR_LEN);
-        bpf_memcpy((__u8 *)tuple_info->ipv6.daddr, info->ip6h->daddr.in6_u.u6_addr8, IPV6_ADDR_LEN);
-        tuple_info->ipv6.sport = info->tcph->source;
-        tuple_info->ipv6.dport = info->tcph->dest;
-    }
-}
-
 static inline void shutdown_tuple(struct xdp_info *info)
 {
     info->tcph->fin = 0;
@@ -61,39 +46,6 @@ static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *
         return AUTH_FORBID;
     }
     return AUTH_PASS;
-}
-
-static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
-{
-    void *begin = (void *)(long)(ctx->data);
-    void *end = (void *)(long)(ctx->data_end);
-
-    // eth header
-    info->ethh = (struct ethhdr *)begin;
-    if ((void *)(info->ethh + 1) > end)
-        return PARSER_FAILED;
-
-    // ip4|ip6 header
-    begin = info->ethh + 1;
-    if ((begin + 1) > end)
-        return PARSER_FAILED;
-    if (((struct iphdr *)begin)->version == 4) {
-        info->iph = (struct iphdr *)begin;
-        if ((void *)(info->iph + 1) > end || (info->iph->protocol != IPPROTO_TCP))
-            return PARSER_FAILED;
-        begin = (info->iph + 1);
-    } else if (((struct iphdr *)begin)->version == 6) {
-        info->ip6h = (struct ipv6hdr *)begin;
-        if ((void *)(info->ip6h + 1) > end || (info->ip6h->nexthdr != IPPROTO_TCP))
-            return PARSER_FAILED;
-        begin = (info->ip6h + 1);
-    } else
-        return PARSER_FAILED;
-
-    info->tcph = (struct tcphdr *)begin;
-    if ((void *)(info->tcph + 1) > end)
-        return PARSER_FAILED;
-    return PARSER_SUCC;
 }
 
 static inline int xdp_deny_packet(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
@@ -140,7 +92,7 @@ static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct
     return get_workload_policies_by_uid(workload_uid);
 }
 
-static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline int match_workload_policy(struct xdp_md *ctx, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     int ret = 0;
     wl_policies_v *policies;
@@ -159,8 +111,8 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
             if (!policy) {
                 continue;
             }
-            if (do_auth(policy, info, tuple_info) == AUTH_DENY) {
-                BPF_LOG(ERR, AUTH, "policy %u manage result deny\n", policyId);
+            if (do_auth(ctx, policy) == AUTH_DENY) {
+                BPF_LOG(INFO, AUTH, "policy %u manage result deny\n", policyId);
                 return AUTH_DENY;
             }
         }
@@ -168,9 +120,9 @@ static inline int match_workload_policy(struct xdp_info *info, struct bpf_sock_t
     return AUTH_ALLOW;
 }
 
-static inline int xdp_rbac_manage(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline int xdp_rbac_manage(struct xdp_md *ctx, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
-    return match_workload_policy(info, tuple_info);
+    return match_workload_policy(ctx, info, tuple_info);
 }
 
 SEC("xdp_auth")
@@ -186,12 +138,27 @@ int xdp_shutdown(struct xdp_md *ctx)
 
     // never failed
     parser_tuple(&info, &tuple_info);
-    // Before the authentication types supported by eBPF XDP are fully implemented,
-    // this section only processes AUTH_DENY. If get AUTH_ALLOW,
-    // it will still depend on the user-space authentication process to match other rule types.
-    if (xdp_rbac_manage(&info, &tuple_info) == AUTH_DENY) {
-        return xdp_deny_packet(&info, &tuple_info);
-    }
+    // tail call will be executed in it, so there will be no return value, ignore it.
+    xdp_rbac_manage(ctx, &info, &tuple_info);
+
+    // If auth denied, it still returns XDP_PASS here, so next time when a client package is
+    // sent to server, it will be shutdown since server's RST has been set
+    return XDP_PASS;
+}
+
+SEC("xdp_auth")
+int xdp_shutdown_in_userspace(struct xdp_md *ctx)
+{
+    struct xdp_info info = {0};
+    struct bpf_sock_tuple tuple_info = {0};
+
+    if (parser_xdp_info(ctx, &info) == PARSER_FAILED)
+        return XDP_PASS;
+    if (info.iph->version != 4 && info.iph->version != 6)
+        return XDP_PASS;
+
+    // never failed
+    parser_tuple(&info, &tuple_info);
 
     if (should_shutdown(&info, &tuple_info) == AUTH_FORBID)
         shutdown_tuple(&info);
