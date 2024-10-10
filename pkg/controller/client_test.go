@@ -37,7 +37,7 @@ import (
 
 func TestRecoverConnection(t *testing.T) {
 	t.Run("test reconnect success", func(t *testing.T) {
-		utClient := NewXdsClient(constants.AdsMode, &bpfwl.BpfWorkload{}, false)
+		utClient := NewXdsClient(constants.KernelNativeMode, &bpfwl.BpfWorkload{}, false)
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		iteration := 0
@@ -78,7 +78,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient(constants.AdsMode, &bpfwl.BpfWorkload{}, false)
+		utClient := NewXdsClient(constants.KernelNativeMode, &bpfwl.BpfWorkload{}, false)
 		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 
@@ -125,7 +125,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient(constants.WorkloadMode, &bpfwl.BpfWorkload{}, false)
+		utClient := NewXdsClient(constants.DuelEngineMode, &bpfwl.BpfWorkload{}, false)
 		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 

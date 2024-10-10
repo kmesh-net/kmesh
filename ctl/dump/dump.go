@@ -37,12 +37,12 @@ var log = logger.NewLoggerScope("kmeshctl/dump")
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dump",
-		Short: "Dump config of ads or workload mode",
-		Example: `# Ads mode:
-kmeshctl dump <kmesh-daemon-pod> ads
+		Short: "Dump config of kernel-native or duel-engine mode",
+		Example: `# Kernel Native mode:
+kmeshctl dump <kmesh-daemon-pod> kernel-native
 	  
-# Workload mode:
-kmeshctl dump <kmesh-daemon-pod> workload`,
+# Duel Engine mode:
+kmeshctl dump <kmesh-daemon-pod> duel-engine`,
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = RunDump(cmd, args)
@@ -54,8 +54,8 @@ kmeshctl dump <kmesh-daemon-pod> workload`,
 func RunDump(cmd *cobra.Command, args []string) error {
 	podName := args[0]
 	mode := args[1]
-	if mode != "ads" && mode != "workload" {
-		log.Errorf("Error: Argument must be 'ads' or 'workload'")
+	if mode != "kernel-native" && mode != "duel-engine" {
+		log.Errorf("Error: Argument must be 'kernel-native' or 'duel-engine'")
 		os.Exit(1)
 	}
 

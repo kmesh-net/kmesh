@@ -125,7 +125,7 @@ func nodeMetadataToStruct(meta *model.BootstrapNodeMetadata) (*structpb.Struct, 
 
 func getNodeRole(mode string) string {
 	switch mode {
-	case constants.WorkloadMode:
+	case constants.DuelEngineMode:
 		return ztunnelNodeRole
 	default:
 		return sidecarNodeRole

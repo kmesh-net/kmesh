@@ -30,6 +30,7 @@ import (
 	"kmesh.net/kmesh/daemon/options"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
@@ -40,7 +41,7 @@ func TestRouteConfigLookupAll(t *testing.T) {
 		return
 	}
 	config := options.BpfConfig{
-		Mode:        "ads",
+		Mode:        constants.KernelNativeMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
