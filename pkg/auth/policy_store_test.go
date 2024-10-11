@@ -27,7 +27,7 @@ import (
 
 func Test_policyStore_updatePolicy(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.DuelEngineMode,
+		Mode:        constants.DualEngineMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -98,7 +98,7 @@ func Test_policyStore_updatePolicy(t *testing.T) {
 
 func Test_policyStore_removePolicy(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.DuelEngineMode,
+		Mode:        constants.DualEngineMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}

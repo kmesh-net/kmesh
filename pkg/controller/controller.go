@@ -64,7 +64,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	var err error
 	var kmeshManageController *manage.KmeshManageController
 
-	if c.mode == constants.DuelEngineMode && c.enableSecretManager {
+	if c.mode == constants.DualEngineMode && c.enableSecretManager {
 		secertManager, err = security.NewSecretManager()
 		if err != nil {
 			return fmt.Errorf("secretManager create failed: %v", err)
@@ -77,7 +77,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		return err
 	}
 
-	if c.mode == constants.DuelEngineMode {
+	if c.mode == constants.DualEngineMode {
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpShutdown.FD(), c.mode)
 	} else {
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, -1, c.mode)
@@ -94,7 +94,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		log.Info("start bypass controller successfully")
 	}
 
-	if c.mode != constants.DuelEngineMode && c.mode != constants.KernelNativeMode {
+	if c.mode != constants.DualEngineMode && c.mode != constants.KernelNativeMode {
 		return nil
 	}
 

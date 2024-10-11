@@ -58,7 +58,7 @@ func setDir(t *testing.T) options.BpfConfig {
 	}
 
 	return options.BpfConfig{
-		Mode:        constants.DuelEngineMode,
+		Mode:        constants.DualEngineMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -91,7 +91,7 @@ func runTestRestart(t *testing.T) {
 
 	if config.KernelNativeEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
-	} else if config.DuelEngineEnabled() {
+	} else if config.DualEngineEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/")
 	}
 	_, err := os.Stat(versionPath)

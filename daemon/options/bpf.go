@@ -37,7 +37,7 @@ type BpfConfig struct {
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
 	cmd.PersistentFlags().StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
-	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "duel-engine", "controller plane mode, valid values are [kernel-native, duel-engine]")
+	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "dual-engine", "controller plane mode, valid values are [kernel-native, dual-engine]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 	cmd.PersistentFlags().BoolVar(&c.EnableBpfLog, "enable-bpf-log", false, "enable ebpf log in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnableAccesslog, "enable-accesslog", false, "enable accesslog in daemon process")
@@ -67,6 +67,6 @@ func (c *BpfConfig) KernelNativeEnabled() bool {
 	return c.Mode == constants.KernelNativeMode
 }
 
-func (c *BpfConfig) DuelEngineEnabled() bool {
-	return c.Mode == constants.DuelEngineMode
+func (c *BpfConfig) DualEngineEnabled() bool {
+	return c.Mode == constants.DualEngineMode
 }

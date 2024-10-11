@@ -125,7 +125,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient(constants.DuelEngineMode, &bpfwl.BpfWorkload{}, false)
+		utClient := NewXdsClient(constants.DualEngineMode, &bpfwl.BpfWorkload{}, false)
 		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 
