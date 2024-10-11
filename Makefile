@@ -232,7 +232,9 @@ helm-package.%: # Package Helm chart
 	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
 	$(eval CHART_NAME := $(COMMAND))
 	helm lint $(CHARTS_FOLDER)/${CHART_NAME}
+	sed -i "s/tag: latest/tag: ${CHART_VERSION}/g" $(CHARTS_FOLDER)/${CHART_NAME}/values.yaml
 	helm package $(CHARTS_FOLDER)/${CHART_NAME} --app-version ${VERSION} --version ${CHART_VERSION} --destination ${CHART_OUTPUT_DIR}/
+	git checkout -- $(CHARTS_FOLDER)/${CHART_NAME}/values.yaml
 
 .PHONY: helm-push.%
 helm-push.%: helm-package.%
