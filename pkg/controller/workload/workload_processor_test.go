@@ -65,7 +65,7 @@ func Test_handleWorkload(t *testing.T) {
 	svcID := checkFrontEndMap(t, fakeSvc.Addresses[0].Address, p)
 
 	// 2.2 check service map contains service
-	checkServiceMap(t, p, svcID, fakeSvc, bpfcache.MaxPrio, 1)
+	checkServiceMap(t, p, svcID, fakeSvc, bpfcache.MinPrio, 1)
 
 	// 2.3 check endpoint map now contains the workloads
 	ek.BackendIndex = 1
@@ -88,7 +88,7 @@ func Test_handleWorkload(t *testing.T) {
 	assert.Equal(t, ev.BackendUid, workload2ID)
 
 	// 3.2 check service map contains service
-	checkServiceMap(t, p, svcID, fakeSvc, bpfcache.MaxPrio, 2)
+	checkServiceMap(t, p, svcID, fakeSvc, bpfcache.MinPrio, 2)
 
 	// 4 modify workload2 attribute not related with services
 	workload2.Waypoint = &workloadapi.GatewayAddress{
@@ -113,7 +113,7 @@ func Test_handleWorkload(t *testing.T) {
 	assert.Equal(t, ev.BackendUid, workload2ID)
 
 	// 4.2 check service map contains service
-	checkServiceMap(t, p, svcID, fakeSvc, bpfcache.MaxPrio, 2)
+	checkServiceMap(t, p, svcID, fakeSvc, bpfcache.MinPrio, 2)
 
 	// 4.3 check backend map contains waypoint
 	checkBackendMap(t, p, workload2ID, workload2)
@@ -125,7 +125,7 @@ func Test_handleWorkload(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 5.1 check service map
-	checkServiceMap(t, p, svcID, fakeSvc, bpfcache.MaxPrio, 1)
+	checkServiceMap(t, p, svcID, fakeSvc, bpfcache.MinPrio, 1)
 
 	// 5.2 check endpoint map
 	ek.BackendIndex = 1
@@ -141,7 +141,7 @@ func Test_handleWorkload(t *testing.T) {
 	// 6.1 check front end map contains service
 	svcID = checkFrontEndMap(t, wpSvc.Addresses[0].Address, p)
 	// 6.2 check service map contains service, but no waypoint address
-	checkServiceMap(t, p, svcID, wpSvc, bpfcache.MaxPrio, 0)
+	checkServiceMap(t, p, svcID, wpSvc, bpfcache.MinPrio, 0)
 
 	// 7. test add unhealthy workload
 	workload3 := createFakeWorkload("1.2.3.7", workloadapi.NetworkMode_STANDARD)
@@ -525,9 +525,9 @@ func TestRestart(t *testing.T) {
 	assert.Equal(t, 6, p.bpf.FrontendCount())
 	// check service map
 	t.Log("1. check service map")
-	checkServiceMap(t, p, p.hashName.Hash(svc1.ResourceName()), svc1, bpfcache.MaxPrio, 1)
-	checkServiceMap(t, p, p.hashName.Hash(svc2.ResourceName()), svc2, bpfcache.MaxPrio, 2)
-	checkServiceMap(t, p, p.hashName.Hash(svc3.ResourceName()), svc3, bpfcache.MaxPrio, 2)
+	checkServiceMap(t, p, p.hashName.Hash(svc1.ResourceName()), svc1, bpfcache.MinPrio, 1)
+	checkServiceMap(t, p, p.hashName.Hash(svc2.ResourceName()), svc2, bpfcache.MinPrio, 2)
+	checkServiceMap(t, p, p.hashName.Hash(svc3.ResourceName()), svc3, bpfcache.MinPrio, 2)
 	assert.Equal(t, 3, p.bpf.ServiceCount())
 	// check endpoint map
 	t.Log("1. check endpoint map")
@@ -603,10 +603,10 @@ func TestRestart(t *testing.T) {
 	assert.Equal(t, 7, p.bpf.FrontendCount())
 
 	// check service map
-	checkServiceMap(t, p, p.hashName.Hash(svc1.ResourceName()), svc1, bpfcache.MaxPrio, 2) // svc1 has 2 wl1, wl2
-	checkServiceMap(t, p, p.hashName.Hash(svc2.ResourceName()), svc2, bpfcache.MaxPrio, 1) // svc2 has 1  wl2
-	checkServiceMap(t, p, p.hashName.Hash(svc3.ResourceName()), svc3, bpfcache.MaxPrio, 1) // svc3 has 1  wl2
-	checkServiceMap(t, p, p.hashName.Hash(svc4.ResourceName()), svc4, bpfcache.MaxPrio, 1) // svc4 has 1  wl4
+	checkServiceMap(t, p, p.hashName.Hash(svc1.ResourceName()), svc1, bpfcache.MinPrio, 2) // svc1 has 2 wl1, wl2
+	checkServiceMap(t, p, p.hashName.Hash(svc2.ResourceName()), svc2, bpfcache.MinPrio, 1) // svc2 has 1  wl2
+	checkServiceMap(t, p, p.hashName.Hash(svc3.ResourceName()), svc3, bpfcache.MinPrio, 1) // svc3 has 1  wl2
+	checkServiceMap(t, p, p.hashName.Hash(svc4.ResourceName()), svc4, bpfcache.MinPrio, 1) // svc4 has 1  wl4
 	assert.Equal(t, 4, p.bpf.ServiceCount())
 	// check endpoint map
 	checkEndpointMap(t, p, svc1, []uint32{p.hashName.Hash(wl1.ResourceName()), p.hashName.Hash(wl2.ResourceName())})

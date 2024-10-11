@@ -20,9 +20,9 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
     int rand_k = 0;
 
     endpoint_k.service_id = service_id;
-    endpoint_k.prio = MAX_PRIO; // for random handle，all endpoints are saved in MAX_PRIO
+    endpoint_k.prio = MIN_PRIO; // for random handle，all endpoints are saved in MIN_PRIO
 
-    rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[MAX_PRIO] + 1;
+    rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[MIN_PRIO] + 1;
     endpoint_k.backend_index = rand_k;
 
     endpoint_v = map_lookup_endpoint(&endpoint_k);
@@ -51,11 +51,11 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
     endpoint_k.service_id = service_id;
 
     // #pragma unroll
-    for (int match_rank = MAX_PRIO; match_rank >= 0; match_rank--) {
-        endpoint_k.prio = match_rank; // 6->0
+    for (int match_prio = 0; match_prio < PRIO_COUNT; match_prio++) {
+        endpoint_k.prio = match_prio; // 0->6
         // if we have endpoints in this prio
-        if (service_v->prio_endpoint_count[match_rank] > 0) {
-            rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[match_rank] + 1;
+        if (service_v->prio_endpoint_count[match_prio] > 0) {
+            rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[match_prio] + 1;
             if (rand_k >= MAP_SIZE_OF_BACKEND) {
                 return -ENOENT;
             }
@@ -63,7 +63,7 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
             endpoint_v = map_lookup_endpoint(&endpoint_k);
             if (!endpoint_v) {
                 BPF_LOG(
-                    ERR, SERVICE, "find endpoint [%u/%u/%u] failed", service_id, match_rank, endpoint_k.backend_index);
+                    ERR, SERVICE, "find endpoint [%u/%u/%u] failed", service_id, match_prio, endpoint_k.backend_index);
                 return -ENOENT;
             }
             ret = endpoint_manager(kmesh_ctx, endpoint_v, service_id, service_v);
@@ -74,7 +74,7 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
             }
             return 0; // find the backend successfully
         }
-        if (is_strict && match_rank == service_v->lb_strict_index) { // only match lb strict index
+        if (is_strict && match_prio == service_v->lb_strict_prio) { // only match lb strict index
             return -ENOENT;
         }
     }
