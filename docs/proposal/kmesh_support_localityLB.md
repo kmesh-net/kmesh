@@ -57,7 +57,7 @@ When a request is made to a service, the BPF program traverses the endpoint map 
 ```
 typedef struct {
     __u32 service_id;    // service id
-    __u32 prio;          // prio means rank, 6 means match all, and 0 means match nothing
+    __u32 prio;          // prio means rank, 0 means lowest priority(match nothing at routePerference), and 6 means heightest priority
     __u32 backend_index; // if endpoint_count = 3, then backend_index = 0/1/2
 } endpoint_key;
 ```
@@ -66,11 +66,10 @@ typedef struct {
 
 workload.h
 ```
-#define MAX_PRIO                  6
-#define MAX_PRIO_COUNT            MAX_PRIO + 1 // 6 means match all scope, 0 means match nothing
+#define PRIO_COUNT            7
 
 typedef struct {
-    __u32 prio_endpoint_count[MAX_PRIO_COUNT];// endpoint count of current service with prio, prio from 6->0, 7是未被分配的workload暂存区
+    __u32 prio_endpoint_count[PRIO_COUNT];// endpoint count of current service with prio, prio from 0->6,
     __u32 lb_policy;                    // load balancing algorithm, currently supports random algorithm, locality loadbalance Failover/strict mode
     __u32 lb_strict_index;              // for failover strict mode
     ...
@@ -92,8 +91,7 @@ typedef enum {
 4. locality_cache.go
 ```
 const (
-	MaxPrio    = 6
-	MaxPrioNum = 7
+	PrioCount = 7
 )
 
 type localityInfo struct {
