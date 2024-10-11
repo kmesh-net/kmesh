@@ -278,7 +278,7 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 		}
 
 		var i uint32
-		for j := 0; j <= bpf.MaxPrio; j++ {
+		for j := 0; j < bpf.PrioCount; j++ {
 			if svDelete.EndpointCount[j] == 0 {
 				continue
 			}
@@ -352,7 +352,7 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 		// the service already stored in map, add endpoint
 		if err = p.bpf.ServiceLookup(&sk, &sv); err == nil {
 			if sv.LbPolicy == LbPolicyRandom { // random mode
-				if err = p.addWorkloadToService(&sk, &sv, workloadId, bpf.MaxPrio); err != nil { // In random mode, we save all workload to maxprio
+				if err = p.addWorkloadToService(&sk, &sv, workloadId, bpf.MinPrio); err != nil { // In random mode, we save all workload to minprio
 					log.Errorf("addWorkloadToService workload %d service %d failed: %v", workloadId, sk.ServiceId, err)
 					return err
 				}
@@ -363,7 +363,7 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 						log.Errorf("addWorkloadToService workload %d service %d failed: %v", workloadId, sk.ServiceId, err)
 						return err
 					}
-				} else { // locality LB mode, but we need to set up all localityCache fields before add endpoint
+				} else { // locality LB mode, but we need to set up all localityCache fields before adding endpoint
 					p.locality.SaveToWaitQueue(workload)
 				}
 			}
@@ -507,8 +507,8 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	newValue.LbPolicy = uint32(lb.GetMode()) // set loadbalance mode
 	p.locality.SetRoutingPreference(lb.GetRoutingPreference())
 	p.locality.LbPolicy = newValue.LbPolicy
-	log.Debugf("lbPolicy:%v, routingPreference:%v, strictIndex:%v", newValue.LbPolicy, p.locality.RoutingPreference, p.locality.LbStrictIndex)
-	newValue.LbStrictIndex = p.locality.LbStrictIndex
+	log.Debugf("lbPolicy:%v, routingPreference:%v, strictIndex:%v", newValue.LbPolicy, p.locality.RoutingPreference, p.locality.LbStrictPrio)
+	newValue.LbStrictPrio = p.locality.LbStrictPrio
 
 	if waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&newValue.WaypointAddr, waypoint.GetAddress().Address)

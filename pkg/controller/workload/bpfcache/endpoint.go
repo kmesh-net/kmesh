@@ -22,8 +22,8 @@ import (
 )
 
 const (
-	MaxPrio    = 6
-	MaxPrioNum = 7
+	MinPrio   = 6
+	PrioCount = 7
 )
 
 type EndpointKey struct {
