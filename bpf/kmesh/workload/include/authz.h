@@ -97,11 +97,11 @@ static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tu
     }
 }
 
-static inline int get_tuple_key(struct xdp_md *ctx, struct bpf_sock_tuple *tuple_info, struct xdp_info *info)
+static inline int construct_tuple_key(struct xdp_md *ctx, struct bpf_sock_tuple *tuple_info, struct xdp_info *info)
 {
     int ret = parser_xdp_info(ctx, info);
     if (ret != PARSER_SUCC) {
-        BPF_LOG(ERR, AUTH, "Failed to parse xdp_info\n");
+        BPF_LOG(ERR, AUTH, "Failed to parse xdp_info");
         return PARSER_FAILED;
     }
 
@@ -123,14 +123,14 @@ int matchDstPorts(struct xdp_md *ctx)
     struct xdp_info info = {0};
     int ret;
 
-    if (get_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
-        BPF_LOG(ERR, AUTH, "Failed to get tuple key\n");
+    if (construct_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
+        BPF_LOG(ERR, AUTH, "Failed to get tuple key");
         return XDP_ABORTED;
     }
 
     res = bpf_map_lookup_elem(&tailcall_info_map, &tuple_key);
     if (!res) {
-        BPF_LOG(ERR, AUTH, "Failed to retrieve res from map\n");
+        BPF_LOG(ERR, AUTH, "Failed to retrieve res from map");
         return XDP_PASS;
     }
 
@@ -139,12 +139,12 @@ int matchDstPorts(struct xdp_md *ctx)
     } else if (info.ip6h->version == 6) {
         dport = tuple_key.ipv6.dport;
     } else {
-        BPF_LOG(ERR, AUTH, "Invalid IP version.\n");
+        BPF_LOG(ERR, AUTH, "Invalid IP version.");
         return XDP_PASS;
     }
     match = (Istio__Security__Match *)kmesh_get_ptr_val(res->match);
     if (!match) {
-        BPF_LOG(ERR, AUTH, "match pointer is null\n");
+        BPF_LOG(ERR, AUTH, "match pointer is null");
         return XDP_PASS;
     }
 
@@ -167,7 +167,7 @@ int matchDstPorts(struct xdp_md *ctx)
                 if (res->action == AUTH_DENY) {
                     return XDP_PASS;
                 } else {
-                    BPF_LOG(INFO, AUTH, "Denied: dport %u matches \n", notPorts[i]);
+                    BPF_LOG(INFO, AUTH, "Denied: dport %u matches ", notPorts[i]);
                     return XDP_DROP;
                 }
             }
@@ -191,7 +191,7 @@ int matchDstPorts(struct xdp_md *ctx)
         }
         if (bpf_htons(ports[i]) == dport) {
             if (res->action == AUTH_DENY) {
-                BPF_LOG(INFO, AUTH, "Denied: dport %u matches \n", ports[i]);
+                BPF_LOG(INFO, AUTH, "Denied: dport %u matches ", ports[i]);
                 return XDP_DROP;
             } else {
                 return XDP_PASS;
@@ -210,8 +210,8 @@ static inline int match_check(struct xdp_md *ctx, void *match, Istio__Security__
     struct xdp_info info = {0};
     int ret;
 
-    if (get_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
-        BPF_LOG(ERR, AUTH, "Failed to get tuple key\n");
+    if (construct_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
+        BPF_LOG(ERR, AUTH, "Failed to get tuple key");
         return XDP_ABORTED;
     }
     res.match = match;
@@ -219,7 +219,7 @@ static inline int match_check(struct xdp_md *ctx, void *match, Istio__Security__
 
     ret = bpf_map_update_elem(&tailcall_info_map, &tuple_key, &res, BPF_ANY);
     if (ret < 0) {
-        BPF_LOG(ERR, AUTH, "Failed to update map, error: %d\n", ret);
+        BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
         return XDP_DROP;
     }
     bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_PORT_MATCH);
@@ -264,13 +264,13 @@ static inline int rule_match_check(struct xdp_md *ctx, Istio__Security__Rule *ru
     __u32 i;
 
     if (rule->n_clauses == 0) {
-        BPF_LOG(ERR, AUTH, "rule has no clauses\n");
+        BPF_LOG(ERR, AUTH, "rule has no clauses");
         return UNMATCHED;
     }
     // Clauses are AND-ed.
     clausesPtr = kmesh_get_ptr_val(rule->clauses);
     if (!clausesPtr) {
-        BPF_LOG(ERR, AUTH, "failed to get clauses from rule\n");
+        BPF_LOG(ERR, AUTH, "failed to get clauses from rule");
         return UNMATCHED;
     }
 
@@ -298,14 +298,14 @@ static inline int do_auth(struct xdp_md *ctx, Istio__Security__Authorization *po
     __u32 i = 0;
 
     if (policy->n_rules == 0) {
-        BPF_LOG(ERR, AUTH, "auth policy %s has no rules\n", kmesh_get_ptr_val(policy->name));
+        BPF_LOG(ERR, AUTH, "auth policy %s has no rules", kmesh_get_ptr_val(policy->name));
         return AUTH_ALLOW;
     }
 
     // Rules are OR-ed.
     rulesPtr = kmesh_get_ptr_val(policy->rules);
     if (!rulesPtr) {
-        BPF_LOG(ERR, AUTH, "failed to get rules from policy %s\n", kmesh_get_ptr_val(policy->name));
+        BPF_LOG(ERR, AUTH, "failed to get rules from policy %s", kmesh_get_ptr_val(policy->name));
         return AUTH_DENY;
     }
 
