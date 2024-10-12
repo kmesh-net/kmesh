@@ -310,7 +310,7 @@ func NewCmd() *cobra.Command {
   kmeshctl waypoint status
 
   # Show the status of the waypoint in a specific namespace
-  kmeshctl waypoint status --namespace default`,
+  kmeshctl waypoint status --namespace foo`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) != 0 {
 				return fmt.Errorf("unknown subcommand %q", args[0])
