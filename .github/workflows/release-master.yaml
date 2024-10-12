@@ -43,19 +43,15 @@ jobs:
 
       - name: Checkout code
         uses: actions/checkout@v3
-      
-      - name: Build 
-        run: |
-          ./kmesh_compile.sh
 
-      - name: Push by digest
+      - name: Build and Push by digest
         id: build
         uses: docker/build-push-action@v6
         with:
           context: .
           platforms: ${{ matrix.platform }}
           labels: ${{ steps.meta.outputs.labels }}
-          file: build/docker/dockerfile
+          file: build/docker/github.dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           outputs: type=image,name=${{ env.REGISTRY_IMAGE }},name-canonical=true,push=true
 
