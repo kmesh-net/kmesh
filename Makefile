@@ -1,4 +1,4 @@
-# Copyright 2023 The Kmesh Authors.
+# Copyright The Kmesh Authors.
 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,6 +99,13 @@ all:
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -ldflags $(LDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
+
+OUT ?= kmeshctl
+.PHONY: kmeshctl
+kmeshctl:
+	$(call printlog, BUILD, $(APPS4))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -o $(OUT) $(GOFLAGS) ./ctl/main.go)
 
 .PHONY: gen-proto
 gen-proto:
@@ -225,7 +232,9 @@ helm-package.%: # Package Helm chart
 	$(eval COMMAND := $(word 1,$(subst ., ,$*)))
 	$(eval CHART_NAME := $(COMMAND))
 	helm lint $(CHARTS_FOLDER)/${CHART_NAME}
+	sed -i "s/tag: latest/tag: ${CHART_VERSION}/g" $(CHARTS_FOLDER)/${CHART_NAME}/values.yaml
 	helm package $(CHARTS_FOLDER)/${CHART_NAME} --app-version ${VERSION} --version ${CHART_VERSION} --destination ${CHART_OUTPUT_DIR}/
+	git checkout -- $(CHARTS_FOLDER)/${CHART_NAME}/values.yaml
 
 .PHONY: helm-push.%
 helm-push.%: helm-package.%
