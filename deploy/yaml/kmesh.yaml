@@ -74,7 +74,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             [
-              "./start_kmesh.sh --mode=workload --enable-bypass=false --enable-bpf-log=true",
+              "./start_kmesh.sh --mode=dual-engine --enable-bypass=false --enable-bpf-log=true",
             ]
           securityContext:
             privileged: true

@@ -73,7 +73,7 @@ func StartMda() error {
 
 func (l *BpfLoader) Start() error {
 	var err error
-	if l.config.AdsEnabled() {
+	if l.config.KernelNativeEnabled() {
 		if l.obj, err = ads.NewBpfAds(l.config); err != nil {
 			return err
 		}
@@ -81,7 +81,7 @@ func (l *BpfLoader) Start() error {
 			return err
 		}
 		l.bpfLogLevel = l.obj.GetBpfLogLevelMap()
-	} else if l.config.WdsEnabled() {
+	} else if l.config.DualEngineEnabled() {
 		if l.workloadObj, err = workload.NewBpfWorkload(l.config); err != nil {
 			return err
 		}
@@ -132,7 +132,7 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if restart.GetExitType() == restart.Restart && l.config.WdsEnabled() {
+	if restart.GetExitType() == restart.Restart && l.config.DualEngineEnabled() {
 		C.deserial_uninit(true)
 		log.Infof("kmesh restart, not clean bpf map and prog")
 		return
@@ -140,13 +140,13 @@ func (l *BpfLoader) Stop() {
 
 	closeMap(l.versionMap)
 
-	if l.config.AdsEnabled() {
+	if l.config.KernelNativeEnabled() {
 		if err = l.obj.Stop(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed stop bpf, err: %v", err)
 			return
 		}
-	} else if l.config.WdsEnabled() {
+	} else if l.config.DualEngineEnabled() {
 		if err = l.workloadObj.Stop(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed stop bpf workload, err: %v", err)
@@ -166,9 +166,9 @@ func (l *BpfLoader) Stop() {
 func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	var versionPath string
 	var versionMap *ebpf.Map
-	if config.AdsEnabled() {
+	if config.KernelNativeEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath, constants.VersionPath)
-	} else if config.WdsEnabled() {
+	} else if config.DualEngineEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath, constants.WorkloadVersionPath)
 	}
 

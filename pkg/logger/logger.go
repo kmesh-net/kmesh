@@ -127,9 +127,9 @@ func NewFileLogger(pkgSubsys string) *logrus.Entry {
 func StartRingBufReader(ctx context.Context, mode string, bpfFsPath string) error {
 	var path string
 
-	if mode == constants.AdsMode {
+	if mode == constants.KernelNativeMode {
 		path = bpfFsPath + "/bpf_kmesh/map"
-	} else if mode == constants.WorkloadMode {
+	} else if mode == constants.DualEngineMode {
 		path = bpfFsPath + "/bpf_kmesh_workload/map"
 	} else {
 		return fmt.Errorf("invalid start mode:%s", mode)

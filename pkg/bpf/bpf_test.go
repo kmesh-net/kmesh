@@ -27,6 +27,7 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 func TestRestart(t *testing.T) {
@@ -57,7 +58,7 @@ func setDir(t *testing.T) options.BpfConfig {
 	}
 
 	return options.BpfConfig{
-		Mode:        "workload",
+		Mode:        constants.DualEngineMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -88,9 +89,9 @@ func runTestRestart(t *testing.T) {
 	restart.SetExitType(restart.Restart)
 	bpfLoader.Stop()
 
-	if config.AdsEnabled() {
+	if config.KernelNativeEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
-	} else if config.WdsEnabled() {
+	} else if config.DualEngineEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/")
 	}
 	_, err := os.Stat(versionPath)

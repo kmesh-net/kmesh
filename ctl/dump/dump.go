@@ -25,6 +25,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -37,12 +38,12 @@ var log = logger.NewLoggerScope("kmeshctl/dump")
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dump",
-		Short: "Dump config of ads or workload mode",
-		Example: `# Ads mode:
-kmeshctl dump <kmesh-daemon-pod> ads
+		Short: "Dump config of kernel-native or dual-engine mode",
+		Example: `# Kernel Native mode:
+kmeshctl dump <kmesh-daemon-pod> kernel-native
 	  
-# Workload mode:
-kmeshctl dump <kmesh-daemon-pod> workload`,
+# Dual Engine mode:
+kmeshctl dump <kmesh-daemon-pod> dual-engine`,
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = RunDump(cmd, args)
@@ -54,8 +55,8 @@ kmeshctl dump <kmesh-daemon-pod> workload`,
 func RunDump(cmd *cobra.Command, args []string) error {
 	podName := args[0]
 	mode := args[1]
-	if mode != "ads" && mode != "workload" {
-		log.Errorf("Error: Argument must be 'ads' or 'workload'")
+	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
+		log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
 		os.Exit(1)
 	}
 

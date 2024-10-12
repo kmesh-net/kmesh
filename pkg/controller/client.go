@@ -54,9 +54,9 @@ func NewXdsClient(mode string, bpfWorkload *bpfwl.BpfWorkload, enableAccesslog b
 		xdsConfig: config.GetConfig(mode),
 	}
 
-	if mode == constants.WorkloadMode {
+	if mode == constants.DualEngineMode {
 		client.WorkloadController = workload.NewController(bpfWorkload, enableAccesslog)
-	} else if mode == constants.AdsMode {
+	} else if mode == constants.KernelNativeMode {
 		client.AdsController = ads.NewController()
 	}
 
@@ -73,12 +73,12 @@ func (c *XdsClient) createGrpcStreamClient() error {
 
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
-	if c.mode == constants.WorkloadMode {
+	if c.mode == constants.DualEngineMode {
 		if err = c.WorkloadController.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create workload stream failed, %s", err)
 		}
-	} else if c.mode == constants.AdsMode {
+	} else if c.mode == constants.KernelNativeMode {
 		if err = c.AdsController.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
 			return fmt.Errorf("create ads stream failed, %s", err)
@@ -122,13 +122,13 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 				reconnect = false
 			}
 
-			if c.mode == constants.AdsMode {
+			if c.mode == constants.KernelNativeMode {
 				if err = c.AdsController.HandleAdsStream(); err != nil {
 					_ = c.grpcConn.Close()
 					reconnect = true
 					continue
 				}
-			} else if c.mode == constants.WorkloadMode {
+			} else if c.mode == constants.DualEngineMode {
 				if err = c.WorkloadController.HandleWorkloadStream(); err != nil {
 					_ = c.grpcConn.Close()
 					reconnect = true

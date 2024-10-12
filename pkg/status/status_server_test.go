@@ -97,11 +97,11 @@ func TestServer_getLoggerLevel(t *testing.T) {
 func TestServer_getAndSetBpfLevel(t *testing.T) {
 	// Test in two modes
 	configs := []options.BpfConfig{{
-		Mode:        "ads",
+		Mode:        constants.KernelNativeMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}, {
-		Mode:        "workload",
+		Mode:        constants.DualEngineMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}}
@@ -310,7 +310,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 	t.Run("Ads mode test", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        "ads",
+			Mode:        constants.KernelNativeMode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
@@ -330,7 +330,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 
 	t.Run("Workload mode test", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        "workload",
+			Mode:        constants.DualEngineMode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
@@ -415,7 +415,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 func TestServer_dumpAdsBpfMap(t *testing.T) {
 	t.Run("Workload mode test", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        "workload",
+			Mode:        constants.DualEngineMode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
@@ -435,7 +435,7 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 
 	t.Run("Ads mode test", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        "ads",
+			Mode:        constants.KernelNativeMode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}

@@ -32,6 +32,7 @@ import (
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
 	"kmesh.net/kmesh/daemon/options"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
@@ -39,7 +40,7 @@ import (
 
 func TestListenerLookupAll(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        "ads",
+		Mode:        constants.KernelNativeMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -220,7 +221,7 @@ func TestListenerFlush(t *testing.T) {
 func BenchmarkListenerFlush(b *testing.B) {
 	t := &testing.T{}
 	config := options.BpfConfig{
-		Mode:        "ads",
+		Mode:        constants.KernelNativeMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}

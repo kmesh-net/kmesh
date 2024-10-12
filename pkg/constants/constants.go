@@ -17,8 +17,8 @@
 package constants
 
 const (
-	AdsMode      = "ads"
-	WorkloadMode = "workload"
+	KernelNativeMode = "kernel-native"
+	DualEngineMode   = "dual-engine"
 
 	// DataPlaneModeLabel is the label used to indicate the data plane mode
 	DataPlaneModeLabel = "istio.io/dataplane-mode"
