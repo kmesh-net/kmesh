@@ -226,7 +226,7 @@ func NewCmd() *cobra.Command {
 						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
 					return nil
 				}
-				namespaceIsLabeledKmesh, err := namespaceHasLabelWithValue(kubeClient, ns, constants.DataplaneModeLabel, DataplaneModeKmesh)
+				namespaceIsLabeledKmesh, err := namespaceHasLabelWithValue(kubeClient, ns, label.IoIstioDataplaneMode.Name, DataplaneModeKmesh)
 				if err != nil {
 					return fmt.Errorf("failed to check if namespace is labeled Kmesh: %v", err)
 				}
