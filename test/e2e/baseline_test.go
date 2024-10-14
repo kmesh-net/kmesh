@@ -479,7 +479,6 @@ func TestAddRemovePodWaypoint(t *testing.T) {
 						src.CallOrFail(t, opt)
 					})
 				}
-
 			}
 		})
 
@@ -510,7 +509,6 @@ func TestAddRemovePodWaypoint(t *testing.T) {
 						src.CallOrFail(t, opt)
 					})
 				}
-
 			}
 		})
 	})
@@ -904,6 +902,5 @@ func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, 
 
 	default:
 		t.Fatalf("PromDiff expects Vector, got %v", v.Type())
-
 	}
 }

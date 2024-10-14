@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
-	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -270,11 +269,6 @@ func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.In
 }
 
 func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, trafficType string) (ambient.WaypointProxy, error) {
-	err := crd.DeployGatewayAPI(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	gw := &gateway.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway_v1.Kind,
@@ -309,7 +303,7 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 
 	gwc := cls.GatewayAPI().GatewayV1().Gateways(ns.Name())
 
-	_, err = gwc.Create(context.Background(), gw, metav1.CreateOptions{
+	_, err := gwc.Create(context.Background(), gw, metav1.CreateOptions{
 		FieldManager: "istioctl",
 	})
 	if err != nil {
