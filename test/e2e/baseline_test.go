@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 /*
  * Copyright The Kmesh Authors.
  *
@@ -33,6 +30,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	echot "istio.io/istio/pkg/test/echo"
@@ -748,17 +746,17 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 			} else {
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
-			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`, constants.AmbientUseWaypointLabel, waypoint))
+			labels := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`, label.IoIstioUseWaypoint.Name, waypoint))
 
 			switch granularity {
 			case Namespace:
-				_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), ns, types.MergePatchType, label, metav1.PatchOptions{})
+				_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), ns, types.MergePatchType, labels, metav1.PatchOptions{})
 				return err
 			case Service:
-				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, labels, metav1.PatchOptions{})
 				return err
 			case Workload:
-				_, err := c.Kube().CoreV1().Pods(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+				_, err := c.Kube().CoreV1().Pods(ns).Patch(context.TODO(), name, types.MergePatchType, labels, metav1.PatchOptions{})
 				return err
 			}
 

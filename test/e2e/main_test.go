@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 /*
  * Copyright The Kmesh Authors.
  *
@@ -33,6 +30,7 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -133,7 +131,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		Prefix: "echo",
 		Inject: false,
 		Labels: map[string]string{
-			constants.DataplaneModeLabel: DataplaneModeKmesh,
+			label.IoIstioDataplaneMode.Name: DataplaneModeKmesh,
 		},
 	})
 	if err != nil {
@@ -146,7 +144,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 			Service:              ServiceWithWaypointAtServiceGranularity,
 			Namespace:            apps.Namespace,
 			Ports:                ports.All(),
-			ServiceLabels:        map[string]string{constants.AmbientUseWaypointLabel: "waypoint"},
+			ServiceLabels:        map[string]string{label.IoIstioUseWaypoint.Name: "waypoint"},
 			ServiceAccount:       true,
 			ServiceWaypointProxy: "waypoint",
 			Subsets: []echo.SubsetConfig{
@@ -287,7 +285,7 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 			Namespace:   ns.Name(),
 			Annotations: make(map[string]string, 0),
 			Labels: map[string]string{
-				constants.AmbientWaypointForTrafficTypeLabel: trafficType,
+				label.IoIstioWaypointFor.Name: trafficType,
 			},
 		},
 		Spec: gateway.GatewaySpec{
@@ -318,7 +316,7 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 		return nil, err
 	}
 
-	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, name))
+	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name))
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
@@ -365,7 +363,7 @@ func deleteWaypointProxy(ctx resource.Context, ns namespace.Instance, name strin
 	// Make sure the pods associated with the waypoint have been deleted to prevent affecting other test cases.
 	return retry.UntilSuccess(func() error {
 		pods, err := cls.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{
-			LabelSelector: fmt.Sprintf("%s=%s", constants.GatewayNameLabel, name),
+			LabelSelector: fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name),
 		})
 		if err != nil {
 			return err
