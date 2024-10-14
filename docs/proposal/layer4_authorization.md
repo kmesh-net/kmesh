@@ -15,7 +15,7 @@ creation-date: 2024-05-28
 
 ### Summary
 
-This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authentication features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/). Currently, kmesh supports two authentication architectures, packet first go through XDP authentication processing, if the type is not supported, the quintuple information is passed to Userspace authentication via a ring buffer, the ultimate goal is to completely handle authentication within XDP.
+This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authentication features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/). Currently, kmesh supports two authentication architectures. Packets are first processed through XDP authentication, and if that type is not supported, quintuple information is passed through a ring buffer for user-space authentication. The ultimate goal is to fully handle authentication in XDP.
 
 ### Userspace authentication
 
@@ -83,3 +83,12 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
 } map_of_authz SEC(".maps");
 ```
+
+#### Processing logic
+
+![l4_authz_xdp](pics/kmesh_l4_authorization_match_chain.svg#pic_center)
+
+
+
+1. Message Parsing: When a packet enters the XDP processing logic on the server side, the tuple information of the packet is parsed. The corresponding workload instance is then located based on the destination IP, and the authentication rules configured on that workload are retrieved.
+2. Rule Matching: As shown in the figure, XDP implements a matching chain logic. First, it determines whether to allow or deny the packet based on the port  info, if the result is deny, the packet is intercepted, and the process ends. If the result is allow, the next matching logic (e.g., IP matching) is called using a BPF tail call. This process is repeated until the last link in the chain. If the final result is allow, XDP\_PASS is returned, and the packet is forwarded through the kernel network stack to the server.
