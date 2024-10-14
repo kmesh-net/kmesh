@@ -73,7 +73,7 @@ struct {
     __uint(value_size, sizeof(wl_policies_v));
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
-}    SEC(".maps");
+} map_of_wl_policy SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -87,8 +87,6 @@ struct {
 #### Processing logic
 
 ![l4_authz_xdp](pics/kmesh_l4_authorization_match_chain.svg#pic_center)
-
-
 
 1. Message Parsing: When a packet enters the XDP processing logic on the server side, the tuple information of the packet is parsed. The corresponding workload instance is then located based on the destination IP, and the authentication rules configured on that workload are retrieved.
 2. Rule Matching: As shown in the figure, XDP implements a matching chain logic. First, it determines whether to allow or deny the packet based on the port  info, if the result is deny, the packet is intercepted, and the process ends. If the result is allow, the next matching logic (e.g., IP matching) is called using a BPF tail call. This process is repeated until the last link in the chain. If the final result is allow, XDP\_PASS is returned, and the packet is forwarded through the kernel network stack to the server.
