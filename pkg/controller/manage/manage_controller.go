@@ -63,7 +63,7 @@ type KmeshManageController struct {
 	podLister         v1.PodLister
 	namespaceInformer cache.SharedIndexInformer
 	namespaceLister   v1.NamespaceLister
-	queue             workqueue.RateLimitingInterface
+	queue             workqueue.TypedRateLimitingInterface[any]
 	client            kubernetes.Interface
 	sm                *kmeshsecurity.SecretManager
 	xdpProgFd         int
@@ -88,7 +88,7 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 	namespaceInformer := factory.Core().V1().Namespaces().Informer()
 	namespaceLister := factory.Core().V1().Namespaces().Lister()
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
 
 	kmc := &KmeshManageController{
 		informerFactory:   informerFactory,

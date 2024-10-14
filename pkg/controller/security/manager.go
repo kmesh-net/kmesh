@@ -60,7 +60,7 @@ type SecretManager struct {
 	certsCache *certsCache
 
 	// certs rotation priority queue based on exp
-	certsRotateQueue workqueue.DelayingInterface
+	certsRotateQueue workqueue.TypedDelayingInterface[any]
 
 	certRequestChan chan certRequest
 }
@@ -166,7 +166,7 @@ func NewSecretManager() (*SecretManager, error) {
 		caClient:         caClient,
 		configOptions:    options,
 		certsCache:       newCertCache(),
-		certsRotateQueue: workqueue.NewDelayingQueue(),
+		certsRotateQueue: workqueue.TypedNewDelayingQueue[any](),
 		certRequestChan:  make(chan certRequest, maxConcurrentCSR),
 	}
 	return &secretManager, nil
