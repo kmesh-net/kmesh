@@ -80,10 +80,12 @@ func Execute(configs *options.BootstrapConfigs) error {
 	}
 
 	bpfLoader := bpf.NewBpfLoader(configs.BpfConfig)
+	// there could be a case that bpf loader partially start failed, we still need to stop it, otherwise it cannot recover
+	// https://github.com/kmesh-net/kmesh/issues/951
+	defer bpfLoader.Stop()
 	if err := bpfLoader.Start(); err != nil {
 		return err
 	}
-	defer bpfLoader.Stop()
 	log.Info("bpf loader start successfully")
 
 	stopCh := make(chan struct{})
