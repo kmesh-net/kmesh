@@ -61,6 +61,10 @@ func ShouldEnroll(pod *corev1.Pod, ns *corev1.Namespace) bool {
 		if strings.EqualFold(podMode, constants.DataPlaneModeKmesh) {
 			return true
 		}
+
+		if podMode == "none" {
+			return false
+		}
 	}
 
 	// If namespace is not nil, check the namespace's label
@@ -69,10 +73,11 @@ func ShouldEnroll(pod *corev1.Pod, ns *corev1.Namespace) bool {
 		nsMode = ns.Labels[constants.DataPlaneModeLabel]
 	}
 
-	// Check if ns label contains istio.io/dataplane-mode: kmesh, but pod is not excluded
-	if strings.EqualFold(nsMode, constants.DataPlaneModeKmesh) && (pod == nil || pod.Labels[constants.DataPlaneModeLabel] != "none") {
+	// Check if ns label contains istio.io/dataplane-mode: kmesh
+	if strings.EqualFold(nsMode, constants.DataPlaneModeKmesh) {
 		return true
 	}
+
 	return false
 }
 
