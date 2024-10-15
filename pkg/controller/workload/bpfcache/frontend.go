@@ -17,6 +17,8 @@
 package bpfcache
 
 import (
+	"errors"
+
 	"github.com/cilium/ebpf"
 )
 
@@ -30,14 +32,16 @@ type FrontendValue struct {
 
 func (c *Cache) FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendUpdate [%#v], [%#v]", *key, *value)
-	return c.bpfMap.KmeshFrontend.
-		Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmeshFrontend.Update(key, value, ebpf.UpdateAny)
 }
 
 func (c *Cache) FrontendDelete(key *FrontendKey) error {
 	log.Debugf("FrontendDelete [%#v]", *key)
-	return c.bpfMap.KmeshFrontend.
-		Delete(key)
+	err := c.bpfMap.KmeshFrontend.Delete(key)
+	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
+		return nil
+	}
+	return err
 }
 
 func (c *Cache) FrontendLookup(key *FrontendKey, value *FrontendValue) error {
