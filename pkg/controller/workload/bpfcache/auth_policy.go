@@ -35,7 +35,11 @@ func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicyKey, value *WorkloadPoli
 
 func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicyKey) error {
 	log.Debugf("workload policy delete: [%#v]", *key)
-	return c.bpfMap.MapOfWlPolicy.Delete(key)
+	err := c.bpfMap.MapOfWlPolicy.Delete(key)
+	if err != nil && err == ebpf.ErrKeyNotExist {
+		return nil
+	}
+	return err
 }
 
 func (c *Cache) WorkloadPolicyLookup(key *WorkloadPolicyKey, value *WorkloadPolicyValue) error {

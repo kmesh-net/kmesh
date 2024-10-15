@@ -55,7 +55,11 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 		delete(c.endpointKeys, value.BackendUid)
 	}
 
-	return c.bpfMap.KmeshEndpoint.Delete(key)
+	err := c.bpfMap.KmeshEndpoint.Delete(key)
+	if err != nil && err == ebpf.ErrKeyNotExist {
+		return nil
+	}
+	return err
 }
 
 // EndpointSwap update the last endpoint index and remove the current endpoint

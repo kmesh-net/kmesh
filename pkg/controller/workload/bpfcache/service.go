@@ -47,7 +47,11 @@ func (c *Cache) ServiceUpdate(key *ServiceKey, value *ServiceValue) error {
 
 func (c *Cache) ServiceDelete(key *ServiceKey) error {
 	log.Debugf("ServiceDelete [%#v]", *key)
-	return c.bpfMap.KmeshService.Delete(key)
+	err := c.bpfMap.KmeshService.Delete(key)
+	if err != nil && err == ebpf.ErrKeyNotExist {
+		return nil
+	}
+	return err
 }
 
 func (c *Cache) ServiceLookup(key *ServiceKey, value *ServiceValue) error {
