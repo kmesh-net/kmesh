@@ -17,6 +17,8 @@
 package bpfcache
 
 import (
+	"errors"
+
 	"github.com/cilium/ebpf"
 )
 
@@ -36,7 +38,7 @@ func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicyKey, value *WorkloadPoli
 func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicyKey) error {
 	log.Debugf("workload policy delete: [%#v]", *key)
 	err := c.bpfMap.MapOfWlPolicy.Delete(key)
-	if err != nil && err == ebpf.ErrKeyNotExist {
+	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
 	return err

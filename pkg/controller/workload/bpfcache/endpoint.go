@@ -17,6 +17,8 @@
 package bpfcache
 
 import (
+	"errors"
+
 	"github.com/cilium/ebpf"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -56,7 +58,7 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 	}
 
 	err := c.bpfMap.KmeshEndpoint.Delete(key)
-	if err != nil && err == ebpf.ErrKeyNotExist {
+	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
 	return err

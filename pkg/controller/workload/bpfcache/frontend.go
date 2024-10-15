@@ -17,6 +17,8 @@
 package bpfcache
 
 import (
+	"errors"
+
 	"github.com/cilium/ebpf"
 )
 
@@ -36,7 +38,7 @@ func (c *Cache) FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
 func (c *Cache) FrontendDelete(key *FrontendKey) error {
 	log.Debugf("FrontendDelete [%#v]", *key)
 	err := c.bpfMap.KmeshFrontend.Delete(key)
-	if err != nil && err == ebpf.ErrKeyNotExist {
+	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
 	return err

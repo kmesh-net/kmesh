@@ -114,6 +114,7 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	}
 }
 
+// TODO: optimize me by passing workload ip directly
 func (p *Processor) deletePodFrontendData(uid uint32) error {
 	var (
 		bk = bpf.BackendKey{}
