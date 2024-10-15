@@ -502,7 +502,7 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 		expectDisManaged bool
 	}{
 		{
-			name: "1. ns add without label",
+			name: "1. default ns add without label, pod without label",
 			args: args{
 				namespace: nsWithoutLabel,
 				pod:       podWithoutLabel,
@@ -512,7 +512,7 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 			expectDisManaged: false,
 		},
 		{
-			name: "2. ns update with label",
+			name: "1.1. default ns update with label, pod without label",
 			args: args{
 				namespace: nsWithLabel,
 				pod:       podWithoutLabel,
@@ -522,7 +522,7 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 			expectDisManaged: false,
 		},
 		{
-			name: "3. ns update without label",
+			name: "1.2. default ns update without label, pod without label",
 			args: args{
 				namespace: nsWithoutLabel,
 				pod:       podWithoutLabel,
@@ -530,6 +530,36 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 			},
 			expectManaged:    false,
 			expectDisManaged: true,
+		},
+		{
+			name: "2. foo ns add without label, pod with none label",
+			args: args{
+				namespace: nsObject("foo", false),
+				pod:       podObject("pod", "foo", "none"),
+				create:    true,
+			},
+			expectManaged:    false,
+			expectDisManaged: false,
+		},
+		{
+			name: "2.1. foo ns update with label, pod with none label",
+			args: args{
+				namespace: nsObject("foo", true),
+				pod:       podObject("pod", "foo", "none"),
+				update:    true,
+			},
+			expectManaged:    false,
+			expectDisManaged: false,
+		},
+		{
+			name: "2.2. foo ns update without label, pod with none label",
+			args: args{
+				namespace: nsObject("foo", false),
+				pod:       podObject("pod", "foo", "none"),
+				update:    true,
+			},
+			expectManaged:    false,
+			expectDisManaged: false,
 		},
 	}
 	for _, tt := range tests {
@@ -560,6 +590,46 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 			waitAndCheckManageAction(t, &enabled, &disabled, tt.expectManaged, tt.expectDisManaged)
 		})
 	}
+}
+
+func nsObject(name string, managed bool) *corev1.Namespace {
+	ns := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Namespace",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+	}
+
+	if managed {
+		ns.Labels = map[string]string{constants.DataPlaneModeLabel: constants.DataPlaneModeKmesh}
+	}
+
+	return ns
+}
+
+func podObject(name string, namespace string, dataplaneLabel string) *corev1.Pod {
+	pod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Pod",
+			APIVersion: "v1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      name,
+		},
+		Spec: corev1.PodSpec{
+			NodeName: "test-node",
+		},
+	}
+
+	if dataplaneLabel != "" {
+		pod.Labels = map[string]string{constants.DataPlaneModeLabel: dataplaneLabel}
+	}
+
+	return pod
 }
 
 func newTextXdpProg(t *testing.T, name string) *ebpf.Program {
