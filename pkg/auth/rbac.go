@@ -98,19 +98,20 @@ func NewRbac(workloadCache cache.WorkloadCache) *Rbac {
 }
 
 func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
-	if r == nil || mapOfTuple == nil {
-		log.Error("r or mapOfTuple is nil")
+	if r == nil {
+		return
+	}
+	if mapOfTuple == nil || mapOfAuth == nil {
+		log.Error("mapOfTuple or mapOfAuth is nil")
 		return
 	}
 	reader, err := ringbuf.NewReader(mapOfTuple)
 	if err != nil {
-		log.Error("open ringbuf map FAILED, err: ", err)
+		log.Errorf("open mapOfTuple ringbuf err: %v", err)
 		return
 	}
 	defer func() {
-		if err := reader.Close(); err != nil {
-			log.Error("reader Close FAILED, err: ", err)
-		}
+		_ = reader.Close()
 	}()
 
 	rec := ringbuf.Record{}
@@ -121,7 +122,7 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 			return
 		default:
 			if err = reader.ReadInto(&rec); err != nil {
-				log.Error("ringbuf reader FAILED to read, err: ", err)
+				log.Errorf("mapOfTuple read failed: %v", err)
 				continue
 			}
 			if len(rec.RawSample) != MSG_LEN {
@@ -146,7 +147,7 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 			}
 
 			if !r.doRbac(&conn) {
-				log.Infof("Auth denied for connection: %+v", conn)
+				log.Debugf("Auth denied for connection: %+v", conn)
 				// If conn is denied, write tuples into XDP map, which includes source/destination IP/Port
 				if err = r.notifyFunc(mapOfAuth, msgType, tupleData); err != nil {
 					log.Error("authmap update FAILED, err: ", err)
@@ -179,7 +180,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	dstWorkload := r.workloadCache.GetWorkloadByAddr(networkAddress)
 	// If no workload found, deny
 	if dstWorkload == nil {
-		log.Warnf("Auth denied for connection: %v because destination workload not found", conn.dstIp)
+		log.Debugf("denied for connection: %v because destination workload not found", conn)
 		return false
 	}
 
