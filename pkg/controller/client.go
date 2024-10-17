@@ -23,7 +23,6 @@ import (
 
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
-	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
@@ -123,19 +122,11 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 			}
 
 			if c.mode == constants.KernelNativeMode {
-				if err = c.AdsController.HandleAdsStream(); err != nil {
-					_ = c.grpcConn.Close()
-					reconnect = true
-					continue
-				}
+				err = c.AdsController.HandleAdsStream()
 			} else if c.mode == constants.DualEngineMode {
-				if err = c.WorkloadController.HandleWorkloadStream(); err != nil {
-					_ = c.grpcConn.Close()
-					reconnect = true
-					continue
-				}
+				err = c.WorkloadController.HandleWorkloadStream()
 			}
-			if err != nil && !istiogrpc.IsExpectedGRPCError(err) {
+			if err != nil {
 				_ = c.grpcConn.Close()
 				reconnect = true
 			}

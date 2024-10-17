@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"testing"
 
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
@@ -104,7 +105,7 @@ func TestManageWorkloadsDataplaneNone(t *testing.T) {
 
 func enrollWorkloadsOrFail(t framework.TestContext, ns string, workloads echo.Workloads) {
 	for _, workload := range workloads {
-		err := setPodLabel(t, ns, workload.PodName(), constants.DataplaneModeLabel, DataplaneModeKmesh)
+		err := setPodLabel(t, ns, workload.PodName(), label.IoIstioDataplaneMode.Name, DataplaneModeKmesh)
 		if err != nil {
 			t.Fatalf("failed to enroll workload %s/%s: %v", ns, workload.PodName(), err)
 		}
@@ -113,7 +114,7 @@ func enrollWorkloadsOrFail(t framework.TestContext, ns string, workloads echo.Wo
 
 func enrollWorkloadsInManagedNsOrFail(t framework.TestContext, ns string, workloads echo.Workloads) {
 	for _, workload := range workloads {
-		err := setPodLabel(t, ns, workload.PodName(), constants.DataplaneModeLabel, "null")
+		err := setPodLabel(t, ns, workload.PodName(), label.IoIstioDataplaneMode.Name, "null")
 		if err != nil {
 			t.Fatalf("failed to enroll workload %s/%s in managed ns: %v", ns, workload.PodName(), err)
 		}
@@ -122,7 +123,7 @@ func enrollWorkloadsInManagedNsOrFail(t framework.TestContext, ns string, worklo
 
 func unenrollWorkloadsOrFail(t framework.TestContext, ns string, workloads echo.Workloads) {
 	for _, workload := range workloads {
-		err := setPodLabel(t, ns, workload.PodName(), constants.DataplaneModeLabel, constants.DataplaneModeNone)
+		err := setPodLabel(t, ns, workload.PodName(), label.IoIstioDataplaneMode.Name, constants.DataplaneModeNone)
 		if err != nil {
 			t.Fatalf("failed to unenroll workload %s/%s: %v", ns, workload.PodName(), err)
 		}
@@ -167,7 +168,7 @@ func TestCrossNamespace(t *testing.T) {
 					{
 						Replicas: 1,
 						Labels: map[string]string{
-							constants.DataplaneModeLabel: DataplaneModeKmesh,
+							label.IoIstioDataplaneMode.Name: DataplaneModeKmesh,
 						},
 					},
 				},
@@ -251,13 +252,13 @@ func TestCrossNamespace(t *testing.T) {
 }
 
 func enrollNamespaceOrFail(t framework.TestContext, ns string) {
-	if err := setNamespaceLabel(t, ns, constants.DataplaneModeLabel, DataplaneModeKmesh); err != nil {
+	if err := setNamespaceLabel(t, ns, label.IoIstioDataplaneMode.Name, DataplaneModeKmesh); err != nil {
 		t.Fatalf("failed to enroll namespace %s: %v", ns, err)
 	}
 }
 
 func unenrollNamespaceOrFail(t framework.TestContext, ns string) {
-	if err := setNamespaceLabel(t, ns, constants.DataplaneModeLabel, constants.DataplaneModeNone); err != nil {
+	if err := setNamespaceLabel(t, ns, label.IoIstioDataplaneMode.Name, constants.DataplaneModeNone); err != nil {
 		t.Fatalf("failed to enroll namespace %s: %v", ns, err)
 	}
 }
