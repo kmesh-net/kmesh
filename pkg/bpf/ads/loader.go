@@ -75,7 +75,7 @@ func (sc *BpfAds) Start() error {
 }
 
 func (sc *BpfAds) GetBpfLogLevelMap() *ebpf.Map {
-	return sc.SockConn.ConstantMap
+	return sc.SockConn.BpfConfigMap
 }
 
 func (sc *BpfAds) Stop() error {
