@@ -103,8 +103,8 @@ func (w *BpfWorkload) Stop() error {
 	return w.Detach()
 }
 
-func (w *BpfWorkload) GetBpfLogLevelMap() *ebpf.Map {
-	return w.SockConn.ConstantMap
+func (w *BpfWorkload) GetBpfConfigMap() *ebpf.Map {
+	return w.SockConn.BpfConfigMap
 }
 
 func (w *BpfWorkload) Load() error {

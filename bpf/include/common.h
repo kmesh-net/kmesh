@@ -131,6 +131,13 @@ struct {
     __type(value, struct buf);
 } tmp_buf SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+} bpf_config_map SEC(".maps");
+
 #if KERNEL_VERSION_HIGHER_5_13_0
 static inline int convert_v4(char *data, __u32 *ip)
 {
