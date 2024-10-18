@@ -104,7 +104,7 @@ func (w *BpfWorkload) Stop() error {
 }
 
 func (w *BpfWorkload) GetBpfLogLevelMap() *ebpf.Map {
-	return w.SockConn.BpfLogLevel
+	return w.SockConn.BpfConfigMap
 }
 
 func (w *BpfWorkload) Load() error {
