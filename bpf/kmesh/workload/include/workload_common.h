@@ -22,6 +22,8 @@
 // loadbalance type
 typedef enum {
     LB_POLICY_RANDOM = 0,
+    LB_POLICY_STRICT = 1,
+    LB_POLICY_FAILOVER = 2,
 } lb_policy_t;
 
 #pragma pack(1)
