@@ -17,6 +17,8 @@
 package bpfcache
 
 import (
+	"sync"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
@@ -73,11 +75,11 @@ func (l *localityInfo) IsSet(param uint32) bool {
 }
 
 type LocalityCache struct {
-	LbPolicy               uint32
+	mutex                  sync.RWMutex
 	localityInfo           localityInfo
-	LbStrictPrio           uint32 // for failover strict mode
 	isLocalityInfoSet      bool
 	RoutingPreference      []workloadapi.LoadBalancing_Scope
+	routePreferenceCount   uint32
 	isRoutingPreferenceSet bool
 	workloadWaitQueue      map[*workloadapi.Workload]struct{}
 }
@@ -108,8 +110,8 @@ func (l *LocalityCache) SetRoutingPreference(s []workloadapi.LoadBalancing_Scope
 	// notice: s should set by lb.GetRoutingPreference()
 	if len(s) > 0 {
 		l.RoutingPreference = s
-		l.LbStrictPrio = uint32(MinPrio - len(s))
 		l.isRoutingPreferenceSet = true
+		l.routePreferenceCount = uint32(len(s))
 	}
 }
 
@@ -154,17 +156,23 @@ func (l *LocalityCache) CalcuLocalityLBPrio(wl *workloadapi.Workload) uint32 {
 			}
 		}
 	}
-	return MinPrio - rank
+	return l.routePreferenceCount - rank
 }
 
 func (l *LocalityCache) SaveToWaitQueue(wl *workloadapi.Workload) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 	l.workloadWaitQueue[wl] = struct{}{}
 }
 
 func (l *LocalityCache) DelWorkloadFromWaitQueue(wl *workloadapi.Workload) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 	delete(l.workloadWaitQueue, wl)
 }
 
 func (l *LocalityCache) GetFromWaitQueue() map[*workloadapi.Workload]struct{} {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
 	return l.workloadWaitQueue
 }

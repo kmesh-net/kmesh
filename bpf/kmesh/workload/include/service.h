@@ -19,10 +19,13 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
     endpoint_value *endpoint_v = NULL;
     int rand_k = 0;
 
-    endpoint_k.service_id = service_id;
-    endpoint_k.prio = MIN_PRIO; // for random handle，all endpoints are saved in MIN_PRIO
+    if (service_v->prio_endpoint_count[0] == 0)
+        return 0;
 
-    rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[MIN_PRIO] + 1;
+    endpoint_k.service_id = service_id;
+    endpoint_k.prio = 0; // for random handle，all endpoints are saved in max priority
+
+    rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[0] + 1;
     endpoint_k.backend_index = rand_k;
 
     endpoint_v = map_lookup_endpoint(&endpoint_k);
@@ -49,6 +52,8 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
     endpoint_key endpoint_k = {0};
     endpoint_value *endpoint_v = NULL;
     endpoint_k.service_id = service_id;
+    struct ip_addr zero_addr = {0};
+    __u32 zero_port = 0;
 
     // #pragma unroll
     for (int match_prio = 0; match_prio < PRIO_COUNT; match_prio++) {
@@ -72,9 +77,13 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
                     BPF_LOG(ERR, SERVICE, "endpoint_manager failed, ret:%d\n", ret);
                 return ret;
             }
+            BPF_LOG(DEBUG, SERVICE, "locality loadbalance matched backend_uid %d\n", endpoint_v->backend_uid);
             return 0; // find the backend successfully
         }
-        if (is_strict && match_prio == service_v->lb_strict_prio) { // only match lb strict index
+        if (is_strict) { // only match max priority in strict mode
+            kmesh_ctx->dnat_ip = zero_addr;
+            kmesh_ctx->dnat_port = zero_port;
+            BPF_LOG(DEBUG, SERVICE, "locality loadbalance match nothing in STRICT mode\n");
             return -ENOENT;
         }
     }

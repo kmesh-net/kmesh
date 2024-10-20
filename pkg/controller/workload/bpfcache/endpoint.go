@@ -22,7 +22,6 @@ import (
 )
 
 const (
-	MinPrio   = 6
 	PrioCount = 7
 )
 
