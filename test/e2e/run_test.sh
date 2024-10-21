@@ -15,6 +15,12 @@ export KMESH_WAYPOINT_IMAGE=${KMESH_WAYPOINT_IMAGE:-"ghcr.io/kmesh-net/waypoint:
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
 
+TMP="$(mktemp -d)"
+TMPBIN="$TMP/bin"
+mkdir -p "${TMPBIN}"
+
+export PATH="$PATH:$TMPBIN"
+
 # Provision a kind clustr for testing.
 function setup_kind_cluster() {
     local NAME="${1:-kmesh-testing}"
@@ -184,7 +190,7 @@ function install_dependencies() {
     # 3. Install istioctl
     curl -L https://istio.io/downloadIstio | ISTIO_VERSION=${ISTIO_VERSION} TARGET_ARCH=x86_64 sh -
 
-    cp istio-${ISTIO_VERSION}/bin/istioctl /usr/local/bin/
+    cp istio-${ISTIO_VERSION}/bin/istioctl $TMPBIN
 
     rm -rf istio-${ISTIO_VERSION}
 }
