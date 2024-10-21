@@ -116,7 +116,7 @@ func (l *LocalityCache) SetRoutingPreference(s []workloadapi.LoadBalancing_Scope
 	}
 }
 
-func (l *LocalityCache) CanLocalityLB() bool {
+func (l *LocalityCache) IsLocalityInfoSet() bool {
 	log.Debugf("isLocalityInfoSet: %#v, isRoutingPreferenceSet: %#v", l.isLocalityInfoSet, l.isRoutingPreferenceSet)
 	return l.isLocalityInfoSet && l.isRoutingPreferenceSet
 }

@@ -358,7 +358,7 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 					return err
 				}
 			} else { // locality mode
-				if p.locality.CanLocalityLB() {
+				if p.locality.IsLocalityInfoSet() {
 					prio := p.locality.CalcuLocalityLBPrio(workload)
 					if err, _ = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
 						log.Errorf("addWorkloadToService workload %d service %d priority %d failed: %v", workloadId, sk.ServiceId, prio, err)
@@ -426,7 +426,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
 
 	// update kmesh localityCache
-	if p.nodeName == workload.GetNode() {
+	if !p.locality.IsLocalityInfoSet() && p.nodeName == workload.GetNode() { // todo
 		p.locality.SetLocality(p.nodeName, workload.GetClusterId(), workload.GetNetwork(), workload.GetLocality())
 	}
 
@@ -611,7 +611,7 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 			}
 			return nil
 		}
-	} else { // nomal update
+	} else { // normal update
 		if err = p.bpf.ServiceUpdate(&sk, &newValue); err != nil {
 			log.Errorf("Update Service failed, err:%s", err)
 		}
@@ -861,7 +861,7 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 				return err
 			}
 
-			// update BackendIndex in backendIndexToEndpointKey after swaping endpoints
+			// update BackendIndex in backendIndexToEndpointKey after swapping endpoints
 			backendIndexToEndpointKey[sv.EndpointCount[ek.Prio]] = bpf.EndpointKey{BackendIndex: currentIndex, Prio: ek.Prio, ServiceId: ek.ServiceId}
 
 			sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1

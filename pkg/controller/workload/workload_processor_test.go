@@ -674,6 +674,32 @@ func serviceToAddress(service *workloadapi.Service) *workloadapi.Address {
 	}
 }
 
+func TestCalcuLocalityLbPrio(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	localityLBScope := make([]workloadapi.LoadBalancing_Scope, 0)
+	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_REGION)
+	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_ZONE)
+	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_SUBZONE)
+
+	p.locality.SetLocality(os.Getenv("NODE_NAME"), "", "", createLocality("r1", "z1", "s1"))
+	p.locality.SetRoutingPreference(localityLBScope)
+
+	wl1 := createWorkload("wl1", "10.244.0.1", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1") // prio 0
+	wl2 := createWorkload("wl2", "10.244.0.2", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s2"), "svc1") // prio 1
+	wl3 := createWorkload("wl3", "10.244.0.3", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z2", "s2"), "svc1") // prio 2
+	wl4 := createWorkload("wl4", "10.244.0.4", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r2", "z2", "s2"), "svc1") // prio 3
+	assert.Equal(t, uint32(0), p.locality.CalcuLocalityLBPrio(wl1))
+	assert.Equal(t, uint32(1), p.locality.CalcuLocalityLBPrio(wl2))
+	assert.Equal(t, uint32(2), p.locality.CalcuLocalityLBPrio(wl3))
+	assert.Equal(t, uint32(3), p.locality.CalcuLocalityLBPrio(wl4))
+
+	hashNameClean(p)
+}
+
 func TestLBPolicyUpdate(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
@@ -787,4 +813,6 @@ func TestLBPolicyUpdate(t *testing.T) {
 	t.Log("3. check endpoint map")
 	checkEndpointMap(t, p, randomSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
+
+	hashNameClean(p)
 }
