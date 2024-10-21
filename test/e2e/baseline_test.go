@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/shell"
@@ -908,4 +909,38 @@ func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, 
 		t.Fatalf("PromDiff expects Vector, got %v", v.Type())
 
 	}
+}
+
+func TestServiceRestart(t *testing.T) {
+	const callInterval = 100 * time.Millisecond
+	successThreshold := 1.0
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		for _, dst := range apps.EnrolledToKmesh {
+			generators := []traffic.Generator{}
+			mkGen := func(src echo.Caller) {
+				g := traffic.NewGenerator(t, traffic.Config{
+					Source: src,
+					Options: echo.CallOptions{
+						To:    dst,
+						Count: 1,
+						Check: check.OK(),
+						HTTP:  echo.HTTP{Path: "/?delay=10ms"},
+						Port: echo.Port{
+							Name: "http",
+						},
+						Retry: echo.Retry{NoRetry: true},
+					},
+					Interval: callInterval,
+				}).Start()
+				generators = append(generators, g)
+			}
+			mkGen(dst)
+			if err := dst.Restart(); err != nil {
+				t.Fatal(err)
+			}
+			for _, gen := range generators {
+				gen.Stop().CheckSuccessRate(t, successThreshold)
+			}
+		}
+	})
 }

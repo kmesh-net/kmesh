@@ -243,6 +243,10 @@ while (( "$#" )); do
       CLEANUP_REGISTRY=true
       shift
     ;;
+    --skip-cleanup-apps)
+      PARAMS+=("--istio.test.noCleanup")
+      shift
+    ;;
     *)
       PARAMS+=("$1")
       shift
@@ -286,4 +290,3 @@ fi
 if [[ -n "${CLEANUP_REGISTRY}" ]]; then
     cleanup_docker_registry
 fi
-# Draft
