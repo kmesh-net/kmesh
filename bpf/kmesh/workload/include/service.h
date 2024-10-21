@@ -23,7 +23,7 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
         return 0;
 
     endpoint_k.service_id = service_id;
-    endpoint_k.prio = 0; // for random handle，all endpoints are saved in max priority
+    endpoint_k.prio = 0; // for random handle，all endpoints are saved with highest priority
 
     rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[0] + 1;
     endpoint_k.backend_index = rand_k;

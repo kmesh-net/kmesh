@@ -75,23 +75,17 @@ func (l *localityInfo) IsSet(param uint32) bool {
 }
 
 type LocalityCache struct {
-	mutex                  sync.RWMutex
-	localityInfo           localityInfo
-	isLocalityInfoSet      bool
-	RoutingPreference      []workloadapi.LoadBalancing_Scope
-	routePreferenceCount   uint32
-	isRoutingPreferenceSet bool
-	workloadWaitQueue      map[string]struct{} // workload.GetUid()
+	mutex             sync.RWMutex
+	localityInfo      localityInfo
+	isLocalityInfoSet bool
+	workloadWaitQueue map[string]struct{} // workload.GetUid()
 }
 
 func NewLocalityCache() LocalityCache {
 	return LocalityCache{
-		localityInfo:           localityInfo{},
-		isLocalityInfoSet:      false,
-		RoutingPreference:      make([]workloadapi.LoadBalancing_Scope, 0),
-		routePreferenceCount:   0,
-		isRoutingPreferenceSet: false,
-		workloadWaitQueue:      make(map[string]struct{}),
+		localityInfo:      localityInfo{},
+		isLocalityInfoSet: false,
+		workloadWaitQueue: make(map[string]struct{}),
 	}
 }
 
@@ -107,23 +101,14 @@ func (l *LocalityCache) SetLocality(nodeName, clusterId, network string, localit
 	l.isLocalityInfoSet = true
 }
 
-func (l *LocalityCache) SetRoutingPreference(s []workloadapi.LoadBalancing_Scope) {
-	// notice: s should set by lb.GetRoutingPreference()
-	if len(s) > 0 {
-		l.RoutingPreference = s
-		l.isRoutingPreferenceSet = true
-		l.routePreferenceCount = uint32(len(s))
-	}
-}
-
 func (l *LocalityCache) IsLocalityInfoSet() bool {
-	log.Debugf("isLocalityInfoSet: %#v, isRoutingPreferenceSet: %#v", l.isLocalityInfoSet, l.isRoutingPreferenceSet)
-	return l.isLocalityInfoSet && l.isRoutingPreferenceSet
+	log.Debugf("isLocalityInfoSet: %#v", l.isLocalityInfoSet)
+	return l.isLocalityInfoSet
 }
 
-func (l *LocalityCache) CalcuLocalityLBPrio(wl *workloadapi.Workload) uint32 {
+func (l *LocalityCache) CalcuLocalityLBPrio(wl *workloadapi.Workload, rp []workloadapi.LoadBalancing_Scope) uint32 {
 	var rank uint32 = 0
-	for _, scope := range l.RoutingPreference {
+	for _, scope := range rp {
 		switch scope {
 		case workloadapi.LoadBalancing_REGION:
 			log.Debugf("l.localityInfo.IsSet(REGION) %#v, Valid(wl.GetLocality().GetRegion()) %#v, l.localityInfo.region %#v, wl.GetLocality().GetRegion() %#v", l.localityInfo.IsSet(REGION), Valid(wl.GetLocality().GetRegion()), l.localityInfo.region, wl.GetLocality().GetRegion())
@@ -157,7 +142,7 @@ func (l *LocalityCache) CalcuLocalityLBPrio(wl *workloadapi.Workload) uint32 {
 			}
 		}
 	}
-	return l.routePreferenceCount - rank
+	return uint32(len(rp)) - rank
 }
 
 func (l *LocalityCache) SaveToWaitQueue(wl *workloadapi.Workload) {

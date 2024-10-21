@@ -359,7 +359,8 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 				}
 			} else { // locality mode
 				if p.locality.IsLocalityInfoSet() {
-					prio := p.locality.CalcuLocalityLBPrio(workload)
+					service := p.ServiceCache.GetService(p.hashName.NumToStr(svcUid))
+					prio := p.locality.CalcuLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
 					if err, _ = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
 						log.Errorf("addWorkloadToService workload %d service %d priority %d failed: %v", workloadId, sk.ServiceId, prio, err)
 						return err
@@ -524,8 +525,9 @@ func (p *Processor) updateEndpoint(serviceId uint32, toLLb bool) error {
 	for _, uid := range backendUids {
 		// add new endpoint
 		if toLLb {
+			service := p.ServiceCache.GetService(p.hashName.NumToStr(serviceId))
 			workload := p.WorkloadCache.GetWorkloadByUid(p.hashName.NumToStr(uid))
-			prio = p.locality.CalcuLocalityLBPrio(workload)
+			prio = p.locality.CalcuLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
 		} else {
 			prio = 0 // to random
 		}
@@ -553,7 +555,6 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 
 	newValue := bpf.ServiceValue{}
 	newValue.LbPolicy = uint32(lb.GetMode()) // set loadbalance mode
-	p.locality.SetRoutingPreference(lb.GetRoutingPreference())
 
 	if waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&newValue.WaypointAddr, waypoint.GetAddress().Address)
@@ -716,11 +717,15 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		}
 	}
 
+	// Add new services associated with the workload
 	for wUid := range p.locality.GetFromWaitQueue() { // locality LB mode
 		workload := p.WorkloadCache.GetWorkloadByUid(wUid)
-		if err = p.handleWorkload(workload); err != nil {
-			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
+		_, newServices := p.compareWorkloadServices(workload)
+		if err := p.handleWorkloadNewBoundServices(workload, newServices); err != nil {
+			log.Errorf("handleWorkloadNewBoundServices %s failed: %v", workload.ResourceName(), err)
+			return err
 		}
+		p.locality.DelWorkloadFromWaitQueue(workload)
 	}
 
 	p.handleRemovedAddresses(rsp.RemovedResources)
