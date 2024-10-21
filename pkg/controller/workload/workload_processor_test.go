@@ -690,8 +690,8 @@ func TestLBPolicyUpdate(t *testing.T) {
 	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_REGION)
 	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_ZONE)
 	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_SUBZONE)
-	localityLoadBlanacing := createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, localityLBScope)
 	randomLoadBlanacing := createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0))
+	localityLoadBlanacing := createLoadBalancing(workloadapi.LoadBalancing_FAILOVER, localityLBScope)
 	randomSvc := createFakeService("svc1", "10.240.10.1", "10.240.10.200", randomLoadBlanacing)
 	llbSvc := createFakeService("svc1", "10.240.10.1", "10.240.10.200", localityLoadBlanacing)
 
@@ -706,6 +706,8 @@ func TestLBPolicyUpdate(t *testing.T) {
 	wl2 := createWorkload("wl2", "10.244.0.2", "other", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s2"), "svc1")                // prio 1
 	wl3 := createWorkload("wl3", "10.244.0.3", "other", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z2", "s2"), "svc1")                // prio 2
 	wl4 := createWorkload("wl4", "10.244.0.4", "other", workloadapi.NetworkMode_STANDARD, createLocality("r2", "z2", "s2"), "svc1")                // prio 3
+	backendUid := []uint32{p.hashName.Hash(wl1.GetUid()), p.hashName.Hash((wl2.GetUid())), p.hashName.Hash((wl3.GetUid())), p.hashName.Hash((wl4.GetUid()))}
+
 	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl3, wl4} {
 		addr := workloadToAddress(wl)
 		res1.Resources = append(res1.Resources, &service_discovery_v3.Resource{
@@ -722,8 +724,8 @@ func TestLBPolicyUpdate(t *testing.T) {
 	}
 
 	checkFrontEndMap(t, randomSvc.Addresses[0].Address, p)
+	assert.Equal(t, 5, p.bpf.FrontendCount())
 
-	assert.Equal(t, 4, p.bpf.FrontendCount())
 	// check service map
 	t.Log("1. check service map")
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 0, 4)
@@ -733,7 +735,8 @@ func TestLBPolicyUpdate(t *testing.T) {
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
 	t.Log("1. check endpoint map")
-	checkEndpointMap(t, p, randomSvc, []uint32{p.hashName.Hash(wl1.ResourceName()), p.hashName.Hash((wl2.ResourceName())), p.hashName.Hash((wl3.ResourceName())), p.hashName.Hash((wl4.ResourceName()))})
+
+	checkEndpointMap(t, p, randomSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 	// check backend map
 	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl3, wl4} {
@@ -750,7 +753,7 @@ func TestLBPolicyUpdate(t *testing.T) {
 	err = p.handleAddressTypeResponse(res2)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 4, p.bpf.FrontendCount())
+	assert.Equal(t, 5, p.bpf.FrontendCount())
 	// check service map
 	t.Log("2. check service map")
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 0, 1)
@@ -760,7 +763,7 @@ func TestLBPolicyUpdate(t *testing.T) {
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
 	t.Log("2. check endpoint map")
-	checkEndpointMap(t, p, llbSvc, []uint32{p.hashName.Hash(wl1.ResourceName()), p.hashName.Hash((wl2.ResourceName())), p.hashName.Hash((wl3.ResourceName())), p.hashName.Hash((wl4.ResourceName()))})
+	checkEndpointMap(t, p, llbSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 
 	// 3. Locality Loadbalance Update from random to locality LB
@@ -772,16 +775,16 @@ func TestLBPolicyUpdate(t *testing.T) {
 	err = p.handleAddressTypeResponse(res3)
 	assert.NoError(t, err)
 
-	assert.Equal(t, 4, p.bpf.FrontendCount())
+	assert.Equal(t, 5, p.bpf.FrontendCount())
 	// check service map
 	t.Log("3. check service map")
-	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 0, 4)
-	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 1, 0)
-	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 2, 0)
-	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 3, 0)
+	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 0, 4) // 4 1
+	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 1, 0) // 0 1
+	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 2, 0) // 0 1
+	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 3, 0) // 0 1
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
 	t.Log("3. check endpoint map")
-	checkEndpointMap(t, p, randomSvc, []uint32{p.hashName.Hash(wl1.ResourceName()), p.hashName.Hash((wl2.ResourceName())), p.hashName.Hash((wl3.ResourceName())), p.hashName.Hash((wl4.ResourceName()))})
+	checkEndpointMap(t, p, randomSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 }

@@ -27,37 +27,44 @@ type Endpoint struct {
 }
 
 type EndpointCache interface {
-	List(uint32) []Endpoint // Endpoint slice by ServiceId
-	AddEndpointToService(Endpoint)
-	DeleteEndpoint(Endpoint)
+	List(uint32) map[uint32]Endpoint // Endpoint slice by ServiceId
+	AddEndpointToService(Endpoint, uint32)
+	DeleteEndpoint(Endpoint, uint32)
+	DeleteEndpointByServiceId(uint32)
 }
 
 type endpointCache struct {
 	mutex sync.RWMutex
-	// keyed by namespace/hostname->service
-	endpointsByServiceId map[uint32]map[Endpoint]struct{} // we use backend
+	// map[serviceId][workloadId]
+	endpointsByServiceId map[uint32]map[uint32]Endpoint
 }
 
 func NewEndpointCache() *endpointCache {
 	return &endpointCache{
-		endpointsByServiceId: make(map[uint32]map[Endpoint]struct{}),
+		endpointsByServiceId: make(map[uint32]map[uint32]Endpoint),
 	}
 }
 
-func (s *endpointCache) AddEndpointToService(ep Endpoint) {
+func (s *endpointCache) AddEndpointToService(ep Endpoint, workloadId uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	tmp, ok := s.endpointsByServiceId[ep.ServiceId]
+	_, ok := s.endpointsByServiceId[ep.ServiceId]
 	if !ok {
-		tmp = make(map[Endpoint]struct{})
+		s.endpointsByServiceId[ep.ServiceId] = make(map[uint32]Endpoint)
 	}
-	tmp[ep] = struct{}{}
+	s.endpointsByServiceId[ep.ServiceId][workloadId] = ep
 }
 
-func (s *endpointCache) DeleteEndpoint(ep Endpoint) {
+func (s *endpointCache) DeleteEndpoint(ep Endpoint, workloadId uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	delete(s.endpointsByServiceId[ep.ServiceId], ep)
+	delete(s.endpointsByServiceId[ep.ServiceId], workloadId)
+}
+
+func (s *endpointCache) DeleteEndpointByServiceId(serviceId uint32) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	delete(s.endpointsByServiceId, serviceId)
 }
 
 func (s *endpointCache) RestoreEndpoint() {
@@ -65,13 +72,8 @@ func (s *endpointCache) RestoreEndpoint() {
 	// Todo
 }
 
-func (s *endpointCache) List(serviceId uint32) []Endpoint {
+func (s *endpointCache) List(serviceId uint32) map[uint32]Endpoint {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	out := make([]Endpoint, 0, len(s.endpointsByServiceId[serviceId]))
-	for ep := range s.endpointsByServiceId[serviceId] {
-		out = append(out, ep)
-	}
-
-	return out
+	return s.endpointsByServiceId[serviceId]
 }

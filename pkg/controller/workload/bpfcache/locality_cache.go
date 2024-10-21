@@ -81,16 +81,17 @@ type LocalityCache struct {
 	RoutingPreference      []workloadapi.LoadBalancing_Scope
 	routePreferenceCount   uint32
 	isRoutingPreferenceSet bool
-	workloadWaitQueue      map[*workloadapi.Workload]struct{}
+	workloadWaitQueue      map[string]struct{} // workload.GetUid()
 }
 
-func NewLocalityCache() *LocalityCache {
-	return &LocalityCache{
+func NewLocalityCache() LocalityCache {
+	return LocalityCache{
 		localityInfo:           localityInfo{},
 		isLocalityInfoSet:      false,
 		RoutingPreference:      make([]workloadapi.LoadBalancing_Scope, 0),
+		routePreferenceCount:   0,
 		isRoutingPreferenceSet: false,
-		workloadWaitQueue:      make(map[*workloadapi.Workload]struct{}),
+		workloadWaitQueue:      make(map[string]struct{}),
 	}
 }
 
@@ -122,34 +123,34 @@ func (l *LocalityCache) CanLocalityLB() bool {
 
 func (l *LocalityCache) CalcuLocalityLBPrio(wl *workloadapi.Workload) uint32 {
 	var rank uint32 = 0
-	for scope := range l.RoutingPreference {
+	for _, scope := range l.RoutingPreference {
 		switch scope {
-		case int(workloadapi.LoadBalancing_REGION):
+		case workloadapi.LoadBalancing_REGION:
 			log.Debugf("l.localityInfo.IsSet(REGION) %#v, Valid(wl.GetLocality().GetRegion()) %#v, l.localityInfo.region %#v, wl.GetLocality().GetRegion() %#v", l.localityInfo.IsSet(REGION), Valid(wl.GetLocality().GetRegion()), l.localityInfo.region, wl.GetLocality().GetRegion())
 			if l.localityInfo.IsSet(REGION) && Valid(wl.GetLocality().GetRegion()) && l.localityInfo.region == wl.GetLocality().GetRegion() {
 				rank++
 			}
-		case int(workloadapi.LoadBalancing_ZONE):
+		case workloadapi.LoadBalancing_ZONE:
 			log.Debugf("l.localityInfo.IsSet(ZONE) %#v, Valid(wl.GetLocality().GetZone()) %#v, l.localityInfo.zone %#v, wl.GetLocality().GetZone() %#v", l.localityInfo.IsSet(ZONE), Valid(wl.GetLocality().GetZone()), l.localityInfo.zone, wl.GetLocality().GetZone())
 			if l.localityInfo.IsSet(ZONE) && Valid(wl.GetLocality().GetZone()) && l.localityInfo.zone == wl.GetLocality().GetZone() {
 				rank++
 			}
-		case int(workloadapi.LoadBalancing_SUBZONE):
+		case workloadapi.LoadBalancing_SUBZONE:
 			log.Debugf("l.localityInfo.IsSet(SUBZONE) %#v, Valid(wl.GetLocality().GetSubzone()) %#v, l.localityInfo.subZone %#v, wl.GetLocality().GetSubzone() %#v", l.localityInfo.IsSet(SUBZONE), Valid(wl.GetLocality().GetSubzone()), l.localityInfo.subZone, wl.GetLocality().GetSubzone())
 			if l.localityInfo.IsSet(SUBZONE) && Valid(wl.GetLocality().GetSubzone()) && l.localityInfo.subZone == wl.GetLocality().GetSubzone() {
 				rank++
 			}
-		case int(workloadapi.LoadBalancing_NODE):
+		case workloadapi.LoadBalancing_NODE:
 			log.Debugf("l.localityInfo.IsSet(NODENAME) %#v, Valid(wl.GetNode()) %#v, l.localityInfo.nodeName %#v, wl.GetNode() %#v", l.localityInfo.IsSet(NODENAME), Valid(wl.GetNode()), l.localityInfo.nodeName, wl.GetNode())
 			if l.localityInfo.IsSet(NODENAME) && Valid(wl.GetNode()) && l.localityInfo.nodeName == wl.GetNode() {
 				rank++
 			}
-		case int(workloadapi.LoadBalancing_NETWORK):
+		case workloadapi.LoadBalancing_NETWORK:
 			log.Debugf("l.localityInfo.IsSet(NETWORK) %#v, Valid(wl.GetNetwork()) %#v, l.localityInfo.network %#v, wl.GetNetwork() %#v", l.localityInfo.IsSet(NETWORK), Valid(wl.GetNetwork()), l.localityInfo.network, wl.GetNetwork())
 			if l.localityInfo.IsSet(NETWORK) && Valid(wl.GetNetwork()) && l.localityInfo.network == wl.GetNetwork() {
 				rank++
 			}
-		case int(workloadapi.LoadBalancing_CLUSTER):
+		case workloadapi.LoadBalancing_CLUSTER:
 			log.Debugf("l.localityInfo.IsSet(CLUSTERID) %#v, Valid(wl.GetClusterId()) %#v, l.localityInfo.clusterId %#v, wl.GetClusterId() %#v", l.localityInfo.IsSet(CLUSTERID), Valid(wl.GetClusterId()), l.localityInfo.clusterId, wl.GetClusterId())
 			if l.localityInfo.IsSet(CLUSTERID) && Valid(wl.GetClusterId()) && l.localityInfo.clusterId == wl.GetClusterId() {
 				rank++
@@ -162,16 +163,16 @@ func (l *LocalityCache) CalcuLocalityLBPrio(wl *workloadapi.Workload) uint32 {
 func (l *LocalityCache) SaveToWaitQueue(wl *workloadapi.Workload) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
-	l.workloadWaitQueue[wl] = struct{}{}
+	l.workloadWaitQueue[wl.Uid] = struct{}{}
 }
 
 func (l *LocalityCache) DelWorkloadFromWaitQueue(wl *workloadapi.Workload) {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
-	delete(l.workloadWaitQueue, wl)
+	delete(l.workloadWaitQueue, wl.Uid)
 }
 
-func (l *LocalityCache) GetFromWaitQueue() map[*workloadapi.Workload]struct{} {
+func (l *LocalityCache) GetFromWaitQueue() map[string]struct{} {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 	return l.workloadWaitQueue
