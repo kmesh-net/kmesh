@@ -80,6 +80,8 @@ issues:
   exclude-files:
     - ".*\\.pb\\.go"
     - ".*\\.gen\\.go"
+    - ".*_bpfeb\\.go"
+    - ".*_bpfel\\.go"
   exclude-rules:
     # Exclude some linters from running on test files.
     - path: _test\.go$|^tests/|^samples/

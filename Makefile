@@ -72,21 +72,22 @@ TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	bpf/kmesh/ads/include/config.h \
 	bpf/include/bpf_helper_defs_ext.h \
 
-.PHONY: all data daemon
-all: data controller
+.PHONY: all kmesh-bpf kmesh-ko all-binary
+all: kmesh-bpf kmesh-ko all-binary
 
-data:
+kmesh-bpf:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 
 	$(QUIET) make -C api/v2-c
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
 	
 	$(QUIET) $(GO) generate bpf/kmesh/bpf2go/bpf2go.go
-
+kmesh-ko:
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
 
-controller:
+all-binary:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
@@ -114,6 +115,10 @@ kmeshctl:
 gen-proto:
 	$(QUIET) make -C api gen-proto
 
+.PHONY: gen-bpf2go
+gen-bpf2go:
+	hack/gen_bpf2go.sh
+
 .PHONY: tidy
 tidy:
 	go mod tidy
@@ -121,6 +126,7 @@ tidy:
 .PHONY: gen
 gen: tidy\
 	gen-proto \
+	gen-bpf2go \
 	format
 
 .PHONY: gen-check
