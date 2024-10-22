@@ -42,6 +42,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/shell"
@@ -908,4 +910,60 @@ func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, 
 		t.Fatalf("PromDiff expects Vector, got %v", v.Type())
 
 	}
+}
+
+func TestIngress(t *testing.T) {
+	runIngressTest(t, func(t framework.TestContext, src ingress.Instance, dst echo.Instance, opt echo.CallOptions) {
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+		src.CallOrFail(t, opt)
+	})
+}
+
+func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.Instance, dst echo.Instance, opt echo.CallOptions)) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		svcs := apps.All
+		for _, dst := range svcs {
+			t.NewSubTestf("to %v", dst.Config().Service).Run(func(t framework.TestContext) {
+				dst := dst
+				opt := echo.CallOptions{
+					Port:    echo.Port{Name: "http"},
+					Scheme:  scheme.HTTP,
+					Count:   5,
+					Timeout: time.Second * 2,
+					Check:   check.OK(),
+					To:      dst,
+				}
+				f(t, istio.DefaultIngressOrFail(t, t), dst, opt)
+			})
+		}
+	})
 }
