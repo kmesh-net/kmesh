@@ -320,7 +320,8 @@ func (p *processor) Reset() {
 		return
 	}
 	p.lastNonce = &lastNonce{}
-	p.Cache = NewAdsCache()
+	p.Cache.routeNames = nil
+	p.Cache.edsClusterNames = nil
 }
 
 func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {
