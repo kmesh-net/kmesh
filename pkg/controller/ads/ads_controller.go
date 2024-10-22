@@ -64,7 +64,7 @@ func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 		stopCh:       make(chan struct{}),
 	}
 
-	c.Processor = newProcessor()
+	c.Processor.Reset()
 	if err := stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
