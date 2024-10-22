@@ -320,6 +320,7 @@ func (p *processor) Reset() {
 		return
 	}
 	p.lastNonce = &lastNonce{}
+	p.Cache = NewAdsCache()
 }
 
 func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {
