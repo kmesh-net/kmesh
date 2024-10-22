@@ -292,3 +292,5 @@ fi
 if [[ -n "${CLEANUP_REGISTRY}" ]]; then
     cleanup_docker_registry
 fi
+
+rm -rf "${TMP}"
