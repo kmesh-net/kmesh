@@ -285,7 +285,7 @@ static int bpf_get_map_id_by_fd(int map_fd)
 
     int ret = bpf_obj_get_info_by_fd(map_fd, &info, &info_len);
     if (ret < 0) {
-        LOG_ERR("bpf_obj_get_info_by_fd failed, map_fd:%d ret:%d ERRNO:%d", map_fd, ret, errno);
+        LOG_ERR("bpf_obj_get_info_by_fd failed, map_fd:%d ret:%d ERRNO:%d\n", map_fd, ret, errno);
         return ret;
     }
     return info.id;
@@ -1616,7 +1616,10 @@ void inner_map_batch_delete()
 void deserial_uninit(bool persist)
 {
     if (persist)
-        inner_map_mng_persist();
+        if (inner_map_mng_persist() < 0) {
+            LOG_ERR("inner_map_mng_persist failed\n");
+            remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
+        }
     else
         remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
 
@@ -1758,7 +1761,11 @@ int inner_map_mng_persist()
     kernel will convert it into a bpf_map pointer for storage, so it will
     not be affected.*/
     for (i = 0; i <= g_inner_map_mng.max_allocated_idx; i++) {
-        p->inner_map_stat[i].map_fd = bpf_get_map_id_by_fd(g_inner_map_mng.inner_maps[i].map_fd);
+        int map_fd = bpf_get_map_id_by_fd(g_inner_map_mng.inner_maps[i].map_fd);
+        if (map_fd < 0) {
+            return map_fd;
+        }
+        p->inner_map_stat[i].map_fd = map_fd;
         p->inner_map_stat[i].used = g_inner_map_mng.inner_maps[i].used;
         p->inner_map_stat[i].allocated = g_inner_map_mng.inner_maps[i].allocated;
     }
