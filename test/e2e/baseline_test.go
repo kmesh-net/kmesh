@@ -928,13 +928,12 @@ func TestServiceRestart(t *testing.T) {
 						Port: echo.Port{
 							Name: "http",
 						},
-						Retry: echo.Retry{NoRetry: true},
 					},
 					Interval: callInterval,
 				}).Start()
 				generators = append(generators, g)
 			}
-			mkGen(dst)
+			mkGen(apps.ServiceWithWaypointAtServiceGranularity[0])
 			if err := dst.Restart(); err != nil {
 				t.Fatal(err)
 			}
