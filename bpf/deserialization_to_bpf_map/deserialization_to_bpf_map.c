@@ -1613,15 +1613,11 @@ void inner_map_batch_delete()
     return;
 }
 
-void deserial_uninit(bool persist)
+int deserial_uninit(bool persist)
 {
+    int ret = 0;
     if (persist)
-        if (inner_map_mng_persist() < 0) {
-            LOG_ERR("inner_map_mng_persist failed\n");
-            remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
-        }
-    else
-        remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
+        ret = inner_map_mng_persist();
 
     for (int i = 1; i <= g_inner_map_mng.max_allocated_idx; i++) {
         g_inner_map_mng.inner_maps[i].allocated = 0;
@@ -1639,7 +1635,9 @@ void deserial_uninit(bool persist)
 
     close(g_inner_map_mng.inner_fd);
     close(g_inner_map_mng.outter_fd);
-    return;
+    if (!persist || ret < 0)
+        remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
+    return ret;
 }
 
 int inner_map_scaleup()
