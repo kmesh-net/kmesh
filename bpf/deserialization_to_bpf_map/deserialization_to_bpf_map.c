@@ -1616,6 +1616,7 @@ void inner_map_batch_delete()
 int deserial_uninit(bool persist)
 {
     int ret = 0;
+    remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
     if (persist)
         ret = inner_map_mng_persist();
 
@@ -1635,8 +1636,6 @@ int deserial_uninit(bool persist)
 
     close(g_inner_map_mng.inner_fd);
     close(g_inner_map_mng.outter_fd);
-    if (!persist || ret < 0)
-        remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
     return ret;
 }
 
@@ -1730,7 +1729,7 @@ int inner_map_elastic_scaling()
 
 int inner_map_mng_persist()
 {
-    int i, size;
+    int i, size, map_fd;
     FILE *f = NULL;
     struct persist_info *p = NULL;
 
@@ -1759,13 +1758,15 @@ int inner_map_mng_persist()
     kernel will convert it into a bpf_map pointer for storage, so it will
     not be affected.*/
     for (i = 0; i <= g_inner_map_mng.max_allocated_idx; i++) {
-        int map_fd = bpf_get_map_id_by_fd(g_inner_map_mng.inner_maps[i].map_fd);
-        if (map_fd < 0) {
-            return map_fd;
+        if (g_inner_map_mng.inner_maps[i].allocated) {
+            map_fd = bpf_get_map_id_by_fd(g_inner_map_mng.inner_maps[i].map_fd);
+            if (map_fd < 0) {
+                return map_fd;
+            }
+            p->inner_map_stat[i].map_fd = map_fd;
+            p->inner_map_stat[i].used = g_inner_map_mng.inner_maps[i].used;
+            p->inner_map_stat[i].allocated = g_inner_map_mng.inner_maps[i].allocated;
         }
-        p->inner_map_stat[i].map_fd = map_fd;
-        p->inner_map_stat[i].used = g_inner_map_mng.inner_maps[i].used;
-        p->inner_map_stat[i].allocated = g_inner_map_mng.inner_maps[i].allocated;
     }
 
     f = fopen(MAP_IN_MAP_MNG_PERSIST_FILE_PATH, "wb");
