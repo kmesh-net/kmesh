@@ -23,6 +23,7 @@ import (
 
 	"kmesh.net/kmesh/ctl/accesslog"
 	"kmesh.net/kmesh/ctl/dump"
+	"kmesh.net/kmesh/ctl/install"
 	logcmd "kmesh.net/kmesh/ctl/log"
 	"kmesh.net/kmesh/ctl/version"
 	"kmesh.net/kmesh/ctl/waypoint"
@@ -43,6 +44,7 @@ func main() {
 	rootCmd.AddCommand(waypoint.NewCmd())
 	rootCmd.AddCommand(version.NewCmd())
 	rootCmd.AddCommand(accesslog.NewCmd())
+	rootCmd.AddCommand(install.NewCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
