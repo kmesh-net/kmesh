@@ -349,14 +349,14 @@ static int copy_sfield_to_map(struct op_context *ctx, int o_index, const Protobu
     *(uintptr_t *)value = (size_t)o_index;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("bpf_map_update_elem failed\n");
+        LOG_ERR("copy_sfield_to_map bpf_map_update_elem failed, ret:%d\n", ret);
         free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
     inner_fd = outter_key_to_inner_fd(ctx, o_index);
     if (inner_fd < 0) {
-        LOG_ERR("outter_key_to_inner_fd\n");
+        LOG_ERR("copy_sfield_to_map outter_key_to_inner_fd failed, inner_fd:%d\n", inner_fd);
         return inner_fd;
     }
 
@@ -378,14 +378,14 @@ static int copy_msg_field_to_map(struct op_context *ctx, int o_index, const Prot
     *(uintptr_t *)value = (size_t)o_index;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("bpf_map_update_elem failed\n");
+        LOG_ERR("copy_msg_field_to_map bpf_map_update_elem failed, ret:%d\n", ret);
         free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
     inner_fd = outter_key_to_inner_fd(ctx, o_index);
     if (inner_fd < 0) {
-        LOG_ERR("outter_key_to_inner_fd failed\n");
+        LOG_ERR("copy_msg_field_to_map outter_key_to_inner_fd failed, inner_fd:%d\n", inner_fd);
         return inner_fd;
     }
 
@@ -494,7 +494,7 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     *(uintptr_t *)value = (size_t)outter_key;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("bpf_map_update_elem failed\n");
+        LOG_ERR("repeat_field_handle bpf_map_update_elem failed, ret:%d\n", ret);
         free_outter_map_entry(ctx, &outter_key);
         return ret;
     }
@@ -1786,7 +1786,7 @@ int inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_m
         if (g_inner_map_mng.inner_maps[i].allocated) {
             int map_fd = bpf_map_get_fd_by_id(g_inner_map_mng.inner_maps[i].map_fd);
             if (map_fd < 0) {
-                LOG_ERR("bpf_map_get_fd_by_id failed:%d\n", map_fd);
+                LOG_ERR("restore_by_persist_stat bpf_map_get_fd_by_id failed, i:[%d] map_fd:[%d]\n", i, map_fd);
                 return map_fd;
             }
             g_inner_map_mng.inner_maps[i].map_fd = map_fd;
@@ -1842,7 +1842,7 @@ int inner_map_restore(bool restore)
 
     ret = inner_map_mng_restore_by_persist_stat(&p, stat);
     if (ret < 0) {
-        LOG_ERR("inner_map_restore persist_stat failed, ret/%d\n", ret);
+        LOG_ERR("inner_map_restore persist_stat failed, ret:%d\n", ret);
         fclose(f);
         free(stat);
         return -1;
