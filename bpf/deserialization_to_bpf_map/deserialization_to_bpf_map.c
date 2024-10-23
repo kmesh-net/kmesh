@@ -283,9 +283,10 @@ static int bpf_get_map_id_by_fd(int map_fd)
     struct bpf_map_info info = {};
     __u32 info_len = sizeof(info);
 
-    if (bpf_obj_get_info_by_fd(map_fd, &info, &info_len) < 0) {
-        LOG_ERR("bpf_obj_get_info_by_fd failed");
-        return -1;
+    int ret = bpf_obj_get_info_by_fd(map_fd, &info, &info_len);
+    if (ret < 0) {
+        LOG_ERR("bpf_obj_get_info_by_fd failed, map_fd:%d ret:%d ERRNO:%d", map_fd, ret, errno);
+        return ret;
     }
     return info.id;
 }
@@ -349,14 +350,14 @@ static int copy_sfield_to_map(struct op_context *ctx, int o_index, const Protobu
     *(uintptr_t *)value = (size_t)o_index;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("copy_sfield_to_map bpf_map_update_elem failed, ret:%d\n", ret);
+        LOG_ERR("copy_sfield_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
         free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
     inner_fd = outter_key_to_inner_fd(ctx, o_index);
     if (inner_fd < 0) {
-        LOG_ERR("copy_sfield_to_map outter_key_to_inner_fd failed, inner_fd:%d\n", inner_fd);
+        LOG_ERR("copy_sfield_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d\n", inner_fd, errno);
         return inner_fd;
     }
 
@@ -378,14 +379,14 @@ static int copy_msg_field_to_map(struct op_context *ctx, int o_index, const Prot
     *(uintptr_t *)value = (size_t)o_index;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("copy_msg_field_to_map bpf_map_update_elem failed, ret:%d\n", ret);
+        LOG_ERR("copy_msg_field_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
         free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
     inner_fd = outter_key_to_inner_fd(ctx, o_index);
     if (inner_fd < 0) {
-        LOG_ERR("copy_msg_field_to_map outter_key_to_inner_fd failed, inner_fd:%d\n", inner_fd);
+        LOG_ERR("copy_msg_field_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d\n", inner_fd, errno);
         return inner_fd;
     }
 
@@ -494,7 +495,7 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     *(uintptr_t *)value = (size_t)outter_key;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("repeat_field_handle bpf_map_update_elem failed, ret:%d\n", ret);
+        LOG_ERR("repeat_field_handle bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
         free_outter_map_entry(ctx, &outter_key);
         return ret;
     }
@@ -1841,15 +1842,9 @@ int inner_map_restore(bool restore)
     }
 
     ret = inner_map_mng_restore_by_persist_stat(&p, stat);
-    if (ret < 0) {
-        LOG_ERR("inner_map_restore persist_stat failed, ret:%d\n", ret);
-        fclose(f);
-        free(stat);
-        return -1;
-    }
     free(stat);
     fclose(f);
-    return 0;
+    return ret;
 }
 
 int deserial_init(bool restore)
