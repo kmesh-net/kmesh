@@ -52,7 +52,7 @@ type fakeDNSServer struct {
 func TestDNS(t *testing.T) {
 	fakeDNSServer := newFakeDNSServer()
 
-	testDNSResolver, err := NewDNSResolver(ads.NewAdsCache())
+	testDNSResolver, err := NewDNSResolver(ads.NewAdsCache(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestDNS(t *testing.T) {
 // This test aims to evaluate the concurrent writing behavior of the adsCache by utilizing the test race feature.
 // The test verifies the ability of the adsCache to handle concurrent access and updates correctly in a multi-goroutine environment.
 func TestADSCacheConcurrentWriting(t *testing.T) {
-	adsCache := ads.NewAdsCache()
+	adsCache := ads.NewAdsCache(nil)
 	cluster := &clusterv3.Cluster{
 		Name: "ut-cluster",
 		ClusterDiscoveryType: &clusterv3.Cluster_Type{
@@ -504,10 +504,10 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 		},
 	}
 
-	p := ads.NewController().Processor
+	p := ads.NewController(nil).Processor
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	dnsResolver, err := NewDNSResolver(ads.NewAdsCache())
+	dnsResolver, err := NewDNSResolver(ads.NewAdsCache(nil))
 	assert.NoError(t, err)
 	dnsResolver.StartDNSResolver(stopCh)
 	p.DnsResolverChan = dnsResolver.DnsResolverChan

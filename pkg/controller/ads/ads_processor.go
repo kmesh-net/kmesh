@@ -32,6 +32,7 @@ import (
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/utils/hash"
@@ -56,9 +57,9 @@ type processor struct {
 	DnsResolverChan chan []*config_cluster_v3.Cluster
 }
 
-func newProcessor() *processor {
+func newProcessor(bpfAds *bpfads.BpfAds) *processor {
 	return &processor{
-		Cache:     NewAdsCache(),
+		Cache:     NewAdsCache(bpfAds),
 		ack:       nil,
 		req:       nil,
 		lastNonce: &lastNonce{},

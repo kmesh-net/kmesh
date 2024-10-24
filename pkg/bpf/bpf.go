@@ -104,6 +104,13 @@ func (l *BpfLoader) Start() error {
 	return nil
 }
 
+func (l *BpfLoader) GetBpfKmesh() *ads.BpfAds {
+	if l == nil {
+		return nil
+	}
+	return l.obj
+}
+
 func (l *BpfLoader) GetBpfWorkload() *workload.BpfWorkload {
 	if l == nil {
 		return nil

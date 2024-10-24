@@ -46,7 +46,7 @@ func TestCreateApiClusterByCds(t *testing.T) {
 	}{
 		{
 			name:   "test1: ApiStatus is update, cluster type is EDS",
-			loader: NewAdsCache(),
+			loader: NewAdsCache(nil),
 			status: core_v2.ApiStatus_UPDATE,
 			cluster: &config_cluster_v3.Cluster{
 				Name: "ut-cluster",
@@ -75,7 +75,7 @@ func TestCreateApiClusterByCds(t *testing.T) {
 		},
 		{
 			name:   "test2: ApiStatus is update, cluster type is not EDS",
-			loader: NewAdsCache(),
+			loader: NewAdsCache(nil),
 			status: core_v2.ApiStatus_UPDATE,
 			cluster: &config_cluster_v3.Cluster{
 				Name: "ut-cluster",
@@ -104,7 +104,7 @@ func TestCreateApiClusterByCds(t *testing.T) {
 		},
 		{
 			name:   "test3: Apistatus is update, cluster type is EDS and cluster not has name",
-			loader: NewAdsCache(),
+			loader: NewAdsCache(nil),
 			status: core_v2.ApiStatus_UPDATE,
 			cluster: &config_cluster_v3.Cluster{
 				ConnectTimeout: &durationpb.Duration{
@@ -132,7 +132,7 @@ func TestCreateApiClusterByCds(t *testing.T) {
 		},
 		{
 			name:   "test4: Apistatus is update, cluster type is not EDS and cluster not has name",
-			loader: NewAdsCache(),
+			loader: NewAdsCache(nil),
 			status: core_v2.ApiStatus_UPDATE,
 			cluster: &config_cluster_v3.Cluster{
 				ConnectTimeout: &durationpb.Duration{
@@ -421,7 +421,7 @@ func TestNewApiSocketAddress(t *testing.T) {
 
 func TestCreateApiListenerByLds(t *testing.T) {
 	t.Run("listener filter configtype is filter_typedconfig", func(t *testing.T) {
-		loader := NewAdsCache()
+		loader := NewAdsCache(nil)
 		loader.routeNames = []string{
 			"ut-route",
 		}
@@ -474,7 +474,7 @@ func TestCreateApiListenerByLds(t *testing.T) {
 	})
 
 	t.Run("listener filter configtype is filter_ConfigDiscover", func(t *testing.T) {
-		loader := NewAdsCache()
+		loader := NewAdsCache(nil)
 		loader.routeNames = []string{
 			"ut-route",
 		}
@@ -526,7 +526,7 @@ func TestCreateApiListenerByLds(t *testing.T) {
 	})
 
 	t.Run("status is UNCHANGED", func(t *testing.T) {
-		loader := NewAdsCache()
+		loader := NewAdsCache(nil)
 		loader.routeNames = []string{
 			"ut-route",
 		}
@@ -574,7 +574,7 @@ func TestCreateApiListenerByLds(t *testing.T) {
 	})
 
 	t.Run("status is UNCHANGED, filterName is pkg_wellknown.HTTPConnectionManager", func(t *testing.T) {
-		loader := NewAdsCache()
+		loader := NewAdsCache(nil)
 		loader.routeNames = []string{
 			"ut-route",
 		}

@@ -72,6 +72,16 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
         kbuf_size);
     daddr = sk->sk_daddr;
     dport = sk->sk_dport;
+
+    // daddr == 0 && dport == 0 are special flags meaning the circuit breaker is open
+    // Should reject connection here
+    if (daddr == 0 && dport == 0) {
+        tcp_set_state(sk, TCP_CLOSE);
+        sk->sk_route_caps = 0;
+        inet_sk(sk)->inet_dport = 0;
+        err = -1;
+        goto out;
+    }
 #else
     memset(&sock_ops, 0, offsetof(struct bpf_sock_ops_kern, temp));
     if (sk_fullsock(sk)) {

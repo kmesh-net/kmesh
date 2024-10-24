@@ -24,6 +24,7 @@ import (
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"istio.io/istio/pkg/channels"
 
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -42,9 +43,9 @@ type connection struct {
 	stopCh       chan struct{}
 }
 
-func NewController() *Controller {
+func NewController(bpfAds *bpfads.BpfAds) *Controller {
 	return &Controller{
-		Processor: newProcessor(),
+		Processor: newProcessor(bpfAds),
 	}
 }
 

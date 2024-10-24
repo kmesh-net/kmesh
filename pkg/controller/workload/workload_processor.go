@@ -41,6 +41,7 @@ import (
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 const (
@@ -52,7 +53,7 @@ type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
 	req *service_discovery_v3.DeltaDiscoveryRequest
 
-	hashName      *HashName
+	hashName      *utils.HashName
 	bpf           *bpf.Cache
 	nodeName      string
 	WorkloadCache cache.WorkloadCache
@@ -64,7 +65,7 @@ type Processor struct {
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	return &Processor{
-		hashName:      NewHashName(),
+		hashName:      utils.NewHashName(),
 		bpf:           bpf.NewCache(workloadMap),
 		nodeName:      os.Getenv("NODE_NAME"),
 		WorkloadCache: cache.NewWorkloadCache(),
@@ -630,7 +631,7 @@ func (p *Processor) handleRemovedAddressesDuringRestart() {
 	// but not in userspace cache, that means the data in the bpf map load
 	// from the last epoch is inconsistent with the data that should
 	// actually be stored now. then we should delete it from bpf map
-	for str, num := range p.hashName.strToNum {
+	for str, num := range p.hashName.GetStrToNum() {
 		if p.WorkloadCache.GetWorkloadByUid(str) == nil && p.ServiceCache.GetService(str) == nil {
 			log.Debugf("GetWorkloadByUid and GetService nil:%v", str)
 
@@ -702,7 +703,7 @@ func (p *Processor) handleRemovedAuthzPolicyDuringRestart(rbac *auth.Rbac) {
 	 * actually be stored now. then we should delete it from bpf map
 	 */
 	policyCache := rbac.GetAllPolicies()
-	for str, num := range p.hashName.strToNum {
+	for str, num := range p.hashName.GetStrToNum() {
 		if _, exists := policyCache[str]; !exists {
 			if err := maps_v2.AuthorizationLookup(num, &policyValue); err == nil {
 				log.Debugf("Find policy: [%v:%v] Remove authz policy", str, num)
