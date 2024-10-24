@@ -358,15 +358,13 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 					return err
 				}
 			} else { // locality mode
-				if p.locality.IsLocalityInfoSet() {
-					service := p.ServiceCache.GetService(p.hashName.NumToStr(svcUid))
-					prio := p.locality.CalcuLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
+				service := p.ServiceCache.GetService(p.hashName.NumToStr(svcUid))
+				if p.locality.LocalityInfo != nil && service != nil {
+					prio := p.locality.CalcLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
 					if err, _ = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
 						log.Errorf("addWorkloadToService workload %d service %d priority %d failed: %v", workloadId, sk.ServiceId, prio, err)
 						return err
 					}
-				} else { // locality LB mode, but we need to set up all localityCache fields before adding endpoint
-					p.locality.SaveToWaitQueue(workload)
 				}
 			}
 		}
@@ -427,7 +425,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
 
 	// update kmesh localityCache
-	if !p.locality.IsLocalityInfoSet() && p.nodeName == workload.GetNode() { // todo
+	if p.locality.LocalityInfo == nil && p.nodeName == workload.GetNode() { // todo
 		p.locality.SetLocality(p.nodeName, workload.GetClusterId(), workload.GetNetwork(), workload.GetLocality())
 	}
 
@@ -496,6 +494,9 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 	return nil
 }
 
+// toLLb indicates whether we are performing a locality load balance update.
+// If toLLb is true, it means we need to calculate priority; otherwise,
+// it represents a random strategy, in which case we just set the priority to 0.
 func (p *Processor) updateEndpoint(serviceId uint32, toLLb bool) error {
 	var (
 		err  error
@@ -522,18 +523,18 @@ func (p *Processor) updateEndpoint(serviceId uint32, toLLb bool) error {
 
 	sKey := bpf.ServiceKey{ServiceId: serviceId}
 	sValue := bpf.ServiceValue{}
+	if err = p.bpf.ServiceLookup(&sKey, &sValue); err != nil {
+		log.Errorf("Lookup service %d failed: %v", sKey.ServiceId, err)
+	}
+
 	for _, uid := range backendUids {
 		// add new endpoint
 		if toLLb {
 			service := p.ServiceCache.GetService(p.hashName.NumToStr(serviceId))
 			workload := p.WorkloadCache.GetWorkloadByUid(p.hashName.NumToStr(uid))
-			prio = p.locality.CalcuLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
+			prio = p.locality.CalcLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
 		} else {
 			prio = 0 // to random
-		}
-
-		if err = p.bpf.ServiceLookup(&sKey, &sValue); err != nil {
-			log.Errorf("Lookup service %d failed: %v", sKey.ServiceId, err)
 		}
 
 		if err, _ = p.addWorkloadToService(&sKey, &sValue, uid, prio); err != nil {
@@ -715,17 +716,6 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		if err = p.handleWorkload(workload); err != nil {
 			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 		}
-	}
-
-	// Add new services associated with the workload
-	for wUid := range p.locality.GetFromWaitQueue() { // locality LB mode
-		workload := p.WorkloadCache.GetWorkloadByUid(wUid)
-		_, newServices := p.compareWorkloadServices(workload)
-		if err := p.handleWorkloadNewBoundServices(workload, newServices); err != nil {
-			log.Errorf("handleWorkloadNewBoundServices %s failed: %v", workload.ResourceName(), err)
-			return err
-		}
-		p.locality.DelWorkloadFromWaitQueue(workload)
 	}
 
 	p.handleRemovedAddresses(rsp.RemovedResources)

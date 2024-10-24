@@ -61,9 +61,6 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
         // if we have endpoints in this prio
         if (service_v->prio_endpoint_count[match_prio] > 0) {
             rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[match_prio] + 1;
-            if (rand_k >= MAP_SIZE_OF_BACKEND) {
-                return -ENOENT;
-            }
             endpoint_k.backend_index = rand_k;
             endpoint_v = map_lookup_endpoint(&endpoint_k);
             if (!endpoint_v) {

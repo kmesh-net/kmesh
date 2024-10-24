@@ -75,90 +75,67 @@ func (l *localityInfo) IsSet(param uint32) bool {
 }
 
 type LocalityCache struct {
-	mutex             sync.RWMutex
-	localityInfo      localityInfo
-	isLocalityInfoSet bool
-	workloadWaitQueue map[string]struct{} // workload.GetUid()
+	mutex        sync.RWMutex
+	LocalityInfo *localityInfo
 }
 
 func NewLocalityCache() LocalityCache {
 	return LocalityCache{
-		localityInfo:      localityInfo{},
-		isLocalityInfoSet: false,
-		workloadWaitQueue: make(map[string]struct{}),
+		LocalityInfo: nil,
 	}
 }
 
 func (l *LocalityCache) SetLocality(nodeName, clusterId, network string, locality *workloadapi.Locality) {
+	l.mutex.Lock()
+	defer l.mutex.Unlock()
+	if l.LocalityInfo == nil {
+		l.LocalityInfo = &localityInfo{}
+	}
+
 	// notice: nodeName should set by processor or os.Getenv("NODE_NAME"),
-	l.localityInfo.Set(nodeName, NODENAME)
-	l.localityInfo.Set(locality.GetRegion(), REGION)
-	l.localityInfo.Set(locality.GetSubzone(), SUBZONE)
-	l.localityInfo.Set(locality.GetZone(), ZONE)
-	l.localityInfo.Set(clusterId, CLUSTERID)
-	l.localityInfo.Set(network, NETWORK)
-
-	l.isLocalityInfoSet = true
+	l.LocalityInfo.Set(nodeName, NODENAME)
+	l.LocalityInfo.Set(locality.GetRegion(), REGION)
+	l.LocalityInfo.Set(locality.GetSubzone(), SUBZONE)
+	l.LocalityInfo.Set(locality.GetZone(), ZONE)
+	l.LocalityInfo.Set(clusterId, CLUSTERID)
+	l.LocalityInfo.Set(network, NETWORK)
 }
 
-func (l *LocalityCache) IsLocalityInfoSet() bool {
-	log.Debugf("isLocalityInfoSet: %#v", l.isLocalityInfoSet)
-	return l.isLocalityInfoSet
-}
-
-func (l *LocalityCache) CalcuLocalityLBPrio(wl *workloadapi.Workload, rp []workloadapi.LoadBalancing_Scope) uint32 {
+func (l *LocalityCache) CalcLocalityLBPrio(wl *workloadapi.Workload, rp []workloadapi.LoadBalancing_Scope) uint32 {
 	var rank uint32 = 0
 	for _, scope := range rp {
 		switch scope {
 		case workloadapi.LoadBalancing_REGION:
-			log.Debugf("l.localityInfo.IsSet(REGION) %#v, Valid(wl.GetLocality().GetRegion()) %#v, l.localityInfo.region %#v, wl.GetLocality().GetRegion() %#v", l.localityInfo.IsSet(REGION), Valid(wl.GetLocality().GetRegion()), l.localityInfo.region, wl.GetLocality().GetRegion())
-			if l.localityInfo.IsSet(REGION) && Valid(wl.GetLocality().GetRegion()) && l.localityInfo.region == wl.GetLocality().GetRegion() {
+			log.Debugf("l.LocalityInfo.region %#v, wl.GetLocality().GetRegion() %#v", l.LocalityInfo.region, wl.GetLocality().GetRegion())
+			if l.LocalityInfo.region == wl.GetLocality().GetRegion() {
 				rank++
 			}
 		case workloadapi.LoadBalancing_ZONE:
-			log.Debugf("l.localityInfo.IsSet(ZONE) %#v, Valid(wl.GetLocality().GetZone()) %#v, l.localityInfo.zone %#v, wl.GetLocality().GetZone() %#v", l.localityInfo.IsSet(ZONE), Valid(wl.GetLocality().GetZone()), l.localityInfo.zone, wl.GetLocality().GetZone())
-			if l.localityInfo.IsSet(ZONE) && Valid(wl.GetLocality().GetZone()) && l.localityInfo.zone == wl.GetLocality().GetZone() {
+			log.Debugf("l.LocalityInfo.zone %#v, wl.GetLocality().GetZone() %#v", l.LocalityInfo.zone, wl.GetLocality().GetZone())
+			if l.LocalityInfo.zone == wl.GetLocality().GetZone() {
 				rank++
 			}
 		case workloadapi.LoadBalancing_SUBZONE:
-			log.Debugf("l.localityInfo.IsSet(SUBZONE) %#v, Valid(wl.GetLocality().GetSubzone()) %#v, l.localityInfo.subZone %#v, wl.GetLocality().GetSubzone() %#v", l.localityInfo.IsSet(SUBZONE), Valid(wl.GetLocality().GetSubzone()), l.localityInfo.subZone, wl.GetLocality().GetSubzone())
-			if l.localityInfo.IsSet(SUBZONE) && Valid(wl.GetLocality().GetSubzone()) && l.localityInfo.subZone == wl.GetLocality().GetSubzone() {
+			log.Debugf("l.LocalityInfo.subZone %#v, wl.GetLocality().GetSubzone() %#v", l.LocalityInfo.subZone, wl.GetLocality().GetSubzone())
+			if l.LocalityInfo.subZone == wl.GetLocality().GetSubzone() {
 				rank++
 			}
 		case workloadapi.LoadBalancing_NODE:
-			log.Debugf("l.localityInfo.IsSet(NODENAME) %#v, Valid(wl.GetNode()) %#v, l.localityInfo.nodeName %#v, wl.GetNode() %#v", l.localityInfo.IsSet(NODENAME), Valid(wl.GetNode()), l.localityInfo.nodeName, wl.GetNode())
-			if l.localityInfo.IsSet(NODENAME) && Valid(wl.GetNode()) && l.localityInfo.nodeName == wl.GetNode() {
+			log.Debugf("l.LocalityInfo.nodeName %#v, wl.GetNode() %#v", l.LocalityInfo.nodeName, wl.GetNode())
+			if l.LocalityInfo.nodeName == wl.GetNode() {
 				rank++
 			}
 		case workloadapi.LoadBalancing_NETWORK:
-			log.Debugf("l.localityInfo.IsSet(NETWORK) %#v, Valid(wl.GetNetwork()) %#v, l.localityInfo.network %#v, wl.GetNetwork() %#v", l.localityInfo.IsSet(NETWORK), Valid(wl.GetNetwork()), l.localityInfo.network, wl.GetNetwork())
-			if l.localityInfo.IsSet(NETWORK) && Valid(wl.GetNetwork()) && l.localityInfo.network == wl.GetNetwork() {
+			log.Debugf("l.LocalityInfo.network %#v, wl.GetNetwork() %#v", l.LocalityInfo.network, wl.GetNetwork())
+			if l.LocalityInfo.network == wl.GetNetwork() {
 				rank++
 			}
 		case workloadapi.LoadBalancing_CLUSTER:
-			log.Debugf("l.localityInfo.IsSet(CLUSTERID) %#v, Valid(wl.GetClusterId()) %#v, l.localityInfo.clusterId %#v, wl.GetClusterId() %#v", l.localityInfo.IsSet(CLUSTERID), Valid(wl.GetClusterId()), l.localityInfo.clusterId, wl.GetClusterId())
-			if l.localityInfo.IsSet(CLUSTERID) && Valid(wl.GetClusterId()) && l.localityInfo.clusterId == wl.GetClusterId() {
+			log.Debugf("l.LocalityInfo.clusterId %#v, wl.GetClusterId() %#v", l.LocalityInfo.clusterId, wl.GetClusterId())
+			if l.LocalityInfo.clusterId == wl.GetClusterId() {
 				rank++
 			}
 		}
 	}
 	return uint32(len(rp)) - rank
-}
-
-func (l *LocalityCache) SaveToWaitQueue(wl *workloadapi.Workload) {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-	l.workloadWaitQueue[wl.Uid] = struct{}{}
-}
-
-func (l *LocalityCache) DelWorkloadFromWaitQueue(wl *workloadapi.Workload) {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-	delete(l.workloadWaitQueue, wl.Uid)
-}
-
-func (l *LocalityCache) GetFromWaitQueue() map[string]struct{} {
-	l.mutex.Lock()
-	defer l.mutex.Unlock()
-	return l.workloadWaitQueue
 }

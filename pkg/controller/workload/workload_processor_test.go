@@ -674,7 +674,7 @@ func serviceToAddress(service *workloadapi.Service) *workloadapi.Address {
 	}
 }
 
-func TestCalcuLocalityLbPrio(t *testing.T) {
+func TestCalcLocalityLbPrio(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
 
@@ -693,10 +693,10 @@ func TestCalcuLocalityLbPrio(t *testing.T) {
 	wl2 := createWorkload("wl2", "10.244.0.2", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s2"), "svc1") // prio 1
 	wl3 := createWorkload("wl3", "10.244.0.3", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z2", "s2"), "svc1") // prio 2
 	wl4 := createWorkload("wl4", "10.244.0.4", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r2", "z2", "s2"), "svc1") // prio 3
-	assert.Equal(t, uint32(0), p.locality.CalcuLocalityLBPrio(wl1, llbSvc.GetLoadBalancing().GetRoutingPreference()))
-	assert.Equal(t, uint32(1), p.locality.CalcuLocalityLBPrio(wl2, llbSvc.GetLoadBalancing().GetRoutingPreference()))
-	assert.Equal(t, uint32(2), p.locality.CalcuLocalityLBPrio(wl3, llbSvc.GetLoadBalancing().GetRoutingPreference()))
-	assert.Equal(t, uint32(3), p.locality.CalcuLocalityLBPrio(wl4, llbSvc.GetLoadBalancing().GetRoutingPreference()))
+	assert.Equal(t, uint32(0), p.locality.CalcLocalityLBPrio(wl1, llbSvc.GetLoadBalancing().GetRoutingPreference()))
+	assert.Equal(t, uint32(1), p.locality.CalcLocalityLBPrio(wl2, llbSvc.GetLoadBalancing().GetRoutingPreference()))
+	assert.Equal(t, uint32(2), p.locality.CalcLocalityLBPrio(wl3, llbSvc.GetLoadBalancing().GetRoutingPreference()))
+	assert.Equal(t, uint32(3), p.locality.CalcLocalityLBPrio(wl4, llbSvc.GetLoadBalancing().GetRoutingPreference()))
 
 	hashNameClean(p)
 }
