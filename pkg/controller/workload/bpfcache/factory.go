@@ -19,7 +19,7 @@ package bpfcache
 import (
 	"istio.io/istio/pkg/util/sets"
 
-	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/pkg/logger"
 )
 

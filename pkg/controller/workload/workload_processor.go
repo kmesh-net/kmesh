@@ -31,7 +31,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	security_v2 "kmesh.net/kmesh/api/v2/workloadapi/security"
-	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/pkg/auth"
 	kmeshbpf "kmesh.net/kmesh/pkg/bpf/restart"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
