@@ -249,6 +249,10 @@ while (( "$#" )); do
       CLEANUP_REGISTRY=true
       shift
     ;;
+    --skip-cleanup-apps)
+      PARAMS+=("--istio.test.noCleanup")
+      shift
+    ;;
     *)
       PARAMS+=("$1")
       shift
