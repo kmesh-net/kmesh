@@ -62,12 +62,12 @@ struct {
     __type(key, struct operation_usage_key);
     __type(value, struct operation_usage_data);
     __uint(max_entries, 1024);
-} performance_data_map SEC(".maps");
+} kmehs_perf_map SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, RINGBUF_SIZE);
-} map_perf_info SEC(".maps");
+} kmesh_perf_info SEC(".maps");
 ```
 
 collect the timestamps at the beginning and end of the function, and at the end of the function, write the data from the map into the ring buffer.

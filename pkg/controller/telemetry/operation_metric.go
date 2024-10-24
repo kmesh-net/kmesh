@@ -19,7 +19,6 @@ package telemetry
 import (
 	"context"
 	"encoding/binary"
-	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -29,10 +28,21 @@ import (
 )
 
 const (
-	OPERATION_USAGE_DATA_LEN = 24
+	OPERATION_USAGE_DATA_LEN = 32
 
 	operationMetricFlushInterval = 5 * time.Second
 )
+const (
+	SOCK_TRAFFIC_CONTROL     = 1
+	XDP_SHUTDOWN             = 2
+	ENABLE_ENCODING_METADATA = 3
+)
+
+var operationTypeMap = map[uint32]string{
+	SOCK_TRAFFIC_CONTROL:     "SOCK_TRAFFIC_CONTROL",
+	XDP_SHUTDOWN:             "XDP_SHUTDOWN",
+	ENABLE_ENCODING_METADATA: "ENABLE_ENCODING_METADATA",
+}
 
 type OperationMetricController struct {
 	operationMetricCache map[operationMetricLabels]*operationUsageInfo
@@ -42,6 +52,7 @@ type OperationMetricController struct {
 type operationUsageMetric struct {
 	startTime     uint64
 	endTime       uint64
+	pidTgid       uint64
 	operationType uint32
 }
 
@@ -51,8 +62,7 @@ type operationUsageInfo struct {
 }
 
 type operationMetricLabels struct {
-	podName       string
-	podNamespace  string
+	nodeName      string
 	operationType string
 }
 
@@ -62,12 +72,12 @@ func NewOperationMetric() *OperationMetricController {
 	}
 }
 
-func (m *OperationMetricController) Run(ctx context.Context, mapPerfInfo *ebpf.Map) {
+func (m *OperationMetricController) Run(ctx context.Context, KmeshPerfInfo *ebpf.Map) {
 	if m == nil {
 		return
 	}
 	var err error
-	readerPerformance, err := ringbuf.NewReader(mapPerfInfo)
+	readerPerformance, err := ringbuf.NewReader(KmeshPerfInfo)
 	if err != nil {
 		log.Errorf("open performance notify ringbuf map FAILED, err: %v", err)
 		return
@@ -105,7 +115,8 @@ func (m *OperationMetricController) Run(ctx context.Context, mapPerfInfo *ebpf.M
 			}
 			operationData.startTime = binary.LittleEndian.Uint64(rec.RawSample[0:8])
 			operationData.endTime = binary.LittleEndian.Uint64(rec.RawSample[8:16])
-			operationData.operationType = binary.LittleEndian.Uint32(rec.RawSample[16:20])
+			operationData.pidTgid = binary.LittleEndian.Uint64(rec.RawSample[16:24])
+			operationData.operationType = binary.LittleEndian.Uint32(rec.RawSample[24:28])
 			metricLabels := m.buildOperationMetric(&operationData)
 			operationInfo := operationUsageInfo{
 				durations:     []uint64{operationData.endTime - operationData.startTime},
@@ -121,20 +132,12 @@ func (m *OperationMetricController) Run(ctx context.Context, mapPerfInfo *ebpf.M
 // buildOperationMetric builds the operation metrics labels using actual pod info.
 func (m *OperationMetricController) buildOperationMetric(data *operationUsageMetric) operationMetricLabels {
 	labels := operationMetricLabels{}
-	// Get the actual pod name
-	podName := os.Getenv("HOSTNAME")
-	if podName == "" {
-		podName = "unknown-pod-name"
+	nodeName := os.Getenv("NODE_NAME")
+	if nodeName == "" {
+		nodeName = "unknown"
 	}
-	// Get the actual pod namespace
-	podNamespaceBytes, err := os.ReadFile("/var/run/secrets/kubernetes.io/serviceaccount/namespace")
-	if err != nil {
-		podNamespaceBytes = []byte("unknown-pod-namespace")
-	}
-	podNamespace := string(podNamespaceBytes)
-	labels.podName = podName
-	labels.podNamespace = podNamespace
-	labels.operationType = fmt.Sprintf("%d", data.operationType) // Convert operation type to string
+	labels.nodeName = nodeName
+	labels.operationType = operationTypeMap[data.operationType]
 	return labels
 }
 

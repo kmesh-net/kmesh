@@ -29,6 +29,7 @@ type BootstrapConfigs struct {
 	CniConfig           *cniConfig
 	ByPassConfig        *byPassConfig
 	SecretManagerConfig *secretConfig
+	PerfConfig          *perfConfig
 }
 
 func NewBootstrapConfigs() *BootstrapConfigs {
@@ -37,6 +38,7 @@ func NewBootstrapConfigs() *BootstrapConfigs {
 		CniConfig:           &cniConfig{},
 		ByPassConfig:        &byPassConfig{},
 		SecretManagerConfig: &secretConfig{},
+		PerfConfig:          &perfConfig{},
 	}
 }
 
@@ -54,6 +56,7 @@ func (c *BootstrapConfigs) AttachFlags(cmd *cobra.Command) {
 	c.CniConfig.AttachFlags(cmd)
 	c.ByPassConfig.AttachFlags(cmd)
 	c.SecretManagerConfig.AttachFlags(cmd)
+	c.PerfConfig.AttachFlags(cmd)
 }
 
 func (c *BootstrapConfigs) ParseConfigs() error {

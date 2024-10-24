@@ -45,6 +45,7 @@ type Controller struct {
 	bpfFsPath           string
 	enableBpfLog        bool
 	enableAccesslog     bool
+	enablePerfMonitor   bool
 }
 
 func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpfwl.BpfWorkload, bpfFsPath string, enableBpfLog, enableAccesslog bool) *Controller {
@@ -56,6 +57,7 @@ func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpfwl.BpfWork
 		bpfFsPath:           bpfFsPath,
 		enableBpfLog:        enableBpfLog,
 		enableAccesslog:     enableAccesslog,
+		enablePerfMonitor:   opts.PerfConfig.EnablePerfMonitor,
 	}
 }
 
@@ -106,7 +108,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj, c.enableAccesslog)
 
 	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Run(ctx)
+		c.client.WorkloadController.Run(ctx, c.enablePerfMonitor)
 	}
 
 	if c.client.AdsController != nil {

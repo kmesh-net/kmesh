@@ -114,25 +114,24 @@ var (
 		"requestProtocol":              "request_protocol",
 		"responseFlags":                "response_flags",
 		"connectionSecurityPolicy":     "connection_security_policy",
-		"podName":                      "pod_name",
-		"podNamespace":                 "pod_namespace",
+		"nodeName":                     "node_name",
 		"mapId":                        "map_id",
 		"mapName":                      "map_name",
 		"mapType":                      "map_type",
 		"operationType":                "operation_type",
+		"pidTgid":                      "pid_tgid",
 	}
 	operationLabels = []string{
-		"pod_name",
-		"pod_namespace",
+		"node_name",
 		"operation_type",
 	}
 
-	mapLabels = []string{
-		"pod_name",
-		"pod_namespace",
-		"map_id",
+	kmeshMapLabels = []string{
+		"node_name",
 		"map_name",
-		"map_type",
+	}
+	totalMapLabels = []string{
+		"node_name",
 	}
 )
 
@@ -211,35 +210,17 @@ var (
 		},
 		operationLabels,
 	)
-	// New map metrics
-	mapMaxEntries = prometheus.NewGaugeVec(
+	mapEntryCount = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_map_max_entries_total",
-			Help: "The maximum number of entries allowed in an eBPF map.",
-		}, mapLabels,
+			Name: "kmesh_map_entry_count",
+			Help: "The total entry used by an eBPF map.",
+		}, kmeshMapLabels,
 	)
-	mapUsage = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "kmesh_map_usage_total",
-			Help: "The total number of entries used in an eBPF map.",
-		}, mapLabels,
-	)
-
-	mapMemory = prometheus.NewGaugeVec(
-		prometheus.GaugeOpts{
-			Name: "kmesh_map_memory_bytes",
-			Help: "The total memory size used by an eBPF map.",
-		}, mapLabels,
-	)
-	mapCountInPod = prometheus.NewGaugeVec(
+	mapCountInNode = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kmesh_map_count_total",
-			Help: "Count of map executed.",
-		},
-		[]string{
-			"pod_name",
-			"pod_namespace",
-		},
+			Help: "Count of map created by kmesh-daemon.",
+		}, totalMapLabels,
 	)
 )
 
@@ -262,7 +243,7 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload)
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
 	registry.MustRegister(operationDurationInPod, operationCountInPod)
-	registry.MustRegister(mapMaxEntries, mapUsage, mapMemory, mapCountInPod)
+	registry.MustRegister(mapEntryCount, mapCountInNode)
 
 	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		Registry: registry,

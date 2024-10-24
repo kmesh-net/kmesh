@@ -5,7 +5,10 @@
 #define __KMESH_BPF_PROBE_H__
 
 #include "tcp_probe.h"
+
+#if PERF_MONITOR
 #include "performance_probe.h"
+#endif
 
 static inline void observe_on_pre_connect(struct bpf_sock *sk)
 {

@@ -63,11 +63,13 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *Contro
 	return c
 }
 
-func (c *Controller) Run(ctx context.Context) {
+func (c *Controller) Run(ctx context.Context, enablePerfMonitor bool) {
 	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
 	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapOfTcpInfo)
-	go c.MapMetricController.Run(ctx)
-	go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapPerfInfo)
+	if enablePerfMonitor {
+		go c.MapMetricController.Run(ctx)
+		go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmeshPerfInfo)
+	}
 }
 
 func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {

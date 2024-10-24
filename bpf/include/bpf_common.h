@@ -17,6 +17,8 @@
 /* Ip(0.0.0.2 | ::2) used for control command, e.g. KmeshControl */
 #define CONTROL_CMD_IP 2
 
+#define PERF_MONITOR 0
+
 #define MAP_SIZE_OF_OUTTER_MAP (1 << 20)
 
 #define BPF_DATA_MAX_LEN                                                                                               \
@@ -187,4 +189,36 @@ static inline void *kmesh_get_ptr_val(const void *ptr)
     /* get inner_map_instance value */
     return kmesh_map_lookup_elem(inner_map_instance, &inner_idx);
 }
+
+enum {
+    SOCK_TRAFFIC_CONTROL = 1,
+    XDP_SHUTDOWN = 2,
+    ENABLE_ENCODING_METADATA = 3,
+};
+
+struct operation_usage_data {
+    __u64 start_time;
+    __u64 end_time;
+    __u64 pid_tgid;
+    __u32 operation_type;
+};
+
+struct operation_usage_key {
+    __u64 socket_cookie;
+    __u32 operation_type;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, struct operation_usage_key);
+    __type(value, struct operation_usage_data);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __uint(max_entries, 131072);
+} kmesh_perf_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 4096);
+} kmesh_perf_info SEC(".maps");
+
 #endif
