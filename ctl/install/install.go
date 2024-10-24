@@ -1,32 +1,45 @@
+/*
+ * Copyright The Kmesh Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package install
 
 import (
 	"bufio"
 	"bytes"
-	"io"
-	"net/http"
-
-	"github.com/spf13/cobra"
-	"k8s.io/client-go/tools/clientcmd"
-
-	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
-
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"os"
 
+	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/serializer/yaml"
 	"k8s.io/apimachinery/pkg/types"
+	utilyaml "k8s.io/apimachinery/pkg/util/yaml"
 	"k8s.io/client-go/discovery"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/restmapper"
+	"k8s.io/client-go/tools/clientcmd"
 )
 
 type Resource struct {
@@ -76,6 +89,11 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "install kmesh with all the resources",
+		Example: `# Install kmesh without version argument (defaults to main):
+kmeshctl install
+
+# Install a specific version
+kmeshctl install --version <version>`,
 		Run: func(cmd *cobra.Command, args []string) {
 			version, err := cmd.Flags().GetString("version")
 			if err != nil {
@@ -97,7 +115,7 @@ func NewCmd() *cobra.Command {
 				{Name: "serviceAccount", URL: getURL(version, "serviceaccount.yaml")},
 			}
 
-			fmt.Println("using version: ", version)
+			fmt.Println("install kmesh version: ", version)
 
 			for _, resource := range resources {
 				resp, err := getURLResponse(resource.URL)
