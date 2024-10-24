@@ -37,11 +37,13 @@ const (
 var log = logger.NewLoggerScope("workload_controller")
 
 type Controller struct {
-	Stream           discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
-	Processor        *Processor
-	Rbac             *auth.Rbac
-	MetricController *telemetry.MetricController
-	bpfWorkloadObj   *bpfwl.BpfWorkload
+	Stream                    discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	Processor                 *Processor
+	Rbac                      *auth.Rbac
+	MetricController          *telemetry.MetricController
+	MapMetricController       *telemetry.MapMetricController
+	OperationMetricController *telemetry.OperationMetricController
+	bpfWorkloadObj            *bpfwl.BpfWorkload
 }
 
 func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *Controller {
@@ -56,12 +58,16 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *Contro
 	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
 	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, enableAccesslog)
+	c.OperationMetricController = telemetry.NewOperationMetric()
+	c.MapMetricController = telemetry.NewMapMetric()
 	return c
 }
 
 func (c *Controller) Run(ctx context.Context) {
 	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
 	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapOfTcpInfo)
+	go c.MapMetricController.Run(ctx)
+	go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapPerfInfo)
 }
 
 func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {

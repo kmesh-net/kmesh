@@ -114,6 +114,25 @@ var (
 		"requestProtocol":              "request_protocol",
 		"responseFlags":                "response_flags",
 		"connectionSecurityPolicy":     "connection_security_policy",
+		"podName":                      "pod_name",
+		"podNamespace":                 "pod_namespace",
+		"mapId":                        "map_id",
+		"mapName":                      "map_name",
+		"mapType":                      "map_type",
+		"operationType":                "operation_type",
+	}
+	operationLabels = []string{
+		"pod_name",
+		"pod_namespace",
+		"operation_type",
+	}
+
+	mapLabels = []string{
+		"pod_name",
+		"pod_namespace",
+		"map_id",
+		"map_name",
+		"map_type",
 	}
 )
 
@@ -175,6 +194,53 @@ var (
 			Name: "kmesh_tcp_conntections_failed_total",
 			Help: "The total number of TCP connections failed to a service.",
 		}, serviceLabels)
+
+	// New operation metrics
+	operationDurationInPod = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "kmesh_operation_duration_seconds",
+			Help: "Duration of operations in ns.",
+		},
+		operationLabels,
+	)
+
+	operationCountInPod = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kmesh_operation_count_total",
+			Help: "Count of operations executed.",
+		},
+		operationLabels,
+	)
+	// New map metrics
+	mapMaxEntries = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_max_entries_total",
+			Help: "The maximum number of entries allowed in an eBPF map.",
+		}, mapLabels,
+	)
+	mapUsage = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_usage_total",
+			Help: "The total number of entries used in an eBPF map.",
+		}, mapLabels,
+	)
+
+	mapMemory = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_memory_bytes",
+			Help: "The total memory size used by an eBPF map.",
+		}, mapLabels,
+	)
+	mapCountInPod = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_count_total",
+			Help: "Count of map executed.",
+		},
+		[]string{
+			"pod_name",
+			"pod_namespace",
+		},
+	)
 )
 
 func RunPrometheusClient(ctx context.Context) {
@@ -195,6 +261,8 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	defer mu.Unlock()
 	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload)
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
+	registry.MustRegister(operationDurationInPod, operationCountInPod)
+	registry.MustRegister(mapMaxEntries, mapUsage, mapMemory, mapCountInPod)
 
 	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		Registry: registry,
