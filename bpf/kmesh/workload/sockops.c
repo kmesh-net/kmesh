@@ -28,6 +28,26 @@ struct {
     __uint(map_flags, 0);
 } map_of_kmesh_socket SEC(".maps");
 
+// 全局变量，用于测试
+struct bpf_sock_ops g_skops = {0};
+__u32 g_is_managed = 0;
+__u32 g_auth_called = 0;
+struct bpf_sock_tuple g_tuple_key = {0};
+struct manager_key g_manager_key = {0};
+__u32 g_manager_value = 0;
+struct ringbuf_msg_type g_ringbuf_msg = {0};
+__u64 g_current_sk = 0;
+struct bpf_sock_tuple *g_dst = NULL;
+
+// 以下是对新增全局变量的解释：
+// g_skops: 用于存储 bpf_sock_ops 结构，可以在测试中检查其状态
+// g_is_managed: 用于标记是否被 Kmesh 管理
+// g_auth_called: 用于标记 auth_ip_tuple 函数是否被调用
+// g_tuple_key: 用于存储 bpf_sock_tuple 结构，可以在测试中检查其内容
+// g_manager_key 和 g_manager_value: 用于存储 map_of_manager 的键值对
+// g_ringbuf_msg: 用于存储 ringbuf 消息内容
+// g_current_sk 和 g_dst: 用于存储 socket 和目标信息
+
 static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
 {
     struct manager_key key = {0};
@@ -43,7 +63,8 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
     int *value = bpf_map_lookup_elem(&map_of_manager, &key);
     if (!value)
         return false;
-    return (*value == 0);
+    g_is_managed = (*value == 0); // 存储管理状态
+    return g_is_managed;
 }
 
 static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
@@ -64,6 +85,7 @@ static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf
         // remote_port is network byteorder
         tuple_key->ipv6.dport = GET_SKOPS_REMOTE_PORT(skops);
     }
+    g_tuple_key = *tuple_key; // 存储 tuple_key
 }
 
 static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
@@ -91,6 +113,7 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, st
         tuple_key->ipv4.sport = tuple_key->ipv6.sport;
         tuple_key->ipv4.dport = tuple_key->ipv6.dport;
     }
+    g_tuple_key = *tuple_key; // 存储 tuple_key
 }
 
 // clean map_of_auth
@@ -135,6 +158,8 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
         (*msg).type = IPV4;
     }
     bpf_ringbuf_submit(msg, 0);
+    g_auth_called = 1; // 标记函数被调用
+    g_ringbuf_msg = *msg; // 存储 msg 内容
 }
 
 // update sockmap to trigger sk_msg prog to encode metadata before sending to waypoint
@@ -161,6 +186,8 @@ static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_ANY);
     if (err)
         BPF_LOG(ERR, KMESH, "record ip failed!, err is %d\n", err);
+    g_manager_key = key; // 存储 key
+    g_manager_value = value; // 存储 value
 }
 
 static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
@@ -174,6 +201,7 @@ static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
     int err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
         BPF_LOG(ERR, KMESH, "remove ip failed!, err is %d\n", err);
+    g_manager_key = key; // 存储 key
 }
 
 static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 port)
@@ -217,6 +245,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
 {
     if (skops->family != AF_INET && skops->family != AF_INET6)
         return 0;
+    g_skops = *skops; // 存储 skops
     switch (skops->op) {
     case BPF_SOCK_OPS_TCP_CONNECT_CB:
         skops_handle_kmesh_managed_process(skops);
@@ -227,9 +256,9 @@ int sockops_prog(struct bpf_sock_ops *skops)
         observe_on_connect_established(skops->sk, OUTBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
-        __u64 *current_sk = (__u64 *)skops->sk;
-        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
-        if (dst != NULL)
+        g_current_sk = (__u64)skops->sk;
+        g_dst = bpf_map_lookup_elem(&map_of_dst_info, &g_current_sk);
+        if (g_dst != NULL)
             enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
