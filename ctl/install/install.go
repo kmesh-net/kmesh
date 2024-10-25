@@ -58,7 +58,7 @@ kmeshctl install --version 0.5`,
 
 			fmt.Println("install kmesh version: ", version)
 
-			combinedYAMLFile := getYAMLFile()
+			combinedYAMLFile := getYAMLFile(version)
 			err = cli.ApplyYAMLContents("", combinedYAMLFile)
 			if err != nil {
 				log.Fatal(err)
@@ -70,8 +70,13 @@ kmeshctl install --version 0.5`,
 	return cmd
 }
 
-func getYAMLFile() string {
-	url := fmt.Sprintf("https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=main")
+func getYAMLFile(version string) string {
+	var url string
+	if version != "main" {
+		url = fmt.Sprintf("https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=release-%s", version)
+	} else {
+		url = fmt.Sprintf("https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=main")
+	}
 
 	resp, err := http.Get(url)
 	if err != nil {
