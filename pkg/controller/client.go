@@ -23,6 +23,7 @@ import (
 
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/metadata"
 
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
@@ -60,6 +61,7 @@ func NewXdsClient(mode string, bpfWorkload *bpfwl.BpfWorkload, enableAccesslog b
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
+	client.ctx = metadata.AppendToOutgoingContext(client.ctx, "ClusterID", client.xdsConfig.Metadata.ClusterID.String())
 	return client
 }
 
