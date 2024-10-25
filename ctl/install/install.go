@@ -39,6 +39,11 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
 		Short: "install kmesh with all the resources",
+		Example: `# Install all kmesh resources (defaults to main):
+kmeshctl install
+
+# Install a specific version of kmesh
+kmeshctl install --version 0.5`,
 		Run: func(cmd *cobra.Command, args []string) {
 			version, err := cmd.Flags().GetString("version")
 			if err != nil {
