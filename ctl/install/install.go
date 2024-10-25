@@ -75,7 +75,7 @@ func getYAMLFile(version string) string {
 	if version != "main" {
 		url = fmt.Sprintf("https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=release-%s", version)
 	} else {
-		url = fmt.Sprintf("https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=main")
+		url = "https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=main"
 	}
 
 	resp, err := http.Get(url)
