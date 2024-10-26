@@ -46,15 +46,15 @@ type BpfAds struct {
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
 	if err := sc.TracePoint.NewBpf(cfg); err != nil {
-		return sc, err
+		return nil, err
 	}
 
 	if err := sc.SockOps.NewBpf(cfg); err != nil {
-		return sc, err
+		return nil, err
 	}
 
 	if err := sc.SockConn.NewBpf(cfg); err != nil {
-		return sc, err
+		return nil, err
 	}
 	return sc, nil
 }

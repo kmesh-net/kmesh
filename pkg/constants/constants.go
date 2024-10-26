@@ -60,4 +60,7 @@ const (
 
 	VersionPath         = "/bpf_kmesh/map/"
 	WorkloadVersionPath = "/bpf_kmesh_workload/map/"
+
+	Tail_call_map = "tail_call_map"
+	Prog_link     = "prog_link"
 )

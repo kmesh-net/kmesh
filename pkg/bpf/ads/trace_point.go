@@ -32,6 +32,7 @@ import (
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
@@ -112,28 +113,28 @@ func (sc *BpfTracePoint) Load() error {
 }
 
 func (sc *BpfTracePoint) Attach() error {
+	var err error
 	tpopt := link.RawTracepointOptions{
 		Name:    "connect_ret",
 		Program: sc.KmeshTracePointObjects.ConnectRet,
 	}
 
-	pinPath := filepath.Join(sc.Info.BpfFsPath, "trace_point_link")
+	pinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
 	if restart.GetStartType() == restart.Restart {
-		lk, err := link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
+		sc.Link, err = link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
 		if err != nil {
 			return err
 		}
-		sc.Link = lk
 	} else {
-		lk, err := link.AttachRawTracepoint(tpopt)
+		sc.Link, err = link.AttachRawTracepoint(tpopt)
 		if err != nil {
 			return err
 		}
 
-		if err := lk.Pin(pinPath); err != nil {
+		if err := sc.Link.Pin(pinPath); err != nil {
 			return err
 		}
-		sc.Link = lk
+
 	}
 	return nil
 }

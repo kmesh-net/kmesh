@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/ebpf/link"
 
 	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/constants"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
@@ -163,8 +164,8 @@ func (sc *BpfSockConn) Attach() error {
 
 	// pin bpf_tail_call map
 	// tail_call map cannot pin in SetMapPinType->LoadAndAssign, we pin them independent
-	mapPinPath := filepath.Join(sc.Info.BpfFsPath, "sockconn_tail_call_map")
-	progPinPath := filepath.Join(sc.Info.BpfFsPath, "sockconn_link")
+	mapPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Tail_call_map)
+	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
 	if restart.GetStartType() == restart.Restart {
 		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
 			return err
