@@ -53,7 +53,6 @@ func BpfProgUpdate(pinPath string, cgopt link.CgroupOptions) (link.Link, error) 
 }
 
 func BpfMapDeleteByPinPath(bpfFsPath string) error {
-
 	progMap, err := ebpf.LoadPinnedMap(bpfFsPath, nil)
 	if err != nil {
 		return fmt.Errorf("loadPinnedProgram failed for %s: %v", bpfFsPath, err)
