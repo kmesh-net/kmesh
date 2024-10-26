@@ -38,8 +38,8 @@ type GitHubFile struct {
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "install",
-		Short: "install kmesh with all the resources",
-		Example: `# Install all kmesh resources (defaults to main):
+		Short: "install Kmesh with all the resources",
+		Example: `# Install all Kmesh resources (defaults to main):
 kmeshctl install
 
 # Install a specific version of kmesh
@@ -102,7 +102,7 @@ func getYAMLFile(version string) string {
 
 			deployYaml, err := io.ReadAll(resp.Body)
 			if err != nil {
-				log.Fatalf("yamlFile.Get err   #%v ", err)
+				log.Fatalf("yamlFile.Get err: %v ", err)
 			}
 
 			combinedYAML += string(deployYaml) + "\n---\n"
