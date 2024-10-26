@@ -21,6 +21,7 @@ package ads
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
@@ -29,6 +30,7 @@ import (
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
@@ -79,11 +81,6 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshSockopsObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	value := reflect.ValueOf(sc.KmeshSockopsObjects.KmeshSockopsPrograms)
-	if err = utils.PinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
@@ -181,18 +178,37 @@ func (sc *BpfSockOps) Load() error {
 }
 
 func (sc *BpfSockOps) Attach() error {
+	var err error
 	cgopt := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshSockopsObjects.SockopsProg,
 	}
 
-	lk, err := link.AttachCgroup(cgopt)
-	if err != nil {
+	// pin bpf_link and bpf_tail_call map
+	// pin bpf_link, after restart, update prog in bpf_link
+	// tail_call map cannot pin in SetMapPinType->LoadAndAssign, we pin them independent
+	mapPinPath := filepath.Join(sc.Info.BpfFsPath, "sockops_tail_call_map")
+	progPinPath := filepath.Join(sc.Info.BpfFsPath, "sockops_link")
+	if restart.GetStartType() == restart.Restart {
+		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
+			return err
+		}
+		if err = utils.BpfMapDeleteByPinPath(mapPinPath); err != nil {
+			return err
+		}
+	} else {
+		sc.Link, err = link.AttachCgroup(cgopt)
+		if err != nil {
+			return err
+		}
+		if err = sc.Link.Pin(progPinPath); err != nil {
+			return err
+		}
+	}
+	if err = sc.KmeshSockopsMaps.KmeshTailCallProg.Pin(mapPinPath); err != nil {
 		return err
 	}
-	sc.Link = lk
-
 	return nil
 }
 

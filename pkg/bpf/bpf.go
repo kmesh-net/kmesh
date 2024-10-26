@@ -132,10 +132,14 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if restart.GetExitType() == restart.Restart && l.config.DualEngineEnabled() {
-		C.deserial_uninit(true)
-		log.Infof("kmesh restart, not clean bpf map and prog")
-		return
+	if restart.GetExitType() == restart.Restart {
+		ret := C.deserial_uninit(true)
+		if ret == 0 {
+			log.Infof("kmesh restart, not clean bpf map and prog")
+			return
+		} else {
+			log.Errorf("kmesh restart, failed to save configuration, deserial_uninit failed, ret=%v\nClean all configuration", ret)
+		}
 	}
 
 	closeMap(l.versionMap)

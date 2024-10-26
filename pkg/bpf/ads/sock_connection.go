@@ -22,11 +22,14 @@ package ads
 import "C"
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+
+	"kmesh.net/kmesh/pkg/bpf/restart"
 
 	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
 	"kmesh.net/kmesh/daemon/options"
@@ -100,11 +103,6 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 		return nil, err
 	}
 
-	value := reflect.ValueOf(sc.KmeshCgroupSockObjects.KmeshCgroupSockPrograms)
-	if err = utils.PinPrograms(&value, sc.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
 }
 
@@ -156,18 +154,37 @@ func (sc *BpfSockConn) close() error {
 }
 
 func (sc *BpfSockConn) Attach() error {
+	var err error
 	cgopt := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshCgroupSockObjects.CgroupConnect4Prog,
 	}
 
-	lk, err := link.AttachCgroup(cgopt)
-	if err != nil {
+	// pin bpf_tail_call map
+	// tail_call map cannot pin in SetMapPinType->LoadAndAssign, we pin them independent
+	mapPinPath := filepath.Join(sc.Info.BpfFsPath, "sockconn_tail_call_map")
+	progPinPath := filepath.Join(sc.Info.BpfFsPath, "sockconn_link")
+	if restart.GetStartType() == restart.Restart {
+		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
+			return err
+		}
+		if err = utils.BpfMapDeleteByPinPath(mapPinPath); err != nil {
+			return err
+		}
+	} else {
+		sc.Link, err = link.AttachCgroup(cgopt)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.Link.Pin(progPinPath); err != nil {
+			return err
+		}
+	}
+	if err = sc.KmeshCgroupSockMaps.KmeshTailCallProg.Pin(mapPinPath); err != nil {
 		return err
 	}
-	sc.Link = lk
-
 	return nil
 }
 

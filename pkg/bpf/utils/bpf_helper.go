@@ -16,7 +16,12 @@
 
 package utils
 
-import "github.com/cilium/ebpf"
+import (
+	"fmt"
+
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
+)
 
 func SetInnerMap(spec *ebpf.CollectionSpec) {
 	var (
@@ -34,4 +39,29 @@ func SetInnerMap(spec *ebpf.CollectionSpec) {
 			}
 		}
 	}
+}
+
+func BpfProgUpdate(pinPath string, cgopt link.CgroupOptions) (link.Link, error) {
+	sclink, err := link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
+	if err != nil {
+		return nil, err
+	}
+	if err := sclink.Update(cgopt.Program); err != nil {
+		return nil, fmt.Errorf("updating link %s failed: %w", pinPath, err)
+	}
+	return sclink, nil
+}
+
+func BpfMapDeleteByPinPath(bpfFsPath string) error {
+
+	progMap, err := ebpf.LoadPinnedMap(bpfFsPath, nil)
+	if err != nil {
+		return fmt.Errorf("loadPinnedProgram failed for %s: %v", bpfFsPath, err)
+	}
+	defer progMap.Close()
+	if err := progMap.Unpin(); err != nil {
+		return fmt.Errorf("unpin failed for %s: %v", bpfFsPath, err)
+	}
+
+	return nil
 }
