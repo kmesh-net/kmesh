@@ -80,7 +80,7 @@ func getYAMLFile(version string) string {
 
 	resp, err := http.Get(url)
 	if err != nil {
-		log.Fatal("error fetching files:", err)
+		log.Fatal("error fetching files: ", err)
 	}
 	defer resp.Body.Close()
 
