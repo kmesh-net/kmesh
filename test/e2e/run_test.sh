@@ -250,7 +250,7 @@ while (( "$#" )); do
       shift
     ;;
     --skip-cleanup-apps)
-      PARAMS+=("--istio.test.noCleanup")
+      PARAMS+=("-istio.test.nocleanup")
       shift
     ;;
     *)
