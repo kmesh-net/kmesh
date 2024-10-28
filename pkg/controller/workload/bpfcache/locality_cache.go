@@ -104,37 +104,43 @@ func (l *LocalityCache) SetLocality(nodeName, clusterId, network string, localit
 func (l *LocalityCache) CalcLocalityLBPrio(wl *workloadapi.Workload, rp []workloadapi.LoadBalancing_Scope) uint32 {
 	var rank uint32 = 0
 	for _, scope := range rp {
+		match := false
 		switch scope {
 		case workloadapi.LoadBalancing_REGION:
 			log.Debugf("l.LocalityInfo.region %#v, wl.GetLocality().GetRegion() %#v", l.LocalityInfo.region, wl.GetLocality().GetRegion())
 			if l.LocalityInfo.region == wl.GetLocality().GetRegion() {
-				rank++
+				match = true
 			}
 		case workloadapi.LoadBalancing_ZONE:
 			log.Debugf("l.LocalityInfo.zone %#v, wl.GetLocality().GetZone() %#v", l.LocalityInfo.zone, wl.GetLocality().GetZone())
 			if l.LocalityInfo.zone == wl.GetLocality().GetZone() {
-				rank++
+				match = true
 			}
 		case workloadapi.LoadBalancing_SUBZONE:
 			log.Debugf("l.LocalityInfo.subZone %#v, wl.GetLocality().GetSubzone() %#v", l.LocalityInfo.subZone, wl.GetLocality().GetSubzone())
 			if l.LocalityInfo.subZone == wl.GetLocality().GetSubzone() {
-				rank++
+				match = true
 			}
 		case workloadapi.LoadBalancing_NODE:
 			log.Debugf("l.LocalityInfo.nodeName %#v, wl.GetNode() %#v", l.LocalityInfo.nodeName, wl.GetNode())
 			if l.LocalityInfo.nodeName == wl.GetNode() {
-				rank++
-			}
-		case workloadapi.LoadBalancing_NETWORK:
-			log.Debugf("l.LocalityInfo.network %#v, wl.GetNetwork() %#v", l.LocalityInfo.network, wl.GetNetwork())
-			if l.LocalityInfo.network == wl.GetNetwork() {
-				rank++
+				match = true
 			}
 		case workloadapi.LoadBalancing_CLUSTER:
 			log.Debugf("l.LocalityInfo.clusterId %#v, wl.GetClusterId() %#v", l.LocalityInfo.clusterId, wl.GetClusterId())
 			if l.LocalityInfo.clusterId == wl.GetClusterId() {
-				rank++
+				match = true
 			}
+		case workloadapi.LoadBalancing_NETWORK:
+			log.Debugf("l.LocalityInfo.network %#v, wl.GetNetwork() %#v", l.LocalityInfo.network, wl.GetNetwork())
+			if l.LocalityInfo.network == wl.GetNetwork() {
+				match = true
+			}
+		}
+		if match {
+			rank++
+		} else {
+			break
 		}
 	}
 	return uint32(len(rp)) - rank
