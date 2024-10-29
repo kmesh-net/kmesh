@@ -22,15 +22,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
-const (
-	REGION    = 1 << iota // 000001
-	ZONE                  // 000010
-	SUBZONE               // 000100
-	NODENAME              // 001000
-	CLUSTERID             // 010000
-	NETWORK               // 100000
-)
-
+// localityInfo records local node workload locality info
 type localityInfo struct {
 	region    string // init from workload.GetLocality().GetRegion()
 	zone      string // init from workload.GetLocality().GetZone()
@@ -38,40 +30,6 @@ type localityInfo struct {
 	nodeName  string // init from os.Getenv("NODE_NAME"), workload.GetNode()
 	clusterId string // init from workload.GetClusterId()
 	network   string // workload.GetNetwork()
-	mask      uint32 // mask
-}
-
-func Valid(s string) bool {
-	return s != ""
-}
-
-func (l *localityInfo) Set(s string, param uint32) {
-	if !Valid(s) {
-		return
-	}
-	switch param {
-	case REGION:
-		l.region = s
-	case ZONE:
-		l.zone = s
-	case SUBZONE:
-		l.subZone = s
-	case NODENAME:
-		l.nodeName = s
-	case CLUSTERID:
-		l.clusterId = s
-	case NETWORK:
-		l.network = s
-	}
-	l.mask |= param
-}
-
-func (l *localityInfo) Clear(param uint32) {
-	l.mask &= ^param
-}
-
-func (l *localityInfo) IsSet(param uint32) bool {
-	return l.mask&param != 0
 }
 
 type LocalityCache struct {
@@ -93,12 +51,12 @@ func (l *LocalityCache) SetLocality(nodeName, clusterId, network string, localit
 	}
 
 	// notice: nodeName should set by processor or os.Getenv("NODE_NAME"),
-	l.LocalityInfo.Set(nodeName, NODENAME)
-	l.LocalityInfo.Set(locality.GetRegion(), REGION)
-	l.LocalityInfo.Set(locality.GetSubzone(), SUBZONE)
-	l.LocalityInfo.Set(locality.GetZone(), ZONE)
-	l.LocalityInfo.Set(clusterId, CLUSTERID)
-	l.LocalityInfo.Set(network, NETWORK)
+	l.LocalityInfo.region = locality.GetRegion()
+	l.LocalityInfo.zone = locality.GetZone()
+	l.LocalityInfo.subZone = locality.GetSubzone()
+	l.LocalityInfo.nodeName = nodeName
+	l.LocalityInfo.clusterId = clusterId
+	l.LocalityInfo.network = network
 }
 
 func (l *LocalityCache) CalcLocalityLBPrio(wl *workloadapi.Workload, rp []workloadapi.LoadBalancing_Scope) uint32 {
@@ -107,27 +65,22 @@ func (l *LocalityCache) CalcLocalityLBPrio(wl *workloadapi.Workload, rp []worklo
 		match := false
 		switch scope {
 		case workloadapi.LoadBalancing_REGION:
-			log.Debugf("l.LocalityInfo.region %#v, wl.GetLocality().GetRegion() %#v", l.LocalityInfo.region, wl.GetLocality().GetRegion())
 			if l.LocalityInfo.region == wl.GetLocality().GetRegion() {
 				match = true
 			}
 		case workloadapi.LoadBalancing_ZONE:
-			log.Debugf("l.LocalityInfo.zone %#v, wl.GetLocality().GetZone() %#v", l.LocalityInfo.zone, wl.GetLocality().GetZone())
 			if l.LocalityInfo.zone == wl.GetLocality().GetZone() {
 				match = true
 			}
 		case workloadapi.LoadBalancing_SUBZONE:
-			log.Debugf("l.LocalityInfo.subZone %#v, wl.GetLocality().GetSubzone() %#v", l.LocalityInfo.subZone, wl.GetLocality().GetSubzone())
 			if l.LocalityInfo.subZone == wl.GetLocality().GetSubzone() {
 				match = true
 			}
 		case workloadapi.LoadBalancing_NODE:
-			log.Debugf("l.LocalityInfo.nodeName %#v, wl.GetNode() %#v", l.LocalityInfo.nodeName, wl.GetNode())
 			if l.LocalityInfo.nodeName == wl.GetNode() {
 				match = true
 			}
 		case workloadapi.LoadBalancing_CLUSTER:
-			log.Debugf("l.LocalityInfo.clusterId %#v, wl.GetClusterId() %#v", l.LocalityInfo.clusterId, wl.GetClusterId())
 			if l.LocalityInfo.clusterId == wl.GetClusterId() {
 				match = true
 			}

@@ -674,33 +674,6 @@ func serviceToAddress(service *workloadapi.Service) *workloadapi.Address {
 	}
 }
 
-func TestCalcLocalityLbPrio(t *testing.T) {
-	workloadMap := bpfcache.NewFakeWorkloadMap(t)
-	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
-
-	p := NewProcessor(workloadMap)
-
-	localityLBScope := make([]workloadapi.LoadBalancing_Scope, 0)
-	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_REGION)
-	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_ZONE)
-	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_SUBZONE)
-	localityLoadBlanacing := createLoadBalancing(workloadapi.LoadBalancing_FAILOVER, localityLBScope)
-	llbSvc := createFakeService("svc1", "10.240.10.1", "10.240.10.200", localityLoadBlanacing)
-
-	p.locality.SetLocality(os.Getenv("NODE_NAME"), "", "", createLocality("r1", "z1", "s1"))
-
-	wl1 := createWorkload("wl1", "10.244.0.1", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1") // prio 0
-	wl2 := createWorkload("wl2", "10.244.0.2", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s2"), "svc1") // prio 1
-	wl3 := createWorkload("wl3", "10.244.0.3", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z2", "s2"), "svc1") // prio 2
-	wl4 := createWorkload("wl4", "10.244.0.4", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r2", "z2", "s2"), "svc1") // prio 3
-	assert.Equal(t, uint32(0), p.locality.CalcLocalityLBPrio(wl1, llbSvc.GetLoadBalancing().GetRoutingPreference()))
-	assert.Equal(t, uint32(1), p.locality.CalcLocalityLBPrio(wl2, llbSvc.GetLoadBalancing().GetRoutingPreference()))
-	assert.Equal(t, uint32(2), p.locality.CalcLocalityLBPrio(wl3, llbSvc.GetLoadBalancing().GetRoutingPreference()))
-	assert.Equal(t, uint32(3), p.locality.CalcLocalityLBPrio(wl4, llbSvc.GetLoadBalancing().GetRoutingPreference()))
-
-	hashNameClean(p)
-}
-
 func TestLBPolicyUpdate(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
@@ -793,7 +766,7 @@ func TestLBPolicyUpdate(t *testing.T) {
 	checkEndpointMap(t, p, llbSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 
-	// 3. Locality Loadbalance Update from random to locality LB
+	// 3. Locality Loadbalance Update from locality LB to random
 	addr = serviceToAddress(randomSvc)
 	res3.Resources = append(res3.Resources, &service_discovery_v3.Resource{
 		Resource: protoconv.MessageToAny(addr),

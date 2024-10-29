@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 
@@ -38,6 +39,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/telemetry"
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
@@ -325,7 +327,6 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 
 // handleWorkloadUnboundServices handles when a workload's belonging services removed
 func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload, unboundedEndpointKeys []bpf.EndpointKey) error {
-	// workloadUid := p.hashName.Hash(workload.Uid)
 	log.Debugf("handleWorkloadUnboundServices %s: %v", workload.ResourceName(), unboundedEndpointKeys)
 	err := p.deleteEndpointRecords(unboundedEndpointKeys)
 	if err != nil {
@@ -425,7 +426,8 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
 
 	// update kmesh localityCache
-	if p.locality.LocalityInfo == nil && p.nodeName == workload.GetNode() { // todo
+	// TODO: recalculate endpoints priority once local locality is set
+	if p.locality.LocalityInfo == nil && p.nodeName == workload.GetNode() {
 		p.locality.SetLocality(p.nodeName, workload.GetClusterId(), workload.GetNetwork(), workload.GetLocality())
 	}
 
@@ -494,17 +496,15 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 	return nil
 }
 
-// toLLb indicates whether we are performing a locality load balance update.
-// If toLLb is true, it means we need to calculate priority; otherwise,
-// it represents a random strategy, in which case we just set the priority to 0.
-func (p *Processor) updateEndpoint(serviceId uint32, toLLb bool) error {
-	var (
-		err  error
-		prio uint32
-	)
-	eksDelete := []bpf.EndpointKey{}
-	backendUids := []uint32{}
-	for _, ep := range p.EndpointCache.List(serviceId) {
+func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsDelete []cache.Endpoint, toLLb bool) error {
+	var prio uint32
+
+	if len(epsDelete) == 0 {
+		return nil
+	}
+
+	for i := len(epsDelete) - 1; i >= 0; i-- {
+		ep := epsDelete[i]
 		ek := bpf.EndpointKey{
 			ServiceId:    ep.ServiceId,
 			Prio:         ep.Prio,
@@ -514,35 +514,67 @@ func (p *Processor) updateEndpoint(serviceId uint32, toLLb bool) error {
 		if err := p.bpf.EndpointLookup(&ek, &ev); err != nil { // get backend Uid
 			return err
 		}
-		backendUids = append(backendUids, ev.BackendUid)
-		eksDelete = append(eksDelete, ek)
-	}
-	if err := p.deleteEndpointRecords(eksDelete); err != nil {
-		log.Errorf("delete [%#v] from endpoint map failed: %s", eksDelete, err)
-	}
 
-	sKey := bpf.ServiceKey{ServiceId: serviceId}
-	sValue := bpf.ServiceValue{}
-	if err = p.bpf.ServiceLookup(&sKey, &sValue); err != nil {
-		log.Errorf("Lookup service %d failed: %v", sKey.ServiceId, err)
-	}
-
-	for _, uid := range backendUids {
-		// add new endpoint
+		// Calc Priority
 		if toLLb {
 			service := p.ServiceCache.GetService(p.hashName.NumToStr(serviceId))
-			workload := p.WorkloadCache.GetWorkloadByUid(p.hashName.NumToStr(uid))
+			workload := p.WorkloadCache.GetWorkloadByUid(p.hashName.NumToStr(ev.BackendUid))
 			prio = p.locality.CalcLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
 		} else {
 			prio = 0 // to random
 		}
 
-		if err, _ = p.addWorkloadToService(&sKey, &sValue, uid, prio); err != nil {
-			log.Errorf("addWorkloadToService workload %d service %d failed: %v", uid, sKey.ServiceId, err)
+		// addWorkloadToService and deleteEndpointRecords will update service map each time, so we need look up it each time.
+		sKey := bpf.ServiceKey{ServiceId: serviceId}
+		sValue := bpf.ServiceValue{}
+		if err := p.bpf.ServiceLookup(&sKey, &sValue); err != nil {
+			log.Errorf("Lookup service %d failed: %v", sKey.ServiceId, err)
+		}
+
+		// add ek first
+		if err, _ := p.addWorkloadToService(&sKey, &sValue, ev.BackendUid, prio); err != nil {
+			log.Errorf("addWorkloadToService workload %d service %d failed: %v", ev.BackendUid, sKey.ServiceId, err)
 			return err
+		}
+		eksDeletes := []bpfcache.EndpointKey{}
+		eksDeletes = append(eksDeletes, bpfcache.EndpointKey{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex})
+
+		// delete ek
+		if err := p.deleteEndpointRecords(eksDeletes); err != nil {
+			log.Errorf("delete [%#v] from endpoint map failed: %s", eksDeletes, err)
 		}
 	}
 	return nil
+}
+
+// toLLb indicates whether we are performing a locality load balance update.
+// If toLLb is true, it means we need to calculate priority; otherwise,
+// it represents a random strategy, in which case we just set the priority to 0.
+func (p *Processor) updateEndpoint(serviceId uint32, toLLb bool) error {
+	endpoints := p.EndpointCache.List(serviceId)
+	if toLLb {
+		endpointSlice := []cache.Endpoint{}
+		for _, endpoint := range endpoints {
+			endpointSlice = append(endpointSlice, endpoint)
+		}
+
+		// sort by Prio and BackendIndex
+		sort.Slice(endpointSlice, func(i, j int) bool {
+			if endpointSlice[i].Prio == endpointSlice[j].Prio {
+				return endpointSlice[i].BackendIndex < endpointSlice[j].BackendIndex
+			}
+			return endpointSlice[i].Prio < endpointSlice[j].Prio
+		})
+		return p.updateEndpointOneByOne(serviceId, endpointSlice, toLLb)
+	} else {
+		filtered := []cache.Endpoint{}
+		for _, endpoint := range endpoints {
+			if endpoint.Prio > 0 {
+				filtered = append(filtered, endpoint)
+			}
+		}
+		return p.updateEndpointOneByOne(serviceId, filtered, toLLb)
+	}
 }
 
 func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.GatewayAddress, ports []*workloadapi.Port, lb *workloadapi.LoadBalancing) error {
