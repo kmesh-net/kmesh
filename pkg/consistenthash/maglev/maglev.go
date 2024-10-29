@@ -9,7 +9,6 @@ import (
 	"github.com/cilium/ebpf"
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	"kmesh.net/kmesh/api/v2/endpoint"
-	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
 
@@ -27,8 +26,6 @@ var (
 	seedMurmur      uint32
 	maglevTableSize uint64
 )
-
-var log = logger.NewLoggerField("lb/maglev")
 
 type Backend struct {
 	ep     *endpoint.Endpoint
