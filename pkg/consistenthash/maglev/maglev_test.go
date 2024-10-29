@@ -63,7 +63,6 @@ func (suite *MaglevTestSuite) SetupSuite() {
 }
 
 func (suite *MaglevTestSuite) TearDownSuite() {
-
 	fmt.Println(">>> From TearDownSuite")
 }
 
@@ -107,7 +106,6 @@ func (suite *MaglevTestSuite) TestGetLookupTable() {
 	for k, v := range backendCount {
 		fmt.Printf("\n backend_id:%v, count:%v\n", k, v)
 	}
-
 }
 
 func newCluster() *cluster_v2.Cluster {
