@@ -1,4 +1,4 @@
-prefix=
+prefix=/home/sankalp/openSource/kmesh/
 
 Name: api-v2-c
 Description: api-v2-c
