@@ -63,7 +63,6 @@ func (s *serviceCache) DeleteService(resourceName string) {
 }
 
 func (s *serviceCache) List() []*workloadapi.Service {
-	log.Info("--- serviceCache List()")
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	out := make([]*workloadapi.Service, 0, len(s.servicesByResourceName))
@@ -123,7 +122,7 @@ func (s *serviceCache) HandleWaypoint(svc *workloadapi.Service) []*workloadapi.S
 		s.updateWaypoint(svc, addr)
 	} else {
 		// Try to find the waypoint service from the cache.
-		waypointService := s.GetService(resourceName)
+		waypointService := s.servicesByResourceName[resourceName]
 		if waypointService == nil || len(waypointService.GetAddresses()) == 0 {
 			s.waypointToAddress[resourceName] = nil
 		} else {
