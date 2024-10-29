@@ -684,6 +684,7 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	}
 
 	p.ServiceCache.AddOrUpdateService(service)
+	servicesToUpdate := p.ServiceCache.HandleWaypoint(service)
 	serviceName := service.ResourceName()
 	serviceId := p.hashName.Hash(serviceName)
 
@@ -698,6 +699,16 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		log.Errorf("storeServiceData failed, err:%s", err)
 		return err
 	}
+
+	// The services needs to be updated because the waypoint has been updated.
+	for _, svc := range servicesToUpdate {
+		log.Infof("update svc %s because of waypoint update", svc.ResourceName())
+		if err := p.storeServiceData(svc.ResourceName(), svc.GetWaypoint(), svc.GetPorts()); err != nil {
+			log.Errorf("storeServiceData failed, err: %v", err)
+			return err
+		}
+	}
+
 	return nil
 }
 
