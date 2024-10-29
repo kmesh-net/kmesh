@@ -474,10 +474,10 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
 		return nil
 	}
 	// current only support http header based hash policy
-	apiHashPolicys := make([]*route_v2.RouteAction_HashPolicy,0)
+	apiHashPolicys := make([]*route_v2.RouteAction_HashPolicy, 0)
 	for _, hp := range action.GetHashPolicy() {
 		apiHashPolicy := &route_v2.RouteAction_HashPolicy{
-				PolicySpecifier: nil,
+			PolicySpecifier: nil,
 		}
 		switch hp.GetPolicySpecifier().(type) {
 		case *config_route_v3.RouteAction_HashPolicy_Header_:

@@ -13,14 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
-package hash
 
+package hash
 
 import (
 	"unsafe"
 )
-
 
 // Hash128 calculates a 128 bits hash for the given data. It returns different
 // results when running on big-endian and little-endian machines.
@@ -33,19 +31,15 @@ func Hash128(data []byte, seed uint32) (uint64, uint64) {
 		c2 = uint64(0x4cf5ad432745937f)
 	)
 
-
 	nblocks := len(data) / 16
-
 
 	h1 := uint64(seed)
 	h2 := uint64(seed)
-
 
 	for i := 0; i < nblocks; i++ {
 		tmp := (*[2]uint64)(unsafe.Pointer(&data[i*16]))
 		k1 := tmp[0]
 		k2 := tmp[1]
-
 
 		k1 *= c1
 		k1 = rotl64(k1, 31)
@@ -63,13 +57,10 @@ func Hash128(data []byte, seed uint32) (uint64, uint64) {
 		h2 = h2*5 + 0x38495ab5
 	}
 
-
 	k1 := uint64(0)
 	k2 := uint64(0)
 
-
 	tail := data[nblocks*16:]
-
 
 	switch len(tail) & 15 {
 	case 15:
@@ -126,7 +117,6 @@ func Hash128(data []byte, seed uint32) (uint64, uint64) {
 		h1 ^= k1
 	}
 
-
 	h1 ^= uint64(len(data))
 	h2 ^= uint64(len(data))
 	h1 += h2
@@ -136,15 +126,12 @@ func Hash128(data []byte, seed uint32) (uint64, uint64) {
 	h1 += h2
 	h2 += h1
 
-
 	return h1, h2
 }
-
 
 func rotl64(x uint64, r int8) uint64 {
 	return (x << r) | (x >> (64 - r))
 }
-
 
 func fmix64(k uint64) uint64 {
 	k ^= k >> 33
@@ -152,7 +139,6 @@ func fmix64(k uint64) uint64 {
 	k ^= k >> 33
 	k *= 0xc4ceb9fe1a85ec53
 	k ^= k >> 33
-
 
 	return k
 }
