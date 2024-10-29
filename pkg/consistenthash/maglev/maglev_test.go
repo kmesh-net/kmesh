@@ -1,3 +1,19 @@
+/*
+ * Copyright The Kmesh Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package maglev
 
 import (
@@ -8,6 +24,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/stretchr/testify/suite"
+	
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	"kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/api/v2/endpoint"
@@ -73,7 +90,6 @@ func (suite *MaglevTestSuite) TestCreateLB() {
 		fmt.Printf("Lookup with key %v , err %v \n", clusterName, err)
 	}
 	fmt.Println("inner fd: ", inner_fd)
-
 }
 
 func (suite *MaglevTestSuite) TestGetLookupTable() {
@@ -86,10 +102,8 @@ func (suite *MaglevTestSuite) TestGetLookupTable() {
 	backendCount := make(map[int]int)
 	// print backend id distribute
 	for i := 0; i < len(table); i++ {
-		fmt.Printf(" %v", table[i])
 		backendCount[table[i]]++
 	}
-	fmt.Println()
 	for k, v := range backendCount {
 		fmt.Printf("\n backend_id:%v, count:%v\n", k, v)
 	}
