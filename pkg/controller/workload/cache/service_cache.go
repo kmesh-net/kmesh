@@ -33,6 +33,11 @@ type serviceCache struct {
 	mutex sync.RWMutex
 	// keyed by namespace/hostname->service
 	servicesByResourceName map[string]*workloadapi.Service
+
+	// NOTE: The following data structure is used to change the waypoint
+	// address of type hostname in the service to type ip address.
+	waypointToServices map[string]map[string]*workloadapi.Service
+	waypointToAddress  map[string]*workloadapi.NetworkAddress
 }
 
 func NewServiceCache() *serviceCache {
