@@ -594,25 +594,9 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 	newValue := bpf.ServiceValue{}
 	newValue.LbPolicy = uint32(lb.GetMode()) // set loadbalance mode
 
-	if waypoint != nil {
-		if waypoint.GetAddress() != nil {
-			nets.CopyIpByteFromSlice(&newValue.WaypointAddr, waypoint.GetAddress().Address)
-			newValue.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
-		} else if waypoint.GetHostname() != nil {
-			s := p.ServiceCache.GetService(waypoint.GetHostname().String())
-			log.Infof("--- ServiceCache.GetService, waypoint.GetHostname().String() is %s", waypoint.GetHostname().String())
-			if s == nil {
-				log.Errorf("failed to get waypoint service %s from service cache", waypoint.GetHostname().String())
-			} else {
-				if len(s.GetAddresses()) == 0 {
-					log.Errorf("waypoint service %s does not have any address")
-				} else {
-					nets.CopyIpByteFromSlice(&newValue.WaypointAddr, s.GetAddresses()[0].GetAddress())
-					log.Infof("--- ServiceCache.GetService Address[0] is %s", s.GetAddresses()[0].String())
-					newValue.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
-				}
-			}
-		}
+	if waypoint != nil && waypoint.GetAddress() != nil {
+		nets.CopyIpByteFromSlice(&newValue.WaypointAddr, waypoint.GetAddress().Address)
+		newValue.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 	}
 
 	for i, port := range ports {
