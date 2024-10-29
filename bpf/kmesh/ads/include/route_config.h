@@ -373,7 +373,6 @@ int route_config_manager(ctx_buff_t *ctx)
     }
 
     cluster = route_get_cluster(route);
-    consistent_hash_policy(route);
     if (!cluster) {
         BPF_LOG(ERR, ROUTER_CONFIG, "failed to get cluster\n");
         return KMESH_TAIL_CALL_RET(-1);

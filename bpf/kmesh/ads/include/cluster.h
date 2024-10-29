@@ -239,7 +239,7 @@ static inline void *loadbalance_round_robin(struct cluster_endpoints *eps)
 }
 
 static inline void *
-cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_policy, char *name)
+cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_policy, const char *name)
 {
     void *ep_identity = NULL;
 
