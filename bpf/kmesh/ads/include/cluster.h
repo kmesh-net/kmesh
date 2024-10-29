@@ -248,7 +248,7 @@ cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_pol
         ep_identity = loadbalance_round_robin(eps);
         break;
     case CLUSTER__CLUSTER__LB_POLICY__MAGLEV:
-        //Todo: next pr add consistent hash loadbalance
+        // Todo: next pr add consistent hash loadbalance
         ep_identity = loadbalance_round_robin(eps);
         break;
     default:
