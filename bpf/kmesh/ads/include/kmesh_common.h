@@ -29,6 +29,11 @@
         val;                                                                                                           \
     })
 
+struct bpf_mem_ptr {
+    void *ptr;
+    __u32 size;
+};
+
 #if !ENHANCED_KERNEL
 static inline int bpf__strncmp(const char *dst, int n, const char *src)
 {
