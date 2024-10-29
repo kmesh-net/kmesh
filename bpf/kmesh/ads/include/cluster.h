@@ -82,16 +82,6 @@ static inline struct cluster_endpoints *map_lookup_cluster_eps(const char *clust
     return kmesh_map_lookup_elem(&map_of_cluster_eps, cluster_name);
 }
 
-static inline __u32 *map_lookup_cluster_inner_map(const char *cluster_name)
-{
-    return kmesh_map_lookup_elem(&outer_of_maglev, cluster_name);
-}
-
-static inline __u32 *map_lookup_lb_hash() {
-    int location = 0;
-    return kmesh_map_lookup_elem(&map_of_lb_hash,&location);
-}
-
 static inline int map_add_cluster_eps(const char *cluster_name, const struct cluster_endpoints *eps)
 {
     return kmesh_map_update_elem(&map_of_cluster_eps, cluster_name, eps);
@@ -248,68 +238,8 @@ static inline void *loadbalance_round_robin(struct cluster_endpoints *eps)
     return (void *)eps->ep_identity[idx];
 }
 
-static __always_inline __u32 map_array_get_32(__u32 *array, __u32 index, const __u32 limit)
-{
-    __u32 datum = 0;
-
-    /* LLVM tends to optimize code away that is needed for the verifier to
-     * understand dynamic map access. Input constraint is that index < limit
-     * for this util function, so we never fail here, and returned datum is
-     * always valid.
-     */
-    asm volatile("%[index] <<= 2\n\t"
-                 "if %[index] > %[limit] goto +1\n\t"
-                 "%[array] += %[index]\n\t"
-                 "%[datum] = *(u32 *)(%[array] + 0)\n\t"
-                 : [datum] "=r"(datum)
-                 : [limit] "i"(limit), [array] "r"(array), [index] "r"(index)
-                 : /* no clobbers */);
-
-    return datum;
-}
-
-static inline void *loadbalance_maglev_select_backend(struct cluster_endpoints *eps, char *name, ctx_buff_t *ctx)
-{
-    if (!eps || eps->ep_num == 0)
-        return NULL;
-
-    __u32 inner_key = 0;
-    __u32 *backend_ids;
-    __u32 index;
-    __u32 id;
-    __u32 *inner_of_maglev;
-    struct bpf_sock_ops *skops;
-    __u32 *hash_ptr;
-    __u32 hash;
-
-    inner_of_maglev = map_lookup_cluster_inner_map(name);
-    if (!inner_of_maglev) {
-        return NULL;
-    }
-    backend_ids = bpf_map_lookup_elem(inner_of_maglev, &inner_key);
-    if (!backend_ids) {
-        return NULL;
-    }
-    hash_ptr = map_lookup_lb_hash();
-    if (!hash_ptr || *hash_ptr == 0) {
-        hash = bpf_get_prandom_u32();
-    }else {
-        hash = *hash_ptr;
-        BPF_LOG(DEBUG, CLUSTER, "lb_policy is maglev, got a hash value:%u\n", hash);
-    }
-    index = hash % MAGLEV_TABLE_SIZE;
-    if (index >= MAGLEV_TABLE_SIZE)
-        return NULL;
-    id = map_array_get_32(backend_ids, index, MAGLEV_TABLE_SIZE);
-    BPF_LOG(DEBUG, CLUSTER, "lb_policy is maglev, select backend id:%u\n", id);
-    if (id >= KMESH_PER_ENDPOINT_NUM)
-        return NULL;
-
-    return (void *)eps->ep_identity[id];
-}
-
 static inline void *
-cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_policy, char *name, ctx_buff_t *ctx)
+cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_policy, char *name)
 {
     void *ep_identity = NULL;
 
@@ -318,7 +248,8 @@ cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_pol
         ep_identity = loadbalance_round_robin(eps);
         break;
     case CLUSTER__CLUSTER__LB_POLICY__MAGLEV:
-        ep_identity = loadbalance_maglev_select_backend(eps, name, ctx);
+        //Todo: next pr add consistent hash loadbalance
+        ep_identity = loadbalance_round_robin(eps);
         break;
     default:
         BPF_LOG(INFO, CLUSTER, "%d lb_policy is unsupported, default:ROUND_ROBIN\n", lb_policy);
@@ -347,8 +278,7 @@ static inline Core__SocketAddress *cluster_get_ep_sock_addr(const void *ep_ident
     return sock_addr;
 }
 
-static inline int
-cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_buff_t *ctx)
+static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_buff_t *ctx)
 {
     char *name = NULL;
     void *ep_identity = NULL;
@@ -367,7 +297,7 @@ cluster_handle_loadbalance(Cluster__Cluster *cluster, address_t *addr, ctx_buff_
         return -EAGAIN;
     }
 
-    ep_identity = cluster_get_ep_identity_by_lb_policy(eps, cluster->lb_policy, cluster->name, ctx);
+    ep_identity = cluster_get_ep_identity_by_lb_policy(eps, cluster->lb_policy, cluster->name);
     if (!ep_identity) {
         BPF_LOG(ERR, CLUSTER, "cluster=\"%s\" handle lb failed\n", name);
         return -EAGAIN;
