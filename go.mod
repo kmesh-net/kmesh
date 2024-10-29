@@ -15,7 +15,7 @@ require (
 	github.com/fsnotify/fsnotify v1.7.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/miekg/dns v1.1.62
-	github.com/prometheus/client_golang v1.20.4
+	github.com/prometheus/client_golang v1.20.5
 	github.com/prometheus/common v0.60.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
