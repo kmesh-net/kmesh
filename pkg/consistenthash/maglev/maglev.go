@@ -39,7 +39,6 @@ type Backend struct {
 }
 
 func InitMaglevMap() error {
-	log.Println("InitMaglevMap")
 
 	maglevTableSize = DefaultTableSize
 
@@ -62,6 +61,7 @@ func InitMaglevMap() error {
 	return nil
 }
 
+// only trafficPolicy enable maglev in DestinationRule would create lb
 func CreateLB(cluster *cluster_v2.Cluster) error {
 	if cluster == nil {
 		return errors.New("cluster is nil")
@@ -104,7 +104,6 @@ func createMaglevInnerMap(tableSize uint32) (*ebpf.Map, error) {
 }
 
 func updateMaglevTable(backendIDs []uint32, clusterName string) error {
-	log.Debugf("updateMaglevTable... of cluster:%v", clusterName)
 	if outer == nil {
 		return errors.New("outer maglev maps not yet initialized")
 	}

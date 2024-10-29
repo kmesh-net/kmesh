@@ -180,7 +180,7 @@ func (cache *ClusterCache) Flush() {
 			cluster.Id = cache.hashName.StrToNum(name)
 			err := maps_v2.ClusterUpdate(name, cluster)
 			if cluster.GetLbPolicy() == cluster_v2.Cluster_MAGLEV {
-				// create consistent lb here
+				// create consistent lb here and update table to bpf map
 				if err := maglev.CreateLB(cluster);err != nil {
 					log.Errorf("maglev lb update %v cluster failed: %v",name, err)
 				}
