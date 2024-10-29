@@ -32,6 +32,8 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
 
 - Code compilation
 
+Note: The build command must be run as the root user.
+
   ```sh
   [root@dev tmp]# cd kmesh/
   [root@dev Kmesh]# make build

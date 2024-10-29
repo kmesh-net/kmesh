@@ -1,4 +1,4 @@
-prefix=
+prefix=/home/sankalp/openSource/kmesh/
 Name: bpf
 Description: bpf
 Version:
