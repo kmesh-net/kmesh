@@ -496,15 +496,19 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 	return nil
 }
 
-func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsDelete []cache.Endpoint, toLLb bool) error {
+func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.Endpoint, toLLb bool) error {
 	var prio uint32
 
-	if len(epsDelete) == 0 {
+	if len(epsUpdate) == 0 {
 		return nil
 	}
 
-	for i := len(epsDelete) - 1; i >= 0; i-- {
-		ep := epsDelete[i]
+	// When calling deleteEndpointRecords, it causes the endpoint to be updated and swaps it with the endpoint
+	// with the highest BackendIndex in the priority, leading to a Endpoint shift. Therefore, we iterate over the
+	// sorted Endpoint slice in reverse order to ensure that the BackendIndex of the endpoints updated later
+	// remains unchanged.
+	for i := len(epsUpdate) - 1; i >= 0; i-- {
+		ep := epsUpdate[i]
 		ek := bpf.EndpointKey{
 			ServiceId:    ep.ServiceId,
 			Prio:         ep.Prio,
