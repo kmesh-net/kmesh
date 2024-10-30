@@ -40,6 +40,8 @@ type serviceCache struct {
 	// address of type hostname in the service to type ip address.
 	waypointToServices map[string]map[string]*workloadapi.Service
 	waypointToAddress  map[string]*workloadapi.NetworkAddress
+	// Used to locate relevant waypoint when deleting or updating.
+	serviceToWaypoint map[string]string
 }
 
 func NewServiceCache() *serviceCache {
@@ -47,6 +49,7 @@ func NewServiceCache() *serviceCache {
 		servicesByResourceName: make(map[string]*workloadapi.Service),
 		waypointToServices:     make(map[string]map[string]*workloadapi.Service),
 		waypointToAddress:      make(map[string]*workloadapi.NetworkAddress),
+		serviceToWaypoint:      make(map[string]string),
 	}
 }
 
@@ -60,6 +63,17 @@ func (s *serviceCache) DeleteService(resourceName string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	delete(s.servicesByResourceName, resourceName)
+
+	// This service has waypoint.
+	if waypoint, ok := s.serviceToWaypoint[resourceName]; ok {
+		delete(s.serviceToWaypoint, resourceName)
+		delete(s.waypointToServices[waypoint], resourceName)
+	}
+
+	// This is a waypoint service.
+	if _, ok := s.waypointToServices[resourceName]; ok {
+		delete(s.waypointToServices, resourceName)
+	}
 }
 
 func (s *serviceCache) List() []*workloadapi.Service {
@@ -97,7 +111,7 @@ func (s *serviceCache) HandleWaypoint(svc *workloadapi.Service) []*workloadapi.S
 	res := []*workloadapi.Service{}
 	if addr, ok := s.waypointToAddress[resourceName]; ok {
 		// If this svc is a waypoint service, may need updating.
-		log.Infof("--- Update waypoint %s", resourceName)
+		log.Infof("Update waypoint %s", resourceName)
 		if addr != nil && addr.String() == address.String() {
 			return nil
 		}
@@ -114,25 +128,32 @@ func (s *serviceCache) HandleWaypoint(svc *workloadapi.Service) []*workloadapi.S
 
 	// If this is a svc with hostname waypoint.
 	hostname := svc.GetWaypoint().GetHostname()
-	resourceName = hostname.GetNamespace() + "/" + hostname.GetHostname()
+	waypointResourceName := hostname.GetNamespace() + "/" + hostname.GetHostname()
 
-	log.Infof("--- Update svc %s with waypoint %s", svc.ResourceName(), resourceName)
-	if addr, ok := s.waypointToAddress[resourceName]; ok {
+	if waypoint, ok := s.serviceToWaypoint[resourceName]; ok && waypoint != waypointResourceName {
+		// Service updated the waypoint, delete previous association first.
+		delete(s.serviceToWaypoint, resourceName)
+		delete(s.waypointToServices[waypoint], resourceName)
+	}
+
+	log.Infof("Update svc %s with waypoint %s", svc.ResourceName(), waypointResourceName)
+	if addr, ok := s.waypointToAddress[waypointResourceName]; ok {
 		// The service corresponding to the waypoint has been found.
 		s.updateWaypoint(svc, addr)
 	} else {
 		// Try to find the waypoint service from the cache.
-		waypointService := s.servicesByResourceName[resourceName]
+		waypointService := s.servicesByResourceName[waypointResourceName]
 		if waypointService == nil || len(waypointService.GetAddresses()) == 0 {
-			s.waypointToAddress[resourceName] = nil
+			s.waypointToAddress[waypointResourceName] = nil
 		} else {
-			s.waypointToAddress[resourceName] = waypointService.GetAddresses()[0]
+			s.waypointToAddress[waypointResourceName] = waypointService.GetAddresses()[0]
 			s.updateWaypoint(svc, waypointService.GetAddresses()[0])
 		}
-		s.waypointToServices[resourceName] = make(map[string]*workloadapi.Service)
+		s.waypointToServices[waypointResourceName] = make(map[string]*workloadapi.Service)
 	}
+	s.serviceToWaypoint[resourceName] = waypointResourceName
 	// Anyway, add svc to the association list.
-	s.waypointToServices[resourceName][svc.ResourceName()] = svc
+	s.waypointToServices[waypointResourceName][resourceName] = svc
 
 	return res
 }
