@@ -389,7 +389,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 			{ServiceId: 1}, {ServiceId: 2},
 		}
 		testServiceVals := []bpfcache.ServiceValue{
-			{EndpointCount: 1234}, {EndpointCount: 5678},
+			{EndpointCount: [7]uint32{1234, 1234, 1234, 1234, 1234, 1234, 1234}}, {EndpointCount: [7]uint32{5678, 5678, 5678, 5678, 5678, 5678, 5678}},
 		}
 		_, err = bpfMaps.KmeshService.BatchUpdate(testServiceKeys, testServiceVals, nil)
 		assert.Nil(t, err)
