@@ -66,6 +66,9 @@ bpf/kmesh/bpf2go/kmeshsockopsworkloadcompat_bpfel.go
 bpf/kmesh/bpf2go/kmeshxdpauthcompat_bpfeb.go
 bpf/kmesh/bpf2go/kmeshxdpauthcompat_bpfel.go
 
+bpf/kmesh/bpf2go/*
+config/*
+
 kernel/**/*.ko
 kernel/**/*.cmd
 kernel/ko_src/kmesh/Module.symvers

@@ -14,6 +14,8 @@ import (
 
 type KmeshCgroupSockCompatBuf struct{ Data [40]int8 }
 
+type KmeshCgroupSockCompatClusterSockData struct{ ClusterId uint32 }
+
 type KmeshCgroupSockCompatLogEvent struct {
 	Ret uint32
 	Msg [255]int8
@@ -86,6 +88,7 @@ type KmeshCgroupSockCompatMapSpecs struct {
 	BpfLogLevel         *ebpf.MapSpec `ebpf:"bpf_log_level"`
 	InnerMap            *ebpf.MapSpec `ebpf:"inner_map"`
 	KmeshCluster        *ebpf.MapSpec `ebpf:"kmesh_cluster"`
+	KmeshClusterStats   *ebpf.MapSpec `ebpf:"kmesh_cluster_stats"`
 	KmeshEvents         *ebpf.MapSpec `ebpf:"kmesh_events"`
 	KmeshListener       *ebpf.MapSpec `ebpf:"kmesh_listener"`
 	KmeshManage         *ebpf.MapSpec `ebpf:"kmesh_manage"`
@@ -93,6 +96,7 @@ type KmeshCgroupSockCompatMapSpecs struct {
 	KmeshTailCallProg   *ebpf.MapSpec `ebpf:"kmesh_tail_call_prog"`
 	MapOfClusterEps     *ebpf.MapSpec `ebpf:"map_of_cluster_eps"`
 	MapOfClusterEpsData *ebpf.MapSpec `ebpf:"map_of_cluster_eps_data"`
+	MapOfClusterSock    *ebpf.MapSpec `ebpf:"map_of_cluster_sock"`
 	MapOfSockStorage    *ebpf.MapSpec `ebpf:"map_of_sock_storage"`
 	OuterMap            *ebpf.MapSpec `ebpf:"outer_map"`
 	TmpBuf              *ebpf.MapSpec `ebpf:"tmp_buf"`
@@ -121,6 +125,7 @@ type KmeshCgroupSockCompatMaps struct {
 	BpfLogLevel         *ebpf.Map `ebpf:"bpf_log_level"`
 	InnerMap            *ebpf.Map `ebpf:"inner_map"`
 	KmeshCluster        *ebpf.Map `ebpf:"kmesh_cluster"`
+	KmeshClusterStats   *ebpf.Map `ebpf:"kmesh_cluster_stats"`
 	KmeshEvents         *ebpf.Map `ebpf:"kmesh_events"`
 	KmeshListener       *ebpf.Map `ebpf:"kmesh_listener"`
 	KmeshManage         *ebpf.Map `ebpf:"kmesh_manage"`
@@ -128,6 +133,7 @@ type KmeshCgroupSockCompatMaps struct {
 	KmeshTailCallProg   *ebpf.Map `ebpf:"kmesh_tail_call_prog"`
 	MapOfClusterEps     *ebpf.Map `ebpf:"map_of_cluster_eps"`
 	MapOfClusterEpsData *ebpf.Map `ebpf:"map_of_cluster_eps_data"`
+	MapOfClusterSock    *ebpf.Map `ebpf:"map_of_cluster_sock"`
 	MapOfSockStorage    *ebpf.Map `ebpf:"map_of_sock_storage"`
 	OuterMap            *ebpf.Map `ebpf:"outer_map"`
 	TmpBuf              *ebpf.Map `ebpf:"tmp_buf"`
@@ -139,6 +145,7 @@ func (m *KmeshCgroupSockCompatMaps) Close() error {
 		m.BpfLogLevel,
 		m.InnerMap,
 		m.KmeshCluster,
+		m.KmeshClusterStats,
 		m.KmeshEvents,
 		m.KmeshListener,
 		m.KmeshManage,
@@ -146,6 +153,7 @@ func (m *KmeshCgroupSockCompatMaps) Close() error {
 		m.KmeshTailCallProg,
 		m.MapOfClusterEps,
 		m.MapOfClusterEpsData,
+		m.MapOfClusterSock,
 		m.MapOfSockStorage,
 		m.OuterMap,
 		m.TmpBuf,

@@ -12,7 +12,6 @@ function install_libboundscheck() {
 }
 
 function dependency_pkg_install() {
-    echo "depdependency_pkg_install"
     if command -v apt > /dev/null; then
 	    # apt install 
 	    apt-get update && apt-get install -y git make clang libbpf-dev llvm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake pkg-config
