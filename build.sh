@@ -34,6 +34,10 @@ function set_enhanced_kernel_env() {
 }
 
 function prepare() {
+    if [ -z "$SKIP_DEPENDENCIES" ]; then
+        sudo apt-get update
+        sudo apt-get install -y protobuf-compiler libbpf-dev
+    fi
     bash kmesh_compile_env_pre.sh
     bash kmesh_macros_env.sh
     bash kmesh_bpf_env.sh
@@ -88,6 +92,8 @@ if [ "$1" == "-h"  -o  "$1" == "--help" ]; then
     echo build.sh -i/--install: Install Kmesh.
     echo build.sh -c/--clean: Clean the built binary.
     echo build.sh -u/--uninstall: Uninstall Kmesh.
+    echo Environment Variables:
+    echo SKIP_DEPENDENCIES=1         : Skip dependency installation.
     exit
 fi
 
