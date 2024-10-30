@@ -25,6 +25,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/ads"
@@ -48,7 +49,7 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 }
 
-func NewXdsClient(mode string, bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *XdsClient {
+func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(mode),
@@ -57,7 +58,7 @@ func NewXdsClient(mode string, bpfWorkload *bpfwl.BpfWorkload, enableAccesslog b
 	if mode == constants.DualEngineMode {
 		client.WorkloadController = workload.NewController(bpfWorkload, enableAccesslog)
 	} else if mode == constants.KernelNativeMode {
-		client.AdsController = ads.NewController()
+		client.AdsController = ads.NewController(bpfAds)
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())

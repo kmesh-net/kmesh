@@ -46,6 +46,7 @@
 #define map_of_virtual_host   kmesh_virtual_host
 #define map_of_route          kmesh_route
 #define map_of_cluster        kmesh_cluster
+#define map_of_cluster_stats  kmesh_cluster_stats
 #define map_of_loadbalance    kmesh_loadbalance
 #define map_of_endpoint       kmesh_endpoint
 #define map_of_tail_call_prog kmesh_tail_call_prog
