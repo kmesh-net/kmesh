@@ -142,7 +142,7 @@ func (sc *BpfAds) Detach() error {
 }
 
 func (sc *BpfAds) GetClusterStatsMap() *ebpf.Map {
-	return nil
+	return sc.SockConn.KmeshCgroupSockMaps.KmeshClusterStats
 }
 
 func AdsL7Enabled() bool {

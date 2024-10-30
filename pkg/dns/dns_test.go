@@ -504,10 +504,10 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 		},
 	}
 
-	p := ads.NewController().Processor
+	p := ads.NewController(nil).Processor
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	dnsResolver, err := NewDNSResolver(ads.NewAdsCache())
+	dnsResolver, err := NewDNSResolver(ads.NewAdsCache(nil))
 	assert.NoError(t, err)
 	dnsResolver.StartDNSResolver(stopCh)
 	p.DnsResolverChan = dnsResolver.DnsResolverChan

@@ -348,7 +348,7 @@ func BenchmarkClusterFlush(b *testing.B) {
 
 func TestClearClusterStats(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        "ads",
+		Mode:        constants.KernelNativeMode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -356,6 +356,7 @@ func TestClearClusterStats(t *testing.T) {
 	t.Cleanup(cleanup)
 
 	adsObj := loader.GetBpfKmesh()
+	assert.NotNil(t, adsObj)
 	hashName := utils.NewHashName()
 	clusterCache := NewClusterCache(adsObj, hashName)
 	testClusters := []string{"test_cluster1", "test_cluster2", "test_cluster3"}

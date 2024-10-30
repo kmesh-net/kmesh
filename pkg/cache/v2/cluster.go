@@ -154,7 +154,6 @@ func (cache *ClusterCache) clearClusterStats(clusterName string) {
 
 	for it.Next(&key, &value) {
 		if key.ClusterId == clusterId {
-			log.Debugf("remove cluster stats with key %v", key)
 			keysToDelete = append(keysToDelete, key)
 		}
 	}

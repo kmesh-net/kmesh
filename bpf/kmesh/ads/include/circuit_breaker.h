@@ -42,10 +42,10 @@ struct {
 
 static inline void update_cluster_active_connections(const struct cluster_stats_key *key, int delta)
 {
+    struct cluster_stats *stats = NULL;
     if (!key) {
         return;
     }
-    struct cluster_stats *stats = NULL;
     stats = kmesh_map_lookup_elem(&map_of_cluster_stats, key);
     if (!stats) {
         struct cluster_stats init_value = {0};
@@ -67,7 +67,8 @@ static inline void update_cluster_active_connections(const struct cluster_stats_
     BPF_LOG(
         DEBUG,
         CIRCUIT_BREAKER,
-        "update existing stats(netns_cookie = %lld, cluster_id = %ld), current active connections: %d",
+        "update existing stats(netns_cookie = %lld, cluster_id = %ld), "
+        "current active connections: %d",
         key->netns_cookie,
         key->cluster_id,
         stats->active_connections);
@@ -90,7 +91,8 @@ static inline int on_cluster_sock_bind(ctx_buff_t *ctx, const Cluster__Cluster *
             BPF_LOG(
                 DEBUG,
                 CIRCUIT_BREAKER,
-                "Current active connections %d exceeded max connections %d, reject connection",
+                "Current active connections %d exceeded max connections "
+                "%d, reject connection",
                 stats->active_connections,
                 cbs->max_connections);
             return -1;
@@ -141,7 +143,8 @@ static inline void on_cluster_sock_connect(struct bpf_sock_ops *ctx)
     BPF_LOG(
         DEBUG,
         CIRCUIT_BREAKER,
-        "increase cluster active connections(netns_cookie = %lld, cluster id = %ld)",
+        "increase cluster active connections(netns_cookie = %lld, cluster "
+        "id = %ld)",
         key.netns_cookie,
         key.cluster_id);
     update_cluster_active_connections(&key, 1);
@@ -165,7 +168,8 @@ static inline void on_cluster_sock_close(struct bpf_sock_ops *ctx)
     BPF_LOG(
         DEBUG,
         CIRCUIT_BREAKER,
-        "decrease cluster active connections(netns_cookie = %lld, cluster id = %ld)",
+        "decrease cluster active connections(netns_cookie = %lld, cluster "
+        "id = %ld)",
         key.netns_cookie,
         key.cluster_id);
     BPF_LOG(DEBUG, CIRCUIT_BREAKER, "record sock close for cluster id = %ld", data->cluster_id);

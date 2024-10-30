@@ -53,13 +53,11 @@ type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
 	req *service_discovery_v3.DeltaDiscoveryRequest
 
-	hashName *utils.HashName
-	// workloads indexer, svc key -> workload id
-	endpointsByService map[string]map[string]struct{}
-	bpf                *bpf.Cache
-	nodeName           string
-	WorkloadCache      cache.WorkloadCache
-	ServiceCache       cache.ServiceCache
+	hashName      *utils.HashName
+	bpf           *bpf.Cache
+	nodeName      string
+	WorkloadCache cache.WorkloadCache
+	ServiceCache  cache.ServiceCache
 
 	once      sync.Once
 	authzOnce sync.Once
