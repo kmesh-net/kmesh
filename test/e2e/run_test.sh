@@ -275,7 +275,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
-cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... ${PARAMS[*]}"
+cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
 bash -c "$cmd"
 
