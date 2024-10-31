@@ -184,12 +184,6 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	// Note eds typed cluster, we do not flush to bpf map here, we need to wait for eds update.
 	p.Cache.ClusterCache.Flush()
 
-	if p.lastNonce.edsNonce == "" {
-		// initial subscribe to eds
-		p.req = newAdsRequest(resource_v3.EndpointType, p.Cache.edsClusterNames, "")
-		return nil
-	}
-
 	// when the list of eds typed clusters subscribed changed, we should resubscrbe to new eds.
 	if !slices.EqualUnordered(p.Cache.edsClusterNames, lastEdsClusterNames) {
 		// we cannot set the nonce here.
@@ -326,6 +320,8 @@ func (p *processor) Reset() {
 		return
 	}
 	p.lastNonce = &lastNonce{}
+	p.Cache.routeNames = nil
+	p.Cache.edsClusterNames = nil
 }
 
 func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {
