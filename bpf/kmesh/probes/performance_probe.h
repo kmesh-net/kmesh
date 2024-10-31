@@ -4,7 +4,40 @@
 #ifndef __KMESH_BPF_PERFORMANCE_MONITOR_H__
 #define __KMESH_BPF_PERFORMANCE_MONITOR_H__
 
+#define PERF_MONITOR 0
+
 #include "bpf_common.h"
+
+enum {
+    SOCK_TRAFFIC_CONTROL = 1,
+    XDP_SHUTDOWN = 2,
+    ENABLE_ENCODING_METADATA = 3,
+};
+
+struct operation_usage_data {
+    __u64 start_time;
+    __u64 end_time;
+    __u64 pid_tgid;
+    __u32 operation_type;
+};
+
+struct operation_usage_key {
+    __u64 socket_cookie;
+    __u32 operation_type;
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, struct operation_usage_key);
+    __type(value, struct operation_usage_data);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __uint(max_entries, 131072);
+} kmesh_perf_map SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, RINGBUF_SIZE);
+} kmesh_perf_info SEC(".maps");
 
 static inline void performance_report(struct operation_usage_data *data)
 {
@@ -23,6 +56,7 @@ static inline void performance_report(struct operation_usage_data *data)
 
 static inline void observe_on_operation_start(__u32 operation_type, struct kmesh_context *kmesh_ctx)
 {
+#if PERF_MONITOR
     struct operation_usage_data data = {};
     struct operation_usage_key key = {};
     struct bpf_sock_addr *ctx = kmesh_ctx->ctx;
@@ -33,10 +67,14 @@ static inline void observe_on_operation_start(__u32 operation_type, struct kmesh
     data.operation_type = operation_type;
     bpf_map_update_elem(&kmesh_perf_map, &key, &data, BPF_ANY);
     return;
+#else
+    return;
+#endif
 }
 
 static inline void observe_on_operation_end(__u32 operation_type, struct kmesh_context *kmesh_ctx)
 {
+#if PERF_MONITOR
     struct operation_usage_key key = {};
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     struct bpf_sock_addr *ctx = kmesh_ctx->ctx;
@@ -52,5 +90,8 @@ static inline void observe_on_operation_end(__u32 operation_type, struct kmesh_c
     }
     bpf_map_delete_elem(&kmesh_perf_map, &key);
     return;
+#else
+    return;
+#endif
 }
 #endif
