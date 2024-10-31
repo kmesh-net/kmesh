@@ -2,11 +2,11 @@ CFLAGS += -g3 -Wall -fPIC -I. -D__TARGET_ARCH_x86_64 -D__x86_64__ -D_GNU_SOURCE
 CFLAGS += -isystem /usr/include
 LIBS = bpf
 
-WORKLOAD_DIR = ../../kmesh/workload
+WORKLOAD_DIR = ../../../bpf/kmesh/workload
 TEST_DIR = .
 INCLUDE_DIR = $(WORKLOAD_DIR)/../../include
 
-FLAGS += -I$(WORKLOAD_DIR) -I../../kmesh/workload/include/ctx -I../../kmesh/workload/include/ -I../../kmesh/probes/ -I$(INCLUDE_DIR)
+FLAGS += -I$(WORKLOAD_DIR) -I../../../bpf/kmesh/workload/include/ctx -I../../../bpf/kmesh/workload/include/ -I../../../bpf/probes/ -I$(INCLUDE_DIR)
 
 all: xdp_test
 
