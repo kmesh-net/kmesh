@@ -184,10 +184,8 @@ func (s *serviceCache) DeleteService(resourceName string) {
 		s.waypointToServices[waypoint].deleteService(resourceName)
 	}
 
-	// This is a waypoint service.
-	if _, ok := s.waypointToServices[resourceName]; ok {
-		delete(s.waypointToServices, resourceName)
-	}
+	// This may be a waypoint service.
+	delete(s.waypointToServices, resourceName)
 }
 
 func (s *serviceCache) List() []*workloadapi.Service {
