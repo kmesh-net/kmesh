@@ -63,7 +63,7 @@ type KmeshManageController struct {
 	podLister         v1.PodLister
 	namespaceInformer cache.SharedIndexInformer
 	namespaceLister   v1.NamespaceLister
-	queue             workqueue.RateLimitingInterface
+	queue             workqueue.TypedRateLimitingInterface[any]
 	client            kubernetes.Interface
 	sm                *kmeshsecurity.SecretManager
 	xdpProgFd         int
@@ -88,7 +88,7 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 	namespaceInformer := factory.Core().V1().Namespaces().Informer()
 	namespaceLister := factory.Core().V1().Namespaces().Lister()
 
-	queue := workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter())
+	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
 
 	kmc := &KmeshManageController{
 		informerFactory:   informerFactory,
@@ -209,12 +209,12 @@ func (kmc *KmeshManageController) handleNamespaceUpdateFunc(oldObj, newObj inter
 	// Compare labels to check if they have actually changed
 	if !utils.ShouldEnroll(nil, oldNS) && utils.ShouldEnroll(nil, newNS) {
 		log.Infof("Enabling Kmesh for all pods in namespace: %s", newNS.Name)
-		kmc.enableKmeshForPodsInNamespace(newNS.Name)
+		kmc.enableKmeshForPodsInNamespace(newNS)
 	}
 
 	if utils.ShouldEnroll(nil, oldNS) && !utils.ShouldEnroll(nil, newNS) {
 		log.Infof("Disabling Kmesh for all pods in namespace: %s", newNS.Name)
-		kmc.disableKmeshForPodsInNamespace(newNS.Name)
+		kmc.disableKmeshForPodsInNamespace(newNS)
 	}
 }
 
@@ -250,27 +250,29 @@ func (kmc *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 	_ = unlinkXdp(nspath, kmc.mode)
 }
 
-func (kmc *KmeshManageController) enableKmeshForPodsInNamespace(namespace string) {
-	pods, err := kmc.podLister.Pods(namespace).List(labels.Everything())
+func (kmc *KmeshManageController) enableKmeshForPodsInNamespace(namespace *corev1.Namespace) {
+	pods, err := kmc.podLister.Pods(namespace.Name).List(labels.Everything())
 	if err != nil {
-		log.Errorf("Error listing pods: %v", err)
+		log.Errorf("Error listing pods in namespace %s: %v", namespace.Name, err)
 		return
 	}
 
 	for _, pod := range pods {
-		kmc.enableKmeshManage(pod)
+		if utils.ShouldEnroll(pod, namespace) {
+			kmc.enableKmeshManage(pod)
+		}
 	}
 }
 
-func (kmc *KmeshManageController) disableKmeshForPodsInNamespace(namespace string) {
-	pods, err := kmc.podLister.Pods(namespace).List(labels.Everything())
+func (kmc *KmeshManageController) disableKmeshForPodsInNamespace(namespace *corev1.Namespace) {
+	pods, err := kmc.podLister.Pods(namespace.Name).List(labels.Everything())
 	if err != nil {
-		log.Errorf("Error listing pods in namespace %s: %v", namespace, err)
+		log.Errorf("Error listing pods in namespace %s: %v", namespace.Name, err)
 		return
 	}
 
 	for _, pod := range pods {
-		if !utils.ShouldEnroll(pod, nil) {
+		if !utils.ShouldEnroll(pod, namespace) {
 			kmc.disableKmeshManage(pod)
 		}
 	}

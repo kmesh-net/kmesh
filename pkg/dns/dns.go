@@ -56,7 +56,7 @@ type DNSResolver struct {
 	// adsCache is used for update bpf map
 	adsCache *ads.AdsCache
 	// dns refresh priority queue based on exp
-	dnsRefreshQueue workqueue.DelayingInterface
+	dnsRefreshQueue workqueue.TypedDelayingInterface[any]
 	sync.RWMutex
 }
 
@@ -143,7 +143,7 @@ func NewDNSResolver(adsCache *ads.AdsCache) (*DNSResolver, error) {
 		DnsResolverChan: make(chan []*clusterv3.Cluster),
 		cache:           map[string]*domainCacheEntry{},
 		adsCache:        adsCache,
-		dnsRefreshQueue: workqueue.NewDelayingQueue(),
+		dnsRefreshQueue: workqueue.TypedNewDelayingQueue[any](),
 		client: &dns.Client{
 			DialTimeout:  5 * time.Second,
 			ReadTimeout:  5 * time.Second,

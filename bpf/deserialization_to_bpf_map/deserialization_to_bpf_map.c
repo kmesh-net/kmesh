@@ -278,6 +278,19 @@ static int get_map_fd_info(unsigned int id, int *map_fd, struct bpf_map_info *in
     return ret;
 }
 
+static int bpf_get_map_id_by_fd(int map_fd)
+{
+    struct bpf_map_info info = {};
+    __u32 info_len = sizeof(info);
+
+    int ret = bpf_obj_get_info_by_fd(map_fd, &info, &info_len);
+    if (ret < 0) {
+        LOG_ERR("bpf_obj_get_info_by_fd failed, map_fd:%d ret:%d ERRNO:%d\n", map_fd, ret, errno);
+        return ret;
+    }
+    return info.id;
+}
+
 static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
 {
     int key = *(int *)outter_key;
@@ -337,13 +350,16 @@ static int copy_sfield_to_map(struct op_context *ctx, int o_index, const Protobu
     *(uintptr_t *)value = (size_t)o_index;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
+        LOG_ERR("copy_sfield_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
         free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
     inner_fd = outter_key_to_inner_fd(ctx, o_index);
-    if (inner_fd < 0)
+    if (inner_fd < 0) {
+        LOG_ERR("copy_sfield_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d\n", inner_fd, errno);
         return inner_fd;
+    }
 
     strcpy_s(ctx->inner_map_object, ctx->inner_info->value_size, save_value);
     ret = bpf_map_update_elem(inner_fd, &key, ctx->inner_map_object, BPF_ANY);
@@ -363,13 +379,16 @@ static int copy_msg_field_to_map(struct op_context *ctx, int o_index, const Prot
     *(uintptr_t *)value = (size_t)o_index;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
+        LOG_ERR("copy_msg_field_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
         free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
     inner_fd = outter_key_to_inner_fd(ctx, o_index);
-    if (inner_fd < 0)
+    if (inner_fd < 0) {
+        LOG_ERR("copy_msg_field_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d\n", inner_fd, errno);
         return inner_fd;
+    }
 
     memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
 
@@ -476,6 +495,7 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     *(uintptr_t *)value = (size_t)outter_key;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
+        LOG_ERR("repeat_field_handle bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
         free_outter_map_entry(ctx, &outter_key);
         return ret;
     }
@@ -1593,12 +1613,12 @@ void inner_map_batch_delete()
     return;
 }
 
-void deserial_uninit(bool persist)
+int deserial_uninit(bool persist)
 {
+    int ret = 0;
+    remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
     if (persist)
-        inner_map_mng_persist();
-    else
-        remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
+        ret = inner_map_mng_persist();
 
     for (int i = 1; i <= g_inner_map_mng.max_allocated_idx; i++) {
         g_inner_map_mng.inner_maps[i].allocated = 0;
@@ -1616,7 +1636,7 @@ void deserial_uninit(bool persist)
 
     close(g_inner_map_mng.inner_fd);
     close(g_inner_map_mng.outter_fd);
-    return;
+    return ret;
 }
 
 int inner_map_scaleup()
@@ -1709,7 +1729,7 @@ int inner_map_elastic_scaling()
 
 int inner_map_mng_persist()
 {
-    int i, size;
+    int i, size, map_fd;
     FILE *f = NULL;
     struct persist_info *p = NULL;
 
@@ -1727,10 +1747,26 @@ int inner_map_mng_persist()
     p->allocated_cnt = g_inner_map_mng.allocated_cnt;
     p->used_cnt = g_inner_map_mng.used_cnt;
     p->max_allocated_idx = g_inner_map_mng.max_allocated_idx;
+
+    /* Since map_fd cannot be used universally in different processes,
+    map_fd needs to be converted into map_id and stored, and then
+    converted into map_fd in the corresponding process when the
+    configuration is restored.
+    When storing map_fd into outer_map, the kernel update interface will
+    perform special processing on maps of types BPF_MAP_TYPE_ARRAY_OF_MAPS
+    and BPF_MAP_TYPE_HASH_OF_MAPS. The input parameter is map_fd, but the
+    kernel will convert it into a bpf_map pointer for storage, so it will
+    not be affected.*/
     for (i = 0; i <= g_inner_map_mng.max_allocated_idx; i++) {
-        p->inner_map_stat[i].map_fd = g_inner_map_mng.inner_maps[i].map_fd;
-        p->inner_map_stat[i].used = g_inner_map_mng.inner_maps[i].used;
-        p->inner_map_stat[i].allocated = g_inner_map_mng.inner_maps[i].allocated;
+        if (g_inner_map_mng.inner_maps[i].allocated) {
+            map_fd = bpf_get_map_id_by_fd(g_inner_map_mng.inner_maps[i].map_fd);
+            if (map_fd < 0) {
+                return map_fd;
+            }
+            p->inner_map_stat[i].map_fd = map_fd;
+            p->inner_map_stat[i].used = g_inner_map_mng.inner_maps[i].used;
+            p->inner_map_stat[i].allocated = g_inner_map_mng.inner_maps[i].allocated;
+        }
     }
 
     f = fopen(MAP_IN_MAP_MNG_PERSIST_FILE_PATH, "wb");
@@ -1746,20 +1782,35 @@ int inner_map_mng_persist()
     return 0;
 }
 
-void inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_map_stat *stat)
+int inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_map_stat *stat)
 {
     memcpy(g_inner_map_mng.inner_maps, stat, sizeof(struct inner_map_stat) * (p->max_allocated_idx + 1));
+
+    // What is recorded in g_inner_map_mng.inner_maps[i].map_fd is map_id.
+    // Use map_id to get the fd of the inner_map in this process and refresh
+    // it to inner_maps for use.
+    for (int i = 0; i < p->max_allocated_idx; i++) {
+        if (g_inner_map_mng.inner_maps[i].allocated) {
+            int map_fd = bpf_map_get_fd_by_id(g_inner_map_mng.inner_maps[i].map_fd);
+            if (map_fd < 0) {
+                LOG_ERR("restore_by_persist_stat bpf_map_get_fd_by_id failed, i:[%d] map_fd:[%d]\n", i, map_fd);
+                return map_fd;
+            }
+            g_inner_map_mng.inner_maps[i].map_fd = map_fd;
+        }
+    }
 
     g_inner_map_mng.used_cnt = p->used_cnt;
     g_inner_map_mng.allocated_cnt = p->allocated_cnt;
     g_inner_map_mng.max_allocated_idx = p->max_allocated_idx;
-    return;
+    return 0;
 }
 
 int inner_map_restore(bool restore)
 {
     int size;
     int read_size;
+    int ret;
     FILE *f = NULL;
     struct persist_info p;
     struct inner_map_stat *stat = NULL;
@@ -1796,10 +1847,10 @@ int inner_map_restore(bool restore)
         return 0;
     }
 
-    inner_map_mng_restore_by_persist_stat(&p, stat);
+    ret = inner_map_mng_restore_by_persist_stat(&p, stat);
     free(stat);
     fclose(f);
-    return 0;
+    return ret;
 }
 
 int deserial_init(bool restore)

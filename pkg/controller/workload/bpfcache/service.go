@@ -17,6 +17,8 @@
 package bpfcache
 
 import (
+	"errors"
+
 	"github.com/cilium/ebpf"
 )
 
@@ -32,9 +34,9 @@ type ServicePorts [MaxPortNum]uint32
 type TargetPorts [MaxPortNum]uint32
 
 type ServiceValue struct {
-	EndpointCount uint32       // endpoint count of current service
-	LbPolicy      uint32       // load balancing algorithm, currently only supports random algorithm
-	ServicePort   ServicePorts // ServicePort[i] and TargetPort[i] are a pair, i starts from 0 and max value is MaxPortNum-1
+	EndpointCount [PrioCount]uint32 // endpoint count of current service
+	LbPolicy      uint32            // load balancing algorithm, currently only supports random algorithm
+	ServicePort   ServicePorts      // ServicePort[i] and TargetPort[i] are a pair, i starts from 0 and max value is MaxPortNum-1
 	TargetPort    TargetPorts
 	WaypointAddr  [16]byte
 	WaypointPort  uint32
@@ -47,7 +49,11 @@ func (c *Cache) ServiceUpdate(key *ServiceKey, value *ServiceValue) error {
 
 func (c *Cache) ServiceDelete(key *ServiceKey) error {
 	log.Debugf("ServiceDelete [%#v]", *key)
-	return c.bpfMap.KmeshService.Delete(key)
+	err := c.bpfMap.KmeshService.Delete(key)
+	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
+		return nil
+	}
+	return err
 }
 
 func (c *Cache) ServiceLookup(key *ServiceKey, value *ServiceValue) error {

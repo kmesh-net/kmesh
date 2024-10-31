@@ -249,7 +249,13 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("get connection info failed: %v", err)
 				continue
 			}
-			workloadLabels := m.buildWorkloadMetric(&data)
+			workloadLabels, sourceWorkloadIsNil := m.buildWorkloadMetric(&data)
+
+			// If the sourceworkload is empty, then neither metrics nor accesslog is printed.
+			if sourceWorkloadIsNil {
+				continue
+			}
+
 			serviceLabels, accesslog := m.buildServiceMetric(&data)
 
 			workloadLabels.reporter = "-"
@@ -264,7 +270,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				serviceLabels.reporter = "source"
 				accesslog.direction = "OUTBOUND"
 			}
-			if data.state == TCP_CLOSTED && accesslog.sourceWorkload != "-" && m.EnableAccesslog.Load() {
+			if data.state == TCP_CLOSTED && m.EnableAccesslog.Load() {
 				OutputAccesslog(data, accesslog)
 			}
 			m.mutex.Lock()
@@ -320,7 +326,7 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	return data, nil
 }
 
-func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetricLabels {
+func (m *MetricController) buildWorkloadMetric(data *requestMetric) (workloadMetricLabels, bool) {
 	var dstAddr, srcAddr []byte
 	for i := range data.dst {
 		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
@@ -330,13 +336,17 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
 	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
+	if srcWorkload == nil {
+		return workloadMetricLabels{}, true
+	}
+
 	trafficLabels := buildWorkloadMetric(dstWorkload, srcWorkload)
 	trafficLabels.destinationPodAddress = dstIP
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	return trafficLabels
+	return trafficLabels, false
 }
 
 func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {

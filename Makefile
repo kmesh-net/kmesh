@@ -41,6 +41,13 @@ LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=w
 			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
 			-linkmode=external -extldflags $(EXTLDFLAGS)"
 
+GOLDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
+			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
+			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
+			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
+			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
+			-extldflags '-static'"
+
 # target
 APPS1 := kmesh-daemon
 APPS2 := mdacore
@@ -98,11 +105,11 @@ all-binary:
 
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
+		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
 
 OUT ?= kmeshctl
 .PHONY: kmeshctl

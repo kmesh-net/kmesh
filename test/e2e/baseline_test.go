@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/prometheus/common/model"
+	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	echot "istio.io/istio/pkg/test/echo"
@@ -42,6 +43,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/shell"
@@ -481,7 +483,6 @@ func TestAddRemovePodWaypoint(t *testing.T) {
 						src.CallOrFail(t, opt)
 					})
 				}
-
 			}
 		})
 
@@ -512,7 +513,6 @@ func TestAddRemovePodWaypoint(t *testing.T) {
 						src.CallOrFail(t, opt)
 					})
 				}
-
 			}
 		})
 	})
@@ -748,17 +748,17 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 			} else {
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
-			label := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`, constants.AmbientUseWaypointLabel, waypoint))
+			labels := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`, label.IoIstioUseWaypoint.Name, waypoint))
 
 			switch granularity {
 			case Namespace:
-				_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), ns, types.MergePatchType, label, metav1.PatchOptions{})
+				_, err := c.Kube().CoreV1().Namespaces().Patch(context.TODO(), ns, types.MergePatchType, labels, metav1.PatchOptions{})
 				return err
 			case Service:
-				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+				_, err := c.Kube().CoreV1().Services(ns).Patch(context.TODO(), name, types.MergePatchType, labels, metav1.PatchOptions{})
 				return err
 			case Workload:
-				_, err := c.Kube().CoreV1().Pods(ns).Patch(context.TODO(), name, types.MergePatchType, label, metav1.PatchOptions{})
+				_, err := c.Kube().CoreV1().Pods(ns).Patch(context.TODO(), name, types.MergePatchType, labels, metav1.PatchOptions{})
 				return err
 			}
 
@@ -906,6 +906,38 @@ func PromDiff(t test.Failer, prom prometheus.Instance, cluster cluster.Cluster, 
 
 	default:
 		t.Fatalf("PromDiff expects Vector, got %v", v.Type())
-
 	}
+}
+
+func TestServiceRestart(t *testing.T) {
+	const callInterval = 100 * time.Millisecond
+	successThreshold := 1.0
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		for _, dst := range apps.EnrolledToKmesh {
+			generators := []traffic.Generator{}
+			mkGen := func(src echo.Caller) {
+				g := traffic.NewGenerator(t, traffic.Config{
+					Source: src,
+					Options: echo.CallOptions{
+						To:    dst,
+						Count: 1,
+						Check: check.OK(),
+						HTTP:  echo.HTTP{Path: "/?delay=10ms"},
+						Port: echo.Port{
+							Name: "http",
+						},
+					},
+					Interval: callInterval,
+				}).Start()
+				generators = append(generators, g)
+			}
+			mkGen(apps.ServiceWithWaypointAtServiceGranularity[0])
+			if err := dst.Restart(); err != nil {
+				t.Fatal(err)
+			}
+			for _, gen := range generators {
+				gen.Stop().CheckSuccessRate(t, successThreshold)
+			}
+		}
+	})
 }
