@@ -120,9 +120,7 @@ func (m *BpfProgMetric) Run(ctx context.Context, KmeshPerfInfo *ebpf.Map) {
 				durations:     []uint64{operationData.endTime - operationData.startTime},
 				operationType: operationData.operationType,
 			}
-			m.mutex.Lock()
 			m.updateOperationMetricCache(operationInfo, buildOperationMetricLabel(&operationData))
-			m.mutex.Unlock()
 		}
 	}
 }
@@ -137,6 +135,8 @@ func buildOperationMetricLabel(data *operationTimeMetric) operationMetricLabels 
 
 func (m *BpfProgMetric) updateOperationMetricCache(data operationDuration, labels operationMetricLabels) {
 	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	v, ok := m.operationMetricCache[labels]
 	if ok {
 		v.durations = append(v.durations, data.durations...)
