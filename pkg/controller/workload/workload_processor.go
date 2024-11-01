@@ -684,27 +684,31 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	}
 
 	p.ServiceCache.AddOrUpdateService(service)
+
+	if service.Waypoint != nil && service.GetWaypoint().GetHostname() != nil {
+		// If the hostname type waypoint of service has not been resolved, it will not be written to bpf
+		// for the time being. The corresponding waypoint service should be processed immediately, and then
+		// it will be written to bpf after the batch resolution is completed in `RefreshWaypoint`.
+		return nil
+	}
 	servicesToRefresh := p.ServiceCache.RefreshWaypoint(service)
-	serviceName := service.ResourceName()
-	serviceId := p.hashName.Hash(serviceName)
 
-	// store in frontend
-	if err := p.storeServiceFrontendData(serviceId, service); err != nil {
-		log.Errorf("storeServiceFrontendData failed, err:%s", err)
-		return err
-	}
+	services := []*workloadapi.Service{service}
+	services = append(services, servicesToRefresh...)
 
-	// get endpoint from ServiceCache, and update service and endpoint map
-	if err := p.storeServiceData(serviceName, service.GetWaypoint(), service.GetPorts(), service.GetLoadBalancing()); err != nil {
-		log.Errorf("storeServiceData failed, err:%s", err)
-		return err
-	}
+	for _, service := range services {
+		serviceName := service.ResourceName()
+		serviceId := p.hashName.Hash(serviceName)
 
-	// The services needs to be refreshed because the waypoint has been updated.
-	for _, svc := range servicesToRefresh {
-		log.Infof("refresh service %s because of resolving of waypoint address", svc.ResourceName())
-		if err := p.storeServiceData(svc.ResourceName(), svc.GetWaypoint(), svc.GetPorts(), service.GetLoadBalancing()); err != nil {
-			log.Errorf("storeServiceData failed, err: %v", err)
+		// store in frontend
+		if err := p.storeServiceFrontendData(serviceId, service); err != nil {
+			log.Errorf("storeServiceFrontendData failed, err:%s", err)
+			return err
+		}
+
+		// get endpoint from ServiceCache, and update service and endpoint map
+		if err := p.storeServiceData(serviceName, service.GetWaypoint(), service.GetPorts(), service.GetLoadBalancing()); err != nil {
+			log.Errorf("storeServiceData failed, err:%s", err)
 			return err
 		}
 	}
