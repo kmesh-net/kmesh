@@ -188,7 +188,7 @@ func Test_handleServiceWithWaypoint(t *testing.T) {
 
 	// Front end map includes svc1 but not svc2 as its waypoint is not resolved.
 	svc1ID := checkFrontEndMap(t, svc1.Addresses[0].Address, p)
-	checkServiceMap(t, p, svc1ID, svc1, 0, 1)
+	checkServiceMap(t, p, svc1ID, svc1, 0, 0)
 
 	checkNotExistInFrontEndMap(t, svc2.Addresses[0].Address, p)
 
@@ -199,9 +199,17 @@ func Test_handleServiceWithWaypoint(t *testing.T) {
 
 	// Front end map includes svc2 and waypointsvc now.
 	svc2ID := checkFrontEndMap(t, svc2.Addresses[0].Address, p)
-	checkServiceMap(t, p, svc2ID, svc2, 0, 1)
+	checkServiceMap(t, p, svc2ID, svc2, 0, 0)
 	wID := checkFrontEndMap(t, waypointsvc.Addresses[0].Address, p)
-	checkServiceMap(t, p, wID, waypointsvc, 0, 1)
+	checkServiceMap(t, p, wID, waypointsvc, 0, 0)
+
+	// Insert svc whose waypoint hostname can be resolved directly.
+	svc3 := createFakeService("svc3", "10.240.10.4", "default/waypoint.default.svc.cluster.local", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	assert.NoError(t, p.handleService(svc3))
+
+	updateWaypointOfService(svc3, waypointIP)
+	svc3ID := checkFrontEndMap(t, svc3.Addresses[0].Address, p)
+	checkServiceMap(t, p, svc3ID, svc3, 0, 0)
 }
 
 func Test_hostnameNetworkMode(t *testing.T) {
