@@ -43,10 +43,6 @@ type mapMetricLabels struct {
 	nodeName string
 }
 
-type totalMapMetricLabels struct {
-	nodeName string
-}
-
 func NewMapMetric() *MapMetricController {
 	return &MapMetricController{}
 }
