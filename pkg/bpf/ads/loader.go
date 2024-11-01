@@ -80,8 +80,8 @@ func (sc *BpfAds) Start() error {
 	return nil
 }
 
-func (sc *BpfAds) GetBpfLogLevelMap() *ebpf.Map {
-	return sc.SockConn.BpfLogLevel
+func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
+	return sc.SockConn.KmeshConfigMap
 }
 
 func (sc *BpfAds) Stop() error {
