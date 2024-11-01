@@ -98,7 +98,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	log.Info("controller start successfully")
 	defer c.Stop()
 
-	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetBpfConfig())
+	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetKmeshConfig())
 	statusServer.StartServer()
 	defer func() {
 		_ = statusServer.StopServer()

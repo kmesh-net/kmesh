@@ -123,7 +123,7 @@ func TestServer_getAndSetBpfLevel(t *testing.T) {
 						Processor: nil,
 					},
 				},
-				bpfConfigMap: bpfLoader.GetBpfConfig(),
+				kmeshConfigMap: bpfLoader.GetKmeshConfig(),
 			}
 
 			setLoggerUrl := patternLoggers
@@ -142,7 +142,7 @@ func TestServer_getAndSetBpfLevel(t *testing.T) {
 					server.setLoggerLevel(w, req)
 
 					assert.Equal(t, http.StatusOK, w.Code)
-					server.bpfConfigMap.Lookup(&key, &actualLoggerLevel)
+					server.kmeshConfigMap.Lookup(&key, &actualLoggerLevel)
 					assert.Equal(t, expectedLoggerLevel, actualLoggerLevel)
 				}
 			}

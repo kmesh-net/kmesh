@@ -91,7 +91,7 @@ static inline int map_lookup_log_level()
 {
     int zero = 0;
     int *value = NULL;
-    value = kmesh_map_lookup_elem(&bpf_config_map, &zero);
+    value = kmesh_map_lookup_elem(&kmesh_config_map, &zero);
     if (!value)
         return BPF_LOG_INFO;
     return *value;

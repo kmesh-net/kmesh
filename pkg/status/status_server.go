@@ -67,11 +67,11 @@ const (
 )
 
 type Server struct {
-	config       *options.BootstrapConfigs
-	xdsClient    *controller.XdsClient
-	mux          *http.ServeMux
-	server       *http.Server
-	bpfConfigMap *ebpf.Map
+	config         *options.BootstrapConfigs
+	xdsClient      *controller.XdsClient
+	mux            *http.ServeMux
+	server         *http.Server
+	kmeshConfigMap *ebpf.Map
 }
 
 func GetConfigDumpAddr(mode string) string {
@@ -84,10 +84,10 @@ func GetLoggerURL() string {
 
 func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, configMap *ebpf.Map) *Server {
 	s := &Server{
-		config:       configs,
-		xdsClient:    c,
-		mux:          http.NewServeMux(),
-		bpfConfigMap: configMap,
+		config:         configs,
+		xdsClient:      c,
+		mux:            http.NewServeMux(),
+		kmeshConfigMap: configMap,
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -417,7 +417,7 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 	key := uint32(0)
 	value := uint32(0)
-	if err := s.bpfConfigMap.Lookup(&key, &value); err != nil {
+	if err := s.kmeshConfigMap.Lookup(&key, &value); err != nil {
 		return nil, fmt.Errorf("get log level error: %v", err)
 	}
 
@@ -460,11 +460,11 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 	}
 	key := uint32(0)
 	value := uint32(level)
-	if s.bpfConfigMap == nil {
-		http.Error(w, fmt.Sprintf("update log level error: %v", "bpfConfigMap is nil"), http.StatusBadRequest)
+	if s.kmeshConfigMap == nil {
+		http.Error(w, fmt.Sprintf("update log level error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
 		return
 	}
-	if err = s.bpfConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
+	if err = s.kmeshConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", err), http.StatusBadRequest)
 		return
 	}
