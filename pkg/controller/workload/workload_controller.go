@@ -138,8 +138,8 @@ func (c *Controller) HandleWorkloadStream() error {
 	return nil
 }
 
-func (c *Controller) SetAccesslogTrigger(info bool) {
-	c.MetricController.EnableAccesslog.Store(info)
+func (c *Controller) SetAccesslog(enabled bool) {
+	c.MetricController.EnableAccesslog.Store(enabled)
 }
 
 func (c *Controller) GetAccesslogTrigger() bool {
