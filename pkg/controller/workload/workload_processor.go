@@ -693,7 +693,8 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	}
 	servicesToRefresh := p.ServiceCache.RefreshWaypoint(service)
 
-	services := []*workloadapi.Service{service}
+	services := make([]*workloadapi.Service, 0, len(servicesToRefresh)+1)
+	services = append(services, service)
 	services = append(services, servicesToRefresh...)
 
 	for _, service := range services {
