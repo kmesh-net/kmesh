@@ -9,6 +9,8 @@
 #include <securec.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
@@ -22,13 +24,19 @@
 
 #define PRINTF(fmt, args...)                                                                                           \
     do {                                                                                                               \
-        printf(fmt, ##args);                                                                                           \
+        struct timeval tv;                                                                                             \
+        struct timezone tz;                                                                                            \
+        gettimeofday(&tv, &tz);                                                                                        \
+        long ms = tv.tv_usec / 1000;                                                                                   \
+        char time_str[30];                                                                                             \
+        strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", localtime(&tv.tv_sec));                              \
+        printf("%s.%03ld " fmt "\n", time_str, ms, ##args);                                                            \
         fflush(stdout);                                                                                                \
     } while (0)
 
-#define LOG_ERR(fmt, args...)  PRINTF(fmt, ##args)
-#define LOG_WARN(fmt, args...) PRINTF(fmt, ##args)
-#define LOG_INFO(fmt, args...) PRINTF(fmt, ##args)
+#define LOG_ERR(fmt, args...)  PRINTF("[ERROR] " fmt, ##args)
+#define LOG_WARN(fmt, args...) PRINTF("[WARN] " fmt, ##args)
+#define LOG_INFO(fmt, args...) PRINTF("[INFO] " fmt, ##args)
 
 struct op_context {
     void *key;
@@ -241,7 +249,7 @@ static int get_map_ids(const char *name, unsigned int *id, unsigned int *outter_
 
     map_id = (name == NULL) ? getenv("MAP_ID") : getenv(name);
     if (!map_id) {
-        LOG_ERR("%s is not set\n", ((name == NULL) ? "MAP_ID" : name));
+        LOG_ERR("%s is not set", ((name == NULL) ? "MAP_ID" : name));
         return -EINVAL;
     }
 
@@ -257,7 +265,7 @@ static int get_map_ids(const char *name, unsigned int *id, unsigned int *outter_
     if (!ptr[0]) {
         *inner_id = get_map_id("INNER_MAP_ID");
         if (*inner_id == 0) {
-            LOG_ERR("INNER_MAP_ID is not set\n");
+            LOG_ERR("INNER_MAP_ID is not set");
             return -EINVAL;
         }
     }
@@ -285,7 +293,7 @@ static int bpf_get_map_id_by_fd(int map_fd)
 
     int ret = bpf_obj_get_info_by_fd(map_fd, &info, &info_len);
     if (ret < 0) {
-        LOG_ERR("bpf_obj_get_info_by_fd failed, map_fd:%d ret:%d ERRNO:%d\n", map_fd, ret, errno);
+        LOG_ERR("bpf_obj_get_info_by_fd failed, map_fd:%d ret:%d ERRNO:%d", map_fd, ret, errno);
         return ret;
     }
     return info.id;
@@ -309,7 +317,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
     int i;
     if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= g_inner_map_mng.allocated_cnt) {
         LOG_ERR(
-            "[%d %d %d]alloc_outter_map_entry failed\n",
+            "[%d %d %d]alloc_outter_map_entry failed",
             g_inner_map_mng.init,
             g_inner_map_mng.used_cnt,
             g_inner_map_mng.allocated_cnt);
@@ -325,7 +333,7 @@ static int alloc_outter_map_entry(struct op_context *ctx)
     }
 
     LOG_ERR(
-        "alloc_outter_map_entry all inner_maps in used:%d-%d-%d\n",
+        "alloc_outter_map_entry all inner_maps in used:%d-%d-%d",
         g_inner_map_mng.used_cnt,
         g_inner_map_mng.allocated_cnt,
         g_inner_map_mng.max_allocated_idx);
@@ -350,14 +358,14 @@ static int copy_sfield_to_map(struct op_context *ctx, int o_index, const Protobu
     *(uintptr_t *)value = (size_t)o_index;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("copy_sfield_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
+        LOG_ERR("copy_sfield_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d", ret, errno);
         free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
     inner_fd = outter_key_to_inner_fd(ctx, o_index);
     if (inner_fd < 0) {
-        LOG_ERR("copy_sfield_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d\n", inner_fd, errno);
+        LOG_ERR("copy_sfield_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d", inner_fd, errno);
         return inner_fd;
     }
 
@@ -379,14 +387,14 @@ static int copy_msg_field_to_map(struct op_context *ctx, int o_index, const Prot
     *(uintptr_t *)value = (size_t)o_index;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("copy_msg_field_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
+        LOG_ERR("copy_msg_field_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d", ret, errno);
         free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
     inner_fd = outter_key_to_inner_fd(ctx, o_index);
     if (inner_fd < 0) {
-        LOG_ERR("copy_msg_field_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d\n", inner_fd, errno);
+        LOG_ERR("copy_msg_field_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d", inner_fd, errno);
         return inner_fd;
     }
 
@@ -495,7 +503,7 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     *(uintptr_t *)value = (size_t)outter_key;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        LOG_ERR("repeat_field_handle bpf_map_update_elem failed, ret:%d ERRNO:%d\n", ret, errno);
+        LOG_ERR("repeat_field_handle bpf_map_update_elem failed, ret:%d ERRNO:%d", ret, errno);
         free_outter_map_entry(ctx, &outter_key);
         return ret;
     }
@@ -552,7 +560,7 @@ static int update_bpf_map(struct op_context *ctx)
     const ProtobufCMessageDescriptor *desc = ctx->desc;
 
     if (desc->sizeof_message > ctx->curr_info->value_size) {
-        LOG_ERR("map entry size is too small\n");
+        LOG_ERR("map entry size is too small");
         return -EINVAL;
     }
 
@@ -580,7 +588,7 @@ static int update_bpf_map(struct op_context *ctx)
 
         if (ret) {
             LOG_INFO(
-                "desc.name:%s field[%d - %s] handle failed:%d, errno:%d\n",
+                "desc.name:%s field[%d - %s] handle failed:%d, errno:%d",
                 desc->short_name,
                 i,
                 desc->fields[i].name,
@@ -599,12 +607,12 @@ static int update_bpf_map(struct op_context *ctx)
 static int map_info_check(struct bpf_map_info *outter_info, struct bpf_map_info *inner_info)
 {
     if (outter_info->type != BPF_MAP_TYPE_ARRAY_OF_MAPS) {
-        LOG_ERR("outter map type must be BPF_MAP_TYPE_ARRAY_OF_MAPS\n");
+        LOG_ERR("outter map type must be BPF_MAP_TYPE_ARRAY_OF_MAPS");
         return -EINVAL;
     }
 
     if (outter_info->max_entries < 2 || outter_info->max_entries > MAX_OUTTER_MAP_ENTRIES) {
-        LOG_ERR("outter map max_entries must be in[2,%d]\n", MAX_OUTTER_MAP_ENTRIES);
+        LOG_ERR("outter map max_entries must be in[2,%d]", MAX_OUTTER_MAP_ENTRIES);
         return -EINVAL;
     }
     return 0;
@@ -633,7 +641,7 @@ int deserial_update_elem(void *key, void *value)
 
     ret = get_map_fd_info(id, &map_fd, &info);
     if (ret < 0) {
-        LOG_ERR("invalid MAP_ID: %d, errno:%d\n", id, errno);
+        LOG_ERR("invalid MAP_ID: %d, errno:%d", id, errno);
         return ret;
     }
 
@@ -859,7 +867,7 @@ static void *create_struct_list(struct op_context *ctx, int *err)
 
         value = create_struct(ctx, err);
         if (*err) {
-            LOG_ERR("create_struct failed, err = %d\n", err);
+            LOG_ERR("create_struct failed, err = %d", err);
             break;
         }
 
@@ -894,7 +902,7 @@ static void *create_struct(struct op_context *ctx, int *err)
     *err = 0;
 
     if (desc->sizeof_message > ctx->curr_info->value_size) {
-        LOG_ERR("map entry size is too small\n");
+        LOG_ERR("map entry size is too small");
         return NULL;
     }
 
@@ -925,7 +933,7 @@ static void *create_struct(struct op_context *ctx, int *err)
         }
 
         if (ret) {
-            LOG_INFO("field[%d] query fail\n", i);
+            LOG_INFO("field[%d] query fail", i);
             *err = 1;
             break;
         }
@@ -964,7 +972,7 @@ struct element_list_node *deserial_lookup_all_elems(const void *msg_desciptor)
 
     ret = get_map_fd_info(id, &map_fd, &info);
     if (ret < 0) {
-        LOG_ERR("invalid MAP_ID: %d\n", id);
+        LOG_ERR("invalid MAP_ID: %d", id);
         return NULL;
     }
 
@@ -1017,7 +1025,7 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
 
     ret = get_map_fd_info(id, &map_fd, &info);
     if (ret < 0) {
-        LOG_ERR("invalid MAP_ID: %d\n", id);
+        LOG_ERR("invalid MAP_ID: %d", id);
         return NULL;
     }
 
@@ -1031,7 +1039,7 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
     normalize_key(&context, key, map_name);
     value = create_struct(&context, &err);
     if (err != 0) {
-        LOG_ERR("create_struct failed, err = %d\n", err);
+        LOG_ERR("create_struct failed, err = %d", err);
     }
 
 end:
@@ -1271,7 +1279,7 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 
     ret = get_map_fd_info(id, &map_fd, &info);
     if (ret < 0) {
-        LOG_ERR("invalid MAP_ID: %d\n", id);
+        LOG_ERR("invalid MAP_ID: %d", id);
         return ret;
     }
 
@@ -1434,7 +1442,7 @@ void outter_map_insert(struct task_contex *ctx)
     }
 
     if (ret)
-        LOG_ERR("[%lu]outter_map_insert %d-%d failed:%d\n", tid, i, idx, ret);
+        LOG_ERR("[%lu]outter_map_insert %d-%d failed:%d", tid, i, idx, ret);
     return;
 }
 
@@ -1458,7 +1466,7 @@ void outter_map_delete(struct task_contex *ctx)
     }
 
     if (ret)
-        LOG_ERR("[%lu]outter_map_delete %d-%d failed:%d, err:%d\n", tid, i, idx, ret, errno);
+        LOG_ERR("[%lu]outter_map_delete %d-%d failed:%d, err:%d", tid, i, idx, ret, errno);
     return;
 }
 
@@ -1522,7 +1530,7 @@ int outter_map_update(int outter_fd, bool scaleup)
     }
 
     if (ret) {
-        LOG_ERR("outter_map_update failed:%d\n", ret);
+        LOG_ERR("outter_map_update failed:%d", ret);
         return ret;
     }
 
@@ -1561,7 +1569,7 @@ void collect_outter_map_scaleup_slots()
                 break;
         }
     }
-    LOG_WARN("collect_outter_map_scaleup_slots:%d-%d-%d\n", i, j, g_inner_map_mng.elastic_slots[j - 1]);
+    LOG_WARN("collect_outter_map_scaleup_slots:%d-%d-%d", i, j, g_inner_map_mng.elastic_slots[j - 1]);
     return;
 }
 
@@ -1576,7 +1584,7 @@ void collect_outter_map_scalein_slots()
                 break;
         }
     }
-    LOG_WARN("collect_outter_map_scalein_slots:%d-%d-%d\n", i, j, g_inner_map_mng.elastic_slots[j - 1]);
+    LOG_WARN("collect_outter_map_scalein_slots:%d-%d-%d", i, j, g_inner_map_mng.elastic_slots[j - 1]);
     return;
 }
 
@@ -1594,7 +1602,7 @@ int inner_map_batch_create(struct bpf_map_info *inner_info)
     }
 
     if (i < OUTTER_MAP_SCALEUP_STEP)
-        LOG_WARN("[warning]inner_map_create (%d->%d) failed:%d, errno:%d\n", i, MAX_OUTTER_MAP_ENTRIES, fd, errno);
+        LOG_WARN("[warning]inner_map_create (%d->%d) failed:%d, errno:%d", i, MAX_OUTTER_MAP_ENTRIES, fd, errno);
     return 0;
 }
 
@@ -1650,7 +1658,7 @@ int inner_map_scaleup()
         return 0;
 
     LOG_WARN(
-        "Remaining resources are insufficient(%d/%d), and capacity expansion is required.\n",
+        "Remaining resources are insufficient(%d/%d), and capacity expansion is required.",
         g_inner_map_mng.used_cnt,
         g_inner_map_mng.allocated_cnt);
 
@@ -1669,7 +1677,7 @@ int inner_map_scaleup()
     } while (0);
 
     if (ret) {
-        LOG_ERR("inner_map_scaleup failed:%d\n", ret);
+        LOG_ERR("inner_map_scaleup failed:%d", ret);
     }
     return ret;
 }
@@ -1685,14 +1693,14 @@ int inner_map_scalein()
         return 0;
 
     LOG_WARN(
-        "The remaining resources are sufficient(%d/%d) and scale-in is required.\n",
+        "The remaining resources are sufficient(%d/%d) and scale-in is required.",
         g_inner_map_mng.used_cnt,
         g_inner_map_mng.allocated_cnt);
 
     inner_map_batch_delete();
     ret = outter_map_update(g_inner_map_mng.outter_fd, false);
     if (ret) {
-        LOG_ERR("inner_map_scalein failed:%d\n", ret);
+        LOG_ERR("inner_map_scalein failed:%d", ret);
         return ret;
     }
 
@@ -1710,7 +1718,7 @@ void *inner_map_elastic_scaling_task(void *arg)
 {
     for (;;) {
         if (g_inner_map_mng.elastic_task_exit) {
-            LOG_WARN("Receive exit signal for inner-map elastic scaling task.\n");
+            LOG_WARN("Receive exit signal for inner-map elastic scaling task.");
             break;
         }
 
@@ -1739,7 +1747,7 @@ int inner_map_mng_persist()
     size = sizeof(struct persist_info) + sizeof(struct inner_map_stat) * (g_inner_map_mng.max_allocated_idx + 1);
     p = (struct persist_info *)malloc(size);
     if (!p) {
-        LOG_ERR("inner_map_mng_persist malloc failed.\n");
+        LOG_ERR("inner_map_mng_persist malloc failed.");
         return -1;
     }
 
@@ -1771,14 +1779,14 @@ int inner_map_mng_persist()
 
     f = fopen(MAP_IN_MAP_MNG_PERSIST_FILE_PATH, "wb");
     if (f == NULL) {
-        LOG_ERR("inner_map_mng_persist fopen failed:%d.\n", errno);
+        LOG_ERR("inner_map_mng_persist fopen failed:%d.", errno);
         free(p);
         return -1;
     }
 
     (void)fwrite(p, sizeof(unsigned char), size, f);
     fclose(f);
-    LOG_INFO("inner_map_mng_persist succeed.\n");
+    LOG_INFO("inner_map_mng_persist succeed.");
     return 0;
 }
 
@@ -1793,7 +1801,7 @@ int inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_m
         if (g_inner_map_mng.inner_maps[i].allocated) {
             int map_fd = bpf_map_get_fd_by_id(g_inner_map_mng.inner_maps[i].map_fd);
             if (map_fd < 0) {
-                LOG_ERR("restore_by_persist_stat bpf_map_get_fd_by_id failed, i:[%d] map_fd:[%d]\n", i, map_fd);
+                LOG_ERR("restore_by_persist_stat bpf_map_get_fd_by_id failed, i:[%d] map_fd:[%d]", i, map_fd);
                 return map_fd;
             }
             g_inner_map_mng.inner_maps[i].map_fd = map_fd;
@@ -1826,7 +1834,7 @@ int inner_map_restore(bool restore)
 
     read_size = (int)fread(&p, sizeof(unsigned char), sizeof(struct persist_info), f);
     if (read_size != sizeof(struct persist_info) || p.magic != MAGIC_NUMBER) {
-        LOG_WARN("inner_map_restore invalid size:%d/%lu\n", read_size, sizeof(struct persist_info));
+        LOG_WARN("inner_map_restore invalid size:%d/%lu", read_size, sizeof(struct persist_info));
         fclose(f);
         return 0;
     }
@@ -1834,14 +1842,14 @@ int inner_map_restore(bool restore)
     size = sizeof(struct inner_map_stat) * (p.max_allocated_idx + 1);
     stat = (struct inner_map_stat *)malloc(size);
     if (!stat) {
-        LOG_ERR("inner_map_restore alloc failed.\n");
+        LOG_ERR("inner_map_restore alloc failed.");
         fclose(f);
         return -1;
     }
 
     read_size = (int)fread(stat, sizeof(unsigned char), size, f);
     if (read_size != size) {
-        LOG_WARN("inner_map_restore persist_stat invalid size:%d/%d\n", read_size, size);
+        LOG_WARN("inner_map_restore persist_stat invalid size:%d/%d", read_size, size);
         fclose(f);
         free(stat);
         return 0;
