@@ -19,7 +19,7 @@ package utils
 import (
 	"fmt"
 
-	"istio.io/istio/pkg/kube"
+	"kmesh.net/kmesh/pkg/kube"
 )
 
 const (
@@ -29,12 +29,7 @@ const (
 )
 
 func CreateKubeClient() (kube.CLIClient, error) {
-	rc, err := kube.DefaultRestConfig("", "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to get rest.Config for given kube config file and context: %v", err)
-	}
-
-	cli, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc))
+	cli, err := kube.NewCLIClient()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube client: %v", err)
 	}
@@ -42,7 +37,7 @@ func CreateKubeClient() (kube.CLIClient, error) {
 	return cli, nil
 }
 
-// Create a new PortForwarder configured for the given Kmesh daemon pod.
+// CreateKmeshPortForwarder Create a new PortForwarder configured for the given Kmesh daemon pod.
 func CreateKmeshPortForwarder(cliClient kube.CLIClient, podName string) (kube.PortForwarder, error) {
 	fw, err := cliClient.NewPortForwarder(podName, KmeshNamespace, "", 0, KmeshAdminPort)
 	if err != nil {
