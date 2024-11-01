@@ -195,18 +195,18 @@ var (
 		}, serviceLabels)
 
 	// New operation metrics
-	operationDurationInPod = prometheus.NewHistogramVec(
+	bpfProgOpDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
-			Name: "kmesh_operation_duration_seconds",
-			Help: "Duration of operations in ns.",
+			Name: "kmesh_bpf_prog_operation_duration",
+			Help: "Duration of bpf prog operation in ns.",
 		},
 		operationLabels,
 	)
 
-	operationCountInPod = prometheus.NewCounterVec(
+	bpfProgOpCount = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
-			Name: "kmesh_operation_count_total",
-			Help: "Count of operations executed.",
+			Name: "kmesh_bpf_prog_operation_count",
+			Help: "Count of bpf prog operations executed.",
 		},
 		operationLabels,
 	)
@@ -242,7 +242,7 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	defer mu.Unlock()
 	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload)
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
-	registry.MustRegister(operationDurationInPod, operationCountInPod)
+	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
 	registry.MustRegister(mapEntryCount, mapCountInNode)
 
 	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{

@@ -50,14 +50,14 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 }
 
-func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *XdsClient {
+func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableAccesslog, enablePerfMonitor bool) *XdsClient {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(mode),
 	}
 
 	if mode == constants.DualEngineMode {
-		client.WorkloadController = workload.NewController(bpfWorkload, enableAccesslog)
+		client.WorkloadController = workload.NewController(bpfWorkload, enableAccesslog, enablePerfMonitor)
 	} else if mode == constants.KernelNativeMode {
 		client.AdsController = ads.NewController(bpfAds)
 	}

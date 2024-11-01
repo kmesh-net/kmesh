@@ -108,10 +108,10 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("fail to start ringbuf reader: %v", err)
 		}
 	}
-	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.enableAccesslog)
+	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.enableAccesslog, c.enablePerfMonitor)
 
 	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Run(ctx, c.enablePerfMonitor)
+		c.client.WorkloadController.Run(ctx)
 	}
 
 	if c.client.AdsController != nil {
