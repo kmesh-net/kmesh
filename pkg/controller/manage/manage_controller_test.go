@@ -218,7 +218,7 @@ func TestHandleKmeshManage(t *testing.T) {
 		return nil
 	})
 
-	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
+	patches.ApplyMethodFunc(reflect.TypeOf(controller.queueForPatchPodAnnotationin), "AddRateLimited", func(item interface{}) {
 		queueItem, ok := item.(QueueItem)
 		if !ok {
 			t.Logf("expected QueueItem but got %T", item)
@@ -460,7 +460,7 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 		return nil
 	})
 
-	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
+	patches.ApplyMethodFunc(reflect.TypeOf(controller.queueForPatchPodAnnotationin), "AddRateLimited", func(item interface{}) {
 		queueItem, ok := item.(QueueItem)
 		if !ok {
 			t.Logf("expected QueueItem but got %T", item)

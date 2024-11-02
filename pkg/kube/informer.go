@@ -24,7 +24,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-func NewInformerFactory(client kubernetes.Interface) informers.SharedInformerFactory {
+func NewInformerFactoryWithSpecMyNode(client kubernetes.Interface) informers.SharedInformerFactory {
 	nodeName := os.Getenv("NODE_NAME")
 	informerFactory := informers.NewSharedInformerFactoryWithOptions(client, 0,
 		informers.WithTweakListOptions(func(options *metav1.ListOptions) {

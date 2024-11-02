@@ -55,19 +55,35 @@ type QueueItem struct {
 	action  string
 }
 
-type KmeshManageController struct {
-	// TODO: share pod informer with bypass?
-	informerFactory   informers.SharedInformerFactory
-	factory           informers.SharedInformerFactory
-	podInformer       cache.SharedIndexInformer
-	podLister         v1.PodLister
+type factroys struct {
+	factroyWithSpecMyNode informers.SharedInformerFactory
+	factory               informers.SharedInformerFactory
+}
+
+type podController struct {
+	podInformer cache.SharedIndexInformer
+	podLister   v1.PodLister
+}
+
+type namespaceController struct {
 	namespaceInformer cache.SharedIndexInformer
 	namespaceLister   v1.NamespaceLister
-	queue             workqueue.TypedRateLimitingInterface[any]
-	client            kubernetes.Interface
-	sm                *kmeshsecurity.SecretManager
-	xdpProgFd         int
-	mode              string
+}
+
+type queueList struct {
+	queueForPatchPodAnnotationin workqueue.TypedRateLimitingInterface[any]
+}
+
+type KmeshManageController struct {
+	// TODO: share pod informer with bypass?
+	factroys
+	podController
+	namespaceController
+	queueList
+	client    kubernetes.Interface
+	sm        *kmeshsecurity.SecretManager
+	xdpProgFd int
+	mode      string
 }
 
 func isPodReady(pod *corev1.Pod) bool {
@@ -80,28 +96,36 @@ func isPodReady(pod *corev1.Pod) bool {
 }
 
 func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.SecretManager, xdpProgFd int, mode string) (*KmeshManageController, error) {
-	informerFactory := kube.NewInformerFactory(client)
-	podInformer := informerFactory.Core().V1().Pods().Informer()
-	podLister := informerFactory.Core().V1().Pods().Lister()
+	factroyWithSpecMyNode := kube.NewInformerFactoryWithSpecMyNode(client)
+	podInformer := factroyWithSpecMyNode.Core().V1().Pods().Informer()
+	podLister := factroyWithSpecMyNode.Core().V1().Pods().Lister()
 
 	factory := informers.NewSharedInformerFactory(client, 0)
 	namespaceInformer := factory.Core().V1().Namespaces().Informer()
 	namespaceLister := factory.Core().V1().Namespaces().Lister()
 
-	queue := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
+	queueForPatchPodAnnotationin := workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
 
 	kmc := &KmeshManageController{
-		informerFactory:   informerFactory,
-		podInformer:       podInformer,
-		podLister:         podLister,
-		factory:           factory,
-		namespaceInformer: namespaceInformer,
-		namespaceLister:   namespaceLister,
-		queue:             queue,
-		client:            client,
-		sm:                sm,
-		xdpProgFd:         xdpProgFd,
-		mode:              mode,
+		factroys: factroys{
+			factroyWithSpecMyNode: factroyWithSpecMyNode,
+			factory:               factory,
+		},
+		podController: podController{
+			podInformer: podInformer,
+			podLister:   podLister,
+		},
+		namespaceController: namespaceController{
+			namespaceInformer: namespaceInformer,
+			namespaceLister:   namespaceLister,
+		},
+		queueList: queueList{
+			queueForPatchPodAnnotationin: queueForPatchPodAnnotationin,
+		},
+		client:    client,
+		sm:        sm,
+		xdpProgFd: xdpProgFd,
+		mode:      mode,
 	}
 
 	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -230,7 +254,7 @@ func (kmc *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 		log.Errorf("failed to enable Kmesh manage")
 		return
 	}
-	kmc.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
+	kmc.queueForPatchPodAnnotationin.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
 	_ = linkXdp(nspath, kmc.xdpProgFd, kmc.mode)
 }
 
@@ -246,7 +270,7 @@ func (kmc *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 		log.Error("failed to disable Kmesh manage")
 		return
 	}
-	kmc.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
+	kmc.queueForPatchPodAnnotationin.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
 	_ = unlinkXdp(nspath, kmc.mode)
 }
 
@@ -279,23 +303,27 @@ func (kmc *KmeshManageController) disableKmeshForPodsInNamespace(namespace *core
 }
 
 func (c *KmeshManageController) Run(stopChan <-chan struct{}) {
-	defer c.queue.ShutDown()
-	c.informerFactory.Start(stopChan)
+	c.runPatchPodAnnotation(stopChan)
+}
+
+func (c *KmeshManageController) runPatchPodAnnotation(stopChan <-chan struct{}) {
+	defer c.queueForPatchPodAnnotationin.ShutDown()
+	c.factroyWithSpecMyNode.Start(stopChan)
 	c.factory.Start(stopChan)
 	if !cache.WaitForCacheSync(stopChan, c.podInformer.HasSynced, c.namespaceInformer.HasSynced) {
 		log.Error("Timed out waiting for caches to sync")
 		return
 	}
-	for c.processItems() {
+	for c.processPatchPodAnnotatioinItems() {
 	}
 }
 
-func (c *KmeshManageController) processItems() bool {
-	key, quit := c.queue.Get()
+func (c *KmeshManageController) processPatchPodAnnotatioinItems() bool {
+	key, quit := c.queueForPatchPodAnnotationin.Get()
 	if quit {
 		return false
 	}
-	defer c.queue.Done(key)
+	defer c.queueForPatchPodAnnotationin.Done(key)
 
 	queueItem, ok := key.(QueueItem)
 	if !ok {
@@ -324,16 +352,16 @@ func (c *KmeshManageController) processItems() bool {
 	}
 
 	if err != nil {
-		if c.queue.NumRequeues(key) < MaxRetries {
+		if c.queueForPatchPodAnnotationin.NumRequeues(key) < MaxRetries {
 			log.Errorf("failed to handle pod %s/%s action %s, err: %v, will retry", queueItem.podNs, queueItem.podName, queueItem.action, err)
-			c.queue.AddRateLimited(key)
+			c.queueForPatchPodAnnotationin.AddRateLimited(key)
 		} else {
 			log.Errorf("failed to handle pod %s/%s action %s after %d retries, err: %v, giving up", queueItem.podNs, queueItem.podName, queueItem.action, MaxRetries, err)
-			c.queue.Forget(key)
+			c.queueForPatchPodAnnotationin.Forget(key)
 		}
 		return true
 	}
-	c.queue.Forget(key)
+	c.queueForPatchPodAnnotationin.Forget(key)
 	return true
 }
 

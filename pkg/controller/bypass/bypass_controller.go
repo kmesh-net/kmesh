@@ -49,7 +49,7 @@ type Controller struct {
 }
 
 func NewByPassController(client kubernetes.Interface) *Controller {
-	informerFactory := kube.NewInformerFactory(client)
+	informerFactory := kube.NewInformerFactoryWithSpecMyNode(client)
 
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	_, _ = podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
