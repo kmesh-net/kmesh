@@ -12,58 +12,15 @@ function install_libboundscheck() {
 }
 
 function dependency_pkg_install() {
-
     if command -v apt > /dev/null; then
-        echo "Checking for required packages on a Debian-based system..."
-
-       
-        packages=(git make clang libbpf-dev llvm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake pkg-config)
-
-        update_needed=false
-        for pkg in "${packages[@]}"; do
-            if ! dpkg -s "$pkg" >/dev/null 2>&1; then
-                update_needed=true
-                break
-            fi
-        done
-
-       
-        if [ "$update_needed" = true ]; then
-            apt-get update
-        fi
-
-      
-        for pkg in "${packages[@]}"; do
-            if ! dpkg -s "$pkg" >/dev/null 2>&1; then
-                echo "Installing $pkg..."
-                apt-get install -y "$pkg"
-            else
-                echo "$pkg is already installed."
-            fi
-        done
-
-        
-        install_libboundscheck
-
-   
+	    # apt install 
+	    apt-get update && apt-get install -y git make clang libbpf-dev llvm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake pkg-config
+	    install_libboundscheck
     elif command -v yum > /dev/null; then
-        echo "Checking for required packages on a Red Hat-based system..."
-
-     
-        packages=(git make clang llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool libbpf libbpf-devel cmake pkg-config)
-
-      
-        for pkg in "${packages[@]}"; do
-            if ! rpm -q "$pkg" >/dev/null 2>&1; then
-                echo "Installing $pkg..."
-                yum install -y "$pkg"
-            else
-                echo "$pkg is already installed."
-            fi
-        done
+	    # yum install
+	    yum install -y git make clang llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool libbpf libbpf-devel cmake pkg-config
     fi
 }
-
 
 # fix bug in libbpf
 function fix_libbpf_bug() {
