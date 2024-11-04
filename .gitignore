@@ -40,34 +40,10 @@ coverage.out
 # build artifacts
 *.so
 *.o
-bpf/kmesh/bpf2go/kmeshcgroupsock_bpfeb.go
-bpf/kmesh/bpf2go/kmeshcgroupsock_bpfel.go
-bpf/kmesh/bpf2go/kmeshcgroupsockworkload_bpfeb.go
-bpf/kmesh/bpf2go/kmeshcgroupsockworkload_bpfel.go
-bpf/kmesh/bpf2go/kmeshsockopsworkload_bpfeb.go
-bpf/kmesh/bpf2go/kmeshsockopsworkload_bpfel.go
-bpf/kmesh/bpf2go/kmeshxdpauth_bpfeb.go
-bpf/kmesh/bpf2go/kmeshxdpauth_bpfel.go
-bpf/kmesh/bpf2go/kmeshsendmsg_bpfeb.go
-bpf/kmesh/bpf2go/kmeshsendmsg_bpfel.go
-bpf/kmesh/bpf2go/kmeshsockops_bpfeb.go    
-bpf/kmesh/bpf2go/kmeshsockops_bpfel.go
-bpf/kmesh/bpf2go/kmeshtracepoint_bpfeb.go
-bpf/kmesh/bpf2go/kmeshtracepoint_bpfel.go
 
-bpf/kmesh/bpf2go/kmeshcgroupsockcompat_bpfeb.go
-bpf/kmesh/bpf2go/kmeshcgroupsockcompat_bpfel.go
-bpf/kmesh/bpf2go/kmeshcgroupsockworkloadcompat_bpfeb.go
-bpf/kmesh/bpf2go/kmeshcgroupsockworkloadcompat_bpfel.go
-bpf/kmesh/bpf2go/kmeshsendmsgcompat_bpfeb.go
-bpf/kmesh/bpf2go/kmeshsendmsgcompat_bpfel.go
-bpf/kmesh/bpf2go/kmeshsockopsworkloadcompat_bpfeb.go
-bpf/kmesh/bpf2go/kmeshsockopsworkloadcompat_bpfel.go
-bpf/kmesh/bpf2go/kmeshxdpauthcompat_bpfeb.go
-bpf/kmesh/bpf2go/kmeshxdpauthcompat_bpfel.go
-
-bpf/kmesh/bpf2go/*
-config/*
+bpf/kmesh/bpf2go/**
+config/**
+mk/*
 
 kernel/**/*.ko
 kernel/**/*.cmd

@@ -35,6 +35,20 @@ type KmeshSockopsWorkloadCompatManagerKey struct {
 	_           [8]byte
 }
 
+type KmeshSockopsWorkloadCompatOperationUsageData struct {
+	StartTime     uint64
+	EndTime       uint64
+	PidTgid       uint64
+	OperationType uint32
+	_             [4]byte
+}
+
+type KmeshSockopsWorkloadCompatOperationUsageKey struct {
+	SocketCookie  uint64
+	OperationType uint32
+	_             [4]byte
+}
+
 type KmeshSockopsWorkloadCompatSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
@@ -90,13 +104,15 @@ type KmeshSockopsWorkloadCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsWorkloadCompatMapSpecs struct {
-	BpfLogLevel      *ebpf.MapSpec `ebpf:"bpf_log_level"`
 	InnerMap         *ebpf.MapSpec `ebpf:"inner_map"`
 	KmeshBackend     *ebpf.MapSpec `ebpf:"kmesh_backend"`
+	KmeshConfigMap   *ebpf.MapSpec `ebpf:"kmesh_config_map"`
 	KmeshEndpoint    *ebpf.MapSpec `ebpf:"kmesh_endpoint"`
 	KmeshEvents      *ebpf.MapSpec `ebpf:"kmesh_events"`
 	KmeshFrontend    *ebpf.MapSpec `ebpf:"kmesh_frontend"`
 	KmeshManage      *ebpf.MapSpec `ebpf:"kmesh_manage"`
+	KmeshPerfInfo    *ebpf.MapSpec `ebpf:"kmesh_perf_info"`
+	KmeshPerfMap     *ebpf.MapSpec `ebpf:"kmesh_perf_map"`
 	KmeshService     *ebpf.MapSpec `ebpf:"kmesh_service"`
 	MapOfAuth        *ebpf.MapSpec `ebpf:"map_of_auth"`
 	MapOfDstInfo     *ebpf.MapSpec `ebpf:"map_of_dst_info"`
@@ -129,13 +145,15 @@ func (o *KmeshSockopsWorkloadCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshSockopsWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSockopsWorkloadCompatMaps struct {
-	BpfLogLevel      *ebpf.Map `ebpf:"bpf_log_level"`
 	InnerMap         *ebpf.Map `ebpf:"inner_map"`
 	KmeshBackend     *ebpf.Map `ebpf:"kmesh_backend"`
+	KmeshConfigMap   *ebpf.Map `ebpf:"kmesh_config_map"`
 	KmeshEndpoint    *ebpf.Map `ebpf:"kmesh_endpoint"`
 	KmeshEvents      *ebpf.Map `ebpf:"kmesh_events"`
 	KmeshFrontend    *ebpf.Map `ebpf:"kmesh_frontend"`
 	KmeshManage      *ebpf.Map `ebpf:"kmesh_manage"`
+	KmeshPerfInfo    *ebpf.Map `ebpf:"kmesh_perf_info"`
+	KmeshPerfMap     *ebpf.Map `ebpf:"kmesh_perf_map"`
 	KmeshService     *ebpf.Map `ebpf:"kmesh_service"`
 	MapOfAuth        *ebpf.Map `ebpf:"map_of_auth"`
 	MapOfDstInfo     *ebpf.Map `ebpf:"map_of_dst_info"`
@@ -151,13 +169,15 @@ type KmeshSockopsWorkloadCompatMaps struct {
 
 func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 	return _KmeshSockopsWorkloadCompatClose(
-		m.BpfLogLevel,
 		m.InnerMap,
 		m.KmeshBackend,
+		m.KmeshConfigMap,
 		m.KmeshEndpoint,
 		m.KmeshEvents,
 		m.KmeshFrontend,
 		m.KmeshManage,
+		m.KmeshPerfInfo,
+		m.KmeshPerfMap,
 		m.KmeshService,
 		m.MapOfAuth,
 		m.MapOfDstInfo,

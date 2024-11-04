@@ -90,9 +90,9 @@ type KmeshXDPAuthCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshXDPAuthCompatMapSpecs struct {
-	BpfLogLevel      *ebpf.MapSpec `ebpf:"bpf_log_level"`
 	InnerMap         *ebpf.MapSpec `ebpf:"inner_map"`
 	KmeshBackend     *ebpf.MapSpec `ebpf:"kmesh_backend"`
+	KmeshConfigMap   *ebpf.MapSpec `ebpf:"kmesh_config_map"`
 	KmeshEndpoint    *ebpf.MapSpec `ebpf:"kmesh_endpoint"`
 	KmeshEvents      *ebpf.MapSpec `ebpf:"kmesh_events"`
 	KmeshFrontend    *ebpf.MapSpec `ebpf:"kmesh_frontend"`
@@ -127,9 +127,9 @@ func (o *KmeshXDPAuthCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshXDPAuthCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshXDPAuthCompatMaps struct {
-	BpfLogLevel      *ebpf.Map `ebpf:"bpf_log_level"`
 	InnerMap         *ebpf.Map `ebpf:"inner_map"`
 	KmeshBackend     *ebpf.Map `ebpf:"kmesh_backend"`
+	KmeshConfigMap   *ebpf.Map `ebpf:"kmesh_config_map"`
 	KmeshEndpoint    *ebpf.Map `ebpf:"kmesh_endpoint"`
 	KmeshEvents      *ebpf.Map `ebpf:"kmesh_events"`
 	KmeshFrontend    *ebpf.Map `ebpf:"kmesh_frontend"`
@@ -147,9 +147,9 @@ type KmeshXDPAuthCompatMaps struct {
 
 func (m *KmeshXDPAuthCompatMaps) Close() error {
 	return _KmeshXDPAuthCompatClose(
-		m.BpfLogLevel,
 		m.InnerMap,
 		m.KmeshBackend,
+		m.KmeshConfigMap,
 		m.KmeshEndpoint,
 		m.KmeshEvents,
 		m.KmeshFrontend,

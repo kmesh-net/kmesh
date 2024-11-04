@@ -27,6 +27,23 @@ type KmeshCgroupSockManagerKey struct {
 	_           [8]byte
 }
 
+type KmeshCgroupSockRatelimitKey struct {
+	Key struct {
+		SkSkb struct {
+			Netns  uint64
+			Ipv4   uint32
+			Port   uint32
+			Family uint32
+			_      [4]byte
+		}
+	}
+}
+
+type KmeshCgroupSockRatelimitValue struct {
+	LastTopup uint64
+	Tokens    uint64
+}
+
 type KmeshCgroupSockSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
@@ -85,13 +102,14 @@ type KmeshCgroupSockProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockMapSpecs struct {
-	BpfLogLevel         *ebpf.MapSpec `ebpf:"bpf_log_level"`
 	InnerMap            *ebpf.MapSpec `ebpf:"inner_map"`
 	KmeshCluster        *ebpf.MapSpec `ebpf:"kmesh_cluster"`
 	KmeshClusterStats   *ebpf.MapSpec `ebpf:"kmesh_cluster_stats"`
+	KmeshConfigMap      *ebpf.MapSpec `ebpf:"kmesh_config_map"`
 	KmeshEvents         *ebpf.MapSpec `ebpf:"kmesh_events"`
 	KmeshListener       *ebpf.MapSpec `ebpf:"kmesh_listener"`
 	KmeshManage         *ebpf.MapSpec `ebpf:"kmesh_manage"`
+	KmeshRatelimit      *ebpf.MapSpec `ebpf:"kmesh_ratelimit"`
 	KmeshTailCallCtx    *ebpf.MapSpec `ebpf:"kmesh_tail_call_ctx"`
 	KmeshTailCallProg   *ebpf.MapSpec `ebpf:"kmesh_tail_call_prog"`
 	MapOfClusterEps     *ebpf.MapSpec `ebpf:"map_of_cluster_eps"`
@@ -99,6 +117,7 @@ type KmeshCgroupSockMapSpecs struct {
 	MapOfClusterSock    *ebpf.MapSpec `ebpf:"map_of_cluster_sock"`
 	MapOfSockStorage    *ebpf.MapSpec `ebpf:"map_of_sock_storage"`
 	OuterMap            *ebpf.MapSpec `ebpf:"outer_map"`
+	OuterOfMaglev       *ebpf.MapSpec `ebpf:"outer_of_maglev"`
 	TmpBuf              *ebpf.MapSpec `ebpf:"tmp_buf"`
 	TmpLogBuf           *ebpf.MapSpec `ebpf:"tmp_log_buf"`
 }
@@ -122,13 +141,14 @@ func (o *KmeshCgroupSockObjects) Close() error {
 //
 // It can be passed to LoadKmeshCgroupSockObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockMaps struct {
-	BpfLogLevel         *ebpf.Map `ebpf:"bpf_log_level"`
 	InnerMap            *ebpf.Map `ebpf:"inner_map"`
 	KmeshCluster        *ebpf.Map `ebpf:"kmesh_cluster"`
 	KmeshClusterStats   *ebpf.Map `ebpf:"kmesh_cluster_stats"`
+	KmeshConfigMap      *ebpf.Map `ebpf:"kmesh_config_map"`
 	KmeshEvents         *ebpf.Map `ebpf:"kmesh_events"`
 	KmeshListener       *ebpf.Map `ebpf:"kmesh_listener"`
 	KmeshManage         *ebpf.Map `ebpf:"kmesh_manage"`
+	KmeshRatelimit      *ebpf.Map `ebpf:"kmesh_ratelimit"`
 	KmeshTailCallCtx    *ebpf.Map `ebpf:"kmesh_tail_call_ctx"`
 	KmeshTailCallProg   *ebpf.Map `ebpf:"kmesh_tail_call_prog"`
 	MapOfClusterEps     *ebpf.Map `ebpf:"map_of_cluster_eps"`
@@ -136,19 +156,21 @@ type KmeshCgroupSockMaps struct {
 	MapOfClusterSock    *ebpf.Map `ebpf:"map_of_cluster_sock"`
 	MapOfSockStorage    *ebpf.Map `ebpf:"map_of_sock_storage"`
 	OuterMap            *ebpf.Map `ebpf:"outer_map"`
+	OuterOfMaglev       *ebpf.Map `ebpf:"outer_of_maglev"`
 	TmpBuf              *ebpf.Map `ebpf:"tmp_buf"`
 	TmpLogBuf           *ebpf.Map `ebpf:"tmp_log_buf"`
 }
 
 func (m *KmeshCgroupSockMaps) Close() error {
 	return _KmeshCgroupSockClose(
-		m.BpfLogLevel,
 		m.InnerMap,
 		m.KmeshCluster,
 		m.KmeshClusterStats,
+		m.KmeshConfigMap,
 		m.KmeshEvents,
 		m.KmeshListener,
 		m.KmeshManage,
+		m.KmeshRatelimit,
 		m.KmeshTailCallCtx,
 		m.KmeshTailCallProg,
 		m.MapOfClusterEps,
@@ -156,6 +178,7 @@ func (m *KmeshCgroupSockMaps) Close() error {
 		m.MapOfClusterSock,
 		m.MapOfSockStorage,
 		m.OuterMap,
+		m.OuterOfMaglev,
 		m.TmpBuf,
 		m.TmpLogBuf,
 	)
