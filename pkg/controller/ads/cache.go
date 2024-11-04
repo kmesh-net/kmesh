@@ -446,6 +446,7 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
 		RetryPolicy: &route_v2.RetryPolicy{
 			NumRetries: action.GetRetryPolicy().GetNumRetries().GetValue(),
 		},
+		HashPolicy: nil,
 	}
 
 	switch action.GetClusterSpecifier().(type) {
@@ -472,6 +473,27 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
 		log.Errorf("newApiRouteAction default, type is %T", action.GetClusterSpecifier())
 		return nil
 	}
+	// current only support http header based hash policy
+	apiHashPolicys := make([]*route_v2.RouteAction_HashPolicy, 0)
+	for _, hp := range action.GetHashPolicy() {
+		apiHashPolicy := &route_v2.RouteAction_HashPolicy{
+			PolicySpecifier: nil,
+		}
+		switch hp.GetPolicySpecifier().(type) {
+		case *config_route_v3.RouteAction_HashPolicy_Header_:
+			header := &route_v2.RouteAction_HashPolicy_Header{
+				HeaderName: hp.GetHeader().HeaderName,
+			}
+			apiHashPolicy.PolicySpecifier = &route_v2.RouteAction_HashPolicy_Header_{
+				Header: header,
+			}
+			apiHashPolicys = append(apiHashPolicys, apiHashPolicy)
+		default:
+			log.Errorf("newApiRouteAction HashPolicy default, type is %T", hp.GetPolicySpecifier())
+			return nil
+		}
+	}
+	apiAction.HashPolicy = apiHashPolicys
 
 	return apiAction
 }

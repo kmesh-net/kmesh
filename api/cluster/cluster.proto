@@ -12,6 +12,7 @@ message Cluster {
     ROUND_ROBIN = 0;
     LEAST_REQUEST = 1;
     RANDOM = 3;
+    MAGLEV = 5;
   }
 
   core.ApiStatus api_status = 128;

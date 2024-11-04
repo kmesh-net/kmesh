@@ -48,7 +48,7 @@ type BpfLoader struct {
 
 	obj         *ads.BpfAds
 	workloadObj *workload.BpfWorkload
-	bpfLogLevel *ebpf.Map
+	kmeshConfig *ebpf.Map
 	versionMap  *ebpf.Map
 }
 
@@ -80,7 +80,7 @@ func (l *BpfLoader) Start() error {
 		if err = l.obj.Start(); err != nil {
 			return err
 		}
-		l.bpfLogLevel = l.obj.GetBpfLogLevelMap()
+		l.kmeshConfig = l.obj.GetKmeshConfigMap()
 	} else if l.config.DualEngineEnabled() {
 		if l.workloadObj, err = workload.NewBpfWorkload(l.config); err != nil {
 			return err
@@ -88,7 +88,7 @@ func (l *BpfLoader) Start() error {
 		if err = l.workloadObj.Start(); err != nil {
 			return err
 		}
-		l.bpfLogLevel = l.workloadObj.GetBpfLogLevelMap()
+		l.kmeshConfig = l.workloadObj.GetKmeshConfigMap()
 	}
 
 	// TODO: move start mds out of bpf loader
@@ -118,11 +118,11 @@ func (l *BpfLoader) GetBpfWorkload() *workload.BpfWorkload {
 	return l.workloadObj
 }
 
-func (l *BpfLoader) GetBpfLogLevel() *ebpf.Map {
+func (l *BpfLoader) GetKmeshConfig() *ebpf.Map {
 	if l == nil {
 		return nil
 	}
-	return l.bpfLogLevel
+	return l.kmeshConfig
 }
 
 func StopMda() error {
