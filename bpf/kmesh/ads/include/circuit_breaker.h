@@ -54,11 +54,11 @@ static inline void update_cluster_active_connections(const struct cluster_stats_
     }
 
     if (!stats) {
-        BPF_LOG(ERR, CIRCUIT_BREAKER, "failed to get cluster stats");
+        BPF_LOG(ERR, CIRCUIT_BREAKER, "failed to get cluster stats\n");
         return;
     }
     if (delta < 0 && -delta > stats->active_connections) {
-        BPF_LOG(ERR, CIRCUIT_BREAKER, "invalid delta update");
+        BPF_LOG(ERR, CIRCUIT_BREAKER, "invalid delta update\n");
         return;
     }
 
@@ -68,7 +68,7 @@ static inline void update_cluster_active_connections(const struct cluster_stats_
         DEBUG,
         CIRCUIT_BREAKER,
         "update existing stats(netns_cookie = %lld, cluster_id = %ld), "
-        "current active connections: %d",
+        "current active connections: %d\n",
         key->netns_cookie,
         key->cluster_id,
         stats->active_connections);
@@ -92,23 +92,23 @@ static inline int on_cluster_sock_bind(ctx_buff_t *ctx, const Cluster__Cluster *
                 DEBUG,
                 CIRCUIT_BREAKER,
                 "Current active connections %d exceeded max connections "
-                "%d, reject connection",
+                "%d, reject connection\n",
                 stats->active_connections,
                 cbs->max_connections);
             return -1;
         }
     }
 
-    BPF_LOG(DEBUG, CIRCUIT_BREAKER, "record sock bind for cluster id = %ld", cluster_id);
+    BPF_LOG(DEBUG, CIRCUIT_BREAKER, "record sock bind for cluster id = %ld\n", cluster_id);
 
     struct cluster_sock_data *data = NULL;
     if (!ctx->sk) {
-        BPF_LOG(WARN, CIRCUIT_BREAKER, "provided sock is NULL");
+        BPF_LOG(WARN, CIRCUIT_BREAKER, "provided sock is NULL\n");
         return 0;
     }
     data = bpf_sk_storage_get(&map_of_cluster_sock, ctx->sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!data) {
-        BPF_LOG(ERR, CIRCUIT_BREAKER, "on_cluster_sock_bind call bpf_sk_storage_get failed");
+        BPF_LOG(ERR, CIRCUIT_BREAKER, "on_cluster_sock_bind call bpf_sk_storage_get failed\n");
         return 0;
     }
     data->cluster_id = cluster_id;
@@ -119,7 +119,7 @@ static inline struct cluster_sock_data *get_cluster_sk_data(struct bpf_sock *sk)
 {
     struct cluster_sock_data *data = NULL;
     if (!sk) {
-        BPF_LOG(DEBUG, CIRCUIT_BREAKER, "provided sock is NULL");
+        BPF_LOG(DEBUG, CIRCUIT_BREAKER, "provided sock is NULL\n");
         return NULL;
     }
 
@@ -144,11 +144,11 @@ static inline void on_cluster_sock_connect(struct bpf_sock_ops *ctx)
         DEBUG,
         CIRCUIT_BREAKER,
         "increase cluster active connections(netns_cookie = %lld, cluster "
-        "id = %ld)",
+        "id = %ld)\n",
         key.netns_cookie,
         key.cluster_id);
     update_cluster_active_connections(&key, 1);
-    BPF_LOG(DEBUG, CIRCUIT_BREAKER, "record sock connection for cluster id = %ld", data->cluster_id);
+    BPF_LOG(DEBUG, CIRCUIT_BREAKER, "record sock connection for cluster id = %ld\n", data->cluster_id);
 }
 
 static inline void on_cluster_sock_close(struct bpf_sock_ops *ctx)
@@ -169,10 +169,10 @@ static inline void on_cluster_sock_close(struct bpf_sock_ops *ctx)
         DEBUG,
         CIRCUIT_BREAKER,
         "decrease cluster active connections(netns_cookie = %lld, cluster "
-        "id = %ld)",
+        "id = %ld)\n",
         key.netns_cookie,
         key.cluster_id);
-    BPF_LOG(DEBUG, CIRCUIT_BREAKER, "record sock close for cluster id = %ld", data->cluster_id);
+    BPF_LOG(DEBUG, CIRCUIT_BREAKER, "record sock close for cluster id = %ld\n", data->cluster_id);
 }
 
 #endif
