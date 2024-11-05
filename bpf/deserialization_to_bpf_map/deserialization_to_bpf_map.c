@@ -1789,7 +1789,7 @@ int inner_map_mng_restore_by_persist_stat(struct persist_info *p, struct inner_m
     // What is recorded in g_inner_map_mng.inner_maps[i].map_fd is map_id.
     // Use map_id to get the fd of the inner_map in this process and refresh
     // it to inner_maps for use.
-    for (int i = 0; i < p->max_allocated_idx; i++) {
+    for (int i = 0; i <= p->max_allocated_idx; i++) {
         if (g_inner_map_mng.inner_maps[i].allocated) {
             int map_fd = bpf_map_get_fd_by_id(g_inner_map_mng.inner_maps[i].map_fd);
             if (map_fd < 0) {
