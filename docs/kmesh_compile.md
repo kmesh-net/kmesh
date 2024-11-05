@@ -41,7 +41,7 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
 
   After running the build command, some files may change, so make sure to run the following command to restore them
 
-  ```
+  ```sh
   [root@dev Kmesh]# make clean
   ```
 
