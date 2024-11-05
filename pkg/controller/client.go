@@ -26,8 +26,8 @@ import (
 	"google.golang.org/grpc/metadata"
 	istioGrpc "istio.io/istio/pilot/pkg/grpc"
 
-	"kmesh.net/kmesh/pkg/bpf/restart"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/ads"

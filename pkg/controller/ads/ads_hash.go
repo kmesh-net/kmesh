@@ -18,7 +18,6 @@ package ads
 
 import (
 	"os"
-
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"sigs.k8s.io/yaml"
@@ -82,7 +81,6 @@ func HandleRemovedCdsAndEdsDuringRestart(cache *cache_v2.ClusterCache) error {
 		}
 	}
 	return nil
-
 }
 
 func HandleRemovedLdsDuringRestart(cache *cache_v2.ListenerCache) error {
@@ -100,7 +98,6 @@ func HandleRemovedLdsDuringRestart(cache *cache_v2.ListenerCache) error {
 		}
 	}
 	return nil
-
 }
 
 func HandleRemovedRdsDuringRestart(cache *cache_v2.RouteConfigCache) error {
@@ -117,5 +114,4 @@ func HandleRemovedRdsDuringRestart(cache *cache_v2.RouteConfigCache) error {
 		}
 	}
 	return nil
-
 }
