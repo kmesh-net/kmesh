@@ -46,6 +46,36 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
     return (*value == 0);
 }
 
+static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
+{   
+    struct kmesh_config *data = {0};
+    int key_of_kmesh_config = 0;
+    data = kmesh_map_lookup_elem(&kmesh_config_map, &key_of_kmesh_config);
+    if (!data) {
+        BPF_LOG(ERR, SOCKOPS, "get kmesh congfig failed");
+        return false;
+    }
+
+    BPF_LOG(ERR, SOCKOPS, "node ip is %u.%u", data->node_ip[0], data->node_ip[1]);
+    BPF_LOG(ERR, SOCKOPS, "node ip is %u.%u", data->node_ip[2], data->node_ip[3]);
+    BPF_LOG(ERR, SOCKOPS, "pod gateway is %u.%u", data->pod_gateway[0], data->pod_gateway[1]);
+    BPF_LOG(ERR, SOCKOPS, "pod gateway is %u.%u", data->pod_gateway[2], data->pod_gateway[3]);
+    BPF_LOG(ERR, SOCKOPS, "remote ip is %u", skops->remote_ip4);
+
+    if (skops->family ==  AF_INET) {
+        if (data->node_ip[3] == skops->remote_ip4) {
+            return true;
+        }
+        if (data->pod_gateway[3] == skops->remote_ip4) {
+            return true;
+        }
+    }
+
+    if (skops->family == AF_INET6) {}
+
+    return false;
+}
+
 static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
     if (skops->family == AF_INET) {
@@ -233,7 +263,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
             enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops))
+        if (!is_managed_by_kmesh(skops) || skip_specific_probe(skops))
             break;
         observe_on_connect_established(skops->sk, INBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)

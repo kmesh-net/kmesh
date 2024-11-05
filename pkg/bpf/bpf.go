@@ -20,7 +20,10 @@ package bpf
 // #include "deserialization_to_bpf_map.h"
 import "C"
 import (
+	"context"
+	"fmt"
 	"hash/fnv"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,6 +31,8 @@ import (
 	"syscall"
 
 	"github.com/cilium/ebpf"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/ads"
@@ -35,6 +40,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/version"
 )
 
@@ -97,6 +103,8 @@ func (l *BpfLoader) Start() error {
 			return err
 		}
 	}
+
+	l.UpdateBpfProgOptions()
 
 	if restart.GetStartType() == restart.Restart {
 		log.Infof("bpf load from last pinPath")
@@ -262,6 +270,134 @@ func recoverVersionMap(pinPath string) *ebpf.Map {
 	log.Debugf("recoverVersionMap success")
 
 	return versionMap
+}
+
+func (l *BpfLoader) UpdateBpfProgOptions() {
+	nodeName := os.Getenv("NODE_NAME")
+	if nodeName == "" {
+		log.Errorf("skip kubelet probe failed: %s", "node name empty")
+		return
+	}
+
+	clientSet, err := utils.GetK8sclient()
+	if err != nil {
+		log.Errorf("get kubernetest client for getting node IP error: %v", err)
+	}
+
+	node, err := clientSet.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to get node: %v", err)
+		return
+	}
+
+	// pass node ip and pod gateway to skip processing of kubelet access traffic.
+	nodeIP := getNodeIPAddress(nodeName, node)
+	gateway := getNodePodSubGateway(nodeName, node)
+
+	fmt.Printf("-------- nodeip: %v, pod gateway: %v\n", nodeIP, gateway)
+
+	keyOfKmeshBpfConfig := uint32(0)
+	ValueOfKmeshBpfConfig := constants.KmeshBpfConfig{
+		// Write this map only when the kmesh daemon starts, so set bpfloglevel to the default value.
+		BpfLogLevel: uint32(2),
+		NodeIP:      nodeIP,
+		PodGateway:  gateway,
+	}
+
+	if l.kmeshConfig == nil {
+		log.Errorf("skip kubelet probe failed: %v", "kmeshConfigMap is nil")
+		return
+	}
+	if err := l.kmeshConfig.Update(&keyOfKmeshBpfConfig, &ValueOfKmeshBpfConfig, ebpf.UpdateAny); err != nil {
+		log.Errorf("update kmeshConfigMap failed: %v", err)
+		return
+	}
+}
+
+func getNodeIPAddress(nodeName string, node *corev1.Node) [4]uint32 {
+	var nodeIPStr string
+	nodeAddresses := node.Status.Addresses
+	for _, address := range nodeAddresses {
+		if address.Type == corev1.NodeInternalIP {
+			nodeIPStr = address.Address
+		}
+	}
+
+	nodeIP := net.ParseIP(nodeIPStr)
+	nodeIPToUint := IPToUint32(nodeIP)
+
+	return nodeIPToUint
+}
+
+func getNodePodSubGateway(nodeName string, node *corev1.Node) [4]uint32 {
+	podCIDR := node.Spec.PodCIDR
+	ip, _, err := net.ParseCIDR(podCIDR)
+	if err != nil {
+		log.Errorf("failed to resolve ip from podCIDR: %v", err)
+		return [4]uint32{0, 0, 0, 0}
+	}
+
+	podGateway := IPToUint32(ip)
+	if isIPv6(ip) {
+		podGateway[0] = podGateway[0] + 1<<24
+	} else {
+		podGateway[3] = podGateway[3] + 1<<24
+	}
+
+	return podGateway
+}
+
+func IPToUint32(ip net.IP) [4]uint32 {
+	fmt.Printf("======== %v, %v ==========", ip, len(ip))
+	ipToUint32 := [4]uint32{0, 0, 0, 0}
+	if isIPv6(ip) {
+		ipToUint32[0] = binaryToUint32(ip[:4])
+		ipToUint32[1] = binaryToUint32(ip[4:8])
+		ipToUint32[2] = binaryToUint32(ip[8:12])
+		ipToUint32[3] = binaryToUint32(ip[12:16])
+	} else {
+		if len(ip) == 16 {
+			// ipv4 to ipv6
+			ipToUint32[3] = binaryToUint32(ip[12:16])
+		} else {
+			ipToUint32[3] = binaryToUint32(ip)
+		}
+	}
+
+	return ipToUint32
+}
+
+func isIPv6(ip net.IP) bool {
+	if len(ip) == 16 {
+		for i := 0; i < 10; i++ {
+			if ip[i] != 0 {
+				return true
+			}
+		}
+
+		if ip[10] != 0xff {
+			return true
+		}
+
+		if ip[11] != 0xff {
+			return true
+		}
+	}
+	return false
+}
+
+// func calculateGateway(ipnet *net.IPNet) uint32 {
+// 	if ipnet == nil {
+// 		log.Errorf("failed to calculate pod sub gateway: %s", "*ipNet is empty")
+// 		return uint32(0)
+// 	}
+
+// 	networkInt := binaryToUint32(ipnet.IP.Mask(ipnet.Mask))
+// 	return networkInt + 1<<24
+// }
+
+func binaryToUint32(ip net.IP) uint32 {
+	return uint32(ip[3])<<24 + uint32(ip[2])<<16 + uint32(ip[1])<<8 + uint32(ip[0])
 }
 
 func closeMap(m *ebpf.Map) {

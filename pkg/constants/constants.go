@@ -61,3 +61,9 @@ const (
 	VersionPath         = "/bpf_kmesh/map/"
 	WorkloadVersionPath = "/bpf_kmesh_workload/map/"
 )
+
+type KmeshBpfConfig struct {
+	BpfLogLevel uint32
+	NodeIP      [4]uint32
+	PodGateway  [4]uint32
+}

@@ -450,11 +450,19 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 		return
 	}
 	key := uint32(0)
-	value := uint32(level)
+	// value := uint32(level)
+	value := constants.KmeshBpfConfig{}
 	if s.kmeshConfigMap == nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
 		return
 	}
+	// Because kmesh config has pod gateway and node ip data.
+	// When change the log level, need to make sure that the pod gateway and node ip remain unchanged.
+	if err = s.kmeshConfigMap.Lookup(&key, &value); err != nil {
+		http.Error(w, fmt.Sprintf("get kmesh config error: %v", err), http.StatusBadRequest)
+		return
+	}
+	value.BpfLogLevel = uint32(level)
 	if err = s.kmeshConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", err), http.StatusBadRequest)
 		return
