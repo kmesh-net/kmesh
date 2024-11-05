@@ -27,7 +27,7 @@ require (
 	google.golang.org/protobuf v1.35.1
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gotest.tools v2.2.0+incompatible
-	istio.io/api v1.24.0-alpha.0.0.20241028175955-5ef47d381d4d
+	istio.io/api v1.24.0-rc.0
 	istio.io/istio v0.0.0-20241031065350-9bab4dd8c119
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
 	k8s.io/api v0.31.2
