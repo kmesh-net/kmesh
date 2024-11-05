@@ -18,6 +18,7 @@ package ads
 
 import (
 	"fmt"
+	"sync"
 
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	config_endpoint_v3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -54,6 +55,7 @@ type processor struct {
 	lastNonce *lastNonce
 	// the channel used to send domains to dns resolver. key is domain name and value is refreshrate
 	DnsResolverChan chan []*config_cluster_v3.Cluster
+	once            [3]sync.Once
 }
 
 func newProcessor() *processor {
@@ -202,6 +204,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 }
 
 func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
+	var err error
 	var loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
 	p.lastNonce.edsNonce = resp.Nonce
 	for _, resource := range resp.GetResources() {
@@ -238,8 +241,13 @@ func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	}
 
 	p.Cache.ClusterCache.Flush()
+	p.once[0].Do(func() {
+		if err = HandleRemovedCdsAndEdsDuringRestart(&p.Cache.ClusterCache); err != nil {
+			fmt.Println("Error:", err)
+		}
+	})
 
-	return nil
+	return err
 }
 
 func (p *processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
@@ -279,6 +287,11 @@ func (p *processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	}
 
 	p.Cache.ListenerCache.Flush()
+	p.once[1].Do(func() {
+		if err := HandleRemovedLdsDuringRestart(&p.Cache.ListenerCache); err != nil {
+			fmt.Println("Error:", err)
+		}
+	})
 
 	if !slices.EqualUnordered(p.Cache.routeNames, lastRouteNames) {
 		// we cannot set the nonce here.
@@ -286,10 +299,11 @@ func (p *processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		// Then it will lead to this request been ignored, we will lose the new rds resource
 		p.req = newAdsRequest(resource_v3.RouteType, p.Cache.routeNames, "")
 	}
-	return nil
+	return err
 }
 
 func (p *processor) handleRdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
+	var err error
 	routeConfiguration := &config_route_v3.RouteConfiguration{}
 
 	p.lastNonce.rdsNonce = resp.Nonce
@@ -318,7 +332,12 @@ func (p *processor) handleRdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		p.Cache.RouteCache.UpdateApiRouteStatus(key, core_v2.ApiStatus_DELETE)
 	}
 	p.Cache.RouteCache.Flush()
-	return nil
+	p.once[2].Do(func() {
+		if err = HandleRemovedRdsDuringRestart(&p.Cache.RouteCache); err != nil {
+			fmt.Println("Error:", err)
+		}
+	})
+	return err
 }
 
 func (p *processor) Reset() {

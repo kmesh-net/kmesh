@@ -117,3 +117,7 @@ func (cache *RouteConfigCache) Dump() []*route_v2.RouteConfiguration {
 	}
 	return mapCache
 }
+
+func (cache *RouteConfigCache) GetRouteHashPtr() *map[string]uint64 {
+	return &cache.resourceHash
+}

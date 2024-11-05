@@ -136,3 +136,7 @@ func (cache *ListenerCache) Dump() []*listener_v2.Listener {
 	}
 	return listeners
 }
+
+func (cache *ListenerCache) GetListenerHashPtr() *map[string]uint64 {
+	return &cache.resourceHash
+}
