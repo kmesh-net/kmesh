@@ -93,8 +93,8 @@ func (sc *BpfAds) Stop() error {
 	return nil
 }
 
-func (sc *BpfAds) GetBpfLogLevelMap() *ebpf.Map {
-	return sc.SockConn.BpfLogLevel
+func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
+	return sc.SockConn.KmeshConfigMap
 }
 
 func (sc *BpfAds) Load() error {
@@ -185,6 +185,10 @@ func (sc *BpfAds) Detach() error {
 		return err
 	}
 	return nil
+}
+
+func (sc *BpfAds) GetClusterStatsMap() *ebpf.Map {
+	return sc.SockOps.KmeshSockopsMaps.KmeshClusterStats
 }
 
 func AdsL7Enabled() bool {

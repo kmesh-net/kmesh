@@ -26,7 +26,8 @@ typedef struct Cluster__Cluster Cluster__Cluster;
 typedef enum _Cluster__Cluster__LbPolicy {
   CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN = 0,
   CLUSTER__CLUSTER__LB_POLICY__LEAST_REQUEST = 1,
-  CLUSTER__CLUSTER__LB_POLICY__RANDOM = 3
+  CLUSTER__CLUSTER__LB_POLICY__RANDOM = 3,
+  CLUSTER__CLUSTER__LB_POLICY__MAGLEV = 5
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(CLUSTER__CLUSTER__LB_POLICY)
 } Cluster__Cluster__LbPolicy;
 
@@ -37,6 +38,7 @@ struct  Cluster__Cluster
   ProtobufCMessage base;
   Core__ApiStatus api_status;
   char *name;
+  uint32_t id;
   uint32_t connect_timeout;
   Cluster__Cluster__LbPolicy lb_policy;
   Endpoint__ClusterLoadAssignment *load_assignment;
@@ -44,7 +46,7 @@ struct  Cluster__Cluster
 };
 #define CLUSTER__CLUSTER__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&cluster__cluster__descriptor) \
-    , CORE__API_STATUS__NONE, (char *)protobuf_c_empty_string, 0, CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN, NULL, NULL }
+    , CORE__API_STATUS__NONE, (char *)protobuf_c_empty_string, 0, 0, CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN, NULL, NULL }
 
 
 /* Cluster__Cluster methods */

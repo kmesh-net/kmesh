@@ -6,12 +6,14 @@ option go_package = "kmesh.net/kmesh/api/listener;listener";
 import "api/core/address.proto";
 import "api/filter/tcp_proxy.proto";
 import "api/filter/http_connection_manager.proto";
+import "api/filter/ratelimit.proto";
 
 message Filter {
   string name = 1;
   oneof config_type {
     filter.TcpProxy tcp_proxy = 2;
     filter.HttpConnectionManager http_connection_manager = 3;
+    filter.LocalRateLimit local_rate_limit = 4;
   }
 }
 

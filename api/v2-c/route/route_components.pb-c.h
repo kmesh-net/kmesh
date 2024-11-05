@@ -19,6 +19,8 @@ typedef struct Route__VirtualHost Route__VirtualHost;
 typedef struct Route__Route Route__Route;
 typedef struct Route__RouteMatch Route__RouteMatch;
 typedef struct Route__RouteAction Route__RouteAction;
+typedef struct Route__RouteAction__HashPolicy Route__RouteAction__HashPolicy;
+typedef struct Route__RouteAction__HashPolicy__Header Route__RouteAction__HashPolicy__Header;
 typedef struct Route__RetryPolicy Route__RetryPolicy;
 typedef struct Route__WeightedCluster Route__WeightedCluster;
 typedef struct Route__ClusterWeight Route__ClusterWeight;
@@ -69,6 +71,42 @@ struct  Route__RouteMatch
     , (char *)protobuf_c_empty_string, 0, 0,NULL }
 
 
+struct  Route__RouteAction__HashPolicy__Header
+{
+  ProtobufCMessage base;
+  /*
+   * The name of the request header that will be used to obtain the hash
+   * key. If the request header is not present, no hash will be produced.
+   */
+  char *header_name;
+};
+#define ROUTE__ROUTE_ACTION__HASH_POLICY__HEADER__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&route__route_action__hash_policy__header__descriptor) \
+    , (char *)protobuf_c_empty_string }
+
+
+typedef enum {
+  ROUTE__ROUTE_ACTION__HASH_POLICY__POLICY_SPECIFIER__NOT_SET = 0,
+  ROUTE__ROUTE_ACTION__HASH_POLICY__POLICY_SPECIFIER_HEADER = 1
+    PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(ROUTE__ROUTE_ACTION__HASH_POLICY__POLICY_SPECIFIER__CASE)
+} Route__RouteAction__HashPolicy__PolicySpecifierCase;
+
+struct  Route__RouteAction__HashPolicy
+{
+  ProtobufCMessage base;
+  Route__RouteAction__HashPolicy__PolicySpecifierCase policy_specifier_case;
+  union {
+    /*
+     * Header hash policy.
+     */
+    Route__RouteAction__HashPolicy__Header *header;
+  };
+};
+#define ROUTE__ROUTE_ACTION__HASH_POLICY__INIT \
+ { PROTOBUF_C_MESSAGE_INIT (&route__route_action__hash_policy__descriptor) \
+    , ROUTE__ROUTE_ACTION__HASH_POLICY__POLICY_SPECIFIER__NOT_SET, {0} }
+
+
 typedef enum {
   ROUTE__ROUTE_ACTION__CLUSTER_SPECIFIER__NOT_SET = 0,
   ROUTE__ROUTE_ACTION__CLUSTER_SPECIFIER_CLUSTER = 1,
@@ -85,6 +123,8 @@ struct  Route__RouteAction
   char *prefix_rewrite;
   uint32_t timeout;
   Route__RetryPolicy *retry_policy;
+  size_t n_hash_policy;
+  Route__RouteAction__HashPolicy **hash_policy;
   Route__RouteAction__ClusterSpecifierCase cluster_specifier_case;
   union {
     /*
@@ -101,7 +141,7 @@ struct  Route__RouteAction
 };
 #define ROUTE__ROUTE_ACTION__INIT \
  { PROTOBUF_C_MESSAGE_INIT (&route__route_action__descriptor) \
-    , (char *)protobuf_c_empty_string, 0, NULL, ROUTE__ROUTE_ACTION__CLUSTER_SPECIFIER__NOT_SET, {0} }
+    , (char *)protobuf_c_empty_string, 0, NULL, 0,NULL, ROUTE__ROUTE_ACTION__CLUSTER_SPECIFIER__NOT_SET, {0} }
 
 
 struct  Route__RetryPolicy
@@ -227,6 +267,12 @@ Route__RouteMatch *
 void   route__route_match__free_unpacked
                      (Route__RouteMatch *message,
                       ProtobufCAllocator *allocator);
+/* Route__RouteAction__HashPolicy__Header methods */
+void   route__route_action__hash_policy__header__init
+                     (Route__RouteAction__HashPolicy__Header         *message);
+/* Route__RouteAction__HashPolicy methods */
+void   route__route_action__hash_policy__init
+                     (Route__RouteAction__HashPolicy         *message);
 /* Route__RouteAction methods */
 void   route__route_action__init
                      (Route__RouteAction         *message);
@@ -333,6 +379,12 @@ typedef void (*Route__Route_Closure)
 typedef void (*Route__RouteMatch_Closure)
                  (const Route__RouteMatch *message,
                   void *closure_data);
+typedef void (*Route__RouteAction__HashPolicy__Header_Closure)
+                 (const Route__RouteAction__HashPolicy__Header *message,
+                  void *closure_data);
+typedef void (*Route__RouteAction__HashPolicy_Closure)
+                 (const Route__RouteAction__HashPolicy *message,
+                  void *closure_data);
 typedef void (*Route__RouteAction_Closure)
                  (const Route__RouteAction *message,
                   void *closure_data);
@@ -358,6 +410,8 @@ extern const ProtobufCMessageDescriptor route__virtual_host__descriptor;
 extern const ProtobufCMessageDescriptor route__route__descriptor;
 extern const ProtobufCMessageDescriptor route__route_match__descriptor;
 extern const ProtobufCMessageDescriptor route__route_action__descriptor;
+extern const ProtobufCMessageDescriptor route__route_action__hash_policy__descriptor;
+extern const ProtobufCMessageDescriptor route__route_action__hash_policy__header__descriptor;
 extern const ProtobufCMessageDescriptor route__retry_policy__descriptor;
 extern const ProtobufCMessageDescriptor route__weighted_cluster__descriptor;
 extern const ProtobufCMessageDescriptor route__cluster_weight__descriptor;

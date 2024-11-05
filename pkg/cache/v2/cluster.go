@@ -22,24 +22,45 @@ package cache_v2
 import (
 	"sync"
 
+	"github.com/cilium/ebpf"
 	"k8s.io/apimachinery/pkg/util/sets"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
+	"kmesh.net/kmesh/pkg/consistenthash/maglev"
+	"kmesh.net/kmesh/pkg/utils"
 )
+
+type ClusterStatsKey struct {
+	NetnsCookie uint64
+	ClusterId   uint32
+}
+
+type ClusterStatsValue struct {
+	ActiveConnections uint32
+}
 
 type ClusterCache struct {
 	mutex           sync.RWMutex
 	apiClusterCache apiClusterCache
 	// resourceHash[0]:cds  resourceHash[1]:eds
-	resourceHash map[string][2]uint64
+	resourceHash    map[string][2]uint64
+	hashName        *utils.HashName
+	clusterStatsMap *ebpf.Map
 }
 
-func NewClusterCache() ClusterCache {
+func NewClusterCache(bpfAds *bpfads.BpfAds, hashName *utils.HashName) ClusterCache {
+	var clusterStatsMap *ebpf.Map
+	if bpfAds != nil {
+		clusterStatsMap = bpfAds.GetClusterStatsMap()
+	}
 	return ClusterCache{
 		apiClusterCache: newApiClusterCache(),
 		resourceHash:    make(map[string][2]uint64),
+		hashName:        hashName,
+		clusterStatsMap: clusterStatsMap,
 	}
 }
 
@@ -122,13 +143,48 @@ func (cache *ClusterCache) SetEdsHash(key string, value uint64) {
 	cache.resourceHash[key] = [2]uint64{cache.resourceHash[key][0], value}
 }
 
+func (cache *ClusterCache) clearClusterStats(clusterName string) {
+	if cache.clusterStatsMap == nil {
+		return
+	}
+	clusterId := cache.hashName.StrToNum(clusterName)
+	var key ClusterStatsKey
+	var value ClusterStatsValue
+	var keysToDelete []ClusterStatsKey
+	it := cache.clusterStatsMap.Iterate()
+
+	for it.Next(&key, &value) {
+		if key.ClusterId == clusterId {
+			keysToDelete = append(keysToDelete, key)
+		}
+	}
+	if len(keysToDelete) > 0 {
+		log.Debugf("remove cluster stats: %v", keysToDelete)
+		_, err := cache.clusterStatsMap.BatchDelete(keysToDelete, nil)
+		if err != nil {
+			log.Errorf("failed to remove cluster stats: %v", err)
+		}
+	}
+
+	if err := it.Err(); err != nil {
+		log.Errorf("delete iteration error: %s", err)
+	}
+}
+
 // Flush flushes the cluster to bpf map.
 func (cache *ClusterCache) Flush() {
 	cache.mutex.Lock()
 	defer cache.mutex.Unlock()
 	for name, cluster := range cache.apiClusterCache {
 		if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
+			cluster.Id = cache.hashName.StrToNum(name)
 			err := maps_v2.ClusterUpdate(name, cluster)
+			if cluster.GetLbPolicy() == cluster_v2.Cluster_MAGLEV {
+				// create consistent lb here and update table to bpf map
+				if err := maglev.CreateLB(cluster); err != nil {
+					log.Errorf("maglev lb update %v cluster failed: %v", name, err)
+				}
+			}
 			if err == nil {
 				// reset api status after successfully updated
 				cluster.ApiStatus = core_v2.ApiStatus_NONE
@@ -136,10 +192,12 @@ func (cache *ClusterCache) Flush() {
 				log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
 			}
 		} else if cluster.GetApiStatus() == core_v2.ApiStatus_DELETE {
+			cache.clearClusterStats(name)
 			err := maps_v2.ClusterDelete(name)
 			if err == nil {
 				delete(cache.apiClusterCache, name)
 				delete(cache.resourceHash, name)
+				cache.hashName.Delete(name)
 			} else {
 				log.Errorf("cluster %s delete failed: %v", name, err)
 			}
@@ -157,6 +215,7 @@ func (cache *ClusterCache) Delete() {
 			if err == nil {
 				delete(cache.apiClusterCache, name)
 				delete(cache.resourceHash, name)
+				cache.hashName.Delete(name)
 			} else {
 				log.Errorf("cluster %s delete failed: %v", name, err)
 			}

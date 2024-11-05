@@ -35,8 +35,10 @@ import (
 	filter_v2 "kmesh.net/kmesh/api/v2/filter"
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
 	route_v2 "kmesh.net/kmesh/api/v2/route"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 type AdsCache struct {
@@ -49,18 +51,20 @@ type AdsCache struct {
 	RouteCache    cache_v2.RouteConfigCache
 }
 
-func NewAdsCache() *AdsCache {
+func NewAdsCache(bpfAds *bpfads.BpfAds) *AdsCache {
+	hashName := utils.NewHashName()
 	return &AdsCache{
 		ListenerCache: cache_v2.NewListenerCache(),
-		ClusterCache:  cache_v2.NewClusterCache(),
+		ClusterCache:  cache_v2.NewClusterCache(bpfAds, hashName),
 		RouteCache:    cache_v2.NewRouteConfigCache(),
 	}
 }
 
 func (load *AdsCache) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) {
+	clusterName := cluster.GetName()
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus:       status,
-		Name:            cluster.GetName(),
+		Name:            clusterName,
 		ConnectTimeout:  uint32(cluster.GetConnectTimeout().GetSeconds()),
 		LbPolicy:        cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
 		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),
@@ -69,14 +73,15 @@ func (load *AdsCache) CreateApiClusterByCds(status core_v2.ApiStatus, cluster *c
 	if cluster.GetType() != config_cluster_v3.Cluster_EDS {
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
-	load.ClusterCache.SetApiCluster(cluster.GetName(), apiCluster)
+	load.ClusterCache.SetApiCluster(clusterName, apiCluster)
 }
 
 // UpdateApiClusterIfExists only update api cluster if it exists
 func (load *AdsCache) UpdateApiClusterIfExists(status core_v2.ApiStatus, cluster *config_cluster_v3.Cluster) bool {
+	clusterName := cluster.GetName()
 	apiCluster := &cluster_v2.Cluster{
 		ApiStatus:       status,
-		Name:            cluster.GetName(),
+		Name:            clusterName,
 		ConnectTimeout:  uint32(cluster.GetConnectTimeout().GetSeconds()),
 		LbPolicy:        cluster_v2.Cluster_LbPolicy(cluster.GetLbPolicy()),
 		CircuitBreakers: newApiCircuitBreakers(cluster.GetCircuitBreakers()),
@@ -84,7 +89,7 @@ func (load *AdsCache) UpdateApiClusterIfExists(status core_v2.ApiStatus, cluster
 	if cluster.GetType() != config_cluster_v3.Cluster_EDS {
 		apiCluster.LoadAssignment = newApiClusterLoadAssignment(cluster.GetLoadAssignment())
 	}
-	return load.ClusterCache.UpdateApiClusterIfExists(cluster.GetName(), apiCluster)
+	return load.ClusterCache.UpdateApiClusterIfExists(clusterName, apiCluster)
 }
 
 func (load *AdsCache) UpdateApiClusterStatus(key string, status core_v2.ApiStatus) {
@@ -441,6 +446,7 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
 		RetryPolicy: &route_v2.RetryPolicy{
 			NumRetries: action.GetRetryPolicy().GetNumRetries().GetValue(),
 		},
+		HashPolicy: nil,
 	}
 
 	switch action.GetClusterSpecifier().(type) {
@@ -467,6 +473,27 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
 		log.Errorf("newApiRouteAction default, type is %T", action.GetClusterSpecifier())
 		return nil
 	}
+	// current only support http header based hash policy
+	apiHashPolicys := make([]*route_v2.RouteAction_HashPolicy, 0)
+	for _, hp := range action.GetHashPolicy() {
+		apiHashPolicy := &route_v2.RouteAction_HashPolicy{
+			PolicySpecifier: nil,
+		}
+		switch hp.GetPolicySpecifier().(type) {
+		case *config_route_v3.RouteAction_HashPolicy_Header_:
+			header := &route_v2.RouteAction_HashPolicy_Header{
+				HeaderName: hp.GetHeader().HeaderName,
+			}
+			apiHashPolicy.PolicySpecifier = &route_v2.RouteAction_HashPolicy_Header_{
+				Header: header,
+			}
+			apiHashPolicys = append(apiHashPolicys, apiHashPolicy)
+		default:
+			log.Errorf("newApiRouteAction HashPolicy default, type is %T", hp.GetPolicySpecifier())
+			return nil
+		}
+	}
+	apiAction.HashPolicy = apiHashPolicys
 
 	return apiAction
 }

@@ -9,8 +9,11 @@
 #include "tail_call.h"
 #include "cluster/cluster.pb-c.h"
 #include "endpoint/endpoint.pb-c.h"
+#include "circuit_breaker.h"
 
 #define CLUSTER_NAME_MAX_LEN BPF_DATA_MAX_LEN
+#define MAGLEV_TABLE_SIZE    16381
+#define HASH_INIT4_SEED      0xcafe
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -19,6 +22,22 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_CLUSTER);
 } map_of_cluster SEC(".maps");
+
+struct inner_of_maglev {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(max_entries, 1);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32) * MAGLEV_TABLE_SIZE);
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH_OF_MAPS);
+    __uint(key_size, CLUSTER_NAME_MAX_LEN);
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, MAP_SIZE_OF_CLUSTER);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __array(values, struct inner_of_maglev);
+} outer_of_maglev SEC(".maps");
 
 struct cluster_endpoints {
     __u32 ep_num;
@@ -219,12 +238,17 @@ static inline void *loadbalance_round_robin(struct cluster_endpoints *eps)
     return (void *)eps->ep_identity[idx];
 }
 
-static inline void *cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_policy)
+static inline void *
+cluster_get_ep_identity_by_lb_policy(struct cluster_endpoints *eps, __u32 lb_policy, const char *name)
 {
     void *ep_identity = NULL;
 
     switch (lb_policy) {
     case CLUSTER__CLUSTER__LB_POLICY__ROUND_ROBIN:
+        ep_identity = loadbalance_round_robin(eps);
+        break;
+    case CLUSTER__CLUSTER__LB_POLICY__MAGLEV:
+        // Todo: next pr add consistent hash loadbalance
         ep_identity = loadbalance_round_robin(eps);
         break;
     default:
@@ -263,7 +287,7 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
 
     name = kmesh_get_ptr_val(cluster->name);
     if (!name) {
-        BPF_LOG(ERR, CLUSTER, "filed to get cluster\n");
+        BPF_LOG(ERR, CLUSTER, "failed to get cluster\n");
         return -EAGAIN;
     }
 
@@ -273,7 +297,7 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
         return -EAGAIN;
     }
 
-    ep_identity = cluster_get_ep_identity_by_lb_policy(eps, cluster->lb_policy);
+    ep_identity = cluster_get_ep_identity_by_lb_policy(eps, cluster->lb_policy, cluster->name);
     if (!ep_identity) {
         BPF_LOG(ERR, CLUSTER, "cluster=\"%s\" handle lb failed\n", name);
         return -EAGAIN;
@@ -316,6 +340,12 @@ int cluster_manager(ctx_buff_t *ctx)
     if (cluster == NULL)
         return KMESH_TAIL_CALL_RET(ENOENT);
 
+    ret = on_cluster_sock_bind(ctx, cluster);
+    if (ret) {
+        // open circuit breaker, should reject here.
+        MARK_REJECTED(ctx);
+        return KMESH_TAIL_CALL_RET(ret);
+    }
     ret = cluster_handle_loadbalance(cluster, &addr, ctx);
     return KMESH_TAIL_CALL_RET(ret);
 }

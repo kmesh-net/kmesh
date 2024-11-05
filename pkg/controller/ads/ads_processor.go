@@ -33,6 +33,7 @@ import (
 
 	admin_v2 "kmesh.net/kmesh/api/v2/admin"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/utils/hash"
@@ -58,9 +59,9 @@ type processor struct {
 	once            [3]sync.Once
 }
 
-func newProcessor() *processor {
+func newProcessor(bpfAds *bpfads.BpfAds) *processor {
 	return &processor{
-		Cache:     NewAdsCache(),
+		Cache:     NewAdsCache(bpfAds),
 		ack:       nil,
 		req:       nil,
 		lastNonce: &lastNonce{},
@@ -185,12 +186,6 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	// 2. dns typed clusters update, we do not need to wait for eds update, because dns cluster has no eds following
 	// Note eds typed cluster, we do not flush to bpf map here, we need to wait for eds update.
 	p.Cache.ClusterCache.Flush()
-
-	if p.lastNonce.edsNonce == "" {
-		// initial subscribe to eds
-		p.req = newAdsRequest(resource_v3.EndpointType, p.Cache.edsClusterNames, "")
-		return nil
-	}
 
 	// when the list of eds typed clusters subscribed changed, we should resubscrbe to new eds.
 	if !slices.EqualUnordered(p.Cache.edsClusterNames, lastEdsClusterNames) {
@@ -345,6 +340,8 @@ func (p *processor) Reset() {
 		return
 	}
 	p.lastNonce = &lastNonce{}
+	p.Cache.routeNames = nil
+	p.Cache.edsClusterNames = nil
 }
 
 func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {

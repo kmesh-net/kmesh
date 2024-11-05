@@ -17,6 +17,7 @@ PROTOBUF_C__BEGIN_DECLS
 #include "core/address.pb-c.h"
 #include "filter/tcp_proxy.pb-c.h"
 #include "filter/http_connection_manager.pb-c.h"
+#include "filter/ratelimit.pb-c.h"
 
 typedef struct Listener__Filter Listener__Filter;
 typedef struct Listener__FilterChainMatch Listener__FilterChainMatch;
@@ -31,7 +32,8 @@ typedef struct Listener__FilterChain Listener__FilterChain;
 typedef enum {
   LISTENER__FILTER__CONFIG_TYPE__NOT_SET = 0,
   LISTENER__FILTER__CONFIG_TYPE_TCP_PROXY = 2,
-  LISTENER__FILTER__CONFIG_TYPE_HTTP_CONNECTION_MANAGER = 3
+  LISTENER__FILTER__CONFIG_TYPE_HTTP_CONNECTION_MANAGER = 3,
+  LISTENER__FILTER__CONFIG_TYPE_LOCAL_RATE_LIMIT = 4
     PROTOBUF_C__FORCE_ENUM_TO_BE_INT_SIZE(LISTENER__FILTER__CONFIG_TYPE__CASE)
 } Listener__Filter__ConfigTypeCase;
 
@@ -43,6 +45,7 @@ struct  Listener__Filter
   union {
     Filter__TcpProxy *tcp_proxy;
     Filter__HttpConnectionManager *http_connection_manager;
+    Filter__LocalRateLimit *local_rate_limit;
   };
 };
 #define LISTENER__FILTER__INIT \

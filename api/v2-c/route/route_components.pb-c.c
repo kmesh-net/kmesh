@@ -142,6 +142,18 @@ void   route__route_match__free_unpacked
   assert(message->base.descriptor == &route__route_match__descriptor);
   protobuf_c_message_free_unpacked ((ProtobufCMessage*)message, allocator);
 }
+void   route__route_action__hash_policy__header__init
+                     (Route__RouteAction__HashPolicy__Header         *message)
+{
+  static const Route__RouteAction__HashPolicy__Header init_value = ROUTE__ROUTE_ACTION__HASH_POLICY__HEADER__INIT;
+  *message = init_value;
+}
+void   route__route_action__hash_policy__init
+                     (Route__RouteAction__HashPolicy         *message)
+{
+  static const Route__RouteAction__HashPolicy init_value = ROUTE__ROUTE_ACTION__HASH_POLICY__INIT;
+  *message = init_value;
+}
 void   route__route_action__init
                      (Route__RouteAction         *message)
 {
@@ -562,7 +574,83 @@ const ProtobufCMessageDescriptor route__route_match__descriptor =
   (ProtobufCMessageInit) route__route_match__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor route__route_action__field_descriptors[5] =
+static const ProtobufCFieldDescriptor route__route_action__hash_policy__header__field_descriptors[1] =
+{
+  {
+    "header_name",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_STRING,
+    0,   /* quantifier_offset */
+    offsetof(Route__RouteAction__HashPolicy__Header, header_name),
+    NULL,
+    &protobuf_c_empty_string,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned route__route_action__hash_policy__header__field_indices_by_name[] = {
+  0,   /* field[0] = header_name */
+};
+static const ProtobufCIntRange route__route_action__hash_policy__header__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 1 }
+};
+const ProtobufCMessageDescriptor route__route_action__hash_policy__header__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "route.RouteAction.HashPolicy.Header",
+  "Header",
+  "Route__RouteAction__HashPolicy__Header",
+  "route",
+  sizeof(Route__RouteAction__HashPolicy__Header),
+  1,
+  route__route_action__hash_policy__header__field_descriptors,
+  route__route_action__hash_policy__header__field_indices_by_name,
+  1,  route__route_action__hash_policy__header__number_ranges,
+  (ProtobufCMessageInit) route__route_action__hash_policy__header__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor route__route_action__hash_policy__field_descriptors[1] =
+{
+  {
+    "header",
+    1,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Route__RouteAction__HashPolicy, policy_specifier_case),
+    offsetof(Route__RouteAction__HashPolicy, header),
+    &route__route_action__hash_policy__header__descriptor,
+    NULL,
+    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
+};
+static const unsigned route__route_action__hash_policy__field_indices_by_name[] = {
+  0,   /* field[0] = header */
+};
+static const ProtobufCIntRange route__route_action__hash_policy__number_ranges[1 + 1] =
+{
+  { 1, 0 },
+  { 0, 1 }
+};
+const ProtobufCMessageDescriptor route__route_action__hash_policy__descriptor =
+{
+  PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC,
+  "route.RouteAction.HashPolicy",
+  "HashPolicy",
+  "Route__RouteAction__HashPolicy",
+  "route",
+  sizeof(Route__RouteAction__HashPolicy),
+  1,
+  route__route_action__hash_policy__field_descriptors,
+  route__route_action__hash_policy__field_indices_by_name,
+  1,  route__route_action__hash_policy__number_ranges,
+  (ProtobufCMessageInit) route__route_action__hash_policy__init,
+  NULL,NULL,NULL    /* reserved[123] */
+};
+static const ProtobufCFieldDescriptor route__route_action__field_descriptors[6] =
 {
   {
     "cluster",
@@ -624,21 +712,35 @@ static const ProtobufCFieldDescriptor route__route_action__field_descriptors[5] 
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "hash_policy",
+    15,
+    PROTOBUF_C_LABEL_REPEATED,
+    PROTOBUF_C_TYPE_MESSAGE,
+    offsetof(Route__RouteAction, n_hash_policy),
+    offsetof(Route__RouteAction, hash_policy),
+    &route__route_action__hash_policy__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned route__route_action__field_indices_by_name[] = {
   0,   /* field[0] = cluster */
+  5,   /* field[5] = hash_policy */
   2,   /* field[2] = prefix_rewrite */
   4,   /* field[4] = retry_policy */
   3,   /* field[3] = timeout */
   1,   /* field[1] = weighted_clusters */
 };
-static const ProtobufCIntRange route__route_action__number_ranges[4 + 1] =
+static const ProtobufCIntRange route__route_action__number_ranges[5 + 1] =
 {
   { 1, 0 },
   { 3, 1 },
   { 5, 2 },
   { 8, 3 },
-  { 0, 5 }
+  { 15, 5 },
+  { 0, 6 }
 };
 const ProtobufCMessageDescriptor route__route_action__descriptor =
 {
@@ -648,10 +750,10 @@ const ProtobufCMessageDescriptor route__route_action__descriptor =
   "Route__RouteAction",
   "route",
   sizeof(Route__RouteAction),
-  5,
+  6,
   route__route_action__field_descriptors,
   route__route_action__field_indices_by_name,
-  4,  route__route_action__number_ranges,
+  5,  route__route_action__number_ranges,
   (ProtobufCMessageInit) route__route_action__init,
   NULL,NULL,NULL    /* reserved[123] */
 };

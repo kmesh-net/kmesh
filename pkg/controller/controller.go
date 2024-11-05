@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"kmesh.net/kmesh/daemon/options"
+	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
@@ -38,6 +39,7 @@ var (
 
 type Controller struct {
 	mode                string
+	bpfAdsObj           *bpfads.BpfAds
 	bpfWorkloadObj      *bpfwl.BpfWorkload
 	client              *XdsClient
 	enableByPass        bool
@@ -45,17 +47,20 @@ type Controller struct {
 	bpfFsPath           string
 	enableBpfLog        bool
 	enableAccesslog     bool
+	enablePerfMonitor   bool
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfWorkloadObj *bpfwl.BpfWorkload, bpfFsPath string, enableBpfLog, enableAccesslog bool) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpfads.BpfAds, bpfWorkloadObj *bpfwl.BpfWorkload, bpfFsPath string, enableBpfLog, enableAccesslog bool) *Controller {
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,
+		bpfAdsObj:           bpfAdsObj,
 		bpfWorkloadObj:      bpfWorkloadObj,
 		enableSecretManager: opts.SecretManagerConfig.Enable,
 		bpfFsPath:           bpfFsPath,
 		enableBpfLog:        enableBpfLog,
 		enableAccesslog:     enableAccesslog,
+		enablePerfMonitor:   opts.PerfConfig.EnablePerfMonitor,
 	}
 }
 
@@ -103,10 +108,10 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("fail to start ringbuf reader: %v", err)
 		}
 	}
-	c.client = NewXdsClient(c.mode, c.bpfWorkloadObj, c.enableAccesslog)
+	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.enableAccesslog)
 
 	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Run(ctx)
+		c.client.WorkloadController.Run(ctx, c.enablePerfMonitor)
 	}
 
 	if c.client.AdsController != nil {

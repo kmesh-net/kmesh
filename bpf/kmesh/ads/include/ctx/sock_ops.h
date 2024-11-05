@@ -23,6 +23,13 @@ typedef struct bpf_sock_ops ctx_buff_t;
 #define SET_CTX_ADDRESS(ctx, address)                                                                                  \
     (ctx)->remote_ip4 = (address)->ipv4;                                                                               \
     (ctx)->remote_port = (address)->port
+
+#define MARK_REJECTED(ctx)                                                                                             \
+    BPF_LOG(DEBUG, KMESH, "mark reject");                                                                              \
+    (ctx)->remote_ip4 = 0;                                                                                             \
+    (ctx)->remote_port = 0
+#else
+#define MARK_REJECTED(ctx)
 #endif
 
 #endif //__BPF_CTX_SOCK_OPS_H
