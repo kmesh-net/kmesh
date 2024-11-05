@@ -386,7 +386,7 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 	uid := p.hashName.Hash(workload.GetUid())
 	log.Debugf("updateWorkload: workload %s, backendUid: %v", workload.GetUid(), uid)
 
-	if waypoint := workload.GetWaypoint(); waypoint != nil {
+	if waypoint := workload.GetWaypoint(); waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
 		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 	}
