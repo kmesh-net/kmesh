@@ -13,7 +13,7 @@ require (
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.6.0
 	github.com/envoyproxy/go-control-plane v0.13.2-0.20241022220226-23b7e55d7f65
-	github.com/fsnotify/fsnotify v1.7.0
+	github.com/fsnotify/fsnotify v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/miekg/dns v1.1.62
 	github.com/prometheus/client_golang v1.20.5
