@@ -41,10 +41,6 @@ coverage.out
 *.so
 *.o
 
-bpf/kmesh/bpf2go/**
-config/**
-mk/*
-
 kernel/**/*.ko
 kernel/**/*.cmd
 kernel/ko_src/kmesh/Module.symvers
