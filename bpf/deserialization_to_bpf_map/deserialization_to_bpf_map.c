@@ -21,6 +21,7 @@
 
 #include "deserialization_to_bpf_map.h"
 #include "../../config/kmesh_marcos_def.h"
+#include "../include/inner_map_defs.h"
 
 #define PRINTF(fmt, args...)                                                                                           \
     do {                                                                                                               \
@@ -83,6 +84,7 @@ struct inner_map_stat {
     unsigned int resv : 30;
 };
 
+#define MIM_BITMAP_SIZE (INNER_MAP_MAX_ENTRIES / 8)
 struct inner_map_mng {
     int inner_fd;
     int outter_fd;
@@ -96,6 +98,12 @@ struct inner_map_mng {
     int init;
     sem_t fin_tasks;
     int elastic_task_exit; // elastic scaling thread exit flag
+
+    int outer_fds[MAP_IN_MAP_TYPE_MAX];
+    int inner_fds[MAP_IN_MAP_TYPE_MAX];
+    struct bpf_map_info outer_infos[MAP_IN_MAP_TYPE_MAX];
+    struct bpf_map_info inner_infos[MAP_IN_MAP_TYPE_MAX];
+    unsigned char mim_used_bitmap[MAP_IN_MAP_TYPE_MAX][MIM_BITMAP_SIZE];
 };
 
 struct task_contex {
@@ -118,8 +126,9 @@ struct inner_map_mng g_inner_map_mng = {0};
 
 static int update_bpf_map(struct op_context *ctx);
 static void *create_struct(struct op_context *ctx, int *err);
-static int del_bpf_map(struct op_context *ctx, int is_inner);
-static int free_outter_map_entry(struct op_context *ctx, void *outter_key);
+static int del_bpf_map(struct op_context *ctx);
+static int free_outter_map_entry(struct op_context *ctx, unsigned int *outer_key);
+static int inner_map_scaleup();
 
 static int normalize_key(struct op_context *ctx, void *key, const char *map_name)
 {
@@ -140,7 +149,7 @@ static int normalize_key(struct op_context *ctx, void *key, const char *map_name
 
 static inline int selected_oneof_field(void *value, const ProtobufCFieldDescriptor *field)
 {
-    uint32_t n = *(uint32_t *)((char *)value + field->quantifier_offset);
+    unsigned int n = *(unsigned int *)((char *)value + field->quantifier_offset);
 
     if ((field->flags & PROTOBUF_C_FIELD_FLAG_ONEOF) && field->id != n)
         return 0;
@@ -150,7 +159,7 @@ static inline int selected_oneof_field(void *value, const ProtobufCFieldDescript
 
 static inline int valid_field_value(void *value, const ProtobufCFieldDescriptor *field)
 {
-    uint32_t val = *(uint32_t *)((char *)value + field->offset);
+    unsigned int val = *(unsigned int *)((char *)value + field->offset);
 
     if (val == 0) {
         switch (field->type) {
@@ -204,9 +213,11 @@ static inline size_t sizeof_elt_in_repeated_array(ProtobufCType type)
     return 0;
 }
 
-static inline int valid_outter_key(struct op_context *ctx, unsigned int outter_key)
+static inline int valid_outer_key(struct op_context *ctx, unsigned int outer_key)
 {
-    if (outter_key < 0 || outter_key >= MAX_OUTTER_MAP_ENTRIES)
+    unsigned char type = MAP_IN_MAP_GET_TYPE(outer_key);
+    unsigned int inner_idx = MAP_IN_MAP_GET_INNER_IDX(outer_key);
+    if (type >= MAP_IN_MAP_TYPE_MAX || inner_idx >= INNER_MAP_MAX_ENTRIES)
         return 0;
 
     return 1;
@@ -299,155 +310,189 @@ static int bpf_get_map_id_by_fd(int map_fd)
     return info.id;
 }
 
-static int free_outter_map_entry(struct op_context *ctx, void *outter_key)
+static int free_outter_map_entry(struct op_context *ctx, unsigned int *outer_key)
 {
-    int key = *(int *)outter_key;
-    if (key <= 0 || key >= MAX_OUTTER_MAP_ENTRIES)
+    unsigned char type = MAP_IN_MAP_GET_TYPE(*outer_key);
+    unsigned int inner_idx = MAP_IN_MAP_GET_INNER_IDX(*outer_key);
+
+    if (type >= MAP_IN_MAP_TYPE_MAX || inner_idx >= INNER_MAP_MAX_ENTRIES)
         return -1;
 
-    if (g_inner_map_mng.inner_maps[key].used) {
-        g_inner_map_mng.inner_maps[key].used = 0;
-        g_inner_map_mng.used_cnt--;
-    }
+    CLEAR_BIT(g_inner_map_mng.mim_used_bitmap[type], inner_idx);
+    *outer_key = 0;
     return 0;
 }
 
-static int alloc_outter_map_entry(struct op_context *ctx)
-{
-    int i;
-    if (!g_inner_map_mng.init || g_inner_map_mng.used_cnt >= g_inner_map_mng.allocated_cnt) {
-        LOG_ERR(
-            "[%d %d %d]alloc_outter_map_entry failed",
-            g_inner_map_mng.init,
-            g_inner_map_mng.used_cnt,
-            g_inner_map_mng.allocated_cnt);
-        return -1;
-    }
+#define FIND_FIRST_CLEAR(bitmap, len)                                                                                  \
+    ({                                                                                                                 \
+        uint8_t *_bmp = (uint8_t *)(bitmap);                                                                           \
+        uint8_t _byte;                                                                                                 \
+        for (int _i = 0; _i < (len); ++_i) {                                                                           \
+            _byte = _bmp[_i];                                                                                          \
+            for (int _j = 0; _j < 8; ++_j) {                                                                           \
+                if (i == 0 && j == 0) {                                                                                \
+                    continue;                                                                                          \
+                }                                                                                                      \
+                if (!(_byte & (1U << _j))) {                                                                           \
+                    return _i * 8 + _j;                                                                                \
+                }                                                                                                      \
+            }                                                                                                          \
+        }                                                                                                              \
+        return -1;                                                                                                     \
+    })
 
-    for (i = 1; i <= g_inner_map_mng.max_allocated_idx; i++) {
-        if (g_inner_map_mng.inner_maps[i].used == 0 && g_inner_map_mng.inner_maps[i].allocated) {
-            g_inner_map_mng.inner_maps[i].used = 1;
-            g_inner_map_mng.used_cnt++;
-            return i;
+static int bitmap_find_first_clear(unsigned char *bitmap, int len)
+{
+    int i, j;
+    unsigned char bmp;
+
+    for (i = 0; i < len; i++) {
+        bmp = bitmap[i];
+        for (j = 0; j < 8; j++) {
+            if (i == 0 && j == 0)
+                continue;
+            if (!(bmp & (1U << j)))
+                return (i * 8 + j);
         }
     }
-
-    LOG_ERR(
-        "alloc_outter_map_entry all inner_maps in used:%d-%d-%d",
-        g_inner_map_mng.used_cnt,
-        g_inner_map_mng.allocated_cnt,
-        g_inner_map_mng.max_allocated_idx);
     return -1;
 }
 
-static int outter_key_to_inner_fd(struct op_context *ctx, unsigned int key)
+static unsigned int alloc_outter_map_entry(struct op_context *ctx, int size)
+{
+    int i, j;
+    for (i = 0; i < MAP_IN_MAP_TYPE_MAX; i++) {
+        if (size > g_inner_map_mng.inner_infos[i].value_size)
+            continue;
+
+        j = bitmap_find_first_clear(&g_inner_map_mng.mim_used_bitmap[i][0], MIM_BITMAP_SIZE);
+        if (j > 0 && j < INNER_MAP_MAX_ENTRIES)
+            break;
+    }
+
+    if (i == MAP_IN_MAP_TYPE_MAX) {
+        LOG_ERR("alloc_map_in_map_entry failed, size:%d", size);
+        return -1;
+    }
+
+    SET_BIT(g_inner_map_mng.mim_used_bitmap[i], j);
+    return MAP_IN_MAP_GEN_OUTER_KEY(i, j);
+}
+
+static int outer_key_to_inner_fd(struct op_context *ctx, unsigned int key)
 {
     if (g_inner_map_mng.inner_maps[key].allocated)
         return g_inner_map_mng.inner_maps[key].map_fd;
     return -1;
 }
 
-static int copy_sfield_to_map(struct op_context *ctx, int o_index, const ProtobufCFieldDescriptor *field)
+static void
+outer_key_to_inner_map_index(unsigned int outer_key, int *inner_fd, struct bpf_map_info **map_info, int *inner_idx)
+{
+    unsigned char type = MAP_IN_MAP_GET_TYPE(outer_key);
+    *inner_fd = g_inner_map_mng.inner_fds[type];
+    if (map_info)
+        *map_info = &g_inner_map_mng.inner_infos[type];
+    *inner_idx = MAP_IN_MAP_GET_INNER_IDX(outer_key);
+    return;
+}
+
+static int copy_sfield_to_map(struct op_context *ctx, unsigned int outer_key, const ProtobufCFieldDescriptor *field)
 {
     int ret;
     int key = 0;
     int inner_fd;
+    struct bpf_map_info *inner_info;
     char **value = (char **)((char *)ctx->value + field->offset);
     char *save_value = *value;
 
-    *(uintptr_t *)value = (size_t)o_index;
+    *(uintptr_t *)value = (size_t)outer_key;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
         LOG_ERR("copy_sfield_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d", ret, errno);
-        free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
-    inner_fd = outter_key_to_inner_fd(ctx, o_index);
-    if (inner_fd < 0) {
-        LOG_ERR("copy_sfield_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d", inner_fd, errno);
-        return inner_fd;
-    }
-
-    strcpy_s(ctx->inner_map_object, ctx->inner_info->value_size, save_value);
+    outer_key_to_inner_map_index(outer_key, &inner_fd, &inner_info, &key);
+    strcpy_s(ctx->inner_map_object, inner_info->value_size, save_value);
     ret = bpf_map_update_elem(inner_fd, &key, ctx->inner_map_object, BPF_ANY);
     return ret;
 }
 
-static int copy_msg_field_to_map(struct op_context *ctx, int o_index, const ProtobufCFieldDescriptor *field)
+static int copy_msg_field_to_map(struct op_context *ctx, unsigned int outer_key, const ProtobufCFieldDescriptor *field)
 {
     int ret;
     int key = 0;
     int inner_fd;
+    struct bpf_map_info *inner_info = NULL;
     void **value = (void **)((char *)ctx->value + field->offset);
     void *msg = *value;
     struct op_context new_ctx;
-    const ProtobufCMessageDescriptor *desc;
+    const ProtobufCMessageDescriptor *desc = ((ProtobufCMessage *)msg)->descriptor;
 
-    *(uintptr_t *)value = (size_t)o_index;
+    if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
+        return -EINVAL;
+    }
+
+    *(uintptr_t *)value = (size_t)outer_key;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
         LOG_ERR("copy_msg_field_to_map bpf_map_update_elem failed, ret:%d ERRNO:%d", ret, errno);
-        free_outter_map_entry(ctx, &o_index);
         return ret;
     }
 
-    inner_fd = outter_key_to_inner_fd(ctx, o_index);
-    if (inner_fd < 0) {
-        LOG_ERR("copy_msg_field_to_map outter_key_to_inner_fd failed, inner_fd:%d ERRNO:%d", inner_fd, errno);
-        return inner_fd;
-    }
-
+    outer_key_to_inner_map_index(outer_key, &inner_fd, &inner_info, &key);
     memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
 
     new_ctx.curr_fd = inner_fd;
     new_ctx.key = (void *)&key;
     new_ctx.value = msg;
-    new_ctx.curr_info = ctx->inner_info;
-
-    desc = ((ProtobufCMessage *)new_ctx.value)->descriptor;
-    if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
-        return -EINVAL;
-    }
-
+    new_ctx.curr_info = inner_info;
     new_ctx.desc = desc;
 
     ret = update_bpf_map(&new_ctx);
     return ret;
 }
 
-static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
+static int get_string_or_msg_field_size(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
 {
-    int key = 0;
+    char *value = *(char **)((char *)ctx->value + field->offset);
 
-    if (field->type == PROTOBUF_C_TYPE_MESSAGE || field->type == PROTOBUF_C_TYPE_STRING) {
-        key = alloc_outter_map_entry(ctx);
-        if (key < 0)
-            return key;
-    }
-
-    switch (field->type) {
-    case PROTOBUF_C_TYPE_MESSAGE:
-        return copy_msg_field_to_map(ctx, key, field);
-    case PROTOBUF_C_TYPE_STRING:
-        return copy_sfield_to_map(ctx, key, field);
-    default:
-        break;
-    }
-
-    return 0;
+    if (field->type == PROTOBUF_C_TYPE_MESSAGE)
+        return (((ProtobufCMessage *)value)->descriptor->sizeof_message);
+    return (strlen(value) + 1);
 }
 
-static int copy_indirect_data_to_map(struct op_context *ctx, int outter_key, void *value, ProtobufCType type)
+static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
+{
+    int ret;
+    unsigned int key;
+
+    if (field->type != PROTOBUF_C_TYPE_MESSAGE && field->type != PROTOBUF_C_TYPE_STRING)
+        return 0;
+
+    key = alloc_outter_map_entry(ctx, get_string_or_msg_field_size(ctx, field));
+    if (key < 0)
+        return key;
+
+    if (field->type == PROTOBUF_C_TYPE_MESSAGE)
+        ret = copy_msg_field_to_map(ctx, key, field);
+    else
+        ret = copy_sfield_to_map(ctx, key, field);
+    if (ret)
+        free_outter_map_entry(ctx, &key);
+    return ret;
+}
+
+static int copy_indirect_data_to_map(struct op_context *ctx, unsigned int outer_key, void *value, ProtobufCType type)
 {
     int ret = 0;
     int inner_fd, key = 0;
     struct op_context new_ctx;
+    struct bpf_map_info *inner_info;
     const ProtobufCMessageDescriptor *desc;
 
-    inner_fd = outter_key_to_inner_fd(ctx, outter_key);
-    if (inner_fd < 0)
-        return inner_fd;
+    outer_key_to_inner_map_index(outer_key, &inner_fd, &inner_info, &key);
 
     switch (type) {
     case PROTOBUF_C_TYPE_MESSAGE:
@@ -455,7 +500,7 @@ static int copy_indirect_data_to_map(struct op_context *ctx, int outter_key, voi
         new_ctx.curr_fd = inner_fd;
         new_ctx.key = (void *)&key;
         new_ctx.value = value;
-        new_ctx.curr_info = ctx->inner_info;
+        new_ctx.curr_info = inner_info;
 
         desc = ((ProtobufCMessage *)value)->descriptor;
         if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
@@ -466,7 +511,7 @@ static int copy_indirect_data_to_map(struct op_context *ctx, int outter_key, voi
         ret = update_bpf_map(&new_ctx);
         break;
     case PROTOBUF_C_TYPE_STRING:
-        strcpy_s(ctx->inner_map_object, ctx->inner_info->value_size, (char *)value);
+        strcpy_s(ctx->inner_map_object, inner_info->value_size, (char *)value);
         ret = bpf_map_update_elem(inner_fd, &key, ctx->inner_map_object, BPF_ANY);
         break;
     default:
@@ -487,32 +532,38 @@ static bool indirect_data_type(ProtobufCType type)
     }
 }
 
+static int get_repeat_field_size(ProtobufCType field_type, unsigned int n)
+{
+    if (field_type == PROTOBUF_C_TYPE_MESSAGE || field_type == PROTOBUF_C_TYPE_STRING)
+        return (n * sizeof(void *));
+    return (n * sizeof_elt_in_repeated_array(field_type));
+}
+
 static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
 {
     int ret, ret1;
     unsigned int i;
-    int outter_key, inner_fd, key = 0;
+    int inner_fd, key = 0;
+    unsigned int outer_key;
+    struct bpf_map_info *inner_info = NULL;
     void *n = ((char *)ctx->value) + field->quantifier_offset;
     void ***value = (void ***)((char *)ctx->value + field->offset);
     void **origin_value = *value;
     char *inner_map_object;
 
-    outter_key = alloc_outter_map_entry(ctx);
-    if (outter_key < 0)
-        return outter_key;
-    *(uintptr_t *)value = (size_t)outter_key;
+    outer_key = alloc_outter_map_entry(ctx, get_repeat_field_size(field->type, *(unsigned int *)n));
+    if (outer_key < 0)
+        return outer_key;
+    *(uintptr_t *)value = (size_t)outer_key;
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
         LOG_ERR("repeat_field_handle bpf_map_update_elem failed, ret:%d ERRNO:%d", ret, errno);
-        free_outter_map_entry(ctx, &outter_key);
+        free_outter_map_entry(ctx, &outer_key);
         return ret;
     }
 
-    inner_fd = outter_key_to_inner_fd(ctx, outter_key);
-    if (inner_fd < 0)
-        return inner_fd;
-
-    inner_map_object = calloc(1, ctx->inner_info->value_size);
+    outer_key_to_inner_map_index(outer_key, &inner_fd, &inner_info, &key);
+    inner_map_object = calloc(1, inner_info->value_size);
     if (!inner_map_object) {
         return -ENOMEM;
     }
@@ -521,12 +572,12 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     case PROTOBUF_C_TYPE_MESSAGE:
     case PROTOBUF_C_TYPE_STRING:
         for (i = 0; i < *(unsigned int *)n; i++) {
-            outter_key = alloc_outter_map_entry(ctx);
-            if (outter_key < 0)
+            outer_key = alloc_outter_map_entry(ctx, get_string_or_msg_field_size(ctx, field));
+            if (outer_key < 0)
                 goto end;
 
-            *((uintptr_t *)inner_map_object + i) = (size_t)outter_key;
-            ret = copy_indirect_data_to_map(ctx, outter_key, origin_value[i], field->type);
+            *((uintptr_t *)inner_map_object + i) = (size_t)outer_key;
+            ret = copy_indirect_data_to_map(ctx, outer_key, origin_value[i], field->type);
             if (ret)
                 goto end;
         }
@@ -534,7 +585,7 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     default:
         memcpy_s(
             inner_map_object,
-            ctx->inner_info->value_size,
+            inner_info->value_size,
             (void *)origin_value,
             *(size_t *)n * sizeof_elt_in_repeated_array(field->type));
         break;
@@ -568,7 +619,7 @@ static int update_bpf_map(struct op_context *ctx)
     if (!temp_val)
         return -ENOMEM;
 
-    memcpy_s(temp_val, ctx->curr_info->value_size, ctx->value, ctx->curr_info->value_size);
+    memcpy_s(temp_val, ctx->curr_info->value_size, ctx->value, desc->sizeof_message);
     ctx->value = temp_val;
 
     for (i = 0; i < desc->n_fields; i++) {
@@ -655,11 +706,14 @@ int deserial_update_elem(void *key, void *value)
     if (ret < 0 || map_info_check(&outter_info, &inner_info))
         goto end;
 
+    // inner_map outer_map在init的时候就初始化好
+    // 根据desc->size_msg 选择合适的map-in-map
+
     deserial_delete_elem(key, desc);
 
     init_op_context(context, key, value, desc, outter_fd, map_fd, &outter_info, &inner_info, &info);
 
-    context.inner_map_object = calloc(1, context.inner_info->value_size);
+    context.inner_map_object = calloc(1, g_inner_map_mng.inner_infos[MAP_IN_MAP_TYPE_MAX - 1].value_size);
     if (context.inner_map_object == NULL) {
         ret = -errno;
         goto end;
@@ -690,9 +744,9 @@ static int query_string_field(struct op_context *ctx, const ProtobufCFieldDescri
     int key = 0, ret;
     int inner_fd;
     void *string;
-    void *outter_key = (void *)((char *)ctx->value + field->offset);
+    void *outer_key = (void *)((char *)ctx->value + field->offset);
 
-    inner_fd = outter_key_to_inner_fd(ctx, *(int *)outter_key);
+    inner_fd = outer_key_to_inner_fd(ctx, *(int *)outer_key);
     if (inner_fd < 0)
         return inner_fd;
 
@@ -701,7 +755,7 @@ static int query_string_field(struct op_context *ctx, const ProtobufCFieldDescri
         return -ENOMEM;
     }
 
-    (*(uintptr_t *)outter_key) = (uintptr_t)string;
+    (*(uintptr_t *)outer_key) = (uintptr_t)string;
 
     ret = bpf_map_lookup_elem(inner_fd, &key, string);
     return ret;
@@ -715,9 +769,9 @@ static int query_message_field(struct op_context *ctx, const ProtobufCFieldDescr
     void *message;
     struct op_context new_ctx;
     const ProtobufCMessageDescriptor *desc;
-    uintptr_t *outter_key = (uintptr_t *)((char *)ctx->value + field->offset);
+    uintptr_t *outer_key = (uintptr_t *)((char *)ctx->value + field->offset);
 
-    inner_fd = outter_key_to_inner_fd(ctx, *outter_key);
+    inner_fd = outer_key_to_inner_fd(ctx, *outer_key);
     if (inner_fd < 0)
         return inner_fd;
 
@@ -734,7 +788,7 @@ static int query_message_field(struct op_context *ctx, const ProtobufCFieldDescr
     new_ctx.desc = desc;
 
     message = create_struct(&new_ctx, &ret);
-    *outter_key = (uintptr_t)message;
+    *outer_key = (uintptr_t)message;
     return ret;
 }
 
@@ -752,15 +806,15 @@ static int field_query(struct op_context *ctx, const ProtobufCFieldDescriptor *f
     return 0;
 }
 
-static void *create_indirect_struct(
-    struct op_context *ctx, unsigned long outter_key, const ProtobufCFieldDescriptor *field, int *err)
+static void *
+create_indirect_struct(struct op_context *ctx, unsigned long outer_key, const ProtobufCFieldDescriptor *field, int *err)
 {
     int inner_fd, key = 0;
     void *value;
     struct op_context new_ctx;
     const ProtobufCMessageDescriptor *desc;
 
-    inner_fd = outter_key_to_inner_fd(ctx, outter_key);
+    inner_fd = outer_key_to_inner_fd(ctx, outer_key);
     if (inner_fd < 0) {
         *err = inner_fd;
         return NULL;
@@ -809,9 +863,9 @@ static int repeat_field_query(struct op_context *ctx, const ProtobufCFieldDescri
     void *array;
     unsigned int i;
     void *n = ((char *)ctx->value) + field->quantifier_offset;
-    uintptr_t *outter_key = (uintptr_t *)((char *)ctx->value + field->offset);
+    uintptr_t *outer_key = (uintptr_t *)((char *)ctx->value + field->offset);
 
-    inner_fd = outter_key_to_inner_fd(ctx, *outter_key);
+    inner_fd = outer_key_to_inner_fd(ctx, *outer_key);
     if (inner_fd < 0)
         return inner_fd;
 
@@ -820,7 +874,7 @@ static int repeat_field_query(struct op_context *ctx, const ProtobufCFieldDescri
         return -ENOMEM;
     }
 
-    *outter_key = (uintptr_t)array;
+    *outer_key = (uintptr_t)array;
     ret = bpf_map_lookup_elem(inner_fd, &key, array);
     if (ret < 0) {
         return ret;
@@ -830,8 +884,8 @@ static int repeat_field_query(struct op_context *ctx, const ProtobufCFieldDescri
     case PROTOBUF_C_TYPE_MESSAGE:
     case PROTOBUF_C_TYPE_STRING:
         for (i = 0; i < *(unsigned int *)n; i++) {
-            outter_key = (uintptr_t *)array + i;
-            *outter_key = (uintptr_t)create_indirect_struct(ctx, *outter_key, field, &ret);
+            outer_key = (uintptr_t *)array + i;
+            *outer_key = (uintptr_t)create_indirect_struct(ctx, *outer_key, field, &ret);
             if (ret)
                 break;
         }
@@ -1054,32 +1108,32 @@ end:
     return value;
 }
 
-static int indirect_field_del(struct op_context *ctx, unsigned int outter_key, const ProtobufCFieldDescriptor *field)
+static int indirect_field_del(struct op_context *ctx, unsigned int outer_key, const ProtobufCFieldDescriptor *field)
 {
     char *inner_map_object = NULL;
     int inner_fd, key = 0;
     struct op_context new_ctx;
+    struct bpf_map_info *inner_info;
     const ProtobufCMessageDescriptor *desc;
 
-    if (!valid_outter_key(ctx, outter_key))
+    if (!valid_outer_key(ctx, outer_key))
         return -EINVAL;
 
-    inner_fd = outter_key_to_inner_fd(ctx, (unsigned long)outter_key);
-    if (inner_fd < 0)
-        return inner_fd;
+    outer_key_to_inner_map_index(outer_key, &inner_fd, &inner_info, &key);
 
-    free_outter_map_entry(ctx, &outter_key);
+    free_outter_map_entry(ctx, &outer_key);
 
     switch (field->type) {
     case PROTOBUF_C_TYPE_MESSAGE:
         desc = (ProtobufCMessageDescriptor *)field->descriptor;
         if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC) {
-            return -EINVAL;
+            break;
         }
 
         inner_map_object = malloc(ctx->inner_info->value_size);
         if (!inner_map_object) {
-            return -ENOMEM;
+            LOG_WARN("indirect_field_del malloc failed:%d", errno);
+            break;
         }
 
         memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
@@ -1089,14 +1143,14 @@ static int indirect_field_del(struct op_context *ctx, unsigned int outter_key, c
         new_ctx.value = inner_map_object;
         new_ctx.desc = desc;
 
-        (void)del_bpf_map(&new_ctx, 1);
+        (void)del_bpf_map(&new_ctx);
         free(inner_map_object);
         break;
-
     default:
         break;
     }
 
+    bpf_map_delete_elem(inner_fd, &key);
     return 0;
 }
 
@@ -1107,23 +1161,16 @@ static int repeat_field_del(struct op_context *ctx, const ProtobufCFieldDescript
     int inner_fd, key = 0;
     void *inner_map_object = NULL;
     void *n;
-    uintptr_t *outter_key;
+    unsigned int *outer_key;
+    struct bpf_map_info *inner_info;
 
-    ret = bpf_map_lookup_elem(ctx->curr_fd, ctx->key, ctx->value);
-    if (ret < 0) {
-        LOG_WARN("failed to find map(%d) elem: %d.", ctx->curr_fd, ret);
-        return ret;
-    }
-
-    outter_key = (uintptr_t *)((char *)ctx->value + field->offset);
-    if (!valid_outter_key(ctx, *outter_key))
+    outer_key = (unsigned int *)((char *)ctx->value + field->offset);
+    if (!valid_outer_key(ctx, *outer_key))
         return -EINVAL;
 
-    inner_fd = outter_key_to_inner_fd(ctx, *outter_key);
-    if (inner_fd < 0)
-        return inner_fd;
+    outer_key_to_inner_map_index(*outer_key, &inner_fd, &inner_info, &key);
 
-    ret = free_outter_map_entry(ctx, outter_key);
+    ret = free_outter_map_entry(ctx, outer_key);
     if (ret)
         return ret;
 
@@ -1144,22 +1191,27 @@ static int repeat_field_del(struct op_context *ctx, const ProtobufCFieldDescript
             goto end;
 
         for (i = 0; i < *(size_t *)n; i++) {
-            outter_key = (uintptr_t *)inner_map_object + i;
-            indirect_field_del(ctx, *outter_key, field);
+            outer_key = (unsigned int *)inner_map_object + i;
+            indirect_field_del(ctx, *outer_key, field);
         }
     default:
         break;
     }
 
 end:
+    bpf_map_delete_elem(inner_fd, &key);
     if (inner_map_object != NULL)
         free(inner_map_object);
     return ret;
 }
 
-static int msg_field_del(struct op_context *ctx, int inner_fd, const ProtobufCFieldDescriptor *field)
+static int msg_field_del(
+    struct op_context *ctx,
+    int inner_fd,
+    struct bpf_map_info *inner_info,
+    int inner_idx,
+    const ProtobufCFieldDescriptor *field)
 {
-    int key = 0;
     int ret;
     char *inner_map_object = NULL;
     struct op_context new_ctx;
@@ -1169,18 +1221,18 @@ static int msg_field_del(struct op_context *ctx, int inner_fd, const ProtobufCFi
     if (!desc || desc->magic != PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
         return -EINVAL;
 
-    inner_map_object = malloc(ctx->inner_info->value_size);
+    inner_map_object = malloc(inner_info->value_size);
     if (!inner_map_object)
         return -ENOMEM;
 
     memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
     new_ctx.curr_fd = inner_fd;
-    new_ctx.key = (void *)&key;
-    new_ctx.curr_info = ctx->inner_info;
+    new_ctx.key = (void *)&inner_idx;
+    new_ctx.curr_info = inner_info;
     new_ctx.value = inner_map_object;
     new_ctx.desc = desc;
 
-    ret = del_bpf_map(&new_ctx, 1);
+    ret = del_bpf_map(&new_ctx);
     free(inner_map_object);
     return ret;
 }
@@ -1188,8 +1240,9 @@ static int msg_field_del(struct op_context *ctx, int inner_fd, const ProtobufCFi
 static int field_del(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
 {
     int ret;
-    int inner_fd;
-    uintptr_t *outter_key;
+    int inner_fd, inner_idx;
+    unsigned int *outer_key;
+    struct bpf_map_info *inner_info;
 
     switch (field->type) {
     case PROTOBUF_C_TYPE_MESSAGE:
@@ -1198,21 +1251,20 @@ static int field_del(struct op_context *ctx, const ProtobufCFieldDescriptor *fie
         if (ret < 0)
             return ret;
 
-        outter_key = (uintptr_t *)((char *)ctx->value + field->offset);
-        if (!valid_outter_key(ctx, *outter_key))
+        outer_key = (unsigned int *)((char *)ctx->value + field->offset);
+        if (!valid_outer_key(ctx, *outer_key))
             return -EINVAL;
 
-        inner_fd = outter_key_to_inner_fd(ctx, *outter_key);
-        if (inner_fd < 0)
-            return inner_fd;
+        outer_key_to_inner_map_index(*outer_key, &inner_fd, &inner_info, &inner_idx);
 
-        free_outter_map_entry(ctx, outter_key);
+        free_outter_map_entry(ctx, outer_key);
 
         if (field->type == PROTOBUF_C_TYPE_STRING) {
+            bpf_map_delete_elem(inner_fd, &inner_idx);
             break;
         }
 
-        msg_field_del(ctx, inner_fd, field);
+        msg_field_del(ctx, inner_fd, inner_info, inner_idx, field);
         break;
     default:
         break;
@@ -1221,7 +1273,7 @@ static int field_del(struct op_context *ctx, const ProtobufCFieldDescriptor *fie
     return 0;
 }
 
-static int del_bpf_map(struct op_context *ctx, int is_inner)
+static int del_bpf_map(struct op_context *ctx)
 {
     int ret;
     unsigned int i;
@@ -1252,7 +1304,7 @@ static int del_bpf_map(struct op_context *ctx, int is_inner)
     }
 
 end:
-    return (is_inner == 1) ?: bpf_map_delete_elem(ctx->curr_fd, ctx->key);
+    return bpf_map_delete_elem(ctx->curr_fd, ctx->key);
 }
 
 int deserial_delete_elem(void *key, const void *msg_desciptor)
@@ -1305,7 +1357,7 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
     inner_map_object = context.inner_map_object;
 
     normalize_key(&context, key, map_name);
-    ret = del_bpf_map(&context, 0);
+    ret = del_bpf_map(&context);
 
 end:
     if (context.key != NULL)
@@ -1371,6 +1423,7 @@ void deserial_free_elem(void *value)
     const char *map_name = NULL;
     const ProtobufCMessageDescriptor *desc;
 
+    // idx不用处理
     if (!value || (uintptr_t)value < MAX_OUTTER_MAP_ENTRIES)
         return;
 
@@ -1404,21 +1457,33 @@ void deserial_free_elem(void *value)
     return;
 }
 
-int get_outer_inner_map_infos(
-    int *inner_fd, struct bpf_map_info *inner_info, int *outter_fd, struct bpf_map_info *outter_info)
+int get_outer_inner_map_infos()
 {
-    int ret;
-    unsigned int outter_id, inner_id;
+    int i, ret, inner_id, outer_id;
+    char *outer_map_names[] = {
+        "OuterMap64",
+        "OuterMap128",
+        "OuterMap1024",
+        "OuterMap8192",
+    };
+    char *inner_map_names[] = {
+        "InnerMap64",
+        "InnerMap128",
+        "InnerMap1024",
+        "InnerMap8192",
+    };
 
-    outter_id = get_map_id("OUTTER_MAP_ID");
-    inner_id = get_map_id("INNER_MAP_ID");
-    if (!outter_id || !inner_id)
-        return -1;
+    for (i = 0; i < MAP_IN_MAP_TYPE_MAX; i++) {
+        outer_id = get_map_id(outer_map_names[i]);
+        inner_id = get_map_id(inner_map_names[i]);
+        if (!outer_id || !inner_id)
+            return -1;
 
-    ret = get_map_fd_info(inner_id, inner_fd, inner_info);
-    ret |= get_map_fd_info(outter_id, outter_fd, outter_info);
-    if (ret < 0 || map_info_check(outter_info, inner_info))
-        return -1;
+        ret = get_map_fd_info(inner_id, &g_inner_map_mng.inner_fds[i], &g_inner_map_mng.inner_infos[i]);
+        ret |= get_map_fd_info(outer_id, &g_inner_map_mng.outer_fds[i], &g_inner_map_mng.outer_infos[i]);
+        if (ret < 0)
+            return ret;
+    }
     return 0;
 }
 
@@ -1623,12 +1688,12 @@ void inner_map_batch_delete()
 
 int deserial_uninit(bool persist)
 {
-    int ret = 0;
+    int i, ret = 0;
     remove(MAP_IN_MAP_MNG_PERSIST_FILE_PATH);
     if (persist)
         ret = inner_map_mng_persist();
 
-    for (int i = 1; i <= g_inner_map_mng.max_allocated_idx; i++) {
+    for (i = 1; i <= g_inner_map_mng.max_allocated_idx; i++) {
         g_inner_map_mng.inner_maps[i].allocated = 0;
         g_inner_map_mng.inner_maps[i].used = 0;
         if (g_inner_map_mng.inner_maps[i].map_fd)
@@ -1642,12 +1707,14 @@ int deserial_uninit(bool persist)
     g_inner_map_mng.max_allocated_idx = 0;
     g_inner_map_mng.init = 0;
 
-    close(g_inner_map_mng.inner_fd);
-    close(g_inner_map_mng.outter_fd);
+    for (i = 0; i < MAP_IN_MAP_TYPE_MAX; i++) {
+        close(g_inner_map_mng.inner_fds[i]);
+        close(g_inner_map_mng.outer_fds[i]);
+    }
     return ret;
 }
 
-int inner_map_scaleup()
+static int inner_map_scaleup()
 {
     int ret;
     float percent = 1;
@@ -1867,11 +1934,7 @@ int deserial_init(bool restore)
 
     do {
         sem_init(&g_inner_map_mng.fin_tasks, 0, 0);
-        ret = get_outer_inner_map_infos(
-            &g_inner_map_mng.inner_fd,
-            &g_inner_map_mng.inner_info,
-            &g_inner_map_mng.outter_fd,
-            &g_inner_map_mng.outter_info);
+        ret = get_outer_inner_map_infos();
         if (ret)
             break;
 

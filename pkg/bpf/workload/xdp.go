@@ -78,7 +78,10 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshXdpAuthObjects() spec is nil")
 	}
 
-	utils.SetInnerMap(spec)
+	utils.SetInnerMap(spec, xa.OuterMap64, xa.InnerMap64)
+	utils.SetInnerMap(spec, xa.OuterMap128, xa.InnerMap128)
+	utils.SetInnerMap(spec, xa.OuterMap1024, xa.InnerMap1024)
+	utils.SetInnerMap(spec, xa.OuterMap8192, xa.InnerMap8192)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
 		return nil, err

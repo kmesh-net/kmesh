@@ -64,12 +64,75 @@ struct {
 } outer_map SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
     __uint(value_size, BPF_INNER_MAP_DATA_LEN);
     __uint(max_entries, 1);
-    __uint(map_flags, 0);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
 } inner_map SEC(".maps");
+
+#if 1
+// 64 128 1024 8192 81920
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, 1);
+    __uint(map_flags, 0);
+} outer_map_64 SEC(".maps");
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, 1);
+    __uint(map_flags, 0);
+} outer_map_128 SEC(".maps");
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, 1);
+    __uint(map_flags, 0);
+} outer_map_1024 SEC(".maps");
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, 1);
+    __uint(map_flags, 0);
+} outer_map_8192 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, INNER_MAP_VS_64);
+    __uint(max_entries, INNER_MAP_MAX_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} inner_map_64 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, INNER_MAP_VS_128);
+    __uint(max_entries, INNER_MAP_MAX_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} inner_map_128 SEC(".maps");
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, INNER_MAP_VS_1024);
+    __uint(max_entries, INNER_MAP_MAX_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} inner_map_1024 SEC(".maps");
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, INNER_MAP_VS_8192);
+    __uint(max_entries, INNER_MAP_MAX_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} inner_map_8192 SEC(".maps");
+#endif
 
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
@@ -160,6 +223,30 @@ static inline bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
     return false;
 }
 
+static inline int kmesh_parse_mim_idx(__u32 mim_idx, void **outer_map, __u32 *outer_idx, __u32 *inner_idx)
+{
+    __u8 mim_type = MAP_IN_MAP_GET_TYPE(mim_idx);
+    switch (mim_type) {
+    case MAP_IN_MAP_TYPE_64:
+        *outer_map = &outer_map_64;
+        break;
+    case MAP_IN_MAP_TYPE_128:
+        *outer_map = &outer_map_128;
+        break;
+    case MAP_IN_MAP_TYPE_1024:
+        *outer_map = &outer_map_1024;
+        break;
+    case MAP_IN_MAP_TYPE_8192:
+        *outer_map = &outer_map_8192;
+        break;
+    default:
+        return -1;
+    }
+    *inner_idx = MAP_IN_MAP_GET_INNER_IDX(mim_idx);
+    *outer_idx = 0;
+    return 0;
+}
+
 static inline void *kmesh_get_ptr_val(const void *ptr)
 {
     /*
@@ -171,20 +258,22 @@ static inline void *kmesh_get_ptr_val(const void *ptr)
         structA.ptr_member1 = idx1;	// store idx in outer_map
     */
     void *inner_map_instance = NULL;
-    __u32 inner_idx = 0;
-    __u32 idx = (__u32)(uintptr_t)ptr;
+    __u32 mim_idx = (__u32)(uintptr_t)ptr;
+    __u32 outer_idx, inner_idx;
+    void *outer_map = NULL;
 
-    if (!ptr) {
+    int ret = kmesh_parse_mim_idx(mim_idx, &outer_map, &outer_idx, &inner_idx);
+    if (ret)
         return NULL;
-    }
 
     /* get inner_map_instance by idx */
-    inner_map_instance = kmesh_map_lookup_elem(&outer_map, &idx);
+    inner_map_instance = kmesh_map_lookup_elem(outer_map, &outer_idx);
     if (!inner_map_instance) {
         return NULL;
     }
 
     /* get inner_map_instance value */
-    return kmesh_map_lookup_elem(inner_map_instance, &inner_idx);
+    void *val = kmesh_map_lookup_elem(inner_map_instance, &inner_idx);
+    return INNER_MAP_GET_PTR_VAL(val);
 }
 #endif

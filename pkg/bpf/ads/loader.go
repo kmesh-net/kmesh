@@ -32,6 +32,7 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -127,6 +128,38 @@ func (sc *BpfAds) ApiEnvCfg() error {
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))
 	if err = os.Setenv("Cluster", stringId); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.OuterMap64, "OuterMap64"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.OuterMap128, "OuterMap128"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.OuterMap1024, "OuterMap1024"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.OuterMap8192, "OuterMap8192"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.InnerMap64, "InnerMap64"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.InnerMap128, "InnerMap128"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.InnerMap1024, "InnerMap1024"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.InnerMap8192, "InnerMap8192"); err != nil {
 		return err
 	}
 	return nil

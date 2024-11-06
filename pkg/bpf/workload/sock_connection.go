@@ -78,7 +78,10 @@ func (sc *SockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, er
 		return nil, err
 	}
 
-	utils.SetInnerMap(spec)
+	utils.SetInnerMap(spec, sc.OuterMap64, sc.InnerMap64)
+	utils.SetInnerMap(spec, sc.OuterMap128, sc.InnerMap128)
+	utils.SetInnerMap(spec, sc.OuterMap1024, sc.InnerMap1024)
+	utils.SetInnerMap(spec, sc.OuterMap8192, sc.InnerMap8192)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockWorkloadObjects, &opts); err != nil {
 		return nil, err
