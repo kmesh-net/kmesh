@@ -270,7 +270,7 @@ int policy_check(struct xdp_md *ctx)
 
     if (construct_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
         BPF_LOG(ERR, AUTH, "policy_check, Failed to get tuple key");
-        return XDP_ABORTED;
+        return XDP_PASS;
     }
 
     match_ctx = bpf_map_lookup_elem(&kmesh_tc_info_map, &tuple_key);
@@ -288,23 +288,18 @@ int policy_check(struct xdp_md *ctx)
     if (bpf_probe_read_kernel(&policyId, sizeof(policyId), (void *)(policies->policyIds + match_ctx->policy_index))
         != 0) {
         BPF_LOG(ERR, AUTH, "Failed to read policyId, throw it to user auth");
-        if (bpf_map_delete_elem(&kmesh_tc_info_map, &tuple_key) != 0) {
-            BPF_LOG(DEBUG, AUTH, "Failed to delete context from map");
-        }
-        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
+        goto auth_in_user_space;
     }
     policy = map_lookup_authz(policyId);
     if (!policy) {
-        // if no policy matches in xdp, thrown it to user auth
-        if (bpf_map_delete_elem(&kmesh_tc_info_map, &tuple_key) != 0) {
-            BPF_LOG(DEBUG, AUTH, "Failed to delete tailcall context from map");
-        }
-        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
+        // if no policy matches in xdp, throw it to user auth
+        BPF_LOG(INFO, AUTH, "No more policy, throw it to user auth");
+        goto auth_in_user_space;
     } else {
         rulesPtr = kmesh_get_ptr_val(policy->rules);
         if (!rulesPtr) {
             BPF_LOG(ERR, AUTH, "failed to get rules from policy %s\n", kmesh_get_ptr_val(policy->name));
-            return XDP_DROP;
+            return XDP_PASS;
         }
         match_ctx->rulesPtr = rulesPtr;
         match_ctx->n_rules = policy->n_rules;
@@ -312,11 +307,17 @@ int policy_check(struct xdp_md *ctx)
         ret = bpf_map_update_elem(&kmesh_tc_info_map, &tuple_key, match_ctx, BPF_ANY);
         if (ret < 0) {
             BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
-            return XDP_DROP;
+            return XDP_PASS;
         }
         bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_RULE_CHECK);
     }
     return XDP_PASS;
+
+auth_in_user_space:
+    if (bpf_map_delete_elem(&kmesh_tc_info_map, &tuple_key) != 0) {
+        BPF_LOG(DEBUG, AUTH, "Failed to delete context from map");
+    }
+    bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
 }
 
 SEC("xdp_auth")
@@ -333,7 +334,7 @@ int rule_check(struct xdp_md *ctx)
 
     if (construct_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
         BPF_LOG(ERR, AUTH, "Failed to get tuple key in rule_check");
-        return XDP_ABORTED;
+        return XDP_PASS;
     }
 
     match_ctx = bpf_map_lookup_elem(&kmesh_tc_info_map, &tuple_key);
@@ -390,7 +391,7 @@ int rule_check(struct xdp_md *ctx)
     ret = bpf_map_update_elem(&kmesh_tc_info_map, &tuple_key, match_ctx, BPF_ANY);
     if (ret < 0) {
         BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
-        return XDP_DROP;
+        return XDP_PASS;
     }
     bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_POLICY_CHECK);
     return XDP_PASS;
