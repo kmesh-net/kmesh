@@ -17,10 +17,12 @@
 package ads
 
 import (
+	"os"
+
+	"sigs.k8s.io/yaml"
+
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
-	"os"
-	"sigs.k8s.io/yaml"
 )
 
 const (
