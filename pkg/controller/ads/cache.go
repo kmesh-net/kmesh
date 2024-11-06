@@ -490,7 +490,7 @@ func newApiRouteAction(action *config_route_v3.RouteAction) *route_v2.RouteActio
 			apiHashPolicys = append(apiHashPolicys, apiHashPolicy)
 		default:
 			log.Errorf("newApiRouteAction HashPolicy default, type is %T", hp.GetPolicySpecifier())
-			return nil
+			continue
 		}
 	}
 	apiAction.HashPolicy = apiHashPolicys
