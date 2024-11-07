@@ -180,17 +180,17 @@ func (w *waypointCache) AddOrUpateWorkload(workload *workloadapi.Workload) bool 
 			// The waypoint corresponding to this service has been resolved.
 			updateWorkloadWaypoint(workload, associated.waypointAddress())
 			ret = true
-		} else {
-			// Try to find the waypoint service from the cache.
-			waypointService := w.serviceCache.GetService(waypointResourceName)
-			var addr *workloadapi.NetworkAddress
-			if waypointService != nil && len(waypointService.GetAddresses()) != 0 {
-				addr = waypointService.GetAddresses()[0]
-				updateWorkloadWaypoint(workload, waypointService.GetAddresses()[0])
-				ret = true
-			}
-			w.waypointAssociatedObjects[waypointResourceName] = newAssociatedObjects(addr)
 		}
+	} else {
+		// Try to find the waypoint service from the cache.
+		waypointService := w.serviceCache.GetService(waypointResourceName)
+		var addr *workloadapi.NetworkAddress
+		if waypointService != nil && len(waypointService.GetAddresses()) != 0 {
+			addr = waypointService.GetAddresses()[0]
+			updateWorkloadWaypoint(workload, waypointService.GetAddresses()[0])
+			ret = true
+		}
+		w.waypointAssociatedObjects[waypointResourceName] = newAssociatedObjects(addr)
 	}
 	w.workloadToWaypoint[uid] = waypointResourceName
 	// Anyway, add svc to the association list.

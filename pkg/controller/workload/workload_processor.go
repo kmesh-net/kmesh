@@ -174,6 +174,7 @@ func (p *Processor) removeWorkloadResources(removedResources []string) error {
 }
 
 func (p *Processor) removeWorkload(uid string) error {
+	p.WaypointCache.DeleteWorkload(uid)
 	wl := p.WorkloadCache.GetWorkloadByUid(uid)
 	if wl == nil {
 		return nil
@@ -259,6 +260,7 @@ func (p *Processor) deleteServiceFrontendData(service *workloadapi.Service, id u
 
 func (p *Processor) removeServiceResources(resources []string) error {
 	for _, name := range resources {
+		p.WaypointCache.DeleteService(name)
 		telemetry.DeleteServiceMetric(name)
 		svc := p.ServiceCache.GetService(name)
 		p.ServiceCache.DeleteService(name)
@@ -426,6 +428,14 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.ResourceName())
+
+	if resolved := p.WaypointCache.AddOrUpateWorkload(workload); !resolved {
+		// If the hostname type waypoint of workload has not been resolved, it will not be processed
+		// for the time being. The corresponding waypoint service should be processed immediately, and then
+		// it will be handled after the batch resolution is completed in `WaypointCache.Refresh`.
+		log.Debugf("waypoint of workload %s can't be resolved immediately, defer processing")
+		return nil
+	}
 
 	// Keep track of the workload no matter it is healthy, unhealthy workload is just for debugging
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
@@ -761,9 +771,21 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		}
 	}
 
+	var servicesToRefresh []*workloadapi.Service
 	for _, service := range services {
 		if err = p.handleService(service); err != nil {
 			log.Errorf("handle service %v failed, err: %v", service.ResourceName(), err)
+		}
+		svcs, wls := p.WaypointCache.Refresh(service)
+		servicesToRefresh = append(servicesToRefresh, svcs...)
+		// Directly add deferred workload to workloads.
+		workloads = append(workloads, wls...)
+	}
+
+	// Handle services that are deferred due to waypoint hostname resolution.
+	for _, service := range servicesToRefresh {
+		if err = p.handleService(service); err != nil {
+			log.Errorf("handle deferred service %v failed, err: %v", service.ResourceName(), err)
 		}
 	}
 
