@@ -29,7 +29,6 @@ type BootstrapConfigs struct {
 	CniConfig           *cniConfig
 	ByPassConfig        *byPassConfig
 	SecretManagerConfig *secretConfig
-	PerfConfig          *perfConfig
 }
 
 func NewBootstrapConfigs() *BootstrapConfigs {
@@ -38,7 +37,6 @@ func NewBootstrapConfigs() *BootstrapConfigs {
 		CniConfig:           &cniConfig{},
 		ByPassConfig:        &byPassConfig{},
 		SecretManagerConfig: &secretConfig{},
-		PerfConfig:          &perfConfig{},
 	}
 }
 
@@ -56,15 +54,14 @@ func (c *BootstrapConfigs) AttachFlags(cmd *cobra.Command) {
 	c.CniConfig.AttachFlags(cmd)
 	c.ByPassConfig.AttachFlags(cmd)
 	c.SecretManagerConfig.AttachFlags(cmd)
-	c.PerfConfig.AttachFlags(cmd)
 }
 
 func (c *BootstrapConfigs) ParseConfigs() error {
 	if err := c.BpfConfig.ParseConfig(); err != nil {
-		return fmt.Errorf("parse BpfConfig failed, %s", err)
+		return fmt.Errorf("parse BpfConfig failed, %v", err)
 	}
 	if err := c.CniConfig.ParseConfig(); err != nil {
-		return fmt.Errorf("parse CniConfig failed, %s", err)
+		return fmt.Errorf("parse CniConfig failed, %v", err)
 	}
 	return nil
 }
