@@ -82,8 +82,13 @@ function go_check_dir() {
     find $dir -type f -name "*.go" | while read file; do
         # echo $file
         exclude_dirs=$(jq -r '.exclude_dirs[]' $ROOT_DIR/hack/copyright/copyright_scan_dir.json)
+        exclude_files=$(jq -r '.exclude_files[]' $ROOT_DIR/hack/copyright/copyright_scan_dir.json)
         if ! echo $ROOT_DIR$exclude_dirs | grep -q $(dirname $file); then
-            check_go_copyright $file
+            if ! echo $ROOT_DIR$exclude_files | grep -q "$file"; then
+                check_go_copyright $file
+            else
+                echo "Skipping exclude file: $file"
+            fi
         fi 
     done
 }
@@ -93,8 +98,13 @@ function c_check_dir() {
     find $dir -type f -name "*.c" -o -name "*.h" | while read file; do
         # echo $file
         exclude_dirs=$(jq -r '.exclude_dirs[]' $ROOT_DIR/hack/copyright/copyright_scan_dir.json)
+        exclude_files=$(jq -r '.exclude_files[]' $ROOT_DIR/hack/copyright/copyright_scan_dir.json)
         if ! echo $ROOT_DIR$exclude_dirs | grep -q $(dirname $file); then
-            check_c_copyright $file
+            if ! echo $ROOT_DIR$exclude_files | grep -q "$file"; then
+                check_c_copyright $file
+            else
+                echo "Skipping exclude file: $file"
+            fi
         fi 
     done
 }
@@ -117,7 +127,7 @@ function copyright_check() {
 if [ -z "$1" -o "$1" == "-c" -o "$1" == "--check" ]; then
     result=$(copyright_check | grep -c 'not contain')
     if [ "$result" != 0 ]; then
-        echo "ERROR: Some files need to be update copyright, please run "./hack/copyright-check -g" and update and include any changed files in your PR"
+        echo "ERROR: Some files need to be update copyright, please run "./hack/copyright-check.sh -g" and update and include any changed files in your PR"
         exit 1
     else
         echo "pass copyright check"

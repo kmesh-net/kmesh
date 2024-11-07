@@ -29,10 +29,11 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
+
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/constants"
 
-	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/normal"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	helper "kmesh.net/kmesh/pkg/utils"

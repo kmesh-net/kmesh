@@ -32,9 +32,17 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
 
 - Code compilation
 
+  Note: Make sure to run the given command as the root user.
+
   ```sh
   [root@dev tmp]# cd kmesh/
   [root@dev Kmesh]# make build
+  ```
+
+  After running the build command, some files may change, so make sure to run the following command to restore them
+
+  ```sh
+  [root@dev Kmesh]# make clean
   ```
 
   Kmesh will be compiled and built within the build image, and the build artifacts will be output to the `out` directory.

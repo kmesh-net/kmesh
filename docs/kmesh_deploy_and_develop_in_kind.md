@@ -70,6 +70,8 @@ You can follow the steps below to develop in kind:
 
 + Build your code locally:
 
+    Note: Make sure to run the given command as the root user.
+
     ```shell
     make build
     ```

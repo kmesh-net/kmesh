@@ -1,55 +1,6 @@
 #!/bin/bash
 ROOT_DIR=$(dirname $(readlink -f ${BASH_SOURCE[0]}))
-
-# adjust the range of BPF code compilation based on the kernel is enhanced
-function bpf_compile_range_adjust() {
-    if [ "$ENHANCED_KERNEL" == "enhanced" ]; then
-            sed -i '/ads\/tracepoint\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-            sed -i '/ads\/sockops\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-    else
-            sed -i '/ads\/tracepoint\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-            sed -i '/ads\/sockops\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-    fi
-}
-
-function set_enhanced_kernel_env() {
-    # we use /usr/include/linux/bpf.h to determine the runtime environment’s 
-    # support for kmesh. Considering the case of online image compilation, a 
-    # variable KERNEL_HEADER_LINUX_BPF is used here to specify the path of the
-    # source of macro definition. 
-    # When using an online compiled image, /usr/include/linux/bpf.h in host 
-    # machine  will be mounted to config/linux-bpf.h. 
-    # Otherwise, /usr/include/linux/bpf.h from the current compilation 
-    # environment will be obtained
-    export KERNEL_HEADER_LINUX_BPF=$ROOT_DIR/config/linux-bpf.h
-    if [ ! -f "$KERNEL_HEADER_LINUX_BPF" ]; then
-	    export KERNEL_HEADER_LINUX_BPF=/usr/include/linux/bpf.h
-    fi
-
-    if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF; then
-	    export ENHANCED_KERNEL="enhanced"
-    else
-	    export ENHANCED_KERNEL="unenhanced"
-    fi
-}
-
-function prepare() {
-    bash kmesh_compile_env_pre.sh
-    bash kmesh_macros_env.sh
-    bash kmesh_bpf_env.sh
-    if [ "$(arch)" == "x86_64" ]; then
-            export EXTRA_CDEFINE="-D__x86_64__"
-	    export C_INCLUDE_PATH=/usr/include/x86_64-linux-gnu:$C_INCLUDE_PATH
-    fi
-
-    if [ "$(arch)" == "aarch64" ]; then
-            export C_INCLUDE_PATH=/usr/include/aarch64-linux-gnu:$C_INCLUDE_PATH
-    fi
-    export EXTRA_GOFLAGS="-gcflags=\"-N -l\" -buildmode=pie"
-    export EXTRA_CFLAGS="-O0 -g"    
-    
-    bpf_compile_range_adjust
-}
+source ./kmesh_compile_env_pre.sh
 
 function install() {
     mkdir -p /etc/kmesh
