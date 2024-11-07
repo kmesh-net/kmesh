@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -42,8 +43,8 @@ func NewCmd() *cobra.Command {
 		Example: `# Install all Kmesh resources (defaults to main):
 kmeshctl install
 
-# Install a specific version of kmesh
-kmeshctl install --version 0.5`,
+# Install a specific version of Kmesh
+kmeshctl install --version 0.5.0`,
 		Run: func(cmd *cobra.Command, args []string) {
 			version, err := cmd.Flags().GetString("version")
 			if err != nil {
@@ -57,11 +58,20 @@ kmeshctl install --version 0.5`,
 			}
 
 			fmt.Println("install kmesh version: ", version)
-
 			combinedYAMLFile := getYAMLFile(version)
-			err = cli.ApplyYAMLContents("", combinedYAMLFile)
-			if err != nil {
-				log.Fatal(err)
+
+			if version != "main" {
+				versionYaml := strings.Replace(combinedYAMLFile, ":latest", ":"+version, -1)
+
+				err = cli.ApplyYAMLContents("", versionYaml)
+				if err != nil {
+					log.Fatal(err)
+				}
+			} else {
+				err = cli.ApplyYAMLContents("", combinedYAMLFile)
+				if err != nil {
+					log.Fatal(err)
+				}
 			}
 		},
 	}
@@ -73,7 +83,7 @@ kmeshctl install --version 0.5`,
 func getYAMLFile(version string) string {
 	var url string
 	if version != "main" {
-		url = fmt.Sprintf("https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=release-%s", version)
+		url = fmt.Sprintf("https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=v%s", version)
 	} else {
 		url = "https://api.github.com/repos/kmesh-net/kmesh/contents/deploy/yaml?ref=main"
 	}
