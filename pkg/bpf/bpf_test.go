@@ -110,6 +110,8 @@ func runTestNormalKernelNative(t *testing.T) {
 
 func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	var versionPath string
+	log.Info("start type:%v", restart.GetStartType())
+	restart.SetStartType(restart.Normal)
 	bpfLoader := NewBpfLoader(&config)
 	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
