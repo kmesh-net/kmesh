@@ -30,7 +30,6 @@ type ServiceCache interface {
 	AddOrUpdateService(svc *workloadapi.Service)
 	DeleteService(resourceName string)
 	GetService(resourceName string) *workloadapi.Service
-	RefreshWaypoint(svc *workloadapi.Service) []*workloadapi.Service
 }
 
 type serviceCache struct {

@@ -23,9 +23,13 @@ import (
 )
 
 type WaypointCache interface {
-	AddOrUpdateService(svc *workloadapi.Service)
+	// AddOrUpdateService add or update service in this cache, return true if the
+	// service's waypoint doesn't need to be resolved or resolved successfully.
+	AddOrUpdateService(svc *workloadapi.Service) bool
 	DeleteService(resourceName string)
-	AddOrUpateWorkload(workload *workloadapi.Workload)
+	// AddOrUpdateWorkload add or update workload in this cache, return true if the
+	// workload's waypoint doesn't need to be resolved or resolved successfully.
+	AddOrUpateWorkload(workload *workloadapi.Workload) bool
 	DeleteWorkload(uid string)
 
 	// Refresh is used to process waypoint service.
@@ -75,12 +79,12 @@ func NewWaypointCache(serviceCache ServiceCache) *waypointCache {
 	}
 }
 
-func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) {
+func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) bool {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
 	resourceName := svc.ResourceName()
-	// If this is a service with an IP address type waypoint, no processing is required and
+	// If this is a service without waypoint or with an IP address type waypoint, no processing is required and
 	// return directly.
 	if svc.GetWaypoint() == nil || svc.GetWaypoint().GetAddress() != nil {
 		// Service may become unassociated with waypoint.
@@ -88,8 +92,10 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) {
 			delete(w.serviceToWaypoint, resourceName)
 			w.waypointAssociatedObjects[waypoint].deleteService(resourceName)
 		}
-		return
+		return true
 	}
+
+	var ret bool
 
 	// If this is a svc with hostname waypoint.
 	hostname := svc.GetWaypoint().GetHostname()
@@ -106,6 +112,7 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) {
 		if associated.isResolved() {
 			// The waypoint corresponding to this service has been resolved.
 			updateServiceWaypoint(svc, associated.waypointAddress())
+			ret = true
 		}
 	} else {
 		// Try to find the waypoint service from the cache.
@@ -114,15 +121,21 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) {
 		if waypointService != nil && len(waypointService.GetAddresses()) != 0 {
 			addr = waypointService.GetAddresses()[0]
 			updateServiceWaypoint(svc, waypointService.GetAddresses()[0])
+			ret = true
 		}
 		w.waypointAssociatedObjects[waypointResourceName] = newAssociatedObjects(addr)
 	}
 	w.serviceToWaypoint[resourceName] = waypointResourceName
 	// Anyway, add svc to the association list.
 	w.waypointAssociatedObjects[waypointResourceName].addService(resourceName, svc)
+
+	return ret
 }
 
 func (w *waypointCache) DeleteService(resourceName string) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+
 	// This service has waypoint.
 	if waypoint, ok := w.serviceToWaypoint[resourceName]; ok {
 		delete(w.serviceToWaypoint, resourceName)
@@ -133,12 +146,67 @@ func (w *waypointCache) DeleteService(resourceName string) {
 	delete(w.waypointAssociatedObjects, resourceName)
 }
 
-func (w *waypointCache) AddOrUpateWorkload(workload *workloadapi.Workload) {
+func (w *waypointCache) AddOrUpateWorkload(workload *workloadapi.Workload) bool {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 
+	uid := workload.GetUid()
+	// If this is a workload withwaypoint or  with an IP address type waypoint, no processing is required and
+	// return directly.
+	if workload.GetWaypoint() == nil || workload.GetWaypoint().GetAddress() != nil {
+		// Workload may become unassociated with waypoint.
+		if waypoint, ok := w.workloadToWaypoint[uid]; ok {
+			delete(w.workloadToWaypoint, uid)
+			w.waypointAssociatedObjects[waypoint].deleteWorkload(uid)
+		}
+		return true
+	}
+
+	var ret bool
+
+	// If this is a svc with hostname waypoint.
+	hostname := workload.GetWaypoint().GetHostname()
+	waypointResourceName := hostname.GetNamespace() + "/" + hostname.GetHostname()
+
+	if waypoint, ok := w.workloadToWaypoint[uid]; ok && waypoint != waypointResourceName {
+		// Workload updated associated waypoint, delete previous association first.
+		delete(w.workloadToWaypoint, uid)
+		w.waypointAssociatedObjects[waypoint].deleteWorkload(uid)
+	}
+
+	log.Debugf("Update workload %s with waypoint %s", uid, waypointResourceName)
+	if associated, ok := w.waypointAssociatedObjects[waypointResourceName]; ok {
+		if associated.isResolved() {
+			// The waypoint corresponding to this service has been resolved.
+			updateWorkloadWaypoint(workload, associated.waypointAddress())
+			ret = true
+		} else {
+			// Try to find the waypoint service from the cache.
+			waypointService := w.serviceCache.GetService(waypointResourceName)
+			var addr *workloadapi.NetworkAddress
+			if waypointService != nil && len(waypointService.GetAddresses()) != 0 {
+				addr = waypointService.GetAddresses()[0]
+				updateWorkloadWaypoint(workload, waypointService.GetAddresses()[0])
+				ret = true
+			}
+			w.waypointAssociatedObjects[waypointResourceName] = newAssociatedObjects(addr)
+		}
+	}
+	w.workloadToWaypoint[uid] = waypointResourceName
+	// Anyway, add svc to the association list.
+	w.waypointAssociatedObjects[waypointResourceName].addWorkload(uid, workload)
+
+	return ret
 }
 
 func (w *waypointCache) DeleteWorkload(uid string) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
 
+	if waypoint, ok := w.workloadToWaypoint[uid]; ok {
+		delete(w.workloadToWaypoint, uid)
+		w.waypointAssociatedObjects[waypoint].deleteWorkload(uid)
+	}
 }
 
 func (w *waypointCache) Refresh(svc *workloadapi.Service) ([]*workloadapi.Service, []*workloadapi.Workload) {

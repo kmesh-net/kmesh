@@ -60,6 +60,7 @@ type Processor struct {
 	WorkloadCache cache.WorkloadCache
 	ServiceCache  cache.ServiceCache
 	EndpointCache cache.EndpointCache
+	WaypointCache cache.WaypointCache
 	locality      bpf.LocalityCache
 
 	once      sync.Once
@@ -67,13 +68,16 @@ type Processor struct {
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
+	serviceCache := cache.NewServiceCache()
+
 	return &Processor{
 		hashName:      utils.NewHashName(),
 		bpf:           bpf.NewCache(workloadMap),
 		nodeName:      os.Getenv("NODE_NAME"),
 		WorkloadCache: cache.NewWorkloadCache(),
-		ServiceCache:  cache.NewServiceCache(),
+		ServiceCache:  serviceCache,
 		EndpointCache: cache.NewEndpointCache(),
+		WaypointCache: cache.NewWaypointCache(serviceCache),
 		locality:      bpf.NewLocalityCache(),
 	}
 }
@@ -688,35 +692,28 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		}
 	}
 
-	p.ServiceCache.AddOrUpdateService(service)
-
-	if service.Waypoint != nil && service.GetWaypoint().GetHostname() != nil {
-		// If the hostname type waypoint of service has not been resolved, it will not be written to bpf
+	if resolved := p.WaypointCache.AddOrUpdateService(service); !resolved {
+		// If the hostname type waypoint of service has not been resolved, it will not be processed
 		// for the time being. The corresponding waypoint service should be processed immediately, and then
-		// it will be written to bpf after the batch resolution is completed in `RefreshWaypoint`.
+		// it will be handled after the batch resolution is completed in `WaypointCache.Refresh`.
+		log.Debugf("waypoint of service %s can't be resolved immediately, defer processing")
 		return nil
 	}
-	servicesToRefresh := p.ServiceCache.RefreshWaypoint(service)
 
-	services := make([]*workloadapi.Service, 0, len(servicesToRefresh)+1)
-	services = append(services, service)
-	services = append(services, servicesToRefresh...)
+	p.ServiceCache.AddOrUpdateService(service)
+	serviceName := service.ResourceName()
+	serviceId := p.hashName.Hash(serviceName)
 
-	for _, service := range services {
-		serviceName := service.ResourceName()
-		serviceId := p.hashName.Hash(serviceName)
+	// store in frontend
+	if err := p.storeServiceFrontendData(serviceId, service); err != nil {
+		log.Errorf("storeServiceFrontendData failed, err:%s", err)
+		return err
+	}
 
-		// store in frontend
-		if err := p.storeServiceFrontendData(serviceId, service); err != nil {
-			log.Errorf("storeServiceFrontendData failed, err:%s", err)
-			return err
-		}
-
-		// get endpoint from ServiceCache, and update service and endpoint map
-		if err := p.storeServiceData(serviceName, service.GetWaypoint(), service.GetPorts(), service.GetLoadBalancing()); err != nil {
-			log.Errorf("storeServiceData failed, err:%s", err)
-			return err
-		}
+	// get endpoint from ServiceCache, and update service and endpoint map
+	if err := p.storeServiceData(serviceName, service.GetWaypoint(), service.GetPorts(), service.GetLoadBalancing()); err != nil {
+		log.Errorf("storeServiceData failed, err:%s", err)
+		return err
 	}
 
 	return nil
