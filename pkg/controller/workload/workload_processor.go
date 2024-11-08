@@ -433,7 +433,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		// If the hostname type waypoint of workload has not been resolved, it will not be processed
 		// for the time being. The corresponding waypoint service should be processed immediately, and then
 		// it will be handled after the batch resolution is completed in `WaypointCache.Refresh`.
-		log.Debugf("waypoint of workload %s can't be resolved immediately, defer processing")
+		log.Debugf("waypoint of workload %s can't be resolved immediately, defer processing", workload.ResourceName())
 		return nil
 	}
 
@@ -706,7 +706,7 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		// If the hostname type waypoint of service has not been resolved, it will not be processed
 		// for the time being. The corresponding waypoint service should be processed immediately, and then
 		// it will be handled after the batch resolution is completed in `WaypointCache.Refresh`.
-		log.Debugf("waypoint of service %s can't be resolved immediately, defer processing")
+		log.Debugf("waypoint of service %s can't be resolved immediately, defer processing", service.ResourceName())
 		return nil
 	}
 
@@ -771,9 +771,16 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		}
 	}
 
+	p.handleRemovedAddresses(rsp.RemovedResources)
+	p.once.Do(p.handleRemovedAddressesDuringRestart)
+	return err
+}
+
+// Mainly for the convenience of testing.
+func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, workloads []*workloadapi.Workload) {
 	var servicesToRefresh []*workloadapi.Service
 	for _, service := range services {
-		if err = p.handleService(service); err != nil {
+		if err := p.handleService(service); err != nil {
 			log.Errorf("handle service %v failed, err: %v", service.ResourceName(), err)
 		}
 		svcs, wls := p.WaypointCache.Refresh(service)
@@ -784,20 +791,16 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 
 	// Handle services that are deferred due to waypoint hostname resolution.
 	for _, service := range servicesToRefresh {
-		if err = p.handleService(service); err != nil {
+		if err := p.handleService(service); err != nil {
 			log.Errorf("handle deferred service %v failed, err: %v", service.ResourceName(), err)
 		}
 	}
 
 	for _, workload := range workloads {
-		if err = p.handleWorkload(workload); err != nil {
+		if err := p.handleWorkload(workload); err != nil {
 			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 		}
 	}
-
-	p.handleRemovedAddresses(rsp.RemovedResources)
-	p.once.Do(p.handleRemovedAddressesDuringRestart)
-	return err
 }
 
 // After restart, we can get the removed addresses by comparing the

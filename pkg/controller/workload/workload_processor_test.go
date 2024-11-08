@@ -76,7 +76,7 @@ func Test_handleWorkload(t *testing.T) {
 	assert.Equal(t, ev.BackendUid, workloadID)
 
 	// 3. add another workload with service
-	workload2 := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
+	workload2 := createFakeWorkload("1.2.3.5", "", workloadapi.NetworkMode_STANDARD)
 	err = p.handleWorkload(workload2)
 	assert.NoError(t, err)
 
@@ -145,7 +145,7 @@ func Test_handleWorkload(t *testing.T) {
 	checkServiceMap(t, p, svcID, wpSvc, 0, 0)
 
 	// 7. test add unhealthy workload
-	workload3 := createFakeWorkload("1.2.3.7", workloadapi.NetworkMode_STANDARD)
+	workload3 := createFakeWorkload("1.2.3.7", "", workloadapi.NetworkMode_STANDARD)
 	workload3.Status = workloadapi.WorkloadStatus_UNHEALTHY
 	_ = p.handleWorkload(workload3)
 
@@ -172,7 +172,7 @@ func Test_handleWorkload(t *testing.T) {
 	hashNameClean(p)
 }
 
-func Test_handleServiceWithWaypoint(t *testing.T) {
+func Test_handleWaypointWithHostname(t *testing.T) {
 	// Mainly used to test whether processor can correctly handle
 	// different types of waypoint address without panic.
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
@@ -215,10 +215,10 @@ func Test_handleServiceWithWaypoint(t *testing.T) {
 func Test_hostnameNetworkMode(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	p := NewProcessor(workloadMap)
-	workload := createFakeWorkload("1.2.3.4", workloadapi.NetworkMode_STANDARD)
-	workloadWithoutService := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
+	workload := createFakeWorkload("1.2.3.4", "", workloadapi.NetworkMode_STANDARD)
+	workloadWithoutService := createFakeWorkload("1.2.3.5", "", workloadapi.NetworkMode_STANDARD)
 	workloadWithoutService.Services = nil
-	workloadHostname := createFakeWorkload("1.2.3.6", workloadapi.NetworkMode_HOST_NETWORK)
+	workloadHostname := createFakeWorkload("1.2.3.6", "", workloadapi.NetworkMode_HOST_NETWORK)
 
 	p.handleWorkload(workload)
 	p.handleWorkload(workloadWithoutService)
@@ -286,6 +286,10 @@ func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workload
 		assert.Equal(t, test.EqualIp(bv.WaypointAddr, waypointAddr), true)
 	}
 	assert.Equal(t, bv.WaypointPort, nets.ConvertPortToBigEndian(wl.GetWaypoint().GetHboneMtlsPort()))
+}
+
+func checkNotExistInBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workloadapi.Workload) {
+
 }
 
 func checkFrontEndMapWithNetworkMode(t *testing.T, ip []byte, p *Processor, networkMode workloadapi.NetworkMode) (upstreamId uint32) {
@@ -383,7 +387,38 @@ func createTestWorkloadWithService(withService bool) *workloadapi.Workload {
 	return &workload
 }
 
-func createFakeWorkload(ip string, networkMode workloadapi.NetworkMode) *workloadapi.Workload {
+func resolveWaypoint(waypoint stirng) *workloadapi.GatewayAddress {
+	var w *workloadapi.GatewayAddress
+	if waypoint != "" {
+		res := strings.Split(waypoint, "/")
+		if len(res) == 2 {
+			w = &workloadapi.GatewayAddress{
+				Destination: &workloadapi.GatewayAddress_Hostname{
+					Hostname: &workloadapi.NamespacedHostname{
+						Namespace: res[0],
+						Hostname:  res[1],
+					},
+				},
+				HboneMtlsPort: 15008,
+			}
+		} else {
+			w = &workloadapi.GatewayAddress{
+				Destination: &workloadapi.GatewayAddress_Address{
+					Address: &workloadapi.NetworkAddress{
+						Address: netip.MustParseAddr(waypoint).AsSlice(),
+					},
+				},
+				HboneMtlsPort: 15008,
+			}
+		}
+	}
+
+	return w
+}
+
+func createFakeWorkload(ip string, waypoint string, networkMode workloadapi.NetworkMode) *workloadapi.Workload {
+	w := resolveWaypoint(waypoint)
+
 	workload := workloadapi.Workload{
 		Namespace:         "ns",
 		Name:              "name",
@@ -396,6 +431,7 @@ func createFakeWorkload(ip string, networkMode workloadapi.NetworkMode) *workloa
 		Status:            workloadapi.WorkloadStatus_HEALTHY,
 		ClusterId:         "cluster0",
 		NetworkMode:       networkMode,
+		Waypoint:          w,
 		Services: map[string]*workloadapi.PortList{
 			"default/testsvc.default.svc.cluster.local": {
 				Ports: []*workloadapi.Port{
@@ -427,30 +463,7 @@ func createLoadBalancing(mode workloadapi.LoadBalancing_Mode, scopes []workloada
 }
 
 func createFakeService(name, ip, waypoint string, lbPolicy *workloadapi.LoadBalancing) *workloadapi.Service {
-	var w *workloadapi.GatewayAddress
-	if waypoint != "" {
-		res := strings.Split(waypoint, "/")
-		if len(res) == 2 {
-			w = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Hostname{
-					Hostname: &workloadapi.NamespacedHostname{
-						Namespace: res[0],
-						Hostname:  res[1],
-					},
-				},
-				HboneMtlsPort: 15008,
-			}
-		} else {
-			w = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Address{
-					Address: &workloadapi.NetworkAddress{
-						Address: netip.MustParseAddr(waypoint).AsSlice(),
-					},
-				},
-				HboneMtlsPort: 15008,
-			}
-		}
-	}
+	w := resolveWaypoint(waypoint)
 
 	return &workloadapi.Service{
 		Name:      name,
