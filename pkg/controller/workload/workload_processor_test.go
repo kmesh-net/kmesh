@@ -202,7 +202,6 @@ func Test_handleWaypointWithHostname(t *testing.T) {
 	waypointIP := "10.240.10.3"
 	waypointsvc := createFakeService("waypoint", waypointIP, "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
 	p.handleServicesAndWorkloads([]*workloadapi.Service{waypointsvc}, []*workloadapi.Workload{})
-	// updateWaypointOfService(svc2, waypointIP)
 
 	// Front end map includes svc2 and waypointsvc now.
 	svc2ID := checkFrontEndMap(t, svc2.Addresses[0].Address, p)
@@ -210,7 +209,7 @@ func Test_handleWaypointWithHostname(t *testing.T) {
 	wID := checkFrontEndMap(t, waypointsvc.Addresses[0].Address, p)
 	checkServiceMap(t, p, wID, waypointsvc, 0, 0)
 
-	// Front end map includs wl2 now.
+	// Front end map includes wl2 now.
 	wl2ID := checkFrontEndMap(t, wl2.Addresses[0], p)
 	checkBackendMap(t, p, wl2ID, wl2)
 
@@ -219,7 +218,6 @@ func Test_handleWaypointWithHostname(t *testing.T) {
 	wl3 := createFakeWorkload("1.2.3.6", "default/waypoint.default.svc.cluster.local", workloadapi.NetworkMode_STANDARD)
 	p.handleServicesAndWorkloads([]*workloadapi.Service{svc3}, []*workloadapi.Workload{wl3})
 
-	// updateWaypointOfService(svc3, waypointIP)
 	svc3ID := checkFrontEndMap(t, svc3.Addresses[0].Address, p)
 	checkServiceMap(t, p, svc3ID, svc3, 0, 0)
 	wl3ID := checkFrontEndMap(t, wl3.Addresses[0], p)
@@ -500,17 +498,6 @@ func createFakeService(name, ip, waypoint string, lbPolicy *workloadapi.LoadBala
 		},
 		Waypoint:      w,
 		LoadBalancing: lbPolicy,
-	}
-}
-
-func updateWaypointOfService(svc *workloadapi.Service, waypointIP string) {
-	svc.Waypoint = &workloadapi.GatewayAddress{
-		Destination: &workloadapi.GatewayAddress_Address{
-			Address: &workloadapi.NetworkAddress{
-				Address: netip.MustParseAddr(waypointIP).AsSlice(),
-			},
-		},
-		HboneMtlsPort: 15008,
 	}
 }
 

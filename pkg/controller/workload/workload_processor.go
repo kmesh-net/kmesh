@@ -771,6 +771,8 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		}
 	}
 
+	p.handleServicesAndWorkloads(services, workloads)
+
 	p.handleRemovedAddresses(rsp.RemovedResources)
 	p.once.Do(p.handleRemovedAddressesDuringRestart)
 	return err
