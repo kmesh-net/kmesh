@@ -93,7 +93,7 @@ cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct cluster
     __u32 i;
     void *ep_ptrs = NULL;
 
-    ep_ptrs = kmesh_get_ptr_val(lb_ep->lb_endpoints);
+    ep_ptrs = KMESH_GET_PTR_VAL(lb_ep->lb_endpoints, void *);
     if (!ep_ptrs)
         return -1;
 
@@ -115,7 +115,7 @@ static inline __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignm
     void *ptrs = NULL;
     Endpoint__LocalityLbEndpoints *lb_ep = NULL;
 
-    ptrs = kmesh_get_ptr_val(cla->endpoints);
+    ptrs = KMESH_GET_PTR_VAL(cla->endpoints, void *);
     if (!ptrs)
         return 0;
 
@@ -125,7 +125,8 @@ static inline __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignm
             break;
         }
 
-        lb_ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void *)*((__u64 *)ptrs + i));
+        lb_ep = (Endpoint__LocalityLbEndpoints *)KMESH_GET_PTR_VAL(
+            (void *)*((__u64 *)ptrs + i), Endpoint__LocalityLbEndpoints);
         if (!lb_ep)
             continue;
 
@@ -152,7 +153,7 @@ static inline int cluster_init_endpoints(const char *cluster_name, const Endpoin
     }
     cluster_eps->ep_num = 0;
 
-    ptrs = kmesh_get_ptr_val(cla->endpoints);
+    ptrs = KMESH_GET_PTR_VAL(cla->endpoints, void *);
     if (!ptrs) {
         BPF_LOG(ERR, CLUSTER, "failed to get cla endpoints ptrs\n");
         return -1;
@@ -163,7 +164,8 @@ static inline int cluster_init_endpoints(const char *cluster_name, const Endpoin
         if (i >= cla->n_endpoints)
             break;
 
-        ep = (Endpoint__LocalityLbEndpoints *)kmesh_get_ptr_val((void *)*((__u64 *)ptrs + i));
+        ep = (Endpoint__LocalityLbEndpoints *)KMESH_GET_PTR_VAL(
+            (void *)*((__u64 *)ptrs + i), Endpoint__LocalityLbEndpoints);
         if (!ep)
             continue;
 
@@ -186,7 +188,7 @@ cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint__Clu
     if (!eps || eps->ep_num != lb_num)
         return 0;
 
-    ptrs = kmesh_get_ptr_val(cla->endpoints);
+    ptrs = KMESH_GET_PTR_VAL(cla->endpoints, void *);
     if (!ptrs)
         return 0;
 
@@ -207,7 +209,7 @@ static inline struct cluster_endpoints *cluster_refresh_endpoints(const Cluster_
     struct cluster_endpoints *eps = NULL;
     Endpoint__ClusterLoadAssignment *cla = NULL;
 
-    cla = kmesh_get_ptr_val(cluster->load_assignment);
+    cla = KMESH_GET_PTR_VAL(cluster->load_assignment, Endpoint__ClusterLoadAssignment);
     if (!cla) {
         BPF_LOG(ERR, CLUSTER, "get load_assignment failed\n");
         return NULL;
@@ -264,13 +266,13 @@ static inline Core__SocketAddress *cluster_get_ep_sock_addr(const void *ep_ident
     Endpoint__Endpoint *ep = NULL;
     Core__SocketAddress *sock_addr = NULL;
 
-    ep = kmesh_get_ptr_val(ep_identity);
+    ep = KMESH_GET_PTR_VAL(ep_identity, Endpoint__Endpoint);
     if (!ep) {
         BPF_LOG(ERR, CLUSTER, "cluster get ep failed\n");
         return NULL;
     }
 
-    sock_addr = kmesh_get_ptr_val(ep->address);
+    sock_addr = KMESH_GET_PTR_VAL(ep->address, Core__SocketAddress);
     if (!sock_addr) {
         BPF_LOG(ERR, CLUSTER, "ep get sock addr failed\n");
         return NULL;
@@ -285,7 +287,7 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
     Core__SocketAddress *sock_addr = NULL;
     struct cluster_endpoints *eps = NULL;
 
-    name = kmesh_get_ptr_val(cluster->name);
+    name = KMESH_GET_PTR_VAL(cluster->name, char *);
     if (!name) {
         BPF_LOG(ERR, CLUSTER, "failed to get cluster\n");
         return -EAGAIN;

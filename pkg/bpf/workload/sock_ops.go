@@ -80,10 +80,6 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshSockopsObjects() spec is nil")
 	}
 
-	utils.SetInnerMap(spec, so.OuterMap64, so.InnerMap64)
-	utils.SetInnerMap(spec, so.OuterMap128, so.InnerMap128)
-	utils.SetInnerMap(spec, so.OuterMap1024, so.InnerMap1024)
-	utils.SetInnerMap(spec, so.OuterMap8192, so.InnerMap8192)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&so.KmeshSockopsWorkloadObjects, &opts); err != nil {
 		return nil, err

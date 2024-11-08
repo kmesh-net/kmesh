@@ -27,14 +27,15 @@ static inline bool listener_filter_chain_match_check(
     char *transport_protocol;
     const char buf[] = "raw_buffer";
 
-    Listener__FilterChainMatch *filter_chain_match = kmesh_get_ptr_val(filter_chain->filter_chain_match);
+    Listener__FilterChainMatch *filter_chain_match =
+        KMESH_GET_PTR_VAL(filter_chain->filter_chain_match, Listener__FilterChainMatch);
     if (!filter_chain_match)
         return false;
 
     if (filter_chain_match->destination_port != 0 && filter_chain_match->destination_port != addr->port)
         return false;
 
-    transport_protocol = kmesh_get_ptr_val(filter_chain_match->transport_protocol);
+    transport_protocol = KMESH_GET_PTR_VAL(filter_chain_match->transport_protocol, char *);
     if (!transport_protocol) {
         BPF_LOG(WARN, LISTENER, "transport_protocol is NULL\n");
         return false;
@@ -45,7 +46,8 @@ static inline bool listener_filter_chain_match_check(
 
     // TODO: application_protocols
 
-    BPF_LOG(DEBUG, LISTENER, "match filter_chain, name=\"%s\"\n", (char *)kmesh_get_ptr_val(filter_chain->name));
+    BPF_LOG(
+        DEBUG, LISTENER, "match filter_chain, name=\"%s\"\n", (char *)KMESH_GET_PTR_VAL(filter_chain->name, char *));
     return true;
 }
 
@@ -65,7 +67,7 @@ static inline int listener_filter_chain_match(
         return -1;
     }
 
-    ptrs = kmesh_get_ptr_val(listener->filter_chains);
+    ptrs = KMESH_GET_PTR_VAL(listener->filter_chains, void *);
     if (!ptrs) {
         BPF_LOG(ERR, LISTENER, "failed to get filter chain ptrs\n");
         return -1;
@@ -77,7 +79,7 @@ static inline int listener_filter_chain_match(
             break;
         }
 
-        filter_chain = (Listener__FilterChain *)kmesh_get_ptr_val((void *)*((__u64 *)ptrs + i));
+        filter_chain = (Listener__FilterChain *)KMESH_GET_PTR_VAL((void *)*((__u64 *)ptrs + i), Listener__FilterChain);
         if (!filter_chain) {
             continue;
         }

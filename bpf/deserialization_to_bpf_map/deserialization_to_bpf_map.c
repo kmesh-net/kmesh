@@ -84,7 +84,7 @@ struct inner_map_stat {
     unsigned int resv : 30;
 };
 
-#define MIM_BITMAP_SIZE (INNER_MAP_MAX_ENTRIES / 8)
+#define MIM_BITMAP_SIZE (MAP_MAX_ENTRIES / 8)
 struct inner_map_mng {
     int inner_fd;
     int outter_fd;
@@ -215,9 +215,9 @@ static inline size_t sizeof_elt_in_repeated_array(ProtobufCType type)
 
 static inline int valid_outer_key(struct op_context *ctx, unsigned int outer_key)
 {
-    unsigned char type = MAP_IN_MAP_GET_TYPE(outer_key);
-    unsigned int inner_idx = MAP_IN_MAP_GET_INNER_IDX(outer_key);
-    if (type >= MAP_IN_MAP_TYPE_MAX || inner_idx >= INNER_MAP_MAX_ENTRIES)
+    unsigned char type = MAP_GET_TYPE(outer_key);
+    unsigned int inner_idx = MAP_GET_INDEX(outer_key);
+    if (type >= MAP_IN_MAP_TYPE_MAX || inner_idx >= MAP_MAX_ENTRIES)
         return 0;
 
     return 1;
@@ -312,10 +312,10 @@ static int bpf_get_map_id_by_fd(int map_fd)
 
 static int free_outter_map_entry(struct op_context *ctx, unsigned int *outer_key)
 {
-    unsigned char type = MAP_IN_MAP_GET_TYPE(*outer_key);
-    unsigned int inner_idx = MAP_IN_MAP_GET_INNER_IDX(*outer_key);
+    unsigned char type = MAP_GET_TYPE(*outer_key);
+    unsigned int inner_idx = MAP_GET_INDEX(*outer_key);
 
-    if (type >= MAP_IN_MAP_TYPE_MAX || inner_idx >= INNER_MAP_MAX_ENTRIES)
+    if (type >= MAP_IN_MAP_TYPE_MAX || inner_idx >= MAP_MAX_ENTRIES)
         return -1;
 
     CLEAR_BIT(g_inner_map_mng.mim_used_bitmap[type], inner_idx);
@@ -366,7 +366,7 @@ static unsigned int alloc_outter_map_entry(struct op_context *ctx, int size)
             continue;
 
         j = bitmap_find_first_clear(&g_inner_map_mng.mim_used_bitmap[i][0], MIM_BITMAP_SIZE);
-        if (j > 0 && j < INNER_MAP_MAX_ENTRIES)
+        if (j > 0 && j < MAP_MAX_ENTRIES)
             break;
     }
 
@@ -376,7 +376,7 @@ static unsigned int alloc_outter_map_entry(struct op_context *ctx, int size)
     }
 
     SET_BIT(g_inner_map_mng.mim_used_bitmap[i], j);
-    return MAP_IN_MAP_GEN_OUTER_KEY(i, j);
+    return MAP_GEN_OUTER_KEY(i, j);
 }
 
 static int outer_key_to_inner_fd(struct op_context *ctx, unsigned int key)
@@ -389,11 +389,11 @@ static int outer_key_to_inner_fd(struct op_context *ctx, unsigned int key)
 static void
 outer_key_to_inner_map_index(unsigned int outer_key, int *inner_fd, struct bpf_map_info **map_info, int *inner_idx)
 {
-    unsigned char type = MAP_IN_MAP_GET_TYPE(outer_key);
+    unsigned char type = MAP_GET_TYPE(outer_key);
     *inner_fd = g_inner_map_mng.inner_fds[type];
     if (map_info)
         *map_info = &g_inner_map_mng.inner_infos[type];
-    *inner_idx = MAP_IN_MAP_GET_INNER_IDX(outer_key);
+    *inner_idx = MAP_GET_INDEX(outer_key);
     return;
 }
 
@@ -1457,30 +1457,22 @@ void deserial_free_elem(void *value)
     return;
 }
 
-int get_outer_inner_map_infos()
+int get_map_infos()
 {
-    int i, ret, inner_id, outer_id;
-    char *outer_map_names[] = {
-        "OuterMap64",
-        "OuterMap128",
-        "OuterMap1024",
-        "OuterMap8192",
-    };
+    int i, ret, inner_id;
     char *inner_map_names[] = {
-        "InnerMap64",
-        "InnerMap128",
-        "InnerMap1024",
-        "InnerMap8192",
+        "Map64",
+        "Map192",
+        "Map1024",
+        "Map8192",
     };
 
     for (i = 0; i < MAP_IN_MAP_TYPE_MAX; i++) {
-        outer_id = get_map_id(outer_map_names[i]);
         inner_id = get_map_id(inner_map_names[i]);
-        if (!outer_id || !inner_id)
+        if (!inner_id)
             return -1;
 
         ret = get_map_fd_info(inner_id, &g_inner_map_mng.inner_fds[i], &g_inner_map_mng.inner_infos[i]);
-        ret |= get_map_fd_info(outer_id, &g_inner_map_mng.outer_fds[i], &g_inner_map_mng.outer_infos[i]);
         if (ret < 0)
             return ret;
     }
@@ -1934,7 +1926,7 @@ int deserial_init(bool restore)
 
     do {
         sem_init(&g_inner_map_mng.fin_tasks, 0, 0);
-        ret = get_outer_inner_map_infos();
+        ret = get_map_infos();
         if (ret)
             break;
 

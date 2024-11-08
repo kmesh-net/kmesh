@@ -43,7 +43,7 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct xdp_info *
     }
 
     if (match->n_not_destination_ports != 0) {
-        notPorts = kmesh_get_ptr_val(match->not_destination_ports);
+        notPorts = KMESH_GET_PTR_VAL(match->not_destination_ports, void *);
         if (!notPorts) {
             return UNMATCHED;
         }
@@ -68,7 +68,7 @@ static inline int matchDstPorts(Istio__Security__Match *match, struct xdp_info *
         return MATCHED;
     }
 
-    ports = kmesh_get_ptr_val(match->destination_ports);
+    ports = KMESH_GET_PTR_VAL(match->destination_ports, void *);
     if (!ports) {
         return UNMATCHED;
     }
@@ -110,7 +110,7 @@ clause_match_check(Istio__Security__Clause *cl, struct xdp_info *info, struct bp
     if (cl->n_matches == 0) {
         return UNMATCHED;
     }
-    matchsPtr = kmesh_get_ptr_val(cl->matches);
+    matchsPtr = KMESH_GET_PTR_VAL(cl->matches, void *);
     if (!matchsPtr) {
         return MATCHED;
     }
@@ -120,7 +120,7 @@ clause_match_check(Istio__Security__Clause *cl, struct xdp_info *info, struct bp
         if (i >= cl->n_matches) {
             break;
         }
-        match = (Istio__Security__Match *)kmesh_get_ptr_val((void *)*((__u64 *)matchsPtr + i));
+        match = (Istio__Security__Match *)KMESH_GET_PTR_VAL((void *)*((__u64 *)matchsPtr + i), Istio__Security__Match);
         if (!match) {
             continue;
         }
@@ -144,7 +144,7 @@ rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, struct bpf_
         return UNMATCHED;
     }
     // Clauses are AND-ed.
-    clausesPtr = kmesh_get_ptr_val(rule->clauses);
+    clausesPtr = KMESH_GET_PTR_VAL(rule->clauses, void *);
     if (!clausesPtr) {
         BPF_LOG(ERR, AUTH, "failed to get clauses from rule\n");
         return UNMATCHED;
@@ -155,7 +155,8 @@ rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, struct bpf_
         if (i >= rule->n_clauses) {
             break;
         }
-        clause = (Istio__Security__Clause *)kmesh_get_ptr_val((void *)*((__u64 *)clausesPtr + i));
+        clause =
+            (Istio__Security__Clause *)KMESH_GET_PTR_VAL((void *)*((__u64 *)clausesPtr + i), Istio__Security__Clause);
         if (!clause) {
             continue;
         }
@@ -175,14 +176,14 @@ do_auth(Istio__Security__Authorization *policy, struct xdp_info *info, struct bp
     __u32 i = 0;
 
     if (policy->n_rules == 0) {
-        BPF_LOG(ERR, AUTH, "auth policy %s has no rules\n", kmesh_get_ptr_val(policy->name));
+        BPF_LOG(ERR, AUTH, "auth policy %s has no rules\n", KMESH_GET_PTR_VAL(policy->name, char *));
         return AUTH_ALLOW;
     }
 
     // Rules are OR-ed.
-    rulesPtr = kmesh_get_ptr_val(policy->rules);
+    rulesPtr = KMESH_GET_PTR_VAL(policy->rules, void *);
     if (!rulesPtr) {
-        BPF_LOG(ERR, AUTH, "failed to get rules from policy %s\n", kmesh_get_ptr_val(policy->name));
+        BPF_LOG(ERR, AUTH, "failed to get rules from policy %s\n", KMESH_GET_PTR_VAL(policy->name, char *));
         return AUTH_DENY;
     }
 
@@ -190,7 +191,7 @@ do_auth(Istio__Security__Authorization *policy, struct xdp_info *info, struct bp
         if (i >= policy->n_rules) {
             break;
         }
-        rule = (Istio__Security__Rule *)kmesh_get_ptr_val((void *)*((__u64 *)rulesPtr + i));
+        rule = (Istio__Security__Rule *)KMESH_GET_PTR_VAL((void *)*((__u64 *)rulesPtr + i), Istio__Security__Rule);
         if (!rule) {
             continue;
         }

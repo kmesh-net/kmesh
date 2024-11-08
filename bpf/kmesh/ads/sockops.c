@@ -37,7 +37,7 @@ static int sockops_traffic_control(struct bpf_sock_ops *skops, struct bpf_mem_pt
         DEBUG,
         SOCKOPS,
         "sockops_traffic_control listener=\"%s\", addr=[%s:%u]\n",
-        (char *)kmesh_get_ptr_val(listener->name),
+        (char *)KMESH_GET_PTR_VAL(listener->name, char *),
         ip2str(&ip, 1),
         bpf_ntohs(skops->remote_port));
     return listener_manager(skops, listener, msg);

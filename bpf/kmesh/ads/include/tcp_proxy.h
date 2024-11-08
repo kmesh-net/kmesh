@@ -16,11 +16,12 @@ static inline char *select_tcp_weight_cluster(const Filter__TcpProxy *tcpProxy)
     int32_t select_value;
     void *cluster_name = NULL;
 
-    weightedClusters = (Filter__TcpProxy__WeightedCluster *)kmesh_get_ptr_val((tcpProxy->weighted_clusters));
+    weightedClusters = (Filter__TcpProxy__WeightedCluster *)KMESH_GET_PTR_VAL(
+        (tcpProxy->weighted_clusters), Filter__TcpProxy__WeightedCluster);
     if (!weightedClusters) {
         return NULL;
     }
-    clusters = kmesh_get_ptr_val(weightedClusters->clusters);
+    clusters = KMESH_GET_PTR_VAL(weightedClusters->clusters, void *);
     if (!clusters) {
         return NULL;
     }
@@ -32,14 +33,14 @@ static inline char *select_tcp_weight_cluster(const Filter__TcpProxy *tcpProxy)
         if (i >= weightedClusters->n_clusters) {
             break;
         }
-        cluster_weight =
-            (Filter__TcpProxy__WeightedCluster__ClusterWeight *)kmesh_get_ptr_val((void *)*((__u64 *)clusters + i));
+        cluster_weight = (Filter__TcpProxy__WeightedCluster__ClusterWeight *)KMESH_GET_PTR_VAL(
+            (void *)*((__u64 *)clusters + i), Filter__TcpProxy__WeightedCluster__ClusterWeight);
         if (!cluster_weight) {
             return NULL;
         }
         select_value = select_value - (int)cluster_weight->weight;
         if (select_value <= 0) {
-            cluster_name = kmesh_get_ptr_val(cluster_weight->name);
+            cluster_name = KMESH_GET_PTR_VAL(cluster_weight->name, char *);
             BPF_LOG(DEBUG, FILTER, "select cluster, %s:%d\n", cluster_name, cluster_weight->weight);
             return (char *)cluster_name;
         }
@@ -53,7 +54,7 @@ static inline char *tcp_proxy_get_cluster(const Filter__TcpProxy *tcpProxy)
         return select_tcp_weight_cluster(tcpProxy);
     }
 
-    return (char *)kmesh_get_ptr_val(tcpProxy->cluster);
+    return (char *)KMESH_GET_PTR_VAL(tcpProxy->cluster, char *);
 }
 
 static inline int tcp_proxy_manager(const Filter__TcpProxy *tcpProxy, ctx_buff_t *ctx)

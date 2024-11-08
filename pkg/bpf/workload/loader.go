@@ -173,19 +173,5 @@ func (w *BpfWorkload) ApiEnvCfg() error {
 	if err = os.Setenv("Authorization", stringId); err != nil {
 		return err
 	}
-
-	info, _ = w.XdpAuth.KmeshXDPAuthMaps.OuterMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err = os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
-		return err
-	}
-
-	info, _ = w.XdpAuth.KmeshXDPAuthMaps.InnerMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("INNER_MAP_ID", stringId); err != nil {
-		return err
-	}
 	return nil
 }

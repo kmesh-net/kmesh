@@ -110,20 +110,6 @@ func (sc *BpfAds) ApiEnvCfg() error {
 		return err
 	}
 
-	info, _ = sc.SockConn.KmeshCgroupSockMaps.OuterMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err = os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
-		return err
-	}
-
-	info, _ = sc.SockConn.KmeshCgroupSockMaps.InnerMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err = os.Setenv("INNER_MAP_ID", stringId); err != nil {
-		return err
-	}
-
 	info, _ = sc.SockConn.KmeshCluster.Info()
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))
@@ -131,35 +117,19 @@ func (sc *BpfAds) ApiEnvCfg() error {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.OuterMap64, "OuterMap64"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.Map64, "Map64"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.OuterMap128, "OuterMap128"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.Map192, "Map192"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.OuterMap1024, "OuterMap1024"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.Map1024, "Map1024"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.OuterMap8192, "OuterMap8192"); err != nil {
-		return err
-	}
-
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.InnerMap64, "InnerMap64"); err != nil {
-		return err
-	}
-
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.InnerMap128, "InnerMap128"); err != nil {
-		return err
-	}
-
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.InnerMap1024, "InnerMap1024"); err != nil {
-		return err
-	}
-
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.InnerMap8192, "InnerMap8192"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.Map8192, "Map8192"); err != nil {
 		return err
 	}
 	return nil

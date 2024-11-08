@@ -124,20 +124,6 @@ func (sc *BpfAds) ApiEnvCfg() error {
 		return err
 	}
 
-	info, _ = sc.SockOps.KmeshSockopsMaps.OuterMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
-		return err
-	}
-
-	info, _ = sc.SockOps.KmeshSockopsMaps.InnerMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("INNER_MAP_ID", stringId); err != nil {
-		return err
-	}
-
 	info, _ = sc.SockOps.MapOfRouterConfig.Info()
 	id, _ = info.ID()
 	stringId = strconv.Itoa(int(id))

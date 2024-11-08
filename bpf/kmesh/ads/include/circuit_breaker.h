@@ -86,7 +86,7 @@ static inline int on_cluster_sock_bind(ctx_buff_t *ctx, const Cluster__Cluster *
 
     if (stats != NULL) {
         Cluster__CircuitBreakers *cbs = NULL;
-        cbs = kmesh_get_ptr_val(cluster->circuit_breakers);
+        cbs = KMESH_GET_PTR_VAL(cluster->circuit_breakers, Cluster__CircuitBreakers);
         if (cbs != NULL && stats->active_connections >= cbs->max_connections) {
             BPF_LOG(
                 DEBUG,

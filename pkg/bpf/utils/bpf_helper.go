@@ -23,23 +23,6 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-func SetInnerMap(spec *ebpf.CollectionSpec, outerMap *ebpf.Map, innerMap *ebpf.Map) {
-	outerInfo, _ := outerMap.Info()
-	innerInfo, _ := innerMap.Info()
-
-	for _, v := range spec.Maps {
-		if v.Name == outerInfo.Name {
-			v.InnerMap = &ebpf.MapSpec{
-				Type:       innerInfo.Type,
-				KeySize:    innerInfo.KeySize,
-				ValueSize:  innerInfo.ValueSize,
-				MaxEntries: innerInfo.MaxEntries,
-				Flags:      innerInfo.Flags,
-			}
-		}
-	}
-}
-
 func SetEnvByBpfMapId(m *ebpf.Map, key string) error {
 	info, _ := m.Info()
 	id, _ := info.ID()
