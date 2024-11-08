@@ -180,11 +180,12 @@ func Test_handleWaypointWithHostname(t *testing.T) {
 
 	// Waypoint with network address.
 	svc1 := createFakeService("svc1", "10.240.10.1", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	wl1 := createFakeWorkload("1.2.3.5", "10.240.10.200", workloadapi.NetworkMode_STANDARD)
 	// Waypoint with hostname.
 	svc2 := createFakeService("svc2", "10.240.10.2", "default/waypoint.default.svc.cluster.local", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	wl2 := createFakeWorkload("1.2.3.6", "default/waypoint.default.svc.cluster.local", workloadapi.NetworkMode_STANDARD)
 
-	assert.NoError(t, p.handleService(svc1))
-	assert.NoError(t, p.handleService(svc2))
+	p.handleServicesAndWorkloads([]*workloadapi.Service{svc1, svc2}, []*workloadapi.Workload{wl1, wl2})
 
 	// Front end map includes svc1 but not svc2 as its waypoint is not resolved.
 	svc1ID := checkFrontEndMap(t, svc1.Addresses[0].Address, p)
@@ -192,10 +193,16 @@ func Test_handleWaypointWithHostname(t *testing.T) {
 
 	checkNotExistInFrontEndMap(t, svc2.Addresses[0].Address, p)
 
+	// Back end map includes wl1 but not wl2 as its waypoint is not resolved.
+	wl1ID := checkFrontEndMap(t, wl1.Addresses[0], p)
+	checkBackendMap(t, p, wl1ID, wl1)
+
+	checkNotExistInFrontEndMap(t, wl2.Addresses[0], p)
+
 	waypointIP := "10.240.10.3"
 	waypointsvc := createFakeService("waypoint", waypointIP, "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
-	assert.NoError(t, p.handleService(waypointsvc))
-	updateWaypointOfService(svc2, waypointIP)
+	p.handleServicesAndWorkloads([]*workloadapi.Service{waypointsvc}, []*workloadapi.Workload{})
+	// updateWaypointOfService(svc2, waypointIP)
 
 	// Front end map includes svc2 and waypointsvc now.
 	svc2ID := checkFrontEndMap(t, svc2.Addresses[0].Address, p)
@@ -203,13 +210,20 @@ func Test_handleWaypointWithHostname(t *testing.T) {
 	wID := checkFrontEndMap(t, waypointsvc.Addresses[0].Address, p)
 	checkServiceMap(t, p, wID, waypointsvc, 0, 0)
 
-	// Insert svc whose waypoint hostname can be resolved directly.
-	svc3 := createFakeService("svc3", "10.240.10.4", "default/waypoint.default.svc.cluster.local", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
-	assert.NoError(t, p.handleService(svc3))
+	// Front end map includs wl2 now.
+	wl2ID := checkFrontEndMap(t, wl2.Addresses[0], p)
+	checkBackendMap(t, p, wl2ID, wl2)
 
-	updateWaypointOfService(svc3, waypointIP)
+	// Insert svc and workload whose waypoint hostname can be resolved directly.
+	svc3 := createFakeService("svc3", "10.240.10.4", "default/waypoint.default.svc.cluster.local", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	wl3 := createFakeWorkload("1.2.3.6", "default/waypoint.default.svc.cluster.local", workloadapi.NetworkMode_STANDARD)
+	p.handleServicesAndWorkloads([]*workloadapi.Service{svc3}, []*workloadapi.Workload{wl3})
+
+	// updateWaypointOfService(svc3, waypointIP)
 	svc3ID := checkFrontEndMap(t, svc3.Addresses[0].Address, p)
 	checkServiceMap(t, p, svc3ID, svc3, 0, 0)
+	wl3ID := checkFrontEndMap(t, wl3.Addresses[0], p)
+	checkBackendMap(t, p, wl3ID, wl3)
 }
 
 func Test_hostnameNetworkMode(t *testing.T) {
@@ -286,10 +300,6 @@ func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workload
 		assert.Equal(t, test.EqualIp(bv.WaypointAddr, waypointAddr), true)
 	}
 	assert.Equal(t, bv.WaypointPort, nets.ConvertPortToBigEndian(wl.GetWaypoint().GetHboneMtlsPort()))
-}
-
-func checkNotExistInBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workloadapi.Workload) {
-
 }
 
 func checkFrontEndMapWithNetworkMode(t *testing.T, ip []byte, p *Processor, networkMode workloadapi.NetworkMode) (upstreamId uint32) {
@@ -387,7 +397,7 @@ func createTestWorkloadWithService(withService bool) *workloadapi.Workload {
 	return &workload
 }
 
-func resolveWaypoint(waypoint stirng) *workloadapi.GatewayAddress {
+func resolveWaypoint(waypoint string) *workloadapi.GatewayAddress {
 	var w *workloadapi.GatewayAddress
 	if waypoint != "" {
 		res := strings.Split(waypoint, "/")
