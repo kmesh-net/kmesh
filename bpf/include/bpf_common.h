@@ -55,8 +55,7 @@ struct {
     __type(value, struct sock_storage_data);
 } map_of_sock_storage SEC(".maps");
 
-#if 1
-// 64 128 1024 8192 81920
+// 64 128 1024 8192
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
@@ -86,7 +85,6 @@ struct {
     __uint(max_entries, MAP_MAX_ENTRIES);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map8192 SEC(".maps");
-#endif
 
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
@@ -177,10 +175,10 @@ static inline bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
     return false;
 }
 
-static inline void kmesh_parse_mim_idx(__u32 mim_idx, __u8 *type, __u32 *inner_idx)
+static inline void kmesh_parse_outer_key(__u32 outer_key, __u8 *type, __u32 *inner_idx)
 {
-    *type = MAP_GET_TYPE(mim_idx);
-    *inner_idx = MAP_GET_INDEX(mim_idx);
+    *type = MAP_GET_TYPE(outer_key);
+    *inner_idx = MAP_GET_INDEX(outer_key);
     return;
 }
 
@@ -188,9 +186,9 @@ static inline void *kmesh_get_map64_val(const void *ptr)
 {
     __u8 type;
     __u32 inner_idx;
-    __u32 mim_idx = (__u32)(uintptr_t)ptr;
+    __u32 outer_key = (__u32)(uintptr_t)ptr;
 
-    kmesh_parse_mim_idx(mim_idx, &type, &inner_idx);
+    kmesh_parse_outer_key(outer_key, &type, &inner_idx);
     if (type != MAP_TYPE_64)
         return NULL;
 
@@ -201,9 +199,9 @@ static inline void *kmesh_get_map192_val(const void *ptr)
 {
     __u8 type;
     __u32 inner_idx;
-    __u32 mim_idx = (__u32)(uintptr_t)ptr;
+    __u32 outer_key = (__u32)(uintptr_t)ptr;
 
-    kmesh_parse_mim_idx(mim_idx, &type, &inner_idx);
+    kmesh_parse_outer_key(outer_key, &type, &inner_idx);
     if (type != MAP_TYPE_192)
         return NULL;
 
@@ -214,9 +212,9 @@ static inline void *kmesh_get_map1024_val(const void *ptr)
 {
     __u8 type;
     __u32 inner_idx;
-    __u32 mim_idx = (__u32)(uintptr_t)ptr;
+    __u32 outer_key = (__u32)(uintptr_t)ptr;
 
-    kmesh_parse_mim_idx(mim_idx, &type, &inner_idx);
+    kmesh_parse_outer_key(outer_key, &type, &inner_idx);
     if (type != MAP_TYPE_1024)
         return NULL;
 
@@ -227,9 +225,9 @@ static inline void *kmesh_get_map8192_val(const void *ptr)
 {
     __u8 type;
     __u32 inner_idx;
-    __u32 mim_idx = (__u32)(uintptr_t)ptr;
+    __u32 outer_key = (__u32)(uintptr_t)ptr;
 
-    kmesh_parse_mim_idx(mim_idx, &type, &inner_idx);
+    kmesh_parse_outer_key(outer_key, &type, &inner_idx);
     if (type != MAP_TYPE_8192)
         return NULL;
 

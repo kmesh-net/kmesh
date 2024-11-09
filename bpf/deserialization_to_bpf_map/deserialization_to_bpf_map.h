@@ -19,6 +19,6 @@ void deserial_free_elem_list(struct element_list_node *head);
 int deserial_delete_elem(void *key, const void *msg_desciptor);
 
 int deserial_init();
-int deserial_uninit();
+void deserial_uninit();
 
 #endif /* __DESERIALIZATION_TO_BPF_MAP_H__ */

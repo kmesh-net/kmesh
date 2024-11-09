@@ -82,8 +82,6 @@ struct map_mng {
     unsigned char mim_used_bitmap[MAP_TYPE_MAX][MIM_BITMAP_SIZE];
 };
 
-#define MAGIC_NUMBER 0xb809b8c3
-
 struct map_mng g_map_mng = {0};
 
 static int update_bpf_map(struct op_context *ctx);
@@ -233,19 +231,6 @@ static int get_map_fd_info(unsigned int id, int *map_fd, struct bpf_map_info *in
     return ret;
 }
 
-// static int bpf_get_map_id_by_fd(int map_fd)
-// {
-//     struct bpf_map_info info = {};
-//     __u32 info_len = sizeof(info);
-
-//     int ret = bpf_obj_get_info_by_fd(map_fd, &info, &info_len);
-//     if (ret < 0) {
-//         LOG_ERR("bpf_obj_get_info_by_fd failed, map_fd:%d ret:%d ERRNO:%d", map_fd, ret, errno);
-//         return ret;
-//     }
-//     return info.id;
-// }
-
 static int free_outter_map_entry(struct op_context *ctx, unsigned int *outer_key)
 {
     unsigned char type = MAP_GET_TYPE(*outer_key);
@@ -258,24 +243,6 @@ static int free_outter_map_entry(struct op_context *ctx, unsigned int *outer_key
     *outer_key = 0;
     return 0;
 }
-
-#define FIND_FIRST_CLEAR(bitmap, len)                                                                                  \
-    ({                                                                                                                 \
-        uint8_t *_bmp = (uint8_t *)(bitmap);                                                                           \
-        uint8_t _byte;                                                                                                 \
-        for (int _i = 0; _i < (len); ++_i) {                                                                           \
-            _byte = _bmp[_i];                                                                                          \
-            for (int _j = 0; _j < 8; ++_j) {                                                                           \
-                if (i == 0 && j == 0) {                                                                                \
-                    continue;                                                                                          \
-                }                                                                                                      \
-                if (!(_byte & (1U << _j))) {                                                                           \
-                    return _i * 8 + _j;                                                                                \
-                }                                                                                                      \
-            }                                                                                                          \
-        }                                                                                                              \
-        return -1;                                                                                                     \
-    })
 
 static int bitmap_find_first_clear(unsigned char *bitmap, int len)
 {
@@ -1366,17 +1333,16 @@ int get_map_infos()
     return 0;
 }
 
-int deserial_uninit()
+void deserial_uninit()
 {
-    int i, ret = 0;
-
+    int i;
     for (i = 0; i < MAP_TYPE_MAX; i++) {
         close(g_map_mng.inner_fds[i]);
     }
-    return ret;
+    return;
 }
 
-int map_restore(int map_fd, struct bpf_map_info *map_info, unsigned char *bitmap, int range)
+int map_restore(int map_fd, struct bpf_map_info *map_info, unsigned char *bitmap)
 {
     void *prev_key;
     unsigned int key;
@@ -1399,8 +1365,7 @@ int maps_restore()
     int i, ret = 0;
 
     for (i = 0; i < MAP_TYPE_MAX; i++) {
-        ret = map_restore(
-            g_map_mng.inner_fds[i], &g_map_mng.inner_infos[i], g_map_mng.mim_used_bitmap[i], MAP_MAX_ENTRIES);
+        ret = map_restore(g_map_mng.inner_fds[i], &g_map_mng.inner_infos[i], g_map_mng.mim_used_bitmap[i]);
         if (ret) {
             LOG_ERR("map_restore %d failed:%d", i, ret);
             break;
