@@ -6,8 +6,6 @@
 
 #include <stdbool.h>
 
-/* equal MAP_SIZE_OF_OUTTER_MAP */
-#define MAX_OUTTER_MAP_ENTRIES        (1 << 20)
 struct element_list_node {
     void *elem;
     struct element_list_node *next;

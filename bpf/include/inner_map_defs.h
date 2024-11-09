@@ -4,9 +4,7 @@
 #ifndef __INNER_MAP_H__
 #define __INNER_MAP_H__
 
-#define BPF_INNER_MAP_DATA_LEN 1300
-
-// outer index:
+// outer key:
 // map_type(1 byte) + inner_index(3 bytes)
 
 typedef enum { MAP_TYPE_64, MAP_TYPE_192, MAP_TYPE_1024, MAP_TYPE_8192, MAP_TYPE_MAX } map_in_map_type;
