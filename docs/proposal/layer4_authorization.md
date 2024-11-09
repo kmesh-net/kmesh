@@ -15,7 +15,7 @@ creation-date: 2024-05-28
 
 ### Summary
 
-This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authentication features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/). Currently, kmesh supports two authentication architectures. Packets are first processed through XDP authentication, and if that type is not supported, quintuple information is passed through a ring buffer for user-space authentication. The ultimate goal is to fully handle authentication in XDP.
+This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authentication features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/). Currently, Kmesh supports two authentication architectures. Packets are first processed through XDP authentication, and if that type is not supported, quintuple information is passed through a ring buffer for user-space authentication. The ultimate goal is to fully handle authentication in XDP.
 
 ### Userspace authentication
 
@@ -66,6 +66,7 @@ map_of_wl_policy: records the policies that are configured for the workload.
 
 map_of_authz: records the authz rules of policies.
 
+kmesh_tc_info_map: store the variable that xdp_auth needs to pass during the tail call
 ```.c
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -82,11 +83,24 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
 } map_of_authz SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(struct bpf_sock_tuple));
+    __uint(value_size, sizeof(struct match_context));
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __uint(max_entries, MAP_SIZE_OF_AUTH_TAILCALL);
+} kmesh_tc_args SEC(".maps");
 ```
 
 #### Processing logic
 
-![l4_authz_xdp](pics/kmesh_l4_authorization_match_chain.svg#pic_center)
+![l4_authz_xdp](pics/kmesh_xdp_authz.jpg#pic_center)
+
+In the implementation of XDP authentication, due to the limitation of eBPF verifier on the number of bytes, we need to use eBPF's tailcall mechanism to implement the entire process of XDP authentication. The whole process is shown in the figure above:
+First, the program entry is xdp_authz. In this eBPF program, the starting address of the authentication rule in memory will be written to kmesh_tc_args eBPF map, and then tail call will be made to the policy_check eBPF program. This program will write the rule and necessary information to kmesh_tc_args eBPF map, and then tail call will be made to the rule_check eBPF program to check the specific clause rules, which involves matching logic such as port_check and ip_check.
+
+![l4_authz_xdp_process](pics/kmesh_l4_authorization_match_chain.svg#pic_center)
 
 1. Message Parsing: When a packet enters the XDP processing logic on the server side, the tuple information of the packet is parsed. The corresponding workload instance is then located based on the destination IP, and the authentication rules configured on that workload are retrieved.
-2. Rule Matching: As shown in the figure, XDP implements a matching chain logic. First, it determines whether to allow or deny the packet based on the port  info, if the result is deny, the packet is intercepted, and the process ends. If the result is allow, the next matching logic (e.g., IP matching) is called using a BPF tail call. This process is repeated until the last link in the chain. If the final result is allow, XDP\_PASS is returned, and the packet is forwarded through the kernel network stack to the server.
+2. Rule Matching: As shown in the figure, XDP implements a matching chain logic. First, it determines whether to allow or deny the packet based on the port info, if the result is deny, the packet is intercepted, and the process ends. If the result is allow, the next matching logic (e.g., IP matching) is called using function call. This process is repeated until the last link in the chain. If the final result is allow, XDP\_PASS is returned, and the packet is forwarded through the kernel network stack to the server.
