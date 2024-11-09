@@ -43,10 +43,6 @@ type mapMetricLabels struct {
 	nodeName string
 }
 
-type totalMapMetricLabels struct {
-	nodeName string
-}
-
 func NewMapMetric() *MapMetricController {
 	return &MapMetricController{}
 }
@@ -69,25 +65,11 @@ func (m *MapMetricController) Run(ctx context.Context) {
 	}()
 }
 
-func (m *MapMetricController) buildMapMetric(data *MapInfo) mapMetricLabels {
-	labels := mapMetricLabels{}
-	nodeName := os.Getenv("NODE_NAME")
-	if nodeName == "" {
-		nodeName = "unknown"
+func buildMapMetricLabel(data *MapInfo) mapMetricLabels {
+	labels := mapMetricLabels{
+		nodeName: os.Getenv("NODE_NAME"),
+		mapName:  data.mapName,
 	}
-	labels.nodeName = nodeName
-	labels.mapName = data.mapName
-	return labels
-}
-
-func (m *MapMetricController) buildTotalMapMetric() totalMapMetricLabels {
-	labels := totalMapMetricLabels{}
-	nodeName := os.Getenv("NODE_NAME")
-	if nodeName == "" {
-		nodeName = "unknown"
-	}
-
-	labels.nodeName = nodeName
 	return labels
 }
 
@@ -97,6 +79,8 @@ func isKmeshMap(mapName string) bool {
 func (m *MapMetricController) updatePrometheusMetric() {
 	var startID ebpf.MapID
 	count := 0
+
+	// TODO: should we use the maps already known from CollectionSpec
 
 	for {
 		mapID, mapInfo, info, err := getNextMapInfo(startID)
@@ -114,21 +98,20 @@ func (m *MapMetricController) updatePrometheusMetric() {
 			mapInfo.Close()
 			continue
 		}
-
-		entryCount := uint32(0)
-		if info.Type == ebpf.Hash {
-			entryCount, _ = getMapEntryCountFallback(mapInfo)
+		count++
+		if info.Type != ebpf.Hash {
+			mapInfo.Close()
+			continue
 		}
+		entryCount, _ := getMapEntryCountFallback(mapInfo)
 		mapData := buildMapEntrycountMetric(info, entryCount)
-		metricLabels := m.buildMapMetric(&mapData)
+		metricLabels := buildMapMetricLabel(&mapData)
 		commonLabels := struct2map(metricLabels)
 		mapEntryCount.With(commonLabels).Set(float64(entryCount))
-		count++
 		mapInfo.Close()
 	}
-	totalMetricLabels := m.buildTotalMapMetric()
-	totalMapLabels := struct2map(totalMetricLabels)
-	mapCountInNode.With(totalMapLabels).Set(float64(count))
+	mapCountLabels := struct2map(mapMetricLabels{nodeName: os.Getenv("NODE_NAME")})
+	mapCountInNode.With(mapCountLabels).Set(float64(count))
 }
 
 func getNextMapInfo(startID ebpf.MapID) (ebpf.MapID, *ebpf.Map, *ebpf.MapInfo, error) {

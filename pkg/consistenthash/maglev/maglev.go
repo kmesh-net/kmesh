@@ -14,6 +14,10 @@
  * limitations under the License.
  */
 
+// NOTE: THE CODE IN THIS FILE IS MAINLY REFERENCED FROM CILIUM MAGLEV
+// ALGORITHM( https://github.com/cilium/cilium/blob/44ec948479bb7e4511ec39f1e0d19d794ca1fba3/pkg/maglev/maglev.go)
+// AND ADAPTED FOR KMESH.
+
 package maglev
 
 import (

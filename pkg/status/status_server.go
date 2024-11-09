@@ -18,6 +18,7 @@ package status
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -72,14 +73,6 @@ type Server struct {
 	mux            *http.ServeMux
 	server         *http.Server
 	kmeshConfigMap *ebpf.Map
-}
-
-func GetConfigDumpAddr(mode string) string {
-	return "http://" + adminAddr + configDumpPrefix + "/" + mode
-}
-
-func GetLoggerURL() string {
-	return "http://" + adminAddr + patternLoggers
 }
 
 func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, configMap *ebpf.Map) *Server {
@@ -250,26 +243,24 @@ func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == http.MethodPost {
 		s.setLoggerLevel(w, r)
 	} else {
-		// otherwise, return 404 not found
-		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		log.Errorf("accesslogHandler export POST method but get %v", r.Method)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var info bool
 	accesslogInfo := r.URL.Query().Get("enable")
-	if accesslogInfo == "true" {
-		info = true
+	if enabled, err := strconv.ParseBool(accesslogInfo); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", accesslogInfo)))
 	} else {
-		info = false
+		s.xdsClient.WorkloadController.SetAccesslog(enabled)
+		w.WriteHeader(http.StatusOK)
 	}
-	s.xdsClient.WorkloadController.SetAccesslogTrigger(info)
-	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) getLoggerNames(w http.ResponseWriter) {
@@ -474,7 +465,7 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 func (s *Server) StartServer() {
 	go func() {
 		err := s.server.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Errorf("Failed to start status server: %v", err)
 		}
 	}()

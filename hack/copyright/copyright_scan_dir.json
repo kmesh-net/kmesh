@@ -13,5 +13,8 @@
     "/kernel",
     "/oncn-mda"
   ],
-  "exclude_dirs": []
+  "exclude_dirs": [],
+  "exclude_files": [
+    "/test/e2e/gateway_test.go"
+  ]
 }
