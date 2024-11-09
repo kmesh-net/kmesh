@@ -42,27 +42,18 @@
 struct op_context {
     void *key;
     void *value;
-    int outter_fd;
-    int map_fd;
     int curr_fd;
-    struct bpf_map_info *outter_info;
     struct bpf_map_info *inner_info;
-    struct bpf_map_info *info;
     struct bpf_map_info *curr_info;
     char *inner_map_object;
     const ProtobufCMessageDescriptor *desc;
 };
 
-#define init_op_context(context, k, v, desc, o_fd, fd, o_info, i_info, m_info)                                         \
+#define init_op_context(context, k, v, desc, fd, m_info)                                                               \
     do {                                                                                                               \
         (context).key = (k);                                                                                           \
         (context).value = (v);                                                                                         \
         (context).desc = (desc);                                                                                       \
-        (context).outter_fd = (o_fd);                                                                                  \
-        (context).map_fd = (fd);                                                                                       \
-        (context).outter_info = (o_info);                                                                              \
-        (context).inner_info = (i_info);                                                                               \
-        (context).info = (m_info);                                                                                     \
         (context).curr_info = (m_info);                                                                                \
         (context).curr_fd = (fd);                                                                                      \
     } while (0)
@@ -86,14 +77,12 @@ struct inner_map_stat {
 
 #define MIM_BITMAP_SIZE (MAP_MAX_ENTRIES / 8)
 struct map_mng {
-    int init;
-
     int inner_fds[MAP_TYPE_MAX];
     struct bpf_map_info inner_infos[MAP_TYPE_MAX];
     unsigned char mim_used_bitmap[MAP_TYPE_MAX][MIM_BITMAP_SIZE];
 };
 
-#define MAGIC_NUMBER                     0xb809b8c3
+#define MAGIC_NUMBER 0xb809b8c3
 
 struct map_mng g_map_mng = {0};
 
@@ -216,43 +205,18 @@ static void free_keys(struct op_context *ctx, void *keys, int n)
     }
 }
 
-static unsigned int get_map_id(const char *name)
+static int get_map_id(const char *name, unsigned int *id)
 {
-    char *ptr = NULL;
-    char *map_id = getenv(name);
-    if (!map_id)
-        return 0;
-    return (unsigned int)strtol(map_id, &ptr, 10);
-}
-
-static int get_map_ids(const char *name, unsigned int *id, unsigned int *outter_id, unsigned int *inner_id)
-{
-    char *ptr = NULL;
     char *map_id;
+    char *ptr = NULL;
 
-    map_id = (name == NULL) ? getenv("MAP_ID") : getenv(name);
+    map_id = getenv(name);
     if (!map_id) {
-        LOG_ERR("%s is not set", ((name == NULL) ? "MAP_ID" : name));
+        LOG_ERR("%s is not set, errno:%d", name, errno);
         return -EINVAL;
     }
-
-    errno = 0;
-
     *id = (unsigned int)strtol(map_id, &ptr, 10);
-    if (!ptr[0]) {
-        *outter_id = get_map_id("OUTTER_MAP_ID");
-        if (*outter_id == 0)
-            return -EINVAL;
-    }
-
-    if (!ptr[0]) {
-        *inner_id = get_map_id("INNER_MAP_ID");
-        if (*inner_id == 0) {
-            LOG_ERR("INNER_MAP_ID is not set");
-            return -EINVAL;
-        }
-    }
-    return -errno;
+    return 0;
 }
 
 static int get_map_fd_info(unsigned int id, int *map_fd, struct bpf_map_info *info)
@@ -629,29 +593,15 @@ static int update_bpf_map(struct op_context *ctx)
     return ret;
 }
 
-static int map_info_check(struct bpf_map_info *outter_info, struct bpf_map_info *inner_info)
-{
-    if (outter_info->type != BPF_MAP_TYPE_ARRAY_OF_MAPS) {
-        LOG_ERR("outter map type must be BPF_MAP_TYPE_ARRAY_OF_MAPS");
-        return -EINVAL;
-    }
-
-    if (outter_info->max_entries < 2 || outter_info->max_entries > MAX_OUTTER_MAP_ENTRIES) {
-        LOG_ERR("outter map max_entries must be in[2,%d]", MAX_OUTTER_MAP_ENTRIES);
-        return -EINVAL;
-    }
-    return 0;
-}
-
 int deserial_update_elem(void *key, void *value)
 {
     int ret;
     const char *map_name = NULL;
     struct op_context context = {.inner_map_object = NULL};
     const ProtobufCMessageDescriptor *desc;
-    struct bpf_map_info outter_info = {0}, inner_info = {0}, info = {0};
-    int map_fd, outter_fd = 0, inner_fd = 0;
-    unsigned int id, outter_id = 0, inner_id = 0;
+    struct bpf_map_info info = {0};
+    int map_fd = 0;
+    unsigned int id;
 
     if (!key || !value)
         return -EINVAL;
@@ -660,7 +610,7 @@ int deserial_update_elem(void *key, void *value)
     if (desc && desc->magic == PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
         map_name = desc->short_name;
 
-    ret = get_map_ids(map_name, &id, &outter_id, &inner_id);
+    ret = get_map_id(map_name, &id);
     if (ret)
         return ret;
 
@@ -675,17 +625,9 @@ int deserial_update_elem(void *key, void *value)
         goto end;
     }
 
-    ret = get_map_fd_info(inner_id, &inner_fd, &inner_info);
-    ret |= get_map_fd_info(outter_id, &outter_fd, &outter_info);
-    if (ret < 0 || map_info_check(&outter_info, &inner_info))
-        goto end;
-
-    // inner_map outer_map在init的时候就初始化好
-    // 根据desc->size_msg 选择合适的map-in-map
-
     deserial_delete_elem(key, desc);
 
-    init_op_context(context, key, value, desc, outter_fd, map_fd, &outter_info, &inner_info, &info);
+    init_op_context(context, key, value, desc, map_fd, &info);
 
     context.inner_map_object = calloc(1, g_map_mng.inner_infos[MAP_TYPE_MAX - 1].value_size);
     if (context.inner_map_object == NULL) {
@@ -706,10 +648,6 @@ end:
         free(context.inner_map_object);
     if (map_fd > 0)
         close(map_fd);
-    if (outter_fd > 0)
-        close(outter_fd);
-    if (inner_fd > 0)
-        close(inner_fd);
     return ret;
 }
 
@@ -981,9 +919,9 @@ struct element_list_node *deserial_lookup_all_elems(const void *msg_desciptor)
     const char *map_name = NULL;
     struct op_context context = {.inner_map_object = NULL};
     const ProtobufCMessageDescriptor *desc;
-    struct bpf_map_info outter_info = {0}, inner_info = {0}, info = {0};
-    int map_fd, outter_fd = 0, inner_fd = 0;
-    unsigned int id, outter_id = 0, inner_id = 0;
+    struct bpf_map_info info = {0};
+    int map_fd;
+    unsigned int id;
 
     if (msg_desciptor == NULL)
         return NULL;
@@ -993,7 +931,7 @@ struct element_list_node *deserial_lookup_all_elems(const void *msg_desciptor)
         return NULL;
 
     map_name = desc->short_name;
-    ret = get_map_ids(map_name, &id, &outter_id, &inner_id);
+    ret = get_map_id(map_name, &id);
     if (ret)
         return NULL;
 
@@ -1003,27 +941,17 @@ struct element_list_node *deserial_lookup_all_elems(const void *msg_desciptor)
         return NULL;
     }
 
-    ret = get_map_fd_info(inner_id, &inner_fd, &inner_info);
-    ret |= get_map_fd_info(outter_id, &outter_fd, &outter_info);
-    if (ret < 0 || map_info_check(&outter_info, &inner_info))
-        goto end;
-
-    init_op_context(context, NULL, NULL, desc, outter_fd, map_fd, &outter_info, &inner_info, &info);
+    init_op_context(context, NULL, NULL, desc, map_fd, &info);
 
     value_list_head = create_struct_list(&context, &err);
     if (err != 0) {
         LOG_ERR("create_struct_list failed, err = %d", err);
     }
 
-end:
     if (context.key != NULL)
         free(context.key);
     if (map_fd > 0)
         close(map_fd);
-    if (outter_fd > 0)
-        close(outter_fd);
-    if (inner_fd > 0)
-        close(inner_fd);
     return value_list_head;
 }
 
@@ -1032,11 +960,11 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
     int ret, err;
     void *value = NULL;
     const char *map_name = NULL;
-    struct op_context context = {.inner_map_object = NULL};
+    struct op_context context;
     const ProtobufCMessageDescriptor *desc;
-    struct bpf_map_info outter_info = {0}, inner_info = {0}, info = {0};
-    int map_fd, outter_fd = 0, inner_fd = 0;
-    unsigned int id, outter_id = 0, inner_id = 0;
+    struct bpf_map_info info = {0};
+    int map_fd;
+    unsigned int id;
 
     if (msg_desciptor == NULL || key == NULL)
         return NULL;
@@ -1046,7 +974,7 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
         return NULL;
 
     map_name = desc->short_name;
-    ret = get_map_ids(map_name, &id, &outter_id, &inner_id);
+    ret = get_map_id(map_name, &id);
     if (ret)
         return NULL;
 
@@ -1056,12 +984,7 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
         return NULL;
     }
 
-    ret = get_map_fd_info(inner_id, &inner_fd, &inner_info);
-    ret |= get_map_fd_info(outter_id, &outter_fd, &outter_info);
-    if (ret < 0 || map_info_check(&outter_info, &inner_info))
-        goto end;
-
-    init_op_context(context, key, NULL, desc, outter_fd, map_fd, &outter_info, &inner_info, &info);
+    init_op_context(context, key, NULL, desc, map_fd, &info);
 
     normalize_key(&context, key, map_name);
     value = create_struct(&context, &err);
@@ -1069,15 +992,10 @@ void *deserial_lookup_elem(void *key, const void *msg_desciptor)
         LOG_ERR("create_struct failed, err = %d", err);
     }
 
-end:
     if (context.key != NULL)
         free(context.key);
     if (map_fd > 0)
         close(map_fd);
-    if (outter_fd > 0)
-        close(outter_fd);
-    if (inner_fd > 0)
-        close(inner_fd);
     return value;
 }
 
@@ -1284,12 +1202,11 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
 {
     int ret;
     const char *map_name = NULL;
-    struct op_context context = {.inner_map_object = NULL};
+    struct op_context context;
     const ProtobufCMessageDescriptor *desc;
-    struct bpf_map_info outter_info = {0}, inner_info = {0}, info = {0};
-    int map_fd, outter_fd = 0, inner_fd = 0;
-    unsigned int id, outter_id = 0, inner_id = 0;
-    char *inner_map_object = NULL;
+    struct bpf_map_info info = {0};
+    int map_fd;
+    unsigned int id;
 
     if (!key || !msg_desciptor)
         return -EINVAL;
@@ -1298,7 +1215,7 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
     if (desc->magic == PROTOBUF_C__MESSAGE_DESCRIPTOR_MAGIC)
         map_name = desc->short_name;
 
-    ret = get_map_ids(map_name, &id, &outter_id, &inner_id);
+    ret = get_map_id(map_name, &id);
     if (ret)
         return ret;
 
@@ -1313,21 +1230,13 @@ int deserial_delete_elem(void *key, const void *msg_desciptor)
         goto end;
     }
 
-    ret = get_map_fd_info(inner_id, &inner_fd, &inner_info);
-    ret |= get_map_fd_info(outter_id, &outter_fd, &outter_info);
-    if (ret < 0 || map_info_check(&outter_info, &inner_info))
-        goto end;
+    init_op_context(context, key, NULL, desc, map_fd, &info);
 
-    init_op_context(context, key, NULL, desc, outter_fd, map_fd, &outter_info, &inner_info, &info);
-
-    context.inner_map_object = calloc(1, context.inner_info->value_size);
     context.value = calloc(1, context.curr_info->value_size);
-    if (!context.inner_map_object || !context.value) {
+    if (!context.value) {
         ret = -errno;
         goto end;
     }
-
-    inner_map_object = context.inner_map_object;
 
     normalize_key(&context, key, map_name);
     ret = del_bpf_map(&context);
@@ -1337,14 +1246,8 @@ end:
         free(context.key);
     if (context.value != NULL)
         free(context.value);
-    if (inner_map_object != NULL)
-        free(inner_map_object);
     if (map_fd > 0)
         close(map_fd);
-    if (outter_fd > 0)
-        close(outter_fd);
-    if (inner_fd > 0)
-        close(inner_fd);
     return ret;
 }
 
@@ -1397,7 +1300,7 @@ void deserial_free_elem(void *value)
     const ProtobufCMessageDescriptor *desc;
 
     // idx不用处理
-    if (!value || (uintptr_t)value < MAX_OUTTER_MAP_ENTRIES)
+    if (!value || (uintptr_t)value < UINT32_MAX)
         return;
 
     desc = ((ProtobufCMessage *)value)->descriptor;
@@ -1432,8 +1335,9 @@ void deserial_free_elem(void *value)
 
 int get_map_infos()
 {
-    int i, ret, inner_id;
-    char *inner_map_names[] = {
+    int i, ret;
+    unsigned int inner_id;
+    char *map_names[] = {
         "Map64",
         "Map192",
         "Map1024",
@@ -1441,8 +1345,8 @@ int get_map_infos()
     };
 
     for (i = 0; i < MAP_TYPE_MAX; i++) {
-        inner_id = get_map_id(inner_map_names[i]);
-        if (!inner_id)
+        ret = get_map_id(map_names[i], &inner_id);
+        if (ret)
             return -1;
 
         ret = get_map_fd_info(inner_id, &g_map_mng.inner_fds[i], &g_map_mng.inner_infos[i]);
@@ -1455,7 +1359,6 @@ int get_map_infos()
 int deserial_uninit()
 {
     int i, ret = 0;
-    g_map_mng.init = 0;
 
     for (i = 0; i < MAP_TYPE_MAX; i++) {
         close(g_map_mng.inner_fds[i]);
@@ -1487,6 +1390,5 @@ int deserial_init()
         deserial_uninit();
         return ret;
     }
-    g_map_mng.init = 1;
     return 0;
 }

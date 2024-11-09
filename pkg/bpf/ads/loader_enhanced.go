@@ -31,7 +31,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -138,6 +138,21 @@ func (sc *BpfAds) ApiEnvCfg() error {
 		return err
 	}
 
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map64, "Map64"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map192, "Map192"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map1024, "Map1024"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map8192, "Map8192"); err != nil {
+		return err
+	}
 	return nil
 }
 

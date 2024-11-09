@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -170,6 +171,22 @@ func (w *BpfWorkload) ApiEnvCfg() error {
 	id, _ := info.ID()
 	stringId := strconv.Itoa(int(id))
 	if err = os.Setenv("Authorization", stringId); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map64, "Map64"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map192, "Map192"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map1024, "Map1024"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map8192, "Map8192"); err != nil {
 		return err
 	}
 	return nil
