@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 	"kmesh.net/kmesh/pkg/logger"
@@ -69,7 +68,7 @@ func (sc *BpfAds) Start() error {
 		return fmt.Errorf("api env config failed, %s", err)
 	}
 
-	ret := C.deserial_init(restart.GetStartType() == restart.Restart)
+	ret := C.deserial_init()
 	if ret != 0 {
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
@@ -86,7 +85,7 @@ func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
 }
 
 func (sc *BpfAds) Stop() error {
-	C.deserial_uninit(false)
+	C.deserial_uninit()
 	return sc.Detach()
 }
 

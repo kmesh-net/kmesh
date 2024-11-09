@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -91,7 +90,7 @@ func (w *BpfWorkload) Start() error {
 		return fmt.Errorf("failed to set api env")
 	}
 
-	ret := C.deserial_init(restart.GetStartType() == restart.Restart)
+	ret := C.deserial_init()
 	if ret != 0 {
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
@@ -99,7 +98,7 @@ func (w *BpfWorkload) Start() error {
 }
 
 func (w *BpfWorkload) Stop() error {
-	C.deserial_uninit(false)
+	C.deserial_uninit()
 	return w.Detach()
 }
 

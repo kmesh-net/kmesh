@@ -191,20 +191,20 @@ static inline void *kmesh_get_map64_val(const void *ptr)
     __u32 mim_idx = (__u32)(uintptr_t)ptr;
 
     kmesh_parse_mim_idx(mim_idx, &type, &inner_idx);
-    if (type != MAP_IN_MAP_TYPE_64)
+    if (type != MAP_TYPE_64)
         return NULL;
 
     return kmesh_map_lookup_elem(&map64, &inner_idx);
 }
 
-static inline void *kmesh_get_map128_val(const void *ptr)
+static inline void *kmesh_get_map192_val(const void *ptr)
 {
     __u8 type;
     __u32 inner_idx;
     __u32 mim_idx = (__u32)(uintptr_t)ptr;
 
     kmesh_parse_mim_idx(mim_idx, &type, &inner_idx);
-    if (type != MAP_IN_MAP_TYPE_128)
+    if (type != MAP_TYPE_192)
         return NULL;
 
     return kmesh_map_lookup_elem(&map192, &inner_idx);
@@ -217,7 +217,7 @@ static inline void *kmesh_get_map1024_val(const void *ptr)
     __u32 mim_idx = (__u32)(uintptr_t)ptr;
 
     kmesh_parse_mim_idx(mim_idx, &type, &inner_idx);
-    if (type != MAP_IN_MAP_TYPE_1024)
+    if (type != MAP_TYPE_1024)
         return NULL;
 
     return kmesh_map_lookup_elem(&map1024, &inner_idx);
@@ -230,7 +230,7 @@ static inline void *kmesh_get_map8192_val(const void *ptr)
     __u32 mim_idx = (__u32)(uintptr_t)ptr;
 
     kmesh_parse_mim_idx(mim_idx, &type, &inner_idx);
-    if (type != MAP_IN_MAP_TYPE_8192)
+    if (type != MAP_TYPE_8192)
         return NULL;
 
     return kmesh_map_lookup_elem(&map8192, &inner_idx);
@@ -241,9 +241,9 @@ static inline void *kmesh_get_map8192_val(const void *ptr)
         void *val_tmp = NULL;                                                                                          \
         if (sizeof(type) == sizeof(void *)) {                                                                          \
             if (__builtin_types_compatible_p(type, char *))                                                            \
-                val_tmp = kmesh_get_map128_val(ptr);                                                                   \
+                val_tmp = kmesh_get_map192_val(ptr);                                                                   \
             else if (__builtin_types_compatible_p(type, char **))                                                      \
-                val_tmp = kmesh_get_map128_val(ptr);                                                                   \
+                val_tmp = kmesh_get_map192_val(ptr);                                                                   \
             else if (__builtin_types_compatible_p(type, void *))                                                       \
                 val_tmp = kmesh_get_map8192_val(ptr);                                                                  \
             else if (__builtin_types_compatible_p(type, void **))                                                      \
@@ -253,7 +253,7 @@ static inline void *kmesh_get_map8192_val(const void *ptr)
         } else if (sizeof(type) <= MAP_VAL_SIZE_64)                                                                    \
             val_tmp = kmesh_get_map64_val(ptr);                                                                        \
         else if (sizeof(type) <= MAP_VAL_SIZE_192)                                                                     \
-            val_tmp = kmesh_get_map128_val(ptr);                                                                       \
+            val_tmp = kmesh_get_map192_val(ptr);                                                                       \
         else if (sizeof(type) <= MAP_VAL_SIZE_1024)                                                                    \
             val_tmp = kmesh_get_map1024_val(ptr);                                                                      \
         else if (sizeof(type) <= MAP_VAL_SIZE_8192)                                                                    \

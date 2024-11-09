@@ -8,18 +8,6 @@
 
 /* equal MAP_SIZE_OF_OUTTER_MAP */
 #define MAX_OUTTER_MAP_ENTRIES        (1 << 20)
-#define OUTTER_MAP_USAGE_HIGH_PERCENT (0.7)
-#define OUTTER_MAP_USAGE_LOW_PERCENT  (0.3)
-#define TASK_SIZE                     (512)
-
-// 32,768
-#define OUTTER_MAP_SCALEUP_STEP (1 << 15)
-// 8,192
-#define OUTTER_MAP_SCALEIN_STEP (1 << 13)
-
-#define ELASTIC_SLOTS_NUM                                                                                              \
-    ((OUTTER_MAP_SCALEUP_STEP > OUTTER_MAP_SCALEIN_STEP) ? OUTTER_MAP_SCALEUP_STEP : OUTTER_MAP_SCALEIN_STEP)
-
 struct element_list_node {
     void *elem;
     struct element_list_node *next;
@@ -32,8 +20,7 @@ void deserial_free_elem(void *value);
 void deserial_free_elem_list(struct element_list_node *head);
 int deserial_delete_elem(void *key, const void *msg_desciptor);
 
-int deserial_init(bool restore);
-int deserial_uninit(bool persist);
-int inner_map_mng_persist();
+int deserial_init();
+int deserial_uninit();
 
 #endif /* __DESERIALIZATION_TO_BPF_MAP_H__ */

@@ -75,7 +75,7 @@ func (sc *BpfAds) Start() error {
 		return fmt.Errorf("failed to set api env")
 	}
 
-	ret := C.deserial_init(restart.GetStartType() == restart.Restart)
+	ret := C.deserial_init()
 	if ret != 0 {
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
@@ -83,7 +83,7 @@ func (sc *BpfAds) Start() error {
 }
 
 func (sc *BpfAds) Stop() error {
-	C.deserial_uninit(false)
+	C.deserial_uninit()
 	if err := sc.Detach(); err != nil {
 		log.Errorf("failed detach when stop kmesh, err: %v", err)
 		return err
