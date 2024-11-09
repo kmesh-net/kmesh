@@ -41,7 +41,7 @@ struct {
     __uint(value_size, sizeof(struct match_context));
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_AUTH_TAILCALL);
-} kmesh_tc_info_map SEC(".maps");
+} kmesh_tc_args SEC(".maps");
 
 static inline Istio__Security__Authorization *map_lookup_authz(__u32 policyKey)
 {
@@ -273,9 +273,9 @@ int policy_check(struct xdp_md *ctx)
         return XDP_PASS;
     }
 
-    match_ctx = bpf_map_lookup_elem(&kmesh_tc_info_map, &tuple_key);
+    match_ctx = bpf_map_lookup_elem(&kmesh_tc_args, &tuple_key);
     if (!match_ctx) {
-        BPF_LOG(ERR, AUTH, "Failed to retrieve tailcall context from kmesh_tc_info_map");
+        BPF_LOG(ERR, AUTH, "Failed to retrieve tailcall context from kmesh_tc_args");
         return XDP_PASS;
     }
 
@@ -304,7 +304,7 @@ int policy_check(struct xdp_md *ctx)
         match_ctx->rulesPtr = rulesPtr;
         match_ctx->n_rules = policy->n_rules;
         match_ctx->action = policy->action;
-        ret = bpf_map_update_elem(&kmesh_tc_info_map, &tuple_key, match_ctx, BPF_ANY);
+        ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, match_ctx, BPF_ANY);
         if (ret < 0) {
             BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
             return XDP_PASS;
@@ -314,10 +314,11 @@ int policy_check(struct xdp_md *ctx)
     return XDP_PASS;
 
 auth_in_user_space:
-    if (bpf_map_delete_elem(&kmesh_tc_info_map, &tuple_key) != 0) {
+    if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
         BPF_LOG(DEBUG, AUTH, "Failed to delete context from map");
     }
     bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
+    return XDP_PASS;
 }
 
 SEC("xdp_auth")
@@ -337,7 +338,7 @@ int rule_check(struct xdp_md *ctx)
         return XDP_PASS;
     }
 
-    match_ctx = bpf_map_lookup_elem(&kmesh_tc_info_map, &tuple_key);
+    match_ctx = bpf_map_lookup_elem(&kmesh_tc_args, &tuple_key);
     if (!match_ctx) {
         BPF_LOG(ERR, AUTH, "Failed to retrieve match_context from map");
         return XDP_PASS;
@@ -368,13 +369,13 @@ int rule_check(struct xdp_md *ctx)
         if (rule_match_check(rule, &info, &tuple_key) == MATCHED) {
             if (match_ctx->action == ISTIO__SECURITY__ACTION__DENY) {
                 BPF_LOG(INFO, AUTH, "Rule matched, action: DENY");
-                if (bpf_map_delete_elem(&kmesh_tc_info_map, &tuple_key) != 0) {
+                if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
                     BPF_LOG(DEBUG, AUTH, "Failed to delete context from map");
                 }
                 return AUTH_DENY;
             } else {
                 BPF_LOG(INFO, AUTH, "Rule matched, action: ALLOW");
-                if (bpf_map_delete_elem(&kmesh_tc_info_map, &tuple_key) != 0) {
+                if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
                     BPF_LOG(DEBUG, AUTH, "Failed to delete context from map");
                 }
                 return AUTH_ALLOW;
@@ -388,7 +389,7 @@ int rule_check(struct xdp_md *ctx)
         bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
     }
 
-    ret = bpf_map_update_elem(&kmesh_tc_info_map, &tuple_key, match_ctx, BPF_ANY);
+    ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, match_ctx, BPF_ANY);
     if (ret < 0) {
         BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
         return XDP_PASS;

@@ -27,7 +27,7 @@ const (
 	// This annotation is used to indicate traffic redirection settings specific to Kmesh
 	KmeshRedirectionAnnotation = "kmesh.net/redirection"
 
-	XDP_PROG_NAME = "xdp_shutdown"
+	XDP_PROG_NAME = "xdp_authz"
 
 	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
 	TrustDomain  = "cluster.local"

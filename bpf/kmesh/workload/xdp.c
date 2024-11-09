@@ -93,7 +93,7 @@ static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct
 }
 
 SEC("xdp_auth")
-int xdp_shutdown(struct xdp_md *ctx)
+int xdp_authz(struct xdp_md *ctx)
 {
     struct match_context match_ctx;
     struct bpf_sock_tuple tuple_key = {0};
@@ -114,7 +114,7 @@ int xdp_shutdown(struct xdp_md *ctx)
     }
     match_ctx.policies = policies;
     match_ctx.policy_index = 0;
-    ret = bpf_map_update_elem(&kmesh_tc_info_map, &tuple_key, &match_ctx, BPF_ANY);
+    ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, &match_ctx, BPF_ANY);
     if (ret < 0) {
         BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
         return XDP_PASS;

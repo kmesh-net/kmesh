@@ -133,6 +133,7 @@ type KmeshCgroupSockWorkloadMapSpecs struct {
 	MapOfWlPolicy     *ebpf.MapSpec `ebpf:"map_of_wl_policy"`
 	TmpBuf            *ebpf.MapSpec `ebpf:"tmp_buf"`
 	TmpLogBuf         *ebpf.MapSpec `ebpf:"tmp_log_buf"`
+	XdpTailcallMap    *ebpf.MapSpec `ebpf:"xdp_tailcall_map"`
 }
 
 // KmeshCgroupSockWorkloadObjects contains all objects after they have been loaded into the kernel.
@@ -176,6 +177,7 @@ type KmeshCgroupSockWorkloadMaps struct {
 	MapOfWlPolicy     *ebpf.Map `ebpf:"map_of_wl_policy"`
 	TmpBuf            *ebpf.Map `ebpf:"tmp_buf"`
 	TmpLogBuf         *ebpf.Map `ebpf:"tmp_log_buf"`
+	XdpTailcallMap    *ebpf.Map `ebpf:"xdp_tailcall_map"`
 }
 
 func (m *KmeshCgroupSockWorkloadMaps) Close() error {
@@ -202,6 +204,7 @@ func (m *KmeshCgroupSockWorkloadMaps) Close() error {
 		m.MapOfWlPolicy,
 		m.TmpBuf,
 		m.TmpLogBuf,
+		m.XdpTailcallMap,
 	)
 }
 
