@@ -27,5 +27,5 @@ import (
 
 func main() {
 	rootCmd := common.GetRootCommand()
-	doc.GenMarkdownTree(rootCmd, "../docs/kmeshctl")
+	doc.GenMarkdownTree(rootCmd, "../docs/ctl")
 }
