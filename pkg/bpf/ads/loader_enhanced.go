@@ -112,29 +112,17 @@ func (sc *BpfAds) Load() error {
 }
 
 func (sc *BpfAds) ApiEnvCfg() error {
-	var id ebpf.MapID
-	info, err := sc.SockOps.KmeshSockopsMaps.KmeshListener.Info()
-	if err != nil {
+	var err error
+
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshSockopsMaps.KmeshListener, "Listener"); err != nil {
 		return err
 	}
 
-	id, _ = info.ID()
-	stringId := strconv.Itoa(int(id))
-	if err := os.Setenv("Listener", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.MapOfRouterConfig, "RouteConfiguration"); err != nil {
 		return err
 	}
 
-	info, _ = sc.SockOps.MapOfRouterConfig.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("RouteConfiguration", stringId); err != nil {
-		return err
-	}
-
-	info, _ = sc.SockOps.KmeshCluster.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("Cluster", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshCluster, "Cluster"); err != nil {
 		return err
 	}
 

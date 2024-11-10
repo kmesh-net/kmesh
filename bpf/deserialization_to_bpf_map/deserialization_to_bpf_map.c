@@ -43,7 +43,6 @@ struct op_context {
     void *key;
     void *value;
     int curr_fd;
-    struct bpf_map_info *inner_info;
     struct bpf_map_info *curr_info;
     char *map_object;
     const ProtobufCMessageDescriptor *desc;
@@ -368,7 +367,7 @@ static int get_string_or_msg_field_size(struct op_context *ctx, const ProtobufCF
     char *value = *(char **)((char *)ctx->value + field->offset);
 
     if (field->type == PROTOBUF_C_TYPE_MESSAGE)
-        return (((ProtobufCMessage *)value)->descriptor->sizeof_message);
+        return ((ProtobufCMessageDescriptor *)(field->descriptor))->sizeof_message;
 
     real_len = strlen(value) + 1;
     if (real_len > MAP_VAL_STR_SIZE) {
@@ -996,7 +995,7 @@ static int indirect_field_del(struct op_context *ctx, unsigned int outer_key, co
             break;
         }
 
-        map_object = malloc(ctx->inner_info->value_size);
+        map_object = malloc(inner_info->value_size);
         if (!map_object) {
             LOG_WARN("indirect_field_del malloc failed:%d", errno);
             break;
@@ -1005,7 +1004,7 @@ static int indirect_field_del(struct op_context *ctx, unsigned int outer_key, co
         memcpy_s(&new_ctx, sizeof(new_ctx), ctx, sizeof(*ctx));
         new_ctx.curr_fd = inner_fd;
         new_ctx.key = (void *)&key;
-        new_ctx.curr_info = ctx->inner_info;
+        new_ctx.curr_info = inner_info;
         new_ctx.value = map_object;
         new_ctx.desc = desc;
 
@@ -1048,7 +1047,7 @@ static int repeat_field_del(struct op_context *ctx, const ProtobufCFieldDescript
     case PROTOBUF_C_TYPE_MESSAGE:
         // lint -fallthrough
     case PROTOBUF_C_TYPE_STRING:
-        map_object = calloc(1, ctx->inner_info->value_size);
+        map_object = calloc(1, inner_info->value_size);
         if (!map_object) {
             ret = -ENOMEM;
             goto end;

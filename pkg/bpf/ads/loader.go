@@ -25,8 +25,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/cilium/ebpf"
 
@@ -98,21 +96,13 @@ func (sc *BpfAds) Load() error {
 }
 
 func (sc *BpfAds) ApiEnvCfg() error {
-	info, err := sc.SockConn.KmeshCgroupSockMaps.KmeshListener.Info()
-	if err != nil {
+	var err error
+
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshCgroupSockMaps.KmeshListener, "Listener"); err != nil {
 		return err
 	}
 
-	id, _ := info.ID()
-	stringId := strconv.Itoa(int(id))
-	if err = os.Setenv("Listener", stringId); err != nil {
-		return err
-	}
-
-	info, _ = sc.SockConn.KmeshCluster.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err = os.Setenv("Cluster", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshCluster, "Cluster"); err != nil {
 		return err
 	}
 

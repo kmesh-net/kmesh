@@ -22,8 +22,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/cilium/ebpf"
 
@@ -163,14 +161,9 @@ func (w *BpfWorkload) Detach() error {
 }
 
 func (w *BpfWorkload) ApiEnvCfg() error {
-	info, err := w.XdpAuth.KmeshXDPAuthMaps.MapOfAuthz.Info()
-	if err != nil {
-		return err
-	}
+	var err error
 
-	id, _ := info.ID()
-	stringId := strconv.Itoa(int(id))
-	if err = os.Setenv("Authorization", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshXDPAuthMaps.MapOfAuthz, "Authorization"); err != nil {
 		return err
 	}
 
