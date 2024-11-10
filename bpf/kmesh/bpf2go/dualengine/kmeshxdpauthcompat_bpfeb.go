@@ -90,7 +90,6 @@ type KmeshXDPAuthCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshXDPAuthCompatMapSpecs struct {
-	InnerMap         *ebpf.MapSpec `ebpf:"inner_map"`
 	KmeshBackend     *ebpf.MapSpec `ebpf:"kmesh_backend"`
 	KmeshConfigMap   *ebpf.MapSpec `ebpf:"kmesh_config_map"`
 	KmeshEndpoint    *ebpf.MapSpec `ebpf:"kmesh_endpoint"`
@@ -98,12 +97,15 @@ type KmeshXDPAuthCompatMapSpecs struct {
 	KmeshFrontend    *ebpf.MapSpec `ebpf:"kmesh_frontend"`
 	KmeshManage      *ebpf.MapSpec `ebpf:"kmesh_manage"`
 	KmeshService     *ebpf.MapSpec `ebpf:"kmesh_service"`
+	Map1024          *ebpf.MapSpec `ebpf:"map1024"`
+	Map192           *ebpf.MapSpec `ebpf:"map192"`
+	Map64            *ebpf.MapSpec `ebpf:"map64"`
+	Map8192          *ebpf.MapSpec `ebpf:"map8192"`
 	MapOfAuth        *ebpf.MapSpec `ebpf:"map_of_auth"`
 	MapOfAuthz       *ebpf.MapSpec `ebpf:"map_of_authz"`
 	MapOfSockStorage *ebpf.MapSpec `ebpf:"map_of_sock_storage"`
 	MapOfTuple       *ebpf.MapSpec `ebpf:"map_of_tuple"`
 	MapOfWlPolicy    *ebpf.MapSpec `ebpf:"map_of_wl_policy"`
-	OuterMap         *ebpf.MapSpec `ebpf:"outer_map"`
 	TmpBuf           *ebpf.MapSpec `ebpf:"tmp_buf"`
 	TmpLogBuf        *ebpf.MapSpec `ebpf:"tmp_log_buf"`
 }
@@ -127,7 +129,6 @@ func (o *KmeshXDPAuthCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshXDPAuthCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshXDPAuthCompatMaps struct {
-	InnerMap         *ebpf.Map `ebpf:"inner_map"`
 	KmeshBackend     *ebpf.Map `ebpf:"kmesh_backend"`
 	KmeshConfigMap   *ebpf.Map `ebpf:"kmesh_config_map"`
 	KmeshEndpoint    *ebpf.Map `ebpf:"kmesh_endpoint"`
@@ -135,19 +136,21 @@ type KmeshXDPAuthCompatMaps struct {
 	KmeshFrontend    *ebpf.Map `ebpf:"kmesh_frontend"`
 	KmeshManage      *ebpf.Map `ebpf:"kmesh_manage"`
 	KmeshService     *ebpf.Map `ebpf:"kmesh_service"`
+	Map1024          *ebpf.Map `ebpf:"map1024"`
+	Map192           *ebpf.Map `ebpf:"map192"`
+	Map64            *ebpf.Map `ebpf:"map64"`
+	Map8192          *ebpf.Map `ebpf:"map8192"`
 	MapOfAuth        *ebpf.Map `ebpf:"map_of_auth"`
 	MapOfAuthz       *ebpf.Map `ebpf:"map_of_authz"`
 	MapOfSockStorage *ebpf.Map `ebpf:"map_of_sock_storage"`
 	MapOfTuple       *ebpf.Map `ebpf:"map_of_tuple"`
 	MapOfWlPolicy    *ebpf.Map `ebpf:"map_of_wl_policy"`
-	OuterMap         *ebpf.Map `ebpf:"outer_map"`
 	TmpBuf           *ebpf.Map `ebpf:"tmp_buf"`
 	TmpLogBuf        *ebpf.Map `ebpf:"tmp_log_buf"`
 }
 
 func (m *KmeshXDPAuthCompatMaps) Close() error {
 	return _KmeshXDPAuthCompatClose(
-		m.InnerMap,
 		m.KmeshBackend,
 		m.KmeshConfigMap,
 		m.KmeshEndpoint,
@@ -155,12 +158,15 @@ func (m *KmeshXDPAuthCompatMaps) Close() error {
 		m.KmeshFrontend,
 		m.KmeshManage,
 		m.KmeshService,
+		m.Map1024,
+		m.Map192,
+		m.Map64,
+		m.Map8192,
 		m.MapOfAuth,
 		m.MapOfAuthz,
 		m.MapOfSockStorage,
 		m.MapOfTuple,
 		m.MapOfWlPolicy,
-		m.OuterMap,
 		m.TmpBuf,
 		m.TmpLogBuf,
 	)

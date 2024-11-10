@@ -104,7 +104,6 @@ type KmeshSockopsWorkloadCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsWorkloadCompatMapSpecs struct {
-	InnerMap         *ebpf.MapSpec `ebpf:"inner_map"`
 	KmeshBackend     *ebpf.MapSpec `ebpf:"kmesh_backend"`
 	KmeshConfigMap   *ebpf.MapSpec `ebpf:"kmesh_config_map"`
 	KmeshEndpoint    *ebpf.MapSpec `ebpf:"kmesh_endpoint"`
@@ -114,6 +113,10 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	KmeshPerfInfo    *ebpf.MapSpec `ebpf:"kmesh_perf_info"`
 	KmeshPerfMap     *ebpf.MapSpec `ebpf:"kmesh_perf_map"`
 	KmeshService     *ebpf.MapSpec `ebpf:"kmesh_service"`
+	Map1024          *ebpf.MapSpec `ebpf:"map1024"`
+	Map192           *ebpf.MapSpec `ebpf:"map192"`
+	Map64            *ebpf.MapSpec `ebpf:"map64"`
+	Map8192          *ebpf.MapSpec `ebpf:"map8192"`
 	MapOfAuth        *ebpf.MapSpec `ebpf:"map_of_auth"`
 	MapOfDstInfo     *ebpf.MapSpec `ebpf:"map_of_dst_info"`
 	MapOfKmeshSocket *ebpf.MapSpec `ebpf:"map_of_kmesh_socket"`
@@ -121,7 +124,6 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	MapOfTcpInfo     *ebpf.MapSpec `ebpf:"map_of_tcp_info"`
 	MapOfTuple       *ebpf.MapSpec `ebpf:"map_of_tuple"`
 	MapOfWlPolicy    *ebpf.MapSpec `ebpf:"map_of_wl_policy"`
-	OuterMap         *ebpf.MapSpec `ebpf:"outer_map"`
 	TmpBuf           *ebpf.MapSpec `ebpf:"tmp_buf"`
 	TmpLogBuf        *ebpf.MapSpec `ebpf:"tmp_log_buf"`
 }
@@ -145,7 +147,6 @@ func (o *KmeshSockopsWorkloadCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshSockopsWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSockopsWorkloadCompatMaps struct {
-	InnerMap         *ebpf.Map `ebpf:"inner_map"`
 	KmeshBackend     *ebpf.Map `ebpf:"kmesh_backend"`
 	KmeshConfigMap   *ebpf.Map `ebpf:"kmesh_config_map"`
 	KmeshEndpoint    *ebpf.Map `ebpf:"kmesh_endpoint"`
@@ -155,6 +156,10 @@ type KmeshSockopsWorkloadCompatMaps struct {
 	KmeshPerfInfo    *ebpf.Map `ebpf:"kmesh_perf_info"`
 	KmeshPerfMap     *ebpf.Map `ebpf:"kmesh_perf_map"`
 	KmeshService     *ebpf.Map `ebpf:"kmesh_service"`
+	Map1024          *ebpf.Map `ebpf:"map1024"`
+	Map192           *ebpf.Map `ebpf:"map192"`
+	Map64            *ebpf.Map `ebpf:"map64"`
+	Map8192          *ebpf.Map `ebpf:"map8192"`
 	MapOfAuth        *ebpf.Map `ebpf:"map_of_auth"`
 	MapOfDstInfo     *ebpf.Map `ebpf:"map_of_dst_info"`
 	MapOfKmeshSocket *ebpf.Map `ebpf:"map_of_kmesh_socket"`
@@ -162,14 +167,12 @@ type KmeshSockopsWorkloadCompatMaps struct {
 	MapOfTcpInfo     *ebpf.Map `ebpf:"map_of_tcp_info"`
 	MapOfTuple       *ebpf.Map `ebpf:"map_of_tuple"`
 	MapOfWlPolicy    *ebpf.Map `ebpf:"map_of_wl_policy"`
-	OuterMap         *ebpf.Map `ebpf:"outer_map"`
 	TmpBuf           *ebpf.Map `ebpf:"tmp_buf"`
 	TmpLogBuf        *ebpf.Map `ebpf:"tmp_log_buf"`
 }
 
 func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 	return _KmeshSockopsWorkloadCompatClose(
-		m.InnerMap,
 		m.KmeshBackend,
 		m.KmeshConfigMap,
 		m.KmeshEndpoint,
@@ -179,6 +182,10 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.KmeshPerfInfo,
 		m.KmeshPerfMap,
 		m.KmeshService,
+		m.Map1024,
+		m.Map192,
+		m.Map64,
+		m.Map8192,
 		m.MapOfAuth,
 		m.MapOfDstInfo,
 		m.MapOfKmeshSocket,
@@ -186,7 +193,6 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.MapOfTcpInfo,
 		m.MapOfTuple,
 		m.MapOfWlPolicy,
-		m.OuterMap,
 		m.TmpBuf,
 		m.TmpLogBuf,
 	)
