@@ -55,7 +55,6 @@ struct {
     __type(value, struct sock_storage_data);
 } map_of_sock_storage SEC(".maps");
 
-// 64 128 1024 8192
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
@@ -74,17 +73,17 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
-    __uint(value_size, MAP_VAL_SIZE_1024);
+    __uint(value_size, MAP_VAL_SIZE_296);
     __uint(max_entries, MAP_MAX_ENTRIES);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} map1024 SEC(".maps");
+} map296 SEC(".maps");
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
-    __uint(value_size, MAP_VAL_SIZE_8192);
+    __uint(value_size, MAP_VAL_SIZE_1600);
     __uint(max_entries, MAP_MAX_ENTRIES);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} map8192 SEC(".maps");
+} map1600 SEC(".maps");
 
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
@@ -201,22 +200,20 @@ static inline void *get_ptr_val_from_map(void *map, __u8 map_type, const void *p
         if (sizeof(type) == sizeof(void *)) {                                                                          \
             if (__builtin_types_compatible_p(type, char *))                                                            \
                 val_tmp = get_ptr_val_from_map(&map192, MAP_TYPE_192, ptr);                                            \
-            else if (__builtin_types_compatible_p(type, char **))                                                      \
-                val_tmp = get_ptr_val_from_map(&map192, MAP_TYPE_192, ptr);                                            \
             else if (__builtin_types_compatible_p(type, void *))                                                       \
-                val_tmp = get_ptr_val_from_map(&map8192, MAP_TYPE_8192, ptr);                                          \
+                val_tmp = get_ptr_val_from_map(&map1600, MAP_TYPE_1600, ptr);                                          \
             else if (__builtin_types_compatible_p(type, void **))                                                      \
-                val_tmp = get_ptr_val_from_map(&map8192, MAP_TYPE_8192, ptr);                                          \
+                val_tmp = get_ptr_val_from_map(&map1600, MAP_TYPE_1600, ptr);                                          \
             else                                                                                                       \
                 val_tmp = get_ptr_val_from_map(&map64, MAP_TYPE_64, ptr);                                              \
         } else if (sizeof(type) <= MAP_VAL_SIZE_64)                                                                    \
             val_tmp = get_ptr_val_from_map(&map64, MAP_TYPE_64, ptr);                                                  \
         else if (sizeof(type) <= MAP_VAL_SIZE_192)                                                                     \
             val_tmp = get_ptr_val_from_map(&map192, MAP_TYPE_192, ptr);                                                \
-        else if (sizeof(type) <= MAP_VAL_SIZE_1024)                                                                    \
-            val_tmp = get_ptr_val_from_map(&map1024, MAP_TYPE_1024, ptr);                                              \
-        else if (sizeof(type) <= MAP_VAL_SIZE_8192)                                                                    \
-            val_tmp = get_ptr_val_from_map(&map8192, MAP_TYPE_8192, ptr);                                              \
+        else if (sizeof(type) <= MAP_VAL_SIZE_296)                                                                     \
+            val_tmp = get_ptr_val_from_map(&map296, MAP_TYPE_296, ptr);                                                \
+        else if (sizeof(type) <= MAP_VAL_SIZE_1600)                                                                    \
+            val_tmp = get_ptr_val_from_map(&map1600, MAP_TYPE_1600, ptr);                                              \
         else                                                                                                           \
             val_tmp = NULL;                                                                                            \
         val_tmp;                                                                                                       \

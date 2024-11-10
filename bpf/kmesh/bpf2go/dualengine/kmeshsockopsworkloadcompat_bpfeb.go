@@ -113,10 +113,10 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	KmeshPerfInfo    *ebpf.MapSpec `ebpf:"kmesh_perf_info"`
 	KmeshPerfMap     *ebpf.MapSpec `ebpf:"kmesh_perf_map"`
 	KmeshService     *ebpf.MapSpec `ebpf:"kmesh_service"`
-	Map1024          *ebpf.MapSpec `ebpf:"map1024"`
+	Map1600          *ebpf.MapSpec `ebpf:"map1600"`
 	Map192           *ebpf.MapSpec `ebpf:"map192"`
+	Map296           *ebpf.MapSpec `ebpf:"map296"`
 	Map64            *ebpf.MapSpec `ebpf:"map64"`
-	Map8192          *ebpf.MapSpec `ebpf:"map8192"`
 	MapOfAuth        *ebpf.MapSpec `ebpf:"map_of_auth"`
 	MapOfDstInfo     *ebpf.MapSpec `ebpf:"map_of_dst_info"`
 	MapOfKmeshSocket *ebpf.MapSpec `ebpf:"map_of_kmesh_socket"`
@@ -156,10 +156,10 @@ type KmeshSockopsWorkloadCompatMaps struct {
 	KmeshPerfInfo    *ebpf.Map `ebpf:"kmesh_perf_info"`
 	KmeshPerfMap     *ebpf.Map `ebpf:"kmesh_perf_map"`
 	KmeshService     *ebpf.Map `ebpf:"kmesh_service"`
-	Map1024          *ebpf.Map `ebpf:"map1024"`
+	Map1600          *ebpf.Map `ebpf:"map1600"`
 	Map192           *ebpf.Map `ebpf:"map192"`
+	Map296           *ebpf.Map `ebpf:"map296"`
 	Map64            *ebpf.Map `ebpf:"map64"`
-	Map8192          *ebpf.Map `ebpf:"map8192"`
 	MapOfAuth        *ebpf.Map `ebpf:"map_of_auth"`
 	MapOfDstInfo     *ebpf.Map `ebpf:"map_of_dst_info"`
 	MapOfKmeshSocket *ebpf.Map `ebpf:"map_of_kmesh_socket"`
@@ -182,10 +182,10 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.KmeshPerfInfo,
 		m.KmeshPerfMap,
 		m.KmeshService,
-		m.Map1024,
+		m.Map1600,
 		m.Map192,
+		m.Map296,
 		m.Map64,
-		m.Map8192,
 		m.MapOfAuth,
 		m.MapOfDstInfo,
 		m.MapOfKmeshSocket,

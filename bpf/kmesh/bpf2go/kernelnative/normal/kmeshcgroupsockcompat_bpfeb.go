@@ -111,10 +111,10 @@ type KmeshCgroupSockCompatMapSpecs struct {
 	KmeshRatelimit      *ebpf.MapSpec `ebpf:"kmesh_ratelimit"`
 	KmeshTailCallCtx    *ebpf.MapSpec `ebpf:"kmesh_tail_call_ctx"`
 	KmeshTailCallProg   *ebpf.MapSpec `ebpf:"kmesh_tail_call_prog"`
-	Map1024             *ebpf.MapSpec `ebpf:"map1024"`
+	Map1600             *ebpf.MapSpec `ebpf:"map1600"`
 	Map192              *ebpf.MapSpec `ebpf:"map192"`
+	Map296              *ebpf.MapSpec `ebpf:"map296"`
 	Map64               *ebpf.MapSpec `ebpf:"map64"`
-	Map8192             *ebpf.MapSpec `ebpf:"map8192"`
 	MapOfClusterEps     *ebpf.MapSpec `ebpf:"map_of_cluster_eps"`
 	MapOfClusterEpsData *ebpf.MapSpec `ebpf:"map_of_cluster_eps_data"`
 	MapOfClusterSock    *ebpf.MapSpec `ebpf:"map_of_cluster_sock"`
@@ -152,10 +152,10 @@ type KmeshCgroupSockCompatMaps struct {
 	KmeshRatelimit      *ebpf.Map `ebpf:"kmesh_ratelimit"`
 	KmeshTailCallCtx    *ebpf.Map `ebpf:"kmesh_tail_call_ctx"`
 	KmeshTailCallProg   *ebpf.Map `ebpf:"kmesh_tail_call_prog"`
-	Map1024             *ebpf.Map `ebpf:"map1024"`
+	Map1600             *ebpf.Map `ebpf:"map1600"`
 	Map192              *ebpf.Map `ebpf:"map192"`
+	Map296              *ebpf.Map `ebpf:"map296"`
 	Map64               *ebpf.Map `ebpf:"map64"`
-	Map8192             *ebpf.Map `ebpf:"map8192"`
 	MapOfClusterEps     *ebpf.Map `ebpf:"map_of_cluster_eps"`
 	MapOfClusterEpsData *ebpf.Map `ebpf:"map_of_cluster_eps_data"`
 	MapOfClusterSock    *ebpf.Map `ebpf:"map_of_cluster_sock"`
@@ -176,10 +176,10 @@ func (m *KmeshCgroupSockCompatMaps) Close() error {
 		m.KmeshRatelimit,
 		m.KmeshTailCallCtx,
 		m.KmeshTailCallProg,
-		m.Map1024,
+		m.Map1600,
 		m.Map192,
+		m.Map296,
 		m.Map64,
-		m.Map8192,
 		m.MapOfClusterEps,
 		m.MapOfClusterEpsData,
 		m.MapOfClusterSock,

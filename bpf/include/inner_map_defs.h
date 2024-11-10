@@ -7,7 +7,7 @@
 // outer key:
 // map_type(1 byte) + inner_index(3 bytes)
 
-typedef enum { MAP_TYPE_64, MAP_TYPE_192, MAP_TYPE_1024, MAP_TYPE_8192, MAP_TYPE_MAX } map_in_map_type;
+typedef enum { MAP_TYPE_64, MAP_TYPE_192, MAP_TYPE_296, MAP_TYPE_1600, MAP_TYPE_MAX } map_in_map_type;
 
 #define MAP_GET_TYPE(idx)                (__u8)((__u32)(idx) >> 24)
 #define MAP_GET_INDEX(idx)               (__u32)((__u32)(idx)&0xFFFFFF)
@@ -15,12 +15,12 @@ typedef enum { MAP_TYPE_64, MAP_TYPE_192, MAP_TYPE_1024, MAP_TYPE_8192, MAP_TYPE
 
 #define MAP_VAL_SIZE_64   64
 #define MAP_VAL_SIZE_192  192
-#define MAP_VAL_SIZE_1024 1024
-#define MAP_VAL_SIZE_8192 8192
+#define MAP_VAL_SIZE_296  296
+#define MAP_VAL_SIZE_1600 1600
 #define MAP_MAX_ENTRIES   100000
 
 #define MAP_VAL_STR_SIZE    MAP_VAL_SIZE_192
-#define MAP_VAL_REPEAT_SIZE MAP_VAL_SIZE_8192
+#define MAP_VAL_REPEAT_SIZE MAP_VAL_SIZE_1600
 
 #define SET_BIT(bitmap, n) ((bitmap)[(n) / 8] |= (1U << ((n) % 8)))
 

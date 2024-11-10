@@ -175,11 +175,11 @@ func (w *BpfWorkload) ApiEnvCfg() error {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map1024, "Map1024"); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map296, "Map296"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map8192, "Map8192"); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map1600, "Map1600"); err != nil {
 		return err
 	}
 	return nil

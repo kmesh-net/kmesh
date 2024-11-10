@@ -1316,8 +1316,8 @@ int get_map_infos()
     char *map_names[] = {
         "Map64",
         "Map192",
-        "Map1024",
-        "Map8192",
+        "Map296",
+        "Map1600",
     };
 
     for (i = 0; i < MAP_TYPE_MAX; i++) {

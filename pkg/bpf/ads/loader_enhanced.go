@@ -25,8 +25,6 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/cilium/ebpf"
 
@@ -134,11 +132,11 @@ func (sc *BpfAds) ApiEnvCfg() error {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map1024, "Map1024"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map296, "Map296"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map8192, "Map8192"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map1600, "Map1600"); err != nil {
 		return err
 	}
 	return nil

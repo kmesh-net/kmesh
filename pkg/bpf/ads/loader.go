@@ -114,11 +114,11 @@ func (sc *BpfAds) ApiEnvCfg() error {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.Map1024, "Map1024"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.Map296, "Map296"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.Map8192, "Map8192"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.Map1600, "Map1600"); err != nil {
 		return err
 	}
 	return nil
