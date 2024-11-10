@@ -113,12 +113,12 @@ Local_rate_limit__check_and_take(const Listener__FilterChain *filter_chain, addr
     }
     BPF_LOG(INFO, FILTER, "local rate limit rule matched\n");
 
-    rate_limit = kmesh_get_ptr_val(filter->local_rate_limit);
+    rate_limit = KMESH_GET_PTR_VAL(filter->local_rate_limit, Filter__LocalRateLimit);
     if (!rate_limit) {
         BPF_LOG(ERR, FILTERCHAIN, "get rate_limit failed\n");
         return -1;
     }
-    token_bucket = kmesh_get_ptr_val(rate_limit->token_bucket);
+    token_bucket = KMESH_GET_PTR_VAL(rate_limit->token_bucket, Filter__TokenBucket);
     if (!token_bucket) {
         BPF_LOG(ERR, FILTERCHAIN, "get token_bucket failed\n");
         return -1;
@@ -174,7 +174,7 @@ Local_rate_limit__filter_chain__match(const Listener__FilterChain *filter_chain,
         return -1;
     }
 
-    ptrs = kmesh_get_ptr_val(filter_chain->filters);
+    ptrs = KMESH_GET_PTR_VAL(filter_chain->filters, void *);
     if (!ptrs) {
         BPF_LOG(ERR, FILTER, "failed to get filter ptrs\n");
         return -1;
@@ -186,7 +186,7 @@ Local_rate_limit__filter_chain__match(const Listener__FilterChain *filter_chain,
             break;
         }
 
-        filter = (Listener__Filter *)kmesh_get_ptr_val((void *)*((__u64 *)ptrs + i));
+        filter = (Listener__Filter *)KMESH_GET_PTR_VAL((void *)*((__u64 *)ptrs + i), Listener__Filter);
         if (!filter) {
             continue;
         }
