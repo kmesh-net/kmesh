@@ -99,7 +99,7 @@ Local_rate_limit__filter_chain__match(const Listener__FilterChain *filter_chain,
  * @return             0 if allowed, -1 if rate limit exceeded or runtime error.
  */
 static inline int
-Local_rate_limit__check_and_take(const Listener__FilterChain *filter_chain, address_t *addr, const ctx_buff_t *ctx)
+Local_rate_limit__check_and_take(const Listener__FilterChain *filter_chain, address_t *addr, ctx_buff_t *ctx)
 {
     int ret = 0;
     Listener__Filter *filter = NULL;
