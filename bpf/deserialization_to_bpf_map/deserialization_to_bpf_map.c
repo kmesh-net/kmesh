@@ -453,6 +453,7 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
 {
     int ret, ret1;
     unsigned int i;
+    int field_len;
     int inner_fd, key = 0;
     unsigned int outer_key;
     struct bpf_map_info *inner_info = NULL;
@@ -485,7 +486,11 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     case PROTOBUF_C_TYPE_MESSAGE:
     case PROTOBUF_C_TYPE_STRING:
         for (i = 0; i < *(unsigned int *)n; i++) {
-            outer_key = alloc_outer_key(ctx, get_string_or_msg_field_size(ctx, field));
+            if (field->type == PROTOBUF_C_TYPE_STRING)
+                field_len = strlen((char *)origin_value[i]) + 1;
+            else
+                field_len = ((ProtobufCMessageDescriptor *)(field->descriptor))->sizeof_message;
+            outer_key = alloc_outer_key(ctx, field_len);
             if (outer_key < 0)
                 goto end;
 
