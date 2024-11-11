@@ -96,14 +96,17 @@ func initDefaultLogger() *logrus.Logger {
 // initFileLogger return a file only logger
 func initFileLogger() *logrus.Logger {
 	logger := initDefaultLogger()
-	path, _ := filepath.Split(defaultLogFile)
+	logFilePath := defaultLogFile
+	path, fileName := filepath.Split(logFilePath)
 	err := os.MkdirAll(path, 0o700)
 	if err != nil {
-		logger.Fatalf("failed to create log directory: %v", err)
+		logger.Warnf("failed to create log directory: %v, consider running with root user", err)
+		// if error occurs, fall back to current working directory
+		logFilePath = fileName
 	}
 
 	logfile := &lumberjack.Logger{
-		Filename:   defaultLogFile,
+		Filename:   logFilePath,
 		MaxSize:    500, // megabytes
 		MaxBackups: 3,
 		MaxAge:     28,    //days
