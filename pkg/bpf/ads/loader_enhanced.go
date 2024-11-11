@@ -124,19 +124,19 @@ func (sc *BpfAds) ApiEnvCfg() error {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map64, "Map64"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap64, "KmeshMap64"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map192, "Map192"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap192, "KmeshMap192"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map296, "Map296"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap296, "KmeshMap296"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.Map1600, "Map1600"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap1600, "KmeshMap1600"); err != nil {
 		return err
 	}
 	return nil

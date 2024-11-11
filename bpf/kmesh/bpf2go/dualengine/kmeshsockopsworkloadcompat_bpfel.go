@@ -110,13 +110,13 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	KmeshEvents      *ebpf.MapSpec `ebpf:"kmesh_events"`
 	KmeshFrontend    *ebpf.MapSpec `ebpf:"kmesh_frontend"`
 	KmeshManage      *ebpf.MapSpec `ebpf:"kmesh_manage"`
+	KmeshMap1600     *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192      *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296      *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64       *ebpf.MapSpec `ebpf:"kmesh_map64"`
 	KmeshPerfInfo    *ebpf.MapSpec `ebpf:"kmesh_perf_info"`
 	KmeshPerfMap     *ebpf.MapSpec `ebpf:"kmesh_perf_map"`
 	KmeshService     *ebpf.MapSpec `ebpf:"kmesh_service"`
-	Map1600          *ebpf.MapSpec `ebpf:"map1600"`
-	Map192           *ebpf.MapSpec `ebpf:"map192"`
-	Map296           *ebpf.MapSpec `ebpf:"map296"`
-	Map64            *ebpf.MapSpec `ebpf:"map64"`
 	MapOfAuth        *ebpf.MapSpec `ebpf:"map_of_auth"`
 	MapOfDstInfo     *ebpf.MapSpec `ebpf:"map_of_dst_info"`
 	MapOfKmeshSocket *ebpf.MapSpec `ebpf:"map_of_kmesh_socket"`
@@ -153,13 +153,13 @@ type KmeshSockopsWorkloadCompatMaps struct {
 	KmeshEvents      *ebpf.Map `ebpf:"kmesh_events"`
 	KmeshFrontend    *ebpf.Map `ebpf:"kmesh_frontend"`
 	KmeshManage      *ebpf.Map `ebpf:"kmesh_manage"`
+	KmeshMap1600     *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192      *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296      *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64       *ebpf.Map `ebpf:"kmesh_map64"`
 	KmeshPerfInfo    *ebpf.Map `ebpf:"kmesh_perf_info"`
 	KmeshPerfMap     *ebpf.Map `ebpf:"kmesh_perf_map"`
 	KmeshService     *ebpf.Map `ebpf:"kmesh_service"`
-	Map1600          *ebpf.Map `ebpf:"map1600"`
-	Map192           *ebpf.Map `ebpf:"map192"`
-	Map296           *ebpf.Map `ebpf:"map296"`
-	Map64            *ebpf.Map `ebpf:"map64"`
 	MapOfAuth        *ebpf.Map `ebpf:"map_of_auth"`
 	MapOfDstInfo     *ebpf.Map `ebpf:"map_of_dst_info"`
 	MapOfKmeshSocket *ebpf.Map `ebpf:"map_of_kmesh_socket"`
@@ -179,13 +179,13 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.KmeshEvents,
 		m.KmeshFrontend,
 		m.KmeshManage,
+		m.KmeshMap1600,
+		m.KmeshMap192,
+		m.KmeshMap296,
+		m.KmeshMap64,
 		m.KmeshPerfInfo,
 		m.KmeshPerfMap,
 		m.KmeshService,
-		m.Map1600,
-		m.Map192,
-		m.Map296,
-		m.Map64,
 		m.MapOfAuth,
 		m.MapOfDstInfo,
 		m.MapOfKmeshSocket,

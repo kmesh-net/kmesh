@@ -61,7 +61,7 @@ struct {
     __uint(value_size, MAP_VAL_SIZE_64);
     __uint(max_entries, MAP_MAX_ENTRIES);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} map64 SEC(".maps");
+} kmesh_map64 SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -69,21 +69,21 @@ struct {
     __uint(value_size, MAP_VAL_SIZE_192);
     __uint(max_entries, MAP_MAX_ENTRIES);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} map192 SEC(".maps");
+} kmesh_map192 SEC(".maps");
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
     __uint(value_size, MAP_VAL_SIZE_296);
     __uint(max_entries, MAP_MAX_ENTRIES);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} map296 SEC(".maps");
+} kmesh_map296 SEC(".maps");
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
     __uint(value_size, MAP_VAL_SIZE_1600);
     __uint(max_entries, MAP_MAX_ENTRIES);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} map1600 SEC(".maps");
+} kmesh_map1600 SEC(".maps");
 
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
@@ -188,8 +188,10 @@ static inline void *get_ptr_val_from_map(void *map, __u8 map_type, const void *p
     __u32 outer_key = (__u32)(uintptr_t)ptr;
 
     kmesh_parse_outer_key(outer_key, &type, &inner_idx);
-    if (type != map_type)
+    if (type != map_type) {
+        BPF_LOG(ERR, KMESH, "get_ptr_val: invalid map type(%u %u)\n", type, map_type);
         return NULL;
+    }
 
     return kmesh_map_lookup_elem(map, &inner_idx);
 }
@@ -199,21 +201,21 @@ static inline void *get_ptr_val_from_map(void *map, __u8 map_type, const void *p
         void *val_tmp = NULL;                                                                                          \
         if (sizeof(type) == sizeof(void *)) {                                                                          \
             if (__builtin_types_compatible_p(type, char *))                                                            \
-                val_tmp = get_ptr_val_from_map(&map192, MAP_TYPE_192, ptr);                                            \
+                val_tmp = get_ptr_val_from_map(&kmesh_map192, MAP_TYPE_192, ptr);                                      \
             else if (__builtin_types_compatible_p(type, void *))                                                       \
-                val_tmp = get_ptr_val_from_map(&map1600, MAP_TYPE_1600, ptr);                                          \
+                val_tmp = get_ptr_val_from_map(&kmesh_map1600, MAP_TYPE_1600, ptr);                                    \
             else if (__builtin_types_compatible_p(type, void **))                                                      \
-                val_tmp = get_ptr_val_from_map(&map1600, MAP_TYPE_1600, ptr);                                          \
+                val_tmp = get_ptr_val_from_map(&kmesh_map1600, MAP_TYPE_1600, ptr);                                    \
             else                                                                                                       \
-                val_tmp = get_ptr_val_from_map(&map64, MAP_TYPE_64, ptr);                                              \
+                val_tmp = get_ptr_val_from_map(&kmesh_map64, MAP_TYPE_64, ptr);                                        \
         } else if (sizeof(type) <= MAP_VAL_SIZE_64)                                                                    \
-            val_tmp = get_ptr_val_from_map(&map64, MAP_TYPE_64, ptr);                                                  \
+            val_tmp = get_ptr_val_from_map(&kmesh_map64, MAP_TYPE_64, ptr);                                            \
         else if (sizeof(type) <= MAP_VAL_SIZE_192)                                                                     \
-            val_tmp = get_ptr_val_from_map(&map192, MAP_TYPE_192, ptr);                                                \
+            val_tmp = get_ptr_val_from_map(&kmesh_map192, MAP_TYPE_192, ptr);                                          \
         else if (sizeof(type) <= MAP_VAL_SIZE_296)                                                                     \
-            val_tmp = get_ptr_val_from_map(&map296, MAP_TYPE_296, ptr);                                                \
+            val_tmp = get_ptr_val_from_map(&kmesh_map296, MAP_TYPE_296, ptr);                                          \
         else if (sizeof(type) <= MAP_VAL_SIZE_1600)                                                                    \
-            val_tmp = get_ptr_val_from_map(&map1600, MAP_TYPE_1600, ptr);                                              \
+            val_tmp = get_ptr_val_from_map(&kmesh_map1600, MAP_TYPE_1600, ptr);                                        \
         else                                                                                                           \
             val_tmp = NULL;                                                                                            \
         val_tmp;                                                                                                       \

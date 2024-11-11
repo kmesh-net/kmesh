@@ -167,19 +167,19 @@ func (w *BpfWorkload) ApiEnvCfg() error {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map64, "Map64"); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshMap64, "KmeshMap64"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map192, "Map192"); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshMap192, "KmeshMap192"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map296, "Map296"); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshMap296, "KmeshMap296"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(w.XdpAuth.Map1600, "Map1600"); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshMap1600, "KmeshMap1600"); err != nil {
 		return err
 	}
 	return nil
