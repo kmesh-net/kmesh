@@ -33,6 +33,8 @@ include ./mk/bpf.print.mk
 CC=clang
 CXX=clang++
 GOFLAGS := $(EXTRA_GOFLAGS)
+GOGCFLAGS := ""
+GOLDFLAGS := ""
 EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
@@ -47,6 +49,16 @@ GOLDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
 			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
 			-extldflags '-static'"
+
+# Debug flags
+ifeq ($(DEBUG),1)
+	# Debugging - disable optimizations and inlining
+	GOGCFLAGS := "all=-N -l"
+else
+	# Release build - disable symbols and DWARF, trim embedded paths
+	GOLDFLAGS := '-s -w'
+	GOFLAGS += -trimpath
+endif
 
 # target
 APPS1 := kmesh-daemon
@@ -116,7 +128,7 @@ OUT ?= kmeshctl
 kmeshctl:
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -o $(OUT) $(GOFLAGS) ./ctl/main.go)
+		CGO_ENABLED=0 $(GO) build -gcflags $(GOGCFLAGS) -ldflags $(GOLDFLAGS) -o $(OUT) $(GOFLAGS) ./ctl/main.go)
 
 .PHONY: gen-proto
 gen-proto:
