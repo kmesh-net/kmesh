@@ -74,7 +74,12 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
                     BPF_LOG(ERR, SERVICE, "endpoint_manager failed, ret:%d\n", ret);
                 return ret;
             }
-            BPF_LOG(DEBUG, SERVICE, "locality loadbalance matched backend_uid %d\n", endpoint_v->backend_uid);
+            BPF_LOG(
+                DEBUG,
+                SERVICE,
+                "locality lb matched backend_uid %d with pri %d\n",
+                endpoint_v->backend_uid,
+                match_prio);
             return 0; // find the backend successfully
         }
         if (is_strict) { // only match max priority in strict mode
@@ -106,7 +111,7 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         return ret;
     }
 
-    BPF_LOG(DEBUG, SERVICE, "service [%u] policy [%u] failed", service_id, service_v->lb_policy);
+    BPF_LOG(DEBUG, SERVICE, "service [%u] lb policy [%u]", service_id, service_v->lb_policy);
 
     switch (service_v->lb_policy) {
     case LB_POLICY_RANDOM:
