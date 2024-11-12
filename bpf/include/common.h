@@ -137,9 +137,14 @@ struct {
     __type(value, struct buf);
 } tmp_buf SEC(".maps");
 
+/*
+ * This map is used to store different configuration options:
+ * - key 0: Stores the log level
+ * - key 1: Stores the authz (authorization) toggle
+ */
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(max_entries, 1);
+    __uint(max_entries, 4);
     __type(key, int);
     __type(value, struct kmesh_config);
 } kmesh_config_map SEC(".maps");

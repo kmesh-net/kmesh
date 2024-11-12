@@ -230,7 +230,7 @@ static int rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, 
 
     if (rule->n_clauses == 0) {
         BPF_LOG(ERR, AUTH, "rule has no clauses\n");
-        return UNMATCHED;
+        return MATCHED;
     }
     // Clauses are AND-ed.
     clausesPtr = KMESH_GET_PTR_VAL(rule->clauses, void *);
