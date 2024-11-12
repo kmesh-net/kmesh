@@ -450,7 +450,6 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 		return
 	}
 	key := uint32(0)
-	// value := uint32(level)
 	value := constants.KmeshBpfConfig{}
 	if s.kmeshConfigMap == nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)

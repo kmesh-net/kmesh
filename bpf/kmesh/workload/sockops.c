@@ -52,7 +52,7 @@ static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
     int key_of_kmesh_config = 0;
     data = kmesh_map_lookup_elem(&kmesh_config_map, &key_of_kmesh_config);
     if (!data) {
-        BPF_LOG(ERR, SOCKOPS, "get kmesh congfig failed");
+        BPF_LOG(ERR, SOCKOPS, "get kmesh config failed");
         return false;
     }
 

@@ -281,6 +281,7 @@ func (l *BpfLoader) UpdateBpfProgOptions() {
 	clientSet, err := utils.GetK8sclient()
 	if err != nil {
 		log.Errorf("get kubernetest client for getting node IP error: %v", err)
+		return
 	}
 
 	node, err := clientSet.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
