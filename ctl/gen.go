@@ -1,3 +1,6 @@
+//go:build docgen
+// +build docgen
+
 /*
  * Copyright The Kmesh Authors.
  *
@@ -17,14 +20,12 @@
 package main
 
 import (
-	"os"
+	"github.com/spf13/cobra/doc"
 
 	"kmesh.net/kmesh/ctl/common"
 )
 
 func main() {
 	rootCmd := common.GetRootCommand()
-	if err := rootCmd.Execute(); err != nil {
-		os.Exit(1)
-	}
+	doc.GenMarkdownTree(rootCmd, "../docs/ctl")
 }

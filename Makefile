@@ -138,6 +138,10 @@ gen-proto:
 gen-bpf2go:
 	hack/gen_bpf2go.sh
 
+.PHONY: gen-kmeshctl-doc
+gen-kmeshctl-doc:
+	hack/gen-kmeshctl-doc.sh
+
 .PHONY: tidy
 tidy:
 	go mod tidy
@@ -146,6 +150,7 @@ tidy:
 gen: tidy\
 	gen-proto \
 	gen-bpf2go \
+	gen-kmeshctl-doc \
 	format
 
 .PHONY: gen-check
