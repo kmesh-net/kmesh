@@ -407,10 +407,11 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 	key := uint32(0)
-	value := uint32(0)
+	value := constants.KmeshBpfConfig{}
 	if err := s.kmeshConfigMap.Lookup(&key, &value); err != nil {
 		return nil, fmt.Errorf("get log level error: %v", err)
 	}
+	logLevel := value.BpfLogLevel
 
 	logLevelMap := map[int]string{
 		constants.BPF_LOG_ERR:   "error",
@@ -419,7 +420,7 @@ func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 		constants.BPF_LOG_DEBUG: "debug",
 	}
 
-	loggerLevel, exists := logLevelMap[int(value)]
+	loggerLevel, exists := logLevelMap[int(logLevel)]
 	if !exists {
 		return nil, fmt.Errorf("unexpected invalid log level: %d", value)
 	}
