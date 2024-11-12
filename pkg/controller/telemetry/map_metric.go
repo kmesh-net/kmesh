@@ -110,7 +110,7 @@ func (m *MapMetricController) updatePrometheusMetric() {
 		mapEntryCount.With(commonLabels).Set(float64(entryCount))
 		mapInfo.Close()
 	}
-	mapCountLabels := struct2map(mapMetricLabels{nodeName: os.Getenv("NODE_NAME")})
+	mapCountLabels := map[string]string{"node_name": os.Getenv("NODE_NAME")}
 	mapCountInNode.With(mapCountLabels).Set(float64(count))
 }
 
