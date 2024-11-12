@@ -21,7 +21,6 @@ package bpf
 import "C"
 import (
 	"context"
-	"fmt"
 	"hash/fnv"
 	"net"
 	"os"
@@ -294,8 +293,6 @@ func (l *BpfLoader) UpdateBpfProgOptions() {
 	nodeIP := getNodeIPAddress(nodeName, node)
 	gateway := getNodePodSubGateway(nodeName, node)
 
-	fmt.Printf("-------- nodeip: %v, pod gateway: %v\n", nodeIP, gateway)
-
 	keyOfKmeshBpfConfig := uint32(0)
 	ValueOfKmeshBpfConfig := constants.KmeshBpfConfig{
 		// Write this map only when the kmesh daemon starts, so set bpfloglevel to the default value.
@@ -338,17 +335,11 @@ func getNodePodSubGateway(nodeName string, node *corev1.Node) [4]uint32 {
 	}
 
 	podGateway := IPToUint32(ip)
-	if isIPv6(ip) {
-		podGateway[0] = podGateway[0] + 1<<24
-	} else {
-		podGateway[3] = podGateway[3] + 1<<24
-	}
-
+	podGateway[3] = podGateway[3] + 1<<24
 	return podGateway
 }
 
 func IPToUint32(ip net.IP) [4]uint32 {
-	fmt.Printf("======== %v, %v ==========", ip, len(ip))
 	ipToUint32 := [4]uint32{0, 0, 0, 0}
 	if isIPv6(ip) {
 		ipToUint32[0] = binaryToUint32(ip[:4])
@@ -385,16 +376,6 @@ func isIPv6(ip net.IP) bool {
 	}
 	return false
 }
-
-// func calculateGateway(ipnet *net.IPNet) uint32 {
-// 	if ipnet == nil {
-// 		log.Errorf("failed to calculate pod sub gateway: %s", "*ipNet is empty")
-// 		return uint32(0)
-// 	}
-
-// 	networkInt := binaryToUint32(ipnet.IP.Mask(ipnet.Mask))
-// 	return networkInt + 1<<24
-// }
 
 func binaryToUint32(ip net.IP) uint32 {
 	return uint32(ip[3])<<24 + uint32(ip[2])<<16 + uint32(ip[1])<<8 + uint32(ip[0])

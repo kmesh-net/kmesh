@@ -56,12 +56,6 @@ static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
         return false;
     }
 
-    BPF_LOG(ERR, SOCKOPS, "node ip is %u.%u", data->node_ip[0], data->node_ip[1]);
-    BPF_LOG(ERR, SOCKOPS, "node ip is %u.%u", data->node_ip[2], data->node_ip[3]);
-    BPF_LOG(ERR, SOCKOPS, "pod gateway is %u.%u", data->pod_gateway[0], data->pod_gateway[1]);
-    BPF_LOG(ERR, SOCKOPS, "pod gateway is %u.%u", data->pod_gateway[2], data->pod_gateway[3]);
-    BPF_LOG(ERR, SOCKOPS, "remote ip is %u", skops->remote_ip4);
-
     if (skops->family ==  AF_INET) {
         if (data->node_ip[3] == skops->remote_ip4) {
             return true;
@@ -71,7 +65,20 @@ static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
         }
     }
 
-    if (skops->family == AF_INET6) {}
+    if (skops->family == AF_INET6) {
+        if (data->node_ip[0] == skops->remote_ip6[0] && 
+        data->node_ip[1] == skops->remote_ip6[1] && 
+        data->node_ip[2] == skops->remote_ip6[2] && 
+        data->node_ip[3] == skops->remote_ip6[3]) {
+            return true;
+        }
+        if (data->pod_gateway[0] == skops-> remote_ip6[0] &&
+        data->pod_gateway[1] == skops-> remote_ip6[1] &&
+        data->pod_gateway[2] == skops-> remote_ip6[2] &&
+        data->pod_gateway[3] == skops-> remote_ip6[3]) {
+            return true;
+        }
+    }
 
     return false;
 }
