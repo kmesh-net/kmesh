@@ -27,7 +27,7 @@ static inline void shutdown_tuple(struct xdp_info *info)
 static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     __u32 *value = bpf_map_lookup_elem(&map_of_auth, tuple_info);
-    if (value) {
+    if (value && *value == 1) {
         if (info->iph->version == 4)
             BPF_LOG(
                 INFO,
@@ -106,11 +106,11 @@ SEC("xdp_auth")
 int xdp_authz(struct xdp_md *ctx)
 {
     if (!is_authz_enabled()) {
-        BPF_LOG(ERR, AUTH, "authz is not enabled, tail call to user auth");
+        BPF_LOG(INFO, AUTH, "authz is not enabled, tail call to user auth");
         bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
         return XDP_PASS;
     }
-    BPF_LOG(ERR, AUTH, "authz is enabled, processing");
+    BPF_LOG(INFO, AUTH, "authz is enabled, processing");
     struct match_context match_ctx;
     struct bpf_sock_tuple tuple_key = {0};
     struct xdp_info info = {0};
@@ -124,20 +124,25 @@ int xdp_authz(struct xdp_md *ctx)
 
     // never failed
     parser_tuple(&info, &tuple_key);
-    policies = get_workload_policies(&info, &tuple_key);
-    if (!policies) {
-        return XDP_PASS;
-    }
-    match_ctx.policies = policies;
-    match_ctx.policy_index = 0;
-    ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, &match_ctx, BPF_ANY);
-    if (ret < 0) {
-        BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
-        return XDP_PASS;
-    }
+    int *value = bpf_map_lookup_elem(&map_of_auth, &tuple_key);
+    if (!value) {
+        policies = get_workload_policies(&info, &tuple_key);
+        if (!policies) {
+            return XDP_PASS;
+        }
+        match_ctx.policies = policies;
+        match_ctx.policy_index = 0;
+        ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, &match_ctx, BPF_ANY);
+        if (ret < 0) {
+            BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
+            return XDP_PASS;
+        }
 
-    bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_POLICY_CHECK);
-    return XDP_PASS;
+        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_POLICY_CHECK);
+        return XDP_PASS;
+    } else {
+        return *value ? XDP_DROP : XDP_PASS;
+    }
 }
 
 SEC("xdp_auth")

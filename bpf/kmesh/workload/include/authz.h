@@ -367,19 +367,19 @@ int rule_check(struct xdp_md *ctx)
             continue;
         }
         if (rule_match_check(rule, &info, &tuple_key) == MATCHED) {
-            if (match_ctx->action == ISTIO__SECURITY__ACTION__DENY) {
-                BPF_LOG(INFO, AUTH, "Rule matched, action: DENY");
-                if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
-                    BPF_LOG(DEBUG, AUTH, "Failed to delete context from map");
-                }
-                return AUTH_DENY;
-            } else {
-                BPF_LOG(INFO, AUTH, "Rule matched, action: ALLOW");
-                if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
-                    BPF_LOG(DEBUG, AUTH, "Failed to delete context from map");
-                }
-                return AUTH_ALLOW;
+            BPF_LOG(
+                INFO,
+                AUTH,
+                "Rule matched, action: %s",
+                match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? "DENY" : "ALLOW");
+            if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
+                BPF_LOG(INFO, AUTH, "Failed to delete tail call context from map");
             }
+            __u32 auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? AUTH_DENY : AUTH_ALLOW;
+            if (bpf_map_update_elem(&map_of_auth, &tuple_key, &auth_result, BPF_ANY) != 0) {
+                BPF_LOG(ERR, AUTH, "Failed to update auth result in map_of_auth");
+            }
+            return match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_DROP : XDP_PASS;
         }
     }
 
