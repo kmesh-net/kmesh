@@ -27,13 +27,16 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/netip"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/prometheus/common/model"
+	"github.com/stretchr/testify/assert"
 	"istio.io/api/label"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	echot "istio.io/istio/pkg/test/echo"
@@ -43,6 +46,10 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
+	"istio.io/istio/pkg/test/framework/components/echo/config"
+	"istio.io/istio/pkg/test/framework/components/echo/config/param"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -940,4 +947,169 @@ func TestServiceRestart(t *testing.T) {
 			}
 		}
 	})
+}
+
+func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			testCases := []struct {
+				location   v1alpha3.ServiceEntry_Location
+				resolution v1alpha3.ServiceEntry_Resolution
+				to         echo.Instances
+			}{
+				{
+					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+					// to:         apps.Mesh,
+				},
+				{
+					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+					// to:         apps.MeshExternal,
+				},
+				// TODO dns cases
+			}
+
+			// Configure a gateway with one app as the destination to be accessible through the ingress
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": apps.All[0].Config().Service,
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+
+			// TODO(https://github.com/istio/istio/issues/51747) use a single SE instead of one for v4 and one for v6
+			cfg := config.YAML(`
+{{ $to := .To }}
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-se-v4
+spec:
+  hosts:
+  - dummy-v4.example.com
+  addresses:
+  - 240.240.240.255
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+    targetPort: {{.IngressHttpPort}}
+  resolution: {{.Resolution}}
+  location: {{.Location}}
+  endpoints:
+  # we send directly to a Pod IP here. This is essentially headless
+  - address: {{.IngressIp}} # TODO won't work with DNS resolution tests
+    ports:
+      http: {{.IngressHttpPort}}
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-se-v6
+spec:
+  hosts:
+  - dummy-v6.example.com
+  addresses:
+  - 2001:2::f0f0:255
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+    targetPort: {{.IngressHttpPort}}
+  resolution: {{.Resolution}}
+  location: {{.Location}}
+  endpoints:
+  # we send directly to a Pod IP here. This is essentially headless
+  - address: {{.IngressIp}} # TODO won't work with DNS resolution tests
+    ports:
+      http: {{.IngressHttpPort}}
+---
+`).
+				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
+
+			v4, v6 := getSupportedIPFamilies(t)
+			ips, ports := defaultIngress(t, t).HTTPAddresses()
+			for _, tc := range testCases {
+				tc := tc
+				for i, ip := range ips {
+					t.Logf("--- INGRESS GATEWAY IP is %v, PORT IS %v", ip, ports[i])
+					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							// TODO eventually we can do this for uncaptured -> l7
+							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							}))).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ip,
+								"IngressHttpPort": ports[i],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								if v4 {
+									from.CallOrFail(t, echo.CallOptions{
+										Address: "240.240.240.255",
+										Port:    to.PortForName("http"),
+										// If request is sent before service is processed it will hit 10s timeout, so fail faster
+										Timeout: time.Millisecond * 500,
+									})
+								}
+								if v6 {
+									from.CallOrFail(t, echo.CallOptions{
+										Address: "2001:2::f0f0:255",
+										Port:    to.PortForName("http"),
+										// If request is sent before service is processed it will hit 10s timeout, so fail faster
+										Timeout: time.Millisecond * 500,
+									})
+								}
+							})
+					})
+				}
+			}
+		})
+}
+
+func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
+	addrs := apps.All.WorkloadsOrFail(t).Addresses()
+	for _, a := range addrs {
+		ip, err := netip.ParseAddr(a)
+		assert.NoError(t, err)
+		if ip.Is4() {
+			v4 = true
+		} else if ip.Is6() {
+			v6 = true
+		}
+	}
+	if !v4 && !v6 {
+		t.Fatalf("pod is neither v4 nor v6? %v", addrs)
+	}
+	return
 }
