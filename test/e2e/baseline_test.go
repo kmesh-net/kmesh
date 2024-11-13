@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/config"
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
-	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	testKube "istio.io/istio/pkg/test/kube"
@@ -960,14 +959,11 @@ func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
 				{
 					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
 					resolution: v1alpha3.ServiceEntry_STATIC,
-					// to:         apps.Mesh,
 				},
 				{
 					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
 					resolution: v1alpha3.ServiceEntry_STATIC,
-					// to:         apps.MeshExternal,
 				},
-				// TODO dns cases
 			}
 
 			// Configure a gateway with one app as the destination to be accessible through the ingress
@@ -1002,7 +998,6 @@ spec:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
 
-			// TODO(https://github.com/istio/istio/issues/51747) use a single SE instead of one for v4 and one for v6
 			cfg := config.YAML(`
 {{ $to := .To }}
 apiVersion: networking.istio.io/v1beta1
@@ -1057,15 +1052,9 @@ spec:
 			for _, tc := range testCases {
 				tc := tc
 				for i, ip := range ips {
-					t.Logf("--- INGRESS GATEWAY IP is %v, PORT IS %v", ip, ports[i])
 					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
 						echotest.
 							New(t, apps.All).
-							// TODO eventually we can do this for uncaptured -> l7
-							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
-								Name:      "uncaptured",
-								Namespace: apps.Namespace,
-							}))).
 							Config(cfg.WithParams(param.Params{
 								"Resolution":      tc.resolution.String(),
 								"Location":        tc.location.String(),
@@ -1073,7 +1062,6 @@ spec:
 								"IngressHttpPort": ports[i],
 							})).
 							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
 								if v4 {
 									from.CallOrFail(t, echo.CallOptions{
 										Address: "240.240.240.255",
