@@ -77,7 +77,7 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
             BPF_LOG(
                 DEBUG,
                 SERVICE,
-                "locality lb matched backend_uid %d with pri %d\n",
+                "locality lb matched backend_uid %d with priority %d\n",
                 endpoint_v->backend_uid,
                 match_prio);
             return 0; // find the backend successfully
