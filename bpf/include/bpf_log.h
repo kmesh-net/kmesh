@@ -99,7 +99,7 @@ static inline int map_lookup_log_level()
 
 #define BPF_LOG(l, t, f, ...)                                                                                          \
     do {                                                                                                               \
-        int level = map_lookup_log_level();                                                                         \
+        int level = map_lookup_log_level();                                                                            \
         int loglevel = BPF_MIN((int)level, ((int)BPF_LOG_DEBUG + (int)(BPF_LOGTYPE_##t)));                             \
         if ((int)(BPF_LOG_##l) <= loglevel) {                                                                          \
             static const char fmt[] = "[" #t "] " #l ": " f "";                                                        \

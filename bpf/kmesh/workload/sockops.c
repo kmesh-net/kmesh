@@ -47,7 +47,7 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
 }
 
 static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
-{   
+{
     struct kmesh_config *data = {0};
     int key_of_kmesh_config = 0;
     data = kmesh_map_lookup_elem(&kmesh_config_map, &key_of_kmesh_config);
@@ -56,7 +56,7 @@ static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
         return false;
     }
 
-    if (skops->family ==  AF_INET) {
+    if (skops->family == AF_INET) {
         if (data->node_ip[3] == skops->remote_ip4) {
             return true;
         }
@@ -66,16 +66,12 @@ static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
     }
 
     if (skops->family == AF_INET6) {
-        if (data->node_ip[0] == skops->remote_ip6[0] && 
-        data->node_ip[1] == skops->remote_ip6[1] && 
-        data->node_ip[2] == skops->remote_ip6[2] && 
-        data->node_ip[3] == skops->remote_ip6[3]) {
+        if (data->node_ip[0] == skops->remote_ip6[0] && data->node_ip[1] == skops->remote_ip6[1]
+            && data->node_ip[2] == skops->remote_ip6[2] && data->node_ip[3] == skops->remote_ip6[3]) {
             return true;
         }
-        if (data->pod_gateway[0] == skops-> remote_ip6[0] &&
-        data->pod_gateway[1] == skops-> remote_ip6[1] &&
-        data->pod_gateway[2] == skops-> remote_ip6[2] &&
-        data->pod_gateway[3] == skops-> remote_ip6[3]) {
+        if (data->pod_gateway[0] == skops->remote_ip6[0] && data->pod_gateway[1] == skops->remote_ip6[1]
+            && data->pod_gateway[2] == skops->remote_ip6[2] && data->pod_gateway[3] == skops->remote_ip6[3]) {
             return true;
         }
     }
