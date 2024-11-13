@@ -37,14 +37,16 @@ const (
 var log = logger.NewLoggerScope("workload_controller")
 
 type Controller struct {
-	Stream           discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
-	Processor        *Processor
-	Rbac             *auth.Rbac
-	MetricController *telemetry.MetricController
-	bpfWorkloadObj   *bpfwl.BpfWorkload
+	Stream                    discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	Processor                 *Processor
+	Rbac                      *auth.Rbac
+	MetricController          *telemetry.MetricController
+	MapMetricController       *telemetry.MapMetricController
+	OperationMetricController *telemetry.BpfProgMetric
+	bpfWorkloadObj            *bpfwl.BpfWorkload
 }
 
-func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *Controller {
+func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog, enablePerfMonitor bool) *Controller {
 	c := &Controller{
 		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
 		bpfWorkloadObj: bpfWorkload,
@@ -56,12 +58,22 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog bool) *Contro
 	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
 	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, enableAccesslog)
+	if enablePerfMonitor {
+		c.OperationMetricController = telemetry.NewBpfProgMetric()
+		c.MapMetricController = telemetry.NewMapMetric()
+	}
 	return c
 }
 
 func (c *Controller) Run(ctx context.Context) {
 	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.MapOfTuple, c.bpfWorkloadObj.XdpAuth.MapOfAuth)
 	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.MapOfTcpInfo)
+	if c.MapMetricController != nil {
+		go c.MapMetricController.Run(ctx)
+	}
+	if c.OperationMetricController != nil {
+		go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmeshPerfInfo)
+	}
 }
 
 func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
@@ -130,8 +142,8 @@ func (c *Controller) HandleWorkloadStream() error {
 	return nil
 }
 
-func (c *Controller) SetAccesslogTrigger(info bool) {
-	c.MetricController.EnableAccesslog.Store(info)
+func (c *Controller) SetAccesslog(enabled bool) {
+	c.MetricController.EnableAccesslog.Store(enabled)
 }
 
 func (c *Controller) GetAccesslogTrigger() bool {

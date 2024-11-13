@@ -114,6 +114,24 @@ var (
 		"requestProtocol":              "request_protocol",
 		"responseFlags":                "response_flags",
 		"connectionSecurityPolicy":     "connection_security_policy",
+		"nodeName":                     "node_name",
+		"mapId":                        "map_id",
+		"mapName":                      "map_name",
+		"mapType":                      "map_type",
+		"operationType":                "operation_type",
+		"pidTgid":                      "pid_tgid",
+	}
+	operationLabels = []string{
+		"node_name",
+		"operation_type",
+	}
+
+	kmeshMapLabels = []string{
+		"node_name",
+		"map_name",
+	}
+	totalMapLabels = []string{
+		"node_name",
 	}
 )
 
@@ -175,6 +193,35 @@ var (
 			Name: "kmesh_tcp_conntections_failed_total",
 			Help: "The total number of TCP connections failed to a service.",
 		}, serviceLabels)
+
+	// New operation metrics
+	bpfProgOpDuration = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name: "kmesh_bpf_prog_operation_duration",
+			Help: "Duration of bpf prog operation in ns.",
+		},
+		operationLabels,
+	)
+
+	bpfProgOpCount = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "kmesh_bpf_prog_operation_count",
+			Help: "Count of bpf prog operations executed.",
+		},
+		operationLabels,
+	)
+	mapEntryCount = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_entry_count",
+			Help: "The total entry used by an eBPF map.",
+		}, kmeshMapLabels,
+	)
+	mapCountInNode = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_count_total",
+			Help: "Count of map created by kmesh-daemon.",
+		}, totalMapLabels,
+	)
 )
 
 func RunPrometheusClient(ctx context.Context) {
@@ -195,6 +242,8 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	defer mu.Unlock()
 	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload)
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
+	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
+	registry.MustRegister(mapEntryCount, mapCountInNode)
 
 	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		Registry: registry,

@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
 
-	"kmesh.net/kmesh/bpf/kmesh/bpf2go"
+	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 )
 
 func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {

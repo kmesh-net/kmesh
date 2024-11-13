@@ -33,6 +33,8 @@ include ./mk/bpf.print.mk
 CC=clang
 CXX=clang++
 GOFLAGS := $(EXTRA_GOFLAGS)
+GOGCFLAGS := ""
+GOLDFLAGS := ""
 EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
@@ -40,6 +42,23 @@ LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=w
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
 			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
 			-linkmode=external -extldflags $(EXTLDFLAGS)"
+
+GOLDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
+			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
+			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
+			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
+			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
+			-extldflags '-static'"
+
+# Debug flags
+ifeq ($(DEBUG),1)
+	# Debugging - disable optimizations and inlining
+	GOGCFLAGS := "all=-N -l"
+else
+	# Release build - disable symbols and DWARF, trim embedded paths
+	GOLDFLAGS := '-s -w'
+	GOFLAGS += -trimpath
+endif
 
 # target
 APPS1 := kmesh-daemon
@@ -72,43 +91,56 @@ TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	bpf/kmesh/ads/include/config.h \
 	bpf/include/bpf_helper_defs_ext.h \
 
-.PHONY: all
-all:
+.PHONY: all kmesh-bpf kmesh-ko all-binary
+all: kmesh-bpf kmesh-ko all-binary
+
+kmesh-bpf:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 
 	$(QUIET) make -C api/v2-c
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
 	
 	$(QUIET) $(GO) generate bpf/kmesh/bpf2go/bpf2go.go
-	
+kmesh-ko:
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	$(call printlog, BUILD, "kernel")
+	$(QUIET) make -C kernel/ko_src
+
+all-binary:
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
 	
-	$(call printlog, BUILD, "kernel")
-	$(QUIET) make -C kernel/ko_src
-
 	$(call printlog, BUILD, $(APPS2))
 	$(QUIET) cd oncn-mda && cmake . -B build && make -C build
 
 	$(call printlog, BUILD, $(APPS3))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
+		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
 
 OUT ?= kmeshctl
 .PHONY: kmeshctl
 kmeshctl:
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -o $(OUT) $(GOFLAGS) ./ctl/main.go)
+		CGO_ENABLED=0 $(GO) build -gcflags $(GOGCFLAGS) -ldflags $(GOLDFLAGS) -o $(OUT) $(GOFLAGS) ./ctl/main.go)
 
 .PHONY: gen-proto
 gen-proto:
 	$(QUIET) make -C api gen-proto
+
+.PHONY: gen-bpf2go
+gen-bpf2go:
+	hack/gen_bpf2go.sh
+
+.PHONY: gen-kmeshctl-doc
+gen-kmeshctl-doc:
+	hack/gen-kmeshctl-doc.sh
 
 .PHONY: tidy
 tidy:
@@ -117,6 +149,8 @@ tidy:
 .PHONY: gen
 gen: tidy\
 	gen-proto \
+	gen-bpf2go \
+	gen-kmeshctl-doc \
 	format
 
 .PHONY: gen-check

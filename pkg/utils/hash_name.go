@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package workload
+package utils
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ import (
 )
 
 const (
-	persistPath = "/mnt/workload_hash_name.yaml"
+	persistPath = "/mnt/hash_name.yaml"
 )
 
 // HashName converts a string to a uint32 integer as the key of bpf map
@@ -122,6 +122,14 @@ func (h *HashName) Hash(str string) uint32 {
 
 func (h *HashName) NumToStr(num uint32) string {
 	return h.numToStr[num]
+}
+
+func (h *HashName) StrToNum(str string) uint32 {
+	return h.strToNum[str]
+}
+
+func (h *HashName) GetStrToNum() map[string]uint32 {
+	return h.strToNum
 }
 
 func (h *HashName) Delete(str string) {

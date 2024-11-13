@@ -91,14 +91,14 @@ func Execute(configs *options.BootstrapConfigs) error {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	c := controller.NewController(configs, bpfLoader.GetBpfWorkload(), configs.BpfConfig.BpfFsPath, configs.BpfConfig.EnableBpfLog, configs.BpfConfig.EnableAccesslog)
+	c := controller.NewController(configs, bpfLoader.GetBpfKmesh(), bpfLoader.GetBpfWorkload())
 	if err := c.Start(stopCh); err != nil {
 		return err
 	}
 	log.Info("controller start successfully")
 	defer c.Stop()
 
-	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetBpfLogLevel())
+	statusServer := status.NewServer(c.GetXdsClient(), configs, bpfLoader.GetKmeshConfig())
 	statusServer.StartServer()
 	defer func() {
 		_ = statusServer.StopServer()

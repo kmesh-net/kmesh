@@ -123,7 +123,7 @@ func TestServer_getAndSetBpfLevel(t *testing.T) {
 						Processor: nil,
 					},
 				},
-				bpfLogLevelMap: bpfLoader.GetBpfLogLevel(),
+				kmeshConfigMap: bpfLoader.GetKmeshConfig(),
 			}
 
 			setLoggerUrl := patternLoggers
@@ -142,7 +142,7 @@ func TestServer_getAndSetBpfLevel(t *testing.T) {
 					server.setLoggerLevel(w, req)
 
 					assert.Equal(t, http.StatusOK, w.Code)
-					server.bpfLogLevelMap.Lookup(&key, &actualLoggerLevel)
+					server.kmeshConfigMap.Lookup(&key, &actualLoggerLevel)
 					assert.Equal(t, expectedLoggerLevel, actualLoggerLevel)
 				}
 			}
@@ -389,7 +389,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 			{ServiceId: 1}, {ServiceId: 2},
 		}
 		testServiceVals := []bpfcache.ServiceValue{
-			{EndpointCount: 1234}, {EndpointCount: 5678},
+			{EndpointCount: [7]uint32{1234, 1234, 1234, 1234, 1234, 1234, 1234}}, {EndpointCount: [7]uint32{5678, 5678, 5678, 5678, 5678, 5678, 5678}},
 		}
 		_, err = bpfMaps.KmeshService.BatchUpdate(testServiceKeys, testServiceVals, nil)
 		assert.Nil(t, err)

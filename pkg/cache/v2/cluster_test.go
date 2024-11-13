@@ -33,6 +33,7 @@ import (
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
@@ -57,7 +58,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache()
+		cache := NewClusterCache(nil, utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UPDATE,
 			Name:           "ut-cluster1",
@@ -100,7 +101,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache()
+		cache := NewClusterCache(nil, utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UPDATE,
 			Name:           "ut-cluster1",
@@ -154,7 +155,7 @@ func TestClusterFlush(t *testing.T) {
 			patches2.Reset()
 		}()
 
-		cache := NewClusterCache()
+		cache := NewClusterCache(nil, utils.NewHashName())
 		cluster1 := &cluster_v2.Cluster{
 			ApiStatus:      core_v2.ApiStatus_UNCHANGED,
 			Name:           "ut-cluster1",
@@ -335,12 +336,58 @@ func BenchmarkClusterFlush(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		cache := NewClusterCache()
+		cache := NewClusterCache(nil, utils.NewHashName())
 		cluster.Name = rand.String(6)
 		cluster.ApiStatus = core_v2.ApiStatus_UPDATE
 		cache.SetApiCluster(cluster.Name, &cluster)
 
 		cache.Flush()
 		assert.Equal(t, core_v2.ApiStatus_NONE, cluster.GetApiStatus())
+	}
+}
+
+func TestClearClusterStats(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        constants.KernelNativeMode,
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, loader := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+
+	adsObj := loader.GetBpfKmesh()
+	assert.NotNil(t, adsObj)
+	hashName := utils.NewHashName()
+	clusterCache := NewClusterCache(adsObj, hashName)
+	testClusters := []string{"test_cluster1", "test_cluster2", "test_cluster3"}
+	testKeys := []ClusterStatsKey{
+		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[0])},
+		{NetnsCookie: 1, ClusterId: hashName.StrToNum(testClusters[0])},
+		{NetnsCookie: 2, ClusterId: hashName.StrToNum(testClusters[0])},
+		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[1])},
+		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[2])},
+	}
+
+	testValues := []ClusterStatsValue{
+		{ActiveConnections: 1},
+		{ActiveConnections: 2},
+		{ActiveConnections: 3},
+		{ActiveConnections: 4},
+		{ActiveConnections: 5},
+	}
+
+	clusterStatsMap := adsObj.GetClusterStatsMap()
+	clusterStatsMap.BatchUpdate(testKeys, testValues, nil)
+
+	var key ClusterStatsKey
+	var value ClusterStatsValue
+	for _, cluster := range testClusters {
+		clusterCache.clearClusterStats(cluster)
+		iter := clusterStatsMap.Iterate()
+		clusterId := hashName.StrToNum(cluster)
+		for iter.Next(&key, &value) {
+			assert.NotEqual(t, clusterId, key.ClusterId)
+		}
+		assert.Nil(t, iter.Err())
 	}
 }

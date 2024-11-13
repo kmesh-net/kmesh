@@ -12,10 +12,12 @@ message Cluster {
     ROUND_ROBIN = 0;
     LEAST_REQUEST = 1;
     RANDOM = 3;
+    MAGLEV = 5;
   }
 
   core.ApiStatus api_status = 128;
   string name = 1;
+  uint32 id = 2;
   uint32 connect_timeout = 4;
   LbPolicy lb_policy = 6;
 

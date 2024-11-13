@@ -18,6 +18,7 @@ package status
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -71,23 +72,15 @@ type Server struct {
 	xdsClient      *controller.XdsClient
 	mux            *http.ServeMux
 	server         *http.Server
-	bpfLogLevelMap *ebpf.Map
+	kmeshConfigMap *ebpf.Map
 }
 
-func GetConfigDumpAddr(mode string) string {
-	return "http://" + adminAddr + configDumpPrefix + "/" + mode
-}
-
-func GetLoggerURL() string {
-	return "http://" + adminAddr + patternLoggers
-}
-
-func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, bpfLogLevel *ebpf.Map) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, configMap *ebpf.Map) *Server {
 	s := &Server{
 		config:         configs,
 		xdsClient:      c,
 		mux:            http.NewServeMux(),
-		bpfLogLevelMap: bpfLogLevel,
+		kmeshConfigMap: configMap,
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -250,26 +243,24 @@ func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == http.MethodPost {
 		s.setLoggerLevel(w, r)
 	} else {
-		// otherwise, return 404 not found
-		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		log.Errorf("accesslogHandler export POST method but get %v", r.Method)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var info bool
 	accesslogInfo := r.URL.Query().Get("enable")
-	if accesslogInfo == "true" {
-		info = true
+	if enabled, err := strconv.ParseBool(accesslogInfo); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", accesslogInfo)))
 	} else {
-		info = false
+		s.xdsClient.WorkloadController.SetAccesslog(enabled)
+		w.WriteHeader(http.StatusOK)
 	}
-	s.xdsClient.WorkloadController.SetAccesslogTrigger(info)
-	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) getLoggerNames(w http.ResponseWriter) {
@@ -417,7 +408,7 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 	key := uint32(0)
 	value := uint32(0)
-	if err := s.bpfLogLevelMap.Lookup(&key, &value); err != nil {
+	if err := s.kmeshConfigMap.Lookup(&key, &value); err != nil {
 		return nil, fmt.Errorf("get log level error: %v", err)
 	}
 
@@ -460,11 +451,11 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 	}
 	key := uint32(0)
 	value := uint32(level)
-	if s.bpfLogLevelMap == nil {
-		http.Error(w, fmt.Sprintf("update log level error: %v", "bpfLogLevelMap is nil"), http.StatusBadRequest)
+	if s.kmeshConfigMap == nil {
+		http.Error(w, fmt.Sprintf("update log level error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
 		return
 	}
-	if err = s.bpfLogLevelMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
+	if err = s.kmeshConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", err), http.StatusBadRequest)
 		return
 	}
@@ -474,7 +465,7 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 func (s *Server) StartServer() {
 	go func() {
 		err := s.server.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Errorf("Failed to start status server: %v", err)
 		}
 	}()

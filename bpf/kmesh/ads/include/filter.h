@@ -4,6 +4,10 @@
 #ifndef __KMESH_FILTER_H__
 #define __KMESH_FILTER_H__
 
+#if !ENHANCED_KERNEL
+#include "local_ratelimit.h"
+#endif
+
 #include "tcp_proxy.h"
 #include "tail_call.h"
 #include "bpf_log.h"
@@ -181,6 +185,16 @@ int filter_chain_manager(ctx_buff_t *ctx)
     if (filter_chain == NULL) {
         return KMESH_TAIL_CALL_RET(-1);
     }
+
+#if !ENHANCED_KERNEL
+    /* ratelimit check */
+    ret = Local_rate_limit__check_and_take(filter_chain, &addr, ctx);
+    if (ret != 0) {
+        BPF_LOG(ERR, FILTERCHAIN, "rate limited, addr=%s\n", ip2str(&addr.ipv4, 1));
+        return KMESH_TAIL_CALL_RET(-1);
+    }
+#endif
+
     /* filter match */
     ret = filter_chain_filter_match(filter_chain, &addr, ctx, &filter, &filter_idx);
     if (ret != 0) {

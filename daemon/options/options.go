@@ -58,10 +58,10 @@ func (c *BootstrapConfigs) AttachFlags(cmd *cobra.Command) {
 
 func (c *BootstrapConfigs) ParseConfigs() error {
 	if err := c.BpfConfig.ParseConfig(); err != nil {
-		return fmt.Errorf("parse BpfConfig failed, %s", err)
+		return fmt.Errorf("parse BpfConfig failed, %v", err)
 	}
 	if err := c.CniConfig.ParseConfig(); err != nil {
-		return fmt.Errorf("parse CniConfig failed, %s", err)
+		return fmt.Errorf("parse CniConfig failed, %v", err)
 	}
 	return nil
 }
