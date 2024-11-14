@@ -40,7 +40,6 @@ func CreateKubeClient(kubeConfig string, applyFuncs ...func(c *rest.Config)) (ku
 	for _, fn := range applyFuncs {
 		fn(restConfig)
 	}
-	restConfig.Proxy
 
 	return kubernetes.NewForConfig(restConfig)
 }
