@@ -98,7 +98,7 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl4.ResourceName()].Waypoint), false)
 
 	// Delete all svcs and workloads.
-	for _, svc := range []*workloadapi.Service{svc1, svc2, svc3, svc4} {
+	for _, svc := range []*workloadapi.Service{svc1, svc2, svc3, svc4, waypointsvc} {
 		cache.DeleteService(svc.ResourceName())
 	}
 	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl3, wl4} {
@@ -107,6 +107,7 @@ func TestBasic(t *testing.T) {
 
 	assert.Equal(t, len(cache.serviceToWaypoint), 0)
 	assert.Equal(t, len(cache.workloadToWaypoint), 0)
+	assert.Equal(t, len(cache.waypointAssociatedObjects), 0)
 }
 
 // NOTE: All utility functions are simplified for the waypoint cache related tests and omit irrelevant fields.

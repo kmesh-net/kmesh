@@ -139,7 +139,9 @@ func (w *waypointCache) DeleteService(resourceName string) {
 	// This service has waypoint.
 	if waypoint, ok := w.serviceToWaypoint[resourceName]; ok {
 		delete(w.serviceToWaypoint, resourceName)
-		w.waypointAssociatedObjects[waypoint].deleteService(resourceName)
+		if associate, ok := w.waypointAssociatedObjects[waypoint]; ok {
+			associate.deleteService(resourceName)
+		}
 	}
 
 	// This may be a waypoint service.
@@ -205,7 +207,9 @@ func (w *waypointCache) DeleteWorkload(uid string) {
 
 	if waypoint, ok := w.workloadToWaypoint[uid]; ok {
 		delete(w.workloadToWaypoint, uid)
-		w.waypointAssociatedObjects[waypoint].deleteWorkload(uid)
+		if associated, ok := w.waypointAssociatedObjects[waypoint]; ok {
+			associated.deleteWorkload(uid)
+		}
 	}
 }
 
