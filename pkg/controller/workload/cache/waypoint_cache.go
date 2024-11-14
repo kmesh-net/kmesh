@@ -59,7 +59,7 @@ type waypointCache struct {
 	// If it can be found, convert it directly. Otherwise, add it to the waypointAssociatedServices and wait.
 	// When the corresponding waypoint service is added to the cache, it will be processed and returned uniformly.
 	// ***
-	waypointAssociatedObjects map[string]*associatedObjects
+	waypointAssociatedObjects map[string]*waypointAssociatedObjects
 
 	// Used to locate relevant waypoint when deleting or updating service.
 	// Keyed by service resource name, valued by associated waypoint's resource name.
@@ -73,7 +73,7 @@ type waypointCache struct {
 func NewWaypointCache(serviceCache ServiceCache) *waypointCache {
 	return &waypointCache{
 		serviceCache:              serviceCache,
-		waypointAssociatedObjects: make(map[string]*associatedObjects),
+		waypointAssociatedObjects: make(map[string]*waypointAssociatedObjects),
 		serviceToWaypoint:         make(map[string]string),
 		workloadToWaypoint:        make(map[string]string),
 	}
@@ -234,7 +234,7 @@ func (w *waypointCache) Refresh(svc *workloadapi.Service) ([]*workloadapi.Servic
 	return nil, nil
 }
 
-type associatedObjects struct {
+type waypointAssociatedObjects struct {
 	mutex sync.RWMutex
 	// IP address of waypoint.
 	// If it is nil, it means that the waypoint service has not been processed yet.
@@ -249,23 +249,23 @@ type associatedObjects struct {
 	workloads map[string]*workloadapi.Workload
 }
 
-func newAssociatedObjects(addr *workloadapi.NetworkAddress) *associatedObjects {
-	return &associatedObjects{
+func newAssociatedObjects(addr *workloadapi.NetworkAddress) *waypointAssociatedObjects {
+	return &waypointAssociatedObjects{
 		address:   addr,
 		services:  make(map[string]*workloadapi.Service),
 		workloads: make(map[string]*workloadapi.Workload),
 	}
 }
 
-func (w *associatedObjects) isResolved() bool {
+func (w *waypointAssociatedObjects) isResolved() bool {
 	return w.address != nil
 }
 
-func (w *associatedObjects) waypointAddress() *workloadapi.NetworkAddress {
+func (w *waypointAssociatedObjects) waypointAddress() *workloadapi.NetworkAddress {
 	return w.address
 }
 
-func (w *associatedObjects) update(addr *workloadapi.NetworkAddress) ([]*workloadapi.Service, []*workloadapi.Workload) {
+func (w *waypointAssociatedObjects) update(addr *workloadapi.NetworkAddress) ([]*workloadapi.Service, []*workloadapi.Workload) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -287,28 +287,28 @@ func (w *associatedObjects) update(addr *workloadapi.NetworkAddress) ([]*workloa
 	return svcs, workloads
 }
 
-func (w *associatedObjects) addService(resourceName string, service *workloadapi.Service) {
+func (w *waypointAssociatedObjects) addService(resourceName string, service *workloadapi.Service) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
 	w.services[resourceName] = service
 }
 
-func (w *associatedObjects) deleteService(resourceName string) {
+func (w *waypointAssociatedObjects) deleteService(resourceName string) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
 	delete(w.services, resourceName)
 }
 
-func (w *associatedObjects) addWorkload(uid string, workload *workloadapi.Workload) {
+func (w *waypointAssociatedObjects) addWorkload(uid string, workload *workloadapi.Workload) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
 	w.workloads[uid] = workload
 }
 
-func (w *associatedObjects) deleteWorkload(uid string) {
+func (w *waypointAssociatedObjects) deleteWorkload(uid string) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
