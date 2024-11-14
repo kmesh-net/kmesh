@@ -28,8 +28,8 @@ import (
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/dns"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/utils"
 )
 
 var (
@@ -62,7 +62,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	var err error
 	var kmeshManageController *manage.KmeshManageController
 
-	clientset, err := utils.GetK8sclient()
+	clientset, err := kube.CreateKubeClient("")
 	if err != nil {
 		return err
 	}

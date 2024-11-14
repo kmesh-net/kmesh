@@ -25,8 +25,8 @@ import (
 	"istio.io/pkg/env"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/version"
 )
 
@@ -76,14 +76,13 @@ func GetExitType() StartType {
 }
 
 func InferNextStartType() StartType {
-	clientset, err := utils.GetK8sclient()
+	clientset, err := kube.CreateKubeClient("")
 	if err != nil {
 		return Normal
 	}
 	podName := strings.Split(env.Register("POD_NAME", "", "").Get(), "-")
 	daemonSetName := podName[0]
 	daemonSetNamespace := env.Register("POD_NAMESPACE", "", "").Get()
-	log.Infof("trying to get daemonSet %s in namespace %s", daemonSetName, daemonSetNamespace)
 	daemonSet, err := clientset.AppsV1().DaemonSets(daemonSetNamespace).Get(context.TODO(), daemonSetName, metav1.GetOptions{})
 	if err == nil {
 		log.Infof("found daemonSet %s in namespace %s", daemonSet.Name, daemonSet.Namespace)

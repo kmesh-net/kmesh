@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -147,7 +148,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	client, err := utils.CreateK8sClientSet(cniConf.KubeConfig)
+	client, err := kube.CreateKubeClient(cniConf.KubeConfig)
 	if err != nil {
 		err = fmt.Errorf("failed to get k8s client: %v", err)
 		log.Error(err)

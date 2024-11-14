@@ -84,7 +84,7 @@ func NewXDSConfig(mode string) *XdsConfig {
 	c.Metadata.Namespace = podNamespace
 	c.Metadata.ClusterID = cluster.ID(clusterID)
 	c.Metadata.InstanceIPs = []string{ip}
-	// TODO: add labels to support localiy load balancing
+	// TODO: add labels to support locality load balancing
 	c.Metadata.Labels = nil
 	c.Metadata.MeshID = meshID
 	c.Metadata.NodeName = nodeName
