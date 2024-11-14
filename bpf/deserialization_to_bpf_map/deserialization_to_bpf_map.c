@@ -74,11 +74,12 @@ struct inner_map_stat {
     unsigned int resv : 30;
 };
 
-#define MIM_BITMAP_SIZE (MAP_MAX_ENTRIES / 8)
+#define BITMAP_SIZE (MAP_MAX_ENTRIES / 8)
 struct map_mng {
     int inner_fds[MAP_TYPE_MAX];
     struct bpf_map_info inner_infos[MAP_TYPE_MAX];
-    unsigned char mim_used_bitmap[MAP_TYPE_MAX][MIM_BITMAP_SIZE];
+    unsigned char used_bitmap[MAP_TYPE_MAX][BITMAP_SIZE];
+    unsigned int start_pos[MAP_TYPE_MAX];
 };
 
 struct map_mng g_map_mng = {0};
@@ -238,23 +239,30 @@ static int free_outter_map_entry(struct op_context *ctx, unsigned int *outer_key
     if (type >= MAP_TYPE_MAX || inner_idx >= MAP_MAX_ENTRIES)
         return -1;
 
-    CLEAR_BIT(g_map_mng.mim_used_bitmap[type], inner_idx);
+    CLEAR_BIT(g_map_mng.used_bitmap[type], inner_idx);
     *outer_key = 0;
     return 0;
 }
 
-static int bitmap_find_first_clear(unsigned char *bitmap, int len)
+static unsigned int bitmap_find_first_clear(unsigned char *bitmap, unsigned int *start_pos, unsigned int bitmap_size)
 {
-    int i, j;
+    unsigned int i = *start_pos, j;
     unsigned char bmp;
 
-    for (i = 0; i < len; i++) {
+    if (i && IS_SET(bitmap, i) == 0) {
+        *start_pos = ((i + 1) % bitmap_size) ?: 1;
+        return i;
+    }
+
+    for (i = 0; i < (bitmap_size / 8); i++) {
         bmp = bitmap[i];
         for (j = 0; j < 8; j++) {
             if (i == 0 && j == 0)
                 continue;
-            if (!(bmp & (1U << j)))
+            if (!(bmp & (1U << j))) {
+                *start_pos = ((i * 8 + j + 1) % bitmap_size) ?: 1;
                 return (i * 8 + j);
+            }
         }
     }
     return -1;
@@ -262,14 +270,14 @@ static int bitmap_find_first_clear(unsigned char *bitmap, int len)
 
 static unsigned int alloc_outer_key(struct op_context *ctx, int size)
 {
-    int i, j;
+    unsigned int i, j;
     if (size <= 0)
         return -1;
     for (i = 0; i < MAP_TYPE_MAX; i++) {
         if (size > g_map_mng.inner_infos[i].value_size)
             continue;
 
-        j = bitmap_find_first_clear(&g_map_mng.mim_used_bitmap[i][0], MIM_BITMAP_SIZE);
+        j = bitmap_find_first_clear(&g_map_mng.used_bitmap[i][0], &g_map_mng.start_pos[i], MAP_MAX_ENTRIES);
         if (j > 0 && j < MAP_MAX_ENTRIES)
             break;
     }
@@ -279,7 +287,7 @@ static unsigned int alloc_outer_key(struct op_context *ctx, int size)
         return -1;
     }
 
-    SET_BIT(g_map_mng.mim_used_bitmap[i], j);
+    SET_BIT(g_map_mng.used_bitmap[i], j);
     return MAP_GEN_OUTER_KEY(i, j);
 }
 
@@ -1346,13 +1354,13 @@ void deserial_uninit()
     return;
 }
 
-int map_restore(int map_fd, struct bpf_map_info *map_info, unsigned char *bitmap)
+int map_restore(int map_fd, struct bpf_map_info *map_info, unsigned char *bitmap, unsigned int *start_pos)
 {
     void *prev_key;
-    unsigned int key;
+    unsigned int key = 0;
 
     while (!bpf_map_get_next_key(map_fd, prev_key, &key)) {
-        if (MAP_GET_TYPE(key) >= MAP_TYPE_MAX || MAP_GET_INDEX(key) >= MAP_MAX_ENTRIES) {
+        if (MAP_GET_INDEX(key) >= MAP_MAX_ENTRIES) {
             LOG_ERR("bpf_map_get_next_key key:%u invalid.", key);
             return -1;
         }
@@ -1360,6 +1368,8 @@ int map_restore(int map_fd, struct bpf_map_info *map_info, unsigned char *bitmap
         SET_BIT(bitmap, key);
         prev_key = &key;
     }
+
+    *start_pos = ((key + 1) % MAP_MAX_ENTRIES) ?: 1;
     return 0;
 }
 
@@ -1369,7 +1379,8 @@ int maps_restore()
     int i, ret = 0;
 
     for (i = 0; i < MAP_TYPE_MAX; i++) {
-        ret = map_restore(g_map_mng.inner_fds[i], &g_map_mng.inner_infos[i], g_map_mng.mim_used_bitmap[i]);
+        ret = map_restore(
+            g_map_mng.inner_fds[i], &g_map_mng.inner_infos[i], g_map_mng.used_bitmap[i], &g_map_mng.start_pos[i]);
         if (ret) {
             LOG_ERR("map_restore %d failed:%d", i, ret);
             break;
