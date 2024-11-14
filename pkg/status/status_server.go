@@ -33,6 +33,7 @@ import (
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
@@ -407,7 +408,7 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 	key := uint32(0)
-	value := constants.KmeshBpfConfig{}
+	value := bpf.KmeshBpfConfig{}
 	if err := s.kmeshConfigMap.Lookup(&key, &value); err != nil {
 		return nil, fmt.Errorf("get log level error: %v", err)
 	}
@@ -451,7 +452,7 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 		return
 	}
 	key := uint32(0)
-	value := constants.KmeshBpfConfig{}
+	value := bpf.KmeshBpfConfig{}
 	if s.kmeshConfigMap == nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
 		return

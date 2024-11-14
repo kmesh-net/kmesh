@@ -23,6 +23,7 @@ import (
 	"context"
 	"hash/fnv"
 	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -39,6 +40,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -55,6 +57,12 @@ type BpfLoader struct {
 	workloadObj *workload.BpfWorkload
 	kmeshConfig *ebpf.Map
 	versionMap  *ebpf.Map
+}
+
+type KmeshBpfConfig struct {
+	BpfLogLevel uint32
+	NodeIP      [16]byte
+	PodGateway  [16]byte
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
@@ -94,6 +102,8 @@ func (l *BpfLoader) Start() error {
 			return err
 		}
 		l.kmeshConfig = l.workloadObj.GetKmeshConfigMap()
+		// TODO: set bpf prog option in kernel native node
+		l.setBpfProgOptions()
 	}
 
 	// TODO: move start mds out of bpf loader
@@ -102,8 +112,6 @@ func (l *BpfLoader) Start() error {
 			return err
 		}
 	}
-
-	l.UpdateBpfProgOptions()
 
 	if restart.GetStartType() == restart.Restart {
 		log.Infof("bpf load from last pinPath")
@@ -271,10 +279,10 @@ func recoverVersionMap(pinPath string) *ebpf.Map {
 	return versionMap
 }
 
-func (l *BpfLoader) UpdateBpfProgOptions() {
+func (l *BpfLoader) setBpfProgOptions() {
 	nodeName := os.Getenv("NODE_NAME")
 	if nodeName == "" {
-		log.Errorf("skip kubelet probe failed: %s", "node name empty")
+		log.Error("skip kubelet probe failed: node name empty")
 		return
 	}
 
@@ -291,13 +299,13 @@ func (l *BpfLoader) UpdateBpfProgOptions() {
 	}
 
 	// pass node ip and pod gateway to skip processing of kubelet access traffic.
-	nodeIP := getNodeIPAddress(nodeName, node)
-	gateway := getNodePodSubGateway(nodeName, node)
+	nodeIP := getNodeIPAddress(node)
+	gateway := getNodePodSubGateway(node)
 
 	keyOfKmeshBpfConfig := uint32(0)
-	ValueOfKmeshBpfConfig := constants.KmeshBpfConfig{
+	ValueOfKmeshBpfConfig := KmeshBpfConfig{
 		// Write this map only when the kmesh daemon starts, so set bpfloglevel to the default value.
-		BpfLogLevel: uint32(2),
+		BpfLogLevel: constants.BPF_LOG_INFO,
 		NodeIP:      nodeIP,
 		PodGateway:  gateway,
 	}
@@ -312,7 +320,7 @@ func (l *BpfLoader) UpdateBpfProgOptions() {
 	}
 }
 
-func getNodeIPAddress(nodeName string, node *corev1.Node) [4]uint32 {
+func getNodeIPAddress(node *corev1.Node) [16]byte {
 	var nodeIPStr string
 	nodeAddresses := node.Status.Addresses
 	for _, address := range nodeAddresses {
@@ -321,65 +329,30 @@ func getNodeIPAddress(nodeName string, node *corev1.Node) [4]uint32 {
 		}
 	}
 
-	nodeIP := net.ParseIP(nodeIPStr)
-	nodeIPToUint := IPToUint32(nodeIP)
+	nodeIP, err := netip.ParseAddr(nodeIPStr)
+	if err != nil {
+		log.Errorf("failed to parse node ip: %v", err)
+		return [16]byte{}
+	}
 
-	return nodeIPToUint
+	return nodeIP.As16()
 }
 
-func getNodePodSubGateway(nodeName string, node *corev1.Node) [4]uint32 {
+func getNodePodSubGateway(node *corev1.Node) [16]byte {
 	podCIDR := node.Spec.PodCIDR
-	ip, _, err := net.ParseCIDR(podCIDR)
+	_, subNet, err := net.ParseCIDR(podCIDR)
 	if err != nil {
 		log.Errorf("failed to resolve ip from podCIDR: %v", err)
-		return [4]uint32{0, 0, 0, 0}
+		return [16]byte{0}
 	}
-
-	podGateway := IPToUint32(ip)
-	podGateway[3] = podGateway[3] + 1<<24
+	podGateway := [16]byte{0}
+	nets.CopyIpByteFromSlice(&podGateway, subNet.IP.To16())
+	if err != nil {
+		log.Errorf("failed to parse pod gateway: %v", err)
+		return [16]byte{}
+	}
+	podGateway[15] = podGateway[15] + 1
 	return podGateway
-}
-
-func IPToUint32(ip net.IP) [4]uint32 {
-	ipToUint32 := [4]uint32{0, 0, 0, 0}
-	if isIPv6(ip) {
-		ipToUint32[0] = binaryToUint32(ip[:4])
-		ipToUint32[1] = binaryToUint32(ip[4:8])
-		ipToUint32[2] = binaryToUint32(ip[8:12])
-		ipToUint32[3] = binaryToUint32(ip[12:16])
-	} else {
-		if len(ip) == 16 {
-			// ipv4 to ipv6
-			ipToUint32[3] = binaryToUint32(ip[12:16])
-		} else {
-			ipToUint32[3] = binaryToUint32(ip)
-		}
-	}
-
-	return ipToUint32
-}
-
-func isIPv6(ip net.IP) bool {
-	if len(ip) == 16 {
-		for i := 0; i < 10; i++ {
-			if ip[i] != 0 {
-				return true
-			}
-		}
-
-		if ip[10] != 0xff {
-			return true
-		}
-
-		if ip[11] != 0xff {
-			return true
-		}
-	}
-	return false
-}
-
-func binaryToUint32(ip net.IP) uint32 {
-	return uint32(ip[3])<<24 + uint32(ip[2])<<16 + uint32(ip[1])<<8 + uint32(ip[0])
 }
 
 func closeMap(m *ebpf.Map) {
