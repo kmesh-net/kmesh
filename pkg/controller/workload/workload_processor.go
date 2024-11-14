@@ -609,6 +609,10 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 		newValue.ServicePort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
 		if strings.Contains(serviceName, "waypoint") {
 			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+		} else if port.TargetPort == 0 {
+			// NOTE: Target port could be unset in servicen entry, in which case it should
+			// be consistent with the Service Port.
+			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
 		} else {
 			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(port.TargetPort)
 		}
