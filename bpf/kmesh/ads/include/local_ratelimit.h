@@ -124,10 +124,9 @@ Local_rate_limit__check_and_take(const Listener__FilterChain *filter_chain, addr
         return -1;
     }
 
-    struct ratelimit_key key = {
-        .key.sk_skb.ipv4 = addr->ipv4,
-        .key.sk_skb.port = addr->port,
-    };
+    struct ratelimit_key key = {0};
+    key.key.sk_skb.ipv4 = addr->ipv4;
+    key.key.sk_skb.port = addr->port;
     key.key.sk_skb.netns = bpf_get_netns_cookie((void *)ctx);
 
     struct ratelimit_settings settings = {
