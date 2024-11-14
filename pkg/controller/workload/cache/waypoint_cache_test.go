@@ -59,7 +59,7 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, len(cache.waypointAssociatedObjects), 1)
 
 	if _, ok := cache.serviceToWaypoint[svc3.ResourceName()]; !ok {
-		t.Fatalf("service %s should be inclued in waypoint cache", svc3.ResourceName())
+		t.Fatalf("service %s should be included in waypoint cache", svc3.ResourceName())
 	}
 	if _, ok := cache.workloadToWaypoint[wl3.ResourceName()]; !ok {
 		t.Fatalf("workload %s should be included in waypoint cache", wl3.ResourceName())
@@ -78,7 +78,7 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, isHostnameTypeWaypoint(associated.services[svc3.ResourceName()].Waypoint), true)
 	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint), true)
 
-	// Crate waypoint service and process.
+	// Create waypoint service and process.
 	waypointsvc := createFakeService("waypoint", "10.240.10.11", "")
 	svcs, wls := cache.Refresh(waypointsvc)
 	assert.Equal(t, len(svcs), 1)
