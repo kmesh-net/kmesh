@@ -39,9 +39,9 @@ import (
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/nets"
-	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/version"
 )
 
@@ -286,7 +286,7 @@ func (l *BpfLoader) setBpfProgOptions() {
 		return
 	}
 
-	clientSet, err := utils.GetK8sclient()
+	clientSet, err := kube.CreateKubeClient("")
 	if err != nil {
 		log.Errorf("get kubernetest client for getting node IP error: %v", err)
 		return
@@ -310,13 +310,11 @@ func (l *BpfLoader) setBpfProgOptions() {
 		PodGateway:  gateway,
 	}
 
-	if l.kmeshConfig == nil {
-		log.Errorf("skip kubelet probe failed: %v", "kmeshConfigMap is nil")
-		return
-	}
-	if err := l.kmeshConfig.Update(&keyOfKmeshBpfConfig, &ValueOfKmeshBpfConfig, ebpf.UpdateAny); err != nil {
-		log.Errorf("update kmeshConfigMap failed: %v", err)
-		return
+	if l.kmeshConfig != nil {
+		if err := l.kmeshConfig.Update(&keyOfKmeshBpfConfig, &ValueOfKmeshBpfConfig, ebpf.UpdateAny); err != nil {
+			log.Errorf("update kmeshConfig map failed: %v", err)
+			return
+		}
 	}
 }
 
@@ -347,10 +345,6 @@ func getNodePodSubGateway(node *corev1.Node) [16]byte {
 	}
 	podGateway := [16]byte{0}
 	nets.CopyIpByteFromSlice(&podGateway, subNet.IP.To16())
-	if err != nil {
-		log.Errorf("failed to parse pod gateway: %v", err)
-		return [16]byte{}
-	}
 	podGateway[15] = podGateway[15] + 1
 	return podGateway
 }
