@@ -15,19 +15,25 @@ typedef struct bpf_sock_ops ctx_buff_t;
     bpf_memset(&name, 0, sizeof(name));                                                                                \
     name.ipv4 = (ctx)->remote_ip4;                                                                                     \
     name.port = (ctx)->remote_port
-#define SET_CTX_ADDRESS(ctx, address)                                                                                  \
-    (ctx)->replylong[2] = (address)->ipv4;                                                                             \
-    (ctx)->replylong[3] = (address)->port
+
 #if OE_23_03
-#undef SET_CTX_ADDRESS
 #define SET_CTX_ADDRESS(ctx, address)                                                                                  \
     (ctx)->remote_ip4 = (address)->ipv4;                                                                               \
     (ctx)->remote_port = (address)->port
-#endif
 
 #define MARK_REJECTED(ctx)                                                                                             \
     BPF_LOG(DEBUG, KMESH, "mark reject\n");                                                                            \
     (ctx)->remote_ip4 = 0;                                                                                             \
     (ctx)->remote_port = 0
+#else
+#define SET_CTX_ADDRESS(ctx, address)                                                                                  \
+    (ctx)->replylong[2] = (address)->ipv4;                                                                             \
+    (ctx)->replylong[3] = (address)->port
+
+#define MARK_REJECTED(ctx)                                                                                             \
+    BPF_LOG(DEBUG, KMESH, "mark reject\n");                                                                            \
+    (ctx)->replylong[2] = 0;                                                                                           \
+    (ctx)->replylong[3] = 0
+#endif
 
 #endif //__BPF_CTX_SOCK_OPS_H
