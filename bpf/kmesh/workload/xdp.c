@@ -70,14 +70,14 @@ static inline int xdp_deny_packet(struct xdp_info *info, struct bpf_sock_tuple *
     return XDP_DROP;
 }
 
-static bool is_authz_enabled()
+static bool is_authz_offload_enabled()
 {
-    int key = 1;
-    int *value = NULL;
-    value = kmesh_map_lookup_elem(&kmesh_config_map, &key);
+    int kmesh_config_key = 0;
+    struct kmesh_config *value = {0};
+    value = kmesh_map_lookup_elem(&kmesh_config_map, &kmesh_config_key);
     if (!value)
         return false;
-    return (*value == 1);
+    return ((*value).authz_offload == 1);
 }
 
 static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
@@ -105,7 +105,7 @@ static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct
 SEC("xdp_auth")
 int xdp_authz(struct xdp_md *ctx)
 {
-    if (!is_authz_enabled()) {
+    if (!is_authz_offload_enabled()) {
         BPF_LOG(INFO, AUTH, "authz is not enabled, tail call to user auth");
         bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
         return XDP_PASS;
