@@ -296,9 +296,9 @@ int policy_check(struct xdp_md *ctx)
         BPF_LOG(INFO, AUTH, "No more policy, throw it to user auth");
         goto auth_in_user_space;
     } else {
-        rulesPtr = kmesh_get_ptr_val(policy->rules);
+        rulesPtr = KMESH_GET_PTR_VAL(policy->rules, void *);
         if (!rulesPtr) {
-            BPF_LOG(ERR, AUTH, "failed to get rules from policy %s\n", kmesh_get_ptr_val(policy->name));
+            BPF_LOG(ERR, AUTH, "failed to get rules from policies\n");
             return XDP_PASS;
         }
         match_ctx->rulesPtr = rulesPtr;
@@ -362,7 +362,7 @@ int rule_check(struct xdp_md *ctx)
             continue;
         }
 
-        rule = (Istio__Security__Rule *)kmesh_get_ptr_val((void *)rule_addr);
+        rule = (Istio__Security__Rule *)KMESH_GET_PTR_VAL((void *)*((__u64 *)rulesPtr + i), Istio__Security__Rule);
         if (!rule) {
             continue;
         }
