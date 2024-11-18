@@ -40,7 +40,6 @@ var KMESH_TAIL_CALL_FILTER = uint32(C.KMESH_TAIL_CALL_FILTER)
 var KMESH_TAIL_CALL_ROUTER = uint32(C.KMESH_TAIL_CALL_ROUTER)
 var KMESH_TAIL_CALL_CLUSTER = uint32(C.KMESH_TAIL_CALL_CLUSTER)
 var KMESH_TAIL_CALL_ROUTER_CONFIG = uint32(C.KMESH_TAIL_CALL_ROUTER_CONFIG)
-var BPF_INNER_MAP_DATA_LEN = uint32(C.BPF_INNER_MAP_DATA_LEN)
 
 type BpfInfo struct {
 	MapPath     string
@@ -94,7 +93,6 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 		return nil, err
 	}
 
-	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockObjects, &opts); err != nil {
 		return nil, err

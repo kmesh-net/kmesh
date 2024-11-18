@@ -48,7 +48,7 @@ virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buf
     if (!virt_host->domains)
         return 0;
 
-    domains = kmesh_get_ptr_val(_(virt_host->domains));
+    domains = KMESH_GET_PTR_VAL(_(virt_host->domains), void *);
     if (!domains)
         return 0;
 
@@ -57,7 +57,7 @@ virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buf
             break;
         }
 
-        domain = kmesh_get_ptr_val((void *)*((__u64 *)domains + i));
+        domain = KMESH_GET_PTR_VAL((void *)*((__u64 *)domains + i), char *);
         if (!domain)
             continue;
 
@@ -66,7 +66,10 @@ virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buf
 
         if (bpf_strnstr(ptr, domain, ptr_length) != NULL) {
             BPF_LOG(
-                DEBUG, ROUTER_CONFIG, "match virtual_host, name=\"%s\"\n", (char *)kmesh_get_ptr_val(virt_host->name));
+                DEBUG,
+                ROUTER_CONFIG,
+                "match virtual_host, name=\"%s\"\n",
+                (char *)KMESH_GET_PTR_VAL(virt_host->name, char *));
             return 1;
         }
     }
@@ -98,7 +101,7 @@ virtual_host_match(Route__RouteConfiguration *route_config, address_t *addr, ctx
         return NULL;
     }
 
-    ptrs = kmesh_get_ptr_val(_(route_config->virtual_hosts));
+    ptrs = KMESH_GET_PTR_VAL(_(route_config->virtual_hosts), void *);
     if (!ptrs) {
         BPF_LOG(ERR, ROUTER_CONFIG, "failed to get virtual hosts\n");
         return NULL;
@@ -115,11 +118,11 @@ virtual_host_match(Route__RouteConfiguration *route_config, address_t *addr, ctx
             break;
         }
 
-        virt_host = kmesh_get_ptr_val((void *)*((__u64 *)ptrs + i));
+        virt_host = KMESH_GET_PTR_VAL((void *)*((__u64 *)ptrs + i), Route__VirtualHost);
         if (!virt_host)
             continue;
 
-        if (VirtualHost_check_allow_any((char *)kmesh_get_ptr_val(virt_host->name))) {
+        if (VirtualHost_check_allow_any((char *)KMESH_GET_PTR_VAL(virt_host->name, char *))) {
             virt_host_allow_any = virt_host;
             continue;
         }
@@ -159,7 +162,7 @@ static inline bool check_headers_match(Route__RouteMatch *match)
         BPF_LOG(ERR, ROUTER_CONFIG, "un support header num(%d), no need to check\n", match->n_headers);
         return false;
     }
-    ptrs = kmesh_get_ptr_val(_(match->headers));
+    ptrs = KMESH_GET_PTR_VAL(_(match->headers), void *);
     if (!ptrs) {
         BPF_LOG(ERR, ROUTER_CONFIG, "failed to get match headers in route match\n");
         return false;
@@ -168,12 +171,12 @@ static inline bool check_headers_match(Route__RouteMatch *match)
         if (i >= match->n_headers) {
             break;
         }
-        header_match = (Route__HeaderMatcher *)kmesh_get_ptr_val((void *)*((__u64 *)ptrs + i));
+        header_match = (Route__HeaderMatcher *)KMESH_GET_PTR_VAL((void *)*((__u64 *)ptrs + i), Route__HeaderMatcher);
         if (!header_match) {
             BPF_LOG(ERR, ROUTER_CONFIG, "failed to get match headers in route match\n");
             return false;
         }
-        header_name = kmesh_get_ptr_val(header_match->name);
+        header_name = KMESH_GET_PTR_VAL(header_match->name, char *);
         if (!header_name) {
             BPF_LOG(ERR, ROUTER_CONFIG, "failed to get match headers in route match\n");
             return false;
@@ -186,7 +189,7 @@ static inline bool check_headers_match(Route__RouteMatch *match)
         BPF_LOG(DEBUG, ROUTER_CONFIG, "header match check, name:%s\n", header_name);
         switch (header_match->header_match_specifier_case) {
         case ROUTE__HEADER_MATCHER__HEADER_MATCH_SPECIFIER_EXACT_MATCH: {
-            config_header_value = kmesh_get_ptr_val(header_match->exact_match);
+            config_header_value = KMESH_GET_PTR_VAL(header_match->exact_match, char *);
             if (config_header_value == NULL) {
                 BPF_LOG(ERR, ROUTER_CONFIG, "failed to get config_header_value\n");
             }
@@ -196,7 +199,7 @@ static inline bool check_headers_match(Route__RouteMatch *match)
             break;
         }
         case ROUTE__HEADER_MATCHER__HEADER_MATCH_SPECIFIER_PREFIX_MATCH: {
-            config_header_value = kmesh_get_ptr_val(header_match->prefix_match);
+            config_header_value = KMESH_GET_PTR_VAL(header_match->prefix_match, char *);
             if (config_header_value == NULL) {
                 BPF_LOG(ERR, ROUTER_CONFIG, "prefix:failed to get config_header_value\n");
             }
@@ -227,11 +230,11 @@ virtual_host_route_match_check(Route__Route *route, address_t *addr, ctx_buff_t 
     if (!route->match)
         return 0;
 
-    match = kmesh_get_ptr_val(route->match);
+    match = KMESH_GET_PTR_VAL(route->match, Route__RouteMatch);
     if (!match)
         return 0;
 
-    prefix = kmesh_get_ptr_val(match->prefix);
+    prefix = KMESH_GET_PTR_VAL(match->prefix, char *);
     if (!prefix)
         return 0;
 
@@ -241,7 +244,7 @@ virtual_host_route_match_check(Route__Route *route, address_t *addr, ctx_buff_t 
     if (!check_headers_match(match))
         return 0;
 
-    BPF_LOG(DEBUG, ROUTER_CONFIG, "match route, name=\"%s\"\n", (char *)kmesh_get_ptr_val(route->name));
+    BPF_LOG(DEBUG, ROUTER_CONFIG, "match route, name=\"%s\"\n", (char *)KMESH_GET_PTR_VAL(route->name, char *));
     return 1;
 }
 
@@ -257,7 +260,7 @@ virtual_host_route_match(Route__VirtualHost *virt_host, address_t *addr, ctx_buf
         return NULL;
     }
 
-    ptrs = kmesh_get_ptr_val(_(virt_host->routes));
+    ptrs = KMESH_GET_PTR_VAL(_(virt_host->routes), void *);
     if (!ptrs) {
         BPF_LOG(ERR, ROUTER_CONFIG, "failed to get routes ptrs\n");
         return NULL;
@@ -268,7 +271,7 @@ virtual_host_route_match(Route__VirtualHost *virt_host, address_t *addr, ctx_buf
             break;
         }
 
-        route = (Route__Route *)kmesh_get_ptr_val((void *)*((__u64 *)ptrs + i));
+        route = (Route__Route *)KMESH_GET_PTR_VAL((void *)*((__u64 *)ptrs + i), Route__Route);
         if (!route)
             continue;
 
@@ -286,11 +289,11 @@ static inline char *select_weight_cluster(Route__RouteAction *route_act)
     int32_t select_value;
     void *cluster_name = NULL;
 
-    weightedCluster = kmesh_get_ptr_val((route_act->weighted_clusters));
+    weightedCluster = KMESH_GET_PTR_VAL((route_act->weighted_clusters), Route__WeightedCluster);
     if (!weightedCluster) {
         return NULL;
     }
-    ptr = kmesh_get_ptr_val(weightedCluster->clusters);
+    ptr = KMESH_GET_PTR_VAL(weightedCluster->clusters, void *);
     if (!ptr) {
         return NULL;
     }
@@ -299,13 +302,14 @@ static inline char *select_weight_cluster(Route__RouteAction *route_act)
         if (i >= weightedCluster->n_clusters) {
             break;
         }
-        route_cluster_weight = (Route__ClusterWeight *)kmesh_get_ptr_val((void *)*((__u64 *)ptr + i));
+        route_cluster_weight =
+            (Route__ClusterWeight *)KMESH_GET_PTR_VAL((void *)*((__u64 *)ptr + i), Route__ClusterWeight);
         if (!route_cluster_weight) {
             return NULL;
         }
         select_value = select_value - (int)route_cluster_weight->weight;
         if (select_value <= 0) {
-            cluster_name = kmesh_get_ptr_val(route_cluster_weight->name);
+            cluster_name = KMESH_GET_PTR_VAL(route_cluster_weight->name, char *);
             BPF_LOG(
                 DEBUG,
                 ROUTER_CONFIG,
@@ -321,7 +325,7 @@ static inline char *select_weight_cluster(Route__RouteAction *route_act)
 static inline char *route_get_cluster(const Route__Route *route)
 {
     Route__RouteAction *route_act = NULL;
-    route_act = kmesh_get_ptr_val(_(route->route));
+    route_act = KMESH_GET_PTR_VAL(_(route->route), Route__RouteAction);
     if (!route_act) {
         BPF_LOG(ERR, ROUTER_CONFIG, "failed to get route action ptr\n");
         return NULL;
@@ -331,7 +335,7 @@ static inline char *route_get_cluster(const Route__Route *route)
         return select_weight_cluster(route_act);
     }
 
-    return kmesh_get_ptr_val(_(route_act->cluster));
+    return KMESH_GET_PTR_VAL(_(route_act->cluster), char *);
 }
 
 SEC_TAIL(KMESH_PORG_CALLS, KMESH_TAIL_CALL_ROUTER_CONFIG)
