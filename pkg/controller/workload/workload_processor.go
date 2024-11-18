@@ -17,6 +17,7 @@
 package workload
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"slices"
@@ -961,8 +962,9 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 				return err
 			}
 
-			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
-				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
+			err := p.bpf.EndpointLookup(&ek, &ev)
+			if err == nil || !errors.Is(err, os.ErrNotExist) {
+				log.Errorf("Delete endpoint %#v failed: %s", ek, err)
 			}
 			p.EndpointCache.DeleteEndpoint(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
 		}
