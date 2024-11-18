@@ -309,24 +309,23 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 }
 
 // addWorkloadToService update service & endpoint bpf map when a workload has new bound services
-func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, uid uint32, priority uint32) (error, bpf.EndpointKey) {
+func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, workloadUid uint32, priority uint32) (error, bpf.EndpointKey) {
 	var (
-		err error
-		ek  = bpf.EndpointKey{}
-		ev  = bpf.EndpointValue{}
+		ek = bpf.EndpointKey{}
+		ev = bpf.EndpointValue{}
 	)
 
 	sv.EndpointCount[priority]++
 	ek.BackendIndex = sv.EndpointCount[priority]
 	ek.ServiceId = sk.ServiceId
 	ek.Prio = priority
-	ev.BackendUid = uid
-	if err = p.bpf.EndpointUpdate(&ek, &ev); err != nil {
+	ev.BackendUid = workloadUid
+	if err := p.bpf.EndpointUpdate(&ek, &ev); err != nil {
 		log.Errorf("Update endpoint map failed, err:%s", err)
 		return err, ek
 	}
 	p.EndpointCache.AddEndpointToService(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
-	if err = p.bpf.ServiceUpdate(sk, sv); err != nil {
+	if err := p.bpf.ServiceUpdate(sk, sv); err != nil {
 		log.Errorf("Update ServiceUpdate map failed, err:%s", err)
 		return err, ek
 	}
@@ -346,12 +345,11 @@ func (p *Processor) handleWorkloadUnboundServices(workload *workloadapi.Workload
 // handleWorkloadNewBoundServices handles when a workload's belonging services added
 func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workload, newServices []uint32) error {
 	var (
-		err error
-		sk  = bpf.ServiceKey{}
-		sv  = bpf.ServiceValue{}
+		sk = bpf.ServiceKey{}
+		sv = bpf.ServiceValue{}
 	)
 
-	if newServices == nil {
+	if len(newServices) == 0 {
 		return nil
 	}
 
@@ -360,9 +358,10 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 	for _, svcUid := range newServices {
 		sk.ServiceId = svcUid
 		// the service already stored in map, add endpoint
-		if err = p.bpf.ServiceLookup(&sk, &sv); err == nil {
+		if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
 			if sv.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) { // random mode
-				if err, _ = p.addWorkloadToService(&sk, &sv, workloadId, 0); err != nil { // In random mode, we save all workload to max priority
+				// In random mode, we save all workload to max priority group
+				if err, _ = p.addWorkloadToService(&sk, &sv, workloadId, 0); err != nil {
 					log.Errorf("addWorkloadToService workload %d service %d failed: %v", workloadId, sk.ServiceId, err)
 					return err
 				}
@@ -381,16 +380,15 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 	return nil
 }
 
-func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
+func (p *Processor) updateWorkloadInBackendMap(workload *workloadapi.Workload) error {
 	var (
-		err         error
-		bk          = bpf.BackendKey{}
-		bv          = bpf.BackendValue{}
-		networkMode = workload.GetNetworkMode()
+		err error
+		bk  = bpf.BackendKey{}
+		bv  = bpf.BackendValue{}
 	)
 
 	uid := p.hashName.Hash(workload.GetUid())
-	log.Debugf("updateWorkload: workload %s, backendUid: %v", workload.GetUid(), uid)
+	log.Debugf("updateWorkloadInBackendMap: workload %s, backendUid: %v", workload.GetUid(), uid)
 
 	if waypoint := workload.GetWaypoint(); waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
@@ -413,14 +411,24 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 			log.Errorf("Update backend map failed, err:%s", err)
 			return err
 		}
+	}
+	return nil
+}
 
-		// we should not store frontend data of hostname network mode pods
-		// please see https://github.com/kmesh-net/kmesh/issues/631
-		if networkMode != workloadapi.NetworkMode_HOST_NETWORK {
-			if err = p.storePodFrontendData(uid, ip); err != nil {
-				log.Errorf("storePodFrontendData failed, err:%s", err)
-				return err
-			}
+func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) error {
+	// we should not store frontend data of hostname network mode pods
+	// please see https://github.com/kmesh-net/kmesh/issues/631
+	if workload.GetNetworkMode() == workloadapi.NetworkMode_HOST_NETWORK {
+		return nil
+	}
+
+	uid := p.hashName.Hash(workload.GetUid())
+	log.Debugf("updateWorkloadInFrontendMap: workload %s, backendUid: %v", workload.GetUid(), uid)
+
+	for _, ip := range workload.GetAddresses() {
+		if err := p.storePodFrontendData(uid, ip); err != nil {
+			log.Errorf("storePodFrontendData failed, err:%s", err)
+			return err
 		}
 	}
 	return nil
@@ -454,6 +462,13 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		return p.removeWorkloadFromBpfMap(workload.Uid)
 	}
 
+	// 1. update workload in backend map
+	if err := p.updateWorkloadInBackendMap(workload); err != nil {
+		log.Errorf("updateWorkloadInBackendMap %s failed: %v", workload.Uid, err)
+		return err
+	}
+
+	// 2~3. update workload in endpoint map and service map
 	unboundedEndpointKeys, newServices := p.compareWorkloadServices(workload)
 	if err := p.handleWorkloadUnboundServices(workload, unboundedEndpointKeys); err != nil {
 		log.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.ResourceName(), err)
@@ -466,8 +481,8 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		return err
 	}
 
-	// update frontend and backend bpf map
-	if err := p.updateWorkload(workload); err != nil {
+	// 4. update workload in frontend map
+	if err := p.updateWorkloadInFrontendMap(workload); err != nil {
 		log.Errorf("updateWorkload %s failed: %v", workload.Uid, err)
 		return err
 	}
@@ -918,12 +933,18 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 		return nil
 	}
 
+	// maintain backend index map
+	backendIndexToEndpointKey := make(map[uint32]bpf.EndpointKey)
+	for _, ek := range endpointKeys {
+		backendIndexToEndpointKey[ek.BackendIndex] = ek
+	}
+
 	for _, ek := range endpointKeys {
 		sk.ServiceId = ek.ServiceId
 		// 1. find the service
 		if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
-			// 2. find the last indexed endpoint of the service
-			currentIndex := ek.BackendIndex
+			// get correct BackendIndex from updated backendIndexToEndpointKey
+			currentIndex := backendIndexToEndpointKey[ek.BackendIndex].BackendIndex
 			if err := p.bpf.EndpointSwap(currentIndex, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
 				log.Errorf("swap workload endpoint index failed: %s", err)
 				return err
