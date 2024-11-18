@@ -387,8 +387,8 @@ func (p *Processor) updateWorkloadInBackendMap(workload *workloadapi.Workload) e
 		bv  = bpf.BackendValue{}
 	)
 
-	uid := p.hashName.Hash(workload.GetUid())
-	log.Debugf("updateWorkloadInBackendMap: workload %s, backendUid: %v", workload.GetUid(), uid)
+	backendUid := p.hashName.Hash(workload.GetUid())
+	log.Debugf("updateWorkloadInBackendMap: workload %s, backendUid: %v", workload.GetUid(), backendUid)
 
 	if waypoint := workload.GetWaypoint(); waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
@@ -405,7 +405,7 @@ func (p *Processor) updateWorkloadInBackendMap(workload *workloadapi.Workload) e
 	}
 
 	for _, ip := range workload.GetAddresses() {
-		bk.BackendUid = uid
+		bk.BackendUid = backendUid
 		nets.CopyIpByteFromSlice(&bv.Ip, ip)
 		if err = p.bpf.BackendUpdate(&bk, &bv); err != nil {
 			log.Errorf("Update backend map failed, err:%s", err)
@@ -422,11 +422,11 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 		return nil
 	}
 
-	uid := p.hashName.Hash(workload.GetUid())
-	log.Debugf("updateWorkloadInFrontendMap: workload %s, backendUid: %v", workload.GetUid(), uid)
+	backendUid := p.hashName.Hash(workload.GetUid())
+	log.Debugf("updateWorkloadInFrontendMap: workload %s, backendUid: %v", workload.GetUid(), backendUid)
 
 	for _, ip := range workload.GetAddresses() {
-		if err := p.storePodFrontendData(uid, ip); err != nil {
+		if err := p.storePodFrontendData(backendUid, ip); err != nil {
 			log.Errorf("storePodFrontendData failed, err:%s", err)
 			return err
 		}
@@ -483,7 +483,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 
 	// 4. update workload in frontend map
 	if err := p.updateWorkloadInFrontendMap(workload); err != nil {
-		log.Errorf("updateWorkload %s failed: %v", workload.Uid, err)
+		log.Errorf("updateWorkloadInFrontendMap %s failed: %v", workload.Uid, err)
 		return err
 	}
 
@@ -509,7 +509,7 @@ func (p *Processor) compareWorkloadServices(workload *workloadapi.Workload) ([]b
 	return unboundedEndpointKeys, newServices
 }
 
-func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workloadapi.Service) error {
+func (p *Processor) updateServiceFrontendMap(serviceId uint32, service *workloadapi.Service) error {
 	var (
 		err error
 		fk  = bpf.FrontendKey{}
@@ -520,7 +520,7 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 	for _, networkAddress := range service.GetAddresses() {
 		nets.CopyIpByteFromSlice(&fk.Ip, networkAddress.Address)
 		if err = p.bpf.FrontendUpdate(&fk, &fv); err != nil {
-			log.Errorf("Update Frontend failed, err:%s", err)
+			log.Errorf("frontend map update err:%s", err)
 			return err
 		}
 	}
@@ -609,16 +609,17 @@ func (p *Processor) updateEndpoint(serviceId uint32, toLLb bool) error {
 	}
 }
 
-func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.GatewayAddress, ports []*workloadapi.Port, lb *workloadapi.LoadBalancing) error {
-	var (
-		err      error
-		sk       = bpf.ServiceKey{}
-		oldValue = bpf.ServiceValue{}
-	)
+func (p *Processor) updateServiceMap(service *workloadapi.Service) error {
+	sk := bpf.ServiceKey{}
+	oldValue := bpf.ServiceValue{}
+	newValue := bpf.ServiceValue{}
+
+	serviceName := service.ResourceName()
+	waypoint := service.Waypoint
+	ports := service.Ports
+	lb := service.LoadBalancing
 
 	sk.ServiceId = p.hashName.Hash(serviceName)
-
-	newValue := bpf.ServiceValue{}
 	newValue.LbPolicy = uint32(lb.GetMode()) // set loadbalance mode
 
 	if waypoint != nil && waypoint.GetAddress() != nil {
@@ -644,47 +645,53 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 		}
 	}
 
-	// Already exists, it means this is service update.
-	if err = p.bpf.ServiceLookup(&sk, &oldValue); err == nil {
+	if err := p.bpf.ServiceLookup(&sk, &oldValue); err == nil {
+		// Already exists, it means this is service update.
 		newValue.EndpointCount = oldValue.EndpointCount
+		// if it is a policy update
+		if newValue.LbPolicy != oldValue.LbPolicy {
+			// transit from locality loadbalance to random
+			if newValue.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) {
+				// In locality load balancing mode, the workloads are stored according to the calculated corresponding priorities.
+				// When switching from locality load balancing mode to random, we first update the endpoint map, as at this point,
+				// there might not be any workload with the highest priority, and directly switching the service's LB policy could
+				// lead to unexpected service disruptions.
+				if err = p.updateEndpoint(sk.ServiceId, false); err != nil { // this will change bpf map totally
+					return fmt.Errorf("updateEndpoint failed: %v", err)
+				}
+				updateValue := bpf.ServiceValue{}
+				if err = p.bpf.ServiceLookup(&sk, &updateValue); err != nil {
+					return fmt.Errorf("service map lookup %v failed: %v", sk.ServiceId, err)
+				}
+				updateValue.LbPolicy = newValue.LbPolicy
+				if err = p.bpf.ServiceUpdate(&sk, &updateValue); err != nil {
+					return fmt.Errorf("service map update failed: %v", err)
+				}
+				return nil
+			} else if oldValue.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) { // from random to locality loadbalance
+				// In random mode, the workloads are stored with the highest priority. When switching from random mode to locality
+				// load balancing, we first update the service map to quickly initiate the transition of the strategy. Subsequently,
+				// we update the endpoint map. During this update process, the load balancer may briefly exhibit abnormal random behavior,
+				// after which it will fully transition to the locality load balancing mode.
+				if err = p.bpf.ServiceUpdate(&sk, &newValue); err != nil {
+					return fmt.Errorf("service map update lb policy failed: %v", err)
+				}
+
+				if err = p.updateEndpoint(sk.ServiceId, true); err != nil {
+					return fmt.Errorf("updateEndpoint failed: %v", err)
+				}
+				return nil
+			}
+		}
 	}
 
-	// if it is a policy update
-	if newValue.LbPolicy != oldValue.LbPolicy {
-		if newValue.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) { // from locality loadbalance to random
-			// In locality load balancing mode, the workloads are stored according to the calculated corresponding priorities.
-			// When switching from locality load balancing mode to random, we first update the endpoint map, as at this point,
-			// there might not be any workload with the highest priority, and directly switching the service's LB policy could
-			// lead to unexpected service disruptions.
-			if err = p.updateEndpoint(sk.ServiceId, false); err != nil { // this will change bpf map totally
-				log.Errorf("UpdateEndpoint failed, err:%s", err)
-			}
-			updateValue := bpf.ServiceValue{}
-			if err = p.bpf.ServiceLookup(&sk, &updateValue); err != nil {
-				log.Warnf("Lookup Service failed, err:%s", err)
-			}
-			updateValue.LbPolicy = newValue.LbPolicy
-			if err = p.bpf.ServiceUpdate(&sk, &updateValue); err != nil {
-				log.Errorf("Update Service failed, err:%s", err)
-			}
-			return nil
-		} else if oldValue.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) { // from random to locality loadbalance
-			// In random mode, the workloads are stored with the highest priority. When switching from random mode to locality
-			// load balancing, we first update the service map to quickly initiate the transition of the strategy. Subsequently,
-			// we update the endpoint map. During this update process, the load balancer may briefly exhibit abnormal random behavior,
-			// after which it will fully transition to the locality load balancing mode.
-			if err = p.bpf.ServiceUpdate(&sk, &newValue); err != nil { // update service first
-				log.Errorf("Update Service failed, err:%s", err)
-			}
-			if err = p.updateEndpoint(sk.ServiceId, true); err != nil { // update new service bpf map
-				log.Errorf("UpdateEndpoint failed, err:%s", err)
-			}
-			return nil
-		}
-	} else { // normal update
-		if err = p.bpf.ServiceUpdate(&sk, &newValue); err != nil {
-			log.Errorf("Update Service failed, err:%s", err)
-		}
+	// normal update
+	if err := p.bpf.ServiceUpdate(&sk, &newValue); err != nil {
+		return fmt.Errorf("service map update failed: %v", err)
+	}
+
+	if err := p.updateServiceFrontendMap(sk.ServiceId, service); err != nil {
+		return fmt.Errorf("updateServiceFrontendMap failed: %v", err)
 	}
 
 	return nil
@@ -723,18 +730,9 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	}
 
 	p.ServiceCache.AddOrUpdateService(service)
-	serviceName := service.ResourceName()
-	serviceId := p.hashName.Hash(serviceName)
-
-	// store in frontend
-	if err := p.storeServiceFrontendData(serviceId, service); err != nil {
-		log.Errorf("storeServiceFrontendData failed, err:%s", err)
-		return err
-	}
-
-	// get endpoint from ServiceCache, and update service and endpoint map
-	if err := p.storeServiceData(serviceName, service.GetWaypoint(), service.GetPorts(), service.GetLoadBalancing()); err != nil {
-		log.Errorf("storeServiceData failed, err:%s", err)
+	// update service and endpoint map
+	if err := p.updateServiceMap(service); err != nil {
+		log.Errorf("update service %s maps failed: %v", service.ResourceName(), err)
 		return err
 	}
 
@@ -950,12 +948,15 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 				return err
 			}
 
+			// update BackendIndex in backendIndexToEndpointKey after swapping endpoints
+			backendIndexToEndpointKey[sv.EndpointCount[ek.Prio]] = bpf.EndpointKey{BackendIndex: currentIndex, Prio: ek.Prio, ServiceId: ek.ServiceId}
+
+			sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
+			// TODO: move before EndpointSwap after #1049
 			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
 				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
 			}
 			p.EndpointCache.DeleteEndpoint(ek.ServiceId, ev.BackendUid)
-
-			sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
 			if err = p.bpf.ServiceUpdate(&sk, &sv); err != nil {
 				log.Errorf("ServiceUpdate failed: %s", err)
 				return err
