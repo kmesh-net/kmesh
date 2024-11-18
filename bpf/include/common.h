@@ -63,6 +63,12 @@ struct kmesh_context {
     bool via_waypoint;
 };
 
+struct kmesh_config {
+    __u32 bpf_log_level;
+    __u32 node_ip[4];
+    __u32 pod_gateway[4];
+};
+
 static inline void *kmesh_map_lookup_elem(void *map, const void *key)
 {
     return bpf_map_lookup_elem(map, key);
@@ -134,8 +140,8 @@ struct {
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __uint(max_entries, 1);
-    __uint(key_size, sizeof(__u32));
-    __uint(value_size, sizeof(__u32));
+    __type(key, int);
+    __type(value, struct kmesh_config);
 } kmesh_config_map SEC(".maps");
 
 #if KERNEL_VERSION_HIGHER_5_13_0

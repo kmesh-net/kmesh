@@ -500,7 +500,7 @@ func TestBuildworkloadMetric(t *testing.T) {
 			}
 			m.workloadCache.AddOrUpdateWorkload(dstWorkload)
 			m.workloadCache.AddOrUpdateWorkload(srcWorkload)
-			got, _ := m.buildWorkloadMetric(tt.args.data)
+			got := m.buildWorkloadMetric(tt.args.data)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Metric.buildMetric() = %v, want %v", got, tt.want)
 			}

@@ -249,12 +249,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("get connection info failed: %v", err)
 				continue
 			}
-			workloadLabels, sourceWorkloadIsNil := m.buildWorkloadMetric(&data)
-
-			// If the sourceworkload is empty, then neither metrics nor accesslog is printed.
-			if sourceWorkloadIsNil {
-				continue
-			}
+			workloadLabels := m.buildWorkloadMetric(&data)
 
 			serviceLabels, accesslog := m.buildServiceMetric(&data)
 
@@ -326,7 +321,7 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	return data, nil
 }
 
-func (m *MetricController) buildWorkloadMetric(data *requestMetric) (workloadMetricLabels, bool) {
+func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetricLabels {
 	var dstAddr, srcAddr []byte
 	for i := range data.dst {
 		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.dst[i])
@@ -337,7 +332,7 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) (workloadMet
 	srcWorkload, _ := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
 	if srcWorkload == nil {
-		return workloadMetricLabels{}, true
+		return workloadMetricLabels{}
 	}
 
 	trafficLabels := buildWorkloadMetric(dstWorkload, srcWorkload)
@@ -346,7 +341,7 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) (workloadMet
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	return trafficLabels, false
+	return trafficLabels
 }
 
 func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {

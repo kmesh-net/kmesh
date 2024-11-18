@@ -16,6 +16,12 @@ type KmeshCgroupSockCompatBuf struct{ Data [40]int8 }
 
 type KmeshCgroupSockCompatClusterSockData struct{ ClusterId uint32 }
 
+type KmeshCgroupSockCompatKmeshConfig struct {
+	BpfLogLevel uint32
+	NodeIp      [4]uint32
+	PodGateway  [4]uint32
+}
+
 type KmeshCgroupSockCompatLogEvent struct {
 	Ret uint32
 	Msg [255]int8

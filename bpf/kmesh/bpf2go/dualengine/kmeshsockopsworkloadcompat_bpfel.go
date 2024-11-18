@@ -24,6 +24,12 @@ type KmeshSockopsWorkloadCompatBpfSockTuple struct {
 
 type KmeshSockopsWorkloadCompatBuf struct{ Data [40]int8 }
 
+type KmeshSockopsWorkloadCompatKmeshConfig struct {
+	BpfLogLevel uint32
+	NodeIp      [4]uint32
+	PodGateway  [4]uint32
+}
+
 type KmeshSockopsWorkloadCompatLogEvent struct {
 	Ret uint32
 	Msg [255]int8
