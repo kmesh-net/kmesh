@@ -20,6 +20,7 @@ import (
 	"sync"
 )
 
+// TODO: use `EndpointKey` struct
 type Endpoint struct {
 	ServiceId    uint32
 	Prio         uint32
@@ -28,8 +29,8 @@ type Endpoint struct {
 
 type EndpointCache interface {
 	List(uint32) map[uint32]Endpoint // Endpoint slice by ServiceId
-	AddEndpointToService(Endpoint, uint32)
-	DeleteEndpoint(Endpoint, uint32)
+	AddEndpointToService(ep Endpoint, serviceID uint32)
+	DeleteEndpoint(workloadID, serviceID uint32)
 	DeleteEndpointByServiceId(uint32)
 }
 
@@ -55,10 +56,10 @@ func (s *endpointCache) AddEndpointToService(ep Endpoint, workloadId uint32) {
 	s.endpointsByServiceId[ep.ServiceId][workloadId] = ep
 }
 
-func (s *endpointCache) DeleteEndpoint(ep Endpoint, workloadId uint32) {
+func (s *endpointCache) DeleteEndpoint(serviceID, workloadID uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	delete(s.endpointsByServiceId[ep.ServiceId], workloadId)
+	delete(s.endpointsByServiceId[serviceID], workloadID)
 }
 
 func (s *endpointCache) DeleteEndpointByServiceId(serviceId uint32) {

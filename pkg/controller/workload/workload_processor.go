@@ -19,7 +19,6 @@ package workload
 import (
 	"fmt"
 	"os"
-	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -27,6 +26,7 @@ import (
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
@@ -302,8 +302,8 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 				}
 			}
 		}
-		p.EndpointCache.DeleteEndpointByServiceId(serviceId)
 	}
+	p.EndpointCache.DeleteEndpointByServiceId(serviceId)
 	p.hashName.Delete(name)
 	return nil
 }
@@ -513,18 +513,24 @@ func (p *Processor) storeServiceFrontendData(serviceId uint32, service *workload
 }
 
 func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.Endpoint, toLLb bool) error {
-	var prio uint32
-
 	if len(epsUpdate) == 0 {
 		return nil
 	}
 
 	// When calling deleteEndpointRecords, it causes the endpoint to be updated and swaps it with the endpoint
-	// with the highest BackendIndex in the priority, leading to a Endpoint shift. Therefore, we iterate over the
-	// sorted Endpoint slice in reverse order to ensure that the BackendIndex of the endpoints updated later
+	// with the highest BackendIndex in the priority, leading to a Endpoint shift. Therefore, we
+	// sort Endpoint slice in reverse order to ensure that the BackendIndex of the endpoints updated later
 	// remains unchanged.
-	for i := len(epsUpdate) - 1; i >= 0; i-- {
-		ep := epsUpdate[i]
+	sort.Slice(epsUpdate, func(i, j int) bool {
+		if epsUpdate[i].Prio == epsUpdate[j].Prio {
+			return epsUpdate[i].BackendIndex > epsUpdate[j].BackendIndex
+		}
+		return epsUpdate[i].Prio > epsUpdate[j].Prio
+	})
+
+	service := p.ServiceCache.GetService(p.hashName.NumToStr(serviceId))
+
+	for _, ep := range epsUpdate {
 		ek := bpf.EndpointKey{
 			ServiceId:    ep.ServiceId,
 			Prio:         ep.Prio,
@@ -536,12 +542,15 @@ func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.E
 		}
 
 		// Calc Priority
+		var prio uint32 = 0
 		if toLLb {
-			service := p.ServiceCache.GetService(p.hashName.NumToStr(serviceId))
 			workload := p.WorkloadCache.GetWorkloadByUid(p.hashName.NumToStr(ev.BackendUid))
 			prio = p.locality.CalcLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
-		} else {
-			prio = 0 // to random
+		}
+
+		// If an endpoint's priority is not changed, we donot need to update the map.
+		if ek.Prio == prio {
+			continue
 		}
 
 		// addWorkloadToService and deleteEndpointRecords will update service map each time, so we need look up it each time.
@@ -556,9 +565,7 @@ func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.E
 			log.Errorf("addWorkloadToService workload %d service %d failed: %v", ev.BackendUid, sKey.ServiceId, err)
 			return err
 		}
-		eksDeletes := []bpfcache.EndpointKey{}
-		eksDeletes = append(eksDeletes, bpfcache.EndpointKey{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex})
-
+		eksDeletes := []bpfcache.EndpointKey{ek}
 		// delete ek
 		if err := p.deleteEndpointRecords(eksDeletes); err != nil {
 			log.Errorf("delete [%#v] from endpoint map failed: %s", eksDeletes, err)
@@ -567,32 +574,22 @@ func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.E
 	return nil
 }
 
+// updateEndpoint is called when service lb policy is changed to update the endpoint priority.
 // toLLb indicates whether we are performing a locality load balance update.
 // If toLLb is true, it means we need to calculate priority; otherwise,
 // it represents a random strategy, in which case we just set the priority to 0.
 func (p *Processor) updateEndpoint(serviceId uint32, toLLb bool) error {
 	endpoints := p.EndpointCache.List(serviceId)
+	endpointSlice := make([]cache.Endpoint, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		endpointSlice = append(endpointSlice, endpoint)
+	}
 	if toLLb {
-		endpointSlice := []cache.Endpoint{}
-		for _, endpoint := range endpoints {
-			endpointSlice = append(endpointSlice, endpoint)
-		}
-
-		// sort by Prio and BackendIndex
-		sort.Slice(endpointSlice, func(i, j int) bool {
-			if endpointSlice[i].Prio == endpointSlice[j].Prio {
-				return endpointSlice[i].BackendIndex < endpointSlice[j].BackendIndex
-			}
-			return endpointSlice[i].Prio < endpointSlice[j].Prio
-		})
 		return p.updateEndpointOneByOne(serviceId, endpointSlice, toLLb)
 	} else {
-		filtered := []cache.Endpoint{}
-		for _, endpoint := range endpoints {
-			if endpoint.Prio > 0 {
-				filtered = append(filtered, endpoint)
-			}
-		}
+		filtered := slices.Filter(endpointSlice, func(e cache.Endpoint) bool {
+			return e.Prio > 0
+		})
 		return p.updateEndpointOneByOne(serviceId, filtered, toLLb)
 	}
 }
@@ -921,33 +918,23 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 		return nil
 	}
 
-	// matain a map for update index
-	backendIndexToEndpointKey := make(map[uint32]bpf.EndpointKey)
-	for _, ek := range endpointKeys {
-		backendIndexToEndpointKey[ek.BackendIndex] = ek
-	}
-
 	for _, ek := range endpointKeys {
 		sk.ServiceId = ek.ServiceId
 		// 1. find the service
 		if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
 			// 2. find the last indexed endpoint of the service
-			currentIndex := backendIndexToEndpointKey[ek.BackendIndex].BackendIndex // get correct BackendIndex by before BackendIndex from updated backendIndexToEndpointKey
+			currentIndex := ek.BackendIndex
 			if err := p.bpf.EndpointSwap(currentIndex, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
 				log.Errorf("swap workload endpoint index failed: %s", err)
 				return err
 			}
 
-			// update BackendIndex in backendIndexToEndpointKey after swapping endpoints
-			backendIndexToEndpointKey[sv.EndpointCount[ek.Prio]] = bpf.EndpointKey{BackendIndex: currentIndex, Prio: ek.Prio, ServiceId: ek.ServiceId}
-
-			sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
-
 			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
 				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
 			}
-			p.EndpointCache.DeleteEndpoint(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
+			p.EndpointCache.DeleteEndpoint(ek.ServiceId, ev.BackendUid)
 
+			sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
 			if err = p.bpf.ServiceUpdate(&sk, &sv); err != nil {
 				log.Errorf("ServiceUpdate failed: %s", err)
 				return err
@@ -955,16 +942,16 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 		} else {
 			// service not exist, we should also delete the endpoint
 			log.Errorf("service %d not found, should not occur: %v", ek.ServiceId, err)
+
+			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
+				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
+			}
 			// delete endpoint from map
 			if err := p.bpf.EndpointDelete(&ek); err != nil {
 				log.Errorf("EndpointDelete [%#v] failed: %v", ek, err)
 				return err
 			}
-
-			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
-				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
-			}
-			p.EndpointCache.DeleteEndpoint(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
+			p.EndpointCache.DeleteEndpoint(ek.ServiceId, ev.BackendUid)
 		}
 	}
 	return nil
