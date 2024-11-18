@@ -67,6 +67,7 @@ struct kmesh_config {
     __u32 bpf_log_level;
     __u32 node_ip[4];
     __u32 pod_gateway[4];
+    __u32 authz_offload;
 };
 
 static inline void *kmesh_map_lookup_elem(void *map, const void *key)
@@ -137,6 +138,11 @@ struct {
     __type(value, struct buf);
 } tmp_buf SEC(".maps");
 
+/*
+ * This map is used to store different configuration options:
+ * - key 0: Stores the log level
+ * - key 1: Stores the authz (authorization) toggle
+ */
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __uint(max_entries, 1);

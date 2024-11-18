@@ -76,7 +76,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			}
 			go secertManager.Run(stopCh)
 		}
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpShutdown.FD(), c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), c.mode)
 	} else {
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, c.mode)
 	}

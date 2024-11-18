@@ -60,6 +60,7 @@ const (
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
+	patternAuthz              = "/authz"
 
 	bpfLoggerName = "bpf"
 
@@ -99,6 +100,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
 	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
+	s.mux.HandleFunc(patternAuthz, s.authzHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -264,6 +266,43 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	authzInfo := r.URL.Query().Get("enable")
+	enabled, err := strconv.ParseBool(authzInfo)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid authz enable=%s", authzInfo)))
+		return
+	}
+
+	key := uint32(0)
+	value := bpf.KmeshBpfConfig{}
+	if s.kmeshConfigMap == nil {
+		http.Error(w, fmt.Sprintf("update authz error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
+		return
+	}
+	if err = s.kmeshConfigMap.Lookup(&key, &value); err != nil {
+		http.Error(w, fmt.Sprintf("get kmesh config error: %v", err), http.StatusBadRequest)
+		return
+	}
+	if enabled {
+		value.AuthzOffload = constants.XDP_AUTHZ_ENABLED
+	} else {
+		value.AuthzOffload = constants.XDP_AUTHZ_DISABLED
+	}
+	if err = s.kmeshConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
+		http.Error(w, fmt.Sprintf("update authz error: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (s *Server) getLoggerNames(w http.ResponseWriter) {
 	loggerNames := append(logger.GetLoggerNames(), bpfLoggerName)
 	data, err := json.MarshalIndent(&loggerNames, "", "    ")
@@ -423,7 +462,7 @@ func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 
 	loggerLevel, exists := logLevelMap[int(logLevel)]
 	if !exists {
-		return nil, fmt.Errorf("unexpected invalid log level: %d", value)
+		return nil, fmt.Errorf("unexpected invalid log level: %d", value.BpfLogLevel)
 	}
 
 	return &LoggerInfo{
