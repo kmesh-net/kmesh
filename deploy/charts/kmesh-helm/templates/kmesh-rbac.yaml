@@ -13,6 +13,7 @@ rules:
   - pods
   - services
   - namespaces
+  - nodes
   verbs:
   - get
   - update
