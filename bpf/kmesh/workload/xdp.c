@@ -110,11 +110,11 @@ int xdp_authz(struct xdp_md *ctx)
         bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
         return XDP_PASS;
     }
-    BPF_LOG(INFO, AUTH, "authz is enabled, processing");
-    struct match_context match_ctx;
+
+    struct match_context match_ctx = {0};
     struct bpf_sock_tuple tuple_key = {0};
     struct xdp_info info = {0};
-    wl_policies_v *policies;
+    wl_policies_v *policies = NULL;
     int ret;
 
     if (parser_xdp_info(ctx, &info) == PARSER_FAILED)
