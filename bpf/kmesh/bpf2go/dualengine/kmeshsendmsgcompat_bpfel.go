@@ -24,6 +24,13 @@ type KmeshSendmsgCompatBpfSockTuple struct {
 
 type KmeshSendmsgCompatBuf struct{ Data [40]int8 }
 
+type KmeshSendmsgCompatKmeshConfig struct {
+	BpfLogLevel  uint32
+	NodeIp       [4]uint32
+	PodGateway   [4]uint32
+	AuthzOffload uint32
+}
+
 type KmeshSendmsgCompatLogEvent struct {
 	Ret uint32
 	Msg [255]int8

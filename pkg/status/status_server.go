@@ -18,6 +18,7 @@ package status
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -32,6 +33,7 @@ import (
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
@@ -50,14 +52,15 @@ const (
 	patternHelp               = "/help"
 	patternOptions            = "/options"
 	patternVersion            = "/version"
-	patternBpfAdsMaps         = "/debug/config_dump/bpf/ads"
-	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/workload"
+	patternBpfAdsMaps         = "/debug/config_dump/bpf/kernel-native"
+	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/dual-engine"
 	configDumpPrefix          = "/debug/config_dump"
-	patternConfigDumpAds      = configDumpPrefix + "/ads"
-	patternConfigDumpWorkload = configDumpPrefix + "/workload"
+	patternConfigDumpAds      = configDumpPrefix + "/kernel-native"
+	patternConfigDumpWorkload = configDumpPrefix + "/dual-engine"
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
+	patternAuthz              = "/authz"
 
 	bpfLoggerName = "bpf"
 
@@ -72,14 +75,6 @@ type Server struct {
 	mux            *http.ServeMux
 	server         *http.Server
 	kmeshConfigMap *ebpf.Map
-}
-
-func GetConfigDumpAddr(mode string) string {
-	return "http://" + adminAddr + configDumpPrefix + "/" + mode
-}
-
-func GetLoggerURL() string {
-	return "http://" + adminAddr + patternLoggers
 }
 
 func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, configMap *ebpf.Map) *Server {
@@ -105,6 +100,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
 	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
+	s.mux.HandleFunc(patternAuthz, s.authzHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -250,25 +246,60 @@ func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
 	} else if r.Method == http.MethodPost {
 		s.setLoggerLevel(w, r)
 	} else {
-		// otherwise, return 404 not found
-		w.WriteHeader(http.StatusNotFound)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 	}
 }
 
 func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
-		log.Errorf("accesslogHandler export POST method but get %v", r.Method)
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	var info bool
 	accesslogInfo := r.URL.Query().Get("enable")
-	if accesslogInfo == "true" {
-		info = true
+	if enabled, err := strconv.ParseBool(accesslogInfo); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", accesslogInfo)))
 	} else {
-		info = false
+		s.xdsClient.WorkloadController.SetAccesslog(enabled)
+		w.WriteHeader(http.StatusOK)
 	}
-	s.xdsClient.WorkloadController.SetAccesslogTrigger(info)
+}
+
+func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	authzInfo := r.URL.Query().Get("enable")
+	enabled, err := strconv.ParseBool(authzInfo)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid authz enable=%s", authzInfo)))
+		return
+	}
+
+	key := uint32(0)
+	value := bpf.KmeshBpfConfig{}
+	if s.kmeshConfigMap == nil {
+		http.Error(w, fmt.Sprintf("update authz error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
+		return
+	}
+	if err = s.kmeshConfigMap.Lookup(&key, &value); err != nil {
+		http.Error(w, fmt.Sprintf("get kmesh config error: %v", err), http.StatusBadRequest)
+		return
+	}
+	if enabled {
+		value.AuthzOffload = constants.XDP_AUTHZ_ENABLED
+	} else {
+		value.AuthzOffload = constants.XDP_AUTHZ_DISABLED
+	}
+	if err = s.kmeshConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
+		http.Error(w, fmt.Sprintf("update authz error: %v", err), http.StatusBadRequest)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -416,10 +447,11 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 	key := uint32(0)
-	value := uint32(0)
+	value := bpf.KmeshBpfConfig{}
 	if err := s.kmeshConfigMap.Lookup(&key, &value); err != nil {
 		return nil, fmt.Errorf("get log level error: %v", err)
 	}
+	logLevel := value.BpfLogLevel
 
 	logLevelMap := map[int]string{
 		constants.BPF_LOG_ERR:   "error",
@@ -428,9 +460,9 @@ func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 		constants.BPF_LOG_DEBUG: "debug",
 	}
 
-	loggerLevel, exists := logLevelMap[int(value)]
+	loggerLevel, exists := logLevelMap[int(logLevel)]
 	if !exists {
-		return nil, fmt.Errorf("unexpected invalid log level: %d", value)
+		return nil, fmt.Errorf("unexpected invalid log level: %d", value.BpfLogLevel)
 	}
 
 	return &LoggerInfo{
@@ -459,11 +491,18 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 		return
 	}
 	key := uint32(0)
-	value := uint32(level)
+	value := bpf.KmeshBpfConfig{}
 	if s.kmeshConfigMap == nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
 		return
 	}
+	// Because kmesh config has pod gateway and node ip data.
+	// When change the log level, need to make sure that the pod gateway and node ip remain unchanged.
+	if err = s.kmeshConfigMap.Lookup(&key, &value); err != nil {
+		http.Error(w, fmt.Sprintf("get kmesh config error: %v", err), http.StatusBadRequest)
+		return
+	}
+	value.BpfLogLevel = uint32(level)
 	if err = s.kmeshConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", err), http.StatusBadRequest)
 		return
@@ -474,7 +513,7 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 func (s *Server) StartServer() {
 	go func() {
 		err := s.server.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Errorf("Failed to start status server: %v", err)
 		}
 	}()

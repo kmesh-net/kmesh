@@ -37,7 +37,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/kube"
+
 	"istio.io/istio/pkg/util/sets"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/version"
 )
 

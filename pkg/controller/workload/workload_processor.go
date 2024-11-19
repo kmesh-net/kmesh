@@ -60,6 +60,7 @@ type Processor struct {
 	WorkloadCache cache.WorkloadCache
 	ServiceCache  cache.ServiceCache
 	EndpointCache cache.EndpointCache
+	WaypointCache cache.WaypointCache
 	locality      bpf.LocalityCache
 
 	once      sync.Once
@@ -67,13 +68,16 @@ type Processor struct {
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
+	serviceCache := cache.NewServiceCache()
+
 	return &Processor{
 		hashName:      utils.NewHashName(),
 		bpf:           bpf.NewCache(workloadMap),
 		nodeName:      os.Getenv("NODE_NAME"),
 		WorkloadCache: cache.NewWorkloadCache(),
-		ServiceCache:  cache.NewServiceCache(),
+		ServiceCache:  serviceCache,
 		EndpointCache: cache.NewEndpointCache(),
+		WaypointCache: cache.NewWaypointCache(serviceCache),
 		locality:      bpf.NewLocalityCache(),
 	}
 }
@@ -170,6 +174,7 @@ func (p *Processor) removeWorkloadResources(removedResources []string) error {
 }
 
 func (p *Processor) removeWorkload(uid string) error {
+	p.WaypointCache.DeleteWorkload(uid)
 	wl := p.WorkloadCache.GetWorkloadByUid(uid)
 	if wl == nil {
 		return nil
@@ -255,6 +260,7 @@ func (p *Processor) deleteServiceFrontendData(service *workloadapi.Service, id u
 
 func (p *Processor) removeServiceResources(resources []string) error {
 	for _, name := range resources {
+		p.WaypointCache.DeleteService(name)
 		telemetry.DeleteServiceMetric(name)
 		svc := p.ServiceCache.GetService(name)
 		p.ServiceCache.DeleteService(name)
@@ -386,7 +392,7 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 	uid := p.hashName.Hash(workload.GetUid())
 	log.Debugf("updateWorkload: workload %s, backendUid: %v", workload.GetUid(), uid)
 
-	if waypoint := workload.GetWaypoint(); waypoint != nil {
+	if waypoint := workload.GetWaypoint(); waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
 		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 	}
@@ -422,6 +428,14 @@ func (p *Processor) updateWorkload(workload *workloadapi.Workload) error {
 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.ResourceName())
+
+	if resolved := p.WaypointCache.AddOrUpateWorkload(workload); !resolved {
+		// If the hostname type waypoint of workload has not been resolved, it will not be processed
+		// for the time being. The corresponding waypoint service should be processed immediately, and then
+		// it will be handled after the batch resolution is completed in `WaypointCache.Refresh`.
+		log.Debugf("waypoint of workload %s can't be resolved immediately, defer processing", workload.ResourceName())
+		return nil
+	}
 
 	// Keep track of the workload no matter it is healthy, unhealthy workload is just for debugging
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
@@ -609,6 +623,10 @@ func (p *Processor) storeServiceData(serviceName string, waypoint *workloadapi.G
 		newValue.ServicePort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
 		if strings.Contains(serviceName, "waypoint") {
 			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+		} else if port.TargetPort == 0 {
+			// NOTE: Target port could be unset in servicen entry, in which case it should
+			// be consistent with the Service Port.
+			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
 		} else {
 			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(port.TargetPort)
 		}
@@ -684,35 +702,28 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		}
 	}
 
-	p.ServiceCache.AddOrUpdateService(service)
-
-	if service.Waypoint != nil && service.GetWaypoint().GetHostname() != nil {
-		// If the hostname type waypoint of service has not been resolved, it will not be written to bpf
+	if resolved := p.WaypointCache.AddOrUpdateService(service); !resolved {
+		// If the hostname type waypoint of service has not been resolved, it will not be processed
 		// for the time being. The corresponding waypoint service should be processed immediately, and then
-		// it will be written to bpf after the batch resolution is completed in `RefreshWaypoint`.
+		// it will be handled after the batch resolution is completed in `WaypointCache.Refresh`.
+		log.Debugf("waypoint of service %s can't be resolved immediately, defer processing", service.ResourceName())
 		return nil
 	}
-	servicesToRefresh := p.ServiceCache.RefreshWaypoint(service)
 
-	services := make([]*workloadapi.Service, 0, len(servicesToRefresh)+1)
-	services = append(services, service)
-	services = append(services, servicesToRefresh...)
+	p.ServiceCache.AddOrUpdateService(service)
+	serviceName := service.ResourceName()
+	serviceId := p.hashName.Hash(serviceName)
 
-	for _, service := range services {
-		serviceName := service.ResourceName()
-		serviceId := p.hashName.Hash(serviceName)
+	// store in frontend
+	if err := p.storeServiceFrontendData(serviceId, service); err != nil {
+		log.Errorf("storeServiceFrontendData failed, err:%s", err)
+		return err
+	}
 
-		// store in frontend
-		if err := p.storeServiceFrontendData(serviceId, service); err != nil {
-			log.Errorf("storeServiceFrontendData failed, err:%s", err)
-			return err
-		}
-
-		// get endpoint from ServiceCache, and update service and endpoint map
-		if err := p.storeServiceData(serviceName, service.GetWaypoint(), service.GetPorts(), service.GetLoadBalancing()); err != nil {
-			log.Errorf("storeServiceData failed, err:%s", err)
-			return err
-		}
+	// get endpoint from ServiceCache, and update service and endpoint map
+	if err := p.storeServiceData(serviceName, service.GetWaypoint(), service.GetPorts(), service.GetLoadBalancing()); err != nil {
+		log.Errorf("storeServiceData failed, err:%s", err)
+		return err
 	}
 
 	return nil
@@ -760,21 +771,38 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 		}
 	}
 
-	for _, service := range services {
-		if err = p.handleService(service); err != nil {
-			log.Errorf("handle service %v failed, err: %v", service.ResourceName(), err)
-		}
-	}
-
-	for _, workload := range workloads {
-		if err = p.handleWorkload(workload); err != nil {
-			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
-		}
-	}
+	p.handleServicesAndWorkloads(services, workloads)
 
 	p.handleRemovedAddresses(rsp.RemovedResources)
 	p.once.Do(p.handleRemovedAddressesDuringRestart)
 	return err
+}
+
+// Mainly for the convenience of testing.
+func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, workloads []*workloadapi.Workload) {
+	var servicesToRefresh []*workloadapi.Service
+	for _, service := range services {
+		if err := p.handleService(service); err != nil {
+			log.Errorf("handle service %v failed, err: %v", service.ResourceName(), err)
+		}
+		svcs, wls := p.WaypointCache.Refresh(service)
+		servicesToRefresh = append(servicesToRefresh, svcs...)
+		// Directly add deferred workload to workloads.
+		workloads = append(workloads, wls...)
+	}
+
+	// Handle services that are deferred due to waypoint hostname resolution.
+	for _, service := range servicesToRefresh {
+		if err := p.handleService(service); err != nil {
+			log.Errorf("handle deferred service %v failed, err: %v", service.ResourceName(), err)
+		}
+	}
+
+	for _, workload := range workloads {
+		if err := p.handleWorkload(workload); err != nil {
+			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
+		}
+	}
 }
 
 // After restart, we can get the removed addresses by comparing the

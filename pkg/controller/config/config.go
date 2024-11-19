@@ -20,7 +20,7 @@ import (
 	"encoding/json"
 	"strings"
 
-	config_core_v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/model"
@@ -53,6 +53,7 @@ type XdsConfig struct {
 	ServiceNode      string
 	DiscoveryAddress string
 	Metadata         *model.BootstrapNodeMetadata
+	Node             *corev3.Node
 }
 
 func NewXDSConfig(mode string) *XdsConfig {
@@ -68,6 +69,7 @@ func NewXDSConfig(mode string) *XdsConfig {
 	nodeName := env.Register("NODE_NAME", "", "").Get()
 	meshID := env.Register("MESH_ID", "cluster.local", "").Get()
 
+	// TODO: fix it once we want to support VM application
 	ip := localHostIPv4
 	if podIP != "" {
 		ip = podIP
@@ -77,12 +79,12 @@ func NewXDSConfig(mode string) *XdsConfig {
 
 	c.ServiceNode = strings.Join([]string{getNodeRole(mode), ip, id, dnsDomain}, serviceNodeSeparator)
 
-	log.Infof("service node %v connect to discovery address %v", c.ServiceNode, c.DiscoveryAddress)
+	log.Infof("proxy %v connect to discovery address %v", c.ServiceNode, c.DiscoveryAddress)
 
 	c.Metadata.Namespace = podNamespace
 	c.Metadata.ClusterID = cluster.ID(clusterID)
 	c.Metadata.InstanceIPs = []string{ip}
-	// TODO: add labels to support localiy load balancing
+	// TODO: add labels to support locality load balancing
 	c.Metadata.Labels = nil
 	c.Metadata.MeshID = meshID
 	c.Metadata.NodeName = nodeName
@@ -99,16 +101,20 @@ func GetConfig(mode string) *XdsConfig {
 	return config
 }
 
-// TODO(hzxuzhonhu): this is frequently called, cache the node later
-func (c *XdsConfig) GetNode() *config_core_v3.Node {
+func (c *XdsConfig) GetNode() *corev3.Node {
+	if c.Node != nil {
+		return c.Node
+	}
+
 	nodeMetadata, err := nodeMetadataToStruct(c.Metadata)
 	if err != nil {
 		log.Fatalf("failed to convert node metadata to struct, %v", err)
 	}
-	return &config_core_v3.Node{
+	c.Node = &corev3.Node{
 		Id:       c.ServiceNode,
 		Metadata: nodeMetadata,
 	}
+	return c.Node
 }
 
 func nodeMetadataToStruct(meta *model.BootstrapNodeMetadata) (*structpb.Struct, error) {

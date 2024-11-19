@@ -78,7 +78,6 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshXdpAuthObjects() spec is nil")
 	}
 
-	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
 		return nil, err
@@ -96,6 +95,27 @@ func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
 	prog := spec.Programs[constants.XDP_PROG_NAME]
 	xa.Info.Type = prog.Type
 	xa.Info.AttachType = prog.AttachType
+
+	if err = xa.XdpTailcallMap.Update(
+		uint32(constants.TailCallPolicyCheck),
+		uint32(xa.PolicyCheck.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
+
+	if err = xa.XdpTailcallMap.Update(
+		uint32(constants.TailCallRuleCheck),
+		uint32(xa.RuleCheck.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
+
+	if err = xa.XdpTailcallMap.Update(
+		uint32(constants.TailCallAuthInUserSpace),
+		uint32(xa.XdpShutdownInUserspace.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
 
 	return nil
 }

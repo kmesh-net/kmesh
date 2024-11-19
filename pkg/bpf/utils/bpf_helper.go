@@ -17,28 +17,20 @@
 package utils
 
 import (
+	"os"
+	"strconv"
+
 	"fmt"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 )
 
-func SetInnerMap(spec *ebpf.CollectionSpec) {
-	var (
-		InnerMapKeySize    uint32 = 4
-		InnerMapDataLength uint32 = 1300 // C.BPF_INNER_MAP_DATA_LEN
-		InnerMapMaxEntries uint32 = 1
-	)
-	for _, v := range spec.Maps {
-		if v.Name == "outer_map" {
-			v.InnerMap = &ebpf.MapSpec{
-				Type:       ebpf.Array,
-				KeySize:    InnerMapKeySize,
-				ValueSize:  InnerMapDataLength,
-				MaxEntries: InnerMapMaxEntries,
-			}
-		}
-	}
+func SetEnvByBpfMapId(m *ebpf.Map, key string) error {
+	info, _ := m.Info()
+	id, _ := info.ID()
+	stringId := strconv.Itoa(int(id))
+	return os.Setenv(key, stringId)
 }
 
 func BpfProgUpdate(pinPath string, cgopt link.CgroupOptions) (link.Link, error) {

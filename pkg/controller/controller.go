@@ -28,8 +28,8 @@ import (
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/dns"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
-	"kmesh.net/kmesh/pkg/utils"
 )
 
 var (
@@ -44,48 +44,41 @@ type Controller struct {
 	client              *XdsClient
 	enableByPass        bool
 	enableSecretManager bool
-	bpfFsPath           string
-	enableBpfLog        bool
-	enableAccesslog     bool
-	enablePerfMonitor   bool
+	bpfConfig           *options.BpfConfig
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpfads.BpfAds, bpfWorkloadObj *bpfwl.BpfWorkload, bpfFsPath string, enableBpfLog, enableAccesslog bool) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpfads.BpfAds, bpfWorkloadObj *bpfwl.BpfWorkload) *Controller {
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,
 		bpfAdsObj:           bpfAdsObj,
 		bpfWorkloadObj:      bpfWorkloadObj,
 		enableSecretManager: opts.SecretManagerConfig.Enable,
-		bpfFsPath:           bpfFsPath,
-		enableBpfLog:        enableBpfLog,
-		enableAccesslog:     enableAccesslog,
-		enablePerfMonitor:   opts.PerfConfig.EnablePerfMonitor,
+		bpfConfig:           opts.BpfConfig,
 	}
 }
 
 func (c *Controller) Start(stopCh <-chan struct{}) error {
-	var secertManager *security.SecretManager
 	var err error
 	var kmeshManageController *manage.KmeshManageController
 
-	if c.mode == constants.DualEngineMode && c.enableSecretManager {
-		secertManager, err = security.NewSecretManager()
-		if err != nil {
-			return fmt.Errorf("secretManager create failed: %v", err)
-		}
-		go secertManager.Run(stopCh)
-	}
-
-	clientset, err := utils.GetK8sclient()
+	clientset, err := kube.CreateKubeClient("")
 	if err != nil {
 		return err
 	}
 
 	if c.mode == constants.DualEngineMode {
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpShutdown.FD(), c.mode)
+		var secertManager *security.SecretManager
+		if c.enableSecretManager {
+			secertManager, err = security.NewSecretManager()
+			if err != nil {
+				return fmt.Errorf("secretManager create failed: %v", err)
+			}
+			go secertManager.Run(stopCh)
+		}
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), c.mode)
 	} else {
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, -1, c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, c.mode)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
@@ -103,15 +96,15 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		return nil
 	}
 
-	if c.enableBpfLog {
-		if err := logger.StartRingBufReader(ctx, c.mode, c.bpfFsPath); err != nil {
+	if c.bpfConfig.EnableBpfLog {
+		if err := logger.StartRingBufReader(ctx, c.mode, c.bpfConfig.BpfFsPath); err != nil {
 			return fmt.Errorf("fail to start ringbuf reader: %v", err)
 		}
 	}
-	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.enableAccesslog)
+	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableAccesslog, c.bpfConfig.EnableProfiling)
 
 	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Run(ctx, c.enablePerfMonitor)
+		c.client.WorkloadController.Run(ctx)
 	}
 
 	if c.client.AdsController != nil {

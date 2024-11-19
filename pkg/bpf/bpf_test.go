@@ -22,8 +22,12 @@ import (
 	"syscall"
 	"testing"
 
+	"reflect"
+
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
+	"istio.io/pkg/log"
+	corev1 "k8s.io/api/core/v1"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/restart"
@@ -148,4 +152,34 @@ func runTestRestartDualEngine(t *testing.T) {
 func runTestRestartKernelNative(t *testing.T) {
 	config := setDirKernelNative(t)
 	KmeshRestart(t, config)
+}
+
+func TestGetNodePodSubGateway(t *testing.T) {
+	type args struct {
+		node *corev1.Node
+	}
+	tests := []struct {
+		name string
+		args args
+		want [16]byte
+	}{
+		{
+			name: "test Generated nodeIP",
+			args: args{
+				node: &corev1.Node{
+					Spec: corev1.NodeSpec{
+						PodCIDR: "10.244.0.0/24",
+					},
+				},
+			},
+			want: [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 10, 244, 0, 1},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := getNodePodSubGateway(tt.args.node); !reflect.DeepEqual(got, tt.want) {
+				assert.Equal(t, tt.want, got)
+			}
+		})
+	}
 }

@@ -4,7 +4,10 @@
 #ifndef __KMESH_FILTER_H__
 #define __KMESH_FILTER_H__
 
+#if !ENHANCED_KERNEL
 #include "local_ratelimit.h"
+#endif
+
 #include "tcp_proxy.h"
 #include "tail_call.h"
 #include "bpf_log.h"
@@ -50,7 +53,7 @@ static inline int filter_chain_filter_match(
     }
 
     /* filter match */
-    ptrs = kmesh_get_ptr_val(filter_chain->filters);
+    ptrs = KMESH_GET_PTR_VAL(filter_chain->filters, void *);
     if (!ptrs) {
         BPF_LOG(ERR, FILTER, "failed to get filter ptrs\n");
         return -1;
@@ -63,7 +66,7 @@ static inline int filter_chain_filter_match(
             break;
         }
 
-        filter = (Listener__Filter *)kmesh_get_ptr_val((void *)*((__u64 *)ptrs + i));
+        filter = (Listener__Filter *)KMESH_GET_PTR_VAL((void *)*((__u64 *)ptrs + i), Listener__Filter);
         if (!filter) {
             continue;
         }
@@ -86,7 +89,7 @@ static inline int handle_http_connection_manager(
     ctx_key_t ctx_key = {0};
     ctx_val_t ctx_val = {0};
 
-    route_name = kmesh_get_ptr_val((http_conn->route_config_name));
+    route_name = KMESH_GET_PTR_VAL((http_conn->route_config_name), char *);
     if (!route_name) {
         BPF_LOG(ERR, FILTER, "failed to get http conn route name\n");
         return -1;
@@ -117,7 +120,7 @@ int filter_manager(ctx_buff_t *ctx)
         return KMESH_TAIL_CALL_RET(-1);
     }
 
-    filter = (Listener__Filter *)kmesh_get_ptr_val((void *)ctx_val->val);
+    filter = (Listener__Filter *)KMESH_GET_PTR_VAL((void *)ctx_val->val, Listener__Filter);
     if (!filter) {
         BPF_LOG(ERR, FILTER, "failed to get filter\n");
         return KMESH_TAIL_CALL_RET(-1);
@@ -127,7 +130,7 @@ int filter_manager(ctx_buff_t *ctx)
     switch (filter->config_type_case) {
 #ifndef CGROUP_SOCK_MANAGE
     case LISTENER__FILTER__CONFIG_TYPE_HTTP_CONNECTION_MANAGER:
-        http_conn = kmesh_get_ptr_val(filter->http_connection_manager);
+        http_conn = KMESH_GET_PTR_VAL(filter->http_connection_manager, Filter__HttpConnectionManager);
         ret = bpf_parse_header_msg(ctx_val->msg);
         if (GET_RET_PROTO_TYPE(ret) != PROTO_HTTP_1_1) {
             BPF_LOG(DEBUG, FILTER, "http filter manager,only support http1.1 this version");
@@ -143,7 +146,7 @@ int filter_manager(ctx_buff_t *ctx)
         break;
 #endif
     case LISTENER__FILTER__CONFIG_TYPE_TCP_PROXY:
-        tcp_proxy = kmesh_get_ptr_val(filter->tcp_proxy);
+        tcp_proxy = KMESH_GET_PTR_VAL(filter->tcp_proxy, Filter__TcpProxy);
         if (!tcp_proxy) {
             BPF_LOG(ERR, FILTER, "get tcp_prxoy failed\n");
             ret = -1;
@@ -178,17 +181,19 @@ int filter_chain_manager(ctx_buff_t *ctx)
     }
     kmesh_tail_delete_ctx(&ctx_key);
 
-    filter_chain = (Listener__FilterChain *)kmesh_get_ptr_val((void *)ctx_val_ptr->val);
+    filter_chain = (Listener__FilterChain *)KMESH_GET_PTR_VAL((void *)ctx_val_ptr->val, Listener__FilterChain);
     if (filter_chain == NULL) {
         return KMESH_TAIL_CALL_RET(-1);
     }
 
+#if !ENHANCED_KERNEL
     /* ratelimit check */
     ret = Local_rate_limit__check_and_take(filter_chain, &addr, ctx);
     if (ret != 0) {
         BPF_LOG(ERR, FILTERCHAIN, "rate limited, addr=%s\n", ip2str(&addr.ipv4, 1));
         return KMESH_TAIL_CALL_RET(-1);
     }
+#endif
 
     /* filter match */
     ret = filter_chain_filter_match(filter_chain, &addr, ctx, &filter, &filter_idx);

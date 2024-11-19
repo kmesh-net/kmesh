@@ -1,3 +1,6 @@
+//go:build docgen
+// +build docgen
+
 /*
  * Copyright The Kmesh Authors.
  *
@@ -14,16 +17,16 @@
  * limitations under the License.
  */
 
-package options
+package main
 
 import (
-	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
+
+	"kmesh.net/kmesh/ctl/common"
 )
 
-type perfConfig struct {
-	EnablePerfMonitor bool
-}
-
-func (c *perfConfig) AttachFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolVar(&c.EnablePerfMonitor, "enable-perfmonitor", false, "whether to start performance monitor or not, default to false")
+func main() {
+	rootCmd := common.GetRootCommand()
+	rootCmd.DisableAutoGenTag = true
+	doc.GenMarkdownTree(rootCmd, "../docs/ctl")
 }

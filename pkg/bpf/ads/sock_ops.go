@@ -78,7 +78,6 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 		return nil, err
 	}
 
-	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshSockopsObjects, &opts); err != nil {
 		return nil, err

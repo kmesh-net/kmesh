@@ -44,19 +44,19 @@ var operationTypeMap = map[uint32]string{
 	ENABLE_ENCODING_METADATA: "ENABLE_ENCODING_METADATA",
 }
 
-type OperationMetricController struct {
-	operationMetricCache map[operationMetricLabels]*operationUsageInfo
+type BpfProgMetric struct {
+	operationMetricCache map[operationMetricLabels]operationDuration
 	mutex                sync.RWMutex
 }
 
-type operationUsageMetric struct {
+type operationTimeMetric struct {
 	startTime     uint64
 	endTime       uint64
 	pidTgid       uint64
 	operationType uint32
 }
 
-type operationUsageInfo struct {
+type operationDuration struct {
 	durations     []uint64
 	operationType uint32
 }
@@ -66,25 +66,24 @@ type operationMetricLabels struct {
 	operationType string
 }
 
-func NewOperationMetric() *OperationMetricController {
-	return &OperationMetricController{
-		operationMetricCache: map[operationMetricLabels]*operationUsageInfo{},
+func NewBpfProgMetric() *BpfProgMetric {
+	return &BpfProgMetric{
+		operationMetricCache: map[operationMetricLabels]operationDuration{},
 	}
 }
 
-func (m *OperationMetricController) Run(ctx context.Context, KmeshPerfInfo *ebpf.Map) {
+func (m *BpfProgMetric) Run(ctx context.Context, KmeshPerfInfo *ebpf.Map) {
 	if m == nil {
 		return
 	}
-	var err error
 	readerPerformance, err := ringbuf.NewReader(KmeshPerfInfo)
 	if err != nil {
-		log.Errorf("open performance notify ringbuf map FAILED, err: %v", err)
+		log.Errorf("create bpf perf ringbuf reader failed, err: %v", err)
 		return
 	}
 	defer func() {
 		if err := readerPerformance.Close(); err != nil {
-			log.Errorf("ringbuf reader Close FAILED, err: %v", err)
+			log.Errorf("ringbuf reader close failed, err: %v", err)
 		}
 	}()
 	go func() {
@@ -103,10 +102,10 @@ func (m *OperationMetricController) Run(ctx context.Context, KmeshPerfInfo *ebpf
 		case <-ctx.Done():
 			return
 		default:
-			operationData := operationUsageMetric{}
+			operationData := operationTimeMetric{}
 			rec := ringbuf.Record{}
 			if err := readerPerformance.ReadInto(&rec); err != nil {
-				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
+				log.Errorf("bpf perf reader failed to read, err: %v", err)
 				continue
 			}
 			if len(rec.RawSample) != OPERATION_USAGE_DATA_LEN {
@@ -117,49 +116,45 @@ func (m *OperationMetricController) Run(ctx context.Context, KmeshPerfInfo *ebpf
 			operationData.endTime = binary.LittleEndian.Uint64(rec.RawSample[8:16])
 			operationData.pidTgid = binary.LittleEndian.Uint64(rec.RawSample[16:24])
 			operationData.operationType = binary.LittleEndian.Uint32(rec.RawSample[24:28])
-			metricLabels := m.buildOperationMetric(&operationData)
-			operationInfo := operationUsageInfo{
+			operationInfo := operationDuration{
 				durations:     []uint64{operationData.endTime - operationData.startTime},
 				operationType: operationData.operationType,
 			}
-			m.mutex.Lock()
-			m.updateOperationMetricCache(operationInfo, metricLabels)
-			m.mutex.Unlock()
+			m.updateOperationMetricCache(operationInfo, buildOperationMetricLabel(&operationData))
 		}
 	}
 }
 
-// buildOperationMetric builds the operation metrics labels using actual pod info.
-func (m *OperationMetricController) buildOperationMetric(data *operationUsageMetric) operationMetricLabels {
-	labels := operationMetricLabels{}
-	nodeName := os.Getenv("NODE_NAME")
-	if nodeName == "" {
-		nodeName = "unknown"
+// buildOperationMetricLabel builds the operation metrics labels using actual pod info.
+func buildOperationMetricLabel(data *operationTimeMetric) operationMetricLabels {
+	return operationMetricLabels{
+		nodeName:      os.Getenv("NODE_NAME"),
+		operationType: operationTypeMap[data.operationType],
 	}
-	labels.nodeName = nodeName
-	labels.operationType = operationTypeMap[data.operationType]
-	return labels
 }
 
-func (m *OperationMetricController) updateOperationMetricCache(data operationUsageInfo, labels operationMetricLabels) {
+func (m *BpfProgMetric) updateOperationMetricCache(data operationDuration, labels operationMetricLabels) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
 	v, ok := m.operationMetricCache[labels]
 	if ok {
 		v.durations = append(v.durations, data.durations...)
 	} else {
-		m.operationMetricCache[labels] = &data
+		m.operationMetricCache[labels] = data
 	}
 }
 
-func (m *OperationMetricController) updatePrometheusMetric() {
+func (m *BpfProgMetric) updatePrometheusMetric() {
 	m.mutex.Lock()
-	operationInfoCache := m.operationMetricCache
-	m.operationMetricCache = map[operationMetricLabels]*operationUsageInfo{}
+	metrics := m.operationMetricCache
+	m.operationMetricCache = map[operationMetricLabels]operationDuration{}
 	m.mutex.Unlock()
-	for k, v := range operationInfoCache {
+	for k, v := range metrics {
 		commonLabels := struct2map(k)
 		for _, duration := range v.durations {
-			operationDurationInPod.With(commonLabels).Observe(float64(duration))
-			operationCountInPod.With(commonLabels).Inc()
+			bpfProgOpDuration.With(commonLabels).Observe(float64(duration))
+			bpfProgOpCount.With(commonLabels).Inc()
 		}
 	}
 }

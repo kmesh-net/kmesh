@@ -19,31 +19,11 @@ package main
 import (
 	"os"
 
-	"github.com/spf13/cobra"
-
-	"kmesh.net/kmesh/ctl/accesslog"
-	"kmesh.net/kmesh/ctl/dump"
-	logcmd "kmesh.net/kmesh/ctl/log"
-	"kmesh.net/kmesh/ctl/version"
-	"kmesh.net/kmesh/ctl/waypoint"
+	"kmesh.net/kmesh/ctl/common"
 )
 
 func main() {
-	rootCmd := &cobra.Command{
-		Use:          "kmeshctl",
-		Short:        "Kmesh command line tools to operate and debug Kmesh",
-		SilenceUsage: true,
-		CompletionOptions: cobra.CompletionOptions{
-			DisableDefaultCmd: true,
-		},
-	}
-
-	rootCmd.AddCommand(logcmd.NewCmd())
-	rootCmd.AddCommand(dump.NewCmd())
-	rootCmd.AddCommand(waypoint.NewCmd())
-	rootCmd.AddCommand(version.NewCmd())
-	rootCmd.AddCommand(accesslog.NewCmd())
-
+	rootCmd := common.GetRootCommand()
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

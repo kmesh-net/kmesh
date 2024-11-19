@@ -6,7 +6,7 @@ metadata:
     app: kmesh
 rules:
 - apiGroups: [""]
-  resources: ["pods","services","namespaces"]
+  resources: ["pods","services","namespaces","nodes"]
   verbs: ["get", "update", "patch", "list", "watch"]
 - apiGroups: ["apps"]
   resources: ["daemonsets"]

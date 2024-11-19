@@ -90,11 +90,11 @@ lower than 22.09, compile would report an error of bpf_snprintf dont exist */
 static inline int map_lookup_log_level()
 {
     int zero = 0;
-    int *value = NULL;
+    struct kmesh_config *value = {0};
     value = kmesh_map_lookup_elem(&kmesh_config_map, &zero);
     if (!value)
         return BPF_LOG_INFO;
-    return *value;
+    return value->bpf_log_level;
 }
 
 #define BPF_LOG(l, t, f, ...)                                                                                          \
