@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
-	"istio.io/pkg/log"
 	corev1 "k8s.io/api/core/v1"
 
 	"kmesh.net/kmesh/daemon/options"
@@ -114,7 +113,6 @@ func runTestNormalKernelNative(t *testing.T) {
 
 func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	var versionPath string
-	log.Info("start type:%v", restart.GetStartType())
 	restart.SetStartType(restart.Normal)
 	bpfLoader := NewBpfLoader(&config)
 	if err := bpfLoader.Start(); err != nil {
