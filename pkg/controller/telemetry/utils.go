@@ -30,8 +30,11 @@ import (
 )
 
 var (
-	log            = logger.NewLoggerScope("telemetry")
-	mu             sync.Mutex
+	log = logger.NewLoggerScope("telemetry")
+	// ensure not occur matche the same requests as /status/metric panic in unit test
+	mu sync.Mutex
+	// Ensure concurrency security when removing metriclabels from workloads and services.
+	deleteLock     sync.Mutex
 	deleteWorkload = []*workloadapi.Workload{}
 	deleteService  = []string{}
 
@@ -257,7 +260,9 @@ func DeleteWorkloadMetric(workload *workloadapi.Workload) {
 	if workload == nil {
 		return
 	}
+	deleteLock.Lock()
 	deleteWorkload = append(deleteWorkload, workload)
+	deleteLock.Unlock()
 }
 
 func deleteWorkloadMetricInPrometheus(workload *workloadapi.Workload) {
@@ -279,7 +284,9 @@ func DeleteServiceMetric(serviceName string) {
 	if serviceName == "" {
 		return
 	}
+	deleteLock.Lock()
 	deleteService = append(deleteService, serviceName)
+	deleteLock.Unlock()
 }
 
 func deleteServiceMetricInPrometheus(serviceName string) {
