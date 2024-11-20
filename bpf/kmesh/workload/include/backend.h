@@ -47,11 +47,33 @@ static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_ad
 }
 
 static inline int
+update_dst_addr_with_service_port(struct kmesh_context *kmesh_ctx, backend_value *backend_v, service_value *service_v)
+{
+    int i;
+    ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
+
+#pragma unroll
+    for (i = 0; i < MAX_PORT_COUNT; i++) {
+        if (ctx->user_port == service_v->service_port[i]) {
+            if (ctx->user_family == AF_INET)
+                kmesh_ctx->dnat_ip.ip4 = backend_v->addr.ip4;
+            else
+                bpf_memcpy(kmesh_ctx->dnat_ip.ip6, backend_v->addr.ip6, IPV6_ADDR_LEN);
+
+            kmesh_ctx->dnat_port = service_v->target_port[i];
+            kmesh_ctx->via_waypoint = false;
+            return 0;
+        }
+    }
+    return -ENOENT;
+}
+
+static inline int
 backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32 service_id, service_value *service_v)
 {
-    int ret;
+    int ret = -ENOENT;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
-    __u32 user_port = ctx->user_port;
+    __u32 i, user_port = ctx->user_port;
 
     if (backend_v->waypoint_port != 0) {
         BPF_LOG(
@@ -68,36 +90,20 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
     }
 
 #pragma unroll
-    for (__u32 i = 0; i < MAX_SERVICE_COUNT; i++) {
-        if (i >= backend_v->service_count) {
-            BPF_LOG(WARN, BACKEND, "exceed the max backend service count:%d", backend_v->service_count);
+    for (i = 0; i < MAX_SERVICE_COUNT; i++) {
+        if (i >= backend_v->service_count)
             break;
-        }
-        if (service_id == backend_v->service[i]) {
-            BPF_LOG(DEBUG, BACKEND, "access the backend by service:%u\n", service_id);
-#pragma unroll
-            for (__u32 j = 0; j < MAX_PORT_COUNT; j++) {
-                if (user_port == service_v->service_port[j]) {
-                    if (ctx->user_family == AF_INET)
-                        kmesh_ctx->dnat_ip.ip4 = backend_v->addr.ip4;
-                    else
-                        bpf_memcpy(kmesh_ctx->dnat_ip.ip6, backend_v->addr.ip6, IPV6_ADDR_LEN);
-                    kmesh_ctx->dnat_port = service_v->target_port[j];
-                    kmesh_ctx->via_waypoint = false;
-                    BPF_LOG(
-                        DEBUG,
-                        BACKEND,
-                        "get the backend addr=[%s:%u]\n",
-                        ip2str((__u32 *)&kmesh_ctx->dnat_ip, ctx->family == AF_INET),
-                        bpf_ntohs(service_v->target_port[j]));
-                    return 0;
-                }
-            }
-        }
+
+        if (service_id != backend_v->service[i])
+            continue;
+
+        ret = update_dst_addr_with_service_port(kmesh_ctx, backend_v, service_v);
+        if (ret == 0)
+            break;
     }
 
-    BPF_LOG(ERR, BACKEND, "failed to get the backend\n");
-    return -ENOENT;
+    BPF_LOG(WARN, BACKEND, "backend_manager svc_id:%u i:%u ret:%d.\n", service_id, i, ret);
+    return ret;
 }
 
 #endif
