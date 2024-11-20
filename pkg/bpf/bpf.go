@@ -21,6 +21,7 @@ package bpf
 import "C"
 import (
 	"context"
+	"fmt"
 	"hash/fnv"
 	"net"
 	"net/netip"
@@ -303,20 +304,19 @@ func (l *BpfLoader) setBpfProgOptions() {
 	nodeIP := getNodeIPAddress(node)
 	gateway := getNodePodSubGateway(node)
 
-	keyOfKmeshBpfConfig := uint32(0)
-	ValueOfKmeshBpfConfig := KmeshBpfConfig{
+	valueOfKmeshBpfConfig := KmeshBpfConfig{
 		// Write this map only when the kmesh daemon starts, so set bpfloglevel to the default value.
-		BpfLogLevel:  constants.BPF_LOG_INFO,
-		NodeIP:       nodeIP,
-		PodGateway:   gateway,
+		BpfLogLevel: constants.BPF_LOG_INFO,
+		NodeIP:      nodeIP,
+		PodGateway:  gateway,
+		// Use default values when bpf init.
+		// Updated when checking the startup parameters.
 		AuthzOffload: uint32(0),
 	}
 
-	if l.kmeshConfig != nil {
-		if err := l.kmeshConfig.Update(&keyOfKmeshBpfConfig, &ValueOfKmeshBpfConfig, ebpf.UpdateAny); err != nil {
-			log.Errorf("update kmeshConfig map failed: %v", err)
-			return
-		}
+	if err := UpdateKmeshConfigMap(l.kmeshConfig, &valueOfKmeshBpfConfig); err != nil {
+		log.Errorf("update kmeshConfig map failed: %v", err)
+		return
 	}
 }
 
@@ -349,6 +349,37 @@ func getNodePodSubGateway(node *corev1.Node) [16]byte {
 	nets.CopyIpByteFromSlice(&podGateway, subNet.IP.To16())
 	podGateway[15] = podGateway[15] + 1
 	return podGateway
+}
+
+func GetKmeshConfigMap(bpfMap *ebpf.Map) (*KmeshBpfConfig, error) {
+	if bpfMap == nil {
+		return nil, fmt.Errorf("get KmeshConfigMap failed: bpfMap is nil")
+	}
+
+	key := uint32(0)
+	value := KmeshBpfConfig{}
+	if err := bpfMap.Lookup(&key, &value); err != nil {
+		return nil, err
+	}
+
+	return &value, nil
+}
+
+func UpdateKmeshConfigMap(bpfMap *ebpf.Map, config *KmeshBpfConfig) error {
+	if bpfMap == nil {
+		return fmt.Errorf("update KmeshConfigMap failed: KmeshConfigMap is empty")
+	}
+	// For more granularity in error logging, so separate judgements.
+	if config == nil {
+		return fmt.Errorf("update KmeshConfigMap failed: map of updating is empty")
+	}
+
+	key := uint32(0)
+	if err := bpfMap.Update(&key, config, ebpf.UpdateAny); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func closeMap(m *ebpf.Map) {
