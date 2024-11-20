@@ -190,10 +190,8 @@ static inline void *get_ptr_val_from_map(void *map, __u8 map_type, const void *p
     __u32 outer_key = (__u32)(uintptr_t)ptr;
 
     kmesh_parse_outer_key(outer_key, &type, &inner_idx);
-    if (type != map_type) {
-        BPF_LOG(ERR, KMESH, "get_ptr_val: invalid map type(%u %u)\n", type, map_type);
+    if (type != map_type)
         return NULL;
-    }
 
     return kmesh_map_lookup_elem(map, &inner_idx);
 }
