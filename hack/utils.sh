@@ -2,7 +2,7 @@
 
 function run_docker_container() {
     local container_id
-    container_id=$(docker run -itd --privileged=true \
+    container_id=$(docker run --rm -itd --privileged=true \
         -v /usr/src:/usr/src \
         -v /usr/include/linux/bpf.h:/kmesh/config/linux-bpf.h \
         -v /etc/cni/net.d:/etc/cni/net.d \

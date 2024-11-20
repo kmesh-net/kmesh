@@ -14,7 +14,6 @@
 
 #include <bpf/bpf.h>
 #include <bpf/libbpf.h>
-#include <bpf/btf.h>
 #include <linux/bpf.h>
 
 #include <protobuf-c/protobuf-c.h>

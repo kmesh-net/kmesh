@@ -21,6 +21,11 @@ go_test_command=$(get_go_test_command)
 function docker_run_go_ut() {
     local container_id=$1
     docker exec $container_id $go_test_command
+    exit_code=$?
+    echo "exit code: $exit_code"
+    if [ $exit_code -ne 0 ]; then
+        exit $exit_code
+    fi
 }
 
 function run_go_ut_local() {
