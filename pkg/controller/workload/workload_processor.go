@@ -580,10 +580,10 @@ func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.E
 			log.Errorf("addWorkloadToService workload %d service %d failed: %v", ev.BackendUid, sKey.ServiceId, err)
 			return err
 		}
-		eksDeletes := []bpfcache.EndpointKey{ek}
+		epKeys := []bpfcache.EndpointKey{ek}
 		// delete ek
-		if err := p.deleteEndpointRecords(eksDeletes); err != nil {
-			log.Errorf("delete [%#v] from endpoint map failed: %s", eksDeletes, err)
+		if err := p.deleteEndpointRecords(epKeys); err != nil {
+			log.Errorf("delete [%#v] from endpoint map failed: %s", epKeys, err)
 		}
 	}
 	return nil
@@ -919,7 +919,8 @@ func (p *Processor) handleRemovedAuthzPolicyDuringRestart(rbac *auth.Rbac) {
 	}
 }
 
-// deleteEndpointRecords deletes endpoint from endpoint map and simultaneously update service map
+// deleteEndpointRecords deletes endpoint from endpoint map and moves the last endpoints to occupy the deleted position,
+// then simultaneously update service map's endpoint count.
 func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error {
 	var (
 		sk = bpf.ServiceKey{}
@@ -931,39 +932,38 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 		return nil
 	}
 
-	// maintain backend index map
-	backendIndexToEndpointKey := make(map[uint32]bpf.EndpointKey)
-	for _, ek := range endpointKeys {
-		backendIndexToEndpointKey[ek.BackendIndex] = ek
-	}
+	// sort endpointKeys, first delete the endpoint with the highest priority and the largest BackendIndex
+	// so that it will not influence the backendIndexx of the other endpoints
+	sort.Slice(endpointKeys, func(i, j int) bool {
+		if endpointKeys[i].Prio == endpointKeys[j].Prio {
+			return endpointKeys[i].BackendIndex > endpointKeys[j].BackendIndex
+		}
+		return endpointKeys[i].Prio > endpointKeys[j].Prio
+	})
 
 	for _, ek := range endpointKeys {
 		sk.ServiceId = ek.ServiceId
 		// 1. find the service
 		if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
-			// get correct BackendIndex from updated backendIndexToEndpointKey
-			currentIndex := backendIndexToEndpointKey[ek.BackendIndex].BackendIndex
-			if err := p.bpf.EndpointSwap(currentIndex, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
-				log.Errorf("swap workload endpoint index failed: %s", err)
-				return err
-			}
-
-			// update BackendIndex in backendIndexToEndpointKey after swapping endpoints
-			backendIndexToEndpointKey[sv.EndpointCount[ek.Prio]] = bpf.EndpointKey{BackendIndex: currentIndex, Prio: ek.Prio, ServiceId: ek.ServiceId}
-
-			sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
-			// TODO: move before EndpointSwap after #1049
 			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
 				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
 			}
+
+			// on delete, first update the service map, then update the endpoint map
+			sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
 			p.EndpointCache.DeleteEndpoint(ek.ServiceId, ev.BackendUid)
 			if err = p.bpf.ServiceUpdate(&sk, &sv); err != nil {
 				log.Errorf("ServiceUpdate failed: %s", err)
 				return err
 			}
+			if err := p.bpf.EndpointSwap(ek.BackendIndex, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
+				log.Errorf("swap workload endpoint index failed: %s", err)
+				return err
+			}
+			p.EndpointCache.DeleteEndpoint(ek.ServiceId, ev.BackendUid)
 		} else {
 			// service not exist, we should also delete the endpoint
-			log.Errorf("service %d not found, should not occur: %v", ek.ServiceId, err)
+			log.Warnf("service %d not found, should not occur: %v", ek.ServiceId, err)
 
 			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
 				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
