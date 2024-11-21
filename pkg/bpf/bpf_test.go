@@ -22,8 +22,6 @@ import (
 	"syscall"
 	"testing"
 
-	"reflect"
-
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
@@ -32,6 +30,38 @@ import (
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/constants"
 )
+
+func TestGetKmeshConfigMap(t *testing.T) {
+	config := setDir(t)
+	bpfLoader := NewBpfLoader(&config)
+	err := bpfLoader.Start()
+	assert.NoError(t, err)
+	_, err = GetKmeshConfigMap(bpfLoader.kmeshConfig)
+	assert.NoError(t, err)
+	restart.SetExitType(restart.Normal)
+	bpfLoader.Stop()
+}
+
+func TestUpdateKmeshConfigMap(t *testing.T) {
+	config := setDir(t)
+	bpfLoader := NewBpfLoader(&config)
+	if err := bpfLoader.Start(); err != nil {
+		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
+	}
+	bpfConfig := KmeshBpfConfig{
+		BpfLogLevel:  uint32(3),
+		NodeIP:       [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 172, 18, 0, 3},
+		PodGateway:   [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 10, 244, 0, 1},
+		AuthzOffload: uint32(1),
+	}
+	err := UpdateKmeshConfigMap(bpfLoader.kmeshConfig, &bpfConfig)
+	assert.NoError(t, err)
+	got, err := GetKmeshConfigMap(bpfLoader.kmeshConfig)
+	assert.NoError(t, err)
+	assert.Equal(t, bpfConfig, *got)
+	restart.SetExitType(restart.Normal)
+	bpfLoader.Stop()
+}
 
 func TestRestart(t *testing.T) {
 	t.Run("new start", func(t *testing.T) {
@@ -133,9 +163,45 @@ func TestGetNodePodSubGateway(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getNodePodSubGateway(tt.args.node); !reflect.DeepEqual(got, tt.want) {
-				assert.Equal(t, tt.want, got)
-			}
+			got := getNodePodSubGateway(tt.args.node)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func Test_getNodeIPAddress(t *testing.T) {
+	type args struct {
+		node *corev1.Node
+	}
+	tests := []struct {
+		name string
+		args args
+		want [16]byte
+	}{
+		{
+			name: "get Node IP address",
+			args: args{
+				node: &corev1.Node{
+					Spec: corev1.NodeSpec{
+						PodCIDR: "10.244.0.0/24",
+					},
+					Status: corev1.NodeStatus{
+						Addresses: []corev1.NodeAddress{
+							{
+								Type:    corev1.NodeInternalIP,
+								Address: "172.18.0.3",
+							},
+						},
+					},
+				},
+			},
+			want: [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 172, 18, 0, 3},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := getNodeIPAddress(tt.args.node)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
