@@ -34,8 +34,8 @@ import (
 )
 
 func TestRestart(t *testing.T) {
-	t.Run("new start DualEengine", func(t *testing.T) {
-		runTestNormalDualEengine(t)
+	t.Run("new start DualEngine", func(t *testing.T) {
+		runTestNormalDualEngine(t)
 	})
 	t.Run("new start KernelNative", func(t *testing.T) {
 		runTestNormalKernelNative(t)
@@ -97,8 +97,8 @@ func setDirKernelNative(t *testing.T) options.BpfConfig {
 	}
 }
 
-// Test Kmesh Normal DualEengine
-func runTestNormalDualEengine(t *testing.T) {
+// Test Kmesh Normal DualEngine
+func runTestNormalDualEngine(t *testing.T) {
 	config := setDirDualEngine(t)
 
 	NormalStart(t, config)
