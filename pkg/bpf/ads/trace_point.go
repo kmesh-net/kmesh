@@ -22,7 +22,6 @@ package ads
 import (
 	"os"
 	"path/filepath"
-	"reflect"
 	"syscall"
 
 	"github.com/cilium/ebpf"
@@ -31,7 +30,6 @@ import (
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/enhanced"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/restart"
-	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
@@ -83,23 +81,8 @@ func (sc *BpfTracePoint) loadKmeshTracePointObjects() (*ebpf.CollectionSpec, err
 		}
 	}
 
-	if restart.GetStartType() == restart.Restart {
-		pinPath := filepath.Join(sc.Info.BpfFsPath, "connect_ret")
-		_, err := ebpf.LoadPinnedProgram(pinPath, nil)
-		if err != nil {
-			log.Errorf("LoadPinnedProgram failed: %v", err)
-			return nil, err
-		}
-	} else {
-		if err = spec.LoadAndAssign(&sc.KmeshTracePointObjects, &opts); err != nil {
-			return nil, err
-		}
-
-		value := reflect.ValueOf(sc.KmeshTracePointObjects.KmeshTracePointPrograms)
-		if err = utils.PinPrograms(&value, sc.Info.BpfFsPath); err != nil {
-			log.Errorf("tracepoint err: %v \n path is:%v", err, sc.Info.BpfFsPath)
-			return nil, err
-		}
+	if err = spec.LoadAndAssign(&sc.KmeshTracePointObjects, &opts); err != nil {
+		return nil, err
 	}
 
 	return spec, nil

@@ -32,6 +32,7 @@ import (
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
@@ -187,8 +188,8 @@ func (sc *BpfSockOps) Attach() error {
 	// pin bpf_link and bpf_tail_call map
 	// pin bpf_link, after restart, update prog in bpf_link
 	// tail_call map cannot pin in SetMapPinType->LoadAndAssign, we pin them independent
-	mapPinPath := filepath.Join(sc.Info.BpfFsPath, "sockops_tail_call_map")
-	progPinPath := filepath.Join(sc.Info.BpfFsPath, "sockops_link")
+	mapPinPath := filepath.Join(sc.Info.BpfFsPath, constants.TailCallMap)
+	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
 	if restart.GetStartType() == restart.Restart {
 		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
 			return err
@@ -197,9 +198,6 @@ func (sc *BpfSockOps) Attach() error {
 		// this path after an unexpected restart, here we unpin the file by
 		// directly removing it without doing error handling.
 		os.Remove(mapPinPath)
-		// if err = utils.BpfMapDeleteByPinPath(mapPinPath); err != nil {
-		// 	return err
-		// }
 	} else {
 		sc.Link, err = link.AttachCgroup(cgopt)
 		if err != nil {
