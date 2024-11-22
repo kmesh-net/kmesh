@@ -782,17 +782,19 @@ func TestLBPolicyUpdate(t *testing.T) {
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 3, 0)
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
-	t.Log("1. check endpoint map")
+	t.Log("2. check endpoint map")
 
 	checkEndpointMap(t, p, randomSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 	// check backend map
+	t.Log("3. check backend map")
 	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl3, wl4} {
 		checkBackendMap(t, p, p.hashName.Hash(wl.ResourceName()), wl)
 	}
 	assert.Equal(t, 4, p.bpf.BackendCount())
 
 	// 2. Locality Loadbalance Update from random to locality LB
+	t.Log("lb policy update to locality lb")
 	addr = serviceToAddress(llbSvc)
 	res2.Resources = append(res2.Resources, &service_discovery_v3.Resource{
 		Resource: protoconv.MessageToAny(addr),
@@ -803,14 +805,14 @@ func TestLBPolicyUpdate(t *testing.T) {
 
 	assert.Equal(t, 5, p.bpf.FrontendCount())
 	// check service map
-	t.Log("2. check service map")
+	t.Log("4. check service map")
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 0, 1)
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 1, 1)
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 2, 1)
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 3, 1)
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
-	t.Log("2. check endpoint map")
+	t.Log("5. check endpoint map")
 	checkEndpointMap(t, p, llbSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 
@@ -825,14 +827,14 @@ func TestLBPolicyUpdate(t *testing.T) {
 
 	assert.Equal(t, 5, p.bpf.FrontendCount())
 	// check service map
-	t.Log("3. check service map")
+	t.Log("6. check service map")
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 0, 4) // 4 1
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 1, 0) // 0 1
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 2, 0) // 0 1
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 3, 0) // 0 1
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
-	t.Log("3. check endpoint map")
+	t.Log("7. check endpoint map")
 	checkEndpointMap(t, p, randomSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 
