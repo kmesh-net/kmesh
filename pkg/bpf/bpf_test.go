@@ -17,6 +17,7 @@
 package bpf
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
@@ -48,23 +49,28 @@ func TestRestart(t *testing.T) {
 	})
 }
 
-func setDir(t *testing.T) {
-	if err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755); err != nil {
-		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
-	}
-	if err := syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, ""); err != nil {
-		CleanupBpfMap()
-		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
-	}
-	if err := syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
-		CleanupBpfMap()
-		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
+func setDir() (err error) {
+	defer func() {
+		if err != nil {
+			CleanupBpfMap()
+		}
+	}()
+
+	if err = os.MkdirAll("/mnt/kmesh_cgroup2", 0755); err != nil {
+		return fmt.Errorf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
 	}
 
-	if err := rlimit.RemoveMemlock(); err != nil {
-		CleanupBpfMap()
-		t.Fatalf("Failed to remove mem limit: %v", err)
+	if err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, ""); err != nil {
+		return fmt.Errorf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 	}
+	if err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
+		return fmt.Errorf("Failed to mount /sys/fs/bpf: %v", err)
+	}
+
+	if err = rlimit.RemoveMemlock(); err != nil {
+		return fmt.Errorf("Failed to remove mem limit: %v", err)
+	}
+	return nil
 }
 
 func NormalStart(t *testing.T, config options.BpfConfig) {
@@ -78,7 +84,9 @@ func NormalStart(t *testing.T, config options.BpfConfig) {
 }
 
 func setDirDualEngine(t *testing.T) options.BpfConfig {
-	setDir(t)
+	if err := setDir(); err != nil {
+		t.Fatalf("setDir Failed: %v", err)
+	}
 
 	return options.BpfConfig{
 		Mode:        constants.DualEngineMode,
@@ -88,8 +96,9 @@ func setDirDualEngine(t *testing.T) options.BpfConfig {
 }
 
 func setDirKernelNative(t *testing.T) options.BpfConfig {
-	setDir(t)
-
+	if err := setDir(); err != nil {
+		t.Fatalf("setDir Failed: %v", err)
+	}
 	return options.BpfConfig{
 		Mode:        constants.KernelNativeMode,
 		BpfFsPath:   "/sys/fs/bpf",
