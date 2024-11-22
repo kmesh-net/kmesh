@@ -18,6 +18,7 @@ package bpfcache
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cilium/ebpf"
 	"istio.io/istio/pkg/util/sets"
@@ -71,6 +72,9 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 
 // EndpointSwap update the last endpoint index and remove the current endpoint
 func (c *Cache) EndpointSwap(currentIndex, lastIndex uint32, serviceId uint32, prio uint32) error {
+	if currentIndex > lastIndex {
+		return fmt.Errorf("currentIndex %d > lastIndex %d", currentIndex, lastIndex)
+	}
 	if currentIndex == lastIndex {
 		return c.EndpointDelete(&EndpointKey{
 			ServiceId:    serviceId,
