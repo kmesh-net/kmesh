@@ -44,15 +44,15 @@ func BpfProgUpdate(pinPath string, cgopt link.CgroupOptions) (link.Link, error) 
 	return sclink, nil
 }
 
-func BpfMapDeleteByPinPath(bpfFsPath string) error {
-	progMap, err := ebpf.LoadPinnedMap(bpfFsPath, nil)
-	if err != nil {
-		return fmt.Errorf("loadPinnedMap failed for %s: %v, when kmesh delete by pin path", bpfFsPath, err)
-	}
-	defer progMap.Close()
-	if err := progMap.Unpin(); err != nil {
-		return fmt.Errorf("unpin failed for %s: %v", bpfFsPath, err)
-	}
+// func BpfMapDeleteByPinPath(bpfFsPath string) error {
+// 	progMap, err := ebpf.LoadPinnedMap(bpfFsPath, nil)
+// 	if err != nil {
+// 		return fmt.Errorf("loadPinnedMap failed for %s: %v, when kmesh delete by pin path", bpfFsPath, err)
+// 	}
+// 	defer progMap.Close()
+// 	if err := progMap.Unpin(); err != nil {
+// 		return fmt.Errorf("unpin failed for %s: %v", bpfFsPath, err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }

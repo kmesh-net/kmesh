@@ -168,9 +168,12 @@ func (sc *BpfSockConn) Attach() error {
 		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
 			return err
 		}
-		if err = utils.BpfMapDeleteByPinPath(mapPinPath); err != nil {
-			return err
-		}
+
+		// Unpin tailcallmap. Considering that kmesh coredump may not have
+		// this path after an unexpected restart, here we unpin the file by
+		// directly removing it without doing error handling.
+		os.Remove(mapPinPath)
+
 	} else {
 		sc.Link, err = link.AttachCgroup(cgopt)
 		if err != nil {
