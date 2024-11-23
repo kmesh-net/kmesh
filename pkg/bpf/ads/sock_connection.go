@@ -161,7 +161,7 @@ func (sc *BpfSockConn) Attach() error {
 	}
 
 	// pin bpf_tail_call map
-	// tail_call map cannot pin in SetMapPinType->LoadAndAssign, we pin them independent
+	// tail_call map cannot pin in SetMapPinType->LoadAndAssign, we pin them independently
 	mapPinPath := filepath.Join(sc.Info.BpfFsPath, constants.TailCallMap)
 	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
 	if restart.GetStartType() == restart.Restart {
