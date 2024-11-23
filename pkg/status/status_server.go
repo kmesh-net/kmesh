@@ -280,23 +280,18 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	key := uint32(0)
-	value := bpf.KmeshBpfConfig{}
-	if s.kmeshConfigMap == nil {
-		http.Error(w, fmt.Sprintf("update authz error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
-		return
-	}
-	if err = s.kmeshConfigMap.Lookup(&key, &value); err != nil {
-		http.Error(w, fmt.Sprintf("get kmesh config error: %v", err), http.StatusBadRequest)
+	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("update authz in KmeshConfigMap failed: %v", err), http.StatusBadRequest)
 		return
 	}
 	if enabled {
-		value.AuthzOffload = constants.XDP_AUTHZ_ENABLED
+		configMap.AuthzOffload = constants.XDP_AUTHZ_ENABLED
 	} else {
-		value.AuthzOffload = constants.XDP_AUTHZ_DISABLED
+		configMap.AuthzOffload = constants.XDP_AUTHZ_DISABLED
 	}
-	if err = s.kmeshConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
-		http.Error(w, fmt.Sprintf("update authz error: %v", err), http.StatusBadRequest)
+	if err := bpf.UpdateKmeshConfigMap(s.kmeshConfigMap, configMap); err != nil {
+		http.Error(w, fmt.Sprintf("update authz in KmeshConfigMap failed: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -446,12 +441,12 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
-	key := uint32(0)
-	value := bpf.KmeshBpfConfig{}
-	if err := s.kmeshConfigMap.Lookup(&key, &value); err != nil {
+	config, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
+	if err != nil {
 		return nil, fmt.Errorf("get log level error: %v", err)
 	}
-	logLevel := value.BpfLogLevel
+
+	logLevel := config.BpfLogLevel
 
 	logLevelMap := map[int]string{
 		constants.BPF_LOG_ERR:   "error",
@@ -462,7 +457,7 @@ func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 
 	loggerLevel, exists := logLevelMap[int(logLevel)]
 	if !exists {
-		return nil, fmt.Errorf("unexpected invalid log level: %d", value.BpfLogLevel)
+		return nil, fmt.Errorf("unexpected invalid log level: %d", config.BpfLogLevel)
 	}
 
 	return &LoggerInfo{
@@ -490,20 +485,16 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 		http.Error(w, "Invalid log level", http.StatusBadRequest)
 		return
 	}
-	key := uint32(0)
-	value := bpf.KmeshBpfConfig{}
-	if s.kmeshConfigMap == nil {
-		http.Error(w, fmt.Sprintf("update log level error: %v", "kmeshConfigMap is nil"), http.StatusBadRequest)
-		return
-	}
+
 	// Because kmesh config has pod gateway and node ip data.
 	// When change the log level, need to make sure that the pod gateway and node ip remain unchanged.
-	if err = s.kmeshConfigMap.Lookup(&key, &value); err != nil {
+	config, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
+	if err != nil {
 		http.Error(w, fmt.Sprintf("get kmesh config error: %v", err), http.StatusBadRequest)
 		return
 	}
-	value.BpfLogLevel = uint32(level)
-	if err = s.kmeshConfigMap.Update(&key, &value, ebpf.UpdateAny); err != nil {
+	config.BpfLogLevel = uint32(level)
+	if err := bpf.UpdateKmeshConfigMap(s.kmeshConfigMap, config); err != nil {
 		http.Error(w, fmt.Sprintf("update log level error: %v", err), http.StatusBadRequest)
 		return
 	}
