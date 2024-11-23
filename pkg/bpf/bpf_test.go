@@ -33,7 +33,7 @@ import (
 )
 
 func TestGetKmeshConfigMap(t *testing.T) {
-	config := setDir(t)
+	config := setDirDualEngine(t)
 	bpfLoader := NewBpfLoader(&config)
 	err := bpfLoader.Start()
 	assert.NoError(t, err)
@@ -44,7 +44,7 @@ func TestGetKmeshConfigMap(t *testing.T) {
 }
 
 func TestUpdateKmeshConfigMap(t *testing.T) {
-	config := setDir(t)
+	config := setDirDualEngine(t)
 	bpfLoader := NewBpfLoader(&config)
 	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
