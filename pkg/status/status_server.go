@@ -261,7 +261,7 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", accesslogInfo)))
 	} else {
-		s.xdsClient.WorkloadController.SetAccesslog(enabled)
+		s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
 		w.WriteHeader(http.StatusOK)
 	}
 }

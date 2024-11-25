@@ -52,6 +52,7 @@ var osStartTime time.Time
 
 type MetricController struct {
 	EnableAccesslog     atomic.Bool
+	EnableMetric        atomic.Bool
 	workloadCache       cache.WorkloadCache
 	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
 	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
@@ -181,7 +182,7 @@ func NewMetric(workloadCache cache.WorkloadCache, enableAccesslog bool) *MetricC
 		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
-	m.EnableAccesslog.Store(enableAccesslog)
+	m.EnableMetric.Store(enableAccesslog)
 	return m
 }
 
@@ -227,6 +228,9 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 		case <-ctx.Done():
 			return
 		default:
+			if !m.EnableMetric.Load() {
+				continue
+			}
 			data := requestMetric{}
 			rec := ringbuf.Record{}
 			if err := reader.ReadInto(&rec); err != nil {

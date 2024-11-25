@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
@@ -98,10 +99,20 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 
 	if c.bpfConfig.EnableBpfLog {
 		if err := logger.StartRingBufReader(ctx, c.mode, c.bpfConfig.BpfFsPath); err != nil {
-			return fmt.Errorf("fail to start ringbuf reader: %v", err)
+			return fmt.Errorf("failed to start ringbuf reader: %v", err)
 		}
 	}
-	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableAccesslog, c.bpfConfig.EnableProfiling)
+	if c.bpfConfig.EnableMetric {
+		config, err := bpf.GetKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmeshConfigMap)
+		if err != nil {
+			return fmt.Errorf("failed to get kmesh config map: %v", err)
+		}
+		config.EnableMetric = uint32(1)
+		if err := bpf.UpdateKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmeshConfigMap, config); err != nil {
+			return fmt.Errorf("Failed to update config in order to start metric: %v", err)
+		}
+	}
+	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMetric, c.bpfConfig.EnableProfiling)
 
 	if c.client.WorkloadController != nil {
 		c.client.WorkloadController.Run(ctx)

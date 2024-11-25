@@ -79,6 +79,18 @@ static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
     return false;
 }
 
+static inline bool enable_metric()
+{
+    struct kmesh_config *data = {0};
+    int key_of_kmesh_config = 0;
+    data = kmesh_map_lookup_elem(&kmesh_config_map, &key_of_kmesh_config);
+    if (!data) {
+        BPF_LOG(ERR, SOCKOPS, "get kmesh config failed");
+        return false;
+    }
+    return data->enable_metric == 1;
+}
+
 static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
     if (skops->family == AF_INET) {
@@ -257,7 +269,9 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops))
             break;
-        observe_on_connect_established(skops->sk, OUTBOUND);
+        if (enable_metric()) {
+            observe_on_connect_established(skops->sk, OUTBOUND);
+        }
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         __u64 *current_sk = (__u64 *)skops->sk;
@@ -268,7 +282,9 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops) || skip_specific_probe(skops))
             break;
-        observe_on_connect_established(skops->sk, INBOUND);
+        if (enable_metric()) {
+            observe_on_connect_established(skops->sk, INBOUND);
+        }
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         auth_ip_tuple(skops);

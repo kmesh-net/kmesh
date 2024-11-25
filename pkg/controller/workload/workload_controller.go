@@ -46,7 +46,7 @@ type Controller struct {
 	bpfWorkloadObj            *bpfwl.BpfWorkload
 }
 
-func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog, enablePerfMonitor bool) *Controller {
+func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMetric, enablePerfMonitor bool) *Controller {
 	c := &Controller{
 		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
 		bpfWorkloadObj: bpfWorkload,
@@ -57,7 +57,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableAccesslog, enablePerfMo
 		c.Processor.bpf.RestoreEndpointKeys()
 	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
-	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, enableAccesslog)
+	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, enableMetric)
 	if enablePerfMonitor {
 		c.OperationMetricController = telemetry.NewBpfProgMetric()
 		c.MapMetricController = telemetry.NewMapMetric()
@@ -142,10 +142,18 @@ func (c *Controller) HandleWorkloadStream() error {
 	return nil
 }
 
-func (c *Controller) SetAccesslog(enabled bool) {
-	c.MetricController.EnableAccesslog.Store(enabled)
+func (c *Controller) SetMetricTrigger(enabled bool) {
+	c.MetricController.EnableMetric.Store(enabled)
+}
+
+func (c *Controller) GetMetricTrigger() bool {
+	return c.MetricController.EnableMetric.Load()
+}
+
+func (c *Controller) SetAccesslogTrigger(enabled bool) {
+	c.MetricController.EnableMetric.Store(enabled)
 }
 
 func (c *Controller) GetAccesslogTrigger() bool {
-	return c.MetricController.EnableAccesslog.Load()
+	return c.MetricController.EnableMetric.Load()
 }

@@ -29,6 +29,7 @@ type KmeshSockopsWorkloadKmeshConfig struct {
 	NodeIp       [4]uint32
 	PodGateway   [4]uint32
 	AuthzOffload uint32
+	EnableMetric uint32
 }
 
 type KmeshSockopsWorkloadLogEvent struct {
