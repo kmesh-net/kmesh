@@ -575,16 +575,20 @@ func (m *MetricController) updatePrometheusMetric() {
 	}
 
 	// delete metrics
-	workloadDeleteLength := len(deleteWorkload)
-	serviceDeleteLength := len(deleteService)
-	for i := 0; i < workloadDeleteLength; i++ {
-		deleteWorkloadMetricInPrometheus(deleteWorkload[i])
+	deleteLock.Lock()
+	// Creating a copy reduces the amount of time spent adding locks in the programme
+	workloadReplica := deleteWorkload
+	deleteWorkload = nil
+	serviceReplica := deleteService
+	deleteService = nil
+	deleteLock.Unlock()
+
+	for i := 0; i < len(workloadReplica); i++ {
+		deleteWorkloadMetricInPrometheus(workloadReplica[i])
 	}
-	for i := 0; i < serviceDeleteLength; i++ {
-		deleteServiceMetricInPrometheus(deleteService[i])
+	for i := 0; i < len(serviceReplica); i++ {
+		deleteServiceMetricInPrometheus(serviceReplica[i])
 	}
-	deleteWorkload = deleteWorkload[workloadDeleteLength:]
-	deleteService = deleteService[serviceDeleteLength:]
 }
 
 func struct2map(labels interface{}) map[string]string {
