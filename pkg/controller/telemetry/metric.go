@@ -52,7 +52,7 @@ var osStartTime time.Time
 
 type MetricController struct {
 	EnableAccesslog     atomic.Bool
-	EnableMetric        atomic.Bool
+	EnableMonitoring    atomic.Bool
 	workloadCache       cache.WorkloadCache
 	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
 	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
@@ -176,13 +176,13 @@ type serviceMetricLabels struct {
 	connectionSecurityPolicy string
 }
 
-func NewMetric(workloadCache cache.WorkloadCache, enableAccesslog bool) *MetricController {
+func NewMetric(workloadCache cache.WorkloadCache, enableMonitoring bool) *MetricController {
 	m := &MetricController{
 		workloadCache:       workloadCache,
 		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
-	m.EnableMetric.Store(enableAccesslog)
+	m.EnableMonitoring.Store(enableMonitoring)
 	return m
 }
 
@@ -228,7 +228,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 		case <-ctx.Done():
 			return
 		default:
-			if !m.EnableMetric.Load() {
+			if !m.EnableMonitoring.Load() {
 				continue
 			}
 			data := requestMetric{}

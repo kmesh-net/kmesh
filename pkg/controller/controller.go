@@ -102,7 +102,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("failed to start ringbuf reader: %v", err)
 		}
 	}
-	if c.bpfConfig.EnableMetric {
+	if c.bpfConfig.EnableMonitoring {
 		config, err := bpf.GetKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmeshConfigMap)
 		if err != nil {
 			return fmt.Errorf("failed to get kmesh config map: %v", err)
@@ -112,7 +112,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("Failed to update config in order to start metric: %v", err)
 		}
 	}
-	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMetric, c.bpfConfig.EnableProfiling)
+	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
 
 	if c.client.WorkloadController != nil {
 		c.client.WorkloadController.Run(ctx)

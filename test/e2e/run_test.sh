@@ -113,7 +113,7 @@ function setup_istio() {
 
 function setup_kmesh() {
     helm install kmesh $ROOT_DIR/deploy/charts/kmesh-helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh \
-    --set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --enable-bpf-log=true --enable-metric=true"
+    --set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --enable-bpf-log=true --monitoring=true"
 
     # Wait for all Kmesh pods to be ready.
     while true; do
