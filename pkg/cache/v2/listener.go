@@ -26,6 +26,7 @@ import (
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -41,8 +42,20 @@ type ListenerCache struct {
 }
 
 func NewListenerCache() ListenerCache {
+	apiListenerCache := NewApiListenerCache()
+	if restart.GetStartType() == restart.Restart {
+		listeners, err := maps_v2.ListenerLookupAll()
+		if err != nil {
+			log.Errorf("ListenerLookupAll failed: %v, restart with last xDS config failed, "+
+				"may some old xDS config will not be cleanup or update", err)
+		}
+
+		for _, listener := range listeners {
+			apiListenerCache[listener.Name] = &listener_v2.Listener{Address: listener.Address}
+		}
+	}
 	return ListenerCache{
-		apiListenerCache: NewApiListenerCache(),
+		apiListenerCache: apiListenerCache,
 		resourceHash:     make(map[string]uint64),
 	}
 }
@@ -135,8 +148,4 @@ func (cache *ListenerCache) Dump() []*listener_v2.Listener {
 		listeners = append(listeners, listener)
 	}
 	return listeners
-}
-
-func (cache *ListenerCache) GetListenerHashPtr() *map[string]uint64 {
-	return &cache.resourceHash
 }

@@ -23,6 +23,7 @@ import (
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	route_v2 "kmesh.net/kmesh/api/v2/route"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 )
 
@@ -33,8 +34,20 @@ type RouteConfigCache struct {
 }
 
 func NewRouteConfigCache() RouteConfigCache {
+	apiRouteConfigCache := newApiRouteConfigurationCache()
+	if restart.GetStartType() == restart.Restart {
+		routes, err := maps_v2.RouteConfigLookupAll()
+		if err != nil {
+			log.Errorf("RouteConfigLookupAll failed: %v, restart with last xDS config failed, "+
+				"may some old xDS config will not be cleanup or update", err)
+		}
+
+		for _, route := range routes {
+			apiRouteConfigCache[route.Name] = &route_v2.RouteConfiguration{}
+		}
+	}
 	return RouteConfigCache{
-		apiRouteConfigCache: newApiRouteConfigurationCache(),
+		apiRouteConfigCache: apiRouteConfigCache,
 		resourceHash:        make(map[string]uint64),
 	}
 }
@@ -116,8 +129,4 @@ func (cache *RouteConfigCache) Dump() []*route_v2.RouteConfiguration {
 		mapCache = append(mapCache, route)
 	}
 	return mapCache
-}
-
-func (cache *RouteConfigCache) GetRouteHashPtr() *map[string]uint64 {
-	return &cache.resourceHash
 }

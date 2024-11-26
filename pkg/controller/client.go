@@ -27,7 +27,6 @@ import (
 	istioGrpc "istio.io/istio/pilot/pkg/grpc"
 
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
-	"kmesh.net/kmesh/pkg/bpf/restart"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/ads"
@@ -174,16 +173,5 @@ func (c *XdsClient) closeStreamClient() {
 }
 
 func (c *XdsClient) Close() error {
-	if restart.GetExitType() == restart.Restart {
-		hashName := &ads.HashName{
-			NameToCds: *c.AdsController.Processor.Cache.ClusterCache.GetClusterHashPtr(),
-			NameToLds: *c.AdsController.Processor.Cache.ListenerCache.GetListenerHashPtr(),
-			NameToRds: *c.AdsController.Processor.Cache.RouteCache.GetRouteHashPtr(),
-		}
-		ads.ResetPersistFile()
-		if err := ads.WritePersistFile(hashName); err != nil {
-			return err
-		}
-	}
 	return nil
 }

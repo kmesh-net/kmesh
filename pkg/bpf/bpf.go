@@ -156,12 +156,12 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
+	C.deserial_uninit()
 	if restart.GetExitType() == restart.Restart {
 		return
 	}
 
 	closeMap(l.versionMap)
-	C.deserial_uninit()
 	if l.config.KernelNativeEnabled() {
 		if err = l.obj.Stop(); err != nil {
 			CleanupBpfMap()

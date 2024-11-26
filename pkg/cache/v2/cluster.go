@@ -28,6 +28,7 @@ import (
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 	"kmesh.net/kmesh/pkg/utils"
@@ -56,8 +57,20 @@ func NewClusterCache(bpfAds *bpfads.BpfAds, hashName *utils.HashName) ClusterCac
 	if bpfAds != nil {
 		clusterStatsMap = bpfAds.GetClusterStatsMap()
 	}
+	apiClusterCache := newApiClusterCache()
+	if restart.GetStartType() == restart.Restart {
+		Clusters, err := maps_v2.ClusterLookupAll()
+		if err != nil {
+			log.Errorf("ClusterLookupAll failed: %v, restart with last xDS config failed, "+
+				"may some old xDS config will not be cleanup or update", err)
+		}
+
+		for _, Cluster := range Clusters {
+			apiClusterCache[Cluster.Name] = &cluster_v2.Cluster{}
+		}
+	}
 	return ClusterCache{
-		apiClusterCache: newApiClusterCache(),
+		apiClusterCache: apiClusterCache,
 		resourceHash:    make(map[string][2]uint64),
 		hashName:        hashName,
 		clusterStatsMap: clusterStatsMap,
@@ -231,8 +244,4 @@ func (cache *ClusterCache) Dump() []*cluster_v2.Cluster {
 		clusters = append(clusters, c)
 	}
 	return clusters
-}
-
-func (cache *ClusterCache) GetClusterHashPtr() *map[string][2]uint64 {
-	return &cache.resourceHash
 }
