@@ -501,7 +501,7 @@ func TestAddRemovePodWaypoint(t *testing.T) {
 				}
 				for _, dstWl := range dst.WorkloadsOrFail(t) {
 					t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
-						c := IsL4()
+						c := IsL7()
 						opt := echo.CallOptions{
 							Address: dstWl.Address(),
 							Port:    echo.Port{ServicePort: ports.All().MustForName("http").WorkloadPort},
