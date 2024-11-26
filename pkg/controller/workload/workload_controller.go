@@ -142,11 +142,11 @@ func (c *Controller) HandleWorkloadStream() error {
 	return nil
 }
 
-func (c *Controller) SetMetricTrigger(enabled bool) {
+func (c *Controller) SetMonitoringTrigger(enabled bool) {
 	c.MetricController.EnableMonitoring.Store(enabled)
 }
 
-func (c *Controller) GetMetricTrigger() bool {
+func (c *Controller) GetMonitoringTrigger() bool {
 	return c.MetricController.EnableMonitoring.Load()
 }
 

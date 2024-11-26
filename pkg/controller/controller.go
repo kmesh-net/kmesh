@@ -102,12 +102,14 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("failed to start ringbuf reader: %v", err)
 		}
 	}
-	if c.bpfConfig.EnableMonitoring {
+	// kmeshConfigMap.Monitoring initialized to uint32(1).
+	// If the startup parameter is false, update the kmeshConfigMap.
+	if !c.bpfConfig.EnableMonitoring {
 		config, err := bpf.GetKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmeshConfigMap)
 		if err != nil {
 			return fmt.Errorf("failed to get kmesh config map: %v", err)
 		}
-		config.EnableMetric = uint32(1)
+		config.EnableMonitoring = constants.DISABLED
 		if err := bpf.UpdateKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmeshConfigMap, config); err != nil {
 			return fmt.Errorf("Failed to update config in order to start metric: %v", err)
 		}

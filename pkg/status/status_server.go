@@ -60,6 +60,7 @@ const (
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
+	patternMonitoring         = "/monitoring"
 	patternAuthz              = "/authz"
 
 	bpfLoggerName = "bpf"
@@ -100,6 +101,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
 	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
+	s.mux.HandleFunc(patternMonitoring, s.monitoringHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
@@ -257,13 +259,61 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	accesslogInfo := r.URL.Query().Get("enable")
-	if enabled, err := strconv.ParseBool(accesslogInfo); err != nil {
+	enabled, err := strconv.ParseBool(accesslogInfo)
+	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", accesslogInfo)))
-	} else {
-		s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
-		w.WriteHeader(http.StatusOK)
+		return
 	}
+
+	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get kmeshConfigMap: %v", err), http.StatusBadRequest)
+		return
+	}
+	if configMap.EnableMonitoring == constants.DISABLED && enabled {
+		http.Error(w, fmt.Sprint("Kmesh monitoring is disable, cannot enable accesslog."), http.StatusBadRequest)
+		return
+	}
+
+	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	info := r.URL.Query().Get("enable")
+	enabled, err := strconv.ParseBool(info)
+	fmt.Printf(" ---- %v, %v, %v ------\n", info, enabled, err)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid monitoring enable=%s", info)))
+		return
+	}
+	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
+	fmt.Printf("===== %v, %v =======\n", configMap, err)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get KmeshConfigMap: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if enabled {
+		configMap.EnableMonitoring = constants.ENABLED
+	} else {
+		configMap.EnableMonitoring = constants.DISABLED
+	}
+	if err := bpf.UpdateKmeshConfigMap(s.kmeshConfigMap, configMap); err != nil {
+		http.Error(w, fmt.Sprintf("update monitoring in KmeshConfigMap failed: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	s.xdsClient.WorkloadController.SetMonitoringTrigger(enabled)
+	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
@@ -286,9 +336,9 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if enabled {
-		configMap.AuthzOffload = constants.XDP_AUTHZ_ENABLED
+		configMap.AuthzOffload = constants.ENABLED
 	} else {
-		configMap.AuthzOffload = constants.XDP_AUTHZ_DISABLED
+		configMap.AuthzOffload = constants.DISABLED
 	}
 	if err := bpf.UpdateKmeshConfigMap(s.kmeshConfigMap, configMap); err != nil {
 		http.Error(w, fmt.Sprintf("update authz in KmeshConfigMap failed: %v", err), http.StatusBadRequest)

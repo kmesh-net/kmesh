@@ -41,7 +41,7 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "dual-engine", "controller plane mode, valid values are [kernel-native, dual-engine]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 	cmd.PersistentFlags().BoolVar(&c.EnableBpfLog, "enable-bpf-log", false, "enable ebpf log in daemon process")
-	cmd.PersistentFlags().BoolVar(&c.EnableMonitoring, "monitoring", false, "enable kmesh traffic monitoring in daemon process")
+	cmd.PersistentFlags().BoolVar(&c.EnableMonitoring, "monitoring", true, "enable kmesh traffic monitoring in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnableProfiling, "profiling", false, "whether to enable profiling or not, default to false")
 }
 
