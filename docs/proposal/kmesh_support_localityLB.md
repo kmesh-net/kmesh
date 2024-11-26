@@ -39,7 +39,7 @@ What is locality strict mode? In locality strict mode, the LB (load balancing) a
 
 1. New load balancing processing logic in `service_manager` implemented on the BPF side: `lb_locality_failover_handle`.
 2. Added more necessary information to the data structure on the BPF side: The map `service_value` stores the load balancing policy `lb_policy` and an array `prio_endpoint_count[PRIO_COUNT]` for counting endpoints of different priorities. The map `endpoint_key` stores the priority `prio` of the current endpoint.
-3. Added a `locality_cache` module on the user side to store locality aware informations and priority calculation logic.
+3. Added a `locality_cache` module on the user side to store locality aware information and priority calculation logic.
 4. Updated `ServiceValue` and `EndpointKey` map on the user side.
 5. We dynamically maintain endpoints corresponding to different priorities by updating the `EndpointKey`. To update the `EndpointKey` when updating the policy, we added an `endpoint_cache` to store additional endpoint information.
 6. In the `workload_processor`, we updated the logic for adding and removing endpoints and services, as well as the logic for updating corresponding map information when processing workload and service xDs information. We implemented the LB update logic in `handleWorkloadUnboundServices`. To ensure service continuity, we considered scenarios during policy switching and implemented one-by-one `endpointKey` updates.
