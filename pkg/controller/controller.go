@@ -97,10 +97,8 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		return nil
 	}
 
-	if c.bpfConfig.EnableBpfLog {
-		if err := logger.StartRingBufReader(ctx, c.mode, c.bpfConfig.BpfFsPath); err != nil {
-			return fmt.Errorf("failed to start ringbuf reader: %v", err)
-		}
+	if err := logger.StartRingBufReader(ctx, c.mode, c.bpfConfig.BpfFsPath); err != nil {
+		return fmt.Errorf("fail to start ringbuf reader: %v", err)
 	}
 	// kmeshConfigMap.Monitoring initialized to uint32(1).
 	// If the startup parameter is false, update the kmeshConfigMap.
