@@ -25,10 +25,11 @@ type KmeshSendmsgBpfSockTuple struct {
 type KmeshSendmsgBuf struct{ Data [40]int8 }
 
 type KmeshSendmsgKmeshConfig struct {
-	BpfLogLevel  uint32
-	NodeIp       [4]uint32
-	PodGateway   [4]uint32
-	AuthzOffload uint32
+	BpfLogLevel      uint32
+	NodeIp           [4]uint32
+	PodGateway       [4]uint32
+	AuthzOffload     uint32
+	EnableMonitoring uint32
 }
 
 type KmeshSendmsgLogEvent struct {

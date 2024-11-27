@@ -39,6 +39,7 @@ import (
 	"kmesh.net/kmesh/api/v2/listener"
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
@@ -488,14 +489,11 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 func TestServerAccesslogHandler(t *testing.T) {
 	t.Run("change accesslog config info", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:            "workload",
-			BpfFsPath:       "/sys/fs/bpf",
-			Cgroup2Path:     "/mnt/kmesh_cgroup2",
-			EnableMda:       false,
-			EnableBpfLog:    false,
-			EnableAccesslog: true,
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
-		cleanup, _ := test.InitBpfMap(t, config)
+		cleanup, l := test.InitBpfMap(t, config)
 		defer cleanup()
 
 		server := &Server{
@@ -504,14 +502,82 @@ func TestServerAccesslogHandler(t *testing.T) {
 					MetricController: &telemetry.MetricController{},
 				},
 			},
+			kmeshConfigMap: l.GetKmeshConfig(),
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(true)
 
-		url := fmt.Sprintf("%s?enable=%s", patternAccesslog, "false")
+		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "true")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.monitoringHandler(w, req)
+
+		url = fmt.Sprintf("%s?enable=%s", patternAccesslog, "false")
+		req = httptest.NewRequest(http.MethodPost, url, nil)
+		w = httptest.NewRecorder()
+		server.accesslogHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetAccesslogTrigger(), false)
+	})
+
+	t.Run("when monitoring is disable, cannot enable accesslog", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, l := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			kmeshConfigMap: l.GetKmeshConfig(),
+		}
+		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
+
+		url := fmt.Sprintf("%s?enable=%s", patternAccesslog, "true")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
 		w := httptest.NewRecorder()
 		server.accesslogHandler(w, req)
 
 		assert.Equal(t, server.xdsClient.WorkloadController.GetAccesslogTrigger(), false)
+	})
+}
+
+func TestServerMonitoringHandler(t *testing.T) {
+	t.Run("change monitoring config info", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, l := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			kmeshConfigMap: l.GetKmeshConfig(),
+		}
+		server.xdsClient.WorkloadController.MetricController.EnableMonitoring.Store(false)
+		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
+
+		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "true")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.monitoringHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetMonitoringTrigger(), true)
+		assert.Equal(t, server.xdsClient.WorkloadController.GetAccesslogTrigger(), true)
+		configMap, err := bpf.GetKmeshConfigMap(l.GetKmeshConfig())
+
+		assert.NoError(t, err)
+		assert.Equal(t, constants.ENABLED, configMap.EnableMonitoring)
 	})
 }

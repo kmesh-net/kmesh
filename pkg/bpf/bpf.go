@@ -61,10 +61,11 @@ type BpfLoader struct {
 }
 
 type KmeshBpfConfig struct {
-	BpfLogLevel  uint32
-	NodeIP       [16]byte
-	PodGateway   [16]byte
-	AuthzOffload uint32
+	BpfLogLevel      uint32
+	NodeIP           [16]byte
+	PodGateway       [16]byte
+	AuthzOffload     uint32
+	EnableMonitoring uint32
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
@@ -311,7 +312,8 @@ func (l *BpfLoader) setBpfProgOptions() {
 		PodGateway:  gateway,
 		// Use default values when bpf init.
 		// Updated when checking the startup parameters.
-		AuthzOffload: uint32(0),
+		AuthzOffload:     uint32(0),
+		EnableMonitoring: uint32(1),
 	}
 
 	if err := UpdateKmeshConfigMap(l.kmeshConfig, &valueOfKmeshBpfConfig); err != nil {

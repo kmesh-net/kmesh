@@ -7,6 +7,18 @@
 #include "tcp_probe.h"
 #include "performance_probe.h"
 
+static inline bool is_monitoring_enable()
+{
+    struct kmesh_config *data = {0};
+    int key_of_kmesh_config = 0;
+    data = kmesh_map_lookup_elem(&kmesh_config_map, &key_of_kmesh_config);
+    if (!data) {
+        BPF_LOG(ERR, SOCKOPS, "get kmesh config failed");
+        return false;
+    }
+    return data->enable_monitoring == 1;
+}
+
 static inline void observe_on_pre_connect(struct bpf_sock *sk)
 {
     struct sock_storage_data *storage = NULL;
@@ -25,6 +37,10 @@ static inline void observe_on_pre_connect(struct bpf_sock *sk)
 
 static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 direction)
 {
+    if (!is_monitoring_enable()) {
+        return;
+    }
+
     struct bpf_tcp_sock *tcp_sock = NULL;
     struct sock_storage_data *storage = NULL;
     __u64 flags = (direction == OUTBOUND) ? 0 : BPF_LOCAL_STORAGE_GET_F_CREATE;
@@ -52,6 +68,9 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 dire
 
 static inline void observe_on_close(struct bpf_sock *sk)
 {
+    if (!is_monitoring_enable()) {
+        return;
+    }
     struct bpf_tcp_sock *tcp_sock = NULL;
     struct sock_storage_data *storage = NULL;
     if (!sk)

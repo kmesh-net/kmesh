@@ -68,6 +68,7 @@ struct kmesh_config {
     __u32 node_ip[4];
     __u32 pod_gateway[4];
     __u32 authz_offload;
+    __u32 enable_monitoring;
 };
 
 static inline void *kmesh_map_lookup_elem(void *map, const void *key)
