@@ -25,7 +25,7 @@ Currently, Kmesh does not support locality aware load balancing. Locality Load B
 
 ### Goals
 
-The purpose of this proposal is to add locality aware load balancing capabilities to kmesh workload mode, corresponding to locality load balancing in Ztunnel.
+The purpose of this proposal is to add locality aware load balancing capabilities to kmesh workload mode, corresponding to locality load balancing in istio ambient mesh.
 
 ### Proposal
 
