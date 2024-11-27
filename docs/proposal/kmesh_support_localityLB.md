@@ -46,7 +46,7 @@ What is locality strict mode? In locality strict mode, the LB (load balancing) a
 7. For the random policy, all endpoints are marked with a priority of 0. For failover or strict policy, the priority is set to 0 for the endpoint with the highest match according to the `routingPreference`.
 
 #### control flow
-![locality_lb_pic](pics/locality_lb.svg)
+<div style="text-align:center"><img src="pics/locality_lb.svg" /></div>
 
 #### data struct
 1. workload.h
