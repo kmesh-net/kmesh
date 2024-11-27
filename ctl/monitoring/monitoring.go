@@ -41,17 +41,15 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "monitoring",
 		Short: "Control Kmesh's monitoring to be turned on as needed",
-		Example: `# Enable Kmesh's accesslog:
-kmeshctl monitoring <kmesh-daemon-pod> --accesslog enable
+		Example: `# Enable/Disable Kmesh's accesslog:
+kmeshctl monitoring <kmesh-daemon-pod> --accesslog enable/disable
 
-# Disable Kmesh's accesslog:
-kmeshctl monitoring <kmesh-daemon-pod> --accesslog disable
+# Enable/Disable Kmesh's metrics and accesslog:
+kmeshctl monitoring <kmesh-daemon-pod> --all enable/disable
 
-# Enable Kmesh's metrics and accesslog:
-kmeshctl monitoring <kmesh-daemon-pod> --all enable
-
-# Disable Kmesh's metrics and accesslog:
-kmeshctl monitoring <kmesh-daemon-pod> --all disable`,
+# If you want to change the monitoring functionality of all kmesh daemons in the cluster
+kmeshctl monitoring --accesslog enable/disable
+kmeshcrl monitoring --all enable/disable`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ControlMonitoring(cmd, args)
