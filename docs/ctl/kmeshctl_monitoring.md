@@ -17,7 +17,7 @@ kmeshctl monitoring <kmesh-daemon-pod> --all enable/disable
 
 # If you want to change the monitoring functionality of all kmesh daemons in the cluster
 kmeshctl monitoring --accesslog enable/disable
-kmeshcrl monitoring --all enable/disable
+kmeshctl monitoring --all enable/disable
 ```
 
 ### Options

@@ -272,7 +272,7 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if configMap.EnableMonitoring == constants.DISABLED && enabled {
-		http.Error(w, fmt.Sprint("Kmesh monitoring is disable, cannot enable accesslog."), http.StatusBadRequest)
+		http.Error(w, "Kmesh monitoring is disable, cannot enable accesslog.", http.StatusBadRequest)
 		return
 	}
 
@@ -288,14 +288,12 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 
 	info := r.URL.Query().Get("enable")
 	enabled, err := strconv.ParseBool(info)
-	fmt.Printf(" ---- %v, %v, %v ------\n", info, enabled, err)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(fmt.Sprintf("invalid monitoring enable=%s", info)))
 		return
 	}
 	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
-	fmt.Printf("===== %v, %v =======\n", configMap, err)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("failed to get KmeshConfigMap: %v", err), http.StatusBadRequest)
 		return

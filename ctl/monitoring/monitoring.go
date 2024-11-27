@@ -17,8 +17,10 @@
 package monitoring
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -49,8 +51,8 @@ kmeshctl monitoring <kmesh-daemon-pod> --all enable/disable
 
 # If you want to change the monitoring functionality of all kmesh daemons in the cluster
 kmeshctl monitoring --accesslog enable/disable
-kmeshcrl monitoring --all enable/disable`,
-		Args: cobra.MinimumNArgs(1),
+kmeshctl monitoring --all enable/disable`,
+		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			ControlMonitoring(cmd, args)
 		},
@@ -101,6 +103,9 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 }
 
 func getKmeshDaemonPod(args []string) (string, bool) {
+	if len(args) == 0 {
+		return "", false
+	}
 	if strings.Contains(args[0], "--") {
 		return "", false
 	}
@@ -147,6 +152,16 @@ func SetAccesslogPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		bodyBytes, readErr := io.ReadAll(resp.Body)
+		if readErr != nil {
+			log.Errorf("Error reading response body: %v", readErr)
+			return
+		}
+		bodyString := string(bodyBytes)
+		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte("Kmesh monitoring is disable, cannot enable accesslog")) {
+			log.Errorf("failed to enable accesslog: %v. Need to start Kmesh's Monitoring. Please run `kmeshctl monitoring -h` for more help.", bodyString)
+			return
+		}
 		log.Errorf("Error: received status code %d", resp.StatusCode)
 		return
 	}
