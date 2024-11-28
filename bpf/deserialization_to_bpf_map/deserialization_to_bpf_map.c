@@ -270,8 +270,11 @@ static unsigned int bitmap_find_first_clear(unsigned char *bitmap, unsigned int 
 static unsigned int alloc_outer_key(struct op_context *ctx, int size)
 {
     unsigned int i, j;
-    if (size <= 0)
+    if (size <= 0) {
+        LOG_ERR("Invalid size:%d", size);
         return -1;
+    }
+
     for (i = 0; i < MAP_TYPE_MAX; i++) {
         if (size > g_map_mng.inner_infos[i].value_size)
             continue;
@@ -368,21 +371,38 @@ static int copy_msg_field_to_map(struct op_context *ctx, unsigned int outer_key,
     return update_bpf_map(&new_ctx);
 }
 
-static int get_string_or_msg_field_size(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
+static int get_string_field_size(const ProtobufCFieldDescriptor *field, char *str)
 {
     int real_len;
-    char *value = *(char **)((char *)ctx->value + field->offset);
+    if (!str)
+        return -1;
 
-    if (field->type == PROTOBUF_C_TYPE_MESSAGE)
-        return ((ProtobufCMessageDescriptor *)(field->descriptor))->sizeof_message;
-
-    real_len = strlen(value) + 1;
+    real_len = strlen(str) + 1;
     if (real_len > MAP_VAL_STR_SIZE) {
         LOG_ERR(
             "fieldName:%s, id:%d, len:%d over str_max_len(%d).", field->name, field->id, real_len, MAP_VAL_STR_SIZE);
         return -1;
     }
     return MAP_VAL_STR_SIZE;
+}
+
+static int get_msg_field_size(const ProtobufCFieldDescriptor *field)
+{
+    return ((ProtobufCMessageDescriptor *)(field->descriptor))->sizeof_message;
+}
+
+static int get_field_size(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
+{
+    char *value = NULL;
+
+    if (field->type == PROTOBUF_C_TYPE_MESSAGE)
+        return get_msg_field_size(field);
+
+    if (field->type == PROTOBUF_C_TYPE_STRING) {
+        value = *(char **)((char *)ctx->value + field->offset);
+        return get_string_field_size(field, value);
+    }
+    return -1;
 }
 
 static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
@@ -393,7 +413,7 @@ static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *
     if (field->type != PROTOBUF_C_TYPE_MESSAGE && field->type != PROTOBUF_C_TYPE_STRING)
         return 0;
 
-    key = alloc_outer_key(ctx, get_string_or_msg_field_size(ctx, field));
+    key = alloc_outer_key(ctx, get_field_size(ctx, field));
     if (key < 0)
         return key;
 
@@ -494,9 +514,9 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
     case PROTOBUF_C_TYPE_STRING:
         for (i = 0; i < *(unsigned int *)n; i++) {
             if (field->type == PROTOBUF_C_TYPE_STRING)
-                field_len = strlen((char *)origin_value[i]) + 1;
+                field_len = get_string_field_size(field, (char *)origin_value[i]);
             else
-                field_len = ((ProtobufCMessageDescriptor *)(field->descriptor))->sizeof_message;
+                field_len = get_msg_field_size(field);
             outer_key = alloc_outer_key(ctx, field_len);
             if (outer_key < 0)
                 goto end;
