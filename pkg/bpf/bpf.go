@@ -157,14 +157,12 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if restart.GetExitType() == restart.Restart && l.config.DualEngineEnabled() {
-		C.deserial_uninit()
-		log.Infof("kmesh restart, not clean bpf map and prog")
+	C.deserial_uninit()
+	if restart.GetExitType() == restart.Restart {
 		return
 	}
 
 	closeMap(l.versionMap)
-
 	if l.config.KernelNativeEnabled() {
 		if err = l.obj.Stop(); err != nil {
 			CleanupBpfMap()

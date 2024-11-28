@@ -20,11 +20,17 @@
 package ads
 
 import (
+	"os"
+	"path/filepath"
+	"syscall"
+
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/enhanced"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/constants"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
@@ -34,10 +40,24 @@ type BpfTracePoint struct {
 	bpf2go.KmeshTracePointObjects
 }
 
-func (sc *BpfTracePoint) NewBpf(cfg *options.BpfConfig) {
-	sc.Info.MapPath = cfg.BpfFsPath
-	sc.Info.BpfFsPath = cfg.BpfFsPath
+func (sc *BpfTracePoint) NewBpf(cfg *options.BpfConfig) error {
+	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh/map/"
+	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh/tracepoint/"
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
+
+	if err := os.MkdirAll(sc.Info.MapPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	if err := os.MkdirAll(sc.Info.BpfFsPath,
+		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
+			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
+		return err
+	}
+
+	return nil
 }
 
 func (sc *BpfTracePoint) loadKmeshTracePointObjects() (*ebpf.CollectionSpec, error) {
@@ -76,17 +96,29 @@ func (sc *BpfTracePoint) Load() error {
 }
 
 func (sc *BpfTracePoint) Attach() error {
+	var err error
 	tpopt := link.RawTracepointOptions{
 		Name:    "connect_ret",
 		Program: sc.KmeshTracePointObjects.ConnectRet,
 	}
 
-	lk, err := link.AttachRawTracepoint(tpopt)
-	if err != nil {
-		return err
-	}
-	sc.Link = lk
+	pinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
+	if restart.GetStartType() == restart.Restart {
+		sc.Link, err = link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
+		if err != nil {
+			return err
+		}
+	} else {
+		sc.Link, err = link.AttachRawTracepoint(tpopt)
+		if err != nil {
+			return err
+		}
 
+		if err := sc.Link.Pin(pinPath); err != nil {
+			return err
+		}
+
+	}
 	return nil
 }
 

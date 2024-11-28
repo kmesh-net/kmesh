@@ -197,6 +197,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 }
 
 func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
+	var err error
 	var loadAssignment = &config_endpoint_v3.ClusterLoadAssignment{}
 	p.lastNonce.edsNonce = resp.Nonce
 	for _, resource := range resp.GetResources() {
@@ -234,7 +235,7 @@ func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryRespon
 
 	p.Cache.ClusterCache.Flush()
 
-	return nil
+	return err
 }
 
 func (p *processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
@@ -281,10 +282,11 @@ func (p *processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		// Then it will lead to this request been ignored, we will lose the new rds resource
 		p.req = newAdsRequest(resource_v3.RouteType, p.Cache.routeNames, "")
 	}
-	return nil
+	return err
 }
 
 func (p *processor) handleRdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
+	var err error
 	routeConfiguration := &config_route_v3.RouteConfiguration{}
 
 	p.lastNonce.rdsNonce = resp.Nonce
@@ -313,7 +315,7 @@ func (p *processor) handleRdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		p.Cache.RouteCache.UpdateApiRouteStatus(key, core_v2.ApiStatus_DELETE)
 	}
 	p.Cache.RouteCache.Flush()
-	return nil
+	return err
 }
 
 func (p *processor) Reset() {

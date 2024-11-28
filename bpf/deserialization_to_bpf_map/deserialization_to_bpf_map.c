@@ -889,6 +889,7 @@ static void *create_struct(struct op_context *ctx, int *err)
     }
 
     ctx->value = value;
+    ((ProtobufCMessage *)value)->descriptor = desc;
     for (i = 0; i < desc->n_fields; i++) {
         const ProtobufCFieldDescriptor *field = desc->fields + i;
 

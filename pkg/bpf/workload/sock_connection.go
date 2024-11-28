@@ -142,11 +142,11 @@ func (sc *SockConnWorkload) Attach() error {
 	pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
 
 	if restart.GetStartType() == restart.Restart {
-		if err = bpfProgUpdate(pinPath4, cgopt4); err != nil {
+		if sc.Link, err = utils.BpfProgUpdate(pinPath4, cgopt4); err != nil {
 			return err
 		}
 
-		if err = bpfProgUpdate(pinPath6, cgopt6); err != nil {
+		if sc.Link6, err = utils.BpfProgUpdate(pinPath6, cgopt6); err != nil {
 			return err
 		}
 	} else {

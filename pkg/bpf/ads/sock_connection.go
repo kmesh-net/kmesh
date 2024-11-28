@@ -22,11 +22,15 @@ package ads
 import "C"
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+
+	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/constants"
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/normal"
 	"kmesh.net/kmesh/daemon/options"
@@ -98,11 +102,6 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 		return nil, err
 	}
 
-	value := reflect.ValueOf(sc.KmeshCgroupSockObjects.KmeshCgroupSockPrograms)
-	if err = utils.PinPrograms(&value, sc.Info.BpfFsPath); err != nil {
-		return nil, err
-	}
-
 	return spec, nil
 }
 
@@ -154,18 +153,41 @@ func (sc *BpfSockConn) close() error {
 }
 
 func (sc *BpfSockConn) Attach() error {
+	var err error
 	cgopt := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshCgroupSockObjects.CgroupConnect4Prog,
 	}
 
-	lk, err := link.AttachCgroup(cgopt)
-	if err != nil {
+	// pin bpf_tail_call map
+	// tail_call map cannot pin in SetMapPinType->LoadAndAssign, we pin them independently
+	// When we need to update tail_call map, delete the old map and then pin the new one.
+	tailCallmapPinPath := filepath.Join(sc.Info.BpfFsPath, constants.TailCallMap)
+	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
+	if restart.GetStartType() == restart.Restart {
+		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
+			return err
+		}
+
+		// Unpin tailcallmap. Considering that kmesh coredump may not have
+		// this path after an unexpected restart, here we unpin the file by
+		// directly removing it without doing error handling.
+		os.Remove(tailCallmapPinPath)
+
+	} else {
+		sc.Link, err = link.AttachCgroup(cgopt)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.Link.Pin(progPinPath); err != nil {
+			return err
+		}
+	}
+	if err = sc.KmeshCgroupSockMaps.KmeshTailCallProg.Pin(tailCallmapPinPath); err != nil {
 		return err
 	}
-	sc.Link = lk
-
 	return nil
 }
 

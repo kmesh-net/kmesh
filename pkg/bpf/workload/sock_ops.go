@@ -103,6 +103,7 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 }
 
 func (so *BpfSockOpsWorkload) Attach() error {
+	var err error
 	cgopt := link.CgroupOptions{
 		Path:    so.Info.Cgroup2Path,
 		Attach:  so.Info.AttachType,
@@ -111,7 +112,7 @@ func (so *BpfSockOpsWorkload) Attach() error {
 	pinPath := filepath.Join(so.Info.BpfFsPath, "cgroup_sockops_prog")
 
 	if restart.GetStartType() == restart.Restart {
-		if err := bpfProgUpdate(pinPath, cgopt); err != nil {
+		if so.Link, err = utils.BpfProgUpdate(pinPath, cgopt); err != nil {
 			return err
 		}
 	} else {
