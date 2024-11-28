@@ -92,6 +92,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
     ret = update_dst_addr_with_service_port(kmesh_ctx, backend_v, service_v);
     if (ret != 0)
         BPF_LOG(ERR, BACKEND, "cannot find matched service port [%d:%d]\n", service_id, kmesh_ctx->ctx->user_port);
+    return ret;
 }
 
 #endif
