@@ -162,7 +162,8 @@ func (sc *BpfSockConn) Attach() error {
 
 	// pin bpf_tail_call map
 	// tail_call map cannot pin in SetMapPinType->LoadAndAssign, we pin them independently
-	mapPinPath := filepath.Join(sc.Info.BpfFsPath, constants.TailCallMap)
+	// When we need to update tail_call map, delete the old map and then pin the new one.
+	tailCallmapPinPath := filepath.Join(sc.Info.BpfFsPath, constants.TailCallMap)
 	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
 	if restart.GetStartType() == restart.Restart {
 		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
@@ -172,7 +173,7 @@ func (sc *BpfSockConn) Attach() error {
 		// Unpin tailcallmap. Considering that kmesh coredump may not have
 		// this path after an unexpected restart, here we unpin the file by
 		// directly removing it without doing error handling.
-		os.Remove(mapPinPath)
+		os.Remove(tailCallmapPinPath)
 
 	} else {
 		sc.Link, err = link.AttachCgroup(cgopt)
@@ -184,7 +185,7 @@ func (sc *BpfSockConn) Attach() error {
 			return err
 		}
 	}
-	if err = sc.KmeshCgroupSockMaps.KmeshTailCallProg.Pin(mapPinPath); err != nil {
+	if err = sc.KmeshCgroupSockMaps.KmeshTailCallProg.Pin(tailCallmapPinPath); err != nil {
 		return err
 	}
 	return nil
