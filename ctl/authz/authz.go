@@ -43,7 +43,7 @@ func NewCmd() *cobra.Command {
  kmeshctl authz <kmesh-daemon-pod> enable
  
  # Disable Kmesh's authz:
- kmeshctl authz <kmesh-daemon-pod> authz`,
+ kmeshctl authz <kmesh-daemon-pod> disable`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			SetAuthz(cmd, args)
