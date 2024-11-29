@@ -39,20 +39,41 @@ func TestEndpointSwap(t *testing.T) {
 	}
 
 	// invalid currentIndex
-	err := c.EndpointSwap(6, 5, 1, 1)
+	err := c.EndpointSwap(6, 5, 5, 1, 1)
 	assert.ErrorContains(t, err, "> lastIndex")
 
-	// delete mid element 3 -> 1 2 5 4
-	err = c.EndpointSwap(3, 5, 1, 1)
+	// update mid element 3 with 5 -> 1 2 5 4 5
+	err = c.EndpointSwap(3, 3, 5, 1, 1)
 	assert.Nil(t, err)
 
-	// delete the last element 4 -> 1 2 5
-	err = c.EndpointSwap(4, 4, 1, 1)
+	lastKey := &EndpointKey{
+		ServiceId:    1,
+		Prio:         1,
+		BackendIndex: 5,
+	}
+	// 1 2 5 4 5 -> 1 2 5 4
+	if err := c.EndpointDelete(lastKey); err != nil {
+		t.Errorf("EndpointDelete [%#v] failed: %v", lastKey, err)
+	}
+
+	// delete the last element 4 -> 1 2 5 5
+	err = c.EndpointSwap(4, 4, 4, 1, 1)
 	assert.Nil(t, err)
 
-	// delete the first element 1 -> 5 2
-	err = c.EndpointSwap(1, 3, 1, 1)
+	lastKey.BackendIndex = 4
+	// 1 2 5 5 -> 1 2 5
+	if err := c.EndpointDelete(lastKey); err != nil {
+		t.Errorf("EndpointDelete [%#v] failed: %v", lastKey, err)
+	}
+
+	// delete the first element  1 2 5 -> 5 2 5
+	err = c.EndpointSwap(1, 1, 3, 1, 1)
 	assert.Nil(t, err)
+	lastKey.BackendIndex = 3
+	// 5 2 5 -> 5 2
+	if err := c.EndpointDelete(lastKey); err != nil {
+		t.Errorf("EndpointDelete [%#v] failed: %v", lastKey, err)
+	}
 
 	eps := c.GetAllEndpointsForService(1)
 	assert.Equal(t, len(eps), 2)

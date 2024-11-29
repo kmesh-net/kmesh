@@ -942,22 +942,15 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 
 	for _, ek := range endpointKeys {
 		sk.ServiceId = ek.ServiceId
-		// 1. find the service
 		if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
 			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
-				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
+				log.Errorf("Lookup endpoint %#v failed: %v", ek, err)
+				continue
 			}
 
-			// on delete, first update the service map, then update the endpoint map
-			sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
-			if err := p.bpf.ServiceUpdate(&sk, &sv); err != nil {
-				log.Errorf("ServiceUpdate failed: %s", err)
-				return err
-			}
-			// sv.EndpointCount[ek.Prio]+1 means the last endpoint index because we updated sv.EndpointCount[ek.Prio] before
-			if err := p.bpf.EndpointSwap(ek.BackendIndex, sv.EndpointCount[ek.Prio]+1, sk.ServiceId, ek.Prio); err != nil {
-				log.Errorf("swap workload endpoint index failed: %s", err)
-				return err
+			if err := p.deleteEndpoint(ek, ev, sv, sk); err != nil {
+				log.Errorf("deleteEndpoint failed: %v", err)
+				continue
 			}
 			p.EndpointCache.DeleteEndpointWithPriority(ek.ServiceId, ev.BackendUid, ek.Prio)
 		} else {
@@ -966,14 +959,43 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 
 			if err = p.bpf.EndpointLookup(&ek, &ev); err != nil {
 				log.Errorf("Lookup endpoint %#v failed: %s", ek, err)
+				continue
 			}
 			// delete endpoint from map
 			if err := p.bpf.EndpointDelete(&ek); err != nil {
 				log.Errorf("EndpointDelete [%#v] failed: %v", ek, err)
-				return err
+				continue
 			}
 			p.EndpointCache.DeleteEndpointWithPriority(ek.ServiceId, ev.BackendUid, ek.Prio)
 		}
+	}
+	return nil
+}
+
+// In order to make sure the bpf prog can always get the healthy endpoint, we should update the bpf map in the following order:
+// 1. replace the current endpoint with the last endpoint
+// 2. update the service map's endpoint count
+// 3. delete the last endpoint
+func (p *Processor) deleteEndpoint(ek bpf.EndpointKey, ev bpf.EndpointValue, sv bpf.ServiceValue, sk bpf.ServiceKey) error {
+	if err := p.bpf.EndpointSwap(ek.BackendIndex, ev.BackendUid, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
+		log.Errorf("swap workload endpoint index failed: %s", err)
+		return err
+	}
+
+	sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
+	if err := p.bpf.ServiceUpdate(&sk, &sv); err != nil {
+		log.Errorf("ServiceUpdate %#v failed: %v", sk, err)
+		return err
+	}
+
+	lastKey := &bpf.EndpointKey{
+		ServiceId:    sk.ServiceId,
+		Prio:         ek.Prio,
+		BackendIndex: sv.EndpointCount[ek.Prio] + 1,
+	}
+	if err := p.bpf.EndpointDelete(lastKey); err != nil {
+		log.Errorf("EndpointDelete [%#v] failed: %v", lastKey, err)
+		return err
 	}
 	return nil
 }
