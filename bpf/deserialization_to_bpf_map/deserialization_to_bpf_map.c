@@ -311,6 +311,32 @@ outer_key_to_inner_map_index(unsigned int outer_key, int *inner_fd, struct bpf_m
     return 0;
 }
 
+static int copy_byte_field_to_map(struct op_context *ctx, unsigned int outer_key, const ProtobufCFieldDescriptor *field)
+{
+    int ret;
+    int key = 0;
+    int inner_fd;
+    struct bpf_map_info *inner_info;
+
+    struct ProtobufCBinaryData *bytes = (struct ProtobufCBinaryData *)((char *)ctx->value + field->offset);
+    unsigned char *save_value = bytes->data;
+    *(uintptr_t *)&bytes->data = (size_t)outer_key;
+
+    ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
+    if (ret) {
+        free_outter_map_entry(ctx, &outer_key);
+        return ret;
+    }
+
+    ret = outer_key_to_inner_map_index(outer_key, &inner_fd, &inner_info, &key);
+    if (ret)
+        return ret;
+
+    memcpy_s(ctx->map_object, inner_info->value_size, save_value, bytes->len);
+    ret = bpf_map_update_elem(inner_fd, &key, ctx->map_object, BPF_ANY);
+    return ret;
+}
+
 static int copy_sfield_to_map(struct op_context *ctx, unsigned int outer_key, const ProtobufCFieldDescriptor *field)
 {
     int ret;
@@ -410,7 +436,8 @@ static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *
     int ret;
     unsigned int key;
 
-    if (field->type != PROTOBUF_C_TYPE_MESSAGE && field->type != PROTOBUF_C_TYPE_STRING)
+    if (field->type != PROTOBUF_C_TYPE_MESSAGE && field->type != PROTOBUF_C_TYPE_STRING
+        && field->type != PROTOBUF_C_TYPE_BYTES)
         return 0;
 
     key = alloc_outer_key(ctx, get_field_size(ctx, field));
@@ -419,8 +446,10 @@ static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *
 
     if (field->type == PROTOBUF_C_TYPE_MESSAGE)
         ret = copy_msg_field_to_map(ctx, key, field);
-    else
+    else if (field->type == PROTOBUF_C_TYPE_STRING)
         ret = copy_sfield_to_map(ctx, key, field);
+    else
+        ret = copy_byte_field_to_map(ctx, key, field);
     if (ret)
         free_outter_map_entry(ctx, &key);
     return ret;

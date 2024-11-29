@@ -32,5 +32,9 @@ typedef struct {
     __u32 ipv4;
     __u32 port;
 } address_t;
+
+typedef struct {
+    char *data;
+} bytes;
 #pragma pack()
 #endif // _WORKLOAD_COMMON_H_

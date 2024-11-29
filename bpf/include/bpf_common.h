@@ -206,6 +206,8 @@ static inline void *get_ptr_val_from_map(void *map, __u8 map_type, const void *p
                 val_tmp = get_ptr_val_from_map(&kmesh_map1600, MAP_TYPE_1600, ptr);                                    \
             else if (__builtin_types_compatible_p(type, void **))                                                      \
                 val_tmp = get_ptr_val_from_map(&kmesh_map1600, MAP_TYPE_1600, ptr);                                    \
+            else if (__builtin_types_compatible_p(type, struct byte *))                                                \
+                val_tmp = get_ptr_val_from_map(&kmesh_map64, MAP_TYPE_64, ptr);                                        \
             else                                                                                                       \
                 val_tmp = get_ptr_val_from_map(&kmesh_map64, MAP_TYPE_64, ptr);                                        \
         } else if (sizeof(type) <= MAP_VAL_SIZE_64)                                                                    \
