@@ -38,12 +38,12 @@ var log = logger.NewLoggerScope("kmeshctl/authz")
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "authz",
-		Short: "Enable or disable Kmesh's authz",
-		Example: `# Enable Kmesh's authz:
- kmeshctl authz <kmesh-daemon-pod> enable
+		Short: "Enable or disable xdp authz eBPF Prog for Kmesh's authz offloading",
+		Example: `# Enable/Disable Kmesh's authz offloading in the specified kmesh daemon:
+ kmeshctl authz <kmesh-daemon-pod> enable/disable
  
- # Disable Kmesh's authz:
- kmeshctl authz <kmesh-daemon-pod> authz`,
+ # If you want to enable or disable authz offloading of all Kmeshs in the cluster
+ kmeshctl authz enable/disable`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			SetAuthz(cmd, args)
