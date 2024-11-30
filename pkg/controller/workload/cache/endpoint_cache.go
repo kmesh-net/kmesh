@@ -30,7 +30,11 @@ type Endpoint struct {
 type EndpointCache interface {
 	List(uint32) map[uint32]Endpoint // Endpoint slice by ServiceId
 	AddEndpointToService(ep Endpoint, serviceID uint32)
+	// DeleteEndpoint delete a endpoint regardless of the priority
 	DeleteEndpoint(workloadID, serviceID uint32)
+	// DeleteEndpointWithPriority delete a endpoint with given priority
+	DeleteEndpointWithPriority(serviceID, workloadID, prio uint32)
+	// DeleteEndpointByServiceId delete all endpoints belong to a given service
 	DeleteEndpointByServiceId(uint32)
 }
 
@@ -60,6 +64,16 @@ func (s *endpointCache) DeleteEndpoint(serviceID, workloadID uint32) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	delete(s.endpointsByServiceId[serviceID], workloadID)
+}
+
+func (s *endpointCache) DeleteEndpointWithPriority(serviceID, workloadID, prio uint32) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	if s.endpointsByServiceId[serviceID] != nil {
+		if ep, ok := s.endpointsByServiceId[serviceID][workloadID]; ok && ep.Prio == prio {
+			delete(s.endpointsByServiceId[serviceID], workloadID)
+		}
+	}
 }
 
 func (s *endpointCache) DeleteEndpointByServiceId(serviceId uint32) {
