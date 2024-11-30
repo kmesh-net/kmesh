@@ -324,7 +324,6 @@ static int copy_byte_field_to_map(struct op_context *ctx, unsigned int outer_key
 
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
     if (ret) {
-        free_outter_map_entry(ctx, &outer_key);
         return ret;
     }
 
@@ -417,18 +416,29 @@ static int get_msg_field_size(const ProtobufCFieldDescriptor *field)
     return ((ProtobufCMessageDescriptor *)(field->descriptor))->sizeof_message;
 }
 
+static int get_binary_field_size(const ProtobufCFieldDescriptor *field)
+{
+    return MAP_VAL_BINARY_SIZR;
+}
+
 static int get_field_size(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
 {
     char *value = NULL;
 
-    if (field->type == PROTOBUF_C_TYPE_MESSAGE)
+    switch (field->type) {
+    case PROTOBUF_C_TYPE_MESSAGE:
         return get_msg_field_size(field);
 
-    if (field->type == PROTOBUF_C_TYPE_STRING) {
+    case PROTOBUF_C_TYPE_STRING:
         value = *(char **)((char *)ctx->value + field->offset);
         return get_string_field_size(field, value);
+
+    case PROTOBUF_C_TYPE_BYTES:
+        return get_binary_field_size(field);
+
+    default:
+        return -1;
     }
-    return -1;
 }
 
 static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
@@ -436,20 +446,25 @@ static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *
     int ret;
     unsigned int key;
 
-    if (field->type != PROTOBUF_C_TYPE_MESSAGE && field->type != PROTOBUF_C_TYPE_STRING
-        && field->type != PROTOBUF_C_TYPE_BYTES)
-        return 0;
-
     key = alloc_outer_key(ctx, get_field_size(ctx, field));
     if (key < 0)
         return key;
 
-    if (field->type == PROTOBUF_C_TYPE_MESSAGE)
+    switch (field->type) {
+    case PROTOBUF_C_TYPE_MESSAGE:
         ret = copy_msg_field_to_map(ctx, key, field);
-    else if (field->type == PROTOBUF_C_TYPE_STRING)
+        break;
+    case PROTOBUF_C_TYPE_STRING:
         ret = copy_sfield_to_map(ctx, key, field);
-    else
+        break;
+    case PROTOBUF_C_TYPE_BYTES:
         ret = copy_byte_field_to_map(ctx, key, field);
+        break;
+    default:
+        ret = -1;
+        break;
+    }
+
     if (ret)
         free_outter_map_entry(ctx, &key);
     return ret;

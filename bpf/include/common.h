@@ -71,6 +71,10 @@ struct kmesh_config {
     __u32 enable_monitoring;
 };
 
+typedef struct {
+    char *data;
+} bytes;
+
 static inline void *kmesh_map_lookup_elem(void *map, const void *key)
 {
     return bpf_map_lookup_elem(map, key);

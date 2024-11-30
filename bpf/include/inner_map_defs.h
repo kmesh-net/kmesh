@@ -21,6 +21,7 @@ typedef enum { MAP_TYPE_64, MAP_TYPE_192, MAP_TYPE_296, MAP_TYPE_1600, MAP_TYPE_
 
 #define MAP_VAL_STR_SIZE    MAP_VAL_SIZE_192
 #define MAP_VAL_REPEAT_SIZE MAP_VAL_SIZE_1600
+#define MAP_VAL_BINARY_SIZR MAP_VAL_SIZE_64
 
 #define SET_BIT(bitmap, n) ((bitmap)[(n) / 8] |= (1U << ((n) % 8)))
 
