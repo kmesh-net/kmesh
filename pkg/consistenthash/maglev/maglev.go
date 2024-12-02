@@ -36,7 +36,7 @@ import (
 const (
 	DefaultTableSize    uint64 = 16381
 	DefaultHashSeed            = "JLfvgnHc2kaSUFaI"
-	MaglevOuterMapName         = "km_maglevouter"
+	MaglevOuterMapName         = "outer_of_maglev"
 	MaglevInnerMapName         = "inner_of_maglev"
 	MaglevMapMaxEntries        = 65536
 	ClusterNameMaxLen          = 192
