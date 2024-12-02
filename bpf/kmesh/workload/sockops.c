@@ -149,7 +149,7 @@ static inline void clean_dstinfo_map(struct bpf_sock_ops *skops)
         BPF_LOG(ERR, SOCKOPS, "bpf map delete destination info failed, ret: %d", ret);
 }
 
-// insert an IPv4 tuple into the ringbuf
+// insert an IP tuple into the ringbuf
 static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
 {
     struct ringbuf_msg_type *msg = bpf_ringbuf_reserve(&map_of_tuple, sizeof(*msg), 0);

@@ -106,7 +106,6 @@ SEC("xdp_auth")
 int xdp_authz(struct xdp_md *ctx)
 {
     if (!is_authz_offload_enabled()) {
-        BPF_LOG(DEBUG, AUTH, "authz is not enabled, tail call to user auth");
         bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
         return XDP_PASS;
     }
