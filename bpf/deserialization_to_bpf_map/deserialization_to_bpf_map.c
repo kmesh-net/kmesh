@@ -323,9 +323,8 @@ static int copy_byte_field_to_map(struct op_context *ctx, unsigned int outer_key
     *(uintptr_t *)&bytes->data = (size_t)outer_key;
 
     ret = bpf_map_update_elem(ctx->curr_fd, ctx->key, ctx->value, BPF_ANY);
-    if (ret) {
+    if (ret)
         return ret;
-    }
 
     ret = outer_key_to_inner_map_index(outer_key, &inner_fd, &inner_info, &key);
     if (ret)
