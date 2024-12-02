@@ -32,12 +32,12 @@ type FrontendValue struct {
 
 func (c *Cache) FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendUpdate [%#v], [%#v]", *key, *value)
-	return c.bpfMap.KmeshFrontend.Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmFrontend.Update(key, value, ebpf.UpdateAny)
 }
 
 func (c *Cache) FrontendDelete(key *FrontendKey) error {
 	log.Debugf("FrontendDelete [%#v]", *key)
-	err := c.bpfMap.KmeshFrontend.Delete(key)
+	err := c.bpfMap.KmFrontend.Delete(key)
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
@@ -46,7 +46,7 @@ func (c *Cache) FrontendDelete(key *FrontendKey) error {
 
 func (c *Cache) FrontendLookup(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendLookup [%#v]", *key)
-	return c.bpfMap.KmeshFrontend.
+	return c.bpfMap.KmFrontend.
 		Lookup(key, value)
 }
 
@@ -55,7 +55,7 @@ func (c *Cache) FrontendIterFindKey(upstreamId uint32) []FrontendKey {
 	var (
 		key   = FrontendKey{}
 		value = FrontendValue{}
-		iter  = c.bpfMap.KmeshFrontend.Iterate()
+		iter  = c.bpfMap.KmFrontend.Iterate()
 	)
 
 	res := make([]FrontendKey, 0)
@@ -77,5 +77,5 @@ func (c *Cache) FrontendCount() int {
 
 func (c *Cache) FrontendLookupAll() []FrontendValue {
 	log.Debugf("FrontendLookupAll")
-	return LookupAll[FrontendKey, FrontendValue](c.bpfMap.KmeshFrontend)
+	return LookupAll[FrontendKey, FrontendValue](c.bpfMap.KmFrontend)
 }

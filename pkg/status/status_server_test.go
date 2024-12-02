@@ -354,7 +354,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		testWorkloadPolicyVals := []bpfcache.WorkloadPolicyValue{
 			{PolicyIds: [4]uint32{1, 2, 3, 4}}, {PolicyIds: [4]uint32{5, 6, 7, 8}},
 		}
-		_, err := bpfMaps.MapOfWlPolicy.BatchUpdate(testWorkloadPolicyKeys, testWorkloadPolicyVals, nil)
+		_, err := bpfMaps.KmWlpolicy.BatchUpdate(testWorkloadPolicyKeys, testWorkloadPolicyVals, nil)
 		assert.Nil(t, err)
 
 		testBackendKeys := []bpfcache.BackendKey{
@@ -364,7 +364,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 			{WaypointPort: 1234}, {WaypointPort: 5678},
 		}
 
-		_, err = bpfMaps.KmeshBackend.BatchUpdate(testBackendKeys, testBackendVals, nil)
+		_, err = bpfMaps.KmBackend.BatchUpdate(testBackendKeys, testBackendVals, nil)
 		assert.Nil(t, err)
 
 		testEndpointKeys := []bpfcache.EndpointKey{
@@ -374,7 +374,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 			{BackendUid: 1234}, {BackendUid: 5678},
 		}
 
-		_, err = bpfMaps.KmeshEndpoint.BatchUpdate(testEndpointKeys, testEndpointVals, nil)
+		_, err = bpfMaps.KmEndpoint.BatchUpdate(testEndpointKeys, testEndpointVals, nil)
 		assert.Nil(t, err)
 
 		testFrontendKeys := []bpfcache.FrontendKey{
@@ -383,7 +383,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		testFrontendVals := []bpfcache.FrontendValue{
 			{UpstreamId: 1234}, {UpstreamId: 5678},
 		}
-		_, err = bpfMaps.KmeshFrontend.BatchUpdate(testFrontendKeys, testFrontendVals, nil)
+		_, err = bpfMaps.KmFrontend.BatchUpdate(testFrontendKeys, testFrontendVals, nil)
 		assert.Nil(t, err)
 
 		testServiceKeys := []bpfcache.ServiceKey{
@@ -392,7 +392,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		testServiceVals := []bpfcache.ServiceValue{
 			{EndpointCount: [7]uint32{1234, 1234, 1234, 1234, 1234, 1234, 1234}}, {EndpointCount: [7]uint32{5678, 5678, 5678, 5678, 5678, 5678, 5678}},
 		}
-		_, err = bpfMaps.KmeshService.BatchUpdate(testServiceKeys, testServiceVals, nil)
+		_, err = bpfMaps.KmService.BatchUpdate(testServiceKeys, testServiceVals, nil)
 		assert.Nil(t, err)
 
 		req := httptest.NewRequest(http.MethodPost, patternBpfWorkloadMaps, nil)

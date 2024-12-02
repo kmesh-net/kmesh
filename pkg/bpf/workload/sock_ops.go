@@ -163,5 +163,5 @@ func (so *BpfSockOpsWorkload) Detach() error {
 }
 
 func (so *BpfSockOpsWorkload) GetSockMapFD() int {
-	return so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.MapOfKmeshSocket.FD()
+	return so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.KmSocket.FD()
 }

@@ -9,6 +9,7 @@
 #include "xdp.h"
 #include "tail_call.h"
 #include "workloadapi/security/authorization.pb-c.h"
+#include "config.h"
 
 #define AUTH_ALLOW 0
 #define AUTH_DENY  1

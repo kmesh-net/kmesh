@@ -8,6 +8,7 @@
 #include "bpf_common.h"
 #include "kmesh_common.h"
 #include "listener/listener.pb-c.h"
+#include "config.h"
 
 struct ratelimit_key {
     union {

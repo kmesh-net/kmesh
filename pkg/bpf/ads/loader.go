@@ -79,7 +79,7 @@ func (sc *BpfAds) Start() error {
 }
 
 func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
-	return sc.SockConn.KmeshConfigMap
+	return sc.SockConn.KmConfigmap
 }
 
 func (sc *BpfAds) Stop() error {

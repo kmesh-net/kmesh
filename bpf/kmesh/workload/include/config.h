@@ -15,10 +15,19 @@
 #define MAP_SIZE_OF_AUTH_POLICY   512
 
 // map name
-#define map_of_frontend kmesh_frontend
-#define map_of_service  kmesh_service
-#define map_of_endpoint kmesh_endpoint
-#define map_of_backend  kmesh_backend
-#define map_of_manager  kmesh_manage
+#define map_of_frontend       km_frontend
+#define map_of_service        km_service
+#define map_of_endpoint       km_endpoint
+#define map_of_backend        km_backend
+#define map_of_auth           km_auth
+#define map_of_tuple          km_tuple
+#define map_of_tcp_info       km_tcpInfo
+#define map_of_authz          km_authz
+#define map_of_dst_info       km_dstInfo
+#define map_of_tail_call_prog km_tailCallProg
+#define xdp_tailcall_map      km_xdptailcall
+#define map_of_kmesh_socket   km_socket
+#define kmesh_tc_args         km_tcargs
+#define map_of_wl_policy      km_wlpolicy
 
 #endif // _CONFIG_H_

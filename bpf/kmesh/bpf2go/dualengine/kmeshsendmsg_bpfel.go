@@ -86,11 +86,11 @@ type KmeshSendmsgProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgMapSpecs struct {
-	KmeshConfigMap *ebpf.MapSpec `ebpf:"kmesh_config_map"`
-	KmeshEvents    *ebpf.MapSpec `ebpf:"kmesh_events"`
-	MapOfDstInfo   *ebpf.MapSpec `ebpf:"map_of_dst_info"`
-	TmpBuf         *ebpf.MapSpec `ebpf:"tmp_buf"`
-	TmpLogBuf      *ebpf.MapSpec `ebpf:"tmp_log_buf"`
+	KmConfigmap *ebpf.MapSpec `ebpf:"km_configmap"`
+	KmDstInfo   *ebpf.MapSpec `ebpf:"km_dstInfo"`
+	KmEvents    *ebpf.MapSpec `ebpf:"km_events"`
+	KmLogbuf    *ebpf.MapSpec `ebpf:"km_logbuf"`
+	KmTmpbuf    *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 }
 
 // KmeshSendmsgObjects contains all objects after they have been loaded into the kernel.
@@ -112,20 +112,20 @@ func (o *KmeshSendmsgObjects) Close() error {
 //
 // It can be passed to LoadKmeshSendmsgObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSendmsgMaps struct {
-	KmeshConfigMap *ebpf.Map `ebpf:"kmesh_config_map"`
-	KmeshEvents    *ebpf.Map `ebpf:"kmesh_events"`
-	MapOfDstInfo   *ebpf.Map `ebpf:"map_of_dst_info"`
-	TmpBuf         *ebpf.Map `ebpf:"tmp_buf"`
-	TmpLogBuf      *ebpf.Map `ebpf:"tmp_log_buf"`
+	KmConfigmap *ebpf.Map `ebpf:"km_configmap"`
+	KmDstInfo   *ebpf.Map `ebpf:"km_dstInfo"`
+	KmEvents    *ebpf.Map `ebpf:"km_events"`
+	KmLogbuf    *ebpf.Map `ebpf:"km_logbuf"`
+	KmTmpbuf    *ebpf.Map `ebpf:"km_tmpbuf"`
 }
 
 func (m *KmeshSendmsgMaps) Close() error {
 	return _KmeshSendmsgClose(
-		m.KmeshConfigMap,
-		m.KmeshEvents,
-		m.MapOfDstInfo,
-		m.TmpBuf,
-		m.TmpLogBuf,
+		m.KmConfigmap,
+		m.KmDstInfo,
+		m.KmEvents,
+		m.KmLogbuf,
+		m.KmTmpbuf,
 	)
 }
 

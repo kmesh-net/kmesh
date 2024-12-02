@@ -102,7 +102,7 @@ func (w *BpfWorkload) Stop() error {
 }
 
 func (w *BpfWorkload) GetKmeshConfigMap() *ebpf.Map {
-	return w.SockConn.KmeshConfigMap
+	return w.SockConn.KmConfigmap
 }
 
 func (w *BpfWorkload) Load() error {
@@ -163,7 +163,7 @@ func (w *BpfWorkload) Detach() error {
 func (w *BpfWorkload) ApiEnvCfg() error {
 	var err error
 
-	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshXDPAuthMaps.MapOfAuthz, "Authorization"); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshXDPAuthMaps.KmAuthz, "Authorization"); err != nil {
 		return err
 	}
 

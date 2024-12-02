@@ -101,27 +101,27 @@ type KmeshXDPAuthProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshXDPAuthMapSpecs struct {
-	KmeshBackend      *ebpf.MapSpec `ebpf:"kmesh_backend"`
-	KmeshConfigMap    *ebpf.MapSpec `ebpf:"kmesh_config_map"`
-	KmeshEndpoint     *ebpf.MapSpec `ebpf:"kmesh_endpoint"`
-	KmeshEvents       *ebpf.MapSpec `ebpf:"kmesh_events"`
-	KmeshFrontend     *ebpf.MapSpec `ebpf:"kmesh_frontend"`
-	KmeshManage       *ebpf.MapSpec `ebpf:"kmesh_manage"`
-	KmeshMap1600      *ebpf.MapSpec `ebpf:"kmesh_map1600"`
-	KmeshMap192       *ebpf.MapSpec `ebpf:"kmesh_map192"`
-	KmeshMap296       *ebpf.MapSpec `ebpf:"kmesh_map296"`
-	KmeshMap64        *ebpf.MapSpec `ebpf:"kmesh_map64"`
-	KmeshService      *ebpf.MapSpec `ebpf:"kmesh_service"`
-	KmeshTcArgs       *ebpf.MapSpec `ebpf:"kmesh_tc_args"`
-	MapOfAuth         *ebpf.MapSpec `ebpf:"map_of_auth"`
-	MapOfAuthz        *ebpf.MapSpec `ebpf:"map_of_authz"`
-	MapOfSockStorage  *ebpf.MapSpec `ebpf:"map_of_sock_storage"`
-	MapOfTailCallProg *ebpf.MapSpec `ebpf:"map_of_tail_call_prog"`
-	MapOfTuple        *ebpf.MapSpec `ebpf:"map_of_tuple"`
-	MapOfWlPolicy     *ebpf.MapSpec `ebpf:"map_of_wl_policy"`
-	TmpBuf            *ebpf.MapSpec `ebpf:"tmp_buf"`
-	TmpLogBuf         *ebpf.MapSpec `ebpf:"tmp_log_buf"`
-	XdpTailcallMap    *ebpf.MapSpec `ebpf:"xdp_tailcall_map"`
+	KmAuth         *ebpf.MapSpec `ebpf:"km_auth"`
+	KmAuthz        *ebpf.MapSpec `ebpf:"km_authz"`
+	KmBackend      *ebpf.MapSpec `ebpf:"km_backend"`
+	KmConfigmap    *ebpf.MapSpec `ebpf:"km_configmap"`
+	KmEndpoint     *ebpf.MapSpec `ebpf:"km_endpoint"`
+	KmEvents       *ebpf.MapSpec `ebpf:"km_events"`
+	KmFrontend     *ebpf.MapSpec `ebpf:"km_frontend"`
+	KmLogbuf       *ebpf.MapSpec `ebpf:"km_logbuf"`
+	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
+	KmService      *ebpf.MapSpec `ebpf:"km_service"`
+	KmSockStorage  *ebpf.MapSpec `ebpf:"km_sockStorage"`
+	KmTailCallProg *ebpf.MapSpec `ebpf:"km_tailCallProg"`
+	KmTcargs       *ebpf.MapSpec `ebpf:"km_tcargs"`
+	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmTuple        *ebpf.MapSpec `ebpf:"km_tuple"`
+	KmWlpolicy     *ebpf.MapSpec `ebpf:"km_wlpolicy"`
+	KmXdptailcall  *ebpf.MapSpec `ebpf:"km_xdptailcall"`
+	KmeshMap1600   *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192    *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296    *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64     *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
 // KmeshXDPAuthObjects contains all objects after they have been loaded into the kernel.
@@ -143,52 +143,52 @@ func (o *KmeshXDPAuthObjects) Close() error {
 //
 // It can be passed to LoadKmeshXDPAuthObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshXDPAuthMaps struct {
-	KmeshBackend      *ebpf.Map `ebpf:"kmesh_backend"`
-	KmeshConfigMap    *ebpf.Map `ebpf:"kmesh_config_map"`
-	KmeshEndpoint     *ebpf.Map `ebpf:"kmesh_endpoint"`
-	KmeshEvents       *ebpf.Map `ebpf:"kmesh_events"`
-	KmeshFrontend     *ebpf.Map `ebpf:"kmesh_frontend"`
-	KmeshManage       *ebpf.Map `ebpf:"kmesh_manage"`
-	KmeshMap1600      *ebpf.Map `ebpf:"kmesh_map1600"`
-	KmeshMap192       *ebpf.Map `ebpf:"kmesh_map192"`
-	KmeshMap296       *ebpf.Map `ebpf:"kmesh_map296"`
-	KmeshMap64        *ebpf.Map `ebpf:"kmesh_map64"`
-	KmeshService      *ebpf.Map `ebpf:"kmesh_service"`
-	KmeshTcArgs       *ebpf.Map `ebpf:"kmesh_tc_args"`
-	MapOfAuth         *ebpf.Map `ebpf:"map_of_auth"`
-	MapOfAuthz        *ebpf.Map `ebpf:"map_of_authz"`
-	MapOfSockStorage  *ebpf.Map `ebpf:"map_of_sock_storage"`
-	MapOfTailCallProg *ebpf.Map `ebpf:"map_of_tail_call_prog"`
-	MapOfTuple        *ebpf.Map `ebpf:"map_of_tuple"`
-	MapOfWlPolicy     *ebpf.Map `ebpf:"map_of_wl_policy"`
-	TmpBuf            *ebpf.Map `ebpf:"tmp_buf"`
-	TmpLogBuf         *ebpf.Map `ebpf:"tmp_log_buf"`
-	XdpTailcallMap    *ebpf.Map `ebpf:"xdp_tailcall_map"`
+	KmAuth         *ebpf.Map `ebpf:"km_auth"`
+	KmAuthz        *ebpf.Map `ebpf:"km_authz"`
+	KmBackend      *ebpf.Map `ebpf:"km_backend"`
+	KmConfigmap    *ebpf.Map `ebpf:"km_configmap"`
+	KmEndpoint     *ebpf.Map `ebpf:"km_endpoint"`
+	KmEvents       *ebpf.Map `ebpf:"km_events"`
+	KmFrontend     *ebpf.Map `ebpf:"km_frontend"`
+	KmLogbuf       *ebpf.Map `ebpf:"km_logbuf"`
+	KmManage       *ebpf.Map `ebpf:"km_manage"`
+	KmService      *ebpf.Map `ebpf:"km_service"`
+	KmSockStorage  *ebpf.Map `ebpf:"km_sockStorage"`
+	KmTailCallProg *ebpf.Map `ebpf:"km_tailCallProg"`
+	KmTcargs       *ebpf.Map `ebpf:"km_tcargs"`
+	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmTuple        *ebpf.Map `ebpf:"km_tuple"`
+	KmWlpolicy     *ebpf.Map `ebpf:"km_wlpolicy"`
+	KmXdptailcall  *ebpf.Map `ebpf:"km_xdptailcall"`
+	KmeshMap1600   *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192    *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296    *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64     *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
 func (m *KmeshXDPAuthMaps) Close() error {
 	return _KmeshXDPAuthClose(
-		m.KmeshBackend,
-		m.KmeshConfigMap,
-		m.KmeshEndpoint,
-		m.KmeshEvents,
-		m.KmeshFrontend,
-		m.KmeshManage,
+		m.KmAuth,
+		m.KmAuthz,
+		m.KmBackend,
+		m.KmConfigmap,
+		m.KmEndpoint,
+		m.KmEvents,
+		m.KmFrontend,
+		m.KmLogbuf,
+		m.KmManage,
+		m.KmService,
+		m.KmSockStorage,
+		m.KmTailCallProg,
+		m.KmTcargs,
+		m.KmTmpbuf,
+		m.KmTuple,
+		m.KmWlpolicy,
+		m.KmXdptailcall,
 		m.KmeshMap1600,
 		m.KmeshMap192,
 		m.KmeshMap296,
 		m.KmeshMap64,
-		m.KmeshService,
-		m.KmeshTcArgs,
-		m.MapOfAuth,
-		m.MapOfAuthz,
-		m.MapOfSockStorage,
-		m.MapOfTailCallProg,
-		m.MapOfTuple,
-		m.MapOfWlPolicy,
-		m.TmpBuf,
-		m.TmpLogBuf,
-		m.XdpTailcallMap,
 	)
 }
 
