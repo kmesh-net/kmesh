@@ -301,10 +301,10 @@ data:
         target_label: node
       - action: replace
       metric_relabel_configs:
-      - source_labels: [reporter]
-        regex: 'waypoint'
-        target_label: reporter
-        replacement: 'destination'
+      - source_labels: [app]
+        regex: 'kmesh'
+        target_label: app
+        replacement: 'ztunnel'
     - honor_labels: true
       job_name: kubernetes-pods-slow
       kubernetes_sd_configs:
