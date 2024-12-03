@@ -29,7 +29,7 @@
 #define map_of_kmesh_socket   km_socket
 #define kmesh_tc_args         km_tcargs
 #define map_of_wl_policy      km_wlpolicy
-#define kmesh_perf_map km_perf_map 
-#define kmesh_perf_info km_perf_info
+#define kmesh_perf_map        km_perf_map
+#define kmesh_perf_info       km_perf_info
 
 #endif // _CONFIG_H_

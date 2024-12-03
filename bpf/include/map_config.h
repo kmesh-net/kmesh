@@ -6,7 +6,7 @@
 
 // map name
 #define map_of_manager      km_manage
-#define map_of_sock_storage km_sockStorage
+#define map_of_sock_storage km_sockstorage
 #define tmp_buf             km_tmpbuf
 #define kmesh_config_map    km_configmap
 #define kmesh_events        km_events

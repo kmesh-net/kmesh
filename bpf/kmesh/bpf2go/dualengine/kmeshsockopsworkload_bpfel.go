@@ -124,8 +124,8 @@ type KmeshSockopsWorkloadMapSpecs struct {
 	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
-	KmSockStorage *ebpf.MapSpec `ebpf:"km_sockStorage"`
 	KmSocket      *ebpf.MapSpec `ebpf:"km_socket"`
+	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcpinfo     *ebpf.MapSpec `ebpf:"km_tcpinfo"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmTuple       *ebpf.MapSpec `ebpf:"km_tuple"`
@@ -167,8 +167,8 @@ type KmeshSockopsWorkloadMaps struct {
 	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
-	KmSockStorage *ebpf.Map `ebpf:"km_sockStorage"`
 	KmSocket      *ebpf.Map `ebpf:"km_socket"`
+	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcpinfo     *ebpf.Map `ebpf:"km_tcpinfo"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmTuple       *ebpf.Map `ebpf:"km_tuple"`
@@ -193,8 +193,8 @@ func (m *KmeshSockopsWorkloadMaps) Close() error {
 		m.KmPerfInfo,
 		m.KmPerfMap,
 		m.KmService,
-		m.KmSockStorage,
 		m.KmSocket,
+		m.KmSockstorage,
 		m.KmTcpinfo,
 		m.KmTmpbuf,
 		m.KmTuple,

@@ -111,7 +111,7 @@ type KmeshXDPAuthMapSpecs struct {
 	KmLogbuf       *ebpf.MapSpec `ebpf:"km_logbuf"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
 	KmService      *ebpf.MapSpec `ebpf:"km_service"`
-	KmSockStorage  *ebpf.MapSpec `ebpf:"km_sockStorage"`
+	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTailcallprog *ebpf.MapSpec `ebpf:"km_tailcallprog"`
 	KmTcargs       *ebpf.MapSpec `ebpf:"km_tcargs"`
 	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
@@ -153,7 +153,7 @@ type KmeshXDPAuthMaps struct {
 	KmLogbuf       *ebpf.Map `ebpf:"km_logbuf"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
 	KmService      *ebpf.Map `ebpf:"km_service"`
-	KmSockStorage  *ebpf.Map `ebpf:"km_sockStorage"`
+	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTailcallprog *ebpf.Map `ebpf:"km_tailcallprog"`
 	KmTcargs       *ebpf.Map `ebpf:"km_tcargs"`
 	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
@@ -178,7 +178,7 @@ func (m *KmeshXDPAuthMaps) Close() error {
 		m.KmLogbuf,
 		m.KmManage,
 		m.KmService,
-		m.KmSockStorage,
+		m.KmSockstorage,
 		m.KmTailcallprog,
 		m.KmTcargs,
 		m.KmTmpbuf,

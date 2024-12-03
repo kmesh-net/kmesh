@@ -122,7 +122,7 @@ type KmeshCgroupSockCompatMapSpecs struct {
 	KmMaglevOuter  *ebpf.MapSpec `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
 	KmRatelimit    *ebpf.MapSpec `ebpf:"km_ratelimit"`
-	KmSockStorage  *ebpf.MapSpec `ebpf:"km_sockStorage"`
+	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.MapSpec `ebpf:"km_tailcall_ctx"`
 	KmTailcallprog *ebpf.MapSpec `ebpf:"km_tailcallprog"`
 	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
@@ -163,7 +163,7 @@ type KmeshCgroupSockCompatMaps struct {
 	KmMaglevOuter  *ebpf.Map `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
 	KmRatelimit    *ebpf.Map `ebpf:"km_ratelimit"`
-	KmSockStorage  *ebpf.Map `ebpf:"km_sockStorage"`
+	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.Map `ebpf:"km_tailcall_ctx"`
 	KmTailcallprog *ebpf.Map `ebpf:"km_tailcallprog"`
 	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
@@ -187,7 +187,7 @@ func (m *KmeshCgroupSockCompatMaps) Close() error {
 		m.KmMaglevOuter,
 		m.KmManage,
 		m.KmRatelimit,
-		m.KmSockStorage,
+		m.KmSockstorage,
 		m.KmTailcallCtx,
 		m.KmTailcallprog,
 		m.KmTmpbuf,
