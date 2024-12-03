@@ -44,12 +44,12 @@ type ServiceValue struct {
 
 func (c *Cache) ServiceUpdate(key *ServiceKey, value *ServiceValue) error {
 	log.Debugf("ServiceUpdate [%#v], [%#v]", *key, *value)
-	return c.bpfMap.KmeshService.Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmService.Update(key, value, ebpf.UpdateAny)
 }
 
 func (c *Cache) ServiceDelete(key *ServiceKey) error {
 	log.Debugf("ServiceDelete [%#v]", *key)
-	err := c.bpfMap.KmeshService.Delete(key)
+	err := c.bpfMap.KmService.Delete(key)
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
@@ -58,7 +58,7 @@ func (c *Cache) ServiceDelete(key *ServiceKey) error {
 
 func (c *Cache) ServiceLookup(key *ServiceKey, value *ServiceValue) error {
 	log.Debugf("ServiceLookup [%#v]", *key)
-	return c.bpfMap.KmeshService.Lookup(key, value)
+	return c.bpfMap.KmService.Lookup(key, value)
 }
 
 // ServiceCount returns the length of service map
@@ -69,5 +69,5 @@ func (c *Cache) ServiceCount() int {
 
 func (c *Cache) ServiceLookupAll() []ServiceValue {
 	log.Debugf("ServiceLookupAll")
-	return LookupAll[ServiceKey, ServiceValue](c.bpfMap.KmeshService)
+	return LookupAll[ServiceKey, ServiceValue](c.bpfMap.KmService)
 }

@@ -6,8 +6,8 @@
 
 #include "common.h"
 #include "inner_map_defs.h"
+#include "map_config.h"
 
-#define map_of_manager      kmesh_manage
 #define MAP_SIZE_OF_MANAGER 8192
 /*0x3a1(929) is the specific port handled by the cni to enable kmesh*/
 #define ENABLE_KMESH_PORT 0x3a1

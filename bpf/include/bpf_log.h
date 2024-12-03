@@ -5,6 +5,7 @@
 #define _BPF_LOG_H_
 
 #include "common.h"
+#include "map_config.h"
 
 #define BPF_DEBUG_ON  0
 #define BPF_DEBUG_OFF (-1)

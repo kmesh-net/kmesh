@@ -7,6 +7,7 @@
 #define PERF_MONITOR 0
 
 #include "bpf_common.h"
+#include "config.h"
 
 enum {
     SOCK_TRAFFIC_CONTROL = 1,

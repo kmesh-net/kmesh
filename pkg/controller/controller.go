@@ -103,12 +103,12 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	// kmeshConfigMap.Monitoring initialized to uint32(1).
 	// If the startup parameter is false, update the kmeshConfigMap.
 	if !c.bpfConfig.EnableMonitoring {
-		config, err := bpf.GetKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmeshConfigMap)
+		config, err := bpf.GetKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmConfigmap)
 		if err != nil {
 			return fmt.Errorf("failed to get kmesh config map: %v", err)
 		}
 		config.EnableMonitoring = constants.DISABLED
-		if err := bpf.UpdateKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmeshConfigMap, config); err != nil {
+		if err := bpf.UpdateKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmConfigmap, config); err != nil {
 			return fmt.Errorf("Failed to update config in order to start metric: %v", err)
 		}
 	}

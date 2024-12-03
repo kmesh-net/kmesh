@@ -8,6 +8,7 @@
 #include "kmesh_common.h"
 #include "tail_call.h"
 #include "route/route.pb-c.h"
+#include "config.h"
 
 #define ROUTER_NAME_MAX_LEN BPF_DATA_MAX_LEN
 

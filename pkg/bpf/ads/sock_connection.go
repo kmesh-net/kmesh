@@ -118,7 +118,7 @@ func (sc *BpfSockConn) Load() error {
 	sc.Info.AttachType = prog.AttachType
 
 	// update tail call prog
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmTailcallprog.Update(
 		uint32(KMESH_TAIL_CALL_FILTER_CHAIN),
 		uint32(sc.FilterChainManager.FD()),
 		ebpf.UpdateAny)
@@ -126,7 +126,7 @@ func (sc *BpfSockConn) Load() error {
 		return err
 	}
 
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmTailcallprog.Update(
 		uint32(KMESH_TAIL_CALL_FILTER),
 		uint32(sc.FilterManager.FD()),
 		ebpf.UpdateAny)
@@ -134,7 +134,7 @@ func (sc *BpfSockConn) Load() error {
 		return err
 	}
 
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmTailcallprog.Update(
 		uint32(KMESH_TAIL_CALL_CLUSTER),
 		uint32(sc.ClusterManager.FD()),
 		ebpf.UpdateAny)
@@ -185,7 +185,7 @@ func (sc *BpfSockConn) Attach() error {
 			return err
 		}
 	}
-	if err = sc.KmeshCgroupSockMaps.KmeshTailCallProg.Pin(tailCallmapPinPath); err != nil {
+	if err = sc.KmeshCgroupSockMaps.KmTailcallprog.Pin(tailCallmapPinPath); err != nil {
 		return err
 	}
 	return nil

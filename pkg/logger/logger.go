@@ -34,7 +34,7 @@ import (
 
 const (
 	logSubsys = "subsys"
-	mapName   = "kmesh_events"
+	mapName   = "km_events"
 )
 
 type LogEvent struct {

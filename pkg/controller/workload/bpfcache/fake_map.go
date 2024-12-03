@@ -85,18 +85,18 @@ func NewFakeWorkloadMap(t *testing.T) bpf2go.KmeshCgroupSockWorkloadMaps {
 	// TODO: add other maps when needed
 
 	return bpf2go.KmeshCgroupSockWorkloadMaps{
-		KmeshBackend:  backEndMap,
-		KmeshEndpoint: endpointMap,
-		KmeshFrontend: frontendMap,
-		KmeshService:  serviceMap,
-		MapOfWlPolicy: wlPolicyMap,
+		KmBackend:  backEndMap,
+		KmEndpoint: endpointMap,
+		KmFrontend: frontendMap,
+		KmService:  serviceMap,
+		KmWlpolicy: wlPolicyMap,
 	}
 }
 
 func CleanupFakeWorkloadMap(maps bpf2go.KmeshCgroupSockWorkloadMaps) {
-	maps.KmeshBackend.Close()
-	maps.KmeshEndpoint.Close()
-	maps.KmeshFrontend.Close()
-	maps.KmeshService.Close()
-	maps.MapOfWlPolicy.Close()
+	maps.KmBackend.Close()
+	maps.KmEndpoint.Close()
+	maps.KmFrontend.Close()
+	maps.KmService.Close()
+	maps.KmWlpolicy.Close()
 }

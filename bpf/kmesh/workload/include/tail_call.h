@@ -5,6 +5,7 @@
 #define _KMESH_WORKLOAD_TAIL_CALL_H_
 
 #include "workload_common.h"
+#include "config.h"
 
 #define MAP_SIZE_OF_TAIL_CALL_PROG 8
 
