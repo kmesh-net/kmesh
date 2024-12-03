@@ -98,11 +98,11 @@ func (sc *BpfAds) Load() error {
 func (sc *BpfAds) ApiEnvCfg() error {
 	var err error
 
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshCgroupSockMaps.KmeshListener, "Listener"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshCgroupSockMaps.KmListener, "Listener"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshCluster, "Cluster"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmCluster, "Cluster"); err != nil {
 		return err
 	}
 
@@ -140,7 +140,7 @@ func (sc *BpfAds) Detach() error {
 }
 
 func (sc *BpfAds) GetClusterStatsMap() *ebpf.Map {
-	return sc.SockConn.KmeshCgroupSockMaps.KmeshClusterStats
+	return sc.SockConn.KmeshCgroupSockMaps.KmClusterstats
 }
 
 func AdsL7Enabled() bool {

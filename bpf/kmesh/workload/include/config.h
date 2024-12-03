@@ -14,20 +14,22 @@
 #define MAP_SIZE_OF_AUTH_TAILCALL 100000
 #define MAP_SIZE_OF_AUTH_POLICY   512
 
-// map name
+// rename map to avoid truncation when name length exceeds BPF_OBJ_NAME_LEN = 16
 #define map_of_frontend       km_frontend
 #define map_of_service        km_service
 #define map_of_endpoint       km_endpoint
 #define map_of_backend        km_backend
 #define map_of_auth           km_auth
 #define map_of_tuple          km_tuple
-#define map_of_tcp_info       km_tcpInfo
+#define map_of_tcp_info       km_tcpinfo
 #define map_of_authz          km_authz
-#define map_of_dst_info       km_dstInfo
-#define map_of_tail_call_prog km_tailCallProg
+#define map_of_dst_info       km_dstinfo
+#define map_of_tail_call_prog km_tailcallprog
 #define xdp_tailcall_map      km_xdptailcall
 #define map_of_kmesh_socket   km_socket
 #define kmesh_tc_args         km_tcargs
 #define map_of_wl_policy      km_wlpolicy
+#define kmesh_perf_map km_perf_map 
+#define kmesh_perf_info km_perf_info
 
 #endif // _CONFIG_H_

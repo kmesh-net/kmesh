@@ -115,16 +115,18 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	KmAuth        *ebpf.MapSpec `ebpf:"km_auth"`
 	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
 	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
-	KmDstInfo     *ebpf.MapSpec `ebpf:"km_dstInfo"`
+	KmDstinfo     *ebpf.MapSpec `ebpf:"km_dstinfo"`
 	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
 	KmEvents      *ebpf.MapSpec `ebpf:"km_events"`
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogbuf      *ebpf.MapSpec `ebpf:"km_logbuf"`
 	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
+	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
+	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
 	KmSockStorage *ebpf.MapSpec `ebpf:"km_sockStorage"`
 	KmSocket      *ebpf.MapSpec `ebpf:"km_socket"`
-	KmTcpInfo     *ebpf.MapSpec `ebpf:"km_tcpInfo"`
+	KmTcpinfo     *ebpf.MapSpec `ebpf:"km_tcpinfo"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmTuple       *ebpf.MapSpec `ebpf:"km_tuple"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
@@ -132,8 +134,6 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	KmeshMap192   *ebpf.MapSpec `ebpf:"kmesh_map192"`
 	KmeshMap296   *ebpf.MapSpec `ebpf:"kmesh_map296"`
 	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
-	KmeshPerfInfo *ebpf.MapSpec `ebpf:"kmesh_perf_info"`
-	KmeshPerfMap  *ebpf.MapSpec `ebpf:"kmesh_perf_map"`
 }
 
 // KmeshSockopsWorkloadCompatObjects contains all objects after they have been loaded into the kernel.
@@ -158,16 +158,18 @@ type KmeshSockopsWorkloadCompatMaps struct {
 	KmAuth        *ebpf.Map `ebpf:"km_auth"`
 	KmBackend     *ebpf.Map `ebpf:"km_backend"`
 	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
-	KmDstInfo     *ebpf.Map `ebpf:"km_dstInfo"`
+	KmDstinfo     *ebpf.Map `ebpf:"km_dstinfo"`
 	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
 	KmEvents      *ebpf.Map `ebpf:"km_events"`
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogbuf      *ebpf.Map `ebpf:"km_logbuf"`
 	KmManage      *ebpf.Map `ebpf:"km_manage"`
+	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
+	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
 	KmSockStorage *ebpf.Map `ebpf:"km_sockStorage"`
 	KmSocket      *ebpf.Map `ebpf:"km_socket"`
-	KmTcpInfo     *ebpf.Map `ebpf:"km_tcpInfo"`
+	KmTcpinfo     *ebpf.Map `ebpf:"km_tcpinfo"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmTuple       *ebpf.Map `ebpf:"km_tuple"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
@@ -175,8 +177,6 @@ type KmeshSockopsWorkloadCompatMaps struct {
 	KmeshMap192   *ebpf.Map `ebpf:"kmesh_map192"`
 	KmeshMap296   *ebpf.Map `ebpf:"kmesh_map296"`
 	KmeshMap64    *ebpf.Map `ebpf:"kmesh_map64"`
-	KmeshPerfInfo *ebpf.Map `ebpf:"kmesh_perf_info"`
-	KmeshPerfMap  *ebpf.Map `ebpf:"kmesh_perf_map"`
 }
 
 func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
@@ -184,16 +184,18 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.KmAuth,
 		m.KmBackend,
 		m.KmConfigmap,
-		m.KmDstInfo,
+		m.KmDstinfo,
 		m.KmEndpoint,
 		m.KmEvents,
 		m.KmFrontend,
 		m.KmLogbuf,
 		m.KmManage,
+		m.KmPerfInfo,
+		m.KmPerfMap,
 		m.KmService,
 		m.KmSockStorage,
 		m.KmSocket,
-		m.KmTcpInfo,
+		m.KmTcpinfo,
 		m.KmTmpbuf,
 		m.KmTuple,
 		m.KmWlpolicy,
@@ -201,8 +203,6 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.KmeshMap192,
 		m.KmeshMap296,
 		m.KmeshMap64,
-		m.KmeshPerfInfo,
-		m.KmeshPerfMap,
 	)
 }
 

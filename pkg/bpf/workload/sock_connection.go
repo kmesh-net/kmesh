@@ -97,7 +97,7 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 	sc.Info.Type = prog.Type
 	sc.Info.AttachType = prog.AttachType
 
-	if err = sc.KmTailCallProg.Update(
+	if err = sc.KmTailcallprog.Update(
 		uint32(constants.TailCallConnect4Index),
 		uint32(sc.CgroupConnect4Prog.FD()),
 		ebpf.UpdateAny); err != nil {
@@ -108,7 +108,7 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 	sc.Info6.Type = prog.Type
 	sc.Info6.AttachType = prog.AttachType
 
-	if err = sc.KmTailCallProg.Update(
+	if err = sc.KmTailcallprog.Update(
 		uint32(constants.TailCallConnect6Index),
 		uint32(sc.CgroupConnect6Prog.FD()),
 		ebpf.UpdateAny); err != nil {

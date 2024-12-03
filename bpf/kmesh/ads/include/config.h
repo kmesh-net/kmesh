@@ -40,17 +40,17 @@
 #define MAP_SIZE_OF_ENDPOINT     (1 << 17)
 
 // rename map to avoid truncation when name length exceeds BPF_OBJ_NAME_LEN = 16
-#define map_of_listener       kmesh_listener
-#define map_of_filter_chain   kmesh_filter_chain
-#define map_of_filter         kmesh_filter
-#define map_of_virtual_host   kmesh_virtual_host
-#define map_of_route          kmesh_route
-#define map_of_cluster        kmesh_cluster
-#define map_of_cluster_stats  kmesh_cluster_stats
-#define map_of_loadbalance    kmesh_loadbalance
-#define map_of_endpoint       kmesh_endpoint
-#define map_of_tail_call_prog kmesh_tail_call_prog
-#define map_of_tail_call_ctx  kmesh_tail_call_ctx
+#define map_of_listener         km_listener
+#define map_of_cluster          km_cluster
+#define map_of_cluster_stats    km_clusterstats
+#define map_of_tail_call_prog   km_tailcallprog
+#define map_of_tail_call_ctx    km_tailcall_ctx
+#define map_of_cluster_sock     km_cluster_sock
+#define outer_of_maglev         km_maglev_outer
+#define map_of_cluster_eps      km_cluster_eps 
+#define map_of_cluster_eps_data km_eps_data
+#define kmesh_ratelimit km_ratelimit
+#define map_of_router_config km_routerconfig  
 
 // ************
 // array len

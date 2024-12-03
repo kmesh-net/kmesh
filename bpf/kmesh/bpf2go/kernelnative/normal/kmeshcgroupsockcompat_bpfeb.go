@@ -110,26 +110,26 @@ type KmeshCgroupSockCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockCompatMapSpecs struct {
-	KmConfigmap         *ebpf.MapSpec `ebpf:"km_configmap"`
-	KmEvents            *ebpf.MapSpec `ebpf:"km_events"`
-	KmLogbuf            *ebpf.MapSpec `ebpf:"km_logbuf"`
-	KmManage            *ebpf.MapSpec `ebpf:"km_manage"`
-	KmSockStorage       *ebpf.MapSpec `ebpf:"km_sockStorage"`
-	KmTmpbuf            *ebpf.MapSpec `ebpf:"km_tmpbuf"`
-	KmeshCluster        *ebpf.MapSpec `ebpf:"kmesh_cluster"`
-	KmeshClusterStats   *ebpf.MapSpec `ebpf:"kmesh_cluster_stats"`
-	KmeshListener       *ebpf.MapSpec `ebpf:"kmesh_listener"`
-	KmeshMap1600        *ebpf.MapSpec `ebpf:"kmesh_map1600"`
-	KmeshMap192         *ebpf.MapSpec `ebpf:"kmesh_map192"`
-	KmeshMap296         *ebpf.MapSpec `ebpf:"kmesh_map296"`
-	KmeshMap64          *ebpf.MapSpec `ebpf:"kmesh_map64"`
-	KmeshRatelimit      *ebpf.MapSpec `ebpf:"kmesh_ratelimit"`
-	KmeshTailCallCtx    *ebpf.MapSpec `ebpf:"kmesh_tail_call_ctx"`
-	KmeshTailCallProg   *ebpf.MapSpec `ebpf:"kmesh_tail_call_prog"`
-	MapOfClusterEps     *ebpf.MapSpec `ebpf:"map_of_cluster_eps"`
-	MapOfClusterEpsData *ebpf.MapSpec `ebpf:"map_of_cluster_eps_data"`
-	MapOfClusterSock    *ebpf.MapSpec `ebpf:"map_of_cluster_sock"`
-	OuterOfMaglev       *ebpf.MapSpec `ebpf:"outer_of_maglev"`
+	KmCluster      *ebpf.MapSpec `ebpf:"km_cluster"`
+	KmClusterEps   *ebpf.MapSpec `ebpf:"km_cluster_eps"`
+	KmClusterSock  *ebpf.MapSpec `ebpf:"km_cluster_sock"`
+	KmClusterstats *ebpf.MapSpec `ebpf:"km_clusterstats"`
+	KmConfigmap    *ebpf.MapSpec `ebpf:"km_configmap"`
+	KmEpsData      *ebpf.MapSpec `ebpf:"km_eps_data"`
+	KmEvents       *ebpf.MapSpec `ebpf:"km_events"`
+	KmListener     *ebpf.MapSpec `ebpf:"km_listener"`
+	KmLogbuf       *ebpf.MapSpec `ebpf:"km_logbuf"`
+	KmMaglevOuter  *ebpf.MapSpec `ebpf:"km_maglev_outer"`
+	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
+	KmRatelimit    *ebpf.MapSpec `ebpf:"km_ratelimit"`
+	KmSockStorage  *ebpf.MapSpec `ebpf:"km_sockStorage"`
+	KmTailcallCtx  *ebpf.MapSpec `ebpf:"km_tailcall_ctx"`
+	KmTailcallprog *ebpf.MapSpec `ebpf:"km_tailcallprog"`
+	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmeshMap1600   *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192    *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296    *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64     *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
 // KmeshCgroupSockCompatObjects contains all objects after they have been loaded into the kernel.
@@ -151,50 +151,50 @@ func (o *KmeshCgroupSockCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshCgroupSockCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockCompatMaps struct {
-	KmConfigmap         *ebpf.Map `ebpf:"km_configmap"`
-	KmEvents            *ebpf.Map `ebpf:"km_events"`
-	KmLogbuf            *ebpf.Map `ebpf:"km_logbuf"`
-	KmManage            *ebpf.Map `ebpf:"km_manage"`
-	KmSockStorage       *ebpf.Map `ebpf:"km_sockStorage"`
-	KmTmpbuf            *ebpf.Map `ebpf:"km_tmpbuf"`
-	KmeshCluster        *ebpf.Map `ebpf:"kmesh_cluster"`
-	KmeshClusterStats   *ebpf.Map `ebpf:"kmesh_cluster_stats"`
-	KmeshListener       *ebpf.Map `ebpf:"kmesh_listener"`
-	KmeshMap1600        *ebpf.Map `ebpf:"kmesh_map1600"`
-	KmeshMap192         *ebpf.Map `ebpf:"kmesh_map192"`
-	KmeshMap296         *ebpf.Map `ebpf:"kmesh_map296"`
-	KmeshMap64          *ebpf.Map `ebpf:"kmesh_map64"`
-	KmeshRatelimit      *ebpf.Map `ebpf:"kmesh_ratelimit"`
-	KmeshTailCallCtx    *ebpf.Map `ebpf:"kmesh_tail_call_ctx"`
-	KmeshTailCallProg   *ebpf.Map `ebpf:"kmesh_tail_call_prog"`
-	MapOfClusterEps     *ebpf.Map `ebpf:"map_of_cluster_eps"`
-	MapOfClusterEpsData *ebpf.Map `ebpf:"map_of_cluster_eps_data"`
-	MapOfClusterSock    *ebpf.Map `ebpf:"map_of_cluster_sock"`
-	OuterOfMaglev       *ebpf.Map `ebpf:"outer_of_maglev"`
+	KmCluster      *ebpf.Map `ebpf:"km_cluster"`
+	KmClusterEps   *ebpf.Map `ebpf:"km_cluster_eps"`
+	KmClusterSock  *ebpf.Map `ebpf:"km_cluster_sock"`
+	KmClusterstats *ebpf.Map `ebpf:"km_clusterstats"`
+	KmConfigmap    *ebpf.Map `ebpf:"km_configmap"`
+	KmEpsData      *ebpf.Map `ebpf:"km_eps_data"`
+	KmEvents       *ebpf.Map `ebpf:"km_events"`
+	KmListener     *ebpf.Map `ebpf:"km_listener"`
+	KmLogbuf       *ebpf.Map `ebpf:"km_logbuf"`
+	KmMaglevOuter  *ebpf.Map `ebpf:"km_maglev_outer"`
+	KmManage       *ebpf.Map `ebpf:"km_manage"`
+	KmRatelimit    *ebpf.Map `ebpf:"km_ratelimit"`
+	KmSockStorage  *ebpf.Map `ebpf:"km_sockStorage"`
+	KmTailcallCtx  *ebpf.Map `ebpf:"km_tailcall_ctx"`
+	KmTailcallprog *ebpf.Map `ebpf:"km_tailcallprog"`
+	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmeshMap1600   *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192    *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296    *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64     *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
 func (m *KmeshCgroupSockCompatMaps) Close() error {
 	return _KmeshCgroupSockCompatClose(
+		m.KmCluster,
+		m.KmClusterEps,
+		m.KmClusterSock,
+		m.KmClusterstats,
 		m.KmConfigmap,
+		m.KmEpsData,
 		m.KmEvents,
+		m.KmListener,
 		m.KmLogbuf,
+		m.KmMaglevOuter,
 		m.KmManage,
+		m.KmRatelimit,
 		m.KmSockStorage,
+		m.KmTailcallCtx,
+		m.KmTailcallprog,
 		m.KmTmpbuf,
-		m.KmeshCluster,
-		m.KmeshClusterStats,
-		m.KmeshListener,
 		m.KmeshMap1600,
 		m.KmeshMap192,
 		m.KmeshMap296,
 		m.KmeshMap64,
-		m.KmeshRatelimit,
-		m.KmeshTailCallCtx,
-		m.KmeshTailCallProg,
-		m.MapOfClusterEps,
-		m.MapOfClusterEpsData,
-		m.MapOfClusterSock,
-		m.OuterOfMaglev,
 	)
 }
 
