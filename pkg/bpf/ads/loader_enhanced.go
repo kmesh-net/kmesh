@@ -92,7 +92,7 @@ func (sc *BpfAds) Stop() error {
 }
 
 func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
-	return sc.SockConn.KmeshConfigMap
+	return sc.SockConn.KmConfigmap
 }
 
 func (sc *BpfAds) Load() error {
@@ -114,15 +114,15 @@ func (sc *BpfAds) Load() error {
 func (sc *BpfAds) ApiEnvCfg() error {
 	var err error
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshSockopsMaps.KmeshListener, "Listener"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshSockopsMaps.KmListener, "Listener"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.MapOfRouterConfig, "RouteConfiguration"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmRouterconfig, "RouteConfiguration"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshCluster, "Cluster"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmCluster, "Cluster"); err != nil {
 		return err
 	}
 
@@ -175,7 +175,7 @@ func (sc *BpfAds) Detach() error {
 }
 
 func (sc *BpfAds) GetClusterStatsMap() *ebpf.Map {
-	return sc.SockOps.KmeshSockopsMaps.KmeshClusterStats
+	return sc.SockOps.KmeshSockopsMaps.KmClusterstats
 }
 
 func AdsL7Enabled() bool {
