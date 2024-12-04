@@ -101,9 +101,9 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	// only support bpf log when kernel version >= 5.13
 	if !helper.KernelVersionLowerThan5_13() {
 		if c.mode == constants.KernelNativeMode {
-			logger.StartLogReader(ctx, c.bpfAdsObj.SockConn.KmeshEvents)
+			logger.StartLogReader(ctx, c.bpfAdsObj.SockConn.KmLogEvent)
 		} else if c.mode == constants.DualEngineMode {
-			logger.StartLogReader(ctx, c.bpfWorkloadObj.SockConn.KmeshEvents)
+			logger.StartLogReader(ctx, c.bpfWorkloadObj.SockConn.KmLogEvent)
 		}
 	}
 
