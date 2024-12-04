@@ -51,12 +51,13 @@ const (
 var osStartTime time.Time
 
 type MetricController struct {
-	EnableAccesslog     atomic.Bool
-	EnableMonitoring    atomic.Bool
-	workloadCache       cache.WorkloadCache
-	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
-	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
-	mutex               sync.RWMutex
+	EnableAccesslog      atomic.Bool
+	EnableMonitoring     atomic.Bool
+	EnableWorkloadMetric atomic.Bool
+	workloadCache        cache.WorkloadCache
+	workloadMetricCache  map[workloadMetricLabels]*workloadMetricInfo
+	serviceMetricCache   map[serviceMetricLabels]*serviceMetricInfo
+	mutex                sync.RWMutex
 }
 
 type workloadMetricInfo struct {
@@ -253,27 +254,21 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("get connection info failed: %v", err)
 				continue
 			}
-			workloadLabels := m.buildWorkloadMetric(&data)
 
+			workloadLabels := workloadMetricLabels{}
 			serviceLabels, accesslog := m.buildServiceMetric(&data)
+			if m.EnableWorkloadMetric.Load() {
+				workloadLabels = m.buildWorkloadMetric(&data)
+			}
 
-			workloadLabels.reporter = "-"
-			serviceLabels.reporter = "-"
-			if data.direction == constants.INBOUND {
-				workloadLabels.reporter = "destination"
-				serviceLabels.reporter = "destination"
-				accesslog.direction = "INBOUND"
-			}
-			if data.direction == constants.OUTBOUND {
-				workloadLabels.reporter = "source"
-				serviceLabels.reporter = "source"
-				accesslog.direction = "OUTBOUND"
-			}
 			if data.state == TCP_CLOSTED && m.EnableAccesslog.Load() {
 				OutputAccesslog(data, accesslog)
 			}
+
 			m.mutex.Lock()
-			m.updateWorkloadMetricCache(data, workloadLabels)
+			if m.EnableWorkloadMetric.Load() {
+				m.updateWorkloadMetricCache(data, workloadLabels)
+			}
 			m.updateServiceMetricCache(data, serviceLabels)
 			m.mutex.Unlock()
 		}
@@ -340,10 +335,19 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 	}
 
 	trafficLabels := buildWorkloadMetric(dstWorkload, srcWorkload)
+
+	if data.direction == constants.INBOUND {
+		trafficLabels.reporter = "destination"
+	}
+	if data.direction == constants.OUTBOUND {
+		trafficLabels.reporter = "source"
+	}
+
 	trafficLabels.destinationPodAddress = dstIP
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
+	trafficLabels.reporter = "-"
 
 	return trafficLabels
 }
@@ -357,11 +361,21 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 
 	dstWorkload, dstIp := m.getWorkloadByAddress(restoreIPv4(dstAddr))
 	srcWorkload, srcIp := m.getWorkloadByAddress(restoreIPv4(srcAddr))
-
 	trafficLabels, accesslog := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
+
+	if data.direction == constants.INBOUND {
+		trafficLabels.reporter = "destination"
+		accesslog.direction = "INBOUND"
+	}
+	if data.direction == constants.OUTBOUND {
+		trafficLabels.reporter = "source"
+		accesslog.direction = "OUTBOUND"
+	}
+
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
+	trafficLabels.reporter = "-"
 
 	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
 	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)

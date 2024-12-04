@@ -61,6 +61,7 @@ const (
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
 	patternMonitoring         = "/monitoring"
+	patternWorkloadMetrics    = "/workloadMetrics"
 	patternAuthz              = "/authz"
 
 	bpfLoggerName = "bpf"
@@ -102,6 +103,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
 	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
 	s.mux.HandleFunc(patternMonitoring, s.monitoringHandler)
+	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
@@ -311,6 +313,34 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.xdsClient.WorkloadController.SetMonitoringTrigger(enabled)
 	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	info := r.URL.Query().Get("enable")
+	enabled, err := strconv.ParseBool(info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", info)))
+		return
+	}
+
+	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get kmeshConfigMap: %v", err), http.StatusBadRequest)
+		return
+	}
+	if configMap.EnableMonitoring == constants.DISABLED && enabled {
+		http.Error(w, "Kmesh monitoring is disable, cannot enable accesslog.", http.StatusBadRequest)
+		return
+	}
+
+	s.xdsClient.WorkloadController.SetWorkloadMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 
