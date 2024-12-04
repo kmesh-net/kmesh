@@ -32,12 +32,6 @@ type KmeshSendmsgKmeshConfig struct {
 	EnableMonitoring uint32
 }
 
-type KmeshSendmsgLogEvent struct {
-	Ret uint32
-	Msg [255]int8
-	_   [1]byte
-}
-
 // LoadKmeshSendmsg returns the embedded CollectionSpec for KmeshSendmsg.
 func LoadKmeshSendmsg() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_KmeshSendmsgBytes)
@@ -88,8 +82,7 @@ type KmeshSendmsgProgramSpecs struct {
 type KmeshSendmsgMapSpecs struct {
 	KmConfigmap *ebpf.MapSpec `ebpf:"km_configmap"`
 	KmDstinfo   *ebpf.MapSpec `ebpf:"km_dstinfo"`
-	KmEvents    *ebpf.MapSpec `ebpf:"km_events"`
-	KmLogbuf    *ebpf.MapSpec `ebpf:"km_logbuf"`
+	KmLogEvent  *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmTmpbuf    *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 }
 
@@ -114,8 +107,7 @@ func (o *KmeshSendmsgObjects) Close() error {
 type KmeshSendmsgMaps struct {
 	KmConfigmap *ebpf.Map `ebpf:"km_configmap"`
 	KmDstinfo   *ebpf.Map `ebpf:"km_dstinfo"`
-	KmEvents    *ebpf.Map `ebpf:"km_events"`
-	KmLogbuf    *ebpf.Map `ebpf:"km_logbuf"`
+	KmLogEvent  *ebpf.Map `ebpf:"km_log_event"`
 	KmTmpbuf    *ebpf.Map `ebpf:"km_tmpbuf"`
 }
 
@@ -123,8 +115,7 @@ func (m *KmeshSendmsgMaps) Close() error {
 	return _KmeshSendmsgClose(
 		m.KmConfigmap,
 		m.KmDstinfo,
-		m.KmEvents,
-		m.KmLogbuf,
+		m.KmLogEvent,
 		m.KmTmpbuf,
 	)
 }

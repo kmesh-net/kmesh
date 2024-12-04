@@ -24,12 +24,6 @@ type KmeshCgroupSockKmeshConfig struct {
 	EnableMonitoring uint32
 }
 
-type KmeshCgroupSockLogEvent struct {
-	Ret uint32
-	Msg [255]int8
-	_   [1]byte
-}
-
 type KmeshCgroupSockManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
@@ -116,9 +110,8 @@ type KmeshCgroupSockMapSpecs struct {
 	KmClusterstats *ebpf.MapSpec `ebpf:"km_clusterstats"`
 	KmConfigmap    *ebpf.MapSpec `ebpf:"km_configmap"`
 	KmEpsData      *ebpf.MapSpec `ebpf:"km_eps_data"`
-	KmEvents       *ebpf.MapSpec `ebpf:"km_events"`
 	KmListener     *ebpf.MapSpec `ebpf:"km_listener"`
-	KmLogbuf       *ebpf.MapSpec `ebpf:"km_logbuf"`
+	KmLogEvent     *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmMaglevOuter  *ebpf.MapSpec `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
 	KmRatelimit    *ebpf.MapSpec `ebpf:"km_ratelimit"`
@@ -157,9 +150,8 @@ type KmeshCgroupSockMaps struct {
 	KmClusterstats *ebpf.Map `ebpf:"km_clusterstats"`
 	KmConfigmap    *ebpf.Map `ebpf:"km_configmap"`
 	KmEpsData      *ebpf.Map `ebpf:"km_eps_data"`
-	KmEvents       *ebpf.Map `ebpf:"km_events"`
 	KmListener     *ebpf.Map `ebpf:"km_listener"`
-	KmLogbuf       *ebpf.Map `ebpf:"km_logbuf"`
+	KmLogEvent     *ebpf.Map `ebpf:"km_log_event"`
 	KmMaglevOuter  *ebpf.Map `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
 	KmRatelimit    *ebpf.Map `ebpf:"km_ratelimit"`
@@ -181,9 +173,8 @@ func (m *KmeshCgroupSockMaps) Close() error {
 		m.KmClusterstats,
 		m.KmConfigmap,
 		m.KmEpsData,
-		m.KmEvents,
 		m.KmListener,
-		m.KmLogbuf,
+		m.KmLogEvent,
 		m.KmMaglevOuter,
 		m.KmManage,
 		m.KmRatelimit,

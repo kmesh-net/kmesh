@@ -31,6 +31,7 @@ import (
 	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 var (
@@ -97,9 +98,15 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		return nil
 	}
 
-	if err := logger.StartRingBufReader(ctx, c.mode, c.bpfConfig.BpfFsPath); err != nil {
-		return fmt.Errorf("fail to start ringbuf reader: %v", err)
+	// only support bpf log when kernel version >= 5.13
+	if !helper.KernelVersionLowerThan5_13() {
+		if c.mode == constants.KernelNativeMode {
+			logger.StartLogReader(ctx, c.bpfAdsObj.SockConn.KmLogEvent)
+		} else if c.mode == constants.DualEngineMode {
+			logger.StartLogReader(ctx, c.bpfWorkloadObj.SockConn.KmLogEvent)
+		}
 	}
+
 	// kmeshConfigMap.Monitoring initialized to uint32(1).
 	// If the startup parameter is false, update the kmeshConfigMap.
 	if !c.bpfConfig.EnableMonitoring {
