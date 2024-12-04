@@ -32,12 +32,6 @@ type KmeshXDPAuthCompatKmeshConfig struct {
 	EnableMonitoring uint32
 }
 
-type KmeshXDPAuthCompatLogEvent struct {
-	Ret uint32
-	Msg [255]int8
-	_   [1]byte
-}
-
 type KmeshXDPAuthCompatManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
@@ -106,9 +100,8 @@ type KmeshXDPAuthCompatMapSpecs struct {
 	KmBackend      *ebpf.MapSpec `ebpf:"km_backend"`
 	KmConfigmap    *ebpf.MapSpec `ebpf:"km_configmap"`
 	KmEndpoint     *ebpf.MapSpec `ebpf:"km_endpoint"`
-	KmEvents       *ebpf.MapSpec `ebpf:"km_events"`
 	KmFrontend     *ebpf.MapSpec `ebpf:"km_frontend"`
-	KmLogbuf       *ebpf.MapSpec `ebpf:"km_logbuf"`
+	KmLogEvent     *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
 	KmService      *ebpf.MapSpec `ebpf:"km_service"`
 	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
@@ -148,9 +141,8 @@ type KmeshXDPAuthCompatMaps struct {
 	KmBackend      *ebpf.Map `ebpf:"km_backend"`
 	KmConfigmap    *ebpf.Map `ebpf:"km_configmap"`
 	KmEndpoint     *ebpf.Map `ebpf:"km_endpoint"`
-	KmEvents       *ebpf.Map `ebpf:"km_events"`
 	KmFrontend     *ebpf.Map `ebpf:"km_frontend"`
-	KmLogbuf       *ebpf.Map `ebpf:"km_logbuf"`
+	KmLogEvent     *ebpf.Map `ebpf:"km_log_event"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
 	KmService      *ebpf.Map `ebpf:"km_service"`
 	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
@@ -173,9 +165,8 @@ func (m *KmeshXDPAuthCompatMaps) Close() error {
 		m.KmBackend,
 		m.KmConfigmap,
 		m.KmEndpoint,
-		m.KmEvents,
 		m.KmFrontend,
-		m.KmLogbuf,
+		m.KmLogEvent,
 		m.KmManage,
 		m.KmService,
 		m.KmSockstorage,
