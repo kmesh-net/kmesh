@@ -109,6 +109,9 @@ data:
         enabled: true
       istio:
         root_namespace: istio-system
+        gateway_api_classes:
+        - class_name: istio-waypoint
+          name: waypoint
       tracing:
         enabled: false
     identity:
