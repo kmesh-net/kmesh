@@ -300,8 +300,7 @@ data:
         - __meta_kubernetes_pod_node_name
         target_label: node
       - action: replace
-      metric_relabel_configs:
-      - source_labels: [app]
+        source_labels: [app]
         regex: 'kmesh'
         target_label: app
         replacement: 'ztunnel'
