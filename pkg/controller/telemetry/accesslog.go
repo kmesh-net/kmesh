@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"syscall"
 	"time"
+
+	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
 type logInfo struct {
@@ -32,6 +34,46 @@ type logInfo struct {
 	destinationService   string
 	destinationWorkload  string
 	destinationNamespace string
+}
+
+func NewLogInfo() *logInfo {
+	return &logInfo{
+		direction:            DEFAULT_UNKNOWN,
+		sourceAddress:        DEFAULT_UNKNOWN,
+		sourceWorkload:       DEFAULT_UNKNOWN,
+		sourceNamespace:      DEFAULT_UNKNOWN,
+		destinationAddress:   DEFAULT_UNKNOWN,
+		destinationService:   DEFAULT_UNKNOWN,
+		destinationWorkload:  DEFAULT_UNKNOWN,
+		destinationNamespace: DEFAULT_UNKNOWN,
+	}
+}
+
+func (l *logInfo) withSource(workload *workloadapi.Workload) *logInfo {
+	if workload.GetNamespace() != "" {
+		l.sourceNamespace = workload.GetNamespace()
+	}
+	if workload.GetName() != "" {
+		l.sourceWorkload = workload.GetName()
+	}
+	return l
+}
+
+func (l *logInfo) withDestination(workload *workloadapi.Workload) *logInfo {
+	if workload.GetName() != "" {
+		l.destinationWorkload = workload.GetName()
+	}
+	return l
+}
+
+func (l *logInfo) withDestinationService(service *workloadapi.Service) *logInfo {
+	if service.GetNamespace() != "" {
+		l.destinationNamespace = service.GetNamespace()
+	}
+	if service.GetHostname() != "" {
+		l.destinationService = service.GetHostname()
+	}
+	return l
 }
 
 func OutputAccesslog(data requestMetric, accesslog logInfo) {
