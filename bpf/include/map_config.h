@@ -9,7 +9,6 @@
 #define map_of_sock_storage km_sockstorage
 #define tmp_buf             km_tmpbuf
 #define kmesh_config_map    km_configmap
-#define kmesh_events        km_events
-#define tmp_log_buf         km_logbuf
+#define kmesh_log_events    km_log_event
 
 #endif // _MAP_CONFIG_H_
