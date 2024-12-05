@@ -35,7 +35,7 @@ import (
 const (
 	patternAccesslog       = "/accesslog"
 	patternMonitoring      = "/monitoring"
-	patternWorkloadMetrics = "/workloadMetrics"
+	patternWorkloadMetrics = "/workload_metrics"
 )
 
 var log = logger.NewLoggerScope("kmeshctl/monitoring")
@@ -47,10 +47,10 @@ func NewCmd() *cobra.Command {
 		Example: `# Enable/Disable Kmesh's accesslog:
 kmeshctl monitoring <kmesh-daemon-pod> --accesslog enable/disable
 
-# Enable/Disable Kmesh's metrics and accesslog:
+# Enable/Disable Kmesh's metrics(to-service and to-pod) and accesslog:
 kmeshctl monitoring <kmesh-daemon-pod> --all enable/disable
 
-# Enable/Disable Kmesh's workload metrics:
+# Enable/Disable Kmesh's metrics to connections between pods:
 kmeshctl monitoring <kmesh-daemon-pod> --workloadMetrics enable/disable
 
 # If you want to change the monitoring functionality of all kmesh daemons in the cluster
@@ -63,8 +63,8 @@ kmeshctl monitoring --all enable/disable`,
 		},
 	}
 	cmd.Flags().String("accesslog", "", "Control accesslog enable or disable")
-	cmd.Flags().String("all", "", "Control accesslog and metrics enable or disable together")
-	cmd.Flags().String("workloadMetrics", "", "Control Metrics for workload enable or disable")
+	cmd.Flags().String("all", "", "Control accesslog and metrics(to-service and to-pod) enable or disable together")
+	cmd.Flags().String("workloadMetrics", "", "Control metrics to connections between pods enable or disable")
 	return cmd
 }
 

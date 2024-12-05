@@ -61,7 +61,7 @@ const (
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
 	patternMonitoring         = "/monitoring"
-	patternWorkloadMetrics    = "/workloadMetrics"
+	patternWorkloadMetrics    = "/workload_metrics"
 	patternAuthz              = "/authz"
 
 	bpfLoggerName = "bpf"
@@ -313,6 +313,7 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.xdsClient.WorkloadController.SetMonitoringTrigger(enabled)
 	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
+	s.xdsClient.WorkloadController.SetWorkloadMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 

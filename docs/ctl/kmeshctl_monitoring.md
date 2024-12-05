@@ -12,10 +12,10 @@ kmeshctl monitoring [flags]
 # Enable/Disable Kmesh's accesslog:
 kmeshctl monitoring <kmesh-daemon-pod> --accesslog enable/disable
 
-# Enable/Disable Kmesh's metrics and accesslog:
+# Enable/Disable Kmesh's metrics(to-service and to-pod) and accesslog:
 kmeshctl monitoring <kmesh-daemon-pod> --all enable/disable
 
-# Enable/Disable Kmesh's workload metrics:
+# Enable/Disable Kmesh's metrics to connections between pods:
 kmeshctl monitoring <kmesh-daemon-pod> --workloadMetrics enable/disable
 
 # If you want to change the monitoring functionality of all kmesh daemons in the cluster
@@ -28,9 +28,9 @@ kmeshctl monitoring --all enable/disable
 
 ```
       --accesslog string         Control accesslog enable or disable
-      --all string               Control accesslog and metrics enable or disable together
+      --all string               Control accesslog and metrics(to-service and to-pod) enable or disable together
   -h, --help                     help for monitoring
-      --workloadMetrics string   Control Metrics for workload enable or disable
+      --workloadMetrics string   Control metrics to connections between pods enable or disable
 ```
 
 ### SEE ALSO
