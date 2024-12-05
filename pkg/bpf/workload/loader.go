@@ -39,6 +39,7 @@ type BpfWorkload struct {
 	SockOps  BpfSockOpsWorkload
 	XdpAuth  BpfXdpAuthWorkload
 	SendMsg  BpfSendMsgWorkload
+	Tc       BpfTCWorkload
 }
 
 type BpfInfo struct {
@@ -67,6 +68,10 @@ func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
 
 	// we must pass pointer here, because workloadObj.SockOps will be modified during loading
 	if err := workloadObj.SendMsg.NewBpf(cfg, &workloadObj.SockOps); err != nil {
+		return nil, err
+	}
+
+	if err := workloadObj.Tc.NewBpf(cfg); err != nil {
 		return nil, err
 	}
 
@@ -123,6 +128,10 @@ func (w *BpfWorkload) Load() error {
 	if err := w.SendMsg.LoadSendMsg(); err != nil {
 		return err
 	}
+
+	if err := w.Tc.LoadTC(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -156,6 +165,10 @@ func (w *BpfWorkload) Detach() error {
 	}
 
 	if err := w.XdpAuth.Close(); err != nil {
+		return err
+	}
+
+	if err := w.Tc.Close(); err != nil {
 		return err
 	}
 
