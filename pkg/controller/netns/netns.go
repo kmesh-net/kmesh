@@ -37,6 +37,11 @@ var (
 	FS embed.FS
 )
 
+func GetNodeNSpath() string {
+	res := path.Join("/host/proc", "1", "ns", "net")
+	return res
+}
+
 func GetPodNSpath(pod *corev1.Pod) (string, error) {
 	res, err := FindNetnsForPod(pod)
 	if err != nil {
@@ -53,7 +58,8 @@ func builtinOrDir(dir string) fs.FS {
 	return os.DirFS(dir)
 }
 
-func FindNetnsForPod(pod *corev1.Pod) (string, error) {
+func findNetnsByUID(desiredUID types.UID) (string, error) {
+	log.Debugf("target desiredUID is %v", desiredUID)
 	netnsObserved := sets.New[uint64]()
 	fd := builtinOrDir("/host/proc")
 
@@ -61,8 +67,6 @@ func FindNetnsForPod(pod *corev1.Pod) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
-	desiredUID := pod.UID
 	for _, entry := range entries {
 		res, err := processEntry(fd, netnsObserved, desiredUID, entry)
 		if err != nil {
@@ -74,6 +78,11 @@ func FindNetnsForPod(pod *corev1.Pod) (string, error) {
 		}
 	}
 	return "", fmt.Errorf("No matching network namespace found")
+}
+
+func FindNetnsForPod(pod *corev1.Pod) (string, error) {
+	desiredUID := pod.UID
+	return findNetnsByUID(desiredUID)
 }
 
 func isNotNumber(r rune) bool {

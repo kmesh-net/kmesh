@@ -20,6 +20,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	kni_versioned "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned"
 )
 
 func GetK8sclient() (kubernetes.Interface, error) {
@@ -36,6 +38,21 @@ func GetK8sclient() (kubernetes.Interface, error) {
 		return nil, err
 	}
 
+	return clientset, nil
+}
+
+func GetKmeshNodeInfoClient() (kni_versioned.Interface, error) {
+	var clientset kni_versioned.Interface
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create kmesh node info clientset
+	clientset, err = kni_versioned.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
 	return clientset, nil
 }
 
