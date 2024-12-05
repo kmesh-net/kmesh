@@ -57,7 +57,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 		c.Processor.bpf.RestoreEndpointKeys()
 	}
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
-	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, enableMonitoring)
+	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, c.Processor.ServiceCache, enableMonitoring)
 	if enablePerfMonitor {
 		c.OperationMetricController = telemetry.NewBpfProgMetric()
 		c.MapMetricController = telemetry.NewMapMetric()

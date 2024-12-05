@@ -833,7 +833,7 @@ func buildL4Query(src, dst echo.Instance) prometheus.Query {
 		"destination_canonical_service":  dst.ServiceName(),
 		"destination_canonical_revision": dst.Config().Version,
 		"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
-		"destination_service_name":       fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
+		"destination_service_name":       dst.Config().Service,
 		"destination_service_namespace":  destns,
 		"destination_principal":          "-",
 		"destination_version":            dst.Config().Version,

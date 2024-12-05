@@ -29,7 +29,7 @@ type WaypointCache interface {
 	DeleteService(resourceName string)
 	// AddOrUpdateWorkload add or update workload in this cache, return true if the
 	// workload's waypoint doesn't need to be resolved or resolved successfully.
-	AddOrUpateWorkload(workload *workloadapi.Workload) bool
+	AddOrUpdateWorkload(workload *workloadapi.Workload) bool
 	DeleteWorkload(uid string)
 
 	// Refresh is used to process waypoint service.
@@ -148,12 +148,12 @@ func (w *waypointCache) DeleteService(resourceName string) {
 	delete(w.waypointAssociatedObjects, resourceName)
 }
 
-func (w *waypointCache) AddOrUpateWorkload(workload *workloadapi.Workload) bool {
+func (w *waypointCache) AddOrUpdateWorkload(workload *workloadapi.Workload) bool {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
 	uid := workload.GetUid()
-	// If this is a workload withwaypoint or  with an IP address type waypoint, no processing is required and
+	// If this is a workload with waypoint or with an IP address type waypoint, no processing is required and
 	// return directly.
 	if workload.GetWaypoint() == nil || workload.GetWaypoint().GetAddress() != nil {
 		// Workload may become unassociated with waypoint.
