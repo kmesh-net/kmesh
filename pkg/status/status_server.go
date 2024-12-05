@@ -336,7 +336,7 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if configMap.EnableMonitoring == constants.DISABLED && enabled {
-		http.Error(w, "Kmesh monitoring is disable, cannot enable accesslog.", http.StatusBadRequest)
+		http.Error(w, "Kmesh monitoring is disable, cannot enable workload metrics.", http.StatusBadRequest)
 		return
 	}
 

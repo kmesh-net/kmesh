@@ -16,10 +16,11 @@ kmeshctl monitoring <kmesh-daemon-pod> --accesslog enable/disable
 kmeshctl monitoring <kmesh-daemon-pod> --all enable/disable
 
 # Enable/Disable Kmesh's workload metrics:
-kmeshctl monitoring <kmesh-daemon-pod> --workloadMetrics enbale/disable
+kmeshctl monitoring <kmesh-daemon-pod> --workloadMetrics enable/disable
 
 # If you want to change the monitoring functionality of all kmesh daemons in the cluster
 kmeshctl monitoring --accesslog enable/disable
+kmeshctl monitoring --workloadMetrics enable/disable
 kmeshctl monitoring --all enable/disable
 ```
 
