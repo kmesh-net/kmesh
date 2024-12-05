@@ -32,6 +32,7 @@ type BpfConfig struct {
 	EnableMda       bool
 	EnableBpfLog    bool
 	EnableAccesslog bool
+	EnableIpsec     bool
 }
 
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
@@ -41,6 +42,7 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 	cmd.PersistentFlags().BoolVar(&c.EnableBpfLog, "enable-bpf-log", false, "enable ebpf log in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnableAccesslog, "enable-accesslog", false, "enable accesslog in daemon process")
+	cmd.PersistentFlags().BoolVar(&c.EnableIpsec, "enable-ipsec", false, "enable ipsec in daemon process")
 }
 
 func (c *BpfConfig) ParseConfig() error {
