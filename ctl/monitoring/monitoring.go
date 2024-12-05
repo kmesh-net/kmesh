@@ -50,7 +50,7 @@ kmeshctl monitoring <kmesh-daemon-pod> --accesslog enable/disable
 # Enable/Disable Kmesh's metrics(to-service and to-pod) and accesslog:
 kmeshctl monitoring <kmesh-daemon-pod> --all enable/disable
 
-# Enable/Disable Kmesh's metrics to connections between pods:
+# Enable/Disable Kmesh's metrics of connections between pods:
 kmeshctl monitoring <kmesh-daemon-pod> --workloadMetrics enable/disable
 
 # If you want to change the monitoring functionality of all kmesh daemons in the cluster
@@ -64,7 +64,7 @@ kmeshctl monitoring --all enable/disable`,
 	}
 	cmd.Flags().String("accesslog", "", "Control accesslog enable or disable")
 	cmd.Flags().String("all", "", "Control accesslog and metrics(to-service and to-pod) enable or disable together")
-	cmd.Flags().String("workloadMetrics", "", "Control metrics to connections between pods enable or disable")
+	cmd.Flags().String("workloadMetrics", "", "Control metrics of connections between pods enable or disable")
 	return cmd
 }
 
@@ -78,7 +78,7 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 	allFlag, _ := cmd.Flags().GetString("all")
 	workloadMetricsFlag, _ := cmd.Flags().GetString("workloadMetrics")
 	if accesslogFlag == "" && allFlag == "" && workloadMetricsFlag == "" {
-		log.Print("no parameters. Need --accesslog or --all")
+		log.Print("no parameters. Need --accesslog, --workloadMetric or --all")
 		return
 	}
 
