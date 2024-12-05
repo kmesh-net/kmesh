@@ -335,6 +335,7 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 	}
 
 	trafficLabels := buildWorkloadMetric(dstWorkload, srcWorkload)
+	trafficLabels.reporter = "-"
 
 	if data.direction == constants.INBOUND {
 		trafficLabels.reporter = "destination"
@@ -347,7 +348,6 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
-	trafficLabels.reporter = "-"
 
 	return trafficLabels
 }
@@ -362,6 +362,7 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 	dstWorkload, dstIp := m.getWorkloadByAddress(restoreIPv4(dstAddr))
 	srcWorkload, srcIp := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 	trafficLabels, accesslog := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
+	trafficLabels.reporter = "-"
 
 	if data.direction == constants.INBOUND {
 		trafficLabels.reporter = "destination"
@@ -375,7 +376,6 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
-	trafficLabels.reporter = "-"
 
 	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
 	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)
