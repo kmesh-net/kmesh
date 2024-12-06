@@ -95,7 +95,7 @@ func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 	)
 
 	opts.Maps.PinPath = sc.Info.MapPath
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmTailcallprog.Update(
 		uint32(KMESH_TAIL_CALL_FILTER_CHAIN),
 		uint32(sc.FilterChainManager.FD()),
 		ebpf.UpdateAny)
@@ -103,7 +103,7 @@ func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 		return nil, err
 	}
 
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmTailcallprog.Update(
 		uint32(KMESH_TAIL_CALL_FILTER),
 		uint32(sc.FilterManager.FD()),
 		ebpf.UpdateAny)
@@ -121,7 +121,7 @@ func (sc *BpfSockOps) loadRouteConfigObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmTailcallprog.Update(
 		uint32(KMESH_TAIL_CALL_ROUTER_CONFIG),
 		uint32(sc.RouteConfigManager.FD()),
 		ebpf.UpdateAny)
@@ -139,7 +139,7 @@ func (sc *BpfSockOps) loadKmeshClusterObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmTailcallprog.Update(
 		uint32(KMESH_TAIL_CALL_CLUSTER),
 		uint32(sc.ClusterManager.FD()),
 		ebpf.UpdateAny)
@@ -208,7 +208,7 @@ func (sc *BpfSockOps) Attach() error {
 			return err
 		}
 	}
-	if err = sc.KmeshSockopsMaps.KmeshTailCallProg.Pin(tailCallmapPinPath); err != nil {
+	if err = sc.KmeshSockopsMaps.KmTailcallprog.Pin(tailCallmapPinPath); err != nil {
 		return err
 	}
 	return nil
