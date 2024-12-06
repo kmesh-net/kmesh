@@ -1,3 +1,19 @@
+/*
+ * Copyright The Kmesh Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package common
 
 import (
@@ -72,43 +88,87 @@ func ResolveWaypoint(waypoint string) *workloadapi.GatewayAddress {
 	}
 	return w
 }
-func CreateFakeWorkload(ip string, waypoint string, optional ...interface{}) *workloadapi.Workload {
-	w := ResolveWaypoint(waypoint)
 
-	workload := &workloadapi.Workload{
-		Uid:       "cluster0/" + rand.String(6),
-		Namespace: "ns",
-		Name:      "name",
-		Addresses: [][]byte{netip.MustParseAddr(ip).AsSlice()},
-		Waypoint:  w,
+func CreateFakeWorkload(params ...interface{}) *workloadapi.Workload {
+	var (
+		name, ip, nodeName, waypoint *string
+		networkMode                  = workloadapi.NetworkMode_STANDARD
+		locality                     *workloadapi.Locality
+		services                     []string
+		uid                          *string
+	)
+
+	for _, param := range params {
+		switch v := param.(type) {
+		case *string:
+			if name == nil {
+				name = v
+			} else if ip == nil {
+				ip = v
+			} else if nodeName == nil {
+				nodeName = v
+			} else if waypoint == nil {
+				waypoint = v
+			} else if uid == nil {
+				uid = v
+			}
+		case string:
+			if name == nil {
+				name = stringPtr(v)
+			} else if ip == nil {
+				ip = stringPtr(v)
+			} else {
+				services = append(services, v)
+			}
+		case workloadapi.NetworkMode:
+			networkMode = v
+		case *workloadapi.Locality:
+			locality = v
+		case []string:
+			services = append(services, v...)
+		}
 	}
 
-	if len(optional) > 0 {
-		if networkMode, ok := optional[0].(workloadapi.NetworkMode); ok {
-			workload.Network = "testnetwork"
-			workload.CanonicalName = "foo"
-			workload.CanonicalRevision = "latest"
-			workload.WorkloadType = workloadapi.WorkloadType_POD
-			workload.WorkloadName = "name"
-			workload.Status = workloadapi.WorkloadStatus_HEALTHY
-			workload.ClusterId = "cluster0"
-			workload.NetworkMode = networkMode
-			workload.Services = map[string]*workloadapi.PortList{
-				"default/testsvc.default.svc.cluster.local": {
-					Ports: []*workloadapi.Port{
-						{
-							ServicePort: 80,
-							TargetPort:  8080,
-						},
-						{
-							ServicePort: 81,
-							TargetPort:  8180,
-						},
-						{
-							ServicePort: 82,
-							TargetPort:  82,
-						},
-					},
+	if uid == nil {
+		generatedUid := "cluster0/" + rand.String(6)
+		if name != nil {
+			generatedUid = "cluster0//Pod/default/" + *name
+		}
+		uid = stringPtr(generatedUid)
+	}
+
+	workload := &workloadapi.Workload{
+		Uid:               *uid,
+		Name:              *name,
+		Node:              *nodeName,
+		Namespace:         "default",
+		Network:           "testnetwork",
+		CanonicalName:     "foo",
+		CanonicalRevision: "latest",
+		WorkloadType:      workloadapi.WorkloadType_POD,
+		WorkloadName:      "name",
+		Status:            workloadapi.WorkloadStatus_HEALTHY,
+		ClusterId:         "cluster0",
+		NetworkMode:       networkMode,
+		Locality:          locality,
+	}
+
+	if ip != nil {
+		workload.Addresses = [][]byte{netip.MustParseAddr(*ip).AsSlice()}
+	}
+
+	if waypoint != nil {
+		workload.Waypoint = ResolveWaypoint(*waypoint)
+	}
+
+	if len(services) > 0 {
+		workload.Services = make(map[string]*workloadapi.PortList, len(services))
+		for _, svc := range services {
+			workload.Services["default/"+svc+".default.svc.cluster.local"] = &workloadapi.PortList{
+				Ports: []*workloadapi.Port{
+					{ServicePort: 80, TargetPort: 8080},
+					{ServicePort: 81, TargetPort: 8180},
+					{ServicePort: 82, TargetPort: 82},
 				},
 			}
 		}
@@ -116,3 +176,52 @@ func CreateFakeWorkload(ip string, waypoint string, optional ...interface{}) *wo
 
 	return workload
 }
+
+func stringPtr(s string) *string {
+	return &s
+}
+
+// func CreateFakeWorkload(ip string, waypoint string, optional ...interface{}) *workloadapi.Workload {
+// 	w := ResolveWaypoint(waypoint)
+
+// 	workload := &workloadapi.Workload{
+// 		Uid:       "cluster0/" + rand.String(6),
+// 		Namespace: "ns",
+// 		Name:      "name",
+// 		Addresses: [][]byte{netip.MustParseAddr(ip).AsSlice()},
+// 		Waypoint:  w,
+// 	}
+
+// 	if len(optional) > 0 {
+// 		if networkMode, ok := optional[0].(workloadapi.NetworkMode); ok {
+// 			workload.Network = "testnetwork"
+// 			workload.CanonicalName = "foo"
+// 			workload.CanonicalRevision = "latest"
+// 			workload.WorkloadType = workloadapi.WorkloadType_POD
+// 			workload.WorkloadName = "name"
+// 			workload.Status = workloadapi.WorkloadStatus_HEALTHY
+// 			workload.ClusterId = "cluster0"
+// 			workload.NetworkMode = networkMode
+// 			workload.Services = map[string]*workloadapi.PortList{
+// 				"default/testsvc.default.svc.cluster.local": {
+// 					Ports: []*workloadapi.Port{
+// 						{
+// 							ServicePort: 80,
+// 							TargetPort:  8080,
+// 						},
+// 						{
+// 							ServicePort: 81,
+// 							TargetPort:  8180,
+// 						},
+// 						{
+// 							ServicePort: 82,
+// 							TargetPort:  82,
+// 						},
+// 					},
+// 				},
+// 			}
+// 		}
+// 	}
+
+// 	return workload
+// }

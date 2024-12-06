@@ -425,44 +425,6 @@ func resolveWaypoint(waypoint string) *workloadapi.GatewayAddress {
 	return w
 }
 
-// func createFakeWorkload(ip string, waypoint string, networkMode workloadapi.NetworkMode) *workloadapi.Workload {
-// 	w := resolveWaypoint(waypoint)
-
-// 	workload := workloadapi.Workload{
-// 		Namespace:         "ns",
-// 		Name:              "name",
-// 		Addresses:         [][]byte{netip.MustParseAddr(ip).AsSlice()},
-// 		Network:           "testnetwork",
-// 		CanonicalName:     "foo",
-// 		CanonicalRevision: "latest",
-// 		WorkloadType:      workloadapi.WorkloadType_POD,
-// 		WorkloadName:      "name",
-// 		Status:            workloadapi.WorkloadStatus_HEALTHY,
-// 		ClusterId:         "cluster0",
-// 		NetworkMode:       networkMode,
-// 		Waypoint:          w,
-// 		Services: map[string]*workloadapi.PortList{
-// 			"default/testsvc.default.svc.cluster.local": {
-// 				Ports: []*workloadapi.Port{
-// 					{
-// 						ServicePort: 80,
-// 						TargetPort:  8080,
-// 					},
-// 					{
-// 						ServicePort: 81,
-// 						TargetPort:  8180,
-// 					},
-// 					{
-// 						ServicePort: 82,
-// 						TargetPort:  82,
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	workload.Uid = "cluster0/" + rand.String(6)
-// 	return &workload
-// }
 
 func createLoadBalancing(mode workloadapi.LoadBalancing_Mode, scopes []workloadapi.LoadBalancing_Scope) *workloadapi.LoadBalancing {
 	return &workloadapi.LoadBalancing{
@@ -471,36 +433,6 @@ func createLoadBalancing(mode workloadapi.LoadBalancing_Mode, scopes []workloada
 	}
 }
 
-// func createFakeService(name, ip, waypoint string, lbPolicy *workloadapi.LoadBalancing) *workloadapi.Service {
-// 	w := resolveWaypoint(waypoint)
-
-// 	return &workloadapi.Service{
-// 		Name:      name,
-// 		Namespace: "default",
-// 		Hostname:  name + ".default.svc.cluster.local",
-// 		Addresses: []*workloadapi.NetworkAddress{
-// 			{
-// 				Address: netip.MustParseAddr(ip).AsSlice(),
-// 			},
-// 		},
-// 		Ports: []*workloadapi.Port{
-// 			{
-// 				ServicePort: 80,
-// 				TargetPort:  8080,
-// 			},
-// 			{
-// 				ServicePort: 81,
-// 				TargetPort:  8180,
-// 			},
-// 			{
-// 				ServicePort: 82,
-// 				TargetPort:  82,
-// 			},
-// 		},
-// 		Waypoint:      w,
-// 		LoadBalancing: lbPolicy,
-// 	}
-// }
 
 func createLocality(region, zone, subzone string) *workloadapi.Locality {
 	return &workloadapi.Locality{
