@@ -130,9 +130,13 @@ static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
 
 #define GET_SKOPS_LOCAL_PORT(sk_ops) (__u16)((sk_ops)->local_port)
 
-#define MAX_BUF_LEN 100
-#define MAX_IP4_LEN 16
-#define MAX_IP6_LEN 40
+#define MAX_BUF_LEN  100
+#define MAX_IP4_LEN  16
+#define MAX_IP6_LEN  40
+#define IPv4_U32_LEN 4
+#define IPv6_U32_LEN 16
+#define IPv4_VERSION 4
+#define IPv6_VERSION 6
 
 struct buf {
     char data[MAX_IP6_LEN];
