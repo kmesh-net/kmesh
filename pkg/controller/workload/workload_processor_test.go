@@ -19,7 +19,6 @@ package workload
 import (
 	"net/netip"
 	"os"
-	"strings"
 	"testing"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -396,43 +395,12 @@ func createTestWorkloadWithService(withService bool) *workloadapi.Workload {
 	return &workload
 }
 
-func resolveWaypoint(waypoint string) *workloadapi.GatewayAddress {
-	var w *workloadapi.GatewayAddress
-	if waypoint != "" {
-		res := strings.Split(waypoint, "/")
-		if len(res) == 2 {
-			w = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Hostname{
-					Hostname: &workloadapi.NamespacedHostname{
-						Namespace: res[0],
-						Hostname:  res[1],
-					},
-				},
-				HboneMtlsPort: 15008,
-			}
-		} else {
-			w = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Address{
-					Address: &workloadapi.NetworkAddress{
-						Address: netip.MustParseAddr(waypoint).AsSlice(),
-					},
-				},
-				HboneMtlsPort: 15008,
-			}
-		}
-	}
-
-	return w
-}
-
-
 func createLoadBalancing(mode workloadapi.LoadBalancing_Mode, scopes []workloadapi.LoadBalancing_Scope) *workloadapi.LoadBalancing {
 	return &workloadapi.LoadBalancing{
 		RoutingPreference: scopes,
 		Mode:              mode,
 	}
 }
-
 
 func createLocality(region, zone, subzone string) *workloadapi.Locality {
 	return &workloadapi.Locality{

@@ -94,10 +94,12 @@ func CreateFakeWorkload(params ...interface{}) *workloadapi.Workload {
 		name, ip, nodeName, waypoint *string
 		networkMode                  = workloadapi.NetworkMode_STANDARD
 		locality                     *workloadapi.Locality
-		services                     []string
+		servicesMap                  map[string][]*workloadapi.Port
 		uid                          *string
+		network                      *string
 	)
 
+	// Process the params
 	for _, param := range params {
 		switch v := param.(type) {
 		case *string:
@@ -111,24 +113,27 @@ func CreateFakeWorkload(params ...interface{}) *workloadapi.Workload {
 				waypoint = v
 			} else if uid == nil {
 				uid = v
+			} else if network == nil {
+				network = v
 			}
 		case string:
 			if name == nil {
 				name = stringPtr(v)
 			} else if ip == nil {
 				ip = stringPtr(v)
-			} else {
-				services = append(services, v)
+			} else if network == nil {
+				network = stringPtr(v)
 			}
 		case workloadapi.NetworkMode:
 			networkMode = v
 		case *workloadapi.Locality:
 			locality = v
-		case []string:
-			services = append(services, v...)
+		case map[string][]*workloadapi.Port:
+			servicesMap = v
 		}
 	}
 
+	// Set default UID if not provided
 	if uid == nil {
 		generatedUid := "cluster0/" + rand.String(6)
 		if name != nil {
@@ -137,12 +142,13 @@ func CreateFakeWorkload(params ...interface{}) *workloadapi.Workload {
 		uid = stringPtr(generatedUid)
 	}
 
+	// Create the workload object with default values
 	workload := &workloadapi.Workload{
 		Uid:               *uid,
 		Name:              *name,
 		Node:              *nodeName,
 		Namespace:         "default",
-		Network:           "testnetwork",
+		Network:           *network,
 		CanonicalName:     "foo",
 		CanonicalRevision: "latest",
 		WorkloadType:      workloadapi.WorkloadType_POD,
@@ -153,30 +159,28 @@ func CreateFakeWorkload(params ...interface{}) *workloadapi.Workload {
 		Locality:          locality,
 	}
 
+	// Assign IP address if provided
 	if ip != nil {
 		workload.Addresses = [][]byte{netip.MustParseAddr(*ip).AsSlice()}
 	}
 
+	// Assign waypoint if provided
 	if waypoint != nil {
 		workload.Waypoint = ResolveWaypoint(*waypoint)
 	}
 
-	if len(services) > 0 {
-		workload.Services = make(map[string]*workloadapi.PortList, len(services))
-		for _, svc := range services {
-			workload.Services["default/"+svc+".default.svc.cluster.local"] = &workloadapi.PortList{
-				Ports: []*workloadapi.Port{
-					{ServicePort: 80, TargetPort: 8080},
-					{ServicePort: 81, TargetPort: 8180},
-					{ServicePort: 82, TargetPort: 82},
-				},
-			}
+	// Assign services map if provided
+	if servicesMap != nil {
+		workload.Services = make(map[string]*workloadapi.PortList, len(servicesMap))
+		for svc, ports := range servicesMap {
+			workload.Services["default/"+svc+".default.svc.cluster.local"] = &workloadapi.PortList{Ports: ports}
 		}
 	}
 
 	return workload
 }
 
+// stringPtr is a helper function to convert a string to a pointer.
 func stringPtr(s string) *string {
 	return &s
 }
