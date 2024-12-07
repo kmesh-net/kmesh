@@ -11,13 +11,15 @@
 #include "workloadapi/security/authorization.pb-c.h"
 #include "config.h"
 
-#define AUTH_ALLOW  0
-#define AUTH_DENY   1
-#define UNMATCHED   0
-#define MATCHED     1
-#define UNSUPPORTED 2
-#define TYPE_SRCIP  (1)
-#define TYPE_DSTIP  (1 << 1)
+#define AUTH_ALLOW      0
+#define AUTH_DENY       1
+#define UNMATCHED       0
+#define MATCHED         1
+#define UNSUPPORTED     2
+#define TYPE_SRCIP      (1)
+#define TYPE_DSTIP      (1 << 1)
+#define CONVERT_FAILED  1
+#define CONVERT_SUCCESS 0
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -71,12 +73,12 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
     begin = info->ethh + 1;
     if ((begin + 1) > end)
         return PARSER_FAILED;
-    if (((struct iphdr *)begin)->version == 4) {
+    if (((struct iphdr *)begin)->version == IPv4_VERSION) {
         info->iph = (struct iphdr *)begin;
         if ((void *)(info->iph + 1) > end || (info->iph->protocol != IPPROTO_TCP))
             return PARSER_FAILED;
         begin = (info->iph + 1);
-    } else if (((struct iphdr *)begin)->version == 6) {
+    } else if (((struct iphdr *)begin)->version == IPv6_VERSION) {
         info->ip6h = (struct ipv6hdr *)begin;
         if ((void *)(info->ip6h + 1) > end || (info->ip6h->nexthdr != IPPROTO_TCP))
             return PARSER_FAILED;
@@ -92,7 +94,7 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 
 static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
-    if (info->iph->version == 4) {
+    if (info->iph->version == IPv4_VERSION) {
         tuple_info->ipv4.saddr = info->iph->saddr;
         tuple_info->ipv4.daddr = info->iph->daddr;
         tuple_info->ipv4.sport = info->tcph->source;
@@ -140,7 +142,7 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
             if (i >= match->n_not_destination_ports) {
                 break;
             }
-            if (info->iph->version == 4) {
+            if (info->iph->version == IPv4_VERSION) {
                 if (bpf_htons(notPorts[i]) == tuple_info->ipv4.dport) {
                     BPF_LOG(DEBUG, AUTH, "port %u in not_destination_ports, unmatched", notPorts[i]);
                     return UNMATCHED;
@@ -169,7 +171,7 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
         if (i >= match->n_destination_ports) {
             break;
         }
-        if (info->iph->version == 4) {
+        if (info->iph->version == IPv4_VERSION) {
             if (bpf_htons(ports[i]) == tuple_info->ipv4.dport) {
                 BPF_LOG(INFO, AUTH, "port %u in destination_ports, matched", ports[i]);
                 return MATCHED;
@@ -203,14 +205,14 @@ static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_d
 static inline __u32 convert_ipv6_to_u32(struct ip_addr *rule_addr, const struct ProtobufCBinaryData *ipv6_data)
 {
     if (!rule_addr || !ipv6_data)
-        return 1;
+        return CONVERT_FAILED;
     if (!ipv6_data->data || ipv6_data->len != 16) {
-        return 1;
+        return CONVERT_FAILED;
     }
 
     unsigned char *v6addr = (unsigned char *)KMESH_GET_PTR_VAL(ipv6_data->data, unsigned char *);
     if (!v6addr) {
-        return 1;
+        return CONVERT_FAILED;
     }
 
     for (int i = 0; i < 4; i++) {
@@ -219,7 +221,7 @@ static inline __u32 convert_ipv6_to_u32(struct ip_addr *rule_addr, const struct 
         }
     }
 
-    return 0;
+    return CONVERT_SUCCESS;
 }
 
 // reference cilium https://github.com/cilium/cilium/blob/main/bpf/lib/ipv6.h#L122
@@ -273,7 +275,7 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
         return UNMATCHED;
     }
 
-    if (addrInfo->len == 4) {
+    if (addrInfo->len == IPv4_VERSION) {
         __u32 rule_ip = convert_ipv4_to_u32(addrInfo);
         if (type & TYPE_SRCIP) {
             BPF_LOG(
@@ -302,7 +304,7 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
             struct ip_addr target_addr = {0};
 
             int ret = convert_ipv6_to_u32(&rule_addr, addrInfo);
-            if (ret != 0) {
+            if (ret != CONVERT_SUCCESS) {
                 BPF_LOG(ERR, AUTH, "Failed to convert IPv6 address to u32 format\n");
                 return UNMATCHED;
             }
@@ -315,7 +317,7 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
         struct ip_addr target_addr = {0};
 
         int ret = convert_ipv6_to_u32(&rule_addr, addrInfo);
-        if (ret != 0) {
+        if (ret != CONVERT_SUCCESS) {
             BPF_LOG(ERR, AUTH, "Failed to convert IPv6 address to u32 format\n");
             return UNMATCHED;
         }
