@@ -23,7 +23,6 @@ import (
 	"fmt"
 	"net/netip"
 	"reflect"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,6 +45,8 @@ const (
 	MSG_LEN = 112
 
 	metricFlushInterval = 5 * time.Second
+
+	DEFAULT_UNKNOWN = "-"
 )
 
 var osStartTime time.Time
@@ -54,6 +55,7 @@ type MetricController struct {
 	EnableAccesslog     atomic.Bool
 	EnableMonitoring    atomic.Bool
 	workloadCache       cache.WorkloadCache
+	serviceCache        cache.ServiceCache
 	workloadMetricCache map[workloadMetricLabels]*workloadMetricInfo
 	serviceMetricCache  map[serviceMetricLabels]*serviceMetricInfo
 	mutex               sync.RWMutex
@@ -176,9 +178,90 @@ type serviceMetricLabels struct {
 	connectionSecurityPolicy string
 }
 
-func NewMetric(workloadCache cache.WorkloadCache, enableMonitoring bool) *MetricController {
+func NewServiceMetricLabel() *serviceMetricLabels {
+	return &serviceMetricLabels{}
+}
+
+func NewWorkloadMetricLabel() *workloadMetricLabels {
+	return &workloadMetricLabels{}
+}
+
+func (w *workloadMetricLabels) withSource(workload *workloadapi.Workload) *workloadMetricLabels {
+	if workload == nil {
+		return w
+	}
+	w.sourceWorkload = workload.GetWorkloadName()
+	w.sourceCanonicalService = workload.GetCanonicalName()
+	w.sourceCanonicalRevision = workload.GetCanonicalRevision()
+	w.sourceWorkloadNamespace = workload.GetNamespace()
+	w.sourceApp = workload.GetCanonicalName()
+	w.sourceVersion = workload.GetCanonicalRevision()
+	w.sourceCluster = workload.GetClusterId()
+	w.sourcePrincipal = buildPrincipal(workload)
+	return w
+}
+
+func (w *workloadMetricLabels) withDestination(workload *workloadapi.Workload) *workloadMetricLabels {
+	if workload == nil {
+		return w
+	}
+	w.destinationPodNamespace = workload.GetNamespace()
+	w.destinationPodName = workload.GetName()
+	w.destinationWorkload = workload.GetWorkloadName()
+	w.destinationCanonicalService = workload.GetCanonicalName()
+	w.destinationCanonicalRevision = workload.GetCanonicalRevision()
+	w.destinationWorkloadNamespace = workload.GetNamespace()
+	w.destinationApp = workload.GetCanonicalName()
+	w.destinationVersion = workload.GetCanonicalRevision()
+	w.destinationCluster = workload.GetClusterId()
+	w.destinationPrincipal = buildPrincipal(workload)
+	return w
+}
+
+func (s *serviceMetricLabels) withSource(workload *workloadapi.Workload) *serviceMetricLabels {
+	if workload == nil {
+		return s
+	}
+	s.sourceWorkload = workload.GetWorkloadName()
+	s.sourceCanonicalService = workload.GetCanonicalName()
+	s.sourceCanonicalRevision = workload.GetCanonicalRevision()
+	s.sourceWorkloadNamespace = workload.GetNamespace()
+	s.sourceApp = workload.GetCanonicalName()
+	s.sourceVersion = workload.GetCanonicalRevision()
+	s.sourceCluster = workload.GetClusterId()
+	s.sourcePrincipal = buildPrincipal(workload)
+	return s
+}
+
+func (s *serviceMetricLabels) withDestinationService(service *workloadapi.Service) *serviceMetricLabels {
+	if service == nil {
+		return s
+	}
+	s.destinationService = service.GetHostname()
+	s.destinationServiceName = service.GetName()
+	s.destinationServiceNamespace = service.GetNamespace()
+	return s
+}
+
+func (s *serviceMetricLabels) withDestination(workload *workloadapi.Workload) *serviceMetricLabels {
+	if workload == nil {
+		return s
+	}
+	s.destinationWorkload = workload.GetWorkloadName()
+	s.destinationCanonicalService = workload.GetCanonicalName()
+	s.destinationCanonicalRevision = workload.GetCanonicalRevision()
+	s.destinationWorkloadNamespace = workload.GetNamespace()
+	s.destinationApp = workload.GetCanonicalName()
+	s.destinationVersion = workload.GetCanonicalRevision()
+	s.destinationCluster = workload.GetClusterId()
+	s.destinationPrincipal = buildPrincipal(workload)
+	return s
+}
+
+func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool) *MetricController {
 	m := &MetricController{
 		workloadCache:       workloadCache,
+		serviceCache:        serviceCache,
 		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
@@ -257,8 +340,8 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 
 			serviceLabels, accesslog := m.buildServiceMetric(&data)
 
-			workloadLabels.reporter = "-"
-			serviceLabels.reporter = "-"
+			workloadLabels.reporter = DEFAULT_UNKNOWN
+			serviceLabels.reporter = DEFAULT_UNKNOWN
 			if data.direction == constants.INBOUND {
 				workloadLabels.reporter = "destination"
 				serviceLabels.reporter = "destination"
@@ -339,13 +422,14 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 		return workloadMetricLabels{}
 	}
 
-	trafficLabels := buildWorkloadMetric(dstWorkload, srcWorkload)
+	trafficLabels := NewWorkloadMetricLabel()
+	trafficLabels.withSource(srcWorkload).withDestination(dstWorkload)
+
 	trafficLabels.destinationPodAddress = dstIP
 	trafficLabels.requestProtocol = "tcp"
-	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	return trafficLabels
+	return *trafficLabels
 }
 
 func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {
@@ -358,15 +442,42 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 	dstWorkload, dstIp := m.getWorkloadByAddress(restoreIPv4(dstAddr))
 	srcWorkload, srcIp := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
-	trafficLabels, accesslog := buildServiceMetric(dstWorkload, srcWorkload, data.dstPort)
+	namespacedhost := ""
+	if dstWorkload != nil {
+		for k, portList := range dstWorkload.Services {
+			for _, port := range portList.Ports {
+				if port.TargetPort == uint32(data.dstPort) {
+					namespacedhost = k
+					break
+				}
+			}
+			if namespacedhost != "" {
+				break
+			}
+		}
+	}
+
+	dstService := m.serviceCache.GetService(namespacedhost)
+	// when service not found, we use the address as hostname for metrics
+	if dstService == nil {
+		dstService = &workloadapi.Service{
+			Hostname: dstIp,
+		}
+	}
+
+	trafficLabels := NewServiceMetricLabel()
+	trafficLabels.withSource(srcWorkload).withDestination(dstWorkload).withDestinationService(dstService)
+
+	accesslog := NewLogInfo()
+	accesslog.withSource(srcWorkload).withDestination(dstWorkload).withDestinationService(dstService)
+
 	trafficLabels.requestProtocol = "tcp"
-	trafficLabels.responseFlags = "-"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
 	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
 	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)
 
-	return trafficLabels, accesslog
+	return *trafficLabels, *accesslog
 }
 
 func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Workload, string) {
@@ -379,115 +490,11 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 	return workload, networkAddr.Address.String()
 }
 
-func buildWorkloadMetric(dstWorkload, srcWorkload *workloadapi.Workload) workloadMetricLabels {
-	trafficLabels := workloadMetricLabels{}
-
-	if dstWorkload != nil {
-		trafficLabels.destinationPodNamespace = dstWorkload.Namespace
-		trafficLabels.destinationPodName = dstWorkload.Name
-		trafficLabels.destinationWorkload = dstWorkload.WorkloadName
-		trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
-		trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
-		trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
-		trafficLabels.destinationApp = dstWorkload.CanonicalName
-		trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
-		trafficLabels.destinationCluster = dstWorkload.ClusterId
-		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
-	}
-
-	if srcWorkload != nil {
-		trafficLabels.sourceWorkload = srcWorkload.WorkloadName
-		trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
-		trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
-		trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
-		trafficLabels.sourceApp = srcWorkload.CanonicalName
-		trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
-		trafficLabels.sourceCluster = srcWorkload.ClusterId
-		trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
-	}
-
-	return trafficLabels
-}
-
-func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort uint16) (serviceMetricLabels, logInfo) {
-	trafficLabels := serviceMetricLabels{}
-	accesslog := logInfo{
-		direction:            "-",
-		sourceAddress:        "-",
-		sourceWorkload:       "-",
-		sourceNamespace:      "-",
-		destinationAddress:   "-",
-		destinationService:   "-",
-		destinationWorkload:  "-",
-		destinationNamespace: "-",
-	}
-
-	if dstWorkload != nil {
-		namespacedhost := ""
-		for k, portList := range dstWorkload.Services {
-			for _, port := range portList.Ports {
-				if port.TargetPort == uint32(dstPort) {
-					namespacedhost = k
-					break
-				}
-			}
-			if namespacedhost != "" {
-				break
-			}
-		}
-
-		svcHost := ""
-		svcNamespace := ""
-		if len(strings.Split(namespacedhost, "/")) == 2 {
-			svcNamespace = strings.Split(namespacedhost, "/")[0]
-			svcHost = strings.Split(namespacedhost, "/")[1]
-		}
-
-		trafficLabels.destinationService = svcHost
-		trafficLabels.destinationServiceNamespace = svcNamespace
-		trafficLabels.destinationServiceName = svcHost
-
-		trafficLabels.destinationWorkload = dstWorkload.WorkloadName
-		trafficLabels.destinationCanonicalService = dstWorkload.CanonicalName
-		trafficLabels.destinationCanonicalRevision = dstWorkload.CanonicalRevision
-		trafficLabels.destinationWorkloadNamespace = dstWorkload.Namespace
-		trafficLabels.destinationApp = dstWorkload.CanonicalName
-		trafficLabels.destinationVersion = dstWorkload.CanonicalRevision
-		trafficLabels.destinationCluster = dstWorkload.ClusterId
-		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
-		trafficLabels.destinationPrincipal = buildPrincipal(dstWorkload)
-
-		accesslog.destinationWorkload = dstWorkload.Name
-		if svcNamespace != "" {
-			accesslog.destinationNamespace = svcNamespace
-		}
-		if svcHost != "" {
-			accesslog.destinationService = svcHost
-		}
-	}
-
-	if srcWorkload != nil {
-		trafficLabels.sourceWorkload = srcWorkload.WorkloadName
-		trafficLabels.sourceCanonicalService = srcWorkload.CanonicalName
-		trafficLabels.sourceCanonicalRevision = srcWorkload.CanonicalRevision
-		trafficLabels.sourceWorkloadNamespace = srcWorkload.Namespace
-		trafficLabels.sourceApp = srcWorkload.CanonicalName
-		trafficLabels.sourceVersion = srcWorkload.CanonicalRevision
-		trafficLabels.sourceCluster = srcWorkload.ClusterId
-		trafficLabels.sourcePrincipal = buildPrincipal(srcWorkload)
-
-		accesslog.sourceNamespace = srcWorkload.Namespace
-		accesslog.sourceWorkload = srcWorkload.Name
-	}
-
-	return trafficLabels, accesslog
-}
-
 func buildPrincipal(workload *workloadapi.Workload) string {
 	if workload.TrustDomain != "" && workload.ServiceAccount != "" && workload.Namespace != "" {
 		return fmt.Sprintf("spiffe://%s/ns/%s/sa/%s", workload.TrustDomain, workload.Namespace, workload.ServiceAccount)
 	}
-	return "-"
+	return DEFAULT_UNKNOWN
 }
 
 func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels) {
@@ -603,7 +610,7 @@ func struct2map(labels interface{}) map[string]string {
 		for i := 0; i < num; i++ {
 			fieldInfo := val.Type().Field(i)
 			if val.Field(i).String() == "" {
-				trafficLabelsMap[labelsMap[fieldInfo.Name]] = "-"
+				trafficLabelsMap[labelsMap[fieldInfo.Name]] = DEFAULT_UNKNOWN
 			} else {
 				trafficLabelsMap[labelsMap[fieldInfo.Name]] = val.Field(i).String()
 			}

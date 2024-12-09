@@ -50,7 +50,7 @@ func TestBasic(t *testing.T) {
 	}
 
 	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl3} {
-		cache.AddOrUpateWorkload(wl)
+		cache.AddOrUpdateWorkload(wl)
 	}
 
 	// Waypoint service has not been processed.
@@ -91,7 +91,7 @@ func TestBasic(t *testing.T) {
 	svc4 := createFakeService("svc4", "10.240.10.4", waypointHostname)
 	wl4 := createFakeWorkload("1.2.3.8", waypointHostname)
 	cache.AddOrUpdateService(svc4)
-	cache.AddOrUpateWorkload(wl4)
+	cache.AddOrUpdateWorkload(wl4)
 
 	// svc4 and wl4 have been added to the waypoint cache and hostname of waypoint has been resolved.
 	assert.Equal(t, isHostnameTypeWaypoint(associated.services[svc4.ResourceName()].Waypoint), false)
