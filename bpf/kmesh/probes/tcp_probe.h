@@ -45,14 +45,7 @@ struct tcp_probe_info {
     __u32 protocol;
     __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
     __u32 rtt_min;
-    __u32 mss_cache;     /* Cached effective mss, not including SACKS */
     __u32 total_retrans; /* Total retransmits for entire connection */
-    __u32 segs_in;       /* RFC4898 tcpEStatsPerfSegsIn
-                          * total number of segments in.
-                          */
-    __u32 segs_out;      /* RFC4898 tcpEStatsPerfSegsOut
-                          * The total number of segments sent.
-                          */
     __u32 lost_out;      /* Lost packets			*/
 };
 
@@ -108,10 +101,7 @@ static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_
     info->received_bytes = tcp_sock->bytes_received;
     info->srtt_us = tcp_sock->srtt_us;
     info->rtt_min = tcp_sock->rtt_min;
-    info->mss_cache = tcp_sock->mss_cache;
     info->total_retrans = tcp_sock->total_retrans;
-    info->segs_in = tcp_sock->segs_in;
-    info->segs_out = tcp_sock->segs_out;
     info->lost_out = tcp_sock->lost_out;
     return;
 }

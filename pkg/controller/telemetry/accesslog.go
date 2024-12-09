@@ -88,7 +88,7 @@ func buildAccesslog(data requestMetric, accesslog logInfo) string {
 	timeInfo := fmt.Sprintf("%v", uptime)
 	sourceInfo := fmt.Sprintf("src.addr=%s, src.workload=%s, src.namespace=%s", accesslog.sourceAddress, accesslog.sourceWorkload, accesslog.sourceNamespace)
 	destinationInfo := fmt.Sprintf("dst.addr=%s, dst.service=%s, dst.workload=%s, dst.namespace=%s", accesslog.destinationAddress, accesslog.destinationService, accesslog.destinationWorkload, accesslog.destinationNamespace)
-	connectionInfo := fmt.Sprintf("direction=%s, sent_bytes=%d, received_bytes=%d, duration=%vms", accesslog.direction, data.sentBytes, data.receivedBytes, (float64(data.duration) / 1000000.0))
+	connectionInfo := fmt.Sprintf("direction=%s, sent_bytes=%d, received_bytes=%d, srtt=%dus, min_rtt=%dus, duration=%vms", accesslog.direction, data.sentBytes, data.receivedBytes, data.srtt, data.minRtt, (float64(data.duration) / 1000000.0))
 
 	logResult := fmt.Sprintf("%s %s, %s, %s", timeInfo, sourceInfo, destinationInfo, connectionInfo)
 	return logResult
