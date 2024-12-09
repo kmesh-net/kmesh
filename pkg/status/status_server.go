@@ -49,8 +49,6 @@ var log = logger.NewLoggerScope("status")
 const (
 	adminAddr = "localhost:15200"
 
-	patternHelp               = "/help"
-	patternOptions            = "/options"
 	patternVersion            = "/version"
 	patternBpfAdsMaps         = "/debug/config_dump/bpf/kernel-native"
 	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/dual-engine"
@@ -92,8 +90,6 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 		WriteTimeout: httpTimeout,
 	}
 
-	s.mux.HandleFunc(patternHelp, s.httpHelp)
-	s.mux.HandleFunc(patternOptions, s.httpOptions)
 	s.mux.HandleFunc(patternVersion, s.version)
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
 	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
@@ -114,30 +110,6 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 	s.mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	s.mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	return s
-}
-
-func (s *Server) httpHelp(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-
-	fmt.Fprintf(w, "\t%s: %s\n", patternHelp,
-		"print list of commands")
-	fmt.Fprintf(w, "\t%s: %s\n", patternOptions,
-		"print config options")
-	fmt.Fprintf(w, "\t%s: %s\n", patternBpfAdsMaps,
-		"print bpf kmesh maps of ads mode in kernel")
-	fmt.Fprintf(w, "\t%s: %s\n", patternBpfWorkloadMaps,
-		"print bpf kmesh maps of workload mode in kernel")
-	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpAds,
-		"dump xDS[Listener, Route, Cluster] configurations")
-	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpWorkload,
-		"dump workload configurations")
-	fmt.Fprintf(w, "\t%s: %s\n", patternLoggers,
-		"get or set logger level")
-}
-
-func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, s.config.String())
 }
 
 func (s *Server) version(w http.ResponseWriter, r *http.Request) {
