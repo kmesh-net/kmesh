@@ -49,13 +49,21 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_AUTH_TAILCALL);
 } kmesh_tc_args SEC(".maps");
 
+/**
+ * Struct for IP matching parameters.
+ */
 struct MatchIpParams {
     Istio__Security__Match *match;
     struct bpf_sock_tuple *tuple_info;
+    // Pointer to the list of allowed IP addresses.
     void *ip_list;
+    // Pointer to the list of denied IP addresses.
     void *not_ip_list;
+    // Number of allowed/denyed IP addresses.
     __u32 n_ips;
+    // Number of not allow/denyed IP addresses.
     __u32 n_not_ips;
+    // Type of IP addresses (srcIP/dstIp).
     int ip_type;
 };
 
@@ -83,12 +91,12 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
     begin = info->ethh + 1;
     if ((begin + 1) > end)
         return PARSER_FAILED;
-    if (((struct iphdr *)begin)->version == IPv4_VERSION) {
+    if (((struct iphdr *)begin)->version == IPV4_VERSION) {
         info->iph = (struct iphdr *)begin;
         if ((void *)(info->iph + 1) > end || (info->iph->protocol != IPPROTO_TCP))
             return PARSER_FAILED;
         begin = (info->iph + 1);
-    } else if (((struct iphdr *)begin)->version == IPv6_VERSION) {
+    } else if (((struct iphdr *)begin)->version == IPV6_VERSION) {
         info->ip6h = (struct ipv6hdr *)begin;
         if ((void *)(info->ip6h + 1) > end || (info->ip6h->nexthdr != IPPROTO_TCP))
             return PARSER_FAILED;
@@ -104,7 +112,7 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 
 static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
-    if (info->iph->version == IPv4_VERSION) {
+    if (info->iph->version == IPV4_VERSION) {
         tuple_info->ipv4.saddr = info->iph->saddr;
         tuple_info->ipv4.daddr = info->iph->daddr;
         tuple_info->ipv4.sport = info->tcph->source;
@@ -152,7 +160,7 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
             if (i >= match->n_not_destination_ports) {
                 break;
             }
-            if (info->iph->version == IPv4_VERSION) {
+            if (info->iph->version == IPV4_VERSION) {
                 if (bpf_htons(notPorts[i]) == tuple_info->ipv4.dport) {
                     BPF_LOG(DEBUG, AUTH, "port %u in not_destination_ports, unmatched", notPorts[i]);
                     return UNMATCHED;
@@ -181,7 +189,7 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
         if (i >= match->n_destination_ports) {
             break;
         }
-        if (info->iph->version == IPv4_VERSION) {
+        if (info->iph->version == IPV4_VERSION) {
             if (bpf_htons(ports[i]) == tuple_info->ipv4.dport) {
                 BPF_LOG(INFO, AUTH, "port %u in destination_ports, matched", ports[i]);
                 return MATCHED;
@@ -212,7 +220,7 @@ static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_d
     return (data[3] << 24) | (data[2] << 16) | (data[1] << 8) | (data[0] << 0);
 }
 
-static inline __u32 convert_ipv6_to_u32(struct ip_addr *rule_addr, const struct ProtobufCBinaryData *ipv6_data)
+static inline __u32 convert_ipv6_to_ip6addr(struct ip_addr *rule_addr, const struct ProtobufCBinaryData *ipv6_data)
 {
     if (!rule_addr || !ipv6_data)
         return CONVERT_FAILED;
@@ -283,7 +291,7 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
         return UNMATCHED;
     }
 
-    if (addrInfo->len == IPv4_VERSION) {
+    if (addrInfo->len == IPV4_BINARY_DATA_LEN) {
         __u32 rule_ip = convert_ipv4_to_u32(addrInfo);
         if (type & TYPE_SRCIP) {
             BPF_LOG(
@@ -306,12 +314,12 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
         } else {
             BPF_LOG(ERR, AUTH, "Unsupported address length: %u\n", addrInfo->len);
         }
-    } else if (addrInfo->len == 16) {
+    } else if (addrInfo->len == IPV6_BINARY_DATA_LEN) {
         if (type & TYPE_SRCIP) {
             struct ip_addr rule_addr = {0};
             struct ip_addr target_addr = {0};
 
-            int ret = convert_ipv6_to_u32(&rule_addr, addrInfo);
+            int ret = convert_ipv6_to_ip6addr(&rule_addr, addrInfo);
             if (ret != CONVERT_SUCCESS) {
                 return UNMATCHED;
             }
@@ -323,7 +331,7 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
         struct ip_addr rule_addr = {0};
         struct ip_addr target_addr = {0};
 
-        int ret = convert_ipv6_to_u32(&rule_addr, addrInfo);
+        int ret = convert_ipv6_to_ip6addr(&rule_addr, addrInfo);
         if (ret != CONVERT_SUCCESS) {
             return UNMATCHED;
         }
