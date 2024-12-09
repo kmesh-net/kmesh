@@ -184,6 +184,8 @@ func NewMetric(workloadCache cache.WorkloadCache, enableMonitoring bool) *Metric
 		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
 	m.EnableMonitoring.Store(enableMonitoring)
+	m.EnableAccesslog.Store(false)
+	m.EnableWorkloadMetric.Store(false)
 	return m
 }
 
