@@ -342,7 +342,6 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
     __u32 i = 0;
 
     if (match->n_destination_ips == 0 && match->n_not_destination_ips == 0) {
-        BPF_LOG(DEBUG, AUTH, "no dstip configured, matching by default");
         return MATCHED;
     }
 
@@ -350,7 +349,6 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
     if (match->n_not_destination_ips != 0) {
         notDstPtrs = KMESH_GET_PTR_VAL(match->not_destination_ips, void *);
         if (!notDstPtrs) {
-            BPF_LOG(ERR, AUTH, "failed to retrieve not_dstips pointer\n");
             return UNMATCHED;
         }
 
@@ -361,7 +359,6 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
             }
 
             if (bpf_probe_read_kernel(&notDstAddr, sizeof(notDstAddr), &notDstPtrs[i]) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to read notSrcAddr address at index %d", i);
                 continue;
             }
 
@@ -378,7 +375,6 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
     if (match->n_destination_ips != 0) {
         dstPtrs = KMESH_GET_PTR_VAL(match->destination_ips, void *);
         if (!dstPtrs) {
-            BPF_LOG(ERR, AUTH, "failed to get dstips ptr\n");
             return UNMATCHED;
         }
 
@@ -389,7 +385,6 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
             }
 
             if (bpf_probe_read_kernel(&dstAddr, sizeof(dstAddr), &dstPtrs[i]) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to read dst address at index %d", i);
                 continue;
             }
 
@@ -402,7 +397,6 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
             }
         }
     }
-    BPF_LOG(DEBUG, AUTH, "no matching dstip found, unmatched");
     return UNMATCHED;
 }
 
@@ -417,7 +411,6 @@ static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tu
     __u32 i = 0;
 
     if (match->n_source_ips == 0 && match->n_not_source_ips == 0) {
-        BPF_LOG(DEBUG, AUTH, "no srcip configured, matching by default");
         return MATCHED;
     }
 
@@ -425,7 +418,6 @@ static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tu
     if (match->n_not_source_ips != 0) {
         notSrcPtrs = KMESH_GET_PTR_VAL(match->not_source_ips, void *);
         if (!notSrcPtrs) {
-            BPF_LOG(ERR, AUTH, "failed to retrieve not_srcips pointer\n");
             return UNMATCHED;
         }
 
@@ -436,7 +428,6 @@ static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tu
             }
 
             if (bpf_probe_read_kernel(&notSrcAddr, sizeof(notSrcAddr), &notSrcPtrs[i]) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to read notSrcAddr address at index %d", i);
                 continue;
             }
 
@@ -453,7 +444,6 @@ static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tu
     if (match->n_source_ips != 0) {
         srcPtrs = KMESH_GET_PTR_VAL(match->source_ips, void *);
         if (!srcPtrs) {
-            BPF_LOG(ERR, AUTH, "failed to get srcips ptr\n");
             return UNMATCHED;
         }
 
@@ -464,7 +454,6 @@ static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tu
             }
 
             if (bpf_probe_read_kernel(&srcAddr, sizeof(srcAddr), &srcPtrs[i]) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to read src address at index %d", i);
                 continue;
             }
 
@@ -477,7 +466,6 @@ static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tu
             }
         }
     }
-    BPF_LOG(DEBUG, AUTH, "no matching srcip found, unmatched");
     return UNMATCHED;
 }
 
@@ -539,7 +527,6 @@ static int rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, 
     // Clauses are AND-ed.
     clausesPtr = KMESH_GET_PTR_VAL(rule->clauses, void *);
     if (!clausesPtr) {
-        BPF_LOG(ERR, AUTH, "failed to get clauses from rule\n");
         return UNMATCHED;
     }
 
@@ -572,13 +559,11 @@ int policy_check(struct xdp_md *ctx)
     int ret;
 
     if (construct_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
-        BPF_LOG(ERR, AUTH, "policy_check, Failed to get tuple key");
         return XDP_PASS;
     }
 
     match_ctx = bpf_map_lookup_elem(&kmesh_tc_args, &tuple_key);
     if (!match_ctx) {
-        BPF_LOG(ERR, AUTH, "failed to retrieve tailcall context from kmesh_tc_args");
         return XDP_PASS;
     }
 
@@ -590,18 +575,15 @@ int policy_check(struct xdp_md *ctx)
     // Safely access policyId and check if the policy exists
     if (bpf_probe_read_kernel(&policyId, sizeof(policyId), (void *)(policies->policyIds + match_ctx->policy_index))
         != 0) {
-        BPF_LOG(ERR, AUTH, "failed to read policyId, throw it to user auth");
         goto auth_in_user_space;
     }
     policy = map_lookup_authz(policyId);
     if (!policy) {
         // if no policy matches in xdp, throw it to user auth
-        BPF_LOG(INFO, AUTH, "no more policy, throw it to user auth");
         goto auth_in_user_space;
     } else {
         rulesPtr = KMESH_GET_PTR_VAL(policy->rules, void *);
         if (!rulesPtr) {
-            BPF_LOG(ERR, AUTH, "failed to get rules from policies\n");
             return XDP_PASS;
         }
         match_ctx->rulesPtr = rulesPtr;
@@ -609,7 +591,6 @@ int policy_check(struct xdp_md *ctx)
         match_ctx->action = policy->action;
         ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, match_ctx, BPF_ANY);
         if (ret < 0) {
-            BPF_LOG(ERR, AUTH, "failed to update map, error: %d", ret);
             return XDP_PASS;
         }
         bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_RULE_CHECK);
@@ -648,20 +629,16 @@ int rule_check(struct xdp_md *ctx)
     }
     for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
         if (i >= match_ctx->n_rules) {
-            BPF_LOG(DEBUG, AUTH, "rule index %d exceeds rule count %d, exiting loop", i, match_ctx->n_rules);
             break;
         }
         if (!match_ctx) {
-            BPF_LOG(ERR, AUTH, "failed to retrieve match_ctx from map");
             return XDP_PASS;
         }
         rulesPtr = match_ctx->rulesPtr;
         if (!rulesPtr) {
-            BPF_LOG(ERR, AUTH, "rulesPtr is null");
             return XDP_PASS;
         }
         if (bpf_probe_read_kernel(&rule_addr, sizeof(rule_addr), &rulesPtr[i]) != 0) {
-            BPF_LOG(ERR, AUTH, "failed to read rule address at index %d", i);
             continue;
         }
 
