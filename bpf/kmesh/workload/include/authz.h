@@ -49,6 +49,16 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_AUTH_TAILCALL);
 } kmesh_tc_args SEC(".maps");
 
+struct MatchIpParams {
+    Istio__Security__Match *match;
+    struct bpf_sock_tuple *tuple_info;
+    void *ip_list;
+    void *not_ip_list;
+    __u32 n_ips;
+    __u32 n_not_ips;
+    int ip_type;
+};
+
 static inline Istio__Security__Authorization *map_lookup_authz(__u32 policyKey)
 {
     return (Istio__Security__Authorization *)kmesh_map_lookup_elem(&map_of_authz_policy, &policyKey);
@@ -260,7 +270,6 @@ static inline int matchIpv6(struct ip_addr *rule_addr, struct ip_addr *target_ad
     ipv6_addr_clear_suffix(target_addr, prefixLen);
     if (rule_addr->ip6[0] == target_addr->ip6[0] && rule_addr->ip6[1] == target_addr->ip6[1]
         && rule_addr->ip6[2] == target_addr->ip6[2] && rule_addr->ip6[3] == target_addr->ip6[3]) {
-        BPF_LOG(DEBUG, KMESH, "match ipv6\n");
         return MATCHED;
     }
 
@@ -271,7 +280,6 @@ static inline int
 matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
 {
     if (!addrInfo || addrInfo->len == 0) {
-        BPF_LOG(ERR, AUTH, "addrInfo is NULL or length is 0\n");
         return UNMATCHED;
     }
 
@@ -305,7 +313,6 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
 
             int ret = convert_ipv6_to_u32(&rule_addr, addrInfo);
             if (ret != CONVERT_SUCCESS) {
-                BPF_LOG(ERR, AUTH, "Failed to convert IPv6 address to u32 format\n");
                 return UNMATCHED;
             }
 
@@ -318,7 +325,6 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
 
         int ret = convert_ipv6_to_u32(&rule_addr, addrInfo);
         if (ret != CONVERT_SUCCESS) {
-            BPF_LOG(ERR, AUTH, "Failed to convert IPv6 address to u32 format\n");
             return UNMATCHED;
         }
 
@@ -331,68 +337,83 @@ matchIp(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_t
     return UNMATCHED;
 }
 
-static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+static inline int match_ip_common(struct MatchIpParams *params)
 {
-    void *dstPtrs = NULL;
-    void *notDstPtrs = NULL;
-    void *dstAddr = NULL;
-    void *notDstAddr = NULL;
-    Istio__Security__Address *dst = NULL;
-    Istio__Security__Address *notDst = NULL;
+    void *ipPtrs = NULL;
+    void *notIpPtrs = NULL;
+    void *ipAddr = NULL;
+    void *notIpAddr = NULL;
+    Istio__Security__Address *ip = NULL;
+    Istio__Security__Address *notIp = NULL;
     __u32 i = 0;
 
-    if (match->n_destination_ips == 0 && match->n_not_destination_ips == 0) {
+    if (!params || !params->match || !params->tuple_info) {
+        return UNMATCHED;
+    }
+
+    if (params->n_ips == 0 && params->n_not_ips == 0) {
         return MATCHED;
     }
 
-    // match not_dstIPs
-    if (match->n_not_destination_ips != 0) {
-        notDstPtrs = KMESH_GET_PTR_VAL(match->not_destination_ips, void *);
-        if (!notDstPtrs) {
+    // Match `not_` IPs
+    if (params->n_not_ips != 0) {
+        notIpPtrs = KMESH_GET_PTR_VAL(params->not_ip_list, void *);
+        if (!notIpPtrs) {
             return UNMATCHED;
         }
 
 #pragma unroll
         for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
-            if (i >= match->n_not_destination_ips) {
+            if (i >= params->n_not_ips) {
                 break;
             }
 
-            if (bpf_probe_read_kernel(&notDstAddr, sizeof(notDstAddr), &notDstPtrs[i]) != 0) {
+            if (bpf_probe_read_kernel(&notIpAddr, sizeof(notIpAddr), &notIpPtrs[i]) != 0) {
                 continue;
             }
 
-            notDst = (Istio__Security__Address *)KMESH_GET_PTR_VAL((void *)notDstAddr, Istio__Security__Address);
-            if (!notDst) {
+            if (!notIpAddr) {
                 continue;
             }
-            if (matchIp(&notDst->address, notDst->length, tuple_info, TYPE_DSTIP) == MATCHED) {
+
+            notIp = (Istio__Security__Address *)KMESH_GET_PTR_VAL((void *)notIpAddr, Istio__Security__Address);
+            if (!notIp) {
+                continue;
+            }
+
+            if (matchIp(&notIp->address, notIp->length, params->tuple_info, params->ip_type) == MATCHED) {
                 return UNMATCHED;
             }
         }
     }
 
-    if (match->n_destination_ips != 0) {
-        dstPtrs = KMESH_GET_PTR_VAL(match->destination_ips, void *);
-        if (!dstPtrs) {
+    // Match IPs
+    if (params->n_ips != 0) {
+        ipPtrs = KMESH_GET_PTR_VAL(params->ip_list, void *);
+        if (!ipPtrs) {
             return UNMATCHED;
         }
 
 #pragma unroll
         for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
-            if (i >= match->n_destination_ips) {
+            if (i >= params->n_ips) {
                 break;
             }
 
-            if (bpf_probe_read_kernel(&dstAddr, sizeof(dstAddr), &dstPtrs[i]) != 0) {
+            if (bpf_probe_read_kernel(&ipAddr, sizeof(ipAddr), &ipPtrs[i]) != 0) {
                 continue;
             }
 
-            dst = (Istio__Security__Address *)KMESH_GET_PTR_VAL((void *)dstAddr, Istio__Security__Address);
-            if (!dst) {
+            if (!ipAddr) {
                 continue;
             }
-            if (matchIp(&dst->address, dst->length, tuple_info, TYPE_DSTIP) == MATCHED) {
+
+            ip = (Istio__Security__Address *)KMESH_GET_PTR_VAL((void *)ipAddr, Istio__Security__Address);
+            if (!ip) {
+                continue;
+            }
+
+            if (matchIp(&ip->address, ip->length, params->tuple_info, params->ip_type) == MATCHED) {
                 return MATCHED;
             }
         }
@@ -402,71 +423,38 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
 
 static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
-    void *srcPtrs = NULL;
-    void *notSrcPtrs = NULL;
-    void *srcAddr = NULL;
-    void *notSrcAddr = NULL;
-    Istio__Security__Address *src = NULL;
-    Istio__Security__Address *notSrc = NULL;
-    __u32 i = 0;
-
-    if (match->n_source_ips == 0 && match->n_not_source_ips == 0) {
-        return MATCHED;
+    if (!match || !tuple_info) {
+        return UNMATCHED;
     }
 
-    // match not_srcIPs
-    if (match->n_not_source_ips != 0) {
-        notSrcPtrs = KMESH_GET_PTR_VAL(match->not_source_ips, void *);
-        if (!notSrcPtrs) {
-            return UNMATCHED;
-        }
+    struct MatchIpParams params = {
+        .match = match,
+        .tuple_info = tuple_info,
+        .ip_list = match->source_ips,
+        .not_ip_list = match->not_source_ips,
+        .n_ips = match->n_source_ips,
+        .n_not_ips = match->n_not_source_ips,
+        .ip_type = TYPE_SRCIP,
+    };
+    return match_ip_common(&params);
+}
 
-#pragma unroll
-        for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
-            if (i >= match->n_not_source_ips) {
-                break;
-            }
-
-            if (bpf_probe_read_kernel(&notSrcAddr, sizeof(notSrcAddr), &notSrcPtrs[i]) != 0) {
-                continue;
-            }
-
-            notSrc = (Istio__Security__Address *)KMESH_GET_PTR_VAL((void *)notSrcAddr, Istio__Security__Address);
-            if (!notSrc) {
-                continue;
-            }
-            if (matchIp(&notSrc->address, notSrc->length, tuple_info, TYPE_SRCIP) == MATCHED) {
-                return UNMATCHED;
-            }
-        }
+static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+{
+    if (!match || !tuple_info) {
+        return UNMATCHED;
     }
 
-    if (match->n_source_ips != 0) {
-        srcPtrs = KMESH_GET_PTR_VAL(match->source_ips, void *);
-        if (!srcPtrs) {
-            return UNMATCHED;
-        }
-
-#pragma unroll
-        for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
-            if (i >= match->n_source_ips) {
-                break;
-            }
-
-            if (bpf_probe_read_kernel(&srcAddr, sizeof(srcAddr), &srcPtrs[i]) != 0) {
-                continue;
-            }
-
-            src = (Istio__Security__Address *)KMESH_GET_PTR_VAL((void *)srcAddr, Istio__Security__Address);
-            if (!src) {
-                continue;
-            }
-            if (matchIp(&src->address, src->length, tuple_info, TYPE_SRCIP) == MATCHED) {
-                return MATCHED;
-            }
-        }
-    }
-    return UNMATCHED;
+    struct MatchIpParams params = {
+        .match = match,
+        .tuple_info = tuple_info,
+        .ip_list = match->destination_ips,
+        .not_ip_list = match->not_destination_ips,
+        .n_ips = match->n_destination_ips,
+        .n_not_ips = match->n_not_destination_ips,
+        .ip_type = TYPE_DSTIP,
+    };
+    return match_ip_common(&params);
 }
 
 static inline int match_IPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
