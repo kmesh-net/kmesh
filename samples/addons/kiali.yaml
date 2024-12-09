@@ -36,42 +36,16 @@ data:
       icon_annotation: kiali.io/api-type
       title: API Documentation
     auth:
-      openid: {}
-      openshift:
-        client_id_prefix: kiali
       strategy: anonymous
     clustering:
       autodetect_secrets:
         enabled: true
         label: kiali.io/multiCluster=true
-      clusters: []
     deployment:
-      additional_service_yaml: {}
-      affinity:
-        node: {}
-        pod: {}
-        pod_anti: {}
       cluster_wide_access: true
-      configmap_annotations: {}
-      custom_envs: []
-      custom_secrets: []
-      dns:
-        config: {}
-        policy: ""
-      host_aliases: []
-      hpa:
-        api_version: autoscaling/v2
-        spec: {}
-      image_digest: ""
       image_name: quay.io/kiali/kiali
       image_pull_policy: IfNotPresent
-      image_pull_secrets: []
       image_version: v2.1
-      ingress:
-        additional_labels: {}
-        class_name: nginx
-        override_yaml:
-          metadata: {}
       ingress_enabled: false
       instance_name: kiali
       logger:
@@ -79,12 +53,9 @@ data:
         log_level: info
         sampler_rate: "1"
         time_field_format: 2006-01-02T15:04:05Z07:00
-      namespace: istio-system
-      node_selector: {}
-      pod_annotations: {}
+      namespace: kmesh-system
       pod_labels:
         sidecar.istio.io/inject: "false"
-      priority_class_name: ""
       remote_cluster_resources_only: false
       replicas: 1
       resources:
@@ -94,10 +65,6 @@ data:
           cpu: 10m
           memory: 64Mi
       secret_name: kiali
-      security_context: {}
-      service_annotations: {}
-      service_type: ""
-      tolerations: []
       version_label: v2.1.0
       view_only_mode: false
     external_services:
@@ -114,17 +81,11 @@ data:
           name: waypoint
       tracing:
         enabled: false
-    identity:
-      cert_file: ""
-      private_key_file: ""
     istio_namespace: istio-system
     kiali_feature_flags:
-      disabled_features: []
       validations:
         ignore:
         - KIA1301
-    login_token:
-      signing_key: CHANGEME00000000
     server:
       observability:
         metrics:
