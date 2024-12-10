@@ -93,7 +93,7 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
         }
 
         BPF_LOG(
-            DEBUG, SERVICE, "locality lb failover select endpoint [%u/%u/%u]", service_id, i, endpoint_k.backend_index)
+            DEBUG, SERVICE, "locality lb failover select endpoint [%u/%u/%u]", service_id, i, endpoint_k.backend_index);
         ret = endpoint_manager(kmesh_ctx, endpoint_v, service_id, service_v);
         break;
     }
