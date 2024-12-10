@@ -29,7 +29,13 @@ static inline int endpoint_manager(
     ret = backend_manager(kmesh_ctx, backend_v, service_id, service_v);
     if (ret != 0) {
         if (ret != -ENOENT)
-            BPF_LOG(ERR, ENDPOINT, "backend_manager failed, ret:%d\n", ret);
+            BPF_LOG(
+                ERR,
+                ENDPOINT,
+                "backend_manager failed, svc %u backend %u ret:%d\n",
+                service_id,
+                backend_k.backend_uid,
+                ret);
         return ret;
     }
 

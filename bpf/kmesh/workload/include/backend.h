@@ -19,21 +19,19 @@ static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_ad
     address_t target_addr;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
     __u64 *sk = (__u64 *)ctx->sk;
-    struct bpf_sock_tuple value_tuple = {0};
+    struct bpf_sock_tuple sk_tuple = {0};
 
     if (ctx->family == AF_INET) {
-        value_tuple.ipv4.daddr = kmesh_ctx->orig_dst_addr.ip4;
-        value_tuple.ipv4.dport = ctx->user_port;
+        sk_tuple.ipv4.daddr = kmesh_ctx->orig_dst_addr.ip4;
+        sk_tuple.ipv4.dport = ctx->user_port;
     } else if (ctx->family == AF_INET6) {
-        bpf_memcpy(value_tuple.ipv6.daddr, kmesh_ctx->orig_dst_addr.ip6, IPV6_ADDR_LEN);
-        value_tuple.ipv6.dport = ctx->user_port;
-    } else {
-        BPF_LOG(ERR, BACKEND, "invalid ctx family: %u\n", ctx->family);
-        return -1;
+        bpf_memcpy(sk_tuple.ipv6.daddr, kmesh_ctx->orig_dst_addr.ip6, IPV6_ADDR_LEN);
+        sk_tuple.ipv6.dport = ctx->user_port;
     }
-    ret = bpf_map_update_elem(&map_of_dst_info, &(sk), &value_tuple, BPF_NOEXIST);
+
+    ret = bpf_map_update_elem(&map_of_dst_info, &(sk), &sk_tuple, BPF_NOEXIST);
     if (ret) {
-        BPF_LOG(ERR, BACKEND, "record metadata origin address and port failed, ret is %d\n", ret);
+        BPF_LOG(ERR, BACKEND, "record original dst address failed: %d\n", ret);
         return ret;
     }
 
@@ -46,8 +44,7 @@ static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_ad
     return 0;
 }
 
-static inline int
-update_dst_addr_with_service_port(struct kmesh_context *kmesh_ctx, backend_value *backend_v, service_value *service_v)
+static inline int svc_dnat(struct kmesh_context *kmesh_ctx, backend_value *backend_v, service_value *service_v)
 {
     int i;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
@@ -65,6 +62,13 @@ update_dst_addr_with_service_port(struct kmesh_context *kmesh_ctx, backend_value
             return 0;
         }
     }
+
+    BPF_LOG(
+        ERR,
+        BACKEND,
+        "svc_dnat: cannot find matched service port [%s:%u]\n",
+        ip2str((__u32 *)&backend_v->addr.ip6, ctx->family == AF_INET),
+        bpf_ntohs(ctx->user_port));
     return -ENOENT;
 }
 
@@ -79,19 +83,24 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
         BPF_LOG(
             DEBUG,
             BACKEND,
-            "find waypoint addr=[%s:%u]\n",
+            "route to waypoint[%s:%u]\n",
             ip2str((__u32 *)&backend_v->wp_addr, ctx->family == AF_INET),
             bpf_ntohs(backend_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);
-        if (ret != 0) {
-            BPF_LOG(ERR, BACKEND, "waypoint_manager failed, ret: %d\n", ret);
-        }
         return ret;
     }
 
-    ret = update_dst_addr_with_service_port(kmesh_ctx, backend_v, service_v);
-    if (ret != 0)
-        BPF_LOG(ERR, BACKEND, "cannot find matched service port [%d:%d]\n", service_id, kmesh_ctx->ctx->user_port);
+    ret = svc_dnat(kmesh_ctx, backend_v, service_v);
+    if (ret == 0) {
+        BPF_LOG(
+            DEBUG,
+            BACKEND,
+            "svc %d dnat to [%s:%u]\n",
+            service_id,
+            ip2str((__u32 *)&kmesh_ctx->dnat_ip, ctx->family == AF_INET),
+            bpf_ntohs(kmesh_ctx->dnat_port));
+    }
+
     return ret;
 }
 

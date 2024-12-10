@@ -27,12 +27,13 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
 
     rand_k = bpf_get_prandom_u32() % service_v->prio_endpoint_count[0] + 1;
     endpoint_k.backend_index = rand_k;
-
     endpoint_v = map_lookup_endpoint(&endpoint_k);
     if (!endpoint_v) {
-        BPF_LOG(WARN, SERVICE, "find endpoint [%u/%u] failed", service_id, endpoint_k.backend_index);
+        BPF_LOG(WARN, SERVICE, "lb_random_handle select endpoint [%u/%u] failed", service_id, endpoint_k.backend_index);
         return -ENOENT;
     }
+
+    BPF_LOG(DEBUG, SERVICE, "lb_random_handle select endpoint [%u/%u]", service_id, endpoint_k.backend_index);
 
     ret = endpoint_manager(kmesh_ctx, endpoint_v, service_id, service_v);
     if (ret != 0) {
@@ -44,6 +45,7 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
     return 0;
 }
 
+// TODO: reuse with lb_random_handle
 static inline int lb_locality_strict_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, service_value *service_v)
 {
     int ret = -ENOENT;
@@ -54,14 +56,17 @@ static inline int lb_locality_strict_handle(struct kmesh_context *kmesh_ctx, __u
     if (service_v->prio_endpoint_count[0]) {
         endpoint_k.backend_index = bpf_get_prandom_u32() % service_v->prio_endpoint_count[0] + 1;
         endpoint_v = map_lookup_endpoint(&endpoint_k);
-        if (endpoint_v)
+        if (endpoint_v) {
+            BPF_LOG(DEBUG, SERVICE, "locality lb strict select endpoint [%u/%u]", service_id, endpoint_k.backend_index);
             ret = endpoint_manager(kmesh_ctx, endpoint_v, service_id, service_v);
+        }
     }
 
     if (ret) {
         kmesh_ctx->dnat_ip = (struct ip_addr){0};
         kmesh_ctx->dnat_port = 0;
-        BPF_LOG(ERR, SERVICE, "locality loadbalance match nothing in STRICT mode, ret:%d\n", ret);
+        BPF_LOG(
+            ERR, SERVICE, "locality loadbalance match nothing in STRICT mode, service_id %d ret:%d\n", service_id, ret);
     }
     return ret;
 }
@@ -87,13 +92,14 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
             break;
         }
 
+        BPF_LOG(
+            DEBUG, SERVICE, "locality lb failover select endpoint [%u/%u/%u]", service_id, i, endpoint_k.backend_index);
         ret = endpoint_manager(kmesh_ctx, endpoint_v, service_id, service_v);
-        if (ret != -ENOENT)
-            break;
+        break;
     }
 
     if (ret)
-        BPF_LOG(ERR, SERVICE, "lb_locality_failover_hdl [%u %u %u]\n", service_id, i, endpoint_k.backend_index);
+        BPF_LOG(ERR, SERVICE, "locality lb failover [%u:%u] failed\n", service_id, kmesh_ctx->ctx->user_port);
     return ret;
 }
 
