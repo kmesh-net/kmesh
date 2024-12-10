@@ -28,7 +28,7 @@ static inline int frontend_manager(struct kmesh_context *kmesh_ctx, frontend_val
         backend_k.backend_uid = frontend_v->upstream_id;
         backend_v = map_lookup_backend(&backend_k);
         if (!backend_v) {
-            BPF_LOG(WARN, FRONTEND, "find backend failed\n");
+            BPF_LOG(WARN, FRONTEND, "find backend by backend_uid %d failed\n", backend_k.backend_uid);
             return -ENOENT;
         }
         direct_backend = true;
