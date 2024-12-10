@@ -35,6 +35,7 @@ import (
 	"kmesh.net/kmesh/pkg/auth"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
+	"kmesh.net/kmesh/pkg/controller/workload/common"
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 )
 
@@ -125,7 +126,7 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 				patches1.ApplyMethodReturn(fakeClient.Client, "DeltaAggregatedResources", fakeClient.DeltaClient, nil)
 
 				workloadController.Processor = NewProcessor(workloadMap)
-				workload := createFakeWorkload("10.10.10.1", "", workloadapi.NetworkMode_STANDARD)
+				workload := common.CreateFakeWorkload("10.10.10.1", "", workloadapi.NetworkMode_STANDARD)
 				workloadController.Processor.WorkloadCache.AddOrUpdateWorkload(workload)
 				patches2.ApplyMethodFunc(fakeClient.DeltaClient, "Send",
 					func(req *discoveryv3.DeltaDiscoveryRequest) error {
