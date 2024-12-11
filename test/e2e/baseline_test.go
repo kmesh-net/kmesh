@@ -1085,6 +1085,149 @@ spec:
 		})
 }
 
+func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
+	framework.NewTest(t).
+		Run(func(t framework.TestContext) {
+			testCases := []struct {
+				location   v1alpha3.ServiceEntry_Location
+				resolution v1alpha3.ServiceEntry_Resolution
+				to         echo.Instances
+			}{
+				{
+					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+				},
+				{
+					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
+					resolution: v1alpha3.ServiceEntry_STATIC,
+				},
+			}
+
+			// Configure a gateway with one app as the destination to be accessible through the ingress
+			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+				"Destination": apps.All[0].Config().Service,
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts: ["*"]
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: route
+spec:
+  gateways:
+  - gateway
+  hosts:
+  - "*"
+  http:
+  - route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+
+			cfg := config.YAML(`
+{{ $to := .To }}
+apiVersion: networking.istio.io/v1beta1
+kind: WorkloadEntry
+metadata:
+  name: test-we
+spec:
+  address: {{.IngressIp}}
+  ports:
+    http: {{.IngressHttpPort}}
+  labels:
+    app: selected
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-se-v4
+spec:
+  hosts:
+  - dummy-v4.example.com
+  addresses:
+  - 240.240.240.255
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+    targetPort: {{.IngressHttpPort}}
+  resolution: {{.Resolution}}
+  location: {{.Location}}
+  workloadSelector:
+    labels:
+      app: selected
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: test-se-v6
+spec:
+  hosts:
+  - dummy-v6.example.com
+  addresses:
+  - 2001:2::f0f0:255
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+    targetPort: {{.IngressHttpPort}}
+  resolution: {{.Resolution}}
+  location: {{.Location}}
+  workloadSelector:
+    labels:
+      app: selected
+---
+`).
+				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
+
+			v4, v6 := getSupportedIPFamilies(t)
+			ips, ports := defaultIngress(t, t).HTTPAddresses()
+			for _, tc := range testCases {
+				tc := tc
+				for i, ip := range ips {
+					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ip,
+								"IngressHttpPort": ports[i],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								if v4 {
+									from.CallOrFail(t, echo.CallOptions{
+										Address: "240.240.240.255",
+										Port:    to.PortForName("http"),
+										Timeout: time.Millisecond * 500,
+									})
+								}
+								if v6 {
+									from.CallOrFail(t, echo.CallOptions{
+										Address: "2001:2::f0f0:255",
+										Port:    to.PortForName("http"),
+										Timeout: time.Millisecond * 500,
+									})
+								}
+							})
+					})
+				}
+
+			}
+		})
+}
+
 func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
 	addrs := apps.All.WorkloadsOrFail(t).Addresses()
 	for _, a := range addrs {
