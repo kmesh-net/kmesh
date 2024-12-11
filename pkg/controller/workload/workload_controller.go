@@ -157,3 +157,7 @@ func (c *Controller) SetAccesslogTrigger(enabled bool) {
 func (c *Controller) GetAccesslogTrigger() bool {
 	return c.MetricController.EnableAccesslog.Load()
 }
+
+func (c *Controller) SetWorkloadMetricTrigger(enable bool) {
+	c.MetricController.EnableWorkloadMetric.Store(enable)
+}

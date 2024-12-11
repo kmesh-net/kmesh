@@ -49,8 +49,6 @@ var log = logger.NewLoggerScope("status")
 const (
 	adminAddr = "localhost:15200"
 
-	patternHelp               = "/help"
-	patternOptions            = "/options"
 	patternVersion            = "/version"
 	patternBpfAdsMaps         = "/debug/config_dump/bpf/kernel-native"
 	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/dual-engine"
@@ -61,6 +59,7 @@ const (
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
 	patternMonitoring         = "/monitoring"
+	patternWorkloadMetrics    = "/workload_metrics"
 	patternAuthz              = "/authz"
 
 	bpfLoggerName = "bpf"
@@ -92,8 +91,6 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 		WriteTimeout: httpTimeout,
 	}
 
-	s.mux.HandleFunc(patternHelp, s.httpHelp)
-	s.mux.HandleFunc(patternOptions, s.httpOptions)
 	s.mux.HandleFunc(patternVersion, s.version)
 	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
 	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
@@ -102,6 +99,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
 	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
 	s.mux.HandleFunc(patternMonitoring, s.monitoringHandler)
+	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
@@ -114,30 +112,6 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, confi
 	s.mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	s.mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
 	return s
-}
-
-func (s *Server) httpHelp(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-
-	fmt.Fprintf(w, "\t%s: %s\n", patternHelp,
-		"print list of commands")
-	fmt.Fprintf(w, "\t%s: %s\n", patternOptions,
-		"print config options")
-	fmt.Fprintf(w, "\t%s: %s\n", patternBpfAdsMaps,
-		"print bpf kmesh maps of ads mode in kernel")
-	fmt.Fprintf(w, "\t%s: %s\n", patternBpfWorkloadMaps,
-		"print bpf kmesh maps of workload mode in kernel")
-	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpAds,
-		"dump xDS[Listener, Route, Cluster] configurations")
-	fmt.Fprintf(w, "\t%s: %s\n", patternConfigDumpWorkload,
-		"dump workload configurations")
-	fmt.Fprintf(w, "\t%s: %s\n", patternLoggers,
-		"get or set logger level")
-}
-
-func (s *Server) httpOptions(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintln(w, s.config.String())
 }
 
 func (s *Server) version(w http.ResponseWriter, r *http.Request) {
@@ -311,6 +285,35 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 
 	s.xdsClient.WorkloadController.SetMonitoringTrigger(enabled)
 	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
+	s.xdsClient.WorkloadController.SetWorkloadMetricTrigger(enabled)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	info := r.URL.Query().Get("enable")
+	enabled, err := strconv.ParseBool(info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", info)))
+		return
+	}
+
+	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("failed to get kmeshConfigMap: %v", err), http.StatusBadRequest)
+		return
+	}
+	if configMap.EnableMonitoring == constants.DISABLED && enabled {
+		http.Error(w, "Kmesh monitoring is disable, cannot enable workload metrics.", http.StatusBadRequest)
+		return
+	}
+
+	s.xdsClient.WorkloadController.SetWorkloadMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 

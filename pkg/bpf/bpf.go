@@ -340,6 +340,10 @@ func getNodeIPAddress(node *corev1.Node) [16]byte {
 
 func getNodePodSubGateway(node *corev1.Node) [16]byte {
 	podCIDR := node.Spec.PodCIDR
+	if podCIDR == "" {
+		return [16]byte{0}
+	}
+
 	_, subNet, err := net.ParseCIDR(podCIDR)
 	if err != nil {
 		log.Errorf("failed to resolve ip from podCIDR: %v", err)
