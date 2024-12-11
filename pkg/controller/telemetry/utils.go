@@ -170,14 +170,14 @@ var (
 
 	tcpConnectionTotalRetransInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_workload_connections_total_retrans",
-			Help: "The total number of TCP connections retried to a workload.",
+			Name: "kmesh_tcp_retrans_total",
+			Help: "Total number of retransmissions of the workload over the TCP connection.",
 		}, workloadLabels)
 
 	tcpConnectionLostOutInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
-			Name: "kmesh_tcp_workload_connections_lost_out",
-			Help: "The total number of packets lost by the workload over TCP connections.",
+			Name: "kmesh_tcp_packet_loss_total",
+			Help: "This is the packet loss per src-dst pod.",
 		}, workloadLabels)
 
 	tcpConnectionOpenedInService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
