@@ -23,20 +23,19 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/pkg/controller/workload/common"
 )
 
 func TestAddOrUpdateWorkload(t *testing.T) {
 	t.Run("adding a workload when none exists", func(t *testing.T) {
 		w := NewWorkloadCache()
-		workload := &workloadapi.Workload{
-			Name:    "ut-workload",
-			Uid:     "123456",
-			Network: "ut-net",
-			Addresses: [][]byte{
-				[]byte("192.168.224.22"),
-				[]byte("1.2.3.4"),
-			},
+		Addresses := [][]byte{
+			[]byte("192.168.224.22"),
+			[]byte("1.2.3.4"),
 		}
+		// creating workload using fake workloads
+		workload := common.CreateFakeWorkload("1.2.3.5", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"), common.WithAddresses(Addresses))
+
 		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
@@ -47,16 +46,7 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 
 	t.Run("workload service update", func(t *testing.T) {
 		w := NewWorkloadCache()
-
-		workload := &workloadapi.Workload{
-			Name:    "ut-workload",
-			Uid:     "123456",
-			Network: "ut-net",
-			Addresses: [][]byte{
-				[]byte("192.168.224.22"),
-			},
-		}
-		workload.Services = map[string]*workloadapi.PortList{
+		services := map[string]*workloadapi.PortList{
 			"default/testsvc1.default.svc.cluster.local": {
 				Ports: []*workloadapi.Port{
 					{
@@ -82,20 +72,16 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 				},
 			},
 		}
+
+		// creating workload using fake workloads
+		workload := common.CreateFakeWorkload("1.2.3.4", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"), common.WithAddresses([]byte("192.168.224.22")), common.WithServices(services))
+
 		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
 
-		newWorkload := &workloadapi.Workload{
-			Name:    "ut-workload",
-			Uid:     "123456",
-			Network: "new-net",
-			Addresses: [][]byte{
-				[]byte("192.168.224.22"),
-			},
-		}
-		newWorkload.Services = map[string]*workloadapi.PortList{
+		services = map[string]*workloadapi.PortList{
 			"default/testsvc1.default.svc.cluster.local": {
 				Ports: []*workloadapi.Port{
 					{
@@ -121,6 +107,9 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 				},
 			},
 		}
+		// creating workload using fake workloads
+		newWorkload := common.CreateFakeWorkload("1.2.3.4", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"), common.WithAddresses([]byte("192.168.224.22")), common.WithServices(services))
+
 		w.AddOrUpdateWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
 		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr}])
@@ -130,15 +119,12 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 func TestDeleteWorkload(t *testing.T) {
 	t.Run("normal function test", func(t *testing.T) {
 		w := NewWorkloadCache()
-		workload := &workloadapi.Workload{
-			Name:    "ut-workload",
-			Uid:     "123456",
-			Network: "ut-net",
-			Addresses: [][]byte{
-				[]byte("hello"),
-				[]byte("world"),
-			},
+		Addresses := [][]byte{
+			[]byte("hello"),
+			[]byte("world"),
 		}
+		workload := common.CreateFakeWorkload("1.2.3.7", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"), common.WithAddresses(Addresses))
+
 		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		w.DeleteWorkload("123456")
