@@ -173,13 +173,6 @@ func WithServices(services map[string]*workloadapi.PortList) WorkloadOption {
 	}
 }
 
-func CreatePort(servicePort, targetPort uint32) *workloadapi.Port {
-	return &workloadapi.Port{
-		ServicePort: servicePort,
-		TargetPort:  targetPort,
-	}
-}
-
 func CreateFakeWorkload(ip, waypoint string, opts ...WorkloadOption) *workloadapi.Workload {
 	resolvedWaypoint := ResolveWaypoint(waypoint)
 
@@ -192,7 +185,10 @@ func CreateFakeWorkload(ip, waypoint string, opts ...WorkloadOption) *workloadap
 	}
 
 	for _, opt := range opts {
-		opt(workload)
+		err := opt(workload)
+		if err != nil {
+			log.Printf("error occured : %+v", workload)
+		}
 	}
 	log.Printf("Created workload: %+v", workload)
 	return workload
