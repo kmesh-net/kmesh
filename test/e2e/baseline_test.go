@@ -948,6 +948,7 @@ func TestServiceRestart(t *testing.T) {
 	})
 }
 
+// Test ServiceEntry with inlined WorkloadEntry.
 func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
@@ -1085,6 +1086,8 @@ spec:
 		})
 }
 
+// Test that ServiceEntry and WorkloadEntry are different resource objects
+// and ServiceEntry selects WorkloadEntry through selector.
 func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 	framework.NewTest(t).
 		Run(func(t framework.TestContext) {
