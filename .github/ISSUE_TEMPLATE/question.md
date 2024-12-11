@@ -15,5 +15,9 @@ Please make sure you have read the FAQ and searched the issue list.
 **What do you think about this question?**:
 
 **Environment**:
+
 - Kmesh version:
+- Kmesh mode(kmesh has `Kernel-Native Mode` and `Duel-Engine Mode`):
+- istio version:
+- kernel version:
 - Others:
