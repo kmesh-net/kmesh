@@ -171,7 +171,7 @@ var (
 	tcpConnectionTotalRetransInWorkload = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kmesh_tcp_workload_connections_total_retrans",
-			Help: "The total number of TCP connections retried to a workload.",
+			Help: "Total number of retransmissions of the workload over the TCP connection.",
 		}, workloadLabels)
 
 	tcpConnectionLostOutInWorkload = prometheus.NewGaugeVec(
