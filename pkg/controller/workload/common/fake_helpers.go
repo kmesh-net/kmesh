@@ -17,6 +17,9 @@
 package common
 
 import (
+	"fmt"
+	"log"
+
 	"net/netip"
 	"strings"
 
@@ -89,98 +92,108 @@ func ResolveWaypoint(waypoint string) *workloadapi.GatewayAddress {
 	return w
 }
 
-func CreateFakeWorkload(params ...interface{}) *workloadapi.Workload {
-	var (
-		name, ip, nodeName, waypoint *string
-		networkMode                  = workloadapi.NetworkMode_STANDARD
-		locality                     *workloadapi.Locality
-		servicesMap                  map[string][]*workloadapi.Port
-		uid                          *string
-		network                      *string
-	)
+type WorkloadOption func(*workloadapi.Workload) error
 
-	// Process the params
-	for _, param := range params {
-		switch v := param.(type) {
-		case *string:
-			if name == nil {
-				name = v
-			} else if ip == nil {
-				ip = v
-			} else if nodeName == nil {
-				nodeName = v
-			} else if waypoint == nil {
-				waypoint = v
-			} else if uid == nil {
-				uid = v
-			} else if network == nil {
-				network = v
-			}
-		case string:
-			if name == nil {
-				name = stringPtr(v)
-			} else if ip == nil {
-				ip = stringPtr(v)
-			} else if network == nil {
-				network = stringPtr(v)
-			}
-		case workloadapi.NetworkMode:
-			networkMode = v
-		case *workloadapi.Locality:
-			locality = v
-		case map[string][]*workloadapi.Port:
-			servicesMap = v
-		}
+func WithWorkloadBasicInfo(name, uid, network string) WorkloadOption {
+	return func(w *workloadapi.Workload) error {
+		w.Name = name
+		w.Uid = uid
+		w.Network = network
+		return nil
 	}
-
-	// Set default UID if not provided
-	if uid == nil {
-		generatedUid := "cluster0/" + rand.String(6)
-		if name != nil {
-			generatedUid = "cluster0//Pod/default/" + *name
-		}
-		uid = stringPtr(generatedUid)
-	}
-
-	// Create the workload object with default values
-	workload := &workloadapi.Workload{
-		Uid:               *uid,
-		Name:              *name,
-		Node:              *nodeName,
-		Namespace:         "default",
-		Network:           *network,
-		CanonicalName:     "foo",
-		CanonicalRevision: "latest",
-		WorkloadType:      workloadapi.WorkloadType_POD,
-		WorkloadName:      "name",
-		Status:            workloadapi.WorkloadStatus_HEALTHY,
-		ClusterId:         "cluster0",
-		NetworkMode:       networkMode,
-		Locality:          locality,
-	}
-
-	// Assign IP address if provided
-	if ip != nil {
-		workload.Addresses = [][]byte{netip.MustParseAddr(*ip).AsSlice()}
-	}
-
-	// Assign waypoint if provided
-	if waypoint != nil {
-		workload.Waypoint = ResolveWaypoint(*waypoint)
-	}
-
-	// Assign services map if provided
-	if servicesMap != nil {
-		workload.Services = make(map[string]*workloadapi.PortList, len(servicesMap))
-		for svc, ports := range servicesMap {
-			workload.Services["default/"+svc+".default.svc.cluster.local"] = &workloadapi.PortList{Ports: ports}
-		}
-	}
-
-	return workload
 }
 
-// stringPtr is a helper function to convert a string to a pointer.
-func stringPtr(s string) *string {
-	return &s
+func WithAddresses(addresses ...interface{}) WorkloadOption {
+	return func(w *workloadapi.Workload) error {
+		w.Addresses = make([][]byte, len(addresses))
+		for i, addr := range addresses {
+			switch v := addr.(type) {
+			case string:
+				w.Addresses[i] = netip.MustParseAddr(v).AsSlice()
+			case []byte:
+				w.Addresses[i] = v
+			case netip.Addr:
+				w.Addresses[i] = v.AsSlice()
+			default:
+				return fmt.Errorf("unsupported address type: %T", v)
+			}
+		}
+		return nil
+	}
+}
+
+func WithNetworkMode(networkMode workloadapi.NetworkMode) WorkloadOption {
+	return func(w *workloadapi.Workload) error {
+		w.Uid = "cluster0/" + rand.String(6)
+		w.NetworkMode = networkMode
+		w.Name = "name"
+		if w.Network == "" {
+			w.Network = "testnetwork"
+		}
+		if w.CanonicalName == "" {
+			w.CanonicalName = "foo"
+		}
+		if w.CanonicalRevision == "" {
+			w.CanonicalRevision = "latest"
+		}
+		if w.WorkloadName == "" {
+			w.WorkloadName = "name"
+		}
+		w.WorkloadType = workloadapi.WorkloadType_POD
+		w.Status = workloadapi.WorkloadStatus_HEALTHY
+		w.ClusterId = "cluster0"
+		if w.Services == nil {
+			w.Services = map[string]*workloadapi.PortList{
+				"default/testsvc.default.svc.cluster.local": {
+					Ports: []*workloadapi.Port{
+						{
+							ServicePort: 80,
+							TargetPort:  8080,
+						},
+						{
+							ServicePort: 81,
+							TargetPort:  8180,
+						},
+						{
+							ServicePort: 82,
+							TargetPort:  82,
+						},
+					},
+				},
+			}
+		}
+		return nil
+	}
+}
+
+func WithServices(services map[string]*workloadapi.PortList) WorkloadOption {
+	return func(w *workloadapi.Workload) error {
+		w.Services = services
+		return nil
+	}
+}
+
+func CreatePort(servicePort, targetPort uint32) *workloadapi.Port {
+	return &workloadapi.Port{
+		ServicePort: servicePort,
+		TargetPort:  targetPort,
+	}
+}
+
+func CreateFakeWorkload(ip, waypoint string, opts ...WorkloadOption) *workloadapi.Workload {
+	resolvedWaypoint := ResolveWaypoint(waypoint)
+
+	workload := &workloadapi.Workload{
+		Uid:       rand.String(6),
+		Namespace: "ns",
+		Name:      "test-workload",
+		Addresses: [][]byte{netip.MustParseAddr(ip).AsSlice()},
+		Waypoint:  resolvedWaypoint,
+	}
+
+	for _, opt := range opts {
+		opt(workload)
+	}
+	log.Printf("Created workload: %+v", workload)
+	return workload
 }

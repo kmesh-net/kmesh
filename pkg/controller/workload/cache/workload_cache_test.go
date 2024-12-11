@@ -29,14 +29,13 @@ import (
 func TestAddOrUpdateWorkload(t *testing.T) {
 	t.Run("adding a workload when none exists", func(t *testing.T) {
 		w := NewWorkloadCache()
+		Addresses := [][]byte{
+			[]byte("192.168.224.22"),
+			[]byte("1.2.3.4"),
+		}
+		// creating workload using fake workloads
+		workload := common.CreateFakeWorkload("1.2.3.5", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"), common.WithAddresses(Addresses))
 
-		workload := common.CreateFakeWorkload(
-			"ut-workload",                         // Name
-			"123456",                              // UID
-			"ut-net",                              // Network
-			[]string{"192.168.224.22", "1.2.3.4"}, // Addresses
-			workloadapi.NetworkMode_STANDARD,      // NetworkMode
-		)
 		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr1, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
@@ -47,14 +46,9 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 
 	t.Run("workload service update", func(t *testing.T) {
 		w := NewWorkloadCache()
-
-		workload := common.CreateFakeWorkload(
-			"ut-workload",                    // Name
-			"192.168.224.22",                 // IP Address
-			"123456",                         // UID
-			workloadapi.NetworkMode_STANDARD, // Network Mode
-			map[string][]*workloadapi.Port{ // Services
-				"testsvc1": {
+		services := map[string]*workloadapi.PortList{
+			"default/testsvc1.default.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
 					{
 						ServicePort: 80,
 						TargetPort:  8080,
@@ -68,37 +62,54 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 						TargetPort:  82,
 					},
 				},
-				"testsvc2": {
+			},
+			"default/testsvc2.default.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
 					{
 						ServicePort: 80,
 						TargetPort:  8080,
 					},
 				},
 			},
-		)
+		}
+
+		// creating workload using fake workloads
+		workload := common.CreateFakeWorkload("1.2.3.4", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"), common.WithAddresses([]byte("192.168.224.22")), common.WithServices(services))
 
 		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		addr, _ := netip.AddrFromSlice([]byte("192.168.224.22"))
 		assert.Equal(t, workload, w.byAddr[NetworkAddress{Network: workload.Network, Address: addr}])
 
-		newWorkload := common.CreateFakeWorkload(
-			"ut-workload",                    // Name
-			"123456",                         // UID
-			"new-net",                        // Network
-			"192.168.224.22",                 // Address
-			workloadapi.NetworkMode_STANDARD, // NetworkMode
-			map[string][]*workloadapi.Port{
-				"default/testsvc1.default.svc.cluster.local": {
-					{ServicePort: 80, TargetPort: 8080},
-					{ServicePort: 81, TargetPort: 8180},
-					{ServicePort: 82, TargetPort: 82},
-				},
-				"default/testsvc3.default.svc.cluster.local": {
-					{ServicePort: 80, TargetPort: 8080},
+		services = map[string]*workloadapi.PortList{
+			"default/testsvc1.default.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: 80,
+						TargetPort:  8080,
+					},
+					{
+						ServicePort: 81,
+						TargetPort:  8180,
+					},
+					{
+						ServicePort: 82,
+						TargetPort:  82,
+					},
 				},
 			},
-		)
+			"default/testsvc3.default.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: 80,
+						TargetPort:  8080,
+					},
+				},
+			},
+		}
+		// creating workload using fake workloads
+		newWorkload := common.CreateFakeWorkload("1.2.3.4", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"), common.WithAddresses([]byte("192.168.224.22")), common.WithServices(services))
+
 		w.AddOrUpdateWorkload(newWorkload)
 		assert.Equal(t, newWorkload, w.byUid["123456"])
 		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr}])
@@ -108,15 +119,12 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 func TestDeleteWorkload(t *testing.T) {
 	t.Run("normal function test", func(t *testing.T) {
 		w := NewWorkloadCache()
-		workload := &workloadapi.Workload{
-			Name:    "ut-workload",
-			Uid:     "123456",
-			Network: "ut-net",
-			Addresses: [][]byte{
-				[]byte("hello"),
-				[]byte("world"),
-			},
+		Addresses := [][]byte{
+			[]byte("hello"),
+			[]byte("world"),
 		}
+		workload := common.CreateFakeWorkload("1.2.3.7", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"), common.WithAddresses(Addresses))
+
 		w.AddOrUpdateWorkload(workload)
 		assert.Equal(t, workload, w.byUid["123456"])
 		w.DeleteWorkload("123456")
