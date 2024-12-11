@@ -187,7 +187,7 @@ func CreateFakeWorkload(ip, waypoint string, opts ...WorkloadOption) *workloadap
 	for _, opt := range opts {
 		err := opt(workload)
 		if err != nil {
-			log.Printf("error occured : %+v", workload)
+			log.Printf("error occurred : %+v", err)
 		}
 	}
 	log.Printf("Created workload: %+v", workload)
