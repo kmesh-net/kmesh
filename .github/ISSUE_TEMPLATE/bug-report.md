@@ -20,6 +20,6 @@ labels: kind/bug
 
 - Kmesh version:
 - Kmesh mode(kmesh has `Kernel-Native Mode` and `Duel-Engine Mode`):
-- istio version:
-- kernel version:
+- Istio version:
+- Kernel version:
 - Others:
