@@ -63,7 +63,7 @@ func RunVersion(cmd *cobra.Command, args []string) error {
 
 	if len(args) == 0 {
 		v := version.Get()
-		cmd.Printf("client version: %s\n", v.GitVersion)
+		cmd.Printf("client version: %s-%s\n", v.GitVersion, v.GitCommit)
 		podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
 		if err != nil {
 			log.Errorf("failed to get kmesh daemon pods: %v", err)
@@ -74,7 +74,7 @@ func RunVersion(cmd *cobra.Command, args []string) error {
 		for _, pod := range podList.Items {
 			v := getVersion(cli, pod.Name)
 			if v.GitVersion != "" {
-				daemonVersions[v.GitVersion] = daemonVersions[v.GitVersion] + 1
+				daemonVersions[v.GitVersion+"-"+v.GitCommit] = daemonVersions[v.GitVersion+"-"+v.GitCommit] + 1
 			}
 		}
 		counts := []string{}
