@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"kmesh.net/kmesh/daemon/manager/uninstall"
+	"kmesh.net/kmesh/daemon/manager/version"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/bpf/restart"
@@ -68,6 +69,7 @@ func NewCommand() *cobra.Command {
 
 	// add sub commands
 	cmd.AddCommand(uninstall.NewCmd())
+	cmd.AddCommand(version.NewCmd())
 
 	return cmd
 }

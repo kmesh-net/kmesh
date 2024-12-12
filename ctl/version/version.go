@@ -17,14 +17,18 @@
 package version
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -35,10 +39,10 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "version",
 		Short: "Prints out build version info",
-		Example: `# Show version of kmeshctl
+		Example: `# Show version of all kmesh components
 kmeshctl version
 
-# Show version info of a specific Kmesh daemon
+# Show version info of a specific kmesh daemon
 kmeshctl version <kmesh-daemon-pod>`,
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = RunVersion(cmd, args)
@@ -49,29 +53,57 @@ kmeshctl version <kmesh-daemon-pod>`,
 
 // RunVersion provides the version info of kmeshctl or specific Kmesh daemon.
 func RunVersion(cmd *cobra.Command, args []string) error {
-	if len(args) == 0 {
-		v := version.Get()
-		cmd.Printf("%s\n", v.GitVersion)
-
-		return nil
-	}
-
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
-		log.Errorf("failed to create cli client: %v", err)
+		log.Errorf("failed to create kube client: %v", err)
 		os.Exit(1)
+	}
+
+	cli.Kube()
+
+	if len(args) == 0 {
+		v := version.Get()
+		cmd.Printf("client version: %s\n", v.GitVersion)
+		podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
+		if err != nil {
+			log.Errorf("failed to get kmesh daemon pods: %v", err)
+			os.Exit(1)
+		}
+
+		daemonVersions := map[string]int{}
+		for _, pod := range podList.Items {
+			v := getVersion(cli, pod.Name)
+			if v.GitVersion != "" {
+				daemonVersions[v.GitVersion] = daemonVersions[v.GitVersion] + 1
+			}
+		}
+		counts := []string{}
+		cmd.Printf("kmesh-daemon version: ")
+		for k, v := range daemonVersions {
+			counts = append(counts, fmt.Sprintf("%s (%d daemons)", k, v))
+		}
+		cmd.Printf("%s\n", strings.Join(counts, ", "))
+		return nil
 	}
 
 	podName := args[0]
 
-	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
+	v := getVersion(cli, podName)
+	if v.GitVersion != "" {
+		cmd.Printf("%#v\n", v)
+	}
+	return nil
+}
+
+func getVersion(client kube.CLIClient, podName string) (version version.Info) {
+	fw, err := utils.CreateKmeshPortForwarder(client, podName)
 	if err != nil {
 		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return
 	}
 	if err := fw.Start(); err != nil {
 		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return
 	}
 	defer fw.Close()
 
@@ -79,17 +111,20 @@ func RunVersion(cmd *cobra.Command, args []string) error {
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)
-		os.Exit(1)
+		return
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Errorf("failed to read HTTP response body: %v", err)
-		os.Exit(1)
+		return
 	}
 
-	cmd.Println(string(body))
+	if err := json.Unmarshal(body, &version); err != nil {
+		log.Errorf("failed to unmarshal version info: %v", err)
+		return
+	}
 
-	return nil
+	return
 }
