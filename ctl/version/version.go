@@ -90,7 +90,12 @@ func RunVersion(cmd *cobra.Command, args []string) error {
 
 	v := getVersion(cli, podName)
 	if v.GitVersion != "" {
-		cmd.Printf("%#v\n", v)
+		data, err := json.MarshalIndent(&v, "", "  ")
+		if err != nil {
+			cmd.PrintErrf("Failed to marshal version info: %v", err)
+			return nil
+		}
+		cmd.Printf("%s\n", string(data))
 	}
 	return nil
 }
