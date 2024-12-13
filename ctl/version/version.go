@@ -45,21 +45,19 @@ kmeshctl version
 # Show version info of a specific kmesh daemon
 kmeshctl version <kmesh-daemon-pod>`,
 		Run: func(cmd *cobra.Command, args []string) {
-			_ = RunVersion(cmd, args)
+			runVersion(cmd, args)
 		},
 	}
 	return cmd
 }
 
-// RunVersion provides the version info of kmeshctl or specific Kmesh daemon.
-func RunVersion(cmd *cobra.Command, args []string) error {
+// runVersion output the version info of kmeshctl or kmesh-daemon.
+func runVersion(cmd *cobra.Command, args []string) {
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
 		log.Errorf("failed to create kube client: %v", err)
 		os.Exit(1)
 	}
-
-	cli.Kube()
 
 	if len(args) == 0 {
 		v := version.Get()
@@ -83,21 +81,19 @@ func RunVersion(cmd *cobra.Command, args []string) error {
 			counts = append(counts, fmt.Sprintf("%s (%d daemons)", k, v))
 		}
 		cmd.Printf("%s\n", strings.Join(counts, ", "))
-		return nil
+		return
 	}
 
 	podName := args[0]
-
 	v := getVersion(cli, podName)
 	if v.GitVersion != "" {
 		data, err := json.MarshalIndent(&v, "", "  ")
 		if err != nil {
-			cmd.PrintErrf("Failed to marshal version info: %v", err)
-			return nil
+			log.Errorf("Failed to marshal version info: %v", err)
+			os.Exit(1)
 		}
 		cmd.Printf("%s\n", string(data))
 	}
-	return nil
 }
 
 func getVersion(client kube.CLIClient, podName string) (version version.Info) {
