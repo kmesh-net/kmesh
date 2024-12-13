@@ -440,15 +440,24 @@ func buildServiceMetric(dstWorkload, srcWorkload *workloadapi.Workload, dstPort 
 
 	if dstWorkload != nil {
 		namespacedhost := ""
-		for k, portList := range dstWorkload.Services {
+		for host, portList := range dstWorkload.Services {
 			for _, port := range portList.Ports {
 				if port.TargetPort == uint32(dstPort) {
-					namespacedhost = k
+					namespacedhost = host
 					break
 				}
 			}
 			if namespacedhost != "" {
 				break
+			}
+		}
+		// Handling a Headless Service that does not specify a target port
+		if namespacedhost == "" {
+			for host := range dstWorkload.Services {
+				if host != "" {
+					namespacedhost = host
+					break
+				}
 			}
 		}
 
