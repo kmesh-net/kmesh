@@ -44,7 +44,7 @@ struct tcp_probe_info {
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, RINGBUF_SIZE);
+    __uint(max_entries, 256 * 1024 /* 256 KB */);
 } map_of_tcp_info SEC(".maps");
 
 static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
