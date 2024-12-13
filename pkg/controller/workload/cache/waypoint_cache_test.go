@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/controller/workload/common"
 )
@@ -106,4 +107,3 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, len(cache.workloadToWaypoint), 0)
 	assert.Equal(t, len(cache.waypointAssociatedObjects), 0)
 }
-

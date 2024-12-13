@@ -18,16 +18,18 @@ package common
 
 import (
 	"fmt"
-	"log"
 
 	"net/netip"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/util/rand"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/pkg/logger"
 )
 
-func CreateFakeService(name, ip, waypoint string, optional ...interface{}) *workloadapi.Service {
+func CreateFakeService(name, ip, waypoint string, lbPolicy ...*workloadapi.LoadBalancing) *workloadapi.Service {
+
 	w := ResolveWaypoint(waypoint)
 
 	service := &workloadapi.Service{
@@ -42,28 +44,27 @@ func CreateFakeService(name, ip, waypoint string, optional ...interface{}) *work
 		Waypoint: w,
 	}
 
-	if len(optional) > 0 {
-		if lbPolicy, ok := optional[0].(*workloadapi.LoadBalancing); ok {
-			service.Ports = []*workloadapi.Port{
-				{
-					ServicePort: 80,
-					TargetPort:  8080,
-				},
-				{
-					ServicePort: 81,
-					TargetPort:  8180,
-				},
-				{
-					ServicePort: 82,
-					TargetPort:  82,
-				},
-			}
-			service.LoadBalancing = lbPolicy
+	if lbPolicy != nil {
+		service.Ports = []*workloadapi.Port{
+			{
+				ServicePort: 80,
+				TargetPort:  8080,
+			},
+			{
+				ServicePort: 81,
+				TargetPort:  8180,
+			},
+			{
+				ServicePort: 82,
+				TargetPort:  82,
+			},
 		}
+		service.LoadBalancing = lbPolicy[0]
 	}
 
 	return service
 }
+
 func ResolveWaypoint(waypoint string) *workloadapi.GatewayAddress {
 	var w *workloadapi.GatewayAddress
 	if waypoint != "" {
@@ -184,12 +185,12 @@ func CreateFakeWorkload(ip, waypoint string, opts ...WorkloadOption) *workloadap
 		Waypoint:  resolvedWaypoint,
 	}
 
+	logger := logger.NewLoggerScope("workload")
 	for _, opt := range opts {
 		err := opt(workload)
 		if err != nil {
-			log.Printf("error occurred : %+v", err)
+			logger.Errorf("Error applying option: %v", err)
 		}
 	}
-	log.Printf("Created workload: %+v", workload)
 	return workload
 }
