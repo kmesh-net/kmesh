@@ -97,7 +97,35 @@ Istio Ingress Gateway can also use EnvoyFilter to add External Processing Filter
 
 #### AI Plugin CRD
 
+Finally, we need to rely on CRD to describe the config related to AI traffic management. The config consists of the following two parts:
 
+1. Associated Service: The AI model is ultimately deployed in a service. We hope that only the service configured with the corresponding AI policy will forward traffic to the AI plugin and all AI services in the cluster can share the same AI plugin deployment without having to deploy one for each Service. In addition, if a service configured with AI policy, traffic can be directly forwarded to the AI plugin. Whether it's through automatically generating resource objects such as `EnvoyExtensionPolicy` or modifying XDS. It's believed that it will bring a better user experience.
+
+2. Specific AI traffic management policy: such as rate limit, cache, fallback, etc.
+
+The specific examples are as follows:
+
+```yaml
+apiVersion: ai.kmesh.net/v1alpha1
+kind: AIExtension
+metadata:
+  name: ai-extensions
+  namespace: ollama
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: ollama
+  options:
+    rateLimits:
+      - requestsPerUnit: 10
+        unit: minute
+        model: llama3.2
+    caches:
+      ...
+```
+
+In accordance with the Gateway API convention, the service is associated with `HTTPRoute` in `targetRefs`, and then the specific AI policies are configured under `options`. Currently all AI policies are configured in the `AIExtension` CRD. If necessary, separate CRDs can be built for different policies in the future.
 
 #### Test Plan
 
