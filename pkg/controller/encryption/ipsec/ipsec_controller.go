@@ -38,6 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/constants"
 	kmesh_netns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/kube"
@@ -329,7 +330,9 @@ func (ic *IpsecController) Run(stop <-chan struct{}) {
 
 func (ic *IpsecController) Stop() {
 	ic.ipsecHandler.StopWatch()
-	ic.detachTCforInternalNic()
+	if restart.GetStartType() == restart.Normal {
+		ic.detachTCforInternalNic()
+	}
 }
 
 func (ic *IpsecController) handleAllKmeshNodeInfo() bool {

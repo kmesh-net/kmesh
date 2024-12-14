@@ -26,6 +26,7 @@ import (
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
+	"kmesh.net/kmesh/pkg/controller/encryption/ipsec"
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/dns"
@@ -44,8 +45,10 @@ type Controller struct {
 	bpfAdsObj           *bpfads.BpfAds
 	bpfWorkloadObj      *bpfwl.BpfWorkload
 	client              *XdsClient
+	ipsecController     *ipsec.IpsecController
 	enableByPass        bool
 	enableSecretManager bool
+	enableIPsec         bool
 	bpfConfig           *options.BpfConfig
 }
 
@@ -119,6 +122,16 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("Failed to update config in order to start metric: %v", err)
 		}
 	}
+
+	if c.enableIPsec {
+		c.ipsecController, err = ipsec.NewIPsecController(clientset)
+		if err != nil {
+			return fmt.Errorf("failed to new IPsec controller, %v", err)
+		}
+		go c.ipsecController.Run(stopCh)
+		log.Info("start IPsec coontroller successfully")
+	}
+
 	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
 
 	if c.client.WorkloadController != nil {
@@ -144,6 +157,9 @@ func (c *Controller) Stop() {
 	cancel()
 	if c.client != nil {
 		c.client.Close()
+	}
+	if c.enableIPsec {
+		c.ipsecController.Stop()
 	}
 }
 
