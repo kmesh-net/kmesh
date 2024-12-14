@@ -25,6 +25,7 @@ int tc_mark_decrypt(struct __sk_buff *ctx)
         return TC_ACT_OK;
     }
     nodeid = nodeinfo->nodeid;
+    // 0x{nodeid}00d0 mean need decryption in ipsec
     ctx->mark = (nodeid << 16) + 0x00d0;
     return TC_ACT_OK;
 }

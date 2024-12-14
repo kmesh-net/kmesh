@@ -5,6 +5,7 @@
 #define __KMESH_IPSEC_H__
 #include <linux/bpf.h>
 #include "common.h"
+#include "map_config.h"
 
 #define MAP_SIZE_OF_NODEINFO    8192
 
