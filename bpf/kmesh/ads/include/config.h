@@ -43,8 +43,6 @@
 #define map_of_listener         km_listener
 #define map_of_cluster          km_cluster
 #define map_of_cluster_stats    km_clusterstats
-#define map_of_tail_call_prog   km_tailcallprog
-#define map_of_tail_call_ctx    km_tailcall_ctx
 #define map_of_cluster_sock     km_cluster_sock
 #define outer_of_maglev         km_maglev_outer
 #define map_of_cluster_eps      km_cluster_eps

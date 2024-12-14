@@ -10,6 +10,10 @@ typedef struct bpf_sock_ops ctx_buff_t;
 
 #define KMESH_PORG_CALLS sockops
 
+// tail_call map dont support pinning when shared by different bpf types, so define different name in sockops & sockconn
+#define map_of_tail_call_prog kmtailcallprogl7
+#define map_of_tail_call_ctx  kmtailcallctx_l7
+
 #define DECLARE_VAR_ADDRESS(ctx, name)                                                                                 \
     address_t name = {0};                                                                                              \
     bpf_memset(&name, 0, sizeof(name));                                                                                \

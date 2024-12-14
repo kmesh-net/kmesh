@@ -10,6 +10,10 @@ typedef struct bpf_sock_addr ctx_buff_t;
 #define KMESH_PORG_CALLS    cgroup/connect4
 // clang-format on
 
+// tail_call map dont support pinning when shared by different bpf types, so define different name in sockops & sockconn
+#define map_of_tail_call_prog km_tailcallprog
+#define map_of_tail_call_ctx  km_tailcall_ctx
+
 #define DECLARE_VAR_ADDRESS(ctx, name)                                                                                 \
     address_t name = {0};                                                                                              \
     name.ipv4 = (ctx)->user_ip4;                                                                                       \
