@@ -17,9 +17,6 @@ int tc_mark_decrypt(struct __sk_buff *ctx)
     if (parser_tc_info(ctx, &info)) {
         return TC_ACT_OK;
     }
-    if (info.iph->protocol != 50) {
-        return TC_ACT_OK;
-    }
     nodeinfo = getNodeInfo(ctx, &info, info.iph->saddr, info.ip6h->saddr.s6_addr32);
     if (!nodeinfo) {
         return TC_ACT_OK;
