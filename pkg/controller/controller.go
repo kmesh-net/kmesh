@@ -60,6 +60,7 @@ func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpfads.BpfAds, bpf
 		bpfWorkloadObj:      bpfWorkloadObj,
 		enableSecretManager: opts.SecretManagerConfig.Enable,
 		bpfConfig:           opts.BpfConfig,
+		enableIPsec:         opts.EncryptionConfig.EnableIPsec,
 	}
 }
 
