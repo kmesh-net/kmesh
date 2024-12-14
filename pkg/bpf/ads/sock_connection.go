@@ -118,7 +118,7 @@ func (sc *BpfSockConn) Load() error {
 	sc.Info.AttachType = prog.AttachType
 
 	// update tail call prog
-	err = sc.KmTailcallprog.Update(
+	err = sc.KmCgrptailcall.Update(
 		uint32(KMESH_TAIL_CALL_FILTER_CHAIN),
 		uint32(sc.FilterChainManager.FD()),
 		ebpf.UpdateAny)
@@ -126,7 +126,7 @@ func (sc *BpfSockConn) Load() error {
 		return err
 	}
 
-	err = sc.KmTailcallprog.Update(
+	err = sc.KmCgrptailcall.Update(
 		uint32(KMESH_TAIL_CALL_FILTER),
 		uint32(sc.FilterManager.FD()),
 		ebpf.UpdateAny)
@@ -134,7 +134,7 @@ func (sc *BpfSockConn) Load() error {
 		return err
 	}
 
-	err = sc.KmTailcallprog.Update(
+	err = sc.KmCgrptailcall.Update(
 		uint32(KMESH_TAIL_CALL_CLUSTER),
 		uint32(sc.ClusterManager.FD()),
 		ebpf.UpdateAny)
