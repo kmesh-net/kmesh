@@ -280,6 +280,71 @@ func (is *IpSecHandler) CreateXfrmRule(rawSrc, rawDst string, rawDstCIDR string,
 	return nil
 }
 
+func (is *IpSecHandler) Clean(target string) error {
+	targetIP := net.ParseIP(target)
+	oldPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	if err != nil {
+		return err
+	}
+	for _, policy := range oldPolicyList {
+		for _, tmpl := range policy.Tmpls {
+			if tmpl.Src.Equal(targetIP) {
+				err = netlink.XfrmPolicyDel(&policy)
+				if err != nil {
+					return err
+				}
+				continue
+			}
+			if tmpl.Dst.Equal(targetIP) {
+				err = netlink.XfrmPolicyDel(&policy)
+				if err != nil {
+					return err
+				}
+				continue
+			}
+		}
+	}
+	oldStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	for _, state := range oldStateList {
+		if state.Src.Equal(targetIP) {
+			err = netlink.XfrmStateDel(&state)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		if state.Dst.Equal(targetIP) {
+			err = netlink.XfrmStateDel(&state)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+	}
+	return nil
+}
+
+func (is *IpSecHandler) CleanAll() error {
+	oldPolicyList, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
+	if err != nil {
+		return err
+	}
+	for _, policy := range oldPolicyList {
+		err = netlink.XfrmPolicyDel(&policy)
+		if err != nil {
+			return err
+		}
+	}
+	oldStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
+	for _, state := range oldStateList {
+		err = netlink.XfrmStateDel(&state)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (is *IpSecHandler) createPolicyRule(srcCIDR, dstCIDR *net.IPNet, src, dst net.IP, nodeID string, out bool) error {
 	policy := &netlink.XfrmPolicy{
 		Src: srcCIDR,
