@@ -346,18 +346,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				workloadLabels = m.buildWorkloadMetric(&data)
 			}
 
-			workloadLabels.reporter = DEFAULT_UNKNOWN
-			serviceLabels.reporter = DEFAULT_UNKNOWN
-			if data.direction == constants.INBOUND {
-				workloadLabels.reporter = "destination"
-				serviceLabels.reporter = "destination"
-				accesslog.direction = "INBOUND"
-			}
-			if data.direction == constants.OUTBOUND {
-				workloadLabels.reporter = "source"
-				serviceLabels.reporter = "source"
-				accesslog.direction = "OUTBOUND"
-			}
 			if data.state == TCP_CLOSTED && m.EnableAccesslog.Load() {
 				OutputAccesslog(data, accesslog)
 			}
@@ -439,6 +427,13 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 	trafficLabels.reporter = DEFAULT_UNKNOWN
 
+	switch data.direction {
+	case constants.INBOUND:
+		trafficLabels.reporter = "destination"
+	case constants.OUTBOUND:
+		trafficLabels.reporter = "source"
+	}
+
 	return *trafficLabels
 }
 
@@ -487,14 +482,24 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 	trafficLabels := NewServiceMetricLabel()
 	trafficLabels.withSource(srcWorkload).withDestination(dstWorkload).withDestinationService(dstService)
 
+	trafficLabels.requestProtocol = "tcp"
+	trafficLabels.connectionSecurityPolicy = "mutual_tls"
+	trafficLabels.reporter = DEFAULT_UNKNOWN
+
 	accesslog := NewLogInfo()
 	accesslog.withSource(srcWorkload).withDestination(dstWorkload).withDestinationService(dstService)
 
-	trafficLabels.requestProtocol = "tcp"
-	trafficLabels.connectionSecurityPolicy = "mutual_tls"
-
 	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.dstPort)
 	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.srcPort)
+
+	switch data.direction {
+	case constants.INBOUND:
+		trafficLabels.reporter = "destination"
+		accesslog.direction = "INBOUND"
+	case constants.OUTBOUND:
+		trafficLabels.reporter = "source"
+		accesslog.direction = "OUTBOUND"
+	}
 
 	return *trafficLabels, *accesslog
 }

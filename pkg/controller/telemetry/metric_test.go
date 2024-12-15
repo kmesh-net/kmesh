@@ -569,9 +569,10 @@ func TestBuildServiceMetric(t *testing.T) {
 				requestProtocol:              "tcp",
 				responseFlags:                "",
 				connectionSecurityPolicy:     "mutual_tls",
+				reporter:                     "source",
 			},
 			wantLogInfo: logInfo{
-				direction:            "-",
+				direction:            "OUTBOUND",
 				sourceAddress:        "10.19.25.31:8000",
 				sourceWorkload:       "kmesh",
 				sourceNamespace:      "kmesh-system",
@@ -617,9 +618,10 @@ func TestBuildServiceMetric(t *testing.T) {
 				requestProtocol:              "tcp",
 				responseFlags:                "",
 				connectionSecurityPolicy:     "mutual_tls",
+				reporter:                     "source",
 			},
 			wantLogInfo: logInfo{
-				direction:            "-",
+				direction:            "OUTBOUND",
 				sourceAddress:        "10.19.25.31:8000",
 				sourceWorkload:       "kmesh",
 				sourceNamespace:      "kmesh-system",
