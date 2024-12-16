@@ -28,7 +28,7 @@ As a powerful Traffic Management Engine, Kmesh should be specially optimized for
 
 Currently AI traffic management is mainly focused on the north-south direction, that is, the traffic entering from the Gateway. For general north-south traffic management functions, the open source community has already provided good support and provided multiple implementations, such as Istio Ingress Gateway, Envoy Gateway, and so on.
 
-Kmesh can now be seamlessly integrated  with these Gateways. Obviously, the work of implementing a new Gateway from scratch is huge, and the implementation of most common functions will be a repetitive work. In addition, most Gateways are implemented based on Envoy, which is famous for its powerful extensibility. Therefor, we decided to implement Kmesh's AI capabitlity in the form of extensions plugins, which can not only reuse the community's existing capabilities, but also bring incremental benefits.
+Kmesh can now be seamlessly integrated  with these Gateways. Obviously, the work of implementing a new Gateway from scratch is huge, and the implementation of most common functions will be a repetitive work. In addition, most Gateways are implemented based on Envoy, which is famous for its powerful extensibility. Therefore, we decided to implement Kmesh's AI capabitlity in the form of extensions plugins, which can not only reuse the community's existing capabilities, but also bring incremental benefits.
 
 #### Goals
 
@@ -44,7 +44,7 @@ Kmesh can now be seamlessly integrated  with these Gateways. Obviously, the work
 
 Currently AI traffic management is mainly focused on the north-south direction, that is, the traffic entering from the Gateway. For general north-south traffic management functions, the open source community has already provided good support and provided multiple implementations, such as Istio Ingress Gateway, Envoy Gateway, and so on.
 
-Kmesh can now be seamlessly integrated  with these Gateways. Obviously, the work of implementing a new Gateway from scratch is huge, and the implementation of most common functions will be a repetitive work. In addition, most Gateways are implemented based on Envoy, which is famous for its powerful extensibility. Therefor, we decided to implement Kmesh's AI capabitlity in the form of extensions plugins, which can not only reuse the community's existing capabilities, but also bring incremental benefits.
+Kmesh can now be seamlessly integrated  with these Gateways. Obviously, the work of implementing a new Gateway from scratch is huge, and the implementation of most common functions will be a repetitive work. In addition, most Gateways are implemented based on Envoy, which is famous for its powerful extensibility. Therefore, we decided to implement Kmesh's AI capabitlity in the form of extensions plugins, which can not only reuse the community's existing capabilities, but also bring incremental benefits.
 
 The Kmesh's AI plugin should have the following advantages:
 
@@ -59,7 +59,7 @@ The Kmesh's AI plugin should have the following advantages:
 
 As we all known, Envoy's extensibility is based on its [filter mechanism](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/filter/filter). We can add custom filters at various stages of Envoy's request processing to customize the processing logic.
 
-There are many ways to write filters. For example you can directly use c++ to build an In-Tree filter. Although this method has the best perfermance, it is difficulty to develop and is not dev-friendly. Another way is to use Lua or Wasm to build an Out-Of-Tree filter. This method is easier to develop, but the performance and hard to debug. Envoy even allows you to develop plugins directly in [Golang](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/golang_filter), but this does not seem stable enough and will introduce additional abstractions and complex mechanisms that are not easy to debug as well.
+There are many ways to write filters. For example you can directly use c++ to build an In-Tree filter. Although this method has the best performance, it is difficulty to develop and is not dev-friendly. Another way is to use Lua or Wasm to build an Out-Of-Tree filter. This method is easier to develop, but the performance and hard to debug. Envoy even allows you to develop plugins directly in [Golang](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/golang_filter), but this does not seem stable enough and will introduce additional abstractions and complex mechanisms that are not easy to debug as well.
 
 So we finally chose Envoy's [External Processing Filter](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/ext_proc_filter). It connects to an external service, called an "external processor", to the filter chain. The processing service itself implements a gRPC interface that allows it to respond to events in the lifecycle of an HTTP request/response by examining and modifying the headers, body, and trailers of each message, or by returning a brand-new response.
 
