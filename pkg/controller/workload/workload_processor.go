@@ -437,7 +437,7 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.ResourceName())
 
-	if resolved := p.WaypointCache.AddOrUpateWorkload(workload); !resolved {
+	if resolved := p.WaypointCache.AddOrUpdateWorkload(workload); !resolved {
 		// If the hostname type waypoint of workload has not been resolved, it will not be processed
 		// for the time being. The corresponding waypoint service should be processed immediately, and then
 		// it will be handled after the batch resolution is completed in `WaypointCache.Refresh`.

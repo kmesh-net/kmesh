@@ -315,7 +315,7 @@ func (load *AdsCache) CreateApiRouteByRds(status core_v2.ApiStatus, routeConfig 
 	load.RouteCache.SetApiRouteConfig(apiRouteConfig.GetName(), apiRouteConfig)
 }
 
-func (load *AdsCache) UpateApiRouteStatus(key string, status core_v2.ApiStatus) {
+func (load *AdsCache) UpdateApiRouteStatus(key string, status core_v2.ApiStatus) {
 	load.RouteCache.UpdateApiRouteStatus(key, status)
 }
 
