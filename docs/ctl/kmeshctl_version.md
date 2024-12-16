@@ -9,10 +9,10 @@ kmeshctl version [flags]
 ### Examples
 
 ```
-# Show version of kmeshctl
+# Show version of all kmesh components
 kmeshctl version
 
-# Show version info of a specific Kmesh daemon
+# Show version info of a specific kmesh daemon
 kmeshctl version <kmesh-daemon-pod>
 ```
 

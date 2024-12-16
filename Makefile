@@ -34,7 +34,6 @@ CC=clang
 CXX=clang++
 GOFLAGS := $(EXTRA_GOFLAGS)
 GOGCFLAGS := ""
-GOLDFLAGS := ""
 EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
@@ -43,20 +42,19 @@ LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=w
 			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
 			-linkmode=external -extldflags $(EXTLDFLAGS)"
 
-GOLDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
+GOLDFLAGS := "-extldflags -static -s -w \
+			-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
 			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
-			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
-			-extldflags '-static'"
+			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE)"
 
 # Debug flags
 ifeq ($(DEBUG),1)
 	# Debugging - disable optimizations and inlining
 	GOGCFLAGS := "all=-N -l"
 else
-	# Release build - disable symbols and DWARF, trim embedded paths
-	GOLDFLAGS := '-s -w'
+	# Release build - trim embedded paths
 	GOFLAGS += -trimpath
 endif
 
@@ -122,12 +120,11 @@ all-binary:
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
 
-OUT ?= kmeshctl
 .PHONY: kmeshctl
 kmeshctl:
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		CGO_ENABLED=0 $(GO) build -gcflags $(GOGCFLAGS) -ldflags $(GOLDFLAGS) -o $(OUT) $(GOFLAGS) ./ctl/main.go)
+		CGO_ENABLED=0 $(GO) build -gcflags $(GOGCFLAGS) -ldflags $(GOLDFLAGS) -o kmeshctl $(GOFLAGS) ./ctl/main.go)
 
 .PHONY: gen-proto
 gen-proto:

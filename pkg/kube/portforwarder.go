@@ -19,6 +19,7 @@ package kube
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
@@ -75,7 +76,7 @@ func (p *portForwarder) Start() error {
 	}
 
 	ports := fmt.Sprintf("%d:%d", p.localPort, p.podPort)
-	ioStreams := genericiooptions.IOStreams{In: os.Stdin, Out: os.Stdout, ErrOut: os.Stderr}
+	ioStreams := genericiooptions.IOStreams{In: os.Stdin, Out: io.Discard, ErrOut: os.Stderr}
 	pfOptions := portforward.NewDefaultPortForwardOptions(ioStreams)
 	pfOptions.Address = address
 
