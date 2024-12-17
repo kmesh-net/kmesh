@@ -29,9 +29,7 @@ import (
 )
 
 func CreateFakeService(name, ip, waypoint string, lbPolicy *workloadapi.LoadBalancing) *workloadapi.Service {
-
 	w := ResolveWaypoint(waypoint)
-
 	service := &workloadapi.Service{
 		Name:      name,
 		Namespace: "default",
