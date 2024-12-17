@@ -28,7 +28,7 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-func CreateFakeService(name, ip, waypoint string, lbPolicy ...*workloadapi.LoadBalancing) *workloadapi.Service {
+func CreateFakeService(name, ip, waypoint string, lbPolicy *workloadapi.LoadBalancing) *workloadapi.Service {
 
 	w := ResolveWaypoint(waypoint)
 
@@ -59,7 +59,7 @@ func CreateFakeService(name, ip, waypoint string, lbPolicy ...*workloadapi.LoadB
 				TargetPort:  82,
 			},
 		}
-		service.LoadBalancing = lbPolicy[0]
+		service.LoadBalancing = lbPolicy
 	}
 
 	return service

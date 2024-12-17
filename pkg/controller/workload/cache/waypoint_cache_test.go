@@ -31,16 +31,16 @@ func TestBasic(t *testing.T) {
 	cache := NewWaypointCache(serviceCache)
 
 	// No waypoint.
-	svc1 := common.CreateFakeService("svc1", "10.240.10.1", "")
+	svc1 := common.CreateFakeService("svc1", "10.240.10.1", "", nil)
 	wl1 := common.CreateFakeWorkload("1.2.3.5", "")
 
 	// Waypoint with IP address.
-	svc2 := common.CreateFakeService("svc2", "10.240.10.2", "10.240.10.10")
+	svc2 := common.CreateFakeService("svc2", "10.240.10.2", "10.240.10.10", nil)
 	wl2 := common.CreateFakeWorkload("1.2.3.6", "")
 
 	waypointHostname := "default/waypoint.default.svc.cluster.local"
 	// Waypoint with hostname.
-	svc3 := common.CreateFakeService("svc3", "10.240.10.3", waypointHostname)
+	svc3 := common.CreateFakeService("svc3", "10.240.10.3", waypointHostname, nil)
 	wl3 := common.CreateFakeWorkload("1.2.3.7", waypointHostname)
 
 	for _, svc := range []*workloadapi.Service{svc1, svc2, svc3} {
@@ -77,7 +77,7 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint), true)
 
 	// Create waypoint service and process.
-	waypointsvc := common.CreateFakeService("waypoint", "10.240.10.11", "")
+	waypointsvc := common.CreateFakeService("waypoint", "10.240.10.11", "", nil)
 	svcs, wls := cache.Refresh(waypointsvc)
 	assert.Equal(t, len(svcs), 1)
 	assert.Equal(t, len(wls), 1)
@@ -86,7 +86,7 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint), false)
 
 	// Create service and workload with waypoint which has been resolved.
-	svc4 := common.CreateFakeService("svc4", "10.240.10.4", waypointHostname)
+	svc4 := common.CreateFakeService("svc4", "10.240.10.4", waypointHostname, nil)
 	wl4 := common.CreateFakeWorkload("1.2.3.8", waypointHostname)
 	cache.AddOrUpdateService(svc4)
 	cache.AddOrUpateWorkload(wl4)
