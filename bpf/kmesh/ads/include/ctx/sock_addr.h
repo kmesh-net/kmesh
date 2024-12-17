@@ -11,6 +11,9 @@ typedef struct bpf_sock_addr ctx_buff_t;
 // clang-format on
 
 // tail_call map dont support pinning when shared by different bpf types, so define different name in sockops & sockconn
+// this is making the map named km_cgrptailcall in sock_addr prog
+// And below make another map km_skopstailcall in sock_ops prog.
+// So the code can be reused kmesh_tail_call by different progs without passing in the map name
 #define map_of_tail_call_prog km_cgrptailcall
 
 #define DECLARE_VAR_ADDRESS(ctx, name)                                                                                 \
