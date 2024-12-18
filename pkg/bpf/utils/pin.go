@@ -64,7 +64,7 @@ func UnpinMaps(value *reflect.Value) error {
 			continue
 		}
 		if err := tp.Unpin(); err != nil {
-			return fmt.Errorf("unpin prog failed, %s", err)
+			return fmt.Errorf("unpin map failed, %s", err)
 		}
 	}
 
