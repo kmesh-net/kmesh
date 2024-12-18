@@ -17,14 +17,12 @@
 package cache
 
 import (
-	"net/netip"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"k8s.io/apimachinery/pkg/util/rand"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/pkg/controller/workload/common"
 )
 
 func TestBasic(t *testing.T) {
@@ -33,17 +31,17 @@ func TestBasic(t *testing.T) {
 	cache := NewWaypointCache(serviceCache)
 
 	// No waypoint.
-	svc1 := createFakeService("svc1", "10.240.10.1", "")
-	wl1 := createFakeWorkload("1.2.3.5", "")
+	svc1 := common.CreateFakeService("svc1", "10.240.10.1", "", nil)
+	wl1 := common.CreateFakeWorkload("1.2.3.5", "")
 
 	// Waypoint with IP address.
-	svc2 := createFakeService("svc2", "10.240.10.2", "10.240.10.10")
-	wl2 := createFakeWorkload("1.2.3.6", "")
+	svc2 := common.CreateFakeService("svc2", "10.240.10.2", "10.240.10.10", nil)
+	wl2 := common.CreateFakeWorkload("1.2.3.6", "")
 
 	waypointHostname := "default/waypoint.default.svc.cluster.local"
 	// Waypoint with hostname.
-	svc3 := createFakeService("svc3", "10.240.10.3", waypointHostname)
-	wl3 := createFakeWorkload("1.2.3.7", waypointHostname)
+	svc3 := common.CreateFakeService("svc3", "10.240.10.3", waypointHostname, nil)
+	wl3 := common.CreateFakeWorkload("1.2.3.7", waypointHostname)
 
 	for _, svc := range []*workloadapi.Service{svc1, svc2, svc3} {
 		cache.AddOrUpdateService(svc)
@@ -79,7 +77,7 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint), true)
 
 	// Create waypoint service and process.
-	waypointsvc := createFakeService("waypoint", "10.240.10.11", "")
+	waypointsvc := common.CreateFakeService("waypoint", "10.240.10.11", "", nil)
 	svcs, wls := cache.Refresh(waypointsvc)
 	assert.Equal(t, len(svcs), 1)
 	assert.Equal(t, len(wls), 1)
@@ -88,8 +86,8 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint), false)
 
 	// Create service and workload with waypoint which has been resolved.
-	svc4 := createFakeService("svc4", "10.240.10.4", waypointHostname)
-	wl4 := createFakeWorkload("1.2.3.8", waypointHostname)
+	svc4 := common.CreateFakeService("svc4", "10.240.10.4", waypointHostname, nil)
+	wl4 := common.CreateFakeWorkload("1.2.3.8", waypointHostname)
 	cache.AddOrUpdateService(svc4)
 	cache.AddOrUpdateWorkload(wl4)
 
@@ -108,63 +106,4 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, len(cache.serviceToWaypoint), 0)
 	assert.Equal(t, len(cache.workloadToWaypoint), 0)
 	assert.Equal(t, len(cache.waypointAssociatedObjects), 0)
-}
-
-// NOTE: All utility functions are simplified for the waypoint cache related tests and omit irrelevant fields.
-
-func createFakeWorkload(ip string, waypoint string) *workloadapi.Workload {
-	w := resolveWaypoint(waypoint)
-
-	return &workloadapi.Workload{
-		Uid:       "cluster0/" + rand.String(6),
-		Namespace: "ns",
-		Name:      "name",
-		Addresses: [][]byte{netip.MustParseAddr(ip).AsSlice()},
-		Waypoint:  w,
-	}
-}
-
-func createFakeService(name string, ip string, waypoint string) *workloadapi.Service {
-	w := resolveWaypoint(waypoint)
-
-	return &workloadapi.Service{
-		Name:      name,
-		Namespace: "default",
-		Hostname:  name + ".default.svc.cluster.local",
-		Addresses: []*workloadapi.NetworkAddress{
-			{
-				Address: netip.MustParseAddr(ip).AsSlice(),
-			},
-		},
-		Waypoint: w,
-	}
-}
-
-func resolveWaypoint(waypoint string) *workloadapi.GatewayAddress {
-	var w *workloadapi.GatewayAddress
-	if waypoint != "" {
-		res := strings.Split(waypoint, "/")
-		if len(res) == 2 {
-			w = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Hostname{
-					Hostname: &workloadapi.NamespacedHostname{
-						Namespace: res[0],
-						Hostname:  res[1],
-					},
-				},
-				HboneMtlsPort: 15008,
-			}
-		} else {
-			w = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Address{
-					Address: &workloadapi.NetworkAddress{
-						Address: netip.MustParseAddr(waypoint).AsSlice(),
-					},
-				},
-				HboneMtlsPort: 15008,
-			}
-		}
-	}
-
-	return w
 }
