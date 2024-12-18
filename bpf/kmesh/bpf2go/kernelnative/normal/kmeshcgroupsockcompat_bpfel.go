@@ -104,6 +104,7 @@ type KmeshCgroupSockCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockCompatMapSpecs struct {
+	KmCgrptailcall *ebpf.MapSpec `ebpf:"km_cgrptailcall"`
 	KmCluster      *ebpf.MapSpec `ebpf:"km_cluster"`
 	KmClusterEps   *ebpf.MapSpec `ebpf:"km_cluster_eps"`
 	KmClusterSock  *ebpf.MapSpec `ebpf:"km_cluster_sock"`
@@ -117,7 +118,6 @@ type KmeshCgroupSockCompatMapSpecs struct {
 	KmRatelimit    *ebpf.MapSpec `ebpf:"km_ratelimit"`
 	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.MapSpec `ebpf:"km_tailcall_ctx"`
-	KmTailcallprog *ebpf.MapSpec `ebpf:"km_tailcallprog"`
 	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmeshMap1600   *ebpf.MapSpec `ebpf:"kmesh_map1600"`
 	KmeshMap192    *ebpf.MapSpec `ebpf:"kmesh_map192"`
@@ -144,6 +144,7 @@ func (o *KmeshCgroupSockCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshCgroupSockCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockCompatMaps struct {
+	KmCgrptailcall *ebpf.Map `ebpf:"km_cgrptailcall"`
 	KmCluster      *ebpf.Map `ebpf:"km_cluster"`
 	KmClusterEps   *ebpf.Map `ebpf:"km_cluster_eps"`
 	KmClusterSock  *ebpf.Map `ebpf:"km_cluster_sock"`
@@ -157,7 +158,6 @@ type KmeshCgroupSockCompatMaps struct {
 	KmRatelimit    *ebpf.Map `ebpf:"km_ratelimit"`
 	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.Map `ebpf:"km_tailcall_ctx"`
-	KmTailcallprog *ebpf.Map `ebpf:"km_tailcallprog"`
 	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmeshMap1600   *ebpf.Map `ebpf:"kmesh_map1600"`
 	KmeshMap192    *ebpf.Map `ebpf:"kmesh_map192"`
@@ -167,6 +167,7 @@ type KmeshCgroupSockCompatMaps struct {
 
 func (m *KmeshCgroupSockCompatMaps) Close() error {
 	return _KmeshCgroupSockCompatClose(
+		m.KmCgrptailcall,
 		m.KmCluster,
 		m.KmClusterEps,
 		m.KmClusterSock,
@@ -180,7 +181,6 @@ func (m *KmeshCgroupSockCompatMaps) Close() error {
 		m.KmRatelimit,
 		m.KmSockstorage,
 		m.KmTailcallCtx,
-		m.KmTailcallprog,
 		m.KmTmpbuf,
 		m.KmeshMap1600,
 		m.KmeshMap192,
