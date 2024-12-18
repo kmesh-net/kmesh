@@ -106,7 +106,7 @@ SEC("xdp_auth")
 int xdp_authz(struct xdp_md *ctx)
 {
     if (!is_authz_offload_enabled()) {
-        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
         return XDP_PASS;
     }
 

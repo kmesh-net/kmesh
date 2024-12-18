@@ -309,7 +309,7 @@ int policy_check(struct xdp_md *ctx)
             BPF_LOG(ERR, AUTH, "failed to update map, error: %d", ret);
             return XDP_PASS;
         }
-        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_RULE_CHECK);
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_RULE_CHECK);
     }
     return XDP_PASS;
 
@@ -317,7 +317,7 @@ auth_in_user_space:
     if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
         BPF_LOG(DEBUG, AUTH, "failed to delete context from map");
     }
-    bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
+    bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
     return XDP_PASS;
 }
 
@@ -386,7 +386,7 @@ int rule_check(struct xdp_md *ctx)
     match_ctx->policy_index++;
     if (match_ctx->policy_index >= MAX_MEMBER_NUM_PER_POLICY) {
         BPF_LOG(ERR, AUTH, "policy index out of bounds");
-        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
     }
 
     ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, match_ctx, BPF_ANY);
@@ -394,7 +394,7 @@ int rule_check(struct xdp_md *ctx)
         BPF_LOG(ERR, AUTH, "failed to update map, error: %d", ret);
         return XDP_PASS;
     }
-    bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_POLICY_CHECK);
+    bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICY_CHECK);
     return XDP_PASS;
 }
 
