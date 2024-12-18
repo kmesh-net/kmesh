@@ -13,6 +13,6 @@ struct {
     __type(value, struct bpf_sock_tuple);
     __uint(max_entries, MAP_SIZE_OF_DSTINFO);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} map_of_dst_info SEC(".maps");
+} map_of_orig_dst SEC(".maps");
 
 #endif /*__ENCODER_H__*/

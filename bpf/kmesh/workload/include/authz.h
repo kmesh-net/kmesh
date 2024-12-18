@@ -22,7 +22,7 @@ struct {
     __uint(value_size, sizeof(Istio__Security__Authorization));
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
-} map_of_authz SEC(".maps");
+} map_of_authz_policy SEC(".maps");
 
 struct match_context {
     __u32 action;
@@ -46,7 +46,7 @@ struct {
 
 static inline Istio__Security__Authorization *map_lookup_authz(__u32 policyKey)
 {
-    return (Istio__Security__Authorization *)kmesh_map_lookup_elem(&map_of_authz, &policyKey);
+    return (Istio__Security__Authorization *)kmesh_map_lookup_elem(&map_of_authz_policy, &policyKey);
 }
 
 static inline wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
@@ -376,8 +376,8 @@ int rule_check(struct xdp_md *ctx)
                 BPF_LOG(INFO, AUTH, "failed to delete tail call context from map");
             }
             __u32 auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? AUTH_DENY : AUTH_ALLOW;
-            if (bpf_map_update_elem(&map_of_auth, &tuple_key, &auth_result, BPF_ANY) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to update auth result in map_of_auth");
+            if (bpf_map_update_elem(&map_of_auth_result, &tuple_key, &auth_result, BPF_ANY) != 0) {
+                BPF_LOG(ERR, AUTH, "failed to update auth result in map_of_auth_result");
             }
             return match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_DROP : XDP_PASS;
         }

@@ -19,11 +19,11 @@
 #define map_of_service       km_service
 #define map_of_endpoint      km_endpoint
 #define map_of_backend       km_backend
-#define map_of_auth          km_auth
-#define map_of_tuple         km_tuple
-#define map_of_tcp_info      km_tcpinfo
-#define map_of_authz         km_authz
-#define map_of_dst_info      km_dstinfo
+#define map_of_auth_result   km_auth_res
+#define map_of_auth_req      km_auth_req
+#define map_of_tcp_probe     km_tcp_probe
+#define map_of_authz_policy  km_authz_policy
+#define map_of_orig_dst      km_orig_dst
 #define map_of_cgr_tail_call km_cgr_tailcall
 #define map_of_xdp_tailcall  km_xdp_tailcall
 #define map_of_kmesh_socket  km_socket
