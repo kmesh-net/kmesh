@@ -66,8 +66,8 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 }
 
 func (c *Controller) Run(ctx context.Context) {
-	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.KmTuple, c.bpfWorkloadObj.XdpAuth.KmAuth)
-	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmTcpinfo)
+	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.KmAuthReq, c.bpfWorkloadObj.XdpAuth.KmAuthRes)
+	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmTcpProbe)
 	if c.MapMetricController != nil {
 		go c.MapMetricController.Run(ctx)
 	}

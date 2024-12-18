@@ -84,7 +84,7 @@ static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, 
     __u64 *current_sk = (__u64 *)msg->sk;
     struct bpf_sock_tuple *dst;
 
-    dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
+    dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
     if (!dst)
         return -ENOENT;
 
@@ -96,7 +96,7 @@ static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, 
         *dst_port = dst->ipv6.dport;
     }
 
-    bpf_map_delete_elem(&map_of_dst_info, &current_sk);
+    bpf_map_delete_elem(&map_of_orig_dst, &current_sk);
     return 0;
 }
 
