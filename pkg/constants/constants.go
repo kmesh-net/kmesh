@@ -31,6 +31,9 @@ const (
 	ENABLED       = uint32(1)
 	DISABLED      = uint32(0)
 
+	TC_MARK_DECRYPT = "tc_mark_decrypt"
+	TC_MARK_ENCRYPT = "tc_mark_encrypt"
+
 	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
 	TrustDomain  = "cluster.local"
 

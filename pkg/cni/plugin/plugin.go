@@ -17,9 +17,13 @@
 package plugin
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -129,6 +133,63 @@ func enableXdpAuth(ifname string) error {
 	return nil
 }
 
+func enableTcEgress(args *skel.CmdArgs) error {
+	var (
+		err     error
+		link    netlink.Link
+		tc      *ebpf.Program
+		ifIndex int
+		output  bytes.Buffer
+	)
+	ifIndex = 0
+	ethtoolArgs := []string{"-S", args.IfName}
+
+	if tc, err = utils.GetProgramByName(constants.TC_MARK_ENCRYPT); err != nil {
+		return fmt.Errorf("failed to get tc program: %v", err)
+	}
+
+	getVethPeerLinkNum := func(netns.NetNS) error {
+		if err = utils.ExecuteWithRedirect("ethtool", ethtoolArgs, &output); err != nil {
+			return fmt.Errorf("failed to exec ethtool get ifindex, %v", err)
+		}
+		return nil
+	}
+
+	if err := netns.WithNetNSPath(string(args.Netns), getVethPeerLinkNum); err != nil {
+		log.Error(err)
+		return err
+	}
+
+	scanner := bufio.NewScanner(&output)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		line := strings.Split(strings.Trim(scanner.Text(), " "), ":")
+		if len(line) < 2 {
+			continue
+		}
+		if strings.Compare(line[0], "peer_ifindex") != 0 {
+			continue
+		}
+		if ifIndex, err = strconv.Atoi(strings.Trim(line[1], " ")); err != nil {
+			return fmt.Errorf("failed to convert peer ifindex: \"%v\", %v", line[1], err)
+		}
+	}
+
+	if ifIndex == 0 {
+		return fmt.Errorf("can not found valid if index")
+	}
+
+	if link, err = netlink.LinkByIndex(ifIndex); err != nil {
+		return fmt.Errorf("failed ot link valid interface, %v", err)
+	}
+
+	if err = utils.AttchTCProgram(link, tc); err != nil {
+		return fmt.Errorf("failed ot attach tc program, %v", err)
+	}
+
+	return nil
+}
+
 // if cmdadd failed, then we cannot return failed, do nothing and print pre result
 func CmdAdd(args *skel.CmdArgs) error {
 	var err error
@@ -192,6 +253,11 @@ func CmdAdd(args *skel.CmdArgs) error {
 
 		if err := netns.WithNetNSPath(string(args.Netns), enableXDPFunc); err != nil {
 			log.Error(err)
+			return err
+		}
+
+		if err := enableTcEgress(args); err != nil {
+			err = fmt.Errorf("failed to set tc to dev %v, err is %v", args.IfName, err)
 			return err
 		}
 	}

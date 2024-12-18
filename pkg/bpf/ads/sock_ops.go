@@ -30,6 +30,7 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/enhanced"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
@@ -37,7 +38,7 @@ import (
 )
 
 type BpfSockOps struct {
-	Info BpfInfo
+	Info general.BpfInfo
 	Link link.Link
 	bpf2go.KmeshSockopsObjects
 }
