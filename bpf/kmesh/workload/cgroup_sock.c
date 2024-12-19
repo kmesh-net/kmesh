@@ -20,9 +20,6 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     struct bpf_sock_addr *ctx = kmesh_ctx->ctx;
     struct ip_addr orig_dst_addr = {0};
 
-    if (ctx->protocol != IPPROTO_TCP)
-        return 0;
-
     if (ctx->family == AF_INET) {
         orig_dst_addr.ip4 = kmesh_ctx->orig_dst_addr.ip4;
         frontend_k.addr.ip4 = orig_dst_addr.ip4;
@@ -71,9 +68,14 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
+
+    if (ctx->protocol != IPPROTO_TCP)
+        return CGROUP_SOCK_OK;
+
+    observe_on_pre_connect(ctx->sk);
+
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
-        BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
         return CGROUP_SOCK_OK;
     }
 
@@ -85,7 +87,6 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
         BPF_LOG(ERR, KMESH, "workload tail call failed, err is %d\n", ret);
     }
 
-    observe_on_pre_connect(ctx->sk);
     return CGROUP_SOCK_OK;
 }
 
@@ -103,10 +104,13 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
     }
 
     BPF_LOG(DEBUG, KMESH, "enter cgroup/connect6\n");
+    if (ctx->protocol != IPPROTO_TCP)
+        return CGROUP_SOCK_OK;
+
+    observe_on_pre_connect(ctx->sk);
 
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
-        BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
         return CGROUP_SOCK_OK;
     }
 
@@ -121,7 +125,6 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
         BPF_LOG(ERR, KMESH, "workload tail call6 failed, err is %d\n", ret);
     }
 
-    observe_on_pre_connect(ctx->sk);
     return CGROUP_SOCK_OK;
 }
 
