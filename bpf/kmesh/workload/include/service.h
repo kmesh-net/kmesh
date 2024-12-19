@@ -29,7 +29,12 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
     endpoint_k.backend_index = rand_k;
     endpoint_v = map_lookup_endpoint(&endpoint_k);
     if (!endpoint_v) {
-        BPF_LOG(WARN, SERVICE, "lb_random_handle select endpoint [%u/%u] failed", service_id, endpoint_k.backend_index);
+        BPF_LOG(
+            WARN,
+            SERVICE,
+            "%%SVC_ID%% %u lb_random_handle select endpoint [%u] failed",
+            service_id,
+            endpoint_k.backend_index);
         return -ENOENT;
     }
 
@@ -57,7 +62,12 @@ static inline int lb_locality_strict_handle(struct kmesh_context *kmesh_ctx, __u
         endpoint_k.backend_index = bpf_get_prandom_u32() % service_v->prio_endpoint_count[0] + 1;
         endpoint_v = map_lookup_endpoint(&endpoint_k);
         if (endpoint_v) {
-            BPF_LOG(DEBUG, SERVICE, "locality lb strict select endpoint [%u/%u]", service_id, endpoint_k.backend_index);
+            BPF_LOG(
+                DEBUG,
+                SERVICE,
+                "%%SVC_ID%% %u locality lb strict select endpoint [%u]",
+                service_id,
+                endpoint_k.backend_index);
             ret = endpoint_manager(kmesh_ctx, endpoint_v, service_id, service_v);
         }
     }
@@ -93,7 +103,12 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
         }
 
         BPF_LOG(
-            DEBUG, SERVICE, "locality lb failover select endpoint [%u/%u/%u]", service_id, i, endpoint_k.backend_index);
+            DEBUG,
+            SERVICE,
+            "%%SVC_ID%% %u locality lb failover select endpoint [%u/%u]",
+            service_id,
+            i,
+            endpoint_k.backend_index);
         ret = endpoint_manager(kmesh_ctx, endpoint_v, service_id, service_v);
         break;
     }
@@ -121,7 +136,7 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         return ret;
     }
 
-    BPF_LOG(DEBUG, SERVICE, "service [%u] lb policy [%u]", service_id, service_v->lb_policy);
+    BPF_LOG(DEBUG, SERVICE, "%%SVC_ID%% %u lb policy [%u]", service_id, service_v->lb_policy);
 
     switch (service_v->lb_policy) {
     case LB_POLICY_RANDOM:
