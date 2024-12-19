@@ -14,30 +14,35 @@ typedef struct bpf_sock_addr ctx_buff_t;
 typedef enum {
     TAIL_CALL_CONNECT4_INDEX = 0,
     TAIL_CALL_CONNECT6_INDEX,
-    TAIL_CALL_POLICY_CHECK,
+} CGROUP_TAIL_CALL_INDEX;
+
+typedef enum {
+    TAIL_CALL_POLICY_CHECK = 0,
     TAIL_CALL_RULE_CHECK,
     TAIL_CALL_AUTH_IN_USER_SPACE,
-} workload_tail_call_index_t;
+} XDP_TAIL_CALL_INDEX;
 
+// map_of_cgr_tail_call is used to store cgroup connects tail call progs
 struct {
     __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
     __uint(key_size, sizeof(__u32));
     __uint(value_size, sizeof(__u32));
     __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
     __uint(map_flags, 0);
-} map_of_tail_call_prog SEC(".maps");
+} map_of_cgr_tail_call SEC(".maps");
 
+// map_of_xdp_tailcall is used to store xdp tail call progs
 struct {
     __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
     __uint(key_size, sizeof(__u32));
     __uint(value_size, sizeof(__u32));
     __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
     __uint(map_flags, 0);
-} xdp_tailcall_map SEC(".maps");
+} map_of_xdp_tailcall SEC(".maps");
 
 static inline void kmesh_workload_tail_call(ctx_buff_t *ctx, const __u32 index)
 {
-    bpf_tail_call(ctx, &map_of_tail_call_prog, index);
+    bpf_tail_call(ctx, &map_of_cgr_tail_call, index);
 }
 
 #endif

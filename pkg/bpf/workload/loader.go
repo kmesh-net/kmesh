@@ -163,7 +163,7 @@ func (w *BpfWorkload) Detach() error {
 func (w *BpfWorkload) ApiEnvCfg() error {
 	var err error
 
-	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshXDPAuthMaps.KmAuthz, "Authorization"); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshXDPAuthMaps.KmAuthzPolicy, "Authorization"); err != nil {
 		return err
 	}
 

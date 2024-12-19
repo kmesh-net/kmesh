@@ -259,7 +259,7 @@ void test_connection_shutdown()
     __u32 value = AUTH_FORBID; // Use AUTH_FORBID value
 
     // Update the map
-    int err = bpf_map_update_elem(bpf_map__fd(skel->maps.map_of_auth), &tuple, &value, BPF_ANY);
+    int err = bpf_map_update_elem(bpf_map__fd(skel->maps.map_of_auth_result), &tuple, &value, BPF_ANY);
     test_assert(err == 0, "Failed to update map");
 
     // Log test details
@@ -291,7 +291,7 @@ void test_connection_shutdown()
     test_assert(modified_tcp->ack == 0, "ACK flag not cleared"); // ACK should be cleared
 
     // Clean up the map entry
-    bpf_map_delete_elem(bpf_map__fd(skel->maps.map_of_auth), &tuple);
+    bpf_map_delete_elem(bpf_map__fd(skel->maps.map_of_auth_result), &tuple);
 }
 
 int main()

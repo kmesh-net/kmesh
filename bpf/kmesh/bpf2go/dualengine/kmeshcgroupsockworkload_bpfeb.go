@@ -107,28 +107,28 @@ type KmeshCgroupSockWorkloadProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockWorkloadMapSpecs struct {
-	KmAuth         *ebpf.MapSpec `ebpf:"km_auth"`
-	KmBackend      *ebpf.MapSpec `ebpf:"km_backend"`
-	KmConfigmap    *ebpf.MapSpec `ebpf:"km_configmap"`
-	KmDstinfo      *ebpf.MapSpec `ebpf:"km_dstinfo"`
-	KmEndpoint     *ebpf.MapSpec `ebpf:"km_endpoint"`
-	KmFrontend     *ebpf.MapSpec `ebpf:"km_frontend"`
-	KmLogEvent     *ebpf.MapSpec `ebpf:"km_log_event"`
-	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
-	KmPerfInfo     *ebpf.MapSpec `ebpf:"km_perf_info"`
-	KmPerfMap      *ebpf.MapSpec `ebpf:"km_perf_map"`
-	KmService      *ebpf.MapSpec `ebpf:"km_service"`
-	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
-	KmTailcallprog *ebpf.MapSpec `ebpf:"km_tailcallprog"`
-	KmTcpinfo      *ebpf.MapSpec `ebpf:"km_tcpinfo"`
-	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
-	KmTuple        *ebpf.MapSpec `ebpf:"km_tuple"`
-	KmWlpolicy     *ebpf.MapSpec `ebpf:"km_wlpolicy"`
-	KmXdptailcall  *ebpf.MapSpec `ebpf:"km_xdptailcall"`
-	KmeshMap1600   *ebpf.MapSpec `ebpf:"kmesh_map1600"`
-	KmeshMap192    *ebpf.MapSpec `ebpf:"kmesh_map192"`
-	KmeshMap296    *ebpf.MapSpec `ebpf:"kmesh_map296"`
-	KmeshMap64     *ebpf.MapSpec `ebpf:"kmesh_map64"`
+	KmAuthReq     *ebpf.MapSpec `ebpf:"km_auth_req"`
+	KmAuthRes     *ebpf.MapSpec `ebpf:"km_auth_res"`
+	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
+	KmCgrTailcall *ebpf.MapSpec `ebpf:"km_cgr_tailcall"`
+	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
+	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
+	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
+	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
+	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
+	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
+	KmService     *ebpf.MapSpec `ebpf:"km_service"`
+	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
+	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
+	KmXdpTailcall *ebpf.MapSpec `ebpf:"km_xdp_tailcall"`
+	KmeshMap1600  *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
 // KmeshCgroupSockWorkloadObjects contains all objects after they have been loaded into the kernel.
@@ -150,50 +150,50 @@ func (o *KmeshCgroupSockWorkloadObjects) Close() error {
 //
 // It can be passed to LoadKmeshCgroupSockWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockWorkloadMaps struct {
-	KmAuth         *ebpf.Map `ebpf:"km_auth"`
-	KmBackend      *ebpf.Map `ebpf:"km_backend"`
-	KmConfigmap    *ebpf.Map `ebpf:"km_configmap"`
-	KmDstinfo      *ebpf.Map `ebpf:"km_dstinfo"`
-	KmEndpoint     *ebpf.Map `ebpf:"km_endpoint"`
-	KmFrontend     *ebpf.Map `ebpf:"km_frontend"`
-	KmLogEvent     *ebpf.Map `ebpf:"km_log_event"`
-	KmManage       *ebpf.Map `ebpf:"km_manage"`
-	KmPerfInfo     *ebpf.Map `ebpf:"km_perf_info"`
-	KmPerfMap      *ebpf.Map `ebpf:"km_perf_map"`
-	KmService      *ebpf.Map `ebpf:"km_service"`
-	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
-	KmTailcallprog *ebpf.Map `ebpf:"km_tailcallprog"`
-	KmTcpinfo      *ebpf.Map `ebpf:"km_tcpinfo"`
-	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
-	KmTuple        *ebpf.Map `ebpf:"km_tuple"`
-	KmWlpolicy     *ebpf.Map `ebpf:"km_wlpolicy"`
-	KmXdptailcall  *ebpf.Map `ebpf:"km_xdptailcall"`
-	KmeshMap1600   *ebpf.Map `ebpf:"kmesh_map1600"`
-	KmeshMap192    *ebpf.Map `ebpf:"kmesh_map192"`
-	KmeshMap296    *ebpf.Map `ebpf:"kmesh_map296"`
-	KmeshMap64     *ebpf.Map `ebpf:"kmesh_map64"`
+	KmAuthReq     *ebpf.Map `ebpf:"km_auth_req"`
+	KmAuthRes     *ebpf.Map `ebpf:"km_auth_res"`
+	KmBackend     *ebpf.Map `ebpf:"km_backend"`
+	KmCgrTailcall *ebpf.Map `ebpf:"km_cgr_tailcall"`
+	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
+	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
+	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
+	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
+	KmManage      *ebpf.Map `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
+	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
+	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
+	KmService     *ebpf.Map `ebpf:"km_service"`
+	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
+	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
+	KmXdpTailcall *ebpf.Map `ebpf:"km_xdp_tailcall"`
+	KmeshMap1600  *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
 func (m *KmeshCgroupSockWorkloadMaps) Close() error {
 	return _KmeshCgroupSockWorkloadClose(
-		m.KmAuth,
+		m.KmAuthReq,
+		m.KmAuthRes,
 		m.KmBackend,
+		m.KmCgrTailcall,
 		m.KmConfigmap,
-		m.KmDstinfo,
 		m.KmEndpoint,
 		m.KmFrontend,
 		m.KmLogEvent,
 		m.KmManage,
+		m.KmOrigDst,
 		m.KmPerfInfo,
 		m.KmPerfMap,
 		m.KmService,
 		m.KmSockstorage,
-		m.KmTailcallprog,
-		m.KmTcpinfo,
+		m.KmTcpProbe,
 		m.KmTmpbuf,
-		m.KmTuple,
 		m.KmWlpolicy,
-		m.KmXdptailcall,
+		m.KmXdpTailcall,
 		m.KmeshMap1600,
 		m.KmeshMap192,
 		m.KmeshMap296,

@@ -28,7 +28,7 @@ type notifyFunc func(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error
 
 func xdpNotifyConnRst(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error {
 	if mapOfAuth == nil {
-		return fmt.Errorf("map_of_auth is nil")
+		return fmt.Errorf("map_of_auth_result is nil")
 	}
 	// The last TUPLE_LEN-IPV4_TUPLE_LENGTH bytes should be filled with zeros if msgType is
 	// MSG_TYPE_IPV4, so the key can be looked up successfully by XDP eBPF program

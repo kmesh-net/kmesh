@@ -29,7 +29,7 @@ static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_ad
         sk_tuple.ipv6.dport = ctx->user_port;
     }
 
-    ret = bpf_map_update_elem(&map_of_dst_info, &(sk), &sk_tuple, BPF_NOEXIST);
+    ret = bpf_map_update_elem(&map_of_orig_dst, &(sk), &sk_tuple, BPF_NOEXIST);
     if (ret) {
         BPF_LOG(ERR, BACKEND, "record original dst address failed: %d\n", ret);
         return ret;
