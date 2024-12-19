@@ -155,7 +155,23 @@ static inline void encode_metadata_org_dst_addr(struct sk_msg_md *msg, __u32 *of
     if (alloc_dst_length(msg, tlv_size + TLV_END_SIZE))
         return;
 
-    BPF_LOG(DEBUG, SENDMSG, "get valid dst, do encoding...\n");
+    if (v4) {
+        BPF_LOG(
+            DEBUG,
+            SENDMSG,
+            "send to %s do tlv encoding with org dst %s:%u...\n",
+            ip2str((__u32 *)&msg->remote_ip4, v4),
+            ip2str((__u32 *)&dst_ip, v4),
+            dst_port);
+    } else {
+        BPF_LOG(
+            DEBUG,
+            SENDMSG,
+            "send to %s do tlv encoding with org dst %s:%u...\n",
+            ip2str((__u32 *)&msg->remote_ip6, v4),
+            ip2str((__u32 *)&dst_ip, v4),
+            dst_port);
+    }
 
     // write T
     SK_MSG_WRITE_BUF(msg, off, &type, TLV_TYPE_SIZE);
