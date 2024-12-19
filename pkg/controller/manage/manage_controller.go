@@ -306,16 +306,14 @@ func (c *KmeshManageController) syncPod(key QueueItem) error {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		log.Errorf("failed to get pod %s/%s: %v", key.podNs, key.podName, err)
-		return err
+		return fmt.Errorf("failed to get pod %s/%s: %v", key.podNs, key.podName, err)
 	}
 	namespace, err := c.namespaceLister.Get(pod.Namespace)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			return nil
 		}
-		log.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
-		return err
+		return fmt.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
 	}
 
 	if key.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
