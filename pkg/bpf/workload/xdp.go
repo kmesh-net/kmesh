@@ -23,7 +23,6 @@ import (
 	"syscall"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
@@ -34,7 +33,6 @@ import (
 
 type BpfXdpAuthWorkload struct {
 	Info BpfInfo
-	Link link.Link
 	bpf2go.KmeshXDPAuthObjects
 }
 
@@ -138,8 +136,5 @@ func (xa *BpfXdpAuthWorkload) Close() error {
 		return err
 	}
 
-	if xa.Link != nil {
-		return xa.Link.Close()
-	}
 	return nil
 }
