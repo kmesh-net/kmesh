@@ -26,7 +26,7 @@ require (
 	google.golang.org/grpc v1.69.0
 	google.golang.org/protobuf v1.36.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
-	istio.io/api v1.24.2-0.20241206152109-43afb8563706
+	istio.io/api v1.24.2
 	istio.io/istio v0.0.0-20241214032803-7754674f65d3
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
 	k8s.io/api v0.32.0
