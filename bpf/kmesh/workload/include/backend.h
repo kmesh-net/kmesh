@@ -95,7 +95,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
         BPF_LOG(
             DEBUG,
             BACKEND,
-            "svc %d dnat to [%s:%u]\n",
+            "%%SVC_ID%% %u dnat to [%s:%u]\n",
             service_id,
             ip2str((__u32 *)&kmesh_ctx->dnat_ip, ctx->family == AF_INET),
             bpf_ntohs(kmesh_ctx->dnat_port));
