@@ -20,7 +20,7 @@ import (
 	"os"
 	"testing"
 
-	"gotest.tools/assert"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestInit(t *testing.T) {

@@ -166,7 +166,7 @@ func NewSecretManager() (*SecretManager, error) {
 		caClient:         caClient,
 		configOptions:    options,
 		certsCache:       newCertCache(),
-		certsRotateQueue: workqueue.TypedNewDelayingQueue[any](),
+		certsRotateQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "certsRotateQueue"}),
 		certRequestChan:  make(chan certRequest, maxConcurrentCSR),
 	}
 	return &secretManager, nil
