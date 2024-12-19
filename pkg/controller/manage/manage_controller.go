@@ -310,7 +310,7 @@ func (c *KmeshManageController) syncPod(key QueueItem) error {
 	}
 	namespace, err := c.namespaceLister.Get(pod.Namespace)
 	if err != nil {
-		if !apierrors.IsNotFound(err) {
+		if apierrors.IsNotFound(err) {
 			return nil
 		}
 		return fmt.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
