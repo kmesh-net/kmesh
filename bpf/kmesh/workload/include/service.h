@@ -99,7 +99,7 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
     }
 
     if (ret)
-        BPF_LOG(ERR, SERVICE, "locality lb failover [%u:%u] failed\n", service_id, kmesh_ctx->ctx->user_port);
+        BPF_LOG(ERR, SERVICE, "locality lb failover [%u:%u] failed:%d\n", service_id, kmesh_ctx->ctx->user_port, ret);
     return ret;
 }
 
