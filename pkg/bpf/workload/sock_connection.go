@@ -17,7 +17,6 @@
 package workload
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -48,7 +47,6 @@ func (sc *SockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 	sc.Info6 = sc.Info
 
-	fmt.Println("sockconn map path:", sc.Info.MapPath)
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
 			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
