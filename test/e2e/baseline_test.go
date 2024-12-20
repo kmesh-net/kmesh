@@ -960,44 +960,10 @@ func TestServiceEntryInlinedWorkloadEntry(t *testing.T) {
 				{
 					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
 					resolution: v1alpha3.ServiceEntry_STATIC,
+					to:         apps.EnrolledToKmesh,
 				},
-				{
-					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
-					resolution: v1alpha3.ServiceEntry_STATIC,
-				},
+				// TODO: Add test for mesh external
 			}
-
-			// Configure a gateway with one app as the destination to be accessible through the ingress
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": apps.All[0].Config().Service,
-			}, `apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: gateway
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts: ["*"]
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: route
-spec:
-  gateways:
-  - gateway
-  hosts:
-  - "*"
-  http:
-  - route:
-    - destination:
-        host: "{{.Destination}}"
-`).ApplyOrFail(t)
 
 			cfg := config.YAML(`
 {{ $to := .To }}
@@ -1014,14 +980,13 @@ spec:
   - number: 80
     name: http
     protocol: HTTP
-    targetPort: {{.IngressHttpPort}}
+    targetPort: {{.Port}}
   resolution: {{.Resolution}}
   location: {{.Location}}
   endpoints:
-  # we send directly to a Pod IP here. This is essentially headless
-  - address: {{.IngressIp}} # TODO won't work with DNS resolution tests
+  - address: {{.IP}}
     ports:
-      http: {{.IngressHttpPort}}
+      http: {{.Port}}
 ---
 apiVersion: networking.istio.io/v1beta1
 kind: ServiceEntry
@@ -1036,52 +1001,48 @@ spec:
   - number: 80
     name: http
     protocol: HTTP
-    targetPort: {{.IngressHttpPort}}
+    targetPort: {{.Port}}
   resolution: {{.Resolution}}
   location: {{.Location}}
   endpoints:
-  # we send directly to a Pod IP here. This is essentially headless
-  - address: {{.IngressIp}} # TODO won't work with DNS resolution tests
+  - address: {{.IP}}
     ports:
-      http: {{.IngressHttpPort}}
+      http: {{.Port}}
 ---
 `).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			v4, v6 := getSupportedIPFamilies(t)
-			ips, ports := defaultIngress(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
-				for i, ip := range ips {
-					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
-						echotest.
-							New(t, apps.All).
-							Config(cfg.WithParams(param.Params{
-								"Resolution":      tc.resolution.String(),
-								"Location":        tc.location.String(),
-								"IngressIp":       ip,
-								"IngressHttpPort": ports[i],
-							})).
-							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-								if v4 {
-									from.CallOrFail(t, echo.CallOptions{
-										Address: "240.240.240.255",
-										Port:    to.PortForName("http"),
-										// If request is sent before service is processed it will hit 10s timeout, so fail faster
-										Timeout: time.Millisecond * 500,
-									})
-								}
-								if v6 {
-									from.CallOrFail(t, echo.CallOptions{
-										Address: "2001:2::f0f0:255",
-										Port:    to.PortForName("http"),
-										// If request is sent before service is processed it will hit 10s timeout, so fail faster
-										Timeout: time.Millisecond * 500,
-									})
-								}
-							})
-					})
-				}
+				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
+					echotest.
+						New(t, apps.All).
+						Config(cfg.WithParams(param.Params{
+							"Resolution": tc.resolution.String(),
+							"Location":   tc.location.String(),
+							"IP":         tc.to.MustWorkloads()[0].Address(),
+							"Port":       tc.to.PortForName("http").WorkloadPort,
+						})).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							if v4 {
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "240.240.240.255",
+									Port:    to.PortForName("http"),
+									// If request is sent before service is processed it will hit 10s timeout, so fail faster
+									Timeout: time.Millisecond * 500,
+								})
+							}
+							if v6 {
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "2001:2::f0f0:255",
+									Port:    to.PortForName("http"),
+									// If request is sent before service is processed it will hit 10s timeout, so fail faster
+									Timeout: time.Millisecond * 500,
+								})
+							}
+						})
+				})
 			}
 		})
 }
@@ -1099,44 +1060,10 @@ func TestServiceEntrySelectsWorkloadEntry(t *testing.T) {
 				{
 					location:   v1alpha3.ServiceEntry_MESH_INTERNAL,
 					resolution: v1alpha3.ServiceEntry_STATIC,
+					to:         apps.EnrolledToKmesh,
 				},
-				{
-					location:   v1alpha3.ServiceEntry_MESH_EXTERNAL,
-					resolution: v1alpha3.ServiceEntry_STATIC,
-				},
+				// TODO: Add test for mesh external
 			}
-
-			// Configure a gateway with one app as the destination to be accessible through the ingress
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": apps.All[0].Config().Service,
-			}, `apiVersion: networking.istio.io/v1alpha3
-kind: Gateway
-metadata:
-  name: gateway
-spec:
-  selector:
-    istio: ingressgateway
-  servers:
-  - port:
-      number: 80
-      name: http
-      protocol: HTTP
-    hosts: ["*"]
----
-apiVersion: networking.istio.io/v1alpha3
-kind: VirtualService
-metadata:
-  name: route
-spec:
-  gateways:
-  - gateway
-  hosts:
-  - "*"
-  http:
-  - route:
-    - destination:
-        host: "{{.Destination}}"
-`).ApplyOrFail(t)
 
 			cfg := config.YAML(`
 {{ $to := .To }}
@@ -1145,9 +1072,9 @@ kind: WorkloadEntry
 metadata:
   name: test-we
 spec:
-  address: {{.IngressIp}}
+  address: {{.IP}}
   ports:
-    http: {{.IngressHttpPort}}
+    http: {{.Port}}
   labels:
     app: selected
 ---
@@ -1164,7 +1091,7 @@ spec:
   - number: 80
     name: http
     protocol: HTTP
-    targetPort: {{.IngressHttpPort}}
+    targetPort: {{.Port}}
   resolution: {{.Resolution}}
   location: {{.Location}}
   workloadSelector:
@@ -1184,7 +1111,7 @@ spec:
   - number: 80
     name: http
     protocol: HTTP
-    targetPort: {{.IngressHttpPort}}
+    targetPort: {{.Port}}
   resolution: {{.Resolution}}
   location: {{.Location}}
   workloadSelector:
@@ -1195,37 +1122,34 @@ spec:
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			v4, v6 := getSupportedIPFamilies(t)
-			ips, ports := defaultIngress(t, t).HTTPAddresses()
 			for _, tc := range testCases {
 				tc := tc
-				for i, ip := range ips {
-					t.NewSubTestf("%s %s %d", tc.location, tc.resolution, i).Run(func(t framework.TestContext) {
-						echotest.
-							New(t, apps.All).
-							Config(cfg.WithParams(param.Params{
-								"Resolution":      tc.resolution.String(),
-								"Location":        tc.location.String(),
-								"IngressIp":       ip,
-								"IngressHttpPort": ports[i],
-							})).
-							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-								if v4 {
-									from.CallOrFail(t, echo.CallOptions{
-										Address: "240.240.240.255",
-										Port:    to.PortForName("http"),
-										Timeout: time.Millisecond * 500,
-									})
-								}
-								if v6 {
-									from.CallOrFail(t, echo.CallOptions{
-										Address: "2001:2::f0f0:255",
-										Port:    to.PortForName("http"),
-										Timeout: time.Millisecond * 500,
-									})
-								}
-							})
-					})
-				}
+				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
+					echotest.
+						New(t, apps.All).
+						Config(cfg.WithParams(param.Params{
+							"Resolution": tc.resolution.String(),
+							"Location":   tc.location.String(),
+							"IP":         tc.to.MustWorkloads()[0].Address(),
+							"Port":       tc.to.PortForName("http").WorkloadPort,
+						})).
+						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+							if v4 {
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "240.240.240.255",
+									Port:    to.PortForName("http"),
+									Timeout: time.Millisecond * 500,
+								})
+							}
+							if v6 {
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "2001:2::f0f0:255",
+									Port:    to.PortForName("http"),
+									Timeout: time.Millisecond * 500,
+								})
+							}
+						})
+				})
 
 			}
 		})
