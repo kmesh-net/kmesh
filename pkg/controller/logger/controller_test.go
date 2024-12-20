@@ -96,8 +96,6 @@ func TestDecodeEbpfLog(t *testing.T) {
 			if tc.expectedLog != msg {
 				t.Errorf("expected %v, got %v", tc.expectedLog, msg)
 			}
-
 		})
 	}
-
 }
