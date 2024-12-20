@@ -32,13 +32,18 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
         BPF_LOG(
             WARN,
             SERVICE,
-            "[SERVICE_ID] %u lb_random_handle select endpoint [%u] failed",
+            "[SERVICE_ID] %u lb_random_handle select endpoint [%u] failed\n",
             service_id,
             endpoint_k.backend_index);
         return -ENOENT;
     }
 
-    BPF_LOG(DEBUG, SERVICE, "lb_random_handle select endpoint [%u/%u]", service_id, endpoint_k.backend_index);
+    BPF_LOG(
+        DEBUG,
+        SERVICE,
+        "[SERVICE_ID] %u lb_random_handle select endpoint [%u]\n",
+        service_id,
+        endpoint_k.backend_index);
 
     ret = endpoint_manager(kmesh_ctx, endpoint_v, service_id, service_v);
     if (ret != 0) {
