@@ -33,6 +33,7 @@ const (
 
 // HashName converts a string to a uint32 integer as the key of bpf map
 type HashName struct {
+	mutex    sync.RWMutex
 	numToStr map[uint32]string
 	strToNum map[string]uint32
 	hash     hash.Hash32
@@ -70,6 +71,8 @@ func (h *HashName) readFromPersistFile() error {
 		return err
 	}
 
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
 	return yaml.Unmarshal(data, &h.strToNum)
 }
 
@@ -101,8 +104,8 @@ func (h *HashName) flushDelta(str string, num uint32) error {
 }
 
 func (h *HashName) Hash(str string) uint32 {
-	var num uint32
-
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
 	if num, exists := h.strToNum[str]; exists {
 		return num
 	}
@@ -110,7 +113,7 @@ func (h *HashName) Hash(str string) uint32 {
 	h.hash.Reset()
 	h.hash.Write([]byte(str))
 	// Using linear probing to solve hash conflicts
-	for num = h.hash.Sum32(); num < math.MaxUint32; num++ {
+	for num := h.hash.Sum32(); num < math.MaxUint32; num++ {
 		// Create a new item if we find an empty slot
 		if _, exists := h.numToStr[num]; !exists {
 			h.numToStr[num] = str
@@ -119,22 +122,25 @@ func (h *HashName) Hash(str string) uint32 {
 			if err := h.flushDelta(str, num); err != nil {
 				log.Errorf("error flushing when calling Hash: %v", err)
 			}
-			break
+			return num
 		}
 		// It's a ring
 		if num == math.MaxUint32 {
 			num = 0
 		}
 	}
-
-	return num
+	return 0
 }
 
 func (h *HashName) NumToStr(num uint32) string {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
 	return h.numToStr[num]
 }
 
 func (h *HashName) StrToNum(str string) uint32 {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
 	return h.strToNum[str]
 }
 
@@ -143,6 +149,8 @@ func (h *HashName) GetStrToNum() map[string]uint32 {
 }
 
 func (h *HashName) Delete(str string) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
 	// only when the num exists, we do the logic
 	if num, exists := h.strToNum[str]; exists {
 		delete(h.numToStr, num)

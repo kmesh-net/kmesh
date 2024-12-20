@@ -39,8 +39,7 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     BPF_LOG(
         DEBUG,
         KMESH,
-        "origin dst addr=[%u:%s:%u]\n",
-        ctx->family,
+        "origin dst addr=[%s:%u]\n",
         ip2str((__u32 *)&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
         bpf_ntohs(ctx->user_port));
 
