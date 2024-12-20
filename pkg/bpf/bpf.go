@@ -303,20 +303,25 @@ func (l *BpfLoader) setBpfProgOptions() {
 	nodeIP := getNodeIPAddress(node)
 	gateway := getNodePodSubGateway(node)
 
-	valueOfKmeshBpfConfig := KmeshBpfConfig{
-		// Write this map only when the kmesh daemon starts, so set bpfloglevel to the default value.
-		BpfLogLevel: constants.BPF_LOG_INFO,
-		NodeIP:      nodeIP,
-		PodGateway:  gateway,
-		// Use default values when bpf init.
-		// Updated when checking the startup parameters.
-		AuthzOffload:     uint32(0),
-		EnableMonitoring: uint32(1),
+	valueOfKmeshBpfConfig, err := GetKmeshConfigMap(l.kmeshConfig)
+	if err != nil {
+		log.Errorf("get kmeshConfig map failed: %v", err)
+		return
 	}
 
-	if err := UpdateKmeshConfigMap(l.kmeshConfig, &valueOfKmeshBpfConfig); err != nil {
-		log.Errorf("update kmeshConfig map failed: %v", err)
-		return
+	// Kmesh reboot updates only the nodeIP and pod sub gateway
+	if restart.GetStartType() == restart.Normal {
+		// Kmesh is create first time. So init kmeshConfigMap.
+		valueOfKmeshBpfConfig.BpfLogLevel = constants.BPF_LOG_INFO
+		valueOfKmeshBpfConfig.NodeIP = nodeIP
+		valueOfKmeshBpfConfig.PodGateway = gateway
+		valueOfKmeshBpfConfig.AuthzOffload = constants.DISABLED
+		valueOfKmeshBpfConfig.EnableMonitoring = constants.ENABLED
+
+		if err := UpdateKmeshConfigMap(l.kmeshConfig, valueOfKmeshBpfConfig); err != nil {
+			log.Errorf("update kmeshConfig map failed: %v", err)
+			return
+		}
 	}
 }
 
