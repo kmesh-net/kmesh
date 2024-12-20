@@ -68,7 +68,7 @@ func (c *BpfLogController) handleLogEvents(stopCh <-chan struct{}) {
 			if msg, err := c.decodeEbpfLog(record.RawSample); err != nil {
 				log.Errorf("ebpf log decode failed: %v", err)
 			} else {
-				log.Infof(msg)
+				log.Info(msg)
 			}
 		}
 	}
@@ -79,7 +79,6 @@ func (c *BpfLogController) decodeEbpfLog(data []byte) (string, error) {
 	lenOfMsg := binary.NativeEndian.Uint32(data[0:4])
 	if len(data) < int(lenOfMsg+4) {
 		return "", fmt.Errorf("invalid bpf log message")
-
 	}
 
 	msg := string(data[4 : 4+lenOfMsg])
