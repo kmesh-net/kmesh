@@ -22,6 +22,7 @@ import (
 	"hash/fnv"
 	"math"
 	"os"
+	"sync"
 
 	"sigs.k8s.io/yaml"
 )
@@ -37,8 +38,17 @@ type HashName struct {
 	hash     hash.Hash32
 }
 
+var mutex sync.Mutex
+var hashName *HashName
+
 func NewHashName() *HashName {
-	hashName := &HashName{
+	mutex.Lock()
+	defer mutex.Unlock()
+	if hashName != nil {
+		return hashName
+	}
+
+	hashName = &HashName{
 		strToNum: make(map[string]uint32),
 		hash:     fnv.New32a(),
 	}
