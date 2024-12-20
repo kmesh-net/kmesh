@@ -20,12 +20,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/ebpf"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
+	bpflogger "kmesh.net/kmesh/pkg/controller/logger"
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/dns"
@@ -100,11 +102,13 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 
 	// only support bpf log when kernel version >= 5.13
 	if !helper.KernelVersionLowerThan5_13() {
+		var logMap *ebpf.Map
 		if c.mode == constants.KernelNativeMode {
-			logger.StartLogReader(ctx, c.bpfAdsObj.SockConn.KmLogEvent)
+			logMap = c.bpfAdsObj.SockConn.KmLogEvent
 		} else if c.mode == constants.DualEngineMode {
-			logger.StartLogReader(ctx, c.bpfWorkloadObj.SockConn.KmLogEvent)
+			logMap = c.bpfWorkloadObj.SockConn.KmLogEvent
 		}
+		go bpflogger.NewBpfLogController(logMap).Run(stopCh)
 	}
 
 	// kmeshConfigMap.Monitoring initialized to uint32(1).
