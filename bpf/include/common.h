@@ -133,6 +133,12 @@ static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
 #define MAX_BUF_LEN 100
 #define MAX_IP4_LEN 16
 #define MAX_IP6_LEN 40
+// Length in bytes of the binary data for an IPv4 address.
+#define IPV4_BYTE_LEN 4
+// Length in bytes of the binary data for an IPv6 address.
+#define IPV6_BYTE_LEN 16
+#define IPV4_VERSION  4
+#define IPV6_VERSION  6
 
 struct buf {
     char data[MAX_IP6_LEN];
