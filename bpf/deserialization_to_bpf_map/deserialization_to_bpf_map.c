@@ -435,6 +435,8 @@ static int get_struct_field_size(struct op_context *ctx, const ProtobufCFieldDes
         value = *(char **)((char *)ctx->value + field->offset);
         return get_string_field_size(field, value);
 
+    case PROTOBUF_C_TYPE_UINT32:
+    case PROTOBUF_C_TYPE_ENUM:
     case PROTOBUF_C_TYPE_BYTES:
         return get_binary_field_size(ctx, field);
 
