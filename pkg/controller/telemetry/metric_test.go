@@ -18,6 +18,7 @@ package telemetry
 
 import (
 	"context"
+	"net"
 	"reflect"
 	"testing"
 
@@ -418,7 +419,7 @@ func TestBuildworkloadMetric(t *testing.T) {
 				requestProtocol:              "tcp",
 				responseFlags:                "",
 				connectionSecurityPolicy:     "mutual_tls",
-				reporter:                     "-",
+				reporter:                     "",
 			},
 			wantErr: false,
 		},
@@ -482,7 +483,7 @@ func TestBuildServiceMetric(t *testing.T) {
 		Name:      "kmesh",
 		Addresses: []*workloadapi.NetworkAddress{
 			{
-				Address: []byte("192.168.1.22"),
+				Address: net.ParseIP("192.168.1.22").To4(),
 			},
 		},
 	})
@@ -523,6 +524,42 @@ func TestBuildServiceMetric(t *testing.T) {
 			{10, 19, 25, 31},
 		},
 	})
+	workloadCache.AddOrUpdateWorkload(&workloadapi.Workload{
+		Namespace:         "default",
+		Name:              "sleep",
+		WorkloadName:      "sleep",
+		CanonicalName:     "sleepCanonical",
+		CanonicalRevision: "sleepVersion",
+		ClusterId:         "Kubernetes",
+		TrustDomain:       "cluster.local",
+		ServiceAccount:    "default",
+		Addresses: [][]byte{
+			{10, 19, 25, 33},
+		},
+	})
+	serviceCache.AddOrUpdateService(&workloadapi.Service{
+		Hostname:  "httpbin.default.svc.cluster.local",
+		Namespace: "default",
+		Name:      "httpbin",
+		Addresses: []*workloadapi.NetworkAddress{
+			{
+				Address: net.ParseIP("192.168.1.23").To4(),
+			},
+		},
+	})
+	workloadCache.AddOrUpdateWorkload(&workloadapi.Workload{
+		Namespace:         "default",
+		Name:              "waypoint",
+		WorkloadName:      "waypoint",
+		CanonicalName:     "waypointCanonical",
+		CanonicalRevision: "waypointVersion",
+		ClusterId:         "Kubernetes",
+		TrustDomain:       "cluster.local",
+		ServiceAccount:    "default",
+		Addresses: [][]byte{
+			{10, 19, 25, 32},
+		},
+	})
 	m := MetricController{
 		workloadCache: workloadCache,
 		serviceCache:  serviceCache,
@@ -541,6 +578,8 @@ func TestBuildServiceMetric(t *testing.T) {
 					dst:           [4]uint32{383822016, 0, 0, 0},
 					dstPort:       uint16(8000),
 					srcPort:       uint16(8000),
+					origDstAddr:   [4]uint32{383822016, 0, 0, 0},
+					origDstPort:   uint16(8000),
 					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
@@ -590,6 +629,8 @@ func TestBuildServiceMetric(t *testing.T) {
 					dst:           [4]uint32{383822015, 0, 0, 0},
 					dstPort:       uint16(80),
 					srcPort:       uint16(8000),
+					origDstAddr:   [4]uint32{383822015, 0, 0, 0},
+					origDstPort:   uint16(80),
 					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
@@ -629,6 +670,60 @@ func TestBuildServiceMetric(t *testing.T) {
 				destinationService:   "191.168.224.22",
 				destinationWorkload:  "-",
 				destinationNamespace: "-",
+			},
+		},
+		{
+			name: "redirected to waypoint",
+			args: args{
+				data: &requestMetric{
+					// address 10.19.25.33, sleep
+					src:     [4]uint32{555291402, 0, 0, 0},
+					srcPort: uint16(49875),
+					// address 10.19.25.32, waypoint
+					dst:     [4]uint32{538514186, 0, 0, 0},
+					dstPort: uint16(80),
+					// address 192.168.1.23, httpbin service
+					origDstAddr:   [4]uint32{385984704, 0, 0, 0},
+					origDstPort:   uint16(80),
+					direction:     uint32(2),
+					sentBytes:     uint32(156),
+					receivedBytes: uint32(1024),
+				},
+			},
+			want: serviceMetricLabels{
+				sourceWorkload:               "sleep",
+				sourceCanonicalService:       "sleepCanonical",
+				sourceCanonicalRevision:      "sleepVersion",
+				sourceWorkloadNamespace:      "default",
+				sourcePrincipal:              "spiffe://cluster.local/ns/default/sa/default",
+				sourceApp:                    "sleepCanonical",
+				sourceVersion:                "sleepVersion",
+				sourceCluster:                "Kubernetes",
+				destinationService:           "httpbin.default.svc.cluster.local",
+				destinationServiceNamespace:  "default",
+				destinationServiceName:       "httpbin",
+				destinationWorkload:          "waypoint",
+				destinationCanonicalService:  "waypointCanonical",
+				destinationCanonicalRevision: "waypointVersion",
+				destinationWorkloadNamespace: "default",
+				destinationPrincipal:         "spiffe://cluster.local/ns/default/sa/default",
+				destinationApp:               "waypointCanonical",
+				destinationVersion:           "waypointVersion",
+				destinationCluster:           "Kubernetes",
+				requestProtocol:              "tcp",
+				responseFlags:                "",
+				connectionSecurityPolicy:     "mutual_tls",
+				reporter:                     "source",
+			},
+			wantLogInfo: logInfo{
+				direction:            "OUTBOUND",
+				sourceAddress:        "10.19.25.33:49875",
+				sourceWorkload:       "sleep",
+				sourceNamespace:      "default",
+				destinationAddress:   "10.19.25.32:80",
+				destinationService:   "httpbin.default.svc.cluster.local",
+				destinationWorkload:  "waypoint",
+				destinationNamespace: "default",
 			},
 		},
 	}

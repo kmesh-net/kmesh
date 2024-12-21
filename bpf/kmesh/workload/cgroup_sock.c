@@ -59,6 +59,38 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     return 0;
 }
 
+static inline int set_original_dst_info(struct kmesh_context *kmesh_ctx)
+{
+    int ret;
+    struct bpf_sock_tuple sk_tuple = {0};
+    ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
+    __u64 *sk = (__u64 *)ctx->sk;
+    
+    if (kmesh_ctx->via_waypoint) {
+        // since this field is never used, we use it 
+        // to indicate whether the request will be handled by waypoint
+        sk_tuple.ipv4.saddr = 1;
+    }
+
+    if (ctx->family == AF_INET) {
+        sk_tuple.ipv4.daddr = kmesh_ctx->orig_dst_addr.ip4;
+        sk_tuple.ipv4.dport = ctx->user_port;
+    } else if (ctx->family == AF_INET6) {
+        bpf_memcpy(sk_tuple.ipv6.daddr, kmesh_ctx->orig_dst_addr.ip6, IPV6_ADDR_LEN);
+        sk_tuple.ipv6.dport = ctx->user_port;
+    }
+
+    ret = bpf_map_update_elem(&map_of_dst_info, &(sk), &sk_tuple, BPF_NOEXIST);
+    if (ret) {
+        // only record the first dst info for each socket
+        if (ret == -EEXIST)
+            return 0;
+        BPF_LOG(ERR, BACKEND, "record original dst address failed: %d\n", ret);
+        return ret;
+    }
+    return 0;
+}
+
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
@@ -74,6 +106,11 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
         BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
+        return CGROUP_SOCK_OK;
+    }
+    ret = set_original_dst_info(&kmesh_ctx);
+    if (ret) {
+        BPF_LOG(ERR, KMESH, "failed to set original destination info, ret is %d\n", ret);
         return CGROUP_SOCK_OK;
     }
 
@@ -107,6 +144,12 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
         BPF_LOG(ERR, KMESH, "sock_traffic_control failed: %d\n", ret);
+        return CGROUP_SOCK_OK;
+    }
+
+    ret = set_original_dst_info(&kmesh_ctx);
+    if (ret) {
+        BPF_LOG(ERR, KMESH, "failed to set original destination info, ret is %d\n", ret);
         return CGROUP_SOCK_OK;
     }
 
