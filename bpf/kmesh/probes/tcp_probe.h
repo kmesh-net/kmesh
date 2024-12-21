@@ -18,9 +18,23 @@ enum family_type {
     IPV6,
 };
 
+struct orig_dst_info {
+    union {
+		struct {
+			__be32 addr;
+            __be16 port;
+		} ipv4;
+		struct {
+			__be32 addr[4];
+            __be16 port;
+		} ipv6;
+	};
+};
+
 struct tcp_probe_info {
     __u32 type;
     struct bpf_sock_tuple tuple;
+    struct orig_dst_info orig_dst;
     __u32 sent_bytes;
     __u32 received_bytes;
     __u32 conn_success;
@@ -102,6 +116,38 @@ static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_
     return;
 }
 
+// construct_orig_dst_info try to read the dst_info from map_of_dst_info first
+// if not found, use the tuple info for orig_dst
+static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe_info *info)
+{
+     __u64 *current_sk = (__u64 *)sk;
+    struct bpf_sock_tuple *dst;
+    dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
+    if (dst) {
+        if (sk->family == AF_INET) {
+            info->orig_dst.ipv4.addr = dst->ipv4.daddr;
+            info->orig_dst.ipv4.port = bpf_ntohs(dst->ipv4.dport);
+        } else {
+            bpf_memcpy(info->orig_dst.ipv6.addr, dst->ipv6.daddr, IPV6_ADDR_LEN);
+            info->orig_dst.ipv6.port = bpf_ntohs(dst->ipv6.dport);
+        }
+    } else {
+        // when dst not found, indicates request is not started in this node and not handled by us
+        if (sk->family == AF_INET) {
+            info->orig_dst.ipv4.addr = info->tuple.ipv4.daddr;
+            info->orig_dst.ipv4.port = info->tuple.ipv4.dport;
+        } else {
+            bpf_memcpy(info->orig_dst.ipv6.addr, info->tuple.ipv6.daddr, IPV6_ADDR_LEN);
+            info->orig_dst.ipv6.port = info->tuple.ipv6.dport;
+        }
+    }
+
+    if (is_ipv4_mapped_addr(info->orig_dst.ipv6.addr)) {
+        info->orig_dst.ipv4.addr = info->orig_dst.ipv6.addr[3];
+        info->orig_dst.ipv4.port = info->orig_dst.ipv6.port;
+    }
+}
+
 static inline void
 tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
@@ -129,6 +175,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
         (*info).type = IPV4;
     }
 
+    construct_orig_dst_info(sk, info);
     bpf_ringbuf_submit(info, 0);
 }
 
