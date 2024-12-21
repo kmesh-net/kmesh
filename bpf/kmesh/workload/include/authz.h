@@ -213,11 +213,11 @@ static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_d
 
     unsigned char *data = (unsigned char *)KMESH_GET_PTR_VAL(ipv4_data->data, unsigned char);
     if (!data) {
-        BPF_LOG(INFO, AUTH, "convert_ipv4_to_u32: Failed to read data from ipv4_data\n");
+        BPF_LOG(INFO, AUTH, "failed to read raw ipv4 data\n");
         return 0;
     }
 
-    return (data[3] << 24) | (data[2] << 16) | (data[1] << 8) | (data[0] << 0);
+    return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | (data[3] << 0);
 }
 
 static inline __u32 convert_ipv6_to_ip6addr(struct ip_addr *rule_addr, const struct ProtobufCBinaryData *ipv6_data)
@@ -291,30 +291,30 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
         return UNMATCHED;
     }
 
-    if (addrInfo->len == IPV4_BINARY_DATA_LEN) {
+    if (addrInfo->len == IPV4_BYTE_LEN) {
         __u32 rule_ip = convert_ipv4_to_u32(addrInfo);
         if (type & TYPE_SRCIP) {
             BPF_LOG(
-                INFO,
+                DEBUG,
                 AUTH,
-                "IPv4 match srcip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
+                "IPv4 match srcip: Rule IP: %u, Prefix Length: %u, Target IP: %s\n",
                 rule_ip,
                 preFixLen,
-                tuple_info->ipv4.saddr);
-            return match_ipv4_rule(rule_ip, preFixLen, tuple_info->ipv4.saddr);
+                ip2str(&tuple_info->ipv4.saddr, true));
+            return match_ipv4_rule(rule_ip, preFixLen, bpf_ntohl(tuple_info->ipv4.saddr));
         } else if (type & TYPE_DSTIP) {
             BPF_LOG(
-                INFO,
+                DEBUG,
                 AUTH,
                 "IPv4 match dstip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
                 rule_ip,
                 preFixLen,
-                tuple_info->ipv4.daddr);
-            return match_ipv4_rule(rule_ip, preFixLen, tuple_info->ipv4.daddr);
+                bpf_ntohl(tuple_info->ipv4.daddr));
+            return match_ipv4_rule(rule_ip, preFixLen, bpf_ntohl(tuple_info->ipv4.daddr));
         } else {
             BPF_LOG(ERR, AUTH, "Unsupported address length: %u\n", addrInfo->len);
         }
-    } else if (addrInfo->len == IPV6_BINARY_DATA_LEN) {
+    } else if (addrInfo->len == IPV6_BYTE_LEN) {
         if (type & TYPE_SRCIP) {
             struct ip_addr rule_addr = {0};
             struct ip_addr target_addr = {0};
@@ -467,7 +467,7 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
 
 static inline int match_IPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
-    return match_src_ip(match, tuple_info) || match_dst_ip(match, tuple_info);
+    return match_src_ip(match, tuple_info) && match_dst_ip(match, tuple_info);
 }
 
 static int match_check(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
