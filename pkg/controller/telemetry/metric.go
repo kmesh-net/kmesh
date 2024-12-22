@@ -87,12 +87,13 @@ type connectionDataV4 struct {
 	_              [6]uint32
 	OriginalAddr   uint32
 	OriginalPort   uint16
-	_              uint16
 	_              [3]uint32
+	_              uint16
 	SentBytes      uint32
 	ReceivedBytes  uint32
 	ConnectSuccess uint32
 	Direction      uint32
+	_              uint32
 	Duration       uint64
 	CloseTime      uint64
 	State          uint32
@@ -111,6 +112,7 @@ type connectionDataV6 struct {
 	ReceivedBytes  uint32
 	ConnectSuccess uint32
 	Direction      uint32
+	_              uint32
 	Duration       uint64
 	CloseTime      uint64
 	State          uint32
