@@ -65,9 +65,9 @@ static inline int set_original_dst_info(struct kmesh_context *kmesh_ctx)
     struct bpf_sock_tuple sk_tuple = {0};
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
     __u64 *sk = (__u64 *)ctx->sk;
-    
+
     if (kmesh_ctx->via_waypoint) {
-        // since this field is never used, we use it 
+        // since this field is never used, we use it
         // to indicate whether the request will be handled by waypoint
         sk_tuple.ipv4.saddr = 1;
     }

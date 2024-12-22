@@ -20,15 +20,15 @@ enum family_type {
 
 struct orig_dst_info {
     union {
-		struct {
-			__be32 addr;
+        struct {
+            __be32 addr;
             __be16 port;
-		} ipv4;
-		struct {
-			__be32 addr[4];
+        } ipv4;
+        struct {
+            __be32 addr[4];
             __be16 port;
-		} ipv6;
-	};
+        } ipv6;
+    };
 };
 
 struct tcp_probe_info {
@@ -120,7 +120,7 @@ static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_
 // if not found, use the tuple info for orig_dst
 static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe_info *info)
 {
-     __u64 *current_sk = (__u64 *)sk;
+    __u64 *current_sk = (__u64 *)sk;
     struct bpf_sock_tuple *dst;
     dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
     if (dst) {
