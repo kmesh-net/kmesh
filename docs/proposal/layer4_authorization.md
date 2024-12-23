@@ -33,12 +33,12 @@ struct {
     __type(key, struct bpf_sock_tuple);
     __type(value, __u32); // init, deny, allow
     __uint(max_entries, MAP_SIZE_OF_AUTH);
-} map_of_auth SEC(".maps");
+} map_of_auth_result SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, RINGBUF_SIZE);
-} map_of_tuple SEC(".maps");
+} map_of_auth_req SEC(".maps");
 
 
 ```

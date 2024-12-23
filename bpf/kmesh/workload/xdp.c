@@ -26,7 +26,7 @@ static inline void shutdown_tuple(struct xdp_info *info)
 
 static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
-    __u32 *value = bpf_map_lookup_elem(&map_of_auth, tuple_info);
+    __u32 *value = bpf_map_lookup_elem(&map_of_auth_result, tuple_info);
     if (value && *value == 1) {
         if (info->iph->version == 4)
             BPF_LOG(
@@ -42,7 +42,7 @@ static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *
                 "auth denied, src ip: %s, port: %u\n",
                 ip2str(&tuple_info->ipv6.saddr[0], false),
                 bpf_ntohs(tuple_info->ipv6.sport));
-        bpf_map_delete_elem(&map_of_auth, tuple_info);
+        bpf_map_delete_elem(&map_of_auth_result, tuple_info);
         return AUTH_FORBID;
     }
     return AUTH_PASS;
@@ -106,7 +106,7 @@ SEC("xdp_auth")
 int xdp_authz(struct xdp_md *ctx)
 {
     if (!is_authz_offload_enabled()) {
-        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_AUTH_IN_USER_SPACE);
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
         return XDP_PASS;
     }
 
@@ -123,7 +123,7 @@ int xdp_authz(struct xdp_md *ctx)
 
     // never failed
     parser_tuple(&info, &tuple_key);
-    int *value = bpf_map_lookup_elem(&map_of_auth, &tuple_key);
+    int *value = bpf_map_lookup_elem(&map_of_auth_result, &tuple_key);
     if (!value) {
         policies = get_workload_policies(&info, &tuple_key);
         if (!policies) {
@@ -137,7 +137,7 @@ int xdp_authz(struct xdp_md *ctx)
             return XDP_PASS;
         }
 
-        bpf_tail_call(ctx, &xdp_tailcall_map, TAIL_CALL_POLICY_CHECK);
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICY_CHECK);
         return XDP_PASS;
     } else {
         return *value ? XDP_DROP : XDP_PASS;

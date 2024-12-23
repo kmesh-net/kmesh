@@ -45,7 +45,7 @@ struct tcp_probe_info {
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 256 * 1024 /* 256 KB */);
-} map_of_tcp_info SEC(".maps");
+} map_of_tcp_probe SEC(".maps");
 
 static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
 {
@@ -109,7 +109,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
     struct tcp_probe_info *info = NULL;
 
     // store tuple
-    info = bpf_ringbuf_reserve(&map_of_tcp_info, sizeof(struct tcp_probe_info), 0);
+    info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
     if (!info) {
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
         return;
