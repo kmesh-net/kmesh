@@ -67,22 +67,22 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 }
 
 func tree() {
+	root := []string{"/sys/fs/bpf", "/mnt/kmesh_cgroup2"}
+	for _, r := range root {
+		// Walk the directory tree
+		err := filepath.Walk(r, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
 
-	root := "/sys/fs/bpf"
+			// Print the file or directory name with indentation
+			fmt.Printf("%s%s\n", getIndentation(path, r), info.Name())
+			return nil
+		})
 
-	// Walk the directory tree
-	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			log.Fatal(err)
 		}
-
-		// Print the file or directory name with indentation
-		fmt.Printf("%s%s\n", getIndentation(path, root), info.Name())
-		return nil
-	})
-
-	if err != nil {
-		log.Fatal(err)
 	}
 }
 
