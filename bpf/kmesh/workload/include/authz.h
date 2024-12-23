@@ -53,7 +53,6 @@ struct {
  * Struct for IP matching parameters.
  */
 struct MatchIpParams {
-    Istio__Security__Match *match;
     struct bpf_sock_tuple *tuple_info;
     // Pointer to the list of allowed IP addresses.
     void *ip_list;
@@ -205,6 +204,9 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
     return UNMATCHED;
 }
 
+/* This function is used to convert the IP address
+ * from big-endian storage to u32 type data.
+ */
 static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_data)
 {
     if (!ipv4_data->data || ipv4_data->len != 4) {
@@ -355,7 +357,7 @@ static inline int match_ip_common(struct MatchIpParams *params)
     Istio__Security__Address *notIp = NULL;
     __u32 i = 0;
 
-    if (!params || !params->match || !params->tuple_info) {
+    if (!params || !params->tuple_info) {
         return UNMATCHED;
     }
 
@@ -436,7 +438,6 @@ static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tu
     }
 
     struct MatchIpParams params = {
-        .match = match,
         .tuple_info = tuple_info,
         .ip_list = match->source_ips,
         .not_ip_list = match->not_source_ips,
@@ -454,7 +455,6 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
     }
 
     struct MatchIpParams params = {
-        .match = match,
         .tuple_info = tuple_info,
         .ip_list = match->destination_ips,
         .not_ip_list = match->not_destination_ips,
@@ -543,7 +543,7 @@ static int rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, 
 }
 
 SEC("xdp_auth")
-int policy_check(struct xdp_md *ctx)
+int policies_check(struct xdp_md *ctx)
 {
     struct match_context *match_ctx;
     wl_policies_v *policies;
@@ -602,7 +602,7 @@ auth_in_user_space:
 }
 
 SEC("xdp_auth")
-int rule_check(struct xdp_md *ctx)
+int policy_check(struct xdp_md *ctx)
 {
     struct match_context *match_ctx;
     struct bpf_sock_tuple tuple_key = {0};
