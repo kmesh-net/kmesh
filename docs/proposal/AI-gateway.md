@@ -32,9 +32,11 @@ Kmesh can now be seamlessly integrated  with these Gateways. Obviously, the work
 
 #### Goals
 
+- Bring various AI traffic management capabilities into Kmesh ecosystem, such as AI rate limit, cache, fallback, etc.
+
 - Implement AI plugin that is compatible with various mainstream Gateways based on Envoy and provides capability enhancement for AI scenarios.
 
-- Design a set of AIPs (CRDs) for AI traffic management that can work with mainstream APIs such as Gateway API while maintaining scalabitily to allow AI governance capabilities to be added incrementally.
+- The AI traffic management AIPs (CRDs) can work with mainstream APIs such as Gateway API while maintaining scalabitily to allow AI governance capabilities to be added incrementally.
 
 #### Non-Goals
 
@@ -42,9 +44,9 @@ Kmesh can now be seamlessly integrated  with these Gateways. Obviously, the work
 
 ### Proposal
 
-Currently AI traffic management is mainly focused on the north-south direction, that is, the traffic entering from the Gateway. For general north-south traffic management functions, the open source community has already provided good support and provided multiple implementations, such as Istio Ingress Gateway, Envoy Gateway, and so on.
+For general north-south traffic management functions, the open source community has already provided good support and provided multiple implementations, such as Istio Ingress Gateway, Envoy Gateway, and so on.
 
-Kmesh can now be seamlessly integrated  with these Gateways. Obviously, the work of implementing a new Gateway from scratch is huge, and the implementation of most common functions will be a repetitive work. In addition, most Gateways are implemented based on Envoy, which is famous for its powerful extensibility. Therefore, we decided to implement Kmesh's AI capabitlity in the form of extensions plugins, which can not only reuse the community's existing capabilities, but also bring incremental benefits.
+Kmesh can now be seamlessly integrated with these Gateways. Obviously, the work of implementing a new Gateway from scratch is huge, and the implementation of most common functions will be a repetitive work. In addition, most Gateways are implemented based on Envoy, which is famous for its powerful extensibility. Therefore, we decided to implement Kmesh's AI capabitlity in the form of extensions plugins, which can not only reuse the community's existing capabilities, but also bring incremental benefits.
 
 The Kmesh's AI plugin should have the following advantages:
 
@@ -64,6 +66,83 @@ There are many ways to write filters. For example you can directly use c++ to bu
 So we finally chose Envoy's [External Processing Filter](https://www.envoyproxy.io/docs/envoy/latest/configuration/http/http_filters/ext_proc_filter). It connects to an external service, called an "external processor", to the filter chain. The processing service itself implements a gRPC interface that allows it to respond to events in the lifecycle of an HTTP request/response by examining and modifying the headers, body, and trailers of each message, or by returning a brand-new response.
 
 In this way, our AI plugin can be built as an external independent service and can be deployed on demand when AI traffic needs to be processed. At the same time, we can use any dev language, not necessarily C++. Of course, we use Golang. Also it is isolated from the complexity of Envoy to greatest extent, and only needs to process traffic requests/responses from gRPC connections. This fully ensures that development is simple, flexible and friendly.
+
+#### AI Plugin CRD
+
+We need to rely on CRD to describe the config related to AI traffic management. The config consists of the following two parts:
+
+1. Associated Service: The AI model is ultimately deployed in a service. We hope that only the service configured with the corresponding AI policy will forward traffic to the AI plugin and all AI services in the cluster can share the same AI plugin deployment without having to deploy one for each Service. In addition, if a service configured with AI policy, traffic can be directly forwarded to the AI plugin. Whether it's through automatically generating resource objects such as `EnvoyExtensionPolicy` or modifying XDS. It's believed that it will bring a better user experience.
+
+2. Specific AI traffic management policy: such as rate limit, cache, fallback, etc. Allow users to configure any number and type of policies.
+
+API:
+
+```go
+// AIExtension is the Schema for the aiextensions API.
+type AIExtension struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   AIExtensionSpec   `json:"spec,omitempty"`
+	Status AIExtensionStatus `json:"status,omitempty"`
+}
+
+// AIExtensionSpec defines the desired state of AIExtension.
+type AIExtensionSpec struct {
+	Options Options `json:"options"`
+}
+
+type Options struct {
+	RateLimits []RateLimit `json:"rateLimits,omitempty"`
+  // Add more polices as needed.
+}
+
+// +kubebuilder:validation:Enum=second;minute;hour;day;month
+type RateLimitUnit string
+
+const (
+	Second RateLimitUnit = "second"
+	Minute RateLimitUnit = "minute"
+	Hour   RateLimitUnit = "hour"
+	Day    RateLimitUnit = "day"
+	Month  RateLimitUnit = "month"
+)
+
+// RateLimit Policy for AI traffic.
+type RateLimit struct {
+	RequestsPerUnit uint32        `json:"requestsPerUnit"`
+	Unit            RateLimitUnit `json:"unit"`
+	Model           string        `json:"model"`
+}
+
+// AIExtensionStatus defines the observed state of AIExtension.
+type AIExtensionStatus struct {
+}
+```
+
+Only the `RateLimit` policy config is shown above. The data structure of new polices can be added directly to the `Options` structure as needed.
+
+The config example of the above Go code API converted into yaml format is as follows:
+
+```yaml
+apiVersion: ai.kmesh.net/v1alpha1
+kind: AIExtension
+metadata:
+  name: ai-extensions
+  namespace: ollama
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: ollama
+  options:
+    rateLimits:
+      - requestsPerUnit: 10
+        unit: minute
+        model: llama3.2
+```
+
+In accordance with the Gateway API convention, the service is associated with `HTTPRoute` in `targetRefs`, and then the specific AI policies are configured under `options`. Currently all AI policies are configured in the `AIExtension` CRD. If necessary, separate CRDs can be built for different policies in the future.
 
 #### Integration with Existing Gateways
 
@@ -92,40 +171,11 @@ spec:
 
 ```
 
-Istio Ingress Gateway can also use EnvoyFilter to add External Processing Filters on demand. Also, if necessary, as shown in the above arch picture, Envoy can be directly connected to AI plugin (it may no longer be appropriate to call it AI plugin), and then the AI plugin connects to the control plane of Gateway. The AI plugin modifies the XDS obtained from the control plane, for example, currently adding External Processing Filters, and finally sends the modified XDS to Envoy. This further improves the Gateway-agnosticity of the AI plugin and no additional configuration is required for different Gateway implementations.
+The above config shows that all traffic sent to the service `ollama` will first be sent to the `aiengine` service for external processing. At the same time, we can also specify in `processingMode` whether the request/response body is externally processed in the form of `Stream` or `Buffered`.
 
+Istio Ingress Gateway can also use EnvoyFilter to add External Processing Filters on demand. No matter how the various Gateway implementations encapsulate, it will eventually be converted into the XDS config of the [External Processing Filter](https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/http/ext_proc/v3/ext_proc.proto#envoy-v3-api-msg-extensions-filters-http-ext-proc-v3-externalprocessor) of Envoy.
 
-#### AI Plugin CRD
-
-Finally, we need to rely on CRD to describe the config related to AI traffic management. The config consists of the following two parts:
-
-1. Associated Service: The AI model is ultimately deployed in a service. We hope that only the service configured with the corresponding AI policy will forward traffic to the AI plugin and all AI services in the cluster can share the same AI plugin deployment without having to deploy one for each Service. In addition, if a service configured with AI policy, traffic can be directly forwarded to the AI plugin. Whether it's through automatically generating resource objects such as `EnvoyExtensionPolicy` or modifying XDS. It's believed that it will bring a better user experience.
-
-2. Specific AI traffic management policy: such as rate limit, cache, fallback, etc.
-
-The specific examples are as follows:
-
-```yaml
-apiVersion: ai.kmesh.net/v1alpha1
-kind: AIExtension
-metadata:
-  name: ai-extensions
-  namespace: ollama
-spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: ollama
-  options:
-    rateLimits:
-      - requestsPerUnit: 10
-        unit: minute
-        model: llama3.2
-    caches:
-      ...
-```
-
-In accordance with the Gateway API convention, the service is associated with `HTTPRoute` in `targetRefs`, and then the specific AI policies are configured under `options`. Currently all AI policies are configured in the `AIExtension` CRD. If necessary, separate CRDs can be built for different policies in the future.
+So, if necessary, as shown in the above arch picture, Envoy can be directly connected to AI plugin (it may no longer be appropriate to call it AI plugin), and then the AI plugin connects to the control plane of Gateway. The AI plugin modifies the XDS obtained from the control plane, for example, currently adding External Processing Filters, and finally sends the modified XDS to Envoy. This further improves the Gateway-agnosticity of the AI plugin and no additional configuration is required for different Gateway implementations.
 
 #### Test Plan
 
