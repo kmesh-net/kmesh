@@ -15,10 +15,7 @@ static inline backend_value *map_lookup_backend(const backend_key *key)
 
 static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_addr *wp_addr, __u32 port)
 {
-    int ret;
-    address_t target_addr;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
-    __u64 *sk = (__u64 *)ctx->sk;
 
     if (ctx->user_family == AF_INET)
         kmesh_ctx->dnat_ip.ip4 = wp_addr->ip4;

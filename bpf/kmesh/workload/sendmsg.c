@@ -85,8 +85,11 @@ static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, 
     struct bpf_sock_tuple *dst;
 
     dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
-    // !dst->ipv4.saddr indicates this is not from waypoint, we just return
-    if (!dst || !dst->ipv4.saddr)
+    
+    // !dst->ipv4.saddr indicates this is not from waypoint
+    // dst->ipv4.sport indicates this connection is already encoded
+    // for circumstances above, we just return
+    if (!dst || !dst->ipv4.saddr || dst->ipv4.sport)
         return -ENOENT;
 
     if (msg->family == AF_INET) {
@@ -96,6 +99,12 @@ static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, 
         bpf_memcpy(dst_ip->ip6, dst->ipv6.daddr, IPV6_ADDR_LEN);
         *dst_port = dst->ipv6.dport;
     }
+
+    // since this field is never used, we use it to indicate whether the connection is already encoded
+    dst->ipv4.sport = 1;
+    int ret = bpf_map_update_elem(&map_of_dst_info, &current_sk, dst, BPF_EXIST);
+    if (ret) 
+        BPF_LOG(ERR, SENDMSG, "update dst info failed, ret: %d\n", ret);
 
     return 0;
 }
