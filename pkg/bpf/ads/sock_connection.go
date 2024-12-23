@@ -21,20 +21,21 @@ package ads
 // #include "inner_map_defs.h"
 import "C"
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
-	"kmesh.net/kmesh/pkg/bpf/restart"
-	"kmesh.net/kmesh/pkg/constants"
-
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/normal"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
@@ -161,6 +162,7 @@ func (sc *BpfSockConn) Attach() error {
 	}
 
 	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
+	tree()
 	if restart.GetStartType() == restart.Restart {
 		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
 			return err
@@ -177,6 +179,41 @@ func (sc *BpfSockConn) Attach() error {
 		}
 	}
 	return nil
+}
+
+func tree() {
+	fmt.Println("attacch")
+	root := []string{"/sys/fs/bpf"}
+	for _, r := range root {
+		// Walk the directory tree
+		err := filepath.Walk(r, func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
+
+			// Print the file or directory name with indentation
+			fmt.Printf("%s%s\n", getIndentation(path, r), info.Name())
+			return nil
+		})
+
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+}
+
+// getIndentation returns the indentation for a given path
+func getIndentation(path, root string) string {
+	relativePath, err := filepath.Rel(root, path)
+	if err != nil {
+		return ""
+	}
+	depth := len(strings.Split(relativePath, string(filepath.Separator)))
+	res := ""
+	for i := 0; i < depth; i++ {
+		res += "  "
+	}
+	return res
 }
 
 func (sc *BpfSockConn) Detach() error {

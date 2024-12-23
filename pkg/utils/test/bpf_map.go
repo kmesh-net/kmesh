@@ -21,6 +21,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -53,7 +54,6 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 		t.Fatalf("Failed to remove mem limit: %v", err)
 	}
 	tree()
-
 	loader := bpf.NewBpfLoader(&config)
 	err = loader.Start()
 	if err != nil {
@@ -67,7 +67,7 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 }
 
 func tree() {
-	root := []string{"/sys/fs/bpf", "/mnt/kmesh_cgroup2"}
+	root := []string{"/sys/fs/bpf"}
 	for _, r := range root {
 		// Walk the directory tree
 		err := filepath.Walk(r, func(path string, info os.FileInfo, err error) error {
@@ -92,7 +92,7 @@ func getIndentation(path, root string) string {
 	if err != nil {
 		return ""
 	}
-	depth := len(filepath.SplitList(relativePath))
+	depth := len(strings.Split(relativePath, string(filepath.Separator)))
 	res := ""
 	for i := 0; i < depth; i++ {
 		res += "  "
