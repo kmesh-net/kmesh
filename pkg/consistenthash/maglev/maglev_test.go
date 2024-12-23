@@ -34,7 +34,6 @@ import (
 var mapPath = "/sys/fs/bpf/bpf_kmesh/map/"
 
 func TestMaglevTestSuite(t *testing.T) {
-	t.Skip("Skip this test")
 	setup(t)
 	testCreateLB(t)
 	testGetLookupTable(t)
