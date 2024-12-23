@@ -80,7 +80,7 @@ static inline int set_original_dst_info(struct kmesh_context *kmesh_ctx)
         sk_tuple.ipv6.dport = ctx->user_port;
     }
 
-    ret = bpf_map_update_elem(&map_of_dst_info, &(sk), &sk_tuple, BPF_NOEXIST);
+    ret = bpf_map_update_elem(&map_of_orig_dst, &(sk), &sk_tuple, BPF_NOEXIST);
     if (ret) {
         // only record the first dst info for each socket
         if (ret == -EEXIST)
