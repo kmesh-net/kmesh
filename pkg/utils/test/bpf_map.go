@@ -17,7 +17,10 @@
 package test
 
 import (
+	"fmt"
+	"log"
 	"os"
+	"os/exec"
 	"syscall"
 	"testing"
 
@@ -49,17 +52,33 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 		bpf.CleanupBpfMap()
 		t.Fatalf("Failed to remove mem limit: %v", err)
 	}
+	tree()
 
 	loader := bpf.NewBpfLoader(&config)
 	err = loader.Start()
-
 	if err != nil {
+		tree()
 		bpf.CleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)
 	}
+
 	return func() {
 		loader.Stop()
 	}, loader
+}
+
+func tree() {
+	// Define the command and arguments
+	cmd := exec.Command("tree", "/sys/fs/bpf", "-a", "-l")
+
+	// Run the command and capture the output
+	output, err := cmd.Output()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// Print the output
+	fmt.Println(string(output))
 }
 
 func EqualIp(src [16]byte, dst []byte) bool {
