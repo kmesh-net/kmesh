@@ -116,13 +116,13 @@ static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_
     return;
 }
 
-// construct_orig_dst_info try to read the dst_info from map_of_dst_info first
+// construct_orig_dst_info try to read the dst_info from map_of_orig_dst first
 // if not found, use the tuple info for orig_dst
 static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe_info *info)
 {
     __u64 *current_sk = (__u64 *)sk;
     struct bpf_sock_tuple *dst;
-    dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
+    dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
     if (dst) {
         if (sk->family == AF_INET) {
             info->orig_dst.ipv4.addr = dst->ipv4.daddr;

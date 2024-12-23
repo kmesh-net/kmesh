@@ -84,7 +84,7 @@ static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, 
     __u64 *current_sk = (__u64 *)msg->sk;
     struct bpf_sock_tuple *dst;
 
-    dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
+    dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
     
     // !dst->ipv4.saddr indicates this is not from waypoint
     // dst->ipv4.sport indicates this connection is already encoded
@@ -102,7 +102,7 @@ static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, 
 
     // since this field is never used, we use it to indicate whether the connection is already encoded
     dst->ipv4.sport = 1;
-    int ret = bpf_map_update_elem(&map_of_dst_info, &current_sk, dst, BPF_EXIST);
+    int ret = bpf_map_update_elem(&map_of_orig_dst, &current_sk, dst, BPF_EXIST);
     if (ret) 
         BPF_LOG(ERR, SENDMSG, "update dst info failed, ret: %d\n", ret);
 
