@@ -61,7 +61,7 @@ func setup(t *testing.T) {
 	}
 
 	dummyInnerMapSpec := newMaglevInnerMapSpecTest(uint32(DefaultTableSize))
-	_, err = newMaglevOuterMap(MaglevOuterMapName, 16384, uint32(DefaultTableSize), dummyInnerMapSpec, mapPath)
+	_, err = newMaglevOuterMap(MaglevOuterMapName, 16384, dummyInnerMapSpec, mapPath)
 	if err != nil {
 		fmt.Printf("NewMaglevOuterMap err: %v\n", err)
 	}
@@ -81,12 +81,7 @@ func testCreateLB(t *testing.T) {
 	var maglevKey [ClusterNameMaxLen]byte
 
 	copy(maglevKey[:], []byte(clusterName))
-	opt := &ebpf.LoadPinOptions{}
-	outer_map, err := ebpf.LoadPinnedMap(mapPath+MaglevOuterMapName, opt)
-	if err != nil {
-		t.Fatalf("LoadPinnedMap err: %v \n", err)
-	}
-	err = outer_map.Lookup(maglevKey, &inner_fd)
+	err = outer.Lookup(maglevKey, &inner_fd)
 	if err != nil {
 		t.Fatalf("Lookup with key %v , err %v \n", clusterName, err)
 	}
@@ -169,7 +164,7 @@ func newMaglevInnerMapSpecTest(tableSize uint32) *ebpf.MapSpec {
 }
 
 // newMaglevOuterMap returns a new object representing a maglev outer map.
-func newMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *ebpf.MapSpec, pinPath string) (*ebpf.Map, error) {
+func newMaglevOuterMap(name string, maxEntries int, innerMap *ebpf.MapSpec, pinPath string) (*ebpf.Map, error) {
 	m, err := ebpf.NewMapWithOptions(&ebpf.MapSpec{
 		Name:       name,
 		Type:       ebpf.HashOfMaps,

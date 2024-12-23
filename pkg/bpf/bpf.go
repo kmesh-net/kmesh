@@ -214,7 +214,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	}
 
 	// Make sure the directory about to use is clean
-	err = os.RemoveAll(versionPath)
+	err = os.RemoveAll(versionMapPinPath)
 	if err != nil {
 		log.Errorf("Clean bpf maps and progs failed, err is:%v", err)
 		return nil
