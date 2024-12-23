@@ -42,7 +42,6 @@ func TestMaglevTestSuite(t *testing.T) {
 	if err != nil {
 		t.Errorf("unmount /sys/fs/bpf error: %v", err)
 	}
-	os.RemoveAll("/sys/fs/bpf/bpf_kmesh/")
 }
 
 func setup(t *testing.T) {
