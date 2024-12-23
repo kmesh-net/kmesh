@@ -171,11 +171,11 @@ func (sc *BpfSockConn) Attach() error {
 	} else {
 		sc.Link, err = link.AttachCgroup(cgopt)
 		if err != nil {
-			return err
+			return fmt.Errorf("AttachCgroup %s failed: %v", sc.Info.Cgroup2Path, err)
 		}
 
 		if err := sc.Link.Pin(progPinPath); err != nil {
-			return err
+			return fmt.Errorf("Pin %s failed: %v", progPinPath, err)
 		}
 	}
 	return nil
