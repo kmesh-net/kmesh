@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"os/exec"
+	"path/filepath"
 	"syscall"
 	"testing"
 
@@ -61,24 +61,43 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 		bpf.CleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)
 	}
-
 	return func() {
 		loader.Stop()
 	}, loader
 }
 
 func tree() {
-	// Define the command and arguments
-	cmd := exec.Command("tree", "/sys/fs/bpf", "-a", "-l")
 
-	// Run the command and capture the output
-	output, err := cmd.Output()
+	root := "/sys/fs/bpf"
+
+	// Walk the directory tree
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Print the file or directory name with indentation
+		fmt.Printf("%s%s\n", getIndentation(path, root), info.Name())
+		return nil
+	})
+
 	if err != nil {
 		log.Fatal(err)
 	}
+}
 
-	// Print the output
-	fmt.Println(string(output))
+// getIndentation returns the indentation for a given path
+func getIndentation(path, root string) string {
+	relativePath, err := filepath.Rel(root, path)
+	if err != nil {
+		return ""
+	}
+	depth := len(filepath.SplitList(relativePath))
+	res := ""
+	for i := 0; i < depth; i++ {
+		res += "  "
+	}
+	return res
 }
 
 func EqualIp(src [16]byte, dst []byte) bool {
