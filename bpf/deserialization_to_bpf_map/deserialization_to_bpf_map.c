@@ -423,7 +423,7 @@ static int get_binary_field_size(struct op_context *ctx, const ProtobufCFieldDes
     return MAP_VAL_BINARY_SIZE;
 }
 
-static int get_field_size(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
+static int get_struct_field_size(struct op_context *ctx, const ProtobufCFieldDescriptor *field)
 {
     char *value = NULL;
 
@@ -448,7 +448,11 @@ static int field_handle(struct op_context *ctx, const ProtobufCFieldDescriptor *
     int ret;
     unsigned int key;
 
-    key = alloc_outer_key(ctx, get_field_size(ctx, field));
+    if (field->type != PROTOBUF_C_TYPE_MESSAGE && field->type != PROTOBUF_C_TYPE_STRING
+        && field->type != PROTOBUF_C_TYPE_BYTES)
+        return 0;
+
+    key = alloc_outer_key(ctx, get_struct_field_size(ctx, field));
     if (key < 0)
         return key;
 
