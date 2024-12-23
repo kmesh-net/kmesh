@@ -34,12 +34,11 @@ import (
 )
 
 const (
-	DefaultTableSize    uint64 = 16381
-	DefaultHashSeed            = "JLfvgnHc2kaSUFaI"
-	MaglevOuterMapName         = "km_maglev_outer"
-	MaglevInnerMapName         = "inner_of_maglev"
-	MaglevMapMaxEntries        = 65536
-	ClusterNameMaxLen          = 192
+	DefaultTableSize   uint64 = 16381
+	DefaultHashSeed           = "JLfvgnHc2kaSUFaI"
+	MaglevOuterMapName        = "km_maglev_outer"
+	MaglevInnerMapName        = "inner_of_maglev"
+	ClusterNameMaxLen         = 192
 )
 
 var (
