@@ -28,6 +28,7 @@ import (
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	"kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/api/v2/endpoint"
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 var mapPath = "/sys/fs/bpf/bpf_kmesh/map/"
@@ -36,6 +37,10 @@ func TestMaglevTestSuite(t *testing.T) {
 	setup(t)
 	testCreateLB(t)
 	testGetLookupTable(t)
+	err := syscall.Unmount(constants.BpfFsPath, 0)
+	if err != nil {
+		t.Errorf("unmount /sys/fs/bpf error: %v", err)
+	}
 	os.RemoveAll("/sys/fs/bpf/bpf_kmesh/")
 }
 
@@ -69,7 +74,7 @@ func testCreateLB(t *testing.T) {
 
 	err := CreateLB(cluster)
 	if err != nil {
-		fmt.Println(err)
+		t.Errorf("create lb err: %v \n", err)
 	}
 
 	var inner_fd uint32

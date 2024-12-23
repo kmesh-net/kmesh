@@ -411,6 +411,7 @@ func CleanupBpfMap() {
 	if err != nil {
 		log.Errorf("unmount /sys/fs/bpf error: %v", err)
 	}
+	log.Infof("umount bpf fs success")
 	err = os.RemoveAll(constants.Cgroup2Path)
 	if err != nil {
 		log.Errorf("remove /mnt/kmesh_cgroup2 error: %v", err)
