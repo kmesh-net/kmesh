@@ -50,12 +50,15 @@ type ClusterCache struct {
 	resourceHash    map[string][2]uint64
 	hashName        *utils.HashName
 	clusterStatsMap *ebpf.Map
+	maglev          *maglev.Maglev
 }
 
 func NewClusterCache(bpfAds *bpfads.BpfAds, hashName *utils.HashName) ClusterCache {
 	var clusterStatsMap *ebpf.Map
+	var maglevOuter *ebpf.Map
 	if bpfAds != nil {
 		clusterStatsMap = bpfAds.GetClusterStatsMap()
+		maglevOuter = bpfAds.SockConn.KmMaglevOuter
 	}
 	apiClusterCache := newApiClusterCache()
 	if restart.GetStartType() == restart.Restart {
@@ -69,11 +72,14 @@ func NewClusterCache(bpfAds *bpfads.BpfAds, hashName *utils.HashName) ClusterCac
 			apiClusterCache[Cluster.Name] = &cluster_v2.Cluster{}
 		}
 	}
+
+	m, _ := maglev.InitMaglevMap(maglevOuter)
 	return ClusterCache{
 		apiClusterCache: apiClusterCache,
 		resourceHash:    make(map[string][2]uint64),
 		hashName:        hashName,
 		clusterStatsMap: clusterStatsMap,
+		maglev:          m,
 	}
 }
 
@@ -194,7 +200,7 @@ func (cache *ClusterCache) Flush() {
 			err := maps_v2.ClusterUpdate(name, cluster)
 			if cluster.GetLbPolicy() == cluster_v2.Cluster_MAGLEV {
 				// create consistent lb here and update table to bpf map
-				if err := maglev.CreateLB(cluster); err != nil {
+				if err := cache.maglev.CreateLB(cluster); err != nil {
 					log.Errorf("maglev lb update %v cluster failed: %v", name, err)
 				}
 			}

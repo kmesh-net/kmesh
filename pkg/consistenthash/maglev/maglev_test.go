@@ -18,12 +18,10 @@ package maglev
 
 import (
 	"fmt"
-	"os"
 	"testing"
 	"unsafe"
 
 	"github.com/cilium/ebpf"
-	"github.com/stretchr/testify/suite"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	"kmesh.net/kmesh/api/v2/core"
@@ -31,73 +29,48 @@ import (
 )
 
 func TestMaglevTestSuite(t *testing.T) {
-	t.Skip("TODO: enable this test, now it interfere with other tests")
-	suite.Run(t, new(MaglevTestSuite))
+	m := setup()
+	testCreateLB(t, m)
+	testGetLookupTable(t, m)
+	m.outer.Close()
 }
 
-type MaglevTestSuite struct {
-	mapPath string
-	suite.Suite
-}
-
-func (suite *MaglevTestSuite) SetupSuite() {
-	mapPath := "/sys/fs/bpf/bpf_kmesh/map/"
-	suite.mapPath = mapPath
-	_, err := os.Stat(mapPath)
-	if os.IsNotExist(err) {
-		err := os.MkdirAll(mapPath, 0755)
-		if err != nil {
-			fmt.Println("can not mkdir bpf map path", err)
-		}
-	} else if err != nil {
-		fmt.Println("other err:", err)
-		return
-	} else {
-		fmt.Println("bpf map path already exist ", mapPath)
-	}
+func setup() *Maglev {
 	dummyInnerMapSpec := newMaglevInnerMapSpecTest(uint32(DefaultTableSize))
-	_, err = NewMaglevOuterMap(MaglevOuterMapName, MaglevMapMaxEntries, uint32(DefaultTableSize), dummyInnerMapSpec, mapPath)
+	outer, err := newMaglevOuterMap(MaglevOuterMapName, 16384, dummyInnerMapSpec)
 	if err != nil {
 		fmt.Printf("NewMaglevOuterMap err: %v\n", err)
 	}
-	InitMaglevMap()
+	maglev, _ := InitMaglevMap(outer)
+	return maglev
 }
 
-func (suite *MaglevTestSuite) TearDownSuite() {
-	fmt.Println(">>> From TearDownSuite")
-}
-
-func (suite *MaglevTestSuite) TestCreateLB() {
+func testCreateLB(t *testing.T, maglev *Maglev) {
 	cluster := newCluster()
 	clusterName := cluster.GetName()
 
-	err := CreateLB(cluster)
+	err := maglev.CreateLB(cluster)
 	if err != nil {
-		fmt.Println(err)
+		t.Errorf("create lb err: %v \n", err)
 	}
 
 	var inner_fd uint32
 	var maglevKey [ClusterNameMaxLen]byte
 
 	copy(maglevKey[:], []byte(clusterName))
-	opt := &ebpf.LoadPinOptions{}
-	outer_map, err := ebpf.LoadPinnedMap(suite.mapPath+MaglevOuterMapName, opt)
+	err = maglev.outer.Lookup(maglevKey, &inner_fd)
 	if err != nil {
-		fmt.Printf("LoadPinnedMap err: %v \n", err)
-	}
-	err = outer_map.Lookup(maglevKey, &inner_fd)
-	if err != nil {
-		fmt.Printf("Lookup with key %v , err %v \n", clusterName, err)
+		t.Fatalf("Lookup with key %v , err %v \n", clusterName, err)
 	}
 	fmt.Println("inner fd: ", inner_fd)
 }
 
-func (suite *MaglevTestSuite) TestGetLookupTable() {
+func testGetLookupTable(t *testing.T, maglev *Maglev) {
 	cluster := newCluster()
 
-	table, err := getLookupTable(cluster, DefaultTableSize)
+	table, err := maglev.getLookupTable(cluster)
 	if err != nil {
-		fmt.Printf("getLookupTable err:%v \n", err)
+		t.Fatalf("getLookupTable err:%v \n", err)
 	}
 	backendCount := make(map[int]int)
 	// print backend id distribute
@@ -167,23 +140,15 @@ func newMaglevInnerMapSpecTest(tableSize uint32) *ebpf.MapSpec {
 	}
 }
 
-// NewMaglevOuterMap returns a new object representing a maglev outer map.
-func NewMaglevOuterMap(name string, maxEntries int, tableSize uint32, innerMap *ebpf.MapSpec, pinPath string) (*ebpf.Map, error) {
-	m, err := ebpf.NewMapWithOptions(&ebpf.MapSpec{
+// newMaglevOuterMap returns a new object representing a maglev outer map.
+func newMaglevOuterMap(name string, maxEntries int, innerMap *ebpf.MapSpec) (*ebpf.Map, error) {
+	return ebpf.NewMapWithOptions(&ebpf.MapSpec{
 		Name:       name,
 		Type:       ebpf.HashOfMaps,
+		Flags:      1,
 		KeySize:    ClusterNameMaxLen,
 		ValueSize:  uint32(unsafe.Sizeof(uint32(0))),
 		MaxEntries: uint32(maxEntries),
 		InnerMap:   innerMap,
-		Pinning:    ebpf.PinByName,
-	}, ebpf.MapOptions{
-		PinPath: pinPath,
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
+	}, ebpf.MapOptions{})
 }
