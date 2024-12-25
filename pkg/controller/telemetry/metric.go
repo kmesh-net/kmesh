@@ -395,7 +395,7 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	// workload-type or and not redirected,
 	// so we just take from the actual destination
 	if connectData.OriginalAddr == 0 {
-		data.origDstAddr[0] = data.src[0]
+		data.origDstAddr[0] = data.dst[0]
 		data.origDstPort = data.dstPort
 	} else {
 		data.origDstAddr[0] = connectData.OriginalAddr
@@ -428,7 +428,7 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	// workload-type or and not redirected,
 	// so we just take from the actual destination
 	if !isOrigDstSet(connectData.OriginalAddr) {
-		data.origDstAddr = data.src
+		data.origDstAddr = data.dst
 		data.origDstPort = data.dstPort
 	} else {
 		data.origDstAddr = connectData.OriginalAddr
@@ -523,8 +523,16 @@ func (m *MetricController) fetchOriginalService(address []byte, port uint32) *wo
 		return svc
 	}
 	// else if it is workload-type, we guess the destination service
-	wld, _ := m.getWorkloadByAddress(address)
-	return m.guessWorkloadService(wld, port)
+	wld, wldAddr := m.getWorkloadByAddress(address)
+	dstSvc := m.guessWorkloadService(wld, port)
+	// when dst svc not found, we use orig dst workload addr as its hostname, if exists
+	if dstSvc == nil && wld != nil {
+		dstSvc = &workloadapi.Service{
+			Hostname:  wldAddr,
+			Namespace: wld.Namespace,
+		}
+	}
+	return dstSvc
 }
 
 func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {
