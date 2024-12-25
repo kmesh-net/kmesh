@@ -42,8 +42,6 @@ const (
 
 	connection_success = uint32(1)
 
-	MSG_LEN = 136
-
 	metricFlushInterval = 5 * time.Second
 
 	DEFAULT_UNKNOWN = "-"
@@ -78,44 +76,49 @@ type serviceMetricInfo struct {
 	ServiceConnFailed        float64
 }
 
-// connectionDataV4 read from ebpf ringbuf and padding with `_`
-type connectionDataV4 struct {
-	SrcAddr        uint32
-	DstAddr        uint32
-	SrcPort        uint16
-	DstPort        uint16
-	_              [6]uint32
-	OriginalAddr   uint32
-	OriginalPort   uint16
-	_              [3]uint32
-	_              uint16
+type statistics struct {
 	SentBytes      uint32
 	ReceivedBytes  uint32
 	ConnectSuccess uint32
 	Direction      uint32
-	_              uint32
+	State          uint32
 	Duration       uint64
 	CloseTime      uint64
-	State          uint32
+	// TODO: statistics below are not used for now
+	Protocol    uint32
+	SRttTime    uint32
+	RttMin      uint32
+	MssCache    uint32
+	Retransmits uint32
+	SegmentsIn  uint32
+	SegmentsOut uint32
+	LostPackets uint32
+}
+
+// connectionDataV4 read from ebpf ringbuf and padding with `_`
+type connectionDataV4 struct {
+	SrcAddr      uint32
+	DstAddr      uint32
+	SrcPort      uint16
+	DstPort      uint16
+	_            [6]uint32
+	OriginalAddr uint32
+	OriginalPort uint16
+	_            uint16
+	_            [3]uint32
+	statistics
 }
 
 // connectionDataV6 read from ebpf ringbuf and padding with `_`
 type connectionDataV6 struct {
-	SrcAddr        [4]uint32
-	DstAddr        [4]uint32
-	SrcPort        uint16
-	DstPort        uint16
-	OriginalAddr   [4]uint32
-	OriginalPort   uint16
-	_              uint16
-	SentBytes      uint32
-	ReceivedBytes  uint32
-	ConnectSuccess uint32
-	Direction      uint32
-	_              uint32
-	Duration       uint64
-	CloseTime      uint64
-	State          uint32
+	SrcAddr      [4]uint32
+	DstAddr      [4]uint32
+	SrcPort      uint16
+	DstPort      uint16
+	OriginalAddr [4]uint32
+	OriginalPort uint16
+	_            uint16
+	statistics
 }
 
 type requestMetric struct {
@@ -158,7 +161,8 @@ type workloadMetricLabels struct {
 	destinationVersion           string
 	destinationCluster           string
 
-	requestProtocol          string
+	requestProtocol string
+	// TODO: responseFlags is not used for now
 	responseFlags            string
 	connectionSecurityPolicy string
 }
@@ -187,7 +191,8 @@ type serviceMetricLabels struct {
 	destinationVersion           string
 	destinationCluster           string
 
-	requestProtocol          string
+	requestProtocol string
+	// TODO: responseFlags is not used for now
 	responseFlags            string
 	connectionSecurityPolicy string
 }
@@ -336,8 +341,8 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
 			}
-			if len(rec.RawSample) != MSG_LEN {
-				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), MSG_LEN)
+			if len(rec.RawSample) != int(unsafe.Sizeof(connectionDataV4{})) {
+				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(connectionDataV4{})))
 				continue
 			}
 			connectType := binary.LittleEndian.Uint32(rec.RawSample)
@@ -456,7 +461,7 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 }
 
 // guessWorkloadService find the first service of the workload that matches the destination port
-func (m *MetricController) guessWorkloadService(workload *workloadapi.Workload, dstIp string, targetPort uint32) *workloadapi.Service {
+func (m *MetricController) guessWorkloadService(workload *workloadapi.Workload, targetPort uint32) *workloadapi.Service {
 	if workload == nil {
 		return nil
 	}
@@ -482,14 +487,7 @@ func (m *MetricController) guessWorkloadService(workload *workloadapi.Workload, 
 		}
 	}
 
-	dstService := m.serviceCache.GetService(namespacedhost)
-	// when service not found, we use the address as hostname for metrics
-	if dstService == nil {
-		dstService = &workloadapi.Service{
-			Hostname: dstIp,
-		}
-	}
-	return dstService
+	return m.serviceCache.GetService(namespacedhost)
 }
 
 func (m *MetricController) getServiceByAddress(address []byte) (*workloadapi.Service, string) {
@@ -510,7 +508,7 @@ func (m *MetricController) fetchOriginalService(address []byte, port uint32) *wo
 	}
 	// else if it is workload-type, we guess the destination service
 	wld, _ := m.getWorkloadByAddress(address)
-	return m.guessWorkloadService(wld, "", port)
+	return m.guessWorkloadService(wld, port)
 }
 
 func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {
