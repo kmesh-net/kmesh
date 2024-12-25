@@ -123,23 +123,18 @@ static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe
     __u64 *current_sk = (__u64 *)sk;
     struct bpf_sock_tuple *dst;
     dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
-    if (dst) {
-        if (sk->family == AF_INET) {
-            info->orig_dst.ipv4.addr = dst->ipv4.daddr;
-            info->orig_dst.ipv4.port = bpf_ntohs(dst->ipv4.dport);
-        } else {
-            bpf_memcpy(info->orig_dst.ipv6.addr, dst->ipv6.daddr, IPV6_ADDR_LEN);
-            info->orig_dst.ipv6.port = bpf_ntohs(dst->ipv6.dport);
-        }
+
+    // when dst not found, metric controller will read orig dst from actual dst
+    if (!dst) {
+        return;
+    }
+
+    if (sk->family == AF_INET) {
+        info->orig_dst.ipv4.addr = dst->ipv4.daddr;
+        info->orig_dst.ipv4.port = bpf_ntohs(dst->ipv4.dport);
     } else {
-        // when dst not found, indicates request is not started in this node and not handled by us
-        if (sk->family == AF_INET) {
-            info->orig_dst.ipv4.addr = info->tuple.ipv4.daddr;
-            info->orig_dst.ipv4.port = info->tuple.ipv4.dport;
-        } else {
-            bpf_memcpy(info->orig_dst.ipv6.addr, info->tuple.ipv6.daddr, IPV6_ADDR_LEN);
-            info->orig_dst.ipv6.port = info->tuple.ipv6.dport;
-        }
+        bpf_memcpy(info->orig_dst.ipv6.addr, dst->ipv6.daddr, IPV6_ADDR_LEN);
+        info->orig_dst.ipv6.port = bpf_ntohs(dst->ipv6.dport);
     }
 
     if (is_ipv4_mapped_addr(info->orig_dst.ipv6.addr)) {

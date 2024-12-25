@@ -110,7 +110,7 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     }
     ret = set_original_dst_info(&kmesh_ctx);
     if (ret) {
-        BPF_LOG(ERR, KMESH, "failed to set original destination info, ret is %d\n", ret);
+        BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info, ret is %d\n", ret);
         return CGROUP_SOCK_OK;
     }
 
@@ -149,7 +149,7 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
 
     ret = set_original_dst_info(&kmesh_ctx);
     if (ret) {
-        BPF_LOG(ERR, KMESH, "failed to set original destination info, ret is %d\n", ret);
+        BPF_LOG(ERR, KMESH, "[IPv6]failed to set original destination info, ret is %d\n", ret);
         return CGROUP_SOCK_OK;
     }
 

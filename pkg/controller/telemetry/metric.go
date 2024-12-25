@@ -391,8 +391,16 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.dstPort = connectData.DstPort
 	data.srcPort = connectData.SrcPort
 
-	data.origDstAddr[0] = connectData.OriginalAddr
-	data.origDstPort = connectData.OriginalPort
+	// original addr is 0 indicates the connection is
+	// workload-type or and not redirected,
+	// so we just take from the actual destination
+	if connectData.OriginalAddr == 0 {
+		data.origDstAddr[0] = data.src[0]
+		data.origDstPort = data.dstPort
+	} else {
+		data.origDstAddr[0] = connectData.OriginalAddr
+		data.origDstPort = connectData.OriginalPort
+	}
 
 	data.sentBytes = connectData.SentBytes
 	data.receivedBytes = connectData.ReceivedBytes
@@ -416,8 +424,16 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.dstPort = connectData.DstPort
 	data.srcPort = connectData.SrcPort
 
-	data.origDstAddr = connectData.OriginalAddr
-	data.origDstPort = connectData.OriginalPort
+	// original addr is 0 indicates the connection is
+	// workload-type or and not redirected,
+	// so we just take from the actual destination
+	if !isOrigDstSet(connectData.OriginalAddr) {
+		data.origDstAddr = data.src
+		data.origDstPort = data.dstPort
+	} else {
+		data.origDstAddr = connectData.OriginalAddr
+		data.origDstPort = connectData.OriginalPort
+	}
 
 	data.sentBytes = connectData.SentBytes
 	data.receivedBytes = connectData.ReceivedBytes
@@ -704,4 +720,13 @@ func restoreIPv4(bytes []byte) []byte {
 	}
 
 	return bytes[:4]
+}
+
+func isOrigDstSet(addr [4]uint32) bool {
+	for _, v := range addr {
+		if v != 0 {
+			return true
+		}
+	}
+	return false
 }
