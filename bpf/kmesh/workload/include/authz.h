@@ -258,18 +258,20 @@ static inline void ipv6_addr_clear_suffix(union v6addr *addr, int prefix)
     addr->p4 &= GET_PREFIX(prefix);
 }
 
-static inline int match_ipv4_rule(__u32 ruleIp, __u32 preFixLen, __be32 targetIP)
+static inline int match_ipv4_rule(__u32 ruleIp, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
 {
     __u32 mask = 0;
+    __be32 targetIP = (type & TYPE_SRCIP) ? tuple_info->ipv4.saddr : tuple_info->ipv4.daddr;
 
     if (preFixLen > 32) {
         return UNMATCHED;
     }
     mask = 0xFFFFFFFF << (32 - preFixLen);
-    if ((ruleIp & mask) == (targetIP & mask)) {
+    if ((ruleIp & mask) == (bpf_ntohl(targetIP) & mask)) {
         return MATCHED;
     }
-    return 0;
+
+    return UNMATCHED;
 }
 
 static inline int match_ipv6_rule(struct ip_addr *rule_addr, struct ip_addr *target_addr, __u32 prefixLen)
@@ -299,11 +301,10 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
             BPF_LOG(
                 DEBUG,
                 AUTH,
-                "IPv4 match srcip: Rule IP: %u, Prefix Length: %u, Target IP: %s\n",
+                "IPv4 match srcip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
                 rule_ip,
                 preFixLen,
-                ip2str(&tuple_info->ipv4.saddr, true));
-            return match_ipv4_rule(rule_ip, preFixLen, bpf_ntohl(tuple_info->ipv4.saddr));
+                bpf_ntohl(tuple_info->ipv4.saddr));
         } else if (type & TYPE_DSTIP) {
             BPF_LOG(
                 DEBUG,
@@ -312,38 +313,26 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
                 rule_ip,
                 preFixLen,
                 bpf_ntohl(tuple_info->ipv4.daddr));
-            return match_ipv4_rule(rule_ip, preFixLen, bpf_ntohl(tuple_info->ipv4.daddr));
-        } else {
-            BPF_LOG(ERR, AUTH, "Unsupported address length: %u\n", addrInfo->len);
         }
+        return match_ipv4_rule(rule_ip, preFixLen, tuple_info, type);
     } else if (addrInfo->len == IPV6_BYTE_LEN) {
-        if (type & TYPE_SRCIP) {
-            struct ip_addr rule_addr = {0};
-            struct ip_addr target_addr = {0};
+        struct ip_addr rule_addr = {0};
+        struct ip_addr target_addr = {0};
 
+        if (type & (TYPE_SRCIP | TYPE_DSTIP)) {
             int ret = convert_ipv6_to_ip6addr(&rule_addr, addrInfo);
             if (ret != CONVERT_SUCCESS) {
                 return UNMATCHED;
             }
+            if (type & TYPE_SRCIP) {
+                IP6_COPY(target_addr.ip6, tuple_info->ipv6.saddr);
+            } else if (type & TYPE_DSTIP) {
+                IP6_COPY(target_addr.ip6, tuple_info->ipv6.daddr);
+            }
 
-            IP6_COPY(target_addr.ip6, tuple_info->ipv6.saddr);
             return match_ipv6_rule(&rule_addr, &target_addr, preFixLen);
         }
-    } else if (type & TYPE_DSTIP) {
-        struct ip_addr rule_addr = {0};
-        struct ip_addr target_addr = {0};
-
-        int ret = convert_ipv6_to_ip6addr(&rule_addr, addrInfo);
-        if (ret != CONVERT_SUCCESS) {
-            return UNMATCHED;
-        }
-
-        IP6_COPY(target_addr.ip6, tuple_info->ipv6.daddr);
-        return match_ipv6_rule(&rule_addr, &target_addr, preFixLen);
-    } else {
-        BPF_LOG(ERR, AUTH, "Unsupported address length: %u\n", addrInfo->len);
     }
-
     return UNMATCHED;
 }
 
