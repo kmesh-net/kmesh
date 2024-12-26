@@ -95,7 +95,7 @@ type AIExtensionSpec struct {
 
 type Options struct {
 	RateLimits []RateLimit `json:"rateLimits,omitempty"`
-  // Add more polices as needed.
+	// Add more polices as needed.
 }
 
 // +kubebuilder:validation:Enum=second;minute;hour;day;month
@@ -111,9 +111,9 @@ const (
 
 // RateLimit Policy for AI traffic.
 type RateLimit struct {
-	RequestsPerUnit uint32        `json:"requestsPerUnit"`
-	Unit            RateLimitUnit `json:"unit"`
-	Model           string        `json:"model"`
+	TokensPerUnit uint32        `json:"tokensPerUnit"`
+	Unit          RateLimitUnit `json:"unit"`
+	Model         string        `json:"model"`
 }
 
 // AIExtensionStatus defines the observed state of AIExtension.
@@ -135,10 +135,9 @@ spec:
   hostname: www.ollama.com
   options:
     rateLimits:
-      - requestsPerUnit: 10
+      - tokensPerUnit: 10
         unit: minute
         model: llama3.2
-
 ```
 
 `hostname` is the LLM provider we want to access and specific AI polices are configured under `options`. Currently all AI policies are configured in the `AIExtension` CRD. If necessary, separate CRDs can be built for different policies in the future.
