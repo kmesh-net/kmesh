@@ -578,7 +578,7 @@ int policies_check(struct xdp_md *ctx)
         if (ret < 0) {
             return XDP_PASS;
         }
-        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_RULE_CHECK);
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICY_CHECK);
     }
     return XDP_PASS;
 
@@ -659,7 +659,7 @@ int policy_check(struct xdp_md *ctx)
         BPF_LOG(ERR, AUTH, "failed to update map, error: %d", ret);
         return XDP_PASS;
     }
-    bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICY_CHECK);
+    bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICIES_CHECK);
     return XDP_PASS;
 }
 

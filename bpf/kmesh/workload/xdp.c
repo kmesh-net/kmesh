@@ -137,7 +137,7 @@ int xdp_authz(struct xdp_md *ctx)
             return XDP_PASS;
         }
 
-        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICY_CHECK);
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICIES_CHECK);
         return XDP_PASS;
     } else {
         return *value ? XDP_DROP : XDP_PASS;
