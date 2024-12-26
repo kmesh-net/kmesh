@@ -42,7 +42,7 @@ const (
 
 	connection_success = uint32(1)
 
-	MSG_LEN = 112
+	MSG_LEN = 96
 
 	metricFlushInterval = 5 * time.Second
 
@@ -68,6 +68,8 @@ type workloadMetricInfo struct {
 	WorkloadConnSentBytes     float64
 	WorkloadConnReceivedBytes float64
 	WorkloadConnFailed        float64
+	WorkloadConnTotalRetrans  float64
+	WorkloadConnLostOut       float64
 }
 
 type serviceMetricInfo struct {
@@ -91,6 +93,11 @@ type connectionDataV4 struct {
 	Duration       uint64
 	CloseTime      uint64
 	State          uint32
+	Protocol       uint32
+	Srtt           uint32
+	MinRtt         uint32
+	TotalRetrans   uint32
+	LostOut        uint32
 }
 
 type connectionDataV6 struct {
@@ -105,6 +112,11 @@ type connectionDataV6 struct {
 	Duration       uint64
 	CloseTime      uint64
 	State          uint32
+	Protocol       uint32
+	Srtt           uint32
+	MinRtt         uint32
+	TotalRetrans   uint32
+	LostOut        uint32
 }
 
 type requestMetric struct {
@@ -119,6 +131,10 @@ type requestMetric struct {
 	success       uint32
 	duration      uint64
 	closeTime     uint64
+	srtt          uint32
+	minRtt        uint32
+	totalRetrans  uint32
+	lostOut       uint32
 }
 
 type workloadMetricLabels struct {
@@ -379,6 +395,10 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
 	data.closeTime = connectData.CloseTime
+	data.srtt = connectData.Srtt
+	data.minRtt = connectData.MinRtt
+	data.totalRetrans = connectData.TotalRetrans
+	data.lostOut = connectData.LostOut
 
 	return data, nil
 }
@@ -401,6 +421,10 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
 	data.closeTime = connectData.CloseTime
+	data.srtt = connectData.Srtt
+	data.minRtt = connectData.MinRtt
+	data.totalRetrans = connectData.TotalRetrans
+	data.lostOut = connectData.LostOut
 
 	return data, nil
 }
@@ -535,6 +559,8 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		}
 		v.WorkloadConnReceivedBytes = v.WorkloadConnReceivedBytes + float64(data.receivedBytes)
 		v.WorkloadConnSentBytes = v.WorkloadConnSentBytes + float64(data.sentBytes)
+		v.WorkloadConnTotalRetrans = v.WorkloadConnTotalRetrans + float64(data.totalRetrans)
+		v.WorkloadConnLostOut = v.WorkloadConnLostOut + float64(data.lostOut)
 	} else {
 		newWorkloadMetricInfo := workloadMetricInfo{}
 		if data.state == TCP_ESTABLISHED {
@@ -548,6 +574,8 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		}
 		newWorkloadMetricInfo.WorkloadConnReceivedBytes = float64(data.receivedBytes)
 		newWorkloadMetricInfo.WorkloadConnSentBytes = float64(data.sentBytes)
+		newWorkloadMetricInfo.WorkloadConnTotalRetrans = float64(data.totalRetrans)
+		newWorkloadMetricInfo.WorkloadConnLostOut = float64(data.lostOut)
 		m.workloadMetricCache[labels] = &newWorkloadMetricInfo
 	}
 }
@@ -598,6 +626,8 @@ func (m *MetricController) updatePrometheusMetric() {
 		tcpSentBytesInWorkload.With(workloadLabels).Add(v.WorkloadConnSentBytes)
 		tcpReceivedBytesInWorkload.With(workloadLabels).Add(v.WorkloadConnReceivedBytes)
 		tcpConnectionFailedInWorkload.With(workloadLabels).Add(v.WorkloadConnFailed)
+		tcpConnectionTotalRetransInWorkload.With(workloadLabels).Add(v.WorkloadConnTotalRetrans)
+		tcpConnectionLostOutInWorkload.With(workloadLabels).Add(v.WorkloadConnLostOut)
 	}
 
 	for k, v := range serviceInfoCache {
