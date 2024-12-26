@@ -76,6 +76,20 @@ static inline wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
     return (wl_policies_v *)kmesh_map_lookup_elem(&map_of_wl_policy, &workload_uid);
 }
 
+/* IPv6-mapped IPv4 address format (::ffff:1:2:3:4)
+ * Check if the first 96 bits are all zeros and the last 32 bits are an IPv4 address
+ */
+static int is_ipv4_in_ipv6(struct ip_addr *rule_addr)
+{
+    if (rule_addr == NULL) {
+        return false;
+    }
+    if (rule_addr->ip6[0] == 0 && rule_addr->ip6[1] == 0 && rule_addr->ip6[2] == 0x0000FFFF) {
+        return true;
+    }
+    return false;
+}
+
 static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 {
     void *begin = (void *)(long)(ctx->data);
@@ -207,9 +221,9 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
 /* This function is used to convert the IP address
  * from big-endian storage to u32 type data.
  */
-static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_data)
+static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_data, bool is_ipv4_in_ipv6)
 {
-    if (!ipv4_data->data || ipv4_data->len != 4) {
+    if (!ipv4_data->data || (ipv4_data->len != 4 && ipv4_data->len != 16)) {
         return 0;
     }
 
@@ -219,7 +233,13 @@ static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_d
         return 0;
     }
 
-    return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | (data[3] << 0);
+    if (is_ipv4_in_ipv6) {
+        __u32 ipv4_addr = 0;
+        ipv4_addr = (data[12] << 24) | (data[13] << 16) | (data[14] << 8) | (data[15]);
+        return ipv4_addr;
+    }
+
+    return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | (data[3]);
 }
 
 static inline __u32 convert_ipv6_to_ip6addr(struct ip_addr *rule_addr, const struct ProtobufCBinaryData *ipv6_data)
@@ -279,7 +299,7 @@ static inline int match_ipv6_rule(struct ip_addr *rule_addr, struct ip_addr *tar
     if (prefixLen > 128)
         return UNMATCHED;
 
-    ipv6_addr_clear_suffix(target_addr, prefixLen);
+    ipv6_addr_clear_suffix((union v6addr *)target_addr, prefixLen);
     if (rule_addr->ip6[0] == target_addr->ip6[0] && rule_addr->ip6[1] == target_addr->ip6[1]
         && rule_addr->ip6[2] == target_addr->ip6[2] && rule_addr->ip6[3] == target_addr->ip6[3]) {
         return MATCHED;
@@ -296,7 +316,7 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
     }
 
     if (addrInfo->len == IPV4_BYTE_LEN) {
-        __u32 rule_ip = convert_ipv4_to_u32(addrInfo);
+        __u32 rule_ip = convert_ipv4_to_u32(addrInfo, false);
         if (type & TYPE_SRCIP) {
             BPF_LOG(
                 DEBUG,
@@ -324,12 +344,33 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
             if (ret != CONVERT_SUCCESS) {
                 return UNMATCHED;
             }
-            if (type & TYPE_SRCIP) {
-                IP6_COPY(target_addr.ip6, tuple_info->ipv6.saddr);
-            } else if (type & TYPE_DSTIP) {
-                IP6_COPY(target_addr.ip6, tuple_info->ipv6.daddr);
+            if (is_ipv4_in_ipv6(&rule_addr)) {
+                __u32 rule_ip = convert_ipv4_to_u32(addrInfo, true);
+                if (type & TYPE_SRCIP) {
+                    BPF_LOG(
+                        DEBUG,
+                        AUTH,
+                        "IPv4_in_IPv6 match srcip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
+                        rule_ip,
+                        preFixLen,
+                        bpf_ntohl(tuple_info->ipv4.saddr));
+                } else if (type & TYPE_DSTIP) {
+                    BPF_LOG(
+                        DEBUG,
+                        AUTH,
+                        "IPv4_in_IPv6 match dstip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
+                        rule_ip,
+                        preFixLen,
+                        bpf_ntohl(tuple_info->ipv4.daddr));
+                }
+                return match_ipv4_rule(rule_ip, preFixLen, tuple_info, type);
+            } else {
+                if (type & TYPE_SRCIP) {
+                    IP6_COPY(target_addr.ip6, tuple_info->ipv6.saddr);
+                } else if (type & TYPE_DSTIP) {
+                    IP6_COPY(target_addr.ip6, tuple_info->ipv6.daddr);
+                }
             }
-
             return match_ipv6_rule(&rule_addr, &target_addr, preFixLen);
         }
     }
