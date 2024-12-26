@@ -103,7 +103,7 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 
 	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
-			c.handlePodUpdate(nil, obj)
+			c.handlePodAdd(obj)
 		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.handlePodUpdate(oldObj, newObj)
@@ -124,6 +124,30 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 	}
 
 	return c, nil
+}
+
+func (c *KmeshManageController) handlePodAdd(obj interface{}) {
+	newPod, ok := obj.(*corev1.Pod)
+	if !ok {
+		log.Errorf("expected *corev1.Pod but got %T", obj)
+		return
+	}
+
+	namespace, err := c.namespaceLister.Get(newPod.Namespace)
+	if err != nil {
+		log.Errorf("failed to get pod namespace %s: %v", newPod.Namespace, err)
+		return
+	}
+
+	// enable kmesh manage
+	if !utils.ShouldEnroll(newPod, namespace) {
+		if utils.AnnotationEnabled(newPod.Annotations[constants.KmeshRedirectionAnnotation]) {
+			c.disableKmeshManage(newPod)
+		}
+		return
+	}
+	// we need to re-link xdp in case kmesh reload xdp after restart no matter the pod has been managed by kmesh previously or not.
+	c.enableKmeshManage(newPod)
 }
 
 func (c *KmeshManageController) handlePodUpdate(_, newObj interface{}) {
