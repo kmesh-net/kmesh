@@ -15,25 +15,7 @@ static inline backend_value *map_lookup_backend(const backend_key *key)
 
 static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_addr *wp_addr, __u32 port)
 {
-    int ret;
-    address_t target_addr;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
-    __u64 *sk = (__u64 *)ctx->sk;
-    struct bpf_sock_tuple sk_tuple = {0};
-
-    if (ctx->family == AF_INET) {
-        sk_tuple.ipv4.daddr = kmesh_ctx->orig_dst_addr.ip4;
-        sk_tuple.ipv4.dport = ctx->user_port;
-    } else if (ctx->family == AF_INET6) {
-        bpf_memcpy(sk_tuple.ipv6.daddr, kmesh_ctx->orig_dst_addr.ip6, IPV6_ADDR_LEN);
-        sk_tuple.ipv6.dport = ctx->user_port;
-    }
-
-    ret = bpf_map_update_elem(&map_of_orig_dst, &(sk), &sk_tuple, BPF_NOEXIST);
-    if (ret) {
-        BPF_LOG(ERR, BACKEND, "record original dst address failed: %d\n", ret);
-        return ret;
-    }
 
     if (ctx->user_family == AF_INET)
         kmesh_ctx->dnat_ip.ip4 = wp_addr->ip4;
