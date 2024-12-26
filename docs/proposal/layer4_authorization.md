@@ -92,13 +92,18 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_AUTH_TAILCALL);
 } kmesh_tc_args SEC(".maps");
 ```
+#### Istio policy module
+
+![istio_policy_module](pics/istio_policy_module.png#pic_center)
+
+The structural diagram of istio storage policy is shown above. The Istio authorization model enforces policies through the `Istio__Security__Authorization` resource. Within this model, a workload can be associated with multiple policy rules, where policies are OR-ed. Each policy comprises various rules, which are similarly assessed OR-ed. A rule is further decomposed into multiple clauses, which are evaluated using an AND logic, meaning that all clauses must be satisfied for the rule to be considered valid. Finally, each clause contains multiple matches, assessed OR-ed, where the satisfaction of any match is sufficient for the clause to be deemed fulfilled. The policy layer also includes the authentication action, which ultimately determines the authentication strategy
 
 #### Processing logic
 
 ![l4_authz_xdp](pics/kmesh_xdp_authz.jpg#pic_center)
 
 In the implementation of XDP authentication, due to the limitation of eBPF verifier on the number of bytes, we need to use eBPF's tailcall mechanism to implement the entire process of XDP authentication. The whole process is shown in the figure above:
-First, the program entry is xdp_authz. In this eBPF program, the starting address of the authentication rule in memory will be written to kmesh_tc_args eBPF map, and then tail call will be made to the policy_check eBPF program. This program will write the rule and necessary information to kmesh_tc_args eBPF map, and then tail call will be made to the rule_check eBPF program to check the specific clause rules, which involves matching logic such as port_check and ip_check.
+First, the program entry is xdp_authz. In this eBPF program, the starting address of the authentication rule in memory will be written to kmesh_tc_args eBPF map, and then tail call will be made to the policies_check eBPF program. This program will write the rule and necessary information to kmesh_tc_args eBPF map, and then tail call will be made to the policy_check eBPF program to check the specific clause rules, which involves matching logic such as port_check and ip_check.
 
 ![l4_authz_xdp_process](pics/kmesh_l4_authorization_match_chain.svg#pic_center)
 
