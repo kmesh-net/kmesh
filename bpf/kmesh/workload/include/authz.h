@@ -188,7 +188,7 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
     }
     // if not match not_destination_ports && has no destination_ports, return MATCHED
     if (match->n_destination_ports == 0) {
-        BPF_LOG(INFO, AUTH, "no destination_ports configured, matching by default");
+        BPF_LOG(DEBUG, AUTH, "no destination_ports configured, matching by default");
         return MATCHED;
     }
 
@@ -204,12 +204,12 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
         }
         if (info->iph->version == IPV4_VERSION) {
             if (bpf_htons(ports[i]) == tuple_info->ipv4.dport) {
-                BPF_LOG(INFO, AUTH, "port %u in destination_ports, matched", ports[i]);
+                BPF_LOG(DEBUG, AUTH, "port %u in destination_ports, matched", ports[i]);
                 return MATCHED;
             }
         } else {
             if (bpf_htons(ports[i]) == tuple_info->ipv6.dport) {
-                BPF_LOG(INFO, AUTH, "port %u in destination_ports, matched", ports[i]);
+                BPF_LOG(DEBUG, AUTH, "port %u in destination_ports, matched", ports[i]);
                 return MATCHED;
             }
         }
@@ -229,7 +229,7 @@ static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_d
 
     unsigned char *data = (unsigned char *)KMESH_GET_PTR_VAL(ipv4_data->data, unsigned char);
     if (!data) {
-        BPF_LOG(INFO, AUTH, "failed to read raw ipv4 data\n");
+        BPF_LOG(ERR, AUTH, "failed to read raw ipv4 data\n");
         return 0;
     }
 
@@ -674,12 +674,12 @@ int policy_check(struct xdp_md *ctx)
         }
         if (rule_match_check(rule, &info, &tuple_key) == MATCHED) {
             BPF_LOG(
-                INFO,
+                DEBUG,
                 AUTH,
                 "rule matched, action: %s",
                 match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? "DENY" : "ALLOW");
             if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
-                BPF_LOG(INFO, AUTH, "failed to delete tail call context from map");
+                BPF_LOG(ERR, AUTH, "failed to delete tail call context from map");
             }
             __u32 auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? AUTH_DENY : AUTH_ALLOW;
             if (bpf_map_update_elem(&map_of_auth_result, &tuple_key, &auth_result, BPF_ANY) != 0) {
