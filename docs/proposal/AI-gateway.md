@@ -71,7 +71,7 @@ In this way, our AI plugin can be built as an external independent service and c
 
 We need to rely on CRD to describe the config related to AI traffic management. The config consists of the following two parts:
 
-1. Associated Service: The AI model is ultimately deployed in a service. We hope that only the service configured with the corresponding AI policy will forward traffic to the AI plugin and all AI services in the cluster can share the same AI plugin deployment without having to deploy one for each Service. In addition, if a service configured with AI policy, traffic can be directly forwarded to the AI plugin. Whether it's through automatically generating resource objects such as `EnvoyExtensionPolicy` or modifying XDS. It's believed that it will bring a better user experience.
+1. Hostname: usually an LLM Provider will contain multiple models. The user will specify the LLM provider (such as "www.openai.com") in the hostname of the HTTP request and then specify model to be used in this reques in the `model` field of the body. We hope that the AI Plugin can be shared by multiple LLM Providers and the strategies can be isolated between different LLM Provdiers.
 
 2. Specific AI traffic management policy: such as rate limit, cache, fallback, etc. Allow users to configure any number and type of policies.
 
@@ -89,7 +89,8 @@ type AIExtension struct {
 
 // AIExtensionSpec defines the desired state of AIExtension.
 type AIExtensionSpec struct {
-	Options Options `json:"options"`
+	Hostname string  `json:"hostname"`
+	Options  Options `json:"options"`
 }
 
 type Options struct {
@@ -131,18 +132,16 @@ metadata:
   name: ai-extensions
   namespace: ollama
 spec:
-  targetRefs:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-      name: ollama
+  hostname: www.ollama.com
   options:
     rateLimits:
       - requestsPerUnit: 10
         unit: minute
         model: llama3.2
+
 ```
 
-In accordance with the Gateway API convention, the service is associated with `HTTPRoute` in `targetRefs`, and then the specific AI policies are configured under `options`. Currently all AI policies are configured in the `AIExtension` CRD. If necessary, separate CRDs can be built for different policies in the future.
+`hostname` is the LLM provider we want to access and specific AI polices are configured under `options`. Currently all AI policies are configured in the `AIExtension` CRD. If necessary, separate CRDs can be built for different policies in the future.
 
 #### Integration with Existing Gateways
 
