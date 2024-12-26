@@ -50,9 +50,10 @@ const (
 	OperEnableControl  = 929
 	OperDisableControl = 930
 
-	// tail call index in tail call prog map
-	TailCallConnect4Index   = 0
-	TailCallConnect6Index   = 1
+	// tail call index in cgroup connect tail call prog map
+	TailCallConnect4Index = 0
+	TailCallConnect6Index = 1
+	// tail call index in xdp tail call prog map
 	TailCallPoliciesCheck   = 0
 	TailCallPolicyCheck     = 1
 	TailCallAuthInUserSpace = 2
