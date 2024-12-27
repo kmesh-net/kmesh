@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/ebpf"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
@@ -48,7 +49,6 @@ type Controller struct {
 	ipsecController     *ipsec.IpsecController
 	enableByPass        bool
 	enableSecretManager bool
-	enableIPsec         bool
 	bpfConfig           *options.BpfConfig
 }
 
@@ -60,7 +60,6 @@ func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpfads.BpfAds, bpf
 		bpfWorkloadObj:      bpfWorkloadObj,
 		enableSecretManager: opts.SecretManagerConfig.Enable,
 		bpfConfig:           opts.BpfConfig,
-		enableIPsec:         opts.EncryptionConfig.EnableIPsec,
 	}
 }
 
@@ -124,8 +123,17 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		}
 	}
 
-	if c.enableIPsec {
-		c.ipsecController, err = ipsec.NewIPsecController(clientset)
+	if c.bpfConfig.EnableIPsec {
+		var kniMap *ebpf.Map
+		var decyptProg *ebpf.Program
+		if c.mode == constants.KernelNativeMode {
+			kniMap = c.bpfAdsObj.Tc.KmeshTcMarkDecryptObjects.MapOfNodeinfo
+			decyptProg = c.bpfAdsObj.Tc.KmeshTcMarkDecryptObjects.TcMarkDecrypt
+		} else {
+			kniMap = c.bpfWorkloadObj.Tc.KmeshTcMarkDecryptObjects.MapOfNodeinfo
+			decyptProg = c.bpfWorkloadObj.Tc.KmeshTcMarkDecryptObjects.TcMarkDecrypt
+		}
+		c.ipsecController, err = ipsec.NewIPsecController(clientset, kniMap, decyptProg)
 		if err != nil {
 			return fmt.Errorf("failed to new IPsec controller, %v", err)
 		}
@@ -158,9 +166,6 @@ func (c *Controller) Stop() {
 	cancel()
 	if c.client != nil {
 		c.client.Close()
-	}
-	if c.enableIPsec {
-		c.ipsecController.Stop()
 	}
 }
 

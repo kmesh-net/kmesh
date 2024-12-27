@@ -32,6 +32,7 @@ type BpfConfig struct {
 	EnableMda        bool
 	EnableMonitoring bool
 	EnableProfiling  bool
+	EnableIPsec      bool
 }
 
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
@@ -41,6 +42,7 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 	cmd.PersistentFlags().BoolVar(&c.EnableMonitoring, "monitoring", true, "enable kmesh traffic monitoring in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnableProfiling, "profiling", false, "whether to enable profiling or not, default to false")
+	cmd.PersistentFlags().BoolVar(&c.EnableIPsec, "enable-ipsec", false, "enable ipsec encryption and authentication between nodes")
 }
 
 func (c *BpfConfig) ParseConfig() error {

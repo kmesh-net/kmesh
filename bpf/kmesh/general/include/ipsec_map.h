@@ -7,11 +7,11 @@
 #include "common.h"
 #include "map_config.h"
 
-#define MAP_SIZE_OF_NODEINFO    8192
+#define MAP_SIZE_OF_NODEINFO 8192
 
 struct nodeinfo {
     __u32 spi;
-    __u16 nodeid;
+    __u32 nodeid;
 };
 
 struct lpm_key {
