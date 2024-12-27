@@ -89,6 +89,7 @@ func NewIPsecController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, tcD
 		informer:      nodeinfoInformer,
 		lister:        nodeinfoLister,
 		queue:         workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]()),
+		knclient:      clientSet.KmeshV1alpha1().KmeshNodeInfos(kube.KmeshNamespace),
 		ipsecHandler:  NewIpSecHandler(),
 		kniMap:        kniMap,
 		tcDecryptProg: tcDecryptProg,
@@ -311,10 +312,14 @@ func (c *IpsecController) handleKNIDelete(obj interface{}) {
 		log.Errorf("expected *v1alpha1_core.KmeshNodeInfo but got %T in handle delete func", obj)
 		return
 	}
-
-	for _, targetIP := range kni.Spec.NicIPs {
-		c.ipsecHandler.Clean(targetIP)
+	nodeNsPath := kmesh_netns.GetNodeNSpath()
+	deleteFunc := func(netns.NetNS) error {
+		for _, targetIP := range kni.Spec.NicIPs {
+			c.ipsecHandler.Clean(targetIP)
+		}
+		return nil
 	}
+	netns.WithNetNSPath(nodeNsPath, deleteFunc)
 }
 
 func (c *IpsecController) Stop() {
@@ -327,7 +332,7 @@ func (c *IpsecController) Stop() {
 }
 
 func (c *IpsecController) syncAllNodeInfo() error {
-	nodeList, err := c.lister.List(labels.Everything())
+	nodeList, err := c.lister.KmeshNodeInfos(kube.KmeshNamespace).List(labels.Everything())
 	if err != nil {
 		return fmt.Errorf("failed to get kmesh node info list: %v", err)
 	}
@@ -343,7 +348,7 @@ func (c *IpsecController) syncAllNodeInfo() error {
 }
 
 func (c *IpsecController) updateLocalKmeshNodeInfo() error {
-	node, _ := c.lister.KmeshNodeInfos("").Get(c.kmeshNodeInfo.Name)
+	node, _ := c.lister.KmeshNodeInfos(kube.KmeshNamespace).Get(c.kmeshNodeInfo.Name)
 	if node == nil {
 		_, err := c.knclient.Create(context.TODO(), &c.kmeshNodeInfo, metav1.CreateOptions{})
 		if err != nil {
@@ -365,7 +370,6 @@ func (c *IpsecController) updateLocalKmeshNodeInfo() error {
 }
 
 func (c *IpsecController) attachTCToInternalNIC() error {
-
 	nodeNsPath := kmesh_netns.GetNodeNSpath()
 	attachFunc := func(netns.NetNS) error {
 		ncInterfaces, err := net.Interfaces()
@@ -460,8 +464,16 @@ func (c *IpsecController) detachTCFromInternalNIC() {
 }
 
 func (c *IpsecController) CleanAllIPsec() {
-	if err := c.ipsecHandler.CleanAll(); err != nil {
-		log.Errorf("failed to clean ipsec rule: %v", err)
+	nodeNsPath := kmesh_netns.GetNodeNSpath()
+	cleanFunc := func(netns.NetNS) error {
+		if err := c.ipsecHandler.CleanAll(); err != nil {
+			return fmt.Errorf("failed to clean ipsec rule: %v", err)
+		}
+		return nil
+	}
+
+	if err := netns.WithNetNSPath(nodeNsPath, cleanFunc); err != nil {
+		log.Errorf("failed to exec tc program detach, %v", err)
 	}
 }
 
@@ -478,7 +490,7 @@ func (c *IpsecController) processNextItem() bool {
 		return true
 	}
 
-	node, err := c.lister.KmeshNodeInfos("").Get(name)
+	node, err := c.lister.KmeshNodeInfos(kube.KmeshNamespace).Get(name)
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			log.Errorf("failed to get kmesh node info %s: %v", name, err)
@@ -512,7 +524,7 @@ func (c *IpsecController) UpdateXfrm() {
 		return
 	}
 
-	node, err := c.lister.KmeshNodeInfos("").Get(c.kmeshNodeInfo.Name)
+	node, err := c.lister.KmeshNodeInfos(kube.KmeshNamespace).Get(c.kmeshNodeInfo.Name)
 	if err != nil {
 		log.Errorf("failed to get kmesh node info: %v", err)
 		return

@@ -13,4 +13,4 @@ rules:
   verbs: ["get"]
 - apiGroups: ["kmesh.net"]
   resources: ["kmeshnodeinfos"]
-  verbs: ["get", "create", "update", "patch", "list", "watch"]
+  verbs: ["get", "create", "update", "delete", "patch", "list", "watch"]

@@ -164,6 +164,9 @@ func (c *Controller) Stop() {
 		return
 	}
 	cancel()
+	if c.bpfConfig.EnableIPsec {
+		c.ipsecController.Stop()
+	}
 	if c.client != nil {
 		c.client.Close()
 	}
