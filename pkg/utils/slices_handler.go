@@ -30,8 +30,8 @@ import (
 //
 // return:
 //
-//	    aAdd: the data added to a over b
-//		bMiss: the data missing from b over a
+//	    Add: the data added to a over b
+//		Remove: the data missing from b over a
 //
 // TODO: Optimising functions to be able to handle different data types
 func CompareSlices(a, b []*workloadapi.NetworkAddress) ([]*workloadapi.NetworkAddress, []*workloadapi.NetworkAddress) {
