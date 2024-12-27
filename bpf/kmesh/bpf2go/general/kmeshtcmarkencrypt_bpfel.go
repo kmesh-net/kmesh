@@ -35,8 +35,7 @@ type KmeshTcMarkEncryptLpmKey struct {
 
 type KmeshTcMarkEncryptNodeinfo struct {
 	Spi    uint32
-	Nodeid uint16
-	_      [2]byte
+	Nodeid uint32
 }
 
 // LoadKmeshTcMarkEncrypt returns the embedded CollectionSpec for KmeshTcMarkEncrypt.
@@ -87,10 +86,10 @@ type KmeshTcMarkEncryptProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshTcMarkEncryptMapSpecs struct {
-	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
-	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
-	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
-	MapOfNodeinfo *ebpf.MapSpec `ebpf:"map_of_nodeinfo"`
+	KmConfigmap *ebpf.MapSpec `ebpf:"km_configmap"`
+	KmLogEvent  *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmNodeinfo  *ebpf.MapSpec `ebpf:"km_nodeinfo"`
+	KmTmpbuf    *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 }
 
 // KmeshTcMarkEncryptObjects contains all objects after they have been loaded into the kernel.
@@ -112,18 +111,18 @@ func (o *KmeshTcMarkEncryptObjects) Close() error {
 //
 // It can be passed to LoadKmeshTcMarkEncryptObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshTcMarkEncryptMaps struct {
-	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
-	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
-	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
-	MapOfNodeinfo *ebpf.Map `ebpf:"map_of_nodeinfo"`
+	KmConfigmap *ebpf.Map `ebpf:"km_configmap"`
+	KmLogEvent  *ebpf.Map `ebpf:"km_log_event"`
+	KmNodeinfo  *ebpf.Map `ebpf:"km_nodeinfo"`
+	KmTmpbuf    *ebpf.Map `ebpf:"km_tmpbuf"`
 }
 
 func (m *KmeshTcMarkEncryptMaps) Close() error {
 	return _KmeshTcMarkEncryptClose(
 		m.KmConfigmap,
 		m.KmLogEvent,
+		m.KmNodeinfo,
 		m.KmTmpbuf,
-		m.MapOfNodeinfo,
 	)
 }
 

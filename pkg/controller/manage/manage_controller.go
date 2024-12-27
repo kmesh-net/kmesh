@@ -219,6 +219,7 @@ func (c *KmeshManageController) handleNamespaceUpdate(oldObj, newObj interface{}
 	}
 }
 
+// TODO: enable tc encrypt
 func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 	sendCertRequest(c.sm, pod, kmeshsecurity.ADD)
 	if !isPodReady(pod) {
@@ -235,6 +236,7 @@ func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 	_ = linkXdp(nspath, c.xdpProgFd, c.mode)
 }
 
+// TODO: disable tc encrypt
 func (c *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 	sendCertRequest(c.sm, pod, kmeshsecurity.DELETE)
 	if !isPodReady(pod) {

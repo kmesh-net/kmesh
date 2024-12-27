@@ -127,10 +127,10 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		var kniMap *ebpf.Map
 		var decyptProg *ebpf.Program
 		if c.mode == constants.KernelNativeMode {
-			kniMap = c.bpfAdsObj.Tc.KmeshTcMarkDecryptObjects.MapOfNodeinfo
+			kniMap = c.bpfAdsObj.Tc.KmeshTcMarkDecryptObjects.KmNodeinfo
 			decyptProg = c.bpfAdsObj.Tc.KmeshTcMarkDecryptObjects.TcMarkDecrypt
 		} else {
-			kniMap = c.bpfWorkloadObj.Tc.KmeshTcMarkDecryptObjects.MapOfNodeinfo
+			kniMap = c.bpfWorkloadObj.Tc.KmeshTcMarkDecryptObjects.KmNodeinfo
 			decyptProg = c.bpfWorkloadObj.Tc.KmeshTcMarkDecryptObjects.TcMarkDecrypt
 		}
 		c.ipsecController, err = ipsec.NewIPsecController(clientset, kniMap, decyptProg)
