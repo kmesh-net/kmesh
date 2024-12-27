@@ -38,6 +38,18 @@ type BpfTCGeneral struct {
 	bpf2go_general.KmeshTcMarkEncryptObjects
 }
 
+func NewBpf(cfg *options.BpfConfig) (*BpfTCGeneral, error) {
+	tc := &BpfTCGeneral{}
+	if err := tc.newBpf(&tc.InfoTcMarkDecrypt, cfg); err != nil {
+		return nil, err
+	}
+	if err := tc.newBpf(&tc.InfoTcMarkEncrypt, cfg); err != nil {
+		return nil, err
+	}
+
+	return tc, nil
+}
+
 func (tc *BpfTCGeneral) newBpf(info *BpfInfo, cfg *options.BpfConfig) error {
 	info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/tc/"
@@ -52,17 +64,6 @@ func (tc *BpfTCGeneral) newBpf(info *BpfInfo, cfg *options.BpfConfig) error {
 	if err := os.MkdirAll(info.BpfFsPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
 			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
-		return err
-	}
-
-	return nil
-}
-
-func (tc *BpfTCGeneral) NewBpf(cfg *options.BpfConfig) error {
-	if err := tc.newBpf(&tc.InfoTcMarkDecrypt, cfg); err != nil {
-		return err
-	}
-	if err := tc.newBpf(&tc.InfoTcMarkEncrypt, cfg); err != nil {
 		return err
 	}
 
@@ -112,6 +113,9 @@ func (tc *BpfTCGeneral) loadKmeshTCObjects() (*ebpf.CollectionSpec, *ebpf.Collec
 }
 
 func (tc *BpfTCGeneral) LoadTC() error {
+	if tc == nil {
+		return nil
+	}
 	specMarkDecrypt, specMarkEncrypt, err := tc.loadKmeshTCObjects()
 	if err != nil {
 		return err
@@ -129,6 +133,9 @@ func (tc *BpfTCGeneral) LoadTC() error {
 }
 
 func (tc *BpfTCGeneral) Close() error {
+	if tc == nil {
+		return nil
+	}
 	if err := tc.KmeshTcMarkDecryptObjects.Close(); err != nil {
 		return err
 	}

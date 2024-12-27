@@ -38,7 +38,7 @@ type BpfWorkload struct {
 	SockOps  BpfSockOpsWorkload
 	XdpAuth  BpfXdpAuthWorkload
 	SendMsg  BpfSendMsgWorkload
-	Tc       general.BpfTCGeneral
+	Tc       *general.BpfTCGeneral
 }
 
 func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
@@ -61,10 +61,13 @@ func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
 		return nil, err
 	}
 
-	if err := workloadObj.Tc.NewBpf(cfg); err != nil {
-		return nil, err
+	if cfg.EnableIPsec {
+		var err error
+		workloadObj.Tc, err = general.NewBpf(cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
-
 	return workloadObj, nil
 }
 

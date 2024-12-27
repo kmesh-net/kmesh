@@ -31,7 +31,7 @@ import (
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/vishvananda/netlink"
-	"istio.io/pkg/filewatcher"
+	"istio.io/istio/pkg/filewatcher"
 )
 
 const (

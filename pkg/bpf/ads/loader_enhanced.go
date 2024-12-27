@@ -39,6 +39,7 @@ type BpfAds struct {
 	TracePoint BpfTracePoint
 	SockConn   BpfSockConn
 	SockOps    BpfSockOps
+	Tc         *general.BpfTCGeneral
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
@@ -54,6 +55,15 @@ func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	if err := sc.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
 	}
+
+	if cfg.EnableIPsec {
+		var err error
+		sc.Tc, err = general.NewBpf(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return sc, nil
 }
 
@@ -105,6 +115,10 @@ func (sc *BpfAds) Load() error {
 	}
 
 	if err := sc.SockConn.Load(); err != nil {
+		return err
+	}
+
+	if err := sc.Tc.LoadTC(); err != nil {
 		return err
 	}
 
@@ -171,6 +185,11 @@ func (sc *BpfAds) Detach() error {
 	if err := sc.SockConn.Detach(); err != nil {
 		return err
 	}
+
+	if err := sc.Tc.Close(); err != nil {
+		return err
+	}
+
 	return nil
 }
 

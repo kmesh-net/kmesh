@@ -39,7 +39,7 @@ var log = logger.NewLoggerScope("bpf_ads")
 
 type BpfAds struct {
 	SockConn BpfSockConn
-	Tc       general.BpfTCGeneral
+	Tc       *general.BpfTCGeneral
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
@@ -47,8 +47,12 @@ func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	if err := sc.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
 	}
-	if err := sc.Tc.NewBpf(cfg); err != nil {
-		return nil, err
+	if cfg.EnableIPsec {
+		var err error
+		sc.Tc, err = general.NewBpf(cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return sc, nil
 }
