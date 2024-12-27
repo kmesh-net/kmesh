@@ -132,7 +132,7 @@ spec:
             - name: istio-token
               mountPath: /var/run/secrets/tokens
             - name: kmesh-ipsec
-              mountPath: /root/kmesh-ipsec
+              mountPath: /kmesh/kmesh-ipsec
           resources:
             limits:
               # image online-compile needs 800Mi, or only 200Mi

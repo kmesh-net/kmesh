@@ -51,8 +51,9 @@ type cniConf struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	KubeConfig string `json:"kubeconfig,omitempty"`
-	Mode       string `json:"mode,omitempty"`
+	KubeConfig  string `json:"kubeconfig,omitempty"`
+	Mode        string `json:"mode,omitempty"`
+	EnableIpSec bool   `json:"enableIpSec,omitempty"`
 }
 
 // K8sArgs parameter is used to transfer the k8s information transferred
@@ -133,7 +134,7 @@ func enableXdpAuth(ifname string) error {
 	return nil
 }
 
-func enableTcIngress(args *skel.CmdArgs) error {
+func enableTcMarkEncrypt(args *skel.CmdArgs) error {
 	var (
 		err     error
 		link    netlink.Link
@@ -155,7 +156,7 @@ func enableTcIngress(args *skel.CmdArgs) error {
 		return nil
 	}
 
-	if err := netns.WithNetNSPath(string(args.Netns), getVethPeerLinkNum); err != nil {
+	if err := netns.WithNetNSPath(args.Netns, getVethPeerLinkNum); err != nil {
 		log.Error(err)
 		return err
 	}
@@ -251,12 +252,14 @@ func CmdAdd(args *skel.CmdArgs) error {
 			return nil
 		}
 
-		if err := netns.WithNetNSPath(string(args.Netns), enableXDPFunc); err != nil {
+		if err := netns.WithNetNSPath(args.Netns, enableXDPFunc); err != nil {
 			log.Error(err)
 			return err
 		}
+	}
 
-		if err := enableTcIngress(args); err != nil {
+	if cniConf.EnableIpSec {
+		if err := enableTcMarkEncrypt(args); err != nil {
 			err = fmt.Errorf("failed to set tc program(set encryption marker) to dev %v, err is %v", args.IfName, err)
 			return err
 		}

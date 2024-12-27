@@ -37,7 +37,7 @@ func NewCmd() *cobra.Command {
 			if err := configs.ParseConfigs(); err != nil {
 				return err
 			}
-			cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
+			cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode, configs.BpfConfig.EnableIPsec,
 				configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained, configs.CniConfig.ServiceAccountPath)
 			cniInstaller.Stop()
 			return nil

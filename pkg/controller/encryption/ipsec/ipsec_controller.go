@@ -57,12 +57,12 @@ var log = logger.NewLoggerScope("ipsec_controller")
 
 type NodeInfoValue struct {
 	spi    uint32
-	nodeid uint32
+	nodeID uint32
 }
 
-type lpm_key struct {
-	trie_key uint32
-	ip       [4]uint32
+type lpmKey struct {
+	prefix uint32
+	ip     [4]uint32
 }
 
 type IpsecController struct {
@@ -110,7 +110,6 @@ func NewIPsecController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, tcD
 	}
 
 	localNodeName := os.Getenv("NODE_NAME")
-	// TODO: donot we need to watch the node update?
 	localNode, err := k8sClientSet.CoreV1().Nodes().Get(context.TODO(), localNodeName, metav1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get kmesh node info from k8s: %v", err)
@@ -244,8 +243,8 @@ func (c *IpsecController) updateKNIMapCIDR(remoteCIDR string, nodeid uint32, map
 		return err
 	}
 
-	kniKey := lpm_key{
-		trie_key: uint32(prefix.Bits()),
+	kniKey := lpmKey{
+		prefix: uint32(prefix.Bits()),
 	}
 
 	bytes := prefix.Masked().Addr().AsSlice()
@@ -260,7 +259,7 @@ func (c *IpsecController) updateKNIMapCIDR(remoteCIDR string, nodeid uint32, map
 
 	kniValue := NodeInfoValue{
 		spi:    uint32(c.ipsecHandler.Spi),
-		nodeid: nodeid,
+		nodeID: nodeid,
 	}
 
 	if err := mapfd.Update(&kniKey, &kniValue, ebpf.UpdateAny); err != nil {

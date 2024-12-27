@@ -35,7 +35,6 @@ import (
 )
 
 const (
-	// TODO: please change the path to non root
 	IpSecKeyFile  = "./kmesh-ipsec/keys"
 	offsetSpi     = 0
 	offsetAead    = 1
