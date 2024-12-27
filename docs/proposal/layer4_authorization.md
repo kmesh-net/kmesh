@@ -64,9 +64,10 @@ struct {
 
 map_of_wl_policy: records the policies that are configured for the workload.
 
-map_of_authz: records the authz rules of policies.
+map_of_authz_policy: records the authz rules of policies.
 
-kmesh_tc_info_map: store the variable that xdp_auth needs to pass during the tail call
+kmesh_tc_args: store the params that xdp_auth needs to use during the tail call
+
 ```.c
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -82,7 +83,7 @@ struct {
     __uint(value_size, sizeof(Istio__Security__Authorization));
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
-} map_of_authz SEC(".maps");
+} map_of_authz_policy SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
@@ -92,6 +93,7 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_AUTH_TAILCALL);
 } kmesh_tc_args SEC(".maps");
 ```
+
 #### Istio policy module
 
 ![istio_policy_module](pics/istio_policy_module.png#pic_center)
