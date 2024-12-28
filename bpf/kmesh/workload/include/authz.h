@@ -76,20 +76,6 @@ static inline wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
     return (wl_policies_v *)kmesh_map_lookup_elem(&map_of_wl_policy, &workload_uid);
 }
 
-/* IPv6-mapped IPv4 address format (::ffff:1:2:3:4)
- * Check if the first 96 bits are all zeros and the last 32 bits are an IPv4 address
- */
-static int is_ipv4_in_ipv6(struct ip_addr *rule_addr)
-{
-    if (rule_addr == NULL) {
-        return false;
-    }
-    if (rule_addr->ip6[0] == 0 && rule_addr->ip6[1] == 0 && rule_addr->ip6[2] == 0x0000FFFF) {
-        return true;
-    }
-    return false;
-}
-
 static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 {
     void *begin = (void *)(long)(ctx->data);
@@ -344,7 +330,7 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
             if (ret != CONVERT_SUCCESS) {
                 return UNMATCHED;
             }
-            if (is_ipv4_in_ipv6(&rule_addr)) {
+            if (is_ipv4_mapped_addr(rule_addr.ip6)) {
                 __u32 rule_ip = convert_ipv4_to_u32(addrInfo, true);
                 if (type & TYPE_SRCIP) {
                     BPF_LOG(
