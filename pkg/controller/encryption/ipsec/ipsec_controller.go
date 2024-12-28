@@ -131,17 +131,17 @@ func (c *IpsecController) Run(stop <-chan struct{}) {
 			Name: localNodeName,
 		},
 		Spec: v1alpha1.KmeshNodeInfoSpec{
-			Name:   localNodeName,
-			Spi:    c.ipsecHandler.Spi,
-			NicIPs: []string{},
-			BootID: c.localNode.Status.NodeInfo.BootID,
-			Cirds:  c.localNode.Spec.PodCIDRs,
+			Name:     localNodeName,
+			Spi:      c.ipsecHandler.Spi,
+			Address:  []string{},
+			BootID:   c.localNode.Status.NodeInfo.BootID,
+			PodCirds: c.localNode.Spec.PodCIDRs,
 		},
 	}
 
 	for _, addr := range c.localNode.Status.Addresses {
 		if strings.Compare(string(addr.Type), string(v1.NodeInternalIP)) == 0 {
-			c.kmeshNodeInfo.Spec.NicIPs = append(c.kmeshNodeInfo.Spec.NicIPs, addr.Address)
+			c.kmeshNodeInfo.Spec.Address = append(c.kmeshNodeInfo.Spec.Address, addr.Address)
 			c.ipsecHandler.SetNodeInfo(addr.Address, c.kmeshNodeInfo.Spec.BootID, c.ipsecHandler.Spi)
 		}
 	}
@@ -192,9 +192,9 @@ func (c *IpsecController) handleOtherNodeInfo(node *v1alpha1.KmeshNodeInfo) erro
 	 * remoteid = sum(remoteNcIP)
 	 */
 	handleInXfrm := func(netns.NetNS) error {
-		for _, remoteNcIP := range node.Spec.NicIPs {
-			for _, localNcIP := range c.kmeshNodeInfo.Spec.NicIPs {
-				for _, localCIDR := range c.kmeshNodeInfo.Spec.Cirds {
+		for _, remoteNcIP := range node.Spec.Address {
+			for _, localNcIP := range c.kmeshNodeInfo.Spec.Address {
+				for _, localCIDR := range c.kmeshNodeInfo.Spec.PodCirds {
 					c.ipsecHandler.SetNodeInfo(remoteNcIP, node.Spec.BootID, node.Spec.Spi)
 					if err := c.ipsecHandler.CreateXfrmRule(remoteNcIP, localNcIP, localCIDR, false); err != nil {
 						return err
@@ -214,9 +214,9 @@ func (c *IpsecController) handleOtherNodeInfo(node *v1alpha1.KmeshNodeInfo) erro
 	 * ip xfrm polcy add src 0.0.0.0/0    dst {remoteCIDR}  dir out tmpl src {localNcIP} dst {remoteNcIP} proto esp spi {spi} reqid 1 mode tunnel mark 0x{remoteid}0{spi}e0
 	 */
 	handleOutXfrm := func(netns.NetNS) error {
-		for _, localNcIP := range c.kmeshNodeInfo.Spec.NicIPs {
-			for _, remoteNicIP := range node.Spec.NicIPs {
-				for _, remoteCIDR := range node.Spec.Cirds {
+		for _, localNcIP := range c.kmeshNodeInfo.Spec.Address {
+			for _, remoteNicIP := range node.Spec.Address {
+				for _, remoteCIDR := range node.Spec.PodCirds {
 					if err := c.ipsecHandler.CreateXfrmRule(localNcIP, remoteNicIP, remoteCIDR, true); err != nil {
 						return fmt.Errorf("create xfrm out rule failed, %v", err)
 					}
@@ -313,7 +313,7 @@ func (c *IpsecController) handleKNIDelete(obj interface{}) {
 	}
 	nodeNsPath := kmesh_netns.GetNodeNSpath()
 	deleteFunc := func(netns.NetNS) error {
-		for _, targetIP := range kni.Spec.NicIPs {
+		for _, targetIP := range kni.Spec.Address {
 			c.ipsecHandler.Clean(targetIP)
 		}
 		return nil
@@ -375,7 +375,7 @@ func (c *IpsecController) attachTCToInternalNIC() error {
 		if err != nil {
 			return fmt.Errorf("failed to get interfaces: %v", err)
 		}
-		for _, targetAddrString := range c.kmeshNodeInfo.Spec.NicIPs {
+		for _, targetAddrString := range c.kmeshNodeInfo.Spec.Address {
 			targetAddr := net.ParseIP(targetAddrString)
 			for _, iface := range ncInterfaces {
 				ifAddrs, err := iface.Addrs()
@@ -424,7 +424,7 @@ func (c *IpsecController) detachTCFromInternalNIC() {
 			err := fmt.Errorf("failed to get interfaces: %v", err)
 			return err
 		}
-		for _, targetAddrString := range c.kmeshNodeInfo.Spec.NicIPs {
+		for _, targetAddrString := range c.kmeshNodeInfo.Spec.Address {
 			targetAddr := net.ParseIP(targetAddrString)
 			for _, iface := range ncInterfaces {
 				ifAddrs, err := iface.Addrs()
@@ -514,7 +514,7 @@ func (c *IpsecController) UpdateXfrm() {
 	nodeNsPath := kmesh_netns.GetNodeNSpath()
 
 	updateXfrm := func(netns.NetNS) error {
-		if err := c.ipsecHandler.CreateNewStateFromOldByLocalNidIP(c.kmeshNodeInfo.Spec.NicIPs); err != nil {
+		if err := c.ipsecHandler.CreateNewStateFromOldByLocalNidIP(c.kmeshNodeInfo.Spec.Address); err != nil {
 			log.Errorf("failed to CreateNewState, %v", err)
 		}
 		return nil

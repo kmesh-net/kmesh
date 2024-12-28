@@ -24,8 +24,8 @@ import (
 	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/testing"
 	clientset "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned"
-	kmeshnodeinfov1alpha1 "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned/typed/kmeshnodeinfo/v1alpha1"
-	fakekmeshnodeinfov1alpha1 "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned/typed/kmeshnodeinfo/v1alpha1/fake"
+	kmeshv1alpha1 "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned/typed/kmeshnodeinfo/v1alpha1"
+	fakekmeshv1alpha1 "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned/typed/kmeshnodeinfo/v1alpha1/fake"
 )
 
 // NewSimpleClientset returns a clientset that will respond with the provided objects.
@@ -82,7 +82,7 @@ var (
 	_ testing.FakeClient  = &Clientset{}
 )
 
-// KmeshnodeinfoV1alpha1 retrieves the KmeshnodeinfoV1alpha1Client
-func (c *Clientset) KmeshnodeinfoV1alpha1() kmeshnodeinfov1alpha1.KmeshnodeinfoV1alpha1Interface {
-	return &fakekmeshnodeinfov1alpha1.FakeKmeshnodeinfoV1alpha1{Fake: &c.Fake}
+// KmeshV1alpha1 retrieves the KmeshV1alpha1Client
+func (c *Clientset) KmeshV1alpha1() kmeshv1alpha1.KmeshV1alpha1Interface {
+	return &fakekmeshv1alpha1.FakeKmeshV1alpha1{Fake: &c.Fake}
 }

@@ -24,23 +24,23 @@ import (
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
-	kmeshnodeinfov1alpha1 "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned/typed/kmeshnodeinfo/v1alpha1"
+	kmeshv1alpha1 "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned/typed/kmeshnodeinfo/v1alpha1"
 )
 
 type Interface interface {
 	Discovery() discovery.DiscoveryInterface
-	KmeshnodeinfoV1alpha1() kmeshnodeinfov1alpha1.KmeshnodeinfoV1alpha1Interface
+	KmeshV1alpha1() kmeshv1alpha1.KmeshV1alpha1Interface
 }
 
 // Clientset contains the clients for groups.
 type Clientset struct {
 	*discovery.DiscoveryClient
-	kmeshnodeinfoV1alpha1 *kmeshnodeinfov1alpha1.KmeshnodeinfoV1alpha1Client
+	kmeshV1alpha1 *kmeshv1alpha1.KmeshV1alpha1Client
 }
 
-// KmeshnodeinfoV1alpha1 retrieves the KmeshnodeinfoV1alpha1Client
-func (c *Clientset) KmeshnodeinfoV1alpha1() kmeshnodeinfov1alpha1.KmeshnodeinfoV1alpha1Interface {
-	return c.kmeshnodeinfoV1alpha1
+// KmeshV1alpha1 retrieves the KmeshV1alpha1Client
+func (c *Clientset) KmeshV1alpha1() kmeshv1alpha1.KmeshV1alpha1Interface {
+	return c.kmeshV1alpha1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -87,7 +87,7 @@ func NewForConfigAndClient(c *rest.Config, httpClient *http.Client) (*Clientset,
 
 	var cs Clientset
 	var err error
-	cs.kmeshnodeinfoV1alpha1, err = kmeshnodeinfov1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
+	cs.kmeshV1alpha1, err = kmeshv1alpha1.NewForConfigAndClient(&configShallowCopy, httpClient)
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 // New creates a new Clientset for the given RESTClient.
 func New(c rest.Interface) *Clientset {
 	var cs Clientset
-	cs.kmeshnodeinfoV1alpha1 = kmeshnodeinfov1alpha1.New(c)
+	cs.kmeshV1alpha1 = kmeshv1alpha1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs

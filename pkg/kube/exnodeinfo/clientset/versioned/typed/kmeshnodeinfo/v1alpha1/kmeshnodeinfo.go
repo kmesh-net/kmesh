@@ -55,7 +55,7 @@ type kmeshNodeInfos struct {
 }
 
 // newKmeshNodeInfos returns a KmeshNodeInfos
-func newKmeshNodeInfos(c *KmeshnodeinfoV1alpha1Client, namespace string) *kmeshNodeInfos {
+func newKmeshNodeInfos(c *KmeshV1alpha1Client, namespace string) *kmeshNodeInfos {
 	return &kmeshNodeInfos{
 		gentype.NewClientWithList[*kmeshnodeinfov1alpha1.KmeshNodeInfo, *kmeshnodeinfov1alpha1.KmeshNodeInfoList](
 			"kmeshnodeinfos",

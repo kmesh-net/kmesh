@@ -23,17 +23,17 @@ import (
 	v1alpha1 "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned/typed/kmeshnodeinfo/v1alpha1"
 )
 
-type FakeKmeshnodeinfoV1alpha1 struct {
+type FakeKmeshV1alpha1 struct {
 	*testing.Fake
 }
 
-func (c *FakeKmeshnodeinfoV1alpha1) KmeshNodeInfos(namespace string) v1alpha1.KmeshNodeInfoInterface {
+func (c *FakeKmeshV1alpha1) KmeshNodeInfos(namespace string) v1alpha1.KmeshNodeInfoInterface {
 	return &FakeKmeshNodeInfos{c, namespace}
 }
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *FakeKmeshnodeinfoV1alpha1) RESTClient() rest.Interface {
+func (c *FakeKmeshV1alpha1) RESTClient() rest.Interface {
 	var ret *rest.RESTClient
 	return ret
 }

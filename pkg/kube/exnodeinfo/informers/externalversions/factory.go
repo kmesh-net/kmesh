@@ -253,9 +253,9 @@ type SharedInformerFactory interface {
 	// client.
 	InformerFor(obj runtime.Object, newFunc internalinterfaces.NewInformerFunc) cache.SharedIndexInformer
 
-	Kmeshnodeinfo() kmeshnodeinfo.Interface
+	Kmesh() kmeshnodeinfo.Interface
 }
 
-func (f *sharedInformerFactory) Kmeshnodeinfo() kmeshnodeinfo.Interface {
+func (f *sharedInformerFactory) Kmesh() kmeshnodeinfo.Interface {
 	return kmeshnodeinfo.New(f, f.namespace, f.tweakListOptions)
 }

@@ -30,7 +30,7 @@ import (
 
 // FakeKmeshNodeInfos implements KmeshNodeInfoInterface
 type FakeKmeshNodeInfos struct {
-	Fake *FakeKmeshnodeinfoV1alpha1
+	Fake *FakeKmeshV1alpha1
 	ns   string
 }
 

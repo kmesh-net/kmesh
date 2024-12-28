@@ -39,18 +39,33 @@ spec:
           spec:
             properties:
               bootid:
+                description: |-
+                  * bootid is used to generate the ipsec key. After the node is restarted,
+                  * the key needs to be updated.
                 type: string
               cirds:
+                description: |-
+                  * PodCirds used in IPsec checks the destination of the data to
+                  * determine which IPsec state is used for encryption.
                 items:
                   type: string
                 type: array
               name:
                 type: string
               nicIP:
+                description: |-
+                  * Address is used to store the internal ip address informatioon on the
+                  * host. The IP address information is used to generate the IPsec state
+                  * informatioon. IPsec uses this information to determine which network
+                  * adapter is used to encrypt and send data.
                 items:
                   type: string
                 type: array
               spi:
+                description: |-
+                  * The Spi is used to identify the version number of the current key.
+                  * The communication can be normal only when both communication parties
+                  * have spis and the spi keys are the same.
                 maximum: 15
                 minimum: 1
                 type: integer

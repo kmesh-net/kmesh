@@ -18,10 +18,29 @@ type KmeshNodeInfoSpec struct {
 	Name string `json:"name"`
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:validation:Maximum=15
-	Spi    int8     `json:"spi"`
-	NicIPs []string `json:"nicIP"`
-	BootID string   `json:"bootid"`
-	Cirds  []string `json:"cirds"`
+	/*
+	 * The Spi is used to identify the version number of the current key.
+	 * The communication can be normal only when both communication parties
+	 * have spis and the spi keys are the same.
+	 */
+	Spi int8 `json:"spi"`
+	/*
+	 * Address is used to store the internal ip address informatioon on the
+	 * host. The IP address information is used to generate the IPsec state
+	 * informatioon. IPsec uses this information to determine which network
+	 * adapter is used to encrypt and send data.
+	 */
+	Address []string `json:"nicIP"`
+	/*
+	 * bootid is used to generate the ipsec key. After the node is restarted,
+	 * the key needs to be updated.
+	 */
+	BootID string `json:"bootid"`
+	/*
+	 * PodCirds used in IPsec checks the destination of the data to
+	 * determine which IPsec state is used for encryption.
+	 */
+	PodCirds []string `json:"cirds"`
 }
 
 type KmeshNodeInfoStatus struct {

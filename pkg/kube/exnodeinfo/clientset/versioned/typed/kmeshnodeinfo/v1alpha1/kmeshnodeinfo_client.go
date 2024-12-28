@@ -25,24 +25,24 @@ import (
 	scheme "kmesh.net/kmesh/pkg/kube/exnodeinfo/clientset/versioned/scheme"
 )
 
-type KmeshnodeinfoV1alpha1Interface interface {
+type KmeshV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	KmeshNodeInfosGetter
 }
 
-// KmeshnodeinfoV1alpha1Client is used to interact with features provided by the kmeshnodeinfo.kmesh.net group.
-type KmeshnodeinfoV1alpha1Client struct {
+// KmeshV1alpha1Client is used to interact with features provided by the kmesh.net group.
+type KmeshV1alpha1Client struct {
 	restClient rest.Interface
 }
 
-func (c *KmeshnodeinfoV1alpha1Client) KmeshNodeInfos(namespace string) KmeshNodeInfoInterface {
+func (c *KmeshV1alpha1Client) KmeshNodeInfos(namespace string) KmeshNodeInfoInterface {
 	return newKmeshNodeInfos(c, namespace)
 }
 
-// NewForConfig creates a new KmeshnodeinfoV1alpha1Client for the given config.
+// NewForConfig creates a new KmeshV1alpha1Client for the given config.
 // NewForConfig is equivalent to NewForConfigAndClient(c, httpClient),
 // where httpClient was generated with rest.HTTPClientFor(c).
-func NewForConfig(c *rest.Config) (*KmeshnodeinfoV1alpha1Client, error) {
+func NewForConfig(c *rest.Config) (*KmeshV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -54,9 +54,9 @@ func NewForConfig(c *rest.Config) (*KmeshnodeinfoV1alpha1Client, error) {
 	return NewForConfigAndClient(&config, httpClient)
 }
 
-// NewForConfigAndClient creates a new KmeshnodeinfoV1alpha1Client for the given config and http client.
+// NewForConfigAndClient creates a new KmeshV1alpha1Client for the given config and http client.
 // Note the http client provided takes precedence over the configured transport values.
-func NewForConfigAndClient(c *rest.Config, h *http.Client) (*KmeshnodeinfoV1alpha1Client, error) {
+func NewForConfigAndClient(c *rest.Config, h *http.Client) (*KmeshV1alpha1Client, error) {
 	config := *c
 	if err := setConfigDefaults(&config); err != nil {
 		return nil, err
@@ -65,12 +65,12 @@ func NewForConfigAndClient(c *rest.Config, h *http.Client) (*KmeshnodeinfoV1alph
 	if err != nil {
 		return nil, err
 	}
-	return &KmeshnodeinfoV1alpha1Client{client}, nil
+	return &KmeshV1alpha1Client{client}, nil
 }
 
-// NewForConfigOrDie creates a new KmeshnodeinfoV1alpha1Client for the given config and
+// NewForConfigOrDie creates a new KmeshV1alpha1Client for the given config and
 // panics if there is an error in the config.
-func NewForConfigOrDie(c *rest.Config) *KmeshnodeinfoV1alpha1Client {
+func NewForConfigOrDie(c *rest.Config) *KmeshV1alpha1Client {
 	client, err := NewForConfig(c)
 	if err != nil {
 		panic(err)
@@ -78,9 +78,9 @@ func NewForConfigOrDie(c *rest.Config) *KmeshnodeinfoV1alpha1Client {
 	return client
 }
 
-// New creates a new KmeshnodeinfoV1alpha1Client for the given RESTClient.
-func New(c rest.Interface) *KmeshnodeinfoV1alpha1Client {
-	return &KmeshnodeinfoV1alpha1Client{c}
+// New creates a new KmeshV1alpha1Client for the given RESTClient.
+func New(c rest.Interface) *KmeshV1alpha1Client {
+	return &KmeshV1alpha1Client{c}
 }
 
 func setConfigDefaults(config *rest.Config) error {
@@ -98,7 +98,7 @@ func setConfigDefaults(config *rest.Config) error {
 
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
-func (c *KmeshnodeinfoV1alpha1Client) RESTClient() rest.Interface {
+func (c *KmeshV1alpha1Client) RESTClient() rest.Interface {
 	if c == nil {
 		return nil
 	}

@@ -61,13 +61,13 @@ func NewFilteredKmeshNodeInfoInformer(client versioned.Interface, namespace stri
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KmeshnodeinfoV1alpha1().KmeshNodeInfos(namespace).List(context.TODO(), options)
+				return client.KmeshV1alpha1().KmeshNodeInfos(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.KmeshnodeinfoV1alpha1().KmeshNodeInfos(namespace).Watch(context.TODO(), options)
+				return client.KmeshV1alpha1().KmeshNodeInfos(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&apiskmeshnodeinfov1alpha1.KmeshNodeInfo{},
