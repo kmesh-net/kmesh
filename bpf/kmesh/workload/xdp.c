@@ -130,6 +130,7 @@ int xdp_authz(struct xdp_md *ctx)
             return XDP_PASS;
         }
         match_ctx.policies = policies;
+        match_ctx.need_tailcall_to_userspace = false;
         match_ctx.policy_index = 0;
         ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, &match_ctx, BPF_ANY);
         if (ret < 0) {

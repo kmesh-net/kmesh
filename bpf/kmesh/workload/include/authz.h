@@ -32,6 +32,7 @@ struct {
 struct match_context {
     __u32 action;
     __u8 policy_index;
+    bool need_tailcall_to_userspace;
     __u8 n_rules;
     wl_policies_v *policies;
     void *rulesPtr;
@@ -144,7 +145,6 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
     __u32 i;
 
     if (match->n_destination_ports == 0 && match->n_not_destination_ports == 0) {
-        BPF_LOG(DEBUG, AUTH, "no ports configured, matching by default");
         return MATCHED;
     }
 
@@ -496,8 +496,18 @@ static int match_check(Istio__Security__Match *match, struct xdp_info *info, str
     return matchResult;
 }
 
+bool need_tail_call_to_user(Istio__Security__Match *match)
+{
+    if (!match)
+        return false;
+    return match->n_namespaces || match->n_not_namespaces || match->n_principals || match->n_not_principals;
+}
+
 static int clause_match_check(
-    struct xdp_md *ctx, Istio__Security__Clause *cl, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+    Istio__Security__Clause *cl,
+    struct xdp_info *info,
+    struct bpf_sock_tuple *tuple_info,
+    struct match_context *match_ctx)
 {
     void *matchsPtr = NULL;
     Istio__Security__Match *match = NULL;
@@ -520,9 +530,9 @@ static int clause_match_check(
         if (!match) {
             continue;
         }
-        if (match->n_namespaces != 0 || match->n_not_namespaces != 0 || match->n_not_principals != 0
-            || match->n_not_principals != 0)
-            bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
+        if (need_tail_call_to_user(match)) {
+            match_ctx->need_tailcall_to_userspace = true;
+        }
         // if any match matches, it is a match
         if (match_check(match, info, tuple_info) == MATCHED) {
             return MATCHED;
@@ -532,7 +542,10 @@ static int clause_match_check(
 }
 
 static int rule_match_check(
-    struct xdp_md *ctx, Istio__Security__Rule *rule, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+    Istio__Security__Rule *rule,
+    struct xdp_info *info,
+    struct bpf_sock_tuple *tuple_info,
+    struct match_context *match_ctx)
 {
     void *clausesPtr = NULL;
     Istio__Security__Clause *clause = NULL;
@@ -556,7 +569,7 @@ static int rule_match_check(
         if (!clause) {
             continue;
         }
-        if (clause_match_check(ctx, clause, info, tuple_info) == UNMATCHED) {
+        if (clause_match_check(clause, info, tuple_info, match_ctx) == UNMATCHED) {
             return UNMATCHED;
         }
     }
@@ -655,7 +668,7 @@ int policy_check(struct xdp_md *ctx)
         if (!rule) {
             continue;
         }
-        if (rule_match_check(ctx, rule, &info, &tuple_key) == MATCHED) {
+        if (rule_match_check(rule, &info, &tuple_key, match_ctx) == MATCHED) {
             BPF_LOG(
                 DEBUG,
                 AUTH,
@@ -674,6 +687,10 @@ int policy_check(struct xdp_md *ctx)
 
     match_ctx->policy_index++;
     if (match_ctx->policy_index >= MAX_MEMBER_NUM_PER_POLICY) {
+        if (match_ctx->need_tailcall_to_userspace) {
+            bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
+            return XDP_PASS;
+        }
         return XDP_PASS;
     }
 
