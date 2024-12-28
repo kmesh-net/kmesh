@@ -445,6 +445,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		return nil
 	}
 
+	oldWorkload := p.WorkloadCache.GetWorkloadByUid(workload.GetUid())
 	// Keep track of the workload no matter it is healthy, unhealthy workload is just for debugging
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
 	p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
@@ -485,6 +486,22 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	if err := p.updateWorkloadInFrontendMap(workload); err != nil {
 		log.Errorf("updateWorkloadInFrontendMap %s failed: %v", workload.Uid, err)
 		return err
+	}
+	if oldWorkload != nil {
+		// To be able to find a workload in the workloadCache,
+		// you need to determine whether the address of the workload has changed or not.
+		// And clean up the residue
+		newWorkloadAddresses := workload.GetAddresses()
+		oldWorkloadAddresses := oldWorkload.GetAddresses()
+		_, removeAddresses := utils.CompareIpByte(newWorkloadAddresses, oldWorkloadAddresses)
+
+		frontKey := bpf.FrontendKey{}
+		for _, address := range removeAddresses {
+			nets.CopyIpByteFromSlice(&frontKey.Ip, address)
+			if err := p.bpf.FrontendDelete(&frontKey); err != nil {
+				log.Errorf("frontend map delete failed: %v", err)
+			}
+		}
 	}
 
 	return nil
@@ -688,11 +705,13 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 
 		// Compare the addresses of the old and new maps to avoid residual.
 		// If the data can be found in the km_service map, it is also stored in the serviceCache.
-		_, removeServiceAddress := utils.CompareSlices(service.GetAddresses(), oldService.GetAddresses())
+		newServiceAddress := utils.GetAddressesFromService(service)
+		oldServiceAddress := utils.GetAddressesFromService(oldService)
+		_, removeServiceAddress := utils.CompareIpByte(newServiceAddress, oldServiceAddress)
 
 		frontKey := bpf.FrontendKey{}
 		for _, address := range removeServiceAddress {
-			nets.CopyIpByteFromSlice(&frontKey.Ip, address.Address)
+			nets.CopyIpByteFromSlice(&frontKey.Ip, address)
 			if err := p.bpf.FrontendDelete(&frontKey); err != nil {
 				log.Errorf("frontend map delete failed: %v", err)
 			}

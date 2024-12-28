@@ -21,39 +21,25 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-
-	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
-func TestCompareSlices(t *testing.T) {
+func TestCompareIpByte(t *testing.T) {
 	t.Run("string slices compare test", func(t *testing.T) {
-		newData := []*workloadapi.NetworkAddress{
-			{
-				Address: []byte{1, 1, 1, 1},
-			},
-			{
-				Address: []byte{2, 2, 2, 2},
-			},
+		newData := [][]byte{
+			[]byte{1, 1, 1, 1},
+			[]byte{2, 2, 2, 2},
 		}
-		oldData := []*workloadapi.NetworkAddress{
-			{
-				Address: []byte{3, 3, 3, 3},
-			},
-			{
-				Address: []byte{2, 2, 2, 2},
-			},
+		oldData := [][]byte{
+			[]byte{3, 3, 3, 3},
+			[]byte{2, 2, 2, 2},
 		}
 
-		aNew, bMissing := CompareSlices(newData, oldData)
-		expectedAdd := []*workloadapi.NetworkAddress{
-			{
-				Address: []byte{3, 3, 3, 3},
-			},
+		aNew, bMissing := CompareIpByte(newData, oldData)
+		expectedAdd := [][]byte{
+			[]byte{1, 1, 1, 1},
 		}
-		expectedMissing := []*workloadapi.NetworkAddress{
-			{
-				Address: []byte{1, 1, 1, 1},
-			},
+		expectedMissing := [][]byte{
+			[]byte{3, 3, 3, 3},
 		}
 		assert.Equal(t, expectedAdd, aNew)
 		assert.Equal(t, expectedMissing, bMissing)

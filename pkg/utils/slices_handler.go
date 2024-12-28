@@ -18,6 +18,8 @@
 package utils
 
 import (
+	"net/netip"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
@@ -34,24 +36,48 @@ import (
 //		Remove: the data missing from b over a
 //
 // TODO: Optimising functions to be able to handle different data types
-func CompareSlices(a, b []*workloadapi.NetworkAddress) ([]*workloadapi.NetworkAddress, []*workloadapi.NetworkAddress) {
-	aSet := make(map[*workloadapi.NetworkAddress]struct{})
+func CompareIpByte(a, b [][]byte) ([][]byte, [][]byte) {
+	aSet := make(map[string][]byte)
 	for _, item := range a {
-		aSet[item] = struct{}{}
+		ip, ok := netip.AddrFromSlice(item)
+		if !ok {
+			log.Error("cannot compared IP: Unsupported data types")
+		}
+
+		aSet[ip.String()] = item
 	}
 
-	var aNew, bMissing []*workloadapi.NetworkAddress
+	var aNew, bMissing [][]byte
 	for _, item := range b {
-		if _, ok := aSet[item]; !ok {
+		ip, ok := netip.AddrFromSlice(item)
+		if !ok {
+			log.Error("cannot compared IP: Unsupported data types")
+		}
+		if _, ok := aSet[ip.String()]; !ok {
 			bMissing = append(bMissing, item)
 		} else {
-			delete(aSet, item)
+			delete(aSet, ip.String())
 		}
 	}
 
-	for item := range aSet {
+	for _, item := range aSet {
 		aNew = append(aNew, item)
 	}
 
 	return aNew, bMissing
+}
+
+func GetAddressesFromService(service *workloadapi.Service) [][]byte {
+	if service == nil {
+		return nil
+	}
+	addresses := service.GetAddresses()
+	if addresses == nil {
+		return nil
+	}
+	var ipByte [][]byte
+	for _, address := range addresses {
+		ipByte = append(ipByte, address.Address)
+	}
+	return ipByte
 }
