@@ -67,3 +67,40 @@ func TestCopyIpByteFromSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestCompareIpByte(t *testing.T) {
+	t.Run("Ipv4 compare test", func(t *testing.T) {
+		newData := [][]byte{
+			{1, 1, 1, 1},
+			{2, 2, 2, 2},
+		}
+		oldData := [][]byte{
+			{3, 3, 3, 3},
+			{2, 2, 2, 2},
+		}
+
+		bMissing := CompareIpByte(newData, oldData)
+		expectedMissing := [][]byte{
+			{3, 3, 3, 3},
+		}
+
+		assert.Equal(t, expectedMissing, bMissing)
+	})
+
+	t.Run("Ipv6 compare test", func(t *testing.T) {
+		newData := [][]byte{
+			{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+			{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+		}
+		oldData := [][]byte{
+			{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+			{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+		}
+
+		bMissing := CompareIpByte(newData, oldData)
+		expectedMissing := [][]byte{
+			{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+		}
+		assert.Equal(t, expectedMissing, bMissing)
+	})
+}

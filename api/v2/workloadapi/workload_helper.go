@@ -25,3 +25,16 @@ func (x *Workload) ResourceName() string {
 func (x *Service) ResourceName() string {
 	return x.Namespace + "/" + x.Hostname
 }
+
+// GetIpAddress returns the address in service.addresses.
+func (x *Service) GetIpAddresses() [][]byte {
+	addresses := x.GetAddresses()
+	if addresses == nil {
+		return nil
+	}
+	var ipByte [][]byte
+	for _, address := range addresses {
+		ipByte = append(ipByte, address.Address)
+	}
+	return ipByte
+}

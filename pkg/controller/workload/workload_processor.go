@@ -493,13 +493,13 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		// And clean up the residue
 		newWorkloadAddresses := workload.GetAddresses()
 		oldWorkloadAddresses := oldWorkload.GetAddresses()
-		_, removeAddresses := utils.CompareIpByte(newWorkloadAddresses, oldWorkloadAddresses)
 
-		frontKey := bpf.FrontendKey{}
-		for _, address := range removeAddresses {
-			nets.CopyIpByteFromSlice(&frontKey.Ip, address)
-			if err := p.bpf.FrontendDelete(&frontKey); err != nil {
-				log.Errorf("frontend map delete failed: %v", err)
+		// Because there is only one address in the workload, a direct comparison can be made to
+		// determine whether the old data needs to be deleted or not.
+		if !slices.Equal(newWorkloadAddresses[0], oldWorkloadAddresses[0]) {
+			err := p.deleteFrontendByIp(oldWorkloadAddresses)
+			if err != nil {
+				return fmt.Errorf("frontend map delete failed: %v", err)
 			}
 		}
 	}
@@ -705,16 +705,11 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 
 		// Compare the addresses of the old and new maps to avoid residual.
 		// If the data can be found in the km_service map, it is also stored in the serviceCache.
-		newServiceAddress := utils.GetAddressesFromService(service)
-		oldServiceAddress := utils.GetAddressesFromService(oldService)
-		_, removeServiceAddress := utils.CompareIpByte(newServiceAddress, oldServiceAddress)
-
-		frontKey := bpf.FrontendKey{}
-		for _, address := range removeServiceAddress {
-			nets.CopyIpByteFromSlice(&frontKey.Ip, address)
-			if err := p.bpf.FrontendDelete(&frontKey); err != nil {
-				log.Errorf("frontend map delete failed: %v", err)
-			}
+		newServiceAddress := service.GetIpAddresses()
+		oldServiceAddress := oldService.GetIpAddresses()
+		removeServiceAddress := nets.CompareIpByte(newServiceAddress, oldServiceAddress)
+		if err := p.deleteFrontendByIp(removeServiceAddress); err != nil {
+			return fmt.Errorf("frontend map delete failed: %v", err)
 		}
 	}
 
@@ -1056,4 +1051,16 @@ func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
 	if err := p.bpf.WorkloadPolicyUpdate(&key, &value); err != nil {
 		log.Errorf("storeWorkloadPolicies failed, workload %s, err: %s", uid, err)
 	}
+}
+
+func (p *Processor) deleteFrontendByIp(addresses [][]byte) error {
+	frontKey := bpf.FrontendKey{}
+	for _, address := range addresses {
+		nets.CopyIpByteFromSlice(&frontKey.Ip, address)
+		if err := p.bpf.FrontendDelete(&frontKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
