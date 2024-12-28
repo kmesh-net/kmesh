@@ -445,6 +445,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		return nil
 	}
 
+	oldWorkload := p.WorkloadCache.GetWorkloadByUid(workload.GetUid())
 	// Keep track of the workload no matter it is healthy, unhealthy workload is just for debugging
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
 	p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
@@ -485,6 +486,22 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	if err := p.updateWorkloadInFrontendMap(workload); err != nil {
 		log.Errorf("updateWorkloadInFrontendMap %s failed: %v", workload.Uid, err)
 		return err
+	}
+	if oldWorkload != nil {
+		// To be able to find a workload in the workloadCache,
+		// you need to determine whether the address of the workload has changed or not.
+		// And clean up the residue
+		newWorkloadAddresses := workload.GetAddresses()
+		oldWorkloadAddresses := oldWorkload.GetAddresses()
+
+		// Because there is only one address in the workload, a direct comparison can be made to
+		// determine whether the old data needs to be deleted or not.
+		if !slices.Equal(newWorkloadAddresses[0], oldWorkloadAddresses[0]) {
+			err := p.deleteFrontendByIp(oldWorkloadAddresses)
+			if err != nil {
+				return fmt.Errorf("frontend map delete failed: %v", err)
+			}
+		}
 	}
 
 	return nil
@@ -608,10 +625,10 @@ func (p *Processor) updateEndpointPriority(serviceId uint32, toLLb bool) error {
 	}
 }
 
-func (p *Processor) updateServiceMap(service *workloadapi.Service) error {
+func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) error {
 	sk := bpf.ServiceKey{}
-	oldValue := bpf.ServiceValue{}
-	newValue := bpf.ServiceValue{}
+	oldServiceInfo := bpf.ServiceValue{}
+	newServiceInfo := bpf.ServiceValue{}
 
 	serviceName := service.ResourceName()
 	waypoint := service.Waypoint
@@ -619,11 +636,11 @@ func (p *Processor) updateServiceMap(service *workloadapi.Service) error {
 	lb := service.LoadBalancing
 
 	sk.ServiceId = p.hashName.Hash(serviceName)
-	newValue.LbPolicy = uint32(lb.GetMode()) // set loadbalance mode
+	newServiceInfo.LbPolicy = uint32(lb.GetMode()) // set loadbalance mode
 
 	if waypoint != nil && waypoint.GetAddress() != nil {
-		nets.CopyIpByteFromSlice(&newValue.WaypointAddr, waypoint.GetAddress().Address)
-		newValue.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
+		nets.CopyIpByteFromSlice(&newServiceInfo.WaypointAddr, waypoint.GetAddress().Address)
+		newServiceInfo.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
 	}
 
 	for i, port := range ports {
@@ -632,25 +649,27 @@ func (p *Processor) updateServiceMap(service *workloadapi.Service) error {
 			break
 		}
 
-		newValue.ServicePort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
+		newServiceInfo.ServicePort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
 		if strings.Contains(serviceName, "waypoint") {
-			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
 		} else if port.TargetPort == 0 {
 			// NOTE: Target port could be unset in servicen entry, in which case it should
 			// be consistent with the Service Port.
-			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
+			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
 		} else {
-			newValue.TargetPort[i] = nets.ConvertPortToBigEndian(port.TargetPort)
+			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(port.TargetPort)
 		}
 	}
 
-	if err := p.bpf.ServiceLookup(&sk, &oldValue); err == nil {
+	if err := p.bpf.ServiceLookup(&sk, &oldServiceInfo); err == nil {
+		// Because it is the oldServiceInfo that is stored in the service map.
+		// It is obtained by looking up the table rather than rebuilding the oldService
 		// Already exists, it means this is service update.
-		newValue.EndpointCount = oldValue.EndpointCount
+		newServiceInfo.EndpointCount = oldServiceInfo.EndpointCount
 		// if it is a policy update
-		if newValue.LbPolicy != oldValue.LbPolicy {
+		if newServiceInfo.LbPolicy != oldServiceInfo.LbPolicy {
 			// transit from locality loadbalance to random
-			if newValue.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) {
+			if newServiceInfo.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) {
 				// In locality load balancing mode, the workloads are stored according to the calculated corresponding priorities.
 				// When switching from locality load balancing mode to random, we first update the endpoint map, as at this point,
 				// there might not be any workload with the highest priority, and directly switching the service's LB policy could
@@ -658,21 +677,22 @@ func (p *Processor) updateServiceMap(service *workloadapi.Service) error {
 				if err = p.updateEndpointPriority(sk.ServiceId, false); err != nil { // this will change bpf map totally
 					return fmt.Errorf("update endpoint priority failed: %v", err)
 				}
-				updateValue := bpf.ServiceValue{}
-				if err = p.bpf.ServiceLookup(&sk, &updateValue); err != nil {
+				updateServiceInfo := bpf.ServiceValue{}
+				if err = p.bpf.ServiceLookup(&sk, &updateServiceInfo); err != nil {
 					return fmt.Errorf("service map lookup %v failed: %v", sk.ServiceId, err)
 				}
-				updateValue.LbPolicy = newValue.LbPolicy
-				if err = p.bpf.ServiceUpdate(&sk, &updateValue); err != nil {
+				updateServiceInfo.LbPolicy = newServiceInfo.LbPolicy
+				if err = p.bpf.ServiceUpdate(&sk, &updateServiceInfo); err != nil {
 					return fmt.Errorf("service map update failed: %v", err)
 				}
 				return nil
-			} else if oldValue.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) { // from random to locality loadbalance
+			} else if oldServiceInfo.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) {
+				// from random to locality loadbalance
 				// In random mode, the workloads are stored with the highest priority. When switching from random mode to locality
 				// load balancing, we first update the service map to quickly initiate the transition of the strategy. Subsequently,
 				// we update the endpoint map. During this update process, the load balancer may briefly exhibit abnormal random behavior,
 				// after which it will fully transition to the locality load balancing mode.
-				if err = p.bpf.ServiceUpdate(&sk, &newValue); err != nil {
+				if err = p.bpf.ServiceUpdate(&sk, &newServiceInfo); err != nil {
 					return fmt.Errorf("service map update lb policy failed: %v", err)
 				}
 
@@ -682,10 +702,19 @@ func (p *Processor) updateServiceMap(service *workloadapi.Service) error {
 				return nil
 			}
 		}
+
+		// Compare the addresses of the old and new maps to avoid residual.
+		// If the data can be found in the km_service map, it is also stored in the serviceCache.
+		newServiceAddress := service.GetIpAddresses()
+		oldServiceAddress := oldService.GetIpAddresses()
+		removeServiceAddress := nets.CompareIpByte(newServiceAddress, oldServiceAddress)
+		if err := p.deleteFrontendByIp(removeServiceAddress); err != nil {
+			return fmt.Errorf("frontend map delete failed: %v", err)
+		}
 	}
 
 	// normal update
-	if err := p.bpf.ServiceUpdate(&sk, &newValue); err != nil {
+	if err := p.bpf.ServiceUpdate(&sk, &newServiceInfo); err != nil {
 		return fmt.Errorf("service map update failed: %v", err)
 	}
 
@@ -728,9 +757,10 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		return nil
 	}
 
+	oldService := p.ServiceCache.GetService(service.ResourceName())
 	p.ServiceCache.AddOrUpdateService(service)
 	// update service and endpoint map
-	if err := p.updateServiceMap(service); err != nil {
+	if err := p.updateServiceMap(service, oldService); err != nil {
 		log.Errorf("update service %s maps failed: %v", service.ResourceName(), err)
 		return err
 	}
@@ -1021,4 +1051,16 @@ func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
 	if err := p.bpf.WorkloadPolicyUpdate(&key, &value); err != nil {
 		log.Errorf("storeWorkloadPolicies failed, workload %s, err: %s", uid, err)
 	}
+}
+
+func (p *Processor) deleteFrontendByIp(addresses [][]byte) error {
+	frontKey := bpf.FrontendKey{}
+	for _, address := range addresses {
+		nets.CopyIpByteFromSlice(&frontKey.Ip, address)
+		if err := p.bpf.FrontendDelete(&frontKey); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

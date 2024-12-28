@@ -20,10 +20,14 @@ package nets
 import (
 	"encoding/binary"
 	"net"
+	"net/netip"
 	"syscall"
 
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/logger"
 )
+
+var log = logger.NewLoggerScope("nets")
 
 // ConvertIpToUint32 converts ip to little-endian uint32 format
 func ConvertIpToUint32(ip string) uint32 {
@@ -82,6 +86,46 @@ func checkIPVersion() (ipv4, ipv6 bool) {
 	}
 
 	return ipv4, ipv6
+}
+
+// Compare two slices and return the data added to a over b and the data missing from b over a.
+//
+// Arges:
+//
+//	a: new data
+//	b: old data
+//
+// return:
+//
+//	    Add: the data added to a over b
+//		Remove: the data missing from b over a
+//
+// TODO: Optimising functions to be able to handle different data types
+func CompareIpByte(a, b [][]byte) [][]byte {
+	aSet := make(map[string][]byte)
+	for _, item := range a {
+		ip, ok := netip.AddrFromSlice(item)
+		if !ok {
+			log.Error("cannot compared IP: Unsupported data types")
+		}
+
+		aSet[ip.String()] = item
+	}
+
+	var bMissing [][]byte
+	for _, item := range b {
+		ip, ok := netip.AddrFromSlice(item)
+		if !ok {
+			log.Error("cannot compared IP: Unsupported data types")
+		}
+		if _, ok := aSet[ip.String()]; !ok {
+			bMissing = append(bMissing, item)
+		} else {
+			delete(aSet, ip.String())
+		}
+	}
+
+	return bMissing
 }
 
 func triggerControlCommandWithPortInV4(port int) error {
