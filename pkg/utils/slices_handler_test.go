@@ -26,20 +26,20 @@ import (
 func TestCompareIpByte(t *testing.T) {
 	t.Run("Ipv4 compare test", func(t *testing.T) {
 		newData := [][]byte{
-			[]byte{1, 1, 1, 1},
-			[]byte{2, 2, 2, 2},
+			{1, 1, 1, 1},
+			{2, 2, 2, 2},
 		}
 		oldData := [][]byte{
-			[]byte{3, 3, 3, 3},
-			[]byte{2, 2, 2, 2},
+			{3, 3, 3, 3},
+			{2, 2, 2, 2},
 		}
 
 		aNew, bMissing := CompareIpByte(newData, oldData)
 		expectedAdd := [][]byte{
-			[]byte{1, 1, 1, 1},
+			{1, 1, 1, 1},
 		}
 		expectedMissing := [][]byte{
-			[]byte{3, 3, 3, 3},
+			{3, 3, 3, 3},
 		}
 		assert.Equal(t, expectedAdd, aNew)
 		assert.Equal(t, expectedMissing, bMissing)
@@ -47,20 +47,20 @@ func TestCompareIpByte(t *testing.T) {
 
 	t.Run("Ipv6 compare test", func(t *testing.T) {
 		newData := [][]byte{
-			[]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
-			[]byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+			{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+			{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
 		}
 		oldData := [][]byte{
-			[]byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
-			[]byte{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+			{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+			{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
 		}
 
 		aNew, bMissing := CompareIpByte(newData, oldData)
 		expectedAdd := [][]byte{
-			[]byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+			{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 		}
 		expectedMissing := [][]byte{
-			[]byte{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+			{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
 		}
 		assert.Equal(t, expectedAdd, aNew)
 		assert.Equal(t, expectedMissing, bMissing)
