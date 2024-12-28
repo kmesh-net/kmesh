@@ -510,7 +510,8 @@ static int match_check(Istio__Security__Match *match, struct xdp_info *info, str
     return matchResult;
 }
 
-static int clause_match_check(Istio__Security__Clause *cl, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static int clause_match_check(
+    struct xdp_md *ctx, Istio__Security__Clause *cl, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     void *matchsPtr = NULL;
     Istio__Security__Match *match = NULL;
@@ -533,6 +534,9 @@ static int clause_match_check(Istio__Security__Clause *cl, struct xdp_info *info
         if (!match) {
             continue;
         }
+        if (match->n_namespaces != 0 || match->n_not_namespaces != 0 || match->n_not_principals != 0
+            || match->n_not_principals != 0)
+            bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
         // if any match matches, it is a match
         if (match_check(match, info, tuple_info) == MATCHED) {
             return MATCHED;
@@ -541,7 +545,8 @@ static int clause_match_check(Istio__Security__Clause *cl, struct xdp_info *info
     return UNMATCHED;
 }
 
-static int rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static int rule_match_check(
+    struct xdp_md *ctx, Istio__Security__Rule *rule, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     void *clausesPtr = NULL;
     Istio__Security__Clause *clause = NULL;
@@ -565,7 +570,7 @@ static int rule_match_check(Istio__Security__Rule *rule, struct xdp_info *info, 
         if (!clause) {
             continue;
         }
-        if (clause_match_check(clause, info, tuple_info) == UNMATCHED) {
+        if (clause_match_check(ctx, clause, info, tuple_info) == UNMATCHED) {
             return UNMATCHED;
         }
     }
@@ -601,12 +606,11 @@ int policies_check(struct xdp_md *ctx)
     // Safely access policyId and check if the policy exists
     if (bpf_probe_read_kernel(&policyId, sizeof(policyId), (void *)(policies->policyIds + match_ctx->policy_index))
         != 0) {
-        goto auth_in_user_space;
+        return XDP_PASS;
     }
     policy = map_lookup_authz(policyId);
     if (!policy) {
-        // if no policy matches in xdp, throw it to user auth
-        goto auth_in_user_space;
+        return XDP_PASS;
     } else {
         rulesPtr = KMESH_GET_PTR_VAL(policy->rules, void *);
         if (!rulesPtr) {
@@ -621,13 +625,6 @@ int policies_check(struct xdp_md *ctx)
         }
         bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICY_CHECK);
     }
-    return XDP_PASS;
-
-auth_in_user_space:
-    if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
-        BPF_LOG(DEBUG, AUTH, "failed to delete context from map");
-    }
-    bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
     return XDP_PASS;
 }
 
@@ -672,7 +669,7 @@ int policy_check(struct xdp_md *ctx)
         if (!rule) {
             continue;
         }
-        if (rule_match_check(rule, &info, &tuple_key) == MATCHED) {
+        if (rule_match_check(ctx, rule, &info, &tuple_key) == MATCHED) {
             BPF_LOG(
                 DEBUG,
                 AUTH,
@@ -691,8 +688,7 @@ int policy_check(struct xdp_md *ctx)
 
     match_ctx->policy_index++;
     if (match_ctx->policy_index >= MAX_MEMBER_NUM_PER_POLICY) {
-        BPF_LOG(ERR, AUTH, "policy index out of bounds");
-        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
+        return XDP_PASS;
     }
 
     ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, match_ctx, BPF_ANY);
