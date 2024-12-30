@@ -54,8 +54,8 @@ const (
 	TailCallConnect4Index = 0
 	TailCallConnect6Index = 1
 	// tail call index in xdp tail call prog map
-	TailCallPolicyCheck     = 0
-	TailCallRuleCheck       = 1
+	TailCallPoliciesCheck   = 0
+	TailCallPolicyCheck     = 1
 	TailCallAuthInUserSpace = 2
 
 	INBOUND  = uint32(1)

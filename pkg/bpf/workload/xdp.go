@@ -95,15 +95,15 @@ func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
 	xa.Info.AttachType = prog.AttachType
 
 	if err = xa.KmXdpTailcall.Update(
-		uint32(constants.TailCallPolicyCheck),
-		uint32(xa.PolicyCheck.FD()),
+		uint32(constants.TailCallPoliciesCheck),
+		uint32(xa.PoliciesCheck.FD()),
 		ebpf.UpdateAny); err != nil {
 		return err
 	}
 
 	if err = xa.KmXdpTailcall.Update(
-		uint32(constants.TailCallRuleCheck),
-		uint32(xa.RuleCheck.FD()),
+		uint32(constants.TailCallPolicyCheck),
+		uint32(xa.PolicyCheck.FD()),
 		ebpf.UpdateAny); err != nil {
 		return err
 	}

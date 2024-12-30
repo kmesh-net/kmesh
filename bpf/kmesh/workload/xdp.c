@@ -130,6 +130,7 @@ int xdp_authz(struct xdp_md *ctx)
             return XDP_PASS;
         }
         match_ctx.policies = policies;
+        match_ctx.need_tailcall_to_userspace = false;
         match_ctx.policy_index = 0;
         ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, &match_ctx, BPF_ANY);
         if (ret < 0) {
@@ -137,7 +138,7 @@ int xdp_authz(struct xdp_md *ctx)
             return XDP_PASS;
         }
 
-        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICY_CHECK);
+        bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICIES_CHECK);
         return XDP_PASS;
     } else {
         return *value ? XDP_DROP : XDP_PASS;

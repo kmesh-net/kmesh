@@ -85,8 +85,8 @@ type KmeshXDPAuthSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshXDPAuthProgramSpecs struct {
+	PoliciesCheck          *ebpf.ProgramSpec `ebpf:"policies_check"`
 	PolicyCheck            *ebpf.ProgramSpec `ebpf:"policy_check"`
-	RuleCheck              *ebpf.ProgramSpec `ebpf:"rule_check"`
 	XdpAuthz               *ebpf.ProgramSpec `ebpf:"xdp_authz"`
 	XdpShutdownInUserspace *ebpf.ProgramSpec `ebpf:"xdp_shutdown_in_userspace"`
 }
@@ -187,16 +187,16 @@ func (m *KmeshXDPAuthMaps) Close() error {
 //
 // It can be passed to LoadKmeshXDPAuthObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshXDPAuthPrograms struct {
+	PoliciesCheck          *ebpf.Program `ebpf:"policies_check"`
 	PolicyCheck            *ebpf.Program `ebpf:"policy_check"`
-	RuleCheck              *ebpf.Program `ebpf:"rule_check"`
 	XdpAuthz               *ebpf.Program `ebpf:"xdp_authz"`
 	XdpShutdownInUserspace *ebpf.Program `ebpf:"xdp_shutdown_in_userspace"`
 }
 
 func (p *KmeshXDPAuthPrograms) Close() error {
 	return _KmeshXDPAuthClose(
+		p.PoliciesCheck,
 		p.PolicyCheck,
-		p.RuleCheck,
 		p.XdpAuthz,
 		p.XdpShutdownInUserspace,
 	)

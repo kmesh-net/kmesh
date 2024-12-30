@@ -85,8 +85,8 @@ type KmeshXDPAuthCompatSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshXDPAuthCompatProgramSpecs struct {
+	PoliciesCheck          *ebpf.ProgramSpec `ebpf:"policies_check"`
 	PolicyCheck            *ebpf.ProgramSpec `ebpf:"policy_check"`
-	RuleCheck              *ebpf.ProgramSpec `ebpf:"rule_check"`
 	XdpAuthz               *ebpf.ProgramSpec `ebpf:"xdp_authz"`
 	XdpShutdownInUserspace *ebpf.ProgramSpec `ebpf:"xdp_shutdown_in_userspace"`
 }
@@ -187,16 +187,16 @@ func (m *KmeshXDPAuthCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshXDPAuthCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshXDPAuthCompatPrograms struct {
+	PoliciesCheck          *ebpf.Program `ebpf:"policies_check"`
 	PolicyCheck            *ebpf.Program `ebpf:"policy_check"`
-	RuleCheck              *ebpf.Program `ebpf:"rule_check"`
 	XdpAuthz               *ebpf.Program `ebpf:"xdp_authz"`
 	XdpShutdownInUserspace *ebpf.Program `ebpf:"xdp_shutdown_in_userspace"`
 }
 
 func (p *KmeshXDPAuthCompatPrograms) Close() error {
 	return _KmeshXDPAuthCompatClose(
+		p.PoliciesCheck,
 		p.PolicyCheck,
-		p.RuleCheck,
 		p.XdpAuthz,
 		p.XdpShutdownInUserspace,
 	)
