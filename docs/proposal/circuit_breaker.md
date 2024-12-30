@@ -118,7 +118,7 @@ Envoy also supports outlier detection. If an endpoint produces too many exceptio
     <img src="./pics/outlier_detection.png" />
 </div>
 
-After some time, it will be added back, but if it continues to fail, it will be removed again. Each time it's removed, the wait time to be added back increases.
+After some time, it will be added back, but if it continues to fail, it will be removed again. The wait time for re-adding increases with each removal.
 
 So, Istio's circuit breaker has two main functionalities that involve both L4 and L7 management, as shown in the table below:
 
@@ -133,16 +133,16 @@ Here are some counters and gauges in Envoy:
 
 + Host Stats
 
-    | Variable        | Type    |
-    | --------------- | ------- |
-    | cx_connect_fail | COUNTER |
-    | cx_total        | COUNTER |
-    | rq_error        | COUNTER |
-    | rq_success      | COUNTER |
-    | rq_timeout      | COUNTER |
-    | rq_total        | COUNTER |
-    | cx_active       | GAUGE   |
-    | rq_active       | GAUGE   |
+    | Variable        | Type    | Meaning                      |
+    | --------------- | ------- | ---------------------------- |
+    | cx_connect_fail | COUNTER | Number of failed connections |
+    | cx_total        | COUNTER | Number of total connections  |
+    | rq_error        | COUNTER | Number of 5xx requests       |
+    | rq_success      | COUNTER | Number of non-5xx requests   |
+    | rq_timeout      | COUNTER | Number of timeout requests   |
+    | rq_total        | COUNTER | Number of total requests     |
+    | cx_active       | GAUGE   | Number of active connections |
+    | rq_active       | GAUGE   | Number of active requests    |
 
 + Cluster Stats
 
