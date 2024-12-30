@@ -465,27 +465,23 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 
 	// 1. update workload in backend map
 	if err := p.updateWorkloadInBackendMap(workload); err != nil {
-		log.Errorf("updateWorkloadInBackendMap %s failed: %v", workload.Uid, err)
-		return err
+		return fmt.Errorf("updateWorkloadInBackendMap %s failed: %v", workload.Uid, err)
 	}
 
 	// 2~3. update workload in endpoint map and service map
 	unboundedEndpointKeys, newServices := p.compareWorkloadServices(workload)
 	if err := p.handleWorkloadUnboundServices(workload, unboundedEndpointKeys); err != nil {
-		log.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.ResourceName(), err)
-		return err
+		return fmt.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.ResourceName(), err)
 	}
 
 	// Add new services associated with the workload
 	if err := p.handleWorkloadNewBoundServices(workload, newServices); err != nil {
-		log.Errorf("handleWorkloadNewBoundServices %s failed: %v", workload.ResourceName(), err)
-		return err
+		return fmt.Errorf("handleWorkloadNewBoundServices %s failed: %v", workload.ResourceName(), err)
 	}
 
 	// 4. update workload in frontend map
 	if err := p.updateWorkloadInFrontendMap(workload); err != nil {
-		log.Errorf("updateWorkloadInFrontendMap %s failed: %v", workload.Uid, err)
-		return err
+		return fmt.Errorf("updateWorkloadInFrontendMap %s failed: %v", workload.Uid, err)
 	}
 	if oldWorkload != nil {
 		// To be able to find a workload in the workloadCache,
