@@ -34,6 +34,9 @@ const (
 	TC_MARK_DECRYPT = "tc_mark_decrypt"
 	TC_MARK_ENCRYPT = "tc_mark_encrypt"
 
+	TC_ATTACH = 0
+	TC_DETACH = 1
+
 	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
 	TrustDomain  = "cluster.local"
 

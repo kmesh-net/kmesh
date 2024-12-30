@@ -22,15 +22,18 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
+	"kmesh.net/kmesh/pkg/constants"
 )
 
-func AttchTCProgram(link netlink.Link, tc *ebpf.Program) error {
-	if err := replaceQdisc(link); err != nil {
-		return fmt.Errorf("failed to replace qdisc for interface %v: %v", link.Attrs().Name, err)
+func ManageTCProgramByFd(link netlink.Link, tcFd int, mode int) error {
+	if mode == constants.TC_ATTACH {
+		if err := replaceQdisc(link); err != nil {
+			return fmt.Errorf("failed to replace qdisc for interface %v: %v", link.Attrs().Name, err)
+		}
 	}
+
 	var parent uint32 = netlink.HANDLE_MIN_INGRESS
 	var tcName string = "tc_ingress"
-
 	filter := &netlink.BpfFilter{
 		FilterAttrs: netlink.FilterAttrs{
 			LinkIndex: link.Attrs().Index,
@@ -39,35 +42,27 @@ func AttchTCProgram(link netlink.Link, tc *ebpf.Program) error {
 			Protocol:  unix.ETH_P_ALL,
 			Priority:  1,
 		},
-		Fd:           tc.FD(),
+		Fd:           tcFd,
 		Name:         fmt.Sprintf("%s-%s", tcName, link.Attrs().Name),
 		DirectAction: true,
 	}
-	if err := netlink.FilterReplace(filter); err != nil {
-		return fmt.Errorf("failed to replace filter for interface %v: %v", link.Attrs().Name, err)
+
+	if mode == constants.TC_ATTACH {
+		if err := netlink.FilterReplace(filter); err != nil {
+			return fmt.Errorf("failed to replace filter for interface %v: %v", link.Attrs().Name, err)
+		}
+	} else if mode == constants.TC_DETACH {
+		if err := netlink.FilterDel(filter); err != nil {
+			return fmt.Errorf("failed to delete filter for interface %v: %v", link.Attrs().Name, err)
+		}
+	} else {
+		return fmt.Errorf("invalid mode in ManageTCProgramByFd")
 	}
 	return nil
 }
 
-func DetchTCProgram(link netlink.Link, tc *ebpf.Program) error {
-	var parent uint32 = netlink.HANDLE_MIN_INGRESS
-	var tcName string = "tc_ingress"
-	filter := &netlink.BpfFilter{
-		FilterAttrs: netlink.FilterAttrs{
-			LinkIndex: link.Attrs().Index,
-			Parent:    parent,
-			Handle:    1,
-			Protocol:  unix.ETH_P_ALL,
-			Priority:  1,
-		},
-		Fd:           tc.FD(),
-		Name:         fmt.Sprintf("%s-%s", tcName, link.Attrs().Name),
-		DirectAction: true,
-	}
-	if err := netlink.FilterDel(filter); err != nil {
-		return fmt.Errorf("failed to replace filter for interface %v: %v", link.Attrs().Name, err)
-	}
-	return nil
+func ManageTCProgram(link netlink.Link, tc *ebpf.Program, mode int) error {
+	return ManageTCProgramByFd(link, tc.FD(), mode)
 }
 
 func replaceQdisc(link netlink.Link) error {

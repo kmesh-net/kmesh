@@ -66,10 +66,17 @@ func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpfads.BpfAds, bpf
 func (c *Controller) Start(stopCh <-chan struct{}) error {
 	var err error
 	var kmeshManageController *manage.KmeshManageController
+	var tcFd int
 
 	clientset, err := kube.CreateKubeClient("")
 	if err != nil {
 		return err
+	}
+
+	if c.bpfConfig.EnableIPsec {
+		tcFd = c.bpfWorkloadObj.Tc.TcMarkEncrypt.FD()
+	} else {
+		tcFd = -1
 	}
 
 	if c.mode == constants.DualEngineMode {
@@ -81,9 +88,9 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			}
 			go secertManager.Run(stopCh)
 		}
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
 	} else {
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, tcFd, c.mode)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)

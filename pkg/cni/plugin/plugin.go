@@ -17,13 +17,9 @@
 package plugin
 
 import (
-	"bufio"
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"strconv"
-	"strings"
 
 	"github.com/cilium/ebpf"
 	"github.com/containernetworking/cni/pkg/skel"
@@ -31,6 +27,7 @@ import (
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
 	netns "github.com/containernetworking/plugins/pkg/ns"
+	"github.com/safchain/ethtool"
 	"github.com/vishvananda/netlink"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -139,52 +136,44 @@ func enableTcMarkEncrypt(args *skel.CmdArgs) error {
 		err     error
 		link    netlink.Link
 		tc      *ebpf.Program
-		ifIndex int
-		output  bytes.Buffer
+		ifIndex uint64
 	)
+
 	ifIndex = 0
-	ethtoolArgs := []string{"-S", args.IfName}
 
 	if tc, err = utils.GetProgramByName(constants.TC_MARK_ENCRYPT); err != nil {
 		return fmt.Errorf("failed to get tc program: %v", err)
 	}
 
 	getVethPeerLinkNum := func(netns.NetNS) error {
-		if err = utils.ExecuteWithRedirect("ethtool", ethtoolArgs, &output); err != nil {
-			return fmt.Errorf("failed to exec ethtool get ifindex, %v", err)
+		ethHandle, err := ethtool.NewEthtool()
+		if err != nil {
+			return err
 		}
+		defer ethHandle.Close()
+
+		stats, err := ethHandle.Stats(args.IfName)
+		if err != nil {
+			return err
+		}
+		ifIndex = stats["peer_ifindex"]
 		return nil
 	}
 
 	if err := netns.WithNetNSPath(args.Netns, getVethPeerLinkNum); err != nil {
-		log.Error(err)
+		log.Errorf("failed to get veth peer link number, %v", err)
 		return err
 	}
 
-	scanner := bufio.NewScanner(&output)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		line := strings.Split(strings.Trim(scanner.Text(), " "), ":")
-		if len(line) < 2 {
-			continue
-		}
-		if strings.Compare(line[0], "peer_ifindex") != 0 {
-			continue
-		}
-		if ifIndex, err = strconv.Atoi(strings.Trim(line[1], " ")); err != nil {
-			return fmt.Errorf("failed to convert peer ifindex: \"%v\", %v", line[1], err)
-		}
-	}
-
 	if ifIndex == 0 {
-		return fmt.Errorf("can not found valid if index")
+		return fmt.Errorf("failed to found valid if index, ifname: %v", args.IfName)
 	}
 
-	if link, err = netlink.LinkByIndex(ifIndex); err != nil {
+	if link, err = netlink.LinkByIndex(int(ifIndex)); err != nil {
 		return fmt.Errorf("failed to link valid interface, %v", err)
 	}
 
-	if err = utils.AttchTCProgram(link, tc); err != nil {
+	if err = utils.ManageTCProgram(link, tc, constants.TC_ATTACH); err != nil {
 		return fmt.Errorf("failed to attach tc program, %v", err)
 	}
 

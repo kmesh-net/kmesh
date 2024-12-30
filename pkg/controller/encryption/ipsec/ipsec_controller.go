@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/constants"
 	kmesh_netns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/kube"
 	v1alpha1 "kmesh.net/kmesh/pkg/kube/apis/kmeshnodeinfo/v1alpha1"
@@ -396,7 +397,7 @@ func (c *IpsecController) attachTCToInternalNIC() error {
 						continue
 					}
 					if ipNet.IP.Equal(targetAddr) {
-						err = utils.AttchTCProgram(link, c.tcDecryptProg)
+						err = utils.ManageTCProgram(link, c.tcDecryptProg, constants.TC_ATTACH)
 						if err != nil {
 							log.Warnf("failed to attach tc ebpf on interface %v, %v", iface, err)
 							continue
@@ -445,7 +446,7 @@ func (c *IpsecController) detachTCFromInternalNIC() {
 						continue
 					}
 					if ipNet.IP.Equal(targetAddr) {
-						err = utils.DetchTCProgram(link, c.tcDecryptProg)
+						err = utils.ManageTCProgram(link, c.tcDecryptProg, constants.TC_DETACH)
 						if err != nil {
 							log.Warnf("failed to attach tc ebpf on interface %v, %v", iface, err)
 							continue
