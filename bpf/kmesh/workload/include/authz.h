@@ -530,12 +530,15 @@ static int clause_match_check(
         if (!match) {
             continue;
         }
-        if (need_tail_call_to_user(match)) {
-            match_ctx->need_tailcall_to_userspace = true;
-        }
         // if any match matches, it is a match
         if (match_check(match, info, tuple_info) == MATCHED) {
             return MATCHED;
+        }
+        // Currently, xdp only matches port and ip. If a principal
+        // or namespace type rule is configured, it needs to be sent
+        // to userspace for authorization.
+        if (need_tail_call_to_user(match)) {
+            match_ctx->need_tailcall_to_userspace = true;
         }
     }
     return UNMATCHED;
