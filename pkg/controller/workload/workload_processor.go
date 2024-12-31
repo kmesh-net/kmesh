@@ -18,6 +18,7 @@ package workload
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -152,11 +153,9 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 	)
 
 	nets.CopyIpByteFromSlice(&fk.Ip, ip)
-
 	fv.UpstreamId = uid
 	if err := p.bpf.FrontendUpdate(&fk, &fv); err != nil {
-		log.Errorf("Update frontend map failed, err:%s", err)
-		return err
+		return fmt.Errorf("Update frontend map failed, err:%s", err)
 	}
 
 	return nil
@@ -426,10 +425,27 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 	log.Debugf("updateWorkloadInFrontendMap: workload %s, backendUid: %v", workload.GetUid(), backendUid)
 
 	for _, ip := range workload.GetAddresses() {
-		if err := p.storePodFrontendData(backendUid, ip); err != nil {
-			log.Errorf("storePodFrontendData failed, err:%s", err)
-			return err
+		svc := p.getServiceByAddress(ip)
+		if svc != nil {
+			// If the service is found in serviceCache based on the ip address of the workload.
+			// we don't update the workload in the frontend map.
+			// This occurs in the serviceEntry.
+			log.Debugf("workload: %v and service: %v have same ip address: %v", workload.Uid, svc.ResourceName(), ip)
+			return nil
 		}
+		if err := p.storePodFrontendData(backendUid, ip); err != nil {
+			return fmt.Errorf("storePodFrontendData failed, err:%s", err)
+		}
+	}
+	return nil
+}
+
+func (p *Processor) getServiceByAddress(address []byte) *workloadapi.Service {
+	networkAddr := cache.NetworkAddress{}
+	networkAddr.Address, _ = netip.AddrFromSlice(address)
+	var svc *workloadapi.Service
+	if svc = p.ServiceCache.GetServiceByAddr(networkAddr); svc != nil {
+		return svc
 	}
 	return nil
 }
