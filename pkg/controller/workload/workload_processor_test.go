@@ -741,3 +741,32 @@ func TestLBPolicyUpdate(t *testing.T) {
 
 	hashNameClean(p)
 }
+
+func TestGetServiceByAddress(t *testing.T) {
+	t.Run("test get service in serviceCache", func(t *testing.T) {
+		workloadMap := bpfcache.NewFakeWorkloadMap(t)
+		defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+		p := NewProcessor(workloadMap)
+		svc := common.CreateFakeService("svc4", "10.240.10.4", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+		p.ServiceCache.AddOrUpdateService(svc)
+		got1 := p.getServiceByAddress(netip.MustParseAddr("10.240.10.4").AsSlice())
+		got2 := p.getServiceByAddress(netip.MustParseAddr("10.240.10.200").AsSlice())
+		assert.Equal(t, svc, got1)
+		assert.Equal(t, svc, got2)
+	})
+}
+
+func TestUpdateWorkloadInFrontendMap(t *testing.T) {
+	t.Run("test workload and service conflict", func(t *testing.T) {
+		workloadMap := bpfcache.NewFakeWorkloadMap(t)
+		defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+		p := NewProcessor(workloadMap)
+		svc := common.CreateFakeService("svc1", "10.240.10.1", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+		wl := createWorkload("wl1", "10.244.10.1", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1", "svc2")
+		p.ServiceCache.AddOrUpdateService(svc)
+		err := p.updateWorkloadInFrontendMap(wl)
+		assert.NoError(t, err)
+	})
+}
