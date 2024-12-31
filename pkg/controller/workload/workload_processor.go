@@ -431,7 +431,7 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 			// we don't update the workload in the frontend map.
 			// This occurs in the serviceEntry.
 			log.Debugf("workload: %v and service: %v have same ip address: %v", workload.Uid, svc.ResourceName(), ip)
-			return nil
+			continue
 		}
 		if err := p.storePodFrontendData(backendUid, ip); err != nil {
 			return fmt.Errorf("storePodFrontendData failed, err:%s", err)
@@ -443,8 +443,7 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 func (p *Processor) getServiceByAddress(address []byte) *workloadapi.Service {
 	networkAddr := cache.NetworkAddress{}
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
-	var svc *workloadapi.Service
-	if svc = p.ServiceCache.GetServiceByAddr(networkAddr); svc != nil {
+	if svc := p.ServiceCache.GetServiceByAddr(networkAddr); svc != nil {
 		return svc
 	}
 	return nil

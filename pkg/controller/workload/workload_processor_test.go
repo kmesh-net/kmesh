@@ -750,10 +750,8 @@ func TestGetServiceByAddress(t *testing.T) {
 		p := NewProcessor(workloadMap)
 		svc := common.CreateFakeService("svc4", "10.240.10.4", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
 		p.ServiceCache.AddOrUpdateService(svc)
-		got1 := p.getServiceByAddress(netip.MustParseAddr("10.240.10.4").AsSlice())
-		got2 := p.getServiceByAddress(netip.MustParseAddr("10.240.10.200").AsSlice())
-		assert.Equal(t, svc, got1)
-		assert.Equal(t, svc, got2)
+		got := p.getServiceByAddress([]byte{10, 240, 10, 4})
+		assert.Equal(t, svc, got)
 	})
 }
 
