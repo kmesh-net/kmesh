@@ -7,10 +7,10 @@
  *
  *     http://www.apache.org/lcenses/LcENSE-2.0
  *
- * Unless required by applcable law or agreed to in writing, software
+ * Unless required by applicable law or agreed to in writing, software
  * distributed under the Lcense is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the Lcense for the specifc language governing permissions and
+ * See the Lcense for the specific language governing permissions and
  * limitations under the Lcense.
  */
 
@@ -25,6 +25,7 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"time"
 
 	"github.com/cilium/ebpf"
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -51,7 +52,8 @@ import (
 )
 
 const (
-	MaxRetries = 5
+	MaxRetries       = 5
+	TimeFormatString = "20060102150405" // this numbers are fixed, they represent the year of th golang's birth
 )
 
 var log = logger.NewLoggerScope("ipsec_controller")
@@ -132,18 +134,19 @@ func (c *IpsecController) Run(stop <-chan struct{}) {
 			Name: localNodeName,
 		},
 		Spec: v1alpha1.KmeshNodeInfoSpec{
-			Name:     localNodeName,
-			Spi:      c.ipsecHandler.Spi,
-			Address:  []string{},
-			BootID:   c.localNode.Status.NodeInfo.BootID,
-			PodCirds: c.localNode.Spec.PodCIDRs,
+			Name:       localNodeName,
+			Spi:        c.ipsecHandler.Spi,
+			Address:    []string{},
+			BootID:     c.localNode.Status.NodeInfo.BootID,
+			PodCirds:   c.localNode.Spec.PodCIDRs,
+			CreateTime: c.ipsecHandler.CreateTime,
 		},
 	}
 
 	for _, addr := range c.localNode.Status.Addresses {
 		if strings.Compare(string(addr.Type), string(v1.NodeInternalIP)) == 0 {
 			c.kmeshNodeInfo.Spec.Address = append(c.kmeshNodeInfo.Spec.Address, addr.Address)
-			c.ipsecHandler.SetNodeInfo(addr.Address, c.kmeshNodeInfo.Spec.BootID, c.ipsecHandler.Spi)
+			c.ipsecHandler.SetNodeInfo(addr.Address, c.kmeshNodeInfo.Spec.BootID, c.ipsecHandler.Spi, c.ipsecHandler.CreateTime)
 		}
 	}
 
@@ -183,20 +186,57 @@ func (c *IpsecController) Run(stop <-chan struct{}) {
 }
 
 func (c *IpsecController) handleOtherNodeInfo(node *v1alpha1.KmeshNodeInfo) error {
+	c.ipsecHandler.mutex.Lock()
+	defer c.ipsecHandler.mutex.Unlock()
+	for {
+		if node.Spec.Spi == c.ipsecHandler.Spi && strings.Compare(node.Spec.CreateTime, c.ipsecHandler.CreateTime) == 0 {
+			break
+		}
+
+		localNodeCreateTime, err := time.Parse(TimeFormatString, c.ipsecHandler.CreateTime)
+		if err != nil {
+			return fmt.Errorf("failed to parser local node ipsec create time! %v", err)
+		}
+
+		nodeSpiCreateTime, err := time.Parse(TimeFormatString, node.Spec.CreateTime)
+		if err != nil {
+			return fmt.Errorf("failed to parser local node ipsec create time! %v", err)
+		}
+
+		if localNodeCreateTime.Before(nodeSpiCreateTime) &&
+			time.Now().After(nodeSpiCreateTime.Add(time.Minute*5)) {
+			// There is a problem with the synchronization secret and the message cannot be processed
+			return fmt.Errorf("failed to get new secret, new spi is %v, create time is %v, my spi is %v, create time is %v",
+				node.Spec.Spi, nodeSpiCreateTime, c.ipsecHandler.Spi, c.ipsecHandler.CreateTime)
+		}
+
+		if localNodeCreateTime.After(nodeSpiCreateTime) {
+			if _, ok := c.ipsecHandler.oldIpSecKey[node.Spec.CreateTime]; !ok {
+				log.Info("can not found node spec ipsec key info, may be node not update, skip")
+				return nil
+			} else {
+				break
+			}
+		}
+
+		c.ipsecHandler.mutex.Unlock()
+		time.Sleep(time.Second)
+		c.ipsecHandler.mutex.Lock()
+	}
 	nodeNsPath := kmesh_netns.GetNodeNSpath()
 	/*
 	 * src is remote host, dst is local host
 	 * create xfrm rule like:
 	 * ip xfrm state  add src {remoteNcIP} dst {localNcIP} proto esp {localSpi} mode tunnel reqid 1 {aead-algo} {aead-key} {aead-key-length}
-	 * ip xfrm polcy add src 0.0.0.0/0     dst {localCIDR}  dir in  tmpl src {remoteNcIP} dst {localNcIP} proto esp reqid 1 mode tunnel mark 0x{remoteid}00d0
-	 * ip xfrm polcy add src 0.0.0.0/0     dst {localCIDR}  dir fwd tmpl src {remoteNcIP} dst {localNcIP} proto esp reqid 1 mode tunnel mark 0x{remoteid}00d0
+	 * ip xfrm policy add src 0.0.0.0/0     dst {localCIDR}  dir in  tmpl src {remoteNcIP} dst {localNcIP} proto esp reqid 1 mode tunnel mark 0x{remoteid}00d0
+	 * ip xfrm policy add src 0.0.0.0/0     dst {localCIDR}  dir fwd tmpl src {remoteNcIP} dst {localNcIP} proto esp reqid 1 mode tunnel mark 0x{remoteid}00d0
 	 * remoteid = sum(remoteNcIP)
 	 */
 	handleInXfrm := func(netns.NetNS) error {
 		for _, remoteNcIP := range node.Spec.Address {
 			for _, localNcIP := range c.kmeshNodeInfo.Spec.Address {
 				for _, localCIDR := range c.kmeshNodeInfo.Spec.PodCirds {
-					c.ipsecHandler.SetNodeInfo(remoteNcIP, node.Spec.BootID, node.Spec.Spi)
+					c.ipsecHandler.SetNodeInfo(remoteNcIP, node.Spec.BootID, node.Spec.Spi, node.Spec.CreateTime)
 					if err := c.ipsecHandler.CreateXfrmRule(remoteNcIP, localNcIP, localCIDR, false); err != nil {
 						return err
 					}
@@ -212,7 +252,7 @@ func (c *IpsecController) handleOtherNodeInfo(node *v1alpha1.KmeshNodeInfo) erro
 	 * src is local host, dst is remote host
 	 * create xfrm rule like:
 	 * ip xfrm state  add src {localNcIP} dst {remoteNicIP} proto esp spi 1 mode tunnel reqid 1 {aead-algo} {aead-key} {aead-key-length}
-	 * ip xfrm polcy add src 0.0.0.0/0    dst {remoteCIDR}  dir out tmpl src {localNcIP} dst {remoteNcIP} proto esp spi {spi} reqid 1 mode tunnel mark 0x{remoteid}0{spi}e0
+	 * ip xfrm policy add src 0.0.0.0/0    dst {remoteCIDR}  dir out tmpl src {localNcIP} dst {remoteNcIP} proto esp spi {spi} reqid 1 mode tunnel mark 0x{remoteid}0{spi}e0
 	 */
 	handleOutXfrm := func(netns.NetNS) error {
 		for _, localNcIP := range c.kmeshNodeInfo.Spec.Address {
@@ -222,7 +262,7 @@ func (c *IpsecController) handleOtherNodeInfo(node *v1alpha1.KmeshNodeInfo) erro
 						return fmt.Errorf("create xfrm out rule failed, %v", err)
 					}
 					nodeid := c.ipsecHandler.GetNodeID(remoteNicIP)
-					if err := c.updateKNIMapCIDR(remoteCIDR, nodeid, c.kniMap); err != nil {
+					if err := c.updateKNIMapCIDR(remoteCIDR, nodeid, c.kniMap, node.Spec.Spi); err != nil {
 						return fmt.Errorf("update %d kni map cidr failed, %v", nodeid, err)
 					}
 				}
@@ -237,7 +277,7 @@ func (c *IpsecController) handleOtherNodeInfo(node *v1alpha1.KmeshNodeInfo) erro
 	return nil
 }
 
-func (c *IpsecController) updateKNIMapCIDR(remoteCIDR string, nodeid uint32, mapfd *ebpf.Map) error {
+func (c *IpsecController) updateKNIMapCIDR(remoteCIDR string, nodeid uint32, mapfd *ebpf.Map, targetSpi int8) error {
 	prefix, err := netip.ParsePrefix(remoteCIDR)
 	if err != nil {
 		err = fmt.Errorf("update kni map cidr failed, cidr is %v, %v", remoteCIDR, err)
@@ -259,7 +299,7 @@ func (c *IpsecController) updateKNIMapCIDR(remoteCIDR string, nodeid uint32, map
 	}
 
 	kniValue := NodeInfoValue{
-		spi:    uint32(c.ipsecHandler.Spi),
+		spi:    uint32(targetSpi),
 		nodeID: nodeid,
 	}
 
@@ -315,7 +355,9 @@ func (c *IpsecController) handleKNIDelete(obj interface{}) {
 	nodeNsPath := kmesh_netns.GetNodeNSpath()
 	deleteFunc := func(netns.NetNS) error {
 		for _, targetIP := range kni.Spec.Address {
+			c.ipsecHandler.mutex.Lock()
 			c.ipsecHandler.Clean(targetIP)
+			c.ipsecHandler.mutex.Unlock()
 		}
 		return nil
 	}
@@ -473,7 +515,7 @@ func (c *IpsecController) CleanAllIPsec() {
 	}
 
 	if err := netns.WithNetNSPath(nodeNsPath, cleanFunc); err != nil {
-		log.Errorf("failed to exec tc program detach, %v", err)
+		log.Errorf("failed to clean ipsec rules, %v", err)
 	}
 }
 
@@ -511,6 +553,7 @@ func (c *IpsecController) processNextItem() bool {
 	return true
 }
 
+// this function need ipsechanler mutex lock before use
 func (c *IpsecController) UpdateXfrm() {
 	nodeNsPath := kmesh_netns.GetNodeNSpath()
 
@@ -529,12 +572,14 @@ func (c *IpsecController) UpdateXfrm() {
 		log.Errorf("failed to get kmesh node info: %v", err)
 		return
 	}
-	if node.Spec.Spi == c.ipsecHandler.Spi {
+
+	if node.Spec.Spi == c.ipsecHandler.Spi && strings.Compare(node.Spec.CreateTime, c.ipsecHandler.CreateTime) == 0 {
 		return
 	}
 
 	update := node.DeepCopy()
 	update.Spec.Spi = c.ipsecHandler.Spi
+	update.Spec.CreateTime = c.ipsecHandler.CreateTime
 	_, err = c.knclient.Update(context.TODO(), update, metav1.UpdateOptions{})
 	if err != nil {
 		log.Errorf("failed to update kmeshinfo, %v", err)

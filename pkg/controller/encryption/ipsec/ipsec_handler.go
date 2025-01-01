@@ -19,7 +19,7 @@ package ipsec
 import (
 	"bufio"
 	"crypto/sha512"
-	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"net"
@@ -43,33 +43,50 @@ const (
 )
 
 type ipSecInfo struct {
-	bootID string
-	spi    int8
-	nodeID uint32
+	bootID        string
+	spi           int8
+	nodeID        uint32
+	spiCreateTime string
 }
 
-type ipSecKey struct {
-	Spi         int8
-	OldSpi      int8
-	AeadKeyName string
-	AeadKey     []byte
-	Length      int
+type IpSecKey struct {
+	Spi         int8   `json:"spi"`
+	AeadKeyName string `json:"aeadKeyName"`
+	AeadKey     []byte `json:"aeadKey"`
+	Length      int    `json:"length"`
+	CreateTime  string `json:"createTime"`
 }
 
 type IpSecHandler struct {
-	ipSecKey
-	mutex     sync.RWMutex
-	watcher   filewatcher.FileWatcher
-	nodeInfos map[string]ipSecInfo
+	IpSecKey
+	mutex       sync.RWMutex
+	watcher     filewatcher.FileWatcher
+	nodeInfos   map[string]ipSecInfo
+	oldIpSecKey map[string]IpSecKey
 }
 
 func NewIpSecHandler() *IpSecHandler {
 	return &IpSecHandler{
-		nodeInfos: make(map[string]ipSecInfo),
+		nodeInfos:   make(map[string]ipSecInfo),
+		oldIpSecKey: make(map[string]IpSecKey),
 	}
 }
 
 func (is *IpSecHandler) LoadIPSecKeyFromFile(filePath string) error {
+	if is.IpSecKey.Spi != 0 {
+		is.oldIpSecKey[is.CreateTime] = is.IpSecKey
+	}
+
+	for key := range is.oldIpSecKey {
+		keyCreateTime, err := time.Parse(TimeFormatString, key)
+		if err != nil {
+			return fmt.Errorf("failed to parser key create time, %v", err)
+		}
+		if keyCreateTime.Add(1 * time.Hour).Before(time.Now()) {
+			delete(is.oldIpSecKey, key)
+		}
+	}
+
 	file, err := os.Open(filePath)
 	if err != nil {
 		return fmt.Errorf("load ipsec keys failed: %v", err)
@@ -86,60 +103,18 @@ func (is *IpSecHandler) LoadIPSecKeyFromFile(filePath string) error {
 }
 
 func (is *IpSecHandler) loadIPSecKeyFromIO(file *os.File) error {
-	scanner := bufio.NewScanner(file)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		keyLine := strings.Split(scanner.Text(), " ")
-		if len(keyLine) != 4 {
-			return fmt.Errorf("ipsec config file error, invalid format, need aead algo")
-		}
-		err := is.parserSpi(keyLine)
-		if err != nil {
-			return err
-		}
-		err = is.parserAeadKey(keyLine)
-		if err != nil {
-			return err
-		}
+	reader := bufio.NewReader(file)
+	decoder := json.NewDecoder(reader)
+	if err := decoder.Decode(&is.IpSecKey); err != nil {
+		return fmt.Errorf("ipsec config file decoder error, %v, please use Kmesh tool generate ipsec secret key", err)
 	}
-	return nil
-}
-
-func (is *IpSecHandler) parserAeadKey(keyLine []string) error {
-	if !strings.HasPrefix(keyLine[offsetAead], "rfc") {
+	if is.Spi < 1 || is.Spi > 15 {
+		return fmt.Errorf("ipsec config file error, invalid spi range(1-15), spi input is %v", is.Spi)
+	}
+	if !strings.HasPrefix(is.AeadKeyName, "rfc") {
 		return fmt.Errorf("ipsec config file error, invalid algo name, aead need begin with \"rfc\"")
 	}
-	is.AeadKeyName = keyLine[offsetAead]
-	baseKeyTrim := strings.TrimPrefix(keyLine[offsetAeadKey], "0x")
-	if key, err := hex.DecodeString(baseKeyTrim); err != nil {
-		return fmt.Errorf("ipsec config file error, aead key decode failed, err is %v", err)
-	} else {
-		is.AeadKey = key
-	}
 
-	if length, err := strconv.Atoi(keyLine[offsetAeadLen]); err != nil {
-		return fmt.Errorf("ipsec config file error, aead key length invalid, err is %v", err)
-	} else {
-		is.Length = length
-	}
-	return nil
-}
-
-func (is *IpSecHandler) parserSpi(key []string) error {
-	spiload, err := strconv.Atoi(key[offsetSpi])
-	if err != nil {
-		return fmt.Errorf("ipsec config file error, invalid spi format, spi must a number, spi input is %v", key[offsetSpi])
-	}
-
-	if is.Spi != 0 {
-		is.OldSpi = is.Spi
-	}
-
-	is.Spi = int8(spiload)
-	/* spi only support 1 - 15 */
-	if is.Spi < 1 || is.Spi > 15 {
-		return fmt.Errorf("ipsec config file error, invalid spi range(1-15), spi input is %v", key[offsetSpi])
-	}
 	return nil
 }
 
@@ -167,7 +142,8 @@ func (h *IpSecHandler) StartWatch(f func()) error {
 
 			case event := <-h.watcher.Events(IpSecKeyFile):
 				log.Debugf("got event %s", event.String())
-				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) ||
+					event.Has(fsnotify.Rename) || event.Has(fsnotify.Chmod) {
 					if timerC == nil {
 						timerC = time.After(100 * time.Millisecond)
 					}
@@ -192,15 +168,16 @@ func (is *IpSecHandler) StopWatch() {
 	}
 }
 
-func (is *IpSecHandler) SetNodeInfo(IP, bootID string, spi int8) {
+func (is *IpSecHandler) SetNodeInfo(IP, bootID string, spi int8, createTime string) {
 	var sum = fnv.New32()
 	sum.Write([]byte(IP))
 	nodeID := sum.Sum32()
 
 	ipSecInfo := ipSecInfo{
-		bootID: bootID,
-		spi:    spi,
-		nodeID: nodeID,
+		bootID:        bootID,
+		spi:           spi,
+		nodeID:        nodeID,
+		spiCreateTime: createTime,
 	}
 	is.nodeInfos[IP] = ipSecInfo
 }
@@ -212,10 +189,10 @@ func (is *IpSecHandler) GetNodeID(IP string) uint32 {
 	return 0
 }
 
-func (is *IpSecHandler) generateIPSecKey(srcIP, dstIP, srcBootID, dstBootID string) []byte {
+func (is *IpSecHandler) generateIPSecKey(srcIP, dstIP, srcBootID, dstBootID string, key []byte) []byte {
 	inputLen := len(is.AeadKey) + len(srcIP) + len(dstIP) + len(srcBootID) + len(dstBootID)
 	input := make([]byte, 0, inputLen)
-	input = append(input, is.AeadKey...)
+	input = append(input, key...)
 	input = append(input, []byte(srcIP)...)
 	input = append(input, []byte(dstIP)...)
 	input = append(input, []byte(srcBootID)[:36]...)
@@ -226,8 +203,6 @@ func (is *IpSecHandler) generateIPSecKey(srcIP, dstIP, srcBootID, dstBootID stri
 }
 
 func (is *IpSecHandler) CreateXfrmRule(rawSrc, rawDst string, rawDstCIDR string, out bool) error {
-	is.mutex.Lock()
-	defer is.mutex.Unlock()
 	src := net.ParseIP(rawSrc)
 	if src == nil {
 		return fmt.Errorf("failed to parser ip in inserting xfrm rule, input: %v", rawSrc)
@@ -247,9 +222,28 @@ func (is *IpSecHandler) CreateXfrmRule(rawSrc, rawDst string, rawDstCIDR string,
 		return fmt.Errorf("failed to get dst nodeinfo, dst is %v", rawDst)
 	}
 
-	newKey := is.generateIPSecKey(rawSrc, rawDst, srcInfo.bootID, dstInfo.bootID)
+	var aeadKey []byte
+	var targetInfo ipSecInfo
+	if out {
+		// update egress, maybe dst is old spi, use dstinfo spi update
+		targetInfo = dstInfo
+	} else {
+		// update ingress, maybe src is old spi, use srcinfo spi update
+		targetInfo = srcInfo
+	}
+	if is.Spi == targetInfo.spi && strings.Compare(is.CreateTime, targetInfo.spiCreateTime) == 0 {
+		aeadKey = is.AeadKey
+	} else {
+		oldKey, ok := is.oldIpSecKey[targetInfo.spiCreateTime]
+		if !ok {
+			return fmt.Errorf("failed to get old spi, spi create time is %v, spi is %v", targetInfo.spiCreateTime, targetInfo.spi)
+		}
+		aeadKey = oldKey.AeadKey
+	}
 
-	err := is.createStateRule(src, dst, newKey, int(dstInfo.spi))
+	newKey := is.generateIPSecKey(rawSrc, rawDst, srcInfo.bootID, dstInfo.bootID, aeadKey)
+
+	err := is.createStateRule(src, dst, newKey, int(targetInfo.spi))
 	if err != nil {
 		return err
 	}
@@ -333,7 +327,8 @@ func (is *IpSecHandler) CleanAll() error {
 	for _, policy := range oldPolicyList {
 		err = netlink.XfrmPolicyDel(&policy)
 		if err != nil {
-			return err
+			log.Errorf("failed to delete xfrm policy, %v", err)
+			continue
 		}
 	}
 	oldStateList, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
@@ -343,7 +338,8 @@ func (is *IpSecHandler) CleanAll() error {
 	for _, state := range oldStateList {
 		err = netlink.XfrmStateDel(&state)
 		if err != nil {
-			return err
+			log.Errorf("failed to delete xfrm state, %v", err)
+			continue
 		}
 	}
 
@@ -425,8 +421,15 @@ func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, spi 
 		},
 	}
 	err := netlink.XfrmStateAdd(state)
-	if err != nil && os.IsExist(err) {
-		err = netlink.XfrmStateUpdate(state)
+	if os.IsExist(err) {
+		// xfrm state update can not change has exist state
+		// spi should grow step by step. If this spi is delete for
+		// a short period of time, a small number of data packets
+		// that are being sent by the spi may fail to be sent.
+		// However, if the spi that is being sent is not the deleted
+		// spi, there is no impact on the spi.
+		netlink.XfrmStateDel(state)
+		err = netlink.XfrmStateAdd(state)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to add xfrm state to host in inserting xfrm out rule, %v", err)
@@ -446,14 +449,6 @@ func (is *IpSecHandler) CreateNewStateFromOldByLocalNidIP(nicIP []string) error 
 			if !state.Dst.Equal(ip) {
 				continue
 			}
-			if state.Spi != int(is.OldSpi) && state.Spi != int(is.Spi) {
-				netlink.XfrmStateDel(&state)
-				continue
-			}
-			if state.Spi == int(is.Spi) {
-				continue
-			}
-
 			srcInfo, ok := is.nodeInfos[state.Src.String()]
 			if !ok {
 				return fmt.Errorf("failed to get src nodeinfo, src is %v", state.Src.String())
@@ -464,9 +459,20 @@ func (is *IpSecHandler) CreateNewStateFromOldByLocalNidIP(nicIP []string) error 
 				return fmt.Errorf("failed to get dst nodeinfo, dst is %v", state.Dst.String())
 			}
 
-			state.Aead.Key = is.generateIPSecKey(state.Src.String(), state.Dst.String(), srcInfo.bootID, dstInfo.bootID)
+			state.Aead.Key = is.generateIPSecKey(state.Src.String(), state.Dst.String(), srcInfo.bootID, dstInfo.bootID, is.AeadKey)
 			state.Spi = int(is.Spi)
-			if err = netlink.XfrmStateAdd(&state); err != nil {
+			err = netlink.XfrmStateAdd(&state)
+			if os.IsExist(err) {
+				// xfrm state update can not change has exist state
+				// spi should grow step by step. If this spi is delete for
+				// a short period of time, a small number of data packets
+				// that are being sent by the spi may fail to be sent.
+				// However, if the spi that is being sent is not the deleted
+				// spi, there is no impact on the spi.
+				netlink.XfrmStateDel(&state)
+				err = netlink.XfrmStateAdd(&state)
+			}
+			if err != nil {
 				return fmt.Errorf("failed to add xfrm state to host in create new state from old, err is %v", err)
 			}
 		}

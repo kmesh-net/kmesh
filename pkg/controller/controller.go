@@ -145,7 +145,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("failed to new IPsec controller, %v", err)
 		}
 		go c.ipsecController.Run(stopCh)
-		log.Info("start IPsec coontroller successfully")
+		log.Info("start IPsec controller successfully")
 	}
 
 	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)

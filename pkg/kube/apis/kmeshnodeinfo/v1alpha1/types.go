@@ -1,6 +1,8 @@
 package v1alpha1
 
-import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -41,6 +43,13 @@ type KmeshNodeInfoSpec struct {
 	 * determine which IPsec state is used for encryption.
 	 */
 	PodCirds []string `json:"cirds"`
+	/*
+		 * CreateTime indicates the creation time of the current data, which can
+		 * be used by different nodes to determine whether the data being used
+		 * by the current machine is the latest and whether it needs to wait for
+		* updates.
+	*/
+	CreateTime string `json:"createtime"`
 }
 
 type KmeshNodeInfoStatus struct {
