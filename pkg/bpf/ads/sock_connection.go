@@ -165,7 +165,6 @@ func (sc *BpfSockConn) Attach() error {
 		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
 			return err
 		}
-
 	} else {
 		sc.Link, err = link.AttachCgroup(cgopt)
 		if err != nil {
