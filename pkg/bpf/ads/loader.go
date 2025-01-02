@@ -30,7 +30,6 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/utils"
-	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -69,10 +68,6 @@ func (sc *BpfAds) Start() error {
 	ret := C.deserial_init()
 	if ret != 0 {
 		return fmt.Errorf("deserial_init failed:%v", ret)
-	}
-
-	if err := maglev.InitMaglevMap(); err != nil {
-		return fmt.Errorf("consistent hash lb maglev config init failed, %s", err)
 	}
 
 	return nil
