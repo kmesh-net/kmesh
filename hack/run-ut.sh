@@ -22,10 +22,7 @@ function docker_run_go_ut() {
     local container_id=$1
     docker exec $container_id $go_test_command
     exit_code=$?
-    echo "exit code: $exit_code"
-    if [ $exit_code -ne 0 ]; then
-        exit $exit_code
-    fi
+    return $exit_code
 }
 
 function run_go_ut_local() {
@@ -36,11 +33,12 @@ function run_go_ut_local() {
 }
 
 function run_go_ut_in_docker() {
-    prepare
     container_id=$(run_docker_container)
     build_kmesh $container_id
     docker_run_go_ut $container_id
+    ut_exit_code=$?
     clean_container $container_id
+    exit $ut_exit_code
 }
 
 function clean() {
