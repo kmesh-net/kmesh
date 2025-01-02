@@ -31,7 +31,6 @@ import (
 	"kmesh.net/kmesh/api/v2/filter"
 	listener_v2 "kmesh.net/kmesh/api/v2/listener"
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf/ads"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/nets"
@@ -409,72 +408,6 @@ func TestListenerFlushAndLookup(t *testing.T) {
 	assert.Equal(t, listener.String(), listener_val.String())
 }
 
-func checkMap64Count(adsObj *ads.BpfAds, t *testing.T) int {
-	var count int
-	var key uint32
-	var value [64]byte
-	kmeshMap64 := adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap64
-	iter := kmeshMap64.Iterate()
-	for iter.Next(&key, &value) {
-		count++
-	}
-	assert.Nil(t, iter.Err())
-	return count
-}
-
-func checkMap192Count(adsObj *ads.BpfAds, t *testing.T) int {
-	var count int
-	var key uint32
-	var value [192]byte
-	kmeshMap192 := adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap192
-	iter := kmeshMap192.Iterate()
-	for iter.Next(&key, &value) {
-		count++
-	}
-	assert.Nil(t, iter.Err())
-	return count
-}
-
-func checkMap296Count(adsObj *ads.BpfAds, t *testing.T) int {
-	var count int
-	var key uint32
-	var value [296]byte
-	kmeshMap296 := adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap296
-	iter := kmeshMap296.Iterate()
-	for iter.Next(&key, &value) {
-		count++
-	}
-	assert.Nil(t, iter.Err())
-	return count
-}
-
-func checkMap1600Count(adsObj *ads.BpfAds, t *testing.T) int {
-	var count int
-	var key uint32
-	var value [1600]byte
-	kmeshMap1600 := adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap1600
-	iter := kmeshMap1600.Iterate()
-	for iter.Next(&key, &value) {
-		count++
-	}
-	assert.Nil(t, iter.Err())
-	return count
-}
-
-func checkMapListenerCount(adsObj *ads.BpfAds, t *testing.T) int {
-	var count int
-	var key [40]byte
-	var value [64]byte
-	KmListener := adsObj.SockConn.KmeshCgroupSockMaps.KmListener
-	iter := KmListener.Iterate()
-	count = 0
-	for iter.Next(&key, &value) {
-		count++
-	}
-	assert.Nil(t, iter.Err())
-	return count
-}
-
 func TestListenerUpdateAndDeleteFlush(t *testing.T) {
 	config := options.BpfConfig{
 		Mode:        constants.KernelNativeMode,
@@ -516,29 +449,29 @@ func TestListenerUpdateAndDeleteFlush(t *testing.T) {
 	cache.Flush()
 	assert.Equal(t, listener.GetApiStatus(), core_v2.ApiStatus_NONE)
 
-	count = checkMap64Count(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap64, t)
 	assert.NotEqual(t, 0, count, "eBPF map kmeshMap64 elements count should not 0")
-	count = checkMap192Count(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap192, t)
 	assert.NotEqual(t, 0, count, "eBPF map kmeshMap192 elements count should not 0")
 	//map296 elem nums is 0 in this test
-	count = checkMap296Count(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap296, t)
 	assert.Equal(t, 0, count, "eBPF map kmeshMap296 elements count should not 0")
-	count = checkMap1600Count(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap1600, t)
 	assert.NotEqual(t, 0, count, "eBPF map kmeshMap1600 elements count should not 0")
-	count = checkMapListenerCount(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmListener, t)
 	assert.NotEqual(t, 0, count, "eBPF map KmListener elements count should not 0")
 
 	listener.ApiStatus = core_v2.ApiStatus_DELETE
 	cache.Flush()
 
-	count = checkMap64Count(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap64, t)
 	assert.Equal(t, 0, count, "eBPF map kmeshMap64 elements count should be 0")
-	count = checkMap192Count(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap192, t)
 	assert.Equal(t, 0, count, "eBPF map kmeshMap192 elements count should be 0")
-	count = checkMap296Count(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap296, t)
 	assert.Equal(t, 0, count, "eBPF map kmeshMap296 elements count should be 0")
-	count = checkMap1600Count(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap1600, t)
 	assert.Equal(t, 0, count, "eBPF map kmeshMap1600 elements count should be 0")
-	count = checkMapListenerCount(adsObj, t)
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmListener, t)
 	assert.Equal(t, 0, count, "eBPF map KmListener elements count should be 0")
 }

@@ -21,7 +21,9 @@ import (
 	"syscall"
 	"testing"
 
+	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
+	"github.com/stretchr/testify/assert"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
@@ -80,4 +82,20 @@ func EqualIp(src [16]byte, dst []byte) bool {
 		}
 	}
 	return true
+}
+
+func GetMapCount(kmeshMap *ebpf.Map, t *testing.T) int {
+	count := 0
+	keySize := int(kmeshMap.KeySize())
+	valueSize := int(kmeshMap.ValueSize())
+	iter := kmeshMap.Iterate()
+
+	key := make([]byte, keySize)
+	value := make([]byte, valueSize)
+
+	for iter.Next(key, value) {
+		count++
+	}
+	assert.Nil(t, iter.Err())
+	return count
 }
