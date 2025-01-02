@@ -37,11 +37,8 @@ function run_go_ut_in_docker() {
     build_kmesh $container_id
     docker_run_go_ut $container_id
     ut_exit_code=$?
-    if [ $exit_code -ne 0 ]; then
-        clean_container $container_id
-        exit $exit_code
-    fi
     clean_container $container_id
+    exit $ut_exit_code
 }
 
 function clean() {
