@@ -10,9 +10,9 @@ function get_go_test_command() {
     fi
 
     if [ -z "$TEST_TARGET" ]; then
-        echo "go test -v -race -vet=off $TEST_PKG"
+        echo "go test -p 1 -v -race -vet=off $TEST_PKG"
     else
-        echo "go test -v -race -vet=off -run $TEST_TARGET $TEST_PKG"
+        echo "go test -p 1 -v -race -vet=off -run $TEST_TARGET $TEST_PKG"
     fi
 }
 
