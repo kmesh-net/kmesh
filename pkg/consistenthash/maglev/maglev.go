@@ -75,6 +75,10 @@ func InitMaglevMap(maglevMap *ebpf.Map) (*Maglev, error) {
 
 // only trafficPolicy enable maglev in DestinationRule would create lb
 func (m *Maglev) CreateLB(cluster *cluster_v2.Cluster) error {
+	if m == nil {
+		return nil
+	}
+
 	if cluster == nil {
 		return errors.New("cluster is nil")
 	}

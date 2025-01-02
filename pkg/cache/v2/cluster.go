@@ -73,7 +73,11 @@ func NewClusterCache(bpfAds *bpfads.BpfAds, hashName *utils.HashName) ClusterCac
 		}
 	}
 
-	m, _ := maglev.InitMaglevMap(maglevOuter)
+	m, err := maglev.InitMaglevMap(maglevOuter)
+	if err != nil {
+		log.Errorf("InitMaglevMap failed: %v", err)
+	}
+
 	return ClusterCache{
 		apiClusterCache: apiClusterCache,
 		resourceHash:    make(map[string][2]uint64),
