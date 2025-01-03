@@ -26,13 +26,14 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfXdpAuthWorkload struct {
-	Info BpfInfo
+	Info general.BpfInfo
 	bpf2go.KmeshXDPAuthObjects
 }
 

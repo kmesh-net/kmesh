@@ -106,7 +106,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 		_ = statusServer.StopServer()
 	}()
 
-	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
+	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode, configs.BpfConfig.EnableIPsec,
 		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained, configs.CniConfig.ServiceAccountPath)
 	if err := cniInstaller.Start(); err != nil {
 		return err

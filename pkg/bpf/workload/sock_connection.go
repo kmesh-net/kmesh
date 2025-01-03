@@ -27,6 +27,7 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
@@ -34,9 +35,9 @@ import (
 )
 
 type SockConnWorkload struct {
-	Info  BpfInfo
+	Info  general.BpfInfo
 	Link  link.Link
-	Info6 BpfInfo
+	Info6 general.BpfInfo
 	Link6 link.Link
 	bpf2go.KmeshCgroupSockWorkloadObjects
 }

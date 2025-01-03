@@ -19,6 +19,7 @@ package kmeshmanage
 import (
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/cilium/ebpf/link"
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -34,7 +35,9 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
+	"github.com/safchain/ethtool"
 	"kmesh.net/kmesh/pkg/constants"
+	kmesh_netns "kmesh.net/kmesh/pkg/controller/netns"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
 	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/kube"
@@ -66,6 +69,7 @@ type KmeshManageController struct {
 	client            kubernetes.Interface
 	sm                *kmeshsecurity.SecretManager
 	xdpProgFd         int
+	tcProgFd          int
 	mode              string
 }
 
@@ -78,7 +82,7 @@ func isPodReady(pod *corev1.Pod) bool {
 	return false
 }
 
-func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.SecretManager, xdpProgFd int, mode string) (*KmeshManageController, error) {
+func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.SecretManager, xdpProgFd, tcProgFd int, mode string) (*KmeshManageController, error) {
 	informerFactory := kube.NewInformerFactory(client)
 	podInformer := informerFactory.Core().V1().Pods().Informer()
 	podLister := informerFactory.Core().V1().Pods().Lister()
@@ -98,6 +102,7 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 		client:            client,
 		sm:                sm,
 		xdpProgFd:         xdpProgFd,
+		tcProgFd:          tcProgFd,
 		mode:              mode,
 	}
 
@@ -219,6 +224,7 @@ func (c *KmeshManageController) handleNamespaceUpdate(oldObj, newObj interface{}
 	}
 }
 
+// TODO: enable tc encrypt
 func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 	sendCertRequest(c.sm, pod, kmeshsecurity.ADD)
 	if !isPodReady(pod) {
@@ -233,8 +239,10 @@ func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 	}
 	c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
 	_ = linkXdp(nspath, c.xdpProgFd, c.mode)
+	_ = linkTc(nspath, c.tcProgFd)
 }
 
+// TODO: disable tc encrypt
 func (c *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 	sendCertRequest(c.sm, pod, kmeshsecurity.DELETE)
 	if !isPodReady(pod) {
@@ -249,6 +257,7 @@ func (c *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 	}
 	c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
 	_ = unlinkXdp(nspath, c.mode)
+	_ = unlinkTc(nspath, c.tcProgFd)
 }
 
 func (c *KmeshManageController) enableKmeshForPodsInNamespace(namespace *corev1.Namespace) {
@@ -433,5 +442,111 @@ func unlinkXdp(netNsPath string, mode string) error {
 		return err
 	}
 
+	return nil
+}
+
+func getVethPeerIndex() (ifIndex uint64, err error) {
+	ifIndex = 0
+	// Get all NIC iface in a pod
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return ifIndex, err
+	}
+	ethHandle, err := ethtool.NewEthtool()
+	if err != nil {
+		return ifIndex, err
+	}
+	defer ethHandle.Close()
+	// Link XDP prog on every iface, except loopback or not up
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagLoopback != 0 || iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		if driver, err := ethHandle.DriverName(iface.Name); err != nil {
+			log.Errorf("failed to get %v driver name, %v", iface.Name, err)
+			continue
+		} else if strings.Compare(driver, "veth") != 0 {
+			continue
+		}
+
+		if stats, err := ethHandle.Stats(iface.Name); err != nil {
+			log.Errorf("failed to get %v stats, %v", iface.Name, err)
+			continue
+		} else {
+			ifIndex = stats["peer_ifindex"]
+			break
+		}
+	}
+	return ifIndex, nil
+}
+
+func managleVethTc(ifIndex uint64, tcProgFd int, mode int) error {
+	var (
+		err  error
+		link netlink.Link
+	)
+	if link, err = netlink.LinkByIndex(int(ifIndex)); err != nil {
+		return fmt.Errorf("failed to link valid interface, %v", err)
+	}
+
+	return utils.ManageTCProgramByFd(link, tcProgFd, mode)
+}
+
+func linkTc(netNsPath string, tcProgFd int) error {
+	var (
+		err     error
+		ifIndex uint64
+	)
+
+	if tcProgFd == -1 {
+		return nil
+	}
+
+	warpGetVethPeerNum := func(_ netns.NetNS) error {
+		ifIndex, err = getVethPeerIndex()
+		return err
+	}
+
+	if err = netns.WithNetNSPath(netNsPath, warpGetVethPeerNum); err != nil {
+		err = fmt.Errorf("Run get veth peer num in netNsPath %v failed, err: %v", netNsPath, err)
+		return err
+	}
+	// set tc on node namespace veth peer
+	if err = netns.WithNetNSPath(kmesh_netns.GetNodeNSpath(), func(_ netns.NetNS) error {
+		return managleVethTc(ifIndex, tcProgFd, constants.TC_ATTACH)
+	}); err != nil {
+		err = fmt.Errorf("Run link tc in netNsPath %v failed, err: %v", netNsPath, err)
+		return err
+	}
+
+	return nil
+}
+
+func unlinkTc(netNsPath string, tcProgFd int) error {
+	var (
+		err     error
+		ifIndex uint64
+	)
+
+	if tcProgFd == -1 {
+		return nil
+	}
+
+	warpGetVethPeerNum := func(_ netns.NetNS) error {
+		ifIndex, err = getVethPeerIndex()
+		return err
+	}
+
+	if err = netns.WithNetNSPath(netNsPath, warpGetVethPeerNum); err != nil {
+		err = fmt.Errorf("Run get veth peer num in netNsPath %v failed, err: %v", netNsPath, err)
+		return err
+	}
+	// set tc on node namespace veth peer
+	if err := netns.WithNetNSPath(kmesh_netns.GetNodeNSpath(), func(_ netns.NetNS) error {
+		return managleVethTc(ifIndex, tcProgFd, constants.TC_DETACH)
+	}); err != nil {
+		err = fmt.Errorf("Run link tc in netNsPath %v failed, err: %v", netNsPath, err)
+		return err
+	}
 	return nil
 }
