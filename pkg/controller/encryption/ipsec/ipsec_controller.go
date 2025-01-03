@@ -68,7 +68,7 @@ type lpmKey struct {
 	ip     [4]uint32
 }
 
-type IpsecController struct {
+type IPSecController struct {
 	informer      cache.SharedIndexInformer
 	lister        kmeshnodeinfov1alpha1.KmeshNodeInfoLister
 	queue         workqueue.TypedRateLimitingInterface[any]
