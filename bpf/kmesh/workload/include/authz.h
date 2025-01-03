@@ -15,7 +15,6 @@
 #define AUTH_DENY       1
 #define UNMATCHED       0
 #define MATCHED         1
-#define UNSUPPORTED     2
 #define TYPE_SRCIP      (1)
 #define TYPE_DSTIP      (1 << 1)
 #define CONVERT_FAILED  1
@@ -174,7 +173,6 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
     }
     // if not match not_destination_ports && has no destination_ports, return MATCHED
     if (match->n_destination_ports == 0) {
-        BPF_LOG(DEBUG, AUTH, "no destination_ports configured, matching by default");
         return MATCHED;
     }
 
@@ -200,7 +198,6 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
             }
         }
     }
-    BPF_LOG(DEBUG, AUTH, "no matching ports found, unmatched");
     return UNMATCHED;
 }
 
@@ -303,22 +300,11 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
 
     if (addrInfo->len == IPV4_BYTE_LEN) {
         __u32 rule_ip = convert_ipv4_to_u32(addrInfo, false);
-        if (type & TYPE_SRCIP) {
-            BPF_LOG(
-                DEBUG,
-                AUTH,
-                "IPv4 match srcip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
-                rule_ip,
-                preFixLen,
-                bpf_ntohl(tuple_info->ipv4.saddr));
-        } else if (type & TYPE_DSTIP) {
-            BPF_LOG(
-                DEBUG,
-                AUTH,
-                "IPv4 match dstip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
-                rule_ip,
-                preFixLen,
-                bpf_ntohl(tuple_info->ipv4.daddr));
+        if (type & (TYPE_SRCIP | TYPE_DSTIP)) {
+            __u32 target_ip =
+                (type & TYPE_SRCIP) ? bpf_ntohl(tuple_info->ipv4.saddr) : bpf_ntohl(tuple_info->ipv4.daddr);
+            const char *ip_type = (type & TYPE_SRCIP) ? "srcip" : "dstip";
+            BPF_LOG(DEBUG, AUTH, "IPv4 match %s: Rule IP: %x, Target IP: %x\n", ip_type, rule_ip, target_ip);
         }
         return match_ipv4_rule(rule_ip, preFixLen, tuple_info, type);
     } else if (addrInfo->len == IPV6_BYTE_LEN) {
@@ -332,22 +318,18 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
             }
             if (is_ipv4_mapped_addr(rule_addr.ip6)) {
                 __u32 rule_ip = convert_ipv4_to_u32(addrInfo, true);
-                if (type & TYPE_SRCIP) {
+
+                if (type & (TYPE_SRCIP | TYPE_DSTIP)) {
+                    __u32 target_ip =
+                        (type & TYPE_SRCIP) ? bpf_ntohl(tuple_info->ipv4.saddr) : bpf_ntohl(tuple_info->ipv4.daddr);
+                    const char *ip_type = (type & TYPE_SRCIP) ? "srcip" : "dstip";
                     BPF_LOG(
                         DEBUG,
                         AUTH,
-                        "IPv4_in_IPv6 match srcip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
+                        "IPv4_in_IPv6 match %s: Rule IP: %x, Target IP: %x\n",
+                        ip_type,
                         rule_ip,
-                        preFixLen,
-                        bpf_ntohl(tuple_info->ipv4.saddr));
-                } else if (type & TYPE_DSTIP) {
-                    BPF_LOG(
-                        DEBUG,
-                        AUTH,
-                        "IPv4_in_IPv6 match dstip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
-                        rule_ip,
-                        preFixLen,
-                        bpf_ntohl(tuple_info->ipv4.daddr));
+                        target_ip);
                 }
                 return match_ipv4_rule(rule_ip, preFixLen, tuple_info, type);
             } else {
