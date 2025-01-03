@@ -37,7 +37,6 @@ static inline bool is_ipv6(struct tc_info *info)
     return info->ethh->h_proto == bpf_htons(ETH_P_IPV6);
 }
 
-
 static inline int parser_tc_info(struct __sk_buff *ctx, struct tc_info *info)
 {
     void *begin = (void *)(long)(ctx->data);
@@ -66,7 +65,7 @@ static inline int parser_tc_info(struct __sk_buff *ctx, struct tc_info *info)
     return PARSER_SUCC;
 }
 
-struct nodeinfo * getNodeInfo(struct __sk_buff *ctx, struct tc_info *info, __u32 ip4, __u32 *ip6)
+struct nodeinfo *getNodeInfo(struct __sk_buff *ctx, struct tc_info *info, __u32 ip4, __u32 *ip6)
 {
     struct lpm_key key = {0};
     struct bpf_sock_tuple tuple_key = {0};
@@ -74,7 +73,7 @@ struct nodeinfo * getNodeInfo(struct __sk_buff *ctx, struct tc_info *info, __u32
     if (is_ipv4(info)) {
         key.trie_key.prefixlen = 32;
         key.ip.ip4 = ip4;
-    } else if (is_ipv6(info)){
+    } else if (is_ipv6(info)) {
         // original data boundary access will be lost.
         // The boundary needs to be determined again.
         if ((void *)(info->ip6h + 1) > end) {
