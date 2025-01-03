@@ -155,7 +155,6 @@ func Test_handleWorkload(t *testing.T) {
 		Address: addr,
 	}
 	got := p.WorkloadCache.GetWorkloadByAddr(networkAddress)
-	t.Logf("workload3: %v", got)
 	assert.NotNil(t, got)
 	assert.Equal(t, got.Status, workloadapi.WorkloadStatus_UNHEALTHY)
 	checkNotExistInFrontEndMap(t, workload3.Addresses[0], p)
