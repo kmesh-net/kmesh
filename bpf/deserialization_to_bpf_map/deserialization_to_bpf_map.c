@@ -572,7 +572,7 @@ static int repeat_field_handle(struct op_context *ctx, const ProtobufCFieldDescr
             if (outer_key < 0)
                 goto end;
 
-            *((uintptr_t *)map_object + i) = (size_t)outer_key;
+            *((unsigned int *)map_object + i) = (size_t)outer_key;
             ret = copy_indirect_data_to_map(ctx, outer_key, origin_value[i], field->type);
             if (ret)
                 goto end;
