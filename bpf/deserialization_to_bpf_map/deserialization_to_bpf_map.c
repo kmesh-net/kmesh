@@ -1142,8 +1142,7 @@ static int repeat_field_del(struct op_context *ctx, const ProtobufCFieldDescript
             goto end;
 
         for (i = 0; i < *(size_t *)n; i++) {
-            outer_key = (unsigned int *)map_object + i;
-            indirect_field_del(ctx, *outer_key, field);
+            indirect_field_del(ctx, *((uintptr_t *)map_object + i), field);
         }
     default:
         break;
