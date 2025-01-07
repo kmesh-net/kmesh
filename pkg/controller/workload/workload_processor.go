@@ -463,7 +463,10 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	oldWorkload := p.WorkloadCache.GetWorkloadByUid(workload.GetUid())
 	// Keep track of the workload no matter it is healthy, unhealthy workload is just for debugging
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
-	p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
+	// We only do authz for workloads within same node.
+	if p.nodeName == workload.Node {
+		p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
+	}
 
 	// update kmesh localityCache
 	// TODO: recalculate endpoints priority once local locality is set
