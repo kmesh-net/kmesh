@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 	"kmesh.net/kmesh/pkg/logger"
@@ -38,12 +39,20 @@ var log = logger.NewLoggerScope("bpf_ads")
 
 type BpfAds struct {
 	SockConn BpfSockConn
+	Tc       *general.BpfTCGeneral
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
 	if err := sc.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
+	}
+	if cfg.EnableIPsec {
+		var err error
+		sc.Tc, err = general.NewBpf(cfg)
+		if err != nil {
+			return nil, err
+		}
 	}
 	return sc, nil
 }
@@ -92,6 +101,10 @@ func (sc *BpfAds) Load() error {
 		return err
 	}
 
+	if err := sc.Tc.LoadTC(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -134,6 +147,9 @@ func (sc *BpfAds) Attach() error {
 
 func (sc *BpfAds) Detach() error {
 	if err := sc.SockConn.Detach(); err != nil {
+		return err
+	}
+	if err := sc.Tc.Close(); err != nil {
 		return err
 	}
 	return nil
