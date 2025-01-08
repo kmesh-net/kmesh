@@ -55,6 +55,7 @@ func (i *Installer) removeCniConfig() error {
 
 type Installer struct {
 	Mode               string
+	EnableIpSec        bool
 	CniMountNetEtcDIR  string
 	CniConfigName      string
 	CniConfigChained   bool
@@ -64,12 +65,14 @@ type Installer struct {
 }
 
 func NewInstaller(mode string,
+	enableIpSec bool,
 	cniMountNetEtcDIR string,
 	cniConfigName string,
 	cniConfigChained bool,
 	serviceAccountPath string) *Installer {
 	return &Installer{
 		Mode:               mode,
+		EnableIpSec:        enableIpSec,
 		CniMountNetEtcDIR:  cniMountNetEtcDIR,
 		CniConfigName:      cniConfigName,
 		CniConfigChained:   cniConfigChained,

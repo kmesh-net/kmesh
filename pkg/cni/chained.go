@@ -117,12 +117,13 @@ func (i *Installer) insertCNIConfig(oldconfig []byte, mode string) ([]byte, erro
 		}
 	}
 
-	kmeshConfig := map[string]string{}
+	kmeshConfig := map[string]any{}
 	kubeconfigFilepath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)
 	// add kmesh-cni configuration
 	kmeshConfig["type"] = kmeshCniPluginName
 	kmeshConfig["kubeConfig"] = kubeconfigFilepath
 	kmeshConfig["mode"] = mode // provide mode here, so that kmesh-cni can decide how to run
+	kmeshConfig["enableIpSec"] = i.EnableIpSec
 	if kmeshIndex >= 0 {
 		plugins[kmeshIndex] = kmeshConfig
 		cniConfigMap["plugins"] = plugins
