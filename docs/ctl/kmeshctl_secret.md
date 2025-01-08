@@ -10,15 +10,18 @@ kmeshctl secret [flags]
 
 ```
 # Use secrets to generate secret configuration data for IPsec:
- kmeshctl secret aeadKey aeadLength, only support rfc4106(gcm(aes))
+ kmeshctl secret --key or -k, only support use aead algo: rfc4106(gcm(aes))
+ key need 36 characters(use 32 characters as key, 4 characters as salt).
+ Hexadecimal dump is required when the key is entered.
+ e.g.:kmeshctl secret --key=$(dd if=/dev/urandom count=36 bs=1 2>/dev/null | xxd -p -c 64)
+ e.g.:kmeshctl secret -k=$(echo -n "{36-character user-defined key here}" | xxd -p -c 64)
 ```
 
 ### Options
 
 ```
-  -h, --help            help for secret
-  -l, --icvlength int   length of integrity check value
-  -k, --key string      key of the encryption
+  -h, --help         help for secret
+  -k, --key string   key of the encryption
 ```
 
 ### SEE ALSO
