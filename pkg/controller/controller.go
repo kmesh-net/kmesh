@@ -20,6 +20,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/ebpf"
+
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"

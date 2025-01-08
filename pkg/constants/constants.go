@@ -31,6 +31,12 @@ const (
 	ENABLED       = uint32(1)
 	DISABLED      = uint32(0)
 
+	TC_MARK_DECRYPT = "tc_mark_decrypt"
+	TC_MARK_ENCRYPT = "tc_mark_encrypt"
+
+	TC_ATTACH = 0
+	TC_DETACH = 1
+
 	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
 	TrustDomain  = "cluster.local"
 
@@ -69,4 +75,6 @@ const (
 
 	TailCallMap = "tail_call_map"
 	Prog_link   = "prog_link"
+
+	ALL_CIDR = "0.0.0.0/0"
 )
