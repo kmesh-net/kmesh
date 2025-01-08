@@ -11,3 +11,6 @@ rules:
 - apiGroups: ["apps"]
   resources: ["daemonsets"]
   verbs: ["get"]
+- apiGroups: ["kmesh.net"]
+  resources: ["kmeshnodeinfos"]
+  verbs: ["get", "create", "update", "delete", "list", "watch"]
