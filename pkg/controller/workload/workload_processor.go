@@ -1067,7 +1067,7 @@ func (p *Processor) deleteWorkloadPolicies(uid uint32) {
 		WorklodId: uid,
 	}
 	if err := p.bpf.WorkloadPolicyDelete(&key); err != nil {
-		log.Errorf("delete workload policy failed, workload %s, err: %s", uid, err)
+		log.Errorf("delete workload policy failed err: %v", err)
 	}
 }
 
