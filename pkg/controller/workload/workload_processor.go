@@ -180,17 +180,16 @@ func (p *Processor) removeWorkload(uid string) error {
 	}
 	p.WorkloadCache.DeleteWorkload(uid)
 	telemetry.DeleteWorkloadMetric(wl)
-	return p.removeWorkloadFromBpfMap(uid)
+	return p.removeWorkloadFromBpfMap(wl)
 }
 
-func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
+func (p *Processor) removeWorkloadFromBpfMap(workload *workloadapi.Workload) error {
 	var (
-		err       error
-		bkDelete  = bpf.BackendKey{}
-		wpkDelete = bpf.WorkloadPolicyKey{}
+		err      error
+		bkDelete = bpf.BackendKey{}
 	)
 
-	backendUid := p.hashName.Hash(uid)
+	backendUid := p.hashName.Hash(workload.Uid)
 	// 1. for Pod to Pod access, Pod info stored in frontend map, when Pod offline, we need delete the related records
 	if err = p.deletePodFrontendData(backendUid); err != nil {
 		log.Errorf("deletePodFrontendData %d failed: %v", backendUid, err)
@@ -212,16 +211,11 @@ func (p *Processor) removeWorkloadFromBpfMap(uid string) error {
 	}
 
 	// 4. delete auth policy of workload
-	wpkValue := bpf.WorkloadPolicyValue{}
-	wpkDelete.WorklodId = backendUid
-	if err = p.bpf.WorkloadPolicyLookup(&wpkDelete, &wpkValue); err == nil {
-		if err = p.bpf.WorkloadPolicyDelete(&wpkDelete); err != nil {
-			log.Errorf("WorkloadPolicyDelete failed: %s", err)
-			return err
-		}
+	if workload.Node == p.nodeName {
+		p.deleteWorkloadPolicies(backendUid)
 	}
 
-	p.hashName.Delete(uid)
+	p.hashName.Delete(workload.Uid)
 	return nil
 }
 
@@ -463,7 +457,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	oldWorkload := p.WorkloadCache.GetWorkloadByUid(workload.GetUid())
 	// Keep track of the workload no matter it is healthy, unhealthy workload is just for debugging
 	p.WorkloadCache.AddOrUpdateWorkload(workload)
-	// We only do authz for workloads within same node.
+	// We only do authz for workloads within same node. So no need to store other unused authorization
 	if p.nodeName == workload.Node {
 		p.storeWorkloadPolicies(workload.GetUid(), workload.GetAuthorizationPolicies())
 	}
@@ -478,7 +472,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	if workload.Status == workloadapi.WorkloadStatus_UNHEALTHY {
 		log.Debugf("workload %s is unhealthy", workload.ResourceName())
 		// If the workload is updated to unhealthy, we should remove it from the bpf map
-		return p.removeWorkloadFromBpfMap(workload.Uid)
+		return p.removeWorkloadFromBpfMap(workload)
 	}
 
 	// 1. update workload in backend map
@@ -886,7 +880,8 @@ func (p *Processor) handleRemovedAddressesDuringRestart() {
 			sk.ServiceId = num
 			if err := p.bpf.BackendLookup(&bk, &bv); err == nil {
 				log.Debugf("found BackendValue: [%#v] and removeWorkloadFromBpfMap", bv)
-				if err := p.removeWorkloadFromBpfMap(str); err != nil {
+				dummyWorkload := &workloadapi.Workload{Uid: str}
+				if err := p.removeWorkloadFromBpfMap(dummyWorkload); err != nil {
 					log.Errorf("removeWorkloadFromBpfMap failed: %v", err)
 				}
 			} else if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
@@ -1064,6 +1059,15 @@ func (p *Processor) storeWorkloadPolicies(uid string, polices []string) {
 
 	if err := p.bpf.WorkloadPolicyUpdate(&key, &value); err != nil {
 		log.Errorf("storeWorkloadPolicies failed, workload %s, err: %s", uid, err)
+	}
+}
+
+func (p *Processor) deleteWorkloadPolicies(uid uint32) {
+	key := bpf.WorkloadPolicyKey{
+		WorklodId: uid,
+	}
+	if err := p.bpf.WorkloadPolicyDelete(&key); err != nil {
+		log.Errorf("delete workload policy failed, workload %s, err: %s", uid, err)
 	}
 }
 
