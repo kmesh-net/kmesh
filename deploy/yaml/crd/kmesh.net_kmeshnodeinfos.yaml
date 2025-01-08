@@ -1,0 +1,78 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.16.4
+  name: kmeshnodeinfos.kmesh.net
+spec:
+  group: kmesh.net
+  names:
+    kind: KmeshNodeInfo
+    listKind: KmeshNodeInfoList
+    plural: kmeshnodeinfos
+    singular: kmeshnodeinfo
+  scope: Namespaced
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: KmeshNode is the Schema for the kmeshnodes API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            properties:
+              addresses:
+                description: |-
+                  Addresses is used to store the internal ip address informatioon on the
+                  host. The IP address information is used to generate the IPsec state
+                  informatioon. IPsec uses this information to determine which network
+                  adapter is used to encrypt and send data.
+                items:
+                  type: string
+                type: array
+              bootID:
+                description: |-
+                  bootid is used to generate the ipsec key. After the node is restarted,
+                  the key needs to be updated.
+                type: string
+              podCIDRS:
+                description: |-
+                  PodCIDRs used in IPsec checks the destination of the data to
+                  determine which IPsec state is used for encryption.
+                items:
+                  type: string
+                type: array
+              spi:
+                description: |-
+                  The SPI is used to identify the version number of the current key.
+                  The communication can be normal only when both communication parties
+                  have spis and the spi keys are the same.
+                type: integer
+            required:
+            - addresses
+            - bootID
+            - podCIDRS
+            - spi
+            type: object
+          status:
+            type: object
+        type: object
+    served: true
+    storage: true

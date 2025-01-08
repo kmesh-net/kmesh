@@ -20,6 +20,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+
+	nodeinfo "kmesh.net/kmesh/pkg/kube/nodeinfo/clientset/versioned"
 )
 
 // CreateKubeClient creates a kube client with the given kubeconfig file, if no kubeconfig specified, in cluster kubeconfig will be used.
@@ -42,4 +44,18 @@ func CreateKubeClient(kubeConfig string, applyFuncs ...func(c *rest.Config)) (ku
 	}
 
 	return kubernetes.NewForConfig(restConfig)
+}
+
+func GetKmeshNodeInfoClient() (nodeinfo.Interface, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	// Create kmesh node info clientset
+	clientset, err := nodeinfo.NewForConfig(config)
+	if err != nil {
+		return nil, err
+	}
+	return clientset, nil
 }
