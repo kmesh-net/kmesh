@@ -595,7 +595,8 @@ func TestRestart(t *testing.T) {
 // If it is not cleaned, it will affect other use cases.
 func hashNameClean(p *Processor) {
 	for str := range p.hashName.GetStrToNum() {
-		if err := p.removeWorkloadFromBpfMap(str); err != nil {
+		dummyWorkload := &workloadapi.Workload{Uid: str}
+		if err := p.removeWorkloadFromBpfMap(dummyWorkload); err != nil {
 			log.Errorf("RemoveWorkloadResource failed: %v", err)
 		}
 
