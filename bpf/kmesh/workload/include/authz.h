@@ -638,9 +638,9 @@ int policy_check(struct xdp_md *ctx)
             continue;
         }
         if (rule_match_check(rule, &info, &tuple_key, match_ctx) == MATCHED) {
-            BPF_LOG(INFO, AUTH, "policy %s matched", match_ctx->policy_name);
+            BPF_LOG(DEBUG, AUTH, "policy %s matched", match_ctx->policy_name);
             BPF_LOG(
-                INFO,
+                DEBUG,
                 AUTH,
                 "src ip: %u, dst ip %u, dst port: %u\n",
                 tuple_key.ipv4.saddr,
