@@ -602,6 +602,7 @@ int policy_check(struct xdp_md *ctx)
     struct match_context *match_ctx;
     struct bpf_sock_tuple tuple_key = {0};
     struct xdp_info info = {0};
+    bool matched = false;
     void *rulesPtr;
     __u64 rule_addr;
     void *rule;
@@ -638,23 +639,38 @@ int policy_check(struct xdp_md *ctx)
             continue;
         }
         if (rule_match_check(rule, &info, &tuple_key, match_ctx) == MATCHED) {
-            BPF_LOG(DEBUG, AUTH, "policy %s matched", match_ctx->policy_name);
+            matched = true;
+            break;
+        }
+    }
+
+    if (matched) {
+        BPF_LOG(DEBUG, AUTH, "policy %s matched", match_ctx->policy_name);
+        if (info.iph->version == IPV4_VERSION) {
             BPF_LOG(
                 DEBUG,
                 AUTH,
                 "src ip: %u, dst ip %u, dst port: %u\n",
-                tuple_key.ipv4.saddr,
-                tuple_key.ipv4.daddr,
+                ip2str(&tuple_key.ipv4.saddr, true),
+                ip2str(&tuple_key.ipv4.daddr, true),
                 bpf_ntohs(tuple_key.ipv4.dport));
-            if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to delete tail call context from map");
-            }
-            __u32 auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? AUTH_DENY : AUTH_ALLOW;
-            if (bpf_map_update_elem(&map_of_auth_result, &tuple_key, &auth_result, BPF_ANY) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to update auth result in map_of_auth_result");
-            }
-            return match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_DROP : XDP_PASS;
+        } else {
+            BPF_LOG(
+                DEBUG,
+                AUTH,
+                "src ip: %u, dst ip %u, dst port: %u\n",
+                ip2str(&tuple_key.ipv6.saddr[0], false),
+                ip2str(&tuple_key.ipv6.daddr[0], false),
+                bpf_ntohs(tuple_key.ipv6.dport));
         }
+        if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
+            BPF_LOG(ERR, AUTH, "failed to delete tail call context from map");
+        }
+        __u32 auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? AUTH_DENY : AUTH_ALLOW;
+        if (bpf_map_update_elem(&map_of_auth_result, &tuple_key, &auth_result, BPF_ANY) != 0) {
+            BPF_LOG(ERR, AUTH, "failed to update auth result in map_of_auth_result");
+        }
+        return match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_DROP : XDP_PASS;
     }
 
     match_ctx->policy_index++;
