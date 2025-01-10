@@ -31,6 +31,7 @@ struct {
 
 struct match_context {
     __u32 action;
+    char *policy_name;
     __u8 policy_index;
     bool need_tailcall_to_userspace;
     __u8 n_rules;
@@ -161,12 +162,10 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
             }
             if (info->iph->version == IPV4_VERSION) {
                 if (bpf_htons(notPorts[i]) == tuple_info->ipv4.dport) {
-                    BPF_LOG(DEBUG, AUTH, "port %u in not_destination_ports, unmatched", notPorts[i]);
                     return UNMATCHED;
                 }
             } else {
                 if (bpf_htons(notPorts[i]) == tuple_info->ipv6.dport) {
-                    BPF_LOG(DEBUG, AUTH, "port %u in not_destination_ports, unmatched", notPorts[i]);
                     return UNMATCHED;
                 }
             }
@@ -174,7 +173,6 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
     }
     // if not match not_destination_ports && has no destination_ports, return MATCHED
     if (match->n_destination_ports == 0) {
-        BPF_LOG(DEBUG, AUTH, "no destination_ports configured, matching by default");
         return MATCHED;
     }
 
@@ -190,17 +188,14 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
         }
         if (info->iph->version == IPV4_VERSION) {
             if (bpf_htons(ports[i]) == tuple_info->ipv4.dport) {
-                BPF_LOG(DEBUG, AUTH, "port %u in destination_ports, matched", ports[i]);
                 return MATCHED;
             }
         } else {
             if (bpf_htons(ports[i]) == tuple_info->ipv6.dport) {
-                BPF_LOG(DEBUG, AUTH, "port %u in destination_ports, matched", ports[i]);
                 return MATCHED;
             }
         }
     }
-    BPF_LOG(DEBUG, AUTH, "no matching ports found, unmatched");
     return UNMATCHED;
 }
 
@@ -303,23 +298,6 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
 
     if (addrInfo->len == IPV4_BYTE_LEN) {
         __u32 rule_ip = convert_ipv4_to_u32(addrInfo, false);
-        if (type & TYPE_SRCIP) {
-            BPF_LOG(
-                DEBUG,
-                AUTH,
-                "IPv4 match srcip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
-                rule_ip,
-                preFixLen,
-                bpf_ntohl(tuple_info->ipv4.saddr));
-        } else if (type & TYPE_DSTIP) {
-            BPF_LOG(
-                DEBUG,
-                AUTH,
-                "IPv4 match dstip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
-                rule_ip,
-                preFixLen,
-                bpf_ntohl(tuple_info->ipv4.daddr));
-        }
         return match_ipv4_rule(rule_ip, preFixLen, tuple_info, type);
     } else if (addrInfo->len == IPV6_BYTE_LEN) {
         struct ip_addr rule_addr = {0};
@@ -332,23 +310,6 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
             }
             if (is_ipv4_mapped_addr(rule_addr.ip6)) {
                 __u32 rule_ip = convert_ipv4_to_u32(addrInfo, true);
-                if (type & TYPE_SRCIP) {
-                    BPF_LOG(
-                        DEBUG,
-                        AUTH,
-                        "IPv4_in_IPv6 match srcip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
-                        rule_ip,
-                        preFixLen,
-                        bpf_ntohl(tuple_info->ipv4.saddr));
-                } else if (type & TYPE_DSTIP) {
-                    BPF_LOG(
-                        DEBUG,
-                        AUTH,
-                        "IPv4_in_IPv6 match dstip: Rule IP: %x, Prefix Length: %u, Target IP: %x\n",
-                        rule_ip,
-                        preFixLen,
-                        bpf_ntohl(tuple_info->ipv4.daddr));
-                }
                 return match_ipv4_rule(rule_ip, preFixLen, tuple_info, type);
             } else {
                 if (type & TYPE_SRCIP) {
@@ -621,6 +582,11 @@ int policies_check(struct xdp_md *ctx)
         match_ctx->rulesPtr = rulesPtr;
         match_ctx->n_rules = policy->n_rules;
         match_ctx->action = policy->action;
+        char *policy_name = (char *)KMESH_GET_PTR_VAL(policy->name, char *);
+        if (!policy_name) {
+            return XDP_PASS;
+        }
+        match_ctx->policy_name = policy_name;
         ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, match_ctx, BPF_ANY);
         if (ret < 0) {
             return XDP_PASS;
@@ -636,6 +602,7 @@ int policy_check(struct xdp_md *ctx)
     struct match_context *match_ctx;
     struct bpf_sock_tuple tuple_key = {0};
     struct xdp_info info = {0};
+    bool matched = false;
     void *rulesPtr;
     __u64 rule_addr;
     void *rule;
@@ -672,20 +639,38 @@ int policy_check(struct xdp_md *ctx)
             continue;
         }
         if (rule_match_check(rule, &info, &tuple_key, match_ctx) == MATCHED) {
+            matched = true;
+            break;
+        }
+    }
+
+    if (matched) {
+        BPF_LOG(DEBUG, AUTH, "policy %s matched", match_ctx->policy_name);
+        if (info.iph->version == IPV4_VERSION) {
             BPF_LOG(
                 DEBUG,
                 AUTH,
-                "rule matched, action: %s",
-                match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? "DENY" : "ALLOW");
-            if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to delete tail call context from map");
-            }
-            __u32 auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? AUTH_DENY : AUTH_ALLOW;
-            if (bpf_map_update_elem(&map_of_auth_result, &tuple_key, &auth_result, BPF_ANY) != 0) {
-                BPF_LOG(ERR, AUTH, "failed to update auth result in map_of_auth_result");
-            }
-            return match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_DROP : XDP_PASS;
+                "src ip: %u, dst ip %u, dst port: %u\n",
+                ip2str(&tuple_key.ipv4.saddr, true),
+                ip2str(&tuple_key.ipv4.daddr, true),
+                bpf_ntohs(tuple_key.ipv4.dport));
+        } else {
+            BPF_LOG(
+                DEBUG,
+                AUTH,
+                "src ip: %u, dst ip %u, dst port: %u\n",
+                ip2str(&tuple_key.ipv6.saddr[0], false),
+                ip2str(&tuple_key.ipv6.daddr[0], false),
+                bpf_ntohs(tuple_key.ipv6.dport));
         }
+        if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
+            BPF_LOG(ERR, AUTH, "failed to delete tail call context from map");
+        }
+        __u32 auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? AUTH_DENY : AUTH_ALLOW;
+        if (bpf_map_update_elem(&map_of_auth_result, &tuple_key, &auth_result, BPF_ANY) != 0) {
+            BPF_LOG(ERR, AUTH, "failed to update auth result in map_of_auth_result");
+        }
+        return match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_DROP : XDP_PASS;
     }
 
     match_ctx->policy_index++;
