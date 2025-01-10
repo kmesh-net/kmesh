@@ -59,5 +59,7 @@ jobs:
       with:
         files: |
           out/charts/kmesh-helm-${{ github.ref_name }}.tgz
+    - name: Login to Github Container Registry
+      run: echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u $ --password-stdin
     - name: Push kmesh helm package
-      run: make helm-push
+      run: make helm-push CHART_VERSION=${{ github.ref_name }}
