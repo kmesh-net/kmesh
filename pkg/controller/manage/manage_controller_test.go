@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
 	"github.com/containernetworking/plugins/pkg/ns"
+	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
@@ -194,7 +195,7 @@ func TestHandleKmeshManage(t *testing.T) {
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	controller, err := NewKmeshManageController(client, nil, 0, "")
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)
 	}
@@ -435,7 +436,7 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 	t.Cleanup(func() {
 		os.Unsetenv("NODE_NAME")
 	})
-	controller, err := NewKmeshManageController(client, nil, 0, "")
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
 	if err != nil {
 		t.Fatalf("error creating KmeshManageController: %v", err)
 	}
@@ -753,6 +754,181 @@ func Test_unlinkXdp(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := unlinkXdp(tt.args.netNsPath, tt.args.mode); (err != nil) != tt.wantErr {
 				t.Errorf("unlinkXdp() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// Create a test netns, link an old TC program on veth0 created inside the netns
+func newTestNetNsWithVethPeerIndex(t *testing.T) (uint64, ns.NetNS, ns.NetNS) {
+	var targetIndex uint64 = 0
+	testNs1, err := ns.TempNetNS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testNs2, err := ns.TempNetNS()
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if testNs1 != nil {
+			testNs1.Close()
+		}
+		if testNs2 != nil {
+			testNs1.Close()
+		}
+	})
+
+	testNs1.Do(func(_ ns.NetNS) error {
+		veth := &netlink.Veth{
+			LinkAttrs: netlink.LinkAttrs{Name: "veth0"},
+			PeerName:  "veth1",
+		}
+		if err := netlink.LinkAdd(veth); err != nil {
+			t.Fatal(err)
+		}
+		if err := netlink.LinkSetUp(veth); err != nil {
+			t.Fatal(err)
+		}
+		peer, err := netlink.LinkByName("veth1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = netlink.LinkSetNsFd(peer, int(testNs2.Fd())); err != nil {
+			t.Fatal(err)
+		}
+		if err = netlink.LinkSetUp(veth); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			netlink.LinkDel(veth)
+		})
+		return nil
+	})
+
+	testNs2.Do(func(_ ns.NetNS) error {
+		peer, err := netlink.LinkByName("veth1")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = netlink.LinkSetUp(peer); err != nil {
+			t.Fatal(err)
+		}
+
+		targetIndex = uint64(peer.Attrs().Index)
+
+		t.Cleanup(func() {
+			netlink.LinkDel(peer)
+		})
+		return nil
+	})
+
+	return targetIndex, testNs1, testNs2
+}
+
+func Test_getVethPeerNum(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	targetIndex, testNetNs, _ := newTestNetNsWithVethPeerIndex(t)
+	patches.ApplyFunc(ns.GetNS, func(_ string) (ns.NetNS, error) {
+		return testNetNs, nil
+	})
+
+	tests := []struct {
+		name      string
+		netNsPath string
+		wantErr   bool
+	}{
+		{
+			name:      "get veth peer index, no error",
+			netNsPath: "test_ns_path",
+			wantErr:   false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var ifIndex uint64
+			var err error
+			warpGetVethPeerIndex := func(_ netns.NetNS) error {
+				ifIndex, err = getVethPeerIndex()
+				return err
+			}
+
+			if err = netns.WithNetNSPath(tt.netNsPath, warpGetVethPeerIndex); err != nil || ifIndex != targetIndex {
+				t.Errorf("getVethPeerIndex() error = %v, ifIndex = %v, wantIndex = %v, wantErr %v", err, ifIndex, targetIndex, tt.wantErr)
+			}
+		})
+	}
+}
+
+func newTextTcProg(t *testing.T, name string) *ebpf.Program {
+	prog, err := ebpf.NewProgram(&ebpf.ProgramSpec{
+		Type: ebpf.SocketFilter,
+		Name: name,
+		Instructions: asm.Instructions{
+			asm.Mov.Imm(asm.R0, 0),
+			asm.Return(),
+		},
+		License: "GPL",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		prog.Close()
+	})
+	return prog
+}
+
+func Test_TC(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	_, testNetNs1, testNetNs2 := newTestNetNsWithVethPeerIndex(t)
+	patches.ApplyFunc(ns.WithNetNSPath, func(nspath string, toRun func(ns.NetNS) error) error {
+		if nspath == "test_netns1" {
+			return testNetNs1.Do(toRun)
+		}
+		if nspath == "test_netns2" {
+			return testNetNs2.Do(toRun)
+		}
+		return nil
+	})
+	patches.ApplyFunc(utils.ManageTCProgramByFd, func(link netlink.Link, tcFd int, mode int) error {
+		return nil
+	})
+	type args struct {
+		netNsPath1 string
+		netNsPath2 string
+		tcProgFd   int
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			"Link a new tc program, no error",
+			args{
+				"test_netns1",
+				"test_netns2",
+				newTextTcProg(t, "new_tc").FD(),
+			},
+			false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			warpFunc := func(netns.NetNS) error {
+				if err := linkTc(tt.args.netNsPath1, tt.args.tcProgFd); (err != nil) != tt.wantErr {
+					t.Errorf("linkTc() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				if err := unlinkTc(tt.args.netNsPath1, tt.args.tcProgFd); (err != nil) != tt.wantErr {
+					t.Errorf("unlinkTc() error = %v, wantErr %v", err, tt.wantErr)
+				}
+				return nil
+			}
+			if err := netns.WithNetNSPath(tt.args.netNsPath2, warpFunc); err != nil {
+				t.Errorf("failed")
 			}
 		})
 	}

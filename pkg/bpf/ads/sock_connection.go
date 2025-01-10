@@ -34,6 +34,7 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/normal"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
@@ -45,17 +46,8 @@ var KMESH_TAIL_CALL_ROUTER = uint32(C.KMESH_TAIL_CALL_ROUTER)
 var KMESH_TAIL_CALL_CLUSTER = uint32(C.KMESH_TAIL_CALL_CLUSTER)
 var KMESH_TAIL_CALL_ROUTER_CONFIG = uint32(C.KMESH_TAIL_CALL_ROUTER_CONFIG)
 
-type BpfInfo struct {
-	MapPath     string
-	BpfFsPath   string
-	Cgroup2Path string
-
-	Type       ebpf.ProgramType
-	AttachType ebpf.AttachType
-}
-
 type BpfSockConn struct {
-	Info BpfInfo
+	Info general.BpfInfo
 	Link link.Link
 	bpf2go.KmeshCgroupSockObjects
 }

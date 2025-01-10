@@ -27,13 +27,14 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfSendMsgWorkload struct {
-	Info     BpfInfo
+	Info     general.BpfInfo
 	AttachFD int
 	bpf2go.KmeshSendmsgObjects
 

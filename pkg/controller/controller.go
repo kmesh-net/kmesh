@@ -20,12 +20,15 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cilium/ebpf"
+
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/bypass"
+	"kmesh.net/kmesh/pkg/controller/encryption/ipsec"
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/dns"
@@ -44,6 +47,7 @@ type Controller struct {
 	bpfAdsObj           *bpfads.BpfAds
 	bpfWorkloadObj      *bpfwl.BpfWorkload
 	client              *XdsClient
+	ipsecController     *ipsec.IPSecController
 	enableByPass        bool
 	enableSecretManager bool
 	bpfConfig           *options.BpfConfig
@@ -63,10 +67,33 @@ func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpfads.BpfAds, bpf
 func (c *Controller) Start(stopCh <-chan struct{}) error {
 	var err error
 	var kmeshManageController *manage.KmeshManageController
+	var tcFd int
 
 	clientset, err := kube.CreateKubeClient("")
 	if err != nil {
 		return err
+	}
+
+	if c.bpfConfig.EnableIPsec {
+		var kniMap *ebpf.Map
+		var decryptProg *ebpf.Program
+		if c.mode == constants.KernelNativeMode {
+			kniMap = c.bpfAdsObj.Tc.KmeshTcMarkEncryptObjects.KmNodeinfo
+			tcFd = c.bpfAdsObj.Tc.TcMarkEncrypt.FD()
+			decryptProg = c.bpfAdsObj.Tc.KmeshTcMarkDecryptObjects.TcMarkDecrypt
+		} else {
+			kniMap = c.bpfWorkloadObj.Tc.KmeshTcMarkEncryptObjects.KmNodeinfo
+			tcFd = c.bpfWorkloadObj.Tc.TcMarkEncrypt.FD()
+			decryptProg = c.bpfWorkloadObj.Tc.KmeshTcMarkDecryptObjects.TcMarkDecrypt
+		}
+		c.ipsecController, err = ipsec.NewIPsecController(clientset, kniMap, decryptProg)
+		if err != nil {
+			return fmt.Errorf("failed to new IPsec controller, %v", err)
+		}
+		go c.ipsecController.Run(stopCh)
+		log.Info("start IPsec controller successfully")
+	} else {
+		tcFd = -1
 	}
 
 	if c.mode == constants.DualEngineMode {
@@ -78,9 +105,9 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			}
 			go secertManager.Run(stopCh)
 		}
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
 	} else {
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, tcFd, c.mode)
 	}
 	if err != nil {
 		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
@@ -119,6 +146,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("Failed to update config in order to start metric: %v", err)
 		}
 	}
+
 	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
 
 	if c.client.WorkloadController != nil {
@@ -142,6 +170,9 @@ func (c *Controller) Stop() {
 		return
 	}
 	cancel()
+	if c.bpfConfig.EnableIPsec {
+		c.ipsecController.Stop()
+	}
 	if c.client != nil {
 		c.client.Close()
 	}

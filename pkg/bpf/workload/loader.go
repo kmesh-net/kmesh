@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -37,15 +38,7 @@ type BpfWorkload struct {
 	SockOps  BpfSockOpsWorkload
 	XdpAuth  BpfXdpAuthWorkload
 	SendMsg  BpfSendMsgWorkload
-}
-
-type BpfInfo struct {
-	MapPath     string
-	BpfFsPath   string
-	Cgroup2Path string
-
-	Type       ebpf.ProgramType
-	AttachType ebpf.AttachType
+	Tc       *general.BpfTCGeneral
 }
 
 func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
@@ -68,6 +61,13 @@ func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
 		return nil, err
 	}
 
+	if cfg.EnableIPsec {
+		var err error
+		workloadObj.Tc, err = general.NewBpf(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return workloadObj, nil
 }
 
@@ -121,6 +121,10 @@ func (w *BpfWorkload) Load() error {
 	if err := w.SendMsg.LoadSendMsg(); err != nil {
 		return err
 	}
+
+	if err := w.Tc.LoadTC(); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -154,6 +158,10 @@ func (w *BpfWorkload) Detach() error {
 	}
 
 	if err := w.XdpAuth.Close(); err != nil {
+		return err
+	}
+
+	if err := w.Tc.Close(); err != nil {
 		return err
 	}
 
