@@ -26,7 +26,7 @@ require (
 	github.com/vishvananda/netlink v1.3.0
 	golang.org/x/sys v0.28.0
 	google.golang.org/grpc v1.69.0
-	google.golang.org/protobuf v1.36.1
+	google.golang.org/protobuf v1.36.2
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	istio.io/api v1.24.2
 	istio.io/istio v0.0.0-20241214032803-7754674f65d3
