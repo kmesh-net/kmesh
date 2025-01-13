@@ -122,13 +122,14 @@ func runTestCertRotate(t *testing.T) {
 	// wait for rotate cert
 	time.Sleep(2 * time.Second)
 	for {
-		cert2 := secretManager.GetCert(identity1)
+		secretManager.certsCache.mu.RLock()
+		cert2 := secretManager.certsCache.certs[identity1]
 		if cert2 != nil && cert2.cert.CreatedTime != oldCert.CreatedTime {
-			secretManager.certsCache.mu.RLock()
 			newCert = *cert2.cert
 			secretManager.certsCache.mu.RUnlock()
 			break
 		}
+		secretManager.certsCache.mu.RUnlock()
 		time.Sleep(100 * time.Millisecond)
 	}
 
