@@ -689,12 +689,8 @@ func TestBookinfo(t *testing.T) {
 	})
 }
 
-var CheckDeny = check.Or(
-	check.ErrorContains("rpc error: code = PermissionDenied"), // gRPC
-	check.ErrorContains("EOF"),                                // TCP envoy
-	check.ErrorContains("read: connection reset by peer"),     // TCP Kmesh
-	check.NoErrorAndStatus(http.StatusForbidden),              // HTTP
-	check.NoErrorAndStatus(http.StatusServiceUnavailable),     // HTTP client, TCP server
+var CheckAuthDeny = check.Or(
+	check.ErrorContains("read: connection reset by peer"), // TCP Kmesh
 )
 
 func TestAuthorizationL4(t *testing.T) {
@@ -736,7 +732,7 @@ func TestAuthorizationL4(t *testing.T) {
 				switch action {
 				case "allow":
 					if ip != selectedAddress {
-						return CheckDeny
+						return CheckAuthDeny
 					} else {
 						return check.OK()
 					}
@@ -744,7 +740,7 @@ func TestAuthorizationL4(t *testing.T) {
 					if ip != selectedAddress {
 						return check.OK()
 					} else {
-						return CheckDeny
+						return CheckAuthDeny
 					}
 				default:
 					t.Fatal("invalid action")
