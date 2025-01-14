@@ -22,6 +22,12 @@ jobs:
         run: |
           platform=${{ matrix.platform }}
           echo "PLATFORM_PAIR=${platform//\//-}" >> $GITHUB_ENV
+
+      - name: change kmesh version
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: make update-version UPDATE_VERSION=${{ github.ref_name }}
+        
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
