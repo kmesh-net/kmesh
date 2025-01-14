@@ -32,6 +32,11 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
+    - name: change kmesh version
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: make update-version UPDATE_VERSION=${{ github.ref_name }}
+
     - name: Making and packaging
       env:
         GOOS: ${{ matrix.os }}
