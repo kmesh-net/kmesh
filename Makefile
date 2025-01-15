@@ -220,6 +220,11 @@ test:
 	./hack/run-ut.sh --local
 endif
 
+UPDATE_VERSION ?= ${VERSION}
+.PHONY: update-version
+update-version:
+	./hack/update-version.sh VERSION=${UPDATE_VERSION}
+
 .PHONY: clean
 clean:
 	$(QUIET) rm -rf ./out
