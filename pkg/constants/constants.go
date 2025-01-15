@@ -73,6 +73,9 @@ const (
 	VersionPath         = "/bpf_kmesh/map/"
 	WorkloadVersionPath = "/bpf_kmesh_workload/map/"
 
+	KmKernelNativeBpfPath = "/bpf_kmesh"
+	KmDualEngineBpfPath   = "/bpf_kmesh_workload"
+
 	TailCallMap = "tail_call_map"
 	Prog_link   = "prog_link"
 
