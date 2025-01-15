@@ -188,11 +188,14 @@ func (l *BpfLoader) Stop() {
 
 func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	var versionPath string
+	var kmBpfPath string
 	var versionMap *ebpf.Map
 	if config.KernelNativeEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath, constants.VersionPath)
+		kmBpfPath = filepath.Join(config.BpfFsPath, constants.KmKernelNativeBpfPath)
 	} else if config.DualEngineEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath, constants.WorkloadVersionPath)
+		kmBpfPath = filepath.Join(config.BpfFsPath, constants.KmDualEngineBpfPath)
 	}
 
 	versionMapPinPath := filepath.Join(versionPath, "kmesh_version")
@@ -214,7 +217,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	}
 
 	// Make sure the directory about to use is clean
-	err = os.RemoveAll(versionPath)
+	err = os.RemoveAll(kmBpfPath)
 	if err != nil {
 		log.Errorf("Clean bpf maps and progs failed, err is:%v", err)
 		return nil
