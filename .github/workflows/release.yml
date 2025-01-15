@@ -32,11 +32,17 @@ jobs:
       with:
         go-version: ${{ matrix.go-version }}
 
+    - name: change kmesh version
+      env:
+        VERSION: ${{ github.ref_name }}
+      run: make update-version UPDATE_VERSION=${{ github.ref_name }}
+
     - name: Making and packaging
       env:
         GOOS: ${{ matrix.os }}
         GOARCH: ${{ matrix.arch }}
       run: make kmeshctl OUT=kmeshctl-${{ matrix.os }}-${{ matrix.arch }}
+      
     - name: Uploading kmeshctl assets
       uses: softprops/action-gh-release@v2
       with:
