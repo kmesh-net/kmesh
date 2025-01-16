@@ -65,9 +65,99 @@ In this way, our AI plugin can be built as an external independent service and c
 
 For functions like rate limit, we only need to handle them during the traffic forwarding process, so we can use `External Processing Filter` in the usual way. However, for advanced traffic management functions, such as traffic splitting, traffic failover and even for AI traffic, we sometimes hope to select the best answer from the responses of multiple LLM models. This involves routing decision in `External Processing Filter` and need to override the original routing in Envoy, because `Route Filter` is always the last filter in Envoy. It also involves retries between multiple clusters and Envoy generally only supports retries between multiple endpoints in a cluster. It is even more impossible for Envoy to send a request to multiple backends at the same time and filter the responses.
 
+Therefore, for AI traffic, we decided to let AI Plugin directly hijack the traffic and forward the traffic to the backend models. Now we will no longer be restricted by Envoy's existing capabilities and can do any traffic management functions we want.
+
+However, since `External Processing Filter` doesn't take hijacking into consideration, it has the following limitations:
+
+1. We can only return the processing result of the model through [ImmediateResponse](https://www.envoyproxy.io/docs/envoy/latest/api-v3/service/ext_proc/v3/external_processor.proto#envoy-v3-api-msg-service-ext-proc-v3-immediateresponse), but the original intention of it is to retrun error, so it's one-time. Usually the model response are streaming. If we wait until we get all the responses of the model and then send them all at onece, the delay will be very large, resulting in a bad user experience. We may need to make some customized modifications to `External Processing Filter` later.
+
+2. `External Processing Filter` will process header/body/trailer synchronously, whlie AI traffic is mainly processed based on body. So the processing result of header has been returned to Envoy at this time. Fortunately, from the test results, the processed header will not be sent to upstream immediately, but cached, so it will not cause trouble to the backend model.
+
+3. After the traffic is hijacked by `External Processing Filter`, the general traffic management functions configured on the gateway (i.e., connection-level and request-level management) are actually skipped. But after careful consideration, you will find that this is not a problem, because the traffic accessing the model will become east-west traffic, which is the inherent capabilities of Kmesh. We can still perform general traffic management functions on the traffic sent from the AI Plugin to the model.
 
 #### AI Plugin CRD
 
+#### VirtualModel
+
+`VirtualModel` defines the traffic management strategy from the model specified by the user in the request (which can even be set to empty) to the model actually deployed on the backend.
+
+API:
+
+```go
+// VirtualModel is the Schema for the virtualmodels API.
+type VirtualModel struct {
+	metav1.TypeMeta   `json:",inline"`
+	metav1.ObjectMeta `json:"metadata,omitempty"`
+
+	Spec   VirtualModelSpec   `json:"spec,omitempty"`
+	Status VirtualModelStatus `json:"status,omitempty"`
+}
+
+// VirtualModelSpec defines the desired state of VirtualModel.
+type VirtualModelSpec struct {
+	Models []string `json:"models,omitempty"`
+
+	Rules []*Rule `json:"rules"`
+}
+
+type Rule struct {
+	Name  string              `json:"name,omitempty"`
+	Match []*MatchCondition   `json:"match,omitempty"`
+	Route []*RouteDestination `json:"route"`
+
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+	Retries *Retry           `json:"retries,omitempty"`
+}
+
+type MatchCondition struct {
+	// Implement if necessary.
+}
+
+type RouteDestination struct {
+	Destination *Destination `json:"destination"`
+	Weight      int32        `json:"weight,omitempty"`
+}
+
+type Destination struct {
+	Host  string `json:"host"`
+	Model string `json:"model"`
+}
+
+type Retry struct {
+	Attempts int32 `json:"attempts"`
+}
+```
+
+The config example of the above Go code API converted into yaml format is as follows:
+
+```yaml
+apiVersion: ai.kmesh.net/v1alpha1
+kind: VirtualModel
+metadata:
+  name: llama
+  namespace: ollama
+spec:
+  models:
+  - "llama"
+  rules:
+  - name: "llama-route-32"
+  # match: 
+    route:
+    - destination:
+        host: "http://ollama.ollama.svc.cluster.local:11434"
+        model: "ollama/llama3.2"
+      weight: 70
+    - destination:
+        host: "http://ollama.ollama-test.svc.cluster.local:11434"
+        model: "ollama/llama3.2"
+      weight: 30
+    timeout: 10s
+    retries:
+      attempts: 3
+
+```
+
+#### AIExtension
 We need to rely on CRD to describe the config related to AI traffic management. The config consists of the following two parts:
 
 1. Hostname: usually an LLM Provider will contain multiple models. The user will specify the LLM provider (such as "www.openai.com") in the hostname of the HTTP request and then specify model to be used in this reques in the `model` field of the body. We hope that the AI Plugin can be shared by multiple LLM Providers and the strategies can be isolated between different LLM Provdiers.
