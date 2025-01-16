@@ -63,6 +63,9 @@ So we finally chose Envoy's [External Processing Filter](https://www.envoyproxy.
 
 In this way, our AI plugin can be built as an external independent service and can be deployed on demand when AI traffic needs to be processed. At the same time, we can use any dev language, not necessarily C++. Of course, we use Golang. Also it is isolated from the complexity of Envoy to greatest extent, and only needs to process traffic requests/responses from gRPC connections. This fully ensures that development is simple, flexible and friendly.
 
+For functions like rate limit, we only need to handle them during the traffic forwarding process, so we can use `External Processing Filter` in the usual way. However, for advanced traffic management functions, such as traffic splitting, traffic failover and even for AI traffic, we sometimes hope to select the best answer from the responses of multiple LLM models. This involves routing decision in `External Processing Filter` and need to override the original routing in Envoy, because `Route Filter` is always the last filter in Envoy. It also involves retries between multiple clusters and Envoy generally only supports retries between multiple endpoints in a cluster. It is even more impossible for Envoy to send a request to multiple backends at the same time and filter the responses.
+
+
 #### AI Plugin CRD
 
 We need to rely on CRD to describe the config related to AI traffic management. The config consists of the following two parts:
