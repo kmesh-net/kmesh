@@ -99,7 +99,7 @@ If you have any question, feel free to reach out to us in the following ways:
 
 Regular Community Meeting:
 
-- Tuersday at 16:00 UTC+8 (Chinese)(biweekly). [Convert to your timezone](https://www.thetimezoneconverter.com/?t=14%3A30&tz=GMT%2B8&).
+- Thuersday at 16:00 UTC+8 (Chinese)(weekly). [Convert to your timezone](https://www.thetimezoneconverter.com/?t=14%3A30&tz=GMT%2B8&).
 
 Resources:
 
