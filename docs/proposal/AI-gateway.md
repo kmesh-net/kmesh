@@ -160,7 +160,7 @@ spec:
 #### AIExtension
 We need to rely on CRD to describe the config related to AI traffic management. The config consists of the following two parts:
 
-1. Hostname: usually an LLM Provider will contain multiple models. The user will specify the LLM provider (such as "www.openai.com") in the hostname of the HTTP request and then specify model to be used in this reques in the `model` field of the body. We hope that the AI Plugin can be shared by multiple LLM Providers and the strategies can be isolated between different LLM Provdiers.
+1. Hostname: usually an LLM Provider will contain multiple models. The user will specify the LLM provider (such as "www.openai.com") in the hostname of the HTTP request and then specify model to be used in this request in the `model` field of the body. We hope that the AI Plugin can be shared by multiple LLM Providers and the strategies can be isolated between different LLM Provdiers.
 
 2. Specific AI traffic management policy: such as rate limit, cache, fallback, etc. Allow users to configure any number and type of policies.
 
