@@ -162,7 +162,7 @@ function build_and_push_images() {
 }
 
 function install_kmeshctl() {
-    # Instal kmeshctl
+    # Install kmeshctl
     cp kmeshctl $TMPBIN
 }
 
