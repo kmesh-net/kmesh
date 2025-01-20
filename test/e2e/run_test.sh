@@ -161,6 +161,11 @@ function build_and_push_images() {
     HUB="${KIND_REGISTRY}" TAG="latest" make docker.push
 }
 
+function install_kmeshctl() {
+    # Instal kmeshctl
+    cp kmeshctl $TMPBIN
+}
+
 function install_dependencies() {
     # 1. Install kind.
     if ! which kind &> /dev/null
@@ -274,6 +279,7 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
     setup_kind_registry
     build_and_push_images
+    install_kmeshctl
 fi
 
 kubectl config use-context "kind-$NAME"

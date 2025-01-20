@@ -689,13 +689,15 @@ func TestBookinfo(t *testing.T) {
 	})
 }
 
-var CheckAuthDeny = check.Or(
-	check.ErrorContains("read: connection reset by peer"), // TCP Kmesh
-)
-
 func TestAuthorizationL4(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("L4 Authorization").Run(func(t framework.TestContext) {
+			// Enable authorizaiton offload to xdp.
+			kmeshctl.AuthzOrFatal(t, "enable")
+			t.Cleanup(func() {
+				kmeshctl.AuthzOrFatal(t, "disable")
+			})
+
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
 			}
@@ -732,7 +734,7 @@ func TestAuthorizationL4(t *testing.T) {
 				switch action {
 				case "allow":
 					if ip != selectedAddress {
-						return CheckAuthDeny
+						return check.NotOK()
 					} else {
 						return check.OK()
 					}
@@ -740,7 +742,7 @@ func TestAuthorizationL4(t *testing.T) {
 					if ip != selectedAddress {
 						return check.OK()
 					} else {
-						return CheckAuthDeny
+						return check.NotOK()
 					}
 				default:
 					t.Fatal("invalid action")

@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -64,6 +65,8 @@ var (
 	KmeshSrc = getDefaultKmeshSrc()
 
 	apps = &EchoDeployments{}
+
+	kmeshctl = NewKmeshctl()
 
 	// used to validate telemetry in-cluster
 	prom prometheus.Instance
@@ -379,4 +382,28 @@ func deleteWaypointProxy(ctx resource.Context, ns namespace.Instance, name strin
 
 		return nil
 	}, retry.Timeout(time.Minute*10), retry.BackoffDelay(time.Millisecond*200))
+}
+
+type kmeshctlWrapper struct {
+}
+
+func NewKmeshctl() *kmeshctlWrapper {
+	return &kmeshctlWrapper{}
+}
+
+// Invoke will invokes an kmeshctl command and returns the output and exception.
+func (k *kmeshctlWrapper) Authz(subcmd string) (string, error) {
+	cmd := exec.Command("kmeshctl", "authz", subcmd)
+	output, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+
+	return string(output), nil
+}
+
+func (k *kmeshctlWrapper) AuthzOrFatal(t test.Failer, subcmd string) {
+	if _, err := k.Authz(subcmd); err != nil {
+		t.Fatal("failed to set authz to %d using kmeshctl: %v", subcmd, err)
+	}
 }
