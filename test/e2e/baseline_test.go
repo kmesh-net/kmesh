@@ -773,14 +773,12 @@ spec:
 
 				for _, client := range clients {
 					opt := echo.CallOptions{
-						To:     dst,
-						Port:   echo.Port{Name: "tcp"},
-						Scheme: scheme.TCP,
-						Count:  10,
-						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
+						To:                      dst,
+						Port:                    echo.Port{Name: "tcp"},
+						Scheme:                  scheme.TCP,
 						NewConnectionPerRequest: true,
-						Timeout:                 time.Minute * 2,
-						Check:                   check.OK(),
+						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
+						Timeout: time.Minute * 2,
 					}
 
 					var name string
