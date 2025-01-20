@@ -67,9 +67,10 @@ func LoadKmeshSendmsgObjects(obj interface{}, opts *ebpf.CollectionOptions) erro
 type KmeshSendmsgSpecs struct {
 	KmeshSendmsgProgramSpecs
 	KmeshSendmsgMapSpecs
+	KmeshSendmsgVariableSpecs
 }
 
-// KmeshSendmsgSpecs contains programs before they are loaded into the kernel.
+// KmeshSendmsgProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgProgramSpecs struct {
@@ -86,12 +87,19 @@ type KmeshSendmsgMapSpecs struct {
 	KmTmpbuf    *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 }
 
+// KmeshSendmsgVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type KmeshSendmsgVariableSpecs struct {
+}
+
 // KmeshSendmsgObjects contains all objects after they have been loaded into the kernel.
 //
 // It can be passed to LoadKmeshSendmsgObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSendmsgObjects struct {
 	KmeshSendmsgPrograms
 	KmeshSendmsgMaps
+	KmeshSendmsgVariables
 }
 
 func (o *KmeshSendmsgObjects) Close() error {
@@ -118,6 +126,12 @@ func (m *KmeshSendmsgMaps) Close() error {
 		m.KmOrigDst,
 		m.KmTmpbuf,
 	)
+}
+
+// KmeshSendmsgVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to LoadKmeshSendmsgObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshSendmsgVariables struct {
 }
 
 // KmeshSendmsgPrograms contains all programs after they have been loaded into the kernel.

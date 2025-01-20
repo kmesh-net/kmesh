@@ -93,9 +93,10 @@ func LoadKmeshSockopsWorkloadCompatObjects(obj interface{}, opts *ebpf.Collectio
 type KmeshSockopsWorkloadCompatSpecs struct {
 	KmeshSockopsWorkloadCompatProgramSpecs
 	KmeshSockopsWorkloadCompatMapSpecs
+	KmeshSockopsWorkloadCompatVariableSpecs
 }
 
-// KmeshSockopsWorkloadCompatSpecs contains programs before they are loaded into the kernel.
+// KmeshSockopsWorkloadCompatProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsWorkloadCompatProgramSpecs struct {
@@ -129,12 +130,19 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
+// KmeshSockopsWorkloadCompatVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type KmeshSockopsWorkloadCompatVariableSpecs struct {
+}
+
 // KmeshSockopsWorkloadCompatObjects contains all objects after they have been loaded into the kernel.
 //
 // It can be passed to LoadKmeshSockopsWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSockopsWorkloadCompatObjects struct {
 	KmeshSockopsWorkloadCompatPrograms
 	KmeshSockopsWorkloadCompatMaps
+	KmeshSockopsWorkloadCompatVariables
 }
 
 func (o *KmeshSockopsWorkloadCompatObjects) Close() error {
@@ -195,6 +203,12 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.KmeshMap296,
 		m.KmeshMap64,
 	)
+}
+
+// KmeshSockopsWorkloadCompatVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to LoadKmeshSockopsWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshSockopsWorkloadCompatVariables struct {
 }
 
 // KmeshSockopsWorkloadCompatPrograms contains all programs after they have been loaded into the kernel.

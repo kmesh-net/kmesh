@@ -79,9 +79,10 @@ func LoadKmeshXDPAuthObjects(obj interface{}, opts *ebpf.CollectionOptions) erro
 type KmeshXDPAuthSpecs struct {
 	KmeshXDPAuthProgramSpecs
 	KmeshXDPAuthMapSpecs
+	KmeshXDPAuthVariableSpecs
 }
 
-// KmeshXDPAuthSpecs contains programs before they are loaded into the kernel.
+// KmeshXDPAuthProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshXDPAuthProgramSpecs struct {
@@ -117,12 +118,19 @@ type KmeshXDPAuthMapSpecs struct {
 	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
+// KmeshXDPAuthVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type KmeshXDPAuthVariableSpecs struct {
+}
+
 // KmeshXDPAuthObjects contains all objects after they have been loaded into the kernel.
 //
 // It can be passed to LoadKmeshXDPAuthObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshXDPAuthObjects struct {
 	KmeshXDPAuthPrograms
 	KmeshXDPAuthMaps
+	KmeshXDPAuthVariables
 }
 
 func (o *KmeshXDPAuthObjects) Close() error {
@@ -181,6 +189,12 @@ func (m *KmeshXDPAuthMaps) Close() error {
 		m.KmeshMap296,
 		m.KmeshMap64,
 	)
+}
+
+// KmeshXDPAuthVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to LoadKmeshXDPAuthObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshXDPAuthVariables struct {
 }
 
 // KmeshXDPAuthPrograms contains all programs after they have been loaded into the kernel.
