@@ -122,6 +122,7 @@ type KmeshXDPAuthCompatMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshXDPAuthCompatVariableSpecs struct {
+	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
 // KmeshXDPAuthCompatObjects contains all objects after they have been loaded into the kernel.
@@ -195,6 +196,7 @@ func (m *KmeshXDPAuthCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshXDPAuthCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshXDPAuthCompatVariables struct {
+	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
 }
 
 // KmeshXDPAuthCompatPrograms contains all programs after they have been loaded into the kernel.

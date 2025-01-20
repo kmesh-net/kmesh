@@ -57,6 +57,7 @@ type BpfLoader struct {
 	obj         *ads.BpfAds
 	workloadObj *workload.BpfWorkload
 	kmeshConfig *ebpf.Map
+	BpfLogLevel *ebpf.Variable
 	versionMap  *ebpf.Map
 }
 
@@ -97,6 +98,7 @@ func (l *BpfLoader) Start() error {
 			return err
 		}
 		l.kmeshConfig = l.obj.GetKmeshConfigMap()
+		l.BpfLogLevel = l.obj.GetBpfLogLevelVariable()
 	} else if l.config.DualEngineEnabled() {
 		if l.workloadObj, err = workload.NewBpfWorkload(l.config); err != nil {
 			return err
@@ -105,6 +107,7 @@ func (l *BpfLoader) Start() error {
 			return err
 		}
 		l.kmeshConfig = l.workloadObj.GetKmeshConfigMap()
+		l.BpfLogLevel = l.workloadObj.GetBpfLogLevelVariable()
 		// TODO: set bpf prog option in kernel native node
 		l.setBpfProgOptions()
 	}
@@ -274,7 +277,7 @@ func recoverVersionMap(pinPath string) *ebpf.Map {
 
 	versionMap, err := ebpf.LoadPinnedMap(pinPath, opts)
 	if err != nil {
-		log.Infof("kmesh version map loadfailed: %v, start normally", err)
+		log.Infof("kmesh version map load failed: %v, start normally", err)
 
 		return nil
 	}

@@ -130,6 +130,7 @@ type KmeshCgroupSockMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockVariableSpecs struct {
+	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
 // KmeshCgroupSockObjects contains all objects after they have been loaded into the kernel.
@@ -201,6 +202,7 @@ func (m *KmeshCgroupSockMaps) Close() error {
 //
 // It can be passed to LoadKmeshCgroupSockObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockVariables struct {
+	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
 }
 
 // KmeshCgroupSockPrograms contains all programs after they have been loaded into the kernel.

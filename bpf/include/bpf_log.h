@@ -9,16 +9,7 @@
 
 #define BPF_DEBUG_ON  0
 #define BPF_DEBUG_OFF (-1)
-
-#define BPF_LOG_LEVEL BPF_LOG_DEBUG
-
-#define BPF_LOGTYPE_SOCKMAP BPF_DEBUG_ON
-#define BPF_LOGTYPE_KMESH   BPF_DEBUG_ON
-#define BPF_LOGTYPE_SOCKOPS BPF_DEBUG_ON
-#define BPF_LOGTYPE_XDP     BPF_DEBUG_ON
-#define BPF_LOGTYPE_SENDMSG BPF_DEBUG_ON
-#define BPF_LOGTYPE_PROBE   BPF_DEBUG_ON
-#define MAX_MSG_LEN         255
+#define MAX_MSG_LEN   255
 
 enum bpf_loglevel {
     BPF_LOG_ERR = 0,
@@ -81,21 +72,13 @@ lower than 22.09, compile would report an error of bpf_snprintf dont exist */
 #define BPF_LOG_U(fmt, args...)
 #endif
 
-static inline int map_lookup_log_level()
-{
-    int zero = 0;
-    struct kmesh_config *value = {0};
-    value = kmesh_map_lookup_elem(&kmesh_config_map, &zero);
-    if (!value)
-        return BPF_LOG_INFO;
-    return value->bpf_log_level;
-}
+// Define a global variable for bpf log level
+volatile __u32 bpf_log_level = BPF_LOG_INFO;
 
 #define BPF_LOG(l, t, f, ...)                                                                                          \
     do {                                                                                                               \
-        int level = map_lookup_log_level();                                                                            \
-        int loglevel = BPF_MIN((int)level, ((int)BPF_LOG_DEBUG + (int)(BPF_LOGTYPE_##t)));                             \
-        if ((int)(BPF_LOG_##l) <= loglevel) {                                                                          \
+        BPF_LOG_U("bpf log level %u %u", BPF_LOG_##l, bpf_log_level);                                                  \
+        if ((int)(BPF_LOG_##l) <= bpf_log_level) {                                                                     \
             static const char fmt[] = "[" #t "] " #l ": " f "";                                                        \
             if (!KERNEL_VERSION_HIGHER_5_13_0)                                                                         \
                 bpf_trace_printk(fmt, sizeof(fmt), ##__VA_ARGS__);                                                     \

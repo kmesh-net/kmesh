@@ -93,7 +93,6 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 	if err != nil {
 		return err
 	}
-
 	prog := spec.Programs["cgroup_connect4_prog"]
 	sc.Info.Type = prog.Type
 	sc.Info.AttachType = prog.AttachType

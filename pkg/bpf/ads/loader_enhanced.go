@@ -106,6 +106,10 @@ func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
 	return sc.SockConn.KmConfigmap
 }
 
+func (sc *BpfAds) GetBpfLogLevelVariable() *ebpf.Variable {
+	return sc.SockConn.BpfLogLevel
+}
+
 func (sc *BpfAds) Load() error {
 	if err := sc.TracePoint.Load(); err != nil {
 		return err
