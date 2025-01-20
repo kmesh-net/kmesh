@@ -494,7 +494,6 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
-
 	var logLevel uint32
 	if err := s.bpfLogLevel.Get(&logLevel); err != nil {
 		return nil, fmt.Errorf("get bpf log level failed: %d", err)
