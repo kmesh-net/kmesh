@@ -53,7 +53,7 @@ func Test_buildAccesslog(t *testing.T) {
 					destinationNamespace: "kmesh-system",
 				},
 			},
-			want: "2024-08-14 10:11:27.005837715 +0000 UTC src.addr=10.244.0.10:47667, src.workload=sleep-7656cf8794-9v2gv, src.namespace=kmesh-system, dst.addr=10.244.0.7:8080, dst.service=httpbin.ambient-demo.svc.cluster.local, dst.workload=httpbin-86b8ffc5ff-bhvxx, dst.namespace=kmesh-system, direction=INBOUND, sent_bytes=60, received_bytes=172, duration=2.236ms",
+			want: "2024-08-14 10:11:27.005837715 +0000 UTC src.addr=10.244.0.10:47667, src.workload=sleep-7656cf8794-9v2gv, src.namespace=kmesh-system, dst.addr=10.244.0.7:8080, dst.service=httpbin.ambient-demo.svc.cluster.local, dst.workload=httpbin-86b8ffc5ff-bhvxx, dst.namespace=kmesh-system, direction=INBOUND, sent_bytes=60, received_bytes=172, srtt=0us, min_rtt=0us, duration=2.236ms",
 		},
 	}
 	osStartTime = time.Date(2024, 7, 4, 20, 14, 0, 0, time.UTC)

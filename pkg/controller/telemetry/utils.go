@@ -168,6 +168,18 @@ var (
 			Help: "The total number of TCP connections failed to a workload.",
 		}, workloadLabels)
 
+	tcpConnectionTotalRetransInWorkload = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_retrans_total",
+			Help: "Total number of retransmissions of the workload over the TCP connection.",
+		}, workloadLabels)
+
+	tcpConnectionPacketLostInWorkload = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_packet_loss_total",
+			Help: "Tracks the total number of TCP packets lost between source and destination.",
+		}, workloadLabels)
+
 	tcpConnectionOpenedInService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kmesh_tcp_connections_opened_total",
 		Help: "The total number of TCP connections opened to a service",
@@ -243,7 +255,7 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	// ensure not occur matche the same requests as /status/metric panic in unit test
 	mu.Lock()
 	defer mu.Unlock()
-	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload)
+	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
 	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
 	registry.MustRegister(mapEntryCount, mapCountInNode)
@@ -272,12 +284,16 @@ func deleteWorkloadMetricInPrometheus(workload *workloadapi.Workload) {
 	_ = tcpConnectionOpenedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpReceivedBytesInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpSentBytesInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	_ = tcpConnectionTotalRetransInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	_ = tcpConnectionPacketLostInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	// delete source workload metric labels
 	_ = tcpConnectionClosedInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
 	_ = tcpConnectionFailedInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
 	_ = tcpConnectionOpenedInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
 	_ = tcpReceivedBytesInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
 	_ = tcpSentBytesInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
+	_ = tcpConnectionTotalRetransInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
+	_ = tcpConnectionPacketLostInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
 }
 
 func DeleteServiceMetric(serviceName string) {
