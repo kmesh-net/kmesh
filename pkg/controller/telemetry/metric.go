@@ -92,10 +92,7 @@ type statistics struct {
 	Protocol    uint32
 	SRttTime    uint32
 	RttMin      uint32
-	MssCache    uint32
 	Retransmits uint32
-	SegmentsIn  uint32
-	SegmentsOut uint32
 	LostPackets uint32
 }
 
