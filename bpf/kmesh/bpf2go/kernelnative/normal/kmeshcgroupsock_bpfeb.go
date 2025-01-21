@@ -88,9 +88,10 @@ func LoadKmeshCgroupSockObjects(obj interface{}, opts *ebpf.CollectionOptions) e
 type KmeshCgroupSockSpecs struct {
 	KmeshCgroupSockProgramSpecs
 	KmeshCgroupSockMapSpecs
+	KmeshCgroupSockVariableSpecs
 }
 
-// KmeshCgroupSockSpecs contains programs before they are loaded into the kernel.
+// KmeshCgroupSockProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockProgramSpecs struct {
@@ -125,12 +126,19 @@ type KmeshCgroupSockMapSpecs struct {
 	KmeshMap64     *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
+// KmeshCgroupSockVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type KmeshCgroupSockVariableSpecs struct {
+}
+
 // KmeshCgroupSockObjects contains all objects after they have been loaded into the kernel.
 //
 // It can be passed to LoadKmeshCgroupSockObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockObjects struct {
 	KmeshCgroupSockPrograms
 	KmeshCgroupSockMaps
+	KmeshCgroupSockVariables
 }
 
 func (o *KmeshCgroupSockObjects) Close() error {
@@ -187,6 +195,12 @@ func (m *KmeshCgroupSockMaps) Close() error {
 		m.KmeshMap296,
 		m.KmeshMap64,
 	)
+}
+
+// KmeshCgroupSockVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to LoadKmeshCgroupSockObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshCgroupSockVariables struct {
 }
 
 // KmeshCgroupSockPrograms contains all programs after they have been loaded into the kernel.

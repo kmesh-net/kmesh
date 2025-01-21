@@ -248,15 +248,15 @@ static inline __u32 convert_ipv6_to_ip6addr(struct ip_addr *rule_addr, const str
 // reference cilium https://github.com/cilium/cilium/blob/main/bpf/lib/ipv6.h#L122
 #define GET_PREFIX(PREFIX) bpf_htonl(PREFIX <= 0 ? 0 : PREFIX < 32 ? ((1 << PREFIX) - 1) << (32 - PREFIX) : 0xFFFFFFFF)
 
-static inline void ipv6_addr_clear_suffix(union v6addr *addr, int prefix)
+static inline void ipv6_addr_clear_suffix(__u32 ip6[4], int prefix)
 {
-    addr->p1 &= GET_PREFIX(prefix);
+    ip6[0] &= GET_PREFIX(prefix);
     prefix -= 32;
-    addr->p2 &= GET_PREFIX(prefix);
+    ip6[1] &= GET_PREFIX(prefix);
     prefix -= 32;
-    addr->p3 &= GET_PREFIX(prefix);
+    ip6[2] &= GET_PREFIX(prefix);
     prefix -= 32;
-    addr->p4 &= GET_PREFIX(prefix);
+    ip6[3] &= GET_PREFIX(prefix);
 }
 
 static inline int match_ipv4_rule(__u32 ruleIp, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
@@ -280,7 +280,7 @@ static inline int match_ipv6_rule(struct ip_addr *rule_addr, struct ip_addr *tar
     if (prefixLen > 128)
         return UNMATCHED;
 
-    ipv6_addr_clear_suffix((union v6addr *)target_addr, prefixLen);
+    ipv6_addr_clear_suffix(target_addr->ip6, prefixLen);
     if (rule_addr->ip6[0] == target_addr->ip6[0] && rule_addr->ip6[1] == target_addr->ip6[1]
         && rule_addr->ip6[2] == target_addr->ip6[2] && rule_addr->ip6[3] == target_addr->ip6[3]) {
         return MATCHED;

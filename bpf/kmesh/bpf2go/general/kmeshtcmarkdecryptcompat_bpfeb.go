@@ -68,9 +68,10 @@ func LoadKmeshTcMarkDecryptCompatObjects(obj interface{}, opts *ebpf.CollectionO
 type KmeshTcMarkDecryptCompatSpecs struct {
 	KmeshTcMarkDecryptCompatProgramSpecs
 	KmeshTcMarkDecryptCompatMapSpecs
+	KmeshTcMarkDecryptCompatVariableSpecs
 }
 
-// KmeshTcMarkDecryptCompatSpecs contains programs before they are loaded into the kernel.
+// KmeshTcMarkDecryptCompatProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshTcMarkDecryptCompatProgramSpecs struct {
@@ -87,12 +88,19 @@ type KmeshTcMarkDecryptCompatMapSpecs struct {
 	KmTmpbuf    *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 }
 
+// KmeshTcMarkDecryptCompatVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type KmeshTcMarkDecryptCompatVariableSpecs struct {
+}
+
 // KmeshTcMarkDecryptCompatObjects contains all objects after they have been loaded into the kernel.
 //
 // It can be passed to LoadKmeshTcMarkDecryptCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshTcMarkDecryptCompatObjects struct {
 	KmeshTcMarkDecryptCompatPrograms
 	KmeshTcMarkDecryptCompatMaps
+	KmeshTcMarkDecryptCompatVariables
 }
 
 func (o *KmeshTcMarkDecryptCompatObjects) Close() error {
@@ -119,6 +127,12 @@ func (m *KmeshTcMarkDecryptCompatMaps) Close() error {
 		m.KmNodeinfo,
 		m.KmTmpbuf,
 	)
+}
+
+// KmeshTcMarkDecryptCompatVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to LoadKmeshTcMarkDecryptCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshTcMarkDecryptCompatVariables struct {
 }
 
 // KmeshTcMarkDecryptCompatPrograms contains all programs after they have been loaded into the kernel.
