@@ -11,7 +11,7 @@ require (
 	github.com/cilium/ebpf v0.17.1
 	github.com/cncf/xds/go v0.0.0-20241213214725-57cfbe6fad57
 	github.com/containernetworking/cni v1.2.3
-	github.com/containernetworking/plugins v1.6.1
+	github.com/containernetworking/plugins v1.6.2
 	github.com/envoyproxy/go-control-plane v0.13.2-0.20241125134052-fc612d4a3afa
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
