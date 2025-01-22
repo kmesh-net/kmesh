@@ -31,11 +31,11 @@ require (
 	istio.io/api v1.24.2
 	istio.io/istio v0.0.0-20241214032803-7754674f65d3
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
-	k8s.io/api v0.32.0
-	k8s.io/apimachinery v0.32.0
-	k8s.io/cli-runtime v0.32.0
-	k8s.io/client-go v0.32.0
-	k8s.io/kubectl v0.32.0
+	k8s.io/api v0.32.1
+	k8s.io/apimachinery v0.32.1
+	k8s.io/cli-runtime v0.32.1
+	k8s.io/client-go v0.32.1
+	k8s.io/kubectl v0.32.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/gateway-api v1.2.1
 	sigs.k8s.io/yaml v1.4.0
@@ -226,7 +226,7 @@ require (
 	istio.io/client-go v1.24.2-0.20241206152608-3892aa679051 // indirect
 	k8s.io/apiextensions-apiserver v0.32.0 // indirect
 	k8s.io/apiserver v0.32.0 // indirect
-	k8s.io/component-base v0.32.0 // indirect
+	k8s.io/component-base v0.32.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 // indirect
 	sigs.k8s.io/controller-runtime v0.19.3 // indirect
