@@ -106,9 +106,11 @@ SEC("xdp_auth")
 int xdp_authz(struct xdp_md *ctx)
 {
     if (!is_authz_offload_enabled()) {
+        BPF_LOG(INFO, XDP, "offload authorization is DISABLED");
         bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
         return XDP_PASS;
     }
+    BPF_LOG(INFO, XDP, "offload authorization is ENABLED");
 
     struct match_context match_ctx = {0};
     struct bpf_sock_tuple tuple_key = {0};

@@ -137,6 +137,16 @@ function setup_kmesh() {
         echo "Waiting for pods of Kmesh daemon to enter Running state..."
         sleep 1
     done
+
+    # Set log of each Kmesh pods.
+    PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+
+    sleep 10
+
+    for POD in $PODS; do
+        echo $POD
+        kmeshctl log $POD --set bpf:debug
+    done
 }
 
 export KIND_REGISTRY_NAME="kind-registry"

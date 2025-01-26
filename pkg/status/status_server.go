@@ -318,8 +318,28 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method != http.MethodGet && r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("update authz in KmeshConfigMap failed: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	if r.Method == http.MethodGet {
+		var result string
+		switch configMap.AuthzOffload {
+		case constants.ENABLED:
+			result = "enabled"
+		case constants.DISABLED:
+			result = "disabled"
+		}
+
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(result))
 		return
 	}
 
@@ -331,11 +351,6 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("update authz in KmeshConfigMap failed: %v", err), http.StatusBadRequest)
-		return
-	}
 	if enabled {
 		configMap.AuthzOffload = constants.ENABLED
 	} else {
@@ -347,6 +362,7 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("OK"))
 }
 
 func (s *Server) getLoggerNames(w http.ResponseWriter) {

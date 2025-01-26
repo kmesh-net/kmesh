@@ -694,6 +694,10 @@ func TestAuthorizationL4(t *testing.T) {
 		t.NewSubTest("L4 Authorization").Run(func(t framework.TestContext) {
 			// Enable authorizaiton offload to xdp.
 
+			kmeshctl.AuthzOrFatal(t, "enable")
+			t.Cleanup(func() {
+				kmeshctl.AuthzOrFatal(t, "disable")
+			})
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))

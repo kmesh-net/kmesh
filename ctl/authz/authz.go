@@ -160,7 +160,7 @@ func SetAuthzForPods(podNames []string, info string) {
 			os.Exit(1)
 		}
 		for _, pod := range podList.Items {
-			SetAuthzPerKmeshDaemon(cli, pod.GetName(), info)
+			AuthzPerKmeshDaemon(cli, pod.GetName(), info)
 		}
 	} else {
 		// Process for specified pods.
@@ -184,9 +184,18 @@ func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternAuthz, info)
+	var url, method string
 
-	req, err := http.NewRequest(http.MethodPost, url, nil)
+	switch info {
+	case "true", "false":
+		url = fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternAuthz, info)
+		method = http.MethodPost
+	case "display":
+		url = fmt.Sprintf("http://%s%s", fw.Address(), patternAuthz)
+		method = http.MethodGet
+	}
+
+	req, err := http.NewRequest(method, url, nil)
 	if err != nil {
 		log.Errorf("Error creating request: %v", err)
 		return
@@ -204,6 +213,19 @@ func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	if resp.StatusCode != http.StatusOK {
 		log.Errorf("Error: received status code %d", resp.StatusCode)
 		return
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Errorf("failed to read from resp body: %v", err)
+		return
+	}
+
+	switch info {
+	case "true", "false":
+		fmt.Printf("%s\n", body)
+	case "display":
+		fmt.Printf("%s %s\n", podName, body)
 	}
 }
 
