@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package accesslog
+package authz
 
 import (
 	"context"
@@ -30,34 +30,34 @@ import (
 )
 
 const (
-	patternAccesslog = "/accesslog"
+	patternAuthz = "/authz"
 )
 
-var log = logger.NewLoggerScope("kmeshctl/accesslog")
+var log = logger.NewLoggerScope("kmeshctl/authz")
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "accesslog",
-		Short: "Enable or disable Kmesh's accesslog",
-		Example: `# Enable Kmesh's accesslog:
-kmeshctl accesslog <kmesh-daemon-pod> enable
-
-# Disable Kmesh's accesslog:
-kmeshctl accesslog <kmesh-daemon-pod> disable`,
+		Use:   "authz",
+		Short: "Enable or disable xdp authz eBPF Prog for Kmesh's authz offloading",
+		Example: `# Enable/Disable Kmesh's authz offloading in the specified kmesh daemon:
+ kmeshctl authz <kmesh-daemon-pod> enable/disable
+ 
+ # If you want to enable or disable authz offloading of all Kmeshs in the cluster
+ kmeshctl authz enable/disable`,
 		Args: cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			SetAccesslog(cmd, args)
+			SetAuthz(cmd, args)
 		},
 	}
 	return cmd
 }
 
-func SetAccesslog(cmd *cobra.Command, args []string) {
+func SetAuthz(cmd *cobra.Command, args []string) {
 	var info string
-	accesslogFlag := args[len(args)-1]
-	if accesslogFlag == "enable" {
+	authzFlag := args[len(args)-1]
+	if authzFlag == "enable" {
 		info = "true"
-	} else if accesslogFlag == "disable" {
+	} else if authzFlag == "disable" {
 		info = "false"
 	} else {
 		log.Errorf("Error: Argument must be 'enable' or 'disable'")
@@ -78,17 +78,17 @@ func SetAccesslog(cmd *cobra.Command, args []string) {
 			os.Exit(1)
 		}
 		for _, pod := range podList.Items {
-			SetAccesslogPerKmeshDaemon(cli, pod.GetName(), info)
+			SetAuthzPerKmeshDaemon(cli, pod.GetName(), info)
 		}
 	} else {
-		// Processes accesslog triggers for specified kmesh daemon.
+		// Processes authz triggers for specified kmesh daemon.
 		for _, podname := range args[:len(args)-1] {
-			SetAccesslogPerKmeshDaemon(cli, podname, info)
+			SetAuthzPerKmeshDaemon(cli, podname, info)
 		}
 	}
 }
 
-func SetAccesslogPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
+func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
 	if err != nil {
 		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
@@ -100,7 +100,7 @@ func SetAccesslogPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternAccesslog, info)
+	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternAuthz, info)
 
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {

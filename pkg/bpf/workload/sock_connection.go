@@ -27,6 +27,7 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
@@ -34,9 +35,9 @@ import (
 )
 
 type SockConnWorkload struct {
-	Info  BpfInfo
+	Info  general.BpfInfo
 	Link  link.Link
-	Info6 BpfInfo
+	Info6 general.BpfInfo
 	Link6 link.Link
 	bpf2go.KmeshCgroupSockWorkloadObjects
 }
@@ -78,7 +79,6 @@ func (sc *SockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, er
 		return nil, err
 	}
 
-	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockWorkloadObjects, &opts); err != nil {
 		return nil, err
@@ -98,7 +98,7 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 	sc.Info.Type = prog.Type
 	sc.Info.AttachType = prog.AttachType
 
-	if err = sc.MapOfTailCallProg.Update(
+	if err = sc.KmCgrTailcall.Update(
 		uint32(constants.TailCallConnect4Index),
 		uint32(sc.CgroupConnect4Prog.FD()),
 		ebpf.UpdateAny); err != nil {
@@ -109,7 +109,7 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 	sc.Info6.Type = prog.Type
 	sc.Info6.AttachType = prog.AttachType
 
-	if err = sc.MapOfTailCallProg.Update(
+	if err = sc.KmCgrTailcall.Update(
 		uint32(constants.TailCallConnect6Index),
 		uint32(sc.CgroupConnect6Prog.FD()),
 		ebpf.UpdateAny); err != nil {
@@ -143,11 +143,11 @@ func (sc *SockConnWorkload) Attach() error {
 	pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
 
 	if restart.GetStartType() == restart.Restart {
-		if err = bpfProgUpdate(pinPath4, cgopt4); err != nil {
+		if sc.Link, err = utils.BpfProgUpdate(pinPath4, cgopt4); err != nil {
 			return err
 		}
 
-		if err = bpfProgUpdate(pinPath6, cgopt6); err != nil {
+		if sc.Link6, err = utils.BpfProgUpdate(pinPath6, cgopt6); err != nil {
 			return err
 		}
 	} else {

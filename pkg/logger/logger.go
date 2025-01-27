@@ -28,13 +28,10 @@ import (
 	"github.com/cilium/ebpf/ringbuf"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
-
-	"kmesh.net/kmesh/pkg/constants"
 )
 
 const (
 	logSubsys = "subsys"
-	mapName   = "kmesh_events"
 )
 
 type LogEvent struct {
@@ -126,26 +123,9 @@ func NewFileLogger(pkgSubsys string) *logrus.Entry {
 	return fileOnlyLogger.WithField(logSubsys, pkgSubsys)
 }
 
-// print bpf log in daemon process
-func StartRingBufReader(ctx context.Context, mode string, bpfFsPath string) error {
-	var path string
-
-	if mode == constants.KernelNativeMode {
-		path = bpfFsPath + "/bpf_kmesh/map"
-	} else if mode == constants.DualEngineMode {
-		path = bpfFsPath + "/bpf_kmesh_workload/map"
-	} else {
-		return fmt.Errorf("invalid start mode:%s", mode)
-	}
-	path = filepath.Join(path, mapName)
-	rbMap, err := ebpf.LoadPinnedMap(path, nil)
-	if err != nil {
-		return err
-	}
-
-	go handleLogEvents(ctx, rbMap)
-
-	return nil
+// print bpf log in kmesh-daemon
+func StartLogReader(ctx context.Context, logMapFd *ebpf.Map) {
+	go handleLogEvents(ctx, logMapFd)
 }
 
 func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {

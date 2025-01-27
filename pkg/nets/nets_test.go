@@ -67,3 +67,54 @@ func TestCopyIpByteFromSlice(t *testing.T) {
 		})
 	}
 }
+
+func TestCompareIpByte(t *testing.T) {
+	type args struct {
+		newData [][]byte
+		oldData [][]byte
+	}
+	tests := []struct {
+		name string
+		args args
+		want [][]byte
+	}{
+		{
+			name: "Ipv4 compare test",
+			args: args{
+				newData: [][]byte{
+					{1, 1, 1, 1},
+					{2, 2, 2, 2},
+				},
+				oldData: [][]byte{
+					{3, 3, 3, 3},
+					{2, 2, 2, 2},
+				},
+			},
+			want: [][]byte{
+				{3, 3, 3, 3},
+			},
+		},
+		{
+			name: "Ipv6 compare test",
+			args: args{
+				newData: [][]byte{
+					{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
+					{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+				},
+				oldData: [][]byte{
+					{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+					{2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2},
+				},
+			},
+			want: [][]byte{
+				{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CompareIpByte(tt.args.newData, tt.args.oldData)
+			assert.Equal(t, tt.want, got)
+		})
+	}
+}

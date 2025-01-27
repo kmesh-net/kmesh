@@ -64,7 +64,7 @@ func UnpinMaps(value *reflect.Value) error {
 			continue
 		}
 		if err := tp.Unpin(); err != nil {
-			return fmt.Errorf("unpin prog failed, %s", err)
+			return fmt.Errorf("unpin map failed, %s", err)
 		}
 	}
 
@@ -74,8 +74,7 @@ func UnpinMaps(value *reflect.Value) error {
 func SetMapPinType(spec *ebpf.CollectionSpec, pinType ebpf.PinType) {
 	for key, v := range spec.Maps {
 		// tail_call map dont support pinning when shared by different bpf types
-		if strings.HasPrefix(key, ".rodata") || key == ".bss" || key == "kmesh_tail_call_prog" ||
-			key == "kmesh_tail_call_ctx" {
+		if strings.HasPrefix(key, ".rodata") || key == ".bss" {
 			continue
 		}
 		v.Pinning = pinType

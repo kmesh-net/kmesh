@@ -39,6 +39,10 @@ spec:
         - name: sys-fs-bpf
           hostPath:
             path: /sys/fs/bpf
+        - name: kmesh-ipsec
+          secret:
+            secretName: kmesh-ipsec
+            optional: true
         # required for compiling and building ko
         - name: lib-modules
           hostPath:
@@ -74,7 +78,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             [
-              "./start_kmesh.sh --mode=dual-engine --enable-bypass=false --enable-bpf-log=true --enable-perfmonitor=false",
+              "./start_kmesh.sh --mode=dual-engine --enable-bypass=false",
             ]
           securityContext:
             privileged: true
@@ -128,6 +132,8 @@ spec:
               mountPath: /var/run/secrets/istio
             - name: istio-token
               mountPath: /var/run/secrets/tokens
+            - name: kmesh-ipsec
+              mountPath: /kmesh/kmesh-ipsec
           resources:
             limits:
               # image online-compile needs 800Mi, or only 200Mi

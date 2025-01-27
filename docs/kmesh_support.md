@@ -1,32 +1,32 @@
-### Native support all feature
+### Support status of Kmesh
 
-We can directly compile and run all features of Kmesh in the following OS.
+Kmesh requires kernel eBPF functionality and sizeable eBPF Instruction Sets, so Kmesh can only run on Kernel version above **5.10**.
 
-| OS Version      | Kernel Version | Release Path                                |
-| :-------------: | :------------: | :-----------------------------------------: |
-| openEuler-23.03 |     6.1.19     | https://repo.openeuler.org/openEuler-23.03/ |
+Kmesh uses istiod as a control plane and therefore Kmesh has some dependencies on istio versions and kubernetes versions.
 
-### Kmesh enhance kernel support all feature
+Kmesh has two different modes, `Kernel-Native Mode` and `Duel-Engine Mode`. While there is no difference in the OS kernel version required for the two modes, the supported istio versions differ. Therefore we explain them separately.
 
-In the following OS, we can incorporate Kmesh kernel patches into the corresponding kernel of these OS, and then recompile the kernel. After installing the kernel containing the Kmesh kernel patches, we can compile and run all features of Kmesh. The method to build kernel package that supports Kmesh, see [Kmesh kernel compilation](kmesh_kernel_compile.md).
+- **Kmesh Duel-Engine Mode:**
 
-|        OS Version         | Kernel Version |                   OS Release Path                   |
-| :-----------------------: | :------------: | :-------------------------------------------------: |
-|  openEuler-22.03-LTS-SP1  |     5.10.0     | https://repo.openeuler.org/openEuler-22.03-LTS-SP1/ |
-| Ubuntu Server 22.04.3 LTS |     5.15.0     |         https://releases.ubuntu.com/jammy/          |
+| Version | Request Kernel Version | Supported Istio Version | Support Kubernetes Version |
+| :-------------: | :-------------: | :-------------: | :-------------: |
+| main/latest | >=5.10 | 1.22, 1.23, 1.24 | 1.26, 1.27, 1.28, 1.29, 1.30, 1.31 |
+| 0.5.x | >=5.10 | 1.22, 1.23 | 1.26, 1.27, 1.28, 1.29, 1.30 |
+| 0.4.x | >=5.10 | 1.22, 1.23 | 1.26, 1.27, 1.28, 1.29, 1.30 |
+| 0.3.x | >=5.10 | 1.22 | 1.26, 1.27, 1.28, 1.29, 1.30 |
 
-### Native support partial features
+**Note:** Kmesh's Duel-Engine Mode requires the setting of `pilot.env.PILOT_ENABLE_AMBIENT=true` in istiod. so 1.22+ istio is required!
 
-In the following OS, we can compile and run the specific features listed in the table in the corresponding OS.
+- **Kmesh Kernel-Native Mode:**
 
-| OS Version                | Kernel Version | Sockmap Accelerate   | L4 Proxy | L7 Proxy |
-| :-----------------------: | :------------: | :------------------: | :------: | :------: |
-| Ubuntu Server 22.04.3 LTS |     5.15.0     |           √          |     √    |          |
-| openEuler-22.03-LTS-SP1   |     5.10.0     |           √          |     √    |          |
+| Version | Request Kernel Version | Supported Istio Version | Support Kubernetes Version |
+| :-------------: | :-------------: | :-------------: | :-------------: |
+| main/latest | >=5.10 | 1.22, 1.23, 1.24 | 1.26, 1.27, 1.28, 1.29, 1.30, 1.31 |
+| 0.5.x | >=5.10 | 1.22, 1.23 | 1.26, 1.27, 1.28, 1.29, 1.30 |
+| 0.4.x | >=5.10 | 1.22, 1.23 | 1.26, 1.27, 1.28, 1.29, 1.30 |
+| 0.3.x | >=5.10 | 1.22 | 1.26, 1.27, 1.28, 1.29, 1.30 |
 
-**OS release path**:
+**Note:**
 
-- openEuler: https://repo.openeuler.org/
-- Ubuntu: https://releases.ubuntu.com/
-
-**Note**: The above listed OS versions have been verified by Kmesh community, which does not mean that other OS versions are not supported, Kmesh community will continue to refresh the supported list.
+- 1.`Kernel-Native Mode` does not depend on `pilot.env.PILOT_ENABLE_AMBIENT=true`. It is theoretically compatible with istiod <1.22.
+- 2.`Kernel-Native Mode's` L7 functionality requires kernel patches. The exception is the [oe23.03](https://repo.openeuler.org/openEuler-23.03/), which can natively support L7 functionality for Kmesh `Kernel-Native Mode`.

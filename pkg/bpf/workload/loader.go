@@ -22,13 +22,12 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/bpf/general"
+	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -39,15 +38,7 @@ type BpfWorkload struct {
 	SockOps  BpfSockOpsWorkload
 	XdpAuth  BpfXdpAuthWorkload
 	SendMsg  BpfSendMsgWorkload
-}
-
-type BpfInfo struct {
-	MapPath     string
-	BpfFsPath   string
-	Cgroup2Path string
-
-	Type       ebpf.ProgramType
-	AttachType ebpf.AttachType
+	Tc       *general.BpfTCGeneral
 }
 
 func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
@@ -70,6 +61,13 @@ func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
 		return nil, err
 	}
 
+	if cfg.EnableIPsec {
+		var err error
+		workloadObj.Tc, err = general.NewBpf(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
 	return workloadObj, nil
 }
 
@@ -91,7 +89,7 @@ func (w *BpfWorkload) Start() error {
 		return fmt.Errorf("failed to set api env")
 	}
 
-	ret := C.deserial_init(restart.GetStartType() == restart.Restart)
+	ret := C.deserial_init()
 	if ret != 0 {
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
@@ -99,12 +97,12 @@ func (w *BpfWorkload) Start() error {
 }
 
 func (w *BpfWorkload) Stop() error {
-	C.deserial_uninit(false)
+	C.deserial_uninit()
 	return w.Detach()
 }
 
 func (w *BpfWorkload) GetKmeshConfigMap() *ebpf.Map {
-	return w.SockConn.KmeshConfigMap
+	return w.SockConn.KmConfigmap
 }
 
 func (w *BpfWorkload) Load() error {
@@ -121,6 +119,10 @@ func (w *BpfWorkload) Load() error {
 	}
 
 	if err := w.SendMsg.LoadSendMsg(); err != nil {
+		return err
+	}
+
+	if err := w.Tc.LoadTC(); err != nil {
 		return err
 	}
 	return nil
@@ -159,32 +161,33 @@ func (w *BpfWorkload) Detach() error {
 		return err
 	}
 
+	if err := w.Tc.Close(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (w *BpfWorkload) ApiEnvCfg() error {
-	info, err := w.XdpAuth.KmeshXDPAuthMaps.MapOfAuthz.Info()
-	if err != nil {
+	var err error
+
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshXDPAuthMaps.KmAuthzPolicy, "Authorization"); err != nil {
 		return err
 	}
 
-	id, _ := info.ID()
-	stringId := strconv.Itoa(int(id))
-	if err = os.Setenv("Authorization", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshMap64, "KmeshMap64"); err != nil {
 		return err
 	}
 
-	info, _ = w.XdpAuth.KmeshXDPAuthMaps.OuterMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err = os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshMap192, "KmeshMap192"); err != nil {
 		return err
 	}
 
-	info, _ = w.XdpAuth.KmeshXDPAuthMaps.InnerMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("INNER_MAP_ID", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshMap296, "KmeshMap296"); err != nil {
+		return err
+	}
+
+	if err = utils.SetEnvByBpfMapId(w.XdpAuth.KmeshMap1600, "KmeshMap1600"); err != nil {
 		return err
 	}
 	return nil

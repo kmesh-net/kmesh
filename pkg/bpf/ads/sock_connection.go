@@ -22,14 +22,19 @@ package ads
 import "C"
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
+	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/constants"
+
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/normal"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
@@ -40,19 +45,9 @@ var KMESH_TAIL_CALL_FILTER = uint32(C.KMESH_TAIL_CALL_FILTER)
 var KMESH_TAIL_CALL_ROUTER = uint32(C.KMESH_TAIL_CALL_ROUTER)
 var KMESH_TAIL_CALL_CLUSTER = uint32(C.KMESH_TAIL_CALL_CLUSTER)
 var KMESH_TAIL_CALL_ROUTER_CONFIG = uint32(C.KMESH_TAIL_CALL_ROUTER_CONFIG)
-var BPF_INNER_MAP_DATA_LEN = uint32(C.BPF_INNER_MAP_DATA_LEN)
-
-type BpfInfo struct {
-	MapPath     string
-	BpfFsPath   string
-	Cgroup2Path string
-
-	Type       ebpf.ProgramType
-	AttachType ebpf.AttachType
-}
 
 type BpfSockConn struct {
-	Info BpfInfo
+	Info general.BpfInfo
 	Link link.Link
 	bpf2go.KmeshCgroupSockObjects
 }
@@ -94,14 +89,8 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 		return nil, err
 	}
 
-	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	value := reflect.ValueOf(sc.KmeshCgroupSockObjects.KmeshCgroupSockPrograms)
-	if err = utils.PinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
@@ -121,7 +110,7 @@ func (sc *BpfSockConn) Load() error {
 	sc.Info.AttachType = prog.AttachType
 
 	// update tail call prog
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmCgrptailcall.Update(
 		uint32(KMESH_TAIL_CALL_FILTER_CHAIN),
 		uint32(sc.FilterChainManager.FD()),
 		ebpf.UpdateAny)
@@ -129,7 +118,7 @@ func (sc *BpfSockConn) Load() error {
 		return err
 	}
 
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmCgrptailcall.Update(
 		uint32(KMESH_TAIL_CALL_FILTER),
 		uint32(sc.FilterManager.FD()),
 		ebpf.UpdateAny)
@@ -137,7 +126,7 @@ func (sc *BpfSockConn) Load() error {
 		return err
 	}
 
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmCgrptailcall.Update(
 		uint32(KMESH_TAIL_CALL_CLUSTER),
 		uint32(sc.ClusterManager.FD()),
 		ebpf.UpdateAny)
@@ -156,18 +145,28 @@ func (sc *BpfSockConn) close() error {
 }
 
 func (sc *BpfSockConn) Attach() error {
+	var err error
 	cgopt := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshCgroupSockObjects.CgroupConnect4Prog,
 	}
 
-	lk, err := link.AttachCgroup(cgopt)
-	if err != nil {
-		return err
-	}
-	sc.Link = lk
+	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
+	if restart.GetStartType() == restart.Restart {
+		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
+			return err
+		}
+	} else {
+		sc.Link, err = link.AttachCgroup(cgopt)
+		if err != nil {
+			return err
+		}
 
+		if err := sc.Link.Pin(progPinPath); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

@@ -25,13 +25,12 @@ import "C"
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
 
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf/restart"
+	"kmesh.net/kmesh/pkg/bpf/general"
+	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -41,19 +40,31 @@ type BpfAds struct {
 	TracePoint BpfTracePoint
 	SockConn   BpfSockConn
 	SockOps    BpfSockOps
+	Tc         *general.BpfTCGeneral
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
-	sc.TracePoint.NewBpf(cfg)
+	if err := sc.TracePoint.NewBpf(cfg); err != nil {
+		return nil, err
+	}
 
 	if err := sc.SockOps.NewBpf(cfg); err != nil {
-		return sc, err
+		return nil, err
 	}
 
 	if err := sc.SockConn.NewBpf(cfg); err != nil {
-		return sc, err
+		return nil, err
 	}
+
+	if cfg.EnableIPsec {
+		var err error
+		sc.Tc, err = general.NewBpf(cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return sc, nil
 }
 
@@ -75,7 +86,7 @@ func (sc *BpfAds) Start() error {
 		return fmt.Errorf("failed to set api env")
 	}
 
-	ret := C.deserial_init(restart.GetStartType() == restart.Restart)
+	ret := C.deserial_init()
 	if ret != 0 {
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
@@ -83,7 +94,7 @@ func (sc *BpfAds) Start() error {
 }
 
 func (sc *BpfAds) Stop() error {
-	C.deserial_uninit(false)
+	C.deserial_uninit()
 	if err := sc.Detach(); err != nil {
 		log.Errorf("failed detach when stop kmesh, err: %v", err)
 		return err
@@ -92,7 +103,7 @@ func (sc *BpfAds) Stop() error {
 }
 
 func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
-	return sc.SockConn.KmeshConfigMap
+	return sc.SockConn.KmConfigmap
 }
 
 func (sc *BpfAds) Load() error {
@@ -108,50 +119,43 @@ func (sc *BpfAds) Load() error {
 		return err
 	}
 
+	if err := sc.Tc.LoadTC(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (sc *BpfAds) ApiEnvCfg() error {
-	var id ebpf.MapID
-	info, err := sc.SockOps.KmeshSockopsMaps.KmeshListener.Info()
-	if err != nil {
+	var err error
+
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshSockopsMaps.KmListener, "Listener"); err != nil {
 		return err
 	}
 
-	id, _ = info.ID()
-	stringId := strconv.Itoa(int(id))
-	if err := os.Setenv("Listener", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmRouterconfig, "RouteConfiguration"); err != nil {
 		return err
 	}
 
-	info, _ = sc.SockOps.KmeshSockopsMaps.OuterMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("OUTTER_MAP_ID", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmCluster, "Cluster"); err != nil {
 		return err
 	}
 
-	info, _ = sc.SockOps.KmeshSockopsMaps.InnerMap.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("INNER_MAP_ID", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap64, "KmeshMap64"); err != nil {
 		return err
 	}
 
-	info, _ = sc.SockOps.MapOfRouterConfig.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("RouteConfiguration", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap192, "KmeshMap192"); err != nil {
 		return err
 	}
 
-	info, _ = sc.SockOps.KmeshCluster.Info()
-	id, _ = info.ID()
-	stringId = strconv.Itoa(int(id))
-	if err := os.Setenv("Cluster", stringId); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap296, "KmeshMap296"); err != nil {
 		return err
 	}
 
+	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap1600, "KmeshMap1600"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -182,11 +186,16 @@ func (sc *BpfAds) Detach() error {
 	if err := sc.SockConn.Detach(); err != nil {
 		return err
 	}
+
+	if err := sc.Tc.Close(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 func (sc *BpfAds) GetClusterStatsMap() *ebpf.Map {
-	return sc.SockOps.KmeshSockopsMaps.KmeshClusterStats
+	return sc.SockOps.KmeshSockopsMaps.KmClusterstats
 }
 
 func AdsL7Enabled() bool {

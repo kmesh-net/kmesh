@@ -97,17 +97,17 @@ func NewRbac(workloadCache cache.WorkloadCache) *Rbac {
 	}
 }
 
-func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
+func (r *Rbac) Run(ctx context.Context, authReq, authRes *ebpf.Map) {
 	if r == nil {
 		return
 	}
-	if mapOfTuple == nil || mapOfAuth == nil {
-		log.Error("mapOfTuple or mapOfAuth is nil")
+	if authReq == nil || authRes == nil {
+		log.Error("either km_auth_req or km_auth_res map is nil")
 		return
 	}
-	reader, err := ringbuf.NewReader(mapOfTuple)
+	reader, err := ringbuf.NewReader(authReq)
 	if err != nil {
-		log.Errorf("open mapOfTuple ringbuf err: %v", err)
+		log.Errorf("open km_auth_req ringbuf err: %v", err)
 		return
 	}
 	defer func() {
@@ -122,7 +122,7 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 			return
 		default:
 			if err = reader.ReadInto(&rec); err != nil {
-				log.Errorf("mapOfTuple read failed: %v", err)
+				log.Errorf("km_auth_req read failed: %v", err)
 				continue
 			}
 			if len(rec.RawSample) != MSG_LEN {
@@ -149,8 +149,8 @@ func (r *Rbac) Run(ctx context.Context, mapOfTuple, mapOfAuth *ebpf.Map) {
 			if !r.doRbac(&conn) {
 				log.Debugf("Auth denied for connection: %+v", conn)
 				// If conn is denied, write tuples into XDP map, which includes source/destination IP/Port
-				if err = r.notifyFunc(mapOfAuth, msgType, tupleData); err != nil {
-					log.Error("authmap update FAILED, err: ", err)
+				if err = r.notifyFunc(authRes, msgType, tupleData); err != nil {
+					log.Error("km_auth_res update FAILED, err: ", err)
 				}
 			}
 		}

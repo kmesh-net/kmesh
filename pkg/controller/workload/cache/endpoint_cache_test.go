@@ -67,7 +67,7 @@ func TestEndpointCache(t *testing.T) {
 	assert.Equal(t, 3, len(eplist))
 
 	// delete
-	ec.DeleteEndpoint(ep2, 234)
+	ec.DeleteEndpoint(ep2.ServiceId, 234)
 	assert.Equal(t, 2, len(ec.endpointsByServiceId[serviceId]))
 	eplist = ec.List(serviceId)
 	assert.Equal(t, 2, len(eplist))

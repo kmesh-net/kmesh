@@ -12,6 +12,7 @@
 #include "encoder.h"
 #include "bpf_common.h"
 #include "probe.h"
+#include "config.h"
 
 #define FORMAT_IP_LENGTH (16)
 
@@ -44,6 +45,39 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
     if (!value)
         return false;
     return (*value == 0);
+}
+
+static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
+{
+    struct kmesh_config *data = {0};
+    int key_of_kmesh_config = 0;
+    data = kmesh_map_lookup_elem(&kmesh_config_map, &key_of_kmesh_config);
+    if (!data) {
+        BPF_LOG(ERR, SOCKOPS, "get kmesh config failed");
+        return false;
+    }
+
+    if (skops->family == AF_INET) {
+        if (data->node_ip[3] == skops->remote_ip4) {
+            return true;
+        }
+        if (data->pod_gateway[3] == skops->remote_ip4) {
+            return true;
+        }
+    }
+
+    if (skops->family == AF_INET6) {
+        if (data->node_ip[0] == skops->remote_ip6[0] && data->node_ip[1] == skops->remote_ip6[1]
+            && data->node_ip[2] == skops->remote_ip6[2] && data->node_ip[3] == skops->remote_ip6[3]) {
+            return true;
+        }
+        if (data->pod_gateway[0] == skops->remote_ip6[0] && data->pod_gateway[1] == skops->remote_ip6[1]
+            && data->pod_gateway[2] == skops->remote_ip6[2] && data->pod_gateway[3] == skops->remote_ip6[3]) {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
@@ -93,7 +127,7 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, st
     }
 }
 
-// clean map_of_auth
+// clean map_of_auth_result
 static inline void clean_auth_map(struct bpf_sock_ops *skops)
 {
     struct bpf_sock_tuple tuple_key = {0};
@@ -103,25 +137,25 @@ static inline void clean_auth_map(struct bpf_sock_ops *skops)
     // the server info when we transmitted to the kmesh auth info.
     // In this way, auth can be performed normally.
     extract_skops_to_tuple_reverse(skops, &tuple_key);
-    int ret = bpf_map_delete_elem(&map_of_auth, &tuple_key);
+    int ret = bpf_map_delete_elem(&map_of_auth_result, &tuple_key);
     if (ret && ret != -ENOENT)
-        BPF_LOG(ERR, SOCKOPS, "map_of_auth bpf_map_delete_elem failed, ret: %d", ret);
+        BPF_LOG(ERR, SOCKOPS, "map_of_auth_result bpf_map_delete_elem failed, ret: %d", ret);
 }
 
 static inline void clean_dstinfo_map(struct bpf_sock_ops *skops)
 {
     __u64 *key = (__u64 *)skops->sk;
-    int ret = bpf_map_delete_elem(&map_of_dst_info, &key);
+    int ret = bpf_map_delete_elem(&map_of_orig_dst, &key);
     if (ret && ret != -ENOENT)
         BPF_LOG(ERR, SOCKOPS, "bpf map delete destination info failed, ret: %d", ret);
 }
 
-// insert an IPv4 tuple into the ringbuf
+// insert an IP tuple into the ringbuf
 static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
 {
-    struct ringbuf_msg_type *msg = bpf_ringbuf_reserve(&map_of_tuple, sizeof(*msg), 0);
+    struct ringbuf_msg_type *msg = bpf_ringbuf_reserve(&map_of_auth_req, sizeof(*msg), 0);
     if (!msg) {
-        BPF_LOG(WARN, SOCKOPS, "can not alloc new ringbuf in map_of_tuple");
+        BPF_LOG(WARN, SOCKOPS, "can not alloc new mem in map_of_auth_req");
         return;
     }
     // auth run PASSIVE ESTABLISHED CB now. In this state cb
@@ -228,12 +262,12 @@ int sockops_prog(struct bpf_sock_ops *skops)
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         __u64 *current_sk = (__u64 *)skops->sk;
-        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_dst_info, &current_sk);
+        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
         if (dst != NULL)
             enable_encoding_metadata(skops);
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
-        if (!is_managed_by_kmesh(skops))
+        if (!is_managed_by_kmesh(skops) || skip_specific_probe(skops))
             break;
         observe_on_connect_established(skops->sk, INBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)

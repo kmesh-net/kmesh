@@ -19,9 +19,11 @@ package common
 import (
 	"github.com/spf13/cobra"
 
-	"kmesh.net/kmesh/ctl/accesslog"
+	"kmesh.net/kmesh/ctl/authz"
 	"kmesh.net/kmesh/ctl/dump"
 	logcmd "kmesh.net/kmesh/ctl/log"
+	"kmesh.net/kmesh/ctl/monitoring"
+	"kmesh.net/kmesh/ctl/secret"
 	"kmesh.net/kmesh/ctl/version"
 	"kmesh.net/kmesh/ctl/waypoint"
 )
@@ -40,7 +42,9 @@ func GetRootCommand() *cobra.Command {
 	rootCmd.AddCommand(dump.NewCmd())
 	rootCmd.AddCommand(waypoint.NewCmd())
 	rootCmd.AddCommand(version.NewCmd())
-	rootCmd.AddCommand(accesslog.NewCmd())
+	rootCmd.AddCommand(monitoring.NewCmd())
+	rootCmd.AddCommand(authz.NewCmd())
+	rootCmd.AddCommand(secret.NewCmd())
 
 	return rootCmd
 }

@@ -42,12 +42,12 @@ type BackendValue struct {
 
 func (c *Cache) BackendUpdate(key *BackendKey, value *BackendValue) error {
 	log.Debugf("BackendUpdate [%#v], [%#v]", *key, *value)
-	return c.bpfMap.KmeshBackend.Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmBackend.Update(key, value, ebpf.UpdateAny)
 }
 
 func (c *Cache) BackendDelete(key *BackendKey) error {
 	log.Debugf("BackendDelete [%#v]", *key)
-	err := c.bpfMap.KmeshBackend.Delete(key)
+	err := c.bpfMap.KmBackend.Delete(key)
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
@@ -56,7 +56,7 @@ func (c *Cache) BackendDelete(key *BackendKey) error {
 
 func (c *Cache) BackendLookup(key *BackendKey, value *BackendValue) error {
 	log.Debugf("BackendLookup [%#v]", *key)
-	return c.bpfMap.KmeshBackend.Lookup(key, value)
+	return c.bpfMap.KmBackend.Lookup(key, value)
 }
 
 // BackendCount returns the length of backend map
@@ -67,5 +67,5 @@ func (c *Cache) BackendCount() int {
 
 func (c *Cache) BackendLookupAll() []BackendValue {
 	log.Debugf("BackendLookupAll")
-	return LookupAll[BackendKey, BackendValue](c.bpfMap.KmeshBackend)
+	return LookupAll[BackendKey, BackendValue](c.bpfMap.KmBackend)
 }

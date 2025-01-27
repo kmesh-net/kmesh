@@ -95,6 +95,16 @@ If you have any question, feel free to reach out to us in the following ways:
 - [slack](https://cloud-native.slack.com/archives/C06BU2GB8NL)
 - [twitter](https://twitter.com/kmesh_net)
 
+## Community Meeting
+
+Regular Community Meeting:
+
+- Thursday at 16:00 UTC+8 (Chinese)(weekly). [Convert to your timezone](https://www.thetimezoneconverter.com/?t=14%3A30&tz=GMT%2B8&).
+
+Resources:
+
+- [Meeting Link](https://app.huawei.com/wmeeting/join/97427195/NHRwTCfXA1PM8aNpDN5RsDlrpNAg3uavD)
+
 ## Contributing
 
 If you're interested in being a contributor and want to get involved in developing Kmesh, please see [CONTRIBUTING](CONTRIBUTING.md) for more details on submitting patches and the contribution workflow.

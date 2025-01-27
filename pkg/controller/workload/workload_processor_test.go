@@ -19,7 +19,6 @@ package workload
 import (
 	"net/netip"
 	"os"
-	"strings"
 	"testing"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -35,6 +34,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
+	"kmesh.net/kmesh/pkg/controller/workload/common"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
@@ -51,7 +51,7 @@ func Test_handleWorkload(t *testing.T) {
 	)
 
 	// 1. add related service
-	fakeSvc := createFakeService("testsvc", "10.240.10.1", "10.240.10.2", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	fakeSvc := common.CreateFakeService("testsvc", "10.240.10.1", "10.240.10.2", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
 	_ = p.handleService(fakeSvc)
 
 	// 2. add workload
@@ -76,7 +76,7 @@ func Test_handleWorkload(t *testing.T) {
 	assert.Equal(t, ev.BackendUid, workloadID)
 
 	// 3. add another workload with service
-	workload2 := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
+	workload2 := common.CreateFakeWorkload("1.2.3.5", "", common.WithNetworkMode(workloadapi.NetworkMode_STANDARD))
 	err = p.handleWorkload(workload2)
 	assert.NoError(t, err)
 
@@ -136,7 +136,7 @@ func Test_handleWorkload(t *testing.T) {
 	assert.Equal(t, workload2ID, ev.BackendUid)
 
 	// 6. add namespace scoped waypoint service
-	wpSvc := createFakeService("waypoint", "10.240.10.5", "10.240.10.5", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	wpSvc := common.CreateFakeService("waypoint", "10.240.10.5", "10.240.10.5", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
 	_ = p.handleService(wpSvc)
 	assert.Nil(t, wpSvc.Waypoint)
 	// 6.1 check front end map contains service
@@ -145,7 +145,7 @@ func Test_handleWorkload(t *testing.T) {
 	checkServiceMap(t, p, svcID, wpSvc, 0, 0)
 
 	// 7. test add unhealthy workload
-	workload3 := createFakeWorkload("1.2.3.7", workloadapi.NetworkMode_STANDARD)
+	workload3 := common.CreateFakeWorkload("1.2.3.7", "", common.WithNetworkMode(workloadapi.NetworkMode_STANDARD))
 	workload3.Status = workloadapi.WorkloadStatus_UNHEALTHY
 	_ = p.handleWorkload(workload3)
 
@@ -172,19 +172,20 @@ func Test_handleWorkload(t *testing.T) {
 	hashNameClean(p)
 }
 
-func Test_handleServiceWithWaypoint(t *testing.T) {
+func Test_handleWaypointWithHostname(t *testing.T) {
 	// Mainly used to test whether processor can correctly handle
 	// different types of waypoint address without panic.
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	p := NewProcessor(workloadMap)
 
 	// Waypoint with network address.
-	svc1 := createFakeService("svc1", "10.240.10.1", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	svc1 := common.CreateFakeService("svc1", "10.240.10.1", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	wl1 := common.CreateFakeWorkload("1.2.3.5", "10.240.10.200", common.WithNetworkMode(workloadapi.NetworkMode_STANDARD))
 	// Waypoint with hostname.
-	svc2 := createFakeService("svc2", "10.240.10.2", "default/waypoint.default.svc.cluster.local", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	svc2 := common.CreateFakeService("svc2", "10.240.10.2", "default/waypoint.default.svc.cluster.local", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	wl2 := common.CreateFakeWorkload("1.2.3.6", "default/waypoint.default.svc.cluster.local", common.WithNetworkMode(workloadapi.NetworkMode_STANDARD))
 
-	assert.NoError(t, p.handleService(svc1))
-	assert.NoError(t, p.handleService(svc2))
+	p.handleServicesAndWorkloads([]*workloadapi.Service{svc1, svc2}, []*workloadapi.Workload{wl1, wl2})
 
 	// Front end map includes svc1 but not svc2 as its waypoint is not resolved.
 	svc1ID := checkFrontEndMap(t, svc1.Addresses[0].Address, p)
@@ -192,10 +193,15 @@ func Test_handleServiceWithWaypoint(t *testing.T) {
 
 	checkNotExistInFrontEndMap(t, svc2.Addresses[0].Address, p)
 
+	// Back end map includes wl1 but not wl2 as its waypoint is not resolved.
+	wl1ID := checkFrontEndMap(t, wl1.Addresses[0], p)
+	checkBackendMap(t, p, wl1ID, wl1)
+
+	checkNotExistInFrontEndMap(t, wl2.Addresses[0], p)
+
 	waypointIP := "10.240.10.3"
-	waypointsvc := createFakeService("waypoint", waypointIP, "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
-	assert.NoError(t, p.handleService(waypointsvc))
-	updateWaypointOfService(svc2, waypointIP)
+	waypointsvc := common.CreateFakeService("waypoint", waypointIP, "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	p.handleServicesAndWorkloads([]*workloadapi.Service{waypointsvc}, []*workloadapi.Workload{})
 
 	// Front end map includes svc2 and waypointsvc now.
 	svc2ID := checkFrontEndMap(t, svc2.Addresses[0].Address, p)
@@ -203,22 +209,28 @@ func Test_handleServiceWithWaypoint(t *testing.T) {
 	wID := checkFrontEndMap(t, waypointsvc.Addresses[0].Address, p)
 	checkServiceMap(t, p, wID, waypointsvc, 0, 0)
 
-	// Insert svc whose waypoint hostname can be resolved directly.
-	svc3 := createFakeService("svc3", "10.240.10.4", "default/waypoint.default.svc.cluster.local", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
-	assert.NoError(t, p.handleService(svc3))
+	// Front end map includes wl2 now.
+	wl2ID := checkFrontEndMap(t, wl2.Addresses[0], p)
+	checkBackendMap(t, p, wl2ID, wl2)
 
-	updateWaypointOfService(svc3, waypointIP)
+	// Insert svc and workload whose waypoint hostname can be resolved directly.
+	svc3 := common.CreateFakeService("svc3", "10.240.10.4", "default/waypoint.default.svc.cluster.local", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	wl3 := common.CreateFakeWorkload("1.2.3.6", "default/waypoint.default.svc.cluster.local", common.WithNetworkMode(workloadapi.NetworkMode_STANDARD))
+	p.handleServicesAndWorkloads([]*workloadapi.Service{svc3}, []*workloadapi.Workload{wl3})
+
 	svc3ID := checkFrontEndMap(t, svc3.Addresses[0].Address, p)
 	checkServiceMap(t, p, svc3ID, svc3, 0, 0)
+	wl3ID := checkFrontEndMap(t, wl3.Addresses[0], p)
+	checkBackendMap(t, p, wl3ID, wl3)
 }
 
 func Test_hostnameNetworkMode(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	p := NewProcessor(workloadMap)
-	workload := createFakeWorkload("1.2.3.4", workloadapi.NetworkMode_STANDARD)
-	workloadWithoutService := createFakeWorkload("1.2.3.5", workloadapi.NetworkMode_STANDARD)
+	workload := common.CreateFakeWorkload("1.2.3.4", "", common.WithNetworkMode(workloadapi.NetworkMode_STANDARD))
+	workloadWithoutService := common.CreateFakeWorkload("1.2.3.5", "", common.WithNetworkMode(workloadapi.NetworkMode_STANDARD))
 	workloadWithoutService.Services = nil
-	workloadHostname := createFakeWorkload("1.2.3.6", workloadapi.NetworkMode_HOST_NETWORK)
+	workloadHostname := common.CreateFakeWorkload("1.2.3.6", "", common.WithNetworkMode(workloadapi.NetworkMode_STANDARD))
 
 	p.handleWorkload(workload)
 	p.handleWorkload(workloadWithoutService)
@@ -383,111 +395,10 @@ func createTestWorkloadWithService(withService bool) *workloadapi.Workload {
 	return &workload
 }
 
-func createFakeWorkload(ip string, networkMode workloadapi.NetworkMode) *workloadapi.Workload {
-	workload := workloadapi.Workload{
-		Namespace:         "ns",
-		Name:              "name",
-		Addresses:         [][]byte{netip.MustParseAddr(ip).AsSlice()},
-		Network:           "testnetwork",
-		CanonicalName:     "foo",
-		CanonicalRevision: "latest",
-		WorkloadType:      workloadapi.WorkloadType_POD,
-		WorkloadName:      "name",
-		Status:            workloadapi.WorkloadStatus_HEALTHY,
-		ClusterId:         "cluster0",
-		NetworkMode:       networkMode,
-		Services: map[string]*workloadapi.PortList{
-			"default/testsvc.default.svc.cluster.local": {
-				Ports: []*workloadapi.Port{
-					{
-						ServicePort: 80,
-						TargetPort:  8080,
-					},
-					{
-						ServicePort: 81,
-						TargetPort:  8180,
-					},
-					{
-						ServicePort: 82,
-						TargetPort:  82,
-					},
-				},
-			},
-		},
-	}
-	workload.Uid = "cluster0/" + rand.String(6)
-	return &workload
-}
-
 func createLoadBalancing(mode workloadapi.LoadBalancing_Mode, scopes []workloadapi.LoadBalancing_Scope) *workloadapi.LoadBalancing {
 	return &workloadapi.LoadBalancing{
 		RoutingPreference: scopes,
 		Mode:              mode,
-	}
-}
-
-func createFakeService(name, ip, waypoint string, lbPolicy *workloadapi.LoadBalancing) *workloadapi.Service {
-	var w *workloadapi.GatewayAddress
-	if waypoint != "" {
-		res := strings.Split(waypoint, "/")
-		if len(res) == 2 {
-			w = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Hostname{
-					Hostname: &workloadapi.NamespacedHostname{
-						Namespace: res[0],
-						Hostname:  res[1],
-					},
-				},
-				HboneMtlsPort: 15008,
-			}
-		} else {
-			w = &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Address{
-					Address: &workloadapi.NetworkAddress{
-						Address: netip.MustParseAddr(waypoint).AsSlice(),
-					},
-				},
-				HboneMtlsPort: 15008,
-			}
-		}
-	}
-
-	return &workloadapi.Service{
-		Name:      name,
-		Namespace: "default",
-		Hostname:  name + ".default.svc.cluster.local",
-		Addresses: []*workloadapi.NetworkAddress{
-			{
-				Address: netip.MustParseAddr(ip).AsSlice(),
-			},
-		},
-		Ports: []*workloadapi.Port{
-			{
-				ServicePort: 80,
-				TargetPort:  8080,
-			},
-			{
-				ServicePort: 81,
-				TargetPort:  8180,
-			},
-			{
-				ServicePort: 82,
-				TargetPort:  82,
-			},
-		},
-		Waypoint:      w,
-		LoadBalancing: lbPolicy,
-	}
-}
-
-func updateWaypointOfService(svc *workloadapi.Service, waypointIP string) {
-	svc.Waypoint = &workloadapi.GatewayAddress{
-		Destination: &workloadapi.GatewayAddress_Address{
-			Address: &workloadapi.NetworkAddress{
-				Address: netip.MustParseAddr(waypointIP).AsSlice(),
-			},
-		},
-		HboneMtlsPort: 15008,
 	}
 }
 
@@ -548,9 +459,9 @@ func TestRestart(t *testing.T) {
 
 	// 1. First simulate normal start
 	// 1.1 add related service
-	svc1 := createFakeService("svc1", "10.240.10.1", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
-	svc2 := createFakeService("svc2", "10.240.10.2", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
-	svc3 := createFakeService("svc3", "10.240.10.3", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	svc1 := common.CreateFakeService("svc1", "10.240.10.1", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	svc2 := common.CreateFakeService("svc2", "10.240.10.2", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	svc3 := common.CreateFakeService("svc3", "10.240.10.3", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
 	for _, svc := range []*workloadapi.Service{svc1, svc2, svc3} {
 		addr := serviceToAddress(svc)
 		res.Resources = append(res.Resources, &service_discovery_v3.Resource{
@@ -628,7 +539,7 @@ func TestRestart(t *testing.T) {
 	}
 
 	wl4 := createWorkload("wl4", "10.244.0.4", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc4")
-	svc4 := createFakeService("svc4", "10.240.10.4", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+	svc4 := common.CreateFakeService("svc4", "10.240.10.4", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
 
 	res = &service_discovery_v3.DeltaDiscoveryResponse{}
 	// wl3 deleted during restart
@@ -684,7 +595,8 @@ func TestRestart(t *testing.T) {
 // If it is not cleaned, it will affect other use cases.
 func hashNameClean(p *Processor) {
 	for str := range p.hashName.GetStrToNum() {
-		if err := p.removeWorkloadFromBpfMap(str); err != nil {
+		dummyWorkload := &workloadapi.Workload{Uid: str}
+		if err := p.removeWorkloadFromBpfMap(dummyWorkload); err != nil {
 			log.Errorf("RemoveWorkloadResource failed: %v", err)
 		}
 
@@ -730,8 +642,8 @@ func TestLBPolicyUpdate(t *testing.T) {
 	localityLBScope = append(localityLBScope, workloadapi.LoadBalancing_SUBZONE)
 	randomLoadBlanacing := createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0))
 	localityLoadBlanacing := createLoadBalancing(workloadapi.LoadBalancing_FAILOVER, localityLBScope)
-	randomSvc := createFakeService("svc1", "10.240.10.1", "10.240.10.200", randomLoadBlanacing)
-	llbSvc := createFakeService("svc1", "10.240.10.1", "10.240.10.200", localityLoadBlanacing)
+	randomSvc := common.CreateFakeService("svc1", "10.240.10.1", "10.240.10.200", randomLoadBlanacing)
+	llbSvc := common.CreateFakeService("svc1", "10.240.10.1", "10.240.10.200", localityLoadBlanacing)
 
 	addr := serviceToAddress(randomSvc)
 	res1.Resources = append(res1.Resources, &service_discovery_v3.Resource{
@@ -772,17 +684,19 @@ func TestLBPolicyUpdate(t *testing.T) {
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 3, 0)
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
-	t.Log("1. check endpoint map")
+	t.Log("2. check endpoint map")
 
 	checkEndpointMap(t, p, randomSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 	// check backend map
+	t.Log("3. check backend map")
 	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl3, wl4} {
 		checkBackendMap(t, p, p.hashName.Hash(wl.ResourceName()), wl)
 	}
 	assert.Equal(t, 4, p.bpf.BackendCount())
 
 	// 2. Locality Loadbalance Update from random to locality LB
+	t.Log("lb policy update to locality lb")
 	addr = serviceToAddress(llbSvc)
 	res2.Resources = append(res2.Resources, &service_discovery_v3.Resource{
 		Resource: protoconv.MessageToAny(addr),
@@ -793,14 +707,14 @@ func TestLBPolicyUpdate(t *testing.T) {
 
 	assert.Equal(t, 5, p.bpf.FrontendCount())
 	// check service map
-	t.Log("2. check service map")
+	t.Log("4. check service map")
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 0, 1)
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 1, 1)
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 2, 1)
 	checkServiceMap(t, p, p.hashName.Hash(llbSvc.ResourceName()), llbSvc, 3, 1)
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
-	t.Log("2. check endpoint map")
+	t.Log("5. check endpoint map")
 	checkEndpointMap(t, p, llbSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 
@@ -815,16 +729,43 @@ func TestLBPolicyUpdate(t *testing.T) {
 
 	assert.Equal(t, 5, p.bpf.FrontendCount())
 	// check service map
-	t.Log("3. check service map")
+	t.Log("6. check service map")
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 0, 4) // 4 1
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 1, 0) // 0 1
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 2, 0) // 0 1
 	checkServiceMap(t, p, p.hashName.Hash(randomSvc.ResourceName()), randomSvc, 3, 0) // 0 1
 	assert.Equal(t, 1, p.bpf.ServiceCount())
 	// check endpoint map
-	t.Log("3. check endpoint map")
+	t.Log("7. check endpoint map")
 	checkEndpointMap(t, p, randomSvc, backendUid)
 	assert.Equal(t, 4, p.bpf.EndpointCount())
 
 	hashNameClean(p)
+}
+
+func TestGetServiceByAddress(t *testing.T) {
+	t.Run("test get service in serviceCache", func(t *testing.T) {
+		workloadMap := bpfcache.NewFakeWorkloadMap(t)
+		defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+		p := NewProcessor(workloadMap)
+		svc := common.CreateFakeService("svc4", "10.240.10.4", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+		p.ServiceCache.AddOrUpdateService(svc)
+		got := p.getServiceByAddress([]byte{10, 240, 10, 4})
+		assert.Equal(t, svc, got)
+	})
+}
+
+func TestUpdateWorkloadInFrontendMap(t *testing.T) {
+	t.Run("test workload and service conflict", func(t *testing.T) {
+		workloadMap := bpfcache.NewFakeWorkloadMap(t)
+		defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+		p := NewProcessor(workloadMap)
+		svc := common.CreateFakeService("svc1", "10.240.10.1", "10.240.10.200", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
+		wl := createWorkload("wl1", "10.244.10.1", os.Getenv("NODE_NAME"), workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1", "svc2")
+		p.ServiceCache.AddOrUpdateService(svc)
+		err := p.updateWorkloadInFrontendMap(wl)
+		assert.NoError(t, err)
+	})
 }

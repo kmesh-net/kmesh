@@ -24,10 +24,12 @@ type KmeshSendmsgCompatBpfSockTuple struct {
 
 type KmeshSendmsgCompatBuf struct{ Data [40]int8 }
 
-type KmeshSendmsgCompatLogEvent struct {
-	Ret uint32
-	Msg [255]int8
-	_   [1]byte
+type KmeshSendmsgCompatKmeshConfig struct {
+	BpfLogLevel      uint32
+	NodeIp           [4]uint32
+	PodGateway       [4]uint32
+	AuthzOffload     uint32
+	EnableMonitoring uint32
 }
 
 // LoadKmeshSendmsgCompat returns the embedded CollectionSpec for KmeshSendmsgCompat.
@@ -65,9 +67,10 @@ func LoadKmeshSendmsgCompatObjects(obj interface{}, opts *ebpf.CollectionOptions
 type KmeshSendmsgCompatSpecs struct {
 	KmeshSendmsgCompatProgramSpecs
 	KmeshSendmsgCompatMapSpecs
+	KmeshSendmsgCompatVariableSpecs
 }
 
-// KmeshSendmsgCompatSpecs contains programs before they are loaded into the kernel.
+// KmeshSendmsgCompatProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgCompatProgramSpecs struct {
@@ -78,11 +81,16 @@ type KmeshSendmsgCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgCompatMapSpecs struct {
-	KmeshConfigMap *ebpf.MapSpec `ebpf:"kmesh_config_map"`
-	KmeshEvents    *ebpf.MapSpec `ebpf:"kmesh_events"`
-	MapOfDstInfo   *ebpf.MapSpec `ebpf:"map_of_dst_info"`
-	TmpBuf         *ebpf.MapSpec `ebpf:"tmp_buf"`
-	TmpLogBuf      *ebpf.MapSpec `ebpf:"tmp_log_buf"`
+	KmConfigmap *ebpf.MapSpec `ebpf:"km_configmap"`
+	KmLogEvent  *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmOrigDst   *ebpf.MapSpec `ebpf:"km_orig_dst"`
+	KmTmpbuf    *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+}
+
+// KmeshSendmsgCompatVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type KmeshSendmsgCompatVariableSpecs struct {
 }
 
 // KmeshSendmsgCompatObjects contains all objects after they have been loaded into the kernel.
@@ -91,6 +99,7 @@ type KmeshSendmsgCompatMapSpecs struct {
 type KmeshSendmsgCompatObjects struct {
 	KmeshSendmsgCompatPrograms
 	KmeshSendmsgCompatMaps
+	KmeshSendmsgCompatVariables
 }
 
 func (o *KmeshSendmsgCompatObjects) Close() error {
@@ -104,21 +113,25 @@ func (o *KmeshSendmsgCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshSendmsgCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSendmsgCompatMaps struct {
-	KmeshConfigMap *ebpf.Map `ebpf:"kmesh_config_map"`
-	KmeshEvents    *ebpf.Map `ebpf:"kmesh_events"`
-	MapOfDstInfo   *ebpf.Map `ebpf:"map_of_dst_info"`
-	TmpBuf         *ebpf.Map `ebpf:"tmp_buf"`
-	TmpLogBuf      *ebpf.Map `ebpf:"tmp_log_buf"`
+	KmConfigmap *ebpf.Map `ebpf:"km_configmap"`
+	KmLogEvent  *ebpf.Map `ebpf:"km_log_event"`
+	KmOrigDst   *ebpf.Map `ebpf:"km_orig_dst"`
+	KmTmpbuf    *ebpf.Map `ebpf:"km_tmpbuf"`
 }
 
 func (m *KmeshSendmsgCompatMaps) Close() error {
 	return _KmeshSendmsgCompatClose(
-		m.KmeshConfigMap,
-		m.KmeshEvents,
-		m.MapOfDstInfo,
-		m.TmpBuf,
-		m.TmpLogBuf,
+		m.KmConfigmap,
+		m.KmLogEvent,
+		m.KmOrigDst,
+		m.KmTmpbuf,
 	)
+}
+
+// KmeshSendmsgCompatVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to LoadKmeshSendmsgCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshSendmsgCompatVariables struct {
 }
 
 // KmeshSendmsgCompatPrograms contains all programs after they have been loaded into the kernel.

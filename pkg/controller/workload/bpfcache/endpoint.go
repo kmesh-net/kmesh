@@ -18,6 +18,7 @@ package bpfcache
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cilium/ebpf"
 	"istio.io/istio/pkg/util/sets"
@@ -46,14 +47,14 @@ func (c *Cache) EndpointUpdate(key *EndpointKey, value *EndpointValue) error {
 		c.endpointKeys[value.BackendUid].Insert(*key)
 	}
 
-	return c.bpfMap.KmeshEndpoint.Update(key, value, ebpf.UpdateAny)
+	return c.bpfMap.KmEndpoint.Update(key, value, ebpf.UpdateAny)
 }
 
 func (c *Cache) EndpointDelete(key *EndpointKey) error {
 	log.Debugf("EndpointDelete [%#v]", *key)
 	value := &EndpointValue{}
 	// update endpointKeys index
-	if err := c.bpfMap.KmeshEndpoint.Lookup(key, value); err != nil {
+	if err := c.bpfMap.KmEndpoint.Lookup(key, value); err != nil {
 		log.Infof("endpoint [%#v] does not exist", key)
 		return nil
 	}
@@ -62,29 +63,41 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 		delete(c.endpointKeys, value.BackendUid)
 	}
 
-	err := c.bpfMap.KmeshEndpoint.Delete(key)
+	err := c.bpfMap.KmEndpoint.Delete(key)
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
 	return err
 }
 
-// EndpointSwap update the last endpoint index and remove the current endpoint
-func (c *Cache) EndpointSwap(currentIndex, lastIndex uint32, serviceId uint32, prio uint32) error {
+// EndpointSwap replaces the current endpoint with the last endpoint
+func (c *Cache) EndpointSwap(currentIndex, backendUid, lastIndex uint32, serviceId uint32, prio uint32) error {
+	if currentIndex > lastIndex {
+		return fmt.Errorf("currentIndex %d > lastIndex %d", currentIndex, lastIndex)
+	}
+	var k EndpointKey // key for the last endpoint
 	if currentIndex == lastIndex {
-		return c.EndpointDelete(&EndpointKey{
+		if lastIndex <= 1 {
+			// if only one endpoint, do nothing
+			return nil
+		}
+		// update the last endpoint with lastIndex-1 endpoint
+		k = EndpointKey{
+			ServiceId:    serviceId,
+			Prio:         prio,
+			BackendIndex: lastIndex - 1,
+		}
+	} else {
+		// update the current endpoint with last endpoint
+		k = EndpointKey{
 			ServiceId:    serviceId,
 			Prio:         prio,
 			BackendIndex: lastIndex,
-		})
+		}
 	}
-	lastKey := &EndpointKey{
-		ServiceId:    serviceId,
-		Prio:         prio,
-		BackendIndex: lastIndex,
-	}
+
 	lastValue := &EndpointValue{}
-	if err := c.EndpointLookup(lastKey, lastValue); err != nil {
+	if err := c.EndpointLookup(&k, lastValue); err != nil {
 		return err
 	}
 
@@ -93,36 +106,26 @@ func (c *Cache) EndpointSwap(currentIndex, lastIndex uint32, serviceId uint32, p
 		Prio:         prio,
 		BackendIndex: currentIndex,
 	}
-	currentValue := &EndpointValue{}
-	if err := c.EndpointLookup(currentKey, currentValue); err != nil {
-		return err
-	}
 
-	// update the last endpoint's index, in other word delete the current endpoint
-	if err := c.bpfMap.KmeshEndpoint.Update(currentKey, lastValue, ebpf.UpdateAny); err != nil {
-		return err
-	}
-
-	// delete the duplicate last endpoint
-	if err := c.bpfMap.KmeshEndpoint.Delete(lastKey); err != nil {
+	// replace the current endpoint with the last endpoint
+	if err := c.bpfMap.KmEndpoint.Update(currentKey, lastValue, ebpf.UpdateAny); err != nil {
 		return err
 	}
 
 	// delete index for the current endpoint
-	c.endpointKeys[currentValue.BackendUid].Delete(*currentKey)
-	if len(c.endpointKeys[currentValue.BackendUid]) == 0 {
-		delete(c.endpointKeys, currentValue.BackendUid)
+	c.endpointKeys[backendUid].Delete(*currentKey)
+	if len(c.endpointKeys[backendUid]) == 0 {
+		delete(c.endpointKeys, backendUid)
 	}
 
-	// update the last endpoint index
-	c.endpointKeys[lastValue.BackendUid].Delete(*lastKey)
+	// add another index for the last endpoint
 	c.endpointKeys[lastValue.BackendUid].Insert(*currentKey)
 	return nil
 }
 
 func (c *Cache) EndpointLookup(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointLookup [%#v]", *key)
-	return c.bpfMap.KmeshEndpoint.Lookup(key, value)
+	return c.bpfMap.KmEndpoint.Lookup(key, value)
 }
 
 // RestoreEndpointKeys called on restart to construct endpoint indexes from bpf map
@@ -133,7 +136,7 @@ func (c *Cache) RestoreEndpointKeys() {
 		value = EndpointValue{}
 	)
 
-	iter := c.bpfMap.KmeshEndpoint.Iterate()
+	iter := c.bpfMap.KmEndpoint.Iterate()
 	for iter.Next(&key, &value) {
 		// update endpointKeys index
 		if c.endpointKeys[value.BackendUid] == nil {
@@ -155,7 +158,7 @@ func (c *Cache) GetAllEndpointsForService(serviceId uint32) []EndpointValue {
 
 	var res []EndpointValue
 
-	iter := c.bpfMap.KmeshEndpoint.Iterate()
+	iter := c.bpfMap.KmEndpoint.Iterate()
 	for iter.Next(&key, &value) {
 		if key.ServiceId == serviceId {
 			res = append(res, value)
@@ -172,5 +175,5 @@ func (c *Cache) EndpointCount() int {
 
 func (c *Cache) EndpointLookupAll() []EndpointValue {
 	log.Debugf("EndpointLookupAll")
-	return LookupAll[EndpointKey, EndpointValue](c.bpfMap.KmeshEndpoint)
+	return LookupAll[EndpointKey, EndpointValue](c.bpfMap.KmEndpoint)
 }

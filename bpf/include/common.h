@@ -12,6 +12,7 @@
 #include <sys/socket.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
+#include "map_config.h"
 
 #include "errno.h"
 
@@ -62,6 +63,18 @@ struct kmesh_context {
     __u32 dnat_port;
     bool via_waypoint;
 };
+
+struct kmesh_config {
+    __u32 bpf_log_level;
+    __u32 node_ip[4];
+    __u32 pod_gateway[4];
+    __u32 authz_offload;
+    __u32 enable_monitoring;
+};
+
+typedef struct {
+    char *data;
+} bytes;
 
 static inline void *kmesh_map_lookup_elem(void *map, const void *key)
 {
@@ -120,6 +133,12 @@ static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
 #define MAX_BUF_LEN 100
 #define MAX_IP4_LEN 16
 #define MAX_IP6_LEN 40
+// Length in bytes of the binary data for an IPv4 address.
+#define IPV4_BYTE_LEN 4
+// Length in bytes of the binary data for an IPv6 address.
+#define IPV6_BYTE_LEN 16
+#define IPV4_VERSION  4
+#define IPV6_VERSION  6
 
 struct buf {
     char data[MAX_IP6_LEN];
@@ -131,11 +150,16 @@ struct {
     __type(value, struct buf);
 } tmp_buf SEC(".maps");
 
+/*
+ * This map is used to store different configuration options:
+ * - key 0: Stores the log level
+ * - key 1: Stores the authz (authorization) toggle
+ */
 struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __uint(max_entries, 1);
-    __uint(key_size, sizeof(__u32));
-    __uint(value_size, sizeof(__u32));
+    __type(key, int);
+    __type(value, struct kmesh_config);
 } kmesh_config_map SEC(".maps");
 
 #if KERNEL_VERSION_HIGHER_5_13_0

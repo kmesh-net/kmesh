@@ -30,8 +30,11 @@ import (
 )
 
 var (
-	log            = logger.NewLoggerScope("telemetry")
-	mu             sync.Mutex
+	log = logger.NewLoggerScope("telemetry")
+	// ensure not occur matche the same requests as /status/metric panic in unit test
+	mu sync.Mutex
+	// Ensure concurrency security when removing metriclabels from workloads and services.
+	deleteLock     sync.Mutex
 	deleteWorkload = []*workloadapi.Workload{}
 	deleteService  = []string{}
 
@@ -165,6 +168,18 @@ var (
 			Help: "The total number of TCP connections failed to a workload.",
 		}, workloadLabels)
 
+	tcpConnectionTotalRetransInWorkload = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_retrans_total",
+			Help: "Total number of retransmissions of the workload over the TCP connection.",
+		}, workloadLabels)
+
+	tcpConnectionPacketLostInWorkload = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_packet_loss_total",
+			Help: "Tracks the total number of TCP packets lost between source and destination.",
+		}, workloadLabels)
+
 	tcpConnectionOpenedInService = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kmesh_tcp_connections_opened_total",
 		Help: "The total number of TCP connections opened to a service",
@@ -240,7 +255,7 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	// ensure not occur matche the same requests as /status/metric panic in unit test
 	mu.Lock()
 	defer mu.Unlock()
-	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload)
+	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
 	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
 	registry.MustRegister(mapEntryCount, mapCountInNode)
@@ -257,22 +272,37 @@ func DeleteWorkloadMetric(workload *workloadapi.Workload) {
 	if workload == nil {
 		return
 	}
+	deleteLock.Lock()
 	deleteWorkload = append(deleteWorkload, workload)
+	deleteLock.Unlock()
 }
 
 func deleteWorkloadMetricInPrometheus(workload *workloadapi.Workload) {
+	// delete destination workload metric labels
 	_ = tcpConnectionClosedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpConnectionFailedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpConnectionOpenedInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpReceivedBytesInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
 	_ = tcpSentBytesInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	_ = tcpConnectionTotalRetransInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	_ = tcpConnectionPacketLostInWorkload.DeletePartialMatch(prometheus.Labels{"destination_pod_name": workload.Name, "destination_pod_namespace": workload.Namespace})
+	// delete source workload metric labels
+	_ = tcpConnectionClosedInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
+	_ = tcpConnectionFailedInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
+	_ = tcpConnectionOpenedInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
+	_ = tcpReceivedBytesInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
+	_ = tcpSentBytesInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
+	_ = tcpConnectionTotalRetransInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
+	_ = tcpConnectionPacketLostInWorkload.DeletePartialMatch(prometheus.Labels{"source_workload": workload.Name, "source_workload_namespace": workload.Namespace})
 }
 
 func DeleteServiceMetric(serviceName string) {
 	if serviceName == "" {
 		return
 	}
+	deleteLock.Lock()
 	deleteService = append(deleteService, serviceName)
+	deleteLock.Unlock()
 }
 
 func deleteServiceMetricInPrometheus(serviceName string) {

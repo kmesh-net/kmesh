@@ -5,6 +5,7 @@
 #define _BPF_LOG_H_
 
 #include "common.h"
+#include "map_config.h"
 
 #define BPF_DEBUG_ON  0
 #define BPF_DEBUG_OFF (-1)
@@ -33,14 +34,7 @@ struct log_event {
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 256 * 1024 /* 256 KB */);
-} kmesh_events SEC(".maps");
-
-struct {
-    __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(max_entries, 1);
-    __type(key, int);
-    __type(value, struct log_event);
-} tmp_log_buf SEC(".maps");
+} kmesh_log_events SEC(".maps");
 
 /* Add this macro to get ip addr from ctx variable, include bpf_sock_addr or bpf_sock_ops, weird
 reason is that would not be print ipaddr, when directly pass `&ctx->remote_ipv4` to bpf_trace_printk, maybe ctx pass in
@@ -74,7 +68,7 @@ lower than 22.09, compile would report an error of bpf_snprintf dont exist */
     ({                                                                                                                 \
         struct log_event *e;                                                                                           \
         __u32 ret = 0;                                                                                                 \
-        e = bpf_ringbuf_reserve(&kmesh_events, sizeof(struct log_event), 0);                                           \
+        e = bpf_ringbuf_reserve(&kmesh_log_events, sizeof(struct log_event), 0);                                       \
         if (!e)                                                                                                        \
             break;                                                                                                     \
         ret = Kmesh_BPF_SNPRINTF(e->msg, sizeof(e->msg), fmt, args);                                                   \
@@ -90,11 +84,11 @@ lower than 22.09, compile would report an error of bpf_snprintf dont exist */
 static inline int map_lookup_log_level()
 {
     int zero = 0;
-    int *value = NULL;
+    struct kmesh_config *value = {0};
     value = kmesh_map_lookup_elem(&kmesh_config_map, &zero);
     if (!value)
         return BPF_LOG_INFO;
-    return *value;
+    return value->bpf_log_level;
 }
 
 #define BPF_LOG(l, t, f, ...)                                                                                          \

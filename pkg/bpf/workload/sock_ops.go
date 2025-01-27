@@ -28,13 +28,14 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfSockOpsWorkload struct {
-	Info BpfInfo
+	Info general.BpfInfo
 	Link link.Link
 	bpf2go.KmeshSockopsWorkloadObjects
 }
@@ -80,7 +81,6 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshSockopsObjects() spec is nil")
 	}
 
-	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&so.KmeshSockopsWorkloadObjects, &opts); err != nil {
 		return nil, err
@@ -104,6 +104,7 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 }
 
 func (so *BpfSockOpsWorkload) Attach() error {
+	var err error
 	cgopt := link.CgroupOptions{
 		Path:    so.Info.Cgroup2Path,
 		Attach:  so.Info.AttachType,
@@ -112,7 +113,7 @@ func (so *BpfSockOpsWorkload) Attach() error {
 	pinPath := filepath.Join(so.Info.BpfFsPath, "cgroup_sockops_prog")
 
 	if restart.GetStartType() == restart.Restart {
-		if err := bpfProgUpdate(pinPath, cgopt); err != nil {
+		if so.Link, err = utils.BpfProgUpdate(pinPath, cgopt); err != nil {
 			return err
 		}
 	} else {
@@ -163,5 +164,5 @@ func (so *BpfSockOpsWorkload) Detach() error {
 }
 
 func (so *BpfSockOpsWorkload) GetSockMapFD() int {
-	return so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.MapOfKmeshSocket.FD()
+	return so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps.KmSocket.FD()
 }

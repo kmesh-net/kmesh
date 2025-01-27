@@ -13,24 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package utils
+
+package version
 
 import (
-	"fmt"
-	"net"
-	"strings"
+	"github.com/spf13/cobra"
+
+	"kmesh.net/kmesh/pkg/version"
 )
 
-func Ifname2ifindex(ifname string) (int, error) {
-	ifaces, err := net.Interfaces()
-	if err != nil {
-		err = fmt.Errorf("failed to get pod ifindex info, err is %v\n", err)
-		return 0, err
+func NewCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "version",
+		Short: "Prints out build version info",
+		Example: `# Show version of kmesh-daemon
+kmesh-daemon version`,
+		Run: func(cmd *cobra.Command, args []string) {
+			printVersion(cmd)
+		},
 	}
-	for _, iface := range ifaces {
-		if strings.Compare(iface.Name, ifname) == 0 {
-			return iface.Index, nil
-		}
-	}
-	return 0, fmt.Errorf("can't to find interface:%v\n", ifname)
+	return cmd
+}
+
+// printVersion pritn out the version info of the kmesh daemon.
+func printVersion(cmd *cobra.Command) {
+	v := version.Get()
+	cmd.Printf("%s\n", v)
 }

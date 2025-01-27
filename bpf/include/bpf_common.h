@@ -6,8 +6,8 @@
 
 #include "common.h"
 #include "inner_map_defs.h"
+#include "map_config.h"
 
-#define map_of_manager      kmesh_manage
 #define MAP_SIZE_OF_MANAGER 8192
 /*0x3a1(929) is the specific port handled by the cni to enable kmesh*/
 #define ENABLE_KMESH_PORT 0x3a1
@@ -56,20 +56,36 @@ struct {
 } map_of_sock_storage SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY_OF_MAPS);
+    __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
-    __uint(value_size, sizeof(__u32));
-    __uint(max_entries, MAP_SIZE_OF_OUTTER_MAP);
-    __uint(map_flags, 0);
-} outer_map SEC(".maps");
+    __uint(value_size, MAP_VAL_SIZE_64);
+    __uint(max_entries, MAP_MAX_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} kmesh_map64 SEC(".maps");
 
 struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));
-    __uint(value_size, BPF_INNER_MAP_DATA_LEN);
-    __uint(max_entries, 1);
-    __uint(map_flags, 0);
-} inner_map SEC(".maps");
+    __uint(value_size, MAP_VAL_SIZE_192);
+    __uint(max_entries, MAP_MAX_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} kmesh_map192 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, MAP_VAL_SIZE_296);
+    __uint(max_entries, MAP_MAX_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} kmesh_map296 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, MAP_VAL_SIZE_1600);
+    __uint(max_entries, MAP_MAX_ENTRIES);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} kmesh_map1600 SEC(".maps");
 
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
@@ -160,31 +176,51 @@ static inline bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
     return false;
 }
 
-static inline void *kmesh_get_ptr_val(const void *ptr)
+static inline void kmesh_parse_outer_key(__u32 outer_key, __u8 *type, __u32 *inner_idx)
 {
-    /*
-        map_in_map -- outer_map:
-        key		value
-        idx1	inner_map_fd1	// point to inner map1
-        idx2	 inner_map_fd2	// point to inner map2
-
-        structA.ptr_member1 = idx1;	// store idx in outer_map
-    */
-    void *inner_map_instance = NULL;
-    __u32 inner_idx = 0;
-    __u32 idx = (__u32)(uintptr_t)ptr;
-
-    if (!ptr) {
-        return NULL;
-    }
-
-    /* get inner_map_instance by idx */
-    inner_map_instance = kmesh_map_lookup_elem(&outer_map, &idx);
-    if (!inner_map_instance) {
-        return NULL;
-    }
-
-    /* get inner_map_instance value */
-    return kmesh_map_lookup_elem(inner_map_instance, &inner_idx);
+    *type = MAP_GET_TYPE(outer_key);
+    *inner_idx = MAP_GET_INDEX(outer_key);
+    return;
 }
+
+static inline void *get_ptr_val_from_map(void *map, __u8 map_type, const void *ptr)
+{
+    __u8 type;
+    __u32 inner_idx;
+    __u32 outer_key = (__u32)(uintptr_t)ptr;
+
+    kmesh_parse_outer_key(outer_key, &type, &inner_idx);
+    if (type != map_type)
+        return NULL;
+
+    return kmesh_map_lookup_elem(map, &inner_idx);
+}
+
+#define KMESH_GET_PTR_VAL(ptr, type)                                                                                   \
+    ({                                                                                                                 \
+        void *val_tmp = NULL;                                                                                          \
+        if (sizeof(type) == sizeof(void *)) {                                                                          \
+            if (__builtin_types_compatible_p(type, char *))                                                            \
+                val_tmp = get_ptr_val_from_map(&kmesh_map192, MAP_TYPE_192, ptr);                                      \
+            else if (__builtin_types_compatible_p(type, void *))                                                       \
+                val_tmp = get_ptr_val_from_map(&kmesh_map1600, MAP_TYPE_1600, ptr);                                    \
+            else if (__builtin_types_compatible_p(type, void **))                                                      \
+                val_tmp = get_ptr_val_from_map(&kmesh_map1600, MAP_TYPE_1600, ptr);                                    \
+            else if (__builtin_types_compatible_p(type, struct byte *))                                                \
+                val_tmp = get_ptr_val_from_map(&kmesh_map64, MAP_TYPE_64, ptr);                                        \
+            else                                                                                                       \
+                val_tmp = get_ptr_val_from_map(&kmesh_map64, MAP_TYPE_64, ptr);                                        \
+        } else if (sizeof(type) <= MAP_VAL_SIZE_64)                                                                    \
+            val_tmp = get_ptr_val_from_map(&kmesh_map64, MAP_TYPE_64, ptr);                                            \
+        else if (sizeof(type) <= MAP_VAL_SIZE_192)                                                                     \
+            val_tmp = get_ptr_val_from_map(&kmesh_map192, MAP_TYPE_192, ptr);                                          \
+        else if (sizeof(type) <= MAP_VAL_SIZE_296)                                                                     \
+            val_tmp = get_ptr_val_from_map(&kmesh_map296, MAP_TYPE_296, ptr);                                          \
+        else if (sizeof(type) <= MAP_VAL_SIZE_1600)                                                                    \
+            val_tmp = get_ptr_val_from_map(&kmesh_map1600, MAP_TYPE_1600, ptr);                                        \
+        else                                                                                                           \
+            val_tmp = NULL;                                                                                            \
+        val_tmp;                                                                                                       \
+    })
+
 #endif

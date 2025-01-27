@@ -20,7 +20,11 @@ package bpf
 // #include "deserialization_to_bpf_map.h"
 import "C"
 import (
+	"context"
+	"fmt"
 	"hash/fnv"
+	"net"
+	"net/netip"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,13 +32,17 @@ import (
 	"syscall"
 
 	"github.com/cilium/ebpf"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/ads"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
+	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/version"
 )
 
@@ -50,6 +58,14 @@ type BpfLoader struct {
 	workloadObj *workload.BpfWorkload
 	kmeshConfig *ebpf.Map
 	versionMap  *ebpf.Map
+}
+
+type KmeshBpfConfig struct {
+	BpfLogLevel      uint32
+	NodeIP           [16]byte
+	PodGateway       [16]byte
+	AuthzOffload     uint32
+	EnableMonitoring uint32
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
@@ -89,6 +105,8 @@ func (l *BpfLoader) Start() error {
 			return err
 		}
 		l.kmeshConfig = l.workloadObj.GetKmeshConfigMap()
+		// TODO: set bpf prog option in kernel native node
+		l.setBpfProgOptions()
 	}
 
 	// TODO: move start mds out of bpf loader
@@ -139,14 +157,12 @@ func StopMda() error {
 
 func (l *BpfLoader) Stop() {
 	var err error
-	if restart.GetExitType() == restart.Restart && l.config.DualEngineEnabled() {
-		C.deserial_uninit(true)
-		log.Infof("kmesh restart, not clean bpf map and prog")
+	C.deserial_uninit()
+	if restart.GetExitType() == restart.Restart {
 		return
 	}
 
 	closeMap(l.versionMap)
-
 	if l.config.KernelNativeEnabled() {
 		if err = l.obj.Stop(); err != nil {
 			CleanupBpfMap()
@@ -172,11 +188,14 @@ func (l *BpfLoader) Stop() {
 
 func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	var versionPath string
+	var kmBpfPath string
 	var versionMap *ebpf.Map
 	if config.KernelNativeEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath, constants.VersionPath)
+		kmBpfPath = filepath.Join(config.BpfFsPath, constants.KmKernelNativeBpfPath)
 	} else if config.DualEngineEnabled() {
 		versionPath = filepath.Join(config.BpfFsPath, constants.WorkloadVersionPath)
+		kmBpfPath = filepath.Join(config.BpfFsPath, constants.KmDualEngineBpfPath)
 	}
 
 	versionMapPinPath := filepath.Join(versionPath, "kmesh_version")
@@ -198,7 +217,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	}
 
 	// Make sure the directory about to use is clean
-	err = os.RemoveAll(versionPath)
+	err = os.RemoveAll(kmBpfPath)
 	if err != nil {
 		log.Errorf("Clean bpf maps and progs failed, err is:%v", err)
 		return nil
@@ -262,6 +281,117 @@ func recoverVersionMap(pinPath string) *ebpf.Map {
 	log.Debugf("recoverVersionMap success")
 
 	return versionMap
+}
+
+func (l *BpfLoader) setBpfProgOptions() {
+	nodeName := os.Getenv("NODE_NAME")
+	if nodeName == "" {
+		log.Error("skip kubelet probe failed: node name empty")
+		return
+	}
+
+	clientSet, err := kube.CreateKubeClient("")
+	if err != nil {
+		log.Errorf("get kubernetest client for getting node IP error: %v", err)
+		return
+	}
+
+	node, err := clientSet.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
+	if err != nil {
+		log.Errorf("failed to get node: %v", err)
+		return
+	}
+
+	// pass node ip and pod gateway to skip processing of kubelet access traffic.
+	nodeIP := getNodeIPAddress(node)
+	gateway := getNodePodSubGateway(node)
+
+	valueOfKmeshBpfConfig, err := GetKmeshConfigMap(l.kmeshConfig)
+	if err != nil {
+		log.Errorf("get kmeshConfig map failed: %v", err)
+		return
+	}
+
+	// Kmesh reboot updates only the nodeIP and pod sub gateway
+	if restart.GetStartType() == restart.Normal {
+		// Kmesh is create first time. So init kmeshConfigMap.
+		valueOfKmeshBpfConfig.BpfLogLevel = constants.BPF_LOG_INFO
+		valueOfKmeshBpfConfig.NodeIP = nodeIP
+		valueOfKmeshBpfConfig.PodGateway = gateway
+		valueOfKmeshBpfConfig.AuthzOffload = constants.DISABLED
+		valueOfKmeshBpfConfig.EnableMonitoring = constants.ENABLED
+
+		if err := UpdateKmeshConfigMap(l.kmeshConfig, valueOfKmeshBpfConfig); err != nil {
+			log.Errorf("update kmeshConfig map failed: %v", err)
+			return
+		}
+	}
+}
+
+func getNodeIPAddress(node *corev1.Node) [16]byte {
+	var nodeIPStr string
+	nodeAddresses := node.Status.Addresses
+	for _, address := range nodeAddresses {
+		if address.Type == corev1.NodeInternalIP {
+			nodeIPStr = address.Address
+		}
+	}
+
+	nodeIP, err := netip.ParseAddr(nodeIPStr)
+	if err != nil {
+		log.Errorf("failed to parse node ip: %v", err)
+		return [16]byte{}
+	}
+
+	return nodeIP.As16()
+}
+
+func getNodePodSubGateway(node *corev1.Node) [16]byte {
+	podCIDR := node.Spec.PodCIDR
+	if podCIDR == "" {
+		return [16]byte{0}
+	}
+
+	_, subNet, err := net.ParseCIDR(podCIDR)
+	if err != nil {
+		log.Errorf("failed to resolve ip from podCIDR: %v", err)
+		return [16]byte{0}
+	}
+	podGateway := [16]byte{0}
+	nets.CopyIpByteFromSlice(&podGateway, subNet.IP.To16())
+	podGateway[15] = podGateway[15] + 1
+	return podGateway
+}
+
+func GetKmeshConfigMap(bpfMap *ebpf.Map) (*KmeshBpfConfig, error) {
+	if bpfMap == nil {
+		return nil, fmt.Errorf("get KmeshConfigMap failed: bpfMap is nil")
+	}
+
+	key := uint32(0)
+	value := KmeshBpfConfig{}
+	if err := bpfMap.Lookup(&key, &value); err != nil {
+		return nil, err
+	}
+
+	return &value, nil
+}
+
+func UpdateKmeshConfigMap(bpfMap *ebpf.Map, config *KmeshBpfConfig) error {
+	if bpfMap == nil {
+		return fmt.Errorf("update KmeshConfigMap failed: KmeshConfigMap is empty")
+	}
+	// For more granularity in error logging, so separate judgements.
+	if config == nil {
+		return fmt.Errorf("update KmeshConfigMap failed: map of updating is empty")
+	}
+
+	key := uint32(0)
+	if err := bpfMap.Update(&key, config, ebpf.UpdateAny); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func closeMap(m *ebpf.Map) {

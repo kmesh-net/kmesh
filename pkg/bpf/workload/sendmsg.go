@@ -17,7 +17,6 @@
 package workload
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -28,24 +27,14 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
-func bpfProgUpdate(pinPath string, cgopt link.CgroupOptions) error {
-	sclink, err := link.LoadPinnedLink(pinPath, &ebpf.LoadPinOptions{})
-	if err != nil {
-		return err
-	}
-	if err := sclink.Update(cgopt.Program); err != nil {
-		return fmt.Errorf("updating link %s failed: %w", pinPath, err)
-	}
-	return nil
-}
-
 type BpfSendMsgWorkload struct {
-	Info     BpfInfo
+	Info     general.BpfInfo
 	AttachFD int
 	bpf2go.KmeshSendmsgObjects
 

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-VERSION ?= 1.0-dev
+VERSION ?= 1.1-dev
 GIT_COMMIT_HASH ?= $(shell git rev-parse HEAD)
 GIT_TREESTATE=$(shell if [ -n "$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
@@ -34,7 +34,6 @@ CC=clang
 CXX=clang++
 GOFLAGS := $(EXTRA_GOFLAGS)
 GOGCFLAGS := ""
-GOLDFLAGS := ""
 EXTLDFLAGS := '-fPIE -pie -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack'
 LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
@@ -43,20 +42,19 @@ LDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=w
 			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
 			-linkmode=external -extldflags $(EXTLDFLAGS)"
 
-GOLDFLAGS := "-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
+GOLDFLAGS := "-extldflags -static -s -w \
+			-X google.golang.org/protobuf/reflect/protoregistry.conflictPolicy=warn \
 			-X kmesh.net/kmesh/pkg/version.gitVersion=$(VERSION) \
 			-X kmesh.net/kmesh/pkg/version.gitCommit=$(GIT_COMMIT_HASH) \
 			-X kmesh.net/kmesh/pkg/version.gitTreeState=$(GIT_TREESTATE) \
-			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE) \
-			-extldflags '-static'"
+			-X kmesh.net/kmesh/pkg/version.buildDate=$(BUILD_DATE)"
 
 # Debug flags
 ifeq ($(DEBUG),1)
 	# Debugging - disable optimizations and inlining
 	GOGCFLAGS := "all=-N -l"
 else
-	# Release build - disable symbols and DWARF, trim embedded paths
-	GOLDFLAGS := '-s -w'
+	# Release build - trim embedded paths
 	GOFLAGS += -trimpath
 endif
 
@@ -88,7 +86,6 @@ TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	config/kmesh_marcos_def.h \
 	mk/api-v2-c.pc \
 	mk/bpf.pc \
-	bpf/kmesh/ads/include/config.h \
 	bpf/include/bpf_helper_defs_ext.h \
 
 .PHONY: all kmesh-bpf kmesh-ko all-binary
@@ -222,6 +219,11 @@ else
 test:
 	./hack/run-ut.sh --local
 endif
+
+UPDATE_VERSION ?= ${VERSION}
+.PHONY: update-version
+update-version:
+	./hack/update-version.sh VERSION=${UPDATE_VERSION}
 
 .PHONY: clean
 clean:

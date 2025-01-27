@@ -2023,7 +2023,7 @@ func Test_handleAuthorizationTypeResponse(t *testing.T) {
 
 func genRingbuf(t *testing.T, msgType uint32, msgSize int, flags int32) (*ebpf.Program, *ebpf.Map, error) {
 	rbMap, err := ebpf.NewMap(&ebpf.MapSpec{
-		Name:       "map_of_tuple",
+		Name:       "map_of_auth_req",
 		Type:       ebpf.RingBuf,
 		MaxEntries: 4096,
 	})
@@ -2120,7 +2120,7 @@ func prepareMaps(t *testing.T, msgType uint32) (mapOfTuple, mapOfAuth *ebpf.Map)
 	}
 
 	mapOfAuth, err = ebpf.NewMap(&ebpf.MapSpec{
-		Name:       "map_of_auth",
+		Name:       "map_of_auth_result",
 		Type:       ebpf.Hash,
 		KeySize:    uint32(unsafe.Sizeof(bpfSockTupleV6{})),
 		ValueSize:  uint32(unsafe.Sizeof(uint32(0))),
@@ -2171,7 +2171,7 @@ func TestRbac_Run(t *testing.T) {
 		wantFound bool
 	}{
 		{
-			"1. IPv4: Deny, records found in map_of_auth",
+			"1. IPv4: Deny, records found in map_of_auth_result",
 			args{
 				msgType: constants.MSG_TYPE_IPV4,
 				// 192, 168, 120, 1, 192, 168, 122, 3, , , 8080
@@ -2181,7 +2181,7 @@ func TestRbac_Run(t *testing.T) {
 			true,
 		},
 		{
-			"2. IPv6: Deny, records found in map_of_auth",
+			"2. IPv6: Deny, records found in map_of_auth_result",
 			args{
 				msgType:   constants.MSG_TYPE_IPV6,
 				lookupKey: genIPv6LookupKey(),

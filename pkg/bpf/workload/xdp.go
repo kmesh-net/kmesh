@@ -23,18 +23,17 @@ import (
 	"syscall"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/link"
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfXdpAuthWorkload struct {
-	Info BpfInfo
-	Link link.Link
+	Info general.BpfInfo
 	bpf2go.KmeshXDPAuthObjects
 }
 
@@ -78,7 +77,6 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 		return nil, fmt.Errorf("error: loadKmeshXdpAuthObjects() spec is nil")
 	}
 
-	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
 		return nil, err
@@ -96,6 +94,27 @@ func (xa *BpfXdpAuthWorkload) LoadXdpAuth() error {
 	prog := spec.Programs[constants.XDP_PROG_NAME]
 	xa.Info.Type = prog.Type
 	xa.Info.AttachType = prog.AttachType
+
+	if err = xa.KmXdpTailcall.Update(
+		uint32(constants.TailCallPoliciesCheck),
+		uint32(xa.PoliciesCheck.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
+
+	if err = xa.KmXdpTailcall.Update(
+		uint32(constants.TailCallPolicyCheck),
+		uint32(xa.PolicyCheck.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
+
+	if err = xa.KmXdpTailcall.Update(
+		uint32(constants.TailCallAuthInUserSpace),
+		uint32(xa.XdpShutdownInUserspace.FD()),
+		ebpf.UpdateAny); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -118,8 +137,5 @@ func (xa *BpfXdpAuthWorkload) Close() error {
 		return err
 	}
 
-	if xa.Link != nil {
-		return xa.Link.Close()
-	}
 	return nil
 }

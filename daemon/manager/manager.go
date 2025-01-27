@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/pflag"
 
 	"kmesh.net/kmesh/daemon/manager/uninstall"
+	"kmesh.net/kmesh/daemon/manager/version"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/bpf/restart"
@@ -68,6 +69,7 @@ func NewCommand() *cobra.Command {
 
 	// add sub commands
 	cmd.AddCommand(uninstall.NewCmd())
+	cmd.AddCommand(version.NewCmd())
 
 	return cmd
 }
@@ -104,7 +106,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 		_ = statusServer.StopServer()
 	}()
 
-	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode,
+	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode, configs.BpfConfig.EnableIPsec,
 		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained, configs.CniConfig.ServiceAccountPath)
 	if err := cniInstaller.Start(); err != nil {
 		return err

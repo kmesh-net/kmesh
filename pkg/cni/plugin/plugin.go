@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -46,8 +47,9 @@ type cniConf struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	KubeConfig string `json:"kubeconfig,omitempty"`
-	Mode       string `json:"mode,omitempty"`
+	KubeConfig  string `json:"kubeconfig,omitempty"`
+	Mode        string `json:"mode,omitempty"`
+	EnableIpSec bool   `json:"enableIpSec,omitempty"`
 }
 
 // K8sArgs parameter is used to transfer the k8s information transferred
@@ -128,6 +130,45 @@ func enableXdpAuth(ifname string) error {
 	return nil
 }
 
+func enableTcMarkEncrypt(args *skel.CmdArgs) error {
+	var (
+		err     error
+		link    netlink.Link
+		tc      *ebpf.Program
+		ifIndex uint64
+	)
+
+	ifIndex = 0
+
+	if tc, err = utils.GetProgramByName(constants.TC_MARK_ENCRYPT); err != nil {
+		return fmt.Errorf("failed to get tc program: %v", err)
+	}
+
+	getVethPeerIndexFunc := func(netns.NetNS) error {
+		ifIndex, err = utils.GetVethPeerIndexFromName(args.IfName)
+		return err
+	}
+
+	if err := netns.WithNetNSPath(args.Netns, getVethPeerIndexFunc); err != nil {
+		log.Errorf("failed to get veth peer link number, %v", err)
+		return err
+	}
+
+	if ifIndex == 0 {
+		return fmt.Errorf("failed to find valid peer interface index, ifname: %v", args.IfName)
+	}
+
+	if link, err = netlink.LinkByIndex(int(ifIndex)); err != nil {
+		return fmt.Errorf("failed to link valid interface, %v", err)
+	}
+
+	if err = utils.ManageTCProgram(link, tc, constants.TC_ATTACH); err != nil {
+		return fmt.Errorf("failed to attach tc program, %v", err)
+	}
+
+	return nil
+}
+
 // if cmdadd failed, then we cannot return failed, do nothing and print pre result
 func CmdAdd(args *skel.CmdArgs) error {
 	var err error
@@ -147,7 +188,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return types.PrintResult(preResult, cniConf.CNIVersion)
 	}
 
-	client, err := utils.CreateK8sClientSet(cniConf.KubeConfig)
+	client, err := kube.CreateKubeClient(cniConf.KubeConfig)
 	if err != nil {
 		err = fmt.Errorf("failed to get k8s client: %v", err)
 		log.Error(err)
@@ -189,8 +230,15 @@ func CmdAdd(args *skel.CmdArgs) error {
 			return nil
 		}
 
-		if err := netns.WithNetNSPath(string(args.Netns), enableXDPFunc); err != nil {
+		if err := netns.WithNetNSPath(args.Netns, enableXDPFunc); err != nil {
 			log.Error(err)
+			return err
+		}
+	}
+
+	if cniConf.EnableIpSec {
+		if err := enableTcMarkEncrypt(args); err != nil {
+			err = fmt.Errorf("failed to link tc program(set encryption marker) to dev %v, err is %v", args.IfName, err)
 			return err
 		}
 	}

@@ -37,6 +37,11 @@ var (
 	FS embed.FS
 )
 
+func GetNodeNSpath() string {
+	res := path.Join("/host/proc", "1", "ns", "net")
+	return res
+}
+
 func GetPodNSpath(pod *corev1.Pod) (string, error) {
 	res, err := FindNetnsForPod(pod)
 	if err != nil {

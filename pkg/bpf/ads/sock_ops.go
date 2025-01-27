@@ -21,6 +21,7 @@ package ads
 
 import (
 	"os"
+	"path/filepath"
 	"reflect"
 	"syscall"
 
@@ -29,12 +30,15 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/enhanced"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/general"
+	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 type BpfSockOps struct {
-	Info BpfInfo
+	Info general.BpfInfo
 	Link link.Link
 	bpf2go.KmeshSockopsObjects
 }
@@ -76,14 +80,8 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 		return nil, err
 	}
 
-	utils.SetInnerMap(spec)
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshSockopsObjects, &opts); err != nil {
-		return nil, err
-	}
-
-	value := reflect.ValueOf(sc.KmeshSockopsObjects.KmeshSockopsPrograms)
-	if err = utils.PinPrograms(&value, sc.Info.BpfFsPath); err != nil {
 		return nil, err
 	}
 
@@ -98,7 +96,7 @@ func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 	)
 
 	opts.Maps.PinPath = sc.Info.MapPath
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmSkopstailcall.Update(
 		uint32(KMESH_TAIL_CALL_FILTER_CHAIN),
 		uint32(sc.FilterChainManager.FD()),
 		ebpf.UpdateAny)
@@ -106,7 +104,7 @@ func (sc *BpfSockOps) loadKmeshFilterObjects() (*ebpf.CollectionSpec, error) {
 		return nil, err
 	}
 
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmSkopstailcall.Update(
 		uint32(KMESH_TAIL_CALL_FILTER),
 		uint32(sc.FilterManager.FD()),
 		ebpf.UpdateAny)
@@ -124,7 +122,7 @@ func (sc *BpfSockOps) loadRouteConfigObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmSkopstailcall.Update(
 		uint32(KMESH_TAIL_CALL_ROUTER_CONFIG),
 		uint32(sc.RouteConfigManager.FD()),
 		ebpf.UpdateAny)
@@ -142,7 +140,7 @@ func (sc *BpfSockOps) loadKmeshClusterObjects() (*ebpf.CollectionSpec, error) {
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
-	err = sc.KmeshTailCallProg.Update(
+	err = sc.KmSkopstailcall.Update(
 		uint32(KMESH_TAIL_CALL_CLUSTER),
 		uint32(sc.ClusterManager.FD()),
 		ebpf.UpdateAny)
@@ -181,18 +179,28 @@ func (sc *BpfSockOps) Load() error {
 }
 
 func (sc *BpfSockOps) Attach() error {
+	var err error
 	cgopt := link.CgroupOptions{
 		Path:    sc.Info.Cgroup2Path,
 		Attach:  sc.Info.AttachType,
 		Program: sc.KmeshSockopsObjects.SockopsProg,
 	}
 
-	lk, err := link.AttachCgroup(cgopt)
-	if err != nil {
-		return err
+	// pin bpf_link
+	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
+	if restart.GetStartType() == restart.Restart {
+		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
+			return err
+		}
+	} else {
+		sc.Link, err = link.AttachCgroup(cgopt)
+		if err != nil {
+			return err
+		}
+		if err = sc.Link.Pin(progPinPath); err != nil {
+			return err
+		}
 	}
-	sc.Link = lk
-
 	return nil
 }
 

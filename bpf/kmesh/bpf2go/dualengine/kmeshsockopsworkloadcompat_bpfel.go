@@ -24,10 +24,12 @@ type KmeshSockopsWorkloadCompatBpfSockTuple struct {
 
 type KmeshSockopsWorkloadCompatBuf struct{ Data [40]int8 }
 
-type KmeshSockopsWorkloadCompatLogEvent struct {
-	Ret uint32
-	Msg [255]int8
-	_   [1]byte
+type KmeshSockopsWorkloadCompatKmeshConfig struct {
+	BpfLogLevel      uint32
+	NodeIp           [4]uint32
+	PodGateway       [4]uint32
+	AuthzOffload     uint32
+	EnableMonitoring uint32
 }
 
 type KmeshSockopsWorkloadCompatManagerKey struct {
@@ -91,9 +93,10 @@ func LoadKmeshSockopsWorkloadCompatObjects(obj interface{}, opts *ebpf.Collectio
 type KmeshSockopsWorkloadCompatSpecs struct {
 	KmeshSockopsWorkloadCompatProgramSpecs
 	KmeshSockopsWorkloadCompatMapSpecs
+	KmeshSockopsWorkloadCompatVariableSpecs
 }
 
-// KmeshSockopsWorkloadCompatSpecs contains programs before they are loaded into the kernel.
+// KmeshSockopsWorkloadCompatProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsWorkloadCompatProgramSpecs struct {
@@ -104,26 +107,33 @@ type KmeshSockopsWorkloadCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsWorkloadCompatMapSpecs struct {
-	InnerMap         *ebpf.MapSpec `ebpf:"inner_map"`
-	KmeshBackend     *ebpf.MapSpec `ebpf:"kmesh_backend"`
-	KmeshConfigMap   *ebpf.MapSpec `ebpf:"kmesh_config_map"`
-	KmeshEndpoint    *ebpf.MapSpec `ebpf:"kmesh_endpoint"`
-	KmeshEvents      *ebpf.MapSpec `ebpf:"kmesh_events"`
-	KmeshFrontend    *ebpf.MapSpec `ebpf:"kmesh_frontend"`
-	KmeshManage      *ebpf.MapSpec `ebpf:"kmesh_manage"`
-	KmeshPerfInfo    *ebpf.MapSpec `ebpf:"kmesh_perf_info"`
-	KmeshPerfMap     *ebpf.MapSpec `ebpf:"kmesh_perf_map"`
-	KmeshService     *ebpf.MapSpec `ebpf:"kmesh_service"`
-	MapOfAuth        *ebpf.MapSpec `ebpf:"map_of_auth"`
-	MapOfDstInfo     *ebpf.MapSpec `ebpf:"map_of_dst_info"`
-	MapOfKmeshSocket *ebpf.MapSpec `ebpf:"map_of_kmesh_socket"`
-	MapOfSockStorage *ebpf.MapSpec `ebpf:"map_of_sock_storage"`
-	MapOfTcpInfo     *ebpf.MapSpec `ebpf:"map_of_tcp_info"`
-	MapOfTuple       *ebpf.MapSpec `ebpf:"map_of_tuple"`
-	MapOfWlPolicy    *ebpf.MapSpec `ebpf:"map_of_wl_policy"`
-	OuterMap         *ebpf.MapSpec `ebpf:"outer_map"`
-	TmpBuf           *ebpf.MapSpec `ebpf:"tmp_buf"`
-	TmpLogBuf        *ebpf.MapSpec `ebpf:"tmp_log_buf"`
+	KmAuthReq     *ebpf.MapSpec `ebpf:"km_auth_req"`
+	KmAuthRes     *ebpf.MapSpec `ebpf:"km_auth_res"`
+	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
+	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
+	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
+	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
+	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
+	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
+	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
+	KmService     *ebpf.MapSpec `ebpf:"km_service"`
+	KmSocket      *ebpf.MapSpec `ebpf:"km_socket"`
+	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
+	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
+	KmeshMap1600  *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
+}
+
+// KmeshSockopsWorkloadCompatVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type KmeshSockopsWorkloadCompatVariableSpecs struct {
 }
 
 // KmeshSockopsWorkloadCompatObjects contains all objects after they have been loaded into the kernel.
@@ -132,6 +142,7 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 type KmeshSockopsWorkloadCompatObjects struct {
 	KmeshSockopsWorkloadCompatPrograms
 	KmeshSockopsWorkloadCompatMaps
+	KmeshSockopsWorkloadCompatVariables
 }
 
 func (o *KmeshSockopsWorkloadCompatObjects) Close() error {
@@ -145,51 +156,59 @@ func (o *KmeshSockopsWorkloadCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshSockopsWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSockopsWorkloadCompatMaps struct {
-	InnerMap         *ebpf.Map `ebpf:"inner_map"`
-	KmeshBackend     *ebpf.Map `ebpf:"kmesh_backend"`
-	KmeshConfigMap   *ebpf.Map `ebpf:"kmesh_config_map"`
-	KmeshEndpoint    *ebpf.Map `ebpf:"kmesh_endpoint"`
-	KmeshEvents      *ebpf.Map `ebpf:"kmesh_events"`
-	KmeshFrontend    *ebpf.Map `ebpf:"kmesh_frontend"`
-	KmeshManage      *ebpf.Map `ebpf:"kmesh_manage"`
-	KmeshPerfInfo    *ebpf.Map `ebpf:"kmesh_perf_info"`
-	KmeshPerfMap     *ebpf.Map `ebpf:"kmesh_perf_map"`
-	KmeshService     *ebpf.Map `ebpf:"kmesh_service"`
-	MapOfAuth        *ebpf.Map `ebpf:"map_of_auth"`
-	MapOfDstInfo     *ebpf.Map `ebpf:"map_of_dst_info"`
-	MapOfKmeshSocket *ebpf.Map `ebpf:"map_of_kmesh_socket"`
-	MapOfSockStorage *ebpf.Map `ebpf:"map_of_sock_storage"`
-	MapOfTcpInfo     *ebpf.Map `ebpf:"map_of_tcp_info"`
-	MapOfTuple       *ebpf.Map `ebpf:"map_of_tuple"`
-	MapOfWlPolicy    *ebpf.Map `ebpf:"map_of_wl_policy"`
-	OuterMap         *ebpf.Map `ebpf:"outer_map"`
-	TmpBuf           *ebpf.Map `ebpf:"tmp_buf"`
-	TmpLogBuf        *ebpf.Map `ebpf:"tmp_log_buf"`
+	KmAuthReq     *ebpf.Map `ebpf:"km_auth_req"`
+	KmAuthRes     *ebpf.Map `ebpf:"km_auth_res"`
+	KmBackend     *ebpf.Map `ebpf:"km_backend"`
+	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
+	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
+	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
+	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
+	KmManage      *ebpf.Map `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
+	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
+	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
+	KmService     *ebpf.Map `ebpf:"km_service"`
+	KmSocket      *ebpf.Map `ebpf:"km_socket"`
+	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
+	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
+	KmeshMap1600  *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
 func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 	return _KmeshSockopsWorkloadCompatClose(
-		m.InnerMap,
-		m.KmeshBackend,
-		m.KmeshConfigMap,
-		m.KmeshEndpoint,
-		m.KmeshEvents,
-		m.KmeshFrontend,
-		m.KmeshManage,
-		m.KmeshPerfInfo,
-		m.KmeshPerfMap,
-		m.KmeshService,
-		m.MapOfAuth,
-		m.MapOfDstInfo,
-		m.MapOfKmeshSocket,
-		m.MapOfSockStorage,
-		m.MapOfTcpInfo,
-		m.MapOfTuple,
-		m.MapOfWlPolicy,
-		m.OuterMap,
-		m.TmpBuf,
-		m.TmpLogBuf,
+		m.KmAuthReq,
+		m.KmAuthRes,
+		m.KmBackend,
+		m.KmConfigmap,
+		m.KmEndpoint,
+		m.KmFrontend,
+		m.KmLogEvent,
+		m.KmManage,
+		m.KmOrigDst,
+		m.KmPerfInfo,
+		m.KmPerfMap,
+		m.KmService,
+		m.KmSocket,
+		m.KmSockstorage,
+		m.KmTcpProbe,
+		m.KmTmpbuf,
+		m.KmWlpolicy,
+		m.KmeshMap1600,
+		m.KmeshMap192,
+		m.KmeshMap296,
+		m.KmeshMap64,
 	)
+}
+
+// KmeshSockopsWorkloadCompatVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to LoadKmeshSockopsWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshSockopsWorkloadCompatVariables struct {
 }
 
 // KmeshSockopsWorkloadCompatPrograms contains all programs after they have been loaded into the kernel.

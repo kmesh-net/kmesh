@@ -27,7 +27,15 @@ const (
 	// This annotation is used to indicate traffic redirection settings specific to Kmesh
 	KmeshRedirectionAnnotation = "kmesh.net/redirection"
 
-	XDP_PROG_NAME = "xdp_shutdown"
+	XDP_PROG_NAME = "xdp_authz"
+	ENABLED       = uint32(1)
+	DISABLED      = uint32(0)
+
+	TC_MARK_DECRYPT = "tc_mark_decrypt"
+	TC_MARK_ENCRYPT = "tc_mark_encrypt"
+
+	TC_ATTACH = 0
+	TC_DETACH = 1
 
 	RootCertPath = "/var/run/secrets/istio/root-cert.pem"
 	TrustDomain  = "cluster.local"
@@ -48,9 +56,13 @@ const (
 	OperEnableControl  = 929
 	OperDisableControl = 930
 
-	// tail call index in tail call prog map
+	// tail call index in cgroup connect tail call prog map
 	TailCallConnect4Index = 0
 	TailCallConnect6Index = 1
+	// tail call index in xdp tail call prog map
+	TailCallPoliciesCheck   = 0
+	TailCallPolicyCheck     = 1
+	TailCallAuthInUserSpace = 2
 
 	INBOUND  = uint32(1)
 	OUTBOUND = uint32(2)
@@ -60,4 +72,12 @@ const (
 
 	VersionPath         = "/bpf_kmesh/map/"
 	WorkloadVersionPath = "/bpf_kmesh_workload/map/"
+
+	KmKernelNativeBpfPath = "/bpf_kmesh"
+	KmDualEngineBpfPath   = "/bpf_kmesh_workload"
+
+	TailCallMap = "tail_call_map"
+	Prog_link   = "prog_link"
+
+	ALL_CIDR = "0.0.0.0/0"
 )

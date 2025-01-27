@@ -101,12 +101,12 @@ struct {
     __type(value, __u32);
     __uint(max_entries, MAP_SIZE_OF_AUTH);
     __uint(map_flags, BPF_F_NO_PREALLOC);
-} map_of_auth SEC(".maps");
+} map_of_auth_result SEC(".maps");
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, RINGBUF_SIZE);
-} map_of_tuple SEC(".maps");
+} map_of_auth_req SEC(".maps");
 
 typedef struct {
     __u32 policyIds[MAX_MEMBER_NUM_PER_POLICY];

@@ -26,13 +26,13 @@ import (
 )
 
 type BpfConfig struct {
-	Mode            string
-	BpfFsPath       string
-	Cgroup2Path     string
-	EnableMda       bool
-	EnableBpfLog    bool
-	EnableAccesslog bool
-	EnableProfiling bool
+	Mode             string
+	BpfFsPath        string
+	Cgroup2Path      string
+	EnableMda        bool
+	EnableMonitoring bool
+	EnableProfiling  bool
+	EnableIPsec      bool
 }
 
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
@@ -40,9 +40,9 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
 	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "dual-engine", "controller plane mode, valid values are [kernel-native, dual-engine]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
-	cmd.PersistentFlags().BoolVar(&c.EnableBpfLog, "enable-bpf-log", false, "enable ebpf log in daemon process")
-	cmd.PersistentFlags().BoolVar(&c.EnableAccesslog, "enable-accesslog", false, "enable accesslog in daemon process")
+	cmd.PersistentFlags().BoolVar(&c.EnableMonitoring, "monitoring", true, "enable kmesh traffic monitoring in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnableProfiling, "profiling", false, "whether to enable profiling or not, default to false")
+	cmd.PersistentFlags().BoolVar(&c.EnableIPsec, "enable-ipsec", false, "enable ipsec encryption and authentication between nodes")
 }
 
 func (c *BpfConfig) ParseConfig() error {

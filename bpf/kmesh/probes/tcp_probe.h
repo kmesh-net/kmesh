@@ -18,34 +18,41 @@ enum family_type {
     IPV6,
 };
 
+struct orig_dst_info {
+    union {
+        struct {
+            __be32 addr;
+            __be16 port;
+        } ipv4;
+        struct {
+            __be32 addr[4];
+            __be16 port;
+        } ipv6;
+    };
+};
+
 struct tcp_probe_info {
     __u32 type;
     struct bpf_sock_tuple tuple;
+    struct orig_dst_info orig_dst;
     __u32 sent_bytes;
     __u32 received_bytes;
     __u32 conn_success;
     __u32 direction;
+    __u32 state;    /* tcp state */
     __u64 duration; // ns
     __u64 close_ns;
-    __u32 state; /* tcp state */
     __u32 protocol;
     __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
     __u32 rtt_min;
-    __u32 mss_cache;     /* Cached effective mss, not including SACKS */
     __u32 total_retrans; /* Total retransmits for entire connection */
-    __u32 segs_in;       /* RFC4898 tcpEStatsPerfSegsIn
-                          * total number of segments in.
-                          */
-    __u32 segs_out;      /* RFC4898 tcpEStatsPerfSegsOut
-                          * The total number of segments sent.
-                          */
     __u32 lost_out;      /* Lost packets			*/
 };
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, RINGBUF_SIZE);
-} map_of_tcp_info SEC(".maps");
+    __uint(max_entries, 256 * 1024 /* 256 KB */);
+} map_of_tcp_probe SEC(".maps");
 
 static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
 {
@@ -94,12 +101,36 @@ static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_
     info->received_bytes = tcp_sock->bytes_received;
     info->srtt_us = tcp_sock->srtt_us;
     info->rtt_min = tcp_sock->rtt_min;
-    info->mss_cache = tcp_sock->mss_cache;
     info->total_retrans = tcp_sock->total_retrans;
-    info->segs_in = tcp_sock->segs_in;
-    info->segs_out = tcp_sock->segs_out;
     info->lost_out = tcp_sock->lost_out;
     return;
+}
+
+// construct_orig_dst_info try to read the dst_info from map_of_orig_dst first
+// if not found, use the tuple info for orig_dst
+static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe_info *info)
+{
+    __u64 *current_sk = (__u64 *)sk;
+    struct bpf_sock_tuple *dst;
+    dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
+
+    // when dst not found, metric controller will read orig dst from actual dst
+    if (!dst) {
+        return;
+    }
+
+    if (sk->family == AF_INET) {
+        info->orig_dst.ipv4.addr = dst->ipv4.daddr;
+        info->orig_dst.ipv4.port = bpf_ntohs(dst->ipv4.dport);
+    } else {
+        bpf_memcpy(info->orig_dst.ipv6.addr, dst->ipv6.daddr, IPV6_ADDR_LEN);
+        info->orig_dst.ipv6.port = bpf_ntohs(dst->ipv6.dport);
+    }
+
+    if (is_ipv4_mapped_addr(info->orig_dst.ipv6.addr)) {
+        info->orig_dst.ipv4.addr = info->orig_dst.ipv6.addr[3];
+        info->orig_dst.ipv4.port = info->orig_dst.ipv6.port;
+    }
 }
 
 static inline void
@@ -109,7 +140,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
     struct tcp_probe_info *info = NULL;
 
     // store tuple
-    info = bpf_ringbuf_reserve(&map_of_tcp_info, sizeof(struct tcp_probe_info), 0);
+    info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
     if (!info) {
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
         return;
@@ -129,6 +160,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
         (*info).type = IPV4;
     }
 
+    construct_orig_dst_info(sk, info);
     bpf_ringbuf_submit(info, 0);
 }
 

@@ -334,3 +334,144 @@ func BenchmarkListenerFlush(b *testing.B) {
 func randomIPv4() string {
 	return fmt.Sprintf("%d.%d.%d.%d", rand.Intn(256), rand.Intn(256), rand.Intn(256), rand.Intn(256))
 }
+
+func TestListenerFlushAndLookup(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        constants.KernelNativeMode,
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	cleanup, _ := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+
+	listener_addr := &core_v2.SocketAddress{
+		Protocol: core_v2.SocketAddress_TCP,
+		Port:     uint32(80),
+		Ipv4:     0x0AA8320A, //10.168.50.10
+	}
+
+	cache := NewListenerCache()
+	listener := &listener_v2.Listener{
+		ApiStatus: core_v2.ApiStatus_UPDATE,
+		Name:      "ut-listener",
+		Address:   listener_addr,
+		FilterChains: []*listener_v2.FilterChain{
+			{
+				Name: "filterChain1",
+				FilterChainMatch: &listener_v2.FilterChainMatch{
+					DestinationPort:   22,
+					TransportProtocol: "tcp",
+					ApplicationProtocols: []string{
+						"http1.1",
+						"http2.0",
+						"*",
+					},
+				},
+				Filters: []*listener_v2.Filter{
+					{
+						Name: "filter3",
+						ConfigType: &listener_v2.Filter_TcpProxy{
+							TcpProxy: &filter.TcpProxy{
+								StatPrefix: "outbound|443||kube-dns.kube-system.svc.cluster.local",
+								ClusterSpecifier: &filter.TcpProxy_Cluster{
+									Cluster: "outbound|443||kube-dns.kube-system.svc.cluster.local",
+								},
+								MaxConnectAttempts: uint32(60),
+							},
+						},
+					},
+				},
+			},
+			{
+				Name: "filterChain2",
+				FilterChainMatch: &listener_v2.FilterChainMatch{
+					DestinationPort:   22,
+					TransportProtocol: "udp",
+					ApplicationProtocols: []string{
+						"http1.1",
+						"http2.0",
+						"*",
+					},
+				},
+			},
+		},
+	}
+	cache.SetApiListener(listener.Name, listener)
+	cache.Flush()
+	assert.Equal(t, listener.GetApiStatus(), core_v2.ApiStatus_NONE)
+
+	listener_val := &listener_v2.Listener{}
+	err := maps_v2.ListenerLookup(listener_addr, listener_val)
+	assert.Nil(t, err)
+
+	listener.ApiStatus = core_v2.ApiStatus_UPDATE
+	assert.Equal(t, listener.String(), listener_val.String())
+}
+
+func TestListenerUpdateAndDeleteFlush(t *testing.T) {
+	config := options.BpfConfig{
+		Mode:        constants.KernelNativeMode,
+		BpfFsPath:   "/sys/fs/bpf",
+		Cgroup2Path: "/mnt/kmesh_cgroup2",
+	}
+	var count int
+
+	cleanup, loader := test.InitBpfMap(t, config)
+	t.Cleanup(cleanup)
+	adsObj := loader.GetBpfKmesh()
+
+	listener_addr := &core_v2.SocketAddress{
+		Protocol: core_v2.SocketAddress_TCP,
+		Port:     uint32(80),
+		Ipv4:     0x0AA8320A, //10.168.50.10
+	}
+
+	cache := NewListenerCache()
+	listener := &listener_v2.Listener{
+		ApiStatus: core_v2.ApiStatus_UPDATE,
+		Name:      "ut-listener",
+		FilterChains: []*listener_v2.FilterChain{
+			{
+				Name: "filterChain2",
+				FilterChainMatch: &listener_v2.FilterChainMatch{
+					DestinationPort:   22,
+					TransportProtocol: "udp",
+					ApplicationProtocols: []string{
+						"http1.1",
+						"http2.0",
+					},
+				},
+			},
+		},
+		Address: listener_addr,
+	}
+	cache.SetApiListener(listener.Name, listener)
+	cache.Flush()
+	assert.Equal(t, listener.GetApiStatus(), core_v2.ApiStatus_NONE)
+
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap64, t)
+	assert.NotEqual(t, 0, count, "eBPF map kmeshMap64 elements count should not 0")
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap192, t)
+	assert.NotEqual(t, 0, count, "eBPF map kmeshMap192 elements count should not 0")
+	//map296 elem nums is 0 in this test
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap296, t)
+	assert.Equal(t, 0, count, "eBPF map kmeshMap296 elements count should not 0")
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap1600, t)
+	assert.NotEqual(t, 0, count, "eBPF map kmeshMap1600 elements count should not 0")
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmListener, t)
+	assert.NotEqual(t, 0, count, "eBPF map KmListener elements count should not 0")
+
+	listener.ApiStatus = core_v2.ApiStatus_DELETE
+	cache.Flush()
+
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap64, t)
+	assert.Equal(t, 0, count, "eBPF map kmeshMap64 elements count should be 0")
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap192, t)
+	assert.Equal(t, 0, count, "eBPF map kmeshMap192 elements count should be 0")
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap296, t)
+	assert.Equal(t, 0, count, "eBPF map kmeshMap296 elements count should be 0")
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap1600, t)
+	assert.Equal(t, 0, count, "eBPF map kmeshMap1600 elements count should be 0")
+	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmListener, t)
+	assert.Equal(t, 0, count, "eBPF map KmListener elements count should be 0")
+}
