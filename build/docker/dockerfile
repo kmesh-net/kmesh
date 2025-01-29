@@ -17,5 +17,6 @@ COPY out/oncn-mda.conf /etc/oncn-mda/
 COPY out/kmesh-daemon /usr/bin/
 COPY out/kmesh-cni /usr/bin/
 COPY out/mdacore /usr/bin/
+COPY out/kmeshctl /usr/bin/
 COPY build/docker/start_kmesh.sh /kmesh
 COPY out/ko /kmesh

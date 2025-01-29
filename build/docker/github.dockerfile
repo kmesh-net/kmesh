@@ -23,4 +23,5 @@ COPY --from=builder /kmesh/oncn-mda/etc/oncn-mda.conf /usr/share/oncn-mda/
 COPY --from=builder /usr/bin/kmesh-daemon /usr/bin/
 COPY --from=builder /usr/bin/kmesh-cni /usr/bin/
 COPY --from=builder /usr/bin/mdacore /usr/bin/
+COPY --from=builder /usr/bin/kmeshctl /usr/bin/
 COPY build/docker/start_kmesh.sh /kmesh
