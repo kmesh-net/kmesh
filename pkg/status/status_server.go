@@ -31,7 +31,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
-	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
@@ -460,7 +459,7 @@ type WorkloadDump struct {
 	Workloads []*Workload
 	Services  []*Service
 	// TODO: add authorization
-	Policies []*security.Authorization
+	Policies []*AuthorizationPolicy
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
@@ -472,15 +471,20 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 
 	workloads := client.WorkloadController.Processor.WorkloadCache.List()
 	services := client.WorkloadController.Processor.ServiceCache.List()
+	policies := client.WorkloadController.Processor.PolicyCache.List()
 	workloadDump := WorkloadDump{
 		Workloads: make([]*Workload, 0, len(workloads)),
 		Services:  make([]*Service, 0, len(services)),
+		Policies:  make([]*AuthorizationPolicy, 0, len(policies)),
 	}
 	for _, w := range workloads {
 		workloadDump.Workloads = append(workloadDump.Workloads, ConvertWorkload(w))
 	}
 	for _, s := range services {
 		workloadDump.Services = append(workloadDump.Services, ConvertService(s))
+	}
+	for _, p := range policies {
+		workloadDump.Policies = append(workloadDump.Policies, ConvertAuthorizationPolicy(p))
 	}
 	printWorkloadDump(w, workloadDump)
 }
