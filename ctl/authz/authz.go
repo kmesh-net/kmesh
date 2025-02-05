@@ -17,11 +17,13 @@
 package authz
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"text/tabwriter"
 
 	"github.com/spf13/cobra"
 
@@ -60,7 +62,7 @@ func NewEnableCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			// If no pod names are given, apply to all kmesh daemon pods.
 			SetAuthzForPods(args, "true")
-			fmt.Println("Authorization has been enabled.")
+			log.Info("Authorization has been enabled.")
 		},
 	}
 	return cmd
@@ -75,7 +77,7 @@ func NewDisableCmd() *cobra.Command {
 		Args:    cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			SetAuthzForPods(args, "false")
-			fmt.Println("Authorization has been disabled.")
+			log.Info("Authorization has been disabled.")
 		},
 	}
 	return cmd
@@ -86,7 +88,7 @@ func NewStatusCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "status [podNames...]",
 		Short:   "Display the current authorization status",
-		Example: "kmeshctl authz status\nkmeshctl authz pod1 pod2 status",
+		Example: "kmeshctl authz status\nkmeshctl authz status pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			cli, err := utils.CreateKubeClient()
@@ -94,7 +96,9 @@ func NewStatusCmd() *cobra.Command {
 				log.Errorf("failed to create cli client: %v", err)
 				os.Exit(1)
 			}
-			// If no pod names are provided, check all kmesh daemon pods.
+
+			// Determine which pods to query.
+			var podNames []string
 			if len(args) == 0 {
 				podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
 				if err != nil {
@@ -102,13 +106,36 @@ func NewStatusCmd() *cobra.Command {
 					os.Exit(1)
 				}
 				for _, pod := range podList.Items {
-					GetAuthzStatusPerKmeshDaemon(cli, pod.GetName())
+					podNames = append(podNames, pod.GetName())
 				}
 			} else {
-				for _, podName := range args {
-					GetAuthzStatusPerKmeshDaemon(cli, podName)
-				}
+				podNames = args
 			}
+
+			// Collect the status for each pod.
+			type podStatus struct {
+				Pod    string
+				Status string
+			}
+			var statuses []podStatus
+			for _, podName := range podNames {
+				status, err := fetchAuthzStatus(cli, podName)
+				if err != nil {
+					log.Errorf("failed to get authz status for pod %s: %v", podName, err)
+					continue
+				}
+				statuses = append(statuses, podStatus{Pod: podName, Status: status})
+			}
+
+			// Output the results in a table format.
+			var buf bytes.Buffer
+			tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
+			fmt.Fprintln(tw, "POD\tAUTHORIZATION STATUS")
+			for _, s := range statuses {
+				fmt.Fprintf(tw, "%s\t%s\n", s.Pod, s.Status)
+			}
+			tw.Flush()
+			fmt.Print(buf.String())
 		},
 	}
 	return cmd
@@ -178,17 +205,15 @@ func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	}
 }
 
-// GetAuthzStatusPerKmeshDaemon sends a GET request to a specific kmesh daemon pod
-// to retrieve the current authz status and prints it.
-func GetAuthzStatusPerKmeshDaemon(cli kube.CLIClient, podName string) {
+// fetchAuthzStatus sends a GET request to a specific kmesh daemon pod
+// to retrieve the current authz status and returns it.
+func fetchAuthzStatus(cli kube.CLIClient, podName string) (string, error) {
 	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
 	if err != nil {
-		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return "", fmt.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
 	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return "", fmt.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
 	defer fw.Close()
 
@@ -196,30 +221,26 @@ func GetAuthzStatusPerKmeshDaemon(cli kube.CLIClient, podName string) {
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		log.Errorf("Error creating request: %v", err)
-		return
+		return "", fmt.Errorf("error creating request: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
-		return
+		return "", fmt.Errorf("failed to make HTTP request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Errorf("Error: received status code %d", resp.StatusCode)
-		return
+		return "", fmt.Errorf("received status code %d", resp.StatusCode)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("failed to read response body: %v", err)
-		return
+		return "", fmt.Errorf("failed to read response body: %v", err)
 	}
 
 	status := string(bodyBytes)
-	fmt.Printf("Pod %s: Authorization status: %s\n", podName, status)
+	return status, nil
 }
