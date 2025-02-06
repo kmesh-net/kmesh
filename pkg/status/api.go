@@ -77,11 +77,11 @@ type Service struct {
 }
 
 type AuthorizationPolicy struct {
-	Name      string   `json:"name"`
-	Namespace string   `json:"namespace"`
-	Scope     string   `json:"scope"`
-	Action    string   `json:"action"`
-	Rules     []string `json:"rules"`
+	Name      string           `json:"name"`
+	Namespace string           `json:"namespace"`
+	Scope     string           `json:"scope"`
+	Action    string           `json:"action"`
+	Rules     []*security.Rule `json:"rules"`
 }
 
 type NetworkAddress struct {
@@ -173,16 +173,12 @@ func ConvertService(s *workloadapi.Service) *Service {
 }
 
 func ConvertAuthorizationPolicy(p *security.Authorization) *AuthorizationPolicy {
-	rules := make([]string, 0, len(p.GetRules()))
-	for _, r := range p.GetRules() {
-		rules = append(rules, r.String())
-	}
 	out := &AuthorizationPolicy{
 		Name:      p.GetName(),
 		Namespace: p.GetNamespace(),
 		Scope:     p.GetScope().String(),
 		Action:    p.GetAction().String(),
-		Rules:     rules,
+		Rules:     p.Rules,
 	}
 
 	return out
