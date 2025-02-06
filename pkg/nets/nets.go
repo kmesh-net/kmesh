@@ -90,7 +90,7 @@ func checkIPVersion() (ipv4, ipv6 bool) {
 
 // Compare two slices and return the data added to a over b and the data missing from b over a.
 //
-// Arges:
+// Args:
 //
 //	a: new data
 //	b: old data
