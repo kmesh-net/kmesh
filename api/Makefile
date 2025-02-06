@@ -21,7 +21,7 @@ include ../mk/bpf.print.mk
 include ../mk/bpf.vars.mk
 
 C_OUTPUT_DIR := v2-c
-GO_OUTPUT_DIR := v2
+GO_OUTPUT_DIR := kmesh/api/workloadapi
 GO_BUILD_DIR := kmesh.net/kmesh/api
 
 PROTO_PATH := ../
