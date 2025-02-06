@@ -54,7 +54,7 @@ struct {
     __uint(max_entries, 256 * 1024 /* 256 KB */);
 } map_of_tcp_probe SEC(".maps");
 
-static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
+static inline void construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
 {
     if (direction == OUTBOUND) {
         if (sk->family == AF_INET) {
@@ -146,7 +146,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
         return;
     }
 
-    constuct_tuple(sk, &info->tuple, storage->direction);
+    construct_tuple(sk, &info->tuple, storage->direction);
     info->state = state;
     info->direction = storage->direction;
     if (state == BPF_TCP_CLOSE) {
