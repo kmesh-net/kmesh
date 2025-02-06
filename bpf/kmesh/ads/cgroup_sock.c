@@ -12,11 +12,14 @@
 #include "cluster.h"
 #include "bpf_common.h"
 
+#if ENHANCED_KERNEL
+#include "route_config.h"
+#endif
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_HTTP
 
 static const char kmesh_module_name[] = "kmesh_defer";
-
+static char kmesh_module_name_get[KMESH_MODULE_NAME_LEN];
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
     int ret;
@@ -39,18 +42,19 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
     BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%s:%u]\n", ip2str(&ip, 1), bpf_ntohs(ctx->user_port));
 
 #if ENHANCED_KERNEL
-    // todo build when kernel support http parse and route
-    // defer conn
-    ret = bpf_setsockopt(ctx, IPPROTO_TCP, TCP_ULP, (void *)kmesh_module_name, sizeof(kmesh_module_name));
-    if (ret)
-        BPF_LOG(ERR, KMESH, "bpf set sockopt failed! ret:%d\n", ret);
-#else  // KMESH_ENABLE_HTTP
-    ret = listener_manager(ctx, listener, NULL);
+    ret = bpf_getsockopt(ctx, IPPROTO_TCP, TCP_ULP, (void *)kmesh_module_name_get, KMESH_MODULE_NAME_LEN);
+    BPF_LOG(DEBUG, KMESH, "kmesh_module_name_get:%s   ret:%d\n", kmesh_module_name_get, ret);
+    if (ret != 0 || bpf__strncmp(kmesh_module_name_get, KMESH_MODULE_NAME_LEN, kmesh_module_name)) {
+        ret = bpf_setsockopt(ctx, IPPROTO_TCP, TCP_ULP, (void *)kmesh_module_name, sizeof(kmesh_module_name));
+        if (ret)
+            BPF_LOG(ERR, KMESH, "bpf set sockopt failed! ret %d\n", ret);
+        return 0;
+    }
+#endif
+    ret = listener_manager(ctx, listener, ctx);
     if (ret != 0) {
         BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
-        return ret;
     }
-#endif // KMESH_ENABLE_HTTP
 
     return 0;
 }

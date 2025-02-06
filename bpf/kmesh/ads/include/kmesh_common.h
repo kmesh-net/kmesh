@@ -21,6 +21,8 @@
 #define BPF_LOGTYPE_CIRCUIT_BREAKER BPF_DEBUG_ON
 
 #define BPF_OK 1
+#define BPF_STRNCMP_DATA_MAX_LEN 16
+#define KMESH_MODULE_NAME_LEN 16
 
 #define _(P)                                                                                                           \
     ({                                                                                                                 \
