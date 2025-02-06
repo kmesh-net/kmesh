@@ -458,8 +458,7 @@ func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 type WorkloadDump struct {
 	Workloads []*Workload
 	Services  []*Service
-	// TODO: add authorization
-	Policies []*AuthorizationPolicy
+	Policies  []*AuthorizationPolicy
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
@@ -471,7 +470,7 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 
 	workloads := client.WorkloadController.Processor.WorkloadCache.List()
 	services := client.WorkloadController.Processor.ServiceCache.List()
-	policies := client.WorkloadController.Processor.PolicyCache.List()
+	policies := client.WorkloadController.Rbac.PoliciesList()
 	workloadDump := WorkloadDump{
 		Workloads: make([]*Workload, 0, len(workloads)),
 		Services:  make([]*Service, 0, len(services)),

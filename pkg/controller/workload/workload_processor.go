@@ -62,7 +62,6 @@ type Processor struct {
 	ServiceCache  cache.ServiceCache
 	EndpointCache cache.EndpointCache
 	WaypointCache cache.WaypointCache
-	PolicyCache   cache.PolicyCache
 	locality      bpf.LocalityCache
 
 	once      sync.Once
@@ -80,7 +79,6 @@ func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		ServiceCache:  serviceCache,
 		EndpointCache: cache.NewEndpointCache(),
 		WaypointCache: cache.NewWaypointCache(serviceCache),
-		PolicyCache:   cache.NewPolicyCache(),
 		locality:      bpf.NewLocalityCache(),
 	}
 }
@@ -912,7 +910,6 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 			return err
 		}
 
-		p.PolicyCache.AddOrUpdatePolicy(authPolicy)
 		policyKey := authPolicy.ResourceName()
 		if err := maps_v2.AuthorizationUpdate(p.hashName.Hash(policyKey), authPolicy); err != nil {
 			return fmt.Errorf("AuthorizationUpdate %s failed %v ", policyKey, err)
@@ -925,7 +922,6 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 		if err := maps_v2.AuthorizationDelete(p.hashName.Hash(resourceName)); err != nil {
 			log.Errorf("remove authorization policy %s failed :%v", resourceName, err)
 		}
-		p.PolicyCache.DeletePolicy(resourceName)
 		log.Debugf("remove authorization policy %s", resourceName)
 	}
 
