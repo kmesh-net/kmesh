@@ -13,7 +13,7 @@ creation-date: 2025-02-06
 ---
 
 
-## Your short, descriptive title
+## Proposal for generating metrics for TCP long connections
 
 <!--
 This is the title of your KEP. Keep it short, simple, and descriptive. A good
@@ -29,6 +29,12 @@ documentation such as release notes or a development roadmap.
 
 A good summary is probably at least a paragraph in length.
 -->
+
+Currently kmesh provides access logs during termination and establisment of a TCP connection with more detailed information about the connection.
+
+Kmesh also provides metrics during connection establishment, completion and deny apturing a variety of details about the connection.
+
+In this proposal, we are aiming to implement access logs and metrics for TCP long connections, developing a continous monitoring and reporting mechanisms that captures detailed, real-time data throughout the lifetime of long-lived TCP connections.
 
 ### Motivation
 
