@@ -124,9 +124,8 @@ static int defer_connect_and_sendmsg(struct sock *sk, struct msghdr *msg, size_t
     struct socket *sock;
     int err = 0;
 
-    if (unlikely(inet_sk(sk)->bpf_defer_connect == 1)) {
+    if (unlikely(inet_sk(sk)->defer_connect == 1)) {
         lock_sock(sk);
-        inet_sk(sk)->defer_connect = 0;
 
         err = defer_connect(sk, msg, size);
         if (err) {
@@ -155,27 +154,19 @@ static int defer_tcp_sendmsg(struct sock *sk, struct msghdr *msg, size_t size)
 
 static int defer_tcp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_len)
 {
-    /* Kmesh is not compatible with defer_connect, so we
-     * need to check whether defer_connect is set to 1.
-     * Kmesh reuses the defer_connect flag to enable the
-     * epoll to be triggered normally.
-     */
-    if (inet_sk(sk)->defer_connect == 1)
-        return -ENOTSUPP;
-    /* bpf_defer_connect is 0 when you first enter the connection.
+    /* defer_connect is 0 when you first enter the connection.
      * When you delay link establishment from sendmsg, the value
-     * of bpf_defer_connect should be 1 and the normal connect function
+     * of defer_connect should be 1 and the normal connect function
      * needs to be used.
      */
-    if (inet_sk(sk)->bpf_defer_connect)
+    if (inet_sk(sk)->defer_connect)
         return tcp_v4_connect(sk, uaddr, addr_len);
-    inet_sk(sk)->bpf_defer_connect = 1;
     inet_sk(sk)->defer_connect = 1;
     sk->sk_dport = ((struct sockaddr_in *)uaddr)->sin_port;
     sk_daddr_set(sk, ((struct sockaddr_in *)uaddr)->sin_addr.s_addr);
     sk->sk_socket->state = SS_CONNECTING;
     tcp_set_state(sk, TCP_SYN_SENT);
-    return KMESH_DELAY_ERROR;
+    return 0;
 }
 
 static int kmesh_build_proto(struct sock *sk)

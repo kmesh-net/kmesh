@@ -37,17 +37,13 @@ import (
 var log = logger.NewLoggerScope("bpf_ads")
 
 type BpfAds struct {
-	TracePoint BpfTracePoint
-	SockConn   BpfSockConn
-	SockOps    BpfSockOps
-	Tc         *general.BpfTCGeneral
+	SockConn BpfSockConn
+	SockOps  BpfSockOps
+	Tc       *general.BpfTCGeneral
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
-	if err := sc.TracePoint.NewBpf(cfg); err != nil {
-		return nil, err
-	}
 
 	if err := sc.SockOps.NewBpf(cfg); err != nil {
 		return nil, err
@@ -110,8 +106,12 @@ func (sc *BpfAds) GetBpfLogLevelVariable() *ebpf.Variable {
 	return sc.SockConn.BpfLogLevel
 }
 
-func (sc *BpfAds) Load() error {
-	if err := sc.TracePoint.Load(); err != nil {
+func (sc *BpfSockConn) RouteLoad() error {
+	err := sc.KmCgrptailcall.Update(
+		uint32(KMESH_TAIL_CALL_ROUTER_CONFIG),
+		uint32(sc.RouteConfigManager.FD()),
+		ebpf.UpdateAny)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -171,10 +171,6 @@ func (sc *BpfAds) ApiEnvCfg() error {
 }
 
 func (sc *BpfAds) Attach() error {
-	if err := sc.TracePoint.Attach(); err != nil {
-		return err
-	}
-
 	if err := sc.SockOps.Attach(); err != nil {
 		return err
 	}
@@ -186,10 +182,6 @@ func (sc *BpfAds) Attach() error {
 }
 
 func (sc *BpfAds) Detach() error {
-	if err := sc.TracePoint.Detach(); err != nil {
-		return err
-	}
-
 	if err := sc.SockOps.Detach(); err != nil {
 		return err
 	}
