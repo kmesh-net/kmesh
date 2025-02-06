@@ -57,7 +57,7 @@ func NewEnableCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "enable [podNames...]",
 		Short:   "Enable xdp authz eBPF program for Kmesh's authz offloading",
-		Example: "kmeshctl authz enable\nkmeshctl authz pod1 pod2 enable",
+		Example: "kmeshctl authz enable\nkmeshctl authz enable pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			// If no pod names are given, apply to all kmesh daemon pods.
@@ -73,7 +73,7 @@ func NewDisableCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "disable [podNames...]",
 		Short:   "Disable xdp authz eBPF program for Kmesh's authz offloading",
-		Example: "kmeshctl authz disable\nkmeshctl authz pod1 pod2 disable",
+		Example: "kmeshctl authz disable\nkmeshctl authz disable pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			SetAuthzForPods(args, "false")
@@ -112,12 +112,14 @@ func NewStatusCmd() *cobra.Command {
 				podNames = args
 			}
 
-			// Collect the status for each pod.
+			// Prepare a slice of podStatuses. We can pre-allocate since we know how many pods we'll check.
 			type podStatus struct {
 				Pod    string
 				Status string
 			}
-			var statuses []podStatus
+			statuses := make([]podStatus, 0, len(podNames))
+
+			// Collect the status for each pod.
 			for _, podName := range podNames {
 				status, err := fetchAuthzStatus(cli, podName)
 				if err != nil {
