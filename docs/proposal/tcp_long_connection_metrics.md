@@ -52,13 +52,13 @@ List the specific goals of the KEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- Collect detailed traffic metrics (e.g. bytes send/recieved, direction, throughput, round-trip time, latency, namespace. identity) continously during the lifetime of long TCP connections.
+- Collect detailed traffic metrics (e.g. bytes send/recieved, direction, throughput, round-trip time, latency, namespace. identity) continously during the lifetime of long TCP connections using ebpf.
 
 - Reporting of metrics and access logs, at periodic time and also based on throughput (e.g. after transfer of 1mb of data).
 
 - User can fine tune the time and throughput using yaml during kmesh deployment or can use CLI tool kmeshctl anytime.
 
-- Access logs containing information about connection continously during the lifetime of long TCP connections.
+- Generation Access logs containing information about connection continously during the lifetime of long TCP connections from the metrics data.
 
 - Metrics and logs supporting open-telemetry format.
 
@@ -72,6 +72,12 @@ know that this has succeeded?
 What is out of scope for this KEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
+
+- Collection information about packet contents.
+
+- Controlling or modifing TCP connection
+
+- Collecting L7 metrics
 
 ### Proposal
 
