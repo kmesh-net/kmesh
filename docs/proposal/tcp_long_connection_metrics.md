@@ -90,6 +90,18 @@ The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
+Metrics will be collected using eBPF kprobes hooks, and a eBPF map will be used to transfer metrics from kernel space to userspace.
+
+
+#### Design Details
+
+<!--
+This section should contain enough information that the specifics of your
+change are understandable. This may include API specs (though not always
+required) or even code snippets. If there's any ambiguity about HOW your
+proposal will be implemented, this is the place to discuss them.
+-->
+
 #### User Stories (Optional)
 
 <!--
@@ -124,14 +136,6 @@ How will UX be reviewed, and by whom?
 Consider including folks who also work outside the SIG or subproject.
 -->
 
-### Design Details
-
-<!--
-This section should contain enough information that the specifics of your
-change are understandable. This may include API specs (though not always
-required) or even code snippets. If there's any ambiguity about HOW your
-proposal will be implemented, this is the place to discuss them.
--->
 
 #### Test Plan
 
