@@ -21,6 +21,7 @@ title can help communicate what the KEP is and should be considered as part of
 any review.
 -->
 
+Upstream issue: https://github.com/kmesh-net/kmesh/issues/1211
 ### Summary
 
 <!--
@@ -50,6 +51,20 @@ Perfomance and heath of the long connections can be known early, currently we ge
 List the specific goals of the KEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
+
+- Collect detailed traffic metrics (e.g. bytes send/recieved, direction, throughput, round-trip time, latency, namespace. identity) continously during the lifetime of long TCP connections.
+
+- Reporting of metrics and access logs, at periodic time and also based on throughput (e.g. after transfer of 1mb of data).
+
+- User can fine tune the time and throughput using yaml during kmesh deployment or can use CLI tool kmeshctl anytime.
+
+- Access logs containing information about connection continously during the lifetime of long TCP connections.
+
+- Metrics and logs supporting open-telemetry format.
+
+- Exposing these metrics by kmesh daemon so that prometheus can scrape it.
+
+- Unit and E2E tests.
 
 #### Non-Goals
 
