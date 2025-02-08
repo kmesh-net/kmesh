@@ -22,6 +22,7 @@ any review.
 -->
 
 Upstream issue: https://github.com/kmesh-net/kmesh/issues/1211
+
 ### Summary
 
 <!--
@@ -45,6 +46,7 @@ this KEP.  Describe why the change is important and the benefits to users.
 -->
 
 Perfomance and heath of the long connections can be known early, currently we get all the information of the connection by the metrics and access logs provided at the end after the connection termination.
+
 #### Goals
 
 <!--
@@ -52,9 +54,9 @@ List the specific goals of the KEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- Collect detailed traffic metrics (e.g. bytes send/recieved, direction, throughput, round-trip time, latency, namespace. identity) continously during the lifetime of long TCP connections using ebpf.
+- Collect detailed traffic metrics (e.g. bytes send/recieved, direction, throughput, round-trip time, latency , state-change) continously during the lifetime of long TCP connections using ebpf.
 
-- Reporting of metrics and access logs, at periodic time and also based on throughput (e.g. after transfer of 1mb of data).
+- Reporting of metrics and access logs, at periodic time or based on throughput (e.g. after transfer of 1mb of data).
 
 - User can fine tune the time and throughput using yaml during kmesh deployment or can use CLI tool kmeshctl anytime.
 
@@ -90,10 +92,10 @@ The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-Metrics will be collected using eBPF kprobes hooks, and a eBPF map will be used to transfer metrics from kernel space to userspace.
+Metrics will be collected using eBPF tracepoint hooks, and a eBPF map will be used to transfer metrics from kernel space to userspace.
 
 
-#### Design Details
+### Design Details
 
 <!--
 This section should contain enough information that the specifics of your
@@ -101,6 +103,16 @@ change are understandable. This may include API specs (though not always
 required) or even code snippets. If there's any ambiguity about HOW your
 proposal will be implemented, this is the place to discuss them.
 -->
+
+#### Collecting Metrics
+
+We will use eBPF tracepoint hooks to collect different metrics related to connection. 
+We are using tracepoint above kprobe because:
+- More stable
+- Lower overhead
+- Reliablity in production
+
+
 
 #### User Stories (Optional)
 
