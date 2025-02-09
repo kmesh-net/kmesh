@@ -112,6 +112,46 @@ We are using tracepoint above kprobe because:
 - Lower overhead
 - Reliablity in production
 
+Storing the time-period or threshold value in the metricController
+
+```
+## Note: "---" means, previous code remains same
+type MetricController struct {
+  ---
+  Period        time.Duration
+  Threshold     float ## in MBs
+  IsThreshold   bool
+  ---
+}
+```
+
+Currently i am only focusing on only one method, either giving metrincs of a long connection after every time interval or everytime after a specific threshold is reached.
+
+```
+func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool, period *time.Duration, threshold *float, isThreshold bool) *MetricController {
+	m := &MetricController{
+        ---
+        Period:              5*time.Second,
+        Threshold:           1,
+        IsThreshold:         isThreshold
+	}
+
+    ---
+
+    if period != nil && *period != 0*time.Second{
+      m.Period = *period
+    }
+
+    if (threshold == null && *threshold != 0.0){
+        m.Threshold == *threshold
+    }
+
+	return m
+}
+```
+
+The value of the period or the threshold is provided by the user, if not a default value of 5 seconds and 1 mb is chosen.
+
 
 
 #### User Stories (Optional)
