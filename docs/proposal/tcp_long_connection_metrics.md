@@ -118,9 +118,10 @@ Storing the time-period or threshold value in the metricController
 ## Note: "---" means, previous code remains same
 type MetricController struct {
   ---
-  Period        time.Duration
-  Threshold     float ## in MBs
-  IsThreshold   bool
+  EnableTCPLongMetric   atomic.Bool
+  Period                time.Duration
+  Threshold             float64 ## in MBs
+  IsThreshold           atomic.Bool
   ---
 }
 ```
@@ -128,11 +129,12 @@ type MetricController struct {
 Currently i am only focusing on only one method, either giving metrincs of a long connection after every time interval or everytime after a specific threshold is reached.
 
 ```
-func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool, period *time.Duration, threshold *float, isThreshold bool) *MetricController {
+func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool,enableTcpLongMetric bool ,period *time.Duration, threshold *float, isThreshold bool) *MetricController {
 	m := &MetricController{
         ---
+        EnableTCPLongMetric: enableTcpLongMetric
         Period:              5*time.Second,
-        Threshold:           1,
+        Threshold:           float64(1),
         IsThreshold:         isThreshold
 	}
 
@@ -142,7 +144,7 @@ func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCach
       m.Period = *period
     }
 
-    if (threshold == null && *threshold != 0.0){
+    if (threshold == null && *threshold != float(0)){
         m.Threshold == *threshold
     }
 
