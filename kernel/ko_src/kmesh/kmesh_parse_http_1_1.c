@@ -36,9 +36,9 @@ enum state {
     ST_HEAD_END
 };
 
-u32 parse_http_1_1_request(const struct bpf_mem_ptr *msg);
+int parse_http_1_1_request(const struct bpf_mem_ptr *msg);
 
-u32 parse_http_1_1_respond(const struct bpf_mem_ptr *msg);
+int parse_http_1_1_respond(const struct bpf_mem_ptr *msg);
 
 static enum state __parse_request_startline(
     const struct bpf_mem_ptr *msg,
@@ -362,10 +362,10 @@ static bool parse_header(struct bpf_mem_ptr *context)
     return true;
 }
 
-u32 parse_http_1_1_request(const struct bpf_mem_ptr *msg)
+int parse_http_1_1_request(const struct bpf_mem_ptr *msg)
 {
     struct bpf_mem_ptr context = {0};
-    u32 ret = 0;
+    int ret = 0;
     if (parse_request_startline(msg, &context) == false) {
         kmesh_protocol_data_clean_all();
         return PROTO_UNKNOW;
@@ -383,10 +383,10 @@ u32 parse_http_1_1_request(const struct bpf_mem_ptr *msg)
     return ret;
 }
 
-u32 parse_http_1_1_respond(const struct bpf_mem_ptr *msg)
+int parse_http_1_1_respond(const struct bpf_mem_ptr *msg)
 {
     struct bpf_mem_ptr context = {0};
-    u32 ret = 0;
+    int ret = 0;
     if (parse_respose_startline(msg, &context) == false) {
         kmesh_protocol_data_clean_all();
         return PROTO_UNKNOW;
