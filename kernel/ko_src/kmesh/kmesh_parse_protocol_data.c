@@ -15,14 +15,14 @@ struct kmesh_data_node *new_kmesh_data_node(u32 name_field_length)
 {
     struct kmesh_data_node *new = (struct kmesh_data_node *)kmalloc(sizeof(struct kmesh_data_node), GFP_ATOMIC);
     if (unlikely(!new)) {
-        (void)pr_err("[kmesh data node] alloc data node memory failed! no memory!\n");
+        LOG(KERN_ERR, "alloc data node memory failed! no memory!\n");
         return ERR_PTR(-ENOMEM);
     }
     (void)memset(new, 0x0, sizeof(struct kmesh_data_node));
     new->keystring = (char *)kmalloc(name_field_length * sizeof(char), GFP_ATOMIC);
     if (unlikely(!new->keystring)) {
         kfree(new);
-        (void)pr_err("[kmesh data node] alloc data node key memory failed! no memory!\n");
+        LOG(KERN_ERR, "alloc data node key memory failed! no memory!\n");
         return ERR_PTR(-ENOMEM);
     }
     (void)memset(new->keystring, 0x0, sizeof(char) * name_field_length);
