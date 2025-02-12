@@ -32,6 +32,12 @@ spec:
           volumeMounts:
             - name: etc-volume
               mountPath: /etc/nginx/nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: etc-volume
           hostPath:
@@ -88,6 +94,12 @@ spec:
           volumeMounts:
             - name: etc-volume
               mountPath: /etc/nginx/nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: etc-volume
           hostPath:
@@ -144,6 +156,12 @@ spec:
           volumeMounts:
             - name: etc-volume
               mountPath: /etc/nginx/nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: etc-volume
           hostPath:
@@ -200,6 +218,12 @@ spec:
           volumeMounts:
             - name: etc-volume
               mountPath: /etc/nginx/nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: etc-volume
           hostPath:
@@ -256,6 +280,12 @@ spec:
           volumeMounts:
             - name: etc-volume
               mountPath: /etc/nginx/nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: etc-volume
           hostPath:
@@ -312,6 +342,12 @@ spec:
           volumeMounts:
             - name: etc-volume
               mountPath: /etc/nginx/nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: etc-volume
           hostPath:
@@ -368,6 +404,12 @@ spec:
           volumeMounts:
             - name: etc-volume
               mountPath: /etc/nginx/nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: etc-volume
           hostPath:
@@ -424,6 +466,12 @@ spec:
           volumeMounts:
             - name: etc-volume
               mountPath: /etc/nginx/nginx.conf
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 5
       volumes:
         - name: etc-volume
           hostPath:
