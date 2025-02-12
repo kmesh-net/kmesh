@@ -1,20 +1,6 @@
 ## kmeshctl authz
 
-Enable or disable xdp authz eBPF Prog for Kmesh's authz offloading
-
-```
-kmeshctl authz [flags]
-```
-
-### Examples
-
-```
-# Enable/Disable Kmesh's authz offloading in the specified kmesh daemon:
- kmeshctl authz <kmesh-daemon-pod> enable/disable
- 
- # If you want to enable or disable authz offloading of all Kmeshs in the cluster
- kmeshctl authz enable/disable
-```
+Manage xdp authz eBPF program for Kmesh's authz offloading
 
 ### Options
 
@@ -25,4 +11,7 @@ kmeshctl authz [flags]
 ### SEE ALSO
 
 * [kmeshctl](kmeshctl.md)	 - Kmesh command line tools to operate and debug Kmesh
+* [kmeshctl authz disable](kmeshctl_authz_disable.md)	 - Disable xdp authz eBPF program for Kmesh's authz offloading
+* [kmeshctl authz enable](kmeshctl_authz_enable.md)	 - Enable xdp authz eBPF program for Kmesh's authz offloading
+* [kmeshctl authz status](kmeshctl_authz_status.md)	 - Display the current authorization status
 
