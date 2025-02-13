@@ -6,7 +6,7 @@ reviewers:
 - "nglwcy"
 - "lizhencheng"
 approvers:
-- "nglwcy"
+- "nlgwcy"
 - "lizhencheng"
 
 creation-date: 2025-02-06
@@ -126,7 +126,7 @@ type MetricController struct {
 }
 ```
 
-Currently i am only focusing on only one method, either giving metrincs of a long connection after every time interval or everytime after a specific threshold is reached.
+Currently i am only focusing on only one method, either giving metrincs of a long connection after every time interval or everytime after a specific threshold is reached(e.g. after 1mb of data has transferred).
 
 ```
 func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool,enableTcpLongMetric bool ,period *time.Duration, threshold *float, isThreshold bool) *MetricController {
@@ -152,7 +152,11 @@ func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCach
 }
 ```
 
-The value of the period or the threshold is provided by the user, if not a default value of 5 seconds and 1 mb is chosen.
+The value of the period or the threshold is provided by the user, if not a default value of 5 seconds and 1 mb is chosen. If the threshold were set too low, the system might generate too many reports, leading to noise and increased processing overhead.
+
+
+The labels of tcp_long_connection metric will be same as the labels we currently we have for another metrics.
+
 
 
 
