@@ -54,7 +54,7 @@ List the specific goals of the KEP. What is it trying to achieve? How will we
 know that this has succeeded?
 -->
 
-- Collect detailed traffic metrics (e.g. bytes send/recieved, direction, throughput, round-trip time, latency , state-change) continously during the lifetime of long TCP connections using ebpf.
+- Collect detailed traffic metrics (e.g. bytes send/recieved, round-trip time, packet loss, tcp retransmission) continously during the lifetime of long TCP connections using ebpf.
 
 - Reporting of metrics and access logs, at periodic time or based on throughput (e.g. after transfer of 1mb of data).
 
@@ -157,8 +157,200 @@ The value of the period or the threshold is provided by the user, if not a defau
 
 The labels of tcp_long_connection metric will be same as the labels we currently we have for another metrics.
 
+#### ebpF code 
+
+Decelearing ebpf hash maps in bpf_common.h to store information about tcp_long_connection
+
+```
+struct connection_key {
+    __u32 saddr;   // Source IP address
+    __u32 daddr;   // Destination IP address
+    __u16 sport;   // Source port
+    __u16 dport;   // Destination port
+};
+
+struct long_tcp_metrics {
+    __u64 start_ns;      // Timestamp when connection was established
+    __u64 bytes_sent;    // Total bytes sent
+    __u64 bytes_recv;    // Total bytes received
+    __u64 retransmissions;
+    __u64 packet_loss;
+    __u64 srtt_us;       // smoothed round-trip time in microseconds
+};
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(max_entries, 10240);
+    __type(key, struct connection_key);
+    __type(value, struct tcp_metrics);
+} long_conn_metrics_map SEC(".maps");
+
+```
+
+tracepoint.c 
+```
+---
+
+#define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL)
+#include "bpf_common.h"
+
+---
 
 
+// Event structure to send metrics to user space.
+struct event {
+    struct connection_key key;
+    struct tcp_metrics metrics;
+};
+
+// BPF ring buffer to output events to user space.
+struct {
+    __uint(type, BPF_MAP_TYPE_RINGBUF);
+    __uint(max_entries, 1 << 24); // 16 MB ring buffer
+} events SEC(".maps");
+
+
+////////////////////////////////////////////////////////////////////////
+// Tracepoint: tcp_set_state
+// - On TCP_ESTABLISHED: record connection start time.
+// - On TCP_CLOSE: remove connection from the map.
+////////////////////////////////////////////////////////////////////////
+SEC("tracepoint/tcp/tcp_set_state")
+int trace_tcp_set_state(struct trace_event_raw_tcp_set_state *ctx)
+{
+    struct connection_key key = {};
+    u64 now = bpf_ktime_get_ns();
+
+    // Populate connection key from tracepoint arguments.
+    key.saddr = ctx->saddr;
+    key.daddr = ctx->daddr;
+    key.sport = ctx->sport;
+    key.dport = ctx->dport;
+
+    if (ctx->newstate == TCP_ESTABLISHED) {
+        struct tcp_metrics m = {};
+        m.start_ns = now;
+        bpf_map_update_elem(&conn_metrics_map, &key, &m, BPF_ANY);
+    } else if (ctx->newstate == TCP_CLOSE) {
+        bpf_map_delete_elem(&conn_metrics_map, &key);
+    }
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////
+// Tracepoint: tcp_sendmsg
+// - Capture bytes sent.
+////////////////////////////////////////////////////////////////////////
+SEC("tracepoint/tcp/tcp_sendmsg")
+int trace_tcp_sendmsg(struct trace_event_raw_tcp_sendmsg *ctx)
+{
+    struct connection_key key = {};
+    u64 bytes = ctx->size;
+    key.saddr = ctx->saddr;
+    key.daddr = ctx->daddr;
+    key.sport = ctx->sport;
+    key.dport = ctx->dport;
+    struct tcp_metrics *m = bpf_map_lookup_elem(&conn_metrics_map, &key);
+    if (m) {
+        __sync_fetch_and_add(&m->bytes_sent, bytes);
+    }
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////
+// Tracepoint: tcp_cleanup_rbuf
+// - Capture bytes received.
+////////////////////////////////////////////////////////////////////////
+SEC("tracepoint/tcp/tcp_cleanup_rbuf")
+int trace_tcp_cleanup_rbuf(struct trace_event_raw_tcp_cleanup_rbuf *ctx)
+{
+    struct connection_key key = {};
+    u64 bytes = ctx->copied;
+    key.saddr = ctx->saddr;
+    key.daddr = ctx->daddr;
+    key.sport = ctx->sport;
+    key.dport = ctx->dport;
+    struct tcp_metrics *m = bpf_map_lookup_elem(&conn_metrics_map, &key);
+    if (m) {
+        __sync_fetch_and_add(&m->bytes_recv, bytes);
+    }
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////
+// Tracepoint: tcp_retransmit_skb
+// Track retransmissions and update RTT.
+// (Assumes args->srtt_us provides the current smoothed RTT in microseconds)
+////////////////////////////////////////////////////////////////////////
+TRACEPOINT_PROBE(tcp, tcp_retransmit_skb) {
+    struct connection_key key = {};
+    key.saddr = args->saddr;
+    key.daddr = args->daddr;
+    key.sport = args->sport;
+    key.dport = args->dport;
+    struct tcp_metrics *m = conn_metrics.lookup(&key);
+    if (m) {
+        __sync_fetch_and_add(&m->retransmissions, 1);
+        m->srtt_us = args->srtt_us; // update latest RTT, if available
+    }
+    return 0;
+}
+
+////////////////////////////////////////////////////////////////////////
+// Tracepoint: tcp_drop
+// Track packet loss events.
+////////////////////////////////////////////////////////////////////////
+TRACEPOINT_PROBE(tcp, tcp_drop) {
+    struct connection_key key = {};
+    key.saddr = args->saddr;
+    key.daddr = args->daddr;
+    key.sport = args->sport;
+    key.dport = args->dport;
+    struct tcp_metrics *m = conn_metrics.lookup(&key);
+    if (m) {
+        __sync_fetch_and_add(&m->packet_loss, 1);
+    }
+    return 0;
+}
+
+
+////////////////////////////////////////////////////////////////////////
+// Flush Function: Periodically invoked via a perf event.
+// Iterates over the conn_metrics_map and submits events for connections
+// that have been open longer than LONG_CONN_THRESHOLD_NS.
+////////////////////////////////////////////////////////////////////////
+SEC("perf_event/flush")
+int flush_connections(struct bpf_perf_event_data *ctx)
+{
+    struct connection_key key = {};
+    struct connection_key next_key = {};
+    struct tcp_metrics *m;
+    u64 now = bpf_ktime_get_ns();
+    int ret;
+
+    // Iterate over the map. The loop is bounded by a fixed maximum (e.g., 1024 iterations)
+    #pragma unroll
+    for (int i = 0; i < 1024; i++) {
+        ret = bpf_map_get_next_key(&conn_metrics_map, &key, &next_key);
+        if (ret < 0)
+            break;
+
+        m = bpf_map_lookup_elem(&conn_metrics_map, &key);
+        if (m && (now - m->start_ns >= LONG_CONN_THRESHOLD_NS)) {
+            struct event *e;
+            e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
+            if (e) {
+                e->key = key;
+                e->metrics = *m;
+                bpf_ringbuf_submit(e, 0);
+            }
+        }
+        key = next_key;
+    }
+    return 0;
+}
+
+```
 
 #### User Stories (Optional)
 
