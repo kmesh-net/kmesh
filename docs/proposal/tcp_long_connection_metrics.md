@@ -159,7 +159,7 @@ The labels of tcp_long_connection metric will be same as the labels we currently
 
 #### ebpF code 
 
-Decelearing ebpf hash maps in bpf_common.h to store information about tcp_long_connection
+Decelearing ebpf hash map in bpf_common.h to store information about tcp_long_connection.
 
 ```
 struct connection_key {
@@ -187,13 +187,18 @@ struct {
 
 ```
 
-tracepoint.c 
+Using various ebpf tracepoints hooks to collects metrics of tcp_long_collection, a ring buffer is also decleared to send data from kernel space to userspace
+
+Code update in tracepoint.c file
 ```
 ---
 
 #define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL)
 #include "bpf_common.h"
-
+#include <linux/bpf.h>
+#include <bpf/bpf_helpers.h>
+#include <linux/ptrace.h>
+#include <linux/tcp.h>
 ---
 
 
@@ -210,18 +215,12 @@ struct {
 } events SEC(".maps");
 
 
-////////////////////////////////////////////////////////////////////////
-// Tracepoint: tcp_set_state
-// - On TCP_ESTABLISHED: record connection start time.
-// - On TCP_CLOSE: remove connection from the map.
-////////////////////////////////////////////////////////////////////////
 SEC("tracepoint/tcp/tcp_set_state")
 int trace_tcp_set_state(struct trace_event_raw_tcp_set_state *ctx)
 {
     struct connection_key key = {};
     u64 now = bpf_ktime_get_ns();
 
-    // Populate connection key from tracepoint arguments.
     key.saddr = ctx->saddr;
     key.daddr = ctx->daddr;
     key.sport = ctx->sport;
@@ -237,10 +236,7 @@ int trace_tcp_set_state(struct trace_event_raw_tcp_set_state *ctx)
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////
-// Tracepoint: tcp_sendmsg
-// - Capture bytes sent.
-////////////////////////////////////////////////////////////////////////
+// Captures bytes send
 SEC("tracepoint/tcp/tcp_sendmsg")
 int trace_tcp_sendmsg(struct trace_event_raw_tcp_sendmsg *ctx)
 {
@@ -257,10 +253,7 @@ int trace_tcp_sendmsg(struct trace_event_raw_tcp_sendmsg *ctx)
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////
-// Tracepoint: tcp_cleanup_rbuf
-// - Capture bytes received.
-////////////////////////////////////////////////////////////////////////
+// Captures bytes recieved
 SEC("tracepoint/tcp/tcp_cleanup_rbuf")
 int trace_tcp_cleanup_rbuf(struct trace_event_raw_tcp_cleanup_rbuf *ctx)
 {
@@ -277,11 +270,9 @@ int trace_tcp_cleanup_rbuf(struct trace_event_raw_tcp_cleanup_rbuf *ctx)
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////
-// Tracepoint: tcp_retransmit_skb
+
 // Track retransmissions and update RTT.
 // (Assumes args->srtt_us provides the current smoothed RTT in microseconds)
-////////////////////////////////////////////////////////////////////////
 TRACEPOINT_PROBE(tcp, tcp_retransmit_skb) {
     struct connection_key key = {};
     key.saddr = args->saddr;
@@ -296,10 +287,7 @@ TRACEPOINT_PROBE(tcp, tcp_retransmit_skb) {
     return 0;
 }
 
-////////////////////////////////////////////////////////////////////////
-// Tracepoint: tcp_drop
 // Track packet loss events.
-////////////////////////////////////////////////////////////////////////
 TRACEPOINT_PROBE(tcp, tcp_drop) {
     struct connection_key key = {};
     key.saddr = args->saddr;
@@ -314,11 +302,10 @@ TRACEPOINT_PROBE(tcp, tcp_drop) {
 }
 
 
-////////////////////////////////////////////////////////////////////////
+
 // Flush Function: Periodically invoked via a perf event.
 // Iterates over the conn_metrics_map and submits events for connections
 // that have been open longer than LONG_CONN_THRESHOLD_NS.
-////////////////////////////////////////////////////////////////////////
 SEC("perf_event/flush")
 int flush_connections(struct bpf_perf_event_data *ctx)
 {
