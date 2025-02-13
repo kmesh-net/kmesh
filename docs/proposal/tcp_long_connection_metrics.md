@@ -75,7 +75,7 @@ What is out of scope for this KEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
-- Collection information about packet contents.
+- Collecting information about packet contents.
 
 - Controlling or modifing TCP connection
 
@@ -212,7 +212,7 @@ struct event {
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries, 1 << 24); // 16 MB ring buffer
-} events SEC(".maps");
+} tcp_long_conn_events SEC(".maps");
 
 
 SEC("tracepoint/tcp/tcp_set_state")
@@ -324,7 +324,7 @@ int flush_connections(struct bpf_perf_event_data *ctx)
 
         m = bpf_map_lookup_elem(&conn_metrics_map, &key);
         if (m && (now - m->start_ns >= LONG_CONN_THRESHOLD_NS)) {
-            struct event *e;
+            struct tcp_long_conn_events *e;
             e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
             if (e) {
                 e->key = key;
