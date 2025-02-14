@@ -22,8 +22,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
+	"utils"
 
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert"
@@ -33,6 +33,13 @@ const (
 	testLoggerName  = "default"
 	testLoggerLevel = "debug"
 )
+
+const patternLoggers = "/loggers"
+
+type LoggerInfo struct {
+	Name  string `json:"name"`
+	Level string `json:"level"`
+}
 
 func TestLoggerEndToEnd(t *testing.T) {
 	// Mock HTTP server for Kmesh daemon pod
@@ -137,4 +144,14 @@ func (m *mockPortForwarder) Close() {
 
 func (m *mockPortForwarder) Address() string {
 	return m.address
+}
+
+// NewCmd creates a new cobra command for testing purposes
+func NewCmd() *cobra.Command {
+	return &cobra.Command{
+		Use: "test",
+		Run: func(cmd *cobra.Command, args []string) {
+			// Command implementation for testing
+		},
+	}
 }
