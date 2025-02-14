@@ -56,9 +56,7 @@ know that this has succeeded?
 
 - Collect detailed traffic metrics (e.g. bytes send/recieved, round-trip time, packet loss, tcp retransmission) continously during the lifetime of long TCP connections using ebpf.
 
-- Reporting of metrics and access logs, at periodic time or based on throughput (e.g. after transfer of 1mb of data).
-
-- User can fine tune the time and throughput using yaml during kmesh deployment or can use CLI tool kmeshctl anytime.
+- Reporting of metrics and access logs, at periodic time of 5 seconds.
 
 - Generation Access logs containing information about connection continously during the lifetime of long TCP connections from the metrics data.
 
@@ -111,53 +109,6 @@ We are using tracepoint above kprobe because:
 - More stable
 - Lower overhead
 - Reliablity in production
-
-Storing the time-period or threshold value in the metricController
-
-```
-## Note: "---" means, previous code remains same
-type MetricController struct {
-  ---
-  EnableTCPLongMetric   atomic.Bool
-  Period                time.Duration
-  Threshold             float64 ## in MBs
-  IsThreshold           atomic.Bool
-  ---
-}
-```
-
-Currently i am only focusing on only one method, either giving metrincs of a long connection after every time interval or everytime after a specific threshold is reached(e.g. after 1mb of data has transferred).
-
-```
-func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool,enableTcpLongMetric bool ,period *time.Duration, threshold *float, isThreshold bool) *MetricController {
-	m := &MetricController{
-        ---
-        EnableTCPLongMetric: enableTcpLongMetric
-        Period:              5*time.Second,
-        Threshold:           float64(1),
-        IsThreshold:         isThreshold
-	}
-
-    ---
-
-    if period != nil && *period != 0*time.Second{
-      m.Period = *period
-    }
-
-    if (threshold == null && *threshold != float(0)){
-        m.Threshold == *threshold
-    }
-
-	return m
-}
-```
-
-The value of the period or the threshold is provided by the user, if not a default value of 5 seconds and 1 mb is chosen. If the threshold were set too low, the system might generate too many reports, leading to noise and increased processing overhead.
-
-
-The labels of tcp_long_connection metric will be same as the labels we currently we have for another metrics.
-
-#### ebpF code 
 
 Decelearing ebpf hash map in bpf_common.h to store information about tcp_long_connection.
 
@@ -338,6 +289,33 @@ int flush_connections(struct bpf_perf_event_data *ctx)
 }
 
 ```
+
+
+Storing the bool enableTcpLongMetric in metricController, the value of the variable is set by user, and the variable is used to decide whether TCP long connection metrics should be collected and reported.
+
+```
+## Note: "---" means, previous code remains same
+type MetricController struct {
+  ---
+  EnableTCPLongMetric   atomic.Bool
+  ---
+}
+
+func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool, enableTcpLongMetric bool) *MetricController {
+	m := &MetricController{
+        ---
+        EnableTCPLongMetric: enableTcpLongMetric
+	}
+
+    ---
+
+	return m
+}
+
+```
+
+The labels of tcp_long_connection metric will be same as the labels we currently we have for another metrics.
+
 
 #### User Stories (Optional)
 
