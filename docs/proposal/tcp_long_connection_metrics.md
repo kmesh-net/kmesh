@@ -113,12 +113,30 @@ We are using tracepoint above kprobe because:
 Decelearing ebpf hash map in bpf_common.h to store information about tcp_long_connection.
 
 ```
-struct connection_key {
-    __u32 saddr;   // Source IP address
-    __u32 daddr;   // Destination IP address
-    __u16 sport;   // Source port
-    __u16 dport;   // Destination port
+
+struct ipv4_addr {
+    __u32 addr;
 };
+
+struct ipv6_addr {
+    __u8 addr[16];
+};
+
+
+struct connection_key {
+    union {
+        struct ipv4_addr v4;
+        struct ipv6_addr v6;
+    } saddr;
+    union {
+        struct ipv4_addr v4;
+        struct ipv6_addr v6;
+    } daddr;
+    __u16 sport;
+    __u16 dport;
+    __u8 family;  // AF_INET or AF_INET6
+};
+
 
 struct long_tcp_metrics {
     __u64 start_ns;           // Timestamp when connection was established
@@ -173,8 +191,18 @@ int trace_tcp_set_state(struct trace_event_raw_tcp_set_state *ctx)
     struct connection_key key = {};
     u64 now = bpf_ktime_get_ns();
 
-    key.saddr = ctx->saddr;
-    key.daddr = ctx->daddr;
+    if (ctx->family == AF_INET) {
+        key.family = AF_INET;
+        key.saddr.v4.addr = ctx->saddr;
+        key.daddr.v4.addr = ctx->daddr;
+    } else if (ctx->family == AF_INET6) {
+        key.family = AF_INET6;
+        bpf_probe_read(&key.saddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_rcv_saddr);
+        bpf_probe_read(&key.daddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_daddr);
+    } else {
+        return 0;
+    }
+
     key.sport = ctx->sport;
     key.dport = ctx->dport;
 
@@ -195,10 +223,22 @@ int trace_tcp_sendmsg(struct trace_event_raw_tcp_sendmsg *ctx)
 {
     struct connection_key key = {};
     u64 bytes = ctx->size;
-    key.saddr = ctx->saddr;
-    key.daddr = ctx->daddr;
+    
+    if (ctx->family == AF_INET) {
+        key.family = AF_INET;
+        key.saddr.v4.addr = ctx->saddr;
+        key.daddr.v4.addr = ctx->daddr;
+    } else if (ctx->family == AF_INET6) {
+        key.family = AF_INET6;
+        bpf_probe_read(&key.saddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_rcv_saddr);
+        bpf_probe_read(&key.daddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_daddr);
+    } else {
+        return 0;
+    }
+
     key.sport = ctx->sport;
     key.dport = ctx->dport;
+
     struct long_tcp_metrics *m = bpf_map_lookup_elem(&conn_metrics_map, &key);
     if (m) {
         __sync_fetch_and_add(&m->bytes_sent, bytes);
@@ -212,8 +252,19 @@ int trace_tcp_cleanup_rbuf(struct trace_event_raw_tcp_cleanup_rbuf *ctx)
 {
     struct connection_key key = {};
     u64 bytes = ctx->copied;
-    key.saddr = ctx->saddr;
-    key.daddr = ctx->daddr;
+
+    if (ctx->family == AF_INET) {
+        key.family = AF_INET;
+        key.saddr.v4.addr = ctx->saddr;
+        key.daddr.v4.addr = ctx->daddr;
+    } else if (ctx->family == AF_INET6) {
+        key.family = AF_INET6;
+        bpf_probe_read(&key.saddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_rcv_saddr);
+        bpf_probe_read(&key.daddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_daddr);
+    } else {
+        return 0;
+    }
+
     key.sport = ctx->sport;
     key.dport = ctx->dport;
     struct long_tcp_metrics *m = bpf_map_lookup_elem(&conn_metrics_map, &key);
@@ -228,10 +279,21 @@ int trace_tcp_cleanup_rbuf(struct trace_event_raw_tcp_cleanup_rbuf *ctx)
 // (Assumes args->srtt_us provides the current smoothed RTT in microseconds)
 TRACEPOINT_PROBE(tcp, tcp_retransmit_skb) {
     struct connection_key key = {};
-    key.saddr = args->saddr;
-    key.daddr = args->daddr;
-    key.sport = args->sport;
-    key.dport = args->dport;
+    
+    if (ctx->family == AF_INET) {
+        key.family = AF_INET;
+        key.saddr.v4.addr = ctx->saddr;
+        key.daddr.v4.addr = ctx->daddr;
+    } else if (ctx->family == AF_INET6) {
+        key.family = AF_INET6;
+        bpf_probe_read(&key.saddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_rcv_saddr);
+        bpf_probe_read(&key.daddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_daddr);
+    } else {
+        return 0;
+    }
+
+    key.sport = ctx->sport;
+    key.dport = ctx->dport;
     struct long_tcp_metrics *m = conn_metrics.lookup(&key);
     if (m) {
         __sync_fetch_and_add(&m->retransmissions, 1);
@@ -243,10 +305,21 @@ TRACEPOINT_PROBE(tcp, tcp_retransmit_skb) {
 // Track packet loss events.
 TRACEPOINT_PROBE(tcp, tcp_drop) {
     struct connection_key key = {};
-    key.saddr = args->saddr;
-    key.daddr = args->daddr;
-    key.sport = args->sport;
-    key.dport = args->dport;
+ 
+    if (ctx->family == AF_INET) {
+        key.family = AF_INET;
+        key.saddr.v4.addr = ctx->saddr;
+        key.daddr.v4.addr = ctx->daddr;
+    } else if (ctx->family == AF_INET6) {
+        key.family = AF_INET6;
+        bpf_probe_read(&key.saddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_rcv_saddr);
+        bpf_probe_read(&key.daddr.v6.addr, sizeof(struct ipv6_addr), &ctx->skc_v6_daddr);
+    } else {
+        return 0;
+    }
+
+    key.sport = ctx->sport;
+    key.dport = ctx->dport;
     struct long_tcp_metrics *m = conn_metrics.lookup(&key);
     if (m) {
         __sync_fetch_and_add(&m->packet_loss, 1);
