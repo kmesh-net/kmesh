@@ -211,7 +211,7 @@ e2e-ipv6:
 format:
 	./hack/format.sh
 
-# New variables for test filtering
+# Variables for test filtering
 RUN_IN_CONTAINER ?= 0
 UNIT_TEST_PATTERN ?= .
 E2E_TEST_PATTERN ?= .
@@ -221,38 +221,21 @@ E2E_TEST_PATTERN ?= .
 test-unit:
 ifeq ($(RUN_IN_CONTAINER), 1)
 	@echo "Running unit tests in Docker..."
-	./hack/run-ut.sh --docker -run $(UNIT_TEST_PATTERN)
+	./hack/run-ut.sh --docker
 else
 	@echo "Running unit tests locally..."
-	./hack/run-ut.sh --local -run $(UNIT_TEST_PATTERN)
+	./hack/run-ut.sh --local
 endif
 
 # Run E2E tests
 .PHONY: test-e2e
 test-e2e:
 	@echo "Running E2E tests..."
-	./test/e2e/run_test.sh --only-run-tests -run $(E2E_TEST_PATTERN)
+	./test/e2e/run_test.sh --only-run-tests
 
 # Run all tests (unit + E2E)
 .PHONY: test
 test: test-unit test-e2e
-
-# Run specific unit tests
-.PHONY: test-unit-specific
-test-unit-specific:
-ifeq ($(RUN_IN_CONTAINER), 1)
-	@echo "Running specific unit tests in Docker..."
-	./hack/run-ut.sh --docker -run $(UNIT_TEST_PATTERN)
-else
-	@echo "Running specific unit tests locally..."
-	./hack/run-ut.sh --local -run $(UNIT_TEST_PATTERN)
-endif
-
-# Run specific E2E tests
-.PHONY: test-e2e-specific
-test-e2e-specific:
-	@echo "Running specific E2E tests..."
-	./test/e2e/run_test.sh --only-run-tests -run $(E2E_TEST_PATTERN)
 
 UPDATE_VERSION ?= ${VERSION}
 .PHONY: update-version
