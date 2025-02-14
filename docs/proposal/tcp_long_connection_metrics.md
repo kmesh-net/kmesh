@@ -392,6 +392,63 @@ func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCach
 
 The labels of tcp_long_connection metric will be same as the labels we currently we have for another metrics.
 
+Accessing ringbuffer map from the userspace, 
+```
+func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapOfLongTcpConnInfo *ebpf.Map) {
+	---
+    long_conn_reader, err := ringbuf.NewReader(mapOfTcpInfo)
+	if err != nil {
+		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
+		return
+	}
+    for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			if !m.EnableTCPLongMetric.Load() {
+				continue
+			}
+			data := requestMetric{}
+			rec := ringbuf.Record{}
+			if err := long_conn_reader.ReadInto(&rec); err != nil {
+				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
+				continue
+			}
+			if len(rec.RawSample) != int(unsafe.Sizeof(connectionDataV4{})) {
+				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(connectionDataV4{})))
+				continue
+			}
+			connectType := binary.LittleEndian.Uint32(rec.RawSample)
+			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
+			buf := bytes.NewBuffer(originInfo)
+			switch connectType {
+			case constants.MSG_TYPE_IPV4:
+				data, err = buildV4Metric(buf)
+			case constants.MSG_TYPE_IPV6:
+				data, err = buildV6Metric(buf)
+			default:
+				log.Errorf("get connection info failed: %v", err)
+				continue
+			}
+
+			workloadLabels := workloadMetricLabels{}
+			serviceLabels, accesslog := m.buildServiceMetric(&data)
+			if m.EnableWorkloadMetric.Load() {
+				workloadLabels = m.buildWorkloadMetric(&data)
+			}
+
+			m.mutex.Lock()
+			if m.EnableWorkloadMetric.Load() {
+				m.updateWorkloadMetricCache(data, workloadLabels)
+			}
+			m.updateServiceMetricCache(data, serviceLabels)
+			m.mutex.Unlock()
+		}
+	}
+}
+
+```
 
 #### User Stories (Optional)
 
