@@ -56,7 +56,7 @@ know that this has succeeded?
 
 - Collect detailed traffic metrics (e.g. bytes send/recieved, round-trip time, packet loss, tcp retransmission) continously during the lifetime of long TCP connections using ebpf.
 
-- Reporting of metrics and access logs, at periodic time of 5 seconds.
+- Reporting of metrics and access logs, at periodic time of 5 seconds. We are chosing 5 seconds as a threshold time because, it allows enough time to accumulate meaningful changes in metrics. If the reporting interval is too short, it might cause excessive overhead by processing too many updates.
 
 - Generation Access logs containing information about connection continously during the lifetime of long TCP connections from the metrics data.
 
@@ -121,19 +121,20 @@ struct connection_key {
 };
 
 struct long_tcp_metrics {
-    __u64 start_ns;      // Timestamp when connection was established
-    __u64 bytes_sent;    // Total bytes sent
-    __u64 bytes_recv;    // Total bytes received
-    __u64 retransmissions;
-    __u64 packet_loss;
-    __u64 srtt_us;       // smoothed round-trip time in microseconds
+    __u64 start_ns;           // Timestamp when connection was established
+    __u64 prev_monitor_ns;    // Timestamp when metrics was last reported to ring_buf 
+    __u64 bytes_sent;         // Total bytes sent 
+    __u64 bytes_recv;         // Total bytes received 
+    __u64 retransmissions;    // Total retransmissions 
+    __u64 packet_loss;        // Total packet-loss 
+    __u64 srtt_us;            // smoothed round-trip time in microseconds 
 };
 
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(max_entries, 10240);
     __type(key, struct connection_key);
-    __type(value, struct tcp_metrics);
+    __type(value, struct long_tcp_metrics);
 } long_conn_metrics_map SEC(".maps");
 
 ```
@@ -156,7 +157,7 @@ Code update in tracepoint.c file
 // Event structure to send metrics to user space.
 struct event {
     struct connection_key key;
-    struct tcp_metrics metrics;
+    struct long_tcp_metrics metrics;
 };
 
 // BPF ring buffer to output events to user space.
@@ -178,8 +179,9 @@ int trace_tcp_set_state(struct trace_event_raw_tcp_set_state *ctx)
     key.dport = ctx->dport;
 
     if (ctx->newstate == TCP_ESTABLISHED) {
-        struct tcp_metrics m = {};
+        struct long_tcp_metrics m = {};
         m.start_ns = now;
+        m.prev_monitor_ns=now;
         bpf_map_update_elem(&conn_metrics_map, &key, &m, BPF_ANY);
     } else if (ctx->newstate == TCP_CLOSE) {
         bpf_map_delete_elem(&conn_metrics_map, &key);
@@ -197,7 +199,7 @@ int trace_tcp_sendmsg(struct trace_event_raw_tcp_sendmsg *ctx)
     key.daddr = ctx->daddr;
     key.sport = ctx->sport;
     key.dport = ctx->dport;
-    struct tcp_metrics *m = bpf_map_lookup_elem(&conn_metrics_map, &key);
+    struct long_tcp_metrics *m = bpf_map_lookup_elem(&conn_metrics_map, &key);
     if (m) {
         __sync_fetch_and_add(&m->bytes_sent, bytes);
     }
@@ -214,7 +216,7 @@ int trace_tcp_cleanup_rbuf(struct trace_event_raw_tcp_cleanup_rbuf *ctx)
     key.daddr = ctx->daddr;
     key.sport = ctx->sport;
     key.dport = ctx->dport;
-    struct tcp_metrics *m = bpf_map_lookup_elem(&conn_metrics_map, &key);
+    struct long_tcp_metrics *m = bpf_map_lookup_elem(&conn_metrics_map, &key);
     if (m) {
         __sync_fetch_and_add(&m->bytes_recv, bytes);
     }
@@ -230,7 +232,7 @@ TRACEPOINT_PROBE(tcp, tcp_retransmit_skb) {
     key.daddr = args->daddr;
     key.sport = args->sport;
     key.dport = args->dport;
-    struct tcp_metrics *m = conn_metrics.lookup(&key);
+    struct long_tcp_metrics *m = conn_metrics.lookup(&key);
     if (m) {
         __sync_fetch_and_add(&m->retransmissions, 1);
         m->srtt_us = args->srtt_us; // update latest RTT, if available
@@ -245,7 +247,7 @@ TRACEPOINT_PROBE(tcp, tcp_drop) {
     key.daddr = args->daddr;
     key.sport = args->sport;
     key.dport = args->dport;
-    struct tcp_metrics *m = conn_metrics.lookup(&key);
+    struct long_tcp_metrics *m = conn_metrics.lookup(&key);
     if (m) {
         __sync_fetch_and_add(&m->packet_loss, 1);
     }
@@ -262,7 +264,7 @@ int flush_connections(struct bpf_perf_event_data *ctx)
 {
     struct connection_key key = {};
     struct connection_key next_key = {};
-    struct tcp_metrics *m;
+    struct long_tcp_metrics *m;
     u64 now = bpf_ktime_get_ns();
     int ret;
 
@@ -274,7 +276,7 @@ int flush_connections(struct bpf_perf_event_data *ctx)
             break;
 
         m = bpf_map_lookup_elem(&conn_metrics_map, &key);
-        if (m && (now - m->start_ns >= LONG_CONN_THRESHOLD_NS)) {
+        if (m && (now - m->prev_monitor_ns >= LONG_CONN_THRESHOLD_NS)) {
             struct tcp_long_conn_events *e;
             e = bpf_ringbuf_reserve(&events, sizeof(*e), 0);
             if (e) {
@@ -282,6 +284,7 @@ int flush_connections(struct bpf_perf_event_data *ctx)
                 e->metrics = *m;
                 bpf_ringbuf_submit(e, 0);
             }
+            m->prev_monitor_ns=now;
         }
         key = next_key;
     }
