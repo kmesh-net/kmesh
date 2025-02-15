@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/netip"
+	"os/exec"
 	"sort"
 	"strings"
 	"testing"
@@ -694,7 +695,6 @@ func TestAuthorizationL4(t *testing.T) {
 		t.NewSubTest("L4 Authorization").Run(func(t framework.TestContext) {
 			// Enable authorizaiton offload to xdp.
 
-
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
 			}
@@ -746,6 +746,35 @@ func TestAuthorizationL4(t *testing.T) {
 				}
 
 				return check.OK()
+			}
+
+			count := 0
+			workloads := dst.WorkloadsOrFail(t)
+			for _, client := range workloads {
+				if count == len(workloads) {
+					break
+				}
+				podName := client.PodName()
+				namespace := apps.Namespace.Name()
+				timeout := time.After(5 * time.Second)
+				ticker := time.NewTicker(500 * time.Millisecond)
+				defer ticker.Stop()
+			InnerLoop:
+				for {
+					select {
+					case <-timeout:
+						t.Fatalf("Timeout: XDP eBPF program not found on pod %s", podName)
+					case <-ticker.C:
+						cmd := exec.Command("kubectl", "exec", "-n", namespace, podName, "--", "sh", "-c", "ip a | grep xdp")
+						output, err := cmd.CombinedOutput()
+						if err == nil && len(output) > 0 {
+							t.Logf("XDP program is loaded on pod %s", podName)
+							count++
+							break InnerLoop
+						}
+						t.Logf("Waiting for XDP program to load on pod %s: %v", podName, err)
+					}
+				}
 			}
 
 			for _, tc := range authzCases {
