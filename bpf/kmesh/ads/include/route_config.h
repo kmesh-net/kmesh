@@ -29,15 +29,16 @@ static inline Route__RouteConfiguration *map_lookup_route_config(const char *rou
 }
 
 static inline int
-virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *host)
+virtual_host_match_check(Route__VirtualHost *virt_host, char *addr, ctx_buff_t *ctx, struct bpf_mem_ptr *host)
 {
     int i;
     void *domains = NULL;
     void *domain = NULL;
     void *ptr;
     __u32 ptr_length;
+    long target_length = bpf_strnlen(addr, BPF_DATA_MAX_LEN);
 
-    if (!host)
+    if (!host || !addr)
         return 0;
 
     ptr = _(host->ptr);
@@ -67,6 +68,10 @@ virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buf
 
         if (bpf_strnstr(ptr, domain, ptr_length) != NULL) {
             return 1;
+        } else {
+            if (bpf__strncmp(addr, target_length, domain) == 0) {
+                return 1;
+            }
         }
     }
 
@@ -91,6 +96,13 @@ virtual_host_match(Route__RouteConfiguration *route_config, address_t *addr, ctx
     Route__VirtualHost *virt_host_allow_any = NULL;
     char host_key[5] = {'H', 'o', 's', 't', '\0'};
     struct bpf_mem_ptr *host;
+    uint32_t dst_ip;
+    char *dst_ip_str;
+
+    if (!addr)
+        return 0;
+    dst_ip = addr->ipv4;
+    dst_ip_str = ip2str(&dst_ip, true);
 
     if (route_config->n_virtual_hosts <= 0 || route_config->n_virtual_hosts > KMESH_PER_VIRT_HOST_NUM) {
         BPF_LOG(WARN, ROUTER_CONFIG, "invalid virt hosts num=%d\n", route_config->n_virtual_hosts);
@@ -123,11 +135,11 @@ virtual_host_match(Route__RouteConfiguration *route_config, address_t *addr, ctx
             continue;
         }
 
-        if (virtual_host_match_check(virt_host, addr, ctx, host))
+        if (virtual_host_match_check(virt_host, dst_ip_str, ctx, host))
             return virt_host;
     }
     // allow_any as the default virt_host
-    if (virt_host_allow_any && virtual_host_match_check(virt_host_allow_any, addr, ctx, host))
+    if (virt_host_allow_any && virtual_host_match_check(virt_host_allow_any, dst_ip_str, ctx, host))
         return virt_host_allow_any;
     return NULL;
 }
