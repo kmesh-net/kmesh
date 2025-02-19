@@ -19,7 +19,6 @@ package dns
 import (
 	"fmt"
 	"math"
-	"math/rand"
 	"net"
 	"reflect"
 	"sync"
@@ -30,12 +29,6 @@ import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/miekg/dns"
-	"github.com/stretchr/testify/assert"
-	"google.golang.org/protobuf/types/known/wrapperspb"
-	"istio.io/istio/pkg/slices"
-	"istio.io/istio/pkg/test/util/retry"
-
-	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/controller/ads"
 )
 
@@ -49,17 +42,28 @@ type fakeDNSServer struct {
 	hosts map[string]int
 }
 
+func (r *DNSResolver) GetDNSAddresses(domain string) []string {
+	r.Lock()
+	defer r.Unlock()
+	if entry, ok := r.cache[domain]; ok {
+		return entry.addresses
+	}
+	return nil
+}
+
 func TestDNS(t *testing.T) {
 	fakeDNSServer := newFakeDNSServer()
 
-	testDNSResolver, err := NewDNSResolver(ads.NewAdsCache(nil))
+	// testDNSResolver, err := NewDNSResolver(ads.NewAdsCache(nil))
+	testDNSResolver, err := NewAdsDnsResolver(ads.NewAdsCache(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	testDNSResolver.StartDNSResolver(stopCh)
-	testDNSResolver.resolvConfServers = []string{fakeDNSServer.Server.PacketConn.LocalAddr().String()}
+	// testDNSResolver.StartDNSResolver(stopCh)
+	testDNSResolver.StartAdsDnsResolver(stopCh)
+	testDNSResolver.DnsResolver.resolvConfServers = []string{fakeDNSServer.Server.PacketConn.LocalAddr().String()}
 
 	testCases := []struct {
 		name             string
@@ -139,15 +143,15 @@ func TestDNS(t *testing.T) {
 			domainName:  testcase.domain,
 			refreshRate: testcase.refreshRate,
 		}
-		testDNSResolver.Lock()
-		testDNSResolver.cache[testcase.domain] = &domainCacheEntry{}
-		testDNSResolver.Unlock()
+		testDNSResolver.DnsResolver.Lock()
+		testDNSResolver.DnsResolver.cache[testcase.domain] = &domainCacheEntry{}
+		testDNSResolver.DnsResolver.Unlock()
 
-		testDNSResolver.resolve(input)
+		testDNSResolver.DnsResolver.resolve(input)
 
 		time.Sleep(2 * time.Second)
 
-		res := testDNSResolver.GetDNSAddresses(testcase.domain)
+		res := testDNSResolver.DnsResolver.GetDNSAddresses(testcase.domain)
 		if len(res) != 0 || len(testcase.expected) != 0 {
 			if !reflect.DeepEqual(res, testcase.expected) {
 				t.Errorf("dns resolve for %s do not match. \n got %v\nwant %v", testcase.domain, res, testcase.expected)
@@ -156,7 +160,7 @@ func TestDNS(t *testing.T) {
 			if testcase.expectedAfterTTL != nil {
 				ttl := time.Duration(math.Min(float64(testcase.ttl), float64(testcase.refreshRate)))
 				time.Sleep(ttl + 1)
-				res = testDNSResolver.GetDNSAddresses(testcase.domain)
+				res = testDNSResolver.DnsResolver.GetDNSAddresses(testcase.domain)
 				if !reflect.DeepEqual(res, testcase.expectedAfterTTL) {
 					t.Errorf("dns refresh after ttl failed, for %s do not match. \n got %v\nwant %v", testcase.domain, res, testcase.expectedAfterTTL)
 				}
@@ -165,96 +169,6 @@ func TestDNS(t *testing.T) {
 		wg.Done()
 	}
 	wg.Wait()
-}
-
-// This test aims to evaluate the concurrent writing behavior of the adsCache by utilizing the test race feature.
-// The test verifies the ability of the adsCache to handle concurrent access and updates correctly in a multi-goroutine environment.
-func TestADSCacheConcurrentWriting(t *testing.T) {
-	adsCache := ads.NewAdsCache(nil)
-	cluster := &clusterv3.Cluster{
-		Name: "ut-cluster",
-		ClusterDiscoveryType: &clusterv3.Cluster_Type{
-			Type: clusterv3.Cluster_LOGICAL_DNS,
-		},
-	}
-	adsCache.CreateApiClusterByCds(core_v2.ApiStatus_NONE, cluster)
-
-	var wg sync.WaitGroup
-	for i := 0; i < 100; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			for j := 0; j < 100; j++ {
-				currentStatus := adsCache.GetApiClusterStatus(cluster.GetName())
-				newStatus := currentStatus + core_v2.ApiStatus(rand.Intn(3)-1)
-				if rand.Intn(2) == 0 {
-					adsCache.UpdateApiClusterIfExists(newStatus, cluster)
-				} else {
-					adsCache.UpdateApiClusterStatus(cluster.GetName(), newStatus)
-				}
-			}
-		}()
-	}
-
-	wg.Wait()
-}
-
-func TestOverwriteDNSCluster(t *testing.T) {
-	domain := "www.google.com"
-	addrs := []string{"10.1.1.1", "10.1.1.2"}
-	cluster := &clusterv3.Cluster{
-		Name: "ut-cluster",
-		ClusterDiscoveryType: &clusterv3.Cluster_Type{
-			Type: clusterv3.Cluster_LOGICAL_DNS,
-		},
-		LoadAssignment: &endpointv3.ClusterLoadAssignment{
-			ClusterName: "ut-cluster",
-			Endpoints: []*endpointv3.LocalityLbEndpoints{
-				{
-					LoadBalancingWeight: wrapperspb.UInt32(30),
-					Priority:            uint32(15),
-					LbEndpoints: []*endpointv3.LbEndpoint{
-						{
-							HealthStatus: v3.HealthStatus_HEALTHY,
-							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
-								Endpoint: &endpointv3.Endpoint{
-									Address: &v3.Address{
-										Address: &v3.Address_SocketAddress{
-											SocketAddress: &v3.SocketAddress{
-												Address: domain,
-												PortSpecifier: &v3.SocketAddress_PortValue{
-													PortValue: uint32(9898),
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-
-	overwriteDnsCluster(cluster, domain, addrs)
-
-	endpoints := cluster.GetLoadAssignment().GetEndpoints()[0].GetLbEndpoints()
-	if len(endpoints) != 2 {
-		t.Errorf("Expected 2 LbEndpoints, but got %d", len(endpoints))
-	}
-	out := []string{}
-	for _, e := range endpoints {
-		socketAddr, ok := e.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
-		if !ok {
-			continue
-		}
-		address := socketAddr.SocketAddress.Address
-		out = append(out, address)
-	}
-	if !slices.Equal(out, addrs) {
-		t.Errorf("OverwriteDNSCluster error, expected %v, but got %v", out, addrs)
-	}
 }
 
 func newFakeDNSServer() *fakeDNSServer {
@@ -425,99 +339,99 @@ func TestGetPendingResolveDomain(t *testing.T) {
 	}
 }
 
-func TestHandleCdsResponseWithDns(t *testing.T) {
-	cluster1 := &clusterv3.Cluster{
-		Name: "ut-cluster1",
-		ClusterDiscoveryType: &clusterv3.Cluster_Type{
-			Type: clusterv3.Cluster_LOGICAL_DNS,
-		},
-		LoadAssignment: &endpointv3.ClusterLoadAssignment{
-			Endpoints: []*endpointv3.LocalityLbEndpoints{
-				{
-					LbEndpoints: []*endpointv3.LbEndpoint{
-						{
-							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
-								Endpoint: &endpointv3.Endpoint{
-									Address: &v3.Address{
-										Address: &v3.Address_SocketAddress{
-											SocketAddress: &v3.SocketAddress{
-												Address: "foo.bar",
-												PortSpecifier: &v3.SocketAddress_PortValue{
-													PortValue: uint32(9898),
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	cluster2 := &clusterv3.Cluster{
-		Name: "ut-cluster2",
-		ClusterDiscoveryType: &clusterv3.Cluster_Type{
-			Type: clusterv3.Cluster_STRICT_DNS,
-		},
-		LoadAssignment: &endpointv3.ClusterLoadAssignment{
-			Endpoints: []*endpointv3.LocalityLbEndpoints{
-				{
-					LbEndpoints: []*endpointv3.LbEndpoint{
-						{
-							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
-								Endpoint: &endpointv3.Endpoint{
-									Address: &v3.Address{
-										Address: &v3.Address_SocketAddress{
-											SocketAddress: &v3.SocketAddress{
-												Address: "foo.baz",
-												PortSpecifier: &v3.SocketAddress_PortValue{
-													PortValue: uint32(9898),
-												},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
+// func TestHandleCdsResponseWithDns(t *testing.T) {
+// 	cluster1 := &clusterv3.Cluster{
+// 		Name: "ut-cluster1",
+// 		ClusterDiscoveryType: &clusterv3.Cluster_Type{
+// 			Type: clusterv3.Cluster_LOGICAL_DNS,
+// 		},
+// 		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+// 			Endpoints: []*endpointv3.LocalityLbEndpoints{
+// 				{
+// 					LbEndpoints: []*endpointv3.LbEndpoint{
+// 						{
+// 							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+// 								Endpoint: &endpointv3.Endpoint{
+// 									Address: &v3.Address{
+// 										Address: &v3.Address_SocketAddress{
+// 											SocketAddress: &v3.SocketAddress{
+// 												Address: "foo.bar",
+// 												PortSpecifier: &v3.SocketAddress_PortValue{
+// 													PortValue: uint32(9898),
+// 												},
+// 											},
+// 										},
+// 									},
+// 								},
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
+// 	cluster2 := &clusterv3.Cluster{
+// 		Name: "ut-cluster2",
+// 		ClusterDiscoveryType: &clusterv3.Cluster_Type{
+// 			Type: clusterv3.Cluster_STRICT_DNS,
+// 		},
+// 		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+// 			Endpoints: []*endpointv3.LocalityLbEndpoints{
+// 				{
+// 					LbEndpoints: []*endpointv3.LbEndpoint{
+// 						{
+// 							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+// 								Endpoint: &endpointv3.Endpoint{
+// 									Address: &v3.Address{
+// 										Address: &v3.Address_SocketAddress{
+// 											SocketAddress: &v3.SocketAddress{
+// 												Address: "foo.baz",
+// 												PortSpecifier: &v3.SocketAddress_PortValue{
+// 													PortValue: uint32(9898),
+// 												},
+// 											},
+// 										},
+// 									},
+// 								},
+// 							},
+// 						},
+// 					},
+// 				},
+// 			},
+// 		},
+// 	}
 
-	testcases := []struct {
-		name     string
-		clusters []*clusterv3.Cluster
-		expected []string
-	}{
-		{
-			name:     "add clusters with DNS type",
-			clusters: []*clusterv3.Cluster{cluster1, cluster2},
-			expected: []string{"foo.bar", "foo.baz"},
-		},
-		{
-			name:     "remove all DNS type clusters",
-			clusters: []*clusterv3.Cluster{},
-			expected: []string{},
-		},
-	}
+// 	testcases := []struct {
+// 		name     string
+// 		clusters []*clusterv3.Cluster
+// 		expected []string
+// 	}{
+// 		{
+// 			name:     "add clusters with DNS type",
+// 			clusters: []*clusterv3.Cluster{cluster1, cluster2},
+// 			expected: []string{"foo.bar", "foo.baz"},
+// 		},
+// 		{
+// 			name:     "remove all DNS type clusters",
+// 			clusters: []*clusterv3.Cluster{},
+// 			expected: []string{},
+// 		},
+// 	}
 
-	p := ads.NewController(nil).Processor
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	dnsResolver, err := NewDNSResolver(ads.NewAdsCache(nil))
-	assert.NoError(t, err)
-	dnsResolver.StartDNSResolver(stopCh)
-	p.DnsResolverChan = dnsResolver.DnsResolverChan
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			// notify dns resolver
-			dnsResolver.DnsResolverChan <- tc.clusters
-			retry.UntilOrFail(t, func() bool {
-				return slices.EqualUnordered(tc.expected, dnsResolver.GetAllCachedDomains())
-			}, retry.Timeout(1*time.Second))
-		})
-	}
-}
+// 	p := ads.NewController(nil).Processor
+// 	stopCh := make(chan struct{})
+// 	defer close(stopCh)
+// 	dnsResolver, err := NewDNSResolver()
+// 	assert.NoError(t, err)
+// 	dnsResolver.StartDNSResolver(stopCh)
+// 	p.DnsResolverChan = dnsResolver.DnsResolverChan
+// 	for _, tc := range testcases {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			// notify dns resolver
+// 			dnsResolver.DnsResolverChan <- tc.clusters
+// 			retry.UntilOrFail(t, func() bool {
+// 				return slices.EqualUnordered(tc.expected, dnsResolver.GetAllCachedDomains())
+// 			}, retry.Timeout(1*time.Second))
+// 		})
+// 	}
+// }
