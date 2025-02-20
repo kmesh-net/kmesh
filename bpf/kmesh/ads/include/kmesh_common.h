@@ -31,11 +31,6 @@
         val;                                                                                                           \
     })
 
-struct bpf_mem_ptr {
-    void *ptr;
-    __u32 size;
-};
-
 static inline int bpf__strncmp(const char *dst, int n, const char *src)
 {
     if (dst == NULL || src == NULL)

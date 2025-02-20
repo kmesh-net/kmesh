@@ -28,13 +28,6 @@ else
 	set_config MDA_GID_UID_FILTER 0
 fi
 
-# OE_23_03
-if (uname -r | grep oe2303); then
-	set_config OE_23_03 1
-else
-	set_config OE_23_03 0
-fi
-
 # ITER_TYPE_IS_UBUF
 if [ "$VERSION" -ge 6 ]; then
 	set_config ITER_TYPE_IS_UBUF 1
@@ -60,4 +53,12 @@ if [[ "$LIBBPF_VERSION" < "0.6.0" ]]; then
 	set_config LIBBPF_HIGHER_0_6_0_VERSION 0
 else
 	set_config LIBBPF_HIGHER_0_6_0_VERSION 1
+fi
+
+# KERNEL_KFUNC
+if [ "$VERSION" -ge 6 ]; then
+	set_config ENHANCED_KERNEL 1
+	set_config KERNEL_KFUNC 1
+else
+	set_config KERNEL_KFUNC 0
 fi
