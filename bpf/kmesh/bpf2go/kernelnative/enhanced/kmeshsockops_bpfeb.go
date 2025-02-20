@@ -146,6 +146,7 @@ func (m *KmeshSockopsMaps) Close() error {
 	return _KmeshSockopsClose(
 		m.KmClusterSock,
 		m.KmClusterstats,
+		m.KmConfigmap,
 		m.KmLogEvent,
 		m.KmManage,
 		m.KmSockstorage,
