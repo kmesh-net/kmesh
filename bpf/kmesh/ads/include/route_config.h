@@ -66,11 +66,6 @@ virtual_host_match_check(Route__VirtualHost *virt_host, address_t *addr, ctx_buf
             return 1;
 
         if (bpf_strnstr(ptr, domain, ptr_length) != NULL) {
-            BPF_LOG(
-                DEBUG,
-                ROUTER_CONFIG,
-                "match virtual_host, name=\"%s\"\n",
-                (char *)KMESH_GET_PTR_VAL(virt_host->name, char *));
             return 1;
         }
     }
@@ -311,15 +306,15 @@ static inline char *select_weight_cluster(Route__RouteAction *route_act)
         select_value = select_value - (int)route_cluster_weight->weight;
         if (select_value <= 0) {
             cluster_name = KMESH_GET_PTR_VAL(route_cluster_weight->name, char *);
-            BPF_LOG(
-                DEBUG,
-                ROUTER_CONFIG,
-                "select cluster, name:weight %s:%d\n",
-                cluster_name,
-                route_cluster_weight->weight);
-            return cluster_name;
+            break;
         }
     }
+
+    if (cluster_name != NULL) {
+        BPF_LOG(DEBUG, ROUTER_CONFIG, "select cluster, name %s\n", cluster_name);
+        return cluster_name;
+    }
+
     return NULL;
 }
 
@@ -370,6 +365,9 @@ int route_config_manager(ctx_buff_t *ctx)
         BPF_LOG(ERR, ROUTER_CONFIG, "failed to match virtual host, addr=%s\n", ip2str(&addr.ipv4, 1));
         return KMESH_TAIL_CALL_RET(-1);
     }
+
+    BPF_LOG(
+        DEBUG, ROUTER_CONFIG, "match virtual_host, name=\"%s\"\n", (char *)KMESH_GET_PTR_VAL(virt_host->name, char *));
 
     route = virtual_host_route_match(virt_host, &addr, ctx, (struct bpf_mem_ptr *)ctx_val->msg);
     if (!route) {
