@@ -92,6 +92,7 @@ type KmeshTcMarkEncryptMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshTcMarkEncryptVariableSpecs struct {
+	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
 // KmeshTcMarkEncryptObjects contains all objects after they have been loaded into the kernel.
@@ -133,6 +134,7 @@ func (m *KmeshTcMarkEncryptMaps) Close() error {
 //
 // It can be passed to LoadKmeshTcMarkEncryptObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshTcMarkEncryptVariables struct {
+	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
 }
 
 // KmeshTcMarkEncryptPrograms contains all programs after they have been loaded into the kernel.
