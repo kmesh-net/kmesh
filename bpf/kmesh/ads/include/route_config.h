@@ -323,7 +323,7 @@ static inline char *select_weight_cluster(Route__RouteAction *route_act)
     }
 
     if (cluster_name != NULL) {
-        BPF_LOG(DEBUG, ROUTER_CONFIG, "select cluster, name %s\n", cluster_name);
+        BPF_LOG(DEBUG, ROUTER_CONFIG, "selected cluster: %s\n", cluster_name);
         return cluster_name;
     }
 
