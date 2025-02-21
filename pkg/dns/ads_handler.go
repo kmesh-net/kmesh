@@ -20,7 +20,6 @@ import (
 	"net"
 	"net/netip"
 	"slices"
-	"time"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -88,8 +87,12 @@ func (adsResolver *AdsDnsResolver) refreshAdsDns() bool {
 		return true
 	}
 	// adsResolver.DnsResolver.resolve(e)
-	addres, ttl := adsResolver.DnsResolver.resolve(e)
-	adsResolver.adsDnsResolve(e, addres, ttl)
+	addresses, err := adsResolver.DnsResolver.resolve(e)
+	if err != nil {
+		log.Errorf("failed to dns resolve: %v", err)
+		return false
+	}
+	adsResolver.adsDnsResolve(e, addresses)
 	adsResolver.adsCache.ClusterCache.Flush()
 	return true
 }
@@ -99,13 +102,7 @@ func (adsResolver *AdsDnsResolver) refreshAdsWorker() {
 	}
 }
 
-func (adsResolver *AdsDnsResolver) adsDnsResolve(domain *pendingResolveDomain, addrs []string, ttl time.Duration) {
-	if ttl > domain.refreshRate {
-		ttl = domain.refreshRate
-	}
-	if ttl == 0 {
-		ttl = DeRefreshInterval
-	}
+func (adsResolver *AdsDnsResolver) adsDnsResolve(domain *pendingResolveDomain, addrs []string) {
 	for _, c := range domain.clusters {
 		ready := overwriteDnsCluster(c, domain.domainName, addrs)
 		if ready {
@@ -115,7 +112,6 @@ func (adsResolver *AdsDnsResolver) adsDnsResolve(domain *pendingResolveDomain, a
 			}
 		}
 	}
-	return
 }
 
 func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []string) bool {
