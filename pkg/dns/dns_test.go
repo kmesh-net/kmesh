@@ -43,15 +43,6 @@ type fakeDNSServer struct {
 	hosts map[string]int
 }
 
-func (r *DNSResolver) GetDNSAddresses(domain string) []string {
-	r.Lock()
-	defer r.Unlock()
-	if entry, ok := r.cache[domain]; ok {
-		return entry.addresses
-	}
-	return nil
-}
-
 func TestDNS(t *testing.T) {
 	fakeDNSServer := newFakeDNSServer()
 
@@ -63,7 +54,8 @@ func TestDNS(t *testing.T) {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	testDNSResolver.StartAdsDnsResolver(stopCh)
-	testDNSResolver.DnsResolver.resolvConfServers = []string{fakeDNSServer.Server.PacketConn.LocalAddr().String()}
+	dnsServer := fakeDNSServer.Server.PacketConn.LocalAddr().String()
+	testDNSResolver.DnsResolver.resolvConfServers = []string{dnsServer}
 
 	testCases := []struct {
 		name             string
@@ -229,16 +221,6 @@ func (s *fakeDNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 }
 
-func (r *DNSResolver) GetAllCachedDomains() []string {
-	r.RLock()
-	defer r.RUnlock()
-	out := make([]string, 0, len(r.cache))
-	for domain := range r.cache {
-		out = append(out, domain)
-	}
-	return out
-}
-
 func (s *fakeDNSServer) setHosts(domain string, surfix int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -249,6 +231,25 @@ func (s *fakeDNSServer) setTTL(ttl uint32) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.ttl = ttl
+}
+
+func (r *DNSResolver) GetAllCachedDomains() []string {
+	r.RLock()
+	defer r.RUnlock()
+	out := make([]string, 0, len(r.cache))
+	for domain := range r.cache {
+		out = append(out, domain)
+	}
+	return out
+}
+
+func (r *DNSResolver) GetDNSAddresses(domain string) []string {
+	r.Lock()
+	defer r.Unlock()
+	if entry, ok := r.cache[domain]; ok {
+		return entry.addresses
+	}
+	return nil
 }
 
 func TestGetPendingResolveDomain(t *testing.T) {

@@ -100,20 +100,26 @@ func (r *DNSResolver) removeUnwatchedDomain(domains map[string]*pendingResolveDo
 }
 
 // This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
-func (r *DNSResolver) resolve(v *pendingResolveDomain) ([]string, time.Duration) {
+func (r *DNSResolver) resolve(v *pendingResolveDomain) ([]string, error) {
 	r.RLock()
 	entry := r.cache[v.domainName]
 	// This can happen when the domain is deleted before the refresher tick reaches
 	if entry == nil {
 		r.RUnlock()
-		return []string{}, time.Duration(0)
+		return []string{}, fmt.Errorf("cache entry for domain %s not found", v.domainName)
 	}
 	r.RUnlock()
 
 	addrs, ttl, err := r.doResolve(v.domainName, v.refreshRate)
 	if err != nil {
-		log.Errorf("dns resolve failed: %v", err)
-		return []string{}, time.Duration(0)
+		return []string{}, fmt.Errorf("dns resolve failed: %v", err)
+	}
+
+	if ttl > v.refreshRate {
+		ttl = v.refreshRate
+	}
+	if ttl == 0 {
+		ttl = DeRefreshInterval
 	}
 
 	r.RLock()
@@ -122,7 +128,7 @@ func (r *DNSResolver) resolve(v *pendingResolveDomain) ([]string, time.Duration)
 
 	// push to refresh queue
 	r.dnsRefreshQueue.AddAfter(v, ttl)
-	return addrs, ttl
+	return addrs, nil
 }
 
 // resolveDomains takes a slice of cluster
