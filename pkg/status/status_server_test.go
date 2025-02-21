@@ -278,17 +278,17 @@ func TestServer_configDumpWorkload(t *testing.T) {
 			},
 		}}
 	policy := &security.Authorization{
-		Name: 	"policy",
+		Name:      "policy",
 		Namespace: "ns",
-		Scope: 	security.Scope_GLOBAL,
-		Action: security.Action_ALLOW,
+		Scope:     security.Scope_GLOBAL,
+		Action:    security.Action_ALLOW,
 	}
 	fakeWorkloadCache := cache.NewWorkloadCache()
 	fakeServiceCache := cache.NewServiceCache()
 	fakeWorkloadCache.AddOrUpdateWorkload(w1)
 	fakeServiceCache.AddOrUpdateService(svc)
 	fakeAuth := auth.NewRbac(fakeWorkloadCache)
-    fakeAuth.UpdatePolicy(policy)
+	fakeAuth.UpdatePolicy(policy)
 	// Create a new instance of the Server struct
 	server := &Server{
 		xdsClient: &controller.XdsClient{

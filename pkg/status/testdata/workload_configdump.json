@@ -56,7 +56,8 @@
             "name": "policy",
             "namespace": "ns",
             "scope": "GLOBAL",
-            "action": "ALLOW"
+            "action": "ALLOW",
+            "rules": null
         }
     ]
 }
