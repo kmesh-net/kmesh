@@ -34,9 +34,6 @@ import (
 	"kmesh.net/kmesh/pkg/controller/ads"
 )
 
-type fakeAdsDnsServer struct {
-}
-
 func TestOverwriteDNSCluster(t *testing.T) {
 	domain := "www.google.com"
 	addrs := []string{"10.1.1.1", "10.1.1.2"}
