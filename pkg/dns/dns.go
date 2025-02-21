@@ -42,12 +42,9 @@ const (
 )
 
 type DNSResolver struct {
-	// DnsResolverChan   chan []*clusterv3.Cluster
 	client            *dns.Client
 	resolvConfServers []string
 	cache             map[string]*domainCacheEntry
-	// adsCache is used for update bpf map
-	// adsCache *ads.AdsCache
 	// dns refresh priority queue based on exp
 	dnsRefreshQueue workqueue.TypedDelayingInterface[any]
 	sync.RWMutex
@@ -68,9 +65,7 @@ type pendingResolveDomain struct {
 
 func NewDNSResolver() (*DNSResolver, error) {
 	r := &DNSResolver{
-		// DnsResolverChan: make(chan []*clusterv3.Cluster),
-		cache: map[string]*domainCacheEntry{},
-		// adsCache:        adsCache,
+		cache:           map[string]*domainCacheEntry{},
 		dnsRefreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "dnsRefreshQueue"}),
 		client: &dns.Client{
 			DialTimeout:  5 * time.Second,
@@ -92,28 +87,6 @@ func NewDNSResolver() (*DNSResolver, error) {
 	return r, nil
 }
 
-// func (r *DNSResolver) StartDNSResolver(stopCh <-chan struct{}) {
-// 	// go r.startResolver()
-// 	// go r.refreshWorker()
-// 	go func() {
-// 		<-stopCh
-// 		r.dnsRefreshQueue.ShutDown()
-// 		// close(r.DnsResolverChan)
-// 	}()
-// }
-
-// startResolver watches the DnsResolver Channel
-// func (r *DNSResolver) startResolver() {
-// 	rateLimiter := make(chan struct{}, MaxConcurrency)
-// 	for clusters := range r.DnsResolverChan {
-// 		rateLimiter <- struct{}{}
-// 		go func(clusters []*clusterv3.Cluster) {
-// 			defer func() { <-rateLimiter }()
-// 			r.resolveDomains(clusters)
-// 		}(clusters)
-// 	}
-// }
-
 // removeUnwatchedDomain cancels any scheduled re-resolve for names we no longer care about
 func (r *DNSResolver) removeUnwatchedDomain(domains map[string]*pendingResolveDomain) {
 	r.Lock()
@@ -127,20 +100,20 @@ func (r *DNSResolver) removeUnwatchedDomain(domains map[string]*pendingResolveDo
 }
 
 // This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
-func (r *DNSResolver) resolve(v *pendingResolveDomain) {
+func (r *DNSResolver) resolve(v *pendingResolveDomain) ([]string, time.Duration) {
 	r.RLock()
 	entry := r.cache[v.domainName]
 	// This can happen when the domain is deleted before the refresher tick reaches
 	if entry == nil {
 		r.RUnlock()
-		return
+		return []string{}, time.Duration(0)
 	}
 	r.RUnlock()
 
 	addrs, ttl, err := r.doResolve(v.domainName, v.refreshRate)
-	fmt.Printf("domainName is: %v, address is: %v\n", v.domainName, addrs)
 	if err != nil {
-		return
+		log.Errorf("dns resolve failed: %v", err)
+		return []string{}, time.Duration(0)
 	}
 
 	r.RLock()
@@ -149,71 +122,23 @@ func (r *DNSResolver) resolve(v *pendingResolveDomain) {
 
 	// push to refresh queue
 	r.dnsRefreshQueue.AddAfter(v, ttl)
-	return
-
-	// if err == nil {
-	// 	// for the newly resolved domain just push to bpf map
-	// 	log.Infof("resolve dns name: %s, addr: %v", v.domainName, addrs)
-	// 	// refresh the dns address periodically by respecting the dnsRefreshRate and ttl, which one is shorter
-	// 	if ttl > v.refreshRate {
-	// 		ttl = v.refreshRate
-	// 	}
-	// 	if ttl == 0 {
-	// 		ttl = DeRefreshInterval
-	// 	}
-	// 	if !slices.Equal(entry.addresses, addrs) {
-	// 		for _, c := range v.clusters {
-	// 			ready := overwriteDnsCluster(c, v.domainName, addrs)
-	// 			if ready {
-	// 				if !r.adsCache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, c) {
-	// 					log.Debugf("cluster: %s is deleted", c.Name)
-	// 					return
-	// 				}
-	// 			}
-	// 		}
-	// 	}
-	// 	r.Lock()
-	// 	entry.addresses = addrs
-	// 	r.Unlock()
-	// } else {
-	// 	ttl = RetryAfter
-	// 	log.Errorf("resolve domain %s failed: %v, retry after %v", v.domainName, err, ttl)
-	// }
+	return addrs, ttl
 }
 
-// func (r *DNSResolver) refreshWorker() {
-// 	for r.refreshDNS() {
-// 	}
-// }
+// resolveDomains takes a slice of cluster
+func (r *DNSResolver) resolveDomains(clusters []*clusterv3.Cluster) {
+	domains := getPendingResolveDomain(clusters)
 
-// refreshDNS use a delay working queue to handle dns refresh
-// func (r *DNSResolver) refreshDNS() bool {
-// 	element, quit := r.dnsRefreshQueue.Get()
-// 	if quit {
-// 		return false
-// 	}
-// 	defer r.dnsRefreshQueue.Done(element)
-// 	dr := element.(*pendingResolveDomain)
-// 	r.RLock()
-// 	_, exist := r.cache[dr.domainName]
-// 	r.RUnlock()
-// 	// if the domain is no longer watched, no need to refresh it
-// 	if !exist {
-// 		return true
-// 	}
-// 	r.resolve(dr)
-// 	r.adsCache.ClusterCache.Flush()
-// 	return true
-// }
-
-func (r *DNSResolver) GetAllCachedDomains() []string {
-	r.RLock()
-	defer r.RUnlock()
-	out := make([]string, 0, len(r.cache))
-	for domain := range r.cache {
-		out = append(out, domain)
+	// Stow domain updates, need to remove unwatched domains first
+	r.removeUnwatchedDomain(domains)
+	for _, v := range domains {
+		r.Lock()
+		if r.cache[v.domainName] == nil {
+			r.cache[v.domainName] = &domainCacheEntry{}
+		}
+		r.Unlock()
+		r.dnsRefreshQueue.AddAfter(v, 0)
 	}
-	return out
 }
 
 // doResolve is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.

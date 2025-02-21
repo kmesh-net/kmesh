@@ -29,6 +29,7 @@ import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/miekg/dns"
+
 	"kmesh.net/kmesh/pkg/controller/ads"
 )
 
@@ -61,7 +62,6 @@ func TestDNS(t *testing.T) {
 	}
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	// testDNSResolver.StartDNSResolver(stopCh)
 	testDNSResolver.StartAdsDnsResolver(stopCh)
 	testDNSResolver.DnsResolver.resolvConfServers = []string{fakeDNSServer.Server.PacketConn.LocalAddr().String()}
 
@@ -229,6 +229,16 @@ func (s *fakeDNSServer) ServeDNS(w dns.ResponseWriter, r *dns.Msg) {
 	}
 }
 
+func (r *DNSResolver) GetAllCachedDomains() []string {
+	r.RLock()
+	defer r.RUnlock()
+	out := make([]string, 0, len(r.cache))
+	for domain := range r.cache {
+		out = append(out, domain)
+	}
+	return out
+}
+
 func (s *fakeDNSServer) setHosts(domain string, surfix int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -338,100 +348,3 @@ func TestGetPendingResolveDomain(t *testing.T) {
 		})
 	}
 }
-
-// func TestHandleCdsResponseWithDns(t *testing.T) {
-// 	cluster1 := &clusterv3.Cluster{
-// 		Name: "ut-cluster1",
-// 		ClusterDiscoveryType: &clusterv3.Cluster_Type{
-// 			Type: clusterv3.Cluster_LOGICAL_DNS,
-// 		},
-// 		LoadAssignment: &endpointv3.ClusterLoadAssignment{
-// 			Endpoints: []*endpointv3.LocalityLbEndpoints{
-// 				{
-// 					LbEndpoints: []*endpointv3.LbEndpoint{
-// 						{
-// 							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
-// 								Endpoint: &endpointv3.Endpoint{
-// 									Address: &v3.Address{
-// 										Address: &v3.Address_SocketAddress{
-// 											SocketAddress: &v3.SocketAddress{
-// 												Address: "foo.bar",
-// 												PortSpecifier: &v3.SocketAddress_PortValue{
-// 													PortValue: uint32(9898),
-// 												},
-// 											},
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-// 	cluster2 := &clusterv3.Cluster{
-// 		Name: "ut-cluster2",
-// 		ClusterDiscoveryType: &clusterv3.Cluster_Type{
-// 			Type: clusterv3.Cluster_STRICT_DNS,
-// 		},
-// 		LoadAssignment: &endpointv3.ClusterLoadAssignment{
-// 			Endpoints: []*endpointv3.LocalityLbEndpoints{
-// 				{
-// 					LbEndpoints: []*endpointv3.LbEndpoint{
-// 						{
-// 							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
-// 								Endpoint: &endpointv3.Endpoint{
-// 									Address: &v3.Address{
-// 										Address: &v3.Address_SocketAddress{
-// 											SocketAddress: &v3.SocketAddress{
-// 												Address: "foo.baz",
-// 												PortSpecifier: &v3.SocketAddress_PortValue{
-// 													PortValue: uint32(9898),
-// 												},
-// 											},
-// 										},
-// 									},
-// 								},
-// 							},
-// 						},
-// 					},
-// 				},
-// 			},
-// 		},
-// 	}
-
-// 	testcases := []struct {
-// 		name     string
-// 		clusters []*clusterv3.Cluster
-// 		expected []string
-// 	}{
-// 		{
-// 			name:     "add clusters with DNS type",
-// 			clusters: []*clusterv3.Cluster{cluster1, cluster2},
-// 			expected: []string{"foo.bar", "foo.baz"},
-// 		},
-// 		{
-// 			name:     "remove all DNS type clusters",
-// 			clusters: []*clusterv3.Cluster{},
-// 			expected: []string{},
-// 		},
-// 	}
-
-// 	p := ads.NewController(nil).Processor
-// 	stopCh := make(chan struct{})
-// 	defer close(stopCh)
-// 	dnsResolver, err := NewDNSResolver()
-// 	assert.NoError(t, err)
-// 	dnsResolver.StartDNSResolver(stopCh)
-// 	p.DnsResolverChan = dnsResolver.DnsResolverChan
-// 	for _, tc := range testcases {
-// 		t.Run(tc.name, func(t *testing.T) {
-// 			// notify dns resolver
-// 			dnsResolver.DnsResolverChan <- tc.clusters
-// 			retry.UntilOrFail(t, func() bool {
-// 				return slices.EqualUnordered(tc.expected, dnsResolver.GetAllCachedDomains())
-// 			}, retry.Timeout(1*time.Second))
-// 		})
-// 	}
-// }

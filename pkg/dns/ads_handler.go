@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"time"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -86,12 +87,9 @@ func (adsResolver *AdsDnsResolver) refreshAdsDns() bool {
 	if !exist {
 		return true
 	}
-	// addrs, _, err := adsResolver.DnsResolver.resolve(e)
-	// if err != nil {
-	// 	log.Errorf("dns error is: %v", err)
-	// }
-	// entry.addresses = addrs
-	adsResolver.DnsResolver.resolve(e)
+	// adsResolver.DnsResolver.resolve(e)
+	addres, ttl := adsResolver.DnsResolver.resolve(e)
+	adsResolver.adsDnsResolve(e, addres, ttl)
 	adsResolver.adsCache.ClusterCache.Flush()
 	return true
 }
@@ -101,62 +99,23 @@ func (adsResolver *AdsDnsResolver) refreshAdsWorker() {
 	}
 }
 
-// resolveDomains takes a slice of cluster
-func (r *DNSResolver) resolveDomains(clusters []*clusterv3.Cluster) {
-	domains := getPendingResolveDomain(clusters)
-
-	// Stow domain updates, need to remove unwatched domains first
-	r.removeUnwatchedDomain(domains)
-	for _, v := range domains {
-		r.Lock()
-		if r.cache[v.domainName] == nil {
-			r.cache[v.domainName] = &domainCacheEntry{}
-		}
-		r.Unlock()
-		r.dnsRefreshQueue.AddAfter(v, 0)
-	}
-}
-
-func (adsResolver *AdsDnsResolver) adsDnsResolve(domain *pendingResolveDomain) {
-	adsResolver.DnsResolver.RLock()
-	entry := adsResolver.DnsResolver.cache[domain.domainName]
-	// This can happen when the domain is deleted before the refresher tick reaches
-	if entry == nil {
-		adsResolver.DnsResolver.RUnlock()
-		log.Errorf("domain is not in cache")
-		return
-	}
-
-	adsResolver.DnsResolver.RUnlock()
-
-	addrs, ttl, err := adsResolver.DnsResolver.doResolve(domain.domainName, domain.refreshRate)
-	if err != nil {
-		log.Errorf("failed to resolve: %v, err: %v", domain.domainName, err)
-	}
-
-	// for the newly resolved domain just push to bpf map
-	log.Infof("resolve dns name: %s, addr: %v", domain.domainName, addrs)
-	// refresh the dns address periodically by respecting the dnsRefreshRate and ttl, which one is shorter
+func (adsResolver *AdsDnsResolver) adsDnsResolve(domain *pendingResolveDomain, addrs []string, ttl time.Duration) {
 	if ttl > domain.refreshRate {
 		ttl = domain.refreshRate
 	}
 	if ttl == 0 {
 		ttl = DeRefreshInterval
 	}
-	if !slices.Equal(entry.addresses, addrs) {
-		for _, c := range domain.clusters {
-			ready := overwriteDnsCluster(c, domain.domainName, addrs)
-			if ready {
-				if !adsResolver.adsCache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, c) {
-					log.Debugf("cluster: %s is deleted", c.Name)
-					return
-				}
+	for _, c := range domain.clusters {
+		ready := overwriteDnsCluster(c, domain.domainName, addrs)
+		if ready {
+			if !adsResolver.adsCache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, c) {
+				log.Debugf("cluster: %s is deleted", c.Name)
+				return
 			}
 		}
 	}
-	adsResolver.DnsResolver.Lock()
-	entry.addresses = addrs
-	adsResolver.DnsResolver.Unlock()
+	return
 }
 
 func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []string) bool {
