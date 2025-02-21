@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package dns
+package ads
 
 import (
 	"net"
@@ -25,27 +25,30 @@ import (
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/client-go/util/workqueue"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
-	"kmesh.net/kmesh/pkg/controller/ads"
+	"kmesh.net/kmesh/pkg/dns"
 )
 
 // adsDnsResolver is DNS resolver of Kernel Native
 type AdsDnsResolver struct {
-	Clusters    chan []*clusterv3.Cluster
-	adsCache    *ads.AdsCache
-	DnsResolver *DNSResolver
+	Clusters        chan []*clusterv3.Cluster
+	adsCache        *AdsCache
+	dnsResolver     *dns.DNSResolver
+	dnsRefreshQueue workqueue.TypedDelayingInterface[any]
 }
 
-func NewAdsDnsResolver(adsCache *ads.AdsCache) (*AdsDnsResolver, error) {
-	resolver, err := NewDNSResolver()
+func NewAdsDnsResolver(adsCache *AdsCache) (*AdsDnsResolver, error) {
+	resolver, err := dns.NewDNSResolver()
 	if err != nil {
 		return nil, err
 	}
 	return &AdsDnsResolver{
-		Clusters:    make(chan []*clusterv3.Cluster),
-		adsCache:    adsCache,
-		DnsResolver: resolver,
+		Clusters:        make(chan []*clusterv3.Cluster),
+		dnsRefreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "dnsRefreshQueue"}),
+		adsCache:        adsCache,
+		dnsResolver:     resolver,
 	}, nil
 }
 
@@ -54,47 +57,66 @@ func (adsResolver *AdsDnsResolver) StartAdsDnsResolver(stopCh <-chan struct{}) {
 	go adsResolver.refreshAdsWorker()
 	go func() {
 		<-stopCh
-		adsResolver.DnsResolver.dnsRefreshQueue.ShutDown()
+		adsResolver.dnsRefreshQueue.ShutDown()
 		close(adsResolver.Clusters)
 	}()
 }
 
 func (adsResolver *AdsDnsResolver) startAdsResolver() {
-	rateLimiter := make(chan struct{}, MaxConcurrency)
+	rateLimiter := make(chan struct{}, dns.MaxConcurrency)
 	for clusters := range adsResolver.Clusters {
 		rateLimiter <- struct{}{}
 		go func(clusters []*clusterv3.Cluster) {
 			defer func() {
 				<-rateLimiter
 			}()
-			adsResolver.DnsResolver.resolveDomains(clusters)
+			adsResolver.resolveDomains(clusters)
 		}(clusters)
 	}
 }
 
 func (adsResolver *AdsDnsResolver) refreshAdsDns() bool {
-	element, quit := adsResolver.DnsResolver.dnsRefreshQueue.Get()
+	element, quit := adsResolver.dnsRefreshQueue.Get()
 	if quit {
 		return false
 	}
-	defer adsResolver.DnsResolver.dnsRefreshQueue.Done(element)
-	e := element.(*pendingResolveDomain)
-	adsResolver.DnsResolver.RLock()
-	_, exist := adsResolver.DnsResolver.cache[e.domainName]
-	adsResolver.DnsResolver.RUnlock()
+	defer adsResolver.dnsRefreshQueue.Done(element)
+	e := element.(*dns.PendingResolveDomain)
+
+	adsResolver.dnsResolver.RLock()
+	_, exist := adsResolver.dnsResolver.Cache[e.DomainName]
+	adsResolver.dnsResolver.RUnlock()
 	// if the domain is no longer watched, no need to refresh it
 	if !exist {
 		return true
 	}
-	// adsResolver.DnsResolver.resolve(e)
-	addresses, err := adsResolver.DnsResolver.resolve(e)
+	addresses, ttl, err := adsResolver.dnsResolver.Resolve(e.DomainName)
 	if err != nil {
 		log.Errorf("failed to dns resolve: %v", err)
 		return false
 	}
+	if ttl > e.RefreshRate {
+		ttl = e.RefreshRate
+	}
+	if ttl == 0 {
+		ttl = dns.DeRefreshInterval
+	}
+	adsResolver.dnsRefreshQueue.AddAfter(e, ttl)
+
 	adsResolver.adsDnsResolve(e, addresses)
 	adsResolver.adsCache.ClusterCache.Flush()
 	return true
+}
+
+func (adsResolver *AdsDnsResolver) resolveDomains(cds []*clusterv3.Cluster) {
+	domains := getPendingResolveDomain(cds)
+
+	// Stow domain updates, need to remove unwatched domains first
+	adsResolver.dnsResolver.RemoveUnwatchedDomain(domains)
+	for k, v := range domains {
+		adsResolver.dnsResolver.ResolveDomains(k)
+		adsResolver.dnsRefreshQueue.AddAfter(v, 0)
+	}
 }
 
 func (adsResolver *AdsDnsResolver) refreshAdsWorker() {
@@ -102,12 +124,12 @@ func (adsResolver *AdsDnsResolver) refreshAdsWorker() {
 	}
 }
 
-func (adsResolver *AdsDnsResolver) adsDnsResolve(domain *pendingResolveDomain, addrs []string) {
-	for _, c := range domain.clusters {
-		ready := overwriteDnsCluster(c, domain.domainName, addrs)
+func (adsResolver *AdsDnsResolver) adsDnsResolve(pendingDomain *dns.PendingResolveDomain, addrs []string) {
+	for _, cluster := range pendingDomain.Clusters {
+		ready := overwriteDnsCluster(cluster, pendingDomain.DomainName, addrs)
 		if ready {
-			if !adsResolver.adsCache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, c) {
-				log.Debugf("cluster: %s is deleted", c.Name)
+			if !adsResolver.adsCache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, cluster) {
+				log.Debugf("cluster: %s is deleted", cluster.Name)
 				return
 			}
 		}
@@ -179,11 +201,10 @@ func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []stri
 	return ready
 }
 
-// Get domain name and refreshrate from cluster, and also store cluster and port in the return addresses for later use
-func getPendingResolveDomain(clusters []*clusterv3.Cluster) map[string]*pendingResolveDomain {
-	domains := make(map[string]*pendingResolveDomain)
+func getPendingResolveDomain(cds []*clusterv3.Cluster) map[string]*dns.PendingResolveDomain {
+	domains := make(map[string]*dns.PendingResolveDomain)
 
-	for _, cluster := range clusters {
+	for _, cluster := range cds {
 		if cluster.LoadAssignment == nil {
 			continue
 		}
@@ -201,12 +222,12 @@ func getPendingResolveDomain(clusters []*clusterv3.Cluster) map[string]*pendingR
 				}
 
 				if v, ok := domains[address]; ok {
-					v.clusters = append(v.clusters, cluster)
+					v.Clusters = append(v.Clusters, cluster)
 				} else {
-					domainWithRefreshRate := &pendingResolveDomain{
-						domainName:  address,
-						clusters:    []*clusterv3.Cluster{cluster},
-						refreshRate: cluster.GetDnsRefreshRate().AsDuration(),
+					domainWithRefreshRate := &dns.PendingResolveDomain{
+						DomainName:  address,
+						Clusters:    []*clusterv3.Cluster{cluster},
+						RefreshRate: cluster.GetDnsRefreshRate().AsDuration(),
 					}
 					domains[address] = domainWithRefreshRate
 				}
