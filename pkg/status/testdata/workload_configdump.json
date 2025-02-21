@@ -51,5 +51,12 @@
             }
         }
     ],
-    "Policies": null
+    "Policies": [
+        {
+            "name": "policy",
+            "namespace": "ns",
+            "scope": "GLOBAL",
+            "action": "ALLOW"
+        }
+    ]
 }
