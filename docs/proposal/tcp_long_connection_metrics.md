@@ -114,24 +114,9 @@ Decelearing ebpf hash map in bpf_common.h to store information about tcp_long_co
 
 ```
 
-struct ipv4_addr {
-    __u32 addr;
-};
-
-struct ipv6_addr {
-    __u8 addr[16];
-};
-
-
 struct connection_key {
-    union {
-        struct ipv4_addr v4;
-        struct ipv6_addr v6;
-    } saddr;
-    union {
-        struct ipv4_addr v4;
-        struct ipv6_addr v6;
-    } daddr;
+    struct ip_addr saddr;
+    struct ip_addr daddr;
     __u16 sport;
     __u16 dport;
     __u8 family;  // AF_INET or AF_INET6
@@ -159,7 +144,7 @@ struct {
 
 Using various ebpf tracepoints hooks to collects metrics of tcp_long_collection, a ring buffer is also decleared to send data from kernel space to userspace
 
-Code update in tracepoint.c file
+Create a new C file ebpf/kemsh/workload/tracepoint.h file
 ```
 ---
 
@@ -169,8 +154,6 @@ Code update in tracepoint.c file
 #include <bpf/bpf_helpers.h>
 #include <linux/ptrace.h>
 #include <linux/tcp.h>
----
-
 
 // Event structure to send metrics to user space.
 struct event {
