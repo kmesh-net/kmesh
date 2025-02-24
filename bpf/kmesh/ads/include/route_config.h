@@ -28,8 +28,8 @@ static inline Route__RouteConfiguration *map_lookup_route_config(const char *rou
     return kmesh_map_lookup_elem(&map_of_router_config, route_name);
 }
 
-static inline int virtual_host_match_check(
-    Route__VirtualHost *virt_host, char *addr, ctx_buff_t *ctx, char *host_key, int host_key_len)
+static inline int
+virtual_host_match_check(Route__VirtualHost *virt_host, char *addr, ctx_buff_t *ctx, char *host_key, int host_key_len)
 {
     int i;
     void *domains = NULL;
@@ -56,7 +56,7 @@ static inline int virtual_host_match_check(
         if (((char *)domain)[0] == '*' && ((char *)domain)[1] == '\0')
             return 1;
 
-        if (bpf_km_header_strnstr(ctx, host_key, host_key_len, domain, BPF_DATA_MAX_LEN) != 0) {
+        if (bpf_km_header_strnstr(ctx, host_key, host_key_len, domain, BPF_DATA_MAX_LEN)) {
             return 1;
         } else {
             if (bpf__strncmp(addr, BPF_DATA_MAX_LEN, domain) == 0) {
@@ -222,7 +222,7 @@ virtual_host_route_match_check(Route__Route *route, address_t *addr, ctx_buff_t 
     if (!prefix)
         return 0;
 
-    if (bpf_km_header_strnstr(ctx, uri, uri_len, prefix, BPF_DATA_MAX_LEN) == 0) {
+    if (!bpf_km_header_strnstr(ctx, uri, uri_len, prefix, BPF_DATA_MAX_LEN)) {
         return 0;
     }
 

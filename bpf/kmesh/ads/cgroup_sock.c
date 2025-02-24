@@ -50,7 +50,7 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
         return 0;
     }
 #endif
-    ret = listener_manager(ctx, listener, ctx);
+    ret = listener_manager(ctx, listener, NULL);
     if (ret != 0) {
         BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
     }
