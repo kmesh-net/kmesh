@@ -154,12 +154,12 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	}
 
 	if c.client.AdsController != nil {
-		dnsResolver, err := dns.NewDNSResolver(c.client.AdsController.Processor.Cache)
+		dnsResolver, err := dns.NewAdsDnsResolver(c.client.AdsController.Processor.Cache)
 		if err != nil {
-			return fmt.Errorf("dns resolver create failed: %v", err)
+			return fmt.Errorf("dns resolver of Kernel-Native mode create failed: %v", err)
 		}
-		dnsResolver.StartDNSResolver(stopCh)
-		c.client.AdsController.Processor.DnsResolverChan = dnsResolver.DnsResolverChan
+		dnsResolver.StartAdsDnsResolver(stopCh)
+		c.client.AdsController.Processor.DnsResolverChan = dnsResolver.Clusters
 	}
 
 	return c.client.Run(stopCh)
