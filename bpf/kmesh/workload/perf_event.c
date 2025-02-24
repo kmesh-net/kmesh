@@ -14,17 +14,21 @@
 // Flush Function: Periodically invoked via a perf event.
 // Iterates over the map_of_long_tcp_conns and submits events for connections that have been open longer than LONG_CONN_THRESHOLD_NS.
 SEC("perf_event/flush")
-int flush_long_conns(struct bpf_perf_event_data *ctx) {
+int flush_long_conns(struct bpf_perf_event_data *ctx)
+{
     struct bpf_sock *key = NULL, *next_key = NULL;
     struct long_tcp_conns *conn;
 
     __u64 now = bpf_ktime_get_ns();
 
-    while (bpf_map_get_next_key(&map_of_long_tcp_conns, key, next_key) == 0) {
+    for(int i = 0; i < MAP_MAX_ENTRIES; i++) {
+        if(bpf_map_get_next_key(&map_of_long_tcp_conns, key, next_key) != 0) {
+           break;
+        }
         conn = bpf_map_lookup_elem(&map_of_long_tcp_conns, next_key);
         if (!conn) {
-            key = next_key;
-            continue;
+                key = next_key;
+                continue;
         }
 
         // Check if connection duration exceeds threshold
@@ -34,6 +38,7 @@ int flush_long_conns(struct bpf_perf_event_data *ctx) {
 
         key = next_key;
     }
+    
     return 0;
 }
 
