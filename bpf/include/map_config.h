@@ -11,4 +11,5 @@
 #define kmesh_config_map    km_configmap
 #define kmesh_log_events    km_log_event
 #define map_of_nodeinfo     km_nodeinfo
+
 #endif // _MAP_CONFIG_H_

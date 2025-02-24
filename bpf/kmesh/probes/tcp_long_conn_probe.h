@@ -3,6 +3,8 @@
 
 #include "bpf_common.h"
 #include "tcp_probe.h"
+#include "bpf_log.h"
+#include "config.h"
 
 #define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL) // 5s
 
