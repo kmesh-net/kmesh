@@ -8,7 +8,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 require (
 	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/ebpf v0.17.1
+	github.com/cilium/ebpf v0.17.3
 	github.com/cncf/xds/go v0.0.0-20241213214725-57cfbe6fad57
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.6.1
@@ -24,7 +24,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
 	github.com/vishvananda/netlink v1.3.0
-	golang.org/x/sys v0.29.0
+	golang.org/x/sys v0.30.0
 	google.golang.org/grpc v1.69.4
 	google.golang.org/protobuf v1.36.3
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
