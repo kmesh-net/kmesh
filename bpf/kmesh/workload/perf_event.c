@@ -29,7 +29,7 @@ int flush_long_conns(struct bpf_perf_event_data *ctx) {
 
         // Check if connection duration exceeds threshold
         if ((now - conn->start_ns) > LONG_CONN_THRESHOLD_TIME) {
-            obeserve_long_conn_tcp(conn->sk);
+            obeserve_long_conn_tcp(conn->sk, now);
         }
 
         key = next_key;
