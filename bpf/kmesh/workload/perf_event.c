@@ -20,8 +20,8 @@ int flush_long_conns(struct bpf_perf_event_data *ctx) {
 
     __u64 now = bpf_ktime_get_ns();
 
-    while (bpf_map_get_next_key(&map_of_long_tcp_conns, key, &next_key) == 0) {
-        conn = bpf_map_lookup_elem(&map_of_long_tcp_conns, &next_key);
+    while (bpf_map_get_next_key(&map_of_long_tcp_conns, key, next_key) == 0) {
+        conn = bpf_map_lookup_elem(&map_of_long_tcp_conns, next_key);
         if (!conn) {
             key = next_key;
             continue;
