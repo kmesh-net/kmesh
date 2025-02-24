@@ -56,11 +56,10 @@ static inline void remove_long_tcp_conn(struct bpf_sock *sk)
     }
 }
 
-static inline void report_tcp_conn(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state) {
+static inline void report_tcp_conn(struct bpf_sock *sk, __u64 now, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state) {
     struct tcp_probe_info *info = NULL;
     struct long_conn_tcp_event *tcp_event = NULL;
     struct long_tcp_conns *conn;
-    __u64 now = bpf_ktime_get_ns();
 
     conn = (struct long_tcp_conns *)bpf_map_lookup_elem(&map_of_long_tcp_conns, &sk);
     if (!conn) {

@@ -91,7 +91,7 @@ static inline void observe_on_close(struct bpf_sock *sk)
     remove_long_tcp_conn(sk);
 }
 
-static inline void obeserve_long_conn_tcp(struct bpf_sock *sk)
+static inline void obeserve_long_conn_tcp(struct bpf_sock *sk, __u64 now)
 {
 
     if (!is_monitoring_enable()) {
@@ -111,7 +111,7 @@ static inline void obeserve_long_conn_tcp(struct bpf_sock *sk)
         return;
     }
 
-    report_tcp_conn(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
+    report_tcp_conn(sk, now, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 
 #endif
