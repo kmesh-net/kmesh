@@ -37,7 +37,9 @@ import (
 	"kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/api/v2/listener"
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
@@ -198,10 +200,18 @@ func TestServer_configDumpWorkload(t *testing.T) {
 				},
 			},
 		}}
+	policy := &security.Authorization{
+		Name:      "policy",
+		Namespace: "ns",
+		Scope:     security.Scope_GLOBAL,
+		Action:    security.Action_ALLOW,
+	}
 	fakeWorkloadCache := cache.NewWorkloadCache()
 	fakeServiceCache := cache.NewServiceCache()
 	fakeWorkloadCache.AddOrUpdateWorkload(w1)
 	fakeServiceCache.AddOrUpdateService(svc)
+	fakeAuth := auth.NewRbac(fakeWorkloadCache)
+	fakeAuth.UpdatePolicy(policy)
 	// Create a new instance of the Server struct
 	server := &Server{
 		xdsClient: &controller.XdsClient{
@@ -210,6 +220,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 					WorkloadCache: fakeWorkloadCache,
 					ServiceCache:  fakeServiceCache,
 				},
+				Rbac: fakeAuth,
 			},
 		},
 	}

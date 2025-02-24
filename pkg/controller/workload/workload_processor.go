@@ -909,6 +909,7 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 		if err := rbac.UpdatePolicy(authPolicy); err != nil {
 			return err
 		}
+
 		policyKey := authPolicy.ResourceName()
 		if err := maps_v2.AuthorizationUpdate(p.hashName.Hash(policyKey), authPolicy); err != nil {
 			return fmt.Errorf("AuthorizationUpdate %s failed %v ", policyKey, err)
