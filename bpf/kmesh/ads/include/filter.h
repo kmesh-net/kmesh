@@ -128,10 +128,10 @@ int filter_manager(ctx_buff_t *ctx)
     kmesh_tail_delete_ctx(&ctx_key);
 
     switch (filter->config_type_case) {
-#ifndef CGROUP_SOCK_MANAGE
+#if ENHANCED_KERNEL
     case LISTENER__FILTER__CONFIG_TYPE_HTTP_CONNECTION_MANAGER:
         http_conn = KMESH_GET_PTR_VAL(filter->http_connection_manager, Filter__HttpConnectionManager);
-        ret = bpf_parse_header_msg(ctx_val->msg);
+        ret = bpf_parse_header_msg(ctx);
         if (GET_RET_PROTO_TYPE(ret) != PROTO_HTTP_1_1) {
             BPF_LOG(DEBUG, FILTER, "http filter manager,only support http1.1 this version");
             break;

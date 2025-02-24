@@ -12,10 +12,18 @@
 #include <linux/list.h>
 #include <linux/bpf.h>
 #include <linux/percpu.h>
+#include <linux/filter.h>
+
+struct bpf_mem_ptr {
+    void *ptr;
+    __u32 size;
+};
 
 enum kmesh_l7_proto_type { PROTO_UNKNOW = 0, PROTO_HTTP_1_1, PROTO_HTTP_2_0 };
 
 enum kmesh_l7_msg_type { MSG_UNKNOW = 0, MSG_REQUEST, MSG_MID_REPONSE, MSG_FINAL_RESPONSE };
+
+enum kmesh_strncmp_type { STRNCMP_FAILED = 0, STRNCMP_PREFIX, STRNCMP_EXACT };
 
 #define KMESH_PROTO_TYPE_WIDTH (8)
 
@@ -25,6 +33,8 @@ enum kmesh_l7_msg_type { MSG_UNKNOW = 0, MSG_REQUEST, MSG_MID_REPONSE, MSG_FINAL
 #define SET_RET_MSG_TYPE(n, type) (n) = (((n)&0xff) | (((u32)(type)&0xff) << KMESH_PROTO_TYPE_WIDTH))
 #define GET_RET_MSG_TYPE(n)       (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
 
+#define LOG(level, fmt, ...) printk(level "Kmesh_module: " fmt, ##__VA_ARGS__)
+
 struct kmesh_data_node {
     struct rb_node node;
     char *keystring;
@@ -33,7 +43,7 @@ struct kmesh_data_node {
 
 struct msg_protocol {
     struct list_head list;
-    u32 (*parse_protocol_msg)(const struct bpf_mem_ptr *msg);
+    int (*parse_protocol_msg)(const struct bpf_mem_ptr *msg);
 };
 
 extern struct rb_root *g_kmesh_data_root;

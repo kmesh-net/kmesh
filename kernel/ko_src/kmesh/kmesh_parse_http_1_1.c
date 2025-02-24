@@ -36,9 +36,9 @@ enum state {
     ST_HEAD_END
 };
 
-u32 parse_http_1_1_request(const struct bpf_mem_ptr *msg);
+int parse_http_1_1_request(const struct bpf_mem_ptr *msg);
 
-u32 parse_http_1_1_respond(const struct bpf_mem_ptr *msg);
+int parse_http_1_1_respond(const struct bpf_mem_ptr *msg);
 
 static enum state __parse_request_startline(
     const struct bpf_mem_ptr *msg,
@@ -121,6 +121,8 @@ static enum state __parse_request_startline(
     }
 
 failed:
+    if (current_state != ST_FIELD_NAME_START)
+        LOG(KERN_ERR, "__parse_request_startline failed, current_state:%d, char: %c\n", current_state, ch);
     return current_state;
 }
 
@@ -131,8 +133,10 @@ static bool parse_request_startline(const struct bpf_mem_ptr *msg, struct bpf_me
     struct kmesh_data_node *URI = new_kmesh_data_node(URI_STRING_LENGTH);
     struct kmesh_data_node *http_version = new_kmesh_data_node(VERSION_STRING_LENGTH);
 
-    if (IS_ERR(method) || IS_ERR(URI) || IS_ERR(http_version))
+    if (IS_ERR(method) || IS_ERR(URI) || IS_ERR(http_version)) {
+        LOG(KERN_ERR, "parse_request new kmesh_data_node failed\n");
         goto failed;
+    }
 
     current_state = __parse_request_startline(msg, context, method, URI, http_version);
     if (current_state != ST_FIELD_NAME_START)
@@ -232,6 +236,8 @@ static enum state __parse_respose_startline(
         }
     }
 failed:
+    if (current_state != ST_FIELD_NAME_START)
+        LOG(KERN_ERR, "__parse_respose_startline failed, current_state:%d, char: %c\n", current_state, ch);
     return current_state;
 }
 
@@ -242,8 +248,10 @@ static bool parse_respose_startline(const struct bpf_mem_ptr *msg, struct bpf_me
     struct kmesh_data_node *status_code = new_kmesh_data_node(STATUS_STRING_LENGTH);
     struct kmesh_data_node *reason = new_kmesh_data_node(REASON_STRING_LENGTH);
 
-    if (IS_ERR(http_version) || IS_ERR(status_code) || IS_ERR(reason))
+    if (IS_ERR(http_version) || IS_ERR(status_code) || IS_ERR(reason)) {
+        LOG(KERN_ERR, "parse_respose new kmesh_data_node failed\n");
         goto failed;
+    }
 
     current_state = __parse_respose_startline(msg, context, http_version, status_code, reason);
     if (current_state != ST_FIELD_NAME_START)
@@ -279,8 +287,10 @@ static bool parse_header(struct bpf_mem_ptr *context)
         ch = ((char *)context->ptr)[i];
         switch (current_state) {
         case ST_FIELD_NAME_START:
-            if (ch == FIELD_SPLIT)
+            if (ch == FIELD_SPLIT) {
+                LOG(KERN_ERR, "Invalid field split detected, char：%c, current_state:%d\n", ch, current_state);
                 return false;
+            }
             if (ch == CR) {
                 current_state = ST_HEAD_END;
                 break;
@@ -315,15 +325,20 @@ static bool parse_header(struct bpf_mem_ptr *context)
                 current_state = ST_NEW_LINE;
             break;
         case ST_NEW_LINE:
-            if (unlikely(ch != LF))
+            if (unlikely(ch != LF)) {
+                LOG(KERN_ERR, "Expected LF but got another character:%c, current_state:%d\n", ch, current_state);
                 return false;
-            if (field_name_end_position < field_name_begin_position)
+            }
+            if (field_name_end_position < field_name_begin_position
+                || field_value_end_position < field_value_begin_position) {
+                LOG(KERN_ERR, "Invalid field name or value positions, char:%c, current_state:%d\n", ch, current_state);
                 return false;
-            if (field_value_end_position < field_value_begin_position)
-                return false;
+            }
             new_field = new_kmesh_data_node(field_name_end_position - field_name_begin_position + 2);
-            if (IS_ERR(new_field))
+            if (IS_ERR(new_field)) {
+                LOG(KERN_ERR, "Failed to create new field node, char:%c, current_state:%d\n", ch, current_state);
                 return false;
+            }
             (void)strncpy(
                 new_field->keystring,
                 ((char *)context->ptr) + field_name_begin_position,
@@ -347,8 +362,10 @@ static bool parse_header(struct bpf_mem_ptr *context)
             current_state = ST_FIELD_NAME_START;
             break;
         case ST_HEAD_END:
-            if (ch != LF)
+            if (ch != LF) {
+                LOG(KERN_ERR, "Expected LF but got another character:%c, current_state:%d\n", ch, current_state);
                 return false;
+            }
             head_end = true;
             break;
         default:
@@ -356,16 +373,17 @@ static bool parse_header(struct bpf_mem_ptr *context)
             break;
         }
     }
-    if (current_state != ST_HEAD_END)
+    if (current_state != ST_HEAD_END) {
+        LOG(KERN_ERR, "parse_header failed, current_state:%d\n", current_state);
         return false;
-
+    }
     return true;
 }
 
-u32 parse_http_1_1_request(const struct bpf_mem_ptr *msg)
+int parse_http_1_1_request(const struct bpf_mem_ptr *msg)
 {
     struct bpf_mem_ptr context = {0};
-    u32 ret = 0;
+    int ret = 0;
     if (parse_request_startline(msg, &context) == false) {
         kmesh_protocol_data_clean_all();
         return PROTO_UNKNOW;
@@ -383,10 +401,10 @@ u32 parse_http_1_1_request(const struct bpf_mem_ptr *msg)
     return ret;
 }
 
-u32 parse_http_1_1_respond(const struct bpf_mem_ptr *msg)
+int parse_http_1_1_respond(const struct bpf_mem_ptr *msg)
 {
     struct bpf_mem_ptr context = {0};
-    u32 ret = 0;
+    int ret = 0;
     if (parse_respose_startline(msg, &context) == false) {
         kmesh_protocol_data_clean_all();
         return PROTO_UNKNOW;

@@ -4,6 +4,7 @@
 #include "bpf_log.h"
 #include "kmesh_common.h"
 #include "bpf_common.h"
+#include "cluster/cluster.pb-c.h"
 
 #ifndef __KMESH_CIRCUIT_BREAKER_H__
 #define __KMESH_CIRCUIT_BREAKER_H__

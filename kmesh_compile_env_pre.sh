@@ -112,10 +112,8 @@ function kmesh_set_env(){
 # adjust the range of BPF code compilation based on the kernel is enhanced
 function bpf_compile_range_adjust() {
     if [ "$ENHANCED_KERNEL" == "enhanced" ]; then
-            sed -i '/ads\/tracepoint\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
             sed -i '/ads\/sockops\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
     else
-            sed -i '/ads\/tracepoint\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
             sed -i '/ads\/sockops\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
     fi
 }
