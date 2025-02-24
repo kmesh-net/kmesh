@@ -25,7 +25,7 @@ struct {
 
 
 struct long_conn_tcp_event{
-    tcp_probe_info info;
+    struct tcp_probe_info info;
     __u64 last_report_ns;
 };
 
