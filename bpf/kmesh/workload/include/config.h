@@ -31,5 +31,6 @@
 #define map_of_wl_policy     km_wlpolicy
 #define kmesh_perf_map       km_perf_map
 #define kmesh_perf_info      km_perf_info
-
+#define map_of_long_tcp_conns km_longtcpconns_map
+#define long_tcp_conns_events     km_longtcpconns_events
 #endif // _CONFIG_H_
