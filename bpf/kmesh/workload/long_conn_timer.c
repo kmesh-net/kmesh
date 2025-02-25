@@ -22,7 +22,7 @@ struct {
 } long_conn_flush_timer SEC(".maps");
 
 
-static inline void flush_long_conns()
+static void flush_long_conns()
 {
     struct bpf_sock *key = NULL, *next_key = NULL;
     struct long_tcp_conns *conn;
@@ -55,7 +55,7 @@ static inline void flush_long_conns()
     }
 }
 
-static inline int timer_callback(struct bpf_timer *timer)
+static int timer_callback(struct bpf_timer *timer)
 {
     flush_long_conns();
     return 0;
