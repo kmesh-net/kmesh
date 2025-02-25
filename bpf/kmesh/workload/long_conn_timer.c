@@ -55,7 +55,6 @@ static inline void flush_long_conns()
     }
 }
 
-// Timer callback function
 static inline int timer_callback(struct bpf_timer *timer)
 {
     flush_long_conns();
