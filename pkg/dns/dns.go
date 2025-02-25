@@ -43,8 +43,6 @@ type DNSResolver struct {
 	client            *dns.Client
 	ResolvConfServers []string
 	Cache             map[string]*DomainCacheEntry
-	// dns refresh priority queue based on exp
-	// DnsRefreshQueue workqueue.TypedDelayingInterface[any]
 	sync.RWMutex
 }
 
@@ -64,7 +62,6 @@ type PendingResolveDomain struct {
 func NewDNSResolver() (*DNSResolver, error) {
 	r := &DNSResolver{
 		Cache: map[string]*DomainCacheEntry{},
-		// DnsRefreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "dnsRefreshQueue"}),
 		client: &dns.Client{
 			DialTimeout:  5 * time.Second,
 			ReadTimeout:  5 * time.Second,
@@ -109,24 +106,14 @@ func (r *DNSResolver) Resolve(domainName string) ([]string, time.Duration, error
 	r.RUnlock()
 
 	addrs, ttl, err := r.doResolve(domainName)
-	fmt.Printf("domain name is: %#v, address is: %#v, ttl is: %#v\n", domainName, addrs, ttl)
 	if err != nil {
 		return []string{}, DeRefreshInterval, fmt.Errorf("dns resolve failed: %v", err)
 	}
-
-	// if ttl > v.refreshRate {
-	// 	ttl = v.refreshRate
-	// }
-	// if ttl == 0 {
-	// 	ttl = DeRefreshInterval
-	// }
 
 	r.RLock()
 	entry.addresses = addrs
 	r.RUnlock()
 
-	// push to refresh queue
-	// r.DnsRefreshQueue.AddAfter(domainName, ttl)
 	return addrs, ttl, nil
 }
 
@@ -137,7 +124,6 @@ func (r *DNSResolver) ResolveDomains(domainName string) {
 		r.Cache[domainName] = &DomainCacheEntry{}
 	}
 	r.Unlock()
-	// r.DnsRefreshQueue.AddAfter(domainName, 0)
 }
 
 // doResolve is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
@@ -239,44 +225,6 @@ func getMinTTL(m *dns.Msg, refreshRate time.Duration) time.Duration {
 	}
 	return minTTL
 }
-
-// Get domain name and refreshrate from cluster, and also store cluster and port in the return addresses for later use
-// func getPendingResolveDomain(clusters []*clusterv3.Cluster) map[string]*pendingResolveDomain {
-// 	domains := make(map[string]*pendingResolveDomain)
-
-// 	for _, cluster := range clusters {
-// 		if cluster.LoadAssignment == nil {
-// 			continue
-// 		}
-
-// 		for _, e := range cluster.LoadAssignment.Endpoints {
-// 			for _, le := range e.LbEndpoints {
-// 				socketAddr, ok := le.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
-// 				if !ok {
-// 					continue
-// 				}
-// 				address := socketAddr.SocketAddress.Address
-// 				if _, err := netip.ParseAddr(address); err == nil {
-// 					// This is an ip address
-// 					continue
-// 				}
-
-// 				if v, ok := domains[address]; ok {
-// 					v.clusters = append(v.clusters, cluster)
-// 				} else {
-// 					domainWithRefreshRate := &pendingResolveDomain{
-// 						domainName:  address,
-// 						clusters:    []*clusterv3.Cluster{cluster},
-// 						refreshRate: cluster.GetDnsRefreshRate().AsDuration(),
-// 					}
-// 					domains[address] = domainWithRefreshRate
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	return domains
-// }
 
 func (r *DNSResolver) GetAllCachedDomains() []string {
 	r.RLock()

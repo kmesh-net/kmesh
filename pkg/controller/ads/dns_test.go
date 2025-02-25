@@ -17,7 +17,6 @@
 package ads
 
 import (
-	"fmt"
 	"math/rand"
 	"reflect"
 	"sync"
@@ -327,7 +326,6 @@ func TestDNS(t *testing.T) {
 		if ttl == 0 {
 			ttl = dns.DeRefreshInterval
 		}
-		fmt.Printf("[test]name is: %#v, changed ttl: %#v\n", input.DomainName, ttl)
 		testDNSResolver.dnsRefreshQueue.AddAfter(input, ttl)
 		time.Sleep(2 * time.Second)
 
@@ -338,7 +336,6 @@ func TestDNS(t *testing.T) {
 			}
 
 			if testcase.expectedAfterTTL != nil {
-				// ttl := time.Duration(math.Min(float64(testcase.ttl), float64(testcase.refreshRate)))
 				time.Sleep(ttl + 1)
 				res = testDNSResolver.dnsResolver.GetDNSAddresses(testcase.domain)
 				if !reflect.DeepEqual(res, testcase.expectedAfterTTL) {

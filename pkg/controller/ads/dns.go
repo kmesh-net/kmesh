@@ -17,7 +17,6 @@
 package ads
 
 import (
-	"fmt"
 	"net"
 	"net/netip"
 	"slices"
@@ -96,14 +95,12 @@ func (adsResolver *AdsDnsResolver) refreshAdsDns() bool {
 		log.Errorf("failed to dns resolve: %v", err)
 		return false
 	}
-	fmt.Printf("name is: %#v, refreshRate is: %#v, origin ttl: %#v\n", e.DomainName, e.RefreshRate, ttl)
 	if ttl > e.RefreshRate {
 		ttl = e.RefreshRate
 	}
 	if ttl == 0 {
 		ttl = dns.DeRefreshInterval
 	}
-	fmt.Printf("name is: %#v, changed ttl: %#v\n", e.DomainName, ttl)
 	adsResolver.dnsRefreshQueue.AddAfter(e, ttl)
 
 	adsResolver.adsDnsResolve(e, addresses)
@@ -137,7 +134,6 @@ func (adsResolver *AdsDnsResolver) adsDnsResolve(pendingDomain *dns.PendingResol
 			}
 		}
 	}
-
 }
 
 func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []string) bool {
