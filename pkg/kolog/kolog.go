@@ -33,12 +33,13 @@ var (
 
 // Used for timestamp conversion
 func getBootTime() (time.Time, error) {
-	data, err := os.ReadFile("/proc/stat")
+	data, err := os.Open("/proc/stat")
 	if err != nil {
 		return time.Time{}, err
 	}
-
-	for _, line := range strings.Split(string(data), "\n") {
+	scanner := bufio.NewScanner(data)
+	for scanner.Scan() {
+		line := scanner.Text()
 		if strings.HasPrefix(line, "btime ") {
 			parts := strings.Fields(line)
 			if len(parts) < 2 {
@@ -84,7 +85,7 @@ func parseKmsgLine(line string, bootTime time.Time, appStartTimestamp uint64) {
 		// The log print will add a '\n' at the end again,
 		// so the original string's '\n' needs to be removed.
 		line = strings.TrimSuffix(line, "\n")
-		log.Printf("[%s] %s\n", eventTime.Format(time.DateTime), line)
+		log.Printf("[%s] %s", eventTime.Format(time.DateTime), line)
 	}
 }
 
@@ -92,31 +93,27 @@ func KmeshModuleLog(stopCh <-chan struct{}) {
 	go func() {
 		bootTime, err := getBootTime()
 		if err != nil {
-			log.Fatalf("getBootTime: %v", err)
+			log.Errorf("getBootTime: %v, ko log time is inaccurate", err)
 		}
 		startTimestamp := uint64(time.Now().UnixMicro() - bootTime.UnixMicro())
 
 		file, err := os.Open("/dev/kmsg")
 		if err != nil {
-			log.Fatalf("open /dev/kmsg failed: %v", err)
+			log.Errorf("open /dev/kmsg failed: %v, Failed to read ko log", err)
+			return
 		}
 		defer file.Close()
 
-		reader := bufio.NewReader(file)
+		scanner := bufio.NewScanner(file)
 		for {
 			select {
 			case <-stopCh:
 				return
 			default:
-				line, err := reader.ReadString('\n')
-				if err != nil {
-					if err.Error() == "EOF" {
-						time.Sleep(100 * time.Millisecond)
-						continue
-					}
-					log.Fatalf("ReadString err: %v", err)
+				if scanner.Scan() {
+					line := scanner.Text()
+					parseKmsgLine(line, bootTime, startTimestamp)
 				}
-				parseKmsgLine(line, bootTime, startTimestamp)
 			}
 		}
 	}()
