@@ -20,7 +20,9 @@
 #define BPF_LOGTYPE_COMMON          BPF_DEBUG_ON
 #define BPF_LOGTYPE_CIRCUIT_BREAKER BPF_DEBUG_ON
 
-#define BPF_OK 1
+#define BPF_OK                   1
+#define BPF_STRNCMP_DATA_MAX_LEN 16
+#define KMESH_MODULE_NAME_LEN    16
 
 #define _(P)                                                                                                           \
     ({                                                                                                                 \
@@ -34,14 +36,13 @@ struct bpf_mem_ptr {
     __u32 size;
 };
 
-#if !ENHANCED_KERNEL
 static inline int bpf__strncmp(const char *dst, int n, const char *src)
 {
     if (dst == NULL || src == NULL)
         return -1;
 
 #pragma unroll
-    for (int i = 0; i < BPF_DATA_MAX_LEN; i++) {
+    for (int i = 0; i < BPF_STRNCMP_DATA_MAX_LEN; i++) {
         if (dst[i] != src[i])
             return dst[i] - src[i];
         else if (dst[i] == '\0' || i == n - 1)
@@ -69,7 +70,6 @@ static inline char *bpf_strncpy(char *dst, int n, const char *src)
     }
     return dst;
 }
-#endif
 
 typedef Core__SocketAddress address_t;
 
@@ -81,8 +81,12 @@ enum kmesh_l7_proto_type { PROTO_UNKNOW = 0, PROTO_HTTP_1_1, PROTO_HTTP_2_0 };
 
 enum kmesh_l7_msg_type { MSG_UNKNOW = 0, MSG_REQUEST, MSG_MID_REPONSE, MSG_FINAL_RESPONSE };
 
+enum kmesh_strncmp_type { STRNCMP_FAILED = 0, STRNCMP_PREFIX, STRNCMP_EXACT };
+
 #define KMESH_PROTO_TYPE_WIDTH (8)
 #define GET_RET_PROTO_TYPE(n)  ((n)&0xff)
 #define GET_RET_MSG_TYPE(n)    (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
+
+#define CHECK_MODULE_NAME_NULL(ret) ((ret) == -EINVAL)
 
 #endif // _KMESH_COMMON_H_

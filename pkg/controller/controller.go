@@ -32,6 +32,7 @@ import (
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/dns"
+	"kmesh.net/kmesh/pkg/kolog"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	helper "kmesh.net/kmesh/pkg/utils"
@@ -107,6 +108,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		}
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
 	} else {
+		kolog.KmeshModuleLog(stopCh)
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, tcFd, c.mode)
 	}
 	if err != nil {
