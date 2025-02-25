@@ -33,5 +33,5 @@
 #define kmesh_perf_info          km_perf_info
 #define map_of_long_tcp_conns    km_longtcpconns_map
 #define long_tcp_conns_events    km_longtcpconns_events
-
+#define long_conn_flush_timer    km_longconn_timer
 #endif // _CONFIG_H_
