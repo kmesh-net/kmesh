@@ -29,7 +29,7 @@ static void flush_long_conns()
 
     __u64 now = bpf_ktime_get_ns();
 
-    for(int i = 0; i < MAP_MAX_ENTRIES; i++) {
+    for(int i = 0; i < MAP_SIZE_OF_LONG_TCP_CONN; i++) {
         if(bpf_map_get_next_key(&map_of_long_tcp_conns, key, next_key) != 0) {
            break;
         }

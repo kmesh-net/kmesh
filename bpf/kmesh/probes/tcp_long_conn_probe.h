@@ -18,8 +18,7 @@ struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __type(key, struct bpf_sock *);
     __type(value, struct long_tcp_conns);
-    __uint(value_size, MAP_VAL_SIZE_1600);
-    __uint(max_entries, MAP_MAX_ENTRIES);
+    __uint(max_entries, MAP_SIZE_OF_LONG_TCP_CONN);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_long_tcp_conns SEC(".maps");
 
