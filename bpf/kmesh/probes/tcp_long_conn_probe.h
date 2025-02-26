@@ -25,6 +25,7 @@ struct {
 
 struct long_conn_tcp_event{
     struct tcp_probe_info info;
+    __u64  start_ns;
     __u64 last_report_ns;
 };
 
@@ -77,7 +78,7 @@ static inline void report_tcp_conn(struct bpf_sock *sk, __u64 now, struct bpf_tc
     
     conn->last_report_ns = now;
     tcp_event->last_report_ns = now;
-    
+    tcp_event->start_ns = conn->start_ns;
     constuct_tuple(sk, &info->tuple, storage->direction);
     info->state = state;
     info->direction = storage->direction;
