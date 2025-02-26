@@ -48,7 +48,7 @@ static inline void remove_long_tcp_conn(struct bpf_sock *sk)
     }
 }
 
-static inline void report_tcp_conn(struct bpf_sock *sk, __u64 now, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state) {
+static inline void report_tcp_conn(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state) {
     struct tcp_probe_info *info = NULL;
     struct long_tcp_conns *conn;
 
@@ -66,7 +66,8 @@ static inline void report_tcp_conn(struct bpf_sock *sk, __u64 now, struct bpf_tc
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve long_tcp_conns_events failed\n");
         return;
     }
-    
+
+    __u64 now = bpf_ktime_get_ns();
     conn->last_report_ns = now;
     info->start_ns = conn->start_ns;
     info->last_report_ns = conn->last_report_ns;

@@ -124,20 +124,6 @@ type connectionDataV6 struct {
 	statistics
 }
 
-// longConnectionDataV4 read from ebpf km_longconn_ev ringbuf and padding with `_`
-type longConnectionDataV4 struct {
-	StartTime      uint64
-	LastReportTime uint64
-	ConnInfo       connectionDataV4
-}
-
-// longConnectionDataV6 read from ebpf km_longconn_ev ringbuf and padding with `_`
-type longConnectionDataV6 struct {
-	StartTime      uint64
-	LastReportTime uint64
-	ConnInfo       connectionDataV6
-}
-
 type requestMetric struct {
 	src           [4]uint32
 	dst           [4]uint32
@@ -151,6 +137,8 @@ type requestMetric struct {
 	state         uint32
 	success       uint32
 	duration      uint64
+	startTime      uint64 
+    lastReportTime uint64 
 	closeTime     uint64
 	srtt          uint32
 	minRtt        uint32
@@ -374,8 +362,8 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 					log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 					continue
 				}
-				if len(rec.RawSample) != int(unsafe.Sizeof(longConnectionDataV4{})) {
-					log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(longConnectionDataV4{})))
+				if len(rec.RawSample) != int(unsafe.Sizeof(connectionDataV4{})) {
+					log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(connectionDataV4{})))
 					continue
 				}
 				connectType := binary.LittleEndian.Uint32(rec.RawSample)
@@ -486,6 +474,8 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
+	data.startTime = connectData.StartTime
+	data.lastReportTime = connectData.LastReportTime
 	data.closeTime = connectData.CloseTime
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
@@ -524,6 +514,8 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
 	data.closeTime = connectData.CloseTime
+	data.startTime = connectData.StartTime
+	data.lastReportTime = connectData.LastReportTime
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits

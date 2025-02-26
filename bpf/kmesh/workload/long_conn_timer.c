@@ -27,8 +27,6 @@ static void flush_long_conns()
     struct bpf_sock *key = NULL, *next_key = NULL;
     struct long_tcp_conns *conn;
 
-    __u64 now = bpf_ktime_get_ns();
-
     for(int i = 0; i < MAP_SIZE_OF_LONG_TCP_CONN; i++) {
         if(bpf_map_get_next_key(&map_of_long_tcp_conns, key, next_key) != 0) {
            break;
@@ -38,10 +36,11 @@ static void flush_long_conns()
                 key = next_key;
                 continue;
         }
-
+        
+        __u64 now = bpf_ktime_get_ns();
         // Check if connection duration exceeds threshold
         if ((now - conn->start_ns) > LONG_CONN_THRESHOLD_TIME) {
-            obeserve_long_conn_tcp(conn->sk, now);
+            obeserve_long_conn_tcp(conn->sk);
         }
 
         key = next_key;
