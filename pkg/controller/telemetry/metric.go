@@ -87,6 +87,8 @@ type statistics struct {
 	Direction      uint32
 	State          uint32
 	Duration       uint64
+	StartTime      uint64 
+    LastReportTime uint64 
 	CloseTime      uint64
 	// TODO: statistics below are not used for now
 	Protocol    uint32

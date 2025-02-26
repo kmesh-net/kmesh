@@ -41,6 +41,8 @@ struct tcp_probe_info {
     __u32 direction;
     __u32 state;    /* tcp state */
     __u64 duration; // ns
+    __u64 start_ns; 
+    __u64 last_report_ns; 
     __u64 close_ns;
     __u32 protocol;
     __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
@@ -149,9 +151,12 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
     constuct_tuple(sk, &info->tuple, storage->direction);
     info->state = state;
     info->direction = storage->direction;
+    info->start_ns = storage->connect_ns;
+    info->last_report_ns = storage->connect_ns;
     if (state == BPF_TCP_CLOSE) {
         info->close_ns = bpf_ktime_get_ns();
         info->duration = info->close_ns - storage->connect_ns;
+        info->last_report_ns = info->close_ns;
     }
     info->conn_success = storage->connect_success;
     get_tcp_probe_info(tcp_sock, info);

@@ -22,14 +22,6 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_long_tcp_conns SEC(".maps");
 
-
-struct long_conn_tcp_event{
-    struct tcp_probe_info info;
-    __u64  start_ns;
-    __u64 last_report_ns;
-};
-
-
 // BPF ring buffer to output events to user space.
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
@@ -58,7 +50,6 @@ static inline void remove_long_tcp_conn(struct bpf_sock *sk)
 
 static inline void report_tcp_conn(struct bpf_sock *sk, __u64 now, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state) {
     struct tcp_probe_info *info = NULL;
-    struct long_conn_tcp_event *tcp_event = NULL;
     struct long_tcp_conns *conn;
 
     conn = (struct long_tcp_conns *)bpf_map_lookup_elem(&map_of_long_tcp_conns, &sk);
@@ -70,22 +61,19 @@ static inline void report_tcp_conn(struct bpf_sock *sk, __u64 now, struct bpf_tc
         return;
     }
 
-    tcp_event =  (struct long_conn_tcp_event *)bpf_ringbuf_reserve(&long_tcp_conns_events, sizeof(struct long_conn_tcp_event), 0);
-    if (!tcp_event) {
+    info = bpf_ringbuf_reserve(&long_tcp_conns_events, sizeof(struct tcp_probe_info), 0);
+    if (!info) {
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve long_tcp_conns_events failed\n");
         return;
     }
     
     conn->last_report_ns = now;
-    tcp_event->last_report_ns = now;
-    tcp_event->start_ns = conn->start_ns;
+    info->start_ns = conn->start_ns;
+    info->last_report_ns = conn->last_report_ns;
     constuct_tuple(sk, &info->tuple, storage->direction);
     info->state = state;
     info->direction = storage->direction;
-    if (state == BPF_TCP_CLOSE) {
-        info->close_ns = bpf_ktime_get_ns();
-        info->duration = info->close_ns - storage->connect_ns;
-    }
+    info->duration = now - conn->start_ns;
     info->conn_success = storage->connect_success;
     get_tcp_probe_info(tcp_sock, info);
     (*info).type = (sk->family == AF_INET) ? IPV4 : IPV6;
@@ -94,6 +82,5 @@ static inline void report_tcp_conn(struct bpf_sock *sk, __u64 now, struct bpf_tc
     }
 
     construct_orig_dst_info(sk, info);
-    tcp_event->info=*info;
-    bpf_ringbuf_submit(tcp_event, 0);
+    bpf_ringbuf_submit(info, 0);
 }
