@@ -96,7 +96,7 @@ type statistics struct {
 	LostPackets uint32
 }
 
-// connectionDataV4 read from ebpf ringbuf and padding with `_`
+// connectionDataV4 read from ebpf km_tcp_probe ringbuf and padding with `_`
 type connectionDataV4 struct {
 	SrcAddr      uint32
 	DstAddr      uint32
@@ -110,7 +110,7 @@ type connectionDataV4 struct {
 	statistics
 }
 
-// connectionDataV6 read from ebpf ringbuf and padding with `_`
+// connectionDataV6 read from ebpf km_tcp_probe ringbuf and padding with `_`
 type connectionDataV6 struct {
 	SrcAddr      [4]uint32
 	DstAddr      [4]uint32
@@ -120,6 +120,20 @@ type connectionDataV6 struct {
 	OriginalPort uint16
 	_            uint16
 	statistics
+}
+
+// longConnectionDataV4 read from ebpf km_longconn_ev ringbuf and padding with `_`
+type longConnectionDataV4 struct {
+	StartTime      uint64
+	LastReportTime uint64
+	ConnInfo       connectionDataV4
+}
+
+// longConnectionDataV6 read from ebpf km_longconn_ev ringbuf and padding with `_`
+type longConnectionDataV6 struct {
+	StartTime      uint64
+	LastReportTime uint64
+	ConnInfo       connectionDataV6
 }
 
 type requestMetric struct {
@@ -308,13 +322,13 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 
 	conn_metric_reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
-		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
+		log.Errorf("open km_tcp_probe ringbuf map FAILED, err: %v", err)
 		return
 	}
 
 	long_conn_metric_reader, err := ringbuf.NewReader(mapOfLongTcpConnInfo)
 	if err != nil {
-		log.Errorf("open long_tcp_conns_events ringbuf map FAILED, err: %v", err)
+		log.Errorf("open km_longconn_ev ringbuf map FAILED, err: %v", err)
 		return
 	}
 
@@ -358,8 +372,8 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 					log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 					continue
 				}
-				if len(rec.RawSample) != int(unsafe.Sizeof(connectionDataV4{})) {
-					log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(connectionDataV4{})))
+				if len(rec.RawSample) != int(unsafe.Sizeof(longConnectionDataV4{})) {
+					log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(longConnectionDataV4{})))
 					continue
 				}
 				connectType := binary.LittleEndian.Uint32(rec.RawSample)
