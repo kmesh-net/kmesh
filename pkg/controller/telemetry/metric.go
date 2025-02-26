@@ -55,7 +55,6 @@ type MetricController struct {
 	EnableAccesslog      atomic.Bool
 	EnableMonitoring     atomic.Bool
 	EnableWorkloadMetric atomic.Bool
-	EnableLongTCPMetric  atomic.Bool
 	workloadCache        cache.WorkloadCache
 	serviceCache         cache.ServiceCache
 	workloadMetricCache  map[workloadMetricLabels]*workloadMetricInfo
@@ -283,7 +282,7 @@ func (s *serviceMetricLabels) withDestination(workload *workloadapi.Workload) *s
 	return s
 }
 
-func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool, enablelongTCPMetric bool) *MetricController {
+func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool) *MetricController {
 	m := &MetricController{
 		workloadCache:       workloadCache,
 		serviceCache:        serviceCache,
@@ -291,7 +290,6 @@ func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCach
 		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 	}
 	m.EnableMonitoring.Store(enableMonitoring)
-	m.EnableLongTCPMetric.Store(enablelongTCPMetric)
 	m.EnableAccesslog.Store(false)
 	m.EnableWorkloadMetric.Store(false)
 	return m
@@ -308,7 +306,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 		log.Errorf("get latest os boot time for accesslog failed: %v", err)
 	}
 
-	reader, err := ringbuf.NewReader(mapOfTcpInfo)
+	conn_metric_reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
 		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
 		return
@@ -321,7 +319,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 	}
 
 	defer func() {
-		if err := reader.Close(); err != nil {
+		if err := conn_metric_reader.Close(); err != nil {
 			log.Errorf("ringbuf reader Close FAILED, err: %v", err)
 		}
 
@@ -351,7 +349,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 			case <-ctx.Done():
 				return
 			default:
-				if !m.EnableLongTCPMetric.Load() {
+				if !m.EnableMonitoring.Load() {
 					continue
 				}
 				data := requestMetric{}
@@ -402,7 +400,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 			}
 			data := requestMetric{}
 			rec := ringbuf.Record{}
-			if err := reader.ReadInto(&rec); err != nil {
+			if err := conn_metric_reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
 			}
