@@ -87,8 +87,8 @@ type statistics struct {
 	Direction      uint32
 	State          uint32
 	Duration       uint64
-	StartTime      uint64 
-    LastReportTime uint64 
+	StartTime      uint64
+	LastReportTime uint64
 	CloseTime      uint64
 	// TODO: statistics below are not used for now
 	Protocol    uint32
@@ -125,25 +125,25 @@ type connectionDataV6 struct {
 }
 
 type requestMetric struct {
-	src           [4]uint32
-	dst           [4]uint32
-	srcPort       uint16
-	dstPort       uint16
-	origDstAddr   [4]uint32
-	origDstPort   uint16
-	direction     uint32
-	receivedBytes uint32
-	sentBytes     uint32
-	state         uint32
-	success       uint32
-	duration      uint64
-	startTime      uint64 
-    lastReportTime uint64 
-	closeTime     uint64
-	srtt          uint32
-	minRtt        uint32
-	totalRetrans  uint32
-	PacketLost    uint32
+	src            [4]uint32
+	dst            [4]uint32
+	srcPort        uint16
+	dstPort        uint16
+	origDstAddr    [4]uint32
+	origDstPort    uint16
+	direction      uint32
+	receivedBytes  uint32
+	sentBytes      uint32
+	state          uint32
+	success        uint32
+	duration       uint64
+	startTime      uint64
+	lastReportTime uint64
+	closeTime      uint64
+	srtt           uint32
+	minRtt         uint32
+	totalRetrans   uint32
+	PacketLost     uint32
 }
 
 type workloadMetricLabels struct {
@@ -380,9 +380,15 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 				}
 				workloadLabels := workloadMetricLabels{}
 				serviceLabels, accesslog := m.buildServiceMetric(&data)
+
 				if m.EnableWorkloadMetric.Load() {
 					workloadLabels = m.buildWorkloadMetric(&data)
 				}
+
+				if m.EnableAccesslog.Load() {
+					OutputAccesslog(data, accesslog)
+				}
+
 				m.mutex.Lock()
 				if m.EnableWorkloadMetric.Load() {
 					m.updateWorkloadMetricCache(data, workloadLabels)
