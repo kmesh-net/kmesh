@@ -108,7 +108,7 @@ func (r *DNSResolver) GetDNSAddresses(domain string) []string {
 	r.Lock()
 	defer r.Unlock()
 	if entry, ok := r.Cache[domain]; ok {
-		return entry.addresses
+		return entry.Addresses
 	}
 	return nil
 }

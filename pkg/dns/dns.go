@@ -23,8 +23,8 @@ import (
 	"sync"
 	"time"
 
-	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/miekg/dns"
+	"k8s.io/client-go/util/workqueue"
 
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -41,32 +41,32 @@ const (
 
 type DNSResolver struct {
 	client            *dns.Client
+	AdsDnsChan        chan string
 	ResolvConfServers []string
 	Cache             map[string]*DomainCacheEntry
+	RefreshQueue      workqueue.TypedDelayingInterface[any]
 	sync.RWMutex
 }
 
 type DomainCacheEntry struct {
-	addresses []string
+	Addresses []string
 }
 
-// pending resolve domain info of Kennel-Native Mode,
-// domain name is used for dns resolution
-// cluster is used for create the apicluster
-type PendingResolveDomain struct {
-	DomainName  string
-	Clusters    []*clusterv3.Cluster
+type DomainInfo struct {
+	Domain      string
 	RefreshRate time.Duration
 }
 
 func NewDNSResolver() (*DNSResolver, error) {
 	r := &DNSResolver{
-		Cache: map[string]*DomainCacheEntry{},
+		AdsDnsChan: make(chan string, 100),
+		Cache:      map[string]*DomainCacheEntry{},
 		client: &dns.Client{
 			DialTimeout:  5 * time.Second,
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 5 * time.Second,
 		},
+		RefreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "RefreshQueue"}),
 	}
 
 	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
@@ -82,20 +82,59 @@ func NewDNSResolver() (*DNSResolver, error) {
 	return r, nil
 }
 
-// removeUnwatchedDomain cancels any scheduled re-resolve for names we no longer care about
-func (r *DNSResolver) RemoveUnwatchedDomain(domains map[string]*PendingResolveDomain) {
-	r.Lock()
-	defer r.Unlock()
-	for domain := range r.Cache {
-		if _, ok := domains[domain]; ok {
-			continue
-		}
-		delete(r.Cache, domain)
+func (r *DNSResolver) StartDnsResolver() {
+	for r.refreshDns() {
 	}
 }
 
+// TODO: Dns Cache clean up
+func (r *DNSResolver) GetAddressesFromDnsCache(domains map[string]struct{}) map[string]*DomainCacheEntry {
+	r.Lock()
+	defer r.Unlock()
+
+	alreadyResolveDomains := make(map[string]*DomainCacheEntry)
+	for domain := range domains {
+		if v, ok := r.Cache[domain]; ok {
+			alreadyResolveDomains[domain] = v
+		}
+	}
+	return alreadyResolveDomains
+}
+
+func (r *DNSResolver) refreshDns() bool {
+	element, quit := r.RefreshQueue.Get()
+	if quit {
+		return false
+	}
+	defer r.RefreshQueue.Done(element)
+	e := element.(*DomainInfo)
+
+	r.Lock()
+	_, exist := r.Cache[e.Domain]
+	r.Unlock()
+	// if the domain is no longer watched, no need to refresh it
+	if !exist {
+		return true
+	}
+	_, ttl, err := r.resolve(e.Domain)
+	if err != nil {
+		log.Errorf("failed to dns resolve: %v", err)
+		return false
+	}
+	if ttl > e.RefreshRate {
+		ttl = e.RefreshRate
+	}
+	if ttl == 0 {
+		ttl = DeRefreshInterval
+	}
+	r.RefreshQueue.AddAfter(e, ttl)
+	r.AdsDnsChan <- e.Domain
+
+	return true
+}
+
 // This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
-func (r *DNSResolver) Resolve(domainName string) ([]string, time.Duration, error) {
+func (r *DNSResolver) resolve(domainName string) ([]string, time.Duration, error) {
 	r.RLock()
 	entry := r.Cache[domainName]
 	// This can happen when the domain is deleted before the refresher tick reaches
@@ -111,7 +150,7 @@ func (r *DNSResolver) Resolve(domainName string) ([]string, time.Duration, error
 	}
 
 	r.RLock()
-	entry.addresses = addrs
+	entry.Addresses = addrs
 	r.RUnlock()
 
 	return addrs, ttl, nil
@@ -234,4 +273,11 @@ func (r *DNSResolver) GetAllCachedDomains() []string {
 		out = append(out, domain)
 	}
 	return out
+}
+
+func (r *DNSResolver) GetAddressesFromCache(domain string) []string {
+	r.Lock()
+	addresses := r.Cache[domain]
+	r.Unlock()
+	return addresses.Addresses
 }
