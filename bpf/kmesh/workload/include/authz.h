@@ -35,6 +35,7 @@ struct match_context {
     __u8 policy_index;
     bool need_tailcall_to_userspace;
     __u8 n_rules;
+    int auth_result;
     wl_policies_v *policies;
     void *rulesPtr;
 };
@@ -573,7 +574,11 @@ int policies_check(struct xdp_md *ctx)
     }
     policy = map_lookup_authz(policyId);
     if (!policy) {
-        return XDP_PASS;
+        if (match_ctx->need_tailcall_to_userspace) {
+            bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
+            return XDP_PASS;
+        }
+        return match_ctx->auth_result;
     } else {
         rulesPtr = KMESH_GET_PTR_VAL(policy->rules, void *);
         if (!rulesPtr) {
@@ -672,15 +677,10 @@ int policy_check(struct xdp_md *ctx)
         }
         return match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_DROP : XDP_PASS;
     }
-
-    match_ctx->policy_index++;
-    if (match_ctx->policy_index >= MAX_MEMBER_NUM_PER_POLICY) {
-        if (match_ctx->need_tailcall_to_userspace) {
-            bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
-            return XDP_PASS;
-        }
-        return XDP_PASS;
+    if (match_ctx->auth_result == XDP_PASS) {
+        match_ctx->auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_PASS : XDP_DROP;
     }
+    match_ctx->policy_index++;
 
     ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, match_ctx, BPF_ANY);
     if (ret < 0) {
