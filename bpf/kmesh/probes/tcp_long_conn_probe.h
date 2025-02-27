@@ -22,13 +22,6 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_long_tcp_conns SEC(".maps");
 
-// BPF ring buffer to output events to user space.
-struct {
-    __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, 1 << 24); // 16 MB ring buffer
-} long_tcp_conns_events SEC(".maps");
-
-
 static inline void record_long_tcp_conn(struct bpf_sock *sk)
 {
     struct long_tcp_conns conn = {0};
@@ -57,17 +50,18 @@ static inline void report_tcp_conn(struct bpf_sock *sk, struct bpf_tcp_sock *tcp
         return;
     }
 
+    __u64 now = bpf_ktime_get_ns();
+
     if (now - conn->last_report_ns < LONG_CONN_THRESHOLD_TIME) {
         return;
     }
 
-    info = bpf_ringbuf_reserve(&long_tcp_conns_events, sizeof(struct tcp_probe_info), 0);
+    info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
     if (!info) {
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve long_tcp_conns_events failed\n");
         return;
     }
 
-    __u64 now = bpf_ktime_get_ns();
     conn->last_report_ns = now;
     info->start_ns = conn->start_ns;
     info->last_report_ns = conn->last_report_ns;

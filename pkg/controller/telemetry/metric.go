@@ -299,7 +299,7 @@ func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCach
 	return m
 }
 
-func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapOfLongTcpConnInfo *ebpf.Map) {
+func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	if m == nil {
 		return
 	}
@@ -310,24 +310,14 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 		log.Errorf("get latest os boot time for accesslog failed: %v", err)
 	}
 
-	conn_metric_reader, err := ringbuf.NewReader(mapOfTcpInfo)
+	reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
 		log.Errorf("open km_tcp_probe ringbuf map FAILED, err: %v", err)
 		return
 	}
 
-	long_conn_metric_reader, err := ringbuf.NewReader(mapOfLongTcpConnInfo)
-	if err != nil {
-		log.Errorf("open km_longconn_ev ringbuf map FAILED, err: %v", err)
-		return
-	}
-
 	defer func() {
-		if err := conn_metric_reader.Close(); err != nil {
-			log.Errorf("ringbuf reader Close FAILED, err: %v", err)
-		}
-
-		if err := long_conn_metric_reader.Close(); err != nil {
+		if err := reader.Close(); err != nil {
 			log.Errorf("ringbuf reader Close FAILED, err: %v", err)
 		}
 	}()
@@ -347,59 +337,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 		}
 	}()
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				if !m.EnableMonitoring.Load() {
-					continue
-				}
-				data := requestMetric{}
-				rec := ringbuf.Record{}
-				if err := long_conn_metric_reader.ReadInto(&rec); err != nil {
-					log.Errorf("ringbuf reader FAILED to read, err: %v", err)
-					continue
-				}
-				if len(rec.RawSample) != int(unsafe.Sizeof(connectionDataV4{})) {
-					log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(connectionDataV4{})))
-					continue
-				}
-				connectType := binary.LittleEndian.Uint32(rec.RawSample)
-				originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
-				buf := bytes.NewBuffer(originInfo)
-				switch connectType {
-				case constants.MSG_TYPE_IPV4:
-					data, err = buildV4Metric(buf)
-				case constants.MSG_TYPE_IPV6:
-					data, err = buildV6Metric(buf)
-				default:
-					log.Errorf("get connection info failed: %v", err)
-					continue
-				}
-				workloadLabels := workloadMetricLabels{}
-				serviceLabels, accesslog := m.buildServiceMetric(&data)
-
-				if m.EnableWorkloadMetric.Load() {
-					workloadLabels = m.buildWorkloadMetric(&data)
-				}
-
-				if m.EnableAccesslog.Load() {
-					OutputAccesslog(data, accesslog)
-				}
-
-				m.mutex.Lock()
-				if m.EnableWorkloadMetric.Load() {
-					m.updateWorkloadMetricCache(data, workloadLabels)
-				}
-				m.updateServiceMetricCache(data, serviceLabels)
-				m.mutex.Unlock()
-			}
-		}
-
-	}()
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -410,7 +347,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 			}
 			data := requestMetric{}
 			rec := ringbuf.Record{}
-			if err := conn_metric_reader.ReadInto(&rec); err != nil {
+			if err := reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
 			}
@@ -437,7 +374,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map, mapO
 				workloadLabels = m.buildWorkloadMetric(&data)
 			}
 
-			if data.state == TCP_CLOSTED && m.EnableAccesslog.Load() {
+			if m.EnableAccesslog.Load() {
 				OutputAccesslog(data, accesslog)
 			}
 
