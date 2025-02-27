@@ -6,7 +6,7 @@
 #define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL) // 5s
 
 #include "bpf_common.h"
-
+#include "config.h"
 // direction
 enum {
     INVALID_DIRECTION = 0,

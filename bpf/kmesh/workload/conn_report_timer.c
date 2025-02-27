@@ -47,7 +47,7 @@ static void flush_tcp_conns()
 
     // Re-arm the timer for the next execution
     int key_idx = 0;
-    struct bpf_timer *timer = bpf_map_lookup_elem(&long_conn_flush_timer, &key_idx);
+    struct bpf_timer *timer = bpf_map_lookup_elem(&tcp_conn_flush_timer, &key_idx);
     if (timer) {
         bpf_timer_start(timer, TIMER_INTERVAL_NS, 0);
     }
@@ -63,12 +63,12 @@ SEC("tc")
 int init_tcp_conns_flush_timer(struct __sk_buff *skb)
 {
     int key = 0;
-    struct bpf_timer *timer = bpf_map_lookup_elem(&long_conn_flush_timer, &key);
+    struct bpf_timer *timer = bpf_map_lookup_elem(&tcp_conn_flush_timer, &key);
     if (!timer)
         return 0;
 
     // Initialize and start timer
-    bpf_timer_init(timer, &long_conn_flush_timer, 1);
+    bpf_timer_init(timer, &tcp_conn_flush_timer, 1);
     bpf_timer_set_callback(timer, timer_callback);
     bpf_timer_start(timer, TIMER_INTERVAL_NS, 0);
 
