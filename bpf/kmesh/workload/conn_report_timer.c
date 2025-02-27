@@ -64,9 +64,11 @@ int init_tcp_conns_flush_timer(struct __sk_buff *skb)
 {
     int key = 0;
     struct bpf_timer *timer = bpf_map_lookup_elem(&tcp_conn_flush_timer, &key);
-    if (!timer)
+    if (!timer){
+        BPF_LOG(ERR, TIMER, "Failed to lookup tcp timer\n");
         return 0;
-
+    }
+    
     // Initialize and start timer
     bpf_timer_init(timer, &tcp_conn_flush_timer, 1);
     bpf_timer_set_callback(timer, timer_callback);
