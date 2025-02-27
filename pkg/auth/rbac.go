@@ -516,3 +516,8 @@ func (r *Rbac) getIdentityByIp(ip []byte) Identity {
 		serviceAccount: workload.GetServiceAccount(),
 	}
 }
+
+// List returns a copied list of all policies
+func (r *Rbac) PoliciesList() []*security.Authorization {
+	return r.policyStore.list()
+}
