@@ -182,6 +182,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
 
     conn = (struct long_tcp_conns *)bpf_map_lookup_elem(&map_of_tcp_conns, &sk);
     if (!conn) {
+        BPF_LOG(ERR, PROBE, "tcp_report: bpf_map_lookup_elem failed for map map_of_tcp_conns\n");
         return;
     }
 
