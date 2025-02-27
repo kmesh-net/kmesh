@@ -153,6 +153,8 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
     info->direction = storage->direction;
     info->start_ns = storage->connect_ns;
     info->last_report_ns = storage->connect_ns;
+    info->duration = 0;
+    info->close_ns = 0;
     if (state == BPF_TCP_CLOSE) {
         info->close_ns = bpf_ktime_get_ns();
         info->duration = info->close_ns - storage->connect_ns;

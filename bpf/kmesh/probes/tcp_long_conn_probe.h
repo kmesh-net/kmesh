@@ -70,6 +70,7 @@ static inline void report_tcp_conn(struct bpf_sock *sk, struct bpf_tcp_sock *tcp
     info->direction = storage->direction;
     info->duration = now - conn->start_ns;
     info->conn_success = storage->connect_success;
+    info->close_ns = 0;
     get_tcp_probe_info(tcp_sock, info);
     (*info).type = (sk->family == AF_INET) ? IPV4 : IPV6;
     if (is_ipv4_mapped_addr(sk->dst_ip6)) {
