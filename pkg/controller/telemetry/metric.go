@@ -87,6 +87,8 @@ type statistics struct {
 	Direction      uint32
 	State          uint32
 	Duration       uint64
+	StartTime      uint64
+	LastReportTime uint64
 	CloseTime      uint64
 	// TODO: statistics below are not used for now
 	Protocol    uint32
@@ -96,7 +98,7 @@ type statistics struct {
 	LostPackets uint32
 }
 
-// connectionDataV4 read from ebpf ringbuf and padding with `_`
+// connectionDataV4 read from ebpf km_tcp_probe ringbuf and padding with `_`
 type connectionDataV4 struct {
 	SrcAddr      uint32
 	DstAddr      uint32
@@ -110,7 +112,7 @@ type connectionDataV4 struct {
 	statistics
 }
 
-// connectionDataV6 read from ebpf ringbuf and padding with `_`
+// connectionDataV6 read from ebpf km_tcp_probe ringbuf and padding with `_`
 type connectionDataV6 struct {
 	SrcAddr      [4]uint32
 	DstAddr      [4]uint32
@@ -123,23 +125,25 @@ type connectionDataV6 struct {
 }
 
 type requestMetric struct {
-	src           [4]uint32
-	dst           [4]uint32
-	srcPort       uint16
-	dstPort       uint16
-	origDstAddr   [4]uint32
-	origDstPort   uint16
-	direction     uint32
-	receivedBytes uint32
-	sentBytes     uint32
-	state         uint32
-	success       uint32
-	duration      uint64
-	closeTime     uint64
-	srtt          uint32
-	minRtt        uint32
-	totalRetrans  uint32
-	PacketLost    uint32
+	src            [4]uint32
+	dst            [4]uint32
+	srcPort        uint16
+	dstPort        uint16
+	origDstAddr    [4]uint32
+	origDstPort    uint16
+	direction      uint32
+	receivedBytes  uint32
+	sentBytes      uint32
+	state          uint32
+	success        uint32
+	duration       uint64
+	startTime      uint64
+	lastReportTime uint64
+	closeTime      uint64
+	srtt           uint32
+	minRtt         uint32
+	totalRetrans   uint32
+	PacketLost     uint32
 }
 
 type workloadMetricLabels struct {
@@ -308,9 +312,10 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 
 	reader, err := ringbuf.NewReader(mapOfTcpInfo)
 	if err != nil {
-		log.Errorf("open metric notify ringbuf map FAILED, err: %v", err)
+		log.Errorf("open km_tcp_probe ringbuf map FAILED, err: %v", err)
 		return
 	}
+
 	defer func() {
 		if err := reader.Close(); err != nil {
 			log.Errorf("ringbuf reader Close FAILED, err: %v", err)
@@ -369,7 +374,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				workloadLabels = m.buildWorkloadMetric(&data)
 			}
 
-			if data.state == TCP_CLOSTED && m.EnableAccesslog.Load() {
+			if m.EnableAccesslog.Load() {
 				OutputAccesslog(data, accesslog)
 			}
 
@@ -412,6 +417,8 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
+	data.startTime = connectData.StartTime
+	data.lastReportTime = connectData.LastReportTime
 	data.closeTime = connectData.CloseTime
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
@@ -450,6 +457,8 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
 	data.closeTime = connectData.CloseTime
+	data.startTime = connectData.StartTime
+	data.lastReportTime = connectData.LastReportTime
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits

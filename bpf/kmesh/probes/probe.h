@@ -63,6 +63,7 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 dire
     storage->direction = direction;
     storage->connect_success = true;
 
+    record_long_tcp_conn(sk);
     tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 
@@ -86,5 +87,30 @@ static inline void observe_on_close(struct bpf_sock *sk)
     }
 
     tcp_report(sk, tcp_sock, storage, BPF_TCP_CLOSE);
+    remove_long_tcp_conn(sk);
 }
+
+static inline void obeserve_on_data_transfer(struct bpf_sock *sk)
+{
+
+    if (!is_monitoring_enable()) {
+        return;
+    }
+    struct bpf_tcp_sock *tcp_sock = NULL;
+    struct sock_storage_data *storage = NULL;
+    if (!sk)
+        return;
+    tcp_sock = bpf_tcp_sock(sk);
+    if (!tcp_sock)
+        return;
+
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
+    if (!storage) {
+        BPF_LOG(ERR, PROBE, "on close: bpf_sk_storage_get failed\n");
+        return;
+    }
+
+    tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
+}
+
 #endif
