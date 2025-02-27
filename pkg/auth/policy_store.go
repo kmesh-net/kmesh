@@ -124,3 +124,15 @@ func (ps *policyStore) getByNamespace(namespace string) []string {
 	}
 	return nil
 }
+
+// List returns a copied list of all policies
+func (p *policyStore) list() []*security.Authorization {
+	p.rwLock.RLock()
+	defer p.rwLock.RUnlock()
+	out := make([]*security.Authorization, 0, len(p.byKey))
+	for _, pol := range p.byKey {
+		out = append(out, pol)
+	}
+
+	return out
+}

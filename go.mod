@@ -8,7 +8,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 require (
 	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/ebpf v0.17.1
+	github.com/cilium/ebpf v0.17.3
 	github.com/cncf/xds/go v0.0.0-20241213214725-57cfbe6fad57
 	github.com/containernetworking/cni v1.2.3
 	github.com/containernetworking/plugins v1.6.1
@@ -16,26 +16,26 @@ require (
 	github.com/fsnotify/fsnotify v1.8.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/miekg/dns v1.1.62
-	github.com/prometheus/client_golang v1.20.5
-	github.com/prometheus/common v0.61.0
-	github.com/safchain/ethtool v0.5.9
+	github.com/prometheus/client_golang v1.21.0
+	github.com/prometheus/common v0.62.0
+	github.com/safchain/ethtool v0.5.10
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.10.0
 	github.com/vishvananda/netlink v1.3.0
-	golang.org/x/sys v0.29.0
+	golang.org/x/sys v0.30.0
 	google.golang.org/grpc v1.69.4
 	google.golang.org/protobuf v1.36.3
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	istio.io/api v1.24.2
 	istio.io/istio v0.0.0-20241214032803-7754674f65d3
 	istio.io/pkg v0.0.0-20231221211216-7635388a563e
-	k8s.io/api v0.32.1
-	k8s.io/apimachinery v0.32.1
-	k8s.io/cli-runtime v0.32.1
-	k8s.io/client-go v0.32.1
-	k8s.io/kubectl v0.32.1
+	k8s.io/api v0.32.2
+	k8s.io/apimachinery v0.32.2
+	k8s.io/cli-runtime v0.32.2
+	k8s.io/client-go v0.32.2
+	k8s.io/kubectl v0.32.2
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	sigs.k8s.io/gateway-api v1.2.1
 	sigs.k8s.io/yaml v1.4.0
@@ -82,7 +82,7 @@ require (
 	github.com/florianl/go-nflog/v2 v2.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-errors/errors v1.5.1 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.3 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.4 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
@@ -226,7 +226,7 @@ require (
 	istio.io/client-go v1.24.2-0.20241206152608-3892aa679051 // indirect
 	k8s.io/apiextensions-apiserver v0.32.0 // indirect
 	k8s.io/apiserver v0.32.0 // indirect
-	k8s.io/component-base v0.32.1 // indirect
+	k8s.io/component-base v0.32.2 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241212222426-2c72e554b1e7 // indirect
 	sigs.k8s.io/controller-runtime v0.19.3 // indirect

@@ -91,6 +91,10 @@ func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
 	return sc.SockConn.KmConfigmap
 }
 
+func (sc *BpfAds) GetBpfLogLevelVariable() *ebpf.Variable {
+	return sc.SockConn.BpfLogLevel
+}
+
 func (sc *BpfAds) Stop() error {
 	C.deserial_uninit()
 	return sc.Detach()

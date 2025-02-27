@@ -91,6 +91,7 @@ type KmeshSendmsgCompatMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgCompatVariableSpecs struct {
+	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
 // KmeshSendmsgCompatObjects contains all objects after they have been loaded into the kernel.
@@ -132,6 +133,7 @@ func (m *KmeshSendmsgCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshSendmsgCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSendmsgCompatVariables struct {
+	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
 }
 
 // KmeshSendmsgCompatPrograms contains all programs after they have been loaded into the kernel.

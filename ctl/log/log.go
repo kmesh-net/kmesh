@@ -146,7 +146,6 @@ func SetLoggerLevel(url string, setFlag string) {
 
 	if resp.StatusCode != http.StatusOK {
 		log.Errorf("Error: received status code %d", resp.StatusCode)
-		return
 	}
 
 	body, err := io.ReadAll(resp.Body)

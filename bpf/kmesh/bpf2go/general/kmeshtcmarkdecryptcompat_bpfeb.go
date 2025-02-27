@@ -92,6 +92,7 @@ type KmeshTcMarkDecryptCompatMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshTcMarkDecryptCompatVariableSpecs struct {
+	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
 // KmeshTcMarkDecryptCompatObjects contains all objects after they have been loaded into the kernel.
@@ -133,6 +134,7 @@ func (m *KmeshTcMarkDecryptCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshTcMarkDecryptCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshTcMarkDecryptCompatVariables struct {
+	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
 }
 
 // KmeshTcMarkDecryptCompatPrograms contains all programs after they have been loaded into the kernel.

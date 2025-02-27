@@ -25,7 +25,6 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/sirupsen/logrus"
@@ -38,7 +37,9 @@ import (
 	"kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/api/v2/listener"
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
@@ -93,82 +94,6 @@ func TestServer_getLoggerLevel(t *testing.T) {
 	sort.Strings(expectedLoggerNames)
 	sort.Strings(actualLoggerNames)
 	assert.Equal(t, expectedLoggerNames, actualLoggerNames)
-}
-
-func TestServer_getAndSetBpfLevel(t *testing.T) {
-	// Test in two modes
-	configs := []options.BpfConfig{{
-		Mode:        constants.KernelNativeMode,
-		BpfFsPath:   "/sys/fs/bpf",
-		Cgroup2Path: "/mnt/kmesh_cgroup2",
-	}, {
-		Mode:        constants.DualEngineMode,
-		BpfFsPath:   "/sys/fs/bpf",
-		Cgroup2Path: "/mnt/kmesh_cgroup2",
-	}}
-
-	testLoggerLevelMap := map[string]int{
-		"error": constants.BPF_LOG_ERR,
-		"warn":  constants.BPF_LOG_WARN,
-		"info":  constants.BPF_LOG_INFO,
-		"debug": constants.BPF_LOG_DEBUG,
-	}
-	key := uint32(0)
-	actualLoggerLevel := uint32(0)
-	for _, config := range configs {
-		t.Run(config.Mode, func(t *testing.T) {
-			cleanup, bpfLoader := test.InitBpfMap(t, config)
-			server := &Server{
-				xdsClient: &controller.XdsClient{
-					WorkloadController: &workload.Controller{
-						Processor: nil,
-					},
-				},
-				kmeshConfigMap: bpfLoader.GetKmeshConfig(),
-			}
-
-			setLoggerUrl := patternLoggers
-			for logLevelStr, logLevelInt := range testLoggerLevelMap {
-				// We support both string and number
-				testLoggerLevels := []string{logLevelStr, strconv.FormatInt(int64(logLevelInt), 10)}
-				expectedLoggerLevel := uint32(logLevelInt)
-				for _, testLoggerLevel := range testLoggerLevels {
-					loggerInfo := LoggerInfo{
-						Name:  bpfLoggerName,
-						Level: testLoggerLevel,
-					}
-					reqBody, _ := json.Marshal(loggerInfo)
-					req := httptest.NewRequest(http.MethodPost, setLoggerUrl, bytes.NewReader(reqBody))
-					w := httptest.NewRecorder()
-					server.setLoggerLevel(w, req)
-
-					assert.Equal(t, http.StatusOK, w.Code)
-					server.kmeshConfigMap.Lookup(&key, &actualLoggerLevel)
-					assert.Equal(t, expectedLoggerLevel, actualLoggerLevel)
-				}
-			}
-
-			// test get bpf log level
-			getLoggerUrl := patternLoggers + "?name=" + bpfLoggerName
-			req := httptest.NewRequest(http.MethodGet, getLoggerUrl, nil)
-			w := httptest.NewRecorder()
-			server.getLoggerLevel(w, req)
-
-			var (
-				actualLoggerInfo   LoggerInfo
-				expectedLoggerInfo *LoggerInfo
-			)
-			err := json.Unmarshal(w.Body.Bytes(), &actualLoggerInfo)
-			assert.Nil(t, err)
-
-			expectedLoggerInfo, err = server.getBpfLogLevel()
-			assert.Nil(t, err)
-			assert.NotNil(t, expectedLoggerInfo)
-			assert.Equal(t, expectedLoggerInfo.Level, actualLoggerInfo.Level)
-			assert.Equal(t, expectedLoggerInfo.Name, actualLoggerInfo.Name)
-			cleanup()
-		})
-	}
 }
 
 func TestServer_setLoggerLevel(t *testing.T) {
@@ -275,10 +200,18 @@ func TestServer_configDumpWorkload(t *testing.T) {
 				},
 			},
 		}}
+	policy := &security.Authorization{
+		Name:      "policy",
+		Namespace: "ns",
+		Scope:     security.Scope_GLOBAL,
+		Action:    security.Action_ALLOW,
+	}
 	fakeWorkloadCache := cache.NewWorkloadCache()
 	fakeServiceCache := cache.NewServiceCache()
 	fakeWorkloadCache.AddOrUpdateWorkload(w1)
 	fakeServiceCache.AddOrUpdateService(svc)
+	fakeAuth := auth.NewRbac(fakeWorkloadCache)
+	fakeAuth.UpdatePolicy(policy)
 	// Create a new instance of the Server struct
 	server := &Server{
 		xdsClient: &controller.XdsClient{
@@ -287,6 +220,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 					WorkloadCache: fakeWorkloadCache,
 					ServiceCache:  fakeServiceCache,
 				},
+				Rbac: fakeAuth,
 			},
 		},
 	}

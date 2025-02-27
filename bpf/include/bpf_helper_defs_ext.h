@@ -10,9 +10,37 @@
  * By default, these IDs are in the 5.10 kernel with kmesh kernel patches.
  */
 
-static void *(*bpf_strncpy)(char *dst, __u32 dst_size, char *src) = (void *)171;
-static void *(*bpf_strnstr)(void *s1, void *s2, __u32 size) = (void *)172;
-static __u64 (*bpf_strnlen)(char *buff, __u32 size) = (void *)173;
-static __u64 (*bpf__strncmp)(const char *s1, __u32 s1_size, const char *s2) = (void *)174;
-static long (*bpf_parse_header_msg)(struct bpf_mem_ptr *msg) = (void *)175;
-static void *(*bpf_get_msg_header_element)(void *name) = (void *)176;
+/*
+ * Description
+ *      Look for the string corresponding to the key in the results of the
+ *      previous bpf_parse_header_msg parsing of the message header, and
+ *      Search for the target substring in the string.
+ * Return
+ *      If found, return 1; otherwise, return 0.
+ */
+static long (*bpf_km_header_strnstr)(
+    struct bpf_sock_addr *ctx, const char *key, int key_sz, const char *subptr, int subptr_sz) = (void *)163;
+
+/*
+ * Description
+ *      Look for the string corresponding to the key in the results of the
+ *      previous bpf_parse_header_msg parsing of the message header, and
+ *      compare it with the target string. Control whether it is an exact
+ *      match or a prefix match through the opt.
+ * Return
+ *      If the strings are same, return 0.
+ */
+static long (*bpf_km_header_strncmp)(const char *key, int key_sz, const char *target, int target_sz, int opt) =
+    (void *)164;
+
+/*
+ * Description
+ *      Get the memory pointer from ctx's t_ctx and parse the string information
+ *      stored within. In this use case, t_ctx must be the HTTP protocol message
+ *      header. After parsing, the message information will be stored in a
+ *      red-black tree for subsequent lookup.
+ * Return
+ *      A HTTP PROTO TYPE is returned on success.
+ *      **PROTO_UNKNOW** is returned if failure.
+ */
+static long (*bpf_parse_header_msg)(struct bpf_sock_addr *ctx) = (void *)165;

@@ -105,6 +105,10 @@ func (w *BpfWorkload) GetKmeshConfigMap() *ebpf.Map {
 	return w.SockConn.KmConfigmap
 }
 
+func (w *BpfWorkload) GetBpfLogLevelVariable() *ebpf.Variable {
+	return w.SockConn.BpfLogLevel
+}
+
 func (w *BpfWorkload) Load() error {
 	if err := w.SockConn.LoadSockConn(); err != nil {
 		return err

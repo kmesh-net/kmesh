@@ -20,6 +20,7 @@ import (
 	"net"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/api/v2/workloadapi/security"
 )
 
 type Workload struct {
@@ -73,6 +74,14 @@ type Service struct {
 	Ports        []*workloadapi.Port `json:"ports"`
 	LoadBalancer *LoadBalancer       `json:"loadBalancer"`
 	Waypoint     *Waypoint           `json:"waypoint"`
+}
+
+type AuthorizationPolicy struct {
+	Name      string           `json:"name"`
+	Namespace string           `json:"namespace"`
+	Scope     string           `json:"scope"`
+	Action    string           `json:"action"`
+	Rules     []*security.Rule `json:"rules"`
 }
 
 type NetworkAddress struct {
@@ -158,6 +167,18 @@ func ConvertService(s *workloadapi.Service) *Service {
 			routingPreferences = append(routingPreferences, p.String())
 		}
 		out.LoadBalancer = &LoadBalancer{Mode: s.LoadBalancing.Mode.String(), RoutingPreferences: routingPreferences}
+	}
+
+	return out
+}
+
+func ConvertAuthorizationPolicy(p *security.Authorization) *AuthorizationPolicy {
+	out := &AuthorizationPolicy{
+		Name:      p.GetName(),
+		Namespace: p.GetNamespace(),
+		Scope:     p.GetScope().String(),
+		Action:    p.GetAction().String(),
+		Rules:     p.Rules,
 	}
 
 	return out

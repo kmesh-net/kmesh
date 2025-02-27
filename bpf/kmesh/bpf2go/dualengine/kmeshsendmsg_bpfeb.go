@@ -91,6 +91,7 @@ type KmeshSendmsgMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgVariableSpecs struct {
+	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
 // KmeshSendmsgObjects contains all objects after they have been loaded into the kernel.
@@ -132,6 +133,7 @@ func (m *KmeshSendmsgMaps) Close() error {
 //
 // It can be passed to LoadKmeshSendmsgObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSendmsgVariables struct {
+	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
 }
 
 // KmeshSendmsgPrograms contains all programs after they have been loaded into the kernel.

@@ -37,17 +37,13 @@ import (
 var log = logger.NewLoggerScope("bpf_ads")
 
 type BpfAds struct {
-	TracePoint BpfTracePoint
-	SockConn   BpfSockConn
-	SockOps    BpfSockOps
-	Tc         *general.BpfTCGeneral
+	SockConn BpfSockConn
+	SockOps  BpfSockOps
+	Tc       *general.BpfTCGeneral
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
-	if err := sc.TracePoint.NewBpf(cfg); err != nil {
-		return nil, err
-	}
 
 	if err := sc.SockOps.NewBpf(cfg); err != nil {
 		return nil, err
@@ -106,16 +102,31 @@ func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
 	return sc.SockConn.KmConfigmap
 }
 
-func (sc *BpfAds) Load() error {
-	if err := sc.TracePoint.Load(); err != nil {
+func (sc *BpfAds) GetBpfLogLevelVariable() *ebpf.Variable {
+	return sc.SockConn.BpfLogLevel
+}
+
+func (sc *BpfSockConn) RouteLoad() error {
+	err := sc.KmCgrptailcall.Update(
+		uint32(KMESH_TAIL_CALL_ROUTER_CONFIG),
+		uint32(sc.RouteConfigManager.FD()),
+		ebpf.UpdateAny)
+	if err != nil {
 		return err
 	}
+	return nil
+}
 
+func (sc *BpfAds) Load() error {
 	if err := sc.SockOps.Load(); err != nil {
 		return err
 	}
 
 	if err := sc.SockConn.Load(); err != nil {
+		return err
+	}
+
+	if err := sc.SockConn.RouteLoad(); err != nil {
 		return err
 	}
 
@@ -129,41 +140,37 @@ func (sc *BpfAds) Load() error {
 func (sc *BpfAds) ApiEnvCfg() error {
 	var err error
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshSockopsMaps.KmListener, "Listener"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshCgroupSockMaps.KmListener, "Listener"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmRouterconfig, "RouteConfiguration"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshCgroupSockMaps.KmRouterconfig, "RouteConfiguration"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmCluster, "Cluster"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshCgroupSockMaps.KmCluster, "Cluster"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap64, "KmeshMap64"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshMap64, "KmeshMap64"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap192, "KmeshMap192"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshMap192, "KmeshMap192"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap296, "KmeshMap296"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshMap296, "KmeshMap296"); err != nil {
 		return err
 	}
 
-	if err = utils.SetEnvByBpfMapId(sc.SockOps.KmeshMap1600, "KmeshMap1600"); err != nil {
+	if err = utils.SetEnvByBpfMapId(sc.SockConn.KmeshMap1600, "KmeshMap1600"); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (sc *BpfAds) Attach() error {
-	if err := sc.TracePoint.Attach(); err != nil {
-		return err
-	}
-
 	if err := sc.SockOps.Attach(); err != nil {
 		return err
 	}
@@ -175,10 +182,6 @@ func (sc *BpfAds) Attach() error {
 }
 
 func (sc *BpfAds) Detach() error {
-	if err := sc.TracePoint.Detach(); err != nil {
-		return err
-	}
-
 	if err := sc.SockOps.Detach(); err != nil {
 		return err
 	}
@@ -195,7 +198,7 @@ func (sc *BpfAds) Detach() error {
 }
 
 func (sc *BpfAds) GetClusterStatsMap() *ebpf.Map {
-	return sc.SockOps.KmeshSockopsMaps.KmClusterstats
+	return sc.SockConn.KmeshCgroupSockMaps.KmClusterstats
 }
 
 func AdsL7Enabled() bool {

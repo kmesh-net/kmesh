@@ -31,7 +31,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
-	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
@@ -75,14 +74,16 @@ type Server struct {
 	mux            *http.ServeMux
 	server         *http.Server
 	kmeshConfigMap *ebpf.Map
+	bpfLogLevel    *ebpf.Variable
 }
 
-func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, configMap *ebpf.Map) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, configMap *ebpf.Map, bpfLogLevel *ebpf.Variable) *Server {
 	s := &Server{
 		config:         configs,
 		xdsClient:      c,
 		mux:            http.NewServeMux(),
 		kmeshConfigMap: configMap,
+		bpfLogLevel:    bpfLogLevel,
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -459,8 +460,7 @@ func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 type WorkloadDump struct {
 	Workloads []*Workload
 	Services  []*Service
-	// TODO: add authorization
-	Policies []*security.Authorization
+	Policies  []*AuthorizationPolicy
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
@@ -472,15 +472,20 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 
 	workloads := client.WorkloadController.Processor.WorkloadCache.List()
 	services := client.WorkloadController.Processor.ServiceCache.List()
+	policies := client.WorkloadController.Rbac.PoliciesList()
 	workloadDump := WorkloadDump{
 		Workloads: make([]*Workload, 0, len(workloads)),
 		Services:  make([]*Service, 0, len(services)),
+		Policies:  make([]*AuthorizationPolicy, 0, len(policies)),
 	}
 	for _, w := range workloads {
 		workloadDump.Workloads = append(workloadDump.Workloads, ConvertWorkload(w))
 	}
 	for _, s := range services {
 		workloadDump.Services = append(workloadDump.Services, ConvertService(s))
+	}
+	for _, p := range policies {
+		workloadDump.Policies = append(workloadDump.Policies, ConvertAuthorizationPolicy(p))
 	}
 	printWorkloadDump(w, workloadDump)
 }
@@ -492,12 +497,10 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
-	config, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
-	if err != nil {
-		return nil, fmt.Errorf("get log level error: %v", err)
+	var logLevel uint32
+	if err := s.bpfLogLevel.Get(&logLevel); err != nil {
+		return nil, fmt.Errorf("get bpf log level failed: %d", err)
 	}
-
-	logLevel := config.BpfLogLevel
 
 	logLevelMap := map[int]string{
 		constants.BPF_LOG_ERR:   "error",
@@ -508,7 +511,7 @@ func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 
 	loggerLevel, exists := logLevelMap[int(logLevel)]
 	if !exists {
-		return nil, fmt.Errorf("unexpected invalid log level: %d", config.BpfLogLevel)
+		return nil, fmt.Errorf("unexpected invalid log level: %d", logLevel)
 	}
 
 	return &LoggerInfo{
@@ -537,18 +540,11 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 		return
 	}
 
-	// Because kmesh config has pod gateway and node ip data.
-	// When change the log level, need to make sure that the pod gateway and node ip remain unchanged.
-	config, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("get kmesh config error: %v", err), http.StatusBadRequest)
+	if err := s.bpfLogLevel.Set(uint32(level)); err != nil {
+		http.Error(w, fmt.Sprintf("update bpf log level error: %v", err), http.StatusBadRequest)
 		return
 	}
-	config.BpfLogLevel = uint32(level)
-	if err := bpf.UpdateKmeshConfigMap(s.kmeshConfigMap, config); err != nil {
-		http.Error(w, fmt.Sprintf("update log level error: %v", err), http.StatusBadRequest)
-		return
-	}
+
 	fmt.Fprintf(w, "set BPF Log Level: %d\n", level)
 }
 

@@ -8,10 +8,6 @@ FILES=(
     "kmeshsockops_bpfeb.o"
     "kmeshsockopscompat_bpfeb.o"
     "kmeshsockopscompat_bpfel.o"
-    "kmeshtracepoint_bpfeb.o"
-    "kmeshtracepoint_bpfel.o"
-    "kmeshtracepointcompat_bpfeb.o"
-    "kmeshtracepointcompat_bpfel.o"
 )
 
 mkdir -p "$TARGET_DIR"
