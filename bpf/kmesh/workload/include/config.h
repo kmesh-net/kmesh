@@ -13,7 +13,7 @@
 #define MAP_SIZE_OF_DSTINFO       8192
 #define MAP_SIZE_OF_AUTH_TAILCALL 100000
 #define MAP_SIZE_OF_AUTH_POLICY   512
-#define MAP_SIZE_OF_LONG_TCP_CONN 1000000
+#define MAP_SIZE_OF_TCP_CONNS     1000000
 
 // rename map to avoid truncation when name length exceeds BPF_OBJ_NAME_LEN = 16
 #define map_of_frontend          km_frontend
@@ -32,7 +32,7 @@
 #define map_of_wl_policy         km_wlpolicy
 #define kmesh_perf_map           km_perf_map
 #define kmesh_perf_info          km_perf_info
-#define map_of_long_tcp_conns    km_longconn
-#define long_conn_flush_timer    km_conn_timer
+#define map_of_tcp_conns         km_tcp_conns
+#define tcp_conn_flush_timer     km_conn_timer
 
 #endif // _CONFIG_H_

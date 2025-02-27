@@ -3,6 +3,7 @@
 
 #ifndef __KMESH_BPF_ACCESS_LOG_H__
 #define __KMESH_BPF_ACCESS_LOG_H__
+#define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL) // 5s
 
 #include "bpf_common.h"
 
@@ -55,6 +56,21 @@ struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(max_entries,1 << 24 /* 16 mb*/);
 } map_of_tcp_probe SEC(".maps");
+
+struct tcp_conns {
+    struct bpf_sock *sk;
+    __u64 start_ns;
+    __u64 last_report_ns;
+};
+
+// Ebpf map to store active tcp connections
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, struct bpf_sock *);
+    __type(value, struct tcp_conns);
+    __uint(max_entries, MAP_SIZE_OF_TCP_CONNS);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} map_of_tcp_conns SEC(".maps");
 
 static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
 {
@@ -135,11 +151,39 @@ static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe
     }
 }
 
+// Store new tcp connection in map_of_tcp_conns
+static inline void record_tcp_conn(struct bpf_sock *sk)
+{
+    struct tcp_conns conn = {0};
+    conn.sk = sk;
+    conn.start_ns = bpf_ktime_get_ns();
+    conn.last_report_ns = conn.start_ns;
+    bpf_map_update_elem(&map_of_tcp_conns, &sk, &conn, BPF_ANY);
+}
+
+// Remove tcp connection from map_of_tcp_conns when the conn is closed
+static inline void remove_tcp_conn(struct bpf_sock *sk)
+{
+    struct bpf_sock *lookup;
+
+    lookup = (struct bpf_sock *)bpf_map_lookup_elem(&map_of_tcp_conns, &sk);
+    if (lookup) {
+        bpf_map_delete_elem(&map_of_tcp_conns, &sk);
+    }
+}
+
 static inline void
 tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
     // struct connect_info *info = NULL;
     struct tcp_probe_info *info = NULL;
+
+    struct tcp_conns *conn;
+
+    conn = (struct long_tcp_conns *)bpf_map_lookup_elem(&map_of_tcp_conns, &sk);
+    if (!conn) {
+        return;
+    }
 
     // store tuple
     info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
@@ -148,19 +192,17 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
         return;
     }
 
+    __u64 now = bpf_ktime_get_ns();
+    
+    conn->last_report_ns = now;
+    info->start_ns = conn->start_ns;
+    info->last_report_ns = conn->last_report_ns;
     constuct_tuple(sk, &info->tuple, storage->direction);
     info->state = state;
     info->direction = storage->direction;
-    info->start_ns = storage->connect_ns;
-    info->last_report_ns = storage->connect_ns;
-    info->duration = 0;
-    info->close_ns = 0;
-    if (state == BPF_TCP_CLOSE) {
-        info->close_ns = bpf_ktime_get_ns();
-        info->duration = info->close_ns - storage->connect_ns;
-        info->last_report_ns = info->close_ns;
-    }
+    info->duration = now - conn->start_ns;
     info->conn_success = storage->connect_success;
+    info->close_ns = 0;
     get_tcp_probe_info(tcp_sock, info);
     (*info).type = (sk->family == AF_INET) ? IPV4 : IPV6;
     if (is_ipv4_mapped_addr(sk->dst_ip6)) {

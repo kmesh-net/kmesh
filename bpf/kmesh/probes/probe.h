@@ -6,7 +6,6 @@
 
 #include "tcp_probe.h"
 #include "performance_probe.h"
-#include "tcp_long_conn_probe.h"
 
 static inline bool is_monitoring_enable()
 {
@@ -64,8 +63,8 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 dire
     storage->direction = direction;
     storage->connect_success = true;
 
-    tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
     record_long_tcp_conn(sk);
+    tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 
 static inline void observe_on_close(struct bpf_sock *sk)
@@ -91,7 +90,7 @@ static inline void observe_on_close(struct bpf_sock *sk)
     remove_long_tcp_conn(sk);
 }
 
-static inline void obeserve_long_conn_tcp(struct bpf_sock *sk)
+static inline void obeserve_on_data_transfer(struct bpf_sock *sk)
 {
 
     if (!is_monitoring_enable()) {
@@ -111,7 +110,7 @@ static inline void obeserve_long_conn_tcp(struct bpf_sock *sk)
         return;
     }
 
-    report_tcp_conn(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
+    tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 
 #endif
