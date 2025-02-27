@@ -137,6 +137,16 @@ function setup_kmesh() {
         echo "Waiting for pods of Kmesh daemon to enter Running state..."
         sleep 1
     done
+
+    # Set log of each Kmesh pods.
+    PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+
+    sleep 10
+
+    for POD in $PODS; do
+        echo $POD
+        kmeshctl log $POD --set bpf:debug
+    done
 }
 
 export KIND_REGISTRY_NAME="kind-registry"
@@ -159,6 +169,11 @@ function setup_kind_registry() {
 
 function build_and_push_images() {
     HUB="${KIND_REGISTRY}" TAG="latest" make docker.push
+}
+
+function install_kmeshctl() {
+    # Install kmeshctl
+    cp kmeshctl $TMPBIN
 }
 
 function install_dependencies() {
@@ -274,6 +289,7 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
     setup_kind_registry
     build_and_push_images
+    install_kmeshctl
 fi
 
 kubectl config use-context "kind-$NAME"
@@ -286,7 +302,7 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
-cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
+cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false -istio.test.echo.callTimeout 300s ${PARAMS[*]}"
 
 bash -c "$cmd"
 
