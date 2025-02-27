@@ -20,115 +20,119 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"time"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
-	"k8s.io/client-go/util/workqueue"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/dns"
 )
 
 // adsDnsResolver is DNS resolver of Kernel Native
-type AdsDnsResolver struct {
-	Clusters        chan []*clusterv3.Cluster
-	adsCache        *AdsCache
-	dnsResolver     *dns.DNSResolver
-	dnsRefreshQueue workqueue.TypedDelayingInterface[any]
+type dnsController struct {
+	Clusters    chan []*clusterv3.Cluster
+	cache       *AdsCache
+	dnsResolver *dns.DNSResolver
 }
 
-func NewAdsDnsResolver(adsCache *AdsCache) (*AdsDnsResolver, error) {
+// pending resolve domain info of Kennel-Native Mode,
+// domain name is used for dns resolution
+// cluster is used for create the apicluster
+type pendingResolveDomain struct {
+	DomainName  string
+	Clusters    []*clusterv3.Cluster
+	RefreshRate time.Duration
+}
+
+func NewDnsResolver(adsCache *AdsCache) (*dnsController, error) {
 	resolver, err := dns.NewDNSResolver()
 	if err != nil {
 		return nil, err
 	}
-	return &AdsDnsResolver{
-		Clusters:        make(chan []*clusterv3.Cluster),
-		dnsRefreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "dnsRefreshQueue"}),
-		adsCache:        adsCache,
-		dnsResolver:     resolver,
+	return &dnsController{
+		Clusters: make(chan []*clusterv3.Cluster),
+		// dnsRefreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "dnsRefreshQueue"}),
+		cache:       adsCache,
+		dnsResolver: resolver,
 	}, nil
 }
 
-func (adsResolver *AdsDnsResolver) StartAdsDnsResolver(stopCh <-chan struct{}) {
-	go adsResolver.startAdsResolver()
-	go adsResolver.refreshAdsWorker()
+func (r *dnsController) StartKernelNativeDnsController(stopCh <-chan struct{}) {
+	go r.startDnsController()
+	// start dns resolver
+	go r.dnsResolver.StartDnsResolver(stopCh)
 	go func() {
 		<-stopCh
-		adsResolver.dnsRefreshQueue.ShutDown()
-		close(adsResolver.Clusters)
+		close(r.Clusters)
 	}()
 }
 
-func (adsResolver *AdsDnsResolver) startAdsResolver() {
+func (r *dnsController) startDnsController() {
 	rateLimiter := make(chan struct{}, dns.MaxConcurrency)
-	for clusters := range adsResolver.Clusters {
+	for clusters := range r.Clusters {
 		rateLimiter <- struct{}{}
 		go func(clusters []*clusterv3.Cluster) {
 			defer func() {
 				<-rateLimiter
 			}()
-			adsResolver.resolveDomains(clusters)
+			r.resolveDomains(clusters)
 		}(clusters)
 	}
 }
 
-func (adsResolver *AdsDnsResolver) refreshAdsDns() bool {
-	element, quit := adsResolver.dnsRefreshQueue.Get()
-	if quit {
-		return false
-	}
-	defer adsResolver.dnsRefreshQueue.Done(element)
-	e := element.(*dns.PendingResolveDomain)
-
-	adsResolver.dnsResolver.RLock()
-	_, exist := adsResolver.dnsResolver.Cache[e.DomainName]
-	adsResolver.dnsResolver.RUnlock()
-	// if the domain is no longer watched, no need to refresh it
-	if !exist {
-		return true
-	}
-	addresses, ttl, err := adsResolver.dnsResolver.Resolve(e.DomainName)
-	if err != nil {
-		log.Errorf("failed to dns resolve: %v", err)
-		return false
-	}
-	if ttl > e.RefreshRate {
-		ttl = e.RefreshRate
-	}
-	if ttl == 0 {
-		ttl = dns.DeRefreshInterval
-	}
-	adsResolver.dnsRefreshQueue.AddAfter(e, ttl)
-
-	adsResolver.adsDnsResolve(e, addresses)
-	adsResolver.adsCache.ClusterCache.Flush()
-	return true
-}
-
-func (adsResolver *AdsDnsResolver) resolveDomains(cds []*clusterv3.Cluster) {
+func (r *dnsController) resolveDomains(cds []*clusterv3.Cluster) {
 	domains := getPendingResolveDomain(cds)
+	hostNames := make(map[string]struct{})
 
-	// Stow domain updates, need to remove unwatched domains first
-	adsResolver.dnsResolver.RemoveUnwatchedDomain(domains)
+	for k := range domains {
+		hostNames[k] = struct{}{}
+	}
+
+	// delete any scheduled re-resolve for domains we no longer care about
+	r.dnsResolver.RemoveUnwatchDomain(hostNames)
+	// Directly update the clusters that can find the dns resolution result in the cache
+	alreadyResolveDomains := r.dnsResolver.GetAddressesFromCache(hostNames)
+	for k, v := range alreadyResolveDomains {
+		pendingDomain := domains[k]
+		r.adsDnsResolve(pendingDomain, v.Addresses)
+		r.cache.ClusterCache.Flush()
+		delete(domains, k)
+	}
+
 	for k, v := range domains {
-		adsResolver.dnsResolver.ResolveDomains(k)
-		adsResolver.dnsRefreshQueue.AddAfter(v, 0)
+		r.dnsResolver.ResolveDomains(k)
+		domainInfo := &dns.DomainInfo{
+			Domain:      v.DomainName,
+			RefreshRate: v.RefreshRate,
+		}
+		r.dnsResolver.RefreshQueue.AddAfter(domainInfo, 0)
+	}
+	go r.refreshAdsWorker(domains)
+}
+
+func (r *dnsController) refreshAdsWorker(domains map[string]*pendingResolveDomain) {
+	for !(len(domains) == 0) {
+		domain := <-r.dnsResolver.AdsDnsChan
+		v, ok := domains[domain]
+		// will this happen?
+		if !ok {
+			continue
+		}
+		addresses, _ := r.dnsResolver.GetOneDomainFromCache(domain)
+		r.adsDnsResolve(v, addresses)
+		r.cache.ClusterCache.Flush()
+		delete(domains, domain)
 	}
 }
 
-func (adsResolver *AdsDnsResolver) refreshAdsWorker() {
-	for adsResolver.refreshAdsDns() {
-	}
-}
-
-func (adsResolver *AdsDnsResolver) adsDnsResolve(pendingDomain *dns.PendingResolveDomain, addrs []string) {
+func (r *dnsController) adsDnsResolve(pendingDomain *pendingResolveDomain, addrs []string) {
 	for _, cluster := range pendingDomain.Clusters {
 		ready := overwriteDnsCluster(cluster, pendingDomain.DomainName, addrs)
 		if ready {
-			if !adsResolver.adsCache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, cluster) {
+			if !r.cache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, cluster) {
 				log.Debugf("cluster: %s is deleted", cluster.Name)
 				return
 			}
@@ -201,8 +205,8 @@ func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []stri
 	return ready
 }
 
-func getPendingResolveDomain(cds []*clusterv3.Cluster) map[string]*dns.PendingResolveDomain {
-	domains := make(map[string]*dns.PendingResolveDomain)
+func getPendingResolveDomain(cds []*clusterv3.Cluster) map[string]*pendingResolveDomain {
+	domains := make(map[string]*pendingResolveDomain)
 
 	for _, cluster := range cds {
 		if cluster.LoadAssignment == nil {
@@ -224,7 +228,7 @@ func getPendingResolveDomain(cds []*clusterv3.Cluster) map[string]*dns.PendingRe
 				if v, ok := domains[address]; ok {
 					v.Clusters = append(v.Clusters, cluster)
 				} else {
-					domainWithRefreshRate := &dns.PendingResolveDomain{
+					domainWithRefreshRate := &pendingResolveDomain{
 						DomainName:  address,
 						Clusters:    []*clusterv3.Cluster{cluster},
 						RefreshRate: cluster.GetDnsRefreshRate().AsDuration(),

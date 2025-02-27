@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
-	"kmesh.net/kmesh/pkg/dns"
 )
 
 func TestOverwriteDNSCluster(t *testing.T) {
@@ -197,19 +196,14 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 			clusters: []*clusterv3.Cluster{cluster1, cluster2},
 			expected: []string{"foo.bar", "foo.baz"},
 		},
-		{
-			name:     "remove all DNS type clusters",
-			clusters: []*clusterv3.Cluster{},
-			expected: []string{},
-		},
 	}
 
 	p := NewController(nil).Processor
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	dnsResolver, err := NewAdsDnsResolver(p.Cache)
+	dnsResolver, err := NewDnsResolver(p.Cache)
 	assert.NoError(t, err)
-	dnsResolver.StartAdsDnsResolver(stopCh)
+	dnsResolver.StartKernelNativeDnsController(stopCh)
 	p.DnsResolverChan = dnsResolver.Clusters
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -220,132 +214,6 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 			}, retry.Timeout(1*time.Second))
 		})
 	}
-}
-
-func TestDNS(t *testing.T) {
-	fakeDNSServer := dns.NewFakeDNSServer()
-
-	testDNSResolver, err := NewAdsDnsResolver(NewAdsCache(nil))
-	if err != nil {
-		t.Fatal(err)
-	}
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	// testDNSResolver.StartAdsDnsResolver(stopCh)
-	dnsServer := fakeDNSServer.Server.PacketConn.LocalAddr().String()
-	testDNSResolver.dnsResolver.ResolvConfServers = []string{dnsServer}
-
-	testCases := []struct {
-		name             string
-		domain           string
-		refreshRate      time.Duration
-		ttl              time.Duration
-		expected         []string
-		expectedAfterTTL []string
-		registerDomain   func(domain string)
-	}{
-		{
-			name:        "success",
-			domain:      "www.google.com.",
-			refreshRate: 10 * time.Second,
-			expected:    []string{"10.0.0.1", "fd00::1"},
-			registerDomain: func(domain string) {
-				fakeDNSServer.SetHosts(domain, 1)
-			},
-		},
-		{
-			name:             "check dns refresh after ttl, ttl < refreshRate",
-			domain:           "www.bing.com.",
-			refreshRate:      10 * time.Second,
-			ttl:              3 * time.Second,
-			expected:         []string{"10.0.0.2", "fd00::2"},
-			expectedAfterTTL: []string{"10.0.0.3", "fd00::3"},
-			registerDomain: func(domain string) {
-				fakeDNSServer.SetHosts(domain, 2)
-				fakeDNSServer.SetTTL(uint32(3))
-				time.AfterFunc(time.Second, func() {
-					fakeDNSServer.SetHosts(domain, 3)
-				})
-			},
-		},
-		{
-			name:             "check dns refresh after ttl without update bpfmap",
-			domain:           "www.test.com.",
-			refreshRate:      10 * time.Second,
-			ttl:              3 * time.Second,
-			expected:         []string{"10.0.0.2", "fd00::2"},
-			expectedAfterTTL: []string{"10.0.0.2", "fd00::2"},
-			registerDomain: func(domain string) {
-				fakeDNSServer.SetHosts(domain, 2)
-				fakeDNSServer.SetTTL(uint32(3))
-			},
-		},
-		{
-			name:             "check dns refresh after refreshRate, ttl > refreshRate",
-			domain:           "www.baidu.com.",
-			refreshRate:      3 * time.Second,
-			ttl:              10 * time.Second,
-			expected:         []string{"10.0.0.2", "fd00::2"},
-			expectedAfterTTL: []string{"10.0.0.3", "fd00::3"},
-			registerDomain: func(domain string) {
-				fakeDNSServer.SetHosts(domain, 2)
-				fakeDNSServer.SetTTL(uint32(10))
-				time.AfterFunc(time.Second, func() {
-					fakeDNSServer.SetHosts(domain, 3)
-				})
-			},
-		},
-		{
-			name:        "failed to resolve",
-			domain:      "www.kmesh.test.",
-			refreshRate: 10 * time.Second,
-			expected:    []string{},
-		},
-	}
-	var wg sync.WaitGroup
-	for _, testcase := range testCases {
-		wg.Add(1)
-		if testcase.registerDomain != nil {
-			testcase.registerDomain(testcase.domain)
-		}
-
-		input := &dns.PendingResolveDomain{
-			DomainName:  testcase.domain,
-			RefreshRate: testcase.refreshRate,
-		}
-		testDNSResolver.dnsResolver.Lock()
-		testDNSResolver.dnsResolver.Cache[testcase.domain] = &dns.DomainCacheEntry{}
-		testDNSResolver.dnsResolver.Unlock()
-		go testDNSResolver.refreshAdsWorker()
-
-		_, ttl, err := testDNSResolver.dnsResolver.Resolve(input.DomainName)
-		assert.NoError(t, err)
-		if ttl > input.RefreshRate {
-			ttl = input.RefreshRate
-		}
-		if ttl == 0 {
-			ttl = dns.DeRefreshInterval
-		}
-		testDNSResolver.dnsRefreshQueue.AddAfter(input, ttl)
-		time.Sleep(2 * time.Second)
-
-		res := testDNSResolver.dnsResolver.GetDNSAddresses(testcase.domain)
-		if len(res) != 0 || len(testcase.expected) != 0 {
-			if !reflect.DeepEqual(res, testcase.expected) {
-				t.Errorf("dns resolve for %s do not match. \n got %v\nwant %v", testcase.domain, res, testcase.expected)
-			}
-
-			if testcase.expectedAfterTTL != nil {
-				time.Sleep(ttl + 1)
-				res = testDNSResolver.dnsResolver.GetDNSAddresses(testcase.domain)
-				if !reflect.DeepEqual(res, testcase.expectedAfterTTL) {
-					t.Errorf("dns refresh after ttl failed, for %s do not match. \n got %v\nwant %v", testcase.domain, res, testcase.expectedAfterTTL)
-				}
-			}
-		}
-		wg.Done()
-	}
-	wg.Wait()
 }
 
 func TestGetPendingResolveDomain(t *testing.T) {
@@ -411,7 +279,7 @@ func TestGetPendingResolveDomain(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want map[string]*dns.PendingResolveDomain
+		want map[string]*pendingResolveDomain
 	}{
 		{
 			name: "empty domains test",
@@ -420,7 +288,7 @@ func TestGetPendingResolveDomain(t *testing.T) {
 					&utCluster,
 				},
 			},
-			want: map[string]*dns.PendingResolveDomain{},
+			want: map[string]*pendingResolveDomain{},
 		},
 		{
 			name: "cluster domain is not IP",
@@ -429,7 +297,7 @@ func TestGetPendingResolveDomain(t *testing.T) {
 					&utClusterWithHost,
 				},
 			},
-			want: map[string]*dns.PendingResolveDomain{
+			want: map[string]*pendingResolveDomain{
 				"www.google.com": {
 					DomainName: "www.google.com",
 					Clusters:   []*clusterv3.Cluster{&utClusterWithHost},

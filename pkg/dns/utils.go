@@ -107,8 +107,8 @@ func (s *fakeDNSServer) SetTTL(ttl uint32) {
 func (r *DNSResolver) GetDNSAddresses(domain string) []string {
 	r.Lock()
 	defer r.Unlock()
-	if entry, ok := r.Cache[domain]; ok {
-		return entry.addresses
+	if entry, ok := r.cache[domain]; ok {
+		return entry.Addresses
 	}
 	return nil
 }
