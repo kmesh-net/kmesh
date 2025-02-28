@@ -210,17 +210,4 @@ static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp
    
 }
 
-static inline void report_realtime_tcp_conn(struct tcp_probe_info *info_vals) {
-    struct tcp_probe_info *info = bpf_ringbuf_reserve(&map_of_tcp_probe, 
-                                                      sizeof(struct tcp_probe_info), 
-                                                      0);
-    if (!info) {
-        BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
-        return;
-    }
-
-    __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
-    bpf_ringbuf_submit(info, 0);
-}
-
 #endif
