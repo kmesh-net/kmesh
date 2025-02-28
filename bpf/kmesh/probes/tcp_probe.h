@@ -179,7 +179,6 @@ static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_t
     bpf_ringbuf_submit(info, 0);
 }
 
-
 static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock,  __u64 sock_id,  __u32 state)
 {
     struct tcp_probe_info *info = NULL;
@@ -207,7 +206,30 @@ static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp
         bpf_map_delete_elem(&map_of_tcp_conns, &sock_id);
         bpf_ringbuf_submit(info, 0);
     }
-   
+}
+
+static inline void update_tcp_conn_info_on_retransmits(struct bpf_tcp_sock *tcp_sock,  __u64 sock_id)
+{
+    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &sock_id);
+    if (!info_vals) {
+        BPF_LOG(ERR, PROBE, "lookup in map_of_tcp_conns failed\n");
+        return;
+    }
+    __u64 now = bpf_ktime_get_ns();
+    info_vals->duration = now - info_vals->start_ns;
+    get_tcp_probe_info(tcp_sock, info_vals);
+}
+
+static inline void update_tcp_conn_info_on_rtt(struct bpf_tcp_sock *tcp_sock,  __u64 sock_id)
+{
+    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &sock_id);
+    if (!info_vals) {
+        BPF_LOG(ERR, PROBE, "lookup in map_of_tcp_conns failed\n");
+        return;
+    }
+    __u64 now = bpf_ktime_get_ns();
+    info_vals->duration = now - info_vals->start_ns;
+    get_tcp_probe_info(tcp_sock, info_vals);
 }
 
 #endif

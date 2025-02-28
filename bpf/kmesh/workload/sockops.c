@@ -282,6 +282,16 @@ int sockops_prog(struct bpf_sock_ops *skops)
             clean_dstinfo_map(skops);
         }
         break;
+    case BPF_SOCK_OPS_RETRANS_CB:
+        if (!is_managed_by_kmesh(skops))
+            break;
+        observe_on_retransmit(skops->sk, sock_id);
+        break;
+    case BPF_SOCK_OPS_RTT_CB:
+        if (!is_managed_by_kmesh(skops))
+            break;
+        observe_on_rtt(skops->sk, sock_id);
+        break;
     default:
         break;
     }

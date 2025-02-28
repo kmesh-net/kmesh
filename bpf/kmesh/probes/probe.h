@@ -93,6 +93,40 @@ static inline void observe_on_status_change(struct bpf_sock *sk, __u64 sock_id, 
     update_tcp_conn_info_on_state_change(tcp_sock, sock_id, state);
 }
 
+static inline void observe_on_retransmit(struct bpf_sock *sk, __u64 sock_id) 
+{
+    if (!is_monitoring_enable()) {
+        return;
+    }
+
+    struct bpf_tcp_sock *tcp_sock = NULL;
+    if (!sk)
+        return;
+    tcp_sock = bpf_tcp_sock(sk);
+    if (!tcp_sock)
+        return;
+
+    update_tcp_conn_info_on_retransmits(tcp_sock, sock_id);
+}
+
+// observe_on_rtt is called when the RTT of a connection changes
+static inline void observe_on_rtt(struct bpf_sock *sk, __u64 sock_id) 
+{
+    if (!is_monitoring_enable()) {
+        return;
+    }
+
+    struct bpf_tcp_sock *tcp_sock = NULL;
+
+    if (!sk)
+        return;
+    tcp_sock = bpf_tcp_sock(sk);
+    if (!tcp_sock)
+        return;
+
+    update_tcp_conn_info_on_rtt(tcp_sock, sock_id);
+}
+
 static inline void report_after_threshold_tm(struct tcp_probe_info *info_vals)
 {
     if (!is_monitoring_enable()) {
