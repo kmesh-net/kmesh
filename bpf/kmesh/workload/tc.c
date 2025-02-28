@@ -59,21 +59,28 @@ static int timer_callback(struct bpf_timer *timer)
     return 0;
 }
 
+// Also trigger's on icmp packets (hence can be used for monitor packet loss)
 SEC("tc")
-int init_tcp_conns_flush_timer(struct __sk_buff *skb)
+int tc_prog(struct __sk_buff *skb)
 {
     int key = 0;
     struct bpf_timer *timer = bpf_map_lookup_elem(&tcp_conn_flush_timer, &key);
     if (!timer){
         BPF_LOG(ERR, TIMER, "Failed to lookup tcp timer\n");
+    }else{
+        // Initialize and start timer
+        bpf_timer_init(timer, &tcp_conn_flush_timer, 1);
+        bpf_timer_set_callback(timer, timer_callback);
+        bpf_timer_start(timer, TIMER_INTERVAL_NS, 0);
+    } 
+    
+    struct bpf_tcp_sock *sk = skb->sk;
+    if (!sk) {
+        BPF_LOG(ERR, TC, "Failed to get tcp sock\n");
         return 0;
     }
-    
-    // Initialize and start timer
-    bpf_timer_init(timer, &tcp_conn_flush_timer, 1);
-    bpf_timer_set_callback(timer, timer_callback);
-    bpf_timer_start(timer, TIMER_INTERVAL_NS, 0);
 
+    observe_on_data(sk);
     return 0;
 }
 

@@ -248,7 +248,7 @@ static inline void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops
 SEC("sockops")
 int sockops_prog(struct bpf_sock_ops *skops)
 {
-    __u64 sock_id = bpf_get_socket_cookie(skops);
+    __u64 sock_cookie = bpf_get_socket_cookie(skops);
 
     if (skops->family != AF_INET && skops->family != AF_INET6)
         return 0;
@@ -259,7 +259,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops))
             break;
-        observe_on_connect_established(skops->sk, sock_id, OUTBOUND);
+        observe_on_connect_established(skops->sk, sock_cookie, OUTBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0 || bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RETRANS_CB_FLAG) != 0 || bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RETRANS_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         __u64 *current_sk = (__u64 *)skops->sk;
@@ -270,13 +270,13 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops) || skip_specific_probe(skops))
             break;
-        observe_on_connect_established(skops->sk, sock_id, INBOUND);
+        observe_on_connect_established(skops->sk, sock_cookie, INBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0 || bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RETRANS_CB_FLAG) != 0 || bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RETRANS_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         auth_ip_tuple(skops);
         break;
     case BPF_SOCK_OPS_STATE_CB:
-        observe_on_status_change(skops->sk, sock_id, skops->args[0]);
+        observe_on_status_change(skops->sk, skops->args[0]);
         if (skops->args[1] == BPF_TCP_CLOSE) {
             clean_auth_map(skops);
             clean_dstinfo_map(skops);
@@ -285,12 +285,12 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_RETRANS_CB:
         if (!is_managed_by_kmesh(skops))
             break;
-        observe_on_retransmit(skops->sk, sock_id);
+        observe_on_retransmit(skops->sk);
         break;
     case BPF_SOCK_OPS_RTT_CB:
         if (!is_managed_by_kmesh(skops))
             break;
-        observe_on_rtt(skops->sk, sock_id);
+        observe_on_rtt(skops->sk);
         break;
     default:
         break;

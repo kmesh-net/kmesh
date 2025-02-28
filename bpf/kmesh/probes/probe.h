@@ -35,7 +35,7 @@ static inline void observe_on_pre_connect(struct bpf_sock *sk)
     return;
 }
 
-static inline void observe_on_connect_established(struct bpf_sock *sk, __u64 sock_id, __u8 direction)
+static inline void observe_on_connect_established(struct bpf_sock *sk, __u64 sock_cookie, __u8 direction)
 {
     if (!is_monitoring_enable()) {
         return;
@@ -62,11 +62,11 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u64 soc
         storage->connect_ns = bpf_ktime_get_ns();
     storage->direction = direction;
     storage->connect_success = true;
-
-    record_report_tcp_conn_info(sk, tcp_sock, storage, sock_id, BPF_TCP_ESTABLISHED);
+    storage->sock_cookie = sock_cookie;
+    record_report_tcp_conn_info(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 
-static inline void observe_on_status_change(struct bpf_sock *sk, __u64 sock_id, __u32 state)
+static inline void observe_on_status_change(struct bpf_sock *sk,  __u32 state)
 {
     if (!is_monitoring_enable()) {
         return;
@@ -86,19 +86,22 @@ static inline void observe_on_status_change(struct bpf_sock *sk, __u64 sock_id, 
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
-        BPF_LOG(ERR, PROBE, "on close: bpf_sk_storage_get failed\n");
+        BPF_LOG(ERR, PROBE, "on status: bpf_sk_storage_get failed\n");
         return;
     }
 
-    update_tcp_conn_info_on_state_change(tcp_sock, sock_id, state);
+    update_tcp_conn_info_on_state_change(tcp_sock, storage, state);
+    if(state == BPF_TCP_CLOSE) {
+        bpf_sk_storage_delete(&map_of_sock_storage, sk);
+    }
 }
 
-static inline void observe_on_retransmit(struct bpf_sock *sk, __u64 sock_id) 
+static inline void observe_on_retransmit(struct bpf_sock *sk) 
 {
     if (!is_monitoring_enable()) {
         return;
     }
-
+    struct sock_storage_data *storage = NULL;
     struct bpf_tcp_sock *tcp_sock = NULL;
     if (!sk)
         return;
@@ -106,16 +109,22 @@ static inline void observe_on_retransmit(struct bpf_sock *sk, __u64 sock_id)
     if (!tcp_sock)
         return;
 
-    update_tcp_conn_info_on_retransmits(tcp_sock, sock_id);
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
+    if (!storage) {
+        BPF_LOG(ERR, PROBE, "on retransmit: bpf_sk_storage_get failed\n");
+        return;
+    }
+    update_tcp_conn_info(tcp_sock, storage);
 }
 
 // observe_on_rtt is called when the RTT of a connection changes
-static inline void observe_on_rtt(struct bpf_sock *sk, __u64 sock_id) 
+static inline void observe_on_rtt(struct bpf_sock *sk) 
 {
     if (!is_monitoring_enable()) {
         return;
     }
 
+    struct sock_storage_data *storage = NULL;
     struct bpf_tcp_sock *tcp_sock = NULL;
 
     if (!sk)
@@ -123,8 +132,33 @@ static inline void observe_on_rtt(struct bpf_sock *sk, __u64 sock_id)
     tcp_sock = bpf_tcp_sock(sk);
     if (!tcp_sock)
         return;
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
+    if (!storage) {
+        BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
+        return;
+    }
+    update_tcp_conn_info(tcp_sock, storage);
+}
 
-    update_tcp_conn_info_on_rtt(tcp_sock, sock_id);
+static inline void observe_on_data(struct bpf_sock *sk){
+    if (!is_monitoring_enable()) {
+        return;
+    }
+
+    struct sock_storage_data *storage = NULL;
+    struct bpf_tcp_sock *tcp_sock = NULL;
+
+    if (!sk)
+        return;
+    tcp_sock = bpf_tcp_sock(sk);
+    if (!tcp_sock)
+        return;
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
+    if (!storage) {
+        BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
+        return;
+    }
+    update_tcp_conn_info(tcp_sock, storage);
 }
 
 static inline void report_after_threshold_tm(struct tcp_probe_info *info_vals)
@@ -139,6 +173,7 @@ static inline void report_after_threshold_tm(struct tcp_probe_info *info_vals)
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
         return;
     }
+
     __u64 now = bpf_ktime_get_ns();
     info_vals->last_report_ns = now;
     info_vals->duration = now - info->start_ns;

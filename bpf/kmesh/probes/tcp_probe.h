@@ -60,13 +60,13 @@ struct {
 // Ebpf map to store active tcp connections
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
-    __type(key, __u64); // use sock_id as key
+    __type(key, __u64); // use sock_cookie as key
     __type(value, struct tcp_probe_info);
     __uint(max_entries, MAP_SIZE_OF_TCP_CONNS);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_tcp_conns SEC(".maps");
 
-static inline void constuct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
+static inline void construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
 {
     if (direction == OUTBOUND) {
         if (sk->family == AF_INET) {
@@ -146,7 +146,7 @@ static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe
 }
 
 // Store new tcp connection in map_of_tcp_conns
-static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u64 sock_id,  __u32 state)
+static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage,  __u32 state)
 {
     struct tcp_probe_info *info = NULL;
     info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
@@ -158,7 +158,7 @@ static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_t
     
     info->start_ns = storage->connect_ns;
     info->last_report_ns = now;
-    constuct_tuple(sk, &info->tuple, storage->direction);
+    construct_tuple(sk, &info->tuple, storage->direction);
 
     info->state = state;
     info->direction = storage->direction;
@@ -175,14 +175,14 @@ static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_t
     }
 
     construct_orig_dst_info(sk, info);
-    bpf_map_update_elem(&map_of_tcp_conns, &sock_id, info, BPF_ANY);
+    bpf_map_update_elem(&map_of_tcp_conns, &storage->sock_cookie, info, BPF_ANY);
     bpf_ringbuf_submit(info, 0);
 }
 
-static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock,  __u64 sock_id,  __u32 state)
+static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage,  __u32 state)
 {
     struct tcp_probe_info *info = NULL;
-    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &sock_id);
+    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &storage->sock_cookie);
     if (!info_vals) {
         BPF_LOG(ERR, PROBE, "lookup in map_of_tcp_conns failed\n");
         return;
@@ -203,26 +203,15 @@ static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp
         }
 
        __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
-        bpf_map_delete_elem(&map_of_tcp_conns, &sock_id);
+        bpf_map_delete_elem(&map_of_tcp_conns, &storage->sock_cookie);
         bpf_ringbuf_submit(info, 0);
     }
 }
 
-static inline void update_tcp_conn_info_on_retransmits(struct bpf_tcp_sock *tcp_sock,  __u64 sock_id)
-{
-    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &sock_id);
-    if (!info_vals) {
-        BPF_LOG(ERR, PROBE, "lookup in map_of_tcp_conns failed\n");
-        return;
-    }
-    __u64 now = bpf_ktime_get_ns();
-    info_vals->duration = now - info_vals->start_ns;
-    get_tcp_probe_info(tcp_sock, info_vals);
-}
 
-static inline void update_tcp_conn_info_on_rtt(struct bpf_tcp_sock *tcp_sock,  __u64 sock_id)
+static inline void update_tcp_conn_info(struct bpf_tcp_sock *tcp_sock,  struct sock_storage_data *storage)
 {
-    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &sock_id);
+    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &storage->sock_cookie);
     if (!info_vals) {
         BPF_LOG(ERR, PROBE, "lookup in map_of_tcp_conns failed\n");
         return;
