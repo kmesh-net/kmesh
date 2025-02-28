@@ -63,14 +63,19 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u64 soc
     storage->direction = direction;
     storage->connect_success = true;
 
-    record_report_tcp_conn(sk, tcp_sock, storage, sock_id, BPF_TCP_ESTABLISHED);
+    record_report_tcp_conn_info(sk, tcp_sock, storage, sock_id, BPF_TCP_ESTABLISHED);
 }
 
-static inline void observe_on_close(struct bpf_sock *sk, __u64 sock_id)
+static inline void observe_on_status_change(struct bpf_sock *sk, __u64 sock_id, __u32 state)
 {
     if (!is_monitoring_enable()) {
         return;
     }
+
+    if (state == BPF_TCP_ESTABLISHED) {
+        return;
+    }
+
     struct bpf_tcp_sock *tcp_sock = NULL;
     struct sock_storage_data *storage = NULL;
     if (!sk)
@@ -85,7 +90,7 @@ static inline void observe_on_close(struct bpf_sock *sk, __u64 sock_id)
         return;
     }
 
-    remove_report_tcp_conn(sk, tcp_sock, storage, sock_id, BPF_TCP_CLOSE);
+    update_tcp_conn_info_on_state_change(tcp_sock, sock_id, state);
 }
 
 static inline void obeserve_on_data_transfer(struct bpf_sock *sk)

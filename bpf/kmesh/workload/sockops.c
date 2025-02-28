@@ -276,8 +276,8 @@ int sockops_prog(struct bpf_sock_ops *skops)
         auth_ip_tuple(skops);
         break;
     case BPF_SOCK_OPS_STATE_CB:
+        observe_on_status_change(skops->sk, sock_id, skops->args[0]);
         if (skops->args[1] == BPF_TCP_CLOSE) {
-            observe_on_close(skops->sk, sock_id);
             clean_auth_map(skops);
             clean_dstinfo_map(skops);
         }

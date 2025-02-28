@@ -146,7 +146,7 @@ static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe
 }
 
 // Store new tcp connection in map_of_tcp_conns
-static inline void record_report_tcp_conn(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u64 sock_id,  __u32 state)
+static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u64 sock_id,  __u32 state)
 {
     struct tcp_probe_info *info = NULL;
     info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
@@ -154,36 +154,12 @@ static inline void record_report_tcp_conn(struct bpf_sock *sk, struct bpf_tcp_so
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
         return;
     }
-    update_info(sk, tcp_sock, storage, state, info);
-
-    bpf_map_update_elem(&map_of_tcp_conns, &sock_id, info, BPF_ANY);
-    bpf_ringbuf_submit(info, 0);
-}
-
-// Remove tcp connection from map_of_tcp_conns when the conn is closed
-static inline void remove_report_tcp_conn(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u64 sock_id,  __u32 state)
-{
-    struct tcp_probe_info *info = NULL;
-
-    bpf_map_delete_elem(&map_of_tcp_conns, &sock_id);
-
-    info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
-    if (!info) {
-        BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
-        return;
-    }
-    update_info(sk, tcp_sock, storage, state, info);
-    bpf_ringbuf_submit(info, 0);
-}
-
-static inline void
-update_info(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state, struct tcp_probe_info *info)
-{
     __u64 now = bpf_ktime_get_ns();
     
     info->start_ns = storage->connect_ns;
     info->last_report_ns = now;
     constuct_tuple(sk, &info->tuple, storage->direction);
+
     info->state = state;
     info->direction = storage->direction;
     info->duration = now - info->start_ns;
@@ -199,6 +175,39 @@ update_info(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stor
     }
 
     construct_orig_dst_info(sk, info);
+    bpf_map_update_elem(&map_of_tcp_conns, &sock_id, info, BPF_ANY);
+    bpf_ringbuf_submit(info, 0);
+}
+
+
+static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock,  __u64 sock_id,  __u32 state)
+{
+    struct tcp_probe_info *info = NULL;
+    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &sock_id);
+    if (!info_vals) {
+        BPF_LOG(ERR, PROBE, "lookup in map_of_tcp_conns failed\n");
+        return;
+    }
+    __u64 now = bpf_ktime_get_ns();
+    info_vals->last_report_ns = now;
+    info_vals->state = state;
+    info_vals->duration = now - info->start_ns;
+    get_tcp_probe_info(tcp_sock, info_vals);
+
+    // Remove tcp connection from map_of_tcp_conns when the conn is closed and report the info to ring-buff
+    if(state == BPF_TCP_CLOSE) {
+        info_vals->close_ns = now;
+        info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
+        if (!info) {
+            BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
+            return;
+        }
+
+       __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
+        bpf_map_delete_elem(&map_of_tcp_conns, &sock_id);
+        bpf_ringbuf_submit(info, 0);
+    }
+   
 }
 
 static inline void report_realtime_tcp_conn(struct tcp_probe_info *info_vals) {
