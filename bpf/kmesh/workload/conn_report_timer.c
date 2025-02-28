@@ -23,8 +23,8 @@ struct {
 
 static void flush_tcp_conns()
 {
-    struct bpf_sock *key = NULL, *next_key = NULL;
-    struct tcp_conns *conn;
+    struct __u64 *key = NULL, *next_key = NULL;
+    struct tcp_probe_info *conn;
 
     for(int i = 0; i < MAP_SIZE_OF_TCP_CONNS; i++) {
         if(bpf_map_get_next_key(&map_of_tcp_conns, key, next_key) != 0) {
@@ -39,7 +39,7 @@ static void flush_tcp_conns()
         __u64 now = bpf_ktime_get_ns();
         // Check if connection duration exceeds threshold
         if ((now - conn->start_ns) > LONG_CONN_THRESHOLD_TIME) {
-            obeserve_on_data_transfer(conn->sk);
+            report_after_threshold_tm(conn);
         }
 
         key = next_key;

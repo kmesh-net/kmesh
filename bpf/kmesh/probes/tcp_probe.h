@@ -189,13 +189,13 @@ static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp
         return;
     }
     __u64 now = bpf_ktime_get_ns();
-    info_vals->last_report_ns = now;
     info_vals->state = state;
     info_vals->duration = now - info->start_ns;
     get_tcp_probe_info(tcp_sock, info_vals);
 
     // Remove tcp connection from map_of_tcp_conns when the conn is closed and report the info to ring-buff
     if(state == BPF_TCP_CLOSE) {
+        info_vals->last_report_ns = now;
         info_vals->close_ns = now;
         info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
         if (!info) {

@@ -93,27 +93,23 @@ static inline void observe_on_status_change(struct bpf_sock *sk, __u64 sock_id, 
     update_tcp_conn_info_on_state_change(tcp_sock, sock_id, state);
 }
 
-static inline void obeserve_on_data_transfer(struct bpf_sock *sk)
+static inline void report_after_threshold_tm(struct tcp_probe_info *info_vals)
 {
-
     if (!is_monitoring_enable()) {
         return;
     }
-    struct bpf_tcp_sock *tcp_sock = NULL;
-    struct sock_storage_data *storage = NULL;
-    if (!sk)
-        return;
-    tcp_sock = bpf_tcp_sock(sk);
-    if (!tcp_sock)
-        return;
+    struct tcp_probe_info *info = NULL;
 
-    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
-    if (!storage) {
-        BPF_LOG(ERR, PROBE, "on close: bpf_sk_storage_get failed\n");
+    info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
+    if (!info) {
+        BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
         return;
     }
-
-    tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
+    __u64 now = bpf_ktime_get_ns();
+    info_vals->last_report_ns = now;
+    info_vals->duration = now - info->start_ns;
+   __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
+   bpf_ringbuf_submit(info, 0);
 }
 
 #endif
