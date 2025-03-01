@@ -126,6 +126,13 @@ type connectionDataV6 struct {
 	statistics
 }
 
+type connMetric struct {
+	receivedBytes uint32
+	sentBytes     uint32
+	totalRetrans  uint32
+	PacketLost    uint32
+}
+
 type requestMetric struct {
 	src            [4]uint32
 	dst            [4]uint32
@@ -324,6 +331,8 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 		}
 	}()
 
+	tcp_conns := make(map[uint64]connMetric)
+
 	// Register metrics to Prometheus and start Prometheus server
 	go RunPrometheusClient(ctx)
 	go func() {
@@ -362,9 +371,9 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			buf := bytes.NewBuffer(originInfo)
 			switch connectType {
 			case constants.MSG_TYPE_IPV4:
-				data, err = buildV4Metric(buf)
+				data, err = buildV4Metric(buf, tcp_conns)
 			case constants.MSG_TYPE_IPV6:
-				data, err = buildV6Metric(buf)
+				data, err = buildV6Metric(buf, tcp_conns)
 			default:
 				log.Errorf("get connection info failed: %v", err)
 				continue
@@ -390,9 +399,10 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 	}
 }
 
-func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
+func buildV4Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestMetric, error) {
 	data := requestMetric{}
 	connectData := connectionDataV4{}
+
 	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
 		return data, err
 	}
@@ -414,8 +424,8 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 		data.origDstPort = connectData.OriginalPort
 	}
 
-	data.sentBytes = connectData.SentBytes
-	data.receivedBytes = connectData.ReceivedBytes
+	data.sentBytes = connectData.SentBytes - tcp_conns[connectData.ConnId].sentBytes
+	data.receivedBytes = connectData.ReceivedBytes - tcp_conns[connectData.ConnId].receivedBytes
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
@@ -424,13 +434,24 @@ func buildV4Metric(buf *bytes.Buffer) (requestMetric, error) {
 	data.closeTime = connectData.CloseTime
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
-	data.totalRetrans = connectData.statistics.Retransmits
-	data.PacketLost = connectData.statistics.LostPackets
+	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[connectData.ConnId].totalRetrans
+	data.PacketLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].PacketLost
+
+	tcp_conns[connectData.ConnId] = connMetric{
+		receivedBytes: connectData.ReceivedBytes,
+		sentBytes:     connectData.SentBytes,
+		totalRetrans:  connectData.statistics.Retransmits,
+		PacketLost:    connectData.statistics.LostPackets,
+	}
+
+	if data.state == TCP_CLOSTED {
+		delete(tcp_conns, connectData.ConnId)
+	}
 
 	return data, nil
 }
 
-func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
+func buildV6Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestMetric, error) {
 	data := requestMetric{}
 	connectData := connectionDataV6{}
 	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
@@ -453,18 +474,29 @@ func buildV6Metric(buf *bytes.Buffer) (requestMetric, error) {
 		data.origDstPort = connectData.OriginalPort
 	}
 
-	data.sentBytes = connectData.SentBytes
-	data.receivedBytes = connectData.ReceivedBytes
+	data.sentBytes = connectData.SentBytes - tcp_conns[connectData.ConnId].sentBytes
+	data.receivedBytes = connectData.ReceivedBytes - tcp_conns[connectData.ConnId].receivedBytes
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
-	data.closeTime = connectData.CloseTime
 	data.startTime = connectData.StartTime
 	data.lastReportTime = connectData.LastReportTime
+	data.closeTime = connectData.CloseTime
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
-	data.totalRetrans = connectData.statistics.Retransmits
-	data.PacketLost = connectData.statistics.LostPackets
+	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[connectData.ConnId].totalRetrans
+	data.PacketLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].PacketLost
+
+	tcp_conns[connectData.ConnId] = connMetric{
+		receivedBytes: connectData.ReceivedBytes,
+		sentBytes:     connectData.SentBytes,
+		totalRetrans:  connectData.statistics.Retransmits,
+		PacketLost:    connectData.statistics.LostPackets,
+	}
+
+	if data.state == TCP_CLOSTED {
+		delete(tcp_conns, connectData.ConnId)
+	}
 
 	return data, nil
 }
