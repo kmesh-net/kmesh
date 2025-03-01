@@ -109,6 +109,7 @@ type connectionDataV4 struct {
 	OriginalPort uint16
 	_            uint16
 	_            [3]uint32
+	ConnId       uint64
 	statistics
 }
 
@@ -121,6 +122,7 @@ type connectionDataV6 struct {
 	OriginalAddr [4]uint32
 	OriginalPort uint16
 	_            uint16
+	ConnId       uint64
 	statistics
 }
 

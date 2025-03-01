@@ -36,6 +36,7 @@ struct tcp_probe_info {
     __u32 type;
     struct bpf_sock_tuple tuple;
     struct orig_dst_info orig_dst;
+    __u64 conn_id;    /* sock_cookie */
     __u32 sent_bytes; /* Total send bytes from start to last_report_ns */
     __u32 received_bytes; /* Total recv bytes from start to last_report_ns */
     __u32 conn_success;
@@ -156,6 +157,7 @@ static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_t
     }
     __u64 now = bpf_ktime_get_ns();
     
+    info->conn_id  = storage->sock_cookie;
     info->start_ns = storage->connect_ns;
     info->last_report_ns = now;
     construct_tuple(sk, &info->tuple, storage->direction);
