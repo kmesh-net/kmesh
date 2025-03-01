@@ -36,20 +36,20 @@ struct tcp_probe_info {
     __u32 type;
     struct bpf_sock_tuple tuple;
     struct orig_dst_info orig_dst;
-    __u32 sent_bytes;
-    __u32 received_bytes;
+    __u32 sent_bytes; /* Total send bytes from start to last_report_ns */
+    __u32 received_bytes; /* Total recv bytes from start to last_report_ns */
     __u32 conn_success;
     __u32 direction;
     __u32 state;    /* tcp state */
     __u64 duration; // ns
     __u64 start_ns; 
-    __u64 last_report_ns; 
+    __u64 last_report_ns; /*timestamp of the last metrics report*/ 
     __u64 close_ns;
     __u32 protocol;
-    __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
-    __u32 rtt_min;
-    __u32 total_retrans; /* Total retransmits for entire connection */
-    __u32 lost_out;      /* Lost packets			*/
+    __u32 srtt_us; /* smoothed round trip time << 3 in usecs until last_report_ns */
+    __u32 rtt_min;  /* min round trip time in usecs until last_report_ns */
+    __u32 total_retrans; /* Total retransmits from start to last_report_ns */
+    __u32 lost_out;      /* Lost packets from start to last_report_ns	*/
 };
 
 struct {
