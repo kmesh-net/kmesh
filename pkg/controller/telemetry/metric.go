@@ -51,6 +51,22 @@ const (
 
 var osStartTime time.Time
 
+var TCP_STATES = map[uint32]string{
+	1:  "BPF_TCP_ESTABLISHED",
+	2:  "BPF_TCP_SYN_SENT",
+	3:  "BPF_TCP_SYN_RECV",
+	4:  "BPF_TCP_FIN_WAIT1",
+	5:  "BPF_TCP_FIN_WAIT2",
+	6:  "BPF_TCP_TIME_WAIT",
+	7:  "BPF_TCP_CLOSE",
+	8:  "BPF_TCP_CLOSE_WAIT",
+	9:  "BPF_TCP_LAST_ACK",
+	10: "BPF_TCP_LISTEN",
+	11: "BPF_TCP_CLOSING",
+	12: "BPF_TCP_NEW_SYN_RECV",
+	13: "BPF_TCP_MAX_STATES",
+}
+
 type MetricController struct {
 	EnableAccesslog      atomic.Bool
 	EnableMonitoring     atomic.Bool
@@ -126,10 +142,11 @@ type connectionDataV6 struct {
 }
 
 type connMetric struct {
+	connId        uint64
 	receivedBytes uint32
 	sentBytes     uint32
 	totalRetrans  uint32
-	PacketLost    uint32
+	packetLost    uint32
 }
 
 type requestMetric struct {
@@ -139,6 +156,7 @@ type requestMetric struct {
 	dstPort        uint16
 	origDstAddr    [4]uint32
 	origDstPort    uint16
+	currentConnId  uint64
 	direction      uint32
 	receivedBytes  uint32
 	sentBytes      uint32
@@ -384,7 +402,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 
 			if m.EnableAccesslog.Load() {
-				OutputAccesslog(data, accesslog)
+				OutputAccesslog(data, tcp_conns[data.currentConnId], accesslog)
 			}
 
 			m.mutex.Lock()
@@ -432,13 +450,14 @@ func buildV4Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[connectData.ConnId].totalRetrans
-	data.PacketLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].PacketLost
-
+	data.PacketLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].packetLost
+	data.currentConnId = connectData.ConnId
 	tcp_conns[connectData.ConnId] = connMetric{
+		connId:        connectData.ConnId,
 		receivedBytes: connectData.ReceivedBytes,
 		sentBytes:     connectData.SentBytes,
 		totalRetrans:  connectData.statistics.Retransmits,
-		PacketLost:    connectData.statistics.LostPackets,
+		packetLost:    connectData.statistics.LostPackets,
 	}
 
 	if data.state == TCP_CLOSTED {
@@ -481,13 +500,13 @@ func buildV6Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[connectData.ConnId].totalRetrans
-	data.PacketLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].PacketLost
-
+	data.PacketLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].packetLost
+	data.currentConnId = connectData.ConnId
 	tcp_conns[connectData.ConnId] = connMetric{
 		receivedBytes: connectData.ReceivedBytes,
 		sentBytes:     connectData.SentBytes,
 		totalRetrans:  connectData.statistics.Retransmits,
-		PacketLost:    connectData.statistics.LostPackets,
+		packetLost:    connectData.statistics.LostPackets,
 	}
 
 	if data.state == TCP_CLOSTED {
@@ -625,6 +644,7 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 		accesslog.direction = "OUTBOUND"
 	}
 
+	accesslog.status = TCP_STATES[data.state]
 	return *trafficLabels, *accesslog
 }
 
