@@ -244,7 +244,7 @@ static inline int convert_v6(char *data, __u32 *ip6)
         __u16 ip_1 = (ip >> 0) & 0xFFFF;
         __u16 ip_2 = (ip >> 16) & 0xFFFF;
         for (int j = 0; j < 2; j++) {
-            __u16 ip_1 = (ip)&0xFFFF;
+            __u16 ip_1 = (ip) & 0xFFFF;
             __u8 h_1 = (ip_1 >> 0) & 0xFF;
             __u8 h_2 = (ip_1 >> 8) & 0xFF;
             *data++ = hex_digits[(h_1 >> 4) & 0xF];
