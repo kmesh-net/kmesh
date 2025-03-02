@@ -45,7 +45,6 @@ struct tcp_probe_info {
     __u64 duration; // ns
     __u64 start_ns; 
     __u64 last_report_ns; /*timestamp of the last metrics report*/ 
-    __u64 close_ns;
     __u32 protocol;
     __u32 srtt_us; /* smoothed round trip time << 3 in usecs until last_report_ns */
     __u32 rtt_min;  /* min round trip time in usecs until last_report_ns */
@@ -166,10 +165,7 @@ static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_t
     info->direction = storage->direction;
     info->duration = now - info->start_ns;
     info->conn_success = storage->connect_success;
-    info->close_ns = 0;
-    if (state == BPF_TCP_CLOSE) {
-        info->close_ns = now;
-    }
+
     get_tcp_probe_info(tcp_sock, info);
     (*info).type = (sk->family == AF_INET) ? IPV4 : IPV6;
     if (is_ipv4_mapped_addr(sk->dst_ip6)) {
@@ -197,7 +193,6 @@ static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp
     // Remove tcp connection from map_of_tcp_conns when the conn is closed and report the info to ring-buff
     if(state == BPF_TCP_CLOSE) {
         info_vals->last_report_ns = now;
-        info_vals->close_ns = now;
         info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
         if (!info) {
             BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");

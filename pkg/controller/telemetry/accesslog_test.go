@@ -37,10 +37,10 @@ func Test_buildAccesslog(t *testing.T) {
 			name: "build accesslog",
 			args: args{
 				data: requestMetric{
-					sentBytes:     uint32(60),
-					receivedBytes: uint32(172),
-					duration:      uint64(2236000),
-					closeTime:     uint64(3506247005837715),
+					sentBytes:      uint32(60),
+					receivedBytes:  uint32(172),
+					duration:       uint64(2236000),
+					lastReportTime: uint64(3506247005837715),
 				},
 				accesslog: logInfo{
 					direction:            "INBOUND",

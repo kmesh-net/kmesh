@@ -89,7 +89,6 @@ type statistics struct {
 	Duration       uint64
 	StartTime      uint64
 	LastReportTime uint64
-	CloseTime      uint64
 	// TODO: statistics below are not used for now
 	Protocol    uint32
 	SRttTime    uint32
@@ -148,7 +147,6 @@ type requestMetric struct {
 	duration       uint64
 	startTime      uint64
 	lastReportTime uint64
-	closeTime      uint64
 	srtt           uint32
 	minRtt         uint32
 	totalRetrans   uint32
@@ -431,7 +429,6 @@ func buildV4Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 	data.duration = connectData.Duration
 	data.startTime = connectData.StartTime
 	data.lastReportTime = connectData.LastReportTime
-	data.closeTime = connectData.CloseTime
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[connectData.ConnId].totalRetrans
@@ -481,7 +478,6 @@ func buildV6Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 	data.duration = connectData.Duration
 	data.startTime = connectData.StartTime
 	data.lastReportTime = connectData.LastReportTime
-	data.closeTime = connectData.CloseTime
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[connectData.ConnId].totalRetrans
