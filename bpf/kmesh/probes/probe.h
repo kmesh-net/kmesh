@@ -66,7 +66,7 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u64 soc
     record_report_tcp_conn_info(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 
-static inline void observe_on_status_change(struct bpf_sock *sk,  __u32 state)
+static inline void observe_on_status_change(struct bpf_sock *sk, __u32 state)
 {
     if (!is_monitoring_enable()) {
         return;
@@ -91,12 +91,12 @@ static inline void observe_on_status_change(struct bpf_sock *sk,  __u32 state)
     }
 
     update_tcp_conn_info_on_state_change(tcp_sock, storage, state);
-    if(state == BPF_TCP_CLOSE) {
+    if (state == BPF_TCP_CLOSE) {
         bpf_sk_storage_delete(&map_of_sock_storage, sk);
     }
 }
 
-static inline void observe_on_retransmit(struct bpf_sock *sk) 
+static inline void observe_on_retransmit(struct bpf_sock *sk)
 {
     if (!is_monitoring_enable()) {
         return;
@@ -118,7 +118,7 @@ static inline void observe_on_retransmit(struct bpf_sock *sk)
 }
 
 // observe_on_rtt is called when the RTT of a connection changes
-static inline void observe_on_rtt(struct bpf_sock *sk) 
+static inline void observe_on_rtt(struct bpf_sock *sk)
 {
     if (!is_monitoring_enable()) {
         return;
@@ -140,7 +140,8 @@ static inline void observe_on_rtt(struct bpf_sock *sk)
     update_tcp_conn_info(tcp_sock, storage);
 }
 
-static inline void observe_on_data(struct bpf_sock *sk){
+static inline void observe_on_data(struct bpf_sock *sk)
+{
     if (!is_monitoring_enable()) {
         return;
     }
@@ -177,8 +178,8 @@ static inline void report_after_threshold_tm(struct tcp_probe_info *info_vals)
     __u64 now = bpf_ktime_get_ns();
     info_vals->last_report_ns = now;
     info_vals->duration = now - info->start_ns;
-   __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
-   bpf_ringbuf_submit(info, 0);
+    __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
+    bpf_ringbuf_submit(info, 0);
 }
 
 #endif

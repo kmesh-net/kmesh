@@ -36,25 +36,25 @@ struct tcp_probe_info {
     __u32 type;
     struct bpf_sock_tuple tuple;
     struct orig_dst_info orig_dst;
-    __u64 conn_id;    /* sock_cookie */
-    __u32 sent_bytes; /* Total send bytes from start to last_report_ns */
+    __u64 conn_id;        /* sock_cookie */
+    __u32 sent_bytes;     /* Total send bytes from start to last_report_ns */
     __u32 received_bytes; /* Total recv bytes from start to last_report_ns */
     __u32 conn_success;
     __u32 direction;
     __u32 state;    /* tcp state */
     __u64 duration; // ns
-    __u64 start_ns; 
-    __u64 last_report_ns; /*timestamp of the last metrics report*/ 
+    __u64 start_ns;
+    __u64 last_report_ns; /*timestamp of the last metrics report*/
     __u32 protocol;
-    __u32 srtt_us; /* smoothed round trip time << 3 in usecs until last_report_ns */
-    __u32 rtt_min;  /* min round trip time in usecs until last_report_ns */
+    __u32 srtt_us;       /* smoothed round trip time << 3 in usecs until last_report_ns */
+    __u32 rtt_min;       /* min round trip time in usecs until last_report_ns */
     __u32 total_retrans; /* Total retransmits from start to last_report_ns */
     __u32 lost_out;      /* Lost packets from start to last_report_ns	*/
 };
 
 struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries,1 << 24 /* 16 mb*/);
+    __uint(max_entries, 1 << 24 /* 16 mb*/);
 } map_of_tcp_probe SEC(".maps");
 
 // Ebpf map to store active tcp connections
@@ -146,7 +146,8 @@ static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe
 }
 
 // Store new tcp connection in map_of_tcp_conns
-static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage,  __u32 state)
+static inline void record_report_tcp_conn_info(
+    struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
     struct tcp_probe_info *info = NULL;
     info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
@@ -155,8 +156,8 @@ static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_t
         return;
     }
     __u64 now = bpf_ktime_get_ns();
-    
-    info->conn_id  = storage->sock_cookie;
+
+    info->conn_id = storage->sock_cookie;
     info->start_ns = storage->connect_ns;
     info->last_report_ns = now;
     construct_tuple(sk, &info->tuple, storage->direction);
@@ -177,7 +178,8 @@ static inline void record_report_tcp_conn_info(struct bpf_sock *sk, struct bpf_t
     bpf_ringbuf_submit(info, 0);
 }
 
-static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage,  __u32 state)
+static inline void
+update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
     struct tcp_probe_info *info = NULL;
     struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &storage->sock_cookie);
@@ -191,7 +193,7 @@ static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp
     get_tcp_probe_info(tcp_sock, info_vals);
 
     // Remove tcp connection from map_of_tcp_conns when the conn is closed and report the info to ring-buff
-    if(state == BPF_TCP_CLOSE) {
+    if (state == BPF_TCP_CLOSE) {
         info_vals->last_report_ns = now;
         info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
         if (!info) {
@@ -199,14 +201,13 @@ static inline void update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp
             return;
         }
 
-       __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
+        __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
         bpf_map_delete_elem(&map_of_tcp_conns, &storage->sock_cookie);
         bpf_ringbuf_submit(info, 0);
     }
 }
 
-
-static inline void update_tcp_conn_info(struct bpf_tcp_sock *tcp_sock,  struct sock_storage_data *storage)
+static inline void update_tcp_conn_info(struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage)
 {
     struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &storage->sock_cookie);
     if (!info_vals) {
