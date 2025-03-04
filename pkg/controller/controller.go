@@ -55,12 +55,12 @@ type Controller struct {
 	loader              *bpf.BpfLoader
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader, bpfAdsObj *bpfads.BpfAds, bpfWorkloadObj *bpfwl.BpfWorkload) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,
-		bpfAdsObj:           bpfAdsObj,
-		bpfWorkloadObj:      bpfWorkloadObj,
+		bpfAdsObj:           bpfLoader.GetBpfKmesh(),
+		bpfWorkloadObj:      bpfLoader.GetBpfWorkload(),
 		enableSecretManager: opts.SecretManagerConfig.Enable,
 		bpfConfig:           opts.BpfConfig,
 		loader:              bpfLoader,

@@ -93,7 +93,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	c := controller.NewController(configs, bpfLoader, bpfLoader.GetBpfKmesh(), bpfLoader.GetBpfWorkload())
+	c := controller.NewController(configs, bpfLoader)
 	if err := c.Start(stopCh); err != nil {
 		return err
 	}

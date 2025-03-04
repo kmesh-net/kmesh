@@ -426,7 +426,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
-		cleanup, l := test.InitBpfMap(t, config)
+		cleanup, loader := test.InitBpfMap(t, config)
 		defer cleanup()
 
 		server := &Server{
@@ -435,6 +435,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 					MetricController: &telemetry.MetricController{},
 				},
 			},
+			loader: loader,
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(true)
 
@@ -457,7 +458,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
-		cleanup, l := test.InitBpfMap(t, config)
+		cleanup, loader := test.InitBpfMap(t, config)
 		defer cleanup()
 
 		server := &Server{
@@ -466,6 +467,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 					MetricController: &telemetry.MetricController{},
 				},
 			},
+			loader: loader,
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
 
@@ -494,6 +496,7 @@ func TestServerMonitoringHandler(t *testing.T) {
 					MetricController: &telemetry.MetricController{},
 				},
 			},
+			loader: l,
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableMonitoring.Store(false)
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
