@@ -426,7 +426,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
-		cleanup, l := test.InitBpfMap(t, config)
+		cleanup, _ := test.InitBpfMap(t, config)
 		defer cleanup()
 
 		server := &Server{
@@ -457,7 +457,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
-		cleanup, l := test.InitBpfMap(t, config)
+		cleanup, _ := test.InitBpfMap(t, config)
 		defer cleanup()
 
 		server := &Server{
