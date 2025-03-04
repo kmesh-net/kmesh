@@ -7,16 +7,11 @@
 #include "tcp_probe.h"
 #include "performance_probe.h"
 
+volatile __u8 enable_monitoring = 0;
+
 static inline bool is_monitoring_enable()
 {
-    struct kmesh_config *data = {0};
-    int key_of_kmesh_config = 0;
-    data = kmesh_map_lookup_elem(&kmesh_config_map, &key_of_kmesh_config);
-    if (!data) {
-        BPF_LOG(ERR, SOCKOPS, "get kmesh config failed");
-        return false;
-    }
-    return data->enable_monitoring == 1;
+    return enable_monitoring == 1;
 }
 
 static inline void observe_on_pre_connect(struct bpf_sock *sk)

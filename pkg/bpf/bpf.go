@@ -318,7 +318,6 @@ func (l *BpfLoader) setBpfProgOptions() {
 	// Kmesh reboot updates only the nodeIP and pod sub gateway
 	if restart.GetStartType() == restart.Normal {
 		// Kmesh is create first time. So init kmeshConfigMap.
-		valueOfKmeshBpfConfig.BpfLogLevel = constants.BPF_LOG_INFO
 		valueOfKmeshBpfConfig.NodeIP = nodeIP
 		valueOfKmeshBpfConfig.PodGateway = gateway
 		valueOfKmeshBpfConfig.AuthzOffload = constants.ENABLED

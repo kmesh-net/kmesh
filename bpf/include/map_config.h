@@ -8,7 +8,6 @@
 #define map_of_manager      km_manage
 #define map_of_sock_storage km_sockstorage
 #define tmp_buf             km_tmpbuf
-#define kmesh_config_map    km_configmap
 #define kmesh_log_events    km_log_event
 #define map_of_nodeinfo     km_nodeinfo
 
