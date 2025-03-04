@@ -7,7 +7,7 @@
 #include "tcp_probe.h"
 #include "performance_probe.h"
 
-volatile __u8 enable_monitoring = 0;
+volatile __u32 enable_monitoring = 0;
 
 static inline bool is_monitoring_enable()
 {
