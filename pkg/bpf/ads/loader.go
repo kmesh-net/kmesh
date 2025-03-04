@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/consistenthash/maglev"
@@ -87,12 +88,10 @@ func (sc *BpfAds) Start() error {
 	return nil
 }
 
-func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
-	return sc.SockConn.KmConfigmap
-}
-
-func (sc *BpfAds) GetBpfLogLevelVariable() *ebpf.Variable {
-	return sc.SockConn.BpfLogLevel
+func (sc *BpfAds) GetBpfConfigVariable() factory.KmeshBpfConfig {
+	return factory.KmeshBpfConfig{
+		BpfLogLevel: sc.SockConn.BpfLogLevel,
+	}
 }
 
 func (sc *BpfAds) Stop() error {
