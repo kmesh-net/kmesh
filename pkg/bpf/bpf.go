@@ -469,7 +469,6 @@ func (l *BpfLoader) GetAuthzOffload() uint32 {
 		return AuthzOffload
 	}
 	return 0
-
 }
 
 func (l *BpfLoader) UpdateEnableMonitoring(EnableMonitoring uint32) error {
