@@ -62,3 +62,6 @@ if [ "$VERSION" -ge 6 ]; then
 else
 	set_config KERNEL_KFUNC 0
 fi
+
+cat config/kmesh_marcos_def.h
+uname -a
