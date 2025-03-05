@@ -574,6 +574,9 @@ int policies_check(struct xdp_md *ctx)
     }
     policy = map_lookup_authz(policyId);
     if (!policy) {
+        // Currently, authz in xdp only support ip and port,
+        // if any principal or namespace type policy is configured,
+        // we need to tailcall to userspace.
         if (match_ctx->need_tailcall_to_userspace) {
             bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_AUTH_IN_USER_SPACE);
             return XDP_PASS;
