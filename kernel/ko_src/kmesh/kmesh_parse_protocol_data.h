@@ -8,6 +8,7 @@
 #ifndef KMESH_PARSE_PROTOCOL_DATA
 #define KMESH_PARSE_PROTOCOL_DATA
 
+#include "../../../config/kmesh_marcos_def.h"
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/bpf.h>
@@ -27,10 +28,10 @@ enum kmesh_strncmp_type { STRNCMP_FAILED = 0, STRNCMP_PREFIX, STRNCMP_EXACT };
 
 #define KMESH_PROTO_TYPE_WIDTH (8)
 
-#define SET_RET_PROTO_TYPE(n, type) (n) = (((n)&0xff00) | ((u32)(type)&0xff))
-#define GET_RET_PROTO_TYPE(n)       ((n)&0xff)
+#define SET_RET_PROTO_TYPE(n, type) (n) = (((n) & 0xff00) | ((u32)(type) & 0xff))
+#define GET_RET_PROTO_TYPE(n)       ((n) & 0xff)
 
-#define SET_RET_MSG_TYPE(n, type) (n) = (((n)&0xff) | (((u32)(type)&0xff) << KMESH_PROTO_TYPE_WIDTH))
+#define SET_RET_MSG_TYPE(n, type) (n) = (((n) & 0xff) | (((u32)(type) & 0xff) << KMESH_PROTO_TYPE_WIDTH))
 #define GET_RET_MSG_TYPE(n)       (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
 
 #define LOG(level, fmt, ...) printk(level "Kmesh_module: " fmt, ##__VA_ARGS__)
@@ -58,6 +59,11 @@ void kmesh_protocol_data_delete(const char *key);
 void kmesh_protocol_data_clean_all(void);
 
 void kmesh_protocol_data_clean_allcpu(void);
+
+int bpf_km_header_strnstr_impl(
+    struct bpf_sock_addr_kern *ctx, const char *key, int key_sz, const char *subptr, int subptr_len);
+int bpf_km_header_strncmp_impl(const char *key, int key_sz, const char *target, int target_len, int opt);
+int parse_protocol_impl(struct bpf_sock_addr_kern *ctx);
 
 int __init proto_common_init(void);
 void __exit proto_common_exit(void);
