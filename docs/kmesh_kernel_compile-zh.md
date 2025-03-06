@@ -19,10 +19,8 @@ kernel/
 ├── ko_src
 └── patches		# 内核增强特性补丁
     └── 5.10.0	# 基于linux 5.10制作的增强patch
-        └── 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch
-        └── 0002-xxx.patch
-        └── ......
-    	└── bpf-support-writable-context-for-bare-tracepoint.patch	#该补丁为社区补丁，在linux 5.16引入，在此之前版本需要判断是否已回合该补丁并按需回合；此补丁提供了kmesh所依赖内核功能相关宏定义
+        └── 0001-add-helper-strnstr-strncmp-parse_header_msg.patch
+        └── 0002-add-TCP_ULP-support-in-bpf_getset_sockopt.patch
 ```
 
 内核构建时，按需获取/适配patch。
@@ -58,7 +56,7 @@ kernel/
   # 将项目仓中patch拷贝到SOURCE目录下
   [root@dev SOURCES]# pwd
   /home/test/kmesh_kernel/root/rpmbuild/SOURCES
-  [root@dev SOURCES]# cp 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch .
+  [root@dev SOURCES]# cp 0001-add-helper-strnstr-strncmp-parse_header_msg.patch .
   ......
   [root@dev SOURCES]# cp xxx.patch .
   ```
@@ -72,12 +70,12 @@ kernel/
   
   # b. spec中增加patch定义
   # 增加增强特性补丁
-  Source9003: 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch
-  Source900X: ......
+  Source9003: 0001-add-helper-strnstr-strncmp-parse_header_msg.patch
+  Source9004: 0002-add-TCP_ULP-support-in-bpf_getset_sockopt.patch
   
   # c. %prep中增加打patch步骤
   patch -s -F0 -E -p1 --no-backup-if-mismatch -i %{SOURCE9003}
-  patch -s -F0 -E -p1 --no-backup-if-mismatch -i ......
+  patch -s -F0 -E -p1 --no-backup-if-mismatch -i %{SOURCE9004}
   ```
 
 - 编译
