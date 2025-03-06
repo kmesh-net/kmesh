@@ -132,6 +132,7 @@ int xdp_authz(struct xdp_md *ctx)
         match_ctx.policies = policies;
         match_ctx.need_tailcall_to_userspace = false;
         match_ctx.policy_index = 0;
+        match_ctx.auth_result = XDP_PASS;
         ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, &match_ctx, BPF_ANY);
         if (ret < 0) {
             BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
