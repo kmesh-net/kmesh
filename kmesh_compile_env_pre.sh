@@ -17,7 +17,7 @@ function dependency_pkg_install() {
         echo "Checking for required packages on a Debian-based system..."
 
       
-        packages=(git make clang libbpf-dev llvm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake pkg-config)
+        packages=(git make clang libbpf-dev llvm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake pkg-config gcc gcc-11)
 
        
         update_needed=false
@@ -51,7 +51,7 @@ function dependency_pkg_install() {
         echo "Checking for required packages on a Red Hat-based system..."
 
         # List of required packages
-        packages=(git make clang llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool libbpf libbpf-devel cmake pkg-config)
+        packages=(git make clang llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool libbpf libbpf-devel cmake pkg-config gcc)
 
         # Install each missing package
         for pkg in "${packages[@]}"; do
@@ -119,6 +119,7 @@ function bpf_compile_range_adjust() {
 }
 
 function set_enhanced_kernel_env() {
+    
     # we use /usr/include/linux/bpf.h to determine the runtime environment’s
     # support for kmesh. Considering the case of online image compilation, a
     # variable KERNEL_HEADER_LINUX_BPF is used here to specify the path of the
@@ -132,7 +133,11 @@ function set_enhanced_kernel_env() {
             export KERNEL_HEADER_LINUX_BPF=/usr/include/linux/bpf.h
     fi
 
-    if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF; then
+    # The 6.x Linux kernel already has complete support for kfunc capabilities,
+    # allowing all features of kmesh to run directly.
+    KERNEL_MAJOR=$(uname -r | awk -F '.' '{print $1}')
+    echo $KERNEL_MAJOR
+    if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF || [ $KERNEL_MAJOR -ge 6 ]; then
             export ENHANCED_KERNEL="enhanced"
     else
             export ENHANCED_KERNEL="unenhanced"
