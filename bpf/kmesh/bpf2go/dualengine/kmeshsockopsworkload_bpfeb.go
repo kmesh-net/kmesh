@@ -56,6 +56,37 @@ type KmeshSockopsWorkloadSockStorageData struct {
 	Direction      uint8
 	ConnectSuccess uint8
 	_              [6]byte
+	SockCookie     uint64
+}
+
+type KmeshSockopsWorkloadTcpProbeInfo struct {
+	Type    uint32
+	Tuple   KmeshSockopsWorkloadBpfSockTuple
+	OrigDst struct {
+		Ipv4 struct {
+			Addr uint32
+			Port uint16
+			_    [2]byte
+		}
+		_ [12]byte
+	}
+	_             [4]byte
+	ConnId        uint64
+	SentBytes     uint32
+	ReceivedBytes uint32
+	ConnSuccess   uint32
+	Direction     uint32
+	State         uint32
+	_             [4]byte
+	Duration      uint64
+	StartNs       uint64
+	LastReportNs  uint64
+	Protocol      uint32
+	SrttUs        uint32
+	RttMin        uint32
+	TotalRetrans  uint32
+	LostOut       uint32
+	_             [4]byte
 }
 
 // LoadKmeshSockopsWorkload returns the embedded CollectionSpec for KmeshSockopsWorkload.
@@ -121,6 +152,7 @@ type KmeshSockopsWorkloadMapSpecs struct {
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
 	KmSocket      *ebpf.MapSpec `ebpf:"km_socket"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTcpConns    *ebpf.MapSpec `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
@@ -171,6 +203,7 @@ type KmeshSockopsWorkloadMaps struct {
 	KmService     *ebpf.Map `ebpf:"km_service"`
 	KmSocket      *ebpf.Map `ebpf:"km_socket"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTcpConns    *ebpf.Map `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
@@ -196,6 +229,7 @@ func (m *KmeshSockopsWorkloadMaps) Close() error {
 		m.KmService,
 		m.KmSocket,
 		m.KmSockstorage,
+		m.KmTcpConns,
 		m.KmTcpProbe,
 		m.KmTmpbuf,
 		m.KmWlpolicy,

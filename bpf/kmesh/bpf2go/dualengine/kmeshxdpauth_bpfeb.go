@@ -42,6 +42,7 @@ type KmeshXDPAuthSockStorageData struct {
 	Direction      uint8
 	ConnectSuccess uint8
 	_              [6]byte
+	SockCookie     uint64
 }
 
 // LoadKmeshXDPAuth returns the embedded CollectionSpec for KmeshXDPAuth.
