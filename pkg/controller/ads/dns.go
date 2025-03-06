@@ -53,8 +53,7 @@ func NewDnsResolver(adsCache *AdsCache) (*dnsController, error) {
 		return nil, err
 	}
 	return &dnsController{
-		Clusters: make(chan []*clusterv3.Cluster),
-		// dnsRefreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "dnsRefreshQueue"}),
+		Clusters:    make(chan []*clusterv3.Cluster),
 		cache:       adsCache,
 		dnsResolver: resolver,
 	}, nil
@@ -108,14 +107,14 @@ func (r *dnsController) resolveDomains(cds []*clusterv3.Cluster) {
 			Domain:      v.DomainName,
 			RefreshRate: v.RefreshRate,
 		}
-		r.dnsResolver.RefreshQueue.AddAfter(domainInfo, 0)
+		r.dnsResolver.AddDomainIntoRefreshQueue(domainInfo, 0)
 	}
 	go r.refreshAdsWorker(domains)
 }
 
 func (r *dnsController) refreshAdsWorker(domains map[string]*pendingResolveDomain) {
 	for !(len(domains) == 0) {
-		domain := <-r.dnsResolver.AdsDnsChan
+		domain := <-r.dnsResolver.DnsChan
 		v, ok := domains[domain]
 		// will this happen?
 		if !ok {

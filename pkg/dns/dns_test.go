@@ -35,7 +35,7 @@ func TestDNS(t *testing.T) {
 	defer close(stopCh)
 	// testDNSResolver.StartAdsDnsResolver(stopCh)
 	dnsServer := fakeDNSServer.Server.PacketConn.LocalAddr().String()
-	testDNSResolver.ResolvConfServers = []string{dnsServer}
+	testDNSResolver.resolvConfServers = []string{dnsServer}
 	go testDNSResolver.StartDnsResolver(stopCh)
 
 	testCases := []struct {
@@ -119,7 +119,7 @@ func TestDNS(t *testing.T) {
 		testDNSResolver.Lock()
 		testDNSResolver.cache[testcase.domain] = &DomainCacheEntry{}
 		testDNSResolver.Unlock()
-		testDNSResolver.RefreshQueue.AddAfter(input, 0)
+		testDNSResolver.refreshQueue.AddAfter(input, 0)
 
 		time.Sleep(2 * time.Second)
 

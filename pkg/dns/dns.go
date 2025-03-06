@@ -41,10 +41,10 @@ const (
 
 type DNSResolver struct {
 	client            *dns.Client
-	AdsDnsChan        chan string
-	ResolvConfServers []string
+	DnsChan           chan string
+	resolvConfServers []string
 	cache             map[string]*DomainCacheEntry
-	RefreshQueue      workqueue.TypedDelayingInterface[any]
+	refreshQueue      workqueue.TypedDelayingInterface[any]
 	sync.RWMutex
 }
 
@@ -59,14 +59,14 @@ type DomainInfo struct {
 
 func NewDNSResolver() (*DNSResolver, error) {
 	r := &DNSResolver{
-		AdsDnsChan: make(chan string, 100),
-		cache:      map[string]*DomainCacheEntry{},
+		DnsChan: make(chan string, 100),
+		cache:   map[string]*DomainCacheEntry{},
 		client: &dns.Client{
 			DialTimeout:  5 * time.Second,
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 5 * time.Second,
 		},
-		RefreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "RefreshQueue"}),
+		refreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "refreshQueue"}),
 	}
 
 	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
@@ -75,7 +75,7 @@ func NewDNSResolver() (*DNSResolver, error) {
 	}
 	if dnsConfig != nil {
 		for _, s := range dnsConfig.Servers {
-			r.ResolvConfServers = append(r.ResolvConfServers, net.JoinHostPort(s, dnsConfig.Port))
+			r.resolvConfServers = append(r.resolvConfServers, net.JoinHostPort(s, dnsConfig.Port))
 		}
 	}
 
@@ -86,7 +86,7 @@ func (r *DNSResolver) StartDnsResolver(stop <-chan struct{}) {
 	for {
 		select {
 		case <-stop:
-			r.RefreshQueue.ShutDown()
+			r.refreshQueue.ShutDown()
 			return
 		default:
 			r.refreshDns()
@@ -95,11 +95,11 @@ func (r *DNSResolver) StartDnsResolver(stop <-chan struct{}) {
 }
 
 func (r *DNSResolver) refreshDns() {
-	element, quit := r.RefreshQueue.Get()
+	element, quit := r.refreshQueue.Get()
 	if quit {
 		return
 	}
-	defer r.RefreshQueue.Done(element)
+	defer r.refreshQueue.Done(element)
 	e := element.(*DomainInfo)
 
 	r.Lock()
@@ -120,8 +120,8 @@ func (r *DNSResolver) refreshDns() {
 	if ttl == 0 {
 		ttl = DeRefreshInterval
 	}
-	r.RefreshQueue.AddAfter(e, ttl)
-	r.AdsDnsChan <- e.Domain
+	r.refreshQueue.AddAfter(e, ttl)
+	r.DnsChan <- e.Domain
 }
 
 // This functions were copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
@@ -205,7 +205,7 @@ func (r *DNSResolver) doResolve(domain string) ([]string, time.Duration, error) 
 // Query is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) Query(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
-	for _, upstream := range r.ResolvConfServers {
+	for _, upstream := range r.resolvConfServers {
 		resp, _, err := r.client.Exchange(req, upstream)
 		if err != nil || resp == nil {
 			continue
@@ -296,4 +296,11 @@ func (r *DNSResolver) RemoveUnwatchDomain(domains map[string]struct{}) {
 		}
 		delete(r.cache, domain)
 	}
+}
+
+func (r *DNSResolver) AddDomainIntoRefreshQueue(info *DomainInfo, time time.Duration) {
+	if info == nil {
+		return
+	}
+	r.refreshQueue.AddAfter(info, time)
 }
