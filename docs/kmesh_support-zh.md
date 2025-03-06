@@ -4,7 +4,8 @@
 
 | 操作系统版本    | 内核版本 | 操作系统发布路径                            |
 | :-------------: | :------: | :-----------------------------------------: |
-| openEuler-23.03 |  6.1.19  | https://repo.openeuler.org/openEuler-23.03/ |
+| openEuler-24.03 |  6.6.0  | https://repo.openeuler.org/openEuler-24.03-LTS/ |
+| ubuntu-24.04 |  6.8.0  | https://releases.ubuntu.com/24.04/ |
 
 ### 通过Kmesh增强内核支持所有特性
 
