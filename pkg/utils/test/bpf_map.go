@@ -54,7 +54,6 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 
 	loader := bpf.NewBpfLoader(&config)
 	err = loader.Start()
-
 	if err != nil {
 		bpf.CleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)

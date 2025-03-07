@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/ebpf"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/logger"
@@ -101,12 +102,14 @@ func (w *BpfWorkload) Stop() error {
 	return w.Detach()
 }
 
-func (w *BpfWorkload) GetKmeshConfigMap() *ebpf.Map {
-	return w.SockConn.KmConfigmap
-}
-
-func (w *BpfWorkload) GetBpfLogLevelVariable() *ebpf.Variable {
-	return w.SockConn.BpfLogLevel
+func (w *BpfWorkload) GetBpfConfigVariable() factory.KmeshBpfConfig {
+	return factory.KmeshBpfConfig{
+		BpfLogLevel:      w.SockOps.BpfLogLevel,
+		NodeIP:           w.SockOps.NodeIp,
+		PodGateway:       w.SockOps.PodGateway,
+		AuthzOffload:     w.XdpAuth.AuthzOffload,
+		EnableMonitoring: w.SockOps.EnableMonitoring,
+	}
 }
 
 func (w *BpfWorkload) Load() error {

@@ -14,14 +14,6 @@ import (
 
 type KmeshTcMarkDecryptCompatBuf struct{ Data [40]int8 }
 
-type KmeshTcMarkDecryptCompatKmeshConfig struct {
-	BpfLogLevel      uint32
-	NodeIp           [4]uint32
-	PodGateway       [4]uint32
-	AuthzOffload     uint32
-	EnableMonitoring uint32
-}
-
 type KmeshTcMarkDecryptCompatLpmKey struct {
 	TrieKey struct {
 		Prefixlen uint32
@@ -82,10 +74,9 @@ type KmeshTcMarkDecryptCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshTcMarkDecryptCompatMapSpecs struct {
-	KmConfigmap *ebpf.MapSpec `ebpf:"km_configmap"`
-	KmLogEvent  *ebpf.MapSpec `ebpf:"km_log_event"`
-	KmNodeinfo  *ebpf.MapSpec `ebpf:"km_nodeinfo"`
-	KmTmpbuf    *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmLogEvent *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmNodeinfo *ebpf.MapSpec `ebpf:"km_nodeinfo"`
+	KmTmpbuf   *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 }
 
 // KmeshTcMarkDecryptCompatVariableSpecs contains global variables before they are loaded into the kernel.
@@ -115,15 +106,13 @@ func (o *KmeshTcMarkDecryptCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshTcMarkDecryptCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshTcMarkDecryptCompatMaps struct {
-	KmConfigmap *ebpf.Map `ebpf:"km_configmap"`
-	KmLogEvent  *ebpf.Map `ebpf:"km_log_event"`
-	KmNodeinfo  *ebpf.Map `ebpf:"km_nodeinfo"`
-	KmTmpbuf    *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmLogEvent *ebpf.Map `ebpf:"km_log_event"`
+	KmNodeinfo *ebpf.Map `ebpf:"km_nodeinfo"`
+	KmTmpbuf   *ebpf.Map `ebpf:"km_tmpbuf"`
 }
 
 func (m *KmeshTcMarkDecryptCompatMaps) Close() error {
 	return _KmeshTcMarkDecryptCompatClose(
-		m.KmConfigmap,
 		m.KmLogEvent,
 		m.KmNodeinfo,
 		m.KmTmpbuf,
