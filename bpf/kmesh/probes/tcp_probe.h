@@ -107,17 +107,6 @@ static inline void construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *t
     return;
 }
 
-static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_probe_info *info)
-{
-    info->sent_bytes = tcp_sock->delivered;
-    info->received_bytes = tcp_sock->bytes_received;
-    info->srtt_us = tcp_sock->srtt_us;
-    info->rtt_min = tcp_sock->rtt_min;
-    info->total_retrans = tcp_sock->total_retrans;
-    info->lost_out = tcp_sock->lost_out;
-    return;
-}
-
 // construct_orig_dst_info try to read the dst_info from map_of_orig_dst first
 // if not found, use the tuple info for orig_dst
 static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe_info *info)
@@ -145,7 +134,7 @@ static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe
     }
 }
 
-// Store new tcp connection in map_of_tcp_conns
+// Store new tcp connection in map_of_tcp_conns and report the info to ring-buff for the first time
 static inline void record_report_tcp_conn_info(
     struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
@@ -166,8 +155,13 @@ static inline void record_report_tcp_conn_info(
     info->direction = storage->direction;
     info->duration = now - info->start_ns;
     info->conn_success = storage->connect_success;
+    info->sent_bytes = tcp_sock->delivered;
+    info->received_bytes = tcp_sock->bytes_received;
+    info->srtt_us = tcp_sock->srtt_us;
+    info->rtt_min = tcp_sock->rtt_min;
+    info->total_retrans = tcp_sock->total_retrans;
+    info->lost_out = tcp_sock->lost_out;
 
-    get_tcp_probe_info(tcp_sock, info);
     (*info).type = (sk->family == AF_INET) ? IPV4 : IPV6;
     if (is_ipv4_mapped_addr(sk->dst_ip6)) {
         (*info).type = IPV4;
@@ -179,7 +173,7 @@ static inline void record_report_tcp_conn_info(
 }
 
 static inline void
-update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
+refresh_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
     struct tcp_probe_info *info = NULL;
     struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &storage->sock_cookie);
@@ -189,8 +183,13 @@ update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock, struct sock_
     }
     __u64 now = bpf_ktime_get_ns();
     info_vals->state = state;
-    info_vals->duration = now - info->start_ns;
-    get_tcp_probe_info(tcp_sock, info_vals);
+    info_vals->duration = now - info_vals->start_ns;
+    info_vals->sent_bytes = tcp_sock->delivered;
+    info_vals->received_bytes = tcp_sock->bytes_received;
+    info_vals->srtt_us = tcp_sock->srtt_us;
+    info_vals->rtt_min = tcp_sock->rtt_min;
+    info_vals->total_retrans = tcp_sock->total_retrans;
+    info_vals->lost_out = tcp_sock->lost_out;
 
     // Remove tcp connection from map_of_tcp_conns when the conn is closed and report the info to ring-buff
     if (state == BPF_TCP_CLOSE) {
@@ -207,7 +206,7 @@ update_tcp_conn_info_on_state_change(struct bpf_tcp_sock *tcp_sock, struct sock_
     }
 }
 
-static inline void update_tcp_conn_info(struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage)
+static inline void refresh_tcp_conn_info(struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage)
 {
     struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &storage->sock_cookie);
     if (!info_vals) {
@@ -216,7 +215,12 @@ static inline void update_tcp_conn_info(struct bpf_tcp_sock *tcp_sock, struct so
     }
     __u64 now = bpf_ktime_get_ns();
     info_vals->duration = now - info_vals->start_ns;
-    get_tcp_probe_info(tcp_sock, info_vals);
+    info_vals->sent_bytes = tcp_sock->delivered;
+    info_vals->received_bytes = tcp_sock->bytes_received;
+    info_vals->srtt_us = tcp_sock->srtt_us;
+    info_vals->rtt_min = tcp_sock->rtt_min;
+    info_vals->total_retrans = tcp_sock->total_retrans;
+    info_vals->lost_out = tcp_sock->lost_out;
 }
 
 #endif

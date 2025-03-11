@@ -90,7 +90,7 @@ static inline void observe_on_status_change(struct bpf_sock *sk, __u32 state)
         return;
     }
 
-    update_tcp_conn_info_on_state_change(tcp_sock, storage, state);
+    refresh_tcp_conn_info_on_state_change(tcp_sock, storage, state);
     if (state == BPF_TCP_CLOSE) {
         bpf_sk_storage_delete(&map_of_sock_storage, sk);
     }
@@ -114,7 +114,7 @@ static inline void observe_on_retransmit(struct bpf_sock *sk)
         BPF_LOG(ERR, PROBE, "on retransmit: bpf_sk_storage_get failed\n");
         return;
     }
-    update_tcp_conn_info(tcp_sock, storage);
+    refresh_tcp_conn_info(tcp_sock, storage);
 }
 
 // observe_on_rtt is called when the RTT of a connection changes
@@ -137,7 +137,7 @@ static inline void observe_on_rtt(struct bpf_sock *sk)
         BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
         return;
     }
-    update_tcp_conn_info(tcp_sock, storage);
+    refresh_tcp_conn_info(tcp_sock, storage);
 }
 
 static inline void observe_on_data(struct bpf_sock *sk)
@@ -159,7 +159,7 @@ static inline void observe_on_data(struct bpf_sock *sk)
         BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
         return;
     }
-    update_tcp_conn_info(tcp_sock, storage);
+    refresh_tcp_conn_info(tcp_sock, storage);
 }
 
 static inline void report_after_threshold_tm(struct tcp_probe_info *info_vals)
