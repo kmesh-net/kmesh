@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -319,6 +320,18 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 		return nil, err
 	}
 	pod := pods[0]
+
+	// adjust log level of waypoint to trace.
+	cmd := exec.Command("istioctl", "pc", "log", fmt.Sprintf("%s.%s", pod.Name, pod.Namespace), "--level", "debug")
+
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("execute istioctl command failed: %v", err)
+		return nil, err
+	}
+
+	fmt.Printf(string(output))
+
 	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
 	if err != nil {
 		return nil, err
