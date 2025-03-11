@@ -33,6 +33,6 @@
 #define kmesh_perf_map       km_perf_map
 #define kmesh_perf_info      km_perf_info
 #define map_of_tcp_conns     km_tcp_conns
-#define tcp_conn_flush_timer km_conn_timer
+#define tcp_conn_last_flush  km_conn_flush
 
 #endif // _CONFIG_H_

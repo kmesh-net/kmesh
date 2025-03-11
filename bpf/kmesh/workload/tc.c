@@ -2,7 +2,6 @@
 /* Copyright Authors of Kmesh */
 
 #include <linux/bpf.h>
-#include <bpf/bpf_tracing.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_endian.h>
 #include "bpf_log.h"
@@ -16,8 +15,8 @@ struct {
     __uint(type, BPF_MAP_TYPE_ARRAY);
     __uint(max_entries, 1);
     __type(key, int);
-    __type(value, struct bpf_timer);
-} tcp_conn_flush_timer SEC(".maps");
+    __type(value, __u64);
+} tcp_conn_last_flush SEC(".maps");
 
 static void flush_tcp_conns()
 {
@@ -42,13 +41,6 @@ static void flush_tcp_conns()
 
         key = next_key;
     }
-
-    // Re-arm the timer for the next execution
-    int key_idx = 0;
-    struct bpf_timer *timer = bpf_map_lookup_elem(&tcp_conn_flush_timer, &key_idx);
-    if (timer) {
-        bpf_timer_start(timer, TIMER_INTERVAL_NS, 0);
-    }
 }
 
 static int timer_callback(struct bpf_timer *timer)
@@ -61,24 +53,28 @@ static int timer_callback(struct bpf_timer *timer)
 SEC("tc")
 int tc_prog(struct __sk_buff *skb)
 {
-    int key = 0;
-    struct bpf_timer *timer = bpf_map_lookup_elem(&tcp_conn_flush_timer, &key);
-    if (!timer) {
-        BPF_LOG(ERR, TIMER, "Failed to lookup tcp timer\n");
-    } else {
-        // Initialize and start timer
-        bpf_timer_init(timer, &tcp_conn_flush_timer, 1);
-        bpf_timer_set_callback(timer, timer_callback);
-        bpf_timer_start(timer, TIMER_INTERVAL_NS, 0);
-    }
-
-    struct bpf_tcp_sock *sk = skb->sk;
+    struct bpf_sock *sk = skb->sk;
     if (!sk) {
         BPF_LOG(ERR, TC, "Failed to get tcp sock\n");
         return 0;
     }
 
     observe_on_data(sk);
+
+    int key = 0;
+    __u64 *last_time = bpf_map_lookup_elem(&tcp_conn_last_flush, &key);
+    __u64 now = bpf_ktime_get_ns();
+
+    if (!last_time) {
+        __u64 init_time = now;
+        // Initialize last flush time if not set
+        bpf_map_update_elem(&tcp_conn_last_flush, &key, &init_time, BPF_ANY);
+    } else if ((now - *last_time) >= TIMER_INTERVAL_NS) {
+        flush_tcp_conns();
+        // Update last flush time
+        bpf_map_update_elem(&tcp_conn_last_flush, &key, &now, BPF_ANY);
+    }
+
     return 0;
 }
 
