@@ -37,7 +37,7 @@ static inline bool is_managed_by_kmesh(struct __sk_buff *skb)
     return (*value == 0);
 }
 
-static void flush_tcp_conns()
+static inline void flush_tcp_conns()
 {
     struct __u64 *key = NULL, *next_key = NULL;
     struct tcp_probe_info *conn;
@@ -62,19 +62,12 @@ static void flush_tcp_conns()
     }
 }
 
-static int timer_callback(struct bpf_timer *timer)
-{
-    flush_tcp_conns();
-    return 0;
-}
-
 // Also trigger's on icmp packets (hence can be used for monitor packet loss)
 SEC("tc")
 int tc_prog(struct __sk_buff *skb)
 {
-    if (!is_managed_by_kmesh(skb)) {
+    if (!is_managed_by_kmesh(skb))
         return 0;
-    }
 
     struct bpf_sock *sk = skb->sk;
     if (!sk) {

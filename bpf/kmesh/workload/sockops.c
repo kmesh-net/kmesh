@@ -315,11 +315,13 @@ int sockops_utils_prog(struct bpf_sock_ops *skops)
 
     switch (skops->op) {
     case BPF_SOCK_OPS_STATE_CB:
-        observe_on_status_change(skops->sk, skops->args[0]);
         if (skops->args[1] == BPF_TCP_CLOSE) {
             clean_auth_map(skops);
             clean_dstinfo_map(skops);
         }
+        if (!is_managed_by_kmesh(skops))
+            break;
+        observe_on_status_change(skops->sk, skops->args[0]);
         break;
 
     case BPF_SOCK_OPS_RETRANS_CB:
