@@ -137,6 +137,16 @@ function setup_kmesh() {
         echo "Waiting for pods of Kmesh daemon to enter Running state..."
         sleep 1
     done
+
+    # Set log of each Kmesh pods.
+    PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+
+    sleep 10
+
+    for POD in $PODS; do
+        echo $POD
+        kmeshctl log $POD --set bpf:debug
+    done
 }
 
 export KIND_REGISTRY_NAME="kind-registry"
@@ -159,6 +169,11 @@ function setup_kind_registry() {
 
 function build_and_push_images() {
     HUB="${KIND_REGISTRY}" TAG="latest" make docker.push
+}
+
+function install_kmeshctl() {
+    # Install kmeshctl
+    cp kmeshctl $TMPBIN
 }
 
 function install_dependencies() {
@@ -274,6 +289,7 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
     setup_kind_registry
     build_and_push_images
+    install_kmeshctl
 fi
 
 kubectl config use-context "kind-$NAME"
@@ -289,6 +305,26 @@ fi
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
 bash -c "$cmd"
+
+# 定义变量
+NAMESPACE="kmesh-system"
+NODE_NAME="kmesh-testing-worker"
+
+# 获取指定节点上所有 Pods 的名称
+PODS=$(kubectl get pods -n $NAMESPACE --field-selector spec.nodeName=$NODE_NAME -o jsonpath='{.items[*].metadata.name}')
+
+# 检查是否找到 Pods
+if [ -z "$PODS" ]; then
+  echo "No pods found on node $NODE_NAME in namespace $NAMESPACE."
+  exit 1
+fi
+
+# 遍历每个 Pod 并输出日志
+for POD in $PODS; do
+  echo "Logs for Pod: $POD"
+  kubectl logs -n $NAMESPACE $POD
+  echo "----------------------------------------"
+done
 
 if [[ -n "${CLEANUP_KIND}" ]]; then
     cleanup_kind_cluster
