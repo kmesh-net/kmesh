@@ -5,7 +5,7 @@
 # AND ADAPTED FOR KMESH.
 
 # Exit immediately for non zero status
-set -e
+# set -e
 
 DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
@@ -302,6 +302,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
+uname -a
+
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
 bash -c "$cmd"
@@ -325,6 +327,8 @@ for POD in $PODS; do
   kubectl logs -n $NAMESPACE $POD
   echo "----------------------------------------"
 done
+
+sleep 10
 
 if [[ -n "${CLEANUP_KIND}" ]]; then
     cleanup_kind_cluster
