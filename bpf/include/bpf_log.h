@@ -77,7 +77,6 @@ volatile __u32 bpf_log_level = BPF_LOG_INFO;
 
 #define BPF_LOG(l, t, f, ...)                                                                                          \
     do {                                                                                                               \
-        BPF_LOG_U("bpf log level %u %u", BPF_LOG_##l, bpf_log_level);                                                  \
         if ((int)(BPF_LOG_##l) <= bpf_log_level) {                                                                     \
             static const char fmt[] = "[" #t "] " #l ": " f "";                                                        \
             if (!KERNEL_VERSION_HIGHER_5_13_0)                                                                         \

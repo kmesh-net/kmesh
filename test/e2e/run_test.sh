@@ -5,7 +5,7 @@
 # AND ADAPTED FOR KMESH.
 
 # Exit immediately for non zero status
-set -e
+# set -e
 
 DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
@@ -302,6 +302,8 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
+uname -a
+
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
 bash -c "$cmd"
@@ -325,6 +327,28 @@ for POD in $PODS; do
   kubectl logs -n $NAMESPACE $POD
   echo "----------------------------------------"
 done
+
+# 定义命名空间前缀和 Pod 前缀
+NAMESPACE_PREFIX="echo"
+POD_PREFIX="waypoint"
+
+# 获取所有符合条件的命名空间
+NAMESPACES=$(kubectl get namespaces --no-headers | awk '{print $1}' | grep "^$NAMESPACE_PREFIX")
+
+# 遍历每个命名空间
+for NAMESPACE in $NAMESPACES; do
+  # 获取以 waypoint 为前缀的 Pods
+  PODS=$(kubectl get pods -n $NAMESPACE --no-headers | awk '{print $1}' | grep "^$POD_PREFIX")
+
+  # 遍历每个 Pod 并输出日志
+  for POD in $PODS; do
+    echo "Fetching logs for Pod: $POD in Namespace: $NAMESPACE"
+    kubectl logs -n $NAMESPACE $POD
+    echo "----------------------------------------"
+  done
+done
+
+sleep 10
 
 if [[ -n "${CLEANUP_KIND}" ]]; then
     cleanup_kind_cluster
