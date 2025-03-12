@@ -66,6 +66,21 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_tcp_conns SEC(".maps");
 
+// Ebpf array map to store the the lists of socket_ids
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u64);
+    __uint(max_entries, MAP_SIZE_OF_TCP_CONNS);
+} map_of_soc_id SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_ARRAY);
+    __type(key, __u32);
+    __type(value, __u32);
+    __uint(max_entries, 1);
+} map_of_soc_id_counter SEC(".maps");
+
 static inline void construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
 {
     if (direction == OUTBOUND) {
@@ -170,6 +185,13 @@ static inline void record_report_tcp_conn_info(
     construct_orig_dst_info(sk, info);
     bpf_map_update_elem(&map_of_tcp_conns, &storage->sock_cookie, info, BPF_ANY);
     bpf_ringbuf_submit(info, 0);
+    __u32 zero = 0;
+    __u32 *index = bpf_map_lookup_elem(&map_of_soc_id_counter, &zero);
+    if (index && *index < MAP_SIZE_OF_TCP_CONNS) {
+        bpf_map_update_elem(&map_of_soc_id, index, &storage->sock_cookie, BPF_ANY);
+        *index += 1;
+        bpf_map_update_elem(&map_of_soc_id_counter, &zero, index, BPF_ANY);
+    }
 }
 
 static inline void

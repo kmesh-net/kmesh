@@ -42,23 +42,39 @@ static inline void flush_tcp_conns()
     struct __u64 *key = NULL, *next_key = NULL;
     struct tcp_probe_info *conn;
 
-    for (int i = 0; i < MAP_SIZE_OF_TCP_CONNS; i++) {
-        if (bpf_map_get_next_key(&map_of_tcp_conns, key, next_key) != 0) {
+    __u32 zero = 0;
+    __u32 *max_index = bpf_map_lookup_elem(&map_of_soc_id_counter, &zero);
+    if (!max_index || *max_index == 0)
+        return;
+
+    for (__u32 i = 0; i < *max_index && i < MAP_SIZE_OF_TCP_CONNS; i++) {
+        __u64 *key = bpf_map_lookup_elem(&map_of_soc_id, &i);
+
+        if (!key)
             break;
-        }
-        conn = bpf_map_lookup_elem(&map_of_tcp_conns, next_key);
+
+        conn = bpf_map_lookup_elem(&map_of_tcp_conns, key);
         if (!conn) {
-            key = next_key;
+            for (__u32 j = i; j < *max_index - 1 && j < MAP_SIZE_OF_TCP_CONNS - 1; j++) {
+                __u64 *next_key = bpf_map_lookup_elem(&map_of_soc_id, &j + 1);
+                if (next_key) {
+                    bpf_map_update_elem(&map_of_soc_id, &j, next_key, BPF_ANY);
+                }
+            }
+
+            // Clear the last entry
+            __u32 m_index = *max_index - 1;
+            bpf_map_update_elem(&map_of_soc_id, &m_index, &zero, BPF_ANY);
+
+            // Decrement the counter
+            *max_index -= 1;
             continue;
         }
-
         __u64 now = bpf_ktime_get_ns();
         // Check if connection duration exceeds threshold
         if ((now - conn->start_ns) > LONG_CONN_THRESHOLD_TIME) {
             report_after_threshold_tm(conn);
         }
-
-        key = next_key;
     }
 }
 

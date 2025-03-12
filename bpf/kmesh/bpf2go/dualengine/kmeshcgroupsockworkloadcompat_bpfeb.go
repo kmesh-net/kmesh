@@ -152,6 +152,8 @@ type KmeshCgroupSockWorkloadCompatMapSpecs struct {
 	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
+	KmSocId       *ebpf.MapSpec `ebpf:"km_soc_id"`
+	KmSocIdCnt    *ebpf.MapSpec `ebpf:"km_soc_id_cnt"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcpConns    *ebpf.MapSpec `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
@@ -204,6 +206,8 @@ type KmeshCgroupSockWorkloadCompatMaps struct {
 	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
+	KmSocId       *ebpf.Map `ebpf:"km_soc_id"`
+	KmSocIdCnt    *ebpf.Map `ebpf:"km_soc_id_cnt"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcpConns    *ebpf.Map `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
@@ -231,6 +235,8 @@ func (m *KmeshCgroupSockWorkloadCompatMaps) Close() error {
 		m.KmPerfInfo,
 		m.KmPerfMap,
 		m.KmService,
+		m.KmSocId,
+		m.KmSocIdCnt,
 		m.KmSockstorage,
 		m.KmTcpConns,
 		m.KmTcpProbe,
