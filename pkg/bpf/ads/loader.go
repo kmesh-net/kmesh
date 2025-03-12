@@ -39,11 +39,17 @@ var log = logger.NewLoggerScope("bpf_ads")
 
 type BpfAds struct {
 	SockConn BpfSockConn
+	SockOps  BpfSockOps
 	Tc       *general.BpfTCGeneral
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
+
+	if err := sc.SockOps.NewBpf(cfg); err != nil {
+		return nil, err
+	}
+
 	if err := sc.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
 	}
@@ -105,6 +111,10 @@ func (sc *BpfAds) Load() error {
 		return err
 	}
 
+	if err := sc.SockOps.Load(); err != nil {
+		return err
+	}
+
 	if err := sc.Tc.LoadTC(); err != nil {
 		return err
 	}
@@ -142,6 +152,10 @@ func (sc *BpfAds) ApiEnvCfg() error {
 }
 
 func (sc *BpfAds) Attach() error {
+	if err := sc.SockOps.Attach(); err != nil {
+		return err
+	}
+
 	if err := sc.SockConn.Attach(); err != nil {
 		return err
 	}
@@ -150,9 +164,14 @@ func (sc *BpfAds) Attach() error {
 }
 
 func (sc *BpfAds) Detach() error {
+	if err := sc.SockOps.Detach(); err != nil {
+		return err
+	}
+
 	if err := sc.SockConn.Detach(); err != nil {
 		return err
 	}
+
 	if err := sc.Tc.Close(); err != nil {
 		return err
 	}

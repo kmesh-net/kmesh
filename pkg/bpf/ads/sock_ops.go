@@ -1,6 +1,3 @@
-//go:build enhanced
-// +build enhanced
-
 /*
  * Copyright The Kmesh Authors.
  *
