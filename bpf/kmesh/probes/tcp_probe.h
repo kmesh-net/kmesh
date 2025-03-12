@@ -7,6 +7,7 @@
 
 #include "bpf_common.h"
 #include "config.h"
+#include "encoder.h"
 // direction
 enum {
     INVALID_DIRECTION = 0,

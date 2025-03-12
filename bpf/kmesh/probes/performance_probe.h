@@ -8,6 +8,7 @@
 
 #include "bpf_common.h"
 #include "config.h"
+#include "workload.h"
 
 enum {
     SOCK_TRAFFIC_CONTROL = 1,
