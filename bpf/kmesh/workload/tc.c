@@ -7,6 +7,8 @@
 #include "bpf_log.h"
 #include "bpf_common.h"
 #include "probe.h"
+#include "encoder.h"
+#include "tcp_probe.h"
 
 #define TIMER_INTERVAL_NS 1000000000 // 1 seconds (in nanoseconds)
 
