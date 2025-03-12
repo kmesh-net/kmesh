@@ -89,7 +89,7 @@ TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
 	bpf/include/bpf_helper_defs_ext.h \
 
 .PHONY: all kmesh-bpf kmesh-ko all-binary
-all: kmesh-bpf kmesh-ko all-binary
+all: kmesh-bpf all-binary
 
 kmesh-bpf:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
