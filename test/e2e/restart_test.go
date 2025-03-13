@@ -45,7 +45,7 @@ func TestKmeshRestart(t *testing.T) {
 		dst := apps.ServiceWithWaypointAtServiceGranularity
 		options := echo.CallOptions{
 			To:    dst,
-			Count: 1,
+			Count: 10,
 			// Determine whether it is managed by Kmesh by passing through Waypoint.
 			Check: httpValidator,
 			Port: echo.Port{
@@ -57,10 +57,12 @@ func TestKmeshRestart(t *testing.T) {
 		g := traffic.NewGenerator(t, traffic.Config{
 			Source:   src,
 			Options:  options,
-			Interval: 50 * time.Millisecond,
+			Interval: 5 * time.Millisecond,
 		}).Start()
 
-		restartKmesh(t)
+		for i := 0; i < 10; i++ {
+			restartKmesh(t)
+		}
 
 		g.Stop().CheckSuccessRate(t, 1)
 	})
