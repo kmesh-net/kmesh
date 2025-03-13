@@ -56,6 +56,37 @@ type KmeshSockopsWorkloadCompatSockStorageData struct {
 	Direction      uint8
 	ConnectSuccess uint8
 	_              [6]byte
+	SockCookie     uint64
+}
+
+type KmeshSockopsWorkloadCompatTcpProbeInfo struct {
+	Type    uint32
+	Tuple   KmeshSockopsWorkloadCompatBpfSockTuple
+	OrigDst struct {
+		Ipv4 struct {
+			Addr uint32
+			Port uint16
+			_    [2]byte
+		}
+		_ [12]byte
+	}
+	_             [4]byte
+	ConnId        uint64
+	SentBytes     uint32
+	ReceivedBytes uint32
+	ConnSuccess   uint32
+	Direction     uint32
+	State         uint32
+	_             [4]byte
+	Duration      uint64
+	StartNs       uint64
+	LastReportNs  uint64
+	Protocol      uint32
+	SrttUs        uint32
+	RttMin        uint32
+	TotalRetrans  uint32
+	LostOut       uint32
+	_             [4]byte
 }
 
 // LoadKmeshSockopsWorkloadCompat returns the embedded CollectionSpec for KmeshSockopsWorkloadCompat.
@@ -100,7 +131,9 @@ type KmeshSockopsWorkloadCompatSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsWorkloadCompatProgramSpecs struct {
-	SockopsProg *ebpf.ProgramSpec `ebpf:"sockops_prog"`
+	SockopsActiveProg  *ebpf.ProgramSpec `ebpf:"sockops_active_prog"`
+	SockopsPassiveProg *ebpf.ProgramSpec `ebpf:"sockops_passive_prog"`
+	SockopsUtilsProg   *ebpf.ProgramSpec `ebpf:"sockops_utils_prog"`
 }
 
 // KmeshSockopsWorkloadCompatMapSpecs contains maps before they are loaded into the kernel.
@@ -119,8 +152,11 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
+	KmSocId       *ebpf.MapSpec `ebpf:"km_soc_id"`
+	KmSocIdCnt    *ebpf.MapSpec `ebpf:"km_soc_id_cnt"`
 	KmSocket      *ebpf.MapSpec `ebpf:"km_socket"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTcpConns    *ebpf.MapSpec `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
@@ -169,8 +205,11 @@ type KmeshSockopsWorkloadCompatMaps struct {
 	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
+	KmSocId       *ebpf.Map `ebpf:"km_soc_id"`
+	KmSocIdCnt    *ebpf.Map `ebpf:"km_soc_id_cnt"`
 	KmSocket      *ebpf.Map `ebpf:"km_socket"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTcpConns    *ebpf.Map `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
@@ -194,8 +233,11 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.KmPerfInfo,
 		m.KmPerfMap,
 		m.KmService,
+		m.KmSocId,
+		m.KmSocIdCnt,
 		m.KmSocket,
 		m.KmSockstorage,
+		m.KmTcpConns,
 		m.KmTcpProbe,
 		m.KmTmpbuf,
 		m.KmWlpolicy,
@@ -217,12 +259,16 @@ type KmeshSockopsWorkloadCompatVariables struct {
 //
 // It can be passed to LoadKmeshSockopsWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSockopsWorkloadCompatPrograms struct {
-	SockopsProg *ebpf.Program `ebpf:"sockops_prog"`
+	SockopsActiveProg  *ebpf.Program `ebpf:"sockops_active_prog"`
+	SockopsPassiveProg *ebpf.Program `ebpf:"sockops_passive_prog"`
+	SockopsUtilsProg   *ebpf.Program `ebpf:"sockops_utils_prog"`
 }
 
 func (p *KmeshSockopsWorkloadCompatPrograms) Close() error {
 	return _KmeshSockopsWorkloadCompatClose(
-		p.SockopsProg,
+		p.SockopsActiveProg,
+		p.SockopsPassiveProg,
+		p.SockopsUtilsProg,
 	)
 }
 

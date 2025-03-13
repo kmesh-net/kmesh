@@ -12,7 +12,7 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type KmeshSockopsWorkloadBpfSockTuple struct {
+type KmeshTcWorkloadBpfSockTuple struct {
 	Ipv4 struct {
 		Saddr uint32
 		Daddr uint32
@@ -22,9 +22,9 @@ type KmeshSockopsWorkloadBpfSockTuple struct {
 	_ [24]byte
 }
 
-type KmeshSockopsWorkloadBuf struct{ Data [40]int8 }
+type KmeshTcWorkloadBuf struct{ Data [40]int8 }
 
-type KmeshSockopsWorkloadKmeshConfig struct {
+type KmeshTcWorkloadKmeshConfig struct {
 	BpfLogLevel      uint32
 	NodeIp           [4]uint32
 	PodGateway       [4]uint32
@@ -32,12 +32,12 @@ type KmeshSockopsWorkloadKmeshConfig struct {
 	EnableMonitoring uint32
 }
 
-type KmeshSockopsWorkloadManagerKey struct {
+type KmeshTcWorkloadManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
 }
 
-type KmeshSockopsWorkloadOperationUsageData struct {
+type KmeshTcWorkloadOperationUsageData struct {
 	StartTime     uint64
 	EndTime       uint64
 	PidTgid       uint64
@@ -45,13 +45,13 @@ type KmeshSockopsWorkloadOperationUsageData struct {
 	_             [4]byte
 }
 
-type KmeshSockopsWorkloadOperationUsageKey struct {
+type KmeshTcWorkloadOperationUsageKey struct {
 	SocketCookie  uint64
 	OperationType uint32
 	_             [4]byte
 }
 
-type KmeshSockopsWorkloadSockStorageData struct {
+type KmeshTcWorkloadSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
 	ConnectSuccess uint8
@@ -59,9 +59,9 @@ type KmeshSockopsWorkloadSockStorageData struct {
 	SockCookie     uint64
 }
 
-type KmeshSockopsWorkloadTcpProbeInfo struct {
+type KmeshTcWorkloadTcpProbeInfo struct {
 	Type    uint32
-	Tuple   KmeshSockopsWorkloadBpfSockTuple
+	Tuple   KmeshTcWorkloadBpfSockTuple
 	OrigDst struct {
 		Ipv4 struct {
 			Addr uint32
@@ -89,28 +89,28 @@ type KmeshSockopsWorkloadTcpProbeInfo struct {
 	_             [4]byte
 }
 
-// LoadKmeshSockopsWorkload returns the embedded CollectionSpec for KmeshSockopsWorkload.
-func LoadKmeshSockopsWorkload() (*ebpf.CollectionSpec, error) {
-	reader := bytes.NewReader(_KmeshSockopsWorkloadBytes)
+// LoadKmeshTcWorkload returns the embedded CollectionSpec for KmeshTcWorkload.
+func LoadKmeshTcWorkload() (*ebpf.CollectionSpec, error) {
+	reader := bytes.NewReader(_KmeshTcWorkloadBytes)
 	spec, err := ebpf.LoadCollectionSpecFromReader(reader)
 	if err != nil {
-		return nil, fmt.Errorf("can't load KmeshSockopsWorkload: %w", err)
+		return nil, fmt.Errorf("can't load KmeshTcWorkload: %w", err)
 	}
 
 	return spec, err
 }
 
-// LoadKmeshSockopsWorkloadObjects loads KmeshSockopsWorkload and converts it into a struct.
+// LoadKmeshTcWorkloadObjects loads KmeshTcWorkload and converts it into a struct.
 //
 // The following types are suitable as obj argument:
 //
-//	*KmeshSockopsWorkloadObjects
-//	*KmeshSockopsWorkloadPrograms
-//	*KmeshSockopsWorkloadMaps
+//	*KmeshTcWorkloadObjects
+//	*KmeshTcWorkloadPrograms
+//	*KmeshTcWorkloadMaps
 //
 // See ebpf.CollectionSpec.LoadAndAssign documentation for details.
-func LoadKmeshSockopsWorkloadObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
-	spec, err := LoadKmeshSockopsWorkload()
+func LoadKmeshTcWorkloadObjects(obj interface{}, opts *ebpf.CollectionOptions) error {
+	spec, err := LoadKmeshTcWorkload()
 	if err != nil {
 		return err
 	}
@@ -118,32 +118,31 @@ func LoadKmeshSockopsWorkloadObjects(obj interface{}, opts *ebpf.CollectionOptio
 	return spec.LoadAndAssign(obj, opts)
 }
 
-// KmeshSockopsWorkloadSpecs contains maps and programs before they are loaded into the kernel.
+// KmeshTcWorkloadSpecs contains maps and programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
-type KmeshSockopsWorkloadSpecs struct {
-	KmeshSockopsWorkloadProgramSpecs
-	KmeshSockopsWorkloadMapSpecs
-	KmeshSockopsWorkloadVariableSpecs
+type KmeshTcWorkloadSpecs struct {
+	KmeshTcWorkloadProgramSpecs
+	KmeshTcWorkloadMapSpecs
+	KmeshTcWorkloadVariableSpecs
 }
 
-// KmeshSockopsWorkloadProgramSpecs contains programs before they are loaded into the kernel.
+// KmeshTcWorkloadProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
-type KmeshSockopsWorkloadProgramSpecs struct {
-	SockopsActiveProg  *ebpf.ProgramSpec `ebpf:"sockops_active_prog"`
-	SockopsPassiveProg *ebpf.ProgramSpec `ebpf:"sockops_passive_prog"`
-	SockopsUtilsProg   *ebpf.ProgramSpec `ebpf:"sockops_utils_prog"`
+type KmeshTcWorkloadProgramSpecs struct {
+	TcProg *ebpf.ProgramSpec `ebpf:"tc_prog"`
 }
 
-// KmeshSockopsWorkloadMapSpecs contains maps before they are loaded into the kernel.
+// KmeshTcWorkloadMapSpecs contains maps before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
-type KmeshSockopsWorkloadMapSpecs struct {
+type KmeshTcWorkloadMapSpecs struct {
 	KmAuthReq     *ebpf.MapSpec `ebpf:"km_auth_req"`
 	KmAuthRes     *ebpf.MapSpec `ebpf:"km_auth_res"`
 	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
 	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
+	KmConnFlush   *ebpf.MapSpec `ebpf:"km_conn_flush"`
 	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
@@ -154,7 +153,6 @@ type KmeshSockopsWorkloadMapSpecs struct {
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
 	KmSocId       *ebpf.MapSpec `ebpf:"km_soc_id"`
 	KmSocIdCnt    *ebpf.MapSpec `ebpf:"km_soc_id_cnt"`
-	KmSocket      *ebpf.MapSpec `ebpf:"km_socket"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcpConns    *ebpf.MapSpec `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
@@ -166,37 +164,38 @@ type KmeshSockopsWorkloadMapSpecs struct {
 	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
-// KmeshSockopsWorkloadVariableSpecs contains global variables before they are loaded into the kernel.
+// KmeshTcWorkloadVariableSpecs contains global variables before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
-type KmeshSockopsWorkloadVariableSpecs struct {
+type KmeshTcWorkloadVariableSpecs struct {
 	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
-// KmeshSockopsWorkloadObjects contains all objects after they have been loaded into the kernel.
+// KmeshTcWorkloadObjects contains all objects after they have been loaded into the kernel.
 //
-// It can be passed to LoadKmeshSockopsWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
-type KmeshSockopsWorkloadObjects struct {
-	KmeshSockopsWorkloadPrograms
-	KmeshSockopsWorkloadMaps
-	KmeshSockopsWorkloadVariables
+// It can be passed to LoadKmeshTcWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshTcWorkloadObjects struct {
+	KmeshTcWorkloadPrograms
+	KmeshTcWorkloadMaps
+	KmeshTcWorkloadVariables
 }
 
-func (o *KmeshSockopsWorkloadObjects) Close() error {
-	return _KmeshSockopsWorkloadClose(
-		&o.KmeshSockopsWorkloadPrograms,
-		&o.KmeshSockopsWorkloadMaps,
+func (o *KmeshTcWorkloadObjects) Close() error {
+	return _KmeshTcWorkloadClose(
+		&o.KmeshTcWorkloadPrograms,
+		&o.KmeshTcWorkloadMaps,
 	)
 }
 
-// KmeshSockopsWorkloadMaps contains all maps after they have been loaded into the kernel.
+// KmeshTcWorkloadMaps contains all maps after they have been loaded into the kernel.
 //
-// It can be passed to LoadKmeshSockopsWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
-type KmeshSockopsWorkloadMaps struct {
+// It can be passed to LoadKmeshTcWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshTcWorkloadMaps struct {
 	KmAuthReq     *ebpf.Map `ebpf:"km_auth_req"`
 	KmAuthRes     *ebpf.Map `ebpf:"km_auth_res"`
 	KmBackend     *ebpf.Map `ebpf:"km_backend"`
 	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
+	KmConnFlush   *ebpf.Map `ebpf:"km_conn_flush"`
 	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
@@ -207,7 +206,6 @@ type KmeshSockopsWorkloadMaps struct {
 	KmService     *ebpf.Map `ebpf:"km_service"`
 	KmSocId       *ebpf.Map `ebpf:"km_soc_id"`
 	KmSocIdCnt    *ebpf.Map `ebpf:"km_soc_id_cnt"`
-	KmSocket      *ebpf.Map `ebpf:"km_socket"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcpConns    *ebpf.Map `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
@@ -219,12 +217,13 @@ type KmeshSockopsWorkloadMaps struct {
 	KmeshMap64    *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
-func (m *KmeshSockopsWorkloadMaps) Close() error {
-	return _KmeshSockopsWorkloadClose(
+func (m *KmeshTcWorkloadMaps) Close() error {
+	return _KmeshTcWorkloadClose(
 		m.KmAuthReq,
 		m.KmAuthRes,
 		m.KmBackend,
 		m.KmConfigmap,
+		m.KmConnFlush,
 		m.KmEndpoint,
 		m.KmFrontend,
 		m.KmLogEvent,
@@ -235,7 +234,6 @@ func (m *KmeshSockopsWorkloadMaps) Close() error {
 		m.KmService,
 		m.KmSocId,
 		m.KmSocIdCnt,
-		m.KmSocket,
 		m.KmSockstorage,
 		m.KmTcpConns,
 		m.KmTcpProbe,
@@ -248,31 +246,27 @@ func (m *KmeshSockopsWorkloadMaps) Close() error {
 	)
 }
 
-// KmeshSockopsWorkloadVariables contains all global variables after they have been loaded into the kernel.
+// KmeshTcWorkloadVariables contains all global variables after they have been loaded into the kernel.
 //
-// It can be passed to LoadKmeshSockopsWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
-type KmeshSockopsWorkloadVariables struct {
+// It can be passed to LoadKmeshTcWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshTcWorkloadVariables struct {
 	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
 }
 
-// KmeshSockopsWorkloadPrograms contains all programs after they have been loaded into the kernel.
+// KmeshTcWorkloadPrograms contains all programs after they have been loaded into the kernel.
 //
-// It can be passed to LoadKmeshSockopsWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
-type KmeshSockopsWorkloadPrograms struct {
-	SockopsActiveProg  *ebpf.Program `ebpf:"sockops_active_prog"`
-	SockopsPassiveProg *ebpf.Program `ebpf:"sockops_passive_prog"`
-	SockopsUtilsProg   *ebpf.Program `ebpf:"sockops_utils_prog"`
+// It can be passed to LoadKmeshTcWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshTcWorkloadPrograms struct {
+	TcProg *ebpf.Program `ebpf:"tc_prog"`
 }
 
-func (p *KmeshSockopsWorkloadPrograms) Close() error {
-	return _KmeshSockopsWorkloadClose(
-		p.SockopsActiveProg,
-		p.SockopsPassiveProg,
-		p.SockopsUtilsProg,
+func (p *KmeshTcWorkloadPrograms) Close() error {
+	return _KmeshTcWorkloadClose(
+		p.TcProg,
 	)
 }
 
-func _KmeshSockopsWorkloadClose(closers ...io.Closer) error {
+func _KmeshTcWorkloadClose(closers ...io.Closer) error {
 	for _, closer := range closers {
 		if err := closer.Close(); err != nil {
 			return err
@@ -283,5 +277,5 @@ func _KmeshSockopsWorkloadClose(closers ...io.Closer) error {
 
 // Do not access this directly.
 //
-//go:embed kmeshsockopsworkload_bpfeb.o
-var _KmeshSockopsWorkloadBytes []byte
+//go:embed kmeshtcworkload_bpfeb.o
+var _KmeshTcWorkloadBytes []byte
