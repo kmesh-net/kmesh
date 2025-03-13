@@ -321,7 +321,7 @@ func (l *BpfLoader) setBpfProgOptions() {
 		valueOfKmeshBpfConfig.BpfLogLevel = constants.BPF_LOG_INFO
 		valueOfKmeshBpfConfig.NodeIP = nodeIP
 		valueOfKmeshBpfConfig.PodGateway = gateway
-		valueOfKmeshBpfConfig.AuthzOffload = constants.DISABLED
+		valueOfKmeshBpfConfig.AuthzOffload = constants.ENABLED
 		valueOfKmeshBpfConfig.EnableMonitoring = constants.ENABLED
 
 		if err := UpdateKmeshConfigMap(l.kmeshConfig, valueOfKmeshBpfConfig); err != nil {
