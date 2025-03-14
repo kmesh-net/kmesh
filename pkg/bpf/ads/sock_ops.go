@@ -1,6 +1,3 @@
-//go:build enhanced
-// +build enhanced
-
 /*
  * Copyright The Kmesh Authors.
  *
@@ -28,20 +25,11 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 
-	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/enhanced"
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
-	helper "kmesh.net/kmesh/pkg/utils"
 )
-
-type BpfSockOps struct {
-	Info general.BpfInfo
-	Link link.Link
-	bpf2go.KmeshSockopsObjects
-}
 
 func (sc *BpfSockOps) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh/map/"
@@ -71,11 +59,7 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 	)
 
 	opts.Maps.PinPath = sc.Info.MapPath
-	if helper.KernelVersionLowerThan5_13() {
-		spec, err = bpf2go.LoadKmeshSockopsCompat()
-	} else {
-		spec, err = bpf2go.LoadKmeshSockops()
-	}
+	spec, err = loadKmeshSockOps()
 	if err != nil || spec == nil {
 		return nil, err
 	}
