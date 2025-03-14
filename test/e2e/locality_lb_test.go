@@ -1,23 +1,25 @@
 //go:build integ
 // +build integ
 
+//go:build integ
+// +build integ
+
 /*
-Production-grade End-to-End Test for Kmesh Locality Load Balancing (PreferClose mode).
-
-This test performs the following steps:
-1. Create a dedicated namespace "sample".
-2. Deploy a Service ("helloworld") annotated with PreferClose load balancing.
-3. Deploy three helloworld Deployments on three different nodes:
-   - A local instance on node "ambient-worker" with version "region.zone1.subzone1".
-   - A remote instance on node "ambient-worker2" with version "region.zone1.subzone2".
-   - A remote instance on node "ambient-worker3" with version "region.zone2.subzone3".
-4. Deploy a sleep client on node "ambient-worker".
-5. Verify that:
-   - Initially, the sleep client’s request is served by the local instance.
-   - After deleting the local instance, traffic fails over to the remote instance.
-6. Cleanup all resources at the end of the test.
-*/
-
+ * Copyright The Kmesh Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+ 
 package kmesh
 
 import (
