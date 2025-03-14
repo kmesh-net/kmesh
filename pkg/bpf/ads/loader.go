@@ -58,7 +58,7 @@ type BpfSockOps struct {
 	bpf2go.KmeshSockopsObjects
 }
 
-func Bpf2goLoadKmeshCgroupSock() (*ebpf.CollectionSpec, error) {
+func loadKmeshCgroupSock() (*ebpf.CollectionSpec, error) {
 	var spec *ebpf.CollectionSpec
 	var err error
 	if helper.KernelVersionLowerThan5_13() {
@@ -69,7 +69,7 @@ func Bpf2goLoadKmeshCgroupSock() (*ebpf.CollectionSpec, error) {
 	return spec, err
 }
 
-func Bpf2goLoadKmeshSockOps() (*ebpf.CollectionSpec, error) {
+func loadKmeshSockOps() (*ebpf.CollectionSpec, error) {
 	var spec *ebpf.CollectionSpec
 	var err error
 	if helper.KernelVersionLowerThan5_13() {

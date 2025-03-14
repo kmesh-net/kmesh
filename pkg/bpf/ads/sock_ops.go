@@ -59,7 +59,7 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 	)
 
 	opts.Maps.PinPath = sc.Info.MapPath
-	spec, err = Bpf2goLoadKmeshSockOps()
+	spec, err = loadKmeshSockOps()
 	if err != nil || spec == nil {
 		return nil, err
 	}

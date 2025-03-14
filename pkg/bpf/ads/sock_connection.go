@@ -71,7 +71,7 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
-	spec, err = Bpf2goLoadKmeshCgroupSock()
+	spec, err = loadKmeshCgroupSock()
 	if err != nil || spec == nil {
 		return nil, err
 	}

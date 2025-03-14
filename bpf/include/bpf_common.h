@@ -235,7 +235,7 @@ static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 
     err = bpf_map_update_elem(&map_of_manager, &key, &value, BPF_ANY);
     if (err)
-        BPF_LOG(ERR, KMESH, "record ip failed!, err is %d\n", err);
+        BPF_LOG(ERR, KMESH, "record ip failed, err is %d\n", err);
 }
 
 static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
@@ -248,7 +248,7 @@ static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 
     int err = bpf_map_delete_elem(&map_of_manager, &key);
     if (err && err != -ENOENT)
-        BPF_LOG(ERR, KMESH, "remove ip failed!, err is %d\n", err);
+        BPF_LOG(ERR, KMESH, "remove ip failed, err is %d\n", err);
 }
 
 static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 port)
