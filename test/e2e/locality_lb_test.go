@@ -1,9 +1,6 @@
 //go:build integ
 // +build integ
 
-//go:build integ
-// +build integ
-
 /*
  * Copyright The Kmesh Authors.
  *
@@ -19,7 +16,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 package kmesh
 
 import (
