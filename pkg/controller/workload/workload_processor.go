@@ -121,20 +121,10 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	switch rsp.GetTypeUrl() {
 	case AddressType:
 		err = p.handleAddressTypeResponse(rsp)
-		if p.addressDone != nil {
-			select {
-			case p.addressDone <- struct{}{}:
-			default:
-			}
-		}
+		p.addressDone <- struct{}{}
 	case AuthorizationType:
 		err = p.handleAuthorizationTypeResponse(rsp, rbac)
-		if p.authzDone != nil {
-			select {
-			case p.authzDone <- struct{}{}:
-			default:
-			}
-		}
+		p.authzDone <- struct{}{}
 	default:
 		err = fmt.Errorf("unsupported type url %s", rsp.GetTypeUrl())
 	}
