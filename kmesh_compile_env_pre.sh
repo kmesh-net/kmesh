@@ -126,7 +126,7 @@ function set_enhanced_kernel_env() {
     if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF; then
             export ENHANCED_KERNEL="enhanced"
     else
-            export ENHANCED_KERNEL="unenhanced"
+            export ENHANCED_KERNEL="normal"
     fi
 }
 
