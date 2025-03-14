@@ -19,6 +19,7 @@ package workload
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -66,7 +67,24 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 }
 
 func (c *Controller) Run(ctx context.Context) {
-	go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.KmAuthReq, c.bpfWorkloadObj.XdpAuth.KmAuthRes)
+	go func() {
+		var addressReady, authzReady bool
+		var once sync.Once
+		for {
+			select {
+			case <-c.Processor.addressDone:
+				addressReady = true
+			case <-c.Processor.authzDone:
+				authzReady = true
+			}
+			if addressReady && authzReady {
+				once.Do(func() {
+					go c.Rbac.Run(ctx, c.bpfWorkloadObj.SockOps.KmAuthReq, c.bpfWorkloadObj.XdpAuth.KmAuthRes)
+				})
+			}
+		}
+	}()
+
 	go c.MetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmTcpProbe)
 	if c.MapMetricController != nil {
 		go c.MapMetricController.Run(ctx)

@@ -66,6 +66,10 @@ type Processor struct {
 
 	once      sync.Once
 	authzOnce sync.Once
+
+	// used to notify Rbac the address/authz type response is done when Kmesh restart
+	addressDone chan struct{}
+	authzDone   chan struct{}
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
@@ -80,6 +84,8 @@ func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		EndpointCache: cache.NewEndpointCache(),
 		WaypointCache: cache.NewWaypointCache(serviceCache),
 		locality:      bpf.NewLocalityCache(),
+		addressDone:   make(chan struct{}, 1),
+		authzDone:     make(chan struct{}, 1),
 	}
 }
 
@@ -115,8 +121,10 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	switch rsp.GetTypeUrl() {
 	case AddressType:
 		err = p.handleAddressTypeResponse(rsp)
+		p.addressDone <- struct{}{}
 	case AuthorizationType:
 		err = p.handleAuthorizationTypeResponse(rsp, rbac)
+		p.authzDone <- struct{}{}
 	default:
 		err = fmt.Errorf("unsupported type url %s", rsp.GetTypeUrl())
 	}
