@@ -1,3 +1,24 @@
+//go:build integ
+// +build integ
+
+/*
+End-to-End Test for Kmesh Locality-Aware Load Balancing.
+
+This test verifies that Kmesh correctly routes traffic to the nearest available instance 
+based on locality (region, zone, and subzone). The test performs the following steps:
+1. Create a Kind cluster with three worker nodes.
+2. Label the nodes with region, zone, and subzone information.
+3. Deploy a helloworld service.
+4. Deploy three instances of the helloworld service on different nodes:
+   - A local instance on "ambient-worker" with version "region.zone1.subzone1".
+   - A remote instance on "ambient-worker2" with version "region.zone1.subzone2".
+   - A remote instance on "ambient-worker3" with version "region.zone2.subzone3".
+5. Deploy a sleep client on "ambient-worker" and validate:
+   - Traffic initially routes to the local instance.
+   - After deleting the local instance, traffic should fail over to the nearest available remote instance.
+6. Clean up all resources after the test.
+*/
+
 package e2e
 
 import (
