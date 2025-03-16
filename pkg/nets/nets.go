@@ -56,6 +56,14 @@ func ConvertPortToBigEndian(little uint32) uint32 {
 	return uint32(big16)
 }
 
+// ConvertPortToLittleEndian convert port to host order
+func ConvertPortToLittleEndian(big uint32) uint32 {
+	tmp := make([]byte, 2)
+	binary.LittleEndian.PutUint16(tmp, uint16(big))
+	little16 := binary.BigEndian.Uint16(tmp)
+	return uint32(little16)
+}
+
 func CopyIpByteFromSlice(dst *[16]byte, src []byte) {
 	len := len(src)
 	if len != 4 && len != 16 {

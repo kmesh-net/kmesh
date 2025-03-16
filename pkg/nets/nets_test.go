@@ -118,3 +118,21 @@ func TestCompareIpByte(t *testing.T) {
 		})
 	}
 }
+
+func TestConvertPortToLittleEndian(t *testing.T) {
+	tests := []struct {
+		input    uint32
+		expected uint32
+	}{
+		{8080, 8080},
+		{0x5678, 0x5678},
+	}
+
+	for _, test := range tests {
+		input := ConvertPortToBigEndian(test.input)
+		actual := ConvertPortToLittleEndian(input)
+		if actual != test.expected {
+			t.Errorf("ConvertPortToLittleEndian(%#x) = %#x; expected %#x", test.input, actual, test.expected)
+		}
+	}
+}
