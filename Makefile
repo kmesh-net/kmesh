@@ -82,8 +82,7 @@ ifeq ($(TAG),)
   $(error "TAG cannot be empty")
 endif
 
-TMP_FILES := bpf/kmesh/bpf2go/bpf2go.go \
-	config/kmesh_marcos_def.h \
+TMP_FILES := config/kmesh_marcos_def.h \
 	mk/api-v2-c.pc \
 	mk/bpf.pc \
 	bpf/include/bpf_helper_defs_ext.h \
