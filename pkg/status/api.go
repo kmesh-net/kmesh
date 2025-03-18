@@ -263,10 +263,6 @@ func (wd WorkloadBpfDump) WithWorkloadPolicies(workloadPolicies []bpfcache.Workl
 func (wd WorkloadBpfDump) WithBackends(backends []bpfcache.BackendValue) WorkloadBpfDump {
 	converted := make([]BpfBackendValue, 0, len(backends))
 	for _, backend := range backends {
-		ip := []byte{}
-		for _, b := range backend.Ip {
-			ip = append(ip, b)
-		}
 		waypointAddr := ""
 		if backend.WaypointAddr != [16]byte{} {
 			waypointAddr = nets.IpString(backend.WaypointAddr)
