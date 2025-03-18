@@ -207,16 +207,16 @@ type BpfServiceValue struct {
 	LbPolicy      string              `json:"lbPolicy"`
 	ServicePort   prettyArray[uint32] `json:"servicePort,omitempty"`
 	TargetPort    prettyArray[uint32] `json:"targetPort,omitempty"`
-	WaypointAddr  prettyArray[byte]   `json:"waypointAddr,omitempty"`
+	WaypointAddr  string              `json:"waypointAddr,omitempty"`
 	WaypointPort  uint32              `json:"waypointPort,omitempty"`
 }
 
 type BpfBackendValue struct {
-	Ip           prettyArray[byte] `json:"ip"`
-	ServiceCount uint32            `json:"serviceCount"`
-	Services     []string          `json:"services"`
-	WaypointAddr prettyArray[byte] `json:"waypointAddr,omitempty"`
-	WaypointPort uint32            `json:"waypointPort,omitempty"`
+	Ip           string   `json:"ip"`
+	ServiceCount uint32   `json:"serviceCount"`
+	Services     []string `json:"services"`
+	WaypointAddr string   `json:"waypointAddr,omitempty"`
+	WaypointPort uint32   `json:"waypointPort,omitempty"`
 }
 
 type BpfFrontendValue struct {
@@ -267,14 +267,12 @@ func (wd WorkloadBpfDump) WithBackends(backends []bpfcache.BackendValue) Workloa
 		for _, b := range backend.Ip {
 			ip = append(ip, b)
 		}
-		waypointAddr := []byte{}
+		waypointAddr := ""
 		if backend.WaypointAddr != [16]byte{} {
-			for _, b := range backend.WaypointAddr {
-				waypointAddr = append(waypointAddr, b)
-			}
+			waypointAddr = nets.IpString(backend.WaypointAddr)
 		}
 		bac := BpfBackendValue{
-			Ip:           ip,
+			Ip:           nets.IpString(backend.Ip),
 			ServiceCount: backend.ServiceCount,
 			WaypointAddr: waypointAddr,
 			WaypointPort: nets.ConvertPortToLittleEndian(backend.WaypointPort),
@@ -285,7 +283,7 @@ func (wd WorkloadBpfDump) WithBackends(backends []bpfcache.BackendValue) Workloa
 			if svc == "" {
 				continue
 			}
-			services = append(services, wd.hashName.NumToStr(s))
+			services = append(services, svc)
 		}
 		bac.Services = services
 		converted = append(converted, bac)
@@ -319,11 +317,9 @@ func (wd WorkloadBpfDump) WithFrontends(frontends []bpfcache.FrontendValue) Work
 func (wd WorkloadBpfDump) WithServices(services []bpfcache.ServiceValue) WorkloadBpfDump {
 	converted := make([]BpfServiceValue, 0, len(services))
 	for _, s := range services {
-		waypointAddr := []byte{}
+		waypointAddr := ""
 		if s.WaypointAddr != [16]byte{} {
-			for _, b := range s.WaypointAddr {
-				waypointAddr = append(waypointAddr, b)
-			}
+			waypointAddr = nets.IpString(s.WaypointAddr)
 		}
 		svc := BpfServiceValue{
 			EndpointCount: []uint32{},
