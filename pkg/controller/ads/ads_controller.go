@@ -33,8 +33,9 @@ var (
 )
 
 type Controller struct {
-	Processor *processor
-	con       *connection
+	Processor             *processor
+	dnsResolverController *dnsController
+	con                   *connection
 }
 
 type connection struct {
@@ -44,8 +45,17 @@ type connection struct {
 }
 
 func NewController(bpfAds *bpfads.BpfAds) *Controller {
+	processor := newProcessor(bpfAds)
+	// create kernel-native mode ads resolver controller
+	dnsResolverController, err := NewDnsResolver(processor.Cache)
+	if err != nil {
+		log.Errorf("dns resolver of Kernel-Native mode create failed: %v", err)
+	}
+	processor.DnsResolverChan = dnsResolverController.Clusters
+
 	return &Controller{
-		Processor: newProcessor(bpfAds),
+		dnsResolverController: dnsResolverController,
+		Processor:             processor,
 	}
 }
 
@@ -84,6 +94,9 @@ func (c *Controller) HandleAdsStream() error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
+	// Because Kernel-Native mode is full update.
+	// So the original clusterCache is deleted when a new resp is received.
+	c.dnsResolverController.newClusterCache()
 	c.Processor.processAdsResponse(rsp)
 	c.con.requestsChan.Put(c.Processor.ack)
 	if c.Processor.req != nil {
@@ -113,5 +126,11 @@ func (c *Controller) Close() {
 	if c.con != nil {
 		close(c.con.stopCh)
 		_ = c.con.Stream.CloseSend()
+	}
+}
+
+func (c *Controller) StartDnsController(stopCh <-chan struct{}) {
+	if c.dnsResolverController != nil {
+		c.dnsResolverController.Run(stopCh)
 	}
 }

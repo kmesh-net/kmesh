@@ -147,8 +147,7 @@ func (r *DNSResolver) resolve(domainName string) ([]string, time.Duration, error
 	return addrs, ttl, nil
 }
 
-// resolveDomains takes a slice of cluster
-func (r *DNSResolver) ResolveDomains(domainName string) {
+func (r *DNSResolver) InitializeDomainInCache(domainName string) {
 	r.Lock()
 	if r.cache[domainName] == nil {
 		r.cache[domainName] = &DomainCacheEntry{}
@@ -266,16 +265,16 @@ func (r *DNSResolver) GetAllCachedDomains() []string {
 	return out
 }
 
-func (r *DNSResolver) GetOneDomainFromCache(domain string) ([]string, bool) {
-	r.Lock()
+func (r *DNSResolver) GetDomainAddress(domain string) ([]string, bool) {
+	r.RLock()
 	addresses, ok := r.cache[domain]
-	r.Unlock()
+	r.RUnlock()
 	return addresses.Addresses, ok
 }
 
-func (r *DNSResolver) GetAddressesFromCache(domains map[string]struct{}) map[string]*DomainCacheEntry {
-	r.Lock()
-	defer r.Unlock()
+func (r *DNSResolver) GetBatchAddressesFromCache(domains map[string]struct{}) map[string]*DomainCacheEntry {
+	r.RLock()
+	defer r.RUnlock()
 
 	alreadyResolveDomains := make(map[string]*DomainCacheEntry)
 	for domain := range domains {
@@ -298,7 +297,7 @@ func (r *DNSResolver) RemoveUnwatchDomain(domains map[string]struct{}) {
 	}
 }
 
-func (r *DNSResolver) AddDomainIntoRefreshQueue(info *DomainInfo, time time.Duration) {
+func (r *DNSResolver) ScheduleDomainRefresh(info *DomainInfo, time time.Duration) {
 	if info == nil {
 		return
 	}

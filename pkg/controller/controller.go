@@ -27,7 +27,6 @@ import (
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
-	"kmesh.net/kmesh/pkg/controller/ads"
 	"kmesh.net/kmesh/pkg/controller/bypass"
 	"kmesh.net/kmesh/pkg/controller/encryption/ipsec"
 	manage "kmesh.net/kmesh/pkg/controller/manage"
@@ -153,15 +152,8 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 
 	if c.client.WorkloadController != nil {
 		c.client.WorkloadController.Run(ctx)
-	}
-
-	if c.client.AdsController != nil {
-		dnsResolver, err := ads.NewDnsResolver(c.client.AdsController.Processor.Cache)
-		if err != nil {
-			return fmt.Errorf("dns resolver of Kernel-Native mode create failed: %v", err)
-		}
-		dnsResolver.StartKernelNativeDnsController(stopCh)
-		c.client.AdsController.Processor.DnsResolverChan = dnsResolver.Clusters
+	} else {
+		c.client.AdsController.StartDnsController(stopCh)
 	}
 
 	return c.client.Run(stopCh)

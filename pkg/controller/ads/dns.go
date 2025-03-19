@@ -17,14 +17,17 @@
 package ads
 
 import (
+	"fmt"
 	"net"
 	"net/netip"
 	"slices"
+	"sync"
 	"time"
 
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
@@ -36,6 +39,11 @@ type dnsController struct {
 	Clusters    chan []*clusterv3.Cluster
 	cache       *AdsCache
 	dnsResolver *dns.DNSResolver
+	// Store the copy of pendingResolveDomain.
+	clusterCache map[string]*pendingResolveDomain
+	// store all pending hostnames in the clusters
+	pendingClusterInfo map[string][]string
+	sync.RWMutex
 }
 
 // pending resolve domain info of Kennel-Native Mode,
@@ -53,16 +61,19 @@ func NewDnsResolver(adsCache *AdsCache) (*dnsController, error) {
 		return nil, err
 	}
 	return &dnsController{
-		Clusters:    make(chan []*clusterv3.Cluster),
-		cache:       adsCache,
-		dnsResolver: resolver,
+		Clusters:           make(chan []*clusterv3.Cluster),
+		cache:              adsCache,
+		dnsResolver:        resolver,
+		clusterCache:       make(map[string]*pendingResolveDomain),
+		pendingClusterInfo: make(map[string][]string),
 	}, nil
 }
 
-func (r *dnsController) StartKernelNativeDnsController(stopCh <-chan struct{}) {
-	go r.startDnsController()
+func (r *dnsController) Run(stopCh <-chan struct{}) {
 	// start dns resolver
 	go r.dnsResolver.StartDnsResolver(stopCh)
+	go r.refreshAdsWorker(stopCh)
+	go r.startDnsController()
 	go func() {
 		<-stopCh
 		close(r.Clusters)
@@ -70,68 +81,63 @@ func (r *dnsController) StartKernelNativeDnsController(stopCh <-chan struct{}) {
 }
 
 func (r *dnsController) startDnsController() {
-	rateLimiter := make(chan struct{}, dns.MaxConcurrency)
 	for clusters := range r.Clusters {
-		rateLimiter <- struct{}{}
-		go func(clusters []*clusterv3.Cluster) {
-			defer func() {
-				<-rateLimiter
-			}()
-			r.resolveDomains(clusters)
-		}(clusters)
+		r.resolveDomains(clusters)
 	}
 }
 
 func (r *dnsController) resolveDomains(cds []*clusterv3.Cluster) {
-	domains := getPendingResolveDomain(cds)
-	hostNames := make(map[string]struct{})
+	domains, hostNames := getPendingResolveDomain(cds)
 
-	for k := range domains {
-		hostNames[k] = struct{}{}
+	// store all pending hostnames of clusters in r.hostInfo
+	for _, cluster := range cds {
+		clusterName := cluster.GetName()
+		info := getHostInfo(cluster)
+		r.pendingClusterInfo[clusterName] = info
 	}
 
 	// delete any scheduled re-resolve for domains we no longer care about
 	r.dnsResolver.RemoveUnwatchDomain(hostNames)
-	// Directly update the clusters that can find the dns resolution result in the cache
-	alreadyResolveDomains := r.dnsResolver.GetAddressesFromCache(hostNames)
-	for k, v := range alreadyResolveDomains {
-		pendingDomain := domains[k]
-		r.adsDnsResolve(pendingDomain, v.Addresses)
-		r.cache.ClusterCache.Flush()
-		delete(domains, k)
-	}
 
 	for k, v := range domains {
-		r.dnsResolver.ResolveDomains(k)
-		domainInfo := &dns.DomainInfo{
-			Domain:      v.DomainName,
-			RefreshRate: v.RefreshRate,
+		addresses := r.dnsResolver.GetDNSAddresses(k)
+		// Already have record in dns cache
+		if addresses != nil {
+			r.updateClusters(v, addresses)
+			go r.cache.ClusterCache.Flush()
+		} else {
+			r.dnsResolver.InitializeDomainInCache(k)
+			domainInfo := &dns.DomainInfo{
+				Domain:      v.DomainName,
+				RefreshRate: v.RefreshRate,
+			}
+			r.dnsResolver.ScheduleDomainRefresh(domainInfo, 0)
 		}
-		r.dnsResolver.AddDomainIntoRefreshQueue(domainInfo, 0)
-	}
-	go r.refreshAdsWorker(domains)
-}
-
-func (r *dnsController) refreshAdsWorker(domains map[string]*pendingResolveDomain) {
-	for !(len(domains) == 0) {
-		domain := <-r.dnsResolver.DnsChan
-		v, ok := domains[domain]
-		// will this happen?
-		if !ok {
-			continue
-		}
-		addresses, _ := r.dnsResolver.GetOneDomainFromCache(domain)
-		r.adsDnsResolve(v, addresses)
-		r.cache.ClusterCache.Flush()
-		delete(domains, domain)
 	}
 }
 
-func (r *dnsController) adsDnsResolve(pendingDomain *pendingResolveDomain, addrs []string) {
+func (r *dnsController) refreshAdsWorker(stop <-chan struct{}) {
+	for {
+		select {
+		case <-stop:
+			return
+		default:
+			domain := <-r.dnsResolver.DnsChan
+			pendingDomain := r.getClustersByDomain(domain)
+			addrs := r.dnsResolver.GetDNSAddresses(domain)
+			r.updateClusters(pendingDomain, addrs)
+		}
+	}
+}
+
+func (r *dnsController) updateClusters(pendingDomain *pendingResolveDomain, addrs []string) {
+	if pendingDomain == nil || addrs == nil {
+		return
+	}
 	for _, cluster := range pendingDomain.Clusters {
-		ready := overwriteDnsCluster(cluster, pendingDomain.DomainName, addrs)
+		ready, newCluster := r.overwriteDnsCluster(cluster, pendingDomain.DomainName, addrs)
 		if ready {
-			if !r.cache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, cluster) {
+			if !r.cache.UpdateApiClusterIfExists(core_v2.ApiStatus_UPDATE, newCluster) {
 				log.Debugf("cluster: %s is deleted", cluster.Name)
 				return
 			}
@@ -139,73 +145,105 @@ func (r *dnsController) adsDnsResolve(pendingDomain *pendingResolveDomain, addrs
 	}
 }
 
-func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []string) bool {
-	buildLbEndpoints := func(port uint32) []*endpointv3.LbEndpoint {
-		lbEndpoints := make([]*endpointv3.LbEndpoint, 0, len(addrs))
-		for _, addr := range addrs {
-			ip := net.ParseIP(addr)
-			if ip == nil {
-				continue
+func (r *dnsController) overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []string) (bool, *clusterv3.Cluster) {
+	ready := true
+	hostNames := r.pendingClusterInfo[cluster.GetName()]
+	addressesOfHostname := make(map[string][]string)
+
+	for _, hostName := range hostNames {
+		addresses := r.dnsResolver.GetDNSAddresses(hostName)
+		// There are hostnames in this Cluster that are not resolved.
+		if addresses != nil {
+			addressesOfHostname[hostName] = addresses
+		} else {
+			ready = false
+		}
+	}
+
+	if ready {
+		newCluster := cloneCluster(cluster)
+		for _, e := range newCluster.LoadAssignment.Endpoints {
+			pos := -1
+			var lbEndpoints []*endpointv3.LbEndpoint
+			for i, le := range e.LbEndpoints {
+				socketAddr, ok := le.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
+				if !ok {
+					continue
+				}
+				_, err := netip.ParseAddr(socketAddr.SocketAddress.Address)
+				if err != nil {
+					host := socketAddr.SocketAddress.Address
+					addresses := addressesOfHostname[host]
+					fmt.Printf("addresses %#v", addresses)
+					pos = i
+					lbEndpoints = buildLbEndpoints(socketAddr.SocketAddress.GetPortValue(), addresses)
+				}
 			}
-			if ip.To4() == nil {
-				continue
-			}
-			lbEndpoint := &endpointv3.LbEndpoint{
-				HealthStatus: v3.HealthStatus_HEALTHY,
-				HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
-					Endpoint: &endpointv3.Endpoint{
-						Address: &v3.Address{
-							Address: &v3.Address_SocketAddress{
-								SocketAddress: &v3.SocketAddress{
-									Address: addr,
-									PortSpecifier: &v3.SocketAddress_PortValue{
-										PortValue: port,
-									},
+			e.LbEndpoints = slices.Replace(e.LbEndpoints, pos, pos+1, lbEndpoints...)
+		}
+		return ready, newCluster
+	}
+
+	return ready, nil
+}
+
+func buildLbEndpoints(port uint32, addrs []string) []*endpointv3.LbEndpoint {
+	lbEndpoints := make([]*endpointv3.LbEndpoint, 0, len(addrs))
+	for _, addr := range addrs {
+		ip := net.ParseIP(addr)
+		if ip == nil {
+			continue
+		}
+		if ip.To4() == nil {
+			continue
+		}
+		lbEndpoint := &endpointv3.LbEndpoint{
+			HealthStatus: v3.HealthStatus_HEALTHY,
+			HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+				Endpoint: &endpointv3.Endpoint{
+					Address: &v3.Address{
+						Address: &v3.Address_SocketAddress{
+							SocketAddress: &v3.SocketAddress{
+								Address: addr,
+								PortSpecifier: &v3.SocketAddress_PortValue{
+									PortValue: port,
 								},
 							},
 						},
 					},
 				},
-				// TODO: support LoadBalancingWeight
-				LoadBalancingWeight: &wrapperspb.UInt32Value{
-					Value: 1,
-				},
-			}
-			lbEndpoints = append(lbEndpoints, lbEndpoint)
+			},
+			// TODO: support LoadBalancingWeight
+			LoadBalancingWeight: &wrapperspb.UInt32Value{
+				Value: 1,
+			},
 		}
-		return lbEndpoints
+		lbEndpoints = append(lbEndpoints, lbEndpoint)
 	}
+	return lbEndpoints
+}
 
-	ready := true
+func getHostInfo(cluster *clusterv3.Cluster) []string {
+	info := []string{}
 	for _, e := range cluster.LoadAssignment.Endpoints {
-		pos := -1
-		var lbEndpoints []*endpointv3.LbEndpoint
-		for i, le := range e.LbEndpoints {
+		for _, le := range e.LbEndpoints {
 			socketAddr, ok := le.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
 			if !ok {
 				continue
 			}
 			_, err := netip.ParseAddr(socketAddr.SocketAddress.Address)
 			if err != nil {
-				if socketAddr.SocketAddress.Address == domain {
-					pos = i
-					lbEndpoints = buildLbEndpoints(socketAddr.SocketAddress.GetPortValue())
-				} else {
-					// There is other domains not resolved for this cluster
-					ready = false
-				}
+				info = append(info, socketAddr.SocketAddress.Address)
 			}
-		}
-		if pos >= 0 {
-			e.LbEndpoints = slices.Replace(e.LbEndpoints, pos, pos+1, lbEndpoints...)
 		}
 	}
 
-	return ready
+	return info
 }
 
-func getPendingResolveDomain(cds []*clusterv3.Cluster) map[string]*pendingResolveDomain {
+func getPendingResolveDomain(cds []*clusterv3.Cluster) (map[string]*pendingResolveDomain, map[string]struct{}) {
 	domains := make(map[string]*pendingResolveDomain)
+	hostNames := make(map[string]struct{})
 
 	for _, cluster := range cds {
 		if cluster.LoadAssignment == nil {
@@ -233,10 +271,40 @@ func getPendingResolveDomain(cds []*clusterv3.Cluster) map[string]*pendingResolv
 						RefreshRate: cluster.GetDnsRefreshRate().AsDuration(),
 					}
 					domains[address] = domainWithRefreshRate
+					hostNames[address] = struct{}{}
 				}
 			}
 		}
 	}
 
-	return domains
+	return domains, hostNames
+}
+
+func (r *dnsController) newClusterCache() {
+	if r.clusterCache != nil {
+		r.Lock()
+		defer r.Unlock()
+		log.Debug("clean up dns clusters")
+		r.clusterCache = map[string]*pendingResolveDomain{}
+		return
+	}
+}
+
+func (r *dnsController) getClustersByDomain(domain string) *pendingResolveDomain {
+	if r.clusterCache != nil {
+		r.RLock()
+		defer r.RUnlock()
+		if v, ok := r.clusterCache[domain]; ok {
+			return v
+		}
+	}
+	return nil
+}
+
+func cloneCluster(cluster *clusterv3.Cluster) *clusterv3.Cluster {
+	if cluster == nil {
+		return nil
+	}
+	clusterCopy := proto.Clone(cluster).(*clusterv3.Cluster)
+	return clusterCopy
 }
