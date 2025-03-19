@@ -81,9 +81,9 @@ func TestOverwriteDNSCluster(t *testing.T) {
 	assert.NoError(t, err)
 	p.DnsResolverChan = dnsResolver.Clusters
 	dnsResolver.pendingClusterinfo = map[string]clusterInfo{
-		"ut-cluster": clusterInfo{
+		"ut-cluster": {
 			info: map[string]hostInfo{
-				domain: hostInfo{
+				domain: {
 					addresses: addrs,
 				},
 			},

@@ -100,7 +100,7 @@ func (r *dnsController) resolveDomains(cds []*clusterv3.Cluster) {
 	domains := getPendingResolveDomain(cds)
 	hostNames := make(map[string]struct{})
 
-	for k, _ := range domains {
+	for k := range domains {
 		hostNames[k] = struct{}{}
 	}
 
@@ -310,14 +310,6 @@ func (r *dnsController) newClusterCache() {
 		defer r.Unlock()
 		r.clusterCache = make(map[string]*pendingResolveDomain)
 		return
-	}
-}
-
-func (r *dnsController) setClusterCache(cache map[string]*pendingResolveDomain) {
-	if r.clusterCache != nil {
-		r.Lock()
-		defer r.Unlock()
-		r.clusterCache = cache
 	}
 }
 
