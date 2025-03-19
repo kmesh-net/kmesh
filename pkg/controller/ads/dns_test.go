@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/agiledragon/gomonkey/v2"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	v3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -32,11 +33,12 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/pkg/dns"
 )
 
 func TestOverwriteDNSCluster(t *testing.T) {
 	domain := "www.google.com"
-	addrs := []string{"10.1.1.1", "10.1.1.2"}
+	addrs := []string{"10.1.1.1", "10.1.1.2", "10.1.1.3"}
 	cluster := &clusterv3.Cluster{
 		Name: "ut-cluster",
 		ClusterDiscoveryType: &clusterv3.Cluster_Type{
@@ -72,23 +74,48 @@ func TestOverwriteDNSCluster(t *testing.T) {
 		},
 	}
 
-	overwriteDnsCluster(cluster, domain, addrs)
+	p := NewController(nil).Processor
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+	dnsResolver, err := NewDnsResolver(p.Cache)
+	assert.NoError(t, err)
+	p.DnsResolverChan = dnsResolver.Clusters
+	dnsResolver.pendingClusterinfo = map[string]clusterInfo{
+		"ut-cluster": clusterInfo{
+			info: map[string]hostInfo{
+				domain: hostInfo{
+					addresses: addrs,
+				},
+			},
+		},
+	}
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyMethod(reflect.TypeOf(dnsResolver.dnsResolver), "GetDNSAddresses",
+		func(_ *dns.DNSResolver, _ string) []string {
+			return addrs
+		})
 
-	endpoints := cluster.GetLoadAssignment().GetEndpoints()[0].GetLbEndpoints()
-	if len(endpoints) != 2 {
-		t.Errorf("Expected 2 LbEndpoints, but got %d", len(endpoints))
-	}
-	out := []string{}
-	for _, e := range endpoints {
-		socketAddr, ok := e.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
-		if !ok {
-			continue
+	ready, newCluster := dnsResolver.overwriteDnsCluster(cluster, domain, addrs)
+	assert.Equal(t, true, ready)
+
+	if ready {
+		endpoints := newCluster.GetLoadAssignment().GetEndpoints()[0].GetLbEndpoints()
+		if len(endpoints) != 3 {
+			t.Errorf("Expected 3 LbEndpoints, but got %d", len(endpoints))
 		}
-		address := socketAddr.SocketAddress.Address
-		out = append(out, address)
-	}
-	if !slices.Equal(out, addrs) {
-		t.Errorf("OverwriteDNSCluster error, expected %v, but got %v", out, addrs)
+		out := []string{}
+		for _, e := range endpoints {
+			socketAddr, ok := e.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
+			if !ok {
+				continue
+			}
+			address := socketAddr.SocketAddress.Address
+			out = append(out, address)
+		}
+		if !slices.Equal(out, addrs) {
+			t.Errorf("OverwriteDNSCluster error, expected %v, but got %v", out, addrs)
+		}
 	}
 }
 
