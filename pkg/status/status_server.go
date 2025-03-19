@@ -38,7 +38,6 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
-	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -149,27 +148,19 @@ func (s *Server) checkAdsMode(w http.ResponseWriter) bool {
 	return true
 }
 
-type WorkloadBpfDump struct {
-	WorkloadPolicies []bpfcache.WorkloadPolicyValue
-	Backends         []bpfcache.BackendValue
-	Endpoints        []bpfcache.EndpointValue
-	Frontends        []bpfcache.FrontendValue
-	Services         []bpfcache.ServiceValue
-}
-
 func (s *Server) bpfWorkloadMaps(w http.ResponseWriter, r *http.Request) {
 	if !s.checkWorkloadMode(w) {
 		return
 	}
 	client := s.xdsClient
 	bpfMaps := client.WorkloadController.Processor.GetBpfCache()
-	workloadBpfDump := WorkloadBpfDump{
-		WorkloadPolicies: bpfMaps.WorkloadPolicyLookupAll(),
-		Backends:         bpfMaps.BackendLookupAll(),
-		Endpoints:        bpfMaps.EndpointLookupAll(),
-		Frontends:        bpfMaps.FrontendLookupAll(),
-		Services:         bpfMaps.ServiceLookupAll(),
-	}
+	workloadBpfDump := NewWorkloadBpfDump(s.xdsClient.WorkloadController.Processor.GetHashName()).
+		WithBackends(bpfMaps.BackendLookupAll()).
+		WithEndpoints(bpfMaps.EndpointLookupAll()).
+		WithFrontends(bpfMaps.FrontendLookupAll()).
+		WithServices(bpfMaps.ServiceLookupAll()).
+		WithWorkloadPolicies(bpfMaps.WorkloadPolicyLookupAll())
+
 	printWorkloadBpfDump(w, workloadBpfDump)
 }
 
@@ -458,9 +449,9 @@ func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 }
 
 type WorkloadDump struct {
-	Workloads []*Workload
-	Services  []*Service
-	Policies  []*AuthorizationPolicy
+	Workloads []*Workload            `json:"workloads"`
+	Services  []*Service             `json:"services"`
+	Policies  []*AuthorizationPolicy `json:"policies"`
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
