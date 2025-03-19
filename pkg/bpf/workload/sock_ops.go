@@ -35,8 +35,8 @@ import (
 )
 
 type BpfSockOpsWorkload struct {
-	Info general.BpfInfo
-	Link link.Link
+	Info  general.BpfInfo
+	Links []link.Link // store links for all three programs
 	bpf2go.KmeshSockopsWorkloadObjects
 }
 
@@ -96,7 +96,20 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 		return err
 	}
 
-	prog := spec.Programs["sockops_prog"]
+	progs := map[string]*ebpf.Program{
+		"sockops_active":  so.KmeshSockopsWorkloadObjects.SockopsActiveProg,
+		"sockops_passive": so.KmeshSockopsWorkloadObjects.SockopsPassiveProg,
+		"sockops_utils":   so.KmeshSockopsWorkloadObjects.SockopsUtilsProg,
+	}
+
+	for name, prog := range progs {
+		if prog == nil {
+			return fmt.Errorf("program %s not found in KmeshSockopsWorkloadObjects", name)
+		}
+	}
+
+	// Using the first program to set Type and AttachType (they’re the same for all sock_ops)
+	prog := spec.Programs["sockops_active_prog"]
 	so.Info.Type = prog.Type
 	so.Info.AttachType = prog.AttachType
 
@@ -104,28 +117,42 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 }
 
 func (so *BpfSockOpsWorkload) Attach() error {
-	var err error
-	cgopt := link.CgroupOptions{
-		Path:    so.Info.Cgroup2Path,
-		Attach:  so.Info.AttachType,
-		Program: so.KmeshSockopsWorkloadObjects.SockopsProg,
+	progs := []struct {
+		name string
+		prog *ebpf.Program
+	}{
+		{"sockops_active", so.KmeshSockopsWorkloadObjects.SockopsActiveProg},
+		{"sockops_passive", so.KmeshSockopsWorkloadObjects.SockopsPassiveProg},
+		{"sockops_utils", so.KmeshSockopsWorkloadObjects.SockopsUtilsProg},
 	}
-	pinPath := filepath.Join(so.Info.BpfFsPath, "cgroup_sockops_prog")
 
-	if restart.GetStartType() == restart.Restart {
-		if so.Link, err = utils.BpfProgUpdate(pinPath, cgopt); err != nil {
-			return err
-		}
-	} else {
-		lk, err := link.AttachCgroup(cgopt)
-		if err != nil {
-			return err
-		}
-		so.Link = lk
+	so.Links = make([]link.Link, 0, len(progs))
 
-		if err := lk.Pin(pinPath); err != nil {
-			return err
+	for _, p := range progs {
+		cgopt := link.CgroupOptions{
+			Path:    so.Info.Cgroup2Path,
+			Attach:  so.Info.AttachType,
+			Program: p.prog,
 		}
+		pinPath := filepath.Join(so.Info.BpfFsPath, fmt.Sprintf("cgroup_%s_prog", p.name))
+
+		var lk link.Link
+		var err error
+		if restart.GetStartType() == restart.Restart {
+			lk, err = utils.BpfProgUpdate(pinPath, cgopt)
+			if err != nil {
+				return fmt.Errorf("failed to update %s: %v", p.name, err)
+			}
+		} else {
+			lk, err = link.AttachCgroup(cgopt)
+			if err != nil {
+				return fmt.Errorf("failed to attach %s: %v", p.name, err)
+			}
+			if err := lk.Pin(pinPath); err != nil {
+				return fmt.Errorf("failed to pin %s: %v", p.name, err)
+			}
+		}
+		so.Links = append(so.Links, lk)
 	}
 
 	return nil
@@ -143,13 +170,13 @@ func (so *BpfSockOpsWorkload) Detach() error {
 		return err
 	}
 
-	program_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
-	if err := utils.UnpinPrograms(&program_value); err != nil {
+	programValue := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
+	if err := utils.UnpinPrograms(&programValue); err != nil {
 		return err
 	}
 
-	map_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps)
-	if err := utils.UnpinMaps(&map_value); err != nil {
+	mapValue := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps)
+	if err := utils.UnpinMaps(&mapValue); err != nil {
 		return err
 	}
 
@@ -157,9 +184,15 @@ func (so *BpfSockOpsWorkload) Detach() error {
 		return err
 	}
 
-	if so.Link != nil {
-		return so.Link.Close()
+	for i, lnk := range so.Links {
+		if lnk != nil {
+			if err := lnk.Close(); err != nil {
+				return fmt.Errorf("failed to close link %d: %v", i, err)
+			}
+		}
 	}
+	so.Links = nil
+
 	return nil
 }
 
