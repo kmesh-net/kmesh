@@ -35,10 +35,14 @@ import (
 )
 
 type SockConnWorkload struct {
-	Info  general.BpfInfo
-	Link  link.Link
-	Info6 general.BpfInfo
-	Link6 link.Link
+	Info   general.BpfInfo
+	Link   link.Link
+	Info6  general.BpfInfo
+	Link6  link.Link
+	InfoEg general.BpfInfo
+	LinkEg link.Link
+	InfoIn general.BpfInfo
+	LinkIn link.Link
 	bpf2go.KmeshCgroupSockWorkloadObjects
 }
 
@@ -114,6 +118,12 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 		ebpf.UpdateAny); err != nil {
 		return err
 	}
+
+	prog = spec.Programs["cgroup_skb_prog"]
+	sc.InfoEg.Type = prog.Type
+	sc.InfoIn.Type = prog.Type
+	sc.InfoEg.AttachType = ebpf.AttachCGroupInetEgress
+	sc.InfoIn.AttachType = ebpf.AttachCGroupInetIngress
 	return nil
 }
 
@@ -138,8 +148,22 @@ func (sc *SockConnWorkload) Attach() error {
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect6Prog,
 	}
 
+	cgoptEg := link.CgroupOptions{
+		Path:    sc.InfoEg.Cgroup2Path,
+		Attach:  sc.InfoEg.AttachType,
+		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupSkbProg,
+	}
+
+	cgoptIn := link.CgroupOptions{
+		Path:    sc.InfoIn.Cgroup2Path,
+		Attach:  sc.InfoIn.AttachType,
+		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupSkbProg,
+	}
+
 	pinPath4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_prog")
 	pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
+	pinPathEg := filepath.Join(sc.Info.BpfFsPath, "skb_egress_prog")
+	pinPathIn := filepath.Join(sc.Info.BpfFsPath, "skb_ingress_prog")
 
 	if restart.GetStartType() == restart.Restart {
 		if sc.Link, err = utils.BpfProgUpdate(pinPath4, cgopt4); err != nil {
@@ -147,6 +171,14 @@ func (sc *SockConnWorkload) Attach() error {
 		}
 
 		if sc.Link6, err = utils.BpfProgUpdate(pinPath6, cgopt6); err != nil {
+			return err
+		}
+
+		if sc.LinkEg, err = utils.BpfProgUpdate(pinPathEg, cgoptEg); err != nil {
+			return err
+		}
+
+		if sc.LinkIn, err = utils.BpfProgUpdate(pinPathIn, cgoptIn); err != nil {
 			return err
 		}
 	} else {
@@ -165,6 +197,24 @@ func (sc *SockConnWorkload) Attach() error {
 		}
 
 		if err := sc.Link6.Pin(pinPath6); err != nil {
+			return err
+		}
+
+		sc.LinkEg, err = link.AttachCgroup(cgoptEg)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.LinkEg.Pin(pinPathEg); err != nil {
+			return err
+		}
+
+		sc.LinkIn, err = link.AttachCgroup(cgoptIn)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.LinkIn.Pin(pinPathIn); err != nil {
 			return err
 		}
 	}
@@ -203,5 +253,22 @@ func (sc *SockConnWorkload) Detach() error {
 	if sc.Link6 != nil {
 		return sc.Link6.Close()
 	}
+
+	if err := os.RemoveAll(sc.InfoEg.BpfFsPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if sc.LinkEg != nil {
+		return sc.LinkEg.Close()
+	}
+
+	if err := os.RemoveAll(sc.InfoIn.BpfFsPath); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+
+	if sc.LinkIn != nil {
+		return sc.LinkIn.Close()
+	}
+
 	return nil
 }
