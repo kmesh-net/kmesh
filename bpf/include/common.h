@@ -5,6 +5,7 @@
 #define _COMMON_H_
 
 #include "../../config/kmesh_marcos_def.h"
+#include <linux/in.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -16,8 +17,60 @@
 
 #include "errno.h"
 
+struct bpf_mem_ptr {
+    void *ptr;
+    __u32 size;
+};
+
 #if ENHANCED_KERNEL
+#if KERNEL_KFUNC
+extern int bpf_parse_header_msg_func(void *src, int src__sz) __ksym;
+extern int bpf_km_header_strnstr_func(void *ctx, int ctx__sz, const char *key, int key__sz, const char *subptr) __ksym;
+extern int bpf_km_header_strncmp_func(const char *key, int key__sz, const char *target, int target__sz, int opt) __ksym;
+extern int bpf_setsockopt_func(void *bpf_mem, int bpf_mem__sz, int optname, const char *optval, int optval__sz) __ksym;
+extern int bpf_getsockopt_func(void *bpf_mem, int bpf_mem__sz, int optname, char *optval, int optval__sz) __ksym;
+
+#define bpf_km_header_strncmp bpf_km_header_strncmp_func
+
+int bpf_km_header_strnstr(void *ctx, const char *key, int key__sz, const char *subptr, int subptr__sz)
+{
+    struct bpf_mem_ptr msg_tmp = {.ptr = ctx, .size = sizeof(struct bpf_sock_addr)};
+    return bpf_km_header_strnstr_func(&msg_tmp, sizeof(struct bpf_mem_ptr), key, key__sz, subptr);
+}
+
+int bpf_parse_header_msg(struct bpf_sock_addr *ctx)
+{
+    struct bpf_mem_ptr msg_tmp = {.ptr = ctx, .size = sizeof(struct bpf_sock_addr)};
+    return bpf_parse_header_msg_func(&msg_tmp, sizeof(struct bpf_mem_ptr));
+}
+
+// Due to the limitation of bpf verifier, optval and optval__sz are required to correspond.
+// The strnlen function cannot be used here, so the string is redefined.
+int bpf_km_setsockopt(struct bpf_sock_addr *ctx, int level, int optname, const char *optval, int optval__sz)
+{
+    const char kmesh_module_name[] = "kmesh_defer";
+    if (level != IPPROTO_TCP || optval__sz != sizeof(kmesh_module_name))
+        return -1;
+
+    struct bpf_mem_ptr msg_tmp = {.ptr = ctx, .size = sizeof(struct bpf_sock_addr)};
+    return bpf_setsockopt_func(
+        &msg_tmp, sizeof(struct bpf_mem_ptr), optname, (void *)kmesh_module_name, sizeof(kmesh_module_name));
+}
+
+int bpf_km_getsockopt(struct bpf_sock_addr *ctx, int level, int optname, char *optval, int optval__sz)
+{
+    if (level != IPPROTO_TCP) {
+        return -1;
+    }
+    struct bpf_mem_ptr msg_tmp = {.ptr = ctx, .size = sizeof(struct bpf_sock_addr)};
+    return bpf_getsockopt_func(&msg_tmp, sizeof(struct bpf_mem_ptr), optname, (void *)optval, optval__sz);
+}
+
+#else
 #include <bpf_helper_defs_ext.h>
+#define bpf_km_setsockopt bpf_setsockopt
+#define bpf_km_getsockopt bpf_getsockopt
+#endif
 #endif
 
 #define bpf_unused __attribute__((__unused__))
@@ -121,14 +174,8 @@ static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
         (dst)[3] = (src)[3];                                                                                           \
     } while (0)
 
-#if OE_23_03
-#define bpf__strncmp                  bpf_strncmp
-#define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port)
-#else
 #define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port >> 16)
-#endif
-
-#define GET_SKOPS_LOCAL_PORT(sk_ops) (__u16)((sk_ops)->local_port)
+#define GET_SKOPS_LOCAL_PORT(sk_ops)  (__u16)((sk_ops)->local_port)
 
 #define MAX_BUF_LEN 100
 #define MAX_IP4_LEN 16
