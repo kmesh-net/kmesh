@@ -308,7 +308,8 @@ func (r *dnsController) newClusterCache() {
 	if r.clusterCache != nil {
 		r.Lock()
 		defer r.Unlock()
-		r.clusterCache = make(map[string]*pendingResolveDomain)
+		log.Debug("clean up dns clusters")
+		r.clusterCache = map[string]*pendingResolveDomain{}
 		return
 	}
 }
@@ -318,11 +319,6 @@ func (r *dnsController) getClustersByDomain(domain string) *pendingResolveDomain
 		r.RLock()
 		defer r.RUnlock()
 		if v, ok := r.clusterCache[domain]; ok {
-			// newClusters := []*clusterv3.Cluster{}
-			// for _, c := range v.Clusters {
-			// 	newClusters = append(newClusters, cloneCluster(c))
-			// }
-			// v.Clusters = newClusters
 			return v
 		}
 	}
