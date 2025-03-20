@@ -657,7 +657,7 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 
 	for i, port := range ports {
 		if i >= bpf.MaxPortNum {
-			log.Warnf("exceed the max port count,current only support maximum of 10 ports")
+			log.Warnf("exceed the max port count, current only support maximum of 10 ports, service: %s", serviceName)
 			break
 		}
 
