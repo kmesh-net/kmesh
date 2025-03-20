@@ -102,25 +102,6 @@ static inline int set_original_dst_info(struct kmesh_context *kmesh_ctx)
     return 0;
 }
 
-static inline bool is_managed_by_kmesh(struct __sk_buff *skb)
-{
-    struct manager_key key = {0};
-
-    if (skb->family == AF_INET)
-        key.addr.ip4 = skb->local_ip4;
-    if (skb->family == AF_INET6) {
-        if (is_ipv4_mapped_addr(skb->local_ip6))
-            key.addr.ip4 = skb->local_ip6[3];
-        else
-            IP6_COPY(key.addr.ip6, skb->local_ip6);
-    }
-
-    int *value = bpf_map_lookup_elem(&map_of_manager, &key);
-    if (!value)
-        return false;
-    return (*value == 0);
-}
-
 static inline void flush_tcp_conns()
 {
     struct __u64 *key = NULL, *next_key = NULL;
@@ -248,13 +229,10 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
 SEC("cgroup/skb")
 int cgroup_skb_prog(struct __sk_buff *skb)
 {
-    if (!is_managed_by_kmesh(skb))
-        return 0;
-
     struct bpf_sock *sk = skb->sk;
     if (!sk) {
         BPF_LOG(ERR, TC, "Failed to get tcp sock\n");
-        return 0;
+        return SK_PASS;
     }
 
     observe_on_data(sk);
@@ -273,7 +251,7 @@ int cgroup_skb_prog(struct __sk_buff *skb)
         bpf_map_update_elem(&tcp_conn_last_flush, &key, &now, BPF_ANY);
     }
 
-    return 0;
+    return SK_PASS;
 }
 
 char _license[] SEC("license") = "Dual BSD/GPL";

@@ -233,7 +233,6 @@ static inline void refresh_tcp_conn_info(struct bpf_tcp_sock *tcp_sock, struct s
 {
     struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &storage->sock_cookie);
     if (!info_vals) {
-        BPF_LOG(ERR, PROBE, "lookup in map_of_tcp_conns failed\n");
         return;
     }
     __u64 now = bpf_ktime_get_ns();
