@@ -200,11 +200,11 @@ docker.push: docker
 
 .PHONY: e2e
 e2e:
-	./test/e2e/run_test.sh --skip-cleanup-apps
+	./test/e2e/run_test.sh --skip-cleanup-apps -count 100 -failfast
 
 .PHONY: e2e-ipv6
 e2e-ipv6:
-	./test/e2e/run_test.sh --ipv6 --skip-cleanup-apps
+	./test/e2e/run_test.sh --ipv6 --skip-cleanup-apps -count 100 -failfast
 
 .PHONY: format
 format:

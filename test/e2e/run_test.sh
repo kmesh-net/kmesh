@@ -308,6 +308,8 @@ cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer
 
 bash -c "$cmd"
 
+exit_code=$?
+
 # 定义变量
 NAMESPACE="kmesh-system"
 NODE_NAME="kmesh-testing-worker"
@@ -324,7 +326,7 @@ fi
 # 遍历每个 Pod 并输出日志
 for POD in $PODS; do
   echo "Logs for Pod: $POD"
-  kubectl logs -n $NAMESPACE $POD
+  #kubectl logs -n $NAMESPACE $POD
   echo "----------------------------------------"
 done
 
@@ -359,3 +361,5 @@ if [[ -n "${CLEANUP_REGISTRY}" ]]; then
 fi
 
 rm -rf "${TMP}"
+
+exit $exit_code

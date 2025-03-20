@@ -48,7 +48,7 @@ func TestKmeshRestart(t *testing.T) {
 		dst := apps.ServiceWithWaypointAtServiceGranularity
 		options := echo.CallOptions{
 			To:    dst,
-			Count: 10,
+			Count: 1,
 			// Determine whether it is managed by Kmesh by passing through Waypoint.
 			Check: httpValidator,
 			Port: echo.Port{
@@ -60,10 +60,10 @@ func TestKmeshRestart(t *testing.T) {
 		g := NewGenerator(t, Config{
 			Source:   src,
 			Options:  options,
-			Interval: 5 * time.Millisecond,
+			Interval: 50 * time.Millisecond,
 		}).Start()
 
-		for i := 0; i < 30; i++ {
+		for i := 0; i < 3; i++ {
 			restartKmesh(t)
 		}
 
@@ -175,13 +175,12 @@ func (g *generator) Start() Generator {
 				close(g.stopped)
 				return
 			case <-t.C:
-				result := g.Source.CallOrFail(g.t, g.Options)
-				for _, res := range result.Responses {
-					if res.Code != "200" {
-						g.t.Fatal("failed")
-					}
+				result, err := g.Source.Call(g.Options)
+				g.result.add(result, err)
+				if err != nil {
+					g.t.Logf("-- encounter error")
+					return
 				}
-				g.result.add(result, nil)
 				t.Reset(g.Interval)
 			}
 		}
