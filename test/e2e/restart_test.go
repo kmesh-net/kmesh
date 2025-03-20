@@ -24,14 +24,17 @@
 package kmesh
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"testing"
 	"time"
 
+	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
-	"istio.io/istio/pkg/test/framework/components/echo/util/traffic"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	appsv1 "k8s.io/api/apps/v1"
@@ -54,13 +57,13 @@ func TestKmeshRestart(t *testing.T) {
 			Retry: echo.Retry{NoRetry: true},
 		}
 
-		g := traffic.NewGenerator(t, traffic.Config{
+		g := NewGenerator(t, Config{
 			Source:   src,
 			Options:  options,
 			Interval: 5 * time.Millisecond,
 		}).Start()
 
-		for i := 0; i < 10; i++ {
+		for i := 0; i < 30; i++ {
 			restartKmesh(t)
 		}
 
@@ -106,4 +109,164 @@ func restartKmesh(t framework.TestContext) {
 
 func daemonsetsetComplete(ds *appsv1.DaemonSet) bool {
 	return ds.Status.UpdatedNumberScheduled == ds.Status.DesiredNumberScheduled && ds.Status.NumberReady == ds.Status.DesiredNumberScheduled && ds.Status.ObservedGeneration >= ds.Generation
+}
+
+const (
+	defaultInterval = 1 * time.Second
+	defaultTimeout  = 15 * time.Second
+)
+
+// Config for a traffic Generator.
+type Config struct {
+	// Source of the traffic.
+	Source echo.Caller
+
+	// Options for generating traffic from the Source to the target.
+	Options echo.CallOptions
+
+	// Interval between successive call operations. If not set, defaults to 1 second.
+	Interval time.Duration
+
+	// Maximum time to wait for traffic to complete after stopping. If not set, defaults to 15 seconds.
+	StopTimeout time.Duration
+}
+
+// Generator of traffic between echo instances. Every time interval
+// (as defined by Config.Interval), a grpc request is sent to the source pod,
+// causing it to send a request to the destination echo server. Results are
+// captured for each request for later processing.
+type Generator interface {
+	// Start sending traffic.
+	Start() Generator
+
+	// Stop sending traffic and wait for any in-flight requests to complete.
+	// Returns the Result
+	Stop() Result
+}
+
+// NewGenerator returns a new Generator with the given configuration.
+func NewGenerator(t test.Failer, cfg Config) Generator {
+	fillInDefaults(&cfg)
+	return &generator{
+		Config:  cfg,
+		t:       t,
+		stop:    make(chan struct{}),
+		stopped: make(chan struct{}),
+	}
+}
+
+var _ Generator = &generator{}
+
+type generator struct {
+	Config
+	t       test.Failer
+	result  Result
+	stop    chan struct{}
+	stopped chan struct{}
+}
+
+func (g *generator) Start() Generator {
+	go func() {
+		t := time.NewTimer(g.Interval)
+		for {
+			select {
+			case <-g.stop:
+				t.Stop()
+				close(g.stopped)
+				return
+			case <-t.C:
+				result := g.Source.CallOrFail(g.t, g.Options)
+				for _, res := range result.Responses {
+					if res.Code != "200" {
+						g.t.Fatal("failed")
+					}
+				}
+				g.result.add(result, nil)
+				t.Reset(g.Interval)
+			}
+		}
+	}()
+	return g
+}
+
+func (g *generator) Stop() Result {
+	// Trigger the generator to stop.
+	close(g.stop)
+
+	// Wait for the generator to exit.
+	t := time.NewTimer(g.StopTimeout)
+	select {
+	case <-g.stopped:
+		t.Stop()
+		if g.result.TotalRequests == 0 {
+			g.t.Fatal("no requests completed before stopping the traffic generator")
+		}
+		return g.result
+	case <-t.C:
+		g.t.Fatal("timed out waiting for result")
+	}
+	// Can never happen, but the compiler doesn't know that Fatal terminates
+	return Result{}
+}
+
+func fillInDefaults(cfg *Config) {
+	if cfg.Interval == 0 {
+		cfg.Interval = defaultInterval
+	}
+	if cfg.StopTimeout == 0 {
+		cfg.StopTimeout = defaultTimeout
+	}
+	if cfg.Options.Check == nil {
+		cfg.Options.Check = check.OK()
+	}
+}
+
+// Result of a traffic generation operation.
+type Result struct {
+	TotalRequests      int
+	SuccessfulRequests int
+	Error              error
+}
+
+func (r Result) String() string {
+	buf := &bytes.Buffer{}
+
+	_, _ = fmt.Fprintf(buf, "TotalRequests:       %d\n", r.TotalRequests)
+	_, _ = fmt.Fprintf(buf, "SuccessfulRequests:  %d\n", r.SuccessfulRequests)
+	_, _ = fmt.Fprintf(buf, "PercentSuccess:      %f\n", r.PercentSuccess())
+	_, _ = fmt.Fprintf(buf, "Errors:              %v\n", r.Error)
+
+	return buf.String()
+}
+
+func (r *Result) add(result echo.CallResult, err error) {
+	count := result.Responses.Len()
+	if count == 0 {
+		count = 1
+	}
+
+	r.TotalRequests += count
+	if err != nil {
+		r.Error = multierror.Append(r.Error, fmt.Errorf("request %d: %v", r.TotalRequests, err))
+	} else {
+		r.SuccessfulRequests += count
+	}
+}
+
+func (r Result) PercentSuccess() float64 {
+	return float64(r.SuccessfulRequests) / float64(r.TotalRequests)
+}
+
+// CheckSuccessRate asserts that a minimum success threshold was met.
+func (r Result) CheckSuccessRate(t test.Failer, minimumPercent float64) {
+	t.Helper()
+	if r.PercentSuccess() < minimumPercent {
+		t.Fatalf("Minimum success threshold, %f, was not met. %d/%d (%f) requests failed: %v",
+			minimumPercent, r.SuccessfulRequests, r.TotalRequests, r.PercentSuccess(), r.Error)
+	}
+	if r.SuccessfulRequests == r.TotalRequests {
+		t.Logf("traffic checker succeeded with all successful requests (%d/%d)", r.SuccessfulRequests, r.TotalRequests)
+	} else {
+		t.Logf("traffic checker met minimum threshold, with %d/%d successes, but encountered some failures: %v", r.SuccessfulRequests, r.TotalRequests, r.Error)
+	}
 }
