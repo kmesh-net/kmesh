@@ -90,7 +90,7 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 }
 
 func (so *BpfSockOpsWorkload) LoadSockOps() error {
-	/* load kmesh sockops main bpf prog*/
+	/* load kmesh sockops bpf progs*/
 	spec, err := so.loadKmeshSockopsObjects()
 	if err != nil {
 		return err
