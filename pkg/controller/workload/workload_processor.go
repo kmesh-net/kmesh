@@ -108,6 +108,10 @@ func (p *Processor) GetBpfCache() *bpf.Cache {
 	return p.bpf
 }
 
+func (p *Processor) GetHashName() *utils.HashName {
+	return p.hashName
+}
+
 func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) {
 	var err error
 

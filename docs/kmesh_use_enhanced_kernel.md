@@ -1,15 +1,15 @@
 # Use Enhanced Kernel in Kmesh
 
-Some features of kmesh depend on enhanced kernel (e.g., L7 traffic control in ads mode). To utilize it, you can use `openEuler 23.03`, which natively supports all features.
+Some features of kmesh depend on enhanced kernel (e.g., L7 traffic control in ads mode). To utilize it, you can use `openEuler 24.03-LTS`, which natively supports all features.
 
 You can follow the steps below to use enhanced kernel:
 
-+ Download `openEuler 23.03` image on: https://repo.openeuler.org/openEuler-23.03/ISO/.
++ Download `openEuler 24.03-LTS` image on: https://repo.openeuler.org/openEuler-24.03-LTS/ISO/.
 + Install the operation system: Here, we take [VMware](https://www.vmware.com/products/workstation-pro/html.html) for example (you can also use other VM management tools). 
 
     ![](./pics/install_openEuler.png)
 
-    Notice that `openEuler 23.03`'s kernel version is **6.1.19**. So you should select `其他 Linux 6.x 内核 64位`(`Linux 6.x kernel 64bit`). 
+    Notice that `openEuler 24.03-LTS`'s kernel version is **6.6.0**. So you should select `其他 Linux 6.x 内核 64位`(`Linux 6.x kernel 64bit`). 
 
     Then, you can follow the [official blog](https://www.openeuler.org/zh/blog/20240306vmware/20240306vmware.html) to install it.
 

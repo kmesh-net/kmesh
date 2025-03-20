@@ -32,11 +32,8 @@ import (
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/constants"
 
-	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/normal"
 	"kmesh.net/kmesh/daemon/options"
-	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
-	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 var KMESH_TAIL_CALL_LISTENER = uint32(C.KMESH_TAIL_CALL_LISTENER)
@@ -45,12 +42,6 @@ var KMESH_TAIL_CALL_FILTER = uint32(C.KMESH_TAIL_CALL_FILTER)
 var KMESH_TAIL_CALL_ROUTER = uint32(C.KMESH_TAIL_CALL_ROUTER)
 var KMESH_TAIL_CALL_CLUSTER = uint32(C.KMESH_TAIL_CALL_CLUSTER)
 var KMESH_TAIL_CALL_ROUTER_CONFIG = uint32(C.KMESH_TAIL_CALL_ROUTER_CONFIG)
-
-type BpfSockConn struct {
-	Info general.BpfInfo
-	Link link.Link
-	bpf2go.KmeshCgroupSockObjects
-}
 
 func (sc *BpfSockConn) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh/map/"
@@ -80,11 +71,7 @@ func (sc *BpfSockConn) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) 
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
 
-	if helper.KernelVersionLowerThan5_13() {
-		spec, err = bpf2go.LoadKmeshCgroupSockCompat()
-	} else {
-		spec, err = bpf2go.LoadKmeshCgroupSock()
-	}
+	spec, err = loadKmeshCgroupSock()
 	if err != nil || spec == nil {
 		return nil, err
 	}

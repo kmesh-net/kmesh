@@ -17,10 +17,16 @@
 package status
 
 import (
+	"encoding/json"
+	"fmt"
 	"net"
+	"strings"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
+	"kmesh.net/kmesh/pkg/nets"
+	"kmesh.net/kmesh/pkg/utils"
 )
 
 type Workload struct {
@@ -182,4 +188,162 @@ func ConvertAuthorizationPolicy(p *security.Authorization) *AuthorizationPolicy 
 	}
 
 	return out
+}
+
+type prettyArray[T any] []T
+
+func (a prettyArray[T]) MarshalJSON() ([]byte, error) {
+	prettified := make([]string, len(a))
+	for i, elem := range a {
+		prettified[i] = fmt.Sprintf("%v", elem)
+	}
+
+	return json.Marshal(strings.Join(prettified, ", "))
+}
+
+type BpfServiceValue struct {
+	// EndpointCount is the number of endpoints for each priority.
+	EndpointCount prettyArray[uint32] `json:"endpointCount"`
+	LbPolicy      string              `json:"lbPolicy"`
+	ServicePort   prettyArray[uint32] `json:"servicePort,omitempty"`
+	TargetPort    prettyArray[uint32] `json:"targetPort,omitempty"`
+	WaypointAddr  string              `json:"waypointAddr,omitempty"`
+	WaypointPort  uint32              `json:"waypointPort,omitempty"`
+}
+
+type BpfBackendValue struct {
+	Ip           string   `json:"ip"`
+	ServiceCount uint32   `json:"serviceCount"`
+	Services     []string `json:"services"`
+	WaypointAddr string   `json:"waypointAddr,omitempty"`
+	WaypointPort uint32   `json:"waypointPort,omitempty"`
+}
+
+type BpfFrontendValue struct {
+	UpstreamId string `json:"upstreamId,omitempty"`
+}
+
+type BpfWorkloadPolicyValue struct {
+	PolicyIds []string `json:"policyIds,omitempty"`
+}
+
+type BpfEndpointValue struct {
+	BackendUid string `json:"backendUid,omitempty"`
+}
+
+type WorkloadBpfDump struct {
+	hashName *utils.HashName
+
+	WorkloadPolicies []BpfWorkloadPolicyValue `json:"workloadPolicies"`
+	Backends         []BpfBackendValue        `json:"backends"`
+	Endpoints        []BpfEndpointValue       `json:"endpoints"`
+	Frontends        []BpfFrontendValue       `json:"frontends"`
+	Services         []BpfServiceValue        `json:"services"`
+}
+
+func NewWorkloadBpfDump(hashName *utils.HashName) WorkloadBpfDump {
+	return WorkloadBpfDump{hashName: hashName}
+}
+
+func (wd WorkloadBpfDump) WithWorkloadPolicies(workloadPolicies []bpfcache.WorkloadPolicyValue) WorkloadBpfDump {
+	converted := make([]BpfWorkloadPolicyValue, 0, len(workloadPolicies))
+	for _, policy := range workloadPolicies {
+		policyIds := []string{}
+		for _, id := range policy.PolicyIds {
+			policyIds = append(policyIds, wd.hashName.NumToStr(id))
+		}
+		converted = append(converted, BpfWorkloadPolicyValue{
+			PolicyIds: policyIds,
+		})
+	}
+	wd.WorkloadPolicies = converted
+	return wd
+}
+
+func (wd WorkloadBpfDump) WithBackends(backends []bpfcache.BackendValue) WorkloadBpfDump {
+	converted := make([]BpfBackendValue, 0, len(backends))
+	for _, backend := range backends {
+		waypointAddr := ""
+		if backend.WaypointAddr != [16]byte{} {
+			waypointAddr = nets.IpString(backend.WaypointAddr)
+		}
+		bac := BpfBackendValue{
+			Ip:           nets.IpString(backend.Ip),
+			ServiceCount: backend.ServiceCount,
+			WaypointAddr: waypointAddr,
+			WaypointPort: nets.ConvertPortToLittleEndian(backend.WaypointPort),
+		}
+		services := make([]string, 0, len(backend.Services))
+		for _, s := range backend.Services {
+			svc := wd.hashName.NumToStr(s)
+			if svc == "" {
+				continue
+			}
+			services = append(services, svc)
+		}
+		bac.Services = services
+		converted = append(converted, bac)
+	}
+	wd.Backends = converted
+	return wd
+}
+
+func (wd WorkloadBpfDump) WithEndpoints(endpoints []bpfcache.EndpointValue) WorkloadBpfDump {
+	converted := make([]BpfEndpointValue, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		converted = append(converted, BpfEndpointValue{
+			BackendUid: wd.hashName.NumToStr(endpoint.BackendUid),
+		})
+	}
+	wd.Endpoints = converted
+	return wd
+}
+
+func (wd WorkloadBpfDump) WithFrontends(frontends []bpfcache.FrontendValue) WorkloadBpfDump {
+	converted := make([]BpfFrontendValue, 0, len(frontends))
+	for _, frontend := range frontends {
+		converted = append(converted, BpfFrontendValue{
+			UpstreamId: wd.hashName.NumToStr(frontend.UpstreamId),
+		})
+	}
+	wd.Frontends = converted
+	return wd
+}
+
+func (wd WorkloadBpfDump) WithServices(services []bpfcache.ServiceValue) WorkloadBpfDump {
+	converted := make([]BpfServiceValue, 0, len(services))
+	for _, s := range services {
+		waypointAddr := ""
+		if s.WaypointAddr != [16]byte{} {
+			waypointAddr = nets.IpString(s.WaypointAddr)
+		}
+		svc := BpfServiceValue{
+			EndpointCount: []uint32{},
+			LbPolicy:      workloadapi.LoadBalancing_Mode_name[int32(s.LbPolicy)],
+			WaypointAddr:  waypointAddr,
+			WaypointPort:  nets.ConvertPortToLittleEndian(s.WaypointPort),
+		}
+
+		for _, c := range s.EndpointCount {
+			svc.EndpointCount = append(svc.EndpointCount, c)
+		}
+
+		for _, p := range s.ServicePort {
+			if p == 0 {
+				continue
+			}
+			svc.ServicePort = append(svc.ServicePort, nets.ConvertPortToLittleEndian(p))
+		}
+
+		for _, p := range s.TargetPort {
+			if p == 0 {
+				continue
+			}
+			svc.TargetPort = append(svc.TargetPort, nets.ConvertPortToLittleEndian(p))
+		}
+
+		converted = append(converted, svc)
+	}
+	wd.Services = converted
+	return wd
 }

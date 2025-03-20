@@ -20,10 +20,8 @@ kernel/
 ├── ko_src
 └── patches		# Kernel enhancement feature patches 
     └── 5.10.0	# Enhancement patch made based on Linux 5.10
-        └── 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch
-        └── 0002-xxx.patch
-        └── ......
-    	└── bpf-support-writable-context-for-bare-tracepoint.patch	#This patch is a community patch, introduced in Linux 5.16. For versions prior to this, it is necessary to determine whether this patch has already been merged and merge as needed. This patch provides the macro definitions related to the kernel features that kmesh depends on
+        └── 0001-add-helper-strnstr-strncmp-parse_header_msg.patch
+        └── 0002-add-TCP_ULP-support-in-bpf_getset_sockopt.patch
 ```
 
 When building the kernel, get/adapt the patch as needed.
@@ -60,8 +58,7 @@ Taking openEuler 2203 LTS SP2（linux 5.10）as an example, the build steps as f
   [root@dev SOURCES]# pwd
   /home/test/kmesh_kernel/root/rpmbuild/SOURCES
   [root@dev SOURCES]# cp 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch .
-  ......
-  [root@dev SOURCES]# cp xxx.patch .
+  [root@dev SOURCES]# cp 0002-add-TCP_ULP-support-in-bpf_getset_sockopt.patch .
   ```
   
 - Modify SPEC to add patch
@@ -73,12 +70,12 @@ Taking openEuler 2203 LTS SP2（linux 5.10）as an example, the build steps as f
   
   # b. add patch definition in spec
   # add enhancement feature patch
-  Source9003: 0001-bpf-sockmap-add-extra-return-value-for-sockops.patch
-  Source900X: ......
+  Source9003: 0001-add-helper-strnstr-strncmp-parse_header_msg.patch
+  Source9004: 0002-add-TCP_ULP-support-in-bpf_getset_sockopt.patch
   
   # c. %prep add apply patch step
   patch -s -F0 -E -p1 --no-backup-if-mismatch -i %{SOURCE9003}
-  patch -s -F0 -E -p1 --no-backup-if-mismatch -i ......
+  patch -s -F0 -E -p1 --no-backup-if-mismatch -i %{SOURCE9004}
   ```
 
 - Compile
