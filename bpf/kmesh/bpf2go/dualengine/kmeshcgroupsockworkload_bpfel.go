@@ -133,7 +133,6 @@ type KmeshCgroupSockWorkloadSpecs struct {
 type KmeshCgroupSockWorkloadProgramSpecs struct {
 	CgroupConnect4Prog *ebpf.ProgramSpec `ebpf:"cgroup_connect4_prog"`
 	CgroupConnect6Prog *ebpf.ProgramSpec `ebpf:"cgroup_connect6_prog"`
-	CgroupSkbProg      *ebpf.ProgramSpec `ebpf:"cgroup_skb_prog"`
 }
 
 // KmeshCgroupSockWorkloadMapSpecs contains maps before they are loaded into the kernel.
@@ -145,7 +144,6 @@ type KmeshCgroupSockWorkloadMapSpecs struct {
 	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
 	KmCgrTailcall *ebpf.MapSpec `ebpf:"km_cgr_tailcall"`
 	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
-	KmConnFlush   *ebpf.MapSpec `ebpf:"km_conn_flush"`
 	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
@@ -200,7 +198,6 @@ type KmeshCgroupSockWorkloadMaps struct {
 	KmBackend     *ebpf.Map `ebpf:"km_backend"`
 	KmCgrTailcall *ebpf.Map `ebpf:"km_cgr_tailcall"`
 	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
-	KmConnFlush   *ebpf.Map `ebpf:"km_conn_flush"`
 	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
@@ -230,7 +227,6 @@ func (m *KmeshCgroupSockWorkloadMaps) Close() error {
 		m.KmBackend,
 		m.KmCgrTailcall,
 		m.KmConfigmap,
-		m.KmConnFlush,
 		m.KmEndpoint,
 		m.KmFrontend,
 		m.KmLogEvent,
@@ -267,14 +263,12 @@ type KmeshCgroupSockWorkloadVariables struct {
 type KmeshCgroupSockWorkloadPrograms struct {
 	CgroupConnect4Prog *ebpf.Program `ebpf:"cgroup_connect4_prog"`
 	CgroupConnect6Prog *ebpf.Program `ebpf:"cgroup_connect6_prog"`
-	CgroupSkbProg      *ebpf.Program `ebpf:"cgroup_skb_prog"`
 }
 
 func (p *KmeshCgroupSockWorkloadPrograms) Close() error {
 	return _KmeshCgroupSockWorkloadClose(
 		p.CgroupConnect4Prog,
 		p.CgroupConnect6Prog,
-		p.CgroupSkbProg,
 	)
 }
 
