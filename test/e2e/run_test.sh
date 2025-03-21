@@ -306,9 +306,25 @@ uname -a
 
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
-bash -c "$cmd"
+exit_code=0
 
-exit_code=$?
+for i in {1..100}; do
+    echo "Iteration $i"
+
+    # 删除前缀为 "echo" 的 k8s namespace
+    kubectl get namespaces --no-headers | awk '/^echo/{print $1}' | xargs -r kubectl delete namespace
+
+    # 执行命令，如果失败则跳出循环
+    if ! bash -c "$cmd"; then
+        echo "Command failed, exiting loop."
+        exit_code=1
+        break
+    fi
+done
+
+#bash -c "$cmd"
+
+#exit_code=$?
 
 # 定义变量
 NAMESPACE="kmesh-system"
@@ -345,7 +361,7 @@ for NAMESPACE in $NAMESPACES; do
   # 遍历每个 Pod 并输出日志
   for POD in $PODS; do
     echo "Fetching logs for Pod: $POD in Namespace: $NAMESPACE"
-    kubectl logs -n $NAMESPACE $POD
+    kubectl logs -n $NAMESPACE $POD --tail=10000
     echo "----------------------------------------"
   done
 done

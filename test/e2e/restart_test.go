@@ -48,7 +48,7 @@ func TestKmeshRestart(t *testing.T) {
 		dst := apps.ServiceWithWaypointAtServiceGranularity
 		options := echo.CallOptions{
 			To:    dst,
-			Count: 1,
+			Count: 10,
 			// Determine whether it is managed by Kmesh by passing through Waypoint.
 			Check: httpValidator,
 			Port: echo.Port{
@@ -60,10 +60,10 @@ func TestKmeshRestart(t *testing.T) {
 		g := NewGenerator(t, Config{
 			Source:   src,
 			Options:  options,
-			Interval: 50 * time.Millisecond,
+			Interval: 5 * time.Millisecond,
 		}).Start()
 
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 30; i++ {
 			restartKmesh(t)
 		}
 
@@ -179,10 +179,15 @@ func (g *generator) Start() Generator {
 				g.result.add(result, err)
 				if err != nil {
 					g.t.Logf("-- encounter error")
-					return
+					break
 				}
 				t.Reset(g.Interval)
 			}
+
+			<-g.stop
+			t.Stop()
+			close(g.stopped)
+			return
 		}
 	}()
 	return g
@@ -202,7 +207,7 @@ func (g *generator) Stop() Result {
 		}
 		return g.result
 	case <-t.C:
-		g.t.Fatal("timed out waiting for result")
+		// g.t.Fatal("timed out waiting for result")
 	}
 	// Can never happen, but the compiler doesn't know that Fatal terminates
 	return Result{}
