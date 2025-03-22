@@ -34,6 +34,7 @@ type KmeshSockopsSockStorageData struct {
 	Direction      uint8
 	ConnectSuccess uint8
 	_              [6]byte
+	SockCookie     uint64
 }
 
 // LoadKmeshSockops returns the embedded CollectionSpec for KmeshSockops.

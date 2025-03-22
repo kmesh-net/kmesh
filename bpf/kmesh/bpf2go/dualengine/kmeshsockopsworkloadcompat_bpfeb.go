@@ -56,6 +56,37 @@ type KmeshSockopsWorkloadCompatSockStorageData struct {
 	Direction      uint8
 	ConnectSuccess uint8
 	_              [6]byte
+	SockCookie     uint64
+}
+
+type KmeshSockopsWorkloadCompatTcpProbeInfo struct {
+	Type    uint32
+	Tuple   KmeshSockopsWorkloadCompatBpfSockTuple
+	OrigDst struct {
+		Ipv4 struct {
+			Addr uint32
+			Port uint16
+			_    [2]byte
+		}
+		_ [12]byte
+	}
+	_             [4]byte
+	ConnId        uint64
+	SentBytes     uint32
+	ReceivedBytes uint32
+	ConnSuccess   uint32
+	Direction     uint32
+	State         uint32
+	_             [4]byte
+	Duration      uint64
+	StartNs       uint64
+	LastReportNs  uint64
+	Protocol      uint32
+	SrttUs        uint32
+	RttMin        uint32
+	TotalRetrans  uint32
+	LostOut       uint32
+	_             [4]byte
 }
 
 // LoadKmeshSockopsWorkloadCompat returns the embedded CollectionSpec for KmeshSockopsWorkloadCompat.
@@ -119,8 +150,11 @@ type KmeshSockopsWorkloadCompatMapSpecs struct {
 	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
+	KmSocId       *ebpf.MapSpec `ebpf:"km_soc_id"`
+	KmSocIdCnt    *ebpf.MapSpec `ebpf:"km_soc_id_cnt"`
 	KmSocket      *ebpf.MapSpec `ebpf:"km_socket"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTcpConns    *ebpf.MapSpec `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
@@ -169,8 +203,11 @@ type KmeshSockopsWorkloadCompatMaps struct {
 	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
+	KmSocId       *ebpf.Map `ebpf:"km_soc_id"`
+	KmSocIdCnt    *ebpf.Map `ebpf:"km_soc_id_cnt"`
 	KmSocket      *ebpf.Map `ebpf:"km_socket"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTcpConns    *ebpf.Map `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
@@ -194,8 +231,11 @@ func (m *KmeshSockopsWorkloadCompatMaps) Close() error {
 		m.KmPerfInfo,
 		m.KmPerfMap,
 		m.KmService,
+		m.KmSocId,
+		m.KmSocIdCnt,
 		m.KmSocket,
 		m.KmSockstorage,
+		m.KmTcpConns,
 		m.KmTcpProbe,
 		m.KmTmpbuf,
 		m.KmWlpolicy,
