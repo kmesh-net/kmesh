@@ -199,10 +199,12 @@ func TestWorkloadStreamCreateAndSend(t *testing.T) {
 	}
 }
 
-func TestAdsStream_AdsStreamProcess(t *testing.T) {
+func TestWorkloadStream_WorkloadstreamProcess(t *testing.T) {
 	workloadStream := Controller{
 		Processor: &Processor{
-			ack: &discoveryv3.DeltaDiscoveryRequest{},
+			ack:         &discoveryv3.DeltaDiscoveryRequest{},
+			addressDone: make(chan struct{}),
+			authzDone:   make(chan struct{}),
 		},
 	}
 
@@ -217,6 +219,12 @@ func TestAdsStream_AdsStreamProcess(t *testing.T) {
 
 	patches1 := gomonkey.NewPatches()
 	patches2 := gomonkey.NewPatches()
+	consumeSignals := func() {
+		go func() {
+			<-workloadStream.Processor.addressDone
+			<-workloadStream.Processor.authzDone
+		}()
+	}
 	tests := []struct {
 		name       string
 		beforeFunc func()
@@ -302,6 +310,7 @@ func TestAdsStream_AdsStreamProcess(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.beforeFunc()
+			consumeSignals()
 			err := workloadStream.HandleWorkloadStream()
 
 			if (err != nil) != tt.wantErr {
