@@ -34,7 +34,7 @@ import (
 	"k8s.io/client-go/util/workqueue"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
-	"kmesh.net/kmesh/pkg/controller/ads"
+	"kmesh.net/kmesh/pkg/controller/ads/cache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -54,7 +54,7 @@ type DNSResolver struct {
 	resolvConfServers []string
 	cache             map[string]*domainCacheEntry
 	// adsCache is used for update bpf map
-	adsCache *ads.AdsCache
+	adsCache *cache.AdsCache
 	// dns refresh priority queue based on exp
 	dnsRefreshQueue workqueue.TypedDelayingInterface[any]
 	sync.RWMutex
@@ -138,7 +138,7 @@ func overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []stri
 	return ready
 }
 
-func NewDNSResolver(adsCache *ads.AdsCache) (*DNSResolver, error) {
+func NewDNSResolver(adsCache *cache.AdsCache) (*DNSResolver, error) {
 	r := &DNSResolver{
 		DnsResolverChan: make(chan []*clusterv3.Cluster),
 		cache:           map[string]*domainCacheEntry{},

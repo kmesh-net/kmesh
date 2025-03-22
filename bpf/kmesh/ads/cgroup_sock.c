@@ -11,6 +11,8 @@
 #include "filter.h"
 #include "cluster.h"
 #include "bpf_common.h"
+#include "probe.h"
+#include "config.h"
 
 #if ENHANCED_KERNEL
 #include "route_config.h"
@@ -54,7 +56,6 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
     if (ret != 0) {
         BPF_LOG(ERR, KMESH, "listener_manager failed, ret %d\n", ret);
     }
-
     return 0;
 }
 
@@ -70,7 +71,9 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
+    observe_on_pre_connect(ctx->sk);
     int ret = sock4_traffic_control(ctx);
+
     return CGROUP_SOCK_OK;
 }
 

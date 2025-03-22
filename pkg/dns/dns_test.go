@@ -37,6 +37,7 @@ import (
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/pkg/controller/ads"
+	"kmesh.net/kmesh/pkg/controller/ads/cache"
 )
 
 type fakeDNSServer struct {
@@ -52,7 +53,7 @@ type fakeDNSServer struct {
 func TestDNS(t *testing.T) {
 	fakeDNSServer := newFakeDNSServer()
 
-	testDNSResolver, err := NewDNSResolver(ads.NewAdsCache(nil))
+	testDNSResolver, err := NewDNSResolver(cache.NewAdsCache(nil))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +171,7 @@ func TestDNS(t *testing.T) {
 // This test aims to evaluate the concurrent writing behavior of the adsCache by utilizing the test race feature.
 // The test verifies the ability of the adsCache to handle concurrent access and updates correctly in a multi-goroutine environment.
 func TestADSCacheConcurrentWriting(t *testing.T) {
-	adsCache := ads.NewAdsCache(nil)
+	adsCache := cache.NewAdsCache(nil)
 	cluster := &clusterv3.Cluster{
 		Name: "ut-cluster",
 		ClusterDiscoveryType: &clusterv3.Cluster_Type{
@@ -504,10 +505,10 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 		},
 	}
 
-	p := ads.NewController(nil).Processor
+	p := ads.NewController(nil, false).Processor
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	dnsResolver, err := NewDNSResolver(ads.NewAdsCache(nil))
+	dnsResolver, err := NewDNSResolver(cache.NewAdsCache(nil))
 	assert.NoError(t, err)
 	dnsResolver.StartDNSResolver(stopCh)
 	p.DnsResolverChan = dnsResolver.DnsResolverChan

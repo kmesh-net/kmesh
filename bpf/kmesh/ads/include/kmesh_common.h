@@ -51,26 +51,6 @@ static inline int bpf__strncmp(const char *dst, int n, const char *src)
     return 0;
 };
 
-static inline char *bpf_strncpy(char *dst, int n, const char *src)
-{
-    int isEnd = 0;
-    if (src == NULL)
-        return 0;
-
-#pragma unroll
-    for (int i = 0; i < BPF_DATA_MAX_LEN; i++) {
-        if (src[i] == '\0')
-            isEnd = 1;
-        if (isEnd == 1)
-            dst[i] = '\0';
-        else
-            dst[i] = src[i];
-        if (i == n - 1)
-            break;
-    }
-    return dst;
-}
-
 typedef Core__SocketAddress address_t;
 
 // bpf return value

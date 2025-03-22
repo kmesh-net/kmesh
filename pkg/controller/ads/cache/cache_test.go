@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package ads
+package cache
 
 import (
 	"testing"
@@ -422,7 +422,7 @@ func TestNewApiSocketAddress(t *testing.T) {
 func TestCreateApiListenerByLds(t *testing.T) {
 	t.Run("listener filter configtype is filter_typedconfig", func(t *testing.T) {
 		loader := NewAdsCache(nil)
-		loader.routeNames = []string{
+		loader.RouteNames = []string{
 			"ut-route",
 		}
 		status := core_v2.ApiStatus_UPDATE
@@ -467,15 +467,15 @@ func TestCreateApiListenerByLds(t *testing.T) {
 		assert.Equal(t, apiListener.ApiStatus, status)
 		apiConfigType := apiListener.FilterChains[0].Filters[0].ConfigType
 		configType := &listener_v2.Filter_TcpProxy{
-			TcpProxy: newFilterTcpProxy(typedConfig),
+			TcpProxy: NewFilterTcpProxy(typedConfig),
 		}
 		assert.Equal(t, configType, apiConfigType)
-		assert.Equal(t, []string{"ut-route"}, loader.routeNames)
+		assert.Equal(t, []string{"ut-route"}, loader.RouteNames)
 	})
 
 	t.Run("listener filter configtype is filter_ConfigDiscover", func(t *testing.T) {
 		loader := NewAdsCache(nil)
-		loader.routeNames = []string{
+		loader.RouteNames = []string{
 			"ut-route",
 		}
 		status := core_v2.ApiStatus_UPDATE
@@ -522,12 +522,12 @@ func TestCreateApiListenerByLds(t *testing.T) {
 		assert.Equal(t, apiListener.ApiStatus, status)
 		filterChain := apiListener.FilterChains[0].Filters
 		assert.Nil(t, filterChain)
-		assert.Equal(t, []string{"ut-route"}, loader.routeNames)
+		assert.Equal(t, []string{"ut-route"}, loader.RouteNames)
 	})
 
 	t.Run("status is UNCHANGED", func(t *testing.T) {
 		loader := NewAdsCache(nil)
-		loader.routeNames = []string{
+		loader.RouteNames = []string{
 			"ut-route",
 		}
 		status := core_v2.ApiStatus_UNCHANGED
@@ -570,12 +570,12 @@ func TestCreateApiListenerByLds(t *testing.T) {
 		loader.CreateApiListenerByLds(status, listener)
 		apiListener := loader.ListenerCache.GetApiListener(listener.GetName())
 		assert.Nil(t, apiListener)
-		assert.Equal(t, []string{"ut-route"}, loader.routeNames)
+		assert.Equal(t, []string{"ut-route"}, loader.RouteNames)
 	})
 
 	t.Run("status is UNCHANGED, filterName is pkg_wellknown.HTTPConnectionManager", func(t *testing.T) {
 		loader := NewAdsCache(nil)
-		loader.routeNames = []string{
+		loader.RouteNames = []string{
 			"ut-route",
 		}
 		status := core_v2.ApiStatus_UNCHANGED
@@ -617,6 +617,6 @@ func TestCreateApiListenerByLds(t *testing.T) {
 		loader.CreateApiListenerByLds(status, listener)
 		apiListener := loader.ListenerCache.GetApiListener(listener.GetName())
 		assert.Nil(t, apiListener)
-		assert.Equal(t, []string{"ut-route", "new-ut-route"}, loader.routeNames)
+		assert.Equal(t, []string{"ut-route", "new-ut-route"}, loader.RouteNames)
 	})
 }
