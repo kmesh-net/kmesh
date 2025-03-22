@@ -163,8 +163,8 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
         BPF_LOG(ERR, SOCKOPS, "enable encoding metadata failed!, err is %d", err);
 }
 
-SEC("sockops_active")
-int sockops_active_prog(struct bpf_sock_ops *skops)
+SEC("sockops")
+int sockops_prog(struct bpf_sock_ops *skops)
 {
     __u64 sock_cookie = bpf_get_socket_cookie(skops);
 
@@ -191,21 +191,6 @@ int sockops_active_prog(struct bpf_sock_ops *skops)
             enable_encoding_metadata(skops);
         break;
 
-    default:
-        break;
-    }
-    return 0;
-}
-
-SEC("sockops_passive")
-int sockops_passive_prog(struct bpf_sock_ops *skops)
-{
-    __u64 sock_cookie = bpf_get_socket_cookie(skops);
-
-    if (skops->family != AF_INET && skops->family != AF_INET6)
-        return 0;
-
-    switch (skops->op) {
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops) || skip_specific_probe(skops))
             break;
@@ -218,20 +203,6 @@ int sockops_passive_prog(struct bpf_sock_ops *skops)
         auth_ip_tuple(skops);
         break;
 
-    default:
-        break;
-    }
-    return 0;
-}
-
-SEC("sockops_utils")
-int sockops_utils_prog(struct bpf_sock_ops *skops)
-{
-    // Filter by IPv4 or IPv6
-    if (skops->family != AF_INET && skops->family != AF_INET6)
-        return 0;
-
-    switch (skops->op) {
     case BPF_SOCK_OPS_STATE_CB:
         if (skops->args[1] == BPF_TCP_CLOSE) {
             clean_auth_map(skops);

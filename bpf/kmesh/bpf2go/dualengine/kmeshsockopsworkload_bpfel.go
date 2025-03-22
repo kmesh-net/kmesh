@@ -131,9 +131,7 @@ type KmeshSockopsWorkloadSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsWorkloadProgramSpecs struct {
-	SockopsActiveProg  *ebpf.ProgramSpec `ebpf:"sockops_active_prog"`
-	SockopsPassiveProg *ebpf.ProgramSpec `ebpf:"sockops_passive_prog"`
-	SockopsUtilsProg   *ebpf.ProgramSpec `ebpf:"sockops_utils_prog"`
+	SockopsProg *ebpf.ProgramSpec `ebpf:"sockops_prog"`
 }
 
 // KmeshSockopsWorkloadMapSpecs contains maps before they are loaded into the kernel.
@@ -259,16 +257,12 @@ type KmeshSockopsWorkloadVariables struct {
 //
 // It can be passed to LoadKmeshSockopsWorkloadObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSockopsWorkloadPrograms struct {
-	SockopsActiveProg  *ebpf.Program `ebpf:"sockops_active_prog"`
-	SockopsPassiveProg *ebpf.Program `ebpf:"sockops_passive_prog"`
-	SockopsUtilsProg   *ebpf.Program `ebpf:"sockops_utils_prog"`
+	SockopsProg *ebpf.Program `ebpf:"sockops_prog"`
 }
 
 func (p *KmeshSockopsWorkloadPrograms) Close() error {
 	return _KmeshSockopsWorkloadClose(
-		p.SockopsActiveProg,
-		p.SockopsPassiveProg,
-		p.SockopsUtilsProg,
+		p.SockopsProg,
 	)
 }
 
