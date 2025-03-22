@@ -23,6 +23,9 @@
     192 /* this value should be                                                                                        \
 small that make compile success */
 
+#define RINGBUF_SIZE        (1 << 12)
+#define MAP_SIZE_OF_DSTINFO 8192
+
 struct manager_key {
     union {
         __u64 netns_cookie;
@@ -46,6 +49,8 @@ struct sock_storage_data {
     __u64 connect_ns;
     __u8 direction;
     __u8 connect_success;
+    __u32 pid_tgid;
+    char dst_svc_name[BPF_DATA_MAX_LEN];
 };
 
 struct {
@@ -86,6 +91,14 @@ struct {
     __uint(max_entries, MAP_MAX_ENTRIES);
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } kmesh_map1600 SEC(".maps");
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u64);
+    __type(value, struct bpf_sock_tuple);
+    __uint(max_entries, MAP_SIZE_OF_DSTINFO);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} map_of_orig_dst SEC(".maps");
 
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
@@ -303,6 +316,26 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
     if (!value)
         return false;
     return (*value == 0);
+}
+
+static inline char *bpf_strncpy(char *dst, int n, const char *src)
+{
+    int isEnd = 0;
+    if (src == NULL)
+        return 0;
+
+#pragma unroll
+    for (int i = 0; i < BPF_DATA_MAX_LEN; i++) {
+        if (src[i] == '\0')
+            isEnd = 1;
+        if (isEnd == 1)
+            dst[i] = '\0';
+        else
+            dst[i] = src[i];
+        if (i == n - 1)
+            break;
+    }
+    return dst;
 }
 
 #endif

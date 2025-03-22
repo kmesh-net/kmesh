@@ -33,7 +33,9 @@ type KmeshXDPAuthCompatSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	_              [2]byte
+	PidTgid        uint32
+	DstSvcName     [192]int8
 }
 
 // LoadKmeshXDPAuthCompat returns the embedded CollectionSpec for KmeshXDPAuthCompat.
@@ -97,6 +99,7 @@ type KmeshXDPAuthCompatMapSpecs struct {
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcargs      *ebpf.MapSpec `ebpf:"km_tcargs"`
@@ -146,6 +149,7 @@ type KmeshXDPAuthCompatMaps struct {
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
 	KmManage      *ebpf.Map `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcargs      *ebpf.Map `ebpf:"km_tcargs"`
@@ -169,6 +173,7 @@ func (m *KmeshXDPAuthCompatMaps) Close() error {
 		m.KmFrontend,
 		m.KmLogEvent,
 		m.KmManage,
+		m.KmOrigDst,
 		m.KmService,
 		m.KmSockstorage,
 		m.KmTcargs,

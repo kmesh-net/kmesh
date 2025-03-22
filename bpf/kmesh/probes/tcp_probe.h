@@ -47,6 +47,7 @@ struct tcp_probe_info {
     __u32 rtt_min;
     __u32 total_retrans; /* Total retransmits for entire connection */
     __u32 lost_out;      /* Lost packets			*/
+    char dst_svc_name[BPF_DATA_MAX_LEN];
 };
 
 struct {
@@ -138,7 +139,6 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
 {
     // struct connect_info *info = NULL;
     struct tcp_probe_info *info = NULL;
-
     // store tuple
     info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
     if (!info) {
@@ -154,6 +154,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
         info->duration = info->close_ns - storage->connect_ns;
     }
     info->conn_success = storage->connect_success;
+    bpf_strncpy(info->dst_svc_name, sizeof(info->dst_svc_name), storage->dst_svc_name);
     get_tcp_probe_info(tcp_sock, info);
     (*info).type = (sk->family == AF_INET) ? IPV4 : IPV6;
     if (is_ipv4_mapped_addr(sk->dst_ip6)) {

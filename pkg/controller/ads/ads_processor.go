@@ -34,6 +34,7 @@ import (
 	core_v2 "kmesh.net/kmesh/api/v2/core"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/controller/ads/cache"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/utils/hash"
 )
@@ -49,7 +50,7 @@ type lastNonce struct {
 	rdsNonce string
 }
 type processor struct {
-	Cache     *AdsCache
+	Cache     *cache.AdsCache
 	ack       *service_discovery_v3.DiscoveryRequest
 	req       *service_discovery_v3.DiscoveryRequest
 	lastNonce *lastNonce
@@ -59,7 +60,7 @@ type processor struct {
 
 func newProcessor(bpfAds *bpfads.BpfAds) *processor {
 	return &processor{
-		Cache:     NewAdsCache(bpfAds),
+		Cache:     cache.NewAdsCache(bpfAds),
 		ack:       nil,
 		req:       nil,
 		lastNonce: &lastNonce{},
@@ -127,8 +128,8 @@ func (p *processor) processAdsResponse(resp *service_discovery_v3.DiscoveryRespo
 func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryResponse) error {
 	p.lastNonce.cdsNonce = resp.Nonce
 	current := sets.New[string]()
-	lastEdsClusterNames := p.Cache.edsClusterNames
-	p.Cache.edsClusterNames = nil
+	lastEdsClusterNames := p.Cache.EdsClusterNames
+	p.Cache.EdsClusterNames = nil
 	dnsClusters := []*config_cluster_v3.Cluster{}
 	for _, resource := range resp.GetResources() {
 		cluster := &config_cluster_v3.Cluster{}
@@ -139,7 +140,7 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 		current.Insert(cluster.GetName())
 
 		if cluster.GetType() == config_cluster_v3.Cluster_EDS {
-			p.Cache.edsClusterNames = append(p.Cache.edsClusterNames, cluster.GetName())
+			p.Cache.EdsClusterNames = append(p.Cache.EdsClusterNames, cluster.GetName())
 		} else if cluster.GetType() == config_cluster_v3.Cluster_STRICT_DNS ||
 			cluster.GetType() == config_cluster_v3.Cluster_LOGICAL_DNS {
 			dnsClusters = append(dnsClusters, cluster)
@@ -186,11 +187,11 @@ func (p *processor) handleCdsResponse(resp *service_discovery_v3.DiscoveryRespon
 	p.Cache.ClusterCache.Flush()
 
 	// when the list of eds typed clusters subscribed changed, we should resubscrbe to new eds.
-	if !slices.EqualUnordered(p.Cache.edsClusterNames, lastEdsClusterNames) {
+	if !slices.EqualUnordered(p.Cache.EdsClusterNames, lastEdsClusterNames) {
 		// we cannot set the nonce here.
 		// There is a race: when xds server has pushed eds, but kmesh hasn't a chance to receive and process
 		// Then it will lead to this request been ignored, we will lose the new eds resource
-		p.req = newAdsRequest(resource_v3.EndpointType, p.Cache.edsClusterNames, "")
+		p.req = newAdsRequest(resource_v3.EndpointType, p.Cache.EdsClusterNames, "")
 	}
 
 	return nil
@@ -226,7 +227,7 @@ func (p *processor) handleEdsResponse(resp *service_discovery_v3.DiscoveryRespon
 
 	// EDS ack should contain all the eds cluster names, and since istiod can send partial eds to us, we use those set by handleCdsResponse
 	// Ad xds protocol spec, the non wildcard resource ack should contain all the names
-	p.ack.ResourceNames = p.Cache.edsClusterNames
+	p.ack.ResourceNames = p.Cache.EdsClusterNames
 
 	if p.lastNonce.ldsNonce == "" {
 		// subscribe to lds only once per stream
@@ -246,8 +247,8 @@ func (p *processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryRespon
 
 	p.lastNonce.ldsNonce = resp.Nonce
 	current := sets.New[string]()
-	lastRouteNames := p.Cache.routeNames
-	p.Cache.routeNames = []string{}
+	lastRouteNames := p.Cache.RouteNames
+	p.Cache.RouteNames = []string{}
 	for _, resource := range resp.GetResources() {
 		if err = anypb.UnmarshalTo(resource, listener, proto.UnmarshalOptions{}); err != nil {
 			continue
@@ -276,11 +277,11 @@ func (p *processor) handleLdsResponse(resp *service_discovery_v3.DiscoveryRespon
 
 	p.Cache.ListenerCache.Flush()
 
-	if !slices.EqualUnordered(p.Cache.routeNames, lastRouteNames) {
+	if !slices.EqualUnordered(p.Cache.RouteNames, lastRouteNames) {
 		// we cannot set the nonce here.
 		// There is a race: when xds server has pushed rds, but kmesh hasn't a chance to receive and process
 		// Then it will lead to this request been ignored, we will lose the new rds resource
-		p.req = newAdsRequest(resource_v3.RouteType, p.Cache.routeNames, "")
+		p.req = newAdsRequest(resource_v3.RouteType, p.Cache.RouteNames, "")
 	}
 	return err
 }
@@ -323,8 +324,8 @@ func (p *processor) Reset() {
 		return
 	}
 	p.lastNonce = &lastNonce{}
-	p.Cache.routeNames = nil
-	p.Cache.edsClusterNames = nil
+	p.Cache.RouteNames = nil
+	p.Cache.EdsClusterNames = nil
 }
 
 func ConfigResourcesIsEmpty(resources *admin_v2.ConfigResources) bool {

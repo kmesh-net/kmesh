@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package ads
+package cache
 
 import (
 	"testing"
@@ -38,7 +38,7 @@ func TestNewFilterTcpProxy(t *testing.T) {
 				Cluster: "ut-cluster",
 			},
 		}
-		tcpProxy := newFilterTcpProxy(envoyTcpProxy)
+		tcpProxy := NewFilterTcpProxy(envoyTcpProxy)
 		require.NotNil(t, tcpProxy)
 		assert.Equal(t, tcpProxy.GetCluster(), "ut-cluster")
 	})
@@ -64,7 +64,7 @@ func TestNewFilterTcpProxy(t *testing.T) {
 				},
 			},
 		}
-		tcpProxy := newFilterTcpProxy(envoyTcpProxy)
+		tcpProxy := NewFilterTcpProxy(envoyTcpProxy)
 		require.NotNil(t, tcpProxy)
 		weightedClustersSpecifier, ok := tcpProxy.ClusterSpecifier.(*filter.TcpProxy_WeightedClusters)
 		require.True(t, ok)

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package ads
+package cache
 
 import (
 	envoy_filters_tcp_proxy "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
@@ -22,7 +22,7 @@ import (
 	"kmesh.net/kmesh/api/v2/filter"
 )
 
-func newFilterTcpProxy(envoyTcpProxy *envoy_filters_tcp_proxy.TcpProxy) *filter.TcpProxy {
+func NewFilterTcpProxy(envoyTcpProxy *envoy_filters_tcp_proxy.TcpProxy) *filter.TcpProxy {
 	tcpProxy := &filter.TcpProxy{
 		StatPrefix:         envoyTcpProxy.GetStatPrefix(),
 		ClusterSpecifier:   nil,

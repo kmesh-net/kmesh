@@ -74,7 +74,7 @@ func TestOverwriteDNSCluster(t *testing.T) {
 		},
 	}
 
-	p := NewController(nil).Processor
+	p := NewController(nil, false, nil).Processor
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	dnsResolver, err := NewDnsController(p.Cache)
@@ -221,7 +221,7 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 		},
 	}
 
-	p := NewController(nil).Processor
+	p := NewController(nil, false, nil).Processor
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 	dnsResolver, err := NewDnsController(p.Cache)

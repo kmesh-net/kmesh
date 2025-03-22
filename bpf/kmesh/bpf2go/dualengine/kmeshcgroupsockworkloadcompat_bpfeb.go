@@ -47,7 +47,9 @@ type KmeshCgroupSockWorkloadCompatSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	_              [2]byte
+	PidTgid        uint32
+	DstSvcName     [192]int8
 }
 
 // LoadKmeshCgroupSockWorkloadCompat returns the embedded CollectionSpec for KmeshCgroupSockWorkloadCompat.

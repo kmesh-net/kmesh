@@ -31,6 +31,7 @@ import (
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/enhanced"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/logger"
@@ -124,6 +125,13 @@ func (sc *BpfAds) Start() error {
 		return fmt.Errorf("deserial_init failed:%v", ret)
 	}
 	return nil
+}
+
+func (sc *BpfAds) GetBpfConfigVariable() factory.KmeshBpfConfig {
+	return factory.KmeshBpfConfig{
+		BpfLogLevel:      sc.SockConn.BpfLogLevel,
+		EnableMonitoring: sc.SockOps.EnableMonitoring,
+	}
 }
 
 func (sc *BpfAds) Stop() error {

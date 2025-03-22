@@ -36,6 +36,7 @@ import (
 	"kmesh.net/kmesh/daemon/options"
 	cache_v2 "kmesh.net/kmesh/pkg/cache/v2"
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/controller/ads/cache"
 	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/utils/hash"
 	"kmesh.net/kmesh/pkg/utils/test"
@@ -68,7 +69,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"ut-cluster"}, p.Cache.edsClusterNames)
+		assert.Equal(t, []string{"ut-cluster"}, p.Cache.EdsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
@@ -98,7 +99,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.NoError(t, err)
 		dnsClusters := <-p.DnsResolverChan
 		assert.Equal(t, len(dnsClusters), 1)
-		assert.Empty(t, p.Cache.edsClusterNames)
+		assert.Empty(t, p.Cache.EdsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
@@ -150,7 +151,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		}
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
-		assert.Equal(t, []string{"ut-cluster"}, p.Cache.edsClusterNames)
+		assert.Equal(t, []string{"ut-cluster"}, p.Cache.EdsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
@@ -227,7 +228,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.NoError(t, err)
 		dnsClusters = <-p.DnsResolverChan
 		assert.Equal(t, len(dnsClusters), 1)
-		assert.Equal(t, []string{"ut-cluster2", "new-ut-cluster"}, p.Cache.edsClusterNames)
+		assert.Equal(t, []string{"ut-cluster2", "new-ut-cluster"}, p.Cache.EdsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(newCluster.GetName())
 		assert.Equal(t, wantHash, actualHash)
@@ -283,7 +284,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		dnsClusters = <-p.DnsResolverChan
 		assert.Equal(t, len(dnsClusters), 0)
 		// only cluster2 is eds typed
-		assert.Equal(t, []string{"new-ut-cluster1"}, p.Cache.edsClusterNames)
+		assert.Equal(t, []string{"new-ut-cluster1"}, p.Cache.EdsClusterNames)
 		wantHash1 := hash.Sum64String(anyCluster1.String())
 		actualHash1 := p.Cache.ClusterCache.GetCdsHash(newCluster1.GetName())
 		assert.Equal(t, wantHash1, actualHash1)
@@ -303,7 +304,7 @@ func TestHandleEdsResponse(t *testing.T) {
 	t.Cleanup(cleanup)
 	t.Run("cluster's apiStatus is UPDATE", func(t *testing.T) {
 		p := newProcessor(nil)
-		adsLoader := NewAdsCache(nil)
+		adsLoader := cache.NewAdsCache(nil)
 		adsLoader.ClusterCache = cache_v2.NewClusterCache(nil, utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
@@ -327,7 +328,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			},
 		}
 		// simulate we have received and processed cluster response
-		p.Cache.edsClusterNames = []string{"ut-far", "ut-cluster"}
+		p.Cache.EdsClusterNames = []string{"ut-far", "ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -336,7 +337,7 @@ func TestHandleEdsResponse(t *testing.T) {
 
 	t.Run("cluster's apiStatus is Waiting", func(t *testing.T) {
 		p := newProcessor(nil)
-		adsLoader := NewAdsCache(nil)
+		adsLoader := cache.NewAdsCache(nil)
 		adsLoader.ClusterCache = cache_v2.NewClusterCache(nil, utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
@@ -355,7 +356,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			},
 		}
 		p.ack = newAckRequest(rsp)
-		p.Cache.edsClusterNames = []string{"ut-cluster"}
+		p.Cache.EdsClusterNames = []string{"ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -363,7 +364,7 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 
 	t.Run("not apiStatus_UPDATE", func(t *testing.T) {
-		adsLoader := NewAdsCache(nil)
+		adsLoader := cache.NewAdsCache(nil)
 		adsLoader.ClusterCache = cache_v2.NewClusterCache(nil, utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
@@ -384,7 +385,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			},
 		}
 		p.ack = newAckRequest(rsp)
-		p.Cache.edsClusterNames = []string{"ut-far", "ut-cluster"}
+		p.Cache.EdsClusterNames = []string{"ut-far", "ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -392,7 +393,7 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 
 	t.Run("already have cluster, not update", func(t *testing.T) {
-		adsLoader := NewAdsCache(nil)
+		adsLoader := cache.NewAdsCache(nil)
 		adsLoader.ClusterCache = cache_v2.NewClusterCache(nil, utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
@@ -415,7 +416,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			},
 		}
 		p.ack = newAckRequest(rsp)
-		p.Cache.edsClusterNames = []string{"ut-cluster"}
+		p.Cache.EdsClusterNames = []string{"ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -423,7 +424,7 @@ func TestHandleEdsResponse(t *testing.T) {
 	})
 
 	t.Run("no apicluster, p.ack not be changed", func(t *testing.T) {
-		adsLoader := NewAdsCache(nil)
+		adsLoader := cache.NewAdsCache(nil)
 		adsLoader.ClusterCache = cache_v2.NewClusterCache(nil, utils.NewHashName())
 		cluster := &cluster_v2.Cluster{}
 		adsLoader.ClusterCache.SetApiCluster("", cluster)
@@ -441,14 +442,14 @@ func TestHandleEdsResponse(t *testing.T) {
 		}
 		p.ack = newAckRequest(rsp)
 		// previously no eds cluster, but we received a eds response, not common
-		p.Cache.edsClusterNames = nil
+		p.Cache.EdsClusterNames = nil
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Nil(t, p.ack.ResourceNames)
 	})
 
 	t.Run("empty loadAssignment", func(t *testing.T) {
-		adsLoader := NewAdsCache(nil)
+		adsLoader := cache.NewAdsCache(nil)
 		adsLoader.ClusterCache = cache_v2.NewClusterCache(nil, utils.NewHashName())
 		cluster := &cluster_v2.Cluster{
 			Name:      "ut-cluster",
@@ -468,7 +469,7 @@ func TestHandleEdsResponse(t *testing.T) {
 			},
 		}
 		p.ack = newAckRequest(rsp)
-		p.Cache.edsClusterNames = []string{"ut-cluster"}
+		p.Cache.EdsClusterNames = []string{"ut-cluster"}
 		err = p.handleEdsResponse(rsp)
 		assert.NoError(t, err)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster("ut-cluster").ApiStatus, core_v2.ApiStatus_NONE)
@@ -484,8 +485,8 @@ func TestHandleLdsResponse(t *testing.T) {
 	}
 	_, loader := test.InitBpfMap(t, config)
 	t.Run("normal function test", func(t *testing.T) {
-		adsLoader := NewAdsCache(nil)
-		adsLoader.routeNames = []string{
+		adsLoader := cache.NewAdsCache(nil)
+		adsLoader.RouteNames = []string{
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
@@ -544,8 +545,8 @@ func TestHandleLdsResponse(t *testing.T) {
 	})
 
 	t.Run("listenerCache already has resource and it has not been changed", func(t *testing.T) {
-		adsLoader := NewAdsCache(nil)
-		adsLoader.routeNames = []string{
+		adsLoader := cache.NewAdsCache(nil)
+		adsLoader.RouteNames = []string{
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
@@ -583,8 +584,8 @@ func TestHandleLdsResponse(t *testing.T) {
 	})
 
 	t.Run("listenerCache already has resource and it has been changed", func(t *testing.T) {
-		adsLoader := NewAdsCache(nil)
-		adsLoader.routeNames = []string{
+		adsLoader := cache.NewAdsCache(nil)
+		adsLoader.RouteNames = []string{
 			"ut-route-to-client",
 			"ut-route-to-service",
 		}
