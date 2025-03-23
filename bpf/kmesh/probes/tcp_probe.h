@@ -154,6 +154,7 @@ static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe
 static inline void record_report_tcp_conn_info(
     struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
+    struct tcp_probe_info info_vals = {0};
     struct tcp_probe_info *info = NULL;
     info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
     if (!info) {
@@ -162,29 +163,30 @@ static inline void record_report_tcp_conn_info(
     }
     __u64 now = bpf_ktime_get_ns();
 
-    info->conn_id = storage->sock_cookie;
-    info->start_ns = storage->connect_ns;
-    info->last_report_ns = now;
-    construct_tuple(sk, &info->tuple, storage->direction);
+    info_vals.conn_id = storage->sock_cookie;
+    info_vals.start_ns = storage->connect_ns;
+    info_vals.last_report_ns = now;
+    construct_tuple(sk, &info_vals.tuple, storage->direction);
 
-    info->state = state;
-    info->direction = storage->direction;
-    info->duration = now - info->start_ns;
-    info->conn_success = storage->connect_success;
-    info->sent_bytes = tcp_sock->delivered;
-    info->received_bytes = tcp_sock->bytes_received;
-    info->srtt_us = tcp_sock->srtt_us;
-    info->rtt_min = tcp_sock->rtt_min;
-    info->total_retrans = tcp_sock->total_retrans;
-    info->lost_out = tcp_sock->lost_out;
+    info_vals.state = state;
+    info_vals.direction = storage->direction;
+    info_vals.duration = now - info->start_ns;
+    info_vals.conn_success = storage->connect_success;
+    info_vals.sent_bytes = tcp_sock->delivered;
+    info_vals.received_bytes = tcp_sock->bytes_received;
+    info_vals.srtt_us = tcp_sock->srtt_us;
+    info_vals.rtt_min = tcp_sock->rtt_min;
+    info_vals.total_retrans = tcp_sock->total_retrans;
+    info_vals.lost_out = tcp_sock->lost_out;
 
-    (*info).type = (sk->family == AF_INET) ? IPV4 : IPV6;
+    info_vals.type = (sk->family == AF_INET) ? IPV4 : IPV6;
     if (is_ipv4_mapped_addr(sk->dst_ip6)) {
-        (*info).type = IPV4;
+        info_vals.type = IPV4;
     }
 
-    construct_orig_dst_info(sk, info);
-    bpf_map_update_elem(&map_of_tcp_conns, &storage->sock_cookie, info, BPF_ANY);
+    construct_orig_dst_info(sk, &info_vals);
+    __builtin_memcpy(info, &info_vals, sizeof(struct tcp_probe_info));
+    bpf_map_update_elem(&map_of_tcp_conns, &storage->sock_cookie, &info_vals, BPF_ANY);
     bpf_ringbuf_submit(info, 0);
     __u32 zero = 0;
     __u32 *index = bpf_map_lookup_elem(&map_of_soc_id_counter, &zero);
