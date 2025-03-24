@@ -70,7 +70,7 @@ static inline int xdp_deny_packet(struct xdp_info *info, struct bpf_sock_tuple *
     return XDP_DROP;
 }
 
-volatile __u32 authz_offload = 0;
+volatile __u32 authz_offload = 1;
 
 static bool is_authz_offload_enabled()
 {
