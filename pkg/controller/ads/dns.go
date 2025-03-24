@@ -70,9 +70,11 @@ func NewDnsResolver(adsCache *AdsCache) (*dnsController, error) {
 }
 
 func (r *dnsController) Run(stopCh <-chan struct{}) {
-	// start dns resolver
+	// Start dns resolver
 	go r.dnsResolver.StartDnsResolver(stopCh)
+	// Handle cds updates when a hostname completes resolution
 	go r.refreshAdsWorker(stopCh)
+	// Consumption of clusters to be resolved.
 	go r.startDnsController()
 	go func() {
 		<-stopCh
@@ -92,13 +94,14 @@ func (r *dnsController) resolveDomains(cds []*clusterv3.Cluster) {
 	// store all pending hostnames of clusters in r.hostInfo
 	for _, cluster := range cds {
 		clusterName := cluster.GetName()
-		info := getHostInfo(cluster)
+		info := getHostName(cluster)
 		r.pendingClusterInfo[clusterName] = info
 	}
 
 	// delete any scheduled re-resolve for domains we no longer care about
 	r.dnsResolver.RemoveUnwatchDomain(hostNames)
 
+	// Update clusters based on the data in the dns cache.
 	for k, v := range domains {
 		addresses := r.dnsResolver.GetDNSAddresses(k)
 		// Already have record in dns cache
@@ -106,6 +109,8 @@ func (r *dnsController) resolveDomains(cds []*clusterv3.Cluster) {
 			r.updateClusters(v, addresses)
 			go r.cache.ClusterCache.Flush()
 		} else {
+			// Initialize the newly added hostname
+			// and add it to the dns queue to be resolved.
 			r.dnsResolver.InitializeDomainInCache(k)
 			domainInfo := &dns.DomainInfo{
 				Domain:      v.DomainName,
@@ -116,6 +121,7 @@ func (r *dnsController) resolveDomains(cds []*clusterv3.Cluster) {
 	}
 }
 
+// Handle cds updates when a hostname completes resolution
 func (r *dnsController) refreshAdsWorker(stop <-chan struct{}) {
 	for {
 		select {
@@ -223,7 +229,8 @@ func buildLbEndpoints(port uint32, addrs []string) []*endpointv3.LbEndpoint {
 	return lbEndpoints
 }
 
-func getHostInfo(cluster *clusterv3.Cluster) []string {
+// Get the hostname to be resolved in Cluster
+func getHostName(cluster *clusterv3.Cluster) []string {
 	info := []string{}
 	for _, e := range cluster.LoadAssignment.Endpoints {
 		for _, le := range e.LbEndpoints {
