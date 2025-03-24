@@ -186,7 +186,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         }
         __u64 *current_sk = (__u64 *)skops->sk;
-        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_orig_dst, current_sk);
+        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
         if (dst != NULL)
             enable_encoding_metadata(skops);
         break;

@@ -35,10 +35,10 @@ import (
 )
 
 type SockConnWorkload struct {
-	Info   general.BpfInfo
-	Link   link.Link
-	Info6  general.BpfInfo
-	Link6  link.Link
+	Info  general.BpfInfo
+	Link  link.Link
+	Info6 general.BpfInfo
+	Link6 link.Link
 	bpf2go.KmeshCgroupSockWorkloadObjects
 }
 
@@ -114,7 +114,6 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 		ebpf.UpdateAny); err != nil {
 		return err
 	}
-
 	return nil
 }
 
@@ -150,7 +149,6 @@ func (sc *SockConnWorkload) Attach() error {
 		if sc.Link6, err = utils.BpfProgUpdate(pinPath6, cgopt6); err != nil {
 			return err
 		}
-
 	} else {
 		sc.Link, err = link.AttachCgroup(cgopt4)
 		if err != nil {
@@ -205,6 +203,5 @@ func (sc *SockConnWorkload) Detach() error {
 	if sc.Link6 != nil {
 		return sc.Link6.Close()
 	}
-
 	return nil
 }
