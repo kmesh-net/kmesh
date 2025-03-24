@@ -61,9 +61,15 @@ func TestKmeshRestart(t *testing.T) {
 			Source:   src,
 			Options:  options,
 			Interval: 5 * time.Millisecond,
-		}).Start()
+		})
+		g.Start()
 
-		for i := 0; i < 30; i++ {
+		for i := 0; i < 3; i++ {
+			select {
+			case <-g.stopIter:
+				break
+			default:
+			}
 			restartKmesh(t)
 		}
 
@@ -145,13 +151,14 @@ type Generator interface {
 }
 
 // NewGenerator returns a new Generator with the given configuration.
-func NewGenerator(t test.Failer, cfg Config) Generator {
+func NewGenerator(t test.Failer, cfg Config) *generator {
 	fillInDefaults(&cfg)
 	return &generator{
-		Config:  cfg,
-		t:       t,
-		stop:    make(chan struct{}),
-		stopped: make(chan struct{}),
+		Config:   cfg,
+		t:        t,
+		stop:     make(chan struct{}),
+		stopped:  make(chan struct{}),
+		stopIter: make(chan struct{}),
 	}
 }
 
@@ -163,6 +170,8 @@ type generator struct {
 	result  Result
 	stop    chan struct{}
 	stopped chan struct{}
+
+	stopIter chan struct{}
 }
 
 func (g *generator) Start() Generator {
@@ -179,11 +188,14 @@ func (g *generator) Start() Generator {
 				g.result.add(result, err)
 				if err != nil {
 					g.t.Logf("-- encounter error")
+					close(g.stopIter)
 					break
 				}
 				t.Reset(g.Interval)
 			}
+		}
 
+		for {
 			<-g.stop
 			t.Stop()
 			close(g.stopped)
@@ -207,7 +219,7 @@ func (g *generator) Stop() Result {
 		}
 		return g.result
 	case <-t.C:
-		// g.t.Fatal("timed out waiting for result")
+		g.t.Fatal("timed out waiting for result")
 	}
 	// Can never happen, but the compiler doesn't know that Fatal terminates
 	return Result{}

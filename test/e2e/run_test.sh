@@ -304,7 +304,7 @@ fi
 
 uname -a
 
-cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
+cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]} -failfast"
 
 exit_code=0
 
@@ -312,7 +312,7 @@ for i in {1..100}; do
     echo "Iteration $i"
 
     # 删除前缀为 "echo" 的 k8s namespace
-    kubectl get namespaces --no-headers | awk '/^echo/{print $1}' | xargs -r kubectl delete namespace
+    kubectl get namespaces --no-headers | awk '/^(echo|another)/{print $1}' | xargs -r kubectl delete namespace
 
     # 执行命令，如果失败则跳出循环
     if ! bash -c "$cmd"; then
