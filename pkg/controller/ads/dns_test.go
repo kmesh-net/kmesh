@@ -77,11 +77,11 @@ func TestOverwriteDNSCluster(t *testing.T) {
 	p := NewController(nil).Processor
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	dnsResolver, err := NewDnsResolver(p.Cache)
+	dnsResolver, err := NewDnsController(p.Cache)
 	assert.NoError(t, err)
 	p.DnsResolverChan = dnsResolver.Clusters
-	dnsResolver.pendingClusterInfo = map[string][]string{
-		cluster.GetName(): []string{
+	dnsResolver.pendingHostnames = map[string][]string{
+		cluster.GetName(): {
 			domain,
 		},
 	}
@@ -224,7 +224,7 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 	p := NewController(nil).Processor
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	dnsResolver, err := NewDnsResolver(p.Cache)
+	dnsResolver, err := NewDnsController(p.Cache)
 	assert.NoError(t, err)
 	dnsResolver.Run(stopCh)
 	p.DnsResolverChan = dnsResolver.Clusters
@@ -322,8 +322,7 @@ func TestGetPendingResolveDomain(t *testing.T) {
 			},
 			want: map[string]*pendingResolveDomain{
 				"www.google.com": {
-					DomainName: "www.google.com",
-					Clusters:   []*clusterv3.Cluster{&utClusterWithHost},
+					Clusters: []*clusterv3.Cluster{&utClusterWithHost},
 				},
 			},
 		},

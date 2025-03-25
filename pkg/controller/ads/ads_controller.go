@@ -47,7 +47,7 @@ type connection struct {
 func NewController(bpfAds *bpfads.BpfAds) *Controller {
 	processor := newProcessor(bpfAds)
 	// create kernel-native mode ads resolver controller
-	dnsResolverController, err := NewDnsResolver(processor.Cache)
+	dnsResolverController, err := NewDnsController(processor.Cache)
 	if err != nil {
 		log.Errorf("dns resolver of Kernel-Native mode create failed: %v", err)
 	}

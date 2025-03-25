@@ -147,7 +147,7 @@ func (r *DNSResolver) resolve(domainName string) ([]string, time.Duration, error
 	return addrs, ttl, nil
 }
 
-func (r *DNSResolver) InitializeDomainInCache(domainName string) {
+func (r *DNSResolver) AddDomainInCache(domainName string) {
 	r.Lock()
 	if r.cache[domainName] == nil {
 		r.cache[domainName] = &DomainCacheEntry{}
@@ -297,7 +297,7 @@ func (r *DNSResolver) RemoveUnwatchDomain(domains map[string]struct{}) {
 	}
 }
 
-func (r *DNSResolver) ScheduleDomainRefresh(info *DomainInfo, time time.Duration) {
+func (r *DNSResolver) AddDomainInQueue(info *DomainInfo, time time.Duration) {
 	if info == nil {
 		return
 	}
