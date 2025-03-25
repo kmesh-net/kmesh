@@ -187,7 +187,7 @@ func (g *generator) Start() Generator {
 				result, err := g.Source.Call(g.Options)
 				g.result.add(result, err)
 				if err != nil {
-					g.t.Logf("-- encounter error")
+					g.t.Logf("-- %v encounter error", time.Now())
 					close(g.stopIter)
 					break
 				}
