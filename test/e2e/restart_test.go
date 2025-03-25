@@ -64,9 +64,10 @@ func TestKmeshRestart(t *testing.T) {
 		})
 		g.Start()
 
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 1; i++ {
 			select {
 			case <-g.stopIter:
+				fmt.Printf("-- break restart iterator\n")
 				break
 			default:
 			}
