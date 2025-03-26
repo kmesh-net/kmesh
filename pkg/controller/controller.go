@@ -52,16 +52,18 @@ type Controller struct {
 	enableByPass        bool
 	enableSecretManager bool
 	bpfConfig           *options.BpfConfig
+	loader              *bpf.BpfLoader
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfAdsObj *bpfads.BpfAds, bpfWorkloadObj *bpfwl.BpfWorkload) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,
-		bpfAdsObj:           bpfAdsObj,
-		bpfWorkloadObj:      bpfWorkloadObj,
+		bpfAdsObj:           bpfLoader.GetBpfKmesh(),
+		bpfWorkloadObj:      bpfLoader.GetBpfWorkload(),
 		enableSecretManager: opts.SecretManagerConfig.Enable,
 		bpfConfig:           opts.BpfConfig,
+		loader:              bpfLoader,
 	}
 }
 
@@ -139,12 +141,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	// kmeshConfigMap.Monitoring initialized to uint32(1).
 	// If the startup parameter is false, update the kmeshConfigMap.
 	if !c.bpfConfig.EnableMonitoring {
-		config, err := bpf.GetKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmConfigmap)
-		if err != nil {
-			return fmt.Errorf("failed to get kmesh config map: %v", err)
-		}
-		config.EnableMonitoring = constants.DISABLED
-		if err := bpf.UpdateKmeshConfigMap(c.bpfWorkloadObj.SockConn.KmConfigmap, config); err != nil {
+		if err := c.loader.UpdateEnableMonitoring(constants.DISABLED); err != nil {
 			return fmt.Errorf("Failed to update config in order to start metric: %v", err)
 		}
 	}

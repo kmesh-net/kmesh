@@ -64,14 +64,6 @@ struct kmesh_context {
     bool via_waypoint;
 };
 
-struct kmesh_config {
-    __u32 bpf_log_level;
-    __u32 node_ip[4];
-    __u32 pod_gateway[4];
-    __u32 authz_offload;
-    __u32 enable_monitoring;
-};
-
 typedef struct {
     char *data;
 } bytes;
@@ -155,12 +147,6 @@ struct {
  * - key 0: Stores the log level
  * - key 1: Stores the authz (authorization) toggle
  */
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(max_entries, 1);
-    __type(key, int);
-    __type(value, struct kmesh_config);
-} kmesh_config_map SEC(".maps");
 
 #if KERNEL_VERSION_HIGHER_5_13_0
 static inline int convert_v4(char *data, __u32 *ip)
@@ -244,7 +230,7 @@ static inline int convert_v6(char *data, __u32 *ip6)
         __u16 ip_1 = (ip >> 0) & 0xFFFF;
         __u16 ip_2 = (ip >> 16) & 0xFFFF;
         for (int j = 0; j < 2; j++) {
-            __u16 ip_1 = (ip)&0xFFFF;
+            __u16 ip_1 = ip & 0xFFFF;
             __u8 h_1 = (ip_1 >> 0) & 0xFF;
             __u8 h_2 = (ip_1 >> 8) & 0xFF;
             *data++ = hex_digits[(h_1 >> 4) & 0xF];

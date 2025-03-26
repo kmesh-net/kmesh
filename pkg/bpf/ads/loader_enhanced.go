@@ -135,10 +135,6 @@ func (sc *BpfAds) Stop() error {
 	return nil
 }
 
-func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
-	return sc.SockConn.KmConfigmap
-}
-
 func (sc *BpfAds) GetBpfLogLevelVariable() *ebpf.Variable {
 	return sc.SockConn.BpfLogLevel
 }

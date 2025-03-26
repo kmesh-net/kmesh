@@ -40,7 +40,6 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/auth"
-	"kmesh.net/kmesh/pkg/bpf"
 	maps_v2 "kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
@@ -427,7 +426,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
-		cleanup, l := test.InitBpfMap(t, config)
+		cleanup, loader := test.InitBpfMap(t, config)
 		defer cleanup()
 
 		server := &Server{
@@ -436,7 +435,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 					MetricController: &telemetry.MetricController{},
 				},
 			},
-			kmeshConfigMap: l.GetKmeshConfig(),
+			loader: loader,
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(true)
 
@@ -459,7 +458,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
-		cleanup, l := test.InitBpfMap(t, config)
+		cleanup, loader := test.InitBpfMap(t, config)
 		defer cleanup()
 
 		server := &Server{
@@ -468,7 +467,7 @@ func TestServerAccesslogHandler(t *testing.T) {
 					MetricController: &telemetry.MetricController{},
 				},
 			},
-			kmeshConfigMap: l.GetKmeshConfig(),
+			loader: loader,
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
 
@@ -497,7 +496,7 @@ func TestServerMonitoringHandler(t *testing.T) {
 					MetricController: &telemetry.MetricController{},
 				},
 			},
-			kmeshConfigMap: l.GetKmeshConfig(),
+			loader: l,
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableMonitoring.Store(false)
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
@@ -509,9 +508,7 @@ func TestServerMonitoringHandler(t *testing.T) {
 
 		assert.Equal(t, server.xdsClient.WorkloadController.GetMonitoringTrigger(), true)
 		assert.Equal(t, server.xdsClient.WorkloadController.GetAccesslogTrigger(), true)
-		configMap, err := bpf.GetKmeshConfigMap(l.GetKmeshConfig())
-
-		assert.NoError(t, err)
-		assert.Equal(t, constants.ENABLED, configMap.EnableMonitoring)
+		enableMonitoring := l.GetEnableMonitoring()
+		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})
 }

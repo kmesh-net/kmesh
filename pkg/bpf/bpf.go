@@ -37,6 +37,7 @@ import (
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/ads"
+	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/constants"
@@ -56,17 +57,8 @@ type BpfLoader struct {
 
 	obj         *ads.BpfAds
 	workloadObj *workload.BpfWorkload
-	kmeshConfig *ebpf.Map
-	BpfLogLevel *ebpf.Variable
-	versionMap  *ebpf.Map
-}
-
-type KmeshBpfConfig struct {
-	BpfLogLevel      uint32
-	NodeIP           [16]byte
-	PodGateway       [16]byte
-	AuthzOffload     uint32
-	EnableMonitoring uint32
+	factory.KmeshBpfConfig
+	versionMap *ebpf.Map
 }
 
 func NewBpfLoader(config *options.BpfConfig) *BpfLoader {
@@ -97,8 +89,7 @@ func (l *BpfLoader) Start() error {
 		if err = l.obj.Start(); err != nil {
 			return err
 		}
-		l.kmeshConfig = l.obj.GetKmeshConfigMap()
-		l.BpfLogLevel = l.obj.GetBpfLogLevelVariable()
+		l.KmeshBpfConfig = l.obj.GetBpfConfigVariable()
 	} else if l.config.DualEngineEnabled() {
 		if l.workloadObj, err = workload.NewBpfWorkload(l.config); err != nil {
 			return err
@@ -106,8 +97,7 @@ func (l *BpfLoader) Start() error {
 		if err = l.workloadObj.Start(); err != nil {
 			return err
 		}
-		l.kmeshConfig = l.workloadObj.GetKmeshConfigMap()
-		l.BpfLogLevel = l.workloadObj.GetBpfLogLevelVariable()
+		l.KmeshBpfConfig = l.workloadObj.GetBpfConfigVariable()
 		// TODO: set bpf prog option in kernel native node
 		l.setBpfProgOptions()
 	}
@@ -137,13 +127,6 @@ func (l *BpfLoader) GetBpfWorkload() *workload.BpfWorkload {
 		return nil
 	}
 	return l.workloadObj
-}
-
-func (l *BpfLoader) GetKmeshConfig() *ebpf.Map {
-	if l == nil {
-		return nil
-	}
-	return l.kmeshConfig
 }
 
 func StopMda() error {
@@ -309,23 +292,22 @@ func (l *BpfLoader) setBpfProgOptions() {
 	nodeIP := getNodeIPAddress(node)
 	gateway := getNodePodSubGateway(node)
 
-	valueOfKmeshBpfConfig, err := GetKmeshConfigMap(l.kmeshConfig)
-	if err != nil {
-		log.Errorf("get kmeshConfig map failed: %v", err)
-		return
-	}
-
 	// Kmesh reboot updates only the nodeIP and pod sub gateway
 	if restart.GetStartType() == restart.Normal {
-		// Kmesh is create first time. So init kmeshConfigMap.
-		valueOfKmeshBpfConfig.BpfLogLevel = constants.BPF_LOG_INFO
-		valueOfKmeshBpfConfig.NodeIP = nodeIP
-		valueOfKmeshBpfConfig.PodGateway = gateway
-		valueOfKmeshBpfConfig.AuthzOffload = constants.ENABLED
-		valueOfKmeshBpfConfig.EnableMonitoring = constants.ENABLED
-
-		if err := UpdateKmeshConfigMap(l.kmeshConfig, valueOfKmeshBpfConfig); err != nil {
-			log.Errorf("update kmeshConfig map failed: %v", err)
+		if err := l.NodeIP.Set(nodeIP); err != nil {
+			log.Error("set NodeIP failed ", err)
+			return
+		}
+		if err := l.PodGateway.Set(gateway); err != nil {
+			log.Error("set PodGateway failed ", err)
+			return
+		}
+		if err := l.AuthzOffload.Set(constants.ENABLED); err != nil {
+			log.Error("set AuthzOffload failed ", err)
+			return
+		}
+		if err := l.EnableMonitoring.Set(constants.ENABLED); err != nil {
+			log.Error("set EnableMonitoring failed ", err)
 			return
 		}
 	}
@@ -366,35 +348,149 @@ func getNodePodSubGateway(node *corev1.Node) [16]byte {
 	return podGateway
 }
 
-func GetKmeshConfigMap(bpfMap *ebpf.Map) (*KmeshBpfConfig, error) {
-	if bpfMap == nil {
-		return nil, fmt.Errorf("get KmeshConfigMap failed: bpfMap is nil")
+func (l *BpfLoader) UpdateKmeshConfigMap(config factory.GlobalBpfConfig) error {
+	if err := l.UpdateBpfLogLevel(config.BpfLogLevel); err != nil {
+		return err
 	}
 
-	key := uint32(0)
-	value := KmeshBpfConfig{}
-	if err := bpfMap.Lookup(&key, &value); err != nil {
-		return nil, err
+	if err := l.UpdateNodeIP(config.NodeIP); err != nil {
+		return err
 	}
 
-	return &value, nil
-}
-
-func UpdateKmeshConfigMap(bpfMap *ebpf.Map, config *KmeshBpfConfig) error {
-	if bpfMap == nil {
-		return fmt.Errorf("update KmeshConfigMap failed: KmeshConfigMap is empty")
-	}
-	// For more granularity in error logging, so separate judgements.
-	if config == nil {
-		return fmt.Errorf("update KmeshConfigMap failed: map of updating is empty")
+	if err := l.UpdatePodGateway(config.PodGateway); err != nil {
+		return err
 	}
 
-	key := uint32(0)
-	if err := bpfMap.Update(&key, config, ebpf.UpdateAny); err != nil {
+	if err := l.UpdateAuthzOffload(config.AuthzOffload); err != nil {
+		return err
+	}
+
+	if err := l.UpdateEnableMonitoring(config.EnableMonitoring); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (l *BpfLoader) GetKmeshConfigMap() factory.GlobalBpfConfig {
+	return factory.GlobalBpfConfig{
+		BpfLogLevel:      l.GetBpfLogLevel(),
+		NodeIP:           l.GetNodeIP(),
+		PodGateway:       l.GetPodGateway(),
+		AuthzOffload:     l.GetAuthzOffload(),
+		EnableMonitoring: l.GetEnableMonitoring(),
+	}
+}
+
+func (l *BpfLoader) UpdateBpfLogLevel(BpfLogLevel uint32) error {
+	if l.BpfLogLevel != nil {
+		if err := l.BpfLogLevel.Set(BpfLogLevel); err != nil {
+			return fmt.Errorf("set BpfLogLevel failed %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (l *BpfLoader) GetBpfLogLevel() uint32 {
+	if l.BpfLogLevel != nil {
+		var BpfLogLevel uint32
+		if err := l.BpfLogLevel.Get(&BpfLogLevel); err != nil {
+			log.Errorf("get BpfLogLevel failed %v", err)
+			return 0
+		}
+		return BpfLogLevel
+	}
+
+	return 0
+}
+
+func (l *BpfLoader) UpdateNodeIP(NodeIP [16]byte) error {
+	if l.NodeIP != nil {
+		if err := l.NodeIP.Set(NodeIP); err != nil {
+			return fmt.Errorf("set NodeIP failed %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (l *BpfLoader) GetNodeIP() [16]byte {
+	if l.NodeIP != nil {
+		var NodeIP [16]byte
+		if err := l.NodeIP.Get(&NodeIP); err != nil {
+			log.Errorf("get NodeIP failed %v", err)
+			return [16]byte{}
+		}
+		return NodeIP
+	}
+	return [16]byte{}
+}
+
+func (l *BpfLoader) UpdatePodGateway(PodGateway [16]byte) error {
+	if l.PodGateway != nil {
+		if err := l.PodGateway.Set(PodGateway); err != nil {
+			return fmt.Errorf("set PodGateway failed %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (l *BpfLoader) GetPodGateway() [16]byte {
+	if l.PodGateway != nil {
+		var PodGateway [16]byte
+		if err := l.PodGateway.Get(&PodGateway); err != nil {
+			log.Errorf("get PodGateway failed %v", err)
+			return [16]byte{}
+		}
+		return PodGateway
+	}
+	return [16]byte{}
+}
+
+func (l *BpfLoader) UpdateAuthzOffload(AuthzOffload uint32) error {
+	if l.AuthzOffload != nil {
+		if err := l.AuthzOffload.Set(AuthzOffload); err != nil {
+			return fmt.Errorf("set AuthzOffload failed %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (l *BpfLoader) GetAuthzOffload() uint32 {
+	if l.AuthzOffload != nil {
+		var AuthzOffload uint32
+		if err := l.AuthzOffload.Get(&AuthzOffload); err != nil {
+			log.Errorf("get AuthzOffload failed %v", err)
+			return 0
+		}
+		return AuthzOffload
+	}
+	return 0
+}
+
+func (l *BpfLoader) UpdateEnableMonitoring(EnableMonitoring uint32) error {
+	if l.EnableMonitoring != nil {
+		if err := l.EnableMonitoring.Set(EnableMonitoring); err != nil {
+			return fmt.Errorf("set EnableMonitoring failed %w", err)
+		}
+	}
+
+	return nil
+}
+
+func (l *BpfLoader) GetEnableMonitoring() uint32 {
+	if l.EnableMonitoring != nil {
+		var EnableMonitoring uint32
+		if err := l.EnableMonitoring.Get(&EnableMonitoring); err != nil {
+			log.Errorf("get EnableMonitoring failed %v", err)
+			return 0
+		}
+		return EnableMonitoring
+	}
+	return 0
 }
 
 func closeMap(m *ebpf.Map) {
