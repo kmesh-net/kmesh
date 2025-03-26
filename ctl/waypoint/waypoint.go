@@ -630,6 +630,8 @@ func getKmeshWaypointImage() string {
 	}
 
 	ver := version.Get().GitVersion
+	// if ver prefix with v, remove it
+	ver = strings.TrimPrefix(ver, "v")
 
 	return fmt.Sprintf("ghcr.io/kmesh-net/waypoint:v%s", ver)
 }
