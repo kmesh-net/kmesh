@@ -105,7 +105,7 @@ proposal will be implemented, this is the place to discuss them.
 
 #### Collecting Metrics
 
-Decelearing ebpf hash map in probe.h to store information about tcp_connections.
+Decelearing ebpf hash map in probe.h to store realtime information about tcp_connections.
 
 ```
 // Ebpf map to store active tcp connections
@@ -118,12 +118,13 @@ struct {
 } map_of_tcp_conns SEC(".maps");
 
 ```
-Sockpos ebpf hook is triggered at various socket events, we will use this hook to store and refresh connection information at the time of connection established, connection state change, retransmits (also trigger in packet losss).
+Sockpos ebpf hook is triggered at various socket events, we will use this hook to store connection information at the time of connection established and refresh the information connection state change, retransmits (also trigger in packet losss), and remove the connection from map and report the conn into to ringbuffer when the state change to TCP_CLOSED.
+
 Updating workload/sockops.c
 
 ```
-SEC("sockops_active")
-int sockops_active_prog(struct bpf_sock_ops *skops)
+SEC("sockops")
+int sockops_prog(struct bpf_sock_ops *skops)
 {
     __u64 sock_cookie = bpf_get_socket_cookie(skops);
 
@@ -145,26 +146,11 @@ int sockops_active_prog(struct bpf_sock_ops *skops)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         }
         __u64 *current_sk = (__u64 *)skops->sk;
-        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_orig_dst, current_sk);
+        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
         if (dst != NULL)
             enable_encoding_metadata(skops);
         break;
 
-    default:
-        break;
-    }
-    return 0;
-}
-
-SEC("sockops_passive")
-int sockops_passive_prog(struct bpf_sock_ops *skops)
-{
-    __u64 sock_cookie = bpf_get_socket_cookie(skops);
-
-    if (skops->family != AF_INET && skops->family != AF_INET6)
-        return 0;
-
-    switch (skops->op) {
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops) || skip_specific_probe(skops))
             break;
@@ -177,20 +163,6 @@ int sockops_passive_prog(struct bpf_sock_ops *skops)
         auth_ip_tuple(skops);
         break;
 
-    default:
-        break;
-    }
-    return 0;
-}
-
-SEC("sockops_utils")
-int sockops_utils_prog(struct bpf_sock_ops *skops)
-{
-    // Filter by IPv4 or IPv6
-    if (skops->family != AF_INET && skops->family != AF_INET6)
-        return 0;
-
-    switch (skops->op) {
     case BPF_SOCK_OPS_STATE_CB:
         if (skops->args[1] == BPF_TCP_CLOSE) {
             clean_auth_map(skops);
@@ -284,6 +256,9 @@ int bpf_tcp_rcv_established(struct pt_regs *ctx) {
 We will update functions of tcp_probe.h to store and refresh the connection information on the hash map.
 
 We will update the functions of metric.go for periodic updating the workload and service metrics, also we will create a new metric for long tcp connections.
+
+![design](./pics/tcp_long_conn_design.png)
+
 #### User Stories (Optional)
 
 <!--
