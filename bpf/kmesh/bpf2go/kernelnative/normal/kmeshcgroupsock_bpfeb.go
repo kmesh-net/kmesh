@@ -16,14 +16,6 @@ type KmeshCgroupSockBuf struct{ Data [40]int8 }
 
 type KmeshCgroupSockClusterSockData struct{ ClusterId uint32 }
 
-type KmeshCgroupSockKmeshConfig struct {
-	BpfLogLevel      uint32
-	NodeIp           [4]uint32
-	PodGateway       [4]uint32
-	AuthzOffload     uint32
-	EnableMonitoring uint32
-}
-
 type KmeshCgroupSockManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
@@ -111,7 +103,6 @@ type KmeshCgroupSockMapSpecs struct {
 	KmClusterEps   *ebpf.MapSpec `ebpf:"km_cluster_eps"`
 	KmClusterSock  *ebpf.MapSpec `ebpf:"km_cluster_sock"`
 	KmClusterstats *ebpf.MapSpec `ebpf:"km_clusterstats"`
-	KmConfigmap    *ebpf.MapSpec `ebpf:"km_configmap"`
 	KmEpsData      *ebpf.MapSpec `ebpf:"km_eps_data"`
 	KmListener     *ebpf.MapSpec `ebpf:"km_listener"`
 	KmLogEvent     *ebpf.MapSpec `ebpf:"km_log_event"`
@@ -159,7 +150,6 @@ type KmeshCgroupSockMaps struct {
 	KmClusterEps   *ebpf.Map `ebpf:"km_cluster_eps"`
 	KmClusterSock  *ebpf.Map `ebpf:"km_cluster_sock"`
 	KmClusterstats *ebpf.Map `ebpf:"km_clusterstats"`
-	KmConfigmap    *ebpf.Map `ebpf:"km_configmap"`
 	KmEpsData      *ebpf.Map `ebpf:"km_eps_data"`
 	KmListener     *ebpf.Map `ebpf:"km_listener"`
 	KmLogEvent     *ebpf.Map `ebpf:"km_log_event"`
@@ -182,7 +172,6 @@ func (m *KmeshCgroupSockMaps) Close() error {
 		m.KmClusterEps,
 		m.KmClusterSock,
 		m.KmClusterstats,
-		m.KmConfigmap,
 		m.KmEpsData,
 		m.KmListener,
 		m.KmLogEvent,

@@ -24,14 +24,6 @@ type KmeshSendmsgCompatBpfSockTuple struct {
 
 type KmeshSendmsgCompatBuf struct{ Data [40]int8 }
 
-type KmeshSendmsgCompatKmeshConfig struct {
-	BpfLogLevel      uint32
-	NodeIp           [4]uint32
-	PodGateway       [4]uint32
-	AuthzOffload     uint32
-	EnableMonitoring uint32
-}
-
 type KmeshSendmsgCompatManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
@@ -141,7 +133,6 @@ type KmeshSendmsgCompatMapSpecs struct {
 	KmAuthReq     *ebpf.MapSpec `ebpf:"km_auth_req"`
 	KmAuthRes     *ebpf.MapSpec `ebpf:"km_auth_res"`
 	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
-	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
 	KmConnFlush   *ebpf.MapSpec `ebpf:"km_conn_flush"`
 	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
@@ -168,7 +159,8 @@ type KmeshSendmsgCompatMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgCompatVariableSpecs struct {
-	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	BpfLogLevel      *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	EnableMonitoring *ebpf.VariableSpec `ebpf:"enable_monitoring"`
 }
 
 // KmeshSendmsgCompatObjects contains all objects after they have been loaded into the kernel.
@@ -194,7 +186,6 @@ type KmeshSendmsgCompatMaps struct {
 	KmAuthReq     *ebpf.Map `ebpf:"km_auth_req"`
 	KmAuthRes     *ebpf.Map `ebpf:"km_auth_res"`
 	KmBackend     *ebpf.Map `ebpf:"km_backend"`
-	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
 	KmConnFlush   *ebpf.Map `ebpf:"km_conn_flush"`
 	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
@@ -222,7 +213,6 @@ func (m *KmeshSendmsgCompatMaps) Close() error {
 		m.KmAuthReq,
 		m.KmAuthRes,
 		m.KmBackend,
-		m.KmConfigmap,
 		m.KmConnFlush,
 		m.KmEndpoint,
 		m.KmFrontend,
@@ -250,7 +240,8 @@ func (m *KmeshSendmsgCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshSendmsgCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSendmsgCompatVariables struct {
-	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
+	BpfLogLevel      *ebpf.Variable `ebpf:"bpf_log_level"`
+	EnableMonitoring *ebpf.Variable `ebpf:"enable_monitoring"`
 }
 
 // KmeshSendmsgCompatPrograms contains all programs after they have been loaded into the kernel.

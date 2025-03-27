@@ -16,14 +16,6 @@ type KmeshSockopsCompatBuf struct{ Data [40]int8 }
 
 type KmeshSockopsCompatClusterSockData struct{ ClusterId uint32 }
 
-type KmeshSockopsCompatKmeshConfig struct {
-	BpfLogLevel      uint32
-	NodeIp           [4]uint32
-	PodGateway       [4]uint32
-	AuthzOffload     uint32
-	EnableMonitoring uint32
-}
-
 type KmeshSockopsCompatManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
@@ -88,7 +80,6 @@ type KmeshSockopsCompatProgramSpecs struct {
 type KmeshSockopsCompatMapSpecs struct {
 	KmClusterSock  *ebpf.MapSpec `ebpf:"km_cluster_sock"`
 	KmClusterstats *ebpf.MapSpec `ebpf:"km_clusterstats"`
-	KmConfigmap    *ebpf.MapSpec `ebpf:"km_configmap"`
 	KmLogEvent     *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
 	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
@@ -128,7 +119,6 @@ func (o *KmeshSockopsCompatObjects) Close() error {
 type KmeshSockopsCompatMaps struct {
 	KmClusterSock  *ebpf.Map `ebpf:"km_cluster_sock"`
 	KmClusterstats *ebpf.Map `ebpf:"km_clusterstats"`
-	KmConfigmap    *ebpf.Map `ebpf:"km_configmap"`
 	KmLogEvent     *ebpf.Map `ebpf:"km_log_event"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
 	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
@@ -143,7 +133,6 @@ func (m *KmeshSockopsCompatMaps) Close() error {
 	return _KmeshSockopsCompatClose(
 		m.KmClusterSock,
 		m.KmClusterstats,
-		m.KmConfigmap,
 		m.KmLogEvent,
 		m.KmManage,
 		m.KmSockstorage,

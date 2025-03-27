@@ -28,32 +28,27 @@ struct {
     __uint(map_flags, 0);
 } map_of_kmesh_socket SEC(".maps");
 
+volatile __u32 node_ip[4];
+volatile __u32 pod_gateway[4];
+
 static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
 {
-    struct kmesh_config *data = {0};
-    int key_of_kmesh_config = 0;
-    data = kmesh_map_lookup_elem(&kmesh_config_map, &key_of_kmesh_config);
-    if (!data) {
-        BPF_LOG(ERR, SOCKOPS, "get kmesh config failed");
-        return false;
-    }
-
     if (skops->family == AF_INET) {
-        if (data->node_ip[3] == skops->remote_ip4) {
+        if (node_ip[3] == skops->remote_ip4) {
             return true;
         }
-        if (data->pod_gateway[3] == skops->remote_ip4) {
+        if (pod_gateway[3] == skops->remote_ip4) {
             return true;
         }
     }
 
     if (skops->family == AF_INET6) {
-        if (data->node_ip[0] == skops->remote_ip6[0] && data->node_ip[1] == skops->remote_ip6[1]
-            && data->node_ip[2] == skops->remote_ip6[2] && data->node_ip[3] == skops->remote_ip6[3]) {
+        if (node_ip[0] == skops->remote_ip6[0] && node_ip[1] == skops->remote_ip6[1]
+            && node_ip[2] == skops->remote_ip6[2] && node_ip[3] == skops->remote_ip6[3]) {
             return true;
         }
-        if (data->pod_gateway[0] == skops->remote_ip6[0] && data->pod_gateway[1] == skops->remote_ip6[1]
-            && data->pod_gateway[2] == skops->remote_ip6[2] && data->pod_gateway[3] == skops->remote_ip6[3]) {
+        if (pod_gateway[0] == skops->remote_ip6[0] && pod_gateway[1] == skops->remote_ip6[1]
+            && pod_gateway[2] == skops->remote_ip6[2] && pod_gateway[3] == skops->remote_ip6[3]) {
             return true;
         }
     }

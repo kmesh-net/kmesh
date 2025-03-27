@@ -24,14 +24,6 @@ type KmeshXDPAuthBpfSockTuple struct {
 
 type KmeshXDPAuthBuf struct{ Data [40]int8 }
 
-type KmeshXDPAuthKmeshConfig struct {
-	BpfLogLevel      uint32
-	NodeIp           [4]uint32
-	PodGateway       [4]uint32
-	AuthzOffload     uint32
-	EnableMonitoring uint32
-}
-
 type KmeshXDPAuthManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
@@ -102,7 +94,6 @@ type KmeshXDPAuthMapSpecs struct {
 	KmAuthzPolicy *ebpf.MapSpec `ebpf:"km_authz_policy"`
 	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
 	KmCgrTailcall *ebpf.MapSpec `ebpf:"km_cgr_tailcall"`
-	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
 	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
@@ -123,7 +114,8 @@ type KmeshXDPAuthMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshXDPAuthVariableSpecs struct {
-	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	AuthzOffload *ebpf.VariableSpec `ebpf:"authz_offload"`
+	BpfLogLevel  *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
 // KmeshXDPAuthObjects contains all objects after they have been loaded into the kernel.
@@ -151,7 +143,6 @@ type KmeshXDPAuthMaps struct {
 	KmAuthzPolicy *ebpf.Map `ebpf:"km_authz_policy"`
 	KmBackend     *ebpf.Map `ebpf:"km_backend"`
 	KmCgrTailcall *ebpf.Map `ebpf:"km_cgr_tailcall"`
-	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
 	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
@@ -175,7 +166,6 @@ func (m *KmeshXDPAuthMaps) Close() error {
 		m.KmAuthzPolicy,
 		m.KmBackend,
 		m.KmCgrTailcall,
-		m.KmConfigmap,
 		m.KmEndpoint,
 		m.KmFrontend,
 		m.KmLogEvent,
@@ -197,7 +187,8 @@ func (m *KmeshXDPAuthMaps) Close() error {
 //
 // It can be passed to LoadKmeshXDPAuthObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshXDPAuthVariables struct {
-	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
+	AuthzOffload *ebpf.Variable `ebpf:"authz_offload"`
+	BpfLogLevel  *ebpf.Variable `ebpf:"bpf_log_level"`
 }
 
 // KmeshXDPAuthPrograms contains all programs after they have been loaded into the kernel.

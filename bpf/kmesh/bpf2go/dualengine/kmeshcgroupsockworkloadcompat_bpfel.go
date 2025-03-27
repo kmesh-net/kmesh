@@ -24,14 +24,6 @@ type KmeshCgroupSockWorkloadCompatBpfSockTuple struct {
 
 type KmeshCgroupSockWorkloadCompatBuf struct{ Data [40]int8 }
 
-type KmeshCgroupSockWorkloadCompatKmeshConfig struct {
-	BpfLogLevel      uint32
-	NodeIp           [4]uint32
-	PodGateway       [4]uint32
-	AuthzOffload     uint32
-	EnableMonitoring uint32
-}
-
 type KmeshCgroupSockWorkloadCompatManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
@@ -143,7 +135,6 @@ type KmeshCgroupSockWorkloadCompatMapSpecs struct {
 	KmAuthRes     *ebpf.MapSpec `ebpf:"km_auth_res"`
 	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
 	KmCgrTailcall *ebpf.MapSpec `ebpf:"km_cgr_tailcall"`
-	KmConfigmap   *ebpf.MapSpec `ebpf:"km_configmap"`
 	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
@@ -170,7 +161,8 @@ type KmeshCgroupSockWorkloadCompatMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockWorkloadCompatVariableSpecs struct {
-	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	BpfLogLevel      *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	EnableMonitoring *ebpf.VariableSpec `ebpf:"enable_monitoring"`
 }
 
 // KmeshCgroupSockWorkloadCompatObjects contains all objects after they have been loaded into the kernel.
@@ -197,7 +189,6 @@ type KmeshCgroupSockWorkloadCompatMaps struct {
 	KmAuthRes     *ebpf.Map `ebpf:"km_auth_res"`
 	KmBackend     *ebpf.Map `ebpf:"km_backend"`
 	KmCgrTailcall *ebpf.Map `ebpf:"km_cgr_tailcall"`
-	KmConfigmap   *ebpf.Map `ebpf:"km_configmap"`
 	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
@@ -226,7 +217,6 @@ func (m *KmeshCgroupSockWorkloadCompatMaps) Close() error {
 		m.KmAuthRes,
 		m.KmBackend,
 		m.KmCgrTailcall,
-		m.KmConfigmap,
 		m.KmEndpoint,
 		m.KmFrontend,
 		m.KmLogEvent,
@@ -254,7 +244,8 @@ func (m *KmeshCgroupSockWorkloadCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshCgroupSockWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockWorkloadCompatVariables struct {
-	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
+	BpfLogLevel      *ebpf.Variable `ebpf:"bpf_log_level"`
+	EnableMonitoring *ebpf.Variable `ebpf:"enable_monitoring"`
 }
 
 // KmeshCgroupSockWorkloadCompatPrograms contains all programs after they have been loaded into the kernel.
