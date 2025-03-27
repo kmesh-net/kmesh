@@ -139,14 +139,14 @@ function setup_kmesh() {
     done
 
     # Set log of each Kmesh pods.
-    PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+    #PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
 
-    sleep 10
+    #sleep 10
 
-    for POD in $PODS; do
-        echo $POD
-        kmeshctl log $POD --set bpf:debug
-    done
+    #for POD in $PODS; do
+    #    echo $POD
+    #    kmeshctl log $POD --set bpf:debug
+    #done
 }
 
 export KIND_REGISTRY_NAME="kind-registry"
@@ -347,24 +347,24 @@ for POD in $PODS; do
 done
 
 # 定义命名空间前缀和 Pod 前缀
-NAMESPACE_PREFIX="echo"
-POD_PREFIX="waypoint"
-
-# 获取所有符合条件的命名空间
-NAMESPACES=$(kubectl get namespaces --no-headers | awk '{print $1}' | grep "^$NAMESPACE_PREFIX")
-
-# 遍历每个命名空间
-for NAMESPACE in $NAMESPACES; do
-  # 获取以 waypoint 为前缀的 Pods
-  PODS=$(kubectl get pods -n $NAMESPACE --no-headers | awk '{print $1}' | grep "^$POD_PREFIX")
-
-  # 遍历每个 Pod 并输出日志
-  for POD in $PODS; do
-    echo "Fetching logs for Pod: $POD in Namespace: $NAMESPACE"
-    kubectl logs -n $NAMESPACE $POD --tail=10000
-    echo "----------------------------------------"
-  done
-done
+#NAMESPACE_PREFIX="echo"
+#POD_PREFIX="waypoint"
+#
+## 获取所有符合条件的命名空间
+#NAMESPACES=$(kubectl get namespaces --no-headers | awk '{print $1}' | grep "^$NAMESPACE_PREFIX")
+#
+## 遍历每个命名空间
+#for NAMESPACE in $NAMESPACES; do
+#  # 获取以 waypoint 为前缀的 Pods
+#  PODS=$(kubectl get pods -n $NAMESPACE --no-headers | awk '{print $1}' | grep "^$POD_PREFIX")
+#
+#  # 遍历每个 Pod 并输出日志
+#  for POD in $PODS; do
+#    echo "Fetching logs for Pod: $POD in Namespace: $NAMESPACE"
+#    kubectl logs -n $NAMESPACE $POD --tail=10000
+#    echo "----------------------------------------"
+#  done
+#done
 
 sleep 10
 

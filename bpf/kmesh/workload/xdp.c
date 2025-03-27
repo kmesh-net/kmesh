@@ -19,7 +19,7 @@ static inline void shutdown_tuple(struct xdp_info *info)
 {
     info->tcph->fin = 0;
     info->tcph->syn = 0;
-    info->tcph->rst = 1;
+    info->tcph->rst = 0;
     info->tcph->psh = 0;
     info->tcph->ack = 0;
 }

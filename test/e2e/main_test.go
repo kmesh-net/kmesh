@@ -322,7 +322,7 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 	pod := pods[0]
 
 	// adjust log level of waypoint to trace.
-	cmd := exec.Command("istioctl", "pc", "log", fmt.Sprintf("%s.%s", pod.Name, pod.Namespace), "--level", "debug")
+	cmd := exec.Command("istioctl", "pc", "log", fmt.Sprintf("%s.%s", pod.Name, pod.Namespace), "--level", "trace")
 
 	output, err := cmd.Output()
 	if err != nil {
