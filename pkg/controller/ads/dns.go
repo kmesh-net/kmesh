@@ -74,20 +74,20 @@ func (r *dnsController) Run(stopCh <-chan struct{}) {
 	// Handle cds updates
 	go r.refreshWorker(stopCh)
 	// Consumption of clusters.
-	go r.processClusterDomains()
+	go r.processClusters()
 	go func() {
 		<-stopCh
 		close(r.Clusters)
 	}()
 }
 
-func (r *dnsController) processClusterDomains() {
+func (r *dnsController) processClusters() {
 	for clusters := range r.Clusters {
-		r.getDomains(clusters)
+		r.processDomains(clusters)
 	}
 }
 
-func (r *dnsController) getDomains(cds []*clusterv3.Cluster) {
+func (r *dnsController) processDomains(cds []*clusterv3.Cluster) {
 	domains, hostNames := getPendingResolveDomain(cds)
 
 	// store all pending hostnames of clusters in pendingHostnames
