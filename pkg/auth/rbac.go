@@ -181,7 +181,7 @@ func (r *Rbac) doRbac(conn *rbacConnection) bool {
 	// If no workload found, deny
 	if dstWorkload == nil {
 		log.Debugf("denied for connection: %v because destination workload not found", conn)
-		return false
+		return true
 	}
 
 	// TODO: maybe cache them for performance issue
