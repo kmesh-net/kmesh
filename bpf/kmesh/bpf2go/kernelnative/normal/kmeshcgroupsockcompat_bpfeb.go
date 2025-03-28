@@ -12,6 +12,24 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type KmeshCgroupSockCompatBpfSock struct {
+	BoundDevIf     uint32
+	Family         uint32
+	Type           uint32
+	Protocol       uint32
+	Mark           uint32
+	Priority       uint32
+	SrcIp4         uint32
+	SrcIp6         [4]uint32
+	SrcPort        uint32
+	DstPort        uint16
+	_              [2]byte
+	DstIp4         uint32
+	DstIp6         [4]uint32
+	State          uint32
+	RxQueueMapping int32
+}
+
 type KmeshCgroupSockCompatBpfSockTuple struct {
 	Ipv4 struct {
 		Saddr uint32
@@ -66,8 +84,9 @@ type KmeshCgroupSockCompatSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
 	ConnectSuccess uint8
+	_              [2]byte
+	PidTgid        uint32
 	DstSvcName     [192]int8
-	_              [6]byte
 }
 
 // LoadKmeshCgroupSockCompat returns the embedded CollectionSpec for KmeshCgroupSockCompat.
@@ -133,6 +152,7 @@ type KmeshCgroupSockCompatMapSpecs struct {
 	KmMaglevOuter  *ebpf.MapSpec `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
 	KmOrigDst      *ebpf.MapSpec `ebpf:"km_orig_dst"`
+	KmPidDst       *ebpf.MapSpec `ebpf:"km_pid_dst"`
 	KmRatelimit    *ebpf.MapSpec `ebpf:"km_ratelimit"`
 	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.MapSpec `ebpf:"km_tailcall_ctx"`
@@ -185,6 +205,7 @@ type KmeshCgroupSockCompatMaps struct {
 	KmMaglevOuter  *ebpf.Map `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
 	KmOrigDst      *ebpf.Map `ebpf:"km_orig_dst"`
+	KmPidDst       *ebpf.Map `ebpf:"km_pid_dst"`
 	KmRatelimit    *ebpf.Map `ebpf:"km_ratelimit"`
 	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.Map `ebpf:"km_tailcall_ctx"`
@@ -211,6 +232,7 @@ func (m *KmeshCgroupSockCompatMaps) Close() error {
 		m.KmMaglevOuter,
 		m.KmManage,
 		m.KmOrigDst,
+		m.KmPidDst,
 		m.KmRatelimit,
 		m.KmSockstorage,
 		m.KmTailcallCtx,

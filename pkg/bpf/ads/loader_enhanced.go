@@ -1,5 +1,5 @@
-//go:build enhanced
-// +build enhanced
+//go:build !normal
+// +build !normal
 
 /*
  * Copyright The Kmesh Authors.
@@ -57,6 +57,12 @@ type BpfSockOps struct {
 	bpf2go.KmeshSockopsObjects
 }
 
+type BpfTracePoint struct {
+	Info general.BpfInfo
+	Link link.Link
+	bpf2go.KmeshTracepointObjects
+}
+
 func loadKmeshCgroupSock() (*ebpf.CollectionSpec, error) {
 	var spec *ebpf.CollectionSpec
 	var err error
@@ -79,10 +85,25 @@ func loadKmeshSockOps() (*ebpf.CollectionSpec, error) {
 	return spec, err
 }
 
+func loadKmeshTracepoint() (*ebpf.CollectionSpec, error) {
+	var spec *ebpf.CollectionSpec
+	var err error
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshTracepoint()
+	} else {
+		spec, err = bpf2go.LoadKmeshTracepoint()
+	}
+	return spec, err
+}
+
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
 
 	if err := sc.SockOps.NewBpf(cfg); err != nil {
+		return nil, err
+	}
+
+	if err := sc.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
 	}
 

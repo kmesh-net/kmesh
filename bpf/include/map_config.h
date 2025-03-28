@@ -12,5 +12,6 @@
 #define map_of_nodeinfo     km_nodeinfo
 #define map_of_tcp_probe    km_tcp_probe
 #define map_of_orig_dst     km_orig_dst
+#define map_of_pid_dst      km_pid_dst
 
 #endif // _MAP_CONFIG_H_

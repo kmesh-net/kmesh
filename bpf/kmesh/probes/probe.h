@@ -42,6 +42,7 @@ static inline void observe_on_connect(struct bpf_sock *sk, const char *dst_svc_n
         return;
     }
     bpf_strncpy(storage->dst_svc_name, sizeof(storage->dst_svc_name), dst_svc_name);
+    storage->pid_tgid = bpf_get_current_pid_tgid();
     return;
 }
 

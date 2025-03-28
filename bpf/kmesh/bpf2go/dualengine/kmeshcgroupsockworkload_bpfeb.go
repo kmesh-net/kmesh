@@ -12,6 +12,24 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type KmeshCgroupSockWorkloadBpfSock struct {
+	BoundDevIf     uint32
+	Family         uint32
+	Type           uint32
+	Protocol       uint32
+	Mark           uint32
+	Priority       uint32
+	SrcIp4         uint32
+	SrcIp6         [4]uint32
+	SrcPort        uint32
+	DstPort        uint16
+	_              [2]byte
+	DstIp4         uint32
+	DstIp6         [4]uint32
+	State          uint32
+	RxQueueMapping int32
+}
+
 type KmeshCgroupSockWorkloadBpfSockTuple struct {
 	Ipv4 struct {
 		Saddr uint32
@@ -47,8 +65,9 @@ type KmeshCgroupSockWorkloadSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
 	ConnectSuccess uint8
+	_              [2]byte
+	PidTgid        uint32
 	DstSvcName     [192]int8
-	_              [6]byte
 }
 
 // LoadKmeshCgroupSockWorkload returns the embedded CollectionSpec for KmeshCgroupSockWorkload.
@@ -112,6 +131,7 @@ type KmeshCgroupSockWorkloadMapSpecs struct {
 	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
 	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
+	KmPidDst      *ebpf.MapSpec `ebpf:"km_pid_dst"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
@@ -163,6 +183,7 @@ type KmeshCgroupSockWorkloadMaps struct {
 	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
 	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
+	KmPidDst      *ebpf.Map `ebpf:"km_pid_dst"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
@@ -188,6 +209,7 @@ func (m *KmeshCgroupSockWorkloadMaps) Close() error {
 		m.KmOrigDst,
 		m.KmPerfInfo,
 		m.KmPerfMap,
+		m.KmPidDst,
 		m.KmService,
 		m.KmSockstorage,
 		m.KmTcpProbe,

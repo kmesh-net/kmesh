@@ -10,6 +10,30 @@
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_HTTP
 
+void delete_manage_pid_sk(struct bpf_sock *sk){
+    if (!is_monitoring_enable()) {
+        return;
+    }
+
+    struct bpf_tcp_sock *tcp_sock = NULL;
+    struct sock_storage_data *storage = NULL;
+
+    if (!sk)
+        return;
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
+    if (!storage) {
+        BPF_LOG(ERR, PROBE, "on connect: bpf_sk_storage_get failed\n");
+        return;
+    }
+
+    int pid_tgid = storage->pid_tgid;
+    bpf_printk("pid_tgid:%d\n", pid_tgid);
+    int ret = bpf_map_delete_elem(&map_of_pid_dst, &pid_tgid);
+    if (ret != 0) {
+        BPF_LOG(ERR, KMESH, "manage_pid_sk failed\n");
+    }
+}
+
 SEC("sockops")
 int sockops_prog(struct bpf_sock_ops *skops)
 {
@@ -43,6 +67,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
         break;
     case BPF_SOCK_OPS_STATE_CB:
         if (skops->args[1] == BPF_TCP_CLOSE) {
+            delete_manage_pid_sk(skops->sk);
             observe_on_close(skops->sk);
             on_cluster_sock_close(skops);
         }

@@ -1,5 +1,5 @@
-//go:build !enhanced
-// +build !enhanced
+//go:build normal
+// +build normal
 
 /*
  * Copyright The Kmesh Authors.

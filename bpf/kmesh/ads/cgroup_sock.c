@@ -59,6 +59,15 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
     return 0;
 }
 
+void manage_pid_sk(struct bpf_sock *sk){
+    int pid_tgid = bpf_get_current_pid_tgid();
+    bpf_printk("pid_tgid:%d\n", pid_tgid);
+    int ret = bpf_map_update_elem(&map_of_pid_dst, &pid_tgid, sk, BPF_ANY);
+    if (ret != 0) {
+        BPF_LOG(ERR, KMESH, "manage_pid_sk failed\n");
+    }
+}
+
 SEC("cgroup/connect4")
 int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 {
@@ -71,6 +80,7 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
         return CGROUP_SOCK_OK;
     }
+    manage_pid_sk(ctx->sk);
     observe_on_pre_connect(ctx->sk);
     int ret = sock4_traffic_control(ctx);
 

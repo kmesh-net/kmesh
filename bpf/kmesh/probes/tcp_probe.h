@@ -140,6 +140,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
     // struct connect_info *info = NULL;
     struct tcp_probe_info *info = NULL;
     // store tuple
+    bpf_printk("tcp_report\n");
     info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
     if (!info) {
         BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");

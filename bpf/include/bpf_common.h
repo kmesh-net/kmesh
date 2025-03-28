@@ -100,6 +100,14 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_orig_dst SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __type(key, __u64);
+    __type(value, struct bpf_sock);
+    __uint(max_entries, MAP_SIZE_OF_DSTINFO);
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+} map_of_pid_dst SEC(".maps");
+
 /*
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
  * hook. Therefore, ensure that function is correctly used.
