@@ -6,8 +6,6 @@
 
 #define PERF_MONITOR 0
 
-#include "bpf_common.h"
-#include "config.h"
 #include "workload.h"
 
 enum {

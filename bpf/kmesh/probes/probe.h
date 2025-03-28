@@ -109,7 +109,7 @@ static inline void observe_on_retransmit(struct bpf_sock *sk)
         BPF_LOG(ERR, PROBE, "on retransmit: bpf_sk_storage_get failed\n");
         return;
     }
-    refresh_tcp_conn_info(tcp_sock, storage);
+    refresh_tcp_conn_info_on_retransmit_rtt(tcp_sock, storage);
 }
 
 // observe_on_rtt is called when the RTT of a connection changes
@@ -132,49 +132,61 @@ static inline void observe_on_rtt(struct bpf_sock *sk)
         BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
         return;
     }
-    refresh_tcp_conn_info(tcp_sock, storage);
+    refresh_tcp_conn_info_on_retransmit_rtt(tcp_sock, storage);
 }
 
-static inline void observe_on_data(struct bpf_sock *sk)
+static inline void observe_on_send(struct bpf_sock *sk, __u32 size)
+{
+    if (!is_monitoring_enable()) {
+        return;
+    }
+    struct sock_storage_data *storage = NULL;
+
+    if (!sk)
+        return;
+
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
+    if (!storage) {
+        BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
+        return;
+    }
+    refresh_tcp_conn_info_on_send(storage, size);
+}
+
+static inline void report_after_threshold_tm(struct bpf_sock *sk)
 {
     if (!is_monitoring_enable()) {
         return;
     }
 
     struct sock_storage_data *storage = NULL;
-    struct bpf_tcp_sock *tcp_sock = NULL;
-
     if (!sk)
         return;
-    tcp_sock = bpf_tcp_sock(sk);
-    if (!tcp_sock)
-        return;
+
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
         BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
         return;
     }
-    refresh_tcp_conn_info(tcp_sock, storage);
-}
 
-static inline void report_after_threshold_tm(struct tcp_probe_info *info_vals)
-{
-    if (!is_monitoring_enable()) {
-        return;
-    }
-    struct tcp_probe_info *info = NULL;
-
-    info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
-    if (!info) {
-        BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
+    struct tcp_probe_info *info_vals = bpf_map_lookup_elem(&map_of_tcp_conns, &storage->sock_cookie);
+    if (!info_vals) {
         return;
     }
 
     __u64 now = bpf_ktime_get_ns();
-    info_vals->last_report_ns = now;
-    info_vals->duration = now - info->start_ns;
-    __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
-    bpf_ringbuf_submit(info, 0);
+    if ((now - info_vals->last_report_ns) > LONG_CONN_THRESHOLD_TIME) {
+        struct tcp_probe_info *info = bpf_ringbuf_reserve(&map_of_tcp_probe, sizeof(struct tcp_probe_info), 0);
+        if (!info) {
+            BPF_LOG(ERR, PROBE, "bpf_ringbuf_reserve tcp_report failed\n");
+            return;
+        }
+
+        info_vals->last_report_ns = now;
+        info_vals->duration = now - info_vals->start_ns;
+        __builtin_memcpy(info, info_vals, sizeof(struct tcp_probe_info));
+        bpf_ringbuf_submit(info, 0);
+    }
 }
 
 #endif

@@ -1,15 +1,11 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Kmesh */
 
-#include <linux/bpf.h>
-#include <sys/socket.h>
-#include <bpf/bpf_endian.h>
-#include <bpf/bpf_helpers.h>
 #include "bpf_log.h"
 #include "common.h"
 #include "encoder.h"
 #include "probe.h"
-#include "tcp_probe.h"
+
 /*
  * sk msg is used to encode metadata into the payload when the client sends
  * data to waypoint.
@@ -71,16 +67,6 @@ enum TLV_TYPE {
     TLV_ORG_DST_ADDR = 0x01,
     TLV_PAYLOAD = 0xfe,
 };
-
-#define TIMER_INTERVAL_NS 1000000000 // 1 seconds (in nanoseconds)
-
-// BPF Timer map
-struct {
-    __uint(type, BPF_MAP_TYPE_ARRAY);
-    __uint(max_entries, 1);
-    __type(key, int);
-    __type(value, __u64);
-} tcp_conn_last_flush SEC(".maps");
 
 static inline int check_overflow(struct sk_msg_md *msg, __u8 *begin, __u32 length)
 {
@@ -188,47 +174,6 @@ static inline void encode_metadata_org_dst_addr(struct sk_msg_md *msg, __u32 *of
     return;
 }
 
-static inline void flush_tcp_conns()
-{
-    struct __u64 *key = NULL, *next_key = NULL;
-    struct tcp_probe_info *conn;
-
-    __u32 zero = 0;
-    __u32 *max_index = bpf_map_lookup_elem(&map_of_soc_id_counter, &zero);
-    if (!max_index || *max_index == 0)
-        return;
-
-    for (__u32 i = 0; i < *max_index && i < MAP_SIZE_OF_TCP_CONNS; i++) {
-        __u64 *key = bpf_map_lookup_elem(&map_of_soc_id, &i);
-
-        if (!key)
-            break;
-
-        conn = bpf_map_lookup_elem(&map_of_tcp_conns, key);
-        if (!conn) {
-            for (__u32 j = i; j < *max_index - 1 && j < MAP_SIZE_OF_TCP_CONNS - 1; j++) {
-                __u64 *next_key = bpf_map_lookup_elem(&map_of_soc_id, &j + 1);
-                if (next_key) {
-                    bpf_map_update_elem(&map_of_soc_id, &j, next_key, BPF_ANY);
-                }
-            }
-
-            // Clear the last entry
-            __u32 m_index = *max_index - 1;
-            bpf_map_update_elem(&map_of_soc_id, &m_index, &zero, BPF_ANY);
-
-            // Decrement the counter
-            *max_index -= 1;
-            continue;
-        }
-        __u64 now = bpf_ktime_get_ns();
-        // Check if connection duration exceeds threshold
-        if ((now - conn->start_ns) > LONG_CONN_THRESHOLD_TIME) {
-            report_after_threshold_tm(conn);
-        }
-    }
-}
-
 static inline bool is_managed_by_kmesh_skmsg(struct sk_msg_md *msg)
 {
     struct manager_key key = {0};
@@ -261,24 +206,13 @@ int sendmsg_prog(struct sk_msg_md *msg)
 
     if (sk) {
         if (is_managed_by_kmesh_skmsg(msg)) {
-            observe_on_data(sk);
+            observe_on_send(sk, msg->size);
+            report_after_threshold_tm(sk);
         }
     } else {
         BPF_LOG(ERR, KMESH, "sk_lookup success\n");
     }
-    int key = 0;
-    __u64 *last_time = bpf_map_lookup_elem(&tcp_conn_last_flush, &key);
-    __u64 now = bpf_ktime_get_ns();
 
-    if (!last_time) {
-        __u64 init_time = now;
-        // Initialize last flush time if not set
-        bpf_map_update_elem(&tcp_conn_last_flush, &key, &init_time, BPF_ANY);
-    } else if ((now - *last_time) >= TIMER_INTERVAL_NS) {
-        flush_tcp_conns();
-        // Update last flush time
-        bpf_map_update_elem(&tcp_conn_last_flush, &key, &now, BPF_ANY);
-    }
     return SK_PASS;
 }
 
