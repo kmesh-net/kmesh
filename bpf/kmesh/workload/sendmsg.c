@@ -1,12 +1,10 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Kmesh */
 
-#include <linux/bpf.h>
-#include <sys/socket.h>
-#include <bpf/bpf_endian.h>
-#include <bpf/bpf_helpers.h>
 #include "bpf_log.h"
+#include "common.h"
 #include "encoder.h"
+#include "probe.h"
 
 /*
  * sk msg is used to encode metadata into the payload when the client sends
@@ -176,6 +174,24 @@ static inline void encode_metadata_org_dst_addr(struct sk_msg_md *msg, __u32 *of
     return;
 }
 
+static inline bool is_managed_by_kmesh_skmsg(struct sk_msg_md *msg)
+{
+    struct manager_key key = {0};
+    if (msg->family == AF_INET)
+        key.addr.ip4 = msg->local_ip4;
+    if (msg->family == AF_INET6) {
+        if (is_ipv4_mapped_addr(msg->local_ip6))
+            key.addr.ip4 = msg->local_ip6[3];
+        else
+            IP6_COPY(key.addr.ip6, msg->local_ip6);
+    }
+
+    int *value = bpf_map_lookup_elem(&map_of_manager, &key);
+    if (!value)
+        return false;
+    return (*value == 0);
+}
+
 SEC("sk_msg")
 int sendmsg_prog(struct sk_msg_md *msg)
 {
@@ -185,6 +201,18 @@ int sendmsg_prog(struct sk_msg_md *msg)
 
     // encode org dst addr
     encode_metadata_org_dst_addr(msg, &off, (msg->family == AF_INET));
+
+    struct bpf_sock *sk = msg->sk;
+
+    if (sk) {
+        if (is_managed_by_kmesh_skmsg(msg)) {
+            observe_on_send(sk, msg->size);
+            report_after_threshold_tm(sk);
+        }
+    } else {
+        BPF_LOG(ERR, KMESH, "sk_lookup success\n");
+    }
+
     return SK_PASS;
 }
 

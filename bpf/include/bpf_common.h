@@ -46,6 +46,7 @@ struct sock_storage_data {
     __u64 connect_ns;
     __u8 direction;
     __u8 connect_success;
+    __u64 sock_cookie;
 };
 
 struct {
