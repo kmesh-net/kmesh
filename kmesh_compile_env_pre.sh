@@ -109,15 +109,6 @@ function kmesh_set_env(){
     export EXTRA_CFLAGS="-O0 -g"
 }
 
-# adjust the range of BPF code compilation based on the kernel is enhanced
-function bpf_compile_range_adjust() {
-    if [ "$ENHANCED_KERNEL" == "enhanced" ]; then
-            sed -i '/ads\/sockops\.c/s/\(.*\)generate/\/\/go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-    else
-            sed -i '/ads\/sockops\.c/s/\(.*\)generate/\/\/not go:generate/' bpf/kmesh/bpf2go/bpf2go.go
-    fi
-}
-
 function set_enhanced_kernel_env() {
     # we use /usr/include/linux/bpf.h to determine the runtime environment’s
     # support for kmesh. Considering the case of online image compilation, a
@@ -135,7 +126,7 @@ function set_enhanced_kernel_env() {
     if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF; then
             export ENHANCED_KERNEL="enhanced"
     else
-            export ENHANCED_KERNEL="unenhanced"
+            export ENHANCED_KERNEL="normal"
     fi
 }
 
@@ -149,5 +140,4 @@ function prepare() {
     kmesh_set_env
     bash kmesh_macros_env.sh
     bash kmesh_bpf_env.sh
-    bpf_compile_range_adjust
 }

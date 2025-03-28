@@ -70,14 +70,11 @@ static inline int xdp_deny_packet(struct xdp_info *info, struct bpf_sock_tuple *
     return XDP_DROP;
 }
 
+volatile __u32 authz_offload = 1;
+
 static bool is_authz_offload_enabled()
 {
-    int kmesh_config_key = 0;
-    struct kmesh_config *value = {0};
-    value = kmesh_map_lookup_elem(&kmesh_config_map, &kmesh_config_key);
-    if (!value)
-        return false;
-    return ((*value).authz_offload == 1);
+    return authz_offload == 1;
 }
 
 static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)

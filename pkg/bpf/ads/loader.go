@@ -27,26 +27,71 @@ import (
 	"fmt"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 
+	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/normal"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/consistenthash/maglev"
 	"kmesh.net/kmesh/pkg/logger"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 var log = logger.NewLoggerScope("bpf_ads")
 
 type BpfAds struct {
 	SockConn BpfSockConn
+	SockOps  BpfSockOps
 	Tc       *general.BpfTCGeneral
+}
+
+type BpfSockConn struct {
+	Info general.BpfInfo
+	Link link.Link
+	bpf2go.KmeshCgroupSockObjects
+}
+
+type BpfSockOps struct {
+	Info general.BpfInfo
+	Link link.Link
+	bpf2go.KmeshSockopsObjects
+}
+
+func loadKmeshCgroupSock() (*ebpf.CollectionSpec, error) {
+	var spec *ebpf.CollectionSpec
+	var err error
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshCgroupSockCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshCgroupSock()
+	}
+	return spec, err
+}
+
+func loadKmeshSockOps() (*ebpf.CollectionSpec, error) {
+	var spec *ebpf.CollectionSpec
+	var err error
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshSockops()
+	} else {
+		spec, err = bpf2go.LoadKmeshSockopsCompat()
+	}
+	return spec, err
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
 	sc := &BpfAds{}
+
+	if err := sc.SockOps.NewBpf(cfg); err != nil {
+		return nil, err
+	}
+
 	if err := sc.SockConn.NewBpf(cfg); err != nil {
 		return nil, err
 	}
+
 	if cfg.EnableIPsec {
 		var err error
 		sc.Tc, err = general.NewBpf(cfg)
@@ -87,12 +132,10 @@ func (sc *BpfAds) Start() error {
 	return nil
 }
 
-func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
-	return sc.SockConn.KmConfigmap
-}
-
-func (sc *BpfAds) GetBpfLogLevelVariable() *ebpf.Variable {
-	return sc.SockConn.BpfLogLevel
+func (sc *BpfAds) GetBpfConfigVariable() factory.KmeshBpfConfig {
+	return factory.KmeshBpfConfig{
+		BpfLogLevel: sc.SockConn.BpfLogLevel,
+	}
 }
 
 func (sc *BpfAds) Stop() error {
@@ -102,6 +145,10 @@ func (sc *BpfAds) Stop() error {
 
 func (sc *BpfAds) Load() error {
 	if err := sc.SockConn.Load(); err != nil {
+		return err
+	}
+
+	if err := sc.SockOps.Load(); err != nil {
 		return err
 	}
 
@@ -142,6 +189,10 @@ func (sc *BpfAds) ApiEnvCfg() error {
 }
 
 func (sc *BpfAds) Attach() error {
+	if err := sc.SockOps.Attach(); err != nil {
+		return err
+	}
+
 	if err := sc.SockConn.Attach(); err != nil {
 		return err
 	}
@@ -150,9 +201,14 @@ func (sc *BpfAds) Attach() error {
 }
 
 func (sc *BpfAds) Detach() error {
+	if err := sc.SockOps.Detach(); err != nil {
+		return err
+	}
+
 	if err := sc.SockConn.Detach(); err != nil {
 		return err
 	}
+
 	if err := sc.Tc.Close(); err != nil {
 		return err
 	}

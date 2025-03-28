@@ -27,11 +27,14 @@ import (
 	"fmt"
 
 	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/link"
 
+	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/enhanced"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/general"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/logger"
+	helper "kmesh.net/kmesh/pkg/utils"
 )
 
 var log = logger.NewLoggerScope("bpf_ads")
@@ -40,6 +43,40 @@ type BpfAds struct {
 	SockConn BpfSockConn
 	SockOps  BpfSockOps
 	Tc       *general.BpfTCGeneral
+}
+
+type BpfSockConn struct {
+	Info general.BpfInfo
+	Link link.Link
+	bpf2go.KmeshCgroupSockObjects
+}
+
+type BpfSockOps struct {
+	Info general.BpfInfo
+	Link link.Link
+	bpf2go.KmeshSockopsObjects
+}
+
+func loadKmeshCgroupSock() (*ebpf.CollectionSpec, error) {
+	var spec *ebpf.CollectionSpec
+	var err error
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshCgroupSockCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshCgroupSock()
+	}
+	return spec, err
+}
+
+func loadKmeshSockOps() (*ebpf.CollectionSpec, error) {
+	var spec *ebpf.CollectionSpec
+	var err error
+	if helper.KernelVersionLowerThan5_13() {
+		spec, err = bpf2go.LoadKmeshSockops()
+	} else {
+		spec, err = bpf2go.LoadKmeshSockopsCompat()
+	}
+	return spec, err
 }
 
 func NewBpfAds(cfg *options.BpfConfig) (*BpfAds, error) {
@@ -96,10 +133,6 @@ func (sc *BpfAds) Stop() error {
 		return err
 	}
 	return nil
-}
-
-func (sc *BpfAds) GetKmeshConfigMap() *ebpf.Map {
-	return sc.SockConn.KmConfigmap
 }
 
 func (sc *BpfAds) GetBpfLogLevelVariable() *ebpf.Variable {

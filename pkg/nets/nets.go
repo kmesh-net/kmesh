@@ -56,12 +56,40 @@ func ConvertPortToBigEndian(little uint32) uint32 {
 	return uint32(big16)
 }
 
+// ConvertPortToLittleEndian convert port to host order
+func ConvertPortToLittleEndian(big uint32) uint32 {
+	tmp := make([]byte, 2)
+	binary.LittleEndian.PutUint16(tmp, uint16(big))
+	little16 := binary.BigEndian.Uint16(tmp)
+	return uint32(little16)
+}
+
 func CopyIpByteFromSlice(dst *[16]byte, src []byte) {
 	len := len(src)
 	if len != 4 && len != 16 {
 		return
 	}
 	copy(dst[:], src)
+}
+
+// IpString converts ip bytes to string, for IpV4, it checks
+// whether the last 12 bytes are all zeros.
+// TODO: this may conflict with IpV6 addresses with the same pattern,
+// we should find a better way to indicate the ipv4 address.
+func IpString(ip [16]byte) string {
+	if isZeros(ip[5:]) {
+		return net.IP(ip[:4]).String()
+	}
+	return net.IP(ip[:]).String()
+}
+
+func isZeros(p []byte) bool {
+	for i := 0; i < len(p); i++ {
+		if p[i] != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 func checkIPVersion() (ipv4, ipv6 bool) {

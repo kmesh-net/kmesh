@@ -1,5 +1,5 @@
 {
-    "Workloads": [
+    "workloads": [
         {
             "uid": "cluster0//Pod/ns/name",
             "addresses": [
@@ -27,7 +27,7 @@
             ]
         }
     ],
-    "Services": [
+    "services": [
         {
             "name": "svc",
             "namespace": "ns",
@@ -51,7 +51,7 @@
             }
         }
     ],
-    "Policies": [
+    "policies": [
         {
             "name": "policy",
             "namespace": "ns",

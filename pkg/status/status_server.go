@@ -26,7 +26,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/cilium/ebpf"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -38,7 +37,6 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
-	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -69,21 +67,19 @@ const (
 )
 
 type Server struct {
-	config         *options.BootstrapConfigs
-	xdsClient      *controller.XdsClient
-	mux            *http.ServeMux
-	server         *http.Server
-	kmeshConfigMap *ebpf.Map
-	bpfLogLevel    *ebpf.Variable
+	config    *options.BootstrapConfigs
+	xdsClient *controller.XdsClient
+	mux       *http.ServeMux
+	server    *http.Server
+	loader    *bpf.BpfLoader
 }
 
-func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, configMap *ebpf.Map, bpfLogLevel *ebpf.Variable) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loader *bpf.BpfLoader) *Server {
 	s := &Server{
-		config:         configs,
-		xdsClient:      c,
-		mux:            http.NewServeMux(),
-		kmeshConfigMap: configMap,
-		bpfLogLevel:    bpfLogLevel,
+		config:    configs,
+		xdsClient: c,
+		mux:       http.NewServeMux(),
+		loader:    loader,
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -149,27 +145,19 @@ func (s *Server) checkAdsMode(w http.ResponseWriter) bool {
 	return true
 }
 
-type WorkloadBpfDump struct {
-	WorkloadPolicies []bpfcache.WorkloadPolicyValue
-	Backends         []bpfcache.BackendValue
-	Endpoints        []bpfcache.EndpointValue
-	Frontends        []bpfcache.FrontendValue
-	Services         []bpfcache.ServiceValue
-}
-
 func (s *Server) bpfWorkloadMaps(w http.ResponseWriter, r *http.Request) {
 	if !s.checkWorkloadMode(w) {
 		return
 	}
 	client := s.xdsClient
 	bpfMaps := client.WorkloadController.Processor.GetBpfCache()
-	workloadBpfDump := WorkloadBpfDump{
-		WorkloadPolicies: bpfMaps.WorkloadPolicyLookupAll(),
-		Backends:         bpfMaps.BackendLookupAll(),
-		Endpoints:        bpfMaps.EndpointLookupAll(),
-		Frontends:        bpfMaps.FrontendLookupAll(),
-		Services:         bpfMaps.ServiceLookupAll(),
-	}
+	workloadBpfDump := NewWorkloadBpfDump(s.xdsClient.WorkloadController.Processor.GetHashName()).
+		WithBackends(bpfMaps.BackendLookupAll()).
+		WithEndpoints(bpfMaps.EndpointLookupAll()).
+		WithFrontends(bpfMaps.FrontendLookupAll()).
+		WithServices(bpfMaps.ServiceLookupAll()).
+		WithWorkloadPolicies(bpfMaps.WorkloadPolicyLookupAll())
+
 	printWorkloadBpfDump(w, workloadBpfDump)
 }
 
@@ -241,13 +229,8 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get kmeshConfigMap: %v", err), http.StatusBadRequest)
-		return
-	}
-	if configMap.EnableMonitoring == constants.DISABLED && enabled {
-		http.Error(w, "Kmesh monitoring is disable, cannot enable accesslog.", http.StatusBadRequest)
+	if s.loader.GetEnableMonitoring() == constants.DISABLED && enabled {
+		http.Error(w, "Kmesh monitoring is disabled, cannot enable accesslog.", http.StatusBadRequest)
 		return
 	}
 
@@ -268,19 +251,14 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("invalid monitoring enable=%s", info)))
 		return
 	}
-	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get KmeshConfigMap: %v", err), http.StatusBadRequest)
-		return
-	}
-
+	var enableMonitoring uint32
 	if enabled {
-		configMap.EnableMonitoring = constants.ENABLED
+		enableMonitoring = constants.ENABLED
 	} else {
-		configMap.EnableMonitoring = constants.DISABLED
+		enableMonitoring = constants.DISABLED
 	}
-	if err := bpf.UpdateKmeshConfigMap(s.kmeshConfigMap, configMap); err != nil {
-		http.Error(w, fmt.Sprintf("update monitoring in KmeshConfigMap failed: %v", err), http.StatusBadRequest)
+	if err := s.loader.UpdateEnableMonitoring(enableMonitoring); err != nil {
+		http.Error(w, fmt.Sprintf("update bpf monitoring failed: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -304,13 +282,8 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("failed to get kmeshConfigMap: %v", err), http.StatusBadRequest)
-		return
-	}
-	if configMap.EnableMonitoring == constants.DISABLED && enabled {
-		http.Error(w, "Kmesh monitoring is disable, cannot enable workload metrics.", http.StatusBadRequest)
+	if s.loader.GetEnableMonitoring() == constants.DISABLED && enabled {
+		http.Error(w, "Kmesh monitoring is disabled, cannot enable workload metrics.", http.StatusBadRequest)
 		return
 	}
 
@@ -331,19 +304,14 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("invalid authz enable=%s", authzInfo)))
 		return
 	}
-
-	configMap, err := bpf.GetKmeshConfigMap(s.kmeshConfigMap)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("update authz in KmeshConfigMap failed: %v", err), http.StatusBadRequest)
-		return
-	}
+	var authzOffload uint32
 	if enabled {
-		configMap.AuthzOffload = constants.ENABLED
+		authzOffload = constants.ENABLED
 	} else {
-		configMap.AuthzOffload = constants.DISABLED
+		authzOffload = constants.DISABLED
 	}
-	if err := bpf.UpdateKmeshConfigMap(s.kmeshConfigMap, configMap); err != nil {
-		http.Error(w, fmt.Sprintf("update authz in KmeshConfigMap failed: %v", err), http.StatusBadRequest)
+	if err := s.loader.UpdateAuthzOffload(authzOffload); err != nil {
+		http.Error(w, fmt.Sprintf("update bpf authz failed: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -458,9 +426,9 @@ func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 }
 
 type WorkloadDump struct {
-	Workloads []*Workload
-	Services  []*Service
-	Policies  []*AuthorizationPolicy
+	Workloads []*Workload            `json:"workloads"`
+	Services  []*Service             `json:"services"`
+	Policies  []*AuthorizationPolicy `json:"policies"`
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
@@ -497,11 +465,7 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
-	var logLevel uint32
-	if err := s.bpfLogLevel.Get(&logLevel); err != nil {
-		return nil, fmt.Errorf("get bpf log level failed: %d", err)
-	}
-
+	logLevel := s.loader.GetBpfLogLevel()
 	logLevelMap := map[int]string{
 		constants.BPF_LOG_ERR:   "error",
 		constants.BPF_LOG_WARN:  "warn",
@@ -540,7 +504,7 @@ func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
 		return
 	}
 
-	if err := s.bpfLogLevel.Set(uint32(level)); err != nil {
+	if err := s.loader.UpdateBpfLogLevel(uint32(level)); err != nil {
 		http.Error(w, fmt.Sprintf("update bpf log level error: %v", err), http.StatusBadRequest)
 		return
 	}

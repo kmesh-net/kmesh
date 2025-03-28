@@ -28,20 +28,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	"kmesh.net/kmesh/pkg/constants"
 )
-
-func TestGetKmeshConfigMap(t *testing.T) {
-	config := setDirDualEngine(t)
-	bpfLoader := NewBpfLoader(&config)
-	err := bpfLoader.Start()
-	assert.NoError(t, err)
-	_, err = GetKmeshConfigMap(bpfLoader.kmeshConfig)
-	assert.NoError(t, err)
-	restart.SetExitType(restart.Normal)
-	bpfLoader.Stop()
-}
 
 func TestUpdateKmeshConfigMap(t *testing.T) {
 	config := setDirDualEngine(t)
@@ -49,17 +39,17 @@ func TestUpdateKmeshConfigMap(t *testing.T) {
 	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
-	bpfConfig := KmeshBpfConfig{
-		BpfLogLevel:  uint32(3),
-		NodeIP:       [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 172, 18, 0, 3},
-		PodGateway:   [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 10, 244, 0, 1},
-		AuthzOffload: uint32(1),
+	bpfConfig := factory.GlobalBpfConfig{
+		BpfLogLevel:      uint32(3),
+		NodeIP:           [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 172, 18, 0, 3},
+		PodGateway:       [16]byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 10, 244, 0, 1},
+		AuthzOffload:     uint32(1),
+		EnableMonitoring: uint32(1),
 	}
-	err := UpdateKmeshConfigMap(bpfLoader.kmeshConfig, &bpfConfig)
+	err := bpfLoader.UpdateKmeshConfigMap(bpfConfig)
 	assert.NoError(t, err)
-	got, err := GetKmeshConfigMap(bpfLoader.kmeshConfig)
-	assert.NoError(t, err)
-	assert.Equal(t, bpfConfig, *got)
+	got := bpfLoader.GetKmeshConfigMap()
+	assert.Equal(t, bpfConfig, got)
 	restart.SetExitType(restart.Normal)
 	bpfLoader.Stop()
 }
