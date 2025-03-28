@@ -1,4 +1,3 @@
-//go:build integ
 // +build integ
 
 /*
@@ -36,10 +35,8 @@
 	 if err != nil {
 		 return err
 	 }
-	 // Ensure the temporary file is removed after use.
 	 defer os.Remove(tmpFile.Name())
  
-	 // Write the manifest to the temporary file.
 	 if _, err := tmpFile.WriteString(manifest); err != nil {
 		 tmpFile.Close()
 		 return err
@@ -51,16 +48,35 @@
 	 return err
  }
  
+ // extractResolvedIP parses the nslookup output to extract the IP address for the service.
+ func extractResolvedIP(nslookup string) string {
+	 lines := strings.Split(nslookup, "\n")
+	 var addresses []string
+	 for _, line := range lines {
+		 trimmed := strings.TrimSpace(line)
+		 if strings.HasPrefix(trimmed, "Address:") {
+			 addr := strings.TrimSpace(strings.TrimPrefix(trimmed, "Address:"))
+			 if strings.Contains(addr, ":53") || strings.HasPrefix(addr, "[") {
+				 continue
+			 }
+			 addresses = append(addresses, addr)
+		 }
+	 }
+	 if len(addresses) > 0 {
+		 return addresses[0]
+	 }
+	 return ""
+ }
+ 
  func TestLocalityLoadBalancing(t *testing.T) {
 	 framework.NewTest(t).Run(func(t framework.TestContext) {
 		 const ns = "sample"
+		 const fqdn = "helloworld." + ns + ".svc.cluster.local"
  
-		 // Create the test namespace "sample". Log but ignore errors if it already exists.
-		 if _, err := shell.Execute(true, "kubectl create namespace "+ns); err != nil {
-			 t.Logf("Namespace %s might already exist: %v", ns, err)
-		 }
+		 // Create the namespace.
+		 shell.Execute(true, "kubectl create namespace "+ns)
  
-		 // Apply the Service manifest with PreferClose load balancing.
+		 // Apply the Service manifest.
 		 serviceYAML := `
  apiVersion: v1
  kind: Service
@@ -80,9 +96,8 @@
 			 t.Fatalf("Failed to apply Service manifest: %v", err)
 		 }
  
-		 // Deploy the local instance (dep1) on the worker node.
-		 // This instance simulates the "local" deployment.
-		 dep1 := `
+		 // Deploy the local instance on the worker node.
+		 depLocal := `
  apiVersion: apps/v1
  kind: Deployment
  metadata:
@@ -114,13 +129,12 @@
 	   nodeSelector:
 		 kubernetes.io/hostname: kmesh-testing-worker
  `
-		 if err := applyManifest(ns, dep1); err != nil {
-			 t.Fatalf("Failed to deploy local instance (dep1): %v", err)
+		 if err := applyManifest(ns, depLocal); err != nil {
+			 t.Fatalf("Failed to deploy local instance: %v", err)
 		 }
  
-		 // Deploy the remote instance (dep2) on the control-plane node.
-		 // Note: A toleration is added here so that the pod can be scheduled on the control-plane.
-		 dep2 := `
+		 // Deploy the remote instance on the control-plane node.
+		 depRemote := `
  apiVersion: apps/v1
  kind: Deployment
  metadata:
@@ -156,12 +170,11 @@
 		 operator: "Exists"
 		 effect: "NoSchedule"
  `
-		 if err := applyManifest(ns, dep2); err != nil {
-			 t.Fatalf("Failed to deploy remote instance (dep2): %v", err)
+		 if err := applyManifest(ns, depRemote); err != nil {
+			 t.Fatalf("Failed to deploy remote instance: %v", err)
 		 }
  
-		 // Deploy a sleep client on the worker node.
-		 // This client will originate requests from the "local" node.
+		 // Deploy the sleep client on the worker node.
 		 clientDep := `
  apiVersion: apps/v1
  kind: Deployment
@@ -191,7 +204,7 @@
 			 t.Fatalf("Failed to deploy sleep client: %v", err)
 		 }
  
-		 // Wait for all deployments to become available.
+		 // Wait for deployments.
 		 deployments := []string{
 			 "helloworld-region-zone1-subzone1",
 			 "helloworld-region-zone1-subzone2",
@@ -204,52 +217,55 @@
 			 }
 		 }
  
-		 // Test Locality Preferred:
-		 // From the sleep client, access the helloworld service and expect a response from the local instance.
-		 t.Log("Testing locality preferred (expect response from region.zone1.subzone1)...")
+		 // Get the sleep pod name.
+		 sleepPod, err := shell.Execute(true, "kubectl get pod -n "+ns+" -l app=sleep -o jsonpath='{.items[0].metadata.name}'")
+		 if err != nil || sleepPod == "" {
+			 t.Fatalf("Failed to get sleep pod: %v", err)
+		 }
+ 
+		 // Extract the resolved IP via nslookup.
+		 nslookup, _ := shell.Execute(true, "kubectl exec -n "+ns+" "+sleepPod+" -- nslookup "+fqdn)
+		 resolvedIP := extractResolvedIP(nslookup)
+		 if resolvedIP == "" {
+			 t.Fatalf("Failed to extract resolved IP from nslookup output")
+		 }
+ 
+		 // Test Locality Preference.
 		 var localResponse string
 		 if err := retry.Until(func() bool {
 			 out, execErr := shell.Execute(true,
-				 "kubectl exec -n "+ns+" $(kubectl get pod -n "+ns+" -l app=sleep -o jsonpath='{.items[0].metadata.name}') -c sleep -- curl -sSL http://helloworld:5000/hello")
+				 "kubectl exec -n "+ns+" "+sleepPod+" -- curl -v -sSL --resolve "+fqdn+":5000:"+resolvedIP+" http://"+fqdn+":5000/hello")
 			 if execErr != nil {
-				 t.Logf("Curl error: %v", execErr)
 				 return false
 			 }
-			 t.Logf("Curl output: %s", out)
 			 if strings.Contains(out, "region.zone1.subzone1") {
 				 localResponse = out
 				 return true
 			 }
 			 return false
 		 }, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
-			 t.Fatalf("Locality preferred test failed: expected response from region.zone1.subzone1, got: %s", localResponse)
+			 t.Fatalf("Locality preferred test failed: expected response from region.zone1/subzone1, got: %s", localResponse)
 		 }
-		 t.Log("Locality preferred test passed.")
  
-		 // Test Locality Failover:
-		 // Delete the local deployment and expect traffic to fail over to the remote instance.
-		 t.Log("Testing locality failover (expect response from region.zone1.subzone2)...")
+		 // Test Locality Failover.
 		 if _, err := shell.Execute(true, "kubectl delete deployment helloworld-region-zone1-subzone1 -n "+ns); err != nil {
-			 t.Fatalf("Failed to delete local instance (dep1): %v", err)
+			 t.Fatalf("Failed to delete local instance: %v", err)
 		 }
 		 var failoverResponse string
 		 if err := retry.Until(func() bool {
 			 out, execErr := shell.Execute(true,
-				 "kubectl exec -n "+ns+" $(kubectl get pod -n "+ns+" -l app=sleep -o jsonpath='{.items[0].metadata.name}') -c sleep -- curl -sSL http://helloworld:5000/hello")
+				 "kubectl exec -n "+ns+" "+sleepPod+" -- curl -v -sSL --resolve "+fqdn+":5000:"+resolvedIP+" http://"+fqdn+":5000/hello")
 			 if execErr != nil {
-				 t.Logf("Curl error after failover: %v", execErr)
 				 return false
 			 }
-			 t.Logf("Curl output after failover: %s", out)
 			 if strings.Contains(out, "region.zone1.subzone2") {
 				 failoverResponse = out
 				 return true
 			 }
 			 return false
 		 }, retry.Timeout(60*time.Second), retry.Delay(2*time.Second)); err != nil {
-			 t.Fatalf("Locality failover test failed: expected response from region.zone1.subzone2, got: %s", failoverResponse)
+			 t.Fatalf("Locality failover test failed: expected response from region.zone1/subzone2, got: %s", failoverResponse)
 		 }
-		 t.Log("Locality failover test passed.")
 	 })
  }
  
