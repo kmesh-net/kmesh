@@ -383,9 +383,25 @@ func (l *BpfLoader) GetKmeshConfigMap() factory.GlobalBpfConfig {
 }
 
 func (l *BpfLoader) UpdateBpfLogLevel(BpfLogLevel uint32) error {
-	if l.BpfLogLevel != nil {
-		if err := l.BpfLogLevel.Set(BpfLogLevel); err != nil {
-			return fmt.Errorf("set BpfLogLevel failed %w", err)
+	if l.workloadObj != nil {
+		if err := l.workloadObj.SockConn.BpfLogLevel.Set(BpfLogLevel); err != nil {
+			return fmt.Errorf("set sockcon BpfLogLevel failed %w", err)
+		}
+		if err := l.workloadObj.SockOps.BpfLogLevel.Set(BpfLogLevel); err != nil {
+			return fmt.Errorf("set sockops BpfLogLevel failed %w", err)
+		}
+		if err := l.workloadObj.XdpAuth.BpfLogLevel.Set(BpfLogLevel); err != nil {
+			return fmt.Errorf("set xdp BpfLogLevel failed %w", err)
+		}
+		if err := l.workloadObj.SendMsg.BpfLogLevel.Set(BpfLogLevel); err != nil {
+			return fmt.Errorf("set sendmsg BpfLogLevel failed %w", err)
+		}
+	} else if l.obj != nil {
+		if err := l.obj.SockConn.BpfLogLevel.Set(BpfLogLevel); err != nil {
+			return fmt.Errorf("set sockcon BpfLogLevel failed %w", err)
+		}
+		if err := l.obj.SockOps.BpfLogLevel.Set(BpfLogLevel); err != nil {
+			return fmt.Errorf("set sockops BpfLogLevel failed %w", err)
 		}
 	}
 
