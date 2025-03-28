@@ -147,14 +147,6 @@ func (r *DNSResolver) resolve(domainName string) ([]string, time.Duration, error
 	return addrs, ttl, nil
 }
 
-func (r *DNSResolver) AddDomainInCache(domainName string) {
-	r.Lock()
-	if r.cache[domainName] == nil {
-		r.cache[domainName] = &DomainCacheEntry{}
-	}
-	r.Unlock()
-}
-
 // doResolve is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) doResolve(domain string) ([]string, time.Duration, error) {
 	var out []string
@@ -285,7 +277,7 @@ func (r *DNSResolver) GetBatchAddressesFromCache(domains map[string]struct{}) ma
 	return alreadyResolveDomains
 }
 
-func (r *DNSResolver) RemoveUnwatchDomain(domains map[string]struct{}) {
+func (r *DNSResolver) RemoveUnwatchDomain(domains map[string]interface{}) {
 	r.Lock()
 	defer r.Unlock()
 
@@ -301,5 +293,13 @@ func (r *DNSResolver) AddDomainInQueue(info *DomainInfo, time time.Duration) {
 	if info == nil {
 		return
 	}
+
+	// init pending domain in dns cache
+	r.Lock()
+	if r.cache[info.Domain] == nil {
+		r.cache[info.Domain] = &DomainCacheEntry{}
+	}
+	r.Unlock()
+
 	r.refreshQueue.AddAfter(info, time)
 }

@@ -50,8 +50,9 @@ func NewController(bpfAds *bpfads.BpfAds) *Controller {
 	dnsResolverController, err := NewDnsController(processor.Cache)
 	if err != nil {
 		log.Errorf("dns resolver of Kernel-Native mode create failed: %v", err)
+		return nil
 	}
-	processor.DnsResolverChan = dnsResolverController.Clusters
+	processor.DnsResolverChan = dnsResolverController.clustersChan
 
 	return &Controller{
 		dnsResolverController: dnsResolverController,

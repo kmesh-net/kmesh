@@ -79,7 +79,7 @@ func TestOverwriteDNSCluster(t *testing.T) {
 	defer close(stopCh)
 	dnsResolver, err := NewDnsController(p.Cache)
 	assert.NoError(t, err)
-	p.DnsResolverChan = dnsResolver.Clusters
+	p.DnsResolverChan = dnsResolver.clustersChan
 	dnsResolver.pendingHostnames = map[string][]string{
 		cluster.GetName(): {
 			domain,
@@ -227,11 +227,11 @@ func TestHandleCdsResponseWithDns(t *testing.T) {
 	dnsResolver, err := NewDnsController(p.Cache)
 	assert.NoError(t, err)
 	dnsResolver.Run(stopCh)
-	p.DnsResolverChan = dnsResolver.Clusters
+	p.DnsResolverChan = dnsResolver.clustersChan
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
 			// notify dns resolver
-			dnsResolver.Clusters <- tc.clusters
+			dnsResolver.clustersChan <- tc.clusters
 			retry.UntilOrFail(t, func() bool {
 				return slices.EqualUnordered(tc.expected, dnsResolver.dnsResolver.GetAllCachedDomains())
 			}, retry.Timeout(1*time.Second))
@@ -302,7 +302,7 @@ func TestGetPendingResolveDomain(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want map[string]*pendingResolveDomain
+		want map[string]interface{}
 	}{
 		{
 			name: "empty domains test",
@@ -311,7 +311,7 @@ func TestGetPendingResolveDomain(t *testing.T) {
 					&utCluster,
 				},
 			},
-			want: map[string]*pendingResolveDomain{},
+			want: map[string]interface{}{},
 		},
 		{
 			name: "cluster domain is not IP",
@@ -320,18 +320,19 @@ func TestGetPendingResolveDomain(t *testing.T) {
 					&utClusterWithHost,
 				},
 			},
-			want: map[string]*pendingResolveDomain{
-				"www.google.com": {
-					Clusters: []*clusterv3.Cluster{&utClusterWithHost},
+			want: map[string]interface{}{
+				"www.google.com": &pendingResolveDomain{
+					Clusters: []*clusterv3.Cluster{
+						&utClusterWithHost,
+					},
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got, _ := getPendingResolveDomain(tt.args.clusters); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getPendingResolveDomain() = %v, want %v", got, tt.want)
-			}
+			got := getPendingResolveDomain(tt.args.clusters)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
