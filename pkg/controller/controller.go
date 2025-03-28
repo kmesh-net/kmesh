@@ -31,7 +31,6 @@ import (
 	"kmesh.net/kmesh/pkg/controller/encryption/ipsec"
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
-	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/kolog"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
@@ -150,15 +149,8 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 
 	if c.client.WorkloadController != nil {
 		c.client.WorkloadController.Run(ctx)
-	}
-
-	if c.client.AdsController != nil {
-		dnsResolver, err := dns.NewDNSResolver(c.client.AdsController.Processor.Cache)
-		if err != nil {
-			return fmt.Errorf("dns resolver create failed: %v", err)
-		}
-		dnsResolver.StartDNSResolver(stopCh)
-		c.client.AdsController.Processor.DnsResolverChan = dnsResolver.DnsResolverChan
+	} else {
+		c.client.AdsController.StartDnsController(stopCh)
 	}
 
 	return c.client.Run(stopCh)

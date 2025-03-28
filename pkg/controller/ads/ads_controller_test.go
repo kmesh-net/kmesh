@@ -119,9 +119,8 @@ func TestHandleAdsStream(t *testing.T) {
 
 	adsStream := NewController(nil)
 	adsStream.con = &connection{Stream: fakeClient.AdsClient, requestsChan: channels.NewUnbounded[*service_discovery_v3.DiscoveryRequest](), stopCh: make(chan struct{})}
-
+	adsStream.dnsResolverController.Run(make(chan struct{}))
 	patches1 := gomonkey.NewPatches()
-	patches2 := gomonkey.NewPatches()
 	tests := []struct {
 		name       string
 		beforeFunc func()
@@ -161,7 +160,6 @@ func TestHandleAdsStream(t *testing.T) {
 			},
 			afterFunc: func() {
 				patches1.Reset()
-				patches2.Reset()
 			},
 			wantErr: false,
 		},
