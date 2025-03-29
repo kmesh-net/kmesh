@@ -21,6 +21,11 @@ mkdir -p "${TMPBIN}"
 
 export PATH="$PATH:$TMPBIN"
 
+if ! which kmeshctl &> /dev/null; then
+    echo "Error: kmeshctl is not in PATH. Please build and install kmeshctl before running tests."
+    exit 1
+fi
+
 # Provision a kind clustr for testing.
 function setup_kind_cluster() {
     local NAME="${1:-kmesh-testing}"
