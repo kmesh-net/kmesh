@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package ads
+package cache
 
 import (
 	config_cluster_v3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -28,6 +28,7 @@ import (
 	pkg_wellknown "github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+	"istio.io/pkg/log"
 
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	core_v2 "kmesh.net/kmesh/api/v2/core"
@@ -43,12 +44,54 @@ import (
 
 type AdsCache struct {
 	// eds names to be subscribed, which is inferred from cluster
-	edsClusterNames []string
+	EdsClusterNames []string
 	// route names to be subscribed, which is inferred from listener
-	routeNames    []string
+	RouteNames    []string
 	ListenerCache cache_v2.ListenerCache
 	ClusterCache  cache_v2.ClusterCache
 	RouteCache    cache_v2.RouteConfigCache
+}
+
+type Adsconfig struct {
+	Name      string
+	Namespace string
+	Address   string
+	Port      string
+}
+
+func (x *Adsconfig) GetAdsconfigPort() string {
+	if x != nil {
+		return x.Port
+	}
+	return ""
+}
+
+func (x *Adsconfig) GetAdsconfigAddress() string {
+	if x != nil {
+		return x.Address
+	}
+	return ""
+}
+
+func (x *Adsconfig) GetAdsconfigSvcName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Adsconfig) GetAdsconfigName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *Adsconfig) GetAdsconfigNamespace() string {
+	if x != nil {
+		return x.Namespace
+	}
+	return ""
 }
 
 func NewAdsCache(bpfAds *bpfads.BpfAds) *AdsCache {
@@ -216,7 +259,7 @@ func (load *AdsCache) CreateApiListenerByLds(status core_v2.ApiStatus, listener 
 				apiFilterChain.Filters = append(apiFilterChain.Filters, apiFilter)
 			}
 			if routeName != "" {
-				load.routeNames = append(load.routeNames, routeName)
+				load.RouteNames = append(load.RouteNames, routeName)
 			}
 		}
 
@@ -272,7 +315,7 @@ func newApiFilterAndRouteName(filter *config_listener_v3.Filter) (*listener_v2.F
 			}
 
 			apiFilter.ConfigType = &listener_v2.Filter_TcpProxy{
-				TcpProxy: newFilterTcpProxy(filterTcp),
+				TcpProxy: NewFilterTcpProxy(filterTcp),
 			}
 		case pkg_wellknown.HTTPConnectionManager:
 			var apiFilterHttp listener_v2.Filter_HttpConnectionManager

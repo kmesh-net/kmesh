@@ -146,19 +146,22 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		}
 	}
 
-	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
-
-	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Run(ctx)
-	}
-
-	if c.client.AdsController != nil {
-		dnsResolver, err := dns.NewDNSResolver(c.client.AdsController.Processor.Cache)
-		if err != nil {
-			return fmt.Errorf("dns resolver create failed: %v", err)
+	if c.mode == constants.DualEngineMode {
+		c.client = NewWorkloadXdsClient(c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
+		if c.client.WorkloadController != nil {
+			c.client.WorkloadController.Run(ctx)
 		}
-		dnsResolver.StartDNSResolver(stopCh)
-		c.client.AdsController.Processor.DnsResolverChan = dnsResolver.DnsResolverChan
+	} else if c.mode == constants.KernelNativeMode {
+		c.client = NewAdsXdsClient(c.bpfAdsObj, c.bpfConfig.EnableMonitoring, kmeshManageController.NameByAddr)
+		if c.client.AdsController != nil {
+			dnsResolver, err := dns.NewDNSResolver(c.client.AdsController.Processor.Cache)
+			if err != nil {
+				return fmt.Errorf("dns resolver create failed: %v", err)
+			}
+			dnsResolver.StartDNSResolver(stopCh)
+			c.client.AdsController.Processor.DnsResolverChan = dnsResolver.DnsResolverChan
+			c.client.AdsController.Run(ctx)
+		}
 	}
 
 	return c.client.Run(stopCh)

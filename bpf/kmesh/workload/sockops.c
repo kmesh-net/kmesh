@@ -9,10 +9,8 @@
 #include "bpf_log.h"
 #include "workload.h"
 #include "config.h"
-#include "encoder.h"
 #include "bpf_common.h"
 #include "probe.h"
-#include "config.h"
 
 #define FORMAT_IP_LENGTH (16)
 
