@@ -83,9 +83,8 @@ func OutputAccesslog(data requestMetric, conn_metrics connMetric, accesslog logI
 }
 
 func buildAccesslog(data requestMetric, conn_metrics connMetric, accesslog logInfo) string {
-	lastReportTime := data.lastReportTime
-	startTime := data.startTime
-	uptime := calculateUptime(osStartTime, lastReportTime)
+	uptime := calculateUptime(osStartTime, data.lastReportTime)
+	startTime := calculateUptime(osStartTime, data.startTime)
 	startTimeInfo := fmt.Sprintf("%v", startTime)
 	timeInfo := fmt.Sprintf("%v", uptime)
 	sourceInfo := fmt.Sprintf("src.addr=%s, src.workload=%s, src.namespace=%s", accesslog.sourceAddress, accesslog.sourceWorkload, accesslog.sourceNamespace)
