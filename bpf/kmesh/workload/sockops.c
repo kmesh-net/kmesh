@@ -192,24 +192,18 @@ int sockops_prog(struct bpf_sock_ops *skops)
         break;
 
     case BPF_SOCK_OPS_STATE_CB:
+        observe_on_status_change(skops->sk, skops->args[0]);
         if (skops->args[1] == BPF_TCP_CLOSE) {
             clean_auth_map(skops);
             clean_dstinfo_map(skops);
         }
-        if (!is_managed_by_kmesh(skops))
-            break;
-        observe_on_status_change(skops->sk, skops->args[0]);
         break;
 
     case BPF_SOCK_OPS_RETRANS_CB:
-        if (!is_managed_by_kmesh(skops))
-            break;
         observe_on_retransmit(skops->sk);
         break;
 
     case BPF_SOCK_OPS_RTT_CB:
-        if (!is_managed_by_kmesh(skops))
-            break;
         observe_on_rtt(skops->sk);
         break;
 

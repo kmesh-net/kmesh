@@ -378,18 +378,23 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
 				continue
 			}
-			if len(rec.RawSample) != int(unsafe.Sizeof(connectionDataV4{})) {
-				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(connectionDataV4{})))
-				continue
-			}
+
 			connectType := binary.LittleEndian.Uint32(rec.RawSample)
 			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
 			buf := bytes.NewBuffer(originInfo)
 			switch connectType {
 			case constants.MSG_TYPE_IPV4:
 				data, err = buildV4Metric(buf, tcp_conns)
+				if err != nil {
+					log.Errorf("get connectionV4 info failed: %v", err)
+					continue
+				}
 			case constants.MSG_TYPE_IPV6:
 				data, err = buildV6Metric(buf, tcp_conns)
+				if err != nil {
+					log.Errorf("get connectionV6 info failed: %v", err)
+					continue
+				}
 			default:
 				log.Errorf("get connection info failed: %v", err)
 				continue
