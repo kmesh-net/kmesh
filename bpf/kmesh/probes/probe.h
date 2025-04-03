@@ -81,6 +81,7 @@ static inline void observe_on_status_change(struct bpf_sock *sk, __u32 state)
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
+        BPF_LOG(ERR, PROBE, "on status: bpf_sk_storage_get failed\n");
         return;
     }
 
@@ -105,6 +106,7 @@ static inline void observe_on_retransmit(struct bpf_sock *sk)
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
+        BPF_LOG(ERR, PROBE, "on retrans: bpf_sk_storage_get failed\n");
         return;
     }
     refresh_tcp_conn_info_on_retransmit_rtt(tcp_sock, storage);
@@ -127,6 +129,7 @@ static inline void observe_on_rtt(struct bpf_sock *sk)
         return;
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
+        BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
         return;
     }
     refresh_tcp_conn_info_on_retransmit_rtt(tcp_sock, storage);
@@ -144,7 +147,7 @@ static inline void observe_on_send(struct bpf_sock *sk, __u32 size)
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
-        BPF_LOG(ERR, PROBE, "on rtt: bpf_sk_storage_get failed\n");
+        BPF_LOG(ERR, PROBE, "on send: bpf_sk_storage_get failed\n");
         return;
     }
     refresh_tcp_conn_info_on_send(storage, size);
