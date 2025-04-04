@@ -168,16 +168,11 @@ int sockops_prog(struct bpf_sock_ops *skops)
         if (!is_managed_by_kmesh(skops))
             break;
         observe_on_connect_established(skops->sk, sock_cookie, OUTBOUND);
-        if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0) {
-            BPF_LOG(ERR, SOCKOPS, "set sockops state cb failed!\n");
+        if (bpf_sock_ops_cb_flags_set(
+                skops, BPF_SOCK_OPS_STATE_CB_FLAG | BPF_SOCK_OPS_RETRANS_CB_FLAG | BPF_SOCK_OPS_RTT_CB_FLAG)
+            != 0) {
+            BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         }
-        if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RETRANS_CB_FLAG) != 0) {
-            BPF_LOG(ERR, SOCKOPS, "set sockops cb  retrransmit failed!\n");
-        }
-        if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RTT_CB_FLAG) != 0) {
-            BPF_LOG(ERR, SOCKOPS, "set sockops cb  rtt failed!\n");
-        }
-
         __u64 *current_sk = (__u64 *)skops->sk;
         struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
         if (dst != NULL)
@@ -188,14 +183,10 @@ int sockops_prog(struct bpf_sock_ops *skops)
         if (!is_managed_by_kmesh(skops) || skip_specific_probe(skops))
             break;
         observe_on_connect_established(skops->sk, sock_cookie, INBOUND);
-        if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0) {
-            BPF_LOG(ERR, SOCKOPS, "set sockops state cb failed!\n");
-        }
-        if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RETRANS_CB_FLAG) != 0) {
-            BPF_LOG(ERR, SOCKOPS, "set sockops cb  retrransmit failed!\n");
-        }
-        if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_RTT_CB_FLAG) != 0) {
-            BPF_LOG(ERR, SOCKOPS, "set sockops cb  rtt failed!\n");
+        if (bpf_sock_ops_cb_flags_set(
+                skops, BPF_SOCK_OPS_STATE_CB_FLAG | BPF_SOCK_OPS_RETRANS_CB_FLAG | BPF_SOCK_OPS_RTT_CB_FLAG)
+            != 0) {
+            BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
         }
         auth_ip_tuple(skops);
         break;
