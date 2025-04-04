@@ -102,15 +102,15 @@ type statistics struct {
 	ConnectSuccess uint32
 	Direction      uint32
 	State          uint32
+	_              uint32
 	Duration       uint64
 	StartTime      uint64
 	LastReportTime uint64
-	// TODO: statistics below are not used for now
-	Protocol    uint32
-	SRttTime    uint32
-	RttMin      uint32
-	Retransmits uint32
-	LostPackets uint32
+	Protocol       uint32
+	SRttTime       uint32
+	RttMin         uint32
+	Retransmits    uint32
+	LostPackets    uint32
 }
 
 // connectionDataV4 read from ebpf km_tcp_probe ringbuf and padding with `_`
@@ -123,9 +123,10 @@ type connectionDataV4 struct {
 	OriginalAddr uint32
 	OriginalPort uint16
 	_            uint16
-	_            [3]uint32
+	_            [4]uint32
 	ConnId       uint64
 	statistics
+	_ uint32
 }
 
 // connectionDataV6 read from ebpf km_tcp_probe ringbuf and padding with `_`
