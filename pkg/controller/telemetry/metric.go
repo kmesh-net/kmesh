@@ -138,8 +138,10 @@ type connectionDataV6 struct {
 	OriginalAddr [4]uint32
 	OriginalPort uint16
 	_            uint16
+	_            uint32
 	ConnId       uint64
 	statistics
+	_ uint32
 }
 
 type connMetric struct {
