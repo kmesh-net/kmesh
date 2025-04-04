@@ -382,6 +382,10 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				continue
 			}
 
+			if len(rec.RawSample) != int(unsafe.Sizeof(connectionDataV4{}))-int(8) {
+				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(connectionDataV4{}))-int(8))
+				continue
+			}
 			connectType := binary.LittleEndian.Uint32(rec.RawSample)
 			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
 			buf := bytes.NewBuffer(originInfo)
