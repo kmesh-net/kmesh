@@ -411,6 +411,10 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				OutputAccesslog(data, tcp_conns[data.currentConnId], accesslog)
 			}
 
+			if data.state == TCP_CLOSTED {
+				delete(tcp_conns, data.currentConnId)
+			}
+
 			m.mutex.Lock()
 			if m.EnableWorkloadMetric.Load() {
 				m.updateWorkloadMetricCache(data, workloadLabels)
@@ -470,10 +474,6 @@ func buildV4Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 		packetLost:    connectData.statistics.LostPackets,
 	}
 
-	if data.state == TCP_CLOSTED {
-		delete(tcp_conns, connectData.ConnId)
-	}
-
 	return data, nil
 }
 
@@ -521,10 +521,6 @@ func buildV6Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 		sentBytes:     connectData.SentBytes,
 		totalRetrans:  connectData.statistics.Retransmits,
 		packetLost:    connectData.statistics.LostPackets,
-	}
-
-	if data.state == TCP_CLOSTED {
-		delete(tcp_conns, connectData.ConnId)
 	}
 
 	return data, nil
