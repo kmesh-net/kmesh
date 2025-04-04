@@ -203,7 +203,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
     case BPF_SOCK_OPS_STATE_CB:
         if (!is_managed_by_kmesh(skops))
             break;
-        observe_on_status_change(skops->sk, skops->args[0]);
+        observe_on_status_change(skops->sk, skops->args[1]);
         if (skops->args[1] == BPF_TCP_CLOSE) {
             clean_auth_map(skops);
             clean_dstinfo_map(skops);

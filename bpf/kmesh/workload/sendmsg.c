@@ -210,7 +210,7 @@ int sendmsg_prog(struct sk_msg_md *msg)
             report_after_threshold_tm(sk);
         }
     } else {
-        BPF_LOG(ERR, KMESH, "sk_lookup success\n");
+        BPF_LOG(ERR, KMESH, "sk is nil\n");
     }
 
     return SK_PASS;
