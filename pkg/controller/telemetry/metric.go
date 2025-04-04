@@ -445,8 +445,12 @@ func buildV4Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 		data.origDstPort = connectData.OriginalPort
 	}
 
-	data.sentBytes = connectData.SentBytes - tcp_conns[connectData.ConnId].sentBytes
-	data.receivedBytes = connectData.ReceivedBytes - tcp_conns[connectData.ConnId].receivedBytes
+	if connectData.SentBytes > tcp_conns[connectData.ConnId].sentBytes {
+		data.sentBytes = connectData.SentBytes - tcp_conns[connectData.ConnId].sentBytes
+	}
+	if connectData.ReceivedBytes > tcp_conns[connectData.ConnId].receivedBytes {
+		data.receivedBytes = connectData.ReceivedBytes - tcp_conns[connectData.ConnId].receivedBytes
+	}
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
@@ -495,8 +499,12 @@ func buildV6Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 		data.origDstPort = connectData.OriginalPort
 	}
 
-	data.sentBytes = connectData.SentBytes - tcp_conns[connectData.ConnId].sentBytes
-	data.receivedBytes = connectData.ReceivedBytes - tcp_conns[connectData.ConnId].receivedBytes
+	if connectData.SentBytes > tcp_conns[connectData.ConnId].sentBytes {
+		data.sentBytes = connectData.SentBytes - tcp_conns[connectData.ConnId].sentBytes
+	}
+	if connectData.ReceivedBytes > tcp_conns[connectData.ConnId].receivedBytes {
+		data.receivedBytes = connectData.ReceivedBytes - tcp_conns[connectData.ConnId].receivedBytes
+	}
 	data.state = connectData.State
 	data.success = connectData.ConnectSuccess
 	data.duration = connectData.Duration
