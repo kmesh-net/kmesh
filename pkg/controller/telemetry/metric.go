@@ -171,7 +171,7 @@ type requestMetric struct {
 	srtt           uint32
 	minRtt         uint32
 	totalRetrans   uint32
-	PacketLost     uint32
+	packetLost     uint32
 }
 
 type workloadMetricLabels struct {
@@ -470,7 +470,7 @@ func buildV4Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[connectData.ConnId].totalRetrans
-	data.PacketLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].packetLost
+	data.packetLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].packetLost
 	data.currentConnId = connectData.ConnId
 	tcp_conns[connectData.ConnId] = connMetric{
 		connId:        connectData.ConnId,
@@ -520,7 +520,7 @@ func buildV6Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 	data.srtt = connectData.statistics.SRttTime
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[connectData.ConnId].totalRetrans
-	data.PacketLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].packetLost
+	data.packetLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].packetLost
 	data.currentConnId = connectData.ConnId
 	tcp_conns[connectData.ConnId] = connMetric{
 		receivedBytes: connectData.ReceivedBytes,
@@ -696,7 +696,7 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		v.WorkloadConnReceivedBytes = v.WorkloadConnReceivedBytes + float64(data.receivedBytes)
 		v.WorkloadConnSentBytes = v.WorkloadConnSentBytes + float64(data.sentBytes)
 		v.WorkloadConnTotalRetrans = v.WorkloadConnTotalRetrans + float64(data.totalRetrans)
-		v.WorkloadConnPacketLost = v.WorkloadConnPacketLost + float64(data.PacketLost)
+		v.WorkloadConnPacketLost = v.WorkloadConnPacketLost + float64(data.packetLost)
 	} else {
 		newWorkloadMetricInfo := workloadMetricInfo{}
 		if data.state == TCP_ESTABLISHED {
@@ -711,7 +711,7 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		newWorkloadMetricInfo.WorkloadConnReceivedBytes = float64(data.receivedBytes)
 		newWorkloadMetricInfo.WorkloadConnSentBytes = float64(data.sentBytes)
 		newWorkloadMetricInfo.WorkloadConnTotalRetrans = float64(data.totalRetrans)
-		newWorkloadMetricInfo.WorkloadConnPacketLost = float64(data.PacketLost)
+		newWorkloadMetricInfo.WorkloadConnPacketLost = float64(data.packetLost)
 		m.workloadMetricCache[labels] = &newWorkloadMetricInfo
 	}
 }
