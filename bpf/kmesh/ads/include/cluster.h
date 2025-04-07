@@ -10,6 +10,7 @@
 #include "cluster/cluster.pb-c.h"
 #include "endpoint/endpoint.pb-c.h"
 #include "circuit_breaker.h"
+#include "probe.h"
 
 #define CLUSTER_NAME_MAX_LEN BPF_DATA_MAX_LEN
 #define MAGLEV_TABLE_SIZE    16381
@@ -310,7 +311,7 @@ static inline int cluster_handle_loadbalance(Cluster__Cluster *cluster, address_
         BPF_LOG(ERR, CLUSTER, "ep get sock addr failed, %ld\n", (__s64)ep_identity);
         return -EAGAIN;
     }
-
+    observe_on_connect(ctx->sk, name);
     BPF_LOG(
         INFO,
         CLUSTER,

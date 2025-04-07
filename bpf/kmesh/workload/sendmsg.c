@@ -6,7 +6,7 @@
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 #include "bpf_log.h"
-#include "encoder.h"
+#include "bpf_common.h"
 
 /*
  * sk msg is used to encode metadata into the payload when the client sends

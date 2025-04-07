@@ -30,7 +30,6 @@ import (
 
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
-	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/xdstest"
 	"kmesh.net/kmesh/pkg/nets"
@@ -38,7 +37,7 @@ import (
 
 func TestRecoverConnection(t *testing.T) {
 	t.Run("test reconnect success", func(t *testing.T) {
-		utClient := NewXdsClient(constants.KernelNativeMode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
+		utClient := NewAdsXdsClient(&bpfads.BpfAds{}, false, nil)
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
 		iteration := 0
@@ -79,7 +78,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient(constants.KernelNativeMode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
+		utClient := NewAdsXdsClient(&bpfads.BpfAds{}, false, nil)
 		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 
@@ -126,7 +125,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient := NewXdsClient(constants.DualEngineMode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
+		utClient := NewWorkloadXdsClient(&bpfwl.BpfWorkload{}, false, false)
 		err := utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
 

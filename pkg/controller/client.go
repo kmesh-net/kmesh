@@ -50,17 +50,25 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 }
 
-func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enableProfiling bool) *XdsClient {
+func NewAdsXdsClient(bpfAds *bpfads.BpfAds, enableMonitoring bool, managerCache map[string]string) *XdsClient {
 	client := &XdsClient{
-		mode:      mode,
-		xdsConfig: config.GetConfig(mode),
+		mode:      constants.KernelNativeMode,
+		xdsConfig: config.GetConfig(constants.KernelNativeMode),
 	}
 
-	if mode == constants.DualEngineMode {
-		client.WorkloadController = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling)
-	} else if mode == constants.KernelNativeMode {
-		client.AdsController = ads.NewController(bpfAds)
+	client.AdsController = ads.NewController(bpfAds, enableMonitoring, managerCache)
+	client.ctx, client.cancel = context.WithCancel(context.Background())
+	client.ctx = metadata.AppendToOutgoingContext(client.ctx, "ClusterID", client.xdsConfig.Metadata.ClusterID.String())
+	return client
+}
+
+func NewWorkloadXdsClient(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enableProfiling bool) *XdsClient {
+	client := &XdsClient{
+		mode:      constants.DualEngineMode,
+		xdsConfig: config.GetConfig(constants.DualEngineMode),
 	}
+
+	client.WorkloadController = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling)
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
 	client.ctx = metadata.AppendToOutgoingContext(client.ctx, "ClusterID", client.xdsConfig.Metadata.ClusterID.String())

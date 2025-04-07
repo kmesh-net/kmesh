@@ -12,6 +12,24 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type KmeshXDPAuthBpfSock struct {
+	BoundDevIf     uint32
+	Family         uint32
+	Type           uint32
+	Protocol       uint32
+	Mark           uint32
+	Priority       uint32
+	SrcIp4         uint32
+	SrcIp6         [4]uint32
+	SrcPort        uint32
+	DstPort        uint16
+	_              [2]byte
+	DstIp4         uint32
+	DstIp6         [4]uint32
+	State          uint32
+	RxQueueMapping int32
+}
+
 type KmeshXDPAuthBpfSockTuple struct {
 	Ipv4 struct {
 		Saddr uint32
@@ -33,7 +51,9 @@ type KmeshXDPAuthSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	_              [2]byte
+	PidTgid        uint32
+	DstSvcName     [192]int8
 }
 
 // LoadKmeshXDPAuth returns the embedded CollectionSpec for KmeshXDPAuth.
@@ -97,6 +117,8 @@ type KmeshXDPAuthMapSpecs struct {
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
+	KmPidDst      *ebpf.MapSpec `ebpf:"km_pid_dst"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcargs      *ebpf.MapSpec `ebpf:"km_tcargs"`
@@ -146,6 +168,8 @@ type KmeshXDPAuthMaps struct {
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
 	KmManage      *ebpf.Map `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
+	KmPidDst      *ebpf.Map `ebpf:"km_pid_dst"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcargs      *ebpf.Map `ebpf:"km_tcargs"`
@@ -169,6 +193,8 @@ func (m *KmeshXDPAuthMaps) Close() error {
 		m.KmFrontend,
 		m.KmLogEvent,
 		m.KmManage,
+		m.KmOrigDst,
+		m.KmPidDst,
 		m.KmService,
 		m.KmSockstorage,
 		m.KmTcargs,

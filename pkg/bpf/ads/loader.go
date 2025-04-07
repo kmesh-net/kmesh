@@ -1,5 +1,5 @@
-//go:build !enhanced
-// +build !enhanced
+//go:build normal
+// +build normal
 
 /*
  * Copyright The Kmesh Authors.
@@ -134,7 +134,8 @@ func (sc *BpfAds) Start() error {
 
 func (sc *BpfAds) GetBpfConfigVariable() factory.KmeshBpfConfig {
 	return factory.KmeshBpfConfig{
-		BpfLogLevel: sc.SockConn.BpfLogLevel,
+		BpfLogLevel:      sc.SockConn.BpfLogLevel,
+		EnableMonitoring: sc.SockOps.EnableMonitoring,
 	}
 }
 

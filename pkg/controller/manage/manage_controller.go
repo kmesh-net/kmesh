@@ -69,6 +69,7 @@ type KmeshManageController struct {
 	xdpProgFd         int
 	tcProgFd          int
 	mode              string
+	NameByAddr        map[string]string
 }
 
 func isPodReady(pod *corev1.Pod) bool {
@@ -102,6 +103,7 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 		xdpProgFd:         xdpProgFd,
 		tcProgFd:          tcProgFd,
 		mode:              mode,
+		NameByAddr:        make(map[string]string),
 	}
 
 	if _, err := podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -127,6 +129,18 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 	}
 
 	return c, nil
+}
+
+func (c *KmeshManageController) AddNameByAddr(pod *corev1.Pod) {
+	c.NameByAddr[pod.Status.PodIP] = pod.GetName() + "." + pod.GetNamespace()
+}
+
+func (c *KmeshManageController) GetNameByAddr(addr string) string {
+	return c.NameByAddr[addr]
+}
+
+func (c *KmeshManageController) DeleteNameByAddr(addr string) {
+	delete(c.NameByAddr, addr)
 }
 
 func (c *KmeshManageController) handlePodAdd(obj interface{}) {
@@ -228,7 +242,8 @@ func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 		log.Debugf("Pod %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
 		return
 	}
-	log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
+	c.AddNameByAddr(pod)
+	log.Infof("%s/%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName(), pod.Status.PodIP)
 	nspath, _ := ns.GetPodNSpath(pod)
 	if err := utils.HandleKmeshManage(nspath, true); err != nil {
 		log.Errorf("failed to enable Kmesh manage")
@@ -245,6 +260,7 @@ func (c *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 		log.Debugf("%s/%s is not ready, skipping Kmesh manage disable", pod.GetNamespace(), pod.GetName())
 		return
 	}
+	c.DeleteNameByAddr(pod.Status.PodIP)
 	log.Infof("%s/%s: disable Kmesh manage", pod.GetNamespace(), pod.GetName())
 	nspath, _ := ns.GetPodNSpath(pod)
 	if err := utils.HandleKmeshManage(nspath, false); err != nil {
