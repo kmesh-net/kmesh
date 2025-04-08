@@ -39,6 +39,7 @@ type BpfWorkload struct {
 	SockOps  BpfSockOpsWorkload
 	XdpAuth  BpfXdpAuthWorkload
 	SendMsg  BpfSendMsgWorkload
+	RecvMsg BpfRecvMsgWorkload
 	Tc       *general.BpfTCGeneral
 }
 
@@ -59,6 +60,11 @@ func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
 
 	// we must pass pointer here, because workloadObj.SockOps will be modified during loading
 	if err := workloadObj.SendMsg.NewBpf(cfg, &workloadObj.SockOps); err != nil {
+		return nil, err
+	}
+
+    // we must pass pointer here, because workloadObj.SockOps will be modified during loading
+	if err := workloadObj.RecvMsg.NewBpf(cfg, &workloadObj.SockOps); err != nil {
 		return nil, err
 	}
 
@@ -129,6 +135,10 @@ func (w *BpfWorkload) Load() error {
 		return err
 	}
 
+	if err := w.RecvMsg.LoadRecvMsg(); err != nil {
+		return err
+	}
+
 	if err := w.Tc.LoadTC(); err != nil {
 		return err
 	}
@@ -147,6 +157,10 @@ func (w *BpfWorkload) Attach() error {
 	if err := w.SendMsg.Attach(); err != nil {
 		return err
 	}
+	
+	if err := w.RecvMsg.Attach(); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -157,6 +171,10 @@ func (w *BpfWorkload) Detach() error {
 	}
 
 	if err := w.SendMsg.Detach(); err != nil {
+		return err
+	}
+
+	if err := w.RecvMsg.Detach(); err != nil {
 		return err
 	}
 
