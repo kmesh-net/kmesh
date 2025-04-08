@@ -118,17 +118,7 @@ void kmesh_protocol_data_clean_allcpu(void)
     }
 }
 
-typedef int (*bpf_parse_protocol_func)(struct bpf_sock_addr_kern *ctx);
-extern bpf_parse_protocol_func parse_protocol_func;
-
-typedef int (*bpf_km_header_strnstr_func)(
-    struct bpf_sock_addr_kern *ctx, const char *key, int key_sz, const char *subptr, int subptr_sz);
-extern bpf_km_header_strnstr_func km_header_strnstr_func;
-
-typedef int (*bpf_km_header_strncmp_func)(const char *key, int key_sz, const char *target, int target_sz, int opt);
-extern bpf_km_header_strncmp_func km_header_strncmp_func;
-
-static int parse_protocol_impl(struct bpf_sock_addr_kern *ctx)
+int parse_protocol_impl(struct bpf_sock_addr_kern *ctx)
 {
     int ret;
     struct msg_protocol *cur;
@@ -144,7 +134,7 @@ static int parse_protocol_impl(struct bpf_sock_addr_kern *ctx)
     return ret;
 }
 
-static int bpf_km_header_strnstr_impl(
+int bpf_km_header_strnstr_impl(
     struct bpf_sock_addr_kern *ctx, const char *key, int key_sz, const char *subptr, int subptr_len)
 {
     struct bpf_mem_ptr *msg = NULL;
@@ -159,7 +149,7 @@ static int bpf_km_header_strnstr_impl(
     return 0;
 }
 
-static int bpf_km_header_strncmp_impl(const char *key, int key_sz, const char *target, int target_len, int opt)
+int bpf_km_header_strncmp_impl(const char *key, int key_sz, const char *target, int target_len, int opt)
 {
     struct kmesh_data_node *data = NULL;
     target_len = strnlen(target, target_len);
@@ -179,9 +169,6 @@ static int bpf_km_header_strncmp_impl(const char *key, int key_sz, const char *t
 
 int __init proto_common_init(void)
 {
-    parse_protocol_func = parse_protocol_impl;
-    km_header_strnstr_func = bpf_km_header_strnstr_impl;
-    km_header_strncmp_func = bpf_km_header_strncmp_impl;
     /* add protocol list */
     g_kmesh_data_root = alloc_percpu(struct rb_root);
     if (!g_kmesh_data_root)
@@ -191,9 +178,6 @@ int __init proto_common_init(void)
 
 void __exit proto_common_exit(void)
 {
-    parse_protocol_func = NULL;
-    km_header_strnstr_func = NULL;
-    km_header_strncmp_func = NULL;
     kmesh_protocol_data_clean_allcpu();
     free_percpu(g_kmesh_data_root);
 }

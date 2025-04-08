@@ -8,6 +8,7 @@
 #ifndef KMESH_PARSE_PROTOCOL_DATA
 #define KMESH_PARSE_PROTOCOL_DATA
 
+#include "../../../config/kmesh_marcos_def.h"
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/bpf.h>
@@ -58,6 +59,11 @@ void kmesh_protocol_data_delete(const char *key);
 void kmesh_protocol_data_clean_all(void);
 
 void kmesh_protocol_data_clean_allcpu(void);
+
+int bpf_km_header_strnstr_impl(
+    struct bpf_sock_addr_kern *ctx, const char *key, int key_sz, const char *subptr, int subptr_len);
+int bpf_km_header_strncmp_impl(const char *key, int key_sz, const char *target, int target_len, int opt);
+int parse_protocol_impl(struct bpf_sock_addr_kern *ctx);
 
 int __init proto_common_init(void);
 void __exit proto_common_exit(void);

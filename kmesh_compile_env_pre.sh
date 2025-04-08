@@ -110,6 +110,7 @@ function kmesh_set_env(){
 }
 
 function set_enhanced_kernel_env() {
+    
     # we use /usr/include/linux/bpf.h to determine the runtime environment’s
     # support for kmesh. Considering the case of online image compilation, a
     # variable KERNEL_HEADER_LINUX_BPF is used here to specify the path of the
@@ -123,7 +124,10 @@ function set_enhanced_kernel_env() {
             export KERNEL_HEADER_LINUX_BPF=/usr/include/linux/bpf.h
     fi
 
-    if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF; then
+    # The 6.x Linux kernel already has complete support for kfunc capabilities,
+    # allowing all features of kmesh to run directly.
+    KERNEL_MAJOR=$(uname -r | awk -F '.' '{print $1}')
+    if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF || [ $KERNEL_MAJOR -ge 6 ]; then
             export ENHANCED_KERNEL="enhanced"
     else
             export ENHANCED_KERNEL="normal"
