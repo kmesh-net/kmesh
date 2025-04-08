@@ -97,13 +97,13 @@ func (sm *BpfRecvMsgWorkload) loadKmeshRecvmsgObjects() (*ebpf.CollectionSpec, e
 	// 4) attach new sk_skb prog(in RecvMsg.Attach): Replace the old sk_skb prog
 	if restart.GetStartType() == restart.Restart {
 		pinPath := filepath.Join(sm.Info.BpfFsPath, "recvmsg_prog")
-		oldSkMsg, err := ebpf.LoadPinnedProgram(pinPath, nil)
+		oldSkSkb, err := ebpf.LoadPinnedProgram(pinPath, nil)
 		if err != nil {
 			log.Errorf("LoadPinnedProgram failed: %v", err)
 			return nil, err
 		}
 
-		if err = oldSkMsg.Unpin(); err != nil {
+		if err = oldSkSkb.Unpin(); err != nil {
 			return nil, err
 		}
 	}
@@ -140,7 +140,7 @@ func (sm *BpfRecvMsgWorkload) Attach() error {
 		Target:  sm.AttachFD,
 		Program: clone,
 		Flags:   0,
-		Attach:  ebpf.AttachSkMsgVerdict,
+		Attach:  ebpf.AttachSkSKBVerdict,
 	}
 
 	if err = link.RawAttachProgram(args); err != nil {
@@ -154,7 +154,7 @@ func (sm *BpfRecvMsgWorkload) Detach() error {
 		args := link.RawDetachProgramOptions{
 			Target:  sm.AttachFD,
 			Program: sm.KmeshRecvmsgObjects.KmeshRecvmsgPrograms.RecvmsgProg,
-			Attach:  ebpf.AttachSkMsgVerdict,
+			Attach:  ebpf.AttachSkSKBVerdict,
 		}
 
 		if err := link.RawDetachProgram(args); err != nil {

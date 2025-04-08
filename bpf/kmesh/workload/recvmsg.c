@@ -18,6 +18,6 @@ int recvmsg_prog(struct __sk_buff *skb)
     if (!sk)
         return SK_PASS;
 
-    __u32 siz = skb->len;
+    __u32 size = skb->len;
     return SK_PASS;
 }
