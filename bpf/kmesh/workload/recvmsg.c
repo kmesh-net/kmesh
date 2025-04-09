@@ -19,7 +19,7 @@ static inline bool is_managed_by_kmesh_skb(struct __sk_buff *skb)
         if (is_ipv4_mapped_addr(skb->local_ip6))
             key.addr.ip4 = skb->local_ip6[3];
         else
-            IP6_COPY(key.addr.ip6, skops->local_ip6);
+            IP6_COPY(key.addr.ip6, skb->local_ip6);
     }
 
     int *value = bpf_map_lookup_elem(&map_of_manager, &key);

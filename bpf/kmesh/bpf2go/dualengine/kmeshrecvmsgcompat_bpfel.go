@@ -24,6 +24,32 @@ type KmeshRecvmsgCompatBpfSockTuple struct {
 
 type KmeshRecvmsgCompatBuf struct{ Data [40]int8 }
 
+type KmeshRecvmsgCompatManagerKey struct {
+	NetnsCookie uint64
+	_           [8]byte
+}
+
+type KmeshRecvmsgCompatOperationUsageData struct {
+	StartTime     uint64
+	EndTime       uint64
+	PidTgid       uint64
+	OperationType uint32
+	_             [4]byte
+}
+
+type KmeshRecvmsgCompatOperationUsageKey struct {
+	SocketCookie  uint64
+	OperationType uint32
+	_             [4]byte
+}
+
+type KmeshRecvmsgCompatSockStorageData struct {
+	ConnectNs      uint64
+	Direction      uint8
+	ConnectSuccess uint8
+	_              [6]byte
+}
+
 // LoadKmeshRecvmsgCompat returns the embedded CollectionSpec for KmeshRecvmsgCompat.
 func LoadKmeshRecvmsgCompat() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_KmeshRecvmsgCompatBytes)
@@ -73,16 +99,33 @@ type KmeshRecvmsgCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshRecvmsgCompatMapSpecs struct {
-	KmLogEvent *ebpf.MapSpec `ebpf:"km_log_event"`
-	KmOrigDst  *ebpf.MapSpec `ebpf:"km_orig_dst"`
-	KmTmpbuf   *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmAuthReq     *ebpf.MapSpec `ebpf:"km_auth_req"`
+	KmAuthRes     *ebpf.MapSpec `ebpf:"km_auth_res"`
+	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
+	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
+	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
+	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
+	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
+	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
+	KmService     *ebpf.MapSpec `ebpf:"km_service"`
+	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
+	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
+	KmeshMap1600  *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
 // KmeshRecvmsgCompatVariableSpecs contains global variables before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshRecvmsgCompatVariableSpecs struct {
-	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	BpfLogLevel      *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	EnableMonitoring *ebpf.VariableSpec `ebpf:"enable_monitoring"`
 }
 
 // KmeshRecvmsgCompatObjects contains all objects after they have been loaded into the kernel.
@@ -105,16 +148,48 @@ func (o *KmeshRecvmsgCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshRecvmsgCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshRecvmsgCompatMaps struct {
-	KmLogEvent *ebpf.Map `ebpf:"km_log_event"`
-	KmOrigDst  *ebpf.Map `ebpf:"km_orig_dst"`
-	KmTmpbuf   *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmAuthReq     *ebpf.Map `ebpf:"km_auth_req"`
+	KmAuthRes     *ebpf.Map `ebpf:"km_auth_res"`
+	KmBackend     *ebpf.Map `ebpf:"km_backend"`
+	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
+	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
+	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
+	KmManage      *ebpf.Map `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
+	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
+	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
+	KmService     *ebpf.Map `ebpf:"km_service"`
+	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
+	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
+	KmeshMap1600  *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
 func (m *KmeshRecvmsgCompatMaps) Close() error {
 	return _KmeshRecvmsgCompatClose(
+		m.KmAuthReq,
+		m.KmAuthRes,
+		m.KmBackend,
+		m.KmEndpoint,
+		m.KmFrontend,
 		m.KmLogEvent,
+		m.KmManage,
 		m.KmOrigDst,
+		m.KmPerfInfo,
+		m.KmPerfMap,
+		m.KmService,
+		m.KmSockstorage,
+		m.KmTcpProbe,
 		m.KmTmpbuf,
+		m.KmWlpolicy,
+		m.KmeshMap1600,
+		m.KmeshMap192,
+		m.KmeshMap296,
+		m.KmeshMap64,
 	)
 }
 
@@ -122,7 +197,8 @@ func (m *KmeshRecvmsgCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshRecvmsgCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshRecvmsgCompatVariables struct {
-	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
+	BpfLogLevel      *ebpf.Variable `ebpf:"bpf_log_level"`
+	EnableMonitoring *ebpf.Variable `ebpf:"enable_monitoring"`
 }
 
 // KmeshRecvmsgCompatPrograms contains all programs after they have been loaded into the kernel.
