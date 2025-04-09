@@ -32,6 +32,6 @@
 #define map_of_wl_policy     km_wlpolicy
 #define kmesh_perf_map       km_perf_map
 #define kmesh_perf_info      km_perf_info
-#define map_of_tcp_conns     km_tcp_conns
+#define map_of_sock_storage  km_sockstorage
 
 #endif // _CONFIG_H_

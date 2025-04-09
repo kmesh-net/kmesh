@@ -21,14 +21,6 @@ type KmeshSockopsCompatManagerKey struct {
 	_           [8]byte
 }
 
-type KmeshSockopsCompatSockStorageData struct {
-	ConnectNs      uint64
-	Direction      uint8
-	ConnectSuccess uint8
-	_              [6]byte
-	SockCookie     uint64
-}
-
 // LoadKmeshSockopsCompat returns the embedded CollectionSpec for KmeshSockopsCompat.
 func LoadKmeshSockopsCompat() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_KmeshSockopsCompatBytes)
@@ -82,7 +74,6 @@ type KmeshSockopsCompatMapSpecs struct {
 	KmClusterstats *ebpf.MapSpec `ebpf:"km_clusterstats"`
 	KmLogEvent     *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
-	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmeshMap1600   *ebpf.MapSpec `ebpf:"kmesh_map1600"`
 	KmeshMap192    *ebpf.MapSpec `ebpf:"kmesh_map192"`
@@ -121,7 +112,6 @@ type KmeshSockopsCompatMaps struct {
 	KmClusterstats *ebpf.Map `ebpf:"km_clusterstats"`
 	KmLogEvent     *ebpf.Map `ebpf:"km_log_event"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
-	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmeshMap1600   *ebpf.Map `ebpf:"kmesh_map1600"`
 	KmeshMap192    *ebpf.Map `ebpf:"kmesh_map192"`
@@ -135,7 +125,6 @@ func (m *KmeshSockopsCompatMaps) Close() error {
 		m.KmClusterstats,
 		m.KmLogEvent,
 		m.KmManage,
-		m.KmSockstorage,
 		m.KmTmpbuf,
 		m.KmeshMap1600,
 		m.KmeshMap192,

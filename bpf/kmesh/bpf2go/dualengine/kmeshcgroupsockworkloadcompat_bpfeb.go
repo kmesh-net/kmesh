@@ -43,14 +43,6 @@ type KmeshCgroupSockWorkloadCompatOperationUsageKey struct {
 	_             [4]byte
 }
 
-type KmeshCgroupSockWorkloadCompatSockStorageData struct {
-	ConnectNs      uint64
-	Direction      uint8
-	ConnectSuccess uint8
-	_              [6]byte
-	SockCookie     uint64
-}
-
 type KmeshCgroupSockWorkloadCompatTcpProbeInfo struct {
 	Type    uint32
 	Tuple   KmeshCgroupSockWorkloadCompatBpfSockTuple
@@ -144,7 +136,6 @@ type KmeshCgroupSockWorkloadCompatMapSpecs struct {
 	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
-	KmTcpConns    *ebpf.MapSpec `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
@@ -196,7 +187,6 @@ type KmeshCgroupSockWorkloadCompatMaps struct {
 	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
-	KmTcpConns    *ebpf.Map `ebpf:"km_tcp_conns"`
 	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
@@ -222,7 +212,6 @@ func (m *KmeshCgroupSockWorkloadCompatMaps) Close() error {
 		m.KmPerfMap,
 		m.KmService,
 		m.KmSockstorage,
-		m.KmTcpConns,
 		m.KmTcpProbe,
 		m.KmTmpbuf,
 		m.KmWlpolicy,

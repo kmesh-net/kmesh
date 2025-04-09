@@ -29,14 +29,6 @@ type KmeshXDPAuthCompatManagerKey struct {
 	_           [8]byte
 }
 
-type KmeshXDPAuthCompatSockStorageData struct {
-	ConnectNs      uint64
-	Direction      uint8
-	ConnectSuccess uint8
-	_              [6]byte
-	SockCookie     uint64
-}
-
 // LoadKmeshXDPAuthCompat returns the embedded CollectionSpec for KmeshXDPAuthCompat.
 func LoadKmeshXDPAuthCompat() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_KmeshXDPAuthCompatBytes)
@@ -99,7 +91,6 @@ type KmeshXDPAuthCompatMapSpecs struct {
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
-	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcargs      *ebpf.MapSpec `ebpf:"km_tcargs"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
@@ -148,7 +139,6 @@ type KmeshXDPAuthCompatMaps struct {
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
 	KmManage      *ebpf.Map `ebpf:"km_manage"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
-	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcargs      *ebpf.Map `ebpf:"km_tcargs"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
@@ -171,7 +161,6 @@ func (m *KmeshXDPAuthCompatMaps) Close() error {
 		m.KmLogEvent,
 		m.KmManage,
 		m.KmService,
-		m.KmSockstorage,
 		m.KmTcargs,
 		m.KmTmpbuf,
 		m.KmWlpolicy,

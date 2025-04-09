@@ -42,20 +42,6 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
 } map_of_manager SEC(".maps");
 
-struct sock_storage_data {
-    __u64 connect_ns;
-    __u8 direction;
-    __u8 connect_success;
-    __u64 sock_cookie;
-};
-
-struct {
-    __uint(type, BPF_MAP_TYPE_SK_STORAGE);
-    __uint(map_flags, BPF_F_NO_PREALLOC);
-    __type(key, int);
-    __type(value, struct sock_storage_data);
-} map_of_sock_storage SEC(".maps");
-
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
     __uint(key_size, sizeof(__u32));

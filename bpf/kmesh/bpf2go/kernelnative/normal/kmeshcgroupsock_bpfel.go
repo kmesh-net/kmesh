@@ -38,14 +38,6 @@ type KmeshCgroupSockRatelimitValue struct {
 	Tokens    uint64
 }
 
-type KmeshCgroupSockSockStorageData struct {
-	ConnectNs      uint64
-	Direction      uint8
-	ConnectSuccess uint8
-	_              [6]byte
-	SockCookie     uint64
-}
-
 // LoadKmeshCgroupSock returns the embedded CollectionSpec for KmeshCgroupSock.
 func LoadKmeshCgroupSock() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_KmeshCgroupSockBytes)
@@ -109,7 +101,6 @@ type KmeshCgroupSockMapSpecs struct {
 	KmMaglevOuter  *ebpf.MapSpec `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
 	KmRatelimit    *ebpf.MapSpec `ebpf:"km_ratelimit"`
-	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.MapSpec `ebpf:"km_tailcall_ctx"`
 	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmeshMap1600   *ebpf.MapSpec `ebpf:"kmesh_map1600"`
@@ -156,7 +147,6 @@ type KmeshCgroupSockMaps struct {
 	KmMaglevOuter  *ebpf.Map `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
 	KmRatelimit    *ebpf.Map `ebpf:"km_ratelimit"`
-	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.Map `ebpf:"km_tailcall_ctx"`
 	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmeshMap1600   *ebpf.Map `ebpf:"kmesh_map1600"`
@@ -178,7 +168,6 @@ func (m *KmeshCgroupSockMaps) Close() error {
 		m.KmMaglevOuter,
 		m.KmManage,
 		m.KmRatelimit,
-		m.KmSockstorage,
 		m.KmTailcallCtx,
 		m.KmTmpbuf,
 		m.KmeshMap1600,
