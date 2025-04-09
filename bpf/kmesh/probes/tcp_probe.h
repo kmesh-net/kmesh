@@ -4,6 +4,8 @@
 #ifndef __KMESH_BPF_ACCESS_LOG_H__
 #define __KMESH_BPF_ACCESS_LOG_H__
 #define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL) // 5s
+#define SEND                     0
+#define RECV                     1
 
 #include "bpf_common.h"
 #include "config.h"
@@ -208,11 +210,15 @@ refresh_tcp_conn_info_on_retransmit_rtt(struct bpf_tcp_sock *tcp_sock, struct tc
     storage->lost_out = tcp_sock->lost_out;
 }
 
-static inline void refresh_tcp_conn_info_on_send(struct tcp_probe_info *storage, __u32 size)
+static inline void refresh_tcp_conn_info_on_data(struct tcp_probe_info *storage, __u32 size, __u8 direction)
 {
     __u64 now = bpf_ktime_get_ns();
+    if (direction == SEND) {
+        storage->sent_bytes += size;
+    } else if (direction == RECV) {
+        storage->received_bytes += size;
+    }
     storage->duration = now - storage->start_ns;
-    storage->sent_bytes = storage->sent_bytes + size;
 }
 
 #endif

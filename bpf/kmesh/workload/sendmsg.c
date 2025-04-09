@@ -206,7 +206,7 @@ int sendmsg_prog(struct sk_msg_md *msg)
 
     if (sk) {
         if (is_managed_by_kmesh_skmsg(msg)) {
-            observe_on_send(sk, msg->size);
+            observe_on_data(sk, msg->size, SEND);
             report_after_threshold_tm(sk);
         }
     } else {

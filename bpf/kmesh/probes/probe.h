@@ -135,14 +135,14 @@ static inline void observe_on_rtt(struct bpf_sock *sk)
     refresh_tcp_conn_info_on_retransmit_rtt(tcp_sock, storage);
 }
 
-static inline void observe_on_send(struct bpf_sock *sk, __u32 size)
+static inline void observe_on_data(struct bpf_sock *sk, __u32 size, __u8 direction)
 {
     struct tcp_probe_info *storage = NULL;
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
         return;
     }
-    refresh_tcp_conn_info_on_send(storage, size);
+    refresh_tcp_conn_info_on_data(storage, size, direction);
 }
 
 static inline void report_after_threshold_tm(struct bpf_sock *sk)
