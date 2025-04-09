@@ -48,3 +48,6 @@ int recvmsg_prog(struct __sk_buff *skb)
 
     return SK_PASS;
 }
+
+char _license[] SEC("license") = "Dual BSD/GPL";
+int _version SEC("version") = 1;
