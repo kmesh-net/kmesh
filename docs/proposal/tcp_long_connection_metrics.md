@@ -105,7 +105,7 @@ proposal will be implemented, this is the place to discuss them.
 
 #### Collecting Metrics
 
-Decelearing ebpf hash map in probe.h to store realtime information about tcp_connections.
+Declare ebpf hash map in probe.h to store realtime information about tcp_connections.
 
 ```
 // Ebpf map to store active tcp connections
@@ -212,44 +212,36 @@ int sendmsg_prog(struct sk_msg_md *msg)
     if (sk) {
         if (is_managed_by_kmesh_skmsg(msg)) {
             observe_on_data(sk);
+            flush_tcp_conns();
         }
     } else {
         BPF_LOG(ERR, KMESH, "sk_lookup success\n");
     }
-    int key = 0;
-    __u64 *last_time = bpf_map_lookup_elem(&tcp_conn_last_flush, &key);
-    __u64 now = bpf_ktime_get_ns();
 
-    if (!last_time) {
-        __u64 init_time = now;
-        // Initialize last flush time if not set
-        bpf_map_update_elem(&tcp_conn_last_flush, &key, &init_time, BPF_ANY);
-    } else if ((now - *last_time) >= TIMER_INTERVAL_NS) {
-        flush_tcp_conns();
-        // Update last flush time
-        bpf_map_update_elem(&tcp_conn_last_flush, &key, &now, BPF_ANY);
-    }
     return SK_PASS;
 }
 
 ```
 
-For refreshing the received bytes by a connection, we will attach a kprobe on tcp_rcv_established.
-Creating workload/kprobe.c
+For refreshing the received bytes by a connection, we will use sk_skb hook.
+Creating workload/recvmsg.c
 ```
-SEC("kprobe/tcp_rcv_established")
-int bpf_tcp_rcv_established(struct pt_regs *ctx) {
-   
-    struct sk_buff *skb = (struct sk_buff *)PT_REGS_PARM2(ctx);
-     struct bpf_sock *sk = skb->sk;
+SEC("sk_skb")
+int recvmsg_prog(struct __sk_buff *skb)
+{
+    if (skb->family != AF_INET && skb->family != AF_INET6)
+        return SK_PASS;
+
+    struct bpf_sock *sk = skb->sk;
     if (sk) {
-        if (is_managed_by_kmesh_skb(skb)) {
-            observe_on_data(sk);
-        }
+    if (is_managed_by_kmesh_skmsg(msg)) {
+        observe_on_data(sk);
+        flush_tcp_conns();
     } else {
         BPF_LOG(ERR, KMESH, "sk_lookup success\n");
     }
-    return 0;
+    return SK_PASS;
+    }
 }
 ```
 
