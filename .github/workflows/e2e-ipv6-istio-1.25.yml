@@ -1,4 +1,4 @@
-name: E2E IPv6 Test(istio 1.22)
+name: E2E IPv6 Test(istio 1.25)
 on: 
   pull_request:
     paths-ignore:
@@ -23,4 +23,4 @@ jobs:
     - name: E2E IPv6 Test
       shell: bash
       run: |
-        sudo make e2e-ipv6
+        sudo ISTIO_VERSION="1.25.1" make e2e-ipv6
