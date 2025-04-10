@@ -4,6 +4,8 @@
 #ifndef __KMESH_BPF_PROBE_H__
 #define __KMESH_BPF_PROBE_H__
 
+#define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL) // 5s
+
 #include "tcp_probe.h"
 #include "performance_probe.h"
 
@@ -58,7 +60,6 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u64 soc
     storage->direction = direction;
     storage->connect_success = true;
     storage->sock_cookie = sock_cookie;
-    storage->last_report_ns = storage->connect_ns;
     tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 
@@ -83,5 +84,25 @@ static inline void observe_on_close(struct bpf_sock *sk)
 
     tcp_report(sk, tcp_sock, storage, BPF_TCP_CLOSE);
     bpf_sk_storage_delete(&map_of_sock_storage, sk);
+}
+
+static inline void observe_on_data(struct bpf_sock *sk)
+{
+    struct bpf_tcp_sock *tcp_sock = NULL;
+    struct sock_storage_data *storage = NULL;
+    if (!sk)
+        return;
+    tcp_sock = bpf_tcp_sock(sk);
+    if (!tcp_sock)
+        return;
+
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
+    if (!storage) {
+        return;
+    }
+    __u64 now = bpf_ktime_get_ns();
+    if ((storage->last_report_ns != 0) && (now - storage->last_report_ns > LONG_CONN_THRESHOLD_TIME)) {
+        tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
+    }
 }
 #endif

@@ -23,6 +23,8 @@ type KmeshSockopsCompatManagerKey struct {
 
 type KmeshSockopsCompatSockStorageData struct {
 	ConnectNs      uint64
+	LastReportNs   uint64
+	SockCookie     uint64
 	Direction      uint8
 	ConnectSuccess uint8
 	_              [6]byte
