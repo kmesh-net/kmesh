@@ -191,6 +191,8 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					dst:           [4]uint32{183762951, 0, 0, 0},
 					sentBytes:     0x0000003,
 					receivedBytes: 0x0000004,
+					packetLost:    0x0000001,
+					totalRetrans:  0x0000002,
 					state:         TCP_ESTABLISHED,
 				},
 				labels: workloadMetricLabels{
@@ -224,6 +226,8 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				1,
 				4,
 				3,
+				1,
+				2,
 			},
 		},
 	}
@@ -239,6 +243,8 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnOpened, tt.want[1])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnReceivedBytes, tt.want[2])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnSentBytes, tt.want[3])
+			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnPacketLost, tt.want[4])
+			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnTotalRetrans, tt.want[5])
 		})
 	}
 }
@@ -395,6 +401,8 @@ func TestBuildworkloadMetric(t *testing.T) {
 					dst:           [4]uint32{383822016, 0, 0, 0},
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
+					packetLost:    uint32(5),
+					totalRetrans:  uint32(120),
 				},
 			},
 			want: workloadMetricLabels{
@@ -1031,6 +1039,8 @@ func TestMetricController_updatePrometheusMetric(t *testing.T) {
 				WorkloadConnFailed:        3,
 				WorkloadConnSentBytes:     4,
 				WorkloadConnReceivedBytes: 5,
+				WorkloadConnPacketLost:    6,
+				WorkloadConnTotalRetrans:  7,
 			},
 			serviceMetricCache: serviceMetricInfo{
 				ServiceConnOpened:        6,

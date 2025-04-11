@@ -35,11 +35,12 @@ import (
 var log = logger.NewLoggerScope("bpf_workload")
 
 type BpfWorkload struct {
-	SockConn SockConnWorkload
-	SockOps  BpfSockOpsWorkload
-	XdpAuth  BpfXdpAuthWorkload
-	SendMsg  BpfSendMsgWorkload
-	Tc       *general.BpfTCGeneral
+	SockConn  SockConnWorkload
+	SockOps   BpfSockOpsWorkload
+	XdpAuth   BpfXdpAuthWorkload
+	SendMsg   BpfSendMsgWorkload
+	CgroupSkb BpfCroupSkbWorkload
+	Tc        *general.BpfTCGeneral
 }
 
 func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
@@ -53,6 +54,9 @@ func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
 		return nil, err
 	}
 
+	if err := workloadObj.CgroupSkb.NewBpf(cfg); err != nil {
+		return nil, err
+	}
 	if err := workloadObj.XdpAuth.NewBpf(cfg); err != nil {
 		return nil, err
 	}
@@ -129,6 +133,10 @@ func (w *BpfWorkload) Load() error {
 		return err
 	}
 
+	if err := w.CgroupSkb.LoadCgroupSkb(); err != nil {
+		return err
+	}
+
 	if err := w.Tc.LoadTC(); err != nil {
 		return err
 	}
@@ -148,6 +156,10 @@ func (w *BpfWorkload) Attach() error {
 		return err
 	}
 
+	if err := w.CgroupSkb.Attach(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -157,6 +169,10 @@ func (w *BpfWorkload) Detach() error {
 	}
 
 	if err := w.SendMsg.Detach(); err != nil {
+		return err
+	}
+
+	if err := w.CgroupSkb.Detach(); err != nil {
 		return err
 	}
 
