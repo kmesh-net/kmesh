@@ -101,16 +101,16 @@ type statistics struct {
 	ReceivedBytes  uint32
 	ConnectSuccess uint32
 	Direction      uint32
-	State          uint32
+	State          uint32 // TCP state ex: BPF_TCP_ESTABLISHED
 	_              uint32
-	Duration       uint64
-	StartTime      uint64
-	LastReportTime uint64
+	Duration       uint64 // duration of the connection till now
+	StartTime      uint64 // time when the connection is established
+	LastReportTime uint64 // time when the metric is reported
 	Protocol       uint32
-	SRttTime       uint32
-	RttMin         uint32
-	Retransmits    uint32
-	LostPackets    uint32
+	SRttTime       uint32 // smoothed RTT
+	RttMin         uint32 // minimum RTT
+	Retransmits    uint32 // total retransmits
+	LostPackets    uint32 // total lost packets
 }
 
 // connectionDataV4 read from ebpf km_tcp_probe ringbuf and padding with `_`
@@ -146,10 +146,10 @@ type connectionDataV6 struct {
 
 type connMetric struct {
 	connId        uint64
-	receivedBytes uint32
-	sentBytes     uint32
-	totalRetrans  uint32
-	packetLost    uint32
+	receivedBytes uint32 // total bytes received till now
+	sentBytes     uint32 // total bytes sent till now
+	totalRetrans  uint32 // total retransmits till now
+	packetLost    uint32 // total packets lost till now
 }
 
 type requestMetric struct {
@@ -161,8 +161,8 @@ type requestMetric struct {
 	origDstPort    uint16
 	currentConnId  uint64
 	direction      uint32
-	receivedBytes  uint32
-	sentBytes      uint32
+	receivedBytes  uint32 // total bytes received after previous report
+	sentBytes      uint32 // total bytes sent after previous report
 	state          uint32
 	success        uint32
 	duration       uint64
@@ -170,8 +170,8 @@ type requestMetric struct {
 	lastReportTime uint64
 	srtt           uint32
 	minRtt         uint32
-	totalRetrans   uint32
-	packetLost     uint32
+	totalRetrans   uint32 // total retransmits after previous report
+	packetLost     uint32 // total packets lost after previous report
 }
 
 type workloadMetricLabels struct {
@@ -414,6 +414,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 
 			if m.EnableAccesslog.Load() {
+				// accesslogs at start of connection, at interval of 5 sec during connection lifecycle and at close of connection
 				OutputAccesslog(data, tcp_conns[data.currentConnId], accesslog)
 			}
 
@@ -660,7 +661,7 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 		accesslog.direction = "OUTBOUND"
 	}
 
-	accesslog.status = TCP_STATES[data.state]
+	accesslog.state = TCP_STATES[data.state]
 	return *trafficLabels, *accesslog
 }
 

@@ -4,10 +4,10 @@
 #ifndef __KMESH_BPF_PROBE_H__
 #define __KMESH_BPF_PROBE_H__
 
-#define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL) // 5s
-
 #include "tcp_probe.h"
 #include "performance_probe.h"
+
+#define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL) // 5s
 
 volatile __u32 enable_monitoring = 0;
 
