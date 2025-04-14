@@ -1,0 +1,39 @@
+name: Update Website Docs
+
+on:
+  push:
+    branches:
+      - "main"
+    paths:
+      - 'docs/kmeshct-usage/**'
+    
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout current repo
+        uses: actions/checkout@v3 
+    
+      - name: Set up Git
+        run: |
+          git config --global user.name "${{ secrets.GH_USERNAME }}"
+          git config --global user.email "${{ secrets.GH_USERNAME }}@users.noreply.github.com"
+        
+      - name: Clone Website repo 
+        run: | 
+          git clone https://${{ secrets.GH_USERNAME }}:${{ secrets.GH_TOKEN }}@github.com/kmesh-net/website.git
+        
+      - name: Copy docs
+        run: | 
+          mv -f docs/kmeshct-usage/*.md website/docs/developer-guide/kmeshct-usage/
+          mv -f docs/kmeshct-usage/kmesh-authz/*.md website/docs/developer-guide/kmeshct-usage/kmesh-authz/
+          mv -f docs/kmeshct-usage/kmesh-waypoint/*.md website/docs/developer-guide/kmeshct-usage/kmesh-waypoint/
+        
+      - name: Commit and push changes
+        run: | 
+          cd website
+          git add .
+          git commit -m "rfac: Updated kmeshct docs"
+          git push origin main
