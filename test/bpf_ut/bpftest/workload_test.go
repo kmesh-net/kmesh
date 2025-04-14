@@ -1,3 +1,5 @@
+//go:build linux && (amd64 || arm64) && !aix && !ppc64
+
 package bpftests
 
 import (
@@ -8,6 +10,7 @@ import (
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/factory"
+	bpfUtils "kmesh.net/kmesh/pkg/bpf/utils"
 	bpfWorkload "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/cache/v2/maps"
 	"kmesh.net/kmesh/pkg/constants"
@@ -20,9 +23,7 @@ const (
 )
 
 func testWorkload(t *testing.T) {
-	t.Run("XDP", func(t *testing.T) {
-		testXDP(t)
-	})
+	t.Run("XDP", testXDP)
 }
 
 func testXDP(t *testing.T) {
@@ -65,7 +66,7 @@ func testXDP(t *testing.T) {
 				})
 
 				workload_xdp_registerTailCall(t, coll)
-				setMapsEnv(t, coll)
+				workload_setMapsEnv(t, coll)
 				if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
 					Mode:        constants.DualEngineMode,
 					BpfFsPath:   constants.BpfFsPath,
@@ -150,7 +151,7 @@ func testXDP(t *testing.T) {
 				})
 
 				workload_xdp_registerTailCall(t, coll)
-				setMapsEnv(t, coll)
+				workload_setMapsEnv(t, coll)
 				if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
 					Mode:        constants.DualEngineMode,
 					BpfFsPath:   constants.BpfFsPath,
@@ -228,7 +229,7 @@ func testXDP(t *testing.T) {
 	}
 }
 
-// registerTailCall registers a tail call in the BPF collection.
+// workload_xdp_registerTailCall registers the tail call for XDP programs.
 func workload_xdp_registerTailCall(t *testing.T, coll *ebpf.Collection) {
 	if coll == nil {
 		t.Fatal("coll is nil")
@@ -236,4 +237,28 @@ func workload_xdp_registerTailCall(t *testing.T, coll *ebpf.Collection) {
 	registerTailCall(t, coll, xdpTailCallMap, constants.TailCallPoliciesCheck, "policies_check")
 	registerTailCall(t, coll, xdpTailCallMap, constants.TailCallPolicyCheck, "policy_check")
 	registerTailCall(t, coll, xdpTailCallMap, constants.TailCallAuthInUserSpace, "xdp_shutdown_in_userspace")
+}
+
+// workload_setMapsEnv prepares the BPF testing environment by configuring a BPF workload
+// and setting up environment variables for various BPF maps.
+func workload_setMapsEnv(t *testing.T, coll *ebpf.Collection) {
+	if coll == nil {
+		t.Fatal("coll is nil")
+	}
+
+	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["km_authz_policy"], "Authorization"); err != nil {
+		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
+	}
+	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["kmesh_map64"], "KmeshMap64"); err != nil {
+		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
+	}
+	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["kmesh_map192"], "KmeshMap192"); err != nil {
+		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
+	}
+	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["kmesh_map296"], "KmeshMap296"); err != nil {
+		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
+	}
+	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["kmesh_map1600"], "KmeshMap1600"); err != nil {
+		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
+	}
 }

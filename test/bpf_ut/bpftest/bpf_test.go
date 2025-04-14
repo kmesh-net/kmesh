@@ -21,7 +21,6 @@ import (
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
 	"kmesh.net/kmesh/pkg/bpf/factory"
-	bpfUtils "kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -45,9 +44,7 @@ func TestBPF(t *testing.T) {
 		t.Log(err)
 	}
 
-	t.Run("Workload", func(t *testing.T) {
-		testWorkload(t)
-	})
+	t.Run("Workload", testWorkload)
 }
 
 // common functions
@@ -221,30 +218,6 @@ func setBpfConfig(t *testing.T, coll *ebpf.Collection, config *factory.GlobalBpf
 	}
 	if err := coll.Variables["authz_offload"].Set(&config.AuthzOffload); err != nil {
 		t.Fatalf("failed to set authz_offload: %v", err)
-	}
-}
-
-// setMapsEnv prepares the BPF testing environment by configuring a BPF workload
-// and setting up environment variables for various BPF maps.
-func setMapsEnv(t *testing.T, coll *ebpf.Collection) {
-	if coll == nil {
-		t.Fatal("coll is nil")
-	}
-
-	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["km_authz_policy"], "Authorization"); err != nil {
-		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
-	}
-	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["kmesh_map64"], "KmeshMap64"); err != nil {
-		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
-	}
-	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["kmesh_map192"], "KmeshMap192"); err != nil {
-		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
-	}
-	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["kmesh_map296"], "KmeshMap296"); err != nil {
-		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
-	}
-	if err := bpfUtils.SetEnvByBpfMapId(coll.Maps["kmesh_map1600"], "KmeshMap1600"); err != nil {
-		t.Fatalf("SetEnvByBpfMapId failed: %v", err)
 	}
 }
 
