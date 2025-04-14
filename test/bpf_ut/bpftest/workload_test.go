@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf"
+
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"

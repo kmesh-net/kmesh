@@ -36,6 +36,7 @@ import (
 	"github.com/vishvananda/netlink/nl"
 	"google.golang.org/protobuf/encoding/protowire"
 	"google.golang.org/protobuf/proto"
+
 	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -128,7 +129,6 @@ func loadAndRunSpec(t *testing.T, tt *unittest) {
 
 	// run the test
 	subTest(programs, coll.Maps[suiteResultMap])(t)
-
 }
 
 // collectBpfLogEvents sets up a ring buffer reader for the "km_log_event" eBPF map
@@ -200,7 +200,6 @@ func collectBpfLogEvents(t *testing.T, coll *ebpf.Collection) {
 //
 // The function will call t.Fatalf if loading the specification fails.
 func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
-
 	spec, err := ebpf.LoadCollectionSpec(elfPath)
 	if err != nil {
 		t.Fatalf("load spec %s: %v", elfPath, err)
