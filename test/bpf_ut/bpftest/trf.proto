@@ -1,6 +1,3 @@
-// SPDX-License-Identifier: Apache-2.0
-// Copyright Authors of Kmesh
-
 syntax = "proto3";
 option go_package = ".;bpftests";
 
