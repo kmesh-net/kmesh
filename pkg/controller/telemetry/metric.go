@@ -145,7 +145,6 @@ type connectionDataV6 struct {
 }
 
 type connMetric struct {
-	connId        uint64
 	receivedBytes uint32 // total bytes received till now
 	sentBytes     uint32 // total bytes sent till now
 	totalRetrans  uint32 // total retransmits till now
@@ -474,7 +473,6 @@ func buildV4Metric(buf *bytes.Buffer, tcp_conns map[uint64]connMetric) (requestM
 	data.packetLost = connectData.statistics.LostPackets - tcp_conns[connectData.ConnId].packetLost
 	data.currentConnId = connectData.ConnId
 	tcp_conns[connectData.ConnId] = connMetric{
-		connId:        connectData.ConnId,
 		receivedBytes: connectData.ReceivedBytes,
 		sentBytes:     connectData.SentBytes,
 		totalRetrans:  connectData.statistics.Retransmits,

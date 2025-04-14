@@ -83,7 +83,6 @@ static inline void observe_on_close(struct bpf_sock *sk)
     }
 
     tcp_report(sk, tcp_sock, storage, BPF_TCP_CLOSE);
-    bpf_sk_storage_delete(&map_of_sock_storage, sk);
 }
 
 static inline void observe_on_data(struct bpf_sock *sk)
