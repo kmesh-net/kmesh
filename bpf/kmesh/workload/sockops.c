@@ -9,7 +9,6 @@
 #include "bpf_log.h"
 #include "workload.h"
 #include "config.h"
-#include "encoder.h"
 #include "bpf_common.h"
 #include "probe.h"
 #include "config.h"
@@ -119,14 +118,6 @@ static inline void clean_auth_map(struct bpf_sock_ops *skops)
         BPF_LOG(ERR, SOCKOPS, "map_of_auth_result bpf_map_delete_elem failed, ret: %d", ret);
 }
 
-static inline void clean_dstinfo_map(struct bpf_sock_ops *skops)
-{
-    __u64 *key = (__u64 *)skops->sk;
-    int ret = bpf_map_delete_elem(&map_of_orig_dst, &key);
-    if (ret && ret != -ENOENT)
-        BPF_LOG(ERR, SOCKOPS, "bpf map delete destination info failed, ret: %d", ret);
-}
-
 // insert an IP tuple into the ringbuf
 static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
 {
@@ -174,10 +165,19 @@ int sockops_prog(struct bpf_sock_ops *skops)
         observe_on_connect_established(skops->sk, OUTBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
             BPF_LOG(ERR, SOCKOPS, "set sockops cb failed!\n");
-        __u64 *current_sk = (__u64 *)skops->sk;
-        struct bpf_sock_tuple *dst = bpf_map_lookup_elem(&map_of_orig_dst, &current_sk);
-        if (dst != NULL)
+        struct bpf_sock *sk = (struct bpf_sock *)skops->sk;
+        if (!sk) {
+            break;
+        }
+        struct sock_storage_data *storage = NULL;
+        storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
+        if (!storage) {
+            break;
+        }
+
+        if (storage->via_waypoint) {
             enable_encoding_metadata(skops);
+        }
         break;
     case BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB:
         if (!is_managed_by_kmesh(skops) || skip_specific_probe(skops))
@@ -191,7 +191,6 @@ int sockops_prog(struct bpf_sock_ops *skops)
         if (skops->args[1] == BPF_TCP_CLOSE) {
             observe_on_close(skops->sk);
             clean_auth_map(skops);
-            clean_dstinfo_map(skops);
         }
         break;
     default:

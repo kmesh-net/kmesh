@@ -46,6 +46,10 @@ struct sock_storage_data {
     __u64 connect_ns;
     __u8 direction;
     __u8 connect_success;
+    bool via_waypoint;
+    bool has_encoded;
+    bool has_set_ip;
+    struct bpf_sock_tuple sk_tuple;
 };
 
 struct {
