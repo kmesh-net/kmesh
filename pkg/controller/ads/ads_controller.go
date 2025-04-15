@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/channels"
 
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
+	"kmesh.net/kmesh/pkg/controller/adstelemetry"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -33,9 +34,11 @@ var (
 )
 
 type Controller struct {
-	Processor             *processor
+	Processor                    *processor
 	dnsResolverController *dnsController
-	con                   *connection
+	con                          *connection
+	MetricController *adstelemetry.MetricController
+	bpfAdsObj        *bpfads.BpfAds
 }
 
 type connection struct {
@@ -44,7 +47,7 @@ type connection struct {
 	stopCh       chan struct{}
 }
 
-func NewController(bpfAds *bpfads.BpfAds) *Controller {
+func NewController(bpfAds *bpfads.BpfAds, enableMonitoring bool, managerCache map[string]string) *Controller {
 	processor := newProcessor(bpfAds)
 	// create kernel-native mode ads resolver controller
 	dnsResolverController, err := NewDnsController(processor.Cache)
@@ -54,10 +57,18 @@ func NewController(bpfAds *bpfads.BpfAds) *Controller {
 	}
 	processor.DnsResolverChan = dnsResolverController.clustersChan
 
-	return &Controller{
+	c := &Controller{
 		dnsResolverController: dnsResolverController,
 		Processor:             processor,
+		bpfAdsObj: bpfAds,
 	}
+	c.MetricController = adstelemetry.NewMetric(c.Processor.Cache, enableMonitoring, managerCache)
+	log.Printf("ads controller created:%v", enableMonitoring)
+	return c
+}
+
+func (c *Controller) Run(ctx context.Context) {
+	go c.MetricController.Run(ctx, c.bpfAdsObj.SockConn.KmTcpProbe)
 }
 
 func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {

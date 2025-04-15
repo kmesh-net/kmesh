@@ -12,6 +12,16 @@ import (
 	"github.com/cilium/ebpf"
 )
 
+type KmeshCgroupSockCompatBpfSockTuple struct {
+	Ipv4 struct {
+		Saddr uint32
+		Daddr uint32
+		Sport uint16
+		Dport uint16
+	}
+	_ [24]byte
+}
+
 type KmeshCgroupSockCompatBuf struct{ Data [40]int8 }
 
 type KmeshCgroupSockCompatClusterSockData struct{ ClusterId uint32 }
@@ -19,6 +29,20 @@ type KmeshCgroupSockCompatClusterSockData struct{ ClusterId uint32 }
 type KmeshCgroupSockCompatManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
+}
+
+type KmeshCgroupSockCompatOperationUsageData struct {
+	StartTime     uint64
+	EndTime       uint64
+	PidTgid       uint64
+	OperationType uint32
+	_             [4]byte
+}
+
+type KmeshCgroupSockCompatOperationUsageKey struct {
+	SocketCookie  uint64
+	OperationType uint32
+	_             [4]byte
 }
 
 type KmeshCgroupSockCompatRatelimitKey struct {
@@ -42,7 +66,9 @@ type KmeshCgroupSockCompatSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	_              [2]byte
+	PidTgid        uint32
+	DstSvcName     [192]int8
 }
 
 // LoadKmeshCgroupSockCompat returns the embedded CollectionSpec for KmeshCgroupSockCompat.
@@ -107,21 +133,26 @@ type KmeshCgroupSockCompatMapSpecs struct {
 	KmLogEvent     *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmMaglevOuter  *ebpf.MapSpec `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
+	KmOrigDst      *ebpf.MapSpec `ebpf:"km_orig_dst"`
 	KmRatelimit    *ebpf.MapSpec `ebpf:"km_ratelimit"`
 	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.MapSpec `ebpf:"km_tailcall_ctx"`
+	KmTcpProbe     *ebpf.MapSpec `ebpf:"km_tcp_probe"`
 	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmeshMap1600   *ebpf.MapSpec `ebpf:"kmesh_map1600"`
 	KmeshMap192    *ebpf.MapSpec `ebpf:"kmesh_map192"`
 	KmeshMap296    *ebpf.MapSpec `ebpf:"kmesh_map296"`
 	KmeshMap64     *ebpf.MapSpec `ebpf:"kmesh_map64"`
+	KmeshPerfInfo  *ebpf.MapSpec `ebpf:"kmesh_perf_info"`
+	KmeshPerfMap   *ebpf.MapSpec `ebpf:"kmesh_perf_map"`
 }
 
 // KmeshCgroupSockCompatVariableSpecs contains global variables before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockCompatVariableSpecs struct {
-	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	BpfLogLevel      *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	EnableMonitoring *ebpf.VariableSpec `ebpf:"enable_monitoring"`
 }
 
 // KmeshCgroupSockCompatObjects contains all objects after they have been loaded into the kernel.
@@ -154,14 +185,18 @@ type KmeshCgroupSockCompatMaps struct {
 	KmLogEvent     *ebpf.Map `ebpf:"km_log_event"`
 	KmMaglevOuter  *ebpf.Map `ebpf:"km_maglev_outer"`
 	KmManage       *ebpf.Map `ebpf:"km_manage"`
+	KmOrigDst      *ebpf.Map `ebpf:"km_orig_dst"`
 	KmRatelimit    *ebpf.Map `ebpf:"km_ratelimit"`
 	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTailcallCtx  *ebpf.Map `ebpf:"km_tailcall_ctx"`
+	KmTcpProbe     *ebpf.Map `ebpf:"km_tcp_probe"`
 	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmeshMap1600   *ebpf.Map `ebpf:"kmesh_map1600"`
 	KmeshMap192    *ebpf.Map `ebpf:"kmesh_map192"`
 	KmeshMap296    *ebpf.Map `ebpf:"kmesh_map296"`
 	KmeshMap64     *ebpf.Map `ebpf:"kmesh_map64"`
+	KmeshPerfInfo  *ebpf.Map `ebpf:"kmesh_perf_info"`
+	KmeshPerfMap   *ebpf.Map `ebpf:"kmesh_perf_map"`
 }
 
 func (m *KmeshCgroupSockCompatMaps) Close() error {
@@ -176,14 +211,18 @@ func (m *KmeshCgroupSockCompatMaps) Close() error {
 		m.KmLogEvent,
 		m.KmMaglevOuter,
 		m.KmManage,
+		m.KmOrigDst,
 		m.KmRatelimit,
 		m.KmSockstorage,
 		m.KmTailcallCtx,
+		m.KmTcpProbe,
 		m.KmTmpbuf,
 		m.KmeshMap1600,
 		m.KmeshMap192,
 		m.KmeshMap296,
 		m.KmeshMap64,
+		m.KmeshPerfInfo,
+		m.KmeshPerfMap,
 	)
 }
 
@@ -191,7 +230,8 @@ func (m *KmeshCgroupSockCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshCgroupSockCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockCompatVariables struct {
-	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
+	BpfLogLevel      *ebpf.Variable `ebpf:"bpf_log_level"`
+	EnableMonitoring *ebpf.Variable `ebpf:"enable_monitoring"`
 }
 
 // KmeshCgroupSockCompatPrograms contains all programs after they have been loaded into the kernel.

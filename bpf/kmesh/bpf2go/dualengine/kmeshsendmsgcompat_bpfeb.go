@@ -24,6 +24,20 @@ type KmeshSendmsgCompatBpfSockTuple struct {
 
 type KmeshSendmsgCompatBuf struct{ Data [40]int8 }
 
+type KmeshSendmsgCompatManagerKey struct {
+	NetnsCookie uint64
+	_           [8]byte
+}
+
+type KmeshSendmsgCompatSockStorageData struct {
+	ConnectNs      uint64
+	Direction      uint8
+	ConnectSuccess uint8
+	_              [2]byte
+	PidTgid        uint32
+	DstSvcName     [192]int8
+}
+
 // LoadKmeshSendmsgCompat returns the embedded CollectionSpec for KmeshSendmsgCompat.
 func LoadKmeshSendmsgCompat() (*ebpf.CollectionSpec, error) {
 	reader := bytes.NewReader(_KmeshSendmsgCompatBytes)
@@ -73,9 +87,15 @@ type KmeshSendmsgCompatProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgCompatMapSpecs struct {
-	KmLogEvent *ebpf.MapSpec `ebpf:"km_log_event"`
-	KmOrigDst  *ebpf.MapSpec `ebpf:"km_orig_dst"`
-	KmTmpbuf   *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
+	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmeshMap1600  *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
 // KmeshSendmsgCompatVariableSpecs contains global variables before they are loaded into the kernel.
@@ -105,16 +125,28 @@ func (o *KmeshSendmsgCompatObjects) Close() error {
 //
 // It can be passed to LoadKmeshSendmsgCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSendmsgCompatMaps struct {
-	KmLogEvent *ebpf.Map `ebpf:"km_log_event"`
-	KmOrigDst  *ebpf.Map `ebpf:"km_orig_dst"`
-	KmTmpbuf   *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
+	KmManage      *ebpf.Map `ebpf:"km_manage"`
+	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
+	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmeshMap1600  *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
 func (m *KmeshSendmsgCompatMaps) Close() error {
 	return _KmeshSendmsgCompatClose(
 		m.KmLogEvent,
+		m.KmManage,
 		m.KmOrigDst,
+		m.KmSockstorage,
 		m.KmTmpbuf,
+		m.KmeshMap1600,
+		m.KmeshMap192,
+		m.KmeshMap296,
+		m.KmeshMap64,
 	)
 }
 

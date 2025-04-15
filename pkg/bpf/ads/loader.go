@@ -134,7 +134,8 @@ func (sc *BpfAds) Start() error {
 
 func (sc *BpfAds) GetBpfConfigVariable() factory.KmeshBpfConfig {
 	return factory.KmeshBpfConfig{
-		BpfLogLevel: sc.SockConn.BpfLogLevel,
+		BpfLogLevel:      sc.SockConn.BpfLogLevel,
+		EnableMonitoring: sc.SockOps.EnableMonitoring,
 	}
 }
 

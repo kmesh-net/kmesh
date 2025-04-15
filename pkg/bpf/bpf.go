@@ -90,6 +90,7 @@ func (l *BpfLoader) Start() error {
 			return err
 		}
 		l.KmeshBpfConfig = l.obj.GetBpfConfigVariable()
+		l.setAdsBpfProgOptions()
 	} else if l.config.DualEngineEnabled() {
 		if l.workloadObj, err = workload.NewBpfWorkload(l.config); err != nil {
 			return err
@@ -306,6 +307,16 @@ func (l *BpfLoader) setBpfProgOptions() {
 			log.Error("set AuthzOffload failed ", err)
 			return
 		}
+		if err := l.EnableMonitoring.Set(constants.ENABLED); err != nil {
+			log.Error("set EnableMonitoring failed ", err)
+			return
+		}
+	}
+}
+
+func (l *BpfLoader) setAdsBpfProgOptions() {
+
+	if restart.GetStartType() == restart.Normal {
 		if err := l.EnableMonitoring.Set(constants.ENABLED); err != nil {
 			log.Error("set EnableMonitoring failed ", err)
 			return

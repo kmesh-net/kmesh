@@ -22,7 +22,10 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"kmesh.net/kmesh/pkg/controller/ads/cache"
 )
+
 
 func TestDNS(t *testing.T) {
 	fakeDNSServer := NewFakeDNSServer()

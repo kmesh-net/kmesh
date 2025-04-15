@@ -31,13 +31,14 @@ import (
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	core_v2 "kmesh.net/kmesh/api/v2/core"
+	"kmesh.net/kmesh/pkg/controller/ads/cache"
 	"kmesh.net/kmesh/pkg/dns"
 )
 
 // adsDnsResolver is DNS resolver of Kernel Native
 type dnsController struct {
 	clustersChan chan []*clusterv3.Cluster
-	cache        *AdsCache
+	cache        *cache.AdsCache
 	dnsResolver  *dns.DNSResolver
 	// Store the copy of pendingResolveDomain.
 	clusterCache map[string]*pendingResolveDomain
@@ -53,7 +54,7 @@ type pendingResolveDomain struct {
 	RefreshRate time.Duration
 }
 
-func NewDnsController(adsCache *AdsCache) (*dnsController, error) {
+func NewDnsController(adsCache *cache.AdsCache) (*dnsController, error) {
 	resolver, err := dns.NewDNSResolver()
 	if err != nil {
 		return nil, err

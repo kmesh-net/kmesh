@@ -145,12 +145,17 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		}
 	}
 
-	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
-
-	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Run(ctx)
-	} else {
-		c.client.AdsController.StartDnsController(stopCh)
+	if c.mode == constants.DualEngineMode {
+		c.client = NewWorkloadXdsClient(c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
+		if c.client.WorkloadController != nil {
+			c.client.WorkloadController.Run(ctx)
+		}
+	} else if c.mode == constants.KernelNativeMode {
+		c.client = NewAdsXdsClient(c.bpfAdsObj, c.bpfConfig.EnableMonitoring, kmeshManageController.NameByAddr)
+		if c.client.AdsController != nil {
+			c.client.AdsController.StartDnsController(stopCh)
+			c.client.AdsController.Run(ctx)
+		}
 	}
 
 	return c.client.Run(stopCh)

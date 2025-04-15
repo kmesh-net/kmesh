@@ -9,7 +9,6 @@
 
 #define MAX_PORT_COUNT            10
 #define MAX_SERVICE_COUNT         10
-#define RINGBUF_SIZE              (1 << 12)
 #define PRIO_COUNT                7
 #define MAX_MEMBER_NUM_PER_POLICY 4
 

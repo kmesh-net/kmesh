@@ -30,6 +30,21 @@ static inline void observe_on_pre_connect(struct bpf_sock *sk)
     return;
 }
 
+static inline void observe_on_connect(struct bpf_sock *sk, const char *dst_svc_name)
+{
+    struct sock_storage_data *storage = NULL;
+    if (!sk)
+        return;
+
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
+    if (!storage) {
+        BPF_LOG(ERR, PROBE, "pre_connect bpf_sk_storage_get failed\n");
+        return;
+    }
+    bpf_strncpy(storage->dst_svc_name, sizeof(storage->dst_svc_name), dst_svc_name);
+    return;
+}
+
 static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 direction)
 {
     if (!is_monitoring_enable()) {
@@ -66,6 +81,7 @@ static inline void observe_on_close(struct bpf_sock *sk)
     if (!is_monitoring_enable()) {
         return;
     }
+
     struct bpf_tcp_sock *tcp_sock = NULL;
     struct sock_storage_data *storage = NULL;
     if (!sk)

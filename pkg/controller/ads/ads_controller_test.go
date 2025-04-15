@@ -117,7 +117,7 @@ func TestHandleAdsStream(t *testing.T) {
 	}
 	defer fakeClient.Cleanup()
 
-	adsStream := NewController(nil)
+	adsStream := NewController(nil, false, nil)
 	adsStream.con = &connection{Stream: fakeClient.AdsClient, requestsChan: channels.NewUnbounded[*service_discovery_v3.DiscoveryRequest](), stopCh: make(chan struct{})}
 	adsStream.dnsResolverController.Run(make(chan struct{}))
 	patches1 := gomonkey.NewPatches()
