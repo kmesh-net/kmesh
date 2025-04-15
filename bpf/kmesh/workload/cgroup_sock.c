@@ -58,33 +58,30 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 
 static inline int set_original_dst_info(struct kmesh_context *kmesh_ctx)
 {
-    int ret;
-    struct bpf_sock_tuple sk_tuple = {0};
+    struct bpf_sock *sk = (struct bpf_sock *)kmesh_ctx->ctx->sk;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
-    __u64 *sk = (__u64 *)ctx->sk;
+
+    struct sock_storage_data *storage = NULL;
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
+    if (!storage) {
+        BPF_LOG(ERR, KMESH, "failed to get storage from map_of_sock_storage");
+        return 0;
+    }
 
     if (kmesh_ctx->via_waypoint) {
-        // since this field is never used, we use it
-        // to indicate whether the request will be handled by waypoint
-        sk_tuple.ipv4.saddr = 1;
+        storage->via_waypoint = true;
     }
 
-    if (ctx->family == AF_INET) {
-        sk_tuple.ipv4.daddr = kmesh_ctx->orig_dst_addr.ip4;
-        sk_tuple.ipv4.dport = ctx->user_port;
-    } else if (ctx->family == AF_INET6) {
-        bpf_memcpy(sk_tuple.ipv6.daddr, kmesh_ctx->orig_dst_addr.ip6, IPV6_ADDR_LEN);
-        sk_tuple.ipv6.dport = ctx->user_port;
+    if (ctx->family == AF_INET && !storage->has_set_ip) {
+        storage->sk_tuple.ipv4.daddr = kmesh_ctx->orig_dst_addr.ip4;
+        storage->sk_tuple.ipv4.dport = ctx->user_port;
+        storage->has_set_ip = true;
+    } else if (ctx->family == AF_INET6 && !storage->has_set_ip) {
+        bpf_memcpy(storage->sk_tuple.ipv6.daddr, kmesh_ctx->orig_dst_addr.ip6, IPV6_ADDR_LEN);
+        storage->sk_tuple.ipv6.dport = ctx->user_port;
+        storage->has_set_ip = true;
     }
 
-    ret = bpf_map_update_elem(&map_of_orig_dst, &(sk), &sk_tuple, BPF_NOEXIST);
-    if (ret) {
-        // only record the first dst info for each socket
-        if (ret == -EEXIST)
-            return 0;
-        BPF_LOG(ERR, BACKEND, "record original dst address failed: %d\n", ret);
-        return ret;
-    }
     return 0;
 }
 

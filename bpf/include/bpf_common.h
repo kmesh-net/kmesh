@@ -46,6 +46,14 @@ struct sock_storage_data {
     __u64 connect_ns;
     __u8 direction;
     __u8 connect_success;
+    // whether has to proxied by waypoint
+    bool via_waypoint;
+    // whether tlv encoded
+    bool has_encoded;
+    // prevent duplicating setting of original dst
+    bool has_set_ip;
+    // original dst info
+    struct bpf_sock_tuple sk_tuple;
 };
 
 struct {

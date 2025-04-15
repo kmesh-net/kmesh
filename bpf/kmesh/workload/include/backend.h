@@ -5,7 +5,6 @@
 #define __ROUTE_BACKEND_H__
 
 #include "workload_common.h"
-#include "encoder.h"
 #include "tail_call.h"
 
 static inline backend_value *map_lookup_backend(const backend_key *key)

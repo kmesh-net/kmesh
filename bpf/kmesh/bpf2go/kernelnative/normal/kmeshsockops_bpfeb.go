@@ -25,7 +25,20 @@ type KmeshSockopsSockStorageData struct {
 	ConnectNs      uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	ViaWaypoint    bool
+	HasEncoded     bool
+	HasSetIp       bool
+	_              [3]byte
+	SkTuple        struct {
+		Ipv4 struct {
+			Saddr uint32
+			Daddr uint32
+			Sport uint16
+			Dport uint16
+		}
+		_ [24]byte
+	}
+	_ [4]byte
 }
 
 // LoadKmeshSockops returns the embedded CollectionSpec for KmeshSockops.
