@@ -19,6 +19,7 @@ package bpftests
 //go:generate protoc --go_out=. trf.proto
 
 import (
+	"context"
 	"encoding/binary"
 	"encoding/hex"
 	"errors"
@@ -38,6 +39,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"kmesh.net/kmesh/pkg/bpf/factory"
+	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -46,10 +48,24 @@ var (
 	dumpCtx  = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
 )
 
-type unittest struct {
+type unitTest struct {
 	name             string
-	objFilename      string
 	setupInUserSpace func(t *testing.T, coll *ebpf.Collection) // Builds test environment in user space, used for operations that cannot be completed in kernel space (e.g., cannot pass the eBPF verifier)
+}
+
+type unitTests struct {
+	objFilename string
+	uts         []unitTest
+}
+
+func (uts *unitTests) run() func(t *testing.T) {
+	return func(t *testing.T) {
+		for _, ut := range uts.uts {
+			t.Run(ut.name, func(t *testing.T) {
+				loadAndRunSpec(t, uts.objFilename, &ut)
+			})
+		}
+	}
 }
 
 func TestBPF(t *testing.T) {
@@ -66,8 +82,8 @@ func TestBPF(t *testing.T) {
 
 // common functions
 
-func loadAndRunSpec(t *testing.T, tt *unittest) {
-	elfPath := path.Join(*testPath, tt.objFilename)
+func loadAndRunSpec(t *testing.T, objFilename string, tt *unitTest) {
+	elfPath := path.Join(*testPath, objFilename)
 	t.Logf("Running test %s", elfPath)
 
 	spec := loadAndPrepSpec(t, elfPath)
@@ -101,14 +117,16 @@ func loadAndRunSpec(t *testing.T, tt *unittest) {
 			continue
 		}
 
-		if match[2] == "pktgen" {
+		switch match[2] {
+		case "pktgen":
 			programs.pktgenProg = coll.Programs[progName]
-		}
-		if match[2] == "jump" {
+		case "jump":
 			programs.jumpProg = coll.Programs[progName]
-		}
-		if match[2] == "check" {
+		case "check":
 			programs.checkProg = coll.Programs[progName]
+		default:
+			t.Fatalf("Unknown program type '%s' for program '%s' in section '%s'",
+				match[2], progName, spec.SectionName)
 		}
 	}
 
@@ -121,14 +139,16 @@ func loadAndRunSpec(t *testing.T, tt *unittest) {
 		)
 	}
 
-	// Collect bpf log events and add them as logs of the main test
-	collectBpfLogEvents(t, coll)
+	if !utils.KernelVersionLowerThan5_13() {
+		// TODO: use t.Context() instead of context.Background() when go 1.24 is required
+		logger.StartLogReader(context.Background(), coll.Maps["km_log_event"])
+	}
 	if tt.setupInUserSpace != nil {
 		tt.setupInUserSpace(t, coll)
 	}
 
 	// run the test
-	subTest(programs, coll.Maps[suiteResultMap])(t)
+	subTest(t, programs, coll.Maps[suiteResultMap])
 }
 
 // collectBpfLogEvents sets up a ring buffer reader for the "km_log_event" eBPF map
@@ -284,150 +304,149 @@ const (
 	suiteResultMap = "suite_result_map"
 )
 
-func subTest(progSet programSet, resultMap *ebpf.Map) func(t *testing.T) {
-	return func(t *testing.T) {
-		// create ctx with the max allowed size(4k - head room - tailroom)
-		data := make([]byte, 4096-256-320)
+func subTest(t *testing.T, progSet programSet, resultMap *ebpf.Map) {
 
-		// ctx is only used for tc programs
-		// non-empty ctx passed to non-tc programs will cause error: invalid argument
-		ctx := make([]byte, 0)
-		if progSet.checkProg.Type() == ebpf.SchedCLS {
-			// sizeof(struct __sk_buff) < 256, let's make it 256
-			ctx = make([]byte, 256)
-		}
+	// create ctx with the max allowed size(4k - head room - tailroom)
+	data := make([]byte, 4096-256-320)
 
-		var (
-			statusCode uint32
-			err        error
-		)
-		if progSet.pktgenProg != nil {
-			if _, data, ctx, err = runBpfProgram(progSet.pktgenProg, data, ctx); err != nil {
-				t.Fatalf("error while running pktgen prog: %s", err)
-			}
+	// ctx is only used for tc programs
+	// non-empty ctx passed to non-tc programs will cause error: invalid argument
+	ctx := make([]byte, 0)
+	if progSet.checkProg.Type() == ebpf.SchedCLS {
+		// sizeof(struct __sk_buff) < 256, let's make it 256
+		ctx = make([]byte, 256)
+	}
 
-			if *dumpCtx {
-				t.Log("Pktgen returned status: ")
-				t.Log(statusCode)
-				t.Log("data after pktgen: ")
-				t.Log(spew.Sdump(data))
-				t.Log("ctx after pktgen: ")
-				t.Log(spew.Sdump(ctx))
-			}
-		}
-
-		if progSet.jumpProg != nil {
-			if statusCode, data, ctx, err = runBpfProgram(progSet.jumpProg, data, ctx); err != nil {
-				t.Fatalf("error while running jump prog: %s", err)
-			}
-
-			if *dumpCtx {
-				t.Log("Jump returned status: ")
-				t.Log(statusCode)
-				t.Log("data after jump: ")
-				t.Log(spew.Sdump(data))
-				t.Log("ctx after jump: ")
-				t.Log(spew.Sdump(ctx))
-			}
-
-			// Write the return value from ebpf program as status code into the first 4 bytes of data
-			status := make([]byte, 4)
-			nl.NativeEndian().PutUint32(status, statusCode)
-			data = append(status, data...)
-		}
-
-		// Run check program
-		if statusCode, data, ctx, err = runBpfProgram(progSet.checkProg, data, ctx); err != nil {
-			t.Fatal("error while running check program:", err)
+	var (
+		statusCode uint32
+		err        error
+	)
+	if progSet.pktgenProg != nil {
+		if _, data, ctx, err = runBpfProgram(progSet.pktgenProg, data, ctx); err != nil {
+			t.Fatalf("error while running pktgen prog: %s", err)
 		}
 
 		if *dumpCtx {
-			t.Log("Check returned status: ")
+			t.Log("Pktgen returned status: ")
 			t.Log(statusCode)
-			t.Logf("data after check: %d", len(data))
+			t.Log("data after pktgen: ")
 			t.Log(spew.Sdump(data))
-			t.Log("ctx after check: ")
+			t.Log("ctx after pktgen: ")
+			t.Log(spew.Sdump(ctx))
+		}
+	}
+
+	if progSet.jumpProg != nil {
+		if statusCode, data, ctx, err = runBpfProgram(progSet.jumpProg, data, ctx); err != nil {
+			t.Fatalf("error while running jump prog: %s", err)
+		}
+
+		if *dumpCtx {
+			t.Log("Jump returned status: ")
+			t.Log(statusCode)
+			t.Log("data after jump: ")
+			t.Log(spew.Sdump(data))
+			t.Log("ctx after jump: ")
 			t.Log(spew.Sdump(ctx))
 		}
 
-		// Clear map value after each test
-		defer func() {
-			for _, m := range []*ebpf.Map{resultMap} {
-				if m == nil {
-					continue
-				}
+		// Write the return value from ebpf program as status code into the first 4 bytes of data
+		status := make([]byte, 4)
+		nl.NativeEndian().PutUint32(status, statusCode)
+		data = append(status, data...)
+	}
 
-				var key int32
-				value := make([]byte, m.ValueSize())
-				m.Lookup(&key, &value)
-				for i := 0; i < len(value); i++ {
-					value[i] = 0
-				}
-				m.Update(&key, &value, ebpf.UpdateAny)
+	// Run check program
+	if statusCode, data, ctx, err = runBpfProgram(progSet.checkProg, data, ctx); err != nil {
+		t.Fatal("error while running check program:", err)
+	}
+
+	if *dumpCtx {
+		t.Log("Check returned status: ")
+		t.Log(statusCode)
+		t.Logf("data after check: %d", len(data))
+		t.Log(spew.Sdump(data))
+		t.Log("ctx after check: ")
+		t.Log(spew.Sdump(ctx))
+	}
+
+	// Clear map value after each test
+	defer func() {
+		for _, m := range []*ebpf.Map{resultMap} {
+			if m == nil {
+				continue
 			}
-		}()
 
-		var key int32
-		value := make([]byte, resultMap.ValueSize())
-		err = resultMap.Lookup(&key, &value)
-		if err != nil {
-			t.Fatal("error while getting suite result:", err)
-		}
-
-		// Detect the length of the result, since the proto.Unmarshal doesn't like trailing zeros.
-		valueLen := 0
-		valueC := value
-		for {
-			_, _, len := protowire.ConsumeField(valueC)
-			if len <= 0 {
-				break
+			var key int32
+			value := make([]byte, m.ValueSize())
+			m.Lookup(&key, &value)
+			for i := 0; i < len(value); i++ {
+				value[i] = 0
 			}
-			valueLen += len
-			valueC = valueC[len:]
+			m.Update(&key, &value, ebpf.UpdateAny)
 		}
+	}()
 
-		result := &SuiteResult{}
-		err = proto.Unmarshal(value[:valueLen], result)
-		if err != nil {
-			t.Fatal("error while unmarshalling suite result:", err)
+	var key int32
+	value := make([]byte, resultMap.ValueSize())
+	err = resultMap.Lookup(&key, &value)
+	if err != nil {
+		t.Fatal("error while getting suite result:", err)
+	}
+
+	// Detect the length of the result, since the proto.Unmarshal doesn't like trailing zeros.
+	valueLen := 0
+	valueC := value
+	for {
+		_, _, len := protowire.ConsumeField(valueC)
+		if len <= 0 {
+			break
 		}
+		valueLen += len
+		valueC = valueC[len:]
+	}
 
-		for _, testResult := range result.Results {
-			// Remove the C-string, null-terminator.
-			name := strings.TrimSuffix(testResult.Name, "\x00")
-			t.Run(name, func(tt *testing.T) {
-				if len(testResult.TestLog) > 0 && testing.Verbose() || testResult.Status != SuiteResult_TestResult_PASS {
-					for _, log := range testResult.TestLog {
-						tt.Logf("%s", log.FmtString())
-					}
+	result := &SuiteResult{}
+	err = proto.Unmarshal(value[:valueLen], result)
+	if err != nil {
+		t.Fatal("error while unmarshalling suite result:", err)
+	}
+
+	for _, testResult := range result.Results {
+		// Remove the C-string, null-terminator.
+		name := strings.TrimSuffix(testResult.Name, "\x00")
+		t.Run(name, func(tt *testing.T) {
+			if len(testResult.TestLog) > 0 && testing.Verbose() || testResult.Status != SuiteResult_TestResult_PASS {
+				for _, log := range testResult.TestLog {
+					tt.Logf("%s", log.FmtString())
 				}
-
-				switch testResult.Status {
-				case SuiteResult_TestResult_ERROR:
-					tt.Fatal("Test failed due to unknown error in test framework")
-				case SuiteResult_TestResult_FAIL:
-					tt.Fail()
-				case SuiteResult_TestResult_SKIP:
-					tt.Skip()
-				}
-			})
-		}
-
-		if len(result.SuiteLog) > 0 && testing.Verbose() ||
-			SuiteResult_TestResult_TestStatus(statusCode) != SuiteResult_TestResult_PASS {
-			for _, log := range result.SuiteLog {
-				t.Logf("%s", log.FmtString())
 			}
-		}
 
-		switch SuiteResult_TestResult_TestStatus(statusCode) {
-		case SuiteResult_TestResult_ERROR:
-			t.Fatal("Test failed due to unknown error in test framework")
-		case SuiteResult_TestResult_FAIL:
-			t.Fail()
-		case SuiteResult_TestResult_SKIP:
-			t.SkipNow()
+			switch testResult.Status {
+			case SuiteResult_TestResult_ERROR:
+				tt.Fatal("Test failed due to unknown error in test framework")
+			case SuiteResult_TestResult_FAIL:
+				tt.Fail()
+			case SuiteResult_TestResult_SKIP:
+				tt.Skip()
+			}
+		})
+	}
+
+	if len(result.SuiteLog) > 0 && testing.Verbose() ||
+		SuiteResult_TestResult_TestStatus(statusCode) != SuiteResult_TestResult_PASS {
+		for _, log := range result.SuiteLog {
+			t.Logf("%s", log.FmtString())
 		}
+	}
+
+	switch SuiteResult_TestResult_TestStatus(statusCode) {
+	case SuiteResult_TestResult_ERROR:
+		t.Fatal("Test failed due to unknown error in test framework")
+	case SuiteResult_TestResult_FAIL:
+		t.Fail()
+	case SuiteResult_TestResult_SKIP:
+		t.SkipNow()
 	}
 }
 
