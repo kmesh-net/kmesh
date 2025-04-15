@@ -32,7 +32,7 @@ static inline void observe_on_pre_connect(struct bpf_sock *sk)
     return;
 }
 
-static inline void observe_on_connect_established(struct bpf_sock *sk, __u64 sock_cookie, __u8 direction)
+static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 direction)
 {
     if (!is_monitoring_enable()) {
         return;
@@ -59,7 +59,6 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u64 soc
         storage->connect_ns = bpf_ktime_get_ns();
     storage->direction = direction;
     storage->connect_success = true;
-    storage->sock_cookie = sock_cookie;
     tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 

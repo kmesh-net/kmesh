@@ -187,8 +187,10 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 			name: "test build workload metrisc to metricCache",
 			args: args{
 				data: requestMetric{
-					src:           [4]uint32{183763210, 0, 0, 0},
-					dst:           [4]uint32{183762951, 0, 0, 0},
+					conSrcDstInfo: connectionSrcDst{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					},
 					sentBytes:     0x0000003,
 					receivedBytes: 0x0000004,
 					packetLost:    0x0000001,
@@ -263,8 +265,10 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 			name: "build service metrics in metricCache",
 			args: args{
 				data: requestMetric{
-					src:           [4]uint32{183763210, 0, 0, 0},
-					dst:           [4]uint32{183762951, 0, 0, 0},
+					conSrcDstInfo: connectionSrcDst{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					},
 					sentBytes:     0x0000009,
 					receivedBytes: 0x0000008,
 					state:         TCP_ESTABLISHED,
@@ -397,8 +401,10 @@ func TestBuildworkloadMetric(t *testing.T) {
 			name: "normal capability test",
 			args: args{
 				data: &requestMetric{
-					src:           [4]uint32{521736970, 0, 0, 0},
-					dst:           [4]uint32{383822016, 0, 0, 0},
+					conSrcDstInfo: connectionSrcDst{
+						src: [4]uint32{521736970, 0, 0, 0},
+						dst: [4]uint32{383822016, 0, 0, 0},
+					},
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
 					packetLost:    uint32(5),
@@ -591,12 +597,14 @@ func TestBuildServiceMetric(t *testing.T) {
 			name: "destination exists with service attached, workload-type request",
 			args: args{
 				data: &requestMetric{
-					// sleep
-					src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
-					// kmesh-daemon
-					dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
-					dstPort: uint16(8000),
-					srcPort: uint16(8000),
+					conSrcDstInfo: connectionSrcDst{
+						// sleep
+						src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
+						// kmesh-daemon
+						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
+						dstPort: uint16(8000),
+						srcPort: uint16(8000),
+					},
 					// kmesh-daemon
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
 					origDstPort:   uint16(8000),
@@ -645,12 +653,14 @@ func TestBuildServiceMetric(t *testing.T) {
 			name: "destination exists with service attached, service-type request",
 			args: args{
 				data: &requestMetric{
-					// sleep
-					src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
-					// kmesh-daemon
-					dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
-					dstPort: uint16(8000),
-					srcPort: uint16(8000),
+					conSrcDstInfo: connectionSrcDst{
+						// sleep
+						src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
+						// kmesh-daemon
+						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
+						dstPort: uint16(8000),
+						srcPort: uint16(8000),
+					},
 					// kmesh-daemon
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("192.168.1.22"), 0, 0, 0},
 					origDstPort:   uint16(8000),
@@ -699,12 +709,14 @@ func TestBuildServiceMetric(t *testing.T) {
 			name: "nil destination workload",
 			args: args{
 				data: &requestMetric{
-					// sleep
-					src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
-					// unknown address
-					dst:     [4]uint32{nets.ConvertIpToUint32("191.168.224.22"), 0, 0, 0},
-					dstPort: uint16(80),
-					srcPort: uint16(8000),
+					conSrcDstInfo: connectionSrcDst{
+						// sleep
+						src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
+						// unknown address
+						dst:     [4]uint32{nets.ConvertIpToUint32("191.168.224.22"), 0, 0, 0},
+						dstPort: uint16(80),
+						srcPort: uint16(8000),
+					},
 					// unknown address
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("191.168.224.22"), 0, 0, 0},
 					origDstPort:   uint16(80),
@@ -753,12 +765,14 @@ func TestBuildServiceMetric(t *testing.T) {
 			name: "service-type request, redirected to waypoint",
 			args: args{
 				data: &requestMetric{
-					// sleep
-					src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
-					srcPort: uint16(49875),
-					// waypoint
-					dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.32"), 0, 0, 0},
-					dstPort: uint16(80),
+					conSrcDstInfo: connectionSrcDst{
+						// sleep
+						src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
+						srcPort: uint16(49875),
+						// waypoint
+						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.32"), 0, 0, 0},
+						dstPort: uint16(80),
+					},
 					// httpbin service
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("192.168.1.23"), 0, 0, 0},
 					origDstPort:   uint16(80),
@@ -807,12 +821,14 @@ func TestBuildServiceMetric(t *testing.T) {
 			name: "workload-type request, redirected to waypoint",
 			args: args{
 				data: &requestMetric{
-					// sleep
-					src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
-					srcPort: uint16(49875),
-					// waypoint
-					dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.32"), 0, 0, 0},
-					dstPort: uint16(80),
+					conSrcDstInfo: connectionSrcDst{
+						// sleep
+						src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
+						srcPort: uint16(49875),
+						// waypoint
+						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.32"), 0, 0, 0},
+						dstPort: uint16(80),
+					},
 					// solelyWorkload
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("10.19.25.34"), 0, 0, 0},
 					origDstPort:   uint16(80),
@@ -861,12 +877,14 @@ func TestBuildServiceMetric(t *testing.T) {
 			name: "destination workload exists without service attached",
 			args: args{
 				data: &requestMetric{
-					// sleep
-					src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
-					srcPort: uint16(49875),
-					// solely workload
-					dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.34"), 0, 0, 0},
-					dstPort: uint16(80),
+					conSrcDstInfo: connectionSrcDst{
+						// sleep
+						src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
+						srcPort: uint16(49875),
+						// solely workload
+						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.34"), 0, 0, 0},
+						dstPort: uint16(80),
+					},
 					// httpbin service
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("10.19.25.34"), 0, 0, 0},
 					origDstPort:   uint16(80),
