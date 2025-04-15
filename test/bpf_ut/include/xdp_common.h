@@ -3,7 +3,7 @@
 
 #pragma once
 
-#define build_xdp_pkg(ctx, p_ethhdr, p_iphdr, p_tcphdr, body, body_len)                                                \
+#define build_xdp_packet(ctx, p_ethhdr, p_iphdr, p_tcphdr, body, body_len)                                             \
     ({                                                                                                                 \
         int __ret = TEST_PASS;                                                                                         \
         unsigned int data_len = (ctx)->data_end - (ctx)->data;                                                         \
@@ -107,7 +107,7 @@
  * The macro fails the test with an error message if any of the checks fail or if there are
  * bounds violations when accessing packet data.
  */
-#define check_xdp_pkg(ctx, exp_status_code, exp_ethhdr, exp_iphdr, exp_tcphdr, exp_body, exp_body_len)                 \
+#define check_xdp_packet(ctx, exp_status_code, exp_ethhdr, exp_iphdr, exp_tcphdr, exp_body, exp_body_len)              \
     do {                                                                                                               \
         void *data = (void *)(long)((ctx)->data);                                                                      \
         void *data_end = (void *)(long)((ctx)->data_end);                                                              \

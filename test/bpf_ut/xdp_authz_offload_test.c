@@ -46,7 +46,7 @@ int test1_pktgen(struct xdp_md *ctx)
         .window = 64240,
     };
 
-    return build_xdp_pkg(ctx, NULL, &l3, &l4, NULL, 0);
+    return build_xdp_packet(ctx, NULL, &l3, &l4, NULL, 0);
 }
 
 JUMP("xdp", "3_deny_policy_matched")
@@ -61,7 +61,7 @@ int test1_check(const struct xdp_md *ctx)
 {
     const __u32 exp_status_code = XDP_DROP;
     test_init();
-    check_xdp_pkg(ctx, &exp_status_code, NULL, NULL, NULL, NULL, 0);
+    check_xdp_packet(ctx, &exp_status_code, NULL, NULL, NULL, NULL, 0);
     test_finish();
 }
 
@@ -88,7 +88,7 @@ int test2_pktgen(struct xdp_md *ctx)
         .window = 64240,
     };
 
-    return build_xdp_pkg(ctx, NULL, &l3, &l4, NULL, 0);
+    return build_xdp_packet(ctx, NULL, &l3, &l4, NULL, 0);
 }
 
 JUMP("xdp", "4_allow_policy_matched")
@@ -103,6 +103,6 @@ int test2_check(const struct xdp_md *ctx)
 {
     const __u32 exp_status_code = XDP_PASS;
     test_init();
-    check_xdp_pkg(ctx, &exp_status_code, NULL, NULL, NULL, NULL, 0);
+    check_xdp_packet(ctx, &exp_status_code, NULL, NULL, NULL, NULL, 0);
     test_finish();
 }

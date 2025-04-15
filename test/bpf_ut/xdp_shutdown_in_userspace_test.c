@@ -53,7 +53,7 @@ int test1_pktgen(struct xdp_md *ctx)
     };
     const char body[20] = "Should not change!!";
 
-    return build_xdp_pkg(ctx, &l2, &l3, &l4, body, (uint)sizeof(body));
+    return build_xdp_packet(ctx, &l2, &l3, &l4, body, (uint)sizeof(body));
 }
 
 JUMP("xdp", "1_shutdown_in_userspace__should_shutdown")
@@ -108,7 +108,7 @@ int test1_check(const struct xdp_md *ctx)
     const char expected_body[20] = "Should not change!!";
     test_init();
 
-    check_xdp_pkg(
+    check_xdp_packet(
         ctx,
         &expected_status_code,
         &expected_ethhdr,
@@ -143,7 +143,7 @@ int test2_pktgen(struct xdp_md *ctx)
         .syn = 1,
         .window = 64240,
     };
-    return build_xdp_pkg(ctx, NULL, &l3, &l4, NULL, 0);
+    return build_xdp_packet(ctx, NULL, &l3, &l4, NULL, 0);
 }
 
 JUMP("xdp", "2_shutdown_in_userspace__should_not_shutdown")
@@ -169,7 +169,7 @@ int test2_check(const struct xdp_md *ctx)
     };
     test_init();
 
-    check_xdp_pkg(ctx, &expected_status_code, NULL, NULL, &expected_tcphdr, NULL, 0);
+    check_xdp_packet(ctx, &expected_status_code, NULL, NULL, &expected_tcphdr, NULL, 0);
 
     test_finish();
 }
