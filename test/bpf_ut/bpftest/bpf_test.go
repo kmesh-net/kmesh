@@ -31,7 +31,6 @@ import (
 	"testing"
 
 	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/ringbuf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/davecgh/go-spew/spew"
 	"github.com/vishvananda/netlink/nl"
@@ -151,61 +150,6 @@ func loadAndRunSpec(t *testing.T, objFilename string, tt *unitTest) {
 	subTest(t, programs, coll.Maps[suiteResultMap])
 }
 
-// collectBpfLogEvents sets up a ring buffer reader for the "km_log_event" eBPF map
-// and logs messages received from the BPF program. This function is a test helper
-// that creates a goroutine to continuously read and process log events.
-//
-// The function skips setup on kernel versions lower than 5.13 as the feature
-// may not be supported. It reads from a ringbuf map named "km_log_event" if present
-// in the provided collection.
-//
-// Each log event is decoded from binary format into a LogEvent structure. Messages
-// that don't start with "bpf log level" are logged to the test logger.
-//
-// Parameters:
-//   - t: The testing context used for logging and test failure reporting
-//   - coll: The eBPF collection containing loaded maps and programs
-//
-// Returns:
-// The goroutine started by this function will continue running until the ringbuff.CollectionSpec: The prepared collection specification
-// reader encounters an error (typically when the map is closed).
-func collectBpfLogEvents(t *testing.T, coll *ebpf.Collection) {
-	if utils.KernelVersionLowerThan5_13() {
-		return
-	}
-	if m, exist := coll.Maps["km_log_event"]; exist {
-		events, err := ringbuf.NewReader(m)
-		if err != nil {
-			t.Fatalf("creating ringbuf event reader: %s", err)
-		}
-
-		go func() {
-			type LogEvent struct {
-				len uint32
-				Msg string
-			}
-			decodeRecord := func(data []byte) *LogEvent {
-				le := LogEvent{}
-				lenOfMsg := binary.NativeEndian.Uint32(data[0:4])
-				le.len = uint32(lenOfMsg)
-				le.Msg = string(data[4 : 4+lenOfMsg-1])
-				return &le
-			}
-
-			for {
-				record, err := events.Read()
-				if err != nil {
-					return
-				}
-				le := decodeRecord(record.RawSample)
-				if !strings.HasPrefix(le.Msg, "bpf log level") {
-					t.Logf("%v", le.Msg)
-				}
-			}
-		}()
-	}
-}
-
 // loadAndPrepSpec loads an eBPF Collection Specification from the provided ELF file
 // and prepares it for testing. It disables pinning for all maps to avoid interference
 // between tests. Additionally, it filters out programs that don't support BPF_PROG_RUN,
@@ -305,7 +249,6 @@ const (
 )
 
 func subTest(t *testing.T, progSet programSet, resultMap *ebpf.Map) {
-
 	// create ctx with the max allowed size(4k - head room - tailroom)
 	data := make([]byte, 4096-256-320)
 

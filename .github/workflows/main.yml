@@ -63,7 +63,7 @@ jobs:
 
     - name: eBPF Unit Test
       run: |
-        sudo make ebpf_unit_test V=1
+        sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:$GITHUB_WORKSPACE/api/v2-c:$GITHUB_WORKSPACE/bpf/deserialization_to_bpf_map make ebpf_unit_test V=1
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4
