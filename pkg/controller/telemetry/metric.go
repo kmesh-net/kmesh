@@ -47,6 +47,8 @@ const (
 	metricFlushInterval = 5 * time.Second
 
 	DEFAULT_UNKNOWN = "-"
+
+	LONG_CONN_METRIC_THRESHOLD = uint64(30 * time.Second)
 )
 
 var osStartTime time.Time
@@ -68,14 +70,16 @@ var TCP_STATES = map[uint32]string{
 }
 
 type MetricController struct {
-	EnableAccesslog      atomic.Bool
-	EnableMonitoring     atomic.Bool
-	EnableWorkloadMetric atomic.Bool
-	workloadCache        cache.WorkloadCache
-	serviceCache         cache.ServiceCache
-	workloadMetricCache  map[workloadMetricLabels]*workloadMetricInfo
-	serviceMetricCache   map[serviceMetricLabels]*serviceMetricInfo
-	mutex                sync.RWMutex
+	EnableAccesslog        atomic.Bool
+	EnableMonitoring       atomic.Bool
+	EnableWorkloadMetric   atomic.Bool
+	EnableConnectionMetric atomic.Bool
+	workloadCache          cache.WorkloadCache
+	serviceCache           cache.ServiceCache
+	workloadMetricCache    map[workloadMetricLabels]*workloadMetricInfo
+	serviceMetricCache     map[serviceMetricLabels]*serviceMetricInfo
+	connectionMetricCache  map[connectionMetricLabels]*connectionMetricInfo
+	mutex                  sync.RWMutex
 }
 
 type workloadMetricInfo struct {
@@ -94,6 +98,13 @@ type serviceMetricInfo struct {
 	ServiceConnSentBytes     float64
 	ServiceConnReceivedBytes float64
 	ServiceConnFailed        float64
+}
+
+type connectionMetricInfo struct {
+	ConnSentBytes     float64
+	ConnReceivedBytes float64
+	ConnTotalRetrans  float64
+	ConnPacketLost    float64
 }
 
 type statistics struct {
@@ -231,12 +242,49 @@ type serviceMetricLabels struct {
 	connectionSecurityPolicy string
 }
 
+type connectionMetricLabels struct {
+	reporter  string
+	startTime string
+
+	sourceWorkload          string
+	sourceCanonicalService  string
+	sourceCanonicalRevision string
+	sourceWorkloadNamespace string
+	sourcePrincipal         string
+	sourceApp               string
+	sourceVersion           string
+	sourceCluster           string
+	sourceAddress           string
+
+	destinationAddress           string
+	destinationPodAddress        string
+	destinationPodNamespace      string
+	destinationPodName           string
+	destinationWorkload          string
+	destinationCanonicalService  string
+	destinationCanonicalRevision string
+	destinationWorkloadNamespace string
+	destinationPrincipal         string
+	destinationApp               string
+	destinationVersion           string
+	destinationCluster           string
+
+	requestProtocol string
+	// TODO: responseFlags is not used for now
+	responseFlags            string
+	connectionSecurityPolicy string
+}
+
 func NewServiceMetricLabel() *serviceMetricLabels {
 	return &serviceMetricLabels{}
 }
 
 func NewWorkloadMetricLabel() *workloadMetricLabels {
 	return &workloadMetricLabels{}
+}
+
+func NewConnectionMetricLabel() *connectionMetricLabels {
+	return &connectionMetricLabels{}
 }
 
 func (w *workloadMetricLabels) withSource(workload *workloadapi.Workload) *workloadMetricLabels {
@@ -311,12 +359,45 @@ func (s *serviceMetricLabels) withDestination(workload *workloadapi.Workload) *s
 	return s
 }
 
+func (w *connectionMetricLabels) withSource(workload *workloadapi.Workload) *connectionMetricLabels {
+	if workload == nil {
+		return w
+	}
+	w.sourceWorkload = workload.GetWorkloadName()
+	w.sourceCanonicalService = workload.GetCanonicalName()
+	w.sourceCanonicalRevision = workload.GetCanonicalRevision()
+	w.sourceWorkloadNamespace = workload.GetNamespace()
+	w.sourceApp = workload.GetCanonicalName()
+	w.sourceVersion = workload.GetCanonicalRevision()
+	w.sourceCluster = workload.GetClusterId()
+	w.sourcePrincipal = buildPrincipal(workload)
+	return w
+}
+
+func (w *connectionMetricLabels) withDestination(workload *workloadapi.Workload) *connectionMetricLabels {
+	if workload == nil {
+		return w
+	}
+	w.destinationPodNamespace = workload.GetNamespace()
+	w.destinationPodName = workload.GetName()
+	w.destinationWorkload = workload.GetWorkloadName()
+	w.destinationCanonicalService = workload.GetCanonicalName()
+	w.destinationCanonicalRevision = workload.GetCanonicalRevision()
+	w.destinationWorkloadNamespace = workload.GetNamespace()
+	w.destinationApp = workload.GetCanonicalName()
+	w.destinationVersion = workload.GetCanonicalRevision()
+	w.destinationCluster = workload.GetClusterId()
+	w.destinationPrincipal = buildPrincipal(workload)
+	return w
+}
+
 func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool) *MetricController {
 	m := &MetricController{
-		workloadCache:       workloadCache,
-		serviceCache:        serviceCache,
-		workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
-		serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
+		workloadCache:         workloadCache,
+		serviceCache:          serviceCache,
+		workloadMetricCache:   map[workloadMetricLabels]*workloadMetricInfo{},
+		serviceMetricCache:    map[serviceMetricLabels]*serviceMetricInfo{},
+		connectionMetricCache: map[connectionMetricLabels]*connectionMetricInfo{},
 	}
 	m.EnableMonitoring.Store(enableMonitoring)
 	m.EnableAccesslog.Store(false)
@@ -411,6 +492,10 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				workloadLabels = m.buildWorkloadMetric(&data)
 			}
 
+			connectionLabels := connectionMetricLabels{}
+			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
+				connectionLabels = m.buildConnectionMetric(&data)
+			}
 			if m.EnableAccesslog.Load() {
 				// accesslogs at start of connection, at interval of 5 sec during connection lifecycle and at close of connection
 				OutputAccesslog(data, tcp_conns[data.conSrcDstInfo], accesslog)
@@ -425,6 +510,9 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				m.updateWorkloadMetricCache(data, workloadLabels)
 			}
 			m.updateServiceMetricCache(data, serviceLabels)
+			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
+				m.updateConnectionMetricCache(data, connectionLabels)
+			}
 			m.mutex.Unlock()
 		}
 	}
@@ -466,6 +554,7 @@ func buildV4Metric(buf *bytes.Buffer, tcp_conns map[connectionSrcDst]connMetric)
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[data.conSrcDstInfo].totalRetrans
 	data.packetLost = connectData.statistics.LostPackets - tcp_conns[data.conSrcDstInfo].packetLost
+
 	tcp_conns[data.conSrcDstInfo] = connMetric{
 		receivedBytes: connectData.ReceivedBytes,
 		sentBytes:     connectData.SentBytes,
@@ -510,6 +599,7 @@ func buildV6Metric(buf *bytes.Buffer, tcp_conns map[connectionSrcDst]connMetric)
 	data.minRtt = connectData.statistics.RttMin
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[data.conSrcDstInfo].totalRetrans
 	data.packetLost = connectData.statistics.LostPackets - tcp_conns[data.conSrcDstInfo].packetLost
+
 	tcp_conns[data.conSrcDstInfo] = connMetric{
 		receivedBytes: connectData.ReceivedBytes,
 		sentBytes:     connectData.SentBytes,
@@ -652,6 +742,43 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 	return *trafficLabels, *accesslog
 }
 
+func (m *MetricController) buildConnectionMetric(data *requestMetric) connectionMetricLabels {
+	var dstAddr, srcAddr []byte
+	for i := range data.conSrcDstInfo.dst {
+		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.conSrcDstInfo.dst[i])
+		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.conSrcDstInfo.src[i])
+	}
+
+	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
+	srcWorkload, srcIP := m.getWorkloadByAddress(restoreIPv4(srcAddr))
+
+	if srcWorkload == nil {
+		return connectionMetricLabels{}
+	}
+
+	trafficLabels := NewConnectionMetricLabel()
+	trafficLabels.withSource(srcWorkload).withDestination(dstWorkload)
+
+	trafficLabels.destinationAddress = dstIP + ":" + fmt.Sprintf("%d", data.conSrcDstInfo.dstPort)
+	trafficLabels.sourceAddress = srcIP + ":" + fmt.Sprintf("%d", data.conSrcDstInfo.srcPort)
+	trafficLabels.destinationPodAddress = dstIP
+	trafficLabels.requestProtocol = "tcp"
+	trafficLabels.connectionSecurityPolicy = "mutual_tls"
+
+	switch data.direction {
+	case constants.INBOUND:
+		trafficLabels.reporter = "destination"
+	case constants.OUTBOUND:
+		trafficLabels.reporter = "source"
+	}
+
+	startTime := calculateUptime(osStartTime, data.startTime)
+	startTimeInfo := fmt.Sprintf("%v", startTime)
+	trafficLabels.startTime = startTimeInfo
+
+	return *trafficLabels
+}
+
 func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Workload, string) {
 	networkAddr := cache.NetworkAddress{}
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
@@ -735,12 +862,31 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 	}
 }
 
+func (m *MetricController) updateConnectionMetricCache(data requestMetric, labels connectionMetricLabels) {
+	v, ok := m.connectionMetricCache[labels]
+	if ok {
+		v.ConnSentBytes = v.ConnSentBytes + float64(data.sentBytes)
+		v.ConnReceivedBytes = v.ConnReceivedBytes + float64(data.receivedBytes)
+		v.ConnPacketLost = v.ConnPacketLost + float64(data.packetLost)
+		v.ConnTotalRetrans = v.ConnTotalRetrans + float64(data.totalRetrans)
+	} else {
+		newConnectionMetricInfo := connectionMetricInfo{}
+		newConnectionMetricInfo.ConnSentBytes = float64(data.sentBytes)
+		newConnectionMetricInfo.ConnReceivedBytes = float64(data.receivedBytes)
+		newConnectionMetricInfo.ConnPacketLost = float64(data.packetLost)
+		newConnectionMetricInfo.ConnTotalRetrans = float64(data.totalRetrans)
+		m.connectionMetricCache[labels] = &newConnectionMetricInfo
+	}
+}
+
 func (m *MetricController) updatePrometheusMetric() {
 	m.mutex.Lock()
 	workloadInfoCache := m.workloadMetricCache
 	serviceInfoCache := m.serviceMetricCache
+	connectionInfoCache := m.connectionMetricCache
 	m.workloadMetricCache = map[workloadMetricLabels]*workloadMetricInfo{}
 	m.serviceMetricCache = map[serviceMetricLabels]*serviceMetricInfo{}
+	m.connectionMetricCache = map[connectionMetricLabels]*connectionMetricInfo{}
 	m.mutex.Unlock()
 
 	for k, v := range workloadInfoCache {
@@ -761,6 +907,14 @@ func (m *MetricController) updatePrometheusMetric() {
 		tcpConnectionFailedInService.With(serviceLabels).Add(v.ServiceConnFailed)
 		tcpReceivedBytesInService.With(serviceLabels).Add(v.ServiceConnReceivedBytes)
 		tcpSentBytesInService.With(serviceLabels).Add(v.ServiceConnSentBytes)
+	}
+
+	for k, v := range connectionInfoCache {
+		connectionLabels := struct2map(k)
+		tcpConnectionTotalSendBytes.With(connectionLabels).Add(v.ConnSentBytes)
+		tcpConnectionTotalReceivedBytes.With(connectionLabels).Add(v.ConnReceivedBytes)
+		tcpConnectionTotalPacketLost.With(connectionLabels).Add(v.ConnPacketLost)
+		tcpConnectionTotalRetrans.With(connectionLabels).Add(v.ConnTotalRetrans)
 	}
 
 	// delete metrics

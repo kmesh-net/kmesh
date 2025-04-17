@@ -48,7 +48,12 @@ type KmeshCgroupSkbCompatSockStorageData struct {
 	LastReportNs   uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	ViaWaypoint    bool
+	HasEncoded     bool
+	HasSetIp       bool
+	_              [3]byte
+	SkTuple        KmeshCgroupSkbCompatBpfSockTuple
+	_              [4]byte
 }
 
 // LoadKmeshCgroupSkbCompat returns the embedded CollectionSpec for KmeshCgroupSkbCompat.
@@ -108,18 +113,17 @@ type KmeshCgroupSkbCompatMapSpecs struct {
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
-	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
 	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
-	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
 	KmeshMap1600  *ebpf.MapSpec `ebpf:"kmesh_map1600"`
 	KmeshMap192   *ebpf.MapSpec `ebpf:"kmesh_map192"`
 	KmeshMap296   *ebpf.MapSpec `ebpf:"kmesh_map296"`
 	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
+	MapOfTcpProbe *ebpf.MapSpec `ebpf:"map_of_tcp_probe"`
 }
 
 // KmeshCgroupSkbCompatVariableSpecs contains global variables before they are loaded into the kernel.
@@ -157,18 +161,17 @@ type KmeshCgroupSkbCompatMaps struct {
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
 	KmManage      *ebpf.Map `ebpf:"km_manage"`
-	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
 	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
-	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
 	KmeshMap1600  *ebpf.Map `ebpf:"kmesh_map1600"`
 	KmeshMap192   *ebpf.Map `ebpf:"kmesh_map192"`
 	KmeshMap296   *ebpf.Map `ebpf:"kmesh_map296"`
 	KmeshMap64    *ebpf.Map `ebpf:"kmesh_map64"`
+	MapOfTcpProbe *ebpf.Map `ebpf:"map_of_tcp_probe"`
 }
 
 func (m *KmeshCgroupSkbCompatMaps) Close() error {
@@ -180,18 +183,17 @@ func (m *KmeshCgroupSkbCompatMaps) Close() error {
 		m.KmFrontend,
 		m.KmLogEvent,
 		m.KmManage,
-		m.KmOrigDst,
 		m.KmPerfInfo,
 		m.KmPerfMap,
 		m.KmService,
 		m.KmSockstorage,
-		m.KmTcpProbe,
 		m.KmTmpbuf,
 		m.KmWlpolicy,
 		m.KmeshMap1600,
 		m.KmeshMap192,
 		m.KmeshMap296,
 		m.KmeshMap64,
+		m.MapOfTcpProbe,
 	)
 }
 

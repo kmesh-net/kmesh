@@ -90,8 +90,38 @@ var (
 		"connection_security_policy",
 	}
 
+	connectionLabels = []string{
+		"reporter",
+		"start_time",
+		"source_workload",
+		"source_canonical_service",
+		"source_canonical_revision",
+		"source_workload_namespace",
+		"source_principal",
+		"source_app",
+		"source_version",
+		"source_cluster",
+		"source_address",
+		"destination_address",
+		"destination_pod_address",
+		"destination_pod_namespace",
+		"destination_pod_name",
+		"destination_workload",
+		"destination_canonical_service",
+		"destination_canonical_revision",
+		"destination_workload_namespace",
+		"destination_principal",
+		"destination_app",
+		"destination_version",
+		"destination_cluster",
+		"request_protocol",
+		"response_flags",
+		"connection_security_policy",
+	}
+
 	labelsMap = map[string]string{
 		"reporter":                     "reporter",
+		"startTime":                    "start_time",
 		"sourceWorkload":               "source_workload",
 		"sourceCanonicalService":       "source_canonical_service",
 		"sourceCanonicalRevision":      "source_canonical_revision",
@@ -100,6 +130,8 @@ var (
 		"sourceApp":                    "source_app",
 		"sourceVersion":                "source_version",
 		"sourceCluster":                "source_cluster",
+		"sourceAddress":                "source_address",
+		"destinationAddress":           "destination_address",
 		"destinationService":           "destination_service",
 		"destinationServiceNamespace":  "destination_service_namespace",
 		"destinationServiceName":       "destination_service_name",
@@ -209,6 +241,31 @@ var (
 			Help: "The total number of TCP connections failed to a service.",
 		}, serviceLabels)
 
+	// Metrics to track the status of long lived TCP connections (duration > 30s)
+	tcpConnectionTotalSendBytes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_connection_sent_bytes_total",
+			Help: "The total number of bytes sent over established TCP connection.",
+		}, connectionLabels)
+
+	tcpConnectionTotalReceivedBytes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_connection_received_bytes_total",
+			Help: "The total number of bytes received over established TCP connection.",
+		}, connectionLabels)
+
+	tcpConnectionTotalPacketLost = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_connection_packet_lost_total",
+			Help: "Total number of packets lost during transmission in a TCP connection.",
+		}, connectionLabels)
+
+	tcpConnectionTotalRetrans = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_tcp_connection_retrans_total",
+			Help: "The total number of retransmits over established TCP connection.",
+		}, connectionLabels)
+
 	// New operation metrics
 	bpfProgOpDuration = prometheus.NewHistogramVec(
 		prometheus.HistogramOpts{
@@ -257,6 +314,7 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	defer mu.Unlock()
 	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
+	registry.MustRegister(tcpConnectionTotalSendBytes, tcpConnectionTotalReceivedBytes, tcpConnectionTotalPacketLost, tcpConnectionTotalRetrans)
 	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
 	registry.MustRegister(mapEntryCount, mapCountInNode)
 
