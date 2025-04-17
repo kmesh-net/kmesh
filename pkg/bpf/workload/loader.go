@@ -94,6 +94,13 @@ func (w *BpfWorkload) Start() error {
 		return fmt.Errorf("failed to set api env")
 	}
 
+	if err := w.DeserialInit(); err != nil {
+		return fmt.Errorf("failed to init deserialization: %v", err)
+	}
+	return nil
+}
+
+func (w *BpfWorkload) DeserialInit() error {
 	ret := C.deserial_init()
 	if ret != 0 {
 		return fmt.Errorf("deserial_init failed:%v", ret)

@@ -658,17 +658,27 @@ int policy_check(struct xdp_md *ctx)
             BPF_LOG(
                 DEBUG,
                 AUTH,
-                "src ip: %u, dst ip %u, dst port: %u\n",
+                "src ip: %s, src port:%u",
                 ip2str(&tuple_key.ipv4.saddr, true),
+                bpf_ntohs(tuple_key.ipv4.sport));
+            BPF_LOG(
+                DEBUG,
+                AUTH,
+                "dst ip: %s, dst port:%u\n",
                 ip2str(&tuple_key.ipv4.daddr, true),
                 bpf_ntohs(tuple_key.ipv4.dport));
         } else {
             BPF_LOG(
                 DEBUG,
                 AUTH,
-                "src ip: %u, dst ip %u, dst port: %u\n",
-                ip2str(&tuple_key.ipv6.saddr[0], false),
-                ip2str(&tuple_key.ipv6.daddr[0], false),
+                "src ip: %s, src port:%u",
+                ip2str(tuple_key.ipv6.saddr, false),
+                bpf_ntohs(tuple_key.ipv6.sport));
+            BPF_LOG(
+                DEBUG,
+                AUTH,
+                "dst ip: %s, dst port:%u\n",
+                ip2str(tuple_key.ipv6.daddr, false),
                 bpf_ntohs(tuple_key.ipv6.dport));
         }
         if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {

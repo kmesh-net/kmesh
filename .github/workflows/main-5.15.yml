@@ -36,3 +36,7 @@ jobs:
       - name: Go Test
         run: |
           sudo make test RUN_IN_CONTAINER=1
+
+      - name: eBPF Unit Test
+        run: |
+          sudo make ebpf_unit_test RUN_IN_CONTAINER=1 V=1
