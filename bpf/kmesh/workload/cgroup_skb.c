@@ -6,7 +6,6 @@
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
 #include "bpf_log.h"
-#include "encoder.h"
 #include "bpf_common.h"
 #include "probe.h"
 
