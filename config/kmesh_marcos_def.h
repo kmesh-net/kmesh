@@ -25,28 +25,6 @@
 #define MDA_GID_UID_FILTER 1
 
 /*
- * openEuler-23.03 is an innovative version of openEuler, in the early time, we
- * developed kmesh based on openEuler-23.03, and the implementation of kmesh
- * was related to the openEuler-23.03 kernel. Now, the general implementation
- * of kmesh differs from the previous openEuler-23.03 version, so we need to
- * use this macro to distinguish these differences.
- * The main differences between the general implementation of kmesh and the
- * openEuler-23.03 version are as follows:
- * 1. Use replylong parameter instead of directly modifying the remote IP and Port;
- * 2. Use bpf__strncmp instead of bpf_strncmp for string comparison;
- * 3. Fix Port shift bug on openEuler-23.03.In the kernel network protocol
- *    stack, the port is stored in u16, but in the bpf network module, the port
- *    is stored in u32. Therefore, after the endian conversion, the 16-bit port
- *    needs to be obtained from the 32-bit data structure.
- *    You need to find the position of the valid 16 bits. Generally, after the
- *    port is extended from 16 bits to 32 bits, the port is in the upper 16
- *    bits after the endian conversion. Therefore, you need to offset the port
- *    before using the u16 RX port. In some specific kernels, the port stored
- *    in sockops is in the lower 16 bits and does not need to be offset.
- */
-#define OE_23_03 0
-
-/*
  * in kernel 6.x version, add the new iter type ITER_UBUF, and we need add code
  * for the corresponding scenarios.
  */
@@ -68,3 +46,8 @@
  * is enabled accordingly.
  * */
 #define LIBBPF_HIGHER_0_6_0_VERSION 0
+
+/*
+ * Determine whether the current kernel version supports the use of kfunc.
+ */
+#define KERNEL_KFUNC 0
