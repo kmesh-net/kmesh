@@ -210,14 +210,31 @@ e2e-ipv6:
 format:
 	./hack/format.sh
 
-.PHONY: test
-ifeq ($(RUN_IN_CONTAINER),1)
-test:
+# Variables for test filtering
+RUN_IN_CONTAINER ?= 0
+UNIT_TEST_PATTERN ?= .
+E2E_TEST_PATTERN ?= .
+
+# Run unit tests
+.PHONY: test-unit
+test-unit:
+ifeq ($(RUN_IN_CONTAINER), 1)
+	@echo "Running unit tests in Docker..."
 	./hack/run-ut.sh --docker
 else
-test:
+	@echo "Running unit tests locally..."
 	./hack/run-ut.sh --local
 endif
+
+# Run E2E tests
+.PHONY: test-e2e
+test-e2e:
+	@echo "Running E2E tests..."
+	./test/e2e/run_test.sh --only-run-tests
+
+# Run all tests (unit + E2E)
+.PHONY: test
+test: test-unit test-e2e
 
 UPDATE_VERSION ?= ${VERSION}
 .PHONY: update-version
