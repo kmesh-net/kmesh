@@ -257,6 +257,9 @@ type connectionMetricLabels struct {
 	sourceAddress           string
 
 	destinationAddress           string
+	destinationService           string
+	destinationServiceNamespace  string
+	destinationServiceName       string
 	destinationPodAddress        string
 	destinationPodNamespace      string
 	destinationPodName           string
@@ -359,36 +362,46 @@ func (s *serviceMetricLabels) withDestination(workload *workloadapi.Workload) *s
 	return s
 }
 
-func (w *connectionMetricLabels) withSource(workload *workloadapi.Workload) *connectionMetricLabels {
+func (c *connectionMetricLabels) withSource(workload *workloadapi.Workload) *connectionMetricLabels {
 	if workload == nil {
-		return w
+		return c
 	}
-	w.sourceWorkload = workload.GetWorkloadName()
-	w.sourceCanonicalService = workload.GetCanonicalName()
-	w.sourceCanonicalRevision = workload.GetCanonicalRevision()
-	w.sourceWorkloadNamespace = workload.GetNamespace()
-	w.sourceApp = workload.GetCanonicalName()
-	w.sourceVersion = workload.GetCanonicalRevision()
-	w.sourceCluster = workload.GetClusterId()
-	w.sourcePrincipal = buildPrincipal(workload)
-	return w
+	c.sourceWorkload = workload.GetWorkloadName()
+	c.sourceCanonicalService = workload.GetCanonicalName()
+	c.sourceCanonicalRevision = workload.GetCanonicalRevision()
+	c.sourceWorkloadNamespace = workload.GetNamespace()
+	c.sourceApp = workload.GetCanonicalName()
+	c.sourceVersion = workload.GetCanonicalRevision()
+	c.sourceCluster = workload.GetClusterId()
+	c.sourcePrincipal = buildPrincipal(workload)
+	return c
 }
 
-func (w *connectionMetricLabels) withDestination(workload *workloadapi.Workload) *connectionMetricLabels {
+func (c *connectionMetricLabels) withDestination(workload *workloadapi.Workload) *connectionMetricLabels {
 	if workload == nil {
-		return w
+		return c
 	}
-	w.destinationPodNamespace = workload.GetNamespace()
-	w.destinationPodName = workload.GetName()
-	w.destinationWorkload = workload.GetWorkloadName()
-	w.destinationCanonicalService = workload.GetCanonicalName()
-	w.destinationCanonicalRevision = workload.GetCanonicalRevision()
-	w.destinationWorkloadNamespace = workload.GetNamespace()
-	w.destinationApp = workload.GetCanonicalName()
-	w.destinationVersion = workload.GetCanonicalRevision()
-	w.destinationCluster = workload.GetClusterId()
-	w.destinationPrincipal = buildPrincipal(workload)
-	return w
+	c.destinationPodNamespace = workload.GetNamespace()
+	c.destinationPodName = workload.GetName()
+	c.destinationWorkload = workload.GetWorkloadName()
+	c.destinationCanonicalService = workload.GetCanonicalName()
+	c.destinationCanonicalRevision = workload.GetCanonicalRevision()
+	c.destinationWorkloadNamespace = workload.GetNamespace()
+	c.destinationApp = workload.GetCanonicalName()
+	c.destinationVersion = workload.GetCanonicalRevision()
+	c.destinationCluster = workload.GetClusterId()
+	c.destinationPrincipal = buildPrincipal(workload)
+	return c
+}
+
+func (c *connectionMetricLabels) withDestinationService(service *workloadapi.Service) *connectionMetricLabels {
+	if service == nil {
+		return c
+	}
+	c.destinationService = service.GetHostname()
+	c.destinationServiceName = service.GetName()
+	c.destinationServiceNamespace = service.GetNamespace()
+	return c
 }
 
 func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCache, enableMonitoring bool) *MetricController {
@@ -743,10 +756,11 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 }
 
 func (m *MetricController) buildConnectionMetric(data *requestMetric) connectionMetricLabels {
-	var dstAddr, srcAddr []byte
+	var dstAddr, srcAddr, origAddr []byte
 	for i := range data.conSrcDstInfo.dst {
 		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.conSrcDstInfo.dst[i])
 		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.conSrcDstInfo.src[i])
+		origAddr = binary.LittleEndian.AppendUint32(origAddr, data.origDstAddr[i])
 	}
 
 	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
@@ -756,8 +770,16 @@ func (m *MetricController) buildConnectionMetric(data *requestMetric) connection
 		return connectionMetricLabels{}
 	}
 
+	dstService := m.fetchOriginalService(restoreIPv4(origAddr), uint32(data.origDstPort))
+	// if dstService not found, we use the address as hostname for metrics
+	if dstService == nil {
+		dstService = &workloadapi.Service{
+			Hostname: dstIP,
+		}
+	}
+
 	trafficLabels := NewConnectionMetricLabel()
-	trafficLabels.withSource(srcWorkload).withDestination(dstWorkload)
+	trafficLabels.withSource(srcWorkload).withDestination(dstWorkload).withDestinationService(dstService)
 
 	trafficLabels.destinationAddress = dstIP + ":" + fmt.Sprintf("%d", data.conSrcDstInfo.dstPort)
 	trafficLabels.sourceAddress = srcIP + ":" + fmt.Sprintf("%d", data.conSrcDstInfo.srcPort)
