@@ -25,8 +25,9 @@ import (
 
 func Test_buildAccesslog(t *testing.T) {
 	type args struct {
-		data      requestMetric
-		accesslog logInfo
+		conn_metrics connMetric
+		req_metrics  requestMetric
+		accesslog    logInfo
 	}
 	tests := []struct {
 		name string
@@ -36,11 +37,14 @@ func Test_buildAccesslog(t *testing.T) {
 		{
 			name: "build accesslog",
 			args: args{
-				data: requestMetric{
+				conn_metrics: connMetric{
 					sentBytes:     uint32(60),
 					receivedBytes: uint32(172),
-					duration:      uint64(2236000),
-					closeTime:     uint64(3506247005837715),
+				},
+				req_metrics: requestMetric{
+					duration:       uint64(2236000),
+					startTime:      uint64(3506247005837715),
+					lastReportTime: uint64(3506247005837715),
 				},
 				accesslog: logInfo{
 					direction:            "INBOUND",
@@ -51,15 +55,16 @@ func Test_buildAccesslog(t *testing.T) {
 					destinationService:   "httpbin.ambient-demo.svc.cluster.local",
 					destinationWorkload:  "httpbin-86b8ffc5ff-bhvxx",
 					destinationNamespace: "kmesh-system",
+					state:                "BPF_TCP_SYN_RECV",
 				},
 			},
-			want: "2024-08-14 10:11:27.005837715 +0000 UTC src.addr=10.244.0.10:47667, src.workload=sleep-7656cf8794-9v2gv, src.namespace=kmesh-system, dst.addr=10.244.0.7:8080, dst.service=httpbin.ambient-demo.svc.cluster.local, dst.workload=httpbin-86b8ffc5ff-bhvxx, dst.namespace=kmesh-system, direction=INBOUND, sent_bytes=60, received_bytes=172, srtt=0us, min_rtt=0us, duration=2.236ms",
+			want: "2024-08-14 10:11:27.005837715 +0000 UTC src.addr=10.244.0.10:47667, src.workload=sleep-7656cf8794-9v2gv, src.namespace=kmesh-system, dst.addr=10.244.0.7:8080, dst.service=httpbin.ambient-demo.svc.cluster.local, dst.workload=httpbin-86b8ffc5ff-bhvxx, dst.namespace=kmesh-system, start_time=2024-08-14 10:11:27.005837715 +0000 UTC, direction=INBOUND, state=BPF_TCP_SYN_RECV, sent_bytes=60, received_bytes=172, packet_loss=0, retransmissions=0, srtt=0us, min_rtt=0us, duration=2.236ms",
 		},
 	}
 	osStartTime = time.Date(2024, 7, 4, 20, 14, 0, 0, time.UTC)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildAccesslog(tt.args.data, tt.args.accesslog)
+			got := buildAccesslog(tt.args.req_metrics, tt.args.conn_metrics, tt.args.accesslog)
 			assert.Equal(t, tt.want, got)
 		})
 	}

@@ -44,6 +44,7 @@ struct {
 
 struct sock_storage_data {
     __u64 connect_ns;
+    __u64 last_report_ns;
     __u8 direction;
     __u8 connect_success;
     // whether has to proxied by waypoint
@@ -313,4 +314,21 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
     return (*value == 0);
 }
 
+static inline bool is_managed_by_kmesh_skb(struct __sk_buff *skb)
+{
+    struct manager_key key = {0};
+    if (skb->family == AF_INET)
+        key.addr.ip4 = skb->local_ip4;
+    if (skb->family == AF_INET6) {
+        if (is_ipv4_mapped_addr(skb->local_ip6))
+            key.addr.ip4 = skb->local_ip6[3];
+        else
+            IP6_COPY(key.addr.ip6, skb->local_ip6);
+    }
+
+    int *value = bpf_map_lookup_elem(&map_of_manager, &key);
+    if (!value)
+        return false;
+    return (*value == 0);
+}
 #endif

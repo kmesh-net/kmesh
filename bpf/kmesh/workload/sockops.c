@@ -155,6 +155,7 @@ int sockops_prog(struct bpf_sock_ops *skops)
 {
     if (skops->family != AF_INET && skops->family != AF_INET6)
         return 0;
+
     switch (skops->op) {
     case BPF_SOCK_OPS_TCP_CONNECT_CB:
         skops_handle_kmesh_managed_process(skops);

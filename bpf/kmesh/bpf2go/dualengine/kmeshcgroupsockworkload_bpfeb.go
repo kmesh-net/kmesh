@@ -45,6 +45,7 @@ type KmeshCgroupSockWorkloadOperationUsageKey struct {
 
 type KmeshCgroupSockWorkloadSockStorageData struct {
 	ConnectNs      uint64
+	LastReportNs   uint64
 	Direction      uint8
 	ConnectSuccess uint8
 	ViaWaypoint    bool
