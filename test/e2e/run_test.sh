@@ -5,7 +5,7 @@
 # AND ADAPTED FOR KMESH.
 
 # Exit immediately for non zero status
-set -e
+# set -e
 
 DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba9702bef25227a794b52890dd8bcd692e"
 
@@ -137,6 +137,16 @@ function setup_kmesh() {
         echo "Waiting for pods of Kmesh daemon to enter Running state..."
         sleep 1
     done
+
+    # Set log of each Kmesh pods.
+    #PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+
+    #sleep 10
+
+    #for POD in $PODS; do
+    #    echo $POD
+    #    kmeshctl log $POD --set bpf:debug
+    #done
 }
 
 export KIND_REGISTRY_NAME="kind-registry"
@@ -159,6 +169,11 @@ function setup_kind_registry() {
 
 function build_and_push_images() {
     HUB="${KIND_REGISTRY}" TAG="latest" make docker.push
+}
+
+function install_kmeshctl() {
+    # Install kmeshctl
+    cp kmeshctl $TMPBIN
 }
 
 function install_dependencies() {
@@ -274,6 +289,7 @@ fi
 if [[ -z "${SKIP_BUILD:-}" ]]; then
     setup_kind_registry
     build_and_push_images
+    install_kmeshctl
 fi
 
 kubectl config use-context "kind-$NAME"
@@ -286,9 +302,71 @@ if [[ -z "${SKIP_SETUP:-}" ]]; then
     setup_kmesh
 fi
 
-cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
+uname -a
 
-bash -c "$cmd"
+cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]} -failfast"
+
+exit_code=0
+
+for i in {1..100}; do
+    echo "Iteration $i"
+
+    # 删除前缀为 "echo" 的 k8s namespace
+    kubectl get namespaces --no-headers | awk '/^(echo|another)/{print $1}' | xargs -r kubectl delete namespace
+
+    # 执行命令，如果失败则跳出循环
+    if ! bash -c "$cmd"; then
+        echo "Command failed, exiting loop."
+        exit_code=1
+        break
+    fi
+done
+
+#bash -c "$cmd"
+
+#exit_code=$?
+
+# 定义变量
+NAMESPACE="kmesh-system"
+NODE_NAME="kmesh-testing-worker"
+
+# 获取指定节点上所有 Pods 的名称
+PODS=$(kubectl get pods -n $NAMESPACE --field-selector spec.nodeName=$NODE_NAME -o jsonpath='{.items[*].metadata.name}')
+
+# 检查是否找到 Pods
+if [ -z "$PODS" ]; then
+  echo "No pods found on node $NODE_NAME in namespace $NAMESPACE."
+  exit 1
+fi
+
+# 遍历每个 Pod 并输出日志
+for POD in $PODS; do
+  echo "Logs for Pod: $POD"
+  #kubectl logs -n $NAMESPACE $POD
+  echo "----------------------------------------"
+done
+
+# 定义命名空间前缀和 Pod 前缀
+#NAMESPACE_PREFIX="echo"
+#POD_PREFIX="waypoint"
+#
+## 获取所有符合条件的命名空间
+#NAMESPACES=$(kubectl get namespaces --no-headers | awk '{print $1}' | grep "^$NAMESPACE_PREFIX")
+#
+## 遍历每个命名空间
+#for NAMESPACE in $NAMESPACES; do
+#  # 获取以 waypoint 为前缀的 Pods
+#  PODS=$(kubectl get pods -n $NAMESPACE --no-headers | awk '{print $1}' | grep "^$POD_PREFIX")
+#
+#  # 遍历每个 Pod 并输出日志
+#  for POD in $PODS; do
+#    echo "Fetching logs for Pod: $POD in Namespace: $NAMESPACE"
+#    kubectl logs -n $NAMESPACE $POD --tail=10000
+#    echo "----------------------------------------"
+#  done
+#done
+
+sleep 10
 
 if [[ -n "${CLEANUP_KIND}" ]]; then
     cleanup_kind_cluster
@@ -299,3 +377,5 @@ if [[ -n "${CLEANUP_REGISTRY}" ]]; then
 fi
 
 rm -rf "${TMP}"
+
+exit $exit_code
