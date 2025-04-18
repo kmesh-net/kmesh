@@ -258,12 +258,12 @@ type connectionMetricLabels struct {
 	sourceAddress           string
 
 	destinationAddress           string
-	destinationService           string
-	destinationServiceNamespace  string
-	destinationServiceName       string
 	destinationPodAddress        string
 	destinationPodNamespace      string
 	destinationPodName           string
+	destinationService           string
+	destinationServiceNamespace  string
+	destinationServiceName       string
 	destinationWorkload          string
 	destinationCanonicalService  string
 	destinationCanonicalRevision string
@@ -275,7 +275,7 @@ type connectionMetricLabels struct {
 
 	requestProtocol string
 	// TODO: responseFlags is not used for now
-	responseFlags            string
+	// responseFlags            string
 	connectionSecurityPolicy string
 }
 
@@ -526,7 +526,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 			m.updateServiceMetricCache(data, serviceLabels, tcp_conns)
 			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
-				m.updateConnectionMetricCache(data, connectionLabels)
+				m.updateConnectionMetricCache(data, connectionLabels, &deleteConnection)
 			}
 			m.mutex.Unlock()
 		}
@@ -906,7 +906,7 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 	}
 }
 
-func (m *MetricController) updateConnectionMetricCache(data requestMetric, labels connectionMetricLabels) {
+func (m *MetricController) updateConnectionMetricCache(data requestMetric, labels connectionMetricLabels, delConn *[]*connectionMetricLabels) {
 	v, ok := m.connectionMetricCache[labels]
 	if ok {
 		v.ConnSentBytes = v.ConnSentBytes + float64(data.sentBytes)
@@ -920,6 +920,11 @@ func (m *MetricController) updateConnectionMetricCache(data requestMetric, label
 		newConnectionMetricInfo.ConnPacketLost = float64(data.packetLost)
 		newConnectionMetricInfo.ConnTotalRetrans = float64(data.totalRetrans)
 		m.connectionMetricCache[labels] = &newConnectionMetricInfo
+	}
+	if data.state == TCP_CLOSTED {
+		deleteLock.Lock()
+		*delConn = append(*delConn, &labels)
+		deleteLock.Unlock()
 	}
 }
 
@@ -968,6 +973,8 @@ func (m *MetricController) updatePrometheusMetric() {
 	deleteWorkload = nil
 	serviceReplica := deleteService
 	deleteService = nil
+	connReplica := deleteConnection
+	deleteConnection = []*connectionMetricLabels{}
 	deleteLock.Unlock()
 
 	for i := 0; i < len(workloadReplica); i++ {
@@ -975,6 +982,9 @@ func (m *MetricController) updatePrometheusMetric() {
 	}
 	for i := 0; i < len(serviceReplica); i++ {
 		deleteServiceMetricInPrometheus(serviceReplica[i])
+	}
+	for i := 0; i < len(connReplica); i++ {
+		deleteConnectionMetricInPrometheus(connReplica[i])
 	}
 }
 

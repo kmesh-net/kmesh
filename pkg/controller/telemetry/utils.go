@@ -34,9 +34,10 @@ var (
 	// ensure not occur matche the same requests as /status/metric panic in unit test
 	mu sync.Mutex
 	// Ensure concurrency security when removing metriclabels from workloads and services.
-	deleteLock     sync.Mutex
-	deleteWorkload = []*workloadapi.Workload{}
-	deleteService  = []string{}
+	deleteLock       sync.Mutex
+	deleteWorkload   = []*workloadapi.Workload{}
+	deleteService    = []string{}
+	deleteConnection = []*connectionMetricLabels{}
 
 	workloadLabels = []string{
 		"reporter",
@@ -382,4 +383,11 @@ func deleteServiceMetricInPrometheus(serviceName string) {
 	_ = tcpConnectionOpenedInService.DeletePartialMatch(prometheus.Labels{"destination_service_name": svcHost, "destination_service_namespace": svcNamespace})
 	_ = tcpReceivedBytesInService.DeletePartialMatch(prometheus.Labels{"destination_service_name": svcHost, "destination_service_namespace": svcNamespace})
 	_ = tcpSentBytesInService.DeletePartialMatch(prometheus.Labels{"destination_service_name": svcHost, "destination_service_namespace": svcNamespace})
+}
+
+func deleteConnectionMetricInPrometheus(connLabels *connectionMetricLabels) {
+	_ = tcpConnectionTotalSendBytes.DeletePartialMatch(prometheus.Labels{"source_address": connLabels.sourceAddress, "destination_address": connLabels.destinationAddress})
+	_ = tcpConnectionTotalReceivedBytes.DeletePartialMatch(prometheus.Labels{"source_address": connLabels.sourceAddress, "destination_address": connLabels.destinationAddress})
+	_ = tcpConnectionTotalPacketLost.DeletePartialMatch(prometheus.Labels{"source_address": connLabels.sourceAddress, "destination_address": connLabels.destinationAddress})
+	_ = tcpConnectionTotalRetrans.DeletePartialMatch(prometheus.Labels{"source_address": connLabels.sourceAddress, "destination_address": connLabels.destinationAddress})
 }
