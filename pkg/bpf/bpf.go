@@ -488,9 +488,12 @@ func (l *BpfLoader) GetAuthzOffload() uint32 {
 }
 
 func (l *BpfLoader) UpdateEnableMonitoring(EnableMonitoring uint32) error {
-	if l.EnableMonitoring != nil {
-		if err := l.EnableMonitoring.Set(EnableMonitoring); err != nil {
-			return fmt.Errorf("set EnableMonitoring failed %w", err)
+	if l.workloadObj != nil {
+		if err := l.workloadObj.CgroupSkb.EnableMonitoring.Set(EnableMonitoring); err != nil {
+			return fmt.Errorf("set CgroupSkb EnableMonitoring failed %w", err)
+		}
+		if err := l.workloadObj.SockOps.EnableMonitoring.Set(EnableMonitoring); err != nil {
+			return fmt.Errorf("set SockOps EnableMonitoring failed %w", err)
 		}
 	}
 
