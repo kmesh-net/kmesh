@@ -27,6 +27,8 @@ type GlobalBpfConfig struct {
 }
 
 type KmeshBpfConfig struct {
+	// Note: donot use this field to set, we need to set global variable for different bpf progs separately.
+	// Though the global variable for diff bpf progs can be with same name, actually they are storred in diff maps.
 	BpfLogLevel      *ebpf.Variable
 	NodeIP           *ebpf.Variable
 	PodGateway       *ebpf.Variable
