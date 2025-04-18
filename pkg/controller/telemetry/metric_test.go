@@ -175,8 +175,9 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 
 func TestBuildMetricsToPrometheus(t *testing.T) {
 	type args struct {
-		data   requestMetric
-		labels workloadMetricLabels
+		data      requestMetric
+		labels    workloadMetricLabels
+		tcp_conns map[connectionSrcDst]connMetric
 	}
 	tests := []struct {
 		name string
@@ -222,10 +223,75 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					responseFlags:                "-",
 					connectionSecurityPolicy:     "mutual_tls",
 				},
+				tcp_conns: map[connectionSrcDst]connMetric{
+					{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					}: {
+						totalReports: 1,
+					},
+				},
 			},
 			want: []float64{
 				0,
 				1,
+				4,
+				3,
+				1,
+				2,
+			},
+		},
+		{
+			name: "test build workload metrisc to metricCache for conn report at intervals",
+			args: args{
+				data: requestMetric{
+					conSrcDstInfo: connectionSrcDst{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					},
+					sentBytes:     0x0000003,
+					receivedBytes: 0x0000004,
+					packetLost:    0x0000001,
+					totalRetrans:  0x0000002,
+					state:         TCP_ESTABLISHED,
+				},
+				labels: workloadMetricLabels{
+					reporter:                     "destination",
+					sourceWorkload:               "sleep",
+					sourceCanonicalService:       "sleep",
+					sourceCanonicalRevision:      "latest",
+					sourceWorkloadNamespace:      "ambient-demo",
+					sourcePrincipal:              "spiffe://cluster.local/ns/ambient-demo/sa/sleep",
+					sourceApp:                    "sleep",
+					sourceVersion:                "latest",
+					sourceCluster:                "Kubernetes",
+					destinationPodAddress:        "192.168.20.25",
+					destinationPodNamespace:      "ambient-demo",
+					destinationPodName:           "tcp-echo",
+					destinationWorkload:          "tcp-echo",
+					destinationCanonicalService:  "tcp-echo",
+					destinationCanonicalRevision: "v1",
+					destinationWorkloadNamespace: "ambient-demo",
+					destinationPrincipal:         "spiffe://cluster.local/ns/ambient-demo/sa/default",
+					destinationApp:               "tcp-echo",
+					destinationVersion:           "v1",
+					destinationCluster:           "Kubernetes",
+					requestProtocol:              "tcp",
+					responseFlags:                "-",
+					connectionSecurityPolicy:     "mutual_tls",
+				},
+				tcp_conns: map[connectionSrcDst]connMetric{
+					{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					}: {
+						totalReports: 3,
+					},
+				},
+			},
+			want: []float64{
+				0,
+				0,
 				4,
 				3,
 				1,
@@ -240,7 +306,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 			}
-			m.updateWorkloadMetricCache(tt.args.data, tt.args.labels)
+			m.updateWorkloadMetricCache(tt.args.data, tt.args.labels, tt.args.tcp_conns)
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnClosed, tt.want[0])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnOpened, tt.want[1])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnReceivedBytes, tt.want[2])
@@ -253,8 +319,9 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 
 func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 	type args struct {
-		data   requestMetric
-		labels serviceMetricLabels
+		data      requestMetric
+		labels    serviceMetricLabels
+		tcp_conns map[connectionSrcDst]connMetric
 	}
 	tests := []struct {
 		name string
@@ -297,10 +364,70 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 					responseFlags:                "-",
 					connectionSecurityPolicy:     "mutual_tls",
 				},
+				tcp_conns: map[connectionSrcDst]connMetric{
+					{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					}: {
+						totalReports: 1,
+					},
+				},
 			},
 			want: []float64{
 				0,
 				1,
+				8,
+				9,
+			},
+		},
+		{
+			name: "build service metrics in metricCache for conn report at interval",
+			args: args{
+				data: requestMetric{
+					conSrcDstInfo: connectionSrcDst{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					},
+					sentBytes:     0x0000009,
+					receivedBytes: 0x0000008,
+					state:         TCP_ESTABLISHED,
+				},
+				labels: serviceMetricLabels{
+					sourceWorkload:               "kmesh-daemon",
+					sourceCanonicalService:       "srcCanonical",
+					sourceCanonicalRevision:      "srcVersion",
+					sourceWorkloadNamespace:      "kmesh-system",
+					sourcePrincipal:              "spiffe://cluster.local/ns/kmesh-system/sa/default",
+					sourceApp:                    "srcCanonical",
+					sourceVersion:                "srcVersion",
+					sourceCluster:                "Kubernetes",
+					destinationService:           "kmesh.kmesh-system.svc.cluster.local",
+					destinationServiceNamespace:  "kmesh-system",
+					destinationServiceName:       "kmesh.kmesh-system.svc.cluster.local",
+					destinationWorkload:          "kmesh-daemon",
+					destinationCanonicalService:  "dstCanonical",
+					destinationCanonicalRevision: "dstVersion",
+					destinationWorkloadNamespace: "kmesh-system",
+					destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+					destinationApp:               "dstCanonical",
+					destinationVersion:           "dstVersion",
+					destinationCluster:           "Kubernetes",
+					requestProtocol:              "tcp",
+					responseFlags:                "-",
+					connectionSecurityPolicy:     "mutual_tls",
+				},
+				tcp_conns: map[connectionSrcDst]connMetric{
+					{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					}: {
+						totalReports: 3,
+					},
+				},
+			},
+			want: []float64{
+				0,
+				0,
 				8,
 				9,
 			},
@@ -313,7 +440,7 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 			}
-			m.updateServiceMetricCache(tt.args.data, tt.args.labels)
+			m.updateServiceMetricCache(tt.args.data, tt.args.labels, tt.args.tcp_conns)
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnClosed, tt.want[0])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnOpened, tt.want[1])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnReceivedBytes, tt.want[2])
