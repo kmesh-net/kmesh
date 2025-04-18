@@ -210,13 +210,28 @@ e2e-ipv6:
 format:
 	./hack/format.sh
 
+
+GO_TEST_FLAGS:=
+ifeq ($(V),1)
+		GO_TEST_FLAGS += --verbose
+endif
+
 .PHONY: test
 ifeq ($(RUN_IN_CONTAINER),1)
 test:
-	./hack/run-ut.sh --docker
+	./hack/run-ut.sh --docker $(GO_TEST_FLAGS)
 else
 test:
-	./hack/run-ut.sh --local
+	./hack/run-ut.sh --local $(GO_TEST_FLAGS)
+endif
+
+.PHONY: ebpf_unit_test
+ifeq ($(RUN_IN_CONTAINER),1)
+ebpf_unit_test:
+	./hack/run-ebpf-ut.sh --docker $(GO_TEST_FLAGS)
+else
+ebpf_unit_test:
+	./hack/run-ebpf-ut.sh --local $(GO_TEST_FLAGS)
 endif
 
 UPDATE_VERSION ?= ${VERSION}

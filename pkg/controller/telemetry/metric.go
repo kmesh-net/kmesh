@@ -155,6 +155,7 @@ type connMetric struct {
 	sentBytes     uint32 // total bytes sent till now
 	totalRetrans  uint32 // total retransmits till now
 	packetLost    uint32 // total packets lost till now
+	totalReports  uint32 // number of times the metric is reported to ringbuffer
 }
 
 type connectionSrcDst struct {
@@ -520,9 +521,9 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 
 			m.mutex.Lock()
 			if m.EnableWorkloadMetric.Load() {
-				m.updateWorkloadMetricCache(data, workloadLabels)
+				m.updateWorkloadMetricCache(data, workloadLabels, tcp_conns)
 			}
-			m.updateServiceMetricCache(data, serviceLabels)
+            m.updateServiceMetricCache(data, serviceLabels, tcp_conns)
 			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
 				m.updateConnectionMetricCache(data, connectionLabels)
 			}
@@ -568,11 +569,21 @@ func buildV4Metric(buf *bytes.Buffer, tcp_conns map[connectionSrcDst]connMetric)
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[data.conSrcDstInfo].totalRetrans
 	data.packetLost = connectData.statistics.LostPackets - tcp_conns[data.conSrcDstInfo].packetLost
 
-	tcp_conns[data.conSrcDstInfo] = connMetric{
-		receivedBytes: connectData.ReceivedBytes,
-		sentBytes:     connectData.SentBytes,
-		totalRetrans:  connectData.statistics.Retransmits,
-		packetLost:    connectData.statistics.LostPackets,
+	cm, ok := tcp_conns[data.conSrcDstInfo]
+	if ok {
+		cm.receivedBytes = connectData.ReceivedBytes
+		cm.sentBytes = connectData.SentBytes
+		cm.totalRetrans = connectData.statistics.Retransmits
+		cm.packetLost = connectData.statistics.LostPackets
+		cm.totalReports++
+	} else {
+		tcp_conns[data.conSrcDstInfo] = connMetric{
+			receivedBytes: connectData.ReceivedBytes,
+			sentBytes:     connectData.SentBytes,
+			totalRetrans:  connectData.statistics.Retransmits,
+			packetLost:    connectData.statistics.LostPackets,
+			totalReports:  1,
+		}
 	}
 
 	return data, nil
@@ -613,11 +624,21 @@ func buildV6Metric(buf *bytes.Buffer, tcp_conns map[connectionSrcDst]connMetric)
 	data.totalRetrans = connectData.statistics.Retransmits - tcp_conns[data.conSrcDstInfo].totalRetrans
 	data.packetLost = connectData.statistics.LostPackets - tcp_conns[data.conSrcDstInfo].packetLost
 
-	tcp_conns[data.conSrcDstInfo] = connMetric{
-		receivedBytes: connectData.ReceivedBytes,
-		sentBytes:     connectData.SentBytes,
-		totalRetrans:  connectData.statistics.Retransmits,
-		packetLost:    connectData.statistics.LostPackets,
+	cm, ok := tcp_conns[data.conSrcDstInfo]
+	if ok {
+		cm.receivedBytes = connectData.ReceivedBytes
+		cm.sentBytes = connectData.SentBytes
+		cm.totalRetrans = connectData.statistics.Retransmits
+		cm.packetLost = connectData.statistics.LostPackets
+		cm.totalReports++
+	} else {
+		tcp_conns[data.conSrcDstInfo] = connMetric{
+			receivedBytes: connectData.ReceivedBytes,
+			sentBytes:     connectData.SentBytes,
+			totalRetrans:  connectData.statistics.Retransmits,
+			packetLost:    connectData.statistics.LostPackets,
+			totalReports:  1,
+		}
 	}
 
 	return data, nil
@@ -818,10 +839,10 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 	return DEFAULT_UNKNOWN
 }
 
-func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels) {
+func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels, tcp_conns map[connectionSrcDst]connMetric) {
 	v, ok := m.workloadMetricCache[labels]
 	if ok {
-		if data.state == TCP_ESTABLISHED {
+		if data.state == TCP_ESTABLISHED && tcp_conns[data.conSrcDstInfo].totalReports == 1 {
 			v.WorkloadConnOpened = v.WorkloadConnOpened + 1
 		}
 		if data.state == TCP_CLOSTED {
@@ -836,7 +857,7 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		v.WorkloadConnPacketLost = v.WorkloadConnPacketLost + float64(data.packetLost)
 	} else {
 		newWorkloadMetricInfo := workloadMetricInfo{}
-		if data.state == TCP_ESTABLISHED {
+		if data.state == TCP_ESTABLISHED && tcp_conns[data.conSrcDstInfo].totalReports == 1 {
 			newWorkloadMetricInfo.WorkloadConnOpened = 1
 		}
 		if data.state == TCP_CLOSTED {
@@ -853,10 +874,10 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 	}
 }
 
-func (m *MetricController) updateServiceMetricCache(data requestMetric, labels serviceMetricLabels) {
+func (m *MetricController) updateServiceMetricCache(data requestMetric, labels serviceMetricLabels, tcp_conns map[connectionSrcDst]connMetric) {
 	v, ok := m.serviceMetricCache[labels]
 	if ok {
-		if data.state == TCP_ESTABLISHED {
+		if data.state == TCP_ESTABLISHED && tcp_conns[data.conSrcDstInfo].totalReports == 1 {
 			v.ServiceConnOpened = v.ServiceConnOpened + 1
 		}
 		if data.state == TCP_CLOSTED {
@@ -869,7 +890,7 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 		v.ServiceConnSentBytes = v.ServiceConnSentBytes + float64(data.sentBytes)
 	} else {
 		newServiceMetricInfo := serviceMetricInfo{}
-		if data.state == TCP_ESTABLISHED {
+		if data.state == TCP_ESTABLISHED && tcp_conns[data.conSrcDstInfo].totalReports == 1 {
 			newServiceMetricInfo.ServiceConnOpened = 1
 		}
 		if data.state == TCP_CLOSTED {

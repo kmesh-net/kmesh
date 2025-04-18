@@ -17,7 +17,7 @@ function dependency_pkg_install() {
         echo "Checking for required packages on a Debian-based system..."
 
       
-        packages=(git make clang libbpf-dev llvm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake pkg-config)
+        packages=(git make clang libbpf-dev llvm linux-tools-generic protobuf-compiler libprotobuf-dev libprotobuf-c-dev protobuf-c-compiler cmake pkg-config gcc-multilib)
 
        
         update_needed=false
@@ -51,7 +51,7 @@ function dependency_pkg_install() {
         echo "Checking for required packages on a Red Hat-based system..."
 
         # List of required packages
-        packages=(git make clang llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool libbpf libbpf-devel cmake pkg-config)
+        packages=(git make clang llvm libboundscheck protobuf protobuf-c protobuf-c-devel bpftool libbpf libbpf-devel cmake pkg-config glibc-devel libstdc++-devel)
 
         # Install each missing package
         for pkg in "${packages[@]}"; do
