@@ -392,5 +392,46 @@ func TestKmeshctlDump(t *testing.T) {
 	}
  }
  
+ func runAuthzCmd(args ...string) (string, error) {
+	cmdArgs := append([]string{"authz"}, args...)
+	cmd := exec.Command("kmeshctl", cmdArgs...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
  
- 
+func TestKmeshctlAuthzEnableDisable(t *testing.T) {
+	pod := findKmeshPod(t)
+	waitForPodRunning(t, pod)
+
+	t.Run("enable-cluster", func(t *testing.T) {
+		out, err := runAuthzCmd("enable")
+		t.Logf("Output of 'kmeshctl authz enable':\n%s", out)
+		if err != nil {
+			t.Fatalf("cluster-wide enable failed: %v", err)
+		}
+	})
+
+	t.Run("disable-cluster", func(t *testing.T) {
+		out, err := runAuthzCmd("disable")
+		t.Logf("Output of 'kmeshctl authz disable':\n%s", out)
+		if err != nil {
+			t.Fatalf("cluster-wide disable failed: %v", err)
+		}
+	})
+
+	t.Run("enable-pod", func(t *testing.T) {
+		out, err := runAuthzCmd("enable", pod)
+		t.Logf("Output of 'kmeshctl authz enable %s':\n%s", pod, out)
+		if err != nil {
+			t.Fatalf("per-pod enable failed: %v", err)
+		}
+	})
+
+	t.Run("disable-pod", func(t *testing.T) {
+		out, err := runAuthzCmd("disable", pod)
+		t.Logf("Output of 'kmeshctl authz disable %s':\n%s", pod, out)
+		if err != nil {
+			t.Fatalf("per-pod disable failed: %v", err)
+		}
+	})
+}
