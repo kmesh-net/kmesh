@@ -208,6 +208,14 @@ func TestKmeshctlDump(t *testing.T) {
 		}
 	})
  }
+
+ func getLogOutputs(args ...string) (string, error) {
+	cmdArgs := append([]string{"log"}, args...)
+	cmd := exec.Command("kmeshctl", cmdArgs...)
+	output, err := cmd.CombinedOutput()
+	return string(output), err
+ }
+ 
  
  func verifyLogOutputHeaders(t *testing.T, output, expectedHeader string) {
 	scanner := bufio.NewScanner(strings.NewReader(output))
