@@ -416,6 +416,7 @@ func NewMetric(workloadCache cache.WorkloadCache, serviceCache cache.ServiceCach
 	m.EnableMonitoring.Store(enableMonitoring)
 	m.EnableAccesslog.Store(false)
 	m.EnableWorkloadMetric.Store(false)
+	m.EnableConnectionMetric.Store(false)
 	return m
 }
 
@@ -523,7 +524,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			if m.EnableWorkloadMetric.Load() {
 				m.updateWorkloadMetricCache(data, workloadLabels, tcp_conns)
 			}
-            m.updateServiceMetricCache(data, serviceLabels, tcp_conns)
+			m.updateServiceMetricCache(data, serviceLabels, tcp_conns)
 			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
 				m.updateConnectionMetricCache(data, connectionLabels)
 			}
