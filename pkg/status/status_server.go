@@ -57,6 +57,7 @@ const (
 	patternAccesslog          = "/accesslog"
 	patternMonitoring         = "/monitoring"
 	patternWorkloadMetrics    = "/workload_metrics"
+	patternConnectionMetrics  = "/connection_metrics"
 	patternAuthz              = "/authz"
 
 	bpfLoggerName = "bpf"
@@ -97,6 +98,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
 	s.mux.HandleFunc(patternMonitoring, s.monitoringHandler)
 	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
+	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
@@ -265,6 +267,7 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 	s.xdsClient.WorkloadController.SetMonitoringTrigger(enabled)
 	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
 	s.xdsClient.WorkloadController.SetWorkloadMetricTrigger(enabled)
+	s.xdsClient.WorkloadController.SetConnectionMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -288,6 +291,29 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.xdsClient.WorkloadController.SetWorkloadMetricTrigger(enabled)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	info := r.URL.Query().Get("enable")
+	enabled, err := strconv.ParseBool(info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", info)))
+		return
+	}
+
+	if s.loader.GetEnableMonitoring() == constants.DISABLED && enabled {
+		http.Error(w, "Kmesh monitoring is disabled, cannot enable connection metrics.", http.StatusBadRequest)
+		return
+	}
+
+	s.xdsClient.WorkloadController.SetConnectionMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 

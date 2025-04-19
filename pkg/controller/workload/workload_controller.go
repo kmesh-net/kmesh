@@ -176,3 +176,7 @@ func (c *Controller) GetAccesslogTrigger() bool {
 func (c *Controller) SetWorkloadMetricTrigger(enable bool) {
 	c.MetricController.EnableWorkloadMetric.Store(enable)
 }
+
+func (c *Controller) SetConnectionMetricTrigger(enable bool) {
+	c.MetricController.EnableConnectionMetric.Store(enable)
+}

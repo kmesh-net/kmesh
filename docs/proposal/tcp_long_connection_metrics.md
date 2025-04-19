@@ -168,6 +168,58 @@ static inline void observe_on_data(struct bpf_sock *sk)
 We will update the functions of metric.go for periodic updating the workload and service metrics, also we will create a new metric for long tcp connections.
 
 ![design](./pics/tcp_long_conn_design.png)
+
+#### Exposing long connection prometheus metrics 
+
+We will expose metrics for the connections whose duration exceesds 30 seconds. Not exposing metrics for short connection as it can lead to lot of metrics and they are also not suitable for prometheus metrics because prometheus itself has a scrape interval of maximum 15s, and short-lived connections may start and end between scrapes, resulting in incomplete or misleading data. By focusing only on longer-lived connections, we ensure the metrics are stable, meaningful, and better aligned with Prometheus’s time-series data model.
+
+We can have a another component in future which reports realtime information about connections like cilium hubble. 
+
+Prometheus metrics exposed 
+
+- kmesh_tcp_connection_sent_bytes_total : The total number of bytes sent over established TCP connection
+
+- kmesh_tcp_connection_received_bytes_total : The total number of bytes received over established TCP connection
+
+- kmesh_tcp_connection_packet_lost_total : Total number of packets lost during transmission in a TCP connection
+
+- kmesh_tcp_connection_retrans_total : The total number of retransmits over established TCP connection
+
+The above metrics has following labels
+
+```
+		"reporter"
+		"start_time"
+		"source_workload"
+		"source_canonical_service"
+		"source_canonical_revision"
+		"source_workload_namespace"
+		"source_principal"
+		"source_app"
+		"source_version"
+		"source_cluster"
+		"source_address"
+		"destination_address"
+		"destination_pod_address"
+		"destination_pod_namespace"
+		"destination_pod_name"
+		"destination_service"
+		"destination_service_namespace"
+		"destination_service_name"
+		"destination_workload"
+		"destination_canonical_service"
+		"destination_canonical_revision"
+		"destination_workload_namespace"
+		"destination_principal"
+		"destination_app"
+		"destination_version"
+		"destination_cluster"
+		"request_protocol"
+		"response_flags"
+		"connection_security_policy"
+```
+
+
 #### User Stories (Optional)
 
 <!--
