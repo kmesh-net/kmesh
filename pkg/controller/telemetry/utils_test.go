@@ -199,7 +199,7 @@ func TestDeleteWorkloadMetric(t *testing.T) {
 			deleteWorkloadMetricInPrometheus(tt.args.workload)
 
 			for _, metric := range exportMetrics {
-				if err := prometheus.Register(metric); err == nil {
+				if err := prometheus.Register(metric); err != nil {
 					t.Errorf("metric not clean up")
 				}
 			}
@@ -279,7 +279,7 @@ func TestDeleteServiceMetric(t *testing.T) {
 
 			deleteServiceMetricInPrometheus(tt.args.serviceName)
 			for _, metric := range exportMetrics {
-				if err := prometheus.Register(metric); err == nil {
+				if err := prometheus.Register(metric); err != nil {
 					t.Errorf("metric not clean up")
 				}
 			}
