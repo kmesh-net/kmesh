@@ -175,9 +175,9 @@ func TestCommonTrafficLabels2map(t *testing.T) {
 
 func TestBuildMetricsToPrometheus(t *testing.T) {
 	type args struct {
-		data      requestMetric
-		labels    workloadMetricLabels
-		tcp_conns map[connectionSrcDst]connMetric
+		data     requestMetric
+		labels   workloadMetricLabels
+		tcpConns map[connectionSrcDst]connMetric
 	}
 	tests := []struct {
 		name string
@@ -223,7 +223,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					responseFlags:                "-",
 					connectionSecurityPolicy:     "mutual_tls",
 				},
-				tcp_conns: map[connectionSrcDst]connMetric{
+				tcpConns: map[connectionSrcDst]connMetric{
 					{
 						src: [4]uint32{183763210, 0, 0, 0},
 						dst: [4]uint32{183762951, 0, 0, 0},
@@ -280,7 +280,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					responseFlags:                "-",
 					connectionSecurityPolicy:     "mutual_tls",
 				},
-				tcp_conns: map[connectionSrcDst]connMetric{
+				tcpConns: map[connectionSrcDst]connMetric{
 					{
 						src: [4]uint32{183763210, 0, 0, 0},
 						dst: [4]uint32{183762951, 0, 0, 0},
@@ -306,7 +306,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 			}
-			m.updateWorkloadMetricCache(tt.args.data, tt.args.labels, tt.args.tcp_conns)
+			m.updateWorkloadMetricCache(tt.args.data, tt.args.labels, tt.args.tcpConns)
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnClosed, tt.want[0])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnOpened, tt.want[1])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnReceivedBytes, tt.want[2])
@@ -319,9 +319,9 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 
 func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 	type args struct {
-		data      requestMetric
-		labels    serviceMetricLabels
-		tcp_conns map[connectionSrcDst]connMetric
+		data     requestMetric
+		labels   serviceMetricLabels
+		tcpConns map[connectionSrcDst]connMetric
 	}
 	tests := []struct {
 		name string
@@ -364,7 +364,7 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 					responseFlags:                "-",
 					connectionSecurityPolicy:     "mutual_tls",
 				},
-				tcp_conns: map[connectionSrcDst]connMetric{
+				tcpConns: map[connectionSrcDst]connMetric{
 					{
 						src: [4]uint32{183763210, 0, 0, 0},
 						dst: [4]uint32{183762951, 0, 0, 0},
@@ -416,7 +416,7 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 					responseFlags:                "-",
 					connectionSecurityPolicy:     "mutual_tls",
 				},
-				tcp_conns: map[connectionSrcDst]connMetric{
+				tcpConns: map[connectionSrcDst]connMetric{
 					{
 						src: [4]uint32{183763210, 0, 0, 0},
 						dst: [4]uint32{183762951, 0, 0, 0},
@@ -440,7 +440,7 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 			}
-			m.updateServiceMetricCache(tt.args.data, tt.args.labels, tt.args.tcp_conns)
+			m.updateServiceMetricCache(tt.args.data, tt.args.labels, tt.args.tcpConns)
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnClosed, tt.want[0])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnOpened, tt.want[1])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnReceivedBytes, tt.want[2])
