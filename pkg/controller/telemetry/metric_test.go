@@ -1066,6 +1066,150 @@ func TestBuildServiceMetric(t *testing.T) {
 	}
 }
 
+func TestBuildConnectionMetric(t *testing.T) {
+	serviceCache := cache.NewServiceCache()
+	serviceCache.AddOrUpdateService(&workloadapi.Service{
+		Hostname:  "kmesh.kmesh-system.svc.cluster.local",
+		Namespace: "kmesh-system",
+		Name:      "kmesh",
+		Addresses: []*workloadapi.NetworkAddress{
+			{
+				Address: net.ParseIP("192.168.1.22").To4(),
+			},
+		},
+	})
+	serviceCache.AddOrUpdateService(&workloadapi.Service{
+		Hostname:  "httpbin.default.svc.cluster.local",
+		Namespace: "default",
+		Name:      "httpbin",
+		Addresses: []*workloadapi.NetworkAddress{
+			{
+				Address: net.ParseIP("192.168.1.23").To4(),
+			},
+		},
+	})
+
+	workloadCache := cache.NewWorkloadCache()
+
+	workloadCache.AddOrUpdateWorkload(&workloadapi.Workload{
+		Namespace:         "default",
+		Name:              "sleep",
+		WorkloadName:      "sleep",
+		CanonicalName:     "sleepCanonical",
+		CanonicalRevision: "sleepVersion",
+		ClusterId:         "Kubernetes",
+		TrustDomain:       "cluster.local",
+		ServiceAccount:    "default",
+		Addresses: [][]byte{
+			{10, 19, 25, 33},
+		},
+	})
+
+	// kmesh workload with service attached
+	workloadCache.AddOrUpdateWorkload(&workloadapi.Workload{
+		Namespace:         "kmesh-system",
+		Name:              "kmesh",
+		WorkloadName:      "kmesh-daemon",
+		CanonicalName:     "dstCanonical",
+		CanonicalRevision: "dstVersion",
+		ClusterId:         "Kubernetes",
+		TrustDomain:       "cluster.local",
+		ServiceAccount:    "default",
+		Services: map[string]*workloadapi.PortList{
+			"kmesh-system/kmesh.kmesh-system.svc.cluster.local": {
+				Ports: []*workloadapi.Port{
+					{
+						ServicePort: 80,
+						TargetPort:  8000,
+					},
+				},
+			},
+		},
+		Addresses: [][]byte{
+			{10, 19, 25, 31},
+		},
+	})
+	type args struct {
+		data *requestMetric
+	}
+
+	tests := []struct {
+		name    string
+		args    args
+		want    connectionMetricLabels
+		wantErr bool
+	}{
+		{
+			name: "normal capability test",
+			args: args{
+				data: &requestMetric{
+					conSrcDstInfo: connectionSrcDst{
+						// sleep
+						src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
+						// kmesh-daemon
+						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
+						dstPort: uint16(8000),
+						srcPort: uint16(8000),
+					},
+					// kmesh-daemon
+					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("192.168.1.22"), 0, 0, 0},
+					origDstPort:   uint16(8000),
+					direction:     uint32(2),
+					sentBytes:     uint32(156),
+					receivedBytes: uint32(1024),
+				},
+			},
+			want: connectionMetricLabels{
+				reporter:                "source",
+				startTime:               "0001-01-01 00:00:00 +0000 UTC",
+				sourceWorkload:          "sleep",
+				sourceCanonicalService:  "sleepCanonical",
+				sourceCanonicalRevision: "sleepVersion",
+				sourceWorkloadNamespace: "default",
+				sourcePrincipal:         "spiffe://cluster.local/ns/default/sa/default",
+				sourceApp:               "sleepCanonical",
+				sourceVersion:           "sleepVersion",
+				sourceCluster:           "Kubernetes",
+				sourceAddress:           "10.19.25.33:8000",
+
+				destinationAddress:           "10.19.25.31:8000",
+				destinationPodAddress:        "10.19.25.31",
+				destinationPodNamespace:      "kmesh-system",
+				destinationPodName:           "kmesh",
+				destinationService:           "kmesh.kmesh-system.svc.cluster.local",
+				destinationServiceNamespace:  "kmesh-system",
+				destinationServiceName:       "kmesh",
+				destinationWorkload:          "kmesh-daemon",
+				destinationCanonicalService:  "dstCanonical",
+				destinationCanonicalRevision: "dstVersion",
+				destinationWorkloadNamespace: "kmesh-system",
+				destinationPrincipal:         "spiffe://cluster.local/ns/kmesh-system/sa/default",
+				destinationApp:               "dstCanonical",
+				destinationVersion:           "dstVersion",
+				destinationCluster:           "Kubernetes",
+
+				requestProtocol: "tcp",
+				responseFlags:   "",
+
+				connectionSecurityPolicy: "mutual_tls",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MetricController{
+				workloadCache: workloadCache,
+				serviceCache:  serviceCache,
+			}
+			got := m.buildConnectionMetric(tt.args.data)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Metric.buildMetric() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func TestMetricController_updatePrometheusMetric(t *testing.T) {
 	testworkloadLabel1 := workloadMetricLabels{
 		sourceWorkload:               "kmesh-daemon",
