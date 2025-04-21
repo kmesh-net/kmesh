@@ -96,6 +96,7 @@ static inline void observe_on_data(struct bpf_sock *sk)
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
+        BPF_LOG(ERR, PROBE, "on data: bpf_sk_storage_get failed\n");
         return;
     }
     __u64 now = bpf_ktime_get_ns();

@@ -13,7 +13,7 @@ SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress_prog(struct __sk_buff *skb)
 {
     if (!is_monitoring_enable()) {
-        return;
+        return SK_PASS;
     }
     if (skb->family != AF_INET && skb->family != AF_INET6)
         return SK_PASS;
@@ -32,7 +32,7 @@ SEC("cgroup_skb/egress")
 int cgroup_skb_egress_prog(struct __sk_buff *skb)
 {
     if (!is_monitoring_enable()) {
-        return;
+        return SK_PASS;
     }
     if (skb->family != AF_INET && skb->family != AF_INET6)
         return SK_PASS;
