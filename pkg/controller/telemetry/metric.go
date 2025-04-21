@@ -526,7 +526,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 			m.updateServiceMetricCache(data, serviceLabels, tcpConns)
 			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
-				m.updateConnectionMetricCache(data, tcpConns[data.conSrcDstInfo], connectionLabels, &deleteConnection)
+				deleteConnection = m.updateConnectionMetricCache(data, tcpConns[data.conSrcDstInfo], connectionLabels, deleteConnection)
 			}
 			m.mutex.Unlock()
 		}
@@ -906,7 +906,7 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 	}
 }
 
-func (m *MetricController) updateConnectionMetricCache(data requestMetric, connData connMetric, labels connectionMetricLabels, delConn *[]*connectionMetricLabels) {
+func (m *MetricController) updateConnectionMetricCache(data requestMetric, connData connMetric, labels connectionMetricLabels, delConn []*connectionMetricLabels) []*connectionMetricLabels {
 	v, ok := m.connectionMetricCache[labels]
 	if ok {
 		v.ConnSentBytes = v.ConnSentBytes + float64(data.sentBytes)
@@ -923,9 +923,10 @@ func (m *MetricController) updateConnectionMetricCache(data requestMetric, connD
 	}
 	if data.state == TCP_CLOSTED {
 		deleteLock.Lock()
-		*delConn = append(*delConn, &labels)
+		delConn = append(delConn, &labels)
 		deleteLock.Unlock()
 	}
+	return delConn
 }
 
 func (m *MetricController) updatePrometheusMetric() {
