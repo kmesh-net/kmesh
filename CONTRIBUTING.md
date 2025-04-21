@@ -109,7 +109,7 @@ To make it easier for your PR to receive reviews, consider the reviewers will ne
 
 # Membership
 
-We encourage all contributors to become members. Learn more about requirements and responsibilities of membership in our [Community Membership doc](https://github.com/kmesh-net/website/blob/main/content/en/docs/community/membership.md).
+We encourage all contributors to become members. Learn more about requirements and responsibilities of membership in our [Community Membership doc](https://kmesh.net/docs/community/membership/).
 
 If you have made contributions that meet the requirements of becoming KMesh member, simply file an [issue](https://github.com/kmesh-net/kmesh/issues/new?assignees=&labels=&projects=&template=membership-request.md&title=REQUEST%3A+New+membership+for+%3Cyour+name%3E) to apply.
 
