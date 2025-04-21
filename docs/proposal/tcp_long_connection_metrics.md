@@ -171,19 +171,19 @@ We will update the functions of metric.go for periodic updating the workload and
 
 #### Exposing long connection prometheus metrics 
 
-We will expose metrics for the connections whose duration exceesds 30 seconds. Not exposing metrics for short connection as it can lead to lot of metrics and they are also not suitable for prometheus metrics because prometheus itself has a scrape interval of maximum 15s, and short-lived connections may start and end between scrapes, resulting in incomplete or misleading data. By focusing only on longer-lived connections, we ensure the metrics are stable, meaningful, and better aligned with Prometheus’s time-series data model.
+We will expose metrics for the connections whose duration exceeds 30 seconds. Not exposing metrics for short connection as it can lead to lot of metrics and they are also not suitable for prometheus metrics because prometheus itself has a scrape interval of maximum 15s, and short-lived connections may start and end between scrapes, resulting in incomplete or misleading data. By focusing only on longer-lived connections, we ensure the metrics are stable, meaningful, and better aligned with Prometheus’s time-series data model.
 
 We can have a another component in future which reports realtime information about connections like cilium hubble. 
 
 Prometheus metrics exposed 
 
-- kmesh_tcp_connection_sent_bytes_total : The total number of bytes sent over established TCP connection
+- `kmesh_tcp_connection_sent_bytes_total` : The total number of bytes sent over established TCP connection
 
-- kmesh_tcp_connection_received_bytes_total : The total number of bytes received over established TCP connection
+- `kmesh_tcp_connection_received_bytes_total` : The total number of bytes received over established TCP connection
 
-- kmesh_tcp_connection_packet_lost_total : Total number of packets lost during transmission in a TCP connection
+- `kmesh_tcp_connection_packet_lost_total` : Total number of packets lost during transmission in a TCP connection
 
-- kmesh_tcp_connection_retrans_total : The total number of retransmits over established TCP connection
+- `kmesh_tcp_connection_retrans_total` : The total number of retransmits over established TCP connection
 
 The above metrics has following labels
 

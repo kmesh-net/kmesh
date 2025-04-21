@@ -291,7 +291,7 @@ func SetWorkloadMetricsPerKmeshDaemon(cli kube.CLIClient, podName, workloadMetri
 			return
 		}
 		bodyString := string(bodyBytes)
-		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte("Kmesh monitoring is disable, cannot enable accesslog")) {
+		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte("Kmesh monitoring is disable, cannot enable workloadMetrics")) {
 			log.Errorf("failed to enable workload metrics: %v. Need to start Kmesh's Monitoring. Please run `kmeshctl monitoring -h` for more help.", bodyString)
 			return
 		}
@@ -346,7 +346,7 @@ func SetConnectionMetricsPerKmeshDaemon(cli kube.CLIClient, podName, connectionM
 			return
 		}
 		bodyString := string(bodyBytes)
-		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte("Kmesh monitoring is disable, cannot enable accesslog")) {
+		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte("Kmesh monitoring is disable, cannot enable connectionMetrics")) {
 			log.Errorf("failed to enable connection metrics: %v. Need to start Kmesh's Monitoring. Please run `kmeshctl monitoring -h` for more help.", bodyString)
 			return
 		}
