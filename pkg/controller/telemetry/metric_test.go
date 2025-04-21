@@ -185,7 +185,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 		want []float64
 	}{
 		{
-			name: "test build workload metrisc to metricCache",
+			name: "test build workload metrics to metricCache",
 			args: args{
 				data: requestMetric{
 					conSrcDstInfo: connectionSrcDst{
@@ -242,7 +242,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 			},
 		},
 		{
-			name: "test build workload metrisc to metricCache for conn report at intervals",
+			name: "test build workload metrics in metricCache for conn report at intervals",
 			args: args{
 				data: requestMetric{
 					conSrcDstInfo: connectionSrcDst{
@@ -445,6 +445,189 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnOpened, tt.want[1])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnReceivedBytes, tt.want[2])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnSentBytes, tt.want[3])
+		})
+	}
+}
+
+func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
+	type args struct {
+		data     requestMetric
+		labels   connectionMetricLabels
+		tcpConns map[connectionSrcDst]connMetric
+	}
+	tests := []struct {
+		id   int32
+		name string
+		args args
+		want []float64
+	}{
+		{
+			id:   int32(1),
+			name: "test build connection metric to metricCache",
+			args: args{
+				data: requestMetric{
+					conSrcDstInfo: connectionSrcDst{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					},
+					sentBytes:     0x0000003,
+					receivedBytes: 0x0000004,
+					packetLost:    0x0000001,
+					totalRetrans:  0x0000002,
+					state:         TCP_ESTABLISHED,
+				},
+				labels: connectionMetricLabels{
+					reporter:                     "destination",
+					sourceWorkload:               "sleep",
+					sourceCanonicalService:       "sleep",
+					sourceCanonicalRevision:      "latest",
+					sourceWorkloadNamespace:      "ambient-demo",
+					sourcePrincipal:              "spiffe://cluster.local/ns/ambient-demo/sa/sleep",
+					sourceApp:                    "sleep",
+					sourceVersion:                "latest",
+					sourceCluster:                "Kubernetes",
+					destinationPodAddress:        "192.168.20.25",
+					destinationPodNamespace:      "ambient-demo",
+					destinationPodName:           "tcp-echo",
+					destinationWorkload:          "tcp-echo",
+					destinationCanonicalService:  "tcp-echo",
+					destinationCanonicalRevision: "v1",
+					destinationWorkloadNamespace: "ambient-demo",
+					destinationPrincipal:         "spiffe://cluster.local/ns/ambient-demo/sa/default",
+					destinationApp:               "tcp-echo",
+					destinationVersion:           "v1",
+					destinationCluster:           "Kubernetes",
+					requestProtocol:              "tcp",
+					responseFlags:                "-",
+					connectionSecurityPolicy:     "mutual_tls",
+				},
+				tcpConns: map[connectionSrcDst]connMetric{
+					{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					}: {
+						sentBytes:     0x0000003,
+						receivedBytes: 0x0000004,
+						packetLost:    0x0000001,
+						totalRetrans:  0x0000002,
+						totalReports:  1,
+					},
+				},
+			},
+			want: []float64{
+				3,
+				4,
+				1,
+				2,
+			},
+		},
+		{
+			id:   int32(2),
+			name: "test build workload metrisc to metricCache for conn report at intervals",
+			args: args{
+				data: requestMetric{
+					conSrcDstInfo: connectionSrcDst{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					},
+					sentBytes:     0x0000003,
+					receivedBytes: 0x0000004,
+					packetLost:    0x0000001,
+					totalRetrans:  0x0000002,
+					state:         TCP_CLOSTED,
+				},
+				labels: connectionMetricLabels{
+					reporter:                     "source",
+					sourceWorkload:               "sleep",
+					sourceCanonicalService:       "sleep",
+					sourceCanonicalRevision:      "latest",
+					sourceWorkloadNamespace:      "ambient-demo",
+					sourcePrincipal:              "spiffe://cluster.local/ns/ambient-demo/sa/sleep",
+					sourceApp:                    "sleep",
+					sourceVersion:                "latest",
+					sourceCluster:                "Kubernetes",
+					destinationPodAddress:        "192.168.20.25",
+					destinationPodNamespace:      "ambient-demo",
+					destinationPodName:           "tcp-echo",
+					destinationWorkload:          "tcp-echo",
+					destinationCanonicalService:  "tcp-echo",
+					destinationCanonicalRevision: "v1",
+					destinationWorkloadNamespace: "ambient-demo",
+					destinationPrincipal:         "spiffe://cluster.local/ns/ambient-demo/sa/default",
+					destinationApp:               "tcp-echo",
+					destinationVersion:           "v1",
+					destinationCluster:           "Kubernetes",
+					requestProtocol:              "tcp",
+					responseFlags:                "-",
+					connectionSecurityPolicy:     "mutual_tls",
+				},
+				tcpConns: map[connectionSrcDst]connMetric{
+					{
+						src: [4]uint32{183763210, 0, 0, 0},
+						dst: [4]uint32{183762951, 0, 0, 0},
+					}: {
+						totalReports: 3,
+					},
+				},
+			},
+			want: []float64{
+				4,
+				5,
+				2,
+				3,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := MetricController{
+				workloadCache:       cache.NewWorkloadCache(),
+				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
+				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
+				connectionMetricCache: map[connectionMetricLabels]*connectionMetricInfo{
+					{
+						reporter:                     "source",
+						sourceWorkload:               "sleep",
+						sourceCanonicalService:       "sleep",
+						sourceCanonicalRevision:      "latest",
+						sourceWorkloadNamespace:      "ambient-demo",
+						sourcePrincipal:              "spiffe://cluster.local/ns/ambient-demo/sa/sleep",
+						sourceApp:                    "sleep",
+						sourceVersion:                "latest",
+						sourceCluster:                "Kubernetes",
+						destinationPodAddress:        "192.168.20.25",
+						destinationPodNamespace:      "ambient-demo",
+						destinationPodName:           "tcp-echo",
+						destinationWorkload:          "tcp-echo",
+						destinationCanonicalService:  "tcp-echo",
+						destinationCanonicalRevision: "v1",
+						destinationWorkloadNamespace: "ambient-demo",
+						destinationPrincipal:         "spiffe://cluster.local/ns/ambient-demo/sa/default",
+						destinationApp:               "tcp-echo",
+						destinationVersion:           "v1",
+						destinationCluster:           "Kubernetes",
+						requestProtocol:              "tcp",
+						responseFlags:                "-",
+						connectionSecurityPolicy:     "mutual_tls",
+					}: {
+						ConnSentBytes:     0x0000001,
+						ConnReceivedBytes: 0x0000001,
+						ConnPacketLost:    0x0000001,
+						ConnTotalRetrans:  0x0000001,
+					},
+				},
+			}
+
+			delConn := m.updateConnectionMetricCache(tt.args.data, tt.args.tcpConns[tt.args.data.conSrcDstInfo], tt.args.labels, []*connectionMetricLabels{})
+			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnSentBytes, tt.want[0])
+			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnReceivedBytes, tt.want[1])
+			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnPacketLost, tt.want[2])
+			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnTotalRetrans, tt.want[3])
+			if tt.id == 1 {
+				assert.Equal(t, len(delConn), 0)
+			} else {
+				assert.Equal(t, len(delConn), 1)
+			}
 		})
 	}
 }
