@@ -177,6 +177,14 @@ func (c *Controller) SetWorkloadMetricTrigger(enable bool) {
 	c.MetricController.EnableWorkloadMetric.Store(enable)
 }
 
+func (c *Controller) GetWorklaodMetricTrigger() bool {
+	return c.MetricController.EnableWorkloadMetric.Load()
+}
+
 func (c *Controller) SetConnectionMetricTrigger(enable bool) {
 	c.MetricController.EnableConnectionMetric.Store(enable)
+}
+
+func (c *Controller) GetConnectionMetricTrigger() bool {
+	return c.MetricController.EnableConnectionMetric.Load()
 }
