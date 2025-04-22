@@ -22,3 +22,5 @@ function install_clang_format () {
 install_clang_format
 
 find ./ -name "*.[ch]" |grep -v pb-c |xargs clang-format -i
+
+gofmt -w -s ../
