@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: (GPL-2.0-only OR BSD-2-Clause)
 /* Copyright Authors of Kmesh */
 
-#include "../../../config/kmesh_marcos_def.h"
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kmod.h>
@@ -21,9 +20,24 @@
 #include "defer_connect.h"
 
 static struct proto *kmesh_defer_proto = NULL;
-#define KMESH_DELAY_ERROR -1000
 
-#define BPF_CGROUP_RUN_PROG_INET4_CONNECT_KMESH(sk, uaddr, t_ctx)                                                      \
+#ifdef KERNEL_KFUNC
+#define BPF_CGROUP_RUN_PROG_INET4_CONNECT_KMESH(sk, uaddr, uaddrlen, t_ctx)                                            \
+    ({                                                                                                                 \
+        int __ret = -1;                                                                                                \
+        if (t_ctx == NULL) {                                                                                           \
+            __ret = -EINVAL;                                                                                           \
+        } else {                                                                                                       \
+            __ret = __cgroup_bpf_run_filter_sock_addr(sk, uaddr, uaddrlen, CGROUP_INET4_CONNECT, t_ctx, NULL);         \
+        }                                                                                                              \
+        __ret;                                                                                                         \
+    })
+
+#define SET_FDEFER_CONNECT_ON(sk)  (inet_set_bit(DEFER_CONNECT, sk))
+#define SET_FDEFER_CONNECT_OFF(sk) (inet_clear_bit(DEFER_CONNECT, sk))
+#define IS_DEFER_CONNECT(sk)       (inet_test_bit(DEFER_CONNECT, sk))
+#else
+#define BPF_CGROUP_RUN_PROG_INET4_CONNECT_KMESH(sk, uaddr, uaddrlen, t_ctx)                                            \
     ({                                                                                                                 \
         int __ret = -1;                                                                                                \
         if (t_ctx == NULL) {                                                                                           \
@@ -34,6 +48,11 @@ static struct proto *kmesh_defer_proto = NULL;
         __ret;                                                                                                         \
     })
 
+#define SET_FDEFER_CONNECT_ON(sk)  (inet_sk(sk)->defer_connect = 1)
+#define SET_FDEFER_CONNECT_OFF(sk) (inet_sk(sk)->defer_connect = 0)
+#define IS_DEFER_CONNECT(sk)       (inet_sk(sk)->defer_connect == 1)
+#endif
+
 static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
 {
     struct bpf_mem_ptr tmpMem = {0};
@@ -43,6 +62,7 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
     const struct iovec *iov;
     struct bpf_sock_addr_kern sock_addr;
     struct sockaddr_in uaddr;
+    int uaddrlen = sizeof(struct sockaddr_in);
     void __user *ubase;
     int err;
     u32 dport, daddr;
@@ -54,7 +74,11 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
         ubase = iov->iov_base;
         kbuf_size = iov->iov_len;
     } else if (iter_is_iovec(&msg->msg_iter)) {
+#ifdef KERNEL_KFUNC
+        iov = msg->msg_iter.__iov;
+#else
         iov = msg->msg_iter.iov;
+#endif
         ubase = iov->iov_base;
         kbuf_size = iov->iov_len;
 #if ITER_TYPE_IS_UBUF
@@ -79,31 +103,11 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
     tmpMem.size = kbuf_size;
     tmpMem.ptr = kbuf;
 
-#if OE_23_03
-    tcp_call_bpf_3arg(
-        sk,
-        BPF_SOCK_OPS_TCP_DEFER_CONNECT_CB,
-        ((u64)(&tmpMem) & U32_MAX),
-        (((u64)(&tmpMem) >> 32) & U32_MAX),
-        kbuf_size);
-    daddr = sk->sk_daddr;
-    dport = sk->sk_dport;
-
-    // daddr == 0 && dport == 0 are special flags meaning the circuit breaker is open
-    // Should reject connection here
-    if (daddr == 0 && dport == 0) {
-        tcp_set_state(sk, TCP_CLOSE);
-        sk->sk_route_caps = 0;
-        inet_sk(sk)->inet_dport = 0;
-        err = -1;
-        goto out;
-    }
-#else
     uaddr.sin_family = AF_INET;
     uaddr.sin_addr.s_addr = daddr;
     uaddr.sin_port = dport;
-    err = BPF_CGROUP_RUN_PROG_INET4_CONNECT_KMESH(sk, (struct sockaddr *)&uaddr, &tmpMem);
-#endif
+    err = BPF_CGROUP_RUN_PROG_INET4_CONNECT_KMESH(sk, (struct sockaddr *)&uaddr, &uaddrlen, &tmpMem);
+
 connect:
     err = sk->sk_prot->connect(sk, (struct sockaddr *)&uaddr, sizeof(struct sockaddr_in));
     if (unlikely(err)) {
@@ -113,7 +117,7 @@ connect:
         inet_sk(sk)->inet_dport = 0;
         goto out;
     }
-    inet_sk(sk)->defer_connect = 0;
+    SET_FDEFER_CONNECT_OFF(sk);
 
     if ((((__u32)1 << sk->sk_state) & ~(__u32)(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)) && !tcp_passive_fastopen(sk)) {
         sk_stream_wait_connect(sk, &timeo);
@@ -128,7 +132,7 @@ static int defer_connect_and_sendmsg(struct sock *sk, struct msghdr *msg, size_t
     struct socket *sock;
     int err = 0;
 
-    if (unlikely(inet_sk(sk)->defer_connect == 1)) {
+    if (unlikely(IS_DEFER_CONNECT(sk))) {
         lock_sock(sk);
 
         err = defer_connect(sk, msg, size);
@@ -163,9 +167,9 @@ static int defer_tcp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_l
      * of defer_connect should be 1 and the normal connect function
      * needs to be used.
      */
-    if (inet_sk(sk)->defer_connect)
+    if (IS_DEFER_CONNECT(sk))
         return tcp_v4_connect(sk, uaddr, addr_len);
-    inet_sk(sk)->defer_connect = 1;
+    SET_FDEFER_CONNECT_ON(sk);
     sk->sk_dport = ((struct sockaddr_in *)uaddr)->sin_port;
     sk_daddr_set(sk, ((struct sockaddr_in *)uaddr)->sin_addr.s_addr);
     sk->sk_socket->state = SS_CONNECTING;

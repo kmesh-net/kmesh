@@ -5,10 +5,10 @@
 #
 
 # base image
-FROM openeuler/openeuler:23.09
+FROM openeuler/openeuler:24.03
 
 # Setup Go
-COPY --from=golang:1.23.2 /usr/local/go/ /usr/local/go/
+COPY --from=golang:latest /usr/local/go/ /usr/local/go/
 RUN mkdir -p /go
 ENV GOROOT /usr/local/go
 ENV GOPATH /go

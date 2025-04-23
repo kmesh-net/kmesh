@@ -1,7 +1,7 @@
 # Usage:
 # docker run -itd --privileged=true -v /etc/cni/net.d:/etc/cni/net.d -v /opt/cni/bin:/opt/cni/bin -v /mnt:/mnt -v /sys/fs/bpf:/sys/fs/bpf -v /lib/modules:/lib/modules --name kmesh kmesh:latest
 #
-FROM openeuler/openeuler:23.09
+FROM openeuler/openeuler:24.03
 
 WORKDIR /kmesh
 
