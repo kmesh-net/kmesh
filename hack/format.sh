@@ -19,8 +19,20 @@ function install_clang_format () {
     fi
 }
 
+function install_shfmt () {
+    if command -v shfmt > /dev/null; then
+        echo "shfmt already installed"
+    else
+        install_tool shfmt
+    fi
+}
+
 install_clang_format
+
+install_shfmt
 
 find ./ -name "*.[ch]" |grep -v pb-c |xargs clang-format -i
 
 gofmt -w -s ../
+
+shfmt -w -s ../
