@@ -18,20 +18,16 @@ function install_clang_format() {
 	fi
 }
 
-function install_shfmt() {
-	if command -v shfmt >/dev/null; then
-		echo "shfmt already installed"
-	else
-		install_tool shfmt
-	fi
+function install_shell_format() {
+	go install mvdan.cc/sh/v3/cmd/shfmt@v3.11.0
 }
 
 install_clang_format
-
-install_shfmt
 
 find ./ -name "*.[ch]" | grep -v pb-c | xargs clang-format -i
 
 gofmt -w -s ../
 
-shfmt -w -s ../
+install_shell_format
+
+shfmt -w -s -ln=bash ../
