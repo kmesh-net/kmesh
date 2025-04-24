@@ -546,11 +546,19 @@ func TestServerMetricHandler(t *testing.T) {
 			},
 			loader: loader,
 		}
+
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
 
-		url := fmt.Sprintf("%s?enable=%s", patternAccesslog, "true")
+		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "false")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
 		w := httptest.NewRecorder()
+		server.monitoringHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetMonitoringTrigger(), false)
+
+		url = fmt.Sprintf("%s?enable=%s", patternAccesslog, "true")
+		req = httptest.NewRequest(http.MethodPost, url, nil)
+		w = httptest.NewRecorder()
 		server.accesslogHandler(w, req)
 
 		assert.Equal(t, server.xdsClient.WorkloadController.GetAccesslogTrigger(), false)
