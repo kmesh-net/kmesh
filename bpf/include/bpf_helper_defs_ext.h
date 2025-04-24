@@ -19,7 +19,7 @@
  *      If found, return 1; otherwise, return 0.
  */
 static long (*bpf_km_header_strnstr)(
-    struct bpf_sock_addr *ctx, const char *key, int key_sz, const char *subptr, int subptr_sz) = (void *)163;
+    struct bpf_sock_addr *ctx, const char *key, int key_sz, const char *subptr, int subptr_sz) = (void *)175;
 
 /*
  * Description
@@ -31,7 +31,7 @@ static long (*bpf_km_header_strnstr)(
  *      If the strings are same, return 0.
  */
 static long (*bpf_km_header_strncmp)(const char *key, int key_sz, const char *target, int target_sz, int opt) =
-    (void *)164;
+    (void *)176;
 
 /*
  * Description
@@ -43,4 +43,4 @@ static long (*bpf_km_header_strncmp)(const char *key, int key_sz, const char *ta
  *      A HTTP PROTO TYPE is returned on success.
  *      **PROTO_UNKNOW** is returned if failure.
  */
-static long (*bpf_parse_header_msg)(struct bpf_sock_addr *ctx) = (void *)165;
+static long (*bpf_parse_header_msg)(struct bpf_sock_addr *ctx) = (void *)177;
