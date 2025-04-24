@@ -9,7 +9,7 @@
 
 #define LONG_CONN_THRESHOLD_TIME (5 * 1000000000ULL) // 5s
 
-volatile __u32 enable_monitoring = 0;
+volatile __u32 enable_monitoring = 1;
 
 static inline bool is_monitoring_enable()
 {
