@@ -169,13 +169,6 @@ func runDumpCmd(args ...string) (string, error) {
     })
 }
   
-  func runAccesslogCmd(args ...string) (string, error) {
-	 cmdArgs := append([]string{"monitoring"}, args...)
-	 cmd := exec.Command("kmeshctl", cmdArgs...)
-	 out, err := cmd.CombinedOutput()
-	 return string(out), err
-  }
- 
  func runAccesslogCmd(args ...string) (string, error) {
 	cmdArgs := append([]string{"monitoring"}, args...)
 	cmd := exec.Command("kmeshctl", cmdArgs...)
