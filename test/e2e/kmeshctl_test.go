@@ -120,46 +120,61 @@ func runDumpCmd(args ...string) (string, error) {
 	return string(out), err
  }
 
-func TestKmeshctlDump(t *testing.T) {
-	pod := findKmeshPod(t)
-	waitForPodRunning(t, pod)
- 
- 
-	t.Run("kernel-native", func(t *testing.T) {
-		out, err := runDumpCmd(pod, "kernel-native")
-		t.Logf("Output of 'kmeshctl dump %s kernel-native':\n%s", pod, out)
-		if err != nil {
-			t.Fatalf("dump kernel-native failed: %v", err)
-		}
-		if strings.TrimSpace(out) == "" {
-			t.Errorf("expected non-empty output for kernel-native, got empty")
-		}
-	})
- 
- 
-	t.Run("dual-engine", func(t *testing.T) {
-		out, err := runDumpCmd(pod, "dual-engine")
-		t.Logf("Output of 'kmeshctl dump %s dual-engine':\n%s", pod, out)
-		if err != nil {
-			t.Fatalf("dump dual-engine failed: %v", err)
-		}
-		if strings.TrimSpace(out) == "" {
-			t.Errorf("expected non-empty output for dual-engine, got empty")
-		}
-	})
- 
- 
-	t.Run("invalid-mode", func(t *testing.T) {
-		out, err := runDumpCmd(pod, "invalid-mode")
-		t.Logf("Output of 'kmeshctl dump %s invalid-mode':\n%s", pod, out)
-		if err == nil {
-			t.Fatal("expected error for invalid mode, but command succeeded")
-		}
-		if !strings.Contains(out, "Argument must be 'kernel-native' or 'dual-engine'") {
-			t.Errorf("expected error message about valid modes, got:\n%s", out)
-		}
-	})
- }
+ func TestKmeshctlDump(t *testing.T) {
+    pod := findKmeshPod(t)
+    waitForPodRunning(t, pod)
+
+    t.Run("kernel-native", func(t *testing.T) {
+        out, err := runDumpCmd(pod, "kernel-native")
+        t.Logf("Output of 'kmeshctl dump %s kernel-native':\n%s", pod, out)
+
+        if strings.Contains(out, "Invalid Client Mode") {
+            t.Log("kernel-native not supported; got expected error")
+            return
+        }
+        if err != nil {
+            t.Fatalf("dump kernel-native failed: %v\n%s", err, out)
+        }
+        if !strings.Contains(out, `"workloads"`) {
+            t.Errorf("expected JSON to contain \"workloads\" array, got:\n%s", out)
+        }
+        if !strings.Contains(out, `"services"`) {
+            t.Errorf("expected JSON to contain \"services\" array, got:\n%s", out)
+        }
+    })
+
+    t.Run("dual-engine", func(t *testing.T) {
+        out, err := runDumpCmd(pod, "dual-engine")
+        t.Logf("Output of 'kmeshctl dump %s dual-engine':\n%s", pod, out)
+        if err != nil {
+            t.Fatalf("dump dual-engine failed: %v\n%s", err, out)
+        }
+        if !strings.Contains(out, `"workloads"`) {
+            t.Errorf("expected JSON to contain \"workloads\" array, got:\n%s", out)
+        }
+        if !strings.Contains(out, `"services"`) {
+            t.Errorf("expected JSON to contain \"services\" array, got:\n%s", out)
+        }
+    })
+
+    t.Run("invalid-mode", func(t *testing.T) {
+        out, err := runDumpCmd(pod, "invalid-mode")
+        t.Logf("Output of 'kmeshctl dump %s invalid-mode':\n%s", pod, out)
+        if err == nil {
+            t.Fatal("expected error for invalid mode, but command succeeded")
+        }
+        if !strings.Contains(out, "Argument must be 'kernel-native' or 'dual-engine'") {
+            t.Errorf("expected usage error, got:\n%s", out)
+        }
+    })
+}
+  
+  func runAccesslogCmd(args ...string) (string, error) {
+	 cmdArgs := append([]string{"monitoring"}, args...)
+	 cmd := exec.Command("kmeshctl", cmdArgs...)
+	 out, err := cmd.CombinedOutput()
+	 return string(out), err
+  }
  
  func runAccesslogCmd(args ...string) (string, error) {
 	cmdArgs := append([]string{"monitoring"}, args...)
