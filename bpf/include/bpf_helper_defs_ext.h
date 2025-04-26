@@ -10,6 +10,10 @@
  * By default, these IDs are in the 5.10 kernel with kmesh kernel patches.
  */
 
+#define bpf_km_header_strnstr_num 175
+#define bpf_km_header_strncmp_num 176
+#define bpf_parse_header_msg_num  177
+
 /*
  * Description
  *      Look for the string corresponding to the key in the results of the
@@ -19,7 +23,8 @@
  *      If found, return 1; otherwise, return 0.
  */
 static long (*bpf_km_header_strnstr)(
-    struct bpf_sock_addr *ctx, const char *key, int key_sz, const char *subptr, int subptr_sz) = (void *)175;
+    struct bpf_sock_addr *ctx, const char *key, int key_sz, const char *subptr, int subptr_sz) = (void *)
+    bpf_km_header_strnstr_num;
 
 /*
  * Description
@@ -30,8 +35,8 @@ static long (*bpf_km_header_strnstr)(
  * Return
  *      If the strings are same, return 0.
  */
-static long (*bpf_km_header_strncmp)(const char *key, int key_sz, const char *target, int target_sz, int opt) =
-    (void *)176;
+static long (*bpf_km_header_strncmp)(const char *key, int key_sz, const char *target, int target_sz, int opt) = (void *)
+    bpf_km_header_strncmp_num;
 
 /*
  * Description
@@ -43,4 +48,4 @@ static long (*bpf_km_header_strncmp)(const char *key, int key_sz, const char *ta
  *      A HTTP PROTO TYPE is returned on success.
  *      **PROTO_UNKNOW** is returned if failure.
  */
-static long (*bpf_parse_header_msg)(struct bpf_sock_addr *ctx) = (void *)177;
+static long (*bpf_parse_header_msg)(struct bpf_sock_addr *ctx) = (void *)bpf_parse_header_msg_num;
