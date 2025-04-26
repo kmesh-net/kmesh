@@ -577,6 +577,7 @@ func buildV4Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) 
 		cm.totalRetrans = connectData.statistics.Retransmits
 		cm.packetLost = connectData.statistics.LostPackets
 		cm.totalReports++
+		tcpConns[data.conSrcDstInfo] = cm
 	} else {
 		tcpConns[data.conSrcDstInfo] = connMetric{
 			receivedBytes: connectData.ReceivedBytes,
@@ -632,6 +633,7 @@ func buildV6Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) 
 		cm.totalRetrans = connectData.statistics.Retransmits
 		cm.packetLost = connectData.statistics.LostPackets
 		cm.totalReports++
+		tcpConns[data.conSrcDstInfo] = cm
 	} else {
 		tcpConns[data.conSrcDstInfo] = connMetric{
 			receivedBytes: connectData.ReceivedBytes,
