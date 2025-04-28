@@ -827,35 +827,41 @@ func TestLongConnL4Telemetry(t *testing.T) {
 					localDst := dst
 					localSrc := src
 					opt := echo.CallOptions{
-						Port:                    echo.Port{Name: "tcp"},
-						Scheme:                  scheme.TCP,
-						Count:                   10,
-						Timeout:                 time.Second,
+						Port:                    echo.Port{Name: "http"},
+						Scheme:                  scheme.HTTP,
+						Count:                   20,
+						Timeout:                 5 * time.Second,
 						Check:                   check.OK(),
+						HTTP:                    echo.HTTP{Path: "/?delay=3s"},
 						To:                      localDst,
 						NewConnectionPerRequest: false,
 					}
 
+					stc.Logf("sending continuous calls from %q to %q", deployName(localSrc), localDst.Config().Service)
+					go localSrc.CallOrFail(stc, opt)
+
 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
-					err := retry.Until(func() bool {
-						stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
-						localSrc.CallOrFail(stc, opt)
-						reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
+					for i := 0; i < 2; i++ {
+						err := retry.Until(func() bool {
+							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
+							if err != nil {
+								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+								return false
+							}
+							if reqs == 0.0 {
+								stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+								return false
+							}
+							return true
+						}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
 						if err != nil {
-							stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
-							return false
+							PromDiff(t, prom, localSrc.Config().Cluster, query)
+							stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 						}
-						if reqs == 0.0 {
-							stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
-							return false
-						}
-						return true
-					}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
-					if err != nil {
-						PromDiff(t, prom, localSrc.Config().Cluster, query)
-						stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+						time.Sleep(5 * time.Second)
 					}
+					time.Sleep(60 * time.Second)
 				})
 			}
 		}

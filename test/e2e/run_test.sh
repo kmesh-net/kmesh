@@ -299,4 +299,3 @@ if [[ -n "${CLEANUP_REGISTRY}" ]]; then
 fi
 
 rm -rf "${TMP}"
- 
