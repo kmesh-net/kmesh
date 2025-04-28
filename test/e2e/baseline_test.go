@@ -842,7 +842,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 
 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
-					time.sleep(30 * time.Second)
+					time.Sleep(30 * time.Second)
 					for i := 0; i < 2; i++ {
 						err := retry.Until(func() bool {
 							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
