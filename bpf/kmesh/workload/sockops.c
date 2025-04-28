@@ -8,7 +8,6 @@
 #include <stdbool.h>
 #include "bpf_log.h"
 #include "workload.h"
-#include "config.h"
 #include "bpf_common.h"
 #include "probe.h"
 #include "config.h"

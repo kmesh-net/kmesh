@@ -74,9 +74,9 @@ func loadKmeshSockOps() (*ebpf.CollectionSpec, error) {
 	var spec *ebpf.CollectionSpec
 	var err error
 	if helper.KernelVersionLowerThan5_13() {
-		spec, err = bpf2go.LoadKmeshSockops()
-	} else {
 		spec, err = bpf2go.LoadKmeshSockopsCompat()
+	} else {
+		spec, err = bpf2go.LoadKmeshSockops()
 	}
 	return spec, err
 }
