@@ -197,7 +197,7 @@ func (c *KmeshManageController) handleNamespaceAdd(obj interface{}) {
 		log.Infof("Enabling Kmesh manage for all pods in namespace: %s", ns.Name)
 		c.enableKmeshForPodsInNamespace(ns)
 	} else {
-		log.Infof("Disabling Kmesh manage for all pods in namespace: %s", ns)
+		log.Infof("Disabling Kmesh manage for all pods in namespace: %s", ns.Name)
 		c.disableKmeshForPodsInNamespace(ns)
 	}
 }
