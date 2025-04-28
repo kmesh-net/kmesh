@@ -829,7 +829,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 					opt := echo.CallOptions{
 						Port:                    echo.Port{Name: "http"},
 						Scheme:                  scheme.HTTP,
-						Count:                   20,
+						Count:                   40,
 						Timeout:                 5 * time.Second,
 						Check:                   check.OK(),
 						HTTP:                    echo.HTTP{Path: "/?delay=3s"},
@@ -842,6 +842,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 
 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
+					time.sleep(30 * time.Second)
 					for i := 0; i < 2; i++ {
 						err := retry.Until(func() bool {
 							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
@@ -859,7 +860,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 							PromDiff(t, prom, localSrc.Config().Cluster, query)
 							stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 						}
-						time.Sleep(5 * time.Second)
+						time.Sleep(15 * time.Second)
 					}
 					time.Sleep(60 * time.Second)
 				})
