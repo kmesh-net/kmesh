@@ -24,7 +24,7 @@ int cgroup_skb_ingress_prog(struct __sk_buff *skb)
     if (!sk)
         return SK_PASS;
 
-    if (sock_conn_from_sim(sk)) {
+    if (sock_conn_from_sim(skb)) {
         return SK_PASS;
     }
 
@@ -48,7 +48,7 @@ int cgroup_skb_egress_prog(struct __sk_buff *skb)
     if (!sk)
         return SK_PASS;
 
-    if (sock_conn_from_sim(sk)) {
+    if (sock_conn_from_sim(skb)) {
         return SK_PASS;
     }
 

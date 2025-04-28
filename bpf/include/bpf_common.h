@@ -260,20 +260,21 @@ static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
         BPF_LOG(ERR, KMESH, "remove ip failed, err is %d\n", err);
 }
 
-static inline bool sock_conn_from_sim(struct bpf_sock *sk)
+static inline bool sock_conn_from_sim(struct __sk_buff *skb)
 {
     __u16 enable_port = ENABLE_KMESH_PORT;
     __u16 disable_port = DISABLE_KMESH_PORT;
-    __u16 dst_port = sk->dst_port;
+    __u16 dst_port = (__u16)(skb->remote_port >> 16);
     if (bpf_ntohs(dst_port) != enable_port && bpf_ntohs(dst_port) != disable_port)
         return false;
 
-    if (sk->family == AF_INET)
-        return bpf_ntohl(sk->dst_ip4) == CONTROL_CMD_IP;
-
+    if (skb->protocol == AF_INET)
+        return bpf_ntohl(skb->remote_ip4) == CONTROL_CMD_IP;
+    // If directly read skb->remote_ip6. bpf prog load failed
+    __u32 remote_ip6[4] = {0};
+    bpf_skb_load_bytes(skb, offsetof(struct __sk_buff, remote_ip6), &remote_ip6, sizeof(remote_ip6));
     return (
-        sk->dst_ip6[0] == 0 && sk->dst_ip6[1] == 0 && sk->dst_ip6[2] == 0
-        && bpf_ntohl(sk->dst_ip6[3]) == CONTROL_CMD_IP);
+        remote_ip6[0] == 0 && remote_ip6[1] == 0 && remote_ip6[2] == 0 && bpf_ntohl(remote_ip6[3]) == CONTROL_CMD_IP);
 }
 
 static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 port)

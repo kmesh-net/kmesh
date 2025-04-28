@@ -95,7 +95,8 @@ static inline void observe_on_data(struct bpf_sock *sk)
     if (!tcp_sock)
         return;
 
-    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
+    // Use BPF_LOCAL_STORAGE_GET_F_CREATE in case a connection being established before kmesh start.
+    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!storage) {
         BPF_LOG(ERR, PROBE, "on data: bpf_sk_storage_get failed dst  %u \n", bpf_ntohs(sk->dst_port));
         return;
