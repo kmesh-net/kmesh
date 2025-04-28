@@ -90,13 +90,14 @@ static inline void observe_on_data(struct bpf_sock *sk)
     struct sock_storage_data *storage = NULL;
     if (!sk)
         return;
+
     tcp_sock = bpf_tcp_sock(sk);
     if (!tcp_sock)
         return;
 
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
     if (!storage) {
-        BPF_LOG(ERR, PROBE, "on data: bpf_sk_storage_get failed\n");
+        BPF_LOG(ERR, PROBE, "on data: bpf_sk_storage_get failed dst  %u \n", bpf_ntohs(sk->dst_port));
         return;
     }
     __u64 now = bpf_ktime_get_ns();
