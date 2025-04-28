@@ -139,11 +139,6 @@ func (c *KmeshManageController) handlePodAdd(obj interface{}) {
 		return
 	}
 
-	if newPod.Status.PodIP == "" {
-		log.Debugf("pod %s/%s network setup is not ready", newPod.Namespace, newPod.Name)
-		return
-	}
-
 	namespace, err := c.namespaceLister.Get(newPod.Namespace)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
