@@ -829,7 +829,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 					opt := echo.CallOptions{
 						Port:                    echo.Port{Name: "http"},
 						Scheme:                  scheme.HTTP,
-						Count:                   40,
+						Count:                   500,
 						Timeout:                 5 * time.Second,
 						Check:                   check.OK(),
 						HTTP:                    echo.HTTP{Path: "/?delay=3s"},
