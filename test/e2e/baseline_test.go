@@ -840,6 +840,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
 					time.Sleep(10 * time.Second)
+					prevReqs := float64(0)
 					for i := 0; i < 2; i++ {
 						err := retry.Until(func() bool {
 							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
@@ -847,10 +848,12 @@ func TestLongConnL4Telemetry(t *testing.T) {
 								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 								return false
 							}
-							if reqs == 0.0 {
+							
+							if reqs-prevReqs == 0.0 {
 								stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 								return false
 							}
+							prevReqs = reqs
 							return true
 						}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
 						if err != nil {
