@@ -375,28 +375,28 @@ func (l *BpfLoader) GetKmeshConfigMap() factory.GlobalBpfConfig {
 	}
 }
 
-func (l *BpfLoader) UpdateBpfLogLevel(BpfLogLevel uint32) error {
+func (l *BpfLoader) UpdateBpfLogLevel(bpfLogLevel uint32) error {
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockConn.BpfLogLevel.Set(BpfLogLevel); err != nil {
+		if err := l.workloadObj.SockConn.BpfLogLevel.Set(bpfLogLevel); err != nil {
 			return fmt.Errorf("set sockcon BpfLogLevel failed %w", err)
 		}
-		if err := l.workloadObj.SockOps.BpfLogLevel.Set(BpfLogLevel); err != nil {
+		if err := l.workloadObj.SockOps.BpfLogLevel.Set(bpfLogLevel); err != nil {
 			return fmt.Errorf("set sockops BpfLogLevel failed %w", err)
 		}
-		if err := l.workloadObj.XdpAuth.BpfLogLevel.Set(BpfLogLevel); err != nil {
+		if err := l.workloadObj.XdpAuth.BpfLogLevel.Set(bpfLogLevel); err != nil {
 			return fmt.Errorf("set xdp BpfLogLevel failed %w", err)
 		}
-		if err := l.workloadObj.SendMsg.BpfLogLevel.Set(BpfLogLevel); err != nil {
+		if err := l.workloadObj.SendMsg.BpfLogLevel.Set(bpfLogLevel); err != nil {
 			return fmt.Errorf("set sendmsg BpfLogLevel failed %w", err)
 		}
-		if err := l.workloadObj.CgroupSkb.BpfLogLevel.Set(BpfLogLevel); err != nil {
+		if err := l.workloadObj.CgroupSkb.BpfLogLevel.Set(bpfLogLevel); err != nil {
 			return fmt.Errorf("set sendmsg BpfLogLevel failed %w", err)
 		}
 	} else if l.obj != nil {
-		if err := l.obj.SockConn.BpfLogLevel.Set(BpfLogLevel); err != nil {
+		if err := l.obj.SockConn.BpfLogLevel.Set(bpfLogLevel); err != nil {
 			return fmt.Errorf("set sockcon BpfLogLevel failed %w", err)
 		}
-		if err := l.obj.SockOps.BpfLogLevel.Set(BpfLogLevel); err != nil {
+		if err := l.obj.SockOps.BpfLogLevel.Set(bpfLogLevel); err != nil {
 			return fmt.Errorf("set sockops BpfLogLevel failed %w", err)
 		}
 	}
@@ -405,25 +405,23 @@ func (l *BpfLoader) UpdateBpfLogLevel(BpfLogLevel uint32) error {
 }
 
 func (l *BpfLoader) GetBpfLogLevel() uint32 {
-	var BpfLogLevel uint32
+	var bpfLogLevel uint32
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockConn.BpfLogLevel.Get(&BpfLogLevel); err != nil {
+		if err := l.workloadObj.SockConn.BpfLogLevel.Get(&bpfLogLevel); err != nil {
 			log.Errorf("get BpfLogLevel failed %v", err)
-			return 0
 		}
 	} else if l.obj != nil {
-		if err := l.obj.SockConn.BpfLogLevel.Get(&BpfLogLevel); err != nil {
+		if err := l.obj.SockConn.BpfLogLevel.Get(&bpfLogLevel); err != nil {
 			log.Errorf("get BpfLogLevel failed %v", err)
-			return 0
 		}
 	}
 
-	return 0
+	return bpfLogLevel
 }
 
-func (l *BpfLoader) UpdateNodeIP(NodeIP [16]byte) error {
+func (l *BpfLoader) UpdateNodeIP(nodeIP [16]byte) error {
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockOps.NodeIp.Set(NodeIP); err != nil {
+		if err := l.workloadObj.SockOps.NodeIp.Set(nodeIP); err != nil {
 			return fmt.Errorf("set NodeIP failed %w", err)
 		}
 	} else if l.obj != nil {
@@ -434,15 +432,13 @@ func (l *BpfLoader) UpdateNodeIP(NodeIP [16]byte) error {
 }
 
 func (l *BpfLoader) GetNodeIP() [16]byte {
+	var nodeIP [16]byte
 	if l.workloadObj != nil {
-		var nodeIP [16]byte
 		if err := l.workloadObj.SockOps.NodeIp.Get(&nodeIP); err != nil {
 			log.Errorf("get NodeIP failed %v", err)
-			return [16]byte{}
 		}
-		return nodeIP
 	}
-	return [16]byte{}
+	return nodeIP
 }
 
 func (l *BpfLoader) UpdatePodGateway(podGateway [16]byte) error {
@@ -458,15 +454,13 @@ func (l *BpfLoader) UpdatePodGateway(podGateway [16]byte) error {
 }
 
 func (l *BpfLoader) GetPodGateway() [16]byte {
+	var podGateway [16]byte
 	if l.workloadObj != nil {
-		var podGateway [16]byte
 		if err := l.workloadObj.SockOps.PodGateway.Get(&podGateway); err != nil {
 			log.Errorf("get PodGateway failed %v", err)
-			return [16]byte{}
 		}
-		return podGateway
 	}
-	return [16]byte{}
+	return podGateway
 }
 
 func (l *BpfLoader) UpdateAuthzOffload(authzOffload uint32) error {
@@ -480,15 +474,13 @@ func (l *BpfLoader) UpdateAuthzOffload(authzOffload uint32) error {
 }
 
 func (l *BpfLoader) GetAuthzOffload() uint32 {
+	var authzOffload uint32
 	if l.workloadObj != nil {
-		var authzOffload uint32
 		if err := l.workloadObj.XdpAuth.AuthzOffload.Get(&authzOffload); err != nil {
 			log.Errorf("get AuthzOffload failed %v", err)
-			return 0
 		}
-		return authzOffload
 	}
-	return 0
+	return authzOffload
 }
 
 func (l *BpfLoader) UpdateEnableMonitoring(enableMonitoring uint32) error {
@@ -505,15 +497,13 @@ func (l *BpfLoader) UpdateEnableMonitoring(enableMonitoring uint32) error {
 }
 
 func (l *BpfLoader) GetEnableMonitoring() uint32 {
+	var enableMonitoring uint32
 	if l.workloadObj != nil {
-		var enableMonitoring uint32
 		if err := l.workloadObj.CgroupSkb.EnableMonitoring.Get(&enableMonitoring); err != nil {
 			log.Errorf("get EnableMonitoring failed %v", err)
-			return 0
 		}
-		return enableMonitoring
 	}
-	return 0
+	return enableMonitoring
 }
 
 func closeMap(m *ebpf.Map) {
