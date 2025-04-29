@@ -826,8 +826,8 @@ func TestLongConnL4Telemetry(t *testing.T) {
 					opt := echo.CallOptions{
 						Port:                    echo.Port{Name: "http"},
 						Scheme:                  scheme.HTTP,
-						Count:                   20,
-						Timeout:                 5 * time.Second,
+						Count:                   500,
+						Timeout:                 2 *60* time.Second,
 						Check:                   check.OK(),
 						HTTP:                    echo.HTTP{Path: "/?delay=3s", HTTP2: true},
 						To:                      localDst,
@@ -839,7 +839,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 
 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
-					// time.Sleep(10 * time.Second)
+					time.Sleep(10 * time.Second)
 					prevReqs := float64(0)
 					for i := 0; i < 2; i++ {
 						err := retry.Until(func() bool {
@@ -848,7 +848,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 								return false
 							}
-							
+
 							if reqs-prevReqs == 0.0 {
 								stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 								return false
@@ -862,7 +862,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 						}
 						time.Sleep(15 * time.Second)
 					}
-					time.Sleep(30 * time.Second)
+					time.Sleep(2 * 60 * time.Second)
 				})
 			}
 		}
