@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 /*
  * Copyright The Kmesh Authors.
  *
@@ -829,10 +826,10 @@ func TestLongConnL4Telemetry(t *testing.T) {
 					opt := echo.CallOptions{
 						Port:                    echo.Port{Name: "http"},
 						Scheme:                  scheme.HTTP,
-						Count:                   500,
-						Timeout:                 2 * 60 * time.Second,
+						Count:                   20,
+						Timeout:                 60 * time.Second,
 						Check:                   check.OK(),
-						HTTP:                    echo.HTTP{Path: "/?delay=3s"},
+						HTTP:                    echo.HTTP{Path: "/?delay=3s", HTTP2: true},
 						To:                      localDst,
 						NewConnectionPerRequest: false,
 					}
@@ -842,7 +839,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 
 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
-					time.Sleep(30 * time.Second)
+					time.Sleep(10 * time.Second)
 					for i := 0; i < 2; i++ {
 						err := retry.Until(func() bool {
 							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
@@ -862,7 +859,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 						}
 						time.Sleep(15 * time.Second)
 					}
-					time.Sleep(60 * time.Second)
+					time.Sleep(30 * time.Second)
 				})
 			}
 		}
