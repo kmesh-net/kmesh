@@ -516,19 +516,19 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				OutputAccesslog(data, tcpConns[data.conSrcDstInfo], accesslog)
 			}
 
-			if data.state == TCP_CLOSTED {
-				delete(tcpConns, data.conSrcDstInfo)
-			}
-
 			m.mutex.Lock()
 			if m.EnableWorkloadMetric.Load() {
-				m.updateWorkloadMetricCache(data, workloadLabels, tcpConns)
+				m.updateWorkloadMetricCache(data, workloadLabels, tcpConns[data.conSrcDstInfo])
 			}
-			m.updateServiceMetricCache(data, serviceLabels, tcpConns)
+			m.updateServiceMetricCache(data, serviceLabels, tcpConns[data.conSrcDstInfo])
 			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
 				m.updateConnectionMetricCache(data, tcpConns[data.conSrcDstInfo], connectionLabels)
 			}
 			m.mutex.Unlock()
+
+			if data.state == TCP_CLOSTED {
+				delete(tcpConns, data.conSrcDstInfo)
+			}
 		}
 	}
 }
@@ -842,10 +842,10 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 	return DEFAULT_UNKNOWN
 }
 
-func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels, tcpConns map[connectionSrcDst]connMetric) {
+func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels, metric connMetric) {
 	v, ok := m.workloadMetricCache[labels]
 	if ok {
-		if data.state == TCP_ESTABLISHED && tcpConns[data.conSrcDstInfo].totalReports == 1 {
+		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			v.WorkloadConnOpened = v.WorkloadConnOpened + 1
 		}
 		if data.state == TCP_CLOSTED {
@@ -860,7 +860,7 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		v.WorkloadConnPacketLost = v.WorkloadConnPacketLost + float64(data.packetLost)
 	} else {
 		newWorkloadMetricInfo := workloadMetricInfo{}
-		if data.state == TCP_ESTABLISHED && tcpConns[data.conSrcDstInfo].totalReports == 1 {
+		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			newWorkloadMetricInfo.WorkloadConnOpened = 1
 		}
 		if data.state == TCP_CLOSTED {
@@ -877,10 +877,10 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 	}
 }
 
-func (m *MetricController) updateServiceMetricCache(data requestMetric, labels serviceMetricLabels, tcpConns map[connectionSrcDst]connMetric) {
+func (m *MetricController) updateServiceMetricCache(data requestMetric, labels serviceMetricLabels, metric connMetric) {
 	v, ok := m.serviceMetricCache[labels]
 	if ok {
-		if data.state == TCP_ESTABLISHED && tcpConns[data.conSrcDstInfo].totalReports == 1 {
+		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			v.ServiceConnOpened = v.ServiceConnOpened + 1
 		}
 		if data.state == TCP_CLOSTED {
@@ -893,7 +893,7 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 		v.ServiceConnSentBytes = v.ServiceConnSentBytes + float64(data.sentBytes)
 	} else {
 		newServiceMetricInfo := serviceMetricInfo{}
-		if data.state == TCP_ESTABLISHED && tcpConns[data.conSrcDstInfo].totalReports == 1 {
+		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			newServiceMetricInfo.ServiceConnOpened = 1
 		}
 		if data.state == TCP_CLOSTED {

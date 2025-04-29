@@ -307,7 +307,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 			}
-			m.updateWorkloadMetricCache(tt.args.data, tt.args.labels, tt.args.tcpConns)
+			m.updateWorkloadMetricCache(tt.args.data, tt.args.labels, tt.args.tcpConns[tt.args.data.conSrcDstInfo])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnClosed, tt.want[0])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnOpened, tt.want[1])
 			assert.Equal(t, m.workloadMetricCache[tt.args.labels].WorkloadConnReceivedBytes, tt.want[2])
@@ -441,7 +441,7 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 				workloadMetricCache: map[workloadMetricLabels]*workloadMetricInfo{},
 				serviceMetricCache:  map[serviceMetricLabels]*serviceMetricInfo{},
 			}
-			m.updateServiceMetricCache(tt.args.data, tt.args.labels, tt.args.tcpConns)
+			m.updateServiceMetricCache(tt.args.data, tt.args.labels, tt.args.tcpConns[tt.args.data.conSrcDstInfo])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnClosed, tt.want[0])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnOpened, tt.want[1])
 			assert.Equal(t, m.serviceMetricCache[tt.args.labels].ServiceConnReceivedBytes, tt.want[2])
