@@ -5,9 +5,11 @@
 #include <sys/socket.h>
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
+#include <stdbool.h>
 #include "bpf_log.h"
 #include "bpf_common.h"
 #include "probe.h"
+#include "config.h"
 
 SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress_prog(struct __sk_buff *skb)
