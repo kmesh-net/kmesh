@@ -390,7 +390,7 @@ func (l *BpfLoader) UpdateBpfLogLevel(bpfLogLevel uint32) error {
 			return fmt.Errorf("set sendmsg BpfLogLevel failed %w", err)
 		}
 		if err := l.workloadObj.CgroupSkb.BpfLogLevel.Set(bpfLogLevel); err != nil {
-			return fmt.Errorf("set sendmsg BpfLogLevel failed %w", err)
+			return fmt.Errorf("set cgroup_skb BpfLogLevel failed %w", err)
 		}
 	} else if l.obj != nil {
 		if err := l.obj.SockConn.BpfLogLevel.Set(bpfLogLevel); err != nil {
