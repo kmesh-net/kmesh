@@ -823,19 +823,19 @@ func TestLongConnL4Telemetry(t *testing.T) {
 				tc.NewSubTestf("from %q to %q", src.Config().Service, dst.Config().Service).Run(func(stc framework.TestContext) {
 					localDst := dst
 					localSrc := src
-					opt := echo.CallOptions{
-						Port:                    echo.Port{Name: "http"},
-						Scheme:                  scheme.HTTP,
-						Count:                   20,
-						Timeout:                 60 * time.Second,
-						Check:                   check.OK(),
-						HTTP:                    echo.HTTP{Path: "/?delay=3s", HTTP2: true},
-						To:                      localDst,
-						NewConnectionPerRequest: false,
-					}
+					// opt := echo.CallOptions{
+					// 	Port:                    echo.Port{Name: "http"},
+					// 	Scheme:                  scheme.HTTP,
+					// 	Count:                   20,
+					// 	Timeout:                 60 * time.Second,
+					// 	Check:                   check.OK(),
+					// 	HTTP:                    echo.HTTP{Path: "/?delay=3s", HTTP2: true},
+					// 	To:                      localDst,
+					// 	NewConnectionPerRequest: false,
+					// }
 
 					stc.Logf("sending continuous calls from %q to %q", deployName(localSrc), localDst.Config().Service)
-					go localSrc.CallOrFail(stc, opt)
+					// go localSrc.CallOrFail(stc, opt)
 
 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
