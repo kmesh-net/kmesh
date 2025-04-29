@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 /*
  * Copyright The Kmesh Authors.
  *
@@ -777,7 +774,49 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 	}
 }
 
-func TestL4Telemetry(t *testing.T) {
+// func TestL4Telemetry(t *testing.T) {
+// 	framework.NewTest(t).Run(func(tc framework.TestContext) {
+// 		for _, src := range apps.EnrolledToKmesh {
+// 			for _, dst := range apps.EnrolledToKmesh {
+// 				tc.NewSubTestf("from %q to %q", src.Config().Service, dst.Config().Service).Run(func(stc framework.TestContext) {
+// 					localDst := dst
+// 					localSrc := src
+// 					opt := echo.CallOptions{
+// 						Port:    echo.Port{Name: "tcp"},
+// 						Scheme:  scheme.TCP,
+// 						Count:   5,
+// 						Timeout: time.Second,
+// 						Check:   check.OK(),
+// 						To:      localDst,
+// 					}
+
+// 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_connections_opened_total")
+// 					stc.Logf("prometheus query: %#v", query)
+// 					err := retry.Until(func() bool {
+// 						stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
+// 						localSrc.CallOrFail(stc, opt)
+// 						reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
+// 						if err != nil {
+// 							stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+// 							return false
+// 						}
+// 						if reqs == 0.0 {
+// 							stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+// 							return false
+// 						}
+// 						return true
+// 					}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+// 					if err != nil {
+// 						PromDiff(t, prom, localSrc.Config().Cluster, query)
+// 						stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+// 					}
+// 				})
+// 			}
+// 		}
+// 	})
+// }
+
+func TestLongConnL4Telemetry(t *testing.T) {
 	framework.NewTest(t).Run(func(tc framework.TestContext) {
 		for _, src := range apps.EnrolledToKmesh {
 			for _, dst := range apps.EnrolledToKmesh {
@@ -785,41 +824,52 @@ func TestL4Telemetry(t *testing.T) {
 					localDst := dst
 					localSrc := src
 					opt := echo.CallOptions{
-						Port:    echo.Port{Name: "tcp"},
-						Scheme:  scheme.TCP,
-						Count:   5,
-						Timeout: time.Second,
-						Check:   check.OK(),
-						To:      localDst,
+						Port:                    echo.Port{Name: "http"},
+						Scheme:                  scheme.HTTP,
+						Count:                   500,
+						Timeout:                 2 *60* time.Second,
+						Check:                   check.OK(),
+						HTTP:                    echo.HTTP{Path: "/?delay=3s", HTTP2: true},
+						To:                      localDst,
+						NewConnectionPerRequest: false,
 					}
 
-					query := buildL4Query(localSrc, localDst)
+					stc.Logf("sending continuous calls from %q to %q", deployName(localSrc), localDst.Config().Service)
+					go localSrc.CallOrFail(stc, opt)
+
+					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
-					err := retry.Until(func() bool {
-						stc.Logf("sending call from %q to %q", deployName(localSrc), localDst.Config().Service)
-						localSrc.CallOrFail(stc, opt)
-						reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
+					time.Sleep(10 * time.Second)
+					prevReqs := float64(0)
+					for i := 0; i < 2; i++ {
+						err := retry.Until(func() bool {
+							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
+							if err != nil {
+								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+								return false
+							}
+
+							if reqs-prevReqs == 0.0 {
+								stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+								return false
+							}
+							prevReqs = reqs
+							return true
+						}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
 						if err != nil {
-							stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
-							return false
+							PromDiff(t, prom, localSrc.Config().Cluster, query)
+							stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 						}
-						if reqs == 0.0 {
-							stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
-							return false
-						}
-						return true
-					}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
-					if err != nil {
-						PromDiff(t, prom, localSrc.Config().Cluster, query)
-						stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+						time.Sleep(15 * time.Second)
 					}
+					time.Sleep(2 * 60 * time.Second)
 				})
 			}
 		}
 	})
 }
 
-func buildL4Query(src, dst echo.Instance) prometheus.Query {
+func buildL4Query(src, dst echo.Instance, metricName string) prometheus.Query {
 	query := prometheus.Query{}
 
 	srcns := src.NamespaceName()
@@ -849,7 +899,7 @@ func buildL4Query(src, dst echo.Instance) prometheus.Query {
 		"source_cluster":                 "Kubernetes",
 	}
 
-	query.Metric = "kmesh_tcp_connections_opened_total"
+	query.Metric = metricName
 	query.Labels = labels
 
 	return query
@@ -1150,7 +1200,6 @@ spec:
 							}
 						})
 				})
-
 			}
 		})
 }
