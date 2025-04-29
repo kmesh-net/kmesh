@@ -827,7 +827,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 						Port:                    echo.Port{Name: "http"},
 						Scheme:                  scheme.HTTP,
 						Count:                   20,
-						Timeout:                 60 * time.Second,
+						Timeout:                 5 * time.Second,
 						Check:                   check.OK(),
 						HTTP:                    echo.HTTP{Path: "/?delay=3s", HTTP2: true},
 						To:                      localDst,
@@ -839,7 +839,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 
 					query := buildL4Query(localSrc, localDst, "kmesh_tcp_sent_bytes_total")
 					stc.Logf("prometheus query: %#v", query)
-					time.Sleep(10 * time.Second)
+					// time.Sleep(10 * time.Second)
 					prevReqs := float64(0)
 					for i := 0; i < 2; i++ {
 						err := retry.Until(func() bool {
