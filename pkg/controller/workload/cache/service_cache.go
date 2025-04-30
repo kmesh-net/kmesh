@@ -72,6 +72,18 @@ func (s *serviceCache) AddOrUpdateService(svc *workloadapi.Service) {
 func (s *serviceCache) DeleteService(resourceName string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
+	svc, ok := s.servicesByResourceName[resourceName]
+	if !ok {
+		return
+	}
+
+	for _, addr := range svc.GetAddresses() {
+		addrStr, _ := netip.AddrFromSlice(addr.GetAddress())
+		networkAddress := composeNetworkAddress(addr.GetNetwork(), addrStr)
+		s.deleteAddr(networkAddress, svc)
+	}
+
 	delete(s.servicesByResourceName, resourceName)
 }
 
@@ -90,4 +102,14 @@ func (s *serviceCache) GetService(resourceName string) *workloadapi.Service {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.servicesByResourceName[resourceName]
+}
+
+func (s *serviceCache) deleteAddr(addr NetworkAddress, svc *workloadapi.Service) {
+	if service, ok := s.servicesByAddr[addr]; ok {
+		if service.GetNamespace() == svc.GetNamespace() && service.GetName() == svc.GetName() {
+			// NOTE: If the associated service is updated, we can no longer delete it.
+			// Ref: https://github.com/kmesh-net/kmesh/issues/1352
+			delete(s.servicesByAddr, addr)
+		}
+	}
 }
