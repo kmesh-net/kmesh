@@ -512,6 +512,15 @@ func (l *BpfLoader) GetEnableMonitoring() uint32 {
 	return 0
 }
 
+func (l *BpfLoader) UpdateEnablePeriodicReport(EnablePeriodicReport uint32) error {
+	if l.workloadObj != nil {
+		if err := l.workloadObj.CgroupSkb.EnablePeriodicReport.Set(EnablePeriodicReport); err != nil {
+			return fmt.Errorf("set CgroupSkb enable periodic report failed %w", err)
+		}
+	}
+	return nil
+}
+
 func closeMap(m *ebpf.Map) {
 	if m == nil {
 		return
