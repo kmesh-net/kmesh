@@ -4,8 +4,8 @@ ROOT_DIR=$(git rev-parse --show-toplevel)
 
 . $ROOT_DIR/hack/utils.sh
 
-DOCKER_EBPF_TEST_COMMAND="make -C /kmesh/test/bpf_ut run"
-LOCAL_EBPF_TEST_COMMAND="make -C $ROOT_DIR/test/bpf_ut run"
+DOCKER_EBPF_TEST_COMMAND="make -C /kmesh/test/bpf_ut clean;make -C /kmesh/test/bpf_ut run"
+LOCAL_EBPF_TEST_COMMAND="make -C $ROOT_DIR/test/bpf_ut clean;make -C $ROOT_DIR/test/bpf_ut run"
 
 function docker_run_ebpf_ut() {
     local container_id=$1

@@ -24,7 +24,7 @@ CLANG_FLAGS += -Wimplicit-fallthrough
 # Create dependency files for each .o file.
 CLANG_FLAGS += -MD
 
-.PHONY: all clean run build
+.PHONY: all clean run
 
 all: xdp_shutdown_in_userspace_test.o xdp_authz_offload_test.o workload_sockops.o
 
@@ -71,7 +71,6 @@ ifdef BPF_TEST_FILE
 endif
 
 run: all
-	$(QUIET) echo "rebuild and run bpf tests"
 	$(GO) test ./bpftest -bpf-ut-path $(ROOT_DIR)/test/bpf_ut $(BPF_TEST_FLAGS)
 
 -include $(TEST_OBJECTS:.o=.d)

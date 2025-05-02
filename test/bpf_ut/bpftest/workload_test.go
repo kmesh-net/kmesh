@@ -19,8 +19,10 @@
 package bpftests
 
 import (
+	"bytes"
 	"encoding/binary"
 	"errors"
+	"log"
 	"net"
 	"os"
 	"path"
@@ -31,6 +33,7 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
+	"github.com/cilium/ebpf/ringbuf"
 
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
@@ -299,7 +302,7 @@ func testSockOps(t *testing.T) {
 					name: "BPF_SOCK_OPS_TCP_CONNECT_CB",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
 						// mount cgroup2
-						mount_and_enter_cgroup2(t, cgroupPath)
+						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
 
 						// load the eBPF program
@@ -343,7 +346,7 @@ func testSockOps(t *testing.T) {
 
 						iter = kmManageMap.Iterate()
 						for iter.Next(&keyBytes, &value) {
-							ip4HostOrder := binary.LittleEndian.Uint32(keyBytes[0:8])
+							ip4HostOrder := binary.LittleEndian.Uint32(keyBytes[0:4])
 							ipStr := net.IPv4(
 								byte(ip4HostOrder),
 								byte(ip4HostOrder>>8),
@@ -380,6 +383,87 @@ func testSockOps(t *testing.T) {
 						}
 					},
 				},
+				{
+					name: "BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB_auth_ip_tuple",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						localIP := get_local_ipv4(t)
+						serverPort := 54321
+						serverSocket := localIP + ":" + strconv.Itoa(serverPort)
+
+						// mount cgroup2
+						mount_cgroup2(t, cgroupPath)
+						defer syscall.Unmount(cgroupPath, 0)
+
+						// load the eBPF program
+						coll, lk := load_bpf_2_cgroup(t, objFilePath, cgroupPath)
+						defer coll.Close()
+						defer lk.Close()
+
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						// record_kmesh_managed_ip
+						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
+						(&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP: net.ParseIP(localIP),
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", enableAddr)
+
+						// Create a TCP server listener
+						listener, err := net.Listen("tcp", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+
+						// try to connect to the server
+						conn, err := net.DialTimeout("tcp4", serverSocket, 2*time.Second)
+						if err != nil {
+							t.Fatalf("Failed to connect to server: %v", err)
+						}
+						defer conn.Close()
+
+						// Now, the TCP connection between localAddr and serverSocket has been established
+						time.Sleep(1 * time.Second)
+
+						// Check the contents of ringbuf km_auth_req
+						kmAuthReqMap := coll.Maps["km_auth_req"]
+						if kmAuthReqMap == nil {
+							t.Fatal("Failed to get km_auth_req map from collection")
+						}
+						rd, err := ringbuf.NewReader(kmAuthReqMap)
+						if err != nil {
+							t.Fatalf("Failed to create ringbuf reader: %v", err)
+						}
+						defer rd.Close()
+
+						var event [40]byte // sizeof(struct ringbuf_msg_type)
+						record, err := rd.Read()
+						if err != nil {
+							t.Fatalf("Failed to read from ringbuf: %v", err)
+						}
+						if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &event); err != nil {
+							log.Printf("parsing ringbuf event: %s", err)
+						}
+						protoType := binary.LittleEndian.Uint32(event[0:4])
+						srcIP := net.IPv4(event[4], event[5], event[6], event[7])
+						dstIP := net.IPv4(event[8], event[9], event[10], event[11])
+						srcPort := binary.BigEndian.Uint16(event[12:14])
+						dstPort := binary.BigEndian.Uint16(event[14:16])
+						t.Logf("Received ringbuf_msg: type=%d, src=%s:%d, dst=%s:%d", protoType, srcIP, srcPort, dstIP, dstPort)
+
+						// Check
+						if protoType != 0 /*IPV4*/ || dstIP.String() != localIP || int(dstPort) != serverPort {
+							t.Fatalf("Expected dst IP and port to be %s:%d, but got %s:%d", localIP, serverPort, dstIP, dstPort)
+						}
+					},
+				},
 			},
 		},
 	}
@@ -389,7 +473,7 @@ func testSockOps(t *testing.T) {
 	}
 }
 
-func mount_and_enter_cgroup2(t *testing.T, cgroupPath string) {
+func mount_cgroup2(t *testing.T, cgroupPath string) {
 	var err error
 
 	// mount cgroup2
@@ -404,12 +488,6 @@ func mount_and_enter_cgroup2(t *testing.T, cgroupPath string) {
 		} else {
 			t.Fatalf("Failed to mount cgroup2 at %s: %v. Ensure test is run with sudo.", cgroupPath, err)
 		}
-	}
-
-	// Write PID to the cgroup.procs file to move the current process
-	cgroupProcsFile := path.Join(cgroupPath, "cgroup.procs")
-	if err = os.WriteFile(cgroupProcsFile, []byte(strconv.Itoa(os.Getpid())), 0644); err != nil {
-		t.Logf("Warning: Failed to write PID to %s: %v. Proceeding with connection attempt.", cgroupProcsFile, err)
 	}
 }
 
@@ -449,4 +527,18 @@ func load_bpf_2_cgroup(t *testing.T, objFilename string, cgroupPath string) (*eb
 		t.Fatalf("Failed to attach cgroup: %v", err)
 	}
 	return coll, lk
+}
+
+func get_local_ipv4(t *testing.T) string {
+	testConn, testErr := net.Dial("tcp4", "8.8.8.8:53")
+	if testErr != nil {
+		t.Fatalf("Failed to create test connection: %v", testErr)
+	}
+	defer testConn.Close()
+
+	localAddr, _, err := net.SplitHostPort(testConn.LocalAddr().String())
+	if err != nil {
+		t.Fatalf("Failed to extract host from address: %v", err)
+	}
+	return localAddr
 }
