@@ -50,7 +50,7 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
   ```bash
   [root@localhost kmesh]# ls out/amd64/
   kmesh-daemon       libbpf.so    libbpf.so.0.8.1       libkmesh_deserial.so  libprotobuf-c.so.1      mdacore
-  kmesh-cni  libboundscheck.so  libbpf.so.0  libkmesh_api_v2_c.so  libprotobuf-c.so      libprotobuf-c.so.1.0.0
+  kmesh-cni  kmeshctl  libboundscheck.so  libbpf.so.0  libkmesh_api_v2_c.so  libprotobuf-c.so      libprotobuf-c.so.1.0.0
   ```
 
 ### build docker image
