@@ -38,6 +38,7 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/bpf/factory"
 	bpfUtils "kmesh.net/kmesh/pkg/bpf/utils"
 	bpfWorkload "kmesh.net/kmesh/pkg/bpf/workload"
@@ -319,7 +320,7 @@ func testSockOps(t *testing.T) {
 
 						// record_kmesh_managed_ip
 						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
-						net.DialTimeout("tcp", enableAddr, 2*time.Second)
+						net.DialTimeout("tcp4", enableAddr, 2*time.Second)
 
 						// Execute bpftool map dump and log the results (optional, for debugging)
 						// cmd := exec.Command("bpftool", "map", "dump", "name", "km_manage")
@@ -366,7 +367,7 @@ func testSockOps(t *testing.T) {
 
 						// remove_kmesh_managed_ip
 						disableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperDisableControl))
-						net.DialTimeout("tcp", disableAddr, 2*time.Second)
+						net.DialTimeout("tcp4", disableAddr, 2*time.Second)
 
 						iter = kmManageMap.Iterate()
 						count = 0
@@ -387,6 +388,7 @@ func testSockOps(t *testing.T) {
 					name: "BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB_auth_ip_tuple",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
 						localIP := get_local_ipv4(t)
+						clientPort := 12345
 						serverPort := 54321
 						serverSocket := localIP + ":" + strconv.Itoa(serverPort)
 
@@ -410,26 +412,35 @@ func testSockOps(t *testing.T) {
 						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
 						(&net.Dialer{
 							LocalAddr: &net.TCPAddr{
-								IP: net.ParseIP(localIP),
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
 							},
 							Timeout: 2 * time.Second,
 						}).Dial("tcp4", enableAddr)
 
 						// Create a TCP server listener
-						listener, err := net.Listen("tcp", serverSocket)
+						listener, err := net.Listen("tcp4", serverSocket)
 						if err != nil {
 							t.Fatalf("Failed to start TCP server: %v", err)
 						}
 						defer listener.Close()
 
-						// try to connect to the server
-						conn, err := net.DialTimeout("tcp4", serverSocket, 2*time.Second)
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", serverSocket)
 						if err != nil {
 							t.Fatalf("Failed to connect to server: %v", err)
+						} else {
+							t.Logf("Connect success: %s:%d -> %s:%d", localIP, clientPort, localIP, serverPort)
 						}
 						defer conn.Close()
 
-						// Now, the TCP connection between localAddr and serverSocket has been established
+						// Now, the TCP connection between localIP:12345(client) and localIP:54321(server) has been established
 						time.Sleep(1 * time.Second)
 
 						// Check the contents of ringbuf km_auth_req
@@ -459,8 +470,101 @@ func testSockOps(t *testing.T) {
 						t.Logf("Received ringbuf_msg: type=%d, src=%s:%d, dst=%s:%d", protoType, srcIP, srcPort, dstIP, dstPort)
 
 						// Check
-						if protoType != 0 /*IPV4*/ || dstIP.String() != localIP || int(dstPort) != serverPort {
-							t.Fatalf("Expected dst IP and port to be %s:%d, but got %s:%d", localIP, serverPort, dstIP, dstPort)
+						if protoType != constants.MSG_TYPE_IPV4 ||
+							srcIP.String() != localIP || int(srcPort) != clientPort ||
+							dstIP.String() != localIP || int(dstPort) != serverPort {
+							t.Fatalf("Expected {protoType: %d, srcIP: %s, srcPort: %d, dstIP: %s, dstPort: %d}, but got {protoType: %d, srcIP: %s, srcPort: %d, dstIP: %s, dstPort: %d}",
+								constants.MSG_TYPE_IPV4, localIP, clientPort, localIP, serverPort,
+								protoType, srcIP, srcPort, dstIP, dstPort)
+						}
+					},
+				},
+				{
+					name: "BPF_SOCK_OPS_STATE_CB_clean_auth_map",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						localIP := get_local_ipv4(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := localIP + ":" + strconv.Itoa(serverPort)
+
+						// mount cgroup2
+						mount_cgroup2(t, cgroupPath)
+						defer syscall.Unmount(cgroupPath, 0)
+
+						// load the eBPF program
+						coll, lk := load_bpf_2_cgroup(t, objFilePath, cgroupPath)
+						defer coll.Close()
+						defer lk.Close()
+
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						// update km_auth_res map
+						mapOfAuth, ok := coll.Maps["km_auth_res"]
+						if !ok {
+							t.Fatal("Failed to get km_auth_res map from collection")
+						}
+						key := make([]byte, auth.TUPLE_LEN)                                                       // struct ipv4
+						binary.BigEndian.PutUint32(key[0:4], binary.BigEndian.Uint32(net.ParseIP(localIP).To4())) // __be32 saddr;
+						binary.BigEndian.PutUint32(key[4:8], binary.BigEndian.Uint32(net.ParseIP(localIP).To4())) // __be32 daddr;
+						binary.BigEndian.PutUint16(key[8:10], uint16(serverPort))                                 // __be16 sport;
+						binary.BigEndian.PutUint16(key[10:12], uint16(clientPort))                                // __be16 dport;
+						for i := auth.IPV4_TUPLE_LENGTH; i < len(key); i++ {
+							key[i] = 0
+						}
+						if err := mapOfAuth.Update(key, uint32(1), ebpf.UpdateAny); err != nil {
+							t.Fatalf("Failed to update km_auth_res map: %v", err)
+						}
+
+						// record_kmesh_managed_ip
+						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
+						(&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", enableAddr)
+
+						// Create a TCP server listener
+						listener, err := net.Listen("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to connect to server: %v", err)
+						} else {
+							t.Logf("Connect success: %s:%d -> %s:%d", localIP, clientPort, localIP, serverPort)
+						}
+						conn.Close()
+
+						// Now, the TCP connection between between localIP:12345(client) and localIP:54321(server) has been established and closed
+						time.Sleep(1 * time.Second)
+
+						// Check if the entry was deleted from km_auth_res map
+						// The same key we inserted earlier should no longer exist in the map
+						var value uint32
+						err = mapOfAuth.Lookup(key, &value)
+						if err == nil {
+							t.Fatalf("km_auth_res map entry was not deleted as expected")
+						} else if !errors.Is(err, ebpf.ErrKeyNotExist) {
+							t.Fatalf("Unexpected error when looking up km_auth_res map: %v", err)
+						} else {
+							t.Logf("km_auth_res map entry was successfully cleaned up")
 						}
 					},
 				},
@@ -473,6 +577,19 @@ func testSockOps(t *testing.T) {
 	}
 }
 
+// mount_cgroup2 mounts a cgroup v2 filesystem at the specified path.
+// It creates the directory at cgroupPath if it doesn't exist, then attempts
+// to mount a cgroup2 filesystem at that location.
+//
+// If the cgroup is already mounted (EBUSY error), it logs a message and continues.
+// For other mount failures, it fails the test with an error message.
+//
+// This function requires root privileges to succeed, as mounting filesystems
+// is a privileged operation.
+//
+// Parameters:
+//   - t: Testing context for logging and failure reporting
+//   - cgroupPath: Directory path where cgroup2 should be mounted
 func mount_cgroup2(t *testing.T, cgroupPath string) {
 	var err error
 
@@ -491,6 +608,20 @@ func mount_cgroup2(t *testing.T, cgroupPath string) {
 	}
 }
 
+// load_bpf_2_cgroup loads an eBPF program from a specified object file and attaches it to the given cgroup path.
+// The function loads the eBPF collection into the kernel and specifically attaches the "sockops_prog" program
+// from the collection to the cgroup.
+//
+// Parameters:
+//   - t: Testing context for reporting failures
+//   - objFilename: Name of the eBPF object file to load (must not be empty)
+//   - cgroupPath: Path to the cgroup where the program will be attached (must not be empty)
+//
+// Returns:
+//   - *ebpf.Collection: The loaded eBPF collection containing programs and maps
+//   - link.Link: The link representing the attachment to the cgroup
+//
+// The function will call t.Fatal if any error occurs during loading or attachment.
 func load_bpf_2_cgroup(t *testing.T, objFilename string, cgroupPath string) (*ebpf.Collection, link.Link) {
 	if cgroupPath == "" {
 		t.Fatal("cgroupPath is empty")
@@ -529,6 +660,19 @@ func load_bpf_2_cgroup(t *testing.T, objFilename string, cgroupPath string) (*eb
 	return coll, lk
 }
 
+// get_local_ipv4 returns the local IPv4 address of the machine by establishing
+// a connection to an external server (8.8.8.8:53, Google's DNS).
+// This method determines which network interface is used for external communication.
+//
+// The function fails the test if:
+// - It cannot establish a connection to the external server
+// - It cannot extract the host part from the local address
+//
+// Parameters:
+//   - t *testing.T: The testing object for reporting test failures
+//
+// Returns:
+//   - string: The local IPv4 address (without port)
 func get_local_ipv4(t *testing.T) string {
 	testConn, testErr := net.Dial("tcp4", "8.8.8.8:53")
 	if testErr != nil {
