@@ -27,6 +27,7 @@ import (
 	"os"
 	"path"
 	"strconv"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -297,10 +298,10 @@ func workload_setMapsEnv(t *testing.T, coll *ebpf.Collection) {
 func testSockOps(t *testing.T) {
 	tests := []unitTests_BUILD_CONTEXT{
 		{
-			objFilename: "workload_sockops.o",
+			objFilename: "workload_sockops_test.o",
 			uts: []unitTest_BUILD_CONTEXT{
 				{
-					name: "BPF_SOCK_OPS_TCP_CONNECT_CB",
+					name: "BPF_SOCK_OPS_TCP_CONNECT_CB__modify_kmesh_managed_ip",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
 						// mount cgroup2
 						mount_cgroup2(t, cgroupPath)
@@ -385,7 +386,87 @@ func testSockOps(t *testing.T) {
 					},
 				},
 				{
-					name: "BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB_auth_ip_tuple",
+					name: "BPF_SOCK_OPS_ACTIVE_ESTABLISHED_CB__enable_encoding_metadata",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						localIP := get_local_ipv4(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := localIP + ":" + strconv.Itoa(serverPort)
+
+						// mount cgroup2
+						mount_cgroup2(t, cgroupPath)
+						defer syscall.Unmount(cgroupPath, 0)
+
+						// load the eBPF program
+						coll, lk := load_bpf_2_cgroup(t, objFilePath, cgroupPath)
+						defer coll.Close()
+						defer lk.Close()
+
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						// record_kmesh_managed_ip
+						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
+						(&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", enableAddr)
+
+						// Create a TCP server listener
+						listener, err := net.Listen("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to connect to server: %v", err)
+						} else {
+							t.Logf("Connect success: %s:%d -> %s:%d", localIP, clientPort, localIP, serverPort)
+						}
+						defer conn.Close()
+
+						// Now, the TCP connection between localIP:12345(client) and localIP:54321(server) has been established
+						time.Sleep(1 * time.Second)
+
+						// Get the km_socket map from the collection
+						kmSocketMap, ok := coll.Maps["km_socket"]
+						if !ok {
+							t.Fatal("Failed to get km_socket map from collection")
+						}
+						var (
+							key   [36]byte // sizeof(struct bpf_sock_tuple)
+							value uint32
+						)
+						binary.BigEndian.PutUint32(key[0:4], binary.BigEndian.Uint32(net.ParseIP(localIP).To4())) // __be32 saddr;
+						binary.BigEndian.PutUint32(key[4:8], binary.BigEndian.Uint32(net.ParseIP(localIP).To4())) // __be32 daddr;
+						binary.BigEndian.PutUint16(key[8:10], uint16(clientPort))                                 // __be16 sport;
+						binary.BigEndian.PutUint16(key[10:12], uint16(serverPort))                                // __be16 dport;
+
+						err = kmSocketMap.Lookup(key, &value)
+						if err != nil && !strings.Contains(err.Error(), "no space left on device") {
+							t.Fatalf("Failed to lookup km_socket map: %v", err)
+						}
+						t.Logf("km_socket get key[%s:%d->%s:%d], test success.", localIP, clientPort, localIP, serverPort)
+					},
+				},
+				{
+					name: "BPF_SOCK_OPS_PASSIVE_ESTABLISHED_CB__auth_ip_tuple",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
@@ -467,7 +548,7 @@ func testSockOps(t *testing.T) {
 						dstIP := net.IPv4(event[8], event[9], event[10], event[11])
 						srcPort := binary.BigEndian.Uint16(event[12:14])
 						dstPort := binary.BigEndian.Uint16(event[14:16])
-						t.Logf("Received ringbuf_msg: type=%d, src=%s:%d, dst=%s:%d", protoType, srcIP, srcPort, dstIP, dstPort)
+						t.Logf("Received km_auth_req ringbuf_msg: type=%d, src=%s:%d, dst=%s:%d", protoType, srcIP, srcPort, dstIP, dstPort)
 
 						// Check
 						if protoType != constants.MSG_TYPE_IPV4 ||
@@ -480,7 +561,7 @@ func testSockOps(t *testing.T) {
 					},
 				},
 				{
-					name: "BPF_SOCK_OPS_STATE_CB_clean_auth_map",
+					name: "BPF_SOCK_OPS_STATE_CB__clean_auth_map",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
