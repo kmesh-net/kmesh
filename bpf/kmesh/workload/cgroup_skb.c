@@ -5,13 +5,18 @@
 #include <sys/socket.h>
 #include <bpf/bpf_endian.h>
 #include <bpf/bpf_helpers.h>
+#include <stdbool.h>
 #include "bpf_log.h"
 #include "bpf_common.h"
 #include "probe.h"
+#include "config.h"
 
 SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress_prog(struct __sk_buff *skb)
 {
+    if (!is_monitoring_enable()) {
+        return SK_PASS;
+    }
     if (skb->family != AF_INET && skb->family != AF_INET6)
         return SK_PASS;
 
@@ -19,8 +24,13 @@ int cgroup_skb_ingress_prog(struct __sk_buff *skb)
     if (!sk)
         return SK_PASS;
 
+    if (sock_conn_from_sim(skb)) {
+        return SK_PASS;
+    }
+
     if (!is_managed_by_kmesh_skb(skb))
         return SK_PASS;
+
     observe_on_data(sk);
     return SK_PASS;
 }
@@ -28,6 +38,9 @@ int cgroup_skb_ingress_prog(struct __sk_buff *skb)
 SEC("cgroup_skb/egress")
 int cgroup_skb_egress_prog(struct __sk_buff *skb)
 {
+    if (!is_monitoring_enable()) {
+        return SK_PASS;
+    }
     if (skb->family != AF_INET && skb->family != AF_INET6)
         return SK_PASS;
 
@@ -35,8 +48,13 @@ int cgroup_skb_egress_prog(struct __sk_buff *skb)
     if (!sk)
         return SK_PASS;
 
+    if (sock_conn_from_sim(skb)) {
+        return SK_PASS;
+    }
+
     if (!is_managed_by_kmesh_skb(skb))
         return SK_PASS;
+
     observe_on_data(sk);
     return SK_PASS;
 }

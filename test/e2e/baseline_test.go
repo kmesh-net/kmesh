@@ -849,7 +849,7 @@ func buildL4Query(src, dst echo.Instance) prometheus.Query {
 		"source_cluster":                 "Kubernetes",
 	}
 
-	query.Metric = "kmesh_tcp_connections_opened_total"
+	query.Metric = "kmesh_tcp_sent_bytes_total"
 	query.Labels = labels
 
 	return query

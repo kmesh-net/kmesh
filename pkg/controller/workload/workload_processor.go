@@ -864,6 +864,12 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 	}
 
 	for _, workload := range workloads {
+		// TODO: Kmesh supports ServiceEntry
+		if workload.GetAddresses() == nil {
+			log.Warnf("workload: %s/%s addresses is nil", workload.Namespace, workload.Name)
+			continue
+		}
+
 		if err := p.handleWorkload(workload); err != nil {
 			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 		}

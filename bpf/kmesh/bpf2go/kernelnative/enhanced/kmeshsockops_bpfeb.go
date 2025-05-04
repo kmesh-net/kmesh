@@ -16,14 +16,6 @@ type KmeshSockopsBuf struct{ Data [40]int8 }
 
 type KmeshSockopsClusterSockData struct{ ClusterId uint32 }
 
-type KmeshSockopsKmeshConfig struct {
-	BpfLogLevel      uint32
-	NodeIp           [4]uint32
-	PodGateway       [4]uint32
-	AuthzOffload     uint32
-	EnableMonitoring uint32
-}
-
 type KmeshSockopsManagerKey struct {
 	NetnsCookie uint64
 	_           [8]byte
@@ -31,9 +23,23 @@ type KmeshSockopsManagerKey struct {
 
 type KmeshSockopsSockStorageData struct {
 	ConnectNs      uint64
+	LastReportNs   uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	ViaWaypoint    bool
+	HasEncoded     bool
+	HasSetIp       bool
+	_              [3]byte
+	SkTuple        struct {
+		Ipv4 struct {
+			Saddr uint32
+			Daddr uint32
+			Sport uint16
+			Dport uint16
+		}
+		_ [24]byte
+	}
+	_ [4]byte
 }
 
 // LoadKmeshSockops returns the embedded CollectionSpec for KmeshSockops.
@@ -71,42 +77,37 @@ func LoadKmeshSockopsObjects(obj interface{}, opts *ebpf.CollectionOptions) erro
 type KmeshSockopsSpecs struct {
 	KmeshSockopsProgramSpecs
 	KmeshSockopsMapSpecs
+	KmeshSockopsVariableSpecs
 }
 
-// KmeshSockopsSpecs contains programs before they are loaded into the kernel.
+// KmeshSockopsProgramSpecs contains programs before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsProgramSpecs struct {
-	ClusterManager     *ebpf.ProgramSpec `ebpf:"cluster_manager"`
-	FilterChainManager *ebpf.ProgramSpec `ebpf:"filter_chain_manager"`
-	FilterManager      *ebpf.ProgramSpec `ebpf:"filter_manager"`
-	RouteConfigManager *ebpf.ProgramSpec `ebpf:"route_config_manager"`
-	SockopsProg        *ebpf.ProgramSpec `ebpf:"sockops_prog"`
+	SockopsProg *ebpf.ProgramSpec `ebpf:"sockops_prog"`
 }
 
 // KmeshSockopsMapSpecs contains maps before they are loaded into the kernel.
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSockopsMapSpecs struct {
-	KmCluster       *ebpf.MapSpec `ebpf:"km_cluster"`
-	KmClusterEps    *ebpf.MapSpec `ebpf:"km_cluster_eps"`
-	KmClusterSock   *ebpf.MapSpec `ebpf:"km_cluster_sock"`
-	KmClusterstats  *ebpf.MapSpec `ebpf:"km_clusterstats"`
-	KmConfigmap     *ebpf.MapSpec `ebpf:"km_configmap"`
-	KmEpsData       *ebpf.MapSpec `ebpf:"km_eps_data"`
-	KmListener      *ebpf.MapSpec `ebpf:"km_listener"`
-	KmLogEvent      *ebpf.MapSpec `ebpf:"km_log_event"`
-	KmMaglevOuter   *ebpf.MapSpec `ebpf:"km_maglev_outer"`
-	KmManage        *ebpf.MapSpec `ebpf:"km_manage"`
-	KmRouterconfig  *ebpf.MapSpec `ebpf:"km_routerconfig"`
-	KmSkopstailcall *ebpf.MapSpec `ebpf:"km_skopstailcall"`
-	KmSockstorage   *ebpf.MapSpec `ebpf:"km_sockstorage"`
-	KmTailcallCtx   *ebpf.MapSpec `ebpf:"km_tailcall_ctx"`
-	KmTmpbuf        *ebpf.MapSpec `ebpf:"km_tmpbuf"`
-	KmeshMap1600    *ebpf.MapSpec `ebpf:"kmesh_map1600"`
-	KmeshMap192     *ebpf.MapSpec `ebpf:"kmesh_map192"`
-	KmeshMap296     *ebpf.MapSpec `ebpf:"kmesh_map296"`
-	KmeshMap64      *ebpf.MapSpec `ebpf:"kmesh_map64"`
+	KmClusterSock  *ebpf.MapSpec `ebpf:"km_cluster_sock"`
+	KmClusterstats *ebpf.MapSpec `ebpf:"km_clusterstats"`
+	KmLogEvent     *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmManage       *ebpf.MapSpec `ebpf:"km_manage"`
+	KmSockstorage  *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTmpbuf       *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmeshMap1600   *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192    *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296    *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64     *ebpf.MapSpec `ebpf:"kmesh_map64"`
+}
+
+// KmeshSockopsVariableSpecs contains global variables before they are loaded into the kernel.
+//
+// It can be passed ebpf.CollectionSpec.Assign.
+type KmeshSockopsVariableSpecs struct {
+	BpfLogLevel *ebpf.VariableSpec `ebpf:"bpf_log_level"`
 }
 
 // KmeshSockopsObjects contains all objects after they have been loaded into the kernel.
@@ -115,6 +116,7 @@ type KmeshSockopsMapSpecs struct {
 type KmeshSockopsObjects struct {
 	KmeshSockopsPrograms
 	KmeshSockopsMaps
+	KmeshSockopsVariables
 }
 
 func (o *KmeshSockopsObjects) Close() error {
@@ -128,43 +130,25 @@ func (o *KmeshSockopsObjects) Close() error {
 //
 // It can be passed to LoadKmeshSockopsObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSockopsMaps struct {
-	KmCluster       *ebpf.Map `ebpf:"km_cluster"`
-	KmClusterEps    *ebpf.Map `ebpf:"km_cluster_eps"`
-	KmClusterSock   *ebpf.Map `ebpf:"km_cluster_sock"`
-	KmClusterstats  *ebpf.Map `ebpf:"km_clusterstats"`
-	KmConfigmap     *ebpf.Map `ebpf:"km_configmap"`
-	KmEpsData       *ebpf.Map `ebpf:"km_eps_data"`
-	KmListener      *ebpf.Map `ebpf:"km_listener"`
-	KmLogEvent      *ebpf.Map `ebpf:"km_log_event"`
-	KmMaglevOuter   *ebpf.Map `ebpf:"km_maglev_outer"`
-	KmManage        *ebpf.Map `ebpf:"km_manage"`
-	KmRouterconfig  *ebpf.Map `ebpf:"km_routerconfig"`
-	KmSkopstailcall *ebpf.Map `ebpf:"km_skopstailcall"`
-	KmSockstorage   *ebpf.Map `ebpf:"km_sockstorage"`
-	KmTailcallCtx   *ebpf.Map `ebpf:"km_tailcall_ctx"`
-	KmTmpbuf        *ebpf.Map `ebpf:"km_tmpbuf"`
-	KmeshMap1600    *ebpf.Map `ebpf:"kmesh_map1600"`
-	KmeshMap192     *ebpf.Map `ebpf:"kmesh_map192"`
-	KmeshMap296     *ebpf.Map `ebpf:"kmesh_map296"`
-	KmeshMap64      *ebpf.Map `ebpf:"kmesh_map64"`
+	KmClusterSock  *ebpf.Map `ebpf:"km_cluster_sock"`
+	KmClusterstats *ebpf.Map `ebpf:"km_clusterstats"`
+	KmLogEvent     *ebpf.Map `ebpf:"km_log_event"`
+	KmManage       *ebpf.Map `ebpf:"km_manage"`
+	KmSockstorage  *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTmpbuf       *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmeshMap1600   *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192    *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296    *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64     *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
 func (m *KmeshSockopsMaps) Close() error {
 	return _KmeshSockopsClose(
-		m.KmCluster,
-		m.KmClusterEps,
 		m.KmClusterSock,
 		m.KmClusterstats,
-		m.KmConfigmap,
-		m.KmEpsData,
-		m.KmListener,
 		m.KmLogEvent,
-		m.KmMaglevOuter,
 		m.KmManage,
-		m.KmRouterconfig,
-		m.KmSkopstailcall,
 		m.KmSockstorage,
-		m.KmTailcallCtx,
 		m.KmTmpbuf,
 		m.KmeshMap1600,
 		m.KmeshMap192,
@@ -173,23 +157,22 @@ func (m *KmeshSockopsMaps) Close() error {
 	)
 }
 
+// KmeshSockopsVariables contains all global variables after they have been loaded into the kernel.
+//
+// It can be passed to LoadKmeshSockopsObjects or ebpf.CollectionSpec.LoadAndAssign.
+type KmeshSockopsVariables struct {
+	BpfLogLevel *ebpf.Variable `ebpf:"bpf_log_level"`
+}
+
 // KmeshSockopsPrograms contains all programs after they have been loaded into the kernel.
 //
 // It can be passed to LoadKmeshSockopsObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSockopsPrograms struct {
-	ClusterManager     *ebpf.Program `ebpf:"cluster_manager"`
-	FilterChainManager *ebpf.Program `ebpf:"filter_chain_manager"`
-	FilterManager      *ebpf.Program `ebpf:"filter_manager"`
-	RouteConfigManager *ebpf.Program `ebpf:"route_config_manager"`
-	SockopsProg        *ebpf.Program `ebpf:"sockops_prog"`
+	SockopsProg *ebpf.Program `ebpf:"sockops_prog"`
 }
 
 func (p *KmeshSockopsPrograms) Close() error {
 	return _KmeshSockopsClose(
-		p.ClusterManager,
-		p.FilterChainManager,
-		p.FilterManager,
-		p.RouteConfigManager,
 		p.SockopsProg,
 	)
 }

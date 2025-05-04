@@ -12,21 +12,21 @@ Usage:
 Flags:
       --bpf-fs-path string     bpf fs path (default "/sys/fs/bpf")
       --cgroup2-path string    cgroup2 path (default "/mnt/kmesh_cgroup2")
-      --cni-etc-path string    cni etc path (default "/etc/cni/net.d")
-      --conflist-name string   cni conflist name
       --enable-mda             enable mda
   -h, --help                   help for kmesh-daemon
-      --mode string            controller plane mode, valid values are [ads, workload] (default "ads")
-      --plugin-cni-chained     kmesh cni plugins chained to another cni (default true)
+      --mode string            controller plane mode, valid values are [kernel-native, dual-engine] (default "dual-engine")
+      --monitoring string      enable kmesh traffic monitoring in daemon process(default "true")  
+      --profiliing string      whether to enable profiling or not (default "false")
+      --enable-ipsec string    enable ipsec encryption and authentication between nodes(default false)
 
 # example
-./kmesh-daemon --mode=ads
+./kmesh-daemon --mode=kernel-native
 # example
-./kmesh-daemon --mode=workload
+./kmesh-daemon --mode=dual-engine
 # example
-./kmesh-daemon --mode=ads --enable-mda
+./kmesh-daemon --mode=kernel-native --enable-mda
 # example
-./kmesh-daemon --mode=workload --enable-mda
+./kmesh-daemon --mode=dual-engine --enable-mda
   ```
 
 - 运维相关

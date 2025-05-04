@@ -419,8 +419,8 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 	})
 }
 
-func TestServerAccesslogHandler(t *testing.T) {
-	t.Run("change accesslog config info", func(t *testing.T) {
+func TestServerMetricHandler(t *testing.T) {
+	t.Run("change accesslog, workload metrics and connection metric config info", func(t *testing.T) {
 		config := options.BpfConfig{
 			Mode:        constants.DualEngineMode,
 			BpfFsPath:   "/sys/fs/bpf",
@@ -437,7 +437,9 @@ func TestServerAccesslogHandler(t *testing.T) {
 			},
 			loader: loader,
 		}
-		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(true)
+		server.xdsClient.WorkloadController.MetricController.EnableWorkloadMetric.Store(true)
+		server.xdsClient.WorkloadController.MetricController.EnableConnectionMetric.Store(true)
+		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
 
 		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "true")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
@@ -450,9 +452,23 @@ func TestServerAccesslogHandler(t *testing.T) {
 		server.accesslogHandler(w, req)
 
 		assert.Equal(t, server.xdsClient.WorkloadController.GetAccesslogTrigger(), false)
+
+		url = fmt.Sprintf("%s?enable=%s", patternWorkloadMetrics, "false")
+		req = httptest.NewRequest(http.MethodPost, url, nil)
+		w = httptest.NewRecorder()
+		server.workloadMetricHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetWorklaodMetricTrigger(), false)
+
+		url = fmt.Sprintf("%s?enable=%s", patternConnectionMetrics, "false")
+		req = httptest.NewRequest(http.MethodPost, url, nil)
+		w = httptest.NewRecorder()
+		server.connectionMetricHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetConnectionMetricTrigger(), false)
 	})
 
-	t.Run("when monitoring is disable, cannot enable accesslog", func(t *testing.T) {
+	t.Run("when monitoring is disable, cannot enable accesslog, workload metrics and connection metrics", func(t *testing.T) {
 		config := options.BpfConfig{
 			Mode:        constants.DualEngineMode,
 			BpfFsPath:   "/sys/fs/bpf",
@@ -469,14 +485,36 @@ func TestServerAccesslogHandler(t *testing.T) {
 			},
 			loader: loader,
 		}
+
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
 
-		url := fmt.Sprintf("%s?enable=%s", patternAccesslog, "true")
+		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "false")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
 		w := httptest.NewRecorder()
+		server.monitoringHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetMonitoringTrigger(), false)
+
+		url = fmt.Sprintf("%s?enable=%s", patternAccesslog, "true")
+		req = httptest.NewRequest(http.MethodPost, url, nil)
+		w = httptest.NewRecorder()
 		server.accesslogHandler(w, req)
 
 		assert.Equal(t, server.xdsClient.WorkloadController.GetAccesslogTrigger(), false)
+
+		url = fmt.Sprintf("%s?enable=%s", patternWorkloadMetrics, "true")
+		req = httptest.NewRequest(http.MethodPost, url, nil)
+		w = httptest.NewRecorder()
+		server.workloadMetricHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetWorklaodMetricTrigger(), false)
+
+		url = fmt.Sprintf("%s?enable=%s", patternConnectionMetrics, "true")
+		req = httptest.NewRequest(http.MethodPost, url, nil)
+		w = httptest.NewRecorder()
+		server.connectionMetricHandler(w, req)
+
+		assert.Equal(t, server.xdsClient.WorkloadController.GetConnectionMetricTrigger(), false)
 	})
 }
 

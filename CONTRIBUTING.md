@@ -94,7 +94,7 @@ To submit a proposed change, please develop the code/fix and add new test cases.
 After that, run these local verifications before submitting pull request to predict the pass or
 fail of continuous integration.
 
-* Run and pass `make gen-check`
+* Run and pass `make gen-check`, if want to run with sudo privileges `sudo env PATH=$PATH make gen-check`
 * To compile, refer to [Compile and Build Kmesh](https://kmesh.net/en/docs/developer/build-guide/)
 * To run unit test, refer to [Run Unit Test](https://kmesh.net/en/docs/developer/run-ut/)
 * To run e2e test, refer to [Run E2E Test](https://kmesh.net/en/docs/developer/e2e-guide/)
@@ -109,7 +109,7 @@ To make it easier for your PR to receive reviews, consider the reviewers will ne
 
 # Membership
 
-We encourage all contributors to become members. Learn more about requirements and responsibilities of membership in our [Community Membership doc](https://github.com/kmesh-net/website/blob/main/content/en/docs/community/membership.md).
+We encourage all contributors to become members. Learn more about requirements and responsibilities of membership in our [Community Membership doc](https://kmesh.net/docs/community/membership/).
 
 If you have made contributions that meet the requirements of becoming KMesh member, simply file an [issue](https://github.com/kmesh-net/kmesh/issues/new?assignees=&labels=&projects=&template=membership-request.md&title=REQUEST%3A+New+membership+for+%3Cyour+name%3E) to apply.
 

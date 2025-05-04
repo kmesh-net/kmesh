@@ -141,7 +141,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	// If the startup parameter is false, update the kmeshConfigMap.
 	if !c.bpfConfig.EnableMonitoring {
 		if err := c.loader.UpdateEnableMonitoring(constants.DISABLED); err != nil {
-			return fmt.Errorf("Failed to update config in order to start metric: %v", err)
+			return fmt.Errorf("failed to update config in order to start metric: %v", err)
 		}
 	}
 
