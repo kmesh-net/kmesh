@@ -17,14 +17,13 @@
  * limitations under the License.
  */
 
-
 package kmesh
 
 import (
 	"bufio"
 	"context"
 	"crypto/rand"
-    "encoding/hex"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os/exec"
@@ -33,413 +32,394 @@ import (
 	"time"
 
 	v1 "k8s.io/api/core/v1"
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "kmesh.net/kmesh/ctl/utils"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"kmesh.net/kmesh/ctl/utils"
 )
 
-func runVersionCmd(args ...string) (string, error) {
-	cmdArgs := append([]string{"version"}, args...)
+const (
+	kmeshNamespace    = "kmesh-system"
+	waypointNamespace = "default"
+	waypointName      = "waypoint"
+	waitTimeout       = 90 * time.Second
+)
+
+var (
+	podName string
+)
+
+func runCtlCmd(t *testing.T, subcmd string, args ...string) (string, error) {
+	t.Helper()
+	cmdArgs := append([]string{subcmd}, args...)
 	cmd := exec.Command("kmeshctl", cmdArgs...)
 	out, err := cmd.CombinedOutput()
-	return string(out), err
+	outStr := strings.TrimSpace(string(out))
+	t.Logf(">>> kmeshctl %s: %s", strings.Join(cmdArgs, " "), outStr)
+	return outStr, err
+}
+
+func waitForPodReady(t *testing.T, pod string) {
+	t.Helper()
+	cmd := exec.Command("kubectl", "-n", kmeshNamespace, "wait",
+		"--for=condition=Ready", "pod/"+pod,
+		"--timeout=120s",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("pod %s did not become Ready: %v\nOutput:\n%s",
+			pod, err, string(out))
+	}
 }
 
 func findKmeshPod(t *testing.T) string {
-	const ns = "kmesh-system"
-	const label = "app=kmesh"
-	cmd := exec.Command("kubectl", "-n", ns, "get", "pods",
-		"-l", label, "-o", "jsonpath={.items[0].metadata.name}")
+	t.Helper()
+	cmd := exec.Command("kubectl", "-n", kmeshNamespace, "get", "pods",
+		"-l", "app=kmesh", "-o", "jsonpath={.items[0].metadata.name}")
 	out, err := cmd.Output()
 	if err != nil || len(out) == 0 {
-		list := exec.Command("kubectl", "-n", ns, "get", "pods", "-o", "wide")
-		all, _ := list.CombinedOutput()
-		t.Fatalf("could not find pod with label %q: %v\nPods:\n%s", label, err, string(all))
+		all, _ := exec.Command("kubectl", "-n", kmeshNamespace,
+			"get", "pods", "-o", "wide").CombinedOutput()
+		t.Fatalf("could not find kmesh pod: %v\nPods:\n%s",
+			err, string(all))
 	}
 	name := strings.TrimSpace(string(out))
-	t.Logf("Found Kmesh pod: %s", name)
+	t.Logf("Using Kmesh pod: %s", name)
 	return name
 }
 
-func waitForPodRunning(t *testing.T, pod string) {
-	const ns = "kmesh-system"
-	const retries = 20
-	const delay = 2 * time.Second
-	for i := 0; i < retries; i++ {
-		cmd := exec.Command("kubectl", "-n", ns, "get", "pod", pod, "-o", "jsonpath={.status.phase}")
-		out, err := cmd.Output()
-		if err == nil && strings.EqualFold(strings.TrimSpace(string(out)), "Running") {
-			t.Logf("Pod %s is Running", pod)
-			return
-		}
-		time.Sleep(delay)
+func init() {
+	wait := exec.Command("kubectl", "-n", kmeshNamespace, "wait",
+		"--for=condition=Ready", "pod", "-l", "app=kmesh",
+		"--timeout=2m",
+	)
+	if out, err := wait.CombinedOutput(); err != nil {
+		panic(fmt.Sprintf("timed out waiting for Kmesh pods: %v\n%s",
+			err, string(out)))
 	}
-	t.Fatalf("pod %s did not become Running in time", pod)
+
+	getPod := exec.Command("kubectl", "-n", kmeshNamespace, "get", "pods",
+		"-l", "app=kmesh", "-o", "jsonpath={.items[0].metadata.name}")
+	out, err := getPod.Output()
+	if err != nil || len(out) == 0 {
+		panic(fmt.Sprintf("failed to find any Kmesh pod: %v\n%s",
+			err, string(out)))
+	}
+	podName = strings.TrimSpace(string(out))
 }
 
-func TestKmeshctlVersion(t *testing.T) {
-	pod := findKmeshPod(t)
-	waitForPodRunning(t, pod)
+// --- Version tests ---
 
+func TestKmeshctlVersion(t *testing.T) {
 	t.Run("client-and-daemon-summary", func(t *testing.T) {
-		out, err := runVersionCmd()
-		t.Logf("Output of 'kmeshctl version':\n%s", out)
+		out, err := runCtlCmd(t, "version")
 		if err != nil {
 			t.Fatalf("version command failed: %v", err)
 		}
 		if !strings.Contains(out, "client version:") {
-			t.Errorf("expected 'client version:' in output, got:\n%s", out)
+			t.Errorf("expected 'client version:' in output\n%s", out)
 		}
 		if !strings.Contains(out, "kmesh-daemon version:") {
-			t.Errorf("expected 'kmesh-daemon version:' in output, got:\n%s", out)
+			t.Errorf("expected 'kmesh-daemon version:' in output\n%s", out)
 		}
 	})
 
 	t.Run("daemon-version-json", func(t *testing.T) {
-		out, err := runVersionCmd(pod)
-		t.Logf("Output of 'kmeshctl version %s':\n%s", pod, out)
+		out, err := runCtlCmd(t, "version", podName)
 		if err != nil {
-			t.Fatalf("version <pod> command failed: %v", err)
+			t.Fatalf("version <pod> failed: %v", err)
 		}
 		var info struct {
 			GitVersion string `json:"GitVersion"`
 			GitCommit  string `json:"GitCommit"`
 		}
 		if err := json.Unmarshal([]byte(out), &info); err != nil {
-			t.Fatalf("invalid JSON output: %v", err)
+			t.Fatalf("invalid JSON: %v", err)
 		}
 		if info.GitVersion == "" || info.GitCommit == "" {
-			t.Errorf("expected non-empty GitVersion and GitCommit, got: %+v", info)
+			t.Errorf("expected non-empty GitVersion and GitCommit, got %+v", info)
 		}
 	})
 }
 
-func runDumpCmd(args ...string) (string, error) {
-	cmdArgs := append([]string{"dump"}, args...)
-	cmd := exec.Command("kmeshctl", cmdArgs...)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
- }
+// --- Dump tests ---
 
- func TestKmeshctlDump(t *testing.T) {
-    pod := findKmeshPod(t)
-    waitForPodRunning(t, pod)
+func TestKmeshctlDump(t *testing.T) {
+	t.Run("kernel-native", func(t *testing.T) {
+		out, err := runCtlCmd(t, "dump", podName, "kernel-native")
+		if strings.Contains(out, "Invalid Client Mode") {
+			t.Log("kernel-native not supported; skipping")
+			return
+		}
+		if err != nil {
+			t.Fatalf("dump kernel-native failed: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, `"workloads"`) {
+			t.Errorf("expected \"workloads\" in dump\n%s", out)
+		}
+		if !strings.Contains(out, `"services"`) {
+			t.Errorf("expected \"services\" in dump\n%s", out)
+		}
+	})
 
-    t.Run("kernel-native", func(t *testing.T) {
-        out, err := runDumpCmd(pod, "kernel-native")
-        t.Logf("Output of 'kmeshctl dump %s kernel-native':\n%s", pod, out)
+	t.Run("dual-engine", func(t *testing.T) {
+		out, err := runCtlCmd(t, "dump", podName, "dual-engine")
+		if err != nil {
+			t.Fatalf("dump dual-engine failed: %v\n%s", err, out)
+		}
+		if !strings.Contains(out, `"workloads"`) || !strings.Contains(out, `"services"`) {
+			t.Errorf("unexpected dump output:\n%s", out)
+		}
+	})
 
-        if strings.Contains(out, "Invalid Client Mode") {
-            t.Log("kernel-native not supported; got expected error")
-            return
-        }
-        if err != nil {
-            t.Fatalf("dump kernel-native failed: %v\n%s", err, out)
-        }
-        if !strings.Contains(out, `"workloads"`) {
-            t.Errorf("expected JSON to contain \"workloads\" array, got:\n%s", out)
-        }
-        if !strings.Contains(out, `"services"`) {
-            t.Errorf("expected JSON to contain \"services\" array, got:\n%s", out)
-        }
-    })
-
-    t.Run("dual-engine", func(t *testing.T) {
-        out, err := runDumpCmd(pod, "dual-engine")
-        t.Logf("Output of 'kmeshctl dump %s dual-engine':\n%s", pod, out)
-        if err != nil {
-            t.Fatalf("dump dual-engine failed: %v\n%s", err, out)
-        }
-        if !strings.Contains(out, `"workloads"`) {
-            t.Errorf("expected JSON to contain \"workloads\" array, got:\n%s", out)
-        }
-        if !strings.Contains(out, `"services"`) {
-            t.Errorf("expected JSON to contain \"services\" array, got:\n%s", out)
-        }
-    })
-
-    t.Run("invalid-mode", func(t *testing.T) {
-        out, err := runDumpCmd(pod, "invalid-mode")
-        t.Logf("Output of 'kmeshctl dump %s invalid-mode':\n%s", pod, out)
-        if err == nil {
-            t.Fatal("expected error for invalid mode, but command succeeded")
-        }
-        if !strings.Contains(out, "Argument must be 'kernel-native' or 'dual-engine'") {
-            t.Errorf("expected usage error, got:\n%s", out)
-        }
-    })
+	t.Run("invalid-mode", func(t *testing.T) {
+		out, err := runCtlCmd(t, "dump", podName, "bogus-mode")
+		if err == nil {
+			t.Fatal("expected error for invalid mode")
+		}
+		if !strings.Contains(out, "Argument must be") {
+			t.Errorf("expected usage error, got:\n%s", out)
+		}
+	})
 }
-  
- func runAccesslogCmd(args ...string) (string, error) {
-	cmdArgs := append([]string{"monitoring"}, args...)
-	cmd := exec.Command("kmeshctl", cmdArgs...)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
- }
 
- func TestKmeshctlAccesslog(t *testing.T) {
-	pod := findKmeshPod(t)
-	waitForPodRunning(t, pod)
- 
- 
-	t.Run("enable-on-pod", func(t *testing.T) {
-		out, err := runAccesslogCmd(pod, "--accesslog", "enable")
-		t.Logf("enable-on-pod output:\n%s", out)
-		if err != nil {
-			t.Fatalf("failed to enable accesslog on pod %s: %v", pod, err)
-		}
-	})
- 
- 
-	t.Run("disable-on-pod", func(t *testing.T) {
-		out, err := runAccesslogCmd(pod, "--accesslog", "disable")
-		t.Logf("disable-on-pod output:\n%s", out)
-		if err != nil {
-			t.Fatalf("failed to disable accesslog on pod %s: %v", pod, err)
-		}
-	})
- 
- 
-	t.Run("enable-cluster", func(t *testing.T) {
-		out, err := runAccesslogCmd("--accesslog", "enable")
-		t.Logf("enable-cluster output:\n%s", out)
-		if err != nil {
-			t.Fatalf("failed to enable accesslog cluster-wide: %v", err)
-		}
-	})
- 
- 
-	t.Run("disable-cluster", func(t *testing.T) {
-		out, err := runAccesslogCmd("--accesslog", "disable")
-		t.Logf("disable-cluster output:\n%s", out)
-		if err != nil {
-			t.Fatalf("failed to disable accesslog cluster-wide: %v", err)
-		}
-	})
- }
+// --- Accesslog tests ---
 
- func getLogOutputs(args ...string) (string, error) {
-	cmdArgs := append([]string{"log"}, args...)
-	cmd := exec.Command("kmeshctl", cmdArgs...)
-	output, err := cmd.CombinedOutput()
-	return string(output), err
- }
- 
- 
- func verifyLogOutputHeaders(t *testing.T, output, expectedHeader string) {
+func TestKmeshctlAccesslog(t *testing.T) {
+	t.Run("pod-enable", func(t *testing.T) {
+		if _, err := runCtlCmd(t, "monitoring", podName, "--accesslog", "enable"); err != nil {
+			t.Fatalf("enable accesslog on pod failed: %v", err)
+		}
+	})
+	t.Run("pod-disable", func(t *testing.T) {
+		if _, err := runCtlCmd(t, "monitoring", podName, "--accesslog", "disable"); err != nil {
+			t.Fatalf("disable accesslog on pod failed: %v", err)
+		}
+	})
+	t.Run("cluster-enable", func(t *testing.T) {
+		if _, err := runCtlCmd(t, "monitoring", "--accesslog", "enable"); err != nil {
+			t.Fatalf("cluster-wide accesslog enable failed: %v", err)
+		}
+	})
+	t.Run("cluster-disable", func(t *testing.T) {
+		if _, err := runCtlCmd(t, "monitoring", "--accesslog", "disable"); err != nil {
+			t.Fatalf("cluster-wide accesslog disable failed: %v", err)
+		}
+	})
+}
+
+// --- Log tests ---
+
+func verifyLogHeader(t *testing.T, output, header string) {
+	t.Helper()
 	scanner := bufio.NewScanner(strings.NewReader(output))
-	found := false
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if strings.Contains(line, expectedHeader) {
-			found = true
-			break
+		if strings.Contains(scanner.Text(), header) {
+			return
 		}
 	}
-	if !found {
-		t.Errorf("Expected output to contain header %q but it did not. Full output:\n%s", expectedHeader, output)
-	}
- }
+	t.Errorf("missing header %q in log output:\n%s", header, output)
+}
 
- func TestKmeshctlLog(t *testing.T) {
-	podName := findKmeshPod(t)
-	waitForPodRunning(t, podName)
- 
-	t.Run("get-all-loggers", func(t *testing.T) {
-		output, err := getLogOutputs(podName)
+func TestKmeshctlLog(t *testing.T) {
+	t.Run("list-loggers", func(t *testing.T) {
+		out, err := runCtlCmd(t, "log", podName)
 		if err != nil {
-			t.Fatalf("Failed to get logger names: %v, output: %s", err, output)
+			t.Fatalf("list loggers failed: %v", err)
 		}
-		t.Logf("Output of 'kmeshctl log %s':\n%s", podName, output)
-		verifyLogOutputHeaders(t, output, "Existing Loggers:")
+		verifyLogHeader(t, out, "Existing Loggers:")
 	})
- 
-	t.Run("get-default-logger-level", func(t *testing.T) {
-		output, err := getLogOutputs(podName, "default")
+
+	t.Run("get-default", func(t *testing.T) {
+		out, err := runCtlCmd(t, "log", podName, "default")
 		if err != nil {
-			t.Fatalf("Failed to get default logger level: %v, output: %s", err, output)
+			t.Fatalf("get default logger failed: %v", err)
 		}
-		t.Logf("Output of 'kmeshctl log %s default':\n%s", podName, output)
-		if !strings.Contains(output, "Logger Name:") || !strings.Contains(output, "Logger Level:") {
-			t.Errorf("Expected output to contain 'Logger Name:' and 'Logger Level:', but got: %s", output)
+		if !strings.Contains(out, "Logger Name:") || !strings.Contains(out, "Logger Level:") {
+			t.Errorf("unexpected get-default output:\n%s", out)
 		}
 	})
- 
- 
-	t.Run("set-default-logger-level", func(t *testing.T) {
-		output, err := getLogOutputs(podName, "--set", "default:debug")
-		if err != nil {
-			t.Fatalf("Failed to set default logger level: %v, output: %s", err, output)
+
+	t.Run("set-and-get-default", func(t *testing.T) {
+		if _, err := runCtlCmd(t, "log", podName, "--set", "default:debug"); err != nil {
+			t.Fatalf("set default to debug failed: %v", err)
 		}
-		t.Logf("Output of 'kmeshctl log %s --set default:debug':\n%s", podName, output)
-		output2, err := getLogOutputs(podName, "default")
+		out, err := runCtlCmd(t, "log", podName, "default")
 		if err != nil {
-			t.Fatalf("Failed to get default logger level after setting: %v, output: %s", err, output2)
+			t.Fatalf("get default after set failed: %v", err)
 		}
-		t.Logf("Output of 'kmeshctl log %s default' after setting:\n%s", podName, output2)
-		if !strings.Contains(strings.ToLower(output2), "debug") {
-			t.Errorf("Expected default logger level to be 'debug', but output was: %s", output2)
+		if !strings.Contains(strings.ToLower(out), "debug") {
+			t.Errorf("expected log level debug, got:\n%s", out)
 		}
 	})
- }
- 
- type IpSecKey struct {
+}
+
+// --- Secret tests ---
+
+type ipSecKey struct {
 	AeadKeyName string `json:"AeadKeyName"`
 	AeadKey     []byte `json:"AeadKey"`
 	Length      int    `json:"Length"`
 	Spi         int    `json:"Spi"`
- }
- 
- 
- func waitForSecret(secretName, namespace string, timeout time.Duration) (*v1.Secret, error) {
+}
+
+func waitForSecret(t *testing.T, name, ns string, timeout time.Duration) *v1.Secret {
+	t.Helper()
 	clientset, err := utils.CreateKubeClient()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create kube client: %v", err)
+		t.Fatalf("failed to create kube client: %v", err)
 	}
- 
- 
 	deadline := time.Now().Add(timeout)
 	for time.Now().Before(deadline) {
-		sec, err := clientset.Kube().CoreV1().Secrets(namespace).Get(context.TODO(), secretName, metav1.GetOptions{})
+		sec, err := clientset.Kube().CoreV1().
+			Secrets(ns).
+			Get(context.TODO(), name, metav1.GetOptions{})
 		if err == nil {
-			return sec, nil
+			return sec
 		}
 		time.Sleep(2 * time.Second)
 	}
-	return nil, fmt.Errorf("timeout waiting for secret %q in namespace %q", secretName, namespace)
- }
- 
- func deleteSecret(secretName, namespace string) error {
+	t.Fatalf("timed out waiting for secret %q in %q", name, ns)
+	return nil
+}
+
+func deleteSecret(t *testing.T, name, ns string) {
+	t.Helper()
 	clientset, err := utils.CreateKubeClient()
 	if err != nil {
-		return fmt.Errorf("failed to create kube client: %v", err)
+		t.Fatalf("failed to create kube client: %v", err)
 	}
-	_ = clientset.Kube().CoreV1().Secrets(namespace).Delete(context.TODO(), secretName, metav1.DeleteOptions{})
-	return nil
- }
- 
- func generateRandomKey() (string, error) {
-	keyBytes := make([]byte, 36)
-	_, err := rand.Read(keyBytes)
-	if err != nil {
-		return "", fmt.Errorf("failed to generate random key: %v", err)
-	}
-	return hex.EncodeToString(keyBytes), nil
- }
- 
- 
- func TestKmeshctlSecret(t *testing.T) {
-	const secretName = "kmesh-ipsec"
-	const namespace = "kmesh-system"
- 
-	_ = deleteSecret(secretName, namespace)
-	t.Log("Deleted existing secret (if any)")
- 
- 
-	key1, err := generateRandomKey()
-	if err != nil {
-		t.Fatalf("failed to generate random key: %v", err)
-	}
-	t.Logf("Generated key1: %s", key1)
- 
- 
-	cmd := exec.Command("kmeshctl", "secret", "--key", key1)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("failed to run kmeshctl secret command: %v, output: %s", err, string(output))
-	}
-	t.Logf("Output of first 'kmeshctl secret' command: %s", string(output))
- 
- 
-	sec, err := waitForSecret(secretName, namespace, 30*time.Second)
-	if err != nil {
-		t.Fatalf("failed to get created secret: %v", err)
-	}
- 
-	dataB64, exists := sec.Data["ipSec"]
-	if !exists {
-		t.Fatalf("secret %q does not contain key 'ipSec'", secretName)
-	}
-
-	var ipSecKey IpSecKey
-	err = json.Unmarshal(dataB64, &ipSecKey)
-	if err != nil {
-		t.Fatalf("failed to unmarshal secret data: %v", err)
-	}
-	t.Logf("Created secret with SPI: %d", ipSecKey.Spi)
-	if ipSecKey.Spi != 1 {
-		t.Errorf("Expected SPI to be 1 on creation, got %d", ipSecKey.Spi)
-	}
-
-	key2, err := generateRandomKey()
-	if err != nil {
-		t.Fatalf("failed to generate second random key: %v", err)
-	}
-	t.Logf("Generated key2: %s", key2)
-	cmd = exec.Command("kmeshctl", "secret", "--key", key2)
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("failed to run kmeshctl secret command for update: %v, output: %s", err, string(output))
-	}
-	t.Logf("Output of second 'kmeshctl secret' command: %s", string(output))
- 
-
-	secUpdated, err := waitForSecret(secretName, namespace, 30*time.Second)
-	if err != nil {
-		t.Fatalf("failed to get updated secret: %v", err)
-	}
-	dataB64 = secUpdated.Data["ipSec"]
-	var ipSecKeyUpdated IpSecKey
-	err = json.Unmarshal(dataB64, &ipSecKeyUpdated)
-	if err != nil {
-		t.Fatalf("failed to unmarshal updated secret data: %v", err)
-	}
-	t.Logf("Updated secret with SPI: %d", ipSecKeyUpdated.Spi)
-	expectedSPI := ipSecKey.Spi + 1
-	if ipSecKeyUpdated.Spi != expectedSPI {
-		t.Errorf("Expected updated SPI to be %d, but got %d", expectedSPI, ipSecKeyUpdated.Spi)
-	}
- }
- 
- func runAuthzCmd(args ...string) (string, error) {
-	cmdArgs := append([]string{"authz"}, args...)
-	cmd := exec.Command("kmeshctl", cmdArgs...)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
+	_ = clientset.Kube().CoreV1().
+		Secrets(ns).
+		Delete(context.TODO(), name, metav1.DeleteOptions{})
 }
- 
-func TestKmeshctlAuthzEnableDisable(t *testing.T) {
-	pod := findKmeshPod(t)
-	waitForPodRunning(t, pod)
 
-	t.Run("enable-cluster", func(t *testing.T) {
-		out, err := runAuthzCmd("enable")
-		t.Logf("Output of 'kmeshctl authz enable':\n%s", out)
-		if err != nil {
-			t.Fatalf("cluster-wide enable failed: %v", err)
+func genRandomKey(t *testing.T) string {
+	t.Helper()
+	b := make([]byte, 36)
+	if _, err := rand.Read(b); err != nil {
+		t.Fatalf("random key generation failed: %v", err)
+	}
+	return hex.EncodeToString(b)
+}
+
+func TestKmeshctlSecret(t *testing.T) {
+	const secretName = "kmesh-ipsec"
+	deleteSecret(t, secretName, kmeshNamespace)
+
+	key1 := genRandomKey(t)
+	t.Logf("Using key1=%s", key1)
+	if _, err := runCtlCmd(t, "secret", "--key", key1); err != nil {
+		t.Fatalf("first secret generate failed: %v", err)
+	}
+	sec1 := waitForSecret(t, secretName, kmeshNamespace, 30*time.Second)
+	raw1 := sec1.Data["ipSec"]
+	var k1 ipSecKey
+	if err := json.Unmarshal(raw1, &k1); err != nil {
+		t.Fatalf("unmarshal ipSec failed: %v", err)
+	}
+	if k1.Spi != 1 {
+		t.Errorf("expected SPI=1 after create, got %d", k1.Spi)
+	}
+
+	key2 := genRandomKey(t)
+	t.Logf("Using key2=%s", key2)
+	if _, err := runCtlCmd(t, "secret", "--key", key2); err != nil {
+		t.Fatalf("second secret generate failed: %v", err)
+	}
+	sec2 := waitForSecret(t, secretName, kmeshNamespace, 30*time.Second)
+	raw2 := sec2.Data["ipSec"]
+	var k2 ipSecKey
+	if err := json.Unmarshal(raw2, &k2); err != nil {
+		t.Fatalf("unmarshal updated ipSec failed: %v", err)
+	}
+	if k2.Spi != k1.Spi+1 {
+		t.Errorf("expected SPI=%d after update, got %d", k1.Spi+1, k2.Spi)
+	}
+}
+
+// --- Authz tests ---
+
+func TestKmeshctlAuthz(t *testing.T) {
+	t.Run("cluster-enable-disable", func(t *testing.T) {
+		if _, err := runCtlCmd(t, "authz", "enable"); err != nil {
+			t.Fatalf("authz enable failed: %v", err)
+		}
+		if _, err := runCtlCmd(t, "authz", "disable"); err != nil {
+			t.Fatalf("authz disable failed: %v", err)
 		}
 	})
 
-	t.Run("disable-cluster", func(t *testing.T) {
-		out, err := runAuthzCmd("disable")
-		t.Logf("Output of 'kmeshctl authz disable':\n%s", out)
+	t.Run("pod-enable-disable", func(t *testing.T) {
+		if _, err := runCtlCmd(t, "authz", "enable", podName); err != nil {
+			t.Fatalf("authz enable %s failed: %v", podName, err)
+		}
+		if _, err := runCtlCmd(t, "authz", "disable", podName); err != nil {
+			t.Fatalf("authz disable %s failed: %v", podName, err)
+		}
+	})
+}
+
+// --- Waypoint tests ---
+
+func TestKmeshctlWaypoint(t *testing.T) {
+	t.Run("generate", func(t *testing.T) {
+		out, err := runCtlCmd(t, "waypoint", "generate", "-n", waypointNamespace)
 		if err != nil {
-			t.Fatalf("cluster-wide disable failed: %v", err)
+			t.Fatalf("generate failed: %v", err)
+		}
+		if !strings.Contains(out, "kind: Gateway") {
+			t.Errorf("expected 'kind: Gateway', got:\n%s", out)
 		}
 	})
 
-	t.Run("enable-pod", func(t *testing.T) {
-		out, err := runAuthzCmd("enable", pod)
-		t.Logf("Output of 'kmeshctl authz enable %s':\n%s", pod, out)
+	t.Run("apply", func(t *testing.T) {
+		out, err := runCtlCmd(t, "waypoint", "apply", "-n", waypointNamespace, "-w")
 		if err != nil {
-			t.Fatalf("per-pod enable failed: %v", err)
+			t.Fatalf("apply failed: %v", err)
+		}
+		want := fmt.Sprintf("waypoint %s/%s applied", waypointNamespace, waypointName)
+		if !strings.Contains(out, want) {
+			t.Errorf("expected %q, got:\n%s", want, out)
 		}
 	})
 
-	t.Run("disable-pod", func(t *testing.T) {
-		out, err := runAuthzCmd("disable", pod)
-		t.Logf("Output of 'kmeshctl authz disable %s':\n%s", pod, out)
+	t.Run("list", func(t *testing.T) {
+		time.Sleep(2 * time.Second)
+		out, err := runCtlCmd(t, "waypoint", "list", "-n", waypointNamespace)
 		if err != nil {
-			t.Fatalf("per-pod disable failed: %v", err)
+			t.Fatalf("list failed: %v", err)
+		}
+		if !strings.Contains(out, waypointName) {
+			t.Errorf("expected %q in list, got:\n%s", waypointName, out)
+		}
+	})
+
+	t.Run("status", func(t *testing.T) {
+		out, err := runCtlCmd(t, "waypoint", "status", "-n", waypointNamespace)
+		if err != nil {
+			t.Fatalf("status failed: %v", err)
+		}
+		if !strings.Contains(out, "NAME") || !strings.Contains(out, "STATUS") {
+			t.Errorf("expected headers in status, got:\n%s", out)
+		}
+	})
+
+	t.Run("delete", func(t *testing.T) {
+		out, err := runCtlCmd(t, "waypoint", "delete", "--all", "-n", waypointNamespace)
+		if err != nil {
+			t.Fatalf("delete failed: %v", err)
+		}
+		if !strings.Contains(out, fmt.Sprintf("waypoint %s/%s deleted", waypointNamespace, waypointName)) {
+			t.Errorf("expected delete confirmation, got:\n%s", out)
+		}
+	})
+
+	t.Run("list-after-delete", func(t *testing.T) {
+		out, err := runCtlCmd(t, "waypoint", "list", "-n", waypointNamespace)
+		if err != nil {
+			t.Fatalf("list after delete failed: %v", err)
+		}
+		if !strings.Contains(out, "No waypoints found.") {
+			t.Errorf("expected 'No waypoints found.', got:\n%s", out)
 		}
 	})
 }
