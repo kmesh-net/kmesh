@@ -12,11 +12,11 @@ helper_name=(
 	parse_header_msg
 )
 
-base_line=`grep -nr "FN(unspec)" $KERNEL_HEADER_LINUX_BPF | awk -F ":" {'print $1'}`
+base_line=$(grep -nr "FN(unspec)" $KERNEL_HEADER_LINUX_BPF | awk -F ":" {'print $1'})
 for name in ${helper_name[@]}; do
-	current_line=`grep -nr "FN($name)" $KERNEL_HEADER_LINUX_BPF | awk -F ":" {'print $1'}`
+	current_line=$(grep -nr "FN($name)" $KERNEL_HEADER_LINUX_BPF | awk -F ":" {'print $1'})
 	if [ -n "$current_line" ]; then
-		helper_id=`expr $current_line - $base_line`
+		helper_id=$(expr $current_line - $base_line)
 		sed -Ei "/${name}_num/s/([0-9]+)[^0-9]*$/$helper_id/" $ROOT_DIR/bpf/include/bpf_helper_defs_ext.h
 	fi
 done

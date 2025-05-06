@@ -2,14 +2,14 @@
 
 # Check if a Makefile exists in the current directory
 if [ ! -f "Makefile" ]; then
-  echo "Error: Makefile not found in the current directory."
-  exit 1
+	echo "Error: Makefile not found in the current directory."
+	exit 1
 fi
 
 # Check if the VERSION argument is provided
 if [ -z "$1" ]; then
-  echo "Usage: $0 VERSION=<value>"
-  exit 1
+	echo "Usage: $0 VERSION=<value>"
+	exit 1
 fi
 
 # Extract the VERSION value from the argument
