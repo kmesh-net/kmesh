@@ -103,6 +103,7 @@ func TestBPF(t *testing.T) {
 	}
 
 	t.Run("Workload", testWorkload)
+	t.Run("GeneralTC", testGeneralTC)
 }
 
 // common functions
@@ -284,7 +285,7 @@ const (
 )
 
 func subTest(t *testing.T, progSet programSet, resultMap *ebpf.Map) {
-	// create ctx with the max allowed size(4k - head room - tailroom)
+	// create data payload with the max allowed size(4k - head room - tailroom)
 	data := make([]byte, 4096-256-320)
 
 	// ctx is only used for tc programs
