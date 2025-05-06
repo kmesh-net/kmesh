@@ -22,7 +22,7 @@ int tc_mark_encrypt(struct __sk_buff *ctx)
     if (!nodeinfo) {
         return TC_ACT_OK;
     }
-    // 0x00d0 mean need encryption in ipsec
+    // 0x00e0 mean need encryption in ipsec
     ctx->mark = 0x00e0;
     return TC_ACT_OK;
 }
