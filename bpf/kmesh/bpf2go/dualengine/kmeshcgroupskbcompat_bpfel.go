@@ -130,8 +130,9 @@ type KmeshCgroupSkbCompatMapSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSkbCompatVariableSpecs struct {
-	BpfLogLevel      *ebpf.VariableSpec `ebpf:"bpf_log_level"`
-	EnableMonitoring *ebpf.VariableSpec `ebpf:"enable_monitoring"`
+	BpfLogLevel          *ebpf.VariableSpec `ebpf:"bpf_log_level"`
+	EnableMonitoring     *ebpf.VariableSpec `ebpf:"enable_monitoring"`
+	EnablePeriodicReport *ebpf.VariableSpec `ebpf:"enable_periodic_report"`
 }
 
 // KmeshCgroupSkbCompatObjects contains all objects after they have been loaded into the kernel.
@@ -201,8 +202,9 @@ func (m *KmeshCgroupSkbCompatMaps) Close() error {
 //
 // It can be passed to LoadKmeshCgroupSkbCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSkbCompatVariables struct {
-	BpfLogLevel      *ebpf.Variable `ebpf:"bpf_log_level"`
-	EnableMonitoring *ebpf.Variable `ebpf:"enable_monitoring"`
+	BpfLogLevel          *ebpf.Variable `ebpf:"bpf_log_level"`
+	EnableMonitoring     *ebpf.Variable `ebpf:"enable_monitoring"`
+	EnablePeriodicReport *ebpf.Variable `ebpf:"enable_periodic_report"`
 }
 
 // KmeshCgroupSkbCompatPrograms contains all programs after they have been loaded into the kernel.

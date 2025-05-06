@@ -11,10 +11,17 @@
 #include "probe.h"
 #include "config.h"
 
+volatile __u32 enable_periodic_report = 0;
+
+static inline bool is__periodic_report_enable()
+{
+    return enable_periodic_report == 1;
+}
+
 SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress_prog(struct __sk_buff *skb)
 {
-    if (!is_monitoring_enable()) {
+    if (!is_monitoring_enable() || !is__periodic_report_enable()) {
         return SK_PASS;
     }
     if (skb->family != AF_INET && skb->family != AF_INET6)
@@ -38,7 +45,7 @@ int cgroup_skb_ingress_prog(struct __sk_buff *skb)
 SEC("cgroup_skb/egress")
 int cgroup_skb_egress_prog(struct __sk_buff *skb)
 {
-    if (!is_monitoring_enable()) {
+    if (!is_monitoring_enable() || !is__periodic_report_enable()) {
         return SK_PASS;
     }
     if (skb->family != AF_INET && skb->family != AF_INET6)

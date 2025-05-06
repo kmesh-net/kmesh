@@ -313,6 +313,15 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	enablePeriodicReport := constants.DISABLED
+	if enabled {
+		enablePeriodicReport = constants.ENABLED
+	}
+	if err := s.loader.UpdateEnablePeriodicReport(enablePeriodicReport); err != nil {
+		http.Error(w, fmt.Sprintf("update enable periodic report failed: %v", err), http.StatusBadRequest)
+		return
+	}
+
 	s.xdsClient.WorkloadController.SetConnectionMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
