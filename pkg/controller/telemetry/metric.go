@@ -48,7 +48,7 @@ const (
 
 	DEFAULT_UNKNOWN = "-"
 
-	LONG_CONN_METRIC_THRESHOLD = uint64(30 * time.Second)
+	LONG_CONN_METRIC_THRESHOLD = uint64(5 * time.Second)
 )
 
 var osStartTime time.Time
@@ -512,7 +512,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				connectionLabels = m.buildConnectionMetric(&data)
 			}
 			if m.EnableAccesslog.Load() {
-				// accesslogs at start of connection, at interval of 5 sec during connection lifecycle and at close of connection
+				// accesslogs at interval of 5 sec during connection lifecycle and at close of connection
 				OutputAccesslog(data, tcpConns[data.conSrcDstInfo], accesslog)
 			}
 
