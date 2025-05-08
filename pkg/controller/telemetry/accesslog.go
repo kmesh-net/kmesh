@@ -78,6 +78,10 @@ func (l *logInfo) withDestinationService(service *workloadapi.Service) *logInfo 
 }
 
 func OutputAccesslog(data requestMetric, conn_metrics connMetric, accesslog logInfo) {
+	// Skip output access log on connection establishment
+	if data.state == TCP_ESTABLISHED && data.duration < LONG_CONN_METRIC_THRESHOLD {
+		return
+	}
 	logStr := buildAccesslog(data, conn_metrics, accesslog)
 	fmt.Println("accesslog:", logStr)
 }
