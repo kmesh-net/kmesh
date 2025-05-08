@@ -159,10 +159,11 @@ type connMetric struct {
 }
 
 type connectionSrcDst struct {
-	src     [4]uint32
-	dst     [4]uint32
-	srcPort uint16
-	dstPort uint16
+	src       [4]uint32
+	dst       [4]uint32
+	srcPort   uint16
+	dstPort   uint16
+	direction uint32
 }
 
 type requestMetric struct {
@@ -465,9 +466,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 		case <-ctx.Done():
 			return
 		default:
-			if !m.EnableMonitoring.Load() {
-				continue
-			}
 			data := requestMetric{}
 			rec := ringbuf.Record{}
 			if err := reader.ReadInto(&rec); err != nil {
@@ -535,55 +533,56 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 
 func buildV4Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) (requestMetric, error) {
 	data := requestMetric{}
-	connectData := connectionDataV4{}
+	rawStats := connectionDataV4{}
 
-	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
+	if err := binary.Read(buf, binary.LittleEndian, &rawStats); err != nil {
 		return data, err
 	}
 
-	data.conSrcDstInfo.src[0] = connectData.SrcAddr
-	data.conSrcDstInfo.dst[0] = connectData.DstAddr
-	data.direction = connectData.Direction
-	data.conSrcDstInfo.dstPort = connectData.DstPort
-	data.conSrcDstInfo.srcPort = connectData.SrcPort
+	data.conSrcDstInfo.src[0] = rawStats.SrcAddr
+	data.conSrcDstInfo.dst[0] = rawStats.DstAddr
+	data.conSrcDstInfo.direction = rawStats.Direction
+	data.direction = rawStats.Direction
+	data.conSrcDstInfo.dstPort = rawStats.DstPort
+	data.conSrcDstInfo.srcPort = rawStats.SrcPort
 
 	// original addr is 0 indicates the connection is
 	// workload-type or and not redirected,
 	// so we just take from the actual destination
-	if connectData.OriginalAddr == 0 {
+	if rawStats.OriginalAddr == 0 {
 		data.origDstAddr[0] = data.conSrcDstInfo.dst[0]
 		data.origDstPort = data.conSrcDstInfo.dstPort
 	} else {
-		data.origDstAddr[0] = connectData.OriginalAddr
-		data.origDstPort = connectData.OriginalPort
+		data.origDstAddr[0] = rawStats.OriginalAddr
+		data.origDstPort = rawStats.OriginalPort
 	}
 
-	data.sentBytes = connectData.SentBytes - tcpConns[data.conSrcDstInfo].sentBytes
-	data.receivedBytes = connectData.ReceivedBytes - tcpConns[data.conSrcDstInfo].receivedBytes
-	data.state = connectData.State
-	data.success = connectData.ConnectSuccess
-	data.duration = connectData.Duration
-	data.startTime = connectData.StartTime
-	data.lastReportTime = connectData.LastReportTime
-	data.srtt = connectData.statistics.SRttTime
-	data.minRtt = connectData.statistics.RttMin
-	data.totalRetrans = connectData.statistics.Retransmits - tcpConns[data.conSrcDstInfo].totalRetrans
-	data.packetLost = connectData.statistics.LostPackets - tcpConns[data.conSrcDstInfo].packetLost
+	data.sentBytes = rawStats.SentBytes - tcpConns[data.conSrcDstInfo].sentBytes
+	data.receivedBytes = rawStats.ReceivedBytes - tcpConns[data.conSrcDstInfo].receivedBytes
+	data.state = rawStats.State
+	data.success = rawStats.ConnectSuccess
+	data.duration = rawStats.Duration
+	data.startTime = rawStats.StartTime
+	data.lastReportTime = rawStats.LastReportTime
+	data.srtt = rawStats.statistics.SRttTime
+	data.minRtt = rawStats.statistics.RttMin
+	data.totalRetrans = rawStats.statistics.Retransmits - tcpConns[data.conSrcDstInfo].totalRetrans
+	data.packetLost = rawStats.statistics.LostPackets - tcpConns[data.conSrcDstInfo].packetLost
 
 	cm, ok := tcpConns[data.conSrcDstInfo]
 	if ok {
-		cm.receivedBytes = connectData.ReceivedBytes
-		cm.sentBytes = connectData.SentBytes
-		cm.totalRetrans = connectData.statistics.Retransmits
-		cm.packetLost = connectData.statistics.LostPackets
+		cm.receivedBytes = rawStats.ReceivedBytes
+		cm.sentBytes = rawStats.SentBytes
+		cm.totalRetrans = rawStats.statistics.Retransmits
+		cm.packetLost = rawStats.statistics.LostPackets
 		cm.totalReports++
 		tcpConns[data.conSrcDstInfo] = cm
 	} else {
 		tcpConns[data.conSrcDstInfo] = connMetric{
-			receivedBytes: connectData.ReceivedBytes,
-			sentBytes:     connectData.SentBytes,
-			totalRetrans:  connectData.statistics.Retransmits,
-			packetLost:    connectData.statistics.LostPackets,
+			receivedBytes: rawStats.ReceivedBytes,
+			sentBytes:     rawStats.SentBytes,
+			totalRetrans:  rawStats.statistics.Retransmits,
+			packetLost:    rawStats.statistics.LostPackets,
 			totalReports:  1,
 		}
 	}
@@ -593,53 +592,54 @@ func buildV4Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) 
 
 func buildV6Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) (requestMetric, error) {
 	data := requestMetric{}
-	connectData := connectionDataV6{}
-	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
+	rawStats := connectionDataV6{}
+	if err := binary.Read(buf, binary.LittleEndian, &rawStats); err != nil {
 		return data, err
 	}
-	data.conSrcDstInfo.src = connectData.SrcAddr
-	data.conSrcDstInfo.dst = connectData.DstAddr
-	data.direction = connectData.Direction
-	data.conSrcDstInfo.dstPort = connectData.DstPort
-	data.conSrcDstInfo.srcPort = connectData.SrcPort
+	data.conSrcDstInfo.src = rawStats.SrcAddr
+	data.conSrcDstInfo.dst = rawStats.DstAddr
+	data.conSrcDstInfo.direction = rawStats.Direction
+	data.direction = rawStats.Direction
+	data.conSrcDstInfo.dstPort = rawStats.DstPort
+	data.conSrcDstInfo.srcPort = rawStats.SrcPort
 
 	// original addr is 0 indicates the connection is
 	// workload-type or and not redirected,
 	// so we just take from the actual destination
-	if !isOrigDstSet(connectData.OriginalAddr) {
+	if !isOrigDstSet(rawStats.OriginalAddr) {
 		data.origDstAddr = data.conSrcDstInfo.dst
 		data.origDstPort = data.conSrcDstInfo.dstPort
 	} else {
-		data.origDstAddr = connectData.OriginalAddr
-		data.origDstPort = connectData.OriginalPort
+		data.origDstAddr = rawStats.OriginalAddr
+		data.origDstPort = rawStats.OriginalPort
 	}
 
-	data.sentBytes = connectData.SentBytes - tcpConns[data.conSrcDstInfo].sentBytes
-	data.receivedBytes = connectData.ReceivedBytes - tcpConns[data.conSrcDstInfo].receivedBytes
-	data.state = connectData.State
-	data.success = connectData.ConnectSuccess
-	data.duration = connectData.Duration
-	data.startTime = connectData.StartTime
-	data.lastReportTime = connectData.LastReportTime
-	data.srtt = connectData.statistics.SRttTime
-	data.minRtt = connectData.statistics.RttMin
-	data.totalRetrans = connectData.statistics.Retransmits - tcpConns[data.conSrcDstInfo].totalRetrans
-	data.packetLost = connectData.statistics.LostPackets - tcpConns[data.conSrcDstInfo].packetLost
+	data.sentBytes = rawStats.SentBytes - tcpConns[data.conSrcDstInfo].sentBytes
+	data.receivedBytes = rawStats.ReceivedBytes - tcpConns[data.conSrcDstInfo].receivedBytes
+	data.state = rawStats.State
+	data.success = rawStats.ConnectSuccess
+	data.duration = rawStats.Duration
+	data.startTime = rawStats.StartTime
+	data.lastReportTime = rawStats.LastReportTime
+	data.srtt = rawStats.statistics.SRttTime
+	data.minRtt = rawStats.statistics.RttMin
+	data.totalRetrans = rawStats.statistics.Retransmits - tcpConns[data.conSrcDstInfo].totalRetrans
+	data.packetLost = rawStats.statistics.LostPackets - tcpConns[data.conSrcDstInfo].packetLost
 
 	cm, ok := tcpConns[data.conSrcDstInfo]
 	if ok {
-		cm.receivedBytes = connectData.ReceivedBytes
-		cm.sentBytes = connectData.SentBytes
-		cm.totalRetrans = connectData.statistics.Retransmits
-		cm.packetLost = connectData.statistics.LostPackets
+		cm.receivedBytes = rawStats.ReceivedBytes
+		cm.sentBytes = rawStats.SentBytes
+		cm.totalRetrans = rawStats.statistics.Retransmits
+		cm.packetLost = rawStats.statistics.LostPackets
 		cm.totalReports++
 		tcpConns[data.conSrcDstInfo] = cm
 	} else {
 		tcpConns[data.conSrcDstInfo] = connMetric{
-			receivedBytes: connectData.ReceivedBytes,
-			sentBytes:     connectData.SentBytes,
-			totalRetrans:  connectData.statistics.Retransmits,
-			packetLost:    connectData.statistics.LostPackets,
+			receivedBytes: rawStats.ReceivedBytes,
+			sentBytes:     rawStats.SentBytes,
+			totalRetrans:  rawStats.statistics.Retransmits,
+			packetLost:    rawStats.statistics.LostPackets,
 			totalReports:  1,
 		}
 	}
