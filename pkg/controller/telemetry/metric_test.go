@@ -535,7 +535,7 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 					receivedBytes: 0x0000004,
 					packetLost:    0x0000001,
 					totalRetrans:  0x0000002,
-					state:         TCP_CLOSTED,
+					state:         TCP_CLOSED,
 				},
 				labels: connectionMetricLabels{
 					reporter:                     "source",

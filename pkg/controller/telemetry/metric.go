@@ -38,7 +38,7 @@ import (
 
 const (
 	TCP_ESTABLISHED = uint32(1)
-	TCP_CLOSTED     = uint32(7)
+	TCP_CLOSED      = uint32(7)
 
 	connection_success = uint32(1)
 
@@ -512,7 +512,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				connectionLabels = m.buildConnectionMetric(&data)
 			}
 			if m.EnableAccesslog.Load() {
-				// accesslogs at interval of 5 sec during connection lifecycle and at close of connection
+				// accesslogs at interval of 5 sec during connection lifecycle if connectionMetrics is enabled and at close of connection
 				OutputAccesslog(data, tcpConns[data.conSrcDstInfo], accesslog)
 			}
 
@@ -526,7 +526,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 			m.mutex.Unlock()
 
-			if data.state == TCP_CLOSTED {
+			if data.state == TCP_CLOSED {
 				delete(tcpConns, data.conSrcDstInfo)
 			}
 		}
@@ -848,7 +848,7 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			v.WorkloadConnOpened = v.WorkloadConnOpened + 1
 		}
-		if data.state == TCP_CLOSTED {
+		if data.state == TCP_CLOSED {
 			v.WorkloadConnClosed = v.WorkloadConnClosed + 1
 		}
 		if data.success != connection_success {
@@ -863,7 +863,7 @@ func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels 
 		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			newWorkloadMetricInfo.WorkloadConnOpened = 1
 		}
-		if data.state == TCP_CLOSTED {
+		if data.state == TCP_CLOSED {
 			newWorkloadMetricInfo.WorkloadConnClosed = 1
 		}
 		if data.success != connection_success {
@@ -883,7 +883,7 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			v.ServiceConnOpened = v.ServiceConnOpened + 1
 		}
-		if data.state == TCP_CLOSTED {
+		if data.state == TCP_CLOSED {
 			v.ServiceConnClosed = v.ServiceConnClosed + 1
 		}
 		if data.success != connection_success {
@@ -896,7 +896,7 @@ func (m *MetricController) updateServiceMetricCache(data requestMetric, labels s
 		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			newServiceMetricInfo.ServiceConnOpened = 1
 		}
-		if data.state == TCP_CLOSTED {
+		if data.state == TCP_CLOSED {
 			newServiceMetricInfo.ServiceConnClosed = 1
 		}
 		if data.success != connection_success {
@@ -923,7 +923,7 @@ func (m *MetricController) updateConnectionMetricCache(data requestMetric, connD
 		newConnectionMetricInfo.ConnTotalRetrans = float64(connData.totalRetrans)
 		m.connectionMetricCache[labels] = &newConnectionMetricInfo
 	}
-	if data.state == TCP_CLOSTED {
+	if data.state == TCP_CLOSED {
 		deleteLock.Lock()
 		deleteConnection = append(deleteConnection, &labels)
 		deleteLock.Unlock()
