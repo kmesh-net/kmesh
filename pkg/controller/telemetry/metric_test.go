@@ -1687,10 +1687,11 @@ func TestBuildV4Metric(t *testing.T) {
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	data := requestMetric{
 		conSrcDstInfo: connectionSrcDst{
-			src:     [4]uint32{218231818, 0, 0, 0},
-			dst:     [4]uint32{201454602, 0, 0, 0},
-			srcPort: 53282,
-			dstPort: 8080,
+			src:       [4]uint32{218231818, 0, 0, 0},
+			dst:       [4]uint32{201454602, 0, 0, 0},
+			direction: 2,
+			srcPort:   53282,
+			dstPort:   8080,
 		},
 		origDstAddr:    [4]uint32{3761135626, 0, 0, 0},
 		origDstPort:    8080,
