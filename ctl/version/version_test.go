@@ -42,9 +42,16 @@ func Test_stringMatch(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "fail example",
+			name: "failed example",
 			args: args{
 				str: "7.8.5",
+			},
+			want: false,
+		},
+		{
+			name: "Incorrect Suffix",
+			args: args{
+				str: "v1.1.1-alpha.0",
 			},
 			want: false,
 		},
