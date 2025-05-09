@@ -49,11 +49,18 @@ func Test_stringMatch(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "Incorrect Suffix",
+			name: "alpha.0 Suffix",
 			args: args{
 				str: "v1.1.1-alpha.0",
 			},
-			want: false,
+			want: true,
+		},
+		{
+			name: "alpha.bate suffix",
+			args: args{
+				str: "v1.1.1-alpha.beta",
+			},
+			want: true,
 		},
 	}
 	for _, tt := range tests {

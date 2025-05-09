@@ -142,7 +142,7 @@ func getVersion(client kube.CLIClient, podName string) (version version.Info) {
 
 // match release version vx.y.z-(alpha)
 func stringMatch(str string) bool {
-	pattern := `^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+)?$`
+	pattern := `^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$`
 	regex := regexp.MustCompile(pattern)
 
 	return regex.MatchString(str)
