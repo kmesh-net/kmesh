@@ -79,7 +79,7 @@ func (l *logInfo) withDestinationService(service *workloadapi.Service) *logInfo 
 
 func outputAccesslog(data requestMetric, connMetrics connMetric, accesslog logInfo) {
 	// Skip output access log on connection establishment
-	if data.state == TCP_ESTABLISHED && conn_metrics.totalReports == 1 {
+	if data.state == TCP_ESTABLISHED && connMetrics.totalReports == 1 {
 		return
 	}
 	logStr := buildAccesslog(data, connMetrics, accesslog)
