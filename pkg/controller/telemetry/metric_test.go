@@ -28,6 +28,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
 )
@@ -1686,16 +1687,17 @@ func TestBuildV4Metric(t *testing.T) {
 		210, 202, 232, 184, 0, 0, 64, 30, 158, 31, 235, 184, 0, 0, 0, 0, 0, 0, 150, 158, 0, 0, 19, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	data := requestMetric{
+
 		conSrcDstInfo: connectionSrcDst{
 			src:       [4]uint32{218231818, 0, 0, 0},
 			dst:       [4]uint32{201454602, 0, 0, 0},
-			direction: 2,
+			direction: constants.OUTBOUND,
 			srcPort:   53282,
 			dstPort:   8080,
 		},
 		origDstAddr:    [4]uint32{3761135626, 0, 0, 0},
 		origDstPort:    8080,
-		direction:      2,
+		direction:      constants.OUTBOUND,
 		receivedBytes:  147,
 		sentBytes:      3,
 		state:          1,
