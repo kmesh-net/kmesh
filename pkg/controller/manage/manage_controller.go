@@ -160,6 +160,15 @@ func (c *KmeshManageController) handlePodAdd(obj interface{}) {
 }
 
 func (c *KmeshManageController) handlePodUpdate(_, newObj interface{}) {
+	pod, ok := newObj.(*corev1.Pod)
+	if !ok {
+		log.Errorf("expected *corev1.Pod but got %T", newObj)
+		return
+	}
+	if pod.DeletionTimestamp != nil {
+		log.Debugf("pod %s/%s is being deleted, skip remanage", pod.Namespace, pod.Name)
+		return
+	}
 	c.handlePodAdd(newObj)
 }
 
@@ -229,7 +238,7 @@ func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 		log.Debugf("Pod %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
 		return
 	}
-	log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
+	log.Debugf("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
 	nspath, _ := ns.GetPodNSpath(pod)
 	if err := utils.HandleKmeshManage(nspath, true); err != nil {
 		log.Errorf("failed to enable Kmesh manage")
