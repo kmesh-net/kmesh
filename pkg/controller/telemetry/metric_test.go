@@ -452,9 +452,8 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 
 func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 	type args struct {
-		data     requestMetric
-		labels   connectionMetricLabels
-		tcpConns map[connectionSrcDst]connMetric
+		data   requestMetric
+		labels connectionMetricLabels
 	}
 	tests := []struct {
 		id   int32
@@ -501,18 +500,6 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 					requestProtocol:              "tcp",
 					responseFlags:                "-",
 					connectionSecurityPolicy:     "mutual_tls",
-				},
-				tcpConns: map[connectionSrcDst]connMetric{
-					{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
-					}: {
-						sentBytes:     0x0000003,
-						receivedBytes: 0x0000004,
-						packetLost:    0x0000001,
-						totalRetrans:  0x0000002,
-						totalReports:  1,
-					},
 				},
 			},
 			want: []float64{
@@ -561,14 +548,6 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 					requestProtocol:              "tcp",
 					responseFlags:                "-",
 					connectionSecurityPolicy:     "mutual_tls",
-				},
-				tcpConns: map[connectionSrcDst]connMetric{
-					{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
-					}: {
-						totalReports: 3,
-					},
 				},
 			},
 			want: []float64{
@@ -620,7 +599,7 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 			}
 
 			deleteConnection = []*connectionMetricLabels{}
-			m.updateConnectionMetricCache(tt.args.data, tt.args.tcpConns[tt.args.data.conSrcDstInfo], tt.args.labels)
+			m.updateConnectionMetricCache(tt.args.data, tt.args.labels)
 			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnSentBytes, tt.want[0])
 			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnReceivedBytes, tt.want[1])
 			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnPacketLost, tt.want[2])
