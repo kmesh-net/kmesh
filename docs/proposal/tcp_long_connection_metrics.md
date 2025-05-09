@@ -171,7 +171,7 @@ We will update the functions of metric.go for periodic updating the workload and
 
 #### Exposing long connection prometheus metrics 
 
-We will expose metrics for the connections whose duration exceeds 30 seconds. Not exposing metrics for short connection as it can lead to lot of metrics and they are also not suitable for prometheus metrics because prometheus itself has a scrape interval of maximum 15s, and short-lived connections may start and end between scrapes, resulting in incomplete or misleading data. By focusing only on longer-lived connections, we ensure the metrics are stable, meaningful, and better aligned with Prometheus’s time-series data model.
+We will expose metrics for the connections whose duration exceeds 5 seconds. Not exposing metrics for short connection as it can lead to lot of metrics and they are also not suitable for prometheus metrics because prometheus itself has a scrape interval of 5s, and short-lived connections may start and end between scrapes, resulting in incomplete or misleading data. By focusing only on longer-lived connections, we ensure the metrics are stable, meaningful, and better aligned with Prometheus’s time-series data model.
 
 We can have a another component in future which reports realtime information about connections like cilium hubble. 
 
