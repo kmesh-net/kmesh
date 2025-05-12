@@ -99,7 +99,7 @@ static inline void construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *t
 
 static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_probe_info *info)
 {
-    info->sent_bytes = tcp_sock->delivered;
+    info->sent_bytes = tcp_sock->bytes_acked; // bytes_acked means already acked sent bytes
     info->received_bytes = tcp_sock->bytes_received;
     info->srtt_us = tcp_sock->srtt_us;
     info->rtt_min = tcp_sock->rtt_min;
