@@ -139,18 +139,18 @@ function setup_kmesh() {
 	done
 
 	# Set log of each Kmesh pods.
-    PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
 
-    for POD in $PODS; do
-        echo $POD
-        kmeshctl log $POD --set bpf:debug
+	for POD in $PODS; do
+		echo $POD
+		kmeshctl log $POD --set bpf:debug
 		kmeshctl log $POD --set default:debug
-    done
+	done
 }
 
 function install_kmeshctl() {
-    # Install kmeshctl
-    cp kmeshctl $TMPBIN
+	# Install kmeshctl
+	cp kmeshctl $TMPBIN
 }
 
 export KIND_REGISTRY_NAME="kind-registry"
@@ -231,13 +231,13 @@ capture_pod_logs() {
 		PODS=$(kubectl get pods -n $NAMESPACE --field-selector spec.nodeName=$NODE_NAME -o jsonpath='{.items[*].metadata.name}')
 
 		if [ -z "$PODS" ]; then
-		  echo "No pods found on node $NODE_NAME in namespace $NAMESPACE."
-		  continue
+			echo "No pods found on node $NODE_NAME in namespace $NAMESPACE."
+			continue
 		fi
 
-	  echo "Logs for Pod: ${PODS[0]}"
+		echo "Logs for Pod: ${PODS[0]}"
 
-	  kubectl logs -n $NAMESPACE -f ${PODS[0]} >> kmesh_daemon.log 2>&1
+		kubectl logs -n $NAMESPACE -f ${PODS[0]} >> kmesh_daemon.log 2>&1
 	done
 }
 
@@ -320,9 +320,10 @@ capture_pod_logs &
 
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
-bash -c "$cmd"
-
-cat kmesh_daemon.log
+bash -c "$cmd" || {
+	cat kmesh_daemon.log
+	exit 1
+}
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster
