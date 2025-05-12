@@ -237,7 +237,7 @@ capture_pod_logs() {
 
 		echo "Logs for Pod: ${PODS[0]}"
 
-		kubectl logs -n $NAMESPACE -f ${PODS[0]} >> kmesh_daemon.log 2>&1
+		kubectl logs -n $NAMESPACE -f ${PODS[0]} >>kmesh_daemon.log 2>&1
 	done
 }
 
