@@ -38,6 +38,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"kmesh.net/kmesh/pkg/bpf/factory"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -47,17 +48,21 @@ var (
 	dumpCtx  = flag.Bool("dump-ctx", false, "If set, the program context will be dumped after a CHECK and SETUP run.")
 )
 
-type unitTest struct {
+type IunitTest interface {
+	run() func(t *testing.T)
+}
+
+type unitTest_BPF_PROG_TEST_RUN struct {
 	name             string
 	setupInUserSpace func(t *testing.T, coll *ebpf.Collection) // Builds test environment in user space, used for operations that cannot be completed in kernel space (e.g., cannot pass the eBPF verifier)
 }
 
-type unitTests struct {
+type unitTests_BPF_PROG_TEST_RUN struct {
 	objFilename string
-	uts         []unitTest
+	uts         []unitTest_BPF_PROG_TEST_RUN
 }
 
-func (uts *unitTests) run() func(t *testing.T) {
+func (uts *unitTests_BPF_PROG_TEST_RUN) run() func(t *testing.T) {
 	return func(t *testing.T) {
 		for _, ut := range uts.uts {
 			t.Run(ut.name, func(t *testing.T) {
@@ -67,6 +72,27 @@ func (uts *unitTests) run() func(t *testing.T) {
 	}
 }
 
+type unitTest_BUILD_CONTEXT struct {
+	name     string
+	workFunc func(t *testing.T, cgroupPath, elfPath string)
+}
+
+type unitTests_BUILD_CONTEXT struct {
+	objFilename string
+	uts         []unitTest_BUILD_CONTEXT
+}
+
+func (uts *unitTests_BUILD_CONTEXT) run() func(t *testing.T) {
+	return func(t *testing.T) {
+		for _, ut := range uts.uts {
+			t.Run(ut.name, func(t *testing.T) {
+				if ut.workFunc != nil {
+					ut.workFunc(t, constants.Cgroup2Path, uts.objFilename)
+				}
+			})
+		}
+	}
+}
 func TestBPF(t *testing.T) {
 	if testPath == nil || *testPath == "" {
 		t.Skip("Set -bpf-ut-path to run BPF tests")
@@ -77,11 +103,12 @@ func TestBPF(t *testing.T) {
 	}
 
 	t.Run("Workload", testWorkload)
+	t.Run("GeneralTC", testGeneralTC)
 }
 
 // common functions
 
-func loadAndRunSpec(t *testing.T, objFilename string, tt *unitTest) {
+func loadAndRunSpec(t *testing.T, objFilename string, tt *unitTest_BPF_PROG_TEST_RUN) {
 	elfPath := path.Join(*testPath, objFilename)
 	t.Logf("Running test %s", elfPath)
 
@@ -130,7 +157,7 @@ func loadAndRunSpec(t *testing.T, objFilename string, tt *unitTest) {
 	}
 
 	// Ensure test that has a jump program also has a check program
-	if programs.checkProg == nil {
+	if programs.jumpProg != nil && programs.checkProg == nil {
 		t.Fatalf(
 			"File '%s' contains a jump program in section '%s' but no check program.",
 			elfPath,
@@ -138,16 +165,21 @@ func loadAndRunSpec(t *testing.T, objFilename string, tt *unitTest) {
 		)
 	}
 
-	if !utils.KernelVersionLowerThan5_13() {
-		// TODO: use t.Context() instead of context.Background() when go 1.24 is required
-		logger.StartLogReader(context.Background(), coll.Maps["km_log_event"])
-	}
+	startLogReader(coll)
+
 	if tt.setupInUserSpace != nil {
 		tt.setupInUserSpace(t, coll)
 	}
 
 	// run the test
 	subTest(t, programs, coll.Maps[suiteResultMap])
+}
+
+func startLogReader(coll *ebpf.Collection) {
+	if !utils.KernelVersionLowerThan5_13() {
+		// TODO: use t.Context() instead of context.Background() when go 1.24 is required
+		logger.StartLogReader(context.Background(), coll.Maps["km_log_event"])
+	}
 }
 
 // loadAndPrepSpec loads an eBPF Collection Specification from the provided ELF file
@@ -177,7 +209,7 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 	for n, p := range spec.Programs {
 		switch p.Type {
 		// https://docs.ebpf.io/linux/syscall/BPF_PROG_TEST_RUN/
-		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS, ebpf.SocketFilter, ebpf.CGroupSKB:
+		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS, ebpf.SocketFilter, ebpf.CGroupSKB, ebpf.SockOps:
 			continue
 		}
 
@@ -192,11 +224,15 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 // based on the provided GlobalBpfConfig. It sets the log level and authorization
 // offload settings.
 func setBpfConfig(t *testing.T, coll *ebpf.Collection, config *factory.GlobalBpfConfig) {
-	if err := coll.Variables["bpf_log_level"].Set(&config.BpfLogLevel); err != nil {
-		t.Fatalf("failed to set bpf_log_level: %v", err)
+	if v, ok := coll.Variables["bpf_log_level"]; ok {
+		if err := v.Set(&config.BpfLogLevel); err != nil {
+			t.Fatalf("failed to set bpf_log_level: %v", err)
+		}
 	}
-	if err := coll.Variables["authz_offload"].Set(&config.AuthzOffload); err != nil {
-		t.Fatalf("failed to set authz_offload: %v", err)
+	if v, ok := coll.Variables["authz_offload"]; ok {
+		if err := v.Set(&config.AuthzOffload); err != nil {
+			t.Fatalf("failed to set authz_offload: %v", err)
+		}
 	}
 }
 
@@ -249,7 +285,7 @@ const (
 )
 
 func subTest(t *testing.T, progSet programSet, resultMap *ebpf.Map) {
-	// create ctx with the max allowed size(4k - head room - tailroom)
+	// create data payload with the max allowed size(4k - head room - tailroom)
 	data := make([]byte, 4096-256-320)
 
 	// ctx is only used for tc programs

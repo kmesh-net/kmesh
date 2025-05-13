@@ -77,19 +77,23 @@ func (l *logInfo) withDestinationService(service *workloadapi.Service) *logInfo 
 	return l
 }
 
-func OutputAccesslog(data requestMetric, conn_metrics connMetric, accesslog logInfo) {
-	logStr := buildAccesslog(data, conn_metrics, accesslog)
+func outputAccesslog(data requestMetric, connMetrics connMetric, accesslog logInfo) {
+	// Skip output access log on connection establishment
+	if data.state == TCP_ESTABLISHED && connMetrics.totalReports == 1 {
+		return
+	}
+	logStr := buildAccesslog(data, connMetrics, accesslog)
 	fmt.Println("accesslog:", logStr)
 }
 
-func buildAccesslog(data requestMetric, conn_metrics connMetric, accesslog logInfo) string {
-	uptime := calculateUptime(osStartTime, data.lastReportTime)
-	startTime := calculateUptime(osStartTime, data.startTime)
+func buildAccesslog(reqMetric requestMetric, connMetrics connMetric, accesslog logInfo) string {
+	uptime := calculateUptime(osStartTime, reqMetric.lastReportTime)
+	startTime := calculateUptime(osStartTime, reqMetric.startTime)
 	startTimeInfo := fmt.Sprintf("%v", startTime)
 	timeInfo := fmt.Sprintf("%v", uptime)
 	sourceInfo := fmt.Sprintf("src.addr=%s, src.workload=%s, src.namespace=%s", accesslog.sourceAddress, accesslog.sourceWorkload, accesslog.sourceNamespace)
 	destinationInfo := fmt.Sprintf("dst.addr=%s, dst.service=%s, dst.workload=%s, dst.namespace=%s", accesslog.destinationAddress, accesslog.destinationService, accesslog.destinationWorkload, accesslog.destinationNamespace)
-	connectionInfo := fmt.Sprintf("start_time=%s, direction=%s, state=%s, sent_bytes=%d, received_bytes=%d, packet_loss=%d, retransmissions=%d, srtt=%dus, min_rtt=%dus, duration=%vms", startTimeInfo, accesslog.direction, accesslog.state, conn_metrics.sentBytes, conn_metrics.receivedBytes, conn_metrics.packetLost, conn_metrics.totalRetrans, data.srtt, data.minRtt, (float64(data.duration) / 1000000.0))
+	connectionInfo := fmt.Sprintf("start_time=%s, direction=%s, state=%s, sent_bytes=%d, received_bytes=%d, packet_loss=%d, retransmissions=%d, srtt=%dus, min_rtt=%dus, duration=%vms", startTimeInfo, accesslog.direction, accesslog.state, connMetrics.sentBytes, connMetrics.receivedBytes, connMetrics.packetLost, connMetrics.totalRetrans, reqMetric.srtt, reqMetric.minRtt, (float64(reqMetric.duration) / 1000000.0))
 
 	logResult := fmt.Sprintf("%s %s, %s, %s", timeInfo, sourceInfo, destinationInfo, connectionInfo)
 	return logResult

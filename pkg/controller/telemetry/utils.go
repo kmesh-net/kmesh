@@ -245,7 +245,7 @@ var (
 			Help: "The total number of TCP connections failed to a service.",
 		}, serviceLabels)
 
-	// Metrics to track the status of long lived TCP connections (duration > 30s)
+	// Metrics to track the status of long lived TCP connections
 	tcpConnectionTotalSendBytes = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kmesh_tcp_connection_sent_bytes_total",

@@ -99,7 +99,7 @@ static inline void construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *t
 
 static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_probe_info *info)
 {
-    info->sent_bytes = tcp_sock->delivered;
+    info->sent_bytes = tcp_sock->bytes_acked; // bytes_acked means already acked sent bytes
     info->received_bytes = tcp_sock->bytes_received;
     info->srtt_us = tcp_sock->srtt_us;
     info->rtt_min = tcp_sock->rtt_min;
@@ -110,15 +110,9 @@ static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_
 
 // construct_orig_dst_info try to read the dst_info from map_of_sock_storage first
 // if not found, use the tuple info for orig_dst
-static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe_info *info)
+static inline void
+construct_orig_dst_info(struct bpf_sock *sk, struct sock_storage_data *storage, struct tcp_probe_info *info)
 {
-    struct sock_storage_data *storage = NULL;
-    storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, 0);
-    if (!storage) {
-        BPF_LOG(ERR, PROBE, "on close: bpf_sk_storage_get failed\n");
-        return;
-    }
-
     if (sk->family == AF_INET) {
         info->orig_dst.ipv4.addr = storage->sk_tuple.ipv4.daddr;
         info->orig_dst.ipv4.port = bpf_ntohs(storage->sk_tuple.ipv4.dport);
@@ -136,7 +130,6 @@ static inline void construct_orig_dst_info(struct bpf_sock *sk, struct tcp_probe
 static inline void
 tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
-    // struct connect_info *info = NULL;
     struct tcp_probe_info *info = NULL;
 
     // store tuple
@@ -157,7 +150,7 @@ tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_stora
         (*info).type = IPV4;
     }
 
-    construct_orig_dst_info(sk, info);
+    construct_orig_dst_info(sk, storage, info);
     info->last_report_ns = bpf_ktime_get_ns();
     info->duration = info->last_report_ns - storage->connect_ns;
     storage->last_report_ns = info->last_report_ns;

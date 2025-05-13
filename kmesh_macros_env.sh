@@ -1,10 +1,10 @@
 #!/bin/bash
-  
+
 VERSION=$(uname -r | cut -d '.' -f 1)
 KERNEL_VERSION=$(uname -r | cut -d '-' -f 1)
 
 function set_config() {
-    sed -i -r -e "s/($1)([ \t]*)([0-9]+)/\1\2$2/" config/kmesh_marcos_def.h
+	sed -i -r -e "s/($1)([ \t]*)([0-9]+)/\1\2$2/" config/kmesh_marcos_def.h
 }
 
 # MDA_LOOPBACK_ADDR
@@ -50,13 +50,13 @@ else
 fi
 
 # Determine libbpf version
-if command -v apt > /dev/null; then
+if command -v apt >/dev/null; then
 	LIBBPF_VERSION=$(ls /usr/lib/x86_64-linux-gnu | grep -P 'libbpf\.so\.\d+\.\d+\.\d+$' | sed -n -e 's/^.*libbpf.so.\(.*\)$/\1/p')
 else
 	LIBBPF_VERSION=$(ls /usr/lib64 | grep -P 'libbpf\.so\.\d+\.\d+\.\d+$' | sed -n -e 's/^.*libbpf.so.\(.*\)$/\1/p')
 fi
 
-if [[ "$LIBBPF_VERSION" < "0.6.0" ]]; then
+if [[ $LIBBPF_VERSION < "0.6.0" ]]; then
 	set_config LIBBPF_HIGHER_0_6_0_VERSION 0
 else
 	set_config LIBBPF_HIGHER_0_6_0_VERSION 1

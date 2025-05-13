@@ -1,5 +1,5 @@
 #!/bin/sh
-lsmod | grep kmesh > /dev/null
+lsmod | grep kmesh >/dev/null
 if [ $? == 0 ]; then
 	rmmod kmesh
 	depmod -a

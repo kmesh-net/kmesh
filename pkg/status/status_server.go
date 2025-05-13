@@ -253,14 +253,21 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(fmt.Sprintf("invalid monitoring enable=%s", info)))
 		return
 	}
-	var enableMonitoring uint32
+	enableMonitoring := constants.DISABLED
 	if enabled {
 		enableMonitoring = constants.ENABLED
-	} else {
-		enableMonitoring = constants.DISABLED
 	}
 	if err := s.loader.UpdateEnableMonitoring(enableMonitoring); err != nil {
 		http.Error(w, fmt.Sprintf("update bpf monitoring failed: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	enablePeriodicReport := constants.DISABLED
+	if enabled {
+		enablePeriodicReport = constants.ENABLED
+	}
+	if err := s.loader.UpdateEnablePeriodicReport(enablePeriodicReport); err != nil {
+		http.Error(w, fmt.Sprintf("update enable periodic report failed: %v", err), http.StatusBadRequest)
 		return
 	}
 
@@ -310,6 +317,15 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 
 	if s.loader.GetEnableMonitoring() == constants.DISABLED && enabled {
 		http.Error(w, "Kmesh monitoring is disabled, cannot enable connection metrics.", http.StatusBadRequest)
+		return
+	}
+
+	enablePeriodicReport := constants.DISABLED
+	if enabled {
+		enablePeriodicReport = constants.ENABLED
+	}
+	if err := s.loader.UpdateEnablePeriodicReport(enablePeriodicReport); err != nil {
+		http.Error(w, fmt.Sprintf("update enable periodic report failed: %v", err), http.StatusBadRequest)
 		return
 	}
 

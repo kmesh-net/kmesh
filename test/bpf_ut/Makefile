@@ -26,14 +26,26 @@ CLANG_FLAGS += -MD
 
 .PHONY: all clean run
 
-TEST_OBJECTS = xdp_shutdown_in_userspace_test.o xdp_authz_offload_test.o
+all: xdp_shutdown_in_userspace_test.o \
+		xdp_authz_offload_test.o          \
+		workload_sockops_test.o           \
+		tc_mark_encrypt_test.o            \
+		tc_mark_decrypt_test.o
+
 
 XDP_FLAGS = -I$(ROOT_DIR)/bpf/kmesh/ -I$(ROOT_DIR)/bpf/kmesh/workload/include -I$(ROOT_DIR)/api/v2-c
-xdp_%.o: xdp_%.c clean
+xdp_%.o: xdp_%.c
 	$(QUIET) $(CLANG) $(CLANG_FLAGS) $(XDP_FLAGS) -c $< -o $@
 
+WORKLOAD_SOCKOPS_FLAGS = -I$(ROOT_DIR)/bpf/kmesh/ -I$(ROOT_DIR)/bpf/kmesh/probes -I$(ROOT_DIR)/bpf/kmesh/workload/include -I$(ROOT_DIR)/api/v2-c
+workload_sockops_test.o: workload_sockops_test.c
+	$(QUIET) $(CLANG) $(CLANG_FLAGS) $(WORKLOAD_SOCKOPS_FLAGS) -c $< -o $@
 
-all: $(TEST_OBJECTS)
+TC_FLAGS = -I$(ROOT_DIR)/bpf/kmesh/ -I$(ROOT_DIR)/bpf/kmesh/general/include -I$(ROOT_DIR)/bpf/kmesh/general -I$(ROOT_DIR)/api/v2-c
+tc_mark_encrypt_test.o: tc_mark_encrypt_test.c
+	$(QUIET) $(CLANG) $(CLANG_FLAGS) $(TC_FLAGS) -c $< -o $@
+tc_mark_decrypt_test.o: tc_mark_decrypt_test.c
+	$(QUIET) $(CLANG) $(CLANG_FLAGS) $(TC_FLAGS) -c $< -o $@
 
 clean:
 	$(QUIET) rm -f $(wildcard *.o)
@@ -70,7 +82,6 @@ ifdef BPF_TEST_FILE
 endif
 
 run: all
-	$(QUIET)echo "rebuild and run bpf tests"
 	$(GO) test ./bpftest -bpf-ut-path $(ROOT_DIR)/test/bpf_ut $(BPF_TEST_FLAGS)
 
 -include $(TEST_OBJECTS:.o=.d)

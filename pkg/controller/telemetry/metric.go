@@ -38,7 +38,7 @@ import (
 
 const (
 	TCP_ESTABLISHED = uint32(1)
-	TCP_CLOSTED     = uint32(7)
+	TCP_CLOSED      = uint32(7)
 
 	connection_success = uint32(1)
 
@@ -48,7 +48,7 @@ const (
 
 	DEFAULT_UNKNOWN = "-"
 
-	LONG_CONN_METRIC_THRESHOLD = uint64(30 * time.Second)
+	LONG_CONN_METRIC_THRESHOLD = uint64(5 * time.Second)
 )
 
 var osStartTime time.Time
@@ -159,10 +159,11 @@ type connMetric struct {
 }
 
 type connectionSrcDst struct {
-	src     [4]uint32
-	dst     [4]uint32
-	srcPort uint16
-	dstPort uint16
+	src       [4]uint32
+	dst       [4]uint32
+	srcPort   uint16
+	dstPort   uint16
+	direction uint32
 }
 
 type requestMetric struct {
@@ -465,10 +466,6 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 		case <-ctx.Done():
 			return
 		default:
-			if !m.EnableMonitoring.Load() {
-				continue
-			}
-			data := requestMetric{}
 			rec := ringbuf.Record{}
 			if err := reader.ReadInto(&rec); err != nil {
 				log.Errorf("ringbuf reader FAILED to read, err: %v", err)
@@ -480,18 +477,21 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 				log.Errorf("wrong length %v of a msg, should be %v", len(rec.RawSample), int(unsafe.Sizeof(connectionDataV4{}))-int(8))
 				continue
 			}
+
+			// delta metrics
+			var reqMetric requestMetric
 			connectType := binary.LittleEndian.Uint32(rec.RawSample)
 			originInfo := rec.RawSample[unsafe.Sizeof(connectType):]
 			buf := bytes.NewBuffer(originInfo)
 			switch connectType {
 			case constants.MSG_TYPE_IPV4:
-				data, err = buildV4Metric(buf, tcpConns)
+				reqMetric, err = buildV4Metric(buf, tcpConns)
 				if err != nil {
 					log.Errorf("get connectionV4 info failed: %v", err)
 					continue
 				}
 			case constants.MSG_TYPE_IPV6:
-				data, err = buildV6Metric(buf, tcpConns)
+				reqMetric, err = buildV6Metric(buf, tcpConns)
 				if err != nil {
 					log.Errorf("get connectionV6 info failed: %v", err)
 					continue
@@ -502,156 +502,158 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 
 			workloadLabels := workloadMetricLabels{}
-			serviceLabels, accesslog := m.buildServiceMetric(&data)
+			serviceLabels, accesslog := m.buildServiceMetric(&reqMetric)
 			if m.EnableWorkloadMetric.Load() {
-				workloadLabels = m.buildWorkloadMetric(&data)
+				workloadLabels = m.buildWorkloadMetric(&reqMetric)
 			}
 
 			connectionLabels := connectionMetricLabels{}
-			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
-				connectionLabels = m.buildConnectionMetric(&data)
+			if m.EnableConnectionMetric.Load() && reqMetric.duration > LONG_CONN_METRIC_THRESHOLD {
+				connectionLabels = m.buildConnectionMetric(&reqMetric)
 			}
 			if m.EnableAccesslog.Load() {
-				// accesslogs at start of connection, at interval of 5 sec during connection lifecycle and at close of connection
-				OutputAccesslog(data, tcpConns[data.conSrcDstInfo], accesslog)
+				// accesslogs at interval of 5 sec during connection lifecycle if connectionMetrics is enabled and at close of connection
+				outputAccesslog(reqMetric, tcpConns[reqMetric.conSrcDstInfo], accesslog)
 			}
 
 			m.mutex.Lock()
 			if m.EnableWorkloadMetric.Load() {
-				m.updateWorkloadMetricCache(data, workloadLabels, tcpConns[data.conSrcDstInfo])
+				m.updateWorkloadMetricCache(reqMetric, workloadLabels, tcpConns[reqMetric.conSrcDstInfo])
 			}
-			m.updateServiceMetricCache(data, serviceLabels, tcpConns[data.conSrcDstInfo])
-			if m.EnableConnectionMetric.Load() && data.duration > LONG_CONN_METRIC_THRESHOLD {
-				m.updateConnectionMetricCache(data, tcpConns[data.conSrcDstInfo], connectionLabels)
+			m.updateServiceMetricCache(reqMetric, serviceLabels, tcpConns[reqMetric.conSrcDstInfo])
+			if m.EnableConnectionMetric.Load() && reqMetric.duration > LONG_CONN_METRIC_THRESHOLD {
+				m.updateConnectionMetricCache(reqMetric, tcpConns[reqMetric.conSrcDstInfo], connectionLabels)
 			}
 			m.mutex.Unlock()
 
-			if data.state == TCP_CLOSTED {
-				delete(tcpConns, data.conSrcDstInfo)
+			if reqMetric.state == TCP_CLOSED {
+				delete(tcpConns, reqMetric.conSrcDstInfo)
 			}
 		}
 	}
 }
 
 func buildV4Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) (requestMetric, error) {
-	data := requestMetric{}
-	connectData := connectionDataV4{}
+	reqMetric := requestMetric{}
+	rawStats := connectionDataV4{}
 
-	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
-		return data, err
+	if err := binary.Read(buf, binary.LittleEndian, &rawStats); err != nil {
+		return reqMetric, err
 	}
 
-	data.conSrcDstInfo.src[0] = connectData.SrcAddr
-	data.conSrcDstInfo.dst[0] = connectData.DstAddr
-	data.direction = connectData.Direction
-	data.conSrcDstInfo.dstPort = connectData.DstPort
-	data.conSrcDstInfo.srcPort = connectData.SrcPort
+	reqMetric.conSrcDstInfo.src[0] = rawStats.SrcAddr
+	reqMetric.conSrcDstInfo.dst[0] = rawStats.DstAddr
+	reqMetric.conSrcDstInfo.direction = rawStats.Direction
+	reqMetric.direction = rawStats.Direction
+	reqMetric.conSrcDstInfo.dstPort = rawStats.DstPort
+	reqMetric.conSrcDstInfo.srcPort = rawStats.SrcPort
 
 	// original addr is 0 indicates the connection is
 	// workload-type or and not redirected,
 	// so we just take from the actual destination
-	if connectData.OriginalAddr == 0 {
-		data.origDstAddr[0] = data.conSrcDstInfo.dst[0]
-		data.origDstPort = data.conSrcDstInfo.dstPort
+	if rawStats.OriginalAddr == 0 {
+		reqMetric.origDstAddr[0] = reqMetric.conSrcDstInfo.dst[0]
+		reqMetric.origDstPort = reqMetric.conSrcDstInfo.dstPort
 	} else {
-		data.origDstAddr[0] = connectData.OriginalAddr
-		data.origDstPort = connectData.OriginalPort
+		reqMetric.origDstAddr[0] = rawStats.OriginalAddr
+		reqMetric.origDstPort = rawStats.OriginalPort
 	}
 
-	data.sentBytes = connectData.SentBytes - tcpConns[data.conSrcDstInfo].sentBytes
-	data.receivedBytes = connectData.ReceivedBytes - tcpConns[data.conSrcDstInfo].receivedBytes
-	data.state = connectData.State
-	data.success = connectData.ConnectSuccess
-	data.duration = connectData.Duration
-	data.startTime = connectData.StartTime
-	data.lastReportTime = connectData.LastReportTime
-	data.srtt = connectData.statistics.SRttTime
-	data.minRtt = connectData.statistics.RttMin
-	data.totalRetrans = connectData.statistics.Retransmits - tcpConns[data.conSrcDstInfo].totalRetrans
-	data.packetLost = connectData.statistics.LostPackets - tcpConns[data.conSrcDstInfo].packetLost
+	reqMetric.sentBytes = rawStats.SentBytes - tcpConns[reqMetric.conSrcDstInfo].sentBytes
+	reqMetric.receivedBytes = rawStats.ReceivedBytes - tcpConns[reqMetric.conSrcDstInfo].receivedBytes
+	reqMetric.state = rawStats.State
+	reqMetric.success = rawStats.ConnectSuccess
+	reqMetric.duration = rawStats.Duration
+	reqMetric.startTime = rawStats.StartTime
+	reqMetric.lastReportTime = rawStats.LastReportTime
+	reqMetric.srtt = rawStats.statistics.SRttTime
+	reqMetric.minRtt = rawStats.statistics.RttMin
+	reqMetric.totalRetrans = rawStats.statistics.Retransmits - tcpConns[reqMetric.conSrcDstInfo].totalRetrans
+	reqMetric.packetLost = rawStats.statistics.LostPackets - tcpConns[reqMetric.conSrcDstInfo].packetLost
 
-	cm, ok := tcpConns[data.conSrcDstInfo]
+	cm, ok := tcpConns[reqMetric.conSrcDstInfo]
 	if ok {
-		cm.receivedBytes = connectData.ReceivedBytes
-		cm.sentBytes = connectData.SentBytes
-		cm.totalRetrans = connectData.statistics.Retransmits
-		cm.packetLost = connectData.statistics.LostPackets
+		cm.receivedBytes = rawStats.ReceivedBytes
+		cm.sentBytes = rawStats.SentBytes
+		cm.totalRetrans = rawStats.statistics.Retransmits
+		cm.packetLost = rawStats.statistics.LostPackets
 		cm.totalReports++
-		tcpConns[data.conSrcDstInfo] = cm
+		tcpConns[reqMetric.conSrcDstInfo] = cm
 	} else {
-		tcpConns[data.conSrcDstInfo] = connMetric{
-			receivedBytes: connectData.ReceivedBytes,
-			sentBytes:     connectData.SentBytes,
-			totalRetrans:  connectData.statistics.Retransmits,
-			packetLost:    connectData.statistics.LostPackets,
+		tcpConns[reqMetric.conSrcDstInfo] = connMetric{
+			receivedBytes: rawStats.ReceivedBytes,
+			sentBytes:     rawStats.SentBytes,
+			totalRetrans:  rawStats.statistics.Retransmits,
+			packetLost:    rawStats.statistics.LostPackets,
 			totalReports:  1,
 		}
 	}
 
-	return data, nil
+	return reqMetric, nil
 }
 
 func buildV6Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) (requestMetric, error) {
-	data := requestMetric{}
-	connectData := connectionDataV6{}
-	if err := binary.Read(buf, binary.LittleEndian, &connectData); err != nil {
-		return data, err
+	reqMetric := requestMetric{}
+	rawStats := connectionDataV6{}
+	if err := binary.Read(buf, binary.LittleEndian, &rawStats); err != nil {
+		return reqMetric, err
 	}
-	data.conSrcDstInfo.src = connectData.SrcAddr
-	data.conSrcDstInfo.dst = connectData.DstAddr
-	data.direction = connectData.Direction
-	data.conSrcDstInfo.dstPort = connectData.DstPort
-	data.conSrcDstInfo.srcPort = connectData.SrcPort
+	reqMetric.conSrcDstInfo.src = rawStats.SrcAddr
+	reqMetric.conSrcDstInfo.dst = rawStats.DstAddr
+	reqMetric.conSrcDstInfo.direction = rawStats.Direction
+	reqMetric.direction = rawStats.Direction
+	reqMetric.conSrcDstInfo.dstPort = rawStats.DstPort
+	reqMetric.conSrcDstInfo.srcPort = rawStats.SrcPort
 
 	// original addr is 0 indicates the connection is
 	// workload-type or and not redirected,
 	// so we just take from the actual destination
-	if !isOrigDstSet(connectData.OriginalAddr) {
-		data.origDstAddr = data.conSrcDstInfo.dst
-		data.origDstPort = data.conSrcDstInfo.dstPort
+	if !isOrigDstSet(rawStats.OriginalAddr) {
+		reqMetric.origDstAddr = reqMetric.conSrcDstInfo.dst
+		reqMetric.origDstPort = reqMetric.conSrcDstInfo.dstPort
 	} else {
-		data.origDstAddr = connectData.OriginalAddr
-		data.origDstPort = connectData.OriginalPort
+		reqMetric.origDstAddr = rawStats.OriginalAddr
+		reqMetric.origDstPort = rawStats.OriginalPort
 	}
 
-	data.sentBytes = connectData.SentBytes - tcpConns[data.conSrcDstInfo].sentBytes
-	data.receivedBytes = connectData.ReceivedBytes - tcpConns[data.conSrcDstInfo].receivedBytes
-	data.state = connectData.State
-	data.success = connectData.ConnectSuccess
-	data.duration = connectData.Duration
-	data.startTime = connectData.StartTime
-	data.lastReportTime = connectData.LastReportTime
-	data.srtt = connectData.statistics.SRttTime
-	data.minRtt = connectData.statistics.RttMin
-	data.totalRetrans = connectData.statistics.Retransmits - tcpConns[data.conSrcDstInfo].totalRetrans
-	data.packetLost = connectData.statistics.LostPackets - tcpConns[data.conSrcDstInfo].packetLost
+	reqMetric.sentBytes = rawStats.SentBytes - tcpConns[reqMetric.conSrcDstInfo].sentBytes
+	reqMetric.receivedBytes = rawStats.ReceivedBytes - tcpConns[reqMetric.conSrcDstInfo].receivedBytes
+	reqMetric.state = rawStats.State
+	reqMetric.success = rawStats.ConnectSuccess
+	reqMetric.duration = rawStats.Duration
+	reqMetric.startTime = rawStats.StartTime
+	reqMetric.lastReportTime = rawStats.LastReportTime
+	reqMetric.srtt = rawStats.statistics.SRttTime
+	reqMetric.minRtt = rawStats.statistics.RttMin
+	reqMetric.totalRetrans = rawStats.statistics.Retransmits - tcpConns[reqMetric.conSrcDstInfo].totalRetrans
+	reqMetric.packetLost = rawStats.statistics.LostPackets - tcpConns[reqMetric.conSrcDstInfo].packetLost
 
-	cm, ok := tcpConns[data.conSrcDstInfo]
+	cm, ok := tcpConns[reqMetric.conSrcDstInfo]
 	if ok {
-		cm.receivedBytes = connectData.ReceivedBytes
-		cm.sentBytes = connectData.SentBytes
-		cm.totalRetrans = connectData.statistics.Retransmits
-		cm.packetLost = connectData.statistics.LostPackets
+		cm.receivedBytes = rawStats.ReceivedBytes
+		cm.sentBytes = rawStats.SentBytes
+		cm.totalRetrans = rawStats.statistics.Retransmits
+		cm.packetLost = rawStats.statistics.LostPackets
 		cm.totalReports++
-		tcpConns[data.conSrcDstInfo] = cm
+		tcpConns[reqMetric.conSrcDstInfo] = cm
 	} else {
-		tcpConns[data.conSrcDstInfo] = connMetric{
-			receivedBytes: connectData.ReceivedBytes,
-			sentBytes:     connectData.SentBytes,
-			totalRetrans:  connectData.statistics.Retransmits,
-			packetLost:    connectData.statistics.LostPackets,
+		tcpConns[reqMetric.conSrcDstInfo] = connMetric{
+			receivedBytes: rawStats.ReceivedBytes,
+			sentBytes:     rawStats.SentBytes,
+			totalRetrans:  rawStats.statistics.Retransmits,
+			packetLost:    rawStats.statistics.LostPackets,
 			totalReports:  1,
 		}
 	}
 
-	return data, nil
+	return reqMetric, nil
 }
 
-func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetricLabels {
+func (m *MetricController) buildWorkloadMetric(reqMetric *requestMetric) workloadMetricLabels {
 	var dstAddr, srcAddr []byte
-	for i := range data.conSrcDstInfo.dst {
-		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.conSrcDstInfo.dst[i])
-		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.conSrcDstInfo.src[i])
+	for i := range reqMetric.conSrcDstInfo.dst {
+		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, reqMetric.conSrcDstInfo.dst[i])
+		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, reqMetric.conSrcDstInfo.src[i])
 	}
 
 	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
@@ -668,7 +670,7 @@ func (m *MetricController) buildWorkloadMetric(data *requestMetric) workloadMetr
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	switch data.direction {
+	switch reqMetric.direction {
 	case constants.INBOUND:
 		trafficLabels.reporter = "destination"
 	case constants.OUTBOUND:
@@ -737,18 +739,18 @@ func (m *MetricController) fetchOriginalService(address []byte, port uint32) *wo
 	return dstSvc
 }
 
-func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetricLabels, logInfo) {
+func (m *MetricController) buildServiceMetric(reqMetric *requestMetric) (serviceMetricLabels, logInfo) {
 	var dstAddr, srcAddr, origAddr []byte
-	for i := range data.conSrcDstInfo.dst {
-		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.conSrcDstInfo.dst[i])
-		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.conSrcDstInfo.src[i])
-		origAddr = binary.LittleEndian.AppendUint32(origAddr, data.origDstAddr[i])
+	for i := range reqMetric.conSrcDstInfo.dst {
+		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, reqMetric.conSrcDstInfo.dst[i])
+		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, reqMetric.conSrcDstInfo.src[i])
+		origAddr = binary.LittleEndian.AppendUint32(origAddr, reqMetric.origDstAddr[i])
 	}
 
 	dstWorkload, dstIp := m.getWorkloadByAddress(restoreIPv4(dstAddr))
 	srcWorkload, srcIp := m.getWorkloadByAddress(restoreIPv4(srcAddr))
 
-	dstService := m.fetchOriginalService(restoreIPv4(origAddr), uint32(data.origDstPort))
+	dstService := m.fetchOriginalService(restoreIPv4(origAddr), uint32(reqMetric.origDstPort))
 	// if dstService not found, we use the address as hostname for metrics
 	if dstService == nil {
 		dstService = &workloadapi.Service{
@@ -763,10 +765,10 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 
 	accesslog := NewLogInfo()
 	accesslog.withSource(srcWorkload).withDestination(dstWorkload).withDestinationService(dstService)
-	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", data.conSrcDstInfo.dstPort)
-	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", data.conSrcDstInfo.srcPort)
+	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", reqMetric.conSrcDstInfo.dstPort)
+	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", reqMetric.conSrcDstInfo.srcPort)
 
-	switch data.direction {
+	switch reqMetric.direction {
 	case constants.INBOUND:
 		trafficLabels.reporter = "destination"
 		accesslog.direction = "INBOUND"
@@ -775,16 +777,16 @@ func (m *MetricController) buildServiceMetric(data *requestMetric) (serviceMetri
 		accesslog.direction = "OUTBOUND"
 	}
 
-	accesslog.state = TCP_STATES[data.state]
+	accesslog.state = TCP_STATES[reqMetric.state]
 	return *trafficLabels, *accesslog
 }
 
-func (m *MetricController) buildConnectionMetric(data *requestMetric) connectionMetricLabels {
+func (m *MetricController) buildConnectionMetric(reqMetric *requestMetric) connectionMetricLabels {
 	var dstAddr, srcAddr, origAddr []byte
-	for i := range data.conSrcDstInfo.dst {
-		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, data.conSrcDstInfo.dst[i])
-		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, data.conSrcDstInfo.src[i])
-		origAddr = binary.LittleEndian.AppendUint32(origAddr, data.origDstAddr[i])
+	for i := range reqMetric.conSrcDstInfo.dst {
+		dstAddr = binary.LittleEndian.AppendUint32(dstAddr, reqMetric.conSrcDstInfo.dst[i])
+		srcAddr = binary.LittleEndian.AppendUint32(srcAddr, reqMetric.conSrcDstInfo.src[i])
+		origAddr = binary.LittleEndian.AppendUint32(origAddr, reqMetric.origDstAddr[i])
 	}
 
 	dstWorkload, dstIP := m.getWorkloadByAddress(restoreIPv4(dstAddr))
@@ -794,7 +796,7 @@ func (m *MetricController) buildConnectionMetric(data *requestMetric) connection
 		return connectionMetricLabels{}
 	}
 
-	dstService := m.fetchOriginalService(restoreIPv4(origAddr), uint32(data.origDstPort))
+	dstService := m.fetchOriginalService(restoreIPv4(origAddr), uint32(reqMetric.origDstPort))
 	// if dstService not found, we use the address as hostname for metrics
 	if dstService == nil {
 		dstService = &workloadapi.Service{
@@ -805,20 +807,20 @@ func (m *MetricController) buildConnectionMetric(data *requestMetric) connection
 	trafficLabels := NewConnectionMetricLabel()
 	trafficLabels.withSource(srcWorkload).withDestination(dstWorkload).withDestinationService(dstService)
 
-	trafficLabels.destinationAddress = dstIP + ":" + fmt.Sprintf("%d", data.conSrcDstInfo.dstPort)
-	trafficLabels.sourceAddress = srcIP + ":" + fmt.Sprintf("%d", data.conSrcDstInfo.srcPort)
+	trafficLabels.destinationAddress = dstIP + ":" + fmt.Sprintf("%d", reqMetric.conSrcDstInfo.dstPort)
+	trafficLabels.sourceAddress = srcIP + ":" + fmt.Sprintf("%d", reqMetric.conSrcDstInfo.srcPort)
 	trafficLabels.destinationPodAddress = dstIP
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	switch data.direction {
+	switch reqMetric.direction {
 	case constants.INBOUND:
 		trafficLabels.reporter = "destination"
 	case constants.OUTBOUND:
 		trafficLabels.reporter = "source"
 	}
 
-	startTime := calculateUptime(osStartTime, data.startTime)
+	startTime := calculateUptime(osStartTime, reqMetric.startTime)
 	startTimeInfo := fmt.Sprintf("%v", startTime)
 	trafficLabels.startTime = startTimeInfo
 
@@ -842,88 +844,88 @@ func buildPrincipal(workload *workloadapi.Workload) string {
 	return DEFAULT_UNKNOWN
 }
 
-func (m *MetricController) updateWorkloadMetricCache(data requestMetric, labels workloadMetricLabels, metric connMetric) {
+func (m *MetricController) updateWorkloadMetricCache(reqMetric requestMetric, labels workloadMetricLabels, metric connMetric) {
 	v, ok := m.workloadMetricCache[labels]
 	if ok {
-		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
+		if reqMetric.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			v.WorkloadConnOpened = v.WorkloadConnOpened + 1
 		}
-		if data.state == TCP_CLOSTED {
+		if reqMetric.state == TCP_CLOSED {
 			v.WorkloadConnClosed = v.WorkloadConnClosed + 1
 		}
-		if data.success != connection_success {
+		if reqMetric.success != connection_success {
 			v.WorkloadConnFailed = v.WorkloadConnFailed + 1
 		}
-		v.WorkloadConnReceivedBytes = v.WorkloadConnReceivedBytes + float64(data.receivedBytes)
-		v.WorkloadConnSentBytes = v.WorkloadConnSentBytes + float64(data.sentBytes)
-		v.WorkloadConnTotalRetrans = v.WorkloadConnTotalRetrans + float64(data.totalRetrans)
-		v.WorkloadConnPacketLost = v.WorkloadConnPacketLost + float64(data.packetLost)
+		v.WorkloadConnReceivedBytes = v.WorkloadConnReceivedBytes + float64(reqMetric.receivedBytes)
+		v.WorkloadConnSentBytes = v.WorkloadConnSentBytes + float64(reqMetric.sentBytes)
+		v.WorkloadConnTotalRetrans = v.WorkloadConnTotalRetrans + float64(reqMetric.totalRetrans)
+		v.WorkloadConnPacketLost = v.WorkloadConnPacketLost + float64(reqMetric.packetLost)
 	} else {
 		newWorkloadMetricInfo := workloadMetricInfo{}
-		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
+		if reqMetric.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			newWorkloadMetricInfo.WorkloadConnOpened = 1
 		}
-		if data.state == TCP_CLOSTED {
+		if reqMetric.state == TCP_CLOSED {
 			newWorkloadMetricInfo.WorkloadConnClosed = 1
 		}
-		if data.success != connection_success {
+		if reqMetric.success != connection_success {
 			newWorkloadMetricInfo.WorkloadConnFailed = 1
 		}
-		newWorkloadMetricInfo.WorkloadConnReceivedBytes = float64(data.receivedBytes)
-		newWorkloadMetricInfo.WorkloadConnSentBytes = float64(data.sentBytes)
-		newWorkloadMetricInfo.WorkloadConnTotalRetrans = float64(data.totalRetrans)
-		newWorkloadMetricInfo.WorkloadConnPacketLost = float64(data.packetLost)
+		newWorkloadMetricInfo.WorkloadConnReceivedBytes = float64(reqMetric.receivedBytes)
+		newWorkloadMetricInfo.WorkloadConnSentBytes = float64(reqMetric.sentBytes)
+		newWorkloadMetricInfo.WorkloadConnTotalRetrans = float64(reqMetric.totalRetrans)
+		newWorkloadMetricInfo.WorkloadConnPacketLost = float64(reqMetric.packetLost)
 		m.workloadMetricCache[labels] = &newWorkloadMetricInfo
 	}
 }
 
-func (m *MetricController) updateServiceMetricCache(data requestMetric, labels serviceMetricLabels, metric connMetric) {
+func (m *MetricController) updateServiceMetricCache(reqMetric requestMetric, labels serviceMetricLabels, metric connMetric) {
 	v, ok := m.serviceMetricCache[labels]
 	if ok {
-		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
+		if reqMetric.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			v.ServiceConnOpened = v.ServiceConnOpened + 1
 		}
-		if data.state == TCP_CLOSTED {
+		if reqMetric.state == TCP_CLOSED {
 			v.ServiceConnClosed = v.ServiceConnClosed + 1
 		}
-		if data.success != connection_success {
+		if reqMetric.success != connection_success {
 			v.ServiceConnFailed = v.ServiceConnFailed + 1
 		}
-		v.ServiceConnReceivedBytes = v.ServiceConnReceivedBytes + float64(data.receivedBytes)
-		v.ServiceConnSentBytes = v.ServiceConnSentBytes + float64(data.sentBytes)
+		v.ServiceConnReceivedBytes = v.ServiceConnReceivedBytes + float64(reqMetric.receivedBytes)
+		v.ServiceConnSentBytes = v.ServiceConnSentBytes + float64(reqMetric.sentBytes)
 	} else {
 		newServiceMetricInfo := serviceMetricInfo{}
-		if data.state == TCP_ESTABLISHED && metric.totalReports == 1 {
+		if reqMetric.state == TCP_ESTABLISHED && metric.totalReports == 1 {
 			newServiceMetricInfo.ServiceConnOpened = 1
 		}
-		if data.state == TCP_CLOSTED {
+		if reqMetric.state == TCP_CLOSED {
 			newServiceMetricInfo.ServiceConnClosed = 1
 		}
-		if data.success != connection_success {
+		if reqMetric.success != connection_success {
 			newServiceMetricInfo.ServiceConnFailed = 1
 		}
-		newServiceMetricInfo.ServiceConnReceivedBytes = float64(data.receivedBytes)
-		newServiceMetricInfo.ServiceConnSentBytes = float64(data.sentBytes)
+		newServiceMetricInfo.ServiceConnReceivedBytes = float64(reqMetric.receivedBytes)
+		newServiceMetricInfo.ServiceConnSentBytes = float64(reqMetric.sentBytes)
 		m.serviceMetricCache[labels] = &newServiceMetricInfo
 	}
 }
 
-func (m *MetricController) updateConnectionMetricCache(data requestMetric, connData connMetric, labels connectionMetricLabels) {
+func (m *MetricController) updateConnectionMetricCache(reqMetric requestMetric, connMetric connMetric, labels connectionMetricLabels) {
 	v, ok := m.connectionMetricCache[labels]
 	if ok {
-		v.ConnSentBytes = v.ConnSentBytes + float64(data.sentBytes)
-		v.ConnReceivedBytes = v.ConnReceivedBytes + float64(data.receivedBytes)
-		v.ConnPacketLost = v.ConnPacketLost + float64(data.packetLost)
-		v.ConnTotalRetrans = v.ConnTotalRetrans + float64(data.totalRetrans)
+		v.ConnSentBytes = v.ConnSentBytes + float64(reqMetric.sentBytes)
+		v.ConnReceivedBytes = v.ConnReceivedBytes + float64(reqMetric.receivedBytes)
+		v.ConnPacketLost = v.ConnPacketLost + float64(reqMetric.packetLost)
+		v.ConnTotalRetrans = v.ConnTotalRetrans + float64(reqMetric.totalRetrans)
 	} else {
 		newConnectionMetricInfo := connectionMetricInfo{}
-		newConnectionMetricInfo.ConnSentBytes = float64(connData.sentBytes)
-		newConnectionMetricInfo.ConnReceivedBytes = float64(connData.receivedBytes)
-		newConnectionMetricInfo.ConnPacketLost = float64(connData.packetLost)
-		newConnectionMetricInfo.ConnTotalRetrans = float64(connData.totalRetrans)
+		newConnectionMetricInfo.ConnSentBytes = float64(connMetric.sentBytes)
+		newConnectionMetricInfo.ConnReceivedBytes = float64(connMetric.receivedBytes)
+		newConnectionMetricInfo.ConnPacketLost = float64(connMetric.packetLost)
+		newConnectionMetricInfo.ConnTotalRetrans = float64(connMetric.totalRetrans)
 		m.connectionMetricCache[labels] = &newConnectionMetricInfo
 	}
-	if data.state == TCP_CLOSTED {
+	if reqMetric.state == TCP_CLOSED {
 		deleteLock.Lock()
 		deleteConnection = append(deleteConnection, &labels)
 		deleteLock.Unlock()

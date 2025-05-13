@@ -48,28 +48,6 @@ static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *
     return AUTH_PASS;
 }
 
-static inline int xdp_deny_packet(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
-{
-    if (info->iph != NULL && info->iph->version == 4) {
-        BPF_LOG(
-            INFO,
-            XDP,
-            "auth denied, src ip: %s, dst ip %s, dst port: %u\n",
-            ip2str(&tuple_info->ipv4.saddr, true),
-            ip2str(&tuple_info->ipv4.daddr, true),
-            bpf_ntohs(tuple_info->ipv4.dport));
-    } else {
-        BPF_LOG(
-            INFO,
-            XDP,
-            "auth denied, src ip: %s, dst ip %s, dst port: %u\n",
-            ip2str(&tuple_info->ipv6.saddr[0], false),
-            ip2str(&tuple_info->ipv6.daddr[0], false),
-            bpf_ntohs(tuple_info->ipv6.dport));
-    }
-    return XDP_DROP;
-}
-
 volatile __u32 authz_offload = 1;
 
 static bool is_authz_offload_enabled()

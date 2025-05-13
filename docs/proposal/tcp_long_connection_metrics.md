@@ -32,7 +32,7 @@ documentation such as release notes or a development roadmap.
 A good summary is probably at least a paragraph in length.
 -->
 
-Currently kmesh provides access logs during termination and establisment of a TCP connection with more detailed information about the connection, such as bytes sent, received, packet lost, rtt and retransmits.
+Currently kmesh provides access logs after close of a TCP connection with more detailed information about the connection, such as bytes sent, received, packet lost, rtt and retransmits.
 
 Kmesh also provides workload and service specific metrics such as bytes sent and received, lost packets, minimum rtt, total connection opened and closed by a pod, These metrics are only updated after a connection is closed. In this proposal we are aiming to update these metrics periodically.
 
@@ -171,7 +171,7 @@ We will update the functions of metric.go for periodic updating the workload and
 
 #### Exposing long connection prometheus metrics 
 
-We will expose metrics for the connections whose duration exceeds 30 seconds. Not exposing metrics for short connection as it can lead to lot of metrics and they are also not suitable for prometheus metrics because prometheus itself has a scrape interval of maximum 15s, and short-lived connections may start and end between scrapes, resulting in incomplete or misleading data. By focusing only on longer-lived connections, we ensure the metrics are stable, meaningful, and better aligned with Prometheus’s time-series data model.
+We will expose metrics for the connections whose duration exceeds 5 seconds. Not exposing metrics for short connection as it can lead to lot of metrics and they are also not suitable for prometheus metrics because prometheus itself has a scrape interval of 5s, and short-lived connections may start and end between scrapes, resulting in incomplete or misleading data. By focusing only on longer-lived connections, we ensure the metrics are stable, meaningful, and better aligned with Prometheus’s time-series data model.
 
 We can have a another component in future which reports realtime information about connections like cilium hubble. 
 
