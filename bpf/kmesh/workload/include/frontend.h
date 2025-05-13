@@ -34,7 +34,7 @@ static inline int frontend_manager(struct kmesh_context *kmesh_ctx, frontend_val
         direct_backend = true;
     }
 
-    if (direct_backend) {
+    if (direct_backend) { // in this case, we donot check the healthy status of the backend, just let it go
         // For pod direct access, if a pod has waypoint captured, we will redirect to waypoint, otherwise we do nothing.
         if (backend_v->waypoint_port != 0) {
             BPF_LOG(
