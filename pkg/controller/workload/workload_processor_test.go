@@ -160,10 +160,12 @@ func Test_handleWorkload(t *testing.T) {
 	assert.Equal(t, got.Status, workloadapi.WorkloadStatus_UNHEALTHY)
 	checkNotExistInFrontEndMap(t, workload3.Addresses[0], p)
 
-	// 8. update workload from healthy to unhealthy, should remove it from bpf map
+	// 8. update workload from healthy to unhealthy, should remove it from bpf endpoint map
 	workload2.Status = workloadapi.WorkloadStatus_UNHEALTHY
 	_ = p.handleWorkload(workload2)
-	checkNotExistInFrontEndMap(t, workload2.Addresses[0], p)
+	checkNotExistInEndpointMap(t, p, fakeSvc, []uint32{workload2ID})
+	checkFrontEndMap(t, workload2.Addresses[0], p)
+	checkBackendMap(t, p, workload2ID, workload2)
 
 	// 9. delete service
 	p.handleRemovedAddresses([]string{fakeSvc.ResourceName()})
@@ -274,6 +276,18 @@ func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workload
 	}
 
 	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(fakeSvc.Waypoint.GetHboneMtlsPort()))
+}
+
+func checkNotExistInEndpointMap(t *testing.T, p *Processor, fakeSvc *workloadapi.Service, backendUid []uint32) {
+	endpoints := p.bpf.GetAllEndpointsForService(p.hashName.Hash(fakeSvc.ResourceName()))
+	t.Logf("endpoints number: %v", len(endpoints))
+
+	all := sets.New[uint32](backendUid...)
+	for _, endpoint := range endpoints {
+		if all.Contains(endpoint.BackendUid) {
+			t.Fatalf("endpoint %v still exists", endpoint.BackendUid)
+		}
+	}
 }
 
 func checkEndpointMap(t *testing.T, p *Processor, fakeSvc *workloadapi.Service, backendUid []uint32) {
