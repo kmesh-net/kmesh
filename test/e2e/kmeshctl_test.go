@@ -44,9 +44,11 @@ const (
 )
 
 var (
+	// podName is set once in init() after all Kmesh pods are Ready.
 	podName string
 )
 
+// runCtlCmd runs `kmeshctl <subcmd> [args...]` and returns the trimmed output or error.
 func runCtlCmd(t *testing.T, subcmd string, args ...string) (string, error) {
 	t.Helper()
 	cmdArgs := append([]string{subcmd}, args...)
@@ -57,50 +59,24 @@ func runCtlCmd(t *testing.T, subcmd string, args ...string) (string, error) {
 	return outStr, err
 }
 
-func waitForPodReady(t *testing.T, pod string) {
-	t.Helper()
-	cmd := exec.Command("kubectl", "-n", kmeshNamespace, "wait",
-		"--for=condition=Ready", "pod/"+pod,
-		"--timeout=120s",
-	)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("pod %s did not become Ready: %v\nOutput:\n%s",
-			pod, err, string(out))
-	}
-}
-
-func findKmeshPod(t *testing.T) string {
-	t.Helper()
-	cmd := exec.Command("kubectl", "-n", kmeshNamespace, "get", "pods",
-		"-l", "app=kmesh", "-o", "jsonpath={.items[0].metadata.name}")
-	out, err := cmd.Output()
-	if err != nil || len(out) == 0 {
-		all, _ := exec.Command("kubectl", "-n", kmeshNamespace,
-			"get", "pods", "-o", "wide").CombinedOutput()
-		t.Fatalf("could not find kmesh pod: %v\nPods:\n%s",
-			err, string(all))
-	}
-	name := strings.TrimSpace(string(out))
-	t.Logf("Using Kmesh pod: %s", name)
-	return name
-}
-
+// Package‐level init ensures Kmesh is ready before any tests run.
 func init() {
+	// 1) Wait up to 2 minutes for all Kmesh pods to become Ready.
 	wait := exec.Command("kubectl", "-n", kmeshNamespace, "wait",
 		"--for=condition=Ready", "pod", "-l", "app=kmesh",
 		"--timeout=2m",
 	)
 	if out, err := wait.CombinedOutput(); err != nil {
-		panic(fmt.Sprintf("timed out waiting for Kmesh pods: %v\n%s",
+		panic(fmt.Sprintf("❌ timed out waiting for Kmesh pods: %v\n%s",
 			err, string(out)))
 	}
 
+	// 2) Retrieve the name of the first Ready Kmesh pod.
 	getPod := exec.Command("kubectl", "-n", kmeshNamespace, "get", "pods",
 		"-l", "app=kmesh", "-o", "jsonpath={.items[0].metadata.name}")
 	out, err := getPod.Output()
 	if err != nil || len(out) == 0 {
-		panic(fmt.Sprintf("failed to find any Kmesh pod: %v\n%s",
+		panic(fmt.Sprintf("❌ failed to find any Kmesh pod: %v\n%s",
 			err, string(out)))
 	}
 	podName = strings.TrimSpace(string(out))
@@ -208,6 +184,7 @@ func TestKmeshctlAccesslog(t *testing.T) {
 
 // --- Log tests ---
 
+// verifyLogHeader checks that output lines include the given header.
 func verifyLogHeader(t *testing.T, output, header string) {
 	t.Helper()
 	scanner := bufio.NewScanner(strings.NewReader(output))
@@ -383,13 +360,21 @@ func TestKmeshctlWaypoint(t *testing.T) {
 	})
 
 	t.Run("list", func(t *testing.T) {
-		time.Sleep(2 * time.Second)
-		out, err := runCtlCmd(t, "waypoint", "list", "-n", waypointNamespace)
-		if err != nil {
-			t.Fatalf("list failed: %v", err)
+		// Poll for the waypoint to appear in the list
+		found := false
+		start := time.Now()
+		for time.Since(start) < waitTimeout {
+			out, err := runCtlCmd(t, "waypoint", "list", "-n", waypointNamespace)
+			if err != nil {
+				t.Logf("waypoint list error (retrying): %v", err)
+			} else if strings.Contains(out, waypointName) {
+				found = true
+				break
+			}
+			time.Sleep(2 * time.Second)
 		}
-		if !strings.Contains(out, waypointName) {
-			t.Errorf("expected %q in list, got:\n%s", waypointName, out)
+		if !found {
+			t.Fatalf("expected %q in 'kmeshctl waypoint list' within %v", waypointName, waitTimeout)
 		}
 	})
 

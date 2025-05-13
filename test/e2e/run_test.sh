@@ -291,10 +291,10 @@ fi
 
 if [[ -z "${SKIP_BUILD:-}" ]]; then
      setup_kind_registry
-   build_and_push_images
-   echo "Building kmeshctl CLI..."
-   make kmeshctl || { echo "Failed to build kmeshctl" >&2; exit 1; }
-   install_kmeshctl || { echo "Failed to install kmeshctl into PATH" >&2; exit 1; }
+     build_and_push_images
+     echo "Building kmeshctl CLI..."
+     make kmeshctl || { echo "Failed to build kmeshctl" >&2; exit 1; }
+     install_kmeshctl || { echo "Failed to install kmeshctl into PATH" >&2; exit 1; }
 fi
 
 kubectl config use-context "kind-$NAME"
