@@ -170,7 +170,6 @@ type requestMetric struct {
 	conSrcDstInfo  connectionSrcDst
 	origDstAddr    [4]uint32
 	origDstPort    uint16
-	direction      uint32
 	receivedBytes  uint32 // total bytes received after previous report
 	sentBytes      uint32 // total bytes sent after previous report
 	state          uint32
@@ -544,7 +543,6 @@ func buildV4Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) 
 	reqMetric.conSrcDstInfo.src[0] = rawStats.SrcAddr
 	reqMetric.conSrcDstInfo.dst[0] = rawStats.DstAddr
 	reqMetric.conSrcDstInfo.direction = rawStats.Direction
-	reqMetric.direction = rawStats.Direction
 	reqMetric.conSrcDstInfo.dstPort = rawStats.DstPort
 	reqMetric.conSrcDstInfo.srcPort = rawStats.SrcPort
 
@@ -601,7 +599,6 @@ func buildV6Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) 
 	reqMetric.conSrcDstInfo.src = rawStats.SrcAddr
 	reqMetric.conSrcDstInfo.dst = rawStats.DstAddr
 	reqMetric.conSrcDstInfo.direction = rawStats.Direction
-	reqMetric.direction = rawStats.Direction
 	reqMetric.conSrcDstInfo.dstPort = rawStats.DstPort
 	reqMetric.conSrcDstInfo.srcPort = rawStats.SrcPort
 
@@ -670,7 +667,7 @@ func (m *MetricController) buildWorkloadMetric(reqMetric *requestMetric) workloa
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	switch reqMetric.direction {
+	switch reqMetric.conSrcDstInfo.direction {
 	case constants.INBOUND:
 		trafficLabels.reporter = "destination"
 	case constants.OUTBOUND:
@@ -768,7 +765,7 @@ func (m *MetricController) buildServiceMetric(reqMetric *requestMetric) (service
 	accesslog.destinationAddress = dstIp + ":" + fmt.Sprintf("%d", reqMetric.conSrcDstInfo.dstPort)
 	accesslog.sourceAddress = srcIp + ":" + fmt.Sprintf("%d", reqMetric.conSrcDstInfo.srcPort)
 
-	switch reqMetric.direction {
+	switch reqMetric.conSrcDstInfo.direction {
 	case constants.INBOUND:
 		trafficLabels.reporter = "destination"
 		accesslog.direction = "INBOUND"
@@ -813,7 +810,7 @@ func (m *MetricController) buildConnectionMetric(reqMetric *requestMetric) conne
 	trafficLabels.requestProtocol = "tcp"
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
-	switch reqMetric.direction {
+	switch reqMetric.conSrcDstInfo.direction {
 	case constants.INBOUND:
 		trafficLabels.reporter = "destination"
 	case constants.OUTBOUND:

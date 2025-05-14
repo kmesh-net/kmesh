@@ -187,12 +187,13 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 		want []float64
 	}{
 		{
-			name: "test build workload metrics to metricCache",
+			name: "test build workload metrics to metricCache for destination",
 			args: args{
 				data: requestMetric{
 					conSrcDstInfo: connectionSrcDst{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
 					},
 					sentBytes:     0x0000003,
 					receivedBytes: 0x0000004,
@@ -227,10 +228,18 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				},
 				tcpConns: map[connectionSrcDst]connMetric{
 					{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
 					}: {
 						totalReports: 1,
+					},
+					{
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
+					}: {
+						totalReports: 3,
 					},
 				},
 			},
@@ -248,8 +257,9 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 			args: args{
 				data: requestMetric{
 					conSrcDstInfo: connectionSrcDst{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
 					},
 					sentBytes:     0x0000003,
 					receivedBytes: 0x0000004,
@@ -258,7 +268,7 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 					state:         TCP_ESTABLISHED,
 				},
 				labels: workloadMetricLabels{
-					reporter:                     "destination",
+					reporter:                     "source",
 					sourceWorkload:               "sleep",
 					sourceCanonicalService:       "sleep",
 					sourceCanonicalRevision:      "latest",
@@ -284,8 +294,16 @@ func TestBuildMetricsToPrometheus(t *testing.T) {
 				},
 				tcpConns: map[connectionSrcDst]connMetric{
 					{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
+					}: {
+						totalReports: 1,
+					},
+					{
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
 					}: {
 						totalReports: 3,
 					},
@@ -335,14 +353,16 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 			args: args{
 				data: requestMetric{
 					conSrcDstInfo: connectionSrcDst{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
 					},
 					sentBytes:     0x0000009,
 					receivedBytes: 0x0000008,
 					state:         TCP_ESTABLISHED,
 				},
 				labels: serviceMetricLabels{
+					reporter:                     "destination",
 					sourceWorkload:               "kmesh-daemon",
 					sourceCanonicalService:       "srcCanonical",
 					sourceCanonicalRevision:      "srcVersion",
@@ -368,10 +388,18 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 				},
 				tcpConns: map[connectionSrcDst]connMetric{
 					{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
 					}: {
 						totalReports: 1,
+					},
+					{
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
+					}: {
+						totalReports: 3,
 					},
 				},
 			},
@@ -387,14 +415,16 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 			args: args{
 				data: requestMetric{
 					conSrcDstInfo: connectionSrcDst{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
 					},
 					sentBytes:     0x0000009,
 					receivedBytes: 0x0000008,
 					state:         TCP_ESTABLISHED,
 				},
 				labels: serviceMetricLabels{
+					reporter:                     "source",
 					sourceWorkload:               "kmesh-daemon",
 					sourceCanonicalService:       "srcCanonical",
 					sourceCanonicalRevision:      "srcVersion",
@@ -420,8 +450,16 @@ func TestBuildServiceMetricsToPrometheus(t *testing.T) {
 				},
 				tcpConns: map[connectionSrcDst]connMetric{
 					{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
+					}: {
+						totalReports: 1,
+					},
+					{
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
 					}: {
 						totalReports: 3,
 					},
@@ -469,8 +507,9 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 			args: args{
 				data: requestMetric{
 					conSrcDstInfo: connectionSrcDst{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
 					},
 					sentBytes:     0x0000003,
 					receivedBytes: 0x0000004,
@@ -505,14 +544,22 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 				},
 				tcpConns: map[connectionSrcDst]connMetric{
 					{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
 					}: {
 						sentBytes:     0x0000003,
 						receivedBytes: 0x0000004,
 						packetLost:    0x0000001,
 						totalRetrans:  0x0000002,
 						totalReports:  1,
+					},
+					{
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
+					}: {
+						totalReports: 3,
 					},
 				},
 			},
@@ -529,8 +576,9 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 			args: args{
 				data: requestMetric{
 					conSrcDstInfo: connectionSrcDst{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
 					},
 					sentBytes:     0x0000003,
 					receivedBytes: 0x0000004,
@@ -565,8 +613,20 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 				},
 				tcpConns: map[connectionSrcDst]connMetric{
 					{
-						src: [4]uint32{183763210, 0, 0, 0},
-						dst: [4]uint32{183762951, 0, 0, 0},
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.INBOUND,
+					}: {
+						sentBytes:     0x0000003,
+						receivedBytes: 0x0000004,
+						packetLost:    0x0000001,
+						totalRetrans:  0x0000002,
+						totalReports:  1,
+					},
+					{
+						src:       [4]uint32{183763210, 0, 0, 0},
+						dst:       [4]uint32{183762951, 0, 0, 0},
+						direction: constants.OUTBOUND,
 					}: {
 						totalReports: 3,
 					},
@@ -914,14 +974,14 @@ func TestBuildServiceMetric(t *testing.T) {
 						// sleep
 						src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
 						// kmesh-daemon
-						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
-						dstPort: uint16(8000),
-						srcPort: uint16(8000),
+						dst:       [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
+						dstPort:   uint16(8000),
+						srcPort:   uint16(8000),
+						direction: uint32(2),
 					},
 					// kmesh-daemon
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
 					origDstPort:   uint16(8000),
-					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
 				},
@@ -970,14 +1030,14 @@ func TestBuildServiceMetric(t *testing.T) {
 						// sleep
 						src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
 						// kmesh-daemon
-						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
-						dstPort: uint16(8000),
-						srcPort: uint16(8000),
+						dst:       [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
+						dstPort:   uint16(8000),
+						srcPort:   uint16(8000),
+						direction: uint32(2),
 					},
 					// kmesh-daemon
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("192.168.1.22"), 0, 0, 0},
 					origDstPort:   uint16(8000),
-					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
 				},
@@ -1026,14 +1086,14 @@ func TestBuildServiceMetric(t *testing.T) {
 						// sleep
 						src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
 						// unknown address
-						dst:     [4]uint32{nets.ConvertIpToUint32("191.168.224.22"), 0, 0, 0},
-						dstPort: uint16(80),
-						srcPort: uint16(8000),
+						dst:       [4]uint32{nets.ConvertIpToUint32("191.168.224.22"), 0, 0, 0},
+						dstPort:   uint16(80),
+						srcPort:   uint16(8000),
+						direction: uint32(2),
 					},
 					// unknown address
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("191.168.224.22"), 0, 0, 0},
 					origDstPort:   uint16(80),
-					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
 				},
@@ -1083,13 +1143,13 @@ func TestBuildServiceMetric(t *testing.T) {
 						src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
 						srcPort: uint16(49875),
 						// waypoint
-						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.32"), 0, 0, 0},
-						dstPort: uint16(80),
+						dst:       [4]uint32{nets.ConvertIpToUint32("10.19.25.32"), 0, 0, 0},
+						dstPort:   uint16(80),
+						direction: uint32(2),
 					},
 					// httpbin service
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("192.168.1.23"), 0, 0, 0},
 					origDstPort:   uint16(80),
-					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
 				},
@@ -1139,13 +1199,13 @@ func TestBuildServiceMetric(t *testing.T) {
 						src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
 						srcPort: uint16(49875),
 						// waypoint
-						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.32"), 0, 0, 0},
-						dstPort: uint16(80),
+						dst:       [4]uint32{nets.ConvertIpToUint32("10.19.25.32"), 0, 0, 0},
+						dstPort:   uint16(80),
+						direction: uint32(2),
 					},
 					// solelyWorkload
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("10.19.25.34"), 0, 0, 0},
 					origDstPort:   uint16(80),
-					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
 				},
@@ -1195,13 +1255,13 @@ func TestBuildServiceMetric(t *testing.T) {
 						src:     [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
 						srcPort: uint16(49875),
 						// solely workload
-						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.34"), 0, 0, 0},
-						dstPort: uint16(80),
+						dst:       [4]uint32{nets.ConvertIpToUint32("10.19.25.34"), 0, 0, 0},
+						dstPort:   uint16(80),
+						direction: uint32(2),
 					},
 					// httpbin service
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("10.19.25.34"), 0, 0, 0},
 					origDstPort:   uint16(80),
-					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
 				},
@@ -1333,14 +1393,14 @@ func TestBuildConnectionMetric(t *testing.T) {
 						// sleep
 						src: [4]uint32{nets.ConvertIpToUint32("10.19.25.33"), 0, 0, 0},
 						// kmesh-daemon
-						dst:     [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
-						dstPort: uint16(8000),
-						srcPort: uint16(8000),
+						dst:       [4]uint32{nets.ConvertIpToUint32("10.19.25.31"), 0, 0, 0},
+						dstPort:   uint16(8000),
+						srcPort:   uint16(8000),
+						direction: uint32(2),
 					},
 					// kmesh-daemon
 					origDstAddr:   [4]uint32{nets.ConvertIpToUint32("192.168.1.22"), 0, 0, 0},
 					origDstPort:   uint16(8000),
-					direction:     uint32(2),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
 				},
@@ -1687,7 +1747,6 @@ func TestBuildV4Metric(t *testing.T) {
 		210, 202, 232, 184, 0, 0, 64, 30, 158, 31, 235, 184, 0, 0, 0, 0, 0, 0, 150, 158, 0, 0, 19, 0, 0, 0, 0, 0,
 		0, 0, 0, 0, 0, 0, 0, 0, 0, 0})
 	data := requestMetric{
-
 		conSrcDstInfo: connectionSrcDst{
 			src:       [4]uint32{218231818, 0, 0, 0},
 			dst:       [4]uint32{201454602, 0, 0, 0},
@@ -1697,7 +1756,6 @@ func TestBuildV4Metric(t *testing.T) {
 		},
 		origDstAddr:    [4]uint32{3761135626, 0, 0, 0},
 		origDstPort:    8080,
-		direction:      constants.OUTBOUND,
 		receivedBytes:  147,
 		sentBytes:      3,
 		state:          1,
