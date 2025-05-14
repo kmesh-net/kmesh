@@ -138,11 +138,14 @@ function setup_kmesh() {
 		sleep 1
 	done
 
+	# Kmesh has no liveness yet.
+	sleep 5
+
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
 
 	for POD in $PODS; do
-		echo $POD
+		echo "turn on the debug mode of the log for pod $POD"
 		kmeshctl log $POD --set bpf:debug
 		kmeshctl log $POD --set default:debug
 	done
