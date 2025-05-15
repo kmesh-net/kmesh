@@ -139,16 +139,11 @@ static int from_waypoint(struct bpf_sock_tuple *tuple, struct xdp_info *info) {
         bpf_memcpy((__u8 *)key.waypoint_addr.ip6, tuple->ipv6.saddr, IPV6_ADDR_LEN);
     }
 
-    BPF_LOG(INFO, AUTH, "key ip: %u", key.waypoint_addr.ip4);
-
     waypoint_value = bpf_map_lookup_elem(&map_of_waypoint, &key);
     // src is waypoint, return PASS
     if (!waypoint_value) {
-        BPF_LOG(INFO, AUTH, "src is not waypoint, XDP_DROP");
         return XDP_DROP;
     }
-    BPF_LOG(INFO, AUTH, "waypoint_value is %u", *waypoint_value);
-    BPF_LOG(INFO, AUTH, "src is waypoint, XDP_PASS");
     return XDP_PASS;
 }
 
@@ -648,10 +643,21 @@ int policy_check(struct xdp_md *ctx)
     }
 
     if (from_waypoint(&tuple_key, &info) == XDP_PASS) {
-        BPF_LOG(INFO, AUTH, "[xdp_authz]: pass waypoint");
+        if (info.iph->version == IPV4_VERSION) {
+            BPF_LOG(
+                DEBUG,
+                AUTH,
+                "src ip: %s is waypoint. PASS",
+                ip2str(&tuple_key.ipv4.saddr, true));
+        } else {
+            BPF_LOG(
+                DEBUG,
+                AUTH,
+                "src ip: %s is waypoint. PASS",
+                ip2str(tuple_key.ipv6.saddr, false));
+        } 
         return XDP_PASS;
     }
-    BPF_LOG(INFO, AUTH, "check");
     
     match_ctx = bpf_map_lookup_elem(&kmesh_tc_args, &tuple_key);
     if (!match_ctx) {

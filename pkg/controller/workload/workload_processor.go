@@ -76,16 +76,15 @@ type Processor struct {
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	serviceCache := cache.NewServiceCache()
-	bpfCache := bpf.NewCache(workloadMap)
 
 	return &Processor{
 		hashName:      utils.NewHashName(),
-		bpf:           bpfCache,
+		bpf:           bpf.NewCache(workloadMap),
 		nodeName:      os.Getenv("NODE_NAME"),
 		WorkloadCache: cache.NewWorkloadCache(),
 		ServiceCache:  serviceCache,
 		EndpointCache: cache.NewEndpointCache(),
-		WaypointCache: cache.NewWaypointCache(serviceCache, bpfCache),
+		WaypointCache: cache.NewWaypointCache(serviceCache),
 		locality:      bpf.NewLocalityCache(),
 		addressDone:   make(chan struct{}, 1),
 		authzDone:     make(chan struct{}, 1),
@@ -766,11 +765,8 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		return nil
 	}
 
-	log.Infof("[handleService] svc is %v", service)
-	log.Infof("[handleService] waypoint resource name is %v", waypointResourceName)
 	if associate := p.WaypointCache.GetAssociatedObjectsByResourceName(waypointResourceName); associate != nil {
 		waypointSvc := p.ServiceCache.GetService(waypointResourceName)
-		log.Infof("waypoint svc is %#v", waypointSvc)
 		p.updateWaypointMap(waypointSvc)
 	}
 
@@ -836,10 +832,8 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 
 // Mainly for the convenience of testing.
 func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, workloads []*workloadapi.Workload) {
-	log.Infof("1.svcs is %v, workload is %v", services, workloads)
 	var servicesToRefresh []*workloadapi.Service
 	for _, service := range services {
-		log.Infof("[handleServicesAndWorkloads] svc is %v", service)
 		if err := p.handleService(service); err != nil {
 			log.Errorf("handle service %v failed, err: %v", service.ResourceName(), err)
 		}
@@ -851,15 +845,12 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 
 	// Handle services that are deferred due to waypoint hostname resolution.
 	for _, service := range servicesToRefresh {
-		log.Infof("svc need to refresh is %v", service)
 		if err := p.handleService(service); err != nil {
 			log.Errorf("handle deferred service %v failed, err: %v", service.ResourceName(), err)
 		}
 	}
 
-	log.Infof("2.svcs is %v, workload is %v", services, workloads)
 	for _, workload := range workloads {
-		log.Infof("workload is %v", workload)
 		// TODO: Kmesh supports ServiceEntry
 		if workload.GetAddresses() == nil {
 			log.Warnf("workload: %s/%s addresses is nil", workload.Namespace, workload.Name)
@@ -1108,11 +1099,8 @@ func (p *Processor) updateWaypointMap(svc *workloadapi.Service) {
 	// find waypoint pods
 	svcId := p.hashName.Hash(svc.ResourceName())
 	endpoints := p.EndpointCache.List(svcId)
-	log.Infof("[updateWaypointMap] endpoints is %#v", endpoints)
 	for workloadUid, _ := range endpoints {
-		log.Infof("[updateWaypointMap] workload uid is %#v", workloadUid)
 		workload := p.WorkloadCache.GetWorkloadByUid(p.hashName.NumToStr(workloadUid))
-		log.Infof("[updateWaypointMap] workload is %#v")
 		ip := []byte{}
 		for _, addr := range workload.GetAddresses() {
 			ip = append(ip, addr...)
@@ -1120,8 +1108,6 @@ func (p *Processor) updateWaypointMap(svc *workloadapi.Service) {
 		waypointKey := &bpfcache.WaypointKey{}
 		waypointValue := uint32(1)
 		nets.CopyIpByteFromSlice(&waypointKey.Addr, ip)
-		log.Infof("[updateWaypointMap] add waypoint address: %#v", svc.GetAddresses()[0].Address)
-		log.Infof("[updateWaypointMap] add waypoint key: %#v", waypointKey.Addr)
 		err := p.bpf.WaypointUpdate(waypointKey, &waypointValue)
 		if err != nil {
 			log.Errorf("failed to update waypoint map: %v", err)
@@ -1133,8 +1119,6 @@ func (p *Processor) deleteWaypoint(resourceName string) {
 	if associate := p.WaypointCache.GetAssociatedObjectsByResourceName(resourceName); associate != nil {
 		waypointKey := &bpfcache.WaypointKey{}
 		nets.CopyIpByteFromSlice(&waypointKey.Addr, associate.WaypointAddress().Address)
-		log.Infof("delete waypoint address: %#v", associate.WaypointAddress().Address)
-		log.Infof("delete waypoint key: %#v", waypointKey.Addr)
 		if err := p.bpf.WaypointDelete(waypointKey); err != nil {
 			log.Errorf("Failed to delete waypoint: %#v, due to %v", associate.WaypointAddress().Address, err)
 			return

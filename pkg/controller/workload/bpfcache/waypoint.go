@@ -39,9 +39,3 @@ func (c *Cache) WaypointDelete(key *WaypointKey) error {
 	}
 	return err
 }
-
-func (c *Cache) WaypointLookUp(key *WaypointKey) error {
-	log.Debugf("WaypointLookup [%#v]", *key)
-	v := uint32(0)
-	return c.bpfMap.KmWaypoint.Lookup(key, v)
-}

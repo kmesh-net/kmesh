@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
-	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 )
 
 type WaypointCache interface {
@@ -73,7 +72,7 @@ type waypointCache struct {
 	workloadToWaypoint map[string]string
 }
 
-func NewWaypointCache(serviceCache ServiceCache, bpfCache *bpfcache.Cache) *waypointCache {
+func NewWaypointCache(serviceCache ServiceCache) *waypointCache {
 	return &waypointCache{
 		serviceCache:              serviceCache,
 		waypointAssociatedObjects: make(map[string]*waypointAssociatedObjects),
@@ -127,8 +126,6 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) bool {
 			ret = true
 		}
 		w.waypointAssociatedObjects[waypointResourceName] = newAssociatedObjects(addr)
-		log.Infof("svc resourceName is: %v", waypointResourceName)
-		log.Infof("waypointCache is: %v", w.waypointAssociatedObjects)
 	}
 	w.serviceToWaypoint[resourceName] = waypointResourceName
 	// Anyway, add svc to the association list.
