@@ -1099,7 +1099,7 @@ func (p *Processor) updateWaypointMap(svc *workloadapi.Service) {
 	// find waypoint pods
 	svcId := p.hashName.Hash(svc.ResourceName())
 	endpoints := p.EndpointCache.List(svcId)
-	for workloadUid, _ := range endpoints {
+	for workloadUid := range endpoints {
 		workload := p.WorkloadCache.GetWorkloadByUid(p.hashName.NumToStr(workloadUid))
 		ip := []byte{}
 		for _, addr := range workload.GetAddresses() {

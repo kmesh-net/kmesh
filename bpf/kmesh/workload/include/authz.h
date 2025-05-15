@@ -129,7 +129,8 @@ static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tu
 }
 
 // Unconditional trust for links with waypoint svc
-static int from_waypoint(struct bpf_sock_tuple *tuple, struct xdp_info *info) {
+static int from_waypoint(struct bpf_sock_tuple *tuple, struct xdp_info *info)
+{
     waypoint_key key = {0};
     __u32 *waypoint_value;
 
@@ -644,21 +645,13 @@ int policy_check(struct xdp_md *ctx)
 
     if (from_waypoint(&tuple_key, &info) == XDP_PASS) {
         if (info.iph->version == IPV4_VERSION) {
-            BPF_LOG(
-                DEBUG,
-                AUTH,
-                "src ip: %s is waypoint. PASS",
-                ip2str(&tuple_key.ipv4.saddr, true));
+            BPF_LOG(DEBUG, AUTH, "src ip: %s is waypoint. PASS", ip2str(&tuple_key.ipv4.saddr, true));
         } else {
-            BPF_LOG(
-                DEBUG,
-                AUTH,
-                "src ip: %s is waypoint. PASS",
-                ip2str(tuple_key.ipv6.saddr, false));
-        } 
+            BPF_LOG(DEBUG, AUTH, "src ip: %s is waypoint. PASS", ip2str(tuple_key.ipv6.saddr, false));
+        }
         return XDP_PASS;
     }
-    
+
     match_ctx = bpf_map_lookup_elem(&kmesh_tc_args, &tuple_key);
     if (!match_ctx) {
         BPF_LOG(ERR, AUTH, "failed to retrieve match_context from map");
