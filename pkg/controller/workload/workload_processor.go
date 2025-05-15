@@ -201,6 +201,24 @@ func (p *Processor) removeWorkload(uid string) error {
 	return p.removeWorkloadFromBpfMap(wl)
 }
 
+// handleUnhealthyWorkload is used to handle unhealthy workload, we only leave it in the frontend and backend map.
+// Because we rely on the backend map to be aware of direct access in `frontend_manager`,
+// and xdp rely on frontend map to get the authz policy and do authz.
+func (p *Processor) handleUnhealthyWorkload(workload *workloadapi.Workload) error {
+	backendUid := p.hashName.Hash(workload.Uid)
+
+	// 1. find all endpoint keys related to this workload and delete them
+	if eks := p.bpf.GetEndpointKeys(backendUid); len(eks) > 0 {
+		if err := p.deleteEndpointRecords(eks.UnsortedList()); err != nil {
+			return fmt.Errorf("handleUnhealthyWorkload: deleteEndpointRecords for %s failed: %v", workload.Uid, err)
+		}
+	}
+
+	// TODO(hzxuzhonghu), maybe need to update backend map to update the workload status
+
+	return nil
+}
+
 func (p *Processor) removeWorkloadFromBpfMap(workload *workloadapi.Workload) error {
 	var (
 		err      error
@@ -486,11 +504,11 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		p.locality.SetLocality(p.nodeName, workload.GetClusterId(), workload.GetNetwork(), workload.GetLocality())
 	}
 
-	// Exclude unhealthy workload, which is not ready to serve traffic
+	// Exclude unhealthy workload, which is not ready to serve traffic, but keep it in the frontend
+	// backend map for authz
 	if workload.Status == workloadapi.WorkloadStatus_UNHEALTHY {
 		log.Debugf("workload %s is unhealthy", workload.ResourceName())
-		// If the workload is updated to unhealthy, we should remove it from the bpf map
-		return p.removeWorkloadFromBpfMap(workload)
+		return p.handleUnhealthyWorkload(workload)
 	}
 
 	// 1. update workload in backend map

@@ -70,7 +70,7 @@ static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct
     }
     frontend_v = kmesh_map_lookup_elem(&map_of_frontend, &frontend_k);
     if (!frontend_v) {
-        BPF_LOG(INFO, XDP, "failed to get frontend in xdp");
+        BPF_LOG(DEBUG, XDP, "failed to get frontend in xdp");
         return AUTH_ALLOW;
     }
     workload_uid = frontend_v->upstream_id;
