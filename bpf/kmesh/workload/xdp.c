@@ -132,6 +132,12 @@ int xdp_shutdown_in_userspace(struct xdp_md *ctx)
     if (info.iph->version != 4 && info.iph->version != 6)
         return XDP_PASS;
 
+    if (from_waypoint(&tuple_info, &info) == XDP_PASS) {
+        BPF_LOG(INFO, AUTH, "pass xdp userspace");
+        return XDP_PASS;
+    }
+    BPF_LOG(INFO, AUTH, "[xdp userspace] done from waypoint");
+
     // never failed
     parser_tuple(&info, &tuple_info);
 

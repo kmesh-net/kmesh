@@ -20,6 +20,7 @@ import (
 	"sync"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 )
 
 type WaypointCache interface {
@@ -31,6 +32,8 @@ type WaypointCache interface {
 	// workload's waypoint doesn't need to be resolved or resolved successfully.
 	AddOrUpdateWorkload(workload *workloadapi.Workload) bool
 	DeleteWorkload(uid string)
+
+	GetAssociatedObjectsByResourceName(name string) *waypointAssociatedObjects
 
 	// Refresh is used to process waypoint service.
 	// If it is a newly added waypoint service, it returns a series of services and workloads that need to be updated
@@ -70,7 +73,7 @@ type waypointCache struct {
 	workloadToWaypoint map[string]string
 }
 
-func NewWaypointCache(serviceCache ServiceCache) *waypointCache {
+func NewWaypointCache(serviceCache ServiceCache, bpfCache *bpfcache.Cache) *waypointCache {
 	return &waypointCache{
 		serviceCache:              serviceCache,
 		waypointAssociatedObjects: make(map[string]*waypointAssociatedObjects),
@@ -111,7 +114,7 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) bool {
 	if associated, ok := w.waypointAssociatedObjects[waypointResourceName]; ok {
 		if associated.isResolved() {
 			// The waypoint corresponding to this service has been resolved.
-			updateServiceWaypoint(svc, associated.waypointAddress())
+			updateServiceWaypoint(svc, associated.WaypointAddress())
 			ret = true
 		}
 	} else {
@@ -124,6 +127,8 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) bool {
 			ret = true
 		}
 		w.waypointAssociatedObjects[waypointResourceName] = newAssociatedObjects(addr)
+		log.Infof("svc resourceName is: %v", waypointResourceName)
+		log.Infof("waypointCache is: %v", w.waypointAssociatedObjects)
 	}
 	w.serviceToWaypoint[resourceName] = waypointResourceName
 	// Anyway, add svc to the association list.
@@ -146,6 +151,15 @@ func (w *waypointCache) DeleteService(resourceName string) {
 
 	// This may be a waypoint service.
 	delete(w.waypointAssociatedObjects, resourceName)
+}
+
+func (w *waypointCache) GetAssociatedObjectsByResourceName(name string) *waypointAssociatedObjects {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+	if v, ok := w.waypointAssociatedObjects[name]; ok {
+		return v
+	}
+	return nil
 }
 
 func (w *waypointCache) AddOrUpdateWorkload(workload *workloadapi.Workload) bool {
@@ -180,7 +194,7 @@ func (w *waypointCache) AddOrUpdateWorkload(workload *workloadapi.Workload) bool
 	if associated, ok := w.waypointAssociatedObjects[waypointResourceName]; ok {
 		if associated.isResolved() {
 			// The waypoint corresponding to this service has been resolved.
-			updateWorkloadWaypoint(workload, associated.waypointAddress())
+			updateWorkloadWaypoint(workload, associated.WaypointAddress())
 			ret = true
 		}
 	} else {
@@ -226,7 +240,7 @@ func (w *waypointCache) Refresh(svc *workloadapi.Service) ([]*workloadapi.Servic
 
 	// If this svc is a waypoint service, may need refreshing.
 	if associated, ok := w.waypointAssociatedObjects[resourceName]; ok {
-		waypointAddr := associated.waypointAddress()
+		waypointAddr := associated.WaypointAddress()
 		if waypointAddr != nil && waypointAddr.String() == address.String() {
 			return nil, nil
 		}
@@ -265,7 +279,7 @@ func (w *waypointAssociatedObjects) isResolved() bool {
 	return w.address != nil
 }
 
-func (w *waypointAssociatedObjects) waypointAddress() *workloadapi.NetworkAddress {
+func (w *waypointAssociatedObjects) WaypointAddress() *workloadapi.NetworkAddress {
 	return w.address
 }
 
