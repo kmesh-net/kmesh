@@ -486,7 +486,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum(kmesh_operation_duration_seconds_sum{app=\"kmesh\", namespace=\"kmesh-system\", operation_type=\"SOCK_TRAFFIC_CONTROL\"}) by (node_name) \r\n/\r\nsum(kmesh_operation_duration_seconds_count{app=\"kmesh\", namespace=\"kmesh-system\", operation_type=\"SOCK_TRAFFIC_CONTROL\"}) by (node_name)\r\n",
+          "expr": "sum(kmesh_bpf_prog_operation_duration_sum{app=\"kmesh\", namespace=\"kmesh-system\", operation_type=\"SOCK_TRAFFIC_CONTROL\"}) by (node_name) \r\n/\r\nsum(kmesh_bpf_prog_operation_duration_count{app=\"kmesh\", namespace=\"kmesh-system\", operation_type=\"SOCK_TRAFFIC_CONTROL\"}) by (node_name)\r\n",
           "instant": false,
           "legendFormat": "__auto",
           "range": true,
