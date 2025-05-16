@@ -209,6 +209,24 @@ function cleanup_docker_registry() {
 	docker rm "${KIND_REGISTRY_NAME}" || echo "Failed to remove or no such registry '${KIND_REGISTRY_NAME}'."
 }
 
+TMPBIN="${TMPBIN:-$(mktemp -d)/bin}"
+mkdir -p "$TMPBIN"
+export PATH="$PATH:$TMPBIN"
+
+
+# Function to install kmeshctl into the test environment.
+function install_kmeshctl() {
+   echo "Installing kmeshctl CLI into test environment..."
+   if [[ -f "$ROOT_DIR/kmeshctl" ]]; then
+       cp "$ROOT_DIR/kmeshctl" "$TMPBIN/"  
+       echo "kmeshctl installed successfully in $TMPBIN."
+   else
+       echo "Error: kmeshctl binary not found in $ROOT_DIR. Please build it before running E2E tests." >&2
+       return 1
+   fi
+}
+
+
 PARAMS=()
 
 while (("$#")); do
@@ -269,9 +287,12 @@ if [[ -z ${SKIP_SETUP:-} ]]; then
 	setup_kind_cluster "$NAME"
 fi
 
-if [[ -z ${SKIP_BUILD:-} ]]; then
-	setup_kind_registry
-	build_and_push_images
+if [[ -z "${SKIP_BUILD:-}" ]]; then
+     setup_kind_registry
+     build_and_push_images
+     echo "Building kmeshctl CLI..."
+     make kmeshctl || { echo "Failed to build kmeshctl" >&2; exit 1; }
+     install_kmeshctl || { echo "Failed to install kmeshctl into PATH" >&2; exit 1; }
 fi
 
 kubectl config use-context "kind-$NAME"
