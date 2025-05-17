@@ -175,11 +175,13 @@ static inline bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
         record_manager_netns_cookie(kmesh_ctx->ctx);
         // return failed, cni sim connect CONTROL_CMD_IP:929(0x3a1)
         // A normal program will not connect to this IP address
+        BPF_LOG(ERR, KMESH, "add net ns cookie");
         return true;
     }
 
     if (conn_from_cni_sim_delete(kmesh_ctx)) {
         remove_manager_netns_cookie(kmesh_ctx->ctx);
+        BPF_LOG(ERR, KMESH, "delete net ns cookie");
         return true;
     }
     return false;

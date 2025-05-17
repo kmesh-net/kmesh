@@ -137,6 +137,23 @@ function setup_kmesh() {
 		echo "Waiting for pods of Kmesh daemon to enter Running state..."
 		sleep 1
 	done
+
+	# Kmesh has no liveness yet.
+	sleep 5
+
+	# Set log of each Kmesh pods.
+	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+
+	for POD in $PODS; do
+		echo "turn on the debug mode of the log for pod $POD"
+		kmeshctl log $POD --set bpf:debug
+		kmeshctl log $POD --set default:debug
+	done
+}
+
+function install_kmeshctl() {
+	# Install kmeshctl
+	cp kmeshctl $TMPBIN
 }
 
 export KIND_REGISTRY_NAME="kind-registry"
@@ -209,6 +226,24 @@ function cleanup_docker_registry() {
 	docker rm "${KIND_REGISTRY_NAME}" || echo "Failed to remove or no such registry '${KIND_REGISTRY_NAME}'."
 }
 
+capture_pod_logs() {
+	NAMESPACE="kmesh-system"
+	NODE_NAME="kmesh-testing-worker"
+
+	while :; do
+		PODS=$(kubectl get pods -n $NAMESPACE --field-selector spec.nodeName=$NODE_NAME -o jsonpath='{.items[*].metadata.name}')
+
+		if [ -z "$PODS" ]; then
+			echo "No pods found on node $NODE_NAME in namespace $NAMESPACE."
+			continue
+		fi
+
+		echo "Logs for Pod: ${PODS[0]}"
+
+		kubectl logs -n $NAMESPACE -f ${PODS[0]} >>kmesh_daemon.log 2>&1
+	done
+}
+
 PARAMS=()
 
 while (("$#")); do
@@ -272,6 +307,7 @@ fi
 if [[ -z ${SKIP_BUILD:-} ]]; then
 	setup_kind_registry
 	build_and_push_images
+	install_kmeshctl
 fi
 
 kubectl config use-context "kind-$NAME"
@@ -283,9 +319,14 @@ if [[ -z ${SKIP_SETUP:-} ]]; then
 	setup_kmesh
 fi
 
+capture_pod_logs &
+
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
-bash -c "$cmd"
+bash -c "$cmd" || {
+	cat kmesh_daemon.log
+	exit 1
+}
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster
