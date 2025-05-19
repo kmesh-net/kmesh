@@ -103,7 +103,7 @@ Regular Community Meeting:
 
 Resources:
 
-- [Meeting Link](https://app.huawei.com/wmeeting/join/97427195/NHRwTCfXA1PM8aNpDN5RsDlrpNAg3uavD)
+- [Meeting Link](https://zoom-lfx.platform.linuxfoundation.org/meeting/99299011908?password=f4c31ddd-11ed-42ae-a617-3e0842c39c58)
 
 ## Contributing
 
