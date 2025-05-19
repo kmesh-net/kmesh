@@ -159,7 +159,7 @@ func (c *KmeshManageController) handlePodAdd(obj interface{}) {
 	c.enableKmeshManage(newPod)
 }
 
-func (c *KmeshManageController) handlePodUpdate(_, newObj interface{}) {
+func (c *KmeshManageController) handlePodUpdate(oldObj, newObj interface{}) {
 	pod, ok := newObj.(*corev1.Pod)
 	if !ok {
 		log.Errorf("expected *corev1.Pod but got %T", newObj)
@@ -169,6 +169,20 @@ func (c *KmeshManageController) handlePodUpdate(_, newObj interface{}) {
 		log.Debugf("pod %s/%s is being deleted, skip remanage", pod.Namespace, pod.Name)
 		return
 	}
+
+	oldPod, ok := oldObj.(*corev1.Pod)
+	if !ok {
+		log.Errorf("expected *corev1.Pod but got %T", oldObj)
+		return
+	}
+
+	// We don't need to remanage the pod if the annotation of KmeshRedirectionAnnotation is changed.
+	// Ref: https://github.com/kmesh-net/kmesh/issues/1357
+	if oldPod.Annotations[constants.KmeshRedirectionAnnotation] != pod.Annotations[constants.KmeshRedirectionAnnotation] {
+		log.Debugf("pod %s/%s annotation of KmeshRedirectionAnnotation is changed, skip remanage", pod.Namespace, pod.Name)
+		return
+	}
+
 	c.handlePodAdd(newObj)
 }
 
