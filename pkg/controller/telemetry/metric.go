@@ -521,7 +521,7 @@ func (m *MetricController) Run(ctx context.Context, mapOfTcpInfo *ebpf.Map) {
 			}
 			m.updateServiceMetricCache(reqMetric, serviceLabels, tcpConns[reqMetric.conSrcDstInfo])
 			if m.EnableConnectionMetric.Load() && reqMetric.duration > LONG_CONN_METRIC_THRESHOLD {
-				m.updateConnectionMetricCache(reqMetric, tcpConns[reqMetric.conSrcDstInfo], connectionLabels)
+				m.updateConnectionMetricCache(reqMetric, connectionLabels)
 			}
 			m.mutex.Unlock()
 
@@ -907,7 +907,7 @@ func (m *MetricController) updateServiceMetricCache(reqMetric requestMetric, lab
 	}
 }
 
-func (m *MetricController) updateConnectionMetricCache(reqMetric requestMetric, connMetric connMetric, labels connectionMetricLabels) {
+func (m *MetricController) updateConnectionMetricCache(reqMetric requestMetric, labels connectionMetricLabels) {
 	v, ok := m.connectionMetricCache[labels]
 	if ok {
 		v.ConnSentBytes = v.ConnSentBytes + float64(reqMetric.sentBytes)
@@ -916,10 +916,10 @@ func (m *MetricController) updateConnectionMetricCache(reqMetric requestMetric, 
 		v.ConnTotalRetrans = v.ConnTotalRetrans + float64(reqMetric.totalRetrans)
 	} else {
 		newConnectionMetricInfo := connectionMetricInfo{}
-		newConnectionMetricInfo.ConnSentBytes = float64(connMetric.sentBytes)
-		newConnectionMetricInfo.ConnReceivedBytes = float64(connMetric.receivedBytes)
-		newConnectionMetricInfo.ConnPacketLost = float64(connMetric.packetLost)
-		newConnectionMetricInfo.ConnTotalRetrans = float64(connMetric.totalRetrans)
+		newConnectionMetricInfo.ConnSentBytes = float64(reqMetric.sentBytes)
+		newConnectionMetricInfo.ConnReceivedBytes = float64(reqMetric.receivedBytes)
+		newConnectionMetricInfo.ConnPacketLost = float64(reqMetric.packetLost)
+		newConnectionMetricInfo.ConnTotalRetrans = float64(reqMetric.totalRetrans)
 		m.connectionMetricCache[labels] = &newConnectionMetricInfo
 	}
 	if reqMetric.state == TCP_CLOSED {
