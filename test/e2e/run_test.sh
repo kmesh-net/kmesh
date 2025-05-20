@@ -11,6 +11,8 @@ DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba
 
 ISTIO_VERSION=${ISTIO_VERSION:-"1.22.0"}
 
+LOGFILE="kmesh_daemon.log"
+
 export KMESH_WAYPOINT_IMAGE=${KMESH_WAYPOINT_IMAGE:-"ghcr.io/kmesh-net/waypoint:latest"}
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
@@ -146,8 +148,31 @@ function setup_kmesh() {
 
 	for POD in $PODS; do
 		echo "turn on the debug mode of the log for pod $POD"
-		kmeshctl log $POD --set bpf:debug
-		kmeshctl log $POD --set default:debug
+		# Set BPF debug log
+		for i in {1..5}; do
+			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
+			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
+			if echo "$output" | grep -q "set BPF Log Level: 3"; then
+				echo "BPF debug log set successfully"
+				break
+			fi
+			echo "Failed to set BPF debug log. Output: $output"
+			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			sleep 2
+		done
+
+		# Set default debug log
+		for i in {1..5}; do
+			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
+			output=$(kmeshctl log $POD --set default:debug 2>&1)
+			if echo "$output" | grep -q "OK"; then
+				echo "Default debug log set successfully"
+				break
+			fi
+			echo "Failed to set default debug log. Output: $output"
+			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			sleep 2
+		done
 	done
 }
 
@@ -240,7 +265,7 @@ capture_pod_logs() {
 
 		echo "Logs for Pod: ${PODS[0]}"
 
-		kubectl logs -n $NAMESPACE -f ${PODS[0]} >>kmesh_daemon.log 2>&1
+		kubectl logs -n $NAMESPACE -f ${PODS[0]} >>$LOGFILE 2>&1
 	done
 }
 
@@ -324,7 +349,8 @@ capture_pod_logs &
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
 bash -c "$cmd" || {
-	cat kmesh_daemon.log
+	cat $LOGFILE
+	rm $LOGFILE
 	exit 1
 }
 
