@@ -140,9 +140,40 @@ function setup_kmesh() {
 		sleep 1
 	done
 
-	# Kmesh has no liveness yet.
-	sleep 5
+	# Set log of each Kmesh pods.
+	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
 
+	for POD in $PODS; do
+		echo "turn on the debug mode of the log for pod $POD"
+		# Set BPF debug log
+		for i in {1..5}; do
+			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
+			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
+			if echo "$output" | grep -q "set BPF Log Level: 3"; then
+				echo "BPF debug log set successfully"
+				break
+			fi
+			echo "Failed to set BPF debug log. Output: $output"
+			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			sleep 2
+		done
+
+		# Set default debug log
+		for i in {1..5}; do
+			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
+			output=$(kmeshctl log $POD --set default:debug 2>&1)
+			if echo "$output" | grep -q "OK"; then
+				echo "Default debug log set successfully"
+				break
+			fi
+			echo "Failed to set default debug log. Output: $output"
+			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			sleep 2
+		done
+	done
+}
+
+function setup_kmesh_log() {
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
 
@@ -343,6 +374,8 @@ if [[ -z ${SKIP_SETUP:-} ]]; then
 	setup_istio
 	setup_kmesh
 fi
+
+setup_kmesh_log
 
 capture_pod_logs &
 
