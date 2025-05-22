@@ -6,13 +6,13 @@ Generate a waypoint configuration
 
 Generate a waypoint configuration as YAML
 
-```bash
+```
 kmeshctl waypoint generate [flags]
 ```
 
 ### Examples
 
-```bash
+```
   # Generate a waypoint as yaml
   kmeshctl waypoint generate --namespace default
 
@@ -22,7 +22,7 @@ kmeshctl waypoint generate [flags]
 
 ### Options
 
-```bash
+```
       --for string        Specify the traffic type [all none service workload] for the waypoint
   -h, --help              help for generate
   -r, --revision string   The revision to label the waypoint with
@@ -30,7 +30,7 @@ kmeshctl waypoint generate [flags]
 
 ### Options inherited from parent commands
 
-```bash
+```
       --image string       image of the waypoint
       --name string        name of the waypoint (default "waypoint")
   -n, --namespace string   Kubernetes namespace
@@ -38,4 +38,5 @@ kmeshctl waypoint generate [flags]
 
 ### SEE ALSO
 
-* [kmeshctl waypoint](kmeshctl_waypoint.md)  - Manage waypoint configuration
+* [kmeshctl waypoint](kmeshctl_waypoint.md)	 - Manage waypoint configuration
+

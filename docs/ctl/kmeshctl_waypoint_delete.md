@@ -6,13 +6,13 @@ Delete a waypoint configuration
 
 Delete a waypoint configuration from the cluster
 
-```bash
+```
 kmeshctl waypoint delete [flags]
 ```
 
 ### Examples
 
-```bash
+```
   # Delete a waypoint from the default namespace
   kmeshctl waypoint delete
 
@@ -28,14 +28,14 @@ kmeshctl waypoint delete [flags]
 
 ### Options
 
-```bash
+```
       --all    Delete all waypoints in the namespace
   -h, --help   help for delete
 ```
 
 ### Options inherited from parent commands
 
-```bash
+```
       --image string       image of the waypoint
       --name string        name of the waypoint (default "waypoint")
   -n, --namespace string   Kubernetes namespace
@@ -43,4 +43,5 @@ kmeshctl waypoint delete [flags]
 
 ### SEE ALSO
 
-* [kmeshctl waypoint](kmeshctl_waypoint.md)  - Manage waypoint configuration
+* [kmeshctl waypoint](kmeshctl_waypoint.md)	 - Manage waypoint configuration
+
