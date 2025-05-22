@@ -381,11 +381,16 @@ capture_pod_logs &
 
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
-bash -c "$cmd" || {
+set +e
+bash -c "$cmd"
+EXIT_CODE=$?
+set -e
+
+if [ $EXIT_CODE -ne 0 ]; then
 	cat $LOGFILE
-	rm $LOGFILE
-	exit 1
-}
+fi
+
+rm $LOGFILE
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster
@@ -396,3 +401,5 @@ if [[ -n ${CLEANUP_REGISTRY} ]]; then
 fi
 
 rm -rf "${TMP}"
+
+exit $EXIT_CODE
