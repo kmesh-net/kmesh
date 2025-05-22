@@ -6,13 +6,13 @@ Apply a waypoint configuration
 
 Apply a waypoint configuration to the cluster
 
-```
+```bash
 kmeshctl waypoint apply [flags]
 ```
 
 ### Examples
 
-```
+```bash
   # Apply a waypoint to the current namespace
   kmeshctl waypoint apply
 
@@ -25,7 +25,7 @@ kmeshctl waypoint apply [flags]
 
 ### Options
 
-```
+```bash
       --enroll-namespace   If set, the namespace will be labeled with the waypoint name
       --for string         Specify the traffic type [all none service workload] for the waypoint
   -h, --help               help for apply
@@ -36,7 +36,7 @@ kmeshctl waypoint apply [flags]
 
 ### Options inherited from parent commands
 
-```
+```bash
       --image string       image of the waypoint
       --name string        name of the waypoint (default "waypoint")
   -n, --namespace string   Kubernetes namespace
@@ -44,5 +44,4 @@ kmeshctl waypoint apply [flags]
 
 ### SEE ALSO
 
-* [kmeshctl waypoint](kmeshctl_waypoint.md)	 - Manage waypoint configuration
-
+* [kmeshctl waypoint](kmeshctl_waypoint.md)  - Manage waypoint configuration

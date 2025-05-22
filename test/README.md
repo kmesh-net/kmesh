@@ -6,31 +6,31 @@ mugen是openEuler社区开放的测试框架，提供公共配置和方法以便
 
 关于mugen的详细介绍请参考：
 
-https://gitee.com/openeuler/mugen
+<https://gitee.com/openeuler/mugen>
 
 ## Kmesh测试框架简介
 
 Kmesh基于mugen实现了测试框架，主要用于开发阶段，对Kmesh的基本功能做基本保障，确保合入的代码不会对Kmesh的主体功能产生破坏；测试框架代码在`test`目录下，关键文件/目录说明：
 
 ```sh
-├─runtest.sh	# 测试框架执行脚本
+├─runtest.sh # 测试框架执行脚本
 │
-├─testcases		# 测试套
-│  │  kmesh.json	# 指定要执行kmesh下的哪些测试例，需要与测试例目录名称一致
+├─testcases  # 测试套
+│  │  kmesh.json # 指定要执行kmesh下的哪些测试例，需要与测试例目录名称一致
 │  │
 │  └─kmesh
-│      ├─libs	# 基础库
-│      │      common.sh		# 基础库脚本，测试例中引用
-│      ├─oe_test_base_function	# 一个测试例一个文件夹
-│      │  │  oe_test_base_function.sh	# 测试脚本
+│      ├─libs # 基础库
+│      │      common.sh  # 基础库脚本，测试例中引用
+│      ├─oe_test_base_function # 一个测试例一个文件夹
+│      │  │  oe_test_base_function.sh # 测试脚本
 │      │  │
-│      │  └─conf	# 配置文件
-│      │          test_conf.json	# 该测试例对应的xds治理模型
+│      │  └─conf # 配置文件
+│      │          test_conf.json # 该测试例对应的xds治理模型
 │      │
-│      └─pkg	# 测试依赖的外部工具归档
+│      └─pkg # 测试依赖的外部工具归档
 │              fortio-1.38.1-1.x86_64.rpm
 │
-└─testframe		# 测试框架包
+└─testframe  # 测试框架包
         mugen-master.zip
 ```
 
@@ -75,7 +75,7 @@ Kmesh基于mugen实现了测试框架，主要用于开发阶段，对Kmesh的�
   test结果中可以看到成功失败的用例数。
   
 - 也可以执行单条测试用例  
- 
+
  ```sh
   [root@dev test]# ./runtest.sh {env_ip} {login_password} {testcase_name}
   ```
@@ -122,9 +122,9 @@ libs目录封装了Kmesh测试过程中的一些公共操作，以简化新增�
   - 参数说明
 
     和fortio server的命令一致。
-    
+
     但是需要注意的是：这里如果要修改端口或IP地址，必须按照ip:port的完整格式传入。
-    
+
   - 调用样例
 
     ```sh
@@ -157,7 +157,7 @@ libs目录封装了Kmesh测试过程中的一些公共操作，以简化新增�
 
 - load_kmesh_config
 
-  -  功能说明
+  - 功能说明
 
     加载xds配置文件；默认按测试例下的conf加载
 
@@ -195,10 +195,10 @@ libs目录封装了Kmesh测试过程中的一些公共操作，以简化新增�
   [root@dev kmesh]# pwd
   /home/Kmesh/test/testcases/kmesh
   [root@dev kmesh]# tree oe_test_lb_policy_function/
-  oe_test_lb_policy_function/	# 1 新增测试例文件夹
-  ├── conf	
-  │   └── test_conf.json	# 2 配套的xds配置文件
-  └── oe_test_lb_policy_function.sh	# 3 定义测试脚本
+  oe_test_lb_policy_function/ # 1 新增测试例文件夹
+  ├── conf 
+  │   └── test_conf.json # 2 配套的xds配置文件
+  └── oe_test_lb_policy_function.sh # 3 定义测试脚本
   
   1 directory, 2 files
   [root@dev testcases]# pwd
@@ -211,7 +211,7 @@ libs目录封装了Kmesh测试过程中的一些公共操作，以简化新增�
               "name": "oe_test_base_function"
           },
           {
-              "name": "oe_test_lb_policy"	# 增加测试例到测试套中
+              "name": "oe_test_lb_policy" # 增加测试例到测试套中
           }
       ]
   }

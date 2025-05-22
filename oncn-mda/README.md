@@ -3,6 +3,7 @@
 mda(mesh data accelerate)是一种基于内核sockmap技术实现的，用于service mesh场景下同节点上socket通信加速的特性。
 
 ## 原理
+
 sockmap是BPF程序的一种map类型，使用这种map可以存储sock的引用信息，从而实现一种加速本机内部TCP socket之间数据转发的机制。
 
 主要原理涉及两段BPF程序：
@@ -12,6 +13,7 @@ sockmap是BPF程序的一种map类型，使用这种map可以存储sock的引用
 ## 配置文件设计
 
 配置文件中配置需以chain开始，后跟如下选项：
+
 1. --ip 地址范围，例如 192.168.1.0/24
 2. --port 端口范围，例如 80
 3. --uid-owner，用户所属uid组，例如1337
@@ -19,7 +21,8 @@ sockmap是BPF程序的一种map类型，使用这种map可以存储sock的引用
 5. -j，接受或者返回，可选值：ACCEPT或者RETURN
 
 配置示例：
-```
+
+```text
 # 仅加速192.168.1.0/24网段连接中的包含1337 uid的进程流量（包括正向建链与反向建链），对于连接双端包含有15006端口的流量禁止加速
 chain --ip 192.168.1.0/24 --uid-owner 1337 --j ACCEPT
 chain --port 15006 -j RETURN
@@ -29,6 +32,7 @@ chain --port 15006 -j RETURN
 ## Kmesh服务下使用
 
 前提条件：
+
 * 系统中已配置好对应版本的软件repo源。
 * 系统中至少已挂载一个cgroupv2路径目录。
 * 系统中已挂载bpf文件系统。
@@ -70,6 +74,7 @@ ExecStart=/usr/bin/kmesh-daemon -enable-mda
 ## 性能提升说明
 
 本特性为加速特性，主要加速体现在对本机的ipv4 tcp连接的传输性能上。实验室测试场景如下：
+
 * 主机使用4核、4G内存的虚拟机，虚机上仅运行k8s集群。
 * 部署k8s集群，并安装云原生网络服务网格软件istio及其代理envoy。
 * 在/etc/oncn-mda/oncn-mda.conf配置文件中，设置过滤参数为空并启动网格加速。

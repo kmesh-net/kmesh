@@ -84,6 +84,3 @@ iptables -t nat -I PREROUTING -m bpf --object-pinned /sys/fs/bpf/bypass -j RETUR
 
 - 当前bypass功能仅短接单个Pod的服务网格流量，而不是整个流量路径上的服务网格。为了解决短接一方的服务网格之后，导致另一方服务网格无法解析收到的加密报文的问题。 在启用bypass功能之前，需要配置服务网格以明文格式发送消息
 - 目前bypass会短接单个Pod的出入方向的流量。 后续还将对出入方向的流量进行细分。 例如，只有出方向的流量会被短路。
-
-
-

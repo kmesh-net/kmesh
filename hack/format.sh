@@ -32,4 +32,4 @@ install_shell_format
 
 shfmt -w -s -ln=bash ./
 
-docker run -w /workspace -v "$PWD":/workspace davidanson/markdownlint-cli2:v0.18.1 "**/*.md"
+docker run -w /workspace -v "$PWD":/workspace davidanson/markdownlint-cli2:v0.18.1 "**/*.md" "--fix"

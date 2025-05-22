@@ -1,9 +1,8 @@
 # Kmesh kernel build
 
-## Background 
+## Background
 
 Kmesh has enhanced some features based on the kernel,  if you want to use Kmesh, you need to build the kernel package yourself.
-
 
 This article mainly describes the process of building a kernel package with Kmesh enhanced features through patch.
 
@@ -18,8 +17,8 @@ Patches corresponding to the mainstream kernel version have been archived in the
 kernel/
 ├── ko
 ├── ko_src
-└── patches		# Kernel enhancement feature patches 
-    └── 5.10.0	# Enhancement patch made based on Linux 5.10
+└── patches  # Kernel enhancement feature patches 
+    └── 5.10.0 # Enhancement patch made based on Linux 5.10
         └── 0001-add-helper-strnstr-strncmp-parse_header_msg.patch
         └── 0002-add-TCP_ULP-support-in-bpf_getset_sockopt.patch
 ```
@@ -87,11 +86,9 @@ Taking openEuler 2203 LTS SP2（linux 5.10）as an example, the build steps as f
   [root@dev rpmbuild]# rpmbuild --define="_topdir /home/test/kmesh_kernel/root/rpmbuild" -bb SPECS/kernel.spec 
   ```
 
+## QA
 
-
-# QA
-
-### Kernel compilation dependency package is missing.
+### Kernel compilation dependency package is missing
 
 ```sh
 [root@dev rpmbuild]# rpmbuild --define="_topdir /home/test/kmesh_kernel/root/rpmbuild" -bb SPECS/kernel.spec
@@ -133,8 +130,7 @@ known_types = {
 [root@dev rpmbuild]# rpmbuild --noclean --noprep --define="_topdir /home/test/kmesh_kernel/root/rpmbuild" -bb SPECS/kernel.spec
 ```
 
-
-### Kmesh's new patch has modified include/uapi/linux/bpf.h, and it is no longer consistent with the bpf.h header file in libbpf.
+### Kmesh's new patch has modified include/uapi/linux/bpf.h, and it is no longer consistent with the bpf.h header file in libbpf
 
 A:
 
