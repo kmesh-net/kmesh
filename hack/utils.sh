@@ -49,6 +49,7 @@ function copy_to_host() {
 	cp /usr/bin/kmesh-daemon out/
 	cp /usr/bin/kmesh-cni out/
 	cp /usr/bin/mdacore out/
+  cp /usr/bin/kmeshctl out/
 	if [ -f "/lib/modules/kmesh/kmesh.ko" ]; then
 		cp /lib/modules/kmesh/kmesh.ko out/ko
 	fi
