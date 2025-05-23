@@ -21,7 +21,7 @@ title can help communicate what the KEP is and should be considered as part of
 any review.
 -->
 
-Upstream issue: https://github.com/kmesh-net/kmesh/issues/1211
+Upstream issue: <https://github.com/kmesh-net/kmesh/issues/1211>
 
 ### Summary
 
@@ -93,7 +93,6 @@ nitty-gritty.
 
 TCP connection information will be collected using eBPF cgroup_skb hook. RingBuffer map is used for sending connection info periodically to userspace.
 
-
 ### Design Details
 
 <!--
@@ -107,7 +106,7 @@ proposal will be implemented, this is the place to discuss them.
 
 Decelearing ebpf cgroup_skb hooks, which will trigger when the traffic passes through the cgroup socket.
 
-```
+```c
 SEC("cgroup_skb/ingress")
 int cgroup_skb_ingress_prog(struct __sk_buff *skb)
 {
@@ -141,9 +140,10 @@ int cgroup_skb_egress_prog(struct __sk_buff *skb)
 }
 
 ```
+
 Observe_on_data function checks if the time elapsed after lsat_report is greaater than 5 sec. and if it is greater, it report's the conn_info to the ring_buffer and updates the last_report_ns.
 
-```
+```c
 static inline void observe_on_data(struct bpf_sock *sk)
 {
     struct bpf_tcp_sock *tcp_sock = NULL;
@@ -169,13 +169,13 @@ We will update the functions of metric.go for periodic updating the workload and
 
 ![design](./pics/tcp_long_conn_design.png)
 
-#### Exposing long connection prometheus metrics 
+#### Exposing long connection prometheus metrics
 
 We will expose metrics for the connections whose duration exceeds 5 seconds. Not exposing metrics for short connection as it can lead to lot of metrics and they are also not suitable for prometheus metrics because prometheus itself has a scrape interval of 5s, and short-lived connections may start and end between scrapes, resulting in incomplete or misleading data. By focusing only on longer-lived connections, we ensure the metrics are stable, meaningful, and better aligned with Prometheus’s time-series data model.
 
-We can have a another component in future which reports realtime information about connections like cilium hubble. 
+We can have a another component in future which reports realtime information about connections like cilium hubble.
 
-Prometheus metrics exposed 
+Prometheus metrics exposed
 
 - `kmesh_tcp_connection_sent_bytes_total` : The total number of bytes sent over established TCP connection
 
@@ -187,38 +187,37 @@ Prometheus metrics exposed
 
 The above metrics has following labels
 
+```text
+  "reporter"
+  "start_time"
+  "source_workload"
+  "source_canonical_service"
+  "source_canonical_revision"
+  "source_workload_namespace"
+  "source_principal"
+  "source_app"
+  "source_version"
+  "source_cluster"
+  "source_address"
+  "destination_address"
+  "destination_pod_address"
+  "destination_pod_namespace"
+  "destination_pod_name"
+  "destination_service"
+  "destination_service_namespace"
+  "destination_service_name"
+  "destination_workload"
+  "destination_canonical_service"
+  "destination_canonical_revision"
+  "destination_workload_namespace"
+  "destination_principal"
+  "destination_app"
+  "destination_version"
+  "destination_cluster"
+  "request_protocol"
+  "response_flags"
+  "connection_security_policy"
 ```
-		"reporter"
-		"start_time"
-		"source_workload"
-		"source_canonical_service"
-		"source_canonical_revision"
-		"source_workload_namespace"
-		"source_principal"
-		"source_app"
-		"source_version"
-		"source_cluster"
-		"source_address"
-		"destination_address"
-		"destination_pod_address"
-		"destination_pod_namespace"
-		"destination_pod_name"
-		"destination_service"
-		"destination_service_namespace"
-		"destination_service_name"
-		"destination_workload"
-		"destination_canonical_service"
-		"destination_canonical_revision"
-		"destination_workload_namespace"
-		"destination_principal"
-		"destination_app"
-		"destination_version"
-		"destination_cluster"
-		"request_protocol"
-		"response_flags"
-		"connection_security_policy"
-```
-
 
 #### User Stories (Optional)
 
@@ -230,9 +229,11 @@ bogged down.
 -->
 
 ##### Story 1
+
 Workload and service prometheus metrics are updated periodically and when the connection is closed.
 
 ##### Story 2
+
 A new prometheus metric for long tcp connection which updates periodically.
 
 #### Notes/Constraints/Caveats (Optional)
@@ -256,7 +257,6 @@ How will UX be reviewed, and by whom?
 Consider including folks who also work outside the SIG or subproject.
 -->
 
-
 #### Test Plan
 
 <!--
@@ -274,6 +274,7 @@ challenging to test, should be called out.
 
 Updating bpf_test.go for testing the ebpf code written.
 Also updating metric_test.go for testing the metrics
+
 ### Alternatives
 
 <!--

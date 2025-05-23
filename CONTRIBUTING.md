@@ -17,25 +17,25 @@ Welcome to Kmesh!
   - [Code Review](#code-review)
 - [Membership](#membership)
 
-# Before you get started
+## Before you get started
 
-## Code of Conduct
+### Code of Conduct
 
 Please make sure to read and observe our [Code of Conduct](/CODE_OF_CONDUCT.md).
 
-## Community Expectations
+### Community Expectations
 
 Kmesh is a community project driven by its community which strives to promote a healthy, friendly and productive environment.
 Kmesh aims to provide turnkey automation for multi-cluster application management in multi-cloud and hybrid cloud scenarios,
 and intended to realize multi-cloud centralized management, high availability, failure recovery and traffic scheduling.
 
-# Getting started
+## Getting started
 
 - Fork the repository on GitHub.
 - Make your changes on your fork repository.
 - Submit a PR.
 
-# Your First Contribution
+## Your First Contribution
 
 We will help you to contribute in different areas like filing issues, developing features, fixing critical bugs and
 getting your work reviewed and merged.
@@ -43,13 +43,13 @@ getting your work reviewed and merged.
 If you have questions about the development process,
 feel free to [file an issue](https://github.com/Kmesh-net/Kmesh/issues/new/choose).
 
-## Find something to work on
+### Find something to work on
 
 We are always in need of help, be it fixing documentation, reporting bugs or writing some code.
 Look at places where you feel best coding practices aren't followed, code refactoring is needed or tests are missing.
 Here is how you get started.
 
-### Find a good first topic
+#### Find a good first topic
 
 There are [multiple repositories](https://github.com/Kmesh-net/) within the Kmesh organization.
 Each repository has beginner-friendly issues that provide a good first issue.
@@ -66,7 +66,7 @@ Please see [Contributing](#contributing) below for the workflow.
 
 When you are willing to take on an issue, just reply on the issue. The maintainer will assign it to you.
 
-### File an Issue
+#### File an Issue
 
 While we encourage everyone to contribute code, it is also appreciated when someone reports an issue.
 Issues should be filed under the appropriate Kmesh sub-repository.
@@ -75,7 +75,7 @@ Issues should be filed under the appropriate Kmesh sub-repository.
 
 Please follow the prompted submission guidelines while opening an issue.
 
-# Contributor Workflow
+## Contributor Workflow
 
 Please do not ever hesitate to ask a question or send a pull request.
 
@@ -86,7 +86,7 @@ This is a rough outline of what a contributor's workflow looks like:
 - Push changes in a topic branch to a personal fork of the repository.
 - Submit a pull request to [Kmesh-net/Kmesh](https://github.com/Kmesh-net/Kmesh).
 
-## Creating Pull Requests
+### Creating Pull Requests
 
 Pull requests are often called simply "PR".
 Kmesh generally follows the standard [github pull request](https://help.github.com/articles/about-pull-requests/) process.
@@ -94,20 +94,20 @@ To submit a proposed change, please develop the code/fix and add new test cases.
 After that, run these local verifications before submitting pull request to predict the pass or
 fail of continuous integration.
 
-* Run and pass `make gen-check`, if want to run with sudo privileges `sudo env PATH=$PATH make gen-check`
-* To compile, refer to [Compile and Build Kmesh](https://kmesh.net/en/docs/developer/build-guide/)
-* To run unit test, refer to [Run Unit Test](https://kmesh.net/en/docs/developer/run-ut/)
-* To run e2e test, refer to [Run E2E Test](https://kmesh.net/en/docs/developer/e2e-guide/)
+- Run and pass `make gen-check`, if want to run with sudo privileges `sudo env PATH=$PATH make gen-check`
+- To compile, refer to [Compile and Build Kmesh](https://kmesh.net/en/docs/developer/build-guide/)
+- To run unit test, refer to [Run Unit Test](https://kmesh.net/en/docs/developer/run-ut/)
+- To run e2e test, refer to [Run E2E Test](https://kmesh.net/en/docs/developer/e2e-guide/)
 
-## Code Review
+### Code Review
 
 To make it easier for your PR to receive reviews, consider the reviewers will need you to:
 
-* follow [good coding guidelines](https://github.com/golang/go/wiki/CodeReviewComments).
-* write [good commit messages](https://chris.beams.io/posts/git-commit/).
-* break large changes into a logical series of smaller patches which individually make easily understandable changes, and in aggregate solve a broader issue.
+- follow [good coding guidelines](https://github.com/golang/go/wiki/CodeReviewComments).
+- write [good commit messages](https://chris.beams.io/posts/git-commit/).
+- break large changes into a logical series of smaller patches which individually make easily understandable changes, and in aggregate solve a broader issue.
 
-# Membership
+## Membership
 
 We encourage all contributors to become members. Learn more about requirements and responsibilities of membership in our [Community Membership doc](https://kmesh.net/docs/community/membership/).
 

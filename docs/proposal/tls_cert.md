@@ -57,8 +57,8 @@ Use a channel, queue, and map to record and manage, where the queue and map both
 ```go
 chan: used to receive all certificate-related events
 type certRequest struct {
-	Identity  string
-	Operation int
+ Identity  string
+ Operation int
 }
 ```
 
@@ -73,8 +73,8 @@ Trigger timing:
 ```go
 Queue element content:
 type certExp struct {
-    identity string	//The certificate name constructed using sa
-    exp time.Time	//Certificate expiration time
+    identity string //The certificate name constructed using sa
+    exp time.Time //Certificate expiration time
 }
 ```
 
@@ -84,11 +84,11 @@ Update timing: Add a certificate: insert a new record Refresh the certificate: d
 
 ```go
 map: record the number of pods using this certificate
-	key: Identity    //The certificate name constructed using sa
-	value: certItem
+ key: Identity    //The certificate name constructed using sa
+ value: certItem
 
 type certItem struct {
-	cert istiosecurity.SecretItem    //Certificate information
+ cert istiosecurity.SecretItem    //Certificate information
     refcnt int32     //Record the number of pods using this certificate
 }
 ```
@@ -130,8 +130,6 @@ Lifecycle: The time when the certificate of the entire sa exists; created at the
 
 2. The count of this sa is reduced by one；
 
-    
-
    If the count of this sa is 0 at this time, delete the certificate：
 
    - Traverse and find the queue, delete the corresponding record
@@ -153,7 +151,7 @@ Lifecycle: The time when the certificate of the entire sa exists; created at the
 
 - Add this record to the queue
 
-#### Special Design:
+#### Special Design
 
 The map and queue both use locks to ensure concurrency safety, all operations involving the map and queue use the defined interface to avoid deadlock and other problems
 

@@ -32,7 +32,7 @@ Kmesh需要为纳管workload提供TLS能力，需要能够便捷的申请与管�
 
 ### 限制
 
-当前如果需要使用Kmesh tls能力，需要在istio启动时，修改deployment，在`CA_TRUSTED_NODE_ACCOUNTS`环境变量后边添加`kmesh-system/kmesh `
+当前如果需要使用Kmesh tls能力，需要在istio启动时，修改deployment，在`CA_TRUSTED_NODE_ACCOUNTS`环境变量后边添加`kmesh-system/kmesh`
 
 ## 设计细节
 
@@ -57,8 +57,8 @@ Kmesh需要为纳管workload提供TLS能力，需要能够便捷的申请与管�
 ```go
 chan ：用于接受所有证书相关事件
 type certRequest struct {
-	Identity  string
-	Operation int
+ Identity  string
+ Operation int
 }
 ```
 
@@ -73,37 +73,37 @@ type certRequest struct {
 ```go
 队列元素内容：
 type certExp struct {
-    identity string	//使用sa构造的证书名
-    exp time.Time	//证书到期时间
+    identity string //使用sa构造的证书名
+    exp time.Time //证书到期时间
 }
 ```
 
 更新时机：
-	新增证书：插入一条新的记录
-	刷新证书：删除旧记录，添加新记录；
-	删除证书：遍历并删除旧证书的记录
+ 新增证书：插入一条新的记录
+ 刷新证书：删除旧记录，添加新记录；
+ 删除证书：遍历并删除旧证书的记录
 
 **map**：记录证书信息和证书状态
 
 ```go
 map：记录使用该证书的pod 数量
-​	key：Identity    //使用sa构造的证书名
-​	value：certItem
+​ key：Identity    //使用sa构造的证书名
+​ value：certItem
 
 type certItem struct {
-	cert istiosecurity.SecretItem    //证书信息
+ cert istiosecurity.SecretItem    //证书信息
     refcnt int32     //记录使用该证书的pod数
 }
 ```
 
 更新时机：
-	在某sa下第一次有pod被Kmesh纳管时新增证书；新建并添加一条记录	
-	在该sa下所有被Kmesh纳管pod都被删除时(refCnt=0)删除证书；删除一条记录
+ 在某sa下第一次有pod被Kmesh纳管时新增证书；新建并添加一条记录
+ 在该sa下所有被Kmesh纳管pod都被删除时(refCnt=0)删除证书；删除一条记录
 
-​	在证书到期自动刷新时更新value内容；刷新已有记录中的cert
+​ 在证书到期自动刷新时更新value内容；刷新已有记录中的cert
 
-​	在某sa下有pod被Kmesh纳管时，对应refcnt+1；
-​	在某sa下有被Kmesh纳管的pod被删除时，对应refcnt-1；
+​ 在某sa下有pod被Kmesh纳管时，对应refcnt+1；
+​ 在某sa下有被Kmesh纳管的pod被删除时，对应refcnt-1；
 
 生命周期：整个sa的证书存在的时间；创建于sa证书申请时，删除于sa证书删除时
 
@@ -130,7 +130,6 @@ type certItem struct {
 
    - 往队列中添加一条到期时间的记录
 
-
 #### 场景二：删除证书
 
 <div align="center">
@@ -147,7 +146,6 @@ type certItem struct {
 
    - 遍历查找队列，删除对应的记录
    - 删除sa对应的证书
-
 
 #### 场景三：证书到期自动更新
 
@@ -166,7 +164,7 @@ type certItem struct {
 
 - 在队列中添加该条记录
 
-#### 特别设计：
+#### 特别设计
 
 map与队列均使用了锁来保证并发安全性，所有设计到map和队列的操作均使用定义的接口去进行操作，避免出现死锁等问题
 
@@ -179,4 +177,3 @@ map与队列均使用了锁来保证并发安全性，所有设计到map和队�
 1. 当前代码中的队列实现是优先队列，需要修改为普通队列，现有场景下按序从通道中获取证书事件，且Kmesh为workload申请的证书有效期一致，无需在队列中再排序
 2. 纳管pod判断，目前Kmesh相关证书处理流程中无法判断workload是否被纳管，待后续实现
 3. 某sa下只存在一个pod，该pod重启，引起workload快速删除与新增，会重复增删证书，带来不必要的开销，该场景需特殊处理
-

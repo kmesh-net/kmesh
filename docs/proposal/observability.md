@@ -66,7 +66,7 @@ duration
 An example of the accesslog obtained is shown below:
 
 ```console
-2024-05-30T12:18:10.172761Z	info access	connection complete
+2024-05-30T12:18:10.172761Z info access connection complete
     src.addr=10.244.0.10:47667 src.workload=sleep-7656cf8794-9v2gv src.namespace=ambient-demo src.identity="spiffe://cluster.local/ns/ambient-demo/sa/sleep" 
     dst.addr=10.244.0.7:8080 dst.hbone_addr=10.244.0.7:8080 dst.service=httpbin.ambient-demo.svc.cluster.local dst.workload=httpbin-86b8ffc5ff-bhvxx dst.namespace=ambient-demo 
     dst.identity="spiffe://cluster.local/ns/ambient-demo/sa/httpbin" 

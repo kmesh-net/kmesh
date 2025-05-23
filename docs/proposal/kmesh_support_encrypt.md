@@ -46,84 +46,84 @@ Kmesh使能ipsec时，需要精细化控制ipsec数据加密行为，这其中�
 
 CRD数据结构定义如下：
 
-	apiVersion: apiextensions.k8s.io/v1
-	kind: CustomResourceDefinition
-	metadata:
-	annotations:
-		controller-gen.kubebuilder.io/version: v0.16.4
-	name: kmeshnodeinfos.kmesh.net
-	spec:
-	group: kmesh.net
-	names:
-		kind: KmeshNodeInfo
-		listKind: KmeshNodeInfoList
-		plural: kmeshnodeinfos
-		singular: kmeshnodeinfo
-	scope: Namespaced
-	versions:
-	- name: v1alpha1
-		schema:
-		openAPIV3Schema:
-			description: KmeshNode is the Schema for the kmeshnodes API
-			properties:
-			apiVersion:
-				description: |-
-				APIVersion defines the versioned schema of this representation of an object.
-				Servers should convert recognized schemas to the latest internal value, and
-				may reject unrecognized values.
-				More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-				type: string
-			kind:
-				description: |-
-				Kind is a string value representing the REST resource this object represents.
-				Servers may infer this from the endpoint the client submits requests to.
-				Cannot be updated.
-				In CamelCase.
-				More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-				type: string
-			metadata:
-				type: object
-			spec:
-				properties:
-				addresses:
-					description: |-
-					Addresses is used to store the internal ip address informatioon on the
-					host. The IP address information is used to generate the IPsec state
-					informatioon. IPsec uses this information to determine which network
-					adapter is used to encrypt and send data.
-					items:
-					type: string
-					type: array
-				bootID:
-					description: |-
-					bootid is used to generate the ipsec key. After the node is restarted,
-					the key needs to be updated.
-					type: string
-				podCIDRS:
-					description: |-
-					PodCIDRs used in IPsec checks the destination of the data to
-					determine which IPsec state is used for encryption.
-					items:
-					type: string
-					type: array
-				spi:
-					description: |-
-					The SPI is used to identify the version number of the current key.
-					The communication can be normal only when both communication parties
-					have spis and the spi keys are the same.
-					type: integer
-				required:
-				- addresses
-				- bootID
-				- podCIDRS
-				- spi
-				type: object
-			status:
-				type: object
-			type: object
-		served: true
-		storage: true
+ apiVersion: apiextensions.k8s.io/v1
+ kind: CustomResourceDefinition
+ metadata:
+ annotations:
+  controller-gen.kubebuilder.io/version: v0.16.4
+ name: kmeshnodeinfos.kmesh.net
+ spec:
+ group: kmesh.net
+ names:
+  kind: KmeshNodeInfo
+  listKind: KmeshNodeInfoList
+  plural: kmeshnodeinfos
+  singular: kmeshnodeinfo
+ scope: Namespaced
+ versions:
 
+- name: v1alpha1
+  schema:
+  openAPIV3Schema:
+   description: KmeshNode is the Schema for the kmeshnodes API
+   properties:
+   apiVersion:
+    description: |-
+    APIVersion defines the versioned schema of this representation of an object.
+    Servers should convert recognized schemas to the latest internal value, and
+    may reject unrecognized values.
+    More info: <https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources>
+    type: string
+   kind:
+    description: |-
+    Kind is a string value representing the REST resource this object represents.
+    Servers may infer this from the endpoint the client submits requests to.
+    Cannot be updated.
+    In CamelCase.
+    More info: <https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds>
+    type: string
+   metadata:
+    type: object
+   spec:
+    properties:
+    addresses:
+     description: |-
+     Addresses is used to store the internal ip address informatioon on the
+     host. The IP address information is used to generate the IPsec state
+     informatioon. IPsec uses this information to determine which network
+     adapter is used to encrypt and send data.
+     items:
+     type: string
+     type: array
+    bootID:
+     description: |-
+     bootid is used to generate the ipsec key. After the node is restarted,
+     the key needs to be updated.
+     type: string
+    podCIDRS:
+     description: |-
+     PodCIDRs used in IPsec checks the destination of the data to
+     determine which IPsec state is used for encryption.
+     items:
+     type: string
+     type: array
+    spi:
+     description: |-
+     The SPI is used to identify the version number of the current key.
+     The communication can be normal only when both communication parties
+     have spis and the spi keys are the same.
+     type: integer
+    required:
+  - addresses
+  - bootID
+  - podCIDRS
+  - spi
+    type: object
+   status:
+    type: object
+   type: object
+  served: true
+  storage: true
 
 ### 4.3 Kmesh IPsec通信路径
 
@@ -132,16 +132,16 @@ CRD数据结构定义如下：
 流量数据路径上需要新增一张map以及两个tc程序
 
 - 加密路径新增map：
-	| 类型 | lpm前缀树map(4.11版本引入内核) |
-	|:-------:|:-------|
-	| 作用 | 在流量编排时，判断发送的对端pod所在的节点是否被Kmesh接管了，只有当两边的pod都被Kmesh接管，才会被ipsec加密 |
-	| key | bpf_lpm_trie_key {u32 prefixlen; u8 data[0]}; |
-	| value | uint32 |
+ | 类型 | lpm前缀树map(4.11版本引入内核) |
+ |:-------:|:-------|
+ | 作用 | 在流量编排时，判断发送的对端pod所在的节点是否被Kmesh接管了，只有当两边的pod都被Kmesh接管，才会被ipsec加密 |
+ | key | bpf_lpm_trie_key {u32 prefixlen; u8 data[0]}; |
+ | value | uint32 |
+
 - 新增2个tc：
 在每个pod的容器出口网卡上新增一个tc程序，该tc程序用于将从pod中发出的流量打上mark，标记为走ipsec加密发出
 
 在node网卡上新增tc程序，ipsec将数据包解密完成后进入tc程序，tc将数据包打上mark，转给对应的ipsec策略分发处理。如果没有这个tc程序，不在收包时打上mark，会导致非ipsec的数据包接收时出现丢包问题
-
 
 ### 4.4 Kmesh IPSec操作
 
@@ -149,45 +149,47 @@ CRD数据结构定义如下：
 
 - 由于ipsec规则匹配时使用了mark标记，所以请保证当前环境中mark不会出现冲突
 
-	- 加密时使用的mark如下：0x000000e0，mask :0xffffffff
-	- 解密时使用的mark如下：0x000000d0，mask :0xffffffff
-	- 请勿与该mark使用相同的bit，导致数据包识别错误
+  - 加密时使用的mark如下：0x000000e0，mask :0xffffffff
+  - 解密时使用的mark如下：0x000000d0，mask :0xffffffff
+  - 请勿与该mark使用相同的bit，导致数据包识别错误
 
 - 数据从客户端发送时不能在iptables中为需要加密的流量开启地址伪装（masq）选项。地址伪装会使用snat技术，在服务端收到的ipsec数据包中，将流量src_ip伪装成nodeid，导致服务端ipsec无法正确匹配，数据包被丢弃
-
 
 **Kmesh-daemon启动时，完成以下动作：**
 
 - 从Kmesh-daemon读取secret信息并解析存储以下关键信息：
-	| 名称 | 作用 |
-	|:-------:|:-------|
-	| spi | 加密密钥的序列号，由kmeshctl secret自动生成spi |
-	| aead-algo | 密钥算法，当前仅支持rfc4106(gcm(aes)) |
-	| aead-key | 预共享密钥，所有的节点间的ipsec密钥从此密钥通过特定算法进行派生 |
-	| icv-len | 密钥长度 |
+ | 名称 | 作用 |
+ |:-------:|:-------|
+ | spi | 加密密钥的序列号，由kmeshctl secret自动生成spi |
+ | aead-algo | 密钥算法，当前仅支持rfc4106(gcm(aes)) |
+ | aead-key | 预共享密钥，所有的节点间的ipsec密钥从此密钥通过特定算法进行派生 |
+ | icv-len | 密钥长度 |
 
 - 获取本端的如下信息：
-	| 名称 | 作用 |
-	|:-------:|:-------|
-	| 本端的PodCIDR | 用于生成ipsec规则 |
-	| 本端的集群内部ip地址 | 用于生成nodeid,ipsec规则 |
-	| bootid | 启动id |
+ | 名称 | 作用 |
+ |:-------:|:-------|
+ | 本端的PodCIDR | 用于生成ipsec规则 |
+ | 本端的集群内部ip地址 | 用于生成nodeid,ipsec规则 |
+ | bootid | 启动id |
 
 - 从api-server中读取出所有kmeshNodeInfo节点信息，节点信息包含各node当前name，使用的spi版本号、ipsec设备的ip地址、bootID信息并开始生成ipsec规则，每个对端node需要生成2条state（一进一出），3条policy（out、in、fwd）。密钥从预共享密钥中进行派生，规则如下：
 
 出口密钥： 预共享密钥+本机IP+对端IP+本机bootid+对端bootID，hash后截取aead密钥长度
 
 入口密钥： 预共享密钥+对端IP+本机IP+对端bootid+本机bootID，hash后截取aead密钥长度
-	
-	ipsec示例：本机ip地址为7.6.122.84，获取到对端的node ip 地址信息为7.6.122.220，设置ipsec配置预览如下
-	# state配置
-	ip xfrm state add src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-出口密钥} {\$icv-len}
-	ip xfrm state add src 7.6.122.220 dst 7.6.122.84 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-入口密钥} {\$icv-len}
-	# policy配置
 
-	ip xfrm policy add src 0.0.0.0/0 dst {\$对端CIDR} dir out tmpl src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 reqid 1 mode tunnel mark 0x000000e0 mask 0xffff
-	ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir in  tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xfffffff
-	ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir fwd tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xfffffff
+ ipsec示例：本机ip地址为7.6.122.84，获取到对端的node ip 地址信息为7.6.122.220，设置ipsec配置预览如下
+
+# state配置
+
+ ip xfrm state add src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-出口密钥} {\$icv-len}
+ ip xfrm state add src 7.6.122.220 dst 7.6.122.84 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-入口密钥} {\$icv-len}
+
+# policy配置
+
+ ip xfrm policy add src 0.0.0.0/0 dst {\$对端CIDR} dir out tmpl src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 reqid 1 mode tunnel mark 0x000000e0 mask 0xffff
+ ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir in  tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xfffffff
+ ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir fwd tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xfffffff
 
 - 更新lpm前缀树map，key为对端CIDR地址，value当前全部设置为1，tc根据目标pod ip在前缀树找到记录，确定对端pod为Kmesh纳管，为流量打上对应的加密、解密标签
 - Kmesh-daemon将本端的spi、IPsec设备ip、podCIDRs更新到api-server中，触发其他节点更新机器上的IPsec配置
@@ -205,18 +207,21 @@ CRD数据结构定义如下：
 **Kmesh-daemon退出时，完成以下动作：**
 
 退出节点：
+
 - 清理api-server中的本node的kmeshNodeInfo信息
 - 清理当前node上ipsec的state、policy信息
 - 卸载tc程序
 - 清理lpm数据
 
 其他节点：
+
 - 本端删除退出节点的IPsec state、policy信息
 - 本端清理退出节点的lpm CIDR数据
 
 **secret更新时，完成以下动作：**
 
 更新节点：
+
 - Kmesh检测到当前secret更新后，需要对IPsec规则进行全量扫描更新
 - 遍历kmeshNodeInfo信息，执行以下动作：
   - 如果对端的secret spi版本在本端记录的当前、历史spi中没有查询到，则什么也不做（无spi则缺失预共享密钥，无法生成密钥），可能是对端的spi比本端高，则等待下次secret更新时再触发更新
@@ -226,6 +231,7 @@ CRD数据结构定义如下：
 - 更新自己的kmeshNodeInfo到api-server中
 
 其他节点：
+
 - 本端从api-server中读取到kmeshNodeInfo更新后，执行以下动作：
   - 如果对端的secret spi版本在本端记录的当前、历史spi中没有查询到，则什么也不做（无spi则缺失预共享密钥，无法生成密钥），可能是对端的spi比本端高，则等待下次secret更新时再触发更新。也可能是对端的版本过低，低于本端Kmesh启动时的spi版本号，等待对端spi版本更新后再出发本端更新
   - 使用新的spi创建所有到对端的in、fwd方向state，in/fwd方向policy支持多版本密钥解析，无需更新

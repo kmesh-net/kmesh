@@ -57,20 +57,20 @@ sockmap是BPF程序的一种map类型；这种map类型中存储的是对sock的
 map是ebpf程序的主要数据结构，可以用于存放数据并用来与用户态程序进行交互。
 
 1. sock_ops_map：BPF_MAP_TYPE_SOCKHASH，存放连接四元组和socket的对应关系
-	key：socket
-	value：连接四元组，(local_ip，local_port，remote_ip，remote_port)
+ key：socket
+ value：连接四元组，(local_ip，local_port，remote_ip，remote_port)
 
 2. sock_proxy_map：BPF_MAP_TYPE_HASH，在主动连接过程中存放本地四元组和对端四元组的对应关系，用于转发时查找对端的四元组进而查找socket
-	key：本端的连接四元组
-	value：对端的连接四元组
+ key：本端的连接四元组
+ value：对端的连接四元组
 
 3. sock_param_map：BPF_MAP_TYPE_ARRAY，存放过滤参数
-	key：int（只有一个元素）
-	value：结构体，存放需要加速过滤的所有ip/port/uid/gid参数
+ key：int（只有一个元素）
+ value：结构体，存放需要加速过滤的所有ip/port/uid/gid参数
 
 4. sock_helper_map：BPF_MAP_TYPE_HASH，用于存放uid、gid和四元组的关系，主动连接时存入helper函数，被动连接将其取出后判断是否需要进行加速。
-	key：连接四元组
-	value：结构体，记录了uid和gid
+ key：连接四元组
+ value：结构体，记录了uid和gid
 
 ### ebpf程序设计
 
@@ -100,11 +100,10 @@ map是ebpf程序的主要数据结构，可以用于存放数据并用来与用�
 
 - -j，接受或返回，可选值ACCEPT，RETURN
 
-#### 配置示例：
+#### 配置示例
 
-```
+```text
 # 仅加速192.168.1.0/24网段连接中的包含1337 uid的进程流量（包括正向建链与反向建链），对于连接双端包含有15006端口的流量禁止加速
 chain --ip 192.168.1.0/24 --uid-owner 1337 --j ACCEPT
 chain --port 15006 -j RETURN
 ```
-

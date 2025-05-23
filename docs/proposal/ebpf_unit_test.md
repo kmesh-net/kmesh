@@ -12,9 +12,9 @@ The eBPF kernel code in the Kmesh project is managed by the cilium/ebpf project,
 
 > Reference cilium v1.17:
 >
-> eBPF unit testing documentation: https://docs.cilium.io/en/v1.17/contributing/testing/bpf/#bpf-testing
+> eBPF unit testing documentation: <https://docs.cilium.io/en/v1.17/contributing/testing/bpf/#bpf-testing>
 >
-> cilium/bpf/tests source code: https://github.com/cilium/cilium/tree/v1.17.0/bpf/tests
+> cilium/bpf/tests source code: <https://github.com/cilium/cilium/tree/v1.17.0/bpf/tests>
 
 #### 2.1.1 Overview of cilium/bpf/tests
 
@@ -156,8 +156,8 @@ The testing framework uses the following status codes to mark test results:
 Cilium project uses [coverbee](https://github.com/cilium/coverbee) subproject to measure code coverage for eBPF programs. This provides coverage analysis capabilities for eBPF programs similar to user-space code:
 
 - **Working Principle**:
-    - Instruments the eBPF bytecode, assigning unique IDs to each line of code, and adding counter logic: `cover_map[line_id]++`
-    - When the program executes, the counter for each accessed line of code increments
+  - Instruments the eBPF bytecode, assigning unique IDs to each line of code, and adding counter logic: `cover_map[line_id]++`
+  - When the program executes, the counter for each accessed line of code increments
 
 - **Coverage Analysis Workflow**:
     1. The instrumented eBPF program collects execution count data during execution
@@ -167,7 +167,7 @@ Cilium project uses [coverbee](https://github.com/cilium/coverbee) subproject to
 
 ##### Data Exchange Flow
 
-```
+```text
 [eBPF Test Program] → [Encode Results] → [suite_result_map] → [Go Test Runner] → [Decode & Report]
 ```
 

@@ -1,6 +1,6 @@
 <img src="docs/pics/logo/KMESH-horizontal-colour.png" alt="kmesh-logo" style="zoom: 100%;" />
 
-[![LICENSE](https://img.shields.io/github/license/kmesh-net/kmesh)](/LICENSE) [![codecov](https://codecov.io/gh/kmesh-net/kmesh/graph/badge.svg?token=0EGQ84FGDU)](https://codecov.io/gh/kmesh-net/kmesh) 
+[![LICENSE](https://img.shields.io/github/license/kmesh-net/kmesh)](/LICENSE) [![codecov](https://codecov.io/gh/kmesh-net/kmesh/graph/badge.svg?token=0EGQ84FGDU)](https://codecov.io/gh/kmesh-net/kmesh)
 
 ## Introduction
 
@@ -46,30 +46,30 @@ Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to p
 
 ### Key features of Kmesh
 
-**Smooth Compatibility**
+#### Smooth Compatibility
 
 - Application-transparent Traffic Management
 
-**High Performance**
+#### High Performance
 
 - Forwarding delay **60%↓**
 - Workload startup performance **40%↑**
 
-**Low Resource Overhead**
+#### Low Resource Overhead
 
 - ServiceMesh data plane overhead **70%↓**
 
-**Zero Trust**
+#### Zero Trust
 
 - Provide zero trust security with default mutual TLS
 - Policy enforcement both in eBPF and waypoints
 
-**Safety Isolation**
+#### Safety Isolation
 
 - eBPF Virtual machine security
 - Cgroup level orchestration isolation
 
-**Open Ecology**
+#### Open Ecology
 
 - Supports XDS protocol standards
 - Support [Gateway API](https://gateway-api.sigs.k8s.io/)
