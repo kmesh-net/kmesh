@@ -272,7 +272,7 @@ func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workload
 	assert.Equal(t, endpointCount, sv.EndpointCount[priority])
 	waypointAddr := fakeSvc.GetWaypoint().GetAddress().GetAddress()
 	if waypointAddr != nil {
-		assert.Equal(t, test.EqualIp(sv.WaypointAddr, waypointAddr), true)
+		assert.Equal(t, true, test.EqualIp(sv.WaypointAddr, waypointAddr))
 	}
 
 	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(fakeSvc.Waypoint.GetHboneMtlsPort()))
@@ -306,10 +306,10 @@ func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workload
 	var bv bpfcache.BackendValue
 	err := p.bpf.BackendLookup(&bpfcache.BackendKey{BackendUid: workloadID}, &bv)
 	assert.NoError(t, err)
-	assert.Equal(t, test.EqualIp(bv.Ip, wl.Addresses[0]), true)
+	assert.Equal(t, true, test.EqualIp(bv.Ip, wl.Addresses[0]))
 	waypointAddr := wl.GetWaypoint().GetAddress().GetAddress()
 	if waypointAddr != nil {
-		assert.Equal(t, test.EqualIp(bv.WaypointAddr, waypointAddr), true)
+		assert.Equal(t, true, test.EqualIp(bv.WaypointAddr, waypointAddr))
 	}
 	assert.Equal(t, bv.WaypointPort, nets.ConvertPortToBigEndian(wl.GetWaypoint().GetHboneMtlsPort()))
 }
