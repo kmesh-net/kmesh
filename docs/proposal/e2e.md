@@ -19,7 +19,6 @@ creation-date: 2024-06-19
 
 This proposal mainly introduces the motivation for introducing E2E testing in Kmesh, the trade-offs of framework selection, the main workflow of framework and test case analysis.
 
-
 ### Motivation
 
 E2E testing is a software approach that tests an application's workflow from start to finish, simulating real user scenarios. The main purpose of E2E testing is to validate the system as a whole,ensuring that all the individual components and integrations work together seamlessly. It helps to identify any issues or defects that may arise from the interaction between different components of the application, ensuing the application works as expected under normal operating conditions.
@@ -60,13 +59,13 @@ Cons:
 
 4. Compile and build a new Kmesh image based on the code change of PR and push it to the local registry.
 
-NOTE: all the above steps are implemented by script and located at [here](/test/e2e/run_test.sh)
+NOTE: all the above steps are implemented by script and located at [/test/e2e/run_test.sh](/test/e2e/run_test.sh)
 
 5. Use built-in functions of istio integration framework to quickly deploy istio. At the same time, istio integration framework also provides good extensibility, which facilitates our deployment of Kmesh and a series of test applications.
 
-NOTE: this step is implemented at [here](/test/e2e/main_test.go), based on istio integration framework.
+NOTE: this step is implemented at [/test/e2e/main_test.go](/test/e2e/main_test.go), based on istio integration framework.
 
-6. Write various test cases based on a series of deployed test applications. We can write them [here](/test/e2e/baseline_test.go) or create a new file if necessary.
+6. Write various test cases based on a series of deployed test applications. We can write them [/test/e2e/baseline_test.go](/test/e2e/baseline_test.go) or create a new file if necessary.
 
 #### Test case analysis
 
@@ -101,4 +100,5 @@ For example, if we want to repeatedly run the E2E test locally, then except for 
 ```bash
 ./test/e2e/run_test.sh --only-run-tests
 ```
+
 NOTE: As the Kmesh E2E test framework is still evolving rapidly, please refer to the [official doc](https://kmesh.net/en/docs/developer/e2e-guide/) for more complete and fresh usage.

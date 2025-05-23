@@ -33,11 +33,11 @@ Flags:
 
   ```sh
   # curl http://localhost:15200/help
-  	/help: print list of commands
-  	/options: print config options
-  	/bpf/kmesh/maps: print bpf kmesh maps in kernel
-  	/controller/envoy: print control-plane in envoy cache
-  	/controller/kubernetes: print control-plane in kubernetes cache
+   /help: print list of commands
+   /options: print config options
+   /bpf/kmesh/maps: print bpf kmesh maps in kernel
+   /controller/envoy: print control-plane in envoy cache
+   /controller/kubernetes: print control-plane in kubernetes cache
   
   # example
   curl http://localhost:15200/bpf/kmesh/maps

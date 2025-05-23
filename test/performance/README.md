@@ -12,24 +12,22 @@ Fortio and dstat are used as performance test tools for Kmesh. Fortio is a power
 
 The directory contains a group of test case configuration and script files, which are used to test the performance of kmesh and industry software in the Kubernetes cluster environment.
 
-
-### Environment Prepare：
+### Environment Prepare
 
 - k8s cluster
 
 - install istio
 
-  - Download and install istio. For details, see (https://istio.io/latest/zh/docs/setup/getting-started/).
+  - Download and install istio. For details, see (<https://istio.io/latest/zh/docs/setup/getting-started/>).
 
   ```sh
-  $ curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.14.5 TARGET_ARCH=x86_64 sh -
-  $ cd istio-1.14.5
-  $ export PATH=$PWD/bin:$PATH
-  $ istioctl install 
+  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.14.5 TARGET_ARCH=x86_64 sh -
+  cd istio-1.14.5
+  export PATH=$PWD/bin:$PATH
+  istioctl install 
   ```
 
-
-### Test Case Description：
+### Test Case Description
 
 There are eight tests, each of which contains the following sub-items: config and shell directories;
 
@@ -81,7 +79,7 @@ Perform the test in the environment where K8S and istio have been deployed.
 - cilium test
 - istio(Kmesh) test
 
-##### istio(envoy) test
+#### istio(envoy) test
 
 istio-sidecar injection:
 
@@ -99,7 +97,7 @@ run:
 
 `sh long_test.sh`
 
-##### cilium test
+#### cilium test
 
 Install Cillium: (This test does not require the participation of the iStio.)
 
@@ -123,7 +121,7 @@ Run:
 
 `sh long_test.sh`
 
-##### kmesh test
+#### kmesh test
 
 Disable istio-sidecar injection:
 
@@ -141,7 +139,7 @@ start Kmesh:
 
 Refer to [Quick Start](../../README.md#quick-start)
 
-Run: 
+Run:
 
 `sh long_test.sh`
 

@@ -76,7 +76,7 @@ func TestEndpointSwap(t *testing.T) {
 	}
 
 	eps := c.GetAllEndpointsForService(1)
-	assert.Equal(t, len(eps), 2)
+	assert.Equal(t, 2, len(eps))
 
 	assert.Equal(t, 2, len(c.endpointKeys))
 	epKs := c.GetEndpointKeys(2)

@@ -4,8 +4,8 @@
 
 | 操作系统版本    | 内核版本 | 操作系统发布路径                            |
 | :-------------: | :------: | :-----------------------------------------: |
-| openEuler-24.03 |  6.6.0  | https://repo.openeuler.org/openEuler-24.03-LTS/ |
-| ubuntu-24.04 |  6.8.0  | https://releases.ubuntu.com/24.04/ |
+| openEuler-24.03 |  6.6.0  | <https://repo.openeuler.org/openEuler-24.03-LTS/> |
+| ubuntu-24.04 |  6.8.0  | <https://releases.ubuntu.com/24.04/> |
 
 ### 通过Kmesh增强内核支持所有特性
 
@@ -13,8 +13,8 @@
 
 |       操作系统版本        | 内核版本 |                       操作系统发布路径                       |
 | :-----------------------: | :------: | :----------------------------------------------------------: |
-|  openEuler-22.03-LTS-SP1  |  5.10.0  |     https://repo.openeuler.org/openEuler-22.03-LTS-SP1/      |
-| Ubuntu Server 22.04.3 LTS |  5.15.0  | https://releases.ubuntu.com/jammy/ |
+|  openEuler-22.03-LTS-SP1  |  5.10.0  |     <https://repo.openeuler.org/openEuler-22.03-LTS-SP1/>      |
+| Ubuntu Server 22.04.3 LTS |  5.15.0  | <https://releases.ubuntu.com/jammy/> |
 
 ### 原生支持部分特性
 
@@ -27,7 +27,7 @@
 
 **操作系统发布路径**:
 
-- openEuler: https://repo.openeuler.org/
-- Ubuntu: https://releases.ubuntu.com/
+- openEuler: <https://repo.openeuler.org/>
+- Ubuntu: <https://releases.ubuntu.com/>
 
 **注**：以上列出的操作系统版本是经过Kmesh社区验证过的，但并不意味着不支持其他操作系统版本，Kmesh社区会继续刷新支持的操作系统版本列表。

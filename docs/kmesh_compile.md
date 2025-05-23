@@ -18,7 +18,7 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
 
   Note: The `kmesh-build` image needs to match the version of the source code.
   
-  ```
+  ```bash
   docker pull ghcr.io/kmesh-net/kmesh-build:latest
   ```
 
@@ -83,6 +83,7 @@ The Kmesh needs to be compiled and built in the Linux environment with the Kmesh
   REPOSITORY                          TAG                                        IMAGE ID            CREATED             SIZE
   ghcr.io/kmesh-net/kmesh             v0.2.0                                     71aec5898c44        10 days ago         457MB
   ```
+
 ### Compilation cleanup
 
   ```sh

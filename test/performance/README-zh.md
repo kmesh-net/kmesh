@@ -12,8 +12,7 @@ Kmesh采用fortio、dstat做性能测试工具；fortio是一款功能强大的�
 
 目录下包含了一组测试用例配置与脚本文件，用于在k8s集群环境下测试kmesh以及业界软件的各项性能；
 
-
-### 环境准备：
+### 环境准备
 
 - 多节点k8s集群环境
 
@@ -22,14 +21,13 @@ Kmesh采用fortio、dstat做性能测试工具；fortio是一款功能强大的�
   - 下载并安装istio，参考[istio官方文档]( https://istio.io/latest/zh/docs/setup/getting-started/)
 
   ```sh
-  $ curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.14.5 TARGET_ARCH=x86_64 sh -
-  $ cd istio-1.14.5
-  $ export PATH=$PWD/bin:$PATH
-  $ istioctl install 
+  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.14.5 TARGET_ARCH=x86_64 sh -
+  cd istio-1.14.5
+  export PATH=$PWD/bin:$PATH
+  istioctl install 
   ```
 
-
-### 测试用例说明：
+### 测试用例说明
 
 共8项测试，每个子项目录中均包含有：
 
@@ -83,7 +81,7 @@ bookinfo作为后端情况下，测试不同线程情况下的系统资源使用
 - cilium测试
 - kmesh测试
 
-##### istio-envoy测试
+#### istio-envoy测试
 
 开启istio-sidecar注入
 
@@ -101,11 +99,11 @@ bookinfo作为后端情况下，测试不同线程情况下的系统资源使用
 
 `sh long_test.sh`
 
-##### cilium测试
+#### cilium测试
 
 安装cilium (此模块测试不需要istio参与)
 
-```
+```bash
 # https://github.com/cilium/cilium-cli/releases，下载cilium，解压安装
 
 cilium install --helm-set-string kubeProxyReplacement=strict --helm-set-string extraConfig enable-envoy-config=true
@@ -131,7 +129,7 @@ cilium install --helm-set-string kubeProxyReplacement=strict --helm-set-string e
 
 `sh long_test.sh`
 
-##### kmesh测试
+#### kmesh测试
 
 关闭istio-sidecar注入
 

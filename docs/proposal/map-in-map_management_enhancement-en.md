@@ -64,6 +64,3 @@ Map-in-map scaling process:
 The following is an example of map-in-map scale-in and scale-out:
 
 ![map-in-map-elastic](pics/map-in-map-elastic.svg)
-
-
-

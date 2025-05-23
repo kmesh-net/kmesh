@@ -12,9 +12,9 @@ kmesh项目中的eBPF内核态代码由cilium/ebpf项目进行管理，因此我
 
 > 参考cilium v1.17：
 >
-> eBPF单元测试文档：https://docs.cilium.io/en/v1.17/contributing/testing/bpf/#bpf-testing
+> eBPF单元测试文档：<https://docs.cilium.io/en/v1.17/contributing/testing/bpf/#bpf-testing>
 >
-> cilium/bpf/tests源码：https://github.com/cilium/cilium/tree/v1.17.0/bpf/tests
+> cilium/bpf/tests源码：<https://github.com/cilium/cilium/tree/v1.17.0/bpf/tests>
 
 #### 2.1.1 cilium/bpf/tests概述
 
@@ -48,14 +48,14 @@ long mock_fib_lookup(__maybe_unused void *ctx, struct bpf_fib_lookup *params,
 
 // 在测试代码中使用尾调用执行被测试BPF程序
 struct {
-	__uint(type, BPF_MAP_TYPE_PROG_ARRAY);
-	__uint(key_size, sizeof(__u32));
-	__uint(max_entries, 2);
-	__array(values, int());
+ __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+ __uint(key_size, sizeof(__u32));
+ __uint(max_entries, 2);
+ __array(values, int());
 } entry_call_map __section(".maps") = {
-	.values = {
-		[0] = &cil_xdp_entry,
-	},
+ .values = {
+  [0] = &cil_xdp_entry,
+ },
 };
 
 // 构建测试xdp包，可以使用PKTGEN宏达到相同的效果
@@ -65,44 +65,42 @@ static __always_inline int build_packet(struct __ctx_buff *ctx){}
 SETUP("xdp", "xdp_lb4_forward_to_other_node")
 int test1_setup(struct __ctx_buff *ctx)
 {
-	int ret;
+ int ret;
 
-	ret = build_packet(ctx);
-	if (ret)
-		return ret;
+ ret = build_packet(ctx);
+ if (ret)
+  return ret;
 
-	lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
-	lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
-			  BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
+ lb_v4_add_service(FRONTEND_IP, FRONTEND_PORT, IPPROTO_TCP, 1, 1);
+ lb_v4_add_backend(FRONTEND_IP, FRONTEND_PORT, 1, 124,
+     BACKEND_IP, BACKEND_PORT, IPPROTO_TCP, 0);
 
-	/* Jump into the entrypoint */
-	tail_call_static(ctx, entry_call_map, 0);
-	/* Fail if we didn't jump */
-	return TEST_ERROR;
+ /* Jump into the entrypoint */
+ tail_call_static(ctx, entry_call_map, 0);
+ /* Fail if we didn't jump */
+ return TEST_ERROR;
 }
 
 // 检查测试结果
 CHECK("xdp", "xdp_lb4_forward_to_other_node")
 int test1_check(__maybe_unused const struct __ctx_buff *ctx)
 {
-	test_init();
+ test_init();
 
-	void *data = (void *)(long)ctx->data;
-	void *data_end = (void *)(long)ctx->data_end;
+ void *data = (void *)(long)ctx->data;
+ void *data_end = (void *)(long)ctx->data_end;
 
-	if (data + sizeof(__u32) > data_end)
-		test_fatal("status code out of bounds");
+ if (data + sizeof(__u32) > data_end)
+  test_fatal("status code out of bounds");
      
      //...
 
-	test_finish();
+ test_finish();
 }
 
 ```
 
-
 #### 2.1.3 cilium/bpf/tests测试框架设计
-
 
 Cilium的eBPF测试框架以`common.h`为核心，该头文件提供了测试所需的基础设施、宏和函数：
 
@@ -137,7 +135,6 @@ Cilium的eBPF测试框架以`common.h`为核心，该头文件提供了测试所
 - **TEST_FAIL (2)**: 测试失败
 - **TEST_SKIP (3)**: 测试被跳过
 
-
 ##### 测试执行流程
 
 1. **测试启动**: 在项目根目录执行`make run_bpf_tests`命令
@@ -160,8 +157,8 @@ Cilium的eBPF测试框架以`common.h`为核心，该头文件提供了测试所
 Cilium项目使用[coverbee](https://github.com/cilium/coverbee)子项目来测量eBPF程序的代码覆盖率。这为eBPF程序提供了与用户态代码类似的覆盖率分析能力：
 
 - **工作原理**：
-     - 对eBPF字节码进行插桩，为每行代码分配唯一序号，并添加计数器逻辑：`cover_map[line_id]++`
-     - 当程序执行时，访问的每行代码对应的计数器会递增
+  - 对eBPF字节码进行插桩，为每行代码分配唯一序号，并添加计数器逻辑：`cover_map[line_id]++`
+  - 当程序执行时，访问的每行代码对应的计数器会递增
 
 - **覆盖率分析流程**：
      1. 插桩后的eBPF程序执行时收集执行次数数据
@@ -171,7 +168,7 @@ Cilium项目使用[coverbee](https://github.com/cilium/coverbee)子项目来测�
 
 ##### 数据交换流程
 
-```
+```text
 [eBPF Test Program] → [Encode Results] → [suite_result_map] → [Go Test Runner] → [Decode & Report]
 ```
 

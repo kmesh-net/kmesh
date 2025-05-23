@@ -74,8 +74,8 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-cluster"}, p.req.ResourceNames)
 		// send new eds subscribe to the new cluster with empty nonce
-		assert.Equal(t, p.lastNonce.edsNonce, "")
-		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus, core_v2.ApiStatus_WAITING)
+		assert.Equal(t, "", p.lastNonce.edsNonce)
+		assert.Equal(t, core_v2.ApiStatus_WAITING, p.Cache.ClusterCache.GetApiCluster(cluster.Name).ApiStatus)
 	})
 
 	t.Run("new cluster, cluster type is not eds", func(t *testing.T) {
@@ -97,7 +97,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
 		dnsClusters := <-p.DnsResolverChan
-		assert.Equal(t, len(dnsClusters), 1)
+		assert.Equal(t, 1, len(dnsClusters))
 		assert.Empty(t, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(cluster.GetName())
@@ -200,7 +200,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		err := p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
 		dnsClusters := <-p.DnsResolverChan
-		assert.Equal(t, len(dnsClusters), 1)
+		assert.Equal(t, 1, len(dnsClusters))
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[0].Name).ApiStatus, core_v2.ApiStatus_WAITING)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[1].Name).ApiStatus, core_v2.ApiStatus_WAITING)
 		assert.Equal(t, p.Cache.ClusterCache.GetApiCluster(multiClusters[2].Name).ApiStatus, core_v2.ApiStatus_NONE)
@@ -226,7 +226,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
 		dnsClusters = <-p.DnsResolverChan
-		assert.Equal(t, len(dnsClusters), 1)
+		assert.Equal(t, 1, len(dnsClusters))
 		assert.Equal(t, []string{"ut-cluster2", "new-ut-cluster"}, p.Cache.edsClusterNames)
 		wantHash := hash.Sum64String(anyCluster.String())
 		actualHash := p.Cache.ClusterCache.GetCdsHash(newCluster.GetName())
@@ -262,7 +262,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		err = p.handleCdsResponse(rsp)
 		assert.NoError(t, err)
 		dnsClusters := <-p.DnsResolverChan
-		assert.Equal(t, len(dnsClusters), 0)
+		assert.Equal(t, 0, len(dnsClusters))
 		newCluster1 := &config_cluster_v3.Cluster{
 			Name: "new-ut-cluster1",
 			ClusterDiscoveryType: &config_cluster_v3.Cluster_Type{
@@ -281,7 +281,7 @@ func TestHandleCdsResponse(t *testing.T) {
 		assert.NoError(t, err)
 
 		dnsClusters = <-p.DnsResolverChan
-		assert.Equal(t, len(dnsClusters), 0)
+		assert.Equal(t, 0, len(dnsClusters))
 		// only cluster2 is eds typed
 		assert.Equal(t, []string{"new-ut-cluster1"}, p.Cache.edsClusterNames)
 		wantHash1 := hash.Sum64String(anyCluster1.String())
@@ -539,8 +539,8 @@ func TestHandleLdsResponse(t *testing.T) {
 		actualHash := p.Cache.ListenerCache.GetLdsHash(listener.GetName())
 		assert.Equal(t, wantHash, actualHash)
 		assert.Equal(t, []string{"ut-rds"}, p.req.ResourceNames)
-		assert.Equal(t, p.lastNonce.ldsNonce, "nonce")
-		assert.Equal(t, p.req.ResponseNonce, "")
+		assert.Equal(t, "nonce", p.lastNonce.ldsNonce)
+		assert.Equal(t, "", p.req.ResponseNonce)
 	})
 
 	t.Run("listenerCache already has resource and it has not been changed", func(t *testing.T) {

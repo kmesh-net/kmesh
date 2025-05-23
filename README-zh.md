@@ -21,31 +21,31 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 ### Kmesh关键特性
 
-**平滑兼容**
+#### 平滑兼容
 
 - 应用透明的流量治理
 - 自动对接Istiod
 
-**高性能**
+#### 高性能
 
 - 网格转发时延**60%↓**
 - 服务启动性能**40%↑**
 
-**低开销**
+#### 低开销
 
 - 网格底座开销**70%↓**
 
-**安全隔离**
+#### 安全隔离
 
 - ebpf虚机安全
 - cgroup级编排隔离
 
-**全栈可视化**
+#### 全栈可视化
 
 - 端到端指标采集*
 - 主流观测平台对接*
 
-**开放生态**
+#### 开放生态
 
 - 支持XDS协议标准
 
@@ -55,7 +55,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
 - 前提条件
 
-  - Kmesh当前是对接Istio控制面，启动Kmesh前，需要提前安装好Istio的控制面软件；具体安装步骤参考：https://istio.io/latest/docs/setup/getting-started/#install
+  - Kmesh当前是对接Istio控制面，启动Kmesh前，需要提前安装好Istio的控制面软件；具体安装步骤参考：<https://istio.io/latest/docs/setup/getting-started/#install>
   - 完整的Kmesh能力依赖对OS的增强，需确认执行环境是否在Kmesh支持的[OS列表](docs/kmesh_support-zh.md)中，对于其他OS环境需要参考[Kmesh编译构建](docs/kmesh_compile-zh.md)；也可以使用[兼容模式的kmesh镜像](build/docker/README.md#兼容模式镜像)在其他OS环境中进行尝试，关于kmesh各种镜像的说明请参考[详细文档](build/docker/README.md)。
   
 - Docker镜像：
@@ -69,9 +69,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   - 针对所有OS版本：
 
     为了兼容不同的OS版本，Kmesh提供在线编译并运行的镜像。在Kmesh被部署之后，它会基于宿主机的内核能力自动选择运行的Kmesh特性，从而满足一个镜像在不同OS环境运行的要求。
-    
-    
-    
+
     考虑到kmesh使用的通用性，我们也发布了用于kmesh编译构建的镜像。用户可以基于此镜像方便的制作出可以在当前OS版本上运行的kmesh镜像。默认命名为ghcr.io/kmesh-net/kmesh:latest，用户可自行调整，参考[Kmesh编译构建](docs/kmesh_compile-zh.md#docker image编译)
   
     ```bash
@@ -131,7 +129,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
   - 安装waypoint
 
-    ```
+    ```bash
     [root@ ~]# istioctl x waypoint apply --service-account default
     [root@ ~]# kubectl get pods 
     NAME                                      READY   STATUS         RESTARTS        AGE
@@ -142,8 +140,8 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
   
   - 用kmesh自定义的镜像替换waypoint的原生镜像
 
-    ```
-    [root@ ~]# kubectl get gateway
+    ```bash
+    kubectl get gateway
     NAME      CLASS            ADDRESS         PROGRAMMED   AGE
     default   istio-waypoint   10.96.143.232   True         5m7s
     ```

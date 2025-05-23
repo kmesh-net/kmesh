@@ -82,7 +82,7 @@ struct tcp_probe_info {
     __u32 segs_out;      /* RFC4898 tcpEStatsPerfSegsOut
                           * The total number of segments sent.
                           */
-    __u32 lost_out;      /* Lost packets			*/
+    __u32 lost_out;      /* Lost packets   */
 };
 
 // ringbuf

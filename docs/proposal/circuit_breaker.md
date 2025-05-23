@@ -30,6 +30,7 @@ Main target:
 The circuit breaker mechanism is typically used to prevent the spread of failures between services, safeguarding system stability and avoiding system crashes or cascading failures caused by a large number of requests. Kmesh currently does not implement the circuit breaker mechanism.
 
 Common scenarios that trigger circuit breakers include:
+
 + High error rate in the service
 + High latency in the service
 + Exhaustion of service resources
@@ -176,31 +177,32 @@ Here, the key consists of two parts: `netns_cookie` and `cluster_id`. The former
 ```c
 // Flush flushes the cluster to bpf map.
 func (cache *ClusterCache) Flush() {
-	cache.mutex.Lock()
-	defer cache.mutex.Unlock()
-	for name, cluster := range cache.apiClusterCache {
-		if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
-			err := maps_v2.ClusterUpdate(name, cluster)
-			if err == nil {
-				// reset api status after successfully updated
-				cluster.ApiStatus = core_v2.ApiStatus_NONE
-				cluster.Id = cache.hashName.StrToNum(name)
-			} else {
-				log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
-			}
-		} else if cluster.GetApiStatus() == core_v2.ApiStatus_DELETE {
-			err := maps_v2.ClusterDelete(name)
-			if err == nil {
-				delete(cache.apiClusterCache, name)
-				delete(cache.resourceHash, name)
-				cache.hashName.Delete(name)
-			} else {
-				log.Errorf("cluster %s delete failed: %v", name, err)
-			}
-		}
-	}
+ cache.mutex.Lock()
+ defer cache.mutex.Unlock()
+ for name, cluster := range cache.apiClusterCache {
+  if cluster.GetApiStatus() == core_v2.ApiStatus_UPDATE {
+   err := maps_v2.ClusterUpdate(name, cluster)
+   if err == nil {
+    // reset api status after successfully updated
+    cluster.ApiStatus = core_v2.ApiStatus_NONE
+    cluster.Id = cache.hashName.StrToNum(name)
+   } else {
+    log.Errorf("cluster %s %s flush failed: %v", name, cluster.ApiStatus, err)
+   }
+  } else if cluster.GetApiStatus() == core_v2.ApiStatus_DELETE {
+   err := maps_v2.ClusterDelete(name)
+   if err == nil {
+    delete(cache.apiClusterCache, name)
+    delete(cache.resourceHash, name)
+    cache.hashName.Delete(name)
+   } else {
+    log.Errorf("cluster %s delete failed: %v", name, err)
+   }
+  }
+ }
 }
 ```
+
 You can see that we introduce a hashName to map string to integer.
 
 Here we also add a new field `id` to cluster:
@@ -342,6 +344,7 @@ We can monitor socket operations in eBPF "sockops" hooks. First, we judge whethe
     ```
 
 We can get the circuit breaker information from cluster data:
+
 ```c
 static inline Cluster__CircuitBreakers *get_cluster_circuit_breakers(const char *cluster_name)
 {
@@ -357,6 +360,7 @@ static inline Cluster__CircuitBreakers *get_cluster_circuit_breakers(const char 
     return cbs;
 }
 ```
+
 Then, we can get all the thresholds from `Cluster__CircuitBreakers`, and determine whether the circuit breaker should open.
 
 #### Implement the outlier detection function

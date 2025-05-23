@@ -17,9 +17,9 @@ When the pods on the current node communicate with each other over the network, 
 
 During the sendmsg process, an eBPF program (type BPF_PROG_TYPE_SK_MSG) is attached to intercept the message sending action. The program searches the Sockmap table based on the current socket information, associates it with the socket information of the destination party, and directly redirects the traffic to the receiving queue of the destination socket.
 
-### How to find destination 
+### How to find destination
 
-The key information in the xDS configuration is converted and stored as eBPF maps, mainly involving kmesh_listener, kmesh_filter_chain, kmesh_cluster and other eBPF maps. The method of finding the destination IP is to find it through the collaboration of different eBPF programs. 
+The key information in the xDS configuration is converted and stored as eBPF maps, mainly involving kmesh_listener, kmesh_filter_chain, kmesh_cluster and other eBPF maps. The method of finding the destination IP is to find it through the collaboration of different eBPF programs.
 
 ![alt text](pics/dataplane_forward.png)
 

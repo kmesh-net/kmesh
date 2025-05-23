@@ -29,90 +29,95 @@ Kmesh当前不支持在Server端短接sidecar（envoy）并与使用sidecar（en
 
 在同一个集群范围内，可能会部署多个网格数据面，Kmesh需要与无网格、其他类型网格代理的namespace中的Pod进行通讯，需要保证其中的Pod之间通信结果正常。
 
-## 用户场景一：Kmesh代理pod与普通pod进行通讯分析：
+## 用户场景一：Kmesh代理pod与普通pod进行通讯分析
 
 场景描述
 
 - 纳管Pod上没有envoy
-	- 用户指定namespace使用Kmesh作为数据面
-		- 新启动Pod通过Kmesh编排寻址访问server端
-		- 存量Pod不受影响，仍使用k8s原生svc寻址访问server端
-	- 用户指定namespace不再使用Kmesh作为数据面
-		- 新启动Pod通过k8s原生svc进行访问server端
-		- 存量Pod不受影响，Kmesh代理的容器，仍通过Kmesh编排后访问server端
+  - 用户指定namespace使用Kmesh作为数据面
+    - 新启动Pod通过Kmesh编排寻址访问server端
+    - 存量Pod不受影响，仍使用k8s原生svc寻址访问server端
+  - 用户指定namespace不再使用Kmesh作为数据面
+    - 新启动Pod通过k8s原生svc进行访问server端
+    - 存量Pod不受影响，Kmesh代理的容器，仍通过Kmesh编排后访问server端
 
 ![](./pics/client_with_noenvoy.png)
 
 - 纳管Pod上有envoy
-	- 用户指定namespace使用Kmesh作为数据面，此namespace、访问的svc中对应的pod中都安装了envoy
-		- 新启动的Pod通过Kmesh编排寻址并短接envoy访问server端
-		- 存量Pod不受影响，通过envoy进行编排访问server端
-	- 用户指定namespace不再使用Kmesh作为数据面，此namespace、访问的svc中对应的pod中都安装了envoy
-		- 新启动Pod通过envoy编排后访问server端
-		- 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排寻址并短接envoy来访问server端
+  - 用户指定namespace使用Kmesh作为数据面，此namespace、访问的svc中对应的pod中都安装了envoy
+    - 新启动的Pod通过Kmesh编排寻址并短接envoy访问server端
+    - 存量Pod不受影响，通过envoy进行编排访问server端
+  - 用户指定namespace不再使用Kmesh作为数据面，此namespace、访问的svc中对应的pod中都安装了envoy
+    - 新启动Pod通过envoy编排后访问server端
+    - 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排寻址并短接envoy来访问server端
 
 ![](./pics/client_with_envoy.png)
 
-## 用户场景二：Kmesh纳管pod与Kmesh数据面中的pod进行通讯分析：
+## 用户场景二：Kmesh纳管pod与Kmesh数据面中的pod进行通讯分析
 
 场景描述
 当前Kmesh作为服务端代理不对连接至服务连接做任何操作，故连接场景与用户场景一一致
 
 - 纳管Pod上没有envoy
-	- 用户指定namespace使用Kmesh作为数据面，此namespace中未安装envoy，访问的svc中Node安装了Kmesh
-		- 新启动的Pod通过Kmesh编排寻址访问server端，server侧Kmesh无处理，直通server服务
-		- 存量Pod不受影响，通过k8s原生svc进行访问server端，server侧Kmesh无处理，直通server服务
-	- 用户指定namespace不再使用Kmesh作为数据面，此namespace中未安装envoy，访问的svc中Node安装了Kmesh
-		- 新启动Pod通过k8s原生svc进行访问server端，server侧Kmesh无处理，直通server服务
-		- 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排后访问server端，server侧Kmesh无处理，直通server服务
+  - 用户指定namespace使用Kmesh作为数据面，此namespace中未安装envoy，访问的svc中Node安装了Kmesh
+    - 新启动的Pod通过Kmesh编排寻址访问server端，server侧Kmesh无处理，直通server服务
+    - 存量Pod不受影响，通过k8s原生svc进行访问server端，server侧Kmesh无处理，直通server服务
+  - 用户指定namespace不再使用Kmesh作为数据面，此namespace中未安装envoy，访问的svc中Node安装了Kmesh
+    - 新启动Pod通过k8s原生svc进行访问server端，server侧Kmesh无处理，直通server服务
+    - 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排后访问server端，server侧Kmesh无处理，直通server服务
 
 ![](./pics/client_with_noenvoy.png)
 
 - 纳管Pod上有envoy
-	- 用户指定namespace使用Kmesh作为数据面，此namespace、访问的svc中Node安装了Kmesh
-		- 新启动的Pod通过Kmesh编排寻址并短接envoy访问server端，server侧Kmesh无处理，直通server服务
-		- 存量Pod不受影响，通过envoy进行编排访问server端，server侧Kmesh无处理，直通server服务
-	- 用户指定namespace不再使用Kmesh作为数据面，此namespace、访问的svc中Node安装了Kmesh
-		- 新启动Pod通过envoy编排后访问server端，server侧Kmesh无处理，直通server服务
-		- 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排寻址并短接envoy来访问server端，server侧Kmesh无处理，直通server服务
+  - 用户指定namespace使用Kmesh作为数据面，此namespace、访问的svc中Node安装了Kmesh
+    - 新启动的Pod通过Kmesh编排寻址并短接envoy访问server端，server侧Kmesh无处理，直通server服务
+    - 存量Pod不受影响，通过envoy进行编排访问server端，server侧Kmesh无处理，直通server服务
+  - 用户指定namespace不再使用Kmesh作为数据面，此namespace、访问的svc中Node安装了Kmesh
+    - 新启动Pod通过envoy编排后访问server端，server侧Kmesh无处理，直通server服务
+    - 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排寻址并短接envoy来访问server端，server侧Kmesh无处理，直通server服务
 
 ![](./pics/client_with_envoy.png)
 
-## 用户场景三：Kmesh纳管pod与sidecar(envoy)数据面中的pod进行通讯分析：
+## 用户场景三：Kmesh纳管pod与sidecar(envoy)数据面中的pod进行通讯分析
 
 场景描述
 
 - 纳管Pod上没有envoy
-	- 用户指定namespace使用Kmesh作为数据面，此namespace中未安装envoy，访问的svc中pod安装了envoy
-		- 新启动的Pod通过Kmesh编排寻址访问server端，server由envoy进行接收纳管
-		- 存量Pod不受影响，通过k8s原生svc进行访问server端，server由envoy进行接收纳管
-	- 用户指定namespace不再使用Kmesh作为数据面，此namespace中未安装envoy，访问的svc中pod安装了envoy
-		- 新启动Pod通过k8s原生svc进行访问server端，server由envoy进行接收纳管
-		- 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排后访问server端，server由envoy进行接收纳管
+  - 用户指定namespace使用Kmesh作为数据面，此namespace中未安装envoy，访问的svc中pod安装了envoy
+    - 新启动的Pod通过Kmesh编排寻址访问server端，server由envoy进行接收纳管
+    - 存量Pod不受影响，通过k8s原生svc进行访问server端，server由envoy进行接收纳管
+  - 用户指定namespace不再使用Kmesh作为数据面，此namespace中未安装envoy，访问的svc中pod安装了envoy
+    - 新启动Pod通过k8s原生svc进行访问server端，server由envoy进行接收纳管
+    - 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排后访问server端，server由envoy进行接收纳管
 
 ![](./pics/client_with_noenvoy_server_with_envoy.png)
 
 - 纳管Pod上有envoy
-	- 用户指定namespace使用Kmesh作为数据面，此namespace、访问的svc中对应的pod中都安装了envoy
-		- 新启动的Pod通过Kmesh编排寻址并短接envoy访问server端，server由envoy进行接收纳管
-		- 存量Pod不受影响，通过envoy进行编排访问server端，server由envoy进行接收纳管
-	- 用户指定namespace不再使用Kmesh作为数据面，此namespace、访问的svc中对应的pod中都安装了envoy
-		- 新启动Pod通过envoy编排后访问server端，server由envoy进行接收纳管
-		- 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排寻址并短接envoy来访问server端，server由envoy进行接收纳管
+  - 用户指定namespace使用Kmesh作为数据面，此namespace、访问的svc中对应的pod中都安装了envoy
+    - 新启动的Pod通过Kmesh编排寻址并短接envoy访问server端，server由envoy进行接收纳管
+    - 存量Pod不受影响，通过envoy进行编排访问server端，server由envoy进行接收纳管
+  - 用户指定namespace不再使用Kmesh作为数据面，此namespace、访问的svc中对应的pod中都安装了envoy
+    - 新启动Pod通过envoy编排后访问server端，server由envoy进行接收纳管
+    - 存量Pod不受影响，Kmesh纳管的容器，仍通过Kmesh编排寻址并短接envoy来访问server端，server由envoy进行接收纳管
 
 ![](./pics/client_with_envoy_server_with_envoy.png)
 
-
 ## usecase
+
 ### 使用接口设计
 
-	# 对指定的namespace来启用Kmesh
-	kubectl label namespace xxx istio.io/dataplane-mode=Kmesh
-	# 对指定的namespace来关闭Kmesh
-	kubectl label namespace xxx istio.io/dataplane-mode-
+# 对指定的namespace来启用Kmesh
 
-## 功能实现原理：
+ kubectl label namespace xxx istio.io/dataplane-mode=Kmesh
+
+# 对指定的namespace来关闭Kmesh
+
+ kubectl label namespace xxx istio.io/dataplane-mode-
+
+## 功能实现原理
+
 ### 组件设计
+
 要实现上述功能，从用户指定对特定namespace启用Kmesh到整体功能生效，涉及的组件如下图
 
 ![](./pics/multiple_dataplane_design.png)
@@ -123,54 +128,54 @@ Kmesh中需要进行修改的有如下组件：
 
 daemon需要对cni插件进行管理，将Kmesh启动、cni pod重启时，将cni插件调用信息写入到/etc/cni/net.d的对应conflist中。calico的conflist的格式如下：
 
-	{
-		"name": "k8s-pod-network",
-		"cniVersion": "0.3.1",
-		"plugins": [
-			{
-				"type": "calico",
-				"log_level": "info",
-				...
-			},
-			{
-				"type": "portmap",
-				...
-			},
-			...
-			// 新增kmesh的cni-plugin
-			{
-				"type": "Kmesh-cni",
-			}
-		]
-	}
+ {
+  "name": "k8s-pod-network",
+  "cniVersion": "0.3.1",
+  "plugins": [
+   {
+    "type": "calico",
+    "log_level": "info",
+    ...
+   },
+   {
+    "type": "portmap",
+    ...
+   },
+   ...
+   // 新增kmesh的cni-plugin
+   {
+    "type": "Kmesh-cni",
+   }
+  ]
+ }
 
 flannel的conflist格式如下：
 
-	{
-		"name": "cbr0",
-		"cniVersion": "0.3.1",
-		"plugins": [
-			{
-				"type": "flannel",
-				...
-			},
-			...
-			// 新增kmesh的cni-plugin
-			{
-				"type": "Kmesh-cni",
-			}
-		]
-	}
+ {
+  "name": "cbr0",
+  "cniVersion": "0.3.1",
+  "plugins": [
+   {
+    "type": "flannel",
+    ...
+   },
+   ...
+   // 新增kmesh的cni-plugin
+   {
+    "type": "Kmesh-cni",
+   }
+  ]
+ }
 
 daemon变更如下：
 
 - 在kmesh使能时写入kemsh plugin配置到cni conflist中
 
-	在kmesh-daemon启动时，自动将cni plugin配置`{"type":"kmesh-cni"}`写入到/etc/cni/net.d/目录中的配置文件(.conflist结尾)中去
+ 在kmesh-daemon启动时，自动将cni plugin配置`{"type":"kmesh-cni"}`写入到/etc/cni/net.d/目录中的配置文件(.conflist结尾)中去
 
-- 在kmesh除能时从cni conflist中清理kmesh plugin配置 
+- 在kmesh除能时从cni conflist中清理kmesh plugin配置
 
-	在kmesh-daemon退出时，自动将cni plugin配置`{"type":"kmesh-cni"}`从/etc/cni/net.d/目录中的配置文件(.conflist结尾)中删除
+ 在kmesh-daemon退出时，自动将cni plugin配置`{"type":"kmesh-cni"}`从/etc/cni/net.d/目录中的配置文件(.conflist结尾)中删除
 
 #### cni-plugin
 
@@ -182,11 +187,11 @@ cni用于在集群创建新的Pod时，判断该Pod是否属于打上Kmesh标签
 
 收包路径上所有数据包短接envoy:
 
-	iptables -t nat -I 1 PREROUTING -j RETURN
+ iptables -t nat -I 1 PREROUTING -j RETURN
 
 发包路径上所有数据包短接envoy：
-	
-	iptables -t nat -I 1 OUTPUT -j RETURN
+
+ iptables -t nat -I 1 OUTPUT -j RETURN
 
 #### ebpf cgroup/connect4
 
@@ -202,4 +207,4 @@ connect4，获取当前进程的classid，如果为0x1000，则Kmesh ebpf进行�
 
 - 日志设计
 
-	- 每次Pod创建时，如果是指定namespace中的Pod启动执行失败，cniplugin日志会记录在/var/run/kmesh文件夹下
+  - 每次Pod创建时，如果是指定namespace中的Pod启动执行失败，cniplugin日志会记录在/var/run/kmesh文件夹下

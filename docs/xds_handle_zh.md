@@ -27,6 +27,7 @@ Delta xDS 返回更新和删除的资源，与 StoW 的区别在于，删除的�
 ![xDS 缓存流程图](./pics/xds_cache.svg)
 
 详细的工作流程如上图所示：
+
 1. xDS 处理器接收到响应后，ADS 加载器将与 xDS 缓存进行比较，以将资源分类为三类：删除（Removed）/更新（Updated）/未更改（Unchanged）。
 2. 将更新的资源存储在 xDS 缓存中，将其 API 状态设置为 `ApiStatus_UPDATE`。
 3. 将删除的资源的 API 状态更新为 `ApiStatus_DELETE`。

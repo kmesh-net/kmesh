@@ -63,7 +63,6 @@ podInformer := informerFactory.Core().V1().Pods()
 
 ### Scene 1: sidecar
 
-
 ![alt text](pics/sidecar_traffic_path.svg)
 
 The path represented by the black arrow in the above figure is the traffic path before the bypass function is enabled, and the blue arrow is the traffic path after the bypass function is enabled. The difference is that after the bypass function is enabled, two will be added to the top layer of the iptables rules by kmesh mda. The rules are:
@@ -85,4 +84,3 @@ In this scenario, the path represented by the blue arrow in the above figure is 
 
 - The current bypass function only shortens the network service traffic of a single pod, rather than the network service on the entire traffic path. To address the issue that one end of the network service is short circuited, causing the network service on the other end to be unable to parse the encrypted messages received. Before enabling the bypass function, it is necessary to configure the mesh service to send messages in plaintext format
 - Currently, bypass will short-circuit the inbound and outbound traffic of a single pod. Later, the inboundand outbound traffic will be subdivided. For example, only the outbound direction traffic will be short-circuited.
-

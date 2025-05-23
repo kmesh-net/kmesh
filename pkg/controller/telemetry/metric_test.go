@@ -646,9 +646,9 @@ func TestBuildConnectionMetricsToPrometheus(t *testing.T) {
 			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnPacketLost, tt.want[2])
 			assert.Equal(t, m.connectionMetricCache[tt.args.labels].ConnTotalRetrans, tt.want[3])
 			if tt.id == 1 {
-				assert.Equal(t, len(deleteConnection), 0)
+				assert.Equal(t, 0, len(deleteConnection))
 			} else {
-				assert.Equal(t, len(deleteConnection), 1)
+				assert.Equal(t, 1, len(deleteConnection))
 			}
 		})
 	}

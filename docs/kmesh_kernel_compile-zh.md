@@ -17,8 +17,8 @@ Kmesh项目仓中，针对主流内核版本已归档了对应的patch；
 kernel/
 ├── ko
 ├── ko_src
-└── patches		# 内核增强特性补丁
-    └── 5.10.0	# 基于linux 5.10制作的增强patch
+└── patches  # 内核增强特性补丁
+    └── 5.10.0 # 基于linux 5.10制作的增强patch
         └── 0001-add-helper-strnstr-strncmp-parse_header_msg.patch
         └── 0002-add-TCP_ULP-support-in-bpf_getset_sockopt.patch
 ```
@@ -131,8 +131,7 @@ known_types = {
 [root@dev rpmbuild]# rpmbuild --noclean --noprep --define="_topdir /home/test/kmesh_kernel/root/rpmbuild" -bb SPECS/kernel.spec
 ```
 
-
-### Kmesh 新增的patch修改了include/uapi/linux/bpf.h， 和libbpf中的中的bpf.h头文件不再一致。
+### Kmesh 新增的patch修改了include/uapi/linux/bpf.h， 和libbpf中的中的bpf.h头文件不再一致
 
 A:
 
@@ -144,4 +143,3 @@ A:
 #当然也可以不备份，后续恢复采用重新安装libbpf rpm包的方式
 
 ```
-

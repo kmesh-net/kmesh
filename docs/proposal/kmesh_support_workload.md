@@ -2,7 +2,7 @@
 
 Currently, kmesh has implemented traffic governance functions for L4 and L7 through XDS protocol. However, in some scenarios, microservice applications focus more on L4 traffic governance, and L7 governance can be deployed as needed. The Istio community has launched a Workload model to provide lightweight L4 traffic governance functions, which Kmesh needs to consider supporting.
 
-Complete Workload Model reference link：https://pkg.go.dev/istio.io/istio/pkg/workloadapi
+Complete Workload Model reference link：<https://pkg.go.dev/istio.io/istio/pkg/workloadapi>
 
 ## Workload fields related to L4 traffic governance
 
@@ -103,7 +103,7 @@ typedef struct
 // endpoint map
 typedef struct
 {
-    __u32 service_id;	 // service id, through <namespace>/<hostname> string convert to uint32 variable
+    __u32 service_id;  // service id, through <namespace>/<hostname> string convert to uint32 variable
     __u32 backend_index; // backend index，The relationship of backend_index and endpoint_count：if endpoint_count is 3，then backend_index can be 1/2/3;
 } endpoint_key;
 
@@ -134,10 +134,9 @@ typedef struct
   <img src="./pics/traffic_governance.svg" />
 </p>
 
-**traffic governance process**
+### traffic governance process
 
 - Search the frontend map based on the IP accessed by the client, find the corresponding upstream_id, and then use this upstream_id to search for the service map and backend map:
   - If the corresponding service is found in service map, and get the endpoint_count of the backend Pod in the service. Then, search the endpoint map based on the service_id and the random backend_index generated based on the count to find the corresponding backend_uid. Finally, use the backenduid to find the IP and Port of the backend.
   - If the corresponding backend is found in backend map, it is a directly pod access.
 - Additionally, if the service or backend contains a waypoint, it will redirect to the waypoint.
-

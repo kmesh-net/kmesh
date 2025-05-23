@@ -3,10 +3,10 @@
 function install_tool() {
 	tool=${1}
 	if command -v apt >/dev/null; then
-		sudo apt-get install -y $tool
+		sudo apt-get install -y "$tool"
 	elif command -v yum >/dev/null; then
 		# yum install
-		sudo yum install -y $tool
+		sudo yum install -y "$tool"
 	fi
 }
 
@@ -26,8 +26,12 @@ install_clang_format
 
 find ./ -name "*.[ch]" | grep -v pb-c | xargs clang-format -i
 
-gofmt -w -s ../
+gofmt -w -s ./
 
 install_shell_format
 
-shfmt -w -s -ln=bash ../
+shfmt -w -s -ln=bash ./
+
+if [ -z "$GITHUB_ACTIONS" ]; then
+	docker run -w /workspace -v "$PWD":/workspace davidanson/markdownlint-cli2:v0.18.1 "**/*.md" "--fix" "#docs/ctl"
+fi

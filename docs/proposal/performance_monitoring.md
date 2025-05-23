@@ -45,7 +45,7 @@ This is because Kmesh needs to get metrics from the kernel and sent them to the 
 
 So we need to define a bpf map that contains all the required metrics:
 
-```
+```c
 struct operation_usage_data {
     __u64 start_time;
     __u64 end_time;
@@ -84,4 +84,3 @@ Provided by cAdvisor, use the `container_memory_usage_bytes` and `container_cpu_
 ![](pics/kmesh_daemon_monitoring.jpg)
 
 ![](pics/performance_monitoring.jpg)
-

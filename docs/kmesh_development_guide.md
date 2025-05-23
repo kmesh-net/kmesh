@@ -97,11 +97,11 @@ APL 2.0 / GPL
 
 ## 3.1、USE-CASE图
 
-#### 3.1.1 Kmesh部署
+### 3.1.1 Kmesh部署
 
 ![image-20221106223938534](pics/design/use_case_kmesh_depoly.png)
 
-#### 3.1.2 Kmesh治理规则下发
+### 3.1.2 Kmesh治理规则下发
 
 ![use_case_kmesh-xds](pics/design/use_case_kmesh-xds.png)
 
@@ -118,7 +118,7 @@ Kmesh总体逻辑视图：
 ```shell
 [root@dev Kmesh]# tree -L 2
 .
-├── api					# Kmesh对外提供的proto模型层，兼容xds协议
+├── api     # Kmesh对外提供的proto模型层，兼容xds协议
 │   ├── admin
 │   ├── cluster
 │   ├── core
@@ -127,37 +127,37 @@ Kmesh总体逻辑视图：
 │   ├── listener
 │   ├── Makefile
 │   ├── route
-│   └── v2-c						# proto
-├── bpf					# ebpf相关特性
-│   ├── deserialization_to_bpf_map	# kmesh规则配置api
+│   └── v2-c      # proto
+├── bpf     # ebpf相关特性
+│   ├── deserialization_to_bpf_map # kmesh规则配置api
 │   ├── include
-│   └── kmesh						# kmesh流量编排模块，通过ebpf实现随流编排能力
-├── build				# 构建相关
-│   ├── kmesh.service				# service配置文件
-│   ├── kmesh-start-pre.sh			# service启动前处理脚本
-│   ├── kmesh-stop-post.sh			# service停止后处理脚本
-│   └── kmesh-docker_file			# kmesh docker file
-│   └── kmesh-daemonset.yaml		# kmesh daemonset yaml
-├── build.sh			# 编译脚本
-├── config				# Kmesh启动配置文件
+│   └── kmesh      # kmesh流量编排模块，通过ebpf实现随流编排能力
+├── build    # 构建相关
+│   ├── kmesh.service    # service配置文件
+│   ├── kmesh-start-pre.sh   # service启动前处理脚本
+│   ├── kmesh-stop-post.sh   # service停止后处理脚本
+│   └── kmesh-docker_file   # kmesh docker file
+│   └── kmesh-daemonset.yaml  # kmesh daemonset yaml
+├── build.sh   # 编译脚本
+├── config    # Kmesh启动配置文件
 │   └── kmesh.json
-├── daemon				# kmesh-daemon主模块
+├── daemon    # kmesh-daemon主模块
 │   ├── main.go
 │   └── manager
-├── depends				# kmesh外部编译依赖文件，主要归档了新增bpf-helper的部分
+├── depends    # kmesh外部编译依赖文件，主要归档了新增bpf-helper的部分
 │   └── include
-├── docs				# 文档相关
-├── examples			# 
+├── docs    # 文档相关
+├── examples   # 
 │   ├── api-v2-config
 │   ├── envoy-config-bootstrap
 │   ├── kernel
 │   └── kubernetes-openeuler-istio
 ├── go.mod
 ├── go.sum
-├── kernel				# kmesh-runtime相关模块
+├── kernel    # kmesh-runtime相关模块
 │   ├── ko
-│   ├── ko_src			# kmesh.ko
-│   └── patches			# 内核增强特性：延迟建链、bpf hook、bpf-helper等
+│   ├── ko_src   # kmesh.ko
+│   └── patches   # 内核增强特性：延迟建链、bpf hook、bpf-helper等
 ├── kmesh.spec
 ├── LICENSE
 ├── Makefile
@@ -167,25 +167,25 @@ Kmesh总体逻辑视图：
 │   ├── bpf.print.mk
 │   ├── bpf.vars.mk
 │   └── pkg-config.sh
-├── pkg					# kmesh-daemon子模块
-│   ├── bpf							# bpf-manager模块，负责bpf程序加卸载等
-│   ├── cache						# 控制面proto配置解析模块
-│   ├── controller					# 控制面对接模块
-│   ├── logger						# 日志模块
-│   ├── nets						# 网络模块，建联等基础接口
-│   └── options						# 参数解析模块
+├── pkg     # kmesh-daemon子模块
+│   ├── bpf       # bpf-manager模块，负责bpf程序加卸载等
+│   ├── cache      # 控制面proto配置解析模块
+│   ├── controller     # 控制面对接模块
+│   ├── logger      # 日志模块
+│   ├── nets      # 网络模块，建联等基础接口
+│   └── options      # 参数解析模块
 ├── README.en.md
 ├── README.md
-├── release				# 发布件归档
-│   ├── kernel						# 包含Kmesh增强特性的kernel包
-│   └── kmesh						# kmesh.rpm、容器镜像等
-├── test				# 测试模块
-│   ├── performance					# 性能测试相关，归档了性能测试方法/工具
+├── release    # 发布件归档
+│   ├── kernel      # 包含Kmesh增强特性的kernel包
+│   └── kmesh      # kmesh.rpm、容器镜像等
+├── test    # 测试模块
+│   ├── performance     # 性能测试相关，归档了性能测试方法/工具
 │   ├── README.md
-│   ├── runtest.sh		# test入口
-│   ├── testcases		# 测试例集合
-│   └── testframe		# 测试框架mugen
-└── vendor				# go依赖库
+│   ├── runtest.sh  # test入口
+│   ├── testcases  # 测试例集合
+│   └── testframe  # 测试框架mugen
+└── vendor    # go依赖库
     ├── github.com
     ├── golang.org
     ├── google.golang.org
@@ -213,7 +213,6 @@ Kmesh总体逻辑视图：
   | --------- | -------- |
   | 内存占用  | < 200M   |
   | CPU使用率 | 1 core   |
-
 
 ### 3.5.2、系统可靠性设计
 
@@ -244,7 +243,6 @@ Kmesh支持两种启动部署模式：
 - Service启动
 
   单机部署时，支持service模式启动，若Kmesh异常可由systemd保证Kmesh的再次拉起；
-
 
 ### 3.5.6、可测试性设计
 
@@ -312,8 +310,6 @@ Kmesh主要功能模块分为：
 
 ![kmesh-orchestration](pics/design/kmesh-orchestration.png)
 
-
-
 #### 3.6.2.1 L4流量编排
 
 - 模型设计：tcp_proxy结构下新增oneof cluster_specifier字段，支持订阅普通cluster或带权重的WeightedCluster信息
@@ -347,8 +343,6 @@ Kmesh主要功能模块分为：
   }
   ```
 
-  
-
 - 功能设计：支持tcp_proxy 类型的filter（流量过滤器），设计如图中L4:tcp_prxoy分支处理流程
 
   ![trafic_manager](pics/design/kmesh_traffic_manager.png)
@@ -359,8 +353,6 @@ Kmesh主要功能模块分为：
 
     2）集群配置WeightedCluster，即带有权重的一组cluster配置，则根据权重比例获取对应的cluster_name，并ebpf尾调用到cluster_manager流程去做后续的endpoints负载均衡。
 
-    
-
 - 能力验证：
 
   - 在集群中部署tcp类型的tcp-echo-service，指定v1、V2两个版本后端，启动kmesh数据面
@@ -369,9 +361,7 @@ Kmesh主要功能模块分为：
 
   - 在集群中新增VirtualService配置，配置灰度权重比例，访问tcp-echo-service，预期按照灰度比例访问V1、v2两个后端，功能正常
 
-    注：可使用社区提供的测试demo覆盖测试 (https://istio.io/latest/zh/docs/tasks/traffic-management/tcp-traffic-shifting/) 
-
-    
+    注：可使用社区提供的测试demo覆盖测试 (<https://istio.io/latest/zh/docs/tasks/traffic-management/tcp-traffic-shifting/>)
 
 ### 3.6.3 kmesh-controller
 
@@ -454,7 +444,7 @@ kmesh管理程序，负责Kmesh生命周期管理、XDS协议对接、观测运�
   ```json
   [root@dev ~]# vim /etc/kmesh/kmesh.json
   {
-          "name": "xds-grpc",		# 1 找到该项配置
+          "name": "xds-grpc",  # 1 找到该项配置
           "type" : "STATIC",
           "connect_timeout": "1s",
           "lb_policy": "ROUND_ROBIN",
@@ -506,7 +496,6 @@ kmesh管理程序，负责Kmesh生命周期管理、XDS协议对接、观测运�
 | 版本 | 发布说明          |
 | :--- | :---------------- |
 | 0.1  | Kmesh设计文档初稿 |
-
 
 # 5、参考目录
 

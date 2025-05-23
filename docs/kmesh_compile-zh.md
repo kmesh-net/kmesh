@@ -81,4 +81,3 @@ Kmesh需要在拥有Kmesh内核增强特性的Linux环境中编译构建。当�
   ```sh
   [root@dev Kmesh]# make clean
   ```
-
