@@ -1,0 +1,22 @@
+name: Lint Workflow
+
+on:
+  pull_request:
+    paths-ignore:
+      - "**.svg"
+      - "**.png"
+  merge_group: # enable merge queue
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        go-version: ["1.23"]
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: DavidAnson/markdownlint-cli2-action@v20
+        with:
+          globs: "**/*.md,!docs/ctl"
+          separator: ","
