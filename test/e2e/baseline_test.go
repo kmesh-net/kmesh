@@ -1,5 +1,3 @@
-//go:build integ
-// +build integ
 
 /*
  * Copyright The Kmesh Authors.
@@ -949,6 +947,58 @@ func TestL4Telemetry(t *testing.T) {
 						PromDiff(t, prom, localSrc.Config().Cluster, query)
 						stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
 					}
+				})
+			}
+		}
+	})
+}
+
+func TestLongConnL4Telemetry(t *testing.T) {
+	framework.NewTest(t).Run(func(tc framework.TestContext) {
+		for _, src := range apps.EnrolledToKmesh {
+			for _, dst := range apps.EnrolledToKmesh {
+				tc.NewSubTestf("from %q to %q", src.Config().Service, dst.Config().Service).Run(func(stc framework.TestContext) {
+					localDst := dst
+					localSrc := src
+					opt := echo.CallOptions{
+						Port:                    echo.Port{Name: "http"},
+						Scheme:                  scheme.HTTP,
+						Count:                   20,
+						Timeout:                 1.5*60* time.Second,
+						Check:                   check.OK(),
+						HTTP:                    echo.HTTP{Path: "/?delay=3s", HTTP2: true},
+						To:                      localDst,
+						NewConnectionPerRequest: false,
+					}
+
+					stc.Logf("sending continuous calls from %q to %q", deployName(localSrc), localDst.Config().Service)
+					go localSrc.CallOrFail(stc, opt)
+
+					query := buildL4Query(localSrc, localDst)
+					stc.Logf("prometheus query: %#v", query)
+					prevReqs := float64(0)
+					for i := 0; i < 2; i++ {
+						err := retry.Until(func() bool {
+							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
+							if err != nil {
+								stc.Logf("could not query for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+								return false
+							}
+
+							if reqs-prevReqs == 0.0 {
+								stc.Logf("found zero-valued sum for traffic from %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+								return false
+							}
+							prevReqs = reqs
+							return true
+						}, retry.Timeout(15*time.Second), retry.BackoffDelay(1*time.Second))
+						if err != nil {
+							PromDiff(t, prom, localSrc.Config().Cluster, query)
+							stc.Errorf("could not validate L4 telemetry for %q to %q: %v", deployName(localSrc), localDst.Config().Service, err)
+						}
+						time.Sleep(15 * time.Second)
+					}
+					time.Sleep(2 * 60 * time.Second)
 				})
 			}
 		}
