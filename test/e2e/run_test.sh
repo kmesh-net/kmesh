@@ -11,6 +11,8 @@ DEFAULT_KIND_IMAGE="kindest/node:v1.30.0@sha256:047357ac0cfea04663786a612ba1eaba
 
 ISTIO_VERSION=${ISTIO_VERSION:-"1.22.0"}
 
+LOGFILE="kmesh_daemon.log"
+
 export KMESH_WAYPOINT_IMAGE=${KMESH_WAYPOINT_IMAGE:-"ghcr.io/kmesh-net/waypoint:latest"}
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
@@ -137,6 +139,77 @@ function setup_kmesh() {
 		echo "Waiting for pods of Kmesh daemon to enter Running state..."
 		sleep 1
 	done
+
+	# Set log of each Kmesh pods.
+	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+
+	for POD in $PODS; do
+		echo "turn on the debug mode of the log for pod $POD"
+		# Set BPF debug log
+		for i in {1..5}; do
+			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
+			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
+			if echo "$output" | grep -q "set BPF Log Level: 3"; then
+				echo "BPF debug log set successfully"
+				break
+			fi
+			echo "Failed to set BPF debug log. Output: $output"
+			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			sleep 2
+		done
+
+		# Set default debug log
+		for i in {1..5}; do
+			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
+			output=$(kmeshctl log $POD --set default:debug 2>&1)
+			if echo "$output" | grep -q "OK"; then
+				echo "Default debug log set successfully"
+				break
+			fi
+			echo "Failed to set default debug log. Output: $output"
+			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			sleep 2
+		done
+	done
+}
+
+function setup_kmesh_log() {
+	# Set log of each Kmesh pods.
+	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
+
+	for POD in $PODS; do
+		echo "turn on the debug mode of the log for pod $POD"
+		# Set BPF debug log
+		for i in {1..5}; do
+			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
+			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
+			if echo "$output" | grep -q "set BPF Log Level: 3"; then
+				echo "BPF debug log set successfully"
+				break
+			fi
+			echo "Failed to set BPF debug log. Output: $output"
+			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			sleep 2
+		done
+
+		# Set default debug log
+		for i in {1..5}; do
+			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
+			output=$(kmeshctl log $POD --set default:debug 2>&1)
+			if echo "$output" | grep -q "OK"; then
+				echo "Default debug log set successfully"
+				break
+			fi
+			echo "Failed to set default debug log. Output: $output"
+			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			sleep 2
+		done
+	done
+}
+
+function install_kmeshctl() {
+	# Install kmeshctl
+	cp kmeshctl $TMPBIN
 }
 
 export KIND_REGISTRY_NAME="kind-registry"
@@ -209,6 +282,24 @@ function cleanup_docker_registry() {
 	docker rm "${KIND_REGISTRY_NAME}" || echo "Failed to remove or no such registry '${KIND_REGISTRY_NAME}'."
 }
 
+capture_pod_logs() {
+	NAMESPACE="kmesh-system"
+	NODE_NAME="kmesh-testing-worker"
+
+	while :; do
+		PODS=$(kubectl get pods -n $NAMESPACE --field-selector spec.nodeName=$NODE_NAME -o jsonpath='{.items[*].metadata.name}')
+
+		if [ -z "$PODS" ]; then
+			echo "No pods found on node $NODE_NAME in namespace $NAMESPACE."
+			continue
+		fi
+
+		echo "Logs for Pod: ${PODS[0]}"
+
+		kubectl logs -n $NAMESPACE -f ${PODS[0]} >>$LOGFILE 2>&1
+	done
+}
+
 PARAMS=()
 
 while (("$#")); do
@@ -272,6 +363,7 @@ fi
 if [[ -z ${SKIP_BUILD:-} ]]; then
 	setup_kind_registry
 	build_and_push_images
+	install_kmeshctl
 fi
 
 kubectl config use-context "kind-$NAME"
@@ -283,9 +375,22 @@ if [[ -z ${SKIP_SETUP:-} ]]; then
 	setup_kmesh
 fi
 
+setup_kmesh_log
+
+capture_pod_logs &
+
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
+set +e
 bash -c "$cmd"
+EXIT_CODE=$?
+set -e
+
+if [ $EXIT_CODE -ne 0 ]; then
+	cat $LOGFILE
+fi
+
+rm $LOGFILE
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster
@@ -296,3 +401,5 @@ if [[ -n ${CLEANUP_REGISTRY} ]]; then
 fi
 
 rm -rf "${TMP}"
+
+exit $EXIT_CODE
