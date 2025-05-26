@@ -1,5 +1,5 @@
----
-title: map-in-map ¹ÜÀíÔöÇ¿
+ï»¿---
+title: map-in-map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿
 authors:
 - "@nlgwcy"
 reviewers:
@@ -14,24 +14,24 @@ creation-date: 2024-07-20
 
 ---
 
-## map-in-map ¹ÜÀíÔöÇ¿
+## map-in-map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç¿
 
 ### ÕªÒª
 
-ÔÚ ads Ä£Ê½ÏÂ£¬Ö§³Ö»ùÓÚ map-in-map ¼ÇÂ¼µÄµ¯ÐÔÉìËõ£¬ÒÔÂú×ã´ó¹æÄ£¼¯ÈºµÄÁ÷Á¿¹ÜÀíÐèÇó¡£
+ï¿½ï¿½ ads Ä£Ê½ï¿½Â£ï¿½Ö§ï¿½Ö»ï¿½ï¿½ï¿½ map-in-map ï¿½ï¿½Â¼ï¿½Äµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-### ¶¯»ú
+### ï¿½ï¿½ï¿½ï¿½
 
-ÕýÈç [optimizing_bpf_map_update_in_xDS_mode](https://github.com/kmesh-net/kmesh/blob/main/docs/proposal/optimizing_bpf_map_update_in_xDS_mode-en.md) ÖÐÌáµ½µÄ£¬ÎªÁË½â¾ö map-in-map ¼ÇÂ¼¸üÐÂ»ºÂýµÄÎÊÌâ£¬Kmesh Í¨¹ýÒÔ¿Õ¼ä»»Ê±¼äµÄ·½Ê½ÔÚÆô¶¯Ê±Ò»´ÎÐÔ´´½¨ËùÓÐ¼ÇÂ¼¡£ÔÚÐ¡¹æÄ£¼¯Èº³¡¾°ÏÂ²»»á³öÏÖÕâ¸öÎÊÌâ£¬µ«ÊÇ£¬µ±Ö§³Ö´ó¹æÄ£¼¯Èº£¨ÀýÈç£¬5000 ¸ö·þÎñºÍ 100,000 ¸ö Pod£©Ê±£¬map-in-map ±íÖÐ¶¨ÒåµÄ´óÐ¡·Ç³£´ó£¬²¢ÇÒ `BPF_MAP_TYPE_ARRAY_OF_MAPS` ÀàÐÍµÄ map ²»Ö§³Ö `BPF_F_NO_PREALLOC`£¬Õâ»áµ¼ÖÂ´óÁ¿µÄÄÚ´æÀË·Ñ¡£±ØÐëÖ§³Ö map-in-map ¼ÇÂ¼µÄµ¯ÐÔÉìËõ£¬ÒÔÂú×ã´ó¹æÄ£¼¯ÈºµÄÁ÷Á¿¹ÜÀíÐèÇó¡£
+ï¿½ï¿½ï¿½ï¿½ [optimizing_bpf_map_update_in_xDS_mode](https://github.com/kmesh-net/kmesh/blob/main/docs/proposal/optimizing_bpf_map_update_in_xDS_mode-en.md) ï¿½ï¿½ï¿½áµ½ï¿½Ä£ï¿½Îªï¿½Ë½ï¿½ï¿½ map-in-map ï¿½ï¿½Â¼ï¿½ï¿½ï¿½Â»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¬Kmesh Í¨ï¿½ï¿½ï¿½Ô¿Õ¼ä»»Ê±ï¿½ï¿½Ä·ï¿½Ê½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±Ò»ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¼ï¿½Â¼ï¿½ï¿½ï¿½ï¿½Ð¡ï¿½ï¿½Ä£ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½ï¿½Â²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¬ï¿½ï¿½ï¿½Ç£ï¿½ï¿½ï¿½Ö§ï¿½Ö´ï¿½ï¿½Ä£ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½ï¿½ç£¬5000 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ 100,000 ï¿½ï¿½ Podï¿½ï¿½Ê±ï¿½ï¿½map-in-map ï¿½ï¿½ï¿½Ð¶ï¿½ï¿½ï¿½Ä´ï¿½Ð¡ï¿½Ç³ï¿½ï¿½ó£¬²ï¿½ï¿½ï¿½ `BPF_MAP_TYPE_ARRAY_OF_MAPS` ï¿½ï¿½ï¿½Íµï¿½ map ï¿½ï¿½Ö§ï¿½ï¿½ `BPF_F_NO_PREALLOC`ï¿½ï¿½ï¿½ï¿½áµ¼ï¿½Â´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½ï¿½Ë·Ñ¡ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½ map-in-map ï¿½ï¿½Â¼ï¿½Äµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£ï¿½ï¿½Èºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-#### Ä¿±ê
+#### Ä¿ï¿½ï¿½
 
-- Ö§³Ö´ó¹æÄ£¼¯ÈºÖÐµÄÁ÷Á¿¹ÜÀí¡£
-- ¿¼ÂÇÅäÖÃ»Ö¸´³¡¾°¡£
+- Ö§ï¿½Ö´ï¿½ï¿½Ä£ï¿½ï¿½Èºï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+- ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-### Ìá°¸
+### ï¿½á°¸
 
-Kmesh ÔÚÓÃ»§Ä£Ê½ÏÂ¹ÜÀí map-in-map µÄÊ¹ÓÃ¡£ÎªÁËÖ§³Öµ¯ÐÔÉìËõ£¬¹ÜÀí½á¹¹À©Õ¹ÈçÏÂ£º
+Kmesh ï¿½ï¿½ï¿½Ã»ï¿½Ä£Ê½ï¿½Â¹ï¿½ï¿½ï¿½ map-in-map ï¿½ï¿½Ê¹ï¿½Ã¡ï¿½Îªï¿½ï¿½Ö§ï¿½Öµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á¹¹ï¿½ï¿½Õ¹ï¿½ï¿½ï¿½Â£ï¿½
 
 ```c
 struct inner_map_mng {
@@ -57,10 +57,11 @@ struct inner_map_stat {
 };
 ```
 
-Map-in-map ÉìËõ¹ý³Ì£º
+Map-in-map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ì£ï¿½
 
 ![map-in-map-elastic-process](pics/map-in-map-elastic-process.svg)
 
-ÒÔÏÂÊÇ map-in-map ËõÈÝºÍÀ©ÈÝµÄÊ¾Àý£º
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ map-in-map ï¿½ï¿½ï¿½Ýºï¿½ï¿½ï¿½ï¿½Ýµï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
 
 ![map-in-map-elastic](pics/map-in-map-elastic.svg)
+
