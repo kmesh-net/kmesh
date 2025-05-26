@@ -63,7 +63,6 @@ Let's start from setting up the required environment. You can follow the steps b
 
     Now, you are ready to deploy kmesh in your local cluster. Feel free to follow the [Kmesh Quick Start](https://kmesh.net/en/docs/setup/quickstart/).
 
-
 ## Develop Kmesh in Kind
 
 You can follow the steps below to develop in kind:
@@ -76,7 +75,7 @@ You can follow the steps below to develop in kind:
     make build
     ```
 
-    This will start a docker container named `kmesh-build` to build your code. 
+    This will start a docker container named `kmesh-build` to build your code.
 
 + Build your docker image locally:
 
@@ -127,13 +126,14 @@ You can follow the steps below to develop in kind:
     ```
 
     Specially, for bpf logs:
+
     ```shell
     kmeshctl log $kmesh_pod_name --set bpf:debug
     ```
 
     You can use `uname -r` to check your kernel version. If it's higher than `5.13.0`, the bpf logs will be pushed to the user space. We can check them in the log file (with `subsys=ebpf`). Otherwise, you should use `bpftool` to check them:
 
-    ```
+    ```bash
     bpftool prog tracelog
     ```
 
@@ -148,7 +148,8 @@ You can follow the steps below to develop in kind:
     to cleanup these changes before you execute `git add` command.
 
 ## Reference
-+ Getting Started: https://istio.io/latest/docs/ambient/getting-started/
+
++ Getting Started: <https://istio.io/latest/docs/ambient/getting-started/>
 + Get Started with Istio Ambient Mesh
-: https://istio.io/latest/blog/2022/get-started-ambient/
-+ Install with Istioctl: https://istio.io/latest/docs/setup/install/istioctl/
+: <https://istio.io/latest/blog/2022/get-started-ambient/>
++ Install with Istioctl: <https://istio.io/latest/docs/setup/install/istioctl/>

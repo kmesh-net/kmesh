@@ -98,7 +98,7 @@ func (w *cache) DeleteWorkload(uid string) {
 		for _, ip := range workload.Addresses {
 			addr, _ := netip.AddrFromSlice(ip)
 			networkAddress := composeNetworkAddress(workload.Network, addr)
-			delete(w.byAddr, networkAddress)
+			w.deleteAddr(networkAddress, uid)
 		}
 
 		delete(w.byUid, uid)
@@ -114,4 +114,14 @@ func (w *cache) List() []*workloadapi.Workload {
 	}
 
 	return out
+}
+
+func (w *cache) deleteAddr(addr NetworkAddress, uid string) {
+	if workload, ok := w.byAddr[addr]; ok {
+		if workload.Uid == uid {
+			// NOTE: If the uid is updated, it means that a new object occupies this address and we can no longer delete it.
+			// Ref: https://github.com/kmesh-net/kmesh/issues/1352
+			delete(w.byAddr, addr)
+		}
+	}
 }

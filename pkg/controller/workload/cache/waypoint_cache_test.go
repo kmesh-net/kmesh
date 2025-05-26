@@ -52,9 +52,9 @@ func TestBasic(t *testing.T) {
 	}
 
 	// Waypoint service has not been processed.
-	assert.Equal(t, len(cache.serviceToWaypoint), 1)
-	assert.Equal(t, len(cache.workloadToWaypoint), 1)
-	assert.Equal(t, len(cache.waypointAssociatedObjects), 1)
+	assert.Equal(t, 1, len(cache.serviceToWaypoint))
+	assert.Equal(t, 1, len(cache.workloadToWaypoint))
+	assert.Equal(t, 1, len(cache.waypointAssociatedObjects))
 
 	if _, ok := cache.serviceToWaypoint[svc3.ResourceName()]; !ok {
 		t.Fatalf("service %s should be included in waypoint cache", svc3.ResourceName())
@@ -67,23 +67,23 @@ func TestBasic(t *testing.T) {
 	}
 
 	associated := cache.waypointAssociatedObjects[waypointHostname]
-	assert.Equal(t, associated.isResolved(), false)
+	assert.Equal(t, false, associated.isResolved())
 
 	isHostnameTypeWaypoint := func(waypoint *workloadapi.GatewayAddress) bool {
 		return waypoint.GetHostname() != nil
 	}
 
-	assert.Equal(t, isHostnameTypeWaypoint(associated.services[svc3.ResourceName()].Waypoint), true)
-	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint), true)
+	assert.Equal(t, true, isHostnameTypeWaypoint(associated.services[svc3.ResourceName()].Waypoint))
+	assert.Equal(t, true, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint))
 
 	// Create waypoint service and process.
 	waypointsvc := common.CreateFakeService("waypoint", "10.240.10.11", "", nil)
 	svcs, wls := cache.Refresh(waypointsvc)
-	assert.Equal(t, len(svcs), 1)
-	assert.Equal(t, len(wls), 1)
-	assert.Equal(t, associated.isResolved(), true)
-	assert.Equal(t, isHostnameTypeWaypoint(associated.services[svc3.ResourceName()].Waypoint), false)
-	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint), false)
+	assert.Equal(t, 1, len(svcs))
+	assert.Equal(t, 1, len(wls))
+	assert.Equal(t, true, associated.isResolved())
+	assert.Equal(t, false, isHostnameTypeWaypoint(associated.services[svc3.ResourceName()].Waypoint))
+	assert.Equal(t, false, isHostnameTypeWaypoint(associated.workloads[wl3.ResourceName()].Waypoint))
 
 	// Create service and workload with waypoint which has been resolved.
 	svc4 := common.CreateFakeService("svc4", "10.240.10.4", waypointHostname, nil)
@@ -92,8 +92,8 @@ func TestBasic(t *testing.T) {
 	cache.AddOrUpdateWorkload(wl4)
 
 	// svc4 and wl4 have been added to the waypoint cache and hostname of waypoint has been resolved.
-	assert.Equal(t, isHostnameTypeWaypoint(associated.services[svc4.ResourceName()].Waypoint), false)
-	assert.Equal(t, isHostnameTypeWaypoint(associated.workloads[wl4.ResourceName()].Waypoint), false)
+	assert.Equal(t, false, isHostnameTypeWaypoint(associated.services[svc4.ResourceName()].Waypoint))
+	assert.Equal(t, false, isHostnameTypeWaypoint(associated.workloads[wl4.ResourceName()].Waypoint))
 
 	// Delete all svcs and workloads.
 	for _, svc := range []*workloadapi.Service{svc1, svc2, svc3, svc4, waypointsvc} {
@@ -103,7 +103,7 @@ func TestBasic(t *testing.T) {
 		cache.DeleteWorkload(wl.ResourceName())
 	}
 
-	assert.Equal(t, len(cache.serviceToWaypoint), 0)
-	assert.Equal(t, len(cache.workloadToWaypoint), 0)
-	assert.Equal(t, len(cache.waypointAssociatedObjects), 0)
+	assert.Equal(t, 0, len(cache.serviceToWaypoint))
+	assert.Equal(t, 0, len(cache.workloadToWaypoint))
+	assert.Equal(t, 0, len(cache.waypointAssociatedObjects))
 }

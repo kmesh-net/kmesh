@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -61,7 +62,12 @@ func runVersion(cmd *cobra.Command, args []string) {
 
 	if len(args) == 0 {
 		v := version.Get()
-		cmd.Printf("client version: %s-%s\n", v.GitVersion, v.GitCommit)
+		if stringMatch(v.GitVersion) {
+			cmd.Printf("client version: %s\n", v.GitVersion)
+		} else {
+			cmd.Printf("client version: %s-%s\n", v.GitVersion, v.GitCommit)
+		}
+
 		podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
 		if err != nil {
 			log.Errorf("failed to get kmesh daemon pods: %v", err)
@@ -72,7 +78,11 @@ func runVersion(cmd *cobra.Command, args []string) {
 		for _, pod := range podList.Items {
 			v := getVersion(cli, pod.Name)
 			if v.GitVersion != "" {
-				daemonVersions[v.GitVersion+"-"+v.GitCommit] = daemonVersions[v.GitVersion+"-"+v.GitCommit] + 1
+				if stringMatch(v.GitVersion) {
+					daemonVersions[v.GitVersion] = daemonVersions[v.GitVersion] + 1
+				} else {
+					daemonVersions[v.GitVersion+"-"+v.GitCommit] = daemonVersions[v.GitVersion+"-"+v.GitCommit] + 1
+				}
 			}
 		}
 		counts := []string{}
@@ -128,4 +138,12 @@ func getVersion(client kube.CLIClient, podName string) (version version.Info) {
 	}
 
 	return
+}
+
+// match release version vx.y.z-(alpha)
+func stringMatch(str string) bool {
+	pattern := `^v\d+\.\d+\.\d+(-[a-zA-Z0-9]+(\.[a-zA-Z0-9]+)*)?$`
+	regex := regexp.MustCompile(pattern)
+
+	return regex.MatchString(str)
 }

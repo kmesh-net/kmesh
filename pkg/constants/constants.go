@@ -76,8 +76,9 @@ const (
 	KmKernelNativeBpfPath = "/bpf_kmesh"
 	KmDualEngineBpfPath   = "/bpf_kmesh_workload"
 
-	TailCallMap = "tail_call_map"
-	Prog_link   = "prog_link"
+	TailCallMap    = "tail_call_map"
+	XDPTailCallMap = "km_xdp_tailcall"
+	Prog_link      = "prog_link"
 
 	ALL_CIDR = "0.0.0.0/0"
 )
