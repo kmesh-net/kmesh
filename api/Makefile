@@ -33,7 +33,7 @@ gen-proto:
 
 	$(QUIET) bash ../hack/install-proto.sh
 	$(call printlog, PROTO, api/$(C_OUTPUT_DIR))
-	$(QUIET) bash ../hack/gen_protoc.sh $(PROTO_PATH) $(PROTO_SRC)
+	$(QUIET) bash ../hack/gen-protoc.sh $(PROTO_PATH) $(PROTO_SRC)
 	$(QUIET) mkdir -p $(C_OUTPUT_DIR)
 	$(QUIET) cp -rf api/* $(C_OUTPUT_DIR); rm -rf api
 	$(QUIET) find $(C_OUTPUT_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
