@@ -1,5 +1,5 @@
----
-title: Kmesh �ı����Ը��ؾ���
+﻿---
+title: Kmesh 的本地性负载均衡
 authors:
 - "@derekwin" # Authors' GitHub accounts here.
 reviewers:
@@ -13,42 +13,42 @@ creation-date: 2024-06-07
 
 ---
 
-## Kmesh �ı����Ը��ؾ���
+## Kmesh 的本地性负载均衡
 
-### ժҪ
+### 摘要
 
-Ϊ Kmesh ��������ģʽ���ӱ����Ը��ؾ��⡣
+为 Kmesh 工作负载模式添加本地性负载均衡。
 
-### ����
+### 动机
 
-Ŀǰ��Kmesh ��֧�ֱ����Ը�֪���ؾ��⡣�����Ը��ؾ���ͨ����������������ķ���ʵ�����Ż��ֲ�ʽϵͳ�е����ܺͿɿ��ԡ����ַ����������ӳ٣�����˿����ԣ�������������������ݴ�����صĳɱ�������ȷ���˷���������Ȩ���棬��ͨ���ṩ���졢���ɿ��ķ�����Ӧ�����������û����顣
+目前，Kmesh 不支持本地性感知负载均衡。本地性负载均衡通过将流量导向最近的服务实例来优化分布式系统中的性能和可靠性。这种方法减少了延迟，提高了可用性，并降低了与跨区域数据传输相关的成本。它还确保了符合数据主权法规，并通过提供更快、更可靠的服务响应来改善整体用户体验。
 
-### Ŀ��
+### 目标
 
-���᰸��Ŀ����Ϊ kmesh ��������ģʽ���ӱ����Ը�֪���ؾ�����������Ӧ�� istio ambient mesh �еı����Ը��ؾ��⡣
+本提案的目的是为 kmesh 工作负载模式添加本地性感知负载均衡能力，对应于 istio ambient mesh 中的本地性负载均衡。
 
-### �᰸
+### 提案
 
-�����Ը��ؾ���ģʽ�������Թ���ת�ƣ��������ϸ�
+本地性负载均衡模式：本地性故障转移，本地性严格。
 
-ʲô�Ǳ����Թ���ת��ģʽ����������ʷ���ʱ������ƽ�潫��������Դ pod �ı�������Ϣ����񱳺����н�����˵ı����Խ��зֲ�ƥ�䡣ƥ��ȸ��ߵ� Pod ��ʾ�����ڵ���λ���ϸ��ӽ�������������·�ɵ�ƥ��ȸ��ߵ� Pod��
+什么是本地性故障转移模式？当请求访问服务时，控制平面将对流量的源 pod 的本地性信息与服务背后所有健康后端的本地性进行分层匹配。匹配度更高的 Pod 表示它们在地理位置上更接近，流量将优先路由到匹配度更高的 Pod。
 
-ʲô�Ǳ������ϸ�ģʽ���ڱ������ϸ�ģʽ�£�LB�����ؾ��⣩�㷨����ѡ���� routingPreference ��ȫƥ��ĺ�ˡ�����ζ��������ģʽ�£����ؾ�������ǿ��ִ���ϸ�Ĳ��ԣ���������ָ��������ƫ�õ���ȫƥ�佫����·�ɵ���ˣ��Ӷ�ȷ����������������λ�û�����������ص��ض���׼�ķ�����������
+什么是本地性严格模式？在本地性严格模式下，LB（负载均衡）算法将仅选择与 routingPreference 完全匹配的后端。这意味着在这种模式下，负载均衡器会强制执行严格的策略，仅根据与指定本地性偏好的完全匹配将流量路由到后端，从而确保请求由满足与其位置或其他属性相关的特定标准的服务器处理。
 
-### ���ϸ��
+### 设计细节
 
-1. �� BPF ��� `service_manager` ��ʵ���µĸ��ؾ��⴦���߼���`lb_locality_failover_handle`��
-2. �� BPF ������ݽṹ�����˸����Ҫ����Ϣ��map `service_value` �洢���ؾ������ `lb_policy` ��һ������ `prio_endpoint_count[PRIO_COUNT]`�����ڼ��㲻ͬ���ȼ��Ķ˵㡣map `endpoint_key` �洢��ǰ�˵�����ȼ� `prio`��
-3. ���û���������һ�� `locality_cache` ģ�飬���ڴ洢�����Ը�֪��Ϣ�����ȼ������߼���
-4. �������û���� `ServiceValue` �� `EndpointKey` map��
-5. ����ͨ������ `EndpointKey` ��̬ά���벻ͬ���ȼ���Ӧ�Ķ˵㡣Ϊ���ڸ��²���ʱ���� `EndpointKey`������������һ�� `endpoint_cache` ���洢����Ķ˵���Ϣ��
-6. �� `workload_processor` �У����Ǹ��������Ӻ�ɾ���˵�ͷ�����߼����Լ��ڴ����������غͷ��� xDs ��Ϣʱ������Ӧ map ��Ϣ���߼��������� `handleWorkloadUnboundServices` ��ʵ���� LB �����߼���Ϊ��ȷ������������ԣ����ǿ����˲����л��ڼ�ĳ���������һʵ���� `endpointKey` ���¡�
-7. ����������ԣ����ж˵㶼���Ϊ���ȼ� 0�����ڹ���ת�ƻ��ϸ���ԣ����� `routingPreference`�����ȼ�����Ϊ�����ƥ��Ķ˵�Ϊ 0��
+1. 在 BPF 侧的 `service_manager` 中实现新的负载均衡处理逻辑：`lb_locality_failover_handle`。
+2. 向 BPF 侧的数据结构添加了更多必要的信息：map `service_value` 存储负载均衡策略 `lb_policy` 和一个数组 `prio_endpoint_count[PRIO_COUNT]`，用于计算不同优先级的端点。map `endpoint_key` 存储当前端点的优先级 `prio`。
+3. 在用户侧添加了一个 `locality_cache` 模块，用于存储本地性感知信息和优先级计算逻辑。
+4. 更新了用户侧的 `ServiceValue` 和 `EndpointKey` map。
+5. 我们通过更新 `EndpointKey` 动态维护与不同优先级对应的端点。为了在更新策略时更新 `EndpointKey`，我们添加了一个 `endpoint_cache` 来存储额外的端点信息。
+6. 在 `workload_processor` 中，我们更新了添加和删除端点和服务的逻辑，以及在处理工作负载和服务 xDs 信息时更新相应 map 信息的逻辑。我们在 `handleWorkloadUnboundServices` 中实现了 LB 更新逻辑。为了确保服务的连续性，我们考虑了策略切换期间的场景，并逐一实现了 `endpointKey` 更新。
+7. 对于随机策略，所有端点都标记为优先级 0。对于故障转移或严格策略，根据 `routingPreference`，优先级设置为与最高匹配的端点为 0。
 
-#### ������
+#### 控制流
 <div style="text-align:center"><img src="pics/locality_lb.svg" /></div>
 
-#### ���ݽṹ
+#### 数据结构
 1. workload.h
 ```
 typedef struct {
@@ -138,3 +138,4 @@ type EndpointCache interface {
 	DeleteEndpointByServiceId(uint32)
 }
 ```
+

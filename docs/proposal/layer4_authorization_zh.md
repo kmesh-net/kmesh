@@ -1,5 +1,5 @@
----
-title: ÔÚ kmesh workload mod ÖÐÖ§³Ö 4 ²ãÊÚÈ¨
+ï»¿---
+title: åœ¨ kmesh workload mod ä¸­æ”¯æŒ 4 å±‚æŽˆæƒ
 authors:
 - "@supercharge-xsy"
 reviewers:
@@ -11,19 +11,19 @@ approvers:
 
 creation-date: 2024-05-28
 ---
-## ÔÚ workload Ä£Ê½ÏÂÖ§³Ö L4 ÊÚÈ¨
+## åœ¨ workload æ¨¡å¼ä¸‹æ”¯æŒ L4 æŽˆæƒ
 
-### ÕªÒª
+### æ‘˜è¦
 
-±¾ÎÄÖ¼ÔÚ½âÊÍ Kmesh ÈçºÎÔÚ workload Ä£Ê½ÏÂÊµÏÖ 4 ²ãÊÚÈ¨¹¦ÄÜ¡£ÓÐ¹ØÊÚÈ¨¹¦ÄÜµÄ½éÉÜ£¬Çë²Î¿¼£º[Kmesh TCP ÊÚÈ¨](https://kmesh.net/en/docs/userguide/tcp_authorization/)¡£Ä¿Ç°£¬Kmesh Ö§³ÖÁ½ÖÖÊÚÈ¨¼Ü¹¹¡£Êý¾Ý°üÊ×ÏÈÍ¨¹ý XDP ÊÚÈ¨´¦Àí£¬Èç¹û²»Ö§³Ö¸ÃÀàÐÍ£¬ÔòÎåÔª×éÐÅÏ¢Í¨¹ý»·ÐÎ»º³åÇø´«µÝÒÔ½øÐÐÓÃ»§¿Õ¼äÊÚÈ¨¡£×îÖÕÄ¿±êÊÇÔÚ XDP ÖÐÍêÈ«´¦ÀíÊÚÈ¨¡£
+æœ¬æ–‡æ—¨åœ¨è§£é‡Š Kmesh å¦‚ä½•åœ¨ workload æ¨¡å¼ä¸‹å®žçŽ° 4 å±‚æŽˆæƒåŠŸèƒ½ã€‚æœ‰å…³æŽˆæƒåŠŸèƒ½çš„ä»‹ç»ï¼Œè¯·å‚è€ƒï¼š[Kmesh TCP æŽˆæƒ](https://kmesh.net/en/docs/userguide/tcp_authorization/)ã€‚ç›®å‰ï¼ŒKmesh æ”¯æŒä¸¤ç§æŽˆæƒæž¶æž„ã€‚æ•°æ®åŒ…é¦–å…ˆé€šè¿‡ XDP æŽˆæƒå¤„ç†ï¼Œå¦‚æžœä¸æ”¯æŒè¯¥ç±»åž‹ï¼Œåˆ™äº”å…ƒç»„ä¿¡æ¯é€šè¿‡çŽ¯å½¢ç¼“å†²åŒºä¼ é€’ä»¥è¿›è¡Œç”¨æˆ·ç©ºé—´æŽˆæƒã€‚æœ€ç»ˆç›®æ ‡æ˜¯åœ¨ XDP ä¸­å®Œå…¨å¤„ç†æŽˆæƒã€‚
 
-### ÓÃ»§¿Õ¼äÊÚÈ¨
+### ç”¨æˆ·ç©ºé—´æŽˆæƒ
 
-#### Éè¼ÆÏ¸½Ú
+#### è®¾è®¡ç»†èŠ‚
 
 ![l4_authz](pics/kmesh_l4_authorization.svg#pic_center)
 
-#### Map ¶¨Òå
+#### Map å®šä¹‰
 
 ```.c
 struct {
@@ -41,32 +41,32 @@ struct {
 
 ```
 
-#### ´¦ÀíÂß¼­
+#### å¤„ç†é€»è¾‘
 
-1. **sock-bpf:** ÔÚÁ¬½Ó½¨Á¢¹ý³ÌÖÐ£¬ÔÚ·þÎñÆ÷¶Ë£¬sock bpf Âß¼­ÔÚ established ½×¶Î±»´¥·¢¡£Èç¹û·þÎñÆ÷ÓÉ Kmesh ¹ÜÀí£º
-   - 1.1£ºÔª×éÐÅÏ¢±»¼ÇÂ¼µ½ `tuple_map` ÖÐ£¬ÕâÊÇÒ»¸ö»·ÐÎ»º³åÇøÀàÐÍµÄ map£¬Kmesh-daemon ¿ÉÒÔÊµÊ±·ÃÎÊ¡£
-   - 1.2£º`auth_map` ÌõÄ¿±»³õÊ¼»¯£¬ÆäÖµÉèÖÃÎª `init`£¬±íÊ¾Ç¨ÒÆÊÚÈ¨ÕýÔÚ½øÐÐÖÐ¡£
-2. **kmesh-daemon:** kmesh-daemon ¸ºÔð¶©ÔÄÊÚÈ¨¹æÔò²¢Æ¥ÅäÕâÐ©¹æÔòÒÔ½øÐÐÊÚÈ¨¼ì²é¡£
-   - 2.1£ºËü´Ó `tuple_map` ÖÐ¶ÁÈ¡Ôª×é¼ÇÂ¼¡£Ò»µ©¶ÁÈ¡£¬»·ÐÎ»º³åÇø map ÖÐµÄ¼ÇÂ¼½«ÓÉÏµÍ³×Ô¶¯Çå³ý¡£
-   - 2.2£º»ùÓÚ¶ÁÈ¡µÄÔª×éÐÅÏ¢£¬ËüÆ¥ÅäÊÚÈ¨¹æÔò¡£Èç¹ûÊÇ `allow`£¬ÔòÇå³ý±íÖÐµÄ `init` ¼ÇÂ¼£»Èç¹ûÊÇ `deny`£¬Ôò½«Öµ´Ó `init` Ë¢ÐÂÎª `deny`¡£
-3. **xdp-bpf**: µ±¿Í»§¶Ë·¢ËÍÏûÏ¢²¢ÇÒ·þÎñÆ÷½ÓÊÕµ½ÏûÏ¢Ê±£¬Í¨¹ý xdp bpf ³ÌÐò£º
-   - 3.1£ºËüÊ¹ÓÃÎåÔª×éÐÅÏ¢Æ¥Åä `auth_map` ÖÐµÄÊý¾Ý¡£Èç¹ûÕÒµ½Æ¥ÅäÏîÇÒÖµÉèÖÃÎª `init`£¬±íÊ¾Ç¨ÒÆÊÚÈ¨ÉÐÎ´Íê³É£¬ÔòÔÝÊ±¶ªÆú¸ÃÏûÏ¢¡£
-   - 3.2£ºÈç¹ûÆ¥ÅäµÄ¼ÇÂ¼ÏÔÊ¾ `value=deny`£¬Ëü»á¸ü¸ÄÏûÏ¢±êÖ¾£¬Ïò·þÎñÆ÷·¢ËÍ RST ÏûÏ¢£¬²¢Çå³ýÏàÓ¦µÄ `auth_map` ¼ÇÂ¼¡£Èç¹ûÎ´ÕÒµ½ÈÎºÎ¼ÇÂ¼£¬Ôò±íÊ¾ÔÊÐíÊÚÈ¨£¬ÏûÏ¢½«Í¨¹ý¡£
-4. **¿Í»§¶ËÖØÊÔ**: ¿Í»§¶Ë³¢ÊÔ·¢ËÍÁíÒ»ÌõÏûÏ¢£¬µ«ÓÉÓÚ·þÎñÆ÷ÒÑ¹Ø±ÕÁ¬½Ó£¬¿Í»§¶ËÊÕµ½¡°reset by peer¡±ÐÅºÅ£¬Ëæºó¹Ø±Õ×Ô¼ºµÄÍ¨µÀ¡£
+1. **sock-bpf:** åœ¨è¿žæŽ¥å»ºç«‹è¿‡ç¨‹ä¸­ï¼Œåœ¨æœåŠ¡å™¨ç«¯ï¼Œsock bpf é€»è¾‘åœ¨ established é˜¶æ®µè¢«è§¦å‘ã€‚å¦‚æžœæœåŠ¡å™¨ç”± Kmesh ç®¡ç†ï¼š
+   - 1.1ï¼šå…ƒç»„ä¿¡æ¯è¢«è®°å½•åˆ° `tuple_map` ä¸­ï¼Œè¿™æ˜¯ä¸€ä¸ªçŽ¯å½¢ç¼“å†²åŒºç±»åž‹çš„ mapï¼ŒKmesh-daemon å¯ä»¥å®žæ—¶è®¿é—®ã€‚
+   - 1.2ï¼š`auth_map` æ¡ç›®è¢«åˆå§‹åŒ–ï¼Œå…¶å€¼è®¾ç½®ä¸º `init`ï¼Œè¡¨ç¤ºè¿ç§»æŽˆæƒæ­£åœ¨è¿›è¡Œä¸­ã€‚
+2. **kmesh-daemon:** kmesh-daemon è´Ÿè´£è®¢é˜…æŽˆæƒè§„åˆ™å¹¶åŒ¹é…è¿™äº›è§„åˆ™ä»¥è¿›è¡ŒæŽˆæƒæ£€æŸ¥ã€‚
+   - 2.1ï¼šå®ƒä»Ž `tuple_map` ä¸­è¯»å–å…ƒç»„è®°å½•ã€‚ä¸€æ—¦è¯»å–ï¼ŒçŽ¯å½¢ç¼“å†²åŒº map ä¸­çš„è®°å½•å°†ç”±ç³»ç»Ÿè‡ªåŠ¨æ¸…é™¤ã€‚
+   - 2.2ï¼šåŸºäºŽè¯»å–çš„å…ƒç»„ä¿¡æ¯ï¼Œå®ƒåŒ¹é…æŽˆæƒè§„åˆ™ã€‚å¦‚æžœæ˜¯ `allow`ï¼Œåˆ™æ¸…é™¤è¡¨ä¸­çš„ `init` è®°å½•ï¼›å¦‚æžœæ˜¯ `deny`ï¼Œåˆ™å°†å€¼ä»Ž `init` åˆ·æ–°ä¸º `deny`ã€‚
+3. **xdp-bpf**: å½“å®¢æˆ·ç«¯å‘é€æ¶ˆæ¯å¹¶ä¸”æœåŠ¡å™¨æŽ¥æ”¶åˆ°æ¶ˆæ¯æ—¶ï¼Œé€šè¿‡ xdp bpf ç¨‹åºï¼š
+   - 3.1ï¼šå®ƒä½¿ç”¨äº”å…ƒç»„ä¿¡æ¯åŒ¹é… `auth_map` ä¸­çš„æ•°æ®ã€‚å¦‚æžœæ‰¾åˆ°åŒ¹é…é¡¹ä¸”å€¼è®¾ç½®ä¸º `init`ï¼Œè¡¨ç¤ºè¿ç§»æŽˆæƒå°šæœªå®Œæˆï¼Œåˆ™æš‚æ—¶ä¸¢å¼ƒè¯¥æ¶ˆæ¯ã€‚
+   - 3.2ï¼šå¦‚æžœåŒ¹é…çš„è®°å½•æ˜¾ç¤º `value=deny`ï¼Œå®ƒä¼šæ›´æ”¹æ¶ˆæ¯æ ‡å¿—ï¼Œå‘æœåŠ¡å™¨å‘é€ RST æ¶ˆæ¯ï¼Œå¹¶æ¸…é™¤ç›¸åº”çš„ `auth_map` è®°å½•ã€‚å¦‚æžœæœªæ‰¾åˆ°ä»»ä½•è®°å½•ï¼Œåˆ™è¡¨ç¤ºå…è®¸æŽˆæƒï¼Œæ¶ˆæ¯å°†é€šè¿‡ã€‚
+4. **å®¢æˆ·ç«¯é‡è¯•**: å®¢æˆ·ç«¯å°è¯•å‘é€å¦ä¸€æ¡æ¶ˆæ¯ï¼Œä½†ç”±äºŽæœåŠ¡å™¨å·²å…³é—­è¿žæŽ¥ï¼Œå®¢æˆ·ç«¯æ”¶åˆ°â€œreset by peerâ€ä¿¡å·ï¼ŒéšåŽå…³é—­è‡ªå·±çš„é€šé“ã€‚
 
-### Xdp ÊÚÈ¨
+### Xdp æŽˆæƒ
 
-#### Éè¼ÆÏ¸½Ú
+#### è®¾è®¡ç»†èŠ‚
 
 ![l4_authz_xdp](pics/kmesh_l4_authorization_xdp.svg#pic_center)
 
-#### Map ¶¨Òå
+#### Map å®šä¹‰
 
-map_of_wl_policy: ¼ÇÂ¼Îª workload ÅäÖÃµÄ²ßÂÔ¡£
+map_of_wl_policy: è®°å½•ä¸º workload é…ç½®çš„ç­–ç•¥ã€‚
 
-map_of_authz_policy: ¼ÇÂ¼²ßÂÔµÄ authz ¹æÔò¡£
+map_of_authz_policy: è®°å½•ç­–ç•¥çš„ authz è§„åˆ™ã€‚
 
-kmesh_tc_args: ´æ´¢ xdp_auth ÔÚÎ²µ÷ÓÃÆÚ¼äÐèÒªÊ¹ÓÃµÄ²ÎÊý
+kmesh_tc_args: å­˜å‚¨ xdp_auth åœ¨å°¾è°ƒç”¨æœŸé—´éœ€è¦ä½¿ç”¨çš„å‚æ•°
 
 ```.c
 struct {
@@ -94,20 +94,21 @@ struct {
 } kmesh_tc_args SEC(".maps");
 ```
 
-#### Istio ²ßÂÔÄ£¿é
+#### Istio ç­–ç•¥æ¨¡å—
 
 ![istio_policy_module](pics/istio_policy_module.png#pic_center)
 
-ÉÏÃæÏÔÊ¾ÁË istio ´æ´¢²ßÂÔµÄ½á¹¹Í¼¡£Istio ÊÚÈ¨Ä£ÐÍÍ¨¹ý `Istio__Security__Authorization` ×ÊÔ´Ç¿ÖÆÖ´ÐÐ²ßÂÔ¡£ÔÚ´ËÄ£ÐÍÖÐ£¬workload ¿ÉÒÔÓë¶à¸ö²ßÂÔ¹æÔòÏà¹ØÁª£¬ÆäÖÐ²ßÂÔÊÇ OR ÔËËã¡£Ã¿¸ö²ßÂÔ°üº¬¸÷ÖÖ¹æÔò£¬ÕâÐ©¹æÔòÒ²ÒÔÀàËÆµÄ·½Ê½½øÐÐ OR ÔËËãÆÀ¹À¡£Ò»¸ö¹æÔò½øÒ»²½·Ö½âÎª¶à¸ö×Ó¾ä£¬ÕâÐ©×Ó¾äÊ¹ÓÃ AND Âß¼­½øÐÐÆÀ¹À£¬ÕâÒâÎ¶×Å±ØÐëÂú×ãËùÓÐ×Ó¾ä²ÅÄÜÈÏÎª¸Ã¹æÔòÓÐÐ§¡£×îºó£¬Ã¿¸ö×Ó¾ä°üº¬¶à¸öÆ¥ÅäÏî£¬ÆÀ¹ÀÎª OR ÔËËã£¬ÆäÖÐÂú×ãÈÎºÎÆ¥ÅäÏî¶¼×ãÒÔÈÏÎª¸Ã×Ó¾äÒÑÂú×ã¡£²ßÂÔ²ã»¹°üÀ¨ÊÚÈ¨²Ù×÷£¬Ëü×îÖÕ¾ö¶¨ÊÚÈ¨²ßÂÔ
+ä¸Šé¢æ˜¾ç¤ºäº† istio å­˜å‚¨ç­–ç•¥çš„ç»“æž„å›¾ã€‚Istio æŽˆæƒæ¨¡åž‹é€šè¿‡ `Istio__Security__Authorization` èµ„æºå¼ºåˆ¶æ‰§è¡Œç­–ç•¥ã€‚åœ¨æ­¤æ¨¡åž‹ä¸­ï¼Œworkload å¯ä»¥ä¸Žå¤šä¸ªç­–ç•¥è§„åˆ™ç›¸å…³è”ï¼Œå…¶ä¸­ç­–ç•¥æ˜¯ OR è¿ç®—ã€‚æ¯ä¸ªç­–ç•¥åŒ…å«å„ç§è§„åˆ™ï¼Œè¿™äº›è§„åˆ™ä¹Ÿä»¥ç±»ä¼¼çš„æ–¹å¼è¿›è¡Œ OR è¿ç®—è¯„ä¼°ã€‚ä¸€ä¸ªè§„åˆ™è¿›ä¸€æ­¥åˆ†è§£ä¸ºå¤šä¸ªå­å¥ï¼Œè¿™äº›å­å¥ä½¿ç”¨ AND é€»è¾‘è¿›è¡Œè¯„ä¼°ï¼Œè¿™æ„å‘³ç€å¿…é¡»æ»¡è¶³æ‰€æœ‰å­å¥æ‰èƒ½è®¤ä¸ºè¯¥è§„åˆ™æœ‰æ•ˆã€‚æœ€åŽï¼Œæ¯ä¸ªå­å¥åŒ…å«å¤šä¸ªåŒ¹é…é¡¹ï¼Œè¯„ä¼°ä¸º OR è¿ç®—ï¼Œå…¶ä¸­æ»¡è¶³ä»»ä½•åŒ¹é…é¡¹éƒ½è¶³ä»¥è®¤ä¸ºè¯¥å­å¥å·²æ»¡è¶³ã€‚ç­–ç•¥å±‚è¿˜åŒ…æ‹¬æŽˆæƒæ“ä½œï¼Œå®ƒæœ€ç»ˆå†³å®šæŽˆæƒç­–ç•¥
 
-#### ´¦ÀíÂß¼­
+#### å¤„ç†é€»è¾‘
 
 ![l4_authz_xdp](pics/kmesh_xdp_authz.jpg#pic_center)
 
-ÔÚ XDP ÊÚÈ¨µÄÊµÏÖÖÐ£¬ÓÉÓÚ eBPF ÑéÖ¤Æ÷¶Ô×Ö½ÚÊýµÄÏÞÖÆ£¬ÎÒÃÇÐèÒªÊ¹ÓÃ eBPF µÄ tailcall »úÖÆÀ´ÊµÏÖ XDP ÊÚÈ¨µÄÕû¸ö¹ý³Ì¡£Õû¸ö¹ý³ÌÈçÉÏÍ¼ËùÊ¾£º
-Ê×ÏÈ£¬³ÌÐòÈë¿ÚÊÇ xdp_authz¡£ÔÚ´Ë eBPF ³ÌÐòÖÐ£¬ÊÚÈ¨¹æÔòÔÚÄÚ´æÖÐµÄÆðÊ¼µØÖ·½«±»Ð´Èë kmesh_tc_args eBPF map£¬È»ºó½«½øÐÐ tail call µ½ policies_check eBPF ³ÌÐò¡£¸Ã³ÌÐò»á½«¹æÔòºÍ±ØÒªÐÅÏ¢Ð´Èë kmesh_tc_args eBPF map£¬È»ºó½«½øÐÐ tail call µ½ policy_check eBPF ³ÌÐòÒÔ¼ì²éÌØ¶¨µÄ×Ó¾ä¹æÔò£¬ÕâÉæ¼°ÖîÈç port_check ºÍ ip_check Ö®ÀàµÄÆ¥ÅäÂß¼­¡£ÓÉÓÚµ±Ç°µÄ xdp ÊÚÈ¨½öÖ§³Ö ip ºÍ port£¬Òò´ËÔÚ clause_check º¯Êýµ÷ÓÃ¹ý³ÌÖÐ£¬Èç¹ûÅäÖÃÁËÈÎºÎ¹ØÓÚ namespace ºÍ principle µÄ²ßÂÔ£¬½«»á tailcall µ½ xdp_shutdown_in_userspace eBPF prog¡£
+åœ¨ XDP æŽˆæƒçš„å®žçŽ°ä¸­ï¼Œç”±äºŽ eBPF éªŒè¯å™¨å¯¹å­—èŠ‚æ•°çš„é™åˆ¶ï¼Œæˆ‘ä»¬éœ€è¦ä½¿ç”¨ eBPF çš„ tailcall æœºåˆ¶æ¥å®žçŽ° XDP æŽˆæƒçš„æ•´ä¸ªè¿‡ç¨‹ã€‚æ•´ä¸ªè¿‡ç¨‹å¦‚ä¸Šå›¾æ‰€ç¤ºï¼š
+é¦–å…ˆï¼Œç¨‹åºå…¥å£æ˜¯ xdp_authzã€‚åœ¨æ­¤ eBPF ç¨‹åºä¸­ï¼ŒæŽˆæƒè§„åˆ™åœ¨å†…å­˜ä¸­çš„èµ·å§‹åœ°å€å°†è¢«å†™å…¥ kmesh_tc_args eBPF mapï¼Œç„¶åŽå°†è¿›è¡Œ tail call åˆ° policies_check eBPF ç¨‹åºã€‚è¯¥ç¨‹åºä¼šå°†è§„åˆ™å’Œå¿…è¦ä¿¡æ¯å†™å…¥ kmesh_tc_args eBPF mapï¼Œç„¶åŽå°†è¿›è¡Œ tail call åˆ° policy_check eBPF ç¨‹åºä»¥æ£€æŸ¥ç‰¹å®šçš„å­å¥è§„åˆ™ï¼Œè¿™æ¶‰åŠè¯¸å¦‚ port_check å’Œ ip_check ä¹‹ç±»çš„åŒ¹é…é€»è¾‘ã€‚ç”±äºŽå½“å‰çš„ xdp æŽˆæƒä»…æ”¯æŒ ip å’Œ portï¼Œå› æ­¤åœ¨ clause_check å‡½æ•°è°ƒç”¨è¿‡ç¨‹ä¸­ï¼Œå¦‚æžœé…ç½®äº†ä»»ä½•å…³äºŽ namespace å’Œ principle çš„ç­–ç•¥ï¼Œå°†ä¼š tailcall åˆ° xdp_shutdown_in_userspace eBPF progã€‚
 
 ![l4_authz_xdp_process](pics/kmesh_l4_authorization_match_chain.svg#pic_center)
 
-1. ÏûÏ¢½âÎö£ºµ±Êý¾Ý°ü½øÈë·þÎñÆ÷¶ËµÄ XDP ´¦ÀíÂß¼­Ê±£¬½«½âÎöÊý¾Ý°üµÄÔª×éÐÅÏ¢¡£È»ºó»ùÓÚÄ¿±ê IP ÕÒµ½ÏàÓ¦µÄ¹¤×÷¸ºÔØÊµÀý£¬²¢¼ìË÷ÔÚ¸Ã¹¤×÷¸ºÔØÉÏÅäÖÃµÄÊÚÈ¨¹æÔò¡£
-2. ¹æÔòÆ¥Åä£ºÈçÍ¼ËùÊ¾£¬XDP ÊµÏÖÁËÒ»¸öÆ¥ÅäÁ´Âß¼­¡£Ê×ÏÈ£¬Ëü¸ù¾Ý¶Ë¿ÚÐÅÏ¢È·¶¨ÊÇÔÊÐí»¹ÊÇ¾Ü¾øÊý¾Ý°ü£¬Èç¹û½á¹ûÊÇ¾Ü¾ø£¬ÔòÀ¹½ØÊý¾Ý°ü£¬¹ý³Ì½áÊø¡£Èç¹û½á¹ûÊÇÔÊÐí£¬ÔòÊ¹ÓÃº¯Êýµ÷ÓÃµ÷ÓÃÏÂÒ»¸öÆ¥ÅäÂß¼­£¨ÀýÈç£¬IP Æ¥Åä£©¡£ÖØ¸´´Ë¹ý³Ì£¬Ö±µ½Á´ÖÐµÄ×îºóÒ»¸öÁ´½Ó¡£Èç¹û×îÖÕ½á¹ûÊÇÔÊÐí£¬Ôò·µ»Ø XDP\_PASS£¬²¢ÇÒÊý¾Ý°üÍ¨¹ýÄÚºËÍøÂç¶ÑÕ»×ª·¢µ½·þÎñÆ÷¡£
+1. æ¶ˆæ¯è§£æžï¼šå½“æ•°æ®åŒ…è¿›å…¥æœåŠ¡å™¨ç«¯çš„ XDP å¤„ç†é€»è¾‘æ—¶ï¼Œå°†è§£æžæ•°æ®åŒ…çš„å…ƒç»„ä¿¡æ¯ã€‚ç„¶åŽåŸºäºŽç›®æ ‡ IP æ‰¾åˆ°ç›¸åº”çš„å·¥ä½œè´Ÿè½½å®žä¾‹ï¼Œå¹¶æ£€ç´¢åœ¨è¯¥å·¥ä½œè´Ÿè½½ä¸Šé…ç½®çš„æŽˆæƒè§„åˆ™ã€‚
+2. è§„åˆ™åŒ¹é…ï¼šå¦‚å›¾æ‰€ç¤ºï¼ŒXDP å®žçŽ°äº†ä¸€ä¸ªåŒ¹é…é“¾é€»è¾‘ã€‚é¦–å…ˆï¼Œå®ƒæ ¹æ®ç«¯å£ä¿¡æ¯ç¡®å®šæ˜¯å…è®¸è¿˜æ˜¯æ‹’ç»æ•°æ®åŒ…ï¼Œå¦‚æžœç»“æžœæ˜¯æ‹’ç»ï¼Œåˆ™æ‹¦æˆªæ•°æ®åŒ…ï¼Œè¿‡ç¨‹ç»“æŸã€‚å¦‚æžœç»“æžœæ˜¯å…è®¸ï¼Œåˆ™ä½¿ç”¨å‡½æ•°è°ƒç”¨è°ƒç”¨ä¸‹ä¸€ä¸ªåŒ¹é…é€»è¾‘ï¼ˆä¾‹å¦‚ï¼ŒIP åŒ¹é…ï¼‰ã€‚é‡å¤æ­¤è¿‡ç¨‹ï¼Œç›´åˆ°é“¾ä¸­çš„æœ€åŽä¸€ä¸ªé“¾æŽ¥ã€‚å¦‚æžœæœ€ç»ˆç»“æžœæ˜¯å…è®¸ï¼Œåˆ™è¿”å›ž XDP\_PASSï¼Œå¹¶ä¸”æ•°æ®åŒ…é€šè¿‡å†…æ ¸ç½‘ç»œå †æ ˆè½¬å‘åˆ°æœåŠ¡å™¨ã€‚
+
