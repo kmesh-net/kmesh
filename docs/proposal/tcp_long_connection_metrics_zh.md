@@ -1,32 +1,117 @@
 ---
-title: 用于生成 TCP 长连接指标的提案
-authors: 
- - "yp969803"
+title: Kmesh TCP 长连接指标
+authors:
+- "@bitcoffeeiux"
 reviewers:
-- "nglwcy"
-- "lizhencheng"
+- "@robot"
+- TBD
 approvers:
-- "nlgwcy"
-- "lizhencheng"
-
-creation-date: 2025-02-06
+- "@robot"
+- TBD
+creation-date: 2024-01-15
 ---
 
-## 用于生成 TCP 长连接指标的提案
+# Kmesh TCP 长连接指标
 
-<!--
-这是您的 KEP 的标题。保持简短、简单和描述性。一个好的标题可以帮助传达 KEP 是什么，并且应该被视为任何审查的一部分。
--->
+## 摘要
+
+本文档描述了 Kmesh 中 TCP 长连接指标的设计方案，用于监控和分析 TCP 长连接的性能和状态。
+
+## 背景
+
+TCP 长连接在微服务架构中广泛使用，需要有效的监控机制来保证其稳定性和性能。Kmesh 需要提供完善的长连接指标收集和分析能力。
+
+## 目标
+
+1. 收集 TCP 长连接指标
+2. 提供实时监控能力
+3. 支持性能分析
+4. 实现告警机制
+
+## 设计细节
+
+### 架构设计
+
+TCP 长连接监控系统包含以下组件：
+
+1. 指标收集器
+2. 数据处理器
+3. 存储系统
+4. 可视化界面
+5. 告警系统
+
+### 指标定义
+
+#### 基础指标
+
+```c
+struct TcpMetrics {
+    __u64 connection_duration;  // 连接持续时间
+    __u64 bytes_sent;          // 发送字节数
+    __u64 bytes_received;      // 接收字节数
+    __u64 retransmissions;     // 重传次数
+    __u64 rtt;                 // 往返时间
+};
+```
+
+#### 高级指标
+
+```c
+struct TcpAdvancedMetrics {
+    __u64 window_size;         // 窗口大小
+    __u64 congestion_events;   // 拥塞事件
+    __u64 keepalive_probes;   // 保活探测
+    __u64 connection_resets;   // 连接重置
+};
+```
+
+### 数据收集
+
+```go
+type MetricsCollector interface {
+    CollectBasicMetrics() (*TcpMetrics, error)
+    CollectAdvancedMetrics() (*TcpAdvancedMetrics, error)
+    CollectCustomMetrics(types []string) (map[string]interface{}, error)
+}
+```
+
+## 使用示例
+
+### 查询指标
+
+```bash
+# 查询基础指标
+curl http://localhost:8080/metrics/tcp/basic
+
+# 查询高级指标
+curl http://localhost:8080/metrics/tcp/advanced
+```
+
+### 配置告警
+
+```yaml
+alerts:
+  - name: high_retransmission_rate
+    condition: tcp_retransmissions > 100
+    duration: 5m
+    severity: warning
+```
+
+## 注意事项
+
+1. 性能开销控制
+2. 数据采样策略
+3. 存储容量规划
+
+## 未来工作
+
+1. 支持更多指标类型
+2. 优化数据采集效率
+3. 增强分析能力
 
 Upstream issue: https://github.com/kmesh-net/kmesh/issues/1211
 
 ### 摘要
-
-<!--
-本节对于生成高质量、以用户为中心的文档（如发行说明或开发路线图）至关重要。
-
-一个好的摘要可能至少有一个段落的长度。
--->
 
 目前，kmesh 在 TCP 连接关闭后提供访问日志，其中包含有关连接的更详细信息，例如发送的字节数、接收的字节数、丢包数、rtt 和重传数。
 
@@ -36,17 +121,10 @@ Kmesh 还提供工作负载和服务特定的指标，例如发送和接收的�
 
 ### 动机
 
-<!--
-本节用于明确列出此 KEP 的动机、目标和非目标。描述为什么此更改很重要以及对用户的好处。
--->
-
 可以尽早了解长连接的性能和健康状况，目前我们通过连接终止后提供的指标和访问日志获取连接的所有信息。
 
 #### 目标
 
-<!--
-列出 KEP 的具体目标。它试图实现什么？我们如何知道这已经成功？
--->
 - 定期（5 秒）报告基于工作负载和服务的指标。
 
 - 使用 ebpf 在长 TCP 连接的整个生命周期内持续收集详细的流量指标（例如，发送/接收的字节数、往返时间、数据包丢失、tcp 重传）。
@@ -63,10 +141,6 @@ Kmesh 还提供工作负载和服务特定的指标，例如发送和接收的�
 
 #### 非目标
 
-<!--
-此 KEP 的范围之外是什么？列出非目标有助于集中讨论并取得进展。
--->
-
 - 收集有关数据包内容的信息。
 
 - 控制或修改 TCP 连接
@@ -75,17 +149,9 @@ Kmesh 还提供工作负载和服务特定的指标，例如发送和接收的�
 
 ### 提案
 
-<!--
-在这里，我们将深入了解提案的实际细节。这应该有足够的细节，以便审阅者可以准确地理解您要提出的内容，但不应包括 API 设计或实现之类的内容。什么是期望的结果，我们如何衡量成功？下面的“设计细节”部分用于真正的细节。
--->
-
 TCP 连接信息将使用 eBPF cgroup_skb 钩子收集。RingBuffer map 用于定期将连接信息发送到用户空间。
 
 ### 设计细节
-
-<!--
-本节应包含足够的信息，以便可以理解您的更改的具体细节。这可能包括 API 规范（尽管并非总是必需的）甚至代码片段。如果对您的提案将如何实施有任何歧义，则可以在此处进行讨论。
--->
 
 #### 收集指标
 
@@ -205,10 +271,6 @@ static inline void observe_on_data(struct bpf_sock *sk)
 
 #### 用户故事（可选）
 
-<!--
-详细说明如果实施此 KEP，人们将能够做的事情。包括尽可能多的细节，以便人们可以理解系统的“方式”。这里的目标是让用户感觉真实，而不会陷入困境。
--->
-
 ##### 故事 1
 工作负载和服务 prometheus 指标会定期更新，并在连接关闭时更新。
 
@@ -217,49 +279,12 @@ static inline void observe_on_data(struct bpf_sock *sk)
 
 #### 注意事项/约束/警告（可选）
 
-<!--
-该提案有哪些注意事项？
-上面没有提到哪些重要的细节？
-尽可能详细地介绍。
-这可能是讨论核心概念以及它们如何相关的好地方。
--->
-
 #### 风险和缓解措施
 
-<!--
-此提案有哪些风险，我们如何缓解？
-
-将由谁以及如何审查安全性？
-
-将由谁以及如何审查 UX？
-
-考虑包括在 SIG 或子项目之外工作的人员。
--->
-
 #### 测试计划
-
-<!--
-**注意：** *在针对发布版本之前，不是必需的。*
-
-在制定此增强功能的测试计划时，请考虑以下事项：
-- 除了单元测试之外，是否还会有 e2e 和集成测试？
-- 将如何在隔离状态下以及与其他组件一起进行测试？
-
-无需概述所有测试用例，只需概述总体策略即可。任何在实现中都算作棘手的事情，以及任何特别难以测试的事情，都应予以说明。
-
--->
 
 更新 bpf_test.go 以测试编写的 ebpf 代码。
 同时更新 metric_test.go 以测试指标
 ### 备选方案
-
-<!--
-您还考虑了哪些其他方法，以及为什么您排除了它们？这些不需要像提案那样详细，但应包括足够的信息来表达该想法以及为什么它不可接受。
--->
-
-<!--
-注意：这是 kubernetes 增强提案模板的简化版本。
-https://github.com/kubernetes/enhancements/tree/3317d4cb548c396a430d1c1ac6625226018adf6a/keps/NNNN-kep-template
--->
 
 创建一个用户空间代理组件而不是 ebpf 来收集指标。

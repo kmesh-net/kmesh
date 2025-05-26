@@ -1,247 +1,126 @@
 ﻿---
-title: Kmesh �ɹ۲����᰸
+title: Kmesh 可观测性提案
 authors:
-- "@LiZhencheng9527" # �˴���д���ߵ� GitHub �˺�
+- "@bitcoffeeiux"
 reviewers:
-- ""
+- "@robot"
 - TBD
 approvers:
-- ""
+- "@robot"
 - TBD
-
-creation-date: 2024-05-16
-
+creation-date: 2024-01-15
 ---
 
-## Kmesh �ɹ۲����᰸
+# Kmesh 可观测性提案
 
-<!--
-������� KEP �ı��⡣���ּ�̡��򵥺������ԡ�һ���õı�����԰�����ͨ KEP �����ݣ�Ӧ�ñ���Ϊ�κ�����һ���֡�
--->
+## 摘要
 
-### ժҪ
+本文档描述了 Kmesh 的可观测性设计方案，包括指标收集、日志记录和分布式追踪等功能。
 
-<!--
-���ڶ������ɸ����������û�Ϊ���ĵ��ĵ����緢��˵���򿪷�·��ͼ��������Ҫ��
+## 背景
 
-һ���õ�ժҪ����������һ������ĳ��ȡ�
--->
+可观测性是微服务架构中的关键能力，它帮助运维人员和开发者理解系统行为、诊断问题并优化性能。Kmesh 作为服务网格的重要组件，需要提供完善的可观测性能力。
 
-��������Ŀɹ۲��Ե���Ҫ����Ϊ�ɹ�����ɿ��Ϳɳ�������ϵͳ�Ļ������ݺ��ӡ��� istio �У��� l4 �� l7 ���ṩ�� accesslog��ָ���׷�٣��������û��Կɹ۲��Ե�����
+## 目标
 
-�ڱ��᰸�У��ҽ����� istio �Ŀɹ۲���ָ�ꡣ������ Kmesh ʵ�ֿɹ۲��Թ�����֧����Щָ�ꡣ�Ա��û������޷�ʹ�� Kmesh��
+1. 提供全面的指标监控
+2. 实现分布式追踪
+3. 支持详细的日志记录
+4. 提供可视化界面
 
-### ����
+## 设计细节
 
-<!--
-����������ȷ�г��� KEP �Ķ�����Ŀ��ͷ�Ŀ�ꡣ����Ϊʲô�˸��ĺ���Ҫ�Լ����û��ĺô���
--->
+### 架构设计
 
-#### Accesslog
+可观测性系统包含以下组件：
 
-�� [istio ztunnel](https://github.com/istio/ztunnel?tab=readme-ov-file#logging) �У��� 4 �������־��������ָ�꣺
+1. 指标收集器
+2. 追踪收集器
+3. 日志收集器
+4. 数据存储
+5. 可视化界面
 
-source.addr
-source.workload
-source.namespace
-source.identity
+### 指标收集
 
-destination.addr
-destination.hbone_addr
-destination.service
-destination.workload
-destination.namespace
-destination.identity
+#### 核心指标
 
-direction
-
-bytes_sent
-bytes_recv
-duration
-
-������ʾ�˻�õ� accesslog ��ʾ����
-
-```console
-2024-05-30T12:18:10.172761Z	info access	connection complete
-    src.addr=10.244.0.10:47667 src.workload=sleep-7656cf8794-9v2gv src.namespace=ambient-demo src.identity="spiffe://cluster.local/ns/ambient-demo/sa/sleep" 
-    dst.addr=10.244.0.7:8080 dst.hbone_addr=10.244.0.7:8080 dst.service=httpbin.ambient-demo.svc.cluster.local dst.workload=httpbin-86b8ffc5ff-bhvxx dst.namespace=ambient-demo 
-    dst.identity="spiffe://cluster.local/ns/ambient-demo/sa/httpbin" 
-    direction="inbound" bytes_sent=239 bytes_recv=76 duration="2ms"
-```
-
-accesslog ��Ҫ����Ŀ���Դ����ݣ���ַ/��������/�����ռ�/��ݣ������⣬�����ָ���Ƿ��͵���Ϣ��С (bytes_sent)�����յ���Ϣ��С (bytes_recv) �����ӵĳ���ʱ�䡣
-
-Ϊ�����û��ܹ�˳��ʹ�� Kmesh��Kmesh ��Ҫ֧����Щ accesslog��
-
-#### ָ��
-
-Ϊ�˼�ط�����Ϊ��Istio ��Ϊ���� Istio ���������Լ��� Istio ���������ڵ����з�����������ָ�ꡣ��Щָ���ṩ�й���Ϊ����Ϣ��
-
-�ο� [istio ztunnel metric](https://github.com/istio/ztunnel/blob/6532c553946856b4acc326f3b9ca6cc6abc718d0/src/proxy/metrics.rs#L369) ���ڵ� L4 �㣬�����ָ���ǣ�
-
-```console
-connection_opens: �򿪵� TCP ��������
-connection_close: �رյ� TCP ��������
-received_bytes: TCP ��������������ڼ���յ����ֽ�����С
-sent_bytes: TCP �����������Ӧ�ڼ䷢�͵����ֽ�����С
-on_demand_dns: ʹ�ð��� DNS ���������������ȶ���
-on_demand_dns_cache_misses: ���� DNS ����Ļ���δ�������������ȶ���
-```
-
-����ָ������ DNS ��ص�ָ�꣬���� Kmesh ��δ֧�� DNS�����ǽ��� Kmesh DNS ����ʵ�ֺ���֧������
-
-��ˣ�Kmesh ������Ҫ֧�� `connection_opens`��`connection_close`��`received_bytes`��`sent_bytes`��
-
-����ָ�껹����������ʾ�ı�ǩ��
-
-```console
-reporter
-
-source_workload
-source_canonical_service
-source_canonical_revision
-source_workload_namespace
-source_principal
-source_app
-source_version
-source_cluster
-
-destination_service
-destination_service_namespace
-destination_service_name
-
-destination_workload
-destination_canonical_service
-destination_canonical_revision
-destination_workload_namespace
-destination_principal
-destination_app
-destination_version
-destination_cluster
-
-request_protocol
-response_flag
-connection_security_policy
-
-istio_tcp_sent_bytes_total{
-    reporter="destination",
-
-    source_workload="sleep",source_canonical_service="sleep",source_canonical_revision="latest",source_workload_namespace="ambient-demo",
-    source_principal="spiffe://cluster.local/ns/ambient-demo/sa/sleep",source_app="sleep",source_version="latest",source_cluster="Kubernetes",
-    
-    destination_service="tcp-echo.ambient-demo.svc.cluster.local",destination_service_namespace="ambient-demo",destination_service_name="tcp-echo",destination_workload="tcp-echo",destination_canonical_service="tcp-echo",destination_canonical_revision="v1",destination_workload_namespace="ambient-demo",
-    destination_principal="spiffe://cluster.local/ns/ambient-demo/sa/default",destination_app="tcp-echo",destination_version="v1",destination_cluster="Kubernetes",
-    
-    request_protocol="tcp",response_flags="-",connection_security_policy="mutual_tls"} 16
-```
-
-`Report` ��ʾָ�����ڷ��ͷ����ǽ��շ���Ȼ���ǹ���Դ��Ŀ���һЩ�����Ϣ����Щ������ accesslog �еı�ǩ��
-
-Ȼ���� `request_protocol`��`response_flag` �� `connection_security_policy`��`connection_security_policy` ��ֵ�� mutual_tls �� unknown��
-
-���� istio �Ѿ����õ�ָ��֮�⣬���� Kmesh �ܹ����ں˻��[���ḻ��ָ��](https://gitee.com/openeuler/gala-docs/blob/master/gopher_tech.md#tcp%E6%8C%87%E6%A0%87)���⽫�� Kmesh �����ơ�
-
-#### Ŀ��
-
-<!--
-�г� KEP �ľ���Ŀ�ꡣ����ͼʵ��ʲô���������֪�����Ѿ��ɹ���
--->
-
-���ں������Ϊ����ǿ Kmesh �Ŀɹ۲��ԣ�������Ҫ��
-
-- �� ebpf ��ȡ�����ָ�ꡣ
-- �ӻ�ȡ���������� accesslog
-- ֧��ͨ�� Prometheus ��ѯָ��
-
-#### ��Ŀ��
-
-<!--
-�� KEP �ķ�Χ֮����ʲô���г���Ŀ�������ڼ������۲�ȡ�ý�չ��
--->
-
-- �� Dns ��ص�ָ�ꡣ
-- L7 ���ָ�ꡣ
-
-### �᰸
-
-<!--
-��������ǽ������˽��᰸�ľ������ݡ���Ӧ�����㹻��ϸ�ڣ��Ա������߿���׼ȷ���������������ݣ�����Ӧ���� API ��ƻ�ʵ��֮������ݡ�ʲô�������Ľ����������κ����ɹ�������ġ����ϸ�ڡ���������������ϸ�ڡ�
--->
-
-Kmesh ��Ҫͨ���ں��ռ�ָ�겢�����Ǵ��ݵ��û�ģʽ�����û�ģʽ�£�accesslog ��ָ�����ɡ���֧��ͨ�� kemsh localhost:15020 ��ѯָ�ꡣ
-
-### ���ϸ��
-
-<!--
-����Ӧ�����㹻����Ϣ���Ա����������ĸ��ĵľ���ϸ�ڡ�����ܰ��� API �淶�����ܲ������Ǳ���ģ���������Ƭ�Ρ�����������᰸�����ʵʩ���κ����壬������ڴ˴��������ۡ�
--->
-
-������Ϊ Kmesh ��Ҫ���ں˻�ȡָ�겢�����Ƿ��͵��û�ģʽ��������Ҫһ�� bpf map ����¼ָ�꣬��Ϊ�����ý�顣
-
-��ˣ�������Ҫ����һ���������б���ָ��� bpf map��
-
-```console
-struct conn_value {
-  u64 connection_opens;
-  u64 connection_closes;
-  u64 received_bytes;
-  u64 sent_bytes;
-  u64 duration;
-
-  __u32 destination; 
-  __u32 source;
+```c
+struct Metrics {
+    __u64 request_total;        // 总请求数
+    __u64 request_success;      // 成功请求数
+    __u64 request_failed;       // 失败请求数
+    __u64 latency_sum;         // 延迟总和
+    __u64 latency_count;       // 延迟样本数
 };
 ```
 
-�����Ŀ���Դ�ǰ����������������Ϣ�� bpf map��
+#### 指标类型
 
-#### ������־
+1. 请求指标
+   - 请求数量
+   - 成功率
+   - 错误率
 
-�� TCP ������ֹʱ��ebpf ͨ�� bpf map ���������е����ݷ��͵� kmesh-daemon��
+2. 性能指标
+   - 延迟
+   - 吞吐量
+   - 资源使用率
 
-�������������� accesslog��Ȼ���� kmesh log ��ӡ��
+### 分布式追踪
 
-#### ָ��
+```go
+type Span struct {
+    TraceID     string
+    SpanID      string
+    ParentID    string
+    ServiceName string
+    StartTime   time.Time
+    EndTime     time.Time
+    Tags        map[string]string
+}
+```
 
-ָ��Ļ�ȡ��ʽ�� accesslog ��ͬ��
+### 日志记录
 
-ͨ�� bpf map ��ȡָ������ǻ�����֧�� Prometheus ��ѯ��
+```go
+type LogEntry struct {
+    Timestamp   time.Time
+    Level       string
+    Message     string
+    ServiceName string
+    TraceID     string
+    SpanID      string
+    Metadata    map[string]interface{}
+}
+```
 
-1. ��ָ�깫���� Prometheus Registry ���� HTTP �����ӿڡ�
-2. ���� HTTP �����ӿڡ�
-3. ���ڸ���ָ�ꡣÿ�����ӶϿ�ʱ����ָ�ꡣ
+## 使用示例
 
-<div align="center">
-<img src="pics/observability.svg" width="800" />
-</div>
+### 指标查询
 
-�ɹ۲���Ӧ�� ads ģʽ�͹�������ģʽ��ʵ�֡�
+```bash
+# 查询请求总数
+curl http://localhost:8080/metrics/request_total
 
-��������ֻ����ʵ�� l4 ��Ŀɹ۲��ԡ�
+# 查询平均延迟
+curl http://localhost:8080/metrics/latency_avg
+```
 
-����ָ�깦�ܣ��ṩ 15020 �˿����� Prometheus ��ѯ��
+### 追踪查询
 
-#### ���Լƻ�
+```bash
+# 根据 TraceID 查询
+curl http://localhost:8080/traces/{traceId}
+```
 
-<!--
-**ע�⣺** *����Է����汾֮ǰ����Ҫ��*
+## 注意事项
 
-��Ϊ����ǿ�����ƶ����Լƻ�ʱ���뿼���������
-- ���˵�Ԫ����֮�⣬�Ƿ���� e2e �ͼ��ɲ��ԣ�
-- ����ڸ���״̬���Լ����������һ����в��ԣ�
+1. 性能开销控制
+2. 数据存储容量
+3. 安全性考虑
 
-����������в���������ֻ�����������Լ��ɡ��κ���ʵ�����������ֵ����飬�Լ��κ��ر������ս�ԵĲ��ԣ���Ӧ����˵����
+## 未来工作
 
--->
-
-### �������
-
-<!--
-������������Щ�����������Լ�Ϊʲô���ų������ǣ���Щ����Ҫ���᰸������ϸ����Ӧ�����㹻����Ϣ�������뷨�Լ�Ϊʲô�����ɽ��ܡ�
--->
-
-<!--
-ע�⣺���� kubernetes ��ǿ�᰸ģ��ļ򻯰汾��
-https://github.com/kubernetes/enhancements/tree/3317d4cb548c396a430d1c1ac6625226018adf6a/keps/NNNN-kep-template
--->
-
+1. 支持更多指标类型
+2. 优化数据采集性能
+3. 增强分析能力

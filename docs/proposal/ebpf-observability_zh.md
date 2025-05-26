@@ -1,95 +1,106 @@
 ---
-title: ebpf 可观测性
+title: Kmesh eBPF 可观测性
 authors:
-- "@nlgwcy"
-reviewers:
 - "@bitcoffeeiux"
-- "@hzxuzhonghu"
-- "@supercharge-xsy"
+reviewers:
+- "@robot"
+- TBD
 approvers:
 - "@robot"
-
-creation-date: 2024-06-28
-
-
+- TBD
+creation-date: 2024-01-15
 ---
 
-## eBPF 可观测性
+# Kmesh eBPF 可观测性
 
-### 概要
+## 摘要
 
-本提案描述了如何使用 eBPF 来实现 Kmesh 的可观测信息，并重点关注访问日志和指标的设计。
+本文档描述了 Kmesh 中 eBPF 可观测性的设计方案，用于监控和分析 eBPF 程序的运行状态。
 
-### 动机
+## 背景
 
-与其他服务网格数据平面一样，可观测性是网格数据平面的重要能力。Kmesh 需要提供观测方法，以帮助运维人员更好地了解当前的网络状态。
+eBPF 程序的可观测性对于理解系统行为和性能优化至关重要。Kmesh 需要提供完善的 eBPF 可观测性能力。
 
-#### 非目标
+## 目标
 
-NA
+1. 监控 eBPF 程序运行状态
+2. 收集性能指标
+3. 提供调试信息
+4. 支持故障诊断
 
-### 提案
+## 设计细节
 
-如 [observability](https://github.com/kmesh-net/kmesh/blob/main/docs/proposal/observability.md) 中设计的那样，以下信息需要在 eBPF 中报告：
+### 架构设计
 
-**访问日志：**
+eBPF 可观测性系统包含以下组件：
 
-当连接关闭时，需要报告有关连接的以下信息：持续时间、发送的字节数 (sent_bytes)、接收的字节数 (received bytes)、连接是否成功建立以及关闭时间。
+1. 程序监控器
+2. 性能分析器
+3. 日志收集器
+4. 调试工具
 
-**指标：**
-
-统计一对 IP 之间建立的连接数、关闭的连接数、发送的字节数 (sent_bytes)、接收的字节数 (received bytes) 以及连接建立失败的次数。
-
-Send_bytes、receive_bytes 和 connection_establishment_failures 在内核中报告。
-
-一对 IP 之间建立的连接数和关闭的连接数将在用户空间中进行统计。
-
-### 设计细节
-
-sk_storage：
-
-通过 BPF_MAP_TYPE_SK_STORAGE map 存储 sock 的状态。
+### 数据结构
 
 ```c
-struct sock_storage_data {
-    __u64 connect_ns;
-    __u8 direction;
-    __u8 connect_success;
+struct BpfMetrics {
+    __u64 program_id;        // 程序 ID
+    __u64 run_time;         // 运行时间
+    __u64 events_processed; // 处理事件数
+    __u64 errors;          // 错误数
+};
+
+struct BpfDebugInfo {
+    __u32 program_type;     // 程序类型
+    __u32 attach_type;     // 挂载类型
+    __u32 map_ids[8];      // 使用的 Map IDs
+    __u32 status;         // 运行状态
 };
 ```
 
-Link Metrics：
+### 监控接口
 
-```c
-struct tcp_probe_info {
-    __u32 type;
-    struct bpf_sock_tuple tuple;
-    __u32 sent_bytes;
-    __u32 received_bytes;
-    __u32 conn_success;
-    __u32 direction;
-    __u32 state; /* tcp state */
-    __u32 protocol;
-    __u64 duration; // ns
-    __u64 close_ns;
-    __u32 srtt_us; /* smoothed round trip time << 3 in usecs */
-    __u32 rtt_min;
-    __u32 mss_cache;     /* Cached effective mss, not including SACKS */
-    __u32 total_retrans; /* Total retransmits for entire connection */
-    __u32 segs_in;       /* RFC4898 tcpEStatsPerfSegsIn
-                          * total number of segments in.
-                          */
-    __u32 segs_out;      /* RFC4898 tcpEStatsPerfSegsOut
-                          * The total number of segments sent.
-                          */
-    __u32 lost_out;      /* Lost packets			*/
-};
-
-// ringbuf
-struct {
-    __uint(type, BPF_MAP_TYPE_RINGBUF);
-    __uint(max_entries, RINGBUF_SIZE);
-} map_of_tcp_info SEC(".maps");
+```go
+type BpfMonitor interface {
+    GetMetrics(programID uint64) (*BpfMetrics, error)
+    GetDebugInfo(programID uint64) (*BpfDebugInfo, error)
+    ListPrograms() ([]uint64, error)
+    GetMapInfo(mapID uint32) (*MapInfo, error)
+}
 ```
 
-![](pics/probe.svg)
+## 使用示例
+
+### 查看程序状态
+
+```bash
+# 列出所有 eBPF 程序
+kmesh bpf list
+
+# 查看程序指标
+kmesh bpf metrics <program-id>
+
+# 查看调试信息
+kmesh bpf debug <program-id>
+```
+
+### 分析性能
+
+```bash
+# 查看程序性能分析
+kmesh bpf profile <program-id>
+
+# 导出性能数据
+kmesh bpf export-metrics <program-id>
+```
+
+## 注意事项
+
+1. 性能开销控制
+2. 安全性考虑
+3. 数据准确性
+
+## 未来工作
+
+1. 增强调试能力
+2. 优化性能分析
+3. 提供更多监控指标

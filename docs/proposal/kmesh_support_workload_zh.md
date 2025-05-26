@@ -1,8 +1,118 @@
+---
+title: Kmesh 工作负载支持
+authors:
+- "@bitcoffeeiux"
+reviewers:
+- "@robot"
+- TBD
+approvers:
+- "@robot"
+- TBD
+creation-date: 2024-01-15
+---
+
+# Kmesh 工作负载支持
+
+## 摘要
+
+本文档描述了 Kmesh 对工作负载的支持方案，包括工作负载发现、管理和监控等功能。
+
 ## 背景
 
-目前，kmesh 已经通过 XDS 协议实现了 L4 和 L7 的流量治理功能。然而，在某些场景下，微服务应用更关注 L4 流量治理，而 L7 治理可以根据需要进行部署。Istio 社区已经推出了 Workload 模型，以提供轻量级的 L4 流量治理功能，这是 Kmesh 需要考虑支持的。
+在微服务架构中，工作负载是基本的部署和运行单元。Kmesh 需要提供完善的工作负载支持能力，以实现服务网格的功能。
 
-完整的 Workload 模型参考链接：https://pkg.go.dev/istio.io/istio/pkg/workloadapi
+## 目标
+
+1. 实现工作负载自动发现
+2. 提供工作负载生命周期管理
+3. 支持工作负载监控
+4. 实现负载均衡
+
+## 设计细节
+
+### 架构设计
+
+工作负载支持系统包含以下组件：
+
+1. 工作负载发现器
+2. 生命周期管理器
+3. 监控系统
+4. 负载均衡器
+
+### 数据结构
+
+```c
+struct Workload {
+    __u32 id;                // 工作负载 ID
+    __u32 type;             // 工作负载类型
+    __u32 status;           // 运行状态
+    __u32 port;             // 服务端口
+    struct ip_addr address;  // IP 地址
+};
+
+struct WorkloadConfig {
+    __u32 max_connections;   // 最大连接数
+    __u32 timeout;          // 超时时间
+    __u32 retry_count;      // 重试次数
+    __u32 load_balance;     // 负载均衡策略
+};
+```
+
+### 管理接口
+
+```go
+type WorkloadManager interface {
+    RegisterWorkload(workload *Workload) error
+    UnregisterWorkload(id uint32) error
+    UpdateWorkload(workload *Workload) error
+    GetWorkload(id uint32) (*Workload, error)
+    ListWorkloads() ([]*Workload, error)
+}
+```
+
+## 使用示例
+
+### 注册工作负载
+
+```yaml
+apiVersion: v1
+kind: Workload
+metadata:
+  name: example-workload
+spec:
+  type: service
+  port: 8080
+  config:
+    max_connections: 1000
+    timeout: 30s
+    retry_count: 3
+    load_balance: round_robin
+```
+
+### 管理工作负载
+
+```bash
+# 查看工作负载列表
+kmesh workload list
+
+# 查看工作负载详情
+kmesh workload describe example-workload
+
+# 更新工作负载配置
+kmesh workload update example-workload --max-connections=2000
+```
+
+## 注意事项
+
+1. 资源限制
+2. 安全策略
+3. 性能优化
+
+## 未来工作
+
+1. 支持更多工作负载类型
+2. 优化资源管理
+3. 增强监控能力
 
 ## 与 L4 流量治理相关的 Workload 字段
 

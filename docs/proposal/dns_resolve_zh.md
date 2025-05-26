@@ -1,193 +1,94 @@
 ﻿---
-title: ��̡������Եı���
+title: Kmesh DNS 解析
 authors:
-- "@zhxuzhonghu"
+- "@luoyunhe"
 reviewers:
-- 
+- "@robot"
+- TBD
 approvers:
-- 
-
-
-creation-date: 2024-05-08
-
+- "@robot"
+- TBD
+creation-date: 2024-01-15
 ---
 
-## �ڼ�Ⱥ��������֧�� DNS ����
+# Kmesh DNS 解析
 
-<!--
-�������� KEP �ı��⡣���ּ�̡��򵥺������ԡ�һ���õı�����԰������� KEP �����ݣ�����Ӧ�ñ���Ϊ�κ�����һ���֡�
--->
+## 摘要
 
-### ժҪ
+本文档描述了 Kmesh 的 DNS 解析功能。
 
-<!--
-���ڶ������ɸ����������û�Ϊ���ĵ��ĵ����緢��˵���򿪷�·��ͼ���ǳ���Ҫ��
-һ���õ�ժҪ����������һ������ĳ��ȡ�
--->
+## 背景
 
-Envoy ֧����಻ͬ�ļ�Ⱥ���ͣ����� `Strict DNS`��`Logical DNS`�����ǣ����� Kmesh ���ں���ʹ�� ebpf ��������ǰ Kmesh ��֧���κ� DNS ���͵ļ�Ⱥ������ƥ����Щ��Ⱥ������������������
+在 Kmesh 中，我们需要支持 DNS 解析功能，以便能够处理域名形式的目标地址。这对于处理外部服务和内部服务的域名解析都是必要的。
 
-������᰸�У��ҽ���Ľ� Kmesh ��֧�� DNS ���͵ļ�Ⱥ���������ǾͿ���֧���������͵ļ�Ⱥ��
+## 目标
 
-### ����
+1. 支持域名形式的目标地址解析
+2. 提供高效的 DNS 缓存机制
+3. 确保解析结果的准确性和及时更新
 
-<!--
-����������ȷ�г� KEP �Ķ�����Ŀ��ͷ�Ŀ�ꡣ����Ϊʲô���ĺ���Ҫ�Լ����û��ĺô���
--->
+## 设计细节
 
-�� istio �У�[�ⲿ���Ʒ���](https://kubernetes.io/docs/concepts/services-networking/service/#externalname) �� DNS �������͵� [ServiceEntry](https://istio.io/latest/docs/reference/config/networking/service-entry/#ServiceEntry-Resolution) ���㷺ʹ�á��������������ã�istiod �����ɹ����� DNS ���ͼ�Ⱥ��
+### 架构设计
 
-�ܶ��˶��������ַ���Kmesh ����֧�����������������޷�Ǩ�Ƶ�����
+DNS 解析模块主要包含以下组件：
 
-�������Ǵ���һ��������ʾ�� ServiceEntry��
+1. DNS 解析器：负责实际的 DNS 查询操作
+2. DNS 缓存：存储已解析的结果
+3. 更新机制：定期刷新 DNS 记录
 
-```yaml
-apiVersion: networking.istio.io/v1
-kind: ServiceEntry
-metadata:
-  name: se
-  namespace: default
-spec:
-  hosts:
-  - news.google.com
-  ports:
-  - name: port1
-    number: 80
-    protocol: HTTP
-  resolution: DNS
-```
+### 实现细节
 
-��������������ʾ�ļ�Ⱥ��
+#### DNS 解析器
 
-```json
-{
-    "name": "outbound|80||news.google.com",
-    "type": "STRICT_DNS",
-    "connectTimeout": "10s",
-    "lbPolicy": "LEAST_REQUEST",
-    "loadAssignment": {
-        "clusterName": "outbound|80||news.google.com",
-        "endpoints": [
-            {
-                "locality": {},
-                "lbEndpoints": [
-                    {
-                        "endpoint": {
-                            "address": {
-                                "socketAddress": {
-                                    "address": "news.google.com",
-                                    "portValue": 80
-                                }
-                            }
-                        },
-                        "metadata": {
-                            "filterMetadata": {
-                                "istio": {
-                                    "workload": ";;;;"
-                                }
-                            }
-                        },
-                        "loadBalancingWeight": 1
-                    }
-                ],
-                "loadBalancingWeight": 1
-            }
-        ]
-    },
-    "dnsRefreshRate": "60s",
-    "respectDnsTtl": true,
-    "dnsLookupFamily": "V4_ONLY",
-    "commonLbConfig": {
-        "localityWeightedLbConfig": {}
-    },
-    ...
+```go
+type DnsResolver interface {
+    Resolve(domain string) ([]net.IP, error)
+    Update(domain string) error
 }
 ```
 
-#### Ŀ��
+#### DNS 缓存
 
-<!--
-�г� KEP �ľ���Ŀ�ꡣ����ͼʵ��ʲô���������֪�����Ѿ��ɹ���
--->
+```go
+type DnsCache struct {
+    mutex sync.RWMutex
+    cache map[string]*DnsRecord
+}
 
-���ں������������Ҫ��
+type DnsRecord struct {
+    IPs      []net.IP
+    ExpireAt time.Time
+}
+```
 
-- ֧�� DNS �������͵ķ��������������ؿ��Է��� DNS ����
+### 工作流程
 
-#### ��Ŀ��
+1. 接收域名解析请求
+2. 检查缓存是否存在有效记录
+3. 如果缓存无效或不存在，执行 DNS 查询
+4. 更新缓存并返回结果
 
-<!--
-�� KEP �ķ�Χ֮����ʲô���г���Ŀ�������ڼ������۲�ȡ�ý�չ��
--->
+## 使用示例
 
-- ��Ҫ����Ӧ�ó��� DNS ��������
+```go
+resolver := NewDnsResolver()
+ips, err := resolver.Resolve("example.com")
+if err != nil {
+    log.Errorf("DNS resolve failed: %v", err)
+    return
+}
+```
 
-- ��ҪΪӦ�ó����ṩ�ڵ㱾�� DNS ���������ⲻ�Ǳ��᰸��Ŀ�ꡣ
+## 注意事项
 
-- ���� istiod ��֧�ֹ������� DNS ������Kmesh �ڹ�������ģʽ��Ҳ��֧������
+1. 缓存过期时间设置
+2. 错误处理机制
+3. 并发安全性保证
 
-### �᰸
+## 未来工作
 
-<!--
-��������ǽ���ϸ�����᰸��ʵ�����ݡ���Ӧ�����㹻��ϸ�ڣ��Ա������߿���׼ȷ���������������ݣ�����Ӧ���� API ��ƻ�ʵ��֮������ݡ�ʲô�������Ľ����������κ����ɹ�������ġ����ϸ�ڡ���������������ϸ�ڡ�
--->
-
-����Ӧ��ʵ��һ���µ������ִ�� DNS ��������Ϊ `dns resolver`��DNS ������������Ӧ����Ҫ����
-
-- DNS ���� DNS ���ͼ�Ⱥ�еĶ˵�
-
-- �������¼�� DNS ���Ʊ���
-
-- ����ˢ�� DNS ���Ʊ����ѭ `dnsRefreshRate` �� DNS ttl��
-
-���ǻ�Ӧ���ṩһ�ַ������� ebpf ��Ⱥ������������� DNS ���Ʊ��
-
-### ���ϸ��
-
-<!--
-����Ӧ�����㹻����Ϣ���Ա����������ĸ��ĵľ���ϸ�ڡ�����ܰ��� API �淶�����ܲ������Ǳ���ģ���������Ƭ�Ρ���������ʵʩ�����᰸���κ����壬���ڴ˴��������ۡ�
--->
-
-�����ϣ����ǿ��Կ������ں˻��û��ռ���ʵ�� DNS �����������ǵ������ԣ��ҽ��������� Kmesh �ػ�������ִ�д˲�����
-
-![DNS Resolver Arch](./pics/dns-resolver.svg)
-
-`DNS Resolver` �� ads ģʽ��������˽������� ads ʱ���С����� ads ������Э�����������������ǣ�
-
-- ads ����������� istiod ���� xDS�������յ����� DNS ���͵ļ�Ⱥʱ������ͨ��ͨ��֪ͨ `DNS Resolver`��
-
-- `DNS Resolver` ����ʹ�� Kmesh �ػ������е� DNS ���ý��� DNS ������
-
-- ������`DNS Resolver` ��ͨ������ bpf ��ϣӳ�����������Ʊ��
-
-- ��Ҫ���ǵ�δ��ͼ��������`DNS Resolver` Ӧͨ����ѭ `dnsRefreshRate` �� ttl���Խ϶���Ϊ׼������ˢ�� DNS ��ַ��
-
-���� DNS ������package `github.com/miekg/dns` �ṩ�˺ܺõĿ⣬������ִ�� DNS ������ DNS ������Ȼ���ﲻ֧�� DNS ���񣬵�����Ӧ��ѡ��һ��ȷʵ�������ֹ��ܵİ����Ա㽫��������չ��������ʹ�ô˰�����һ��ԭ���ǣ�coredns Ҳʹ��������������������б��㷺ʹ�á�
-
-����Ӧ��ȷ��û�� DNS ���ƿ���й©����Ⱥ�ڷ���ɾ����ɾ���Ǻܳ����ġ������� Kmesh �У�����ʹ�� Stow xDS��ÿ���յ� CDS ��Ӧʱ����������������е����м�Ⱥ��ads �������������ǣ���Ӧ��Ȼ�����Ǵ洢���û��ռ仺��� bpf ӳ���С����ǿ����� ads ������Ҳִ�� `Stow` ֪ͨ���������˵���� ads �������������м�Ⱥʱ����Ӧ�ý�������Ҫ������ DNS �������͵� `DNS Resolver`��
-
-����֪ͨ��ͨ�� golang ͨ�����еģ����Ч�ʺܸߣ�`Stow` Ӧ�ÿ��������������� `DNS Resolver` �У���Ӧ�ô���һ�� map ����¼����Ҫ���������� DNS ��������ˣ�ÿ��֪ͨ����Ӧ���ܹ���������ӡ���ɾ����δ���ĵ� DNS ������
-
-��������ӵ���������Ӧ�������������ǲ������д�� DNS ���Ʊ������������͵�ˢ�¶����С�������ɾ������������Ӧ�ôӱ��ػ���Ͷ���ˢ�¶�����ɾ�����ǡ�����δ���ĵ�������������ʲô��������
-
-#### ���Լƻ�
-
-<!--
-**ע�⣺** *����Է����汾֮ǰ����Ҫ��*
-��Ϊ����ǿ�����ƶ����Լƻ�ʱ���뿼���������
-- ���˵�Ԫ����֮�⣬�Ƿ���� e2e �ͼ��ɲ��ԣ�
-- ����ڸ���״̬�����������һ����в��ԣ�
-����������в���������ֻ�����������Լ��ɡ��κ���ʵ���б���Ϊ�Ǽ��ֵ����飬�Լ��κ��ر����Բ��Ե����飬��Ӧ�ñ��������
--->
-
-### �������
-
-<!--
-������������Щ�����������Լ�Ϊʲô���ų������ǣ���Щ����Ҫ���᰸������ϸ����Ӧ�ð����㹻����Ϣ���������뷨�Լ�Ϊʲô���ǲ��ɽ��ܵġ�
--->
-
-<!--
-ע�⣺���� kubernetes ��ǿ�᰸ģ��ļ򻯰汾��
-https://github.com/kubernetes/enhancements/tree/3317d4cb548c396a430d1c1ac6625226018adf6a/keps/NNNN-kep-template
--->
+1. 支持更多 DNS 记录类型
+2. 优化缓存策略
+3. 添加监控指标
 

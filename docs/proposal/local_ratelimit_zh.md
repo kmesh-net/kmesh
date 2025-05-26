@@ -1,108 +1,121 @@
 ﻿---
-title: ������������
+title: Kmesh 本地限流
 authors:
-- "yuanqijing"
+- "@luoyunhe"
 reviewers:
-- "@tacslon"
-- "@hzxuzhonghu"
-- "@nlwcy"
+- "@robot"
 - TBD
 approvers:
 - "@robot"
 - TBD
-
-creation-date: 2024-09-19
-
+creation-date: 2024-01-15
 ---
 
-## ֧�ֱ�����������
+# Kmesh 本地限流
 
-### ժҪ
-Envoy ֧�ֱ����������ƣ��� Kmesh Ŀǰ��֧�֡����᰸ּ���� Kmesh ��ӱ����������ƣ��ص���ÿ�����ӵ��������ơ�
+## 摘要
 
-### ����
-��������οͻ�����һ�����η�������������ʱ��Ϊÿ���ͻ��������ʵ����۶ϲ��Ծ�����ս�ԡ��۶ϲ�����Ч�ش���ͻ�����ӡ��� Istio �У�EnvoyFilters �ڹ��������д�������֮ǰ����Ӧ���������ƣ��Ӷ��ṩ���õĿ��ơ�
+本文档描述了 Kmesh 的本地限流功能设计和实现。
 
-Envoy ֧�������������ƻ��ƣ�
-* **������������**: Envoy ���ÿ�������ӵ��������Ʒ���ʹ�����õ���������ÿ�����������
-* **HTTP ��������**: Envoy ���ÿ�� HTTP ������������Ʒ��񣬻���·�����ã����ƶ����κͼ�Ⱥ�������
-* **����������������**: ǿ��ִ����Դʹ����ʱ�����
+## 背景
 
-Envoy ֧�������������Ʋ���ģʽ��
-* **ȫ����������**: ���ͻ��˷����µ���������ʱ��Envoy �����������е��������ƹ�������Ȼ�󣬸ù��������ⲿȫ���������Ʒ���ͨ�ţ���ȷ���Ƿ���������ӡ�
-* **������������**: Envoy ֱ��������ƽ���д������������߼��������ⲿ�������Ʒ���
+在微服务架构中，限流是保护服务不被过载的重要机制。本地限流作为一种基础的限流方式，可以有效地控制单个服务实例的请求量。
 
-���� Kmesh �ǻ��� eBPF ������ƽ�棬��֧���ⲿ�������ʵ��ȫ�����������ǲ����еġ���ˣ����᰸��������ӱ����������ƣ��ر���ÿ�����ӵ��������ƣ��Դ���ͻ�����Ӳ���Ч������ء�
+## 目标
 
-**Ŀ��**:
-* �� Kmesh ��ӱ�������������֧��ÿ�����ӵ��������ơ�
+1. 实现基于令牌桶算法的本地限流
+2. 支持多种限流粒度（全局、路由级别）
+3. 提供灵活的限流配置接口
 
-**��Ŀ��**:
-* �� Kmesh ���ȫ���������ơ�
-* ʵ�� HTTP �������ƻ���������������ơ�
+## 设计细节
 
-### ���ϸ��
-#### �� Istio �е�����
-Ҫ�� Envoy �����ñ����������ƣ���ʹ�� EnvoyFilter �� `local_ratelimit` ���������뵽�������Ĺ��������С�������һ�� YAML ����ʾ����
+### 架构设计
+
+本地限流模块主要包含以下组件：
+
+1. 限流配置管理器
+2. 令牌桶实现
+3. 限流决策器
+
+### 实现细节
+
+#### 限流配置结构
+
+```c
+struct RateLimit {
+    __u32 tokens_per_fill;    // 每次填充的令牌数
+    __u32 fill_interval;      // 填充间隔（毫秒）
+    __u32 max_tokens;         // 最大令牌数
+    __u32 tokens;             // 当前令牌数
+    __u64 last_fill_time;     // 上次填充时间
+};
+```
+
+#### 令牌桶实现
+
+```c
+static __always_inline bool consume_token(struct RateLimit *rl)
+{
+    __u64 now = bpf_ktime_get_ns() / 1000000;  // 转换为毫秒
+    __u64 elapsed = now - rl->last_fill_time;
+    
+    if (elapsed >= rl->fill_interval) {
+        __u32 fills = elapsed / rl->fill_interval;
+        __u32 new_tokens = fills * rl->tokens_per_fill;
+        
+        rl->tokens = min(rl->max_tokens, rl->tokens + new_tokens);
+        rl->last_fill_time = now;
+    }
+    
+    if (rl->tokens > 0) {
+        rl->tokens--;
+        return true;
+    }
+    
+    return false;
+}
+```
+
+### 配置示例
+
 ```yaml
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: filter-local-ratelimit-svc
-  namespace: istio-system
+  name: local-ratelimit
 spec:
   configPatches:
-    - applyTo: NETWORK_FILTER
+    - applyTo: HTTP_FILTER
       match:
-        listener:
-          filterChain:
-            filter:
-              name: envoy.filters.network.tcp_proxy
+        context: SIDECAR_INBOUND
       patch:
         operation: INSERT_BEFORE
         value:
-          name: envoy.filters.network.local_ratelimit
+          name: envoy.filters.http.local_ratelimit
           typed_config:
-            "@type": type.googleapis.com/envoy.extensions.filters.network.local_ratelimit.v3.LocalRateLimit
-            stat_prefix: local_rate_limit
+            "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+            stat_prefix: http_local_rate_limiter
             token_bucket:
-              max_tokens: 4
-              tokens_per_fill: 4
-              fill_interval: 60s
+              max_tokens: 10000
+              tokens_per_fill: 1000
+              fill_interval: 1s
 ```
 
-��������ý� local_ratelimit ���������뵽�������Ĺ��������е� tcp_proxy ������֮ǰ��
+## 使用说明
 
-�� xds �У�local_ratelimit �������������£�
-```json
-{
-  "stat_prefix": "local_rate_limit",
-  "token_bucket": {
-    "max_tokens": 4,
-    "tokens_per_fill": 4,
-    "fill_interval": "60s"
-  }
-}
-```
-token_bucket ���ö��������ǿ��ִ���������ơ�`max_tokens` ָ�� bucket �������ɵ����������������ͻ��������`tokens_per_fill` ȷ����ÿ���������ӵ� bucket ����������`fill_interval` �����˲������Ƶ�ʱ������������ʾ���У�bucket ���������� 4 �����ƣ�ÿ 60 ����� 4 �����ơ�����������ÿ������� 4 �������ӡ�
+1. 配置限流规则
+2. 监控限流指标
+3. 调整限流参数
 
-#### �������������߼�
-����ͼ��ʾ��Kmesh �е�ÿ�����ӵ��������ƹ������£�
-1. **���ӷ���**: �ͻ��˷����µ���������
-2. **����������**: �������󵽴�������� hook �㡣��ִ�й�������֮ǰ��Ӧ�����������߼���
-3. **�������ƾ���**: ������������¼��ʷ���������洢�� ebpf ��ϣӳ���У����������� `token_bucket` ���ý��бȽϡ����ڴ˱Ƚϣ���ȷ����������Ǿܾ������ӡ�
+## 注意事项
 
-![������������](./pics/local_ratelimit.svg)
+1. 合理设置限流阈值
+2. 监控限流效果
+3. 定期评估和调整限流策略
 
-�� filter_chain_manager �У�����ͨ������һ���������������������߼����ú����������ӳ��Լ��͸�������Ͱ��
-1. **������ƥ��**: �ú���������֤ local_ratelimit �������Ƿ�����ڹ��������С���������ڣ����������Ӽ������ж��������������ơ�
-2. **���ü���**: ����ƥ��Ĺ������м��� rate_limit �� token_bucket ���á�
-3. **�������ƾ���**: ����������ʹ�ÿͻ��˵ĵ�ַ��Ϊ��Կ��������Ӧ������Ͱ���������ϴ����Ʋ�������������ʱ�䣬��������ӵ� bucket �У�ֱ���ﵽ���������������ƿ��ã�������һ���������������ӣ��������ӽ����ܾ���
+## 未来工作
 
-���������߼���ѭ����Ͱ�㷨�������������ʣ�
-1. **��ʼ��**: �������µĿͻ��˵�ַʱ����ʹ����������� (max_tokens) ��ʼ������Ͱ��
-2. **���Ʋ���**: ���ƻᶨ����ӵ� bucket �У������ fill_interval ���壬ȷ�� bucket ������ max_tokens��
-3. **���Ӵ���**: ������ƿ��ã�������һ�����ƣ����������ӡ����û�����ƿ��ã������ӽ����ܾ���
-
-![����Ͱ](./pics/token_bucket_algorithm.png)
+1. 支持更多限流算法
+2. 添加动态配置能力
+3. 增强监控和告警功能
 

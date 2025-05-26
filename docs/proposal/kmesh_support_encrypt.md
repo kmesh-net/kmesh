@@ -131,17 +131,6 @@ CRD data structure definition is as follows:
 
 A map and two tc programs need to be added to the traffic data path
 
-<<<<<<< HEAD
-- 加密路径新增map：
- | 类型 | lpm前缀树map(4.11版本引入内核) |
- |:-------:|:-------|
- | 作用 | 在流量编排时，判断发送的对端pod所在的节点是否被Kmesh接管了，只有当两边的pod都被Kmesh接管，才会被ipsec加密 |
- | key | bpf_lpm_trie_key {u32 prefixlen; u8 data[0]}; |
- | value | uint32 |
-
-- 新增2个tc：
-在每个pod的容器出口网卡上新增一个tc程序，该tc程序用于将从pod中发出的流量打上mark，标记为走ipsec加密发出
-=======
 - New map for encryption path:
 	| Type | lpm prefix tree map (introduced in kernel version 4.11) |
 	|:-------:|:-------|
@@ -150,51 +139,20 @@ A map and two tc programs need to be added to the traffic data path
 	| value | uint32 |
 - Add 2 tc:
 Add a tc program to the container egress network card of each pod. This tc program is used to mark the traffic sent from the pod and mark it as going through ipsec encryption.
->>>>>>> 96f1e8b7 (完成 docs/proposal 目录中英文翻译全量更新)
 
 Add a tc program to the node network card. After ipsec decrypts the data packet, it enters the tc program. The tc marks the data packet and forwards it to the corresponding ipsec policy for distribution. If this tc program is not used to mark the data packet when receiving it, it will cause packet loss when receiving non-ipsec data packets.
 
-<<<<<<< HEAD
-### 4.4 Kmesh IPSec操作
-=======
-
 ### 4.4 Kmesh IPSec Operation
->>>>>>> 96f1e8b7 (完成 docs/proposal 目录中英文翻译全量更新)
 
 **Specification Restrictions**
 
 - Since the mark is used when matching ipsec rules, please ensure that there are no conflicts in the current environment
 
-<<<<<<< HEAD
-  - 加密时使用的mark如下：0x000000e0，mask :0xffffffff
-  - 解密时使用的mark如下：0x000000d0，mask :0xffffffff
-  - 请勿与该mark使用相同的bit，导致数据包识别错误
-=======
 	- The mark used for encryption is: 0x000000e0, mask :0xffffffff
 	- The mark used for decryption is: 0x000000d0, mask :0xffffffff
 	- Do not use the same bit as this mark, which will cause data packet identification errors
->>>>>>> 96f1e8b7 (完成 docs/proposal 目录中英文翻译全量更新)
 
 - When data is sent from the client, do not enable the address masquerade (masq) option for the traffic that needs to be encrypted in iptables. Address masquerade will use snat technology to masquerade the traffic src_ip into nodeid in the ipsec data packet received by the server, causing the server ipsec to fail to match correctly and the data packet to be discarded
-
-<<<<<<< HEAD
-**Kmesh-daemon启动时，完成以下动作：**
-
-- 从Kmesh-daemon读取secret信息并解析存储以下关键信息：
- | 名称 | 作用 |
- |:-------:|:-------|
- | spi | 加密密钥的序列号，由kmeshctl secret自动生成spi |
- | aead-algo | 密钥算法，当前仅支持rfc4106(gcm(aes)) |
- | aead-key | 预共享密钥，所有的节点间的ipsec密钥从此密钥通过特定算法进行派生 |
- | icv-len | 密钥长度 |
-
-- 获取本端的如下信息：
- | 名称 | 作用 |
- |:-------:|:-------|
- | 本端的PodCIDR | 用于生成ipsec规则 |
- | 本端的集群内部ip地址 | 用于生成nodeid,ipsec规则 |
- | bootid | 启动id |
-=======
 
 **When Kmesh-daemon starts, it completes the following actions:**
 
@@ -212,32 +170,21 @@ Add a tc program to the node network card. After ipsec decrypts the data packet,
 	| Local PodCIDR | Used to generate ipsec rules |
 	| Local cluster internal ip address | Used to generate nodeid, ipsec rules |
 	| bootid | Startup id |
->>>>>>> 96f1e8b7 (完成 docs/proposal 目录中英文翻译全量更新)
 
 - Read all kmeshNodeInfo node information from the api-server. The node information includes the current name of each node, the spi version number used, the ip address of the ipsec device, and bootID information, and start generating ipsec rules. Each peer node needs to generate 2 states (one in and one out), 3 policies (out, in, fwd). The key is derived from the pre-shared key, and the rules are as follows:
 
 Egress key: Pre-shared key + local IP + peer IP + local bootid + peer bootID, hash and then intercept the aead key length
 
-<<<<<<< HEAD
-入口密钥： 预共享密钥+对端IP+本机IP+对端bootid+本机bootID，hash后截取aead密钥长度
-=======
 Ingress key: Pre-shared key + peer IP + local IP + peer bootid + local bootID, hash and then intercept the aead key length
-	
-	ipsec example: The local ip address is 7.6.122.84, and the peer node ip address information obtained is 7.6.122.220. The ipsec configuration preview is set as follows
-	# state configuration
-	ip xfrm state add src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-出口密钥} {\$icv-len}
-	ip xfrm state add src 7.6.122.220 dst 7.6.122.84 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-入口密钥} {\$icv-len}
-	# policy configuration
->>>>>>> 96f1e8b7 (完成 docs/proposal 目录中英文翻译全量更新)
 
- ipsec示例：本机ip地址为7.6.122.84，获取到对端的node ip 地址信息为7.6.122.220，设置ipsec配置预览如下
+ipsec example: The local ip address is 7.6.122.84, and the peer node ip address information obtained is 7.6.122.220. The ipsec configuration preview is set as follows
 
-# state配置
+# state configuration
 
  ip xfrm state add src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-出口密钥} {\$icv-len}
  ip xfrm state add src 7.6.122.220 dst 7.6.122.84 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-入口密钥} {\$icv-len}
 
-# policy配置
+# policy configuration
 
  ip xfrm policy add src 0.0.0.0/0 dst {\$对端CIDR} dir out tmpl src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 reqid 1 mode tunnel mark 0x000000e0 mask 0xffff
  ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir in  tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xfffffff
@@ -258,19 +205,6 @@ Other nodes:
 
 **When Kmesh-daemon exits, it completes the following actions:**
 
-<<<<<<< HEAD
-退出节点：
-
-- 清理api-server中的本node的kmeshNodeInfo信息
-- 清理当前node上ipsec的state、policy信息
-- 卸载tc程序
-- 清理lpm数据
-
-其他节点：
-
-- 本端删除退出节点的IPsec state、policy信息
-- 本端清理退出节点的lpm CIDR数据
-=======
 Exit node:
 - Clear the kmeshNodeInfo information of this node in the api-server
 - Clear the ipsec state and policy information on the current node
@@ -280,29 +214,9 @@ Exit node:
 Other nodes:
 - The local end deletes the IPsec state and policy information of the exit node
 - The local end clears the lpm CIDR data of the exit node
->>>>>>> 96f1e8b7 (完成 docs/proposal 目录中英文翻译全量更新)
 
 **When the secret is updated, the following actions are completed:**
 
-<<<<<<< HEAD
-更新节点：
-
-- Kmesh检测到当前secret更新后，需要对IPsec规则进行全量扫描更新
-- 遍历kmeshNodeInfo信息，执行以下动作：
-  - 如果对端的secret spi版本在本端记录的当前、历史spi中没有查询到，则什么也不做（无spi则缺失预共享密钥，无法生成密钥），可能是对端的spi比本端高，则等待下次secret更新时再触发更新
-  - 使用新的spi创建所有到对端的in、fwd方向state，in/fwd方向policy支持多版本密钥解析，无需更新。
-  - 如果对端的secret spi版本小于等于本端的secret spi，则创建out方向新的state，更新out方向的policy中spi到最新的spi版本
-  - 如果对端的secret spi版本大于本端的secret spi，说明本端spi版本落后，等待secret版本更新时再生成out方向的state以及policy
-- 更新自己的kmeshNodeInfo到api-server中
-
-其他节点：
-
-- 本端从api-server中读取到kmeshNodeInfo更新后，执行以下动作：
-  - 如果对端的secret spi版本在本端记录的当前、历史spi中没有查询到，则什么也不做（无spi则缺失预共享密钥，无法生成密钥），可能是对端的spi比本端高，则等待下次secret更新时再触发更新。也可能是对端的版本过低，低于本端Kmesh启动时的spi版本号，等待对端spi版本更新后再出发本端更新
-  - 使用新的spi创建所有到对端的in、fwd方向state，in/fwd方向policy支持多版本密钥解析，无需更新
-  - 如果对端的secret spi版本小于等于本端的secret spi，则创建out方向新的state，更新out方向的policy中spi到最新的spi版本
-  - 如果对端的secret spi版本大于本端的secret spi，说明本端spi版本落后，等待secret版本更新时再生成out方向的state以及policy
-=======
 Update node:
 - After Kmesh detects that the current secret is updated, it needs to perform a full scan update of the IPsec rules
 - Traverse the kmeshNodeInfo information and perform the following actions:
@@ -318,4 +232,3 @@ Other nodes:
   - Use the new spi to create all in and fwd direction states to the peer, and in/fwd direction policies support multi-version key parsing without updating
   - If the peer's secret spi version is less than or equal to the local secret spi, create a new state in the out direction and update the spi in the out direction policy to the latest spi version
   - If the peer's secret spi version is greater than the local secret spi, it means that the local spi version is behind, and wait for the secret version update to generate the state and policy in the out direction
->>>>>>> 96f1e8b7 (完成 docs/proposal 目录中英文翻译全量更新)
