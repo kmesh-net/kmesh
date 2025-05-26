@@ -971,9 +971,13 @@ func TestLongConnL4Telemetry(t *testing.T) {
 						NewConnectionPerRequest: false,
 					}
 
-					stc.Logf("sending continuous calls from %q to %q", deployName(localSrc), localDst.Config().Service)
-					go localSrc.CallOrFail(stc, opt)
-
+					go func() {
+                        stc.Logf("sending continuous calls from %q to %q", deployName(localSrc), localDst.Config().Service)
+						start := time.Now()
+						localSrc.CallOrFail(stc, opt)
+						elapsed := time.Since(start)
+						stc.Logf("finished continuous calls from %q to %q in %v", deployName(localSrc), localDst.Config().Service, elapsed)
+					}()
 					query := buildL4Query(localSrc, localDst)
 					stc.Logf("prometheus query: %#v", query)
 					prevReqs := float64(0)
