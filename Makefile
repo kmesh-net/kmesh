@@ -138,6 +138,12 @@ gen-bpf2go:
 gen-kmeshctl-doc:
 	hack/gen-kmeshctl-doc.sh
 
+.PHONY: prepare-dev
+prepare-dev:
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	hack/golangci-lint-prepare.sh
+	bash -c "source ./kmesh_compile_env_pre.sh && dependency_pkg_install"
+
 .PHONY: tidy
 tidy:
 	go mod tidy
