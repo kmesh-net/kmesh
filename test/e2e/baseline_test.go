@@ -981,7 +981,7 @@ func TestLongConnL4Telemetry(t *testing.T) {
 					query := buildL4Query(localSrc, localDst)
 					stc.Logf("prometheus query: %#v", query)
 					prevReqs := float64(0)
-					time.Sleep(10 * time.Second) 
+					time.Sleep(5 * time.Second) 
 					for range(2) {
 						err := retry.Until(func() bool {
 							reqs, err := prom.QuerySum(localSrc.Config().Cluster, query)
