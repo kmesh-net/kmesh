@@ -1,5 +1,5 @@
----
-title: ÐÔÄÜ¼à¿ØÌá°¸
+ï»¿---
+title: ï¿½ï¿½ï¿½Ü¼ï¿½ï¿½ï¿½á°¸
 authors:
 - "@skwwwwww" # Authors' GitHub accounts here.
 reviewers:
@@ -13,7 +13,7 @@ creation-date: 2024-09-21
 
 ---
 
-## Kmesh ¿É¹Û²âÐÔÌá°¸
+## Kmesh ï¿½É¹Û²ï¿½ï¿½ï¿½ï¿½á°¸
 
 <!--
 This is the title of your KEP. Keep it short, simple, and descriptive. A good
@@ -29,21 +29,21 @@ documentation such as release notes or a development roadmap.
 A good summary is probably at least a paragraph in length.
 -->
 
-ÔÚ Kmesh ÖÐ£¬ÐÔÄÜ¼à¿Ø×÷Îª¸ßÐ§¡¢¿ÉÀ©Õ¹ºÍ½¡×³µÄÍø¸ñÏµÍ³µÄ»ù´¡£¬ÆäÖØÒªÐÔÊÇÖÁ¹ØÖØÒªµÄ¡£ÔÚ Kmesh ÖÐ£¬¼à¿Ø¹Ø¼üÖ¸±ê£¬ÀýÈç Kmesh ÊØ»¤½ø³Ì»î¶¯¡¢eBPF map µÄÊýÁ¿¡¢Ã¿¸ö map ÖÐµÄÌõÄ¿ÊýÁ¿ÒÔ¼° eBPF ·½·¨µÄÖ´ÐÐÊ±³¤£¬¶ÔÓÚÈ·±£×î¼ÑÏµÍ³ÐÔÄÜÖÁ¹ØÖØÒª¡£
+ï¿½ï¿½ Kmesh ï¿½Ð£ï¿½ï¿½ï¿½ï¿½Ü¼ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Ð§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¹ï¿½Í½ï¿½×³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½Ä¡ï¿½ï¿½ï¿½ Kmesh ï¿½Ð£ï¿½ï¿½ï¿½Ø¹Ø¼ï¿½Ö¸ï¿½ê£¬ï¿½ï¿½ï¿½ï¿½ Kmesh ï¿½Ø»ï¿½ï¿½ï¿½ï¿½Ì»î¶¯ï¿½ï¿½eBPF map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ map ï¿½Ðµï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ eBPF ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö´ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½
 
-ÔÚ±¾Ìá°¸ÖÐ£¬ÎÒ½«·ÖÎö Kmesh µÄÐÔÄÜ¼à¿ØÖ¸±ê¡£ÎÒ»¹½«½¨ÒéÔÚ Kmesh ÖÐÊµÊ©ÔöÇ¿µÄ¿É¹Û²âÐÔ¹¦ÄÜ£¬ÒÔ²¶»ñÕâÐ©¹Ø¼üµÄÐÔÄÜÖ¸±ê¡£Õâ½«ÔÊÐíÓÃ»§ÎÞ·ìµØ¼à¿Ø Kmesh µÄÐÔÄÜ²¢È·±£ÏµÍ³Ð§ÂÊ¡£
+ï¿½Ú±ï¿½ï¿½á°¸ï¿½Ð£ï¿½ï¿½Ò½ï¿½ï¿½ï¿½ï¿½ï¿½ Kmesh ï¿½ï¿½ï¿½ï¿½ï¿½Ü¼ï¿½ï¿½Ö¸ï¿½ê¡£ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Kmesh ï¿½ï¿½ÊµÊ©ï¿½ï¿½Ç¿ï¿½Ä¿É¹Û²ï¿½ï¿½Ô¹ï¿½ï¿½Ü£ï¿½ï¿½Ô²ï¿½ï¿½ï¿½ï¿½ï¿½Ð©ï¿½Ø¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ê¡£ï¿½â½«ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Þ·ï¿½Ø¼ï¿½ï¿½ Kmesh ï¿½ï¿½ï¿½ï¿½ï¿½Ü²ï¿½È·ï¿½ï¿½ÏµÍ³Ð§ï¿½Ê¡ï¿½
 
-### Ìá°¸
+### ï¿½á°¸
 
-Kmesh ÐèÒªÍ¨¹ýÄÚºËÊÕ¼¯Ö¸±ê£¬²¢½«Æä´«µÝµ½ÓÃ»§Ä£Ê½¡£ÔÚÓÃ»§Ä£Ê½ÏÂ£¬Óë eBPF map ºÍ²Ù×÷³ÖÐøÊ±¼äÏà¹ØµÄÊý¾Ý×îÖÕ¿ÉÒÔÍ¨¹ý Prometheus ²éÑ¯²¢Ê¹ÓÃ Grafana ¿ÉÊÓ»¯¡£
+Kmesh ï¿½ï¿½ÒªÍ¨ï¿½ï¿½ï¿½Úºï¿½ï¿½Õ¼ï¿½Ö¸ï¿½ê£¬ï¿½ï¿½ï¿½ï¿½ï¿½ä´«ï¿½Ýµï¿½ï¿½Ã»ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ä£Ê½ï¿½Â£ï¿½ï¿½ï¿½ eBPF map ï¿½Í²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Øµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ¿ï¿½ï¿½ï¿½Í¨ï¿½ï¿½ Prometheus ï¿½ï¿½Ñ¯ï¿½ï¿½Ê¹ï¿½ï¿½ Grafana ï¿½ï¿½ï¿½Ó»ï¿½ï¿½ï¿½
 
-#### Éè¼ÆÏ¸½Ú
+#### ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½
 
-##### Óë²Ù×÷³ÖÐøÊ±¼äÏà¹ØµÄÖ¸±ê
+##### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Øµï¿½Ö¸ï¿½ï¿½
 
-ÕâÊÇÒòÎª Kmesh ÐèÒª´ÓÄÚºË»ñÈ¡Ö¸±ê²¢½«Æä·¢ËÍµ½ÓÃ»§Ä£Ê½¡£ÎÒÃÇÐèÒªÒ»¸ö bpf map À´¼ÇÂ¼Ö¸±ê£¬×÷Îª´«ÊäµÄÃ½½é¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª Kmesh ï¿½ï¿½Òªï¿½ï¿½ï¿½ÚºË»ï¿½È¡Ö¸ï¿½ê²¢ï¿½ï¿½ï¿½ä·¢ï¿½Íµï¿½ï¿½Ã»ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÒªÒ»ï¿½ï¿½ bpf map ï¿½ï¿½ï¿½ï¿½Â¼Ö¸ï¿½ê£¬ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½Ã½ï¿½é¡£
 
-Òò´Ë£¬ÎÒÃÇÐèÒª¶¨ÒåÒ»¸ö°üº¬ËùÓÐ±ØÐèÖ¸±êµÄ bpf map£º
+ï¿½ï¿½Ë£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ bpf mapï¿½ï¿½
 
 ```
 struct operation_usage_data {
@@ -70,17 +70,18 @@ struct {
 } kmesh_perf_info SEC(".maps");
 ```
 
-ÊÕ¼¯º¯Êý¿ªÊ¼ºÍ½áÊøÊ±µÄÊ±¼ä´Á£¬²¢ÔÚº¯Êý½áÊøÊ±£¬½« map ÖÐµÄÊý¾ÝÐ´Èë»·ÐÎ»º³åÇø¡£
+ï¿½Õ¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¼ï¿½Í½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ map ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½Ð´ï¿½ë»·ï¿½Î»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-##### Óë ebpf map Ïà¹ØµÄÖ¸±ê
+##### ï¿½ï¿½ ebpf map ï¿½ï¿½Øµï¿½Ö¸ï¿½ï¿½
 
-ÔÚÓÃ»§¿Õ¼äÖÐ£¬´Ó eBPF map ÖÐ¼ìË÷Ïà¹ØÐÅÏ¢£¬°üÀ¨ map µÄ×ÜÊý¡¢Ã¿¸ö map ÖÐµÄÌõÄ¿Êý¡¢map ÖÐµÄ×î´óÌõÄ¿ÊýÒÔ¼° map Ëø¶¨µÄÄÚ´æ¿Õ¼ä¡£
+ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Õ¼ï¿½ï¿½Ð£ï¿½ï¿½ï¿½ eBPF map ï¿½Ð¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã¿ï¿½ï¿½ map ï¿½Ðµï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½map ï¿½Ðµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ô¼ï¿½ map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½Õ¼ä¡£
 
 ![](pics/kmesh_map_and_operation_monitoring.jpg)
 
-##### Óë Kmesh ×ÊÔ´Ê¹ÓÃÏà¹ØµÄÖ¸±ê
+##### ï¿½ï¿½ Kmesh ï¿½ï¿½Ô´Ê¹ï¿½ï¿½ï¿½ï¿½Øµï¿½Ö¸ï¿½ï¿½
 
-ÓÉ cAdvisor Ìá¹©£¬Ê¹ÓÃ `container_memory_usage_bytes` ºÍ `container_cpu_usage_seconds_total` Ö¸±êÀ´¿ÉÊÓ»¯ Kmesh ±¾ÉíµÄÄÚ´æÊ¹ÓÃÇé¿öºÍ CPU ÏûºÄ¡£
+ï¿½ï¿½ cAdvisor ï¿½á¹©ï¿½ï¿½Ê¹ï¿½ï¿½ `container_memory_usage_bytes` ï¿½ï¿½ `container_cpu_usage_seconds_total` Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó»ï¿½ Kmesh ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´ï¿½Ê¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ CPU ï¿½ï¿½ï¿½Ä¡ï¿½
 ![](pics/kmesh_daemon_monitoring.jpg)
 
 ![](pics/performance_monitoring.jpg)
+

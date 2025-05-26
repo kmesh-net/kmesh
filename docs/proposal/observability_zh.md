@@ -1,7 +1,7 @@
----
-title: Kmesh ¿É¹Û²âÐÔÌá°¸
+ï»¿---
+title: Kmesh ï¿½É¹Û²ï¿½ï¿½ï¿½ï¿½á°¸
 authors:
-- "@LiZhencheng9527" # ´Ë´¦ÌîÐ´×÷ÕßµÄ GitHub ÕËºÅ
+- "@LiZhencheng9527" # ï¿½Ë´ï¿½ï¿½ï¿½Ð´ï¿½ï¿½ï¿½ßµï¿½ GitHub ï¿½Ëºï¿½
 reviewers:
 - ""
 - TBD
@@ -13,33 +13,33 @@ creation-date: 2024-05-16
 
 ---
 
-## Kmesh ¿É¹Û²âÐÔÌá°¸
+## Kmesh ï¿½É¹Û²ï¿½ï¿½ï¿½ï¿½á°¸
 
 <!--
-ÕâÊÇÄãµÄ KEP µÄ±êÌâ¡£±£³Ö¼ò¶Ì¡¢¼òµ¥ºÍÃèÊöÐÔ¡£Ò»¸öºÃµÄ±êÌâ¿ÉÒÔ°ïÖú¹µÍ¨ KEP µÄÄÚÈÝ£¬Ó¦¸Ã±»ÊÓÎªÈÎºÎÉó²éµÄÒ»²¿·Ö¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ KEP ï¿½Ä±ï¿½ï¿½â¡£ï¿½ï¿½ï¿½Ö¼ï¿½Ì¡ï¿½ï¿½òµ¥ºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¡ï¿½Ò»ï¿½ï¿½ï¿½ÃµÄ±ï¿½ï¿½ï¿½ï¿½ï¿½Ô°ï¿½ï¿½ï¿½ï¿½ï¿½Í¨ KEP ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½Ó¦ï¿½Ã±ï¿½ï¿½ï¿½Îªï¿½Îºï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½Ö¡ï¿½
 -->
 
 ### ÕªÒª
 
 <!--
-±¾½Ú¶ÔÓÚÉú³É¸ßÖÊÁ¿¡¢ÒÔÓÃ»§ÎªÖÐÐÄµÄÎÄµµ£¨Èç·¢ÐÐËµÃ÷»ò¿ª·¢Â·ÏßÍ¼£©ÖÁ¹ØÖØÒª¡£
+ï¿½ï¿½ï¿½Ú¶ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½É¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Îªï¿½ï¿½ï¿½Äµï¿½ï¿½Äµï¿½ï¿½ï¿½ï¿½ç·¢ï¿½ï¿½Ëµï¿½ï¿½ï¿½ò¿ª·ï¿½Â·ï¿½ï¿½Í¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½
 
-Ò»¸öºÃµÄÕªÒª¿ÉÄÜÖÁÉÙÓÐÒ»¸ö¶ÎÂäµÄ³¤¶È¡£
+Ò»ï¿½ï¿½ï¿½Ãµï¿½ÕªÒªï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä³ï¿½ï¿½È¡ï¿½
 -->
 
-·þÎñÍø¸ñµÄ¿É¹Û²âÐÔµÄÖØÒªÐÔ×÷Îª¿É¹ÜÀí¡¢¿É¿¿ºÍ¿É³ÖÐøÍø¸ñÏµÍ³µÄ»ù´¡²»ÈÝºöÊÓ¡£ÔÚ istio ÖÐ£¬ÔÚ l4 ºÍ l7 ²ãÌá¹©ÁË accesslog¡¢Ö¸±êºÍ×·×Ù£¬ÒÔÂú×ãÓÃ»§¶Ô¿É¹Û²âÐÔµÄÐèÇó¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿É¹Û²ï¿½ï¿½Ôµï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Îªï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½É¿ï¿½ï¿½Í¿É³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÏµÍ³ï¿½Ä»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ýºï¿½ï¿½Ó¡ï¿½ï¿½ï¿½ istio ï¿½Ð£ï¿½ï¿½ï¿½ l4 ï¿½ï¿½ l7 ï¿½ï¿½ï¿½á¹©ï¿½ï¿½ accesslogï¿½ï¿½Ö¸ï¿½ï¿½ï¿½×·ï¿½Ù£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ô¿É¹Û²ï¿½ï¿½Ôµï¿½ï¿½ï¿½ï¿½ï¿½
 
-ÔÚ±¾Ìá°¸ÖÐ£¬ÎÒ½«·ÖÎö istio µÄ¿É¹Û²âÐÔÖ¸±ê¡£²¢½¨Òé Kmesh ÊµÏÖ¿É¹Û²âÐÔ¹¦ÄÜÒÔÖ§³ÖÕâÐ©Ö¸±ê¡£ÒÔ±ãÓÃ»§¿ÉÒÔÎÞ·ìÊ¹ÓÃ Kmesh¡£
+ï¿½Ú±ï¿½ï¿½á°¸ï¿½Ð£ï¿½ï¿½Ò½ï¿½ï¿½ï¿½ï¿½ï¿½ istio ï¿½Ä¿É¹Û²ï¿½ï¿½ï¿½Ö¸ï¿½ê¡£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ Kmesh Êµï¿½Ö¿É¹Û²ï¿½ï¿½Ô¹ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½Ð©Ö¸ï¿½ê¡£ï¿½Ô±ï¿½ï¿½Ã»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Þ·ï¿½Ê¹ï¿½ï¿½ Kmeshï¿½ï¿½
 
-### ¶¯»ú
+### ï¿½ï¿½ï¿½ï¿½
 
 <!--
-±¾½ÚÓÃÓÚÃ÷È·ÁÐ³ö´Ë KEP µÄ¶¯»ú¡¢Ä¿±êºÍ·ÇÄ¿±ê¡£ÃèÊöÎªÊ²Ã´´Ë¸ü¸ÄºÜÖØÒªÒÔ¼°¶ÔÓÃ»§µÄºÃ´¦¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È·ï¿½Ð³ï¿½ï¿½ï¿½ KEP ï¿½Ä¶ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½Í·ï¿½Ä¿ï¿½ê¡£ï¿½ï¿½ï¿½ï¿½ÎªÊ²Ã´ï¿½Ë¸ï¿½ï¿½Äºï¿½ï¿½ï¿½Òªï¿½Ô¼ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½ÄºÃ´ï¿½ï¿½ï¿½
 -->
 
 #### Accesslog
 
-ÔÚ [istio ztunnel](https://github.com/istio/ztunnel?tab=readme-ov-file#logging) ÖÐ£¬µÚ 4 ²ã·ÃÎÊÈÕÖ¾°üº¬ÒÔÏÂÖ¸±ê£º
+ï¿½ï¿½ [istio ztunnel](https://github.com/istio/ztunnel?tab=readme-ov-file#logging) ï¿½Ð£ï¿½ï¿½ï¿½ 4 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ê£º
 
 source.addr
 source.workload
@@ -59,7 +59,7 @@ bytes_sent
 bytes_recv
 duration
 
-ÏÂÃæÏÔÊ¾ÁË»ñµÃµÄ accesslog µÄÊ¾Àý£º
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½Ë»ï¿½Ãµï¿½ accesslog ï¿½ï¿½Ê¾ï¿½ï¿½ï¿½ï¿½
 
 ```console
 2024-05-30T12:18:10.172761Z	info access	connection complete
@@ -69,30 +69,30 @@ duration
     direction="inbound" bytes_sent=239 bytes_recv=76 duration="2ms"
 ```
 
-accesslog ÐèÒª°üº¬Ä¿±êºÍÔ´µÄÉí·Ý£¨µØÖ·/¹¤×÷¸ºÔØ/ÃüÃû¿Õ¼ä/Éí·Ý£©¡£´ËÍâ£¬ËùÐèµÄÖ¸±êÊÇ·¢ËÍµÄÏûÏ¢´óÐ¡ (bytes_sent)¡¢½ÓÊÕµÄÏûÏ¢´óÐ¡ (bytes_recv) ºÍÁ´½ÓµÄ³ÖÐøÊ±¼ä¡£
+accesslog ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ô´ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½Ö·/ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½/ï¿½ï¿½ï¿½ï¿½ï¿½Õ¼ï¿½/ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£¬ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Íµï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ð¡ (bytes_sent)ï¿½ï¿½ï¿½ï¿½ï¿½Õµï¿½ï¿½ï¿½Ï¢ï¿½ï¿½Ð¡ (bytes_recv) ï¿½ï¿½ï¿½ï¿½ï¿½ÓµÄ³ï¿½ï¿½ï¿½Ê±ï¿½ä¡£
 
-ÎªÁËÈÃÓÃ»§ÄÜ¹»Ë³ÀûÊ¹ÓÃ Kmesh£¬Kmesh ÐèÒªÖ§³ÖÕâÐ© accesslog¡£
+Îªï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½ï¿½Ü¹ï¿½Ë³ï¿½ï¿½Ê¹ï¿½ï¿½ Kmeshï¿½ï¿½Kmesh ï¿½ï¿½ÒªÖ§ï¿½ï¿½ï¿½ï¿½Ð© accesslogï¿½ï¿½
 
-#### Ö¸±ê
+#### Ö¸ï¿½ï¿½
 
-ÎªÁË¼à¿Ø·þÎñÐÐÎª£¬Istio »áÎª½ø³ö Istio ·þÎñÍø¸ñÒÔ¼°ÔÚ Istio ·þÎñÍø¸ñÄÚµÄËùÓÐ·þÎñÁ÷Á¿Éú³ÉÖ¸±ê¡£ÕâÐ©Ö¸±êÌá¹©ÓÐ¹ØÐÐÎªµÄÐÅÏ¢¡£
+Îªï¿½Ë¼ï¿½Ø·ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½Istio ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ Istio ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ Istio ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Úµï¿½ï¿½ï¿½ï¿½Ð·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ê¡£ï¿½ï¿½Ð©Ö¸ï¿½ï¿½ï¿½á¹©ï¿½Ð¹ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½
 
-²Î¿¼ [istio ztunnel metric](https://github.com/istio/ztunnel/blob/6532c553946856b4acc326f3b9ca6cc6abc718d0/src/proxy/metrics.rs#L369) £¬ÔÚµÚ L4 ²ã£¬ËùÐèµÄÖ¸±êÊÇ£º
+ï¿½Î¿ï¿½ [istio ztunnel metric](https://github.com/istio/ztunnel/blob/6532c553946856b4acc326f3b9ca6cc6abc718d0/src/proxy/metrics.rs#L369) ï¿½ï¿½ï¿½Úµï¿½ L4 ï¿½ã£¬ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½Ç£ï¿½
 
 ```console
-connection_opens: ´ò¿ªµÄ TCP Á¬½Ó×ÜÊý
-connection_close: ¹Ø±ÕµÄ TCP Á¬½Ó×ÜÊý
-received_bytes: TCP Á¬½ÓÇé¿öÏÂÇëÇóÆÚ¼ä½ÓÊÕµÄ×Ü×Ö½ÚÊý´óÐ¡
-sent_bytes: TCP Á¬½ÓÇé¿öÏÂÏìÓ¦ÆÚ¼ä·¢ËÍµÄ×Ü×Ö½ÚÊý´óÐ¡
-on_demand_dns: Ê¹ÓÃ°´Ðè DNS µÄÇëÇó×ÜÊý£¨²»ÎÈ¶¨£©
-on_demand_dns_cache_misses: °´Ðè DNS ÇëÇóµÄ»º´æÎ´ÃüÖÐ×ÜÊý£¨²»ÎÈ¶¨£©
+connection_opens: ï¿½ò¿ªµï¿½ TCP ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+connection_close: ï¿½Ø±Õµï¿½ TCP ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
+received_bytes: TCP ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¼ï¿½ï¿½ï¿½Õµï¿½ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡
+sent_bytes: TCP ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½Ú¼ä·¢ï¿½Íµï¿½ï¿½ï¿½ï¿½Ö½ï¿½ï¿½ï¿½ï¿½ï¿½Ð¡
+on_demand_dns: Ê¹ï¿½Ã°ï¿½ï¿½ï¿½ DNS ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¶ï¿½ï¿½ï¿½
+on_demand_dns_cache_misses: ï¿½ï¿½ï¿½ï¿½ DNS ï¿½ï¿½ï¿½ï¿½Ä»ï¿½ï¿½ï¿½Î´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½È¶ï¿½ï¿½ï¿½
 ```
 
-ÉÏÊöÖ¸±êÖÐÓë DNS Ïà¹ØµÄÖ¸±ê£¬ÓÉÓÚ Kmesh ÉÐÎ´Ö§³Ö DNS£¬ÎÒÃÇ½«ÔÚ Kmesh DNS ¹¦ÄÜÊµÏÖºó¿¼ÂÇÖ§³ÖËü¡£
+ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ DNS ï¿½ï¿½Øµï¿½Ö¸ï¿½ê£¬ï¿½ï¿½ï¿½ï¿½ Kmesh ï¿½ï¿½Î´Ö§ï¿½ï¿½ DNSï¿½ï¿½ï¿½ï¿½ï¿½Ç½ï¿½ï¿½ï¿½ Kmesh DNS ï¿½ï¿½ï¿½ï¿½Êµï¿½Öºï¿½ï¿½ï¿½Ö§ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
-Òò´Ë£¬Kmesh Ê×ÏÈÐèÒªÖ§³Ö `connection_opens`¡¢`connection_close`¡¢`received_bytes`¡¢`sent_bytes`¡£
+ï¿½ï¿½Ë£ï¿½Kmesh ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÒªÖ§ï¿½ï¿½ `connection_opens`ï¿½ï¿½`connection_close`ï¿½ï¿½`received_bytes`ï¿½ï¿½`sent_bytes`ï¿½ï¿½
 
-ÉÏÊöÖ¸±ê»¹°üÀ¨ÒÔÏÂÏÔÊ¾µÄ±êÇ©£º
+ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ê»¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½Ä±ï¿½Ç©ï¿½ï¿½
 
 ```console
 reporter
@@ -135,50 +135,50 @@ istio_tcp_sent_bytes_total{
     request_protocol="tcp",response_flags="-",connection_security_policy="mutual_tls"} 16
 ```
 
-`Report` ÏÔÊ¾Ö¸±êÊÇÔÚ·¢ËÍ·½»¹ÊÇ½ÓÊÕ·½¡£È»ºóÊÇ¹ØÓÚÔ´ºÍÄ¿±êµÄÒ»Ð©Éí·ÝÐÅÏ¢¡£ÕâÐ©ÀàËÆÓÚ accesslog ÖÐµÄ±êÇ©¡£
+`Report` ï¿½ï¿½Ê¾Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½Ú·ï¿½ï¿½Í·ï¿½ï¿½ï¿½ï¿½Ç½ï¿½ï¿½Õ·ï¿½ï¿½ï¿½È»ï¿½ï¿½ï¿½Ç¹ï¿½ï¿½ï¿½Ô´ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ò»Ð©ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½Ð©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ accesslog ï¿½ÐµÄ±ï¿½Ç©ï¿½ï¿½
 
-È»ºóÊÇ `request_protocol`¡¢`response_flag` ºÍ `connection_security_policy`¡£`connection_security_policy` µÄÖµÊÇ mutual_tls ºÍ unknown¡£
+È»ï¿½ï¿½ï¿½ï¿½ `request_protocol`ï¿½ï¿½`response_flag` ï¿½ï¿½ `connection_security_policy`ï¿½ï¿½`connection_security_policy` ï¿½ï¿½Öµï¿½ï¿½ mutual_tls ï¿½ï¿½ unknownï¿½ï¿½
 
-³ýÁË istio ÒÑ¾­¿ÉÓÃµÄÖ¸±êÖ®Íâ£¬ÓÉÓÚ Kmesh ÄÜ¹»´ÓÄÚºË»ñµÃ[¸ü·á¸»µÄÖ¸±ê](https://gitee.com/openeuler/gala-docs/blob/master/gopher_tech.md#tcp%E6%8C%87%E6%A0%87)¡£Õâ½«ÊÇ Kmesh µÄÓÅÊÆ¡£
+ï¿½ï¿½ï¿½ï¿½ istio ï¿½Ñ¾ï¿½ï¿½ï¿½ï¿½Ãµï¿½Ö¸ï¿½ï¿½Ö®ï¿½â£¬ï¿½ï¿½ï¿½ï¿½ Kmesh ï¿½Ü¹ï¿½ï¿½ï¿½ï¿½ÚºË»ï¿½ï¿½[ï¿½ï¿½ï¿½á¸»ï¿½ï¿½Ö¸ï¿½ï¿½](https://gitee.com/openeuler/gala-docs/blob/master/gopher_tech.md#tcp%E6%8C%87%E6%A0%87)ï¿½ï¿½ï¿½â½«ï¿½ï¿½ Kmesh ï¿½ï¿½ï¿½ï¿½ï¿½Æ¡ï¿½
 
-#### Ä¿±ê
-
-<!--
-ÁÐ³ö KEP µÄ¾ßÌåÄ¿±ê¡£ËüÊÔÍ¼ÊµÏÖÊ²Ã´£¿ÎÒÃÇÈçºÎÖªµÀÕâÒÑ¾­³É¹¦£¿
--->
-
-ÏÖÔÚºÜÇå³þ£¬ÎªÁËÔöÇ¿ Kmesh µÄ¿É¹Û²âÐÔ£¬ÎÒÃÇÐèÒª£º
-
-- ´Ó ebpf »ñÈ¡ËùÐèµÄÖ¸±ê¡£
-- ´Ó»ñÈ¡µÄÊý¾ÝÉú³É accesslog
-- Ö§³ÖÍ¨¹ý Prometheus ²éÑ¯Ö¸±ê
-
-#### ·ÇÄ¿±ê
+#### Ä¿ï¿½ï¿½
 
 <!--
-´Ë KEP µÄ·¶Î§Ö®ÍâÊÇÊ²Ã´£¿ÁÐ³ö·ÇÄ¿±êÓÐÖúÓÚ¼¯ÖÐÌÖÂÛ²¢È¡µÃ½øÕ¹¡£
+ï¿½Ð³ï¿½ KEP ï¿½Ä¾ï¿½ï¿½ï¿½Ä¿ï¿½ê¡£ï¿½ï¿½ï¿½ï¿½Í¼Êµï¿½ï¿½Ê²Ã´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öªï¿½ï¿½ï¿½ï¿½ï¿½Ñ¾ï¿½ï¿½É¹ï¿½ï¿½ï¿½
 -->
 
-- Óë Dns Ïà¹ØµÄÖ¸±ê¡£
-- L7 ²ãµÄÖ¸±ê¡£
+ï¿½ï¿½ï¿½Úºï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Ç¿ Kmesh ï¿½Ä¿É¹Û²ï¿½ï¿½Ô£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½
 
-### Ìá°¸
+- ï¿½ï¿½ ebpf ï¿½ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ê¡£
+- ï¿½Ó»ï¿½È¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ accesslog
+- Ö§ï¿½ï¿½Í¨ï¿½ï¿½ Prometheus ï¿½ï¿½Ñ¯Ö¸ï¿½ï¿½
+
+#### ï¿½ï¿½Ä¿ï¿½ï¿½
 
 <!--
-ÔÚÕâÀï£¬ÎÒÃÇ½«ÉîÈëÁË½âÌá°¸µÄ¾ßÌåÄÚÈÝ¡£ÕâÓ¦¸ÃÓÐ×ã¹»µÄÏ¸½Ú£¬ÒÔ±ãÉóÔÄÕß¿ÉÒÔ×¼È·µØÀí½âÄúÌá³öµÄÄÚÈÝ£¬µ«²»Ó¦°üÀ¨ API Éè¼Æ»òÊµÏÖÖ®ÀàµÄÄÚÈÝ¡£Ê²Ã´ÊÇÆÚÍûµÄ½á¹û£¬ÎÒÃÇÈçºÎºâÁ¿³É¹¦£¿ÏÂÃæµÄ¡°Éè¼ÆÏ¸½Ú¡±²¿·ÖÓÃÓÚÕæÕýµÄÏ¸½Ú¡£
+ï¿½ï¿½ KEP ï¿½Ä·ï¿½Î§Ö®ï¿½ï¿½ï¿½ï¿½Ê²Ã´ï¿½ï¿½ï¿½Ð³ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Û²ï¿½È¡ï¿½Ã½ï¿½Õ¹ï¿½ï¿½
 -->
 
-Kmesh ÐèÒªÍ¨¹ýÄÚºËÊÕ¼¯Ö¸±ê²¢½«ËüÃÇ´«µÝµ½ÓÃ»§Ä£Ê½¡£ÔÚÓÃ»§Ä£Ê½ÏÂ£¬accesslog ´ÓÖ¸±êÉú³É¡£²¢Ö§³ÖÍ¨¹ý kemsh localhost:15020 ²éÑ¯Ö¸±ê¡£
+- ï¿½ï¿½ Dns ï¿½ï¿½Øµï¿½Ö¸ï¿½ê¡£
+- L7 ï¿½ï¿½ï¿½Ö¸ï¿½ê¡£
 
-### Éè¼ÆÏ¸½Ú
+### ï¿½á°¸
 
 <!--
-±¾½ÚÓ¦°üº¬×ã¹»µÄÐÅÏ¢£¬ÒÔ±ã¿ÉÒÔÀí½âÄúµÄ¸ü¸ÄµÄ¾ßÌåÏ¸½Ú¡£Õâ¿ÉÄÜ°üÀ¨ API ¹æ·¶£¨¾¡¹Ü²¢·Ç×ÜÊÇ±ØÐèµÄ£©ÉõÖÁ´úÂëÆ¬¶Î¡£Èç¹û¶ÔÄúµÄÌá°¸½«ÈçºÎÊµÊ©ÓÐÈÎºÎÆçÒå£¬Ôò¿ÉÒÔÔÚ´Ë´¦½øÐÐÌÖÂÛ¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï£¬ï¿½ï¿½ï¿½Ç½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ë½ï¿½ï¿½á°¸ï¿½Ä¾ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¡ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ã¹»ï¿½ï¿½Ï¸ï¿½Ú£ï¿½ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ß¿ï¿½ï¿½ï¿½×¼È·ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý£ï¿½ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ API ï¿½ï¿½Æ»ï¿½Êµï¿½ï¿½Ö®ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ý¡ï¿½Ê²Ã´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îºï¿½ï¿½ï¿½ï¿½É¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¡ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½Ú¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½Ú¡ï¿½
 -->
 
-ÕâÊÇÒòÎª Kmesh ÐèÒª´ÓÄÚºË»ñÈ¡Ö¸±ê²¢½«ËüÃÇ·¢ËÍµ½ÓÃ»§Ä£Ê½¡£ÎÒÃÇÐèÒªÒ»¸ö bpf map À´¼ÇÂ¼Ö¸±ê£¬×÷Îª´«ÊäµÄÃ½½é¡£
+Kmesh ï¿½ï¿½ÒªÍ¨ï¿½ï¿½ï¿½Úºï¿½ï¿½Õ¼ï¿½Ö¸ï¿½ê²¢ï¿½ï¿½ï¿½ï¿½ï¿½Ç´ï¿½ï¿½Ýµï¿½ï¿½Ã»ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½Ã»ï¿½Ä£Ê½ï¿½Â£ï¿½accesslog ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½É¡ï¿½ï¿½ï¿½Ö§ï¿½ï¿½Í¨ï¿½ï¿½ kemsh localhost:15020 ï¿½ï¿½Ñ¯Ö¸ï¿½ê¡£
 
-Òò´Ë£¬ÎÒÃÇÐèÒª¶¨ÒåÒ»¸ö°üº¬ËùÓÐ±ØÐèÖ¸±êµÄ bpf map£º
+### ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½
+
+<!--
+ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ã¹»ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½Ô±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä¸ï¿½ï¿½ÄµÄ¾ï¿½ï¿½ï¿½Ï¸ï¿½Ú¡ï¿½ï¿½ï¿½ï¿½ï¿½Ü°ï¿½ï¿½ï¿½ API ï¿½æ·¶ï¿½ï¿½ï¿½ï¿½ï¿½Ü²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç±ï¿½ï¿½ï¿½Ä£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Æ¬ï¿½Î¡ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½á°¸ï¿½ï¿½ï¿½ï¿½ï¿½ÊµÊ©ï¿½ï¿½ï¿½Îºï¿½ï¿½ï¿½ï¿½å£¬ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ú´Ë´ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Û¡ï¿½
+-->
+
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Îª Kmesh ï¿½ï¿½Òªï¿½ï¿½ï¿½ÚºË»ï¿½È¡Ö¸ï¿½ê²¢ï¿½ï¿½ï¿½ï¿½ï¿½Ç·ï¿½ï¿½Íµï¿½ï¿½Ã»ï¿½Ä£Ê½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ÒªÒ»ï¿½ï¿½ bpf map ï¿½ï¿½ï¿½ï¿½Â¼Ö¸ï¿½ê£¬ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½ï¿½Ã½ï¿½é¡£
+
+ï¿½ï¿½Ë£ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð±ï¿½ï¿½ï¿½Ö¸ï¿½ï¿½ï¿½ bpf mapï¿½ï¿½
 
 ```console
 struct conn_value {
@@ -193,54 +193,55 @@ struct conn_value {
 };
 ```
 
-ÉÏÃæµÄÄ¿±êºÍÔ´ÊÇ°üº¬¹¤×÷¸ºÔØÉí·ÝÐÅÏ¢µÄ bpf map¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½Ä¿ï¿½ï¿½ï¿½Ô´ï¿½Ç°ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ bpf mapï¿½ï¿½
 
-#### ·ÃÎÊÈÕÖ¾
+#### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¾
 
-ÔÚ TCP Á´½ÓÖÕÖ¹Ê±£¬ebpf Í¨¹ý bpf map ½«´ËÁ´½ÓÖÐµÄÊý¾Ý·¢ËÍµ½ kmesh-daemon¡£
+ï¿½ï¿½ TCP ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö¹Ê±ï¿½ï¿½ebpf Í¨ï¿½ï¿½ bpf map ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ðµï¿½ï¿½ï¿½ï¿½Ý·ï¿½ï¿½Íµï¿½ kmesh-daemonï¿½ï¿½
 
-ÒÀ¿¿´ËÊý¾ÝÉú³É accesslog£¬È»ºóÓÉ kmesh log ´òÓ¡¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ accesslogï¿½ï¿½È»ï¿½ï¿½ï¿½ï¿½ kmesh log ï¿½ï¿½Ó¡ï¿½ï¿½
 
-#### Ö¸±ê
+#### Ö¸ï¿½ï¿½
 
-Ö¸±êµÄ»ñÈ¡·½Ê½Óë accesslog ÏàÍ¬¡£
+Ö¸ï¿½ï¿½Ä»ï¿½È¡ï¿½ï¿½Ê½ï¿½ï¿½ accesslog ï¿½ï¿½Í¬ï¿½ï¿½
 
-Í¨¹ý bpf map »ñÈ¡Ö¸±êºó£¬ÎÒÃÇ»¹±ØÐëÖ§³Ö Prometheus ²éÑ¯¡£
+Í¨ï¿½ï¿½ bpf map ï¿½ï¿½È¡Ö¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç»ï¿½ï¿½ï¿½ï¿½ï¿½Ö§ï¿½ï¿½ Prometheus ï¿½ï¿½Ñ¯ï¿½ï¿½
 
-1. ½«Ö¸±ê¹«¿ª¸ø Prometheus Registry ÆôÓÃ HTTP ¼àÌý½Ó¿Ú¡£
-2. ÆôÓÃ HTTP ¼àÌý½Ó¿Ú¡£
-3. ¶¨ÆÚ¸üÐÂÖ¸±ê¡£Ã¿´ÎÁ´½Ó¶Ï¿ªÊ±¸üÐÂÖ¸±ê¡£
+1. ï¿½ï¿½Ö¸ï¿½ê¹«ï¿½ï¿½ï¿½ï¿½ Prometheus Registry ï¿½ï¿½ï¿½ï¿½ HTTP ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿Ú¡ï¿½
+2. ï¿½ï¿½ï¿½ï¿½ HTTP ï¿½ï¿½ï¿½ï¿½ï¿½Ó¿Ú¡ï¿½
+3. ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½Ö¸ï¿½ê¡£Ã¿ï¿½ï¿½ï¿½ï¿½ï¿½Ó¶Ï¿ï¿½Ê±ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ê¡£
 
 <div align="center">
 <img src="pics/observability.svg" width="800" />
 </div>
 
-¿É¹Û²âÐÔÓ¦ÔÚ ads Ä£Ê½ºÍ¹¤×÷¸ºÔØÄ£Ê½ÏÂÊµÏÖ¡£
+ï¿½É¹Û²ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ ads Ä£Ê½ï¿½Í¹ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ä£Ê½ï¿½ï¿½Êµï¿½Ö¡ï¿½
 
-ÎÒÃÇÏÖÔÚÖ»¿¼ÂÇÊµÏÖ l4 ²ãµÄ¿É¹Û²âÐÔ¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½Êµï¿½ï¿½ l4 ï¿½ï¿½Ä¿É¹Û²ï¿½ï¿½Ô¡ï¿½
 
-¶ÔÓÚÖ¸±ê¹¦ÄÜ£¬Ìá¹© 15020 ¶Ë¿ÚÓÃÓÚ Prometheus ²éÑ¯¡£
+ï¿½ï¿½ï¿½ï¿½Ö¸ï¿½ê¹¦ï¿½Ü£ï¿½ï¿½á¹© 15020 ï¿½Ë¿ï¿½ï¿½ï¿½ï¿½ï¿½ Prometheus ï¿½ï¿½Ñ¯ï¿½ï¿½
 
-#### ²âÊÔ¼Æ»®
+#### ï¿½ï¿½ï¿½Ô¼Æ»ï¿½
 
 <!--
-**×¢Òâ£º** *ÔÚÕë¶Ô·¢²¼°æ±¾Ö®Ç°²»ÐèÒª¡£*
+**×¢ï¿½â£º** *ï¿½ï¿½ï¿½ï¿½Ô·ï¿½ï¿½ï¿½ï¿½æ±¾Ö®Ç°ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½*
 
-ÔÚÎª´ËÔöÇ¿¹¦ÄÜÖÆ¶¨²âÊÔ¼Æ»®Ê±£¬Çë¿¼ÂÇÒÔÏÂÊÂÏî£º
-- ³ýÁËµ¥Ôª²âÊÔÖ®Íâ£¬ÊÇ·ñ»áÓÐ e2e ºÍ¼¯³É²âÊÔ£¿
-- ÈçºÎÔÚ¸ôÀë×´Ì¬ÏÂÒÔ¼°ÓëÆäËû×é¼þÒ»Æð½øÐÐ²âÊÔ£¿
+ï¿½ï¿½Îªï¿½ï¿½ï¿½ï¿½Ç¿ï¿½ï¿½ï¿½ï¿½ï¿½Æ¶ï¿½ï¿½ï¿½ï¿½Ô¼Æ»ï¿½Ê±ï¿½ï¿½ï¿½ë¿¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½î£º
+- ï¿½ï¿½ï¿½Ëµï¿½Ôªï¿½ï¿½ï¿½ï¿½Ö®ï¿½â£¬ï¿½Ç·ï¿½ï¿½ï¿½ï¿½ e2e ï¿½Í¼ï¿½ï¿½É²ï¿½ï¿½Ô£ï¿½
+- ï¿½ï¿½ï¿½ï¿½Ú¸ï¿½ï¿½ï¿½×´Ì¬ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ò»ï¿½ï¿½ï¿½ï¿½Ð²ï¿½ï¿½Ô£ï¿½
 
-ÎÞÐè¸ÅÊöËùÓÐ²âÊÔÓÃÀý£¬Ö»Ðè¸ÅÊö×ÜÌå²ßÂÔ¼´¿É¡£ÈÎºÎÔÚÊµÏÖÖÐËã×÷¼¬ÊÖµÄÊÂÇé£¬ÒÔ¼°ÈÎºÎÌØ±ð¾ßÓÐÌôÕ½ÐÔµÄ²âÊÔ£¬¶¼Ó¦ÓèÒÔËµÃ÷¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð²ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ö»ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ï¿½É¡ï¿½ï¿½Îºï¿½ï¿½ï¿½Êµï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Öµï¿½ï¿½ï¿½ï¿½é£¬ï¿½Ô¼ï¿½ï¿½Îºï¿½ï¿½Ø±ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Õ½ï¿½ÔµÄ²ï¿½ï¿½Ô£ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½Ëµï¿½ï¿½ï¿½ï¿½
 
 -->
 
-### Ìæ´ú·½°¸
+### ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 
 <!--
-Äú»¹¿¼ÂÇÁËÄÄÐ©ÆäËû·½·¨£¬ÒÔ¼°ÎªÊ²Ã´ÄúÅÅ³ýÁËËüÃÇ£¿ÕâÐ©²»ÐèÒªÏñÌá°¸ÄÇÑùÏêÏ¸£¬µ«Ó¦°üÀ¨×ã¹»µÄÐÅÏ¢À´±í´ï¸ÃÏë·¨ÒÔ¼°ÎªÊ²Ã´Ëü²»¿É½ÓÊÜ¡£
+ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ð©ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ô¼ï¿½ÎªÊ²Ã´ï¿½ï¿½ï¿½Å³ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ç£ï¿½ï¿½ï¿½Ð©ï¿½ï¿½ï¿½ï¿½Òªï¿½ï¿½ï¿½á°¸ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½Ï¸ï¿½ï¿½ï¿½ï¿½Ó¦ï¿½ï¿½ï¿½ï¿½ï¿½ã¹»ï¿½ï¿½ï¿½ï¿½Ï¢ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ë·¨ï¿½Ô¼ï¿½ÎªÊ²Ã´ï¿½ï¿½ï¿½ï¿½ï¿½É½ï¿½ï¿½Ü¡ï¿½
 -->
 
 <!--
-×¢Òâ£ºÕâÊÇ kubernetes ÔöÇ¿Ìá°¸Ä£°åµÄ¼ò»¯°æ±¾¡£
+×¢ï¿½â£ºï¿½ï¿½ï¿½ï¿½ kubernetes ï¿½ï¿½Ç¿ï¿½á°¸Ä£ï¿½ï¿½Ä¼ò»¯°æ±¾ï¿½ï¿½
 https://github.com/kubernetes/enhancements/tree/3317d4cb548c396a430d1c1ac6625226018adf6a/keps/NNNN-kep-template
 -->
+
