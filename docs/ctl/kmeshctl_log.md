@@ -14,7 +14,7 @@ kmeshctl log <kmesh-daemon-pod> --set default:debug
 
 # Get all loggers' name
 kmeshctl log <kmesh-daemon-pod>
-	  
+   
 # Get default logger's level:
 kmeshctl log <kmesh-daemon-pod> default
 ```
@@ -28,5 +28,4 @@ kmeshctl log <kmesh-daemon-pod> default
 
 ### SEE ALSO
 
-* [kmeshctl](kmeshctl.md)	 - Kmesh command line tools to operate and debug Kmesh
-
+* [kmeshctl](kmeshctl.md) - Kmesh command line tools to operate and debug Kmesh

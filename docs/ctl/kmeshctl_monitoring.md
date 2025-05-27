@@ -47,5 +47,4 @@ kmeshctl monitoring --all enable/disable
 
 ### SEE ALSO
 
-* [kmeshctl](kmeshctl.md)	 - Kmesh command line tools to operate and debug Kmesh
-
+* [kmeshctl](kmeshctl.md) - Kmesh command line tools to operate and debug Kmesh
