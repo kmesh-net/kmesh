@@ -2,13 +2,13 @@
 
 Control Kmesh's monitoring to be turned on as needed
 
-```
+```bash
 kmeshctl monitoring [flags]
 ```
 
 ### Examples
 
-```
+```bash
 # Enable/Disable Kmesh's accesslog:
 kmeshctl monitoring <kmesh-daemon-pod> --accesslog enable/disable
 
@@ -37,7 +37,7 @@ kmeshctl monitoring --all enable/disable
 
 ### Options
 
-```
+```bash
       --accesslog string           Control accesslog enable or disable
       --all string                 Control accesslog and services' and workloads' metrics enable or disable together
       --connectionMetrics string   Control connection granularity metrics enable or disable

@@ -4,7 +4,7 @@ Manage xdp authz eBPF program for Kmesh's authz offloading
 
 ### Options
 
-```
+```bash
   -h, --help   help for authz
 ```
 

@@ -6,13 +6,13 @@ Manage waypoint configuration
 
 A group of commands used to manage waypoint configuration
 
-```
+```bash
 kmeshctl waypoint [flags]
 ```
 
 ### Examples
 
-```
+```bash
   # Apply a waypoint to the current namespace
   kmeshctl waypoint apply
 
@@ -25,7 +25,7 @@ kmeshctl waypoint [flags]
 
 ### Options
 
-```
+```bash
   -h, --help               help for waypoint
       --image string       image of the waypoint
       --name string        name of the waypoint (default "waypoint")

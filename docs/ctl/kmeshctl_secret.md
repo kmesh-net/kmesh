@@ -2,13 +2,13 @@
 
 Use secrets to generate secret configuration data for IPsec
 
-```
+```bash
 kmeshctl secret [flags]
 ```
 
 ### Examples
 
-```
+```bash
 # Use secrets to generate secret configuration data for IPsec:
  kmeshctl secret --key or -k, only support use aead algo: rfc4106(gcm(aes))
  key need 36 characters(use 32 characters as key, 4 characters as salt).
@@ -19,7 +19,7 @@ kmeshctl secret [flags]
 
 ### Options
 
-```
+```bash
   -h, --help         help for secret
   -k, --key string   key of the encryption
 ```
