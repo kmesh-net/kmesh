@@ -30,6 +30,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/utils/ptr"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	istio "istio.io/istio/pkg/kube"
 )
 
 const (
@@ -57,6 +58,8 @@ type CLIClient interface {
 	// NewPortForwarder creates a new PortForwarder configured for the given pod. If localPort=0, a port will be
 	// dynamically selected. If localAddress is empty, "localhost" is used.
 	NewPortForwarder(podName string, ns string, localAddress string, localPort int, podPort int) (PortForwarder, error)
+	
+	ApplyYAMLContents(namespace string, yamls ...string) error 
 }
 
 func NewCLIClient(opts ...ClientOption) (CLIClient, error) {
@@ -71,6 +74,12 @@ type client struct {
 	kube          kubernetes.Interface
 	gatewayapi    gatewayapiclient.Interface
 	clientFactory *genericclioptions.ConfigFlags
+	istioClient   istio.CLIClient
+}
+
+func (c *client) ApplyYAMLContents(namespace string, yamls ...string) error {
+	c.istioClient, _ = istio.NewCLIClient(istio.NewClientConfigForRestConfig(c.config))
+	return c.istioClient.ApplyYAMLContents(namespace, yamls...)
 }
 
 func (c *client) NewPortForwarder(podName string, ns string, localAddress string, localPort int, podPort int) (PortForwarder, error) {
