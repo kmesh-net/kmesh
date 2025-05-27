@@ -4,7 +4,7 @@ Kmesh command line tools to operate and debug Kmesh
 
 ### Options
 
-```
+```bash
   -h, --help   help for kmeshctl
 ```
 
