@@ -21,5 +21,4 @@ kmeshctl authz enable pod1 pod2
 
 ### SEE ALSO
 
-* [kmeshctl authz](kmeshctl_authz.md)	 - Manage xdp authz eBPF program for Kmesh's authz offloading
-
+* [kmeshctl authz](kmeshctl_authz.md) - Manage xdp authz eBPF program for Kmesh's authz offloading

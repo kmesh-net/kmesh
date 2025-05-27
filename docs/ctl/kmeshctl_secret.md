@@ -26,5 +26,4 @@ kmeshctl secret [flags]
 
 ### SEE ALSO
 
-* [kmeshctl](kmeshctl.md)	 - Kmesh command line tools to operate and debug Kmesh
-
+* [kmeshctl](kmeshctl.md) - Kmesh command line tools to operate and debug Kmesh

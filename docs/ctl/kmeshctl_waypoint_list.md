@@ -37,5 +37,4 @@ kmeshctl waypoint list [flags]
 
 ### SEE ALSO
 
-* [kmeshctl waypoint](kmeshctl_waypoint.md)	 - Manage waypoint configuration
-
+* [kmeshctl waypoint](kmeshctl_waypoint.md) - Manage waypoint configuration

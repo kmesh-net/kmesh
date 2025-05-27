@@ -11,7 +11,7 @@ kmeshctl dump [flags]
 ```bash
 # Kernel Native mode:
 kmeshctl dump <kmesh-daemon-pod> kernel-native
-	  
+   
 # Dual Engine mode:
 kmeshctl dump <kmesh-daemon-pod> dual-engine
 ```
@@ -24,5 +24,4 @@ kmeshctl dump <kmesh-daemon-pod> dual-engine
 
 ### SEE ALSO
 
-* [kmeshctl](kmeshctl.md)	 - Kmesh command line tools to operate and debug Kmesh
-
+* [kmeshctl](kmeshctl.md) - Kmesh command line tools to operate and debug Kmesh
