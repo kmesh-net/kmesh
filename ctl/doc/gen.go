@@ -20,13 +20,13 @@
 package main
 
 import (
-	"github.com/spf13/cobra/doc"
-
 	"kmesh.net/kmesh/ctl/common"
+	"kmesh.net/kmesh/ctl/doc/md"
 )
 
 func main() {
 	rootCmd := common.GetRootCommand()
 	rootCmd.DisableAutoGenTag = true
-	doc.GenMarkdownTree(rootCmd, "../docs/ctl")
+
+	md.GenMarkdownTree(rootCmd, "../../docs/ctl")
 }
