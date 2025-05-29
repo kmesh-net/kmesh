@@ -1,0 +1,17 @@
+name: Sync to Gitee on Release
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  sync-to-gitee:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Mirror to Gitee
+        uses: wearerequired/git-mirror-action@v1
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.GITEE_SSH_PRIVATE_KEY }}
+        with:
+          source-repo: 'git@github.com:kmesh-net/kmesh.git'
+          destination-repo: 'git@gitee.com:target.repo.git'
