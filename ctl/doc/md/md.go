@@ -106,11 +106,10 @@ func GenMarkdownTree(cmd *cobra.Command, dir string) {
 				link = strings.ReplaceAll(link, " ", "_")
 				buf.WriteString(fmt.Sprintf("* [%s](%s) - %s\n", cname, linkHandler(link), child.Short))
 			}
-			// buf.WriteString("\n")
 		}
 		_, err := buf.WriteTo(w)
 		return err
 	})
 
-	doc.GenMarkdownTree(cmd, dir)
+	doc.GenMarkdownTree(cmd, dir) //nolint:errcheck
 }
