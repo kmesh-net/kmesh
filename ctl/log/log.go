@@ -51,7 +51,7 @@ kmeshctl log <kmesh-daemon-pod> --set default:debug
 
 # Get all loggers' name
 kmeshctl log <kmesh-daemon-pod>
-	  
+
 # Get default logger's level:
 kmeshctl log <kmesh-daemon-pod> default`,
 		Args: cobra.MinimumNArgs(1),

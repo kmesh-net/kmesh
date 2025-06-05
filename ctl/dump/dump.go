@@ -41,7 +41,7 @@ func NewCmd() *cobra.Command {
 		Short: "Dump config of kernel-native or dual-engine mode",
 		Example: `# Kernel Native mode:
 kmeshctl dump <kmesh-daemon-pod> kernel-native
-	  
+
 # Dual Engine mode:
 kmeshctl dump <kmesh-daemon-pod> dual-engine`,
 		Args: cobra.ExactArgs(2),
