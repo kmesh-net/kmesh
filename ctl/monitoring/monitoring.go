@@ -33,9 +33,18 @@ import (
 )
 
 const (
-	patternAccesslog       = "/accesslog"
-	patternMonitoring      = "/monitoring"
-	patternWorkloadMetrics = "/workload_metrics"
+	patternAccesslog         = "/accesslog"
+	patternMonitoring        = "/monitoring"
+	patternWorkloadMetrics   = "/workload_metrics"
+	patternConnectionMetrics = "/connection_metrics"
+)
+
+// Different types of monitoring
+const (
+	MONITORING = "monitoring"
+	ACCESSLOG  = "accesslog"
+	WORKLOAD   = "workload metrics"
+	CONNECTION = "connection metrics"
 )
 
 var log = logger.NewLoggerScope("kmeshctl/monitoring")
@@ -53,6 +62,9 @@ kmeshctl monitoring <kmesh-daemon-pod> --all enable/disable
 # Enable/Disable workload granularity metrics:
 kmeshctl monitoring <kmesh-daemon-pod> --workloadMetrics enable/disable
 
+# Enable/Disable connection granularity metrics:
+kmeshctl monitoring <kmesh-daemon-pod> --connectionMetrics enable/disable
+
 # If you want to change the monitoring functionality of all kmesh daemons in the cluster
 # Enable/Disable Kmesh's accesslog in each node:
 kmeshctl monitoring --accesslog enable/disable
@@ -60,7 +72,10 @@ kmeshctl monitoring --accesslog enable/disable
 # Enable/Disable workload granularity metrics in each node:
 kmeshctl monitoring --workloadMetrics enable/disable
 
-#Enable/Disable services' and workloads' metrics and accesslog generated from bpf in each node:
+# Enable/Disable connection granularity metrics in each node:
+kmeshctl monitoring --connectionMetrics enable/disable
+
+#Enable/Disable services', workloads' and 'connections' metrics and accesslog generated from bpf in each node:
 kmeshctl monitoring --all enable/disable`,
 		Args: cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
@@ -69,7 +84,8 @@ kmeshctl monitoring --all enable/disable`,
 	}
 	cmd.Flags().String("accesslog", "", "Control accesslog enable or disable")
 	cmd.Flags().String("all", "", "Control accesslog and services' and workloads' metrics enable or disable together")
-	cmd.Flags().String("workloadMetrics", "", "Control granularity metrics enable or disable")
+	cmd.Flags().String("workloadMetrics", "", "Control workload granularity metrics enable or disable")
+	cmd.Flags().String("connectionMetrics", "", "Control connection granularity metrics enable or disable")
 	return cmd
 }
 
@@ -82,8 +98,9 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 	accesslogFlag, _ := cmd.Flags().GetString("accesslog")
 	allFlag, _ := cmd.Flags().GetString("all")
 	workloadMetricsFlag, _ := cmd.Flags().GetString("workloadMetrics")
-	if accesslogFlag == "" && allFlag == "" && workloadMetricsFlag == "" {
-		log.Print("no parameters. Need --accesslog, --workloadMetric or --all")
+	connectionMetricsFlag, _ := cmd.Flags().GetString("connectionMetrics")
+	if accesslogFlag == "" && allFlag == "" && workloadMetricsFlag == "" && connectionMetricsFlag == "" {
+		log.Print("no parameters. Need --accesslog, --workloadMetrics, --connectionMetrics or --all")
 		return
 	}
 
@@ -91,13 +108,16 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 	if hasKmeshPod {
 		// Processes triggers for specified kmesh daemon.
 		if allFlag != "" {
-			SetMonitoringPerKmeshDaemon(client, podName, allFlag)
+			SetObservabilityPerKmeshDaemon(client, podName, allFlag, MONITORING, patternMonitoring)
 		}
 		if accesslogFlag != "" {
-			SetAccesslogPerKmeshDaemon(client, podName, accesslogFlag)
+			SetObservabilityPerKmeshDaemon(client, podName, accesslogFlag, ACCESSLOG, patternAccesslog)
 		}
 		if workloadMetricsFlag != "" {
-			SetWorkloadMetricsPerKmeshDaemon(client, podName, workloadMetricsFlag)
+			SetObservabilityPerKmeshDaemon(client, podName, workloadMetricsFlag, WORKLOAD, patternWorkloadMetrics)
+		}
+		if connectionMetricsFlag != "" {
+			SetObservabilityPerKmeshDaemon(client, podName, connectionMetricsFlag, CONNECTION, patternConnectionMetrics)
 		}
 	} else {
 		// Perform operations on all kmesh daemons.
@@ -108,13 +128,16 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 		}
 		for _, pod := range podList.Items {
 			if allFlag != "" {
-				SetMonitoringPerKmeshDaemon(client, pod.GetName(), allFlag)
+				SetObservabilityPerKmeshDaemon(client, pod.GetName(), allFlag, MONITORING, patternMonitoring)
 			}
 			if accesslogFlag != "" {
-				SetAccesslogPerKmeshDaemon(client, pod.GetName(), accesslogFlag)
+				SetObservabilityPerKmeshDaemon(client, pod.GetName(), accesslogFlag, ACCESSLOG, patternAccesslog)
 			}
 			if workloadMetricsFlag != "" {
-				SetWorkloadMetricsPerKmeshDaemon(client, pod.GetName(), workloadMetricsFlag)
+				SetObservabilityPerKmeshDaemon(client, pod.GetName(), workloadMetricsFlag, WORKLOAD, patternWorkloadMetrics)
+			}
+			if connectionMetricsFlag != "" {
+				SetObservabilityPerKmeshDaemon(client, pod.GetName(), connectionMetricsFlag, CONNECTION, patternConnectionMetrics)
 			}
 		}
 	}
@@ -130,12 +153,12 @@ func getKmeshDaemonPod(args []string) (string, bool) {
 	return args[0], true
 }
 
-func SetAccesslogPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
-	var accesslogInfo string
+func SetObservabilityPerKmeshDaemon(cli kube.CLIClient, podName, info string, observablityType string, pattern string) {
+	var status string
 	if info == "enable" {
-		accesslogInfo = "true"
+		status = "true"
 	} else if info == "disable" {
-		accesslogInfo = "false"
+		status = "false"
 	} else {
 		log.Errorf("Error: Argument must be 'enable' or 'disable'")
 		os.Exit(1)
@@ -152,7 +175,7 @@ func SetAccesslogPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternAccesslog, accesslogInfo)
+	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), pattern, status)
 
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
@@ -170,117 +193,18 @@ func SetAccesslogPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		log.Errorf("Error: received status code %d", resp.StatusCode)
+		if observablityType == MONITORING {
+			return
+		}
 		bodyBytes, readErr := io.ReadAll(resp.Body)
 		if readErr != nil {
 			log.Errorf("Error reading response body: %v", readErr)
 			return
 		}
 		bodyString := string(bodyBytes)
-		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte("Kmesh monitoring is disable, cannot enable accesslog")) {
-			log.Errorf("failed to enable accesslog: %v. Need to start Kmesh's Monitoring. Please run `kmeshctl monitoring -h` for more help.", bodyString)
-			return
+		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte(fmt.Sprintf("Kmesh monitoring is disable, cannot enable %s.", observablityType))) {
+			log.Errorf("failed to enable %s: %v. Need to start Kmesh's Monitoring. Please run `kmeshctl monitoring -h` for more help.", observablityType, bodyString)
 		}
-		log.Errorf("Error: received status code %d", resp.StatusCode)
-		return
-	}
-}
-
-func SetMonitoringPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
-	var monitoringInfo string
-	if info == "enable" {
-		monitoringInfo = "true"
-	} else if info == "disable" {
-		monitoringInfo = "false"
-	} else {
-		log.Errorf("Error: Argument must be 'enable' or 'disable'")
-		os.Exit(1)
-	}
-
-	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
-	if err != nil {
-		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
-	}
-	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
-	}
-	defer fw.Close()
-
-	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternMonitoring, monitoringInfo)
-
-	req, err := http.NewRequest(http.MethodPost, url, nil)
-	if err != nil {
-		log.Errorf("Error creating request: %v", err)
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		log.Errorf("Error: received status code %d", resp.StatusCode)
-		return
-	}
-}
-
-func SetWorkloadMetricsPerKmeshDaemon(cli kube.CLIClient, podName, workloadMetricsInfo string) {
-	var info string
-	if workloadMetricsInfo == "enable" {
-		info = "true"
-	} else if workloadMetricsInfo == "disable" {
-		info = "false"
-	} else {
-		log.Errorf("Error: Argument must be 'enable' or 'disable'")
-		os.Exit(1)
-	}
-
-	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
-	if err != nil {
-		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
-	}
-	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
-	}
-	defer fw.Close()
-
-	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternWorkloadMetrics, info)
-
-	req, err := http.NewRequest(http.MethodPost, url, nil)
-	if err != nil {
-		log.Errorf("Error creating request: %v", err)
-		return
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		bodyBytes, readErr := io.ReadAll(resp.Body)
-		if readErr != nil {
-			log.Errorf("Error reading response body: %v", readErr)
-			return
-		}
-		bodyString := string(bodyBytes)
-		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte("Kmesh monitoring is disable, cannot enable accesslog")) {
-			log.Errorf("failed to enable workload metrics: %v. Need to start Kmesh's Monitoring. Please run `kmeshctl monitoring -h` for more help.", bodyString)
-			return
-		}
-		log.Errorf("Error: received status code %d", resp.StatusCode)
-		return
 	}
 }

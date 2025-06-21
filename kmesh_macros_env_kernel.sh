@@ -1,11 +1,11 @@
 #!/bin/bash
-  
+
 VERSION=$(uname -r | cut -d '.' -f 1)
 KERNEL_VERSION=$(uname -r | cut -d '-' -f 1)
 KERNEL_HEADER_LINUX_BPF=/usr/include/linux/bpf.h
 
 function set_config() {
-    sed -i -r -e "s/($1)([ \t]*)([0-9]+)/\1\2$2/" config/kmesh_marcos_def.h
+	sed -i -r -e "s/($1)([ \t]*)([0-9]+)/\1\2$2/" config/kmesh_marcos_def.h
 }
 
 # MDA_LOOPBACK_ADDR

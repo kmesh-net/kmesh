@@ -23,7 +23,6 @@
 #define map_of_auth_req      km_auth_req
 #define map_of_tcp_probe     km_tcp_probe
 #define map_of_authz_policy  km_authz_policy
-#define map_of_orig_dst      km_orig_dst
 #define map_of_cgr_tail_call km_cgr_tailcall
 #define map_of_xdp_tailcall  km_xdp_tailcall
 #define map_of_kmesh_socket  km_socket

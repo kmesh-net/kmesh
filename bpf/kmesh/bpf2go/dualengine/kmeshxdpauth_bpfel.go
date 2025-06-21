@@ -31,9 +31,15 @@ type KmeshXDPAuthManagerKey struct {
 
 type KmeshXDPAuthSockStorageData struct {
 	ConnectNs      uint64
+	LastReportNs   uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	ViaWaypoint    bool
+	HasEncoded     bool
+	HasSetIp       bool
+	_              [3]byte
+	SkTuple        KmeshXDPAuthBpfSockTuple
+	_              [4]byte
 }
 
 // LoadKmeshXDPAuth returns the embedded CollectionSpec for KmeshXDPAuth.

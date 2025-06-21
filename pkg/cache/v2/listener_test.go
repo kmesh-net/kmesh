@@ -327,7 +327,7 @@ func BenchmarkListenerFlush(b *testing.B) {
 		cache.SetApiListener(listener.Name, listener)
 
 		cache.Flush()
-		assert.Equal(t, listener.GetApiStatus(), core_v2.ApiStatus_NONE)
+		assert.Equal(t, core_v2.ApiStatus_NONE, listener.GetApiStatus())
 	}
 }
 
@@ -398,7 +398,7 @@ func TestListenerFlushAndLookup(t *testing.T) {
 	}
 	cache.SetApiListener(listener.Name, listener)
 	cache.Flush()
-	assert.Equal(t, listener.GetApiStatus(), core_v2.ApiStatus_NONE)
+	assert.Equal(t, core_v2.ApiStatus_NONE, listener.GetApiStatus())
 
 	listener_val := &listener_v2.Listener{}
 	err := maps_v2.ListenerLookup(listener_addr, listener_val)
@@ -447,7 +447,7 @@ func TestListenerUpdateAndDeleteFlush(t *testing.T) {
 	}
 	cache.SetApiListener(listener.Name, listener)
 	cache.Flush()
-	assert.Equal(t, listener.GetApiStatus(), core_v2.ApiStatus_NONE)
+	assert.Equal(t, core_v2.ApiStatus_NONE, listener.GetApiStatus())
 
 	count = test.GetMapCount(adsObj.SockConn.KmeshCgroupSockMaps.KmeshMap64, t)
 	assert.NotEqual(t, 0, count, "eBPF map kmeshMap64 elements count should not 0")

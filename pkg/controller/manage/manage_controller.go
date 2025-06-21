@@ -119,6 +119,9 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 	}
 
 	if _, err := namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj interface{}) {
+			c.handleNamespaceAdd(obj)
+		},
 		UpdateFunc: func(oldObj, newObj interface{}) {
 			c.handleNamespaceUpdate(oldObj, newObj)
 		},
@@ -138,6 +141,9 @@ func (c *KmeshManageController) handlePodAdd(obj interface{}) {
 
 	namespace, err := c.namespaceLister.Get(newPod.Namespace)
 	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return
+		}
 		log.Errorf("failed to get pod namespace %s: %v", newPod.Namespace, err)
 		return
 	}
@@ -153,29 +159,31 @@ func (c *KmeshManageController) handlePodAdd(obj interface{}) {
 	c.enableKmeshManage(newPod)
 }
 
-func (c *KmeshManageController) handlePodUpdate(_, newObj interface{}) {
-	newPod, ok := newObj.(*corev1.Pod)
+func (c *KmeshManageController) handlePodUpdate(oldObj, newObj interface{}) {
+	pod, ok := newObj.(*corev1.Pod)
 	if !ok {
 		log.Errorf("expected *corev1.Pod but got %T", newObj)
 		return
 	}
-
-	namespace, err := c.namespaceLister.Get(newPod.Namespace)
-	if err != nil {
-		log.Errorf("failed to get pod namespace %s: %v", newPod.Namespace, err)
+	if pod.DeletionTimestamp != nil {
+		log.Debugf("pod %s/%s is being deleted, skip remanage", pod.Namespace, pod.Name)
 		return
 	}
 
-	// enable kmesh manage
-	if !utils.AnnotationEnabled(newPod.Annotations[constants.KmeshRedirectionAnnotation]) && utils.ShouldEnroll(newPod, namespace) {
-		c.enableKmeshManage(newPod)
+	oldPod, ok := oldObj.(*corev1.Pod)
+	if !ok {
+		log.Errorf("expected *corev1.Pod but got %T", oldObj)
 		return
 	}
 
-	// disable kmesh manage
-	if utils.AnnotationEnabled(newPod.Annotations[constants.KmeshRedirectionAnnotation]) && !utils.ShouldEnroll(newPod, namespace) {
-		c.disableKmeshManage(newPod)
+	// We don't need to remanage the pod if the annotation of KmeshRedirectionAnnotation is changed.
+	// Ref: https://github.com/kmesh-net/kmesh/issues/1357
+	if oldPod.Annotations[constants.KmeshRedirectionAnnotation] != pod.Annotations[constants.KmeshRedirectionAnnotation] {
+		log.Debugf("pod %s/%s annotation of KmeshRedirectionAnnotation is changed, skip remanage", pod.Namespace, pod.Name)
+		return
 	}
+
+	c.handlePodAdd(newObj)
 }
 
 func (c *KmeshManageController) handlePodDelete(obj interface{}) {
@@ -198,6 +206,22 @@ func (c *KmeshManageController) handlePodDelete(obj interface{}) {
 		sendCertRequest(c.sm, pod, kmeshsecurity.DELETE)
 		// We donot need to do handleKmeshManage for delete, because we may have no change to execute a cmd in pod net ns.
 		// And we have done this in kmesh-cni
+	}
+}
+
+func (c *KmeshManageController) handleNamespaceAdd(obj interface{}) {
+	ns, ok := obj.(*corev1.Namespace)
+	if !ok {
+		log.Errorf("Expected *corev1.Namespace but got %T", obj)
+		return
+	}
+
+	if utils.ShouldEnroll(nil, ns) {
+		log.Infof("Enabling Kmesh manage for all pods in namespace: %s", ns.Name)
+		c.enableKmeshForPodsInNamespace(ns)
+	} else {
+		log.Infof("Disabling Kmesh manage for all pods in namespace: %s", ns.Name)
+		c.disableKmeshForPodsInNamespace(ns)
 	}
 }
 
@@ -228,7 +252,7 @@ func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 		log.Debugf("Pod %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
 		return
 	}
-	log.Infof("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
+	log.Debugf("%s/%s: enable Kmesh manage", pod.GetNamespace(), pod.GetName())
 	nspath, _ := ns.GetPodNSpath(pod)
 	if err := utils.HandleKmeshManage(nspath, true); err != nil {
 		log.Errorf("failed to enable Kmesh manage")
@@ -241,10 +265,6 @@ func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 
 func (c *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 	sendCertRequest(c.sm, pod, kmeshsecurity.DELETE)
-	if !isPodReady(pod) {
-		log.Debugf("%s/%s is not ready, skipping Kmesh manage disable", pod.GetNamespace(), pod.GetName())
-		return
-	}
 	log.Infof("%s/%s: disable Kmesh manage", pod.GetNamespace(), pod.GetName())
 	nspath, _ := ns.GetPodNSpath(pod)
 	if err := utils.HandleKmeshManage(nspath, false); err != nil {

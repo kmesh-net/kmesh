@@ -1,17 +1,17 @@
-name: E2E Test(istio 1.22)
+name: E2E IPv6 Test(istio 1.25)
 on: 
   pull_request:
     paths-ignore:
       - '**.md'
       - '**.svg'
       - '**.png'
-jobs:
-  e2e-test:
-    runs-on: ubuntu-22.04
+jobs:  
+  e2e-ipv6-test:
+    runs-on: ubuntu-24.04
     strategy:
       matrix:
         go-version: [ '1.23' ]
-    name: E2E Test
+    name: E2E IPv6 Test
     timeout-minutes: 40
 
     steps:
@@ -20,7 +20,7 @@ jobs:
       uses: actions/setup-go@v4.0.0
       with:
         go-version: ${{ matrix.go-version }}
-    - name: E2E Test
+    - name: E2E IPv6 Test
       shell: bash
       run: |
-        sudo make e2e
+        sudo ISTIO_VERSION="1.25.1" make e2e-ipv6

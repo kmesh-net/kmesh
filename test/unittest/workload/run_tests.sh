@@ -5,8 +5,8 @@ set -e
 
 # Ensure running as root
 if [ "$EUID" -ne 0 ]; then
-    echo "Please run as root"
-    exit 1
+	echo "Please run as root"
+	exit 1
 fi
 
 # Set memory limits
@@ -35,11 +35,11 @@ make
 # 1. Load and instrument BPF program
 echo "Loading and instrumenting BPF program..."
 coverbee load \
-    --elf=${ELF_FILE} \
-    --prog-pin-dir=${PROG_PIN_DIR} \
-    --map-pin-dir=${MAP_PIN_DIR} \
-    --block-list=${BLOCK_LIST} \
-    --log=/tmp/coverage/coverbee.log
+	--elf=${ELF_FILE} \
+	--prog-pin-dir=${PROG_PIN_DIR} \
+	--map-pin-dir=${MAP_PIN_DIR} \
+	--block-list=${BLOCK_LIST} \
+	--log=/tmp/coverage/coverbee.log
 
 # 2. Run tests
 echo "Running tests..."
@@ -48,10 +48,10 @@ echo "Running tests..."
 # 3. Collect coverage data
 echo "Collecting coverage data..."
 coverbee cover \
-    --map-pin-dir=${MAP_PIN_DIR} \
-    --block-list=${BLOCK_LIST} \
-    --output=${COVERAGE_OUTPUT} \
-    --format=html
+	--map-pin-dir=${MAP_PIN_DIR} \
+	--block-list=${BLOCK_LIST} \
+	--output=${COVERAGE_OUTPUT} \
+	--format=html
 
 # 4. Cleanup
 echo "Cleaning up..."

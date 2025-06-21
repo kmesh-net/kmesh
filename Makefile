@@ -138,6 +138,12 @@ gen-bpf2go:
 gen-kmeshctl-doc:
 	hack/gen-kmeshctl-doc.sh
 
+.PHONY: prepare-dev
+prepare-dev:
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	hack/golangci-lint-prepare.sh
+	bash -c "source ./kmesh_compile_env_pre.sh && dependency_pkg_install"
+
 .PHONY: tidy
 tidy:
 	go mod tidy
@@ -174,6 +180,9 @@ install:
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) install -Dp -m 0500 $(APPS3) $(INSTALL_BIN)
 
+	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS4))
+	$(QUIET) install -Dp -m 0500 $(APPS4) $(INSTALL_BIN)
+
 .PHONY: uninstall
 uninstall:
 	$(QUIET) make uninstall -C api/v2-c
@@ -186,6 +195,8 @@ uninstall:
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS2)
 	$(call printlog, UNINSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS3)
+	$(call printlog, UNINSTALL, $(INSTALL_BIN)/$(APPS4))
+	$(QUIET) rm -rf $(INSTALL_BIN)/$(APPS4)
 
 .PHONY: build
 build:
@@ -210,13 +221,28 @@ e2e-ipv6:
 format:
 	./hack/format.sh
 
+
+GO_TEST_FLAGS:=
+ifeq ($(V),1)
+		GO_TEST_FLAGS += --verbose
+endif
+
 .PHONY: test
 ifeq ($(RUN_IN_CONTAINER),1)
 test:
-	./hack/run-ut.sh --docker
+	./hack/run-ut.sh --docker $(GO_TEST_FLAGS)
 else
 test:
-	./hack/run-ut.sh --local
+	./hack/run-ut.sh --local $(GO_TEST_FLAGS)
+endif
+
+.PHONY: ebpf_unit_test
+ifeq ($(RUN_IN_CONTAINER),1)
+ebpf_unit_test:
+	./hack/run-ebpf-ut.sh --docker $(GO_TEST_FLAGS)
+else
+ebpf_unit_test:
+	./hack/run-ebpf-ut.sh --local $(GO_TEST_FLAGS)
 endif
 
 UPDATE_VERSION ?= ${VERSION}

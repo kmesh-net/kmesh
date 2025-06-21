@@ -40,7 +40,7 @@ func TestNewFilterTcpProxy(t *testing.T) {
 		}
 		tcpProxy := newFilterTcpProxy(envoyTcpProxy)
 		require.NotNil(t, tcpProxy)
-		assert.Equal(t, tcpProxy.GetCluster(), "ut-cluster")
+		assert.Equal(t, "ut-cluster", tcpProxy.GetCluster())
 	})
 	t.Run("ClusterSpecifier is WeightedClusters", func(t *testing.T) {
 		weightedClusters := []*envoy_filters_tcp_proxy.TcpProxy_WeightedCluster_ClusterWeight{

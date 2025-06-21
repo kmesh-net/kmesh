@@ -19,7 +19,7 @@ creation-date: 2024-05-13
 
 ### Summary
 
-Kmesh is a grid-based data plane governance forwarding system implemented with eBPF. After xDS configurations are distributed to Kmesh-daemon, they are deserialized using a library and then updated as eBPF maps in the kernel. However, the update performance is poor. This proposal introduces optimization strategies to address this issue. 
+Kmesh is a grid-based data plane governance forwarding system implemented with eBPF. After xDS configurations are distributed to Kmesh-daemon, they are deserialized using a library and then updated as eBPF maps in the kernel. However, the update performance is poor. This proposal introduces optimization strategies to address this issue.
 
 ### Motivation
 
@@ -48,7 +48,7 @@ The latency of a single xDS configuration update is in the millisecond range.
 
 #### eBPF map update mechanism
 
-In the xDS model, configurations are organized hierarchically. The current design achieves map hierarchy through the map-in-map mechanism of eBPF maps. The specific implementation is as follows: 
+In the xDS model, configurations are organized hierarchically. The current design achieves map hierarchy through the map-in-map mechanism of eBPF maps. The specific implementation is as follows:
 
 - xDS model -> proto-c data struct
 
@@ -106,6 +106,3 @@ BenchmarkFlush-16                    100            283194 ns/op
 PASS
 ok      kmesh.net/kmesh/pkg/cache/v2    4.047s
 ```
-
-
-

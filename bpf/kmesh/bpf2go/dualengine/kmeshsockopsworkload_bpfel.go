@@ -45,9 +45,15 @@ type KmeshSockopsWorkloadOperationUsageKey struct {
 
 type KmeshSockopsWorkloadSockStorageData struct {
 	ConnectNs      uint64
+	LastReportNs   uint64
 	Direction      uint8
 	ConnectSuccess uint8
-	_              [6]byte
+	ViaWaypoint    bool
+	HasEncoded     bool
+	HasSetIp       bool
+	_              [3]byte
+	SkTuple        KmeshSockopsWorkloadBpfSockTuple
+	_              [4]byte
 }
 
 // LoadKmeshSockopsWorkload returns the embedded CollectionSpec for KmeshSockopsWorkload.
@@ -106,7 +112,6 @@ type KmeshSockopsWorkloadMapSpecs struct {
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
 	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
-	KmOrigDst     *ebpf.MapSpec `ebpf:"km_orig_dst"`
 	KmPerfInfo    *ebpf.MapSpec `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.MapSpec `ebpf:"km_perf_map"`
 	KmService     *ebpf.MapSpec `ebpf:"km_service"`
@@ -158,7 +163,6 @@ type KmeshSockopsWorkloadMaps struct {
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
 	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
 	KmManage      *ebpf.Map `ebpf:"km_manage"`
-	KmOrigDst     *ebpf.Map `ebpf:"km_orig_dst"`
 	KmPerfInfo    *ebpf.Map `ebpf:"km_perf_info"`
 	KmPerfMap     *ebpf.Map `ebpf:"km_perf_map"`
 	KmService     *ebpf.Map `ebpf:"km_service"`
@@ -182,7 +186,6 @@ func (m *KmeshSockopsWorkloadMaps) Close() error {
 		m.KmFrontend,
 		m.KmLogEvent,
 		m.KmManage,
-		m.KmOrigDst,
 		m.KmPerfInfo,
 		m.KmPerfMap,
 		m.KmService,

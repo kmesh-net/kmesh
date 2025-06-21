@@ -46,11 +46,14 @@ What is locality strict mode? In locality strict mode, the LB (load balancing) a
 7. For the random policy, all endpoints are marked with a priority of 0. For failover or strict policy, the priority is set to 0 for the endpoint with the highest match according to the `routingPreference`.
 
 #### control flow
+
 <div style="text-align:center"><img src="pics/locality_lb.svg" /></div>
 
 #### data struct
+
 1. workload.h
-```
+
+```c
 typedef struct {
     __u32 prio_endpoint_count[PRIO_COUNT]; // endpoint count of current service with prio
     __u32 lb_policy; // load balancing algorithm, currently supports random algorithm, locality loadbalance
@@ -71,7 +74,8 @@ typedef struct {
 ```
 
 2. workload_common.h
-```
+
+```c
 // loadbalance type
 typedef enum {
     LB_POLICY_RANDOM = 0,
@@ -81,60 +85,64 @@ typedef enum {
 ```
 
 3. endpoint.go
-```
+
+```go
 const (
-	PrioCount = 7
+ PrioCount = 7
 )
 
 type EndpointKey struct {
-	ServiceId    uint32 // service id
-	Prio         uint32
-	BackendIndex uint32 // if endpoint_count = 3, then backend_index = 1/2/3
+ ServiceId    uint32 // service id
+ Prio         uint32
+ BackendIndex uint32 // if endpoint_count = 3, then backend_index = 1/2/3
 }
 ```
 
 4. locality_cache.go
-```
+
+```go
 // localityInfo records local node workload locality info
 type localityInfo struct {
-	region    string // init from workload.GetLocality().GetRegion()
-	zone      string // init from workload.GetLocality().GetZone()
-	subZone   string // init from workload.GetLocality().GetSubZone()
-	nodeName  string // init from os.Getenv("NODE_NAME"), workload.GetNode()
-	clusterId string // init from workload.GetClusterId()
-	network   string // workload.GetNetwork()
+ region    string // init from workload.GetLocality().GetRegion()
+ zone      string // init from workload.GetLocality().GetZone()
+ subZone   string // init from workload.GetLocality().GetSubZone()
+ nodeName  string // init from os.Getenv("NODE_NAME"), workload.GetNode()
+ clusterId string // init from workload.GetClusterId()
+ network   string // workload.GetNetwork()
 }
 
 type LocalityCache struct {
-	mutex        sync.RWMutex
-	LocalityInfo *localityInfo
+ mutex        sync.RWMutex
+ LocalityInfo *localityInfo
 }
 ```
 
 5. service.go
-```
+
+```go
 type ServiceValue struct {
-	EndpointCount [PrioCount]uint32 // endpoint count of current service
-	LbPolicy      uint32            // load balancing algorithm, currently only supports random algorithm
-	ServicePort   ServicePorts      // ServicePort[i] and TargetPort[i] are a pair, i starts from 0 and max value is MaxPortNum-1
-	TargetPort    TargetPorts
-	WaypointAddr  [16]byte
-	WaypointPort  uint32
+ EndpointCount [PrioCount]uint32 // endpoint count of current service
+ LbPolicy      uint32            // load balancing algorithm, currently only supports random algorithm
+ ServicePort   ServicePorts      // ServicePort[i] and TargetPort[i] are a pair, i starts from 0 and max value is MaxPortNum-1
+ TargetPort    TargetPorts
+ WaypointAddr  [16]byte
+ WaypointPort  uint32
 }
 ```
 
 6. endpoint_cache.go
-```
+
+```go
 type Endpoint struct {
-	ServiceId    uint32
-	Prio         uint32
-	BackendIndex uint32
+ ServiceId    uint32
+ Prio         uint32
+ BackendIndex uint32
 }
 
 type EndpointCache interface {
-	List(uint32) map[uint32]Endpoint // Endpoint slice by ServiceId
-	AddEndpointToService(Endpoint, uint32)
-	DeleteEndpoint(Endpoint, uint32)
-	DeleteEndpointByServiceId(uint32)
+ List(uint32) map[uint32]Endpoint // Endpoint slice by ServiceId
+ AddEndpointToService(Endpoint, uint32)
+ DeleteEndpoint(Endpoint, uint32)
+ DeleteEndpointByServiceId(uint32)
 }
 ```
