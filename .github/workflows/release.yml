@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        go-version: [ '1.23' ]
+        go-version: [ '1.24' ]
         target:
           - kmeshctl
         os:
