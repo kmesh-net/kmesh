@@ -21,11 +21,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
+	"os"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -133,11 +136,11 @@ func TestServer_setLoggerLevel(t *testing.T) {
 	}
 }
 
-func TestServer_configDumpWorkload(t *testing.T) {
-	w1 := &workloadapi.Workload{
+func buildWorkload(name string) *workloadapi.Workload {
+	return &workloadapi.Workload{
 		Uid:               "cluster0//Pod/ns/name",
 		Namespace:         "ns",
-		Name:              "name",
+		Name:              name,
 		Addresses:         [][]byte{netip.AddrFrom4([4]byte{1, 2, 3, 4}).AsSlice()},
 		Network:           "testnetwork",
 		CanonicalName:     "foo",
@@ -173,10 +176,13 @@ func TestServer_configDumpWorkload(t *testing.T) {
 			},
 		},
 	}
-	svc := &workloadapi.Service{
-		Name:      "svc",
+}
+
+func buildService(name, hostname string) *workloadapi.Service {
+	return &workloadapi.Service{
+		Name:      name,
 		Namespace: "ns",
-		Hostname:  "hostname",
+		Hostname:  hostname,
 		Ports: []*workloadapi.Port{
 			{
 				ServicePort: 80,
@@ -199,6 +205,12 @@ func TestServer_configDumpWorkload(t *testing.T) {
 				},
 			},
 		}}
+}
+
+func TestServer_configDumpWorkload(t *testing.T) {
+	w := buildWorkload("name")
+	svc := buildService("svc", "hostname")
+
 	policy := &security.Authorization{
 		Name:      "policy",
 		Namespace: "ns",
@@ -207,7 +219,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 	}
 	fakeWorkloadCache := cache.NewWorkloadCache()
 	fakeServiceCache := cache.NewServiceCache()
-	fakeWorkloadCache.AddOrUpdateWorkload(w1)
+	fakeWorkloadCache.AddOrUpdateWorkload(w)
 	fakeServiceCache.AddOrUpdateService(svc)
 	fakeAuth := auth.NewRbac(fakeWorkloadCache)
 	fakeAuth.UpdatePolicy(policy)
@@ -225,20 +237,148 @@ func TestServer_configDumpWorkload(t *testing.T) {
 	}
 
 	// Create a new HTTP request and response
-	req := httptest.NewRequest(http.MethodGet, "/configDumpWorkload", nil)
-	w := httptest.NewRecorder()
+	req1 := httptest.NewRequest(http.MethodGet, "/configDumpWorkload", nil)
+	w1 := httptest.NewRecorder()
 
 	// Call the configDumpWorkload function
-	server.configDumpWorkload(w, req)
+	server.configDumpWorkload(w1, req1)
 
 	// Check the response status code
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status code %d, but got %d", http.StatusOK, w.Code)
+	if w1.Code != http.StatusOK {
+		t.Errorf("Expected status code %d, but got %d", http.StatusOK, w1.Code)
 	}
 
-	util.RefreshGoldenFile(t, w.Body.Bytes(), "./testdata/workload_configdump.json")
+	util.RefreshGoldenFile(t, w1.Body.Bytes(), "./testdata/workload_configdump.json")
 
-	util.CompareContent(t, w.Body.Bytes(), "./testdata/workload_configdump.json")
+	util.CompareContent(t, w1.Body.Bytes(), "./testdata/workload_configdump.json")
+
+	fakeWorkloadCache = cache.NewWorkloadCache()
+	fakeServiceCache = cache.NewServiceCache()
+
+	workloads := []*workloadapi.Workload{}
+	services := []*workloadapi.Service{}
+
+	for i := 0; i < 10; i++ {
+		w := buildWorkload(fmt.Sprintf("workload-%d", i))
+		w.Uid = fmt.Sprintf("cluster0//Pod/ns/workload-%d", i)
+		workloads = append(workloads, w)
+		svc := buildService(fmt.Sprintf("service-%d", i), fmt.Sprintf("hostname-%d", i))
+		services = append(services, svc)
+
+		fakeWorkloadCache.AddOrUpdateWorkload(w)
+		fakeServiceCache.AddOrUpdateService(svc)
+	}
+
+	// Create a new HTTP request and response
+	req2 := httptest.NewRequest(http.MethodGet, "/configDumpWorkload", nil)
+	w2 := httptest.NewRecorder()
+
+	server = &Server{
+		xdsClient: &controller.XdsClient{
+			WorkloadController: &workload.Controller{
+				Processor: &workload.Processor{
+					WorkloadCache: fakeWorkloadCache,
+					ServiceCache:  fakeServiceCache,
+				},
+				Rbac: fakeAuth,
+			},
+		},
+	}
+
+	// Call the configDumpWorkload function
+	server.configDumpWorkload(w2, req2)
+
+	// Check the response status code
+	if w2.Code != http.StatusOK {
+		t.Errorf("Expected status code %d, but got %d", http.StatusOK, w2.Code)
+	}
+
+	fakeWorkloadCache = cache.NewWorkloadCache()
+	fakeServiceCache = cache.NewServiceCache()
+	// Modify workloads and services properties
+	for i := 0; i < 5; i++ { // Modify first 5 items
+		// Modify workload properties
+		w := buildWorkload(fmt.Sprintf("workload-%d-modified", i))
+		w.ClusterId = "cluster1" // Changed cluster
+		w.Uid = fmt.Sprintf("cluster1//Pod/ns/workload-%d-modified", i)
+		w.Status = workloadapi.WorkloadStatus_UNHEALTHY
+
+		workloads[i] = w
+		// Modify service properties
+		svc := buildService(fmt.Sprintf("service-%d-modified", i), fmt.Sprintf("hostname-%d-modified", i))
+		// Modify service ports
+		svc.Ports = []*workloadapi.Port{
+			{
+				ServicePort: 90,
+				TargetPort:  9090,
+			},
+			{
+				ServicePort: 91,
+				TargetPort:  0,
+			},
+			{
+				ServicePort: 92,
+				TargetPort:  0,
+			},
+		}
+		services[i] = svc
+	}
+
+	for _, w := range workloads {
+		fakeWorkloadCache.AddOrUpdateWorkload(w)
+	}
+	for _, svc := range services {
+		fakeServiceCache.AddOrUpdateService(svc)
+	}
+
+	// Second dump - save modified state to JSON
+	req3 := httptest.NewRequest(http.MethodGet, "/configDumpWorkload", nil)
+	w3 := httptest.NewRecorder()
+
+	server = &Server{
+		xdsClient: &controller.XdsClient{
+			WorkloadController: &workload.Controller{
+				Processor: &workload.Processor{
+					WorkloadCache: fakeWorkloadCache,
+					ServiceCache:  fakeServiceCache,
+				},
+				Rbac: fakeAuth,
+			},
+		},
+	}
+
+	rand.New(rand.NewSource(time.Now().UnixNano()))
+	rand.Shuffle(len(workloads), func(i, j int) {
+		workloads[i], workloads[j] = workloads[j], workloads[i]
+	})
+	rand.Shuffle(len(services), func(i, j int) {
+		services[i], services[j] = services[j], services[i]
+	})
+
+	server.configDumpWorkload(w3, req3)
+
+	if w3.Code != http.StatusOK {
+		t.Errorf("Expected status code %d, but got %d", http.StatusOK, w3.Code)
+	}
+
+	// compare the modified dump with the original
+	err := util.Compare(w3.Body.Bytes(), w2.Body.Bytes())
+	if err != nil {
+		fmt.Printf("Modified dump differs from original: %v\n", err)
+	} else {
+		t.Error("Modified dump should differ from original, but they are the same")
+	}
+
+	// save original and modified dumps to json files
+	err = os.WriteFile("./testdata/workload_configdump_original.json", w2.Body.Bytes(), 0644)
+	if err != nil {
+		t.Errorf("Failed to write original dump to file: %v", err)
+	}
+
+	err = os.WriteFile("./testdata/workload_configdump_modified.json", w3.Body.Bytes(), 0644)
+	if err != nil {
+		t.Errorf("Failed to write modified dump to file: %v", err)
+	}
 }
 
 func TestServer_dumpWorkloadBpfMap(t *testing.T) {
