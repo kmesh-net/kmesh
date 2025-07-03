@@ -21,14 +21,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
-	"os"
 	"sort"
 	"testing"
-	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
@@ -269,8 +266,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 		fakeServiceCache.AddOrUpdateService(svc)
 	}
 
-	// Create a new HTTP request and response
-	req2 := httptest.NewRequest(http.MethodGet, "/configDumpWorkload", nil)
+	// Create a new HTTP response
 	w2 := httptest.NewRecorder()
 
 	server = &Server{
@@ -286,12 +282,15 @@ func TestServer_configDumpWorkload(t *testing.T) {
 	}
 
 	// Call the configDumpWorkload function
-	server.configDumpWorkload(w2, req2)
+	server.configDumpWorkload(w2, req1)
 
 	// Check the response status code
 	if w2.Code != http.StatusOK {
 		t.Errorf("Expected status code %d, but got %d", http.StatusOK, w2.Code)
 	}
+
+	util.RefreshGoldenFile(t, w2.Body.Bytes(), "./testdata/workload_configdump_original_sorted.json")
+	util.CompareContent(t, w2.Body.Bytes(), "./testdata/workload_configdump_original_sorted.json")
 
 	fakeWorkloadCache = cache.NewWorkloadCache()
 	fakeServiceCache = cache.NewServiceCache()
@@ -323,7 +322,6 @@ func TestServer_configDumpWorkload(t *testing.T) {
 		}
 		services[i] = svc
 	}
-
 	for _, w := range workloads {
 		fakeWorkloadCache.AddOrUpdateWorkload(w)
 	}
@@ -331,8 +329,6 @@ func TestServer_configDumpWorkload(t *testing.T) {
 		fakeServiceCache.AddOrUpdateService(svc)
 	}
 
-	// Second dump - save modified state to JSON
-	req3 := httptest.NewRequest(http.MethodGet, "/configDumpWorkload", nil)
 	w3 := httptest.NewRecorder()
 
 	server = &Server{
@@ -347,38 +343,14 @@ func TestServer_configDumpWorkload(t *testing.T) {
 		},
 	}
 
-	rand.New(rand.NewSource(time.Now().UnixNano()))
-	rand.Shuffle(len(workloads), func(i, j int) {
-		workloads[i], workloads[j] = workloads[j], workloads[i]
-	})
-	rand.Shuffle(len(services), func(i, j int) {
-		services[i], services[j] = services[j], services[i]
-	})
-
-	server.configDumpWorkload(w3, req3)
+	server.configDumpWorkload(w3, req1)
 
 	if w3.Code != http.StatusOK {
 		t.Errorf("Expected status code %d, but got %d", http.StatusOK, w3.Code)
 	}
 
-	// compare the modified dump with the original
-	err := util.Compare(w3.Body.Bytes(), w2.Body.Bytes())
-	if err != nil {
-		fmt.Printf("Modified dump differs from original: %v\n", err)
-	} else {
-		t.Error("Modified dump should differ from original, but they are the same")
-	}
-
-	// save original and modified dumps to json files
-	err = os.WriteFile("./testdata/workload_configdump_original.json", w2.Body.Bytes(), 0644)
-	if err != nil {
-		t.Errorf("Failed to write original dump to file: %v", err)
-	}
-
-	err = os.WriteFile("./testdata/workload_configdump_modified.json", w3.Body.Bytes(), 0644)
-	if err != nil {
-		t.Errorf("Failed to write modified dump to file: %v", err)
-	}
+	util.RefreshGoldenFile(t, w3.Body.Bytes(), "./testdata/workload_configdump_modified_sorted.json")
+	util.CompareContent(t, w3.Body.Bytes(), "./testdata/workload_configdump_modified_sorted.json")
 }
 
 func TestServer_dumpWorkloadBpfMap(t *testing.T) {
