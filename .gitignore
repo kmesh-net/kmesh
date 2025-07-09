@@ -11,6 +11,7 @@ tools/vagrant/.vagrant/
 .run/
 # Visual Studio Code
 .vscode/
+.local/
 # Bazel
 /bazel-*
 # vi swap files
@@ -40,6 +41,7 @@ coverage.out
 # build artifacts
 *.so
 *.o
+*.o.tmp
 
 kernel/**/*.ko
 kernel/**/*.cmd

@@ -12,7 +12,6 @@ function install_libboundscheck() {
 }
 
 function dependency_pkg_install() {
-
 	if command -v apt >/dev/null; then
 		echo "Checking for required packages on a Debian-based system..."
 
