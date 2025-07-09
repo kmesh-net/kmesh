@@ -223,7 +223,7 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	helm.sh/helm/v3 v3.16.3 // indirect
+	helm.sh/helm/v3 v3.16.4 // indirect
 	istio.io/client-go v1.24.2-0.20241206152608-3892aa679051 // indirect
 	k8s.io/apiextensions-apiserver v0.32.0 // indirect
 	k8s.io/apiserver v0.32.0 // indirect
