@@ -948,23 +948,26 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 					p.DnsResolverChan <- workloads
 				}
 				go func() {
-					maxRetries := 30
+					maxRetries := 50
+					var address [][]byte
 					for range maxRetries {
 						workload := p.WorkloadCache.GetWorkloadByUid(uid)
-						address := workload.GetAddresses()
-						if address != nil {
-							log.Infof("workload: %s/%s addresses resolved: %v", workload.Namespace, workload.Name, address)
-							if err := p.handleWorkload(workload); err != nil {
-								log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
-							}
+						if address = workload.GetAddresses(); address != nil {
 							break
 						} else {
-							log.Warnf("workload: %s/%s addresses is still nil, retrying...", workload.Namespace, workload.Name)
+							time.Sleep(WorkloadDnsRefreshRate)
 						}
-						time.Sleep(1 * time.Second)
+					}
+					if address != nil {
+						log.Infof("workload: %s/%s addresses resolved: %v", workload.Namespace, workload.Name, address)
+						if err := p.handleWorkload(workload); err != nil {
+							log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
+						}
+					} else {
+						log.Warnf("workload: %s/%s addresses is still nil after %d retries, skipping", workload.Namespace, workload.Name, maxRetries)
 					}
 				}()
-				// wait for the service entry to be resolved
+
 			}
 		}
 		if err := p.handleWorkload(workload); err != nil {
