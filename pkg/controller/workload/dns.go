@@ -1,3 +1,19 @@
+/*
+ * Copyright The Kmesh Authors.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at:
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package workload
 
 import (
@@ -10,6 +26,10 @@ import (
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/dns"
+)
+
+const (
+	WorkloadDnsRefreshRate = 200 * time.Millisecond // 200ms, used for workload dns refresh rate
 )
 
 type dnsController struct {
@@ -70,7 +90,7 @@ func (r *dnsController) processDomains(workload []*workloadapi.Workload) {
 		r.pendingHostnames[workloadName] = []string{hostname}
 		r.workloadCache[hostname] = &pendingResolveDomain{
 			Workloads:   []*workloadapi.Workload{workload},
-			RefreshRate: 15 * time.Second,
+			RefreshRate: WorkloadDnsRefreshRate,
 		}
 	}
 
@@ -116,7 +136,7 @@ func (r *dnsController) refreshWorker(stop <-chan struct{}) {
 
 func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, domain string, addrs []string) {
 	isWorkerUpdate := false
-	if pendingDomain == nil || addrs == nil{
+	if pendingDomain == nil || addrs == nil {
 		return
 	}
 	log.Infof("dnsController updateWorkloads: pendingDomain %v, domain %s, addrs %v", pendingDomain, domain, addrs)
