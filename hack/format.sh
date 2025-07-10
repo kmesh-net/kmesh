@@ -33,5 +33,9 @@ install_shell_format
 shfmt -w -s -ln=bash ./
 
 if [ -z "$GITHUB_ACTIONS" ]; then
-	docker run -u 0 -w /workspace -v "$PWD":/workspace davidanson/markdownlint-cli2:v0.18.1 "**/*.md" "--fix"
+	docker run --rm \
+		-v "$PWD":/workspace \
+		-w /workspace \
+		davidanson/markdownlint-cli2:v0.18.1 \
+		markdownlint-cli2 --fix "**/*.md"
 fi
