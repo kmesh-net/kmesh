@@ -120,4 +120,16 @@ struct {
     __uint(max_entries, MAP_SIZE_OF_AUTH_POLICY);
 } map_of_wl_policy SEC(".maps");
 
+typedef struct {
+    struct ip_addr waypoint_addr;
+} waypoint_key;
+
+struct {
+    __uint(type, BPF_MAP_TYPE_HASH);
+    __uint(key_size, sizeof(waypoint_key));
+    __uint(value_size, sizeof(__u32));
+    __uint(map_flags, BPF_F_NO_PREALLOC);
+    __uint(max_entries, 100);
+} map_of_waypoint SEC(".maps");
+
 #endif
