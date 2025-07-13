@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
@@ -32,6 +31,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
+	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	security_v2 "kmesh.net/kmesh/api/v2/workloadapi/security"
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	"kmesh.net/kmesh/pkg/auth"
@@ -40,6 +40,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller/config"
 	"kmesh.net/kmesh/pkg/controller/telemetry"
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/nets"
@@ -62,8 +63,6 @@ type Processor struct {
 	EndpointCache cache.EndpointCache
 	WaypointCache cache.WaypointCache
 	locality      bpf.LocalityCache
-
-	DnsResolverChan chan []*workloadapi.Workload
 
 	once      sync.Once
 	authzOnce sync.Once
@@ -174,7 +173,7 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 	nets.CopyIpByteFromSlice(&fk.Ip, ip)
 	fv.UpstreamId = uid
 	if err := p.bpf.FrontendUpdate(&fk, &fv); err != nil {
-		return fmt.Errorf("update frontend map failed, err:%s", err)
+		return fmt.Errorf("Update frontend map failed, err:%s", err)
 	}
 
 	return nil
@@ -339,7 +338,7 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 }
 
 // addWorkloadToService update service & endpoint bpf map when a workload has new bound services
-func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, workloadUid uint32, priority uint32) (bpf.EndpointKey, error) {
+func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, workloadUid uint32, priority uint32) (error, bpf.EndpointKey) {
 	var (
 		ek = bpf.EndpointKey{}
 		ev = bpf.EndpointValue{}
@@ -352,14 +351,14 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 	ev.BackendUid = workloadUid
 	if err := p.bpf.EndpointUpdate(&ek, &ev); err != nil {
 		log.Errorf("Update endpoint map failed, err:%s", err)
-		return ek, err
+		return err, ek
 	}
 	p.EndpointCache.AddEndpointToService(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
 	if err := p.bpf.ServiceUpdate(sk, sv); err != nil {
 		log.Errorf("Update ServiceUpdate map failed, err:%s", err)
-		return ek, err
+		return err, ek
 	}
-	return ek, nil
+	return nil, ek
 }
 
 // handleWorkloadUnboundServices handles when a workload's belonging services removed
@@ -391,7 +390,7 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 		if err := p.bpf.ServiceLookup(&sk, &sv); err == nil {
 			if sv.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) { // random mode
 				// In random mode, we save all workload to max priority group
-				if _, err = p.addWorkloadToService(&sk, &sv, workloadId, 0); err != nil {
+				if err, _ = p.addWorkloadToService(&sk, &sv, workloadId, 0); err != nil {
 					log.Errorf("addWorkloadToService workload %d service %d failed: %v", workloadId, sk.ServiceId, err)
 					return err
 				}
@@ -399,7 +398,7 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 				service := p.ServiceCache.GetService(p.hashName.NumToStr(svcUid))
 				if p.locality.LocalityInfo != nil && service != nil {
 					prio := p.locality.CalcLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
-					if _, err = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
+					if err, _ = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
 						log.Errorf("addWorkloadToService workload %d service %d priority %d failed: %v", workloadId, sk.ServiceId, prio, err)
 						return err
 					}
@@ -638,10 +637,10 @@ func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.E
 		}
 
 		// add ek first to another priority group
-		if _, err := p.addWorkloadToService(&sKey, &sValue, ev.BackendUid, prio); err != nil {
+		if err, _ := p.addWorkloadToService(&sKey, &sValue, ev.BackendUid, prio); err != nil {
 			return fmt.Errorf("update endpoint %d priority to %d failed: %v", ev.BackendUid, prio, err)
 		}
-		epKeys := []bpf.EndpointKey{ek}
+		epKeys := []bpfcache.EndpointKey{ek}
 		// delete ek from old priority group
 		if err := p.deleteEndpointRecords(epKeys); err != nil {
 			return fmt.Errorf("delete endpoint %d from old priority group %d failed: %v", ev.BackendUid, ek.Prio, err)
@@ -698,7 +697,7 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 		if strings.Contains(serviceName, "waypoint") {
 			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
 		} else if port.TargetPort == 0 {
-			// NOTE: Target port could be unset in service entry, in which case it should
+			// NOTE: Target port could be unset in servicen entry, in which case it should
 			// be consistent with the Service Port.
 			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
 		} else {
@@ -786,7 +785,7 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	// Preprocess service, remove the waypoint from waypoint service, otherwise it will fall into a loop in bpf
 	if service.Waypoint != nil && service.GetWaypoint().GetAddress() != nil && len(service.Addresses) != 0 {
 		// Currently istiod only set the waypoint address to the first address of the service
-		// when waypoints of different granularities are deployed together, the only waypoint service to be determined
+		// When waypoints of different granularities are deployed together, the only waypoint service to be determined
 		// is whether it contains port 15021, ref: https://github.com/kmesh-net/kmesh/issues/691
 		// TODO: remove when upstream istiod will not set the waypoint address for itself
 		if slices.Equal(service.GetWaypoint().GetAddress().Address, service.Addresses[0].Address) || containsPort(15021) {
@@ -839,12 +838,12 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 	// sort resources, first process services, then workload
 	var services []*workloadapi.Service
 	var workloads []*workloadapi.Workload
-
 	for _, resource := range rsp.GetResources() {
 		address := &workloadapi.Address{}
 		if err = anypb.UnmarshalTo(resource.Resource, address, proto.UnmarshalOptions{}); err != nil {
 			continue
 		}
+
 		switch address.GetType().(type) {
 		case *workloadapi.Address_Workload:
 			workloads = append(workloads, address.GetWorkload())
@@ -884,42 +883,11 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 
 	for _, workload := range workloads {
 		// TODO: Kmesh supports ServiceEntry
-		// log.Warnf("workload: %s/%s addresses: %v", workload.Namespace, workload.Name, workload.GetAddresses())
 		if workload.GetAddresses() == nil {
-			// Non-ServiceEntry workload with nil addresses will be ignored.
-			uid := workload.GetUid()
-			if !strings.Contains(uid, "ServiceEntry") {
-				log.Warnf("workload: %s/%s addresses is nil", workload.Namespace, workload.Name)
-				continue
-			} else {
-				log.Warnf("workload: %s/%s addresses is nil, workload info: %+v", workload.Namespace, workload.Name, workload)
-				// workload from service entry need address resolving
-				if p.DnsResolverChan != nil {
-					p.DnsResolverChan <- workloads
-				}
-				go func() {
-					maxRetries := 50
-					var address [][]byte
-					for range maxRetries {
-						workload := p.WorkloadCache.GetWorkloadByUid(uid)
-						if address = workload.GetAddresses(); address != nil {
-							break
-						} else {
-							time.Sleep(WorkloadDnsRefreshRate)
-						}
-					}
-					if address != nil {
-						log.Infof("workload: %s/%s addresses resolved: %v", workload.Namespace, workload.Name, address)
-						if err := p.handleWorkload(workload); err != nil {
-							log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
-						}
-					} else {
-						log.Warnf("workload: %s/%s addresses is still nil after %d retries, skipping", workload.Namespace, workload.Name, maxRetries)
-					}
-				}()
-
-			}
+			log.Warnf("workload: %s/%s addresses is nil", workload.Namespace, workload.Name)
+			continue
 		}
+
 		if err := p.handleWorkload(workload); err != nil {
 			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 		}
@@ -970,11 +938,11 @@ func (p *Processor) handleRemovedAddressesDuringRestart() {
 
 func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.DeltaDiscoveryResponse, rbac *auth.Rbac) error {
 	if rbac == nil {
-		return fmt.Errorf("rbac module uninitialized")
+		return fmt.Errorf("Rbac module uninitialized")
 	}
 	// update resource
 	for _, resource := range rsp.GetResources() {
-		authPolicy := &security_v2.Authorization{}
+		authPolicy := &security.Authorization{}
 		if err := anypb.UnmarshalTo(resource.Resource, authPolicy, proto.UnmarshalOptions{}); err != nil {
 			log.Errorf("unmarshal failed, err: %v", err)
 			continue
