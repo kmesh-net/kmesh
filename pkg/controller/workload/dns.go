@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/proto"
+
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/dns"
@@ -153,7 +154,10 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 	}
 
 	if isWorkerUpdate {
-		// w.cache.Flush()
+		log.Info("some workloads has been updated")
+		// TODO: flush the bpf map
+		// r.cache.Flush()
+		return
 	}
 }
 
@@ -206,7 +210,6 @@ func getPendingResolveDomain(workloads []*workloadapi.Workload) map[string]any {
 		if v, ok := domains[hostname]; ok {
 			v.(*pendingResolveDomain).Workloads = append(v.(*pendingResolveDomain).Workloads, workload)
 		} else {
-
 			domainWithRefreshRate := &pendingResolveDomain{
 				Workloads:   []*workloadapi.Workload{workload},
 				RefreshRate: 15 * time.Second,
