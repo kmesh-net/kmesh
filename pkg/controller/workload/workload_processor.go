@@ -967,7 +967,6 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 						log.Warnf("workload: %s/%s addresses is still nil after %d retries, skipping", workload.Namespace, workload.Name, maxRetries)
 					}
 				}()
-
 			}
 		}
 		if err := p.handleWorkload(workload); err != nil {
