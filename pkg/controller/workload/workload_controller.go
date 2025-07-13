@@ -160,7 +160,7 @@ func (c *Controller) HandleWorkloadStream() error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	// c.dnsResolverController.newWorkloadCache()
+	c.dnsResolverController.newWorkloadCache()
 	c.Processor.processWorkloadResponse(rspDelta, c.Rbac)
 
 	if err = c.Stream.Send(c.Processor.ack); err != nil {
