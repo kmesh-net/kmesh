@@ -160,13 +160,30 @@ func runTestretryFetchCert(t *testing.T) {
 
 	go secretManager.Run(stopCh)
 	identity := "identity"
-	identity1 := "identity1"
 	secretManager.SendCertRequest(identity, ADD)
 	time.Sleep(100 * time.Millisecond)
 	patches2.Reset()
-	secretManager.SendCertRequest(identity1, RETRY)
+
+	secretManager.SendCertRequest(identity, RETRY)
 	time.Sleep(2000 * time.Millisecond)
-	assert.NotNil(t, secretManager.GetCert(identity).cert)
+	for {
+		cert := secretManager.GetCert(identity)
+		if cert != nil {
+			secretManager.certsCache.mu.RLock()
+			hasCert := cert.cert != nil
+			secretManager.certsCache.mu.RUnlock()
+			if hasCert {
+				break
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	cert := secretManager.GetCert(identity)
+	assert.NotNil(t, cert)
+	secretManager.certsCache.mu.RLock()
+	assert.NotNil(t, cert.cert)
+	secretManager.certsCache.mu.RUnlock()
 
 	close(stopCh)
 }
