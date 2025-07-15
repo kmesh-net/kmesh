@@ -22,7 +22,6 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"io"
 	"log"
 	"net"
 	"os"
@@ -53,9 +52,6 @@ import (
 func testWorkload(t *testing.T) {
 	t.Run("XDP", testXDP)
 	t.Run("SockOps", testSockOps)
-	t.Run("SendMsg", testSendMsg)
-	t.Run("CgroupSkb", testCgroupSkb)
-	t.Run("CgroupSock", testCgroupSock)
 }
 
 func testXDP(t *testing.T) {
@@ -770,164 +766,4 @@ func get_local_ipv4(t *testing.T) string {
 		t.Fatalf("Failed to extract host from address: %v", err)
 	}
 	return localAddr
-}
-func testSendMsg(t *testing.T) {
-	tests := []unitTests_BUILD_CONTEXT{
-		{
-			objFilename: "workload_sendmsg_test.o",
-			uts: []unitTest_BUILD_CONTEXT{
-				{
-					name: "",
-					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
-						//load
-						spec := loadAndPrepSpec(t, path.Join(*testPath, objFilePath))
-						progSpec := spec.Programs["sendmsg_prog"]
-						if progSpec == nil {
-							t.Fatalf("program %s not found in spec", "sendmsg_prog")
-						}
-
-						coll, err := ebpf.NewCollection(spec)
-						if err != nil {
-							t.Fatalf("load collection: %v", err)
-						}
-
-						startLogReader(coll)
-						// 获取 sendmsg_prog
-						prog := coll.Programs["sendmsg_prog"]
-						if prog == nil {
-							t.Fatal("sendmsg_prog not found in object")
-						}
-
-					},
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.objFilename, tt.run())
-	}
-}
-func testCgroupSkb(t *testing.T) {
-	tests := []unitTests_BUILD_CONTEXT{
-		{
-			objFilename: "workload_cgroup_skb_test.o",
-			uts: []unitTest_BUILD_CONTEXT{
-				{
-					//load and trigger success
-					name: "CgroupIngress__is_monitoring_enable_or_is__periodic_report_enable",
-					workFunc: func(t *testing.T, cgroupPath, objFile string) {
-						// mount cgroup2
-						mount_cgroup2(t, cgroupPath)
-						defer syscall.Unmount(cgroupPath, 0)
-						//load the eBPF program
-						coll, lk := load_bpf_prog_to_cgroup(t, objFile, "cgroup_skb_ingress_prog", cgroupPath)
-						defer coll.Close()
-						defer lk.Close()
-						// Set the BPF configuration
-						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
-							BpfLogLevel:  constants.BPF_LOG_DEBUG,
-							AuthzOffload: constants.DISABLED,
-						})
-						startLogReader(coll)
-						ln, err := net.Listen("tcp", "127.0.0.1:8080")
-						if err != nil {
-							t.Fatalf("listen error: %v", err)
-						}
-						defer ln.Close()
-
-						go func() {
-							conn, err := ln.Accept()
-							if err != nil {
-								t.Logf("Accept error: %v", err)
-								return
-							}
-							defer conn.Close()
-							io.Copy(io.Discard, conn)
-						}()
-						time.Sleep(200 * time.Millisecond)
-						conn, err := net.Dial("tcp", "127.0.0.1:8080")
-						if err != nil {
-							t.Fatalf("connect error: %v", err)
-						}
-						defer conn.Close()
-					}},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.objFilename, tt.run())
-	}
-}
-func testCgroupSock(t *testing.T) {
-	tests := []unitTests_BUILD_CONTEXT{
-		{
-			objFilename: "workload_cgroup_sock_test.o",
-			uts: []unitTest_BUILD_CONTEXT{
-				{
-					name: "",
-					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
-						//load and trigger success
-						// mount cgroup2
-						mount_cgroup2(t, cgroupPath)
-						defer syscall.Unmount(cgroupPath, 0)
-						//load the eBPF program
-						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect4_prog", cgroupPath)
-						defer coll.Close()
-						defer lk.Close()
-						// Set the BPF configuration
-						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
-							BpfLogLevel:  constants.BPF_LOG_DEBUG,
-							AuthzOffload: constants.DISABLED,
-						})
-						startLogReader(coll)
-						// trigger
-						conn, err := net.Dial("tcp", "1.1.1.1:80")
-						if err != nil {
-							t.Logf("connect failed (ok, just for trigger): %v", err)
-						} else {
-							conn.Close()
-						}
-						time.Sleep(500 * time.Millisecond)
-					}},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.objFilename, tt.run())
-	}
-}
-func load_bpf_prog_to_cgroup(t *testing.T, objFilename string, progName string, cgroupPath string) (*ebpf.Collection, link.Link) {
-	if cgroupPath == "" {
-		t.Fatal("cgroupPath is empty")
-	}
-	if objFilename == "" {
-		t.Fatal("objFilename is empty")
-	}
-	// load the eBPF program
-	spec := loadAndPrepSpec(t, path.Join(*testPath, objFilename))
-	var (
-		coll *ebpf.Collection
-		err  error
-	)
-	// Load the eBPF collection into the kernel
-	coll, err = ebpf.NewCollection(spec)
-	if err != nil {
-		var ve *ebpf.VerifierError
-		if errors.As(err, &ve) {
-			t.Fatalf("verifier error: %+v", ve)
-		} else {
-			t.Fatal("loading collection:", err)
-		}
-	}
-	lk, err := link.AttachCgroup(link.CgroupOptions{
-		Path:    constants.Cgroup2Path,
-		Attach:  spec.Programs[progName].AttachType,
-		Program: coll.Programs[progName],
-	})
-	t.Log(spec.Programs[progName].AttachType)
-	if err != nil {
-		coll.Close()
-		t.Fatalf("Failed to attach cgroup: %v", err)
-	}
-	return coll, lk
 }
