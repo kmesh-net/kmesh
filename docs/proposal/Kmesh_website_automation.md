@@ -151,14 +151,14 @@ git push https://$GITHUB_TOKEN@github.com/kmesh-net/website
 
 - **Solution - 2:**
 
-    - It clones `Kmesh-net/kmesh`, copies `docs/ctl/` to `website/docs/`, using Github action workflow.
-    - **Implementation:**
-      
-        The Sync kmeshctl Docs workflow:
+  - It clones `Kmesh-net/kmesh`, copies `docs/ctl/` to `website/docs/`, using Github action workflow.
+  - **Implementation:**
 
-        - Triggers on pushes to the main branch of kmesh-net/kmesh with changes in `docs/ctl/**`.
-        - Copies the `kmesh/docs/ctl/` folder to `website/docs/kmeshctl/`, creating the target folder if it doesn’t exist.
-        - Commits and pushes changes to `kmesh-net/website`.
+    The Sync kmeshctl Docs workflow:
+
+    - Triggers on pushes to the main branch of kmesh-net/kmesh with changes in `docs/ctl/**`.
+    - Copies the `kmesh/docs/ctl/` folder to `website/docs/kmeshctl/`, creating the target folder if it doesn’t exist.
+    - Commits and pushes changes to `kmesh-net/website`.
 
 ![design](/docs/pics/kmeshctl-sync-2.png)
 
@@ -175,15 +175,15 @@ git push https://$GITHUB_TOKEN@github.com/kmesh-net/website
 <br/>
 
 - **Pros:**
-    - **Keeps Docs Up-to-Date**: Automatically updates `website/docs/kmeshctl/` with the latest kmeshctl docs whenever changes are made to `kmesh-net/kmesh/docs/ctl/`, ensuring the website reflects current documentation.
-    - **Efficient Syncing**: Uses rsync (a fast tool inspired by Prometheus Operator) to copy only changed files, making updates quick even for small changes.
-    - **Reliable**: Includes checks to ensure the `kmesh/docs/ctl/` folder and files exist, preventing errors if something’s missing.
+  - **Keeps Docs Up-to-Date**: Automatically updates `website/docs/kmeshctl/` with the latest kmeshctl docs whenever changes are made to `kmesh-net/kmesh/docs/ctl/`, ensuring the website reflects current documentation.
+  - **Efficient Syncing**: Uses rsync (a fast tool inspired by Prometheus Operator) to copy only changed files, making updates quick even for small changes.
+  - **Reliable**: Includes checks to ensure the `kmesh/docs/ctl/` folder and files exist, preventing errors if something’s missing.
 
 <br/>
 
 - **Cons:**
-    - **Limited to kmeshctl Docs**: Only syncs `kmesh/docs/ctl/` to `website/docs/kmeshctl/`. If you need to sync other folders (e.g., docs/guides/), the workflow would need modification (not an issue since you specified only kmeshctl).
-    - **Checkout Overhead**: Downloads both `kmesh-net/kmesh` and `kmesh-net/website` repositories, which may take ~5-10 seconds each, even with shallow clones. This is minor for small repos but could slow down if repos grow large.
+  - **Limited to kmeshctl Docs**: Only syncs `kmesh/docs/ctl/` to `website/docs/kmeshctl/`. If you need to sync other folders (e.g., docs/guides/), the workflow would need modification (not an issue since you specified only kmeshctl).
+  - **Checkout Overhead**: Downloads both `kmesh-net/kmesh` and `kmesh-net/website` repositories, which may take ~5-10 seconds each, even with shallow clones. This is minor for small repos but could slow down if repos grow large.
 
 #### 2. Versioning Workflow
 
