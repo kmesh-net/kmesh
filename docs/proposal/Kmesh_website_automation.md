@@ -218,12 +218,13 @@ git push https://$GITHUB_TOKEN@github.com/kmesh-net/website
 ![design](/docs/pics/website-versioning-archiving-2.png)
 
 **Workflow Explanation:**
-  - **Clone Website Code:** Gets the `kmesh-net/website` repository, which contains the website’s documentation and Docusaurus setup.
-  - **Set Up Docusaurus:** Install Docusaurus, the tool used to manage and version the website’s docs.
-  - **Check Docs Folder:** Makes sure the `website/docs/` folder exists and has files to avoid errors.
-  - **Get Version Number:** Extracts the version tag (e.g., `v1.0.0`) to use for archiving.
-  - **Archive Docs:** Saves a snapshot of the `website/docs/` folder (including kmeshctl/) as a versioned copy (e.g., `v1.0.0`) using Docusaurus.
-  - **Save Changes:** Updates the website repository with the versioned snapshot and Docusaurus settings.
+
+- **Clone Website Code:** Gets the `kmesh-net/website` repository, which contains the website’s documentation and Docusaurus setup.
+- **Set Up Docusaurus:** Install Docusaurus, the tool used to manage and version the website’s docs.
+- **Check Docs Folder:** Makes sure the `website/docs/` folder exists and has files to avoid errors.
+- **Get Version Number:** Extracts the version tag (e.g., `v1.0.0`) to use for archiving.
+- **Archive Docs:** Saves a snapshot of the `website/docs/` folder (including kmeshctl/) as a versioned copy (e.g., `v1.0.0`) using Docusaurus.
+- **Save Changes:** Updates the website repository with the versioned snapshot and Docusaurus settings.
 
 <br/>
 
