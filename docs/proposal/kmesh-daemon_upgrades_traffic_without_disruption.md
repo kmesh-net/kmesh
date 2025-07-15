@@ -45,8 +45,10 @@ The purpose of this proposal is to enable seamless traffic continuity during ver
 2. **Dual-Write Wrapper**: The daemon wraps all map update logic so that every write operation is simultaneously issued to both the old and new maps, only when Kmesh-daemon is upgrading.
 3. **Data Migration**: Entries are iterated from the old map and copied using `convertStructValue`, which transfers only matching fields and sets defaults for missing or incompatible ones. The logic handles two strategies: 
    - if key or type has changed, the old map is discarded and a new one is started fresh.
-   - if value layout has changed but keys remain compatible, entries are fully migrated. 
+   - if value layout has changed but keys remain compatible, entries are migrated. 
+![Dual-Write] 
 4. **Atomic Pin Swap**: Once data migration completes, the daemon proceeds to unpin the old map. It then closes the old map’s file descriptor, attempts to remove the old map’s pin file, and finally renames the temporary pinned path of the new map to the original map’s pin path. 
+![Kmesh-daemon upgrades workflow](./pics/kmesh-daemon_upgrades_workflow.png)
 
 #### Hot Program Replacement
 
