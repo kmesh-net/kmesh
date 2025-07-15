@@ -36,19 +36,18 @@ The purpose of this proposal is to enable seamless traffic continuity during ver
 #### Map Compatibility Detection
 
 1. **Runtime Inspection**: The comparison logic begins by loading each map’s runtime `MapSpec` which includes `MapType`, `KeySize`, `ValueSize`, `MaxEntries` , `Key` and `Value`.
-1. **Spec Snapshot at Startup**: During Kmesh-daemon startup, each `MapSpec` generated from the compiled BPF object is stored in a user-space registry for future comparison. On Update-type startup, the daemon reads the previous version’s stored `MapSpec` definitions and uses them as the baseline `oldMapSpec` for diff comparison.
-1. **Layout Diffing**: A recursive comparison (`diffBTFStructFieldsRec`) examines field name, type, and byte offset, supporting nested struct types. Any difference in metadata or BTF layout triggers a migration path.
+2. **Spec Snapshot at Startup**: During Kmesh-daemon startup, each `MapSpec` generated from the compiled BPF object is stored in a user-space registry for future comparison. On Update-type startup, the daemon reads the previous version’s stored `MapSpec` definitions and uses them as the baseline `oldMapSpec` for diff comparison.
+3. **Layout Diffing**: A recursive comparison (`diffBTFStructFieldsRec`) examines field name, type, and byte offset, supporting nested struct types. Any difference in metadata or BTF layout triggers a migration path.
 
 #### Data Migration Logic
 
-1. **New Map Creation**: When a layout change is detected, a new map is created based on the latest `MapSpec`, with its path set to the old map path appended with "_tmp", and temporarily pinned to an alternate location. 
+1. **New Map Creation**: When a layout change is detected, a new map is created based on the latest `MapSpec`, with its path set to the old map path appended with "_tmp", and temporarily pinned to an alternate location.
 2. **Dual-Write Wrapper**: The daemon wraps all map update logic so that every write operation is simultaneously issued to both the old and new maps, only when Kmesh-daemon is upgrading.
-3. **Data Migration**: Entries are iterated from the old map and copied using `convertStructValue`, which transfers only matching fields and sets defaults for missing or incompatible ones. The logic handles two strategies: 
+3. **Data Migration**: Entries are iterated from the old map and copied using `convertStructValue`, which transfers only matching fields and sets defaults for missing or incompatible ones. The logic handles two strategies:
    - if key or type has changed, the old map is discarded and a new one is started fresh.
-   - if value layout has changed but keys remain compatible, entries are migrated. 
-![Dual-Write] 
-4. **Atomic Pin Swap**: Once data migration completes, the daemon proceeds to unpin the old map. It then closes the old map’s file descriptor, attempts to remove the old map’s pin file, and finally renames the temporary pinned path of the new map to the original map’s pin path. 
-![Kmesh-daemon upgrades workflow](./pics/kmesh-daemon_upgrades_workflow.png)
+   - if value layout has changed but keys remain compatible, entries are migrated.
+4. **Atomic Pin Swap**: Once data migration completes, the daemon proceeds to unpin the old map. It then closes the old map’s file descriptor, attempts to remove the old map’s pin file, and finally renames the temporary pinned path of the new map to the original map’s pin path.
+![Kmesh-daemon upgrades workflow](./pics/kmesh-daemon_upgrades_without_disruption_workflow.png)
 
 #### Hot Program Replacement
 
