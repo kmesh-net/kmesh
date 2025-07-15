@@ -81,7 +81,76 @@ nitty-gritty.
 
 #### 1. Kmeshctl Syncing Tool:
 
-- **Solution - 1:**
+- **Solution - 1**
+
+  - We can keep all those docs in one place (Website repo or main repo) and we can create script to copy all needed docs. this technique used by prometheus-operator.
+  - prometheus-operator having all documentation in main repository and it's website having shell script to copy all needed docs which they want to show on website.
+  - **Prometheus-Operaror** website shell-script :
+    `https://github.com/prometheus-operator/website/blob/main/synchronize.sh`
+
+![design](/docs/pics/kmeshctl-sync-1.png)
+
+
+**Workflow Explanation**:
+
+- This shell script, modeled after the Prometheus Operator’s sync script, copies only the required folders (`application-layer`, `architecture`,`community`, `developer-guide`, `performance`, `setup`, `transport-layer`, `kmeshctl`) from `kmesh-net/kmesh/docs/` to `kmesh-net/website/docs/`
+- when a Netlify webhook is triggered by a commit merged to `kmesh-net/kmesh/main` with changes in docs/. 
+- It commits and pushes the changes to `kmesh-net/website/main`, ensuring the website reflects only the specified doc folders. 
+
+```
+#!/usr/bin/env bash
+
+set -xe
+
+# Clean up temporary repos directory
+rm -rf repos/
+mkdir -p repos/
+
+# Clone kmesh and website repositories
+git clone https://github.com/kmesh-net/kmesh --depth 1 repos/kmesh
+git clone https://github.com/kmesh-net/website --depth 1 repos/website
+
+# Log commit hashes for debugging
+for repo in repos/kmesh repos/website; do
+  echo "$repo -> $(cd $repo && git rev-parse HEAD)"
+done
+
+# Validate source directory and required folders
+if [ ! -d "repos/kmesh/docs" ]; then
+  echo "Error: Directory repos/kmesh/docs does not exist"
+  exit 1
+fi
+required_folders=("application-layer" "architecture" "community" "developer-guide" "performance" "setup" "transport-layer" "kmeshctl")
+for folder in "${required_folders[@]}"; do
+  if [ ! -d "repos/kmesh/docs/$folder" ]; then
+    echo "Error: Required folder repos/kmesh/docs/$folder does not exist"
+    exit 1
+  fi
+done
+
+# Create target docs directory if it doesn't exist
+mkdir -p repos/website/docs
+
+# Copy required folders from kmesh/docs/ to website/docs/
+for folder in "${required_folders[@]}"; do
+  cp -r "repos/kmesh/docs/$folder" repos/website/docs/ || { echo "Error: cp failed for $folder"; exit 1; }
+done
+echo "Synced required folders to repos/website/docs/"
+
+# Commit and push changes to website repo
+cd repos/website
+git config user.name "Kmesh Sync Bot"
+git config user.email "bot@kmesh.net"
+git add docs/
+if git diff --staged --quiet; then
+  echo "No changes to commit"
+  exit 0
+fi
+git commit -m "Sync required folders from kmesh-net/kmesh [$(date -u +%Y-%m-%d)]"
+git push https://$GITHUB_TOKEN@github.com/kmesh-net/website
+```
+
+- **Solution - 2:**
 
   - It clones `Kmesh-net/kmesh`, copies `docs/ctl/` to `website/docs/` , using Github action workflow.
   - **Implementation**:
@@ -91,7 +160,10 @@ nitty-gritty.
       - Copies the kmesh/docs/ctl/ folder to website/docs/kmeshctl/, creating the target folder if it doesn’t exist.
       - Commits and pushes changes to kmesh-net/website.
 
-![design](/docs/pics/kmeshctl-sync.png)
+
+![design](/docs/pics/kmeshctl-sync-2.png)
+
+<br/>
 
 - **Workflow Explanation**: 
   - **Start**: A push to the main branch of kmesh-net/kmesh with changes in the `docs/ctl/`folder triggers the workflow.
@@ -104,7 +176,7 @@ nitty-gritty.
 <br/>
 
 - **Pros**: 
-    - **Keeps Docs Up-to-Date**: Automatically updates website/docs/kmeshctl/ with the latest kmeshctl docs whenever changes are made to kmesh-net/kmesh/docs/ctl/, ensuring the website reflects current documentation.
+    - **Keeps Docs Up-to-Date**: Automatically updates `website/docs/kmeshctl/` with the latest kmeshctl docs whenever changes are made to `kmesh-net/kmesh/docs/ctl/`, ensuring the website reflects current documentation.
     - **Efficient Syncing**: Uses rsync (a fast tool inspired by Prometheus Operator) to copy only changed files, making updates quick even for small changes.
     - **Reliable**: Includes checks to ensure the `kmesh/docs/ctl/` folder and files exist, preventing errors if something’s missing.
 
@@ -114,74 +186,41 @@ nitty-gritty.
     - **Limited to kmeshctl Docs**: Only syncs `kmesh/docs/ctl/` to `website/docs/kmeshctl/`. If you need to sync other folders (e.g., docs/guides/), the workflow would need modification (not an issue since you specified only kmeshctl).
     - **Checkout Overhead**: Downloads both `kmesh-net/kmesh` and `kmesh-net/website` repositories, which may take ~5-10 seconds each, even with shallow clones. This is minor for small repos but could slow down if repos grow large.
 
-```yaml
-name: Sync Kmeshctl Docs
-on:
-  push:
-    branches: [main]
-    paths: ['docs/ctl/**']
-jobs:
-  sync-docs:
-    runs-on: ubuntu-latest
-    concurrency:
-      group: sync-kmeshctl-docs
-      cancel-in-progress: true
-    steps:
-      - name: Checkout website repo
-        uses: actions/checkout@v4
-        with:
-          repository: kmesh-net/website
-          token: ${{ secrets.WEBSITE_REPO_TOKEN }}
-          fetch-depth: 1
-      - name: Checkout kmesh repo
-        uses: actions/checkout@v4
-        with:
-          repository: kmesh-net/kmesh
-          path: kmesh
-          fetch-depth: 1
-      - name: Sync and commit docs
-        run: |
-          # Validate directories
-          [ -d "website" ] || { echo "Error: website directory missing"; exit 1; }
-          [ -d "kmesh/docs/ctl" ] || { echo "Error: kmesh/docs/ctl missing"; exit 1; }
-          ls "kmesh/docs/ctl/"* >/dev/null 2>&1 || { echo "Error: No files in kmesh/docs/ctl"; exit 1; }
-
-          # Create target directory
-          mkdir -p website/docs/kmeshctl
-
-          # Sync files
-          echo "kmesh -> $(cd kmesh && git rev-parse HEAD)"
-          rsync -av --delete kmesh/docs/ctl/ website/docs/kmeshctl/ || { echo "Error: rsync failed"; exit 1; }
-
-          # Commit changes
-          git -C website config user.name "GitHub Action"
-          git -C website config user.email "action@github.com"
-          git -C website add docs/kmeshctl/
-          git -C website diff --staged --quiet && { echo "No changes to commit"; exit 0; }
-          git -C website commit -m "Sync kmeshctl docs from kmesh-net/kmesh"
-          git -C website push
-          echo "Synced kmeshctl docs to website/docs/kmeshctl/"
-```
-  
-
-- **Solution - 2**
-
-  - We can keep all those docs in one place (Website repo or main repo) and we can create script to copy all needed docs. this technique used by prometheus-operator.
-  - prometheus-operator having all documentation in main repository and it's website having shell script to copy all needed docs which they want to show on website.
-  - **Prometheus-Operaror** website shell-script :
-    `https://github.com/prometheus-operator/website/blob/main/synchronize.sh`
-
 #### 2. Versioning Workflow:
 
-- This workflow saves a snapshot of the kmesh website’s documentation (stored in `kmesh-net/website/docs/`) whenever a new version of the kmesh project is released (e.g., `v1.0.0`, `v2.0.0`). It uses Docusaurus, a tool that organizes documentation, to create a versioned archive (like a backup) of the docs, so users can view older versions of the website’s documentation, including the kmeshctl docs (added by the separate sync workflow). 
-- This ensures the website always shows the latest docs while keeping a history of past versions.
-- **When It Runs**: The workflow starts when a new version tag (e.g., `v1.0.0`) is pushed to the kmesh-net/kmesh repository.
+- **Solution - 1:**
+
+  - The versioning process using the `VERSION` file begins when developers update documentation in `kmesh-net/kmesh/docs/` and push changes, triggering the `sync-kmesh-docs.sh` script via a Netlify webhook to sync required folders to `kmesh-net/website/docs/`. Next, a developer updates the `VERSION` file in `kmesh-net/website` (e.g., from `v1.0.0` to `v1.1.0`) and pushes the change, activating the **Version kmesh Website Docs** workflow. 
+  - The workflow then checks out the local repo, sets up Node.js and Docusaurus, validates the `docs/` directory, creates a versioned snapshot (e.g., `versioned_docs/version-1.1.0/`) using the `VERSION` content, and commits it back to the repository. 
+  - This process ensures historical docs are archived and accessible via Docusaurus.
+
+![design](/docs/pics/website-versioning-archiving-1.png)
+
+- **Pros**:
+  - Controlled, intentional versioning.
+  - Reduces unnecessary CI runs.
+  - Simple version management.
+  
+<br/>  
+
+- **Cons**:
+  - Manual updates risk errors.
+  - Requires sync coordination.
+  - No tag-based fallback.
+
+<br/> 
+
+- **Solution - 2:**
+
+    - This workflow saves a snapshot of the kmesh website’s documentation (stored in `kmesh-net/website/docs/`) whenever a new version of the kmesh project is released (e.g., `v1.0.0`, `v2.0.0`). It uses Docusaurus, a tool that organizes documentation, to create a versioned archive (like a backup) of the docs, so users can view older versions of the website’s documentation, including the kmeshctl docs (added by the separate sync workflow). 
+    - This ensures the website always shows the latest docs while keeping a history of past versions.
+    - **When It Runs**: The workflow starts when a new version tag (e.g., `v1.0.0`) is pushed to the kmesh-net/kmesh repository.
 
 
-![design](/docs/pics/website-versioning-archiving.png)
+![design](/docs/pics/website-versioning-archiving-2.png)
 
 **Workflow Explanation**:
-- **Download Website Code**: Gets the `kmesh-net/website` repository, which contains the website’s documentation and Docusaurus setup.
+- **Clone Website Code**: Gets the `kmesh-net/website` repository, which contains the website’s documentation and Docusaurus setup.
 - **Set Up Docusaurus**: Install Docusaurus, the tool used to manage and version the website’s docs.
 - **Check Docs Folder**: Makes sure the `website/docs/` folder exists and has files to avoid errors.
 - **Get Version Number**: Extracts the version tag (e.g., `v1.0.0`) to use for archiving.
