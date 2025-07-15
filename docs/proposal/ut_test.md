@@ -43,7 +43,6 @@ know that this has succeeded?
 - Successfully running unit test code for Kmesh's eBPF cgroup program.
 
 - Documentation written in English for the tests of both sendMsg and cgroup programs.
- 
 #### Non-Goals
 
 <!--
@@ -72,7 +71,6 @@ nitty-gritty.
 - For branches that write to BPF maps, use coll.Maps["..."] on the Go testing side to verify whether the map contents are correct.
 - For branches that do not write to any map, the current approach is to use the BPF_LOG() macro to print debug information for verification.
 
-
 ### Design Details
 
 <!--
@@ -84,7 +82,6 @@ proposal will be implemented, this is the place to discuss them.
 
 - Detailed Implementation Points
 - Mounting and Triggering Details for the Three Programs, and Current Testing Points
-
 
 - For sendmsg.c
 - Purpose: This file’s function is to prepend TLV (Type-Length-Value) metadata when sending messages.
@@ -106,8 +103,6 @@ proposal will be implemented, this is the place to discuss them.
 - encode_metadata_end(msg, off);
 - Verify that the TLV data is correctly written into the buffer.
 
-
-
 - For cgroup_skb.c
 -  Purpose: This file intercepts network packets and monitors or collects statistics on connections that meet certain conditions.
 -  Attachment Point: Can be attached to the cgroup, following the example of the testing method used in sockops.c.
@@ -126,8 +121,6 @@ proposal will be implemented, this is the place to discuss them.
 - This function triggers reporting based on timing and performs operations on BPF maps.
 - Corresponding maps can be checked on the Go side for testing purposes.
 
-
-
 - For cgroup_sock.c
 - Purpose:During TCP connection initiation, this function performs traffic control and records/modifies the original destination address based on Kmesh’s management logic, and executes further processing via tail call when necessary.
 - Attachment Point: Can be attached to the cgroup, following the example of the testing method used in sockops.c.
@@ -143,7 +136,6 @@ proposal will be implemented, this is the place to discuss them.
 - Branches depending on whether the service is found.
 - 5：set_original_dst_info()
 - Verify that the original destination address is correctly written into the bpf_sk_storage structure.
-
 
 - Both cgroup_skb.c and cgroup_sock.c are attached to the cgroup, so their mounting process is the same and the attachment and triggering have already been implemented as follows 
 
@@ -161,8 +153,6 @@ proposal will be implemented, this is the place to discuss them.
 						})
 						startLogReader(coll)
 ```
-
-
 
 ### Alternatives
 
