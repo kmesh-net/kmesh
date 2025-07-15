@@ -79,7 +79,7 @@ The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-#### 1. Kmeshctl Syncing Tool:
+#### 1. Kmeshctl Syncing Tool
 
 - **Solution - 1**
 
@@ -90,14 +90,13 @@ nitty-gritty.
 
 ![design](/docs/pics/kmeshctl-sync-1.png)
 
-
-**Workflow Explanation**:
+**Workflow Explanation:**
 
 - This shell script, modeled after the Prometheus Operator’s sync script, copies only the required folders (`application-layer`, `architecture`,`community`, `developer-guide`, `performance`, `setup`, `transport-layer`, `kmeshctl`) from `kmesh-net/kmesh/docs/` to `kmesh-net/website/docs/`
-- when a Netlify webhook is triggered by a commit merged to `kmesh-net/kmesh/main` with changes in docs/. 
-- It commits and pushes the changes to `kmesh-net/website/main`, ensuring the website reflects only the specified doc folders. 
+- when a Netlify webhook is triggered by a commit merged to `kmesh-net/kmesh/main` with changes in docs/.
+- It commits and pushes the changes to `kmesh-net/website/main`, ensuring the website reflects only the specified doc folders.
 
-```
+```bash
 #!/usr/bin/env bash
 
 set -xe
@@ -152,94 +151,93 @@ git push https://$GITHUB_TOKEN@github.com/kmesh-net/website
 
 - **Solution - 2:**
 
-  - It clones `Kmesh-net/kmesh`, copies `docs/ctl/` to `website/docs/` , using Github action workflow.
-  - **Implementation**:
-    The Sync kmeshctl Docs workflow:
+    - It clones `Kmesh-net/kmesh`, copies `docs/ctl/` to `website/docs/`, using Github action workflow.
+    - **Implementation:**
+      
+        The Sync kmeshctl Docs workflow:
 
-      - Triggers on pushes to the main branch of kmesh-net/kmesh with changes in docs/ctl/**.
-      - Copies the kmesh/docs/ctl/ folder to website/docs/kmeshctl/, creating the target folder if it doesn’t exist.
-      - Commits and pushes changes to kmesh-net/website.
-
+        - Triggers on pushes to the main branch of kmesh-net/kmesh with changes in `docs/ctl/**`.
+        - Copies the `kmesh/docs/ctl/` folder to `website/docs/kmeshctl/`, creating the target folder if it doesn’t exist.
+        - Commits and pushes changes to `kmesh-net/website`.
 
 ![design](/docs/pics/kmeshctl-sync-2.png)
 
 <br/>
 
-- **Workflow Explanation**: 
+- **Workflow Explanation:**
   - **Start**: A push to the main branch of kmesh-net/kmesh with changes in the `docs/ctl/`folder triggers the workflow.
   - **Checkout Repositories**: The workflow downloads the `kmesh-net/kmesh` and `kmesh-net/website` repositories.
   - **Validate**: Checks that the `kmesh/docs/ctl/` folder exists and contains files.
   - **Create Folder**: Creates the `website/docs/kmeshctl/` folder if it doesn’t exist.
   - **Sync Files**: Copies the kmeshctl docs from `kmesh/docs/ctl/` to `website/docs/kmeshctl/` using rsync.
   - **Save Changes**: Commits and pushes the updated files to the `kmesh-net/website` repository.
-  
+
 <br/>
 
-- **Pros**: 
+- **Pros:**
     - **Keeps Docs Up-to-Date**: Automatically updates `website/docs/kmeshctl/` with the latest kmeshctl docs whenever changes are made to `kmesh-net/kmesh/docs/ctl/`, ensuring the website reflects current documentation.
     - **Efficient Syncing**: Uses rsync (a fast tool inspired by Prometheus Operator) to copy only changed files, making updates quick even for small changes.
     - **Reliable**: Includes checks to ensure the `kmesh/docs/ctl/` folder and files exist, preventing errors if something’s missing.
 
 <br/>
 
-- **Cons**:
+- **Cons:**
     - **Limited to kmeshctl Docs**: Only syncs `kmesh/docs/ctl/` to `website/docs/kmeshctl/`. If you need to sync other folders (e.g., docs/guides/), the workflow would need modification (not an issue since you specified only kmeshctl).
     - **Checkout Overhead**: Downloads both `kmesh-net/kmesh` and `kmesh-net/website` repositories, which may take ~5-10 seconds each, even with shallow clones. This is minor for small repos but could slow down if repos grow large.
 
-#### 2. Versioning Workflow:
+#### 2. Versioning Workflow
 
 - **Solution - 1:**
 
-  - The versioning process using the `VERSION` file begins when developers update documentation in `kmesh-net/kmesh/docs/` and push changes, triggering the `sync-kmesh-docs.sh` script via a Netlify webhook to sync required folders to `kmesh-net/website/docs/`. Next, a developer updates the `VERSION` file in `kmesh-net/website` (e.g., from `v1.0.0` to `v1.1.0`) and pushes the change, activating the **Version kmesh Website Docs** workflow. 
-  - The workflow then checks out the local repo, sets up Node.js and Docusaurus, validates the `docs/` directory, creates a versioned snapshot (e.g., `versioned_docs/version-1.1.0/`) using the `VERSION` content, and commits it back to the repository. 
+  - The versioning process using the `VERSION` file begins when developers update documentation in `kmesh-net/kmesh/docs/` and push changes, triggering the `sync-kmesh-docs.sh` script via a Netlify webhook to sync required folders to `kmesh-net/website/docs/`. Next, a developer updates the `VERSION` file in `kmesh-net/website` (e.g., from `v1.0.0` to `v1.1.0`) and pushes the change, activating the **Version kmesh Website Docs** workflow.
+  - The workflow then checks out the local repo, sets up Node.js and Docusaurus, validates the `docs/` directory, creates a versioned snapshot (e.g., `versioned_docs/version-1.1.0/`) using the `VERSION` content, and commits it back to the repository.
   - This process ensures historical docs are archived and accessible via Docusaurus.
 
 ![design](/docs/pics/website-versioning-archiving-1.png)
 
-- **Pros**:
+- **Pros:**
   - Controlled, intentional versioning.
   - Reduces unnecessary CI runs.
   - Simple version management.
-  
-<br/>  
 
-- **Cons**:
+<br/>
+
+- **Cons:**
   - Manual updates risk errors.
   - Requires sync coordination.
   - No tag-based fallback.
 
-<br/> 
+<br/>
 
 - **Solution - 2:**
 
-    - This workflow saves a snapshot of the kmesh website’s documentation (stored in `kmesh-net/website/docs/`) whenever a new version of the kmesh project is released (e.g., `v1.0.0`, `v2.0.0`). It uses Docusaurus, a tool that organizes documentation, to create a versioned archive (like a backup) of the docs, so users can view older versions of the website’s documentation, including the kmeshctl docs (added by the separate sync workflow). 
+    - This workflow saves a snapshot of the kmesh website’s documentation (stored in `kmesh-net/website/docs/`) whenever a new version of the kmesh project is released (e.g., `v1.0.0`, `v2.0.0`). It uses Docusaurus, a tool that organizes documentation, to create a versioned archive (like a backup) of the docs, so users can view older versions of the website’s documentation, including the kmeshctl docs (added by the separate sync workflow).
     - This ensures the website always shows the latest docs while keeping a history of past versions.
     - **When It Runs**: The workflow starts when a new version tag (e.g., `v1.0.0`) is pushed to the kmesh-net/kmesh repository.
 
-
 ![design](/docs/pics/website-versioning-archiving-2.png)
 
-**Workflow Explanation**:
-- **Clone Website Code**: Gets the `kmesh-net/website` repository, which contains the website’s documentation and Docusaurus setup.
-- **Set Up Docusaurus**: Install Docusaurus, the tool used to manage and version the website’s docs.
-- **Check Docs Folder**: Makes sure the `website/docs/` folder exists and has files to avoid errors.
-- **Get Version Number**: Extracts the version tag (e.g., `v1.0.0`) to use for archiving.
-- **Archive Docs**: Saves a snapshot of the `website/docs/` folder (including kmeshctl/) as a versioned copy (e.g., `v1.0.0`) using Docusaurus.
-- **Save Changes**: Updates the website repository with the versioned snapshot and Docusaurus settings.
+**Workflow Explanation:**
+- **Clone Website Code:** Gets the `kmesh-net/website` repository, which contains the website’s documentation and Docusaurus setup.
+- **Set Up Docusaurus:** Install Docusaurus, the tool used to manage and version the website’s docs.
+- **Check Docs Folder:** Makes sure the `website/docs/` folder exists and has files to avoid errors.
+- **Get Version Number:** Extracts the version tag (e.g., `v1.0.0`) to use for archiving.
+- **Archive Docs:** Saves a snapshot of the `website/docs/` folder (including kmeshctl/) as a versioned copy (e.g., `v1.0.0`) using Docusaurus.
+- **Save Changes:** Updates the website repository with the versioned snapshot and Docusaurus settings.
 
 <br/>
 
-- **Pros**: 
-  - **Saves Version History**: Archives all website docs (including kmeshctl/) for each release (e.g., v1.0.0), enabling users to access documentation for specific kmesh versions via Docusaurus’s version navigation.
-  - **Fast Execution**: Completes in ~15-20 seconds using shallow clones and cached Docusaurus dependencies, efficient for infrequent tag pushes.
-  - **Reliable**: Checks that website/docs/ exists and contains files, preventing failures due to missing or empty folders.
+- **Pros:**
+  - **Saves Version History:** Archives all website docs (including kmeshctl/) for each release (e.g., v1.0.0), enabling users to access documentation for specific kmesh versions via Docusaurus’s version navigation.
+  - **Fast Execution:** Completes in ~15-20 seconds using shallow clones and cached Docusaurus dependencies, efficient for infrequent tag pushes.
+  - **Reliable:** Checks that website/docs/ exists and contains files, preventing failures due to missing or empty folders.
 
 <br/>
 
-- **Cons**:
-  - **Cross-Repository Trigger**: Runs in kmesh-net/kmesh (triggered by tags) but modifies kmesh-net/website, which may confuse contributors expecting the workflow in the website repo.
-  - **Token Dependency**: Requires WEBSITE_REPO_TOKEN with write access to kmesh-net/website, needing secure setup and documentation.
-  - **Docusaurus Dependency**: Assumes kmesh-net/website is a properly configured Docusaurus project. Misconfiguration could cause failures, requiring testing to confirm setup.
+- **Cons:**
+  - **Cross-Repository Trigger:** Runs in kmesh-net/kmesh (triggered by tags) but modifies kmesh-net/website, which may confuse contributors expecting the workflow in the website repo.
+  - **Token Dependency:** Requires WEBSITE_REPO_TOKEN with write access to kmesh-net/website, needing secure setup and documentation.
+  - **Docusaurus Dependency:** Assumes kmesh-net/website is a properly configured Docusaurus project. Misconfiguration could cause failures, requiring testing to confirm setup.
 
 ```yaml
 name: Version kmesh Website Docs
@@ -289,7 +287,7 @@ jobs:
           git push origin main
 ```
 
-#### 3. Chinese Docs Workflow (BONUS):
+#### 3. Chinese Docs Workflow (BONUS)
 
 - **Solution - 1**
 
@@ -336,7 +334,7 @@ jobs:
           reporter: github-pr-review # Logs to Actions output, no PRs created
           level: warning
           language: zh-CN
-          patterns: 'docs/*-zh.md docs/*_CN.md' 
+          patterns: 'docs/*-zh.md docs/*_CN.md'
 ```
 
 - **Solution - 2**
@@ -382,7 +380,6 @@ Consider including folks who also work outside the SIG or subproject.
 -->
 
 - **Risk**: versioning fails if Docusaurus is misconfigured.
-
   - **Mitigation**: Test Docusaurus setup locally before deployment.
 
 - **Risk**: LanguageTool misses Chinese-specific errors.
@@ -433,20 +430,20 @@ information to express the idea and why it was not acceptable.
 **1. Github Actions for Sync:**
 
 - Instead of Netlify-triggered script, use a Github Action to sync `kmesh/docs/ctl/` to `kmesh/website/docs` and commit directly.
-- **Pros**: Unified Automation in Github, No Netlify Dependency.
-- **Cons**: Required managing commits.
+- **Pros:** Unified Automation in Github, No Netlify Dependency.
+- **Cons:** Required managing commits.
 
 **2. Manual Versioning:**
 
 - Manually run Docusaurus versioning commands instead of a workflow.
-- **Pros**: Simpler initial setup.
-- **Cons**: Required managing commits.
+- **Pros:** Simpler initial setup.
+- **Cons:** Required managing commits.
 
 **3. External Chinese NLP Tools:**
 
 - Use APIs for advanced chinese typo/grammar checks.
-- **Pros**: More accurate than LanguageTool for chinese.
-- **Cons**: Paid, Complex setup, not open-source.
+- **Pros:** More accurate than LanguageTool for chinese.
+- **Cons:** Paid, Complex setup, not open-source.
 
 <!--
 Note: This is a simplified version of kubernetes enhancement proposal template.
