@@ -92,9 +92,23 @@ nitty-gritty.
 
 **Workflow Explanation:**
 
-- This shell script, modeled after the Prometheus Operator’s sync script, copies only the required folders (`application-layer`, `architecture`,`community`, `developer-guide`, `performance`, `setup`, `transport-layer`, `kmeshctl`) from `kmesh-net/kmesh/docs/` to `kmesh-net/website/docs/`
-- when a Netlify webhook is triggered by a commit merged to `kmesh-net/kmesh/main` with changes in docs/.
-- It commits and pushes the changes to `kmesh-net/website/main`, ensuring the website reflects only the specified doc folders.
+- A Netlify webhook is triggered by a commit merged to `kmesh-net/kmesh/main` with changes in `docs/`.
+- The shell script runs on the Netlify server, cloning both `kmesh-net/kmesh` and `kmesh-net/website` repositories.
+- It copies only the required folders (`application-layer`, `architecture`, `community`, `developer-guide`, `performance`, `setup`, `transport-layer`, `kmeshctl`) from `kmesh-net/kmesh/docs/` to `kmesh-net/website/docs/`.
+- The script triggers the Netlify build process to generate and deploy the updated website, without committing or pushing changes to the `kmesh-net/website` repository.
+  
+<br/>
+
+- **Pros:**
+  - Simplifies deployment on Netlify without requiring repository commits.
+  - Uses rsync (a fast tool inspired by Prometheus Operator) to copy only changed files, making updates quick even for small changes.
+  - Includes checks to ensure the `kmesh/docs/ctl/` folder and files exist, preventing errors if something’s missing.
+  
+<br/>  
+
+- **Cons:**
+  - limitations in scaling if the website repo grows significantly.
+  - Netlify-specific dependencies (e.g, Netlify CLI setup).
 
 ```bash
 #!/usr/bin/env bash
@@ -136,17 +150,8 @@ for folder in "${required_folders[@]}"; do
 done
 echo "Synced required folders to repos/website/docs/"
 
-# Commit and push changes to website repo
-cd repos/website
-git config user.name "Kmesh Sync Bot"
-git config user.email "bot@kmesh.net"
-git add docs/
-if git diff --staged --quiet; then
-  echo "No changes to commit"
-  exit 0
-fi
-git commit -m "Sync required folders from kmesh-net/kmesh [$(date -u +%Y-%m-%d)]"
-git push https://$GITHUB_TOKEN@github.com/kmesh-net/website
+# Trigger Netlify build (assumes Netlify CLI is installed and configured)
+netlify deploy --prod --dir repos/website
 ```
 
 - **Solution - 2:**
@@ -188,15 +193,16 @@ git push https://$GITHUB_TOKEN@github.com/kmesh-net/website
 #### 2. Versioning Workflow
 
 - **Solution - 1:**
-
-  - The versioning process using the `VERSION` file begins when developers update documentation in `kmesh-net/kmesh/docs/` and push changes, triggering the `sync-kmesh-docs.sh` script via a Netlify webhook to sync required folders to `kmesh-net/website/docs/`. Next, a developer updates the `VERSION` file in `kmesh-net/website` (e.g., from `v1.0.0` to `v1.1.0`) and pushes the change, activating the **Version kmesh Website Docs** workflow.
-  - The workflow then checks out the local repo, sets up Node.js and Docusaurus, validates the `docs/` directory, creates a versioned snapshot (e.g., `versioned_docs/version-1.1.0/`) using the `VERSION` content, and commits it back to the repository.
-  - This process ensures historical docs are archived and accessible via Docusaurus.
+  - **Workflow Explanation:**
+    - When a new release is planned, a maintainer updates the `VERSION` file in `kmesh-net/website` (e.g., from `v1.0.0` to `v1.1.0`) and pushes the change.
+    - This triggers a CI pipeline in the `kmesh-net/website` repository.
+    - The pipeline checks out the website repository, sets up Node.js and Docusaurus, validates the `docs/` directory, creates a versioned snapshot (e.g., `versioned_docs/version-1.1.0/`) using the `VERSION` file content, and commits the changes back to the `kmesh-net/website` repository.
+    - This ensures historical docs are archived and accessible via Docusaurus’s version navigation.
 
 ![design](/docs/pics/website-versioning-archiving-1.png)
 
 - **Pros:**
-  - Controlled, intentional versioning.
+  - CI pipeline automates versioning based on `VERSION` file changes, reducing manual effort.
   - Reduces unnecessary CI runs.
   - Simple version management.
 
@@ -204,10 +210,57 @@ git push https://$GITHUB_TOKEN@github.com/kmesh-net/website
 
 - **Cons:**
   - Manual updates risk errors.
-  - Requires sync coordination.
+  - Potential risks, if the `VERSION` file format is incorrect.
   - No tag-based fallback.
 
-<br/>
+```yaml
+name: Version Kmesh Website Docs
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'VERSION'
+jobs:
+  version-docs:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout website repo
+        uses: actions/checkout@v4
+        with:
+          path: website
+          fetch-depth: 1
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: website/package-lock.json
+      - name: Install Docusaurus
+        run: cd website && npm install
+      - name: Validate docs directory
+        run: |
+          [ -d "website/docs" ] || { echo "Error: website/docs missing"; exit 1; }
+          ls "website/docs/"* >/dev/null 2>&1 || { echo "Error: No files in website/docs"; exit 1; }
+      - name: Read version from VERSION file
+        run: echo "VERSION=$(cat website/VERSION)" >> $GITHUB_ENV
+      - name: Version website docs
+        run: |
+          cd website
+          npx docusaurus docs:version ${{ env.VERSION }}
+          echo "Versioned website docs for ${{ env.VERSION }}"
+      - name: Commit changes
+        run: |
+          cd website
+          git config user.name "Kmesh Version Bot"
+          git config user.email "bot@kmesh.net"
+          git add docs versioned_docs versioned_sidebars.json versions.json
+          git diff --staged --quiet && { echo "No changes to commit"; exit 0; }
+          git commit -m "Version website docs for ${{ env.VERSION }} [$(date -u +%Y-%m-%d)]"
+          git push origin main
+```
 
 - **Solution - 2:**
 
@@ -353,11 +406,11 @@ bogged down.
 
 ##### Story 1
 
-- As a kmesh developer, I want `kmesh/docs/ctl/` changes to automatically update the website, so users always see the latest guides without manual effort.
+- As a Kmesh developer, I want kmesh/docs/ changes to automatically trigger a Netlify build and deploy the updated website, so users see the latest docs without manual intervention.
 
 ##### Story 2
 
-- As a website maintainer, I want old docs archived and new versions published when a tag is created, so users can access historical versions via Docusaurus.
+- As a website maintainer, I want versioning to happen automatically when the VERSION file is updated, archiving old docs and committing changes via CI.
 
 #### Notes/Constraints/Caveats (Optional)
 
