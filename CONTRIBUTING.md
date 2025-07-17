@@ -3,19 +3,19 @@
 Welcome to Kmesh!
 
 - [Contributing](#contributing)
-- [Before you get started](#before-you-get-started)
-  - [Code of Conduct](#code-of-conduct)
-  - [Community Expectations](#community-expectations)
-- [Getting started](#getting-started)
-- [Your First Contribution](#your-first-contribution)
-  - [Find something to work on](#find-something-to-work-on)
-    - [Find a good first topic](#find-a-good-first-topic)
+  - [Before you get started](#before-you-get-started)
+    - [Code of Conduct](#code-of-conduct)
+    - [Community Expectations](#community-expectations)
+  - [Getting started](#getting-started)
+  - [Your First Contribution](#your-first-contribution)
+    - [Find something to work on](#find-something-to-work-on)
+      - [Find a good first topic](#find-a-good-first-topic)
       - [Work on an issue](#work-on-an-issue)
-    - [File an Issue](#file-an-issue)
-- [Contributor Workflow](#contributor-workflow)
-  - [Creating Pull Requests](#creating-pull-requests)
-  - [Code Review](#code-review)
-- [Membership](#membership)
+      - [File an Issue](#file-an-issue)
+  - [Contributor Workflow](#contributor-workflow)
+    - [Creating Pull Requests](#creating-pull-requests)
+    - [Code Review](#code-review)
+  - [Membership](#membership)
 
 ## Before you get started
 
@@ -95,6 +95,7 @@ After that, run these local verifications before submitting pull request to pred
 fail of continuous integration.
 
 - Run and pass `make gen-check`, if want to run with sudo privileges `sudo env PATH=$PATH make gen-check`
+- Ensure Docker is running, then execute `make format` from the project root to automatically fix Markdown linting errors.
 - To compile, refer to [Compile and Build Kmesh](https://kmesh.net/en/docs/developer/build-guide/)
 - To run unit test, refer to [Run Unit Test](https://kmesh.net/en/docs/developer/run-ut/)
 - To run e2e test, refer to [Run E2E Test](https://kmesh.net/en/docs/developer/e2e-guide/)
