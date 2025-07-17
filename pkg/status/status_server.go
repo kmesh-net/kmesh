@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/pprof"
+	"sort"
 	"strconv"
 	"time"
 
@@ -568,6 +569,16 @@ func (s *Server) StopServer() error {
 }
 
 func printWorkloadDump(w http.ResponseWriter, wd WorkloadDump) {
+	sort.Slice(wd.Workloads, func(i, j int) bool {
+		return wd.Workloads[i].Name < wd.Workloads[j].Name
+	})
+	sort.Slice(wd.Services, func(i, j int) bool {
+		return wd.Services[i].Name < wd.Services[j].Name
+	})
+	sort.Slice(wd.Policies, func(i, j int) bool {
+		return wd.Policies[i].Name < wd.Policies[j].Name
+	})
+
 	data, err := json.MarshalIndent(wd, "", "    ")
 	if err != nil {
 		log.Errorf("Failed to marshal WorkloadDump: %v", err)
