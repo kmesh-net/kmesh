@@ -24,6 +24,7 @@ import (
 	"github.com/agiledragon/gomonkey/v2"
 	"github.com/stretchr/testify/assert"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test/util/retry"
 
 	camock "kmesh.net/kmesh/pkg/controller/security/mock"
 )
@@ -124,7 +125,7 @@ func runTestCertRotate(t *testing.T) {
 	for {
 		secretManager.certsCache.mu.RLock()
 		cert2 := secretManager.certsCache.certs[identity1]
-		if cert2 != nil && cert2.cert.CreatedTime != oldCert.CreatedTime {
+		if cert2 != nil && cert2.cert != nil && cert2.cert.CreatedTime != oldCert.CreatedTime {
 			newCert = *cert2.cert
 			secretManager.certsCache.mu.RUnlock()
 			break
@@ -160,13 +161,32 @@ func runTestretryFetchCert(t *testing.T) {
 
 	go secretManager.Run(stopCh)
 	identity := "identity"
-	identity1 := "identity1"
 	secretManager.SendCertRequest(identity, ADD)
 	time.Sleep(100 * time.Millisecond)
 	patches2.Reset()
-	secretManager.SendCertRequest(identity1, RETRY)
-	time.Sleep(2000 * time.Millisecond)
-	assert.NotNil(t, secretManager.GetCert(identity).cert)
+
+	secretManager.SendCertRequest(identity, RETRY)
+
+	err = retry.UntilSuccess(
+		func() error {
+			cert := secretManager.GetCert(identity)
+			if cert != nil {
+				secretManager.certsCache.mu.RLock()
+				hasCert := cert.cert != nil
+				secretManager.certsCache.mu.RUnlock()
+				if hasCert {
+					return nil
+				}
+			}
+			return fmt.Errorf("cert not found for identity %s", identity)
+		},
+		retry.Delay(100*time.Millisecond),
+		retry.Timeout(6*time.Second),
+	)
+
+	if err != nil {
+		t.Errorf("Failed to fetch cert after retry: %v", err)
+	}
 
 	close(stopCh)
 }
