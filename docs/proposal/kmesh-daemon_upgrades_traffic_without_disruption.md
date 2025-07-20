@@ -98,7 +98,8 @@ type StructDiff struct {
 
 2.**Dual-Write Wrapper**: The daemon wraps all map update logic so that every write operation is simultaneously issued to both the old and new maps, only when Kmesh-daemon is upgrading.
 
-3.**Data Migration**: Entries are iterated from the old map and copied using `convertStructValue`, which takes raw byte slices of the old and new value entries and recursively copies matching fields between them. It works by building a name-to-member map of the old structure and iterating through the members of the new structure. For each field:
+3.**Data Migration**: When a layout change is detected between the current and previous versions of an eBPF map, a new map is created, and data migration is triggered to ensure continuity.
+To perform safe migration, the function convertStructValue is used. This function takes raw byte slices of the old and new value entries and recursively copies matching fields between them. It works by building a name-to-member map of the old structure and iterating through the members of the new structure. For each field:
 
 - If the field exists in both old and new structures and the types match, it proceeds to copy the value.
 - If the field is a nested struct, it recurses using the same function while guarding against cycles via a `visited` map.
