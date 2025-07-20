@@ -79,6 +79,7 @@ map[string]map[string]*ebpf.MapSpec // map[pgkname][mapname]Mapspce
 ```
 
 2.**Spec Snapshot at Startup**: During Kmesh-daemon startup, each `MapSpec` generated from the compiled BPF object is stored in a user-space registry for future comparison. On Update-type startup, the daemon reads the previous version’s stored `MapSpec` definitions and uses them as the baseline `oldMapSpec` for diff comparison.
+
 3.**Layout Diffing**: A recursive function `diffBTFStructFieldsRec` is implemented to compare old and new btf.Struct definitions field by field. It detects field additions, removals, type changes, offset shifts, and nested structure changes, and uses a visited map to avoid infinite recursion in recursive types. This function provides a fine-grained structural diff to guide compatibility decisions.
 
 ```go
@@ -94,7 +95,9 @@ type StructDiff struct {
 #### Data Migration Logic
 
 1.**New Map Creation**: When a layout change is detected, a new map is created based on the latest `MapSpec`, with its path set to the old map path appended with "_tmp", and temporarily pinned to an alternate location.
+
 2.**Dual-Write Wrapper**: The daemon wraps all map update logic so that every write operation is simultaneously issued to both the old and new maps, only when Kmesh-daemon is upgrading.
+
 3.**Data Migration**: Entries are iterated from the old map and copied using `convertStructValue`, which takes raw byte slices of the old and new value entries and recursively copies matching fields between them. It works by building a name-to-member map of the old structure and iterating through the members of the new structure. For each field:
 
 - If the field exists in both old and new structures and the types match, it proceeds to copy the value.
@@ -124,6 +127,7 @@ if err := os.Rename(tmpPinPath, pinPath); err != nil {
 **Atomic Swap***: Once all maps are migrated, new BPF programs are attached. The upgrade process uses `utils.BpfProgUpdate()` to atomically swap the loaded program with a new one. BpfProgUpdate(progPinPath, cgopt) actually does two steps:
 
 1. LoadPinnedLink: Reopens the existing `bpf_link` from the pinned path before reloading, recovering the same link object in the kernel as the kernel has attached.
+
 2. link.Update(newProgFD): Atomically swaps the BPF program FD on that link to `cgopt.Program`, preserving the existing hook and any accumulated state.
 
 This approach ensures there is no packet loss during the transition. Take `BpfSockOps` for example, if the process is detected as a Restart or Update, the existing pinned link is recovered and updated with the new program:
@@ -162,4 +166,5 @@ func (sc *BpfSockOps) Attach() error {
 #### Testing Plan
 
 1.**Unit Tests**: Validate `loadCompileTimeSpecs`, `diffBTFStructFieldsRec`, `convertStructValue`, and the dual-write synchronization.
+
 2.**E2E Tests**: Run Kmesh upgrades with live traffic and verify data continuity, no packet loss, and zero connection resets.
