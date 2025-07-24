@@ -7,7 +7,13 @@
 #include <bpf/bpf_helpers.h>
 #include "bpf_log.h"
 #include "bpf_common.h"
-
+struct {
+    __uint(type, BPF_MAP_TYPE_SOCKHASH);
+    __type(key, struct bpf_sock_tuple);
+    __type(value, __u32);
+    __uint(max_entries, MAP_SIZE_OF_MANAGER);
+    __uint(map_flags, 0);
+} map_of_kmesh_socket SEC(".maps");
 /*
  * sk msg is used to encode metadata into the payload when the client sends
  * data to waypoint.
