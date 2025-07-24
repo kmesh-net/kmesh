@@ -8,7 +8,7 @@ Kmesh eBPF 单元测试框架是一个用于测试 eBPF 内核态程序的工具
 
 测试框架的目录结构如下：
 
-```
+``` plaintext
 test/bpf_ut/
 ├── bpftest/              # Go 语言实现的单元测试框架
 │   ├── bpf_test.go       # 测试框架核心逻辑以及辅助函数
@@ -75,9 +75,11 @@ Go 语言实现的单元测试框架负责加载和执行 eBPF 程序，捕获�
 ## 4.3 用户态 Go 测试代码
 
 无论采用哪种测试类型，都会在用户态利用 Go 测试框架对编译得到的 eBPF 程序进行加载、执行与结果校验。`bpf_test.go` 中定义了各类工具函数，如：
+
 - `loadAndRunSpec`：载入并初始化 `.o` 文件中的程序、Map。
 - `startLogReader`：读取 eBPF Map 中的 ringbuf 或日志输出。
 - `registerTailCall`：为特定测试场景注册 tail call。
+
 这样可以结合内核测试程序与用户态测试逻辑，为 eBPF 程序提供更完善的验证能力。
 
 # 5. 编写测试
