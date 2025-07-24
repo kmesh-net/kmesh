@@ -1,0 +1,495 @@
+{
+    "workloads": [
+        {
+            "uid": "cluster1//Pod/ns/workload-0-modified",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-0-modified",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster1",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "UNHEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster1//Pod/ns/workload-1-modified",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-1-modified",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster1",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "UNHEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster1//Pod/ns/workload-2-modified",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-2-modified",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster1",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "UNHEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster1//Pod/ns/workload-3-modified",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-3-modified",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster1",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "UNHEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster1//Pod/ns/workload-4-modified",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-4-modified",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster1",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "UNHEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster0//Pod/ns/workload-5",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-5",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster0",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "HEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster0//Pod/ns/workload-6",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-6",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster0",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "HEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster0//Pod/ns/workload-7",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-7",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster0",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "HEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster0//Pod/ns/workload-8",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-8",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster0",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "HEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        },
+        {
+            "uid": "cluster0//Pod/ns/workload-9",
+            "addresses": [
+                "1.2.3.4"
+            ],
+            "waypoint": "testnetwork/192.168.1.10",
+            "protocol": "NONE",
+            "name": "workload-9",
+            "namespace": "ns",
+            "serviceAccount": "",
+            "workloadName": "name",
+            "workloadType": "POD",
+            "canonicalName": "foo",
+            "canonicalRevision": "latest",
+            "clusterId": "cluster0",
+            "locality": {},
+            "node": "",
+            "network": "testnetwork",
+            "status": "HEALTHY",
+            "applicationTunnel": {
+                "protocol": ""
+            },
+            "services": [
+                "ns/hostname"
+            ]
+        }
+    ],
+    "services": [
+        {
+            "name": "service-0-modified",
+            "namespace": "ns",
+            "hostname": "hostname-0-modified",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 90,
+                    "target_port": 9090
+                },
+                {
+                    "service_port": 91
+                },
+                {
+                    "service_port": 92
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-1-modified",
+            "namespace": "ns",
+            "hostname": "hostname-1-modified",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 90,
+                    "target_port": 9090
+                },
+                {
+                    "service_port": 91
+                },
+                {
+                    "service_port": 92
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-2-modified",
+            "namespace": "ns",
+            "hostname": "hostname-2-modified",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 90,
+                    "target_port": 9090
+                },
+                {
+                    "service_port": 91
+                },
+                {
+                    "service_port": 92
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-3-modified",
+            "namespace": "ns",
+            "hostname": "hostname-3-modified",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 90,
+                    "target_port": 9090
+                },
+                {
+                    "service_port": 91
+                },
+                {
+                    "service_port": 92
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-4-modified",
+            "namespace": "ns",
+            "hostname": "hostname-4-modified",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 90,
+                    "target_port": 9090
+                },
+                {
+                    "service_port": 91
+                },
+                {
+                    "service_port": 92
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-5",
+            "namespace": "ns",
+            "hostname": "hostname-5",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 80,
+                    "target_port": 8080
+                },
+                {
+                    "service_port": 81
+                },
+                {
+                    "service_port": 82
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-6",
+            "namespace": "ns",
+            "hostname": "hostname-6",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 80,
+                    "target_port": 8080
+                },
+                {
+                    "service_port": 81
+                },
+                {
+                    "service_port": 82
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-7",
+            "namespace": "ns",
+            "hostname": "hostname-7",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 80,
+                    "target_port": 8080
+                },
+                {
+                    "service_port": 81
+                },
+                {
+                    "service_port": 82
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-8",
+            "namespace": "ns",
+            "hostname": "hostname-8",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 80,
+                    "target_port": 8080
+                },
+                {
+                    "service_port": 81
+                },
+                {
+                    "service_port": 82
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        },
+        {
+            "name": "service-9",
+            "namespace": "ns",
+            "hostname": "hostname-9",
+            "vips": [],
+            "ports": [
+                {
+                    "service_port": 80,
+                    "target_port": 8080
+                },
+                {
+                    "service_port": 81
+                },
+                {
+                    "service_port": 82
+                }
+            ],
+            "loadBalancer": null,
+            "waypoint": {
+                "destination": "testnetwork/192.168.1.11"
+            }
+        }
+    ],
+    "policies": [
+        {
+            "name": "policy",
+            "namespace": "ns",
+            "scope": "GLOBAL",
+            "action": "ALLOW",
+            "rules": null
+        }
+    ]
+}
