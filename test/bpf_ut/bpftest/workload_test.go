@@ -1135,7 +1135,7 @@ func testCgroupSock(t *testing.T) {
 						if ip4 == nil {
 							t.Fatalf("invalid IPv4 address")
 						}
-						copy(f_key.Addr.Raw[0:4], ip4) // 高位放IPv4
+						copy(f_key.Addr.Raw[0:4], ip4)
 						// insert value
 						f_val := frontend_value{
 							UpstreamID: 1,
