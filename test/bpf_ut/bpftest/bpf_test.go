@@ -209,7 +209,7 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 	for n, p := range spec.Programs {
 		switch p.Type {
 		// https://docs.ebpf.io/linux/syscall/BPF_PROG_TEST_RUN/
-		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS, ebpf.SocketFilter, ebpf.CGroupSKB, ebpf.SockOps:
+		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS, ebpf.SocketFilter, ebpf.CGroupSKB, ebpf.SockOps, ebpf.CGroupSockAddr:
 			continue
 		}
 
