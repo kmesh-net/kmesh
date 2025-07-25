@@ -136,7 +136,6 @@ func TestLoadIPSecKey(t *testing.T) {
 		os.MkdirAll(filepath.Dir(testFile), 0755) // Ensure directory exists
 
 		invalidJSON := []byte(`{ invalid json }`) // Invalid key data
-		// require.NoError(t, err, "Failed to marshal invalid key data")
 		err := os.WriteFile(testFile, invalidJSON, 0644)
 		require.NoError(t, err)
 
@@ -158,54 +157,54 @@ func TestLoadIPSecKey(t *testing.T) {
 	})
 
 	// Test multiple key loading (should update history)
+	tests = []struct {
+		name        string
+		keyData     IpSecKey
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "first_key",
+			keyData: IpSecKey{
+				Spi:         1,
+				AeadKeyName: "rfc4106(gcm(aes))",
+				AeadKey:     aeadKey,
+				Length:      128,
+			},
+			expectError: false,
+		},
+		{
+			name: "second_key",
+			keyData: IpSecKey{
+				Spi:         2,
+				AeadKeyName: "rfc4106(gcm(aes))",
+				AeadKey:     DecodeHex("abc9410d7cd6b324461bf16db518646594276c5362c30fc476ebca3f1a394b6ed4462161"),
+				Length:      128,
+			},
+			expectError: false,
+		},
+	}
 	t.Run("multiple_key_loading", func(t *testing.T) {
 		handler := NewIpSecHandler()
 		tmpDir := t.TempDir()
-
-		// Load first key
-		key1 := IpSecKey{
-			Spi:         1,
-			AeadKeyName: "rfc4106(gcm(aes))",
-			AeadKey:     aeadKey,
-			Length:      128,
-		}
-
 		relatedPath := strings.TrimPrefix(IpSecKeyFile, "./") // Remove leading "./" for temp file path
 		testFile := filepath.Join(tmpDir, relatedPath)
 		os.MkdirAll(filepath.Dir(testFile), 0755) // Ensure directory exists
 
-		key1JSON, err := json.Marshal(key1)
-		require.NoError(t, err)
-		err = os.WriteFile(testFile, key1JSON, 0644)
-		require.NoError(t, err)
+		for i, tt := range tests {
+			keyJSON, err := json.Marshal(tt.keyData)
+			require.NoError(t, err)
+			err = os.WriteFile(testFile, keyJSON, 0644)
+			require.NoError(t, err)
 
-		err = handler.LoadIPSecKeyFromFile(testFile)
-		assert.NoError(t, err)
-		assert.Equal(t, 1, handler.Spi)
-		assert.Len(t, handler.historyIpSecKey, 1)
+			err = handler.LoadIPSecKeyFromFile(testFile)
+			assert.NoError(t, err)
 
-		// Load second key with different SPI
-		key2 := IpSecKey{
-			Spi:         2,
-			AeadKeyName: "rfc4106(gcm(aes))",
-			AeadKey:     DecodeHex("abc9410d7cd6b324461bf16db518646594276c5362c30fc476ebca3f1a394b6ed4462161"),
-			Length:      128,
+			assert.Equal(t, i+1, handler.Spi) // check spi
+			assert.Len(t, handler.historyIpSecKey, i+1)
+			_, exits := handler.historyIpSecKey[i+1] // check key exists
+			assert.True(t, exits, "key not exists")
 		}
-		key2JSON, err := json.Marshal(key2)
-		require.NoError(t, err)
-		err = os.WriteFile(testFile, key2JSON, 0644)
-		require.NoError(t, err)
-
-		err = handler.LoadIPSecKeyFromFile(testFile)
-		assert.NoError(t, err)
-		assert.Equal(t, 2, handler.Spi)           // Should update to latest
-		assert.Len(t, handler.historyIpSecKey, 2) // Should keep both keys
-
-		// Verify both keys are in history
-		_, exists1 := handler.historyIpSecKey[1]
-		_, exists2 := handler.historyIpSecKey[2]
-		assert.True(t, exists1, "First key should still exist in history")
-		assert.True(t, exists2, "Second key should exist in history")
 	})
 }
 
@@ -344,20 +343,11 @@ func TestCreateStateRule(t *testing.T) {
 	t.Run("test_create_state_rule", func(t *testing.T) {
 		err := handler.createStateRule(state.Src, state.Dst, testKey, ipsecKey)
 
-		if err != nil {
-			t.Errorf("Failed to create XFRM state rule: %v", err)
-			return
-		}
+		require.NoError(t, err, "Failed to add XFRM state rule: %v", err)
 		// Verify the state was added
 		found, err := hasStateRule(state)
-		if err != nil {
-			t.Errorf("Failed to list XFRM states: %v", err)
-			return
-		}
-		if !found {
-			t.Errorf("XFRM state not found after creation: Src=%s, Dst=%s, Spi=%d", state.Src, state.Dst, state.Spi)
-			return
-		}
+		require.NoError(t, err, "Failed to check XFRM state rule: %v", err)
+		require.True(t, found, "XFRM state rule not found after creation")
 
 		state2 := *state
 		state2.Src = net.ParseIP("10.0.3.100")
@@ -365,34 +355,19 @@ func TestCreateStateRule(t *testing.T) {
 		handler.createStateRule(state2.Src, state2.Dst, testKey, ipsecKey)
 		// Verify the state was added
 		found, err = hasStateRule(&state2)
-		if err != nil {
-			t.Errorf("Failed to list XFRM states: %v", err)
-			return
-		}
-		if !found {
-			t.Errorf("XFRM state not found after creation: Src=%s, Dst=%s, Spi=%d", state2.Src, state2.Dst, state2.Spi)
-			return
-		}
+		require.NoError(t, err, "Failed to check XFRM state rule: %v", err)
+		require.True(t, found, "XFRM state rule not found after creation")
+
 		// Test clean up state
 		handler.Clean(dst.String()) // Clean up the state by passing the destination IP
 
 		// Verify the state was removed
 		found, err = hasStateRule(state)
-		if err != nil {
-			t.Errorf("Failed to list XFRM states after cleanup: %v", err)
-			return
-		}
-		if found {
-			t.Errorf("XFRM state still exists after cleanup: Src=%s, Dst=%s, Spi=%d", state.Src, state.Dst, state.Spi)
-		}
+		require.NoError(t, err, "Failed to check XFRM state rule: %v", err)
+		require.False(t, found, "XFRM state rule found after deletion")
 		found, err = hasStateRule(&state2)
-		if err != nil {
-			t.Errorf("Failed to list XFRM states after cleanup: %v", err)
-			return
-		}
-		if !found {
-			t.Errorf("XFRM state not found after cleanup: Src=%s, Dst=%s, Spi=%d", state2.Src, state2.Dst, state2.Spi)
-		}
+		require.NoError(t, err, "Failed to check XFRM state rule: %v", err)
+		require.True(t, found, "XFRM state2 rule shoudld not be removed")
 	})
 }
 
@@ -404,6 +379,9 @@ func hasPolicy(oldPolicy *netlink.XfrmPolicy, out bool) (bool, error) {
 
 	found := false
 	for _, p := range policies {
+		if len(p.Tmpls) == 0 {
+			continue
+		}
 		eq := true
 		eq = eq && (p.Src.String() == oldPolicy.Src.String())
 		eq = eq && (p.Dst.String() == oldPolicy.Dst.String())
@@ -431,21 +409,16 @@ func hasPolicy(oldPolicy *netlink.XfrmPolicy, out bool) (bool, error) {
 // createAndVerifyPolicyRule is a helper function to create and verify an XFRM policy rule.
 func createAndVerifyPolicyRule(t *testing.T, handler *IpSecHandler, policy *netlink.XfrmPolicy, out bool) {
 	// Test ingress policy (out=true)
-	err := handler.createPolicyRule(policy.Src, policy.Dst, policy.Tmpls[0].Src, policy.Tmpls[0].Dst, policy.Tmpls[0].Spi, out)
-	if err != nil {
-		t.Errorf("Failed to create XFRM policy rule: %v", err)
-		return
+	if len(policy.Tmpls) == 0 {
+		t.Fatalf("no templates found in policy")
 	}
+	err := handler.createPolicyRule(policy.Src, policy.Dst, policy.Tmpls[0].Src, policy.Tmpls[0].Dst, policy.Tmpls[0].Spi, out)
+	require.NoError(t, err, "Failed to create policy rule")
+
 	// Verify the policy was added
 	found, err := hasPolicy(policy, out)
-	if err != nil {
-		t.Errorf("Failed to check has XFRM policies: %v", err)
-		return
-	}
-	if !found {
-		t.Errorf("XFRM policy not found after creation: Src=%s, Dst=%s, Spi=%d", policy.Src, policy.Dst, policy.Tmpls[0].Spi)
-		return
-	}
+	require.NoError(t, err, "Failed to verify policy")
+	require.True(t, found, "Policy not found")
 }
 
 // TestCreatePolicyRule tests XFRM policy creation logic
@@ -464,7 +437,6 @@ func TestCreatePolicyRule(t *testing.T) {
 			Dir: netlink.XFRM_DIR_IN,
 			Tmpls: []netlink.XfrmPolicyTmpl{
 				{
-					// Spi:   spi, // Spi is not used in ingress policy, but why?
 					Src:   src,
 					Dst:   dst,
 					Mode:  netlink.XFRM_MODE_TUNNEL,
@@ -513,13 +485,8 @@ func TestCreatePolicyRule(t *testing.T) {
 		handler.Clean(src.String())
 		// Verify the policy was removed
 		found, err := hasPolicy(policy, false)
-		if err != nil {
-			t.Errorf("Failed to check has XFRM policies: %v", err)
-			return
-		}
-		if found {
-			t.Errorf("XFRM policy still exists after cleanup: Src=%s, Dst=%s, Spi=%d", policy.Src, policy.Dst, policy.Tmpls[0].Spi)
-		}
+		require.NoError(t, err, "Failed to verify policy was removed")
+		require.False(t, found, "Policy was not removed")
 	})
 }
 
@@ -568,20 +535,12 @@ func TestFlush(t *testing.T) {
 	}
 
 	err := handler.createStateRule(state.Src, state.Dst, testKey, ipsecKey)
-	if err != nil {
-		t.Errorf("Failed to create XFRM state rule: %v", err)
-		return
-	}
+	assert.NoError(t, err, "Failed to add state rule")
 	// Verify the state was added
 	found, err := hasStateRule(state)
-	if err != nil {
-		t.Errorf("Failed to list XFRM states: %v", err)
-		return
-	}
-	if !found {
-		t.Errorf("XFRM state not found after creation: Src=%s, Dst=%s, Spi=%d", state.Src, state.Dst, state.Spi)
-		return
-	}
+	assert.NoError(t, err, "Failed to find state rule")
+	assert.True(t, found, "State rule not found")
+
 	// Create policy rule
 	createAndVerifyPolicyRule(t, handler, policy, true)
 	policy2 := *policy
@@ -592,28 +551,16 @@ func TestFlush(t *testing.T) {
 
 	// Flush all policies and states
 	err = handler.Flush()
-	if err != nil {
-		t.Errorf("Failed to flush XFRM policies and states: %v", err)
-		return
-	}
+	require.NoError(t, err, "Failed to flush")
+
 	// Verify all states were removed
 	states, err := netlink.XfrmStateList(netlink.FAMILY_ALL)
-	if err != nil {
-		t.Errorf("Failed to list XFRM states after flush: %v", err)
-		return
-	}
-	if len(states) != 0 {
-		t.Errorf("XFRM states still exist after flush, count: %d", len(states))
-		return
-	}
+	require.NoError(t, err, "Failed to list states")
+	require.Equal(t, 0, len(states), "XFRM States still exist after flush")
+
 	// Verify all policies were removed
 	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
-	if err != nil {
-		t.Errorf("Failed to list XFRM policies after flush: %v", err)
-		return
-	}
-	if len(policies) != 0 {
-		t.Errorf("XFRM policies still exist after flush, count: %d", len(policies))
-		return
-	}
+	require.NoError(t, err, "Failed to list policies")
+
+	require.Equal(t, 0, len(policies), "XFRM policies still exist after flush")
 }
