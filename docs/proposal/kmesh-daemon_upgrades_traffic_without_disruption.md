@@ -94,19 +94,9 @@ type StructDiff struct {
 
 #### Data Migration Logic
 
-1.**New Map Creation**: When a layout change is detected, a new map is created based on the latest `MapSpec`, with its path set to the old map path appended with "_tmp", and temporarily pinned to an alternate location.
+1.**New Map Creation**: When a layout change is detected, a new map is created based on the latest `MapSpec`, with its path set to the old map path appended with "_tmp", and temporarily pinned to an alternate location. If no change is detected, the existing map is left intact and no further action is taken.
 
-2.**Dual-Write Wrapper**: The daemon wraps all map update logic so that every write operation is simultaneously issued to both the old and new maps, only when Kmesh-daemon is upgrading.
-
-3.**Data Migration**: When a layout change is detected between the current and previous versions of an eBPF map, a new map is created, and data migration is triggered to ensure continuity.
-To perform safe migration, the function convertStructValue is used. This function takes raw byte slices of the old and new value entries and recursively copies matching fields between them. It works by building a name-to-member map of the old structure and iterating through the members of the new structure. For each field:
-
-- If the field exists in both old and new structures and the types match, it proceeds to copy the value.
-- If the field is a nested struct, it recurses using the same function while guarding against cycles via a `visited` map.
-- The function calculates the byte offset and bitfield size to determine the correct slice of data to copy from the old value to the new value.
-- Fields missing in the old map or with type differences are skipped, ensuring compatibility without data corruption.
-
-4.**Atomic Pin Swap**: Once data migration completes, the daemon proceeds to unpin the old map. It then closes the old map’s file descriptor, attempts to remove the old map’s pin file, and finally renames the temporary pinned path of the new map to the original map’s pin path.
+2.**Atomic Pin Swap**: Once data migration completes, the daemon proceeds to unpin the old map. It then closes the old map’s file descriptor, attempts to remove the old map’s pin file, and finally renames the temporary pinned path of the new map to the original map’s pin path.
 
 ```go
 if err := oldMap.Unpin(); err != nil && !os.IsNotExist(err) {
