@@ -367,7 +367,7 @@ func TestCreateStateRule(t *testing.T) {
 		require.False(t, found, "XFRM state rule found after deletion")
 		found, err = hasStateRule(&state2)
 		require.NoError(t, err, "Failed to check XFRM state rule: %v", err)
-		require.True(t, found, "XFRM state2 rule shoudld not be removed")
+		require.True(t, found, "XFRM state2 rule should not be removed")
 	})
 }
 
