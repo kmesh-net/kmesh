@@ -938,6 +938,172 @@ func testSendMsg(t *testing.T) {
 						wg.Wait()
 					},
 				},
+				{
+					//eg:[0x01][00 00 00 12][fc 00 de ad be ef 12 34 00 00 00 00 00 00 ab cd][00 35][0xFE][00 00 00 00]
+					name: "IPV6_TLV",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						var wg sync.WaitGroup
+						wg.Add(1)
+
+						//load the eBPF program
+						spec := loadAndPrepSpec(t, path.Join(*testPath, objFilePath))
+						var (
+							coll *ebpf.Collection
+							err  error
+						)
+						t.Log(path.Join(*testPath, objFilePath))
+						//Load the eBPF collection into the kernel
+						coll, err = ebpf.NewCollection(spec)
+						if err != nil {
+							var ve *ebpf.VerifierError
+							if errors.As(err, &ve) {
+								t.Fatalf("verifier error: %+v", ve)
+							} else {
+								t.Fatal("loading collection:", err)
+							}
+						}
+						defer coll.Close()
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						//Retrieve the sockhash and the program
+						sockMap := coll.Maps["km_socket"]
+						prog := coll.Programs["sendmsg_prog"]
+						if sockMap == nil || prog == nil {
+							t.Fatal("sockMap or sendmsg_prog not found")
+						}
+						//Attach sendmsg_prog to sockhash
+						err = link.RawAttachProgram(link.RawAttachProgramOptions{
+							Attach:  ebpf.AttachSkMsgVerdict,
+							Target:  sockMap.FD(),
+							Program: prog,
+						})
+
+						if err != nil {
+							var errno syscall.Errno
+							if errors.As(err, &errno) {
+								t.Fatalf("Attach failed: %v (errno=%d)", err, errno)
+							} else {
+								t.Fatalf("Attach failed: %v", err)
+							}
+						}
+
+						localIP := get_local_ipv6(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := "[" + localIP + "]" + ":" + strconv.Itoa(serverPort)
+						listener, err := net.Listen("tcp6", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+						const (
+							tlvOrgDstAddrType     = 0x01
+							tlvIPv6DataLen        = 18
+							tlvPayloadType        = 0xFE
+							tlvEndLengthIndicator = 0x00000000
+							expectedMinRecvSize   = 28
+						)
+
+						go func() {
+							defer wg.Done()
+							conn, err := listener.Accept()
+							if err != nil {
+								t.Error(err)
+								return
+							}
+							defer conn.Close()
+
+							buf := make([]byte, 256)
+							n, err := conn.Read(buf)
+							if err != nil {
+								t.Error(err)
+								return
+							}
+							t.Logf("Server received data: % x", buf[:n])
+							if n < expectedMinRecvSize {
+								t.Errorf("Received data too short for IPv6 TLV format: got %d", n)
+								return
+							}
+							if buf[0] != tlvOrgDstAddrType {
+								t.Errorf("Unexpected TLV Type: got %#x, want %#x", buf[0], tlvOrgDstAddrType)
+							}
+
+							length := binary.BigEndian.Uint32(buf[1:5])
+							if length != tlvIPv6DataLen {
+								t.Errorf("Unexpected TLV Length: got %d, want %d", length, tlvIPv6DataLen)
+							}
+
+							ip := net.IP(buf[5:21])
+							expectedIP := net.ParseIP("fc00:dead:beef:1234::abcd").To16()
+							if !ip.Equal(expectedIP) {
+								t.Errorf("Unexpected TLV IPv6: got %v, want %v", ip, expectedIP)
+							}
+
+							port := binary.BigEndian.Uint16(buf[21:23])
+							if port != 53 {
+								t.Errorf("Unexpected TLV Port: got %d, want 53", port)
+							}
+
+							if buf[23] != tlvPayloadType {
+								t.Errorf("Missing or wrong TLV EndTag: got %#x, want %#x", buf[23], tlvPayloadType)
+							}
+							endLength := binary.BigEndian.Uint32(buf[24:28])
+							if endLength != tlvEndLengthIndicator {
+								t.Errorf("Unexpected TLV End Length: got %#08x, want %#08x", endLength, tlvEndLengthIndicator)
+							}
+						}()
+
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp6", serverSocket)
+						if err != nil {
+							t.Logf("accept failed: %v", err)
+							return
+						}
+						defer conn.Close()
+						// get  fd
+						fd, err := getSysFd(conn)
+						if err != nil {
+							t.Fatal(err)
+						}
+						//insert sockmap
+						type bpfSockTuple6 struct {
+							Saddr [16]byte
+							Daddr [16]byte
+							Sport uint16
+							Dport uint16
+						}
+						var tupleKey bpfSockTuple6
+						copy(tupleKey.Saddr[:], net.ParseIP(localIP).To16())
+						copy(tupleKey.Daddr[:], net.ParseIP(localIP).To16())
+						tupleKey.Sport = uint16(htons(uint16(clientPort)))
+						tupleKey.Dport = uint16(htons(uint16(serverPort)))
+						// pass fd
+						fd32 := uint32(fd)
+						err = sockMap.Update(&tupleKey, &fd32, ebpf.UpdateAny)
+						if err != nil {
+							t.Fatalf("failed to update sockhash: %v", err)
+						} else {
+							t.Logf("Update successful for key: %+v, fd: %d", tupleKey, fd32)
+						}
+						//Send data to trigger
+						_, err = conn.Write([]byte("hello eBPF"))
+						if err != nil {
+							t.Fatal(err)
+						}
+						wg.Wait()
+					},
+				},
 			},
 		},
 	}
@@ -965,4 +1131,43 @@ func getSysFd(conn net.Conn) (int, error) {
 }
 func htons(i uint16) uint16 {
 	return (i<<8)&0xff00 | i>>8
+}
+func get_local_ipv6(t *testing.T) string {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		t.Fatalf("Failed to get interfaces: %v", err)
+	}
+
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagUp == 0 {
+			continue
+		}
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			t.Logf("Failed to get addresses for interface %s: %v", iface.Name, err)
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*net.IPNet)
+			if !ok {
+				continue
+			}
+
+			ip := ipNet.IP
+			if ip == nil || ip.To4() != nil {
+				continue
+			}
+			if ip.IsLoopback() || ip.IsLinkLocalUnicast() {
+				continue
+			}
+
+			t.Logf("Found global IPv6 address on %s: %s", iface.Name, ip.String())
+			return ip.String()
+		}
+	}
+	t.Fatal("No usable global IPv6 address found")
+	return ""
 }
