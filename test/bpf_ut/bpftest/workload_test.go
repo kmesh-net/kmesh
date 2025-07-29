@@ -29,6 +29,7 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	sync "sync"
 	"syscall"
 	"testing"
 	"time"
@@ -802,6 +803,9 @@ func testSendMsg(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
+
+						var wg sync.WaitGroup
+						wg.Add(1)
 						// Get the sockhash and the program
 						sockMap := coll.Maps["km_socket"]
 						prog := coll.Programs["sendmsg_prog"]
@@ -832,7 +836,17 @@ func testSendMsg(t *testing.T) {
 							t.Fatalf("Failed to start TCP server: %v", err)
 						}
 						defer listener.Close()
+
+						const (
+							tlvOrgDstAddrType     = 0x01
+							tlvIPv4DataLen        = 6
+							tlvPayloadType        = 0xFE
+							tlvEndLengthIndicator = 0x00000000
+							expectedMinRecvSize   = 16
+						)
+
 						go func() {
+							defer wg.Done()
 							conn, err := listener.Accept()
 							if err != nil {
 								t.Error(err)
@@ -848,16 +862,16 @@ func testSendMsg(t *testing.T) {
 							}
 							t.Logf("Server received data: % x", buf[:n])
 							//check
-							if n < 16 {
+							if n < expectedMinRecvSize {
 								t.Errorf("Received data too short for TLV format")
 								return
 							}
-							if buf[0] != 0x01 {
-								t.Errorf("Unexpected TLV Type: got %x, want 0x01", buf[0])
+							if buf[0] != tlvOrgDstAddrType {
+								t.Errorf("Unexpected TLV Type: got %#x, want %#x", buf[0], tlvOrgDstAddrType)
 							}
 							length := binary.BigEndian.Uint32(buf[1:5])
-							if length != 6 {
-								t.Errorf("Unexpected TLV Length: got %d, want 6", length)
+							if length != tlvIPv4DataLen {
+								t.Errorf("Unexpected TLV Length: got %d, want %d", length, tlvIPv4DataLen)
 							}
 
 							ip := net.IPv4(buf[5], buf[6], buf[7], buf[8])
@@ -871,8 +885,12 @@ func testSendMsg(t *testing.T) {
 								t.Errorf("Unexpected TLV Port: got %d, want 53", port)
 							}
 
-							if buf[11] != 0xFE {
-								t.Errorf("Missing or wrong TLV EndTag: got %x, want 0xFE", buf[11])
+							if buf[11] != tlvPayloadType {
+								t.Errorf("Missing or wrong TLV EndTag: got %#x, want %#x", buf[11], tlvPayloadType)
+							}
+							endLength := binary.BigEndian.Uint32(buf[12:16])
+							if endLength != tlvEndLengthIndicator {
+								t.Errorf("Unexpected TLV End Length: got %#08x, want %#08x", endLength, tlvEndLengthIndicator)
 							}
 						}()
 						// try to connect to the server using the specified client port
@@ -883,6 +901,9 @@ func testSendMsg(t *testing.T) {
 							},
 							Timeout: 2 * time.Second,
 						}).Dial("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Dial failed: %v", err)
+						}
 						defer conn.Close()
 						//Get fd
 						fd, err := getSysFd(conn)
@@ -914,7 +935,7 @@ func testSendMsg(t *testing.T) {
 						if err != nil {
 							t.Fatal(err)
 						}
-
+						wg.Wait()
 					},
 				},
 			},
