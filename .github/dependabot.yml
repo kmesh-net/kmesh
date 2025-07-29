@@ -9,7 +9,5 @@ updates:
     directory: "/" # Location of package manifests
     schedule:
       interval: daily
-    groups:
-      k8s.io:
-        patterns:
-          - "k8s.io/*"
+    ignore:
+      - dependency-name: "k8s.io/*"
