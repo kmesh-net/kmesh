@@ -1151,7 +1151,6 @@ func testCgroupSock(t *testing.T) {
 							t.Fatalf("Update failed: %v", err)
 						}
 						BackendMap := coll.Maps["km_service"]
-						const MAX_SERVICE_COUNT = 10
 						type service_key struct {
 							ServiceID uint32
 						}
@@ -1278,7 +1277,6 @@ func testCgroupSock(t *testing.T) {
 				{
 					name: "BPF_CGROUP_SOCK_CONNECT6_backend_no_waypoint",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
-
 						// mount cgroup2
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
@@ -1404,7 +1402,6 @@ func testCgroupSock(t *testing.T) {
 				{
 					name: "BPF_CGROUP_SOCK_CONNECT6_backend_yes_waypoint",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
-
 						// mount cgroup2
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
