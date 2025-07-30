@@ -266,7 +266,7 @@ func TestHandleKNIEvents(t *testing.T) {
 		assert.Equal(t, 1, controller.queue.Len())
 	})
 
-	// handleKNIDelete tests move to TestIPSecController_MapOperations, because it operates on map
+	// handleKNIDelete tests move to TestMapOperations, because it operates on map
 }
 
 func getLoader(t *testing.T) (*bpf.BpfLoader, test.CleanupFn) {
