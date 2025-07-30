@@ -891,7 +891,7 @@ func testCgroupSock(t *testing.T) {
 							UpstreamID: 1,
 						}
 						if err := FrontendMap.Update(&f_key, &f_val, ebpf.UpdateAny); err != nil {
-							log.Fatalf("Update failed: %v", err)
+							t.Fatalf("Update failed: %v", err)
 						}
 						//populate the km_backend
 						BackendMap := coll.Maps["km_backend"]
@@ -921,7 +921,7 @@ func testCgroupSock(t *testing.T) {
 						}
 
 						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
-							log.Fatalf("Update failed: %v", err)
+							t.Fatalf("Update failed: %v", err)
 						}
 						listener, err := net.Listen("tcp4", serverSocket)
 						if err != nil {
@@ -937,6 +937,9 @@ func testCgroupSock(t *testing.T) {
 							},
 							Timeout: 2 * time.Second,
 						}).Dial("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to connect to TCP server: %v", serverSocket)
+						}
 						defer conn.Close()
 						//check
 						remoteAddr := conn.RemoteAddr().String()
@@ -977,8 +980,11 @@ func testCgroupSock(t *testing.T) {
 						serverSocket := localIP + ":" + strconv.Itoa(serverPort)
 						var testPort uint16 = 55555
 						testIpPort := localIP + ":" + strconv.Itoa(int(htons(testPort)))
-						_, err := net.Listen("tcp4", testIpPort)
-
+						testListener, err := net.Listen("tcp4", testIpPort)
+						if err != nil {
+							t.Fatalf("Failed to listen on test port %s: %v", testIpPort, err)
+						}
+						defer testListener.Close()
 						// record_kmesh_managed_ip
 						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
 
@@ -1014,7 +1020,7 @@ func testCgroupSock(t *testing.T) {
 							UpstreamID: 1,
 						}
 						if err := FrontendMap.Update(&f_key, &f_val, ebpf.UpdateAny); err != nil {
-							log.Fatalf("Update failed: %v", err)
+							t.Fatalf("Update failed: %v", err)
 						}
 						//populate km_backend
 						BackendMap := coll.Maps["km_backend"]
@@ -1046,7 +1052,7 @@ func testCgroupSock(t *testing.T) {
 						//populate WpAddr
 						copy(b_val.WpAddr.Raw[0:4], wpIP)
 						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
-							log.Fatalf("Update failed: %v", err)
+							t.Fatalf("Update failed: %v", err)
 						}
 						listener, err := net.Listen("tcp4", serverSocket)
 						if err != nil {
@@ -1141,7 +1147,7 @@ func testCgroupSock(t *testing.T) {
 							UpstreamID: 1,
 						}
 						if err := FrontendMap.Update(&f_key, &f_val, ebpf.UpdateAny); err != nil {
-							log.Fatalf("Update failed: %v", err)
+							t.Fatalf("Update failed: %v", err)
 						}
 						BackendMap := coll.Maps["km_service"]
 						const MAX_SERVICE_COUNT = 10
@@ -1165,13 +1171,13 @@ func testCgroupSock(t *testing.T) {
 						wpIP := net.ParseIP(localIP).To4()
 						//insert value
 						s_val := service_value{
-							WpAddr:       ip_addr{Raw: [16]byte{}}, // waypoint IP全0，表示无
-							WaypointPort: uint32(testPort),         //
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: uint32(testPort),
 						}
 						//insert WpAddr
 						copy(s_val.WpAddr.Raw[0:4], wpIP)
 						if err := BackendMap.Update(&s_key, &s_val, ebpf.UpdateAny); err != nil {
-							log.Fatalf("Update failed: %v", err)
+							t.Fatalf("Update failed: %v", err)
 						}
 
 						listener, err := net.Listen("tcp4", serverSocket)
