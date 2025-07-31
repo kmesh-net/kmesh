@@ -152,7 +152,7 @@ nitty-gritty.
 
 - **Advantages and Disadvantages of Each Solution:**
 
-  - **Solution-1 ( Avantages ):**
+  - **Solution-1 ( Advantages ):**
 
     - Targets only the `docs/ctl/` directory, keeping updates isolated and reducing noise in the website repository.
     - Includes validation steps to check for folder and file existence, minimizing the risk of errors.
@@ -166,7 +166,7 @@ nitty-gritty.
     - Tightly coupled to GitHub Actions, making it less portable if switching CI/CD platforms.
     - Workflow can grow more complex when scaling to multiple documentation sections.
 
-  - **Solution-2 ( Avantages ):**
+  - **Solution-2 ( Advantages ):**
 
     - Documentation remains in a single source of truth (main repository), simplifying management.
     - Automatically triggered by Netlify webhook without the need to commit or push changes to the website repository.
