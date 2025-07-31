@@ -81,7 +81,45 @@ nitty-gritty.
 
 #### 1. Kmeshctl Syncing Tool
 
-- **Solution - 1**
+- **Solution - 1:**
+
+  - It clones `Kmesh-net/kmesh`, copies `docs/ctl/` to `website/docs/`, using Github action workflow.
+  - **Implementation:**
+
+    The Sync kmeshctl Docs workflow:
+
+    - Triggers on pushes to the main branch of kmesh-net/kmesh with changes in `docs/ctl/**`.
+    - Copies the `kmesh/docs/ctl/` folder to `website/docs/kmeshctl/`, creating the target folder if it doesn’t exist.
+    - Commits and pushes changes to `kmesh-net/website`.
+
+![design](/docs/pics/kmeshctl-sync-2.png)
+
+<br/>
+
+- **Workflow Explanation:**
+  - **Start**: A push to the main branch of kmesh-net/kmesh with changes in the `docs/ctl/`folder triggers the workflow.
+  - **Checkout Repositories**: The workflow downloads the `kmesh-net/kmesh` and `kmesh-net/website` repositories.
+  - **Validate**: Checks that the `kmesh/docs/ctl/` folder exists and contains files.
+  - **Create Folder**: Creates the `website/docs/kmeshctl/` folder if it doesn’t exist.
+  - **Sync Files**: Copies the kmeshctl docs from `kmesh/docs/ctl/` to `website/docs/kmeshctl/` using rsync.
+  - **Save Changes**: Commits and pushes the updated files to the `kmesh-net/website` repository.
+
+<br/>
+
+- **Pros:**
+  - **Keeps Docs Up-to-Date**: Automatically updates `website/docs/kmeshctl/` with the latest kmeshctl docs whenever changes are made to `kmesh-net/kmesh/docs/ctl/`, ensuring the website reflects current documentation.
+  - **Efficient Syncing**: Uses rsync to copy only changed files, making updates quick even for small changes.
+  - **Reliable**: Includes checks to ensure the `kmesh/docs/ctl/` folder and files exist, preventing errors if something’s missing.
+
+<br/>
+
+- **Cons:**
+  - **Limited to kmeshctl Docs**: Only syncs `kmesh/docs/ctl/` to `website/docs/kmeshctl/`. If you need to sync other folders (e.g., docs/guides/), the workflow would need modification (not an issue since you specified only kmeshctl).
+  - **Checkout Overhead**: Downloads both `kmesh-net/kmesh` and `kmesh-net/website` repositories, which may take ~5-10 seconds each, even with shallow clones. This is minor for small repos but could slow down if repos grow large.
+
+<br/>
+
+- **Solution - 2:**
 
   - We can keep all those docs in one place (Website repo or main repo) and we can create script to copy all needed docs. this technique used by prometheus-operator.
   - prometheus-operator having all documentation in main repository and it's website having shell script to copy all needed docs which they want to show on website.
@@ -110,85 +148,40 @@ nitty-gritty.
   - limitations in scaling if the website repo grows significantly.
   - Netlify-specific dependencies (e.g, Netlify CLI setup).
 
-```bash
-#!/usr/bin/env bash
+---
 
-set -xe
+- **Advantages and Disadvantages of Each Solution:**
 
-# Clean up temporary repos directory
-rm -rf repos/
-mkdir -p repos/
+  - **Solution-1 ( Avantages ):**
 
-# Clone kmesh and website repositories
-git clone https://github.com/kmesh-net/kmesh --depth 1 repos/kmesh
-git clone https://github.com/kmesh-net/website --depth 1 repos/website
+    - Targets only the `docs/ctl/` directory, keeping updates isolated and reducing noise in the website repository.
+    - Includes validation steps to check for folder and file existence, minimizing the risk of errors.
+    - A straightforward and familiar approach using GitHub Actions.
+    - Keeps the main kmesh repository and website repository independent while syncing only the necessary files.
+  
+  - **Solution-1 ( Disadvantages ):**
 
-# Log commit hashes for debugging
-for repo in repos/kmesh repos/website; do
-  echo "$repo -> $(cd $repo && git rev-parse HEAD)"
-done
+    - Limited to syncing only the `docs/ctl/` folder. Adding additional documentation would require workflow modifications.
+    - Creates commits in the website repository for every doc change, which may add commit noise.
+    - Tightly coupled to GitHub Actions, making it less portable if switching CI/CD platforms.
+    - Workflow can grow more complex when scaling to multiple documentation sections.
 
-# Validate source directory and required folders
-if [ ! -d "repos/kmesh/docs" ]; then
-  echo "Error: Directory repos/kmesh/docs does not exist"
-  exit 1
-fi
-required_folders=("application-layer" "architecture" "community" "developer-guide" "performance" "setup" "transport-layer" "kmeshctl")
-for folder in "${required_folders[@]}"; do
-  if [ ! -d "repos/kmesh/docs/$folder" ]; then
-    echo "Error: Required folder repos/kmesh/docs/$folder does not exist"
-    exit 1
-  fi
-done
+  - **Solution-2 ( Avantages ):**
 
-# Create target docs directory if it doesn't exist
-mkdir -p repos/website/docs
+    - Documentation remains in a single source of truth (main repository), simplifying management.
+    - Automatically triggered by Netlify webhook without the need to commit or push changes to the website repository.
+    - A proven approach used by Prometheus Operator, which makes it a reliable reference design.
+    - Uses rsync to efficiently copy only updated files.
+    - Capable of copying multiple folders in a single process, making it easier to scale for future documentation needs.
 
-# Copy required folders from kmesh/docs/ to website/docs/
-for folder in "${required_folders[@]}"; do
-  cp -r "repos/kmesh/docs/$folder" repos/website/docs/ || { echo "Error: cp failed for $folder"; exit 1; }
-done
-echo "Synced required folders to repos/website/docs/"
+  - **Solution-2 ( Disadvantages ):**
 
-# Trigger Netlify build (assumes Netlify CLI is installed and configured)
-netlify deploy --prod --dir repos/website
-```
+    - If the website repository grows significantly, the script may face scaling limitations.
+    - Shell script complexity can increase as the documentation structure expands.
+    - Cloning repositories and copying files happen during the Netlify build, which may slightly increase build time.
+    - Tied to Netlify’s ecosystem and requires specific Netlify CLI setup.
 
-- **Solution - 2:**
-
-  - It clones `Kmesh-net/kmesh`, copies `docs/ctl/` to `website/docs/`, using Github action workflow.
-  - **Implementation:**
-
-    The Sync kmeshctl Docs workflow:
-
-    - Triggers on pushes to the main branch of kmesh-net/kmesh with changes in `docs/ctl/**`.
-    - Copies the `kmesh/docs/ctl/` folder to `website/docs/kmeshctl/`, creating the target folder if it doesn’t exist.
-    - Commits and pushes changes to `kmesh-net/website`.
-
-![design](/docs/pics/kmeshctl-sync-2.png)
-
-<br/>
-
-- **Workflow Explanation:**
-  - **Start**: A push to the main branch of kmesh-net/kmesh with changes in the `docs/ctl/`folder triggers the workflow.
-  - **Checkout Repositories**: The workflow downloads the `kmesh-net/kmesh` and `kmesh-net/website` repositories.
-  - **Validate**: Checks that the `kmesh/docs/ctl/` folder exists and contains files.
-  - **Create Folder**: Creates the `website/docs/kmeshctl/` folder if it doesn’t exist.
-  - **Sync Files**: Copies the kmeshctl docs from `kmesh/docs/ctl/` to `website/docs/kmeshctl/` using rsync.
-  - **Save Changes**: Commits and pushes the updated files to the `kmesh-net/website` repository.
-
-<br/>
-
-- **Pros:**
-  - **Keeps Docs Up-to-Date**: Automatically updates `website/docs/kmeshctl/` with the latest kmeshctl docs whenever changes are made to `kmesh-net/kmesh/docs/ctl/`, ensuring the website reflects current documentation.
-  - **Efficient Syncing**: Uses rsync (a fast tool inspired by Prometheus Operator) to copy only changed files, making updates quick even for small changes.
-  - **Reliable**: Includes checks to ensure the `kmesh/docs/ctl/` folder and files exist, preventing errors if something’s missing.
-
-<br/>
-
-- **Cons:**
-  - **Limited to kmeshctl Docs**: Only syncs `kmesh/docs/ctl/` to `website/docs/kmeshctl/`. If you need to sync other folders (e.g., docs/guides/), the workflow would need modification (not an issue since you specified only kmeshctl).
-  - **Checkout Overhead**: Downloads both `kmesh-net/kmesh` and `kmesh-net/website` repositories, which may take ~5-10 seconds each, even with shallow clones. This is minor for small repos but could slow down if repos grow large.
+---
 
 #### 2. Versioning Workflow
 
@@ -213,54 +206,7 @@ netlify deploy --prod --dir repos/website
   - Potential risks, if the `VERSION` file format is incorrect.
   - No tag-based fallback.
 
-```yaml
-name: Version Kmesh Website Docs
-on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'VERSION'
-jobs:
-  version-docs:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout website repo
-        uses: actions/checkout@v4
-        with:
-          path: website
-          fetch-depth: 1
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: website/package-lock.json
-      - name: Install Docusaurus
-        run: cd website && npm install
-      - name: Validate docs directory
-        run: |
-          [ -d "website/docs" ] || { echo "Error: website/docs missing"; exit 1; }
-          ls "website/docs/"* >/dev/null 2>&1 || { echo "Error: No files in website/docs"; exit 1; }
-      - name: Read version from VERSION file
-        run: echo "VERSION=$(cat website/VERSION)" >> $GITHUB_ENV
-      - name: Version website docs
-        run: |
-          cd website
-          npx docusaurus docs:version ${{ env.VERSION }}
-          echo "Versioned website docs for ${{ env.VERSION }}"
-      - name: Commit changes
-        run: |
-          cd website
-          git config user.name "Kmesh Version Bot"
-          git config user.email "bot@kmesh.net"
-          git add docs versioned_docs versioned_sidebars.json versions.json
-          git diff --staged --quiet && { echo "No changes to commit"; exit 0; }
-          git commit -m "Version website docs for ${{ env.VERSION }} [$(date -u +%Y-%m-%d)]"
-          git push origin main
-```
+<br/>
 
 - **Solution - 2:**
 
@@ -290,110 +236,94 @@ jobs:
 
 - **Cons:**
   - **Cross-Repository Trigger:** Runs in kmesh-net/kmesh (triggered by tags) but modifies kmesh-net/website, which may confuse contributors expecting the workflow in the website repo.
-  - **Token Dependency:** Requires WEBSITE_REPO_TOKEN with write access to kmesh-net/website, needing secure setup and documentation.
+  - **Token Dependency:** Requires `WEBSITE_REPO_TOKEN` with write access to kmesh-net/website, needing secure setup and documentation.
   - **Docusaurus Dependency:** Assumes kmesh-net/website is a properly configured Docusaurus project. Misconfiguration could cause failures, requiring testing to confirm setup.
 
-```yaml
-name: Version kmesh Website Docs
-on:
-  push:
-    tags: ['v*']
-jobs:
-  version-docs:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout website repo
-        uses: actions/checkout@v4
-        with:
-          repository: kmesh-net/website
-          path: website
-          token: ${{ secrets.WEBSITE_REPO_TOKEN }}
-          fetch-depth: 1
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-          cache: 'npm'
-          cache-dependency-path: website/package-lock.json
-      - name: Install Docusaurus
-        run: cd website && npm install
-      - name: Validate docs directory
-        run: |
-          [ -d "website/docs" ] || { echo "Error: website/docs missing"; exit 1; }
-          ls "website/docs/"* >/dev/null 2>&1 || { echo "Error: No files in website/docs"; exit 1; }
-      - name: Extract tag version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-      - name: Version website docs
-        run: |
-          cd website
-          npx docusaurus docs:version ${{ env.VERSION }}
-          echo "Versioned website docs for ${{ env.VERSION }}"
-      - name: Commit changes
-        run: |
-          cd website
-          git config user.name "Kmesh Version Bot"
-          git config user.email "bot@kmesh.net"
-          git add docs versioned_docs versioned_sidebars.json versions.json
-          git diff --staged --quiet && { echo "No changes to commit"; exit 0; }
-          git commit -m "Version website docs for ${{ env.VERSION }} [$(date -u +%Y-%m-%d)]"
-          git push origin main
-```
+---
 
 #### 3. Chinese Docs Workflow (BONUS)
 
-- **Solution - 1**
+- **Solution - 1:**
 
-  - Checks `kmesh/website/docs/*-zh.md` and `*_CN.md` for typos/grammar using **LanguageTool**, Logs errors, and sends slack notifications for manual reviews.
-
+  - Checks `kmesh/website/docs/` for typos/grammar using **LanguageTool (Open Source)** or **Tencent/Alibaba (Paid APIs)**, show Logs errors for manual reviews.
+  
 ![design](/docs/pics/Chinese_doc_check.png)
 
 ```yaml
-name: Check Chinese Documentation
+name: Chinese Grammar Check
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
     paths:
-      - 'docs/*-zh.md'
-      - 'docs/*_CN.md'
+      - 'docs/**'
+      - 'docs/proposal/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - 'docs/proposal/**'
 
 jobs:
-  check-chinese-docs:
+  grammar-check:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout kmesh repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          repository: kmesh-net/kmesh
-          fetch-depth: 1
 
-      - name: Validate directory
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
         run: |
-          if [ ! -d "docs" ]; then
-            echo "Error: Directory docs/ does not exist"
-            exit 1
-          fi
-          if ! ls docs/*-zh.md docs/*_CN.md 2>/dev/null; then
-            echo "No Chinese files (*-zh.md or *_CN.md) found in docs/"
-            exit 0
-          fi
+          python -m pip install --upgrade pip
+          pip install pycorrector
 
-      - name: Run LanguageTool for Chinese
-        uses: reviewdog/action-languagetool@v1
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          reporter: github-pr-review # Logs to Actions output, no PRs created
-          level: warning
-          language: zh-CN
-          patterns: 'docs/*-zh.md docs/*_CN.md'
+      - name: Run grammar check
+        run: |
+          python -c "
+          import os
+          import pycorrector
+          from pathlib import Path
+
+          def check_grammar_in_file(file_path):
+              with open(file_path, 'r', encoding='utf-8') as file:
+                  text = file.read()
+              errors = pycorrector.detect(text)
+              return errors
+
+          directories = ['docs', 'docs/proposal']
+          error_found = False
+          error_messages = []
+
+          for directory in directories:
+              for file_path in Path(directory).rglob('*.md'):
+                  if file_path.is_file():
+                      print(f'Checking file: {file_path}')
+                      errors = check_grammar_in_file(file_path)
+                      if errors:
+                          error_found = True
+                          error_messages.append(f'Grammar errors in {file_path}:')
+                          for error in errors:
+                              error_messages.append(f' - {error}')
+                      else:
+                          print(f'No grammar errors found in {file_path}')
+
+          if error_found:
+              print('\nGrammar errors found:')
+              for msg in error_messages:
+                  print(msg)
+              exit(1)
+          else:
+              print('\nNo grammar errors found in any files.')
+              exit(0)
+          "
 ```
 
-- **Solution - 2**
-
-  - We can create a new folder which will contain all chinese documentation, then we can perform same typos/grammar checks using **LanguageTool**. in this case, There is no need to add a condition to identify Chinese doc.
+---
 
 #### User Stories (Optional)
 
@@ -406,7 +336,7 @@ bogged down.
 
 ##### Story 1
 
-- As a Kmesh developer, I want kmesh/docs/ changes to automatically trigger a Netlify build and deploy the updated website, so users see the latest docs without manual intervention.
+- As a Kmesh developer, I want `kmesh/docs/` changes to automatically trigger a Netlify build and deploy the updated website, so users see the latest docs without manual intervention.
 
 ##### Story 2
 
@@ -473,6 +403,8 @@ challenging to test, should be called out.
 
 Requires Docker and act installed, set `WEBSITE_REPO_TOKEN` in `.env`
 
+- **Clone local repo:** We can clone the kmesh repo, push changes to that repo and test the workflow.
+
 ### Alternatives
 
 <!--
@@ -480,24 +412,6 @@ What other approaches did you consider, and why did you rule them out? These do
 not need to be as detailed as the proposal, but should include enough
 information to express the idea and why it was not acceptable.
 -->
-
-**1. Github Actions for Sync:**
-
-- Instead of Netlify-triggered script, use a Github Action to sync `kmesh/docs/ctl/` to `kmesh/website/docs` and commit directly.
-- **Pros:** Unified Automation in Github, No Netlify Dependency.
-- **Cons:** Required managing commits.
-
-**2. Manual Versioning:**
-
-- Manually run Docusaurus versioning commands instead of a workflow.
-- **Pros:** Simpler initial setup.
-- **Cons:** Required managing commits.
-
-**3. External Chinese NLP Tools:**
-
-- Use APIs for advanced chinese typo/grammar checks.
-- **Pros:** More accurate than LanguageTool for chinese.
-- **Cons:** Paid, Complex setup, not open-source.
 
 <!--
 Note: This is a simplified version of kubernetes enhancement proposal template.
