@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -32,6 +33,7 @@ import (
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/vishvananda/netlink"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -45,6 +47,7 @@ import (
 	"kmesh.net/kmesh/pkg/kube"
 	v1alpha1 "kmesh.net/kmesh/pkg/kube/apis/kmeshnodeinfo/v1alpha1"
 	fakeKmeshClientset "kmesh.net/kmesh/pkg/kube/nodeinfo/clientset/versioned/fake"
+	"kmesh.net/kmesh/pkg/utils"
 	"kmesh.net/kmesh/pkg/utils/test"
 )
 
@@ -121,7 +124,7 @@ func prepareForController(t *testing.T) error {
 		return err
 	}
 
-	// chang workdir to tmpdir to read ipsec key file, to avoid none file error
+	// change workdir to tmpdir to read ipsec key file, to avoid none file error
 	oldDir, err := os.Getwd()
 	if err != nil {
 		return err
@@ -144,7 +147,6 @@ func TestNewIPsecController(t *testing.T) {
 	tests := []struct {
 		name          string
 		setupEnv      func() func()
-		setupMocks    func() *gomonkey.Patches
 		expectedError bool
 		errorContains string
 	}{
@@ -235,14 +237,12 @@ func TestHandleKNIEvents(t *testing.T) {
 
 		// Test adding a remote node (should be added to queue)
 		controller.handleKNIAdd(testRemoteNodeInfo)
-		time.Sleep(50 * time.Millisecond) // wait for item to be added, need to be longer than the maximum retry delay, basedelay 5 ms, maxretries 5, maxdelay 5 + x ns
-		assert.Equal(t, 1, controller.queue.Len())
+		assert.Eventually(t, func() bool { return controller.queue.Len() == 1 }, 100*time.Millisecond, 10*time.Millisecond)
 
 		// Test adding local node (should be ignored)
 		controller.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]()) // Reset queue
 		controller.handleKNIAdd(testLocalNodeInfo)
-		time.Sleep(50 * time.Millisecond) // wait for queue to be added
-		assert.Equal(t, 0, controller.queue.Len())
+		assert.Eventually(t, func() bool { return controller.queue.Len() == 0 }, 100*time.Millisecond, 10*time.Millisecond)
 	})
 
 	t.Run("handleKNIUpdate", func(t *testing.T) {
@@ -250,23 +250,86 @@ func TestHandleKNIEvents(t *testing.T) {
 
 		// Test updating with same spec (should be ignored)
 		controller.handleKNIUpdate(testRemoteNodeInfo, testRemoteNodeInfo)
-		time.Sleep(50 * time.Millisecond) // wait for queue to be updated
-		assert.Equal(t, 0, controller.queue.Len())
+		assert.Eventually(t, func() bool { return controller.queue.Len() == 0 }, 100*time.Millisecond, 10*time.Millisecond)
 
 		// Test updating local node (should be ignored)
 		controller.handleKNIUpdate(testLocalNodeInfo, testLocalNodeInfo)
-		time.Sleep(50 * time.Millisecond) // wait for queue to be updated
-		assert.Equal(t, 0, controller.queue.Len())
+		assert.Eventually(t, func() bool { return controller.queue.Len() == 0 }, 100*time.Millisecond, 10*time.Millisecond)
 
 		// Test updating with different spec (should be added to queue)
 		updatedNode := testRemoteNodeInfo.DeepCopy()
 		updatedNode.Spec.SPI = 789
 		controller.handleKNIUpdate(testRemoteNodeInfo, updatedNode)
-		time.Sleep(50 * time.Millisecond) // wait for queue to be updated
-		assert.Equal(t, 1, controller.queue.Len())
+		assert.Eventually(t, func() bool { return controller.queue.Len() == 1 }, 100*time.Millisecond, 10*time.Millisecond)
 	})
 
-	// handleKNIDelete tests move to TestMapOperations, because it operates on map
+	t.Run("handleKNIDelete", func(t *testing.T) {
+		// Test case 1: Normal delete of remote node
+		t.Run("Normal delete of remote node", func(t *testing.T) {
+			// Create patches for network namespace operations
+			nsPatches := gomonkey.NewPatches()
+			defer nsPatches.Reset()
+
+			// Mock netns.WithNetNSPath to avoid actual network operations
+			nsPatches.ApplyFunc(netns.WithNetNSPath, func(nspath string, toRun func(netns.NetNS) error) error {
+				return toRun(nil) // Mock successful execution
+			})
+
+			// Mock ipsecHandler.Clean to track calls
+			cleanCallCount := 0
+			cleanPatches := gomonkey.NewPatches()
+			defer cleanPatches.Reset()
+			cleanPatches.ApplyMethod(controller.ipsecHandler, "Clean", func(_ *IpSecHandler, targetIP string) error {
+				cleanCallCount++
+				// Verify that the targetIP is one of the remote node's addresses
+				assert.Contains(t, testRemoteNodeInfo.Spec.Addresses, targetIP)
+				return nil
+			})
+
+			// Mock deleteKNIMapCIDR to track calls
+			deleteMapCallCount := 0
+			deleteMapPatches := gomonkey.NewPatches()
+			defer deleteMapPatches.Reset()
+			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(&IPSecController{}), "deleteKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) {
+				deleteMapCallCount++
+				// Verify that the remoteCIDR is one of the remote node's PodCIDRs
+				assert.Contains(t, testRemoteNodeInfo.Spec.PodCIDRs, remoteCIDR)
+			})
+
+			// Call handleKNIDelete with remote node
+			controller.handleKNIDelete(testRemoteNodeInfo)
+
+			// Verify that Clean was called for each address
+			assert.Equal(t, len(testRemoteNodeInfo.Spec.Addresses), cleanCallCount, "ipsecHandler.Clean should be called once for each address")
+			// Verify that deleteKNIMapCIDR was called for each PodCIDR
+			assert.Equal(t, len(testRemoteNodeInfo.Spec.PodCIDRs), deleteMapCallCount, "deleteKNIMapCIDR should be called once for each PodCIDR")
+		})
+
+		// Test case 2: WithNetNSPath error
+		t.Run("network_namespace_error", func(t *testing.T) {
+			// Create patches for network namespace operations that fail
+			nsPatches := gomonkey.NewPatches()
+			defer nsPatches.Reset()
+
+			nsPatches.ApplyFunc(netns.WithNetNSPath, func(nspath string, toRun func(netns.NetNS) error) error {
+				return fmt.Errorf("network namespace error")
+			})
+
+			// Mock deleteKNIMapCIDR to track calls
+			deleteMapCalled := false
+			deleteMapPatches := gomonkey.NewPatches()
+			defer deleteMapPatches.Reset()
+			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(&IPSecController{}), "deleteKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) {
+				deleteMapCalled = true
+			})
+
+			// Call handleKNIDelete - should still process map deletions even if network operations fail
+			controller.handleKNIDelete(testRemoteNodeInfo)
+
+			// Verify that deleteKNIMapCIDR was still called despite network namespace failure
+			assert.False(t, deleteMapCalled, "deleteKNIMapCIDR should not be called if network operations fail")
+		})
+	})
 }
 
 func getLoader(t *testing.T) (*bpf.BpfLoader, test.CleanupFn) {
@@ -303,7 +366,7 @@ func TestMapOperations(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 
-	// test multiple address
+	// Test multiple address
 	testCases := []struct {
 		name     string
 		cidr     string
@@ -312,16 +375,17 @@ func TestMapOperations(t *testing.T) {
 		{"valid_ipv4_cidr", "192.168.1.0/24", true},
 		{"valid_ipv4_cidr_32", "10.0.0.1/32", true},
 		{"valid_ipv6_cidr", "2001:db8::/64", true},
+		{"invalid_cidr", "not-a-cidr", false},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			// add CIDR to KNI map
+			// Add CIDR to KNI map
 			err := controller.updateKNIMapCIDR(tc.cidr, kniMap)
 			if tc.expected {
 				require.NoError(t, err)
 
-				// varify add success
+				// Verify add success
 				key, err := controller.generalKNIMapKey(tc.cidr)
 				require.NoError(t, err)
 				var value uint32
@@ -329,10 +393,10 @@ func TestMapOperations(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, uint32(1), value)
 
-				// delete CIDR
+				// Delete CIDR
 				controller.deleteKNIMapCIDR(tc.cidr, kniMap)
 
-				// varify delete success
+				// Verify delete success
 				err = kniMap.Lookup(key, &value)
 				assert.Error(t, err) // not found
 			} else {
@@ -370,7 +434,7 @@ func TestNodeOperations(t *testing.T) {
 		if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
 			t.Fatal("timed out waiting for caches to sync")
 		}
-		// no node info
+		// No node info
 		node, err := controller.lister.KmeshNodeInfos("kmesh-system").Get("test-local-node")
 		assert.Error(t, err)
 		assert.Nil(t, node)
@@ -378,7 +442,7 @@ func TestNodeOperations(t *testing.T) {
 		err = controller.updateLocalKmeshNodeInfo()
 		assert.NoError(t, err)
 
-		// wait for get node info
+		// Wait for get node info
 		err = wait.PollUntilContextTimeout(context.Background(), 20*time.Millisecond, 200*time.Millisecond, false, func(context.Context) (bool, error) {
 			_, err := controller.lister.KmeshNodeInfos("kmesh-system").Get("test-local-node")
 			return err == nil, nil
@@ -391,14 +455,14 @@ func TestNodeOperations(t *testing.T) {
 		assert.Equal(t, "test-local-node", node.Name)
 		assert.Equal(t, 1, node.Spec.SPI) // should be same to testKey
 
-		// test update local node info
-		// new node info
+		// Test update local node info
+		// New node info
 		controller.kmeshNodeInfo.Spec.SPI = 2
 
 		err = controller.updateLocalKmeshNodeInfo()
 		assert.NoError(t, err)
 
-		// wait for node info update
+		// Wait for node info update
 		err = wait.PollUntilContextTimeout(context.Background(), 20*time.Millisecond, 200*time.Millisecond, false, func(context.Context) (bool, error) {
 			nodeinfo, err := controller.lister.KmeshNodeInfos("kmesh-system").Get("test-local-node")
 			if nodeinfo != nil && nodeinfo.Spec.SPI == 2 {
@@ -557,7 +621,8 @@ func TestProcessNextItem(t *testing.T) {
 		assert.Equal(t, 0, controller.queue.Len()) // Item should be removed from queue
 	})
 
-	t.Run("handleOneNodeInfo_err_within_retry_limit", func(t *testing.T) {
+	// Test if the error returned by handleOneNodeInfo is not nil, the function should return true, and requeue the item or forget it based on the number of retries
+	t.Run("handleOneNodeInfo_err", func(t *testing.T) {
 		// Reset queue
 		controller.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
 
@@ -569,37 +634,116 @@ func TestProcessNextItem(t *testing.T) {
 		defer failPatches.Reset()
 
 		// Create local node info
-		controller.knclient.Create(context.TODO(), &controller.kmeshNodeInfo, metav1.CreateOptions{})
-		// controller.updateLocalKmeshNodeInfo()
+		_, err = controller.knclient.Create(context.TODO(), &controller.kmeshNodeInfo, metav1.CreateOptions{})
 		assert.NoError(t, err)
 
-		time.Sleep(time.Second)
-
-		result := controller.processNextItem()
-		assert.True(t, result) // Should still return true
-		assert.Equal(t, 0, controller.queue.NumRequeues("test-local-node"))
-	})
-
-	t.Run("handleOneNodeInfo_err_exceed_limit", func(t *testing.T) {
-		// Reset queue
-		controller.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
-
-		controller.queue.Add("test-local-node")
-		failPatches := gomonkey.NewPatches()
-		failPatches.ApplyPrivateMethod(reflect.TypeOf(&IPSecController{}), "handleOneNodeInfo", func(_ *IPSecController, _ *v1alpha1.KmeshNodeInfo) error {
-			return fmt.Errorf("test error") // Simulate failure
+		// Wait
+		err = wait.PollUntilContextTimeout(context.Background(), 20*time.Millisecond, 200*time.Millisecond, false, func(context.Context) (bool, error) {
+			_, err := controller.lister.KmeshNodeInfos("kmesh-system").Get("test-local-node")
+			return err == nil, nil
 		})
-		for range 5 {
-			controller.queue.AddRateLimited("test-local-node") // increment numrequeues
+		assert.NoError(t, err)
+
+		for i := range MaxRetries {
+			result := controller.processNextItem()
+			assert.True(t, result)                                                           // Should still return true
+			assert.Equal(t, i+1%MaxRetries, controller.queue.NumRequeues("test-local-node")) // if i+1==MaxRetries then should be equal to 0, means it has been forgetten
 		}
-
-		controller.knclient.Create(context.TODO(), &controller.kmeshNodeInfo, metav1.CreateOptions{})
-		assert.NoError(t, err)
-
-		time.Sleep(time.Second)
-		assert.NoError(t, err)
-
-		controller.processNextItem()
-		assert.Equal(t, 0, controller.queue.NumRequeues("test-local-node"))
 	})
+}
+
+func TestHandleTc(t *testing.T) {
+	err := prepareForController(t)
+	require.NoError(t, err)
+
+	// Setup patches
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+
+	// Create fake clients
+	k8sClient := fake.NewSimpleClientset(testK8sNode)
+	kmeshClient := fakeKmeshClientset.NewSimpleClientset()
+	patches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
+
+	mockMap := &ebpf.Map{}
+	mockProg := &ebpf.Program{}
+
+	// Create controller
+	controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+	require.NoError(t, err)
+	require.NotNil(t, controller)
+
+	testCases := []struct {
+		name           string
+		mode           int
+		mockInterfaces []net.Interface
+		mockIfaceAddrs map[string][]net.Addr
+		mockLinkByName map[string]netlink.Link
+		expectedCalls  map[string]int // track expected calls to ManageTCProgram
+		expectedError  bool
+	}{
+		{
+			name: "successful_attach_tc_program",
+			mode: constants.TC_ATTACH,
+			mockInterfaces: []net.Interface{
+				{Index: 1, Name: "eth0", Flags: net.FlagUp},
+				{Index: 2, Name: "lo", Flags: net.FlagLoopback | net.FlagUp},
+				{Index: 3, Name: "eth1", Flags: net.FlagUp},
+			},
+			mockLinkByName: map[string]netlink.Link{
+				"eth0": &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "eth0", Index: 1}},
+				"eth1": &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "eth1", Index: 3}},
+			},
+			expectedError: false,
+		},
+		{
+			name: "successful_detach_tc_program",
+			mode: constants.TC_DETACH,
+			mockInterfaces: []net.Interface{
+				{Index: 1, Name: "eth0", Flags: net.FlagUp},
+			},
+			mockLinkByName: map[string]netlink.Link{
+				"eth0": &netlink.Dummy{LinkAttrs: netlink.LinkAttrs{Name: "eth0", Index: 1}},
+			},
+			expectedError: false,
+		},
+	}
+
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
+			// mock Interfaces
+			interfacesPatches := gomonkey.NewPatches()
+			defer interfacesPatches.Reset()
+			interfacesPatches.ApplyFunc(net.Interfaces, func() ([]net.Interface, error) {
+				return test.mockInterfaces, nil
+			})
+			// mock IfaceContainIPs
+			ifaceContainIPsPatches := gomonkey.NewPatches()
+			defer ifaceContainIPsPatches.Reset()
+			ifaceContainIPsPatches.ApplyFunc(utils.IfaceContainIPs, func(iface net.Interface, IPs []string) (bool, error) {
+				return true, nil
+			})
+
+			// mock LinkByName
+			linkByNamePatches := gomonkey.NewPatches()
+			defer linkByNamePatches.Reset()
+			linkByNamePatches.ApplyFunc(netlink.LinkByName, func(name string) (netlink.Link, error) {
+				return test.mockLinkByName[name], nil
+			})
+			// mock ManageTCProgram
+			manageTCProgramPatches := gomonkey.NewPatches()
+			defer manageTCProgramPatches.Reset()
+			manageTCProgramPatches.ApplyFunc(utils.ManageTCProgram, func(link netlink.Link, tc *ebpf.Program, mode int) error {
+				return nil
+			})
+			err := controller.handleTc(test.mode)
+
+			// Verify results
+			if test.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
 }

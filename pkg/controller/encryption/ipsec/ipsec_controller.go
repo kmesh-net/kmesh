@@ -290,12 +290,17 @@ func (c *IPSecController) handleKNIDelete(obj interface{}) {
 	deleteFunc := func(netns.NetNS) error {
 		for _, targetIP := range node.Spec.Addresses {
 			c.ipsecHandler.mutex.Lock()
-			_ = c.ipsecHandler.Clean(targetIP)
+			err := c.ipsecHandler.Clean(targetIP)
 			c.ipsecHandler.mutex.Unlock()
+			return err
 		}
 		return nil
 	}
-	_ = netns.WithNetNSPath(nodeNsPath, deleteFunc)
+	err := netns.WithNetNSPath(nodeNsPath, deleteFunc)
+	if err != nil {
+		log.Errorf("failed to delete ipsec for node %s: %v", node.Name, err)
+		return
+	}
 	for _, podCIDR := range node.Spec.PodCIDRs {
 		c.deleteKNIMapCIDR(podCIDR, c.kniMap)
 	}
@@ -441,6 +446,7 @@ func (c *IPSecController) processNextItem() bool {
 			log.Errorf("failed to handle other node %s err: %v, giving up", name, err)
 			c.queue.Forget(key)
 		}
+		return true
 	}
 
 	c.queue.Forget(key)
