@@ -292,7 +292,9 @@ func (c *IPSecController) handleKNIDelete(obj interface{}) {
 			c.ipsecHandler.mutex.Lock()
 			err := c.ipsecHandler.Clean(targetIP)
 			c.ipsecHandler.mutex.Unlock()
-			return err
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}

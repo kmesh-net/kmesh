@@ -323,10 +323,10 @@ func TestHandleKNIEvents(t *testing.T) {
 				deleteMapCalled = true
 			})
 
-			// Call handleKNIDelete - should still process map deletions even if network operations fail
+			// Call handleKNIDelete - should not process map deletions when network operations fail
 			controller.handleKNIDelete(testRemoteNodeInfo)
 
-			// Verify that deleteKNIMapCIDR was still called despite network namespace failure
+			// Verify that deleteKNIMapCIDR will not called when network namespace fail
 			assert.False(t, deleteMapCalled, "deleteKNIMapCIDR should not be called if network operations fail")
 		})
 	})
