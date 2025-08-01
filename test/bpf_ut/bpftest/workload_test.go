@@ -1601,7 +1601,6 @@ func testCgroupSock(t *testing.T) {
 						}
 
 						BackendMap := coll.Maps["km_service"]
-						const MAX_SERVICE_COUNT = 10
 						type service_key struct {
 							ServiceID uint32
 						}
