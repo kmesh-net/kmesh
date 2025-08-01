@@ -144,7 +144,7 @@ func prepareForController(t *testing.T) error {
 }
 
 func TestNewIPsecController(t *testing.T) {
-	tests := []struct {
+	testCases := []struct {
 		name          string
 		setupEnv      func() func()
 		expectedError bool
@@ -172,10 +172,10 @@ func TestNewIPsecController(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for _, test := range testCases {
+		t.Run(test.name, func(t *testing.T) {
 			// Setup environment
-			setupEnv := tt.setupEnv()
+			setupEnv := test.setupEnv()
 			setupEnv()
 
 			// Setup patches
@@ -197,10 +197,10 @@ func TestNewIPsecController(t *testing.T) {
 
 			controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
 
-			if tt.expectedError {
+			if test.expectedError {
 				assert.Error(t, err)
-				if tt.errorContains != "" {
-					assert.Contains(t, err.Error(), tt.errorContains)
+				if test.errorContains != "" {
+					assert.Contains(t, err.Error(), test.errorContains)
 				}
 				assert.Nil(t, controller)
 			} else {
@@ -224,16 +224,18 @@ func TestHandleKNIEvents(t *testing.T) {
 	kmeshClient := fakeKmeshClientset.NewSimpleClientset()
 	patches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
 
-	// Create mock eBPF components
-	mockMap := &ebpf.Map{}
-	mockProg := &ebpf.Program{}
-	controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
-	require.NoError(t, err)
-	require.NotNil(t, controller)
+	prepare := func(t *testing.T) *IPSecController {
+		// Create mock eBPF components
+		mockMap := &ebpf.Map{}
+		mockProg := &ebpf.Program{}
+		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+		assert.NoError(t, err)
+		assert.NotNil(t, controller)
+		return controller
+	}
 
 	t.Run("handleKNIAdd", func(t *testing.T) {
-		// Reset queue
-		controller.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
+		controller := prepare(t)
 
 		// Test adding a remote node (should be added to queue)
 		controller.handleKNIAdd(testRemoteNodeInfo)
@@ -246,7 +248,7 @@ func TestHandleKNIEvents(t *testing.T) {
 	})
 
 	t.Run("handleKNIUpdate", func(t *testing.T) {
-		controller.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]()) // Reset queue
+		controller := prepare(t)
 
 		// Test updating with same spec (should be ignored)
 		controller.handleKNIUpdate(testRemoteNodeInfo, testRemoteNodeInfo)
@@ -266,6 +268,7 @@ func TestHandleKNIEvents(t *testing.T) {
 	t.Run("handleKNIDelete", func(t *testing.T) {
 		// Test case 1: Normal delete of remote node
 		t.Run("Normal delete of remote node", func(t *testing.T) {
+			controller := prepare(t)
 			// Create patches for network namespace operations
 			nsPatches := gomonkey.NewPatches()
 			defer nsPatches.Reset()
@@ -307,6 +310,7 @@ func TestHandleKNIEvents(t *testing.T) {
 
 		// Test case 2: WithNetNSPath error
 		t.Run("network_namespace_error", func(t *testing.T) {
+			controller := prepare(t)
 			// Create patches for network namespace operations that fail
 			nsPatches := gomonkey.NewPatches()
 			defer nsPatches.Reset()
@@ -378,31 +382,29 @@ func TestMapOperations(t *testing.T) {
 		{"invalid_cidr", "not-a-cidr", false},
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			// Add CIDR to KNI map
-			err := controller.updateKNIMapCIDR(tc.cidr, kniMap)
-			if tc.expected {
-				require.NoError(t, err)
+	for _, tc := range testCases { // not use t.Run to avoid parallel execution issues
+		// Add CIDR to KNI map
+		err := controller.updateKNIMapCIDR(tc.cidr, kniMap)
+		if tc.expected {
+			require.NoError(t, err)
 
-				// Verify add success
-				key, err := controller.generalKNIMapKey(tc.cidr)
-				require.NoError(t, err)
-				var value uint32
-				err = kniMap.Lookup(key, &value)
-				require.NoError(t, err)
-				assert.Equal(t, uint32(1), value)
+			// Verify add success
+			key, err := controller.generalKNIMapKey(tc.cidr)
+			require.NoError(t, err)
+			var value uint32
+			err = kniMap.Lookup(key, &value)
+			require.NoError(t, err)
+			assert.Equal(t, uint32(1), value)
 
-				// Delete CIDR
-				controller.deleteKNIMapCIDR(tc.cidr, kniMap)
+			// Delete CIDR
+			controller.deleteKNIMapCIDR(tc.cidr, kniMap)
 
-				// Verify delete success
-				err = kniMap.Lookup(key, &value)
-				assert.Error(t, err) // not found
-			} else {
-				assert.Error(t, err)
-			}
-		})
+			// Verify delete success
+			err = kniMap.Lookup(key, &value)
+			assert.Error(t, err) // not found
+		} else {
+			assert.Error(t, err)
+		}
 	}
 }
 
@@ -420,13 +422,11 @@ func TestNodeOperations(t *testing.T) {
 	clientPatches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
 	defer clientPatches.Reset()
 
-	// Create mock eBPF components
-	mockMap := &ebpf.Map{}
-	mockProg := &ebpf.Program{}
-
-	t.Run("createAndUpdateLocalKmeshNodeInfo", func(t *testing.T) {
+	prepare := func(t *testing.T) (*IPSecController, chan struct{}) {
+		// Create mock eBPF components
+		mockMap := &ebpf.Map{}
+		mockProg := &ebpf.Program{}
 		stopCh := make(chan struct{})
-		defer close(stopCh)
 		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
 		assert.NoError(t, err)
 		assert.NotNil(t, controller)
@@ -434,6 +434,12 @@ func TestNodeOperations(t *testing.T) {
 		if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
 			t.Fatal("timed out waiting for caches to sync")
 		}
+		return controller, stopCh
+	}
+
+	t.Run("createAndUpdateLocalKmeshNodeInfo", func(t *testing.T) {
+		controller, stopCh := prepare(t)
+		defer close(stopCh)
 		// No node info
 		node, err := controller.lister.KmeshNodeInfos("kmesh-system").Get("test-local-node")
 		assert.Error(t, err)
@@ -483,11 +489,8 @@ func TestNodeOperations(t *testing.T) {
 	})
 
 	t.Run("syncAllNodeInfo", func(t *testing.T) {
-		stopCh := make(chan struct{})
+		controller, stopCh := prepare(t)
 		defer close(stopCh)
-		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
-		assert.NoError(t, err)
-		assert.NotNil(t, controller)
 
 		// Create remote node
 		_, err = kmeshClient.KmeshV1alpha1().KmeshNodeInfos("kmesh-system").Create(context.TODO(), testRemoteNodeInfo, metav1.CreateOptions{})
@@ -514,11 +517,8 @@ func TestNodeOperations(t *testing.T) {
 
 	// test handle testRemoteNodeInfo
 	t.Run("handleOneNodeInfo", func(t *testing.T) {
-		stopCh := make(chan struct{})
+		controller, stopCh := prepare(t)
 		defer close(stopCh)
-		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
-		assert.NoError(t, err)
-		assert.NotNil(t, controller)
 
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
@@ -570,21 +570,26 @@ func TestProcessNextItem(t *testing.T) {
 	clientPatches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
 	defer clientPatches.Reset()
 
-	// Create mock eBPF components
-	mockMap := &ebpf.Map{}
-	mockProg := &ebpf.Program{}
+	prepare := func(t *testing.T) (*IPSecController, chan struct{}) {
+		// Create mock eBPF components
+		mockMap := &ebpf.Map{}
+		mockProg := &ebpf.Program{}
 
-	t.Run("successful_processing", func(t *testing.T) {
 		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
-		require.NoError(t, err)
-		require.NotNil(t, controller)
+		assert.NoError(t, err)
+		assert.NotNil(t, controller)
 
 		stopCh := make(chan struct{})
-		defer close(stopCh)
 		go controller.informer.Run(stopCh)
 		if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
 			t.Fatal("timed out waiting for caches to sync")
 		}
+		return controller, stopCh
+	}
+
+	t.Run("successful_processing", func(t *testing.T) {
+		controller, stopCh := prepare(t)
+		defer close(stopCh)
 
 		// Add remote node to queue
 		controller.queue.Add("test-remote-node")
@@ -603,16 +608,8 @@ func TestProcessNextItem(t *testing.T) {
 	})
 
 	t.Run("non_existent_node", func(t *testing.T) {
-		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
-		require.NoError(t, err)
-		require.NotNil(t, controller)
-
-		stopCh := make(chan struct{})
+		controller, stopCh := prepare(t)
 		defer close(stopCh)
-		go controller.informer.Run(stopCh)
-		if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
-			t.Fatal("timed out waiting for caches to sync")
-		}
 
 		// Test with non-existent node
 		controller.queue.Add("non-existent-node")
@@ -622,18 +619,12 @@ func TestProcessNextItem(t *testing.T) {
 		assert.Equal(t, 0, controller.queue.Len()) // Item should be removed from queue
 	})
 
-	// Test if the error returned by handleOneNodeInfo is not nil, the function should return true, and requeue the item or forget it based on the number of retries
+	// Test if the error returned by handleOneNodeInfo is not nil, the function should return true, and requeue the item or forget it based on the number of requeues
 	t.Run("handleOneNodeInfo_err", func(t *testing.T) {
-		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
-		require.NoError(t, err)
-		require.NotNil(t, controller)
-
-		stopCh := make(chan struct{})
+		controller, stopCh := prepare(t)
 		defer close(stopCh)
-		go controller.informer.Run(stopCh)
-		if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
-			t.Fatal("timed out waiting for caches to sync")
-		}
+
+		// Add local node to queue
 		controller.queue.Add("test-local-node")
 		failPatches := gomonkey.NewPatches()
 		failPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(_ *IPSecController, _ *v1alpha1.KmeshNodeInfo) error {
@@ -652,10 +643,13 @@ func TestProcessNextItem(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		for i := range MaxRetries {
+		for exceptRetryCount := 1; exceptRetryCount <= MaxRetries+1; exceptRetryCount++ {
 			result := controller.processNextItem()
-			assert.True(t, result)                                                           // Should still return true
-			assert.Equal(t, i+1%MaxRetries, controller.queue.NumRequeues("test-local-node")) // if i+1==MaxRetries then should be equal to 0, means it has been forgetten
+			assert.True(t, result) // Should still return true
+			// NumRequeues("test-local-node") will return the number of times the item has been requeued
+			// So, every time to call processNextItem, the number of requeues will increase by 1
+			// When the number of requeues is greater than MaxRetries, the item will be forgotten
+			assert.Equal(t, exceptRetryCount%(MaxRetries+1), controller.queue.NumRequeues("test-local-node"))
 		}
 	})
 }
