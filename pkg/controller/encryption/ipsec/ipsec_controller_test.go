@@ -290,7 +290,7 @@ func TestHandleKNIEvents(t *testing.T) {
 			deleteMapCallCount := 0
 			deleteMapPatches := gomonkey.NewPatches()
 			defer deleteMapPatches.Reset()
-			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(&IPSecController{}), "deleteKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) {
+			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "deleteKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) {
 				deleteMapCallCount++
 				// Verify that the remoteCIDR is one of the remote node's PodCIDRs
 				assert.Contains(t, testRemoteNodeInfo.Spec.PodCIDRs, remoteCIDR)
@@ -319,7 +319,7 @@ func TestHandleKNIEvents(t *testing.T) {
 			deleteMapCalled := false
 			deleteMapPatches := gomonkey.NewPatches()
 			defer deleteMapPatches.Reset()
-			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(&IPSecController{}), "deleteKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) {
+			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "deleteKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) {
 				deleteMapCalled = true
 			})
 
@@ -495,7 +495,7 @@ func TestNodeOperations(t *testing.T) {
 
 		// Patch handleOneNodeInfo
 		syncPatch := gomonkey.NewPatches()
-		syncPatch.ApplyPrivateMethod(reflect.TypeOf(&IPSecController{}), "handleOneNodeInfo", func(c *IPSecController, node *v1alpha1.KmeshNodeInfo) error {
+		syncPatch.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(c *IPSecController, node *v1alpha1.KmeshNodeInfo) error {
 			if node.Name == testRemoteNodeInfo.Name { // test if get remote node info and ignore local node info
 				return nil
 			}
@@ -527,7 +527,7 @@ func TestNodeOperations(t *testing.T) {
 		for _, podCIDR := range testRemoteNodeInfo.Spec.PodCIDRs {
 			podCIDRSet[podCIDR] = true
 		}
-		patches.ApplyPrivateMethod(&IpSecHandler{}, "CreateXfrmRule", func(_ *IpSecHandler, localNode *v1alpha1.KmeshNodeInfo, remoteNode *v1alpha1.KmeshNodeInfo) error {
+		patches.ApplyPrivateMethod(reflect.TypeOf(controller.ipsecHandler), "CreateXfrmRule", func(_ *IpSecHandler, localNode *v1alpha1.KmeshNodeInfo, remoteNode *v1alpha1.KmeshNodeInfo) error {
 			// mock, remote node info should be same with testRemoteNodeInfo
 			for _, podCIDR := range remoteNode.Spec.PodCIDRs {
 				if !podCIDRSet[podCIDR] {
@@ -536,7 +536,7 @@ func TestNodeOperations(t *testing.T) {
 			}
 			return nil
 		})
-		patches.ApplyPrivateMethod(&IPSecController{}, "updateKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) error {
+		patches.ApplyPrivateMethod(reflect.TypeOf(controller), "updateKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) error {
 			// mock, remote node info should be same with testRemoteNodeInfo
 			if !podCIDRSet[remoteCIDR] {
 				return fmt.Errorf("remote node info podCIDRs is not equal")
@@ -565,10 +565,6 @@ func TestProcessNextItem(t *testing.T) {
 	k8sClient := fake.NewSimpleClientset(testK8sNode)
 	kmeshClient := fakeKmeshClientset.NewSimpleClientset()
 
-	// Create the remote node in the client
-	_, err = kmeshClient.KmeshV1alpha1().KmeshNodeInfos("kmesh-system").Create(context.TODO(), testRemoteNodeInfo, metav1.CreateOptions{})
-	require.NoError(t, err)
-
 	// Apply patches for kube.GetKmeshNodeInfoClient to return our fake client
 	clientPatches := gomonkey.NewPatches()
 	clientPatches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
@@ -578,40 +574,45 @@ func TestProcessNextItem(t *testing.T) {
 	mockMap := &ebpf.Map{}
 	mockProg := &ebpf.Program{}
 
-	controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
-	require.NoError(t, err)
-	require.NotNil(t, controller)
-
-	stopCh := make(chan struct{})
-	defer close(stopCh)
-	go controller.informer.Run(stopCh)
-	if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
-		t.Fatal("timed out waiting for caches to sync")
-	}
 	t.Run("successful_processing", func(t *testing.T) {
-		// Reset queue
-		controller.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
+		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		go controller.informer.Run(stopCh)
+		if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
+			t.Fatal("timed out waiting for caches to sync")
+		}
 
 		// Add remote node to queue
 		controller.queue.Add("test-remote-node")
 
 		// Mock handleOneNodeInfo to avoid complex IPsec operations
 		handlerPatches := gomonkey.NewPatches()
-		handlerPatches.ApplyPrivateMethod(reflect.TypeOf(&IPSecController{}), "handleOneNodeInfo", func(_ *IPSecController, _ *v1alpha1.KmeshNodeInfo) error {
+		handlerPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(_ *IPSecController, _ *v1alpha1.KmeshNodeInfo) error {
 			return nil // Simulate success
 		})
 		defer handlerPatches.Reset()
 
 		// Process the item
 		result := controller.processNextItem()
-		controller.queue.Done("test-remote-node")
 		assert.True(t, result)                     // Should return true indicating continue processing
 		assert.Equal(t, 0, controller.queue.Len()) // Item should be removed from queue
 	})
 
 	t.Run("non_existent_node", func(t *testing.T) {
-		// Reset queue
-		controller.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
+		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+		require.NoError(t, err)
+		require.NotNil(t, controller)
+
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		go controller.informer.Run(stopCh)
+		if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
+			t.Fatal("timed out waiting for caches to sync")
+		}
 
 		// Test with non-existent node
 		controller.queue.Add("non-existent-node")
@@ -623,12 +624,19 @@ func TestProcessNextItem(t *testing.T) {
 
 	// Test if the error returned by handleOneNodeInfo is not nil, the function should return true, and requeue the item or forget it based on the number of retries
 	t.Run("handleOneNodeInfo_err", func(t *testing.T) {
-		// Reset queue
-		controller.queue = workqueue.NewTypedRateLimitingQueue(workqueue.DefaultTypedControllerRateLimiter[any]())
+		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+		require.NoError(t, err)
+		require.NotNil(t, controller)
 
+		stopCh := make(chan struct{})
+		defer close(stopCh)
+		go controller.informer.Run(stopCh)
+		if !cache.WaitForCacheSync(stopCh, controller.informer.HasSynced) {
+			t.Fatal("timed out waiting for caches to sync")
+		}
 		controller.queue.Add("test-local-node")
 		failPatches := gomonkey.NewPatches()
-		failPatches.ApplyPrivateMethod(reflect.TypeOf(&IPSecController{}), "handleOneNodeInfo", func(_ *IPSecController, _ *v1alpha1.KmeshNodeInfo) error {
+		failPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(_ *IPSecController, _ *v1alpha1.KmeshNodeInfo) error {
 			return fmt.Errorf("test error") // Simulate failure
 		})
 		defer failPatches.Reset()
