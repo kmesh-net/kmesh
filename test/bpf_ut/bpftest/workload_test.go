@@ -1715,43 +1715,16 @@ func htons(i uint16) uint16 {
 
 // Get IPv6 address
 func get_local_ipv6(t *testing.T) string {
-	ifaces, err := net.Interfaces()
+	testConn, testErr := net.Dial("tcp6", "[2001:4860:4860::8888]:53")
+	if testErr != nil {
+		t.Skipf("Skipping IPv6 test: network not reachable (%v)", testErr)
+	}
+	defer testConn.Close()
+
+	localAddr, _, err := net.SplitHostPort(testConn.LocalAddr().String())
 	if err != nil {
-		t.Fatalf("Failed to get interfaces: %v", err)
+		t.Fatalf("Failed to extract host from address: %v", err)
 	}
-
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 {
-			continue
-		}
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-
-		addrs, err := iface.Addrs()
-		if err != nil {
-			t.Logf("Failed to get addresses for interface %s: %v", iface.Name, err)
-			continue
-		}
-
-		for _, addr := range addrs {
-			ipNet, ok := addr.(*net.IPNet)
-			if !ok {
-				continue
-			}
-
-			ip := ipNet.IP
-			if ip == nil || ip.To4() != nil {
-				continue
-			}
-			if ip.IsLoopback() || ip.IsLinkLocalUnicast() {
-				continue
-			}
-
-			t.Logf("Found global IPv6 address on %s: %s", iface.Name, ip.String())
-			return ip.String()
-		}
-	}
-	t.Fatal("No usable global IPv6 address found")
-	return ""
+	t.Log(localAddr)
+	return localAddr
 }
