@@ -36,7 +36,7 @@ if [ -z "$GITHUB_ACTIONS" ]; then
 	docker run --rm \
 		-v "$PWD":/workspace \
 		-w /workspace \
-		--user root \
+		--user "$(id -u):$(id -g)" \
 		davidanson/markdownlint-cli2:v0.18.1 \
 		markdownlint-cli2 --fix "**/*.md"
 fi
