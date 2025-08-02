@@ -81,18 +81,27 @@ func (r *dnsController) processWorkloads() {
 	}
 }
 
-func (r *dnsController) processDomains(workload []*workloadapi.Workload) {
-	domains := getPendingResolveDomain(workload)
+func (r *dnsController) processDomains(workloads []*workloadapi.Workload) {
+	domains := getPendingResolveDomain(workloads)
 
 	// store all pending hostnames of clusters in pendingHostnames
-	for _, workload := range workload {
+	for _, workload := range workloads {
 		workloadName := workload.GetName()
 		hostname := workload.GetHostname()
-		r.pendingHostnames[workloadName] = []string{hostname}
-		r.workloadCache[hostname] = &pendingResolveDomain{
-			Workloads:   []*workloadapi.Workload{workload},
-			RefreshRate: WorkloadDnsRefreshRate,
+		if _, ok := r.pendingHostnames[workloadName]; !ok {
+			r.pendingHostnames[workloadName] = []string{}
 		}
+		r.pendingHostnames[workloadName] = append(r.pendingHostnames[workloadName], hostname)
+		if _, ok := r.workloadCache[hostname]; !ok {
+			// Initialize the newly added hostname
+			r.workloadCache[hostname] = &pendingResolveDomain{
+				Workloads:   make([]*workloadapi.Workload, 0),
+				RefreshRate: WorkloadDnsRefreshRate,
+			}
+		}
+		r.workloadCache[hostname].Workloads = append(
+			r.workloadCache[hostname].Workloads, workload,
+		)
 	}
 
 	// delete any scheduled re-resolve for domains we no longer care about
@@ -167,7 +176,6 @@ func (r *dnsController) overwriteDnsWorkload(workload *workloadapi.Workload, dom
 	addressesOfHostname := make(map[string][]string)
 
 	for _, hostName := range hostNames {
-		// log.Infof("overwriteDnsWorkload: checking hostname %s for workload %s with domain %s", hostName, workload.ResourceName(), domain)
 		addresses := r.dnsResolver.GetDNSAddresses(hostName)
 		// There are hostnames in this Cluster that are not resolved.
 		if addresses != nil {
