@@ -77,6 +77,8 @@ What is out of scope for this KEP? Listing non-goals helps to focus discussion
 and make progress.
 -->
 
+This KEP does not aim to implement or provide a DNS proxy or DNS server functionality. Specifically, we do not support resolving DNS names on behalf of client workloads. As a result, if a `ServiceEntry` uses a non-resolvable or fake DNS domain, client workloads may fail to resolve and access the intended service. Handling such DNS resolution scenarios is explicitly out of scope for this proposal.
+
 ### Proposal
 
 <!--
@@ -107,8 +109,10 @@ type dnsController struct {
   cache         cache.WorkloadCache
   dnsResolver   *dns.DNSResolver
   // store the copy of pendingResolveWorkload.
+  // key is the domain name, value is the pendingResolveDomain which contains workloads and refresh rate
   workloadCache map[string]*pendingResolveDomain
   // store all pending hostnames in the workloads
+  // key is the workload name, value is the list of related hostnames
   pendingHostnames map[string][]string
   sync.RWMutex
 }
@@ -175,25 +179,9 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
         if p.DnsResolverChan != nil {
           p.DnsResolverChan <- workloads
         }
-        go func() {
-         maxRetries := 50
-          var address [][]byte
-          for range maxRetries {
-            workload := p.WorkloadCache.GetWorkloadByUid(uid)
-            if address = workload.GetAddresses(); address != nil {
-              break
-            } else {
-              time.Sleep(WorkloadDnsRefreshRate)
-            }
-          }
-          if address != nil {
-            log.Infof("workload: %s/%s addresses resolved: %v", workload.Namespace, workload.Name, address)
-            if err := p.handleWorkload(workload); err != nil {
-              log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
-            }
-          } else {
-            log.Warnf("workload: %s/%s addresses is still nil after %d retries, skipping", workload.Namespace, workload.Name, maxRetries)
-          }
+        // send the workload to dnsController for DNS resolution
+        ...
+        // get resolved addresses from dnsController
         }()
         // wait for the service entry to be resolved
       }
