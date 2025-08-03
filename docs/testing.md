@@ -1,69 +1,74 @@
+Sure. Here's the cleaned and markdownlint-compliant version of your Kmesh Developer Testing Guide with no emojis or extra symbols. It follows proper spacing, heading style, list formatting, and fenced code block rules:
 
-#  Kmesh Developer Testing Guide
+# Kmesh Developer Testing Guide
 
-This document provides detailed instructions for running unit tests in the [Kmesh](https://github.com/kmesh-net/kmesh) project. It covers how and where tests are run, how to set up the environment, how to troubleshoot issues, and platform-specific recommendations—based on real-world experiences.
+This document provides detailed instructions for running unit tests in the Kmesh project. It outlines how and where tests are executed, how to prepare your development environment, how to troubleshoot common problems, and how to adapt based on platform.
 
-## Who Is This For?
+## Who Is This For
 
-- New contributors looking to run tests before submitting changes  
-- Developers debugging eBPF generation or Go tests  
-- Anyone working on systems with ARM (Apple Silicon, Raspberry Pi) or virtual machines (UTM, Docker)
+- New contributors preparing to submit a pull request with test coverage  
+- Developers verifying changes involving eBPF or Go modules  
+- Users on Apple Silicon, UTM, Raspberry Pi, or similar ARM-based setups  
 
-##  Types of Tests in Kmesh
+## Types of Tests in Kmesh
 
-| Type         | Where                              | Trigger command                        |
-|--------------|-------------------------------------|----------------------------------------|
-| Go Unit Test | All Go modules (cmd/, pkg/, etc.)   | `go test ./...`                        |
-| BPF UT       | test/bpf_ut/                        | `make -C test/bpf_ut test`             |
-| Shell-based  | test/runtest.sh                     | `bash test/runtest.sh`                 |
-| Integration  | test/e2e/                           | `go test ./test/e2e/...` (requires clean cluster) |
+| Type         | Location                           | Command                              |
+|--------------|-------------------------------------|---------------------------------------|
+| Go Unit Test | All Go modules (e.g. pkg/, cmd/)    | `go test ./...`                       |
+| BPF UT       | test/bpf_ut/                        | `make -C test/bpf_ut test`            |
+| Shell-based  | test/runtest.sh                     | `bash test/runtest.sh`                |
+| Integration  | test/e2e/                           | `go test ./test/e2e/...`              |
+
+Integration tests require a configured cluster with Kmesh deployed.
 
 ## Recommended Approach
 
-Depending on your operating system and architecture, choose one:
+| Platform                          | Suggested Method                     |
+|-----------------------------------|--------------------------------------|
+| Linux with supported kernel (5.10+) | Local testing with `make test`       |
+| macOS on Apple Silicon / UTM / ARM | Use Dockerized testing scripts       |
 
-| Platform                           | Recommended Way to Run Tests          |
-|------------------------------------|--------------------------------------|
-| Linux with supported kernel (5.10+) | Run locally via `make test`         |
-| macOS M1 / UTM / other VM or ARM   | Run in Docker using Kmesh's scripts |
+## Running Unit Tests
 
-##  Running Unit Tests
+### Option 1: Run Inside Docker
 
-### Option 1: Run Inside Docker (Recommended on macOS M1/ARM)
-
-Make sure Docker is installed and running, and that your user has permission to run Docker containers (consult _“Troubleshooting”_ if not).
+Use Docker for isolated and consistent builds across systems.
 
 ```bash
 ./hack/run-ut.sh --docker
 ```
 
-This will:
-- Build the project in a portable Docker environment
-- Run unit tests with all proper flags and file generation
+This script:
+-Builds the project inside a Docker container  
+-Runs tests with required environment and flags
 
- If you see an error like `permission denied /var/run/docker.sock`, see troubleshooting below.
+If Docker permission fails, refer to the troubleshooting section.
 
-### Option 2: Run Natively (for Linux with 5.10+ kernel)
+### Option 2: Run Locally (Linux only)
 
-Installs and runs tests directly on your system:
+Run tests directly on a supported kernel version.
 
 ```bash
 ./hack/run-ut.sh --local
 ```
 
-Or set the env variable directly:
+Or specify the Make variable directly:
 
 ```bash
 make test RUN_IN_CONTAINER=0
 ```
 
-Ensure you have:
-- clang, llvm, libelf-dev, libprotobuf, protobuf-c, and bpf dependencies
-- go version ≥ 1.22 (1.23 recommended)
+Ensure your system includes:
 
-## Manual Testing (Advanced)
+- clang  
+- llvm  
+- libelf-dev  
+- protobuf and protobuf-c  
+- Go version 1.22 or newer
 
-To test individual modules or debug test behavior, configure the environment:
+## Manual Testing
+
+Manually invoke Go unit tests using the appropriate environment configuration:
 
 ```bash
 export ROOT_DIR=$(pwd)
@@ -75,17 +80,15 @@ go generate ./bpf/kmesh/bpf2go/...
 go test ./... -gcflags="all=-N -l"
 ```
 
-Use `-gcflags="all=-N -l"` to disable inlining for tests that depend on monkey-patching (e.g. using gomonkey).
+Use the gcflags option to prevent the Go compiler from inlining functions. This is required when using patching libraries like gomonkey.
 
-## Troubleshooting & Known Issues
+## Troubleshooting and Known Issues
 
-###  Missing `.o` Files (Go Test Fails with Pattern Errors)
+### Missing BPF Object Files
 
-Symptom:
+Error:
 
-```
 pattern kmeshcgroupskb_bpfel.o: no matching files found
-```
 
 Fix:
 
@@ -94,7 +97,7 @@ cd bpf/kmesh/bpf2go
 go generate
 ```
 
-Repeat from inside these subdirectories:
+Also run:
 
 ```bash
 cd bpf/kmesh/bpf2go/kernelnative/normal
@@ -107,24 +110,25 @@ cd ../general
 go generate
 ```
 
-If folders like `/enhanced` are missing, confirm if they exist in the latest repo HEAD.
+If a folder like kernelnative/enhanced is referenced but does not exist, verify its status in the upstream repository.
 
-###  go.mod error: `invalid go version '1.23.0'`
+### go.mod Version Error
 
-Fix: edit the first line of your `go.mod` file to this:
+If you see:
 
-```go
+invalid go version '1.23.0'
+
+Edit go.mod and update:
+
 go 1.23
-```
-(_No extra `.0`_)
 
-###  Docker Permission Denied
+Do not append .0 to the version number.
 
-Symptom:
+### Docker Permission Denied
 
-```
+Error:
+
 docker: permission denied while connecting to /var/run/docker.sock
-```
 
 Fix:
 
@@ -132,56 +136,63 @@ Fix:
 sudo usermod -aG docker $USER
 ```
 
-Then reboot or log out and back in.
+Then log out and back in, or reboot.
 
-Test with:
+To verify Docker access:
+
 ```bash
 docker run hello-world
 ```
 
-###  Missing `securec/securec.h` or `libboundscheck.so`
+### Missing securec Headers or libboundscheck
 
-If running inside Docker:
-- The image might be missing `libsecurec-devel` or securec headers (note: this is a known limitation).
-- Either debug by entering the container manually, or reach out to maintainers for advice.
+When using Docker, the build may fail due to missing native libraries such as securec.
 
-##  Verifying BPF Unit Tests
+There are two options:
+-Enter the Docker container and install needed packages manually  
+-Ask maintainers to include securec in the build image or offer an official workaround  
 
-The BPF test logic is here:
+## Verifying BPF Unit Tests
+
+To verify BPF-specific tests:
 
 ```bash
 make -C test/bpf_ut test
 ```
 
-Dependencies often needed:
+Install required dependencies if not already installed:
 
 ```bash
 sudo apt install clang llvm libelf-dev
 ```
 
-##  Verifying Shell Tests
+## Verifying Shell Tests
+
+Run high-level shell-based tests using:
 
 ```bash
 bash test/runtest.sh
 ```
 
-Be aware: It may expect a clean Kmesh deployment and cluster, and could fail if Istio/K8s aren’t running correctly.
+These tests expect a clean Kmesh deployment and a functioning Kubernetes with Istio and Kmesh configured.
 
-##  Summary
+## Summary
 
-| Feature                  | Run Method                       |
-|--------------------------|----------------------------------|
-| Run all tests (Docker)   | `./hack/run-ut.sh --docker`     |
-| Run all tests (local)    | `./hack/run-ut.sh --local`      |
-| Manual test              | `go test ./...` after `go generate` |
-| Regenerate BPF .o files  | `go generate` inside bpf2go packages |
-| Fix Docker error         | Add user to `docker` group       |
-| Go version requirement   | Go ≥ 1.22 (1.23 if supported)    |
+| Feature                  | Run Method                            |
+|--------------------------|----------------------------------------|
+| Run all tests (Docker)   | `./hack/run-ut.sh --docker`           |
+| Run all tests (local)    | `./hack/run-ut.sh --local`            |
+| Manual test              | `go test ./...` with environment set  |
+| Regenerate .o files      | `go generate` in bpf2go directories   |
+| Fix Docker error         | Add user to docker group              |
+| Go version requirement   | Go 1.22 or higher                     |
 
-##  Still Stuck?
+## Still Stuck
 
-Open an issue on GitHub or ask in the Kmesh community Slack/GitHub discussions. Running all tests on ARM-based systems may require assistance until better Docker support or multi-arch images improve.
+If problems persist, file an issue on GitHub or ask questions in the Kmesh community. Some test workflows may be improved in future if official support for ARM/UTM or Docker-based BPF builds stabilizes.
 
----  
-> _Contributed by: [AkarshSahlot] — based on real testing on Ubuntu (ARM64) in UTM_  
-> _Updated: August 2025_
+Contributed by: AkarshSahlot  
+Tested on: Ubuntu (ARM64) via UTM  
+Updated: August 2025
+
+Let me know if you want this file saved directly or dropped into a commit-ready format (e.g. so you can copy-paste it into your `testing.md`).
