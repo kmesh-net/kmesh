@@ -21,6 +21,7 @@ import (
 	"fmt"
 
 	"github.com/cilium/ebpf"
+	kdns "kmesh.net/kmesh/pkg/dns"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
@@ -31,6 +32,7 @@ import (
 	"kmesh.net/kmesh/pkg/controller/encryption/ipsec"
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
+	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/kolog"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
@@ -148,12 +150,40 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
 
 	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Run(ctx)
+		if err := c.client.WorkloadController.Run(ctx); err != nil {
+			return fmt.Errorf("failed to start workload controller: %+v", err)
+		}
 	} else {
 		c.client.AdsController.StartDnsController(stopCh)
 	}
 
-	return c.client.Run(stopCh)
+	errChan := make(chan error)
+	if workload.EnableDNSProxy {
+		serverOpts := kdns.NewDNSServerOptions()
+
+		resolver, err := kdns.NewDNSResolver()
+		if err != nil {
+			log.Errorf("failed to new DNS resolver: %v", err)
+			return err
+		}
+		resolver.WithDelegateResolver(kdns.NewServiceCacheResolver(c.client.WorkloadController.Processor.ServiceCache))
+
+		server, err := serverOpts.WithDNSResolver(resolver).Complete()
+		if err != nil {
+			log.Errorf("failed to complete DNS server options: %v", err)
+			return err
+		}
+
+		go func() {
+			errChan <- server.ListenAndServe()
+		}()
+	}
+
+	go func() {
+		errChan <- c.client.Run(stopCh)
+	}()
+
+	return <-errChan
 }
 
 func (c *Controller) Stop() {

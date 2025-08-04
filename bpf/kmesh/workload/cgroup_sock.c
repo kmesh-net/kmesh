@@ -10,6 +10,7 @@
 #include "frontend.h"
 #include "bpf_common.h"
 #include "probe.h"
+#include <bpf/bpf_endian.h>
 
 static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 {
@@ -98,6 +99,26 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
         return CGROUP_SOCK_OK;
     }
 
+    // TODO: should we always try to hijack 53 dns traffic?
+    if (ctx->user_port == bpf_htons(53)) {
+        backend_key backend_k = {0};
+        backend_value *backend_v = map_lookup_backend(&backend_k);
+
+        // dns proxy is not enabled
+        if (!backend_v) {
+            return CGROUP_SOCK_OK;
+        }
+
+        kmesh_ctx.dnat_ip.ip4 = backend_v->addr.ip4;
+        if (set_original_dst_info(&kmesh_ctx)) {
+            BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info");
+            return CGROUP_SOCK_OK;
+        }
+
+        ctx->user_ip4 = backend_v->addr.ip4;
+        return CGROUP_SOCK_OK;
+    }
+
     if (ctx->protocol != IPPROTO_TCP)
         return CGROUP_SOCK_OK;
 
@@ -167,6 +188,80 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
 
     return CGROUP_SOCK_OK;
 }
+
+
+
+SEC("cgroup/sendmsg4")
+int bpf_redirect_dns_send(struct bpf_sock_addr *ctx) {
+    struct kmesh_context kmesh_ctx = {0};
+    kmesh_ctx.ctx = ctx;
+    kmesh_ctx.orig_dst_addr.ip4 = ctx->user_ip4;
+    kmesh_ctx.dnat_ip.ip4 = ctx->user_ip4;
+    kmesh_ctx.dnat_port = ctx->user_port;
+
+    if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
+        return CGROUP_SOCK_OK;
+    }
+
+    if (ctx->user_port != bpf_htons(53)) {
+        return CGROUP_SOCK_OK;
+    }
+
+    backend_key backend_k = {0};
+    backend_value *backend_v = map_lookup_backend(&backend_k);
+
+    // dns proxy is not enabled
+    if (!backend_v) {
+        return CGROUP_SOCK_OK;
+    }
+
+    int ret = set_original_dst_info(&kmesh_ctx);
+    if (ret) {
+        BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info, ret is %d\n", ret);
+        return CGROUP_SOCK_OK;
+    }
+
+    ctx->user_ip4 = backend_v->addr.ip4;
+    ctx->user_port = bpf_htons(53);
+
+    return CGROUP_SOCK_OK;
+}
+
+SEC("cgroup/recvmsg4")
+int bpf_restore_dns_recv(struct bpf_sock_addr *ctx) {
+    struct kmesh_context kmesh_ctx = {0};
+    kmesh_ctx.ctx = ctx;
+    kmesh_ctx.orig_dst_addr.ip4 = ctx->user_ip4;
+    kmesh_ctx.dnat_ip.ip4 = ctx->user_ip4;
+    kmesh_ctx.dnat_port = ctx->user_port;
+
+    if (handle_kmesh_manage_process(&kmesh_ctx) || !is_kmesh_enabled(ctx)) {
+        return CGROUP_SOCK_OK;
+    }
+
+    if (ctx->user_port != bpf_htons(53)) {
+        return CGROUP_SOCK_OK;
+    }
+
+    backend_key backend_k = {0};
+    backend_value *backend_v = map_lookup_backend(&backend_k);
+
+    // dns proxy is not enabled
+    if (!backend_v) {
+        return CGROUP_SOCK_OK;
+    }
+    
+    struct sock_storage_data *storage = NULL;
+    storage = bpf_sk_storage_get(&map_of_sock_storage, ctx->sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
+    if (!storage) {
+        BPF_LOG(ERR, KMESH, "failed to get storage from map_of_sock_storage");
+        return CGROUP_SOCK_OK;
+    }
+    
+    ctx->user_ip4 = storage->sk_tuple.ipv4.daddr;
+    return CGROUP_SOCK_OK;
+}
+
 
 char _license[] SEC("license") = "Dual BSD/GPL";
 int _version SEC("version") = 1;

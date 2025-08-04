@@ -66,7 +66,11 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	return c
 }
 
-func (c *Controller) Run(ctx context.Context) {
+func (c *Controller) Run(ctx context.Context) error {
+	if err := c.Processor.PrepareDNSProxy(); err != nil {
+		log.Errorf("failed to prepare for dns proxy, err: %+v", err)
+		return err
+	}
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -89,6 +93,7 @@ func (c *Controller) Run(ctx context.Context) {
 	if c.OperationMetricController != nil {
 		go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmPerfInfo)
 	}
+	return nil
 }
 
 func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
