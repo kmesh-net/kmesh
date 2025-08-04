@@ -325,6 +325,15 @@ jobs:
 
 ---
 
+#### Preferred Solution
+
+- After evaluating both approaches for each identified problem, we recommend adopting Solution 1 for all three workflows (Kmeshctl Syncing Tool, Versioning Workflow, and Chinese Docs Workflow).
+  - **For Kmeshctl syncing,** Solution 1 provides a lightweight and reliable GitHub Actions-based mechanism to automatically keep `website/docs/kmeshctl/` in sync with changes to `docs/ctl/` in the main repository. This approach minimizes manual intervention and ensures the website always reflects the latest kmeshctl documentation.
+  - **For versioning,** Solution 1 simplifies version management by leveraging a `VERSION` file and a dedicated CI pipeline within the website repository. This design is straightforward to maintain, avoids cross-repository complexity, and provides a controlled mechanism for creating and archiving versioned documentation snapshots.
+  - **For Chinese documentation checks,** Solution offers an automated grammar and typo validation using open-source tools. This solution seamlessly integrates into the CI pipeline, providing immediate feedback on errors without requiring paid external services or complex setups.
+  
+---
+
 #### User Stories (Optional)
 
 <!--
