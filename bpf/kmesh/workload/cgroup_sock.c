@@ -189,10 +189,9 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
     return CGROUP_SOCK_OK;
 }
 
-
-
 SEC("cgroup/sendmsg4")
-int bpf_redirect_dns_send(struct bpf_sock_addr *ctx) {
+int bpf_redirect_dns_send(struct bpf_sock_addr *ctx)
+{
     struct kmesh_context kmesh_ctx = {0};
     kmesh_ctx.ctx = ctx;
     kmesh_ctx.orig_dst_addr.ip4 = ctx->user_ip4;
@@ -228,7 +227,8 @@ int bpf_redirect_dns_send(struct bpf_sock_addr *ctx) {
 }
 
 SEC("cgroup/recvmsg4")
-int bpf_restore_dns_recv(struct bpf_sock_addr *ctx) {
+int bpf_restore_dns_recv(struct bpf_sock_addr *ctx)
+{
     struct kmesh_context kmesh_ctx = {0};
     kmesh_ctx.ctx = ctx;
     kmesh_ctx.orig_dst_addr.ip4 = ctx->user_ip4;
@@ -250,18 +250,17 @@ int bpf_restore_dns_recv(struct bpf_sock_addr *ctx) {
     if (!backend_v) {
         return CGROUP_SOCK_OK;
     }
-    
+
     struct sock_storage_data *storage = NULL;
     storage = bpf_sk_storage_get(&map_of_sock_storage, ctx->sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!storage) {
         BPF_LOG(ERR, KMESH, "failed to get storage from map_of_sock_storage");
         return CGROUP_SOCK_OK;
     }
-    
+
     ctx->user_ip4 = storage->sk_tuple.ipv4.daddr;
     return CGROUP_SOCK_OK;
 }
-
 
 char _license[] SEC("license") = "Dual BSD/GPL";
 int _version SEC("version") = 1;
