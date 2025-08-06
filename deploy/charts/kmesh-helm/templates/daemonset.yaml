@@ -77,6 +77,8 @@ spec:
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /kmesh/kmesh-ipsec
+          name: kmesh-ipsec
       priorityClassName: system-node-critical
       serviceAccountName: {{ include "kmesh.fullname" . }}
       tolerations:
@@ -118,3 +120,7 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
+      - name: kmesh-ipsec
+        secret:
+          secretName: kmesh-ipsec
+          optional: true

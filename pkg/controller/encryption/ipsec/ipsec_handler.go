@@ -18,6 +18,8 @@ package ipsec
 
 import (
 	"bufio"
+	"context"
+	"crypto/rand"
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
@@ -30,13 +32,21 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/vishvananda/netlink"
 	"istio.io/istio/pkg/filewatcher"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/kube/apis/kmeshnodeinfo/v1alpha1"
 )
 
 const (
-	IpSecKeyFile = "./kmesh-ipsec/ipSec"
+	IpSecKeyFile      = "./kmesh-ipsec/ipSec"
+	SecretName        = "kmesh-ipsec"
+	AeadAlgoName      = "rfc4106(gcm(aes))"
+	AeadAlgoICVLength = 128 // IPsec support ICV length can use 64/96/128 bit when use gcm-aes, we use 128 bit
+	AeadKeyLength     = 36  // aead algo use rfc4106(gcm(aes)). use 32 char(256 bit) as the key and 4 char (32bit) as the salt value
 )
 
 type IpSecKey struct {
@@ -85,6 +95,7 @@ func (is *IpSecHandler) loadIPSecKeyFromIO(file *os.File) error {
 	}
 	is.Spi = key.Spi
 	is.historyIpSecKey[is.Spi] = key
+	log.Infof("load ipsec key from file %s", file.Name())
 	return nil
 }
 
@@ -394,5 +405,40 @@ func (is *IpSecHandler) Clean(ip string) error {
 func (is *IpSecHandler) Flush() error {
 	netlink.XfrmPolicyFlush()
 	netlink.XfrmStateFlush(netlink.XFRM_PROTO_ESP)
+	return nil
+}
+
+func (h *IpSecHandler) initConfig(k8sClientSet kubernetes.Interface) error {
+	aeadKey := make([]byte, AeadKeyLength)
+	rand.Read(aeadKey)
+
+	ipsecKey := &IpSecKey{
+		Spi:         1,
+		AeadKeyName: AeadAlgoName,
+		AeadKey:     aeadKey,
+		Length:      AeadAlgoICVLength,
+	}
+
+	secretData, err := json.Marshal(ipsecKey)
+	if err != nil {
+		return fmt.Errorf("failed to marshal ipsec key: %v", err)
+	}
+	secret := &v1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: SecretName,
+		},
+		Type: v1.SecretTypeOpaque,
+		Data: map[string][]byte{
+			"ipSec": secretData,
+		},
+	}
+	_, err = k8sClientSet.CoreV1().Secrets(kube.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
+	if err != nil {
+		log.Infof("create secret %s", SecretName)
+		_, err = k8sClientSet.CoreV1().Secrets(kube.KmeshNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+		if err != nil {
+			return fmt.Errorf("failed to create secret %s: %v", SecretName, err)
+		}
+	}
 	return nil
 }

@@ -18,6 +18,7 @@ package ipsec
 
 import (
 	"bytes"
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -30,6 +31,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes/fake"
+
+	"kmesh.net/kmesh/pkg/kube"
 )
 
 // DecodeHex is a utility function to decode a hex string into bytes.
@@ -563,4 +569,108 @@ func TestFlush(t *testing.T) {
 	require.NoError(t, err, "Failed to list policies")
 
 	require.Equal(t, 0, len(policies), "XFRM policies still exist after flush")
+}
+
+// TestInitConfigSecretExists tests the initConfig function to ensure it creates a new secret if it does not exist,
+func TestInitConfigSecretExists(t *testing.T) {
+	tests := []struct {
+		name         string
+		secretExists bool
+		expectedSpi  int
+	}{
+		{
+			name:         "secret does not exist - should create new secret",
+			secretExists: false,
+			expectedSpi:  1,
+		},
+		{
+			name:         "secret already exists - should not create new secret",
+			secretExists: true,
+			expectedSpi:  2,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := NewIpSecHandler()
+
+			// Create fake Kubernetes client
+			fakeClient := fake.NewSimpleClientset()
+
+			// If secret should exist, pre-create it
+			if tt.secretExists {
+				// Create a realistic key data with proper base64 encoding
+				testKey := make([]byte, AeadKeyLength)
+				for i := range testKey {
+					testKey[i] = byte(i % AeadKeyLength)
+				}
+				keyData := IpSecKey{
+					Spi:         tt.expectedSpi, // make sure is not same as default spi, which is 1, so we can test default config is created or not
+					AeadKeyName: AeadAlgoName,
+					AeadKey:     testKey,
+					Length:      AeadAlgoICVLength,
+				}
+				keyJSON, _ := json.Marshal(keyData)
+
+				existingSecret := &v1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      SecretName,
+						Namespace: kube.KmeshNamespace,
+					},
+					Type: v1.SecretTypeOpaque,
+					Data: map[string][]byte{
+						"ipSec": keyJSON,
+					},
+				}
+				_, err := fakeClient.CoreV1().Secrets(kube.KmeshNamespace).Create(
+					context.TODO(), existingSecret, metav1.CreateOptions{})
+				require.NoError(t, err)
+			}
+
+			// Call initConfig
+			err := handler.initConfig(fakeClient)
+
+			assert.NoError(t, err)
+
+			// Verify secret exists and has correct structure
+			secret, err := fakeClient.CoreV1().Secrets(kube.KmeshNamespace).Get(
+				context.TODO(), SecretName, metav1.GetOptions{})
+			require.NoError(t, err)
+
+			configData := secret.Data["ipSec"]
+			var key IpSecKey
+			err = json.Unmarshal(configData, &key)
+			require.NoError(t, err)
+
+			// Verify secret data
+			if tt.secretExists {
+				assert.Equal(t, tt.expectedSpi, key.Spi, "Secret data should not change if it already exists")
+			} else {
+				assert.Equal(t, tt.expectedSpi, key.Spi, "Secret data should be created if it does not exist")
+			}
+		})
+	}
+}
+
+// TestInitConfigKeyGeneration tests that different calls generate different keys
+func TestInitConfigKeyGeneration(t *testing.T) {
+	aeadKeySet := map[string]bool{}
+
+	for i := 0; i < 5; i++ {
+		handler := NewIpSecHandler()
+		fakeClient := fake.NewSimpleClientset()
+		err := handler.initConfig(fakeClient)
+		require.NoError(t, err, "Failed to initialize config")
+
+		// Get the secret
+		secret, err := fakeClient.CoreV1().Secrets(kube.KmeshNamespace).Get(
+			context.TODO(), SecretName, metav1.GetOptions{})
+		require.NoError(t, err, "Failed to get secret")
+		var key IpSecKey
+		err = json.Unmarshal(secret.Data["ipSec"], &key)
+		require.NoError(t, err, "Failed to unmarshal secret data")
+
+		assert.False(t, aeadKeySet[string(key.AeadKey)], "Key should be unique for each initConfig call")
+		aeadKeySet[string(key.AeadKey)] = true
+	}
 }

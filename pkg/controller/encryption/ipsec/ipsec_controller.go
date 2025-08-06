@@ -91,10 +91,16 @@ func NewIPsecController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, dec
 		tcDecryptProg: decryptProg,
 	}
 
+	// Initialize ipsec config (create default)
+	err = ipsecController.ipsecHandler.initConfig(k8sClientSet)
+	if err != nil {
+		log.Errorf("failed to initialize ipsec config: %v", err)
+	}
+
 	// load ipsec info
 	err = ipsecController.ipsecHandler.LoadIPSecKeyFromFile(IpSecKeyFile)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load ipsec key from file %s: %v", IpSecKeyFile, err)
+		log.Errorf("failed to load ipsec key from file %s: %v", IpSecKeyFile, err)
 	}
 
 	localNodeName := os.Getenv("NODE_NAME")
