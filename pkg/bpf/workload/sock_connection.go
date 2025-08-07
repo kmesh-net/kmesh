@@ -35,10 +35,14 @@ import (
 )
 
 type SockConnWorkload struct {
-	Info  general.BpfInfo
-	Link  link.Link
-	Info6 general.BpfInfo
-	Link6 link.Link
+	Info        general.BpfInfo
+	Link        link.Link
+	Info6       general.BpfInfo
+	Link6       link.Link
+	InfoDns4    general.BpfInfo
+	LinkDns4    link.Link
+	InfoDnsRcv4 general.BpfInfo
+	LinkDnsRcv4 link.Link
 	bpf2go.KmeshCgroupSockWorkloadObjects
 }
 
@@ -47,6 +51,8 @@ func (sc *SockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/sockconn/"
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
 	sc.Info6 = sc.Info
+	sc.InfoDns4 = sc.Info
+	sc.InfoDnsRcv4 = sc.Info
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -114,6 +120,14 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 		ebpf.UpdateAny); err != nil {
 		return err
 	}
+
+	prog = spec.Programs["bpf_redirect_dns_send"]
+	sc.InfoDns4.Type = prog.Type
+	sc.InfoDns4.AttachType = prog.AttachType
+
+	prog = spec.Programs["bpf_restore_dns_recv"]
+	sc.InfoDnsRcv4.Type = prog.Type
+	sc.InfoDnsRcv4.AttachType = prog.AttachType
 	return nil
 }
 
@@ -138,8 +152,22 @@ func (sc *SockConnWorkload) Attach() error {
 		Program: sc.KmeshCgroupSockWorkloadObjects.CgroupConnect6Prog,
 	}
 
+	cgoptdns4 := link.CgroupOptions{
+		Path:    sc.InfoDns4.Cgroup2Path,
+		Attach:  sc.InfoDns4.AttachType,
+		Program: sc.KmeshCgroupSockWorkloadObjects.BpfRedirectDnsSend,
+	}
+
+	cgoptdnsrecv4 := link.CgroupOptions{
+		Path:    sc.InfoDnsRcv4.Cgroup2Path,
+		Attach:  sc.InfoDnsRcv4.AttachType,
+		Program: sc.KmeshCgroupSockWorkloadObjects.BpfRestoreDnsRecv,
+	}
+
 	pinPath4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_prog")
 	pinPath6 := filepath.Join(sc.Info.BpfFsPath, "sockconn6_prog")
+	pinPathDns4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_dns_prog")
+	pinPathDnsRecv4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_dns_recv_prog")
 
 	if restart.GetStartType() == restart.Restart {
 		if sc.Link, err = utils.BpfProgUpdate(pinPath4, cgopt4); err != nil {
@@ -147,6 +175,14 @@ func (sc *SockConnWorkload) Attach() error {
 		}
 
 		if sc.Link6, err = utils.BpfProgUpdate(pinPath6, cgopt6); err != nil {
+			return err
+		}
+
+		if sc.LinkDns4, err = utils.BpfProgUpdate(pinPathDns4, cgoptdns4); err != nil {
+			return err
+		}
+
+		if sc.LinkDnsRcv4, err = utils.BpfProgUpdate(pinPathDnsRecv4, cgoptdnsrecv4); err != nil {
 			return err
 		}
 	} else {
@@ -165,6 +201,23 @@ func (sc *SockConnWorkload) Attach() error {
 		}
 
 		if err := sc.Link6.Pin(pinPath6); err != nil {
+			return err
+		}
+
+		sc.LinkDns4, err = link.AttachCgroup(cgoptdns4)
+		if err != nil {
+			return err
+		}
+
+		if err := sc.LinkDns4.Pin(pinPathDns4); err != nil {
+			return err
+		}
+
+		sc.LinkDnsRcv4, err = link.AttachCgroup(cgoptdnsrecv4)
+		if err != nil {
+			return err
+		}
+		if err := sc.LinkDnsRcv4.Pin(pinPathDnsRecv4); err != nil {
 			return err
 		}
 	}

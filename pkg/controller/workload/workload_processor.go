@@ -91,6 +91,33 @@ func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	}
 }
 
+func (p *Processor) PrepareDNSProxy() error {
+	bk := &bpf.BackendKey{
+		BackendUid: 0,
+	}
+
+	// when dns proxy is not enabled, we unregister kmesh daemon from bpf map
+	if !EnableDNSProxy {
+		return p.bpf.BackendDelete(bk)
+	}
+
+	podIp := os.Getenv("INSTANCE_IP")
+	if podIp == "" {
+		return fmt.Errorf("ip of kmesh daemon is not set")
+	}
+
+	log.Infof("dns proxy is enabled and will be redirected, ip: %s", podIp)
+
+	bv := &bpf.BackendValue{}
+	nets.CopyIpByteFromSlice(&bv.Ip, netip.MustParseAddr(podIp).AsSlice())
+	if err := p.bpf.BackendUpdate(bk, bv); err != nil {
+		log.Errorf("failed to register kmesh daemon ip, err: %+v", err)
+		return err
+	}
+
+	return nil
+}
+
 func newDeltaRequest(typeUrl string, names []string, initialResourceVersions map[string]string) *service_discovery_v3.DeltaDiscoveryRequest {
 	return &service_discovery_v3.DeltaDiscoveryRequest{
 		TypeUrl:                 typeUrl,
