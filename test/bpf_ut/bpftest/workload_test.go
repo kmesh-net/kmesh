@@ -807,7 +807,7 @@ func testSendMsg(t *testing.T) {
 						var wg sync.WaitGroup
 						wg.Add(1)
 						// Get the sockhash and the program
-						sockMap := coll.Maps["km_socket"]
+						sockMap := coll.Maps["map_of_kmesh_sendmsg"]
 						prog := coll.Programs["sendmsg_prog"]
 						if sockMap == nil || prog == nil {
 							t.Fatal("sockMap or sendmsg_prog not found")
@@ -971,7 +971,7 @@ func testSendMsg(t *testing.T) {
 						startLogReader(coll)
 
 						//Retrieve the sockhash and the program
-						sockMap := coll.Maps["km_socket"]
+						sockMap := coll.Maps["map_of_kmesh_sendmsg"]
 						prog := coll.Programs["sendmsg_prog"]
 						if sockMap == nil || prog == nil {
 							t.Fatal("sockMap or sendmsg_prog not found")
@@ -1133,41 +1133,16 @@ func htons(i uint16) uint16 {
 	return (i<<8)&0xff00 | i>>8
 }
 func get_local_ipv6(t *testing.T) string {
-	ifaces, err := net.Interfaces()
+	testConn, testErr := net.Dial("tcp6", "[2001:4860:4860::8888]:53")
+	if testErr != nil {
+		t.Skipf("Skipping IPv6 test: network not reachable (%v)", testErr)
+	}
+	defer testConn.Close()
+
+	localAddr, _, err := net.SplitHostPort(testConn.LocalAddr().String())
 	if err != nil {
-		t.Fatalf("Failed to get interfaces: %v", err)
+		t.Fatalf("Failed to extract host from address: %v", err)
 	}
-
-	for _, iface := range ifaces {
-		if iface.Flags&net.FlagUp == 0 {
-			continue
-		}
-		if iface.Flags&net.FlagLoopback != 0 {
-			continue
-		}
-		addrs, err := iface.Addrs()
-		if err != nil {
-			t.Logf("Failed to get addresses for interface %s: %v", iface.Name, err)
-			continue
-		}
-		for _, addr := range addrs {
-			ipNet, ok := addr.(*net.IPNet)
-			if !ok {
-				continue
-			}
-
-			ip := ipNet.IP
-			if ip == nil || ip.To4() != nil {
-				continue
-			}
-			if ip.IsLoopback() || ip.IsLinkLocalUnicast() {
-				continue
-			}
-
-			t.Logf("Found global IPv6 address on %s: %s", iface.Name, ip.String())
-			return ip.String()
-		}
-	}
-	t.Fatal("No usable global IPv6 address found")
-	return ""
+	t.Log(localAddr)
+	return localAddr
 }

@@ -13,7 +13,7 @@ struct {
     __type(value, __u32);
     __uint(max_entries, MAP_SIZE_OF_MANAGER);
     __uint(map_flags, 0);
-} map_of_kmesh_socket SEC(".maps");
+} map_of_kmesh_sendmsg SEC(".maps");
 /*
  * sk msg is used to encode metadata into the payload when the client sends
  * data to waypoint.
