@@ -1070,14 +1070,7 @@ func testCgroupSkb(t *testing.T) {
 }
 
 // converts a uint32 IPv4 address into a dotted-decimal string
-func printIPv4(ip uint32) string {
-	b := make([]byte, 4)
-	b[0] = byte(ip & 0xff)
-	b[1] = byte((ip >> 8) & 0xff)
-	b[2] = byte((ip >> 16) & 0xff)
-	b[3] = byte((ip >> 24) & 0xff)
-	return fmt.Sprintf("%d.%d.%d.%d", b[3], b[2], b[1], b[0])
-}
+
 func load_bpf_prog_to_cgroup(t *testing.T, objFilename string, progName string, cgroupPath string) (*ebpf.Collection, link.Link) {
 	if cgroupPath == "" {
 		t.Fatal("cgroupPath is empty")
@@ -1103,7 +1096,7 @@ func load_bpf_prog_to_cgroup(t *testing.T, objFilename string, progName string, 
 		}
 	}
 	lk, err := link.AttachCgroup(link.CgroupOptions{
-		Path:    constants.Cgroup2Path,
+		Path:    cgroupPath,
 		Attach:  spec.Programs[progName].AttachType,
 		Program: coll.Programs[progName],
 	})
@@ -1113,4 +1106,9 @@ func load_bpf_prog_to_cgroup(t *testing.T, objFilename string, progName string, 
 		t.Fatalf("Failed to attach cgroup: %v", err)
 	}
 	return coll, lk
+}
+func printIPv4(ip uint32) string {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, ip)
+	return net.IP(b).String()
 }

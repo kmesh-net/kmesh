@@ -18,8 +18,7 @@ static void *mock_bpf_sk_storage_get(void *map, void *sk, void *value, __u64 fla
 {
     struct bpf_sock *sk_sock = (struct bpf_sock *)sk;
     void *storage = NULL;
-    storage = bpf_sk_storage_get(map, sk_sock, value, flags);
-    if (!storage && map == &map_of_sock_storage) {
+    if (map == &map_of_sock_storage) {
         storage = &mock_storage;
     }
 
