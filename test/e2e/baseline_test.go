@@ -1307,3 +1307,258 @@ func getSupportedIPFamilies(t framework.TestContext) (v4 bool, v6 bool) {
 	}
 	return
 }
+
+func TestIPAuthorization(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.NewSubTest("IP Authorization").Run(func(t framework.TestContext) {
+			// Enable authorizaiton offload to xdp.
+
+			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
+				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
+			}
+			src := apps.ServiceWithWaypointAtServiceGranularity[0]
+
+			clients := src.WorkloadsOrFail(t)
+			dst := apps.EnrolledToKmesh
+
+			addresses := clients.Addresses()
+			if len(addresses) < 2 {
+				t.Fatal(fmt.Errorf("need at least 2 clients"))
+			}
+			selectedAddress := addresses[0]
+
+			authzCases := []struct {
+				name string
+				spec string
+			}{
+				{
+					name: "allow",
+					spec: `
+  action: ALLOW
+`,
+				},
+				{
+					name: "deny",
+					spec: `
+  action: DENY
+`,
+				},
+			}
+
+			chooseChecker := func(action string, ip string) echo.Checker {
+				switch action {
+				case "allow":
+					if ip != selectedAddress {
+						return check.NotOK()
+					} else {
+						return check.OK()
+					}
+				case "deny":
+					if ip != selectedAddress {
+						return check.OK()
+					} else {
+						return check.NotOK()
+					}
+				default:
+					t.Fatal("invalid action")
+				}
+
+				return check.OK()
+			}
+			// 等待XDP程序加载
+			count := 0
+			workloads := dst.WorkloadsOrFail(t)
+			for _, client := range workloads {
+				if count == len(workloads) {
+					break
+				}
+				podName := client.PodName()
+				namespace := apps.Namespace.Name()
+				timeout := time.After(5 * time.Second)
+				ticker := time.NewTicker(500 * time.Millisecond)
+				defer ticker.Stop()
+			InnerLoop:
+				for {
+					select {
+					case <-timeout:
+						t.Fatalf("Timeout: XDP eBPF program not found on pod %s", podName)
+					case <-ticker.C:
+						cmd := exec.Command("kubectl", "exec", "-n", namespace, podName, "--", "sh", "-c", "ip a | grep xdp")
+						output, err := cmd.CombinedOutput()
+						if err == nil && len(output) > 0 {
+							t.Logf("XDP program is loaded on pod %s", podName)
+							count++
+							break InnerLoop
+						}
+						t.Logf("Waiting for XDP program to load on pod %s: %v", podName, err)
+					}
+				}
+			}
+
+			for _, tc := range authzCases {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Ip":          selectedAddress,
+				}, `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: ip-policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{.Destination}}"
+`+tc.spec+`
+  rules:
+  - from:
+    - source:
+        ipBlocks:
+        - "{{.Ip}}"
+`).ApplyOrFail(t)
+
+				for _, client := range clients {
+					opt := echo.CallOptions{
+						To:                      dst,
+						Port:                    echo.Port{Name: "tcp"},
+						Scheme:                  scheme.TCP,
+						NewConnectionPerRequest: true,
+						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
+						Timeout: time.Minute * 2,
+					}
+
+					var name string
+					if client.Address() != selectedAddress {
+						name = tc.name + ", not selected address"
+					} else {
+						name = tc.name + ", selected address"
+					}
+
+					opt.Check = chooseChecker(tc.name, client.Address())
+
+					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
+						src.WithWorkloads(client).CallOrFail(t, opt)
+					})
+				}
+			}
+		})
+	})
+}
+
+func TestNamespaceAuthorization(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.NewSubTest("Namespace Authorization").Run(func(t framework.TestContext) {
+			// Enable authorization offload to xdp.
+
+			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
+				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
+			}
+			src := apps.ServiceWithWaypointAtServiceGranularity[0]
+
+			clients := src.WorkloadsOrFail(t)
+			client := clients[0]
+			dst := apps.EnrolledToKmesh
+
+			// 获取apps的namespace
+			selectedNamespace := apps.Namespace.Name()
+
+			authzCases := []struct {
+				name string
+				spec string
+			}{
+				{
+					name: "allow",
+					spec: `
+  action: ALLOW
+`,
+				},
+				{
+					name: "deny",
+					spec: `
+  action: DENY
+`,
+				},
+			}
+
+			chooseChecker := func(action string) echo.Checker {
+				switch action {
+				case "allow":
+					return check.OK()
+				case "deny":
+					return check.NotOK()
+				default:
+					t.Fatal("invalid action")
+				}
+
+				return check.OK()
+			}
+			// 等待XDP程序加载
+			count := 0
+			workloads := dst.WorkloadsOrFail(t)
+			for _, client := range workloads {
+				if count == len(workloads) {
+					break
+				}
+				podName := client.PodName()
+				namespace := apps.Namespace.Name()
+				timeout := time.After(5 * time.Second)
+				ticker := time.NewTicker(500 * time.Millisecond)
+				defer ticker.Stop()
+			InnerLoop:
+				for {
+					select {
+					case <-timeout:
+						t.Fatalf("Timeout: XDP eBPF program not found on pod %s", podName)
+					case <-ticker.C:
+						cmd := exec.Command("kubectl", "exec", "-n", namespace, podName, "--", "sh", "-c", "ip a | grep xdp")
+						output, err := cmd.CombinedOutput()
+						if err == nil && len(output) > 0 {
+							t.Logf("XDP program is loaded on pod %s", podName)
+							count++
+							break InnerLoop
+						}
+						t.Logf("Waiting for XDP program to load on pod %s: %v", podName, err)
+					}
+				}
+			}
+
+			for _, tc := range authzCases {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination":     dst.Config().Service,
+					"SourceNamespace": selectedNamespace, // apps的namespace
+				}, `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: namespace-policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{.Destination}}"
+`+tc.spec+`
+  rules:
+  - from:
+    - source:
+        namespaces:
+        - "{{.SourceNamespace}}"
+`).ApplyOrFail(t)
+
+				opt := echo.CallOptions{
+					To:                      dst,
+					Port:                    echo.Port{Name: "tcp"},
+					Scheme:                  scheme.TCP,
+					NewConnectionPerRequest: true,
+					// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
+					Timeout: time.Minute * 2,
+				}
+
+				var name string
+				name = tc.name + ", namespace " + selectedNamespace
+
+				opt.Check = chooseChecker(tc.name)
+
+				t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
+					src.WithWorkloads(client).CallOrFail(t, opt)
+				})
+
+			}
+		})
+	})
+}
