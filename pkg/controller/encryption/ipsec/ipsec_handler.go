@@ -36,11 +36,7 @@ import (
 )
 
 const (
-	IpSecKeyFile      = "./kmesh-ipsec/ipSec"
-	SecretName        = "kmesh-ipsec"
-	AeadAlgoName      = "rfc4106(gcm(aes))"
-	AeadAlgoICVLength = 128 // IPsec support ICV length can use 64/96/128 bit when use gcm-aes, we use 128 bit
-	AeadKeyLength     = 36  // aead algo use rfc4106(gcm(aes)). use 32 char(256 bit) as the key and 4 char (32bit) as the salt value
+	IpSecKeyFile = "./kmesh-ipsec/ipSec"
 )
 
 type IpSecKey struct {

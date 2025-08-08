@@ -92,7 +92,7 @@ func NewIPsecController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, dec
 	}
 
 	// load ipsec info
-	if _, err := os.Stat(IpSecKeyFile); os.IsExist(err) {
+	if _, err := os.Stat(IpSecKeyFile); err == nil {
 		err = ipsecController.ipsecHandler.LoadIPSecKeyFromFile(IpSecKeyFile)
 		if err != nil {
 			log.Errorf("failed to load ipsec key from file %s: %v", IpSecKeyFile, err)
