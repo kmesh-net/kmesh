@@ -95,6 +95,10 @@ spec:
       - hostPath:
           path: /sys/fs/bpf
         name: sys-fs-bpf
+      - name: kmesh-ipsec
+        secret:
+          optional: true
+          secretName: kmesh-ipsec        
       - hostPath:
           path: /lib/modules
         name: lib-modules
@@ -120,7 +124,3 @@ spec:
               audience: istio-ca
               expirationSeconds: 43200
               path: istio-token
-      - name: kmesh-ipsec
-        secret:
-          secretName: kmesh-ipsec
-          optional: true
