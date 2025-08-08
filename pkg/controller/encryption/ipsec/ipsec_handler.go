@@ -85,6 +85,7 @@ func (is *IpSecHandler) loadIPSecKeyFromIO(file *os.File) error {
 	}
 	is.Spi = key.Spi
 	is.historyIpSecKey[is.Spi] = key
+	log.Infof("load ipsec key from file %s", file.Name())
 	return nil
 }
 
