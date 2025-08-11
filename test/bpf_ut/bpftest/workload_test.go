@@ -775,7 +775,7 @@ func testCgroupSkb(t *testing.T) {
 			objFilename: "workload_cgroup_skb_test.o",
 			uts: []unitTest_BUILD_CONTEXT{
 				{
-					name: "CgroupIngress_is_managed_by_kmesh_skb",
+					name: "CgroupIngress_observe_on_data",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
 						// mount cgroup2
 						mount_cgroup2(t, cgroupPath)
@@ -791,6 +791,17 @@ func testCgroupSkb(t *testing.T) {
 							EnablePeriodicReport: constants.ENABLED,
 						})
 						startLogReader(coll)
+
+						varName := "current_direction"
+						currentDirVar, ok := coll.Variables[varName]
+						if !ok {
+							t.Fatalf("BPF variable %s not found", varName)
+						}
+
+						newDirection := uint32(2) // ingress
+						if err := currentDirVar.Set(newDirection); err != nil {
+							t.Fatalf("Failed to set %s: %v", varName, err)
+						}
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
 						serverPort := 54321
@@ -918,7 +929,7 @@ func testCgroupSkb(t *testing.T) {
 						}
 					}},
 				{
-					name: "CgroupEgress_is_managed_by_kmesh_skb",
+					name: "CgroupEgress_observe_on_data",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
 						// mount cgroup2
 						mount_cgroup2(t, cgroupPath)
@@ -934,6 +945,17 @@ func testCgroupSkb(t *testing.T) {
 							EnablePeriodicReport: constants.ENABLED,
 						})
 						startLogReader(coll)
+
+						varName := "current_direction"
+						currentDirVar, ok := coll.Variables[varName]
+						if !ok {
+							t.Fatalf("BPF variable %s not found", varName)
+						}
+
+						newDirection := uint32(2) // egress
+						if err := currentDirVar.Set(newDirection); err != nil {
+							t.Fatalf("Failed to set %s: %v", varName, err)
+						}
 
 						localIP := get_local_ipv4(t)
 						clientPort := 12345

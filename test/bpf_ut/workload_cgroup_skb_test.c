@@ -2,6 +2,7 @@
 #include <bpf/bpf_helpers.h>
 #include "bpf_log.h"
 #include "bpf_common.h"
+volatile __u32 current_direction;
 struct sock_storage_data mock_storage = {
     .connect_ns = 0,
     .direction = 1,
@@ -19,6 +20,7 @@ static void *mock_bpf_sk_storage_get(void *map, void *sk, void *value, __u64 fla
     struct bpf_sock *sk_sock = (struct bpf_sock *)sk;
     void *storage = NULL;
     if (map == &map_of_sock_storage) {
+        mock_storage.direction = current_direction;
         storage = &mock_storage;
     }
 
