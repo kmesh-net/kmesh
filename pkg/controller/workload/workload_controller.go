@@ -75,7 +75,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	return c
 }
 
-func (c *Controller) Run(ctx context.Context) {
+func (c *Controller) Run(ctx context.Context, stopCh <-chan struct{}) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 	go func() {
@@ -97,6 +97,9 @@ func (c *Controller) Run(ctx context.Context) {
 	}
 	if c.OperationMetricController != nil {
 		go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmPerfInfo)
+	}
+	if c.dnsResolverController != nil {
+		go c.dnsResolverController.Run(stopCh)
 	}
 }
 
@@ -151,7 +154,6 @@ func (c *Controller) HandleWorkloadStream() error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	c.dnsResolverController.newWorkloadCache()
 	c.Processor.processWorkloadResponse(rspDelta, c.Rbac)
 
 	if err = c.Stream.Send(c.Processor.ack); err != nil {
@@ -197,10 +199,4 @@ func (c *Controller) SetConnectionMetricTrigger(enable bool) {
 
 func (c *Controller) GetConnectionMetricTrigger() bool {
 	return c.MetricController.EnableConnectionMetric.Load()
-}
-
-func (c *Controller) StartDnsController(stopCh <-chan struct{}) {
-	if c.dnsResolverController != nil {
-		c.dnsResolverController.Run(stopCh)
-	}
 }
