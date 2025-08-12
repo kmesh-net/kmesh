@@ -115,8 +115,8 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
     time="2024-02-19T10:16:53Z" level=info msg="bpf Start successful" subsys=manager
     time="2024-02-19T10:16:53Z" level=info msg="controller Start successful" subsys=manager
     time="2024-02-19T10:16:53Z" level=info msg="command StartServer successful" subsys=manager
-    time="2024-02-19T10:16:53Z" level=info msg="start write CNI config\n" subsys="cni installer"
-    time="2024-02-19T10:16:53Z" level=info msg="kmesh cni use chained\n" subsys="cni installer"
+    time="2024-02-19T10:16:53Z" level=info msg="start write CNI config" subsys="cni installer"
+    time="2024-02-19T10:16:53Z" level=info msg="kmesh cni use chained" subsys="cni installer"
     time="2024-02-19T10:16:54Z" level=info msg="Copied /usr/bin/kmesh-cni to /opt/cni/bin." subsys="cni installer"
     time="2024-02-19T10:16:54Z" level=info msg="kubeconfig either does not exist or is out of date, writing a new one" subsys="cni installer"
     time="2024-02-19T10:16:54Z" level=info msg="wrote kubeconfig file /etc/cni/net.d/kmesh-cni-kubeconfig" subsys="cni installer"
