@@ -31,6 +31,7 @@ import (
 
 const (
 	WorkloadDnsRefreshRate = 200 * time.Millisecond // 200ms, used for workload dns refresh rate
+	maxDNSRefreshRetry     = 3                      // max retry for dns refresh
 )
 
 type dnsController struct {
@@ -40,7 +41,7 @@ type dnsController struct {
 	// store the copy of pendingResolveWorkload.
 	workloadCache map[string]*pendingResolveDomain
 	// store all pending hostnames in the workloads
-	pendingHostnames map[string][]string
+	pendingHostnames map[string]string
 	sync.RWMutex
 }
 
@@ -56,13 +57,15 @@ func NewDnsController(cache cache.WorkloadCache) (*dnsController, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &dnsController{
+	dnsController := &dnsController{
 		workloadsChan:    make(chan []*workloadapi.Workload),
 		cache:            cache,
 		dnsResolver:      resolver,
 		workloadCache:    make(map[string]*pendingResolveDomain),
-		pendingHostnames: make(map[string][]string),
-	}, nil
+		pendingHostnames: make(map[string]string),
+	}
+	dnsController.newWorkloadCache()
+	return dnsController, nil
 }
 
 func (r *dnsController) Run(stopCh <-chan struct{}) {
@@ -88,10 +91,7 @@ func (r *dnsController) processDomains(workloads []*workloadapi.Workload) {
 	for _, workload := range workloads {
 		workloadName := workload.GetName()
 		hostname := workload.GetHostname()
-		if _, ok := r.pendingHostnames[workloadName]; !ok {
-			r.pendingHostnames[workloadName] = []string{}
-		}
-		r.pendingHostnames[workloadName] = append(r.pendingHostnames[workloadName], hostname)
+		r.pendingHostnames[workloadName] = hostname
 		if _, ok := r.workloadCache[hostname]; !ok {
 			// Initialize the newly added hostname
 			r.workloadCache[hostname] = &pendingResolveDomain{
@@ -133,7 +133,7 @@ func (r *dnsController) refreshWorker(stop <-chan struct{}) {
 			pendingDomain := r.getWorkloadsByDomain(domain)
 			// log.Infof("dnsController refreshWorker: domain %s, pendingDomain %v", domain, pendingDomain)
 			addrs := r.dnsResolver.GetDNSAddresses(domain)
-			maxRetry := 3
+			maxRetry := maxDNSRefreshRetry
 			for range maxRetry {
 				if len(addrs) > 0 {
 					r.updateWorkloads(pendingDomain, domain, addrs)
@@ -172,17 +172,13 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 
 func (r *dnsController) overwriteDnsWorkload(workload *workloadapi.Workload, domain string, addrs []string) (bool, *workloadapi.Workload) {
 	ready := true
-	hostNames := r.pendingHostnames[workload.GetName()]
+	hostName := r.pendingHostnames[workload.GetName()]
 	addressesOfHostname := make(map[string][]string)
 
-	for _, hostName := range hostNames {
-		addresses := r.dnsResolver.GetDNSAddresses(hostName)
-		// There are hostnames in this Cluster that are not resolved.
-		if addresses != nil {
-			addressesOfHostname[hostName] = addresses
-		} else {
-			ready = false
-		}
+	if addresses := r.dnsResolver.GetDNSAddresses(hostName); addresses != nil {
+		addressesOfHostname[hostName] = addresses
+	} else {
+		ready = false
 	}
 
 	if ready {
@@ -220,7 +216,7 @@ func getPendingResolveDomain(workloads []*workloadapi.Workload) map[string]any {
 		} else {
 			domainWithRefreshRate := &pendingResolveDomain{
 				Workloads:   []*workloadapi.Workload{workload},
-				RefreshRate: 15 * time.Second,
+				RefreshRate: WorkloadDnsRefreshRate,
 			}
 			domains[hostname] = domainWithRefreshRate
 		}

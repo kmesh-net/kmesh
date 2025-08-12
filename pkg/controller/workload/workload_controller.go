@@ -75,7 +75,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	return c
 }
 
-func (c *Controller) Run(ctx context.Context) error {
+func (c *Controller) Run(ctx context.Context, stopCh <-chan struct{}) error {
 	if err := c.Processor.PrepareDNSProxy(); err != nil {
 		log.Errorf("failed to prepare for dns proxy, err: %+v", err)
 		return err
@@ -101,6 +101,9 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 	if c.OperationMetricController != nil {
 		go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmPerfInfo)
+	}
+	if c.dnsResolverController != nil {
+		go c.dnsResolverController.Run(stopCh)
 	}
 	return nil
 }
@@ -160,7 +163,6 @@ func (c *Controller) HandleWorkloadStream() error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
-	c.dnsResolverController.newWorkloadCache()
 	c.Processor.processWorkloadResponse(rspDelta, c.Rbac)
 
 	if err = c.Stream.Send(c.Processor.ack); err != nil {
@@ -206,10 +208,4 @@ func (c *Controller) SetConnectionMetricTrigger(enable bool) {
 
 func (c *Controller) GetConnectionMetricTrigger() bool {
 	return c.MetricController.EnableConnectionMetric.Load()
-}
-
-func (c *Controller) StartDnsController(stopCh <-chan struct{}) {
-	if c.dnsResolverController != nil {
-		c.dnsResolverController.Run(stopCh)
-	}
 }

@@ -934,43 +934,37 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 
 	for _, workload := range workloads {
 		// TODO: Kmesh supports ServiceEntry
-		// log.Warnf("workload: %s/%s addresses: %v", workload.Namespace, workload.Name, workload.GetAddresses())
-		if workload.GetAddresses() == nil {
-			// Non-ServiceEntry workload with nil addresses will be ignored.
-			uid := workload.GetUid()
-			if !strings.Contains(uid, "ServiceEntry") {
-				log.Warnf("workload: %s/%s addresses is nil", workload.Namespace, workload.Name)
-				continue
-			} else {
-				log.Warnf("workload: %s/%s addresses is nil, workload info: %+v", workload.Namespace, workload.Name, workload)
-				// workload from service entry need address resolving
-				if p.DnsResolverChan != nil {
-					p.DnsResolverChan <- workloads
-				}
-				go func() {
-					maxRetries := 50
-					var address [][]byte
-					for range maxRetries {
-						workload := p.WorkloadCache.GetWorkloadByUid(uid)
-						if address = workload.GetAddresses(); address != nil {
-							break
-						} else {
-							time.Sleep(WorkloadDnsRefreshRate)
-						}
-					}
-					if address != nil {
-						log.Infof("workload: %s/%s addresses resolved: %v", workload.Namespace, workload.Name, address)
-						if err := p.handleWorkload(workload); err != nil {
-							log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
-						}
-					} else {
-						log.Warnf("workload: %s/%s addresses is still nil after %d retries, skipping", workload.Namespace, workload.Name, maxRetries)
-					}
-				}()
+		if workload.GetAddresses() != nil {
+			if err := p.handleWorkload(workload); err != nil {
+				log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 			}
-		}
-		if err := p.handleWorkload(workload); err != nil {
-			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
+		} else {
+			log.Warnf("workload hhh: %s/%s addresses is nil, workload info: %+v", workload.Namespace, workload.Name, workload)
+			// workload from service entry need address resolving
+			if p.DnsResolverChan != nil {
+				p.DnsResolverChan <- workloads
+			}
+			uid := workload.GetUid()
+			go func() {
+				maxRetries := 50
+				var address [][]byte
+				for range maxRetries {
+					workload := p.WorkloadCache.GetWorkloadByUid(uid)
+					if address = workload.GetAddresses(); address != nil {
+						break
+					} else {
+						time.Sleep(WorkloadDnsRefreshRate)
+					}
+				}
+				if address != nil {
+					log.Infof("workload: %s/%s addresses resolved: %v", workload.Namespace, workload.Name, address)
+					if err := p.handleWorkload(workload); err != nil {
+						log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
+					}
+				} else {
+					log.Warnf("workload: %s/%s addresses is still nil after %d retries, skipping", workload.Namespace, workload.Name, maxRetries)
+				}
+			}()
 		}
 	}
 }
