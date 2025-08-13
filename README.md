@@ -40,7 +40,7 @@ Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to
 Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allow you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
 
 <div align="center">
-    <img src="docs/pics/dual-engine-mode.png" alt="duel-engine-mode" width="800" />
+    <img src="docs/pics/dual-engine-mode.png" alt="dual-engine-mode" width="800" />
     <p>Dual-Engine Mode</p>
 </div>
 
