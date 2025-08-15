@@ -72,6 +72,8 @@ type Processor struct {
 	authzDone       chan struct{}
 	addressRespOnce sync.Once
 	authzRespOnce   sync.Once
+
+	handlers map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
@@ -88,7 +90,13 @@ func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		locality:      bpf.NewLocalityCache(),
 		addressDone:   make(chan struct{}, 1),
 		authzDone:     make(chan struct{}, 1),
+		handlers:      map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error{},
 	}
+}
+
+func (p *Processor) WithResourceHandlers(typeUrl string, h ...func(resp *service_discovery_v3.DeltaDiscoveryResponse) error) *Processor {
+	p.handlers[typeUrl] = append(p.handlers[typeUrl], h...)
+	return p
 }
 
 func (p *Processor) PrepareDNSProxy() error {
@@ -165,6 +173,14 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	default:
 		err = fmt.Errorf("unsupported type url %s", rsp.GetTypeUrl())
 	}
+
+	for _, h := range p.handlers[rsp.GetTypeUrl()] {
+		err := h(rsp)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
 	if err != nil {
 		log.Error(err)
 	}

@@ -213,7 +213,7 @@ func (r *DNSResolver) Query(req *dns.Msg) *dns.Msg {
 
 		response = res
 		if res.Rcode == dns.RcodeSuccess {
-			log.Infof("successfully queried delegate resolver, resp: %+v", res)
+			log.Debugf("successfully queried delegate resolver, resp: %+v", res)
 			break
 		}
 	}

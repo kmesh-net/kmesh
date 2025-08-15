@@ -19,10 +19,13 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/cilium/ebpf"
-	kdns "kmesh.net/kmesh/pkg/dns"
 
+	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	dnsClient "istio.io/istio/pkg/dns/client"
+	"istio.io/pkg/env"
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
@@ -33,10 +36,18 @@ import (
 	manage "kmesh.net/kmesh/pkg/controller/manage"
 	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/controller/workload"
+	"kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/kolog"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	helper "kmesh.net/kmesh/pkg/utils"
+)
+
+var (
+	kmeshNamespace     = env.Register("POD_NAMESPACE", "kmesh-system", "kmesh namespace").Get()
+	clusterDomain      = env.Register("CLUSTER_DOMAIN", "cluster.local", "cluster domain").Get()
+	dnsForwardParallel = env.Register("DNS_FORWARD_PARALLEL", false,
+		"If set to true, kmesh will send parallel DNS queries to all upstream nameservers").Get()
 )
 
 var (
@@ -54,6 +65,7 @@ type Controller struct {
 	enableSecretManager bool
 	bpfConfig           *options.BpfConfig
 	loader              *bpf.BpfLoader
+	dnsServer           *dnsClient.LocalDNSServer
 }
 
 func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
@@ -157,33 +169,11 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		c.client.AdsController.StartDnsController(stopCh)
 	}
 
-	errChan := make(chan error)
-	if workload.EnableDNSProxy {
-		serverOpts := kdns.NewDNSServerOptions()
-
-		resolver, err := kdns.NewDNSResolver()
-		if err != nil {
-			log.Errorf("failed to new DNS resolver: %v", err)
-			return err
-		}
-		resolver.WithDelegateResolver(kdns.NewServiceCacheResolver(c.client.WorkloadController.Processor.ServiceCache))
-
-		server, err := serverOpts.WithDNSResolver(resolver).Complete()
-		if err != nil {
-			log.Errorf("failed to complete DNS server options: %v", err)
-			return err
-		}
-
-		go func() {
-			errChan <- server.ListenAndServe()
-		}()
+	if err := c.setupDNSProxy(); err != nil {
+		return fmt.Errorf("failed to start dns proxy: %+v", err)
 	}
 
-	go func() {
-		errChan <- c.client.Run(stopCh)
-	}()
-
-	return <-errChan
+	return c.client.Run(stopCh)
 }
 
 func (c *Controller) Stop() {
@@ -197,8 +187,46 @@ func (c *Controller) Stop() {
 	if c.client != nil {
 		c.client.Close()
 	}
+	if c.dnsServer != nil {
+		c.dnsServer.Close()
+	}
 }
 
 func (c *Controller) GetXdsClient() *XdsClient {
 	return c.client
+}
+
+func (c *Controller) setupDNSProxy() error {
+	if workload.EnableDNSProxy {
+		server, err := dnsClient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
+		if err != nil {
+			return fmt.Errorf("failed to start local dns server: %v", err)
+		}
+		ntb := dns.NewNameTableBuilder(c.client.WorkloadController.Processor.ServiceCache, c.client.WorkloadController.Processor.WorkloadCache)
+
+		debounceTime := time.Second
+		timer := time.NewTimer(0)
+		<-timer.C
+		h := func(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
+			// debounce
+			if timer.Reset(debounceTime) {
+				return nil
+			}
+
+			go func() {
+				select {
+				case <-timer.C:
+					log.Debugf("trigger name table update")
+					server.UpdateLookupTable(ntb.BuildNameTable())
+				}
+			}()
+
+			return nil
+		}
+
+		c.client.WorkloadController.Processor.WithResourceHandlers(workload.AddressType, h)
+		server.StartDNS()
+		c.dnsServer = server
+	}
+	return nil
 }

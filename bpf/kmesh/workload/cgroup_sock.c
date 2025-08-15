@@ -221,7 +221,6 @@ int bpf_redirect_dns_send(struct bpf_sock_addr *ctx)
     }
 
     ctx->user_ip4 = backend_v->addr.ip4;
-    ctx->user_port = bpf_htons(53);
 
     return CGROUP_SOCK_OK;
 }
