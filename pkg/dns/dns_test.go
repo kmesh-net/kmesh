@@ -35,7 +35,7 @@ func TestDNS(t *testing.T) {
 	defer close(stopCh)
 	// testDNSResolver.StartAdsDnsResolver(stopCh)
 	dnsServer := fakeDNSServer.Server.PacketConn.LocalAddr().String()
-	testDNSResolver.resolvConfServers = []string{dnsServer}
+	testDNSResolver.delegates = []Resolver{NewUpstreamResolver(dnsServer)}
 	go testDNSResolver.StartDnsResolver(stopCh)
 
 	testCases := []struct {
