@@ -214,11 +214,9 @@ func (c *Controller) setupDNSProxy() error {
 			}
 
 			go func() {
-				select {
-				case <-timer.C:
-					log.Debugf("trigger name table update")
-					server.UpdateLookupTable(ntb.BuildNameTable())
-				}
+				<-timer.C
+				log.Debugf("trigger name table update")
+				server.UpdateLookupTable(ntb.BuildNameTable())
 			}()
 
 			return nil

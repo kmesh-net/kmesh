@@ -62,12 +62,10 @@ func (b *nameTableBuilder) BuildNameTable() *dnsProto.NameTable {
 	for _, svc := range b.serviceCache.List() {
 		addressList := []string{}
 
-		headless := len(svc.Addresses) == 0
 		for _, svcAddress := range svc.Addresses {
 			ip := net.IP(svcAddress.Address)
 
 			if ip.IsUnspecified() {
-				headless = true
 				break
 			}
 
@@ -81,7 +79,7 @@ func (b *nameTableBuilder) BuildNameTable() *dnsProto.NameTable {
 		}
 
 		// headless
-		if headless {
+		if len(addressList) == 0 {
 			endpoints := lookupHeadlessEndpoints(svc, workloads)
 			for _, endpoint := range endpoints {
 				for _, address := range endpoint.Addresses {
@@ -89,6 +87,10 @@ func (b *nameTableBuilder) BuildNameTable() *dnsProto.NameTable {
 					addressList = append(addressList, ip.String())
 				}
 			}
+		}
+
+		if len(addressList) == 0 {
+			continue
 		}
 
 		hostName := svc.Hostname
