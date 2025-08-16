@@ -18,10 +18,10 @@ package secret
 
 import (
 	"context"
-	"encoding/hex"
+	"crypto/rand"
 	"encoding/json"
+	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -45,23 +45,46 @@ const (
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "secret",
-		Short: "Use secrets to generate secret configuration data for IPsec",
-		Example: `# Use secrets to generate secret configuration data for IPsec:
- kmeshctl secret --key or -k, only support use aead algo: rfc4106(gcm(aes))
- key need 36 characters(use 32 characters as key, 4 characters as salt).
- Hexadecimal dump is required when the key is entered.
- e.g.:kmeshctl secret --key=$(dd if=/dev/urandom count=36 bs=1 2>/dev/null | xxd -p -c 64)
- e.g.:kmeshctl secret -k=$(echo -n "{36-character user-defined key here}" | xxd -p -c 64)`,
-		Args: cobra.MaximumNArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
-			GeneralSecret(cmd, args)
-		},
+		Short: "Manage IPsec secrets for Kmesh",
+		Long:  "Generate and manage IPsec encryption secrets for secure communication between nodes",
 	}
-	cmd.Flags().StringP("key", "k", "", "key of the encryption")
+
+	cmd.AddCommand(newCreateCmd())
+	
 	return cmd
 }
 
-func GeneralSecret(cmd *cobra.Command, args []string) {
+func newCreateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "create",
+		Short: "Create a new IPsec secret with automatically generated key",
+		Long: `Create a new IPsec secret with automatically generated encryption key.
+The key is generated using cryptographically secure random bytes and formatted
+for use with the rfc4106(gcm(aes)) AEAD algorithm.`,
+		Example: `# Create a new IPsec secret with automatically generated key:
+kmeshctl secret create
+
+# This will generate a 36-byte key (32-byte key + 4-byte salt) and create
+# the 'kmesh-ipsec' secret in the kmesh-system namespace.`,
+		Args: cobra.NoArgs,
+		Run: func(cmd *cobra.Command, args []string) {
+			createSecretWithRandomKey()
+		},
+	}
+	return cmd
+}
+
+// generateRandomKey generates a cryptographically secure random key for IPsec
+func generateRandomKey() ([]byte, error) {
+	key := make([]byte, AeadKeyLength)
+	_, err := rand.Read(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate random key: %v", err)
+	}
+	return key, nil
+}
+
+func createSecretWithRandomKey() {
 	var ipSecKey, ipSecKeyOld ipsec.IpSecKey
 	var err error
 
@@ -73,26 +96,15 @@ func GeneralSecret(cmd *cobra.Command, args []string) {
 
 	ipSecKey.AeadKeyName = AeadAlgoName
 
-	aeadKeyArg, _ := cmd.Flags().GetString("key")
-
-	if strings.Compare(aeadKeyArg, "") == 0 {
-		log.Errorf("no param --key or -k, we need a encryption key")
-		os.Exit(1)
-	}
-
-	aeadKey, err := hex.DecodeString(aeadKeyArg)
+	// Generate random key automatically
+	aeadKey, err := generateRandomKey()
 	if err != nil {
-		log.Errorf("invalid input argument, %v, input: %v", err, aeadKeyArg)
+		log.Errorf("failed to generate random key: %v", err)
 		os.Exit(1)
 	}
 
-	if len(aeadKey) != 36 {
-		log.Errorf("The key length is not enough!. It requires 36 characters(256-bit key + 32-bit salt)")
-		os.Exit(1)
-	}
 
 	ipSecKey.AeadKey = aeadKey
-
 	ipSecKey.Length = AeadAlgoICVLength
 
 	secretOld, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
