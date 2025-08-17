@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 )
 
-// 等待所有dst的XDP程序加载
+// Wait for all the XDP programs of dst to load
 func waitForXDPOnDstWorkloads(t framework.TestContext, dst echo.Instances) {
 	count := 0
 	workloads := dst.WorkloadsOrFail(t)
@@ -124,7 +124,7 @@ func TestIPAuthorization(t *testing.T) {
 
 				return check.OK()
 			}
-			// 等待XDP程序加载
+
 			waitForXDPOnDstWorkloads(t, dst)
 
 			for _, tc := range authzCases {
@@ -189,13 +189,15 @@ func TestPortAuthorization(t *testing.T) {
 			client := clients[0]
 			dst := apps.EnrolledToKmesh
 
-			// 定义测试端口 - 使用 Pod 端口
-			selectedPodPort := "19090"    // 被策略选中的 Pod 端口（对应 Service 端口 9090）
-			notSelectedPodPort := "16060" // 未被策略选中的 Pod 端口（对应 Service 端口 9091）
+			// Define the test port
+			selectedPodPort := 19090
+			selectedServicePort := 9090
+			notSelectedPodPort := 16060
+			notSelectedServicePort := 9091
 
-			// Echo Pod 的健康检查端口
-			readyPort := "8080"    // ready 端口
-			livenessPort := "3333" // liveness 端口
+			// Echo Pod healthy port
+			readyPort := 8080
+			livenessPort := 3333
 
 			authzCases := []struct {
 				name  string
@@ -203,32 +205,30 @@ func TestPortAuthorization(t *testing.T) {
 				ports string
 			}{
 				{
-					name: "allow",
-					spec: `  action: ALLOW`,
-					// ALLOW策略：允许selectedPodPort、ready端口和liveness端口
-					ports: fmt.Sprintf(`["%s", "%s", "%s"]`, selectedPodPort, readyPort, livenessPort),
+					name:  "allow",
+					spec:  `  action: ALLOW`,
+					ports: fmt.Sprintf(`["%d", "%d", "%d"]`, selectedPodPort, readyPort, livenessPort),
 				},
 				{
-					name: "deny",
-					spec: `  action: DENY`,
-					// DENY策略：只拒绝selectedPodPort端口
-					ports: fmt.Sprintf(`["%s"]`, selectedPodPort),
+					name:  "deny",
+					spec:  `  action: DENY`,
+					ports: fmt.Sprintf(`["%d"]`, selectedPodPort),
 				},
 			}
 
 			chooseChecker := func(action string, servicePort int) echo.Checker {
 				switch action {
 				case "allow":
-					if servicePort == 9090 { // selectedPodPort 对应的 Service 端口
-						return check.OK() // ALLOW策略下，selectedPodPort应该成功
+					if servicePort == selectedServicePort {
+						return check.OK()
 					} else {
-						return check.NotOK() // ALLOW策略下，其他端口应该失败
+						return check.NotOK()
 					}
 				case "deny":
-					if servicePort == 9090 { // selectedPodPort 对应的 Service 端口
-						return check.NotOK() // DENY策略下，selectedPodPort应该失败（被拒绝）
+					if servicePort == selectedServicePort {
+						return check.NotOK()
 					} else {
-						return check.OK() // DENY策略下，其他端口应该成功
+						return check.OK()
 					}
 				default:
 					t.Fatal("invalid action")
@@ -237,31 +237,29 @@ func TestPortAuthorization(t *testing.T) {
 				return check.OK()
 			}
 
-			// 测试用例：访问不同的 Service 端口
 			portTestCases := []struct {
-				servicePort int    // Service 端口
-				podPort     string // 对应的 Pod 端口
+				servicePort int
+				podPort     int
 				description string
 			}{
 				{
-					servicePort: 9090,
+					servicePort: selectedServicePort,
 					podPort:     selectedPodPort,
-					description: fmt.Sprintf("service port 9090 (pod port %s)", selectedPodPort),
+					description: fmt.Sprintf("service port %d (pod port %d)", selectedServicePort, selectedPodPort),
 				},
 				{
-					servicePort: 9091,
+					servicePort: notSelectedServicePort,
 					podPort:     notSelectedPodPort,
-					description: fmt.Sprintf("service port 9091 (pod port %s)", notSelectedPodPort),
+					description: fmt.Sprintf("service port %d (pod port %d)", notSelectedServicePort, notSelectedPodPort),
 				},
 			}
 
-			// 等待XDP程序加载
 			waitForXDPOnDstWorkloads(t, dst)
 
 			for _, tc := range authzCases {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
-					"Ports":       tc.ports, // 使用 Pod 端口配置策略
+					"Ports":       tc.ports,
 				}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -280,7 +278,7 @@ spec:
 				for _, portTest := range portTestCases {
 					opt := echo.CallOptions{
 						To:                      dst,
-						Port:                    echo.Port{Name: "tcp", ServicePort: portTest.servicePort}, // 使用 Service 端口测试
+						Port:                    echo.Port{Name: "tcp", ServicePort: portTest.servicePort},
 						Scheme:                  scheme.TCP,
 						NewConnectionPerRequest: true,
 						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
@@ -315,7 +313,7 @@ func TestNamespaceAuthorization(t *testing.T) {
 			client := clients[0]
 			dst := apps.EnrolledToKmesh
 
-			// 获取apps的namespace
+			// get the namespace of the apps
 			selectedNamespace := apps.Namespace.Name()
 
 			authzCases := []struct {
@@ -348,13 +346,13 @@ func TestNamespaceAuthorization(t *testing.T) {
 
 				return check.OK()
 			}
-			// 等待XDP程序加载
+
 			waitForXDPOnDstWorkloads(t, dst)
 
 			for _, tc := range authzCases {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination":     dst.Config().Service,
-					"SourceNamespace": selectedNamespace, // apps的namespace
+					"SourceNamespace": selectedNamespace,
 				}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -402,20 +400,21 @@ func TestHeaderAuthorization(t *testing.T) {
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
 			}
-			src := apps.EnrolledToKmesh[0] // 使用已注册到Kmesh的应用
+			src := apps.EnrolledToKmesh[0]
 
 			clients := src.WorkloadsOrFail(t)
 			client := clients[0]
 			dst := apps.ServiceWithWaypointAtServiceGranularity
 
-			// 定义测试的header和端口 - 使用pod端口
+			// Define the test header and ports - use pod port
 			selectedHeaderName := "x-api-key"
 			selectedHeaderValue := "secret-token"
-			targetHttpPodPort := 18080  // 目标HTTP Pod端口
-			targetHttpServicePort := 80 // 对应的Service端口
-			readyPort := 8080           // ready端口 - 不被拦截
-			livenessPort := 3333        // liveness端口 - 不被拦截
-			denyPort := 80              // 被拒绝的端口 - 不被拦截
+			notSelectedHeaderValue := "wrong-token"
+			targetHttpPodPort := 18080  // Target HTTP Pod port
+			targetHttpServicePort := 80 // Target HTTP Service port
+			readyPort := 8080           // Ready port
+			livenessPort := 3333        // Liveness port
+			denyPort := 80              // Deny port
 
 			authzCases := []struct {
 				name string
@@ -439,15 +438,15 @@ func TestHeaderAuthorization(t *testing.T) {
 				switch action {
 				case "allow":
 					if !headerMatches {
-						return check.NotOK() // ALLOW策略下，header不匹配应该失败
+						return check.NotOK()
 					} else {
-						return check.OK() // ALLOW策略下，header匹配应该成功
+						return check.OK()
 					}
 				case "deny":
 					if !headerMatches {
-						return check.OK() // DENY策略下，header不匹配应该成功（不被拒绝）
+						return check.OK()
 					} else {
-						return check.NotOK() // DENY策略下，header匹配应该失败（被拒绝）
+						return check.NotOK()
 					}
 				default:
 					t.Fatal("invalid action")
@@ -456,39 +455,37 @@ func TestHeaderAuthorization(t *testing.T) {
 				return check.OK()
 			}
 
-			// 测试用例：匹配的header和不匹配的header
 			headerTestCases := []struct {
 				headerValue string
 				matches     bool
 				description string
 			}{
 				{
-					headerValue: selectedHeaderValue, // "secret-token"
+					headerValue: selectedHeaderValue,
 					matches:     true,
 					description: "matching header",
 				},
 				{
-					headerValue: "wrong-token", // 错误的token
+					headerValue: notSelectedHeaderValue,
 					matches:     false,
 					description: "non-matching header",
 				},
 			}
 
-			// 等待XDP程序加载
 			waitForXDPOnDstWorkloads(t, dst)
 
 			for _, tc := range authzCases {
 				var additionalRule string
 
-				// 总是允许健康检查端口，不受header策略影响
+				// Always allow health check ports, unaffected by header policies
 				if tc.name == "allow" {
 					additionalRule = fmt.Sprintf(`
-  - to:                                    # 规则1：总是允许健康检查端口（不受header限制）
+  - to:
     - operation:
         ports: ["%d", "%d", "%d"]`, readyPort, livenessPort, targetHttpPodPort)
 				} else {
 					additionalRule = fmt.Sprintf(`
-  - to:                                    # 规则1：随意设置一个端口，避免所有tcp端口被拒绝
+  - to:
     - operation:
         ports: ["%d"]`, denyPort)
 				}
@@ -497,7 +494,6 @@ func TestHeaderAuthorization(t *testing.T) {
 					"Destination":   dst.Config().Service,
 					"HeaderName":    selectedHeaderName,
 					"HeaderValue":   selectedHeaderValue,
-					"TargetPodPort": fmt.Sprintf("%d", targetHttpPodPort), // 使用Pod端口
 				}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -516,12 +512,12 @@ spec:
 				for _, headerTest := range headerTestCases {
 					opt := echo.CallOptions{
 						To:     dst,
-						Port:   echo.Port{Name: "http", ServicePort: targetHttpServicePort}, // 使用Service端口80测试
-						Scheme: scheme.HTTP,                                                 // Header需要HTTP协议
+						Port:   echo.Port{Name: "http", ServicePort: targetHttpServicePort},
+						Scheme: scheme.HTTP,
 						HTTP: echo.HTTP{
 							Path: "/api/test",
 							Headers: map[string][]string{
-								selectedHeaderName: {headerTest.headerValue}, // 动态设置header值
+								selectedHeaderName: {headerTest.headerValue},
 							},
 						},
 						NewConnectionPerRequest: true,
@@ -551,19 +547,20 @@ func TestHostAuthorization(t *testing.T) {
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
 			}
-			src := apps.EnrolledToKmesh[0] // 使用已注册到Kmesh的应用
+			src := apps.EnrolledToKmesh[0]
 
 			clients := src.WorkloadsOrFail(t)
 			client := clients[0]
 			dst := apps.ServiceWithWaypointAtServiceGranularity
 
-			// 获取app的第一个host值
-			selectedHost := "example.com" // 假设这是app的第一个host值
-			targetHttpPodPort := 18080  // 目标HTTP Pod端口
-			targetHttpServicePort := 80 // 对应的Service端口
-			readyPort := 8080           // ready端口 - 不被拦截
-			livenessPort := 3333        // liveness端口 - 不被拦截
-			denyPort := 80              // 被拒绝的端口 - 不被拦截
+			// Define variables
+			selectedHost := "example.com"
+			notSelectedHost := "wrong.example.com"
+			targetHttpPodPort := 18080
+			targetHttpServicePort := 80
+			readyPort := 8080
+			livenessPort := 3333
+			denyPort := 80
 
 			authzCases := []struct {
 				name string
@@ -583,19 +580,18 @@ func TestHostAuthorization(t *testing.T) {
 				},
 			}
 
-			// 测试用例：匹配的host和不匹配的host
 			hostTestCases := []struct {
 				hostValue   string
 				matches     bool
 				description string
 			}{
 				{
-					hostValue:   selectedHost, // 正确的host
+					hostValue:   selectedHost,
 					matches:     true,
 					description: "matching host",
 				},
 				{
-					hostValue:   "wrong.example.com", // 错误的host
+					hostValue:   notSelectedHost,
 					matches:     false,
 					description: "non-matching host",
 				},
@@ -605,15 +601,15 @@ func TestHostAuthorization(t *testing.T) {
 				switch action {
 				case "allow":
 					if !hostMatches {
-						return check.NotOK() // ALLOW策略下，host不匹配应该失败
+						return check.NotOK()
 					} else {
-						return check.OK() // ALLOW策略下，host匹配应该成功
+						return check.OK()
 					}
 				case "deny":
 					if !hostMatches {
-						return check.OK() // DENY策略下，host不匹配应该成功（不被拒绝）
+						return check.OK()
 					} else {
-						return check.NotOK() // DENY策略下，host匹配应该失败（被拒绝）
+						return check.NotOK()
 					}
 				default:
 					t.Fatal("invalid action")
@@ -622,28 +618,27 @@ func TestHostAuthorization(t *testing.T) {
 				return check.OK()
 			}
 
-			// 等待XDP程序加载
 			waitForXDPOnDstWorkloads(t, dst)
 
 			for _, tc := range authzCases {
 
 				var additionalRule string
 
-				// 总是允许健康检查端口，不受header策略影响
+				// Always allow health check ports, unaffected by header policies
 				if tc.name == "allow" {
 					additionalRule = fmt.Sprintf(`
-  - to:                                    # 规则1：总是允许健康检查端口（不受header限制）
+  - to:
     - operation:
         ports: ["%d", "%d", "%d"]`, readyPort, livenessPort, targetHttpPodPort)
 				} else {
 					additionalRule = fmt.Sprintf(`
-  - to:                                    # 规则1：随意设置一个端口，避免所有tcp端口被拒绝
+  - to:
     - operation:
         ports: ["%d"]`, denyPort)
 				}
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
-					"TargetHost":  selectedHost, // app的第一个host值
+					"TargetHost":  selectedHost,
 				}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -662,12 +657,12 @@ spec:
 				for _, hostTest := range hostTestCases {
 					opt := echo.CallOptions{
 						To:     dst,
-						Port:   echo.Port{Name: "http", ServicePort: targetHttpServicePort}, // 使用HTTP端口进行Host测试
-						Scheme: scheme.HTTP,                                                 // Host需要HTTP协议
+						Port:   echo.Port{Name: "http", ServicePort: targetHttpServicePort},
+						Scheme: scheme.HTTP,
 						HTTP: echo.HTTP{
 							Path: "/api/test",
 							Headers: map[string][]string{
-								"Host": {hostTest.hostValue}, // 修改HTTP请求的Host字段
+								"Host": {hostTest.hostValue},
 							},
 						},
 						NewConnectionPerRequest: true,
