@@ -70,7 +70,7 @@ func waitForXDPOnDstWorkloads(t framework.TestContext, dst echo.Instances) {
 func TestIPAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("IP Authorization").Run(func(t framework.TestContext) {
-			// Enable authorizaiton offload to xdp.
+			// Enable authorization offload to xdp.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
@@ -178,7 +178,7 @@ spec:
 func TestPortAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Port Authorization").Run(func(t framework.TestContext) {
-			// Enable authorization offload to xdp.
+			// Enable authorization offload to XDP.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
@@ -302,7 +302,7 @@ spec:
 func TestNamespaceAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Namespace Authorization").Run(func(t framework.TestContext) {
-			// Enable authorization offload to xdp.
+			// Enable authorization offload to XDP.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
