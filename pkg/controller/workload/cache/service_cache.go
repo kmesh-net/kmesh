@@ -32,7 +32,6 @@ type ServiceCache interface {
 	DeleteService(resourceName string)
 	GetService(resourceName string) *workloadapi.Service
 	GetServiceByAddr(address NetworkAddress) *workloadapi.Service
-	GetServiceByHost(hostname string) *workloadapi.Service
 }
 
 var _ ServiceCache = &serviceCache{}
@@ -42,14 +41,12 @@ type serviceCache struct {
 	// keyed by namespace/hostname->service
 	servicesByResourceName map[string]*workloadapi.Service
 	servicesByAddr         map[NetworkAddress]*workloadapi.Service
-	servicesByHost         map[string]*workloadapi.Service
 }
 
 func NewServiceCache() *serviceCache {
 	return &serviceCache{
 		servicesByResourceName: make(map[string]*workloadapi.Service),
 		servicesByAddr:         make(map[NetworkAddress]*workloadapi.Service),
-		servicesByHost:         make(map[string]*workloadapi.Service),
 	}
 }
 
@@ -59,20 +56,12 @@ func (s *serviceCache) GetServiceByAddr(address NetworkAddress) *workloadapi.Ser
 	return s.servicesByAddr[address]
 }
 
-func (s *serviceCache) GetServiceByHost(hostname string) *workloadapi.Service {
-	s.mutex.RLock()
-	defer s.mutex.RUnlock()
-	log.Infof("service by host: %+v", s.servicesByHost)
-	return s.servicesByHost[hostname]
-}
-
 func (s *serviceCache) AddOrUpdateService(svc *workloadapi.Service) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	resourceName := svc.ResourceName()
 
 	s.servicesByResourceName[resourceName] = svc
-	s.servicesByHost[svc.GetHostname()] = svc
 	for _, addr := range svc.GetAddresses() {
 		addrStr, _ := netip.AddrFromSlice(addr.GetAddress())
 		networkAddress := composeNetworkAddress(addr.GetNetwork(), addrStr)
@@ -95,7 +84,6 @@ func (s *serviceCache) DeleteService(resourceName string) {
 		s.deleteAddr(networkAddress, svc)
 	}
 
-	delete(s.servicesByHost, svc.GetHostname())
 	delete(s.servicesByResourceName, resourceName)
 }
 
