@@ -798,7 +798,7 @@ func testCgroupSkb(t *testing.T) {
 							t.Fatalf("BPF variable %s not found", varName)
 						}
 
-						newDirection := uint32(2) // ingress
+						newDirection := uint32(1) // ingress
 						if err := currentDirVar.Set(newDirection); err != nil {
 							t.Fatalf("Failed to set %s: %v", varName, err)
 						}
