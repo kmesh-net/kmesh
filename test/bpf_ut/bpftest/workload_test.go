@@ -1215,7 +1215,6 @@ func testCgroupSock(t *testing.T) {
 				{
 					name: "BPF_CGROUP_SOCK_CONNECT4_service_no_waypoint_lb_random_handle",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
-
 						// mount cgroup2
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
@@ -1435,7 +1434,6 @@ func testCgroupSock(t *testing.T) {
 				{
 					name: "BPF_CGROUP_SOCK_CONNECT4_service_no_waypoint_lb_locality_strict_handle",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
-
 						// mount cgroup2
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
@@ -1652,7 +1650,6 @@ func testCgroupSock(t *testing.T) {
 				{
 					name: "BPF_CGROUP_SOCK_CONNECT4_service_no_waypoint_lb_locality_failover_handle",
 					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
-
 						// mount cgroup2
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
