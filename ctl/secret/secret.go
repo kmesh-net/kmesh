@@ -50,7 +50,7 @@ func NewCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(newCreateCmd())
-	
+
 	return cmd
 }
 
@@ -102,7 +102,6 @@ func createSecretWithRandomKey() {
 		log.Errorf("failed to generate random key: %v", err)
 		os.Exit(1)
 	}
-
 
 	ipSecKey.AeadKey = aeadKey
 	ipSecKey.Length = AeadAlgoICVLength
