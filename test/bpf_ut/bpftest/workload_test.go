@@ -1548,7 +1548,6 @@ func testCgroupSock(t *testing.T) {
 						//endpoint
 						type endpoint_key struct {
 							service_id    uint32
-							prio          uint32
 							backend_index uint32 //rand_k
 						}
 						type endpoint_value struct {
