@@ -70,7 +70,7 @@ func waitForXDPOnDstWorkloads(t framework.TestContext, dst echo.Instances) {
 func TestIPAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("IP Authorization").Run(func(t framework.TestContext) {
-			// Enable authorization offload to xdp.
+			// Enable authorizaiton offload to xdp.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
@@ -178,7 +178,7 @@ spec:
 func TestPortAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Port Authorization").Run(func(t framework.TestContext) {
-			// Enable authorization offload to XDP.
+			// Enable authorization offload to xdp.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
@@ -302,7 +302,7 @@ spec:
 func TestNamespaceAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Namespace Authorization").Run(func(t framework.TestContext) {
-			// Enable authorization offload to XDP.
+			// Enable authorization offload to xdp.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
@@ -410,7 +410,6 @@ func TestHeaderAuthorization(t *testing.T) {
 			selectedHeaderName := "x-api-key"
 			selectedHeaderValue := "secret-token"
 			notSelectedHeaderValue := "wrong-token"
-			targetHttpPodPort := 18080  // Target HTTP Pod port
 			targetHttpServicePort := 80 // Target HTTP Service port
 
 			authzCases := []struct {
@@ -423,6 +422,12 @@ func TestHeaderAuthorization(t *testing.T) {
   action: ALLOW
 `,
 				},
+				{
+					name: "deny",
+					spec: `
+  action: DENY
+`,
+				},
 			}
 
 			chooseChecker := func(action string, headerMatches bool) echo.Checker {
@@ -432,6 +437,12 @@ func TestHeaderAuthorization(t *testing.T) {
 						return check.NotOK()
 					} else {
 						return check.OK()
+					}
+				case "deny":
+					if !headerMatches {
+						return check.OK()
+					} else {
+						return check.NotOK()
 					}
 				default:
 					t.Fatal("invalid action")
@@ -470,9 +481,10 @@ kind: AuthorizationPolicy
 metadata:
   name: header-policy
 spec:
-  selector:
-    matchLabels:
-      app: "{{.Destination}}"
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: "{{.Destination}}"
 `+tc.spec+`
   rules:
   - when:
@@ -497,7 +509,7 @@ spec:
 					}
 
 					var name string
-					name = fmt.Sprintf("%s, %s on service port %d (pod port %d)", tc.name, headerTest.description, targetHttpServicePort, targetHttpPodPort)
+					name = fmt.Sprintf("%s, %s on service port %d", tc.name, headerTest.description, targetHttpServicePort)
 
 					opt.Check = chooseChecker(tc.name, headerTest.matches)
 
@@ -539,6 +551,12 @@ func TestHostAuthorization(t *testing.T) {
   action: ALLOW
 `,
 				},
+				{
+					name: "deny",
+					spec: `
+  action: DENY
+`,
+				},
 			}
 
 			hostTestCases := []struct {
@@ -566,6 +584,12 @@ func TestHostAuthorization(t *testing.T) {
 					} else {
 						return check.OK()
 					}
+				case "deny":
+					if !hostMatches {
+						return check.OK()
+					} else {
+						return check.NotOK()
+					}
 				default:
 					t.Fatal("invalid action")
 				}
@@ -585,9 +609,10 @@ kind: AuthorizationPolicy
 metadata:
   name: host-policy
 spec:
-  selector:
-    matchLabels:
-      app: "{{.Destination}}"
+  targetRefs:
+  - kind: Service
+    group: ""
+    name: "{{.Destination}}"
 `+tc.spec+`
   rules:
   - to:
