@@ -391,3 +391,237 @@ spec:
 		})
 	})
 }
+
+func TestHeaderAuthorization(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.NewSubTest("Header Authorization").Run(func(t framework.TestContext) {
+			// Enable authorization offload to xdp.
+
+			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
+				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
+			}
+			src := apps.EnrolledToKmesh[0]
+
+			clients := src.WorkloadsOrFail(t)
+			client := clients[0]
+			dst := apps.ServiceWithWaypointAtServiceGranularity
+
+			// Define the test header and ports - use pod port
+			selectedHeaderName := "x-api-key"
+			selectedHeaderValue := "secret-token"
+			notSelectedHeaderValue := "wrong-token"
+			targetHttpPodPort := 18080  // Target HTTP Pod port
+			targetHttpServicePort := 80 // Target HTTP Service port
+
+			authzCases := []struct {
+				name string
+				spec string
+			}{
+				{
+					name: "allow",
+					spec: `
+  action: ALLOW
+`,
+				},
+			}
+
+			chooseChecker := func(action string, headerMatches bool) echo.Checker {
+				switch action {
+				case "allow":
+					if !headerMatches {
+						return check.NotOK()
+					} else {
+						return check.OK()
+					}
+				default:
+					t.Fatal("invalid action")
+				}
+
+				return check.OK()
+			}
+
+			headerTestCases := []struct {
+				headerValue string
+				matches     bool
+				description string
+			}{
+				{
+					headerValue: selectedHeaderValue,
+					matches:     true,
+					description: "matching header",
+				},
+				{
+					headerValue: notSelectedHeaderValue,
+					matches:     false,
+					description: "non-matching header",
+				},
+			}
+
+			waitForXDPOnDstWorkloads(t, dst)
+
+			for _, tc := range authzCases {
+
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"HeaderName":  selectedHeaderName,
+					"HeaderValue": selectedHeaderValue,
+				}, `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: header-policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{.Destination}}"
+`+tc.spec+`
+  rules:
+  - when:
+    - key: request.headers[{{.HeaderName}}]
+      values: ["{{.HeaderValue}}"]
+`).ApplyOrFail(t)
+
+				for _, headerTest := range headerTestCases {
+					opt := echo.CallOptions{
+						To:     dst,
+						Port:   echo.Port{Name: "http", ServicePort: targetHttpServicePort},
+						Scheme: scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/api/test",
+							Headers: map[string][]string{
+								selectedHeaderName: {headerTest.headerValue},
+							},
+						},
+						NewConnectionPerRequest: true,
+						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
+						Timeout: time.Minute * 2,
+					}
+
+					var name string
+					name = fmt.Sprintf("%s, %s on service port %d (pod port %d)", tc.name, headerTest.description, targetHttpServicePort, targetHttpPodPort)
+
+					opt.Check = chooseChecker(tc.name, headerTest.matches)
+
+					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
+						src.WithWorkloads(client).CallOrFail(t, opt)
+					})
+				}
+			}
+		})
+	})
+}
+
+func TestHostAuthorization(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.NewSubTest("Host Authorization").Run(func(t framework.TestContext) {
+			// Enable authorization offload to xdp.
+
+			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
+				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
+			}
+			src := apps.EnrolledToKmesh[0]
+
+			clients := src.WorkloadsOrFail(t)
+			client := clients[0]
+			dst := apps.ServiceWithWaypointAtServiceGranularity
+
+			// Define variables
+			selectedHost := "example.com"
+			notSelectedHost := "wrong.example.com"
+			targetHttpServicePort := 80
+
+			authzCases := []struct {
+				name string
+				spec string
+			}{
+				{
+					name: "allow",
+					spec: `
+  action: ALLOW
+`,
+				},
+			}
+
+			hostTestCases := []struct {
+				hostValue   string
+				matches     bool
+				description string
+			}{
+				{
+					hostValue:   selectedHost,
+					matches:     true,
+					description: "matching host",
+				},
+				{
+					hostValue:   notSelectedHost,
+					matches:     false,
+					description: "non-matching host",
+				},
+			}
+
+			chooseChecker := func(action string, hostMatches bool) echo.Checker {
+				switch action {
+				case "allow":
+					if !hostMatches {
+						return check.NotOK()
+					} else {
+						return check.OK()
+					}
+				default:
+					t.Fatal("invalid action")
+				}
+
+				return check.OK()
+			}
+
+			waitForXDPOnDstWorkloads(t, dst)
+
+			for _, tc := range authzCases {
+
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"TargetHost":  selectedHost,
+				}, `apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: host-policy
+spec:
+  selector:
+    matchLabels:
+      app: "{{.Destination}}"
+`+tc.spec+`
+  rules:
+  - to:
+    - operation:
+        hosts: ["{{.TargetHost}}"]
+`).ApplyOrFail(t)
+
+				for _, hostTest := range hostTestCases {
+					opt := echo.CallOptions{
+						To:     dst,
+						Port:   echo.Port{Name: "http", ServicePort: targetHttpServicePort},
+						Scheme: scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/api/test",
+							Headers: map[string][]string{
+								"Host": {hostTest.hostValue},
+							},
+						},
+						NewConnectionPerRequest: true,
+						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
+						Timeout: time.Minute * 2,
+					}
+
+					var name string
+					name = tc.name + ", " + hostTest.description
+
+					opt.Check = chooseChecker(tc.name, hostTest.matches)
+
+					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
+						src.WithWorkloads(client).CallOrFail(t, opt)
+					})
+				}
+
+			}
+		})
+	})
+}
