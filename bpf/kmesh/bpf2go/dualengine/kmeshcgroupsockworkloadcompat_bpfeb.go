@@ -120,6 +120,7 @@ type KmeshCgroupSockWorkloadCompatMapSpecs struct {
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcpProbe    *ebpf.MapSpec `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmWaypoint    *ebpf.MapSpec `ebpf:"km_waypoint"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
 	KmXdpTailcall *ebpf.MapSpec `ebpf:"km_xdp_tailcall"`
 	KmeshMap1600  *ebpf.MapSpec `ebpf:"kmesh_map1600"`
@@ -170,6 +171,7 @@ type KmeshCgroupSockWorkloadCompatMaps struct {
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcpProbe    *ebpf.Map `ebpf:"km_tcp_probe"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmWaypoint    *ebpf.Map `ebpf:"km_waypoint"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
 	KmXdpTailcall *ebpf.Map `ebpf:"km_xdp_tailcall"`
 	KmeshMap1600  *ebpf.Map `ebpf:"kmesh_map1600"`
@@ -194,6 +196,7 @@ func (m *KmeshCgroupSockWorkloadCompatMaps) Close() error {
 		m.KmSockstorage,
 		m.KmTcpProbe,
 		m.KmTmpbuf,
+		m.KmWaypoint,
 		m.KmWlpolicy,
 		m.KmXdpTailcall,
 		m.KmeshMap1600,

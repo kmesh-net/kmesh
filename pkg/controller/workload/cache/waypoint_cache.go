@@ -32,6 +32,8 @@ type WaypointCache interface {
 	AddOrUpdateWorkload(workload *workloadapi.Workload) bool
 	DeleteWorkload(uid string)
 
+	GetAssociatedObjectsByResourceName(name string) *waypointAssociatedObjects
+
 	// Refresh is used to process waypoint service.
 	// If it is a newly added waypoint service, it returns a series of services and workloads that need to be updated
 	// whose hostname type waypoint address should be converted to IP address type. These services and workloads were
@@ -111,7 +113,7 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) bool {
 	if associated, ok := w.waypointAssociatedObjects[waypointResourceName]; ok {
 		if associated.isResolved() {
 			// The waypoint corresponding to this service has been resolved.
-			updateServiceWaypoint(svc, associated.waypointAddress())
+			updateServiceWaypoint(svc, associated.WaypointAddress())
 			ret = true
 		}
 	} else {
@@ -148,6 +150,15 @@ func (w *waypointCache) DeleteService(resourceName string) {
 	delete(w.waypointAssociatedObjects, resourceName)
 }
 
+func (w *waypointCache) GetAssociatedObjectsByResourceName(name string) *waypointAssociatedObjects {
+	w.mutex.RLock()
+	defer w.mutex.RUnlock()
+	if v, ok := w.waypointAssociatedObjects[name]; ok {
+		return v
+	}
+	return nil
+}
+
 func (w *waypointCache) AddOrUpdateWorkload(workload *workloadapi.Workload) bool {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
@@ -180,7 +191,7 @@ func (w *waypointCache) AddOrUpdateWorkload(workload *workloadapi.Workload) bool
 	if associated, ok := w.waypointAssociatedObjects[waypointResourceName]; ok {
 		if associated.isResolved() {
 			// The waypoint corresponding to this service has been resolved.
-			updateWorkloadWaypoint(workload, associated.waypointAddress())
+			updateWorkloadWaypoint(workload, associated.WaypointAddress())
 			ret = true
 		}
 	} else {
@@ -226,7 +237,7 @@ func (w *waypointCache) Refresh(svc *workloadapi.Service) ([]*workloadapi.Servic
 
 	// If this svc is a waypoint service, may need refreshing.
 	if associated, ok := w.waypointAssociatedObjects[resourceName]; ok {
-		waypointAddr := associated.waypointAddress()
+		waypointAddr := associated.WaypointAddress()
 		if waypointAddr != nil && waypointAddr.String() == address.String() {
 			return nil, nil
 		}
@@ -265,7 +276,7 @@ func (w *waypointAssociatedObjects) isResolved() bool {
 	return w.address != nil
 }
 
-func (w *waypointAssociatedObjects) waypointAddress() *workloadapi.NetworkAddress {
+func (w *waypointAssociatedObjects) WaypointAddress() *workloadapi.NetworkAddress {
 	return w.address
 }
 
