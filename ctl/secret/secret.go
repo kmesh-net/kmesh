@@ -151,4 +151,5 @@ func createSecretWithRandomKey() {
 			os.Exit(1)
 		}
 	}
+	log.Infof("IPsec secret created successfully")
 }
