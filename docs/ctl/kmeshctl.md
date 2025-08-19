@@ -14,6 +14,6 @@ Kmesh command line tools to operate and debug Kmesh
 * [kmeshctl dump](kmeshctl_dump.md) - Dump config of kernel-native or dual-engine mode
 * [kmeshctl log](kmeshctl_log.md) - Get or set kmesh-daemon's logger level
 * [kmeshctl monitoring](kmeshctl_monitoring.md) - Control Kmesh's monitoring to be turned on as needed
-* [kmeshctl secret](kmeshctl_secret.md) - Use secrets to generate secret configuration data for IPsec
+* [kmeshctl secret](kmeshctl_secret.md) - Manage IPsec secrets for Kmesh
 * [kmeshctl version](kmeshctl_version.md) - Prints out build version info
 * [kmeshctl waypoint](kmeshctl_waypoint.md) - Manage waypoint configuration
