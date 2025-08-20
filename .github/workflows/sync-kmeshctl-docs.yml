@@ -1,4 +1,4 @@
-name: Sync kmeshctl Docs to Website
+name: Sync kmeshctl Docs to Website (via PR)
 
 on:
   push:
@@ -17,15 +17,16 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: kmesh-net/website
-          token: ${{ secrets.WEBSITE_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           path: website
+          ref: main
           fetch-depth: 1
 
       - name: 🧭 Checkout kmesh repository
         uses: actions/checkout@v4
         with:
           repository: kmesh-net/kmesh
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }} 
           path: kmesh
           fetch-depth: 1
 
@@ -39,67 +40,32 @@ jobs:
           echo "🔍 Source directory: $KMESH_CTL_DIR"
           echo "🎯 Target directory: $WEBSITE_KMESHCTL_DIR"
 
-          # ✅ Check if source directory exists
           if [ ! -d "$KMESH_CTL_DIR" ]; then
-            echo "❌ ERROR: Source directory $KMESH_CTL_DIR does not exist!"
-            ls -la /github/workspace/kmesh/docs/
+            echo "❌ ERROR: Source directory does not exist!"
             exit 1
           fi
 
-          # 📁 Create target directory if not exists
           if [ ! -d "$WEBSITE_KMESHCTL_DIR" ]; then
             echo "📁 Creating $WEBSITE_KMESHCTL_DIR..."
             mkdir -p "$WEBSITE_KMESHCTL_DIR"
           fi
 
-          # 🔍 LOG SOURCE FILES before sync
-          echo "📄 Files in SOURCE ($KMESH_CTL_DIR) before sync:"
-          if [ -d "$KMESH_CTL_DIR" ]; then
-            find "$KMESH_CTL_DIR" -type f | sort || echo "No files found"
-          else
-            echo "❌ Source directory missing!"
-            exit 1
-          fi
+          echo "📄 Files in SOURCE before sync:"
+          find "$KMESH_CTL_DIR" -type f | sort
 
-          # 🔍 LOG TARGET FILES before sync
-          echo "📄 Files in TARGET ($WEBSITE_KMESHCTL_DIR) before sync:"
-          if [ -d "$WEBSITE_KMESHCTL_DIR" ]; then
-            find "$WEBSITE_KMESHCTL_DIR" -type f | sort || echo "No files found"
-          else
-            echo "⚠️ Target directory empty or missing"
-          fi
+          echo "🔄 Syncing files with rsync..."
+          rsync -avc --delete --exclude='.git' --exclude='.*' "$KMESH_CTL_DIR/" "$WEBSITE_KMESHCTL_DIR/"
 
-          # 🔄 Run rsync to sync files with checksum for content changes
-          echo "🔄 Syncing files with rsync (using checksum for content comparison)..."
-          rsync -avc --delete --exclude='.git' --exclude='.*' "$KMESH_CTL_DIR/" "$WEBSITE_KMESHCTL_DIR/" || {
-            echo "❌ ERROR: rsync synchronization failed!"
-            exit 1
-          }
+          echo "📄 Files in TARGET after sync:"
+          find "$WEBSITE_KMESHCTL_DIR" -type f | sort
 
-          # 🔍 LOG TARGET FILES after sync
-          echo "📄 Files in TARGET ($WEBSITE_KMESHCTL_DIR) after sync:"
-          if [ -d "$WEBSITE_KMESHCTL_DIR" ]; then
-            find "$WEBSITE_KMESHCTL_DIR" -type f | sort || echo "No files copied"
-          else
-            echo "❌ ERROR: Target directory not created!"
-            exit 1
-          fi
-
-          # 🔀 Go into website repo
           cd /github/workspace/website
 
-          # 📥 Refresh Git index and stage all changes
-          echo "🔍 Refreshing Git index and staging changes in docs/kmeshctl/..."
-          git reset --hard
+          # Stage changes
           git add -A docs/kmeshctl/
 
-          # 🔍 Show what was staged
-          echo "📌 Staged changes:"
-          git diff --cached --name-only || echo "No changes staged"
-
-          # ✅ Check if there are any changes
           if git diff --cached --quiet; then
-            echo "✅ No changes detected. All docs are up to date."
+            echo "✅ No changes detected."
             exit 0
           else
             echo "✨ Changes detected. Creating commit..."
@@ -107,18 +73,24 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
 
-            git commit -m 'docs: sync kmeshctl docs from kmesh-net/kmesh' || {
-              echo "❌ ERROR: Commit failed!"
-              git status
-              exit 1
-            }
-
-            echo "📤 Pushing changes to kmesh-net/website..."
-            git push origin main || {
-              echo "❌ ERROR: Push failed!"
-              git status
-              exit 1
-            }
-
-            echo "🎉 Sync completed successfully!"
+            git commit -m 'docs: sync kmeshctl docs from kmesh-net/kmesh'
+            echo "✅ Commit created."
           fi
+
+      - name: 🤝 Create Pull Request
+        if: ${{ success() }}
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.WEBSITE_PAT }} 
+          path: website
+          branch: automated/sync-kmeshctl-docs-${{ github.run_id }}
+          base: main
+          title: "docs: sync latest kmeshctl documentation"
+          body: |
+            This PR syncs the latest changes from [kmesh/docs/ctl](https://github.com/kmesh-net/kmesh/tree/main/docs/ctl).
+
+            🔍 **Please review before merging.**
+
+            _Automated by GitHub Actions._
+          commit-message: "docs: sync kmeshctl docs"
+          delete-branch: true
