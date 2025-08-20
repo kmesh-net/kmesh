@@ -1,0 +1,96 @@
+name: Sync kmeshctl Docs to Website (via PR)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - docs/ctl/**
+      - .github/workflows/sync-kmeshctl-docs.yml
+
+jobs:
+  sync-docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧭 Checkout website repository
+        uses: actions/checkout@v4
+        with:
+          repository: kmesh-net/website
+          token: ${{ secrets.GITHUB_TOKEN }}
+          path: website
+          ref: main
+          fetch-depth: 1
+
+      - name: 🧭 Checkout kmesh repository
+        uses: actions/checkout@v4
+        with:
+          repository: kmesh-net/kmesh
+          token: ${{ secrets.GITHUB_TOKEN }} 
+          path: kmesh
+          fetch-depth: 1
+
+      - name: 🔁 Sync kmeshctl Docs Using rsync
+        run: |
+          set -e
+
+          KMESH_CTL_DIR="/github/workspace/kmesh/docs/ctl"
+          WEBSITE_KMESHCTL_DIR="/github/workspace/website/docs/kmeshctl"
+
+          echo "🔍 Source directory: $KMESH_CTL_DIR"
+          echo "🎯 Target directory: $WEBSITE_KMESHCTL_DIR"
+
+          if [ ! -d "$KMESH_CTL_DIR" ]; then
+            echo "❌ ERROR: Source directory does not exist!"
+            exit 1
+          fi
+
+          if [ ! -d "$WEBSITE_KMESHCTL_DIR" ]; then
+            echo "📁 Creating $WEBSITE_KMESHCTL_DIR..."
+            mkdir -p "$WEBSITE_KMESHCTL_DIR"
+          fi
+
+          echo "📄 Files in SOURCE before sync:"
+          find "$KMESH_CTL_DIR" -type f | sort
+
+          echo "🔄 Syncing files with rsync..."
+          rsync -avc --delete --exclude='.git' --exclude='.*' "$KMESH_CTL_DIR/" "$WEBSITE_KMESHCTL_DIR/"
+
+          echo "📄 Files in TARGET after sync:"
+          find "$WEBSITE_KMESHCTL_DIR" -type f | sort
+
+          cd /github/workspace/website
+
+          # Stage changes
+          git add -A docs/kmeshctl/
+
+          if git diff --cached --quiet; then
+            echo "✅ No changes detected."
+            exit 0
+          else
+            echo "✨ Changes detected. Creating commit..."
+
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+
+            git commit -m 'docs: sync kmeshctl docs from kmesh-net/kmesh'
+            echo "✅ Commit created."
+          fi
+
+      - name: 🤝 Create Pull Request
+        if: ${{ success() }}
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.WEBSITE_PAT }} 
+          path: website
+          branch: automated/sync-kmeshctl-docs-${{ github.run_id }}
+          base: main
+          title: "docs: sync latest kmeshctl documentation"
+          body: |
+            This PR syncs the latest changes from [kmesh/docs/ctl](https://github.com/kmesh-net/kmesh/tree/main/docs/ctl).
+
+            🔍 **Please review before merging.**
+
+            _Automated by GitHub Actions._
+          commit-message: "docs: sync kmeshctl docs"
+          delete-branch: true
