@@ -837,14 +837,6 @@ func testSendMsg(t *testing.T) {
 						}
 						defer listener.Close()
 
-						const (
-							tlvOrgDstAddrType     = 0x01
-							tlvIPv4DataLen        = 6
-							tlvPayloadType        = 0xFE
-							tlvEndLengthIndicator = 0x00000000
-							expectedMinRecvSize   = 16
-						)
-
 						go func() {
 							defer wg.Done()
 							conn, err := listener.Accept()
@@ -862,35 +854,12 @@ func testSendMsg(t *testing.T) {
 							}
 							t.Logf("Server received data: % x", buf[:n])
 							//check
-							if n < expectedMinRecvSize {
-								t.Errorf("Received data too short for TLV format")
-								return
-							}
-							if buf[0] != tlvOrgDstAddrType {
-								t.Errorf("Unexpected TLV Type: got %#x, want %#x", buf[0], tlvOrgDstAddrType)
-							}
-							length := binary.BigEndian.Uint32(buf[1:5])
-							if length != tlvIPv4DataLen {
-								t.Errorf("Unexpected TLV Length: got %d, want %d", length, tlvIPv4DataLen)
-							}
-
-							ip := net.IPv4(buf[5], buf[6], buf[7], buf[8])
 							expectedIP := net.IPv4(8, 8, 8, 8)
-							if !ip.Equal(expectedIP) {
-								t.Errorf("Unexpected TLV IP: got %v, want %v", ip, expectedIP)
-							}
+							expectedPort := uint16(53)
 
-							port := binary.BigEndian.Uint16(buf[9:11])
-							if port != 53 {
-								t.Errorf("Unexpected TLV Port: got %d, want 53", port)
-							}
-
-							if buf[11] != tlvPayloadType {
-								t.Errorf("Missing or wrong TLV EndTag: got %#x, want %#x", buf[11], tlvPayloadType)
-							}
-							endLength := binary.BigEndian.Uint32(buf[12:16])
-							if endLength != tlvEndLengthIndicator {
-								t.Errorf("Unexpected TLV End Length: got %#08x, want %#08x", endLength, tlvEndLengthIndicator)
+							err = ValidateTLVMessage(t, buf[:n], expectedIP, expectedPort)
+							if err != nil {
+								t.Errorf("TLV validation failed: %v", err)
 							}
 						}()
 						// try to connect to the server using the specified client port
@@ -1001,14 +970,6 @@ func testSendMsg(t *testing.T) {
 							t.Fatalf("Failed to start TCP server: %v", err)
 						}
 						defer listener.Close()
-						const (
-							tlvOrgDstAddrType     = 0x01
-							tlvIPv6DataLen        = 18
-							tlvPayloadType        = 0xFE
-							tlvEndLengthIndicator = 0x00000000
-							expectedMinRecvSize   = 28
-						)
-
 						go func() {
 							defer wg.Done()
 							conn, err := listener.Accept()
@@ -1025,36 +986,12 @@ func testSendMsg(t *testing.T) {
 								return
 							}
 							t.Logf("Server received data: % x", buf[:n])
-							if n < expectedMinRecvSize {
-								t.Errorf("Received data too short for IPv6 TLV format: got %d", n)
-								return
-							}
-							if buf[0] != tlvOrgDstAddrType {
-								t.Errorf("Unexpected TLV Type: got %#x, want %#x", buf[0], tlvOrgDstAddrType)
-							}
+							expectedIP := net.ParseIP("fc00:dead:beef:1234::abcd")
+							expectedPort := uint16(53)
 
-							length := binary.BigEndian.Uint32(buf[1:5])
-							if length != tlvIPv6DataLen {
-								t.Errorf("Unexpected TLV Length: got %d, want %d", length, tlvIPv6DataLen)
-							}
-
-							ip := net.IP(buf[5:21])
-							expectedIP := net.ParseIP("fc00:dead:beef:1234::abcd").To16()
-							if !ip.Equal(expectedIP) {
-								t.Errorf("Unexpected TLV IPv6: got %v, want %v", ip, expectedIP)
-							}
-
-							port := binary.BigEndian.Uint16(buf[21:23])
-							if port != 53 {
-								t.Errorf("Unexpected TLV Port: got %d, want 53", port)
-							}
-
-							if buf[23] != tlvPayloadType {
-								t.Errorf("Missing or wrong TLV EndTag: got %#x, want %#x", buf[23], tlvPayloadType)
-							}
-							endLength := binary.BigEndian.Uint32(buf[24:28])
-							if endLength != tlvEndLengthIndicator {
-								t.Errorf("Unexpected TLV End Length: got %#08x, want %#08x", endLength, tlvEndLengthIndicator)
+							err = ValidateTLVMessage(t, buf[:n], expectedIP, expectedPort)
+							if err != nil {
+								t.Errorf("TLV validation failed: %v", err)
 							}
 						}()
 
