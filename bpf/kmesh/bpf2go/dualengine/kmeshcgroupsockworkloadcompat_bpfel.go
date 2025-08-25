@@ -98,6 +98,8 @@ type KmeshCgroupSockWorkloadCompatSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshCgroupSockWorkloadCompatProgramSpecs struct {
+	BpfRedirectDnsSend *ebpf.ProgramSpec `ebpf:"bpf_redirect_dns_send"`
+	BpfRestoreDnsRecv  *ebpf.ProgramSpec `ebpf:"bpf_restore_dns_recv"`
 	CgroupConnect4Prog *ebpf.ProgramSpec `ebpf:"cgroup_connect4_prog"`
 	CgroupConnect6Prog *ebpf.ProgramSpec `ebpf:"cgroup_connect6_prog"`
 }
@@ -215,12 +217,16 @@ type KmeshCgroupSockWorkloadCompatVariables struct {
 //
 // It can be passed to LoadKmeshCgroupSockWorkloadCompatObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshCgroupSockWorkloadCompatPrograms struct {
+	BpfRedirectDnsSend *ebpf.Program `ebpf:"bpf_redirect_dns_send"`
+	BpfRestoreDnsRecv  *ebpf.Program `ebpf:"bpf_restore_dns_recv"`
 	CgroupConnect4Prog *ebpf.Program `ebpf:"cgroup_connect4_prog"`
 	CgroupConnect6Prog *ebpf.Program `ebpf:"cgroup_connect6_prog"`
 }
 
 func (p *KmeshCgroupSockWorkloadCompatPrograms) Close() error {
 	return _KmeshCgroupSockWorkloadCompatClose(
+		p.BpfRedirectDnsSend,
+		p.BpfRestoreDnsRecv,
 		p.CgroupConnect4Prog,
 		p.CgroupConnect6Prog,
 	)
