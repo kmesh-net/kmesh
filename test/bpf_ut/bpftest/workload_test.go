@@ -22,12 +22,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"os"
 	"path"
 	"strconv"
 	"strings"
+	sync "sync"
 	"syscall"
 	"testing"
 	"time"
@@ -52,6 +54,7 @@ import (
 func testWorkload(t *testing.T) {
 	t.Run("XDP", testXDP)
 	t.Run("SockOps", testSockOps)
+	t.Run("SendMsg", testSendMsg)
 }
 
 func testXDP(t *testing.T) {
@@ -765,5 +768,318 @@ func get_local_ipv4(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("Failed to extract host from address: %v", err)
 	}
+	return localAddr
+}
+func testSendMsg(t *testing.T) {
+	tests := []unitTests_BUILD_CONTEXT{
+		{
+			objFilename: "workload_sendmsg_test.o",
+			uts: []unitTest_BUILD_CONTEXT{
+				{
+					//eg:[0x01][00 00 00 06][08 08 08 08][00 35][0xFE][00 00 00 00]...
+					name: "IPV4_TLV",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						//load the eBPF program
+						spec := loadAndPrepSpec(t, path.Join(*testPath, objFilePath))
+						var (
+							coll *ebpf.Collection
+							err  error
+						)
+						t.Log(path.Join(*testPath, objFilePath))
+						//Load the eBPF collection into the kernel
+						coll, err = ebpf.NewCollection(spec)
+						if err != nil {
+							var ve *ebpf.VerifierError
+							if errors.As(err, &ve) {
+								t.Fatalf("verifier error: %+v", ve)
+							} else {
+								t.Fatal("loading collection:", err)
+							}
+						}
+						defer coll.Close()
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						var wg sync.WaitGroup
+						wg.Add(1)
+						// Get the sockhash and the program
+						sockMap := coll.Maps["map_of_kmesh_sendmsg"]
+						prog := coll.Programs["sendmsg_prog"]
+						if sockMap == nil || prog == nil {
+							t.Fatal("sockMap or sendmsg_prog not found")
+						}
+						//Attach sendmsg_prog to sockhash
+						err = link.RawAttachProgram(link.RawAttachProgramOptions{
+							Attach:  ebpf.AttachSkMsgVerdict,
+							Target:  sockMap.FD(),
+							Program: prog,
+						})
+
+						if err != nil {
+							var errno syscall.Errno
+							if errors.As(err, &errno) {
+								t.Fatalf("Attach failed: %v (errno=%d)", err, errno)
+							} else {
+								t.Fatalf("Attach failed: %v", err)
+							}
+						}
+						localIP := get_local_ipv4(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := localIP + ":" + strconv.Itoa(serverPort)
+						listener, err := net.Listen("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+
+						go func() {
+							defer wg.Done()
+							conn, err := listener.Accept()
+							if err != nil {
+								t.Error(err)
+								return
+							}
+							defer conn.Close()
+
+							buf := make([]byte, 256)
+							n, err := conn.Read(buf)
+							if err != nil {
+								t.Error(err)
+								return
+							}
+							t.Logf("Server received data: % x", buf[:n])
+							//check
+							expectedIP := net.IPv4(8, 8, 8, 8)
+							expectedPort := uint16(53)
+
+							err = ValidateTLVMessage(t, buf[:n], expectedIP, expectedPort)
+							if err != nil {
+								t.Errorf("TLV validation failed: %v", err)
+							}
+						}()
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Dial failed: %v", err)
+						}
+						defer conn.Close()
+						//Get fd
+						fd, err := getSysFd(conn)
+						if err != nil {
+							t.Fatal(err)
+						}
+						//Insert data into sockmap
+						type bpfSockTuple4 struct {
+							Saddr [4]byte
+							Daddr [4]byte
+							Sport uint16
+							Dport uint16
+							_     [24]byte
+						}
+						var tupleKey bpfSockTuple4
+						copy(tupleKey.Saddr[:], net.ParseIP(localIP).To4())
+						copy(tupleKey.Daddr[:], net.ParseIP(localIP).To4())
+						tupleKey.Sport = uint16(htons(uint16(clientPort)))
+						tupleKey.Dport = uint16(htons(uint16(serverPort)))
+						fd32 := uint32(fd)
+						err = sockMap.Update(&tupleKey, &fd32, ebpf.UpdateAny)
+						if err != nil {
+							t.Fatalf("failed to update sockhash: %v", err)
+						} else {
+							t.Logf("Update successful for key: %+v, fd: %d", tupleKey, fd32)
+						}
+						//Send data to trigger
+						_, err = conn.Write([]byte("hello eBPF"))
+						if err != nil {
+							t.Fatal(err)
+						}
+						wg.Wait()
+					},
+				},
+				{
+					//eg:[0x01][00 00 00 12][fc 00 de ad be ef 12 34 00 00 00 00 00 00 ab cd][00 35][0xFE][00 00 00 00]
+					name: "IPV6_TLV",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						var wg sync.WaitGroup
+						wg.Add(1)
+
+						//load the eBPF program
+						spec := loadAndPrepSpec(t, path.Join(*testPath, objFilePath))
+						var (
+							coll *ebpf.Collection
+							err  error
+						)
+						t.Log(path.Join(*testPath, objFilePath))
+						//Load the eBPF collection into the kernel
+						coll, err = ebpf.NewCollection(spec)
+						if err != nil {
+							var ve *ebpf.VerifierError
+							if errors.As(err, &ve) {
+								t.Fatalf("verifier error: %+v", ve)
+							} else {
+								t.Fatal("loading collection:", err)
+							}
+						}
+						defer coll.Close()
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						//Retrieve the sockhash and the program
+						sockMap := coll.Maps["map_of_kmesh_sendmsg"]
+						prog := coll.Programs["sendmsg_prog"]
+						if sockMap == nil || prog == nil {
+							t.Fatal("sockMap or sendmsg_prog not found")
+						}
+						//Attach sendmsg_prog to sockhash
+						err = link.RawAttachProgram(link.RawAttachProgramOptions{
+							Attach:  ebpf.AttachSkMsgVerdict,
+							Target:  sockMap.FD(),
+							Program: prog,
+						})
+
+						if err != nil {
+							var errno syscall.Errno
+							if errors.As(err, &errno) {
+								t.Fatalf("Attach failed: %v (errno=%d)", err, errno)
+							} else {
+								t.Fatalf("Attach failed: %v", err)
+							}
+						}
+
+						localIP := get_local_ipv6(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := "[" + localIP + "]" + ":" + strconv.Itoa(serverPort)
+						listener, err := net.Listen("tcp6", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+						go func() {
+							defer wg.Done()
+							conn, err := listener.Accept()
+							if err != nil {
+								t.Error(err)
+								return
+							}
+							defer conn.Close()
+
+							buf := make([]byte, 256)
+							n, err := conn.Read(buf)
+							if err != nil {
+								t.Error(err)
+								return
+							}
+							t.Logf("Server received data: % x", buf[:n])
+							expectedIP := net.ParseIP("fc00:dead:beef:1234::abcd")
+							expectedPort := uint16(53)
+
+							err = ValidateTLVMessage(t, buf[:n], expectedIP, expectedPort)
+							if err != nil {
+								t.Errorf("TLV validation failed: %v", err)
+							}
+						}()
+
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp6", serverSocket)
+						if err != nil {
+							t.Logf("accept failed: %v", err)
+							return
+						}
+						defer conn.Close()
+						// get  fd
+						fd, err := getSysFd(conn)
+						if err != nil {
+							t.Fatal(err)
+						}
+						//insert sockmap
+						type bpfSockTuple6 struct {
+							Saddr [16]byte
+							Daddr [16]byte
+							Sport uint16
+							Dport uint16
+						}
+						var tupleKey bpfSockTuple6
+						copy(tupleKey.Saddr[:], net.ParseIP(localIP).To16())
+						copy(tupleKey.Daddr[:], net.ParseIP(localIP).To16())
+						tupleKey.Sport = uint16(htons(uint16(clientPort)))
+						tupleKey.Dport = uint16(htons(uint16(serverPort)))
+						// pass fd
+						fd32 := uint32(fd)
+						err = sockMap.Update(&tupleKey, &fd32, ebpf.UpdateAny)
+						if err != nil {
+							t.Fatalf("failed to update sockhash: %v", err)
+						} else {
+							t.Logf("Update successful for key: %+v, fd: %d", tupleKey, fd32)
+						}
+						//Send data to trigger
+						_, err = conn.Write([]byte("hello eBPF"))
+						if err != nil {
+							t.Fatal(err)
+						}
+						wg.Wait()
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.objFilename, tt.run())
+	}
+}
+func getSysFd(conn net.Conn) (int, error) {
+	rawConn, ok := conn.(syscall.Conn)
+	if !ok {
+		return 0, fmt.Errorf("conn does not implement syscall.Conn")
+	}
+	rc, err := rawConn.SyscallConn()
+	if err != nil {
+		return 0, fmt.Errorf("SyscallConn() failed: %v", err)
+	}
+	var fd int
+	err = rc.Control(func(s uintptr) {
+		fd = int(s)
+	})
+	if err != nil {
+		return 0, fmt.Errorf("Control() failed: %v", err)
+	}
+	return fd, nil
+}
+func htons(i uint16) uint16 {
+	return (i<<8)&0xff00 | i>>8
+}
+func get_local_ipv6(t *testing.T) string {
+	testConn, testErr := net.Dial("tcp6", "[2001:4860:4860::8888]:53")
+	if testErr != nil {
+		t.Skipf("Skipping IPv6 test: network not reachable (%v)", testErr)
+	}
+	defer testConn.Close()
+
+	localAddr, _, err := net.SplitHostPort(testConn.LocalAddr().String())
+	if err != nil {
+		t.Fatalf("Failed to extract host from address: %v", err)
+	}
+	t.Log(localAddr)
 	return localAddr
 }
