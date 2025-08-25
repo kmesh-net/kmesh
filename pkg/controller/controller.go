@@ -190,6 +190,9 @@ func (c *Controller) Stop() {
 	if c.dnsServer != nil {
 		c.dnsServer.Close()
 	}
+	if c.client.WorkloadController != nil {
+		c.client.WorkloadController.Close()
+	}
 }
 
 func (c *Controller) GetXdsClient() *XdsClient {

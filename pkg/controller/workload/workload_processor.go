@@ -126,6 +126,13 @@ func (p *Processor) PrepareDNSProxy() error {
 	return nil
 }
 
+func (p *Processor) Close() error {
+	bk := &bpf.BackendKey{
+		BackendUid: 0,
+	}
+	return p.bpf.BackendDelete(bk)
+}
+
 func newDeltaRequest(typeUrl string, names []string, initialResourceVersions map[string]string) *service_discovery_v3.DeltaDiscoveryRequest {
 	return &service_discovery_v3.DeltaDiscoveryRequest{
 		TypeUrl:                 typeUrl,
