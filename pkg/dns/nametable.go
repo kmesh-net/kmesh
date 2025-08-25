@@ -20,7 +20,7 @@ import (
 	"net"
 
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	dnsProto "istio.io/istio/pkg/dns/proto"
+	dnsproto "istio.io/istio/pkg/dns/proto"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
@@ -33,7 +33,7 @@ var (
 )
 
 type NameTableBuilder interface {
-	BuildNameTable() *dnsProto.NameTable
+	BuildNameTable() *dnsproto.NameTable
 }
 
 type nameTableBuilder struct {
@@ -53,9 +53,9 @@ func NewNameTableBuilder(serviceCache cache.ServiceCache, workloadCache cache.Wo
 // BuildNameTable produces a table of hostnames and their associated IPs that can then
 // be used by the agent to resolve DNS. This logic is always active. However, local DNS resolution
 // will only be effective if DNS capture is enabled in the proxy
-func (b *nameTableBuilder) BuildNameTable() *dnsProto.NameTable {
-	out := &dnsProto.NameTable{
-		Table: make(map[string]*dnsProto.NameTable_NameInfo),
+func (b *nameTableBuilder) BuildNameTable() *dnsproto.NameTable {
+	out := &dnsproto.NameTable{
+		Table: make(map[string]*dnsproto.NameTable_NameInfo),
 	}
 
 	workloads := b.workloadCache.List()
@@ -96,7 +96,7 @@ func (b *nameTableBuilder) BuildNameTable() *dnsProto.NameTable {
 		hostName := svc.Hostname
 		registry := guessServiceRegistry(svc)
 		if ni, f := out.Table[hostName]; !f {
-			nameInfo := &dnsProto.NameTable_NameInfo{
+			nameInfo := &dnsproto.NameTable_NameInfo{
 				Ips:      addressList,
 				Registry: registry.String(),
 			}
