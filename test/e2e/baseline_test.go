@@ -193,6 +193,8 @@ spec:
   - name: http
     number: 80
     protocol: HTTP
+  addresses:
+  - 240.240.0.1
   resolution: DNS
 `).ApplyOrFail(t)
 		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
