@@ -56,9 +56,10 @@ func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWork
 		xdsConfig: config.GetConfig(mode),
 	}
 
-	if mode == constants.DualEngineMode {
+	switch mode {
+	case constants.DualEngineMode:
 		client.WorkloadController = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling)
-	} else if mode == constants.KernelNativeMode {
+	case constants.KernelNativeMode:
 		client.AdsController = ads.NewController(bpfAds)
 	}
 
