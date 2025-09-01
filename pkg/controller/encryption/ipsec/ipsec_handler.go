@@ -280,6 +280,10 @@ func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, ipse
 			Key:    key,
 			ICVLen: ipsecKey.Length,
 		},
+		OutputMark: &netlink.XfrmMark{
+			Value: 0x00d0,
+			Mask:  0xffffffff,
+		},
 	}
 	err := netlink.XfrmStateAdd(state)
 	if err != nil && !os.IsExist(err) {

@@ -12,16 +12,39 @@ int tc_mark_decrypt(struct __sk_buff *ctx)
 {
     struct nodeinfo *nodeinfo;
     struct tc_info info = {0};
+    __u8 protocol = 0;
+    bool decrypted = false;
+    __u32 mark = 0;
 
     if (parser_tc_info(ctx, &info)) {
         return TC_ACT_OK;
     }
-    nodeinfo = check_remote_manage_by_kmesh(ctx, &info, info.iph->saddr, info.ip6h->saddr.s6_addr32);
-    if (!nodeinfo) {
+    if (is_ipv4(&info)) {
+        protocol = info.iph->protocol;
+    } else if (is_ipv6(&info)) {
+        protocol = info.ip6h->nexthdr;
+    } else {
         return TC_ACT_OK;
     }
+
+    if (protocol == IPPROTO_ESP) {
+        return TC_ACT_OK;
+    }
+
+    mark = ctx->mark;
+    decrypted = (mark == 0x00d0); // if managed by kmesh, true managed by kmesh
+
+    if(decrypted) {
+        ctx->mark = 0x00d0;
+        return TC_ACT_OK;
+    }
+
+    // nodeinfo = check_remote_manage_by_kmesh(ctx, &info, info.iph->saddr, info.ip6h->saddr.s6_addr32);
+    // if (!nodeinfo) {
+    //     return TC_ACT_OK;
+    // }
     // 0x00d0 mean need decryption in ipsec
-    ctx->mark = 0x00d0;
+    ctx->mark = 0;
     return TC_ACT_OK;
 }
 
