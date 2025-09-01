@@ -14,3 +14,6 @@ deploy:
         memory: 800Mi
 kubernetesClusterDomain: cluster.local
 fullnameOverride: kmesh
+features:
+  dnsProxy:
+    enabled: true

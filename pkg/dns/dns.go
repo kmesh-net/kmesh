@@ -39,13 +39,16 @@ const (
 	DeRefreshInterval        = 15 * time.Second
 )
 
+type Resolver interface {
+	Resolve(m *dns.Msg) (*dns.Msg, error)
+}
+
 type DNSResolver struct {
-	client            *dns.Client
-	DnsChan           chan string
-	resolvConfServers []string
-	cache             map[string]*DomainCacheEntry
-	refreshQueue      workqueue.TypedDelayingInterface[any]
 	sync.RWMutex
+	DnsChan      chan string
+	cache        map[string]*DomainCacheEntry
+	refreshQueue workqueue.TypedDelayingInterface[any]
+	delegates    []Resolver
 }
 
 type DomainCacheEntry struct {
@@ -59,27 +62,31 @@ type DomainInfo struct {
 
 func NewDNSResolver() (*DNSResolver, error) {
 	r := &DNSResolver{
-		DnsChan: make(chan string, 100),
-		cache:   map[string]*DomainCacheEntry{},
-		client: &dns.Client{
-			DialTimeout:  5 * time.Second,
-			ReadTimeout:  5 * time.Second,
-			WriteTimeout: 5 * time.Second,
-		},
+		DnsChan:      make(chan string, 100),
+		cache:        map[string]*DomainCacheEntry{},
 		refreshQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "refreshQueue"}),
+		delegates:    []Resolver{},
 	}
 
 	dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
 		return nil, err
 	}
+
 	if dnsConfig != nil {
-		for _, s := range dnsConfig.Servers {
-			r.resolvConfServers = append(r.resolvConfServers, net.JoinHostPort(s, dnsConfig.Port))
+		ur := NewUpstreamResolver()
+		for _, server := range dnsConfig.Servers {
+			ur.WithUpstreams(net.JoinHostPort(server, dnsConfig.Port))
 		}
+		r.WithDelegateResolver(ur)
 	}
 
 	return r, nil
+}
+
+func (r *DNSResolver) WithDelegateResolver(resolvers ...Resolver) *DNSResolver {
+	r.delegates = append(r.delegates, resolvers...)
+	return r
 }
 
 func (r *DNSResolver) StartDnsResolver(stop <-chan struct{}) {
@@ -196,22 +203,27 @@ func (r *DNSResolver) doResolve(domain string) ([]string, time.Duration, error) 
 // Query is copied and adapted from github.com/istio/istio/pilot/pkg/model/network.go.
 func (r *DNSResolver) Query(req *dns.Msg) *dns.Msg {
 	var response *dns.Msg
-	for _, upstream := range r.resolvConfServers {
-		resp, _, err := r.client.Exchange(req, upstream)
-		if err != nil || resp == nil {
+
+	for _, resolver := range r.delegates {
+		res, err := resolver.Resolve(req)
+		if err != nil {
+			log.Errorf("failed to query delegate resolver: %v", err)
 			continue
 		}
 
-		response = resp
-		if resp.Rcode == dns.RcodeSuccess {
+		response = res
+		if res.Rcode == dns.RcodeSuccess {
+			log.Debugf("successfully queried delegate resolver, resp: %+v", res)
 			break
 		}
 	}
+
 	if response == nil {
 		response = new(dns.Msg)
 		response.SetReply(req)
 		response.Rcode = dns.RcodeServerFailure
 	}
+
 	return response
 }
 

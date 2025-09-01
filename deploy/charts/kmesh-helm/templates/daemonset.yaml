@@ -51,6 +51,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        {{ if .Values.features.dnsProxy.enabled }}
+        - name: KMESH_ENABLE_DNS_PROXY
+          value: {{ .Values.features.dnsProxy.enabled | quote }}
+        {{- end }}
         image: {{ .Values.deploy.kmesh.image.repository }}:{{ .Values.deploy.kmesh.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.deploy.kmesh.imagePullPolicy }}
         name: kmesh
