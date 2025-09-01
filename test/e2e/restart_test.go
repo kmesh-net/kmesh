@@ -41,6 +41,9 @@ import (
 
 func TestKmeshRestart(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		// if dns proxy is enabled, when kmesh restarts, the DNS query will fail
+		configureDNSProxy(t, false)
+
 		src := apps.EnrolledToKmesh[0]
 		dst := apps.ServiceWithWaypointAtServiceGranularity
 		options := echo.CallOptions{
@@ -63,11 +66,12 @@ func TestKmeshRestart(t *testing.T) {
 		restartKmesh(t)
 
 		g.Stop().CheckSuccessRate(t, 1)
+
+		configureDNSProxy(t, true)
 	})
 }
 
 func restartKmesh(t framework.TestContext) {
-	patchOpts := metav1.PatchOptions{}
 	patchData := fmt.Sprintf(`{
 			"spec": {
 				"template": {
@@ -79,6 +83,34 @@ func restartKmesh(t framework.TestContext) {
 				}
 			}
 		}`, time.Now().Format(time.RFC3339))
+	patchKmesh(t, patchData)
+}
+
+func configureDNSProxy(t framework.TestContext, enabled bool) {
+	patchData := fmt.Sprintf(`{
+    "spec": {
+        "template": {
+            "spec": {
+                "containers": [
+                    {
+                        "name": "kmesh",
+                        "env": [
+                            {
+                                "name": "KMESH_ENABLE_DNS_PROXY",
+                                "value": "%t"
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+    }
+}`, enabled)
+	patchKmesh(t, patchData)
+}
+
+func patchKmesh(t framework.TestContext, patchData string) {
+	patchOpts := metav1.PatchOptions{}
 	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(KmeshNamespace)
 	_, err := ds.Patch(context.Background(), KmeshDaemonsetName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
 	if err != nil {

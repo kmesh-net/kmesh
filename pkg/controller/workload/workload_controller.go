@@ -96,6 +96,10 @@ func (c *Controller) Run(ctx context.Context) error {
 	return nil
 }
 
+func (c *Controller) Close() error {
+	return c.Processor.Close()
+}
+
 func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
 	var (
 		err                     error

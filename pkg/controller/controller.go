@@ -22,10 +22,10 @@ import (
 	"time"
 
 	"github.com/cilium/ebpf"
-
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	dnsClient "istio.io/istio/pkg/dns/client"
+	dnsclient "istio.io/istio/pkg/dns/client"
 	"istio.io/pkg/env"
+
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	bpfads "kmesh.net/kmesh/pkg/bpf/ads"
@@ -65,7 +65,7 @@ type Controller struct {
 	enableSecretManager bool
 	bpfConfig           *options.BpfConfig
 	loader              *bpf.BpfLoader
-	dnsServer           *dnsClient.LocalDNSServer
+	dnsServer           *dnsclient.LocalDNSServer
 }
 
 func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
@@ -190,6 +190,9 @@ func (c *Controller) Stop() {
 	if c.dnsServer != nil {
 		c.dnsServer.Close()
 	}
+	if c.client.WorkloadController != nil {
+		c.client.WorkloadController.Close()
+	}
 }
 
 func (c *Controller) GetXdsClient() *XdsClient {
@@ -198,7 +201,7 @@ func (c *Controller) GetXdsClient() *XdsClient {
 
 func (c *Controller) setupDNSProxy() error {
 	if workload.EnableDNSProxy {
-		server, err := dnsClient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
+		server, err := dnsclient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
 		if err != nil {
 			return fmt.Errorf("failed to start local dns server: %v", err)
 		}
