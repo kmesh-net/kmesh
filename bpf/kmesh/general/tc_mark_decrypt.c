@@ -32,17 +32,12 @@ int tc_mark_decrypt(struct __sk_buff *ctx)
     }
 
     mark = ctx->mark;
-    decrypted = (mark == 0x00d0); //0x00d0 is same with xfmr state output-mark, which means packet was decrypted and back to ingress
+    decrypted = (mark == 0x00d0); //0x00d0 is same with xfmr state output-mark, which means packet was decrypted and then back to ingress
 
     if(decrypted) {
         return TC_ACT_OK;
     }
 
-    // nodeinfo = check_remote_manage_by_kmesh(ctx, &info, info.iph->saddr, info.ip6h->saddr.s6_addr32);
-    // if (!nodeinfo) {
-    //     return TC_ACT_OK;
-    // }
-    // 0x00d0 mean need decryption in ipsec
     ctx->mark = 0;
     return TC_ACT_OK;
 }
