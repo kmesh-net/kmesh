@@ -1,12 +1,6 @@
 ## kmeshctl secret create
 
-Create a new IPsec secret with automatically generated key
-
-### Synopsis
-
-Create a new IPsec secret with automatically generated encryption key.
-The key is generated using cryptographically secure random bytes and formatted
-for use with the rfc4106(gcm(aes)) AEAD algorithm.
+Generate IPsec key and configuration by kmeshctl
 
 ```bash
 kmeshctl secret create [flags]
@@ -15,19 +9,19 @@ kmeshctl secret create [flags]
 ### Examples
 
 ```bash
-# Create a new IPsec secret with automatically generated key:
+# Generate IPsec configuration with random IPsec key:
 kmeshctl secret create
-
-# This will generate a 36-byte key (32-byte key + 4-byte salt) and create
-# the 'kmesh-ipsec' secret in the kmesh-system namespace.
+# Generate IPsec configuration with user-defined key:
+kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | xxd -p -c 64)
 ```
 
 ### Options
 
 ```bash
-  -h, --help   help for create
+  -h, --help         help for create
+  -k, --key string   key of the encryption
 ```
 
 ### SEE ALSO
 
-* [kmeshctl secret](kmeshctl_secret.md) - Manage IPsec secrets for Kmesh
+* [kmeshctl secret](kmeshctl_secret.md) - Use secrets to manage secret configuration data for IPsec
