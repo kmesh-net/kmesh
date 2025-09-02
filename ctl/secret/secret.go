@@ -49,7 +49,7 @@ func NewCmd() *cobra.Command {
 		Use:   "secret",
 		Short: "Use secrets to manage secret configuration data for IPsec",
 		Example: `# Use kmeshctl secret to manage secret configuration data for IPsec:
-kmeshctl secret create or kmeshctl secret create --key={36-character user-defined key here}
+kmeshctl secret create or kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | xxd -p -c 64)
 kmeshctl secret get
 kmeshctl secret delete
 `,
@@ -62,10 +62,10 @@ kmeshctl secret delete
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Generate IPsec key and configuration by kmeshctl",
-		Example: `# Generate IPsec configuration with random IPsec key:: 
+		Example: `# Generate IPsec configuration with random IPsec key:
 kmeshctl secret create
 # Generate IPsec configuration with user-defined key:
-kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | xxd -p -c 64)"`,
+kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | xxd -p -c 64)`,
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			CreateOrUpdateSecret(cmd, args)
@@ -78,7 +78,7 @@ kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | 
 	getCmd := &cobra.Command{
 		Use:   "get",
 		Short: "Get IPsec key and configuration by kmeshctl",
-		Example: ` # Get IPsec key and configuration by kmeshctl, results 
+		Example: `# Get IPsec key and configuration by kmeshctl. The results will be displayed in JSON format.
 kmeshctl secret get`,
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
@@ -139,7 +139,7 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 		}
 	}
 
-	if len(aeadKey) != 36 {
+	if len(aeadKey) != AeadKeyLength {
 		log.Errorf("invalid key length: expected %d bytes, got %d bytes (key must be 256-bit + 32-bit salt)", AeadKeyLength, len(aeadKey))
 		os.Exit(1)
 	}
