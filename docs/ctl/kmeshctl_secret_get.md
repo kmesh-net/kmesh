@@ -9,7 +9,7 @@ kmeshctl secret get [flags]
 ### Examples
 
 ```bash
- # Get IPsec key and configuration by kmeshctl, results 
+# Get IPsec key and configuration by kmeshctl. The results will be displayed in JSON format.
 kmeshctl secret get
 ```
 

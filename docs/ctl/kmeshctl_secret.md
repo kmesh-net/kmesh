@@ -10,7 +10,7 @@ kmeshctl secret [flags]
 
 ```bash
 # Use kmeshctl secret to manage secret configuration data for IPsec:
-kmeshctl secret create or kmeshctl secret create --key={36-character user-defined key here}
+kmeshctl secret create or kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | xxd -p -c 64)
 kmeshctl secret get
 kmeshctl secret delete
 
