@@ -36,6 +36,7 @@ import (
 )
 
 var log = logger.NewLoggerScope("kmeshctl/secret")
+var clientset kube.CLIClient
 
 const (
 	SecretName        = "kmesh-ipsec"
@@ -45,6 +46,8 @@ const (
 )
 
 func NewCmd() *cobra.Command {
+	clientset = createKubeClientOrExit()
+
 	cmd := &cobra.Command{
 		Use:   "secret",
 		Short: "Use secrets to manage secret configuration data for IPsec",
@@ -104,6 +107,7 @@ kmeshctl secret get`,
 
 	return cmd
 }
+
 func createKubeClientOrExit() kube.CLIClient {
 	clientset, err := utils.CreateKubeClient()
 	if err != nil {
@@ -112,11 +116,10 @@ func createKubeClientOrExit() kube.CLIClient {
 	}
 	return clientset
 }
+
 func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 	var ipSecKey, ipSecKeyOld ipsec.IpSecKey
 	var err error
-
-	clientset := createKubeClientOrExit()
 
 	ipSecKey.AeadKeyName = AeadAlgoName
 
@@ -196,8 +199,6 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 }
 
 func GetSecret() {
-	clientset := createKubeClientOrExit()
-
 	secret, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -247,8 +248,6 @@ func GetSecret() {
 }
 
 func DeleteSecret() {
-	clientset := createKubeClientOrExit()
-
 	err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Delete(context.TODO(), SecretName, metav1.DeleteOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
