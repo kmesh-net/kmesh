@@ -52,7 +52,7 @@ func NewCmd() *cobra.Command {
 kmeshctl secret create or kmeshctl secret create --key={36-character user-defined key here}
 kmeshctl secret get
 kmeshctl secret delete
-		`,
+`,
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 		},

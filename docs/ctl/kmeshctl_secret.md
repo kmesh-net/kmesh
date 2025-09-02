@@ -13,7 +13,7 @@ kmeshctl secret [flags]
 kmeshctl secret create or kmeshctl secret create --key={36-character user-defined key here}
 kmeshctl secret get
 kmeshctl secret delete
-  
+
 ```
 
 ### Options
