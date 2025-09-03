@@ -1392,7 +1392,7 @@ func testCgroupSock(t *testing.T) {
 						b_key = backend_key{
 							BackendUID: 6,
 						}
-						wpIP = net.ParseIP(localIP).To4()
+						IP := net.ParseIP(localIP).To4()
 						b_val = backend_value{
 							Addr:         ip_addr{Raw: [16]byte{}},
 							ServiceCount: 0,
@@ -1400,7 +1400,7 @@ func testCgroupSock(t *testing.T) {
 							WpAddr:       ip_addr{Raw: [16]byte{}},
 							WaypointPort: 0,
 						}
-						copy(b_val.WpAddr.Raw[0:4], wpIP)
+						copy(b_val.Addr.Raw[0:4], IP)
 						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
 							log.Fatalf("Update failed: %v", err)
 						}
@@ -1547,6 +1547,7 @@ func testCgroupSock(t *testing.T) {
 						type endpoint_key struct {
 							service_id    uint32
 							backend_index uint32 //rand_k
+							prio          uint32
 						}
 						type endpoint_value struct {
 							backend_uid uint32
@@ -1555,6 +1556,7 @@ func testCgroupSock(t *testing.T) {
 						e_key := endpoint_key{
 							service_id:    1,
 							backend_index: 1,
+							prio:          0,
 						}
 						e_val := endpoint_value{
 							backend_uid: 2,
@@ -1567,6 +1569,7 @@ func testCgroupSock(t *testing.T) {
 						e_key = endpoint_key{
 							service_id:    1,
 							backend_index: 2,
+							prio:          0,
 						}
 						e_val = endpoint_value{
 							backend_uid: 6,
@@ -1608,7 +1611,7 @@ func testCgroupSock(t *testing.T) {
 						b_key = backend_key{
 							BackendUID: 6,
 						}
-						wpIP = net.ParseIP(localIP).To4()
+						IP := net.ParseIP(localIP).To4()
 						b_val = backend_value{
 							Addr:         ip_addr{Raw: [16]byte{}},
 							ServiceCount: 0,
@@ -1616,7 +1619,7 @@ func testCgroupSock(t *testing.T) {
 							WpAddr:       ip_addr{Raw: [16]byte{}},
 							WaypointPort: 0,
 						}
-						copy(b_val.WpAddr.Raw[0:4], wpIP)
+						copy(b_val.Addr.Raw[0:4], IP)
 						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
 							log.Fatalf("Update failed: %v", err)
 						}
@@ -1827,7 +1830,7 @@ func testCgroupSock(t *testing.T) {
 						b_key = backend_key{
 							BackendUID: 6,
 						}
-						wpIP = net.ParseIP(localIP).To4()
+						IP := net.ParseIP(localIP).To4()
 						b_val = backend_value{
 							Addr:         ip_addr{Raw: [16]byte{}},
 							ServiceCount: 0,
@@ -1835,7 +1838,7 @@ func testCgroupSock(t *testing.T) {
 							WpAddr:       ip_addr{Raw: [16]byte{}},
 							WaypointPort: 0,
 						}
-						copy(b_val.WpAddr.Raw[0:4], wpIP)
+						copy(b_val.Addr.Raw[0:4], IP)
 						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
 							log.Fatalf("Update failed: %v", err)
 						}
