@@ -64,7 +64,7 @@ int test1_jump(struct __sk_buff *ctx)
 {
     // Set initial mark to 0x00a0
     ctx->mark = 0x00a0;
-    
+
     bpf_tail_call(ctx, &entry_call_map, 0);
     return TEST_ERROR;
 }
@@ -130,7 +130,7 @@ int test3_pktgen(struct __sk_buff *ctx)
         .saddr = SRC_IP,
         .daddr = DEST_IP,
     };
-    
+
     return build_tc_packet(ctx, &l2, &l3_esp, &l4, body, (uint)sizeof(body));
 }
 
@@ -139,7 +139,7 @@ int test3_jump(struct __sk_buff *ctx)
 {
     // Set initial mark to 0x00d0
     ctx->mark = 0x00d0;
-    
+
     // build context - no need for nodeinfo map for ESP packets
     bpf_tail_call(ctx, &entry_call_map, 0);
     return TEST_ERROR;
