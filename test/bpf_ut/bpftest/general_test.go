@@ -46,7 +46,23 @@ func testGeneralTC(t *testing.T) {
 			objFilename: "tc_mark_decrypt_test.o",
 			uts: []unitTest_BPF_PROG_TEST_RUN{
 				{
-					name: "tc_mark_decrypt",
+					name: "tc_mark_decrypt_case1",
+					setupInUserSpace: func(t *testing.T, coll *ebpf.Collection) {
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel: constants.BPF_LOG_DEBUG,
+						})
+					},
+				},
+				{
+					name: "tc_mark_decrypt_case2",
+					setupInUserSpace: func(t *testing.T, coll *ebpf.Collection) {
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel: constants.BPF_LOG_DEBUG,
+						})
+					},
+				},
+				{
+					name: "tc_mark_decrypt_case3",
 					setupInUserSpace: func(t *testing.T, coll *ebpf.Collection) {
 						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
 							BpfLogLevel: constants.BPF_LOG_DEBUG,
