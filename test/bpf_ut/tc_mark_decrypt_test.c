@@ -52,27 +52,24 @@ const struct tcphdr l4 = {
 };
 const char body[20] = "Should not change!!";
 
-PKTGEN("tc", "tc_mark_decrypt")
+// Test Case 1: TCP protocol, mark 0x00a0, expect mark to be 0x0
+PKTGEN("tc", "tc_mark_decrypt_case1")
 int test1_pktgen(struct __sk_buff *ctx)
 {
     return build_tc_packet(ctx, &l2, &l3, &l4, body, (uint)sizeof(body));
 }
 
-JUMP("tc", "tc_mark_decrypt")
+JUMP("tc", "tc_mark_decrypt_case1")
 int test1_jump(struct __sk_buff *ctx)
 {
-    // build context
-    struct lpm_key key = {0};
-    key.trie_key.prefixlen = 32;
-    key.ip.ip4 = SRC_IP;
-    __u32 value = 1;
-    bpf_map_update_elem(&map_of_nodeinfo, &key, &value, BPF_ANY);
-
+    // Set initial mark to 0x00a0
+    ctx->mark = 0x00a0;
+    
     bpf_tail_call(ctx, &entry_call_map, 0);
     return TEST_ERROR;
 }
 
-CHECK("tc", "tc_mark_decrypt")
+CHECK("tc", "tc_mark_decrypt_case1")
 int test1_check(struct __sk_buff *ctx)
 {
     const __u32 expected_status_code = TC_ACT_OK;
@@ -80,6 +77,95 @@ int test1_check(struct __sk_buff *ctx)
     test_init();
 
     check_tc_packet(ctx, &expected_status_code, &l2, &l3, &l4, body, (uint)sizeof(body));
+    if (ctx->mark != 0x0)
+        test_fatal("ctx->mark mismatch, expected 0x0, got %u", ctx->mark);
+
+    test_finish();
+}
+
+// Test Case 2: TCP protocol, mark 0x00d0, expect mark to remain 0x00d0
+PKTGEN("tc", "tc_mark_decrypt_case2")
+int test2_pktgen(struct __sk_buff *ctx)
+{
+    return build_tc_packet(ctx, &l2, &l3, &l4, body, (uint)sizeof(body));
+}
+
+JUMP("tc", "tc_mark_decrypt_case2")
+int test2_jump(struct __sk_buff *ctx)
+{
+    // Set initial mark to 0x00d0 (already decrypted)
+    ctx->mark = 0x00d0;
+
+    bpf_tail_call(ctx, &entry_call_map, 0);
+    return TEST_ERROR;
+}
+
+CHECK("tc", "tc_mark_decrypt_case2")
+int test2_check(struct __sk_buff *ctx)
+{
+    const __u32 expected_status_code = TC_ACT_OK;
+
+    test_init();
+
+    check_tc_packet(ctx, &expected_status_code, &l2, &l3, &l4, body, (uint)sizeof(body));
+    if (ctx->mark != 0x00d0)
+        test_fatal("ctx->mark mismatch, expected 0x00d0, got %u", ctx->mark);
+
+    test_finish();
+}
+
+// Test Case 3: ESP protocol, mark 0x00d0, expect mark to remain 0x00d0
+PKTGEN("tc", "tc_mark_decrypt_case3")
+int test3_pktgen(struct __sk_buff *ctx)
+{
+    // Use ESP protocol header for this test
+    struct iphdr l3_esp = {
+        .version = 4,
+        .ihl = 5,
+        .tot_len = 40,
+        .id = 0x5438,
+        .frag_off = bpf_htons(IP_DF),
+        .ttl = 64,
+        .protocol = IPPROTO_ESP,
+        .saddr = SRC_IP,
+        .daddr = DEST_IP,
+    };
+    
+    return build_tc_packet(ctx, &l2, &l3_esp, &l4, body, (uint)sizeof(body));
+}
+
+JUMP("tc", "tc_mark_decrypt_case3")
+int test3_jump(struct __sk_buff *ctx)
+{
+    // Set initial mark to 0x00d0
+    ctx->mark = 0x00d0;
+    
+    // build context - no need for nodeinfo map for ESP packets
+    bpf_tail_call(ctx, &entry_call_map, 0);
+    return TEST_ERROR;
+}
+
+CHECK("tc", "tc_mark_decrypt_case3")
+int test3_check(struct __sk_buff *ctx)
+{
+    const __u32 expected_status_code = TC_ACT_OK;
+
+    test_init();
+
+    // Use ESP protocol header for verification
+    struct iphdr l3_esp = {
+        .version = 4,
+        .ihl = 5,
+        .tot_len = 40,
+        .id = 0x5438,
+        .frag_off = bpf_htons(IP_DF),
+        .ttl = 64,
+        .protocol = IPPROTO_ESP,
+        .saddr = SRC_IP,
+        .daddr = DEST_IP,
+    };
+
+    check_tc_packet(ctx, &expected_status_code, &l2, &l3_esp, &l4, body, (uint)sizeof(body));
     if (ctx->mark != 0x00d0)
         test_fatal("ctx->mark mismatch, expected 0x00d0, got %u", ctx->mark);
 
