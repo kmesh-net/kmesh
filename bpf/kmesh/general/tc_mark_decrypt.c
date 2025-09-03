@@ -32,8 +32,8 @@ int tc_mark_decrypt(struct __sk_buff *ctx)
     }
 
     mark = ctx->mark;
-    decrypted = (mark == 0x00d0); // 0x00d0 is same with xfmr state output-mark, which means packet was decrypted and
-                                  // then back to ingress
+    decrypted = (mark == IPSEC_DECRYPTED_MARK); // IPSEC_DECRYPTED_MARK is same with xfmr state output-mark, which means
+                                                // packet was decrypted and then back to ingress
 
     if (decrypted) {
         return TC_ACT_OK;
