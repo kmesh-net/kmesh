@@ -115,9 +115,11 @@ function setup_istio() {
 
 function setup_kmesh() {
 	# skip dns proxy for ipv6
+	kubectl create namespace kmesh-system
+	kmeshctl secret --key=$(dd if=/dev/urandom count=36 bs=1 2>/dev/null | xxd -p -c 64)
 	[[ -n ${IPV6:-} ]] && extra_args="--set features.dnsProxy.enabled=false"
 	helm install kmesh $ROOT_DIR/deploy/charts/kmesh-helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh \
-		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true" \
+		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true --enable-ipsec=true" \
 		$extra_args
 
 	# Wait for all Kmesh pods to be ready.
