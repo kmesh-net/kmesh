@@ -2324,6 +2324,663 @@ func testCgroupSock(t *testing.T) {
 							t.Fatalf("Expected redirected to %s:%s, but got %s:%s", expectedIP, expectedPort, host, port)
 						}
 					}},
+				{
+					name: "BPF_CGROUP_SOCK_CONNECT6_service_no_waypoint_lb_random_handle",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						// mount cgroup2
+						mount_cgroup2(t, cgroupPath)
+						defer syscall.Unmount(cgroupPath, 0)
+						//load the eBPF program
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect6_prog", cgroupPath)
+						defer coll.Close()
+						defer lk.Close()
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						// record_kmesh_managed_netns_cookie
+						localIP := get_local_ipv6(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := "[" + localIP + "]" + ":" + strconv.Itoa(serverPort)
+						var testPort1 uint16 = 55555
+						testIpPort1 := "[" + localIP + "]" + ":" + strconv.Itoa(int(htons(testPort1)))
+						testListener1, err := net.Listen("tcp6", testIpPort1)
+						if err != nil {
+							t.Fatalf("Failed to listen on testIpPort: %v", err)
+						}
+						defer testListener1.Close()
+						var testPort2 uint16 = 55556
+						testIpPort2 := "[" + localIP + "]" + ":" + strconv.Itoa(int(htons(testPort2)))
+						testListener2, err := net.Listen("tcp6", testIpPort2)
+						if err != nil {
+							t.Fatalf("Failed to listen on testIpPort: %v", err)
+						}
+						defer testListener2.Close()
+
+						// record_kmesh_managed_ip
+						enableAddr := "[" + constants.ControlCommandIp6 + "]" + ":" + strconv.Itoa(int(constants.OperEnableControl))
+						(&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp6", enableAddr)
+
+						//frontend map
+						type ip_addr struct {
+							Raw [16]byte
+						}
+						type frontend_key struct {
+							Addr ip_addr
+						}
+						type frontend_value struct {
+							UpstreamID uint32
+						}
+						FrontendMap := coll.Maps["km_frontend"]
+						var f_key frontend_key
+
+						ip6 := net.ParseIP(localIP).To16()
+						if ip6 == nil {
+							t.Fatalf("invalid IPv6 address")
+						}
+						copy(f_key.Addr.Raw[:], ip6)
+						//value
+						f_val := frontend_value{
+							UpstreamID: 1,
+						}
+						if err := FrontendMap.Update(&f_key, &f_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//service map
+						ServiceMap := coll.Maps["km_service"]
+						const MAX_SERVICE_COUNT = 10
+						type service_key struct {
+							ServiceID uint32
+						}
+						type service_value struct {
+							PrioEndpointCount [7]uint32
+							LbPolicy          uint32
+							ServicePort       [10]uint32
+							TargetPort        [10]uint32
+							WpAddr            ip_addr
+							WaypointPort      uint32
+						}
+						//key
+						s_key := service_key{
+							ServiceID: 1,
+						}
+						wpIP := net.ParseIP(localIP).To16()
+						s_val := service_value{
+							LbPolicy: 0,
+							PrioEndpointCount: [7]uint32{
+								2, 0, 0, 0, 0, 0, 0,
+							},
+							ServicePort: [10]uint32{
+								uint32(htons(uint16(serverPort))), 0, 0, 0, 0, 0, 0, 0, 0, 0,
+							},
+							TargetPort: [10]uint32{
+								uint32(testPort2),
+							},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: 0,
+						}
+						// WpAddr
+						copy(s_val.WpAddr.Raw[:], wpIP)
+						if err := ServiceMap.Update(&s_key, &s_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//endpoint
+						type endpoint_key struct {
+							service_id    uint32
+							prio          uint32
+							backend_index uint32 //rand_k
+						}
+						type endpoint_value struct {
+							backend_uid uint32
+						}
+						//1
+						e_key := endpoint_key{
+							service_id:    1,
+							prio:          0,
+							backend_index: 1,
+						}
+						e_val := endpoint_value{
+							backend_uid: 2,
+						}
+						EndpointMap := coll.Maps["km_endpoint"]
+						if err := EndpointMap.Update(&e_key, &e_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+						//2
+						e_key = endpoint_key{
+							service_id:    1,
+							prio:          0,
+							backend_index: 2,
+						}
+						e_val = endpoint_value{
+							backend_uid: 6,
+						}
+						if err := EndpointMap.Update(&e_key, &e_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//backend
+						BackendMap := coll.Maps["km_backend"]
+						type backend_key struct {
+							BackendUID uint32
+						}
+
+						type backend_value struct {
+							Addr         ip_addr
+							ServiceCount uint32
+							Service      [MAX_SERVICE_COUNT]uint32
+							WpAddr       ip_addr
+							WaypointPort uint32
+						}
+						//1
+						b_key := backend_key{
+							BackendUID: 2,
+						}
+						wpIP = net.ParseIP(localIP).To16()
+						b_val := backend_value{
+							Addr:         ip_addr{Raw: [16]byte{}},
+							ServiceCount: 0,
+							Service:      [MAX_SERVICE_COUNT]uint32{},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: uint32(testPort1),
+						}
+						copy(b_val.WpAddr.Raw[:], wpIP)
+						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+						//2
+						b_key = backend_key{
+							BackendUID: 6,
+						}
+						IP := net.ParseIP(localIP).To16()
+						b_val = backend_value{
+							Addr:         ip_addr{Raw: [16]byte{}},
+							ServiceCount: 0,
+							Service:      [MAX_SERVICE_COUNT]uint32{},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: 0,
+						}
+						copy(b_val.Addr.Raw[:], IP)
+						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						listener, err := net.Listen("tcp6", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp6", serverSocket)
+						if err != nil {
+							t.Fatalf("Dial failed: %v", err)
+						}
+						defer conn.Close()
+						//test
+						remoteAddr := conn.RemoteAddr().String()
+						t.Logf("Actual connected to: %s", remoteAddr)
+						host, port, err := net.SplitHostPort(remoteAddr)
+						if err != nil {
+							t.Fatalf("Failed to parse remote address: %v", err)
+						}
+						t.Logf("Host: %s, Port: %s", host, port)
+					}},
+				{
+					name: "BPF_CGROUP_SOCK_CONNECT6_service_no_waypoint_lb_locality_strict_handle",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						// mount cgroup2
+						mount_cgroup2(t, cgroupPath)
+						defer syscall.Unmount(cgroupPath, 0)
+						//load the eBPF program
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect4_prog", cgroupPath)
+						defer coll.Close()
+						defer lk.Close()
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						// record_kmesh_managed_netns_cookie
+						localIP := get_local_ipv6(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := "[" + localIP + "]" + ":" + strconv.Itoa(serverPort)
+						var testPort1 uint16 = 55555
+						testIpPort1 := "[" + localIP + "]" + ":" + strconv.Itoa(int(htons(testPort1)))
+						testListener1, err := net.Listen("tcp6", testIpPort1)
+						if err != nil {
+							t.Fatalf("Failed to listen on testIpPort: %v", err)
+						}
+						defer testListener1.Close()
+						var testPort2 uint16 = 55556
+						testIpPort2 := "[" + localIP + "]" + ":" + strconv.Itoa(int(htons(testPort2)))
+						testListener2, err := net.Listen("tcp6", testIpPort2)
+						if err != nil {
+							t.Fatalf("Failed to listen on testIpPort: %v", err)
+						}
+						defer testListener2.Close()
+
+						// record_kmesh_managed_ip
+						enableAddr := "[" + constants.ControlCommandIp6 + "]" + ":" + strconv.Itoa(int(constants.OperEnableControl))
+						(&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp6", enableAddr)
+
+						//frontend map
+						type ip_addr struct {
+							Raw [16]byte
+						}
+						type frontend_key struct {
+							Addr ip_addr
+						}
+						type frontend_value struct {
+							UpstreamID uint32
+						}
+						FrontendMap := coll.Maps["km_frontend"]
+						var f_key frontend_key
+
+						ip6 := net.ParseIP(localIP).To16()
+						if ip6 == nil {
+							t.Fatalf("invalid IPv6 address")
+						}
+						copy(f_key.Addr.Raw[:], ip6)
+						//value
+						f_val := frontend_value{
+							UpstreamID: 1,
+						}
+						if err := FrontendMap.Update(&f_key, &f_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//service map
+						ServiceMap := coll.Maps["km_service"]
+						const MAX_SERVICE_COUNT = 10
+						type service_key struct {
+							ServiceID uint32
+						}
+						type service_value struct {
+							PrioEndpointCount [7]uint32
+							LbPolicy          uint32
+							ServicePort       [10]uint32
+							TargetPort        [10]uint32
+							WpAddr            ip_addr
+							WaypointPort      uint32
+						}
+						//key
+						s_key := service_key{
+							ServiceID: 1,
+						}
+						wpIP := net.ParseIP(localIP).To16()
+						s_val := service_value{
+							LbPolicy: 0,
+							PrioEndpointCount: [7]uint32{
+								2, 0, 0, 0, 0, 0, 0,
+							},
+							ServicePort: [10]uint32{
+								uint32(htons(uint16(serverPort))), 0, 0, 0, 0, 0, 0, 0, 0, 0,
+							},
+							TargetPort: [10]uint32{
+								uint32(testPort2),
+							},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: 0,
+						}
+						// WpAddr
+						copy(s_val.WpAddr.Raw[:], wpIP)
+						if err := ServiceMap.Update(&s_key, &s_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//endpoint
+						type endpoint_key struct {
+							service_id    uint32
+							backend_index uint32 //rand_k
+							prio          uint32
+						}
+						type endpoint_value struct {
+							backend_uid uint32
+						}
+						//1
+						e_key := endpoint_key{
+							service_id:    1,
+							backend_index: 1,
+							prio:          0,
+						}
+						e_val := endpoint_value{
+							backend_uid: 2,
+						}
+						EndpointMap := coll.Maps["km_endpoint"]
+						if err := EndpointMap.Update(&e_key, &e_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+						//2
+						e_key = endpoint_key{
+							service_id:    1,
+							backend_index: 2,
+							prio:          0,
+						}
+						e_val = endpoint_value{
+							backend_uid: 6,
+						}
+						if err := EndpointMap.Update(&e_key, &e_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//backend
+						BackendMap := coll.Maps["km_backend"]
+						type backend_key struct {
+							BackendUID uint32
+						}
+
+						type backend_value struct {
+							Addr         ip_addr
+							ServiceCount uint32
+							Service      [MAX_SERVICE_COUNT]uint32
+							WpAddr       ip_addr
+							WaypointPort uint32
+						}
+						//1
+						b_key := backend_key{
+							BackendUID: 2,
+						}
+						wpIP = net.ParseIP(localIP).To16()
+						b_val := backend_value{
+							Addr:         ip_addr{Raw: [16]byte{}},
+							ServiceCount: 0,
+							Service:      [MAX_SERVICE_COUNT]uint32{},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: uint32(testPort1),
+						}
+						copy(b_val.WpAddr.Raw[:], wpIP)
+						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+						//2
+						b_key = backend_key{
+							BackendUID: 6,
+						}
+						IP := net.ParseIP(localIP).To16()
+						b_val = backend_value{
+							Addr:         ip_addr{Raw: [16]byte{}},
+							ServiceCount: 0,
+							Service:      [MAX_SERVICE_COUNT]uint32{},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: 0,
+						}
+						copy(b_val.Addr.Raw[:], IP)
+						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						listener, err := net.Listen("tcp6", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp6", serverSocket)
+						if err != nil {
+							t.Fatalf("Dial failed: %v", err)
+						}
+						defer conn.Close()
+						//test
+						remoteAddr := conn.RemoteAddr().String()
+						t.Logf("Actual connected to: %s", remoteAddr)
+						host, port, err := net.SplitHostPort(remoteAddr)
+						if err != nil {
+							t.Fatalf("Failed to parse remote address: %v", err)
+						}
+						t.Logf("Host: %s, Port: %s", host, port)
+					}},
+				{
+					name: "BPF_CGROUP_SOCK_CONNECT6_service_no_waypoint_lb_locality_failover_handle",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						// mount cgroup2
+						mount_cgroup2(t, cgroupPath)
+						defer syscall.Unmount(cgroupPath, 0)
+						//load the eBPF program
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect4_prog", cgroupPath)
+						defer coll.Close()
+						defer lk.Close()
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:  constants.BPF_LOG_DEBUG,
+							AuthzOffload: constants.DISABLED,
+						})
+						startLogReader(coll)
+
+						// record_kmesh_managed_netns_cookie
+						localIP := get_local_ipv6(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := "[" + localIP + "]" + ":" + strconv.Itoa(serverPort)
+						var testPort1 uint16 = 55555
+						testIpPort1 := "[" + localIP + "]" + ":" + strconv.Itoa(int(htons(testPort1)))
+						testListener1, err := net.Listen("tcp6", testIpPort1)
+						if err != nil {
+							t.Fatalf("Failed to listen on testIpPort: %v", err)
+						}
+						defer testListener1.Close()
+						var testPort2 uint16 = 55556
+						testIpPort2 := "[" + localIP + "]" + ":" + strconv.Itoa(int(htons(testPort2)))
+						testListener2, err := net.Listen("tcp6", testIpPort2)
+						if err != nil {
+							t.Fatalf("Failed to listen on testIpPort: %v", err)
+						}
+						defer testListener2.Close()
+
+						// record_kmesh_managed_ip
+						enableAddr := "[" + constants.ControlCommandIp6 + "]" + ":" + strconv.Itoa(int(constants.OperEnableControl))
+						(&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp6", enableAddr)
+
+						//frontend map
+						type ip_addr struct {
+							Raw [16]byte
+						}
+						type frontend_key struct {
+							Addr ip_addr
+						}
+						type frontend_value struct {
+							UpstreamID uint32
+						}
+						FrontendMap := coll.Maps["km_frontend"]
+						var f_key frontend_key
+
+						ip6 := net.ParseIP(localIP).To16()
+						if ip6 == nil {
+							t.Fatalf("invalid IPv6 address")
+						}
+						copy(f_key.Addr.Raw[:], ip6)
+						//value
+						f_val := frontend_value{
+							UpstreamID: 1,
+						}
+						if err := FrontendMap.Update(&f_key, &f_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//service map
+						ServiceMap := coll.Maps["km_service"]
+						const MAX_SERVICE_COUNT = 10
+						type service_key struct {
+							ServiceID uint32
+						}
+						type service_value struct {
+							PrioEndpointCount [7]uint32
+							LbPolicy          uint32
+							ServicePort       [10]uint32
+							TargetPort        [10]uint32
+							WpAddr            ip_addr
+							WaypointPort      uint32
+						}
+						//key
+						s_key := service_key{
+							ServiceID: 1,
+						}
+						wpIP := net.ParseIP(localIP).To16()
+						s_val := service_value{
+							LbPolicy: 0,
+							PrioEndpointCount: [7]uint32{
+								0, 0, 0, 0, 0, 2, 0,
+							},
+							ServicePort: [10]uint32{
+								uint32(htons(uint16(serverPort))), 0, 0, 0, 0, 0, 0, 0, 0, 0,
+							},
+							TargetPort: [10]uint32{
+								uint32(testPort2),
+							},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: 0,
+						}
+						// WpAddr
+						copy(s_val.WpAddr.Raw[:], wpIP)
+						if err := ServiceMap.Update(&s_key, &s_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//endpoint
+						type endpoint_key struct {
+							service_id    uint32
+							prio          uint32
+							backend_index uint32 //rand_k
+						}
+						type endpoint_value struct {
+							backend_uid uint32
+						}
+						//1
+						e_key := endpoint_key{
+							service_id:    1,
+							prio:          5,
+							backend_index: 1,
+						}
+						e_val := endpoint_value{
+							backend_uid: 2,
+						}
+						EndpointMap := coll.Maps["km_endpoint"]
+						if err := EndpointMap.Update(&e_key, &e_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+						//2
+						e_key = endpoint_key{
+							service_id:    1,
+							prio:          5,
+							backend_index: 2,
+						}
+						e_val = endpoint_value{
+							backend_uid: 6,
+						}
+						if err := EndpointMap.Update(&e_key, &e_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						//backend
+						BackendMap := coll.Maps["km_backend"]
+						type backend_key struct {
+							BackendUID uint32
+						}
+
+						type backend_value struct {
+							Addr         ip_addr
+							ServiceCount uint32
+							Service      [MAX_SERVICE_COUNT]uint32
+							WpAddr       ip_addr
+							WaypointPort uint32
+						}
+						//1
+						b_key := backend_key{
+							BackendUID: 2,
+						}
+						wpIP = net.ParseIP(localIP).To16()
+						b_val := backend_value{
+							Addr:         ip_addr{Raw: [16]byte{}},
+							ServiceCount: 0,
+							Service:      [MAX_SERVICE_COUNT]uint32{},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: uint32(testPort1),
+						}
+						copy(b_val.WpAddr.Raw[:], wpIP)
+						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+						//2
+						b_key = backend_key{
+							BackendUID: 6,
+						}
+						IP := net.ParseIP(localIP).To16()
+						b_val = backend_value{
+							Addr:         ip_addr{Raw: [16]byte{}},
+							ServiceCount: 0,
+							Service:      [MAX_SERVICE_COUNT]uint32{},
+							WpAddr:       ip_addr{Raw: [16]byte{}},
+							WaypointPort: 0,
+						}
+						copy(b_val.Addr.Raw[:], IP)
+						if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
+							log.Fatalf("Update failed: %v", err)
+						}
+
+						listener, err := net.Listen("tcp6", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp6", serverSocket)
+						if err != nil {
+							t.Fatalf("Dial failed: %v", err)
+						}
+						defer conn.Close()
+						//test
+						remoteAddr := conn.RemoteAddr().String()
+						t.Logf("Actual connected to: %s", remoteAddr)
+						host, port, err := net.SplitHostPort(remoteAddr)
+						if err != nil {
+							t.Fatalf("Failed to parse remote address: %v", err)
+						}
+						t.Logf("Host: %s, Port: %s", host, port)
+					}},
 			},
 		},
 	}
