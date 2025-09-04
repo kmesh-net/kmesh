@@ -303,7 +303,15 @@ func hasStateRule(state *netlink.XfrmState) (bool, error) {
 			s.Proto == state.Proto && s.Mode == state.Mode &&
 			s.Aead.Name == state.Aead.Name && s.Aead.Key != nil && bytes.Equal(s.Aead.Key, state.Aead.Key) &&
 			s.Aead.ICVLen == state.Aead.ICVLen {
+			if state.OutputMark != nil {
+				if s.OutputMark.Value == state.OutputMark.Value && s.OutputMark.Mask == state.OutputMark.Mask {
+					found = true
+					break
+				}
+				continue
+			}
 			found = true
+			break
 		}
 	}
 	if !found {
@@ -341,7 +349,7 @@ func TestCreateStateRule(t *testing.T) {
 	}
 
 	t.Run("test_create_state_rule", func(t *testing.T) {
-		err := handler.createStateRule(state.Src, state.Dst, testKey, ipsecKey)
+		err := handler.createStateRule(state.Src, state.Dst, testKey, ipsecKey, false)
 
 		require.NoError(t, err, "Failed to add XFRM state rule: %v", err)
 		// Verify the state was added
@@ -352,7 +360,7 @@ func TestCreateStateRule(t *testing.T) {
 		state2 := *state
 		state2.Src = net.ParseIP("10.0.3.100")
 		state2.Dst = net.ParseIP("10.0.4.100")
-		handler.createStateRule(state2.Src, state2.Dst, testKey, ipsecKey)
+		handler.createStateRule(state2.Src, state2.Dst, testKey, ipsecKey, true)
 		// Verify the state was added
 		found, err = hasStateRule(&state2)
 		require.NoError(t, err, "Failed to check XFRM state rule: %v", err)
@@ -534,7 +542,7 @@ func TestFlush(t *testing.T) {
 		},
 	}
 
-	err := handler.createStateRule(state.Src, state.Dst, testKey, ipsecKey)
+	err := handler.createStateRule(state.Src, state.Dst, testKey, ipsecKey, false)
 	assert.NoError(t, err, "Failed to add state rule")
 	// Verify the state was added
 	found, err := hasStateRule(state)

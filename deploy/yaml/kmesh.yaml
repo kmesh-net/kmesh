@@ -78,7 +78,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             [
-              "./start_kmesh.sh --mode=dual-engine --enable-bypass=false",
+              "./start_kmesh.sh --mode=dual-engine --enable-bypass=false --enable-ipsec=true",
             ]
           securityContext:
             privileged: true

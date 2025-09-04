@@ -202,7 +202,7 @@ func (is *IpSecHandler) createXfrmRuleIngress(rawRemoteIP, rawLocalNicIP, remote
 	// localNicIPInfo must exist, spi is local node info spi
 	newKey := is.generateIPSecKey(rawRemoteIP, rawLocalNicIP, remoteBootID, localBootID, is.historyIpSecKey[spi].AeadKey)
 
-	err := is.createStateRule(src, dst, newKey, is.historyIpSecKey[spi])
+	err := is.createStateRule(src, dst, newKey, is.historyIpSecKey[spi], true)
 	if err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ func (is *IpSecHandler) createXfrmRuleEgress(rawLocalNicIP, rawRemoteIP, localBo
 
 	newKey := is.generateIPSecKey(rawLocalNicIP, rawRemoteIP, localBootID, remoteBootID, ipsecKey.AeadKey)
 
-	err := is.createStateRule(src, dst, newKey, ipsecKey)
+	err := is.createStateRule(src, dst, newKey, ipsecKey, false)
 	if err != nil {
 		return err
 	}
@@ -267,7 +267,7 @@ func (is *IpSecHandler) createXfrmRuleEgress(rawLocalNicIP, rawRemoteIP, localBo
 	return nil
 }
 
-func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, ipsecKey IpSecKey) error {
+func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, ipsecKey IpSecKey, ingress bool) error {
 	state := &netlink.XfrmState{
 		Src:   src,
 		Dst:   dst,
@@ -280,11 +280,15 @@ func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, ipse
 			Key:    key,
 			ICVLen: ipsecKey.Length,
 		},
-		OutputMark: &netlink.XfrmMark{
+	}
+
+	if ingress {
+		state.OutputMark = &netlink.XfrmMark{
 			Value: constants.XfrmDecryptedMark,
 			Mask:  constants.XfrmMarkMask,
-		},
+		}
 	}
+
 	err := netlink.XfrmStateAdd(state)
 	if err != nil && !os.IsExist(err) {
 		return fmt.Errorf("failed to add xfrm state to host in inserting xfrm out rule, %v", err)
