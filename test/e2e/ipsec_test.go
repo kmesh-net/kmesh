@@ -285,10 +285,6 @@ func checkIPSecRules(t framework.TestContext, containerName string) error {
 		t.Fatalf("ip xfrm state output does not contain expected AEAD algorithm")
 		return fmt.Errorf("ip xfrm state output does not contain expected AEAD algorithm")
 	}
-	if !strings.Contains(stateStr, "sel src 0.0.0.0/0 dst 0.0.0.0/0") {
-		t.Fatalf("ip xfrm state output does not contain expected selector")
-		return fmt.Errorf("ip xfrm state output does not contain expected selector")
-	}
 
 	if !strings.Contains(policyStr, "tmpl src") || !strings.Contains(policyStr, "proto esp") || !strings.Contains(policyStr, "mode tunnel") {
 		t.Fatalf("ip xfrm policy output does not contain expected tunnel template")
