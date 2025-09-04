@@ -87,53 +87,6 @@ spec:
           optional: true
 `
 
-var httpbinYaml = `
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: httpbin
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: httpbin
-  labels:
-    app: httpbin
-    service: httpbin
-spec:
-  ports:
-  - name: http
-    port: 8000
-    targetPort: 80
-  selector:
-    app: httpbin
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: httpbin
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: httpbin
-      version: v1
-  template:
-    metadata:
-      labels:
-        app: httpbin
-        version: v1
-    spec:
-      serviceAccountName: httpbin
-      nodeName: kmesh-testing-worker
-      containers:
-      - image: docker.io/kong/httpbin
-        imagePullPolicy: IfNotPresent
-        name: httpbin
-        ports:
-        - containerPort: 80
-`
-
 func deployServices(t framework.TestContext) error {
 	t.Logf("Labeling namespace...")
 	cmd := exec.Command("kubectl", "label", "namespace", "default", "istio.io/dataplane-mode=Kmesh")
@@ -152,15 +105,6 @@ func deployServices(t framework.TestContext) error {
 		return err
 	}
 
-	t.Logf("Applying httpbin resources...")
-	cmd = exec.Command("kubectl", "apply", "-f", "-")
-	cmd.Stdin = bytes.NewBufferString(httpbinYaml)
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to apply httpbin resources: %s\n%s", err, string(out))
-		return err
-	}
-
 	return nil
 }
 
@@ -171,15 +115,6 @@ func deleteServices(t framework.TestContext) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to delete sleep resources: %s\n%s", err, string(out))
-		return err
-	}
-
-	t.Logf("Deleting httpbin resources...")
-	cmd = exec.Command("kubectl", "delete", "-f", "-")
-	cmd.Stdin = bytes.NewBufferString(httpbinYaml)
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to delete httpbin resources: %s\n%s", err, string(out))
 		return err
 	}
 
@@ -194,9 +129,9 @@ func deleteServices(t framework.TestContext) error {
 	return nil
 }
 
-func getPodNameAndIP(t framework.TestContext, appLabel string) (string, string, error) {
+func getPodNameAndIP(t framework.TestContext, namespace string, appLabel string) (string, string, error) {
 	for {
-		cmd := exec.Command("kubectl", "get", "pods", "-l", "app="+appLabel, "-o", "wide")
+		cmd := exec.Command("kubectl", "get", "pods", "-n", namespace, "-l", "app="+appLabel, "-o", "wide")
 		out, err := cmd.CombinedOutput()
 		if err != nil {
 			t.Logf("kubectl get pods failed: %v\n%s", err, string(out))
@@ -314,8 +249,17 @@ func runTcpdumpESP(t framework.TestContext, containerName string, duration int) 
 	return string(out), nil
 }
 
-func curlFromSleepToHttpbin(t framework.TestContext, sleepPod, httpbinIP string) (string, error) {
-	cmd := exec.Command("kubectl", "exec", sleepPod, "--", "curl", fmt.Sprintf("http://%s:80", httpbinIP))
+func curlFromSleepToEcho(t framework.TestContext, sleepPod, echoIP string) (string, error) {
+	t.Logf("Curling from sleep pod %s to echo pod IP %s...", sleepPod, echoIP)
+	var url string
+	if strings.Contains(echoIP, ":") {
+		// IPv6 address
+		url = fmt.Sprintf("http://[%s]:18080", echoIP)
+	} else {
+		// IPv4 address
+		url = fmt.Sprintf("http://%s:18080", echoIP)
+	}
+	cmd := exec.Command("kubectl", "exec", sleepPod, "--", "curl", url)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("curl failed: %v\n%s", err, string(out))
@@ -379,18 +323,18 @@ func TestIPsecAuthorization(t *testing.T) {
 
 			t.Logf("Resources applied. You can now continue with IPSec validation.")
 
-			sleepPodName, sleepPodIP, err := getPodNameAndIP(t, "sleep")
+			sleepPodName, sleepPodIP, err := getPodNameAndIP(t, "default", "sleep")
 			if err != nil {
 				return
 			} else {
 				t.Logf("sleep pod name: %s, ip: %s", sleepPodName, sleepPodIP)
 			}
 
-			httpbinPodName, httpbinPodIP, err := getPodNameAndIP(t, "httpbin")
+			echoPodName, echoPodIP, err := getPodNameAndIP(t, apps.Namespace.Name(), "enrolled-to-kmesh")
 			if err != nil {
 				return
 			} else {
-				t.Logf("httpbin pod name: %s, ip: %s", httpbinPodName, httpbinPodIP)
+				t.Logf("echo pod name: %s, ip: %s", echoPodName, echoPodIP)
 			}
 
 			if err = downloadTcpdump(t, "kmesh-testing-control-plane"); err != nil {
@@ -408,8 +352,8 @@ func TestIPsecAuthorization(t *testing.T) {
 				tcpdumpCh <- out
 			}()
 			time.Sleep(2 * time.Second)
-			t.Logf("Curling from sleep pod to httpbin pod...")
-			_, err = curlFromSleepToHttpbin(t, sleepPodName, httpbinPodIP)
+			t.Logf("Curling from sleep pod to echo pod...")
+			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP)
 			if err != nil {
 				<-tcpdumpCh
 				deleteServices(t)
@@ -436,8 +380,8 @@ func TestIPsecAuthorization(t *testing.T) {
 				tcpdumpCh <- out
 			}()
 			time.Sleep(2 * time.Second)
-			t.Logf("Curling from sleep pod to httpbin pod after key rotation...")
-			_, err = curlFromSleepToHttpbin(t, sleepPodName, httpbinPodIP)
+			t.Logf("Curling from sleep pod to echo pod after key rotation...")
+			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP)
 			if err != nil {
 				<-tcpdumpCh
 				deleteServices(t)
