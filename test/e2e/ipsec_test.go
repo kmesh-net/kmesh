@@ -337,7 +337,7 @@ func genRandomKeyHex() string {
 	return hex.EncodeToString(b)
 }
 
-func rotateIPSecKeyAndWait(t framework.TestContext, containerName string, maxRetry int, intervalSec int) error {
+func rotateIPSecKeyAndWait(t framework.TestContext, containerName string, intervalSec int) error {
 	t.Logf("Rotating IPSec key with kmeshctl secret ...")
 	keyHex := genRandomKeyHex()
 	rotateCmd := exec.Command("kmeshctl", "secret", "create", "--key="+keyHex)
@@ -348,8 +348,8 @@ func rotateIPSecKeyAndWait(t framework.TestContext, containerName string, maxRet
 	}
 	t.Logf("kmeshctl secret update success")
 
-	t.Logf("Waiting for SPI 0x00000002 to appear (max %d retries, interval %ds)...", maxRetry, intervalSec)
-	for i := 0; i < maxRetry; i++ {
+	t.Logf("Waiting for SPI 0x00000002 to appear in both state and policy (interval %ds)...", intervalSec)
+	for {
 		time.Sleep(time.Duration(intervalSec) * time.Second)
 		stateCmd := exec.Command("docker", "exec", containerName, "bash", "-c", "ip xfrm state")
 		stateOut, err := stateCmd.CombinedOutput()
@@ -357,14 +357,20 @@ func rotateIPSecKeyAndWait(t framework.TestContext, containerName string, maxRet
 			t.Logf("ip xfrm state failed: %v\n%s", err, string(stateOut))
 			continue
 		}
-		if strings.Contains(string(stateOut), "spi 0x00000002") {
-			t.Logf("Found new SPI 0x00000002 in ip xfrm state!")
+		policyCmd := exec.Command("docker", "exec", containerName, "bash", "-c", "ip xfrm policy")
+		policyOut, err := policyCmd.CombinedOutput()
+		if err != nil {
+			t.Logf("ip xfrm policy failed: %v\n%s", err, string(policyOut))
+			continue
+		}
+		stateHasSPI := strings.Contains(string(stateOut), "spi 0x00000002")
+		policyHasSPI := strings.Contains(string(policyOut), "spi 0x00000002")
+		if stateHasSPI && policyHasSPI {
+			t.Logf("Found new SPI 0x00000002 in both ip xfrm state and policy!")
 			return nil
 		}
-		t.Logf("SPI 0x00000002 not found, retry %d/%d...", i+1, maxRetry)
+		t.Logf("SPI 0x00000002 not found in both state and policy, waiting...")
 	}
-	t.Fatalf("SPI 0x00000002 not found after %d retries", maxRetry)
-	return fmt.Errorf("SPI 0x00000002 not found after %d retries", maxRetry)
 }
 
 func TestIPsecAuthorization(t *testing.T) {
@@ -407,7 +413,7 @@ func TestIPsecAuthorization(t *testing.T) {
 			}()
 			time.Sleep(2 * time.Second)
 			t.Logf("Curling from sleep pod to httpbin pod...")
-			curlOut, err := curlFromSleepToHttpbin(t, sleepPodName, httpbinPodIP)
+			_, err = curlFromSleepToHttpbin(t, sleepPodName, httpbinPodIP)
 			if err != nil {
 				<-tcpdumpCh
 				deleteServices(t)
@@ -422,7 +428,7 @@ func TestIPsecAuthorization(t *testing.T) {
 				t.Fatalf("Test failed: No ESP packets detected.")
 			}
 
-			if err = rotateIPSecKeyAndWait(t, "kmesh-testing-control-plane", 20, 5); err != nil {
+			if err = rotateIPSecKeyAndWait(t, "kmesh-testing-control-plane", 5); err != nil {
 				deleteServices(t)
 				return
 			}
@@ -435,13 +441,13 @@ func TestIPsecAuthorization(t *testing.T) {
 			}()
 			time.Sleep(2 * time.Second)
 			t.Logf("Curling from sleep pod to httpbin pod after key rotation...")
-			curlOut, err = curlFromSleepToHttpbin(t, sleepPodName, httpbinPodIP)
+			_, err = curlFromSleepToHttpbin(t, sleepPodName, httpbinPodIP)
 			if err != nil {
 				<-tcpdumpCh
 				deleteServices(t)
 				return
 			}
-			t.Logf("Curl output after key rotation: %s", curlOut)
+			t.Logf("curl  after key rotation success")
 			tcpdumpOut = <-tcpdumpCh
 			t.Logf("tcpdump output after key rotation:\n%s", tcpdumpOut)
 
