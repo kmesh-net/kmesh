@@ -15,6 +15,7 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/envoyproxy/go-control-plane v0.13.2-0.20241125134052-fc612d4a3afa
 	github.com/fsnotify/fsnotify v1.8.0
+	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/miekg/dns v1.1.66
 	github.com/prometheus/client_golang v1.21.0
@@ -22,10 +23,10 @@ require (
 	github.com/safchain/ethtool v0.5.10
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1
-	github.com/spf13/pflag v1.0.6
+	github.com/spf13/pflag v1.0.7
 	github.com/stretchr/testify v1.10.0
 	github.com/vishvananda/netlink v1.3.1
-	golang.org/x/sys v0.32.0
+	golang.org/x/sys v0.34.0
 	google.golang.org/grpc v1.70.0
 	google.golang.org/protobuf v1.36.5
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -97,7 +98,6 @@ require (
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/cel-go v0.22.1 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
-	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-containerregistry v0.20.2 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250403155104-27863c87afa6 // indirect

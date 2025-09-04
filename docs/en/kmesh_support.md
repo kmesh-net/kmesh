@@ -4,9 +4,9 @@ Kmesh requires kernel eBPF functionality and sizeable eBPF Instruction Sets, so 
 
 Kmesh uses istiod as a control plane and therefore Kmesh has some dependencies on istio versions and kubernetes versions.
 
-Kmesh has two different modes, `Kernel-Native Mode` and `Duel-Engine Mode`. While there is no difference in the OS kernel version required for the two modes, the supported istio versions differ. Therefore we explain them separately.
+Kmesh has two different modes, `Kernel-Native Mode` and `Dual-Engine Mode`. While there is no difference in the OS kernel version required for the two modes, the supported istio versions differ. Therefore we explain them separately.
 
-- **Kmesh Duel-Engine Mode:**
+- **Kmesh Dual-Engine Mode:**
 
 | Version | Request Kernel Version | Supported Istio Version | Support Kubernetes Version |
 | :-------------: | :-------------: | :-------------: | :-------------: |
@@ -15,7 +15,7 @@ Kmesh has two different modes, `Kernel-Native Mode` and `Duel-Engine Mode`. Whil
 | 0.4.x | >=5.10 | 1.22, 1.23 | 1.26, 1.27, 1.28, 1.29, 1.30 |
 | 0.3.x | >=5.10 | 1.22 | 1.26, 1.27, 1.28, 1.29, 1.30 |
 
-**Note:** Kmesh's Duel-Engine Mode requires the setting of `pilot.env.PILOT_ENABLE_AMBIENT=true` in istiod. so 1.22+ istio is required!
+**Note:** Kmesh's Dual-Engine Mode requires the setting of `pilot.env.PILOT_ENABLE_AMBIENT=true` in istiod. so 1.22+ istio is required!
 
 - **Kmesh Kernel-Native Mode:**
 

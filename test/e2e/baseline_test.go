@@ -26,6 +26,7 @@ package kmesh
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"net/netip"
 	"os/exec"
@@ -167,6 +168,71 @@ func TestPodIP(t *testing.T) {
 				})
 			}
 		}
+	})
+}
+
+func TestDNSProxy(t *testing.T) {
+	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		if !dst.Config().HasServiceAddressedWaypointProxy() {
+			return
+		}
+		// skip ipv6 now since it is not supported
+		if net.ParseIP(dst.Address()).To4() == nil {
+			return
+		}
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: echo-alias
+spec:
+  exportTo:
+  - '*'
+  hosts:
+  - kmesh-fake.com
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+  addresses:
+  - 240.240.0.1
+  resolution: DNS
+`).ApplyOrFail(t)
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"Destination": dst.Config().Service,
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: echo-alias-route
+spec:
+  hosts:
+  - kmesh-fake.com
+  http:
+  - match:
+    - port: 80
+      uri:
+        prefix: /
+    name: route-to-echo
+    route:
+    - destination:
+        host: "{{.Destination}}"
+`).ApplyOrFail(t)
+
+		SetWaypoint(t, apps.Namespace.Name(), "echo-alias", "waypoint", ServiceEntry)
+
+		opt = opt.DeepCopy()
+		opt.Count = 5
+		opt.Timeout = time.Second * 10
+		if opt.HTTP.Headers == nil {
+			opt.HTTP.Headers = map[string][]string{}
+		}
+		opt.Address = "kmesh-fake.com"
+		opt.Check = check.OK()
+		src.CallOrFail(t, opt)
 	})
 }
 
@@ -876,6 +942,7 @@ const (
 	Namespace Granularity = iota
 	Service
 	Workload
+	ServiceEntry
 )
 
 func UnsetWaypoint(t framework.TestContext, ns string, name string, granularity Granularity) {
@@ -901,6 +968,9 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 				return err
 			case Workload:
 				_, err := c.Kube().CoreV1().Pods(ns).Patch(context.TODO(), name, types.MergePatchType, labels, metav1.PatchOptions{})
+				return err
+			case ServiceEntry:
+				_, err := c.Istio().NetworkingV1().ServiceEntries(ns).Patch(context.TODO(), name, types.MergePatchType, labels, metav1.PatchOptions{})
 				return err
 			}
 

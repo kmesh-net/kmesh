@@ -31,8 +31,11 @@ const (
 	ENABLED       = uint32(1)
 	DISABLED      = uint32(0)
 
-	TC_MARK_DECRYPT = "tc_mark_decrypt"
-	TC_MARK_ENCRYPT = "tc_mark_encrypt"
+	TC_MARK_DECRYPT   = "tc_mark_decrypt"
+	TC_MARK_ENCRYPT   = "tc_mark_encrypt"
+	XfrmDecryptedMark = 0x00d0
+	XfrmEncryptMark   = 0x00e0
+	XfrmMarkMask      = 0xffffffff
 
 	TC_ATTACH = 0
 	TC_DETACH = 1

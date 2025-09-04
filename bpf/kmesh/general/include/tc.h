@@ -24,8 +24,9 @@ struct tc_info {
     };
 };
 
-#define PARSER_FAILED 1
-#define PARSER_SUCC   0
+#define PARSER_FAILED        1
+#define PARSER_SUCC          0
+#define IPSEC_DECRYPTED_MARK 0x00d0
 
 static inline bool is_ipv4(struct tc_info *info)
 {
