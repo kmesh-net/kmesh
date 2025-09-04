@@ -86,6 +86,44 @@ spec:
           secretName: sleep-secret
           optional: true
 `
+var echoYaml = `
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo
+  namespace: default
+spec:
+  ports:
+  - name: http
+    port: 80
+    targetPort: 8080
+  selector:
+    app: echo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: echo
+  template:
+    metadata:
+      labels:
+        app: echo
+    spec:
+      containers:
+      - name: echo
+        image: gcr.io/istio-testing/app:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - --port=8080
+        ports:
+        - containerPort: 8080
+`
 
 func deployServices(t framework.TestContext) error {
 	t.Logf("Labeling namespace...")
@@ -105,6 +143,15 @@ func deployServices(t framework.TestContext) error {
 		return err
 	}
 
+	t.Logf("Applying echo resources...")
+	cmd = exec.Command("kubectl", "apply", "-f", "-")
+	cmd.Stdin = bytes.NewBufferString(echoYaml)
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to apply echo resources: %s\n%s", err, string(out))
+		return err
+	}
+
 	return nil
 }
 
@@ -115,6 +162,15 @@ func deleteServices(t framework.TestContext) error {
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("Failed to delete sleep resources: %s\n%s", err, string(out))
+		return err
+	}
+
+	t.Logf("Deleting echo resources...")
+	cmd = exec.Command("kubectl", "delete", "-f", "-")
+	cmd.Stdin = bytes.NewBufferString(echoYaml)
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to delete echo resources: %s\n%s", err, string(out))
 		return err
 	}
 
@@ -254,10 +310,10 @@ func curlFromSleepToEcho(t framework.TestContext, sleepPod, echoIP string) (stri
 	var url string
 	if strings.Contains(echoIP, ":") {
 		// IPv6 address
-		url = fmt.Sprintf("http://[%s]:18080", echoIP)
+		url = fmt.Sprintf("http://[%s]:8080", echoIP)
 	} else {
 		// IPv4 address
-		url = fmt.Sprintf("http://%s:18080", echoIP)
+		url = fmt.Sprintf("http://%s:8080", echoIP)
 	}
 	cmd := exec.Command("kubectl", "exec", sleepPod, "--", "curl", url)
 	out, err := cmd.CombinedOutput()
@@ -330,7 +386,7 @@ func TestIPsecAuthorization(t *testing.T) {
 				t.Logf("sleep pod name: %s, ip: %s", sleepPodName, sleepPodIP)
 			}
 
-			echoPodName, echoPodIP, err := getPodNameAndIP(t, apps.Namespace.Name(), "enrolled-to-kmesh")
+			echoPodName, echoPodIP, err := getPodNameAndIP(t, "default", "echo")
 			if err != nil {
 				return
 			} else {
