@@ -195,25 +195,39 @@ func deleteServices(t framework.TestContext) error {
 }
 
 func getPodNameAndIP(t framework.TestContext, appLabel string) (string, string, error) {
-	cmd := exec.Command("kubectl", "get", "pods", "-l", "app="+appLabel, "-o", "wide")
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("kubectl get pods failed: %v\n%s", err, string(out))
-		return "", "", err
+	for {
+		cmd := exec.Command("kubectl", "get", "pods", "-l", "app="+appLabel, "-o", "wide")
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			t.Logf("kubectl get pods failed: %v\n%s", err, string(out))
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		lines := strings.Split(string(out), "\n")
+		if len(lines) < 2 {
+			t.Logf("no pods found for app=%s, retrying...", appLabel)
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		fields := strings.Fields(lines[1])
+		if len(fields) < 6 {
+			t.Logf("unexpected kubectl output format, retrying...")
+			time.Sleep(3 * time.Second)
+			continue
+		}
+		// fields[2] 是 pod 状态
+		if fields[2] == "Running" {
+			podName := fields[0]
+			podIP := fields[5]
+			if podIP != "" && podIP != "<none>" {
+				return podName, podIP, nil
+			}
+			t.Logf("Pod %s is Running but IP not assigned yet, waiting...", podName)
+		} else {
+			t.Logf("Pod %s status: %s, waiting for Running...", fields[0], fields[2])
+		}
+		time.Sleep(3 * time.Second)
 	}
-	lines := strings.Split(string(out), "\n")
-	if len(lines) < 2 {
-		t.Fatalf("no pods found for app=%s", appLabel)
-		return "", "", fmt.Errorf("no pods found for app=%s", appLabel)
-	}
-	fields := strings.Fields(lines[1])
-	if len(fields) < 6 {
-		t.Fatalf("unexpected kubectl output format")
-		return "", "", fmt.Errorf("unexpected kubectl output format")
-	}
-	podName := fields[0]
-	podIP := fields[5]
-	return podName, podIP, nil
 }
 
 func downloadTcpdump(t framework.TestContext, containerName string) error {
@@ -231,7 +245,7 @@ func downloadTcpdump(t framework.TestContext, containerName string) error {
 		t.Fatalf("apt update failed: %v\n%s", err, string(out))
 		return err
 	}
-	t.Logf("apt update output: %s", string(out))
+	t.Logf("apt update success")
 
 	installCmd := exec.Command("docker", "exec", containerName, "bash", "-c", "apt install tcpdump -y")
 	out, err = installCmd.CombinedOutput()
@@ -239,7 +253,7 @@ func downloadTcpdump(t framework.TestContext, containerName string) error {
 		t.Fatalf("apt install tcpdump failed: %v\n%s", err, string(out))
 		return err
 	}
-	t.Logf("apt install tcpdump output: %s", string(out))
+	t.Logf("apt install tcpdump success")
 	return nil
 }
 
@@ -332,7 +346,7 @@ func rotateIPSecKeyAndWait(t framework.TestContext, containerName string, maxRet
 		t.Fatalf("Failed to rotate IPSec key: %v\n%s", err, string(out))
 		return err
 	}
-	t.Logf("kmeshctl secret output: %s", string(out))
+	t.Logf("kmeshctl secret update success")
 
 	t.Logf("Waiting for SPI 0x00000002 to appear (max %d retries, interval %ds)...", maxRetry, intervalSec)
 	for i := 0; i < maxRetry; i++ {
@@ -360,8 +374,7 @@ func TestIPsecAuthorization(t *testing.T) {
 			if err := deployServices(t); err != nil {
 				return
 			}
-			t.Logf("Waiting for pods to be ready...")
-			time.Sleep(3 * time.Second)
+
 			t.Logf("Resources applied. You can now continue with IPSec validation.")
 
 			sleepPodName, sleepPodIP, err := getPodNameAndIP(t, "sleep")
@@ -400,9 +413,8 @@ func TestIPsecAuthorization(t *testing.T) {
 				deleteServices(t)
 				return
 			}
-			t.Logf("Curl output: %s", curlOut)
+			t.Logf("curl success")
 			tcpdumpOut := <-tcpdumpCh
-			t.Logf("tcpdump output:\n%s", tcpdumpOut)
 
 			if strings.Contains(tcpdumpOut, "ESP") {
 				t.Logf("Test success: ESP packets detected during curl!")
