@@ -22,6 +22,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"os"
@@ -52,6 +53,7 @@ import (
 func testWorkload(t *testing.T) {
 	t.Run("XDP", testXDP)
 	t.Run("SockOps", testSockOps)
+	t.Run("CgroupSkb", testCgroupSkb)
 }
 
 func testXDP(t *testing.T) {
@@ -766,4 +768,369 @@ func get_local_ipv4(t *testing.T) string {
 		t.Fatalf("Failed to extract host from address: %v", err)
 	}
 	return localAddr
+}
+func testCgroupSkb(t *testing.T) {
+	tests := []unitTests_BUILD_CONTEXT{
+		{
+			objFilename: "workload_cgroup_skb_test.o",
+			uts: []unitTest_BUILD_CONTEXT{
+				{
+					name: "CgroupIngress_observe_on_data",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						// mount cgroup2
+						mount_cgroup2(t, cgroupPath)
+						defer syscall.Unmount(cgroupPath, 0)
+						//load the eBPF program
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_skb_ingress_prog", cgroupPath)
+						defer coll.Close()
+						defer lk.Close()
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:          constants.BPF_LOG_DEBUG,
+							AuthzOffload:         constants.DISABLED,
+							EnablePeriodicReport: constants.ENABLED,
+						})
+						startLogReader(coll)
+
+						varName := "current_direction"
+						currentDirVar, ok := coll.Variables[varName]
+						if !ok {
+							t.Fatalf("BPF variable %s not found", varName)
+						}
+
+						newDirection := uint32(1) // ingress
+						if err := currentDirVar.Set(newDirection); err != nil {
+							t.Fatalf("Failed to set %s: %v", varName, err)
+						}
+						localIP := get_local_ipv4(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := localIP + ":" + strconv.Itoa(serverPort)
+						// Get the km_manage map from the collection
+						kmManageMap := coll.Maps["km_manage"]
+						if kmManageMap == nil {
+							t.Fatal("Failed to get km_manage map from collection")
+						}
+						var (
+							key   [16]byte
+							value uint32
+						)
+						ip := net.ParseIP(localIP).To4()
+						if ip == nil {
+							t.Fatalf("invalid ipv4: %s", localIP)
+						}
+						binary.BigEndian.PutUint32(key[0:4], binary.BigEndian.Uint32(ip))
+						value = 0
+						if err := kmManageMap.Update(key, value, ebpf.UpdateAny); err != nil {
+							t.Fatalf("Failed to update km_manage map: %v", err)
+						}
+						t.Logf("Inserted key: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+
+						// Create a TCP server listener
+						listener, err := net.Listen("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to connect to server: %v", err)
+						} else {
+							t.Logf("Connect success: %s:%d -> %s:%d", localIP, clientPort, localIP, serverPort)
+						}
+						conn.Close()
+						kmTcpProbeMap := coll.Maps["km_tcp_probe"]
+						if kmTcpProbeMap == nil {
+							t.Fatal("Failed to get km_auth_req map from collection")
+						}
+
+						rd, err := ringbuf.NewReader(kmTcpProbeMap)
+						if err != nil {
+							t.Fatalf("Failed to create ringbuf reader: %v", err)
+						}
+						defer rd.Close()
+
+						record, err := rd.Read()
+						if err != nil {
+							t.Fatalf("Failed to read from ringbuf: %v", err)
+						}
+
+						type bpfSockTuple struct {
+							Ipv4 struct {
+								Saddr uint32
+								Daddr uint32
+								Sport uint16
+								Dport uint16
+							}
+							Padding [24]byte
+						}
+
+						type origDstInfo struct {
+							Ipv4 struct {
+								Addr uint32
+								Port uint16
+							}
+							Padding [14]byte
+						}
+
+						type tcpProbeInfo struct {
+							Type          uint32
+							Tuple         bpfSockTuple
+							OrigDst       origDstInfo
+							SentBytes     uint32
+							ReceivedBytes uint32
+							ConnSuccess   uint32
+							Direction     uint32
+							State         uint32
+							Duration      uint64
+							StartNs       uint64
+							LastReportNs  uint64
+							Protocol      uint32
+							SrttUs        uint32
+							RttMin        uint32
+							TotalRetrans  uint32
+							LostOut       uint32
+							Padding       [4]byte
+						}
+
+						var info tcpProbeInfo
+						if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &info); err != nil {
+							log.Printf("parsing ringbuf event: %s", err)
+						} else {
+							fmt.Printf("tcp_probe_info:\n")
+							fmt.Printf("  type           : %d\n", info.Type)
+							fmt.Printf("  tuple.ipv4.saddr: %s\n", printIPv4(info.Tuple.Ipv4.Saddr))
+							fmt.Printf("  tuple.ipv4.daddr: %s\n", printIPv4(info.Tuple.Ipv4.Daddr))
+							fmt.Printf("  tuple.ipv4.sport: %d\n", info.Tuple.Ipv4.Sport)
+							fmt.Printf("  tuple.ipv4.dport: %d\n", info.Tuple.Ipv4.Dport)
+							fmt.Printf("  orig_dst.ipv4.addr: %s\n", printIPv4(info.OrigDst.Ipv4.Addr))
+							fmt.Printf("  orig_dst.ipv4.port: %d\n", info.OrigDst.Ipv4.Port)
+							fmt.Printf("  sent_bytes     : %d\n", info.SentBytes)
+							fmt.Printf("  received_bytes : %d\n", info.ReceivedBytes)
+							fmt.Printf("  conn_success   : %d\n", info.ConnSuccess)
+							fmt.Printf("  direction      : %d\n", info.Direction)
+							fmt.Printf("  state          : %d\n", info.State)
+							fmt.Printf("  duration       : %d\n", info.Duration)
+							fmt.Printf("  start_ns       : %d\n", info.StartNs)
+							fmt.Printf("  last_report_ns : %d\n", info.LastReportNs)
+							fmt.Printf("  protocol       : %d\n", info.Protocol)
+							fmt.Printf("  srtt_us        : %d\n", info.SrttUs)
+							fmt.Printf("  rtt_min        : %d\n", info.RttMin)
+							fmt.Printf("  total_retrans  : %d\n", info.TotalRetrans)
+							fmt.Printf("  lost_out       : %d\n", info.LostOut)
+						}
+					}},
+				{
+					name: "CgroupEgress_observe_on_data",
+					workFunc: func(t *testing.T, cgroupPath, objFilePath string) {
+						// mount cgroup2
+						mount_cgroup2(t, cgroupPath)
+						defer syscall.Unmount(cgroupPath, 0)
+						//load the eBPF program
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_skb_egress_prog", cgroupPath)
+						defer coll.Close()
+						defer lk.Close()
+						// Set the BPF configuration
+						setBpfConfig(t, coll, &factory.GlobalBpfConfig{
+							BpfLogLevel:          constants.BPF_LOG_DEBUG,
+							AuthzOffload:         constants.DISABLED,
+							EnablePeriodicReport: constants.ENABLED,
+						})
+						startLogReader(coll)
+
+						varName := "current_direction"
+						currentDirVar, ok := coll.Variables[varName]
+						if !ok {
+							t.Fatalf("BPF variable %s not found", varName)
+						}
+
+						newDirection := uint32(2) // egress
+						if err := currentDirVar.Set(newDirection); err != nil {
+							t.Fatalf("Failed to set %s: %v", varName, err)
+						}
+
+						localIP := get_local_ipv4(t)
+						clientPort := 12345
+						serverPort := 54321
+						serverSocket := localIP + ":" + strconv.Itoa(serverPort)
+
+						// Get the km_manage map from the collection
+						kmManageMap := coll.Maps["km_manage"]
+						if kmManageMap == nil {
+							t.Fatal("Failed to get km_manage map from collection")
+						}
+						var (
+							key   [16]byte
+							value uint32
+						)
+						ip := net.ParseIP(localIP).To4()
+						if ip == nil {
+							t.Fatalf("invalid ipv4: %s", localIP)
+						}
+						binary.BigEndian.PutUint32(key[0:4], binary.BigEndian.Uint32(ip))
+						value = 0
+						if err := kmManageMap.Update(key, value, ebpf.UpdateAny); err != nil {
+							t.Fatalf("Failed to update km_manage map: %v", err)
+						}
+						t.Logf("Inserted key: %d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+
+						// Create a TCP server listener
+						listener, err := net.Listen("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to start TCP server: %v", err)
+						}
+						defer listener.Close()
+
+						// try to connect to the server using the specified client port
+						conn, err := (&net.Dialer{
+							LocalAddr: &net.TCPAddr{
+								IP:   net.ParseIP(localIP),
+								Port: clientPort,
+							},
+							Timeout: 2 * time.Second,
+						}).Dial("tcp4", serverSocket)
+						if err != nil {
+							t.Fatalf("Failed to connect to server: %v", err)
+						} else {
+							t.Logf("Connect success: %s:%d -> %s:%d", localIP, clientPort, localIP, serverPort)
+						}
+						conn.Close()
+						kmTcpProbeMap := coll.Maps["km_tcp_probe"]
+						if kmTcpProbeMap == nil {
+							t.Fatal("Failed to get km_auth_req map from collection")
+						}
+
+						rd, err := ringbuf.NewReader(kmTcpProbeMap)
+						if err != nil {
+							t.Fatalf("Failed to create ringbuf reader: %v", err)
+						}
+						defer rd.Close()
+
+						record, err := rd.Read()
+						if err != nil {
+							t.Fatalf("Failed to read from ringbuf: %v", err)
+						}
+						type bpfSockTuple struct {
+							Ipv4 struct {
+								Saddr uint32
+								Daddr uint32
+								Sport uint16
+								Dport uint16
+							}
+							Padding [24]byte
+						}
+
+						type origDstInfo struct {
+							Ipv4 struct {
+								Addr uint32
+								Port uint16
+							}
+							Padding [14]byte
+						}
+
+						type tcpProbeInfo struct {
+							Type          uint32
+							Tuple         bpfSockTuple
+							OrigDst       origDstInfo
+							SentBytes     uint32
+							ReceivedBytes uint32
+							ConnSuccess   uint32
+							Direction     uint32
+							State         uint32
+							Duration      uint64
+							StartNs       uint64
+							LastReportNs  uint64
+							Protocol      uint32
+							SrttUs        uint32
+							RttMin        uint32
+							TotalRetrans  uint32
+							LostOut       uint32
+							Padding       [4]byte
+						}
+
+						var info tcpProbeInfo
+						if err := binary.Read(bytes.NewBuffer(record.RawSample), binary.LittleEndian, &info); err != nil {
+							log.Printf("parsing ringbuf event: %s", err)
+						} else {
+							fmt.Printf("tcp_probe_info:\n")
+							fmt.Printf("  type           : %d\n", info.Type)
+							fmt.Printf("  tuple.ipv4.saddr: %s\n", printIPv4(info.Tuple.Ipv4.Saddr))
+							fmt.Printf("  tuple.ipv4.daddr: %s\n", printIPv4(info.Tuple.Ipv4.Daddr))
+							fmt.Printf("  tuple.ipv4.sport: %d\n", info.Tuple.Ipv4.Sport)
+							fmt.Printf("  tuple.ipv4.dport: %d\n", info.Tuple.Ipv4.Dport)
+							fmt.Printf("  orig_dst.ipv4.addr: %s\n", printIPv4(info.OrigDst.Ipv4.Addr))
+							fmt.Printf("  orig_dst.ipv4.port: %d\n", info.OrigDst.Ipv4.Port)
+							fmt.Printf("  sent_bytes     : %d\n", info.SentBytes)
+							fmt.Printf("  received_bytes : %d\n", info.ReceivedBytes)
+							fmt.Printf("  conn_success   : %d\n", info.ConnSuccess)
+							fmt.Printf("  direction      : %d\n", info.Direction)
+							fmt.Printf("  state          : %d\n", info.State)
+							fmt.Printf("  duration       : %d\n", info.Duration)
+							fmt.Printf("  start_ns       : %d\n", info.StartNs)
+							fmt.Printf("  last_report_ns : %d\n", info.LastReportNs)
+							fmt.Printf("  protocol       : %d\n", info.Protocol)
+							fmt.Printf("  srtt_us        : %d\n", info.SrttUs)
+							fmt.Printf("  rtt_min        : %d\n", info.RttMin)
+							fmt.Printf("  total_retrans  : %d\n", info.TotalRetrans)
+							fmt.Printf("  lost_out       : %d\n", info.LostOut)
+						}
+					}},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.objFilename, tt.run())
+	}
+}
+
+// converts a uint32 IPv4 address into a dotted-decimal string
+
+func load_bpf_prog_to_cgroup(t *testing.T, objFilename string, progName string, cgroupPath string) (*ebpf.Collection, link.Link) {
+	if cgroupPath == "" {
+		t.Fatal("cgroupPath is empty")
+	}
+	if objFilename == "" {
+		t.Fatal("objFilename is empty")
+	}
+
+	// load the eBPF program
+	spec := loadAndPrepSpec(t, path.Join(*testPath, objFilename))
+	var (
+		coll *ebpf.Collection
+		err  error
+	)
+	// Load the eBPF collection into the kernel
+	coll, err = ebpf.NewCollection(spec)
+	if err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) {
+			t.Fatalf("verifier error: %+v", ve)
+		} else {
+			t.Fatal("loading collection:", err)
+		}
+	}
+	lk, err := link.AttachCgroup(link.CgroupOptions{
+		Path:    cgroupPath,
+		Attach:  spec.Programs[progName].AttachType,
+		Program: coll.Programs[progName],
+	})
+	t.Log(spec.Programs[progName].AttachType)
+	if err != nil {
+		coll.Close()
+		t.Fatalf("Failed to attach cgroup: %v", err)
+	}
+	return coll, lk
+}
+func printIPv4(ip uint32) string {
+	b := make([]byte, 4)
+	binary.BigEndian.PutUint32(b, ip)
+	return net.IP(b).String()
 }
