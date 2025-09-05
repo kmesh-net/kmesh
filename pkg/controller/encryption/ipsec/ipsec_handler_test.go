@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/vishvananda/netlink"
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 // DecodeHex is a utility function to decode a hex string into bytes.
@@ -304,11 +305,19 @@ func hasStateRule(state *netlink.XfrmState) (bool, error) {
 			s.Aead.Name == state.Aead.Name && s.Aead.Key != nil && bytes.Equal(s.Aead.Key, state.Aead.Key) &&
 			s.Aead.ICVLen == state.Aead.ICVLen {
 			if state.OutputMark != nil {
-				if s.OutputMark.Value == state.OutputMark.Value && s.OutputMark.Mask == state.OutputMark.Mask {
-					found = true
-					break
+				// If we expect a mark, the state from system must have a matching one.
+				if s.OutputMark == nil || s.OutputMark.Value != state.OutputMark.Value {
+					continue
 				}
-				continue
+				// Special handling for Mask: allow 0 or 0xffffffff as equivalent
+				if s.OutputMark.Mask != state.OutputMark.Mask && !(s.OutputMark.Mask == 0 && state.OutputMark.Mask == 0xffffffff) {
+					continue
+				}
+			} else {
+				// If we don't expect a mark, the state from system must not have one.
+				if s.OutputMark != nil {
+					continue
+				}
 			}
 			found = true
 			break
@@ -360,6 +369,10 @@ func TestCreateStateRule(t *testing.T) {
 		state2 := *state
 		state2.Src = net.ParseIP("10.0.3.100")
 		state2.Dst = net.ParseIP("10.0.4.100")
+		state2.OutputMark = &netlink.XfrmMark{
+			Value: constants.XfrmDecryptedMark,
+			Mask:  constants.XfrmMarkMask,
+		}
 		handler.createStateRule(state2.Src, state2.Dst, testKey, ipsecKey, true)
 		// Verify the state was added
 		found, err = hasStateRule(&state2)
