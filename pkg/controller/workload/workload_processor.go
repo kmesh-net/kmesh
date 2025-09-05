@@ -23,7 +23,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
@@ -63,7 +62,8 @@ type Processor struct {
 	WaypointCache cache.WaypointCache
 	locality      bpf.LocalityCache
 
-	DnsResolverChan chan []*workloadapi.Workload
+	DnsResolverChan       chan *workloadapi.Workload
+	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
 
 	once      sync.Once
 	authzOnce sync.Once
@@ -591,9 +591,8 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 
 		// Because there is only one address in the workload, a direct comparison can be made to
 		// determine whether the old data needs to be deleted or not.
-		if !slices.Equal(newWorkloadAddresses[0], oldWorkloadAddresses[0]) {
-			err := p.deleteFrontendByIp(oldWorkloadAddresses)
-			if err != nil {
+		if len(newWorkloadAddresses) > 0 && len(oldWorkloadAddresses) > 0 && !slices.Equal(newWorkloadAddresses[0], oldWorkloadAddresses[0]) {
+			if err := p.deleteFrontendByIp(oldWorkloadAddresses); err != nil {
 				return fmt.Errorf("frontend map delete failed: %v", err)
 			}
 		}
@@ -939,32 +938,23 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 				log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 			}
 		} else {
-			log.Warnf("workload hhh: %s/%s addresses is nil, workload info: %+v", workload.Namespace, workload.Name, workload)
+			log.Warnf("workload %s/%s addresses is nil, workload info: %+v", workload.Namespace, workload.Name, workload)
 			// workload from service entry need address resolving
 			if p.DnsResolverChan != nil {
-				p.DnsResolverChan <- workloads
-			}
-			uid := workload.GetUid()
-			go func() {
-				maxRetries := 50
-				var address [][]byte
-				for range maxRetries {
-					workload := p.WorkloadCache.GetWorkloadByUid(uid)
-					if address = workload.GetAddresses(); address != nil {
-						break
-					} else {
-						time.Sleep(WorkloadDnsRefreshRate)
-					}
-				}
-				if address != nil {
-					log.Infof("workload: %s/%s addresses resolved: %v", workload.Namespace, workload.Name, address)
-					if err := p.handleWorkload(workload); err != nil {
-						log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
+				uid := workload.GetUid()
+				p.ResolvedDomainChanMap[uid] = make(chan *workloadapi.Workload)
+				p.DnsResolverChan <- workload
+				log.Infof("wait for workload %s/%s/%s address resolving", workload.Namespace, workload.Name, uid)
+				newWorkload := <-p.ResolvedDomainChanMap[uid]
+				if address := newWorkload.GetAddresses(); address != nil {
+					log.Infof("workload: %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, address)
+					if err := p.handleWorkload(newWorkload); err != nil {
+						log.Errorf("handle workload %s failed, err: %v", newWorkload.ResourceName(), err)
 					}
 				} else {
-					log.Warnf("workload: %s/%s addresses is still nil after %d retries, skipping", workload.Namespace, workload.Name, maxRetries)
+					log.Warnf("workload: %s/%s resolved addresses is nil, skip handling", newWorkload.Namespace, newWorkload.Name)
 				}
-			}()
+			}
 		}
 	}
 }
