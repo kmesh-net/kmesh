@@ -36,7 +36,7 @@ Kmesh仅使用IPSec的加密功能，IPSec的预共享密钥由用户设置在K8
 
 用户通过kmeshctl向K8s中设置名称为Kmesh-ipsec-keys的secret类型资源，格式如下：
 
-    kmeshctl secret --key=<aead key>
+    kmeshctl secret create --key=<aead key>
 
 当前仅支持rfc4106 gcm aes (aead)算法，该资源中包含有ipsec使用的aead key，以及ipsec的icv长度
 
@@ -180,18 +180,77 @@ CRD数据结构定义如下：
 
  ipsec示例：本机ip地址为7.6.122.84，获取到对端的node ip 地址信息为7.6.122.220，设置ipsec配置预览如下
 
+## 数据加密、解密流程
+
+### 5.1 加密过程
+
+当数据包从Pod发出并到达Pod peer veth设备时，数据包的加密处理流程如下：
+
+1. **目标检查**：TC程序根据数据包的目的IP地址在LPM前缀树map中进行查询
+2. **加密标记**：如果查询到对应的CIDR记录，说明目标节点启用了IPsec加密，TC程序会为数据包打上特定的mark标记（mark值为0x000000e0），将其标识为需要通过IPsec加密发送的数据包
+3. **IPsec处理**：带有加密标记的数据包会被内核的IPsec子系统拦截，根据配置的xfrm policy和state规则进行加密处理
+4. **隧道封装**：由于使用IPsec隧道模式，加密后的数据包会被重新封装，新的外层IP头部中的源地址和目的地址会被替换为发送节点和接收节点的网卡IP地址，原始的Pod IP地址被封装在内层
+
+### 5.2 解密过程
+
+数据包到达目标节点网卡时，解密处理流程相对复杂，需要区分不同类型的数据包：
+
+#### 5.2.1 ESP协议数据包处理
+
+如果接收到的数据包协议为ESP（Encapsulating Security Payload），说明这是一个IPsec加密的数据包：
+
+1. **Xfrm解码**：数据包会被送入内核的`Xfrm decode`阶段
+2. **状态查找**：系统查找匹配的xfrm state规则
+3. **解密处理**：如果找到匹配的规则，进行解密处理，解密后的数据包会携带output-mark（mark值为0x00d0）并第二次进入ingress阶段
+4. **丢弃处理**：如果未找到匹配的规则，数据包将被丢弃
+
+#### 5.2.2 非ESP协议数据包处理
+
+如果数据包协议不是ESP，则存在两种可能情况，需要通过mark值进行区分：
+
+1. **未加密的普通数据包**：
+   - 这是第一次进入ingress阶段的普通数据包
+   - TC程序将其mark值设置为0x0，避免后续错误匹配到xfrm policy导致数据包被意外丢弃
+
+2. **解密后的数据包**：
+   - 这是经过`Xfrm decode`解密处理后的数据包，携带output-mark（mark值为0x00d0）
+   - TC程序保持其mark值不变，以便后续能够正确匹配到相应的xfrm policy进行进一步处理
+   - 数据包经过验证后转发给目标Pod
+
+### 5.3 Mark值说明
+
+系统使用不同的mark值来标识数据包的状态和处理阶段：
+
+| Mark值 | 用途 | 说明 |
+|--------|------|------|
+| 0x000000e0 | 加密标记 | 标识需要IPsec加密的出站数据包 |
+| 0x000000d0 | 解密标记 | 标识已完成IPsec解密的入站数据包 |
+| 0x0 | 普通标记 | 标识普通未加密数据包，避免错误匹配 |
+
+### 5.4 流程图
+
+**下面是加密数据包的解密过程流程图**
+
+![解密过程流程图](../pics/IPsec_decrypt_ESP_Packet_flow.svg)
+
+**下面是未加密数据包的加密过程流程图**
+
+![加密过程流程图](../pics/IPsec_encrypt_Packet_flow.svg)
+
+关于流程图中的细节可以进一步参考：[Nftables - Netfilter and VPN/IPsec packet flow](https://thermalcircle.de/doku.php?id=blog:linux:nftables_ipsec_packet_flow#context)以及[RFC 4301](https://www.rfc-editor.org/rfc/rfc4301).
+
 # state配置
 
  ip xfrm state add src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-出口密钥} {\$icv-len}
- ip xfrm state add src 7.6.122.220 dst 7.6.122.84 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-入口密钥} {\$icv-len}
+ ip xfrm state add src 7.6.122.220 dst 7.6.122.84 proto esp spi 0x1 mode tunnel reqid 1 {\$aead-algo} {\$aead-入口密钥} {\$icv-len} output-mark 0x000000d0 mask 0xffffffff
 
 # policy配置
 
- ip xfrm policy add src 0.0.0.0/0 dst {\$对端CIDR} dir out tmpl src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 reqid 1 mode tunnel mark 0x000000e0 mask 0xffff
- ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir in  tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xfffffff
- ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir fwd tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xfffffff
+ ip xfrm policy add src 0.0.0.0/0 dst {\$对端CIDR} dir out tmpl src 7.6.122.84 dst 7.6.122.220 proto esp spi 0x1 reqid 1 mode tunnel mark 0x000000e0 mask 0xffffffff
+ ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir in  tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xffffffff
+ ip xfrm policy add src 0.0.0.0/0 dst {\$本端CIDR} dir fwd tmpl src 7.6.122.220 dst 7.6.122.84 proto esp reqid 1 mode tunnel mark 0x000000d0 mask 0xffffffff
 
-- 更新lpm前缀树map，key为对端CIDR地址，value当前全部设置为1，tc根据目标pod ip在前缀树找到记录，确定对端pod为Kmesh纳管，为流量打上对应的加密、解密标签
+- 更新lpm前缀树map，key为对端CIDR地址，value当前全部设置为1，tc根据目标pod ip在前缀树找到记录，确定对端pod为Kmesh纳管，为流量打上对应的加密标签
 - Kmesh-daemon将本端的spi、IPsec设备ip、podCIDRs更新到api-server中，触发其他节点更新机器上的IPsec配置
 
 **Kmesh-daemon检测到node节点新增时：**
