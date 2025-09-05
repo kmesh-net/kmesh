@@ -285,10 +285,12 @@ CRD数据结构定义如下：
 | 0x000000d0 | 解密标记 | 标识已完成IPsec解密的入站数据包 |
 | 0x0 | 普通标记 | 标识普通未加密数据包，避免错误匹配 |
 
-下面是加密数据包的解密过程流程图
+**下面是加密数据包的解密过程流程图**
 
 ![解密过程流程图](../pics/IPsec_decrypt_ESP_Packet_flow.svg)
 
-下面是未加密数据包的加密过程流程图
+**下面是未加密数据包的加密过程流程图**
 
 ![加密过程流程图](../pics/IPsec_encrypt_Packet_flow.svg)
+
+关于流程图中的细节可以进一步参考：[Nftables - Netfilter and VPN/IPsec packet flow](https://thermalcircle.de/doku.php?id=blog:linux:nftables_ipsec_packet_flow#context)以及[RFC 4301](https://www.rfc-editor.org/rfc/rfc4301).
