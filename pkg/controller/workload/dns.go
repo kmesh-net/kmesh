@@ -31,13 +31,15 @@ import (
 
 const (
 	WorkloadDnsRefreshRate = 200 * time.Millisecond // 200ms, used for workload dns refresh rate
-	maxDNSRefreshRetry     = 3                      // max retry for dns refresh
 )
 
 type dnsController struct {
-	workloadsChan chan []*workloadapi.Workload
-	cache         cache.WorkloadCache
-	dnsResolver   *dns.DNSResolver
+	cache       cache.WorkloadCache
+	dnsResolver *dns.DNSResolver
+
+	workloadsChan         chan *workloadapi.Workload
+	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
+
 	// store the copy of pendingResolveWorkload.
 	workloadCache map[string]*pendingResolveDomain
 	// store all pending hostnames in the workloads
@@ -48,7 +50,7 @@ type dnsController struct {
 // pending resolve domain info of Dual-Engine Mode,
 // workload is used for create the apiworkload
 type pendingResolveDomain struct {
-	Workloads   []*workloadapi.Workload
+	Workload    []*workloadapi.Workload
 	RefreshRate time.Duration
 }
 
@@ -58,11 +60,12 @@ func NewDnsController(cache cache.WorkloadCache) (*dnsController, error) {
 		return nil, err
 	}
 	dnsController := &dnsController{
-		workloadsChan:    make(chan []*workloadapi.Workload),
-		cache:            cache,
-		dnsResolver:      resolver,
-		workloadCache:    make(map[string]*pendingResolveDomain),
-		pendingHostnames: make(map[string]string),
+		cache:                 cache,
+		dnsResolver:           resolver,
+		workloadsChan:         make(chan *workloadapi.Workload),
+		ResolvedDomainChanMap: make(map[string]chan *workloadapi.Workload),
+		workloadCache:         make(map[string]*pendingResolveDomain),
+		pendingHostnames:      make(map[string]string),
 	}
 	dnsController.newWorkloadCache()
 	return dnsController, nil
@@ -71,46 +74,40 @@ func NewDnsController(cache cache.WorkloadCache) (*dnsController, error) {
 func (r *dnsController) Run(stopCh <-chan struct{}) {
 	go r.dnsResolver.StartDnsResolver(stopCh)
 	go r.refreshWorker(stopCh)
-	go r.processWorkloads()
+	go func() {
+		for workload := range r.workloadsChan {
+			r.processDomains(workload)
+		}
+	}()
 	go func() {
 		<-stopCh
 		close(r.workloadsChan)
 	}()
 }
 
-func (r *dnsController) processWorkloads() {
-	for workloads := range r.workloadsChan {
-		r.processDomains(workloads)
-	}
-}
+func (r *dnsController) processDomains(workload *workloadapi.Workload) {
+	domains := getPendingResolveDomain(workload)
 
-func (r *dnsController) processDomains(workloads []*workloadapi.Workload) {
-	domains := getPendingResolveDomain(workloads)
-
-	// store all pending hostnames of clusters in pendingHostnames
-	for _, workload := range workloads {
-		workloadName := workload.GetName()
-		hostname := workload.GetHostname()
-		r.pendingHostnames[workloadName] = hostname
-		if _, ok := r.workloadCache[hostname]; !ok {
-			// Initialize the newly added hostname
-			r.workloadCache[hostname] = &pendingResolveDomain{
-				Workloads:   make([]*workloadapi.Workload, 0),
-				RefreshRate: WorkloadDnsRefreshRate,
-			}
+	workloadName := workload.GetName()
+	hostname := workload.GetHostname()
+	r.pendingHostnames[workloadName] = hostname
+	if _, ok := r.workloadCache[hostname]; !ok {
+		// Initialize the newly added hostname
+		r.workloadCache[hostname] = &pendingResolveDomain{
+			Workload:    make([]*workloadapi.Workload, 0),
+			RefreshRate: WorkloadDnsRefreshRate,
 		}
-		r.workloadCache[hostname].Workloads = append(
-			r.workloadCache[hostname].Workloads, workload,
-		)
 	}
+	r.workloadCache[hostname].Workload = append(
+		r.workloadCache[hostname].Workload, workload,
+	)
 
 	// delete any scheduled re-resolve for domains we no longer care about
 	r.dnsResolver.RemoveUnwatchDomain(domains)
 
 	// update workloadCache with pendingResolveWorkload
 	for k, v := range domains {
-		addresses := r.dnsResolver.GetDNSAddresses(k)
-		if addresses != nil {
+		if addresses := r.dnsResolver.GetDNSAddresses(k); addresses != nil {
 			go r.updateWorkloads(v.(*pendingResolveDomain), k, addresses)
 		} else {
 			// Initialize the newly added hostname
@@ -131,31 +128,37 @@ func (r *dnsController) refreshWorker(stop <-chan struct{}) {
 			return
 		case domain := <-r.dnsResolver.DnsChan:
 			pendingDomain := r.getWorkloadsByDomain(domain)
-			// log.Infof("dnsController refreshWorker: domain %s, pendingDomain %v", domain, pendingDomain)
 			addrs := r.dnsResolver.GetDNSAddresses(domain)
-			maxRetry := maxDNSRefreshRetry
-			for range maxRetry {
-				if len(addrs) > 0 {
-					r.updateWorkloads(pendingDomain, domain, addrs)
-				}
-				time.Sleep(1 * time.Second)
-			}
+			r.updateWorkloads(pendingDomain, domain, addrs)
 		}
 	}
 }
 
 func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, domain string, addrs []string) {
-	isWorkerUpdate := false
 	if pendingDomain == nil || addrs == nil {
 		return
 	}
-	log.Infof("dnsController updateWorkloads: pendingDomain %v, domain %s, addrs %v", pendingDomain, domain, addrs)
+	r.Lock()
+	defer r.Unlock()
 
-	for _, workload := range pendingDomain.Workloads {
+	isWorkerUpdate := false
+	for _, workload := range pendingDomain.Workload {
 		if ready, newWorkload := r.overwriteDnsWorkload(workload, domain, addrs); ready {
-			// log.Infof("dnsController update cache for workload %s with addresses %v", workload.ResourceName(), addrs)
-			if r.cache.GetWorkloadByUid(workload.GetUid()) != nil {
-				r.cache.AddOrUpdateWorkload(newWorkload)
+			// uid := workload.GetUid()
+			// if r.cache.GetWorkloadByUid(uid) != nil {
+			// 	r.cache.AddOrUpdateWorkload(newWorkload)
+			// 	delete(r.workloadCache, domain)
+			// 	isWorkerUpdate = true
+			// }
+			// if _, ok := r.workloadCache[domain]; !ok {
+			// 	continue
+			// }
+			uid := newWorkload.GetUid()
+			if _, ok := r.ResolvedDomainChanMap[uid]; ok {
+				r.ResolvedDomainChanMap[uid] <- newWorkload
+				log.Infof("workload %s/%s/%s addresses updated to %v", newWorkload.Namespace, newWorkload.Name, uid, newWorkload.Addresses)
+				close(r.ResolvedDomainChanMap[uid])
+				delete(r.ResolvedDomainChanMap, uid)
 				delete(r.workloadCache, domain)
 				isWorkerUpdate = true
 			}
@@ -163,7 +166,7 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 	}
 
 	if isWorkerUpdate {
-		log.Info("some workloads has been updated")
+		// log.Info("some workloads has been updated")
 		// TODO: flush the bpf map
 		// r.cache.Flush()
 		return
@@ -171,55 +174,43 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 }
 
 func (r *dnsController) overwriteDnsWorkload(workload *workloadapi.Workload, domain string, addrs []string) (bool, *workloadapi.Workload) {
-	ready := true
 	hostName := r.pendingHostnames[workload.GetName()]
-	addressesOfHostname := make(map[string][]string)
 
 	if addresses := r.dnsResolver.GetDNSAddresses(hostName); addresses != nil {
-		addressesOfHostname[hostName] = addresses
-	} else {
-		ready = false
-	}
-
-	if ready {
-		// log.Infof("overwriteDnsWorkload ready for workload %s with domain %s", workload.ResourceName(), domain)
 		newWorkload := cloneWorkload(workload)
 		for _, addr := range addrs {
 			if ip := net.ParseIP(addr); ip != nil && ip.To4() != nil {
 				newWorkload.Addresses = append(newWorkload.Addresses, netip.MustParseAddr(addr).AsSlice())
 			}
 		}
-
-		return ready, newWorkload
+		return true, newWorkload
 	}
 
-	return ready, nil
+	return false, nil
 }
 
-func getPendingResolveDomain(workloads []*workloadapi.Workload) map[string]any {
+func getPendingResolveDomain(workload *workloadapi.Workload) map[string]any {
 	domains := make(map[string]any)
 
-	for _, workload := range workloads {
-		hostname := workload.GetHostname()
-		if hostname == "" {
-			continue
-		}
+	hostname := workload.GetHostname()
+	if hostname == "" {
+		return domains
+	}
 
-		if _, err := netip.ParseAddr(hostname); err == nil {
-			// This is an ip address
-			continue
-		}
+	if _, err := netip.ParseAddr(hostname); err == nil {
+		// This is an ip address
+		return domains
+	}
 
-		// log.Infof("getPendingResolveDomain: processing workload %s with hostname %s", workload.ResourceName(), hostname)
-		if v, ok := domains[hostname]; ok {
-			v.(*pendingResolveDomain).Workloads = append(v.(*pendingResolveDomain).Workloads, workload)
-		} else {
-			domainWithRefreshRate := &pendingResolveDomain{
-				Workloads:   []*workloadapi.Workload{workload},
-				RefreshRate: WorkloadDnsRefreshRate,
-			}
-			domains[hostname] = domainWithRefreshRate
+	// log.Infof("getPendingResolveDomain: processing workload %s with hostname %s", workload.ResourceName(), hostname)
+	if v, ok := domains[hostname]; ok {
+		v.(*pendingResolveDomain).Workload = append(v.(*pendingResolveDomain).Workload, workload)
+	} else {
+		domainWithRefreshRate := &pendingResolveDomain{
+			Workload:    []*workloadapi.Workload{workload},
+			RefreshRate: WorkloadDnsRefreshRate,
 		}
+		domains[hostname] = domainWithRefreshRate
 	}
 
 	return domains

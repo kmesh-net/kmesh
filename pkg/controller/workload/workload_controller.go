@@ -56,6 +56,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 		return nil
 	}
 	processor.DnsResolverChan = dnsResolverController.workloadsChan
+	processor.ResolvedDomainChanMap = dnsResolverController.ResolvedDomainChanMap
 	c := &Controller{
 		dnsResolverController: dnsResolverController,
 		Processor:             processor,
