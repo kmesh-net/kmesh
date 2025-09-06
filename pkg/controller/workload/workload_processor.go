@@ -62,9 +62,6 @@ type Processor struct {
 	WaypointCache cache.WaypointCache
 	locality      bpf.LocalityCache
 
-	DnsResolverChan       chan *workloadapi.Workload
-	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
-
 	once      sync.Once
 	authzOnce sync.Once
 
@@ -75,6 +72,9 @@ type Processor struct {
 	authzRespOnce   sync.Once
 
 	handlers map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error
+
+	DnsResolverChan       chan *workloadapi.Workload
+	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
@@ -592,7 +592,8 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		// Because there is only one address in the workload, a direct comparison can be made to
 		// determine whether the old data needs to be deleted or not.
 		if len(newWorkloadAddresses) > 0 && len(oldWorkloadAddresses) > 0 && !slices.Equal(newWorkloadAddresses[0], oldWorkloadAddresses[0]) {
-			if err := p.deleteFrontendByIp(oldWorkloadAddresses); err != nil {
+			err := p.deleteFrontendByIp(oldWorkloadAddresses)
+			if err != nil {
 				return fmt.Errorf("frontend map delete failed: %v", err)
 			}
 		}
@@ -933,28 +934,25 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 
 	for _, workload := range workloads {
 		// TODO: Kmesh supports ServiceEntry
-		if workload.GetAddresses() != nil {
-			if err := p.handleWorkload(workload); err != nil {
-				log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
+		if workload.GetAddresses() == nil {
+			log.Warnf("workload: %s/%s addresses is nil", workload.Namespace, workload.Name)
+			if p.DnsResolverChan == nil {
+				continue
 			}
-		} else {
-			log.Warnf("workload %s/%s addresses is nil, workload info: %+v", workload.Namespace, workload.Name, workload)
-			// workload from service entry need address resolving
-			if p.DnsResolverChan != nil {
-				uid := workload.GetUid()
-				p.ResolvedDomainChanMap[uid] = make(chan *workloadapi.Workload)
-				p.DnsResolverChan <- workload
-				log.Infof("wait for workload %s/%s/%s address resolving", workload.Namespace, workload.Name, uid)
-				newWorkload := <-p.ResolvedDomainChanMap[uid]
-				if address := newWorkload.GetAddresses(); address != nil {
-					log.Infof("workload: %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, address)
-					if err := p.handleWorkload(newWorkload); err != nil {
-						log.Errorf("handle workload %s failed, err: %v", newWorkload.ResourceName(), err)
-					}
-				} else {
-					log.Warnf("workload: %s/%s resolved addresses is nil, skip handling", newWorkload.Namespace, newWorkload.Name)
-				}
+			uid := workload.GetUid()
+			p.ResolvedDomainChanMap[uid] = make(chan *workloadapi.Workload)
+			p.DnsResolverChan <- workload
+			log.Infof("wait for workload %s/%s/%s address resolving", workload.Namespace, workload.Name, uid)
+			newWorkload := <-p.ResolvedDomainChanMap[uid]
+			if address := newWorkload.GetAddresses(); address == nil {
+				log.Warnf("workload: %s/%s resolved addresses is nil, skip handling", newWorkload.Namespace, newWorkload.Name)
+				continue
+			} else {
+				log.Infof("workload: %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, address)
 			}
+		}
+		if err := p.handleWorkload(workload); err != nil {
+			log.Errorf("handle workload %s failed, err: %v", workload.ResourceName(), err)
 		}
 	}
 }

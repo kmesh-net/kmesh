@@ -162,7 +162,9 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	c.client = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
 
 	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Run(ctx, stopCh)
+		if err := c.client.WorkloadController.Run(ctx, stopCh); err != nil {
+			return fmt.Errorf("failed to start workload controller: %+v", err)
+		}
 	} else {
 		c.client.AdsController.StartDnsController(stopCh)
 	}
