@@ -40,12 +40,12 @@ var log = logger.NewLoggerScope("workload_controller")
 type Controller struct {
 	Stream                    discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 	Processor                 *Processor
-	dnsResolverController     *dnsController
 	Rbac                      *auth.Rbac
 	MetricController          *telemetry.MetricController
 	MapMetricController       *telemetry.MapMetricController
 	OperationMetricController *telemetry.BpfProgMetric
 	bpfWorkloadObj            *bpfwl.BpfWorkload
+	dnsResolverController     *dnsController
 }
 
 func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) *Controller {
