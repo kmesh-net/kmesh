@@ -40,6 +40,7 @@ var log = logger.NewLoggerScope("workload_controller")
 type Controller struct {
 	Stream                    discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 	Processor                 *Processor
+	dnsResolverController     *dnsController
 	Rbac                      *auth.Rbac
 	MetricController          *telemetry.MetricController
 	MapMetricController       *telemetry.MapMetricController
@@ -48,9 +49,18 @@ type Controller struct {
 }
 
 func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) *Controller {
+	processor := NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
+	dnsResolverController, err := NewDnsController(processor.WorkloadCache)
+	if err != nil {
+		log.Errorf("dns resolver of Dual-Engine mode create failed: %v", err)
+		return nil
+	}
+	processor.DnsResolverChan = dnsResolverController.workloadsChan
+	processor.ResolvedDomainChanMap = dnsResolverController.ResolvedDomainChanMap
 	c := &Controller{
-		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
-		bpfWorkloadObj: bpfWorkload,
+		dnsResolverController: dnsResolverController,
+		Processor:             processor,
+		bpfWorkloadObj:        bpfWorkload,
 	}
 	// do some initialization when restart
 	// restore endpoint index, otherwise endpoint number can double
@@ -66,7 +76,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	return c
 }
 
-func (c *Controller) Run(ctx context.Context) error {
+func (c *Controller) Run(ctx context.Context, stopCh <-chan struct{}) error {
 	if err := c.Processor.PrepareDNSProxy(); err != nil {
 		log.Errorf("failed to prepare for dns proxy, err: %+v", err)
 		return err
@@ -92,6 +102,9 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 	if c.OperationMetricController != nil {
 		go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmPerfInfo)
+	}
+	if c.dnsResolverController != nil {
+		go c.dnsResolverController.Run(stopCh)
 	}
 	return nil
 }
