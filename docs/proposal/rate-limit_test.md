@@ -39,6 +39,7 @@ Next, create a dedicated Waypoint proxy for the `httpbin` service and label the 
 
 ```sh
 kmeshctl waypoint apply -n default --name httpbin-waypoint --image ghcr.io/kmesh-net/waypoint:latest
+
 kubectl label service httpbin istio.io/use-waypoint=httpbin-waypoint
 ```
 
