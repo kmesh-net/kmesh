@@ -84,7 +84,7 @@ jobs:
           base: main
           title: "docs: sync latest kmeshctl documentation"
           body: |
-            This PR syncs the latest changes from [kmesh/docs/ctl](https://github.com/yashisrani/kmesh/tree/main/docs/ctl).
+            This PR syncs the latest changes from [kmesh/docs/ctl](https://github.com/kmesh-net/kmesh/tree/main/docs/ctl).
 
             Please review and merge.
           commit-message: "docs: sync kmeshctl docs"
