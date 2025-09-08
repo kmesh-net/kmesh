@@ -46,6 +46,7 @@ kubectl label service httpbin istio.io/use-waypoint=httpbin-waypoint
 ## Step 4. Deploy envoyFilter
 
 This `EnvoyFilter` resource injects a local rate-limiting filter into the `httpbin` service's Waypoint proxy. The filter is configured with the following rules:
+
 - A request with the header `quota: low` will be limited to **1 request per 300 seconds**.
 - A request with the header `quota: medium` will be limited to **3 requests per 300 seconds**.
 - Other requests will be subject to a default limit of **10 requests per 300 seconds**.
@@ -194,6 +195,7 @@ istioctl proxy-config all $WAYPOINT_POD -ojson | grep ratelimit -A 20
 Now, let's send requests from the `sleep` pod to the `httpbin` service to test the rate limit rules.
 
 First, get the name of the `sleep` pod:
+
 ```sh
 export SLEEP_POD=$(kubectl get pod -l app=sleep -o jsonpath='{.items[0].metadata.name}')
 ```
@@ -208,8 +210,10 @@ kubectl exec -it $SLEEP_POD -- curl -H 'quota:medium' http://httpbin:8000/header
 kubectl exec -it $SLEEP_POD -- curl -H 'quota:medium' http://httpbin:8000/headers
 kubectl exec -it $SLEEP_POD -- curl -H 'quota:medium' http://httpbin:8000/headers
 ```
+
 Expected output for the fourth command:
-```
+
+``` sh
 local_rate_limited
 ```
 
@@ -221,7 +225,9 @@ The rule for `quota: low` allows only 1 request. The second request should be ra
 kubectl exec -it $SLEEP_POD -- curl -H 'quota:low' http://httpbin:8000/headers
 kubectl exec -it $SLEEP_POD -- curl -H 'quota:low' http://httpbin:8000/headers
 ```
+
 Expected output for the second command:
-```
+
+``` sh
 local_rate_limited
 ```
