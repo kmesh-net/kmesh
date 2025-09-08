@@ -1,15 +1,46 @@
-## Step 1. 部署Kmesh和isitod（>=1.24）
+--- 
+title: Circuit Breaking Test Guide
+authors:
+- "@LiZhenCheng9527 @zrggw"
+reviews:
+-
+approves:
+-
 
-## Step 2. 部署sleep和httpbin
+create-date: 2025-5-29
 
-## Step 3. 为httpbin部署waypoint
+---
+
+This document provides a step-by-step guide on how to test the rate limiting functionality of kmesh. It covers deploying the necessary components, configuring traffic rules, and observing the rate limiting behavior.
+
+## Step 1. Deploy Kmesh and istiod (>=1.24)
+
+Please read [Quick Start](https://kmesh.net/docs/setup/quick-start) to complete the deployment of kmesh.
+
+## Step 2. Deploy sleep and httpbin
+
+``` sh
+kubectl apply -f samples/sleep/sleep.yaml
+kubectl apply -f sample/httpbin/httpbin.yaml
+```
+
+## Step 3. Deploy waypoint for httpbin
+
+Install Kubernetes Gateway API CRDs before configuring waypoint:
+
+``` sh
+kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
+  { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=444631bfe06f3bcca5d0eadf1857eac1d369421d" | kubectl apply -f -; }
+```
+
+Then, configure waypoint for httpbin:
 
 ```sh
-kmeshctl waypoint apply -n default --name httpbin-waypoint
+kmeshctl waypoint apply -n default --name httpbin-waypoint --image ghcr.io/kmesh-net/waypoint:latest
 kubectl label service httpbin istio.io/use-waypoint=httpbin-waypoint
 ```
 
-## Step 4. 部署envoyFilter
+## Step 4. Deploy envoyFilter
 
 ```sh
 kubectl apply -f -<<EOF
@@ -111,13 +142,13 @@ spec:
 EOF
 ```
 
-## Step 5. 通过istioctl查看waypoint中的envoy filter配置信息
+## Step 5. View the envoy filter configuration in waypoint through istioctl
 
 ```sh
-istioctl proxy-config all httpbin-waypoint-c9944bb76-xnkb6 -ojson | grep ratelimit -A 20
+istioctl proxy-config all <waypoint-pod-name> -ojson | grep ratelimit -A 20 # Replace <waypoint-pod-name> with the actual pod name of the waypoint
 ```
 
-## Step 6. 在其中能够找到如下结果，说明配置已经下发到waypoint中
+## Step 6. Find the following results, which means the configuration has been sent to waypoint
 
 ```sh
         "envoy.filters.http.local_ratelimit": {
@@ -145,15 +176,18 @@ istioctl proxy-config all httpbin-waypoint-c9944bb76-xnkb6 -ojson | grep ratelim
              "response_headers_to_add": [
 ```
 
-## Step 7. 通过sleep访问httpbin，看限流是否起作用
+## Step 7. Access httpbin through sleep to see if the rate limit is working
 
 ```sh
-root@kurator-linux-zirain:~/.istioctl/bin# k exec -it sleep-5fcd8fd6c8-689t2 -- curl -H 'quota:medium' http://httpbin:8000/headers 
+kubectl exec -it sleep-5fcd8fd6c8-689t2 -- curl -H 'quota:medium' http://httpbin:8000/headers
 {"headers":{"Accept":"*/*","Host":"httpbin:8000","Quota":"medium","User-Agent":"curl/8.13.0"}}
-root@kurator-linux-zirain:~/.istioctl/bin# k exec -it sleep-5fcd8fd6c8-689t2 -- curl -H 'quota:medium' http://httpbin:8000/headers 
+
+kubectl exec -it sleep-5fcd8fd6c8-689t2 -- curl -H 'quota:medium' http://httpbin:8000/headers
 {"headers":{"Accept":"*/*","Host":"httpbin:8000","Quota":"medium","User-Agent":"curl/8.13.0"}}
-root@kurator-linux-zirain:~/.istioctl/bin# k exec -it sleep-5fcd8fd6c8-689t2 -- curl -H 'quota:medium' http://httpbin:8000/headers 
+
+kubectl exec -it sleep-5fcd8fd6c8-689t2 -- curl -H 'quota:medium' http://httpbin:8000/headers
 {"headers":{"Accept":"*/*","Host":"httpbin:8000","Quota":"medium","User-Agent":"curl/8.13.0"}}
-root@kurator-linux-zirain:~/.istioctl/bin# k exec -it sleep-5fcd8fd6c8-689t2 -- curl -H 'quota:medium' http://httpbin:8000/headers 
-local_rate_limitedroot
+
+kubectl exec -it sleep-5fcd8fd6c8-689t2 -- curl -H 'quota:medium' http://httpbin:8000/headers 
+local_rate_limitedroot # The fourth request is rate limited
 ```
