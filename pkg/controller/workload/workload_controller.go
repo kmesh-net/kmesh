@@ -58,9 +58,9 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	processor.DnsResolverChan = dnsResolverController.workloadsChan
 	processor.ResolvedDomainChanMap = dnsResolverController.ResolvedDomainChanMap
 	c := &Controller{
-		dnsResolverController: dnsResolverController,
 		Processor:             processor,
 		bpfWorkloadObj:        bpfWorkload,
+		dnsResolverController: dnsResolverController,
 	}
 	// do some initialization when restart
 	// restore endpoint index, otherwise endpoint number can double

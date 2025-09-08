@@ -155,6 +155,7 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 			// }
 			uid := newWorkload.GetUid()
 			if _, ok := r.ResolvedDomainChanMap[uid]; ok {
+				r.cache.AddOrUpdateWorkload(newWorkload)
 				r.ResolvedDomainChanMap[uid] <- newWorkload
 				log.Infof("workload %s/%s/%s addresses updated to %v", newWorkload.Namespace, newWorkload.Name, uid, newWorkload.Addresses)
 				close(r.ResolvedDomainChanMap[uid])
