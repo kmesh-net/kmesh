@@ -23,7 +23,7 @@ We will deploy `httpbin` as the backend service for receiving requests and `slee
 
 ``` sh
 kubectl apply -f samples/sleep/sleep.yaml
-kubectl apply -f sample/httpbin/httpbin.yaml
+kubectl apply -f samples/httpbin/httpbin.yaml
 ```
 
 ## Step 3. Deploy waypoint for httpbin

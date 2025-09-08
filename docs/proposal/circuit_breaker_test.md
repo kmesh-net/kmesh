@@ -74,7 +74,7 @@ EOF
 ```
 
 ```sh
-kubectl apply -f sample/httpbin/httpbin.yaml
+kubectl apply -f samples/httpbin/httpbin.yaml
 ```
 
 ## Step 3. Configure waypoint for httpbin
