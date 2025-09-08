@@ -79,20 +79,21 @@ kubectl apply -f sample/httpbin/httpbin.yaml
 
 ## Step 3. Configure waypoint for httpbin
 
-Install Kubernetes Gateway API CRDs before configuring waypoint:
+First, if you haven't installed the Kubernetes Gateway API CRDs, run the following command to install.
 
 ``` sh
 kubectl get crd gateways.gateway.networking.k8s.io &> /dev/null || \
   { kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=444631bfe06f3bcca5d0eadf1857eac1d369421d" | kubectl apply -f -; }
 ```
 
-Then, configure waypoint for httpbin:
+Next, create a dedicated Waypoint proxy for the `httpbin` service and label the service to direct its traffic through this Waypoint.
+
 ```sh
 kmeshctl waypoint apply -n default --name httpbin-waypoint --image ghcr.io/kmesh-net/waypoint:latest
 kubectl label service httpbin istio.io/use-waypoint=httpbin-waypoint
 ```
 
-## Step 4. Configure destinationRule
+## Step 4. Configure DestinationRule
 
 ```sh
 kubectl apply -f - <<EOF
@@ -123,12 +124,21 @@ EOF
 
 ## Step 5. View the cds configuration in waypoint through istioctl
 
+First, get the name of the Waypoint pod.
+
 ```sh
-istioctl proxy-config all <waypoint-pod-name> # Replace <waypoint-pod-name> with the actual pod name of the waypoint
+export WAYPOINT_POD=$(kubectl get pod -l gateway.networking.k8s.io/gateway-name=httpbin-waypoint -o jsonpath='{.items[0].metadata.name}')
+```
+
+Then, view the configuration.
+
+```sh
+istioctl proxy-config all $WAYPOINT_POD 
 ```
 
 ## Step 6. Access through fortio to see the actual phenomenon
 
+Now, let's use `fortio` to send a burst of traffic to `httpbin`.
 
 ```sh
 export FORTIO_POD=$(kubectl get pods -l app=fortio -o 'jsonpath={.items[0].metadata.name}')
@@ -136,6 +146,7 @@ kubectl exec "$FORTIO_POD" -c fortio -- /usr/bin/fortio load -c 5 -qps 0 -n 50 -
 ```
 
 You should see some requests failing with 503 errors, indicating that the circuit breaker is functioning as expected.
+
 ```sh
 ...
 IP addresses distribution:
