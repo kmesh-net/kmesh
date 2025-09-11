@@ -169,7 +169,7 @@ func (sc *SockConnWorkload) Attach() error {
 	pinPathDns4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_dns_prog")
 	pinPathDnsRecv4 := filepath.Join(sc.Info.BpfFsPath, "sockconn_dns_recv_prog")
 
-	if restart.GetStartType() == restart.Restart {
+	if restart.GetStartType() == restart.Restart || restart.GetStartType() == restart.Update {
 		if sc.Link, err = utils.BpfProgUpdate(pinPath4, cgopt4); err != nil {
 			return err
 		}
