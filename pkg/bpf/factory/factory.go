@@ -19,11 +19,12 @@ package factory
 import "github.com/cilium/ebpf"
 
 type GlobalBpfConfig struct {
-	BpfLogLevel      uint32
-	NodeIP           [16]byte
-	PodGateway       [16]byte
-	AuthzOffload     uint32
-	EnableMonitoring uint32
+	BpfLogLevel          uint32
+	NodeIP               [16]byte
+	PodGateway           [16]byte
+	AuthzOffload         uint32
+	EnableMonitoring     uint32
+	EnablePeriodicReport uint32
 }
 
 type KmeshBpfConfig struct {

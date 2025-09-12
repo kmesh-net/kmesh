@@ -234,6 +234,11 @@ func setBpfConfig(t *testing.T, coll *ebpf.Collection, config *factory.GlobalBpf
 			t.Fatalf("failed to set authz_offload: %v", err)
 		}
 	}
+	if v, ok := coll.Variables["enable_periodic_report"]; ok {
+		if err := v.Set(&config.EnablePeriodicReport); err != nil {
+			t.Fatalf("failed to set enable_periodic_report: %v", err)
+		}
+	}
 }
 
 // registerTailCall registers a tail call in the eBPF collection by updating the specified

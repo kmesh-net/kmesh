@@ -31,7 +31,8 @@ all: xdp_shutdown_in_userspace_test.o \
 		workload_sockops_test.o           \
 		tc_mark_encrypt_test.o            \
 		tc_mark_decrypt_test.o            \
-		workload_sendmsg_test.o
+		workload_sendmsg_test.o			  \
+		workload_cgroup_skb_test.o       
 
 
 XDP_FLAGS = -I$(ROOT_DIR)/bpf/kmesh/ -I$(ROOT_DIR)/bpf/kmesh/workload/include -I$(ROOT_DIR)/api/v2-c
@@ -52,6 +53,14 @@ WORKLOAD_SENDMSG_FLAGS = -I$(ROOT_DIR)/bpf/kmesh/ -I$(ROOT_DIR)/bpf/kmesh/worklo
 workload_sendmsg_test.o: workload_sendmsg_test.c
 	$(QUIET) $(CLANG) $(CLANG_FLAGS) $(WORKLOAD_SENDMSG_FLAGS) -c $< -o $@
 	
+
+WORKLOAD_CGROUP_SKB_FLAGS = -I$(ROOT_DIR)/bpf/kmesh/ \
+                            -I$(ROOT_DIR)/bpf/kmesh/probes \
+                            -I$(ROOT_DIR)/bpf/kmesh/workload/include \
+                            -I$(ROOT_DIR)/api/v2-c
+workload_cgroup_skb_test.o: workload_cgroup_skb_test.c
+	$(QUIET) $(CLANG) $(CLANG_FLAGS) $(WORKLOAD_CGROUP_SKB_FLAGS) -c $< -o $@
+
 clean:
 	$(QUIET) rm -f $(wildcard *.o)
 	$(QUIET) rm -f $(wildcard *.d)
