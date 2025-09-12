@@ -56,9 +56,7 @@ func testWorkload(t *testing.T) {
 	t.Run("SockOps", testSockOps)
 	t.Run("SendMsg", testSendMsg)
 	t.Run("CgroupSkb", testCgroupSkb)
-
 }
-
 func testXDP(t *testing.T) {
 	XDPtests := []unitTests_BPF_PROG_TEST_RUN{
 		{
