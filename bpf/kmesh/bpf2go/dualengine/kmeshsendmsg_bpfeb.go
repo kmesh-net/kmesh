@@ -12,16 +12,6 @@ import (
 	"github.com/cilium/ebpf"
 )
 
-type KmeshSendmsgBpfSockTuple struct {
-	Ipv4 struct {
-		Saddr uint32
-		Daddr uint32
-		Sport uint16
-		Dport uint16
-	}
-	_ [24]byte
-}
-
 type KmeshSendmsgBuf struct{ Data [40]int8 }
 
 type KmeshSendmsgManagerKey struct {
@@ -38,8 +28,16 @@ type KmeshSendmsgSockStorageData struct {
 	HasEncoded     bool
 	HasSetIp       bool
 	_              [3]byte
-	SkTuple        KmeshSendmsgBpfSockTuple
-	_              [4]byte
+	SkTuple        struct {
+		Ipv4 struct {
+			Saddr uint32
+			Daddr uint32
+			Sport uint16
+			Dport uint16
+		}
+		_ [24]byte
+	}
+	_ [4]byte
 }
 
 // LoadKmeshSendmsg returns the embedded CollectionSpec for KmeshSendmsg.
@@ -91,15 +89,14 @@ type KmeshSendmsgProgramSpecs struct {
 //
 // It can be passed ebpf.CollectionSpec.Assign.
 type KmeshSendmsgMapSpecs struct {
-	KmLogEvent        *ebpf.MapSpec `ebpf:"km_log_event"`
-	KmManage          *ebpf.MapSpec `ebpf:"km_manage"`
-	KmSockstorage     *ebpf.MapSpec `ebpf:"km_sockstorage"`
-	KmTmpbuf          *ebpf.MapSpec `ebpf:"km_tmpbuf"`
-	KmeshMap1600      *ebpf.MapSpec `ebpf:"kmesh_map1600"`
-	KmeshMap192       *ebpf.MapSpec `ebpf:"kmesh_map192"`
-	KmeshMap296       *ebpf.MapSpec `ebpf:"kmesh_map296"`
-	KmeshMap64        *ebpf.MapSpec `ebpf:"kmesh_map64"`
-	MapOfKmeshSendmsg *ebpf.MapSpec `ebpf:"map_of_kmesh_sendmsg"`
+	KmLogEvent    *ebpf.MapSpec `ebpf:"km_log_event"`
+	KmManage      *ebpf.MapSpec `ebpf:"km_manage"`
+	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
+	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmeshMap1600  *ebpf.MapSpec `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.MapSpec `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.MapSpec `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.MapSpec `ebpf:"kmesh_map64"`
 }
 
 // KmeshSendmsgVariableSpecs contains global variables before they are loaded into the kernel.
@@ -129,15 +126,14 @@ func (o *KmeshSendmsgObjects) Close() error {
 //
 // It can be passed to LoadKmeshSendmsgObjects or ebpf.CollectionSpec.LoadAndAssign.
 type KmeshSendmsgMaps struct {
-	KmLogEvent        *ebpf.Map `ebpf:"km_log_event"`
-	KmManage          *ebpf.Map `ebpf:"km_manage"`
-	KmSockstorage     *ebpf.Map `ebpf:"km_sockstorage"`
-	KmTmpbuf          *ebpf.Map `ebpf:"km_tmpbuf"`
-	KmeshMap1600      *ebpf.Map `ebpf:"kmesh_map1600"`
-	KmeshMap192       *ebpf.Map `ebpf:"kmesh_map192"`
-	KmeshMap296       *ebpf.Map `ebpf:"kmesh_map296"`
-	KmeshMap64        *ebpf.Map `ebpf:"kmesh_map64"`
-	MapOfKmeshSendmsg *ebpf.Map `ebpf:"map_of_kmesh_sendmsg"`
+	KmLogEvent    *ebpf.Map `ebpf:"km_log_event"`
+	KmManage      *ebpf.Map `ebpf:"km_manage"`
+	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
+	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmeshMap1600  *ebpf.Map `ebpf:"kmesh_map1600"`
+	KmeshMap192   *ebpf.Map `ebpf:"kmesh_map192"`
+	KmeshMap296   *ebpf.Map `ebpf:"kmesh_map296"`
+	KmeshMap64    *ebpf.Map `ebpf:"kmesh_map64"`
 }
 
 func (m *KmeshSendmsgMaps) Close() error {
@@ -150,7 +146,6 @@ func (m *KmeshSendmsgMaps) Close() error {
 		m.KmeshMap192,
 		m.KmeshMap296,
 		m.KmeshMap64,
-		m.MapOfKmeshSendmsg,
 	)
 }
 
