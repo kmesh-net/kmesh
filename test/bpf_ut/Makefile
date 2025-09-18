@@ -49,7 +49,7 @@ tc_mark_encrypt_test.o: tc_mark_encrypt_test.c
 tc_mark_decrypt_test.o: tc_mark_decrypt_test.c
 	$(QUIET) $(CLANG) $(CLANG_FLAGS) $(TC_FLAGS) -c $< -o $@
 
-WORKLOAD_SENDMSG_FLAGS = -I$(ROOT_DIR)/bpf/kmesh/ -I$(ROOT_DIR)/bpf/kmesh/workload/include -I$(ROOT_DIR)/api/v2-c  
+WORKLOAD_SENDMSG_FLAGS = -I$(ROOT_DIR)/bpf/kmesh/ -I$(ROOT_DIR)/bpf/kmesh/workload/include -I$(ROOT_DIR)/api/v2-c -DKMESH_UNIT_TEST
 workload_sendmsg_test.o: workload_sendmsg_test.c
 	$(QUIET) $(CLANG) $(CLANG_FLAGS) $(WORKLOAD_SENDMSG_FLAGS) -c $< -o $@
 	
