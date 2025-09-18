@@ -1048,6 +1048,20 @@ func testSendMsg(t *testing.T) {
 		t.Run(tt.objFilename, tt.run())
 	}
 }
+
+// getSysFd extracts the underlying socket file descriptor from a Go net.Conn.
+// This function is essential for eBPF testing as it allows registration of sockets
+// in eBPF sockhash maps, which require raw file descriptors as values.
+//
+// Parameters:
+//   - conn: Go network connection (must implement syscall.Conn interface)
+//
+// Returns:
+//   - int: Socket file descriptor
+//   - error: Error if extraction fails or conn doesn't support syscall operations
+//
+// The function will return an error if the connection doesn't implement syscall.Conn
+// or if any syscall operations fail during file descriptor extraction.
 func getSysFd(conn net.Conn) (int, error) {
 	rawConn, ok := conn.(syscall.Conn)
 	if !ok {
@@ -1066,9 +1080,35 @@ func getSysFd(conn net.Conn) (int, error) {
 	}
 	return fd, nil
 }
+
+// htons converts a 16-bit integer from host byte order to network byte order.
+// This function implements the standard htons() conversion required for eBPF map
+// keys, ensuring consistent cross-platform byte ordering in network operations.
+//
+// Parameters:
+//   - i: 16-bit integer in host byte order (typically port numbers)
+//
+// Returns:
+//   - uint16: 16-bit integer converted to network byte order (big-endian)
+//
+// This conversion is necessary when storing port numbers in eBPF map keys, as
+// eBPF maps expect network byte order for proper key matching.
 func htons(i uint16) uint16 {
 	return (i<<8)&0xff00 | i>>8
 }
+
+// get_local_ipv6 discovers the machine's local IPv6 address suitable for testing.
+// The function establishes a test connection to a known IPv6 address and extracts
+// the local IPv6 address that the kernel selects for routing.
+//
+// Parameters:
+//   - t: Testing context for logging and test control
+//
+// Returns:
+//   - string: Local IPv6 address without port number
+//
+// The function will skip the test if IPv6 networking is not available or reachable.
+// It will call t.Fatal if address extraction fails after successful connection.
 func get_local_ipv6(t *testing.T) string {
 	testConn, testErr := net.Dial("tcp6", "[2001:4860:4860::8888]:53")
 	if testErr != nil {
