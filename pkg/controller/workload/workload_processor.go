@@ -339,6 +339,7 @@ func (p *Processor) deleteServiceFrontendData(service *workloadapi.Service, id u
 
 func (p *Processor) removeServiceResources(resources []string) error {
 	for _, name := range resources {
+		p.deleteWaypoint(name)
 		p.WaypointCache.DeleteService(name)
 		telemetry.DeleteServiceMetric(name)
 		svc := p.ServiceCache.GetService(name)
@@ -821,27 +822,8 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 
 func (p *Processor) handleService(service *workloadapi.Service) error {
 	log.Debugf("handle service resource: %s", service.ResourceName())
-
-	containsPort := func(port uint32) bool {
-		for _, p := range service.GetPorts() {
-			if p.GetServicePort() == port {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	// Preprocess service, remove the waypoint from waypoint service, otherwise it will fall into a loop in bpf
-	if service.Waypoint != nil && service.GetWaypoint().GetAddress() != nil && len(service.Addresses) != 0 {
-		// Currently istiod only set the waypoint address to the first address of the service
-		// When waypoints of different granularities are deployed together, the only waypoint service to be determined
-		// is whether it contains port 15021, ref: https://github.com/kmesh-net/kmesh/issues/691
-		// TODO: remove when upstream istiod will not set the waypoint address for itself
-		if slices.Equal(service.GetWaypoint().GetAddress().Address, service.Addresses[0].Address) || containsPort(15021) {
-			service.Waypoint = nil
-		}
-	}
+	hostname := service.GetWaypoint().GetHostname()
+	waypointResourceName := hostname.GetNamespace() + "/" + hostname.GetHostname()
 
 	if resolved := p.WaypointCache.AddOrUpdateService(service); !resolved {
 		// If the hostname type waypoint of service has not been resolved, it will not be processed
@@ -849,6 +831,11 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 		// it will be handled after the batch resolution is completed in `WaypointCache.Refresh`.
 		log.Debugf("waypoint of service %s can't be resolved immediately, defer processing", service.ResourceName())
 		return nil
+	}
+
+	if associate := p.WaypointCache.GetAssociatedObjectsByResourceName(waypointResourceName); associate != nil {
+		waypointSvc := p.ServiceCache.GetService(waypointResourceName)
+		p.updateWaypointMap(waypointSvc)
 	}
 
 	oldService := p.ServiceCache.GetService(service.ResourceName())
@@ -1174,4 +1161,35 @@ func (p *Processor) deleteFrontendByIp(addresses [][]byte) error {
 	}
 
 	return nil
+}
+
+func (p *Processor) updateWaypointMap(svc *workloadapi.Service) {
+	// find waypoint pods
+	svcId := p.hashName.Hash(svc.ResourceName())
+	endpoints := p.EndpointCache.List(svcId)
+	for workloadUid := range endpoints {
+		workload := p.WorkloadCache.GetWorkloadByUid(p.hashName.NumToStr(workloadUid))
+		ip := []byte{}
+		for _, addr := range workload.GetAddresses() {
+			ip = append(ip, addr...)
+		}
+		waypointKey := &bpfcache.WaypointKey{}
+		waypointValue := uint32(1)
+		nets.CopyIpByteFromSlice(&waypointKey.Addr, ip)
+		err := p.bpf.WaypointUpdate(waypointKey, &waypointValue)
+		if err != nil {
+			log.Errorf("failed to update waypoint map: %v", err)
+		}
+	}
+}
+
+func (p *Processor) deleteWaypoint(resourceName string) {
+	if associate := p.WaypointCache.GetAssociatedObjectsByResourceName(resourceName); associate != nil {
+		waypointKey := &bpfcache.WaypointKey{}
+		nets.CopyIpByteFromSlice(&waypointKey.Addr, associate.WaypointAddress().Address)
+		if err := p.bpf.WaypointDelete(waypointKey); err != nil {
+			log.Errorf("Failed to delete waypoint: %#v, due to %v", associate.WaypointAddress().Address, err)
+			return
+		}
+	}
 }
