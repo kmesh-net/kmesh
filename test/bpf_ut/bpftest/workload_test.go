@@ -1512,7 +1512,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect4_tail")
 						// record_kmesh_managed_netns_cookie
 						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
 						net.DialTimeout("tcp4", enableAddr, 2*time.Second)
@@ -1574,7 +1575,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect4_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
@@ -1695,7 +1697,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect4_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
@@ -1826,7 +1829,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect4_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
@@ -1951,7 +1955,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect4_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
@@ -2170,7 +2175,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect4_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
@@ -2389,7 +2395,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect4_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv4(t)
 						clientPort := 12345
@@ -2608,7 +2615,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						enableAddr := "[" + constants.ControlCommandIp6 + "]" + ":" + strconv.Itoa(int(constants.OperEnableControl))
 						net.DialTimeout("tcp6", enableAddr, 2*time.Second)
@@ -2669,7 +2677,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -2794,7 +2803,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -2932,7 +2942,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3063,7 +3074,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3282,7 +3294,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3501,7 +3514,8 @@ func testCgroupSock(t *testing.T) {
 							AuthzOffload: constants.DISABLED,
 						})
 						startLogReader(coll)
-
+						//add tail call
+						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
