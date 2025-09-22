@@ -92,9 +92,13 @@ func NewIPsecController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, dec
 	}
 
 	// load ipsec info
-	err = ipsecController.ipsecHandler.LoadIPSecKeyFromFile(IpSecKeyFile)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load ipsec key from file %s: %v", IpSecKeyFile, err)
+	if _, err := os.Stat(IpSecKeyFile); err == nil {
+		err = ipsecController.ipsecHandler.LoadIPSecKeyFromFile(IpSecKeyFile)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load ipsec key from file %s: %v", IpSecKeyFile, err)
+		}
+	} else if !os.IsNotExist(err) {
+		log.Errorf("failed to stat ipsec key file %s: %v", IpSecKeyFile, err)
 	}
 
 	localNodeName := os.Getenv("NODE_NAME")
@@ -290,12 +294,19 @@ func (c *IPSecController) handleKNIDelete(obj interface{}) {
 	deleteFunc := func(netns.NetNS) error {
 		for _, targetIP := range node.Spec.Addresses {
 			c.ipsecHandler.mutex.Lock()
-			_ = c.ipsecHandler.Clean(targetIP)
+			err := c.ipsecHandler.Clean(targetIP)
 			c.ipsecHandler.mutex.Unlock()
+			if err != nil {
+				return err
+			}
 		}
 		return nil
 	}
-	_ = netns.WithNetNSPath(nodeNsPath, deleteFunc)
+	err := netns.WithNetNSPath(nodeNsPath, deleteFunc)
+	if err != nil {
+		log.Errorf("failed to delete ipsec for node %s: %v", node.Name, err)
+		return
+	}
 	for _, podCIDR := range node.Spec.PodCIDRs {
 		c.deleteKNIMapCIDR(podCIDR, c.kniMap)
 	}
@@ -441,6 +452,7 @@ func (c *IPSecController) processNextItem() bool {
 			log.Errorf("failed to handle other node %s err: %v, giving up", name, err)
 			c.queue.Forget(key)
 		}
+		return true
 	}
 
 	c.queue.Forget(key)

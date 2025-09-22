@@ -85,6 +85,7 @@ func (is *IpSecHandler) loadIPSecKeyFromIO(file *os.File) error {
 	}
 	is.Spi = key.Spi
 	is.historyIpSecKey[is.Spi] = key
+	log.Infof("load ipsec key from file %s", file.Name())
 	return nil
 }
 
@@ -279,6 +280,10 @@ func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, ipse
 			Key:    key,
 			ICVLen: ipsecKey.Length,
 		},
+		OutputMark: &netlink.XfrmMark{
+			Value: constants.XfrmDecryptedMark,
+			Mask:  constants.XfrmMarkMask,
+		},
 	}
 	err := netlink.XfrmStateAdd(state)
 	if err != nil && !os.IsExist(err) {
@@ -301,12 +306,12 @@ func (is *IpSecHandler) createPolicyRule(srcCIDR, dstCIDR *net.IPNet, src, dst n
 			},
 		},
 		Mark: &netlink.XfrmMark{
-			Mask: 0xffffffff,
+			Mask: constants.XfrmMarkMask,
 		},
 	}
 	if out {
 		// ingress
-		mark := uint32(0xd0)
+		mark := uint32(constants.XfrmDecryptedMark)
 		policy.Mark.Value = mark
 
 		policy.Dir = netlink.XFRM_DIR_IN
@@ -320,7 +325,7 @@ func (is *IpSecHandler) createPolicyRule(srcCIDR, dstCIDR *net.IPNet, src, dst n
 		}
 	} else {
 		// egress, update SPI
-		mark := uint32(0xe0)
+		mark := uint32(constants.XfrmEncryptMark)
 
 		policy.Mark.Value = uint32(mark)
 		policy.Tmpls[0].Spi = int(spi)

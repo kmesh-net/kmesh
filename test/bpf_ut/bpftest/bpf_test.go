@@ -209,7 +209,7 @@ func loadAndPrepSpec(t *testing.T, elfPath string) *ebpf.CollectionSpec {
 	for n, p := range spec.Programs {
 		switch p.Type {
 		// https://docs.ebpf.io/linux/syscall/BPF_PROG_TEST_RUN/
-		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS, ebpf.SocketFilter, ebpf.CGroupSKB, ebpf.SockOps, ebpf.CGroupSockAddr:
+		case ebpf.XDP, ebpf.SchedACT, ebpf.SchedCLS, ebpf.SocketFilter, ebpf.CGroupSKB, ebpf.SockOps, ebpf.SkMsg, ebpf.CGroupSockAddr:
 			continue
 		}
 
@@ -232,6 +232,11 @@ func setBpfConfig(t *testing.T, coll *ebpf.Collection, config *factory.GlobalBpf
 	if v, ok := coll.Variables["authz_offload"]; ok {
 		if err := v.Set(&config.AuthzOffload); err != nil {
 			t.Fatalf("failed to set authz_offload: %v", err)
+		}
+	}
+	if v, ok := coll.Variables["enable_periodic_report"]; ok {
+		if err := v.Set(&config.EnablePeriodicReport); err != nil {
+			t.Fatalf("failed to set enable_periodic_report: %v", err)
 		}
 	}
 }

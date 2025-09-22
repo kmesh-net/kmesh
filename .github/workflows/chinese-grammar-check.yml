@@ -1,0 +1,128 @@
+name: Chinese Grammar Check
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/cn/zh/**'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/cn/zh/**'
+
+jobs:
+  grammar-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install language-tool-python
+
+      - name: Run grammar check with enhanced reporting
+        run: |
+          python -c "
+          import os
+          import language_tool_python
+          from pathlib import Path
+          import time
+
+          # Retry LanguageTool init
+          tool = None
+          for _ in range(3):
+              try:
+                  tool = language_tool_python.LanguageTool('zh-CN')
+                  tool.enable_spellchecking()
+                  break
+              except Exception as e:
+                  print(f'⚠️ LanguageTool init failed: {e}, retrying...')
+                  time.sleep(5)
+          if not tool:
+              print('📢 [Warning] Failed to initialize LanguageTool after retries. Skipping check.')
+              exit(0)
+
+          def get_line_number(text, offset):
+              return text[:offset].count('\\n') + 1
+
+          def classify_rule(rule_id):
+              if 'MORFOLOGIK_RULE' in rule_id:
+                  return '🔤 Spelling'
+              elif 'GRAMMAR' in rule_id or 'CONJUGATION' in rule_id:
+                  return '🧩 Grammar'
+              elif 'STYLE' in rule_id:
+                  return '✍️ Style'
+              else:
+                  return '🔍 Other'
+
+          files_to_check = set()
+          for directory in ['docs', 'docs/proposal', 'docs/ctl']:
+              for file_path in Path(directory).rglob('*.md'):
+                  if file_path.is_file():
+                      files_to_check.add(file_path)
+
+          error_found = False
+          error_messages = []
+
+          print('🚀 Starting Chinese grammar check...\n')
+
+          for file_path in sorted(files_to_check):
+              try:
+                  with open(file_path, 'r', encoding='utf-8') as f:
+                      text = f.read()
+              except UnicodeDecodeError:
+                  msg = f'❌ Encoding error: Unable to read {file_path} with UTF-8'
+                  print(msg)
+                  error_messages.append(msg)
+                  error_found = True
+                  continue
+
+              print(f'📄 Checking: {file_path}')
+              matches = tool.check(text)
+
+              for match in matches:
+                  line_no = get_line_number(text, match.offset)
+                  rule_type = classify_rule(match.ruleId)
+                  message = match.message
+                  context = match.context.strip()
+                  suggestion = match.replacements[0] if match.replacements else 'No suggestion'
+
+                  # Build formatted error message with emojis and spacing
+                  error_line = f'  📂 File: {file_path}:{line_no}'
+                  error_line += f'\\n     🔖 Type: {rule_type}'
+                  error_line += f'\\n     ❌ Message: {message}'
+                  error_line += f'\\n     💬 Context: \"{context}\"'
+                  error_line += f'\\n     💡 Suggestion: \"{suggestion}\"'
+                  error_line += f'\\n'
+
+                  error_messages.append(error_line)
+                  error_found = True
+
+                  # GitHub warning annotation (with emoji in title)
+                  print(f'::warning file={file_path},line={line_no},title=🔍 {rule_type}::{message} (💡 {suggestion})')
+
+              if not matches:
+                  print(f'✅ No issues found in {file_path}')
+
+          # Final summary with spacing and emojis
+          print('\\n' + '─' * 60)
+          if error_found:
+              print('📢 Chinese Grammar Check: Potential Issues Found')
+              print('─' * 60)
+              for msg in error_messages:
+                  print(msg)
+              print('─' * 60)
+              print('📌 Tip: Review the suggestions above. Some may be false positives.')
+              print('💡 Pro tip: Fix critical issues like “降低3倍” or “原因是因为”.')
+          else:
+              print('✅ All Chinese content passed grammar and spelling checks.')
+              print('✨ Great job! No issues found.')
+          "

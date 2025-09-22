@@ -72,6 +72,8 @@ type Processor struct {
 	authzDone       chan struct{}
 	addressRespOnce sync.Once
 	authzRespOnce   sync.Once
+
+	handlers map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
@@ -88,7 +90,47 @@ func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		locality:      bpf.NewLocalityCache(),
 		addressDone:   make(chan struct{}, 1),
 		authzDone:     make(chan struct{}, 1),
+		handlers:      map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error{},
 	}
+}
+
+func (p *Processor) WithResourceHandlers(typeUrl string, h ...func(resp *service_discovery_v3.DeltaDiscoveryResponse) error) *Processor {
+	p.handlers[typeUrl] = append(p.handlers[typeUrl], h...)
+	return p
+}
+
+func (p *Processor) PrepareDNSProxy() error {
+	bk := &bpf.BackendKey{
+		BackendUid: 0,
+	}
+
+	// when dns proxy is not enabled, we unregister kmesh daemon from bpf map
+	if !EnableDNSProxy {
+		return p.bpf.BackendDelete(bk)
+	}
+
+	podIp := os.Getenv("INSTANCE_IP")
+	if podIp == "" {
+		return fmt.Errorf("ip of kmesh daemon is not set")
+	}
+
+	log.Infof("dns proxy is enabled and will be redirected, ip: %s", podIp)
+
+	bv := &bpf.BackendValue{}
+	nets.CopyIpByteFromSlice(&bv.Ip, netip.MustParseAddr(podIp).AsSlice())
+	if err := p.bpf.BackendUpdate(bk, bv); err != nil {
+		log.Errorf("failed to register kmesh daemon ip, err: %+v", err)
+		return err
+	}
+
+	return nil
+}
+
+func (p *Processor) Close() error {
+	bk := &bpf.BackendKey{
+		BackendUid: 0,
+	}
+	return p.bpf.BackendDelete(bk)
 }
 
 func newDeltaRequest(typeUrl string, names []string, initialResourceVersions map[string]string) *service_discovery_v3.DeltaDiscoveryRequest {
@@ -138,6 +180,14 @@ func (p *Processor) processWorkloadResponse(rsp *service_discovery_v3.DeltaDisco
 	default:
 		err = fmt.Errorf("unsupported type url %s", rsp.GetTypeUrl())
 	}
+
+	for _, h := range p.handlers[rsp.GetTypeUrl()] {
+		err := h(rsp)
+		if err != nil {
+			log.Error(err)
+		}
+	}
+
 	if err != nil {
 		log.Error(err)
 	}

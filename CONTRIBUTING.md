@@ -95,9 +95,9 @@ After that, run these local verifications before submitting pull request to pred
 fail of continuous integration.
 
 - Run and pass `make gen-check`, if want to run with sudo privileges `sudo env PATH=$PATH make gen-check`
-- To compile, refer to [Compile and Build Kmesh](https://kmesh.net/en/docs/developer/build-guide/)
-- To run unit test, refer to [Run Unit Test](https://kmesh.net/en/docs/developer/run-ut/)
-- To run e2e test, refer to [Run E2E Test](https://kmesh.net/en/docs/developer/e2e-guide/)
+- To compile, refer to [Compile and Build Kmesh](https://kmesh.net/docs/setup/develop-with-kind/)
+- To run unit test, refer to [Run Unit Test](https://kmesh.net/docs/developer-guide/tests/unit-test/)
+- To run e2e test, refer to [Run E2E Test](https://kmesh.net/docs/developer-guide/tests/e2e-test/)
 
 ### Code Review
 

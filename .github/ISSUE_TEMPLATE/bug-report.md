@@ -19,7 +19,7 @@ labels: kind/bug
 **Environment**:
 
 - Kmesh version:
-- Kmesh mode(kmesh has `Kernel-Native Mode` and `Duel-Engine Mode`):
+- Kmesh mode(kmesh has `Kernel-Native Mode` and `Dual-Engine Mode`):
 - Istio version:
 - Kernel version:
 - Others:
