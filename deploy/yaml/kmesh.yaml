@@ -107,6 +107,8 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
+            - name: KMESH_ENABLE_DNS_PROXY
+              value: "true"
           volumeMounts:
             - name: mnt
               mountPath: /mnt
