@@ -206,7 +206,7 @@ func getPodNameAndIP(t framework.TestContext, namespace string, appLabel string)
 			time.Sleep(3 * time.Second)
 			continue
 		}
-		// fields[2] 是 pod 状态
+		// fields[2] is state of pod
 		if fields[2] == "Running" {
 			podName := fields[0]
 			podIP := fields[5]
