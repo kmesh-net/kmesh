@@ -201,7 +201,7 @@ func NewCmd() *cobra.Command {
   kmeshctl waypoint apply --namespace default --wait
  
   # Apply a waypoint to a specific pod
-  kmesh waypoint apply -n default --name reviews-v2-pod-waypoint --for workload`,
+  kmeshctl waypoint apply -n default --name reviews-v2-pod-waypoint --for workload`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := utils.CreateKubeClient()
 			if err != nil {
