@@ -45,12 +45,22 @@ type Controller struct {
 	MapMetricController       *telemetry.MapMetricController
 	OperationMetricController *telemetry.BpfProgMetric
 	bpfWorkloadObj            *bpfwl.BpfWorkload
+	dnsResolverController     *dnsController
 }
 
 func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) *Controller {
+	processor := NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
+	dnsResolverController, err := NewDnsController(processor.WorkloadCache)
+	if err != nil {
+		log.Errorf("dns resolver of Dual-Engine mode create failed: %v", err)
+		return nil
+	}
+	processor.DnsResolverChan = dnsResolverController.workloadsChan
+	processor.ResolvedDomainChanMap = dnsResolverController.ResolvedDomainChanMap
 	c := &Controller{
-		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
-		bpfWorkloadObj: bpfWorkload,
+		Processor:             processor,
+		bpfWorkloadObj:        bpfWorkload,
+		dnsResolverController: dnsResolverController,
 	}
 	// do some initialization when restart
 	// restore endpoint index, otherwise endpoint number can double
@@ -66,7 +76,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	return c
 }
 
-func (c *Controller) Run(ctx context.Context) error {
+func (c *Controller) Run(ctx context.Context, stopCh <-chan struct{}) error {
 	if err := c.Processor.PrepareDNSProxy(); err != nil {
 		log.Errorf("failed to prepare for dns proxy, err: %+v", err)
 		return err
@@ -92,6 +102,9 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 	if c.OperationMetricController != nil {
 		go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmPerfInfo)
+	}
+	if c.dnsResolverController != nil {
+		go c.dnsResolverController.Run(stopCh)
 	}
 	return nil
 }
