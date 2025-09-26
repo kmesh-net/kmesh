@@ -14,7 +14,6 @@ import (
 
 	"kmesh.net/kmesh/pkg/version"
     "kmesh.net/kmesh/daemon/options"
-    "kmesh.net/kmesh/pkg/constants"
 )
 
 type StructDiff struct {
@@ -53,6 +52,10 @@ type PersistedSnapshot struct {
 	Maps    map[string]map[string]PersistedMapSpec `json:"maps"`
 }
 
+const {
+	MapSpecDir      = "/mnt/kmesh_mapspecs"
+    MapSpecFilename = "mapspecs_by_pkg.json"
+}
 
 // UpdateMapHandler handles the “Update” case in NewVersionMap.
 // It will migrate any BPF maps whose on‑disk pin already exists but whose
@@ -60,11 +63,11 @@ type PersistedSnapshot struct {
 func UpdateMapHandler(versionMap *ebpf.Map, kmBpfPath string, config *options.BpfConfig) *ebpf.Map{
     persistedSpecs, err := LoadPersistedSnapshot()
 	if err != nil {
-        log.Errorf("load complie map spec failed")
+        log.Errorf("load compile map spec failed")
         return nil
     }
 	specsByPkg, err := LoadCompileTimeSpecs(config)
-	if specsByPkg == nil {
+	if err != nil {
 		log.Errorf("load oldSpecsByPkg failed")
         return nil
 	}
@@ -79,7 +82,7 @@ func UpdateMapHandler(versionMap *ebpf.Map, kmBpfPath string, config *options.Bp
         mapNames, _ := unionKeys(newMaps, oldMaps)
         for _, mapName := range mapNames {
             newSpec, hasNew := newMaps[mapName]
-            oldSpec, hasOld := oldMaps[mapName] //presisted
+            oldSpec, hasOld := oldMaps[mapName]
 
             pinPath := filepath.Join(kmBpfPath, mapName)
 
@@ -143,93 +146,59 @@ func migrateMap(
 	if oldMapSpec == nil {
 		return createEmptyMap(newMapSpec, pinPath, mapName, nil)
 	}
-    if oldMapSpec.Type != newMapSpec.Type.String() ||
-       oldMapSpec.KeySize != newMapSpec.KeySize ||
-       oldMapSpec.ValueSize != newMapSpec.ValueSize || 
-       oldMapSpec.MaxEntries != newMapSpec.MaxEntries {
-       oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
-        if err == nil {
-            return createEmptyMap(newMapSpec, pinPath, mapName, oldMap)
-        } else {
-            return createEmptyMap(newMapSpec, pinPath, mapName, nil)
-        }
+    if  oldMapSpec.Type != newMapSpec.Type.String() ||
+        oldMapSpec.KeySize != newMapSpec.KeySize ||
+        oldMapSpec.ValueSize != newMapSpec.ValueSize || 
+        oldMapSpec.MaxEntries != newMapSpec.MaxEntries {
+        createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
 	}
 
-	oldKeyStruct := oldMapSpec.KeyInfo
-    newKeyStruct, okNewKey := newMapSpec.Key.(*btf.Struct)
-	if okNewKey {
-        diff := diffStructInfoAgainstBTF(oldKeyStruct, newKeyStruct, make(map[string]bool))
-        if diff.Added || diff.Removed || diff.TypeChanged ||
-            diff.OffsetChanged || diff.NestedChanged {
-			oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
-            if err == nil {
-                return createEmptyMap(newMapSpec, pinPath, mapName, oldMap)
-            } else {
-                return createEmptyMap(newMapSpec, pinPath, mapName, nil)
-            }
-		}
-    } else { 
-        if newMapSpec.Key == nil {
-            if len(oldKeyStruct.Members) != 0 || oldKeyStruct.Name != "" {
-                oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
-                if err == nil {
-                    return createEmptyMap(newMapSpec, pinPath, mapName, oldMap)
-                } else {
-                    return createEmptyMap(newMapSpec, pinPath, mapName, nil)
-                }
-            }
-        } else {
-            newKeyTypeName := newMapSpec.Key.TypeName()
-            if len(oldKeyStruct.Members) != 0 || newKeyTypeName != oldKeyStruct.Name  {
-                oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
-                if err == nil {
-                    return createEmptyMap(newMapSpec, pinPath, mapName, oldMap)
-                } else {
-                    return createEmptyMap(newMapSpec, pinPath, mapName, nil)
-                }
-            }
-        }
+	if needsRecreate(oldMapSpec.KeyInfo, newMapSpec.Key) {
+        createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
     }
 
-    oldValueStruct := oldMapSpec.ValueInfo
-    newValueStruct, okNewValue := newMapSpec.Value.(*btf.Struct)
-    if okNewValue {
-        diff := diffStructInfoAgainstBTF(oldValueStruct, newValueStruct, make(map[string]bool))
+    if needsRecreate(oldMapSpec.ValueInfo, newMapSpec.Value) {
+        createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
+    }
+	return nil, nil
+}
+
+func needsRecreate(oldStruct StructInfo, newType btf.Type) bool {
+    if newType == nil {
+        if oldStruct.Name != "" || len(oldStruct.Members) != 0 {
+            return true
+        }
+        return false
+    }
+
+    if newStruct, ok := newType.(*btf.Struct); ok {
+        diff := diffStructInfoAgainstBTF(oldStruct, newStruct, make(map[string]bool))
         if diff.Added || diff.Removed || diff.TypeChanged ||
             diff.OffsetChanged || diff.NestedChanged {
-            oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
-            if err == nil {
-                return createEmptyMap(newMapSpec, pinPath, mapName, oldMap)
-            } else {
-                log.Info(diff.Added ,diff.Removed,diff.TypeChanged ,
-            diff.OffsetChanged,diff.NestedChanged)
-                return createEmptyMap(newMapSpec, pinPath, mapName, nil)
-            }
+                return true
         }
-    } else {
-        if newMapSpec.Value == nil {
-            if len(oldValueStruct.Members) != 0 || oldValueStruct.Name != "" {
-                oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
-                if err == nil {
-                    return createEmptyMap(newMapSpec, pinPath, mapName, oldMap)
-                } else {
-                    return createEmptyMap(newMapSpec, pinPath, mapName, nil)
-                }
-            }
-        } else {
-            newValTypeName := newMapSpec.Value.TypeName()
-            if len(oldValueStruct.Members) != 0 || newValTypeName != oldValueStruct.Name  {
-                oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
-                if err == nil {
-                    return createEmptyMap(newMapSpec, pinPath, mapName, oldMap)
-                } else {
-                    return createEmptyMap(newMapSpec, pinPath, mapName, nil)
-                }
-            }
-        }
+        return false
     }
-    log.Info("pass all check")
-	return nil, nil
+
+    newTypeName := newType.TypeName()
+    if len(oldStruct.Members) != 0 {
+        return true
+    }
+    if oldStruct.Name == "" {
+        return true
+    }
+    if oldStruct.Name != newTypeName {
+        return true
+    }
+    return false
+}
+
+func createEmptyMapWithPinnedMap(spec *ebpf.MapSpec, pinPath, mapName string) (*ebpf.Map, error) {
+    oldMap, err := ebpf.LoadPinnedMap(pinPath, &ebpf.LoadPinOptions{})
+    if err != nil {
+        return createEmptyMap(spec, pinPath, mapName, nil)
+    }
+    return createEmptyMap(spec, pinPath, mapName, oldMap)
 }
  
 func DiffStructInfoAgainstBTF(
@@ -272,8 +241,7 @@ func diffStructInfoAgainstBTF(
 			break
 		}
 
-		if map_old.Offset != uint32(map_new.Offset) {
-            log.Info(map_old.BitfieldSize,  uint32(map_new.BitfieldSize))
+		if map_old.Offset != uint32(map_new.Offset) || map_old.BitfieldSize != uint32(map_new.BitfieldSize) {
 			diff.OffsetChanged = true
 			break
 		}
@@ -478,15 +446,15 @@ func SnapshotSpecsByPkg(specsByPkg map[string]map[string]*ebpf.MapSpec) error {
 		Maps:    wrapper,
 	}
 
-    if err := os.MkdirAll(constants.MapSpecDir, 0755); err != nil {
+    if err := os.MkdirAll(MapSpecDir, 0755); err != nil {
         return fmt.Errorf("mkdir specDir: %w", err)
     }
     data, err := json.MarshalIndent(snapshot, "", "  ")
     if err != nil {
         return fmt.Errorf("marshal snapshot: %w", err)
     }
-    tmp := filepath.Join(constants.MapSpecDir, constants.MapSpecFilename +".tmp")
-    target := filepath.Join(constants.MapSpecDir, constants.MapSpecFilename)
+    tmp := filepath.Join(MapSpecDir, MapSpecFilename +".tmp")
+    target := filepath.Join(MapSpecDir, MapSpecFilename)
     if err := os.WriteFile(tmp, data, 0644); err != nil {
         return fmt.Errorf("write tmp snapshot: %w", err)
     }
@@ -497,7 +465,7 @@ func SnapshotSpecsByPkg(specsByPkg map[string]map[string]*ebpf.MapSpec) error {
 }
 
 func LoadPersistedSnapshot() (*PersistedSnapshot, error) {
-	path := filepath.Join(constants.MapSpecDir, constants.MapSpecFilename)
+	path := filepath.Join(MapSpecDir, MapSpecFilename)
 	buf, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
