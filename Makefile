@@ -97,6 +97,8 @@ kmesh-bpf:
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
 	
 	$(QUIET) $(GO) generate bpf/kmesh/bpf2go/bpf2go.go
+
+	$(QUIET) $(GO) run ./pkg/bpf/restart/gen_bpf_specs.go
 kmesh-ko:
 	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 	$(call printlog, BUILD, "kernel")
