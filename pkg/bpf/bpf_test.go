@@ -29,7 +29,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
-	// "github.com/stretchr/testify/require"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/factory"
@@ -250,55 +249,6 @@ func Test_getNodeIPAddress(t *testing.T) {
 		})
 	}
 }
-
-// func TestLoadCompileTimeSpecs_KernelNative(t *testing.T) {
-// 	config := setDirKernelNative(t)
-// 	specs, err := restart.LoadCompileTimeSpecs(&config)
-// 	require.NoError(t, err)
-// 	require.Contains(t, specs, "KmeshCgroupSock")
-// 	require.Contains(t, specs, "KmeshCgroupSockCompat")
-// 	require.Contains(t, specs, "KmeshSockops")
-// 	require.Contains(t, specs, "KmeshSockopsCompat")
-// 	require.Contains(t, specs, "KmeshTcMarkEncrypt")
-// 	require.Contains(t, specs, "KmeshTcMarkEncryptCompat")
-// 	require.Contains(t, specs, "KmeshTcMarkDecrypt")
-// 	require.Contains(t, specs, "KmeshTcMarkDecryptCompat")
-// 	for specName, mp := range specs {
-// 		t.Logf("verifying maps for spec %s", specName)
-// 		require.NotEmpty(t, mp, "spec %s has no maps", specName)
-// 		for mapName, spec := range mp {
-// 			require.NotNil(t, spec, "mapSpec %s in %s is nil", mapName, specName)
-// 			require.NotEmpty(t, spec.Name, "MapSpec.Name empty for %s/%s", specName, mapName)
-// 			t.Logf("  Map %-30s Key type: %-30v Value type: %v",
-// 				mapName,
-// 				spec.Key,
-// 				spec.Value,
-// 			)
-// 			if keyStructType, ok := spec.Key.(*btf.Struct); ok {
-// 				t.Logf("    Fields of %s:", keyStructType.Name)
-// 				for _, member := range keyStructType.Members {
-// 					offsetBytes := member.Offset / 8
-// 					t.Logf("      - %-20s Type: %-20s Offset: %3d bytes",
-// 						member.Name,
-// 						member.Type.TypeName(),
-// 						offsetBytes,
-// 					)
-// 				}
-// 			}
-// 			if structType, ok := spec.Value.(*btf.Struct); ok {
-// 				t.Logf("    Fields of %s:", structType.Name)
-// 				for _, member := range structType.Members {
-// 					offsetBytes := member.Offset / 8
-// 					t.Logf("      - %-20s Type: %-20s Offset: %3d bytes",
-// 						member.Name,
-// 						member.Type.TypeName(),
-// 						offsetBytes,
-// 					)
-// 				}
-// 			}
-// 		}
-// 	}
-// }
 
 // helper: build a simple btf.Int without relying on encoding constants
 func intType(name string, sizeBytes int) *btf.Int {
