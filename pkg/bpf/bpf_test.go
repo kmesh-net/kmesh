@@ -252,80 +252,80 @@ func Test_getNodeIPAddress(t *testing.T) {
 }
 
 func TestLoadCompileTimeSpecs_KernelNative(t *testing.T) {
-    config := setDirKernelNative(t)
-    specs, err := restart.LoadCompileTimeSpecs(&config)
-    require.NoError(t, err)
-    require.Contains(t, specs, "KmeshCgroupSock")
-    require.Contains(t, specs, "KmeshCgroupSockCompat")
-    require.Contains(t, specs, "KmeshSockops")
-    require.Contains(t, specs, "KmeshSockopsCompat")
-    require.Contains(t, specs, "KmeshTcMarkEncrypt")
-    require.Contains(t, specs, "KmeshTcMarkEncryptCompat")
-    require.Contains(t, specs, "KmeshTcMarkDecrypt")
-    require.Contains(t, specs, "KmeshTcMarkDecryptCompat")
-    for specName, mp := range specs {
-        t.Logf("verifying maps for spec %s", specName)
-        require.NotEmpty(t, mp, "spec %s has no maps", specName)
-        for mapName, spec := range mp {
-            require.NotNil(t, spec, "mapSpec %s in %s is nil", mapName, specName)
-            require.NotEmpty(t, spec.Name, "MapSpec.Name empty for %s/%s", specName, mapName)
-            t.Logf("  Map %-30s Key type: %-30v Value type: %v",
-                mapName,
-                spec.Key,
-                spec.Value,
-            )
+	config := setDirKernelNative(t)
+	specs, err := restart.LoadCompileTimeSpecs(&config)
+	require.NoError(t, err)
+	require.Contains(t, specs, "KmeshCgroupSock")
+	require.Contains(t, specs, "KmeshCgroupSockCompat")
+	require.Contains(t, specs, "KmeshSockops")
+	require.Contains(t, specs, "KmeshSockopsCompat")
+	require.Contains(t, specs, "KmeshTcMarkEncrypt")
+	require.Contains(t, specs, "KmeshTcMarkEncryptCompat")
+	require.Contains(t, specs, "KmeshTcMarkDecrypt")
+	require.Contains(t, specs, "KmeshTcMarkDecryptCompat")
+	for specName, mp := range specs {
+		t.Logf("verifying maps for spec %s", specName)
+		require.NotEmpty(t, mp, "spec %s has no maps", specName)
+		for mapName, spec := range mp {
+			require.NotNil(t, spec, "mapSpec %s in %s is nil", mapName, specName)
+			require.NotEmpty(t, spec.Name, "MapSpec.Name empty for %s/%s", specName, mapName)
+			t.Logf("  Map %-30s Key type: %-30v Value type: %v",
+				mapName,
+				spec.Key,
+				spec.Value,
+			)
 			if keyStructType, ok := spec.Key.(*btf.Struct); ok {
-                t.Logf("    Fields of %s:", keyStructType.Name)
-                for _, member := range keyStructType.Members {
-                    offsetBytes := member.Offset / 8
-                    t.Logf("      - %-20s Type: %-20s Offset: %3d bytes",
-                        member.Name,
-                        member.Type.TypeName(),
-                        offsetBytes,
-                    )
-                }
-            }
+				t.Logf("    Fields of %s:", keyStructType.Name)
+				for _, member := range keyStructType.Members {
+					offsetBytes := member.Offset / 8
+					t.Logf("      - %-20s Type: %-20s Offset: %3d bytes",
+						member.Name,
+						member.Type.TypeName(),
+						offsetBytes,
+					)
+				}
+			}
 			if structType, ok := spec.Value.(*btf.Struct); ok {
-                t.Logf("    Fields of %s:", structType.Name)
-                for _, member := range structType.Members {
-                    offsetBytes := member.Offset / 8
-                    t.Logf("      - %-20s Type: %-20s Offset: %3d bytes",
-                        member.Name,
-                        member.Type.TypeName(),
-                        offsetBytes,
-                    )
-                }
-            }
-        }
-    }
+				t.Logf("    Fields of %s:", structType.Name)
+				for _, member := range structType.Members {
+					offsetBytes := member.Offset / 8
+					t.Logf("      - %-20s Type: %-20s Offset: %3d bytes",
+						member.Name,
+						member.Type.TypeName(),
+						offsetBytes,
+					)
+				}
+			}
+		}
+	}
 }
 
 func TestLoadCompileTimeSpecs_DualEngine(t *testing.T) {
-    config := setDirDualEngine(t)
-    specs, err := restart.LoadCompileTimeSpecs(&config)
-    require.NoError(t, err)
-    require.Contains(t, specs, "KmeshCgroupSockWorkload")
-    require.Contains(t, specs, "KmeshCgroupSockWorkloadCompat")
-    require.Contains(t, specs, "KmeshSockopsWorkload")
-    require.Contains(t, specs, "KmeshSockopsWorkloadCompat")
-    require.Contains(t, specs, "KmeshXDPAuth")
-    require.Contains(t, specs, "KmeshXDPAuthCompat")
-    require.Contains(t, specs, "KmeshSendmsg")
-    require.Contains(t, specs, "KmeshSendmsgCompat")
-    require.Contains(t, specs, "KmeshCgroupSkb")
-    require.Contains(t, specs, "KmeshCgroupSkbCompat")
-    require.Contains(t, specs, "KmeshTcMarkEncrypt")
-    require.Contains(t, specs, "KmeshTcMarkEncryptCompat")
-    require.Contains(t, specs, "KmeshTcMarkDecrypt")
-    require.Contains(t, specs, "KmeshTcMarkDecryptCompat")
-    for name, mp := range specs {
-        t.Logf("verifying maps for spec %s", name)
-        require.NotEmpty(t, mp, "spec %s has no maps", name)
-        for mname, spec := range mp {
-            require.NotNil(t, spec, "mapSpec %s in %s is nil", mname, name)
-            require.NotEmpty(t, spec.Name, "MapSpec.Name empty for %s/%s", name, mname)
-        }
-    }
+	config := setDirDualEngine(t)
+	specs, err := restart.LoadCompileTimeSpecs(&config)
+	require.NoError(t, err)
+	require.Contains(t, specs, "KmeshCgroupSockWorkload")
+	require.Contains(t, specs, "KmeshCgroupSockWorkloadCompat")
+	require.Contains(t, specs, "KmeshSockopsWorkload")
+	require.Contains(t, specs, "KmeshSockopsWorkloadCompat")
+	require.Contains(t, specs, "KmeshXDPAuth")
+	require.Contains(t, specs, "KmeshXDPAuthCompat")
+	require.Contains(t, specs, "KmeshSendmsg")
+	require.Contains(t, specs, "KmeshSendmsgCompat")
+	require.Contains(t, specs, "KmeshCgroupSkb")
+	require.Contains(t, specs, "KmeshCgroupSkbCompat")
+	require.Contains(t, specs, "KmeshTcMarkEncrypt")
+	require.Contains(t, specs, "KmeshTcMarkEncryptCompat")
+	require.Contains(t, specs, "KmeshTcMarkDecrypt")
+	require.Contains(t, specs, "KmeshTcMarkDecryptCompat")
+	for name, mp := range specs {
+		t.Logf("verifying maps for spec %s", name)
+		require.NotEmpty(t, mp, "spec %s has no maps", name)
+		for mname, spec := range mp {
+			require.NotNil(t, spec, "mapSpec %s in %s is nil", mname, name)
+			require.NotEmpty(t, spec.Name, "MapSpec.Name empty for %s/%s", name, mname)
+		}
+	}
 }
 
 // helper: build a simple btf.Int without relying on encoding constants
@@ -343,10 +343,10 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 		Name: "S_old",
 		Members: []restart.MemberInfo{
 			{
-				Name:     "a",
-				TypeName: "uint32",
-				Offset:   0, // we'll match against btf.Member.Offset below (no /8 used in current diff impl)
-				BitfieldSize:     0,
+				Name:         "a",
+				TypeName:     "uint32",
+				Offset:       0, // we'll match against btf.Member.Offset below (no /8 used in current diff impl)
+				BitfieldSize: 0,
 			},
 		},
 	}
@@ -459,10 +459,10 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 			Name: "inner",
 			Members: []restart.MemberInfo{
 				{
-					Name:     "a",
-					TypeName: "uint32",
-					Offset:   uint32(oldInner.Members[0].Offset), // use raw bit value as in your diff impl
-					BitfieldSize:     0,
+					Name:         "a",
+					TypeName:     "uint32",
+					Offset:       uint32(oldInner.Members[0].Offset), // use raw bit value as in your diff impl
+					BitfieldSize: 0,
 				},
 			},
 		},
@@ -470,10 +470,10 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 			Name: "outer",
 			Members: []restart.MemberInfo{
 				{
-					Name:     "x",
-					TypeName: "inner",
-					Offset:   uint32(oldOuter.Members[0].Offset),
-					BitfieldSize:     0,
+					Name:         "x",
+					TypeName:     "inner",
+					Offset:       uint32(oldOuter.Members[0].Offset),
+					BitfieldSize: 0,
 					Nested: &restart.StructInfo{
 						Name: "inner",
 						Members: []restart.MemberInfo{
@@ -482,10 +482,10 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 					},
 				},
 				{
-					Name:     "y",
-					TypeName: "__u64",
-					Offset:   uint32(oldOuter.Members[1].Offset),
-					BitfieldSize:     0,
+					Name:         "y",
+					TypeName:     "__u64",
+					Offset:       uint32(oldOuter.Members[1].Offset),
+					BitfieldSize: 0,
 				},
 			},
 		},
@@ -589,13 +589,13 @@ func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
 
 	// persisted map spec using outer
 	oldMapSpec := restart.PersistedMapSpec{
-		Name:    "km_nested_map",
-		Type:    ebpf.Hash.String(),
-		KeySize: 4,
+		Name:       "km_nested_map",
+		Type:       ebpf.Hash.String(),
+		KeySize:    4,
 		ValueSize:  16,
 		MaxEntries: 128,
-		KeyInfo: restart.StructInfo{Name: "int", Members: nil},
-		ValueInfo: registry["outer"],
+		KeyInfo:    restart.StructInfo{Name: "int", Members: nil},
+		ValueInfo:  registry["outer"],
 	}
 
 	// new compiled MapSpec that uses the same outer struct
