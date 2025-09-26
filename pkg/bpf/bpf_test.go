@@ -258,12 +258,12 @@ func intType(name string, sizeBytes int) *btf.Int {
 	}
 }
 
-// Test diffStructInfoAgainstBTF basic cases: Added / Removed / Offset / Nested
+// Test diffStructInfoAgainstBTF basic cases: FieldAdded / FieldRemoved / Offset / Nested
 func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 	// old StructInfo: one member "a"
-	old := restart.StructInfo{
+	old := restart.PersistedStructLayout{
 		Name: "S_old",
-		Members: []restart.MemberInfo{
+		Members: []restart.PersistedMemberLayout{
 			{
 				Name:         "a",
 				TypeName:     "uint32",
@@ -273,7 +273,7 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 		},
 	}
 
-	// New BTF struct: has "a" and new field "b" => Added == true
+	// New BTF struct: has "a" and new field "b" => FieldAdded == true
 	newWithAdded := &btf.Struct{
 		Name: "S_new_added",
 		Members: []btf.Member{
@@ -293,11 +293,11 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 	}
 
 	d := restart.DiffStructInfoAgainstBTF(old, newWithAdded, make(map[string]bool))
-	if !d.Added {
-		t.Fatalf("expected Added==true, got %+v", d)
+	if !d.FieldAdded {
+		t.Fatalf("expected FieldAdded==true, got %+v", d)
 	}
 
-	// New BTF struct: missing "a" => Removed true
+	// New BTF struct: missing "a" => FieldRemoved true
 	newRemoved := &btf.Struct{
 		Name: "S_new_removed",
 		Members: []btf.Member{
@@ -310,8 +310,8 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 		},
 	}
 	d = restart.DiffStructInfoAgainstBTF(old, newRemoved, make(map[string]bool))
-	if !d.Removed {
-		t.Fatalf("expected Removed==true, got %+v", d)
+	if !d.FieldRemoved {
+		t.Fatalf("expected FieldRemoved==true, got %+v", d)
 	}
 
 	// Offset change: new has "a" but with different Offset
@@ -330,15 +330,15 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 	oldOffsetMatch := old
 	oldOffsetMatch.Members[0].Offset = uint32(newOff.Members[0].Offset) // direct match -> no offset diff
 	d = restart.DiffStructInfoAgainstBTF(oldOffsetMatch, newOff, make(map[string]bool))
-	if d.OffsetChanged {
-		t.Fatalf("did not expect OffsetChanged when offsets match (got %+v)", d)
+	if d.FieldOffsetChanged {
+		t.Fatalf("did not expect FieldOffsetChanged when offsets match (got %+v)", d)
 	}
-	// Now set old offset to different value -> expect OffsetChanged
+	// Now set old offset to different value -> expect FieldOffsetChanged
 	oldOffsetMismatch := old
 	oldOffsetMismatch.Members[0].Offset = uint32(0)
 	d = restart.DiffStructInfoAgainstBTF(oldOffsetMismatch, newOff, make(map[string]bool))
-	if !d.OffsetChanged {
-		t.Fatalf("expected OffsetChanged true, got %+v", d)
+	if !d.FieldOffsetChanged {
+		t.Fatalf("expected FieldOffsetChanged true, got %+v", d)
 	}
 }
 
@@ -376,10 +376,10 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 	}
 
 	// persisted registry stores old definitions (StructInfo with Nested expanded)
-	registry := map[string]restart.StructInfo{
+	registry := map[string]restart.PersistedStructLayout{
 		"inner": {
 			Name: "inner",
-			Members: []restart.MemberInfo{
+			Members: []restart.PersistedMemberLayout{
 				{
 					Name:         "a",
 					TypeName:     "uint32",
@@ -390,15 +390,15 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 		},
 		"outer": {
 			Name: "outer",
-			Members: []restart.MemberInfo{
+			Members: []restart.PersistedMemberLayout{
 				{
 					Name:         "x",
 					TypeName:     "inner",
 					Offset:       uint32(oldOuter.Members[0].Offset),
 					BitfieldSize: 0,
-					Nested: &restart.StructInfo{
+					Nested: &restart.PersistedStructLayout{
 						Name: "inner",
-						Members: []restart.MemberInfo{
+						Members: []restart.PersistedMemberLayout{
 							{Name: "a", TypeName: "uint32", Offset: uint32(oldInner.Members[0].Offset), BitfieldSize: 0},
 						},
 					},
@@ -448,8 +448,8 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 	diff := restart.DiffStructInfoAgainstBTF(registry["outer"], newOuter, make(map[string]bool))
 
 	// Expect nested change (because inner's member name changed a->b)
-	if !diff.NestedChanged && !diff.TypeChanged && !diff.Removed && !diff.Added {
-		t.Fatalf("expected incompatibility detected (NestedChanged/TypeChanged/Added/Removed), got %#v", diff)
+	if !diff.NestedLayoutChanged && !diff.FieldTypeChanged && !diff.FieldRemoved && !diff.FieldAdded {
+		t.Fatalf("expected incompatibility detected (NestedLayoutChanged/FieldTypeChanged/FieldAdded/FieldRemoved), got %#v", diff)
 	}
 }
 
@@ -488,19 +488,19 @@ func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
 	}
 
 	// persisted StructInfo registry: includes both inner and outer
-	registry := map[string]restart.StructInfo{
+	registry := map[string]restart.PersistedStructLayout{
 		"inner": {
 			Name: "inner",
-			Members: []restart.MemberInfo{
+			Members: []restart.PersistedMemberLayout{
 				{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 0},
 			},
 		},
 		"outer": {
 			Name: "outer",
-			Members: []restart.MemberInfo{
-				{Name: "x", TypeName: "inner", Offset: uint32(outer.Members[0].Offset), BitfieldSize: 0, Nested: &restart.StructInfo{
+			Members: []restart.PersistedMemberLayout{
+				{Name: "x", TypeName: "inner", Offset: uint32(outer.Members[0].Offset), BitfieldSize: 0, Nested: &restart.PersistedStructLayout{
 					Name: "inner",
-					Members: []restart.MemberInfo{
+					Members: []restart.PersistedMemberLayout{
 						{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 0},
 					},
 				}},
@@ -511,13 +511,13 @@ func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
 
 	// persisted map spec using outer
 	oldMapSpec := restart.PersistedMapSpec{
-		Name:       "km_nested_map",
-		Type:       ebpf.Hash.String(),
-		KeySize:    4,
-		ValueSize:  16,
-		MaxEntries: 128,
-		KeyInfo:    restart.StructInfo{Name: "int", Members: nil},
-		ValueInfo:  registry["outer"],
+		Name:            "km_nested_map",
+		Type:            ebpf.Hash.String(),
+		KeySize:         4,
+		ValueSize:       16,
+		MaxEntries:      128,
+		KeyStructInfo:   restart.PersistedStructLayout{Name: "int", Members: nil},
+		ValueStructInfo: registry["outer"],
 	}
 
 	// new compiled MapSpec that uses the same outer struct
