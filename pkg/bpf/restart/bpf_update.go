@@ -52,10 +52,10 @@ type PersistedSnapshot struct {
 	Maps    map[string]map[string]PersistedMapSpec `json:"maps"`
 }
 
-const {
+const (
 	MapSpecDir      = "/mnt/kmesh_mapspecs"
     MapSpecFilename = "mapspecs_by_pkg.json"
-}
+)
 
 // UpdateMapHandler handles the “Update” case in NewVersionMap.
 // It will migrate any BPF maps whose on‑disk pin already exists but whose
