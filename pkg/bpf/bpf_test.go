@@ -27,6 +27,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/btf"
+	"github.com/stretchr/testify/require"
+
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/bpf/restart"
@@ -244,5 +248,374 @@ func Test_getNodeIPAddress(t *testing.T) {
 			got := getNodeIPAddress(tt.args.node)
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+func TestLoadCompileTimeSpecs_KernelNative(t *testing.T) {
+    config := setDirKernelNative(t)
+    specs, err := restart.LoadCompileTimeSpecs(&config)
+    require.NoError(t, err)
+    require.Contains(t, specs, "KmeshCgroupSock")
+    require.Contains(t, specs, "KmeshCgroupSockCompat")
+    require.Contains(t, specs, "KmeshSockops")
+    require.Contains(t, specs, "KmeshSockopsCompat")
+    require.Contains(t, specs, "KmeshTcMarkEncrypt")
+    require.Contains(t, specs, "KmeshTcMarkEncryptCompat")
+    require.Contains(t, specs, "KmeshTcMarkDecrypt")
+    require.Contains(t, specs, "KmeshTcMarkDecryptCompat")
+    for specName, mp := range specs {
+        t.Logf("verifying maps for spec %s", specName)
+        require.NotEmpty(t, mp, "spec %s has no maps", specName)
+        for mapName, spec := range mp {
+            require.NotNil(t, spec, "mapSpec %s in %s is nil", mapName, specName)
+            require.NotEmpty(t, spec.Name, "MapSpec.Name empty for %s/%s", specName, mapName)
+            t.Logf("  Map %-30s Key type: %-30v Value type: %v",
+                mapName,
+                spec.Key,
+                spec.Value,
+            )
+			if keyStructType, ok := spec.Key.(*btf.Struct); ok {
+                t.Logf("    Fields of %s:", keyStructType.Name)
+                for _, member := range keyStructType.Members {
+                    offsetBytes := member.Offset / 8
+                    t.Logf("      - %-20s Type: %-20s Offset: %3d bytes",
+                        member.Name,
+                        member.Type.TypeName(),
+                        offsetBytes,
+                    )
+                }
+            }
+			if structType, ok := spec.Value.(*btf.Struct); ok {
+                t.Logf("    Fields of %s:", structType.Name)
+                for _, member := range structType.Members {
+                    offsetBytes := member.Offset / 8
+                    t.Logf("      - %-20s Type: %-20s Offset: %3d bytes",
+                        member.Name,
+                        member.Type.TypeName(),
+                        offsetBytes,
+                    )
+                }
+            }
+        }
+    }
+}
+
+func TestLoadCompileTimeSpecs_DualEngine(t *testing.T) {
+    config := setDirDualEngine(t)
+    specs, err := restart.LoadCompileTimeSpecs(&config)
+    require.NoError(t, err)
+    require.Contains(t, specs, "KmeshCgroupSockWorkload")
+    require.Contains(t, specs, "KmeshCgroupSockWorkloadCompat")
+    require.Contains(t, specs, "KmeshSockopsWorkload")
+    require.Contains(t, specs, "KmeshSockopsWorkloadCompat")
+    require.Contains(t, specs, "KmeshXDPAuth")
+    require.Contains(t, specs, "KmeshXDPAuthCompat")
+    require.Contains(t, specs, "KmeshSendmsg")
+    require.Contains(t, specs, "KmeshSendmsgCompat")
+    require.Contains(t, specs, "KmeshCgroupSkb")
+    require.Contains(t, specs, "KmeshCgroupSkbCompat")
+    require.Contains(t, specs, "KmeshTcMarkEncrypt")
+    require.Contains(t, specs, "KmeshTcMarkEncryptCompat")
+    require.Contains(t, specs, "KmeshTcMarkDecrypt")
+    require.Contains(t, specs, "KmeshTcMarkDecryptCompat")
+    for name, mp := range specs {
+        t.Logf("verifying maps for spec %s", name)
+        require.NotEmpty(t, mp, "spec %s has no maps", name)
+        for mname, spec := range mp {
+            require.NotNil(t, spec, "mapSpec %s in %s is nil", mname, name)
+            require.NotEmpty(t, spec.Name, "MapSpec.Name empty for %s/%s", name, mname)
+        }
+    }
+}
+
+// helper: build a simple btf.Int without relying on encoding constants
+func intType(name string, sizeBytes int) *btf.Int {
+	return &btf.Int{
+		Name: name,
+		Size: uint32(sizeBytes * 8),
+	}
+}
+
+// Test diffStructInfoAgainstBTF basic cases: Added / Removed / Offset / Nested
+func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
+	// old StructInfo: one member "a"
+	old := restart.StructInfo{
+		Name: "S_old",
+		Members: []restart.MemberInfo{
+			{
+				Name:     "a",
+				TypeName: "uint32",
+				Offset:   0, // we'll match against btf.Member.Offset below (no /8 used in current diff impl)
+				BitfieldSize:     32,
+			},
+		},
+	}
+
+	// New BTF struct: has "a" and new field "b" => Added == true
+	newWithAdded := &btf.Struct{
+		Name: "S_new_added",
+		Members: []btf.Member{
+			{
+				Name:         "a",
+				Type:         intType("uint32", 4),
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+			{
+				Name:         "b",
+				Type:         intType("uint8", 1),
+				Offset:       btf.Bits(32),
+				BitfieldSize: btf.Bits(8),
+			},
+		},
+	}
+
+	d := restart.DiffStructInfoAgainstBTF(old, newWithAdded, make(map[string]bool))
+	if !d.Added {
+		t.Fatalf("expected Added==true, got %+v", d)
+	}
+
+	// New BTF struct: missing "a" => Removed true
+	newRemoved := &btf.Struct{
+		Name: "S_new_removed",
+		Members: []btf.Member{
+			{
+				Name:         "x",
+				Type:         intType("uint32", 4),
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+		},
+	}
+	d = restart.DiffStructInfoAgainstBTF(old, newRemoved, make(map[string]bool))
+	if !d.Removed {
+		t.Fatalf("expected Removed==true, got %+v", d)
+	}
+
+	// Offset change: new has "a" but with different Offset
+	newOff := &btf.Struct{
+		Name: "S_new_off",
+		Members: []btf.Member{
+			{
+				Name:         "a",
+				Type:         intType("uint32", 4),
+				Offset:       btf.Bits(8), // note: current diff code compares uint32(member.Offset) vs saved Offset
+				BitfieldSize: btf.Bits(32),
+			},
+		},
+	}
+	// To make the offset comparison hit, set old.Members[0].Offset to uint32(member.Offset)
+	oldOffsetMatch := old
+	oldOffsetMatch.Members[0].Offset = uint32(newOff.Members[0].Offset) // direct match -> no offset diff
+	d = restart.DiffStructInfoAgainstBTF(oldOffsetMatch, newOff, make(map[string]bool))
+	if d.OffsetChanged {
+		t.Fatalf("did not expect OffsetChanged when offsets match (got %+v)", d)
+	}
+	// Now set old offset to different value -> expect OffsetChanged
+	oldOffsetMismatch := old
+	oldOffsetMismatch.Members[0].Offset = uint32(0)
+	d = restart.DiffStructInfoAgainstBTF(oldOffsetMismatch, newOff, make(map[string]bool))
+	if !d.OffsetChanged {
+		t.Fatalf("expected OffsetChanged true, got %+v", d)
+	}
+}
+
+func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
+	// old: inner { a: uint32 }, outer { x: inner, y: uint64 }
+	innerInt := intType("uint32", 4)
+	oldInner := &btf.Struct{
+		Name: "inner",
+		Members: []btf.Member{
+			{
+				Name:         "a",
+				Type:         innerInt,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+		},
+	}
+	outerUint := intType("__u64", 8)
+	oldOuter := &btf.Struct{
+		Name: "outer",
+		Members: []btf.Member{
+			{
+				Name:         "x",
+				Type:         oldInner,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+			{
+				Name:         "y",
+				Type:         outerUint,
+				Offset:       btf.Bits(32),
+				BitfieldSize: btf.Bits(64),
+			},
+		},
+	}
+
+	// persisted registry stores old definitions (StructInfo with Nested expanded)
+	registry := map[string]restart.StructInfo{
+		"inner": {
+			Name: "inner",
+			Members: []restart.MemberInfo{
+				{
+					Name:     "a",
+					TypeName: "uint32",
+					Offset:   uint32(oldInner.Members[0].Offset), // use raw bit value as in your diff impl
+					BitfieldSize:     4,
+				},
+			},
+		},
+		"outer": {
+			Name: "outer",
+			Members: []restart.MemberInfo{
+				{
+					Name:     "x",
+					TypeName: "inner",
+					Offset:   uint32(oldOuter.Members[0].Offset),
+					BitfieldSize:     4,
+					Nested: &restart.StructInfo{
+						Name: "inner",
+						Members: []restart.MemberInfo{
+							{Name: "a", TypeName: "uint32", Offset: uint32(oldInner.Members[0].Offset), BitfieldSize: 4},
+						},
+					},
+				},
+				{
+					Name:     "y",
+					TypeName: "__u64",
+					Offset:   uint32(oldOuter.Members[1].Offset),
+					BitfieldSize:     64,
+				},
+			},
+		},
+	}
+
+	// new: inner_changed { b: uint32 }  <-- note: field name changed (a -> b)
+	newInnerChanged := &btf.Struct{
+		Name: "inner_changed",
+		Members: []btf.Member{
+			{
+				Name:         "b", // different name -> incompatible
+				Type:         intType("uint32", 4),
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+		},
+	}
+	// new outer uses this new inner_changed type
+	newOuter := &btf.Struct{
+		Name: "outer",
+		Members: []btf.Member{
+			{
+				Name:         "x",
+				Type:         newInnerChanged,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+			{
+				Name:         "y",
+				Type:         outerUint,
+				Offset:       btf.Bits(32),
+				BitfieldSize: btf.Bits(64),
+			},
+		},
+	}
+
+	// Compare persisted outer (StructInfo) against newOuter (btf.Struct).
+	diff := restart.DiffStructInfoAgainstBTF(registry["outer"], newOuter, make(map[string]bool))
+
+	// Expect nested change (because inner's member name changed a->b)
+	if !diff.NestedChanged && !diff.TypeChanged && !diff.Removed && !diff.Added {
+		t.Fatalf("expected incompatibility detected (NestedChanged/TypeChanged/Added/Removed), got %#v", diff)
+	}
+}
+
+// Test nested struct comparisons and compatibility path in migrateMap
+func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
+	// Build nested btf structs: inner { a:uint32 }, outer { x:inner, y:uint64 }
+	innerInt := intType("uint32", 4)
+	inner := &btf.Struct{
+		Name: "inner",
+		Members: []btf.Member{
+			{
+				Name:         "a",
+				Type:         innerInt,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+		},
+	}
+	outerUint := intType("__u64", 8)
+	outer := &btf.Struct{
+		Name: "outer",
+		Members: []btf.Member{
+			{
+				Name:         "x",
+				Type:         inner,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+			{
+				Name:         "y",
+				Type:         outerUint,
+				Offset:       btf.Bits(32),
+				BitfieldSize: btf.Bits(64),
+			},
+		},
+	}
+
+	// persisted StructInfo registry: includes both inner and outer
+	registry := map[string]restart.StructInfo{
+		"inner": {
+			Name: "inner",
+			Members: []restart.MemberInfo{
+				{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 32},
+			},
+		},
+		"outer": {
+			Name: "outer",
+			Members: []restart.MemberInfo{
+				{Name: "x", TypeName: "inner", Offset: uint32(outer.Members[0].Offset), BitfieldSize: 32, Nested: &restart.StructInfo{
+					Name: "inner",
+					Members: []restart.MemberInfo{
+						{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 32},
+					},
+				}},
+				{Name: "y", TypeName: "__u64", Offset: uint32(outer.Members[1].Offset), BitfieldSize: 64},
+			},
+		},
+	}
+
+	// persisted map spec using outer
+	oldMapSpec := restart.PersistedMapSpec{
+		Name:    "km_nested_map",
+		Type:    ebpf.Hash.String(),
+		KeySize: 4,
+		ValueSize:  16,
+		MaxEntries: 128,
+		KeyInfo: restart.StructInfo{Name: "int", Members: nil},
+		ValueInfo: registry["outer"],
+	}
+
+	// new compiled MapSpec that uses the same outer struct
+	newMapSpec := &ebpf.MapSpec{
+		Name:       "km_nested_map",
+		Type:       ebpf.Hash,
+		KeySize:    4,
+		ValueSize:  16,
+		MaxEntries: 128,
+		Key:        intType("int", 4), // key type non-struct in this test
+		Value:      outer,
+	}
+
+	// Call migrateMap: because the persisted value layout matches newMapSpec.Value,
+	// migrateMap should consider them compatible and return (nil, nil) (no creation).
+	m, err := restart.MigrateMap(&oldMapSpec, newMapSpec, "pkg", "mapNested", filepath.Join(t.TempDir(), "mapPin"))
+	if err != nil {
+		t.Fatalf("migrateMap returned unexpected error: %v", err)
+	}
+	if m != nil {
+		t.Fatalf("expected nil map (reuse existing), got non-nil: %v", m)
 	}
 }

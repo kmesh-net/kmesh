@@ -122,7 +122,7 @@ func (cs *BpfCroupSkbWorkload) Attach() error {
 	}
 	pinPathIn := filepath.Join(cs.Info.BpfFsPath, "cgroup_skb_ingress_prog")
 	pinPathEg := filepath.Join(cs.Info.BpfFsPath, "cgroup_skb_egress_prog")
-	if restart.GetStartType() == restart.Restart {
+	if restart.GetStartType() == restart.Restart || restart.GetStartType() == restart.Update {
 		if cs.Link, err = utils.BpfProgUpdate(pinPathIn, cgopt); err != nil {
 			return err
 		}
