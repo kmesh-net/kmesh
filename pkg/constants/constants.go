@@ -84,7 +84,4 @@ const (
 	Prog_link      = "prog_link"
 
 	ALL_CIDR = "0.0.0.0/0"
-
-	MapSpecDir      = "/mnt/kmesh_mapspecs"
-    MapSpecFilename = "mapspecs_by_pkg.json"
 )
