@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"fmt"
 	"go/format"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -67,7 +66,7 @@ func main() {
 
 	var entries []entry
 	for _, f := range files {
-		b, _ := ioutil.ReadFile(f)
+		b, _ := os.ReadFile(f)
 		for _, line := range strings.Split(string(b), "\n") {
 			m := genRe.FindStringSubmatch(line)
 			if m == nil {
@@ -379,7 +378,7 @@ func collectGoFiles(root string) []string {
 
 func detectModulePath(root string) string {
 	modf := filepath.Join(root, "go.mod")
-	b, err := ioutil.ReadFile(modf)
+	b, err := os.ReadFile(modf)
 	if err != nil {
 		return ""
 	}
@@ -479,7 +478,7 @@ func renderVariant(tpl *template.Template, pkgs []pkgInfo, symsKn, symsDe, symsG
 	if err != nil {
 		return fmt.Errorf("gofmt failed: %w\nraw output:\n%s\n", err, string(out))
 	}
-	if err := ioutil.WriteFile(outPath, src, 0644); err != nil {
+	if err := os.WriteFile(outPath, src, 0644); err != nil {
 		return fmt.Errorf("write out: %w", err)
 	}
 	return nil
