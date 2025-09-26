@@ -17,13 +17,11 @@
 package restart
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"syscall"
-
-	"encoding/json"
-	"reflect"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/btf"
@@ -32,36 +30,36 @@ import (
 	"kmesh.net/kmesh/pkg/version"
 )
 
-type StructDiff struct {
-	Removed       bool // fields present in A but missing in B
-	Added         bool // fields present in B but missing in A
-	TypeChanged   bool // same-name fields whose type changed
-	OffsetChanged bool // same-name fields whose offset changed
-	NestedChanged bool // same-name fields of struct type whose nested layout changed
+type StructFieldChanges struct {
+	FieldRemoved        bool // A field was present in the old struct (A) but is now missing in the new struct (B).
+	FieldAdded          bool // A new field was added to the struct.
+	FieldTypeChanged    bool // A field with the same name has a different type.
+	FieldOffsetChanged  bool // The memory offset of a field with the same name has changed.
+	NestedLayoutChanged bool // The layout of a nested struct has changed (e.g., its fields were added, removed, or changed).
 }
 
-type MemberInfo struct {
-	Name         string      `json:"name"`
-	TypeName     string      `json:"typeName"`
-	Offset       uint32      `json:"offset"`
-	BitfieldSize uint32      `json:"bitfieldsize"` // only have value when the type is bitfield
-	Nested       *StructInfo `json:"nested,omitempty"`
+type PersistedMemberLayout struct {
+	Name         string                 `json:"name"`
+	TypeName     string                 `json:"typeName"`
+	Offset       uint32                 `json:"offset"`
+	BitfieldSize uint32                 `json:"bitfieldsize"` // only have value when the type is bitfield
+	Nested       *PersistedStructLayout `json:"nested,omitempty"`
 }
 
-type StructInfo struct {
-	Name    string       `json:"name"`
-	Members []MemberInfo `json:"members"`
+type PersistedStructLayout struct {
+	Name    string                  `json:"name"`
+	Members []PersistedMemberLayout `json:"members"`
 }
 
 type PersistedMapSpec struct {
-	Name       string     `json:"name"`
-	Type       string     `json:"type"` // MapType.String()
-	KeySize    uint32     `json:"keySize"`
-	ValueSize  uint32     `json:"valueSize"`
-	MaxEntries uint32     `json:"maxEntries"`
-	Flags      uint32     `json:"flags"`
-	KeyInfo    StructInfo `json:"keyInfo"` // get from btf.Struct
-	ValueInfo  StructInfo `json:"valueInfo"`
+	Name            string                `json:"name"`
+	Type            string                `json:"type"` // MapType.String()
+	KeySize         uint32                `json:"keySize"`
+	ValueSize       uint32                `json:"valueSize"`
+	MaxEntries      uint32                `json:"maxEntries"`
+	Flags           uint32                `json:"flags"`
+	KeyStructInfo   PersistedStructLayout `json:"keyInfo"` // get from btf.Struct
+	ValueStructInfo PersistedStructLayout `json:"valueInfo"`
 }
 
 type PersistedSnapshot struct {
@@ -70,7 +68,7 @@ type PersistedSnapshot struct {
 
 const (
 	MapSpecDir      = "/mnt/kmesh_mapspecs"
-	MapSpecFilename = "mapspecs_by_pkg.json"
+	MapSpecFilename = "mapspecs_by_prog.json"
 )
 
 // UpdateMapHandler handles the “Update” case in NewVersionMap.
@@ -79,23 +77,27 @@ const (
 func UpdateMapHandler(versionMap *ebpf.Map, kmBpfPath string, config *options.BpfConfig) *ebpf.Map {
 	persistedSpecs, err := LoadPersistedSnapshot()
 	if err != nil {
-		log.Errorf("load compile map spec failed")
+		log.Errorf("load persisted map spec failed")
 		return nil
 	}
-	specsByPkg, err := LoadCompileTimeSpecs(config)
+	if persistedSpecs == nil {
+		log.Errorf("persisted map spec is nil")
+		return nil
+	}
+	specsbyProg, err := LoadCompileTimeSpecs(config)
 	if err != nil {
-		log.Errorf("load oldSpecsByPkg failed")
+		log.Errorf("load oldSpecsbyProg failed")
 		return nil
 	}
-	pkgNames, _ := unionKeys(specsByPkg, persistedSpecs.Maps)
-	for _, pkgName := range pkgNames {
-		newMaps := specsByPkg[pkgName]
-		oldMaps := persistedSpecs.Maps[pkgName]
+	progNames := unionKeys(specsbyProg, persistedSpecs.Maps)
+	for _, progName := range progNames {
+		newMaps := specsbyProg[progName]
+		oldMaps := persistedSpecs.Maps[progName]
 		if newMaps == nil || oldMaps == nil {
 			continue
 		}
 
-		mapNames, _ := unionKeys(newMaps, oldMaps)
+		mapNames := unionKeys(newMaps, oldMaps)
 		for _, mapName := range mapNames {
 			newSpec, hasNew := newMaps[mapName]
 			oldSpec, hasOld := oldMaps[mapName]
@@ -115,12 +117,12 @@ func UpdateMapHandler(versionMap *ebpf.Map, kmBpfPath string, config *options.Bp
 					log.Warnf("failed to remove old map pinpath: %v (continuing)", err)
 				}
 			case hasNew && !hasOld:
-				if _, err := migrateMap(nil, newSpec, pkgName, mapName, pinPath); err != nil {
-					log.Errorf("create new map %s/%s failed: %v", pkgName, mapName, err)
+				if _, err := createEmptyMap(newSpec, pinPath, mapName, nil); err != nil {
+					log.Errorf("create new map %s/%s failed: %v", progName, mapName, err)
 				}
 			case hasNew && hasOld:
-				if _, err := migrateMap(&oldSpec, newSpec, pkgName, mapName, pinPath); err != nil {
-					log.Errorf("migrate map %s/%s failed: %v", pkgName, mapName, err)
+				if _, err := migrateMap(&oldSpec, newSpec, progName, mapName, pinPath); err != nil {
+					log.Errorf("migrate map %s/%s failed: %v", progName, mapName, err)
 				}
 			}
 		}
@@ -128,7 +130,7 @@ func UpdateMapHandler(versionMap *ebpf.Map, kmBpfPath string, config *options.Bp
 
 	log.Infof("kmesh start with Update")
 	updateVersionInfo(versionMap)
-	if err := SnapshotSpecsByPkg(specsByPkg); err != nil {
+	if err := SnapshotSpecsbyProg(specsbyProg); err != nil {
 		return versionMap
 	}
 	return versionMap
@@ -148,15 +150,15 @@ func updateVersionInfo(versionMap *ebpf.Map) {
 func MigrateMap(
 	oldMapSpec *PersistedMapSpec,
 	newMapSpec *ebpf.MapSpec,
-	pkgName, mapName, pinPath string,
+	progName, mapName, pinPath string,
 ) (*ebpf.Map, error) {
-	return migrateMap(oldMapSpec, newMapSpec, pkgName, mapName, pinPath)
+	return migrateMap(oldMapSpec, newMapSpec, progName, mapName, pinPath)
 }
 
 func migrateMap(
 	oldMapSpec *PersistedMapSpec,
 	newMapSpec *ebpf.MapSpec,
-	pkgName, mapName, pinPath string,
+	progName, mapName, pinPath string,
 ) (*ebpf.Map, error) {
 	if oldMapSpec == nil {
 		return createEmptyMap(newMapSpec, pinPath, mapName, nil)
@@ -168,17 +170,17 @@ func migrateMap(
 		return createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
 	}
 
-	if needsRecreate(oldMapSpec.KeyInfo, newMapSpec.Key) {
+	if needsRecreate(oldMapSpec.KeyStructInfo, newMapSpec.Key) {
 		return createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
 	}
 
-	if needsRecreate(oldMapSpec.ValueInfo, newMapSpec.Value) {
+	if needsRecreate(oldMapSpec.ValueStructInfo, newMapSpec.Value) {
 		return createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
 	}
 	return nil, nil
 }
 
-func needsRecreate(oldStruct StructInfo, newType btf.Type) bool {
+func needsRecreate(oldStruct PersistedStructLayout, newType btf.Type) bool {
 	if newType == nil {
 		if oldStruct.Name != "" || len(oldStruct.Members) != 0 {
 			return true
@@ -188,8 +190,8 @@ func needsRecreate(oldStruct StructInfo, newType btf.Type) bool {
 
 	if newStruct, ok := newType.(*btf.Struct); ok {
 		diff := diffStructInfoAgainstBTF(oldStruct, newStruct, make(map[string]bool))
-		if diff.Added || diff.Removed || diff.TypeChanged ||
-			diff.OffsetChanged || diff.NestedChanged {
+		if diff.FieldAdded || diff.FieldRemoved || diff.FieldTypeChanged ||
+			diff.FieldOffsetChanged || diff.NestedLayoutChanged {
 			return true
 		}
 		return false
@@ -217,21 +219,21 @@ func createEmptyMapWithPinnedMap(spec *ebpf.MapSpec, pinPath, mapName string) (*
 }
 
 func DiffStructInfoAgainstBTF(
-	a StructInfo,
+	a PersistedStructLayout,
 	b *btf.Struct,
 	visited map[string]bool,
-) StructDiff {
+) StructFieldChanges {
 	return diffStructInfoAgainstBTF(a, b, visited)
 }
 
 func diffStructInfoAgainstBTF(
-	a StructInfo,
+	a PersistedStructLayout,
 	b *btf.Struct,
 	visited map[string]bool,
-) StructDiff {
-	diff := StructDiff{}
+) StructFieldChanges {
+	diff := StructFieldChanges{}
 
-	oldMap := make(map[string]MemberInfo, len(a.Members))
+	oldMap := make(map[string]PersistedMemberLayout, len(a.Members))
 	for _, m := range a.Members {
 		oldMap[m.Name] = m
 	}
@@ -243,7 +245,7 @@ func diffStructInfoAgainstBTF(
 	// check added fields (present in new but not in old)
 	for name := range newMap {
 		if _, ok := oldMap[name]; !ok {
-			diff.Added = true
+			diff.FieldAdded = true
 			break
 		}
 	}
@@ -252,12 +254,12 @@ func diffStructInfoAgainstBTF(
 	for name, map_old := range oldMap {
 		map_new, exists := newMap[name]
 		if !exists {
-			diff.Removed = true
+			diff.FieldRemoved = true
 			break
 		}
 
 		if map_old.Offset != uint32(map_new.Offset) || map_old.BitfieldSize != uint32(map_new.BitfieldSize) {
-			diff.OffsetChanged = true
+			diff.FieldOffsetChanged = true
 			break
 		}
 
@@ -268,26 +270,26 @@ func diffStructInfoAgainstBTF(
 						if !visited[map_old.Nested.Name] {
 							visited[map_old.Nested.Name] = true
 							nestedDiff := diffStructInfoAgainstBTF(*map_old.Nested, mbStruct, visited)
-							if nestedDiff.Added || nestedDiff.Removed || nestedDiff.TypeChanged ||
-								nestedDiff.OffsetChanged || nestedDiff.NestedChanged {
-								diff.NestedChanged = true
+							if nestedDiff.FieldAdded || nestedDiff.FieldRemoved || nestedDiff.FieldTypeChanged ||
+								nestedDiff.FieldOffsetChanged || nestedDiff.NestedLayoutChanged {
+								diff.NestedLayoutChanged = true
 								break
 							}
 						}
 						continue
 					}
 				}
-				diff.NestedChanged = true
+				diff.NestedLayoutChanged = true
 				break
 			} else { // if new side is not struct
 				log.Info(map_old.Nested != nil)
 				if map_old.TypeName != map_new.Type.TypeName() || map_old.Nested != nil {
-					diff.TypeChanged = true
+					diff.FieldTypeChanged = true
 					break
 				}
 			}
 		} else {
-			diff.TypeChanged = true
+			diff.FieldTypeChanged = true
 			break
 		}
 	}
@@ -342,41 +344,34 @@ func createEmptyMap(spec *ebpf.MapSpec, pinPath string, mapName string, oldMap *
 	return m, nil
 }
 
-func unionKeys(maps ...interface{}) ([]string, error) {
-	set := make(map[string]struct{})
+// This function correctly handles two maps with different value types.
+func unionKeys[V1, V2 any](map1 map[string]V1, map2 map[string]V2) []string {
+	// Pre-allocate the set with a reasonable capacity.
+	set := make(map[string]struct{}, len(map1))
 
-	for _, mp := range maps {
-		if mp == nil {
-			continue
-		}
-		rv := reflect.ValueOf(mp)
-		if rv.Kind() != reflect.Map {
-			return nil, fmt.Errorf("unionKeysAny: expected map, got %s", rv.Kind())
-		}
-		keyType := rv.Type().Key()
-		if keyType.Kind() != reflect.String {
-			return nil, fmt.Errorf("unionKeysAny: expected map key type string, got %s", keyType.Kind())
-		}
-		for _, k := range rv.MapKeys() {
-			set[k.String()] = struct{}{}
-		}
+	for k := range map1 {
+		set[k] = struct{}{}
+	}
+
+	for k := range map2 {
+		set[k] = struct{}{}
 	}
 
 	keys := make([]string, 0, len(set))
 	for k := range set {
 		keys = append(keys, k)
 	}
-	return keys, nil
+	return keys
 }
 
-func buildStructInfoRecursive(t btf.Type, registry map[string]StructInfo, visited map[btf.Type]bool) StructInfo {
+func buildStructInfoRecursive(t btf.Type, registry map[string]PersistedStructLayout, visited map[btf.Type]bool) PersistedStructLayout {
 	if t == nil {
-		return StructInfo{}
+		return PersistedStructLayout{}
 	}
 
 	st, ok := t.(*btf.Struct)
 	if !ok {
-		return StructInfo{Name: t.TypeName()}
+		return PersistedStructLayout{Name: t.TypeName()}
 	}
 
 	if existing, ok := registry[st.Name]; ok {
@@ -384,20 +379,20 @@ func buildStructInfoRecursive(t btf.Type, registry map[string]StructInfo, visite
 	}
 
 	if visited[t] {
-		return StructInfo{Name: st.Name}
+		return PersistedStructLayout{Name: st.Name}
 	}
 
 	visited[t] = true
-	si := StructInfo{
+	si := PersistedStructLayout{
 		Name:    st.Name,
-		Members: make([]MemberInfo, 0, len(st.Members)),
+		Members: make([]PersistedMemberLayout, 0, len(st.Members)),
 	}
 
 	for _, m := range st.Members {
 		offBytes := uint32(m.Offset)
 		sizeBytes := uint32(m.BitfieldSize)
 		log.Info("sizeBytes", sizeBytes)
-		mi := MemberInfo{
+		mi := PersistedMemberLayout{
 			Name:         m.Name,
 			TypeName:     m.Type.TypeName(),
 			Offset:       offBytes,
@@ -417,43 +412,52 @@ func buildStructInfoRecursive(t btf.Type, registry map[string]StructInfo, visite
 	return si
 }
 
-func SnapshotSpecsByPkg(specsByPkg map[string]map[string]*ebpf.MapSpec) error {
-	wrapper := make(map[string]map[string]PersistedMapSpec, len(specsByPkg))
-	registry := make(map[string]StructInfo)
+// SnapshotSpecsbyProg takes a nested map of BPF map specifications and persists them to a file.
+// The structure of the input map `specsbyProg` is:
+//
+//		map[programName] -> map[mapName] -> *ebpf.MapSpec
+//
+//	  - The first key (programName) is the name of the BPF program collection,
+//	    e.g., "KmeshCgroupSock".
+//	  - The second key (mapName) is the name of a specific BPF map within that program,
+//	    e.g., "kmesh_endpoints".
+func SnapshotSpecsbyProg(specsbyProg map[string]map[string]*ebpf.MapSpec) error {
+	wrapper := make(map[string]map[string]PersistedMapSpec, len(specsbyProg))
+	registry := make(map[string]PersistedStructLayout)
 	visited := make(map[btf.Type]bool)
 
-	for pkg, maps := range specsByPkg {
-		wrapper[pkg] = make(map[string]PersistedMapSpec, len(maps))
+	for prog, maps := range specsbyProg {
+		wrapper[prog] = make(map[string]PersistedMapSpec, len(maps))
 		for name, ms := range maps {
 			if ms == nil {
 				continue
 			}
 
-			var keyInfo StructInfo
+			var keyInfo PersistedStructLayout
 			if ms.Key != nil {
 				keyInfo = buildStructInfoRecursive(ms.Key, registry, visited)
 			} else {
-				keyInfo = StructInfo{Name: ""}
+				keyInfo = PersistedStructLayout{Name: ""}
 			}
 
-			var valueInfo StructInfo
+			var valueInfo PersistedStructLayout
 			if ms.Value != nil {
 				valueInfo = buildStructInfoRecursive(ms.Value, registry, visited)
 			} else {
-				valueInfo = StructInfo{Name: ""}
+				valueInfo = PersistedStructLayout{Name: ""}
 			}
 
 			pms := PersistedMapSpec{
-				Name:       ms.Name,
-				Type:       ms.Type.String(),
-				KeySize:    ms.KeySize,
-				ValueSize:  ms.ValueSize,
-				MaxEntries: ms.MaxEntries,
-				Flags:      ms.Flags,
-				KeyInfo:    keyInfo,
-				ValueInfo:  valueInfo,
+				Name:            ms.Name,
+				Type:            ms.Type.String(),
+				KeySize:         ms.KeySize,
+				ValueSize:       ms.ValueSize,
+				MaxEntries:      ms.MaxEntries,
+				Flags:           ms.Flags,
+				KeyStructInfo:   keyInfo,
+				ValueStructInfo: valueInfo,
 			}
-			wrapper[pkg][name] = pms
+			wrapper[prog][name] = pms
 		}
 	}
 

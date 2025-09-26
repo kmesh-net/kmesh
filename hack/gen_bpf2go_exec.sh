@@ -8,5 +8,6 @@ kmesh_exec() {
 	set_enhanced_kernel_env
 	prepare
 	go generate bpf/kmesh/bpf2go/bpf2go.go
+	go run hack/gen_bpf_specs.go
 }
 kmesh_exec

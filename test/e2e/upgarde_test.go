@@ -99,11 +99,11 @@ func upgradeKmesh(t framework.TestContext) {
 		}
 	}`, time.Now().Format(time.RFC3339), newImage)
 
-	patchKmesh_upgarde(t, patchData)
+	patchKmesh_upgrade(t, patchData)
 }
 
 // patchKmesh applies a strategic merge patch to the Kmesh DaemonSet and waits for rollout completion.
-func patchKmesh_upgarde(t framework.TestContext, patchData string) {
+func patchKmesh_upgrade(t framework.TestContext, patchData string) {
 	patchOpts := metav1.PatchOptions{}
 	ds := t.Clusters().Default().Kube().AppsV1().DaemonSets(KmeshNamespace)
 	_, err := ds.Patch(context.Background(), KmeshDaemonsetName, types.StrategicMergePatchType, []byte(patchData), patchOpts)
@@ -116,7 +116,7 @@ func patchKmesh_upgarde(t framework.TestContext, patchData string) {
 		if err != nil {
 			return err
 		}
-		if !daemonsetsetComplete_upgarde(d) {
+		if !daemonsetsetComplete_upgrade(d) {
 			return fmt.Errorf("rollout is not yet done")
 		}
 		return nil
@@ -130,7 +130,7 @@ func patchKmesh_upgarde(t framework.TestContext, patchData string) {
 }
 
 // daemonsetsetComplete returns true when DaemonSet rollout appears complete.
-func daemonsetsetComplete_upgarde(ds *appsv1.DaemonSet) bool {
+func daemonsetsetComplete_upgrade(ds *appsv1.DaemonSet) bool {
 	return ds.Status.UpdatedNumberScheduled == ds.Status.DesiredNumberScheduled &&
 		ds.Status.NumberReady == ds.Status.DesiredNumberScheduled &&
 		ds.Status.ObservedGeneration >= ds.Generation

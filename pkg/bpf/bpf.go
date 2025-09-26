@@ -232,7 +232,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 		return nil
 	}
 
-	mapspec, err := restart.LoadCompileTimeSpecs(config)
+	mapspecs, err := restart.LoadCompileTimeSpecs(config)
 	if err != nil {
 		log.Errorf("failed to load compile time specs: %v", err)
 		return nil
@@ -241,7 +241,7 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	storeVersionInfo(m)
 	log.Infof("kmesh start with Normal")
 	restart.SetStartType(restart.Normal)
-	if err := restart.SnapshotSpecsByPkg(mapspec); err != nil {
+	if err := restart.SnapshotSpecsbyProg(mapspecs); err != nil {
 		log.Errorf("failed to store compile time specs: %v", err)
 		return nil
 	}
