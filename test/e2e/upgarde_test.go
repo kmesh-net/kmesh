@@ -44,7 +44,6 @@ import (
 // while continuous traffic is flowing, and asserts there is no traffic disruption.
 func TestKmeshUpgrade(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		// If DNS proxy interaction may affect tests, mirror restart test's behavior
 		configureDNSProxy(t, false)
 
 		src := apps.EnrolledToKmesh[0]
@@ -59,14 +58,12 @@ func TestKmeshUpgrade(t *testing.T) {
 			Retry: echo.Retry{NoRetry: true},
 		}
 
-		// Start continuous traffic
 		g := traffic.NewGenerator(t, traffic.Config{
 			Source:   src,
 			Options:  options,
 			Interval: 50 * time.Millisecond,
 		}).Start()
 
-		// Perform upgrade (image read from env KMESH_UPGRADE_IMAGE)
 		upgradeKmesh(t)
 
 		g.Stop().CheckSuccessRate(t, 1)
@@ -79,12 +76,9 @@ func TestKmeshUpgrade(t *testing.T) {
 func upgradeKmesh(t framework.TestContext) {
 	newImage := os.Getenv("KMESH_UPGRADE_IMAGE")
 	if newImage == "" {
-		// Fail fast with guidance - CI should set KMESH_UPGRADE_IMAGE
-		t.Fatalf("KMESH_UPGRADE_IMAGE must be set to the new kmesh-daemon image (e.g. registry/...:tag)")
+		newImage = "localhost:5000/kmesh"
 	}
 
-	// patchData sets both an annotation (to force/update rollout metadata) and the container image.
-	// Use the container name "kmesh" to match existing DaemonSet container name.
 	patchData := fmt.Sprintf(`{
 		"spec": {
 			"template": {
@@ -117,7 +111,6 @@ func patchKmesh_upgarde(t framework.TestContext, patchData string) {
 		t.Fatal(err)
 	}
 
-	// Wait until rollout is complete (UpdatedNumberScheduled == DesiredNumberScheduled && NumberReady == DesiredNumberScheduled)
 	if err := retry.UntilSuccess(func() error {
 		d, err := ds.Get(context.Background(), KmeshDaemonsetName, metav1.GetOptions{})
 		if err != nil {
@@ -131,7 +124,6 @@ func patchKmesh_upgarde(t framework.TestContext, patchData string) {
 		t.Fatalf("failed to wait for Kmesh rollout status: %v", err)
 	}
 
-	// Ensure pods are ready
 	if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(t.AllClusters()[0], KmeshNamespace, "app=kmesh")); err != nil {
 		t.Fatal(err)
 	}
