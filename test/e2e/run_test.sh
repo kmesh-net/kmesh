@@ -192,11 +192,6 @@ function set_daemonupgarde_testcase_image() {
 	BPF_HEADER_FILE="./bpf/include/bpf_common.h"
 	echo "Modifying BPF header file: ${BPF_HEADER_FILE}"
 
-	sed -i'.bak' \
-		-e 's/__uint(value_size, MAP_VAL_SIZE_64);/__uint(value_size, MAP_VAL_SIZE_192);/' \
-		-e 's/__uint(max_entries, MAP_MAX_ENTRIES);/__uint(max_entries, MAP_MAX_ENTRIES + 2);/' \
-		"${BPF_HEADER_FILE}"
-
 	sed -i \
 		'/} kmesh_map64 SEC(".maps");/a\
 		\
@@ -206,7 +201,7 @@ struct {\
 	__uint(value_size, MAP_VAL_SIZE_64);\
 	__uint(max_entries, MAP_MAX_ENTRIES);\
 	__uint(map_flags, BPF_F_NO_PREALLOC);\
-} kmesh_map64_bak_fortest SEC(".maps");' \
+} kmesh_map64_bak_for_test SEC(".maps");' \
 		"${BPF_HEADER_FILE}"
 
 	local HUB="localhost:5000"
