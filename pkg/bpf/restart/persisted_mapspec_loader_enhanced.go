@@ -68,6 +68,34 @@ func LoadCompileTimeSpecs(config *options.BpfConfig) (map[string]map[string]*ebp
 		}
 	} else if config.DualEngineEnabled() {
 	}
+	// General Symbol KmeshTcMarkDecrypt has normal+compat (choose by kernel)
+	if helper.KernelVersionLowerThan5_13() {
+		if coll, err := general.LoadKmeshTcMarkDecryptCompat(); err != nil {
+			return nil, fmt.Errorf("load Compat KmeshTcMarkDecryptCompat spec: %w", err)
+		} else {
+			specs["KmeshTcMarkDecryptCompat"] = coll.Maps
+		}
+	} else {
+		if coll, err := general.LoadKmeshTcMarkDecrypt(); err != nil {
+			return nil, fmt.Errorf("load KmeshTcMarkDecrypt spec: %w", err)
+		} else {
+			specs["KmeshTcMarkDecrypt"] = coll.Maps
+		}
+	}
+	// General Symbol KmeshTcMarkEncrypt has normal+compat (choose by kernel)
+	if helper.KernelVersionLowerThan5_13() {
+		if coll, err := general.LoadKmeshTcMarkEncryptCompat(); err != nil {
+			return nil, fmt.Errorf("load Compat KmeshTcMarkEncryptCompat spec: %w", err)
+		} else {
+			specs["KmeshTcMarkEncryptCompat"] = coll.Maps
+		}
+	} else {
+		if coll, err := general.LoadKmeshTcMarkEncrypt(); err != nil {
+			return nil, fmt.Errorf("load KmeshTcMarkEncrypt spec: %w", err)
+		} else {
+			specs["KmeshTcMarkEncrypt"] = coll.Maps
+		}
+	}
 
 	return specs, nil
 }
