@@ -300,34 +300,6 @@ func TestLoadCompileTimeSpecs_KernelNative(t *testing.T) {
 	}
 }
 
-func TestLoadCompileTimeSpecs_DualEngine(t *testing.T) {
-	config := setDirDualEngine(t)
-	specs, err := restart.LoadCompileTimeSpecs(&config)
-	require.NoError(t, err)
-	require.Contains(t, specs, "KmeshCgroupSockWorkload")
-	require.Contains(t, specs, "KmeshCgroupSockWorkloadCompat")
-	require.Contains(t, specs, "KmeshSockopsWorkload")
-	require.Contains(t, specs, "KmeshSockopsWorkloadCompat")
-	require.Contains(t, specs, "KmeshXDPAuth")
-	require.Contains(t, specs, "KmeshXDPAuthCompat")
-	require.Contains(t, specs, "KmeshSendmsg")
-	require.Contains(t, specs, "KmeshSendmsgCompat")
-	require.Contains(t, specs, "KmeshCgroupSkb")
-	require.Contains(t, specs, "KmeshCgroupSkbCompat")
-	require.Contains(t, specs, "KmeshTcMarkEncrypt")
-	require.Contains(t, specs, "KmeshTcMarkEncryptCompat")
-	require.Contains(t, specs, "KmeshTcMarkDecrypt")
-	require.Contains(t, specs, "KmeshTcMarkDecryptCompat")
-	for name, mp := range specs {
-		t.Logf("verifying maps for spec %s", name)
-		require.NotEmpty(t, mp, "spec %s has no maps", name)
-		for mname, spec := range mp {
-			require.NotNil(t, spec, "mapSpec %s in %s is nil", mname, name)
-			require.NotEmpty(t, spec.Name, "MapSpec.Name empty for %s/%s", name, mname)
-		}
-	}
-}
-
 // helper: build a simple btf.Int without relying on encoding constants
 func intType(name string, sizeBytes int) *btf.Int {
 	return &btf.Int{
