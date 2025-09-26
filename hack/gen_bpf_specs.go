@@ -350,7 +350,7 @@ func LoadCompileTimeSpecs(config *options.BpfConfig) (map[string]map[string]*ebp
 	}
 
 	// render enhanced file
-	if err := renderVariant(tpl, pkgsEnhanced, symsKnEnhanced, []symbolGen{}, []symbolGen{}, filepath.Join(outDir, "persisted_mapspec_loader_enhanced.go"), "enhanced"); err != nil {
+	if err := renderVariant(tpl, pkgsEnhanced, symsKnEnhanced, []symbolGen{}, symsGenDefault, filepath.Join(outDir, "persisted_mapspec_loader_enhanced.go"), "enhanced"); err != nil {
 		fmt.Fprintf(os.Stderr, "write enhanced: %v\n", err)
 		os.Exit(2)
 	}
