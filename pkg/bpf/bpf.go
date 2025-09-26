@@ -141,7 +141,7 @@ func StopMda() error {
 func (l *BpfLoader) Stop() {
 	var err error
 	C.deserial_uninit()
-	if restart.GetExitType() == restart.Restart {
+	if restart.GetExitType() == restart.Restart || restart.GetExitType() == restart.Update {
 		return
 	}
 
@@ -194,8 +194,9 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	case restart.Restart:
 		return versionMap
 	case restart.Update:
-		// TODO : update mode has not been fully developed and is currently consistent with normal mode
-		log.Warnf("Update mode support is under development, Will be started in Normal mode.")
+		if updateVersionMap := restart.UpdateMapHandler(versionMap, versionPath, config); updateVersionMap != nil {
+			return updateVersionMap
+		}
 	default:
 	}
 
@@ -231,9 +232,19 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 		return nil
 	}
 
+	mapspecs, err := restart.LoadCompileTimeSpecs(config)
+	if err != nil {
+		log.Errorf("failed to load compile time specs: %v", err)
+		return nil
+	}
+
 	storeVersionInfo(m)
 	log.Infof("kmesh start with Normal")
 	restart.SetStartType(restart.Normal)
+	if err := restart.SnapshotSpecsbyProg(mapspecs); err != nil {
+		log.Errorf("failed to store compile time specs: %v", err)
+		return nil
+	}
 	return m
 }
 
