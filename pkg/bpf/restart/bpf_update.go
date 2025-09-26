@@ -114,24 +114,23 @@ func UpdateMapHandler(versionMap *ebpf.Map, kmBpfPath string, config *options.Bp
 				if err := os.Remove(pinPath); err != nil && !os.IsNotExist(err) {
 					log.Warnf("failed to remove old map pinpath: %v (continuing)", err)
 				}
-				break
 			case hasNew && !hasOld:
 				if _, err := migrateMap(nil, newSpec, pkgName, mapName, pinPath); err != nil {
 					log.Errorf("create new map %s/%s failed: %v", pkgName, mapName, err)
 				}
-				break
 			case hasNew && hasOld:
 				if _, err := migrateMap(&oldSpec, newSpec, pkgName, mapName, pinPath); err != nil {
 					log.Errorf("migrate map %s/%s failed: %v", pkgName, mapName, err)
 				}
-				break
 			}
 		}
 	}
 
 	log.Infof("kmesh start with Update")
-	SnapshotSpecsByPkg(specsByPkg)
 	updateVersionInfo(versionMap)
+	if err := SnapshotSpecsByPkg(specsByPkg); err != nil {
+		return versionMap
+	}
 	return versionMap
 }
 
@@ -166,15 +165,15 @@ func migrateMap(
 		oldMapSpec.KeySize != newMapSpec.KeySize ||
 		oldMapSpec.ValueSize != newMapSpec.ValueSize ||
 		oldMapSpec.MaxEntries != newMapSpec.MaxEntries {
-		createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
+		return createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
 	}
 
 	if needsRecreate(oldMapSpec.KeyInfo, newMapSpec.Key) {
-		createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
+		return createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
 	}
 
 	if needsRecreate(oldMapSpec.ValueInfo, newMapSpec.Value) {
-		createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
+		return createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
 	}
 	return nil, nil
 }
