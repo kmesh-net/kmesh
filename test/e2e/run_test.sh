@@ -196,11 +196,6 @@ function set_daemonupgarde_testcase_image() {
 		"${BPF_HEADER_FILE}"
 
 	sed -i'.bak' \
-		'/__u8 connect_success;/a\
-		__u8 connect_fail; \
-		' "${BPF_HEADER_FILE}"
-
-	sed -i'.bak' \
 		'/} kmesh_map64 SEC(".maps");/a\
 		\
 		struct {\
@@ -438,9 +433,9 @@ if [[ -z ${SKIP_SETUP:-} ]]; then
 	setup_kmesh
 fi
 
-setup_kmesh_log
+# setup_kmesh_log
 
-capture_pod_logs &
+# capture_pod_logs &
 
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
