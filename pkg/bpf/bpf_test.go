@@ -346,7 +346,7 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 				Name:     "a",
 				TypeName: "uint32",
 				Offset:   0, // we'll match against btf.Member.Offset below (no /8 used in current diff impl)
-				BitfieldSize:     32,
+				BitfieldSize:     0,
 			},
 		},
 	}
@@ -365,7 +365,7 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 				Name:         "b",
 				Type:         intType("uint8", 1),
 				Offset:       btf.Bits(32),
-				BitfieldSize: btf.Bits(8),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -383,7 +383,7 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 				Name:         "x",
 				Type:         intType("uint32", 4),
 				Offset:       btf.Bits(0),
-				BitfieldSize: btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -400,7 +400,7 @@ func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
 				Name:         "a",
 				Type:         intType("uint32", 4),
 				Offset:       btf.Bits(8), // note: current diff code compares uint32(member.Offset) vs saved Offset
-				BitfieldSize: btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -430,7 +430,7 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 				Name:         "a",
 				Type:         innerInt,
 				Offset:       btf.Bits(0),
-				BitfieldSize: btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -442,13 +442,13 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 				Name:         "x",
 				Type:         oldInner,
 				Offset:       btf.Bits(0),
-				BitfieldSize: btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
 			},
 			{
 				Name:         "y",
 				Type:         outerUint,
 				Offset:       btf.Bits(32),
-				BitfieldSize: btf.Bits(64),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -462,7 +462,7 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 					Name:     "a",
 					TypeName: "uint32",
 					Offset:   uint32(oldInner.Members[0].Offset), // use raw bit value as in your diff impl
-					BitfieldSize:     4,
+					BitfieldSize:     0,
 				},
 			},
 		},
@@ -473,11 +473,11 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 					Name:     "x",
 					TypeName: "inner",
 					Offset:   uint32(oldOuter.Members[0].Offset),
-					BitfieldSize:     4,
+					BitfieldSize:     0,
 					Nested: &restart.StructInfo{
 						Name: "inner",
 						Members: []restart.MemberInfo{
-							{Name: "a", TypeName: "uint32", Offset: uint32(oldInner.Members[0].Offset), BitfieldSize: 4},
+							{Name: "a", TypeName: "uint32", Offset: uint32(oldInner.Members[0].Offset), BitfieldSize: 0},
 						},
 					},
 				},
@@ -485,7 +485,7 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 					Name:     "y",
 					TypeName: "__u64",
 					Offset:   uint32(oldOuter.Members[1].Offset),
-					BitfieldSize:     64,
+					BitfieldSize:     0,
 				},
 			},
 		},
@@ -499,7 +499,7 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 				Name:         "b", // different name -> incompatible
 				Type:         intType("uint32", 4),
 				Offset:       btf.Bits(0),
-				BitfieldSize: btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -511,13 +511,13 @@ func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
 				Name:         "x",
 				Type:         newInnerChanged,
 				Offset:       btf.Bits(0),
-				BitfieldSize: btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
 			},
 			{
 				Name:         "y",
 				Type:         outerUint,
 				Offset:       btf.Bits(32),
-				BitfieldSize: btf.Bits(64),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -542,7 +542,7 @@ func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
 				Name:         "a",
 				Type:         innerInt,
 				Offset:       btf.Bits(0),
-				BitfieldSize: btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -554,13 +554,13 @@ func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
 				Name:         "x",
 				Type:         inner,
 				Offset:       btf.Bits(0),
-				BitfieldSize: btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
 			},
 			{
 				Name:         "y",
 				Type:         outerUint,
 				Offset:       btf.Bits(32),
-				BitfieldSize: btf.Bits(64),
+				BitfieldSize: btf.Bits(0),
 			},
 		},
 	}
@@ -570,19 +570,19 @@ func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
 		"inner": {
 			Name: "inner",
 			Members: []restart.MemberInfo{
-				{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 32},
+				{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 0},
 			},
 		},
 		"outer": {
 			Name: "outer",
 			Members: []restart.MemberInfo{
-				{Name: "x", TypeName: "inner", Offset: uint32(outer.Members[0].Offset), BitfieldSize: 32, Nested: &restart.StructInfo{
+				{Name: "x", TypeName: "inner", Offset: uint32(outer.Members[0].Offset), BitfieldSize: 0, Nested: &restart.StructInfo{
 					Name: "inner",
 					Members: []restart.MemberInfo{
-						{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 32},
+						{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 0},
 					},
 				}},
-				{Name: "y", TypeName: "__u64", Offset: uint32(outer.Members[1].Offset), BitfieldSize: 64},
+				{Name: "y", TypeName: "__u64", Offset: uint32(outer.Members[1].Offset), BitfieldSize: 0},
 			},
 		},
 	}
@@ -611,7 +611,7 @@ func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
 
 	// Call migrateMap: because the persisted value layout matches newMapSpec.Value,
 	// migrateMap should consider them compatible and return (nil, nil) (no creation).
-	m, err := restart.MigrateMap(&oldMapSpec, newMapSpec, "pkg", "mapNested", filepath.Join(t.TempDir(), "mapPin"))
+	m, err := restart.MigrateMap(&oldMapSpec, newMapSpec, "pkg", "mapNested", filepath.Join(t.TempDir(), "mapping"))
 	if err != nil {
 		t.Fatalf("migrateMap returned unexpected error: %v", err)
 	}
