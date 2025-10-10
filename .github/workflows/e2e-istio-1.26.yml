@@ -1,4 +1,4 @@
-name: E2E Test(istio 1.23)
+name: E2E Test(istio 1.26)
 on: 
   pull_request:
     paths-ignore:
@@ -23,4 +23,4 @@ jobs:
     - name: E2E Test
       shell: bash
       run: |
-        sudo ISTIO_VERSION="1.23.0" make e2e
+        sudo ISTIO_VERSION="1.26.0" make e2e
