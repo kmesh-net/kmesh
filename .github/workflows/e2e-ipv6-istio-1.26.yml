@@ -23,4 +23,4 @@ jobs:
     - name: E2E IPv6 Test
       shell: bash
       run: |
-        sudo ISTIO_VERSION="1.26.0" make e2e-ipv6
+        sudo ISTIO_VERSION="1.26.4" make e2e-ipv6
