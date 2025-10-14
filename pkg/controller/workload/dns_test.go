@@ -32,12 +32,13 @@ import (
 	"kmesh.net/kmesh/pkg/dns"
 )
 
-func TestOverwriteDnsWorkload(t *testing.T) {
+func TestOverwriteDnsWorkloadWithIPv4(t *testing.T) {
 	domain := "example.com"
+	// Test with only IPv4 addresses
 	addrs := []string{"192.168.1.1", "192.168.1.2", "10.0.0.1"}
 	workload := &workloadapi.Workload{
-		Uid:      "test-uid",
-		Name:     "test-workload",
+		Uid:      "test-uid-ipv4",
+		Name:     "test-workload-ipv4",
 		Hostname: domain,
 	}
 
@@ -52,30 +53,83 @@ func TestOverwriteDnsWorkload(t *testing.T) {
 	assert.NoError(t, err)
 	p.DnsResolverChan = dnsController.workloadsChan
 
-	dnsController.pendingHostnames = map[string]string{
-		workload.GetName(): domain,
+	ready, newWorkload := dnsController.overwriteDnsWorkload(workload, domain, addrs)
+	assert.True(t, ready, "should successfully process IPv4 addresses")
+
+	// Verify all IPv4 addresses are correctly added
+	expectedAddrs := []string{"192.168.1.1", "192.168.1.2", "10.0.0.1"}
+	actualAddrs := make([]string, 0, len(newWorkload.Addresses))
+	for _, addr := range newWorkload.Addresses {
+		ip, _ := netip.AddrFromSlice(addr)
+		actualAddrs = append(actualAddrs, ip.String())
+	}
+	assert.Equal(t, expectedAddrs, actualAddrs)
+}
+
+func TestOverwriteDnsWorkloadWithIPv6(t *testing.T) {
+	domain := "example.com"
+	// Test with only IPv6 addresses
+	addrs := []string{"2001:db8::1", "fe80::1", "2001:db8::2"}
+	workload := &workloadapi.Workload{
+		Uid:      "test-uid-ipv6",
+		Name:     "test-workload-ipv6",
+		Hostname: domain,
 	}
 
-	patches := gomonkey.NewPatches()
-	defer patches.Reset()
-	patches.ApplyMethod(reflect.TypeOf(dnsController.dnsResolver), "GetDNSAddresses",
-		func(_ *dns.DNSResolver, name string) []string {
-			return addrs
-		})
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	dnsController, err := NewDnsController(p.WorkloadCache)
+	assert.NoError(t, err)
 
 	ready, newWorkload := dnsController.overwriteDnsWorkload(workload, domain, addrs)
-	assert.Equal(t, true, ready)
+	assert.True(t, ready, "should successfully process IPv6 addresses")
 
-	if ready {
-		// Verify only IPv4 addresses are added based on current filtering logic
-		expectedAddrs := []string{"192.168.1.1", "192.168.1.2", "10.0.0.1"}
-		actualAddrs := make([]string, 0, len(newWorkload.Addresses))
-		for _, addr := range newWorkload.Addresses {
-			ip, _ := netip.AddrFromSlice(addr)
-			actualAddrs = append(actualAddrs, ip.String())
-		}
-		assert.Equal(t, expectedAddrs, actualAddrs)
+	// Verify all IPv6 addresses are correctly added
+	expectedAddrs := []string{"2001:db8::1", "fe80::1", "2001:db8::2"}
+	actualAddrs := make([]string, 0, len(newWorkload.Addresses))
+	for _, addr := range newWorkload.Addresses {
+		ip, _ := netip.AddrFromSlice(addr)
+		actualAddrs = append(actualAddrs, ip.String())
 	}
+	assert.Equal(t, expectedAddrs, actualAddrs)
+}
+
+func TestOverwriteDnsWorkloadWithMixedAddresses(t *testing.T) {
+	domain := "example.com"
+	// Test with both IPv4 and IPv6 addresses mixed
+	addrs := []string{"192.168.1.1", "2001:db8::1", "10.0.0.1", "fe80::1"}
+	workload := &workloadapi.Workload{
+		Uid:      "test-uid-mixed",
+		Name:     "test-workload-mixed",
+		Hostname: domain,
+	}
+
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+	stopCh := make(chan struct{})
+	defer close(stopCh)
+
+	dnsController, err := NewDnsController(p.WorkloadCache)
+	assert.NoError(t, err)
+
+	ready, newWorkload := dnsController.overwriteDnsWorkload(workload, domain, addrs)
+	assert.True(t, ready, "should successfully process mixed IPv4 and IPv6 addresses")
+
+	// Verify both IPv4 and IPv6 addresses are correctly added
+	expectedAddrs := []string{"192.168.1.1", "2001:db8::1", "10.0.0.1", "fe80::1"}
+	actualAddrs := make([]string, 0, len(newWorkload.Addresses))
+	for _, addr := range newWorkload.Addresses {
+		ip, _ := netip.AddrFromSlice(addr)
+		actualAddrs = append(actualAddrs, ip.String())
+	}
+	assert.Equal(t, expectedAddrs, actualAddrs)
 }
 
 func TestHandleWorkloadsWithDns(t *testing.T) {

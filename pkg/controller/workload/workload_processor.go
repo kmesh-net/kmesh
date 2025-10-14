@@ -946,6 +946,11 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 			select {
 			case <-time.After(3 * time.Second):
 				log.Warnf("address resolving for workload %s/%s/%s timeout, skip handling", workload.Namespace, workload.Name, uid)
+				// Cleanup to prevent memory leak
+				if ch, ok := p.ResolvedDomainChanMap[uid]; ok {
+					close(ch)
+					delete(p.ResolvedDomainChanMap, uid)
+				}
 				continue
 			case newWorkload := <-p.ResolvedDomainChanMap[uid]:
 				if address := newWorkload.GetAddresses(); address == nil {
