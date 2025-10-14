@@ -76,6 +76,8 @@ type Processor struct {
 
 	DnsResolverChan       chan *workloadapi.Workload
 	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
+	// Callback to remove workload from DNS cache when workload is deleted
+	onWorkloadDeleted func(workloadName string)
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
@@ -248,6 +250,12 @@ func (p *Processor) removeWorkload(uid string) error {
 	if wl == nil {
 		return nil
 	}
+
+	// Clean up DNS cache for this workload if it was pending DNS resolution
+	if p.onWorkloadDeleted != nil && wl.GetName() != "" {
+		p.onWorkloadDeleted(wl.GetName())
+	}
+
 	p.WorkloadCache.DeleteWorkload(uid)
 	telemetry.DeleteWorkloadMetric(wl)
 	return p.removeWorkloadFromBpfMap(wl)

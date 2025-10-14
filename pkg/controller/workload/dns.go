@@ -30,7 +30,8 @@ import (
 )
 
 const (
-	WorkloadDnsRefreshRate = 200 * time.Millisecond // 200ms, used for workload dns refresh rate
+	WorkloadDnsRefreshRate     = 200 * time.Millisecond // DNS refresh rate for workloads
+	WorkloadChannelSendTimeout = 100 * time.Millisecond // Timeout for sending to workload channel
 )
 
 type dnsController struct {
@@ -40,15 +41,12 @@ type dnsController struct {
 	workloadsChan         chan *workloadapi.Workload
 	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
 
-	// store the copy of pendingResolveWorkload.
-	workloadCache map[string]*pendingResolveDomain
-	// store all pending hostnames in the workloads
-	pendingHostnames map[string]string
+	workloadCache    map[string]*pendingResolveDomain // hostname -> pending workloads
+	pendingHostnames map[string]string                // workload name -> hostname
 	sync.RWMutex
 }
 
-// pending resolve domain info of Dual-Engine Mode,
-// workload is used for create the apiworkload
+// pendingResolveDomain stores workloads pending DNS resolution for a domain
 type pendingResolveDomain struct {
 	Workload    []*workloadapi.Workload
 	RefreshRate time.Duration
@@ -67,7 +65,6 @@ func NewDnsController(cache cache.WorkloadCache) (*dnsController, error) {
 		workloadCache:         make(map[string]*pendingResolveDomain),
 		pendingHostnames:      make(map[string]string),
 	}
-	dnsController.newWorkloadCache()
 	return dnsController, nil
 }
 
@@ -85,6 +82,8 @@ func (r *dnsController) Run(stopCh <-chan struct{}) {
 	}()
 }
 
+// processDomains processes workloads requiring DNS resolution.
+// Thread-safe: uses locks to protect shared data structures.
 func (r *dnsController) processDomains(workload *workloadapi.Workload) {
 	if workload == nil {
 		log.Warn("received nil workload in processDomains")
@@ -93,7 +92,6 @@ func (r *dnsController) processDomains(workload *workloadapi.Workload) {
 
 	domains := getPendingResolveDomain(workload)
 	if len(domains) == 0 {
-		log.Debugf("no domains to resolve for workload %s/%s", workload.Namespace, workload.Name)
 		return
 	}
 
@@ -103,29 +101,22 @@ func (r *dnsController) processDomains(workload *workloadapi.Workload) {
 	r.Lock()
 	r.pendingHostnames[workloadName] = hostname
 	if _, ok := r.workloadCache[hostname]; !ok {
-		// Initialize the newly added hostname
 		r.workloadCache[hostname] = &pendingResolveDomain{
 			Workload:    make([]*workloadapi.Workload, 0),
 			RefreshRate: WorkloadDnsRefreshRate,
 		}
-		log.Debugf("initialized DNS cache for hostname %s", hostname)
 	}
 	r.workloadCache[hostname].Workload = append(
 		r.workloadCache[hostname].Workload, workload,
 	)
 	r.Unlock()
 
-	// delete any scheduled re-resolve for domains we no longer care about
 	r.dnsResolver.RemoveUnwatchDomain(domains)
 
-	// update workloadCache with pendingResolveWorkload
 	for k, v := range domains {
 		if addresses := r.dnsResolver.GetDNSAddresses(k); addresses != nil {
-			log.Debugf("found cached DNS addresses for domain %s: %v", k, addresses)
 			go r.updateWorkloads(v.(*pendingResolveDomain), k, addresses)
 		} else {
-			// Initialize the newly added hostname
-			// and add it to the dns queue to be resolved.
 			domainInfo := &dns.DomainInfo{
 				Domain:      k,
 				RefreshRate: v.(*pendingResolveDomain).RefreshRate,
@@ -144,78 +135,100 @@ func (r *dnsController) refreshWorker(stop <-chan struct{}) {
 			return
 		case domain := <-r.dnsResolver.DnsChan:
 			if domain == "" {
-				log.Warn("received empty domain in refresh worker")
 				continue
 			}
+
 			pendingDomain := r.getWorkloadsByDomain(domain)
 			if pendingDomain == nil {
-				log.Debugf("no pending workloads found for domain %s", domain)
 				continue
 			}
+
 			addrs := r.dnsResolver.GetDNSAddresses(domain)
 			if len(addrs) == 0 {
 				log.Warnf("no DNS addresses found for domain %s", domain)
 				continue
 			}
-			log.Debugf("refreshing workloads for domain %s with addresses %v", domain, addrs)
+
 			r.updateWorkloads(pendingDomain, domain, addrs)
 		}
 	}
 }
 
+// updateWorkloads processes DNS resolution results and updates workloads.
+// Uses fine-grained locking to avoid deadlocks. Supports both IPv4 and IPv6.
 func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, domain string, addrs []string) {
 	if pendingDomain == nil || addrs == nil {
 		return
 	}
-	r.Lock()
-	defer r.Unlock()
 
-	isWorkerUpdate := false
+	// Process workloads without holding the lock
+	var readyWorkloads []*workloadapi.Workload
 	for _, workload := range pendingDomain.Workload {
 		if ready, newWorkload := r.overwriteDnsWorkload(workload, domain, addrs); ready {
-			uid := newWorkload.GetUid()
-			if _, ok := r.ResolvedDomainChanMap[uid]; ok {
-				r.cache.AddOrUpdateWorkload(newWorkload)
-				r.ResolvedDomainChanMap[uid] <- newWorkload
-				log.Infof("workload %s/%s/%s addresses updated to %v", newWorkload.Namespace, newWorkload.Name, uid, newWorkload.Addresses)
-				close(r.ResolvedDomainChanMap[uid])
-				delete(r.ResolvedDomainChanMap, uid)
-				delete(r.workloadCache, domain)
-				isWorkerUpdate = true
-			}
+			readyWorkloads = append(readyWorkloads, newWorkload)
 		}
 	}
 
-	if isWorkerUpdate {
-		// TODO: flush the bpf map if needed
-		return
+	// Send to channels without holding lock to prevent deadlock
+	for _, newWorkload := range readyWorkloads {
+		uid := newWorkload.GetUid()
+
+		r.Lock()
+		ch, ok := r.ResolvedDomainChanMap[uid]
+		r.Unlock()
+
+		if ok {
+			r.cache.AddOrUpdateWorkload(newWorkload)
+			select {
+			case ch <- newWorkload:
+				log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
+			case <-time.After(WorkloadChannelSendTimeout):
+				log.Warnf("timeout sending resolved workload %s/%s", newWorkload.Namespace, newWorkload.Name)
+			}
+
+			r.Lock()
+			if _, stillExists := r.ResolvedDomainChanMap[uid]; stillExists {
+				close(r.ResolvedDomainChanMap[uid])
+				delete(r.ResolvedDomainChanMap, uid)
+			}
+			r.Unlock()
+		}
+	}
+
+	// Clean up domain cache
+	if len(readyWorkloads) > 0 {
+		r.Lock()
+		delete(r.workloadCache, domain)
+		r.Unlock()
 	}
 }
 
+// overwriteDnsWorkload creates a new workload with resolved IP addresses.
+// Supports both IPv4 and IPv6 addresses.
 func (r *dnsController) overwriteDnsWorkload(workload *workloadapi.Workload, domain string, addrs []string) (bool, *workloadapi.Workload) {
-	// Verify the domain matches the workload's hostname
 	if workload.GetHostname() != domain {
 		log.Warnf("domain mismatch: workload hostname %s != domain %s", workload.GetHostname(), domain)
 		return false, nil
 	}
 
 	if len(addrs) == 0 {
-		log.Warnf("no addresses provided for domain %s", domain)
 		return false, nil
 	}
 
 	newWorkload := cloneWorkload(workload)
+	validAddrs := 0
+
 	for _, addr := range addrs {
 		if ip := net.ParseIP(addr); ip != nil {
-			// Support both IPv4 and IPv6 addresses
 			newWorkload.Addresses = append(newWorkload.Addresses, netip.MustParseAddr(addr).AsSlice())
+			validAddrs++
 		} else {
-			log.Warnf("invalid IP address: %s for domain %s", addr, domain)
+			log.Warnf("invalid IP address %s for domain %s", addr, domain)
 		}
 	}
 
 	if len(newWorkload.Addresses) == 0 {
-		log.Warnf("no valid addresses after parsing for domain %s", domain)
+		log.Warnf("no valid addresses for domain %s", domain)
 		return false, nil
 	}
 
@@ -231,7 +244,6 @@ func getPendingResolveDomain(workload *workloadapi.Workload) map[string]any {
 	}
 
 	if _, err := netip.ParseAddr(hostname); err == nil {
-		// This is an ip address
 		return domains
 	}
 
@@ -248,14 +260,33 @@ func getPendingResolveDomain(workload *workloadapi.Workload) map[string]any {
 	return domains
 }
 
-func (r *dnsController) newWorkloadCache() {
+// removeWorkloadFromDnsCache removes a specific workload from DNS cache.
+// Called when a workload is deleted from the system.
+func (r *dnsController) removeWorkloadFromDnsCache(workloadName string) {
 	r.Lock()
 	defer r.Unlock()
 
-	if r.workloadCache != nil {
-		log.Debug("clean up dns workloads")
-		r.workloadCache = map[string]*pendingResolveDomain{}
+	hostname, exists := r.pendingHostnames[workloadName]
+	if !exists {
 		return
+	}
+
+	delete(r.pendingHostnames, workloadName)
+
+	if pendingDomain, ok := r.workloadCache[hostname]; ok {
+		updatedWorkloads := make([]*workloadapi.Workload, 0)
+		for _, wl := range pendingDomain.Workload {
+			if wl.GetName() != workloadName {
+				updatedWorkloads = append(updatedWorkloads, wl)
+			}
+		}
+
+		if len(updatedWorkloads) == 0 {
+			delete(r.workloadCache, hostname)
+			r.dnsResolver.RemoveUnwatchDomain(map[string]any{hostname: nil})
+		} else {
+			pendingDomain.Workload = updatedWorkloads
+		}
 	}
 }
 
