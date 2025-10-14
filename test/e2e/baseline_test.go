@@ -236,6 +236,70 @@ spec:
 	})
 }
 
+// TestServiceEntryDNSResolution tests accessing a service through a fake hostname configured in ServiceEntry.
+// This simulates external service access using DNS resolution.
+func TestServiceEntryDNSResolution(t *testing.T) {
+	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		// Only test HTTP traffic
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		// Need waypoint proxy for L7 processing
+		if !dst.Config().HasServiceAddressedWaypointProxy() {
+			return
+		}
+		// Skip IPv6 for now as it's not fully supported
+		if net.ParseIP(dst.Address()).To4() == nil {
+			return
+		}
+
+		const (
+			serviceEntryName = "external-svc-dns"
+			fakeHostname     = "foo.bar.com"
+		)
+
+		// Use enrolled-to-kmesh service as the actual backend for ServiceEntry
+		// to avoid circular reference when dst is the service-with-waypoint itself
+		backendService := apps.EnrolledToKmesh[0].Config().Service + "." + apps.Namespace.Name() + ".svc.cluster.local"
+		servicePort := dst.Config().Ports.MustForName("http").ServicePort
+
+		// Create ServiceEntry with fake hostname pointing to enrolled-to-kmesh service via DNS resolution
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"ServiceEntryName": serviceEntryName,
+			"FakeHostname":     fakeHostname,
+			"Backend":          backendService,
+			"ServicePort":      fmt.Sprintf("%d", servicePort),
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: "{{.ServiceEntryName}}"
+spec:
+  hosts:
+  - "{{.FakeHostname}}"
+  location: MESH_EXTERNAL
+  ports:
+  - number: {{.ServicePort}}
+    name: http
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  - address: "{{.Backend}}"
+`).ApplyOrFail(t)
+
+		// Set waypoint for the ServiceEntry
+		SetWaypoint(t, apps.Namespace.Name(), serviceEntryName, "waypoint", ServiceEntry)
+
+		// Test accessing the backend service through the fake hostname
+		opt = opt.DeepCopy()
+		opt.Count = 5
+		opt.Timeout = time.Second * 10
+		opt.Address = fakeHostname
+		opt.Port = echo.Port{ServicePort: servicePort}
+		opt.Check = check.OK()
+		src.CallOrFail(t, opt)
+	})
+}
+
 func TestTrafficSplit(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need at least one waypoint proxy and HTTP
