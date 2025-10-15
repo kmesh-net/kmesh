@@ -240,16 +240,10 @@ spec:
 // This simulates external service access using DNS resolution.
 func TestServiceEntryDNSResolution(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
-		// Only test HTTP traffic
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
-		// Need waypoint proxy for L7 processing
 		if !dst.Config().HasServiceAddressedWaypointProxy() {
-			return
-		}
-		// Skip IPv6 for now as it's not fully supported
-		if net.ParseIP(dst.Address()).To4() == nil {
 			return
 		}
 
@@ -259,7 +253,6 @@ func TestServiceEntryDNSResolution(t *testing.T) {
 		)
 
 		// Use enrolled-to-kmesh service as the actual backend for ServiceEntry
-		// to avoid circular reference when dst is the service-with-waypoint itself
 		backendService := apps.EnrolledToKmesh[0].Config().Service + "." + apps.Namespace.Name() + ".svc.cluster.local"
 		servicePort := dst.Config().Ports.MustForName("http").ServicePort
 

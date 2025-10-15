@@ -48,6 +48,8 @@ import (
 
 const (
 	KmeshWaypointPort = 15019 // use this fixed port instead of the HboneMtlsPort in kmesh
+	// dnsResolveTimeout is the timeout used when waiting for DNS resolution for workloads
+	dnsResolveTimeout = 3 * time.Second
 )
 
 type Processor struct {
@@ -943,31 +945,31 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 
 	for _, workload := range workloads {
 		if workload.GetAddresses() == nil {
-			log.Warnf("workload: %s/%s addresses is nil", workload.Namespace, workload.Name)
 			if p.DnsResolverChan == nil {
+				log.Warnf("workload %s/%s has nil addresses but DNS resolver is disabled", workload.Namespace, workload.Name)
 				continue
 			}
+
 			uid := workload.GetUid()
 			p.ResolvedDomainChanMap[uid] = make(chan *workloadapi.Workload)
 			p.DnsResolverChan <- workload
-			log.Infof("wait for workload %s/%s/%s address resolving", workload.Namespace, workload.Name, uid)
+			log.Infof("waiting for DNS resolution: %s/%s/%s", workload.Namespace, workload.Name, uid)
+
 			select {
-			case <-time.After(3 * time.Second):
-				log.Warnf("address resolving for workload %s/%s/%s timeout, skip handling", workload.Namespace, workload.Name, uid)
-				// Cleanup to prevent memory leak
+			case <-time.After(dnsResolveTimeout):
+				log.Warnf("DNS resolution timeout for workload %s/%s/%s, skip handling", workload.Namespace, workload.Name, uid)
 				if ch, ok := p.ResolvedDomainChanMap[uid]; ok {
 					close(ch)
 					delete(p.ResolvedDomainChanMap, uid)
 				}
 				continue
 			case newWorkload := <-p.ResolvedDomainChanMap[uid]:
-				if address := newWorkload.GetAddresses(); address == nil {
-					log.Warnf("workload: %s/%s resolved addresses is nil, skip handling", newWorkload.Namespace, newWorkload.Name)
+				if newWorkload == nil || newWorkload.GetAddresses() == nil {
+					log.Warnf("workload %s/%s resolved addresses is nil, skip handling", workload.Namespace, workload.Name)
 					continue
-				} else {
-					log.Infof("workload: %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, address)
-					workload = newWorkload
 				}
+				log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
+				workload = newWorkload
 			}
 		}
 
