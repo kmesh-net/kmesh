@@ -247,6 +247,15 @@ func TestServiceEntryDNSResolution(t *testing.T) {
 			return
 		}
 
+		// Skip this test in IPv6-only environment as DNS proxy is disabled for IPv6
+		// (see test/e2e/run_test.sh: "skip dns proxy for ipv6")
+		// Without DNS proxy, fake hostname resolution won't work
+		v4, v6 := getSupportedIPFamilies(t)
+		if !v4 && v6 {
+			t.Skip("Skipping DNS resolution test in IPv6-only environment (DNS proxy disabled)")
+			return
+		}
+
 		const (
 			serviceEntryName = "external-svc-dns"
 			fakeHostname     = "foo.bar.com"

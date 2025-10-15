@@ -48,12 +48,11 @@ type Controller struct {
 	dnsResolverController     *dnsController
 }
 
-func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) *Controller {
+func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) (*Controller, error) {
 	processor := NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
 	dnsResolverController, err := NewDnsController(processor.WorkloadCache)
 	if err != nil {
-		log.Errorf("dns resolver of Dual-Engine mode create failed: %v", err)
-		return nil
+		return nil, fmt.Errorf("failed to create DNS resolver for Dual-Engine mode: %w", err)
 	}
 	processor.DnsResolverChan = dnsResolverController.workloadsChan
 	processor.ResolvedDomainChanMap = dnsResolverController.ResolvedDomainChanMap
@@ -79,7 +78,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 		c.OperationMetricController = telemetry.NewBpfProgMetric()
 		c.MapMetricController = telemetry.NewMapMetric()
 	}
-	return c
+	return c, nil
 }
 
 func (c *Controller) Run(ctx context.Context, stopCh <-chan struct{}) error {

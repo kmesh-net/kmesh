@@ -50,7 +50,7 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 }
 
-func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enableProfiling bool) *XdsClient {
+func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enableProfiling bool) (*XdsClient, error) {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(mode),
@@ -58,14 +58,18 @@ func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWork
 
 	switch mode {
 	case constants.DualEngineMode:
-		client.WorkloadController = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling)
+		var err error
+		client.WorkloadController, err = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create workload controller: %w", err)
+		}
 	case constants.KernelNativeMode:
 		client.AdsController = ads.NewController(bpfAds)
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
 	client.ctx = metadata.AppendToOutgoingContext(client.ctx, "ClusterID", client.xdsConfig.Metadata.ClusterID.String())
-	return client
+	return client, nil
 }
 
 func (c *XdsClient) createGrpcStreamClient() error {
