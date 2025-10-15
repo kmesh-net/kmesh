@@ -32,6 +32,9 @@ clang $COMMON_FLAGS $INCLUDES -I${ROOT_DIR}/bpf/kmesh/probes -c ${OUT_DIR}/workl
 #workload_cgroup_skb_test.c
 clang $COMMON_FLAGS $INCLUDES -I${ROOT_DIR}/bpf/kmesh/probes -c ${OUT_DIR}/workload_cgroup_skb_test.c -o ${OUT_DIR}/workload_cgroup_skb_test.o
 
+#workload_cgroup_sock_test.c
+clang $COMMON_FLAGS $INCLUDES -I${ROOT_DIR}/bpf/kmesh/probes -c ${OUT_DIR}/workload_cgroup_sock_test.c -o ${OUT_DIR}/workload_cgroup_sock_test.o
+
 #tc_mark_encrypt_test.c and tc_mark_decrypt_test.c
 TC_FLAGS="-I${ROOT_DIR}/bpf/kmesh/general/include -I${ROOT_DIR}/bpf/kmesh/general"
 
