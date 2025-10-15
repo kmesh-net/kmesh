@@ -30,5 +30,6 @@
 #define map_of_wl_policy     km_wlpolicy
 #define kmesh_perf_map       km_perf_map
 #define kmesh_perf_info      km_perf_info
+#define map_of_waypoint      km_waypoint
 
 #endif // _CONFIG_H_

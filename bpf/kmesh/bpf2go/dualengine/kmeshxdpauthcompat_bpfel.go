@@ -107,6 +107,7 @@ type KmeshXDPAuthCompatMapSpecs struct {
 	KmSockstorage *ebpf.MapSpec `ebpf:"km_sockstorage"`
 	KmTcargs      *ebpf.MapSpec `ebpf:"km_tcargs"`
 	KmTmpbuf      *ebpf.MapSpec `ebpf:"km_tmpbuf"`
+	KmWaypoint    *ebpf.MapSpec `ebpf:"km_waypoint"`
 	KmWlpolicy    *ebpf.MapSpec `ebpf:"km_wlpolicy"`
 	KmXdpTailcall *ebpf.MapSpec `ebpf:"km_xdp_tailcall"`
 	KmeshMap1600  *ebpf.MapSpec `ebpf:"kmesh_map1600"`
@@ -156,6 +157,7 @@ type KmeshXDPAuthCompatMaps struct {
 	KmSockstorage *ebpf.Map `ebpf:"km_sockstorage"`
 	KmTcargs      *ebpf.Map `ebpf:"km_tcargs"`
 	KmTmpbuf      *ebpf.Map `ebpf:"km_tmpbuf"`
+	KmWaypoint    *ebpf.Map `ebpf:"km_waypoint"`
 	KmWlpolicy    *ebpf.Map `ebpf:"km_wlpolicy"`
 	KmXdpTailcall *ebpf.Map `ebpf:"km_xdp_tailcall"`
 	KmeshMap1600  *ebpf.Map `ebpf:"kmesh_map1600"`
@@ -179,6 +181,7 @@ func (m *KmeshXDPAuthCompatMaps) Close() error {
 		m.KmSockstorage,
 		m.KmTcargs,
 		m.KmTmpbuf,
+		m.KmWaypoint,
 		m.KmWlpolicy,
 		m.KmXdpTailcall,
 		m.KmeshMap1600,

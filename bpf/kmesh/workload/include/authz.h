@@ -10,6 +10,7 @@
 #include "tail_call.h"
 #include "workloadapi/security/authorization.pb-c.h"
 #include "config.h"
+#include "workload.h"
 
 #define AUTH_ALLOW      0
 #define AUTH_DENY       1
@@ -125,6 +126,26 @@ static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tu
         tuple_info->ipv6.sport = info->tcph->source;
         tuple_info->ipv6.dport = info->tcph->dest;
     }
+}
+
+// Unconditional trust for links with waypoint svc
+static int from_waypoint(struct bpf_sock_tuple *tuple, struct xdp_info *info)
+{
+    waypoint_key key = {0};
+    __u32 *waypoint_value;
+
+    if (info->iph->version == IPV4_VERSION) {
+        key.waypoint_addr.ip4 = tuple->ipv4.saddr;
+    } else {
+        bpf_memcpy((__u8 *)key.waypoint_addr.ip6, tuple->ipv6.saddr, IPV6_ADDR_LEN);
+    }
+
+    waypoint_value = bpf_map_lookup_elem(&map_of_waypoint, &key);
+    // src is waypoint, return PASS
+    if (!waypoint_value) {
+        return XDP_DROP;
+    }
+    return XDP_PASS;
 }
 
 static int construct_tuple_key(struct xdp_md *ctx, struct bpf_sock_tuple *tuple_info, struct xdp_info *info)
@@ -619,6 +640,15 @@ int policy_check(struct xdp_md *ctx)
 
     if (construct_tuple_key(ctx, &tuple_key, &info) != PARSER_SUCC) {
         BPF_LOG(ERR, AUTH, "failed to get tuple key in rule_check");
+        return XDP_PASS;
+    }
+
+    if (from_waypoint(&tuple_key, &info) == XDP_PASS) {
+        if (info.iph->version == IPV4_VERSION) {
+            BPF_LOG(DEBUG, AUTH, "src ip: %s is waypoint. PASS", ip2str(&tuple_key.ipv4.saddr, true));
+        } else {
+            BPF_LOG(DEBUG, AUTH, "src ip: %s is waypoint. PASS", ip2str(tuple_key.ipv6.saddr, false));
+        }
         return XDP_PASS;
     }
 
