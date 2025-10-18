@@ -67,6 +67,7 @@ nitty-gritty.
 - Mock Functions: For each _test.c file, include the necessary mocked BPF helper functions required during testing.
 
 - Testing Methods:
+
   - For branches that write to BPF maps, use coll.Maps["..."] on the Go testing side to verify whether the map contents are correct.
 
 ### Design Details
@@ -79,7 +80,9 @@ proposal will be implemented, this is the place to discuss them.
 -->
 
 ### sendmsg.c
+
 ### mount and set up
+
 #### mount
 
 - include the sockhash map in workload_sendmsg.c
@@ -95,6 +98,7 @@ struct {
 ```
 
 - in workload_test.go
+
 - load the eBPF program into the kernel
 
 ```go
@@ -195,7 +199,9 @@ struct {
 ```
 
 ### cgroup_sock.c
+
 ### mount and set up
+
 #### mount
 
 - in workload_test.go
@@ -223,10 +229,15 @@ defer conn.Close()
 ### test
 
 - Currently, connect4 and connect6 each have 5 test points.
+ 
 - 1
+ 
 - handle_kmesh_manage_process(&kmesh_ctx) internally calls bpf_map_update_elem(&map_of_manager, &key, &value, BPF_ANY); or err = bpf_map_delete_elem(&map_of_manager, &key); for verification.
+ 
 - When the destination address is CONTROL_CMD_IP: ENABLE_KMESH_PORT, it adds its netns_cookie to the map; when the destination address is CONTROL_CMD_IP: DISABLE_KMESH_PORT, it deletes its netns_cookie from the map.
+ 
 - Validation method:
+
 - Verify the addition when inserting.
 
 ```go
@@ -274,10 +285,15 @@ defer conn.Close()
 ```
 
 - Notes
+ 
 - Here it may be necessary to mock storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE); inside workload_cgroup_sock_test.c.
+
 - 2
+ 
 - The function sock_traffic_control(&kmesh_ctx) is critical and internally includes
+ 
 - frontend_v = map_lookup_frontend(&frontend_k); Consider how to return frontend_v; this must return a value.
+
 - By constructing a key-value pair so that the map contains this k-v, it can be found; construct the frontend map.
 
 ```go
@@ -343,9 +359,13 @@ test:=localIp+":"+strconv.Itoa(htons(55555))
 ```	
 
 - 2.2.2:
+ 
 - 2.2: If not found, perform kmesh_map_lookup_elem(&map_of_backend, key); this must return a value
+ 
 - 2.2.1:
+ 
 - Test point: waypoint == true in backend_value
+
 - Construction:
 
 ```go
@@ -380,7 +400,9 @@ _, err = net.Listen("tcp4", testIpPort)
 ```
 
 - 2.2.2
+ 
 - Test point: waypoint == false in backend_value
+
 - Construction:
 
 ```go
