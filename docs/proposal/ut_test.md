@@ -1,17 +1,15 @@
 ---
 title: Add Unit Testing Support for eBPF Programs in Kmesh
 authors:
-- "@wxnzb" 
+  - "@wxnzb"
 reviewers:
-- "@lizhencheng"
+  - "@lizhencheng"
 
 approvers:
-- "@lizhencheng"
+  - "@lizhencheng"
 
 creation-date: 2025-07-15
-
 ---
-
 
 ### Summary
 
@@ -64,10 +62,9 @@ nitty-gritty.
 
 - Test Framework: sendmsg.c and cgroup_sock.c will use the unitTests_BUILD_CONTEXT framework,cgroup_skb.c use the unitTests_BPF_PROG_TEST_RUN framework
 
-- Mock Functions: For each _test.c file, include the necessary mocked BPF helper functions required during testing.
+- Mock Functions: For each \_test.c file, include the necessary mocked BPF helper functions required during testing.
 
 - Testing Methods:
-
   - For branches that write to BPF maps, use coll.Maps["..."] on the Go testing side to verify whether the map contents are correct.
 
 ### Design Details
@@ -103,14 +100,14 @@ struct {
 
 ```go
    //load the eBPF program
- 	spec := loadAndPrepSpec(t, path.Join(*testPath, objFilePath))
-	var (
-			coll *ebpf.Collection
-			err  error
-						)
-	t.Log(path.Join(*testPath, objFilePath))
-	// Load the eBPF collection into the kernel
-	coll, err = ebpf.NewCollection(spec)
+    spec := loadAndPrepSpec(t, path.Join(*testPath, objFilePath))
+    var (
+            coll *ebpf.Collection
+            err  error
+                        )
+    t.Log(path.Join(*testPath, objFilePath))
+    // Load the eBPF collection into the kernel
+    coll, err = ebpf.NewCollection(spec)
 ```
 
 - Lookup the sockhash map and attach the sk_msg eBPF program to the map
@@ -121,15 +118,16 @@ struct {
     t.Log(ebpf.SockHash)
     prog := coll.Programs["sendmsg_prog"]
     err = link.RawAttachProgram(link.RawAttachProgramOptions{
-							Attach: ebpf.AttachSkMsgVerdict,
-							Target: sockMap.FD(),
-							Program: prog,
-						})
+                            Attach: ebpf.AttachSkMsgVerdict,
+                            Target: sockMap.FD(),
+                            Program: prog,
+                        })
 ```
 
 #### set up
 
 - Establish a network connection, obtain the file descriptor (fd), insert the fd into the map, and sending messages through this fd will trigger the eBPF program
+
 ```go
     localIP := get_local_ipv4(t)
     clientPort := 12345
@@ -141,7 +139,7 @@ struct {
     }
     defer listener.Close()
 
-    // try to connect 
+    // try to connect
     conn, err := (&net.Dialer{
         LocalAddr: &net.TCPAddr{
             IP:   net.ParseIP(localIP),
@@ -219,7 +217,7 @@ struct {
 #### set up
 
 ```go
-conn, err := net.Dial("tcp4", "...") 
+conn, err := net.Dial("tcp4", "...")
 if err != nil {
     t.Fatalf("Dial failed: %v", err)
 }
@@ -229,13 +227,13 @@ defer conn.Close()
 ### test
 
 - Currently, connect4 and connect6 each have 5 test points.
- 
+
 - 1
- 
+
 - handle_kmesh_manage_process(&kmesh_ctx) internally calls bpf_map_update_elem(&map_of_manager, &key, &value, BPF_ANY); or err = bpf_map_delete_elem(&map_of_manager, &key); for verification.
- 
+
 - When the destination address is CONTROL_CMD_IP: ENABLE_KMESH_PORT, it adds its netns_cookie to the map; when the destination address is CONTROL_CMD_IP: DISABLE_KMESH_PORT, it deletes its netns_cookie from the map.
- 
+
 - Validation method:
 
 - Verify the addition when inserting.
@@ -285,13 +283,13 @@ defer conn.Close()
 ```
 
 - Notes
- 
+
 - Here it may be necessary to mock storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE); inside workload_cgroup_sock_test.c.
 
 - 2
- 
+
 - The function sock_traffic_control(&kmesh_ctx) is critical and internally includes
- 
+
 - frontend_v = map_lookup_frontend(&frontend_k); Consider how to return frontend_v; this must return a value.
 
 - By constructing a key-value pair so that the map contains this k-v, it can be found; construct the frontend map.
@@ -316,7 +314,7 @@ defer conn.Close()
     if ip4 == nil {
         t.Fatalf("invalid IPv4 address")
     }
-    copy(f_key.Addr.Raw[0:4], ip4) 
+    copy(f_key.Addr.Raw[0:4], ip4)
     // Build the value
     f_val := frontend_value{
         UpstreamID: 1,
@@ -344,8 +342,8 @@ type service_value struct {
 wpIP := net.ParseIP("localIP").To4()
 // Build the value
 s_val := service_value{
-    WpAddr:       ip_addr{Raw: [16]byte{}}, 
-    WaypointPort: 55555,                    //Build 
+    WpAddr:       ip_addr{Raw: [16]byte{}},
+    WaypointPort: 55555,                    //Build
 }
 ```
 
@@ -356,14 +354,14 @@ s_val := service_value{
 ```go
 test:=localIp+":"+strconv.Itoa(htons(55555))
 -  _, err = net.Listen("tcp4", "10.30.0.124:985")
-```	
+```
 
 - 2.2.2:
- 
+
 - 2.2: If not found, perform kmesh_map_lookup_elem(&map_of_backend, key); this must return a value
- 
+
 - 2.2.1:
- 
+
 - Test point: waypoint == true in backend_value
 
 - Construction:
@@ -379,11 +377,11 @@ type backend_value struct {
     wpIP := net.ParseIP(localIP).To4()
 // Build the value
 b_val := backend_value{
-    Addr:         ip_addr{Raw: [16]byte{}},  
-    ServiceCount: 0,                           
-    Service:      [MAX_SERVICE_COUNT]uint32{}, 
-    WpAddr:       ip_addr{Raw: [16]byte{}},    
-    WaypointPort: uint32(testPort),            
+    Addr:         ip_addr{Raw: [16]byte{}},
+    ServiceCount: 0,
+    Service:      [MAX_SERVICE_COUNT]uint32{},
+    WpAddr:       ip_addr{Raw: [16]byte{}},
+    WaypointPort: uint32(testPort),
 }
 // map WpAddr
 copy(b_val.WpAddr.Raw[0:4], wpIP)
@@ -400,7 +398,7 @@ _, err = net.Listen("tcp4", testIpPort)
 ```
 
 - 2.2.2
- 
+
 - Test point: waypoint == false in backend_value
 
 - Construction:
@@ -414,11 +412,11 @@ type backend_value struct {
     WaypointPort uint32
 }
 b_val := backend_value{
-    Addr:         ip_addr{Raw: [16]byte{}},  
-    ServiceCount: 0,                           
-    Service:      [MAX_SERVICE_COUNT]uint32{}, 
-    WpAddr:       ip_addr{Raw: [16]byte{}},    
-    WaypointPort: 0,                           
+    Addr:         ip_addr{Raw: [16]byte{}},
+    ServiceCount: 0,
+    Service:      [MAX_SERVICE_COUNT]uint32{},
+    WpAddr:       ip_addr{Raw: [16]byte{}},
+    WaypointPort: 0,
 }
 if err := BackendMap.Update(&b_key, &b_val, ebpf.UpdateAny); err != nil {
     log.Fatalf("Update failed: %v", err)
@@ -459,7 +457,7 @@ expectedIP := localIP
 ### cgroup_skb.c
 
 - It is a type supported by bpf_prog_run and can be tested using the first framework.
-- Since it uses the same __sk_buff parameters as tc triggers, it can be written by following that example.
+- Since it uses the same \_\_sk_buff parameters as tc triggers, it can be written by following that example.
 
 ```c
 #include "ut_common.h"
@@ -467,7 +465,7 @@ expectedIP := localIP
 #include <linux/if_ether.h>
 #include <linux/in.h>
 #include <netinet/tcp.h>
-#include "workload/cgroup_skb.c" 
+#include "workload/cgroup_skb.c"
 struct tcp_probe_info mock_info;
 bool mock_ringbuf_called = false;
 static __always_inline void mock_clear()
@@ -495,7 +493,7 @@ struct {
 };
 
 // 模拟 IP + TCP 头，构造简单 TCP SYN 报文
-#define SRC_IP    0x0F00000A 
+#define SRC_IP    0x0F00000A
 #define SRC_PORT  23445
 #define DEST_IP   0x0F00010A
 #define DEST_PORT 80
@@ -576,8 +574,3 @@ information to express the idea and why it was not acceptable.
 Note: This is a simplified version of kubernetes enhancement proposal template.
 https://github.com/kubernetes/enhancements/tree/3317d4cb548c396a430d1c1ac6625226018adf6a/keps/NNNN-kep-template
 -->
-
-
-
-
-
