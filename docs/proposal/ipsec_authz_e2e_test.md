@@ -37,9 +37,9 @@ For the IPSec feature, we designed IPSec E2E test cases covering three core scen
 
 2. The key rotation test ensures the reliability of the PSK update mechanism and validates service continuity during key changes.
 
-For the Offload Authorization feature, E2E test cases are designed for IP, Port, Header, namespace, and hosts authorization.
+For the Offload Authorization feature, E2E test cases are designed for IP, Port, Header, Namespace, and Hosts authorization.
 
-The test environment requires at least a 2-node Kubernetes cluster using httpbin and sleep or fortio as test applications.
+The test environment requires at least a 2-nodes Kubernetes cluster using httpbin and sleep or fortio as test applications.
 
 ### Design Details
 
@@ -47,7 +47,7 @@ The test environment requires at least a 2-node Kubernetes cluster using httpbin
 
 ##### Requirements
 
-- At least a 2-node Kubernetes cluster with Kmesh installed  
+- At least a 2-nodes Kubernetes cluster with Kmesh installed  
 - Tools: tcpdump  
 - Applications: httpbin, sleep, fortio
 
