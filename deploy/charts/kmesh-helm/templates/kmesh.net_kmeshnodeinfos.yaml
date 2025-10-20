@@ -40,7 +40,7 @@ spec:
             properties:
               addresses:
                 description: |-
-                  Addresses is used to store the internal ip address informatioon on the
+                  Addresses is used to store the internal ip address information on the
                   host. The IP address information is used to generate the IPsec state
                   information. IPsec uses this information to determine which network
                   adapter is used to encrypt and send data.
