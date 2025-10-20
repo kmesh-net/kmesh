@@ -178,7 +178,6 @@ spec:
 func TestPortAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Port Authorization").Run(func(t framework.TestContext) {
-			// Enable authorization offload to xdp.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
@@ -395,7 +394,6 @@ spec:
 func TestHeaderAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Header Authorization").Run(func(t framework.TestContext) {
-			// Enable authorization offload to xdp.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
@@ -525,7 +523,6 @@ spec:
 func TestHostAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Host Authorization").Run(func(t framework.TestContext) {
-			// Enable authorization offload to xdp.
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
