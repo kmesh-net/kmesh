@@ -166,7 +166,7 @@ func migrateMap(
 	if oldMapSpec.Type != newMapSpec.Type.String() ||
 		oldMapSpec.KeySize != newMapSpec.KeySize ||
 		oldMapSpec.ValueSize != newMapSpec.ValueSize ||
-		oldMapSpec.MaxEntries != newMapSpec.MaxEntries {
+		oldMapSpec.MaxEntries > newMapSpec.MaxEntries {
 		return createEmptyMapWithPinnedMap(newMapSpec, pinPath, mapName)
 	}
 
