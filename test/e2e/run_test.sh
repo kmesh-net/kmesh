@@ -395,6 +395,10 @@ while (("$#")); do
 		PARAMS+=("-istio.test.nocleanup")
 		shift
 		;;
+	--skip-build-daemonupgarde-image)
+		SKIP_BUILD_UPGARDE=true
+		shift
+		;;
 	*)
 		PARAMS+=("$1")
 		shift
@@ -416,7 +420,9 @@ if [[ -z ${SKIP_BUILD:-} ]]; then
 	setup_kind_registry
 	build_and_push_images
 	install_kmeshctl
-	set_daemonupgarde_testcase_image
+	if [[ -z ${SKIP_BUILD_UPGARDE:-} ]]; then
+		set_daemonupgarde_testcase_image
+	fi
 fi
 
 kubectl config use-context "kind-$NAME"
@@ -453,6 +459,6 @@ if [[ -n ${CLEANUP_REGISTRY} ]]; then
 	cleanup_docker_registry
 fi
 
-rm -rf "${TMP}"
+#rm -rf "${TMP}"
 
 exit $EXIT_CODE
