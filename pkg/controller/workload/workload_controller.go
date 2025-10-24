@@ -45,12 +45,27 @@ type Controller struct {
 	MapMetricController       *telemetry.MapMetricController
 	OperationMetricController *telemetry.BpfProgMetric
 	bpfWorkloadObj            *bpfwl.BpfWorkload
+	dnsResolverController     *dnsController
 }
 
-func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) *Controller {
+func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) (*Controller, error) {
+	processor := NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
+	dnsResolverController, err := NewDnsController(processor.WorkloadCache)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create DNS resolver for Dual-Engine mode: %w", err)
+	}
+	processor.DnsResolverChan = dnsResolverController.workloadsChan
+	processor.ResolvedDomainChanMap = dnsResolverController.ResolvedDomainChanMap
+
+	// Set up callback to clean DNS cache when workload is deleted
+	processor.onWorkloadDeleted = func(workloadName string) {
+		dnsResolverController.removeWorkloadFromDnsCache(workloadName)
+	}
+
 	c := &Controller{
-		Processor:      NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
-		bpfWorkloadObj: bpfWorkload,
+		Processor:             processor,
+		bpfWorkloadObj:        bpfWorkload,
+		dnsResolverController: dnsResolverController,
 	}
 	// do some initialization when restart
 	// restore endpoint index, otherwise endpoint number can double
@@ -63,10 +78,10 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 		c.OperationMetricController = telemetry.NewBpfProgMetric()
 		c.MapMetricController = telemetry.NewMapMetric()
 	}
-	return c
+	return c, nil
 }
 
-func (c *Controller) Run(ctx context.Context) error {
+func (c *Controller) Run(ctx context.Context, stopCh <-chan struct{}) error {
 	if err := c.Processor.PrepareDNSProxy(); err != nil {
 		log.Errorf("failed to prepare for dns proxy, err: %+v", err)
 		return err
@@ -92,6 +107,9 @@ func (c *Controller) Run(ctx context.Context) error {
 	}
 	if c.OperationMetricController != nil {
 		go c.OperationMetricController.Run(ctx, c.bpfWorkloadObj.SockConn.KmPerfInfo)
+	}
+	if c.dnsResolverController != nil {
+		go c.dnsResolverController.Run(stopCh)
 	}
 	return nil
 }

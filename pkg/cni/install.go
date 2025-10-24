@@ -35,13 +35,13 @@ func (i *Installer) addCniConfig() error {
 	if i.CniConfigChained {
 		// "chained" is an cni type
 		// information: www.cni.dev/docs/spec/#overview-1
-		log.Infof("kmesh cni use chained\n")
+		log.Infof("kmesh cni use chained")
 		err = i.chainedKmeshCniPlugin(i.Mode, i.CniMountNetEtcDIR)
 		if err != nil {
 			return err
 		}
 	} else {
-		log.Error("currently kmesh only support chained cni mode\n")
+		log.Error("currently kmesh only support chained cni mode")
 	}
 	return nil
 }

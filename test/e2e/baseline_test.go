@@ -236,6 +236,72 @@ spec:
 	})
 }
 
+// TestServiceEntryDNSResolution tests accessing a service through a fake hostname configured in ServiceEntry.
+// This simulates external service access using DNS resolution.
+func TestServiceEntryDNSResolution(t *testing.T) {
+	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		if opt.Scheme != scheme.HTTP {
+			return
+		}
+		if !dst.Config().HasServiceAddressedWaypointProxy() {
+			return
+		}
+
+		// Skip this test in IPv6-only environment as DNS proxy is disabled for IPv6
+		// (see test/e2e/run_test.sh: "skip dns proxy for ipv6")
+		// Without DNS proxy, fake hostname resolution won't work
+		v4, v6 := getSupportedIPFamilies(t)
+		if !v4 && v6 {
+			t.Skip("Skipping DNS resolution test in IPv6-only environment (DNS proxy disabled)")
+			return
+		}
+
+		const (
+			serviceEntryName = "external-svc-dns"
+			fakeHostname     = "foo.bar.com"
+		)
+
+		// Use enrolled-to-kmesh service as the actual backend for ServiceEntry
+		backendService := apps.EnrolledToKmesh[0].Config().Service + "." + apps.Namespace.Name() + ".svc.cluster.local"
+		servicePort := dst.Config().Ports.MustForName("http").ServicePort
+
+		// Create ServiceEntry with fake hostname pointing to enrolled-to-kmesh service via DNS resolution
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"ServiceEntryName": serviceEntryName,
+			"FakeHostname":     fakeHostname,
+			"Backend":          backendService,
+			"ServicePort":      fmt.Sprintf("%d", servicePort),
+		}, `apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: "{{.ServiceEntryName}}"
+spec:
+  hosts:
+  - "{{.FakeHostname}}"
+  location: MESH_EXTERNAL
+  ports:
+  - number: {{.ServicePort}}
+    name: http
+    protocol: HTTP
+  resolution: DNS
+  endpoints:
+  - address: "{{.Backend}}"
+`).ApplyOrFail(t)
+
+		// Set waypoint for the ServiceEntry
+		SetWaypoint(t, apps.Namespace.Name(), serviceEntryName, "waypoint", ServiceEntry)
+
+		// Test accessing the backend service through the fake hostname
+		opt = opt.DeepCopy()
+		opt.Count = 5
+		opt.Timeout = time.Second * 10
+		opt.Address = fakeHostname
+		opt.Port = echo.Port{ServicePort: servicePort}
+		opt.Check = check.OK()
+		src.CallOrFail(t, opt)
+	})
+}
+
 func TestTrafficSplit(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		// Need at least one waypoint proxy and HTTP

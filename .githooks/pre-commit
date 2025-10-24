@@ -1,0 +1,33 @@
+#!/bin/bash
+#
+# Kmesh pre-commit hook
+# This hook runs 'make clean' and 'make gen-check' before each commit
+# to ensure generated files are up-to-date and temporary files are cleaned up.
+#
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Change to repository root
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+# Run make clean to restore auto-generated files
+echo "→ Running 'make clean'..."
+if ! make clean; then
+	echo "❌ 'make clean' failed"
+	exit 1
+fi
+
+# Run make gen-check to verify generated files are up-to-date
+echo "→ Running 'make gen-check'..."
+if ! make gen-check; then
+	echo "❌ 'make gen-check' failed"
+	echo ""
+	echo "Generated files are out of date. Please run 'make gen' and commit the changes."
+	exit 1
+fi
+
+echo "✅ Pre-commit checks passed"
+exit 0
