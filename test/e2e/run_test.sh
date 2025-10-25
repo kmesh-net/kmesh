@@ -176,6 +176,55 @@ function setup_kmesh() {
 	done
 }
 
+function set_daemonupgarde_testcase_image() {
+	local TMP_BUILD
+	TMP_BUILD="$(mktemp -d)"
+	echo "Building in temp dir: $TMP_BUILD"
+
+	git clone --depth 1 . "$TMP_BUILD" || {
+		echo "git clone failed"
+		rm -rf "$TMP_BUILD"
+		return 1
+	}
+
+	pushd "$TMP_BUILD" >/dev/null
+
+	BPF_HEADER_FILE="./bpf/include/bpf_common.h"
+	echo "Modifying BPF header file: ${BPF_HEADER_FILE}"
+
+	sed -i \
+		'/} kmesh_map64 SEC(".maps");/a\
+		\
+struct {\
+	__uint(type, BPF_MAP_TYPE_HASH);\
+	__uint(key_size, sizeof(__u32));\
+	__uint(value_size, MAP_VAL_SIZE_64);\
+	__uint(max_entries, MAP_MAX_ENTRIES);\
+	__uint(map_flags, BPF_F_NO_PREALLOC);\
+} kmesh_map64_bak_for_test SEC(".maps");' \
+		"${BPF_HEADER_FILE}"
+
+	local HUB="localhost:5000"
+	local TARGET="kmesh"
+	local TAG="test-upgrade-map-change"
+	local IMAGE="${HUB}/${TARGET}:${TAG}"
+
+	echo "Running 'make docker.push' with custom HUB and TAG in $TMP_BUILD"
+	if ! HUB=${HUB} TARGET=${TARGET} TAG=${TAG} make docker.push; then
+		echo "make docker.push failed"
+		popd >/dev/null
+		rm -rf "$TMP_BUILD"
+		return 1
+	fi
+
+	export KMESH_UPGRADE_IMAGE="${IMAGE}"
+	echo "Built and pushed image: ${IMAGE}"
+
+	popd >/dev/null
+	# rm -rf "$TMP_BUILD"
+	return 0
+}
+
 function setup_kmesh_log() {
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
@@ -346,6 +395,10 @@ while (("$#")); do
 		PARAMS+=("-istio.test.nocleanup")
 		shift
 		;;
+	--skip-build-daemonupgarde-image)
+		SKIP_BUILD_UPGARDE=true
+		shift
+		;;
 	*)
 		PARAMS+=("$1")
 		shift
@@ -367,6 +420,9 @@ if [[ -z ${SKIP_BUILD:-} ]]; then
 	setup_kind_registry
 	build_and_push_images
 	install_kmeshctl
+	if [[ -z ${SKIP_BUILD_UPGARDE:-} ]]; then
+		set_daemonupgarde_testcase_image
+	fi
 fi
 
 kubectl config use-context "kind-$NAME"
@@ -403,6 +459,6 @@ if [[ -n ${CLEANUP_REGISTRY} ]]; then
 	cleanup_docker_registry
 fi
 
-rm -rf "${TMP}"
+#rm -rf "${TMP}"
 
 exit $EXIT_CODE
