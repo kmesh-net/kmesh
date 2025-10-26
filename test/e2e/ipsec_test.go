@@ -1,221 +1,178 @@
-//go:build integ
-// +build integ
-
-/*
- * Copyright The Kmesh Authors.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at:
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
-// NOTE: THE CODE IN THIS FILE IS MAINLY REFERENCED FROM ISTIO INTEGRATION
-// FRAMEWORK(https://github.com/istio/istio/tree/master/tests/integration)
-// AND ADAPTED FOR KMESH.
-
 package kmesh
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"istio.io/istio/pkg/test/framework"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"os/exec"
 	"strings"
 	"testing"
+	"text/template"
 	"time"
 )
 
-var sleepYaml = `
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: sleep
----
+type DeployParams struct {
+	Name          string
+	AppLabel      string
+	Image         string
+	NodeName      string
+	SvcPort       int
+	TargetPort    int
+	ContainerPort int
+}
+
+var sleepTmpl = `
 apiVersion: v1
 kind: Service
 metadata:
-  name: sleep
+  name: {{.Name}}
   labels:
-    app: sleep
-    service: sleep
+    app: {{.AppLabel}}
+    service: {{.AppLabel}}
 spec:
   ports:
   - port: 80
     name: http
   selector:
-    app: sleep
+    app: {{.AppLabel}}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: sleep
+  name: {{.Name}}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: sleep
+      app: {{.AppLabel}}
   template:
     metadata:
       labels:
-        app: sleep
+        app: {{.AppLabel}}
     spec:
-      terminationGracePeriodSeconds: 0
-      serviceAccountName: sleep
-      nodeName: kmesh-testing-control-plane
+      nodeName: {{.NodeName}}
       containers:
-      - name: sleep
-        image: curlimages/curl
+      - name: {{.Name}}
+        image: {{.Image}}
         command: ["/bin/sleep", "infinity"]
         imagePullPolicy: IfNotPresent
-        volumeMounts:
-        - mountPath: /etc/sleep/tls
-          name: secret-volume
-      volumes:
-      - name: secret-volume
-        secret:
-          secretName: sleep-secret
-          optional: true
 `
-var echoYaml = `
+
+var echoTmpl = `
 apiVersion: v1
 kind: Service
 metadata:
-  name: echo
+  name: {{.Name}}
   namespace: default
 spec:
   ports:
   - name: http
-    port: 80
-    targetPort: 8080
+    port: {{.SvcPort}}
+    targetPort: {{.TargetPort}}
   selector:
-    app: echo
+    app: {{.AppLabel}}
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: echo
+  name: {{.Name}}
   namespace: default
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: echo
+      app: {{.AppLabel}}
   template:
     metadata:
       labels:
-        app: echo
+        app: {{.AppLabel}}
     spec:
       containers:
-      - name: echo
-        image: gcr.io/istio-testing/app:latest
+      - name: {{.Name}}
+        image: {{.Image}}
         imagePullPolicy: IfNotPresent
         args:
-        - --port=8080
+        - --port={{.ContainerPort}}
         ports:
-        - containerPort: 8080
+        - containerPort: {{.ContainerPort}}
 `
 
-func deployServices(t framework.TestContext) error {
-	t.Logf("Labeling namespace...")
-	cmd := exec.Command("kubectl", "label", "namespace", "default", "istio.io/dataplane-mode=Kmesh")
+func labelNamespace(t framework.TestContext, namespace, key, value string) error {
+	var cmd *exec.Cmd
+	if value == "" {
+		cmd = exec.Command("kubectl", "label", "namespace", namespace, key+"-")
+	} else {
+		cmd = exec.Command("kubectl", "label", "namespace", namespace, key+"="+value, "--overwrite")
+	}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Failed to label namespace: %s\n%s", err, string(out))
+		t.Fatalf("kubectl label namespace failed: %v\n%s", err, string(out))
 		return err
 	}
-
-	t.Logf("Applying sleep resources...")
-	cmd = exec.Command("kubectl", "apply", "-f", "-")
-	cmd.Stdin = bytes.NewBufferString(sleepYaml)
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to apply sleep resources: %s\n%s", err, string(out))
-		return err
-	}
-
-	t.Logf("Applying echo resources...")
-	cmd = exec.Command("kubectl", "apply", "-f", "-")
-	cmd.Stdin = bytes.NewBufferString(echoYaml)
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to apply echo resources: %s\n%s", err, string(out))
-		return err
-	}
-
+	t.Logf("namespace %s label set: %s=%s", namespace, key, value)
 	return nil
 }
 
-func deleteServices(t framework.TestContext) error {
-	t.Logf("Deleting sleep resources...")
-	cmd := exec.Command("kubectl", "delete", "-f", "-")
-	cmd.Stdin = bytes.NewBufferString(sleepYaml)
+func deployService(t framework.TestContext, tmplText string, params DeployParams) error {
+	tmpl, err := template.New("yaml").Parse(tmplText)
+	if err != nil {
+		t.Fatalf("failed to parse template: %v", err)
+		return err
+	}
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, params); err != nil {
+		t.Fatalf("failed to execute template: %v", err)
+		return err
+	}
+	cmd := exec.Command("kubectl", "apply", "-f", "-")
+	cmd.Stdin = &buf
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Failed to delete sleep resources: %s\n%s", err, string(out))
+		t.Fatalf("kubectl apply failed: %v\n%s", err, string(out))
 		return err
 	}
+	t.Logf("applied resources for %s:\n%s", params.Name, string(out))
+	return nil
+}
 
-	t.Logf("Deleting echo resources...")
-	cmd = exec.Command("kubectl", "delete", "-f", "-")
-	cmd.Stdin = bytes.NewBufferString(echoYaml)
-	out, err = cmd.CombinedOutput()
+func deleteService(t framework.TestContext, name, namespace string) error {
+	t.Logf("Deleting deployment and service %s in namespace %s...", name, namespace)
+	cmd := exec.Command("kubectl", "delete", "deployment,service", name, "-n", namespace)
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("Failed to delete echo resources: %s\n%s", err, string(out))
+		t.Logf("Failed to delete %s: %v\n%s", name, err, string(out))
 		return err
 	}
-
-	t.Logf("Removing label from namespace default...")
-	cmd = exec.Command("kubectl", "label", "namespace", "default", "istio.io/dataplane-mode-")
-	out, err = cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("Failed to remove label: %s\n%s", err, string(out))
-		return err
-	}
-
+	t.Logf("Deleted %s: %s", name, string(out))
 	return nil
 }
 
 func getPodNameAndIP(t framework.TestContext, namespace string, appLabel string) (string, string, error) {
+	client := t.Clusters().Default().Kube().CoreV1().Pods(namespace)
+	selector := "app=" + appLabel
+
 	for {
-		cmd := exec.Command("kubectl", "get", "pods", "-n", namespace, "-l", "app="+appLabel, "-o", "wide")
-		out, err := cmd.CombinedOutput()
+		podList, err := client.List(context.TODO(), metav1.ListOptions{LabelSelector: selector})
 		if err != nil {
-			t.Logf("kubectl get pods failed: %v\n%s", err, string(out))
+			t.Logf("list pods failed: %v, retrying...", err)
 			time.Sleep(3 * time.Second)
 			continue
 		}
-		lines := strings.Split(string(out), "\n")
-		if len(lines) < 2 {
+		if len(podList.Items) == 0 {
 			t.Logf("no pods found for app=%s, retrying...", appLabel)
 			time.Sleep(3 * time.Second)
 			continue
 		}
-		fields := strings.Fields(lines[1])
-		if len(fields) < 6 {
-			t.Logf("unexpected kubectl output format, retrying...")
-			time.Sleep(3 * time.Second)
-			continue
-		}
-		// fields[2] is state of pod
-		if fields[2] == "Running" {
-			podName := fields[0]
-			podIP := fields[5]
-			if podIP != "" && podIP != "<none>" {
-				return podName, podIP, nil
+		for _, p := range podList.Items {
+			if p.Status.Phase == corev1.PodRunning && p.Status.PodIP != "" && p.Status.PodIP != "<none>" {
+				return p.Name, p.Status.PodIP, nil
 			}
-			t.Logf("Pod %s is Running but IP not assigned yet, waiting...", podName)
-		} else {
-			t.Logf("Pod %s status: %s, waiting for Running...", fields[0], fields[2])
+			t.Logf("pod %s status=%s ip=%s, waiting...", p.Name, p.Status.Phase, p.Status.PodIP)
 		}
 		time.Sleep(3 * time.Second)
 	}
@@ -305,15 +262,15 @@ func runTcpdumpESP(t framework.TestContext, containerName string, duration int) 
 	return string(out), nil
 }
 
-func curlFromSleepToEcho(t framework.TestContext, sleepPod, echoIP string) (string, error) {
+func curlFromSleepToEcho(t framework.TestContext, sleepPod, echoIP string, echoPort int) (string, error) {
 	t.Logf("Curling from sleep pod %s to echo pod IP %s...", sleepPod, echoIP)
 	var url string
 	if strings.Contains(echoIP, ":") {
 		// IPv6 address
-		url = fmt.Sprintf("http://[%s]:8080", echoIP)
+		url = fmt.Sprintf("http://[%s]:%d", echoIP, echoPort)
 	} else {
 		// IPv4 address
-		url = fmt.Sprintf("http://%s:8080", echoIP)
+		url = fmt.Sprintf("http://%s:%d", echoIP, echoPort)
 	}
 	cmd := exec.Command("kubectl", "exec", sleepPod, "--", "curl", url)
 	out, err := cmd.CombinedOutput()
@@ -373,9 +330,40 @@ func TestIPsecAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("IPsec Authorization").Run(func(t framework.TestContext) {
 
-			if err := deployServices(t); err != nil {
+			// prepare params and deploy
+			if err := labelNamespace(t, "default", "istio.io/dataplane-mode", "Kmesh"); err != nil {
 				return
 			}
+
+			sleepParams := DeployParams{
+				Name:     "sleep",
+				AppLabel: "sleep",
+				Image:    "curlimages/curl",
+				NodeName: "kmesh-testing-control-plane",
+			}
+			echoParams := DeployParams{
+				Name:          "echo",
+				AppLabel:      "echo",
+				Image:         "gcr.io/istio-testing/app:latest",
+				SvcPort:       80,
+				TargetPort:    8080,
+				ContainerPort: 8080,
+			}
+
+			if err := deployService(t, sleepTmpl, sleepParams); err != nil {
+				return
+			}
+			if err := deployService(t, echoTmpl, echoParams); err != nil {
+				_ = deleteService(t, sleepParams.Name, "default")
+				return
+			}
+
+			// ensure cleanup on exit
+			t.Cleanup(func() {
+				_ = deleteService(t, sleepParams.Name, "default")
+				_ = deleteService(t, echoParams.Name, "default")
+				_ = labelNamespace(t, "default", "istio.io/dataplane-mode", "")
+			})
 
 			t.Logf("Resources applied. You can now continue with IPSec validation.")
 
@@ -409,10 +397,9 @@ func TestIPsecAuthorization(t *testing.T) {
 			}()
 			time.Sleep(2 * time.Second)
 			t.Logf("Curling from sleep pod to echo pod...")
-			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP)
+			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP, 8080)
 			if err != nil {
 				<-tcpdumpCh
-				deleteServices(t)
 				return
 			}
 			t.Logf("curl success")
@@ -425,7 +412,6 @@ func TestIPsecAuthorization(t *testing.T) {
 			}
 
 			if err = rotateIPSecKeyAndWait(t, "kmesh-testing-control-plane", 5); err != nil {
-				deleteServices(t)
 				return
 			}
 
@@ -437,10 +423,9 @@ func TestIPsecAuthorization(t *testing.T) {
 			}()
 			time.Sleep(2 * time.Second)
 			t.Logf("Curling from sleep pod to echo pod after key rotation...")
-			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP)
+			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP, 8080)
 			if err != nil {
 				<-tcpdumpCh
-				deleteServices(t)
 				return
 			}
 			t.Logf("curl  after key rotation success")
@@ -452,11 +437,6 @@ func TestIPsecAuthorization(t *testing.T) {
 			} else {
 				t.Fatalf("Test failed: No ESP packets with new SPI detected after key rotation.")
 			}
-
-			if err := deleteServices(t); err != nil {
-				return
-			}
-			t.Logf("Resources deleted.")
 
 		})
 	})
