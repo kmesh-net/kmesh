@@ -359,6 +359,23 @@ func TestIPsecConnectivityAndKeyRotation(t *testing.T) {
                 return
             }
 
+			// wait until both ip xfrm state and policy are non-empty before continuing
+            for {
+                stateCmd := exec.Command("docker", "exec", "kmesh-testing-control-plane", "bash", "-c", "ip xfrm state")
+                stateOut, _ := stateCmd.CombinedOutput()
+
+                policyCmd := exec.Command("docker", "exec", "kmesh-testing-control-plane", "bash", "-c", "ip xfrm policy")
+                policyOut, _ := policyCmd.CombinedOutput()
+
+                if strings.TrimSpace(string(stateOut)) != "" && strings.TrimSpace(string(policyOut)) != "" {
+                    t.Logf("ip xfrm state and policy populated")
+                    break
+                }
+
+                t.Logf("waiting for ip xfrm state/policy to be populated (stateLen=%d policyLen=%d)...", len(stateOut), len(policyOut))
+                time.Sleep(3 * time.Second)
+            }
+
 			// prepare params and deploy
 			if err := labelNamespace(t, "default", "istio.io/dataplane-mode", "Kmesh"); err != nil {
 				return
