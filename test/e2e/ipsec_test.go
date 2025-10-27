@@ -547,7 +547,3 @@ func TestIPsec(t *testing.T) {
 		})
 	})
 }
-
-func TestIPsecKeyRotation(t *testing.T) {
-
-}
