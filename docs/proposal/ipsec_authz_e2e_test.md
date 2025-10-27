@@ -59,29 +59,63 @@ The test environment requires at least a 2-nodes Kubernetes cluster using httpbi
 
 - Deploy httpbin and sleep applications on different nodes  
 - Verify connectivity between applications  
-- Check IPSec state and policy rules
+- Check IPSec state and policy rules:
 
    ```bash
    ip xfrm state show
+   ```
+
+   **Expected Output:**
+
+   ```plaintext
+   src {{SRC_IP}} dst {{DST_IP}}
+       proto esp spi 0x{{SPI}} reqid 1 mode tunnel
+       replay-window 0 
+       output-mark 0xd0/0xffffffff
+       aead rfc4106(gcm(aes)) {{KEY}} 128
+       anti-replay context: seq 0x0, oseq 0x0, bitmap 0x00000000
+       sel src ::/0 dst ::/0 
+   ```
+
+   ```bash
    ip xfrm policy show
    ```
 
-- Verify encryption using tcpdump; analyze ESP headers and confirm payload is encrypted
+   **Expected Output:**
+
+   ```plaintext
+   src ::/0 dst {{DST_SUBNET}} 
+       dir out priority 0 
+       mark 0xe0/0xffffffff 
+       tmpl src {{SRC_IP}} dst {{DST_IP}}
+           proto esp spi 0x{{SPI}} reqid 1 mode tunnel
+   ```
+
+- Verify encryption using tcpdump; analyze ESP headers and confirm payload is encrypted:
 
    ```bash
    tcpdump -i any esp
    ```
+
+   **Expected Output:** ESP packets should be visible during communication.
 
 ##### 2.2 Key Rotation E2E Test
 
 ###### Test Steps
 
 - Deploy httpbin and sleep applications on different nodes
-- Record initial SPI and pre-shared key
+- Record initial SPI and pre-shared key:
 
    ```bash
    ip xfrm state show
-   kubectl get secret
+   ```
+
+   **Expected Output:**
+
+   ```plaintext
+   src {{SRC_IP}} dst {{DST_IP}}
+       proto esp spi 0x{{INITIAL_SPI}} reqid 1 mode tunnel
+       aead rfc4106(gcm(aes)) {{INITIAL_KEY}} 128
    ```
 
 - Send continuous traffic between applications
@@ -91,10 +125,18 @@ The test environment requires at least a 2-nodes Kubernetes cluster using httpbi
    kubectl create secret
    ```
 
-- Check if SPI and key are updated in xfrm rules
+- Check if SPI and key are updated in xfrm rules:
 
    ```bash
-   spi=0x00000002
+   ip xfrm state show
+   ```
+
+   **Expected Output:**
+
+   ```plaintext
+   src {{SRC_IP}} dst {{DST_IP}}
+       proto esp spi 0x{{NEW_SPI}} reqid 1 mode tunnel
+       aead rfc4106(gcm(aes)) {{NEW_KEY}} 128
    ```
 
 - Verify communication continuity, encryption status
