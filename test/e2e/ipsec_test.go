@@ -20,7 +20,6 @@
 // NOTE: THE CODE IN THIS FILE IS MAINLY REFERENCED FROM ISTIO INTEGRATION
 // FRAMEWORK(https://github.com/istio/istio/tree/master/tests/integration)
 // AND ADAPTED FOR KMESH.
-
 package kmesh
 
 import (
@@ -349,53 +348,54 @@ func rotateIPSecKeyAndWait(t framework.TestContext, containerName string, interv
 	}
 }
 
-func TestIPsecConnectivityAndKeyRotation(t *testing.T) {
+func TestIPsec(t *testing.T) {
+	secretCmd := exec.Command("kmeshctl", "secret", "create")
+	out, err := secretCmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("Failed to rotate IPSec key: %v\n%s", err, string(out))
+		return
+	}
+
+	// wait until both ip xfrm state and policy are non-empty before continuing
+	for {
+		stateCmd := exec.Command("docker", "exec", "kmesh-testing-control-plane", "bash", "-c", "ip xfrm state")
+		stateOut, _ := stateCmd.CombinedOutput()
+
+		policyCmd := exec.Command("docker", "exec", "kmesh-testing-control-plane", "bash", "-c", "ip xfrm policy")
+		policyOut, _ := policyCmd.CombinedOutput()
+
+		if strings.TrimSpace(string(stateOut)) != "" && strings.TrimSpace(string(policyOut)) != "" {
+			t.Logf("ip xfrm state and policy populated")
+			break
+		}
+
+		t.Logf("waiting for ip xfrm state/policy to be populated (stateLen=%d policyLen=%d)...", len(stateOut), len(policyOut))
+		time.Sleep(3 * time.Second)
+	}
+
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		t.NewSubTest("IPsec Authorization").Run(func(t framework.TestContext) {
-			secretCmd := exec.Command("kmeshctl", "secret", "create")
-            out, err := secretCmd.CombinedOutput()
-            if err != nil {
-                t.Fatalf("Failed to rotate IPSec key: %v\n%s", err, string(out))
-                return
-            }
+		t.NewSubTest("IPsec Connectivity").Run(func(t framework.TestContext) {
 
-			// wait until both ip xfrm state and policy are non-empty before continuing
-            for {
-                stateCmd := exec.Command("docker", "exec", "kmesh-testing-control-plane", "bash", "-c", "ip xfrm state")
-                stateOut, _ := stateCmd.CombinedOutput()
-
-                policyCmd := exec.Command("docker", "exec", "kmesh-testing-control-plane", "bash", "-c", "ip xfrm policy")
-                policyOut, _ := policyCmd.CombinedOutput()
-
-                if strings.TrimSpace(string(stateOut)) != "" && strings.TrimSpace(string(policyOut)) != "" {
-                    t.Logf("ip xfrm state and policy populated")
-                    break
-                }
-
-                t.Logf("waiting for ip xfrm state/policy to be populated (stateLen=%d policyLen=%d)...", len(stateOut), len(policyOut))
-                time.Sleep(3 * time.Second)
-            }
-
-			// prepare params and deploy
+			// prepare params
 			if err := labelNamespace(t, "default", "istio.io/dataplane-mode", "Kmesh"); err != nil {
 				return
 			}
-
 			sleepParams := DeployParams{
-				Name:     "sleep",
-				AppLabel: "sleep",
+				Name:     "sleep-1",
+				AppLabel: "sleep-1",
 				Image:    "curlimages/curl",
 				NodeName: "kmesh-testing-control-plane",
 			}
 			echoParams := DeployParams{
-				Name:          "echo",
-				AppLabel:      "echo",
+				Name:          "echo-1",
+				AppLabel:      "echo-1",
 				Image:         "gcr.io/istio-testing/app:latest",
 				SvcPort:       80,
 				TargetPort:    8080,
 				ContainerPort: 8080,
 			}
 
+			// deploy
 			if err := deployService(t, sleepTmpl, sleepParams); err != nil {
 				return
 			}
@@ -404,33 +404,30 @@ func TestIPsecConnectivityAndKeyRotation(t *testing.T) {
 				return
 			}
 
-			// ensure cleanup on exit
+			// cleanup
 			t.Cleanup(func() {
 				_ = deleteService(t, sleepParams.Name, "default")
 				_ = deleteService(t, echoParams.Name, "default")
 				_ = labelNamespace(t, "default", "istio.io/dataplane-mode", "")
 			})
 
-			t.Logf("Resources applied. You can now continue with IPSec validation.")
+			t.Logf("Resources applied. Waiting for pods...")
 
-			sleepPodName, sleepPodIP, err := getPodNameAndIP(t, "default", "sleep")
+			sleepPodName, sleepPodIP, err := getPodNameAndIP(t, "default", sleepParams.AppLabel)
 			if err != nil {
 				return
-			} else {
-				t.Logf("sleep pod name: %s, ip: %s", sleepPodName, sleepPodIP)
 			}
+			t.Logf("sleep pod name: %s, ip: %s", sleepPodName, sleepPodIP)
 
-			echoPodName, echoPodIP, err := getPodNameAndIP(t, "default", "echo")
+			echoPodName, echoPodIP, err := getPodNameAndIP(t, "default", echoParams.AppLabel)
 			if err != nil {
 				return
-			} else {
-				t.Logf("echo pod name: %s, ip: %s", echoPodName, echoPodIP)
 			}
+			t.Logf("echo pod name: %s, ip: %s", echoPodName, echoPodIP)
 
 			if err = downloadTcpdump(t, "kmesh-testing-control-plane"); err != nil {
 				return
 			}
-
 			if err = checkIPSecRules(t, "kmesh-testing-control-plane"); err != nil {
 				return
 			}
@@ -442,8 +439,9 @@ func TestIPsecConnectivityAndKeyRotation(t *testing.T) {
 				tcpdumpCh <- out
 			}()
 			time.Sleep(2 * time.Second)
+
 			t.Logf("Curling from sleep pod to echo pod...")
-			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP, 8080)
+			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP, echoParams.ContainerPort)
 			if err != nil {
 				<-tcpdumpCh
 				return
@@ -452,38 +450,104 @@ func TestIPsecConnectivityAndKeyRotation(t *testing.T) {
 			tcpdumpOut := <-tcpdumpCh
 
 			if strings.Contains(tcpdumpOut, "ESP") {
-				t.Logf("Test success: ESP packets detected during curl!")
+				t.Logf("Connectivity test success: ESP packets detected during curl")
 			} else {
-				t.Fatalf("Test failed: No ESP packets detected.")
+				t.Fatalf("Connectivity test failed: No ESP packets detected.")
+			}
+		})
+	})
+
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		t.NewSubTest("IPsec Key Rotation").Run(func(t framework.TestContext) {
+
+			// prepare params
+			if err := labelNamespace(t, "default", "istio.io/dataplane-mode", "Kmesh"); err != nil {
+				return
+			}
+			sleepParams := DeployParams{
+				Name:     "sleep-2",
+				AppLabel: "sleep-2",
+				Image:    "curlimages/curl",
+				NodeName: "kmesh-testing-control-plane",
+			}
+			echoParams := DeployParams{
+				Name:          "echo-2",
+				AppLabel:      "echo-2",
+				Image:         "gcr.io/istio-testing/app:latest",
+				SvcPort:       80,
+				TargetPort:    8080,
+				ContainerPort: 8080,
 			}
 
-			if err = rotateIPSecKeyAndWait(t, "kmesh-testing-control-plane", 5); err != nil {
+			// deploy
+			if err := deployService(t, sleepTmpl, sleepParams); err != nil {
+				return
+			}
+			if err := deployService(t, echoTmpl, echoParams); err != nil {
+				_ = deleteService(t, sleepParams.Name, "default")
+				return
+			}
+
+			// cleanup
+			t.Cleanup(func() {
+				_ = deleteService(t, sleepParams.Name, "default")
+				_ = deleteService(t, echoParams.Name, "default")
+				_ = labelNamespace(t, "default", "istio.io/dataplane-mode", "")
+			})
+
+			t.Logf("Resources applied. Waiting for pods...")
+
+			sleepPodName, sleepPodIP, err := getPodNameAndIP(t, "default", sleepParams.AppLabel)
+			if err != nil {
+				return
+			}
+			t.Logf("sleep pod name: %s, ip: %s", sleepPodName, sleepPodIP)
+
+			echoPodName, echoPodIP, err := getPodNameAndIP(t, "default", echoParams.AppLabel)
+			if err != nil {
+				return
+			}
+			t.Logf("echo pod name: %s, ip: %s", echoPodName, echoPodIP)
+
+			if err = downloadTcpdump(t, "kmesh-testing-control-plane"); err != nil {
+				return
+			}
+			if err = checkIPSecRules(t, "kmesh-testing-control-plane"); err != nil {
+				return
+			}
+
+			// rotate key and wait for new SPI in both state and policy
+			if err := rotateIPSecKeyAndWait(t, "kmesh-testing-control-plane", 5); err != nil {
 				return
 			}
 
 			t.Logf("Starting tcpdump in kmesh-testing-control-plane container after key rotation...")
-			tcpdumpCh = make(chan string)
+			tcpdumpCh := make(chan string)
 			go func() {
 				out, _ := runTcpdumpESP(t, "kmesh-testing-control-plane", 10)
 				tcpdumpCh <- out
 			}()
 			time.Sleep(2 * time.Second)
+
 			t.Logf("Curling from sleep pod to echo pod after key rotation...")
-			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP, 8080)
+			_, err = curlFromSleepToEcho(t, sleepPodName, echoPodIP, echoParams.ContainerPort)
 			if err != nil {
 				<-tcpdumpCh
 				return
 			}
-			t.Logf("curl  after key rotation success")
-			tcpdumpOut = <-tcpdumpCh
+			t.Logf("curl after key rotation success")
+			tcpdumpOut := <-tcpdumpCh
 			t.Logf("tcpdump output after key rotation:\n%s", tcpdumpOut)
 
 			if strings.Contains(tcpdumpOut, "ESP") && strings.Contains(tcpdumpOut, "spi=0x00000002") {
-				t.Logf("Test success: ESP packets with new SPI detected after key rotation!")
+				t.Logf("Key rotation test success: ESP packets with new SPI detected after key rotation")
 			} else {
-				t.Fatalf("Test failed: No ESP packets with new SPI detected after key rotation.")
+				t.Fatalf("Key rotation test failed: No ESP packets with new SPI detected after key rotation.")
 			}
-
 		})
 	})
+}
+
+func TestIPsecKeyRotation(t *testing.T) {
+
 }
