@@ -9,5 +9,6 @@
 | Zhonghu Xu           | [hzxuzhonghu](https://github.com/hzxuzhonghu)           | Huawei |
 | Songyang Xie         | [supercharge-xsy](https://github.com/supercharge-xsy)   | Huawei |
 | Xin Liu              | [bitcoffeeiux](https://github.com/bitcoffeeiux)         | Huawei |
+| Zhencheng Lee        | [LiZhencheng9527](https://github.com/LiZhencheng9527)]  | Huawei |
 
 ## Emeritus
