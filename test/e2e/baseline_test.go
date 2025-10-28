@@ -29,7 +29,6 @@ import (
 	"net"
 	"net/http"
 	"net/netip"
-	"os/exec"
 	"sort"
 	"strings"
 	"testing"
