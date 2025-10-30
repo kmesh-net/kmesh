@@ -112,7 +112,7 @@ func (so *BpfSockOpsWorkload) Attach() error {
 	}
 	pinPath := filepath.Join(so.Info.BpfFsPath, "cgroup_sockops_prog")
 
-	if restart.GetStartType() == restart.Restart {
+	if restart.GetStartType() == restart.Restart || restart.GetStartType() == restart.Update {
 		if so.Link, err = utils.BpfProgUpdate(pinPath, cgopt); err != nil {
 			return err
 		}

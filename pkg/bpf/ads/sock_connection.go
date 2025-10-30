@@ -140,7 +140,7 @@ func (sc *BpfSockConn) Attach() error {
 	}
 
 	progPinPath := filepath.Join(sc.Info.BpfFsPath, constants.Prog_link)
-	if restart.GetStartType() == restart.Restart {
+	if restart.GetStartType() == restart.Restart || restart.GetStartType() == restart.Update {
 		if sc.Link, err = utils.BpfProgUpdate(progPinPath, cgopt); err != nil {
 			return err
 		}

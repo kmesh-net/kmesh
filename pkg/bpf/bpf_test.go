@@ -27,6 +27,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/btf"
+
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/factory"
 	"kmesh.net/kmesh/pkg/bpf/restart"
@@ -244,5 +247,297 @@ func Test_getNodeIPAddress(t *testing.T) {
 			got := getNodeIPAddress(tt.args.node)
 			assert.Equal(t, tt.want, got)
 		})
+	}
+}
+
+// helper: build a simple btf.Int without relying on encoding constants
+func intType(name string, sizeBytes int) *btf.Int {
+	return &btf.Int{
+		Name: name,
+		Size: uint32(sizeBytes * 8),
+	}
+}
+
+// Test diffStructInfoAgainstBTF basic cases: FieldAdded / FieldRemoved / Offset / Nested
+func TestDiffStructInfoAgainstBTF_Basics(t *testing.T) {
+	// old StructInfo: one member "a"
+	old := restart.PersistedStructLayout{
+		Name: "S_old",
+		Members: []restart.PersistedMemberLayout{
+			{
+				Name:         "a",
+				TypeName:     "uint32",
+				Offset:       0, // we'll match against btf.Member.Offset below (no /8 used in current diff impl)
+				BitfieldSize: 0,
+			},
+		},
+	}
+
+	// New BTF struct: has "a" and new field "b" => FieldAdded == true
+	newWithAdded := &btf.Struct{
+		Name: "S_new_added",
+		Members: []btf.Member{
+			{
+				Name:         "a",
+				Type:         intType("uint32", 4),
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(32),
+			},
+			{
+				Name:         "b",
+				Type:         intType("uint8", 1),
+				Offset:       btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+
+	d := restart.DiffStructInfoAgainstBTF(old, newWithAdded, make(map[string]bool))
+	if !d.FieldAdded {
+		t.Fatalf("expected FieldAdded==true, got %+v", d)
+	}
+
+	// New BTF struct: missing "a" => FieldRemoved true
+	newRemoved := &btf.Struct{
+		Name: "S_new_removed",
+		Members: []btf.Member{
+			{
+				Name:         "x",
+				Type:         intType("uint32", 4),
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+	d = restart.DiffStructInfoAgainstBTF(old, newRemoved, make(map[string]bool))
+	if !d.FieldRemoved {
+		t.Fatalf("expected FieldRemoved==true, got %+v", d)
+	}
+
+	// Offset change: new has "a" but with different Offset
+	newOff := &btf.Struct{
+		Name: "S_new_off",
+		Members: []btf.Member{
+			{
+				Name:         "a",
+				Type:         intType("uint32", 4),
+				Offset:       btf.Bits(8), // note: current diff code compares uint32(member.Offset) vs saved Offset
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+	// To make the offset comparison hit, set old.Members[0].Offset to uint32(member.Offset)
+	oldOffsetMatch := old
+	oldOffsetMatch.Members[0].Offset = uint32(newOff.Members[0].Offset) // direct match -> no offset diff
+	d = restart.DiffStructInfoAgainstBTF(oldOffsetMatch, newOff, make(map[string]bool))
+	if d.FieldOffsetChanged {
+		t.Fatalf("did not expect FieldOffsetChanged when offsets match (got %+v)", d)
+	}
+	// Now set old offset to different value -> expect FieldOffsetChanged
+	oldOffsetMismatch := old
+	oldOffsetMismatch.Members[0].Offset = uint32(0)
+	d = restart.DiffStructInfoAgainstBTF(oldOffsetMismatch, newOff, make(map[string]bool))
+	if !d.FieldOffsetChanged {
+		t.Fatalf("expected FieldOffsetChanged true, got %+v", d)
+	}
+}
+
+func TestDiffStructInfoAgainstBTF_NestedIncompatible(t *testing.T) {
+	// old: inner { a: uint32 }, outer { x: inner, y: uint64 }
+	innerInt := intType("uint32", 4)
+	oldInner := &btf.Struct{
+		Name: "inner",
+		Members: []btf.Member{
+			{
+				Name:         "a",
+				Type:         innerInt,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+	outerUint := intType("__u64", 8)
+	oldOuter := &btf.Struct{
+		Name: "outer",
+		Members: []btf.Member{
+			{
+				Name:         "x",
+				Type:         oldInner,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(0),
+			},
+			{
+				Name:         "y",
+				Type:         outerUint,
+				Offset:       btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+
+	// persisted registry stores old definitions (StructInfo with Nested expanded)
+	registry := map[string]restart.PersistedStructLayout{
+		"inner": {
+			Name: "inner",
+			Members: []restart.PersistedMemberLayout{
+				{
+					Name:         "a",
+					TypeName:     "uint32",
+					Offset:       uint32(oldInner.Members[0].Offset), // use raw bit value as in your diff impl
+					BitfieldSize: 0,
+				},
+			},
+		},
+		"outer": {
+			Name: "outer",
+			Members: []restart.PersistedMemberLayout{
+				{
+					Name:         "x",
+					TypeName:     "inner",
+					Offset:       uint32(oldOuter.Members[0].Offset),
+					BitfieldSize: 0,
+					Nested: &restart.PersistedStructLayout{
+						Name: "inner",
+						Members: []restart.PersistedMemberLayout{
+							{Name: "a", TypeName: "uint32", Offset: uint32(oldInner.Members[0].Offset), BitfieldSize: 0},
+						},
+					},
+				},
+				{
+					Name:         "y",
+					TypeName:     "__u64",
+					Offset:       uint32(oldOuter.Members[1].Offset),
+					BitfieldSize: 0,
+				},
+			},
+		},
+	}
+
+	// new: inner_changed { b: uint32 }  <-- note: field name changed (a -> b)
+	newInnerChanged := &btf.Struct{
+		Name: "inner_changed",
+		Members: []btf.Member{
+			{
+				Name:         "b", // different name -> incompatible
+				Type:         intType("uint32", 4),
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+	// new outer uses this new inner_changed type
+	newOuter := &btf.Struct{
+		Name: "outer",
+		Members: []btf.Member{
+			{
+				Name:         "x",
+				Type:         newInnerChanged,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(0),
+			},
+			{
+				Name:         "y",
+				Type:         outerUint,
+				Offset:       btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+
+	// Compare persisted outer (StructInfo) against newOuter (btf.Struct).
+	diff := restart.DiffStructInfoAgainstBTF(registry["outer"], newOuter, make(map[string]bool))
+
+	// Expect nested change (because inner's member name changed a->b)
+	if !diff.NestedLayoutChanged && !diff.FieldTypeChanged && !diff.FieldRemoved && !diff.FieldAdded {
+		t.Fatalf("expected incompatibility detected (NestedLayoutChanged/FieldTypeChanged/FieldAdded/FieldRemoved), got %#v", diff)
+	}
+}
+
+// Test nested struct comparisons and compatibility path in migrateMap
+func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
+	// Build nested btf structs: inner { a:uint32 }, outer { x:inner, y:uint64 }
+	innerInt := intType("uint32", 4)
+	inner := &btf.Struct{
+		Name: "inner",
+		Members: []btf.Member{
+			{
+				Name:         "a",
+				Type:         innerInt,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+	outerUint := intType("__u64", 8)
+	outer := &btf.Struct{
+		Name: "outer",
+		Members: []btf.Member{
+			{
+				Name:         "x",
+				Type:         inner,
+				Offset:       btf.Bits(0),
+				BitfieldSize: btf.Bits(0),
+			},
+			{
+				Name:         "y",
+				Type:         outerUint,
+				Offset:       btf.Bits(32),
+				BitfieldSize: btf.Bits(0),
+			},
+		},
+	}
+
+	// persisted StructInfo registry: includes both inner and outer
+	registry := map[string]restart.PersistedStructLayout{
+		"inner": {
+			Name: "inner",
+			Members: []restart.PersistedMemberLayout{
+				{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 0},
+			},
+		},
+		"outer": {
+			Name: "outer",
+			Members: []restart.PersistedMemberLayout{
+				{Name: "x", TypeName: "inner", Offset: uint32(outer.Members[0].Offset), BitfieldSize: 0, Nested: &restart.PersistedStructLayout{
+					Name: "inner",
+					Members: []restart.PersistedMemberLayout{
+						{Name: "a", TypeName: "uint32", Offset: uint32(inner.Members[0].Offset), BitfieldSize: 0},
+					},
+				}},
+				{Name: "y", TypeName: "__u64", Offset: uint32(outer.Members[1].Offset), BitfieldSize: 0},
+			},
+		},
+	}
+
+	// persisted map spec using outer
+	oldMapSpec := restart.PersistedMapSpec{
+		Name:            "km_nested_map",
+		Type:            ebpf.Hash.String(),
+		KeySize:         4,
+		ValueSize:       16,
+		MaxEntries:      128,
+		KeyStructInfo:   restart.PersistedStructLayout{Name: "int", Members: nil},
+		ValueStructInfo: registry["outer"],
+	}
+
+	// new compiled MapSpec that uses the same outer struct
+	newMapSpec := &ebpf.MapSpec{
+		Name:       "km_nested_map",
+		Type:       ebpf.Hash,
+		KeySize:    4,
+		ValueSize:  16,
+		MaxEntries: 128,
+		Key:        intType("int", 4), // key type non-struct in this test
+		Value:      outer,
+	}
+
+	// Call migrateMap: because the persisted value layout matches newMapSpec.Value,
+	// migrateMap should consider them compatible and return (nil, nil) (no creation).
+	m, err := restart.MigrateMap(&oldMapSpec, newMapSpec, "pkg", "mapNested", filepath.Join(t.TempDir(), "mapping"))
+	if err != nil {
+		t.Fatalf("migrateMap returned unexpected error: %v", err)
+	}
+	if m != nil {
+		t.Fatalf("expected nil map (reuse existing), got non-nil: %v", m)
 	}
 }
