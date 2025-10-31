@@ -12,7 +12,7 @@ jobs:
     permissions:
       contents: write # for softprops/action-gh-release to create GitHub release
     name: release kmeshctl
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
@@ -53,7 +53,7 @@ jobs:
     permissions:
       contents: write # for softprops/action-gh-release to create GitHub release
     name: Release helm
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
     - name: Making helm package

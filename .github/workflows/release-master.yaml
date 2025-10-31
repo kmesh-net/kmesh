@@ -10,7 +10,7 @@ env:
   REGISTRY_IMAGE: ghcr.io/kmesh-net/kmesh
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
