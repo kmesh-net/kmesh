@@ -119,7 +119,6 @@ The BPF code templates, ko(kernel module) and mesh data accelerate are dual-lice
 and the [2-Clause BSD License](./bpf/LICENSE.BSD-2-Clause)
 (you can use the terms of either license, at your option).
 
-
 [![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkmesh-net%2Fkmesh.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkmesh-net%2Fkmesh?ref=badge_large)
 
 ## Credit
