@@ -1,6 +1,7 @@
 <img src="docs/pics/logo/KMESH-horizontal-colour.png" alt="kmesh-logo" style="zoom: 100%;" />
 
 [![LICENSE](https://img.shields.io/github/license/kmesh-net/kmesh)](/LICENSE) [![codecov](https://codecov.io/gh/kmesh-net/kmesh/graph/badge.svg?token=0EGQ84FGDU)](https://codecov.io/gh/kmesh-net/kmesh)
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkmesh-net%2Fkmesh.svg?type=shield)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkmesh-net%2Fkmesh?ref=badge_shield)
 
 ## Introduction
 
@@ -117,6 +118,8 @@ The BPF code templates, ko(kernel module) and mesh data accelerate are dual-lice
 [General Public License, Version 2.0 (only)](./bpf/LICENSE.GPL-2.0)
 and the [2-Clause BSD License](./bpf/LICENSE.BSD-2-Clause)
 (you can use the terms of either license, at your option).
+
+[![FOSSA Status](https://app.fossa.com/api/projects/git%2Bgithub.com%2Fkmesh-net%2Fkmesh.svg?type=large)](https://app.fossa.com/projects/git%2Bgithub.com%2Fkmesh-net%2Fkmesh?ref=badge_large)
 
 ## Credit
 
