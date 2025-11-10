@@ -3,32 +3,6 @@
 VERSION=$(uname -r | cut -d '.' -f 1)
 KERNEL_VERSION=$(uname -r | cut -d '-' -f 1)
 
-function set_config() {
-	sed -i -r -e "s/($1)([ \t]*)([0-9]+)/\1\2$2/" config/kmesh_marcos_def.h
-}
-
-detect_config() {
-	local kernel_version=$(uname -r)
-
-	if [ -f "/proc/config.gz" ]; then
-		zcat /proc/config.gz 2>/dev/null
-		return $?
-	fi
-
-	if [ -f "/boot/config-$kernel_version" ]; then
-		cat "/boot/config-$kernel_version" 2>/dev/null
-		return $?
-	fi
-}
-
-CONFIG_CONTENT=$(detect_config)
-
-check_config() {
-	local config_name=$1
-	value=$(echo "$CONFIG_CONTENT" | grep -E "$config_name" | cut -d= -f2)
-	echo "$value"
-}
-
 # MDA_LOOPBACK_ADDR
 if grep -q "FN(get_netns_cookie)" $KERNEL_HEADER_LINUX_BPF; then
 	set_config MDA_LOOPBACK_ADDR 1
@@ -77,12 +51,3 @@ else
 	set_config LIBBPF_HIGHER_0_6_0_VERSION 1
 fi
 
-# KERNEL_KFUNC
-if [ "$(check_config "CONFIG_DEBUG_INFO_BTF_MODULES")" == "y" ] &&
-	[ "$(check_config "CONFIG_DEBUG_INFO_BTF")" == "y" ] &&
-	[ "$VERSION" -ge 6 ]; then
-	set_config ENHANCED_KERNEL 1
-	set_config KERNEL_KFUNC 1
-else
-	set_config KERNEL_KFUNC 0
-fi
