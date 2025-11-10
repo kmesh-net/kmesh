@@ -38,7 +38,6 @@ __bpf_kfunc int bpf_setsockopt_func(void *bpf_mem, int bpf_socket__sz, int optna
     struct bpf_mem_ptr *tmp = bpf_mem;
     struct bpf_sock_addr_kern *ctx = tmp->ptr;
     struct sock *sk = ctx->sk;
-    int ret = 0;
 
     if (sk == NULL) {
         LOG(KERN_ERR, "sk is NULL\n");
@@ -54,9 +53,7 @@ __bpf_kfunc int bpf_getsockopt_func(void *bpf_mem, int bpf_socket__sz, int optna
     struct sock *sk = ctx->sk;
 
     struct inet_connection_sock *icsk = inet_csk(sk);
-    struct tcp_sock *tp = tcp_sk(sk);
-    struct net *net = sock_net(sk);
-    int val, len;
+    int len;
 
     sockptr_t optval = KERNEL_SOCKPTR(opt);
     sockptr_t optlen = KERNEL_SOCKPTR(&opt__sz);
