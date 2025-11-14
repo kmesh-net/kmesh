@@ -28,7 +28,7 @@
  * in kernel 6.x version, add the new iter type ITER_UBUF, and we need add code
  * for the corresponding scenarios.
  */
-#define ITER_TYPE_IS_UBUF 0
+#define KERNEL_VERISON6 0
 
 /*
  * Kmesh’s Layer 7 acceleration proxy capability relies on kernel enhancements.

@@ -19,9 +19,11 @@
 
 #include "defer_connect.h"
 
+#define KMESH_MODULE_ULP_NAME "kmesh_defer"
+
 static struct proto *kmesh_defer_proto = NULL;
 
-#ifdef KERNEL_KFUNC
+#if KERNEL_KFUNC
 #define BPF_CGROUP_RUN_PROG_INET4_CONNECT_KMESH(sk, uaddr, uaddrlen, t_ctx)                                            \
     ({                                                                                                                 \
         int __ret = -1;                                                                                                \
@@ -33,9 +35,9 @@ static struct proto *kmesh_defer_proto = NULL;
         __ret;                                                                                                         \
     })
 
-#define SET_FDEFER_CONNECT_ON(sk)  (inet_set_bit(DEFER_CONNECT, sk))
-#define SET_FDEFER_CONNECT_OFF(sk) (inet_clear_bit(DEFER_CONNECT, sk))
-#define IS_DEFER_CONNECT(sk)       (inet_test_bit(DEFER_CONNECT, sk))
+#define SET_DEFER_CONNECT_ON(sk)  (inet_set_bit(DEFER_CONNECT, sk))
+#define SET_DEFER_CONNECT_OFF(sk) (inet_clear_bit(DEFER_CONNECT, sk))
+#define IS_DEFER_CONNECT(sk)      (inet_test_bit(DEFER_CONNECT, sk))
 #else
 #define BPF_CGROUP_RUN_PROG_INET4_CONNECT_KMESH(sk, uaddr, uaddrlen, t_ctx)                                            \
     ({                                                                                                                 \
@@ -48,9 +50,9 @@ static struct proto *kmesh_defer_proto = NULL;
         __ret;                                                                                                         \
     })
 
-#define SET_FDEFER_CONNECT_ON(sk)  (inet_sk(sk)->defer_connect = 1)
-#define SET_FDEFER_CONNECT_OFF(sk) (inet_sk(sk)->defer_connect = 0)
-#define IS_DEFER_CONNECT(sk)       (inet_sk(sk)->defer_connect == 1)
+#define SET_DEFER_CONNECT_ON(sk)  (inet_sk(sk)->defer_connect = 1)
+#define SET_DEFER_CONNECT_OFF(sk) (inet_sk(sk)->defer_connect = 0)
+#define IS_DEFER_CONNECT(sk)      (inet_sk(sk)->defer_connect == 1)
 #endif
 
 static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
@@ -74,18 +76,19 @@ static int defer_connect(struct sock *sk, struct msghdr *msg, size_t size)
         ubase = iov->iov_base;
         kbuf_size = iov->iov_len;
     } else if (iter_is_iovec(&msg->msg_iter)) {
-#ifdef KERNEL_KFUNC
+#if KERNEL_VERISON6
         iov = msg->msg_iter.__iov;
-#else
-        iov = msg->msg_iter.iov;
-#endif
         ubase = iov->iov_base;
         kbuf_size = iov->iov_len;
-#if ITER_TYPE_IS_UBUF
     } else if (iter_is_ubuf(&msg->msg_iter)) {
         ubase = msg->msg_iter.ubuf;
         kbuf_size = msg->msg_iter.count;
+#else
+        iov = msg->msg_iter.iov;
+        ubase = iov->iov_base;
+        kbuf_size = iov->iov_len;
 #endif
+
     } else
         goto connect;
 
@@ -117,7 +120,7 @@ connect:
         inet_sk(sk)->inet_dport = 0;
         goto out;
     }
-    SET_FDEFER_CONNECT_OFF(sk);
+    SET_DEFER_CONNECT_OFF(sk);
 
     if ((((__u32)1 << sk->sk_state) & ~(__u32)(TCPF_ESTABLISHED | TCPF_CLOSE_WAIT)) && !tcp_passive_fastopen(sk)) {
         sk_stream_wait_connect(sk, &timeo);
@@ -169,7 +172,7 @@ static int defer_tcp_connect(struct sock *sk, struct sockaddr *uaddr, int addr_l
      */
     if (IS_DEFER_CONNECT(sk))
         return tcp_v4_connect(sk, uaddr, addr_len);
-    SET_FDEFER_CONNECT_ON(sk);
+    SET_DEFER_CONNECT_ON(sk);
     sk->sk_dport = ((struct sockaddr_in *)uaddr)->sin_port;
     sk_daddr_set(sk, ((struct sockaddr_in *)uaddr)->sin_addr.s_addr);
     sk->sk_socket->state = SS_CONNECTING;
@@ -192,7 +195,7 @@ static int kmesh_defer_init(struct sock *sk)
 }
 
 static struct tcp_ulp_ops kmesh_defer_ulp_ops __read_mostly = {
-    .name = "kmesh_defer",
+    .name = KMESH_MODULE_ULP_NAME,
     .owner = THIS_MODULE,
     .init = kmesh_defer_init,
 };

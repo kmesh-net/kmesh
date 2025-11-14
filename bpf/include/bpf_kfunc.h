@@ -19,6 +19,8 @@ struct bpf_mem_ptr {
     __u32 size;
 };
 
+#define KMESH_MODULE_ULP_NAME "kmesh_defer"
+
 extern int bpf_parse_header_msg_func(void *src, int src__sz) __ksym;
 extern int bpf_km_header_strnstr_func(void *ctx, int ctx__sz, const char *key, int key__sz, const char *subptr) __ksym;
 extern int bpf_km_header_strncmp_func(const char *key, int key__sz, const char *target, int target__sz, int opt) __ksym;
@@ -43,13 +45,13 @@ static int bpf_parse_header_msg(struct bpf_sock_addr *ctx)
 // The strnlen function cannot be used here, so the string is redefined.
 static int bpf_km_setsockopt(struct bpf_sock_addr *ctx, int level, int optname, const char *optval, int optval__sz)
 {
-    const char kmesh_module_name[] = "kmesh_defer";
-    if (level != IPPROTO_TCP || optval__sz != sizeof(kmesh_module_name))
+    const char kmesh_module_ulp_name[] = KMESH_MODULE_ULP_NAME;
+    if (level != IPPROTO_TCP || optval__sz != sizeof(kmesh_module_ulp_name))
         return -1;
 
     struct bpf_mem_ptr msg_tmp = {.ptr = ctx, .size = sizeof(struct bpf_sock_addr)};
     return bpf_setsockopt_func(
-        &msg_tmp, sizeof(struct bpf_mem_ptr), optname, (void *)kmesh_module_name, sizeof(kmesh_module_name));
+        &msg_tmp, sizeof(struct bpf_mem_ptr), optname, (void *)kmesh_module_ulp_name, sizeof(kmesh_module_ulp_name));
 }
 
 static int bpf_km_getsockopt(struct bpf_sock_addr *ctx, int level, int optname, char *optval, int optval__sz)

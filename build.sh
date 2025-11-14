@@ -43,6 +43,7 @@ if [ "$1" == "-h" -o "$1" == "--help" ]; then
 fi
 
 if [ -z "$1" -o "$1" == "-b" -o "$1" == "--build" ]; then
+	bash kmesh_macros_env_kernel.sh
 	prepare
 	make
 	exit
