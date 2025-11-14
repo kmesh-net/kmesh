@@ -168,12 +168,11 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		if err := c.client.WorkloadController.Run(ctx, stopCh); err != nil {
 			return fmt.Errorf("failed to start workload controller: %+v", err)
 		}
+		if err := c.setupDNSProxy(); err != nil {
+			return fmt.Errorf("failed to start dns proxy: %+v", err)
+		}
 	} else {
 		c.client.AdsController.StartDnsController(stopCh)
-	}
-
-	if err := c.setupDNSProxy(); err != nil {
-		return fmt.Errorf("failed to start dns proxy: %+v", err)
 	}
 
 	return c.client.Run(stopCh)

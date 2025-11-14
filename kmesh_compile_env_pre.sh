@@ -143,13 +143,13 @@ function set_enhanced_kernel_env() {
 	if [ ! -f "$KERNEL_HEADER_LINUX_BPF" ]; then
 		export KERNEL_HEADER_LINUX_BPF=/usr/include/linux/bpf.h
 	fi
-	
+
 	KERNEL_MAJOR=$(uname -r | awk -F '.' '{print $1}')
 
 	if grep -q "FN(parse_header_msg)" $KERNEL_HEADER_LINUX_BPF ||
-	[ "$(check_config "CONFIG_DEBUG_INFO_BTF_MODULES")" == "y" ] &&
-	[ "$(check_config "CONFIG_DEBUG_INFO_BTF")" == "y" ] &&
-	[ "$KERNEL_MAJOR" -ge 6 ]; then
+		[ "$(check_config "CONFIG_DEBUG_INFO_BTF_MODULES")" == "y" ] &&
+		[ "$(check_config "CONFIG_DEBUG_INFO_BTF")" == "y" ] &&
+		[ "$KERNEL_MAJOR" -ge 6 ]; then
 		export ENHANCED_KERNEL="enhanced"
 	else
 		export ENHANCED_KERNEL="normal"

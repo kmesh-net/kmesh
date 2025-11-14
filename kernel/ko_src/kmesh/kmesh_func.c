@@ -10,14 +10,16 @@
 #include <linux/string.h>
 #include "kmesh_func.h"
 
-#ifdef KERNEL_KFUNC
+#define HOST_KEY_LEN 5
+
+#if KERNEL_KFUNC
 __diag_push();
 __diag_ignore_all("-Wmissing-prototypes", "Global functions as their definitions will be in BTF");
 
 __bpf_kfunc int bpf_km_header_strnstr_func(void *ctx, int ctx__sz, const char *key, int key__sz, const char *subptr)
 {
     struct bpf_sock_addr_kern *sa_kern = ctx;
-    int subptr__sz = 5;
+    int subptr__sz = HOST_KEY_LEN;
     return bpf_km_header_strnstr_impl(ctx, key, key__sz, subptr, subptr__sz);
 }
 
