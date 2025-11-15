@@ -370,5 +370,5 @@ func deleteWaypointProxy(ctx resource.Context, ns namespace.Instance, name strin
 		}
 
 		return nil
-	}, retry.Timeout(time.Minute*10), retry.BackoffDelay(time.Millisecond*200))
+	}, retry.Timeout(time.Minute*10), retry.BackoffDelay(time.Second*1))
 }

@@ -105,12 +105,44 @@ data:
 EOF
 }
 
+# function setup_istio() {
+# 	echo "install istio $ISTIO_VERSION"
+# 	kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null ||
+# 		{ kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0" | kubectl apply -f -; }
+
+# 	istioctl install --set profile=ambient --set meshConfig.accessLogFile="/dev/stdout" --set components.ingressGateways[0].enabled=true --set components.ingressGateways[0].name=istio-ingressgateway --skip-confirmation
+# }
+
 function setup_istio() {
 	echo "install istio $ISTIO_VERSION"
 	kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null ||
 		{ kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0" | kubectl apply -f -; }
+	# install istio CRD
+	helm repo add istio https://istio-release.storage.googleapis.com/charts
+	helm repo update
+	kubectl create namespace istio-system
+	helm install istio-base istio/base -n istio-system
 
-	istioctl install --set profile=ambient --set meshConfig.accessLogFile="/dev/stdout" --set components.ingressGateways[0].enabled=true --set components.ingressGateways[0].name=istio-ingressgateway --skip-confirmation
+	helm install istiod istio/istiod --namespace istio-system --version $ISTIO_VERSION --set pilot.env.PILOT_ENABLE_AMBIENT=true
+
+	while true; do
+		pod_info=$(kubectl get pods -n istio-system -l app=istiod -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
+
+		if [ -z "$pod_info" ]; then
+			echo "No istiod pod found yet, waiting..."
+			sleep 1
+			continue
+		fi
+
+		read -r pod_name pod_status <<<"$pod_info"
+		if [ "$pod_status" = "Running" ]; then
+			echo "Istiod pod $pod_name is in Running state."
+			break
+		fi
+
+		echo "Waiting for pods of Kmesh daemon to enter Running state..."
+		sleep 1
+	done
 }
 
 function setup_kmesh() {

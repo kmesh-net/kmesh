@@ -754,27 +754,27 @@ func TestBookinfo(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		namespace := apps.Namespace.Name()
 		// Install bookinfo.
-		if _, err := shell.Execute(true, fmt.Sprintf("kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.22/samples/bookinfo/platform/kube/bookinfo.yaml -n %s", namespace)); err != nil {
+		if _, err := shell.Execute(true, fmt.Sprintf("kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.24/samples/bookinfo/platform/kube/bookinfo.yaml -n %s", namespace)); err != nil {
 			t.Fatalf("failed to install bookinfo: %v", err)
 		}
 		t.Cleanup(func() {
-			if _, err := shell.Execute(true, fmt.Sprintf("kubectl delete -f https://raw.githubusercontent.com/istio/istio/release-1.22/samples/bookinfo/platform/kube/bookinfo.yaml -n %s", namespace)); err != nil {
+			if _, err := shell.Execute(true, fmt.Sprintf("kubectl delete -f https://raw.githubusercontent.com/istio/istio/release-1.24/samples/bookinfo/platform/kube/bookinfo.yaml -n %s", namespace)); err != nil {
 				t.Fatalf("failed to delete bookinfo: %v", err)
 			}
 		})
 
 		// Install sleep as client.
-		if _, err := shell.Execute(true, fmt.Sprintf("kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.22/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
+		if _, err := shell.Execute(true, fmt.Sprintf("kubectl apply -f https://raw.githubusercontent.com/istio/istio/release-1.24/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
 			t.Fatalf("failed to install sleep as client of bookinfo: %v", err)
 		}
 		t.Cleanup(func() {
-			if _, err := shell.Execute(true, fmt.Sprintf("kubectl delete -f https://raw.githubusercontent.com/istio/istio/release-1.22/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
+			if _, err := shell.Execute(true, fmt.Sprintf("kubectl delete -f https://raw.githubusercontent.com/istio/istio/release-1.24/samples/sleep/sleep.yaml -n %s", namespace)); err != nil {
 				t.Fatalf("failed to delete sleep as client of bookinfo: %v", err)
 			}
 		})
 
 		fetchFn := testKube.NewSinglePodFetch(t.Clusters().Default(), namespace)
-		if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
+		if _, err := testKube.WaitUntilPodsAreReady(fetchFn, retry.Timeout(15*time.Minute), retry.Delay(5*time.Second)); err != nil {
 			t.Fatalf("failed to wait bookinfo pods to be ready: %v", err)
 		}
 
@@ -797,7 +797,7 @@ func TestBookinfo(t *testing.T) {
 			return true
 		}
 
-		if err := retry.Until(checkBookinfo, retry.Timeout(600*time.Second), retry.Delay(1*time.Second)); err != nil {
+		if err := retry.Until(checkBookinfo, retry.Timeout(900*time.Second), retry.BackoffDelay(3*time.Second)); err != nil {
 			t.Fatal("failed to access bookinfo correctly: %v", err)
 		}
 
@@ -815,7 +815,7 @@ func TestBookinfo(t *testing.T) {
 			UnsetWaypoint(t, namespace, "", Namespace)
 		})
 
-		if err := retry.Until(checkBookinfo, retry.Timeout(600*time.Second), retry.Delay(1*time.Second)); err != nil {
+		if err := retry.Until(checkBookinfo, retry.Timeout(900*time.Second), retry.BackoffDelay(3*time.Second)); err != nil {
 			t.Fatal("failed to access bookinfo correctly when there is a namespace waypoint: %v", err)
 		}
 	})
