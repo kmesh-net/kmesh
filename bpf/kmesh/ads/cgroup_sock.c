@@ -14,16 +14,15 @@
 
 #if ENHANCED_KERNEL
 #include "route_config.h"
+static const char kmesh_module_ulp_name[] = KMESH_MODULE_ULP_NAME;
 #endif
 #if KMESH_ENABLE_IPV4
 #if KMESH_ENABLE_HTTP
 
-static const char kmesh_module_name[] = "kmesh_defer";
-static char kmesh_module_name_get[KMESH_MODULE_NAME_LEN] = "";
 static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
 {
     int ret;
-
+    char kmesh_module_ulp_name_get[KMESH_MODULE_NAME_LEN] = "";
     Listener__Listener *listener = NULL;
 
     if (ctx->protocol != IPPROTO_TCP)
@@ -42,9 +41,10 @@ static inline int sock4_traffic_control(struct bpf_sock_addr *ctx)
     BPF_LOG(DEBUG, KMESH, "bpf find listener addr=[%s:%u]\n", ip2str(&ip, 1), bpf_ntohs(ctx->user_port));
 
 #if ENHANCED_KERNEL
-    ret = bpf_getsockopt(ctx, IPPROTO_TCP, TCP_ULP, (void *)kmesh_module_name_get, KMESH_MODULE_NAME_LEN);
-    if (CHECK_MODULE_NAME_NULL(ret) || bpf__strncmp(kmesh_module_name_get, KMESH_MODULE_NAME_LEN, kmesh_module_name)) {
-        ret = bpf_setsockopt(ctx, IPPROTO_TCP, TCP_ULP, (void *)kmesh_module_name, sizeof(kmesh_module_name));
+    ret = bpf_km_getsockopt(ctx, IPPROTO_TCP, TCP_ULP, kmesh_module_ulp_name_get, KMESH_MODULE_NAME_LEN);
+    if (CHECK_MODULE_NAME_NULL(ret)
+        || bpf__strncmp(kmesh_module_ulp_name_get, KMESH_MODULE_NAME_LEN, kmesh_module_ulp_name)) {
+        ret = bpf_km_setsockopt(ctx, IPPROTO_TCP, TCP_ULP, kmesh_module_ulp_name, sizeof(kmesh_module_ulp_name));
         if (ret)
             BPF_LOG(ERR, KMESH, "bpf set sockopt failed! ret %d\n", ret);
         return 0;

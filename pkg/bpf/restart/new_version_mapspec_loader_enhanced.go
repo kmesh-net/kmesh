@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/ebpf"
 
-	dualengine "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
 	general "kmesh.net/kmesh/bpf/kmesh/bpf2go/general"
 	kernelnative_enhanced "kmesh.net/kmesh/bpf/kmesh/bpf2go/kernelnative/enhanced"
 	"kmesh.net/kmesh/daemon/options"
