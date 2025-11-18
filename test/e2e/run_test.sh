@@ -318,6 +318,26 @@ function build_and_push_images() {
 	HUB="${KIND_REGISTRY}" TAG="latest" make docker.push
 }
 
+function load_prometheus_image_to_kind() {
+	local NAME="${1:-kmesh-testing}"
+	local PROMETHEUS_IMAGE="${2:-prom/prometheus:v2.54.1}"
+
+	echo "Pulling Prometheus image: $PROMETHEUS_IMAGE"
+	if ! docker pull "$PROMETHEUS_IMAGE"; then
+		echo "Failed to pull Prometheus image: $PROMETHEUS_IMAGE"
+		return 1
+	fi
+
+	echo "Loading Prometheus image to kind cluster: $NAME"
+	if ! kind load docker-image "$PROMETHEUS_IMAGE" --name "$NAME"; then
+		echo "Failed to load Prometheus image to kind cluster: $NAME"
+		return 1
+	fi
+
+	echo "Successfully loaded Prometheus image ($PROMETHEUS_IMAGE) to kind cluster ($NAME)"
+	return 0
+}
+
 function install_dependencies() {
 	# 1. Install kind.
 	if ! which kind &>/dev/null; then
@@ -467,6 +487,8 @@ if [[ -z ${SKIP_SETUP:-} ]]; then
 fi
 
 setup_kmesh_log
+
+load_prometheus_image_to_kind
 
 capture_pod_logs &
 
