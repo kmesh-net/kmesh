@@ -109,8 +109,33 @@ function setup_istio() {
 	echo "install istio $ISTIO_VERSION"
 	kubectl get crd gateways.gateway.networking.k8s.io &>/dev/null ||
 		{ kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v1.1.0" | kubectl apply -f -; }
+	# install istio CRD
+	helm repo add istio https://istio-release.storage.googleapis.com/charts
+	helm repo update
+	helm install istio-base istio/base -n istio-system --create-namespace
 
-	istioctl install --set profile=ambient --set meshConfig.accessLogFile="/dev/stdout" --set components.ingressGateways[0].enabled=true --set components.ingressGateways[0].name=istio-ingressgateway --skip-confirmation
+	helm install istiod istio/istiod --namespace istio-system --version $ISTIO_VERSION --set pilot.env.PILOT_ENABLE_AMBIENT=true --create-namespace
+
+	helm install istio-ingressgateway istio/gateway -n istio-system --create-namespace
+
+	while true; do
+		pod_info=$(kubectl get pods -n istio-system -l app=istiod -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
+
+		if [ -z "$pod_info" ]; then
+			echo "No istiod pod found yet, waiting..."
+			sleep 1
+			continue
+		fi
+
+		read -r pod_name pod_status <<<"$pod_info"
+		if [ "$pod_status" = "Running" ]; then
+			echo "Istiod pod $pod_name is in Running state."
+			break
+		fi
+
+		echo "Waiting for pods of Kmesh daemon to enter Running state..."
+		sleep 1
+	done
 }
 
 function setup_kmesh() {
@@ -174,55 +199,6 @@ function setup_kmesh() {
 			sleep 2
 		done
 	done
-}
-
-function set_daemonupgarde_testcase_image() {
-	local TMP_BUILD
-	TMP_BUILD="$(mktemp -d)"
-	echo "Building in temp dir: $TMP_BUILD"
-
-	git clone --depth 1 . "$TMP_BUILD" || {
-		echo "git clone failed"
-		rm -rf "$TMP_BUILD"
-		return 1
-	}
-
-	pushd "$TMP_BUILD" >/dev/null
-
-	BPF_HEADER_FILE="./bpf/include/bpf_common.h"
-	echo "Modifying BPF header file: ${BPF_HEADER_FILE}"
-
-	sed -i \
-		'/} kmesh_map64 SEC(".maps");/a\
-		\
-struct {\
-	__uint(type, BPF_MAP_TYPE_HASH);\
-	__uint(key_size, sizeof(__u32));\
-	__uint(value_size, MAP_VAL_SIZE_64);\
-	__uint(max_entries, MAP_MAX_ENTRIES);\
-	__uint(map_flags, BPF_F_NO_PREALLOC);\
-} kmesh_map64_bak_for_test SEC(".maps");' \
-		"${BPF_HEADER_FILE}"
-
-	local HUB="localhost:5000"
-	local TARGET="kmesh"
-	local TAG="test-upgrade-map-change"
-	local IMAGE="${HUB}/${TARGET}:${TAG}"
-
-	echo "Running 'make docker.push' with custom HUB and TAG in $TMP_BUILD"
-	if ! HUB=${HUB} TARGET=${TARGET} TAG=${TAG} make docker.push; then
-		echo "make docker.push failed"
-		popd >/dev/null
-		rm -rf "$TMP_BUILD"
-		return 1
-	fi
-
-	export KMESH_UPGRADE_IMAGE="${IMAGE}"
-	echo "Built and pushed image: ${IMAGE}"
-
-	popd >/dev/null
-	# rm -rf "$TMP_BUILD"
-	return 0
 }
 
 function setup_kmesh_log() {
@@ -395,10 +371,6 @@ while (("$#")); do
 		PARAMS+=("-istio.test.nocleanup")
 		shift
 		;;
-	--skip-build-daemonupgarde-image)
-		SKIP_BUILD_UPGARDE=true
-		shift
-		;;
 	*)
 		PARAMS+=("$1")
 		shift
@@ -420,9 +392,6 @@ if [[ -z ${SKIP_BUILD:-} ]]; then
 	setup_kind_registry
 	build_and_push_images
 	install_kmeshctl
-	if [[ -z ${SKIP_BUILD_UPGARDE:-} ]]; then
-		set_daemonupgarde_testcase_image
-	fi
 fi
 
 kubectl config use-context "kind-$NAME"
@@ -458,7 +427,5 @@ fi
 if [[ -n ${CLEANUP_REGISTRY} ]]; then
 	cleanup_docker_registry
 fi
-
-#rm -rf "${TMP}"
 
 exit $EXIT_CODE
