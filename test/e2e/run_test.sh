@@ -432,7 +432,7 @@ if [ $EXIT_CODE -ne 0 ]; then
 	cat $LOGFILE
 fi
 
-rm rf $LOGFILE
+rm -rf $LOGFILE
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster
