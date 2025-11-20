@@ -213,7 +213,7 @@ docker.push: docker
 
 .PHONY: e2e
 e2e:
-	./test/e2e/run_test.sh
+	./test/e2e/run_test.sh --build-image-clean
 
 .PHONY: e2e-ipv6
 e2e-ipv6:
