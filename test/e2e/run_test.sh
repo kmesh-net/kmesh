@@ -371,6 +371,14 @@ while (("$#")); do
 		PARAMS+=("-istio.test.nocleanup")
 		shift
 		;;
+	--build-image-clean)
+		BUILD_IMAGE_CLEAN=true
+		shift
+		;;
+	--debug)
+		DEBUG=true
+		shift
+		;;
 	*)
 		PARAMS+=("$1")
 		shift
@@ -394,6 +402,11 @@ if [[ -z ${SKIP_BUILD:-} ]]; then
 	install_kmeshctl
 fi
 
+if [[ ${BUILD_IMAGE_CLEAN:-false} == "true" ]]; then
+	echo "Cleaning up build image: ghcr.io/kmesh-net/kmesh-build:latest"
+	docker image rm -f ghcr.io/kmesh-net/kmesh-build:latest 2>/dev/null || true
+fi
+
 kubectl config use-context "kind-$NAME"
 echo "Running tests in cluster '$NAME'"
 
@@ -403,9 +416,10 @@ if [[ -z ${SKIP_SETUP:-} ]]; then
 	setup_kmesh
 fi
 
-setup_kmesh_log
-
-capture_pod_logs &
+if [[ ${DEBUG:-false} == "true" ]]; then
+	setup_kmesh_log
+	capture_pod_logs &
+fi
 
 cmd="go test -v -tags=integ $ROOT_DIR/test/e2e/... -istio.test.kube.loadbalancer=false ${PARAMS[*]}"
 
@@ -418,7 +432,7 @@ if [ $EXIT_CODE -ne 0 ]; then
 	cat $LOGFILE
 fi
 
-rm $LOGFILE
+rm rf $LOGFILE
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster
