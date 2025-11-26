@@ -301,18 +301,18 @@ func BenchmarkHash128_Large(b *testing.B) {
 }
 
 func TestHash128_UnalignedInput(t *testing.T) {
-    // Create a buffer and then a sub-slice that is not 8-byte aligned.
-    buf := make([]byte, 33)
-    for i := range buf {
-        buf[i] = byte(i)
-    }
-    unalignedData := buf[1:] // len=32
+	// Create a buffer and then a sub-slice that is not 8-byte aligned.
+	buf := make([]byte, 33)
+	for i := range buf {
+		buf[i] = byte(i)
+	}
+	unalignedData := buf[1:] // len=32
 
-    defer func() {
-        if r := recover(); r != nil {
-            t.Errorf("Hash128 panicked on unaligned data: %v", r)
-        }
-    }()
+	defer func() {
+		if r := recover(); r != nil {
+			t.Errorf("Hash128 panicked on unaligned data: %v", r)
+		}
+	}()
 
-    Hash128(unalignedData, 0)
+	Hash128(unalignedData, 0)
 }
