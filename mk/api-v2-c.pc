@@ -1,4 +1,4 @@
-prefix=/home/runner/work/kmesh/kmesh/
+prefix=
 
 Name: api-v2-c
 Description: api-v2-c

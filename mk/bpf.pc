@@ -1,4 +1,4 @@
-prefix=/home/runner/work/kmesh/kmesh/
+prefix=
 Name: bpf
 Description: bpf
 Version:

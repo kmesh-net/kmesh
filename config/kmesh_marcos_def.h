@@ -7,14 +7,14 @@
  * loopback address link conflicts. Obtains the namespace cookie of the
  * current container based on the bpf_get_netns_cookie auxiliary function.
  */
-#define MDA_LOOPBACK_ADDR 0
+#define MDA_LOOPBACK_ADDR 1
 
 /* supports NAT acceleration. That is, acceleration can also be performed
  * when iptables is used to forward traffic between service containers
  * and sidecar containers. The bpf_sk_original_addr auxiliary function is
  * used to obtain the original destination address.
  */
-#define MDA_NAT_ACCEL 0
+#define MDA_NAT_ACCEL 1
 
 /* supports acceleration function filtering based on GID and UID.
  * That is, the GID or UID corresponding to the process to be accelerated
@@ -22,7 +22,7 @@
  * auxiliary function is used to obtain the GID and UID of the current
  * process.
  */
-#define MDA_GID_UID_FILTER 0
+#define MDA_GID_UID_FILTER 1
 
 /*
  * openEuler-23.03 is an innovative version of openEuler, in the early time, we
@@ -50,7 +50,7 @@
  * in kernel 6.x version, add the new iter type ITER_UBUF, and we need add code
  * for the corresponding scenarios.
  */
-#define ITER_TYPE_IS_UBUF 1
+#define ITER_TYPE_IS_UBUF 0
 
 /*
  * Kmesh’s Layer 7 acceleration proxy capability relies on kernel enhancements.
@@ -67,4 +67,4 @@
  * the libbpf version in the current environment, and the code in the project
  * is enabled accordingly.
  * */
-#define LIBBPF_HIGHER_0_6_0_VERSION 1
+#define LIBBPF_HIGHER_0_6_0_VERSION 0
