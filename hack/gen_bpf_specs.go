@@ -167,7 +167,9 @@ func main() {
 				importPath := filepath.ToSlash(filepath.Join(modulePrefix, "bpf", "kmesh", "bpf2go", real))
 				pi := pkgInfo{Alias: alias, ImportPath: importPath, OutputDir: real, Entries: list}
 				pkgsDefault = append(pkgsDefault, pi)
-				pkgsEnhanced = append(pkgsEnhanced, pi)
+				if !strings.HasPrefix(real, "dualengine") {
+					pkgsEnhanced = append(pkgsEnhanced, pi)
+				}
 			}
 		}
 	}
