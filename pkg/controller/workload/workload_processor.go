@@ -458,8 +458,16 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 				}
 			} else { // locality mode
 				service := p.ServiceCache.GetService(p.hashName.NumToStr(svcUid))
-				if p.locality.LocalityInfo != nil && service != nil {
-					prio := p.locality.CalcLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
+				if service != nil {
+					var prio uint32
+					if p.locality.LocalityInfo != nil {
+						prio = p.locality.CalcLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
+					} else {
+						// If locality is not yet initialized, use lowest priority (len of routing preferences)
+						// This ensures the workload is added to the endpoint map and will be recalculated
+						// when locality is eventually set
+						prio = uint32(len(service.LoadBalancing.GetRoutingPreference()))
+					}
 					if _, err = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
 						log.Errorf("addWorkloadToService workload %d service %d priority %d failed: %v", workloadId, sk.ServiceId, prio, err)
 						return err

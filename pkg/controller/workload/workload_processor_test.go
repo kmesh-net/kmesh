@@ -784,3 +784,71 @@ func TestUpdateWorkloadInFrontendMap(t *testing.T) {
 		assert.NoError(t, err)
 	})
 }
+
+// TestLocalityLBWithNilLocalityInfo verifies that workloads are correctly added
+// to service endpoints even when LocalityInfo is nil in locality LB mode.
+// This tests the fix for the issue where waypoint addresses were missing in
+// ebpf/endpoints because LocalityInfo was not initialized when workloads from
+// other nodes arrived before any local workload.
+func TestLocalityLBWithNilLocalityInfo(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	// Ensure LocalityInfo is nil (simulating no local workload has been processed yet)
+	assert.Nil(t, p.locality.LocalityInfo)
+
+	res := &service_discovery_v3.DeltaDiscoveryResponse{}
+
+	// Create a service with locality LB (FAILOVER mode, which is the default for waypoints)
+	localityLBScope := []workloadapi.LoadBalancing_Scope{
+		workloadapi.LoadBalancing_REGION,
+		workloadapi.LoadBalancing_ZONE,
+		workloadapi.LoadBalancing_SUBZONE,
+	}
+	localityLoadBalancing := createLoadBalancing(workloadapi.LoadBalancing_FAILOVER, localityLBScope)
+	svc := common.CreateFakeService("svc1", "10.240.10.1", "10.240.10.200", localityLoadBalancing)
+
+	addr := serviceToAddress(svc)
+	res.Resources = append(res.Resources, &service_discovery_v3.Resource{
+		Resource: protoconv.MessageToAny(addr),
+	})
+
+	// Add a workload from a different node (simulating waypoint workload)
+	// This workload arrives before any local workload, so LocalityInfo is still nil
+	wl := createWorkload("waypoint1", "10.244.0.1", "other-node", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
+	wlAddr := workloadToAddress(wl)
+	res.Resources = append(res.Resources, &service_discovery_v3.Resource{
+		Resource: protoconv.MessageToAny(wlAddr),
+	})
+
+	err := p.handleAddressTypeResponse(res)
+	assert.NoError(t, err)
+
+	// LocalityInfo should still be nil since no local workload was processed
+	assert.Nil(t, p.locality.LocalityInfo)
+
+	// Verify the workload is in the frontend map
+	workloadID := checkFrontEndMap(t, wl.Addresses[0], p)
+
+	// Verify the service is in the frontend map
+	svcID := checkFrontEndMap(t, svc.Addresses[0].Address, p)
+
+	// Verify the endpoint was added to the service
+	// When LocalityInfo is nil, the workload should be added with the lowest priority
+	// (which is len(routingPreferences) = 3 in this case)
+	var ek bpfcache.EndpointKey
+	var ev bpfcache.EndpointValue
+	ek.ServiceId = svcID
+	ek.Prio = uint32(len(localityLBScope)) // lowest priority = len(routing preferences)
+	ek.BackendIndex = 1
+	err = p.bpf.EndpointLookup(&ek, &ev)
+	assert.NoError(t, err, "Endpoint should exist in endpoint map with lowest priority")
+	assert.Equal(t, workloadID, ev.BackendUid)
+
+	// Verify the endpoint count in the service map
+	checkServiceMap(t, p, svcID, svc, uint32(len(localityLBScope)), 1)
+
+	hashNameClean(p)
+}
