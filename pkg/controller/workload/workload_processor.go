@@ -463,10 +463,10 @@ func (p *Processor) handleWorkloadNewBoundServices(workload *workloadapi.Workloa
 					if p.locality.LocalityInfo != nil {
 						prio = p.locality.CalcLocalityLBPrio(workload, service.LoadBalancing.GetRoutingPreference())
 					} else {
-						// If locality is not yet initialized, use lowest priority (len of routing preferences)
+						// If locality is not yet initialized, use highest priority (0)
 						// This ensures the workload is added to the endpoint map and will be recalculated
 						// when locality is eventually set
-						prio = uint32(len(service.LoadBalancing.GetRoutingPreference()))
+						prio = 0
 					}
 					if _, err = p.addWorkloadToService(&sk, &sv, workloadId, prio); err != nil {
 						log.Errorf("addWorkloadToService workload %d service %d priority %d failed: %v", workloadId, sk.ServiceId, prio, err)

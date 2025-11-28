@@ -836,19 +836,18 @@ func TestLocalityLBWithNilLocalityInfo(t *testing.T) {
 	svcID := checkFrontEndMap(t, svc.Addresses[0].Address, p)
 
 	// Verify the endpoint was added to the service
-	// When LocalityInfo is nil, the workload should be added with the lowest priority
-	// (which is len(routingPreferences) = 3 in this case)
+	// When LocalityInfo is nil, the workload should be added with the highest priority (0)
 	var ek bpfcache.EndpointKey
 	var ev bpfcache.EndpointValue
 	ek.ServiceId = svcID
-	ek.Prio = uint32(len(localityLBScope)) // lowest priority = len(routing preferences)
+	ek.Prio = 0 // highest priority when LocalityInfo is nil
 	ek.BackendIndex = 1
 	err = p.bpf.EndpointLookup(&ek, &ev)
-	assert.NoError(t, err, "Endpoint should exist in endpoint map with lowest priority")
+	assert.NoError(t, err, "Endpoint should exist in endpoint map with highest priority")
 	assert.Equal(t, workloadID, ev.BackendUid)
 
 	// Verify the endpoint count in the service map
-	checkServiceMap(t, p, svcID, svc, uint32(len(localityLBScope)), 1)
+	checkServiceMap(t, p, svcID, svc, 0, 1)
 
 	hashNameClean(p)
 }
