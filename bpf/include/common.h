@@ -5,6 +5,7 @@
 #define _COMMON_H_
 
 #include "../../config/kmesh_marcos_def.h"
+#include <linux/in.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -17,7 +18,17 @@
 #include "errno.h"
 
 #if ENHANCED_KERNEL
-#include <bpf_helper_defs_ext.h>
+#if KERNEL_KFUNC
+#include "bpf_kfunc.h"
+#else
+struct bpf_mem_ptr {
+    void *ptr;
+    __u32 size;
+};
+#include "bpf_helper_defs_ext.h"
+#define bpf_km_setsockopt bpf_setsockopt
+#define bpf_km_getsockopt bpf_getsockopt
+#endif
 #endif
 
 #define bpf_unused __attribute__((__unused__))
@@ -113,14 +124,8 @@ static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
         (dst)[3] = (src)[3];                                                                                           \
     } while (0)
 
-#if OE_23_03
-#define bpf__strncmp                  bpf_strncmp
-#define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port)
-#else
 #define GET_SKOPS_REMOTE_PORT(sk_ops) (__u16)((sk_ops)->remote_port >> 16)
-#endif
-
-#define GET_SKOPS_LOCAL_PORT(sk_ops) (__u16)((sk_ops)->local_port)
+#define GET_SKOPS_LOCAL_PORT(sk_ops)  (__u16)((sk_ops)->local_port)
 
 #define MAX_BUF_LEN 100
 #define MAX_IP4_LEN 16
