@@ -19,7 +19,7 @@ package hash
 import (
 	"encoding/binary"
 	"fmt"
-	"math/rand"
+	"math/rand/v2"
 	"strings"
 	"testing"
 )
@@ -352,7 +352,8 @@ func BenchmarkHash128(b *testing.B) {
 
 	for _, size := range sizes {
 		data := make([]byte, size)
-		rand.Read(data)
+		rng := rand.NewChaCha8([32]byte{})
+		_, _ = rng.Read(data)
 
 		b.Run(fmt.Sprintf("size_%d", size), func(b *testing.B) {
 			b.SetBytes(int64(size))
@@ -366,7 +367,8 @@ func BenchmarkHash128(b *testing.B) {
 // BenchmarkHash128Parallel benchmarks parallel execution
 func BenchmarkHash128Parallel(b *testing.B) {
 	data := make([]byte, 1024)
-	rand.Read(data)
+	rng := rand.NewChaCha8([32]byte{})
+	_, _ = rng.Read(data)
 	seed := uint32(0)
 
 	b.RunParallel(func(pb *testing.PB) {
