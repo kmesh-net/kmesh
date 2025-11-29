@@ -123,7 +123,7 @@ all-binary:
 
 OUT ?= kmeshctl
 .PHONY: kmeshctl
-kmeshctl:
+kmeshctl: build
 	$(call printlog, BUILD, $(APPS4))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		CGO_ENABLED=0 $(GO) build -gcflags $(GOGCFLAGS) -ldflags $(GOLDFLAGS) -o $(OUT) $(GOFLAGS) ./ctl/main.go)
