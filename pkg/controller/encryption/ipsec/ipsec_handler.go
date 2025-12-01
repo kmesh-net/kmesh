@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/filewatcher"
 
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/controller/encryption"
 	"kmesh.net/kmesh/pkg/kube/apis/kmeshnodeinfo/v1alpha1"
 )
 
@@ -39,23 +40,16 @@ const (
 	IpSecKeyFile = "./kmesh-ipsec/ipSec"
 )
 
-type IpSecKey struct {
-	Spi         int    `json:"spi"`
-	AeadKeyName string `json:"aeadKeyName"`
-	AeadKey     []byte `json:"aeadKey"`
-	Length      int    `json:"length"`
-}
-
 type IpSecHandler struct {
 	Spi             int
 	mutex           sync.RWMutex
 	watcher         filewatcher.FileWatcher
-	historyIpSecKey map[int]IpSecKey
+	historyIpSecKey map[int]encryption.IpSecKey
 }
 
 func NewIpSecHandler() *IpSecHandler {
 	return &IpSecHandler{
-		historyIpSecKey: make(map[int]IpSecKey),
+		historyIpSecKey: make(map[int]encryption.IpSecKey),
 	}
 }
 
@@ -76,7 +70,7 @@ func (is *IpSecHandler) LoadIPSecKeyFromFile(filePath string) error {
 func (is *IpSecHandler) loadIPSecKeyFromIO(file *os.File) error {
 	reader := bufio.NewReader(file)
 	decoder := json.NewDecoder(reader)
-	var key IpSecKey
+	var key encryption.IpSecKey
 	if err := decoder.Decode(&key); err != nil {
 		return fmt.Errorf("ipsec config file decoder error, %v, please use Kmesh tool generate ipsec secret key", err)
 	}
@@ -231,7 +225,7 @@ func (is *IpSecHandler) createXfrmRuleIngress(rawRemoteIP, rawLocalNicIP, remote
  * ip xfrm state  add src {localNicIP} dst {remoteNicIP} proto esp spi {remoteSpi} mode tunnel reqid 1 {aead-algo} {aead-key} {aead-key-length}
  * ip xfrm policy add src 0.0.0.0/0    dst {remoteCIDR}  dir out tmpl src {localNicIP} dst {remoteNicIP} proto esp spi {remoteSpi} reqid 1 mode tunnel mark 0x{remoteNodeID}00e0
  */
-func (is *IpSecHandler) createXfrmRuleEgress(rawLocalNicIP, rawRemoteIP, localBootID, remoteBootID string, ipsecKey IpSecKey, podCIDRs []string) error {
+func (is *IpSecHandler) createXfrmRuleEgress(rawLocalNicIP, rawRemoteIP, localBootID, remoteBootID string, ipsecKey encryption.IpSecKey, podCIDRs []string) error {
 	src := net.ParseIP(rawLocalNicIP)
 	if src == nil {
 		return fmt.Errorf("failed to parser ip in inserting xfrm rule, input: %v", rawLocalNicIP)
@@ -267,7 +261,7 @@ func (is *IpSecHandler) createXfrmRuleEgress(rawLocalNicIP, rawRemoteIP, localBo
 	return nil
 }
 
-func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, ipsecKey IpSecKey, ingress bool) error {
+func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, ipsecKey encryption.IpSecKey, ingress bool) error {
 	state := &netlink.XfrmState{
 		Src:   src,
 		Dst:   dst,
