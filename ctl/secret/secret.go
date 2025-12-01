@@ -30,7 +30,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kmesh.net/kmesh/ctl/utils"
-	"kmesh.net/kmesh/pkg/controller/encryption/ipsec"
+	"kmesh.net/kmesh/pkg/controller/encryption"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -118,7 +118,7 @@ func createKubeClientOrExit() kube.CLIClient {
 }
 
 func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
-	var ipSecKey, ipSecKeyOld ipsec.IpSecKey
+	var ipSecKey, ipSecKeyOld encryption.IpSecKey
 	var err error
 
 	ipSecKey.AeadKeyName = AeadAlgoName
@@ -215,7 +215,7 @@ func GetSecret() {
 	}
 
 	// Parse the IPsec data
-	var ipSecKey ipsec.IpSecKey
+	var ipSecKey encryption.IpSecKey
 	if err := json.Unmarshal(secret.Data["ipSec"], &ipSecKey); err != nil {
 		log.Errorf("failed to unmarshal secret data: %v", err)
 		os.Exit(1)
