@@ -257,6 +257,11 @@ func TestShouldEnroll(t *testing.T) {
 }
 
 func TestHandleKmeshManage(t *testing.T) {
+	// Check if we have the necessary capabilities
+	if os.Geteuid() != 0 {
+		t.Skip("Skipping test: requires root privileges or CAP_SYS_ADMIN capability")
+	}
+
 	type args struct {
 		ns     string
 		enroll bool
