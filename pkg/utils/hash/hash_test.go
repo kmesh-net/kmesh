@@ -108,12 +108,12 @@ func TestHash128_Deterministic(t *testing.T) {
 	testData := []byte("test data for deterministic check")
 	seed := uint32(42)
 
-	h1_1, h2_1 := Hash128(testData, seed)
-	h1_2, h2_2 := Hash128(testData, seed)
+	h1First, h2First := Hash128(testData, seed)
+	h1Second, h2Second := Hash128(testData, seed)
 
-	if h1_1 != h1_2 || h2_1 != h2_2 {
+	if h1First != h1Second || h2First != h2Second {
 		t.Errorf("Hash128 is not deterministic: first call (%d, %d), second call (%d, %d)",
-			h1_1, h2_1, h1_2, h2_2)
+			h1First, h2First, h1Second, h2Second)
 	}
 }
 
@@ -122,11 +122,11 @@ func TestHash128_DifferentInputs(t *testing.T) {
 	data2 := []byte("test data 2")
 	seed := uint32(0)
 
-	h1_1, h2_1 := Hash128(data1, seed)
-	h1_2, h2_2 := Hash128(data2, seed)
+	h1Data1, h2Data1 := Hash128(data1, seed)
+	h1Data2, h2Data2 := Hash128(data2, seed)
 
-	if h1_1 == h1_2 && h2_1 == h2_2 {
-		t.Errorf("Different inputs produced same hash: (%d, %d)", h1_1, h2_1)
+	if h1Data1 == h1Data2 && h2Data1 == h2Data2 {
+		t.Errorf("Different inputs produced same hash: (%d, %d)", h1Data1, h2Data1)
 	}
 }
 
@@ -139,7 +139,9 @@ func TestHash128_AllTailLengths(t *testing.T) {
 		data := append(baseData, []byte("extra tail bytes")[:tailLen]...)
 		h1, h2 := Hash128(data, seed)
 
-		// Verify it doesn't panic and produces some output
+		// This check is a sanity check to catch a hash function that is broken
+		// (e.g., always returning zero).  It is not a strict correctness check,
+		// as a valid hash function could theoretically return (0, 0) for some input.
 		if h1 == 0 && h2 == 0 && len(data) > 0 {
 			t.Errorf("Hash128 with tail length %d produced zero hash for non-empty input", tailLen)
 		}

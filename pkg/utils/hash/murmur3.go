@@ -17,7 +17,7 @@
 package hash
 
 import (
-	"unsafe"
+	"encoding/binary"
 )
 
 // Hash128 calculates a 128 bits hash for the given data. It returns different
@@ -37,9 +37,10 @@ func Hash128(data []byte, seed uint32) (uint64, uint64) {
 	h2 := uint64(seed)
 
 	for i := 0; i < nblocks; i++ {
-		tmp := (*[2]uint64)(unsafe.Pointer(&data[i*16]))
-		k1 := tmp[0]
-		k2 := tmp[1]
+		off := i * 16
+		// Safe unaligned reads using encoding/binary
+		k1 := binary.LittleEndian.Uint64(data[off : off+8])
+		k2 := binary.LittleEndian.Uint64(data[off+8 : off+16])
 
 		k1 *= c1
 		k1 = rotl64(k1, 31)
