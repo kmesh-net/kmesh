@@ -44,6 +44,7 @@ import (
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf"
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/controller/encryption"
 	"kmesh.net/kmesh/pkg/kube"
 	v1alpha1 "kmesh.net/kmesh/pkg/kube/apis/kmeshnodeinfo/v1alpha1"
 	fakeKmeshClientset "kmesh.net/kmesh/pkg/kube/nodeinfo/clientset/versioned/fake"
@@ -96,7 +97,7 @@ var (
 		},
 	}
 
-	testKey = IpSecKey{
+	testKey = encryption.IpSecKey{
 		Spi:         1,
 		AeadKeyName: "rfc4106(gcm(aes))",
 		AeadKey:     DecodeHex("abc9410d7cd6b324461bf16db518646594276c5362c30fc476ebca3f1a394b6ed4462161"),

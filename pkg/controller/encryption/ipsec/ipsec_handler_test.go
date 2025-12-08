@@ -32,6 +32,7 @@ import (
 	"github.com/vishvananda/netlink"
 
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/controller/encryption"
 )
 
 // DecodeHex is a utility function to decode a hex string into bytes.
@@ -48,13 +49,13 @@ func TestLoadIPSecKey(t *testing.T) {
 	aeadKey := DecodeHex("2dc9410d7cd6b324461bf16db518646594276c5362c30fc476ebca3f1a394b6ed4462161")
 	tests := []struct {
 		name        string
-		keyData     IpSecKey
+		keyData     encryption.IpSecKey
 		expectError bool
 		errorMsg    string
 	}{
 		{ // Valid
 			name: "valid_rfc4106_key",
-			keyData: IpSecKey{
+			keyData: encryption.IpSecKey{
 				Spi:         1,
 				AeadKeyName: "rfc4106(gcm(aes))",
 				AeadKey:     aeadKey,
@@ -64,7 +65,7 @@ func TestLoadIPSecKey(t *testing.T) {
 		},
 		{
 			name: "invalid_algo_name",
-			keyData: IpSecKey{
+			keyData: encryption.IpSecKey{
 				Spi:         3,
 				AeadKeyName: "aes-gcm", // should start with "rfc"
 				AeadKey:     aeadKey,
@@ -75,7 +76,7 @@ func TestLoadIPSecKey(t *testing.T) {
 		},
 		{
 			name: "empty_algo_name",
-			keyData: IpSecKey{
+			keyData: encryption.IpSecKey{
 				Spi:         4,
 				AeadKeyName: "",
 				AeadKey:     aeadKey,
@@ -161,13 +162,13 @@ func TestLoadIPSecKey(t *testing.T) {
 	// Test multiple key loading (should update history)
 	tests = []struct {
 		name        string
-		keyData     IpSecKey
+		keyData     encryption.IpSecKey
 		expectError bool
 		errorMsg    string
 	}{
 		{
 			name: "first_key",
-			keyData: IpSecKey{
+			keyData: encryption.IpSecKey{
 				Spi:         1,
 				AeadKeyName: "rfc4106(gcm(aes))",
 				AeadKey:     aeadKey,
@@ -177,7 +178,7 @@ func TestLoadIPSecKey(t *testing.T) {
 		},
 		{
 			name: "second_key",
-			keyData: IpSecKey{
+			keyData: encryption.IpSecKey{
 				Spi:         2,
 				AeadKeyName: "rfc4106(gcm(aes))",
 				AeadKey:     DecodeHex("abc9410d7cd6b324461bf16db518646594276c5362c30fc476ebca3f1a394b6ed4462161"),
@@ -334,7 +335,7 @@ func hasStateRule(state *netlink.XfrmState) (bool, error) {
 func TestCreateStateRule(t *testing.T) {
 	handler := NewIpSecHandler()
 	testKey := DecodeHex("2dc9410d7cd6b324461bf16db518646594276c5362c30fc476ebca3f1a394b6ed4462161")
-	ipsecKey := IpSecKey{
+	ipsecKey := encryption.IpSecKey{
 		Spi:         1001,
 		AeadKeyName: "rfc4106(gcm(aes))",
 		AeadKey:     testKey,
@@ -536,7 +537,7 @@ func TestFlush(t *testing.T) {
 
 	// create state rule
 	testKey := DecodeHex("2dc9410d7cd6b324461bf16db518646594276c5362c30fc476ebca3f1a394b6ed4462161")
-	ipsecKey := IpSecKey{
+	ipsecKey := encryption.IpSecKey{
 		Spi:         1001,
 		AeadKeyName: "rfc4106(gcm(aes))",
 		AeadKey:     testKey,
