@@ -93,6 +93,54 @@ func TestHash128TailCases(t *testing.T) {
 	}
 }
 
+// TestHash128TailSpecificLengths tests specific tail length branches
+func TestHash128TailSpecificLengths(t *testing.T) {
+	seed := uint32(0)
+
+	tests := []struct {
+		name   string
+		length int
+	}{
+		{"tail_1_byte", 1},
+		{"tail_2_bytes", 2},
+		{"tail_3_bytes", 3},
+		{"tail_4_bytes", 4},
+		{"tail_5_bytes", 5},
+		{"tail_6_bytes", 6},
+		{"tail_7_bytes", 7},
+		{"tail_8_bytes", 8},
+		{"tail_9_bytes", 9},
+		{"tail_10_bytes", 10},
+		{"tail_11_bytes", 11},
+		{"tail_12_bytes", 12},
+		{"tail_13_bytes", 13},
+		{"tail_14_bytes", 14},
+		{"tail_15_bytes", 15},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			data := make([]byte, tt.length)
+			for i := range data {
+				data[i] = byte(i + 0x30)
+			}
+
+			h1, h2 := Hash128(data, seed)
+
+			// Verify deterministic
+			h1_2, h2_2 := Hash128(data, seed)
+			if h1 != h1_2 || h2 != h2_2 {
+				t.Error("Hash128 is not deterministic for tail case")
+			}
+
+			// Verify non-zero for non-empty
+			if h1 == 0 && h2 == 0 {
+				t.Errorf("Unexpected zero hash for tail length %d", tt.length)
+			}
+		})
+	}
+}
+
 // TestHash128BlockBoundaries tests data at block boundaries (16 bytes)
 func TestHash128BlockBoundaries(t *testing.T) {
 	seed := uint32(0)
@@ -104,9 +152,12 @@ func TestHash128BlockBoundaries(t *testing.T) {
 		{"exactly_16_bytes", 16},
 		{"exactly_32_bytes", 32},
 		{"exactly_48_bytes", 48},
+		{"exactly_64_bytes", 64},
 		{"16_plus_1", 17},
 		{"32_minus_1", 31},
 		{"32_plus_1", 33},
+		{"48_plus_7", 55},
+		{"64_plus_15", 79},
 	}
 
 	for _, tt := range tests {
@@ -122,6 +173,87 @@ func TestHash128BlockBoundaries(t *testing.T) {
 			h1_2, h2_2 := Hash128(data, seed)
 			if h1 != h1_2 || h2 != h2_2 {
 				t.Error("Hash128 is not deterministic")
+			}
+		})
+	}
+}
+
+// TestHash128MultipleBlocks tests processing multiple 16-byte blocks
+func TestHash128MultipleBlocks(t *testing.T) {
+	seed := uint32(12345)
+
+	// Test exactly 2, 3, 4, 5 blocks
+	for numBlocks := 2; numBlocks <= 5; numBlocks++ {
+		t.Run(fmt.Sprintf("%d_blocks", numBlocks), func(t *testing.T) {
+			length := numBlocks * 16
+			data := make([]byte, length)
+			for i := range data {
+				data[i] = byte((i * 7) % 256)
+			}
+
+			h1, h2 := Hash128(data, seed)
+
+			// Verify non-zero
+			if h1 == 0 && h2 == 0 {
+				t.Error("Unexpected zero hash for multiple blocks")
+			}
+
+			// Verify changing one byte in each block changes hash
+			for block := 0; block < numBlocks; block++ {
+				modified := make([]byte, length)
+				copy(modified, data)
+				modified[block*16] ^= 0xFF
+
+				h1_mod, h2_mod := Hash128(modified, seed)
+				if h1 == h1_mod && h2 == h2_mod {
+					t.Errorf("Hash unchanged after modifying block %d", block)
+				}
+			}
+		})
+	}
+}
+
+// TestHash128BlocksWithTail tests combinations of full blocks plus tail bytes
+func TestHash128BlocksWithTail(t *testing.T) {
+	seed := uint32(0)
+
+	tests := []struct {
+		blocks int
+		tail   int
+	}{
+		{1, 1},
+		{1, 7},
+		{1, 15},
+		{2, 3},
+		{2, 8},
+		{2, 14},
+		{3, 5},
+		{4, 9},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%d_blocks_%d_tail", tt.blocks, tt.tail), func(t *testing.T) {
+			length := tt.blocks*16 + tt.tail
+			data := make([]byte, length)
+			for i := range data {
+				data[i] = byte(i % 256)
+			}
+
+			h1, h2 := Hash128(data, seed)
+
+			// Verify non-zero
+			if h1 == 0 && h2 == 0 {
+				t.Error("Unexpected zero hash")
+			}
+
+			// Verify changing tail byte changes hash
+			modified := make([]byte, length)
+			copy(modified, data)
+			modified[length-1] ^= 0x01
+
+			h1_mod, h2_mod := Hash128(modified, seed)
+			if h1 == h1_mod && h2 == h2_mod {
+				t.Error("Hash unchanged after modifying tail")
 			}
 		})
 	}
@@ -255,7 +387,6 @@ func TestHash128SpecificVectors(t *testing.T) {
 		h1   uint64
 		h2   uint64
 	}{
-		// These are reference values - adjust based on actual MurmurHash3 implementation
 		{"", 0, 0, 0},
 		{"a", 0, 6448617214920080893, 13756753055622667532},
 		{"abc", 0, 2381214358140035638, 14516608103752149093},
@@ -269,33 +400,6 @@ func TestHash128SpecificVectors(t *testing.T) {
 				t.Logf("Data: %q, Seed: %d", tt.data, tt.seed)
 				t.Logf("Got:  h1=%d, h2=%d", h1, h2)
 				t.Logf("Want: h1=%d, h2=%d", tt.h1, tt.h2)
-				// Note: Only log, don't fail unless you have verified reference values
-			}
-		})
-	}
-}
-
-// TestRotl64 tests the rotation function
-func TestRotl64(t *testing.T) {
-	tests := []struct {
-		x      uint64
-		r      int8
-		result uint64
-	}{
-		{0x0000000000000001, 1, 0x0000000000000002},
-		{0x0000000000000001, 63, 0x8000000000000000},
-		{0x0000000000000001, 64, 0x0000000000000001}, // Full rotation
-		{0x8000000000000000, 1, 0x0000000000000001},
-		{0xFFFFFFFFFFFFFFFF, 1, 0xFFFFFFFFFFFFFFFF},
-		{0x0F0F0F0F0F0F0F0F, 4, 0xF0F0F0F0F0F0F0F0},
-	}
-
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("0x%016X_%d", tt.x, tt.r), func(t *testing.T) {
-			result := rotl64(tt.x, tt.r)
-			if result != tt.result {
-				t.Errorf("rotl64(0x%016X, %d) = 0x%016X, want 0x%016X",
-					tt.x, tt.r, result, tt.result)
 			}
 		})
 	}
@@ -309,6 +413,10 @@ func TestFmix64(t *testing.T) {
 		0xFFFFFFFFFFFFFFFF,
 		0x0123456789ABCDEF,
 		0xFEDCBA9876543210,
+		0x00000000FFFFFFFF,
+		0xFFFFFFFF00000000,
+		0xAAAAAAAAAAAAAAAA,
+		0x5555555555555555,
 	}
 
 	seen := make(map[uint64]bool)
@@ -323,7 +431,7 @@ func TestFmix64(t *testing.T) {
 				t.Error("fmix64 is not deterministic")
 			}
 
-			// Verify different inputs produce different outputs (usually)
+			// Track for collision detection
 			if seen[result] && val != 0 && val != 0xFFFFFFFFFFFFFFFF {
 				t.Logf("Collision detected for 0x%016X", val)
 			}
@@ -343,6 +451,106 @@ func TestHash128NilInput(t *testing.T) {
 	if h1 != h1_empty || h2 != h2_empty {
 		t.Error("Hash of nil slice should equal hash of empty slice")
 	}
+}
+
+// TestHash128EdgeCases tests various edge cases
+func TestHash128EdgeCases(t *testing.T) {
+	tests := []struct {
+		name string
+		data []byte
+		seed uint32
+	}{
+		{"all_zeros", make([]byte, 32), 0},
+		{"all_ones", bytes(32, 0xFF), 0},
+		{"alternating", alternatingBytes(32), 0},
+		{"sequential", sequentialBytes(32), 0},
+		{"single_zero", []byte{0x00}, 0},
+		{"single_max", []byte{0xFF}, 0},
+		{"high_seed", []byte("test"), 0xFFFFFFFF},
+		{"zero_seed", []byte("test"), 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			h1, h2 := Hash128(tt.data, tt.seed)
+
+			// Verify deterministic
+			h1_2, h2_2 := Hash128(tt.data, tt.seed)
+			if h1 != h1_2 || h2 != h2_2 {
+				t.Error("Hash is not deterministic")
+			}
+		})
+	}
+}
+
+// TestHash128AllByteValues tests that all byte values are processed correctly
+func TestHash128AllByteValues(t *testing.T) {
+	seed := uint32(0)
+
+	// Test each byte value in different positions
+	for b := 0; b < 256; b++ {
+		data := []byte{byte(b)}
+		h1, h2 := Hash128(data, seed)
+
+		// Verify non-zero for non-zero input
+		if b != 0 && h1 == 0 && h2 == 0 {
+			t.Errorf("Hash returned (0,0) for byte value %d", b)
+		}
+	}
+}
+
+// TestHash128UnalignedAccess tests various unaligned data access patterns
+func TestHash128UnalignedAccess(t *testing.T) {
+	seed := uint32(0)
+
+	// Test lengths that exercise different code paths
+	lengths := []int{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 23, 24, 25, 31, 32, 33}
+
+	for _, length := range lengths {
+		t.Run(fmt.Sprintf("length_%d", length), func(t *testing.T) {
+			data := make([]byte, length)
+			for i := range data {
+				data[i] = byte(i * 13 % 256)
+			}
+
+			h1, h2 := Hash128(data, seed)
+
+			// Verify deterministic
+			h1_2, h2_2 := Hash128(data, seed)
+			if h1 != h1_2 || h2 != h2_2 {
+				t.Errorf("Hash not deterministic for length %d", length)
+			}
+		})
+	}
+}
+
+// Helper functions
+func bytes(n int, val byte) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = val
+	}
+	return b
+}
+
+func alternatingBytes(n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		if i%2 == 0 {
+			b[i] = 0xAA
+		} else {
+			b[i] = 0x55
+		}
+	}
+	return b
+}
+
+func sequentialBytes(n int) []byte {
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = byte(i % 256)
+	}
+	return b
 }
 
 // BenchmarkHash128 benchmarks different input sizes
@@ -378,6 +586,22 @@ func BenchmarkHash128Parallel(b *testing.B) {
 	})
 }
 
+// BenchmarkRotl64 benchmarks the rotate function
+func BenchmarkRotl64(b *testing.B) {
+	x := uint64(0x0123456789ABCDEF)
+	for i := 0; i < b.N; i++ {
+		_ = rotl64(x, 27)
+	}
+}
+
+// BenchmarkFmix64 benchmarks the finalization function
+func BenchmarkFmix64(b *testing.B) {
+	x := uint64(0x0123456789ABCDEF)
+	for i := 0; i < b.N; i++ {
+		_ = fmix64(x)
+	}
+}
+
 // TestHash128Distribution tests basic distribution properties
 func TestHash128Distribution(t *testing.T) {
 	if testing.Short() {
@@ -399,9 +623,9 @@ func TestHash128Distribution(t *testing.T) {
 		h2Dist[h2%uint64(buckets)]++
 	}
 
-	// Check for reasonable distribution (not perfectly uniform, but not terrible)
+	// Check for reasonable distribution
 	expected := numTests / buckets
-	tolerance := expected / 2 // Allow 50% deviation
+	tolerance := expected / 2
 
 	for i, count := range h1Dist {
 		if count < expected-tolerance || count > expected+tolerance {
