@@ -117,6 +117,10 @@ func TestManageTCProgram(t *testing.T) {
 	err = ManageTCProgram(link, prog, 999)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "invalid mode in ManageTCProgramByFd")
+	
+	// Test valid modes to ensure wrapper calls through correctly
+	_ = ManageTCProgram(link, prog, constants.TC_ATTACH)
+	_ = ManageTCProgram(link, prog, constants.TC_DETACH)
 }
 
 func TestGetVethPeerIndexFromName_NonExistentInterface(t *testing.T) {
@@ -541,4 +545,45 @@ func TestConstants(t *testing.T) {
 	if err2 != nil {
 		assert.NotContains(t, err2.Error(), "invalid mode")
 	}
+}
+
+// Additional test to cover edge case in IfaceContainIPs where we have both matching and non-matching IPs
+func TestIfaceContainIPs_MixedValidInvalid(t *testing.T) {
+	loopbackIface, err := net.InterfaceByName("lo")
+	if err != nil {
+		t.Skip("Loopback interface not available")
+	}
+
+	// Test with mix of valid matching, valid non-matching, and invalid IPs
+	mixedIPs := []string{
+		"invalid",
+		"192.168.1.1", // valid but not matching
+		"", // empty
+		"127.0.0.1", // valid and matching
+		"not-an-ip",
+	}
+
+	result, err := IfaceContainIPs(*loopbackIface, mixedIPs)
+	assert.NoError(t, err)
+	assert.True(t, result, "Should find the matching IP despite invalid entries")
+}
+
+// Test early return when matching IP is found
+func TestIfaceContainIPs_EarlyReturn(t *testing.T) {
+	loopbackIface, err := net.InterfaceByName("lo")
+	if err != nil {
+		t.Skip("Loopback interface not available")
+	}
+
+	// Put matching IP first to test early return
+	ipsMatchFirst := []string{"127.0.0.1", "192.168.1.1", "10.0.0.1"}
+	result, err := IfaceContainIPs(*loopbackIface, ipsMatchFirst)
+	assert.NoError(t, err)
+	assert.True(t, result)
+
+	// Put matching IP last to ensure full iteration works
+	ipsMatchLast := []string{"192.168.1.1", "10.0.0.1", "127.0.0.1"}
+	result, err = IfaceContainIPs(*loopbackIface, ipsMatchLast)
+	assert.NoError(t, err)
+	assert.True(t, result)
 }
