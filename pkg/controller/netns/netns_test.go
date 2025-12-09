@@ -368,7 +368,11 @@ func TestProcessEntry_WithRealFilesystem(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create temp dir: %v", err)
 	}
-	defer os.RemoveAll(tmpDir)
+	defer func() {
+		if err := os.RemoveAll(tmpDir); err != nil {
+			t.Logf("Failed to remove temp dir: %v", err)
+		}
+	}()
 
 	podUID := "abc123-def456-ghi789"
 
@@ -579,41 +583,6 @@ func createMockDirEntry(name string, isDir bool) fs.DirEntry {
 	return mockDirEntry{name: name, isDir: isDir}
 }
 
-// Integration test helper
-func createMockProcFS(t *testing.T, podUID string) (string, func()) {
-	tmpDir, err := os.MkdirTemp("", "mock-proc-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-
-	procDir := filepath.Join(tmpDir, "1234")
-	nsDir := filepath.Join(procDir, "ns")
-
-	if err := os.MkdirAll(nsDir, 0755); err != nil {
-		_ = os.RemoveAll(tmpDir)
-		t.Fatalf("Failed to create ns dir: %v", err)
-	}
-
-	netFile := filepath.Join(nsDir, "net")
-	if err := os.WriteFile(netFile, []byte{}, 0644); err != nil {
-		_ = os.RemoveAll(tmpDir)
-		t.Fatalf("Failed to create net file: %v", err)
-	}
-
-	cgroupFile := filepath.Join(procDir, "cgroup")
-	cgroupContent := "12:pids:/kubepods/pod" + podUID + "\n"
-	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0644); err != nil {
-		_ = os.RemoveAll(tmpDir)
-		t.Fatalf("Failed to create cgroup file: %v", err)
-	}
-
-	cleanup := func() {
-		_ = os.RemoveAll(tmpDir)
-	}
-
-	return tmpDir, cleanup
-}
-
 func TestMultipleProcessEntries(t *testing.T) {
 	// Test processing multiple process entries
 	mockFS := fstest.MapFS{
@@ -643,11 +612,16 @@ func TestMultipleProcessEntries(t *testing.T) {
 	netnsObserved := sets.New[uint64]()
 
 	for i, entry := range entries {
-		filterUID := types.UID("111-111-111")
-		if i == 1 {
+		var filterUID types.UID
+		switch i {
+		case 0:
+			filterUID = "111-111-111"
+		case 1:
 			filterUID = "222-222-222"
-		} else if i == 2 {
+		case 2:
 			filterUID = "333-333-333"
+		default:
+			filterUID = "111-111-111"
 		}
 
 		result, err := processEntry(mockFS, netnsObserved, filterUID, entry)
