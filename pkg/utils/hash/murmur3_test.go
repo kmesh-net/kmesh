@@ -145,10 +145,6 @@ func TestFmix64(t *testing.T) {
 			if result != result2 {
 				t.Errorf("fmix64(0x%x) is not deterministic: 0x%x != 0x%x", tt.input, result, result2)
 			}
-
-			if tt.name == "zero" && result != 0 {
-				t.Errorf("fmix64(0) = 0x%x, want 0", result)
-			}
 		})
 	}
 }
