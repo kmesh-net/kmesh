@@ -122,9 +122,9 @@ func processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter types.UID, 
 		return "", nil
 	}
 	defer func() {
-		if closeErr := cgroup.Close(); closeErr != nil {
+		if err := cgroup.Close(); err != nil {
 			// Log the error or handle it appropriately
-			log.Errorf("Failed to close cgroup file: %v", closeErr)
+			log.Errorf("Failed to close cgroup file: %v", err)
 		}
 	}()
 

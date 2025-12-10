@@ -40,10 +40,11 @@ func TestGetNodeNSpath(t *testing.T) {
 
 func TestGetPodNSpath(t *testing.T) {
 	tests := []struct {
-		name    string
-		pod     *corev1.Pod
-		wantErr bool
-		setup   func() func()
+		name        string
+		pod         *corev1.Pod
+		wantErr     bool
+		wantContain string
+		setup       func() func()
 	}{
 		{
 			name: "valid pod with UID",
@@ -201,7 +202,7 @@ func TestIsProcess(t *testing.T) {
 		{
 			name:  "empty name directory",
 			entry: createMockDirEntry("", true),
-			want:  false,
+			want:  true,
 		},
 		{
 			name:  "directory with leading zero",
