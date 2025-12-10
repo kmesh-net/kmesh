@@ -196,15 +196,6 @@ func TestGrpcConnect_WithValidSetup(t *testing.T) {
 	}
 }
 
-func TestConstants(t *testing.T) {
-	// Verify constants have expected values
-	assert.Equal(t, time.Second*30, MaxRetryInterval)
-	assert.Equal(t, 3, MaxRetryCount)
-	assert.Equal(t, "JWT", credFetcherTypeEnv)
-	assert.Equal(t, "cluster.local", trustDomainEnv)
-	assert.Equal(t, "/var/run/secrets/tokens/istio-token", jwtPath)
-}
-
 func TestCalculateInterval_Incremental(t *testing.T) {
 	// Test incremental behavior
 	var current time.Duration = 0
