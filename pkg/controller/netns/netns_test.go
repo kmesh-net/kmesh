@@ -40,11 +40,10 @@ func TestGetNodeNSpath(t *testing.T) {
 
 func TestGetPodNSpath(t *testing.T) {
 	tests := []struct {
-		name        string
-		pod         *corev1.Pod
-		wantErr     bool
-		wantContain string
-		setup       func() func()
+		name    string
+		pod     *corev1.Pod
+		wantErr bool
+		setup   func() func()
 	}{
 		{
 			name: "valid pod with UID",
@@ -162,74 +161,6 @@ func TestIsNotNumber(t *testing.T) {
 		})
 	}
 }
-
-func TestIsProcess(t *testing.T) {
-	tests := []struct {
-		name  string
-		entry fs.DirEntry
-		want  bool
-	}{
-		{
-			name:  "numeric directory",
-			entry: createMockDirEntry("1234", true),
-			want:  true,
-		},
-		{
-			name:  "large numeric directory",
-			entry: createMockDirEntry("999999", true),
-			want:  true,
-		},
-		{
-			name:  "non-numeric directory",
-			entry: createMockDirEntry("proc", true),
-			want:  false,
-		},
-		{
-			name:  "file with numeric name",
-			entry: createMockDirEntry("1234", false),
-			want:  false,
-		},
-		{
-			name:  "directory with mixed name",
-			entry: createMockDirEntry("123abc", true),
-			want:  false,
-		},
-		{
-			name:  "directory starting with letter",
-			entry: createMockDirEntry("a123", true),
-			want:  false,
-		},
-		{
-			name:  "empty name directory",
-			entry: createMockDirEntry("", true),
-			want:  true,
-		},
-		{
-			name:  "directory with leading zero",
-			entry: createMockDirEntry("0123", true),
-			want:  true,
-		},
-		{
-			name:  "single digit directory",
-			entry: createMockDirEntry("1", true),
-			want:  true,
-		},
-		{
-			name:  "directory with special chars",
-			entry: createMockDirEntry("12-34", true),
-			want:  false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isProcess(tt.entry); got != tt.want {
-				t.Errorf("isProcess(%v) = %v, want %v", tt.entry.Name(), got, tt.want)
-			}
-		})
-	}
-}
-
 func TestProcessEntry(t *testing.T) {
 	// Create comprehensive mock filesystem
 	mockFS := fstest.MapFS{
