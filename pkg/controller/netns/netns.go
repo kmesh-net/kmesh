@@ -78,7 +78,7 @@ func FindNetnsForPod(pod *corev1.Pod) (string, error) {
 			return res, nil
 		}
 	}
-	return "", fmt.Errorf("No matching network namespace found")
+	return "", fmt.Errorf("no matching network namespace found")
 }
 
 func isNotNumber(r rune) bool {
@@ -121,7 +121,12 @@ func processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter types.UID, 
 	if err != nil {
 		return "", nil
 	}
-	defer cgroup.Close()
+	defer func() {
+		if err := cgroup.Close(); err != nil {
+			// Log the error or handle it appropriately
+			log.Errorf("Failed to close cgroup file: %v", err)
+		}
+	}()
 
 	var cgroupData bytes.Buffer
 	_, err = io.Copy(&cgroupData, cgroup)
