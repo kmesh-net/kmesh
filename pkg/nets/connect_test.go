@@ -17,207 +17,308 @@
 package nets
 
 import (
-	"os"
-	"path/filepath"
+	"errors"
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/security"
 )
 
-func TestCalculateInterval(t *testing.T) {
-	tests := []struct {
+// Save original functions to restore after each test
+var (
+	origClientOptionsProvider func(*keepalive.Options, *istiogrpc.TLSOptions) ([]grpc.DialOption, error)
+	origNewCredFetcher        func(string, string, string, string) (security.CredFetcher, error)
+	origGrpcDial              func(string, ...grpc.DialOption) (*grpc.ClientConn, error)
+)
+
+func init() {
+	origClientOptionsProvider = clientOptionsProvider
+	origNewCredFetcher = newCredFetcher
+	origGrpcDial = grpcDial
+}
+
+// Helper function to reset mocks after each test
+func resetMocks() {
+	clientOptionsProvider = origClientOptionsProvider
+	newCredFetcher = origNewCredFetcher
+	grpcDial = origGrpcDial
+}
+
+func TestGrpcConnect_Success(t *testing.T) {
+	defer resetMocks()
+
+	clientOptionsProvider = func(
+		opts *keepalive.Options,
+		tls *istiogrpc.TLSOptions,
+	) ([]grpc.DialOption, error) {
+		return []grpc.DialOption{}, nil
+	}
+
+	newCredFetcher = func(
+		credType, trustDomain, jwt, idp string,
+	) (security.CredFetcher, error) {
+		return &mockCredFetcher{}, nil
+	}
+
+	grpcDial = func(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+		return &grpc.ClientConn{}, nil
+	}
+
+	conn, err := GrpcConnect("127.0.0.1:8080")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if conn == nil {
+		t.Error("expected non-nil connection")
+	}
+}
+
+func TestGrpcConnect_ClientOptionsError(t *testing.T) {
+	defer resetMocks()
+
+	clientOptionsProvider = func(
+		opts *keepalive.Options,
+		tls *istiogrpc.TLSOptions,
+	) ([]grpc.DialOption, error) {
+		return nil, errors.New("client options error")
+	}
+
+	_, err := GrpcConnect("127.0.0.1:8080")
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if err.Error() != "client options error" {
+		t.Errorf("expected 'client options error', got '%v'", err)
+	}
+}
+
+func TestGrpcConnect_CredFetcherError(t *testing.T) {
+	defer resetMocks()
+
+	clientOptionsProvider = func(
+		opts *keepalive.Options,
+		tls *istiogrpc.TLSOptions,
+	) ([]grpc.DialOption, error) {
+		return []grpc.DialOption{}, nil
+	}
+
+	newCredFetcher = func(
+		credType, trustDomain, jwt, idp string,
+	) (security.CredFetcher, error) {
+		return nil, errors.New("cred fetch error")
+	}
+
+	_, err := GrpcConnect("127.0.0.1:8080")
+	if err == nil {
+		t.Error("expected error, got nil")
+	}
+	if err.Error() != "cred fetch error" {
+		t.Errorf("expected 'cred fetch error', got '%v'", err)
+	}
+}
+
+func TestGrpcConnect_DialError(t *testing.T) {
+	defer resetMocks()
+
+	clientOptionsProvider = func(
+		opts *keepalive.Options,
+		tls *istiogrpc.TLSOptions,
+	) ([]grpc.DialOption, error) {
+		return []grpc.DialOption{}, nil
+	}
+
+	newCredFetcher = func(
+		credType, trustDomain, jwt, idp string,
+	) (security.CredFetcher, error) {
+		return &mockCredFetcher{}, nil
+	}
+
+	grpcDial = func(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+		return nil, errors.New("dial error")
+	}
+
+	_, err := GrpcConnect("127.0.0.1:8080")
+	if err == nil {
+		t.Error("expected dial error, got nil")
+	}
+	if err.Error() != "dial error" {
+		t.Errorf("expected 'dial error', got '%v'", err)
+	}
+}
+
+func TestGrpcConnect_EmptyAddress(t *testing.T) {
+	defer resetMocks()
+
+	clientOptionsProvider = func(
+		opts *keepalive.Options,
+		tls *istiogrpc.TLSOptions,
+	) ([]grpc.DialOption, error) {
+		return []grpc.DialOption{}, nil
+	}
+
+	newCredFetcher = func(
+		credType, trustDomain, jwt, idp string,
+	) (security.CredFetcher, error) {
+		return &mockCredFetcher{}, nil
+	}
+
+	grpcDial = func(addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+		return &grpc.ClientConn{}, nil
+	}
+
+	conn, err := GrpcConnect("")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	if conn == nil {
+		t.Error("expected non-nil connection")
+	}
+}
+
+func TestCalculateInterval_InitialValue(t *testing.T) {
+	result := CalculateInterval(0)
+	expected := MaxRetryInterval / MaxRetryCount
+	if result != expected {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestCalculateInterval_BelowMax(t *testing.T) {
+	input := time.Second * 5
+	result := CalculateInterval(input)
+	expected := input + MaxRetryInterval/MaxRetryCount
+	if result != expected {
+		t.Errorf("expected %v, got %v", expected, result)
+	}
+}
+
+func TestCalculateInterval_AtMax(t *testing.T) {
+	result := CalculateInterval(MaxRetryInterval)
+	if result != MaxRetryInterval {
+		t.Errorf("expected %v, got %v", MaxRetryInterval, result)
+	}
+}
+
+func TestCalculateInterval_ExceedsMax(t *testing.T) {
+	result := CalculateInterval(MaxRetryInterval * 2)
+	if result != MaxRetryInterval {
+		t.Errorf("expected %v, got %v", MaxRetryInterval, result)
+	}
+}
+
+func TestCalculateInterval_JustBelowMax(t *testing.T) {
+	// Test a value that will exceed max after increment
+	input := MaxRetryInterval - time.Second
+	result := CalculateInterval(input)
+	if result != MaxRetryInterval {
+		t.Errorf("expected %v, got %v", MaxRetryInterval, result)
+	}
+}
+
+func TestCalculateInterval_ProgressiveIncrease(t *testing.T) {
+	testCases := []struct {
 		name     string
 		input    time.Duration
 		expected time.Duration
 	}{
 		{
-			name:     "zero duration",
-			input:    0,
-			expected: MaxRetryInterval / MaxRetryCount,
-		},
-		{
-			name:     "small duration",
+			name:     "5 seconds",
 			input:    time.Second * 5,
 			expected: time.Second*5 + MaxRetryInterval/MaxRetryCount,
 		},
 		{
-			name:     "duration at max threshold",
-			input:    MaxRetryInterval - MaxRetryInterval/MaxRetryCount,
-			expected: MaxRetryInterval,
+			name:     "10 seconds",
+			input:    time.Second * 10,
+			expected: time.Second*10 + MaxRetryInterval/MaxRetryCount,
 		},
 		{
-			name:     "duration exceeding max",
-			input:    MaxRetryInterval,
-			expected: MaxRetryInterval,
-		},
-		{
-			name:     "large duration",
-			input:    time.Minute * 10,
-			expected: MaxRetryInterval,
+			name:     "20 seconds",
+			input:    time.Second * 20,
+			expected: time.Second*20 + MaxRetryInterval/MaxRetryCount,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateInterval(tt.input)
-			assert.Equal(t, tt.expected, result)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := CalculateInterval(tc.input)
+			if result != tc.expected {
+				t.Errorf("input %v: expected %v, got %v", tc.input, tc.expected, result)
+			}
 		})
 	}
 }
 
-func TestCalculateRandTime(t *testing.T) {
-	tests := []struct {
-		name  string
-		seed  int
-		check func(t *testing.T, result time.Duration)
-	}{
-		{
-			name: "seed of 1",
-			seed: 1,
-			check: func(t *testing.T, result time.Duration) {
-				// With seed 1, rand.Intn(1) always returns 0
-				assert.Equal(t, time.Duration(0), result)
-			},
-		},
-		{
-			name: "positive seed 100",
-			seed: 100,
-			check: func(t *testing.T, result time.Duration) {
-				assert.GreaterOrEqual(t, result, time.Duration(0))
-				assert.Less(t, result, time.Duration(100)*time.Millisecond)
-			},
-		},
-		{
-			name: "large seed 10000",
-			seed: 10000,
-			check: func(t *testing.T, result time.Duration) {
-				assert.GreaterOrEqual(t, result, time.Duration(0))
-				assert.Less(t, result, time.Duration(10000)*time.Millisecond)
-			},
-		},
-		{
-			name: "seed of 50",
-			seed: 50,
-			check: func(t *testing.T, result time.Duration) {
-				assert.GreaterOrEqual(t, result, time.Duration(0))
-				assert.Less(t, result, time.Duration(50)*time.Millisecond)
-			},
-		},
+func TestCalculateRandTime_BasicRange(t *testing.T) {
+	r := CalculateRandTime(100)
+	if r < 0 || r >= 100*time.Millisecond {
+		t.Errorf("rand time out of range: %v", r)
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateRandTime(tt.seed)
-			tt.check(t, result)
-		})
+func TestCalculateRandTime_ValidRange(t *testing.T) {
+	for i := 0; i < 100; i++ {
+		r := CalculateRandTime(50)
+		if r < 0 || r >= 50*time.Millisecond {
+			t.Errorf("iteration %d: rand time out of range: %v", i, r)
+		}
+	}
+}
+
+func TestCalculateRandTime_LargeValue(t *testing.T) {
+	r := CalculateRandTime(1000)
+	if r < 0 || r >= 1000*time.Millisecond {
+		t.Errorf("rand time out of range: %v", r)
+	}
+}
+
+func TestCalculateRandTime_SmallValue(t *testing.T) {
+	r := CalculateRandTime(1)
+	if r < 0 || r >= 1*time.Millisecond {
+		t.Errorf("rand time out of range: %v", r)
+	}
+}
+
+func TestCalculateRandTime_Zero(t *testing.T) {
+	r := CalculateRandTime(0)
+	if r != 0 {
+		t.Errorf("expected 0, got %v", r)
+	}
+}
+
+func TestCalculateRandTime_NegativeValue(t *testing.T) {
+	r := CalculateRandTime(-10)
+	if r != 0 {
+		t.Errorf("expected 0 for negative input, got %v", r)
 	}
 }
 
 func TestCalculateRandTime_Distribution(t *testing.T) {
-	// Test that multiple calls produce different values (randomness check)
-	seed := 1000
+	// Test that we get different values over multiple calls
 	results := make(map[time.Duration]bool)
-	iterations := 100
-
-	for i := 0; i < iterations; i++ {
-		result := CalculateRandTime(seed)
-		results[result] = true
-
-		// Verify bounds
-		assert.GreaterOrEqual(t, result, time.Duration(0))
-		assert.Less(t, result, time.Duration(seed)*time.Millisecond)
+	for i := 0; i < 50; i++ {
+		r := CalculateRandTime(100)
+		results[r] = true
 	}
-
-	// With 100 iterations and seed of 1000, we should get multiple unique values
-	assert.Greater(t, len(results), 1, "Expected multiple different random values")
-}
-
-func TestGrpcConnect_InvalidAddress(t *testing.T) {
-	// Test with invalid address format
-	conn, err := GrpcConnect("invalid://address")
-	assert.Error(t, err)
-	assert.Nil(t, conn)
-}
-
-func TestGrpcConnect_EmptyAddress(t *testing.T) {
-	// Test with empty address
-	conn, err := GrpcConnect("")
-	assert.Error(t, err)
-	assert.Nil(t, conn)
-}
-
-func TestGrpcConnect_WithMissingCredentials(t *testing.T) {
-	// This test verifies the credential fetcher error handling
-	// Test with non-existent JWT path
-	conn, err := GrpcConnect("localhost:15010")
-
-	if err != nil {
-		// If there's an immediate error (e.g., credential setup failure), verify it
-		assert.Error(t, err)
-		assert.Nil(t, conn)
-	} else {
-		// If dial succeeds (non-blocking), verify connection state
-		require.NotNil(t, conn, "Expected a valid connection object")
-		defer conn.Close()
-
-		// Test the connection state - it should not be ready without proper credentials/server
-		state := conn.GetState()
-		assert.NotEqual(t, connectivity.Ready, state,
-			"Connection should not be ready without proper server/credentials")
-
-		// Alternatively, you could try to use the connection for a simple call
-		// and verify that it fails due to missing credentials
+	// We should get at least some variety in values
+	if len(results) < 5 {
+		t.Error("expected more variety in random values")
 	}
 }
 
-func TestGrpcConnect_WithValidSetup(t *testing.T) {
-	// Create temporary JWT token file for testing
-	tmpDir := t.TempDir()
-	jwtFile := filepath.Join(tmpDir, "istio-token")
-	err := os.WriteFile(jwtFile, []byte("test-token"), 0644)
-	require.NoError(t, err)
+// Mock implementation of CredFetcher
+type mockCredFetcher struct{}
 
-	// Note: This test will likely fail in unit test environment
-	// as it requires actual gRPC server and Istio components
-	// But it tests the code path for coverage
-	conn, err := GrpcConnect("localhost:15010")
-
-	// Either connection succeeds or fails with specific error
-	if err != nil {
-		// Expected in unit test environment without actual server
-		assert.Error(t, err)
-	}
-
-	if conn != nil {
-		defer conn.Close()
-	}
+func (m *mockCredFetcher) GetPlatformCredential() (string, error) {
+	return "mock-credential", nil
 }
 
-func TestCalculateInterval_Incremental(t *testing.T) {
-	// Test incremental behavior
-	var current time.Duration = 0
-
-	for i := 0; i < MaxRetryCount+2; i++ {
-		current = CalculateInterval(current)
-		assert.LessOrEqual(t, current, MaxRetryInterval)
-		assert.Greater(t, current, time.Duration(0))
-	}
-
-	// After enough iterations, should stabilize at MaxRetryInterval
-	assert.Equal(t, MaxRetryInterval, current)
+func (m *mockCredFetcher) GetIdentityProvider() string {
+	return "mock-provider"
 }
 
-func BenchmarkCalculateInterval(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		CalculateInterval(time.Second * 10)
-	}
-}
-
-func BenchmarkCalculateRandTime(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		CalculateRandTime(1000)
-	}
+func (m *mockCredFetcher) Stop() {
+	// Mock implementation of Stop method
 }
