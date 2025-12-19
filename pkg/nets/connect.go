@@ -41,6 +41,13 @@ const (
 	jwtPath            = "/var/run/secrets/tokens/istio-token"
 )
 
+// Variables for dependency injection (allows mocking in tests)
+var (
+	clientOptionsProvider = istiogrpc.ClientOptions
+	newCredFetcher        = credentialfetcher.NewCredFetcher
+	grpcDial              = grpc.Dial
+)
+
 // GrpcConnect creates a client connection to the given addr
 func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	var (
@@ -53,12 +60,12 @@ func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 		ServerAddress: addr,
 	}
 
-	opts, err := istiogrpc.ClientOptions(nil, tlsOptions)
+	opts, err := clientOptionsProvider(nil, tlsOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	credFetcher, err := credentialfetcher.NewCredFetcher(credFetcherTypeEnv, trustDomainEnv, jwtPath, "")
+	credFetcher, err := newCredFetcher(credFetcherTypeEnv, trustDomainEnv, jwtPath, "")
 	if err != nil {
 		return nil, err
 	}
@@ -67,7 +74,7 @@ func GrpcConnect(addr string) (*grpc.ClientConn, error) {
 	}
 	opts = append(opts, grpc.WithPerRPCCredentials(caclient.NewDefaultTokenProvider(o)))
 
-	if conn, err = grpc.Dial(addr, opts...); err != nil {
+	if conn, err = grpcDial(addr, opts...); err != nil {
 		return nil, err
 	}
 
@@ -85,5 +92,8 @@ func CalculateInterval(t time.Duration) time.Duration {
 
 // CalculateRandTime returns a non-negative pseudo-random time in the half-open interval [0,sed)
 func CalculateRandTime(sed int) time.Duration {
+	if sed <= 0 {
+		return 0
+	}
 	return time.Duration(rand.Intn(sed)) * time.Millisecond
 }
