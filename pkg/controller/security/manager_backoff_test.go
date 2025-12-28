@@ -18,7 +18,6 @@ package security
 
 import (
 	"errors"
-	"math/rand"
 	"sync"
 	"testing"
 	"time"
@@ -64,10 +63,6 @@ func (m *mockQueue) ShutDown()                                 {}
 func (m *mockQueue) ShuttingDown() bool                        { return false }
 func (m *mockQueue) AddAfter(item any, duration time.Duration) {}
 func (m *mockQueue) ShutDownWithDrain()                        {}
-
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
 
 func TestBackoff(t *testing.T) {
 	t.Run("TestBackoffCalculation", func(t *testing.T) {
