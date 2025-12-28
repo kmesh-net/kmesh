@@ -209,7 +209,6 @@ func (s *SecretManager) rotateCerts() {
 func (s *SecretManager) fetchCert(identity string) {
 	newCert, err := s.caClient.FetchCert(identity)
 	if err != nil {
-		log.Errorf("fetchCert for [%v] error: %v", identity, err)
 		// backoff retry
 		delay := s.handleFetchError(identity, err)
 		time.AfterFunc(delay, func() {
