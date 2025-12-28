@@ -17,6 +17,8 @@
 package security
 
 import (
+	"math"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -29,9 +31,15 @@ import (
 
 var log = logger.NewLoggerScope("security")
 
+var (
+	baseRetryInterval = 500 * time.Millisecond
+	maxRetryInterval  = 30 * time.Second
+)
+
 type certItem struct {
-	cert   *istiosecurity.SecretItem
-	refCnt int32
+	cert    *istiosecurity.SecretItem
+	refCnt  int32
+	failCnt int
 }
 
 type certsCache struct {
@@ -119,6 +127,9 @@ func (s *SecretManager) StoreCert(identity string, newCert *istiosecurity.Secret
 		log.Debugf("%v has been deleted", identity)
 		return
 	}
+
+	existing.failCnt = 0
+
 	// if the new cert expire time is before the existing one, it means the new cert is actually signed earlier,
 	// just ignore it.
 	if existing.cert != nil && newCert.ExpireTime.Before(existing.cert.ExpireTime) {
@@ -194,13 +205,14 @@ func (s *SecretManager) rotateCerts() {
 	}
 }
 
-// addCert signs a cert for the identity and cache it.
+// fetchCert signs a cert for the identity and cache it.
 func (s *SecretManager) fetchCert(identity string) {
 	newCert, err := s.caClient.FetchCert(identity)
 	if err != nil {
 		log.Errorf("fetchCert for [%v] error: %v", identity, err)
-		// TODO: backoff retry
-		time.AfterFunc(time.Second, func() {
+		// backoff retry
+		delay := s.handleFetchError(identity, err)
+		time.AfterFunc(delay, func() {
 			s.SendCertRequest(identity, RETRY)
 		})
 		return
@@ -208,6 +220,30 @@ func (s *SecretManager) fetchCert(identity string) {
 
 	// Save the new certificate in the map and add a record to the rotate queue
 	s.StoreCert(identity, newCert)
+}
+
+// handleFetchError handles the exponential backoff calculation logic for a failed certificate fetch retry
+func (s *SecretManager) handleFetchError(identity string, err error) time.Duration {
+	s.certsCache.mu.Lock()
+	defer s.certsCache.mu.Unlock()
+
+	item, exists := s.certsCache.certs[identity]
+	if !exists {
+		return 0
+	}
+
+	item.failCnt++
+
+	delayInFloat := math.Pow(2, float64(item.failCnt)) * float64(baseRetryInterval)
+	delay := time.Duration(math.Min(delayInFloat, float64(maxRetryInterval)))
+
+	jitter := time.Duration(rand.Float64()*float64(delay)*0.2) - time.Duration(float64(delay)*0.1)
+	delay = max(delay+jitter, baseRetryInterval)
+
+	log.Errorf("fetchCert for [%v] error: %v. Retrying in %v (attempt %d)",
+		identity, err, delay, item.failCnt)
+
+	return delay
 }
 
 // Set the removed to true for the items in the certsRotateQueue priority queue.
