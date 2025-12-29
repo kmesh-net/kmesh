@@ -17,11 +17,10 @@
 package security
 
 import (
-	"math"
-	"math/rand"
 	"sync"
 	"time"
 
+	"github.com/cenkalti/backoff/v5"
 	istiosecurity "istio.io/istio/pkg/security"
 	"k8s.io/client-go/util/workqueue"
 
@@ -39,7 +38,7 @@ var (
 type certItem struct {
 	cert    *istiosecurity.SecretItem
 	refCnt  int32
-	failCnt int
+	backoff *backoff.ExponentialBackOff
 }
 
 type certsCache struct {
@@ -128,7 +127,10 @@ func (s *SecretManager) StoreCert(identity string, newCert *istiosecurity.Secret
 		return
 	}
 
-	existing.failCnt = 0
+	// Reset the backoff on success
+	if existing.backoff != nil {
+		existing.backoff.Reset()
+	}
 
 	// if the new cert expire time is before the existing one, it means the new cert is actually signed earlier,
 	// just ignore it.
@@ -140,6 +142,15 @@ func (s *SecretManager) StoreCert(identity string, newCert *istiosecurity.Secret
 	// push to rotate queue one hour before cert expire
 	s.certsRotateQueue.AddAfter(identity, time.Until(newCert.ExpireTime.Add(-1*time.Hour)))
 	log.Debugf("cert %v added to rotation queue, exp: %v", identity, newCert.ExpireTime)
+}
+
+func newBackOff() *backoff.ExponentialBackOff {
+	b := backoff.NewExponentialBackOff()
+	b.InitialInterval = baseRetryInterval
+	b.MaxInterval = maxRetryInterval
+	b.RandomizationFactor = 0.5
+	b.Multiplier = 2.0
+	return b
 }
 
 // addOrUpdate checks whether the certificate already exists.
@@ -221,7 +232,7 @@ func (s *SecretManager) fetchCert(identity string) {
 	s.StoreCert(identity, newCert)
 }
 
-// handleFetchError handles the exponential backoff calculation logic for a failed certificate fetch retry
+// handleFetchError handles the exponential backoff logic
 func (s *SecretManager) handleFetchError(identity string, err error) time.Duration {
 	s.certsCache.mu.Lock()
 	defer s.certsCache.mu.Unlock()
@@ -231,16 +242,9 @@ func (s *SecretManager) handleFetchError(identity string, err error) time.Durati
 		return 0
 	}
 
-	item.failCnt++
+	delay := item.backoff.NextBackOff()
 
-	delayInFloat := math.Pow(2, float64(item.failCnt)) * float64(baseRetryInterval)
-	delay := time.Duration(math.Min(delayInFloat, float64(maxRetryInterval)))
-
-	jitter := time.Duration(rand.Float64()*float64(delay)*0.2) - time.Duration(float64(delay)*0.1)
-	delay = max(delay+jitter, baseRetryInterval)
-
-	log.Errorf("fetchCert for [%v] error: %v. Retrying in %v (attempt %d)",
-		identity, err, delay, item.failCnt)
+	log.Errorf("fetchCert for [%v] error: %v. Retrying in %v", identity, err, delay)
 
 	return delay
 }
