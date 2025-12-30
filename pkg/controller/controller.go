@@ -160,7 +160,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	}
 	// kmeshConfigMap.PeriodicReport initialized to uint32(0).
 	// If the startup parameter is true, update the kmeshConfigMap.
-	if c.bpfConfig.EnablePeriodicReport {
+	if c.bpfConfig.EnablePeriodicReport && c.bpfConfig.EnableMonitoring {
 		if err := c.loader.UpdateEnablePeriodicReport(constants.ENABLED); err != nil {
 			return fmt.Errorf("failed to update config in order to start periodic report: %v", err)
 		}
