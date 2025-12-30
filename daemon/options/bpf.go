@@ -26,13 +26,14 @@ import (
 )
 
 type BpfConfig struct {
-	Mode             string
-	BpfFsPath        string
-	Cgroup2Path      string
-	EnableMda        bool
-	EnableMonitoring bool
-	EnableProfiling  bool
-	EnableIPsec      bool
+	Mode                 string
+	BpfFsPath            string
+	Cgroup2Path          string
+	EnableMda            bool
+	EnableMonitoring     bool
+	EnablePeriodicReport bool
+	EnableProfiling      bool
+	EnableIPsec          bool
 }
 
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
@@ -41,6 +42,7 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "dual-engine", "controller plane mode, valid values are [kernel-native, dual-engine]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 	cmd.PersistentFlags().BoolVar(&c.EnableMonitoring, "monitoring", true, "enable kmesh traffic monitoring in daemon process")
+	cmd.PersistentFlags().BoolVar(&c.EnablePeriodicReport, "periodic-report", false, "enable kmesh periodic report in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnableProfiling, "profiling", false, "whether to enable profiling or not, default to false")
 	cmd.PersistentFlags().BoolVar(&c.EnableIPsec, "enable-ipsec", false, "enable ipsec encryption and authentication between nodes")
 }

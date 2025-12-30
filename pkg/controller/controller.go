@@ -158,6 +158,13 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			return fmt.Errorf("failed to update config in order to start metric: %v", err)
 		}
 	}
+	// kmeshConfigMap.PeriodicReport initialized to uint32(0).
+	// If the startup parameter is true, update the kmeshConfigMap.
+	if c.bpfConfig.EnablePeriodicReport {
+		if err := c.loader.UpdateEnablePeriodicReport(constants.ENABLED); err != nil {
+			return fmt.Errorf("failed to update config in order to start periodic report: %v", err)
+		}
+	}
 
 	c.client, err = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
 	if err != nil {

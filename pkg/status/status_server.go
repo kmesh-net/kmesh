@@ -262,12 +262,7 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("update bpf monitoring failed: %v", err), http.StatusBadRequest)
 		return
 	}
-
-	enablePeriodicReport := constants.DISABLED
-	if enabled {
-		enablePeriodicReport = constants.ENABLED
-	}
-	if err := s.loader.UpdateEnablePeriodicReport(enablePeriodicReport); err != nil {
+	if err := s.loader.UpdateEnablePeriodicReport(enableMonitoring); err != nil {
 		http.Error(w, fmt.Sprintf("update enable periodic report failed: %v", err), http.StatusBadRequest)
 		return
 	}
