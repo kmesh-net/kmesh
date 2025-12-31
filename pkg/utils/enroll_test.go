@@ -257,6 +257,11 @@ func TestShouldEnroll(t *testing.T) {
 }
 
 func TestHandleKmeshManage(t *testing.T) {
+	// Check if running as root - namespace operations require elevated privileges
+	if os.Geteuid() != 0 {
+		t.Skip("Test requires root privileges. Run with: sudo -E go test ./utils")
+	}
+
 	type args struct {
 		ns     string
 		enroll bool
@@ -305,6 +310,7 @@ func TestHandleKmeshManage(t *testing.T) {
 		})
 	}
 }
+
 func TestPatchKmeshRedirectAnnotation(t *testing.T) {
 	client := fake.NewSimpleClientset()
 	namespace := "test-namespace"
