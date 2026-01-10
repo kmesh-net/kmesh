@@ -210,10 +210,6 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	}
 	log.Infof("cni config file: %s", cniConfigFilePath)
 
-	/*
-	 TODO: add watcher for cniConfigFile
-	*/
-
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {
 		err = fmt.Errorf("failed to read cni config file %v : %v", cniConfigFilePath, err)
