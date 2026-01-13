@@ -4,9 +4,10 @@ metadata:
   name: add-listener-filter
   namespace: istio-system
 spec:
-  workloadSelector:
-    labels:
-      gateway.istio.io/managed: istio.io-mesh-controller
+  targetRefs:
+  - name: istio-waypoint 
+    kind: GatewayClass
+    group: gateway.networking.k8s.io
   configPatches:
   - applyTo: LISTENER
     patch:
@@ -81,9 +82,10 @@ metadata:
   name: skip-tunneling
   namespace: istio-system
 spec:
-  workloadSelector:
-    labels:
-      gateway.istio.io/managed: istio.io-mesh-controller
+  targetRefs:
+  - name: istio-waypoint 
+    kind: GatewayClass
+    group: gateway.networking.k8s.io
   configPatches:
   - applyTo: NETWORK_FILTER
     match:
@@ -108,9 +110,10 @@ metadata:
   name: add-original-dst-cluster
   namespace: istio-system
 spec:
-  workloadSelector:
-    labels:
-      gateway.istio.io/managed: istio.io-mesh-controller
+  targetRefs:
+  - name: istio-waypoint 
+    kind: GatewayClass
+    group: gateway.networking.k8s.io
   configPatches:
   - applyTo: CLUSTER
     match:

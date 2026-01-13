@@ -530,16 +530,17 @@ func TestWaypointEnvoyFilter(t *testing.T) {
 			if opt.Scheme != scheme.HTTP {
 				return
 			}
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
-				"Destination": "waypoint",
+			t.ConfigIstio().Eval("istio-system", map[string]string{
+				"Destination": "istio-waypoint",
 			}, `apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
   name: inbound
 spec:
-  workloadSelector:
-    labels:
-      gateway.networking.k8s.io/gateway-name: "{{.Destination}}"
+  targetRefs:
+  - group: gateway.networking.k8s.io
+    kind: GatewayClass
+    name: "{{.Destination}}"
   configPatches:
   - applyTo: HTTP_FILTER
     match:
