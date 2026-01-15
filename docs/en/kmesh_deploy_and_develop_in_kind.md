@@ -37,8 +37,8 @@ Let's start from setting up the required environment. You can follow the steps b
 + Install `istioctl`:
 
     ```shell
-    curl -L https://istio.io/downloadIstio | sh -
-    cd istio-1.22.2/bin
+    curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.28.2 sh -
+    cd istio-1.28.2/bin
     chmod +x istioctl
     mv istioctl /usr/bin/
     ```

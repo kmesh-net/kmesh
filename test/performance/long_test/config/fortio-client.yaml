@@ -10,7 +10,7 @@ spec:
   template:
     metadata:
       annotations:
-        sidecar.istio.io/proxyImage: "istio/proxyv2:1.15.3"
+        sidecar.istio.io/proxyImage: "istio/proxyv2:1.28.2"
         status.sidecar.istio.io/port: "0"
         proxy.istio.io/config: "{concurrency: 80}"
         sidecar.istio.io/proxyCPU: "1m" 

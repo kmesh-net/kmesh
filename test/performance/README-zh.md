@@ -21,8 +21,8 @@ Kmesh采用fortio、dstat做性能测试工具；fortio是一款功能强大的�
   - 下载并安装istio，参考[istio官方文档]( https://istio.io/latest/zh/docs/setup/getting-started/)
 
   ```sh
-  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.14.5 TARGET_ARCH=x86_64 sh -
-  cd istio-1.14.5
+  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.28.2 TARGET_ARCH=x86_64 sh -
+  cd istio-1.28.2
   export PATH=$PWD/bin:$PATH
   istioctl install 
   ```

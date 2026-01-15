@@ -21,8 +21,8 @@ The directory contains a group of test case configuration and script files, whic
   - Download and install istio. For details, see (<https://istio.io/latest/zh/docs/setup/getting-started/>).
 
   ```sh
-  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.14.5 TARGET_ARCH=x86_64 sh -
-  cd istio-1.14.5
+  curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.28.2 TARGET_ARCH=x86_64 sh -
+  cd istio-1.28.2
   export PATH=$PWD/bin:$PATH
   istioctl install 
   ```
