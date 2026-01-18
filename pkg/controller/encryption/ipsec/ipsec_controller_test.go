@@ -144,7 +144,7 @@ func prepareForController(t *testing.T) error {
 	return nil
 }
 
-func TestNewIPsecController(t *testing.T) {
+func TestNewController(t *testing.T) {
 	testCases := []struct {
 		name          string
 		setupEnv      func() func()
@@ -196,7 +196,7 @@ func TestNewIPsecController(t *testing.T) {
 			clientPatches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
 			defer clientPatches.Reset()
 
-			controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+			controller, err := NewController(k8sClient, mockMap, mockProg)
 
 			if test.expectedError {
 				assert.Error(t, err)
@@ -225,11 +225,11 @@ func TestHandleKNIEvents(t *testing.T) {
 	kmeshClient := fakeKmeshClientset.NewSimpleClientset()
 	patches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
 
-	prepare := func(t *testing.T) *IPSecController {
+	prepare := func(t *testing.T) *Controller {
 		// Create mock eBPF components
 		mockMap := &ebpf.Map{}
 		mockProg := &ebpf.Program{}
-		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+		controller, err := NewController(k8sClient, mockMap, mockProg)
 		assert.NoError(t, err)
 		assert.NotNil(t, controller)
 		return controller
@@ -294,7 +294,7 @@ func TestHandleKNIEvents(t *testing.T) {
 			deleteMapCallCount := 0
 			deleteMapPatches := gomonkey.NewPatches()
 			defer deleteMapPatches.Reset()
-			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "deleteKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) {
+			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "deleteKNIMapCIDR", func(c *Controller, remoteCIDR string, mapfd *ebpf.Map) {
 				deleteMapCallCount++
 				// Verify that the remoteCIDR is one of the remote node's PodCIDRs
 				assert.Contains(t, testRemoteNodeInfo.Spec.PodCIDRs, remoteCIDR)
@@ -324,7 +324,7 @@ func TestHandleKNIEvents(t *testing.T) {
 			deleteMapCalled := false
 			deleteMapPatches := gomonkey.NewPatches()
 			defer deleteMapPatches.Reset()
-			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "deleteKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) {
+			deleteMapPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "deleteKNIMapCIDR", func(c *Controller, remoteCIDR string, mapfd *ebpf.Map) {
 				deleteMapCalled = true
 			})
 
@@ -367,7 +367,7 @@ func TestMapOperations(t *testing.T) {
 	patches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
 
 	// Create controller
-	controller, err := NewIPsecController(k8sClient, kniMap, decryptProg)
+	controller, err := NewController(k8sClient, kniMap, decryptProg)
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 
@@ -423,12 +423,12 @@ func TestNodeOperations(t *testing.T) {
 	clientPatches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
 	defer clientPatches.Reset()
 
-	prepare := func(t *testing.T) (*IPSecController, chan struct{}) {
+	prepare := func(t *testing.T) (*Controller, chan struct{}) {
 		// Create mock eBPF components
 		mockMap := &ebpf.Map{}
 		mockProg := &ebpf.Program{}
 		stopCh := make(chan struct{})
-		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+		controller, err := NewController(k8sClient, mockMap, mockProg)
 		assert.NoError(t, err)
 		assert.NotNil(t, controller)
 		go controller.informer.Run(stopCh)
@@ -499,7 +499,7 @@ func TestNodeOperations(t *testing.T) {
 
 		// Patch handleOneNodeInfo
 		syncPatch := gomonkey.NewPatches()
-		syncPatch.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(c *IPSecController, node *v1alpha1.KmeshNodeInfo) error {
+		syncPatch.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(c *Controller, node *v1alpha1.KmeshNodeInfo) error {
 			if node.Name == testRemoteNodeInfo.Name { // test if get remote node info and ignore local node info
 				return nil
 			}
@@ -537,7 +537,7 @@ func TestNodeOperations(t *testing.T) {
 			}
 			return nil
 		})
-		patches.ApplyPrivateMethod(reflect.TypeOf(controller), "updateKNIMapCIDR", func(c *IPSecController, remoteCIDR string, mapfd *ebpf.Map) error {
+		patches.ApplyPrivateMethod(reflect.TypeOf(controller), "updateKNIMapCIDR", func(c *Controller, remoteCIDR string, mapfd *ebpf.Map) error {
 			// mock, remote node info should be same with testRemoteNodeInfo
 			if !podCIDRSet[remoteCIDR] {
 				return fmt.Errorf("remote node info podCIDRs is not equal")
@@ -571,12 +571,12 @@ func TestProcessNextItem(t *testing.T) {
 	clientPatches.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, kmeshClient, nil)
 	defer clientPatches.Reset()
 
-	prepare := func(t *testing.T) (*IPSecController, chan struct{}) {
+	prepare := func(t *testing.T) (*Controller, chan struct{}) {
 		// Create mock eBPF components
 		mockMap := &ebpf.Map{}
 		mockProg := &ebpf.Program{}
 
-		controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+		controller, err := NewController(k8sClient, mockMap, mockProg)
 		assert.NoError(t, err)
 		assert.NotNil(t, controller)
 
@@ -597,7 +597,7 @@ func TestProcessNextItem(t *testing.T) {
 
 		// Mock handleOneNodeInfo to avoid complex IPsec operations
 		handlerPatches := gomonkey.NewPatches()
-		handlerPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(_ *IPSecController, _ *v1alpha1.KmeshNodeInfo) error {
+		handlerPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(_ *Controller, _ *v1alpha1.KmeshNodeInfo) error {
 			return nil // Simulate success
 		})
 		defer handlerPatches.Reset()
@@ -628,7 +628,7 @@ func TestProcessNextItem(t *testing.T) {
 		// Add local node to queue
 		controller.queue.Add("test-local-node")
 		failPatches := gomonkey.NewPatches()
-		failPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(_ *IPSecController, _ *v1alpha1.KmeshNodeInfo) error {
+		failPatches.ApplyPrivateMethod(reflect.TypeOf(controller), "handleOneNodeInfo", func(_ *Controller, _ *v1alpha1.KmeshNodeInfo) error {
 			return fmt.Errorf("test error") // Simulate failure
 		})
 		defer failPatches.Reset()
@@ -672,7 +672,7 @@ func TestHandleTc(t *testing.T) {
 	mockProg := &ebpf.Program{}
 
 	// Create controller
-	controller, err := NewIPsecController(k8sClient, mockMap, mockProg)
+	controller, err := NewController(k8sClient, mockMap, mockProg)
 	require.NoError(t, err)
 	require.NotNil(t, controller)
 
@@ -748,5 +748,27 @@ func TestHandleTc(t *testing.T) {
 				assert.NoError(t, err)
 			}
 		})
+	}
+}
+
+func TestNewController_Coverage(t *testing.T) {
+	// 1. Setup mock requirements
+	k8sClient := fake.NewSimpleClientset()
+	mockMap := &ebpf.Map{}
+	mockProg := &ebpf.Program{}
+
+	// 2. Force an error path to cover error handling logic
+	// We patch the internal client getter to return an error
+	patches := gomonkey.ApplyFuncReturn(kube.GetKmeshNodeInfoClient, nil, fmt.Errorf("forced coverage error"))
+	defer patches.Reset()
+
+	controller, err := NewController(k8sClient, mockMap, mockProg)
+
+	// 3. Assertions to ensure the code handles the failure correctly
+	if err == nil {
+		t.Errorf("Expected error from NewController, got nil")
+	}
+	if controller != nil {
+		t.Errorf("Expected nil controller on error")
 	}
 }
