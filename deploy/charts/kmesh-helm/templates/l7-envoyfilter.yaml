@@ -83,7 +83,7 @@ metadata:
   namespace: istio-system
 spec:
   targetRefs:
-  - name: waypoint
+  - name: istio-waypoint
     kind: GatewayClass
     group: gateway.networking.k8s.io
   configPatches:
@@ -111,7 +111,7 @@ metadata:
   namespace: istio-system
 spec:
   targetRefs:
-  - name: waypoint
+  - name: istio-waypoint
     kind: GatewayClass
     group: gateway.networking.k8s.io
   configPatches:
