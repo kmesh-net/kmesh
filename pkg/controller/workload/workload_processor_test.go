@@ -851,3 +851,33 @@ func TestLocalityLBWithNilLocalityInfo(t *testing.T) {
 
 	hashNameClean(p)
 }
+func TestServiceBatchUpdateFlow(t *testing.T) {
+	// Setup Fake BPF Map
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	// Create 2 fake services
+	svc1 := common.CreateFakeService("svc1", "10.96.0.1", "10.96.0.10", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	svc2 := common.CreateFakeService("svc2", "10.96.0.2", "10.96.0.20", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+
+	// Call handleServicesAndWorkloads directly with the list of services.
+	// This will trigger the "batchKeys" logic inside the function.
+	p.handleServicesAndWorkloads([]*workloadapi.Service{svc1, svc2}, nil)
+
+	// Verify that the services were actually written to the BPF map via batch update
+	// Check Service 1
+	svc1Id := p.hashName.Hash(svc1.ResourceName())
+	var val1 bpfcache.ServiceValue
+	err := p.bpf.ServiceLookup(&bpfcache.ServiceKey{ServiceId: svc1Id}, &val1)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE), val1.LbPolicy)
+
+	// Check Service 2
+	svc2Id := p.hashName.Hash(svc2.ResourceName())
+	var val2 bpfcache.ServiceValue
+	err = p.bpf.ServiceLookup(&bpfcache.ServiceKey{ServiceId: svc2Id}, &val2)
+	assert.NoError(t, err)
+	assert.Equal(t, uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE), val2.LbPolicy)
+}
