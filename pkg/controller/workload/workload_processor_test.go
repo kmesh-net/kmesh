@@ -431,7 +431,7 @@ func createWorkload(name, ip, nodeName string, networkload workloadapi.NetworkMo
 		Node:              nodeName,
 		Namespace:         "default",
 		Name:              name,
-		Addresses:         [][]byte{netip.AddrFrom4(ip).AsSlice()},
+		Addresses:         [][]byte{netip.MustParseAddr(ip).AsSlice()},
 		Network:           "testnetwork",
 		CanonicalName:     "foo",
 		CanonicalRevision: "latest",
