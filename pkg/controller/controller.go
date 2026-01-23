@@ -63,6 +63,7 @@ type Controller struct {
 	ipsecController     *ipsec.IPSecController
 	enableByPass        bool
 	enableSecretManager bool
+	enableDNSProxy      bool
 	bpfConfig           *options.BpfConfig
 	loader              *bpf.BpfLoader
 	dnsServer           *dnsclient.LocalDNSServer
@@ -75,6 +76,7 @@ func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Co
 		bpfAdsObj:           bpfLoader.GetBpfKmesh(),
 		bpfWorkloadObj:      bpfLoader.GetBpfWorkload(),
 		enableSecretManager: opts.SecretManagerConfig.Enable,
+		enableDNSProxy:      opts.DNSConfig.EnableDNSProxy,
 		bpfConfig:           opts.BpfConfig,
 		loader:              bpfLoader,
 	}
@@ -166,7 +168,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		}
 	}
 
-	c.client, err = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling)
+	c.client, err = NewXdsClient(c.mode, c.bpfAdsObj, c.bpfWorkloadObj, c.bpfConfig.EnableMonitoring, c.bpfConfig.EnableProfiling, c.enableDNSProxy)
 	if err != nil {
 		return fmt.Errorf("failed to create XDS client: %w", err)
 	}
@@ -209,7 +211,7 @@ func (c *Controller) GetXdsClient() *XdsClient {
 }
 
 func (c *Controller) setupDNSProxy() error {
-	if workload.EnableDNSProxy {
+	if c.enableDNSProxy {
 		server, err := dnsclient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
 		if err != nil {
 			return fmt.Errorf("failed to start local dns server: %v", err)

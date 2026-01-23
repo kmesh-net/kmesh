@@ -50,7 +50,7 @@ type XdsClient struct {
 	xdsConfig          *config.XdsConfig
 }
 
-func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enableProfiling bool) (*XdsClient, error) {
+func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enableProfiling, enableDNSProxy bool) (*XdsClient, error) {
 	client := &XdsClient{
 		mode:      mode,
 		xdsConfig: config.GetConfig(mode),
@@ -59,7 +59,7 @@ func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWork
 	switch mode {
 	case constants.DualEngineMode:
 		var err error
-		client.WorkloadController, err = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling)
+		client.WorkloadController, err = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling, enableDNSProxy)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create workload controller: %w", err)
 		}

@@ -46,9 +46,10 @@ type Controller struct {
 	OperationMetricController *telemetry.BpfProgMetric
 	bpfWorkloadObj            *bpfwl.BpfWorkload
 	dnsResolverController     *dnsController
+	enableDNSProxy            bool
 }
 
-func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) (*Controller, error) {
+func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor, enableDNSProxy bool) (*Controller, error) {
 	processor := NewProcessor(bpfWorkload.SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps)
 	dnsResolverController, err := NewDnsController(processor.WorkloadCache)
 	if err != nil {
@@ -66,6 +67,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 		Processor:             processor,
 		bpfWorkloadObj:        bpfWorkload,
 		dnsResolverController: dnsResolverController,
+		enableDNSProxy:        enableDNSProxy,
 	}
 	// do some initialization when restart
 	// restore endpoint index, otherwise endpoint number can double
@@ -82,7 +84,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 }
 
 func (c *Controller) Run(ctx context.Context, stopCh <-chan struct{}) error {
-	if err := c.Processor.PrepareDNSProxy(); err != nil {
+	if err := c.Processor.PrepareDNSProxy(c.enableDNSProxy); err != nil {
 		log.Errorf("failed to prepare for dns proxy, err: %+v", err)
 		return err
 	}
