@@ -111,7 +111,7 @@ func (p *Processor) PrepareDNSProxy() error {
 	}
 
 	// when dns proxy is not enabled, we unregister kmesh daemon from bpf map
-	if !EnableDNSProxy {
+	if !EnableDNSProxy() {
 		return p.bpf.BackendDelete(bk)
 	}
 

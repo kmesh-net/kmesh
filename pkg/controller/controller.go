@@ -215,7 +215,7 @@ func (c *Controller) GetXdsClient() *XdsClient {
 }
 
 func (c *Controller) setupDNSProxy() error {
-	if workload.EnableDNSProxy {
+	if workload.EnableDNSProxy() {
 		server, err := dnsclient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
 		if err != nil {
 			return fmt.Errorf("failed to start local dns server: %v", err)

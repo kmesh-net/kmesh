@@ -380,7 +380,7 @@ func (s *Server) dnsProxyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getDNSProxyStatus(w http.ResponseWriter, r *http.Request) {
-	enabled := workload.EnableDNSProxy
+	enabled := workload.EnableDNSProxy()
 
 	status := DNSProxyStatus{
 		Enabled: enabled,
@@ -412,7 +412,7 @@ func (s *Server) setDNSProxyStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentEnabled := workload.EnableDNSProxy
+	currentEnabled := workload.EnableDNSProxy()
 
 	// If the requested state matches current state, nothing to do
 	if enabled == currentEnabled {
@@ -427,8 +427,19 @@ func (s *Server) setDNSProxyStatus(w http.ResponseWriter, r *http.Request) {
 
 	// Runtime toggling of DNS proxy requires restarting the kmesh daemon
 	// This is because the DNS server needs to be started/stopped and BPF maps need to be updated
+	currentState := "enabled"
+	if !currentEnabled {
+		currentState = "disabled"
+	}
+	requestedState := "enabled"
+	if !enabled {
+		requestedState = "disabled"
+	}
 	w.WriteHeader(http.StatusBadRequest)
-	_, _ = w.Write([]byte("DNS proxy cannot be toggled at runtime. Please restart kmesh daemon with --enable-dns-proxy flag to change DNS proxy state."))
+	_, _ = w.Write([]byte(fmt.Sprintf(
+		"DNS proxy runtime state cannot be changed without restarting the kmesh daemon (current: %s, requested: %s). Please restart the kmesh daemon with the appropriate --enable-dns-proxy setting to change DNS proxy state.",
+		currentState, requestedState,
+	)))
 }
 
 func (s *Server) getLoggerNames(w http.ResponseWriter) {

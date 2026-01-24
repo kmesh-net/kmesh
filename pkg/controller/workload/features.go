@@ -16,21 +16,37 @@
 
 package workload
 
-import "istio.io/pkg/env"
+import (
+	"sync/atomic"
+
+	"istio.io/pkg/env"
+)
 
 var (
 	// enableDNSProxyEnv reads from environment variable for backward compatibility
 	enableDNSProxyEnv = env.Register("KMESH_ENABLE_DNS_PROXY", false, "When DNS proxy is enabled, a DNS server will be started in kmesh daemon"+
 		"and serve DNS requests. DNS requests of kmesh-managed pods will be redirected to kmesh daemon.").Get()
 
-	// EnableDNSProxy indicates whether DNS proxy is enabled.
+	// enableDNSProxy indicates whether DNS proxy is enabled.
 	// This can be set via --enable-dns-proxy flag or KMESH_ENABLE_DNS_PROXY env variable.
 	// Flag takes precedence over environment variable.
-	EnableDNSProxy = enableDNSProxyEnv
+	// Using atomic.Bool for thread-safe access since this is read from HTTP handlers.
+	enableDNSProxy atomic.Bool
 )
+
+func init() {
+	enableDNSProxy.Store(enableDNSProxyEnv)
+}
+
+// EnableDNSProxy returns whether DNS proxy is currently enabled.
+// This is thread-safe for concurrent access.
+func EnableDNSProxy() bool {
+	return enableDNSProxy.Load()
+}
 
 // SetEnableDNSProxy sets the EnableDNSProxy flag value.
 // This is called from the controller when --enable-dns-proxy flag is provided.
+// This is thread-safe for concurrent access.
 func SetEnableDNSProxy(enabled bool) {
-	EnableDNSProxy = enabled
+	enableDNSProxy.Store(enabled)
 }
