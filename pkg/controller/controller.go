@@ -69,6 +69,12 @@ type Controller struct {
 }
 
 func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
+	// Set DNS proxy flag - command line flag takes precedence over environment variable
+	// If the flag is explicitly set to true, use it; otherwise, the env variable default is used
+	if opts.BpfConfig.EnableDNSProxy {
+		workload.SetEnableDNSProxy(true)
+	}
+
 	return &Controller{
 		mode:                opts.BpfConfig.Mode,
 		enableByPass:        opts.ByPassConfig.EnableByPass,
