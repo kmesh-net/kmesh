@@ -22,7 +22,7 @@ spec:
         prometheus.io/scrape: "true"
     spec:
       containers:
-      - args: ["./start_kmesh.sh {{ .Values.deploy.kmesh.containers.kmeshDaemonArgs }}{{ if .Values.features.dnsProxy.enabled }} --enable-dns-proxy={{ .Values.features.dnsProxy.enabled }}{{ end }}"]
+      - args: ["./start_kmesh.sh {{ .Values.deploy.kmesh.containers.kmeshDaemonArgs }} --enable-dns-proxy={{ .Values.features.dnsProxy.enabled }}"]
         command:
         - /bin/sh
         - -c

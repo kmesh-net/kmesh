@@ -42,27 +42,25 @@ func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "dnsproxy",
 		Short: "Control Kmesh's DNS proxy feature",
-		Long: `Control Kmesh's DNS proxy feature to be enabled or disabled at runtime.
+		Long: `Inspect and manage Kmesh's DNS proxy feature.
 
 DNS proxy allows Kmesh daemon to serve DNS requests for kmesh-managed pods,
-enabling service discovery through DNS resolution.`,
-		Example: `# Enable DNS proxy for a specific kmesh daemon pod:
-kmeshctl dnsproxy <kmesh-daemon-pod> enable
+enabling service discovery through DNS resolution.
 
-# Disable DNS proxy for a specific kmesh daemon pod:
-kmeshctl dnsproxy <kmesh-daemon-pod> disable
-
-# Enable DNS proxy for all kmesh daemons in the cluster:
-kmeshctl dnsproxy enable
-
-# Disable DNS proxy for all kmesh daemons in the cluster:
-kmeshctl dnsproxy disable
-
-# Get DNS proxy status for a specific kmesh daemon pod:
+This command can be used to check the current DNS proxy status. Note that
+runtime toggling of DNS proxy is not supported - to enable or disable DNS
+proxy, restart the Kmesh daemon with the --enable-dns-proxy flag.`,
+		Example: `# Get DNS proxy status for a specific kmesh daemon pod:
 kmeshctl dnsproxy <kmesh-daemon-pod> status
 
 # Get DNS proxy status for all kmesh daemons:
-kmeshctl dnsproxy status`,
+kmeshctl dnsproxy status
+
+# Check if DNS proxy can be enabled (will provide restart guidance):
+kmeshctl dnsproxy <kmesh-daemon-pod> enable
+
+# Check if DNS proxy can be disabled (will provide restart guidance):
+kmeshctl dnsproxy disable`,
 		Args: cobra.RangeArgs(1, 2),
 		Run: func(cmd *cobra.Command, args []string) {
 			controlDNSProxy(cmd, args)
@@ -170,7 +168,13 @@ func setDNSProxyPerKmeshDaemon(cli kube.CLIClient, podName, action string) {
 		return
 	}
 
-	log.Infof("successfully %sd DNS proxy for pod %s", action, podName)
+	var pastTense string
+	if action == "enable" {
+		pastTense = "enabled"
+	} else {
+		pastTense = "disabled"
+	}
+	log.Infof("successfully %s DNS proxy for pod %s", pastTense, podName)
 }
 
 func getDNSProxyStatus(fw kube.PortForwarder, podName string) {
