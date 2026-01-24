@@ -60,6 +60,7 @@ const (
 	patternWorkloadMetrics    = "/workload_metrics"
 	patternConnectionMetrics  = "/connection_metrics"
 	patternAuthz              = "/authz"
+	patternDNSProxy           = "/dnsproxy"
 
 	bpfLoggerName = "bpf"
 
@@ -101,6 +102,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
+	s.mux.HandleFunc(patternDNSProxy, s.dnsProxyHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -354,6 +356,78 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// DNSProxyStatus represents the current state of DNS proxy
+type DNSProxyStatus struct {
+	Enabled bool   `json:"enabled"`
+	Message string `json:"message,omitempty"`
+}
+
+func (s *Server) dnsProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		s.getDNSProxyStatus(w, r)
+		return
+	}
+
+	if r.Method == http.MethodPost {
+		s.setDNSProxyStatus(w, r)
+		return
+	}
+
+	http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+}
+
+func (s *Server) getDNSProxyStatus(w http.ResponseWriter, r *http.Request) {
+	enabled := s.config.BpfConfig.EnableDNSProxy
+
+	status := DNSProxyStatus{
+		Enabled: enabled,
+	}
+	if enabled {
+		status.Message = "DNS proxy is enabled"
+	} else {
+		status.Message = "DNS proxy is disabled"
+	}
+
+	data, err := json.MarshalIndent(&status, "", "  ")
+	if err != nil {
+		log.Errorf("Failed to marshal DNS proxy status: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) setDNSProxyStatus(w http.ResponseWriter, r *http.Request) {
+	info := r.URL.Query().Get("enable")
+	enabled, err := strconv.ParseBool(info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid dnsproxy enable=%s, must be 'true' or 'false'", info)))
+		return
+	}
+
+	currentEnabled := s.config.BpfConfig.EnableDNSProxy
+
+	// If the requested state matches current state, nothing to do
+	if enabled == currentEnabled {
+		status := "enabled"
+		if !enabled {
+			status = "disabled"
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(fmt.Sprintf("DNS proxy is already %s", status)))
+		return
+	}
+
+	// Runtime toggling of DNS proxy requires restarting the kmesh daemon
+	// This is because the DNS server needs to be started/stopped and BPF maps need to be updated
+	w.WriteHeader(http.StatusBadRequest)
+	_, _ = w.Write([]byte("DNS proxy cannot be toggled at runtime. Please restart kmesh daemon with --enable-dns-proxy flag to change DNS proxy state."))
 }
 
 func (s *Server) getLoggerNames(w http.ResponseWriter) {
