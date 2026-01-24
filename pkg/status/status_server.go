@@ -38,6 +38,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
+	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -379,7 +380,7 @@ func (s *Server) dnsProxyHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getDNSProxyStatus(w http.ResponseWriter, r *http.Request) {
-	enabled := s.config.BpfConfig.EnableDNSProxy
+	enabled := workload.EnableDNSProxy
 
 	status := DNSProxyStatus{
 		Enabled: enabled,
@@ -411,7 +412,7 @@ func (s *Server) setDNSProxyStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentEnabled := s.config.BpfConfig.EnableDNSProxy
+	currentEnabled := workload.EnableDNSProxy
 
 	// If the requested state matches current state, nothing to do
 	if enabled == currentEnabled {

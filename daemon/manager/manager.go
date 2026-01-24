@@ -55,7 +55,9 @@ func NewCommand() *cobra.Command {
 			if err := configs.ParseConfigs(); err != nil {
 				return err
 			}
-			return Execute(configs)
+			// Check if --enable-dns-proxy flag was explicitly set
+			dnsProxyFlagSet := cmd.Flags().Changed("enable-dns-proxy")
+			return Execute(configs, dnsProxyFlagSet)
 		},
 		FParseErrWhitelist: cobra.FParseErrWhitelist{
 			UnknownFlags: true,
@@ -75,7 +77,7 @@ func NewCommand() *cobra.Command {
 }
 
 // Execute start daemon manager process
-func Execute(configs *options.BootstrapConfigs) error {
+func Execute(configs *options.BootstrapConfigs, dnsProxyFlagSet bool) error {
 	err := rlimit.RemoveMemlock()
 	if err != nil {
 		log.Warn("rlimit.RemoveMemlock failed")
@@ -93,7 +95,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	stopCh := make(chan struct{})
 	defer close(stopCh)
 
-	c := controller.NewController(configs, bpfLoader)
+	c := controller.NewController(configs, bpfLoader, dnsProxyFlagSet)
 	if err := c.Start(stopCh); err != nil {
 		return err
 	}

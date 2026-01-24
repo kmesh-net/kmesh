@@ -68,11 +68,11 @@ type Controller struct {
 	dnsServer           *dnsclient.LocalDNSServer
 }
 
-func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
+func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader, dnsProxyFlagSet bool) *Controller {
 	// Set DNS proxy flag - command line flag takes precedence over environment variable
-	// If the flag is explicitly set to true, use it; otherwise, the env variable default is used
-	if opts.BpfConfig.EnableDNSProxy {
-		workload.SetEnableDNSProxy(true)
+	// If the flag was explicitly set by user, use its value; otherwise keep env variable default
+	if dnsProxyFlagSet {
+		workload.SetEnableDNSProxy(opts.BpfConfig.EnableDNSProxy)
 	}
 
 	return &Controller{
