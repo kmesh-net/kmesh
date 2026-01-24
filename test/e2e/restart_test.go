@@ -87,6 +87,9 @@ func restartKmesh(t framework.TestContext) {
 }
 
 func configureDNSProxy(t framework.TestContext, enabled bool) {
+	// Update kmesh daemon args to enable/disable DNS proxy
+	// The args format is: ./start_kmesh.sh --mode=dual-engine --enable-bypass=false --enable-dns-proxy=<bool>
+	args := fmt.Sprintf("./start_kmesh.sh --mode=dual-engine --enable-bypass=false --enable-dns-proxy=%t", enabled)
 	patchData := fmt.Sprintf(`{
     "spec": {
         "template": {
@@ -94,18 +97,13 @@ func configureDNSProxy(t framework.TestContext, enabled bool) {
                 "containers": [
                     {
                         "name": "kmesh",
-                        "env": [
-                            {
-                                "name": "KMESH_ENABLE_DNS_PROXY",
-                                "value": "%t"
-                            }
-                        ]
+                        "args": ["%s"]
                     }
                 ]
             }
         }
     }
-}`, enabled)
+}`, args)
 	patchKmesh(t, patchData)
 }
 

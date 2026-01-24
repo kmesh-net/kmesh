@@ -78,7 +78,7 @@ spec:
           command: ["/bin/sh", "-c"]
           args:
             [
-              "./start_kmesh.sh --mode=dual-engine --enable-bypass=false",
+              "./start_kmesh.sh --mode=dual-engine --enable-bypass=false --enable-dns-proxy=true",
             ]
           securityContext:
             privileged: true
@@ -107,8 +107,6 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: spec.nodeName
-            - name: KMESH_ENABLE_DNS_PROXY
-              value: "true"
           volumeMounts:
             - name: mnt
               mountPath: /mnt
