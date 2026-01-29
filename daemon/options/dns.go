@@ -17,6 +17,9 @@
 package options
 
 import (
+	"os"
+	"strconv"
+
 	"github.com/spf13/cobra"
 )
 
@@ -25,5 +28,17 @@ type dnsConfig struct {
 }
 
 func (c *dnsConfig) AttachFlags(cmd *cobra.Command) {
-	cmd.PersistentFlags().BoolVar(&c.EnableDNSProxy, "enable-dns-proxy", false, "When DNS proxy is enabled, a DNS server will be started in kmesh daemon and serve DNS requests. DNS requests of kmesh-managed pods will be redirected to kmesh daemon.")
+	// for backward compatibility
+	if v := os.Getenv("KMESH_ENABLE_DNS_PROXY"); v != "" {
+		if parsed, err := strconv.ParseBool(v); err == nil {
+			c.EnableDNSProxy = parsed
+		}
+	}
+
+	cmd.PersistentFlags().BoolVar(
+		&c.EnableDNSProxy,
+		"enable-dns-proxy",
+		c.EnableDNSProxy,
+		"When DNS proxy is enabled, a DNS server will be started in kmesh daemon and serve DNS requests.",
+	)
 }
