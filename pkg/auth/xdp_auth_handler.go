@@ -38,6 +38,7 @@ func xdpNotifyConnRst(mapOfAuth *ebpf.Map, msgType uint32, key []byte) error {
 		}
 	}
 	// Insert the socket tuple into the auth map, so xdp_auth_handler can know that socket with
-	// this tuple is denied by policy, note that IP and port are big endian in auth map
+	// this tuple is denied by policy. IP addresses are in network byte order (big endian),
+	// and ports are in host byte order.
 	return mapOfAuth.Update(key, uint32(1), ebpf.UpdateAny)
 }

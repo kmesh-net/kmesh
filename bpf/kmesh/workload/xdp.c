@@ -34,14 +34,14 @@ static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *
                 XDP,
                 "auth denied, src ip: %s, port: %u\n",
                 ip2str(&tuple_info->ipv4.saddr, true),
-                bpf_ntohs(tuple_info->ipv4.sport));
+                tuple_info->ipv4.sport);
         else
             BPF_LOG(
                 INFO,
                 XDP,
                 "auth denied, src ip: %s, port: %u\n",
                 ip2str(&tuple_info->ipv6.saddr[0], false),
-                bpf_ntohs(tuple_info->ipv6.sport));
+                tuple_info->ipv6.sport);
         bpf_map_delete_elem(&map_of_auth_result, tuple_info);
         return AUTH_FORBID;
     }
