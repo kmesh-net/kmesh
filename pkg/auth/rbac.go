@@ -47,8 +47,20 @@ const (
 )
 
 var (
-	log = logger.NewLoggerScope("auth")
+	log          = logger.NewLoggerScope("auth")
+	nativeEndian binary.ByteOrder
 )
+
+func init() {
+	// Detect the native byte order of the host at startup.
+	// This is needed because BPF sends ports in host byte order.
+	var i int16 = 1
+	if *(*byte)(unsafe.Pointer(&i)) == 1 {
+		nativeEndian = binary.LittleEndian
+	} else {
+		nativeEndian = binary.BigEndian
+	}
+}
 
 type Rbac struct {
 	policyStore   *policyStore
@@ -74,7 +86,8 @@ type rbacConnection struct {
 }
 
 type bpfSockTupleV4 struct {
-	// All fields are big endian
+	// SrcAddr and DstAddr are in network byte order (big endian).
+	// SrcPort and DstPort are in host byte order.
 	SrcAddr uint32
 	DstAddr uint32
 	SrcPort uint16
@@ -82,7 +95,8 @@ type bpfSockTupleV4 struct {
 }
 
 type bpfSockTupleV6 struct {
-	// All fields are big endian
+	// SrcAddr and DstAddr are in network byte order (big endian).
+	// SrcPort and DstPort are in host byte order.
 	SrcAddr [4]uint32
 	DstAddr [4]uint32
 	SrcPort uint16
@@ -462,10 +476,10 @@ func (r *Rbac) buildConnV4(buf *bytes.Buffer) (rbacConnection, error) {
 	if err := binary.Read(buf, binary.BigEndian, &tupleV4.DstAddr); err != nil {
 		return conn, err
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &tupleV4.SrcPort); err != nil {
+	if err := binary.Read(buf, nativeEndian, &tupleV4.SrcPort); err != nil {
 		return conn, err
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &tupleV4.DstPort); err != nil {
+	if err := binary.Read(buf, nativeEndian, &tupleV4.DstPort); err != nil {
 		return conn, err
 	}
 
@@ -482,17 +496,17 @@ func (r *Rbac) buildConnV6(buf *bytes.Buffer) (rbacConnection, error) {
 		tupleV6 bpfSockTupleV6
 	)
 
-	// SrcAddr and DstAddr are BigEndian, but Ports are Host Byte Order (LittleEndian on x86)
+	// SrcAddr and DstAddr are BigEndian, but Ports are in Host Byte Order
 	if err := binary.Read(buf, binary.BigEndian, &tupleV6.SrcAddr); err != nil {
 		return conn, err
 	}
 	if err := binary.Read(buf, binary.BigEndian, &tupleV6.DstAddr); err != nil {
 		return conn, err
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &tupleV6.SrcPort); err != nil {
+	if err := binary.Read(buf, nativeEndian, &tupleV6.SrcPort); err != nil {
 		return conn, err
 	}
-	if err := binary.Read(buf, binary.LittleEndian, &tupleV6.DstPort); err != nil {
+	if err := binary.Read(buf, nativeEndian, &tupleV6.DstPort); err != nil {
 		return conn, err
 	}
 
