@@ -80,18 +80,18 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, st
     if (skops->family == AF_INET) {
         tuple_key->ipv4.saddr = skops->remote_ip4;
         tuple_key->ipv4.daddr = skops->local_ip4;
-        // remote_port is network byteorder
-        tuple_key->ipv4.sport = GET_SKOPS_REMOTE_PORT(skops);
+        // remote_port is network byteorder, need to ntohs
+        tuple_key->ipv4.sport = bpf_ntohs(GET_SKOPS_REMOTE_PORT(skops));
         // local_port is host byteorder
-        tuple_key->ipv4.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
+        tuple_key->ipv4.dport = GET_SKOPS_LOCAL_PORT(skops);
     }
     if (skops->family == AF_INET6) {
         bpf_memcpy(tuple_key->ipv6.saddr, skops->remote_ip6, IPV6_ADDR_LEN);
         bpf_memcpy(tuple_key->ipv6.daddr, skops->local_ip6, IPV6_ADDR_LEN);
-        // remote_port is network byteorder
-        tuple_key->ipv6.sport = GET_SKOPS_REMOTE_PORT(skops);
+        // remote_port is network byteorder, need to ntohs
+        tuple_key->ipv6.sport = bpf_ntohs(GET_SKOPS_REMOTE_PORT(skops));
         // local_port is host byteorder
-        tuple_key->ipv6.dport = bpf_htons(GET_SKOPS_LOCAL_PORT(skops));
+        tuple_key->ipv6.dport = GET_SKOPS_LOCAL_PORT(skops);
     }
 
     if (is_ipv4_mapped_addr(tuple_key->ipv6.daddr) || is_ipv4_mapped_addr(tuple_key->ipv6.saddr)) {

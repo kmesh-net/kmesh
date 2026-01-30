@@ -454,11 +454,21 @@ func (r *Rbac) buildConnV4(buf *bytes.Buffer) (rbacConnection, error) {
 		conn    rbacConnection
 		tupleV4 bpfSockTupleV4
 	)
-	if err := binary.Read(buf, binary.BigEndian, &tupleV4); err != nil {
-		log.Error("deserialize IPv4 FAILED, err: ", err)
+	// SrcAddr and DstAddr are BigEndian, but Ports are Host Byte Order (LittleEndian on x86)
+	// We read each field accordingly.
+	if err := binary.Read(buf, binary.BigEndian, &tupleV4.SrcAddr); err != nil {
 		return conn, err
 	}
-	// srcIp and dstIp are big endian, and dstPort is little endian, which is consistent with authorization policy flushed to Kmesh
+	if err := binary.Read(buf, binary.BigEndian, &tupleV4.DstAddr); err != nil {
+		return conn, err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &tupleV4.SrcPort); err != nil {
+		return conn, err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &tupleV4.DstPort); err != nil {
+		return conn, err
+	}
+
 	conn.srcIp = binary.BigEndian.AppendUint32(conn.srcIp, tupleV4.SrcAddr)
 	conn.dstIp = binary.BigEndian.AppendUint32(conn.dstIp, tupleV4.DstAddr)
 	conn.dstPort = uint32(tupleV4.DstPort)
@@ -472,11 +482,21 @@ func (r *Rbac) buildConnV6(buf *bytes.Buffer) (rbacConnection, error) {
 		tupleV6 bpfSockTupleV6
 	)
 
-	if err := binary.Read(buf, binary.BigEndian, &tupleV6); err != nil {
-		log.Error("deserialize IPv6 FAILED, err: ", err)
+	// SrcAddr and DstAddr are BigEndian, but Ports are Host Byte Order (LittleEndian on x86)
+	if err := binary.Read(buf, binary.BigEndian, &tupleV6.SrcAddr); err != nil {
 		return conn, err
 	}
-	// srcIp and dstIp are big endian, and dstPort is little endian, which is consistent with authorization policy flushed to Kmesh
+	if err := binary.Read(buf, binary.BigEndian, &tupleV6.DstAddr); err != nil {
+		return conn, err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &tupleV6.SrcPort); err != nil {
+		return conn, err
+	}
+	if err := binary.Read(buf, binary.LittleEndian, &tupleV6.DstPort); err != nil {
+		return conn, err
+	}
+
+	// srcIp and dstIp are big endian
 	for i := range tupleV6.SrcAddr {
 		conn.srcIp = binary.BigEndian.AppendUint32(conn.srcIp, tupleV6.SrcAddr[i])
 		conn.dstIp = binary.BigEndian.AppendUint32(conn.dstIp, tupleV6.DstAddr[i])
