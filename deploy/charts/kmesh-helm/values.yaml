@@ -14,6 +14,10 @@ deploy:
         memory: 800Mi
 kubernetesClusterDomain: cluster.local
 fullnameOverride: kmesh
+envoyFilter:
+  # Use legacy workloadSelector format for Istio versions < 1.26
+  # Default: false (use new targetRefs format for Istio 1.26+)
+  useLegacyFormat: false
 features:
   dnsProxy:
     enabled: true
