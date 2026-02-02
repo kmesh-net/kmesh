@@ -27,8 +27,8 @@ func TestEndpointCache(t *testing.T) {
 
 	// create test endpoints
 	serviceId := uint32(1)
-	var serviceId1 uint32 = 2
-	var prio uint32 = 0
+	serviceId1 := uint32(2)
+	prio := uint32(0)
 	prio1 := uint32(1)
 
 	ep1 := Endpoint{
