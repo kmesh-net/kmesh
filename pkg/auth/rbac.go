@@ -54,7 +54,7 @@ var (
 func init() {
 	// Detect the native byte order of the host at startup.
 	// This is needed because BPF sends ports in host byte order.
-	var i int16 = 1
+	i := int16(1)
 	if *(*byte)(unsafe.Pointer(&i)) == 1 {
 		nativeEndian = binary.LittleEndian
 	} else {
