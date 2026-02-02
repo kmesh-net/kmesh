@@ -1,8 +1,8 @@
-# This EnvoyFilter configuration is compatible with Istio 1.27 and later versions.
-# It uses the new targetRefs format to target Gateway API resources (GatewayClass).
+# This EnvoyFilter configuration is compatible with Istio versions before 1.27.
+# It uses the legacy workloadSelector format to target pods by labels.
 # 
-# For Istio versions before 1.27, use l7-envoyfilter-below-istio-1.27.yaml instead,
-# which uses the legacy workloadSelector format.
+# For Istio 1.27 and later, use l7-envoyfilter.yaml instead,
+# which uses the new targetRefs format with Gateway API resources.
 #
 # These EnvoyFilters configure Kmesh L7 traffic handling by:
 # 1. Adding a custom listener on port 15019 for Kmesh traffic
@@ -15,10 +15,9 @@ metadata:
   name: add-listener-filter
   namespace: istio-system
 spec:
-  targetRefs:
-  - name: istio-waypoint 
-    kind: GatewayClass
-    group: gateway.networking.k8s.io
+  workloadSelector:
+    labels:
+      gateway.istio.io/managed: istio.io-mesh-controller
   configPatches:
   - applyTo: LISTENER
     patch:
@@ -93,10 +92,9 @@ metadata:
   name: skip-tunneling
   namespace: istio-system
 spec:
-  targetRefs:
-  - name: istio-waypoint 
-    kind: GatewayClass
-    group: gateway.networking.k8s.io
+  workloadSelector:
+    labels:
+      gateway.istio.io/managed: istio.io-mesh-controller
   configPatches:
   - applyTo: NETWORK_FILTER
     match:
@@ -121,10 +119,9 @@ metadata:
   name: add-original-dst-cluster
   namespace: istio-system
 spec:
-  targetRefs:
-  - name: istio-waypoint
-    kind: GatewayClass
-    group: gateway.networking.k8s.io
+  workloadSelector:
+    labels:
+      gateway.istio.io/managed: istio.io-mesh-controller
   configPatches:
   - applyTo: CLUSTER
     match:
