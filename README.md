@@ -79,6 +79,10 @@ Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to p
 
 Please refer to [quick start](https://kmesh.net/en/docs/setup/quick-start/) and [user guide](docs/kmesh_demo.md) to try Kmesh quickly.
 
+## Roadmap
+
+Check out our [2026 Roadmap](ROADMAP.md) to see what features and improvements we're planning for the future.
+
 ## Performance
 
 Based on [Fortio](https://github.com/fortio/fortio), the performance of Kmesh and Envoy was tested. The test results are as follows:
