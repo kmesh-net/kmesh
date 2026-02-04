@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -59,10 +58,13 @@ func NewEnableCmd() *cobra.Command {
 		Short:   "Enable DNS proxy for Kmesh",
 		Example: "kmeshctl dnsproxy enable\nkmeshctl dnsproxy enable pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			// If no pod names are given, apply to all kmesh daemon pods.
-			SetDNSProxyForPods(args, "true")
+			if err := SetDNSProxyForPods(args, "true"); err != nil {
+				return err
+			}
 			log.Info("DNS proxy has been enabled.")
+			return nil
 		},
 	}
 	return cmd
@@ -75,9 +77,12 @@ func NewDisableCmd() *cobra.Command {
 		Short:   "Disable DNS proxy for Kmesh",
 		Example: "kmeshctl dnsproxy disable\nkmeshctl dnsproxy disable pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			SetDNSProxyForPods(args, "false")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := SetDNSProxyForPods(args, "false"); err != nil {
+				return err
+			}
 			log.Info("DNS proxy has been disabled.")
+			return nil
 		},
 	}
 	return cmd
@@ -90,11 +95,10 @@ func NewStatusCmd() *cobra.Command {
 		Short:   "Display the current DNS proxy status",
 		Example: "kmeshctl dnsproxy status\nkmeshctl dnsproxy status pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cli, err := utils.CreateKubeClient()
 			if err != nil {
-				log.Errorf("failed to create cli client: %v", err)
-				os.Exit(1)
+				return fmt.Errorf("failed to create cli client: %v", err)
 			}
 
 			// Determine which pods to query.
@@ -102,8 +106,7 @@ func NewStatusCmd() *cobra.Command {
 			if len(args) == 0 {
 				podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
 				if err != nil {
-					log.Errorf("failed to get kmesh podList: %v", err)
-					os.Exit(1)
+					return fmt.Errorf("failed to get kmesh podList: %v", err)
 				}
 				for _, pod := range podList.Items {
 					podNames = append(podNames, pod.GetName())
@@ -138,6 +141,7 @@ func NewStatusCmd() *cobra.Command {
 			}
 			tw.Flush()
 			fmt.Print(buf.String())
+			return nil
 		},
 	}
 	return cmd
@@ -145,42 +149,43 @@ func NewStatusCmd() *cobra.Command {
 
 // SetDNSProxyForPods applies the DNS proxy setting (enable/disable) for the given pod(s).
 // If no pod names are specified, it applies the setting to all kmesh daemon pods.
-func SetDNSProxyForPods(podNames []string, info string) {
+func SetDNSProxyForPods(podNames []string, info string) error {
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
-		log.Errorf("failed to create cli client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create cli client: %v", err)
 	}
 
 	if len(podNames) == 0 {
 		// Apply to all kmesh daemon pods.
 		podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
 		if err != nil {
-			log.Errorf("failed to get kmesh podList: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to get kmesh podList: %v", err)
 		}
 		for _, pod := range podList.Items {
-			SetDNSProxyPerKmeshDaemon(cli, pod.GetName(), info)
+			if err := SetDNSProxyPerKmeshDaemon(cli, pod.GetName(), info); err != nil {
+				return err
+			}
 		}
 	} else {
 		// Process for specified pods.
 		for _, podName := range podNames {
-			SetDNSProxyPerKmeshDaemon(cli, podName, info)
+			if err := SetDNSProxyPerKmeshDaemon(cli, podName, info); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
 // SetDNSProxyPerKmeshDaemon sends a POST request to a specific kmesh daemon pod
 // to set the DNS proxy flag based on the info parameter ("true" or "false").
-func SetDNSProxyPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
+func SetDNSProxyPerKmeshDaemon(cli kube.CLIClient, podName, info string) error {
 	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
 	if err != nil {
-		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
 	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
 	defer fw.Close()
 
@@ -188,24 +193,22 @@ func SetDNSProxyPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
-		log.Errorf("Error creating request: %v", err)
-		return
+		return fmt.Errorf("error creating request: %v", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
-		return
+		return fmt.Errorf("failed to make HTTP request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		bodyBytes, _ := io.ReadAll(resp.Body)
-		log.Errorf("Error: received status code %d: %s", resp.StatusCode, string(bodyBytes))
-		return
+		return fmt.Errorf("received status code %d: %s", resp.StatusCode, string(bodyBytes))
 	}
+	return nil
 }
 
 // fetchDNSProxyStatus sends a GET request to a specific kmesh daemon pod
