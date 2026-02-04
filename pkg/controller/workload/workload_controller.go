@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -46,6 +47,7 @@ type Controller struct {
 	OperationMetricController *telemetry.BpfProgMetric
 	bpfWorkloadObj            *bpfwl.BpfWorkload
 	dnsResolverController     *dnsController
+	dnsProxyEnabled           atomic.Bool
 }
 
 func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) (*Controller, error) {
@@ -67,6 +69,9 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 		bpfWorkloadObj:        bpfWorkload,
 		dnsResolverController: dnsResolverController,
 	}
+	// Initialize DNS proxy state based on the environment variable setting
+	c.dnsProxyEnabled.Store(EnableDNSProxy)
+
 	// do some initialization when restart
 	// restore endpoint index, otherwise endpoint number can double
 	if restart.GetStartType() == restart.Restart {
@@ -214,4 +219,21 @@ func (c *Controller) SetConnectionMetricTrigger(enable bool) {
 
 func (c *Controller) GetConnectionMetricTrigger() bool {
 	return c.MetricController.EnableConnectionMetric.Load()
+}
+
+// SetDNSProxyEnabled enables or disables the DNS proxy dynamically.
+// When enabled, it registers the kmesh daemon IP in the BPF backend map
+// so that DNS requests can be redirected to the kmesh daemon.
+// When disabled, it removes the registration from the BPF map.
+func (c *Controller) SetDNSProxyEnabled(enabled bool) error {
+	if err := c.Processor.SetDNSProxyEnabled(enabled); err != nil {
+		return err
+	}
+	c.dnsProxyEnabled.Store(enabled)
+	return nil
+}
+
+// GetDNSProxyEnabled returns the current DNS proxy enabled state.
+func (c *Controller) GetDNSProxyEnabled() bool {
+	return c.dnsProxyEnabled.Load()
 }

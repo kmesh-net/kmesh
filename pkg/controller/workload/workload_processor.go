@@ -132,6 +132,36 @@ func (p *Processor) PrepareDNSProxy() error {
 	return nil
 }
 
+// SetDNSProxyEnabled dynamically enables or disables the DNS proxy.
+// When enabled, registers the kmesh daemon IP in the BPF backend map.
+// When disabled, removes the registration from the BPF map.
+func (p *Processor) SetDNSProxyEnabled(enabled bool) error {
+	bk := &bpf.BackendKey{
+		BackendUid: 0,
+	}
+
+	if !enabled {
+		log.Info("disabling DNS proxy")
+		return p.bpf.BackendDelete(bk)
+	}
+
+	podIp := os.Getenv("INSTANCE_IP")
+	if podIp == "" {
+		return fmt.Errorf("ip of kmesh daemon is not set")
+	}
+
+	log.Infof("enabling DNS proxy, ip: %s", podIp)
+
+	bv := &bpf.BackendValue{}
+	nets.CopyIpByteFromSlice(&bv.Ip, netip.MustParseAddr(podIp).AsSlice())
+	if err := p.bpf.BackendUpdate(bk, bv); err != nil {
+		log.Errorf("failed to register kmesh daemon ip, err: %+v", err)
+		return err
+	}
+
+	return nil
+}
+
 func (p *Processor) Close() error {
 	bk := &bpf.BackendKey{
 		BackendUid: 0,

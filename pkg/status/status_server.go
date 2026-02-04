@@ -60,6 +60,7 @@ const (
 	patternWorkloadMetrics    = "/workload_metrics"
 	patternConnectionMetrics  = "/connection_metrics"
 	patternAuthz              = "/authz"
+	patternDNSProxy           = "/dnsproxy"
 
 	bpfLoggerName = "bpf"
 
@@ -101,6 +102,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
+	s.mux.HandleFunc(patternDNSProxy, s.dnsProxyHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -354,6 +356,45 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+// dnsProxyHandler handles HTTP requests for DNS proxy control.
+// GET: Returns the current DNS proxy status ("enabled" or "disabled").
+// POST: Enables or disables the DNS proxy based on the "enable" query parameter.
+func (s *Server) dnsProxyHandler(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// Return the current DNS proxy status.
+		enabled := s.xdsClient.WorkloadController.GetDNSProxyEnabled()
+		status := "disabled"
+		if enabled {
+			status = "enabled"
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(status))
+	case http.MethodPost:
+		// Enable or disable DNS proxy based on query parameter.
+		dnsProxyInfo := r.URL.Query().Get("enable")
+		enabled, err := strconv.ParseBool(dnsProxyInfo)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(fmt.Sprintf("invalid dnsproxy enable=%s", dnsProxyInfo)))
+			return
+		}
+
+		if err := s.xdsClient.WorkloadController.SetDNSProxyEnabled(enabled); err != nil {
+			http.Error(w, fmt.Sprintf("failed to set DNS proxy: %v", err), http.StatusBadRequest)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+	default:
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) getLoggerNames(w http.ResponseWriter) {
