@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os/exec"
 	"testing"
 	"time"
 
@@ -118,6 +119,34 @@ func postDnsproxy(baseURL string, enable bool) (*http.Response, error) {
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	return client.Do(req)
+}
+
+// TestDnsproxyKmeshctl tests the ability to autonomously start and stop dnsProxy via kmeshctl.
+func TestDnsproxyKmeshctl(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		cls := t.Clusters().Default()
+
+		pods, err := testKube.CheckPodsAreReady(testKube.NewPodFetch(cls, KmeshNamespace, "app=kmesh"))
+		if err != nil {
+			t.Fatalf("failed to get kmesh pods: %v", err)
+		}
+		if len(pods) == 0 {
+			t.Fatal("no kmesh pods found")
+		}
+		podName := pods[0].Name
+
+		t.NewSubTest("kmeshctl dnsproxy enable").Run(func(t framework.TestContext) {
+			cmd := exec.Command("kmeshctl", "dnsproxy", podName, "enable")
+			out, err := cmd.CombinedOutput()
+			assert.NoError(t, err, "kmeshctl dnsproxy enable should succeed: %s", string(out))
+		})
+
+		t.NewSubTest("kmeshctl dnsproxy disable").Run(func(t framework.TestContext) {
+			cmd := exec.Command("kmeshctl", "dnsproxy", podName, "disable")
+			out, err := cmd.CombinedOutput()
+			assert.NoError(t, err, "kmeshctl dnsproxy disable should succeed: %s", string(out))
+		})
+	})
 }
 
 // TestDnsproxyStartupParameter verifies that DNS proxy can be controlled by startup parameter (--enable-dns-proxy).
