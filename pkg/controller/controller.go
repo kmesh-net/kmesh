@@ -60,7 +60,7 @@ type Controller struct {
 	bpfAdsObj           *bpfads.BpfAds
 	bpfWorkloadObj      *bpfwl.BpfWorkload
 	client              *XdsClient
-	ipsecController     *ipsec.IPSecController
+	ipsecController     *ipsec.Controller
 	enableByPass        bool
 	enableSecretManager bool
 	bpfConfig           *options.BpfConfig
@@ -102,7 +102,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 			tcFd = c.bpfWorkloadObj.Tc.TcMarkEncrypt.FD()
 			decryptProg = c.bpfWorkloadObj.Tc.KmeshTcMarkDecryptObjects.TcMarkDecrypt
 		}
-		c.ipsecController, err = ipsec.NewIPsecController(clientset, kniMap, decryptProg)
+		c.ipsecController, err = ipsec.NewController(clientset, kniMap, decryptProg)
 		if err != nil {
 			return fmt.Errorf("failed to new IPsec controller, %v", err)
 		}
