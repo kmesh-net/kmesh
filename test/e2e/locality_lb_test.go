@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/shell"
 	"istio.io/istio/pkg/test/util/retry"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -194,10 +193,16 @@ spec:
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
 
 			// Scale down server-v1
-			_, err := shell.Execute(true, fmt.Sprintf("kubectl scale deployment server-v1 -n %s --replicas=0", ns.Name()))
-			if err != nil {
-				t.Fatalf("failed to scale down server-v1: %v", err)
-			}
+			retry.UntilSuccessOrFail(t, func() error {
+				scaler := t.Clusters().Default().Kube().AppsV1().Deployments(ns.Name())
+				scale, err := scaler.GetScale(context.TODO(), "server-v1", metav1.GetOptions{})
+				if err != nil {
+					return err
+				}
+				scale.Spec.Replicas = 0
+				_, err = scaler.UpdateScale(context.TODO(), "server-v1", scale, metav1.UpdateOptions{})
+				return err
+			}, retry.Timeout(time.Second*30), retry.Delay(time.Second*2))
 
 			// Now traffic should hit server-v2 (zone2)
 			retry.UntilSuccessOrFail(t, func() error {
@@ -240,10 +245,10 @@ func patchDeployment(t framework.TestContext, ns, name, nodeName string, include
 		patch = fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/hostname":"%s"}}}}}`, nodeName)
 	}
 
-	_, err := shell.Execute(true, fmt.Sprintf("kubectl patch deployment %s -n %s --patch '%s'", name, ns, patch))
-	if err != nil {
-		t.Fatalf("failed to patch deployment %s: %v", name, err)
-	}
+	retry.UntilSuccessOrFail(t, func() error {
+		_, err := t.Clusters().Default().Kube().AppsV1().Deployments(ns).Patch(context.TODO(), name, types.StrategicMergePatchType, []byte(patch), metav1.PatchOptions{})
+		return err
+	}, retry.Timeout(time.Second*15))
 }
 
 func removeNodeLabel(t framework.TestContext, name string, key string) error {
