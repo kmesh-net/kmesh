@@ -62,8 +62,18 @@ func TestLocalityLB(t *testing.T) {
 			t.Skip("At least 2 nodes required for Locality LB Failover test")
 		}
 
-		node1 := nodes.Items[0].Name // worker
-		node2 := nodes.Items[1].Name // control-plane
+		var node1, node2 string
+		for _, node := range nodes.Items {
+			if _, ok := node.Labels["node-role.kubernetes.io/control-plane"]; ok {
+				node2 = node.Name
+			} else {
+				node1 = node.Name
+			}
+		}
+
+		if node1 == "" || node2 == "" {
+			t.Fatalf("failed to identify worker and control-plane nodes")
+		}
 
 		// Use dynamic zone labels
 		setNodeLabel(t, node1, "topology.kubernetes.io/region", "region1")
@@ -83,11 +93,6 @@ func TestLocalityLB(t *testing.T) {
 		})
 
 		// 3. Deploy Client (in zone1) and Server (v1 in zone1, v2 in zone2)
-		// We use builder but leave out NodeSelector/Tolerations for now,
-		// we'll patch them if the framework builder doesn't support them.
-		// Actually, let's use the builder but check if it provides a way.
-		// If not, we'll patch after build.
-
 		builder := deployment.New(t).
 			WithClusters(t.Clusters()...).
 			WithConfig(echo.Config{
@@ -127,7 +132,6 @@ func TestLocalityLB(t *testing.T) {
 		server := match.ServiceName(echo.NamespacedName{Name: "server", Namespace: ns}).GetMatches(echos)[0]
 
 		// Patch deployments to force node affinity/tolerations
-		// Note: node2 might need tolerations if it's a control-plane node
 		patchDeployment(t, ns.Name(), "client-client", node1, false)
 		patchDeployment(t, ns.Name(), "server-v1", node1, false)
 		patchDeployment(t, ns.Name(), "server-v2", node2, true)
@@ -186,7 +190,7 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 80
+    targetPort: 5000
 `).ApplyOrFail(t)
 
 			// Traffic should prefer v1 (local zone)
@@ -207,7 +211,7 @@ spec:
 					),
 				})
 				return err
-			})
+			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
 		})
 
 		t.NewSubTest("failover").Run(func(t framework.TestContext) {
@@ -228,7 +232,7 @@ spec:
 					),
 				})
 				return err
-			})
+			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
 
 			// Scale down server-v1
 			_, err := shell.Execute(true, fmt.Sprintf("kubectl scale deployment server-v1 -n %s --replicas=0", ns.Name()))
@@ -271,7 +275,7 @@ spec:
   ports:
   - name: http
     port: 80
-    targetPort: 80
+    targetPort: 5000
   internalTrafficPolicy: Local
 `).ApplyOrFail(t)
 
@@ -298,7 +302,7 @@ spec:
 					),
 				})
 				return err
-			})
+			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
 
 			// Now traffic to server-local should only hit v1 (local node)
 			retry.UntilSuccessOrFail(t, func() error {
@@ -318,7 +322,7 @@ spec:
 					),
 				})
 				return err
-			})
+			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
 
 			// Now scale down v1, it should FAIL because of sidecar/dataplane policy
 			// (Assuming node1 has no more server pods)
@@ -354,11 +358,12 @@ func setNodeLabel(t framework.TestContext, name string, key string, value string
 }
 
 func patchDeployment(t framework.TestContext, ns, name, nodeName string, includeTolerations bool) {
-	patch := fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/hostname":"%s"}`, nodeName)
+	var patch string
 	if includeTolerations {
-		patch += `,"tolerations":[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]`
+		patch = fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/hostname":"%s"},"tolerations":[{"key":"node-role.kubernetes.io/control-plane","operator":"Exists","effect":"NoSchedule"}]}}}}`, nodeName)
+	} else {
+		patch = fmt.Sprintf(`{"spec":{"template":{"spec":{"nodeSelector":{"kubernetes.io/hostname":"%s"}}}}}`, nodeName)
 	}
-	patch += `}}}}`
 
 	_, err := shell.Execute(true, fmt.Sprintf("kubectl patch deployment %s -n %s --patch '%s'", name, ns, patch))
 	if err != nil {
