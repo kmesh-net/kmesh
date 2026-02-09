@@ -26,6 +26,7 @@ import (
 	"time"
 
 	echot "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -193,10 +194,16 @@ spec:
 				_, err := client.Call(echo.CallOptions{
 					Address: "server-prefer-close",
 					Port:    echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
 					Count:   5,
 					Check: check.And(
 						check.OK(),
-						check.Hostname("server-v1"),
+						check.Each(func(r echot.Response) error {
+							if r.Version != "v1" {
+								return fmt.Errorf("expected version v1, got %s", r.Version)
+							}
+							return nil
+						}),
 					),
 				})
 				return err
@@ -210,7 +217,15 @@ spec:
 					To:    server,
 					Port:  echo.Port{Name: "http"},
 					Count: 1,
-					Check: check.And(check.OK(), check.Hostname("server-v1")),
+					Check: check.And(
+						check.OK(),
+						check.Each(func(r echot.Response) error {
+							if r.Version != "v1" {
+								return fmt.Errorf("expected version v1, got %s", r.Version)
+							}
+							return nil
+						}),
+					),
 				})
 				return err
 			})
@@ -272,7 +287,15 @@ spec:
 					To:    server, // Check via old service first to ensure it's up
 					Port:  echo.Port{Name: "http"},
 					Count: 1,
-					Check: check.Hostname("server-v1"),
+					Check: check.And(
+						check.OK(),
+						check.Each(func(r echot.Response) error {
+							if r.Version != "v1" {
+								return fmt.Errorf("expected version v1, got %s", r.Version)
+							}
+							return nil
+						}),
+					),
 				})
 				return err
 			})
@@ -282,10 +305,16 @@ spec:
 				_, err := client.Call(echo.CallOptions{
 					Address: "server-local",
 					Port:    echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
 					Count:   5,
 					Check: check.And(
 						check.OK(),
-						check.Hostname("server-v1"),
+						check.Each(func(r echot.Response) error {
+							if r.Version != "v1" {
+								return fmt.Errorf("expected version v1, got %s", r.Version)
+							}
+							return nil
+						}),
 					),
 				})
 				return err
@@ -302,6 +331,7 @@ spec:
 				_, err := client.Call(echo.CallOptions{
 					Address: "server-local",
 					Port:    echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
 					Count:   1,
 				})
 				if err == nil {
