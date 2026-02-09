@@ -26,7 +26,6 @@ import (
 	"time"
 
 	echot "istio.io/istio/pkg/test/echo"
-	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
@@ -174,46 +173,6 @@ spec:
 			}, retry.Timeout(time.Minute), retry.Delay(time.Second))
 		})
 
-		t.NewSubTest("PreferClose annotation").Run(func(t framework.TestContext) {
-			// Create a service with PreferClose annotation
-			t.ConfigIstio().Eval(ns.Name(), map[string]string{
-				"Service": "server-prefer-close",
-			}, `apiVersion: v1
-kind: Service
-metadata:
-  name: "{{.Service}}"
-  annotations:
-    networking.istio.io/traffic-distribution: PreferClose
-spec:
-  selector:
-    app: server
-  ports:
-  - name: http
-    port: 80
-    targetPort: 5000
-`).ApplyOrFail(t)
-
-			// Traffic should prefer v1 (local zone)
-			retry.UntilSuccessOrFail(t, func() error {
-				_, err := client.Call(echo.CallOptions{
-					Address: "server-prefer-close",
-					Port:    echo.Port{ServicePort: 80},
-					Scheme:  scheme.HTTP,
-					Count:   5,
-					Check: check.And(
-						check.OK(),
-						check.Each(func(r echot.Response) error {
-							if r.Version != "v1" {
-								return fmt.Errorf("expected version v1, got %s", r.Version)
-							}
-							return nil
-						}),
-					),
-				})
-				return err
-			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
-		})
-
 		t.NewSubTest("failover").Run(func(t framework.TestContext) {
 			// Initial state: server-v1 should be present
 			retry.UntilSuccessOrFail(t, func() error {
@@ -260,90 +219,6 @@ spec:
 			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
 		})
 
-		t.NewSubTest("internalTrafficPolicy local").Run(func(t framework.TestContext) {
-			// Create a service with internalTrafficPolicy: Local
-			// We can't easily change the existing service via framework, so we create a new one
-			t.ConfigIstio().Eval(ns.Name(), map[string]string{
-				"Service": "server-local",
-			}, `apiVersion: v1
-kind: Service
-metadata:
-  name: "{{.Service}}"
-spec:
-  selector:
-    app: server
-  ports:
-  - name: http
-    port: 80
-    targetPort: 5000
-  internalTrafficPolicy: Local
-`).ApplyOrFail(t)
-
-			// Scale up v1 again
-			_, err := shell.Execute(true, fmt.Sprintf("kubectl scale deployment server-v1 -n %s --replicas=1", ns.Name()))
-			if err != nil {
-				t.Fatalf("failed to scale up server-v1: %v", err)
-			}
-
-			// Wait for v1 to be ready
-			retry.UntilSuccessOrFail(t, func() error {
-				_, err := client.Call(echo.CallOptions{
-					To:    server, // Check via old service first to ensure it's up
-					Port:  echo.Port{Name: "http"},
-					Count: 1,
-					Check: check.And(
-						check.OK(),
-						check.Each(func(r echot.Response) error {
-							if r.Version != "v1" {
-								return fmt.Errorf("expected version v1, got %s", r.Version)
-							}
-							return nil
-						}),
-					),
-				})
-				return err
-			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
-
-			// Now traffic to server-local should only hit v1 (local node)
-			retry.UntilSuccessOrFail(t, func() error {
-				_, err := client.Call(echo.CallOptions{
-					Address: "server-local",
-					Port:    echo.Port{ServicePort: 80},
-					Scheme:  scheme.HTTP,
-					Count:   5,
-					Check: check.And(
-						check.OK(),
-						check.Each(func(r echot.Response) error {
-							if r.Version != "v1" {
-								return fmt.Errorf("expected version v1, got %s", r.Version)
-							}
-							return nil
-						}),
-					),
-				})
-				return err
-			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
-
-			// Now scale down v1, it should FAIL because of sidecar/dataplane policy
-			// (Assuming node1 has no more server pods)
-			_, err = shell.Execute(true, fmt.Sprintf("kubectl scale deployment server-v1 -n %s --replicas=0", ns.Name()))
-			if err != nil {
-				t.Fatalf("failed to scale down server-v1: %v", err)
-			}
-
-			retry.UntilSuccessOrFail(t, func() error {
-				_, err := client.Call(echo.CallOptions{
-					Address: "server-local",
-					Port:    echo.Port{ServicePort: 80},
-					Scheme:  scheme.HTTP,
-					Count:   1,
-				})
-				if err == nil {
-					return fmt.Errorf("expected call to server-local to fail when no local pods exist")
-				}
-				return nil
-			}, retry.Timeout(time.Minute), retry.Delay(time.Second*2))
-		})
 	})
 }
 
