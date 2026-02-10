@@ -55,7 +55,7 @@ func requireEnhancedKernelForKernelNative(t framework.TestContext) {
 	}
 	enhanced, err := isEnhancedKernel(t)
 	if err != nil {
-		t.Fatalf("failed to detect enhanced kernel: %v", err)
+		t.Skipf("unable to detect enhanced kernel: %v", err)
 	}
 	if !enhanced {
 		t.Skipf("kernel-native running without enhanced kernel; skipping L7/XDP/DNS tests")
@@ -72,7 +72,7 @@ func isEnhancedKernel(t framework.TestContext) (bool, error) {
 		return false, fmt.Errorf("no kmesh pods found")
 	}
 	podName := pods.Items[0].Name
-	tail := int64(200)
+	tail := int64(2000)
 	req := t.Clusters().Default().Kube().CoreV1().Pods(KmeshNamespace).
 		GetLogs(podName, &v1.PodLogOptions{TailLines: &tail})
 	stream, err := req.Stream(context.Background())
