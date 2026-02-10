@@ -22,6 +22,7 @@ TMPBIN="$TMP/bin"
 mkdir -p "${TMPBIN}"
 
 export PATH="$PATH:$TMPBIN"
+export PATH="$(go env GOPATH)/bin:$PATH"
 
 # Provision a kind clustr for testing.
 function setup_kind_cluster() {
