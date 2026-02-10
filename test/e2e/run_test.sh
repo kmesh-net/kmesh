@@ -141,6 +141,7 @@ function setup_istio() {
 function setup_kmesh() {
 	# skip dns proxy for ipv6
 	[[ -n ${IPV6:-} ]] && extra_args="--set features.dnsProxy.enabled=false"
+	local kmesh_mode="${KMESH_MODE:-dual-engine}"
 
 	# Check if Istio version is <= 1.26 to use legacy EnvoyFilter format
 	# Extract major and minor version (e.g., "1.22.0" -> "1.22")
@@ -154,7 +155,7 @@ function setup_kmesh() {
 	fi
 
 	helm install kmesh $ROOT_DIR/deploy/charts/kmesh-helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh \
-		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true --enable-ipsec=true" \
+		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=${kmesh_mode} --enable-bypass=false --monitoring=true --enable-ipsec=true" \
 		$extra_args
 
 	# Wait for all Kmesh pods to be ready.
