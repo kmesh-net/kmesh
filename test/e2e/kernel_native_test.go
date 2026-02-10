@@ -24,11 +24,7 @@
 package kmesh
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"strconv"
-	"strings"
 	"testing"
 	"time"
 
@@ -136,57 +132,6 @@ func TestKernelNativeLargeScale(t *testing.T) {
 
 		g.Stop().CheckSuccessRate(t, 0.99)
 	})
-}
-
-func requireKernelNativeMode(t framework.TestContext) {
-	if !envTrue(kernelNativeModeEnv) {
-		t.Skipf("%s not set; skipping kernel-native e2e tests", kernelNativeModeEnv)
-	}
-	mode, err := getKmeshMode(t)
-	if err != nil {
-		t.Fatalf("failed to detect kmesh mode: %v", err)
-	}
-	if mode != "kernel-native" {
-		t.Skipf("kmesh mode is %q; skipping kernel-native tests", mode)
-	}
-}
-
-func getKmeshMode(t framework.TestContext) (string, error) {
-	ds, err := t.Clusters().Default().Kube().AppsV1().DaemonSets(KmeshNamespace).
-		Get(context.Background(), KmeshDaemonsetName, metav1.GetOptions{})
-	if err != nil {
-		return "", err
-	}
-
-	for _, c := range ds.Spec.Template.Spec.Containers {
-		if c.Name != "kmesh" {
-			continue
-		}
-		for _, arg := range c.Args {
-			if strings.HasPrefix(arg, "--mode=") {
-				return strings.TrimPrefix(arg, "--mode="), nil
-			}
-		}
-	}
-
-	return "", fmt.Errorf("--mode arg not found in kmesh daemonset")
-}
-
-func envTrue(key string) bool {
-	v := strings.ToLower(strings.TrimSpace(os.Getenv(key)))
-	return v == "1" || v == "true" || v == "yes"
-}
-
-func getEnvInt(key string, def int) int {
-	v := strings.TrimSpace(os.Getenv(key))
-	if v == "" {
-		return def
-	}
-	n, err := strconv.Atoi(v)
-	if err != nil {
-		return def
-	}
-	return n
 }
 
 type deploymentScale struct {
