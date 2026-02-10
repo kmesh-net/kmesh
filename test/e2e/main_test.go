@@ -30,6 +30,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -117,6 +118,10 @@ func TestMain(m *testing.M) {
 			return SetupApps(t, i, apps)
 		}).
 		Setup(func(t resource.Context) (err error) {
+			if strings.EqualFold(os.Getenv("KMESH_E2E_SKIP_PROM"), "1") || strings.EqualFold(os.Getenv("KMESH_E2E_SKIP_PROM"), "true") {
+				scopes.Framework.Infof("skipping prometheus setup due to KMESH_E2E_SKIP_PROM")
+				return nil
+			}
 			prom, err = prometheus.New(t, prometheus.Config{})
 			if err != nil {
 				return err
