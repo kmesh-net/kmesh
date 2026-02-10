@@ -105,9 +105,20 @@ func getKmeshMode(t framework.TestContext) (string, error) {
 		if c.Name != "kmesh" {
 			continue
 		}
-		for _, arg := range c.Args {
+		candidates := append([]string{}, c.Args...)
+		candidates = append(candidates, c.Command...)
+		for _, arg := range candidates {
 			if strings.HasPrefix(arg, "--mode=") {
 				return strings.TrimPrefix(arg, "--mode="), nil
+			}
+			if strings.Contains(arg, "--mode=") {
+				// Covers cases like "/bin/sh -c ./start_kmesh.sh --mode=kernel-native ..."
+				parts := strings.Fields(arg)
+				for _, part := range parts {
+					if strings.HasPrefix(part, "--mode=") {
+						return strings.TrimPrefix(part, "--mode="), nil
+					}
+				}
 			}
 		}
 	}
