@@ -117,13 +117,17 @@ static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tu
     if (info->iph->version == IPV4_VERSION) {
         tuple_info->ipv4.saddr = info->iph->saddr;
         tuple_info->ipv4.daddr = info->iph->daddr;
-        tuple_info->ipv4.sport = info->tcph->source;
-        tuple_info->ipv4.dport = info->tcph->dest;
+        // Ports from TCP header are in network byte order, convert to host byte order
+        // to match the format used by sockops when sending tuples to userspace
+        tuple_info->ipv4.sport = bpf_ntohs(info->tcph->source);
+        tuple_info->ipv4.dport = bpf_ntohs(info->tcph->dest);
     } else {
         bpf_memcpy((__u8 *)tuple_info->ipv6.saddr, info->ip6h->saddr.in6_u.u6_addr8, IPV6_ADDR_LEN);
         bpf_memcpy((__u8 *)tuple_info->ipv6.daddr, info->ip6h->daddr.in6_u.u6_addr8, IPV6_ADDR_LEN);
-        tuple_info->ipv6.sport = info->tcph->source;
-        tuple_info->ipv6.dport = info->tcph->dest;
+        // Ports from TCP header are in network byte order, convert to host byte order
+        // to match the format used by sockops when sending tuples to userspace
+        tuple_info->ipv6.sport = bpf_ntohs(info->tcph->source);
+        tuple_info->ipv6.dport = bpf_ntohs(info->tcph->dest);
     }
 }
 
@@ -145,9 +149,17 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
     __u32 *notPorts = NULL;
     __u32 *ports = NULL;
     __u32 i;
+    __u16 dport;
 
     if (match->n_destination_ports == 0 && match->n_not_destination_ports == 0) {
         return MATCHED;
+    }
+
+    // Get destination port - already in host byte order from parser_tuple
+    if (info->iph->version == IPV4_VERSION) {
+        dport = tuple_info->ipv4.dport;
+    } else {
+        dport = tuple_info->ipv6.dport;
     }
 
     if (match->n_not_destination_ports != 0) {
@@ -161,14 +173,9 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
             if (i >= match->n_not_destination_ports) {
                 break;
             }
-            if (info->iph->version == IPV4_VERSION) {
-                if (bpf_htons(notPorts[i]) == tuple_info->ipv4.dport) {
-                    return UNMATCHED;
-                }
-            } else {
-                if (bpf_htons(notPorts[i]) == tuple_info->ipv6.dport) {
-                    return UNMATCHED;
-                }
+            // Policy ports are in host byte order, tuple dport is now also host byte order
+            if ((__u16)notPorts[i] == dport) {
+                return UNMATCHED;
             }
         }
     }
@@ -187,14 +194,9 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
         if (i >= match->n_destination_ports) {
             break;
         }
-        if (info->iph->version == IPV4_VERSION) {
-            if (bpf_htons(ports[i]) == tuple_info->ipv4.dport) {
-                return MATCHED;
-            }
-        } else {
-            if (bpf_htons(ports[i]) == tuple_info->ipv6.dport) {
-                return MATCHED;
-            }
+        // Policy ports are in host byte order, tuple dport is now also host byte order
+        if ((__u16)ports[i] == dport) {
+            return MATCHED;
         }
     }
     return UNMATCHED;
@@ -655,31 +657,13 @@ int policy_check(struct xdp_md *ctx)
     if (matched) {
         BPF_LOG(DEBUG, AUTH, "policy %s matched", match_ctx->policy_name);
         if (info.iph->version == IPV4_VERSION) {
+            BPF_LOG(DEBUG, AUTH, "src ip: %s, src port:%u", ip2str(&tuple_key.ipv4.saddr, true), tuple_key.ipv4.sport);
             BPF_LOG(
-                DEBUG,
-                AUTH,
-                "src ip: %s, src port:%u",
-                ip2str(&tuple_key.ipv4.saddr, true),
-                bpf_ntohs(tuple_key.ipv4.sport));
-            BPF_LOG(
-                DEBUG,
-                AUTH,
-                "dst ip: %s, dst port:%u\n",
-                ip2str(&tuple_key.ipv4.daddr, true),
-                bpf_ntohs(tuple_key.ipv4.dport));
+                DEBUG, AUTH, "dst ip: %s, dst port:%u\n", ip2str(&tuple_key.ipv4.daddr, true), tuple_key.ipv4.dport);
         } else {
+            BPF_LOG(DEBUG, AUTH, "src ip: %s, src port:%u", ip2str(tuple_key.ipv6.saddr, false), tuple_key.ipv6.sport);
             BPF_LOG(
-                DEBUG,
-                AUTH,
-                "src ip: %s, src port:%u",
-                ip2str(tuple_key.ipv6.saddr, false),
-                bpf_ntohs(tuple_key.ipv6.sport));
-            BPF_LOG(
-                DEBUG,
-                AUTH,
-                "dst ip: %s, dst port:%u\n",
-                ip2str(tuple_key.ipv6.daddr, false),
-                bpf_ntohs(tuple_key.ipv6.dport));
+                DEBUG, AUTH, "dst ip: %s, dst port:%u\n", ip2str(tuple_key.ipv6.daddr, false), tuple_key.ipv6.dport);
         }
         if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
             BPF_LOG(ERR, AUTH, "failed to delete tail call context from map");
