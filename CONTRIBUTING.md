@@ -3,19 +3,20 @@
 Welcome to Kmesh!
 
 - [Contributing](#contributing)
-- [Before you get started](#before-you-get-started)
-  - [Code of Conduct](#code-of-conduct)
-  - [Community Expectations](#community-expectations)
-- [Getting started](#getting-started)
-- [Your First Contribution](#your-first-contribution)
-  - [Find something to work on](#find-something-to-work-on)
-    - [Find a good first topic](#find-a-good-first-topic)
+  - [Before you get started](#before-you-get-started)
+    - [Code of Conduct](#code-of-conduct)
+    - [Community Expectations](#community-expectations)
+  - [Getting started](#getting-started)
+  - [Your First Contribution](#your-first-contribution)
+    - [Find something to work on](#find-something-to-work-on)
+      - [Find a good first topic](#find-a-good-first-topic)
       - [Work on an issue](#work-on-an-issue)
-    - [File an Issue](#file-an-issue)
-- [Contributor Workflow](#contributor-workflow)
-  - [Creating Pull Requests](#creating-pull-requests)
-  - [Code Review](#code-review)
-- [Membership](#membership)
+      - [File an Issue](#file-an-issue)
+  - [AI Guidance](#ai-guidance)
+  - [Contributor Workflow](#contributor-workflow)
+    - [Creating Pull Requests](#creating-pull-requests)
+    - [Code Review](#code-review)
+  - [Membership](#membership)
 
 ## Before you get started
 
@@ -74,6 +75,10 @@ Issues should be filed under the appropriate Kmesh sub-repository.
 *Example:* a Kmesh issue should be opened to [Kmesh-net/Kmesh](https://github.com/Kmesh-net/Kmesh/issues).
 
 Please follow the prompted submission guidelines while opening an issue.
+
+## AI Guidance
+
+Using AI tools to help write your PR is acceptable, but as the author, you are responsible for understanding every change. Do not leave the first review of AI generated changes to the reviewers, verify the changes (code review, testing, etc.) before submitting your PR. Reviewers may ask questions about your AI-assisted code, and if you cannot explain why a change was made, the PR will be closed. When responding to review comments, please do so without relying on AI tools. Reviewers want to engage directly with you, not with generated responses. If you used AI tools in preparing your PR, please disclose this in the "Special notes for your reviewer" section. All contributions must follow the contributions policies and use commit messages that align with the policy. Large AI generated PRs and AI generated commit messages are discouraged.
 
 ## Contributor Workflow
 
