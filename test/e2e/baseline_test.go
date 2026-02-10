@@ -399,6 +399,7 @@ spec:
 
 func TestServerSideLB(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			// Need HTTP
 			if opt.Scheme != scheme.HTTP {
@@ -450,6 +451,7 @@ func TestServerSideLB(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			// Need waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
