@@ -44,6 +44,7 @@ const (
 func TestKernelNativeRestart(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		requireKernelNativeMode(t)
+		requireEnhancedKernelForKernelNative(t)
 
 		// if dns proxy is enabled, when kmesh restarts, the DNS query will fail
 		configureDNSProxy(t, false)
@@ -77,6 +78,7 @@ func TestKernelNativeRestart(t *testing.T) {
 func TestKernelNativeLargeScale(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		requireKernelNativeMode(t)
+		requireEnhancedKernelForKernelNative(t)
 
 		replicas := int32(getEnvInt(largeScaleReplicasEnv, 10))
 		if replicas < 2 {
