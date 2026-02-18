@@ -64,6 +64,42 @@ APPS2 := mdacore
 APPS3 := kmesh-cni
 APPS4 := kmeshctl
 
+ALL_BINARIES := $(APPS1) $(APPS2) $(APPS3) $(APPS4)
+
+BINARIES ?= $(ALL_BINARIES)
+
+INVALID_BINARIES := $(filter-out $(ALL_BINARIES), $(BINARIES))
+ifneq ($(INVALID_BINARIES),)
+$(error Invalid binaries: $(INVALID_BINARIES). Valid: $(ALL_BINARIES))
+endif
+
+
+.PHONY: configure-pkg-config
+configure-pkg-config:
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+
+# Individual binary build targets
+.PHONY: build-kmesh-daemon build-mdacore build-kmesh-cni build-kmeshctl
+
+build-kmesh-daemon: configure-pkg-config
+	$(call printlog, BUILD, $(APPS1))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
+
+build-mdacore: configure-pkg-config
+	$(call printlog, BUILD, $(APPS2))
+	$(QUIET) cd oncn-mda && cmake . -B build && make -C build
+
+build-kmesh-cni: configure-pkg-config
+	$(call printlog, BUILD, $(APPS3))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+
+build-kmeshctl: configure-pkg-config
+	$(call printlog, BUILD, $(APPS4))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
+
 
 # If the hub is not explicitly set, use default to kmesh-net.
 HUB ?= ghcr.io/kmesh-net
@@ -104,22 +140,7 @@ kmesh-ko:
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
 
-all-binary:
-	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
-	$(call printlog, BUILD, $(APPS1))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
-	
-	$(call printlog, BUILD, $(APPS2))
-	$(QUIET) cd oncn-mda && cmake . -B build && make -C build
-
-	$(call printlog, BUILD, $(APPS3))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
-
-	$(call printlog, BUILD, $(APPS4))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
+all-binary: $(addprefix build-, $(BINARIES))
 
 OUT ?= kmeshctl
 .PHONY: kmeshctl
@@ -202,7 +223,7 @@ uninstall:
 
 .PHONY: build
 build:
-	 VERSION=$(VERSION) ./kmesh_compile.sh
+	 VERSION=$(VERSION) BINARIES="$(BINARIES)" ./kmesh_compile.sh
 
 .PHONY: docker
 docker: build

@@ -43,9 +43,11 @@ if [ "$1" == "-h" -o "$1" == "--help" ]; then
 fi
 
 if [ -z "$1" -o "$1" == "-b" -o "$1" == "--build" ]; then
-	prepare
-	make
-	exit
+    prepare
+    make kmesh-bpf
+	make kmesh-ko
+    make all-binary
+    exit
 fi
 
 if [ "$1" == "-i" -o "$1" == "--install" ]; then
