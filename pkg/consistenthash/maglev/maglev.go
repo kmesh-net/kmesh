@@ -34,19 +34,18 @@ import (
 )
 
 const (
-	DefaultTableSize    uint64 = 16381
-	DefaultHashSeed            = "JLfvgnHc2kaSUFaI"
-	MaglevOuterMapName         = "km_maglev_outer"
-	MaglevInnerMapName         = "inner_of_maglev"
-	MaglevMapMaxEntries        = 65536
-	ClusterNameMaxLen          = 192
+	DefaultTableSize   uint64 = 16381
+	DefaultHashSeed           = "JLfvgnHc2kaSUFaI"
+	MaglevOuterMapName        = "km_maglev_outer"
+	MaglevInnerMapName        = "inner_of_maglev"
+	ClusterNameMaxLen         = 192
 )
 
-var (
+type Maglev struct {
 	outer           *ebpf.Map
 	seedMurmur      uint32
 	maglevTableSize uint64
-)
+}
 
 type Backend struct {
 	ep     *endpoint.Endpoint
@@ -56,45 +55,45 @@ type Backend struct {
 	next   uint64
 }
 
-func InitMaglevMap() error {
-	maglevTableSize = DefaultTableSize
-	opt := &ebpf.LoadPinOptions{}
-
-	outer_map, err := ebpf.LoadPinnedMap("/sys/fs/bpf"+"/bpf_kmesh/map/"+MaglevOuterMapName, opt)
-	if err != nil {
-		return fmt.Errorf("load outer map of maglev failed err: %v", err)
+func InitMaglevMap(maglevMap *ebpf.Map) (*Maglev, error) {
+	m := &Maglev{
+		maglevTableSize: DefaultTableSize,
+		outer:           maglevMap,
 	}
-	outer = outer_map
 
 	d, err := base64.StdEncoding.DecodeString(DefaultHashSeed)
 	if err != nil {
-		return fmt.Errorf("cannot decode base64 Maglev hash seed %q: %w", DefaultHashSeed, err)
+		return nil, fmt.Errorf("cannot decode base64 Maglev hash seed %q: %w", DefaultHashSeed, err)
 	}
 	if len(d) != 12 {
-		return fmt.Errorf("decoded hash seed is %d bytes (not 12 bytes)", len(d))
+		return nil, fmt.Errorf("decoded hash seed is %d bytes (not 12 bytes)", len(d))
 	}
-	seedMurmur = uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
+	m.seedMurmur = uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
 
-	return nil
+	return m, nil
 }
 
 // only trafficPolicy enable maglev in DestinationRule would create lb
-func CreateLB(cluster *cluster_v2.Cluster) error {
+func (m *Maglev) CreateLB(cluster *cluster_v2.Cluster) error {
+	if m == nil {
+		return nil
+	}
+
 	if cluster == nil {
 		return errors.New("cluster is nil")
 	}
 
 	clusterName := cluster.GetName()
-	table, err := getLookupTable(cluster, maglevTableSize)
+	table, err := m.getLookupTable(cluster)
 	if err != nil {
 		return err
 	}
-	backendIDs := make([]uint32, maglevTableSize)
+	backendIDs := make([]uint32, m.maglevTableSize)
 	for i, id := range table {
 		backendIDs[i] = uint32(id)
 	}
 
-	err = updateMaglevTable(backendIDs, clusterName)
+	err = m.updateMaglevTable(backendIDs, clusterName)
 	if err != nil {
 		return fmt.Errorf("updateMaglevTable fail err:%v", err)
 	}
@@ -103,28 +102,24 @@ func CreateLB(cluster *cluster_v2.Cluster) error {
 }
 
 // createMaglevInnerMap creates a new Maglev inner map in the kernel
-// using the given table size.
-func createMaglevInnerMap(tableSize uint32) (*ebpf.Map, error) {
+func (m *Maglev) createMaglevInnerMap() (*ebpf.Map, error) {
 	spec := &ebpf.MapSpec{
 		Name:       MaglevInnerMapName,
 		Type:       ebpf.Array,
 		KeySize:    uint32(unsafe.Sizeof(uint32(0))),
-		ValueSize:  uint32(unsafe.Sizeof(uint32(0))) * tableSize,
+		ValueSize:  uint32(unsafe.Sizeof(uint32(0))) * uint32(m.maglevTableSize),
 		MaxEntries: 1,
 	}
 
-	m, err := ebpf.NewMap(spec)
+	inner, err := ebpf.NewMap(spec)
 	if err != nil {
 		return nil, err
 	}
-	return m, nil
+	return inner, nil
 }
 
-func updateMaglevTable(backendIDs []uint32, clusterName string) error {
-	if outer == nil {
-		return errors.New("outer maglev maps not yet initialized")
-	}
-	inner, err := createMaglevInnerMap(uint32(maglevTableSize))
+func (m *Maglev) updateMaglevTable(backendIDs []uint32, clusterName string) error {
+	inner, err := m.createMaglevInnerMap()
 	if err != nil {
 		return err
 	}
@@ -141,25 +136,25 @@ func updateMaglevTable(backendIDs []uint32, clusterName string) error {
 	var maglevKey [ClusterNameMaxLen]byte
 	copy(maglevKey[:], []byte(clusterName))
 
-	if err := outer.Update(maglevKey, uint32(inner.FD()), 0); err != nil {
+	if err := m.outer.Update(maglevKey, uint32(inner.FD()), 0); err != nil {
 		return fmt.Errorf("updating cluster %v: %w", clusterName, err)
 	}
 	return nil
 }
 
-func getOffsetAndSkip(address string, m uint64) (uint64, uint64) {
-	h1, h2 := hash.Hash128([]byte(address), seedMurmur)
-	offset := h1 % m
-	skip := (h2 % (m - 1)) + 1
+func (m *Maglev) getOffsetAndSkip(address string) (uint64, uint64) {
+	h1, h2 := hash.Hash128([]byte(address), m.seedMurmur)
+	offset := h1 % m.maglevTableSize
+	skip := (h2 % (m.maglevTableSize - 1)) + 1
 
 	return offset, skip
 }
 
-func getPermutation(b Backend) uint64 {
-	return (b.offset + (b.skip * b.next)) % maglevTableSize
+func getPermutation(b Backend, tableSize uint64) uint64 {
+	return (b.offset + (b.skip * b.next)) % tableSize
 }
 
-func getLookupTable(cluster *cluster_v2.Cluster, tableSize uint64) ([]int, error) {
+func (m *Maglev) getLookupTable(cluster *cluster_v2.Cluster) ([]int, error) {
 	loadAssignment := cluster.GetLoadAssignment()
 	clusterName := cluster.GetName()
 	localityLbEps := loadAssignment.GetEndpoints()
@@ -178,7 +173,7 @@ func getLookupTable(cluster *cluster_v2.Cluster, tableSize uint64) ([]int, error
 	backends := make([]Backend, 0, len(flatEps))
 
 	for i, ep := range flatEps {
-		epOffset, epSkip := getOffsetAndSkip(ep.GetAddress().String(), maglevTableSize)
+		epOffset, epSkip := m.getOffsetAndSkip(ep.GetAddress().String())
 		b := Backend{
 			ep:     ep,
 			index:  i,
@@ -194,20 +189,20 @@ func getLookupTable(cluster *cluster_v2.Cluster, tableSize uint64) ([]int, error
 	}
 
 	length := len(backends)
-	lookUpTable := make([]int, tableSize)
+	lookUpTable := make([]int, m.maglevTableSize)
 
-	for i := uint64(0); i < tableSize; i++ {
+	for i := uint64(0); i < m.maglevTableSize; i++ {
 		lookUpTable[i] = -1
 	}
 
-	for n := uint64(0); n < tableSize; n++ {
+	for n := uint64(0); n < m.maglevTableSize; n++ {
 		j := int(n) % length
 		b := backends[j]
 		for {
-			c := getPermutation(b)
+			c := getPermutation(b, m.maglevTableSize)
 			for lookUpTable[c] >= 0 {
 				b.next++
-				c = getPermutation(b)
+				c = getPermutation(b, m.maglevTableSize)
 			}
 			lookUpTable[c] = b.index
 			b.next++
