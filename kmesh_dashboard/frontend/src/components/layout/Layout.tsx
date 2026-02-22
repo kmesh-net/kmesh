@@ -1,11 +1,12 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Layout as AntLayout, Menu } from 'antd'
-import { ClusterOutlined } from '@ant-design/icons'
+import { ClusterOutlined, GatewayOutlined } from '@ant-design/icons'
 
 const { Header, Content } = AntLayout
 
 const navItems = [
   { key: '/cluster/nodes', icon: <ClusterOutlined />, label: <Link to="/cluster/nodes">集群节点</Link> },
+  { key: '/waypoint', icon: <GatewayOutlined />, label: <Link to="/waypoint">Waypoint</Link> },
 ]
 
 export default function Layout() {
