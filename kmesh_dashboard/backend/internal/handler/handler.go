@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 
+	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
@@ -10,8 +11,9 @@ import (
 const apiPrefix = "/api"
 
 // Register 注册所有 HTTP 路由
-func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatewayapiclient.Interface) {
+func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatewayapiclient.Interface, dyn dynamic.Interface) {
 	mux.HandleFunc(apiPrefix+"/cluster/nodes", ClusterNodes(clientset))
+	mux.HandleFunc(apiPrefix+"/services", ServiceList(clientset))
 	mux.HandleFunc(apiPrefix+"/health", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -25,4 +27,8 @@ func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatew
 	mux.HandleFunc(apiPrefix+"/waypoint/status", WaypointStatus(gwClient))
 	mux.HandleFunc(apiPrefix+"/waypoint/apply", WaypointApply(gwClient))
 	mux.HandleFunc(apiPrefix+"/waypoint/delete", WaypointDelete(gwClient))
+	// 熔断 (DestinationRule)
+	mux.HandleFunc(apiPrefix+"/circuitbreaker/list", CircuitBreakerList(dyn))
+	mux.HandleFunc(apiPrefix+"/circuitbreaker/apply", CircuitBreakerApply(dyn))
+	mux.HandleFunc(apiPrefix+"/circuitbreaker/delete", CircuitBreakerDelete(dyn))
 }

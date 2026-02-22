@@ -8,6 +8,7 @@ import (
 	"kmesh.net/kmesh-dashboard/backend/internal/handler"
 	"kmesh.net/kmesh-dashboard/backend/internal/k8s"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+	"k8s.io/client-go/dynamic"
 )
 
 func main() {
@@ -24,9 +25,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to create gateway-api client: %v", err)
 	}
+	dyn, err := dynamic.NewForConfig(config)
+	if err != nil {
+		log.Fatalf("failed to create dynamic client: %v", err)
+	}
 
 	mux := http.NewServeMux()
-	handler.Register(mux, clientset, gwClient)
+	handler.Register(mux, clientset, gwClient, dyn)
 
 	addr := ":8080"
 	if p := os.Getenv("PORT"); p != "" {
