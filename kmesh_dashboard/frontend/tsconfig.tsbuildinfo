@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/api/client.ts","./src/api/cluster.ts","./src/components/layout/layout.tsx","./src/pages/cluster/clusternodespage.tsx","./src/types/cluster.ts"],"version":"5.6.3"}

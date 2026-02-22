@@ -1,0 +1,11 @@
+# 占位：Dashboard Service
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: kmesh-dashboard
+# spec:
+#   selector:
+#     app: kmesh-dashboard
+#   ports:
+#     - port: 80
+#       targetPort: 8080

@@ -1,0 +1,23 @@
+# 占位：Dashboard 后端 Deployment，需配置 KUBECONFIG 或 InCluster 权限
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: kmesh-dashboard
+# spec:
+#   replicas: 1
+#   selector:
+#     matchLabels:
+#       app: kmesh-dashboard
+#   template:
+#     metadata:
+#       labels:
+#         app: kmesh-dashboard
+#     spec:
+#       containers:
+#         - name: backend
+#           image: kmesh-dashboard-backend:latest
+#           ports:
+#             - containerPort: 8080
+#           env:
+#             - name: PORT
+#               value: "8080"
