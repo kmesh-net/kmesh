@@ -31,4 +31,8 @@ func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatew
 	mux.HandleFunc(apiPrefix+"/circuitbreaker/list", CircuitBreakerList(dyn))
 	mux.HandleFunc(apiPrefix+"/circuitbreaker/apply", CircuitBreakerApply(dyn))
 	mux.HandleFunc(apiPrefix+"/circuitbreaker/delete", CircuitBreakerDelete(dyn))
+	// 限流 (EnvoyFilter local_ratelimit)
+	mux.HandleFunc(apiPrefix+"/ratelimit/list", RateLimitList(dyn))
+	mux.HandleFunc(apiPrefix+"/ratelimit/apply", RateLimitApply(dyn))
+	mux.HandleFunc(apiPrefix+"/ratelimit/delete", RateLimitDelete(dyn))
 }
