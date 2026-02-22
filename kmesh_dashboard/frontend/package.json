@@ -11,6 +11,8 @@
   "dependencies": {
     "@ant-design/icons": "^5.5.0",
     "antd": "^5.21.0",
+    "echarts": "^5.5.0",
+    "echarts-for-react": "^3.0.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"

@@ -4,6 +4,7 @@ import ClusterNodesPage from './pages/cluster/ClusterNodesPage'
 import WaypointPage from './pages/waypoint'
 import CircuitBreakerPage from './pages/circuitbreaker'
 import RateLimitPage from './pages/ratelimit'
+import MetricsPage from './pages/metrics/MetricsPage'
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
           <Route path="waypoint" element={<WaypointPage />} />
           <Route path="circuitbreaker" element={<CircuitBreakerPage />} />
           <Route path="ratelimit" element={<RateLimitPage />} />
+          <Route path="metrics" element={<MetricsPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

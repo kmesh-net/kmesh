@@ -14,6 +14,8 @@ const apiPrefix = "/api"
 func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatewayapiclient.Interface, dyn dynamic.Interface) {
 	mux.HandleFunc(apiPrefix+"/cluster/nodes", ClusterNodes(clientset))
 	mux.HandleFunc(apiPrefix+"/services", ServiceList(clientset))
+	mux.HandleFunc(apiPrefix+"/metrics/datasource", MetricsDatasource())
+	mux.HandleFunc(apiPrefix+"/metrics/overview", MetricsOverview())
 	mux.HandleFunc(apiPrefix+"/health", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
