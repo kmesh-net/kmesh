@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Card, Table, Button, Spin, Alert, Input } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
+import { useAuth } from '@/contexts/AuthContext'
 import { getRateLimitList, deleteRateLimit } from '@/api/ratelimit'
 import type { RateLimitItem } from '@/types/ratelimit'
 
 export default function RateLimitListPage() {
+  const { can } = useAuth()
+  const canDelete = can('ratelimit', 'delete')
   const [list, setList] = useState<RateLimitItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -79,23 +82,27 @@ export default function RateLimitListPage() {
                   ? JSON.stringify(r.workloadSelector)
                   : '全部',
             },
-            {
-              title: '操作',
-              key: 'action',
-              width: 90,
-              render: (_: unknown, r: RateLimitItem) => (
-                <Button
-                  type="link"
-                  danger
-                  size="small"
-                  icon={<DeleteOutlined />}
-                  loading={deleting === `${r.namespace}/${r.name}`}
-                  onClick={() => handleDelete(r)}
-                >
-                  删除
-                </Button>
-              ),
-            },
+            ...(canDelete
+              ? [
+                  {
+                    title: '操作',
+                    key: 'action',
+                    width: 90,
+                    render: (_: unknown, r: RateLimitItem) => (
+                      <Button
+                        type="link"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        loading={deleting === `${r.namespace}/${r.name}`}
+                        onClick={() => handleDelete(r)}
+                      >
+                        删除
+                      </Button>
+                    ),
+                  },
+                ]
+              : []),
           ]}
           dataSource={list}
           pagination={{ pageSize: 10, showSizeChanger: true }}
