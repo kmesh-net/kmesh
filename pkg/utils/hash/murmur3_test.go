@@ -52,7 +52,7 @@ func TestHash128_TailCases(t *testing.T) {
 }
 
 func TestHash128_LargeInput(t *testing.T) {
-	// Test with large input to ensure no issues with memory
+	// Test with large input to ensure no issues with memory/chunking
 	largeInput := make([]byte, 10000)
 	for i := range largeInput {
 		largeInput[i] = byte(i % 256)
@@ -120,30 +120,23 @@ func TestFmix64(t *testing.T) {
 		expected uint64
 	}{
 		{
-			name:     "zero",
+			name:     "zero input",
 			input:    0,
 			expected: 0,
 		},
 		{
-			name:     "max value",
+			name:     "all ones",
 			input:    0xffffffffffffffff,
-			expected: 0x49a3af502d8a9f23, // This would need to be calculated/verified
-		},
-		{
-			name:     "test value",
-			input:    0x123456789abcdef0,
-			expected: 0, // This would need to be calculated/verified - testing for determinism instead
+			expected: 0x64b5720b4b825f21,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := fmix64(tt.input)
-
-			// Test deterministic behavior
-			result2 := fmix64(tt.input)
-			if result != result2 {
-				t.Errorf("fmix64(0x%x) is not deterministic: 0x%x != 0x%x", tt.input, result, result2)
+			if result != tt.expected {
+				t.Errorf("fmix64(0x%x) = 0x%x, want 0x%x",
+					tt.input, result, tt.expected)
 			}
 		})
 	}
