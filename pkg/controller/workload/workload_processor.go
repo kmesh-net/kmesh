@@ -106,12 +106,20 @@ func (p *Processor) WithResourceHandlers(typeUrl string, h ...func(resp *service
 }
 
 func (p *Processor) PrepareDNSProxy() error {
+	// Delegate to SetDNSProxyEnabled to avoid code duplication.
+	return p.SetDNSProxyEnabled(EnableDNSProxy)
+}
+
+// SetDNSProxyEnabled dynamically enables or disables the DNS proxy.
+// When enabled, registers the kmesh daemon IP in the BPF backend map.
+// When disabled, removes the registration from the BPF map.
+func (p *Processor) SetDNSProxyEnabled(enabled bool) error {
 	bk := &bpf.BackendKey{
 		BackendUid: 0,
 	}
 
-	// when dns proxy is not enabled, we unregister kmesh daemon from bpf map
-	if !EnableDNSProxy {
+	if !enabled {
+		log.Info("disabling DNS proxy")
 		return p.bpf.BackendDelete(bk)
 	}
 
@@ -120,10 +128,16 @@ func (p *Processor) PrepareDNSProxy() error {
 		return fmt.Errorf("ip of kmesh daemon is not set")
 	}
 
-	log.Infof("dns proxy is enabled and will be redirected, ip: %s", podIp)
+	log.Infof("enabling DNS proxy, ip: %s", podIp)
+
+	// Use ParseAddr instead of MustParseAddr to avoid panic on invalid IP.
+	addr, err := netip.ParseAddr(podIp)
+	if err != nil {
+		return fmt.Errorf("invalid INSTANCE_IP %q: %w", podIp, err)
+	}
 
 	bv := &bpf.BackendValue{}
-	nets.CopyIpByteFromSlice(&bv.Ip, netip.MustParseAddr(podIp).AsSlice())
+	nets.CopyIpByteFromSlice(&bv.Ip, addr.AsSlice())
 	if err := p.bpf.BackendUpdate(bk, bv); err != nil {
 		log.Errorf("failed to register kmesh daemon ip, err: %+v", err)
 		return err
