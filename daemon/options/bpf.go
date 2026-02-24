@@ -34,6 +34,7 @@ type BpfConfig struct {
 	EnablePeriodicReport bool
 	EnableProfiling      bool
 	EnableIPsec          bool
+	EnableDnsProxy       bool
 }
 
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
@@ -45,6 +46,7 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&c.EnablePeriodicReport, "periodic-report", false, "enable kmesh periodic report in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnableProfiling, "profiling", false, "whether to enable profiling or not, default to false")
 	cmd.PersistentFlags().BoolVar(&c.EnableIPsec, "enable-ipsec", false, "enable ipsec encryption and authentication between nodes")
+	cmd.PersistentFlags().BoolVar(&c.EnableDnsProxy, "enable-dns-proxy", false, "enable dns proxy, a DNS server will be started in kmesh daemon and serve DNS requests")
 }
 
 func (c *BpfConfig) ParseConfig() error {
