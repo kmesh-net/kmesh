@@ -22,8 +22,12 @@ import (
 	"github.com/miekg/dns"
 )
 
+type dnsClient interface {
+	Exchange(m *dns.Msg, addr string) (*dns.Msg, time.Duration, error)
+}
+
 type upstreamResolver struct {
-	*dns.Client
+	Client    dnsClient
 	upstreams []string
 }
 
@@ -47,7 +51,7 @@ func (r *upstreamResolver) Resolve(req *dns.Msg) (*dns.Msg, error) {
 	var response *dns.Msg
 
 	for _, upstream := range r.upstreams {
-		resp, _, err := r.Exchange(req, upstream)
+		resp, _, err := r.Client.Exchange(req, upstream)
 		if err != nil || resp == nil {
 			continue
 		}
