@@ -118,6 +118,7 @@ func OriginalSourceCheck(t framework.TestContext, src echo.Instance) echo.Checke
 // Test access to service, enabling L7 processing and propagating original src when  appropriate.
 func TestServices(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		requireEnhancedKernelForKernelNative(t)
 		if supportsL7(opt, src, dst) {
 			opt.Check = httpValidator
 		} else {
@@ -172,6 +173,7 @@ func TestPodIP(t *testing.T) {
 
 func TestDNSProxy(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		requireEnhancedKernelForKernelNative(t)
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
@@ -239,6 +241,7 @@ spec:
 // This simulates external service access using DNS resolution.
 func TestServiceEntryDNSResolution(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
+		requireEnhancedKernelForKernelNative(t)
 		if opt.Scheme != scheme.HTTP {
 			return
 		}
@@ -396,6 +399,7 @@ spec:
 
 func TestServerSideLB(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			// Need HTTP
 			if opt.Scheme != scheme.HTTP {
@@ -447,6 +451,7 @@ func TestServerSideLB(t *testing.T) {
 
 func TestServerRouting(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		runTestToServiceWaypoint(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			// Need waypoint proxy and HTTP
 			if opt.Scheme != scheme.HTTP {
