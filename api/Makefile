@@ -21,13 +21,11 @@ include ../mk/bpf.print.mk
 include ../mk/bpf.vars.mk
 
 C_OUTPUT_DIR := v2-c
-GO_OUTPUT_DIR := v2
-GO_BUILD_DIR := kmesh.net/kmesh/api
-
 PROTO_PATH := ../
 PROTO_SRC := $(call find_source, ../api, *.proto)
+WORKLOAD_PROTO_SRC := workloadapi/workload.proto
 
-.PHONY: gen-proto install clean
+.PHONY: gen-proto gen-workload-proto install clean
 
 gen-proto:
 
@@ -37,16 +35,12 @@ gen-proto:
 	$(QUIET) mkdir -p $(C_OUTPUT_DIR)
 	$(QUIET) cp -rf api/* $(C_OUTPUT_DIR); rm -rf api
 	$(QUIET) find $(C_OUTPUT_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
+	$(call printlog, PROTO, workloadapi)
+	$(QUIET) protoc --proto_path=. --go_out=workloadapi --go_opt=paths=source_relative $(WORKLOAD_PROTO_SRC)
 
-	$(call printlog, PROTO, api/$(GO_OUTPUT_DIR))
-	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
-	$(QUIET) mkdir -p $(GO_OUTPUT_DIR)
-	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR); rm -rf kmesh.net
-	$(QUIET) find $(GO_OUTPUT_DIR) -name *pb.go | xargs sed -i 's/mesh\/api/mesh\/api\/v2/g'
-
-	
 install:
 
 clean:
-	$(call printlog, CLEAN, $(C_OUTPUT_DIR) $(GO_OUTPUT_DIR))
-	$(QUIET) rm -rf $(C_OUTPUT_DIR) $(GO_OUTPUT_DIR)
+	$(call printlog, CLEAN, $(C_OUTPUT_DIR))
+	$(QUIET) rm -rf $(C_OUTPUT_DIR)
+	$(QUIET) rm -f workloadapi/*.pb.go
