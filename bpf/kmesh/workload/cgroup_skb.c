@@ -11,7 +11,7 @@
 #include "probe.h"
 #include "config.h"
 
-volatile __u32 enable_periodic_report = 0;
+volatile __u32 enable_periodic_report = 1;
 
 static inline bool is__periodic_report_enable()
 {
