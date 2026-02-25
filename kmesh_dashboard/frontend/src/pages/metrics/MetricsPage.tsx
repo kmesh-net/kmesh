@@ -1,61 +1,41 @@
 import { useEffect, useState } from 'react'
-import { Card, Select, Button, Alert, Space, Input } from 'antd'
+import { Card, Button, Alert, Space, Input, InputNumber, Statistic, Row, Col, Table, Typography } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
-import ReactECharts from 'echarts-for-react'
-import { getMetricsDatasource, getMetricsOverview } from '@/api/metrics'
-import type { MetricsPoint } from '@/types/metrics'
+import { getMetricsDatasource, getMetricsOverview, getAccesslog, getKmeshPods } from '@/api/metrics'
+import type { AccesslogEntry } from '@/types/metrics'
 
-const TIME_RANGES = [
-  { value: '5m', label: '最近 5 分钟', step: 15 },
-  { value: '15m', label: '最近 15 分钟', step: 30 },
-  { value: '1h', label: '最近 1 小时', step: 60 },
-]
-
-function lineOption(title: string, data: MetricsPoint[], unit = '', isPercent = false) {
-  return {
-    title: { text: title, left: 'center' },
-    tooltip: {
-      trigger: 'axis',
-      valueFormatter: isPercent ? (v: number) => (Number(v) * 100).toFixed(2) + '%' : undefined,
-    },
-    grid: { left: 48, right: 24, top: 40, bottom: 32 },
-    xAxis: {
-      type: 'time',
-      axisLabel: { formatter: (v: number) => new Date(v).toLocaleTimeString() },
-    },
-    yAxis: {
-      type: 'value',
-      min: 0,
-      max: isPercent ? 1 : undefined,
-      axisLabel: {
-        formatter: isPercent ? (v: number) => (Number(v) * 100).toFixed(0) + '%' : unit ? `{value} ${unit}` : '{value}',
-      },
-    },
-    series: [
-      { name: title, type: 'line', smooth: true, data: data.map((p) => [p.time * 1000, isPercent ? p.value : p.value]) },
-    ],
-  }
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024 * 1024) return (bytes / 1024 / 1024 / 1024).toFixed(2) + ' GB'
+  if (bytes >= 1024 * 1024) return (bytes / 1024 / 1024).toFixed(2) + ' MB'
+  if (bytes >= 1024) return (bytes / 1024).toFixed(2) + ' KB'
+  return String(Math.round(bytes))
 }
 
 export default function MetricsPage() {
   const [datasourceOk, setDatasourceOk] = useState(false)
   const [data, setData] = useState<{
-    connOpenedRate: MetricsPoint[]
-    connClosedRate: MetricsPoint[]
-    bytesSentRate: MetricsPoint[]
-    bytesRecvRate: MetricsPoint[]
-    connFailedRate: MetricsPoint[]
-    rps: MetricsPoint[]
-    errorRate: MetricsPoint[]
-    latencyP50: MetricsPoint[]
-    latencyP95: MetricsPoint[]
-    latencyP99: MetricsPoint[]
-    message?: string
+    workloadConnOpened: number
+    workloadConnClosed: number
+    workloadRecvBytes: number
+    workloadSentBytes: number
+    workloadConnFailed: number
+    serviceConnOpened: number
+    serviceConnClosed: number
+    serviceRecvBytes: number
+    serviceSentBytes: number
+    serviceConnFailed: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [timeRange, setTimeRange] = useState('15m')
   const [namespace, setNamespace] = useState('')
+  const [accesslogEntries, setAccesslogEntries] = useState<AccesslogEntry[]>([])
+  const [accesslogMessage, setAccesslogMessage] = useState<string>('')
+  const [accesslogPodsQueried, setAccesslogPodsQueried] = useState<string[]>([])
+  const [accesslogLoading, setAccesslogLoading] = useState(false)
+  const [accesslogPod, setAccesslogPod] = useState<string>('')
+  const [accesslogTail, setAccesslogTail] = useState(200)
+  const [kmeshPods, setKmeshPods] = useState<{ name: string; node: string; status: string }[]>([])
+  const [kmeshPodsMsg, setKmeshPodsMsg] = useState('')
 
   const fetchDatasource = async () => {
     try {
@@ -69,32 +49,23 @@ export default function MetricsPage() {
   const fetchOverview = async () => {
     setLoading(true)
     setError(null)
-    const range = TIME_RANGES.find((r) => r.value === timeRange) ?? TIME_RANGES[1]
-    const end = Math.floor(Date.now() / 1000)
-    const start = timeRange === '5m' ? end - 5 * 60 : timeRange === '15m' ? end - 15 * 60 : end - 3600
     try {
-      const res = await getMetricsOverview({
-        namespace: namespace || undefined,
-        start,
-        end,
-        step: range.step,
-      })
+      const res = await getMetricsOverview({ namespace: namespace || undefined })
       if (!res.available) {
         setData(null)
         setError(res.message || 'Prometheus 不可用')
       } else {
         setData({
-          connOpenedRate: res.connOpenedRate ?? [],
-          connClosedRate: res.connClosedRate ?? [],
-          bytesSentRate: res.bytesSentRate ?? [],
-          bytesRecvRate: res.bytesRecvRate ?? [],
-          connFailedRate: res.connFailedRate ?? [],
-          rps: res.rps ?? [],
-          errorRate: res.errorRate ?? [],
-          latencyP50: res.latencyP50 ?? [],
-          latencyP95: res.latencyP95 ?? [],
-          latencyP99: res.latencyP99 ?? [],
-          message: res.message,
+          workloadConnOpened: res.workloadConnOpened ?? 0,
+          workloadConnClosed: res.workloadConnClosed ?? 0,
+          workloadRecvBytes: res.workloadRecvBytes ?? 0,
+          workloadSentBytes: res.workloadSentBytes ?? 0,
+          workloadConnFailed: res.workloadConnFailed ?? 0,
+          serviceConnOpened: res.serviceConnOpened ?? 0,
+          serviceConnClosed: res.serviceConnClosed ?? 0,
+          serviceRecvBytes: res.serviceRecvBytes ?? 0,
+          serviceSentBytes: res.serviceSentBytes ?? 0,
+          serviceConnFailed: res.serviceConnFailed ?? 0,
         })
       }
     } catch (e) {
@@ -105,6 +76,37 @@ export default function MetricsPage() {
     }
   }
 
+  const fetchKmeshPods = async () => {
+    try {
+      const res = await getKmeshPods()
+      setKmeshPods(res.pods ?? [])
+      setKmeshPodsMsg(res.message ?? '')
+    } catch (e) {
+      setKmeshPods([])
+      setKmeshPodsMsg(e instanceof Error ? e.message : '请求失败')
+    }
+  }
+
+  const fetchAccesslog = async () => {
+    setAccesslogLoading(true)
+    setAccesslogMessage('')
+    try {
+      const res = await getAccesslog({
+        pod: accesslogPod || undefined,
+        tail: accesslogTail,
+      })
+      setAccesslogEntries(res.entries ?? [])
+      setAccesslogPodsQueried(res.podsQueried ?? [])
+      setAccesslogMessage(res.message ?? '')
+    } catch (e) {
+      setAccesslogEntries([])
+      setAccesslogPodsQueried([])
+      setAccesslogMessage(e instanceof Error ? e.message : '请求失败')
+    } finally {
+      setAccesslogLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchDatasource()
   }, [])
@@ -112,7 +114,7 @@ export default function MetricsPage() {
   useEffect(() => {
     if (datasourceOk) fetchOverview()
     else setLoading(false)
-  }, [datasourceOk, timeRange, namespace])
+  }, [datasourceOk, namespace])
 
   return (
     <div>
@@ -120,12 +122,6 @@ export default function MetricsPage() {
         title="服务网格指标"
         extra={
           <Space>
-            <Select
-              value={timeRange}
-              onChange={setTimeRange}
-              options={TIME_RANGES}
-              style={{ width: 140 }}
-            />
             <Input
               placeholder="命名空间（空=全部）"
               value={namespace}
@@ -142,7 +138,7 @@ export default function MetricsPage() {
           <Alert
             type="warning"
             message="未配置 Prometheus"
-            description="请在后端设置环境变量 PROMETHEUS_URL 以拉取 Kmesh L4 与 Istio L7 指标（throughput / error rates / latency）。"
+            description="请在后端设置环境变量 PROMETHEUS_URL 以拉取 Kmesh L4 指标（工作负载/服务累计值）。"
             showIcon
             style={{ marginBottom: 16 }}
           />
@@ -152,56 +148,143 @@ export default function MetricsPage() {
         )}
         {data && (
           <>
-            {/* Throughput 吞吐：RPS + L4 字节/连接 */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: 'rgba(0,0,0,0.85)' }}>Throughput / 吞吐</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                <Card size="small">
-                  <ReactECharts option={lineOption('请求量 RPS (L7)', data.rps)} style={{ height: 220 }} notMerge />
-                </Card>
-                <Card size="small">
-                  <ReactECharts option={lineOption('连接建立速率 (L4)', data.connOpenedRate, '/s')} style={{ height: 220 }} notMerge />
-                </Card>
-                <Card size="small">
-                  <ReactECharts option={lineOption('发送字节率 (L4)', data.bytesSentRate, 'B/s')} style={{ height: 220 }} notMerge />
-                </Card>
-                <Card size="small">
-                  <ReactECharts option={lineOption('接收字节率 (L4)', data.bytesRecvRate, 'B/s')} style={{ height: 220 }} notMerge />
-                </Card>
-                <Card size="small">
-                  <ReactECharts option={lineOption('连接关闭速率 (L4)', data.connClosedRate, '/s')} style={{ height: 220 }} notMerge />
-                </Card>
-              </div>
+            {/* Kmesh L4 工作负载指标（累计值） */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>工作负载指标</div>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="连接打开总数" value={data.workloadConnOpened} />
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="连接关闭总数" value={data.workloadConnClosed} />
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="接收字节总数" value={formatBytes(data.workloadRecvBytes)} />
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="发送字节总数" value={formatBytes(data.workloadSentBytes)} />
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="连接失败总数" value={data.workloadConnFailed} />
+                  </Card>
+                </Col>
+              </Row>
             </div>
-            {/* Error rates 错误率 */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: 'rgba(0,0,0,0.85)' }}>Error rates / 错误率</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16 }}>
-                <Card size="small">
-                  <ReactECharts option={lineOption('5xx 错误率 (L7)', data.errorRate, '', true)} style={{ height: 220 }} notMerge />
-                </Card>
-                <Card size="small">
-                  <ReactECharts option={lineOption('连接失败速率 (L4)', data.connFailedRate, '/s')} style={{ height: 220 }} notMerge />
-                </Card>
-              </div>
-            </div>
-            {/* Latency 延迟 */}
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8, color: 'rgba(0,0,0,0.85)' }}>Latency / 延迟 (L7)</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
-                <Card size="small">
-                  <ReactECharts option={lineOption('P50', data.latencyP50, 'ms')} style={{ height: 220 }} notMerge />
-                </Card>
-                <Card size="small">
-                  <ReactECharts option={lineOption('P95', data.latencyP95, 'ms')} style={{ height: 220 }} notMerge />
-                </Card>
-                <Card size="small">
-                  <ReactECharts option={lineOption('P99', data.latencyP99, 'ms')} style={{ height: 220 }} notMerge />
-                </Card>
-              </div>
+            {/* Kmesh L4 服务指标（累计值） */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>服务指标</div>
+              <Row gutter={[16, 16]}>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="连接打开总数" value={data.serviceConnOpened} />
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="连接关闭总数" value={data.serviceConnClosed} />
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="接收字节总数" value={formatBytes(data.serviceRecvBytes)} />
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="发送字节总数" value={formatBytes(data.serviceSentBytes)} />
+                  </Card>
+                </Col>
+                <Col xs={24} sm={12} md={8} lg={4}>
+                  <Card size="small">
+                    <Statistic title="连接失败总数" value={data.serviceConnFailed} />
+                  </Card>
+                </Col>
+              </Row>
             </div>
           </>
         )}
+        {/* Accesslog：从 kmesh pods 日志直连获取 */}
+        <div style={{ marginTop: 24 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>
+            Accesslog
+          </div>
+          <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+            从 kmesh daemon pods 的容器日志中筛选 accesslog。需先执行 kmeshctl monitoring --all enable，再执行 kmeshctl monitoring --accesslog enable，并产生 TCP 流量。
+          </Typography.Text>
+          <Space wrap style={{ marginBottom: 12 }}>
+            <Button size="small" onClick={fetchKmeshPods}>
+              检查 kmesh pods
+            </Button>
+            {kmeshPods.length > 0 && (
+              <Typography.Text type="secondary">
+                发现 {kmeshPods.length} 个 pod：{kmeshPods.map((p) => p.name).join(', ')}
+              </Typography.Text>
+            )}
+            {kmeshPodsMsg && kmeshPods.length === 0 && (
+              <Typography.Text type="danger">{kmeshPodsMsg}</Typography.Text>
+            )}
+          </Space>
+          {(accesslogMessage || (accesslogEntries.length === 0 && accesslogPodsQueried.length > 0)) && (
+            <Alert
+              type="info"
+              message={accesslogPodsQueried.length > 0 ? `已查询 ${accesslogPodsQueried.length} 个 pod：${accesslogPodsQueried.join(', ')}` : undefined}
+              description={accesslogMessage}
+              showIcon
+              style={{ marginBottom: 12 }}
+            />
+          )}
+          <Space wrap style={{ marginBottom: 16 }}>
+            <Input
+              placeholder="Pod 名称（空=全部）"
+              value={accesslogPod}
+              onChange={(e) => setAccesslogPod(e.target.value)}
+              style={{ width: 180 }}
+            />
+            <InputNumber
+              min={1}
+              max={2000}
+              value={accesslogTail}
+              onChange={(v) => setAccesslogTail(v ?? 200)}
+              placeholder="最近行数"
+              style={{ width: 100 }}
+            />
+            <Button
+              icon={<ReloadOutlined />}
+              onClick={fetchAccesslog}
+              loading={accesslogLoading}
+            >
+              查询 Accesslog
+            </Button>
+          </Space>
+          <Table<AccesslogEntry>
+            size="small"
+            dataSource={accesslogEntries}
+            rowKey={(_, i) => String(i)}
+            columns={[
+              { title: 'Pod', dataIndex: 'pod', width: 140, ellipsis: true },
+              { title: 'Node', dataIndex: 'node', width: 120, ellipsis: true },
+              {
+                title: 'Content',
+                dataIndex: 'content',
+                render: (t: string) => (
+                  <Typography.Text code copyable style={{ fontSize: 12 }}>
+                    {t}
+                  </Typography.Text>
+                ),
+              },
+            ]}
+            pagination={{ pageSize: 20, showSizeChanger: true }}
+          />
+        </div>
       </Card>
     </div>
   )

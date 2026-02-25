@@ -60,6 +60,7 @@ const (
 	patternWorkloadMetrics    = "/workload_metrics"
 	patternConnectionMetrics  = "/connection_metrics"
 	patternAuthz              = "/authz"
+	patternMonitoringStatus   = "/monitoring/status"
 
 	bpfLoggerName = "bpf"
 
@@ -101,6 +102,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
+	s.mux.HandleFunc(patternMonitoringStatus, s.monitoringStatusHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -327,6 +329,37 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 
 	s.xdsClient.WorkloadController.SetConnectionMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
+}
+
+// monitoringStatusResponse 返回 monitoring/accesslog/workloadMetrics/connectionMetrics 的当前状态
+type monitoringStatusResponse struct {
+	Monitoring       bool `json:"monitoring"`
+	Accesslog       bool `json:"accesslog"`
+	WorkloadMetrics bool `json:"workloadMetrics"`
+	ConnectionMetrics bool `json:"connectionMetrics"`
+}
+
+func (s *Server) monitoringStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	resp := monitoringStatusResponse{}
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+	resp.Monitoring = s.loader.GetEnableMonitoring() == constants.ENABLED
+	resp.Accesslog = s.xdsClient.WorkloadController.GetAccesslogTrigger()
+	resp.WorkloadMetrics = s.xdsClient.WorkloadController.GetWorklaodMetricTrigger()
+	resp.ConnectionMetrics = s.xdsClient.WorkloadController.GetConnectionMetricTrigger()
+	data, err := json.Marshal(resp)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {

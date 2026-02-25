@@ -20,6 +20,8 @@ func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatew
 	mux.HandleFunc(apiPrefix+"/services", ServiceList(clientset))
 	mux.HandleFunc(apiPrefix+"/metrics/datasource", MetricsDatasource())
 	mux.HandleFunc(apiPrefix+"/metrics/overview", MetricsOverview())
+	mux.HandleFunc(apiPrefix+"/metrics/accesslog", AccesslogList(clientset))
+	mux.HandleFunc(apiPrefix+"/metrics/kmesh-pods", KmeshPodsList(clientset))
 	mux.HandleFunc(apiPrefix+"/health", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
