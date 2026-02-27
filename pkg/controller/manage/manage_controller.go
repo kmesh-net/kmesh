@@ -19,6 +19,7 @@ package kmeshmanage
 import (
 	"fmt"
 	"net"
+	"os"
 
 	"github.com/cilium/ebpf/link"
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -409,6 +410,9 @@ func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
 			}
 			// Always let new XDP program replace the old one, to ensure that there is always only one XDP program at the same time
 			if err := netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
+				if os.IsExist(err) {
+					return nil
+				}
 				return err
 			}
 		}
