@@ -8,7 +8,7 @@ Dashboard 从 **Prometheus** 拉取指标，在「指标」页统一展示 Kmesh
 
 ## 数据来源与覆盖
 
-- 后端通过环境变量 **PROMETHEUS_URL** 连接 Prometheus（例如 `export PROMETHEUS_URL=http://47.121.202.218:9090`）。未配置时页面提示「未配置 Prometheus」，不发起查询。
+- 后端通过环境变量 **PROMETHEUS_URL** 连接 Prometheus（例如 `export PROMETHEUS_URL=http://prometheus.kmesh-system:9090`）。未配置时页面提示「未配置 Prometheus」，不发起查询。
 - 大盘直接展示 **累计值**（`sum(metric)`），无需持续流量即可看到非零数据：
   1. **Kmesh L4 工作负载指标**  
      - `kmesh_tcp_workload_connections_opened_total`、`kmesh_tcp_workload_connections_closed_total`  

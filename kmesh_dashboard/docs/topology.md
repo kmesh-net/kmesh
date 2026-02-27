@@ -9,7 +9,7 @@
 设置环境变量 `KIALI_URL` 为浏览器可访问的 Kiali 地址，例如：
 
 ```bash
-export KIALI_URL=http://47.121.202.218:20001
+export KIALI_URL=http://kiali.kmesh-system:20001
 ```
 
 未配置时，拓扑页会提示「未配置 Kiali」。
