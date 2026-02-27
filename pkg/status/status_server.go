@@ -38,6 +38,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
+	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -47,19 +48,22 @@ var log = logger.NewLoggerScope("status")
 const (
 	adminAddr = "localhost:15200"
 
-	patternVersion            = "/version"
-	patternBpfAdsMaps         = "/debug/config_dump/bpf/kernel-native"
-	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/dual-engine"
-	configDumpPrefix          = "/debug/config_dump"
-	patternConfigDumpAds      = configDumpPrefix + "/kernel-native"
-	patternConfigDumpWorkload = configDumpPrefix + "/dual-engine"
-	patternReadyProbe         = "/debug/ready"
-	patternLoggers            = "/debug/loggers"
-	patternAccesslog          = "/accesslog"
-	patternMonitoring         = "/monitoring"
-	patternWorkloadMetrics    = "/workload_metrics"
-	patternConnectionMetrics  = "/connection_metrics"
-	patternAuthz              = "/authz"
+	patternVersion                    = "/version"
+	patternBpfAdsMaps                 = "/debug/config_dump/bpf/kernel-native"
+	patternBpfWorkloadMaps            = "/debug/config_dump/bpf/dual-engine"
+	configDumpPrefix                  = "/debug/config_dump"
+	patternConfigDumpAds              = configDumpPrefix + "/kernel-native"
+	patternConfigDumpWorkload         = configDumpPrefix + "/dual-engine"
+	patternReadyProbe                 = "/debug/ready"
+	patternLoggers                    = "/debug/loggers"
+	patternAccesslog                  = "/accesslog"
+	patternMonitoring                 = "/monitoring"
+	patternWorkloadMetrics            = "/workload_metrics"
+	patternConnectionMetrics          = "/connection_metrics"
+	patternAuthz                      = "/authz"
+	patternConfigDumpSecurity         = configDumpPrefix + "/security"
+	patternConfigDumpWorkloadServices = patternConfigDumpWorkload + "/services"
+	patternConfigDumpWorkloadPolicies = patternConfigDumpWorkload + "/policies"
 
 	bpfLoggerName = "bpf"
 
@@ -69,19 +73,21 @@ const (
 )
 
 type Server struct {
-	config    *options.BootstrapConfigs
-	xdsClient *controller.XdsClient
-	mux       *http.ServeMux
-	server    *http.Server
-	loader    *bpf.BpfLoader
+	config        *options.BootstrapConfigs
+	xdsClient     *controller.XdsClient
+	mux           *http.ServeMux
+	server        *http.Server
+	loader        *bpf.BpfLoader
+	secretManager *security.SecretManager
 }
 
-func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loader *bpf.BpfLoader) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loader *bpf.BpfLoader, secretManager *security.SecretManager) *Server {
 	s := &Server{
-		config:    configs,
-		xdsClient: c,
-		mux:       http.NewServeMux(),
-		loader:    loader,
+		config:        configs,
+		xdsClient:     c,
+		mux:           http.NewServeMux(),
+		loader:        loader,
+		secretManager: secretManager,
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -101,8 +107,10 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
+	s.mux.HandleFunc(patternConfigDumpSecurity, s.configDumpSecurity)
+	s.mux.HandleFunc(patternConfigDumpWorkloadServices, s.configDumpWorkloadServices)
+	s.mux.HandleFunc(patternConfigDumpWorkloadPolicies, s.configDumpWorkloadPolicies)
 
-	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
 
 	// support pprof
@@ -500,6 +508,60 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add some components check
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
+}
+
+func (s *Server) configDumpSecurity(w http.ResponseWriter, r *http.Request) {
+	if s.secretManager == nil {
+		w.WriteHeader(http.StatusNotFound)
+		fmt.Fprint(w, "Secret manager is not enabled\n")
+		return
+	}
+
+	certs := s.secretManager.GetCerts()
+	data, err := json.MarshalIndent(certs, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal certs: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) configDumpWorkloadServices(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+	services := s.xdsClient.WorkloadController.Processor.ServiceCache.List()
+	res := make([]*Service, 0, len(services))
+	for _, svc := range services {
+		res = append(res, ConvertService(svc))
+	}
+	data, err := json.MarshalIndent(res, "", "    ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) configDumpWorkloadPolicies(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+	policies := s.xdsClient.WorkloadController.Rbac.PoliciesList()
+	res := make([]*AuthorizationPolicy, 0, len(policies))
+	for _, p := range policies {
+		res = append(res, ConvertAuthorizationPolicy(p))
+	}
+	data, err := json.MarshalIndent(res, "", "    ")
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
