@@ -257,3 +257,13 @@ func (s *SecretManager) retryFetchCert(identity string) {
 
 	go s.fetchCert(identity)
 }
+
+func (s *SecretManager) GetCerts() map[string]*certItem {
+	s.certsCache.mu.RLock()
+	defer s.certsCache.mu.RUnlock()
+	res := make(map[string]*certItem, len(s.certsCache.certs))
+	for k, v := range s.certsCache.certs {
+		res[k] = v
+	}
+	return res
+}

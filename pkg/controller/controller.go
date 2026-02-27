@@ -66,6 +66,7 @@ type Controller struct {
 	bpfConfig           *options.BpfConfig
 	loader              *bpf.BpfLoader
 	dnsServer           *dnsclient.LocalDNSServer
+	secretManager       *security.SecretManager
 }
 
 func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
@@ -113,15 +114,14 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	}
 
 	if c.mode == constants.DualEngineMode {
-		var secertManager *security.SecretManager
 		if c.enableSecretManager {
-			secertManager, err = security.NewSecretManager()
+			c.secretManager, err = security.NewSecretManager()
 			if err != nil {
 				return fmt.Errorf("secretManager create failed: %v", err)
 			}
-			go secertManager.Run(stopCh)
+			go c.secretManager.Run(stopCh)
 		}
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, c.secretManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
 	} else {
 		kolog.KmeshModuleLog(stopCh)
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, tcFd, c.mode)
@@ -206,6 +206,10 @@ func (c *Controller) Stop() {
 
 func (c *Controller) GetXdsClient() *XdsClient {
 	return c.client
+}
+
+func (c *Controller) GetSecretManager() *security.SecretManager {
+	return c.secretManager
 }
 
 func (c *Controller) setupDNSProxy() error {
