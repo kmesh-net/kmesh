@@ -654,12 +654,12 @@ func newTextXdpProg(t *testing.T, name string) *ebpf.Program {
 
 // Create a test netns, link an old XDP program on veth0 created inside the netns
 func newTestNetNs(t *testing.T) ns.NetNS {
-	testNs, err := ns.GetCurrentNS()
+	testNs, err := ns.TempNetNS()
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		testNs.Close()
+		_ = testNs.Close()
 	})
 
 	testNs.Do(func(_ ns.NetNS) error {
