@@ -27,7 +27,8 @@ type MeResponse struct {
 	Role string `json:"role"`
 }
 
-func getJWTSecret() string {
+// GetJWTSecret 供其他包（如 Kiali 代理）验证 token 时使用
+func GetJWTSecret() string {
 	s := os.Getenv("JWT_SECRET")
 	if s == "" {
 		return defaultJWTSecret
@@ -53,7 +54,7 @@ func Login() http.HandlerFunc {
 			return
 		}
 		expire := 24 * time.Hour
-		token, err := CreateToken(req.Username, role, getJWTSecret(), expire)
+		token, err := CreateToken(req.Username, role, GetJWTSecret(), expire)
 		if err != nil {
 			http.Error(w, "failed to create token", http.StatusInternalServerError)
 			return

@@ -1,12 +1,13 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Layout as AntLayout, Menu, Button, Space } from 'antd'
-import { ClusterOutlined, GatewayOutlined, ThunderboltOutlined, FilterOutlined, LineChartOutlined, LogoutOutlined } from '@ant-design/icons'
+import { ClusterOutlined, ApartmentOutlined, GatewayOutlined, ThunderboltOutlined, FilterOutlined, LineChartOutlined, LogoutOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
 
 const { Header, Content } = AntLayout
 
 const navItems = [
   { key: '/cluster/nodes', icon: <ClusterOutlined />, label: <Link to="/cluster/nodes">集群节点</Link> },
+  { key: '/topology', icon: <ApartmentOutlined />, label: <Link to="/topology">服务拓扑</Link> },
   { key: '/waypoint', icon: <GatewayOutlined />, label: <Link to="/waypoint">Waypoint</Link> },
   { key: '/circuitbreaker', icon: <ThunderboltOutlined />, label: <Link to="/circuitbreaker">熔断</Link> },
   { key: '/ratelimit', icon: <FilterOutlined />, label: <Link to="/ratelimit">限流</Link> },

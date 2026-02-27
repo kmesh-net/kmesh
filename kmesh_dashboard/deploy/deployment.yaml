@@ -21,3 +21,6 @@
 #           env:
 #             - name: PORT
 #               value: "8080"
+#             # 可选：Kiali 地址，默认 http://kiali.kmesh-system:20001
+#             # - name: KIALI_URL
+#             #   value: "http://kiali.kmesh-system:20001"

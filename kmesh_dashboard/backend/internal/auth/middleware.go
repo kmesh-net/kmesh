@@ -15,7 +15,7 @@ func routePermission(path, method string) (resource, action string, needAuth boo
 	parts := strings.Split(path, "/")
 
 	// 白名单：无需认证
-	if path == "auth/login" || path == "health" {
+	if path == "auth/login" || path == "health" || path == "config" {
 		return "", "", false
 	}
 
@@ -84,7 +84,7 @@ func AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		token := strings.TrimPrefix(auth, prefix)
-		username, role, err := ParseToken(token, getJWTSecret())
+		username, role, err := ParseToken(token, GetJWTSecret())
 		if err != nil {
 			http.Error(w, "invalid or expired token", http.StatusUnauthorized)
 			return

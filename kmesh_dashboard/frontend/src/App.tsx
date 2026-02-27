@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/layout/Layout'
 import RequireAuth from './components/auth/RequireAuth'
 import ClusterNodesPage from './pages/cluster/ClusterNodesPage'
+import TopologyPage from './pages/topology/TopologyPage'
 import WaypointPage from './pages/waypoint'
 import CircuitBreakerPage from './pages/circuitbreaker'
 import RateLimitPage from './pages/ratelimit'
@@ -25,6 +26,7 @@ function App() {
           >
             <Route index element={<Navigate to="/cluster/nodes" replace />} />
             <Route path="cluster/nodes" element={<ClusterNodesPage />} />
+            <Route path="topology" element={<TopologyPage />} />
             <Route path="waypoint" element={<WaypointPage />} />
             <Route path="circuitbreaker" element={<CircuitBreakerPage />} />
             <Route path="ratelimit" element={<RateLimitPage />} />

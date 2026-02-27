@@ -11,6 +11,8 @@ Kmesh 的可视化控制台，通过交互式界面降低使用门槛，支持 W
 ```bash
 cd backend
 export KUBECONFIG=/path/to/your/kubeconfig   # 可选，不设则用默认或 InCluster
+export PROMETHEUS_URL=http://prometheus.kmesh-system:9090 # 可选，指标大盘用，不设则页面提示未配置
+export KIALI_URL=http://kiali.kmesh-system:20001  # 可选，服务拓扑页跳转地址
 go run ./cmd/server/
 ```
 
