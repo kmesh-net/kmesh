@@ -48,20 +48,20 @@ var log = logger.NewLoggerScope("status")
 const (
 	adminAddr = "localhost:15200"
 
-	patternVersion            = "/version"
-	patternBpfAdsMaps         = "/debug/config_dump/bpf/kernel-native"
-	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/dual-engine"
-	configDumpPrefix          = "/debug/config_dump"
-	patternConfigDumpAds      = configDumpPrefix + "/kernel-native"
-	patternConfigDumpWorkload = configDumpPrefix + "/dual-engine"
-	patternReadyProbe         = "/debug/ready"
-	patternLoggers            = "/debug/loggers"
-	patternAccesslog          = "/accesslog"
-	patternMonitoring         = "/monitoring"
-	patternWorkloadMetrics    = "/workload_metrics"
-	patternConnectionMetrics  = "/connection_metrics"
-	patternAuthz              = "/authz"
-	patternConfigDumpSecurity = configDumpPrefix + "/security"
+	patternVersion                    = "/version"
+	patternBpfAdsMaps                 = "/debug/config_dump/bpf/kernel-native"
+	patternBpfWorkloadMaps            = "/debug/config_dump/bpf/dual-engine"
+	configDumpPrefix                  = "/debug/config_dump"
+	patternConfigDumpAds              = configDumpPrefix + "/kernel-native"
+	patternConfigDumpWorkload         = configDumpPrefix + "/dual-engine"
+	patternReadyProbe                 = "/debug/ready"
+	patternLoggers                    = "/debug/loggers"
+	patternAccesslog                  = "/accesslog"
+	patternMonitoring                 = "/monitoring"
+	patternWorkloadMetrics            = "/workload_metrics"
+	patternConnectionMetrics          = "/connection_metrics"
+	patternAuthz                      = "/authz"
+	patternConfigDumpSecurity         = configDumpPrefix + "/security"
 	patternConfigDumpWorkloadServices = patternConfigDumpWorkload + "/services"
 	patternConfigDumpWorkloadPolicies = patternConfigDumpWorkload + "/policies"
 
@@ -73,8 +73,8 @@ const (
 )
 
 type Server struct {
-	config    *options.BootstrapConfigs
-	xdsClient *controller.XdsClient
+	config        *options.BootstrapConfigs
+	xdsClient     *controller.XdsClient
 	mux           *http.ServeMux
 	server        *http.Server
 	loader        *bpf.BpfLoader
