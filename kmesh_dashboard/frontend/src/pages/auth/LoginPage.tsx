@@ -24,7 +24,11 @@ export default function LoginPage() {
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#f0f2f5' }}>
-      <Card title="Kmesh Dashboard 登录" style={{ width: 360 }}>
+      <Card style={{ width: 360 }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <img src="https://kmesh.net/zh/img/Kmesh-icon.png" alt="Kmesh" style={{ width: 80, height: 80, objectFit: 'contain' }} />
+          <div style={{ marginTop: 12, fontSize: 18, fontWeight: 600 }}>Kmesh Dashboard 登录</div>
+        </div>
         {error && <Alert type="error" message={error} style={{ marginBottom: 16 }} />}
         <Form name="login" onFinish={onFinish} autoComplete="off">
           <Form.Item name="username" rules={[{ required: true, message: '请输入用户名' }]}>
