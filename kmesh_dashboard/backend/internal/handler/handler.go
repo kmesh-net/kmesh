@@ -45,4 +45,7 @@ func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatew
 	mux.HandleFunc(apiPrefix+"/ratelimit/delete", RateLimitDelete(dyn))
 	// Kiali 配置：返回 KIALI_URL，供拓扑页跳转
 	mux.HandleFunc(apiPrefix+"/config", Config())
+	// 站内文档：列表与 Markdown 内容
+	mux.HandleFunc(apiPrefix+"/docs", Docs())
+	mux.HandleFunc(apiPrefix+"/docs/", Docs())
 }

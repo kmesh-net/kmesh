@@ -7,6 +7,7 @@ import WaypointPage from './pages/waypoint'
 import CircuitBreakerPage from './pages/circuitbreaker'
 import RateLimitPage from './pages/ratelimit'
 import MetricsPage from './pages/metrics/MetricsPage'
+import HelpPage from './pages/help/HelpPage'
 import LoginPage from './pages/auth/LoginPage'
 import { AuthProvider } from './contexts/AuthContext'
 
@@ -31,6 +32,7 @@ function App() {
             <Route path="circuitbreaker" element={<CircuitBreakerPage />} />
             <Route path="ratelimit" element={<RateLimitPage />} />
             <Route path="metrics" element={<MetricsPage />} />
+            <Route path="help" element={<HelpPage />} />
           </Route>
         </Routes>
       </AuthProvider>

@@ -1,6 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { Layout as AntLayout, Menu, Button, Space } from 'antd'
-import { ClusterOutlined, ApartmentOutlined, GatewayOutlined, ThunderboltOutlined, FilterOutlined, LineChartOutlined, LogoutOutlined } from '@ant-design/icons'
+import { ClusterOutlined, ApartmentOutlined, GatewayOutlined, ThunderboltOutlined, FilterOutlined, LineChartOutlined, LogoutOutlined, BookOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
 
 const { Header, Content } = AntLayout
@@ -12,6 +12,7 @@ const navItems = [
   { key: '/circuitbreaker', icon: <ThunderboltOutlined />, label: <Link to="/circuitbreaker">熔断</Link> },
   { key: '/ratelimit', icon: <FilterOutlined />, label: <Link to="/ratelimit">限流</Link> },
   { key: '/metrics', icon: <LineChartOutlined />, label: <Link to="/metrics">指标</Link> },
+  { key: '/help', icon: <BookOutlined />, label: <Link to="/help">帮助</Link> },
 ]
 
 export default function Layout() {
