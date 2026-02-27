@@ -1,6 +1,3 @@
-//go:build linux
-// +build linux
-
 /*
  * Copyright The Kmesh Authors.
  *
@@ -22,13 +19,15 @@ package utils
 import (
 	"strconv"
 	"strings"
-	"syscall"
 )
 
 // KernelVersionLowerThan5_13 return whether the current kernel version is lower than 5.13,
 // and will fallback to less BPF log ability(return true) if error
 func KernelVersionLowerThan5_13() bool {
-	kernelVersion := GetKernelVersion()
+	return isVersionLowerThan(GetKernelVersion(), 5, 13)
+}
+
+func isVersionLowerThan(kernelVersion string, major, minor int) bool {
 	if len(kernelVersion) == 0 {
 		return true
 	}
@@ -38,33 +37,13 @@ func KernelVersionLowerThan5_13() bool {
 	}
 
 	mainVer, err := strconv.Atoi(splitVers[0])
-	if err != nil || mainVer < 5 {
+	if err != nil || mainVer < major {
 		return true
 	}
-	if mainVer > 5 {
+	if mainVer > major {
 		return false
 	}
 
 	subVer, err := strconv.Atoi(splitVers[1])
-	return err != nil || subVer < 13
-}
-
-// GetKernelVersion return part of the result of 'uname -a' like '5.15.153.1-xxxx'
-func GetKernelVersion() string {
-	var uname syscall.Utsname
-	if err := syscall.Uname(&uname); err != nil {
-		return ""
-	}
-	return int8ToStr(uname.Release[:])
-}
-
-func int8ToStr(arr []int8) string {
-	b := make([]byte, 0, len(arr))
-	for _, v := range arr {
-		if v == 0x00 {
-			break
-		}
-		b = append(b, byte(v))
-	}
-	return string(b)
+	return err != nil || subVer < minor
 }
