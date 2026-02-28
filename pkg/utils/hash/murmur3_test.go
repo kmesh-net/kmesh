@@ -125,7 +125,7 @@ func TestFmix64(t *testing.T) {
 			expected: 0,
 		},
 		{
-			name:     "all ones",
+			name:     "max value",
 			input:    0xffffffffffffffff,
 			expected: 0x64b5720b4b825f21,
 		},
