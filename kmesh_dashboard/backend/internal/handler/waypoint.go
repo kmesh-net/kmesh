@@ -4,19 +4,26 @@ import (
 	"encoding/json"
 	"net/http"
 	"sort"
+	"time"
 
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
 )
 
 const (
 	waypointGatewayClassName = "istio-waypoint"
 	labelWaypointFor         = "istio.io/waypoint-for"
+	labelUseWaypoint         = "istio.io/use-waypoint"
 	labelIstioRev            = "istio.io/rev"
 	annotationProxyImage     = "sidecar.istio.io/proxyImage"
 	defaultWaypointImage     = "ghcr.io/kmesh-net/waypoint:latest"
+	waitReadyTimeout         = 60 * time.Second
+	waitReadyPollInterval    = 2 * time.Second
 )
 
 // WaypointListResponse 列表响应
@@ -207,8 +214,8 @@ func WaypointStatus(gwClient gatewayapiclient.Interface) http.HandlerFunc {
 	}
 }
 
-// WaypointApply 创建/应用 Waypoint
-func WaypointApply(gwClient gatewayapiclient.Interface) http.HandlerFunc {
+// WaypointApply 创建/应用 Waypoint（支持 enrollNamespace、overwrite、waitReady）
+func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -233,6 +240,17 @@ func WaypointApply(gwClient gatewayapiclient.Interface) http.HandlerFunc {
 		if img == "" {
 			img = defaultWaypointImage
 		}
+		ctx := r.Context()
+
+		// overwrite：若已存在同名 Waypoint，先删除
+		if req.Overwrite {
+			existing, err := gwClient.GatewayV1().Gateways(req.Namespace).Get(ctx, req.Name, metav1.GetOptions{})
+			if err == nil && existing.Spec.GatewayClassName == waypointGatewayClassName {
+				_ = gwClient.GatewayV1().Gateways(req.Namespace).Delete(ctx, req.Name, metav1.DeleteOptions{})
+				time.Sleep(500 * time.Millisecond) // 等待删除传播
+			}
+		}
+
 		gw := &gatewayv1.Gateway{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      req.Name,
@@ -262,11 +280,58 @@ func WaypointApply(gwClient gatewayapiclient.Interface) http.HandlerFunc {
 			}
 			gw.Labels[labelIstioRev] = req.Revision
 		}
-		_, err := gwClient.GatewayV1().Gateways(req.Namespace).Create(r.Context(), gw, metav1.CreateOptions{FieldManager: "kmesh-dashboard"})
+		_, err := gwClient.GatewayV1().Gateways(req.Namespace).Create(ctx, gw, metav1.CreateOptions{FieldManager: "kmesh-dashboard"})
 		if err != nil {
+			if errors.IsAlreadyExists(err) && req.Overwrite {
+				http.Error(w, "waypoint 已存在且未勾选覆盖，或覆盖删除后未及时创建: "+err.Error(), http.StatusConflict)
+				return
+			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+
+		// enrollNamespace：为命名空间打 istio.io/use-waypoint 标签
+		if req.EnrollNamespace {
+			patchBytes, _ := json.Marshal(map[string]interface{}{
+				"metadata": map[string]interface{}{
+					"labels": map[string]string{labelUseWaypoint: req.Name},
+				},
+			})
+			_, patchErr := clientset.CoreV1().Namespaces().Patch(ctx, req.Namespace, types.MergePatchType, patchBytes, metav1.PatchOptions{})
+			if patchErr != nil {
+				http.Error(w, "waypoint 已创建，但为命名空间打标签失败: "+patchErr.Error(), http.StatusInternalServerError)
+				return
+			}
+		}
+
+		// waitReady：轮询直到 Gateway Programmed=True
+		if req.WaitReady {
+			deadline := time.Now().Add(waitReadyTimeout)
+			for time.Now().Before(deadline) {
+				gwGet, getErr := gwClient.GatewayV1().Gateways(req.Namespace).Get(ctx, req.Name, metav1.GetOptions{})
+				if getErr != nil {
+					time.Sleep(waitReadyPollInterval)
+					continue
+				}
+				for _, c := range gwGet.Status.Conditions {
+					if c.Type == string(gatewayv1.GatewayConditionProgrammed) && c.Status == metav1.ConditionTrue {
+						resp := WaypointApplyResponse{
+							Namespace: req.Namespace,
+							Name:      req.Name,
+							Message:  "waypoint " + req.Namespace + "/" + req.Name + " 已应用并就绪",
+						}
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusCreated)
+						_ = json.NewEncoder(w).Encode(resp)
+						return
+					}
+				}
+				time.Sleep(waitReadyPollInterval)
+			}
+			http.Error(w, "waypoint 已创建，但等待就绪超时（60s）", http.StatusGatewayTimeout)
+			return
+		}
+
 		resp := WaypointApplyResponse{
 			Namespace: req.Namespace,
 			Name:      req.Name,
