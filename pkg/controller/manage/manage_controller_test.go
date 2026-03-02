@@ -671,7 +671,8 @@ func newTestNetNs(t *testing.T) ns.NetNS {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() {
-			netlink.LinkDel(veth)
+			_ = netlink.LinkSetXdpFd(veth, -1)
+			_ = netlink.LinkDel(veth)
 		})
 		prog := newTextXdpProg(t, "old_xdp")
 		err := netlink.LinkSetXdpFd(veth, prog.FD())
