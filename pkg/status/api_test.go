@@ -44,13 +44,13 @@ func TestConvertWorkload(t *testing.T) {
 				Status:    workloadapi.WorkloadStatus_HEALTHY,
 			},
 			expected: &Workload{
-				Uid:       "uid-1",
-				Addresses: []string{"192.168.1.1"},
-				Name:      "workload-1",
-				Namespace: "default",
-				Status:    "HEALTHY",
-				Protocol:  "HBONE", // Default enum value 0 is HBONE
-				WorkloadType: "POD", // Default enum value 0 is POD
+				Uid:          "uid-1",
+				Addresses:    []string{"192.168.1.1"},
+				Name:         "workload-1",
+				Namespace:    "default",
+				Status:       "HEALTHY",
+				Protocol:     "HBONE", // Default enum value 0 is HBONE
+				WorkloadType: "POD",   // Default enum value 0 is POD
 			},
 		},
 		{
@@ -67,12 +67,12 @@ func TestConvertWorkload(t *testing.T) {
 				},
 			},
 			expected: &Workload{
-				Uid:      "uid-2",
-				Waypoint: "network-1/10.0.0.1",
-				Addresses: []string{},
-				Protocol:  "HBONE",
+				Uid:          "uid-2",
+				Waypoint:     "network-1/10.0.0.1",
+				Addresses:    []string{},
+				Protocol:     "HBONE",
 				WorkloadType: "POD",
-				Status: "HEALTHY",
+				Status:       "HEALTHY",
 			},
 		},
 		{
@@ -89,12 +89,12 @@ func TestConvertWorkload(t *testing.T) {
 				},
 			},
 			expected: &Workload{
-				Uid:      "uid-3",
-				Waypoint: "ns-1/host-1",
-				Addresses: []string{},
-				Protocol:  "HBONE",
+				Uid:          "uid-3",
+				Waypoint:     "ns-1/host-1",
+				Addresses:    []string{},
+				Protocol:     "HBONE",
 				WorkloadType: "POD",
-				Status: "HEALTHY",
+				Status:       "HEALTHY",
 			},
 		},
 		{
@@ -145,9 +145,9 @@ func TestConvertWorkload(t *testing.T) {
 					Zone:    "us-east-1a",
 					Subzone: "subzone-1",
 				},
-				Node:    "node-1",
-				Network: "net-1",
-				Status:  "UNHEALTHY",
+				Node:     "node-1",
+				Network:  "net-1",
+				Status:   "UNHEALTHY",
 				Protocol: "HBONE",
 				ApplicationTunnel: ApplicationTunnel{
 					Protocol: "PROXY",
