@@ -407,8 +407,6 @@ func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
 			if err != nil {
 				return err
 			}
-			// Detach any current XDP program before attaching a new one
-			_ = netlink.LinkSetXdpFd(ifLink, -1)
 
 			// Always let new XDP program replace the old one, to ensure that there is always only one XDP program at the same time
 			if err := netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
