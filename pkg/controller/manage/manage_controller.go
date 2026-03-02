@@ -17,8 +17,10 @@
 package kmeshmanage
 
 import (
+	"errors"
 	"fmt"
 	"net"
+	"syscall"
 
 	"github.com/cilium/ebpf/link"
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -417,9 +419,17 @@ func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
 					_ = netlink.LinkSetXdpFdWithFlags(ifLink, -1, flags)
 				}
 			}
-			// Attach new XDP program
+			// Attach new XDP program, retry with detach if EEXIST
 			if err := netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
-				return err
+				if errors.Is(err, syscall.EEXIST) {
+					// Retry detach and attach if EEXIST
+					_ = netlink.LinkSetXdpFd(ifLink, -1)
+					if err = netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
+						return err
+					}
+				} else {
+					return err
+				}
 			}
 		}
 		return nil
