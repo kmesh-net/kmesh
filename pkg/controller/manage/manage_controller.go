@@ -409,12 +409,12 @@ func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
 			}
 			// Detach any existing XDP program before attaching a new one
 			// This prevents "file exists" errors when an XDP program is already attached
-			// First try detach without flags (for programs attached without flags)
-			_ = netlink.LinkSetXdpFd(ifLink, -1)
-			// Also try detach with flags (for programs attached with specific modes)
-			_ = netlink.LinkSetXdpFdWithFlags(ifLink, -1, int(link.XDPGenericMode))
+			// Try detach with flags first (for programs attached with specific modes)
 			_ = netlink.LinkSetXdpFdWithFlags(ifLink, -1, int(link.XDPDriverMode))
-			// Attach new XDP program
+			_ = netlink.LinkSetXdpFdWithFlags(ifLink, -1, int(link.XDPGenericMode))
+			// Then detach without flags (for programs attached without flags, like in tests)
+			_ = netlink.LinkSetXdpFd(ifLink, -1)
+			// Attach new XDP program (without flags to match test behavior)
 			if err := netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
 				return err
 			}
