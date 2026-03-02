@@ -23,6 +23,11 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"google.golang.org/protobuf/encoding/protojson"
+
+	adminv2 "kmesh.net/kmesh/api/v2/admin"
+	cluster "kmesh.net/kmesh/api/v2/cluster"
 )
 
 func TestUint32ToIPStr(t *testing.T) {
@@ -143,5 +148,43 @@ func TestNewCmd(t *testing.T) {
 	}
 	if f.DefValue != "table" {
 		t.Errorf("--output default = %q, want %q", f.DefValue, "table")
+	}
+}
+
+func TestPrintKernelNativeTable(t *testing.T) {
+	dump := &adminv2.ConfigDump{
+		StaticResources: &adminv2.ConfigResources{
+			ClusterConfigs: []*cluster.Cluster{
+				{Name: "outbound|80|default|svc.cluster.local"},
+			},
+		},
+	}
+	body, err := protojson.Marshal(dump)
+	if err != nil {
+		t.Fatalf("failed to marshal ConfigDump: %v", err)
+	}
+
+	out := captureStdout(t, func() { printKernelNativeTable(body) })
+	if !strings.Contains(out, "NAME") {
+		t.Error("expected NAME header in output")
+	}
+	if !strings.Contains(out, "outbound|80|default|svc.cluster.local") {
+		t.Error("expected cluster name in output")
+	}
+}
+
+func TestPrintKernelNativeTable_EmptyDump(t *testing.T) {
+	dump := &adminv2.ConfigDump{}
+	body, _ := protojson.Marshal(dump)
+	out := captureStdout(t, func() { printKernelNativeTable(body) })
+	if strings.TrimSpace(out) != "" {
+		t.Errorf("expected empty output for empty dump, got: %s", out)
+	}
+}
+
+func TestPrintKernelNativeTable_InvalidJSON(t *testing.T) {
+	out := captureStdout(t, func() { printKernelNativeTable([]byte("{bad")) })
+	if !strings.Contains(out, "{bad") {
+		t.Error("expected raw fallback output on invalid JSON")
 	}
 }

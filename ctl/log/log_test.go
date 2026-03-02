@@ -135,18 +135,21 @@ func TestGetLoggerLevel(t *testing.T) {
 }
 
 func TestSetLoggerLevel(t *testing.T) {
-	var got LoggerInfo
+	ch := make(chan LoggerInfo, 1)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			t.Errorf("method = %s, want POST", r.Method)
 		}
-		json.NewDecoder(r.Body).Decode(&got)
+		var info LoggerInfo
+		json.NewDecoder(r.Body).Decode(&info)
+		ch <- info
 		fmt.Fprintln(w, "ok")
 	}))
 	defer srv.Close()
 
 	captureStdout(t, func() { SetLoggerLevel(srv.URL, "default:debug") })
 
+	got := <-ch
 	if got.Name != "default" || got.Level != "debug" {
 		t.Errorf("sent body = {%q, %q}, want {default, debug}", got.Name, got.Level)
 	}
