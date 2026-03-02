@@ -49,8 +49,8 @@ func TestConvertWorkload(t *testing.T) {
 				Name:         "workload-1",
 				Namespace:    "default",
 				Status:       "HEALTHY",
-				Protocol:     "HBONE", // Default enum value 0 is HBONE
-				WorkloadType: "POD",   // Default enum value 0 is POD
+				Protocol:     "NONE", // Default enum value 0 is NONE
+				WorkloadType: "POD",  // Default enum value 0 is POD
 			},
 		},
 		{
@@ -70,7 +70,7 @@ func TestConvertWorkload(t *testing.T) {
 				Uid:          "uid-2",
 				Waypoint:     "network-1/10.0.0.1",
 				Addresses:    []string{},
-				Protocol:     "HBONE",
+				Protocol:     "NONE",
 				WorkloadType: "POD",
 				Status:       "HEALTHY",
 			},
@@ -92,7 +92,7 @@ func TestConvertWorkload(t *testing.T) {
 				Uid:          "uid-3",
 				Waypoint:     "ns-1/host-1",
 				Addresses:    []string{},
-				Protocol:     "HBONE",
+				Protocol:     "NONE",
 				WorkloadType: "POD",
 				Status:       "HEALTHY",
 			},
@@ -148,7 +148,7 @@ func TestConvertWorkload(t *testing.T) {
 				Node:     "node-1",
 				Network:  "net-1",
 				Status:   "UNHEALTHY",
-				Protocol: "HBONE",
+				Protocol: "NONE",
 				ApplicationTunnel: ApplicationTunnel{
 					Protocol: "PROXY",
 					Port:     8080,
