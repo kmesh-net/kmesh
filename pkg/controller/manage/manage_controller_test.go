@@ -690,8 +690,8 @@ func Test_linkXdp(t *testing.T) {
 	patches := gomonkey.NewPatches()
 	defer patches.Reset()
 	testNetNs := newTestNetNs(t)
-	patches.ApplyFunc(ns.GetNS, func(_ string) (ns.NetNS, error) {
-		return testNetNs, nil
+	patches.ApplyFunc(netns.WithNetNSPath, func(_ string, toRun func(ns.NetNS) error) error {
+		return testNetNs.Do(toRun)
 	})
 
 	type args struct {
@@ -728,8 +728,8 @@ func Test_unlinkXdp(t *testing.T) {
 	patches := gomonkey.NewPatches()
 	defer patches.Reset()
 	testNetNs := newTestNetNs(t)
-	patches.ApplyFunc(ns.GetNS, func(_ string) (ns.NetNS, error) {
-		return testNetNs, nil
+	patches.ApplyFunc(netns.WithNetNSPath, func(_ string, toRun func(ns.NetNS) error) error {
+		return testNetNs.Do(toRun)
 	})
 
 	type args struct {
