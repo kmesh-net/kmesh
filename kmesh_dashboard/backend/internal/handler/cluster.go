@@ -12,14 +12,14 @@ import (
 
 // NodeItem 供前端展示的节点简要信息
 type NodeItem struct {
-	Name        string            `json:"name"`
-	Status      string            `json:"status"`
-	Roles       []string          `json:"roles,omitempty"`
-	Age         string            `json:"age"`
-	Kernel      string            `json:"kernel,omitempty"`
-	OSImage     string            `json:"osImage,omitempty"`
-	InternalIP  string            `json:"internalIP,omitempty"`
-	Labels      map[string]string `json:"labels,omitempty"`
+	Name       string            `json:"name"`
+	Status     string            `json:"status"`
+	Roles      []string          `json:"roles,omitempty"`
+	Age        string            `json:"age"`
+	Kernel     string            `json:"kernel,omitempty"`
+	OSImage    string            `json:"osImage,omitempty"`
+	InternalIP string            `json:"internalIP,omitempty"`
+	Labels     map[string]string `json:"labels,omitempty"`
 }
 
 // ClusterNodesResponse 集群节点列表响应

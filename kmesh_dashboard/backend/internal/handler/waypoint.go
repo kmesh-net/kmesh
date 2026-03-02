@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"sort"
@@ -25,6 +26,20 @@ const (
 	waitReadyTimeout         = 60 * time.Second
 	waitReadyPollInterval    = 2 * time.Second
 )
+
+// HasWaypointInNamespace 检查命名空间是否已安装 Waypoint（熔断、限流等策略作用于 Waypoint，下发前需确保存在）
+func HasWaypointInNamespace(ctx context.Context, gwClient gatewayapiclient.Interface, namespace string) (bool, error) {
+	gwList, err := gwClient.GatewayV1().Gateways(namespace).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return false, err
+	}
+	for _, gw := range gwList.Items {
+		if gw.Spec.GatewayClassName == waypointGatewayClassName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
 // WaypointListResponse 列表响应
 type WaypointListResponse struct {

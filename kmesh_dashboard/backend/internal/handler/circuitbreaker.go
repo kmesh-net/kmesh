@@ -10,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
 
 var destinationRuleGVR = schema.GroupVersionResource{
@@ -223,8 +224,8 @@ func CircuitBreakerList(dyn dynamic.Interface) http.HandlerFunc {
 	}
 }
 
-// CircuitBreakerApply 创建或更新 DestinationRule（熔断）
-func CircuitBreakerApply(dyn dynamic.Interface) http.HandlerFunc {
+// CircuitBreakerApply 创建或更新 DestinationRule（熔断，作用于 Waypoint）
+func CircuitBreakerApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -242,8 +243,18 @@ func CircuitBreakerApply(dyn dynamic.Interface) http.HandlerFunc {
 			http.Error(w, "name and host are required", http.StatusBadRequest)
 			return
 		}
+		// 熔断作用于 Waypoint，下发前需确保命名空间已安装 Waypoint
+		hasWaypoint, err := HasWaypointInNamespace(r.Context(), gwClient, req.Namespace)
+		if err != nil {
+			http.Error(w, "检查 Waypoint 状态失败: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !hasWaypoint {
+			http.Error(w, "熔断策略作用于 Waypoint，请先在命名空间 "+req.Namespace+" 安装 Waypoint", http.StatusPreconditionFailed)
+			return
+		}
 		dr := buildDestinationRule(req)
-		_, err := dyn.Resource(destinationRuleGVR).Namespace(req.Namespace).Create(r.Context(), dr, metav1.CreateOptions{FieldManager: "kmesh-dashboard"})
+		_, err = dyn.Resource(destinationRuleGVR).Namespace(req.Namespace).Create(r.Context(), dr, metav1.CreateOptions{FieldManager: "kmesh-dashboard"})
 		if err != nil {
 			if errors.IsAlreadyExists(err) {
 				existing, getErr := dyn.Resource(destinationRuleGVR).Namespace(req.Namespace).Get(r.Context(), req.Name, metav1.GetOptions{})
