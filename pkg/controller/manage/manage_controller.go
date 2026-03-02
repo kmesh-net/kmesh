@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/ebpf/link"
 	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 	"istio.io/istio/pkg/spiffe"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -407,7 +408,15 @@ func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
 			if err != nil {
 				return err
 			}
-			// Always let new XDP program replace the old one, to ensure that there is always only one XDP program at the same time
+			// Detach any existing XDP program before attaching a new one
+			// This prevents "file exists" errors when an XDP program is already attached
+			if err := netlink.LinkSetXdpFdWithFlags(ifLink, -1, int(link.XDPGenericMode)); err != nil && err != unix.ENODEV {
+				return fmt.Errorf("failed to detach existing generic-mode XDP program: %w", err)
+			}
+			if err := netlink.LinkSetXdpFdWithFlags(ifLink, -1, int(link.XDPDriverMode)); err != nil && err != unix.ENODEV {
+				return fmt.Errorf("failed to detach existing driver-mode XDP program: %w", err)
+			}
+			// Attach new XDP program
 			if err := netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
 				return err
 			}
