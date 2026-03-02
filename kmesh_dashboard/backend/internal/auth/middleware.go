@@ -57,6 +57,16 @@ func routePermission(path, method string) (resource, action string, needAuth boo
 			}
 		}
 		return "ratelimit", "read", needAuth
+	case len(parts) >= 1 && parts[0] == "authorization":
+		if len(parts) >= 2 {
+			switch parts[1] {
+			case "apply":
+				return "authorization", "write", needAuth
+			case "delete":
+				return "authorization", "delete", needAuth
+			}
+		}
+		return "authorization", "read", needAuth
 	case len(parts) >= 1 && parts[0] == "auth":
 		return "auth", "read", needAuth
 	default:

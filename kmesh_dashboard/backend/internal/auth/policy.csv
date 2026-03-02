@@ -5,6 +5,7 @@ p, reader, metrics, read
 p, reader, waypoint, read
 p, reader, circuitbreaker, read
 p, reader, ratelimit, read
+p, reader, authorization, read
 p, editor, auth, read
 p, editor, cluster, read
 p, editor, services, read
@@ -18,4 +19,7 @@ p, editor, circuitbreaker, delete
 p, editor, ratelimit, read
 p, editor, ratelimit, write
 p, editor, ratelimit, delete
+p, editor, authorization, read
+p, editor, authorization, write
+p, editor, authorization, delete
 p, admin, *, *
