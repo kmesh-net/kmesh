@@ -17,9 +17,10 @@
 package kmeshmanage
 
 import (
+	"errors"
 	"fmt"
 	"net"
-	"os"
+	"syscall"
 
 	"github.com/cilium/ebpf/link"
 	netns "github.com/containernetworking/plugins/pkg/ns"
@@ -408,12 +409,26 @@ func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
 			if err != nil {
 				return err
 			}
-			// Always let new XDP program replace the old one, to ensure that there is always only one XDP program at the same time
+			// Attach new XDP program
 			if err := netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
-				if os.IsExist(err) {
-					return nil
+				if errors.Is(err, syscall.EEXIST) {
+					// Only detach if attach fails with EEXIST (program already exists)
+					// Try all detach methods to ensure we remove any existing program
+					for _, flags := range []int{0, int(link.XDPGenericMode), int(link.XDPDriverMode)} {
+						if flags == 0 {
+							_ = netlink.LinkSetXdpFd(ifLink, -1)
+						} else {
+							_ = netlink.LinkSetXdpFdWithFlags(ifLink, -1, flags)
+						}
+					}
+					// Retry attach after detach
+					if err = netlink.LinkSetXdpFd(ifLink, xdpProgFd); err != nil {
+						return err
+					}
+				} else {
+					// Propagate other errors without detaching
+					return err
 				}
-				return err
 			}
 		}
 		return nil
