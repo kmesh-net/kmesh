@@ -53,7 +53,6 @@ const (
 	configDumpPrefix          = "/debug/config_dump"
 	patternConfigDumpAds      = configDumpPrefix + "/kernel-native"
 	patternConfigDumpWorkload = configDumpPrefix + "/dual-engine"
-	patternConfigDumpSecurity = configDumpPrefix + "/security"
 	patternConfigDumpServices = configDumpPrefix + "/services"
 	patternConfigDumpPolicies = configDumpPrefix + "/policies"
 	patternReadyProbe         = "/debug/ready"
@@ -98,7 +97,6 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
-	s.mux.HandleFunc(patternConfigDumpSecurity, s.configDumpSecurity)
 	s.mux.HandleFunc(patternConfigDumpServices, s.configDumpServices)
 	s.mux.HandleFunc(patternConfigDumpPolicies, s.configDumpPolicies)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
@@ -499,32 +497,6 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 		workloadDump.Policies = append(workloadDump.Policies, ConvertAuthorizationPolicy(p))
 	}
 	printWorkloadDump(w, workloadDump)
-}
-
-// configDumpSecurity dumps all active TLS certificates
-func (s *Server) configDumpSecurity(w http.ResponseWriter, r *http.Request) {
-	if !s.checkWorkloadMode(w) {
-		return
-	}
-
-	client := s.xdsClient
-	if client.WorkloadController == nil || client.WorkloadController.SecretManager == nil {
-		w.WriteHeader(http.StatusBadRequest)
-		fmt.Fprint(w, "SecretManager not available")
-		return
-	}
-
-	// Get all certificates from SecretManager
-	certs := client.WorkloadController.SecretManager.DumpCerts()
-
-	w.WriteHeader(http.StatusOK)
-	data, err := json.MarshalIndent(certs, "", "    ")
-	if err != nil {
-		log.Errorf("Failed to marshal certificates: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	_, _ = w.Write(data)
 }
 
 // configDumpServices dumps all K8s services known to Kmesh
