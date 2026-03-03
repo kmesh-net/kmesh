@@ -147,7 +147,7 @@ func getKmeshDaemonPod(args []string) (string, bool) {
 	if len(args) == 0 {
 		return "", false
 	}
-	if strings.Contains(args[0], "--") {
+	if strings.HasPrefix(args[0], "--") {
 		return "", false
 	}
 	return args[0], true
