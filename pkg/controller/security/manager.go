@@ -257,3 +257,17 @@ func (s *SecretManager) retryFetchCert(identity string) {
 
 	go s.fetchCert(identity)
 }
+
+// DumpCerts returns all cached certificates for debugging
+func (s *SecretManager) DumpCerts() []*istiosecurity.SecretItem {
+	s.certsCache.mu.RLock()
+	defer s.certsCache.mu.RUnlock()
+
+	certs := make([]*istiosecurity.SecretItem, 0, len(s.certsCache.certs))
+	for _, certItem := range s.certsCache.certs {
+		if certItem != nil && certItem.cert != nil {
+			certs = append(certs, certItem.cert)
+		}
+	}
+	return certs
+}

@@ -53,6 +53,9 @@ const (
 	configDumpPrefix          = "/debug/config_dump"
 	patternConfigDumpAds      = configDumpPrefix + "/kernel-native"
 	patternConfigDumpWorkload = configDumpPrefix + "/dual-engine"
+	patternConfigDumpSecurity = configDumpPrefix + "/security"
+	patternConfigDumpServices = configDumpPrefix + "/services"
+	patternConfigDumpPolicies = configDumpPrefix + "/policies"
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
@@ -95,6 +98,9 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
+	s.mux.HandleFunc(patternConfigDumpSecurity, s.configDumpSecurity)
+	s.mux.HandleFunc(patternConfigDumpServices, s.configDumpServices)
+	s.mux.HandleFunc(patternConfigDumpPolicies, s.configDumpPolicies)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
 	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
 	s.mux.HandleFunc(patternMonitoring, s.monitoringHandler)
@@ -102,7 +108,6 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
 
-	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
 
 	// support pprof
@@ -494,6 +499,80 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 		workloadDump.Policies = append(workloadDump.Policies, ConvertAuthorizationPolicy(p))
 	}
 	printWorkloadDump(w, workloadDump)
+}
+
+// configDumpSecurity dumps all active TLS certificates
+func (s *Server) configDumpSecurity(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+
+	client := s.xdsClient
+	if client.WorkloadController == nil || client.WorkloadController.SecretManager == nil {
+		w.WriteHeader(http.StatusBadRequest)
+		fmt.Fprint(w, "SecretManager not available")
+		return
+	}
+
+	// Get all certificates from SecretManager
+	certs := client.WorkloadController.SecretManager.DumpCerts()
+
+	w.WriteHeader(http.StatusOK)
+	data, err := json.MarshalIndent(certs, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal certificates: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	_, _ = w.Write(data)
+}
+
+// configDumpServices dumps all K8s services known to Kmesh
+func (s *Server) configDumpServices(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+
+	client := s.xdsClient
+	services := client.WorkloadController.Processor.ServiceCache.List()
+
+	serviceDump := make([]*Service, 0, len(services))
+	for _, svc := range services {
+		serviceDump = append(serviceDump, ConvertService(svc))
+	}
+
+	w.WriteHeader(http.StatusOK)
+	data, err := json.MarshalIndent(serviceDump, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal services: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	_, _ = w.Write(data)
+}
+
+// configDumpPolicies dumps all security (RBAC) policies
+func (s *Server) configDumpPolicies(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+
+	client := s.xdsClient
+	policies := client.WorkloadController.Rbac.PoliciesList()
+
+	policyDump := make([]*AuthorizationPolicy, 0, len(policies))
+	for _, policy := range policies {
+		policyDump = append(policyDump, ConvertAuthorizationPolicy(policy))
+	}
+
+	w.WriteHeader(http.StatusOK)
+	data, err := json.MarshalIndent(policyDump, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal policies: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	_, _ = w.Write(data)
 }
 
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
