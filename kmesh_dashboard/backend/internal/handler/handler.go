@@ -33,7 +33,7 @@ func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatew
 	})
 	// Waypoint
 	mux.HandleFunc(apiPrefix+"/waypoint/list", WaypointList(gwClient))
-	mux.HandleFunc(apiPrefix+"/waypoint/status", WaypointStatus(gwClient))
+	mux.HandleFunc(apiPrefix+"/waypoint/status", WaypointStatus(gwClient, clientset))
 	mux.HandleFunc(apiPrefix+"/waypoint/apply", WaypointApply(gwClient, clientset))
 	mux.HandleFunc(apiPrefix+"/waypoint/delete", WaypointDelete(gwClient))
 	// 熔断 (DestinationRule，作用于 Waypoint)

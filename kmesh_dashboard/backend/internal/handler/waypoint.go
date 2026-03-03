@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sort"
 	"time"
@@ -10,6 +11,7 @@ import (
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -21,6 +23,7 @@ const (
 	labelWaypointFor         = "istio.io/waypoint-for"
 	labelUseWaypoint         = "istio.io/use-waypoint"
 	labelIstioRev            = "istio.io/rev"
+	labelGatewayName         = "gateway.networking.k8s.io/gateway-name"
 	annotationProxyImage     = "sidecar.istio.io/proxyImage"
 	defaultWaypointImage     = "ghcr.io/kmesh-net/waypoint:latest"
 	waitReadyTimeout         = 60 * time.Second
@@ -61,10 +64,28 @@ type WaypointStatusResponse struct {
 	Items []WaypointStatusItem `json:"items"`
 }
 
-// WaypointStatusItem 单条状态
+// WaypointStatusItem 单条状态（含 Gateway Conditions 与 Waypoint Pod 状态）
 type WaypointStatusItem struct {
 	WaypointItem
 	Conditions []Condition `json:"conditions,omitempty"`
+	PodStatus  *PodStatus  `json:"podStatus,omitempty"`
+}
+
+// PodStatus Waypoint Pod 状态汇总
+type PodStatus struct {
+	Ready   int               `json:"ready"`          // 就绪 Pod 数
+	Total   int               `json:"total"`          // 总 Pod 数
+	Phase   string            `json:"phase"`          // 主相位：Running/Pending/Failed
+	Message string            `json:"message"`        // 简述，如 "1/1 Running"
+	Pods    []WaypointPodInfo `json:"pods,omitempty"` // 各 Pod 详情（可选）
+}
+
+// WaypointPodInfo 单个 Waypoint Pod 状态
+type WaypointPodInfo struct {
+	Name   string `json:"name"`
+	Phase  string `json:"phase"`
+	Ready  bool   `json:"ready"`
+	Reason string `json:"reason,omitempty"`
 }
 
 // Condition 与 metav1.Condition 对应
@@ -170,8 +191,8 @@ func WaypointList(gwClient gatewayapiclient.Interface) http.HandlerFunc {
 	}
 }
 
-// WaypointStatus 返回 Waypoint 状态（含 conditions）
-func WaypointStatus(gwClient gatewayapiclient.Interface) http.HandlerFunc {
+// WaypointStatus 返回 Waypoint 状态（含 Gateway Conditions 与 Waypoint Pod 状态）
+func WaypointStatus(gwClient gatewayapiclient.Interface, clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -216,16 +237,83 @@ func WaypointStatus(gwClient gatewayapiclient.Interface) http.HandlerFunc {
 					Message: c.Message,
 				})
 			}
-			statusItems = append(statusItems, WaypointStatusItem{
+			item := WaypointStatusItem{
 				WaypointItem: base,
 				Conditions:   conds,
-			})
+			}
+			// 查询该 Gateway 对应的 Waypoint Pod 状态（通过 label gateway.networking.k8s.io/gateway-name）
+			if clientset != nil {
+				podStatus := getWaypointPodStatus(r.Context(), clientset, gw.Namespace, gw.Name)
+				item.PodStatus = podStatus
+			}
+			statusItems = append(statusItems, item)
 		}
 		sort.Slice(statusItems, func(i, j int) bool {
 			return statusItems[i].Name < statusItems[j].Name
 		})
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(WaypointStatusResponse{Items: statusItems})
+	}
+}
+
+// getWaypointPodStatus 获取 Waypoint Pod 状态（通过 gateway.networking.k8s.io/gateway-name 标签筛选）
+func getWaypointPodStatus(ctx context.Context, clientset kubernetes.Interface, namespace, gatewayName string) *PodStatus {
+	selector := labelGatewayName + "=" + gatewayName
+	podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
+	if err != nil {
+		return &PodStatus{Total: 0, Phase: "Unknown", Message: "获取 Pod 列表失败: " + err.Error()}
+	}
+	if len(podList.Items) == 0 {
+		return &PodStatus{Total: 0, Phase: "Pending", Message: "暂无 Pod（Gateway 已创建，等待控制器部署）"}
+	}
+	ready := 0
+	phaseCount := map[string]int{}
+	pods := make([]WaypointPodInfo, 0, len(podList.Items))
+	for _, p := range podList.Items {
+		pPhase := string(p.Status.Phase)
+		phaseCount[pPhase]++
+		pReady := false
+		for _, c := range p.Status.Conditions {
+			if c.Type == corev1.PodReady && c.Status == corev1.ConditionTrue {
+				pReady = true
+				ready++
+				break
+			}
+		}
+		reason := ""
+		if p.Status.Reason != "" {
+			reason = p.Status.Reason
+		} else if len(p.Status.ContainerStatuses) > 0 {
+			for _, cs := range p.Status.ContainerStatuses {
+				if cs.State.Waiting != nil {
+					reason = cs.State.Waiting.Reason
+					break
+				}
+			}
+		}
+		pods = append(pods, WaypointPodInfo{
+			Name:   p.Name,
+			Phase:  pPhase,
+			Ready:  pReady,
+			Reason: reason,
+		})
+	}
+	// 主相位：优先 Running > Pending > Failed
+	mainPhase := "Running"
+	if phaseCount["Failed"] > 0 {
+		mainPhase = "Failed"
+	} else if phaseCount["Pending"] > 0 {
+		mainPhase = "Pending"
+	} else if phaseCount["Running"] == 0 {
+		mainPhase = "Unknown"
+	}
+	msg := fmt.Sprintf("%d/%d %s", ready, len(podList.Items), mainPhase)
+	return &PodStatus{
+		Ready:   ready,
+		Total:   len(podList.Items),
+		Phase:   mainPhase,
+		Message: msg,
+		Pods:    pods,
 	}
 }
 

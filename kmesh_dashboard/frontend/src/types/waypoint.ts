@@ -7,8 +7,24 @@ export interface WaypointItem {
   gatewayUID?: string
 }
 
+export interface WaypointPodInfo {
+  name: string
+  phase: string
+  ready: boolean
+  reason?: string
+}
+
+export interface WaypointPodStatus {
+  ready: number
+  total: number
+  phase: string
+  message: string
+  pods?: WaypointPodInfo[]
+}
+
 export interface WaypointStatusItem extends WaypointItem {
   conditions?: { type: string; status: string; reason?: string; message?: string }[]
+  podStatus?: WaypointPodStatus
 }
 
 export interface WaypointListResponse {
