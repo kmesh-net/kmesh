@@ -9,7 +9,7 @@ Kmesh 的可视化控制台，通过交互式界面降低使用门槛，支持 W
 后端会访问当前 KUBECONFIG 指向的集群（或集群内 InCluster 配置），提供 `GET /api/cluster/nodes` 等接口。
 
 ```bash
-cd backend
+cd kmesh_dashboard/backend
 export KUBECONFIG=/path/to/your/kubeconfig   # 可选，不设则用默认或 InCluster
 export PROMETHEUS_URL=http://prometheus.kmesh-system:9090 # 可选，指标大盘用，不设则页面提示未配置
 export KIALI_URL=http://kiali.kmesh-system:20001  # 可选，服务拓扑页跳转地址
@@ -21,7 +21,7 @@ go run ./cmd/server/
 ### 2. 启动前端
 
 ```bash
-cd frontend
+cd kmesh_dashboard/frontend
 npm install
 npm run dev
 ```

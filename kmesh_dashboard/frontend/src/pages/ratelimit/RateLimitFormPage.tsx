@@ -32,9 +32,9 @@ export default function RateLimitFormPage({ selectedNamespace }: RateLimitFormPa
       const req: RateLimitApplyRequest = {
         namespace: selectedNamespace || 'default',
         name: values.name,
-        maxTokens: values.maxTokens ?? 4,
-        tokensPerFill: values.tokensPerFill ?? 4,
-        fillIntervalSec: values.fillIntervalSec ?? 60,
+        maxTokens: values.maxTokens!,
+        tokensPerFill: values.tokensPerFill!,
+        fillIntervalSec: values.fillIntervalSec!,
       }
       if (values.statPrefix) req.statPrefix = values.statPrefix
       if (values.selectorApp) {
@@ -65,11 +65,6 @@ export default function RateLimitFormPage({ selectedNamespace }: RateLimitFormPa
         form={form}
         layout="vertical"
         onFinish={onFinish}
-        initialValues={{
-          maxTokens: 4,
-          tokensPerFill: 4,
-          fillIntervalSec: 60,
-        }}
       >
         <Form.Item name="name" label="EnvoyFilter 名称" rules={[{ required: true }]}>
           <Input placeholder="例如 filter-local-ratelimit-svc" />
@@ -92,13 +87,13 @@ export default function RateLimitFormPage({ selectedNamespace }: RateLimitFormPa
           />
         </Form.Item>
         <Form.Item name="maxTokens" label="最大令牌数 (max_tokens)" rules={[{ required: true }]}>
-          <InputNumber min={1} max={100000} style={{ width: '100%' }} />
+          <InputNumber min={1} max={100000} placeholder="如 4" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="tokensPerFill" label="每次填充令牌数 (tokens_per_fill)" rules={[{ required: true }]}>
-          <InputNumber min={1} max={100000} style={{ width: '100%' }} />
+          <InputNumber min={1} max={100000} placeholder="如 4" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item name="fillIntervalSec" label="填充间隔（秒）(fill_interval)" rules={[{ required: true }]}>
-          <InputNumber min={1} max={86400} style={{ width: '100%' }} />
+          <InputNumber min={1} max={86400} placeholder="如 60" style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item>
           <Space>

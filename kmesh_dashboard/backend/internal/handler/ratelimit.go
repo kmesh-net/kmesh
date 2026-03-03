@@ -158,16 +158,6 @@ func buildLocalRateLimitEnvoyFilter(req RateLimitApplyRequest) *unstructured.Uns
 		statPrefix = "local_rate_limit"
 	}
 	fillInterval := strconv.FormatInt(req.FillIntervalSec, 10) + "s"
-	if req.FillIntervalSec <= 0 {
-		req.FillIntervalSec = 60
-		fillInterval = "60s"
-	}
-	if req.MaxTokens <= 0 {
-		req.MaxTokens = 4
-	}
-	if req.TokensPerFill <= 0 {
-		req.TokensPerFill = 4
-	}
 	value := map[string]interface{}{
 		"name": localRateLimitFilterName,
 		"typed_config": map[string]interface{}{
@@ -270,6 +260,10 @@ func RateLimitApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interface) 
 		}
 		if req.Name == "" {
 			http.Error(w, "name is required", http.StatusBadRequest)
+			return
+		}
+		if req.MaxTokens <= 0 || req.TokensPerFill <= 0 || req.FillIntervalSec <= 0 {
+			http.Error(w, "maxTokens、tokensPerFill、fillIntervalSec 为必填项，且必须大于 0", http.StatusBadRequest)
 			return
 		}
 		// 限流作用于 Waypoint，下发前需确保命名空间已安装 Waypoint
