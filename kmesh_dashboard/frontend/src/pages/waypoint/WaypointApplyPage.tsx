@@ -11,7 +11,12 @@ const trafficOptions = [
   { value: 'none', label: 'None' },
 ]
 
-export default function WaypointApplyPage() {
+interface WaypointApplyPageProps {
+  selectedNamespace: string
+  namespaceOptions: string[]
+}
+
+export default function WaypointApplyPage({ selectedNamespace }: WaypointApplyPageProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -23,7 +28,7 @@ export default function WaypointApplyPage() {
     setSuccess(null)
     try {
       const res = await applyWaypoint({
-        namespace: (values.namespace as string) || 'default',
+        namespace: selectedNamespace,
         name: (values.name as string) || 'waypoint',
         trafficFor: (values.trafficFor as string) || undefined,
         enrollNamespace: !!values.enrollNamespace,
@@ -44,7 +49,7 @@ export default function WaypointApplyPage() {
   return (
     <Card title="安装 Waypoint">
       <p style={{ color: '#666', marginBottom: 16 }}>
-        按命名空间或指定流量类型（Namespace / Service / Workload）创建 Waypoint。创建后可在「Waypoint 列表」中查看状态。
+        在<strong>当前命名空间</strong>（上方选择器）下创建 Waypoint，可指定流量类型（Namespace / Service / Workload）。创建后可在「Waypoint 列表」中查看状态。
       </p>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
@@ -57,7 +62,6 @@ export default function WaypointApplyPage() {
         layout="vertical"
         onFinish={onFinish}
         initialValues={{
-          namespace: 'default',
           name: 'waypoint',
           trafficFor: '',
           enrollNamespace: false,
@@ -65,9 +69,6 @@ export default function WaypointApplyPage() {
           waitReady: false,
         }}
       >
-        <Form.Item name="namespace" label="命名空间" rules={[{ required: true }]}>
-          <Input placeholder="default" />
-        </Form.Item>
         <Form.Item name="name" label="Waypoint 名称" rules={[{ required: true }]}>
           <Input placeholder="waypoint（Workload 粒度时可填如 reviews-v2-pod-waypoint）" />
         </Form.Item>

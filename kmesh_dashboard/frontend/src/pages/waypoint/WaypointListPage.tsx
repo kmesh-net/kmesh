@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
-import { Card, Table, Tag, Spin, Alert, Button, Space, Input, Checkbox } from 'antd'
+import { Card, Table, Tag, Spin, Alert, Button } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
 import { getWaypointList, getWaypointStatus, deleteWaypoint } from '@/api/waypoint'
 import type { WaypointItem, WaypointStatusItem } from '@/types/waypoint'
 
-const columns = [
-  { title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 140 },
+const getColumns = (showNamespace: boolean) => [
+  ...(showNamespace ? [{ title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
   { title: '名称', dataIndex: 'name', key: 'name', width: 160 },
   {
     title: '状态',
@@ -23,14 +23,17 @@ const columns = [
   { title: '流量类型', dataIndex: 'trafficFor', key: 'trafficFor', ellipsis: true },
 ]
 
-export default function WaypointListPage() {
+interface WaypointListPageProps {
+  selectedNamespace: string
+  allNamespaces: boolean
+}
+
+export default function WaypointListPage({ selectedNamespace, allNamespaces }: WaypointListPageProps) {
   const { can } = useAuth()
   const [list, setList] = useState<WaypointItem[]>([])
   const [statusMap, setStatusMap] = useState<Record<string, WaypointStatusItem>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [nsFilter, setNsFilter] = useState('')
-  const [allNamespaces, setAllNamespaces] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expandedNsFetched, setExpandedNsFetched] = useState<Set<string>>(new Set())
   const canDelete = can('waypoint', 'delete')
@@ -40,12 +43,12 @@ export default function WaypointListPage() {
     setError(null)
     try {
       const res = await getWaypointList({
-        namespace: nsFilter || undefined,
-        allNamespaces: allNamespaces || !nsFilter,
+        namespace: allNamespaces ? undefined : selectedNamespace,
+        allNamespaces,
       })
       setList(res.items)
-      if (res.items.length > 0 && !allNamespaces && nsFilter) {
-        const statusRes = await getWaypointStatus(nsFilter)
+      if (res.items.length > 0 && !allNamespaces && selectedNamespace) {
+        const statusRes = await getWaypointStatus(selectedNamespace)
         const map: Record<string, WaypointStatusItem> = {}
         statusRes.items.forEach((s) => {
           map[`${s.namespace}/${s.name}`] = s
@@ -76,7 +79,7 @@ export default function WaypointListPage() {
 
   useEffect(() => {
     fetchList()
-  }, [nsFilter, allNamespaces])
+  }, [selectedNamespace, allNamespaces])
 
   return (
     <Card
@@ -87,22 +90,6 @@ export default function WaypointListPage() {
         </Button>
       }
     >
-      <Space style={{ marginBottom: 16 }}>
-        <Checkbox
-          checked={allNamespaces}
-          onChange={(e) => setAllNamespaces(e.target.checked)}
-        >
-          全部命名空间
-        </Checkbox>
-        {!allNamespaces && (
-          <Input
-            placeholder="命名空间"
-            value={nsFilter}
-            onChange={(e) => setNsFilter(e.target.value)}
-            style={{ width: 160 }}
-          />
-        )}
-      </Space>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
       )}
@@ -110,7 +97,7 @@ export default function WaypointListPage() {
         <Table
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
-            ...columns,
+            ...getColumns(allNamespaces),
             ...(canDelete
               ? [
                   {

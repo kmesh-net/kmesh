@@ -6,20 +6,23 @@ import { getServiceList } from '@/api/services'
 import type { ServiceItem } from '@/api/services'
 import type { RateLimitApplyRequest } from '@/types/ratelimit'
 
-export default function RateLimitFormPage() {
+interface RateLimitFormPageProps {
+  selectedNamespace: string
+  namespaceOptions: string[]
+}
+
+export default function RateLimitFormPage({ selectedNamespace }: RateLimitFormPageProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [services, setServices] = useState<ServiceItem[]>([])
   const [form] = Form.useForm<RateLimitApplyRequest & { selectorApp?: string }>()
 
-  const formNamespace = Form.useWatch('namespace', form) ?? 'default'
-
   useEffect(() => {
-    getServiceList(formNamespace || undefined)
+    getServiceList(selectedNamespace || undefined)
       .then((res) => setServices(res.items))
       .catch(() => setServices([]))
-  }, [formNamespace])
+  }, [selectedNamespace])
 
   const onFinish = async (values: RateLimitApplyRequest & { selectorApp?: string }) => {
     setLoading(true)
@@ -27,7 +30,7 @@ export default function RateLimitFormPage() {
     setSuccess(null)
     try {
       const req: RateLimitApplyRequest = {
-        namespace: values.namespace || 'default',
+        namespace: selectedNamespace || 'default',
         name: values.name,
         maxTokens: values.maxTokens ?? 4,
         tokensPerFill: values.tokensPerFill ?? 4,
@@ -50,7 +53,7 @@ export default function RateLimitFormPage() {
   return (
     <Card title="配置限流">
       <p style={{ color: '#666', marginBottom: 16 }}>
-        按 Token Bucket 配置连接维度限流（每 fill_interval 补充 tokens_per_fill，最多 max_tokens）。通过 EnvoyFilter 插入 <code>envoy.filters.network.local_ratelimit</code>，需集群已安装 Istio EnvoyFilter CRD。
+        在<strong>当前命名空间</strong>（上方选择器）下按 Token Bucket 配置连接维度限流（每 fill_interval 补充 tokens_per_fill，最多 max_tokens）。通过 EnvoyFilter 插入 <code>envoy.filters.network.local_ratelimit</code>，需集群已安装 Istio EnvoyFilter CRD。
       </p>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
@@ -63,15 +66,11 @@ export default function RateLimitFormPage() {
         layout="vertical"
         onFinish={onFinish}
         initialValues={{
-          namespace: 'default',
           maxTokens: 4,
           tokensPerFill: 4,
           fillIntervalSec: 60,
         }}
       >
-        <Form.Item name="namespace" label="命名空间" rules={[{ required: true }]}>
-          <Input placeholder="default" />
-        </Form.Item>
         <Form.Item name="name" label="EnvoyFilter 名称" rules={[{ required: true }]}>
           <Input placeholder="例如 filter-local-ratelimit-svc" />
         </Form.Item>
@@ -88,7 +87,7 @@ export default function RateLimitFormPage() {
             placeholder="不限定（全部）"
             options={[
               { value: '', label: '不限定（全部）' },
-              ...services.map((s) => ({ value: s.name, label: `${s.namespace}/${s.name}` })),
+              ...services.map((s) => ({ value: s.name, label: s.name })),
             ]}
           />
         </Form.Item>

@@ -17,6 +17,7 @@ func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatew
 	mux.HandleFunc(apiPrefix+"/auth/login", auth.Login())
 	mux.HandleFunc(apiPrefix+"/auth/me", auth.Me())
 	mux.HandleFunc(apiPrefix+"/cluster/nodes", ClusterNodes(clientset))
+	mux.HandleFunc(apiPrefix+"/cluster/namespaces", NamespaceList(clientset))
 	mux.HandleFunc(apiPrefix+"/services", ServiceList(clientset))
 	mux.HandleFunc(apiPrefix+"/metrics/datasource", MetricsDatasource())
 	mux.HandleFunc(apiPrefix+"/metrics/overview", MetricsOverview())

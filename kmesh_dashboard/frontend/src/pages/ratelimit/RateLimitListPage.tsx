@@ -1,24 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Card, Table, Button, Spin, Alert, Input } from 'antd'
+import { Card, Table, Button, Spin, Alert } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
 import { getRateLimitList, deleteRateLimit } from '@/api/ratelimit'
 import type { RateLimitItem } from '@/types/ratelimit'
 
-export default function RateLimitListPage() {
+interface RateLimitListPageProps {
+  selectedNamespace: string
+}
+
+export default function RateLimitListPage({ selectedNamespace }: RateLimitListPageProps) {
   const { can } = useAuth()
   const canDelete = can('ratelimit', 'delete')
   const [list, setList] = useState<RateLimitItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [nsFilter, setNsFilter] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
 
   const fetchList = async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await getRateLimitList(nsFilter || undefined)
+      const res = await getRateLimitList(selectedNamespace || undefined)
       setList(res.items)
     } catch (e) {
       setError(e instanceof Error ? e.message : '获取列表失败')
@@ -42,7 +45,7 @@ export default function RateLimitListPage() {
 
   useEffect(() => {
     fetchList()
-  }, [nsFilter])
+  }, [selectedNamespace])
 
   return (
     <Card
@@ -53,14 +56,6 @@ export default function RateLimitListPage() {
         </Button>
       }
     >
-      <div style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="按命名空间筛选（空=全部）"
-          value={nsFilter}
-          onChange={(e) => setNsFilter(e.target.value)}
-          style={{ width: 220 }}
-        />
-      </div>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
       )}
@@ -68,7 +63,6 @@ export default function RateLimitListPage() {
         <Table
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
-            { title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 120 },
             { title: '名称', dataIndex: 'name', key: 'name', width: 180 },
             { title: 'StatPrefix', dataIndex: 'statPrefix', key: 'statPrefix', width: 140 },
             { title: '最大令牌', dataIndex: 'maxTokens', key: 'maxTokens', width: 90 },

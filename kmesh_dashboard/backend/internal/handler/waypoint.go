@@ -48,12 +48,12 @@ type WaypointListResponse struct {
 
 // WaypointItem 单条 Waypoint 信息
 type WaypointItem struct {
-	Namespace   string `json:"namespace"`
-	Name        string `json:"name"`
-	Revision    string `json:"revision"`
-	Programmed  string `json:"programmed"`
-	TrafficFor  string `json:"trafficFor,omitempty"`
-	GatewayUID  string `json:"gatewayUID,omitempty"`
+	Namespace  string `json:"namespace"`
+	Name       string `json:"name"`
+	Revision   string `json:"revision"`
+	Programmed string `json:"programmed"`
+	TrafficFor string `json:"trafficFor,omitempty"`
+	GatewayUID string `json:"gatewayUID,omitempty"`
 }
 
 // WaypointStatusResponse 状态响应（含 conditions）
@@ -77,21 +77,21 @@ type Condition struct {
 
 // WaypointApplyRequest 安装请求
 type WaypointApplyRequest struct {
-	Namespace        string `json:"namespace"`
-	Name             string `json:"name"`
-	TrafficFor       string `json:"trafficFor"`       // service | workload | all | 空表示默认
-	EnrollNamespace   bool   `json:"enrollNamespace"`
-	Overwrite        bool   `json:"overwrite"`
-	WaitReady        bool   `json:"waitReady"`
-	Revision         string `json:"revision"`
-	ProxyImage       string `json:"proxyImage"`
+	Namespace       string `json:"namespace"`
+	Name            string `json:"name"`
+	TrafficFor      string `json:"trafficFor"` // service | workload | all | 空表示默认
+	EnrollNamespace bool   `json:"enrollNamespace"`
+	Overwrite       bool   `json:"overwrite"`
+	WaitReady       bool   `json:"waitReady"`
+	Revision        string `json:"revision"`
+	ProxyImage      string `json:"proxyImage"`
 }
 
 // WaypointApplyResponse 安装响应
 type WaypointApplyResponse struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
-	Message  string `json:"message"`
+	Message   string `json:"message"`
 }
 
 // WaypointDeleteRequest 删除请求（按名称或全部）
@@ -333,7 +333,7 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 						resp := WaypointApplyResponse{
 							Namespace: req.Namespace,
 							Name:      req.Name,
-							Message:  "waypoint " + req.Namespace + "/" + req.Name + " 已应用并就绪",
+							Message:   "waypoint " + req.Namespace + "/" + req.Name + " 已应用并就绪",
 						}
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusCreated)
@@ -350,7 +350,7 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 		resp := WaypointApplyResponse{
 			Namespace: req.Namespace,
 			Name:      req.Name,
-			Message:  "waypoint " + req.Namespace + "/" + req.Name + " applied",
+			Message:   "waypoint " + req.Namespace + "/" + req.Name + " applied",
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)

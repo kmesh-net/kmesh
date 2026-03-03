@@ -93,3 +93,29 @@ func ClusterNodes(clientset kubernetes.Interface) http.HandlerFunc {
 		_ = json.NewEncoder(w).Encode(ClusterNodesResponse{Nodes: items})
 	}
 }
+
+// NamespaceListResponse 命名空间列表响应
+type NamespaceListResponse struct {
+	Items []string `json:"items"`
+}
+
+// NamespaceList 返回集群命名空间列表，用于 Waypoint 等模块的命名空间选择器
+func NamespaceList(clientset kubernetes.Interface) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		list, err := clientset.CoreV1().Namespaces().List(r.Context(), metav1.ListOptions{})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		items := make([]string, 0, len(list.Items))
+		for _, ns := range list.Items {
+			items = append(items, ns.Name)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(NamespaceListResponse{Items: items})
+	}
+}

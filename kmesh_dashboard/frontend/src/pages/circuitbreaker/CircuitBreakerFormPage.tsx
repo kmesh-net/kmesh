@@ -6,6 +6,11 @@ import { getServiceList } from '@/api/services'
 import type { ServiceItem } from '@/api/services'
 import { CIRCUIT_BREAKER_PRESETS, type CircuitBreakerApplyRequest } from '@/types/circuitbreaker'
 
+interface CircuitBreakerFormPageProps {
+  selectedNamespace: string
+  namespaceOptions: string[]
+}
+
 const PRESET_OPTIONS = [
   { value: '', label: '自定义' },
   { value: 'conservative', label: '保守（低阈值）' },
@@ -13,7 +18,7 @@ const PRESET_OPTIONS = [
   { value: 'aggressive', label: '激进（高阈值）' },
 ]
 
-export default function CircuitBreakerFormPage() {
+export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBreakerFormPageProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -21,15 +26,13 @@ export default function CircuitBreakerFormPage() {
   const [servicesLoading, setServicesLoading] = useState(false)
   const [form] = Form.useForm<CircuitBreakerApplyRequest & { preset?: string }>()
 
-  const formNamespace = Form.useWatch('namespace', form) ?? 'default'
-
   useEffect(() => {
     setServicesLoading(true)
-    getServiceList(formNamespace || undefined)
+    getServiceList(selectedNamespace || undefined)
       .then((res) => setServices(res.items))
       .catch(() => setServices([]))
       .finally(() => setServicesLoading(false))
-  }, [formNamespace])
+  }, [selectedNamespace])
 
   const onPresetChange = (preset: string) => {
     if (!preset) return
@@ -52,7 +55,7 @@ export default function CircuitBreakerFormPage() {
     setSuccess(null)
     try {
       const req: CircuitBreakerApplyRequest = {
-        namespace: values.namespace || 'default',
+        namespace: selectedNamespace || 'default',
         name: values.name,
         host: values.host,
       }
@@ -75,7 +78,7 @@ export default function CircuitBreakerFormPage() {
   return (
     <Card title="配置熔断">
       <p style={{ color: '#666', marginBottom: 16 }}>
-        选择预设模板或自定义阈值，对目标服务（Host）配置连接池与熔断。将写入 Istio DestinationRule（需集群已安装相应 CRD）。
+        在<strong>当前命名空间</strong>（上方选择器）下选择预设模板或自定义阈值，对目标服务（Host）配置连接池与熔断。将写入 Istio DestinationRule（需集群已安装相应 CRD）。
       </p>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
@@ -88,7 +91,6 @@ export default function CircuitBreakerFormPage() {
         layout="vertical"
         onFinish={onFinish}
         initialValues={{
-          namespace: 'default',
           preset: '',
         }}
       >
@@ -98,9 +100,6 @@ export default function CircuitBreakerFormPage() {
             placeholder="选择后自动填充下方阈值"
             onChange={onPresetChange}
           />
-        </Form.Item>
-        <Form.Item name="namespace" label="命名空间" rules={[{ required: true }]}>
-          <Input placeholder="default" />
         </Form.Item>
         <Form.Item name="name" label="DestinationRule 名称" rules={[{ required: true }]}>
           <Input placeholder="例如 my-service-cb" />
@@ -120,14 +119,13 @@ export default function CircuitBreakerFormPage() {
             allowClear
             style={{ width: '100%' }}
             options={services.map((s) => ({
-              label: `${s.namespace}/${s.name}`,
+              label: s.name,
               value: `${s.namespace}/${s.name}`,
             }))}
             onChange={(value: string | null) => {
               if (!value) return
               const [ns, name] = value.split('/')
-              const formNs = form.getFieldValue('namespace') || 'default'
-              const host = ns === formNs ? name : `${name}.${ns}.svc.cluster.local`
+              const host = ns === selectedNamespace ? name : `${name}.${ns}.svc.cluster.local`
               form.setFieldsValue({ host })
             }}
           />

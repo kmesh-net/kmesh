@@ -1,24 +1,27 @@
 import { useEffect, useState } from 'react'
-import { Card, Table, Button, Spin, Alert, Input, Tag } from 'antd'
+import { Card, Table, Button, Spin, Alert, Tag } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
 import { getAuthorizationList, deleteAuthorizationPolicy } from '@/api/authorization'
 import type { AuthorizationPolicyItem } from '@/types/authorization'
 
-export default function AuthorizationListPage() {
+interface AuthorizationListPageProps {
+  selectedNamespace: string
+}
+
+export default function AuthorizationListPage({ selectedNamespace }: AuthorizationListPageProps) {
   const { can } = useAuth()
   const canDelete = can('authorization', 'delete')
   const [list, setList] = useState<AuthorizationPolicyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [nsFilter, setNsFilter] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
 
   const fetchList = async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await getAuthorizationList(nsFilter || undefined)
+      const res = await getAuthorizationList(selectedNamespace || undefined)
       setList(res.items)
     } catch (e) {
       setError(e instanceof Error ? e.message : '获取列表失败')
@@ -42,7 +45,7 @@ export default function AuthorizationListPage() {
 
   useEffect(() => {
     fetchList()
-  }, [nsFilter])
+  }, [selectedNamespace])
 
   const renderRuleDetail = (item: AuthorizationPolicyItem) => {
     if (!item.rules || item.rules.length === 0) return '-'
@@ -83,7 +86,6 @@ export default function AuthorizationListPage() {
   }
 
   const columns = [
-    { title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 120 },
     { title: '名称', dataIndex: 'name', key: 'name', width: 160 },
     {
       title: '动作',
@@ -125,12 +127,6 @@ export default function AuthorizationListPage() {
         message="认证策略支持说明"
         description="Kmesh 当前支持 Istio AuthorizationPolicy（授权策略），可基于 IP、端口、命名空间等 L4 层条件控制访问。PeerAuthentication（mTLS 对等认证）与 RequestAuthentication（JWT 请求认证）计划在后续版本中支持。"
         style={{ marginBottom: 16 }}
-      />
-      <Input
-        placeholder="按命名空间筛选（空=全部）"
-        value={nsFilter}
-        onChange={(e) => setNsFilter(e.target.value)}
-        style={{ width: 220, marginBottom: 16 }}
       />
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />

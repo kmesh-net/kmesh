@@ -7,6 +7,11 @@ import type {
   AuthorizationPolicyRuleApply,
 } from '@/types/authorization'
 
+interface AuthorizationFormPageProps {
+  selectedNamespace: string
+  namespaceOptions: string[]
+}
+
 function parseCommaList(s: string | undefined): string[] {
   if (!s || !s.trim()) return []
   return s
@@ -15,7 +20,7 @@ function parseCommaList(s: string | undefined): string[] {
     .filter(Boolean)
 }
 
-export default function AuthorizationFormPage() {
+export default function AuthorizationFormPage({ selectedNamespace }: AuthorizationFormPageProps) {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -67,7 +72,7 @@ export default function AuthorizationFormPage() {
       if (app) selector.app = app
 
       const req: AuthorizationPolicyApplyRequest = {
-        namespace: (values.namespace as string) || 'default',
+        namespace: selectedNamespace || 'default',
         name: values.name as string,
         action: (values.action as 'ALLOW' | 'DENY') || 'ALLOW',
       }
@@ -87,7 +92,7 @@ export default function AuthorizationFormPage() {
   return (
     <Card title="配置授权策略">
       <p style={{ color: '#666', marginBottom: 16 }}>
-        创建或更新 Istio AuthorizationPolicy，限制哪些来源可访问目标工作负载。Kmesh 支持 L4 层条件：IP 段、命名空间、端口等。
+        在<strong>当前命名空间</strong>（上方选择器）下创建或更新 Istio AuthorizationPolicy，限制哪些来源可访问目标工作负载。Kmesh 支持 L4 层条件：IP 段、命名空间、端口等。
       </p>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
@@ -100,13 +105,9 @@ export default function AuthorizationFormPage() {
         layout="vertical"
         onFinish={onFinish}
         initialValues={{
-          namespace: 'default',
           action: 'ALLOW',
         }}
       >
-        <Form.Item name="namespace" label="命名空间" rules={[{ required: true }]}>
-          <Input placeholder="default" />
-        </Form.Item>
         <Form.Item name="name" label="策略名称" rules={[{ required: true }]}>
           <Input placeholder="例如 ip-allow-policy" />
         </Form.Item>

@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Card, Table, Button, Spin, Alert, Input, Space } from 'antd'
+import { Card, Table, Button, Spin, Alert } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
 import { getCircuitBreakerList, deleteCircuitBreaker } from '@/api/circuitbreaker'
 import type { CircuitBreakerItem } from '@/types/circuitbreaker'
 
 const columns = [
-  { title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 120 },
   { title: '名称', dataIndex: 'name', key: 'name', width: 160 },
   { title: '目标 Host', dataIndex: 'host', key: 'host', ellipsis: true },
   { title: '最大连接数', dataIndex: 'maxConnections', key: 'maxConnections', width: 100, render: (v: number) => v ?? '-' },
@@ -16,20 +15,23 @@ const columns = [
   { title: '连接超时(ms)', dataIndex: 'connectTimeoutMs', key: 'connectTimeoutMs', width: 110, render: (v: number) => v ?? '-' },
 ]
 
-export default function CircuitBreakerListPage() {
+interface CircuitBreakerListPageProps {
+  selectedNamespace: string
+}
+
+export default function CircuitBreakerListPage({ selectedNamespace }: CircuitBreakerListPageProps) {
   const { can } = useAuth()
   const canDelete = can('circuitbreaker', 'delete')
   const [list, setList] = useState<CircuitBreakerItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [nsFilter, setNsFilter] = useState('')
   const [deleting, setDeleting] = useState<string | null>(null)
 
   const fetchList = async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await getCircuitBreakerList(nsFilter || undefined)
+      const res = await getCircuitBreakerList(selectedNamespace || undefined)
       setList(res.items)
     } catch (e) {
       setError(e instanceof Error ? e.message : '获取列表失败')
@@ -53,7 +55,7 @@ export default function CircuitBreakerListPage() {
 
   useEffect(() => {
     fetchList()
-  }, [nsFilter])
+  }, [selectedNamespace])
 
   return (
     <Card
@@ -64,14 +66,6 @@ export default function CircuitBreakerListPage() {
         </Button>
       }
     >
-      <Space style={{ marginBottom: 16 }}>
-        <Input
-          placeholder="按命名空间筛选（空=全部）"
-          value={nsFilter}
-          onChange={(e) => setNsFilter(e.target.value)}
-          style={{ width: 220 }}
-        />
-      </Space>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
       )}
