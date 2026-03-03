@@ -1,22 +1,15 @@
 import { useState, useEffect } from 'react'
-import { Card, Form, Input, Select, Button, InputNumber, Alert, Space } from 'antd'
+import { Card, Form, Input, Select, InputNumber, Button, Alert, Space } from 'antd'
 import { ThunderboltOutlined } from '@ant-design/icons'
 import { applyCircuitBreaker } from '@/api/circuitbreaker'
 import { getServiceList } from '@/api/services'
 import type { ServiceItem } from '@/api/services'
-import { CIRCUIT_BREAKER_PRESETS, type CircuitBreakerApplyRequest } from '@/types/circuitbreaker'
+import type { CircuitBreakerApplyRequest } from '@/types/circuitbreaker'
 
 interface CircuitBreakerFormPageProps {
   selectedNamespace: string
   namespaceOptions: string[]
 }
-
-const PRESET_OPTIONS = [
-  { value: '', label: '自定义' },
-  { value: 'conservative', label: '保守（低阈值）' },
-  { value: 'standard', label: '标准' },
-  { value: 'aggressive', label: '激进（高阈值）' },
-]
 
 export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBreakerFormPageProps) {
   const [loading, setLoading] = useState(false)
@@ -24,7 +17,7 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
   const [success, setSuccess] = useState<string | null>(null)
   const [services, setServices] = useState<ServiceItem[]>([])
   const [servicesLoading, setServicesLoading] = useState(false)
-  const [form] = Form.useForm<CircuitBreakerApplyRequest & { preset?: string }>()
+  const [form] = Form.useForm<CircuitBreakerApplyRequest>()
 
   useEffect(() => {
     setServicesLoading(true)
@@ -34,22 +27,7 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
       .finally(() => setServicesLoading(false))
   }, [selectedNamespace])
 
-  const onPresetChange = (preset: string) => {
-    if (!preset) return
-    const values = CIRCUIT_BREAKER_PRESETS[preset]
-    if (values) {
-      form.setFieldsValue({
-        maxConnections: values.maxConnections,
-        maxPendingRequests: values.maxPendingRequests,
-        maxRequests: values.maxRequests,
-        maxRetries: values.maxRetries,
-        connectTimeoutMs: values.connectTimeoutMs,
-        maxRequestsPerConnection: values.maxRequestsPerConnection,
-      })
-    }
-  }
-
-  const onFinish = async (values: CircuitBreakerApplyRequest & { preset?: string }) => {
+  const onFinish = async (values: CircuitBreakerApplyRequest) => {
     setLoading(true)
     setError(null)
     setSuccess(null)
@@ -78,7 +56,7 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
   return (
     <Card title="配置熔断">
       <p style={{ color: '#666', marginBottom: 16 }}>
-        在<strong>当前命名空间</strong>（上方选择器）下选择预设模板或自定义阈值，对目标服务（Host）配置连接池与熔断。将写入 Istio DestinationRule（需集群已安装相应 CRD）。
+        在<strong>当前命名空间</strong>（上方选择器）下对目标服务（Host）配置连接池与熔断。将写入 Istio DestinationRule（需集群已安装相应 CRD）。
       </p>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
@@ -90,17 +68,7 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
         form={form}
         layout="vertical"
         onFinish={onFinish}
-        initialValues={{
-          preset: '',
-        }}
       >
-        <Form.Item name="preset" label="预设模板">
-          <Select
-            options={PRESET_OPTIONS}
-            placeholder="选择后自动填充下方阈值"
-            onChange={onPresetChange}
-          />
-        </Form.Item>
         <Form.Item name="name" label="DestinationRule 名称" rules={[{ required: true }]}>
           <Input placeholder="例如 my-service-cb" />
         </Form.Item>
