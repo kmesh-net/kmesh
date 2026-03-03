@@ -652,9 +652,9 @@ func newTextXdpProg(t *testing.T, name string) *ebpf.Program {
 	return prog
 }
 
-// Create a test netns, link an old XDP program on veth0 created inside the netns
+// Create a test netns with veth0 and an old XDP program attached
 func newTestNetNs(t *testing.T) ns.NetNS {
-	testNs, err := ns.GetCurrentNS()
+	testNs, err := ns.TempNetNS()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -690,8 +690,8 @@ func Test_linkXdp(t *testing.T) {
 	patches := gomonkey.NewPatches()
 	defer patches.Reset()
 	testNetNs := newTestNetNs(t)
-	patches.ApplyFunc(ns.GetNS, func(_ string) (ns.NetNS, error) {
-		return testNetNs, nil
+	patches.ApplyFunc(netns.WithNetNSPath, func(_ string, toRun func(ns.NetNS) error) error {
+		return testNetNs.Do(toRun)
 	})
 
 	type args struct {
@@ -728,8 +728,8 @@ func Test_unlinkXdp(t *testing.T) {
 	patches := gomonkey.NewPatches()
 	defer patches.Reset()
 	testNetNs := newTestNetNs(t)
-	patches.ApplyFunc(ns.GetNS, func(_ string) (ns.NetNS, error) {
-		return testNetNs, nil
+	patches.ApplyFunc(netns.WithNetNSPath, func(_ string, toRun func(ns.NetNS) error) error {
+		return testNetNs.Do(toRun)
 	})
 
 	type args struct {
