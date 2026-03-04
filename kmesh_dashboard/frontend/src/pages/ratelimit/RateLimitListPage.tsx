@@ -5,11 +5,29 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getRateLimitList, deleteRateLimit } from '@/api/ratelimit'
 import type { RateLimitItem } from '@/types/ratelimit'
 
+const getColumns = (showNamespace: boolean) => [
+  ...(showNamespace ? [{ title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
+  { title: '名称', dataIndex: 'name', key: 'name', width: 180 },
+  { title: 'StatPrefix', dataIndex: 'statPrefix', key: 'statPrefix', width: 140 },
+  { title: '最大令牌', dataIndex: 'maxTokens', key: 'maxTokens', width: 90 },
+  { title: '每次填充', dataIndex: 'tokensPerFill', key: 'tokensPerFill', width: 90 },
+  { title: '填充间隔(秒)', dataIndex: 'fillIntervalSec', key: 'fillIntervalSec', width: 110 },
+  {
+    title: '作用对象',
+    key: 'selector',
+    render: (_: unknown, r: RateLimitItem) =>
+      r.workloadSelector && Object.keys(r.workloadSelector).length > 0
+        ? JSON.stringify(r.workloadSelector)
+        : '全部',
+  },
+]
+
 interface RateLimitListPageProps {
   selectedNamespace: string
+  allNamespaces?: boolean
 }
 
-export default function RateLimitListPage({ selectedNamespace }: RateLimitListPageProps) {
+export default function RateLimitListPage({ selectedNamespace, allNamespaces = false }: RateLimitListPageProps) {
   const { can } = useAuth()
   const canDelete = can('ratelimit', 'delete')
   const [list, setList] = useState<RateLimitItem[]>([])
@@ -21,7 +39,7 @@ export default function RateLimitListPage({ selectedNamespace }: RateLimitListPa
     setLoading(true)
     setError(null)
     try {
-      const res = await getRateLimitList(selectedNamespace || undefined)
+      const res = await getRateLimitList(allNamespaces ? undefined : selectedNamespace || undefined)
       setList(res.items)
     } catch (e) {
       setError(e instanceof Error ? e.message : '获取列表失败')
@@ -45,7 +63,7 @@ export default function RateLimitListPage({ selectedNamespace }: RateLimitListPa
 
   useEffect(() => {
     fetchList()
-  }, [selectedNamespace])
+  }, [selectedNamespace, allNamespaces])
 
   return (
     <Card
@@ -63,19 +81,7 @@ export default function RateLimitListPage({ selectedNamespace }: RateLimitListPa
         <Table
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
-            { title: '名称', dataIndex: 'name', key: 'name', width: 180 },
-            { title: 'StatPrefix', dataIndex: 'statPrefix', key: 'statPrefix', width: 140 },
-            { title: '最大令牌', dataIndex: 'maxTokens', key: 'maxTokens', width: 90 },
-            { title: '每次填充', dataIndex: 'tokensPerFill', key: 'tokensPerFill', width: 90 },
-            { title: '填充间隔(秒)', dataIndex: 'fillIntervalSec', key: 'fillIntervalSec', width: 110 },
-            {
-              title: '作用对象',
-              key: 'selector',
-              render: (_: unknown, r: RateLimitItem) =>
-                r.workloadSelector && Object.keys(r.workloadSelector).length > 0
-                  ? JSON.stringify(r.workloadSelector)
-                  : '全部',
-            },
+            ...getColumns(allNamespaces),
             ...(canDelete
               ? [
                   {

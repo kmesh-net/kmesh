@@ -5,7 +5,8 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getCircuitBreakerList, deleteCircuitBreaker } from '@/api/circuitbreaker'
 import type { CircuitBreakerItem } from '@/types/circuitbreaker'
 
-const columns = [
+const getColumns = (showNamespace: boolean) => [
+  ...(showNamespace ? [{ title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
   { title: '名称', dataIndex: 'name', key: 'name', width: 160 },
   { title: '目标 Host', dataIndex: 'host', key: 'host', ellipsis: true },
   { title: '最大连接数', dataIndex: 'maxConnections', key: 'maxConnections', width: 100, render: (v: number) => v ?? '-' },
@@ -17,9 +18,10 @@ const columns = [
 
 interface CircuitBreakerListPageProps {
   selectedNamespace: string
+  allNamespaces?: boolean
 }
 
-export default function CircuitBreakerListPage({ selectedNamespace }: CircuitBreakerListPageProps) {
+export default function CircuitBreakerListPage({ selectedNamespace, allNamespaces = false }: CircuitBreakerListPageProps) {
   const { can } = useAuth()
   const canDelete = can('circuitbreaker', 'delete')
   const [list, setList] = useState<CircuitBreakerItem[]>([])
@@ -31,7 +33,7 @@ export default function CircuitBreakerListPage({ selectedNamespace }: CircuitBre
     setLoading(true)
     setError(null)
     try {
-      const res = await getCircuitBreakerList(selectedNamespace || undefined)
+      const res = await getCircuitBreakerList(allNamespaces ? undefined : selectedNamespace || undefined)
       setList(res.items)
     } catch (e) {
       setError(e instanceof Error ? e.message : '获取列表失败')
@@ -55,7 +57,7 @@ export default function CircuitBreakerListPage({ selectedNamespace }: CircuitBre
 
   useEffect(() => {
     fetchList()
-  }, [selectedNamespace])
+  }, [selectedNamespace, allNamespaces])
 
   return (
     <Card
@@ -73,7 +75,7 @@ export default function CircuitBreakerListPage({ selectedNamespace }: CircuitBre
         <Table
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
-            ...columns,
+            ...getColumns(allNamespaces),
             ...(canDelete
               ? [
                   {

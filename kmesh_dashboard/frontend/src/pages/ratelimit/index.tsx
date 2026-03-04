@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Tabs, Space, Select } from 'antd'
+import { Tabs, Space, Select, Checkbox } from 'antd'
 import { useAuth } from '@/contexts/AuthContext'
 import { getNamespaceList } from '@/api/cluster'
 import RateLimitListPage from './RateLimitListPage'
@@ -9,6 +9,7 @@ export default function RateLimitPage() {
   const { can } = useAuth()
   const [namespaceOptions, setNamespaceOptions] = useState<string[]>([])
   const [selectedNamespace, setSelectedNamespace] = useState('default')
+  const [allNamespaces, setAllNamespaces] = useState(false)
 
   useEffect(() => {
     getNamespaceList()
@@ -30,19 +31,33 @@ export default function RateLimitPage() {
 
   const header = (
     <Space style={{ marginBottom: 16 }}>
-      <span>当前命名空间：</span>
-      <Select
-        value={selectedNamespace}
-        onChange={setSelectedNamespace}
-        options={namespaceOptions.map((ns) => ({ value: ns, label: ns }))}
-        style={{ width: 160 }}
-        placeholder="选择命名空间"
-      />
+      <Space>
+        <span>当前命名空间：</span>
+        <Select
+          value={selectedNamespace}
+          onChange={setSelectedNamespace}
+          options={namespaceOptions.map((ns) => ({ value: ns, label: ns }))}
+          style={{ width: 160 }}
+          placeholder="选择命名空间"
+        />
+      </Space>
+      <Checkbox checked={allNamespaces} onChange={(e) => setAllNamespaces(e.target.checked)}>
+        列表显示全部命名空间
+      </Checkbox>
     </Space>
   )
 
   const items = [
-    { key: 'list', label: '策略列表', children: <RateLimitListPage selectedNamespace={selectedNamespace} /> },
+    {
+      key: 'list',
+      label: '策略列表',
+      children: (
+        <RateLimitListPage
+          selectedNamespace={selectedNamespace}
+          allNamespaces={allNamespaces}
+        />
+      ),
+    },
     ...(can('ratelimit', 'write')
       ? [
           {
