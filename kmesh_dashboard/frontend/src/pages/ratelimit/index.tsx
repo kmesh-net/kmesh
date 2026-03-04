@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getNamespaceList } from '@/api/cluster'
 import RateLimitListPage from './RateLimitListPage'
 import RateLimitFormPage from './RateLimitFormPage'
+import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function RateLimitPage() {
   const { can } = useAuth()
@@ -64,6 +65,21 @@ export default function RateLimitPage() {
             key: 'form',
             label: '配置限流',
             children: <RateLimitFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
+          },
+        ]
+      : []),
+    ...(can('custom', 'write')
+      ? [
+          {
+            key: 'yaml',
+            label: '自定义 YAML',
+            children: (
+              <YamlApplyCard
+                module="ratelimit"
+                namespace={selectedNamespace}
+                onSuccess={() => {}}
+              />
+            ),
           },
         ]
       : []),

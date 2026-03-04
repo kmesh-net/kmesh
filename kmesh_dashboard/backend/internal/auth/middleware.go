@@ -71,6 +71,11 @@ func routePermission(path, method string) (resource, action string, needAuth boo
 		return "authorization", "read", needAuth
 	case len(parts) >= 1 && parts[0] == "auth":
 		return "auth", "read", needAuth
+	case len(parts) >= 1 && parts[0] == "custom":
+		if len(parts) >= 2 && parts[1] == "apply" {
+			return "custom", "write", needAuth
+		}
+		return "custom", "read", needAuth
 	default:
 		return "cluster", "read", needAuth
 	}

@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getNamespaceList } from '@/api/cluster'
 import WaypointListPage from './WaypointListPage'
 import WaypointApplyPage from './WaypointApplyPage'
+import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function WaypointPage() {
   const { can } = useAuth()
@@ -68,6 +69,21 @@ export default function WaypointPage() {
               <WaypointApplyPage
                 selectedNamespace={selectedNamespace}
                 namespaceOptions={namespaceOptions}
+              />
+            ),
+          },
+        ]
+      : []),
+    ...(can('custom', 'write')
+      ? [
+          {
+            key: 'yaml',
+            label: '自定义 YAML',
+            children: (
+              <YamlApplyCard
+                module="waypoint"
+                namespace={selectedNamespace}
+                onSuccess={() => {}}
               />
             ),
           },

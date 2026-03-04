@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { getNamespaceList } from '@/api/cluster'
 import CircuitBreakerListPage from './CircuitBreakerListPage'
 import CircuitBreakerFormPage from './CircuitBreakerFormPage'
+import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function CircuitBreakerPage() {
   const { can } = useAuth()
@@ -64,6 +65,21 @@ export default function CircuitBreakerPage() {
             key: 'form',
             label: '配置熔断',
             children: <CircuitBreakerFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
+          },
+        ]
+      : []),
+    ...(can('custom', 'write')
+      ? [
+          {
+            key: 'yaml',
+            label: '自定义 YAML',
+            children: (
+              <YamlApplyCard
+                module="circuitbreaker"
+                namespace={selectedNamespace}
+                onSuccess={() => {}}
+              />
+            ),
           },
         ]
       : []),
