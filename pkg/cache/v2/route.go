@@ -103,6 +103,11 @@ func (cache *RouteConfigCache) Flush() {
 	for name, route := range cache.apiRouteConfigCache {
 		switch route.GetApiStatus() {
 		case core_v2.ApiStatus_UPDATE:
+			// Skip routes with no VirtualHosts - they are invalid
+			if len(route.GetVirtualHosts()) == 0 {
+				route.ApiStatus = core_v2.ApiStatus_NONE
+				continue
+			}
 			err = maps_v2.RouteConfigUpdate(name, route)
 			if err == nil {
 				// reset api status after successfully updated
