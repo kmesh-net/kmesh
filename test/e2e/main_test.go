@@ -28,6 +28,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -35,8 +36,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/gvk"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
@@ -54,7 +53,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	gateway "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 var (
@@ -89,7 +87,6 @@ type EchoDeployments struct {
 const (
 	ServiceWithWaypointAtServiceGranularity = "service-with-waypoint-at-service-granularity"
 	EnrolledToKmesh                         = "enrolled-to-kmesh"
-	WaypointImageAnnotation                 = "sidecar.istio.io/proxyImage"
 	Timeout                                 = 2 * time.Minute
 	KmeshReleaseName                        = "kmesh"
 	KmeshDaemonsetName                      = "kmesh"
@@ -272,46 +269,21 @@ func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.In
 }
 
 func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, trafficType string) (ambient.WaypointProxy, error) {
-	gw := &gateway.Gateway{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       gvk.KubernetesGateway_v1.Kind,
-			APIVersion: gvk.KubernetesGateway_v1.GroupVersion(),
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        name,
-			Namespace:   ns.Name(),
-			Annotations: make(map[string]string, 0),
-			Labels: map[string]string{
-				label.IoIstioWaypointFor.Name: trafficType,
-			},
-		},
-		Spec: gateway.GatewaySpec{
-			GatewayClassName: constants.WaypointGatewayClassName,
-			Listeners: []gateway.Listener{{
-				Name:     "mesh",
-				Port:     15008,
-				Protocol: gateway.ProtocolType(protocol.HBONE),
-			}},
-		},
-	}
-
 	waypointImage := os.Getenv("KMESH_WAYPOINT_IMAGE")
 	if waypointImage == "" {
 		return nil, fmt.Errorf("failed to get Kmesh custom waypoint image from env")
 	}
 
-	gw.Annotations[WaypointImageAnnotation] = waypointImage
+	cmd := exec.Command("kmeshctl", "waypoint", "apply",
+		"--namespace", ns.Name(),
+		"--name", name,
+		"--for", trafficType,
+		"--image", waypointImage)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return nil, fmt.Errorf("kmeshctl waypoint apply failed: %v, output: %s", err, string(output))
+	}
 
 	cls := ctx.Clusters().Default()
-
-	gwc := cls.GatewayAPI().GatewayV1().Gateways(ns.Name())
-
-	_, err := gwc.Create(context.Background(), gw, metav1.CreateOptions{
-		FieldManager: "istioctl",
-	})
-	if err != nil {
-		return nil, err
-	}
 
 	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name))
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
@@ -351,13 +323,15 @@ func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace
 }
 
 func deleteWaypointProxy(ctx resource.Context, ns namespace.Instance, name string) error {
-	cls := ctx.Clusters().Default()
-
-	if err := cls.GatewayAPI().GatewayV1().Gateways(ns.Name()).Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
-		return err
+	cmd := exec.Command("kmeshctl", "waypoint", "delete",
+		"--namespace", ns.Name(),
+		name)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("kmeshctl waypoint delete failed: %v, output: %s", err, string(output))
 	}
 
 	// Make sure the pods associated with the waypoint have been deleted to prevent affecting other test cases.
+	cls := ctx.Clusters().Default()
 	return retry.UntilSuccess(func() error {
 		pods, err := cls.Kube().CoreV1().Pods(ns.Name()).List(context.TODO(), metav1.ListOptions{
 			LabelSelector: fmt.Sprintf("%s=%s", label.IoK8sNetworkingGatewayGatewayName.Name, name),
