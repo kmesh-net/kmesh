@@ -19,6 +19,9 @@ func Register(mux *http.ServeMux, clientset kubernetes.Interface, gwClient gatew
 	mux.HandleFunc(apiPrefix+"/cluster/nodes", ClusterNodes(clientset))
 	mux.HandleFunc(apiPrefix+"/cluster/namespaces", NamespaceList(clientset))
 	mux.HandleFunc(apiPrefix+"/services", ServiceList(clientset))
+	// 通用 Pod 接口：详情（含 Events）、日志，供 Waypoint 等模块复用
+	mux.HandleFunc(apiPrefix+"/pod/detail", PodDetail(clientset))
+	mux.HandleFunc(apiPrefix+"/pod/logs", PodLogs(clientset))
 	mux.HandleFunc(apiPrefix+"/metrics/datasource", MetricsDatasource())
 	mux.HandleFunc(apiPrefix+"/metrics/overview", MetricsOverview())
 	mux.HandleFunc(apiPrefix+"/metrics/accesslog", AccesslogList(clientset))

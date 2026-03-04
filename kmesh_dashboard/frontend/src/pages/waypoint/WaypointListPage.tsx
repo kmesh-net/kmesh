@@ -4,6 +4,7 @@ import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { useAuth } from '@/contexts/AuthContext'
 import { getWaypointList, getWaypointStatus, deleteWaypoint } from '@/api/waypoint'
 import type { WaypointItem, WaypointStatusItem } from '@/types/waypoint'
+import PodDetailModal from '@/components/pod/PodDetailModal'
 
 const getColumns = (
   showNamespace: boolean,
@@ -53,6 +54,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
   const [error, setError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expandedNsFetched, setExpandedNsFetched] = useState<Set<string>>(new Set())
+  const [podModal, setPodModal] = useState<{ namespace: string; name: string } | null>(null)
   const canDelete = can('waypoint', 'delete')
 
   const fetchList = async () => {
@@ -218,7 +220,22 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
                               size="small"
                               dataSource={podStatus.pods}
                               columns={[
-                                { title: 'Pod', dataIndex: 'name', key: 'name', ellipsis: true },
+                                {
+                                  title: 'Pod',
+                                  dataIndex: 'name',
+                                  key: 'name',
+                                  ellipsis: true,
+                                  render: (podName: string) => (
+                                    <Button
+                                      type="link"
+                                      size="small"
+                                      style={{ padding: 0, height: 'auto' }}
+                                      onClick={() => setPodModal({ namespace: r.namespace, name: podName })}
+                                    >
+                                      {podName}
+                                    </Button>
+                                  ),
+                                },
                                 {
                                   title: 'Phase',
                                   dataIndex: 'phase',
@@ -311,6 +328,14 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
           }}
         />
       </Spin>
+      {podModal && (
+        <PodDetailModal
+          open={!!podModal}
+          namespace={podModal.namespace}
+          name={podModal.name}
+          onClose={() => setPodModal(null)}
+        />
+      )}
     </Card>
   )
 }

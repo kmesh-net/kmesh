@@ -23,6 +23,8 @@ func routePermission(path, method string) (resource, action string, needAuth boo
 	switch {
 	case len(parts) >= 1 && parts[0] == "cluster":
 		return "cluster", "read", needAuth
+	case len(parts) >= 1 && parts[0] == "pod":
+		return "cluster", "read", needAuth
 	case len(parts) >= 1 && parts[0] == "services":
 		return "services", "read", needAuth
 	case len(parts) >= 1 && parts[0] == "metrics":
