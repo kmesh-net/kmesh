@@ -25,6 +25,14 @@ export default function Layout() {
   return (
     <AntLayout style={{ minHeight: '100vh' }}>
       <Header style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <Link to="/cluster/nodes" style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+          <img
+            src="https://kmesh.net/zh/img/Kmesh-icon.png"
+            alt="Dashboard"
+            style={{ height: 28, width: 28 }}
+          />
+          <span style={{ color: 'rgba(255,255,255,0.85)', fontSize: 18, fontWeight: 600 }}>Dashboard</span>
+        </Link>
         <Menu
           theme="dark"
           mode="horizontal"
