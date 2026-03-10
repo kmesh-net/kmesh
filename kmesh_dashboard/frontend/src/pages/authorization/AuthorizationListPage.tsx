@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, Table, Button, Spin, Alert, Tag } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
-import { useAuth } from '@/contexts/AuthContext'
 import { getAuthorizationList, deleteAuthorizationPolicy } from '@/api/authorization'
 import type { AuthorizationPolicyItem } from '@/types/authorization'
 
@@ -10,8 +9,6 @@ interface AuthorizationListPageProps {
 }
 
 export default function AuthorizationListPage({ selectedNamespace }: AuthorizationListPageProps) {
-  const { can } = useAuth()
-  const canDelete = can('authorization', 'delete')
   const [list, setList] = useState<AuthorizationPolicyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -136,27 +133,23 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
             ...columns,
-            ...(canDelete
-              ? [
-                  {
-                    title: '操作',
-                    key: 'action',
-                    width: 90,
-                    render: (_: unknown, r: AuthorizationPolicyItem) => (
-                      <Button
-                        type="link"
-                        danger
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        loading={deleting === `${r.namespace}/${r.name}`}
-                        onClick={() => handleDelete(r)}
-                      >
-                        删除
-                      </Button>
-                    ),
-                  },
-                ]
-              : []),
+            {
+              title: '操作',
+              key: 'action',
+              width: 90,
+              render: (_: unknown, r: AuthorizationPolicyItem) => (
+                <Button
+                  type="link"
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  loading={deleting === `${r.namespace}/${r.name}`}
+                  onClick={() => handleDelete(r)}
+                >
+                  删除
+                </Button>
+              ),
+            },
           ]}
           dataSource={list}
           pagination={{ pageSize: 10, showSizeChanger: true }}

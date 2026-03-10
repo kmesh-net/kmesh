@@ -1,7 +1,6 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { Layout as AntLayout, Menu, Button, Space } from 'antd'
-import { ClusterOutlined, ApartmentOutlined, GatewayOutlined, ThunderboltOutlined, SafetyOutlined, FilterOutlined, LineChartOutlined, LogoutOutlined, BookOutlined } from '@ant-design/icons'
-import { useAuth } from '@/contexts/AuthContext'
+import { Layout as AntLayout, Menu } from 'antd'
+import { ClusterOutlined, ApartmentOutlined, GatewayOutlined, ThunderboltOutlined, SafetyOutlined, FilterOutlined, LineChartOutlined, BookOutlined } from '@ant-design/icons'
 
 const { Header, Content } = AntLayout
 
@@ -18,7 +17,6 @@ const navItems = [
 
 export default function Layout() {
   const location = useLocation()
-  const { user, role, logout } = useAuth()
   const selected = navItems.find((i) => location.pathname.startsWith(i.key))?.key ?? '/cluster/nodes'
 
   return (
@@ -32,12 +30,6 @@ export default function Layout() {
           items={navItems}
           style={{ flex: 1, minWidth: 0 }}
         />
-        <Space style={{ color: '#fff' }}>
-          <span>{user} ({role})</span>
-          <Button type="text" icon={<LogoutOutlined />} onClick={logout} style={{ color: 'rgba(255,255,255,0.85)' }}>
-            退出
-          </Button>
-        </Space>
       </Header>
       <Content style={{ padding: 24 }}>
         <Outlet />

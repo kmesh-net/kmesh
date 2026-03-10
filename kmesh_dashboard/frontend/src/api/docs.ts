@@ -1,5 +1,4 @@
 import { get } from './client'
-import { getToken } from '@/stores/authStore'
 
 export interface DocsListResponse {
   docs: string[]
@@ -12,10 +11,7 @@ export async function getDocsList(): Promise<DocsListResponse> {
 
 /** 获取单个文档的 Markdown 内容（原始文本） */
 export async function getDocContent(name: string): Promise<string> {
-  const token = getToken()
-  const res = await fetch(`/api/docs/${name}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-  })
+  const res = await fetch(`/api/docs/${name}`)
   if (!res.ok) {
     throw new Error(res.status === 404 ? '文档不存在' : `HTTP ${res.status}`)
   }

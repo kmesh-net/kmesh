@@ -11,8 +11,7 @@ const DOC_LABELS: Record<string, string> = {
   circuitbreaker: '熔断配置',
   ratelimit: '限流配置',
   metrics: '指标大盘说明',
-  auth: '登录与认证',
-  rbac: 'RBAC 与权限',
+  auth: '认证',
 }
 
 function docLabel(name: string): string {

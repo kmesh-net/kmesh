@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, Table, Tag, Spin, Alert, Button, Tooltip, Descriptions, Row, Col } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
-import { useAuth } from '@/contexts/AuthContext'
 import { getWaypointList, getWaypointStatus, deleteWaypoint } from '@/api/waypoint'
 import type { WaypointItem, WaypointStatusItem } from '@/types/waypoint'
 import PodDetailModal from '@/components/pod/PodDetailModal'
@@ -47,7 +46,6 @@ interface WaypointListPageProps {
 }
 
 export default function WaypointListPage({ selectedNamespace, allNamespaces }: WaypointListPageProps) {
-  const { can } = useAuth()
   const [list, setList] = useState<WaypointItem[]>([])
   const [statusMap, setStatusMap] = useState<Record<string, WaypointStatusItem>>({})
   const [loading, setLoading] = useState(true)
@@ -55,7 +53,6 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
   const [deleting, setDeleting] = useState<string | null>(null)
   const [expandedNsFetched, setExpandedNsFetched] = useState<Set<string>>(new Set())
   const [podModal, setPodModal] = useState<{ namespace: string; name: string } | null>(null)
-  const canDelete = can('waypoint', 'delete')
 
   const fetchList = async () => {
     setLoading(true)
@@ -130,27 +127,23 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
             ...getColumns(allNamespaces, statusMap),
-            ...(canDelete
-              ? [
-                  {
-                    title: '操作',
-                    key: 'action',
-                    width: 100,
-                    render: (_: unknown, r: WaypointItem) => (
-                      <Button
-                        type="link"
-                        danger
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        loading={deleting === `${r.namespace}/${r.name}`}
-                        onClick={() => handleDelete(r.namespace, r.name)}
-                      >
-                        删除
-                      </Button>
-                    ),
-                  },
-                ]
-              : []),
+            {
+              title: '操作',
+              key: 'action',
+              width: 100,
+              render: (_: unknown, r: WaypointItem) => (
+                <Button
+                  type="link"
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  loading={deleting === `${r.namespace}/${r.name}`}
+                  onClick={() => handleDelete(r.namespace, r.name)}
+                >
+                  删除
+                </Button>
+              ),
+            },
           ]}
           dataSource={list}
           pagination={{ pageSize: 10, showSizeChanger: true }}

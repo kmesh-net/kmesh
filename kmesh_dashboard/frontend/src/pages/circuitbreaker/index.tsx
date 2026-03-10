@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Tabs, Space, Select, Checkbox } from 'antd'
-import { useAuth } from '@/contexts/AuthContext'
 import { getNamespaceList } from '@/api/cluster'
 import CircuitBreakerListPage from './CircuitBreakerListPage'
 import CircuitBreakerFormPage from './CircuitBreakerFormPage'
 import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function CircuitBreakerPage() {
-  const { can } = useAuth()
   const [namespaceOptions, setNamespaceOptions] = useState<string[]>([])
   const [selectedNamespace, setSelectedNamespace] = useState('default')
   const [allNamespaces, setAllNamespaces] = useState(false)
@@ -59,30 +57,22 @@ export default function CircuitBreakerPage() {
         />
       ),
     },
-    ...(can('circuitbreaker', 'write')
-      ? [
-          {
-            key: 'form',
-            label: '配置熔断',
-            children: <CircuitBreakerFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
-          },
-        ]
-      : []),
-    ...(can('custom', 'write')
-      ? [
-          {
-            key: 'yaml',
-            label: '自定义 YAML',
-            children: (
-              <YamlApplyCard
-                module="circuitbreaker"
-                namespace={selectedNamespace}
-                onSuccess={() => {}}
-              />
-            ),
-          },
-        ]
-      : []),
+    {
+      key: 'form',
+      label: '配置熔断',
+      children: <CircuitBreakerFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
+    },
+    {
+      key: 'yaml',
+      label: '自定义 YAML',
+      children: (
+        <YamlApplyCard
+          module="circuitbreaker"
+          namespace={selectedNamespace}
+          onSuccess={() => {}}
+        />
+      ),
+    },
   ]
   return (
     <>

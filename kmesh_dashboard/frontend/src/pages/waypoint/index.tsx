@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Tabs, Space, Select, Checkbox } from 'antd'
-import { useAuth } from '@/contexts/AuthContext'
 import { getNamespaceList } from '@/api/cluster'
 import WaypointListPage from './WaypointListPage'
 import WaypointApplyPage from './WaypointApplyPage'
 import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function WaypointPage() {
-  const { can } = useAuth()
   const [namespaceOptions, setNamespaceOptions] = useState<string[]>([])
   const [selectedNamespace, setSelectedNamespace] = useState('default')
   const [allNamespaces, setAllNamespaces] = useState(true)
@@ -60,35 +58,27 @@ export default function WaypointPage() {
         />
       ),
     },
-    ...(can('waypoint', 'write')
-      ? [
-          {
-            key: 'apply',
-            label: '安装 Waypoint',
-            children: (
-              <WaypointApplyPage
-                selectedNamespace={selectedNamespace}
-                namespaceOptions={namespaceOptions}
-              />
-            ),
-          },
-        ]
-      : []),
-    ...(can('custom', 'write')
-      ? [
-          {
-            key: 'yaml',
-            label: '自定义 YAML',
-            children: (
-              <YamlApplyCard
-                module="waypoint"
-                namespace={selectedNamespace}
-                onSuccess={() => {}}
-              />
-            ),
-          },
-        ]
-      : []),
+    {
+      key: 'apply',
+      label: '安装 Waypoint',
+      children: (
+        <WaypointApplyPage
+          selectedNamespace={selectedNamespace}
+          namespaceOptions={namespaceOptions}
+        />
+      ),
+    },
+    {
+      key: 'yaml',
+      label: '自定义 YAML',
+      children: (
+        <YamlApplyCard
+          module="waypoint"
+          namespace={selectedNamespace}
+          onSuccess={() => {}}
+        />
+      ),
+    },
   ]
   return (
     <>

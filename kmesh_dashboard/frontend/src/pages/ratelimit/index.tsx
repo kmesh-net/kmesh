@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Tabs, Space, Select, Checkbox } from 'antd'
-import { useAuth } from '@/contexts/AuthContext'
 import { getNamespaceList } from '@/api/cluster'
 import RateLimitListPage from './RateLimitListPage'
 import RateLimitFormPage from './RateLimitFormPage'
 import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function RateLimitPage() {
-  const { can } = useAuth()
   const [namespaceOptions, setNamespaceOptions] = useState<string[]>([])
   const [selectedNamespace, setSelectedNamespace] = useState('default')
   const [allNamespaces, setAllNamespaces] = useState(false)
@@ -59,30 +57,22 @@ export default function RateLimitPage() {
         />
       ),
     },
-    ...(can('ratelimit', 'write')
-      ? [
-          {
-            key: 'form',
-            label: '配置限流',
-            children: <RateLimitFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
-          },
-        ]
-      : []),
-    ...(can('custom', 'write')
-      ? [
-          {
-            key: 'yaml',
-            label: '自定义 YAML',
-            children: (
-              <YamlApplyCard
-                module="ratelimit"
-                namespace={selectedNamespace}
-                onSuccess={() => {}}
-              />
-            ),
-          },
-        ]
-      : []),
+    {
+      key: 'form',
+      label: '配置限流',
+      children: <RateLimitFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
+    },
+    {
+      key: 'yaml',
+      label: '自定义 YAML',
+      children: (
+        <YamlApplyCard
+          module="ratelimit"
+          namespace={selectedNamespace}
+          onSuccess={() => {}}
+        />
+      ),
+    },
   ]
   return (
     <>

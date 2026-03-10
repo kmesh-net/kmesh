@@ -1,13 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Tabs, Space, Select } from 'antd'
-import { useAuth } from '@/contexts/AuthContext'
 import { getNamespaceList } from '@/api/cluster'
 import AuthorizationListPage from './AuthorizationListPage'
 import AuthorizationFormPage from './AuthorizationFormPage'
 import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function AuthorizationPage() {
-  const { can } = useAuth()
   const [namespaceOptions, setNamespaceOptions] = useState<string[]>([])
   const [selectedNamespace, setSelectedNamespace] = useState('default')
 
@@ -44,30 +42,22 @@ export default function AuthorizationPage() {
 
   const items = [
     { key: 'list', label: '策略列表', children: <AuthorizationListPage selectedNamespace={selectedNamespace} /> },
-    ...(can('authorization', 'write')
-      ? [
-          {
-            key: 'form',
-            label: '配置授权策略',
-            children: <AuthorizationFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
-          },
-        ]
-      : []),
-    ...(can('custom', 'write')
-      ? [
-          {
-            key: 'yaml',
-            label: '自定义 YAML',
-            children: (
-              <YamlApplyCard
-                module="authorization"
-                namespace={selectedNamespace}
-                onSuccess={() => {}}
-              />
-            ),
-          },
-        ]
-      : []),
+    {
+      key: 'form',
+      label: '配置授权策略',
+      children: <AuthorizationFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
+    },
+    {
+      key: 'yaml',
+      label: '自定义 YAML',
+      children: (
+        <YamlApplyCard
+          module="authorization"
+          namespace={selectedNamespace}
+          onSuccess={() => {}}
+        />
+      ),
+    },
   ]
   return (
     <>

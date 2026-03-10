@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Card, Table, Button, Spin, Alert } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
-import { useAuth } from '@/contexts/AuthContext'
 import { getCircuitBreakerList, deleteCircuitBreaker } from '@/api/circuitbreaker'
 import type { CircuitBreakerItem } from '@/types/circuitbreaker'
 
@@ -22,8 +21,6 @@ interface CircuitBreakerListPageProps {
 }
 
 export default function CircuitBreakerListPage({ selectedNamespace, allNamespaces = false }: CircuitBreakerListPageProps) {
-  const { can } = useAuth()
-  const canDelete = can('circuitbreaker', 'delete')
   const [list, setList] = useState<CircuitBreakerItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -76,27 +73,23 @@ export default function CircuitBreakerListPage({ selectedNamespace, allNamespace
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
             ...getColumns(allNamespaces),
-            ...(canDelete
-              ? [
-                  {
-                    title: '操作',
-                    key: 'action',
-                    width: 90,
-                    render: (_: unknown, r: CircuitBreakerItem) => (
-                      <Button
-                        type="link"
-                        danger
-                        size="small"
-                        icon={<DeleteOutlined />}
-                        loading={deleting === `${r.namespace}/${r.name}`}
-                        onClick={() => handleDelete(r)}
-                      >
-                        删除
-                      </Button>
-                    ),
-                  },
-                ]
-              : []),
+            {
+              title: '操作',
+              key: 'action',
+              width: 90,
+              render: (_: unknown, r: CircuitBreakerItem) => (
+                <Button
+                  type="link"
+                  danger
+                  size="small"
+                  icon={<DeleteOutlined />}
+                  loading={deleting === `${r.namespace}/${r.name}`}
+                  onClick={() => handleDelete(r)}
+                >
+                  删除
+                </Button>
+              ),
+            },
           ]}
           dataSource={list}
           pagination={{ pageSize: 10, showSizeChanger: true }}
