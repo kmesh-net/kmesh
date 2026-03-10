@@ -334,6 +334,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
           namespace={podModal.namespace}
           name={podModal.name}
           onClose={() => setPodModal(null)}
+          defaultLogContainer="istio-proxy"
         />
       )}
     </Card>

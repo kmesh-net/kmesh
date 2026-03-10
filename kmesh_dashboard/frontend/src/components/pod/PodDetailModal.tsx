@@ -7,6 +7,8 @@ interface PodDetailModalProps {
   namespace: string
   name: string
   onClose: () => void
+  /** 指定日志容器名，如 Waypoint Pod 的 istio-proxy；不传则使用 Pod 第一个容器 */
+  defaultLogContainer?: string
 }
 
 function FullTextCell({ text }: { text: string }) {
@@ -19,7 +21,7 @@ function FullTextCell({ text }: { text: string }) {
   )
 }
 
-export default function PodDetailModal({ open, namespace, name, onClose }: PodDetailModalProps) {
+export default function PodDetailModal({ open, namespace, name, onClose, defaultLogContainer }: PodDetailModalProps) {
   const [detail, setDetail] = useState<PodDetailResponse | null>(null)
   const [logs, setLogs] = useState<PodLogsResponse | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -42,11 +44,12 @@ export default function PodDetailModal({ open, namespace, name, onClose }: PodDe
   useEffect(() => {
     if (!open || !namespace || !name || activeTab !== 'logs') return
     setLoadingLogs(true)
-    getPodLogs(namespace, name, { tail: 500 })
+    const container = defaultLogContainer ?? (detail?.containers?.[0]?.name)
+    getPodLogs(namespace, name, { tail: 500, ...(container ? { container } : {}) })
       .then(setLogs)
       .catch(() => setLogs({ namespace, name, lines: [], error: '获取日志失败' }))
       .finally(() => setLoadingLogs(false))
-  }, [open, namespace, name, activeTab])
+  }, [open, namespace, name, activeTab, defaultLogContainer, detail?.containers])
 
   const phaseColor: Record<string, string> = {
     Running: 'success',

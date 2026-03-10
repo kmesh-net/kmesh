@@ -131,6 +131,8 @@ metadata:
   namespace: default
   labels:
     istio.io/waypoint-for: service
+  annotations:
+    sidecar.istio.io/proxyImage: ghcr.io/kmesh-net/waypoint:latest
 spec:
   gatewayClassName: istio-waypoint
   listeners:
