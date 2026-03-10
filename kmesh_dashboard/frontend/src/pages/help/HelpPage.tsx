@@ -5,13 +5,26 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { getDocsList, getDocContent } from '@/api/docs'
 
+/** 与顶部导航顺序一致（从左到右）：集群节点、服务拓扑、Waypoint、熔断、认证策略、限流、指标 */
+const DOC_ORDER = ['cluster', 'topology', 'waypoint', 'circuitbreaker', 'authorization', 'ratelimit', 'metrics'] as const
+
 const DOC_LABELS: Record<string, string> = {
-  waypoint: 'Waypoint 使用指南',
-  topology: '服务拓扑说明',
-  circuitbreaker: '熔断配置',
-  ratelimit: '限流配置',
-  metrics: '指标大盘说明',
-  auth: '认证',
+  cluster: '集群节点',
+  topology: '服务拓扑',
+  waypoint: 'Waypoint',
+  circuitbreaker: '熔断',
+  authorization: '认证策略',
+  ratelimit: '限流',
+  metrics: '指标',
+}
+
+function sortDocsByNavOrder(docs: string[]): string[] {
+  const orderMap = new Map(DOC_ORDER.map((name, i) => [name, i]))
+  return [...docs].sort((a, b) => {
+    const ia = orderMap.get(a) ?? 999
+    const ib = orderMap.get(b) ?? 999
+    return ia - ib
+  })
 }
 
 function docLabel(name: string): string {
@@ -29,8 +42,9 @@ export default function HelpPage() {
   useEffect(() => {
     getDocsList()
       .then((r) => {
-        setDocList(r.docs || [])
-        const first = r.docs?.[0]
+        const sorted = sortDocsByNavOrder(r.docs || [])
+        setDocList(sorted)
+        const first = sorted[0]
         if (!docName && first) {
           setSearchParams({ doc: first }, { replace: true })
         }

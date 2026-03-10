@@ -27,25 +27,23 @@ func Docs() http.HandlerFunc {
 		}
 		prefix := apiPrefix + "/docs"
 		path := r.URL.Path
-		// /api/docs 或 /api/docs/ -> 返回列表
+		// /api/docs 或 /api/docs/ -> 返回列表（与顶部导航顺序一致：集群节点、服务拓扑、Waypoint、熔断、认证策略、限流、指标）
 		if path == prefix || path == prefix+"/" {
 			dir := docsDir()
-			entries, err := os.ReadDir(dir)
-			if err != nil {
+			if _, err := os.Stat(dir); err != nil {
 				http.Error(w, "docs directory not found", http.StatusNotFound)
 				return
 			}
-			var names []string
-			for _, e := range entries {
-				if e.IsDir() {
-					continue
-				}
-				if strings.HasSuffix(e.Name(), ".md") {
-					names = append(names, strings.TrimSuffix(e.Name(), ".md"))
+			docOrder := []string{"cluster", "topology", "waypoint", "circuitbreaker", "authorization", "ratelimit", "metrics"}
+			var result []string
+			for _, name := range docOrder {
+				docPath := filepath.Join(dir, name+".md")
+				if _, err := os.Stat(docPath); err == nil {
+					result = append(result, name)
 				}
 			}
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]interface{}{"docs": names})
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"docs": result})
 			return
 		}
 		// /api/docs/xxx -> 返回文档内容
