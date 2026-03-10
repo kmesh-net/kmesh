@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, Button, Alert, Space, Input, InputNumber, Statistic, Row, Col, Table, Typography } from 'antd'
-import { ReloadOutlined } from '@ant-design/icons'
+import { Card, Button, Alert, Space, Input, InputNumber, Select, Statistic, Row, Col, Table, Typography, Form } from 'antd'
+import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { getMetricsDatasource, getMetricsOverview, getAccesslog, getKmeshPods } from '@/api/metrics'
 import type { AccesslogEntry } from '@/types/metrics'
 
@@ -35,7 +35,7 @@ export default function MetricsPage() {
   const [accesslogPodsQueried, setAccesslogPodsQueried] = useState<string[]>([])
   const [accesslogLoading, setAccesslogLoading] = useState(false)
   const [accesslogPod, setAccesslogPod] = useState<string>('')
-  const [accesslogTail, setAccesslogTail] = useState(200)
+  const [accesslogTail, setAccesslogTail] = useState(300)
   const [kmeshPods, setKmeshPods] = useState<{ name: string; node: string; status: string }[]>([])
   const [kmeshPodsMsg, setKmeshPodsMsg] = useState('')
 
@@ -117,6 +117,10 @@ export default function MetricsPage() {
     if (datasourceOk) fetchOverview()
     else setLoading(false)
   }, [datasourceOk, namespace])
+
+  useEffect(() => {
+    fetchKmeshPods()
+  }, [])
 
   return (
     <div>
@@ -212,58 +216,77 @@ export default function MetricsPage() {
             </div>
           </>
         )}
-        <div style={{ marginTop: 24 }}>
-          <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>
-            {t('metrics.accesslog')}
-          </div>
-          <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
+      </Card>
+      <Card
+        title={t('metrics.accesslog')}
+        style={{ marginTop: 24 }}
+        extra={
+          <Button
+            type="primary"
+            icon={<SearchOutlined />}
+            onClick={fetchAccesslog}
+            loading={accesslogLoading}
+          >
+            {t('metrics.queryAccesslog')}
+          </Button>
+        }
+      >
+          <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
             {t('metrics.accesslogTip')}
           </Typography.Text>
-          <Space wrap style={{ marginBottom: 12 }}>
-            <Button size="small" onClick={fetchKmeshPods}>
-              {t('metrics.checkKmeshPods')}
-            </Button>
-            {kmeshPods.length > 0 && (
-              <Typography.Text type="secondary">
-                {t('metrics.foundPods', { count: kmeshPods.length, names: kmeshPods.map((p) => p.name).join(', ') })}
-              </Typography.Text>
-            )}
-            {kmeshPodsMsg && kmeshPods.length === 0 && (
-              <Typography.Text type="danger">{kmeshPodsMsg}</Typography.Text>
-            )}
-          </Space>
+          <Form layout="inline" style={{ marginBottom: 16 }} colon={false}>
+            <Form.Item label={t('metrics.podLabel')} style={{ marginRight: 16, marginBottom: 12 }}>
+              <Select
+                placeholder={t('metrics.podPlaceholder')}
+                value={accesslogPod}
+                onChange={(v) => setAccesslogPod(v ?? '')}
+                style={{ width: 200 }}
+                allowClear
+                showSearch
+                optionFilterProp="label"
+                options={[
+                  { value: '', label: t('metrics.allPods') },
+                  ...kmeshPods.map((p) => ({ value: p.name, label: `${p.name} (${p.node})` })),
+                ]}
+                notFoundContent={
+                  kmeshPodsMsg ? (
+                    <Typography.Text type="secondary">{kmeshPodsMsg}</Typography.Text>
+                  ) : (
+                    <Typography.Text type="secondary">{t('metrics.noKmeshPods')}</Typography.Text>
+                  )
+                }
+              />
+            </Form.Item>
+            <Form.Item label={t('metrics.tailLines')} style={{ marginRight: 16, marginBottom: 12 }}>
+              <InputNumber
+                min={1}
+                max={2000}
+                value={accesslogTail}
+                onChange={(v) => setAccesslogTail(v ?? 300)}
+                placeholder={t('metrics.tailLines')}
+                style={{ width: 120 }}
+              />
+            </Form.Item>
+            <Form.Item style={{ marginBottom: 12 }}>
+              <Button size="small" onClick={fetchKmeshPods}>
+                {t('metrics.refreshPods')}
+              </Button>
+            </Form.Item>
+          </Form>
+          {kmeshPods.length > 0 && (
+            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 12 }}>
+              {t('metrics.foundPods', { count: kmeshPods.length, names: kmeshPods.map((p) => p.name).join(', ') })}
+            </Typography.Text>
+          )}
           {(accesslogMessage || (accesslogEntries.length === 0 && accesslogPodsQueried.length > 0)) && (
             <Alert
               type="info"
               message={accesslogPodsQueried.length > 0 ? t('metrics.queriedPods', { count: accesslogPodsQueried.length, names: accesslogPodsQueried.join(', ') }) : undefined}
               description={accesslogMessage}
               showIcon
-              style={{ marginBottom: 12 }}
+              style={{ marginBottom: 16 }}
             />
           )}
-          <Space wrap style={{ marginBottom: 16 }}>
-            <Input
-              placeholder={t('metrics.podPlaceholder')}
-              value={accesslogPod}
-              onChange={(e) => setAccesslogPod(e.target.value)}
-              style={{ width: 180 }}
-            />
-            <InputNumber
-              min={1}
-              max={2000}
-              value={accesslogTail}
-              onChange={(v) => setAccesslogTail(v ?? 200)}
-              placeholder={t('metrics.tailLines')}
-              style={{ width: 100 }}
-            />
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={fetchAccesslog}
-              loading={accesslogLoading}
-            >
-              {t('metrics.queryAccesslog')}
-            </Button>
-          </Space>
           <Table<AccesslogEntry>
             size="small"
             dataSource={accesslogEntries}
@@ -275,15 +298,15 @@ export default function MetricsPage() {
                 title: 'Content',
                 dataIndex: 'content',
                 render: (content: string) => (
-                  <Typography.Text code copyable style={{ fontSize: 12 }}>
+                  <Typography.Text code copyable style={{ fontSize: 12, fontFamily: 'monospace' }}>
                     {content}
                   </Typography.Text>
                 ),
               },
             ]}
-            pagination={{ pageSize: 20, showSizeChanger: true }}
+            pagination={{ pageSize: 20, showSizeChanger: true, showTotal: (total) => t('metrics.totalEntries', { total }) }}
+            locale={{ emptyText: t('metrics.noAccesslog') }}
           />
-        </div>
       </Card>
     </div>
   )
