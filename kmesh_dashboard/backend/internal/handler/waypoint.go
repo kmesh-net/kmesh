@@ -12,6 +12,7 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 
 	corev1 "k8s.io/api/core/v1"
+	"kmesh.net/kmesh-dashboard/backend/internal/lang"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -243,7 +244,8 @@ func WaypointStatus(gwClient gatewayapiclient.Interface, clientset kubernetes.In
 			}
 			// 查询该 Gateway 对应的 Waypoint Pod 状态（通过 label gateway.networking.k8s.io/gateway-name）
 			if clientset != nil {
-				podStatus := getWaypointPodStatus(r.Context(), clientset, gw.Namespace, gw.Name)
+				loc := lang.LocaleFromRequest(r)
+				podStatus := getWaypointPodStatus(r.Context(), clientset, gw.Namespace, gw.Name, loc)
 				item.PodStatus = podStatus
 			}
 			statusItems = append(statusItems, item)
@@ -257,14 +259,14 @@ func WaypointStatus(gwClient gatewayapiclient.Interface, clientset kubernetes.In
 }
 
 // getWaypointPodStatus 获取 Waypoint Pod 状态（通过 gateway.networking.k8s.io/gateway-name 标签筛选）
-func getWaypointPodStatus(ctx context.Context, clientset kubernetes.Interface, namespace, gatewayName string) *PodStatus {
+func getWaypointPodStatus(ctx context.Context, clientset kubernetes.Interface, namespace, gatewayName, locale string) *PodStatus {
 	selector := labelGatewayName + "=" + gatewayName
 	podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
 	if err != nil {
-		return &PodStatus{Total: 0, Phase: "Unknown", Message: "获取 Pod 列表失败: " + err.Error()}
+		return &PodStatus{Total: 0, Phase: "Unknown", Message: lang.Msg(locale, "waypoint.fetchPodListFailed", map[string]string{"err": err.Error()})}
 	}
 	if len(podList.Items) == 0 {
-		return &PodStatus{Total: 0, Phase: "Pending", Message: "暂无 Pod（Gateway 已创建，等待控制器部署）"}
+		return &PodStatus{Total: 0, Phase: "Pending", Message: lang.Msg(locale, "waypoint.noPodsYet", nil)}
 	}
 	ready := 0
 	phaseCount := map[string]int{}
@@ -402,7 +404,8 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 			})
 			_, patchErr := clientset.CoreV1().Namespaces().Patch(ctx, req.Namespace, types.MergePatchType, patchBytes, metav1.PatchOptions{})
 			if patchErr != nil {
-				http.Error(w, "waypoint 已创建，但为命名空间打标签失败: "+patchErr.Error(), http.StatusInternalServerError)
+				loc := lang.LocaleFromRequest(r)
+				http.Error(w, lang.Msg(loc, "waypoint.labelPatchFailed", map[string]string{"err": patchErr.Error()}), http.StatusInternalServerError)
 				return
 			}
 		}
@@ -418,10 +421,11 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 				}
 				for _, c := range gwGet.Status.Conditions {
 					if c.Type == string(gatewayv1.GatewayConditionProgrammed) && c.Status == metav1.ConditionTrue {
+						loc := lang.LocaleFromRequest(r)
 						resp := WaypointApplyResponse{
 							Namespace: req.Namespace,
 							Name:      req.Name,
-							Message:   "waypoint " + req.Namespace + "/" + req.Name + " 已应用并就绪",
+							Message:   lang.Msg(loc, "waypoint.applyReady", map[string]string{"ns": req.Namespace, "name": req.Name}),
 						}
 						w.Header().Set("Content-Type", "application/json")
 						w.WriteHeader(http.StatusCreated)
@@ -431,14 +435,16 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 				}
 				time.Sleep(waitReadyPollInterval)
 			}
-			http.Error(w, "waypoint 已创建，但等待就绪超时（60s）", http.StatusGatewayTimeout)
+			loc := lang.LocaleFromRequest(r)
+			http.Error(w, lang.Msg(loc, "waypoint.waitReadyTimeout", nil), http.StatusGatewayTimeout)
 			return
 		}
 
+		loc := lang.LocaleFromRequest(r)
 		resp := WaypointApplyResponse{
 			Namespace: req.Namespace,
 			Name:      req.Name,
-			Message:   "waypoint " + req.Namespace + "/" + req.Name + " applied",
+			Message:   lang.Msg(loc, "waypoint.applied", map[string]string{"ns": req.Namespace, "name": req.Name}),
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusCreated)

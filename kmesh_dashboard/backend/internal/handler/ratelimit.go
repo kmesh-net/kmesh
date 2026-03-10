@@ -12,6 +12,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+
+	"kmesh.net/kmesh-dashboard/backend/internal/lang"
 )
 
 var envoyFilterGVR = schema.GroupVersionResource{
@@ -267,13 +269,14 @@ func RateLimitApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interface) 
 			return
 		}
 		// 限流作用于 Waypoint，下发前需确保命名空间已安装 Waypoint
+		loc := lang.LocaleFromRequest(r)
 		hasWaypoint, err := HasWaypointInNamespace(r.Context(), gwClient, req.Namespace)
 		if err != nil {
-			http.Error(w, "检查 Waypoint 状态失败: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, lang.Msg(loc, "ratelimit.checkFailed", map[string]string{"err": err.Error()}), http.StatusInternalServerError)
 			return
 		}
 		if !hasWaypoint {
-			http.Error(w, "限流策略作用于 Waypoint，请先在命名空间 "+req.Namespace+" 安装 Waypoint", http.StatusPreconditionFailed)
+			http.Error(w, lang.Msg(loc, "ratelimit.needWaypoint", map[string]string{"ns": req.Namespace}), http.StatusPreconditionFailed)
 			return
 		}
 		ef := buildLocalRateLimitEnvoyFilter(req)
@@ -297,7 +300,7 @@ func RateLimitApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interface) 
 		_ = json.NewEncoder(w).Encode(RateLimitApplyResponse{
 			Namespace: req.Namespace,
 			Name:      req.Name,
-			Message:   "限流策略 " + req.Namespace + "/" + req.Name + " 已下发",
+			Message:   lang.Msg(loc, "ratelimit.applySuccess", map[string]string{"ns": req.Namespace, "name": req.Name}),
 		})
 	}
 }

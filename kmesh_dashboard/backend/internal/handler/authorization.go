@@ -10,6 +10,8 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
+
+	"kmesh.net/kmesh-dashboard/backend/internal/lang"
 )
 
 var authorizationPolicyGVR = schema.GroupVersionResource{
@@ -358,11 +360,12 @@ func AuthorizationPolicyApply(dyn dynamic.Interface) http.HandlerFunc {
 				return
 			}
 		}
+		loc := lang.LocaleFromRequest(r)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(AuthorizationPolicyApplyResponse{
 			Namespace: req.Namespace,
 			Name:      req.Name,
-			Message:   "授权策略 " + req.Namespace + "/" + req.Name + " 已应用",
+			Message:   lang.Msg(loc, "authorization.applySuccess", map[string]string{"ns": req.Namespace, "name": req.Name}),
 		})
 	}
 }

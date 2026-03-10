@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Modal, Tabs, Descriptions, Table, Tag, Spin, Alert, Empty, Collapse, Tooltip } from 'antd'
 import { getPodDetail, getPodLogs, type PodDetailResponse, type PodLogsResponse } from '@/api/pod'
 
@@ -22,6 +23,7 @@ function FullTextCell({ text }: { text: string }) {
 }
 
 export default function PodDetailModal({ open, namespace, name, onClose, defaultLogContainer }: PodDetailModalProps) {
+  const { t } = useTranslation()
   const [detail, setDetail] = useState<PodDetailResponse | null>(null)
   const [logs, setLogs] = useState<PodLogsResponse | null>(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
@@ -37,7 +39,7 @@ export default function PodDetailModal({ open, namespace, name, onClose, default
     setLoadingDetail(true)
     getPodDetail(namespace, name)
       .then(setDetail)
-      .catch(() => setDetail({ namespace, name, phase: '', error: '获取详情失败' }))
+      .catch(() => setDetail({ namespace, name, phase: '', error: t('pod.fetchDetailFailed') }))
       .finally(() => setLoadingDetail(false))
   }, [open, namespace, name])
 
@@ -47,7 +49,7 @@ export default function PodDetailModal({ open, namespace, name, onClose, default
     const container = defaultLogContainer ?? (detail?.containers?.[0]?.name)
     getPodLogs(namespace, name, { tail: 500, ...(container ? { container } : {}) })
       .then(setLogs)
-      .catch(() => setLogs({ namespace, name, lines: [], error: '获取日志失败' }))
+      .catch(() => setLogs({ namespace, name, lines: [], error: t('pod.fetchLogsFailed') }))
       .finally(() => setLoadingLogs(false))
   }, [open, namespace, name, activeTab, defaultLogContainer, detail?.containers])
 
@@ -64,7 +66,7 @@ export default function PodDetailModal({ open, namespace, name, onClose, default
     collapseItems.push(
       {
         key: 'basic',
-        label: '基本信息',
+        label: t('pod.basicInfo'),
         children: (
           <Descriptions column={1} size="small" bordered>
             <Descriptions.Item label="Phase">
@@ -118,16 +120,16 @@ export default function PodDetailModal({ open, namespace, name, onClose, default
         ? [
             {
               key: 'containers',
-              label: `容器状态 (${detail.containers.length})`,
+              label: `${t('pod.containerStatus')} (${detail.containers.length})`,
               children: (
                 <Table
                   size="small"
                   dataSource={detail.containers}
                   columns={[
-                    { title: '容器', dataIndex: 'name', key: 'name', width: 120 },
+                    { title: t('pod.container'), dataIndex: 'name', key: 'name', width: 120 },
                     { title: 'Image', dataIndex: 'image', key: 'image', ellipsis: true, render: (v: string) => <FullTextCell text={v || ''} /> },
                     {
-                      title: '状态',
+                      title: t('pod.state'),
                       dataIndex: 'state',
                       key: 'state',
                       width: 90,
@@ -135,8 +137,8 @@ export default function PodDetailModal({ open, namespace, name, onClose, default
                         <Tag color={s === 'Running' ? 'success' : s === 'Waiting' ? 'warning' : 'default'}>{s}</Tag>
                       ),
                     },
-                    { title: 'Ready', dataIndex: 'ready', key: 'ready', width: 60, render: (v: boolean) => (v ? '是' : '否') },
-                    { title: '重启', dataIndex: 'restartCount', key: 'restartCount', width: 60 },
+                    { title: 'Ready', dataIndex: 'ready', key: 'ready', width: 60, render: (v: boolean) => (v ? t('common.yes') : t('common.no')) },
+                    { title: t('pod.restartCount'), dataIndex: 'restartCount', key: 'restartCount', width: 60 },
                     { title: 'Reason', dataIndex: 'reason', key: 'reason', render: (v: string) => <FullTextCell text={v || ''} /> },
                     { title: 'Message', dataIndex: 'message', key: 'message', render: (v: string) => <FullTextCell text={v || ''} /> },
                     { title: 'Last State', dataIndex: 'lastState', key: 'lastState', render: (v: string) => <FullTextCell text={v || ''} /> },
@@ -237,7 +239,7 @@ export default function PodDetailModal({ open, namespace, name, onClose, default
         items={[
           {
             key: 'detail',
-            label: '详情与 Events',
+            label: t('pod.detail'),
             children: (
               <Spin spinning={loadingDetail}>
                 {detail?.error ? (
@@ -247,21 +249,21 @@ export default function PodDetailModal({ open, namespace, name, onClose, default
                     {collapseItems.length > 0 ? (
                       <Collapse items={collapseItems} defaultActiveKey={['basic', 'containers', 'events']} />
                     ) : (
-                      <Empty description="暂无详情" />
+                      <Empty description={t('pod.noDetail')} />
                     )}
                     {detail.events?.length === 0 && !detail.error && (
-                      <div style={{ color: '#999', marginTop: 16 }}>暂无 Events</div>
+                      <div style={{ color: '#999', marginTop: 16 }}>{t('pod.noEvents')}</div>
                     )}
                   </div>
                 ) : (
-                  <Empty description="加载中..." />
+                  <Empty description={t('common.loading')} />
                 )}
               </Spin>
             ),
           },
           {
             key: 'logs',
-            label: '日志',
+            label: t('pod.logs'),
             children: (
               <Spin spinning={loadingLogs}>
                 {logs?.error ? (
@@ -281,10 +283,10 @@ export default function PodDetailModal({ open, namespace, name, onClose, default
                       wordBreak: 'break-all',
                     }}
                   >
-                    {logs.lines.length > 0 ? logs.lines.join('\n') : '暂无日志'}
+                    {logs.lines.length > 0 ? logs.lines.join('\n') : t('pod.noLogs')}
                   </pre>
                 ) : (
-                  <Empty description="切换到日志标签加载" />
+                  <Empty description={t('pod.switchToLogs')} />
                 )}
               </Spin>
             ),

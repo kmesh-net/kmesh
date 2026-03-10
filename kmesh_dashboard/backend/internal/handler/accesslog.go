@@ -24,6 +24,7 @@ import (
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
+	"kmesh.net/kmesh-dashboard/backend/internal/lang"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -78,7 +79,8 @@ func KmeshPodsList(clientset kubernetes.Interface) http.HandlerFunc {
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(KmeshPodsResponse{Message: "获取 pods 失败: " + err.Error()})
+			loc := lang.LocaleFromRequest(r)
+			_ = json.NewEncoder(w).Encode(KmeshPodsResponse{Message: lang.Msg(loc, "accesslog.fetchPodsFailed", map[string]string{"err": err.Error()})})
 			return
 		}
 		pods := make([]PodInfo, 0, len(podList.Items))
@@ -92,9 +94,10 @@ func KmeshPodsList(clientset kubernetes.Interface) http.HandlerFunc {
 			}
 			pods = append(pods, PodInfo{Name: p.Name, Node: p.Spec.NodeName, Status: status})
 		}
+		loc := lang.LocaleFromRequest(r)
 		resp := KmeshPodsResponse{Pods: pods}
 		if len(pods) == 0 {
-			resp.Message = "未找到 kmesh pods。请确认：1) 集群已部署 kmesh；2) Dashboard 后端的 KUBECONFIG 指向正确集群；3) 命名空间为 " + ns
+			resp.Message = lang.Msg(loc, "accesslog.noKmeshPods", map[string]string{"ns": ns})
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
@@ -126,14 +129,16 @@ func AccesslogList(clientset kubernetes.Interface) http.HandlerFunc {
 		if err != nil {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusInternalServerError)
-			_ = json.NewEncoder(w).Encode(AccesslogResponse{Message: "获取 kmesh pods 失败: " + err.Error()})
+			loc := lang.LocaleFromRequest(r)
+			_ = json.NewEncoder(w).Encode(AccesslogResponse{Message: lang.Msg(loc, "accesslog.fetchKmeshPodsFailed", map[string]string{"err": err.Error()})})
 			return
 		}
 		if len(podList.Items) == 0 {
 			w.Header().Set("Content-Type", "application/json")
+			loc := lang.LocaleFromRequest(r)
 			_ = json.NewEncoder(w).Encode(AccesslogResponse{
 				Entries: []AccesslogEntry{},
-				Message: "未找到 kmesh pods，请确认集群已部署 kmesh 且命名空间正确",
+				Message: lang.Msg(loc, "accesslog.noKmeshPodsInNs", nil),
 			})
 			return
 		}
@@ -151,9 +156,10 @@ func AccesslogList(clientset kubernetes.Interface) http.HandlerFunc {
 			}
 			if found == nil {
 				w.Header().Set("Content-Type", "application/json")
+				loc := lang.LocaleFromRequest(r)
 				_ = json.NewEncoder(w).Encode(AccesslogResponse{
 					Entries: []AccesslogEntry{},
-					Message: "未找到指定 pod: " + podName,
+					Message: lang.Msg(loc, "accesslog.podNotFound", map[string]string{"pod": podName}),
 				})
 				return
 			}
@@ -168,10 +174,11 @@ func AccesslogList(clientset kubernetes.Interface) http.HandlerFunc {
 			})
 			stream, err := req.Stream(r.Context())
 			if err != nil {
+				loc := lang.LocaleFromRequest(r)
 				entries = append(entries, AccesslogEntry{
 					Pod:     pod.Name,
 					Node:    pod.Spec.NodeName,
-					Content: "[获取日志失败: " + err.Error() + "]",
+					Content: lang.Msg(loc, "accesslog.fetchLogFailed", map[string]string{"err": err.Error()}),
 				})
 				continue
 			}
@@ -193,9 +200,10 @@ func AccesslogList(clientset kubernetes.Interface) http.HandlerFunc {
 			_ = stream.Close()
 		}
 
+		loc := lang.LocaleFromRequest(r)
 		resp := AccesslogResponse{Entries: entries, PodsQueried: podsQueried}
 		if len(entries) == 0 && len(podsQueried) > 0 {
-			resp.Message = "已查询 " + strconv.Itoa(len(podsQueried)) + " 个 kmesh pod，未发现 accesslog。请确保：1) 先执行 kmeshctl monitoring --all enable；2) 再执行 kmeshctl monitoring --accesslog enable；3) 集群内有 TCP 流量（如 sleep->tcp-echo）"
+			resp.Message = lang.Msg(loc, "accesslog.noEntriesFound", map[string]string{"count": strconv.Itoa(len(podsQueried))})
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)

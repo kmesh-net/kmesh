@@ -27,6 +27,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	"sigs.k8s.io/yaml"
+
+	"kmesh.net/kmesh-dashboard/backend/internal/lang"
 )
 
 // ModuleConfig 各模块的 YAML 校验与应用配置
@@ -221,47 +223,49 @@ func CustomYamlValidate() http.HandlerFunc {
 		}
 		cfg, ok := moduleConfigs[req.Module]
 		if !ok {
+			loc := lang.LocaleFromRequest(r)
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(CustomYamlValidateResponse{Valid: false, Error: "unknown module: " + req.Module})
+			_ = json.NewEncoder(w).Encode(CustomYamlValidateResponse{Valid: false, Error: lang.Msg(loc, "customYaml.unknownModule", map[string]string{"module": req.Module})})
 			return
 		}
-		resp := validateYamlForModule(req.YAML, cfg)
+		loc := lang.LocaleFromRequest(r)
+		resp := validateYamlForModule(req.YAML, cfg, loc)
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(resp)
 	}
 }
 
-func validateYamlForModule(yamlStr string, cfg ModuleConfig) CustomYamlValidateResponse {
+func validateYamlForModule(yamlStr string, cfg ModuleConfig, locale string) CustomYamlValidateResponse {
 	yamlStr = strings.TrimSpace(yamlStr)
 	if yamlStr == "" {
-		return CustomYamlValidateResponse{Valid: false, Error: "YAML 不能为空"}
+		return CustomYamlValidateResponse{Valid: false, Error: lang.Msg(locale, "customYaml.emptyYaml", nil)}
 	}
 	var obj map[string]interface{}
 	if err := yaml.Unmarshal([]byte(yamlStr), &obj); err != nil {
-		return CustomYamlValidateResponse{Valid: false, Error: "YAML 解析失败: " + err.Error()}
+		return CustomYamlValidateResponse{Valid: false, Error: lang.Msg(locale, "customYaml.parseFailed", map[string]string{"err": err.Error()})}
 	}
 	apiVersion, _ := obj["apiVersion"].(string)
 	kind, _ := obj["kind"].(string)
 	if apiVersion == "" {
-		return CustomYamlValidateResponse{Valid: false, Error: "缺少 apiVersion"}
+		return CustomYamlValidateResponse{Valid: false, Error: lang.Msg(locale, "customYaml.missingAPIVersion", nil)}
 	}
 	if kind == "" {
-		return CustomYamlValidateResponse{Valid: false, Error: "缺少 kind"}
+		return CustomYamlValidateResponse{Valid: false, Error: lang.Msg(locale, "customYaml.missingKind", nil)}
 	}
 	if kind != cfg.Kind {
 		return CustomYamlValidateResponse{
 			Valid: false,
-			Error: "kind 必须为 " + cfg.Kind + "，当前为 " + kind,
+			Error: lang.Msg(locale, "customYaml.kindMismatch", map[string]string{"expected": cfg.Kind, "actual": kind}),
 			Kind:  kind,
 		}
 	}
 	meta, ok := obj["metadata"].(map[string]interface{})
 	if !ok {
-		return CustomYamlValidateResponse{Valid: false, Error: "缺少 metadata"}
+		return CustomYamlValidateResponse{Valid: false, Error: lang.Msg(locale, "customYaml.missingMetadata", nil)}
 	}
 	name, _ := meta["name"].(string)
 	if name == "" {
-		return CustomYamlValidateResponse{Valid: false, Error: "metadata.name 不能为空"}
+		return CustomYamlValidateResponse{Valid: false, Error: lang.Msg(locale, "customYaml.missingName", nil)}
 	}
 	return CustomYamlValidateResponse{Valid: true, Name: name, Kind: kind}
 }
@@ -295,11 +299,13 @@ func CustomYamlApply(dyn dynamic.Interface) http.HandlerFunc {
 
 		cfg, ok := moduleConfigs[req.Module]
 		if !ok {
-			http.Error(w, "unknown module: "+req.Module, http.StatusBadRequest)
+			loc := lang.LocaleFromRequest(r)
+			http.Error(w, lang.Msg(loc, "customYaml.unknownModule", map[string]string{"module": req.Module}), http.StatusBadRequest)
 			return
 		}
 
-		validateResp := validateYamlForModule(req.YAML, cfg)
+		loc := lang.LocaleFromRequest(r)
+		validateResp := validateYamlForModule(req.YAML, cfg, loc)
 		if !validateResp.Valid {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(CustomYamlApplyResponse{
@@ -316,7 +322,7 @@ func CustomYamlApply(dyn dynamic.Interface) http.HandlerFunc {
 			_ = json.NewEncoder(w).Encode(CustomYamlApplyResponse{
 				Namespace: req.Namespace,
 				Name:      validateResp.Name,
-				Error:     "YAML 解析失败: " + err.Error(),
+				Error:     lang.Msg(loc, "customYaml.parseFailed", map[string]string{"err": err.Error()}),
 			})
 			return
 		}
@@ -353,7 +359,7 @@ func CustomYamlApply(dyn dynamic.Interface) http.HandlerFunc {
 		_ = json.NewEncoder(w).Encode(CustomYamlApplyResponse{
 			Namespace: req.Namespace,
 			Name:      validateResp.Name,
-			Message:   "已成功应用到集群",
+			Message:   lang.Msg(loc, "customYaml.applySuccess", nil),
 		})
 	}
 }

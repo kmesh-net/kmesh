@@ -11,6 +11,8 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/dynamic"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
+
+	"kmesh.net/kmesh-dashboard/backend/internal/lang"
 )
 
 var destinationRuleGVR = schema.GroupVersionResource{
@@ -244,13 +246,14 @@ func CircuitBreakerApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interf
 			return
 		}
 		// 熔断作用于 Waypoint，下发前需确保命名空间已安装 Waypoint
+		loc := lang.LocaleFromRequest(r)
 		hasWaypoint, err := HasWaypointInNamespace(r.Context(), gwClient, req.Namespace)
 		if err != nil {
-			http.Error(w, "检查 Waypoint 状态失败: "+err.Error(), http.StatusInternalServerError)
+			http.Error(w, lang.Msg(loc, "circuitbreaker.checkFailed", map[string]string{"err": err.Error()}), http.StatusInternalServerError)
 			return
 		}
 		if !hasWaypoint {
-			http.Error(w, "熔断策略作用于 Waypoint，请先在命名空间 "+req.Namespace+" 安装 Waypoint", http.StatusPreconditionFailed)
+			http.Error(w, lang.Msg(loc, "circuitbreaker.needWaypoint", map[string]string{"ns": req.Namespace}), http.StatusPreconditionFailed)
 			return
 		}
 		dr := buildDestinationRule(req)
@@ -274,7 +277,7 @@ func CircuitBreakerApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interf
 		_ = json.NewEncoder(w).Encode(CircuitBreakerApplyResponse{
 			Namespace: req.Namespace,
 			Name:      req.Name,
-			Message:  "熔断策略 " + req.Namespace + "/" + req.Name + " 已应用",
+			Message:   lang.Msg(loc, "circuitbreaker.applySuccess", map[string]string{"ns": req.Namespace, "name": req.Name}),
 		})
 	}
 }
