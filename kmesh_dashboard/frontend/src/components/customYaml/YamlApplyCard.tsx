@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, Button, Alert, Space, message } from 'antd'
 import { ThunderboltOutlined, CheckOutlined, FileTextOutlined } from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
+import { useTranslation } from 'react-i18next'
 import {
   getCustomYamlTemplate,
   validateCustomYaml,
@@ -9,11 +10,11 @@ import {
   type CustomYamlModule,
 } from '@/api/customYaml'
 
-const MODULE_LABELS: Record<CustomYamlModule, string> = {
-  circuitbreaker: '熔断 (DestinationRule)',
-  ratelimit: '限流 (EnvoyFilter)',
-  authorization: '认证策略 (AuthorizationPolicy)',
-  waypoint: 'Waypoint (Gateway)',
+const MODULE_KEYS: Record<CustomYamlModule, string> = {
+  circuitbreaker: 'yamlApply.circuitbreaker',
+  ratelimit: 'yamlApply.ratelimit',
+  authorization: 'yamlApply.authorization',
+  waypoint: 'yamlApply.waypoint',
 }
 
 interface YamlApplyCardProps {
@@ -23,6 +24,7 @@ interface YamlApplyCardProps {
 }
 
 export default function YamlApplyCard({ module, namespace, onSuccess }: YamlApplyCardProps) {
+  const { t } = useTranslation()
   const [yaml, setYaml] = useState('')
   const [loadingTemplate, setLoadingTemplate] = useState(false)
   const [loadingValidate, setLoadingValidate] = useState(false)
@@ -38,7 +40,7 @@ export default function YamlApplyCard({ module, namespace, onSuccess }: YamlAppl
     setApplySuccess(null)
     getCustomYamlTemplate(module)
       .then((res) => setYaml(res.yaml))
-      .catch(() => message.error('加载模板失败'))
+      .catch(() => message.error(t('yamlApply.loadTemplateFailed')))
       .finally(() => setLoadingTemplate(false))
   }
 
@@ -51,7 +53,7 @@ export default function YamlApplyCard({ module, namespace, onSuccess }: YamlAppl
     setValidateResult(null)
     validateCustomYaml(module, yaml)
       .then((res) => setValidateResult({ valid: res.valid, error: res.error }))
-      .catch(() => setValidateResult({ valid: false, error: '校验请求失败' }))
+      .catch(() => setValidateResult({ valid: false, error: t('yamlApply.validateFailed') }))
       .finally(() => setLoadingValidate(false))
   }
 
@@ -64,11 +66,11 @@ export default function YamlApplyCard({ module, namespace, onSuccess }: YamlAppl
         if (res.error) {
           setApplyError(res.error)
         } else {
-          setApplySuccess(res.message || '已成功应用到集群')
+          setApplySuccess(res.message || t('yamlApply.applySuccess'))
           onSuccess?.()
         }
       })
-      .catch((e) => setApplyError(e instanceof Error ? e.message : '应用失败'))
+      .catch((e) => setApplyError(e instanceof Error ? e.message : t('yamlApply.applyFailed')))
       .finally(() => setLoadingApply(false))
   }
 
@@ -77,25 +79,25 @@ export default function YamlApplyCard({ module, namespace, onSuccess }: YamlAppl
       title={
         <Space>
           <FileTextOutlined />
-          <span>自定义 YAML 一键应用</span>
+          <span>{t('yamlApply.title')}</span>
           <span style={{ color: '#999', fontWeight: 400, fontSize: 13 }}>
-            — {MODULE_LABELS[module]}
+            — {t(MODULE_KEYS[module])}
           </span>
         </Space>
       }
       extra={
         <Button size="small" onClick={loadTemplate} loading={loadingTemplate}>
-          加载默认模板
+          {t('yamlApply.loadTemplate')}
         </Button>
       }
     >
       <p style={{ color: '#666', marginBottom: 12, fontSize: 13 }}>
-        编辑下方 YAML，支持 Dashboard 未提供的额外字段。应用前会校验格式。
+        {t('yamlApply.desc')}
       </p>
       {validateResult && (
         <Alert
           type={validateResult.valid ? 'success' : 'error'}
-          message={validateResult.valid ? '格式校验通过' : validateResult.error}
+          message={validateResult.valid ? t('yamlApply.validateSuccess') : validateResult.error}
           showIcon
           style={{ marginBottom: 12 }}
         />
@@ -109,7 +111,7 @@ export default function YamlApplyCard({ module, namespace, onSuccess }: YamlAppl
           height={420}
           language="yaml"
           value={yaml}
-          loading="编辑器加载中..."
+          loading={t('yamlApply.editorLoading')}
           onChange={(value) => {
             setYaml(value ?? '')
             setValidateResult(null)
@@ -135,7 +137,7 @@ export default function YamlApplyCard({ module, namespace, onSuccess }: YamlAppl
           onClick={handleValidate}
           loading={loadingValidate}
         >
-          校验格式
+          {t('yamlApply.validate')}
         </Button>
         <Button
           type="primary"
@@ -143,7 +145,7 @@ export default function YamlApplyCard({ module, namespace, onSuccess }: YamlAppl
           onClick={handleApply}
           loading={loadingApply}
         >
-          应用到集群
+          {t('yamlApply.applyToCluster')}
         </Button>
       </Space>
     </Card>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Tabs, Space, Select, Checkbox } from 'antd'
 import { getNamespaceList } from '@/api/cluster'
 import RateLimitListPage from './RateLimitListPage'
@@ -6,6 +7,7 @@ import RateLimitFormPage from './RateLimitFormPage'
 import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function RateLimitPage() {
+  const { t } = useTranslation()
   const [namespaceOptions, setNamespaceOptions] = useState<string[]>([])
   const [selectedNamespace, setSelectedNamespace] = useState('default')
   const [allNamespaces, setAllNamespaces] = useState(false)
@@ -31,17 +33,17 @@ export default function RateLimitPage() {
   const header = (
     <Space style={{ marginBottom: 16 }}>
       <Space>
-        <span>当前命名空间：</span>
+        <span>{t('common.currentNamespace')}</span>
         <Select
           value={selectedNamespace}
           onChange={setSelectedNamespace}
           options={namespaceOptions.map((ns) => ({ value: ns, label: ns }))}
           style={{ width: 160 }}
-          placeholder="选择命名空间"
+          placeholder={t('common.selectNamespace')}
         />
       </Space>
       <Checkbox checked={allNamespaces} onChange={(e) => setAllNamespaces(e.target.checked)}>
-        列表显示全部命名空间
+        {t('waypoint.showAllNamespaces')}
       </Checkbox>
     </Space>
   )
@@ -49,7 +51,7 @@ export default function RateLimitPage() {
   const items = [
     {
       key: 'list',
-      label: '策略列表',
+      label: t('ratelimit.policyList'),
       children: (
         <RateLimitListPage
           selectedNamespace={selectedNamespace}
@@ -59,12 +61,12 @@ export default function RateLimitPage() {
     },
     {
       key: 'form',
-      label: '配置限流',
+      label: t('ratelimit.config'),
       children: <RateLimitFormPage selectedNamespace={selectedNamespace} namespaceOptions={namespaceOptions} />,
     },
     {
       key: 'yaml',
-      label: '自定义 YAML',
+      label: t('common.customYaml'),
       children: (
         <YamlApplyCard
           module="ratelimit"

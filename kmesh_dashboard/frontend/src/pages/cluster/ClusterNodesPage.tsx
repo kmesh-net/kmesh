@@ -1,35 +1,37 @@
 import { useEffect, useState } from 'react'
 import { Card, Table, Tag, Spin, Alert, Button } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
+import { useTranslation } from 'react-i18next'
 import { getClusterNodes } from '@/api/cluster'
 import type { NodeItem } from '@/types/cluster'
 
-const columns = [
-  { title: '节点名称', dataIndex: 'name', key: 'name', ellipsis: true },
-  {
-    title: '状态',
-    dataIndex: 'status',
-    key: 'status',
-    render: (s: string) => (
-      <Tag color={s === 'Ready' ? 'green' : 'orange'}>{s}</Tag>
-    ),
-  },
-  {
-    title: '角色',
-    dataIndex: 'roles',
-    key: 'roles',
-    render: (roles: string[]) => roles?.join(', ') ?? '-',
-  },
-  { title: '内网 IP', dataIndex: 'internalIP', key: 'internalIP' },
-  { title: '运行时长', dataIndex: 'age', key: 'age' },
-  { title: '内核', dataIndex: 'kernel', key: 'kernel', ellipsis: true },
-  { title: 'OS 镜像', dataIndex: 'osImage', key: 'osImage', ellipsis: true },
-]
-
 export default function ClusterNodesPage() {
+  const { t } = useTranslation()
   const [nodes, setNodes] = useState<NodeItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  const columns = [
+    { title: t('cluster.nodeName'), dataIndex: 'name', key: 'name', ellipsis: true },
+    {
+      title: t('common.status'),
+      dataIndex: 'status',
+      key: 'status',
+      render: (s: string) => (
+        <Tag color={s === 'Ready' ? 'green' : 'orange'}>{s}</Tag>
+      ),
+    },
+    {
+      title: t('cluster.roles'),
+      dataIndex: 'roles',
+      key: 'roles',
+      render: (roles: string[]) => roles?.join(', ') ?? '-',
+    },
+    { title: t('cluster.internalIP'), dataIndex: 'internalIP', key: 'internalIP' },
+    { title: t('cluster.age'), dataIndex: 'age', key: 'age' },
+    { title: t('cluster.kernel'), dataIndex: 'kernel', key: 'kernel', ellipsis: true },
+    { title: t('cluster.osImage'), dataIndex: 'osImage', key: 'osImage', ellipsis: true },
+  ]
 
   const fetchNodes = async () => {
     setLoading(true)
@@ -38,7 +40,7 @@ export default function ClusterNodesPage() {
       const res = await getClusterNodes()
       setNodes(res.nodes)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '获取节点列表失败')
+      setError(e instanceof Error ? e.message : t('cluster.fetchFailed'))
     } finally {
       setLoading(false)
     }
@@ -50,7 +52,7 @@ export default function ClusterNodesPage() {
 
   return (
     <Card
-      title="集群节点"
+      title={t('cluster.title')}
       extra={
         <Button
           type="primary"
@@ -58,7 +60,7 @@ export default function ClusterNodesPage() {
           onClick={fetchNodes}
           loading={loading}
         >
-          刷新
+          {t('common.refresh')}
         </Button>
       }
     >

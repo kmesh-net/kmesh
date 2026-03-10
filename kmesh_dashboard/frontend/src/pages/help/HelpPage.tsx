@@ -3,23 +3,22 @@ import { useSearchParams } from 'react-router-dom'
 import { Card, Menu, Spin, Alert } from 'antd'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import { useTranslation } from 'react-i18next'
 import { getDocsList, getDocContent } from '@/api/docs'
 
-/** 与顶部导航顺序一致（从左到右）：集群节点、服务拓扑、Waypoint、熔断、认证策略、限流、指标 */
 const DOC_ORDER = ['cluster', 'topology', 'waypoint', 'circuitbreaker', 'authorization', 'ratelimit', 'metrics'] as const
-
-const DOC_LABELS: Record<string, string> = {
-  cluster: '集群节点',
-  topology: '服务拓扑',
-  waypoint: 'Waypoint',
-  circuitbreaker: '熔断',
-  authorization: '认证策略',
-  ratelimit: '限流',
-  metrics: '指标',
+const DOC_T_KEYS: Record<string, string> = {
+  cluster: 'nav.cluster',
+  topology: 'nav.topology',
+  waypoint: 'nav.waypoint',
+  circuitbreaker: 'nav.circuitbreaker',
+  authorization: 'nav.authorization',
+  ratelimit: 'nav.ratelimit',
+  metrics: 'nav.metrics',
 }
 
 function sortDocsByNavOrder(docs: string[]): string[] {
-  const orderMap = new Map(DOC_ORDER.map((name, i) => [name, i]))
+  const orderMap = new Map<string, number>(DOC_ORDER.map((name, i) => [name, i]))
   return [...docs].sort((a, b) => {
     const ia = orderMap.get(a) ?? 999
     const ib = orderMap.get(b) ?? 999
@@ -27,11 +26,9 @@ function sortDocsByNavOrder(docs: string[]): string[] {
   })
 }
 
-function docLabel(name: string): string {
-  return DOC_LABELS[name] ?? name
-}
-
 export default function HelpPage() {
+  const { t, i18n } = useTranslation()
+  const docLabel = (name: string): string => t((DOC_T_KEYS[name] || name) as never)
   const [searchParams, setSearchParams] = useSearchParams()
   const docName = searchParams.get('doc') || ''
   const [docList, setDocList] = useState<string[]>([])
@@ -50,10 +47,12 @@ export default function HelpPage() {
         }
       })
       .catch((e) => {
-        setError(e instanceof Error ? e.message : '加载文档列表失败')
+        setError(e instanceof Error ? e.message : t('help.loadListFailed'))
       })
       .finally(() => setLoading(false))
   }, [])
+
+  const lang = i18n.language?.toLowerCase().startsWith('zh') ? undefined : 'en'
 
   useEffect(() => {
     if (!docName || !docList.includes(docName)) {
@@ -64,14 +63,14 @@ export default function HelpPage() {
     }
     setLoading(true)
     setError(null)
-    getDocContent(docName)
+    getDocContent(docName, lang)
       .then(setContent)
       .catch((e) => {
-        setError(e instanceof Error ? e.message : '加载文档失败')
+        setError(e instanceof Error ? e.message : t('help.loadDocFailed'))
         setContent('')
       })
       .finally(() => setLoading(false))
-  }, [docName, docList])
+  }, [docName, docList, lang])
 
   const onSelect = (key: string) => {
     setSearchParams({ doc: key })
@@ -89,7 +88,7 @@ export default function HelpPage() {
     return (
       <Alert
         type="warning"
-        message="文档不可用"
+        message={t('help.docsUnavailable')}
         description={error}
         showIcon
         style={{ marginBottom: 16 }}
@@ -99,7 +98,7 @@ export default function HelpPage() {
 
   return (
     <div style={{ display: 'flex', gap: 24, minHeight: 400 }}>
-      <Card title="文档目录" style={{ width: 220, flexShrink: 0 }}>
+      <Card title={t('help.docCatalog')} style={{ width: 220, flexShrink: 0 }}>
         <Menu
           mode="inline"
           selectedKeys={[docName]}
@@ -112,7 +111,7 @@ export default function HelpPage() {
         />
       </Card>
       <Card
-        title={docName ? docLabel(docName) : '选择文档'}
+        title={docName ? docLabel(docName) : t('help.selectDoc')}
         style={{ flex: 1, minWidth: 0 }}
         loading={loading && !!docName}
       >
@@ -140,7 +139,7 @@ export default function HelpPage() {
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
           </div>
         ) : !docName ? (
-          <div style={{ color: '#888' }}>请在左侧选择一篇文档</div>
+          <div style={{ color: '#888' }}>{t('help.selectDocHint')}</div>
         ) : null}
       </Card>
     </div>

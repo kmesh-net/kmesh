@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react'
 import { Tabs, Space, Select, Checkbox } from 'antd'
+import { useTranslation } from 'react-i18next'
 import { getNamespaceList } from '@/api/cluster'
 import WaypointListPage from './WaypointListPage'
 import WaypointApplyPage from './WaypointApplyPage'
 import YamlApplyCard from '@/components/customYaml/YamlApplyCard'
 
 export default function WaypointPage() {
+  const { t } = useTranslation()
   const [namespaceOptions, setNamespaceOptions] = useState<string[]>([])
   const [selectedNamespace, setSelectedNamespace] = useState('default')
   const [allNamespaces, setAllNamespaces] = useState(true)
@@ -32,17 +34,17 @@ export default function WaypointPage() {
   const header = (
     <Space style={{ marginBottom: 16 }}>
       <Space>
-        <span>当前命名空间：</span>
+        <span>{t('common.currentNamespace')}</span>
         <Select
           value={selectedNamespace}
           onChange={setSelectedNamespace}
           options={namespaceOptions.map((ns) => ({ value: ns, label: ns }))}
           style={{ width: 160 }}
-          placeholder="选择命名空间"
+          placeholder={t('common.selectNamespace')}
         />
       </Space>
       <Checkbox checked={allNamespaces} onChange={(e) => setAllNamespaces(e.target.checked)}>
-        列表显示全部命名空间
+        {t('waypoint.showAllNamespaces')}
       </Checkbox>
     </Space>
   )
@@ -50,7 +52,7 @@ export default function WaypointPage() {
   const items = [
     {
       key: 'list',
-      label: '列表与状态',
+      label: t('waypoint.listAndStatus'),
       children: (
         <WaypointListPage
           selectedNamespace={selectedNamespace}
@@ -60,7 +62,7 @@ export default function WaypointPage() {
     },
     {
       key: 'apply',
-      label: '安装 Waypoint',
+      label: t('waypoint.install'),
       children: (
         <WaypointApplyPage
           selectedNamespace={selectedNamespace}
@@ -70,7 +72,7 @@ export default function WaypointPage() {
     },
     {
       key: 'yaml',
-      label: '自定义 YAML',
+      label: t('waypoint.customYaml'),
       children: (
         <YamlApplyCard
           module="waypoint"

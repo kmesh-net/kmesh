@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, Form, Input, Select, InputNumber, Button, Alert, Space } from 'antd'
 import { ThunderboltOutlined } from '@ant-design/icons'
 import { applyCircuitBreaker } from '@/api/circuitbreaker'
@@ -12,6 +13,7 @@ interface CircuitBreakerFormPageProps {
 }
 
 export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBreakerFormPageProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -47,16 +49,16 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
       setSuccess(res.message)
       form.resetFields()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '应用失败')
+      setError(e instanceof Error ? e.message : t('common.applyFailed'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Card title="配置熔断">
+    <Card title={t('circuitbreaker.config')}>
       <p style={{ color: '#666', marginBottom: 16 }}>
-        在<strong>当前命名空间</strong>（上方选择器）下对目标服务（Host）配置连接池与熔断。将写入 Istio DestinationRule（需集群已安装相应 CRD）。
+        {t('circuitbreaker.formDesc')}
       </p>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
@@ -69,20 +71,20 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
         layout="vertical"
         onFinish={onFinish}
       >
-        <Form.Item name="name" label="DestinationRule 名称" rules={[{ required: true }]}>
-          <Input placeholder="例如 my-service-cb" />
+        <Form.Item name="name" label={t('circuitbreaker.drName')} rules={[{ required: true }]}>
+          <Input placeholder={t('circuitbreaker.drNamePlaceholder')} />
         </Form.Item>
         <Form.Item
           name="host"
-          label="目标 Host（服务名）"
+          label={t('circuitbreaker.hostLabel')}
           rules={[{ required: true }]}
-          extra="可从下方「从集群选择服务」中选择，或直接输入服务名 / FQDN"
+          extra={t('circuitbreaker.hostExtra')}
         >
-          <Input placeholder="例如 reviews、httpbin.default.svc.cluster.local" />
+          <Input placeholder={t('circuitbreaker.hostPlaceholder')} />
         </Form.Item>
-        <Form.Item label="从集群选择服务">
+        <Form.Item label={t('circuitbreaker.selectFromCluster')}>
           <Select
-            placeholder="先选上方命名空间，此处会列出该命名空间下的服务；选择后自动填入目标 Host"
+            placeholder={t('circuitbreaker.selectServicePlaceholder')}
             loading={servicesLoading}
             allowClear
             style={{ width: '100%' }}
@@ -98,30 +100,30 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
             }}
           />
         </Form.Item>
-        <Form.Item name="maxConnections" label="最大连接数 (maxConnections)">
+        <Form.Item name="maxConnections" label={t('circuitbreaker.maxConnections')}>
           <InputNumber min={1} max={100000} style={{ width: '100%' }} placeholder="TCP" />
         </Form.Item>
-        <Form.Item name="maxPendingRequests" label="最大待处理请求 (http1MaxPendingRequests)">
+        <Form.Item name="maxPendingRequests" label={t('circuitbreaker.maxPendingRequests')}>
           <InputNumber min={1} max={100000} style={{ width: '100%' }} placeholder="HTTP" />
         </Form.Item>
-        <Form.Item name="maxRequests" label="最大请求数 (http2MaxRequests)">
+        <Form.Item name="maxRequests" label={t('circuitbreaker.maxRequests')}>
           <InputNumber min={1} max={100000} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="maxRetries" label="最大重试 (maxRetries)">
+        <Form.Item name="maxRetries" label={t('circuitbreaker.maxRetries')}>
           <InputNumber min={0} max={100} style={{ width: '100%' }} />
         </Form.Item>
-        <Form.Item name="connectTimeoutMs" label="连接超时 (ms)">
+        <Form.Item name="connectTimeoutMs" label={t('circuitbreaker.connectTimeout')}>
           <InputNumber min={1} max={300000} style={{ width: '100%' }} placeholder="connectTimeout" />
         </Form.Item>
-        <Form.Item name="maxRequestsPerConnection" label="每连接最大请求数">
+        <Form.Item name="maxRequestsPerConnection" label={t('circuitbreaker.maxRequestsPerConn')}>
           <InputNumber min={1} max={1000} style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item>
           <Space>
             <Button type="primary" htmlType="submit" icon={<ThunderboltOutlined />} loading={loading}>
-              应用
+              {t('common.apply')}
             </Button>
-            <Button onClick={() => form.resetFields()}>重置</Button>
+            <Button onClick={() => form.resetFields()}>{t('common.reset')}</Button>
           </Space>
         </Form.Item>
       </Form>

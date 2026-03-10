@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, Form, Input, Select, Button, Alert, Space } from 'antd'
 import { SafetyOutlined } from '@ant-design/icons'
 import { applyAuthorizationPolicy } from '@/api/authorization'
@@ -21,6 +22,7 @@ function parseCommaList(s: string | undefined): string[] {
 }
 
 export default function AuthorizationFormPage({ selectedNamespace }: AuthorizationFormPageProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -83,16 +85,16 @@ export default function AuthorizationFormPage({ selectedNamespace }: Authorizati
       setSuccess(res.message)
       form.resetFields()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '应用失败')
+      setError(e instanceof Error ? e.message : t('common.applyFailed'))
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <Card title="配置授权策略">
+    <Card title={t('authorization.config')}>
       <p style={{ color: '#666', marginBottom: 16 }}>
-        在<strong>当前命名空间</strong>（上方选择器）下创建或更新 Istio AuthorizationPolicy，限制哪些来源可访问目标工作负载。Kmesh 支持 L4 层条件：IP 段、命名空间、端口等。
+        {t('authorization.formDesc')}
       </p>
       {error && (
         <Alert type="error" message={error} showIcon style={{ marginBottom: 16 }} />
@@ -108,61 +110,61 @@ export default function AuthorizationFormPage({ selectedNamespace }: Authorizati
           action: 'ALLOW',
         }}
       >
-        <Form.Item name="name" label="策略名称" rules={[{ required: true }]}>
-          <Input placeholder="例如 ip-allow-policy" />
+        <Form.Item name="name" label={t('authorization.policyName')} rules={[{ required: true }]}>
+          <Input placeholder={t('authorization.policyNamePlaceholder')} />
         </Form.Item>
-        <Form.Item name="action" label="动作" rules={[{ required: true }]}>
+        <Form.Item name="action" label={t('authorization.actionLabel')} rules={[{ required: true }]}>
           <Select
             options={[
-              { value: 'ALLOW', label: 'ALLOW - 允许匹配规则的请求' },
-              { value: 'DENY', label: 'DENY - 拒绝匹配规则的请求' },
+              { value: 'ALLOW', label: t('authorization.allowDesc') },
+              { value: 'DENY', label: t('authorization.denyDesc') },
             ]}
           />
         </Form.Item>
         <Form.Item
           name="selectorApp"
-          label="目标工作负载 (app 标签)"
-          extra="策略将作用于带该 app 标签的 Pod"
+          label={t('authorization.targetWorkloadLabel')}
+          extra={t('authorization.targetWorkloadExtra')}
         >
-          <Input placeholder="例如 httpbin、reviews" />
+          <Input placeholder={t('authorization.targetWorkloadPlaceholder')} />
         </Form.Item>
 
-        <div style={{ marginTop: 24, marginBottom: 8, fontWeight: 500 }}>来源条件 (from)</div>
+        <div style={{ marginTop: 24, marginBottom: 8, fontWeight: 500 }}>{t('authorization.fromConditions')}</div>
         <Form.Item
           name="ipBlocks"
-          label="来源 IP 段"
-          extra="逗号分隔，如 10.0.0.0/8, 192.168.1.0/24"
+          label={t('authorization.sourceIpBlocks')}
+          extra={t('authorization.sourceIpBlocksExtra')}
         >
           <Input placeholder="10.0.0.0/8, 192.168.1.0/24" />
         </Form.Item>
         <Form.Item
           name="namespaces"
-          label="来源命名空间"
-          extra="逗号分隔，仅允许来自这些命名空间的请求"
+          label={t('authorization.sourceNamespaces')}
+          extra={t('authorization.sourceNamespacesExtra')}
         >
           <Input placeholder="foo, bar" />
         </Form.Item>
 
-        <div style={{ marginTop: 24, marginBottom: 8, fontWeight: 500 }}>目标操作 (to)</div>
-        <Form.Item name="ports" label="目标端口" extra="逗号分隔，如 9090, 8080">
+        <div style={{ marginTop: 24, marginBottom: 8, fontWeight: 500 }}>{t('authorization.toConditions')}</div>
+        <Form.Item name="ports" label={t('authorization.targetPorts')} extra={t('authorization.targetPortsExtra')}>
           <Input placeholder="9090, 8080" />
         </Form.Item>
-        <Form.Item name="hosts" label="目标 Host" extra="逗号分隔">
+        <Form.Item name="hosts" label={t('authorization.targetHosts')} extra={t('authorization.targetHostsExtra')}>
           <Input placeholder="*.example.com" />
         </Form.Item>
-        <Form.Item name="paths" label="目标路径" extra="逗号分隔，如 /api, /admin">
+        <Form.Item name="paths" label={t('authorization.targetPaths')} extra={t('authorization.targetPathsExtra')}>
           <Input placeholder="/api, /admin" />
         </Form.Item>
-        <Form.Item name="methods" label="HTTP 方法" extra="逗号分隔，如 GET, POST">
+        <Form.Item name="methods" label={t('authorization.httpMethods')} extra={t('authorization.httpMethodsExtra')}>
           <Input placeholder="GET, POST" />
         </Form.Item>
 
         <Form.Item>
           <Space>
             <Button type="primary" htmlType="submit" icon={<SafetyOutlined />} loading={loading}>
-              应用
+              {t('common.apply')}
             </Button>
-            <Button onClick={() => form.resetFields()}>重置</Button>
+            <Button onClick={() => form.resetFields()}>{t('common.reset')}</Button>
           </Space>
         </Form.Item>
       </Form>

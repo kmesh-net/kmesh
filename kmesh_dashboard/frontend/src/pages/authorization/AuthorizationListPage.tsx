@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, Table, Button, Spin, Alert, Tag } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { getAuthorizationList, deleteAuthorizationPolicy } from '@/api/authorization'
@@ -9,6 +10,7 @@ interface AuthorizationListPageProps {
 }
 
 export default function AuthorizationListPage({ selectedNamespace }: AuthorizationListPageProps) {
+  const { t } = useTranslation()
   const [list, setList] = useState<AuthorizationPolicyItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -21,7 +23,7 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
       const res = await getAuthorizationList(selectedNamespace || undefined)
       setList(res.items)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '获取列表失败')
+      setError(e instanceof Error ? e.message : t('authorization.fetchFailed'))
     } finally {
       setLoading(false)
     }
@@ -34,7 +36,7 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
       await deleteAuthorizationPolicy({ namespace: item.namespace, name: item.name })
       await fetchList()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '删除失败')
+      setError(e instanceof Error ? e.message : t('authorization.deleteFailed'))
     } finally {
       setDeleting(null)
     }
@@ -51,22 +53,22 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
         {item.rules.map((rule, idx) => {
           const fromParts: string[] = []
           rule.from?.forEach((f) => {
-            if (f.source?.ipBlocks?.length) fromParts.push(`IP: ${f.source.ipBlocks.join(', ')}`)
-            if (f.source?.namespaces?.length) fromParts.push(`NS: ${f.source.namespaces.join(', ')}`)
-            if (f.source?.principals?.length) fromParts.push(`Principal: ${f.source.principals.join(', ')}`)
+            if (f.source?.ipBlocks?.length) fromParts.push(`${t('authorization.ruleLabelIp')}: ${f.source.ipBlocks.join(', ')}`)
+            if (f.source?.namespaces?.length) fromParts.push(`${t('authorization.ruleLabelNs')}: ${f.source.namespaces.join(', ')}`)
+            if (f.source?.principals?.length) fromParts.push(`${t('authorization.ruleLabelPrincipal')}: ${f.source.principals.join(', ')}`)
           })
           const toParts: string[] = []
-          rule.to?.forEach((t) => {
-            if (t.operation?.ports?.length) toParts.push(`端口: ${t.operation.ports.join(', ')}`)
-            if (t.operation?.hosts?.length) toParts.push(`Host: ${t.operation.hosts.join(', ')}`)
-            if (t.operation?.paths?.length) toParts.push(`路径: ${t.operation.paths.join(', ')}`)
-            if (t.operation?.methods?.length) toParts.push(`方法: ${t.operation.methods.join(', ')}`)
+          rule.to?.forEach((to) => {
+            if (to.operation?.ports?.length) toParts.push(`${t('authorization.ruleLabelPorts')}: ${to.operation.ports.join(', ')}`)
+            if (to.operation?.hosts?.length) toParts.push(`${t('authorization.ruleLabelHosts')}: ${to.operation.hosts.join(', ')}`)
+            if (to.operation?.paths?.length) toParts.push(`${t('authorization.ruleLabelPaths')}: ${to.operation.paths.join(', ')}`)
+            if (to.operation?.methods?.length) toParts.push(`${t('authorization.ruleLabelMethods')}: ${to.operation.methods.join(', ')}`)
           })
           const segs = [...fromParts, ...toParts]
           if (segs.length === 0) {
             return (
               <div key={idx} style={{ fontSize: 12, lineHeight: 1.8, color: '#8c8c8c' }}>
-                无条件（匹配全部）
+                {t('authorization.noRuleMatch')}
               </div>
             )
           }
@@ -83,9 +85,9 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
   }
 
   const columns = [
-    { title: '名称', dataIndex: 'name', key: 'name', width: 160 },
+    { title: t('common.name'), dataIndex: 'name', key: 'name', width: 160 },
     {
-      title: '动作',
+      title: t('authorization.action'),
       dataIndex: 'action',
       key: 'action',
       width: 90,
@@ -94,7 +96,7 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
       ),
     },
     {
-      title: '目标工作负载',
+      title: t('authorization.targetWorkload'),
       dataIndex: 'workloadRef',
       key: 'workloadRef',
       width: 120,
@@ -102,27 +104,27 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
         v || (r.selector && Object.keys(r.selector).length > 0 ? JSON.stringify(r.selector) : '-'),
     },
     {
-      title: '规则详情',
+      title: t('authorization.rulesDetail'),
       key: 'rulesDetail',
       render: (_: unknown, r: AuthorizationPolicyItem) => renderRuleDetail(r),
     },
-    { title: '规则数', dataIndex: 'rulesCount', key: 'rulesCount', width: 80 },
+    { title: t('authorization.rulesCount'), dataIndex: 'rulesCount', key: 'rulesCount', width: 80 },
   ]
 
   return (
     <Card
-      title="授权策略列表"
+      title={t('authorization.listTitle')}
       extra={
         <Button type="primary" icon={<ReloadOutlined />} onClick={fetchList} loading={loading}>
-          刷新
+          {t('common.refresh')}
         </Button>
       }
     >
       <Alert
         type="info"
         showIcon
-        message="认证策略支持说明"
-        description="Kmesh 当前支持 Istio AuthorizationPolicy（授权策略），可基于 IP、端口、命名空间等 L4 层条件控制访问。PeerAuthentication（mTLS 对等认证）与 RequestAuthentication（JWT 请求认证）计划在后续版本中支持。"
+        message={t('authorization.supportTipTitle')}
+        description={t('authorization.supportTip')}
         style={{ marginBottom: 16 }}
       />
       {error && (
@@ -134,7 +136,7 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
           columns={[
             ...columns,
             {
-              title: '操作',
+              title: t('common.operation'),
               key: 'action',
               width: 90,
               render: (_: unknown, r: AuthorizationPolicyItem) => (
@@ -146,7 +148,7 @@ export default function AuthorizationListPage({ selectedNamespace }: Authorizati
                   loading={deleting === `${r.namespace}/${r.name}`}
                   onClick={() => handleDelete(r)}
                 >
-                  删除
+                  {t('common.delete')}
                 </Button>
               ),
             },

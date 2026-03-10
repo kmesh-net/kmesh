@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, Button, Alert, Space, Input, InputNumber, Statistic, Row, Col, Table, Typography } from 'antd'
 import { ReloadOutlined } from '@ant-design/icons'
 import { getMetricsDatasource, getMetricsOverview, getAccesslog, getKmeshPods } from '@/api/metrics'
@@ -12,6 +13,7 @@ function formatBytes(bytes: number): string {
 }
 
 export default function MetricsPage() {
+  const { t } = useTranslation()
   const [datasourceOk, setDatasourceOk] = useState(false)
   const [data, setData] = useState<{
     workloadConnOpened: number
@@ -53,7 +55,7 @@ export default function MetricsPage() {
       const res = await getMetricsOverview({ namespace: namespace || undefined })
       if (!res.available) {
         setData(null)
-        setError(res.message || 'Prometheus 不可用')
+        setError(res.message || t('metrics.prometheusUnavailable'))
       } else {
         setData({
           workloadConnOpened: res.workloadConnOpened ?? 0,
@@ -69,7 +71,7 @@ export default function MetricsPage() {
         })
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : '获取指标失败')
+      setError(e instanceof Error ? e.message : t('metrics.fetchFailed'))
       setData(null)
     } finally {
       setLoading(false)
@@ -83,7 +85,7 @@ export default function MetricsPage() {
       setKmeshPodsMsg(res.message ?? '')
     } catch (e) {
       setKmeshPods([])
-      setKmeshPodsMsg(e instanceof Error ? e.message : '请求失败')
+      setKmeshPodsMsg(e instanceof Error ? e.message : t('metrics.requestFailed'))
     }
   }
 
@@ -101,7 +103,7 @@ export default function MetricsPage() {
     } catch (e) {
       setAccesslogEntries([])
       setAccesslogPodsQueried([])
-      setAccesslogMessage(e instanceof Error ? e.message : '请求失败')
+      setAccesslogMessage(e instanceof Error ? e.message : t('metrics.requestFailed'))
     } finally {
       setAccesslogLoading(false)
     }
@@ -119,17 +121,17 @@ export default function MetricsPage() {
   return (
     <div>
       <Card
-        title="服务网格指标"
+        title={t('metrics.pageTitle')}
         extra={
           <Space>
             <Input
-              placeholder="命名空间（空=全部）"
+              placeholder={t('metrics.namespacePlaceholder')}
               value={namespace}
               onChange={(e) => setNamespace(e.target.value)}
               style={{ width: 180 }}
             />
             <Button type="primary" icon={<ReloadOutlined />} onClick={fetchOverview} loading={loading}>
-              刷新
+              {t('common.refresh')}
             </Button>
           </Space>
         }
@@ -137,8 +139,8 @@ export default function MetricsPage() {
         {!datasourceOk && (
           <Alert
             type="warning"
-            message="未配置 Prometheus"
-            description="请在后端设置环境变量 PROMETHEUS_URL 以拉取 Kmesh L4 指标（工作负载/服务累计值）。"
+            message={t('metrics.noPrometheus')}
+            description={t('metrics.noPrometheusDesc')}
             showIcon
             style={{ marginBottom: 16 }}
           />
@@ -148,85 +150,82 @@ export default function MetricsPage() {
         )}
         {data && (
           <>
-            {/* Kmesh L4 工作负载指标（累计值） */}
             <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>工作负载指标</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>{t('metrics.workloadMetrics')}</div>
               <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="连接打开总数" value={data.workloadConnOpened} />
+                    <Statistic title={t('metrics.connOpened')} value={data.workloadConnOpened} />
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="连接关闭总数" value={data.workloadConnClosed} />
+                    <Statistic title={t('metrics.connClosed')} value={data.workloadConnClosed} />
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="接收字节总数" value={formatBytes(data.workloadRecvBytes)} />
+                    <Statistic title={t('metrics.recvBytes')} value={formatBytes(data.workloadRecvBytes)} />
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="发送字节总数" value={formatBytes(data.workloadSentBytes)} />
+                    <Statistic title={t('metrics.sentBytes')} value={formatBytes(data.workloadSentBytes)} />
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="连接失败总数" value={data.workloadConnFailed} />
+                    <Statistic title={t('metrics.connFailed')} value={data.workloadConnFailed} />
                   </Card>
                 </Col>
               </Row>
             </div>
-            {/* Kmesh L4 服务指标（累计值） */}
             <div style={{ marginBottom: 24 }}>
-              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>服务指标</div>
+              <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>{t('metrics.serviceMetrics')}</div>
               <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="连接打开总数" value={data.serviceConnOpened} />
+                    <Statistic title={t('metrics.connOpened')} value={data.serviceConnOpened} />
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="连接关闭总数" value={data.serviceConnClosed} />
+                    <Statistic title={t('metrics.connClosed')} value={data.serviceConnClosed} />
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="接收字节总数" value={formatBytes(data.serviceRecvBytes)} />
+                    <Statistic title={t('metrics.recvBytes')} value={formatBytes(data.serviceRecvBytes)} />
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="发送字节总数" value={formatBytes(data.serviceSentBytes)} />
+                    <Statistic title={t('metrics.sentBytes')} value={formatBytes(data.serviceSentBytes)} />
                   </Card>
                 </Col>
                 <Col xs={24} sm={12} md={8} lg={4}>
                   <Card size="small">
-                    <Statistic title="连接失败总数" value={data.serviceConnFailed} />
+                    <Statistic title={t('metrics.connFailed')} value={data.serviceConnFailed} />
                   </Card>
                 </Col>
               </Row>
             </div>
           </>
         )}
-        {/* Accesslog：从 kmesh pods 日志直连获取 */}
         <div style={{ marginTop: 24 }}>
           <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'rgba(0,0,0,0.85)' }}>
-            Accesslog
+            {t('metrics.accesslog')}
           </div>
           <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
-            从 kmesh daemon pods 的容器日志中筛选 accesslog。需先执行 kmeshctl monitoring --all enable，再执行 kmeshctl monitoring --accesslog enable，并产生 TCP 流量。
+            {t('metrics.accesslogTip')}
           </Typography.Text>
           <Space wrap style={{ marginBottom: 12 }}>
             <Button size="small" onClick={fetchKmeshPods}>
-              检查 kmesh pods
+              {t('metrics.checkKmeshPods')}
             </Button>
             {kmeshPods.length > 0 && (
               <Typography.Text type="secondary">
-                发现 {kmeshPods.length} 个 pod：{kmeshPods.map((p) => p.name).join(', ')}
+                {t('metrics.foundPods', { count: kmeshPods.length, names: kmeshPods.map((p) => p.name).join(', ') })}
               </Typography.Text>
             )}
             {kmeshPodsMsg && kmeshPods.length === 0 && (
@@ -236,7 +235,7 @@ export default function MetricsPage() {
           {(accesslogMessage || (accesslogEntries.length === 0 && accesslogPodsQueried.length > 0)) && (
             <Alert
               type="info"
-              message={accesslogPodsQueried.length > 0 ? `已查询 ${accesslogPodsQueried.length} 个 pod：${accesslogPodsQueried.join(', ')}` : undefined}
+              message={accesslogPodsQueried.length > 0 ? t('metrics.queriedPods', { count: accesslogPodsQueried.length, names: accesslogPodsQueried.join(', ') }) : undefined}
               description={accesslogMessage}
               showIcon
               style={{ marginBottom: 12 }}
@@ -244,7 +243,7 @@ export default function MetricsPage() {
           )}
           <Space wrap style={{ marginBottom: 16 }}>
             <Input
-              placeholder="Pod 名称（空=全部）"
+              placeholder={t('metrics.podPlaceholder')}
               value={accesslogPod}
               onChange={(e) => setAccesslogPod(e.target.value)}
               style={{ width: 180 }}
@@ -254,7 +253,7 @@ export default function MetricsPage() {
               max={2000}
               value={accesslogTail}
               onChange={(v) => setAccesslogTail(v ?? 200)}
-              placeholder="最近行数"
+              placeholder={t('metrics.tailLines')}
               style={{ width: 100 }}
             />
             <Button
@@ -262,7 +261,7 @@ export default function MetricsPage() {
               onClick={fetchAccesslog}
               loading={accesslogLoading}
             >
-              查询 Accesslog
+              {t('metrics.queryAccesslog')}
             </Button>
           </Space>
           <Table<AccesslogEntry>
@@ -275,9 +274,9 @@ export default function MetricsPage() {
               {
                 title: 'Content',
                 dataIndex: 'content',
-                render: (t: string) => (
+                render: (content: string) => (
                   <Typography.Text code copyable style={{ fontSize: 12 }}>
-                    {t}
+                    {content}
                   </Typography.Text>
                 ),
               },

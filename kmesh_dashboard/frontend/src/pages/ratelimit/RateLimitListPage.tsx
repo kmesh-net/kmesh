@@ -1,23 +1,24 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, Table, Button, Spin, Alert } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { getRateLimitList, deleteRateLimit } from '@/api/ratelimit'
 import type { RateLimitItem } from '@/types/ratelimit'
 
-const getColumns = (showNamespace: boolean) => [
-  ...(showNamespace ? [{ title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
-  { title: '名称', dataIndex: 'name', key: 'name', width: 180 },
-  { title: 'StatPrefix', dataIndex: 'statPrefix', key: 'statPrefix', width: 140 },
-  { title: '最大令牌', dataIndex: 'maxTokens', key: 'maxTokens', width: 90 },
-  { title: '每次填充', dataIndex: 'tokensPerFill', key: 'tokensPerFill', width: 90 },
-  { title: '填充间隔(秒)', dataIndex: 'fillIntervalSec', key: 'fillIntervalSec', width: 110 },
+const getColumns = (t: (key: string) => string, showNamespace: boolean) => [
+  ...(showNamespace ? [{ title: t('waypoint.namespace'), dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
+  { title: t('common.name'), dataIndex: 'name', key: 'name', width: 180 },
+  { title: t('ratelimit.statPrefix'), dataIndex: 'statPrefix', key: 'statPrefix', width: 140 },
+  { title: t('ratelimit.maxTokens'), dataIndex: 'maxTokens', key: 'maxTokens', width: 90 },
+  { title: t('ratelimit.tokensPerFill'), dataIndex: 'tokensPerFill', key: 'tokensPerFill', width: 90 },
+  { title: t('ratelimit.fillInterval'), dataIndex: 'fillIntervalSec', key: 'fillIntervalSec', width: 110 },
   {
-    title: '作用对象',
+    title: t('ratelimit.selector'),
     key: 'selector',
     render: (_: unknown, r: RateLimitItem) =>
       r.workloadSelector && Object.keys(r.workloadSelector).length > 0
         ? JSON.stringify(r.workloadSelector)
-        : '全部',
+        : t('ratelimit.all'),
   },
 ]
 
@@ -27,6 +28,7 @@ interface RateLimitListPageProps {
 }
 
 export default function RateLimitListPage({ selectedNamespace, allNamespaces = false }: RateLimitListPageProps) {
+  const { t } = useTranslation()
   const [list, setList] = useState<RateLimitItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -39,7 +41,7 @@ export default function RateLimitListPage({ selectedNamespace, allNamespaces = f
       const res = await getRateLimitList(allNamespaces ? undefined : selectedNamespace || undefined)
       setList(res.items)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '获取列表失败')
+      setError(e instanceof Error ? e.message : t('ratelimit.fetchFailed'))
     } finally {
       setLoading(false)
     }
@@ -52,7 +54,7 @@ export default function RateLimitListPage({ selectedNamespace, allNamespaces = f
       await deleteRateLimit({ namespace: item.namespace, name: item.name })
       await fetchList()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '删除失败')
+      setError(e instanceof Error ? e.message : t('ratelimit.deleteFailed'))
     } finally {
       setDeleting(null)
     }
@@ -64,10 +66,10 @@ export default function RateLimitListPage({ selectedNamespace, allNamespaces = f
 
   return (
     <Card
-      title="限流策略列表"
+      title={t('ratelimit.listTitle')}
       extra={
         <Button type="primary" icon={<ReloadOutlined />} onClick={fetchList} loading={loading}>
-          刷新
+          {t('common.refresh')}
         </Button>
       }
     >
@@ -78,9 +80,9 @@ export default function RateLimitListPage({ selectedNamespace, allNamespaces = f
         <Table
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
-            ...getColumns(allNamespaces),
+            ...getColumns(t, allNamespaces),
             {
-              title: '操作',
+              title: t('common.operation'),
               key: 'action',
               width: 90,
               render: (_: unknown, r: RateLimitItem) => (
@@ -92,7 +94,7 @@ export default function RateLimitListPage({ selectedNamespace, allNamespaces = f
                   loading={deleting === `${r.namespace}/${r.name}`}
                   onClick={() => handleDelete(r)}
                 >
-                  删除
+                  {t('common.delete')}
                 </Button>
               ),
             },

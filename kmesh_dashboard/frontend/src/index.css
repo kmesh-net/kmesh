@@ -12,3 +12,13 @@ body {
 #root {
   min-height: 100vh;
 }
+
+/* 顶部导航语言选择器 - 深色主题下白色文字 */
+.header-lang-select.ant-select .ant-select-selector,
+.header-lang-select.ant-select .ant-select-selection-item,
+.header-lang-select.ant-select .ant-select-arrow {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+.header-lang-select.ant-select:hover .ant-select-selector {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}

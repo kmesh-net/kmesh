@@ -14,9 +14,11 @@
     "antd": "^5.21.0",
     "echarts": "^5.5.0",
     "echarts-for-react": "^3.0.2",
+    "i18next": "^25.8.17",
     "js-yaml": "^4.1.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^16.5.6",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.28.0",
     "remark-gfm": "^4.0.1"

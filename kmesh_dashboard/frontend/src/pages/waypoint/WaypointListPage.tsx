@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, Table, Tag, Spin, Alert, Button, Tooltip, Descriptions, Row, Col } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { getWaypointList, getWaypointStatus, deleteWaypoint } from '@/api/waypoint'
@@ -6,13 +7,14 @@ import type { WaypointItem, WaypointStatusItem } from '@/types/waypoint'
 import PodDetailModal from '@/components/pod/PodDetailModal'
 
 const getColumns = (
+  t: (key: string) => string,
   showNamespace: boolean,
   statusMap: Record<string, WaypointStatusItem>
 ) => [
-  ...(showNamespace ? [{ title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
-  { title: '名称', dataIndex: 'name', key: 'name', width: 160 },
+  ...(showNamespace ? [{ title: t('waypoint.namespace'), dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
+  { title: t('common.name'), dataIndex: 'name', key: 'name', width: 160 },
   {
-    title: '状态',
+    title: t('common.status'),
     dataIndex: 'programmed',
     key: 'programmed',
     width: 160,
@@ -21,11 +23,11 @@ const getColumns = (
       const status = statusMap[`${r.namespace}/${r.name}`]
       const ps = status?.podStatus
       const bothReady = gwReady && ps && ps.ready === ps.total && ps.phase === 'Running'
-      const shortPod = !ps ? '' : ps.total === 0 ? '待部署' : `${ps.ready}/${ps.total}`
+      const shortPod = !ps ? '' : ps.total === 0 ? t('waypoint.pendingDeploy') : `${ps.ready}/${ps.total}`
       const fullPod = ps?.message ?? ''
       const tagContent = (
         <Tag color={bothReady ? 'green' : gwReady ? 'blue' : ps?.phase === 'Failed' ? 'red' : 'orange'}>
-          {bothReady ? '已就绪' : gwReady ? 'Gateway 就绪' : '未就绪'}
+          {bothReady ? t('waypoint.programmed') : gwReady ? t('waypoint.gatewayReady') : t('waypoint.notReady')}
           {shortPod ? ` (${shortPod})` : ''}
         </Tag>
       )
@@ -36,8 +38,8 @@ const getColumns = (
       )
     },
   },
-  { title: 'Revision', dataIndex: 'revision', key: 'revision', width: 100 },
-  { title: '流量类型', dataIndex: 'trafficFor', key: 'trafficFor', ellipsis: true },
+  { title: t('waypoint.revision'), dataIndex: 'revision', key: 'revision', width: 100 },
+  { title: t('waypoint.trafficType'), dataIndex: 'trafficFor', key: 'trafficFor', ellipsis: true },
 ]
 
 interface WaypointListPageProps {
@@ -46,6 +48,7 @@ interface WaypointListPageProps {
 }
 
 export default function WaypointListPage({ selectedNamespace, allNamespaces }: WaypointListPageProps) {
+  const { t } = useTranslation()
   const [list, setList] = useState<WaypointItem[]>([])
   const [statusMap, setStatusMap] = useState<Record<string, WaypointStatusItem>>({})
   const [loading, setLoading] = useState(true)
@@ -88,7 +91,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
       }
       setExpandedNsFetched(new Set())
     } catch (e) {
-      setError(e instanceof Error ? e.message : '获取列表失败')
+      setError(e instanceof Error ? e.message : t('waypoint.fetchListFailed'))
     } finally {
       setLoading(false)
     }
@@ -100,7 +103,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
       await deleteWaypoint({ namespace, names: [name] })
       await fetchList()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '删除失败')
+      setError(e instanceof Error ? e.message : t('waypoint.deleteFailed'))
     } finally {
       setDeleting(null)
     }
@@ -110,12 +113,14 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
     fetchList()
   }, [selectedNamespace, allNamespaces])
 
+  const columns = getColumns(t, allNamespaces, statusMap)
+
   return (
     <Card
-      title="Waypoint 列表与状态"
+      title={t('waypoint.listTitle')}
       extra={
         <Button type="primary" icon={<ReloadOutlined />} onClick={fetchList} loading={loading}>
-          刷新
+          {t('common.refresh')}
         </Button>
       }
     >
@@ -126,9 +131,9 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
         <Table
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
-            ...getColumns(allNamespaces, statusMap),
+            ...columns,
             {
-              title: '操作',
+              title: t('common.operation'),
               key: 'action',
               width: 100,
               render: (_: unknown, r: WaypointItem) => (
@@ -140,7 +145,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
                   loading={deleting === `${r.namespace}/${r.name}`}
                   onClick={() => handleDelete(r.namespace, r.name)}
                 >
-                  删除
+                  {t('common.delete')}
                 </Button>
               ),
             },
@@ -166,7 +171,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
             },
             expandedRowRender: (r) => {
               const status = statusMap[`${r.namespace}/${r.name}`]
-              if (!status) return <span style={{ color: '#999' }}>加载中</span>
+              if (!status) return <span style={{ color: '#999' }}>{t('common.loading')}</span>
               const { conditions, podStatus } = status
               const phaseColor: Record<string, string> = {
                 Running: 'success',
@@ -198,15 +203,15 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
                   >
                     <span>↳</span>
                     <span>{r.namespace} / {r.name}</span>
-                    <span style={{ color: '#999', fontWeight: 400 }}>— 状态详情</span>
+                    <span style={{ color: '#999', fontWeight: 400 }}>— {t('waypoint.detailTitle')}</span>
                   </div>
                   <Row gutter={24}>
                     {podStatus && (
                       <Col span={conditions?.length ? 12 : 24}>
                         <div style={{ marginBottom: conditions?.length ? 0 : 12 }}>
-                          <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>Waypoint Pod</div>
+                          <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>{t('waypoint.waypointPod')}</div>
                           <Descriptions column={1} size="small">
-                            <Descriptions.Item label="概要">{podStatus.message}</Descriptions.Item>
+                            <Descriptions.Item label={t('waypoint.summary')}>{podStatus.message}</Descriptions.Item>
                           </Descriptions>
                           {podStatus.pods?.length ? (
                             <Table
@@ -244,7 +249,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
                                   key: 'ready',
                                   width: 70,
                                   render: (v: boolean) => (
-                                    <Tag color={v ? 'success' : 'default'}>{v ? '是' : '否'}</Tag>
+                                    <Tag color={v ? 'success' : 'default'}>{v ? t('common.yes') : t('common.no')}</Tag>
                                   ),
                                 },
                                 {
@@ -272,7 +277,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
                     {conditions?.length ? (
                       <Col span={podStatus ? 12 : 24}>
                         <div>
-                          <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>Gateway Conditions</div>
+                          <div style={{ fontSize: 13, color: '#666', marginBottom: 8 }}>{t('waypoint.gatewayConditions')}</div>
                           <Table
                             size="small"
                             dataSource={conditions}
@@ -311,7 +316,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
                       </Col>
                     ) : !podStatus ? (
                       <Col span={24}>
-                        <span style={{ color: '#999' }}>无状态详情</span>
+                        <span style={{ color: '#999' }}>{t('waypoint.noStatusDetail')}</span>
                       </Col>
                     ) : null}
                   </Row>

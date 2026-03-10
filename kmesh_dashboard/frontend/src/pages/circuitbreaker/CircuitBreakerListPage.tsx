@@ -1,18 +1,19 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Card, Table, Button, Spin, Alert } from 'antd'
 import { ReloadOutlined, DeleteOutlined } from '@ant-design/icons'
 import { getCircuitBreakerList, deleteCircuitBreaker } from '@/api/circuitbreaker'
 import type { CircuitBreakerItem } from '@/types/circuitbreaker'
 
-const getColumns = (showNamespace: boolean) => [
-  ...(showNamespace ? [{ title: '命名空间', dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
-  { title: '名称', dataIndex: 'name', key: 'name', width: 160 },
-  { title: '目标 Host', dataIndex: 'host', key: 'host', ellipsis: true },
-  { title: '最大连接数', dataIndex: 'maxConnections', key: 'maxConnections', width: 100, render: (v: number) => v ?? '-' },
-  { title: '最大待处理请求', dataIndex: 'maxPendingRequests', key: 'maxPendingRequests', width: 120, render: (v: number) => v ?? '-' },
-  { title: '最大请求数', dataIndex: 'maxRequests', key: 'maxRequests', width: 100, render: (v: number) => v ?? '-' },
-  { title: '最大重试', dataIndex: 'maxRetries', key: 'maxRetries', width: 90, render: (v: number) => v ?? '-' },
-  { title: '连接超时(ms)', dataIndex: 'connectTimeoutMs', key: 'connectTimeoutMs', width: 110, render: (v: number) => v ?? '-' },
+const getColumns = (t: (key: string) => string, showNamespace: boolean) => [
+  ...(showNamespace ? [{ title: t('waypoint.namespace'), dataIndex: 'namespace', key: 'namespace', width: 140 }] : []),
+  { title: t('common.name'), dataIndex: 'name', key: 'name', width: 160 },
+  { title: t('circuitbreaker.host'), dataIndex: 'host', key: 'host', ellipsis: true },
+  { title: t('circuitbreaker.maxConnections'), dataIndex: 'maxConnections', key: 'maxConnections', width: 100, render: (v: number) => v ?? '-' },
+  { title: t('circuitbreaker.maxPendingRequests'), dataIndex: 'maxPendingRequests', key: 'maxPendingRequests', width: 120, render: (v: number) => v ?? '-' },
+  { title: t('circuitbreaker.maxRequests'), dataIndex: 'maxRequests', key: 'maxRequests', width: 100, render: (v: number) => v ?? '-' },
+  { title: t('circuitbreaker.maxRetries'), dataIndex: 'maxRetries', key: 'maxRetries', width: 90, render: (v: number) => v ?? '-' },
+  { title: t('circuitbreaker.connectTimeout'), dataIndex: 'connectTimeoutMs', key: 'connectTimeoutMs', width: 110, render: (v: number) => v ?? '-' },
 ]
 
 interface CircuitBreakerListPageProps {
@@ -21,6 +22,7 @@ interface CircuitBreakerListPageProps {
 }
 
 export default function CircuitBreakerListPage({ selectedNamespace, allNamespaces = false }: CircuitBreakerListPageProps) {
+  const { t } = useTranslation()
   const [list, setList] = useState<CircuitBreakerItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -33,7 +35,7 @@ export default function CircuitBreakerListPage({ selectedNamespace, allNamespace
       const res = await getCircuitBreakerList(allNamespaces ? undefined : selectedNamespace || undefined)
       setList(res.items)
     } catch (e) {
-      setError(e instanceof Error ? e.message : '获取列表失败')
+      setError(e instanceof Error ? e.message : t('circuitbreaker.fetchFailed'))
     } finally {
       setLoading(false)
     }
@@ -46,7 +48,7 @@ export default function CircuitBreakerListPage({ selectedNamespace, allNamespace
       await deleteCircuitBreaker({ namespace: item.namespace, name: item.name })
       await fetchList()
     } catch (e) {
-      setError(e instanceof Error ? e.message : '删除失败')
+      setError(e instanceof Error ? e.message : t('circuitbreaker.deleteFailed'))
     } finally {
       setDeleting(null)
     }
@@ -58,10 +60,10 @@ export default function CircuitBreakerListPage({ selectedNamespace, allNamespace
 
   return (
     <Card
-      title="熔断策略列表"
+      title={t('circuitbreaker.listTitle')}
       extra={
         <Button type="primary" icon={<ReloadOutlined />} onClick={fetchList} loading={loading}>
-          刷新
+          {t('common.refresh')}
         </Button>
       }
     >
@@ -72,9 +74,9 @@ export default function CircuitBreakerListPage({ selectedNamespace, allNamespace
         <Table
           rowKey={(r) => `${r.namespace}/${r.name}`}
           columns={[
-            ...getColumns(allNamespaces),
+            ...getColumns(t, allNamespaces),
             {
-              title: '操作',
+              title: t('common.operation'),
               key: 'action',
               width: 90,
               render: (_: unknown, r: CircuitBreakerItem) => (
@@ -86,7 +88,7 @@ export default function CircuitBreakerListPage({ selectedNamespace, allNamespace
                   loading={deleting === `${r.namespace}/${r.name}`}
                   onClick={() => handleDelete(r)}
                 >
-                  删除
+                  {t('common.delete')}
                 </Button>
               ),
             },

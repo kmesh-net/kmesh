@@ -13,8 +13,20 @@ func docsDir() string {
 	if d := os.Getenv("DOCS_DIR"); d != "" {
 		return d
 	}
-	// 默认：backend 同级目录下的 docs
 	wd, _ := os.Getwd()
+	// 兼容：从 kmesh_dashboard 或 backend 目录启动
+	for _, p := range []string{
+		filepath.Join(wd, "docs"),
+		filepath.Join(wd, "..", "docs"),
+	} {
+		abs, err := filepath.Abs(p)
+		if err != nil {
+			continue
+		}
+		if _, err := os.Stat(abs); err == nil {
+			return abs
+		}
+	}
 	return filepath.Join(wd, "..", "docs")
 }
 
@@ -46,14 +58,31 @@ func Docs() http.HandlerFunc {
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"docs": result})
 			return
 		}
-		// /api/docs/xxx -> 返回文档内容
+		// /api/docs/xxx -> 返回文档内容，支持 ?lang=en 获取英文版
 		if strings.HasPrefix(path, prefix+"/") {
 			name := strings.TrimPrefix(path, prefix+"/")
 			if name == "" || strings.Contains(name, "/") || strings.Contains(name, "..") {
 				http.Error(w, "invalid doc name", http.StatusBadRequest)
 				return
 			}
-			docPath := filepath.Join(docsDir(), name+".md")
+			baseDir := docsDir()
+			docPath := filepath.Join(baseDir, name+".md")
+			// 英文版：优先 X-Doc-Lang: en（前端显式传），其次 ?lang=en，最后 Accept-Language
+			useEn := r.Header.Get("X-Doc-Lang") == "en" || r.URL.Query().Get("lang") == "en"
+			if !useEn && r.Header.Get("Accept-Language") != "" {
+				for _, part := range strings.Split(r.Header.Get("Accept-Language"), ",") {
+					if strings.HasPrefix(strings.TrimSpace(strings.SplitN(part, ";", 2)[0]), "en") {
+						useEn = true
+						break
+					}
+				}
+			}
+			if useEn {
+				enPath := filepath.Join(baseDir, "en", name+".md")
+				if _, err := os.Stat(enPath); err == nil {
+					docPath = enPath
+				}
+			}
 			data, err := os.ReadFile(docPath)
 			if err != nil {
 				http.Error(w, "doc not found", http.StatusNotFound)
