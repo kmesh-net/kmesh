@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Card, Form, Input, Select, InputNumber, Button, Alert, Space } from 'antd'
+import { Card, Form, Input, Select, InputNumber, Button, Alert, Space, Typography } from 'antd'
 import { ThunderboltOutlined } from '@ant-design/icons'
 import { applyCircuitBreaker } from '@/api/circuitbreaker'
 import { getServiceList } from '@/api/services'
@@ -71,13 +71,16 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
         layout="vertical"
         onFinish={onFinish}
       >
-        <Form.Item name="name" label={t('circuitbreaker.drName')} rules={[{ required: true }]}>
+        <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 16, fontSize: 12 }}>
+          {t('circuitbreaker.requiredFields')}；{t('circuitbreaker.optionalFields')}
+        </Typography.Text>
+        <Form.Item name="name" label={t('circuitbreaker.drName')} rules={[{ required: true, message: t('common.required') }]}>
           <Input placeholder={t('circuitbreaker.drNamePlaceholder')} />
         </Form.Item>
         <Form.Item
           name="host"
           label={t('circuitbreaker.hostLabel')}
-          rules={[{ required: true }]}
+          rules={[{ required: true, message: t('common.required') }]}
           extra={t('circuitbreaker.hostExtra')}
         >
           <Input placeholder={t('circuitbreaker.hostPlaceholder')} />
@@ -100,23 +103,47 @@ export default function CircuitBreakerFormPage({ selectedNamespace }: CircuitBre
             }}
           />
         </Form.Item>
-        <Form.Item name="maxConnections" label={t('circuitbreaker.maxConnections')}>
-          <InputNumber min={1} max={100000} style={{ width: '100%' }} placeholder="TCP" />
+        <Form.Item
+          name="maxConnections"
+          label={t('circuitbreaker.maxConnections')}
+          extra={t('circuitbreaker.maxConnectionsExtra')}
+        >
+          <InputNumber min={1} max={100000} style={{ width: '100%' }} placeholder={t('circuitbreaker.maxConnectionsPlaceholder')} />
         </Form.Item>
-        <Form.Item name="maxPendingRequests" label={t('circuitbreaker.maxPendingRequests')}>
-          <InputNumber min={1} max={100000} style={{ width: '100%' }} placeholder="HTTP" />
+        <Form.Item
+          name="maxPendingRequests"
+          label={t('circuitbreaker.maxPendingRequests')}
+          extra={t('circuitbreaker.maxPendingRequestsExtra')}
+        >
+          <InputNumber min={1} max={100000} style={{ width: '100%' }} placeholder={t('circuitbreaker.maxPendingRequestsPlaceholder')} />
         </Form.Item>
-        <Form.Item name="maxRequests" label={t('circuitbreaker.maxRequests')}>
-          <InputNumber min={1} max={100000} style={{ width: '100%' }} />
+        <Form.Item
+          name="maxRequests"
+          label={t('circuitbreaker.maxRequests')}
+          extra={t('circuitbreaker.maxRequestsExtra')}
+        >
+          <InputNumber min={1} max={100000} style={{ width: '100%' }} placeholder={t('circuitbreaker.maxRequestsPlaceholder')} />
         </Form.Item>
-        <Form.Item name="maxRetries" label={t('circuitbreaker.maxRetries')}>
-          <InputNumber min={0} max={100} style={{ width: '100%' }} />
+        <Form.Item
+          name="maxRetries"
+          label={t('circuitbreaker.maxRetries')}
+          extra={t('circuitbreaker.maxRetriesExtra')}
+        >
+          <InputNumber min={0} max={100} style={{ width: '100%' }} placeholder={t('circuitbreaker.maxRetriesPlaceholder')} />
         </Form.Item>
-        <Form.Item name="connectTimeoutMs" label={t('circuitbreaker.connectTimeout')}>
-          <InputNumber min={1} max={300000} style={{ width: '100%' }} placeholder="connectTimeout" />
+        <Form.Item
+          name="connectTimeoutMs"
+          label={t('circuitbreaker.connectTimeout')}
+          extra={t('circuitbreaker.connectTimeoutExtra')}
+        >
+          <InputNumber min={1} max={300000} style={{ width: '100%' }} placeholder={t('circuitbreaker.connectTimeoutPlaceholder')} />
         </Form.Item>
-        <Form.Item name="maxRequestsPerConnection" label={t('circuitbreaker.maxRequestsPerConn')}>
-          <InputNumber min={1} max={1000} style={{ width: '100%' }} />
+        <Form.Item
+          name="maxRequestsPerConnection"
+          label={t('circuitbreaker.maxRequestsPerConn')}
+          extra={t('circuitbreaker.maxRequestsPerConnExtra')}
+        >
+          <InputNumber min={1} max={1000} style={{ width: '100%' }} placeholder={t('circuitbreaker.maxRequestsPerConnPlaceholder')} />
         </Form.Item>
         <Form.Item>
           <Space>
