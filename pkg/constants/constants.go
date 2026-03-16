@@ -24,8 +24,14 @@ const (
 	DataPlaneModeLabel = "istio.io/dataplane-mode"
 	// DataPlaneModeKmesh is the value of the label to indicate the data plane mode is kmesh
 	DataPlaneModeKmesh = "kmesh"
+	// DataPlaneLabel is the label used to indicate the data plane
+	DataPlaneLabel = "istio.io/dataplane"
 	// This annotation is used to indicate traffic redirection settings specific to Kmesh
 	KmeshRedirectionAnnotation = "kmesh.net/redirection"
+	// KmeshManagedLabel is the label used to indicate the pod is managed by Kmesh
+	KmeshManagedLabel = "kmesh.net/managed"
+	// KmeshManagedValue is the value of KmeshManagedLabel
+	KmeshManagedValue = "true"
 
 	XDP_PROG_NAME = "xdp_authz"
 	ENABLED       = uint32(1)
