@@ -513,13 +513,13 @@ func (s *Server) configDumpServices(w http.ResponseWriter, r *http.Request) {
 		serviceDump = append(serviceDump, ConvertService(svc))
 	}
 
-	w.WriteHeader(http.StatusOK)
 	data, err := json.MarshalIndent(serviceDump, "", "    ")
 	if err != nil {
 		log.Errorf("Failed to marshal services: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
 }
 
@@ -537,13 +537,13 @@ func (s *Server) configDumpPolicies(w http.ResponseWriter, r *http.Request) {
 		policyDump = append(policyDump, ConvertAuthorizationPolicy(policy))
 	}
 
-	w.WriteHeader(http.StatusOK)
 	data, err := json.MarshalIndent(policyDump, "", "    ")
 	if err != nil {
 		log.Errorf("Failed to marshal policies: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
 }
 
