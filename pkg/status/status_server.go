@@ -505,22 +505,8 @@ func (s *Server) configDumpServices(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := s.xdsClient
-	services := client.WorkloadController.Processor.ServiceCache.List()
-
-	serviceDump := make([]*Service, 0, len(services))
-	for _, svc := range services {
-		serviceDump = append(serviceDump, ConvertService(svc))
-	}
-
-	data, err := json.MarshalIndent(serviceDump, "", "    ")
-	if err != nil {
-		log.Errorf("Failed to marshal services: %v", err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(data)
+	services := s.xdsClient.WorkloadController.Processor.ServiceCache.List()
+	dumpJSON(w, services, ConvertService, "services")
 }
 
 // configDumpPolicies dumps all security (RBAC) policies
@@ -529,17 +515,20 @@ func (s *Server) configDumpPolicies(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := s.xdsClient
-	policies := client.WorkloadController.Rbac.PoliciesList()
+	policies := s.xdsClient.WorkloadController.Rbac.PoliciesList()
+	dumpJSON(w, policies, ConvertAuthorizationPolicy, "policies")
+}
 
-	policyDump := make([]*AuthorizationPolicy, 0, len(policies))
-	for _, policy := range policies {
-		policyDump = append(policyDump, ConvertAuthorizationPolicy(policy))
+// dumpJSON is a generic helper to marshal and write a slice of items as JSON.
+func dumpJSON[T any, U any](w http.ResponseWriter, items []T, converter func(T) U, subject string) {
+	dump := make([]U, 0, len(items))
+	for _, item := range items {
+		dump = append(dump, converter(item))
 	}
 
-	data, err := json.MarshalIndent(policyDump, "", "    ")
+	data, err := json.MarshalIndent(dump, "", "    ")
 	if err != nil {
-		log.Errorf("Failed to marshal policies: %v", err)
+		log.Errorf("Failed to marshal %s: %v", subject, err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
