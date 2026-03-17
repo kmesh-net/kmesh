@@ -62,7 +62,7 @@ func InitMaglevMap() error {
 
 	outer_map, err := ebpf.LoadPinnedMap("/sys/fs/bpf"+"/bpf_kmesh/map/"+MaglevOuterMapName, opt)
 	if err != nil {
-		return fmt.Errorf("load outer map of maglev failed err: %v", err)
+		return fmt.Errorf("load outer map of maglev failed err: %w", err)
 	}
 	outer = outer_map
 
@@ -96,7 +96,7 @@ func CreateLB(cluster *cluster_v2.Cluster) error {
 
 	err = updateMaglevTable(backendIDs, clusterName)
 	if err != nil {
-		return fmt.Errorf("updateMaglevTable fail err:%v", err)
+		return fmt.Errorf("updateMaglevTable fail err:%w", err)
 	}
 
 	return nil

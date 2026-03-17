@@ -104,7 +104,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		}
 		c.ipsecController, err = ipsec.NewController(clientset, kniMap, decryptProg)
 		if err != nil {
-			return fmt.Errorf("failed to new IPsec controller, %v", err)
+			return fmt.Errorf("failed to new IPsec controller, %w", err)
 		}
 		go c.ipsecController.Run(stopCh)
 		log.Info("start IPsec controller successfully")
@@ -117,7 +117,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		if c.enableSecretManager {
 			secertManager, err = security.NewSecretManager()
 			if err != nil {
-				return fmt.Errorf("secretManager create failed: %v", err)
+				return fmt.Errorf("secretManager create failed: %w", err)
 			}
 			go secertManager.Run(stopCh)
 		}
@@ -127,7 +127,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, tcFd, c.mode)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to start kmesh manage controller: %v", err)
+		return fmt.Errorf("failed to start kmesh manage controller: %w", err)
 	}
 	go kmeshManageController.Run(stopCh)
 	log.Info("start kmesh manage controller successfully")
@@ -155,14 +155,14 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	// If the startup parameter is false, update the kmeshConfigMap.
 	if !c.bpfConfig.EnableMonitoring {
 		if err := c.loader.UpdateEnableMonitoring(constants.DISABLED); err != nil {
-			return fmt.Errorf("failed to update config in order to start metric: %v", err)
+			return fmt.Errorf("failed to update config in order to start metric: %w", err)
 		}
 	}
 	// kmeshConfigMap.PeriodicReport initialized to uint32(0).
 	// If the startup parameter is true, update the kmeshConfigMap.
 	if c.bpfConfig.EnablePeriodicReport && c.bpfConfig.EnableMonitoring {
 		if err := c.loader.UpdateEnablePeriodicReport(constants.ENABLED); err != nil {
-			return fmt.Errorf("failed to update config in order to start periodic report: %v", err)
+			return fmt.Errorf("failed to update config in order to start periodic report: %w", err)
 		}
 	}
 
@@ -173,10 +173,10 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 
 	if c.client.WorkloadController != nil {
 		if err := c.client.WorkloadController.Run(ctx, stopCh); err != nil {
-			return fmt.Errorf("failed to start workload controller: %+v", err)
+			return fmt.Errorf("failed to start workload controller: %w", err)
 		}
 		if err := c.setupDNSProxy(); err != nil {
-			return fmt.Errorf("failed to start dns proxy: %+v", err)
+			return fmt.Errorf("failed to start dns proxy: %w", err)
 		}
 	} else {
 		c.client.AdsController.StartDnsController(stopCh)
@@ -212,7 +212,7 @@ func (c *Controller) setupDNSProxy() error {
 	if workload.EnableDNSProxy {
 		server, err := dnsclient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
 		if err != nil {
-			return fmt.Errorf("failed to start local dns server: %v", err)
+			return fmt.Errorf("failed to start local dns server: %w", err)
 		}
 		ntb := dns.NewNameTableBuilder(c.client.WorkloadController.Processor.ServiceCache, c.client.WorkloadController.Processor.WorkloadCache)
 

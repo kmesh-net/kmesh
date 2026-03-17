@@ -116,7 +116,7 @@ func ClusterUpdate(key string, value *cluster_v2.Cluster) error {
 
 	cMsg, err := clusterToClang(value)
 	if err != nil {
-		return fmt.Errorf("ClusterUpdate %s", err)
+		return fmt.Errorf("ClusterUpdate %w", err)
 	}
 	if cMsg == nil {
 		return nil

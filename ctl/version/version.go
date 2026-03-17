@@ -55,7 +55,7 @@ kmeshctl version <kmesh-daemon-pod>`,
 func runVersion(cmd *cobra.Command, args []string) error {
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
-		return fmt.Errorf("failed to create kube client: %v", err)
+		return fmt.Errorf("failed to create kube client: %w", err)
 	}
 
 	if len(args) == 0 {
@@ -68,7 +68,7 @@ func runVersion(cmd *cobra.Command, args []string) error {
 
 		podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
 		if err != nil {
-			return fmt.Errorf("failed to get kmesh daemon pods: %v", err)
+			return fmt.Errorf("failed to get kmesh daemon pods: %w", err)
 		}
 
 		daemonVersions := map[string]int{}
@@ -102,7 +102,7 @@ func runVersion(cmd *cobra.Command, args []string) error {
 	}
 	data, err := json.MarshalIndent(&v, "", "  ")
 	if err != nil {
-		return fmt.Errorf("failed to marshal version info: %v", err)
+		return fmt.Errorf("failed to marshal version info: %w", err)
 	}
 	cmd.Printf("%s\n", string(data))
 	return nil
@@ -112,27 +112,27 @@ func getVersion(client kube.CLIClient, podName string) (version.Info, error) {
 	v := version.Info{}
 	fw, err := utils.CreateKmeshPortForwarder(client, podName)
 	if err != nil {
-		return v, fmt.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		return v, fmt.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %w", podName, err)
 	}
 	if err := fw.Start(); err != nil {
-		return v, fmt.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		return v, fmt.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %w", podName, err)
 	}
 	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s/version", fw.Address())
 	resp, err := http.Get(url)
 	if err != nil {
-		return v, fmt.Errorf("failed to make HTTP request: %v", err)
+		return v, fmt.Errorf("failed to make HTTP request: %w", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return v, fmt.Errorf("failed to read HTTP response body: %v", err)
+		return v, fmt.Errorf("failed to read HTTP response body: %w", err)
 	}
 
 	if err := json.Unmarshal(body, &v); err != nil {
-		return v, fmt.Errorf("failed to unmarshal version info: %v", err)
+		return v, fmt.Errorf("failed to unmarshal version info: %w", err)
 	}
 
 	return v, nil
