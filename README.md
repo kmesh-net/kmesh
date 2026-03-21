@@ -77,7 +77,10 @@ Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to p
 
 ## Quick Start
 
-Please refer to [quick start](https://kmesh.net/en/docs/setup/quick-start/) and [user guide](docs/kmesh_demo.md) to try Kmesh quickly.
+Please refer to the following guides to try Kmesh:
+- [Quick Start](https://kmesh.net/en/docs/setup/quick-start/): Official website guide.
+- [ADS Mode Deployment](docs/en/ads_mode_deployment_and_usage.md): Guided setup for ADS (Kernel-Native) mode.
+- [User Guide](docs/en/kmesh_demo.md): Demo with Bookinfo.
 
 ### Guided Install
 
