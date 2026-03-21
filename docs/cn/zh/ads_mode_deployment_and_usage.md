@@ -45,9 +45,13 @@ kubectl label namespace <your-namespace> istio.io/dataplane-mode=kmesh
 kubectl logs -n kmesh-system <kmesh-pod-name>
 ```
 
-验证 BPF map 是否已填充：
+通过查询 Kmesh 管理控制台，验证 BPF map 是否已成功填充且配置已生效。您可以将 Kmesh pod 的状态端口（15200）端口转发到本地进行访问：
+
 ```bash
-# 获取管理控制台状态
+# 为 Kmesh pod 状态端口设置端口转发
+kubectl port-forward -n kmesh-system <kmesh-pod-name> 15200:15200
+
+# 在另一个终端中查询 BPF 配置转储
 curl http://localhost:15200/debug/config_dump/bpf/kernel-native
 ```
 

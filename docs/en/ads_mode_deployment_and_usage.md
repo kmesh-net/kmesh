@@ -45,9 +45,13 @@ Check the Kmesh pod logs to confirm successful xDS subscription:
 kubectl logs -n kmesh-system <kmesh-pod-name>
 ```
 
-Verify the BPF maps are populated (on the node):
+Verify the BPF maps are successfully populated and the configuration is applied. You can access the Kmesh admin console by port-forwarding the status port (15200) from a Kmesh pod to your local machine:
+
 ```bash
-# Get the admin console status
+# Port-forward the Kmesh status port
+kubectl port-forward -n kmesh-system <kmesh-pod-name> 15200:15200
+
+# In a separate terminal, query the BPF configuration dump
 curl http://localhost:15200/debug/config_dump/bpf/kernel-native
 ```
 
