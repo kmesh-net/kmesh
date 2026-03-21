@@ -165,7 +165,7 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
     if (match->n_not_destination_ports != 0) {
         notPorts = KMESH_GET_PTR_VAL(match->not_destination_ports, void *);
         if (!notPorts) {
-            BPF_LOG(ERR, AUTH, "failed to retrieve not_destination_ports pointer for [%s:%u]\n",
+            BPF_LOG(ERR, AUTH, "failed to retrieve not_destination_ports pointer for src=[%s:%u]\n",
                 ip2str((__u32 *)&tuple_info->ipv4.saddr, (info->iph->version == 4)), dport);
             return UNMATCHED;
         }
@@ -187,7 +187,7 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
 
     ports = KMESH_GET_PTR_VAL(match->destination_ports, void *);
     if (!ports) {
-        BPF_LOG(ERR, AUTH, "failed to retrieve destination_ports pointer for [%s:%u]\n",
+        BPF_LOG(ERR, AUTH, "failed to retrieve destination_ports pointer for src=[%s:%u]\n",
             ip2str((__u32 *)&tuple_info->ipv4.saddr, (info->iph->version == 4)), dport);
         return UNMATCHED;
     }
@@ -628,8 +628,8 @@ int policy_check(struct xdp_md *ctx)
 
     match_ctx = bpf_map_lookup_elem(&kmesh_tc_args, &tuple_key);
     if (!match_ctx) {
-        BPF_LOG(ERR, AUTH, "failed to retrieve match_context from map for [%s:%u]\n",
-            ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph.version == 4)), tuple_key.ipv4.sport);
+        BPF_LOG(ERR, AUTH, "failed to retrieve match_context from map for src=[%s:%u]\n",
+            ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph->version == 4)), tuple_key.ipv4.sport);
         return XDP_PASS;
     }
     for (i = 0; i < MAX_MEMBER_NUM_PER_POLICY; i++) {
@@ -658,10 +658,10 @@ int policy_check(struct xdp_md *ctx)
     }
 
     if (matched) {
-        BPF_LOG(INFO, AUTH, "policy %s matched for [%s:%u] -> [%s:%u]\n",
+        BPF_LOG(INFO, AUTH, "policy %s matched, src=[%s:%u], dst=[%s:%u]\n",
             match_ctx->policy_name,
-            ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph.version == 4)), tuple_key.ipv4.sport,
-            ip2str((__u32 *)&tuple_key.ipv4.daddr, (info.iph.version == 4)), tuple_key.ipv4.dport);
+            ip2str_idx((__u32 *)&tuple_key.ipv4.saddr, (info.iph->version == 4), 0), tuple_key.ipv4.sport,
+            ip2str_idx((__u32 *)&tuple_key.ipv4.daddr, (info.iph->version == 4), 1), tuple_key.ipv4.dport);
         if (info.iph->version == IPV4_VERSION) {
             BPF_LOG(DEBUG, AUTH, "src ip: %s, src port:%u", ip2str(&tuple_key.ipv4.saddr, true), tuple_key.ipv4.sport);
             BPF_LOG(
@@ -672,13 +672,13 @@ int policy_check(struct xdp_md *ctx)
                 DEBUG, AUTH, "dst ip: %s, dst port:%u\n", ip2str(tuple_key.ipv6.daddr, false), tuple_key.ipv6.dport);
         }
         if (bpf_map_delete_elem(&kmesh_tc_args, &tuple_key) != 0) {
-            BPF_LOG(ERR, AUTH, "failed to delete tail call context from map for [%s:%u]\n",
-                ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph.version == 4)), tuple_key.ipv4.sport);
+            BPF_LOG(ERR, AUTH, "failed to delete tail call context from map for src=[%s:%u]\n",
+                ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph->version == 4)), tuple_key.ipv4.sport);
         }
         __u32 auth_result = match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? AUTH_DENY : AUTH_ALLOW;
         if (bpf_map_update_elem(&map_of_auth_result, &tuple_key, &auth_result, BPF_ANY) != 0) {
-            BPF_LOG(ERR, AUTH, "failed to update auth result in map_of_auth_result for [%s:%u]\n",
-                ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph.version == 4)), tuple_key.ipv4.sport);
+            BPF_LOG(ERR, AUTH, "failed to update auth result in map_of_auth_result for src=[%s:%u]\n",
+                ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph->version == 4)), tuple_key.ipv4.sport);
         }
         return match_ctx->action == ISTIO__SECURITY__ACTION__DENY ? XDP_DROP : XDP_PASS;
     }
@@ -689,8 +689,8 @@ int policy_check(struct xdp_md *ctx)
 
     ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, match_ctx, BPF_ANY);
     if (ret < 0) {
-        BPF_LOG(ERR, AUTH, "failed to update match_ctx in map for [%s:%u], error: %d\n",
-            ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph.version == 4)), tuple_key.ipv4.sport, ret);
+        BPF_LOG(ERR, AUTH, "failed to update match_ctx in map for src=[%s:%u], error: %d\n",
+            ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph->version == 4)), tuple_key.ipv4.sport, ret);
         return XDP_PASS;
     }
     bpf_tail_call(ctx, &map_of_xdp_tailcall, TAIL_CALL_POLICIES_CHECK);

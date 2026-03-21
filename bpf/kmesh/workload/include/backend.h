@@ -47,7 +47,7 @@ static inline int svc_dnat(struct kmesh_context *kmesh_ctx, backend_value *backe
     BPF_LOG(
         ERR,
         BACKEND,
-        "svc_dnat: cannot find matched service port [%s:%u]\n",
+        "svc_dnat: cannot find matched service port for dst=[%s:%u]\n",
         ip2str((__u32 *)&backend_v->addr.ip6, ctx->family == AF_INET),
         bpf_ntohs(ctx->user_port));
     return -ENOENT;
@@ -64,7 +64,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
         BPF_LOG(
             INFO,
             BACKEND,
-            "route to waypoint [%s:%u]\n",
+            "route to waypoint dst=[%s:%u]\n",
             ip2str((__u32 *)&backend_v->wp_addr, ctx->family == AF_INET),
             bpf_ntohs(backend_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);
@@ -76,7 +76,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
         BPF_LOG(
             INFO,
             BACKEND,
-            "svc %u dnat to [%s:%u]\n",
+            "svc %u dnat to dst=[%s:%u]\n",
             service_id,
             ip2str((__u32 *)&kmesh_ctx->dnat_ip, ctx->family == AF_INET),
             bpf_ntohs(kmesh_ctx->dnat_port));

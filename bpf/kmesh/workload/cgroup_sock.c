@@ -37,10 +37,10 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     BPF_LOG(
         DEBUG,
         KMESH,
-        "origin dst addr=[%u:%s:%u]\n",
-        ctx->family,
+        "origin dst addr=[%s:%u], family=[%u]\n",
         ip2str((__u32 *)&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
-        bpf_ntohs(ctx->user_port));
+        bpf_ntohs(ctx->user_port),
+        ctx->family);
 
     frontend_v = map_lookup_frontend(&frontend_k);
     if (!frontend_v) {
@@ -50,7 +50,7 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     ret = frontend_manager(kmesh_ctx, frontend_v);
     if (ret != 0) {
         if (ret != -ENOENT)
-            BPF_LOG(ERR, KMESH, "frontend_manager failed for [%s:%u], ret:%d\n",
+            BPF_LOG(ERR, KMESH, "frontend_manager failed for dst=[%s:%u], ret:%d\n",
                 ip2str((__u32 *)&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
                 bpf_ntohs(ctx->user_port), ret);
         return ret;
@@ -67,7 +67,7 @@ static inline int set_original_dst_info(struct kmesh_context *kmesh_ctx)
     struct sock_storage_data *storage = NULL;
     storage = bpf_sk_storage_get(&map_of_sock_storage, sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!storage) {
-        BPF_LOG(ERR, KMESH, "failed to get storage for [%s:%u]\n",
+        BPF_LOG(ERR, KMESH, "failed to get storage for dst=[%s:%u]\n",
             ip2str((__u32 *)&kmesh_ctx->orig_dst_addr, (ctx->family == AF_INET)),
             bpf_ntohs(ctx->user_port));
         return 0;
@@ -115,7 +115,7 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 
         kmesh_ctx.dnat_ip.ip4 = backend_v->addr.ip4;
         if (set_original_dst_info(&kmesh_ctx)) {
-            BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info for [%s:53]\n",
+            BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info for dst=[%s:53]\n",
                 ip2str((__u32 *)&kmesh_ctx.orig_dst_addr.ip4, true));
             return CGROUP_SOCK_OK;
         }
@@ -135,7 +135,7 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
     }
     ret = set_original_dst_info(&kmesh_ctx);
     if (ret) {
-        BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info for [%s:%u], ret is %d\n",
+        BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info for dst=[%s:%u], ret is %d\n",
             ip2str((__u32 *)&kmesh_ctx.orig_dst_addr.ip4, true), bpf_ntohs(ctx->user_port), ret);
         return CGROUP_SOCK_OK;
     }
@@ -145,7 +145,7 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
         kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT4_INDEX);
 
         // if tail call failed will run this code
-        BPF_LOG(ERR, KMESH, "workload tail call failed for [%s:%u], err is %d\n",
+        BPF_LOG(ERR, KMESH, "workload tail call failed for dst=[%s:%u], err is %d\n",
             ip2str((__u32 *)&kmesh_ctx.orig_dst_addr.ip4, true), bpf_ntohs(ctx->user_port), ret);
     }
 
@@ -165,7 +165,7 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
         return CGROUP_SOCK_OK;
     }
 
-    BPF_LOG(DEBUG, KMESH, "enter cgroup/connect6 for [%s:%u]\n",
+    BPF_LOG(DEBUG, KMESH, "enter cgroup/connect6 for dst=[%s:%u]\n",
         ip2str((__u32 *)&kmesh_ctx.orig_dst_addr, false), bpf_ntohs(ctx->user_port));
     if (ctx->protocol != IPPROTO_TCP)
         return CGROUP_SOCK_OK;
@@ -179,7 +179,7 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
 
     ret = set_original_dst_info(&kmesh_ctx);
     if (ret) {
-        BPF_LOG(ERR, KMESH, "[IPv6]failed to set original destination info for [%s:%u], ret is %d\n",
+        BPF_LOG(ERR, KMESH, "[IPv6]failed to set original destination info for dst=[%s:%u], ret is %d\n",
             ip2str((__u32 *)&kmesh_ctx.orig_dst_addr, false), bpf_ntohs(ctx->user_port), ret);
         return CGROUP_SOCK_OK;
     }
@@ -192,7 +192,7 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
         kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT6_INDEX);
 
         // if tail call failed will run this code
-        BPF_LOG(ERR, KMESH, "workload tail call6 failed for [%s:%u], err is %d\n",
+        BPF_LOG(ERR, KMESH, "workload tail call6 failed for dst=[%s:%u], err is %d\n",
             ip2str((__u32 *)&kmesh_ctx.orig_dst_addr, false), bpf_ntohs(ctx->user_port), ret);
     }
 
@@ -226,7 +226,7 @@ int bpf_redirect_dns_send(struct bpf_sock_addr *ctx)
 
     int ret = set_original_dst_info(&kmesh_ctx);
     if (ret) {
-        BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info for DNS [%s:53], ret is %d\n",
+        BPF_LOG(ERR, KMESH, "[IPv4]failed to set original destination info for DNS dst=[%s:53], ret is %d\n",
             ip2str((__u32 *)&kmesh_ctx.orig_dst_addr.ip4, true), ret);
         return CGROUP_SOCK_OK;
     }
@@ -264,7 +264,7 @@ int bpf_restore_dns_recv(struct bpf_sock_addr *ctx)
     struct sock_storage_data *storage = NULL;
     storage = bpf_sk_storage_get(&map_of_sock_storage, ctx->sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
     if (!storage) {
-        BPF_LOG(ERR, KMESH, "failed to get storage for DNS [%s:53]\n",
+        BPF_LOG(ERR, KMESH, "failed to get storage for DNS dst=[%s:53]\n",
             ip2str((__u32 *)&kmesh_ctx.orig_dst_addr.ip4, true));
         return CGROUP_SOCK_OK;
     }

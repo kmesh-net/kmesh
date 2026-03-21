@@ -40,7 +40,7 @@ static inline int frontend_manager(struct kmesh_context *kmesh_ctx, frontend_val
             BPF_LOG(
                 INFO,
                 FRONTEND,
-                "find waypoint addr=[%s:%u]\n",
+                "find waypoint dst=[%s:%u]\n",
                 ip2str((__u32 *)&backend_v->wp_addr, kmesh_ctx->ctx->family == AF_INET),
                 bpf_ntohs(backend_v->waypoint_port));
             ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);

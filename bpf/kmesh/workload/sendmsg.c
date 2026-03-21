@@ -156,7 +156,7 @@ static inline void encode_metadata_org_dst_addr(struct sk_msg_md *msg, __u32 *of
     if (alloc_dst_length(msg, tlv_size + TLV_END_SIZE))
         return;
 
-    BPF_LOG(DEBUG, SENDMSG, "get valid dst, do encoding for [%s:%u]...\n",
+    BPF_LOG(DEBUG, SENDMSG, "get valid dst, do encoding for dst=[%s:%u]...\n",
         ip2str((__u32 *)&dst_ip, v4), bpf_ntohs(dst_port));
 
     // write T

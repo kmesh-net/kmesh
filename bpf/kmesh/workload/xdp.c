@@ -28,20 +28,6 @@ static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *
 {
     __u32 *value = bpf_map_lookup_elem(&map_of_auth_result, tuple_info);
     if (value && *value == 1) {
-        if (info->iph->version == 4)
-            BPF_LOG(
-                INFO,
-                XDP,
-                "auth denied, src ip: %s, port: %u\n",
-                ip2str(&tuple_info->ipv4.saddr, true),
-                tuple_info->ipv4.sport);
-        else
-            BPF_LOG(
-                INFO,
-                XDP,
-                "auth denied, src ip: %s, port: %u\n",
-                ip2str(&tuple_info->ipv6.saddr[0], false),
-                tuple_info->ipv6.sport);
         bpf_map_delete_elem(&map_of_auth_result, tuple_info);
         return AUTH_FORBID;
     }
@@ -70,7 +56,7 @@ static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct
     }
     frontend_v = kmesh_map_lookup_elem(&map_of_frontend, &frontend_k);
     if (!frontend_v) {
-        BPF_LOG(DEBUG, XDP, "failed to get frontend for [%s] in xdp\n",
+        BPF_LOG(DEBUG, XDP, "failed to get frontend for dst=[%s] in xdp\n",
             ip2str((__u32 *)&frontend_k.addr, (info->iph->version == 4)));
         return AUTH_ALLOW;
     }
@@ -111,8 +97,8 @@ int xdp_authz(struct xdp_md *ctx)
         match_ctx.auth_result = XDP_PASS;
         ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, &match_ctx, BPF_ANY);
         if (ret < 0) {
-            BPF_LOG(ERR, AUTH, "Failed to update kmesh_tc_args for [%s:%u], error: %d\n",
-                ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph.version == 4)), tuple_key.ipv4.sport, ret);
+            BPF_LOG(ERR, AUTH, "Failed to update kmesh_tc_args for src=[%s:%u], error: %d\n",
+                ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph->version == 4)), tuple_key.ipv4.sport, ret);
             return XDP_PASS;
         }
 

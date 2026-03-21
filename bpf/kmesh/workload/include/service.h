@@ -66,7 +66,7 @@ static inline int lb_locality_strict_handle(struct kmesh_context *kmesh_ctx, __u
         kmesh_ctx->dnat_ip = (struct ip_addr){0};
         kmesh_ctx->dnat_port = 0;
         BPF_LOG(
-            ERR, SERVICE, "locality loadbalance match nothing in STRICT mode for [%s:%u], service_id %d ret:%d\n",
+            ERR, SERVICE, "locality loadbalance match nothing in STRICT mode for dst=[%s:%u], service_id %d ret:%d\n",
             ip2str((__u32 *)&kmesh_ctx->orig_dst_addr, (kmesh_ctx->ctx->family == AF_INET)),
             bpf_ntohs(kmesh_ctx->ctx->user_port), service_id, ret);
     }
@@ -113,7 +113,7 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         BPF_LOG(
             INFO,
             SERVICE,
-            "find waypoint addr=[%s:%u]\n",
+            "find waypoint dst=[%s:%u]\n",
             ip2str((__u32 *)&service_v->wp_addr, kmesh_ctx->ctx->family == AF_INET),
             bpf_ntohs(service_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &service_v->wp_addr, service_v->waypoint_port);
@@ -123,7 +123,7 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         return ret;
     }
 
-    BPF_LOG(INFO, SERVICE, "service [%u] lb policy [%u] for [%s:%u]\n",
+    BPF_LOG(INFO, SERVICE, "service [%u] lb policy [%u] for dst=[%s:%u]\n",
         service_id, service_v->lb_policy,
         ip2str((__u32 *)&kmesh_ctx->orig_dst_addr, (kmesh_ctx->ctx->family == AF_INET)),
         bpf_ntohs(kmesh_ctx->ctx->user_port));

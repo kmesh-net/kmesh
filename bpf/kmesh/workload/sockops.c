@@ -146,9 +146,9 @@ static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
     extract_skops_to_tuple(skops, &tuple_info);
     err = bpf_sock_hash_update(skops, &map_of_kmesh_socket, &tuple_info, BPF_ANY);
     if (err)
-        BPF_LOG(ERR, SOCKOPS, "enable encoding metadata failed for [%s:%u], err is %d\n",
-            ip2str((__u32 *)&tuple_info.ipv4.daddr, (skops->family == AF_INET)),
-            bpf_ntohs(tuple_info.ipv4.dport), err);
+        BPF_LOG(ERR, SOCKOPS, "enable encoding metadata failed for src=[%s:%u], dst=[%s:%u], err is %d\n",
+            ip2str_idx((__u32 *)&tuple_info.ipv4.saddr, (skops->family == AF_INET), 0), bpf_ntohs(tuple_info.ipv4.sport),
+            ip2str_idx((__u32 *)&tuple_info.ipv4.daddr, (skops->family == AF_INET), 1), bpf_ntohs(tuple_info.ipv4.dport), err);
 }
 
 SEC("sockops")
@@ -166,9 +166,9 @@ int sockops_prog(struct bpf_sock_ops *skops)
             break;
         observe_on_connect_established(skops->sk, OUTBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
-            BPF_LOG(ERR, SOCKOPS, "set sockops cb failed for [%s:%u]\n",
-                ip2str((__u32 *)&skops->remote_ip4, (skops->family == AF_INET)),
-                bpf_ntohs(GET_SKOPS_REMOTE_PORT(skops)));
+            BPF_LOG(ERR, SOCKOPS, "set sockops cb failed for src=[%s:%u], dst=[%s:%u]\n",
+                ip2str_idx((__u32 *)&skops->local_ip4, (skops->family == AF_INET), 0), skops->local_port,
+                ip2str_idx((__u32 *)&skops->remote_ip4, (skops->family == AF_INET), 1), bpf_ntohs(GET_SKOPS_REMOTE_PORT(skops)));
         struct bpf_sock *sk = (struct bpf_sock *)skops->sk;
         if (!sk) {
             break;
@@ -188,9 +188,9 @@ int sockops_prog(struct bpf_sock_ops *skops)
             break;
         observe_on_connect_established(skops->sk, INBOUND);
         if (bpf_sock_ops_cb_flags_set(skops, BPF_SOCK_OPS_STATE_CB_FLAG) != 0)
-            BPF_LOG(ERR, SOCKOPS, "set sockops cb failed for [%s:%u]\n",
-                ip2str((__u32 *)&skops->remote_ip4, (skops->family == AF_INET)),
-                bpf_ntohs(GET_SKOPS_REMOTE_PORT(skops)));
+            BPF_LOG(ERR, SOCKOPS, "set sockops cb failed for src=[%s:%u], dst=[%s:%u]\n",
+                ip2str_idx((__u32 *)&skops->local_ip4, (skops->family == AF_INET), 0), skops->local_port,
+                ip2str_idx((__u32 *)&skops->remote_ip4, (skops->family == AF_INET), 1), bpf_ntohs(GET_SKOPS_REMOTE_PORT(skops)));
         auth_ip_tuple(skops);
         break;
     case BPF_SOCK_OPS_STATE_CB:

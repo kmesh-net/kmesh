@@ -137,7 +137,7 @@ struct buf {
 };
 struct {
     __uint(type, BPF_MAP_TYPE_PERCPU_ARRAY);
-    __uint(max_entries, 1);
+    __uint(max_entries, 2);
     __type(key, int);
     __type(value, struct buf);
 } tmp_buf SEC(".maps");
@@ -249,12 +249,11 @@ static inline int convert_v6(char *data, __u32 *ip6)
 
 /* 2001:0db8:3333:4444:CCCC:DDDD:EEEE:FFFF */
 /* 192.168.000.001 */
-static inline char *ip2str(__u32 *ip_ptr, bool v4)
+static inline char *ip2str_idx(__u32 *ip_ptr, bool v4, int idx)
 {
     struct buf *buf;
-    int zero = 0;
     int ret;
-    buf = bpf_map_lookup_elem(&tmp_buf, &zero);
+    buf = bpf_map_lookup_elem(&tmp_buf, &idx);
     if (!buf)
         return NULL;
     if (v4) {
@@ -265,6 +264,11 @@ static inline char *ip2str(__u32 *ip_ptr, bool v4)
     if (ret < 0)
         return NULL;
     return buf->data;
+}
+
+static inline char *ip2str(__u32 *ip_ptr, bool v4)
+{
+    return ip2str_idx(ip_ptr, v4, 0);
 }
 
 #endif // _COMMON_H_
