@@ -70,7 +70,8 @@ static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct
     }
     frontend_v = kmesh_map_lookup_elem(&map_of_frontend, &frontend_k);
     if (!frontend_v) {
-        BPF_LOG(DEBUG, XDP, "failed to get frontend in xdp");
+        BPF_LOG(DEBUG, XDP, "failed to get frontend for [%s] in xdp\n",
+            ip2str((__u32 *)&frontend_k.addr, (info->iph->version == 4)));
         return AUTH_ALLOW;
     }
     workload_uid = frontend_v->upstream_id;
@@ -110,7 +111,8 @@ int xdp_authz(struct xdp_md *ctx)
         match_ctx.auth_result = XDP_PASS;
         ret = bpf_map_update_elem(&kmesh_tc_args, &tuple_key, &match_ctx, BPF_ANY);
         if (ret < 0) {
-            BPF_LOG(ERR, AUTH, "Failed to update map, error: %d", ret);
+            BPF_LOG(ERR, AUTH, "Failed to update kmesh_tc_args for [%s:%u], error: %d\n",
+                ip2str((__u32 *)&tuple_key.ipv4.saddr, (info.iph.version == 4)), tuple_key.ipv4.sport, ret);
             return XDP_PASS;
         }
 

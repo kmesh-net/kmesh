@@ -62,9 +62,9 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
 
     if (backend_v->waypoint_port != 0) {
         BPF_LOG(
-            DEBUG,
+            INFO,
             BACKEND,
-            "route to waypoint[%s:%u]\n",
+            "route to waypoint [%s:%u]\n",
             ip2str((__u32 *)&backend_v->wp_addr, ctx->family == AF_INET),
             bpf_ntohs(backend_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &backend_v->wp_addr, backend_v->waypoint_port);
@@ -74,7 +74,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
     ret = svc_dnat(kmesh_ctx, backend_v, service_v);
     if (ret == 0) {
         BPF_LOG(
-            DEBUG,
+            INFO,
             BACKEND,
             "svc %u dnat to [%s:%u]\n",
             service_id,
