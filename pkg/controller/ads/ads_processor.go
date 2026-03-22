@@ -73,7 +73,7 @@ func newAdsRequest(typeUrl string, names []string, nonce string) *service_discov
 		ResourceNames: names,
 		ResponseNonce: nonce,
 		ErrorDetail:   nil,
-		Node:          config.GetConfig(constants.KernelNativeMode).GetNode(),
+		Node:          config.GetConfig(constants.AdsV1Mode).GetNode(),
 	}
 }
 
@@ -84,7 +84,7 @@ func newAckRequest(resp *service_discovery_v3.DiscoveryResponse) *service_discov
 		ResourceNames: []string{},
 		ResponseNonce: resp.GetNonce(),
 		ErrorDetail:   nil,
-		Node:          config.GetConfig(constants.KernelNativeMode).GetNode(),
+		Node:          config.GetConfig(constants.AdsV1Mode).GetNode(),
 	}
 }
 

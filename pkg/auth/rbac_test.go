@@ -1983,7 +1983,7 @@ func TestRbac_doRbac(t *testing.T) {
 
 func Test_handleAuthorizationTypeResponse(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.DualEngineMode,
+		Mode:        constants.AdsV2Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}

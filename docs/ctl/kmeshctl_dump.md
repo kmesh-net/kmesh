@@ -1,6 +1,6 @@
 ## kmeshctl dump
 
-Dump config of kernel-native or dual-engine mode
+Dump config of ads-v1 or ads-v2 mode
 
 ```bash
 kmeshctl dump [flags]
@@ -9,14 +9,14 @@ kmeshctl dump [flags]
 ### Examples
 
 ```bash
-# Kernel Native mode (table output):
-kmeshctl dump <kmesh-daemon-pod> kernel-native
+# Ads-v1 mode (table output):
+kmeshctl dump <kmesh-daemon-pod> ads-v1
 
-# Dual Engine mode (table output):
-kmeshctl dump <kmesh-daemon-pod> dual-engine
+# Ads-v2 mode (table output):
+kmeshctl dump <kmesh-daemon-pod> ads-v2
 
 # Output as raw JSON:
-kmeshctl dump <kmesh-daemon-pod> kernel-native -o json
+kmeshctl dump <kmesh-daemon-pod> ads-v1 -o json
 ```
 
 ### Options

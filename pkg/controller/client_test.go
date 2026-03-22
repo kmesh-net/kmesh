@@ -38,7 +38,7 @@ import (
 
 func TestRecoverConnection(t *testing.T) {
 	t.Run("test reconnect success", func(t *testing.T) {
-		utClient, err := NewXdsClient(constants.KernelNativeMode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
+		utClient, err := NewXdsClient(constants.AdsV1Mode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
 		assert.NoError(t, err)
 		patches := gomonkey.NewPatches()
 		defer patches.Reset()
@@ -80,7 +80,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient, err := NewXdsClient(constants.KernelNativeMode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
+		utClient, err := NewXdsClient(constants.AdsV1Mode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
 		assert.NoError(t, err)
 		err = utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
@@ -100,7 +100,7 @@ func TestClientResponseProcess(t *testing.T) {
 			})
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
-		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsController), "HandleAdsStream",
+		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsV1Controller), "HandleAdsStream",
 			func() error {
 				// if the number of loops is less than or equal to two, an error is reported and a retry is triggered.
 				if iteration < 2 {
@@ -128,7 +128,7 @@ func TestClientResponseProcess(t *testing.T) {
 				}))
 		})
 
-		utClient, err := NewXdsClient(constants.DualEngineMode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
+		utClient, err := NewXdsClient(constants.AdsV2Mode, &bpfads.BpfAds{}, &bpfwl.BpfWorkload{}, false, false)
 		assert.NoError(t, err)
 		err = utClient.createGrpcStreamClient()
 		assert.NoError(t, err)
@@ -148,7 +148,7 @@ func TestClientResponseProcess(t *testing.T) {
 			})
 		streamPatches := gomonkey.NewPatches()
 		defer streamPatches.Reset()
-		streamPatches.ApplyMethod(reflect.TypeOf(utClient.WorkloadController), "HandleWorkloadStream",
+		streamPatches.ApplyMethod(reflect.TypeOf(utClient.AdsV2Controller), "HandleWorkloadStream",
 			func(_ *workload.Controller) error {
 				if iteration < 2 {
 					return errors.New("stream recv failed")

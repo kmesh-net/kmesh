@@ -709,7 +709,7 @@ func Test_linkXdp(t *testing.T) {
 			args{
 				"test_ns_path",
 				newTextXdpProg(t, "new_xdp").FD(),
-				constants.DualEngineMode,
+				constants.AdsV2Mode,
 			},
 			false,
 		},
@@ -745,7 +745,7 @@ func Test_unlinkXdp(t *testing.T) {
 			"UnLink XDP program, no error",
 			args{
 				"test_ns_path",
-				constants.DualEngineMode,
+				constants.AdsV2Mode,
 			},
 			false,
 		},

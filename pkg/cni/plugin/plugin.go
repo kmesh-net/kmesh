@@ -221,7 +221,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 		log.Errorf("failed to annotate kmesh redirection, err is %v", err)
 	}
 
-	if cniConf.Mode == constants.DualEngineMode {
+	if cniConf.Mode == constants.AdsV2Mode {
 		enableXDPFunc := func(netns.NetNS) error {
 			if err := enableXdpAuth(args.IfName); err != nil {
 				err = fmt.Errorf("failed to set xdp to dev %v, err is %v", args.IfName, err)

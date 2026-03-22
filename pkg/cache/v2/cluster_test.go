@@ -182,7 +182,7 @@ func TestClusterFlush(t *testing.T) {
 
 func TestClusterLookupAll(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -210,7 +210,7 @@ func TestClusterLookupAll(t *testing.T) {
 func BenchmarkClusterFlush(b *testing.B) {
 	t := &testing.T{}
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -348,7 +348,7 @@ func BenchmarkClusterFlush(b *testing.B) {
 
 func TestClearClusterStats(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}

@@ -81,21 +81,21 @@ func StartMda() error {
 
 func (l *BpfLoader) Start() error {
 	var err error
-	if l.config.KernelNativeEnabled() {
+	if l.config.AdsV1Enabled() {
 		if l.obj, err = ads.NewBpfAds(l.config); err != nil {
 			return err
 		}
 		if err = l.obj.Start(); err != nil {
 			return err
 		}
-	} else if l.config.DualEngineEnabled() {
+	} else if l.config.AdsV2Enabled() {
 		if l.workloadObj, err = workload.NewBpfWorkload(l.config); err != nil {
 			return err
 		}
 		if err = l.workloadObj.Start(); err != nil {
 			return err
 		}
-		// TODO: set bpf prog option in kernel native node
+		// TODO: set bpf prog option in ads-v1 node
 		l.setBpfProgOptions()
 	}
 
@@ -146,13 +146,13 @@ func (l *BpfLoader) Stop() {
 	}
 
 	closeMap(l.versionMap)
-	if l.config.KernelNativeEnabled() {
+	if l.config.AdsV1Enabled() {
 		if err = l.obj.Stop(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed stop bpf, err: %v", err)
 			return
 		}
-	} else if l.config.DualEngineEnabled() {
+	} else if l.config.AdsV2Enabled() {
 		if err = l.workloadObj.Stop(); err != nil {
 			CleanupBpfMap()
 			log.Errorf("failed stop bpf workload, err: %v", err)
@@ -173,12 +173,12 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	var versionPath string
 	var kmBpfPath string
 	var versionMap *ebpf.Map
-	if config.KernelNativeEnabled() {
+	if config.AdsV1Enabled() {
 		versionPath = filepath.Join(config.BpfFsPath, constants.VersionPath)
-		kmBpfPath = filepath.Join(config.BpfFsPath, constants.KmKernelNativeBpfPath)
-	} else if config.DualEngineEnabled() {
+		kmBpfPath = filepath.Join(config.BpfFsPath, constants.KmAdsV1BpfPath)
+	} else if config.AdsV2Enabled() {
 		versionPath = filepath.Join(config.BpfFsPath, constants.WorkloadVersionPath)
-		kmBpfPath = filepath.Join(config.BpfFsPath, constants.KmDualEngineBpfPath)
+		kmBpfPath = filepath.Join(config.BpfFsPath, constants.KmAdsV2BpfPath)
 	}
 
 	versionMapPinPath := filepath.Join(versionPath, "kmesh_version")
@@ -436,7 +436,7 @@ func (l *BpfLoader) UpdateNodeIP(nodeIP [16]byte) error {
 			return fmt.Errorf("set NodeIP failed %w", err)
 		}
 	} else if l.obj != nil {
-		return fmt.Errorf("unsupported nodeIP for kernel-native mode")
+		return fmt.Errorf("unsupported nodeIP for ads-v1 mode")
 	}
 
 	return nil
@@ -458,7 +458,7 @@ func (l *BpfLoader) UpdatePodGateway(podGateway [16]byte) error {
 			return fmt.Errorf("set PodGateway failed %w", err)
 		}
 	} else if l.obj != nil {
-		return fmt.Errorf("unsupported PodGateway for kernel-native mode")
+		return fmt.Errorf("unsupported PodGateway for ads-v1 mode")
 	}
 
 	return nil

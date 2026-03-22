@@ -40,14 +40,14 @@ const (
 )
 
 type XdsClient struct {
-	mode               string
-	ctx                context.Context
-	cancel             context.CancelFunc
-	grpcConn           *grpc.ClientConn
-	client             discoveryv3.AggregatedDiscoveryServiceClient
-	AdsController      *ads.Controller
-	WorkloadController *workload.Controller
-	xdsConfig          *config.XdsConfig
+	mode             string
+	ctx              context.Context
+	cancel           context.CancelFunc
+	grpcConn         *grpc.ClientConn
+	client           discoveryv3.AggregatedDiscoveryServiceClient
+	AdsV1Controller  *ads.Controller
+	AdsV2Controller  *workload.Controller
+	xdsConfig        *config.XdsConfig
 }
 
 func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enableProfiling bool) (*XdsClient, error) {
@@ -57,14 +57,14 @@ func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWork
 	}
 
 	switch mode {
-	case constants.DualEngineMode:
+	case constants.AdsV2Mode:
 		var err error
-		client.WorkloadController, err = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling)
+		client.AdsV2Controller, err = workload.NewController(bpfWorkload, enableMonitoring, enableProfiling)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create workload controller: %w", err)
+			return nil, fmt.Errorf("failed to create ads-v2 controller: %w", err)
 		}
-	case constants.KernelNativeMode:
-		client.AdsController = ads.NewController(bpfAds)
+	case constants.AdsV1Mode:
+		client.AdsV1Controller = ads.NewController(bpfAds)
 	}
 
 	client.ctx, client.cancel = context.WithCancel(context.Background())
@@ -81,15 +81,15 @@ func (c *XdsClient) createGrpcStreamClient() error {
 
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
 
-	if c.mode == constants.DualEngineMode {
-		if err = c.WorkloadController.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
+	if c.mode == constants.AdsV2Mode {
+		if err = c.AdsV2Controller.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
-			return fmt.Errorf("create workload stream failed, %s", err)
+			return fmt.Errorf("create ads-v2 stream failed, %s", err)
 		}
-	} else if c.mode == constants.KernelNativeMode {
-		if err = c.AdsController.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
+	} else if c.mode == constants.AdsV1Mode {
+		if err = c.AdsV1Controller.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
-			return fmt.Errorf("create ads stream failed, %s", err)
+			return fmt.Errorf("create ads-v1 stream failed, %s", err)
 		}
 	}
 
@@ -130,10 +130,10 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 				reconnect = false
 			}
 
-			if c.mode == constants.KernelNativeMode {
-				err = c.AdsController.HandleAdsStream()
-			} else if c.mode == constants.DualEngineMode {
-				err = c.WorkloadController.HandleWorkloadStream()
+			if c.mode == constants.AdsV1Mode {
+				err = c.AdsV1Controller.HandleAdsStream()
+			} else if c.mode == constants.AdsV2Mode {
+				err = c.AdsV2Controller.HandleWorkloadStream()
 			}
 			if err != nil {
 				if istioGrpc.GRPCErrorType(err) == istioGrpc.UnexpectedError {
@@ -165,11 +165,11 @@ func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 }
 
 func (c *XdsClient) closeStreamClient() {
-	if c.AdsController != nil {
-		c.AdsController.Close()
+	if c.AdsV1Controller != nil {
+		c.AdsV1Controller.Close()
 	}
-	if c.WorkloadController != nil && c.WorkloadController.Stream != nil {
-		_ = c.WorkloadController.Stream.CloseSend()
+	if c.AdsV2Controller != nil && c.AdsV2Controller.Stream != nil {
+		_ = c.AdsV2Controller.Stream.CloseSend()
 	}
 
 	if c.grpcConn != nil {

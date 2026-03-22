@@ -21,6 +21,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 func TestInit(t *testing.T) {
@@ -28,7 +29,7 @@ func TestInit(t *testing.T) {
 	os.Setenv("POD_NAME", "test")
 	os.Setenv("POD_NAMESPACE", "testNs")
 	os.Setenv("XDS_ADDRESS", "istiod.istio-system.svc:15012")
-	config := GetConfig("ads")
+	config := GetConfig(constants.AdsV1Mode)
 	assert.Equal(t, "sidecar~10.244.0.81~test.testNs~testNs.svc.cluster.local", config.ServiceNode)
 	assert.Equal(t, "istiod.istio-system.svc:15012", config.DiscoveryAddress)
 }

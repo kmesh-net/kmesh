@@ -17,8 +17,8 @@
 package constants
 
 const (
-	KernelNativeMode = "kernel-native"
-	DualEngineMode   = "dual-engine"
+	AdsV1Mode = "ads-v1"
+	AdsV2Mode = "ads-v2"
 
 	// DataPlaneModeLabel is the label used to indicate the data plane mode
 	DataPlaneModeLabel = "istio.io/dataplane-mode"
@@ -76,8 +76,8 @@ const (
 	VersionPath         = "/bpf_kmesh/map/"
 	WorkloadVersionPath = "/bpf_kmesh_workload/map/"
 
-	KmKernelNativeBpfPath = "/bpf_kmesh"
-	KmDualEngineBpfPath   = "/bpf_kmesh_workload"
+	KmAdsV1BpfPath = "/bpf_kmesh"
+	KmAdsV2BpfPath = "/bpf_kmesh_workload"
 
 	TailCallMap    = "tail_call_map"
 	XDPTailCallMap = "km_xdp_tailcall"

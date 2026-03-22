@@ -48,11 +48,11 @@ const (
 	adminAddr = "localhost:15200"
 
 	patternVersion            = "/version"
-	patternBpfAdsMaps         = "/debug/config_dump/bpf/kernel-native"
-	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/dual-engine"
+	patternBpfAdsMaps         = "/debug/config_dump/bpf/ads-v1"
+	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/ads-v2"
 	configDumpPrefix          = "/debug/config_dump"
-	patternConfigDumpAds      = configDumpPrefix + "/kernel-native"
-	patternConfigDumpWorkload = configDumpPrefix + "/dual-engine"
+	patternConfigDumpAds      = configDumpPrefix + "/ads-v1"
+	patternConfigDumpWorkload = configDumpPrefix + "/ads-v2"
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
@@ -128,9 +128,9 @@ func (s *Server) version(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
-func (s *Server) checkWorkloadMode(w http.ResponseWriter) bool {
+func (s *Server) checkAdsV2Mode(w http.ResponseWriter) bool {
 	client := s.xdsClient
-	if client == nil || client.WorkloadController == nil {
+	if client == nil || client.AdsV2Controller == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, invalidModeErrMessage)
 		return false
@@ -138,9 +138,9 @@ func (s *Server) checkWorkloadMode(w http.ResponseWriter) bool {
 	return true
 }
 
-func (s *Server) checkAdsMode(w http.ResponseWriter) bool {
+func (s *Server) checkAdsV1Mode(w http.ResponseWriter) bool {
 	client := s.xdsClient
-	if client == nil || client.AdsController == nil {
+	if client == nil || client.AdsV1Controller == nil {
 		w.WriteHeader(http.StatusBadRequest)
 		fmt.Fprint(w, invalidModeErrMessage)
 		return false
@@ -149,12 +149,12 @@ func (s *Server) checkAdsMode(w http.ResponseWriter) bool {
 }
 
 func (s *Server) bpfWorkloadMaps(w http.ResponseWriter, r *http.Request) {
-	if !s.checkWorkloadMode(w) {
+	if !s.checkAdsV2Mode(w) {
 		return
 	}
 	client := s.xdsClient
-	bpfMaps := client.WorkloadController.Processor.GetBpfCache()
-	workloadBpfDump := NewWorkloadBpfDump(s.xdsClient.WorkloadController.Processor.GetHashName()).
+	bpfMaps := client.AdsV2Controller.Processor.GetBpfCache()
+	workloadBpfDump := NewWorkloadBpfDump(s.xdsClient.AdsV2Controller.Processor.GetHashName()).
 		WithBackends(bpfMaps.BackendLookupAll()).
 		WithEndpoints(bpfMaps.EndpointLookupAll()).
 		WithFrontends(bpfMaps.FrontendLookupAll()).
@@ -176,7 +176,7 @@ func printWorkloadBpfDump(w http.ResponseWriter, wbd WorkloadBpfDump) {
 }
 
 func (s *Server) bpfAdsMaps(w http.ResponseWriter, r *http.Request) {
-	if !s.checkAdsMode(w) {
+	if !s.checkAdsV1Mode(w) {
 		return
 	}
 	var err error
@@ -237,7 +237,7 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
+	s.xdsClient.AdsV2Controller.SetAccesslogTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -267,10 +267,10 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.xdsClient.WorkloadController.SetMonitoringTrigger(enabled)
-	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
-	s.xdsClient.WorkloadController.SetWorkloadMetricTrigger(enabled)
-	s.xdsClient.WorkloadController.SetConnectionMetricTrigger(enabled)
+	s.xdsClient.AdsV2Controller.SetMonitoringTrigger(enabled)
+	s.xdsClient.AdsV2Controller.SetAccesslogTrigger(enabled)
+	s.xdsClient.AdsV2Controller.SetWorkloadMetricTrigger(enabled)
+	s.xdsClient.AdsV2Controller.SetConnectionMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -293,7 +293,7 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.xdsClient.WorkloadController.SetWorkloadMetricTrigger(enabled)
+	s.xdsClient.AdsV2Controller.SetWorkloadMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -325,7 +325,7 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	s.xdsClient.WorkloadController.SetConnectionMetricTrigger(enabled)
+	s.xdsClient.AdsV2Controller.SetConnectionMetricTrigger(enabled)
 	w.WriteHeader(http.StatusOK)
 }
 
@@ -444,13 +444,13 @@ func (s *Server) setLoggerLevel(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
-	if !s.checkAdsMode(w) {
+	if !s.checkAdsV1Mode(w) {
 		return
 	}
 
 	client := s.xdsClient
 	w.WriteHeader(http.StatusOK)
-	cache := client.AdsController.Processor.Cache
+	cache := client.AdsV1Controller.Processor.Cache
 	dynamicRes := &adminv2.ConfigResources{}
 
 	dynamicRes.ClusterConfigs = cache.ClusterCache.Dump()
@@ -470,15 +470,15 @@ type WorkloadDump struct {
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
-	if !s.checkWorkloadMode(w) {
+	if !s.checkAdsV2Mode(w) {
 		return
 	}
 
 	client := s.xdsClient
 
-	workloads := client.WorkloadController.Processor.WorkloadCache.List()
-	services := client.WorkloadController.Processor.ServiceCache.List()
-	policies := client.WorkloadController.Rbac.PoliciesList()
+	workloads := client.AdsV2Controller.Processor.WorkloadCache.List()
+	services := client.AdsV2Controller.Processor.ServiceCache.List()
+	policies := client.AdsV2Controller.Rbac.PoliciesList()
 	workloadDump := WorkloadDump{
 		Workloads: make([]*Workload, 0, len(workloads)),
 		Services:  make([]*Service, 0, len(services)),

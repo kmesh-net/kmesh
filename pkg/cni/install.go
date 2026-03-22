@@ -122,7 +122,7 @@ func (i *Installer) WatchServiceAccountToken() error {
 }
 
 func (i *Installer) Start() error {
-	if i.Mode == constants.KernelNativeMode || i.Mode == constants.DualEngineMode {
+	if i.Mode == constants.AdsV1Mode || i.Mode == constants.AdsV2Mode {
 		log.Info("start write CNI config")
 		err := i.addCniConfig()
 		if err != nil {
@@ -139,7 +139,7 @@ func (i *Installer) Start() error {
 }
 
 func (i *Installer) Stop() {
-	if i.Mode == constants.KernelNativeMode || i.Mode == constants.DualEngineMode {
+	if i.Mode == constants.AdsV1Mode || i.Mode == constants.AdsV2Mode {
 		log.Info("start remove CNI config")
 		if err := i.removeCniConfig(); err != nil {
 			log.Errorf("remove CNI config failed: %v, please remove manually", err)
