@@ -1,0 +1,8 @@
+{
+    "label": "Kmeshctl Waypoint",
+    "position": 8,
+    "link": {
+        "type": "generated-index",
+        "description": "A group of commands used to manage waypoint configuration"
+    }
+}

@@ -1,0 +1,195 @@
+.pageWrapper {
+  min-height: 100vh;
+  width: 100%;
+}
+
+/* Replaced gradient background with professional blue-grey theme */
+.notFoundContainer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  text-align: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  position: relative;
+}
+
+/* Replaced bouncing animation with clean, professional error display */
+.errorSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 3rem;
+}
+
+.errorCode {
+  font-size: 5rem;
+  font-weight: 700;
+  color: #475569;
+  line-height: 1;
+  margin-bottom: 0.5rem;
+  font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", monospace;
+}
+
+.errorIcon {
+  color: #64748b;
+  opacity: 0.7;
+}
+
+/* Updated content styling with professional blue-grey color scheme */
+.content {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 3rem 2rem;
+  box-shadow: 0 10px 25px rgba(71, 85, 105, 0.1);
+  max-width: 600px;
+  width: 100%;
+}
+
+.title {
+  font-size: 2.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin-bottom: 0.75rem;
+}
+
+.subtitle {
+  font-size: 1.125rem;
+  color: #64748b;
+  margin-bottom: 2.5rem;
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+/* Updated message box with professional styling and blue accent */
+.messageBox {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-left: 4px solid #36b4f3;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-bottom: 2.5rem;
+  text-align: left;
+}
+
+.infoIcon {
+  color: #36b4f3;
+  flex-shrink: 0;
+  margin-top: 0.5rem;
+}
+
+.message {
+  font-size: 1rem;
+  color: #475569;
+  margin: 0.25rem 0;
+  line-height: 1.6;
+}
+
+/* Updated link styling with professional blue color */
+.link {
+  color: #3b82f6 !important;
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+.link:hover {
+  border-bottom-color: #3b82f6;
+  text-decoration: none !important;
+}
+
+/* Redesigned buttons with professional blue-grey theme */
+.actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.primaryButton,
+.secondaryButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.975rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.primaryButton {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.primaryButton:hover {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+  text-decoration: none;
+}
+
+.secondaryButton {
+  background: white;
+  color: #475569;
+  border-color: #cbd5e1;
+}
+
+.secondaryButton:hover {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #334155;
+  text-decoration: none;
+}
+
+/* Updated responsive design for mobile devices */
+@media (max-width: 768px) {
+  .notFoundContainer {
+    padding: 1rem;
+  }
+
+  .infoIcon {
+    display: none;
+  }
+
+  .errorCode {
+    font-size: 5rem;
+  }
+
+  .content {
+    padding: 2rem 1.5rem;
+  }
+
+  .title {
+    font-size: 1.875rem;
+  }
+
+  .messageBox {
+    flex-direction: column;
+    text-align: center;
+    gap: 0.75rem;
+  }
+
+  .actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .primaryButton,
+  .secondaryButton {
+    width: 100%;
+    max-width: 280px;
+    justify-content: center;
+  }
+}

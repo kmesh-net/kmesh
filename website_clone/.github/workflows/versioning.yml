@@ -1,0 +1,50 @@
+name: Docusaurus Versioning
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  create-version-pr:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for git operations
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'  # Adjust if your project uses a different version
+
+      - name: Install dependencies
+        run: npm install  # Use npm install since package-lock.json is not available
+
+      - name: Extract version from tag
+        id: extract_version
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Run Docusaurus versioning
+        run: npx docusaurus docs:version ${{ steps.extract_version.outputs.version }}
+
+      - name: Create branch and commit changes
+        run: |
+          git config --global user.name "GitHub Actions"
+          git config --global user.email "actions@github.com"
+          BRANCH="version-${{ steps.extract_version.outputs.version }}"
+          git checkout -b $BRANCH
+          git add .
+          git commit -m "Add Docusaurus version ${{ steps.extract_version.outputs.version }}" || echo "No changes to commit"
+          git push origin $BRANCH
+
+      - name: Create Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="version-${{ steps.extract_version.outputs.version }}"
+          gh pr create --base main --head $BRANCH --title "Add version ${{ steps.extract_version.outputs.version }}" --body "Automated versioning changes for v${{ steps.extract_version.outputs.version }}. This includes English docs; Chinese will fallback to English as per Docusaurus behavior."

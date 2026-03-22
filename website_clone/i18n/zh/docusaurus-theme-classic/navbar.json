@@ -1,0 +1,22 @@
+{
+  "title": {
+    "message": "Kmesh",
+    "description": "Kmesh"
+  },
+  "logo.alt": {
+    "message": "Kmesh",
+    "description": "Kmesh"
+  },
+  "item.label.Documentation": {
+    "message": "文档",
+    "description": "Documentation"
+  },
+  "item.label.Blog": {
+    "message": "博客",
+    "description": "Blog"
+  },
+  "item.label.Downloads": {
+    "message": "下载",
+    "description": "Downloads"
+  }
+}

@@ -1,0 +1,11 @@
+# Use Node.js 20 as the base image
+FROM node:20
+
+# Set working directory inside the container
+WORKDIR /app
+
+# Expose port 3000 (default for Docusaurus)
+EXPOSE 3000
+
+# Command to start the Docusaurus development server, installing dependencies if needed
+CMD ["sh", "-c", "[ -d \"node_modules\" ] && npm run start -- --host 0.0.0.0 || npm install && npm run start -- --host 0.0.0.0"]
