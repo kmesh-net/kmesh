@@ -64,7 +64,7 @@ jobs:
                   return '🔍 Other'
 
           files_to_check = set()
-          for directory in ['docs', 'docs/proposal', 'docs/ctl']:
+          for directory in ['docs/cn/zh']:
               for file_path in Path(directory).rglob('*.md'):
                   if file_path.is_file():
                       files_to_check.add(file_path)
@@ -90,7 +90,7 @@ jobs:
 
               for match in matches:
                   line_no = get_line_number(text, match.offset)
-                  rule_type = classify_rule(match.ruleId)
+                  rule_type = classify_rule(match.rule_id)
                   message = match.message
                   context = match.context.strip()
                   suggestion = match.replacements[0] if match.replacements else 'No suggestion'
@@ -121,7 +121,7 @@ jobs:
                   print(msg)
               print('─' * 60)
               print('📌 Tip: Review the suggestions above. Some may be false positives.')
-              print('💡 Pro tip: Fix critical issues like “降低3倍” or “原因是因为”.')
+              print('💡 Pro tip: Fix critical issues like "降低 3 倍" or "原因是因为".')
           else:
               print('✅ All Chinese content passed grammar and spelling checks.')
               print('✨ Great job! No issues found.')
