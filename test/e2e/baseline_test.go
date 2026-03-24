@@ -747,7 +747,8 @@ func TestMixNsAndServiceWaypoint(t *testing.T) {
 				IsL7(),
 			)
 			retry.UntilSuccessOrFail(t, func() error {
-				return src.Call(opt).Check()
+				_, err := src.Call(opt)
+				return err
 			}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
 		})
 	})
