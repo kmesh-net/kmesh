@@ -398,7 +398,7 @@ func TestHandleKmeshManage(t *testing.T) {
 			_, err = client.CoreV1().Namespaces().Update(context.TODO(), tt.args.namespace, metav1.UpdateOptions{})
 			assert.NoError(t, err)
 			// TODO: find a way to wait for namespace informer to sync
-			time.Sleep(5 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 
 			enabled.Store(false)
 			disabled.Store(false)
@@ -566,7 +566,7 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// TODO: find a way to wait for namespace informer to sync
-			time.Sleep(5 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 
 			enabled.Store(false)
 			disabled.Store(false)
