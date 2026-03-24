@@ -33,6 +33,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Wait for all the XDP programs of dst to load
@@ -166,7 +167,10 @@ spec:
 					opt.Check = chooseChecker(tc.name, client.Address())
 
 					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-						src.WithWorkloads(client).CallOrFail(t, opt)
+						retry.UntilSuccessOrFail(t, func() error {
+							_, err := src.WithWorkloads(client).Call(opt)
+							return err
+						}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -289,7 +293,10 @@ spec:
 					opt.Check = chooseChecker(tc.name, portTest.servicePort)
 
 					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-						src.WithWorkloads(client).CallOrFail(t, opt)
+						retry.UntilSuccessOrFail(t, func() error {
+							_, err := src.WithWorkloads(client).Call(opt)
+							return err
+						}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -381,7 +388,10 @@ spec:
 				opt.Check = chooseChecker(tc.name)
 
 				t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-					src.WithWorkloads(client).CallOrFail(t, opt)
+					retry.UntilSuccessOrFail(t, func() error {
+						_, err := src.WithWorkloads(client).Call(opt)
+						return err
+					}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
 				})
 
 			}
@@ -510,7 +520,10 @@ spec:
 					opt.Check = chooseChecker(tc.name, headerTest.matches)
 
 					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-						src.WithWorkloads(client).CallOrFail(t, opt)
+						retry.UntilSuccessOrFail(t, func() error {
+							_, err := src.WithWorkloads(client).Call(opt)
+							return err
+						}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -637,7 +650,10 @@ spec:
 					opt.Check = chooseChecker(tc.name, hostTest.matches)
 
 					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-						src.WithWorkloads(client).CallOrFail(t, opt)
+						retry.UntilSuccessOrFail(t, func() error {
+							_, err := src.WithWorkloads(client).Call(opt)
+							return err
+						}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
 					})
 				}
 
