@@ -186,7 +186,7 @@ func TestPortAuthorization(t *testing.T) {
 			if len(apps.EnrolledToKmesh) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.EnrolledToKmesh"))
 			}
-			src := apps.EnrolledToKmesh
+			src := apps.EnrolledToKmesh[0]
 
 			clients := src.WorkloadsOrFail(t)
 			client := clients[0]
@@ -311,7 +311,7 @@ func TestNamespaceAuthorization(t *testing.T) {
 			if len(apps.EnrolledToKmesh) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.EnrolledToKmesh"))
 			}
-			src := apps.EnrolledToKmesh
+			src := apps.EnrolledToKmesh[0]
 
 			clients := src.WorkloadsOrFail(t)
 			client := clients[0]
@@ -499,9 +499,9 @@ spec:
 
 				for _, headerTest := range headerTestCases {
 					opt := echo.CallOptions{
-						To:                      dst,
-						Port:                    echo.Port{Name: "http", ServicePort: targetHttpServicePort},
-						Scheme:                  scheme.HTTP,
+						To:     dst,
+						Port:   echo.Port{Name: "http", ServicePort: targetHttpServicePort},
+						Scheme: scheme.HTTP,
 						HTTP: echo.HTTP{
 							Path: "/api/test",
 							Headers: map[string][]string{
@@ -628,9 +628,9 @@ spec:
 
 				for _, hostTest := range hostTestCases {
 					opt := echo.CallOptions{
-						To:                      dst,
-						Port:                    echo.Port{Name: "http", ServicePort: targetHttpServicePort},
-						Scheme:                  scheme.HTTP,
+						To:     dst,
+						Port:   echo.Port{Name: "http", ServicePort: targetHttpServicePort},
+						Scheme: scheme.HTTP,
 						HTTP: echo.HTTP{
 							Path: "/api/test",
 							Headers: map[string][]string{
