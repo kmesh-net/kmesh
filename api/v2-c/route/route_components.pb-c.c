@@ -623,7 +623,7 @@ static const ProtobufCFieldDescriptor route__route_action__hash_policy__field_de
     offsetof(Route__RouteAction__HashPolicy, header),
     &route__route_action__hash_policy__header__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
@@ -661,7 +661,7 @@ static const ProtobufCFieldDescriptor route__route_action__field_descriptors[6] 
     offsetof(Route__RouteAction, cluster),
     NULL,
     &protobuf_c_empty_string,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -673,7 +673,7 @@ static const ProtobufCFieldDescriptor route__route_action__field_descriptors[6] 
     offsetof(Route__RouteAction, weighted_clusters),
     &route__weighted_cluster__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -907,7 +907,7 @@ static const ProtobufCFieldDescriptor route__header_matcher__field_descriptors[3
     offsetof(Route__HeaderMatcher, exact_match),
     NULL,
     &protobuf_c_empty_string,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -919,7 +919,7 @@ static const ProtobufCFieldDescriptor route__header_matcher__field_descriptors[3
     offsetof(Route__HeaderMatcher, prefix_match),
     NULL,
     &protobuf_c_empty_string,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };

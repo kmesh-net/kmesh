@@ -87,11 +87,17 @@ TMP_FILES := config/kmesh_marcos_def.h \
 	mk/bpf.pc \
 	bpf/include/bpf_helper_defs_ext.h \
 
+ifeq ($(shell uname -s),Darwin)
+    SED_I := env LC_CTYPE=C sed -i ''
+else
+    SED_I := sed -i
+endif
+
 .PHONY: all kmesh-bpf kmesh-ko all-binary
 all: kmesh-bpf kmesh-ko all-binary
 
 kmesh-bpf:
-	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs $(SED_I) "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 
 	$(QUIET) make -C api/v2-c
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
@@ -100,12 +106,12 @@ kmesh-bpf:
 
 	$(QUIET) $(GO) run hack/gen_bpf_specs.go
 kmesh-ko:
-	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs $(SED_I) "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
 
 all-binary:
-	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs $(SED_I) "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 	$(call printlog, BUILD, $(APPS1))
 	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
 		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
