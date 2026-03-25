@@ -26,6 +26,7 @@ package kmesh
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -129,9 +130,17 @@ func TestIPAuthorization(t *testing.T) {
 			waitForXDPOnDstWorkloads(t, dst)
 
 			for _, tc := range authzCases {
+				// Determine CIDR prefix based on IP version
+				ipBlock := selectedAddress
+				if strings.Contains(selectedAddress, ":") {
+					ipBlock = selectedAddress + "/128" // IPv6
+				} else {
+					ipBlock = selectedAddress + "/32" // IPv4
+				}
+				
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
-					"Ip":          selectedAddress,
+					"IpBlock":     ipBlock,
 				}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -145,7 +154,7 @@ spec:
   - from:
     - source:
         ipBlocks:
-        - "{{.Ip}}/32"
+        - "{{.IpBlock}}"
 `).ApplyOrFail(t)
 
 				for _, client := range clients {
