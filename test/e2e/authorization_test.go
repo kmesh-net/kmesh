@@ -154,7 +154,7 @@ spec:
 						Scheme:                  scheme.TCP,
 						NewConnectionPerRequest: true,
 						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-						Timeout: time.Minute * 2,
+						Timeout: time.Second * 30,
 					}
 
 					var name string
@@ -170,7 +170,7 @@ spec:
 						retry.UntilSuccessOrFail(t, func() error {
 							_, err := src.WithWorkloads(client).Call(opt)
 							return err
-						}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
+						}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -284,7 +284,7 @@ spec:
 						Scheme:                  scheme.TCP,
 						NewConnectionPerRequest: true,
 						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-						Timeout: time.Minute * 2,
+						Timeout: time.Second * 30,
 					}
 
 					var name string
@@ -296,7 +296,7 @@ spec:
 						retry.UntilSuccessOrFail(t, func() error {
 							_, err := src.WithWorkloads(client).Call(opt)
 							return err
-						}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
+						}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -379,7 +379,7 @@ spec:
 					Scheme:                  scheme.TCP,
 					NewConnectionPerRequest: true,
 					// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-					Timeout: time.Minute * 2,
+					Timeout: time.Second * 30,
 				}
 
 				var name string
@@ -391,7 +391,7 @@ spec:
 					retry.UntilSuccessOrFail(t, func() error {
 						_, err := src.WithWorkloads(client).Call(opt)
 						return err
-					}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
+					}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 				})
 
 			}
@@ -511,7 +511,7 @@ spec:
 						},
 						NewConnectionPerRequest: true,
 						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-						Timeout: time.Minute * 2,
+						Timeout: time.Second * 30,
 					}
 
 					var name string
@@ -523,7 +523,7 @@ spec:
 						retry.UntilSuccessOrFail(t, func() error {
 							_, err := src.WithWorkloads(client).Call(opt)
 							return err
-						}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
+						}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -641,7 +641,7 @@ spec:
 						},
 						NewConnectionPerRequest: true,
 						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-						Timeout: time.Minute * 2,
+						Timeout: time.Second * 30,
 					}
 
 					var name string
@@ -653,7 +653,7 @@ spec:
 						retry.UntilSuccessOrFail(t, func() error {
 							_, err := src.WithWorkloads(client).Call(opt)
 							return err
-						}, retry.Timeout(time.Minute*2), retry.Delay(time.Second*5))
+						}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 					})
 				}
 
