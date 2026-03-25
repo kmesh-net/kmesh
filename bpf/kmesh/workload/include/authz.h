@@ -572,7 +572,7 @@ int policies_check(struct xdp_md *ctx)
     // Safely access policyId and check if the policy exists
     if (bpf_probe_read_kernel(&policyId, sizeof(policyId), (void *)(policies->policyIds + match_ctx->policy_index))
         != 0) {
-        return XDP_PASS;
+        return match_ctx->auth_result;
     }
     policy = map_lookup_authz(policyId);
     if (!policy) {
