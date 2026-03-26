@@ -33,7 +33,7 @@ import (
 )
 
 // ShouldEnroll checks whether a pod should be managed by kmesh.
-// Kmesh manages a pod if a pod has "istio.io/dataplane-mode: kmesh" label
+// Kmesh manages a pod if a pod has "istio.io/dataplane-mode: kmesh" or "istio.io/dataplane: kmesh" label
 // or the namespace where it resides has the label while pod have no "istio.io/dataplane-mode: none" label
 // Excluding cases: a pod has sidecar injected, or the pod is istio managed waypoint
 // https://github.com/istio/istio/blob/33539491628fe5f3ad4f5f1fb339b0da9455c028/manifests/charts/istio-control/istio-discovery/files/waypoint.yaml#L35
@@ -171,7 +171,7 @@ func PatchKmeshManagedLabel(client kubernetes.Interface, pod *corev1.Pod) error 
 		metav1.PatchOptions{},
 	)
 	if err == nil {
-		log.Infof("Successfully marked pod %s/%s as managed by Kmesh", pod.Namespace, pod.Name)
+		log.Debugf("Successfully marked pod %s/%s as managed by Kmesh", pod.Namespace, pod.Name)
 	}
 	return err
 }

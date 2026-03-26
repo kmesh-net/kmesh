@@ -888,7 +888,7 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 			} else {
 				waypoint = fmt.Sprintf("%q", waypoint)
 			}
-			labels := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s, "%s":%s}}}`, label.IoIstioUseWaypoint.Name, waypoint, label.IoK8sNetworkingGatewayGatewayName.Name, waypoint))
+			labels := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":%s}}}`, label.IoIstioUseWaypoint.Name, waypoint))
 
 			switch granularity {
 			case Namespace:
