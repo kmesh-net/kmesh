@@ -24,6 +24,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/model"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/pkg/env"
 
@@ -68,6 +69,7 @@ func NewXDSConfig(mode string) *XdsConfig {
 	sa := env.Register("SERVICE_ACCOUNT", "", "").Get()
 	nodeName := env.Register("NODE_NAME", "", "").Get()
 	meshID := env.Register("MESH_ID", "cluster.local", "").Get()
+	nw := env.Register("NETWORK", "", "").Get()
 
 	// TODO: fix it once we want to support VM application
 	ip := localHostIPv4
@@ -87,6 +89,7 @@ func NewXDSConfig(mode string) *XdsConfig {
 	// TODO: add labels to support locality load balancing
 	c.Metadata.Labels = nil
 	c.Metadata.MeshID = meshID
+	c.Metadata.Network = network.ID(nw)
 	c.Metadata.NodeName = nodeName
 	c.Metadata.NodeMetadata.ServiceAccount = sa
 
