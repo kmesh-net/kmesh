@@ -202,7 +202,7 @@ uninstall:
 
 .PHONY: build
 build:
-	 VERSION=$(VERSION) ./kmesh_compile.sh
+	 VERSION=$(VERSION) TARGET=$(TARGET) ./kmesh_compile.sh
 
 .PHONY: docker
 docker: build
