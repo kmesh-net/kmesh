@@ -1,3 +1,6 @@
+//go:build linux
+// +build linux
+
 /*
  * Copyright The Kmesh Authors.
  *
@@ -14,14 +17,12 @@
  * limitations under the License.
  */
 
-//go:build linux
-// +build linux
-
 package utils
 
 import (
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 )
 
@@ -49,6 +50,11 @@ func TestGetProgramByName_FDLeak(t *testing.T) {
 		if err == nil {
 			t.Fatal("expected error for non-existent program, got nil")
 		}
+		// If the error is not a "not found" error, the environment may lack
+		// BPF permissions (e.g., no CAP_BPF). Skip in that case.
+		if !strings.Contains(err.Error(), "not found") {
+			t.Skipf("skipping: environment cannot enumerate BPF programs: %v", err)
+		}
 	}
 
 	finalFDs := countOpenFDs(t)
@@ -71,6 +77,11 @@ func TestGetMapByName_FDLeak(t *testing.T) {
 		_, err := GetMapByName("non_existent_fake_map_12345")
 		if err == nil {
 			t.Fatal("expected error for non-existent map, got nil")
+		}
+		// If the error is not a "not found" error, the environment may lack
+		// BPF permissions (e.g., no CAP_BPF). Skip in that case.
+		if !strings.Contains(err.Error(), "not found") {
+			t.Skipf("skipping: environment cannot enumerate BPF maps: %v", err)
 		}
 	}
 

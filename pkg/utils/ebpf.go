@@ -16,8 +16,10 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
 	"strings"
+	"syscall"
 
 	"github.com/cilium/ebpf"
 )
@@ -34,6 +36,9 @@ func GetProgramByName(name string) (*ebpf.Program, error) {
 
 	for {
 		if progID, err = ebpf.ProgramGetNextID(progID); err != nil {
+			if errors.Is(err, syscall.ENOENT) {
+				return nil, fmt.Errorf("program %q not found", name)
+			}
 			return nil, fmt.Errorf("failed to get system next program id: %w", err)
 		}
 
@@ -42,7 +47,7 @@ func GetProgramByName(name string) (*ebpf.Program, error) {
 		}
 
 		if targetProgInfo, err = targetProg.Info(); err != nil {
-			targetProg.Close()
+			_ = targetProg.Close()
 			return nil, fmt.Errorf("failed to get program info for id:%v: %w", progID, err)
 		}
 
@@ -50,7 +55,7 @@ func GetProgramByName(name string) (*ebpf.Program, error) {
 			return targetProg, nil
 		}
 
-		targetProg.Close()
+		_ = targetProg.Close()
 	}
 }
 
@@ -66,6 +71,9 @@ func GetMapByName(name string) (*ebpf.Map, error) {
 
 	for {
 		if mapID, err = ebpf.MapGetNextID(mapID); err != nil {
+			if errors.Is(err, syscall.ENOENT) {
+				return nil, fmt.Errorf("map %q not found", name)
+			}
 			return nil, fmt.Errorf("failed to get system next map id: %w", err)
 		}
 
@@ -74,7 +82,7 @@ func GetMapByName(name string) (*ebpf.Map, error) {
 		}
 
 		if targetMapInfo, err = targetMap.Info(); err != nil {
-			targetMap.Close()
+			_ = targetMap.Close()
 			return nil, fmt.Errorf("failed to get map info for id:%v: %w", mapID, err)
 		}
 
@@ -82,6 +90,6 @@ func GetMapByName(name string) (*ebpf.Map, error) {
 			return targetMap, nil
 		}
 
-		targetMap.Close()
+		_ = targetMap.Close()
 	}
 }
