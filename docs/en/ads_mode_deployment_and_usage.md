@@ -4,11 +4,11 @@ ADS (Aggregated Discovery Service) mode, or **Kernel-Native mode**, in Kmesh ena
 
 ## Prerequisites
 
-- A running Kubernetes cluster (v1.23+ recommended).
+- A running Kubernetes cluster (v1.26+ recommended).
 
 - Istio control plane (Istiod) installed and running in the `istio-system` namespace.
 
-- Kernel version 4.19+ (for L4 features) or 5.10+ (for L7 features).
+- Linux kernel version 5.10+.
 
 ## Deployment Guide
 
@@ -43,7 +43,7 @@ kubectl get pods -n kmesh-system
 Label the target namespace to manage its Pod traffic using Kmesh:
 
 ```bash
-kubectl label namespace <your-namespace> istio.io/dataplane-mode=kmesh
+kubectl label namespace <your-namespace> istio.io/dataplane-mode=Kmesh
 
 ```
 
@@ -82,22 +82,16 @@ metadata:
   name: reviews-route
 spec:
   hosts:
-
   - reviews
   http:
-
   - match:
-
     - uri:
         prefix: /v2
     route:
-
     - destination:
         host: reviews
         subset: v2
-
   - route:
-
     - destination:
         host: reviews
         subset: v1
@@ -132,17 +126,13 @@ metadata:
   name: reviews-canary
 spec:
   hosts:
-
   - reviews
   http:
-
   - route:
-
     - destination:
         host: reviews
         subset: v1
       weight: 90
-
     - destination:
         host: reviews
         subset: v2
@@ -161,17 +151,13 @@ metadata:
   name: tcp-canary
 spec:
   hosts:
-
   - tcp-echo
   tcp:
-
   - route:
-
     - destination:
         host: tcp-echo
         subset: v1
       weight: 80
-
     - destination:
         host: tcp-echo
         subset: v2
