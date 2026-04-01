@@ -79,6 +79,10 @@ Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to p
 
 Please refer to [quick start](https://kmesh.net/en/docs/setup/quick-start/) and [user guide](docs/kmesh_demo.md) to try Kmesh quickly.
 
+### Guided Install
+
+[KubeStellar Console](https://console.kubestellar.io) provides a [guided installation mission for Kmesh](https://console.kubestellar.io/missions/install-kmesh) with step-by-step instructions, pre-flight checks, validation, troubleshooting, and rollback support. It works against your live cluster via kubeconfig, or as read-only documentation without a cluster connection.
+
 ## Performance
 
 Based on [Fortio](https://github.com/fortio/fortio), the performance of Kmesh and Envoy was tested. The test results are as follows:
