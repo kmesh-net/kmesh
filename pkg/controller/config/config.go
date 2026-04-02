@@ -69,7 +69,7 @@ func NewXDSConfig(mode string) *XdsConfig {
 	sa := env.Register("SERVICE_ACCOUNT", "", "").Get()
 	nodeName := env.Register("NODE_NAME", "", "").Get()
 	meshID := env.Register("MESH_ID", "cluster.local", "").Get()
-	nw := env.Register("NETWORK", "", "").Get()
+	nw := env.Register("ISTIO_META_NETWORK", "", "The network of the proxy.").Get()
 
 	// TODO: fix it once we want to support VM application
 	ip := localHostIPv4
