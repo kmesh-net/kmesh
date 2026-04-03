@@ -61,6 +61,7 @@ type Controller struct {
 	bpfWorkloadObj      *bpfwl.BpfWorkload
 	client              *XdsClient
 	ipsecController     *ipsec.Controller
+	bypassController    *bypass.Controller
 	enableByPass        bool
 	enableSecretManager bool
 	bpfConfig           *options.BpfConfig
@@ -133,8 +134,8 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	log.Info("start kmesh manage controller successfully")
 
 	if c.enableByPass {
-		c := bypass.NewByPassController(clientset)
-		go c.Run(stopCh)
+		c.bypassController = bypass.NewByPassController(clientset)
+		go c.bypassController.Run(stopCh)
 		log.Info("start bypass controller successfully")
 	}
 
@@ -192,6 +193,9 @@ func (c *Controller) Stop() {
 	cancel()
 	if c.bpfConfig.EnableIPsec {
 		c.ipsecController.Stop()
+	}
+	if c.enableByPass && c.bypassController != nil {
+		c.bypassController.Stop()
 	}
 	if c.client != nil {
 		c.client.Close()
