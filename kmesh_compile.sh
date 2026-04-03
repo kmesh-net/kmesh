@@ -10,4 +10,10 @@ container_id=$(run_docker_container)
 build_kmesh $container_id
 clean_container $container_id
 
-sudo chmod -R a+r out/
+if chmod -R a+r out/ 2>/dev/null; then
+	:
+elif sudo -n true 2>/dev/null; then
+	sudo -n chmod -R a+r out/
+else
+	echo "warning: unable to chmod out/ without sudo; continuing"
+fi
