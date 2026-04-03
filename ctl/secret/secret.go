@@ -22,7 +22,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	corev1 "k8s.io/api/core/v1"
@@ -46,7 +45,6 @@ const (
 )
 
 func NewCmd() *cobra.Command {
-	clientset = createKubeClientOrExit()
 
 	cmd := &cobra.Command{
 		Use:   "secret",
@@ -57,7 +55,8 @@ kmeshctl secret get
 kmeshctl secret delete
 `,
 		Args: cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return nil
 		},
 	}
 
@@ -70,8 +69,8 @@ kmeshctl secret create
 # Generate IPsec configuration with user-defined key:
 kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | xxd -p -c 64)`,
 		Args: cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			CreateOrUpdateSecret(cmd, args)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return CreateOrUpdateSecret(cmd, args)
 		},
 	}
 
@@ -84,8 +83,8 @@ kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | 
 		Example: `# Get IPsec key and configuration by kmeshctl. The results will be displayed in JSON format.
 kmeshctl secret get`,
 		Args: cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			GetSecret()
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return GetSecret(cmd)
 		},
 	}
 
@@ -95,8 +94,8 @@ kmeshctl secret get`,
 		Short:   "Delete IPsec key and configuration by kmeshctl",
 		Example: `kmeshctl secret delete`,
 		Args:    cobra.NoArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			DeleteSecret()
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return DeleteSecret()
 		},
 	}
 
@@ -108,18 +107,21 @@ kmeshctl secret get`,
 	return cmd
 }
 
-func createKubeClientOrExit() kube.CLIClient {
+func createKubeClient() (kube.CLIClient, error) {
 	clientset, err := utils.CreateKubeClient()
 	if err != nil {
-		log.Errorf("failed to connect k8s client, %v", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("failed to connect k8s client, %v", err)
 	}
-	return clientset
+	return clientset, nil
 }
 
-func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
-	var ipSecKey, ipSecKeyOld encryption.IpSecKey
+func CreateOrUpdateSecret(cmd *cobra.Command, args []string) error {
 	var err error
+	clientset, err = createKubeClient()
+	if err != nil {
+		return err
+	}
+	var ipSecKey, ipSecKeyOld encryption.IpSecKey
 
 	ipSecKey.AeadKeyName = AeadAlgoName
 
@@ -131,20 +133,17 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 		aeadKey = make([]byte, AeadKeyLength)
 		_, err := rand.Read(aeadKey)
 		if err != nil {
-			log.Errorf("failed to generate random key: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to generate random key: %v", err)
 		}
 	} else {
 		aeadKey, err = hex.DecodeString(aeadKeyArg)
 		if err != nil {
-			log.Errorf("failed to decode hex string: %v, input: %v", err, aeadKeyArg)
-			os.Exit(1)
+			return fmt.Errorf("failed to decode hex string: %v, input: %v", err, aeadKeyArg)
 		}
 	}
 
 	if len(aeadKey) != AeadKeyLength {
-		log.Errorf("invalid key length: expected %d bytes, got %d bytes (key must be 256-bit + 32-bit salt)", AeadKeyLength, len(aeadKey))
-		os.Exit(1)
+		return fmt.Errorf("invalid key length: expected %d bytes, got %d bytes (key must be 256-bit + 32-bit salt)", AeadKeyLength, len(aeadKey))
 	}
 
 	ipSecKey.AeadKey = aeadKey
@@ -154,23 +153,20 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 	secretOld, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
-			log.Errorf("failed to get secret: %v, %v", SecretName, err)
-			os.Exit(1)
+			return fmt.Errorf("failed to get secret: %v, %v", SecretName, err)
 		}
 		ipSecKey.Spi = 1
 	} else {
 		err = json.Unmarshal(secretOld.Data["ipSec"], &ipSecKeyOld)
 		if err != nil {
-			log.Errorf("failed to unmarshal secret: %v, %v", secretOld, err)
-			os.Exit(1)
+			return fmt.Errorf("failed to unmarshal secret: %v, %v", secretOld, err)
 		}
 		ipSecKey.Spi = ipSecKeyOld.Spi + 1
 	}
 
 	secretData, err := json.Marshal(ipSecKey)
 	if err != nil {
-		log.Errorf("failed to convert ipsec key to secret data, %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to convert ipsec key to secret data, %v", err)
 	}
 
 	secret := &corev1.Secret{
@@ -186,39 +182,39 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 	if ipSecKey.Spi == 1 {
 		_, err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 		if err != nil {
-			log.Errorf("failed to create %v secret, %v", SecretName, err)
-			os.Exit(1)
+			return fmt.Errorf("failed to create %v secret, %v", SecretName, err)
 		}
 	} else {
 		_, err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err != nil {
-			log.Errorf("failed to update %v secret, %v", SecretName, err)
-			os.Exit(1)
+			return fmt.Errorf("failed to update %v secret, %v", SecretName, err)
 		}
 	}
+	return nil
 }
 
-func GetSecret() {
+func GetSecret(cmd *cobra.Command) error {
+	var err error
+	clientset, err = createKubeClient()
+	if err != nil {
+		return err
+	}
 	secret, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Errorf("secret %s not found", SecretName)
-			os.Exit(1)
+			return fmt.Errorf("secret %s not found", SecretName)
 		}
-		log.Errorf("failed to get secret: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to get secret: %v", err)
 	}
 
 	if secret.Data == nil || secret.Data["ipSec"] == nil {
-		log.Errorf("invalid secret data: missing ipSec field")
-		os.Exit(1)
+		return fmt.Errorf("invalid secret data: missing ipSec field")
 	}
 
 	// Parse the IPsec data
 	var ipSecKey encryption.IpSecKey
 	if err := json.Unmarshal(secret.Data["ipSec"], &ipSecKey); err != nil {
-		log.Errorf("failed to unmarshal secret data: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to unmarshal secret data: %v", err)
 	}
 
 	// Create a display structure with hex string key
@@ -236,25 +232,29 @@ func GetSecret() {
 
 	displayData, err := json.MarshalIndent(displayKey, "", "  ")
 	if err != nil {
-		log.Errorf("failed to marshal display data: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to marshal display data: %v", err)
 	}
 
-	fmt.Printf("Secret name: %s\n", SecretName)
-	fmt.Printf("Namespace: %s\n", utils.KmeshNamespace)
-	fmt.Printf("Created: %s\n", secret.CreationTimestamp.Format("2006-01-02 15:04:05"))
-	fmt.Println("IPsec Configuration:")
-	fmt.Println(string(displayData))
+	cmd.Printf("Secret name: %s\n", SecretName)
+	cmd.Printf("Namespace: %s\n", utils.KmeshNamespace)
+	cmd.Printf("Created: %s\n", secret.CreationTimestamp.Format("2006-01-02 15:04:05"))
+	cmd.Println("IPsec Configuration:")
+	cmd.Println(string(displayData))
+	return nil
 }
 
-func DeleteSecret() {
-	err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Delete(context.TODO(), SecretName, metav1.DeleteOptions{})
+func DeleteSecret() error {
+	var err error
+	clientset, err = createKubeClient()
+	if err != nil {
+		return err
+	}
+	err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Delete(context.TODO(), SecretName, metav1.DeleteOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			log.Errorf("secret %s not found", SecretName)
-			os.Exit(1)
+			return fmt.Errorf("secret %s not found", SecretName)
 		}
-		log.Errorf("failed to delete secret: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to delete secret: %v", err)
 	}
+	return nil
 }
