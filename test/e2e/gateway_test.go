@@ -275,7 +275,7 @@ func (c *ingressImpl) schemeFor(opts echo.CallOptions) (scheme.Instance, error) 
 func (c *ingressImpl) PodID(i int) (string, error) {
 	pods, err := c.env.Clusters().Default().PodsForSelector(context.TODO(), c.service.Namespace, c.labelSelector)
 	if err != nil {
-		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %v", err)
+		return "", fmt.Errorf("unable to get ingressImpl gateway stats: %w", err)
 	}
 	if i < 0 || i >= len(pods.Items) {
 		return "", fmt.Errorf("pod index out of boundary (%d): %d", len(pods.Items), i)

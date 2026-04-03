@@ -95,7 +95,7 @@ func ParseTLVMessage(data []byte) (*TLVData, error) {
 func ValidateTLVMessage(t *testing.T, data []byte, expectedIP net.IP, expectedPort uint16) error {
 	tlvData, err := ParseTLVMessage(data)
 	if err != nil {
-		return fmt.Errorf("failed to parse TLV message: %v", err)
+		return fmt.Errorf("failed to parse TLV message: %w", err)
 	}
 	if !tlvData.IP.Equal(expectedIP) {
 		return fmt.Errorf("unexpected TLV IP: got %v, want %v", tlvData.IP, expectedIP)

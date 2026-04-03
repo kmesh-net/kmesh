@@ -33,10 +33,10 @@ func PinPrograms(value *reflect.Value, path string) error {
 
 		info, err := tp.Info()
 		if err != nil {
-			return fmt.Errorf("get prog info failed, %s", err)
+			return fmt.Errorf("get prog info failed, %w", err)
 		}
 		if err := tp.Pin(path + info.Name); err != nil {
-			return fmt.Errorf("pin prog failed, %s", err)
+			return fmt.Errorf("pin prog failed, %w", err)
 		}
 	}
 
@@ -50,7 +50,7 @@ func UnpinPrograms(value *reflect.Value) error {
 			continue
 		}
 		if err := tp.Unpin(); err != nil {
-			return fmt.Errorf("unpin prog failed, %s", err)
+			return fmt.Errorf("unpin prog failed, %w", err)
 		}
 	}
 
@@ -64,7 +64,7 @@ func UnpinMaps(value *reflect.Value) error {
 			continue
 		}
 		if err := tp.Unpin(); err != nil {
-			return fmt.Errorf("unpin map failed, %s", err)
+			return fmt.Errorf("unpin map failed, %w", err)
 		}
 	}
 
