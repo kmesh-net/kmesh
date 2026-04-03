@@ -146,7 +146,7 @@ func newDeltaRequest(typeUrl string, names []string, initialResourceVersions map
 		InitialResourceVersions: initialResourceVersions,
 		ResponseNonce:           "",
 		ErrorDetail:             nil,
-		Node:                    config.GetConfig(constants.DualEngineMode).GetNode(),
+		Node:                    config.GetConfig(constants.AdsV2Mode).GetNode(),
 	}
 }
 
@@ -156,7 +156,7 @@ func newAckRequest(rsp *service_discovery_v3.DeltaDiscoveryResponse) *service_di
 		ResourceNamesSubscribe: []string{},
 		ResponseNonce:          rsp.GetNonce(),
 		ErrorDetail:            nil,
-		Node:                   config.GetConfig(constants.DualEngineMode).GetNode(),
+		Node:                   config.GetConfig(constants.AdsV2Mode).GetNode(),
 	}
 }
 

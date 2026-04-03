@@ -41,7 +41,7 @@ func TestRouteConfigLookupAll(t *testing.T) {
 		return
 	}
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}

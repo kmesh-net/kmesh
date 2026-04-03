@@ -43,7 +43,7 @@ func TestWatchTokenFile(t *testing.T) {
 
 	cniDir := t.TempDir()
 
-	i := NewInstaller(constants.DualEngineMode, false, cniDir, "conflist-name", true, serviceAccountPath)
+	i := NewInstaller(constants.AdsV2Mode, false, cniDir, "conflist-name", true, serviceAccountPath)
 	defer i.Watcher.Close()
 
 	kubeconfigPath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)

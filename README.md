@@ -31,18 +31,18 @@ The main components of Kmesh include:
 - **eBPF Orchestration**: The traffic orchestration implemented based on eBPF, supports L4 load balancing, traffic encryption, monitoring and simple L7 dynamic routing.
 - **Waypoint**: Responsible for advanced L7 traffic governance, can be deployed separately per namespace, per service.
 
-Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to the kernel, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path. We named this Kernel-Native mode.
+Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to the kernel, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path. We named this Ads-v1 mode.
 
 <div align="center">
-    <img src="docs/pics/kernel-native-mode.png" alt="kernel-native-mode" width="800" />
-    <p>Kernel-Native Mode</p>
+    <img src="docs/pics/kernel-native-mode.png" alt="ads-v1-mode" width="800" />
+    <p>Ads-v1 Mode</p>
 </div>
 
-Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allow you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
+Kmesh also provide an Ads-v2 Mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allow you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
 
 <div align="center">
-    <img src="docs/pics/dual-engine-mode.png" alt="dual-engine-mode" width="800" />
-    <p>Dual-Engine Mode</p>
+    <img src="docs/pics/dual-engine-mode.png" alt="ads-v2-mode" width="800" />
+    <p>Ads-v2 Mode</p>
 </div>
 
 ### Key features of Kmesh

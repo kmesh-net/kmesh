@@ -1,0 +1,140 @@
+.aboutContainer {
+  background-color: rgb(247, 247, 247);
+
+  @media screen {
+    @media (max-width: 992px) {
+      .sectionContainerInner {
+        .row {
+          .profile {
+            flex: 0 0 100%;
+            max-width: 100%;
+          }
+        }
+      }
+    }
+    @media (max-width: 768px) {
+      .sectionContainerInner {
+        .row {
+          .profile {
+            flex: 0 0 100%;
+            max-width: 100%;
+          }
+        }
+      }
+    }
+  }
+
+  .row {
+    display: -ms-flexbox;
+    display: flex;
+    -ms-flex-wrap: wrap;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-right: -15px;
+    margin-left: -15px;
+
+    .profile {
+      flex: 0 0 33.333333%;
+      max-width: 33.333333%;
+      text-align: center;
+      padding: 0px 10px 30px;
+      position: relative;
+    }
+
+    .portrait {
+      width: 200px;
+      height: 200px;
+      margin: 0 auto;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .description {
+      flex: 0 0 66.666667%;
+      max-width: 66.666667%;
+      font-size: 1.2rem;
+    }
+
+    .name {
+      font-size: 2em;
+      font-weight: 400;
+      margin: 20px 0 10px 0;
+    }
+
+    .jobTitle {
+      font-size: 1rem;
+      font-weight: 300;
+      margin: 0px 0 10px 0;
+    }
+  }
+
+  @media (max-width: 435px) {
+    .row {
+      .description {
+        flex: 0 0 66.666667%;
+        max-width: 66.666667%;
+        font-size: 1rem;
+      }
+
+      .name {
+        font-size: 1.5em;
+        font-weight: 400;
+        margin: 20px 0 10px 0;
+      }
+
+      .jobTitle {
+        font-size: 0.5rem;
+        font-weight: 300;
+        margin: 0px 0 10px 0;
+      }
+    }
+  }
+
+  @media (max-width: 1024px) {
+    .row {
+      .description {
+        font-size: 1rem;
+      }
+      .name {
+        font-size: 1.5em;
+      }
+      .jobTitle {
+        font-size: 0.7rem;
+      }
+    }
+  }
+
+  @media (min-width: 1300px) and (max-width: 1515px) {
+    .row {
+      .description {
+        font-size: 1.1rem;
+      }
+      .name {
+        font-size: 1.8em;
+      }
+      .jobTitle {
+        font-size: 0.9rem;
+      }
+    }
+  }
+
+  @media (max-width: 1300px) {
+    .row {
+      .description {
+        font-size: 1.1rem;
+      }
+      .name {
+        font-size: 1.8em;
+      }
+      .jobTitle {
+        font-size: 0.9rem;
+      }
+    }
+  }
+}
+
+html[data-theme="dark"] {
+  .aboutContainer {
+    background-color: #242526;
+  }
+}

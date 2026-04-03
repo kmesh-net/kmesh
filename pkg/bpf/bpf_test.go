@@ -37,7 +37,7 @@ import (
 )
 
 func TestUpdateKmeshConfigMap(t *testing.T) {
-	config := setDirDualEngine(t)
+	config := setDirAdsV2(t)
 	bpfLoader := NewBpfLoader(&config)
 	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
@@ -58,17 +58,17 @@ func TestUpdateKmeshConfigMap(t *testing.T) {
 }
 
 func TestRestart(t *testing.T) {
-	t.Run("new start DualEngine", func(t *testing.T) {
-		runTestNormalDualEngine(t)
+	t.Run("new start AdsV2", func(t *testing.T) {
+		runTestNormalAdsV2(t)
 	})
-	t.Run("new start KernelNative", func(t *testing.T) {
-		runTestNormalKernelNative(t)
+	t.Run("new start AdsV1", func(t *testing.T) {
+		runTestNormalAdsV1(t)
 	})
-	t.Run("restart DualEngine", func(t *testing.T) {
-		runTestRestartDualEngine(t)
+	t.Run("restart AdsV2", func(t *testing.T) {
+		runTestRestartAdsV2(t)
 	})
-	t.Run("restart KernelNative", func(t *testing.T) {
-		runTestRestartKernelNative(t)
+	t.Run("restart AdsV1", func(t *testing.T) {
+		runTestRestartAdsV1(t)
 	})
 }
 
@@ -106,39 +106,39 @@ func NormalStart(t *testing.T, config options.BpfConfig) {
 	bpfLoader.Stop()
 }
 
-func setDirDualEngine(t *testing.T) options.BpfConfig {
+func setDirAdsV2(t *testing.T) options.BpfConfig {
 	if err := setDir(); err != nil {
 		t.Fatalf("setDir Failed: %v", err)
 	}
 
 	return options.BpfConfig{
-		Mode:        constants.DualEngineMode,
+		Mode:        constants.AdsV2Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
 }
 
-func setDirKernelNative(t *testing.T) options.BpfConfig {
+func setDirAdsV1(t *testing.T) options.BpfConfig {
 	if err := setDir(); err != nil {
 		t.Fatalf("setDir Failed: %v", err)
 	}
 	return options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
 }
 
-// Test Kmesh Normal DualEngine
-func runTestNormalDualEngine(t *testing.T) {
-	config := setDirDualEngine(t)
+// Test Kmesh Normal AdsV2
+func runTestNormalAdsV2(t *testing.T) {
+	config := setDirAdsV2(t)
 
 	NormalStart(t, config)
 }
 
-// Test Kmesh Normal KernelNative
-func runTestNormalKernelNative(t *testing.T) {
-	config := setDirKernelNative(t)
+// Test Kmesh Normal AdsV1
+func runTestNormalAdsV1(t *testing.T) {
+	config := setDirAdsV1(t)
 
 	NormalStart(t, config)
 }
@@ -154,9 +154,9 @@ func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	restart.SetExitType(restart.Restart)
 	bpfLoader.Stop()
 
-	if config.KernelNativeEnabled() {
+	if config.AdsV1Enabled() {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh/map/")
-	} else if config.DualEngineEnabled() {
+	} else if config.AdsV2Enabled() {
 		versionPath = filepath.Join(config.BpfFsPath + "/bpf_kmesh_workload/map/")
 	}
 	_, err := os.Stat(versionPath)
@@ -172,15 +172,15 @@ func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	bpfLoader.Stop()
 }
 
-// Test Kmesh Restart DualEngine
-func runTestRestartDualEngine(t *testing.T) {
-	config := setDirDualEngine(t)
+// Test Kmesh Restart AdsV2
+func runTestRestartAdsV2(t *testing.T) {
+	config := setDirAdsV2(t)
 	KmeshRestart(t, config)
 }
 
-// Test Kmesh Restart KernelNative
-func runTestRestartKernelNative(t *testing.T) {
-	config := setDirKernelNative(t)
+// Test Kmesh Restart AdsV1
+func runTestRestartAdsV1(t *testing.T) {
+	config := setDirAdsV1(t)
 	KmeshRestart(t, config)
 }
 

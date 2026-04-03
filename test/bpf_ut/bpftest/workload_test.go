@@ -105,7 +105,7 @@ func testXDP(t *testing.T) {
 						workload_xdp_registerTailCall(t, coll)
 						workload_setMapsEnv(t, coll)
 						if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
-							Mode:        constants.DualEngineMode,
+							Mode:        constants.AdsV2Mode,
 							BpfFsPath:   constants.BpfFsPath,
 							Cgroup2Path: constants.Cgroup2Path,
 						}); err != nil {
@@ -189,7 +189,7 @@ func testXDP(t *testing.T) {
 						workload_xdp_registerTailCall(t, coll)
 						workload_setMapsEnv(t, coll)
 						if workload, err := bpfWorkload.NewBpfWorkload(&options.BpfConfig{
-							Mode:        constants.DualEngineMode,
+							Mode:        constants.AdsV2Mode,
 							BpfFsPath:   constants.BpfFsPath,
 							Cgroup2Path: constants.Cgroup2Path,
 						}); err != nil {

@@ -40,7 +40,7 @@ import (
 
 func TestListenerLookupAll(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -221,7 +221,7 @@ func TestListenerFlush(t *testing.T) {
 func BenchmarkListenerFlush(b *testing.B) {
 	t := &testing.T{}
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -337,7 +337,7 @@ func randomIPv4() string {
 
 func TestListenerFlushAndLookup(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -410,7 +410,7 @@ func TestListenerFlushAndLookup(t *testing.T) {
 
 func TestListenerUpdateAndDeleteFlush(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}

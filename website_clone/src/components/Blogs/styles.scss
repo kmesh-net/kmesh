@@ -1,0 +1,119 @@
+.blogPostContainer {
+    background-color: rgb(247, 247, 247);
+
+    @media (max-width: 992px) {
+        .sectionContainerInner {
+            .row {
+                .left {
+                    flex: 0 0 100%;
+                    max-width: 100%;
+                }
+
+                .right {
+                    flex: 0 0 100%;
+                    max-width: 100%;
+                }
+            }
+        }
+    }
+
+    .row {
+        display: -ms-flexbox;
+        display: flex;
+        -ms-flex-wrap: wrap;
+        flex-wrap: wrap;
+        margin-right: 15px;
+        margin-left: 15px;
+
+        .left {
+            flex: 0 0 33.333333%;
+            max-width: 33.333333%;
+            text-align: left;
+            position: relative;
+            margin-bottom: 1rem;
+
+            h1 {
+                text-align: left;
+                margin-bottom: 0.5rem;
+            }
+
+            a {
+                cursor: pointer;
+            }
+        }
+
+        .right {
+            flex: 0 0 66.666667%;
+            max-width: 66.666667%;
+            font-size: 1.2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+
+            .viewBlogContainer {
+                h3 {
+                    text-align: left;
+                    cursor: pointer;
+
+                    &:hover {
+                        color: #3578e5;
+                    }
+                }
+
+                p {
+                    margin-bottom: 10px;
+                    opacity: 0.9;
+                    font-size: 0.8rem;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                }
+
+                .info {
+                    display: flex;
+                    flex-direction: column;
+                    justify-content: center;
+                    font-size: 0.8rem;
+
+                    .author {
+                        font-size: 0.8rem;
+
+                        a {
+                            color: rgba(0, 0, 0, 0.54);
+                        }
+                    }
+
+                    .update-time {
+                        font-size: 0.8rem;
+                        color: rgba(0, 0, 0, 0.54);
+                    }
+                }
+            }
+        }
+    }
+}
+
+html[data-theme="dark"] {
+    .blogPostContainer {
+        background-color: #242526;
+
+        .viewBlogContainer {
+            .author {
+                a {
+                    color: rgb(255, 255, 255, 0.6) !important;
+                }
+            }
+
+            .update-time {
+                color: rgb(255, 255, 255, 0.6) !important;
+            }
+        }
+    }
+}
+
+a:hover {
+    text-decoration: underline;
+}

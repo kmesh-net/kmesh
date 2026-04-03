@@ -1,0 +1,57 @@
+.supporterBoxContainer {
+  display: flex;
+  cursor: pointer;
+  flex-wrap: wrap;
+  justify-content: center;
+  
+  .supporterBox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 2px;
+    padding: 0 15px;
+
+    .imgContainer {
+      width: 100%;
+      height: 80px;
+      margin: 16px auto;
+      padding: 5px 15px 15px;
+      text-align: center;
+      background-color: #fff;
+      border-style: solid;
+      border-width: 0.5px;
+      border-color: #dde6ed;
+      transition: transform 0.2s;
+    }
+
+    .imgContainer:hover {
+      transform: scale(1.05);
+    }
+
+    img {
+      position: relative;
+      display: inline-block;
+      text-align: center;
+      vertical-align: middle;
+      margin: 5px auto;
+      object-fit: contain;
+      height: 100%;
+    }
+  }
+
+  @media screen {
+    @media (min-width: 576px) {
+      .supporterBox {
+        width: 50%;
+      }
+    }
+    @media (min-width: 768px) {
+      .supporterBox {
+        flex: 0 0 25%;
+        width: 25%;
+      }
+    }
+  }
+}

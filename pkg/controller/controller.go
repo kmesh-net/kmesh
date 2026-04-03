@@ -93,7 +93,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	if c.bpfConfig.EnableIPsec {
 		var kniMap *ebpf.Map
 		var decryptProg *ebpf.Program
-		if c.mode == constants.KernelNativeMode {
+		if c.mode == constants.AdsV1Mode {
 			kniMap = c.bpfAdsObj.Tc.KmeshTcMarkEncryptObjects.KmNodeinfo
 			tcFd = c.bpfAdsObj.Tc.TcMarkEncrypt.FD()
 			decryptProg = c.bpfAdsObj.Tc.KmeshTcMarkDecryptObjects.TcMarkDecrypt
@@ -112,7 +112,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		tcFd = -1
 	}
 
-	if c.mode == constants.DualEngineMode {
+	if c.mode == constants.AdsV2Mode {
 		var secertManager *security.SecretManager
 		if c.enableSecretManager {
 			secertManager, err = security.NewSecretManager()
@@ -138,15 +138,15 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		log.Info("start bypass controller successfully")
 	}
 
-	if c.mode != constants.DualEngineMode && c.mode != constants.KernelNativeMode {
+	if c.mode != constants.AdsV2Mode && c.mode != constants.AdsV1Mode {
 		return nil
 	}
 
 	// only support bpf log when kernel version >= 5.13
 	if !helper.KernelVersionLowerThan5_13() {
-		if c.mode == constants.KernelNativeMode {
+		if c.mode == constants.AdsV1Mode {
 			logger.StartLogReader(ctx, c.bpfAdsObj.SockConn.KmLogEvent)
-		} else if c.mode == constants.DualEngineMode {
+		} else if c.mode == constants.AdsV2Mode {
 			logger.StartLogReader(ctx, c.bpfWorkloadObj.SockConn.KmLogEvent)
 		}
 	}
@@ -171,15 +171,15 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		return fmt.Errorf("failed to create XDS client: %w", err)
 	}
 
-	if c.client.WorkloadController != nil {
-		if err := c.client.WorkloadController.Run(ctx, stopCh); err != nil {
-			return fmt.Errorf("failed to start workload controller: %+v", err)
+	if c.client.AdsV2Controller != nil {
+		if err := c.client.AdsV2Controller.Run(ctx, stopCh); err != nil {
+			return fmt.Errorf("failed to start ads-v2 controller: %+v", err)
 		}
 		if err := c.setupDNSProxy(); err != nil {
 			return fmt.Errorf("failed to start dns proxy: %+v", err)
 		}
 	} else {
-		c.client.AdsController.StartDnsController(stopCh)
+		c.client.AdsV1Controller.StartDnsController(stopCh)
 	}
 
 	return c.client.Run(stopCh)
@@ -199,8 +199,8 @@ func (c *Controller) Stop() {
 	if c.dnsServer != nil {
 		c.dnsServer.Close()
 	}
-	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Close()
+	if c.client.AdsV2Controller != nil {
+		c.client.AdsV2Controller.Close()
 	}
 }
 
@@ -214,7 +214,7 @@ func (c *Controller) setupDNSProxy() error {
 		if err != nil {
 			return fmt.Errorf("failed to start local dns server: %v", err)
 		}
-		ntb := dns.NewNameTableBuilder(c.client.WorkloadController.Processor.ServiceCache, c.client.WorkloadController.Processor.WorkloadCache)
+		ntb := dns.NewNameTableBuilder(c.client.AdsV2Controller.Processor.ServiceCache, c.client.AdsV2Controller.Processor.WorkloadCache)
 
 		debounceTime := time.Second
 		timer := time.NewTimer(0)
@@ -234,7 +234,7 @@ func (c *Controller) setupDNSProxy() error {
 			return nil
 		}
 
-		c.client.WorkloadController.Processor.WithResourceHandlers(workload.AddressType, h)
+		c.client.AdsV2Controller.Processor.WithResourceHandlers(workload.AddressType, h)
 		server.StartDNS()
 		c.dnsServer = server
 	}

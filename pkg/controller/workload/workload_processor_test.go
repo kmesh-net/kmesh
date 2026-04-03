@@ -351,7 +351,7 @@ func checkNotExistInFrontEndMap(t *testing.T, ip []byte, p *Processor) {
 func BenchmarkAddNewServicesWithWorkload(b *testing.B) {
 	t := &testing.T{}
 	config := options.BpfConfig{
-		Mode:        constants.DualEngineMode,
+		Mode:        constants.AdsV2Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 		EnableMda:   false,

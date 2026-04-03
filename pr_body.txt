@@ -1,0 +1,16 @@
+What this PR does / why we need it:
+This PR improves the sidecar detection logic in the bypass controller. Previously, it only checked the pod annotation for sidecar status, which could be inaccurate if a pod was started before sidecar injection was enabled in its namespace. We've enhanced the detection to also check for the actual presence of the istio-proxy container and properly account for Kmesh management states.
+
+Which issue(s) this PR fixes:
+Fixes #474
+
+Special notes for your reviewer:
+NONE
+
+Does this PR introduce a user-facing change?:
+<!--
+If no, just write "NONE" in the release-note block below.
+If yes, a release note is required.
+-->
+release-note
+NONE

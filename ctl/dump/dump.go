@@ -47,15 +47,15 @@ func NewCmd() *cobra.Command {
 
 	cmd := &cobra.Command{
 		Use:   "dump",
-		Short: "Dump config of kernel-native or dual-engine mode",
-		Example: `# Kernel Native mode (table output):
-kmeshctl dump <kmesh-daemon-pod> kernel-native
+		Short: "Dump config of ads-v1 or ads-v2 mode",
+		Example: `# ads-v1 mode (table output):
+kmeshctl dump <kmesh-daemon-pod> ads-v1
 
-# Dual Engine mode (table output):
-kmeshctl dump <kmesh-daemon-pod> dual-engine
+# ads-v2 mode (table output):
+kmeshctl dump <kmesh-daemon-pod> ads-v2
 
 # Output as raw JSON:
-kmeshctl dump <kmesh-daemon-pod> kernel-native -o json`,
+kmeshctl dump <kmesh-daemon-pod> ads-v1 -o json`,
 		Args: cobra.ExactArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = RunDump(cmd, args, outputFormat)
@@ -69,8 +69,8 @@ kmeshctl dump <kmesh-daemon-pod> kernel-native -o json`,
 func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	podName := args[0]
 	mode := args[1]
-	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
-		log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
+	if mode != constants.AdsV1Mode && mode != constants.AdsV2Mode {
+		log.Errorf("Error: Argument must be 'ads-v1' or 'ads-v2'")
 		os.Exit(1)
 	}
 
@@ -109,18 +109,18 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	}
 
 	switch mode {
-	case constants.KernelNativeMode:
-		printKernelNativeTable(body)
-	case constants.DualEngineMode:
-		printDualEngineTable(body)
+	case constants.AdsV1Mode:
+		printAdsV1Table(body)
+	case constants.AdsV2Mode:
+		printAdsV2Table(body)
 	}
 
 	return nil
 }
 
-// printKernelNativeTable parses and displays kernel-native config dump as tables.
+// printAdsV1Table parses and displays ads-v1 config dump as tables.
 // Static and dynamic resources of the same type are consolidated under a single header.
-func printKernelNativeTable(body []byte) {
+func printAdsV1Table(body []byte) {
 	configDump := &adminv2.ConfigDump{}
 	if err := protojson.Unmarshal(body, configDump); err != nil {
 		log.Errorf("failed to parse config dump: %v, falling back to raw output", err)
@@ -229,8 +229,8 @@ type policyEntry struct {
 	Action    string `json:"action"`
 }
 
-// printDualEngineTable parses and displays dual-engine config dump as tables.
-func printDualEngineTable(body []byte) {
+// printAdsV2Table parses and displays ads-v2 config dump as tables.
+func printAdsV2Table(body []byte) {
 	var dump workloadDump
 	if err := json.Unmarshal(body, &dump); err != nil {
 		log.Errorf("failed to parse workload dump: %v, falling back to raw output", err)

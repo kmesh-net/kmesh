@@ -1,0 +1,3 @@
+[codespell]
+skip = .git,*.png,*.svg,yarn.lock
+ignore-words-list = kmesh

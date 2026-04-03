@@ -1,0 +1,8 @@
+{
+    "label": "Kmeshctl Authz",
+    "position": 7,
+    "link": {
+        "type": "generated-index",
+        "description": "Manage xdp authz eBPF program for Kmesh's authz offloading"
+    }
+}

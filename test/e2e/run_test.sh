@@ -154,7 +154,7 @@ function setup_kmesh() {
 	fi
 
 	helm install kmesh $ROOT_DIR/deploy/charts/kmesh-helm -n kmesh-system --create-namespace --set deploy.kmesh.image.repository=localhost:5000/kmesh \
-		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true --enable-ipsec=true" \
+		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=ads-v2 --enable-bypass=false --monitoring=true --enable-ipsec=true" \
 		$extra_args
 
 	# Wait for all Kmesh pods to be ready.

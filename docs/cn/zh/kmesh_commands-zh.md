@@ -14,19 +14,19 @@ Flags:
       --cgroup2-path string    cgroup2 path (default "/mnt/kmesh_cgroup2")
       --enable-mda             enable mda
   -h, --help                   help for kmesh-daemon
-      --mode string            controller plane mode, valid values are [kernel-native, dual-engine] (default "dual-engine")
+      --mode string            controller plane mode, valid values are [ads-v1, ads-v2] (default "ads-v2")
       --monitoring string      enable kmesh traffic monitoring in daemon process(default "true")  
       --profiliing string      whether to enable profiling or not (default "false")
       --enable-ipsec string    enable ipsec encryption and authentication between nodes(default false)
 
 # example
-./kmesh-daemon --mode=kernel-native
+./kmesh-daemon --mode=ads-v1
 # example
-./kmesh-daemon --mode=dual-engine
+./kmesh-daemon --mode=ads-v2
 # example
-./kmesh-daemon --mode=kernel-native --enable-mda
+./kmesh-daemon --mode=ads-v1 --enable-mda
 # example
-./kmesh-daemon --mode=dual-engine --enable-mda
+./kmesh-daemon --mode=ads-v2 --enable-mda
   ```
 
 - 运维相关

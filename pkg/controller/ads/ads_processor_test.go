@@ -43,7 +43,7 @@ import (
 
 func TestHandleCdsResponse(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -295,7 +295,7 @@ func TestHandleCdsResponse(t *testing.T) {
 
 func TestHandleEdsResponse(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -478,7 +478,7 @@ func TestHandleEdsResponse(t *testing.T) {
 
 func TestHandleLdsResponse(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}
@@ -656,7 +656,7 @@ func TestHandleLdsResponse(t *testing.T) {
 
 func TestHandleRdsResponse(t *testing.T) {
 	config := options.BpfConfig{
-		Mode:        constants.KernelNativeMode,
+		Mode:        constants.AdsV1Mode,
 		BpfFsPath:   "/sys/fs/bpf",
 		Cgroup2Path: "/mnt/kmesh_cgroup2",
 	}

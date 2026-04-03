@@ -39,7 +39,7 @@ type BpfConfig struct {
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVar(&c.BpfFsPath, "bpf-fs-path", "/sys/fs/bpf", "bpf fs path")
 	cmd.PersistentFlags().StringVar(&c.Cgroup2Path, "cgroup2-path", "/mnt/kmesh_cgroup2", "cgroup2 path")
-	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "dual-engine", "controller plane mode, valid values are [kernel-native, dual-engine]")
+	cmd.PersistentFlags().StringVar(&c.Mode, "mode", "ads-v2", "controller plane mode, valid values are [ads-v1, ads-v2]")
 	cmd.PersistentFlags().BoolVar(&c.EnableMda, "enable-mda", false, "enable mda")
 	cmd.PersistentFlags().BoolVar(&c.EnableMonitoring, "monitoring", true, "enable kmesh traffic monitoring in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnablePeriodicReport, "periodic-report", false, "enable kmesh periodic report in daemon process")
@@ -67,10 +67,10 @@ func (c *BpfConfig) ParseConfig() error {
 	return nil
 }
 
-func (c *BpfConfig) KernelNativeEnabled() bool {
-	return c.Mode == constants.KernelNativeMode
+func (c *BpfConfig) AdsV1Enabled() bool {
+	return c.Mode == constants.AdsV1Mode
 }
 
-func (c *BpfConfig) DualEngineEnabled() bool {
-	return c.Mode == constants.DualEngineMode
+func (c *BpfConfig) AdsV2Enabled() bool {
+	return c.Mode == constants.AdsV2Mode
 }

@@ -55,7 +55,7 @@ import (
 func TestServer_getLoggerLevel(t *testing.T) {
 	server := &Server{
 		xdsClient: &controller.XdsClient{
-			WorkloadController: &workload.Controller{
+			AdsV2Controller: &workload.Controller{
 				Processor: nil,
 			},
 		},
@@ -98,7 +98,7 @@ func TestServer_getLoggerLevel(t *testing.T) {
 func TestServer_setLoggerLevel(t *testing.T) {
 	server := &Server{
 		xdsClient: &controller.XdsClient{
-			WorkloadController: &workload.Controller{
+			AdsV2Controller: &workload.Controller{
 				Processor: nil,
 			},
 		},
@@ -223,7 +223,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 	// Create a new instance of the Server struct
 	server := &Server{
 		xdsClient: &controller.XdsClient{
-			WorkloadController: &workload.Controller{
+			AdsV2Controller: &workload.Controller{
 				Processor: &workload.Processor{
 					WorkloadCache: fakeWorkloadCache,
 					ServiceCache:  fakeServiceCache,
@@ -271,7 +271,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 
 	server = &Server{
 		xdsClient: &controller.XdsClient{
-			WorkloadController: &workload.Controller{
+			AdsV2Controller: &workload.Controller{
 				Processor: &workload.Processor{
 					WorkloadCache: fakeWorkloadCache,
 					ServiceCache:  fakeServiceCache,
@@ -333,7 +333,7 @@ func TestServer_configDumpWorkload(t *testing.T) {
 
 	server = &Server{
 		xdsClient: &controller.XdsClient{
-			WorkloadController: &workload.Controller{
+			AdsV2Controller: &workload.Controller{
 				Processor: &workload.Processor{
 					WorkloadCache: fakeWorkloadCache,
 					ServiceCache:  fakeServiceCache,
@@ -354,16 +354,16 @@ func TestServer_configDumpWorkload(t *testing.T) {
 }
 
 func TestServer_dumpWorkloadBpfMap(t *testing.T) {
-	t.Run("Ads mode test", func(t *testing.T) {
+	t.Run("Ads-v1 mode test", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        constants.KernelNativeMode,
+			Mode:        constants.AdsV1Mode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
 		cleanup, _ := test.InitBpfMap(t, config)
 		defer cleanup()
 
-		// ads mode will failed
+		// ads-v1 mode will failed
 		server := &Server{}
 		req := httptest.NewRequest(http.MethodPost, patternBpfWorkloadMaps, nil)
 		w := httptest.NewRecorder()
@@ -374,9 +374,9 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		assert.Equal(t, invalidModeErrMessage, string(body))
 	})
 
-	t.Run("Workload mode test", func(t *testing.T) {
+	t.Run("Ads-v2 mode test", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        constants.DualEngineMode,
+			Mode:        constants.AdsV2Mode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
@@ -386,7 +386,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 
 		server := &Server{
 			xdsClient: &controller.XdsClient{
-				WorkloadController: &workload.Controller{
+				AdsV2Controller: &workload.Controller{
 					Processor: workload.NewProcessor(bpfMaps),
 				},
 			},
@@ -459,16 +459,16 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 }
 
 func TestServer_dumpAdsBpfMap(t *testing.T) {
-	t.Run("Workload mode test", func(t *testing.T) {
+	t.Run("Ads-v2 mode test", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        constants.DualEngineMode,
+			Mode:        constants.AdsV2Mode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
 		cleanup, _ := test.InitBpfMap(t, config)
 		defer cleanup()
 
-		// workload mode will failed
+		// ads-v2 mode will failed
 		server := &Server{}
 		req := httptest.NewRequest(http.MethodGet, patternBpfWorkloadMaps, nil)
 		w := httptest.NewRecorder()
@@ -479,9 +479,9 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 		assert.Equal(t, invalidModeErrMessage, string(body))
 	})
 
-	t.Run("Ads mode test", func(t *testing.T) {
+	t.Run("Ads-v1 mode test", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        constants.KernelNativeMode,
+			Mode:        constants.AdsV1Mode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
@@ -490,7 +490,7 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 
 		server := &Server{
 			xdsClient: &controller.XdsClient{
-				AdsController: &ads.Controller{},
+				AdsV1Controller: &ads.Controller{},
 			},
 		}
 
@@ -534,7 +534,7 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 func TestServerMetricHandler(t *testing.T) {
 	t.Run("change accesslog, workload metrics and connection metric config info", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        constants.DualEngineMode,
+			Mode:        constants.AdsV2Mode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
@@ -543,15 +543,15 @@ func TestServerMetricHandler(t *testing.T) {
 
 		server := &Server{
 			xdsClient: &controller.XdsClient{
-				WorkloadController: &workload.Controller{
+				AdsV2Controller: &workload.Controller{
 					MetricController: &telemetry.MetricController{},
 				},
 			},
 			loader: loader,
 		}
-		server.xdsClient.WorkloadController.MetricController.EnableWorkloadMetric.Store(true)
-		server.xdsClient.WorkloadController.MetricController.EnableConnectionMetric.Store(true)
-		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
+		server.xdsClient.AdsV2Controller.MetricController.EnableWorkloadMetric.Store(true)
+		server.xdsClient.AdsV2Controller.MetricController.EnableConnectionMetric.Store(true)
+		server.xdsClient.AdsV2Controller.MetricController.EnableAccesslog.Store(false)
 
 		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "true")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
@@ -563,26 +563,26 @@ func TestServerMetricHandler(t *testing.T) {
 		w = httptest.NewRecorder()
 		server.accesslogHandler(w, req)
 
-		assert.Equal(t, false, server.xdsClient.WorkloadController.GetAccesslogTrigger())
+		assert.Equal(t, false, server.xdsClient.AdsV2Controller.GetAccesslogTrigger())
 
 		url = fmt.Sprintf("%s?enable=%s", patternWorkloadMetrics, "false")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.workloadMetricHandler(w, req)
 
-		assert.Equal(t, false, server.xdsClient.WorkloadController.GetWorklaodMetricTrigger())
+		assert.Equal(t, false, server.xdsClient.AdsV2Controller.GetWorklaodMetricTrigger())
 
 		url = fmt.Sprintf("%s?enable=%s", patternConnectionMetrics, "false")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.connectionMetricHandler(w, req)
 
-		assert.Equal(t, false, server.xdsClient.WorkloadController.GetConnectionMetricTrigger())
+		assert.Equal(t, false, server.xdsClient.AdsV2Controller.GetConnectionMetricTrigger())
 	})
 
 	t.Run("when monitoring is disable, cannot enable accesslog, workload metrics and connection metrics", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        constants.DualEngineMode,
+			Mode:        constants.AdsV2Mode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
@@ -591,49 +591,49 @@ func TestServerMetricHandler(t *testing.T) {
 
 		server := &Server{
 			xdsClient: &controller.XdsClient{
-				WorkloadController: &workload.Controller{
+				AdsV2Controller: &workload.Controller{
 					MetricController: &telemetry.MetricController{},
 				},
 			},
 			loader: loader,
 		}
 
-		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
+		server.xdsClient.AdsV2Controller.MetricController.EnableAccesslog.Store(false)
 
 		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "false")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
 		w := httptest.NewRecorder()
 		server.monitoringHandler(w, req)
 
-		assert.Equal(t, false, server.xdsClient.WorkloadController.GetMonitoringTrigger())
+		assert.Equal(t, false, server.xdsClient.AdsV2Controller.GetMonitoringTrigger())
 
 		url = fmt.Sprintf("%s?enable=%s", patternAccesslog, "true")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.accesslogHandler(w, req)
 
-		assert.Equal(t, false, server.xdsClient.WorkloadController.GetAccesslogTrigger())
+		assert.Equal(t, false, server.xdsClient.AdsV2Controller.GetAccesslogTrigger())
 
 		url = fmt.Sprintf("%s?enable=%s", patternWorkloadMetrics, "true")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.workloadMetricHandler(w, req)
 
-		assert.Equal(t, false, server.xdsClient.WorkloadController.GetWorklaodMetricTrigger())
+		assert.Equal(t, false, server.xdsClient.AdsV2Controller.GetWorklaodMetricTrigger())
 
 		url = fmt.Sprintf("%s?enable=%s", patternConnectionMetrics, "true")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.connectionMetricHandler(w, req)
 
-		assert.Equal(t, false, server.xdsClient.WorkloadController.GetConnectionMetricTrigger())
+		assert.Equal(t, false, server.xdsClient.AdsV2Controller.GetConnectionMetricTrigger())
 	})
 }
 
 func TestServerMonitoringHandler(t *testing.T) {
 	t.Run("change monitoring config info", func(t *testing.T) {
 		config := options.BpfConfig{
-			Mode:        constants.DualEngineMode,
+			Mode:        constants.AdsV2Mode,
 			BpfFsPath:   "/sys/fs/bpf",
 			Cgroup2Path: "/mnt/kmesh_cgroup2",
 		}
@@ -642,22 +642,22 @@ func TestServerMonitoringHandler(t *testing.T) {
 
 		server := &Server{
 			xdsClient: &controller.XdsClient{
-				WorkloadController: &workload.Controller{
+				AdsV2Controller: &workload.Controller{
 					MetricController: &telemetry.MetricController{},
 				},
 			},
 			loader: l,
 		}
-		server.xdsClient.WorkloadController.MetricController.EnableMonitoring.Store(false)
-		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
+		server.xdsClient.AdsV2Controller.MetricController.EnableMonitoring.Store(false)
+		server.xdsClient.AdsV2Controller.MetricController.EnableAccesslog.Store(false)
 
 		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "true")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
 		w := httptest.NewRecorder()
 		server.monitoringHandler(w, req)
 
-		assert.Equal(t, true, server.xdsClient.WorkloadController.GetMonitoringTrigger())
-		assert.Equal(t, true, server.xdsClient.WorkloadController.GetAccesslogTrigger())
+		assert.Equal(t, true, server.xdsClient.AdsV2Controller.GetMonitoringTrigger())
+		assert.Equal(t, true, server.xdsClient.AdsV2Controller.GetAccesslogTrigger())
 		enableMonitoring := l.GetEnableMonitoring()
 		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})

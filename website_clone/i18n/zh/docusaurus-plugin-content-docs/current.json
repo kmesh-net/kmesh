@@ -1,0 +1,62 @@
+{
+  "version.label": {
+    "message": "下一版",
+    "description": "The label for version current"
+  },
+  "sidebar.tutorialSidebar.category.Setup": {
+    "message": "安装设置",
+    "description": "The label for category Setup in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Architecture": {
+    "message": "架构",
+    "description": "The label for category Architecture in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Performance": {
+    "message": "性能",
+    "description": "The label for category Performance in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Transport layer": {
+    "message": "传输层",
+    "description": "The label for category Transport layer in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Developer Guide": {
+    "message": "开发者指南",
+    "description": "The label for category Developer Guide in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Kmeshctl Usage": {
+    "message": "Kmeshctl 使用方法",
+    "description": "The label for category Kmeshctl Usage in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Kmeshctl Usage.link.generated-index.description": {
+    "message": "Kmesh命令行工具，用于操作和调试Kmesh",
+    "description": "The generated-index page description for category Kmeshctl Usage in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Kmeshctl Authz": {
+    "message": "Kmeshctl 授权",
+    "description": "The label for category Kmeshctl Authz in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Kmeshctl Authz.link.generated-index.description": {
+    "message": "管理Kmesh授权卸载的xdp授权eBPF程序",
+    "description": "The generated-index page description for category Kmeshctl Authz in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Kmeshctl Waypoint": {
+    "message": "Kmeshctl 路径点",
+    "description": "The label for category Kmeshctl Waypoint in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Kmeshctl Waypoint.link.generated-index.description": {
+    "message": "用于管理路径点配置的一组命令",
+    "description": "The generated-index page description for category Kmeshctl Waypoint in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Tests": {
+    "message": "测试",
+    "description": "The label for category Tests in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Community": {
+    "message": "社区",
+    "description": "The label for category Community in sidebar tutorialSidebar"
+  },
+  "sidebar.tutorialSidebar.category.Application Layer": {
+    "message": "应用层",
+    "description": "The label for category Application Layer in sidebar tutorialSidebar"
+  }
+}
