@@ -51,6 +51,12 @@ const (
 	LONG_CONN_METRIC_THRESHOLD = uint64(5 * time.Second)
 )
 
+var RESPONSE_FLAGS = map[uint32]string{
+	0x0: "-",
+	0x1: "NR",
+	0x2: "UAEX",
+}
+
 var osStartTime time.Time
 
 var TCP_STATES = map[uint32]string{
@@ -121,6 +127,7 @@ type statistics struct {
 	RttMin         uint32 // minimum RTT
 	Retransmits    uint32 // total retransmits
 	LostPackets    uint32 // total lost packets
+	ResponseFlags  uint32
 }
 
 // connectionDataV4 read from ebpf km_tcp_probe ringbuf and padding with `_`
@@ -181,6 +188,7 @@ type requestMetric struct {
 	minRtt         uint32
 	totalRetrans   uint32 // total retransmits after previous report
 	packetLost     uint32 // total packets lost after previous report
+	responseFlags  uint32
 }
 
 type workloadMetricLabels struct {
@@ -568,6 +576,7 @@ func buildV4Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) 
 	reqMetric.minRtt = rawStats.statistics.RttMin
 	reqMetric.totalRetrans = rawStats.statistics.Retransmits - tcpConns[reqMetric.conSrcDstInfo].totalRetrans
 	reqMetric.packetLost = rawStats.statistics.LostPackets - tcpConns[reqMetric.conSrcDstInfo].packetLost
+	reqMetric.responseFlags = rawStats.statistics.ResponseFlags
 
 	cm, ok := tcpConns[reqMetric.conSrcDstInfo]
 	if ok {
@@ -624,6 +633,7 @@ func buildV6Metric(buf *bytes.Buffer, tcpConns map[connectionSrcDst]connMetric) 
 	reqMetric.minRtt = rawStats.statistics.RttMin
 	reqMetric.totalRetrans = rawStats.statistics.Retransmits - tcpConns[reqMetric.conSrcDstInfo].totalRetrans
 	reqMetric.packetLost = rawStats.statistics.LostPackets - tcpConns[reqMetric.conSrcDstInfo].packetLost
+	reqMetric.responseFlags = rawStats.statistics.ResponseFlags
 
 	cm, ok := tcpConns[reqMetric.conSrcDstInfo]
 	if ok {
@@ -775,6 +785,7 @@ func (m *MetricController) buildServiceMetric(reqMetric *requestMetric) (service
 	}
 
 	accesslog.state = TCP_STATES[reqMetric.state]
+	accesslog.responseFlags = RESPONSE_FLAGS[reqMetric.responseFlags]
 	return *trafficLabels, *accesslog
 }
 
