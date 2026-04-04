@@ -185,6 +185,22 @@ func (c *KmeshManageController) handlePodUpdate(oldObj, newObj interface{}) {
 		return
 	}
 
+	// Check if the enrollment status has actually changed to avoid unnecessary manage actions
+	namespace, err := c.namespaceLister.Get(pod.Namespace)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			return
+		}
+		log.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
+		return
+	}
+	oldShouldEnroll := utils.ShouldEnroll(oldPod, namespace)
+	newShouldEnroll := utils.ShouldEnroll(pod, namespace)
+	if oldShouldEnroll == newShouldEnroll {
+		log.Debugf("pod %s/%s enrollment status unchanged, skip remanage", pod.Namespace, pod.Name)
+		return
+	}
+
 	c.handlePodAdd(newObj)
 }
 

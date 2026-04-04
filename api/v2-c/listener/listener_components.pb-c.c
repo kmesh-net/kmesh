@@ -165,7 +165,7 @@ static const ProtobufCFieldDescriptor listener__filter__field_descriptors[4] =
     offsetof(Listener__Filter, tcp_proxy),
     &filter__tcp_proxy__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -177,7 +177,7 @@ static const ProtobufCFieldDescriptor listener__filter__field_descriptors[4] =
     offsetof(Listener__Filter, http_connection_manager),
     &filter__http_connection_manager__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -189,7 +189,7 @@ static const ProtobufCFieldDescriptor listener__filter__field_descriptors[4] =
     offsetof(Listener__Filter, local_rate_limit),
     &filter__local_rate_limit__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };

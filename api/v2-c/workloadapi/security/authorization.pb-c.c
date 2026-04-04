@@ -550,7 +550,7 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     offsetof(Istio__Security__Match, destination_ports),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -562,7 +562,7 @@ static const ProtobufCFieldDescriptor istio__security__match__field_descriptors[
     offsetof(Istio__Security__Match, not_destination_ports),
     NULL,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
@@ -660,7 +660,7 @@ static const ProtobufCFieldDescriptor istio__security__string_match__field_descr
     offsetof(Istio__Security__StringMatch, exact),
     NULL,
     &protobuf_c_empty_string,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -672,7 +672,7 @@ static const ProtobufCFieldDescriptor istio__security__string_match__field_descr
     offsetof(Istio__Security__StringMatch, prefix),
     NULL,
     &protobuf_c_empty_string,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -684,7 +684,7 @@ static const ProtobufCFieldDescriptor istio__security__string_match__field_descr
     offsetof(Istio__Security__StringMatch, suffix),
     NULL,
     &protobuf_c_empty_string,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };

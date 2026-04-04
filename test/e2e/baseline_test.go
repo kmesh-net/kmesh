@@ -746,7 +746,10 @@ func TestMixNsAndServiceWaypoint(t *testing.T) {
 				// All traffic should pass through waypoint.
 				IsL7(),
 			)
-			src.CallOrFail(t, opt)
+			retry.UntilSuccessOrFail(t, func() error {
+				_, err := src.Call(opt)
+				return err
+			}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 		})
 	})
 }
@@ -774,7 +777,7 @@ func TestBookinfo(t *testing.T) {
 			}
 		})
 
-		fetchFn := testKube.NewSinglePodFetch(t.Clusters().Default(), namespace)
+		fetchFn := testKube.NewSinglePodFetch(t.Clusters().Default(), namespace, "app=sleep")
 		if _, err := testKube.WaitUntilPodsAreReady(fetchFn, retry.Timeout(15*time.Minute), retry.Delay(5*time.Second)); err != nil {
 			t.Fatalf("failed to wait bookinfo pods to be ready: %v", err)
 		}

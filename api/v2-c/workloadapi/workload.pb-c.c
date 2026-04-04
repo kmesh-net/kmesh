@@ -519,7 +519,7 @@ static const ProtobufCFieldDescriptor istio__workload__address__field_descriptor
     offsetof(Istio__Workload__Address, workload),
     &istio__workload__workload__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -531,7 +531,7 @@ static const ProtobufCFieldDescriptor istio__workload__address__field_descriptor
     offsetof(Istio__Workload__Address, service),
     &istio__workload__service__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };
@@ -767,7 +767,7 @@ static const ProtobufCFieldDescriptor istio__workload__load_balancing__field_des
     offsetof(Istio__Workload__LoadBalancing, routing_preference),
     &istio__workload__load_balancing__scope__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_PACKED,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -1439,7 +1439,7 @@ static const ProtobufCFieldDescriptor istio__workload__gateway_address__field_de
     offsetof(Istio__Workload__GatewayAddress, hostname),
     &istio__workload__namespaced_hostname__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -1451,7 +1451,7 @@ static const ProtobufCFieldDescriptor istio__workload__gateway_address__field_de
     offsetof(Istio__Workload__GatewayAddress, address),
     &istio__workload__network_address__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {

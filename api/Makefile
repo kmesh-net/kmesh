@@ -29,6 +29,12 @@ PROTO_SRC := $(call find_source, ../api, *.proto)
 
 .PHONY: gen-proto install clean
 
+ifeq ($(shell uname -s),Darwin)
+    SED_I := env LC_CTYPE=C sed -i ''
+else
+    SED_I := sed -i
+endif
+
 gen-proto:
 
 	$(QUIET) bash ../hack/install-proto.sh
@@ -36,13 +42,13 @@ gen-proto:
 	$(QUIET) bash ../hack/gen-protoc.sh $(PROTO_PATH) $(PROTO_SRC)
 	$(QUIET) mkdir -p $(C_OUTPUT_DIR)
 	$(QUIET) cp -rf api/* $(C_OUTPUT_DIR); rm -rf api
-	$(QUIET) find $(C_OUTPUT_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
+	$(QUIET) find $(C_OUTPUT_DIR) -name *pb-c* | xargs $(SED_I) 's/#include \"api\//#include \"/g'
 
 	$(call printlog, PROTO, api/$(GO_OUTPUT_DIR))
 	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
 	$(QUIET) mkdir -p $(GO_OUTPUT_DIR)
 	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR); rm -rf kmesh.net
-	$(QUIET) find $(GO_OUTPUT_DIR) -name *pb.go | xargs sed -i 's/mesh\/api/mesh\/api\/v2/g'
+	$(QUIET) find $(GO_OUTPUT_DIR) -name *pb.go | xargs $(SED_I) 's/mesh\/api/mesh\/api\/v2/g'
 
 	
 install:
