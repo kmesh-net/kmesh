@@ -75,6 +75,30 @@ Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to p
 - Supports XDS protocol standards
 - Support [Gateway API](https://gateway-api.sigs.k8s.io/)
 
+## Prerequisites
+
+Before installing Kmesh, ensure the following are set up:
+
+- A running Kubernetes cluster (e.g., using kind)
+- kubectl configured to access the cluster
+- Istio installed (required for Kmesh to function properly)
+
+## Basic Setup Flow
+
+The recommended setup order is:
+
+1. Create Kubernetes cluster
+2. Install Istio
+3. Deploy Kmesh
+
+## Verify Installation
+
+After deployment, verify that Kmesh is running:
+
+```bash
+kubectl get pods -n kmesh-system
+```
+
 ## Quick Start
 
 Please refer to [quick start](https://kmesh.net/en/docs/setup/quick-start/) and [user guide](docs/kmesh_demo.md) to try Kmesh quickly.
