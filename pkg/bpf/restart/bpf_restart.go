@@ -100,8 +100,8 @@ func SetStartStatus(versionMap *ebpf.Map) {
 	oldGitVersion := getOldVersionFromMap(versionMap, 0)
 	log.Infof("oldGitVersion: %v newGitVersion: %v", oldGitVersion, GitVersion)
 	if GitVersion == oldGitVersion {
-		log.Infof("kmesh start with Restart, load bpf maps and prog from last")
-		SetStartType(Restart)
+		log.Infof("kmesh start with Update")
+		SetStartType(Update)
 	} else if oldGitVersion == 0 {
 		// version not found, it is a fresh start
 		log.Infof("kmesh start with Normal")
