@@ -14,6 +14,7 @@ Kmesh is a high-performance and low overhead service mesh data plane based on eB
 Service mesh software represented by Istio has gradually become popular and become an important component of cloud native infrastructure. However, there are still some challenges faced:
 
 - **Extra latency overhead at the proxy layer**: Add [2~3ms](https://istio.io/v1.19/docs/ops/deployment/performance-and-scalability/) latency, which cannot meet the SLA requirements of latency-sensitive applications. Although the community has come up with a variety of optimizations, the overhead introduced by sidecar cannot be completely reduced.
+
 - **High resources occupation**: Occupy 0.5 vCPU and 50 MB memory per 1000 requests per second going through the proxy, and the deployment density of service container decreases.
 
 ### Kmesh Architecture
@@ -28,7 +29,9 @@ Kmesh transparently intercept and forward traffic based on node local eBPF witho
 The main components of Kmesh include:
 
 - **Kmesh-daemon**: The management component per node responsible for bpf prog management, xDS configuration subscribe, observability, and etc.
+
 - **eBPF Orchestration**: The traffic orchestration implemented based on eBPF, supports L4 load balancing, traffic encryption, monitoring and simple L7 dynamic routing.
+
 - **Waypoint**: Responsible for advanced L7 traffic governance, can be deployed separately per namespace, per service.
 
 Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to the kernel, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path. We named this Kernel-Native mode.
@@ -54,6 +57,7 @@ Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to p
 #### High Performance
 
 - Forwarding delay **60%↓**
+
 - Workload startup performance **40%↑**
 
 #### Low Resource Overhead
@@ -63,21 +67,30 @@ Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to p
 #### Zero Trust
 
 - Provide zero trust security with default mutual TLS
+
 - Policy enforcement both in eBPF and waypoints
 
 #### Safety Isolation
 
 - eBPF Virtual machine security
+
 - Cgroup level orchestration isolation
 
 #### Open Ecology
 
 - Supports XDS protocol standards
+
 - Support [Gateway API](https://gateway-api.sigs.k8s.io/)
 
 ## Quick Start
 
-Please refer to [quick start](https://kmesh.net/en/docs/setup/quick-start/) and [user guide](docs/kmesh_demo.md) to try Kmesh quickly.
+Please refer to the following guides to try Kmesh:
+
+- [Quick Start](https://kmesh.net/en/docs/setup/quick-start/): Official website guide.
+
+- [ADS Mode Deployment](docs/en/ads_mode_deployment_and_usage.md): Guided setup for ADS (Kernel-Native) mode.
+
+- [User Guide](docs/en/kmesh_demo.md): Demo with Bookinfo.
 
 ### Guided Install
 
@@ -96,8 +109,11 @@ For a complete performance test result, please refer to [Kmesh Performance Test]
 If you have any question, feel free to reach out to us in the following ways:
 
 - [meeting notes](https://docs.google.com/document/d/1fFqolwWMVMk92yXPHvWGrMgsrb8Xru_v4Cve5ummjbk)
+
 - [mailing list](https://groups.google.com/forum/#!forum/kmesh)
+
 - [slack](https://cloud-native.slack.com/archives/C06BU2GB8NL)
+
 - [twitter](https://twitter.com/kmesh_net)
 
 ## Community Meeting
