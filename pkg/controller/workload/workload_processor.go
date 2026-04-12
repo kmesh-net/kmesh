@@ -543,12 +543,11 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 func (p *Processor) getServiceByAddress(address []byte) *workloadapi.Service {
 	networkAddr := cache.NetworkAddress{}
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
-	if svc := p.ServiceCache.GetServiceByAddr(networkAddr); svc != nil {
+	if svc := p.ServiceCache.GetServiceByIP(networkAddr.Address); svc != nil {
 		return svc
 	}
 	return nil
 }
-
 func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	log.Debugf("handle workload: %s", workload.ResourceName())
 
@@ -569,9 +568,22 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	}
 
 	// update kmesh localityCache
-	// TODO: recalculate endpoints priority once local locality is set
-	if p.locality.LocalityInfo == nil && p.nodeName == workload.GetNode() {
+	if p.nodeName == workload.GetNode() {
+		oldLocality := p.locality.LocalityInfo
 		p.locality.SetLocality(p.nodeName, workload.GetClusterId(), workload.GetNetwork(), workload.GetLocality())
+
+		// If locality info is changed, we should recalculate the endpoint priority for all services
+		if oldLocality == nil || *oldLocality != *p.locality.LocalityInfo {
+			log.Infof("locality info changed, recalculate all service endpoint priority")
+			for _, svc := range p.ServiceCache.List() {
+				if svc.LoadBalancing != nil && svc.LoadBalancing.Mode != workloadapi.LoadBalancing_UNSPECIFIED_MODE {
+					serviceId := p.hashName.Hash(svc.ResourceName())
+					if err := p.updateEndpointPriority(serviceId, true); err != nil {
+						log.Errorf("update service %s endpoint priority failed: %v", svc.ResourceName(), err)
+					}
+				}
+			}
+		}
 	}
 
 	// Exclude unhealthy workload, which is not ready to serve traffic, but keep it in the frontend
@@ -1218,3 +1230,4 @@ func (p *Processor) deleteFrontendByIp(addresses [][]byte) error {
 
 	return nil
 }
+
