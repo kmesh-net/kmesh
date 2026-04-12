@@ -1230,4 +1230,3 @@ func (p *Processor) deleteFrontendByIp(addresses [][]byte) error {
 
 	return nil
 }
-
