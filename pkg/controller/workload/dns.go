@@ -38,7 +38,7 @@ type dnsController struct {
 	dnsResolver *dns.DNSResolver
 
 	workloadsChan         chan *workloadapi.Workload
-	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
+	ResolvedDomainChanMap *sync.Map
 
 	workloadCache    map[string]*pendingResolveDomain // hostname -> pending workloads
 	pendingHostnames map[string]string                // workload name -> hostname
@@ -60,7 +60,7 @@ func NewDnsController(cache cache.WorkloadCache) (*dnsController, error) {
 		cache:                 cache,
 		dnsResolver:           resolver,
 		workloadsChan:         make(chan *workloadapi.Workload),
-		ResolvedDomainChanMap: make(map[string]chan *workloadapi.Workload),
+		ResolvedDomainChanMap: &sync.Map{},
 		workloadCache:         make(map[string]*pendingResolveDomain),
 		pendingHostnames:      make(map[string]string),
 	}
@@ -163,23 +163,28 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 		return
 	}
 
+	r.RLock()
 	var readyWorkloads []*workloadapi.Workload
 	for _, workload := range pendingDomain.Workload {
 		if ready, newWorkload := r.overwriteDnsWorkload(workload, domain, addrs); ready {
 			readyWorkloads = append(readyWorkloads, newWorkload)
 		}
 	}
+	r.RUnlock()
 
 	// Send to channels without holding lock to prevent deadlock
 	for _, newWorkload := range readyWorkloads {
 		uid := newWorkload.GetUid()
 
-		r.Lock()
-		ch, ok := r.ResolvedDomainChanMap[uid]
-		r.Unlock()
+		value, ok := r.ResolvedDomainChanMap.Load(uid)
+		r.cache.AddOrUpdateWorkload(newWorkload)
 
 		if ok {
-			r.cache.AddOrUpdateWorkload(newWorkload)
+			ch, ok := value.(chan *workloadapi.Workload)
+			if !ok {
+				continue
+			}
+
 			select {
 			case ch <- newWorkload:
 				log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
@@ -187,12 +192,7 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 				log.Warnf("timeout sending resolved workload %s/%s", newWorkload.Namespace, newWorkload.Name)
 			}
 
-			r.Lock()
-			if _, stillExists := r.ResolvedDomainChanMap[uid]; stillExists {
-				close(r.ResolvedDomainChanMap[uid])
-				delete(r.ResolvedDomainChanMap, uid)
-			}
-			r.Unlock()
+			r.ResolvedDomainChanMap.Delete(uid)
 		}
 	}
 

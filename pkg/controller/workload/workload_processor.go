@@ -48,6 +48,9 @@ import (
 
 const (
 	KmeshWaypointPort = 15019 // use this fixed port instead of the HboneMtlsPort in kmesh
+)
+
+var (
 	// dnsResolveTimeout is the timeout used when waiting for DNS resolution for workloads
 	dnsResolveTimeout = 3 * time.Second
 )
@@ -77,7 +80,7 @@ type Processor struct {
 	handlers map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error
 
 	DnsResolverChan       chan *workloadapi.Workload
-	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
+	ResolvedDomainChanMap *sync.Map
 	// Callback to remove workload from DNS cache when workload is deleted
 	onWorkloadDeleted func(workloadName string)
 }
@@ -959,19 +962,17 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 			}
 
 			uid := workload.GetUid()
-			p.ResolvedDomainChanMap[uid] = make(chan *workloadapi.Workload)
+			ch := make(chan *workloadapi.Workload, 1)
+			p.ResolvedDomainChanMap.Store(uid, ch)
 			p.DnsResolverChan <- workload
 			log.Infof("waiting for DNS resolution: %s/%s/%s", workload.Namespace, workload.Name, uid)
 
 			select {
 			case <-time.After(dnsResolveTimeout):
 				log.Warnf("DNS resolution timeout for workload %s/%s/%s, skip handling", workload.Namespace, workload.Name, uid)
-				if ch, ok := p.ResolvedDomainChanMap[uid]; ok {
-					close(ch)
-					delete(p.ResolvedDomainChanMap, uid)
-				}
+				p.ResolvedDomainChanMap.Delete(uid)
 				continue
-			case newWorkload := <-p.ResolvedDomainChanMap[uid]:
+			case newWorkload := <-ch:
 				if newWorkload == nil || newWorkload.GetAddresses() == nil {
 					log.Warnf("workload %s/%s resolved addresses is nil, skip handling", workload.Namespace, workload.Name)
 					continue
