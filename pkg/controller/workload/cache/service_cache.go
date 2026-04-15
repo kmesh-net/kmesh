@@ -127,4 +127,3 @@ func (s *serviceCache) deleteAddr(addr NetworkAddress, svc *workloadapi.Service)
 		}
 	}
 }
-
