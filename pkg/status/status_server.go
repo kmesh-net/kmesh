@@ -148,6 +148,14 @@ func (s *Server) checkAdsMode(w http.ResponseWriter) bool {
 	return true
 }
 
+func (s *Server) checkBpfLoader(w http.ResponseWriter) bool {
+	if s.loader == nil {
+		http.Error(w, "BPF loader is unavailable", http.StatusInternalServerError)
+		return false
+	}
+	return true
+}
+
 func (s *Server) bpfWorkloadMaps(w http.ResponseWriter, r *http.Request) {
 	if !s.checkWorkloadMode(w) {
 		return
@@ -223,6 +231,9 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if !s.checkWorkloadMode(w) || !s.checkBpfLoader(w) {
+		return
+	}
 
 	accesslogInfo := r.URL.Query().Get("enable")
 	enabled, err := strconv.ParseBool(accesslogInfo)
@@ -244,6 +255,9 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.checkWorkloadMode(w) || !s.checkBpfLoader(w) {
 		return
 	}
 
@@ -279,6 +293,9 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
+	if !s.checkWorkloadMode(w) || !s.checkBpfLoader(w) {
+		return
+	}
 
 	info := r.URL.Query().Get("enable")
 	enabled, err := strconv.ParseBool(info)
@@ -300,6 +317,9 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.checkWorkloadMode(w) || !s.checkBpfLoader(w) {
 		return
 	}
 
@@ -332,6 +352,9 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !s.checkBpfLoader(w) {
 		return
 	}
 
@@ -503,6 +526,9 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
+	if s.loader == nil {
+		return nil, fmt.Errorf("BPF loader is unavailable")
+	}
 	logLevel := s.loader.GetBpfLogLevel()
 	logLevelMap := map[int]string{
 		constants.BPF_LOG_ERR:   "error",
@@ -523,6 +549,9 @@ func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
 }
 
 func (s *Server) setBpfLogLevel(w http.ResponseWriter, levelStr string) {
+	if !s.checkBpfLoader(w) {
+		return
+	}
 	level, err := strconv.Atoi(levelStr)
 	if err != nil {
 		logLevelMap := map[string]int{
