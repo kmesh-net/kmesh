@@ -10,8 +10,8 @@
 typedef enum { MAP_TYPE_64, MAP_TYPE_192, MAP_TYPE_296, MAP_TYPE_1600, MAP_TYPE_MAX } map_in_map_type;
 
 #define MAP_GET_TYPE(idx)                (__u8)((__u32)(idx) >> 24)
-#define MAP_GET_INDEX(idx)               (__u32)((__u32)(idx)&0xFFFFFF)
-#define MAP_GEN_OUTER_KEY(map_type, pos) ((__u32)((((__u8)(map_type)&0xFF) << 24) + ((__u32)(pos)&0xFFFFFF)))
+#define MAP_GET_INDEX(idx)               (__u32)((__u32)(idx) & 0xFFFFFF)
+#define MAP_GEN_OUTER_KEY(map_type, pos) ((__u32)((((__u8)(map_type) & 0xFF) << 24) + ((__u32)(pos) & 0xFFFFFF)))
 
 #define MAP_VAL_SIZE_64   64
 #define MAP_VAL_SIZE_192  192
