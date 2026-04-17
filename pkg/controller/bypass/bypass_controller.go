@@ -157,7 +157,7 @@ func addIptables(ns string) error {
 		}
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
-				return fmt.Errorf("failed to exec command: iptables %v\", err: %w", args, err)
+				return fmt.Errorf("failed to exec command: iptables %v, err: %w", args, err)
 			}
 		}
 		return nil
@@ -178,7 +178,7 @@ func deleteIptables(ns string) error {
 		log.Infof("Running delete iptables rule in namespace:%s", ns)
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
-				err = fmt.Errorf("failed to exec command: iptables %v\", err: %w", args, err)
+				err = fmt.Errorf("failed to exec command: iptables %v, err: %w", args, err)
 				log.Error(err)
 				return err
 			}
