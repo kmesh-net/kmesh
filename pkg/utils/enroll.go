@@ -91,7 +91,7 @@ func HandleKmeshManage(ns string, enroll bool) error {
 	}
 
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %v", ns, err)
+		err = fmt.Errorf("enter ns path :%v, run execFunc failed: %w", ns, err)
 		return err
 	}
 	return nil
