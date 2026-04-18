@@ -149,7 +149,7 @@ func (s *Server) checkAdsMode(w http.ResponseWriter) bool {
 }
 
 func (s *Server) checkBpfLoader(w http.ResponseWriter) bool {
-	if s.loader == nil {
+	if s.loader == nil || (s.loader.GetBpfKmesh() == nil && s.loader.GetBpfWorkload() == nil) {
 		http.Error(w, "BPF loader is unavailable", http.StatusInternalServerError)
 		return false
 	}
@@ -354,7 +354,7 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !s.checkBpfLoader(w) {
+	if !s.checkWorkloadMode(w) || !s.checkBpfLoader(w) {
 		return
 	}
 
@@ -526,7 +526,7 @@ func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
-	if s.loader == nil {
+	if s.loader == nil || (s.loader.GetBpfKmesh() == nil && s.loader.GetBpfWorkload() == nil) {
 		return nil, fmt.Errorf("BPF loader is unavailable")
 	}
 	logLevel := s.loader.GetBpfLogLevel()
