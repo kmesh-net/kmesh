@@ -17,7 +17,7 @@ creation-date: 2024-06-07
 
 ### Summary
 
-Add Locality Load Balancing to Kmesh workload mode.
+Add Locality Load Balancing to Kmesh dual engine mode.
 
 ### Motivation
 
@@ -25,7 +25,7 @@ Currently, Kmesh does not support locality aware load balancing. Locality Load B
 
 ### Goals
 
-The purpose of this proposal is to add locality aware load balancing capabilities to kmesh workload mode, corresponding to locality load balancing in istio ambient mesh.
+The purpose of this proposal is to add locality aware load balancing capabilities to kmesh dual engine mode, corresponding to locality load balancing in istio ambient mesh.
 
 ### Proposal
 

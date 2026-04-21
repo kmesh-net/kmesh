@@ -30,11 +30,11 @@ Three main eBPF programs involved in ads mode have different attach points. The 
 - ApiEnvCfg：Since Kmesh involves map-in-map and serialization, but the C language serialization code cannot obtain info such as bpf map fd and so on, this info needs to be set as environment variables for subsequent processes.
 - deserial_init: Because the xDS configuration issued by istio is a tree-structured data with too deep level of nesting, the xDS configuration info needs to be stored in the bpf program using a map-in-map method
 
-#### Startup process in workload mode (StartworkloadMode)
+#### Startup process in dual engine mode (StartworkloadMode)
 
 - NewWorkloadBpf: Create the file system directory required by eBPF according to the configuration, including the file path of BPF map and prog
 - Load: Load the e BPF program of Kmesh, obtain the type and additional type of the program, and update the tail call program to implement the routing forwarding function
 - Attach: Attach the eBPF program of Kmesh to the specified cgroup and manage the eBPF program using bpflink
-The four main eBPF programs involved in workload mode, the eBPF programs of sockconn and sockops types are mounted on cgroup2, and the path is /mnt/kmesh_cgroup2. The eBPF program of sendmsg type is mounted on the eBPF program of sockops type, and the xdpauth eBPF program is mounted in the network card driver of the pod managed by Kmesh.
+The four main eBPF programs involved in dual engine mode, the eBPF programs of sockconn and sockops types are mounted on cgroup2, and the path is /mnt/kmesh_cgroup2. The eBPF program of sendmsg type is mounted on the eBPF program of sockops type, and the xdpauth eBPF program is mounted in the network card driver of the pod managed by Kmesh.
 
-Most of the processes are the same as Ads mode. The difference is that the eBPF programs loaded in workload mode and ads mode and the mounting hook points are different. Another difference is that there is no need to add additional storage and parsing for map-in-map, because the configuration information issued by istio in workload mode can be stored in the workload structure provided by istio.
+Most of the processes are the same as Ads mode. The difference is that the eBPF programs loaded in dual engine mode and ads mode and the mounting hook points are different. Another difference is that there is no need to add additional storage and parsing for map-in-map, because the configuration information issued by istio in dual engine mode can be stored in the workload structure provided by istio.

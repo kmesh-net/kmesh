@@ -389,7 +389,7 @@ func sendCertRequest(security *kmeshsecurity.SecretManager, pod *corev1.Pod, op 
 }
 
 func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
-	// Currently only support workload mode
+	// Currently only support dual engine mode
 	if mode != constants.DualEngineMode {
 		return nil
 	}
@@ -441,7 +441,7 @@ func linkXdp(netNsPath string, xdpProgFd int, mode string) error {
 }
 
 func unlinkXdp(netNsPath string, mode string) error {
-	// Currently only support workload mode
+	// Currently only support dual engine mode
 	if mode != constants.DualEngineMode {
 		return nil
 	}

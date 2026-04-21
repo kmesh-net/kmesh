@@ -374,7 +374,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		assert.Equal(t, invalidModeErrMessage, string(body))
 	})
 
-	t.Run("Workload mode test", func(t *testing.T) {
+	t.Run("Dual engine mode test", func(t *testing.T) {
 		config := options.BpfConfig{
 			Mode:        constants.DualEngineMode,
 			BpfFsPath:   "/sys/fs/bpf",
@@ -459,7 +459,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 }
 
 func TestServer_dumpAdsBpfMap(t *testing.T) {
-	t.Run("Workload mode test", func(t *testing.T) {
+	t.Run("Dual engine mode test", func(t *testing.T) {
 		config := options.BpfConfig{
 			Mode:        constants.DualEngineMode,
 			BpfFsPath:   "/sys/fs/bpf",
@@ -468,7 +468,7 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 		cleanup, _ := test.InitBpfMap(t, config)
 		defer cleanup()
 
-		// workload mode will failed
+		// dual engine mode will failed
 		server := &Server{}
 		req := httptest.NewRequest(http.MethodGet, patternBpfWorkloadMaps, nil)
 		w := httptest.NewRecorder()
