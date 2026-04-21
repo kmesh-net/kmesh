@@ -468,7 +468,7 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 		cleanup, _ := test.InitBpfMap(t, config)
 		defer cleanup()
 
-		// dual engine mode will failed
+		// dual engine mode will fail
 		server := &Server{}
 		req := httptest.NewRequest(http.MethodGet, patternBpfWorkloadMaps, nil)
 		w := httptest.NewRecorder()
