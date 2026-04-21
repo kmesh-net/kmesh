@@ -35,6 +35,7 @@ type HashName struct {
 	numToStr map[uint32]string
 	strToNum map[string]uint32
 	hash     hash.Hash32
+	mutex    sync.RWMutex
 }
 
 func NewHashName() *HashName {
@@ -91,6 +92,9 @@ func (h *HashName) flushDelta(str string, num uint32) error {
 }
 
 func (h *HashName) Hash(str string) uint32 {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
 	var num uint32
 
 	if num, exists := h.strToNum[str]; exists {
@@ -121,18 +125,32 @@ func (h *HashName) Hash(str string) uint32 {
 }
 
 func (h *HashName) NumToStr(num uint32) string {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
 	return h.numToStr[num]
 }
 
 func (h *HashName) StrToNum(str string) uint32 {
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
 	return h.strToNum[str]
 }
 
 func (h *HashName) GetStrToNum() map[string]uint32 {
-	return h.strToNum
+	h.mutex.RLock()
+	defer h.mutex.RUnlock()
+	// Return a copy to avoid racing on the returned map
+	out := make(map[string]uint32, len(h.strToNum))
+	for k, v := range h.strToNum {
+		out[k] = v
+	}
+	return out
 }
 
 func (h *HashName) Delete(str string) {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
+
 	// only when the num exists, we do the logic
 	if num, exists := h.strToNum[str]; exists {
 		delete(h.numToStr, num)

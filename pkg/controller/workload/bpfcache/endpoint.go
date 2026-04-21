@@ -19,6 +19,7 @@ package bpfcache
 import (
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/cilium/ebpf"
 	"istio.io/istio/pkg/util/sets"
@@ -40,12 +41,14 @@ type EndpointValue struct {
 
 func (c *Cache) EndpointUpdate(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointUpdate [%#v], [%#v]", *key, *value)
+	c.mutex.Lock()
 	// update endpointKeys index
 	if c.endpointKeys[value.BackendUid] == nil {
 		c.endpointKeys[value.BackendUid] = sets.New[EndpointKey](*key)
 	} else {
 		c.endpointKeys[value.BackendUid].Insert(*key)
 	}
+	c.mutex.Unlock()
 
 	return c.bpfMap.KmEndpoint.Update(key, value, ebpf.UpdateAny)
 }
@@ -58,10 +61,12 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 		log.Infof("endpoint [%#v] does not exist", key)
 		return nil
 	}
+	c.mutex.Lock()
 	c.endpointKeys[value.BackendUid].Delete(*key)
 	if len(c.endpointKeys[value.BackendUid]) == 0 {
 		delete(c.endpointKeys, value.BackendUid)
 	}
+	c.mutex.Unlock()
 
 	err := c.bpfMap.KmEndpoint.Delete(key)
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
@@ -112,6 +117,7 @@ func (c *Cache) EndpointSwap(currentIndex, backendUid, lastIndex uint32, service
 		return err
 	}
 
+	c.mutex.Lock()
 	// delete index for the current endpoint
 	c.endpointKeys[backendUid].Delete(*currentKey)
 	if len(c.endpointKeys[backendUid]) == 0 {
@@ -120,6 +126,7 @@ func (c *Cache) EndpointSwap(currentIndex, backendUid, lastIndex uint32, service
 
 	// add another index for the last endpoint
 	c.endpointKeys[lastValue.BackendUid].Insert(*currentKey)
+	c.mutex.Unlock()
 	return nil
 }
 
@@ -136,6 +143,8 @@ func (c *Cache) RestoreEndpointKeys() {
 		value = EndpointValue{}
 	)
 
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	iter := c.bpfMap.KmEndpoint.Iterate()
 	for iter.Next(&key, &value) {
 		// update endpointKeys index

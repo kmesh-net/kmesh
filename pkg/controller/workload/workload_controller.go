@@ -57,6 +57,15 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	processor.DnsResolverChan = dnsResolverController.workloadsChan
 	processor.ResolvedDomainChanMap = dnsResolverController.ResolvedDomainChanMap
 
+	// Set up callback to handle resolved workloads asynchronously
+	dnsResolverController.OnResolved = func(workload *workloadapi.Workload) {
+		processor.Lock()
+		defer processor.Unlock()
+		if err := processor.handleWorkload(workload); err != nil {
+			log.Errorf("handle resolved workload %s failed, err: %v", workload.ResourceName(), err)
+		}
+	}
+
 	// Set up callback to clean DNS cache when workload is deleted
 	processor.onWorkloadDeleted = func(workloadName string) {
 		dnsResolverController.removeWorkloadFromDnsCache(workloadName)
@@ -169,7 +178,9 @@ func (c *Controller) HandleWorkloadStream() error {
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
+	c.Processor.Lock()
 	c.Processor.processWorkloadResponse(rspDelta, c.Rbac)
+	c.Processor.Unlock()
 
 	if err = c.Stream.Send(c.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)

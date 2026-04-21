@@ -38,11 +38,14 @@ type dnsController struct {
 	dnsResolver *dns.DNSResolver
 
 	workloadsChan         chan *workloadapi.Workload
-	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
+	ResolvedDomainChanMap *sync.Map
 
 	workloadCache    map[string]*pendingResolveDomain // hostname -> pending workloads
 	pendingHostnames map[string]string                // workload name -> hostname
 	sync.RWMutex
+
+	// OnResolved is a callback called when a workload is resolved
+	OnResolved func(workload *workloadapi.Workload)
 }
 
 // pendingResolveDomain stores workloads pending DNS resolution for a domain
@@ -59,8 +62,8 @@ func NewDnsController(cache cache.WorkloadCache) (*dnsController, error) {
 	dnsController := &dnsController{
 		cache:                 cache,
 		dnsResolver:           resolver,
-		workloadsChan:         make(chan *workloadapi.Workload),
-		ResolvedDomainChanMap: make(map[string]chan *workloadapi.Workload),
+		workloadsChan:         make(chan *workloadapi.Workload, 1024),
+		ResolvedDomainChanMap: &sync.Map{},
 		workloadCache:         make(map[string]*pendingResolveDomain),
 		pendingHostnames:      make(map[string]string),
 	}
@@ -163,23 +166,33 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 		return
 	}
 
+	r.RLock()
 	var readyWorkloads []*workloadapi.Workload
 	for _, workload := range pendingDomain.Workload {
 		if ready, newWorkload := r.overwriteDnsWorkload(workload, domain, addrs); ready {
 			readyWorkloads = append(readyWorkloads, newWorkload)
 		}
 	}
+	r.RUnlock()
 
-	// Send to channels without holding lock to prevent deadlock
+	// Send to channels and trigger callback without holding lock to prevent deadlock
 	for _, newWorkload := range readyWorkloads {
 		uid := newWorkload.GetUid()
 
-		r.Lock()
-		ch, ok := r.ResolvedDomainChanMap[uid]
-		r.Unlock()
+		value, ok := r.ResolvedDomainChanMap.Load(uid)
+		r.cache.AddOrUpdateWorkload(newWorkload)
+
+		// Trigger callback for asynchronous processing
+		if r.OnResolved != nil {
+			r.OnResolved(newWorkload)
+		}
 
 		if ok {
-			r.cache.AddOrUpdateWorkload(newWorkload)
+			ch, ok := value.(chan *workloadapi.Workload)
+			if !ok {
+				continue
+			}
+
 			select {
 			case ch <- newWorkload:
 				log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
@@ -187,12 +200,7 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 				log.Warnf("timeout sending resolved workload %s/%s", newWorkload.Namespace, newWorkload.Name)
 			}
 
-			r.Lock()
-			if _, stillExists := r.ResolvedDomainChanMap[uid]; stillExists {
-				close(r.ResolvedDomainChanMap[uid])
-				delete(r.ResolvedDomainChanMap, uid)
-			}
-			r.Unlock()
+			r.ResolvedDomainChanMap.Delete(uid)
 		}
 	}
 

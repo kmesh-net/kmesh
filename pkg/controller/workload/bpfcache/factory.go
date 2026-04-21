@@ -17,6 +17,8 @@
 package bpfcache
 
 import (
+	"sync"
+
 	"istio.io/istio/pkg/util/sets"
 
 	bpf2go "kmesh.net/kmesh/bpf/kmesh/bpf2go/dualengine"
@@ -29,6 +31,7 @@ type Cache struct {
 	bpfMap bpf2go.KmeshCgroupSockWorkloadMaps
 	// endpointKeys by workload uid
 	endpointKeys map[uint32]sets.Set[EndpointKey]
+	mutex        sync.RWMutex
 }
 
 func NewCache(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Cache {
@@ -43,5 +46,7 @@ func (c *Cache) GetEndpointKeys(workloadID uint32) sets.Set[EndpointKey] {
 		return nil
 	}
 
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
 	return c.endpointKeys[workloadID]
 }
