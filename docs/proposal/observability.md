@@ -229,7 +229,7 @@ After obtaining the metric through bpf map, we also have to support the Promethe
 <img src="pics/observability.svg" width="800" />
 </div>
 
-Observability should be achieved in both ads mode and workload mode.
+Observability should be achieved in both ads mode and dual engine mode.
 
 We now consider the realisation of only l4 layers of observability.
 

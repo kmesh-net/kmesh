@@ -130,7 +130,7 @@ and make progress.
 
 - Do not provide node local dns service for application, at least this is not the goal of this proposal.
 
-- Since istiod doesnot support workload dns resolution, Kmesh does not support it in workload mode either.
+- Since istiod does not support workload dns resolution, Kmesh does not support it in dual engine mode either.
 
 ### Proposal
 

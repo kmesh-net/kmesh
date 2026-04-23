@@ -1,5 +1,5 @@
 ---
-title: support layer 4 authorization in kmesh workload mod 
+title: support layer 4 authorization in kmesh dual engine mode
 authors:
 - "@supercharge-xsy"
 reviewers:
@@ -11,11 +11,11 @@ approvers:
 
 creation-date: 2024-05-28
 ---
-## Support L4 authorization in workload mode
+## Support L4 authorization in dual engine mode
 
 ### Summary
 
-This article aims to explain how Kmesh achieves layer 4 authorization functionality in workload mode. For an introduction to the authorization features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/). Currently, Kmesh supports two authorization architectures. Packets are first processed through XDP authorization, and if that type is not supported, quintuple information is passed through a ring buffer for user-space authorization. The ultimate goal is to fully handle authorization in XDP.
+This article aims to explain how Kmesh achieves layer 4 authorization functionality in dual engine mode. For an introduction to the authorization features, please refer to:[Kmesh TCP Authorization](https://kmesh.net/en/docs/userguide/tcp_authorization/). Currently, Kmesh supports two authorization architectures. Packets are first processed through XDP authorization, and if that type is not supported, quintuple information is passed through a ring buffer for user-space authorization. The ultimate goal is to fully handle authorization in XDP.
 
 ### Userspace authorization
 

@@ -49,7 +49,7 @@ Let's start from setting up the required environment. You can follow the steps b
     istioctl install
     ```
 
-    If you want to use `kmesh` in `workload` mode, you should deploy `istio` in [ambient mode](https://istio.io/latest/docs/ambient/overview/), by adding an extra flag:
+    If you want to use `kmesh` in `dual engine mode`, you should deploy `istio` in [ambient mode](https://istio.io/latest/docs/ambient/overview/), by adding an extra flag:
 
     ```shell
     istioctl install --set profile=ambient 
