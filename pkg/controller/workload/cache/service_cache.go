@@ -32,6 +32,7 @@ type ServiceCache interface {
 	DeleteService(resourceName string)
 	GetService(resourceName string) *workloadapi.Service
 	GetServiceByAddr(address NetworkAddress) *workloadapi.Service
+	GetServiceByIP(ip netip.Addr) *workloadapi.Service
 }
 
 var _ ServiceCache = &serviceCache{}
@@ -41,13 +42,21 @@ type serviceCache struct {
 	// keyed by namespace/hostname->service
 	servicesByResourceName map[string]*workloadapi.Service
 	servicesByAddr         map[NetworkAddress]*workloadapi.Service
+	servicesByIP           map[netip.Addr]*workloadapi.Service
 }
 
 func NewServiceCache() *serviceCache {
 	return &serviceCache{
 		servicesByResourceName: make(map[string]*workloadapi.Service),
 		servicesByAddr:         make(map[NetworkAddress]*workloadapi.Service),
+		servicesByIP:           make(map[netip.Addr]*workloadapi.Service),
 	}
+}
+
+func (s *serviceCache) GetServiceByIP(ip netip.Addr) *workloadapi.Service {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return s.servicesByIP[ip]
 }
 
 func (s *serviceCache) GetServiceByAddr(address NetworkAddress) *workloadapi.Service {
@@ -66,6 +75,7 @@ func (s *serviceCache) AddOrUpdateService(svc *workloadapi.Service) {
 		addrStr, _ := netip.AddrFromSlice(addr.GetAddress())
 		networkAddress := composeNetworkAddress(addr.GetNetwork(), addrStr)
 		s.servicesByAddr[networkAddress] = svc
+		s.servicesByIP[addrStr] = svc
 	}
 }
 
@@ -110,6 +120,10 @@ func (s *serviceCache) deleteAddr(addr NetworkAddress, svc *workloadapi.Service)
 			// NOTE: If the associated service is updated, we can no longer delete it.
 			// Ref: https://github.com/kmesh-net/kmesh/issues/1352
 			delete(s.servicesByAddr, addr)
+			// Only delete from servicesByIP if it still corresponds to the same service
+			if s.servicesByIP[addr.Address] == service {
+				delete(s.servicesByIP, addr.Address)
+			}
 		}
 	}
 }

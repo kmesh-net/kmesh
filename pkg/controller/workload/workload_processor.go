@@ -543,7 +543,7 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 func (p *Processor) getServiceByAddress(address []byte) *workloadapi.Service {
 	networkAddr := cache.NetworkAddress{}
 	networkAddr.Address, _ = netip.AddrFromSlice(address)
-	if svc := p.ServiceCache.GetServiceByAddr(networkAddr); svc != nil {
+	if svc := p.ServiceCache.GetServiceByIP(networkAddr.Address); svc != nil {
 		return svc
 	}
 	return nil
