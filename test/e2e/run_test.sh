@@ -116,7 +116,13 @@ function setup_istio() {
 
 	helm install istiod istio/istiod --namespace istio-system --version $ISTIO_VERSION --set pilot.env.PILOT_ENABLE_AMBIENT=true --create-namespace
 
-	helm install istio-ingressgateway istio/gateway -n istio-system --create-namespace
+	helm install istio-ingressgateway istio/gateway -n istio-system --version "$ISTIO_VERSION" --create-namespace
+
+	# egress gateway only needs to be reachable from inside the cluster
+	helm install istio-egressgateway istio/gateway -n istio-system --version "$ISTIO_VERSION" --create-namespace \
+		--set labels.istio=egressgateway \
+		--set labels.app=istio-egressgateway \
+		--set service.type=ClusterIP
 
 	while true; do
 		pod_info=$(kubectl get pods -n istio-system -l app=istiod -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
