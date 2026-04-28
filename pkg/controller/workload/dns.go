@@ -180,11 +180,14 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 		uid := newWorkload.GetUid()
 
 		value, ok := r.ResolvedDomainChanMap.Load(uid)
-		r.cache.AddOrUpdateWorkload(newWorkload)
 
-		// Trigger callback for asynchronous processing
+		// Let the processor/callback own the cache update so it can still observe
+		// the previous workload state before writing the resolved workload.
+		// If no callback is configured, keep the cache updated here.
 		if r.OnResolved != nil {
 			r.OnResolved(newWorkload)
+		} else {
+			r.cache.AddOrUpdateWorkload(newWorkload)
 		}
 
 		if ok {

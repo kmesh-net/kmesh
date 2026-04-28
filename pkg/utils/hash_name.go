@@ -22,6 +22,7 @@ import (
 	"hash/fnv"
 	"math"
 	"os"
+	"sync"
 
 	"sigs.k8s.io/yaml"
 )

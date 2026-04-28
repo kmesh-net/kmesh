@@ -25,7 +25,8 @@ import (
 
 func TestDnsController_UpdateWorkloads_Coverage(t *testing.T) {
 	workloadCache := cache.NewWorkloadCache()
-	dnsController, _ := NewDnsController(workloadCache)
+	dnsController, err := NewDnsController(workloadCache)
+	assert.NoError(t, err)
 
 	uid := "test-uid-coverage"
 	domain := "example.com"
@@ -65,6 +66,8 @@ func TestDnsController_UpdateWorkloads_Coverage(t *testing.T) {
 
 	// Temporarily override WorkloadChannelSendTimeout inside dns.go if possible,
 	// but since it's a const, the test will just sleep 100ms.
+	// updateWorkloads will block until its internal send timeout is reached
+	// because the channel is already full.
 	dnsController.updateWorkloads(pendingDomain, domain, addrs)
 	_, ok = dnsController.ResolvedDomainChanMap.Load(uid)
 	assert.False(t, ok, "channel should be deleted even if timeout")

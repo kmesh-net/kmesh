@@ -19,7 +19,6 @@ package bpfcache
 import (
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/cilium/ebpf"
 	"istio.io/istio/pkg/util/sets"

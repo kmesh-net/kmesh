@@ -26,6 +26,7 @@ import (
 
 func TestProcessor_HandleServicesAndWorkloads_Dns_Async(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
 	p := NewProcessor(workloadMap)
 
 	// Test: Asynchronous DNS resolution trigger
