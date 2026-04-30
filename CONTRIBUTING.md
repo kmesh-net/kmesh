@@ -14,6 +14,7 @@ Welcome to Kmesh!
       - [File an Issue](#file-an-issue)
   - [AI Guidance](#ai-guidance)
   - [Contributor Workflow](#contributor-workflow)
+    - [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
     - [Creating Pull Requests](#creating-pull-requests)
     - [Code Review](#code-review)
   - [Membership](#membership)
@@ -90,6 +91,28 @@ This is a rough outline of what a contributor's workflow looks like:
 - Make commits of logical units.
 - Push changes in a topic branch to a personal fork of the repository.
 - Submit a pull request to [Kmesh-net/Kmesh](https://github.com/Kmesh-net/Kmesh).
+
+### Developer Certificate of Origin (DCO)
+
+Kmesh requires all commits to be signed off to certify that you wrote the code and have the right to contribute it under the project's license. Every commit must include a `Signed-off-by` line matching your name and email:
+
+```
+Signed-off-by: Your Name <your-email@example.com>
+```
+
+Use the `-s` flag to add this automatically:
+
+```bash
+git commit -s -m "your commit message"
+```
+
+If you forgot to sign off on previous commits, fix them before opening a PR:
+
+```bash
+git rebase --signoff HEAD~<number-of-commits>
+```
+
+PRs with unsigned commits will fail the DCO check in CI and cannot be merged.
 
 ### Creating Pull Requests
 
