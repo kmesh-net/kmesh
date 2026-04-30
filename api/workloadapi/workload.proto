@@ -17,6 +17,8 @@ syntax = "proto3";
 package istio.workload;
 option go_package="kmesh.net/kmesh/api/workloadapi;workloadapi";
 
+import "google/protobuf/wrappers.proto";
+
 // Address represents a unique address.
 //
 // Address joins two sub-resources, Workload and Service, to support querying by IP address.
@@ -237,6 +239,11 @@ message Workload {
   Locality locality = 24;
 
   NetworkMode network_mode = 25;
+
+  // Capacity for this workload.
+  // This represents the amount of traffic the workload can handle, relative to other workloads
+  // If unset, the capacity is default to 1.
+  google.protobuf.UInt32Value capacity = 27;
 
   // Reservations for deleted fields.
   reserved 15;
