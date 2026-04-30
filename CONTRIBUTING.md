@@ -96,7 +96,7 @@ This is a rough outline of what a contributor's workflow looks like:
 
 Kmesh requires all commits to be signed off to certify that you wrote the code and have the right to contribute it under the project's license. Every commit must include a `Signed-off-by` line matching your name and email:
 
-```
+```text
 Signed-off-by: Your Name <your-email@example.com>
 ```
 
