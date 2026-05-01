@@ -79,7 +79,7 @@ type Processor struct {
 	DnsResolverChan       chan *workloadapi.Workload
 	ResolvedDomainChanMap *sync.Map
 	// Callback to remove workload from DNS cache when workload is deleted
-	onWorkloadDeleted func(workloadName string)
+	onWorkloadDeleted func(uid string)
 	sync.Mutex
 }
 
@@ -251,14 +251,14 @@ func (p *Processor) removeWorkloadResources(removedResources []string) error {
 
 func (p *Processor) removeWorkload(uid string) error {
 	p.WaypointCache.DeleteWorkload(uid)
+	// Clean up DNS cache for this workload if it was pending DNS resolution
+	if p.onWorkloadDeleted != nil {
+		p.onWorkloadDeleted(uid)
+	}
+
 	wl := p.WorkloadCache.GetWorkloadByUid(uid)
 	if wl == nil {
 		return nil
-	}
-
-	// Clean up DNS cache for this workload if it was pending DNS resolution
-	if p.onWorkloadDeleted != nil && wl.GetName() != "" {
-		p.onWorkloadDeleted(wl.GetName())
 	}
 
 	p.WorkloadCache.DeleteWorkload(uid)

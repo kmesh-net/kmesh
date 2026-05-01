@@ -41,7 +41,7 @@ type dnsController struct {
 	ResolvedDomainChanMap *sync.Map
 
 	workloadCache    map[string]*pendingResolveDomain // hostname -> pending workloads
-	pendingHostnames map[string]string                // workload name -> hostname
+	pendingHostnames map[string]string                // workload uid -> hostname
 	sync.RWMutex
 
 	// OnResolved is a callback called when a workload is resolved
@@ -96,11 +96,11 @@ func (r *dnsController) processDomains(workload *workloadapi.Workload) {
 		return
 	}
 
-	workloadName := workload.GetName()
+	workloadUid := workload.GetUid()
 	hostname := workload.GetHostname()
 
 	r.Lock()
-	r.pendingHostnames[workloadName] = hostname
+	r.pendingHostnames[workloadUid] = hostname
 	if _, ok := r.workloadCache[hostname]; !ok {
 		r.workloadCache[hostname] = &pendingResolveDomain{
 			Workload:    make([]*workloadapi.Workload, 0),
@@ -119,13 +119,18 @@ func (r *dnsController) processDomains(workload *workloadapi.Workload) {
 	}
 	r.dnsResolver.RemoveUnwatchDomain(unwatchDomains)
 
-	for k, v := range domains {
+	for k := range domains {
+		pending := r.getWorkloadsByDomain(k)
+		if pending == nil {
+			continue
+		}
+
 		if addresses := r.dnsResolver.GetDNSAddresses(k); addresses != nil {
-			go r.updateWorkloads(v, k, addresses)
+			go r.updateWorkloads(pending, k, addresses)
 		} else {
 			domainInfo := &dns.DomainInfo{
 				Domain:      k,
-				RefreshRate: v.RefreshRate,
+				RefreshRate: pending.RefreshRate,
 			}
 			log.Infof("adding domain %s to DNS resolution queue", k)
 			r.dnsResolver.AddDomainInQueue(domainInfo, 0)
@@ -209,7 +214,12 @@ func (r *dnsController) updateWorkloads(pendingDomain *pendingResolveDomain, dom
 
 	if len(readyWorkloads) > 0 {
 		r.Lock()
-		delete(r.workloadCache, domain)
+		if pendingDomain, ok := r.workloadCache[domain]; ok {
+			for _, wl := range pendingDomain.Workload {
+				delete(r.pendingHostnames, wl.GetUid())
+			}
+			delete(r.workloadCache, domain)
+		}
 		r.Unlock()
 	}
 }
@@ -266,21 +276,21 @@ func getPendingResolveDomain(workload *workloadapi.Workload) map[string]*pending
 
 // removeWorkloadFromDnsCache removes a specific workload from DNS cache.
 // Called when a workload is deleted from the system.
-func (r *dnsController) removeWorkloadFromDnsCache(workloadName string) {
+func (r *dnsController) removeWorkloadFromDnsCache(workloadUid string) {
 	r.Lock()
 	defer r.Unlock()
 
-	hostname, exists := r.pendingHostnames[workloadName]
+	hostname, exists := r.pendingHostnames[workloadUid]
 	if !exists {
 		return
 	}
 
-	delete(r.pendingHostnames, workloadName)
+	delete(r.pendingHostnames, workloadUid)
 
 	if pendingDomain, ok := r.workloadCache[hostname]; ok {
 		updatedWorkloads := make([]*workloadapi.Workload, 0)
 		for _, wl := range pendingDomain.Workload {
-			if wl.GetName() != workloadName {
+			if wl.GetUid() != workloadUid {
 				updatedWorkloads = append(updatedWorkloads, wl)
 			}
 		}

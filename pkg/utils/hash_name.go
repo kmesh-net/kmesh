@@ -96,16 +96,17 @@ func (h *HashName) Hash(str string) uint32 {
 	h.mutex.Lock()
 	defer h.mutex.Unlock()
 
-	var num uint32
-
 	if num, exists := h.strToNum[str]; exists {
 		return num
 	}
 
 	h.hash.Reset()
 	h.hash.Write([]byte(str))
+
+	startNum := h.hash.Sum32()
+	num := startNum
 	// Using linear probing to solve hash conflicts
-	for num = h.hash.Sum32(); num < math.MaxUint32; num++ {
+	for {
 		// Create a new item if we find an empty slot
 		if _, exists := h.numToStr[num]; !exists {
 			h.numToStr[num] = str
@@ -114,15 +115,15 @@ func (h *HashName) Hash(str string) uint32 {
 			if err := h.flushDelta(str, num); err != nil {
 				log.Errorf("error flushing when calling Hash: %v", err)
 			}
-			break
+			return num
 		}
-		// It's a ring
-		if num == math.MaxUint32 {
-			num = 0
+
+		num++
+		if num == startNum {
+			log.Errorf("HashName map is full, cannot hash string: %s", str)
+			return 0
 		}
 	}
-
-	return num
 }
 
 func (h *HashName) NumToStr(num uint32) string {
@@ -165,5 +166,7 @@ func (h *HashName) Delete(str string) {
 
 // Should only be used by test
 func (h *HashName) Reset() {
+	h.mutex.Lock()
+	defer h.mutex.Unlock()
 	os.Remove(persistPath)
 }

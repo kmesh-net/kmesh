@@ -61,9 +61,11 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 		return nil
 	}
 	c.mutex.Lock()
-	c.endpointKeys[value.BackendUid].Delete(*key)
-	if len(c.endpointKeys[value.BackendUid]) == 0 {
-		delete(c.endpointKeys, value.BackendUid)
+	if c.endpointKeys[value.BackendUid] != nil {
+		c.endpointKeys[value.BackendUid].Delete(*key)
+		if len(c.endpointKeys[value.BackendUid]) == 0 {
+			delete(c.endpointKeys, value.BackendUid)
+		}
 	}
 	c.mutex.Unlock()
 
@@ -118,13 +120,19 @@ func (c *Cache) EndpointSwap(currentIndex, backendUid, lastIndex uint32, service
 
 	c.mutex.Lock()
 	// delete index for the current endpoint
-	c.endpointKeys[backendUid].Delete(*currentKey)
-	if len(c.endpointKeys[backendUid]) == 0 {
-		delete(c.endpointKeys, backendUid)
+	if c.endpointKeys[backendUid] != nil {
+		c.endpointKeys[backendUid].Delete(*currentKey)
+		if len(c.endpointKeys[backendUid]) == 0 {
+			delete(c.endpointKeys, backendUid)
+		}
 	}
 
 	// add another index for the last endpoint
-	c.endpointKeys[lastValue.BackendUid].Insert(*currentKey)
+	if c.endpointKeys[lastValue.BackendUid] == nil {
+		c.endpointKeys[lastValue.BackendUid] = sets.New[EndpointKey](*currentKey)
+	} else {
+		c.endpointKeys[lastValue.BackendUid].Insert(*currentKey)
+	}
 	c.mutex.Unlock()
 	return nil
 }
