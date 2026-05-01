@@ -14,6 +14,7 @@ Welcome to Kmesh!
       - [File an Issue](#file-an-issue)
   - [AI Guidance](#ai-guidance)
   - [Contributor Workflow](#contributor-workflow)
+    - [DCO Sign-off](#dco-sign-off)
     - [Creating Pull Requests](#creating-pull-requests)
     - [Code Review](#code-review)
   - [Membership](#membership)
@@ -90,6 +91,21 @@ This is a rough outline of what a contributor's workflow looks like:
 - Make commits of logical units.
 - Push changes in a topic branch to a personal fork of the repository.
 - Submit a pull request to [Kmesh-net/Kmesh](https://github.com/Kmesh-net/Kmesh).
+
+### DCO Sign-off
+
+All commits must include a DCO sign-off line:
+
+`Signed-off-by: Your Name <your-email@example.com>`
+
+Use `git commit -s` to add the sign-off automatically when creating each commit.
+For example:
+
+`git commit -s -m "docs: update contributing guide with DCO sign-off guidance"`
+
+If you forgot to sign off your most recent commit, run `git commit --amend -s`.
+If multiple commits are missing sign-off, you can add it during a rebase with
+`git rebase --signoff HEAD~<number-of-commits>` and then force-push your branch.
 
 ### Creating Pull Requests
 
