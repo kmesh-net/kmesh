@@ -121,7 +121,7 @@ func (m *MapMetricController) updatePrometheusMetric() {
 		count++
 		entryCount := uint32(0)
 		hasEntry := false
-		if info.Type == ebpf.Hash {
+		if info.Type == ebpf.Hash || info.Type == ebpf.LRUHash || info.Type == ebpf.PerCPUHash || info.Type == ebpf.LRUPerCPUHash {
 			hasEntry = true
 			entryCount, _ = getMapEntryCountFallback(mapInfo)
 		}

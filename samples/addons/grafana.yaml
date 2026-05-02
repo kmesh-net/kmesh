@@ -769,7 +769,7 @@ data:
                   },
                   {
                     "color": "red",
-                    "value": 80
+                    "value": 0.8
                   }
                 ]
               },

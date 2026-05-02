@@ -325,6 +325,19 @@ var (
 
 func RunPrometheusClient(ctx context.Context) {
 	registry := prometheus.NewRegistry()
+
+	// Register metrics and route once to avoid duplicate registration panics on retries.
+	mu.Lock()
+	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
+	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
+	registry.MustRegister(tcpConnectionTotalSendBytes, tcpConnectionTotalReceivedBytes, tcpConnectionTotalPacketLost, tcpConnectionTotalRetrans)
+	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
+	registry.MustRegister(mapEntryCount, mapMaxEntries, mapMemlockBytes, mapEntryUtilizationRatio, mapCountInNode)
+	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		Registry: registry,
+	}))
+	mu.Unlock()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -336,20 +349,8 @@ func RunPrometheusClient(ctx context.Context) {
 }
 
 func runPrometheusClient(registry *prometheus.Registry) {
-	// ensure not occur matche the same requests as /status/metric panic in unit test
-	mu.Lock()
-	defer mu.Unlock()
-	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
-	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
-	registry.MustRegister(tcpConnectionTotalSendBytes, tcpConnectionTotalReceivedBytes, tcpConnectionTotalPacketLost, tcpConnectionTotalRetrans)
-	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
-	registry.MustRegister(mapEntryCount, mapMaxEntries, mapMemlockBytes, mapEntryUtilizationRatio, mapCountInNode)
-
-	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
-		Registry: registry,
-	}))
 	if err := http.ListenAndServe(":15020", nil); err != nil {
-		log.Fatalf("start prometheus client port failed: %v", err)
+		log.Errorf("start prometheus client port failed: %v", err)
 	}
 }
 
