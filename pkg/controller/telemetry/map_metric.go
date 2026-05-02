@@ -34,12 +34,23 @@ type MapMetricController struct {
 }
 
 type MapInfo struct {
-	mapName    string
-	entryCount uint32
+	mapName     string
+	mapType     string
+	entryCount  uint32
+	hasEntry    bool
+	maxEntries  uint32
+	memlockByte uint64
+	hasMemlock  bool
 }
 
 type mapMetricLabels struct {
 	mapName  string
+	nodeName string
+}
+
+type mapDetailMetricLabels struct {
+	mapName  string
+	mapType  string
 	nodeName string
 }
 
@@ -73,6 +84,15 @@ func buildMapMetricLabel(data *MapInfo) mapMetricLabels {
 	return labels
 }
 
+func buildMapDetailMetricLabel(data *MapInfo) mapDetailMetricLabels {
+	labels := mapDetailMetricLabels{
+		nodeName: os.Getenv("NODE_NAME"),
+		mapName:  data.mapName,
+		mapType:  data.mapType,
+	}
+	return labels
+}
+
 func isKmeshMap(mapName string) bool {
 	return strings.HasPrefix(mapName, "kmesh_")
 }
@@ -99,15 +119,30 @@ func (m *MapMetricController) updatePrometheusMetric() {
 			continue
 		}
 		count++
-		if info.Type != ebpf.Hash {
-			mapInfo.Close()
-			continue
+		entryCount := uint32(0)
+		hasEntry := false
+		if info.Type == ebpf.Hash {
+			hasEntry = true
+			entryCount, _ = getMapEntryCountFallback(mapInfo)
 		}
-		entryCount, _ := getMapEntryCountFallback(mapInfo)
-		mapData := buildMapEntrycountMetric(info, entryCount)
+
+		memlockBytes, hasMemlock := info.Memlock()
+		mapData := buildMapMetricData(info, entryCount, hasEntry, memlockBytes, hasMemlock)
 		metricLabels := buildMapMetricLabel(&mapData)
 		commonLabels := struct2map(metricLabels)
-		mapEntryCount.With(commonLabels).Set(float64(entryCount))
+		if mapData.hasEntry {
+			mapEntryCount.With(commonLabels).Set(float64(mapData.entryCount))
+		}
+
+		detailMetricLabels := buildMapDetailMetricLabel(&mapData)
+		detailCommonLabels := struct2map(detailMetricLabels)
+		mapMaxEntries.With(detailCommonLabels).Set(float64(mapData.maxEntries))
+		if mapData.hasEntry {
+			mapEntryUtilizationRatio.With(detailCommonLabels).Set(calculateMapEntryUtilization(mapData.entryCount, mapData.maxEntries))
+		}
+		if mapData.hasMemlock {
+			mapMemlockBytes.With(detailCommonLabels).Set(float64(mapData.memlockByte))
+		}
 		mapInfo.Close()
 	}
 	mapCountLabels := map[string]string{"node_name": os.Getenv("NODE_NAME")}
@@ -135,12 +170,25 @@ func getNextMapInfo(startID ebpf.MapID) (ebpf.MapID, *ebpf.Map, *ebpf.MapInfo, e
 	return mapID, mapInfo, info, nil
 }
 
-func buildMapEntrycountMetric(info *ebpf.MapInfo, entryCount uint32) MapInfo {
+func buildMapMetricData(info *ebpf.MapInfo, entryCount uint32, hasEntry bool, memlockBytes uint64, hasMemlock bool) MapInfo {
 	return MapInfo{
-		mapName:    info.Name,
-		entryCount: entryCount,
+		mapName:     info.Name,
+		mapType:     info.Type.String(),
+		entryCount:  entryCount,
+		hasEntry:    hasEntry,
+		maxEntries:  info.MaxEntries,
+		memlockByte: memlockBytes,
+		hasMemlock:  hasMemlock,
 	}
 }
+
+func calculateMapEntryUtilization(entryCount, maxEntries uint32) float64 {
+	if maxEntries == 0 {
+		return 0
+	}
+	return float64(entryCount) / float64(maxEntries)
+}
+
 func getMapEntryCountFallback(m *ebpf.Map) (uint32, error) {
 	var entryCount uint32
 	iterator := m.Iterate()
