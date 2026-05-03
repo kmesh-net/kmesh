@@ -42,7 +42,7 @@ We will help you to contribute in different areas like filing issues, developing
 getting your work reviewed and merged.
 
 If you have questions about the development process,
-feel free to [file an issue](https://github.com/Kmesh-net/Kmesh/issues/new/choose).
+feel free to [file an issue](https://github.com/kmesh-net/kmesh/issues/new/choose).
 
 ### Find something to work on
 
@@ -52,11 +52,11 @@ Here is how you get started.
 
 #### Find a good first topic
 
-There are [multiple repositories](https://github.com/Kmesh-net/) within the Kmesh organization.
+There are [multiple repositories](https://github.com/kmesh-net/) within the Kmesh organization.
 Each repository has beginner-friendly issues that provide a good first issue.
-For example, [Kmesh-net/Kmesh](https://github.com/Kmesh-net/Kmesh) has
-[help wanted](https://github.com/Kmesh-net/Kmesh/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) and
-[good first issue](https://github.com/Kmesh-net/Kmesh/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
+For example, [kmesh-net/kmesh](https://github.com/kmesh-net/kmesh) has
+[help wanted](https://github.com/kmesh-net/kmesh/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22) and
+[good first issue](https://github.com/kmesh-net/kmesh/issues?q=is%3Aopen+is%3Aissue+label%3A%22good+first+issue%22)
 labels for issues that should not need deep knowledge of the system.
 We can help new contributors who wish to work on such issues.
 
@@ -72,7 +72,7 @@ When you are willing to take on an issue, just reply on the issue. The maintaine
 While we encourage everyone to contribute code, it is also appreciated when someone reports an issue.
 Issues should be filed under the appropriate Kmesh sub-repository.
 
-*Example:* a Kmesh issue should be opened to [Kmesh-net/Kmesh](https://github.com/Kmesh-net/Kmesh/issues).
+*Example:* a Kmesh issue should be opened to [kmesh-net/kmesh](https://github.com/kmesh-net/kmesh/issues).
 
 Please follow the prompted submission guidelines while opening an issue.
 
@@ -89,7 +89,7 @@ This is a rough outline of what a contributor's workflow looks like:
 - Create a topic branch from where to base the contribution. This is usually master.
 - Make commits of logical units.
 - Push changes in a topic branch to a personal fork of the repository.
-- Submit a pull request to [Kmesh-net/Kmesh](https://github.com/Kmesh-net/Kmesh).
+- Submit a pull request to [kmesh-net/kmesh](https://github.com/kmesh-net/kmesh).
 
 ### Creating Pull Requests
 
