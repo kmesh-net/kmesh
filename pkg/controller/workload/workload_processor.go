@@ -399,27 +399,50 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 	return nil
 }
 
-// addWorkloadToService update service & endpoint bpf map when a workload has new bound services
+// addWorkloadToService updates the endpoint and service BPF maps when a workload is bound to a service.
+//
+// Ordering guarantee: the endpoint entry is written before the service EndpointCount is
+// incremented, so the eBPF datapath never observes a count that points to a non-existent
+// entry.  If the ServiceUpdate fails after the endpoint has already been written we roll
+// back the endpoint insertion and the in-memory EndpointCache so that all three views
+// (BPF endpoint map, BPF service map, EndpointCache) remain consistent.
 func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, workloadUid uint32, priority uint32) (bpf.EndpointKey, error) {
-	var (
-		ek = bpf.EndpointKey{}
-		ev = bpf.EndpointValue{}
-	)
+	// Compute the new backend index without mutating sv yet.  sv.EndpointCount is only
+	// incremented after both BPF map writes succeed so that a partial failure cannot
+	// leave the in-memory service value out of sync with the BPF service map.
+	newIndex := sv.EndpointCount[priority] + 1
+	ek := bpf.EndpointKey{
+		BackendIndex: newIndex,
+		ServiceId:    sk.ServiceId,
+		Prio:         priority,
+	}
+	ev := bpf.EndpointValue{BackendUid: workloadUid}
 
-	sv.EndpointCount[priority]++
-	ek.BackendIndex = sv.EndpointCount[priority]
-	ek.ServiceId = sk.ServiceId
-	ek.Prio = priority
-	ev.BackendUid = workloadUid
+	// Step 1: write the endpoint entry.  The service EndpointCount still points to the
+	// previous last entry, so the new entry is invisible to the eBPF program until step 2.
 	if err := p.bpf.EndpointUpdate(&ek, &ev); err != nil {
 		log.Errorf("Update endpoint map failed, err:%s", err)
 		return ek, err
 	}
-	p.EndpointCache.AddEndpointToService(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
+
+	// Step 2: increment EndpointCount and persist the updated service value.  Only after
+	// this write does the eBPF program become aware of the new endpoint.
+	sv.EndpointCount[priority] = newIndex
 	if err := p.bpf.ServiceUpdate(sk, sv); err != nil {
-		log.Errorf("Update ServiceUpdate map failed, err:%s", err)
+		log.Errorf("Update service map failed, err:%s", err)
+		// Roll back: remove the endpoint entry we just inserted so the BPF maps stay
+		// consistent with each other and with EndpointCache.
+		if delErr := p.bpf.EndpointDelete(&ek); delErr != nil {
+			log.Errorf("rollback EndpointDelete [%#v] failed: %v", ek, delErr)
+		}
+		// Restore the in-memory count so the caller's sv copy is not left dirty.
+		sv.EndpointCount[priority]--
 		return ek, err
 	}
+
+	// Step 3: update the in-memory EndpointCache only after both BPF writes have
+	// succeeded, keeping the cache consistent with the actual datapath state.
+	p.EndpointCache.AddEndpointToService(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
 	return ek, nil
 }
 
@@ -1147,30 +1170,57 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 	return nil
 }
 
-// In order to make sure the bpf prog can always get the healthy endpoint, we should update the bpf map in the following order:
-// 1. replace the current endpoint with the last endpoint
-// 2. update the service map's endpoint count
-// 3. delete the last endpoint
+// deleteEndpoint removes a single endpoint from the BPF maps while keeping the
+// datapath in a valid state throughout the operation.
+//
+// The swap-then-shrink algorithm works as follows:
+//  1. Decrement EndpointCount in the service map first.  After this write the eBPF
+//     program will only select indices in [1, newCount], making the slot at
+//     (newCount+1) — the old last entry — unreachable to the datapath.
+//  2. Copy the now-unreachable last entry over the entry being deleted (EndpointSwap).
+//     Both the deleted slot and the last slot temporarily hold the same backend, but
+//     since the last slot is already unreachable this does not cause duplicate traffic.
+//  3. Delete the stale last entry.  The map is now compact and consistent.
+//
+// If step 1 (ServiceUpdate) fails we return immediately; nothing has changed.
+// If step 2 (EndpointSwap) fails after step 1 we attempt to restore the count.
+// If step 3 (EndpointDelete) fails the entry is unreachable (count was already
+// decremented) so it is a ghost entry that wastes one map slot but does not affect
+// correctness; we log the error and continue.
 func (p *Processor) deleteEndpoint(ek bpf.EndpointKey, ev bpf.EndpointValue, sv bpf.ServiceValue, sk bpf.ServiceKey) error {
-	if err := p.bpf.EndpointSwap(ek.BackendIndex, ev.BackendUid, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
-		log.Errorf("swap workload endpoint index failed: %s", err)
-		return err
-	}
-
-	sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
+	// Step 1: decrement EndpointCount so the last slot becomes unreachable to the
+	// eBPF program before we start moving data around.
+	newCount := sv.EndpointCount[ek.Prio] - 1
+	sv.EndpointCount[ek.Prio] = newCount
 	if err := p.bpf.ServiceUpdate(&sk, &sv); err != nil {
 		log.Errorf("ServiceUpdate %#v failed: %v", sk, err)
 		return err
 	}
 
+	// Step 2: overwrite the deleted slot with the (now unreachable) last entry so
+	// the remaining entries stay contiguous.
+	lastIndex := newCount + 1 // index of the entry that is now unreachable
+	if err := p.bpf.EndpointSwap(ek.BackendIndex, ev.BackendUid, lastIndex, sk.ServiceId, ek.Prio); err != nil {
+		log.Errorf("swap workload endpoint index failed: %s", err)
+		// Attempt to restore the count so the service map is not left with a count
+		// that is one less than the actual number of reachable entries.
+		sv.EndpointCount[ek.Prio] = lastIndex
+		if restoreErr := p.bpf.ServiceUpdate(&sk, &sv); restoreErr != nil {
+			log.Errorf("restore EndpointCount after swap failure failed: %v", restoreErr)
+		}
+		return err
+	}
+
+	// Step 3: delete the now-unreachable last entry.  A failure here leaves a ghost
+	// entry that is invisible to the eBPF program (count was already decremented) and
+	// will be cleaned up on the next restart via handleRemovedAddressesDuringRestart.
 	lastKey := &bpf.EndpointKey{
 		ServiceId:    sk.ServiceId,
 		Prio:         ek.Prio,
-		BackendIndex: sv.EndpointCount[ek.Prio] + 1,
+		BackendIndex: lastIndex,
 	}
 	if err := p.bpf.EndpointDelete(lastKey); err != nil {
-		log.Errorf("EndpointDelete [%#v] failed: %v", lastKey, err)
-		return err
+		log.Errorf("EndpointDelete [%#v] failed (ghost entry, non-fatal): %v", lastKey, err)
 	}
 	return nil
 }

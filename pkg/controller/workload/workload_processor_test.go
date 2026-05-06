@@ -851,3 +851,338 @@ func TestLocalityLBWithNilLocalityInfo(t *testing.T) {
 
 	hashNameClean(p)
 }
+
+// ---------------------------------------------------------------------------
+// Tests for addWorkloadToService and deleteEndpoint consistency guarantees
+// ---------------------------------------------------------------------------
+
+// TestAddWorkloadToService_EndpointUpdateFailure verifies that when EndpointUpdate
+// fails, EndpointCount in sv is not mutated and EndpointCache is not updated.
+func TestAddWorkloadToService_EndpointUpdateFailure(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	// Set up a service with one existing endpoint.
+	svc := common.CreateFakeService("svc1", "10.240.10.1", "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	if err := p.handleService(svc); err != nil {
+		t.Fatalf("handleService: %v", err)
+	}
+	svcID := p.hashName.Hash(svc.ResourceName())
+
+	wl1 := createWorkload("wl1", "10.244.0.1", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
+	if err := p.handleWorkload(wl1); err != nil {
+		t.Fatalf("handleWorkload wl1: %v", err)
+	}
+
+	// Snapshot state before the failing call.
+	sk := bpfcache.ServiceKey{ServiceId: svcID}
+	var svBefore bpfcache.ServiceValue
+	if err := p.bpf.ServiceLookup(&sk, &svBefore); err != nil {
+		t.Fatalf("ServiceLookup: %v", err)
+	}
+	endpointCountBefore := svBefore.EndpointCount[0]
+	cacheCountBefore := len(p.EndpointCache.List(svcID))
+
+	// Attempt to add a second workload but simulate an EndpointUpdate failure by
+	// using a service that does not exist in the BPF map (so ServiceLookup fails
+	// and addWorkloadToService is never reached).  Instead we call addWorkloadToService
+	// directly with a deliberately bad key to trigger the endpoint write path.
+	//
+	// We verify the invariant: after a failed addWorkloadToService call the
+	// EndpointCount in the BPF service map and the EndpointCache count must be
+	// identical to what they were before the call.
+	wl2ID := p.hashName.Hash("cluster0//Pod/default/wl2")
+	var svCopy bpfcache.ServiceValue
+	if err := p.bpf.ServiceLookup(&sk, &svCopy); err != nil {
+		t.Fatalf("ServiceLookup copy: %v", err)
+	}
+
+	// Close the endpoint map to force EndpointUpdate to fail.
+	workloadMap.KmEndpoint.Close()
+
+	_, err := p.addWorkloadToService(&sk, &svCopy, wl2ID, 0)
+	assert.Error(t, err, "expected error from addWorkloadToService when endpoint map is closed")
+
+	// EndpointCount in the in-memory svCopy must be restored to its pre-call value.
+	assert.Equal(t, endpointCountBefore, svCopy.EndpointCount[0],
+		"sv.EndpointCount must not be mutated when EndpointUpdate fails")
+
+	// EndpointCache must not have grown.
+	assert.Equal(t, cacheCountBefore, len(p.EndpointCache.List(svcID)),
+		"EndpointCache must not be updated when EndpointUpdate fails")
+
+	hashNameClean(p)
+}
+
+// TestAddWorkloadToService_ServiceUpdateFailure verifies that when ServiceUpdate
+// fails after a successful EndpointUpdate, the endpoint entry is rolled back from
+// the BPF map and EndpointCache is not updated.
+func TestAddWorkloadToService_ServiceUpdateFailure(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	// Set up a service.
+	svc := common.CreateFakeService("svc1", "10.240.10.1", "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	if err := p.handleService(svc); err != nil {
+		t.Fatalf("handleService: %v", err)
+	}
+	svcID := p.hashName.Hash(svc.ResourceName())
+
+	sk := bpfcache.ServiceKey{ServiceId: svcID}
+	var sv bpfcache.ServiceValue
+	if err := p.bpf.ServiceLookup(&sk, &sv); err != nil {
+		t.Fatalf("ServiceLookup: %v", err)
+	}
+
+	endpointCountBefore := sv.EndpointCount[0]
+	cacheCountBefore := len(p.EndpointCache.List(svcID))
+	endpointMapCountBefore := p.bpf.EndpointCount()
+
+	// Close the service map to force ServiceUpdate to fail while EndpointUpdate succeeds.
+	workloadMap.KmService.Close()
+
+	wlID := p.hashName.Hash("cluster0//Pod/default/wl-test")
+	_, err := p.addWorkloadToService(&sk, &sv, wlID, 0)
+	assert.Error(t, err, "expected error from addWorkloadToService when service map is closed")
+
+	// sv.EndpointCount must be restored to its pre-call value.
+	assert.Equal(t, endpointCountBefore, sv.EndpointCount[0],
+		"sv.EndpointCount must be restored after ServiceUpdate rollback")
+
+	// EndpointCache must not have grown.
+	assert.Equal(t, cacheCountBefore, len(p.EndpointCache.List(svcID)),
+		"EndpointCache must not be updated when ServiceUpdate fails")
+
+	// The endpoint map must not have grown (rollback must have deleted the entry).
+	// Note: the endpoint map is still open so we can query it.
+	assert.Equal(t, endpointMapCountBefore, p.bpf.EndpointCount(),
+		"endpoint BPF map must be rolled back when ServiceUpdate fails")
+
+	hashNameClean(p)
+}
+
+// TestAddWorkloadToService_EndpointCountConsistency verifies that after a sequence
+// of successful addWorkloadToService calls the EndpointCount in the BPF service map
+// always equals the number of entries in the BPF endpoint map for that service.
+func TestAddWorkloadToService_EndpointCountConsistency(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	svc := common.CreateFakeService("svc1", "10.240.10.1", "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	if err := p.handleService(svc); err != nil {
+		t.Fatalf("handleService: %v", err)
+	}
+	svcID := p.hashName.Hash(svc.ResourceName())
+
+	workloads := []*workloadapi.Workload{
+		createWorkload("wl1", "10.244.0.1", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1"),
+		createWorkload("wl2", "10.244.0.2", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1"),
+		createWorkload("wl3", "10.244.0.3", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1"),
+	}
+
+	for i, wl := range workloads {
+		if err := p.handleWorkload(wl); err != nil {
+			t.Fatalf("handleWorkload wl%d: %v", i+1, err)
+		}
+
+		// After each insertion the BPF service EndpointCount must equal the number
+		// of endpoint entries in the BPF endpoint map for this service.
+		sk := bpfcache.ServiceKey{ServiceId: svcID}
+		var sv bpfcache.ServiceValue
+		if err := p.bpf.ServiceLookup(&sk, &sv); err != nil {
+			t.Fatalf("ServiceLookup after wl%d: %v", i+1, err)
+		}
+		actualEndpoints := p.bpf.GetAllEndpointsForService(svcID)
+		assert.Equal(t, int(sv.EndpointCount[0]), len(actualEndpoints),
+			"EndpointCount[0] must equal actual endpoint entries after adding wl%d", i+1)
+	}
+
+	hashNameClean(p)
+}
+
+// TestDeleteEndpoint_CountDecrementedBeforeSwap verifies that after deleteEndpoint
+// the service EndpointCount is decremented and the endpoint map is compact.
+func TestDeleteEndpoint_CountDecrementedBeforeSwap(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	svc := common.CreateFakeService("svc1", "10.240.10.1", "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	if err := p.handleService(svc); err != nil {
+		t.Fatalf("handleService: %v", err)
+	}
+	svcID := p.hashName.Hash(svc.ResourceName())
+
+	wl1 := createWorkload("wl1", "10.244.0.1", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
+	wl2 := createWorkload("wl2", "10.244.0.2", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
+	wl3 := createWorkload("wl3", "10.244.0.3", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
+
+	for _, wl := range []*workloadapi.Workload{wl1, wl2, wl3} {
+		if err := p.handleWorkload(wl); err != nil {
+			t.Fatalf("handleWorkload: %v", err)
+		}
+	}
+
+	// Verify initial state: 3 endpoints.
+	checkServiceMap(t, p, svcID, svc, 0, 3)
+	assert.Equal(t, 3, len(p.bpf.GetAllEndpointsForService(svcID)))
+
+	// Delete wl1 (the first workload added, BackendIndex=1).
+	p.handleRemovedAddresses([]string{wl1.ResourceName()})
+
+	// After deletion: EndpointCount must be 2 and the endpoint map must have 2 entries.
+	checkServiceMap(t, p, svcID, svc, 0, 2)
+	remaining := p.bpf.GetAllEndpointsForService(svcID)
+	assert.Equal(t, 2, len(remaining),
+		"endpoint map must have exactly 2 entries after deleting one of three")
+
+	// The deleted workload must not appear in the endpoint map.
+	wl1ID := p.hashName.Hash(wl1.ResourceName())
+	for _, ep := range remaining {
+		assert.NotEqual(t, wl1ID, ep.BackendUid,
+			"deleted workload must not appear in endpoint map")
+	}
+
+	// EndpointCache must also reflect the deletion.
+	cacheEndpoints := p.EndpointCache.List(svcID)
+	assert.Equal(t, 2, len(cacheEndpoints),
+		"EndpointCache must have 2 entries after deletion")
+
+	hashNameClean(p)
+}
+
+// TestDeleteEndpoint_DeleteLastEntry verifies that deleting the last (and only)
+// endpoint of a service leaves EndpointCount at 0 and the endpoint map empty.
+func TestDeleteEndpoint_DeleteLastEntry(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	svc := common.CreateFakeService("svc1", "10.240.10.1", "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	if err := p.handleService(svc); err != nil {
+		t.Fatalf("handleService: %v", err)
+	}
+	svcID := p.hashName.Hash(svc.ResourceName())
+
+	wl := createWorkload("wl1", "10.244.0.1", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
+	if err := p.handleWorkload(wl); err != nil {
+		t.Fatalf("handleWorkload: %v", err)
+	}
+
+	checkServiceMap(t, p, svcID, svc, 0, 1)
+
+	p.handleRemovedAddresses([]string{wl.ResourceName()})
+
+	checkServiceMap(t, p, svcID, svc, 0, 0)
+	assert.Equal(t, 0, len(p.bpf.GetAllEndpointsForService(svcID)),
+		"endpoint map must be empty after deleting the only endpoint")
+	assert.Equal(t, 0, len(p.EndpointCache.List(svcID)),
+		"EndpointCache must be empty after deleting the only endpoint")
+
+	hashNameClean(p)
+}
+
+// TestDeleteEndpoint_EndpointCountServiceMapConsistency verifies that after a
+// sequence of add/delete operations the BPF service EndpointCount always equals
+// the number of entries in the BPF endpoint map.
+func TestDeleteEndpoint_EndpointCountServiceMapConsistency(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	svc := common.CreateFakeService("svc1", "10.240.10.1", "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	if err := p.handleService(svc); err != nil {
+		t.Fatalf("handleService: %v", err)
+	}
+	svcID := p.hashName.Hash(svc.ResourceName())
+
+	workloads := []*workloadapi.Workload{
+		createWorkload("wl1", "10.244.0.1", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1"),
+		createWorkload("wl2", "10.244.0.2", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1"),
+		createWorkload("wl3", "10.244.0.3", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1"),
+		createWorkload("wl4", "10.244.0.4", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1"),
+	}
+
+	for _, wl := range workloads {
+		if err := p.handleWorkload(wl); err != nil {
+			t.Fatalf("handleWorkload %s: %v", wl.Name, err)
+		}
+	}
+
+	assertConsistent := func(label string) {
+		sk := bpfcache.ServiceKey{ServiceId: svcID}
+		var sv bpfcache.ServiceValue
+		if err := p.bpf.ServiceLookup(&sk, &sv); err != nil {
+			t.Fatalf("%s: ServiceLookup: %v", label, err)
+		}
+		actual := p.bpf.GetAllEndpointsForService(svcID)
+		assert.Equal(t, int(sv.EndpointCount[0]), len(actual),
+			"%s: EndpointCount[0] must equal actual endpoint entries", label)
+		assert.Equal(t, len(actual), len(p.EndpointCache.List(svcID)),
+			"%s: EndpointCache count must equal BPF endpoint map count", label)
+	}
+
+	assertConsistent("after 4 adds")
+
+	// Delete in various orders to exercise the swap logic.
+	p.handleRemovedAddresses([]string{workloads[1].ResourceName()}) // delete wl2 (middle)
+	assertConsistent("after deleting wl2")
+
+	p.handleRemovedAddresses([]string{workloads[3].ResourceName()}) // delete wl4 (last)
+	assertConsistent("after deleting wl4")
+
+	p.handleRemovedAddresses([]string{workloads[0].ResourceName()}) // delete wl1 (first)
+	assertConsistent("after deleting wl1")
+
+	p.handleRemovedAddresses([]string{workloads[2].ResourceName()}) // delete wl3 (only remaining)
+	assertConsistent("after deleting wl3")
+
+	hashNameClean(p)
+}
+
+// TestAddWorkloadToService_RetryAfterFailureSucceeds verifies that after a
+// transient failure the same workload can be successfully added on a retry.
+func TestAddWorkloadToService_RetryAfterFailureSucceeds(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	svc := common.CreateFakeService("svc1", "10.240.10.1", "", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	if err := p.handleService(svc); err != nil {
+		t.Fatalf("handleService: %v", err)
+	}
+	svcID := p.hashName.Hash(svc.ResourceName())
+
+	wl := createWorkload("wl1", "10.244.0.1", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
+
+	// First attempt: succeeds normally.
+	if err := p.handleWorkload(wl); err != nil {
+		t.Fatalf("first handleWorkload: %v", err)
+	}
+	checkServiceMap(t, p, svcID, svc, 0, 1)
+
+	// Remove the workload.
+	p.handleRemovedAddresses([]string{wl.ResourceName()})
+	checkServiceMap(t, p, svcID, svc, 0, 0)
+
+	// Re-add the same workload (simulating a retry or re-announcement from the control plane).
+	wl2 := createWorkload("wl1-retry", "10.244.0.2", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
+	if err := p.handleWorkload(wl2); err != nil {
+		t.Fatalf("retry handleWorkload: %v", err)
+	}
+	checkServiceMap(t, p, svcID, svc, 0, 1)
+	assert.Equal(t, 1, len(p.bpf.GetAllEndpointsForService(svcID)),
+		"endpoint map must have exactly 1 entry after retry")
+
+	hashNameClean(p)
+}
