@@ -851,3 +851,90 @@ func TestLocalityLBWithNilLocalityInfo(t *testing.T) {
 
 	hashNameClean(p)
 }
+
+func TestAddWorkloadToService_Rollback(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	sk := &bpfcache.ServiceKey{ServiceId: 1}
+	sv := &bpfcache.ServiceValue{}
+	sv.EndpointCount[0] = 0
+
+	// Pre-fill the service map
+	err := p.bpf.ServiceUpdate(sk, sv)
+	assert.NoError(t, err)
+
+	// Now simulate a failure in ServiceUpdate by closing the service map.
+	// This will cause p.bpf.ServiceUpdate(sk, &svCopy) to fail.
+	workloadMap.KmService.Close()
+
+	workloadID := uint32(100)
+	priority := uint32(0)
+	ek, err := p.addWorkloadToService(sk, sv, workloadID, priority)
+
+	// We expect an error from ServiceUpdate
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ServiceUpdate failed")
+
+	// Verify rollback: check if the endpoint was deleted from the endpoint map
+	var ev bpfcache.EndpointValue
+	err = p.bpf.EndpointLookup(&ek, &ev)
+	assert.Error(t, err, "Endpoint should have been rolled back (deleted) after ServiceUpdate failure")
+
+	// Verify in-memory state was not updated (should still be 0)
+	assert.Equal(t, uint32(0), sv.EndpointCount[priority])
+
+	// Verify EndpointCache was not updated
+	endpoints := p.EndpointCache.List(sk.ServiceId)
+	assert.Empty(t, endpoints, "EndpointCache should not contain the endpoint after rollback")
+}
+
+func TestDeleteEndpoint_Underflow(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	ek := bpfcache.EndpointKey{ServiceId: 1, Prio: 0, BackendIndex: 1}
+	ev := bpfcache.EndpointValue{BackendUid: 100}
+	sv := bpfcache.ServiceValue{}
+	sv.EndpointCount[0] = 0 // Simulate underflow condition
+	sk := bpfcache.ServiceKey{ServiceId: 1}
+
+	err := p.deleteEndpoint(ek, ev, sv, sk)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "underflow prevented")
+}
+
+func TestDeleteEndpoint_Rollback(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	sk := bpfcache.ServiceKey{ServiceId: 1}
+	sv := bpfcache.ServiceValue{}
+	sv.EndpointCount[0] = 1
+
+	ek := bpfcache.EndpointKey{ServiceId: 1, Prio: 0, BackendIndex: 1}
+	ev := bpfcache.EndpointValue{BackendUid: 100}
+
+	// Pre-fill maps
+	_ = p.bpf.ServiceUpdate(&sk, &sv)
+	_ = p.bpf.EndpointUpdate(&ek, &ev)
+
+	// Simulate ServiceUpdate failure by closing the map
+	workloadMap.KmService.Close()
+
+	err := p.deleteEndpoint(ek, ev, sv, sk)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "ServiceUpdate failed")
+
+	// Verify rollback: original endpoint should still be in the map at index 1
+	var rolledBackEv bpfcache.EndpointValue
+	err = p.bpf.EndpointLookup(&ek, &rolledBackEv)
+	assert.NoError(t, err)
+	assert.Equal(t, ev.BackendUid, rolledBackEv.BackendUid, "Endpoint should have been restored after ServiceUpdate failure")
+}
