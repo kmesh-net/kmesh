@@ -31,7 +31,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"testing"
 	"time"
 
@@ -321,10 +320,12 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 }
 
 func waitForWaypointGatewayReady(ns string, name string, podName string) error {
-	if err := waitForGatewayCondition(ns, name, "Accepted"); err != nil {
-		return err
+	for _, condition := range []string{"Accepted", "Programmed"} {
+		if err := waitForGatewayCondition(ns, name, condition); err != nil {
+			return err
+		}
 	}
-	return waitForWaypointProxySynced(ns, podName)
+	return nil
 }
 
 func waitForGatewayCondition(ns string, name string, condition string) error {
@@ -333,33 +334,6 @@ func waitForGatewayCondition(ns string, name string, condition string) error {
 		return fmt.Errorf("waiting for waypoint gateway %s condition %s failed: %v, output: %s", name, condition, err, string(output))
 	}
 	return nil
-}
-
-func waitForWaypointProxySynced(ns string, podName string) error {
-	target := fmt.Sprintf("%s.%s", podName, ns)
-	return retry.UntilSuccess(func() error {
-		cmd := exec.Command("istioctl", "proxy-status", target)
-		output, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("failed to query proxy-status for %s: %v, output: %s", target, err, string(output))
-		}
-
-		for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-			if !strings.Contains(line, target) {
-				continue
-			}
-			fields := strings.Fields(line)
-			if len(fields) < 6 {
-				return fmt.Errorf("unexpected proxy-status format for %s: %s", target, line)
-			}
-			if fields[2] == "SYNCED" && fields[3] == "SYNCED" && fields[4] == "SYNCED" && fields[5] == "SYNCED" {
-				return nil
-			}
-			return fmt.Errorf("proxy %s not synced yet (CDS=%s LDS=%s EDS=%s RDS=%s)", target, fields[2], fields[3], fields[4], fields[5])
-		}
-
-		return fmt.Errorf("proxy %s not found in istioctl proxy-status output: %s", target, string(output))
-	}, retry.Timeout(120*time.Second), retry.Delay(2*time.Second))
 }
 
 func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {
