@@ -31,6 +31,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -264,7 +265,7 @@ func (k kubeComponent) Close() error {
 
 func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string, trafficType string) {
 	if _, err := newWaypointProxy(ctx, ns, name, trafficType); err != nil {
-		t.Fatal("create new waypoint proxy failed: %v", err)
+		t.Fatalf("create new waypoint proxy failed: %v", err)
 	}
 }
 
@@ -320,13 +321,56 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 }
 
 func waitForWaypointGatewayReady(ns string, name string) error {
-	for _, condition := range []string{"Accepted", "Programmed"} {
-		cmd := exec.Command("kubectl", "wait", "--for=condition="+condition, "--timeout=120s", "gateway/"+name, "-n", ns)
-		if output, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("waiting for waypoint gateway %s condition %s failed: %v, output: %s", name, condition, err, string(output))
+	if err := waitForGatewayCondition(ns, name, "Accepted"); err != nil {
+		return err
+	}
+
+	// Istio/Gateway API versions may expose readiness as "Programmed" or "Ready".
+	// Wait until either condition becomes True.
+	if err := retry.UntilSuccess(func() error {
+		conditions, err := getGatewayConditions(ns, name)
+		if err != nil {
+			return err
 		}
+		if conditions["Programmed"] == "True" || conditions["Ready"] == "True" {
+			return nil
+		}
+		return fmt.Errorf("gateway/%s not ready yet (Programmed=%q Ready=%q)", name, conditions["Programmed"], conditions["Ready"])
+	}, retry.Timeout(120*time.Second), retry.Delay(2*time.Second)); err != nil {
+		return fmt.Errorf("waiting for waypoint gateway %s readiness failed: %v", name, err)
+	}
+
+	return nil
+}
+
+func waitForGatewayCondition(ns string, name string, condition string) error {
+	cmd := exec.Command("kubectl", "wait", "--for=condition="+condition, "--timeout=120s", "gateway/"+name, "-n", ns)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("waiting for waypoint gateway %s condition %s failed: %v, output: %s", name, condition, err, string(output))
 	}
 	return nil
+}
+
+func getGatewayConditions(ns string, name string) (map[string]string, error) {
+	cmd := exec.Command("kubectl", "get", "gateway", name, "-n", ns, "-o", `jsonpath={range .status.conditions[*]}{.type}={.status}{"\n"}{end}`)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gateway %s conditions: %v, output: %s", name, err, string(output))
+	}
+
+	conditions := map[string]string{}
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		if line == "" {
+			continue
+		}
+		parts := strings.SplitN(line, "=", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		conditions[parts[0]] = parts[1]
+	}
+
+	return conditions, nil
 }
 
 func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {
