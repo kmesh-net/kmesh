@@ -403,9 +403,10 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 //
 // Ordering guarantee: the endpoint entry is written before the service EndpointCount is
 // incremented, so the eBPF datapath never observes a count that points to a non-existent
-// entry.  If the ServiceUpdate fails after the endpoint has already been written we roll
-// back the endpoint insertion and the in-memory EndpointCache so that all three views
-// (BPF endpoint map, BPF service map, EndpointCache) remain consistent.
+// entry.  If the ServiceUpdate fails after the endpoint has already been written, the
+// endpoint entry is deleted from the BPF map and sv.EndpointCount is restored so the
+// caller's copy is not left dirty.  EndpointCache is updated only after both BPF writes
+// succeed, so no cache rollback is required on failure.
 func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, workloadUid uint32, priority uint32) (bpf.EndpointKey, error) {
 	// Compute the new backend index without mutating sv yet.  sv.EndpointCount is only
 	// incremented after both BPF map writes succeed so that a partial failure cannot
@@ -430,8 +431,9 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 	sv.EndpointCount[priority] = newIndex
 	if err := p.bpf.ServiceUpdate(sk, sv); err != nil {
 		log.Errorf("Update service map failed, err:%s", err)
-		// Roll back: remove the endpoint entry we just inserted so the BPF maps stay
-		// consistent with each other and with EndpointCache.
+		// Roll back: remove the endpoint entry we just inserted so the BPF endpoint
+		// map stays consistent with the BPF service map.  EndpointCache has not been
+		// updated yet, so no cache rollback is needed.
 		if delErr := p.bpf.EndpointDelete(&ek); delErr != nil {
 			log.Errorf("rollback EndpointDelete [%#v] failed: %v", ek, delErr)
 		}
@@ -1188,6 +1190,17 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 // decremented) so it is a ghost entry that wastes one map slot but does not affect
 // correctness; we log the error and continue.
 func (p *Processor) deleteEndpoint(ek bpf.EndpointKey, ev bpf.EndpointValue, sv bpf.ServiceValue, sk bpf.ServiceKey) error {
+	// Guard against inconsistent state: EndpointCount must be positive and the
+	// BackendIndex being deleted must be within the valid range.  Violating either
+	// condition would produce an underflowed count or an out-of-range swap.
+	if sv.EndpointCount[ek.Prio] == 0 {
+		return fmt.Errorf("deleteEndpoint: EndpointCount is already 0 for service %d prio %d", sk.ServiceId, ek.Prio)
+	}
+	if ek.BackendIndex == 0 || ek.BackendIndex > sv.EndpointCount[ek.Prio] {
+		return fmt.Errorf("deleteEndpoint: BackendIndex %d out of range [1, %d] for service %d prio %d",
+			ek.BackendIndex, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio)
+	}
+
 	// Step 1: decrement EndpointCount so the last slot becomes unreachable to the
 	// eBPF program before we start moving data around.
 	newCount := sv.EndpointCount[ek.Prio] - 1
@@ -1212,8 +1225,10 @@ func (p *Processor) deleteEndpoint(ek bpf.EndpointKey, ev bpf.EndpointValue, sv 
 	}
 
 	// Step 3: delete the now-unreachable last entry.  A failure here leaves a ghost
-	// entry that is invisible to the eBPF program (count was already decremented) and
-	// will be cleaned up on the next restart via handleRemovedAddressesDuringRestart.
+	// entry that is invisible to the eBPF program because EndpointCount was already
+	// decremented in step 1.  The entry wastes one map slot but does not affect
+	// datapath correctness; it will remain until the next explicit cleanup of this
+	// service or workload.
 	lastKey := &bpf.EndpointKey{
 		ServiceId:    sk.ServiceId,
 		Prio:         ek.Prio,

@@ -885,14 +885,12 @@ func TestAddWorkloadToService_EndpointUpdateFailure(t *testing.T) {
 	endpointCountBefore := svBefore.EndpointCount[0]
 	cacheCountBefore := len(p.EndpointCache.List(svcID))
 
-	// Attempt to add a second workload but simulate an EndpointUpdate failure by
-	// using a service that does not exist in the BPF map (so ServiceLookup fails
-	// and addWorkloadToService is never reached).  Instead we call addWorkloadToService
-	// directly with a deliberately bad key to trigger the endpoint write path.
+	// Inject an EndpointUpdate failure by closing the endpoint BPF map.
+	// addWorkloadToService is called directly so the failure is triggered on the
+	// first BPF write (EndpointUpdate), before sv.EndpointCount is mutated.
 	//
-	// We verify the invariant: after a failed addWorkloadToService call the
-	// EndpointCount in the BPF service map and the EndpointCache count must be
-	// identical to what they were before the call.
+	// Invariant: after the failed call, sv.EndpointCount and EndpointCache must
+	// be identical to their pre-call values.
 	wl2ID := p.hashName.Hash("cluster0//Pod/default/wl2")
 	var svCopy bpfcache.ServiceValue
 	if err := p.bpf.ServiceLookup(&sk, &svCopy); err != nil {
