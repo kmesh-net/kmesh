@@ -291,10 +291,10 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 	if err != nil {
 		return nil, err
 	}
-	if err := waitForWaypointGatewayReady(ns.Name(), name); err != nil {
+	pod := pods[0]
+	if err := waitForWaypointGatewayReady(ns.Name(), name, pod.Name); err != nil {
 		return nil, err
 	}
-	pod := pods[0]
 	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
 	if err != nil {
 		return nil, err
@@ -320,27 +320,11 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 	return server, nil
 }
 
-func waitForWaypointGatewayReady(ns string, name string) error {
+func waitForWaypointGatewayReady(ns string, name string, podName string) error {
 	if err := waitForGatewayCondition(ns, name, "Accepted"); err != nil {
 		return err
 	}
-
-	// Istio/Gateway API versions may expose readiness as "Programmed" or "Ready".
-	// Wait until either condition becomes True.
-	if err := retry.UntilSuccess(func() error {
-		conditions, err := getGatewayConditions(ns, name)
-		if err != nil {
-			return err
-		}
-		if conditions["Programmed"] == "True" || conditions["Ready"] == "True" {
-			return nil
-		}
-		return fmt.Errorf("gateway/%s not ready yet (Programmed=%q Ready=%q)", name, conditions["Programmed"], conditions["Ready"])
-	}, retry.Timeout(120*time.Second), retry.Delay(2*time.Second)); err != nil {
-		return fmt.Errorf("waiting for waypoint gateway %s readiness failed: %v", name, err)
-	}
-
-	return nil
+	return waitForWaypointProxySynced(ns, podName)
 }
 
 func waitForGatewayCondition(ns string, name string, condition string) error {
@@ -351,26 +335,31 @@ func waitForGatewayCondition(ns string, name string, condition string) error {
 	return nil
 }
 
-func getGatewayConditions(ns string, name string) (map[string]string, error) {
-	cmd := exec.Command("kubectl", "get", "gateway", name, "-n", ns, "-o", `jsonpath={range .status.conditions[*]}{.type}={.status}{"\n"}{end}`)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get gateway %s conditions: %v, output: %s", name, err, string(output))
-	}
-
-	conditions := map[string]string{}
-	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
-		if line == "" {
-			continue
+func waitForWaypointProxySynced(ns string, podName string) error {
+	target := fmt.Sprintf("%s.%s", podName, ns)
+	return retry.UntilSuccess(func() error {
+		cmd := exec.Command("istioctl", "proxy-status", target)
+		output, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("failed to query proxy-status for %s: %v, output: %s", target, err, string(output))
 		}
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		conditions[parts[0]] = parts[1]
-	}
 
-	return conditions, nil
+		for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+			if !strings.Contains(line, target) {
+				continue
+			}
+			fields := strings.Fields(line)
+			if len(fields) < 6 {
+				return fmt.Errorf("unexpected proxy-status format for %s: %s", target, line)
+			}
+			if fields[2] == "SYNCED" && fields[3] == "SYNCED" && fields[4] == "SYNCED" && fields[5] == "SYNCED" {
+				return nil
+			}
+			return fmt.Errorf("proxy %s not synced yet (CDS=%s LDS=%s EDS=%s RDS=%s)", target, fields[2], fields[3], fields[4], fields[5])
+		}
+
+		return fmt.Errorf("proxy %s not found in istioctl proxy-status output: %s", target, string(output))
+	}, retry.Timeout(120*time.Second), retry.Delay(2*time.Second))
 }
 
 func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {
