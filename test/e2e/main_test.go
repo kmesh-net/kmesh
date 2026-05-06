@@ -290,6 +290,9 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 	if err != nil {
 		return nil, err
 	}
+	if err := waitForWaypointGatewayReady(ns.Name(), name); err != nil {
+		return nil, err
+	}
 	pod := pods[0]
 	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
 	if err != nil {
@@ -314,6 +317,16 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 	server.pod = pod
 
 	return server, nil
+}
+
+func waitForWaypointGatewayReady(ns string, name string) error {
+	for _, condition := range []string{"Accepted", "Programmed"} {
+		cmd := exec.Command("kubectl", "wait", "--for=condition="+condition, "--timeout=120s", "gateway/"+name, "-n", ns)
+		if output, err := cmd.CombinedOutput(); err != nil {
+			return fmt.Errorf("waiting for waypoint gateway %s condition %s failed: %v, output: %s", name, condition, err, string(output))
+		}
+	}
+	return nil
 }
 
 func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {
