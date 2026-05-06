@@ -408,6 +408,12 @@ func (p *Processor) removeServiceResourceFromBpfMap(svc *workloadapi.Service, na
 // caller's copy is not left dirty.  EndpointCache is updated only after both BPF writes
 // succeed, so no cache rollback is required on failure.
 func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValue, workloadUid uint32, priority uint32) (bpf.EndpointKey, error) {
+	// Validate priority before any array access to prevent an out-of-bounds panic
+	// on sv.EndpointCount[priority].
+	if priority >= bpf.PrioCount {
+		return bpf.EndpointKey{}, fmt.Errorf("addWorkloadToService: priority %d exceeds max %d", priority, bpf.PrioCount-1)
+	}
+
 	// Compute the new backend index without mutating sv yet.  sv.EndpointCount is only
 	// incremented after both BPF map writes succeed so that a partial failure cannot
 	// leave the in-memory service value out of sync with the BPF service map.
@@ -1190,9 +1196,12 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 // decremented) so it is a ghost entry that wastes one map slot but does not affect
 // correctness; we log the error and continue.
 func (p *Processor) deleteEndpoint(ek bpf.EndpointKey, ev bpf.EndpointValue, sv bpf.ServiceValue, sk bpf.ServiceKey) error {
-	// Guard against inconsistent state: EndpointCount must be positive and the
-	// BackendIndex being deleted must be within the valid range.  Violating either
-	// condition would produce an underflowed count or an out-of-range swap.
+	// Guard against inconsistent state: validate ek.Prio before any array access,
+	// then check EndpointCount and BackendIndex to prevent underflow or an
+	// out-of-range swap.
+	if ek.Prio >= bpf.PrioCount {
+		return fmt.Errorf("deleteEndpoint: Prio %d exceeds max %d for service %d", ek.Prio, bpf.PrioCount-1, sk.ServiceId)
+	}
 	if sv.EndpointCount[ek.Prio] == 0 {
 		return fmt.Errorf("deleteEndpoint: EndpointCount is already 0 for service %d prio %d", sk.ServiceId, ek.Prio)
 	}
