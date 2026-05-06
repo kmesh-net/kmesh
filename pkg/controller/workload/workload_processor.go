@@ -1181,7 +1181,7 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 // deleteEndpoint removes a single endpoint from the BPF maps while keeping the
 // datapath in a valid state throughout the operation.
 //
-// The swap-then-shrink algorithm works as follows:
+// The shrink-then-swap algorithm works as follows:
 //  1. Decrement EndpointCount in the service map first.  After this write the eBPF
 //     program will only select indices in [1, newCount], making the slot at
 //     (newCount+1) — the old last entry — unreachable to the datapath.
@@ -1229,6 +1229,7 @@ func (p *Processor) deleteEndpoint(ek bpf.EndpointKey, ev bpf.EndpointValue, sv 
 		sv.EndpointCount[ek.Prio] = lastIndex
 		if restoreErr := p.bpf.ServiceUpdate(&sk, &sv); restoreErr != nil {
 			log.Errorf("restore EndpointCount after swap failure failed: %v", restoreErr)
+			return fmt.Errorf("swap workload endpoint index failed: %w; restoring EndpointCount also failed: %v", err, restoreErr)
 		}
 		return err
 	}

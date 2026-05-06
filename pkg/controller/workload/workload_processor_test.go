@@ -1147,9 +1147,10 @@ func TestDeleteEndpoint_EndpointCountServiceMapConsistency(t *testing.T) {
 	hashNameClean(p)
 }
 
-// TestAddWorkloadToService_RetryAfterFailureSucceeds verifies that after a
-// transient failure the same workload can be successfully added on a retry.
-func TestAddWorkloadToService_RetryAfterFailureSucceeds(t *testing.T) {
+// TestAddWorkloadToService_NewWorkloadAfterDeletionSucceeds verifies that adding a
+// new workload to a service after a previous workload has been deleted leaves the
+// service endpoint count and BPF maps in a consistent state.
+func TestAddWorkloadToService_NewWorkloadAfterDeletionSucceeds(t *testing.T) {
 	workloadMap := bpfcache.NewFakeWorkloadMap(t)
 	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
 
@@ -1163,24 +1164,25 @@ func TestAddWorkloadToService_RetryAfterFailureSucceeds(t *testing.T) {
 
 	wl := createWorkload("wl1", "10.244.0.1", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
 
-	// First attempt: succeeds normally.
+	// Add the first workload.
 	if err := p.handleWorkload(wl); err != nil {
 		t.Fatalf("first handleWorkload: %v", err)
 	}
 	checkServiceMap(t, p, svcID, svc, 0, 1)
 
-	// Remove the workload.
+	// Remove the first workload.
 	p.handleRemovedAddresses([]string{wl.ResourceName()})
 	checkServiceMap(t, p, svcID, svc, 0, 0)
 
-	// Re-add the same workload (simulating a retry or re-announcement from the control plane).
+	// Add a distinct second workload.  This is not a retry of wl1 — it has a
+	// different name and IP — but the service must still reach a consistent state.
 	wl2 := createWorkload("wl1-retry", "10.244.0.2", "node1", workloadapi.NetworkMode_STANDARD, createLocality("r1", "z1", "s1"), "svc1")
 	if err := p.handleWorkload(wl2); err != nil {
-		t.Fatalf("retry handleWorkload: %v", err)
+		t.Fatalf("second handleWorkload: %v", err)
 	}
 	checkServiceMap(t, p, svcID, svc, 0, 1)
 	assert.Equal(t, 1, len(p.bpf.GetAllEndpointsForService(svcID)),
-		"endpoint map must have exactly 1 entry after retry")
+		"endpoint map must have exactly 1 entry after adding second workload")
 
 	hashNameClean(p)
 }
