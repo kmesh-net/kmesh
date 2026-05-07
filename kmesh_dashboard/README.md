@@ -1,24 +1,24 @@
 # Kmesh Dashboard
 
-Kmesh 的可视化控制台，通过交互式界面降低使用门槛，支持 Waypoint 安装、服务拓扑、熔断/限流配置、指标大盘与 RBAC。
+Kmesh visual dashboard that lowers the usage barrier with an interactive UI. It supports Waypoint installation, service topology, circuit breaking/rate limiting configuration, metrics overview, and RBAC.
 
-## 快速运行
+## Quick Start
 
-### 1. 启动后端
+### 1. Start the backend
 
-后端会访问当前 KUBECONFIG 指向的集群（或集群内 InCluster 配置），提供 `GET /api/cluster/nodes` 等接口。
+The backend connects to the cluster pointed to by the current KUBECONFIG (or in-cluster configuration) and provides APIs such as `GET /api/cluster/nodes`.
 
 ```bash
 cd kmesh_dashboard/backend
-export KUBECONFIG=/path/to/your/kubeconfig   # 可选，不设则用默认或 InCluster
-export PROMETHEUS_URL=http://prometheus.kmesh-system:9090 # 可选，指标大盘用，不设则页面提示未配置
-export KIALI_URL=http://kiali.kmesh-system:20001  # 可选，服务拓扑页跳转地址
+export KUBECONFIG=/path/to/your/kubeconfig   # Optional; if unset, use default or in-cluster config
+export PROMETHEUS_URL=http://prometheus.kmesh-system:9090 # Optional; used by metrics page, UI will show unconfigured if unset
+export KIALI_URL=http://kiali.kmesh-system:20001  # Optional; redirect URL for service topology page
 go run ./cmd/server/
 ```
 
-默认监听 `:8080`，可通过环境变量 `PORT` 修改。
+By default it listens on `:8080`; you can override it with the `PORT` environment variable.
 
-### 2. 启动前端
+### 2. Start the frontend
 
 ```bash
 cd kmesh_dashboard/frontend
@@ -26,8 +26,8 @@ npm install
 npm run dev
 ```
 
-前端开发服务器在 http://localhost:3000，请求 `/api/*` 会代理到后端 8080 端口。
+The frontend dev server runs at http://localhost:3000, and requests to `/api/*` are proxied to backend port 8080.
 
-### 3. 使用
+### 3. Usage
 
-浏览器打开 http://localhost:3000 ，进入「集群节点」页即可查看当前 Kmesh 集群的 Node 列表（由后端调用集群 API 获取）。
+Open http://localhost:3000 in your browser. On the "Cluster Nodes" page you can view the Node list of the current Kmesh cluster (fetched from cluster APIs by the backend).
