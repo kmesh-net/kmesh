@@ -1,2 +1,0 @@
-# 占位：Dashboard 访问集群所需 RBAC（ServiceAccount、Role、RoleBinding）
-# 需至少 list/get nodes、namespaces、pods 等

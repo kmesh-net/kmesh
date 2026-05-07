@@ -1,13 +1,13 @@
 export interface MetricsOverviewResponse {
   available: boolean
   message?: string
-  // Kmesh L4 工作负载指标（累计值）
+  // Kmesh L4 workload metrics (cumulative values)
   workloadConnOpened: number
   workloadConnClosed: number
   workloadRecvBytes: number
   workloadSentBytes: number
   workloadConnFailed: number
-  // Kmesh L4 服务指标（累计值）
+  // Kmesh L4 service metrics (cumulative values)
   serviceConnOpened: number
   serviceConnClosed: number
   serviceRecvBytes: number

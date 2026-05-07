@@ -8,7 +8,7 @@ interface PodDetailModalProps {
   namespace: string
   name: string
   onClose: () => void
-  /** 指定日志容器名，如 Waypoint Pod 的 istio-proxy；不传则使用 Pod 第一个容器 */
+  /** Optional log container name (e.g. istio-proxy for Waypoint Pod); defaults to the first Pod container. */
   defaultLogContainer?: string
 }
 

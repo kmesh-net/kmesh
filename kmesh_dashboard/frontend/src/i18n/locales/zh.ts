@@ -1,5 +1,5 @@
 export default {
-  // 导航
+  // Navigation
   nav: {
     cluster: '集群节点',
     topology: '服务拓扑',
@@ -10,7 +10,7 @@ export default {
     metrics: '指标',
     help: '帮助',
   },
-  // 通用
+  // Common
   common: {
     currentNamespace: '当前命名空间：',
     selectNamespace: '选择命名空间',
@@ -35,7 +35,7 @@ export default {
     customYaml: '自定义 YAML',
     required: '此项为必填',
   },
-  // 集群节点
+  // Cluster nodes
   cluster: {
     title: '集群节点',
     nodeName: '节点名称',
@@ -46,7 +46,7 @@ export default {
     osImage: 'OS 镜像',
     fetchFailed: '获取节点列表失败',
   },
-  // 服务拓扑
+  // Service topology
   topology: {
     title: '服务拓扑',
     noKiali: '未配置 Kiali',
@@ -92,7 +92,7 @@ export default {
     deleteFailed: '删除失败',
     noStatusDetail: '无状态详情',
   },
-  // 熔断
+  // Circuit breaker
   circuitbreaker: {
     policyList: '策略列表',
     config: '配置熔断',
@@ -130,7 +130,7 @@ export default {
     maxRequestsPerConnPlaceholder: '留空则不限制',
     maxRequestsPerConnExtra: '单连接最大请求数，HTTP/1.1 连接复用',
   },
-  // 认证策略
+  // Authorization policy
   authorization: {
     policyList: '策略列表',
     config: '配置授权策略',
@@ -179,7 +179,7 @@ export default {
     ruleLabelPaths: '路径',
     ruleLabelMethods: '方法',
   },
-  // 限流
+  // Rate limit
   ratelimit: {
     policyList: '策略列表',
     config: '配置限流',
@@ -206,7 +206,7 @@ export default {
     submitBtn: '下发',
     applyFailed: '下发失败',
   },
-  // 指标
+  // Metrics
   metrics: {
     title: '指标',
     pageTitle: '服务网格指标',
@@ -239,7 +239,7 @@ export default {
     noAccesslog: '暂无 accesslog，请先查询',
     overview: '概览',
   },
-  // 帮助
+  // Help
   help: {
     docCatalog: '文档目录',
     selectDoc: '选择文档',
@@ -248,7 +248,7 @@ export default {
     loadDocFailed: '加载文档失败',
     loadListFailed: '加载文档列表失败',
   },
-  // 自定义 YAML
+  // Custom YAML
   yamlApply: {
     title: '自定义 YAML 一键应用',
     loadTemplate: '加载默认模板',
@@ -266,7 +266,7 @@ export default {
     authorization: '认证策略 (AuthorizationPolicy)',
     waypoint: 'Waypoint (Gateway)',
   },
-  // Pod 详情
+  // Pod details
   pod: {
     detail: '详情与 Events',
     logs: '日志',

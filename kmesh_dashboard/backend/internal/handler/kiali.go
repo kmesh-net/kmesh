@@ -7,8 +7,8 @@ import (
 	"strings"
 )
 
-// KialiURL 从 KIALI_URL 环境变量读取浏览器可访问的 Kiali 地址，供拓扑页跳转用
-// 支持完整 URL（如 http://kiali.kmesh-system:20001）或仅 host:port（自动补 /kiali）
+// KialiURL reads a browser-accessible Kiali address from KIALI_URL for topology page redirection.
+// It supports a full URL (e.g. http://kiali.kmesh-system:20001) or host:port (auto-appends /kiali).
 func KialiURL() string {
 	u := os.Getenv("KIALI_URL")
 	if u == "" {
@@ -27,7 +27,7 @@ func KialiURL() string {
 	return u + "/"
 }
 
-// Config 返回 Kiali 地址，供拓扑页跳转
+// Config returns the Kiali URL for topology page redirection.
 func Config() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

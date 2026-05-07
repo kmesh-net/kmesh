@@ -81,7 +81,7 @@ export default function WaypointListPage({ selectedNamespace, allNamespaces }: W
                 map[`${s.namespace}/${s.name}`] = s
               })
             } catch {
-              // 单个 ns 失败不阻断
+              // Do not block the whole flow if one namespace request fails.
             }
           })
         )

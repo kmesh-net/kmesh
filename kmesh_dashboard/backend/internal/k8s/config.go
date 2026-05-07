@@ -7,7 +7,7 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 )
 
-// GetConfig 返回用于创建 K8s 与 Gateway API 客户端的 rest.Config。
+// GetConfig returns the rest.Config used to create K8s and Gateway API clients.
 func GetConfig(kubeconfigPath string) (*rest.Config, error) {
 	if kubeconfigPath != "" {
 		return clientcmd.BuildConfigFromFlags("", kubeconfigPath)

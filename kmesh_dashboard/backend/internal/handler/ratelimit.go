@@ -22,7 +22,7 @@ var envoyFilterGVR = schema.GroupVersionResource{
 
 const localRateLimitFilterName = "envoy.filters.network.local_ratelimit"
 
-// RateLimitItem 限流策略列表项
+// RateLimitItem is a rate-limit policy list item.
 type RateLimitItem struct {
 	Namespace        string            `json:"namespace"`
 	Name             string            `json:"name"`
@@ -33,12 +33,12 @@ type RateLimitItem struct {
 	WorkloadSelector map[string]string `json:"workloadSelector,omitempty"`
 }
 
-// RateLimitListResponse 列表响应
+// RateLimitListResponse is the list response payload.
 type RateLimitListResponse struct {
 	Items []RateLimitItem `json:"items"`
 }
 
-// RateLimitApplyRequest 创建/更新请求（Token Bucket 维度）
+// RateLimitApplyRequest is the create/update request (Token Bucket based).
 type RateLimitApplyRequest struct {
 	Namespace        string            `json:"namespace"`
 	Name             string            `json:"name"`
@@ -49,20 +49,20 @@ type RateLimitApplyRequest struct {
 	WorkloadSelector map[string]string `json:"workloadSelector,omitempty"`
 }
 
-// RateLimitApplyResponse 应用响应
+// RateLimitApplyResponse is the apply response payload.
 type RateLimitApplyResponse struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 	Message   string `json:"message"`
 }
 
-// RateLimitDeleteRequest 删除请求
+// RateLimitDeleteRequest is the delete request payload.
 type RateLimitDeleteRequest struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 }
 
-// getPatchValue 从 configPatch 中取出 patch.value（Istio 结构为 configPatches[].patch.value）
+// getPatchValue extracts patch.value from configPatch (Istio shape: configPatches[].patch.value).
 func getPatchValue(patchItem interface{}) map[string]interface{} {
 	pm, _ := patchItem.(map[string]interface{})
 	if pm == nil {
@@ -208,7 +208,7 @@ func buildLocalRateLimitEnvoyFilter(req RateLimitApplyRequest) *unstructured.Uns
 	}
 }
 
-// RateLimitList 列出含 local_ratelimit 的 EnvoyFilter
+// RateLimitList lists EnvoyFilters containing local_ratelimit.
 func RateLimitList(dyn dynamic.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -245,7 +245,7 @@ func RateLimitList(dyn dynamic.Interface) http.HandlerFunc {
 	}
 }
 
-// RateLimitApply 创建或更新限流 EnvoyFilter（限流作用于 Waypoint）
+// RateLimitApply creates or updates rate-limit EnvoyFilter (applied to Waypoint).
 func RateLimitApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -268,7 +268,7 @@ func RateLimitApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interface) 
 			http.Error(w, "maxTokens、tokensPerFill、fillIntervalSec 为必填项，且必须大于 0", http.StatusBadRequest)
 			return
 		}
-		// 限流作用于 Waypoint，下发前需确保命名空间已安装 Waypoint
+		// Rate limiting is applied to Waypoint; ensure Waypoint is installed before apply.
 		loc := lang.LocaleFromRequest(r)
 		hasWaypoint, err := HasWaypointInNamespace(r.Context(), gwClient, req.Namespace)
 		if err != nil {
@@ -305,7 +305,7 @@ func RateLimitApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interface) 
 	}
 }
 
-// RateLimitDelete 删除限流 EnvoyFilter
+// RateLimitDelete deletes rate-limit EnvoyFilter.
 func RateLimitDelete(dyn dynamic.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

@@ -10,17 +10,17 @@ import (
 	"time"
 )
 
-// MetricsOverviewResponse 指标大盘统一响应（Kmesh L4 累计值）
+// MetricsOverviewResponse is the unified metrics overview response (Kmesh L4 cumulative values).
 type MetricsOverviewResponse struct {
 	Available bool   `json:"available"`
 	Message  string `json:"message,omitempty"`
-	// Kmesh L4 工作负载指标（累计值）
+	// Kmesh L4 workload metrics (cumulative values)
 	WorkloadConnOpened  float64 `json:"workloadConnOpened"`
 	WorkloadConnClosed  float64 `json:"workloadConnClosed"`
 	WorkloadRecvBytes   float64 `json:"workloadRecvBytes"`
 	WorkloadSentBytes   float64 `json:"workloadSentBytes"`
 	WorkloadConnFailed  float64 `json:"workloadConnFailed"`
-	// Kmesh L4 服务指标（累计值）
+	// Kmesh L4 service metrics (cumulative values)
 	ServiceConnOpened  float64 `json:"serviceConnOpened"`
 	ServiceConnClosed  float64 `json:"serviceConnClosed"`
 	ServiceRecvBytes   float64 `json:"serviceRecvBytes"`
@@ -48,7 +48,7 @@ func toFloat64(v interface{}) (float64, bool) {
 	}
 }
 
-// queryPrometheusInstant 执行瞬时查询，返回所有匹配序列的 value 之和
+// queryPrometheusInstant runs an instant query and returns the sum of all matched series values.
 func queryPrometheusInstant(baseURL, query string) (float64, error) {
 	u, err := url.Parse(baseURL)
 	if err != nil {
@@ -91,7 +91,7 @@ func queryPrometheusInstant(baseURL, query string) (float64, error) {
 	return sum, nil
 }
 
-// MetricsDatasource 返回 Prometheus 是否可用
+// MetricsDatasource returns whether Prometheus is available.
 func MetricsDatasource() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -116,7 +116,7 @@ func MetricsDatasource() http.HandlerFunc {
 	}
 }
 
-// MetricsOverview 查询 Kmesh L4 累计指标并返回（直接获取数值）
+// MetricsOverview queries and returns Kmesh L4 cumulative metrics directly.
 func MetricsOverview() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -134,25 +134,25 @@ func MetricsOverview() http.HandlerFunc {
 		}
 		namespace := r.URL.Query().Get("namespace")
 
-		// 工作负载指标 label：destination_workload_namespace
+		// Workload metrics label: destination_workload_namespace
 		wlFilter := ""
 		if namespace != "" {
 			wlFilter = fmt.Sprintf(`{destination_workload_namespace="%s"}`, namespace)
 		}
-		// 服务指标 label：destination_service_namespace
+		// Service metrics label: destination_service_namespace
 		svcFilter := ""
 		if namespace != "" {
 			svcFilter = fmt.Sprintf(`{destination_service_namespace="%s"}`, namespace)
 		}
 
-		// Kmesh L4 工作负载指标（累计值，直接 sum）
+		// Kmesh L4 workload metrics (cumulative, summed directly)
 		resp.WorkloadConnOpened, _ = queryPrometheusInstant(base, fmt.Sprintf("sum(kmesh_tcp_workload_connections_opened_total%s)", wlFilter))
 		resp.WorkloadConnClosed, _ = queryPrometheusInstant(base, fmt.Sprintf("sum(kmesh_tcp_workload_connections_closed_total%s)", wlFilter))
 		resp.WorkloadRecvBytes, _ = queryPrometheusInstant(base, fmt.Sprintf("sum(kmesh_tcp_workload_received_bytes_total%s)", wlFilter))
 		resp.WorkloadSentBytes, _ = queryPrometheusInstant(base, fmt.Sprintf("sum(kmesh_tcp_workload_sent_bytes_total%s)", wlFilter))
 		resp.WorkloadConnFailed, _ = queryPrometheusInstant(base, fmt.Sprintf("sum(kmesh_tcp_workload_conntections_failed_total%s)", wlFilter))
 
-		// Kmesh L4 服务指标（累计值，直接 sum，注意 conntections 拼写）
+		// Kmesh L4 service metrics (cumulative, summed directly; note the conntections spelling).
 		resp.ServiceConnOpened, _ = queryPrometheusInstant(base, fmt.Sprintf("sum(kmesh_tcp_connections_opened_total%s)", svcFilter))
 		resp.ServiceConnClosed, _ = queryPrometheusInstant(base, fmt.Sprintf("sum(kmesh_tcp_connections_closed_total%s)", svcFilter))
 		resp.ServiceRecvBytes, _ = queryPrometheusInstant(base, fmt.Sprintf("sum(kmesh_tcp_received_bytes_total%s)", svcFilter))

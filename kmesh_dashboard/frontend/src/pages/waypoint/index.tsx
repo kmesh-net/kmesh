@@ -24,7 +24,7 @@ export default function WaypointPage() {
       .catch(() => setNamespaceOptions([]))
   }, [])
 
-  // 当命名空间列表加载后，若当前选择不在列表中则切换到第一项
+  // After namespaces are loaded, fall back to the first one if current selection is missing.
   useEffect(() => {
     if (namespaceOptions.length > 0 && !namespaceOptions.includes(selectedNamespace)) {
       setSelectedNamespace(namespaceOptions[0])

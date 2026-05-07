@@ -18,7 +18,7 @@ var authorizationPolicyGVR = schema.GroupVersionResource{
 	Group: "security.istio.io", Version: "v1beta1", Resource: "authorizationpolicies",
 }
 
-// AuthorizationPolicyItem 授权策略列表项
+// AuthorizationPolicyItem is an authorization policy list item.
 type AuthorizationPolicyItem struct {
 	Namespace   string                         `json:"namespace"`
 	Name        string                         `json:"name"`
@@ -29,12 +29,12 @@ type AuthorizationPolicyItem struct {
 	Rules       []AuthorizationPolicyRuleApply `json:"rules,omitempty"`
 }
 
-// AuthorizationPolicyListResponse 列表响应
+// AuthorizationPolicyListResponse is the list response payload.
 type AuthorizationPolicyListResponse struct {
 	Items []AuthorizationPolicyItem `json:"items"`
 }
 
-// AuthorizationPolicyApplyRequest 创建/更新请求
+// AuthorizationPolicyApplyRequest is the create/update request payload.
 type AuthorizationPolicyApplyRequest struct {
 	Namespace string                         `json:"namespace"`
 	Name      string                         `json:"name"`
@@ -43,30 +43,30 @@ type AuthorizationPolicyApplyRequest struct {
 	Rules     []AuthorizationPolicyRuleApply `json:"rules,omitempty"`
 }
 
-// AuthorizationPolicyRuleApply 单条规则
+// AuthorizationPolicyRuleApply represents one rule.
 type AuthorizationPolicyRuleApply struct {
 	From []AuthorizationPolicyFrom `json:"from,omitempty"`
 	To   []AuthorizationPolicyTo   `json:"to,omitempty"`
 }
 
-// AuthorizationPolicyFrom 来源条件
+// AuthorizationPolicyFrom represents source conditions.
 type AuthorizationPolicyFrom struct {
 	Source *AuthorizationPolicySource `json:"source,omitempty"`
 }
 
-// AuthorizationPolicySource 来源
+// AuthorizationPolicySource defines source matching fields.
 type AuthorizationPolicySource struct {
 	IPBlocks   []string `json:"ipBlocks,omitempty"`
 	Namespaces []string `json:"namespaces,omitempty"`
 	Principals []string `json:"principals,omitempty"`
 }
 
-// AuthorizationPolicyTo 目标操作
+// AuthorizationPolicyTo represents target operations.
 type AuthorizationPolicyTo struct {
 	Operation *AuthorizationPolicyOperation `json:"operation,omitempty"`
 }
 
-// AuthorizationPolicyOperation 操作条件
+// AuthorizationPolicyOperation defines operation matching fields.
 type AuthorizationPolicyOperation struct {
 	Hosts   []string `json:"hosts,omitempty"`
 	Ports   []string `json:"ports,omitempty"`
@@ -74,14 +74,14 @@ type AuthorizationPolicyOperation struct {
 	Methods []string `json:"methods,omitempty"`
 }
 
-// AuthorizationPolicyApplyResponse 应用响应
+// AuthorizationPolicyApplyResponse is the apply response payload.
 type AuthorizationPolicyApplyResponse struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 	Message   string `json:"message"`
 }
 
-// AuthorizationPolicyDeleteRequest 删除请求
+// AuthorizationPolicyDeleteRequest is the delete request payload.
 type AuthorizationPolicyDeleteRequest struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -106,7 +106,7 @@ func extractRulesFromCRD(rulesInterface []interface{}) []AuthorizationPolicyRule
 		}
 		ruleApply := AuthorizationPolicyRuleApply{}
 
-		// 解析 from
+		// Parse from.
 		if fromList, ok := ruleMap["from"].([]interface{}); ok {
 			for _, f := range fromList {
 				fromMap, ok := f.(map[string]interface{})
@@ -131,7 +131,7 @@ func extractRulesFromCRD(rulesInterface []interface{}) []AuthorizationPolicyRule
 			}
 		}
 
-		// 解析 to
+		// Parse to.
 		if toList, ok := ruleMap["to"].([]interface{}); ok {
 			for _, t := range toList {
 				toMap, ok := t.(map[string]interface{})
@@ -144,7 +144,7 @@ func extractRulesFromCRD(rulesInterface []interface{}) []AuthorizationPolicyRule
 						operation.Hosts = toStringSlice(v)
 					}
 					if v, ok := op["ports"].([]interface{}); ok {
-						// Istio CRD 中 ports 可能是 string 或 int
+						// In Istio CRD, ports may be string or int.
 						for _, p := range v {
 							switch x := p.(type) {
 							case string:
@@ -171,7 +171,7 @@ func extractRulesFromCRD(rulesInterface []interface{}) []AuthorizationPolicyRule
 			}
 		}
 
-		// 保留所有规则，空规则（无 from/to）表示「匹配全部」
+		// Keep all rules; an empty rule (no from/to) means "match all".
 		result = append(result, ruleApply)
 	}
 	return result
@@ -293,7 +293,7 @@ func buildAuthorizationPolicy(req AuthorizationPolicyApplyRequest) *unstructured
 	}
 }
 
-// AuthorizationPolicyList 列出 AuthorizationPolicy
+// AuthorizationPolicyList lists AuthorizationPolicy resources.
 func AuthorizationPolicyList(dyn dynamic.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -324,7 +324,7 @@ func AuthorizationPolicyList(dyn dynamic.Interface) http.HandlerFunc {
 	}
 }
 
-// AuthorizationPolicyApply 创建或更新 AuthorizationPolicy
+// AuthorizationPolicyApply creates or updates AuthorizationPolicy.
 func AuthorizationPolicyApply(dyn dynamic.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -370,7 +370,7 @@ func AuthorizationPolicyApply(dyn dynamic.Interface) http.HandlerFunc {
 	}
 }
 
-// AuthorizationPolicyDelete 删除 AuthorizationPolicy
+// AuthorizationPolicyDelete deletes AuthorizationPolicy.
 func AuthorizationPolicyDelete(dyn dynamic.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

@@ -5,7 +5,7 @@ export interface AuthorizationPolicyItem {
   selector?: Record<string, string>
   rulesCount: number
   workloadRef?: string
-  /** 规则详情（来源 IP/命名空间、目标端口/路径等） */
+  /** Rule details (source IP/namespaces, target ports/paths, etc.) */
   rules?: AuthorizationPolicyRuleApply[]
 }
 

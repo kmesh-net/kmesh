@@ -31,7 +31,7 @@ import (
 	"kmesh.net/kmesh-dashboard/backend/internal/lang"
 )
 
-// ModuleConfig 各模块的 YAML 校验与应用配置
+// ModuleConfig defines YAML validation and apply config for each module.
 type ModuleConfig struct {
 	Module      string // circuitbreaker, ratelimit, authorization, waypoint
 	APIVersion  string
@@ -145,14 +145,14 @@ spec:
 	},
 }
 
-// CustomYamlApplyRequest 自定义 YAML 应用请求
+// CustomYamlApplyRequest is the request payload for applying custom YAML.
 type CustomYamlApplyRequest struct {
 	Module    string `json:"module"`    // circuitbreaker, ratelimit, authorization, waypoint
 	Namespace string `json:"namespace"`
 	YAML      string `json:"yaml"`
 }
 
-// CustomYamlApplyResponse 应用响应
+// CustomYamlApplyResponse is the response payload for apply operations.
 type CustomYamlApplyResponse struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -160,7 +160,7 @@ type CustomYamlApplyResponse struct {
 	Error     string `json:"error,omitempty"`
 }
 
-// CustomYamlTemplateResponse 获取模块默认模板
+// CustomYamlTemplateResponse returns the module default template.
 type CustomYamlTemplateResponse struct {
 	Module   string `json:"module"`
 	YAML     string `json:"yaml"`
@@ -168,13 +168,13 @@ type CustomYamlTemplateResponse struct {
 	Kind     string `json:"kind"`
 }
 
-// CustomYamlValidateRequest 校验请求
+// CustomYamlValidateRequest is the request payload for validation.
 type CustomYamlValidateRequest struct {
 	Module string `json:"module"`
 	YAML   string `json:"yaml"`
 }
 
-// CustomYamlValidateResponse 校验响应
+// CustomYamlValidateResponse is the response payload for validation.
 type CustomYamlValidateResponse struct {
 	Valid  bool   `json:"valid"`
 	Error  string `json:"error,omitempty"`
@@ -182,7 +182,7 @@ type CustomYamlValidateResponse struct {
 	Kind   string `json:"kind,omitempty"`
 }
 
-// CustomYamlTemplate 获取模块默认 YAML 模板
+// CustomYamlTemplate returns the module default YAML template.
 func CustomYamlTemplate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -209,7 +209,7 @@ func CustomYamlTemplate() http.HandlerFunc {
 	}
 }
 
-// CustomYamlValidate 校验 YAML 格式与 kind 是否匹配模块
+// CustomYamlValidate validates YAML format and module kind matching.
 func CustomYamlValidate() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -270,7 +270,7 @@ func validateYamlForModule(yamlStr string, cfg ModuleConfig, locale string) Cust
 	return CustomYamlValidateResponse{Valid: true, Name: name, Kind: kind}
 }
 
-// CustomYamlApply 解析、校验并应用自定义 YAML 到集群
+// CustomYamlApply parses, validates, and applies custom YAML to the cluster.
 func CustomYamlApply(dyn dynamic.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

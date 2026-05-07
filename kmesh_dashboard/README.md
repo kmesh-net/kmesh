@@ -31,25 +31,3 @@ npm run dev
 ### 3. 使用
 
 浏览器打开 http://localhost:3000 ，进入「集群节点」页即可查看当前 Kmesh 集群的 Node 列表（由后端调用集群 API 获取）。
-
-## 文档
-
-- [设计文档（中文）](./设计文档.md)：功能模块、各组件工作流、目录结构及技术栈说明。
-
-## 目录结构（初步）
-
-详见 [设计文档 - 第 3 节](./设计文档.md#3-dashboard-子目录初步设计)。
-
-```
-kmesh_dashboard/
-├── README.md
-├── 设计文档.md
-├── frontend/          # TypeScript + React 前端（Vite + Ant Design）
-├── backend/           # Go 后端（访问 K8s、提供 /api/cluster/nodes 等）
-├── docs/              # 用户指南
-└── deploy/            # K8s 部署与 RBAC（占位）
-```
-
-## 推荐技能
-
-TypeScript、React、Kubernetes、服务网格概念、UX/UI 设计。

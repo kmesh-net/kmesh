@@ -8,19 +8,19 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// ServiceItem 服务简要信息，用于前端选择目标 Host
+// ServiceItem is a compact service view for selecting target hosts in the frontend.
 type ServiceItem struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 }
 
-// ServiceListResponse 服务列表响应
+// ServiceListResponse is the response payload for the service list.
 type ServiceListResponse struct {
 	Items []ServiceItem `json:"items"`
 }
 
-// ServiceList 列出集群中的 Service（用于熔断等场景选择目标 Host）
-// Query: namespace（空则全部命名空间）
+// ServiceList lists Services in the cluster for selecting target hosts (e.g. circuit breaker).
+// Query: namespace (empty means all namespaces).
 func ServiceList(clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

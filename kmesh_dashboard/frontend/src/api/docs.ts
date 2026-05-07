@@ -4,12 +4,12 @@ export interface DocsListResponse {
   docs: string[]
 }
 
-/** 获取文档列表 */
+/** Fetch the document list. */
 export async function getDocsList(): Promise<DocsListResponse> {
   return get<DocsListResponse>('/docs')
 }
 
-/** 获取单个文档的 Markdown 内容（原始文本），lang 为 en 时返回英文版 */
+/** Fetch raw Markdown for one document; returns the English version when lang is en. */
 export async function getDocContent(name: string, lang?: string): Promise<string> {
   const headers: HeadersInit = {}
   if (lang === 'en') {

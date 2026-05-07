@@ -10,7 +10,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 )
 
-// NodeItem 供前端展示的节点简要信息
+// NodeItem is a compact node view for frontend display.
 type NodeItem struct {
 	Name       string            `json:"name"`
 	Status     string            `json:"status"`
@@ -22,12 +22,12 @@ type NodeItem struct {
 	Labels     map[string]string `json:"labels,omitempty"`
 }
 
-// ClusterNodesResponse 集群节点列表响应
+// ClusterNodesResponse is the response payload for cluster nodes.
 type ClusterNodesResponse struct {
 	Nodes []NodeItem `json:"nodes"`
 }
 
-// ClusterNodes 返回当前集群的 Node 列表，用于前端「集群状态」页展示。
+// ClusterNodes returns the Node list of the current cluster for the cluster status page.
 func ClusterNodes(clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -94,12 +94,12 @@ func ClusterNodes(clientset kubernetes.Interface) http.HandlerFunc {
 	}
 }
 
-// NamespaceListResponse 命名空间列表响应
+// NamespaceListResponse is the response payload for namespace listing.
 type NamespaceListResponse struct {
 	Items []string `json:"items"`
 }
 
-// NamespaceList 返回集群命名空间列表，用于 Waypoint 等模块的命名空间选择器
+// NamespaceList returns cluster namespaces for module namespace selectors (e.g. Waypoint).
 func NamespaceList(clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

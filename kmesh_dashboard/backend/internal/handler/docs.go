@@ -8,13 +8,13 @@ import (
 	"strings"
 )
 
-// docsDir 返回文档目录绝对路径
+// docsDir returns the absolute path to the docs directory.
 func docsDir() string {
 	if d := os.Getenv("DOCS_DIR"); d != "" {
 		return d
 	}
 	wd, _ := os.Getwd()
-	// 兼容：从 kmesh_dashboard 或 backend 目录启动
+	// Compatible with starting from either kmesh_dashboard or backend directory.
 	for _, p := range []string{
 		filepath.Join(wd, "docs"),
 		filepath.Join(wd, "..", "docs"),
@@ -30,7 +30,7 @@ func docsDir() string {
 	return filepath.Join(wd, "..", "docs")
 }
 
-// Docs 统一处理 /api/docs（列表）和 /api/docs/xxx（内容）
+// Docs handles both /api/docs (list) and /api/docs/xxx (content).
 func Docs() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -39,7 +39,7 @@ func Docs() http.HandlerFunc {
 		}
 		prefix := apiPrefix + "/docs"
 		path := r.URL.Path
-		// /api/docs 或 /api/docs/ -> 返回列表（与顶部导航顺序一致：集群节点、服务拓扑、Waypoint、熔断、认证策略、限流、指标）
+		// /api/docs or /api/docs/ -> returns list in top-nav order.
 		if path == prefix || path == prefix+"/" {
 			dir := docsDir()
 			if _, err := os.Stat(dir); err != nil {
@@ -58,7 +58,7 @@ func Docs() http.HandlerFunc {
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"docs": result})
 			return
 		}
-		// /api/docs/xxx -> 返回文档内容，支持 ?lang=en 获取英文版
+		// /api/docs/xxx -> returns document content, supports ?lang=en for English.
 		if strings.HasPrefix(path, prefix+"/") {
 			name := strings.TrimPrefix(path, prefix+"/")
 			if name == "" || strings.Contains(name, "/") || strings.Contains(name, "..") {
@@ -67,7 +67,7 @@ func Docs() http.HandlerFunc {
 			}
 			baseDir := docsDir()
 			docPath := filepath.Join(baseDir, name+".md")
-			// 英文版：优先 X-Doc-Lang: en（前端显式传），其次 ?lang=en，最后 Accept-Language
+			// English selection priority: X-Doc-Lang: en, then ?lang=en, then Accept-Language.
 			useEn := r.Header.Get("X-Doc-Lang") == "en" || r.URL.Query().Get("lang") == "en"
 			if !useEn && r.Header.Get("Accept-Language") != "" {
 				for _, part := range strings.Split(r.Header.Get("Accept-Language"), ",") {

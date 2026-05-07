@@ -37,34 +37,34 @@ const (
 	defaultTailLines = int64(200)
 )
 
-// AccesslogEntry 单条 accesslog，含 pod 与原始内容
+// AccesslogEntry represents one accesslog item with pod and raw content.
 type AccesslogEntry struct {
 	Pod     string `json:"pod"`
 	Node    string `json:"node,omitempty"`
 	Content string `json:"content"`
 }
 
-// AccesslogResponse accesslog 列表响应
+// AccesslogResponse is the response payload for accesslog listing.
 type AccesslogResponse struct {
 	Entries     []AccesslogEntry `json:"entries"`
-	PodsQueried []string         `json:"podsQueried,omitempty"` // 实际查询的 pod 列表，用于排查
+	PodsQueried []string         `json:"podsQueried,omitempty"` // Actual queried pod list for troubleshooting.
 	Message     string           `json:"message,omitempty"`
 }
 
-// KmeshPodsResponse kmesh pods 列表，用于排查连接问题
+// KmeshPodsResponse is the kmesh pod list used for connectivity troubleshooting.
 type KmeshPodsResponse struct {
 	Pods    []PodInfo `json:"pods"`
 	Message string    `json:"message,omitempty"`
 }
 
-// PodInfo 简要 pod 信息
+// PodInfo is a compact pod info view.
 type PodInfo struct {
 	Name   string `json:"name"`
 	Node   string `json:"node"`
 	Status string `json:"status"`
 }
 
-// KmeshPodsList 列出 kmesh pods（用于排查 Dashboard 是否能看到集群）
+// KmeshPodsList lists kmesh pods to verify Dashboard cluster visibility.
 func KmeshPodsList(clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -104,7 +104,7 @@ func KmeshPodsList(clientset kubernetes.Interface) http.HandlerFunc {
 	}
 }
 
-// AccesslogList 从 kmesh pods 获取 accesslog（通过 K8s Pod Logs API）
+// AccesslogList fetches accesslog entries from kmesh pods via K8s Pod Logs API.
 func AccesslogList(clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

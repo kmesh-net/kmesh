@@ -31,7 +31,7 @@ const (
 	waitReadyPollInterval    = 2 * time.Second
 )
 
-// HasWaypointInNamespace 检查命名空间是否已安装 Waypoint（熔断、限流等策略作用于 Waypoint，下发前需确保存在）
+// HasWaypointInNamespace checks whether Waypoint is installed in the namespace.
 func HasWaypointInNamespace(ctx context.Context, gwClient gatewayapiclient.Interface, namespace string) (bool, error) {
 	gwList, err := gwClient.GatewayV1().Gateways(namespace).List(ctx, metav1.ListOptions{})
 	if err != nil {
@@ -45,12 +45,12 @@ func HasWaypointInNamespace(ctx context.Context, gwClient gatewayapiclient.Inter
 	return false, nil
 }
 
-// WaypointListResponse 列表响应
+// WaypointListResponse is the list response payload.
 type WaypointListResponse struct {
 	Items []WaypointItem `json:"items"`
 }
 
-// WaypointItem 单条 Waypoint 信息
+// WaypointItem represents one Waypoint entry.
 type WaypointItem struct {
 	Namespace  string `json:"namespace"`
 	Name       string `json:"name"`
@@ -60,28 +60,28 @@ type WaypointItem struct {
 	GatewayUID string `json:"gatewayUID,omitempty"`
 }
 
-// WaypointStatusResponse 状态响应（含 conditions）
+// WaypointStatusResponse is the status response payload (including conditions).
 type WaypointStatusResponse struct {
 	Items []WaypointStatusItem `json:"items"`
 }
 
-// WaypointStatusItem 单条状态（含 Gateway Conditions 与 Waypoint Pod 状态）
+// WaypointStatusItem represents one status entry (Gateway conditions and Waypoint Pod status).
 type WaypointStatusItem struct {
 	WaypointItem
 	Conditions []Condition `json:"conditions,omitempty"`
 	PodStatus  *PodStatus  `json:"podStatus,omitempty"`
 }
 
-// PodStatus Waypoint Pod 状态汇总
+// PodStatus is the summary of Waypoint Pod status.
 type PodStatus struct {
-	Ready   int               `json:"ready"`          // 就绪 Pod 数
-	Total   int               `json:"total"`          // 总 Pod 数
-	Phase   string            `json:"phase"`          // 主相位：Running/Pending/Failed
-	Message string            `json:"message"`        // 简述，如 "1/1 Running"
-	Pods    []WaypointPodInfo `json:"pods,omitempty"` // 各 Pod 详情（可选）
+	Ready   int               `json:"ready"`          // Number of ready Pods.
+	Total   int               `json:"total"`          // Total number of Pods.
+	Phase   string            `json:"phase"`          // Main phase: Running/Pending/Failed.
+	Message string            `json:"message"`        // Short summary, e.g. "1/1 Running".
+	Pods    []WaypointPodInfo `json:"pods,omitempty"` // Per-Pod details (optional).
 }
 
-// WaypointPodInfo 单个 Waypoint Pod 状态
+// WaypointPodInfo describes status for one Waypoint Pod.
 type WaypointPodInfo struct {
 	Name   string `json:"name"`
 	Phase  string `json:"phase"`
@@ -89,7 +89,7 @@ type WaypointPodInfo struct {
 	Reason string `json:"reason,omitempty"`
 }
 
-// Condition 与 metav1.Condition 对应
+// Condition matches metav1.Condition.
 type Condition struct {
 	Type    string `json:"type"`
 	Status  string `json:"status"`
@@ -97,11 +97,11 @@ type Condition struct {
 	Message string `json:"message,omitempty"`
 }
 
-// WaypointApplyRequest 安装请求
+// WaypointApplyRequest is the install request payload.
 type WaypointApplyRequest struct {
 	Namespace       string `json:"namespace"`
 	Name            string `json:"name"`
-	TrafficFor      string `json:"trafficFor"` // service | workload | all | 空表示默认
+	TrafficFor      string `json:"trafficFor"` // service | workload | all | empty means default
 	EnrollNamespace bool   `json:"enrollNamespace"`
 	Overwrite       bool   `json:"overwrite"`
 	WaitReady       bool   `json:"waitReady"`
@@ -109,20 +109,20 @@ type WaypointApplyRequest struct {
 	ProxyImage      string `json:"proxyImage"`
 }
 
-// WaypointApplyResponse 安装响应
+// WaypointApplyResponse is the install response payload.
 type WaypointApplyResponse struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 	Message   string `json:"message"`
 }
 
-// WaypointDeleteRequest 删除请求（按名称或全部）
+// WaypointDeleteRequest is the delete request payload (by names or all).
 type WaypointDeleteRequest struct {
 	Namespace string   `json:"namespace"`
-	Names     []string `json:"names"` // 空则表示 --all
+	Names     []string `json:"names"` // Empty means --all.
 }
 
-// WaypointDeleteResponse 删除响应
+// WaypointDeleteResponse is the delete response payload.
 type WaypointDeleteResponse struct {
 	Deleted []string `json:"deleted"`
 	Errors  []string `json:"errors,omitempty"`
@@ -164,7 +164,7 @@ func waypointsFromGateways(gws []gatewayv1.Gateway) []WaypointItem {
 	return items
 }
 
-// WaypointList 列出 Waypoint（可选 namespace、all-namespaces）
+// WaypointList lists Waypoints (supports optional namespace and all-namespaces).
 func WaypointList(gwClient gatewayapiclient.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -192,7 +192,7 @@ func WaypointList(gwClient gatewayapiclient.Interface) http.HandlerFunc {
 	}
 }
 
-// WaypointStatus 返回 Waypoint 状态（含 Gateway Conditions 与 Waypoint Pod 状态）
+// WaypointStatus returns Waypoint status (Gateway conditions and Waypoint Pod status).
 func WaypointStatus(gwClient gatewayapiclient.Interface, clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -242,7 +242,7 @@ func WaypointStatus(gwClient gatewayapiclient.Interface, clientset kubernetes.In
 				WaypointItem: base,
 				Conditions:   conds,
 			}
-			// 查询该 Gateway 对应的 Waypoint Pod 状态（通过 label gateway.networking.k8s.io/gateway-name）
+			// Query Waypoint Pod status for this Gateway via gateway.networking.k8s.io/gateway-name label.
 			if clientset != nil {
 				loc := lang.LocaleFromRequest(r)
 				podStatus := getWaypointPodStatus(r.Context(), clientset, gw.Namespace, gw.Name, loc)
@@ -258,7 +258,7 @@ func WaypointStatus(gwClient gatewayapiclient.Interface, clientset kubernetes.In
 	}
 }
 
-// getWaypointPodStatus 获取 Waypoint Pod 状态（通过 gateway.networking.k8s.io/gateway-name 标签筛选）
+// getWaypointPodStatus gets Waypoint Pod status filtered by gateway.networking.k8s.io/gateway-name label.
 func getWaypointPodStatus(ctx context.Context, clientset kubernetes.Interface, namespace, gatewayName, locale string) *PodStatus {
 	selector := labelGatewayName + "=" + gatewayName
 	podList, err := clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{LabelSelector: selector})
@@ -300,7 +300,7 @@ func getWaypointPodStatus(ctx context.Context, clientset kubernetes.Interface, n
 			Reason: reason,
 		})
 	}
-	// 主相位：优先 Running > Pending > Failed
+	// Main phase priority: Running > Pending > Failed.
 	mainPhase := "Running"
 	if phaseCount["Failed"] > 0 {
 		mainPhase = "Failed"
@@ -319,7 +319,7 @@ func getWaypointPodStatus(ctx context.Context, clientset kubernetes.Interface, n
 	}
 }
 
-// WaypointApply 创建/应用 Waypoint（支持 enrollNamespace、overwrite、waitReady）
+// WaypointApply creates/applies Waypoint (supports enrollNamespace, overwrite, waitReady).
 func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -347,12 +347,12 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 		}
 		ctx := r.Context()
 
-		// overwrite：若已存在同名 Waypoint，先删除
+		// overwrite: if a Waypoint with the same name exists, delete it first.
 		if req.Overwrite {
 			existing, err := gwClient.GatewayV1().Gateways(req.Namespace).Get(ctx, req.Name, metav1.GetOptions{})
 			if err == nil && existing.Spec.GatewayClassName == waypointGatewayClassName {
 				_ = gwClient.GatewayV1().Gateways(req.Namespace).Delete(ctx, req.Name, metav1.DeleteOptions{})
-				time.Sleep(500 * time.Millisecond) // 等待删除传播
+				time.Sleep(500 * time.Millisecond) // Wait for deletion propagation.
 			}
 		}
 
@@ -395,7 +395,7 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 			return
 		}
 
-		// enrollNamespace：为命名空间打 istio.io/use-waypoint 标签
+		// enrollNamespace: add istio.io/use-waypoint label to the namespace.
 		if req.EnrollNamespace {
 			patchBytes, _ := json.Marshal(map[string]interface{}{
 				"metadata": map[string]interface{}{
@@ -410,7 +410,7 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 			}
 		}
 
-		// waitReady：轮询直到 Gateway Programmed=True
+		// waitReady: poll until Gateway Programmed=True.
 		if req.WaitReady {
 			deadline := time.Now().Add(waitReadyTimeout)
 			for time.Now().Before(deadline) {
@@ -452,7 +452,7 @@ func WaypointApply(gwClient gatewayapiclient.Interface, clientset kubernetes.Int
 	}
 }
 
-// WaypointDelete 删除 Waypoint
+// WaypointDelete deletes Waypoint resources.
 func WaypointDelete(gwClient gatewayapiclient.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

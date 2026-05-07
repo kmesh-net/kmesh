@@ -33,7 +33,7 @@ const (
 	maxPodLogTail     = int64(5000)
 )
 
-// PodDetailResponse Pod 详情（describe 风格：完整状态、Events）
+// PodDetailResponse contains Pod details (describe-style: full status and Events).
 type PodDetailResponse struct {
 	Namespace   string            `json:"namespace"`
 	Name        string            `json:"name"`
@@ -51,7 +51,7 @@ type PodDetailResponse struct {
 	Error       string           `json:"error,omitempty"`
 }
 
-// ContainerStatus 容器状态
+// ContainerStatus describes container status.
 type ContainerStatus struct {
 	Name          string `json:"name"`
 	Image         string `json:"image,omitempty"`
@@ -60,15 +60,15 @@ type ContainerStatus struct {
 	State         string `json:"state"` // Running, Waiting, Terminated
 	Reason        string `json:"reason,omitempty"`
 	Message       string `json:"message,omitempty"`
-	LastState     string `json:"lastState,omitempty"`     // 上次终止状态描述
-	LastExitCode  int32  `json:"lastExitCode,omitempty"` // 上次终止退出码
+	LastState     string `json:"lastState,omitempty"`     // Last terminated state description.
+	LastExitCode  int32  `json:"lastExitCode,omitempty"` // Last terminated exit code.
 	LastFinishedAt string `json:"lastFinishedAt,omitempty"`
-	ExitCode      int32  `json:"exitCode,omitempty"`      // 当前 Terminated 退出码
+	ExitCode      int32  `json:"exitCode,omitempty"`      // Exit code for current Terminated state.
 	StartedAt    string `json:"startedAt,omitempty"`
 	FinishedAt   string `json:"finishedAt,omitempty"`
 }
 
-// PodCondition Pod 条件
+// PodCondition represents a Pod condition.
 type PodCondition struct {
 	Type               string `json:"type"`
 	Status             string `json:"status"`
@@ -77,7 +77,7 @@ type PodCondition struct {
 	LastTransitionTime string `json:"lastTransitionTime,omitempty"`
 }
 
-// PodEvent 事件（类似 kubectl describe 中的 Events）
+// PodEvent is an event item (similar to Events in kubectl describe).
 type PodEvent struct {
 	FirstSeen string `json:"firstSeen"`
 	LastSeen  string `json:"lastSeen"`
@@ -88,7 +88,7 @@ type PodEvent struct {
 	Source    string `json:"source,omitempty"` // component/kind
 }
 
-// PodLogsResponse Pod 日志
+// PodLogsResponse is the Pod logs response payload.
 type PodLogsResponse struct {
 	Namespace string   `json:"namespace"`
 	Name      string   `json:"name"`
@@ -97,7 +97,7 @@ type PodLogsResponse struct {
 	Error     string   `json:"error,omitempty"`
 }
 
-// PodDetail 获取 Pod 详情（含 Events，类似 kubectl describe）
+// PodDetail returns Pod details with Events, similar to kubectl describe.
 func PodDetail(clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -124,7 +124,7 @@ func PodDetail(clientset kubernetes.Interface) http.HandlerFunc {
 
 		resp := buildPodDetailResponse(pod)
 
-		// 获取与该 Pod 相关的 Events
+		// Fetch Events related to this Pod.
 		eventList, err := clientset.CoreV1().Events(ns).List(r.Context(), metav1.ListOptions{
 			FieldSelector: fields.OneTermEqualSelector("involvedObject.name", name).String(),
 		})
@@ -236,7 +236,7 @@ func buildPodDetailResponse(pod *corev1.Pod) PodDetailResponse {
 	return resp
 }
 
-// PodLogs 获取 Pod 日志（通用，可指定 container）
+// PodLogs fetches Pod logs (generic endpoint, optional container).
 func PodLogs(clientset kubernetes.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

@@ -4,7 +4,7 @@ import (
 	"net/http"
 )
 
-// CORS 为 mux 包装 CORS 头，便于前端开发时跨域访问后端
+// CORS wraps the mux with CORS headers for frontend cross-origin access during development.
 func CORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")

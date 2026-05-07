@@ -19,7 +19,7 @@ var destinationRuleGVR = schema.GroupVersionResource{
 	Group: "networking.istio.io", Version: "v1beta1", Resource: "destinationrules",
 }
 
-// CircuitBreakerItem 列表项
+// CircuitBreakerItem is a circuit-breaker list item.
 type CircuitBreakerItem struct {
 	Namespace            string `json:"namespace"`
 	Name                 string `json:"name"`
@@ -32,12 +32,12 @@ type CircuitBreakerItem struct {
 	MaxRequestsPerConn   int32  `json:"maxRequestsPerConnection,omitempty"`
 }
 
-// CircuitBreakerListResponse 列表响应
+// CircuitBreakerListResponse is the list response payload.
 type CircuitBreakerListResponse struct {
 	Items []CircuitBreakerItem `json:"items"`
 }
 
-// CircuitBreakerApplyRequest 创建/更新请求（与设计文档字段对齐）
+// CircuitBreakerApplyRequest is the create/update request (aligned with design fields).
 type CircuitBreakerApplyRequest struct {
 	Namespace              string `json:"namespace"`
 	Name                   string `json:"name"`
@@ -50,14 +50,14 @@ type CircuitBreakerApplyRequest struct {
 	MaxRequestsPerConn     int32  `json:"maxRequestsPerConnection,omitempty"`
 }
 
-// CircuitBreakerApplyResponse 创建/更新响应
+// CircuitBreakerApplyResponse is the create/update response payload.
 type CircuitBreakerApplyResponse struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
 	Message   string `json:"message"`
 }
 
-// CircuitBreakerDeleteRequest 删除请求
+// CircuitBreakerDeleteRequest is the delete request payload.
 type CircuitBreakerDeleteRequest struct {
 	Namespace string `json:"namespace"`
 	Name      string `json:"name"`
@@ -192,7 +192,7 @@ func itoa(i int) string {
 	return string(b)
 }
 
-// CircuitBreakerList 列出含 connectionPool 的 DestinationRule
+// CircuitBreakerList lists DestinationRules with connectionPool.
 func CircuitBreakerList(dyn dynamic.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -226,7 +226,7 @@ func CircuitBreakerList(dyn dynamic.Interface) http.HandlerFunc {
 	}
 }
 
-// CircuitBreakerApply 创建或更新 DestinationRule（熔断，作用于 Waypoint）
+// CircuitBreakerApply creates or updates DestinationRule (circuit breaker, applied to Waypoint).
 func CircuitBreakerApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -245,7 +245,7 @@ func CircuitBreakerApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interf
 			http.Error(w, "name and host are required", http.StatusBadRequest)
 			return
 		}
-		// 熔断作用于 Waypoint，下发前需确保命名空间已安装 Waypoint
+		// Circuit breaker is applied to Waypoint; ensure Waypoint is installed before apply.
 		loc := lang.LocaleFromRequest(r)
 		hasWaypoint, err := HasWaypointInNamespace(r.Context(), gwClient, req.Namespace)
 		if err != nil {
@@ -282,7 +282,7 @@ func CircuitBreakerApply(dyn dynamic.Interface, gwClient gatewayapiclient.Interf
 	}
 }
 
-// CircuitBreakerDelete 删除 DestinationRule
+// CircuitBreakerDelete deletes DestinationRule.
 func CircuitBreakerDelete(dyn dynamic.Interface) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
