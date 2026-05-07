@@ -264,7 +264,7 @@ func (k kubeComponent) Close() error {
 
 func newWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string, trafficType string) {
 	if _, err := newWaypointProxy(ctx, ns, name, trafficType); err != nil {
-		t.Fatal("create new waypoint proxy failed: %v", err)
+		t.Fatalf("create new waypoint proxy failed: %v", err)
 	}
 }
 
@@ -291,6 +291,9 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 		return nil, err
 	}
 	pod := pods[0]
+	if err := waitForWaypointGatewayReady(ns.Name(), name, pod.Name); err != nil {
+		return nil, err
+	}
 	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
 	if err != nil {
 		return nil, err
@@ -314,6 +317,23 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 	server.pod = pod
 
 	return server, nil
+}
+
+func waitForWaypointGatewayReady(ns string, name string, podName string) error {
+	for _, condition := range []string{"Accepted"} {
+		if err := waitForGatewayCondition(ns, name, condition); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func waitForGatewayCondition(ns string, name string, condition string) error {
+	cmd := exec.Command("kubectl", "wait", "--for=condition="+condition, "--timeout=120s", "gateway/"+name, "-n", ns)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("waiting for waypoint gateway %s condition %s failed: %v, output: %s", name, condition, err, string(output))
+	}
+	return nil
 }
 
 func deleteWaypointProxyOrFail(t test.Failer, ctx resource.Context, ns namespace.Instance, name string) {

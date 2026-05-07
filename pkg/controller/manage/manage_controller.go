@@ -300,7 +300,7 @@ func (c *KmeshManageController) disableKmeshForPodsInNamespace(namespace *corev1
 	}
 
 	for _, pod := range pods {
-		if !utils.ShouldEnroll(pod, namespace) {
+		if !utils.ShouldEnroll(pod, namespace) && utils.AnnotationEnabled(pod.Annotations[constants.KmeshRedirectionAnnotation]) {
 			c.disableKmeshManage(pod)
 		}
 	}
