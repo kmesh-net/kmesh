@@ -774,7 +774,7 @@ func TestBookinfo(t *testing.T) {
 			}
 		})
 
-		fetchFn := testKube.NewSinglePodFetch(t.Clusters().Default(), namespace)
+		fetchFn := testKube.NewPodFetch(t.Clusters().Default(), namespace, "app")
 		if _, err := testKube.WaitUntilPodsAreReady(fetchFn, retry.Timeout(15*time.Minute), retry.Delay(5*time.Second)); err != nil {
 			t.Fatalf("failed to wait bookinfo pods to be ready: %v", err)
 		}
