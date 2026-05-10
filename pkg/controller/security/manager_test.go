@@ -190,3 +190,52 @@ func runTestretryFetchCert(t *testing.T) {
 
 	close(stopCh)
 }
+
+func TestListCerts(t *testing.T) {
+	t.Run("empty cache returns empty map", func(t *testing.T) {
+		sm := &SecretManager{
+			certsCache: newCertCache(),
+		}
+		result := sm.ListCerts()
+		assert.NotNil(t, result)
+		assert.Equal(t, 0, len(result))
+	})
+
+	t.Run("returns only certs with non-nil cert field", func(t *testing.T) {
+		sm := &SecretManager{
+			certsCache: newCertCache(),
+		}
+		now := time.Now()
+		sm.certsCache.certs["identity1"] = &certItem{
+			cert: &security.SecretItem{
+				ResourceName:     "identity1",
+				CertificateChain: []byte("chain1"),
+				ExpireTime:       now.Add(2 * time.Hour),
+				CreatedTime:      now,
+			},
+			refCnt: 1,
+		}
+		// nil cert should be filtered out
+		sm.certsCache.certs["identity2"] = &certItem{
+			cert:   nil,
+			refCnt: 1,
+		}
+		sm.certsCache.certs["identity3"] = &certItem{
+			cert: &security.SecretItem{
+				ResourceName:     "identity3",
+				CertificateChain: []byte("chain3"),
+				ExpireTime:       now.Add(4 * time.Hour),
+				CreatedTime:      now,
+			},
+			refCnt: 2,
+		}
+
+		result := sm.ListCerts()
+		assert.Equal(t, 2, len(result))
+		assert.NotNil(t, result["identity1"])
+		assert.Nil(t, result["identity2"])
+		assert.NotNil(t, result["identity3"])
+		assert.Equal(t, "identity1", result["identity1"].ResourceName)
+		assert.Equal(t, "identity3", result["identity3"].ResourceName)
+	})
+}
