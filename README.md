@@ -112,7 +112,7 @@ Resources:
 
 ## Contributing
 
-If you're interested in being a contributor and want to get involved in developing Kmesh, please see [CONTRIBUTING](CONTRIBUTING.md) for more details on submitting patches and the contribution workflow.
+If you're interested in being a contributor and want to get involved in developing Kmesh, please see [CONTRIBUTING](CONTRIBUTING.md) for more details on submitting patches and the contribution workflow. We fully support local development on macOS via Docker Desktop and `kind`. For detailed setup instructions, including frontend UI setup and troubleshooting, refer to our [Local Development Guide](docs/en/kmesh_deploy_and_develop_in_kind.md).
 
 ## License
 

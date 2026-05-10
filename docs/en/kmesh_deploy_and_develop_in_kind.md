@@ -10,10 +10,16 @@ Let's start from setting up the required environment. You can follow the steps b
 
     Installing `kind` is very simple, because it's just a binary file. You can select the correct one according to the version and the architecture in the [github releases page](https://github.com/kubernetes-sigs/kind/releases). Take `linux` + `amd64` as example:
 
+    **For Linux:**
     ```shell
     wget -O kind https://github.com/kubernetes-sigs/kind/releases/download/v0.23.0/kind-linux-amd64
     chmod +x kind
     mv kind /usr/bin/
+    ```
+
+    **For macOS:**
+    ```shell
+    brew install kind
     ```
 
 + Create Kubernetes cluster using `kind`:
@@ -57,7 +63,9 @@ Let's start from setting up the required environment. You can follow the steps b
 
 + Install kubectl
 
-    Please follow the official guide: [Install and Set Up kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/).
+    Please follow the official guide for your operating system:
+    - [Install and Set Up kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
+    - **For macOS:** `brew install kubectl`
 
 + Deploy Kmesh
 
@@ -146,6 +154,26 @@ You can follow the steps below to develop in kind:
     ```
 
     to cleanup these changes before you execute `git add` command.
+
+## Troubleshooting
+
+When developing locally, especially on macOS via Docker Desktop, you might encounter the following common issues:
+
+### 1. `kind` cluster fails to start or nodes show `NotReady`
+- **Cause**: Docker Desktop is out of resources.
+- **Solution**: Increase Docker Desktop's resource limits (Settings > Resources). We recommend at least 4 CPUs and 8GB of RAM.
+
+### 2. `make build` container gets OOMKilled
+- **Cause**: Compiling the Linux kernel and eBPF programs requires significant memory.
+- **Solution**: Ensure your Docker VM has enough RAM (8GB+). If it still fails, try closing other memory-intensive applications.
+
+### 3. "No space left on device" errors
+- **Cause**: The `kind` cluster and Kmesh build environments download multiple large images.
+- **Solution**: Clear unused Docker data using `docker system prune -a --volumes` and ensure Docker Desktop has at least 20GB of disk space allocated.
+
+### 4. UI / Frontend fails to connect to backend
+- **Cause**: Node.js version mismatch or local Kmesh pods are not fully running.
+- **Solution**: Ensure you are using Node.js v18+ (e.g., `nvm use 18`). Verify Kmesh pods are `Running` via `kubectl get pods -n kmesh-system`.
 
 ## Reference
 
