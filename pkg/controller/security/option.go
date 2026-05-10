@@ -30,6 +30,13 @@ const (
 	Rotate
 
 	maxConcurrentCSR = 128 // max concurrent CSR
+
+	// certFetchBaseDelay is the initial delay between certificate fetch retries.
+	certFetchBaseDelay = 200 * time.Millisecond
+	// certFetchMaxDelay caps the exponential backoff to prevent unbounded waits.
+	certFetchMaxDelay = 30 * time.Second
+	// certFetchMaxRetries limits the number of consecutive retry attempts per identity.
+	certFetchMaxRetries = 10
 )
 
 func NewSecurityOptions() *security.Options {

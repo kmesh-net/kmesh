@@ -18,6 +18,7 @@ package security
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -187,6 +188,99 @@ func runTestretryFetchCert(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to fetch cert after retry: %v", err)
 	}
+
+	close(stopCh)
+}
+
+func TestBackoffWithJitter(t *testing.T) {
+	t.Run("backoff increases exponentially", func(t *testing.T) {
+		base := 200 * time.Millisecond
+		max := 30 * time.Second
+		var prev time.Duration
+		for attempt := 0; attempt < 8; attempt++ {
+			d := backoffWithJitter(attempt, base, max)
+			if attempt > 0 {
+				// Each delay should generally be larger than the previous one
+				// (within jitter tolerance) until hitting the cap.
+				assert.Greater(t, d, prev/3, "attempt %d delay should grow", attempt)
+			}
+			assert.LessOrEqual(t, d, max+max/4, "delay must not exceed max + jitter margin")
+			prev = d
+		}
+	})
+
+	t.Run("delay is capped at maxDelay", func(t *testing.T) {
+		base := 100 * time.Millisecond
+		max := 1 * time.Second
+		for i := 0; i < 50; i++ {
+			d := backoffWithJitter(20, base, max)
+			// With 25% jitter, the max possible value is 1.25 * maxDelay.
+			assert.LessOrEqual(t, d, time.Duration(float64(max)*1.25)+time.Millisecond)
+		}
+	})
+
+	t.Run("jitter keeps delay within bounds", func(t *testing.T) {
+		base := 1 * time.Second
+		max := 30 * time.Second
+		for i := 0; i < 100; i++ {
+			d := backoffWithJitter(0, base, max)
+			assert.GreaterOrEqual(t, d, time.Duration(float64(base)*0.75)-time.Millisecond)
+			assert.LessOrEqual(t, d, time.Duration(float64(base)*1.25)+time.Millisecond)
+		}
+	})
+}
+
+func TestCertFetchRetriesMetric(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	patches.ApplyFunc(newCaClient, func(opts *security.Options, tlsOpts *tlsOptions) (CaClient, error) {
+		return camock.NewMockCaClient(opts, 2*time.Hour)
+	})
+	defer patches.Reset()
+
+	stopCh := make(chan struct{})
+	secretManager, err := NewSecretManager()
+	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
+
+	// Pre-create the real CA client to use after the initial failures.
+	// This avoids discarding the error inside the closure where t.Fatal cannot be used.
+	realClient, err := camock.NewMockCaClient(secretManager.configOptions, 2*time.Hour)
+	assert.ErrorIsf(t, err, nil, "NewMockCaClient failed %v", err)
+
+	var failCount atomic.Int32
+	patches2 := gomonkey.NewPatches()
+	defer patches2.Reset()
+	patches2.ApplyMethodFunc(secretManager.caClient, "FetchCert", func(identity string) (*security.SecretItem, error) {
+		count := failCount.Add(1)
+		if count <= 2 {
+			return nil, fmt.Errorf("simulated CA failure %d", count)
+		}
+		return realClient.FetchCert(identity)
+	})
+
+	go secretManager.Run(stopCh)
+	identity := "metric-test-identity"
+	secretManager.SendCertRequest(identity, ADD)
+
+	err = retry.UntilSuccess(
+		func() error {
+			cert := secretManager.GetCert(identity)
+			if cert != nil {
+				secretManager.certsCache.mu.RLock()
+				hasCert := cert.cert != nil
+				secretManager.certsCache.mu.RUnlock()
+				if hasCert {
+					return nil
+				}
+			}
+			return fmt.Errorf("cert not found for identity %s", identity)
+		},
+		retry.Delay(200*time.Millisecond),
+		retry.Timeout(10*time.Second),
+	)
+	assert.NoError(t, err, "cert should eventually be fetched after retries")
+
+	retries := secretManager.CertFetchRetries()
+	assert.Greater(t, retries, int64(0), "retry counter should have been incremented")
 
 	close(stopCh)
 }

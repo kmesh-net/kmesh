@@ -17,7 +17,9 @@
 package security
 
 import (
+	"math/rand"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	istiosecurity "istio.io/istio/pkg/security"
@@ -63,6 +65,13 @@ type SecretManager struct {
 	certsRotateQueue workqueue.TypedDelayingInterface[any]
 
 	certRequestChan chan certRequest
+
+	// certRetryAttempts tracks the current retry attempt per identity for backoff calculation.
+	certRetryAttempts map[string]int
+	certRetryMu       sync.Mutex
+
+	// certFetchRetries counts total certificate fetch retry attempts (for metrics/observability).
+	certFetchRetries atomic.Int64
 }
 
 // When inline optimization is turned on, in some test cases,
@@ -163,11 +172,12 @@ func NewSecretManager() (*SecretManager, error) {
 	}
 
 	secretManager := SecretManager{
-		caClient:         caClient,
-		configOptions:    options,
-		certsCache:       newCertCache(),
-		certsRotateQueue: workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "certsRotateQueue"}),
-		certRequestChan:  make(chan certRequest, maxConcurrentCSR),
+		caClient:          caClient,
+		configOptions:     options,
+		certsCache:        newCertCache(),
+		certsRotateQueue:  workqueue.NewTypedDelayingQueueWithConfig(workqueue.TypedDelayingQueueConfig[any]{Name: "certsRotateQueue"}),
+		certRequestChan:   make(chan certRequest, maxConcurrentCSR),
+		certRetryAttempts: make(map[string]int),
 	}
 	return &secretManager, nil
 }
@@ -194,20 +204,63 @@ func (s *SecretManager) rotateCerts() {
 	}
 }
 
-// addCert signs a cert for the identity and cache it.
+// fetchCert signs a certificate for the identity and caches it.
+// On failure, it schedules a retry with exponential backoff and jitter.
 func (s *SecretManager) fetchCert(identity string) {
 	newCert, err := s.caClient.FetchCert(identity)
 	if err != nil {
-		log.Errorf("fetchCert for [%v] error: %v", identity, err)
-		// TODO: backoff retry
-		time.AfterFunc(time.Second, func() {
+		s.certRetryMu.Lock()
+		attempt := s.certRetryAttempts[identity]
+		s.certRetryAttempts[identity] = attempt + 1
+		s.certRetryMu.Unlock()
+
+		s.certFetchRetries.Add(1)
+
+		if attempt >= certFetchMaxRetries {
+			log.Errorf("fetchCert for [%v] giving up after %d attempts: %v", identity, attempt, err)
+			s.certRetryMu.Lock()
+			delete(s.certRetryAttempts, identity)
+			s.certRetryMu.Unlock()
+			return
+		}
+
+		delay := backoffWithJitter(attempt, certFetchBaseDelay, certFetchMaxDelay)
+		log.Warnf("fetchCert for [%v] failed (attempt %d/%d), retrying in %v: %v",
+			identity, attempt+1, certFetchMaxRetries, delay, err)
+
+		time.AfterFunc(delay, func() {
 			s.SendCertRequest(identity, RETRY)
 		})
 		return
 	}
 
+	// Clear retry state on success.
+	s.certRetryMu.Lock()
+	delete(s.certRetryAttempts, identity)
+	s.certRetryMu.Unlock()
+
 	// Save the new certificate in the map and add a record to the rotate queue
 	s.StoreCert(identity, newCert)
+}
+
+// backoffWithJitter calculates an exponential backoff duration with ±25% jitter.
+func backoffWithJitter(attempt int, baseDelay, maxDelay time.Duration) time.Duration {
+	delay := baseDelay
+	for i := 0; i < attempt; i++ {
+		delay *= 2
+		if delay > maxDelay {
+			delay = maxDelay
+			break
+		}
+	}
+	// Apply ±25% jitter to spread out retries.
+	jitter := 1.0 - 0.25 + rand.Float64()*0.5
+	return time.Duration(float64(delay) * jitter)
+}
+
+// CertFetchRetries returns the total number of certificate fetch retry attempts.
+func (s *SecretManager) CertFetchRetries() int64 {
+	return s.certFetchRetries.Load()
 }
 
 // Set the removed to true for the items in the certsRotateQueue priority queue.
@@ -224,6 +277,10 @@ func (s *SecretManager) deleteCert(identity string) {
 	if certificate.refCnt == 0 {
 		delete(s.certsCache.certs, identity)
 		log.Debugf("identity: %v cert deleted", identity)
+
+		s.certRetryMu.Lock()
+		delete(s.certRetryAttempts, identity)
+		s.certRetryMu.Unlock()
 	}
 }
 
