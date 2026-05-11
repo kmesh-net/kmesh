@@ -155,17 +155,26 @@ func runTestretryFetchCert(t *testing.T) {
 	secretManager, err := NewSecretManager()
 	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
 
+	var fail atomic.Bool
+	fail.Store(true)
 	patches2 := gomonkey.NewPatches()
 	defer patches2.Reset()
 	patches2.ApplyMethodFunc(secretManager.caClient, "FetchCert", func(identity string) (*security.SecretItem, error) {
-		return nil, fmt.Errorf("abnormal test")
+		if fail.Load() {
+			return nil, fmt.Errorf("abnormal test")
+		}
+		// Return to original behavior by calling the mock client's real FetchCert.
+		// Since we can't easily call the original method on the same interface with gomonkey,
+		// we use the real mock implementation.
+		realMock, _ := camock.NewMockCaClient(secretManager.configOptions, 2*time.Hour)
+		return realMock.FetchCert(identity)
 	})
 
 	go secretManager.Run(stopCh)
 	identity := "identity"
 	secretManager.SendCertRequest(identity, ADD)
 	time.Sleep(100 * time.Millisecond)
-	patches2.Reset()
+	fail.Store(false)
 
 	secretManager.SendCertRequest(identity, RETRY)
 
