@@ -187,7 +187,9 @@ func (s *SecretManager) Run(stop <-chan struct{}) {
 	go s.rotateCerts()
 	<-stop
 	s.certsRotateQueue.ShutDown()
-	s.caClient.Close()
+	if err := s.caClient.Close(); err != nil {
+		log.Errorf("failed to close CA client: %v", err)
+	}
 }
 
 // Automatically check and rotate when the validity period expires
@@ -296,7 +298,8 @@ func (s *SecretManager) rotateCert(identity string) {
 
 	if time.Until(certificate.cert.ExpireTime) >= 1*time.Hour {
 		// This can happen when delete a certificate following adding the same one later.
-		log.Debugf("cert %s expire at %T, skip rotate now", identity, certificate.cert.ExpireTime)
+		log.Debugf("cert %s expire at %v, skip rotate now", identity, certificate.cert.ExpireTime)
+		return
 	}
 
 	go s.fetchCert(identity)

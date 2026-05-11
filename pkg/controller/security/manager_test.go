@@ -156,6 +156,7 @@ func runTestretryFetchCert(t *testing.T) {
 	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
 
 	patches2 := gomonkey.NewPatches()
+	defer patches2.Reset()
 	patches2.ApplyMethodFunc(secretManager.caClient, "FetchCert", func(identity string) (*security.SecretItem, error) {
 		return nil, fmt.Errorf("abnormal test")
 	})
