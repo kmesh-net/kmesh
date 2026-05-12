@@ -22,8 +22,10 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:path=kmeshnodeinfos,scope=Namespaced
+// +kubebuilder:subresource:status
 
-// KmeshNode is the Schema for the kmeshnodes API
+// KmeshNodeInfo is the Schema for the kmeshnodeinfos API.
 type KmeshNodeInfo struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -37,9 +39,9 @@ type KmeshNodeInfoSpec struct {
 	// The communication can be normal only when both communication parties
 	// have spis and the spi keys are the same.
 	SPI int `json:"spi"`
-	// Addresses is used to store the internal ip address informatioon on the
+	// Addresses is used to store the internal ip address information on the
 	// host. The IP address information is used to generate the IPsec state
-	// informatioon. IPsec uses this information to determine which network
+	// information. IPsec uses this information to determine which network
 	// adapter is used to encrypt and send data.
 	Addresses []string `json:"addresses"`
 	// bootid is used to generate the ipsec key. After the node is restarted,
@@ -51,11 +53,16 @@ type KmeshNodeInfoSpec struct {
 }
 
 type KmeshNodeInfoStatus struct {
+	// Conditions represent the latest available observations of the resource's state.
+	// +listType=map
+	// +listMapKey=type
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// KmeshNodeLists contains a list of KmeshNode
+// KmeshNodeInfoList contains a list of KmeshNodeInfo.
 type KmeshNodeInfoList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
