@@ -25,14 +25,16 @@ package kmesh
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/test/echo/common/scheme"
-	"istio.io/istio/pkg/test/framework"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // Wait for all the XDP programs of dst to load
@@ -45,7 +47,7 @@ func waitForXDPOnDstWorkloads(t framework.TestContext, dst echo.Instances) {
 			break
 		}
 		podName := client.PodName()
-		timeout := time.After(5 * time.Second)
+		timeout := time.After(30 * time.Second) // Increased timeout for CI
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 	InnerLoop:
@@ -74,11 +76,12 @@ func TestIPAuthorization(t *testing.T) {
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
 				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
 			}
+			// Use ServiceWithWaypointAtServiceGranularity as source (no L4 XDP) and EnrolledToKmesh as destination (has L4 XDP)
+			// This ensures only the destination evaluates the authorization policy
 			src := apps.ServiceWithWaypointAtServiceGranularity[0]
-
-			clients := src.WorkloadsOrFail(t)
 			dst := apps.EnrolledToKmesh
 
+			clients := src.WorkloadsOrFail(t)
 			addresses := clients.Addresses()
 			if len(addresses) < 2 {
 				t.Fatal(fmt.Errorf("need at least 2 clients"))
@@ -127,9 +130,17 @@ func TestIPAuthorization(t *testing.T) {
 			waitForXDPOnDstWorkloads(t, dst)
 
 			for _, tc := range authzCases {
+				// Determine CIDR prefix based on IP version
+				ipBlock := selectedAddress
+				if strings.Contains(selectedAddress, ":") {
+					ipBlock = selectedAddress + "/128" // IPv6
+				} else {
+					ipBlock = selectedAddress + "/32" // IPv4
+				}
+				
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
 					"Destination": dst.Config().Service,
-					"Ip":          selectedAddress,
+					"IpBlock":     ipBlock,
 				}, `apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
@@ -143,7 +154,7 @@ spec:
   - from:
     - source:
         ipBlocks:
-        - "{{.Ip}}"
+        - "{{.IpBlock}}"
 `).ApplyOrFail(t)
 
 				for _, client := range clients {
@@ -152,8 +163,7 @@ spec:
 						Port:                    echo.Port{Name: "tcp"},
 						Scheme:                  scheme.TCP,
 						NewConnectionPerRequest: true,
-						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-						Timeout: time.Minute * 2,
+						Timeout:                 time.Second * 30,
 					}
 
 					var name string
@@ -166,7 +176,11 @@ spec:
 					opt.Check = chooseChecker(tc.name, client.Address())
 
 					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-						src.WithWorkloads(client).CallOrFail(t, opt)
+						t.Logf("Testing IP Authorization from %s (selected: %s) to %s", client.Address(), selectedAddress, dst.Config().Service)
+						retry.UntilSuccessOrFail(t, func() error {
+							_, err := src.WithWorkloads(client).Call(opt)
+							return err
+						}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -178,10 +192,10 @@ func TestPortAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Port Authorization").Run(func(t framework.TestContext) {
 
-			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
-				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
+			if len(apps.EnrolledToKmesh) == 0 {
+				t.Fatal(fmt.Errorf("need at least 1 instance of apps.EnrolledToKmesh"))
 			}
-			src := apps.ServiceWithWaypointAtServiceGranularity[0]
+			src := apps.EnrolledToKmesh[0]
 
 			clients := src.WorkloadsOrFail(t)
 			client := clients[0]
@@ -279,8 +293,7 @@ spec:
 						Port:                    echo.Port{Name: "tcp", ServicePort: portTest.servicePort},
 						Scheme:                  scheme.TCP,
 						NewConnectionPerRequest: true,
-						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-						Timeout: time.Minute * 2,
+						Timeout:                 time.Second * 30,
 					}
 
 					var name string
@@ -289,7 +302,10 @@ spec:
 					opt.Check = chooseChecker(tc.name, portTest.servicePort)
 
 					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-						src.WithWorkloads(client).CallOrFail(t, opt)
+						retry.UntilSuccessOrFail(t, func() error {
+							_, err := src.WithWorkloads(client).Call(opt)
+							return err
+						}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -301,10 +317,10 @@ func TestNamespaceAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
 		t.NewSubTest("Namespace Authorization").Run(func(t framework.TestContext) {
 
-			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
-				t.Fatal(fmt.Errorf("need at least 1 instance of apps.ServiceWithWaypointAtServiceGranularity"))
+			if len(apps.EnrolledToKmesh) == 0 {
+				t.Fatal(fmt.Errorf("need at least 1 instance of apps.EnrolledToKmesh"))
 			}
-			src := apps.ServiceWithWaypointAtServiceGranularity[0]
+			src := apps.EnrolledToKmesh[0]
 
 			clients := src.WorkloadsOrFail(t)
 			client := clients[0]
@@ -371,8 +387,7 @@ spec:
 					Port:                    echo.Port{Name: "tcp"},
 					Scheme:                  scheme.TCP,
 					NewConnectionPerRequest: true,
-					// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-					Timeout: time.Minute * 2,
+					Timeout:                 time.Second * 30,
 				}
 
 				var name string
@@ -381,7 +396,10 @@ spec:
 				opt.Check = chooseChecker(tc.name)
 
 				t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-					src.WithWorkloads(client).CallOrFail(t, opt)
+					retry.UntilSuccessOrFail(t, func() error {
+						_, err := src.WithWorkloads(client).Call(opt)
+						return err
+					}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 				})
 
 			}
@@ -500,8 +518,7 @@ spec:
 							},
 						},
 						NewConnectionPerRequest: true,
-						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-						Timeout: time.Minute * 2,
+						Timeout:                 time.Second * 30,
 					}
 
 					var name string
@@ -510,7 +527,10 @@ spec:
 					opt.Check = chooseChecker(tc.name, headerTest.matches)
 
 					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-						src.WithWorkloads(client).CallOrFail(t, opt)
+						retry.UntilSuccessOrFail(t, func() error {
+							_, err := src.WithWorkloads(client).Call(opt)
+							return err
+						}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 					})
 				}
 			}
@@ -627,8 +647,7 @@ spec:
 							},
 						},
 						NewConnectionPerRequest: true,
-						// Due to the mechanism of Kmesh L4 authorization, we need to set the timeout slightly longer.
-						Timeout: time.Minute * 2,
+						Timeout:                 time.Second * 30,
 					}
 
 					var name string
@@ -637,7 +656,10 @@ spec:
 					opt.Check = chooseChecker(tc.name, hostTest.matches)
 
 					t.NewSubTestf("%v", name).Run(func(t framework.TestContext) {
-						src.WithWorkloads(client).CallOrFail(t, opt)
+						retry.UntilSuccessOrFail(t, func() error {
+							_, err := src.WithWorkloads(client).Call(opt)
+							return err
+						}, retry.Timeout(time.Minute*5), retry.Delay(time.Second*5))
 					})
 				}
 

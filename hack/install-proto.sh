@@ -11,7 +11,7 @@ function install_tool() {
 	fi
 }
 
-function install_protoc_binary() {
+function install_protoc_binary_linux() {
 	local version="$1"
 	local arch_suffix="$2"
 	local url="$3"
@@ -22,20 +22,35 @@ function install_protoc_binary() {
 	rm -rf "protoc-${version}-linux-${arch_suffix}.zip" "protoc-${version}"
 }
 
+function install_protoc_binary_macos() {
+	local version="$1"
+	local arch_suffix="$2"
+	local url="$3"
+
+	curl -L "$url" -o "protoc-${version}-osx-${arch_suffix}.zip"
+	unzip "protoc-${version}-osx-${arch_suffix}.zip" -d "protoc-${version}"
+	mv "protoc-${version}/bin/protoc" /usr/local/bin/ || echo "Failed to move protoc to /usr/local/bin, please move it manually or add to PATH"
+	rm -rf "protoc-${version}-osx-${arch_suffix}.zip" "protoc-${version}"
+}
+
 function install_protoc() {
 	local arch
 	local arch_suffix
 	local download_url
 	local installed_version
 	local desired_version="28.1"
+	local os_type
 
+	# check the OS type
+	os_type=$(uname -s)
+	
 	# check the architecture
 	arch=$(uname -m)
 	case "$arch" in
 	x86_64)
 		arch_suffix="x86_64"
 		;;
-	aarch64)
+	aarch64|arm64)
 		arch_suffix="aarch_64"
 		;;
 	*)
@@ -44,7 +59,18 @@ function install_protoc() {
 		;;
 	esac
 
-	download_url="https://github.com/protocolbuffers/protobuf/releases/download/v${desired_version}/protoc-${desired_version}-linux-${arch_suffix}.zip"
+	case "$os_type" in
+	Linux*)
+		download_url="https://github.com/protocolbuffers/protobuf/releases/download/v${desired_version}/protoc-${desired_version}-linux-${arch_suffix}.zip"
+		;;
+	Darwin*)
+		download_url="https://github.com/protocolbuffers/protobuf/releases/download/v${desired_version}/protoc-${desired_version}-osx-${arch_suffix}.zip"
+		;;
+	*)
+		echo "Unsupported operating system: $os_type"
+		exit 1
+		;;
+	esac
 
 	# Check if protoc is installed
 	if command -v protoc >/dev/null 2>&1; then
@@ -57,7 +83,14 @@ function install_protoc() {
 
 	if [[ $installed_version != "$desired_version" ]]; then
 		echo "Installing protoc version ${desired_version}..."
-		install_protoc_binary "$desired_version" "$arch_suffix" "$download_url"
+		case "$os_type" in
+		Linux*)
+			install_protoc_binary_linux "$desired_version" "$arch_suffix" "$download_url"
+			;;
+		Darwin*)
+			install_protoc_binary_macos "$desired_version" "$arch_suffix" "$download_url"
+			;;
+		esac
 	else
 		echo "protoc is up-to-date."
 	fi

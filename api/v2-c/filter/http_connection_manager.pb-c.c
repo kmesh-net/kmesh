@@ -63,7 +63,7 @@ static const ProtobufCFieldDescriptor filter__http_connection_manager__field_des
     offsetof(Filter__HttpConnectionManager, route_config_name),
     NULL,
     &protobuf_c_empty_string,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -75,7 +75,7 @@ static const ProtobufCFieldDescriptor filter__http_connection_manager__field_des
     offsetof(Filter__HttpConnectionManager, route_config),
     &route__route_configuration__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };

@@ -121,7 +121,7 @@ jobs:
                   print(msg)
               print('─' * 60)
               print('📌 Tip: Review the suggestions above. Some may be false positives.')
-              print('💡 Pro tip: Fix critical issues like “降低3倍” or “原因是因为”.')
+              print('💡 Pro tip: Fix critical issues like "降低 3 倍" or "原因是因为".')
           else:
               print('✅ All Chinese content passed grammar and spelling checks.')
               print('✨ Great job! No issues found.')

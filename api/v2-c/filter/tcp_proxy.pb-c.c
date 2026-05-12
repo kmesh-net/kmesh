@@ -176,7 +176,7 @@ static const ProtobufCFieldDescriptor filter__tcp_proxy__field_descriptors[4] =
     offsetof(Filter__TcpProxy, cluster),
     NULL,
     &protobuf_c_empty_string,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
   {
@@ -200,7 +200,7 @@ static const ProtobufCFieldDescriptor filter__tcp_proxy__field_descriptors[4] =
     offsetof(Filter__TcpProxy, weighted_clusters),
     &filter__tcp_proxy__weighted_cluster__descriptor,
     NULL,
-    0 | PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
+    PROTOBUF_C_FIELD_FLAG_ONEOF,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
 };

@@ -7,7 +7,7 @@ shift
 PROTO_SRC=$@
 
 # if protoc-c is 1.4.x
-if protoc-c --version | grep -q -E "protobuf-c 1\.4\.[0-9]"; then
+if protoc-c --version | grep -q -E "protobuf-c 1\.[45]\.[0-9]"; then
 	protoc-c --proto_path=$PROTO_PATH --c_out=. $PROTO_SRC
 else
 	echo "Generate proto files in docker"
