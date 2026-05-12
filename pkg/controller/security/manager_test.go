@@ -59,7 +59,7 @@ func runTestBaseCert(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	secretManager, err := NewSecretManager()
-	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
 	go secretManager.Run(stopCh)
 
 	identity1 := "identity1"
@@ -97,7 +97,7 @@ func runTestCertRotate(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	secretManager, err := NewSecretManager()
-	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
 	go secretManager.Run(stopCh)
 
 	identity1 := "identity1"
@@ -153,7 +153,7 @@ func runTestretryFetchCert(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	secretManager, err := NewSecretManager()
-	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
 
 	var fail atomic.Bool
 	fail.Store(true)
@@ -163,11 +163,10 @@ func runTestretryFetchCert(t *testing.T) {
 		if fail.Load() {
 			return nil, fmt.Errorf("abnormal test")
 		}
-		// Return to original behavior by calling the mock client's real FetchCert.
-		// Since we can't easily call the original method on the same interface with gomonkey,
-		// we use the real mock implementation.
-		realMock, _ := camock.NewMockCaClient(secretManager.configOptions, 2*time.Hour)
-		return realMock.FetchCert(identity)
+		return &security.SecretItem{
+			ResourceName: identity,
+			ExpireTime:   time.Now().Add(24 * time.Hour),
+		}, nil
 	})
 
 	go secretManager.Run(stopCh)
@@ -233,11 +232,61 @@ func TestBackoffWithJitter(t *testing.T) {
 		base := 1 * time.Second
 		max := 30 * time.Second
 		for i := 0; i < 100; i++ {
-			d := backoffWithJitter(0, base, max)
+			// First attempt (nextAttempt=1) should return baseDelay
+			d := backoffWithJitter(1, base, max)
 			assert.GreaterOrEqual(t, d, time.Duration(float64(base)*0.75)-time.Millisecond)
 			assert.LessOrEqual(t, d, time.Duration(float64(base)*1.25)+time.Millisecond)
 		}
 	})
+}
+
+func TestCertFetchGiveUp(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	patches.ApplyFunc(newCaClient, func(opts *security.Options, tlsOpts *tlsOptions) (CaClient, error) {
+		return camock.NewMockCaClient(opts, 2*time.Hour)
+	})
+	defer patches.Reset()
+
+	stopCh := make(chan struct{})
+	secretManager, err := NewSecretManager()
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
+
+	// Mock FetchCert to always fail
+	patches2 := gomonkey.NewPatches()
+	defer patches2.Reset()
+	patches2.ApplyMethodFunc(secretManager.caClient, "FetchCert", func(identity string) (*security.SecretItem, error) {
+		return nil, fmt.Errorf("persistent CA failure")
+	})
+
+	// Speed up the test by reducing delays
+	patches.ApplyGlobalVar(&certFetchBaseDelay, 10*time.Millisecond)
+	patches.ApplyGlobalVar(&certFetchMaxDelay, 50*time.Millisecond)
+	patches.ApplyGlobalVar(&certFetchMaxRetries, 3)
+
+	go secretManager.Run(stopCh)
+	identity := "give-up-identity"
+	secretManager.SendCertRequest(identity, ADD)
+
+	// Wait for the retry limit to be reached.
+	// 3 retries + 1 initial = 4 attempts total?
+	// nextAttempt > certFetchMaxRetries (3).
+	// nextAttempt starts at 1, 2, 3, 4. When it's 4, 4 > 3, it gives up.
+	retry.UntilSuccess(
+		func() error {
+			secretManager.certRetryMu.Lock()
+			attempts := secretManager.certRetryAttempts[identity]
+			secretManager.certRetryMu.Unlock()
+			if attempts == 0 { // attempts should be deleted on give up
+				return nil
+			}
+			return fmt.Errorf("still retrying, attempts=%d", attempts)
+		},
+		retry.Delay(100*time.Millisecond),
+		retry.Timeout(2*time.Second),
+	)
+
+	assert.Equal(t, int64(4), secretManager.certFetchRetries.Load(), "should have attempted 4 times total before giving up")
+	close(stopCh)
 }
 
 func TestCertFetchRetriesMetric(t *testing.T) {
@@ -249,12 +298,7 @@ func TestCertFetchRetriesMetric(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	secretManager, err := NewSecretManager()
-	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
-
-	// Pre-create the real CA client to use after the initial failures.
-	// This avoids discarding the error inside the closure where t.Fatal cannot be used.
-	realClient, err := camock.NewMockCaClient(secretManager.configOptions, 2*time.Hour)
-	assert.ErrorIsf(t, err, nil, "NewMockCaClient failed %v", err)
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
 
 	var failCount atomic.Int32
 	patches2 := gomonkey.NewPatches()
@@ -264,7 +308,10 @@ func TestCertFetchRetriesMetric(t *testing.T) {
 		if count <= 2 {
 			return nil, fmt.Errorf("simulated CA failure %d", count)
 		}
-		return realClient.FetchCert(identity)
+		return &security.SecretItem{
+			ResourceName: identity,
+			ExpireTime:   time.Now().Add(24 * time.Hour),
+		}, nil
 	})
 
 	go secretManager.Run(stopCh)

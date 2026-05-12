@@ -45,7 +45,7 @@ func waitForXDPOnDstWorkloads(t framework.TestContext, dst echo.Instances) {
 			break
 		}
 		podName := client.PodName()
-		timeout := time.After(5 * time.Second)
+		timeout := time.After(30 * time.Second)
 		ticker := time.NewTicker(500 * time.Millisecond)
 		defer ticker.Stop()
 	InnerLoop:

@@ -441,10 +441,16 @@ EXIT_CODE=$?
 set -e
 
 if [ $EXIT_CODE -ne 0 ]; then
-	cat $LOGFILE
+	if [ -f "$LOGFILE" ]; then
+		cat "$LOGFILE"
+	else
+		echo "No $LOGFILE found, skip cat"
+	fi
 fi
 
-rm -rf $LOGFILE
+if [ -n "$LOGFILE" ]; then
+	rm -f -- "$LOGFILE"
+fi
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster

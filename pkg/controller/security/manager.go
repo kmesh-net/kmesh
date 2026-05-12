@@ -72,6 +72,8 @@ type SecretManager struct {
 
 	// certFetchRetries counts total certificate fetch retry attempts (for metrics/observability).
 	certFetchRetries atomic.Int64
+
+	stop <-chan struct{}
 }
 
 // When inline optimization is turned on, in some test cases,
@@ -183,6 +185,7 @@ func NewSecretManager() (*SecretManager, error) {
 }
 
 func (s *SecretManager) Run(stop <-chan struct{}) {
+	s.stop = stop
 	go s.handleCertRequests(stop)
 	go s.rotateCerts()
 	<-stop
@@ -209,29 +212,45 @@ func (s *SecretManager) rotateCerts() {
 // fetchCert signs a certificate for the identity and caches it.
 // On failure, it schedules a retry with exponential backoff and jitter.
 func (s *SecretManager) fetchCert(identity string) {
+	s.certsCache.mu.RLock()
+	if s.certsCache.certs[identity] == nil {
+		s.certsCache.mu.RUnlock()
+		log.Debugf("identity: %v has been deleted before fetch", identity)
+		return
+	}
+	s.certsCache.mu.RUnlock()
+
+	log.Debugf("fetchCert for [%v]", identity)
 	newCert, err := s.caClient.FetchCert(identity)
 	if err != nil {
 		s.certRetryMu.Lock()
 		attempt := s.certRetryAttempts[identity]
-		s.certRetryAttempts[identity] = attempt + 1
+		nextAttempt := attempt + 1
+		s.certRetryAttempts[identity] = nextAttempt
 		s.certRetryMu.Unlock()
 
 		s.certFetchRetries.Add(1)
 
-		if attempt >= certFetchMaxRetries {
-			log.Errorf("fetchCert for [%v] giving up after %d attempts: %v", identity, attempt, err)
+		if nextAttempt > certFetchMaxRetries {
+			log.Errorf("fetchCert for [%v] giving up after %d attempts: %v", identity, nextAttempt-1, err)
 			s.certRetryMu.Lock()
 			delete(s.certRetryAttempts, identity)
 			s.certRetryMu.Unlock()
 			return
 		}
 
-		delay := backoffWithJitter(attempt, certFetchBaseDelay, certFetchMaxDelay)
+		delay := backoffWithJitter(nextAttempt, certFetchBaseDelay, certFetchMaxDelay)
 		log.Warnf("fetchCert for [%v] failed (attempt %d/%d), retrying in %v: %v",
-			identity, attempt+1, certFetchMaxRetries, delay, err)
+			identity, nextAttempt, certFetchMaxRetries, delay, err)
 
 		time.AfterFunc(delay, func() {
-			s.SendCertRequest(identity, RETRY)
+			select {
+			case <-s.stop:
+				log.Debugf("SecretManager shutting down, canceling retry for %v", identity)
+				return
+			default:
+				s.SendCertRequest(identity, RETRY)
+			}
 		})
 		return
 	}
@@ -248,7 +267,7 @@ func (s *SecretManager) fetchCert(identity string) {
 // backoffWithJitter calculates an exponential backoff duration with ±25% jitter.
 func backoffWithJitter(attempt int, baseDelay, maxDelay time.Duration) time.Duration {
 	delay := baseDelay
-	for i := 0; i < attempt; i++ {
+	for i := 1; i < attempt; i++ {
 		delay *= 2
 		if delay > maxDelay {
 			delay = maxDelay
@@ -256,7 +275,8 @@ func backoffWithJitter(attempt int, baseDelay, maxDelay time.Duration) time.Dura
 		}
 	}
 	// Apply ±25% jitter to spread out retries.
-	jitter := 1.0 - 0.25 + rand.Float64()*0.5
+	r := rand.New(rand.NewSource(time.Now().UnixNano()))
+	jitter := 1.0 - 0.25 + r.Float64()*0.5
 	return time.Duration(float64(delay) * jitter)
 }
 
