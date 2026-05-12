@@ -240,11 +240,8 @@ message Workload {
 
   NetworkMode network_mode = 25;
 
-  // Capacity for this workload.
-  // This represents the amount of traffic the workload can handle, relative to other workloads
-  // If unset, the capacity is default to 1.
   google.protobuf.UInt32Value capacity = 27;
-
+  
   // Reservations for deleted fields.
   reserved 15;
 }

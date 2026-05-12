@@ -420,11 +420,6 @@ struct  Istio__Workload__Workload
    */
   Istio__Workload__Locality *locality;
   Istio__Workload__NetworkMode network_mode;
-  /*
-   * Capacity for this workload.
-   * This represents the amount of traffic the workload can handle, relative to other workloads
-   * If unset, the capacity is default to 1.
-   */
   Google__Protobuf__UInt32Value *capacity;
 };
 #define ISTIO__WORKLOAD__WORKLOAD__INIT \

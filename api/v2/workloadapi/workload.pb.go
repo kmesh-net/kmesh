@@ -21,9 +21,9 @@
 package workloadapi
 
 import (
+	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	wrapperspb "google.golang.org/protobuf/types/known/wrapperspb"
 	reflect "reflect"
 	sync "sync"
 )
@@ -792,12 +792,9 @@ type Workload struct {
 	// The cluster ID that the workload instance belongs to
 	ClusterId string `protobuf:"bytes,18,opt,name=cluster_id,json=clusterId,proto3" json:"cluster_id,omitempty"`
 	// The Locality defines information about where a workload is geographically deployed
-	Locality    *Locality   `protobuf:"bytes,24,opt,name=locality,proto3" json:"locality,omitempty"`
-	NetworkMode NetworkMode `protobuf:"varint,25,opt,name=network_mode,json=networkMode,proto3,enum=istio.workload.NetworkMode" json:"network_mode,omitempty"`
-	// Capacity for this workload.
-	// This represents the amount of traffic the workload can handle, relative to other workloads
-	// If unset, the capacity is default to 1.
-	Capacity *wrapperspb.UInt32Value `protobuf:"bytes,27,opt,name=capacity,proto3" json:"capacity,omitempty"`
+	Locality    *Locality             `protobuf:"bytes,24,opt,name=locality,proto3" json:"locality,omitempty"`
+	NetworkMode NetworkMode           `protobuf:"varint,25,opt,name=network_mode,json=networkMode,proto3,enum=istio.workload.NetworkMode" json:"network_mode,omitempty"`
+	Capacity    *wrappers.UInt32Value `protobuf:"bytes,27,opt,name=capacity,proto3" json:"capacity,omitempty"`
 }
 
 func (x *Workload) Reset() {
@@ -1000,7 +997,7 @@ func (x *Workload) GetNetworkMode() NetworkMode {
 	return NetworkMode_STANDARD
 }
 
-func (x *Workload) GetCapacity() *wrapperspb.UInt32Value {
+func (x *Workload) GetCapacity() *wrappers.UInt32Value {
 	if x != nil {
 		return x.Capacity
 	}
@@ -1692,7 +1689,7 @@ var file_api_workloadapi_workload_proto_goTypes = []any{
 	(*NetworkAddress)(nil),          // 16: istio.workload.NetworkAddress
 	(*NamespacedHostname)(nil),      // 17: istio.workload.NamespacedHostname
 	nil,                             // 18: istio.workload.Workload.ServicesEntry
-	(*wrapperspb.UInt32Value)(nil),  // 19: google.protobuf.UInt32Value
+	(*wrappers.UInt32Value)(nil),    // 19: google.protobuf.UInt32Value
 }
 var file_api_workloadapi_workload_proto_depIdxs = []int32{
 	10, // 0: istio.workload.Address.workload:type_name -> istio.workload.Workload
