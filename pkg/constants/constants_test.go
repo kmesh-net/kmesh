@@ -41,7 +41,7 @@ func TestConstants(t *testing.T) {
 		{"DISABLED", DISABLED, uint32(0)},
 		{"XfrmDecryptedMark", XfrmDecryptedMark, int(0x00d0)},
 		{"XfrmEncryptMark", XfrmEncryptMark, int(0x00e0)},
-		{"XfrmMarkMask", XfrmMarkMask, uint32(0xffffffff)},
+		{"XfrmMarkMask", uint32(XfrmMarkMask), uint32(0xffffffff)},
 		{"TC_MARK_DECRYPT", TC_MARK_DECRYPT, "tc_mark_decrypt"},
 		{"TC_MARK_ENCRYPT", TC_MARK_ENCRYPT, "tc_mark_encrypt"},
 		{"TC_ATTACH", TC_ATTACH, int(0)},
