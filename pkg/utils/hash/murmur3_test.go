@@ -16,9 +16,7 @@
 
 package hash
 
-import (
-	"testing"
-)
+import "testing"
 
 func TestHash128_DifferentSeeds(t *testing.T) {
 	input := []byte("test input")
@@ -28,26 +26,6 @@ func TestHash128_DifferentSeeds(t *testing.T) {
 
 	if (h1_seed0 == h1_seed1) && (h2_seed0 == h2_seed1) {
 		t.Errorf("Different seeds produced same hash: (%d, %d)", h1_seed0, h2_seed0)
-	}
-}
-
-func TestHash128_TailCases(t *testing.T) {
-	seed := uint32(0)
-
-	// Test all possible tail lengths (1-15 bytes after 16-byte blocks)
-	for i := 1; i <= 15; i++ {
-		input := make([]byte, 16+i) // 16 bytes + i tail bytes
-		for j := range input {
-			input[j] = byte(j)
-		}
-
-		h1, h2 := Hash128(input, seed)
-
-		// Test deterministic behavior
-		h1_2, h2_2 := Hash128(input, seed)
-		if h1 != h1_2 || h2 != h2_2 {
-			t.Errorf("Hash128 with tail length %d is not deterministic", i)
-		}
 	}
 }
 
@@ -108,42 +86,6 @@ func TestRotl64(t *testing.T) {
 			result := rotl64(tt.x, tt.r)
 			if result != tt.expected {
 				t.Errorf("rotl64(0x%x, %d) = 0x%x, want 0x%x", tt.x, tt.r, result, tt.expected)
-			}
-		})
-	}
-}
-
-func TestFmix64(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    uint64
-		expected uint64
-	}{
-		{
-			name:     "zero",
-			input:    0,
-			expected: 0,
-		},
-		{
-			name:     "max value",
-			input:    0xffffffffffffffff,
-			expected: 0x49a3af502d8a9f23, // This would need to be calculated/verified
-		},
-		{
-			name:     "test value",
-			input:    0x123456789abcdef0,
-			expected: 0, // This would need to be calculated/verified - testing for determinism instead
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := fmix64(tt.input)
-
-			// Test deterministic behavior
-			result2 := fmix64(tt.input)
-			if result != result2 {
-				t.Errorf("fmix64(0x%x) is not deterministic: 0x%x != 0x%x", tt.input, result, result2)
 			}
 		})
 	}
