@@ -65,12 +65,26 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 			}
 
 			if !shouldBypass(pod) {
-				// TODO: add delete iptables in case we missed skip bypass during kmesh restart
+				if !podInformer.HasSynced() {
+					nspath, err := ns.GetPodNSpath(pod)
+					if err != nil {
+						log.Warnf("failed to get netns for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+					} else if nspath != "" {
+						// during daemon restart, reconcile to ensure stale bypass rules are cleared
+						if err := deleteIptables(nspath); err != nil {
+							log.Errorf("failed to delete stale bypass rules for pod %s/%s at %s: %v", pod.Namespace, pod.Name, nspath, err)
+						}
+					}
+				}
 				return
 			}
 
 			log.Infof("%s/%s: bypass sidecar control", pod.GetNamespace(), pod.GetName())
-			nspath, _ := ns.GetPodNSpath(pod)
+			nspath, err := ns.GetPodNSpath(pod)
+			if err != nil {
+				log.Errorf("failed to get nspath for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+				return
+			}
 			if err := addIptables(nspath); err != nil {
 				log.Errorf("failed to add iptables rules for %s: %v", nspath, err)
 				return
@@ -157,7 +171,7 @@ func addIptables(ns string) error {
 		}
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
-				return fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
+				return fmt.Errorf("failed to exec command: iptables %v, err: %v", args, err)
 			}
 		}
 		return nil
@@ -178,7 +192,7 @@ func deleteIptables(ns string) error {
 		log.Infof("Running delete iptables rule in namespace:%s", ns)
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
-				err = fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
+				err = fmt.Errorf("failed to exec command: iptables %v, err: %v", args, err)
 				log.Error(err)
 				return err
 			}
