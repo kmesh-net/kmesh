@@ -858,7 +858,7 @@ const ProtobufCMessageDescriptor istio__workload__workload__services_entry__desc
   (ProtobufCMessageInit) istio__workload__workload__services_entry__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
-static const ProtobufCFieldDescriptor istio__workload__workload__field_descriptors[24] =
+static const ProtobufCFieldDescriptor istio__workload__workload__field_descriptors[25] =
 {
   {
     "name",
@@ -1148,6 +1148,18 @@ static const ProtobufCFieldDescriptor istio__workload__workload__field_descripto
     0,             /* flags */
     0,NULL,NULL    /* reserved1,reserved2, etc */
   },
+  {
+    "capacity",
+    27,
+    PROTOBUF_C_LABEL_NONE,
+    PROTOBUF_C_TYPE_MESSAGE,
+    0,   /* quantifier_offset */
+    offsetof(Istio__Workload__Workload, capacity),
+    &google__protobuf__uint32_value__descriptor,
+    NULL,
+    0,             /* flags */
+    0,NULL,NULL    /* reserved1,reserved2, etc */
+  },
 };
 static const unsigned istio__workload__workload__field_indices_by_name[] = {
   2,   /* field[2] = addresses */
@@ -1155,6 +1167,7 @@ static const unsigned istio__workload__workload__field_indices_by_name[] = {
   14,   /* field[14] = authorization_policies */
   9,   /* field[9] = canonical_name */
   10,   /* field[10] = canonical_revision */
+  24,   /* field[24] = capacity */
   16,   /* field[16] = cluster_id */
   19,   /* field[19] = hostname */
   22,   /* field[22] = locality */
@@ -1175,11 +1188,12 @@ static const unsigned istio__workload__workload__field_indices_by_name[] = {
   12,   /* field[12] = workload_name */
   11,   /* field[11] = workload_type */
 };
-static const ProtobufCIntRange istio__workload__workload__number_ranges[2 + 1] =
+static const ProtobufCIntRange istio__workload__workload__number_ranges[3 + 1] =
 {
   { 1, 0 },
   { 16, 14 },
-  { 0, 24 }
+  { 27, 24 },
+  { 0, 25 }
 };
 const ProtobufCMessageDescriptor istio__workload__workload__descriptor =
 {
@@ -1189,10 +1203,10 @@ const ProtobufCMessageDescriptor istio__workload__workload__descriptor =
   "Istio__Workload__Workload",
   "istio.workload",
   sizeof(Istio__Workload__Workload),
-  24,
+  25,
   istio__workload__workload__field_descriptors,
   istio__workload__workload__field_indices_by_name,
-  2,  istio__workload__workload__number_ranges,
+  3,  istio__workload__workload__number_ranges,
   (ProtobufCMessageInit) istio__workload__workload__init,
   NULL,NULL,NULL    /* reserved[123] */
 };
