@@ -17,15 +17,11 @@
 package logger
 
 import (
-	"context"
-	"encoding/binary"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/ringbuf"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
@@ -121,44 +117,4 @@ func NewLoggerScope(scope string) *logrus.Entry {
 // NewFileLogger don't output log to stdout
 func NewFileLogger(pkgSubsys string) *logrus.Entry {
 	return fileOnlyLogger.WithField(logSubsys, pkgSubsys)
-}
-
-// print bpf log in kmesh-daemon
-func StartLogReader(ctx context.Context, logMapFd *ebpf.Map) {
-	go handleLogEvents(ctx, logMapFd)
-}
-
-func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {
-	log := NewLoggerScope("ebpf")
-	events, err := ringbuf.NewReader(rbMap)
-	if err != nil {
-		log.Errorf("ringbuf new reader from rb map failed:%v", err)
-		return
-	}
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			record, err := events.Read()
-			if err != nil {
-				return
-			}
-			le, err := decodeRecord(record.RawSample)
-			if err != nil {
-				log.Errorf("ringbuf decode data failed:%v", err)
-			}
-			log.Infof("%v", le.Msg)
-		}
-	}
-}
-
-// 4 is the msg length, -1 is the '\0' terminate character
-func decodeRecord(data []byte) (*LogEvent, error) {
-	le := LogEvent{}
-	lenOfMsg := binary.NativeEndian.Uint32(data[0:4])
-	le.len = uint32(lenOfMsg)
-	le.Msg = string(data[4 : 4+lenOfMsg-1])
-	return &le, nil
 }
