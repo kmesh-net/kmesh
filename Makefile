@@ -211,6 +211,10 @@ docker: build
 docker.push: docker
 	docker push $(HUB)/$(TARGET):$(TAG)
 
+.PHONY: kind-reload
+kind-reload:
+	./hack/kind-update-kmesh.sh
+
 .PHONY: e2e
 e2e:
 	./test/e2e/run_test.sh --build-image-clean
