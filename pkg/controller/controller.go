@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -66,6 +67,7 @@ type Controller struct {
 	bpfConfig           *options.BpfConfig
 	loader              *bpf.BpfLoader
 	dnsServer           *dnsclient.LocalDNSServer
+	dnsProxyMu          sync.Mutex
 }
 
 func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
@@ -172,10 +174,20 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	}
 
 	if c.client.WorkloadController != nil {
+		// Use startup flag; fall back to env var for backward compatibility
+		enableDnsProxy := c.bpfConfig.EnableDnsProxy || workload.EnableDNSProxy
+		c.client.WorkloadController.SetDnsProxyTrigger(enableDnsProxy)
+
 		if err := c.client.WorkloadController.Run(ctx, stopCh); err != nil {
+			// Roll back state if Run fails (PrepareDNSProxy may have failed inside)
+			c.client.WorkloadController.SetDnsProxyTrigger(false)
 			return fmt.Errorf("failed to start workload controller: %+v", err)
 		}
 		if err := c.setupDNSProxy(); err != nil {
+			c.client.WorkloadController.SetDnsProxyTrigger(false)
+			if cleanupErr := c.client.WorkloadController.Processor.PrepareDNSProxy(false); cleanupErr != nil {
+				log.Warnf("Failed to cleanup DNS proxy on setup error: %v", cleanupErr)
+			}
 			return fmt.Errorf("failed to start dns proxy: %+v", err)
 		}
 	} else {
@@ -209,7 +221,7 @@ func (c *Controller) GetXdsClient() *XdsClient {
 }
 
 func (c *Controller) setupDNSProxy() error {
-	if workload.EnableDNSProxy {
+	if c.client.WorkloadController.GetDnsProxyTrigger() {
 		server, err := dnsclient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
 		if err != nil {
 			return fmt.Errorf("failed to start local dns server: %v", err)
@@ -228,7 +240,11 @@ func (c *Controller) setupDNSProxy() error {
 			go func() {
 				<-timer.C
 				log.Debugf("trigger name table update")
-				server.UpdateLookupTable(ntb.BuildNameTable())
+				c.dnsProxyMu.Lock()
+				defer c.dnsProxyMu.Unlock()
+				if c.dnsServer != nil {
+					c.dnsServer.UpdateLookupTable(ntb.BuildNameTable())
+				}
 			}()
 
 			return nil
@@ -239,4 +255,64 @@ func (c *Controller) setupDNSProxy() error {
 		c.dnsServer = server
 	}
 	return nil
+}
+
+// StartDnsProxy enables the DNS proxy at runtime.
+func (c *Controller) StartDnsProxy() error {
+	if c.client == nil || c.client.WorkloadController == nil {
+		return fmt.Errorf("dns proxy not supported in this mode")
+	}
+
+	c.dnsProxyMu.Lock()
+	defer c.dnsProxyMu.Unlock()
+
+	c.client.WorkloadController.SetDnsProxyTrigger(true)
+	if err := c.client.WorkloadController.Processor.PrepareDNSProxy(true); err != nil {
+		c.client.WorkloadController.SetDnsProxyTrigger(false)
+		return fmt.Errorf("failed to prepare DNS proxy: %v", err)
+	}
+
+	if c.dnsServer == nil {
+		if err := c.setupDNSProxy(); err != nil {
+			c.client.WorkloadController.SetDnsProxyTrigger(false)
+			if cleanupErr := c.client.WorkloadController.Processor.PrepareDNSProxy(false); cleanupErr != nil {
+				log.Warnf("Failed to cleanup DNS proxy state: %v", cleanupErr)
+			}
+			return fmt.Errorf("failed to setup DNS proxy: %v", err)
+		}
+	}
+
+	log.Info("DNS proxy started successfully")
+	return nil
+}
+
+// StopDnsProxy disables the DNS proxy at runtime.
+func (c *Controller) StopDnsProxy() error {
+	if c.client == nil || c.client.WorkloadController == nil {
+		return fmt.Errorf("dns proxy not supported in this mode")
+	}
+
+	c.dnsProxyMu.Lock()
+	defer c.dnsProxyMu.Unlock()
+
+	c.client.WorkloadController.SetDnsProxyTrigger(false)
+	if err := c.client.WorkloadController.Processor.PrepareDNSProxy(false); err != nil {
+		log.Warnf("Failed to cleanup DNS proxy state: %v", err)
+	}
+
+	if c.dnsServer != nil {
+		c.dnsServer.Close()
+		c.dnsServer = nil
+	}
+
+	log.Info("DNS proxy stopped successfully")
+	return nil
+}
+
+// GetDnsProxyStatus returns the current status of the DNS proxy.
+func (c *Controller) GetDnsProxyStatus() bool {
+	if c.client == nil || c.client.WorkloadController == nil {
+		return false
+	}
+	return c.client.WorkloadController.GetDnsProxyTrigger()
 }
