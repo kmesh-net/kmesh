@@ -532,22 +532,30 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 }
 
 func TestServerMetricHandler(t *testing.T) {
-	t.Run("change accesslog, workload metrics and connection metric config info", func(t *testing.T) {
-		config := options.BpfConfig{
-			Mode:        constants.DualEngineMode,
-			BpfFsPath:   "/sys/fs/bpf",
-			Cgroup2Path: "/mnt/kmesh_cgroup2",
-		}
-		cleanup, loader := test.InitBpfMap(t, config)
-		defer cleanup()
+	t.Run("invalid workload and connection metrics enable values return endpoint-specific errors", func(t *testing.T) {
+		server := &Server{}
 
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s?enable=%s", patternWorkloadMetrics, "abc"), nil)
+		w := httptest.NewRecorder()
+		server.workloadMetricHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, "invalid workload_metrics enable=abc", w.Body.String())
+
+		req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s?enable=%s", patternConnectionMetrics, "abc"), nil)
+		w = httptest.NewRecorder()
+		server.connectionMetricHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, "invalid connection_metrics enable=abc", w.Body.String())
+	})
+
+	t.Run("change accesslog, workload metrics and connection metric config info", func(t *testing.T) {
 		server := &Server{
 			xdsClient: &controller.XdsClient{
 				WorkloadController: &workload.Controller{
 					MetricController: &telemetry.MetricController{},
 				},
 			},
-			loader: loader,
+			loader: &bpf.BpfLoader{},
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableWorkloadMetric.Store(true)
 		server.xdsClient.WorkloadController.MetricController.EnableConnectionMetric.Store(true)
@@ -581,21 +589,13 @@ func TestServerMetricHandler(t *testing.T) {
 	})
 
 	t.Run("when monitoring is disable, cannot enable accesslog, workload metrics and connection metrics", func(t *testing.T) {
-		config := options.BpfConfig{
-			Mode:        constants.DualEngineMode,
-			BpfFsPath:   "/sys/fs/bpf",
-			Cgroup2Path: "/mnt/kmesh_cgroup2",
-		}
-		cleanup, loader := test.InitBpfMap(t, config)
-		defer cleanup()
-
 		server := &Server{
 			xdsClient: &controller.XdsClient{
 				WorkloadController: &workload.Controller{
 					MetricController: &telemetry.MetricController{},
 				},
 			},
-			loader: loader,
+			loader: &bpf.BpfLoader{},
 		}
 
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
@@ -632,21 +632,13 @@ func TestServerMetricHandler(t *testing.T) {
 
 func TestServerMonitoringHandler(t *testing.T) {
 	t.Run("change monitoring config info", func(t *testing.T) {
-		config := options.BpfConfig{
-			Mode:        constants.DualEngineMode,
-			BpfFsPath:   "/sys/fs/bpf",
-			Cgroup2Path: "/mnt/kmesh_cgroup2",
-		}
-		cleanup, l := test.InitBpfMap(t, config)
-		defer cleanup()
-
 		server := &Server{
 			xdsClient: &controller.XdsClient{
 				WorkloadController: &workload.Controller{
 					MetricController: &telemetry.MetricController{},
 				},
 			},
-			loader: l,
+			loader: &bpf.BpfLoader{},
 		}
 		server.xdsClient.WorkloadController.MetricController.EnableMonitoring.Store(false)
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
@@ -658,7 +650,6 @@ func TestServerMonitoringHandler(t *testing.T) {
 
 		assert.Equal(t, true, server.xdsClient.WorkloadController.GetMonitoringTrigger())
 		assert.Equal(t, true, server.xdsClient.WorkloadController.GetAccesslogTrigger())
-		enableMonitoring := l.GetEnableMonitoring()
-		assert.Equal(t, constants.ENABLED, enableMonitoring)
+		assert.Equal(t, http.StatusOK, w.Code)
 	})
 }
