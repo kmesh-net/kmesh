@@ -11,6 +11,8 @@
 #include "bpf_common.h"
 #include "probe.h"
 #include <bpf/bpf_endian.h>
+#include "workload_common.h"
+volatile __u32 outbound_traffic_policy = ALLOW_ANY;
 
 static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 {
@@ -126,6 +128,25 @@ int cgroup_connect4_prog(struct bpf_sock_addr *ctx)
 
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
+        if (ret == -ENOENT && outbound_traffic_policy == REGISTRY_ONLY) {
+            struct sock_storage_data *storage = NULL;
+            storage = bpf_sk_storage_get(&map_of_sock_storage, ctx->sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
+            if (storage) {
+                storage->connect_ns = bpf_ktime_get_ns();
+                storage->direction = OUTBOUND;
+                storage->connect_success = false;
+                storage->response_flags = FLAG_REGISTER_ONLY;
+                if (ctx->family == AF_INET) {
+                    storage->sk_tuple.ipv4.daddr = ctx->user_ip4;
+                    storage->sk_tuple.ipv4.dport = ctx->user_port;
+                } else {
+                    bpf_memcpy(storage->sk_tuple.ipv6.daddr, ctx->user_ip6, IPV6_ADDR_LEN);
+                    storage->sk_tuple.ipv6.dport = ctx->user_port;
+                }
+                tcp_report((struct bpf_sock *)ctx->sk, NULL, storage, BPF_TCP_CLOSE);
+            }
+            return CGROUP_SOCK_ERR;
+        }
         return CGROUP_SOCK_OK;
     }
     ret = set_original_dst_info(&kmesh_ctx);
@@ -166,6 +187,25 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
 
     int ret = sock_traffic_control(&kmesh_ctx);
     if (ret) {
+        if (ret == -ENOENT && outbound_traffic_policy == REGISTRY_ONLY) {
+            struct sock_storage_data *storage = NULL;
+            storage = bpf_sk_storage_get(&map_of_sock_storage, ctx->sk, 0, BPF_LOCAL_STORAGE_GET_F_CREATE);
+            if (storage) {
+                storage->connect_ns = bpf_ktime_get_ns();
+                storage->direction = OUTBOUND;
+                storage->connect_success = false;
+                storage->response_flags = FLAG_REGISTER_ONLY;
+                if (ctx->family == AF_INET) {
+                    storage->sk_tuple.ipv4.daddr = ctx->user_ip4;
+                    storage->sk_tuple.ipv4.dport = ctx->user_port;
+                } else {
+                    bpf_memcpy(storage->sk_tuple.ipv6.daddr, ctx->user_ip6, IPV6_ADDR_LEN);
+                    storage->sk_tuple.ipv6.dport = ctx->user_port;
+                }
+                tcp_report((struct bpf_sock *)ctx->sk, NULL, storage, BPF_TCP_CLOSE);
+            }
+            return CGROUP_SOCK_ERR;
+        }
         return CGROUP_SOCK_OK;
     }
 

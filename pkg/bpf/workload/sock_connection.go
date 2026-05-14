@@ -69,7 +69,7 @@ func (sc *SockConnWorkload) NewBpf(cfg *options.BpfConfig) error {
 	return nil
 }
 
-func (sc *SockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, error) {
+func (sc *SockConnWorkload) loadKmeshSockConnObjects(cfg *options.BpfConfig) (*ebpf.CollectionSpec, error) {
 	var (
 		err  error
 		spec *ebpf.CollectionSpec
@@ -86,6 +86,13 @@ func (sc *SockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, er
 	}
 
 	utils.SetMapPinType(spec, ebpf.PinByName)
+	if cfg.OutboundTrafficPolicy == "REGISTRY_ONLY" {
+		if err := spec.RewriteConstants(map[string]interface{}{
+			"outbound_traffic_policy": uint32(1),
+		}); err != nil {
+			return nil, err
+		}
+	}
 	if err = spec.LoadAndAssign(&sc.KmeshCgroupSockWorkloadObjects, &opts); err != nil {
 		return nil, err
 	}
@@ -93,9 +100,9 @@ func (sc *SockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, er
 	return spec, nil
 }
 
-func (sc *SockConnWorkload) LoadSockConn() error {
+func (sc *SockConnWorkload) LoadSockConn(cfg *options.BpfConfig) error {
 	/* load kmesh sockops main bpf prog */
-	spec, err := sc.loadKmeshSockConnObjects()
+	spec, err := sc.loadKmeshSockConnObjects(cfg)
 	if err != nil {
 		return err
 	}
