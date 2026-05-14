@@ -532,6 +532,22 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 }
 
 func TestServerMetricHandler(t *testing.T) {
+	t.Run("invalid workload and connection metrics enable values return endpoint-specific errors", func(t *testing.T) {
+		server := &Server{}
+
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s?enable=%s", patternWorkloadMetrics, "abc"), nil)
+		w := httptest.NewRecorder()
+		server.workloadMetricHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, "invalid workload_metrics enable=abc", w.Body.String())
+
+		req = httptest.NewRequest(http.MethodPost, fmt.Sprintf("%s?enable=%s", patternConnectionMetrics, "abc"), nil)
+		w = httptest.NewRecorder()
+		server.connectionMetricHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.Equal(t, "invalid connection_metrics enable=abc", w.Body.String())
+	})
+
 	t.Run("change accesslog, workload metrics and connection metric config info", func(t *testing.T) {
 		config := options.BpfConfig{
 			Mode:        constants.DualEngineMode,
