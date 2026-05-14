@@ -496,10 +496,76 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 	printWorkloadDump(w, workloadDump)
 }
 
+type ReadyResponse struct {
+	Ready      bool              `json:"ready"`
+	Components map[string]string `json:"components"`
+	Bpf        bpf.BpfStatus     `json:"bpf_status"`
+	Xds        XdsStatus         `json:"xds_status"`
+}
+
+type XdsStatus struct {
+	State           string `json:"state"`
+	Controller      string `json:"controller"`
+	StreamStability string `json:"stream_stability"`
+}
+
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
-	// TODO: Add some components check
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("OK"))
+	ready := true
+	components := make(map[string]string)
+
+	var bpfStatus bpf.BpfStatus
+	if s.loader != nil {
+		bpfStatus = s.loader.GetBpfStatus()
+		if bpfStatus.Ready {
+			components["bpf"] = "ok"
+		} else {
+			components["bpf"] = "not ready"
+			ready = false
+		}
+	} else {
+		components["bpf"] = "not initialized"
+		ready = false
+	}
+
+	var xdsStatus XdsStatus
+	if s.xdsClient != nil {
+		xdsStatus = XdsStatus{
+			State:           s.xdsClient.GetGrpcState(),
+			Controller:      s.xdsClient.GetControllerStatus(),
+			StreamStability: s.xdsClient.GetXdsStreamStability(),
+		}
+		components["xds_connection"] = xdsStatus.State
+		components["controller"] = xdsStatus.Controller
+		if !s.xdsClient.IsReady() {
+			ready = false
+		}
+	} else {
+		components["xds_connection"] = "not initialized"
+		components["controller"] = "not initialized"
+		ready = false
+	}
+
+	resp := ReadyResponse{
+		Ready:      ready,
+		Components: components,
+		Bpf:        bpfStatus,
+		Xds:        xdsStatus,
+	}
+
+	data, err := json.MarshalIndent(resp, "", "  ")
+	if err != nil {
+		log.Errorf("failed to marshal ready response: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if !ready {
+		w.WriteHeader(http.StatusServiceUnavailable)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	_, _ = w.Write(data)
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
