@@ -30,7 +30,7 @@ CFLAGS += -fstack-protector-strong -fPIC
 CFLAGS += -Wall -Werror
 CFLAGS += -D_FORTIFY_SOURCE=2 -O2
 
-SOURCES = $(wildcard */*.c) $(wildcard workloadapi/security/*.c)
+SOURCES = $(wildcard */*.c) $(wildcard workloadapi/security/*.c) $(wildcard google/protobuf/*.c)
 OBJECTS = $(subst .c,.o,$(SOURCES))
 # target
 APPS := libkmesh_api_v2_c.so

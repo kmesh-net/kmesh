@@ -319,7 +319,7 @@ func newWaypointProxy(ctx resource.Context, ns namespace.Instance, name string, 
 	return server, nil
 }
 
-func waitForWaypointGatewayReady(ns string, name string) error {
+func waitForWaypointGatewayReady(ns string, name string, podName string) error {
 	for _, condition := range []string{"Accepted", "Programmed", "Ready"} {
 		if err := waitForGatewayCondition(ns, name, condition); err != nil {
 			return err
