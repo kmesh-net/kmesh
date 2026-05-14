@@ -78,7 +78,7 @@ type Controller struct {
 func NewController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, decryptProg *ebpf.Program) (*Controller, error) {
 	clientSet, err := kube.GetKmeshNodeInfoClient()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kmesh node info client: %v", err)
+		return nil, fmt.Errorf("failed to get kmesh node info client: %w", err)
 	}
 	factroy := informer.NewSharedInformerFactory(clientSet, 0)
 	nodeinfoLister := factroy.Kmesh().V1alpha1().KmeshNodeInfos().Lister()
@@ -98,7 +98,7 @@ func NewController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, decryptP
 	if _, err := os.Stat(IpSecKeyFile); err == nil {
 		err = ipsecController.ipsecHandler.LoadIPSecKeyFromFile(IpSecKeyFile)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load ipsec key from file %s: %v", IpSecKeyFile, err)
+			return nil, fmt.Errorf("failed to load ipsec key from file %s: %w", IpSecKeyFile, err)
 		}
 	} else if !os.IsNotExist(err) {
 		log.Errorf("failed to stat ipsec key file %s: %v", IpSecKeyFile, err)
@@ -108,7 +108,7 @@ func NewController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, decryptP
 
 	localNode, err := k8sClientSet.CoreV1().Nodes().Get(context.TODO(), localNodeName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get kmesh node info from k8s: %v", err)
+		return nil, fmt.Errorf("failed to get kmesh node info from k8s: %w", err)
 	}
 
 	ipsecController.kmeshNodeInfo = v1alpha1.KmeshNodeInfo{
@@ -139,7 +139,7 @@ func NewController(k8sClientSet kubernetes.Interface, kniMap *ebpf.Map, decryptP
 			ipsecController.handleKNIDelete(obj)
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("failed to add event handler to kmeshnodeinfoInformer: %v", err)
+		return nil, fmt.Errorf("failed to add event handler to kmeshnodeinfoInformer: %w", err)
 	}
 
 	return ipsecController, nil
@@ -198,7 +198,7 @@ func (c *Controller) Stop() {
 func (c *Controller) handleTc(mode int) error {
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return fmt.Errorf("failed to get interfaces: %v", err)
+		return fmt.Errorf("failed to get interfaces: %w", err)
 	}
 
 	for _, iface := range ifaces {
@@ -235,7 +235,7 @@ func (c *Controller) attachTcDecrypt() error {
 	}
 
 	if err := netns.WithNetNSPath(nodeNsPath, attachFunc); err != nil {
-		return fmt.Errorf("failed to exec tc program attach, %v", err)
+		return fmt.Errorf("failed to exec tc program attach, %w", err)
 	}
 	return nil
 }
@@ -333,7 +333,7 @@ func (c *Controller) handleOneNodeInfo(node *v1alpha1.KmeshNodeInfo) error {
 
 	for _, podCIDR := range node.Spec.PodCIDRs {
 		if err := c.updateKNIMapCIDR(podCIDR, c.kniMap); err != nil {
-			return fmt.Errorf("update kni map podCIDR failed, %v", err)
+			return fmt.Errorf("update kni map podCIDR failed, %w", err)
 		}
 	}
 
@@ -343,7 +343,7 @@ func (c *Controller) handleOneNodeInfo(node *v1alpha1.KmeshNodeInfo) error {
 func (c *Controller) generalKNIMapKey(remoteCIDR string) (*lpmKey, error) {
 	prefix, err := netip.ParsePrefix(remoteCIDR)
 	if err != nil {
-		err = fmt.Errorf("update kni map podCIDR failed, podCIDR is %v, %v", remoteCIDR, err)
+		err = fmt.Errorf("update kni map podCIDR failed, podCIDR is %v, %w", remoteCIDR, err)
 		return nil, err
 	}
 	kniKey := &lpmKey{
@@ -384,7 +384,7 @@ func (c *Controller) deleteKNIMapCIDR(remoteCIDR string, mapfd *ebpf.Map) {
 func (c *Controller) syncAllNodeInfo() error {
 	nodeList, err := c.lister.KmeshNodeInfos(kube.KmeshNamespace).List(labels.Everything())
 	if err != nil {
-		return fmt.Errorf("failed to get kmesh node info list: %v", err)
+		return fmt.Errorf("failed to get kmesh node info list: %w", err)
 	}
 	for _, node := range nodeList {
 		if node.Name == c.kmeshNodeInfo.Name {
@@ -402,7 +402,7 @@ func (c *Controller) updateLocalKmeshNodeInfo() error {
 	if node == nil {
 		_, err := c.knclient.Create(context.TODO(), &c.kmeshNodeInfo, metav1.CreateOptions{})
 		if err != nil {
-			return fmt.Errorf("failed to create kmesh node info: %v", err)
+			return fmt.Errorf("failed to create kmesh node info: %w", err)
 		}
 		return nil
 	}
@@ -414,7 +414,7 @@ func (c *Controller) updateLocalKmeshNodeInfo() error {
 	node.Spec = c.kmeshNodeInfo.Spec
 	_, err := c.knclient.Update(context.TODO(), node, metav1.UpdateOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to update kmeshinfo, %v", err)
+		return fmt.Errorf("failed to update kmeshinfo, %w", err)
 	}
 	return nil
 }

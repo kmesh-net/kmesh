@@ -397,7 +397,7 @@ func TestCreateStateRule(t *testing.T) {
 func hasPolicy(oldPolicy *netlink.XfrmPolicy, out bool) (bool, error) {
 	policies, err := netlink.XfrmPolicyList(netlink.FAMILY_ALL)
 	if err != nil {
-		return false, fmt.Errorf("Failed to list XFRM policies: %v", err)
+		return false, fmt.Errorf("Failed to list XFRM policies: %w", err)
 	}
 
 	found := false

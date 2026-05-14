@@ -1070,14 +1070,14 @@ func getSysFd(conn net.Conn) (int, error) {
 	}
 	rc, err := rawConn.SyscallConn()
 	if err != nil {
-		return 0, fmt.Errorf("SyscallConn() failed: %v", err)
+		return 0, fmt.Errorf("SyscallConn() failed: %w", err)
 	}
 	var fd int
 	err = rc.Control(func(s uintptr) {
 		fd = int(s)
 	})
 	if err != nil {
-		return 0, fmt.Errorf("Control() failed: %v", err)
+		return 0, fmt.Errorf("Control() failed: %w", err)
 	}
 	return fd, nil
 }
