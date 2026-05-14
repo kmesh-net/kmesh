@@ -390,19 +390,17 @@ func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 			HeaderMatchSpecifier: nil,
 		}
 
-		switch header.GetHeaderMatchSpecifier().(type) {
+		switch spec := header.GetHeaderMatchSpecifier().(type) {
 		case *config_route_v3.HeaderMatcher_PrefixMatch:
 			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_PrefixMatch{
-				// TODO: stop using deprecated field
-				PrefixMatch: header.GetPrefixMatch(), // nolint
+				PrefixMatch: spec.PrefixMatch,
 			}
 		case *config_route_v3.HeaderMatcher_ExactMatch:
 			apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch{
-				// TODO: stop using deprecated field
-				ExactMatch: header.GetExactMatch(), // nolint
+				ExactMatch: spec.ExactMatch,
 			}
 		case *config_route_v3.HeaderMatcher_StringMatch:
-			parseStringMatch(header, apiHeader)
+			parseStringMatch(spec.StringMatch, apiHeader)
 		default:
 			log.Infof("newApiRouteMatch default continue, type is %T", header.GetHeaderMatchSpecifier())
 			continue
@@ -418,21 +416,21 @@ func newApiRouteMatch(match *config_route_v3.RouteMatch) *route_v2.RouteMatch {
 	}
 }
 
-func parseStringMatch(configHeader *config_route_v3.HeaderMatcher, apiHeader *route_v2.HeaderMatcher) {
-	if configHeader == nil {
+func parseStringMatch(stringMatch *envoy_type_matcher_v3.StringMatcher, apiHeader *route_v2.HeaderMatcher) {
+	if stringMatch == nil {
 		return
 	}
-	switch configHeader.GetStringMatch().GetMatchPattern().(type) {
+	switch pattern := stringMatch.GetMatchPattern().(type) {
 	case *envoy_type_matcher_v3.StringMatcher_Exact:
 		apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_ExactMatch{
-			ExactMatch: configHeader.GetStringMatch().GetExact(),
+			ExactMatch: pattern.Exact,
 		}
 	case *envoy_type_matcher_v3.StringMatcher_Prefix:
 		apiHeader.HeaderMatchSpecifier = &route_v2.HeaderMatcher_PrefixMatch{
-			PrefixMatch: configHeader.GetStringMatch().GetPrefix(),
+			PrefixMatch: pattern.Prefix,
 		}
 	default:
-		log.Infof("unsupported, type is %T", configHeader.GetStringMatch().GetMatchPattern())
+		log.Infof("unsupported, type is %T", pattern)
 	}
 }
 
