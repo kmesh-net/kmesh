@@ -36,6 +36,34 @@ and intended to realize multi-cloud centralized management, high availability, f
 - Make your changes on your fork repository.
 - Submit a PR.
 
+### Prerequisites
+
+Before you begin, ensure you have the following installed:
+
+- **Docker Desktop**: Required for local cluster creation. (Ensure you allocate at least 4 CPUs, 8GB RAM, and 20GB disk space).
+- **kind (Kubernetes IN Docker)**: Used to spin up the local cluster.
+- **kubectl**: For interacting with the local cluster.
+- **Node.js (v18+)**: Required if you plan to develop or test the Frontend / Headlamp UI integration.
+
+### macOS Local Development
+
+While Kmesh relies heavily on Linux kernel features (eBPF) for its data plane, **full local development is supported on macOS**. You do not need a Linux machine to contribute. By using Docker Desktop and `kind`, you will run a lightweight Linux VM that fully supports Kmesh's eBPF requirements.
+
+For detailed steps on setting up this environment (including macOS-specific tips and troubleshooting), please follow the [Kmesh Deploy and Develop in Kind](docs/en/kmesh_deploy_and_develop_in_kind.md) guide.
+
+### Frontend and Headlamp UI Setup
+
+If your contributions involve the Kmesh UI or Headlamp plugins:
+1. Ensure Node.js v18 or newer is installed (we recommend using `nvm` to manage Node versions).
+2. Follow the plugin development instructions in the UI repository. The Kmesh `kind` cluster will serve as the backend data source for the frontend.
+
+### Realistic Developer Expectations
+
+When developing locally using `kind`, please keep in mind:
+- **Disk Space**: Compiling eBPF and Go code locally, along with storing Docker images, can consume upwards of 10-20GB of disk space.
+- **Startup Delays**: The first time you run `make build`, the `kmesh-build` container will download several dependencies. This can take a few minutes depending on your internet connection.
+- **Resource Usage**: Running a `kind` cluster with Istio and Kmesh can be resource-intensive. Ensure Docker Desktop has sufficient limits to prevent OOM (Out of Memory) kills.
+
 ## Your First Contribution
 
 We will help you to contribute in different areas like filing issues, developing features, fixing critical bugs and
