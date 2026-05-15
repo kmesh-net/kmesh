@@ -89,7 +89,7 @@ func newPortForwarder(cliClient *client, podName string, ns string, localAddress
 		localPort, err = getAvailablePort()
 		if err != nil {
 			cancel()
-			return nil, fmt.Errorf("failed to find an available port: %v", err)
+			return nil, fmt.Errorf("failed to find an available port: %w", err)
 		}
 	}
 
