@@ -170,7 +170,7 @@ func NewCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			gw, err := makeGateway(false)
 			if err != nil {
-				return fmt.Errorf("failed to create gateway: %v", err)
+				return fmt.Errorf("failed to create gateway: %w", err)
 			}
 			b, err := yaml.Marshal(gw)
 			if err != nil {
@@ -205,7 +205,7 @@ func NewCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := utils.CreateKubeClient()
 			if err != nil {
-				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+				return fmt.Errorf("failed to create Kubernetes client: %w", err)
 			}
 			ns := namespaceOrDefault(namespace)
 			// If a user decides to enroll their namespace with a waypoint, verify that they have labeled their namespace as Kmesh.
@@ -229,7 +229,7 @@ func NewCmd() *cobra.Command {
 				}
 				namespaceIsLabeledKmesh, err := namespaceHasLabelWithValue(kubeClient, ns, label.IoIstioDataplaneMode.Name, DataplaneModeKmesh)
 				if err != nil {
-					return fmt.Errorf("failed to check if namespace is labeled Kmesh: %v", err)
+					return fmt.Errorf("failed to check if namespace is labeled Kmesh: %w", err)
 				}
 				if !namespaceIsLabeledKmesh {
 					fmt.Fprintf(cmd.OutOrStdout(), "Warning: namespace is not enrolled in Kmesh. Consider running\t"+
@@ -238,7 +238,7 @@ func NewCmd() *cobra.Command {
 			}
 			gw, err := makeGateway(true)
 			if err != nil {
-				return fmt.Errorf("failed to create gateway: %v", err)
+				return fmt.Errorf("failed to create gateway: %w", err)
 			}
 
 			_, err = kubeClient.GatewayAPI().GatewayV1().Gateways(ns).Create(context.Background(), gw, metav1.CreateOptions{
@@ -246,7 +246,7 @@ func NewCmd() *cobra.Command {
 			})
 			if err != nil {
 				if errors.IsNotFound(err) {
-					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint: %s", err)
+					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint: %w", err)
 				}
 				return err
 			}
@@ -282,7 +282,7 @@ func NewCmd() *cobra.Command {
 			if enrollNamespace {
 				err = labelNamespaceWithWaypoint(kubeClient, ns)
 				if err != nil {
-					return fmt.Errorf("failed to label namespace with waypoint: %v", err)
+					return fmt.Errorf("failed to label namespace with waypoint: %w", err)
 				}
 				fmt.Fprintf(cmd.OutOrStdout(), "namespace %v labeled with \"%v: %v\"\n", ns,
 					KmeshUseWaypointLabel, gw.Name)
@@ -321,7 +321,7 @@ func NewCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := utils.CreateKubeClient()
 			if err != nil {
-				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+				return fmt.Errorf("failed to create Kubernetes client: %w", err)
 			}
 			ns := namespaceOrDefault(namespace)
 			gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).
@@ -350,7 +350,7 @@ func NewCmd() *cobra.Command {
 			}
 			err = printWaypointStatus(w, kubeClient, filteredGws)
 			if err != nil {
-				return fmt.Errorf("failed to print waypoint status: %v", err)
+				return fmt.Errorf("failed to print waypoint status: %w", err)
 			}
 			return w.Flush()
 		},
@@ -383,7 +383,7 @@ func NewCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := utils.CreateKubeClient()
 			if err != nil {
-				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+				return fmt.Errorf("failed to create Kubernetes client: %w", err)
 			}
 			ns := namespaceOrDefault(namespace)
 
@@ -411,7 +411,7 @@ func NewCmd() *cobra.Command {
 			writer := cmd.OutOrStdout()
 			kubeClient, err := utils.CreateKubeClient()
 			if err != nil {
-				return fmt.Errorf("failed to create Kubernetes client: %v", err)
+				return fmt.Errorf("failed to create Kubernetes client: %w", err)
 			}
 			var ns string
 			if allNamespaces {
@@ -579,7 +579,7 @@ func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
 	}
 	nsObj.Labels[KmeshUseWaypointLabel] = waypointName
 	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
+		return fmt.Errorf("failed to update namespace %s: %w", ns, err)
 	}
 	return nil
 }
@@ -589,7 +589,7 @@ func getNamespace(kubeClient kube.CLIClient, ns string) (*corev1.Namespace, erro
 	if errors.IsNotFound(err) {
 		return nil, fmt.Errorf("namespace: %s not found", ns)
 	} else if err != nil {
-		return nil, fmt.Errorf("failed to get namespace %s: %v", ns, err)
+		return nil, fmt.Errorf("failed to get namespace %s: %w", ns, err)
 	}
 	return nsObj, nil
 }
