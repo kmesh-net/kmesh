@@ -229,7 +229,7 @@ func (p *Processor) storePodFrontendData(uid uint32, ip []byte) error {
 	nets.CopyIpByteFromSlice(&fk.Ip, ip)
 	fv.UpstreamId = uid
 	if err := p.bpf.FrontendUpdate(&fk, &fv); err != nil {
-		return fmt.Errorf("update frontend map failed, err:%s", err)
+		return fmt.Errorf("update frontend map failed, err:%w", err)
 	}
 
 	return nil
@@ -272,7 +272,7 @@ func (p *Processor) handleUnhealthyWorkload(workload *workloadapi.Workload) erro
 	// 1. find all endpoint keys related to this workload and delete them
 	if eks := p.bpf.GetEndpointKeys(backendUid); len(eks) > 0 {
 		if err := p.deleteEndpointRecords(eks.UnsortedList()); err != nil {
-			return fmt.Errorf("handleUnhealthyWorkload: deleteEndpointRecords for %s failed: %v", workload.Uid, err)
+			return fmt.Errorf("handleUnhealthyWorkload: deleteEndpointRecords for %s failed: %w", workload.Uid, err)
 		}
 	}
 
@@ -534,7 +534,7 @@ func (p *Processor) updateWorkloadInFrontendMap(workload *workloadapi.Workload) 
 			continue
 		}
 		if err := p.storePodFrontendData(backendUid, ip); err != nil {
-			return fmt.Errorf("storePodFrontendData failed, err:%s", err)
+			return fmt.Errorf("storePodFrontendData failed, err:%w", err)
 		}
 	}
 	return nil
@@ -583,23 +583,23 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 
 	// 1. update workload in backend map
 	if err := p.updateWorkloadInBackendMap(workload); err != nil {
-		return fmt.Errorf("updateWorkloadInBackendMap %s failed: %v", workload.Uid, err)
+		return fmt.Errorf("updateWorkloadInBackendMap %s failed: %w", workload.Uid, err)
 	}
 
 	// 2~3. update workload in endpoint map and service map
 	unboundedEndpointKeys, newServices := p.compareWorkloadServices(workload)
 	if err := p.handleWorkloadUnboundServices(workload, unboundedEndpointKeys); err != nil {
-		return fmt.Errorf("handleWorkloadUnboundServices %s failed: %v", workload.ResourceName(), err)
+		return fmt.Errorf("handleWorkloadUnboundServices %s failed: %w", workload.ResourceName(), err)
 	}
 
 	// Add new services associated with the workload
 	if err := p.handleWorkloadNewBoundServices(workload, newServices); err != nil {
-		return fmt.Errorf("handleWorkloadNewBoundServices %s failed: %v", workload.ResourceName(), err)
+		return fmt.Errorf("handleWorkloadNewBoundServices %s failed: %w", workload.ResourceName(), err)
 	}
 
 	// 4. update workload in frontend map
 	if err := p.updateWorkloadInFrontendMap(workload); err != nil {
-		return fmt.Errorf("updateWorkloadInFrontendMap %s failed: %v", workload.Uid, err)
+		return fmt.Errorf("updateWorkloadInFrontendMap %s failed: %w", workload.Uid, err)
 	}
 	if oldWorkload != nil {
 		// To be able to find a workload in the workloadCache,
@@ -613,7 +613,7 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 		if len(newWorkloadAddresses) > 0 && len(oldWorkloadAddresses) > 0 && !slices.Equal(newWorkloadAddresses[0], oldWorkloadAddresses[0]) {
 			err := p.deleteFrontendByIp(oldWorkloadAddresses)
 			if err != nil {
-				return fmt.Errorf("frontend map delete failed: %v", err)
+				return fmt.Errorf("frontend map delete failed: %w", err)
 			}
 		}
 	}
@@ -684,7 +684,7 @@ func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.E
 		}
 		ev := bpf.EndpointValue{}
 		if err := p.bpf.EndpointLookup(&ek, &ev); err != nil { // get backend Uid
-			return fmt.Errorf("lookup endpoint %#v failed: %v", ek, err)
+			return fmt.Errorf("lookup endpoint %#v failed: %w", ek, err)
 		}
 
 		// Calc Priority
@@ -703,17 +703,17 @@ func (p *Processor) updateEndpointOneByOne(serviceId uint32, epsUpdate []cache.E
 		sKey := bpf.ServiceKey{ServiceId: serviceId}
 		sValue := bpf.ServiceValue{}
 		if err := p.bpf.ServiceLookup(&sKey, &sValue); err != nil {
-			return fmt.Errorf("lookup service %v failed: %v", serviceId, err)
+			return fmt.Errorf("lookup service %v failed: %w", serviceId, err)
 		}
 
 		// add ek first to another priority group
 		if _, err := p.addWorkloadToService(&sKey, &sValue, ev.BackendUid, prio); err != nil {
-			return fmt.Errorf("update endpoint %d priority to %d failed: %v", ev.BackendUid, prio, err)
+			return fmt.Errorf("update endpoint %d priority to %d failed: %w", ev.BackendUid, prio, err)
 		}
 		epKeys := []bpf.EndpointKey{ek}
 		// delete ek from old priority group
 		if err := p.deleteEndpointRecords(epKeys); err != nil {
-			return fmt.Errorf("delete endpoint %d from old priority group %d failed: %v", ev.BackendUid, ek.Prio, err)
+			return fmt.Errorf("delete endpoint %d from old priority group %d failed: %w", ev.BackendUid, ek.Prio, err)
 		}
 	}
 	return nil
@@ -789,15 +789,15 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 				// there might not be any workload with the highest priority, and directly switching the service's LB policy could
 				// lead to unexpected service disruptions.
 				if err = p.updateEndpointPriority(sk.ServiceId, false); err != nil { // this will change bpf map totally
-					return fmt.Errorf("update endpoint priority failed: %v", err)
+					return fmt.Errorf("update endpoint priority failed: %w", err)
 				}
 				updateServiceInfo := bpf.ServiceValue{}
 				if err = p.bpf.ServiceLookup(&sk, &updateServiceInfo); err != nil {
-					return fmt.Errorf("service map lookup %v failed: %v", sk.ServiceId, err)
+					return fmt.Errorf("service map lookup %v failed: %w", sk.ServiceId, err)
 				}
 				updateServiceInfo.LbPolicy = newServiceInfo.LbPolicy
 				if err = p.bpf.ServiceUpdate(&sk, &updateServiceInfo); err != nil {
-					return fmt.Errorf("service map update failed: %v", err)
+					return fmt.Errorf("service map update failed: %w", err)
 				}
 				return nil
 			} else if oldServiceInfo.LbPolicy == uint32(workloadapi.LoadBalancing_UNSPECIFIED_MODE) {
@@ -807,11 +807,11 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 				// we update the endpoint map. During this update process, the load balancer may briefly exhibit abnormal random behavior,
 				// after which it will fully transition to the locality load balancing mode.
 				if err = p.bpf.ServiceUpdate(&sk, &newServiceInfo); err != nil {
-					return fmt.Errorf("service map update lb policy failed: %v", err)
+					return fmt.Errorf("service map update lb policy failed: %w", err)
 				}
 
 				if err = p.updateEndpointPriority(sk.ServiceId, true); err != nil {
-					return fmt.Errorf("update endpoint priority failed: %v", err)
+					return fmt.Errorf("update endpoint priority failed: %w", err)
 				}
 				return nil
 			}
@@ -823,17 +823,17 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 		oldServiceAddress := oldService.GetIpAddresses()
 		removeServiceAddress := nets.CompareIpByte(newServiceAddress, oldServiceAddress)
 		if err := p.deleteFrontendByIp(removeServiceAddress); err != nil {
-			return fmt.Errorf("frontend map delete failed: %v", err)
+			return fmt.Errorf("frontend map delete failed: %w", err)
 		}
 	}
 
 	// normal update
 	if err := p.bpf.ServiceUpdate(&sk, &newServiceInfo); err != nil {
-		return fmt.Errorf("service map update failed: %v", err)
+		return fmt.Errorf("service map update failed: %w", err)
 	}
 
 	if err := p.updateServiceFrontendMap(sk.ServiceId, service); err != nil {
-		return fmt.Errorf("updateServiceFrontendMap failed: %v", err)
+		return fmt.Errorf("updateServiceFrontendMap failed: %w", err)
 	}
 
 	return nil
@@ -1047,7 +1047,7 @@ func (p *Processor) handleAuthorizationTypeResponse(rsp *service_discovery_v3.De
 
 		policyKey := authPolicy.ResourceName()
 		if err := maps_v2.AuthorizationUpdate(p.hashName.Hash(policyKey), authPolicy); err != nil {
-			return fmt.Errorf("AuthorizationUpdate %s failed %v ", policyKey, err)
+			return fmt.Errorf("AuthorizationUpdate %s failed %w ", policyKey, err)
 		}
 	}
 
