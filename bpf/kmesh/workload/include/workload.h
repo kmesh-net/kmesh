@@ -60,6 +60,8 @@ typedef struct {
     __u32 service[MAX_SERVICE_COUNT];
     struct ip_addr wp_addr;
     __u32 waypoint_port;
+    struct ip_addr gw_addr;  // EW gateway IP (v4 or v6); 0 = no gateway
+    __u32 gw_port;           // EW gateway port; 0 = no gateway
 } backend_value;
 #pragma pack()
 
@@ -121,3 +123,4 @@ struct {
 } map_of_wl_policy SEC(".maps");
 
 #endif
+
