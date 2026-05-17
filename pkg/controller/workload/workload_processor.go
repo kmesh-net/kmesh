@@ -30,6 +30,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/pkg/env"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	security_v2 "kmesh.net/kmesh/api/v2/workloadapi/security"
@@ -42,6 +43,7 @@ import (
 	"kmesh.net/kmesh/pkg/controller/telemetry"
 	bpf "kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
+	kmeshdns "kmesh.net/kmesh/pkg/dns"
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -51,6 +53,8 @@ const (
 	// dnsResolveTimeout is the timeout used when waiting for DNS resolution for workloads
 	dnsResolveTimeout = 3 * time.Second
 )
+
+var workloadClusterDomain = env.Register("CLUSTER_DOMAIN", "cluster.local", "cluster domain").Get()
 
 type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
@@ -78,6 +82,7 @@ type Processor struct {
 
 	DnsResolverChan       chan *workloadapi.Workload
 	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
+	DomainTable           *kmeshdns.DomainTable
 	// Callback to remove workload from DNS cache when workload is deleted
 	onWorkloadDeleted func(workloadName string)
 }
@@ -97,6 +102,7 @@ func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		addressDone:   make(chan struct{}, 1),
 		authzDone:     make(chan struct{}, 1),
 		handlers:      map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error{},
+		DomainTable:   kmeshdns.NewDomainTable(),
 	}
 }
 
@@ -354,6 +360,9 @@ func (p *Processor) removeServiceResources(resources []string) error {
 		p.WaypointCache.DeleteService(name)
 		telemetry.DeleteServiceMetric(name)
 		svc := p.ServiceCache.GetService(name)
+		if svc != nil && p.DomainTable != nil {
+			p.DomainTable.Remove(svc.GetHostname())
+		}
 		p.ServiceCache.DeleteService(name)
 		_ = p.removeServiceResourceFromBpfMap(svc, name)
 	}
@@ -841,6 +850,7 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 
 func (p *Processor) handleService(service *workloadapi.Service) error {
 	log.Debugf("handle service resource: %s", service.ResourceName())
+	p.ensureServiceAddressForDNS(service)
 
 	containsPort := func(port uint32) bool {
 		for _, p := range service.GetPorts() {
@@ -880,6 +890,57 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	}
 
 	return nil
+}
+
+func (p *Processor) ensureServiceAddressForDNS(service *workloadapi.Service) {
+	if !EnableDNSProxy || service == nil || p.DomainTable == nil || service.GetHostname() == "" {
+		return
+	}
+
+	if isKubernetesService(service) {
+		p.DomainTable.Remove(service.GetHostname())
+		return
+	}
+
+	if hasUsableServiceAddress(service) {
+		p.DomainTable.Remove(service.GetHostname())
+		return
+	}
+
+	syntheticIP := p.DomainTable.Add(service.GetHostname())
+	if !syntheticIP.IsValid() {
+		log.Warnf("failed to allocate synthetic address for service %s", service.ResourceName())
+		return
+	}
+
+	network := ""
+	if len(service.GetAddresses()) > 0 {
+		network = service.GetAddresses()[0].GetNetwork()
+	}
+	service.Addresses = []*workloadapi.NetworkAddress{
+		{
+			Network: network,
+			Address: syntheticIP.AsSlice(),
+		},
+	}
+}
+
+func hasUsableServiceAddress(service *workloadapi.Service) bool {
+	for _, address := range service.GetAddresses() {
+		ip, ok := netip.AddrFromSlice(address.GetAddress())
+		if !ok {
+			continue
+		}
+		if !ip.IsUnspecified() {
+			return true
+		}
+	}
+
+	return false
+}
+
+func isKubernetesService(service *workloadapi.Service) bool {
+	return service.GetHostname() == fmt.Sprintf("%s.%s.svc.%s", service.GetName(), service.GetNamespace(), workloadClusterDomain)
 }
 
 func (p *Processor) handleRemovedAddresses(removed []string) {
