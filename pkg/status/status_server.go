@@ -284,7 +284,7 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 	enabled, err := strconv.ParseBool(info)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", info)))
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid workload_metrics enable=%s", info)))
 		return
 	}
 
@@ -307,7 +307,7 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 	enabled, err := strconv.ParseBool(info)
 	if err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		_, _ = w.Write([]byte(fmt.Sprintf("invalid accesslog enable=%s", info)))
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid connection_metrics enable=%s", info)))
 		return
 	}
 
