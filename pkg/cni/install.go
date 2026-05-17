@@ -84,7 +84,7 @@ func NewInstaller(mode string,
 func (i *Installer) WatchServiceAccountToken() error {
 	tokenPath := i.ServiceAccountPath + "/token"
 	if err := i.Watcher.Add(tokenPath); err != nil {
-		return fmt.Errorf("failed to add %s to file watcher: %v", tokenPath, err)
+		return fmt.Errorf("failed to add %s to file watcher: %w", tokenPath, err)
 	}
 
 	// Start listening for events.

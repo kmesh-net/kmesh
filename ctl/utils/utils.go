@@ -31,7 +31,7 @@ const (
 func CreateKubeClient() (kube.CLIClient, error) {
 	cli, err := kube.NewCLIClient()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create kube client: %v", err)
+		return nil, fmt.Errorf("failed to create kube client: %w", err)
 	}
 
 	return cli, nil
@@ -41,7 +41,7 @@ func CreateKubeClient() (kube.CLIClient, error) {
 func CreateKmeshPortForwarder(cliClient kube.CLIClient, podName string) (kube.PortForwarder, error) {
 	fw, err := cliClient.NewPortForwarder(podName, KmeshNamespace, "", 0, KmeshAdminPort)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create port forwarder: %v", err)
+		return nil, fmt.Errorf("failed to create port forwarder: %w", err)
 	}
 
 	return fw, nil

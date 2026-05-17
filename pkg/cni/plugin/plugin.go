@@ -141,7 +141,7 @@ func enableTcMarkEncrypt(args *skel.CmdArgs) error {
 	ifIndex = 0
 
 	if tc, err = utils.GetProgramByName(constants.TC_MARK_ENCRYPT); err != nil {
-		return fmt.Errorf("failed to get tc program: %v", err)
+		return fmt.Errorf("failed to get tc program: %w", err)
 	}
 
 	getVethPeerIndexFunc := func(netns.NetNS) error {
@@ -159,11 +159,11 @@ func enableTcMarkEncrypt(args *skel.CmdArgs) error {
 	}
 
 	if link, err = netlink.LinkByIndex(int(ifIndex)); err != nil {
-		return fmt.Errorf("failed to link valid interface, %v", err)
+		return fmt.Errorf("failed to link valid interface, %w", err)
 	}
 
 	if err = utils.ManageTCProgram(link, tc, constants.TC_ATTACH); err != nil {
-		return fmt.Errorf("failed to attach tc program, %v", err)
+		return fmt.Errorf("failed to attach tc program, %w", err)
 	}
 
 	return nil
@@ -190,20 +190,20 @@ func CmdAdd(args *skel.CmdArgs) error {
 
 	client, err := kube.CreateKubeClient(cniConf.KubeConfig)
 	if err != nil {
-		err = fmt.Errorf("failed to get k8s client: %v", err)
+		err = fmt.Errorf("failed to get k8s client: %w", err)
 		log.Error(err)
 		return err
 	}
 
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		err = fmt.Errorf("failed to get pod: %v", err)
+		err = fmt.Errorf("failed to get pod: %w", err)
 		return err
 	}
 
 	namespace, err := client.CoreV1().Namespaces().Get(context.TODO(), pod.Namespace, metav1.GetOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to get namespace %s: %v", pod.Namespace, err)
+		return fmt.Errorf("failed to get namespace %s: %w", pod.Namespace, err)
 	}
 
 	enableKmesh := utils.ShouldEnroll(pod, namespace)
@@ -224,7 +224,7 @@ func CmdAdd(args *skel.CmdArgs) error {
 	if cniConf.Mode == constants.DualEngineMode {
 		enableXDPFunc := func(netns.NetNS) error {
 			if err := enableXdpAuth(args.IfName); err != nil {
-				err = fmt.Errorf("failed to set xdp to dev %v, err is %v", args.IfName, err)
+				err = fmt.Errorf("failed to set xdp to dev %v, err is %w", args.IfName, err)
 				return err
 			}
 			return nil
