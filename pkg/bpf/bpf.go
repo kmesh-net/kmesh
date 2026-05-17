@@ -47,6 +47,12 @@ import (
 	"kmesh.net/kmesh/pkg/version"
 )
 
+type BpfStatus struct {
+	Ready    bool              `json:"ready"`
+	Programs map[string]string `json:"programs"`
+	Maps     map[string]string `json:"maps"`
+}
+
 var (
 	log  = logger.NewLoggerScope("bpf")
 	hash = fnv.New32a()
@@ -110,6 +116,83 @@ func (l *BpfLoader) Start() error {
 		log.Infof("bpf load from last pinPath")
 	}
 	return nil
+}
+
+func (l *BpfLoader) IsReady() bool {
+	return l.GetBpfStatus().Ready
+}
+
+// GetBpfStatus returns a snapshot of BPF program and map health.
+// It checks only stable fields that are guaranteed initialized after
+// a successful BpfWorkload.Start() call. Deeply nested or partially
+// initialized structs (e.g. SendMsg internals) are intentionally
+// excluded to prevent panics if called during BPF init.
+func (l *BpfLoader) GetBpfStatus() BpfStatus {
+	status := BpfStatus{
+		Ready:    true,
+		Programs: make(map[string]string),
+		Maps:     make(map[string]string),
+	}
+
+	if l == nil || l.config == nil {
+		status.Ready = false
+		return status
+	}
+
+	if l.config.KernelNativeEnabled() {
+		if l.obj == nil {
+			status.Ready = false
+			return status
+		}
+		status.Programs["sock_conn"] = formatLinkStatus(l.obj.SockConn.Link)
+		status.Programs["sock_ops"] = formatLinkStatus(l.obj.SockOps.Link)
+		if l.obj.SockConn.Link == nil || l.obj.SockOps.Link == nil {
+			status.Ready = false
+		}
+
+		status.Maps["km_listener"] = formatMapStatus(l.obj.SockConn.KmListener)
+		status.Maps["km_cluster"] = formatMapStatus(l.obj.SockConn.KmCluster)
+	} else if l.config.DualEngineEnabled() {
+		if l.workloadObj == nil {
+			status.Ready = false
+			return status
+		}
+		// Only check stable link-based programs that are guaranteed
+		// initialized after BpfWorkload.Start() succeeds.
+		status.Programs["sock_conn"] = formatLinkStatus(l.workloadObj.SockConn.Link)
+		status.Programs["sock_ops"] = formatLinkStatus(l.workloadObj.SockOps.Link)
+		status.Programs["cgroup_skb"] = formatLinkStatus(l.workloadObj.CgroupSkb.Link)
+		if l.workloadObj.SockConn.Link == nil ||
+			l.workloadObj.SockOps.Link == nil ||
+			l.workloadObj.CgroupSkb.Link == nil {
+			status.Ready = false
+		}
+
+		// Maps from SockConn are shared via pin and always present
+		// after a successful dual-engine BPF load.
+		status.Maps["km_service"] = formatMapStatus(l.workloadObj.SockConn.KmService)
+		status.Maps["km_frontend"] = formatMapStatus(l.workloadObj.SockConn.KmFrontend)
+		status.Maps["km_backend"] = formatMapStatus(l.workloadObj.SockConn.KmBackend)
+		status.Maps["km_endpoint"] = formatMapStatus(l.workloadObj.SockConn.KmEndpoint)
+	} else {
+		status.Ready = false
+	}
+
+	return status
+}
+
+func formatLinkStatus(link interface{}) string {
+	if link == nil {
+		return "not attached"
+	}
+	return "ok"
+}
+
+func formatMapStatus(m *ebpf.Map) string {
+	if m == nil {
+		return "not initialized"
+	}
+	return "ok"
 }
 
 func (l *BpfLoader) GetBpfKmesh() *ads.BpfAds {

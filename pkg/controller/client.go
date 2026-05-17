@@ -19,10 +19,12 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/metadata"
 	istioGrpc "istio.io/istio/pilot/pkg/grpc"
 
@@ -43,11 +45,14 @@ type XdsClient struct {
 	mode               string
 	ctx                context.Context
 	cancel             context.CancelFunc
+	mu                 sync.RWMutex
 	grpcConn           *grpc.ClientConn
 	client             discoveryv3.AggregatedDiscoveryServiceClient
 	AdsController      *ads.Controller
 	WorkloadController *workload.Controller
 	xdsConfig          *config.XdsConfig
+	reconnectCount     uint64
+	lastConnect        time.Time
 }
 
 func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enableProfiling bool) (*XdsClient, error) {
@@ -73,13 +78,18 @@ func NewXdsClient(mode string, bpfAds *bpfads.BpfAds, bpfWorkload *bpfwl.BpfWork
 }
 
 func (c *XdsClient) createGrpcStreamClient() error {
-	var err error
-
-	if c.grpcConn, err = nets.GrpcConnect(c.xdsConfig.DiscoveryAddress); err != nil {
+	// Dial outside the lock to avoid blocking readiness/status calls
+	// during slow reconnects.
+	conn, err := nets.GrpcConnect(c.xdsConfig.DiscoveryAddress)
+	if err != nil {
 		return fmt.Errorf("grpc connect failed: %s", err)
 	}
 
-	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
+	c.mu.Lock()
+	c.grpcConn = conn
+	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(conn)
+	c.lastConnect = time.Now()
+	c.mu.Unlock()
 
 	if c.mode == constants.DualEngineMode {
 		if err = c.WorkloadController.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
@@ -107,6 +117,10 @@ func (c *XdsClient) recoverConnection() {
 			log.Infof("grpc reconnect succeed")
 			return
 		}
+
+		c.mu.Lock()
+		c.reconnectCount++
+		c.mu.Unlock()
 
 		log.Errorf("grpc reconnect failed, %s", err)
 		time.Sleep(interval + nets.CalculateRandTime(RandTimeSed))
@@ -139,7 +153,11 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 				if istioGrpc.GRPCErrorType(err) == istioGrpc.UnexpectedError {
 					log.Errorf("Failed to establish grpc link to control plane: %v", err)
 				}
-				_ = c.grpcConn.Close()
+				c.mu.Lock()
+				if c.grpcConn != nil {
+					_ = c.grpcConn.Close()
+				}
+				c.mu.Unlock()
 				reconnect = true
 			}
 		}
@@ -172,11 +190,78 @@ func (c *XdsClient) closeStreamClient() {
 		_ = c.WorkloadController.Stream.CloseSend()
 	}
 
+	c.mu.Lock()
 	if c.grpcConn != nil {
 		_ = c.grpcConn.Close()
 	}
+	c.mu.Unlock()
 }
 
 func (c *XdsClient) Close() error {
 	return nil
+}
+
+func (c *XdsClient) IsReady() bool {
+	if c == nil {
+		return false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.grpcConn == nil {
+		return false
+	}
+	if c.grpcConn.GetState() != connectivity.Ready {
+		return false
+	}
+	if c.AdsController != nil {
+		return c.AdsController.IsReady()
+	}
+	if c.WorkloadController != nil {
+		return c.WorkloadController.IsReady()
+	}
+	return false
+}
+
+func (c *XdsClient) GetGrpcState() string {
+	if c == nil {
+		return connectivity.Shutdown.String()
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if c.grpcConn == nil {
+		return connectivity.Shutdown.String()
+	}
+	return c.grpcConn.GetState().String()
+}
+
+// GetControllerStatus returns the status of the active controller.
+// Only one mode (KernelNative with AdsController, or DualEngine with
+// WorkloadController) is active at a time, so we check the first
+// non-nil controller and report its readiness.
+func (c *XdsClient) GetControllerStatus() string {
+	if c == nil {
+		return "not initialized"
+	}
+	if c.AdsController != nil {
+		if c.AdsController.IsReady() {
+			return "ok"
+		}
+		return "not ready"
+	}
+	if c.WorkloadController != nil {
+		if c.WorkloadController.IsReady() {
+			return "ok"
+		}
+		return "not ready"
+	}
+	return "not initialized"
+}
+
+func (c *XdsClient) GetXdsStreamStability() (uint64, time.Time) {
+	if c == nil {
+		return 0, time.Time{}
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.reconnectCount, c.lastConnect
 }
