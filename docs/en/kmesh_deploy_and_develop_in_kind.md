@@ -177,11 +177,6 @@ When developing locally, especially on macOS via Docker Desktop, you might encou
 
 + **Solution**: Clear unused Docker data using `docker system prune -a --volumes` and ensure Docker Desktop has at least 20GB of disk space allocated.
 
-### 4. UI / Frontend fails to connect to backend
-
-+ **Cause**: Node.js version mismatch or local Kmesh pods are not fully running.
-+ **Solution**: Ensure you are using Node.js v18+ (e.g., `nvm use 18`). Verify Kmesh pods are `Running` via `kubectl get pods -n kmesh-system`.
-
 ## Reference
 
 + Getting Started: <https://istio.io/latest/docs/ambient/getting-started/>

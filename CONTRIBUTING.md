@@ -43,7 +43,6 @@ Before you begin, ensure you have the following installed:
 - **Docker Desktop**: Required for local cluster creation. (Ensure you allocate at least 4 CPUs, 8GB RAM, and 20GB disk space).
 - **kind (Kubernetes IN Docker)**: Used to spin up the local cluster.
 - **kubectl**: For interacting with the local cluster.
-- **Node.js (v18+)**: Required if you plan to develop or test the Frontend / Headlamp UI integration.
 
 ### macOS Local Development
 
