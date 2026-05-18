@@ -54,12 +54,14 @@ For detailed steps on setting up this environment (including macOS-specific tips
 ### Frontend and Headlamp UI Setup
 
 If your contributions involve the Kmesh UI or Headlamp plugins:
+
 1. Ensure Node.js v18 or newer is installed (we recommend using `nvm` to manage Node versions).
 2. Follow the plugin development instructions in the UI repository. The Kmesh `kind` cluster will serve as the backend data source for the frontend.
 
 ### Realistic Developer Expectations
 
 When developing locally using `kind`, please keep in mind:
+
 - **Disk Space**: Compiling eBPF and Go code locally, along with storing Docker images, can consume upwards of 10-20GB of disk space.
 - **Startup Delays**: The first time you run `make build`, the `kmesh-build` container will download several dependencies. This can take a few minutes depending on your internet connection.
 - **Resource Usage**: Running a `kind` cluster with Istio and Kmesh can be resource-intensive. Ensure Docker Desktop has sufficient limits to prevent OOM (Out of Memory) kills.
