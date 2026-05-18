@@ -34,7 +34,7 @@ func GetProgramByName(name string) (*ebpf.Program, error) {
 
 	for {
 		if progID, err = ebpf.ProgramGetNextID(progID); err != nil {
-			err = fmt.Errorf("failed to get system next program id, err is %v", err)
+			err = fmt.Errorf("failed to get system next program id, err is %w", err)
 			return nil, err
 		}
 
@@ -53,7 +53,6 @@ func GetProgramByName(name string) (*ebpf.Program, error) {
 		if strings.Compare(targetProgInfo.Name, name) == 0 {
 			return targetProg, nil
 		}
-		targetProg.Close()
 	}
 }
 
@@ -69,7 +68,7 @@ func GetMapByName(name string) (*ebpf.Map, error) {
 
 	for {
 		if mapID, err = ebpf.MapGetNextID(mapID); err != nil {
-			err = fmt.Errorf("failed to get system next map id, err is %v", err)
+			err = fmt.Errorf("failed to get system next map id, err is %w", err)
 			return nil, err
 		}
 
@@ -88,6 +87,5 @@ func GetMapByName(name string) (*ebpf.Map, error) {
 		if strings.Compare(targetMapInfo.Name, name) == 0 {
 			return targetMap, nil
 		}
-		targetMap.Close()
 	}
 }
