@@ -66,8 +66,16 @@ Let's start from setting up the required environment. You can follow the steps b
 + Install kubectl
 
     Please follow the official guide for your operating system:
-  + [Install and Set Up kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
-  + **For macOS:** `brew install kubectl`
+
+**For Linux:**
+Please follow the official guide:
+[Install and Set Up kubectl on Linux](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/)
+
+**For macOS:**
+
+```shell
+brew install kubectl
+```
 
 + Deploy Kmesh
 
