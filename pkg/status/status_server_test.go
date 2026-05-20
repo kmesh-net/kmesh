@@ -662,3 +662,92 @@ func TestServerMonitoringHandler(t *testing.T) {
 		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})
 }
+
+func TestServer_configDumpServices(t *testing.T) {
+	t.Run("invalid mode returns 400", func(t *testing.T) {
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpServices, nil)
+		w := httptest.NewRecorder()
+		server.configDumpServices(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("returns 200 with JSON-encoded services", func(t *testing.T) {
+		fakeServiceCache := cache.NewServiceCache()
+		fakeServiceCache.AddOrUpdateService(buildService("svc-a", "hostname-a"))
+		fakeServiceCache.AddOrUpdateService(buildService("svc-b", "hostname-b"))
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					Processor: &workload.Processor{
+						WorkloadCache: cache.NewWorkloadCache(),
+						ServiceCache:  fakeServiceCache,
+					},
+					Rbac: auth.NewRbac(cache.NewWorkloadCache()),
+				},
+			},
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpServices, nil)
+		w := httptest.NewRecorder()
+		server.configDumpServices(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var services []*Service
+		err := json.Unmarshal(w.Body.Bytes(), &services)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, len(services))
+	})
+}
+
+func TestServer_configDumpPolicies(t *testing.T) {
+	t.Run("invalid mode returns 400", func(t *testing.T) {
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpPolicies, nil)
+		w := httptest.NewRecorder()
+		server.configDumpPolicies(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("returns 200 with JSON-encoded policies", func(t *testing.T) {
+		fakeWorkloadCache := cache.NewWorkloadCache()
+		fakeAuth := auth.NewRbac(fakeWorkloadCache)
+		fakeAuth.UpdatePolicy(&security.Authorization{
+			Name:      "policy-1",
+			Namespace: "ns",
+			Scope:     security.Scope_GLOBAL,
+			Action:    security.Action_ALLOW,
+		})
+		fakeAuth.UpdatePolicy(&security.Authorization{
+			Name:      "policy-2",
+			Namespace: "ns",
+			Scope:     security.Scope_WORKLOAD,
+			Action:    security.Action_DENY,
+		})
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					Processor: &workload.Processor{
+						WorkloadCache: fakeWorkloadCache,
+						ServiceCache:  cache.NewServiceCache(),
+					},
+					Rbac: fakeAuth,
+				},
+			},
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpPolicies, nil)
+		w := httptest.NewRecorder()
+		server.configDumpPolicies(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var policies []*AuthorizationPolicy
+		err := json.Unmarshal(w.Body.Bytes(), &policies)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, len(policies))
+	})
+}
