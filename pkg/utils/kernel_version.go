@@ -29,7 +29,7 @@ import (
 // and will fallback to less BPF log ability(return true) if error
 func KernelVersionLowerThan5_13() bool {
 	kernelVersion := GetKernelVersion()
-	if len(kernelVersion) == 0 {
+	if kernelVersion == "" {
 		return true
 	}
 	splitVers := strings.Split(kernelVersion, ".")

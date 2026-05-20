@@ -428,14 +428,14 @@ func internalMatchPrincipal(srcId string, principals []*security.StringMatch) bo
 	srcId = strings.TrimPrefix(srcId, SPIFFE_PREFIX)
 	m := false
 	for _, principal := range principals {
-		if len(principal.GetPrefix()) > 0 {
+		if principal.GetPrefix() != "" {
 			m = strings.HasPrefix(srcId, principal.GetPrefix())
-		} else if len(principal.GetSuffix()) > 0 {
+		} else if principal.GetSuffix() != "" {
 			m = strings.HasSuffix(srcId, principal.GetSuffix())
-		} else if len(principal.GetExact()) > 0 {
+		} else if principal.GetExact() != "" {
 			m = srcId == principal.GetExact()
 		} else {
-			m = len(srcId) == 0
+			m = srcId == ""
 		}
 		if m {
 			return true
@@ -447,14 +447,14 @@ func internalMatchPrincipal(srcId string, principals []*security.StringMatch) bo
 func internalMatchNamespace(srcNs string, namespaces []*security.StringMatch) bool {
 	m := false
 	for _, ns := range namespaces {
-		if len(ns.GetPrefix()) > 0 {
+		if ns.GetPrefix() != "" {
 			m = strings.HasPrefix(srcNs, ns.GetPrefix())
-		} else if len(ns.GetSuffix()) > 0 {
+		} else if ns.GetSuffix() != "" {
 			m = strings.HasSuffix(srcNs, ns.GetSuffix())
-		} else if len(ns.GetExact()) > 0 {
+		} else if ns.GetExact() != "" {
 			m = srcNs == ns.GetExact()
 		} else {
-			m = len(srcNs) == 0
+			m = srcNs == ""
 		}
 		if m {
 			return true
