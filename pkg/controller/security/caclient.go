@@ -86,7 +86,9 @@ func (c caClient) CsrSend(csrPEM []byte, certValidsec int64, identity string) ([
 	}
 
 	// TODO: support customize clusterID, which is needed for multicluster mesh
-	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", "Kubernetes"))
+	mdCtx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", "Kubernetes"))
+	ctx, cancel := context.WithTimeout(mdCtx, certFetchTimeout)
+	defer cancel()
 	// To handle potential grpc connection disconnection and retry once
 	// when certificate acquisition fails. If it still fails, return an error.
 	resp, err := c.client.CreateCertificate(ctx, req)

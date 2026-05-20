@@ -18,6 +18,7 @@ package security
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -58,7 +59,7 @@ func runTestBaseCert(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	secretManager, err := NewSecretManager()
-	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
 	go secretManager.Run(stopCh)
 
 	identity1 := "identity1"
@@ -96,7 +97,7 @@ func runTestCertRotate(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	secretManager, err := NewSecretManager()
-	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
 	go secretManager.Run(stopCh)
 
 	identity1 := "identity1"
@@ -152,18 +153,27 @@ func runTestretryFetchCert(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	secretManager, err := NewSecretManager()
-	assert.ErrorIsf(t, err, nil, "NewSecretManager failed %v", err)
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
 
+	var fail atomic.Bool
+	fail.Store(true)
 	patches2 := gomonkey.NewPatches()
+	defer patches2.Reset()
 	patches2.ApplyMethodFunc(secretManager.caClient, "FetchCert", func(identity string) (*security.SecretItem, error) {
-		return nil, fmt.Errorf("abnormal test")
+		if fail.Load() {
+			return nil, fmt.Errorf("abnormal test")
+		}
+		return &security.SecretItem{
+			ResourceName: identity,
+			ExpireTime:   time.Now().Add(24 * time.Hour),
+		}, nil
 	})
 
 	go secretManager.Run(stopCh)
 	identity := "identity"
 	secretManager.SendCertRequest(identity, ADD)
 	time.Sleep(100 * time.Millisecond)
-	patches2.Reset()
+	fail.Store(false)
 
 	secretManager.SendCertRequest(identity, RETRY)
 
@@ -187,6 +197,147 @@ func runTestretryFetchCert(t *testing.T) {
 	if err != nil {
 		t.Errorf("Failed to fetch cert after retry: %v", err)
 	}
+
+	close(stopCh)
+}
+
+func TestBackoffWithJitter(t *testing.T) {
+	t.Run("backoff increases exponentially", func(t *testing.T) {
+		base := 200 * time.Millisecond
+		max := 30 * time.Second
+		var prev time.Duration
+		for attempt := 0; attempt < 8; attempt++ {
+			d := backoffWithJitter(attempt, base, max)
+			if attempt > 0 {
+				// Each delay should generally be larger than the previous one
+				// (within jitter tolerance) until hitting the cap.
+				assert.Greater(t, d, prev/3, "attempt %d delay should grow", attempt)
+			}
+			assert.LessOrEqual(t, d, max+max/4, "delay must not exceed max + jitter margin")
+			prev = d
+		}
+	})
+
+	t.Run("delay is capped at maxDelay", func(t *testing.T) {
+		base := 100 * time.Millisecond
+		max := 1 * time.Second
+		for i := 0; i < 50; i++ {
+			d := backoffWithJitter(20, base, max)
+			// With 25% jitter, the max possible value is 1.25 * maxDelay.
+			assert.LessOrEqual(t, d, time.Duration(float64(max)*1.25)+time.Millisecond)
+		}
+	})
+
+	t.Run("jitter keeps delay within bounds", func(t *testing.T) {
+		base := 1 * time.Second
+		max := 30 * time.Second
+		for i := 0; i < 100; i++ {
+			// First attempt (nextAttempt=1) should return baseDelay
+			d := backoffWithJitter(1, base, max)
+			assert.GreaterOrEqual(t, d, time.Duration(float64(base)*0.75)-time.Millisecond)
+			assert.LessOrEqual(t, d, time.Duration(float64(base)*1.25)+time.Millisecond)
+		}
+	})
+}
+
+func TestCertFetchGiveUp(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	patches.ApplyFunc(newCaClient, func(opts *security.Options, tlsOpts *tlsOptions) (CaClient, error) {
+		return camock.NewMockCaClient(opts, 2*time.Hour)
+	})
+	defer patches.Reset()
+
+	stopCh := make(chan struct{})
+	secretManager, err := NewSecretManager()
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
+
+	// Mock FetchCert to always fail
+	patches2 := gomonkey.NewPatches()
+	defer patches2.Reset()
+	patches2.ApplyMethodFunc(secretManager.caClient, "FetchCert", func(identity string) (*security.SecretItem, error) {
+		return nil, fmt.Errorf("persistent CA failure")
+	})
+
+	// Speed up the test by reducing delays
+	patches.ApplyGlobalVar(&certFetchBaseDelay, 10*time.Millisecond)
+	patches.ApplyGlobalVar(&certFetchMaxDelay, 50*time.Millisecond)
+	patches.ApplyGlobalVar(&certFetchMaxRetries, 3)
+
+	go secretManager.Run(stopCh)
+	identity := "give-up-identity"
+	secretManager.SendCertRequest(identity, ADD)
+
+	// Wait for the retry limit to be reached.
+	// 3 retries + 1 initial = 4 attempts total?
+	// nextAttempt > certFetchMaxRetries (3).
+	// nextAttempt starts at 1, 2, 3, 4. When it's 4, 4 > 3, it gives up.
+	retry.UntilSuccess(
+		func() error {
+			secretManager.certRetryMu.Lock()
+			attempts := secretManager.certRetryAttempts[identity]
+			secretManager.certRetryMu.Unlock()
+			if attempts == 0 { // attempts should be deleted on give up
+				return nil
+			}
+			return fmt.Errorf("still retrying, attempts=%d", attempts)
+		},
+		retry.Delay(100*time.Millisecond),
+		retry.Timeout(2*time.Second),
+	)
+
+	assert.Equal(t, int64(4), secretManager.certFetchRetries.Load(), "should have attempted 4 times total before giving up")
+	close(stopCh)
+}
+
+func TestCertFetchRetriesMetric(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	patches.ApplyFunc(newCaClient, func(opts *security.Options, tlsOpts *tlsOptions) (CaClient, error) {
+		return camock.NewMockCaClient(opts, 2*time.Hour)
+	})
+	defer patches.Reset()
+
+	stopCh := make(chan struct{})
+	secretManager, err := NewSecretManager()
+	assert.NoError(t, err, "NewSecretManager failed %v", err)
+
+	var failCount atomic.Int32
+	patches2 := gomonkey.NewPatches()
+	defer patches2.Reset()
+	patches2.ApplyMethodFunc(secretManager.caClient, "FetchCert", func(identity string) (*security.SecretItem, error) {
+		count := failCount.Add(1)
+		if count <= 2 {
+			return nil, fmt.Errorf("simulated CA failure %d", count)
+		}
+		return &security.SecretItem{
+			ResourceName: identity,
+			ExpireTime:   time.Now().Add(24 * time.Hour),
+		}, nil
+	})
+
+	go secretManager.Run(stopCh)
+	identity := "metric-test-identity"
+	secretManager.SendCertRequest(identity, ADD)
+
+	err = retry.UntilSuccess(
+		func() error {
+			cert := secretManager.GetCert(identity)
+			if cert != nil {
+				secretManager.certsCache.mu.RLock()
+				hasCert := cert.cert != nil
+				secretManager.certsCache.mu.RUnlock()
+				if hasCert {
+					return nil
+				}
+			}
+			return fmt.Errorf("cert not found for identity %s", identity)
+		},
+		retry.Delay(200*time.Millisecond),
+		retry.Timeout(10*time.Second),
+	)
+	assert.NoError(t, err, "cert should eventually be fetched after retries")
+
+	retries := secretManager.CertFetchRetries()
+	assert.Greater(t, retries, int64(0), "retry counter should have been incremented")
 
 	close(stopCh)
 }
