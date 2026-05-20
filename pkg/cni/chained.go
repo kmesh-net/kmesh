@@ -25,8 +25,10 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/containernetworking/cni/libcni"
+	"github.com/fsnotify/fsnotify"
 
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -210,9 +212,55 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	}
 	log.Infof("cni config file: %s", cniConfigFilePath)
 
-	/*
-	 TODO: add watcher for cniConfigFile
-	*/
+	i.cniWatcherMu.Lock()
+	if !i.cniWatcherStarted {
+		i.cniWatcherStarted = true
+		go func() {
+			defer func() {
+				i.cniWatcherMu.Lock()
+				i.cniWatcherStarted = false
+				i.cniWatcherMu.Unlock()
+			}()
+
+			if err := i.Watcher.Add(cniConfigFilePath); err != nil {
+				log.Errorf("failed to add %s to file watcher: %v", cniConfigFilePath, err)
+				return
+			}
+			log.Infof("start watching file %s", cniConfigFilePath)
+
+			var timerC <-chan time.Time
+			for {
+				select {
+				case <-timerC:
+					timerC = nil
+					if err := i.addCniConfig(); err != nil {
+						log.Errorf("failed try to update Kmesh cni config: %v", err)
+					}
+				case event := <-i.Watcher.Events(cniConfigFilePath):
+					if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+						if timerC == nil {
+							timerC = time.After(100 * time.Millisecond)
+						}
+					} else if event.Has(fsnotify.Remove) {
+						log.Infof("cni config file %s removed, try to re-install", cniConfigFilePath)
+						if err := i.addCniConfig(); err != nil {
+							log.Errorf("failed try to update Kmesh cni config: %v", err)
+						}
+						// If the file was removed, the watch might be lost.
+						// We exit this goroutine, and the next call to chainedKmeshCniPlugin
+						// SHOULD re-initiate the watch because i.cniWatcherStarted will be false.
+						return
+					}
+				case err := <-i.Watcher.Errors(cniConfigFilePath):
+					if err != nil {
+						log.Errorf("error from errors channel of file watcher: %v", err)
+						return
+					}
+				}
+			}
+		}()
+	}
+	i.cniWatcherMu.Unlock()
 
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {

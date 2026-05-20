@@ -19,6 +19,7 @@ package cni
 import (
 	"fmt"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -61,7 +62,9 @@ type Installer struct {
 	CniConfigChained   bool
 	ServiceAccountPath string
 
-	Watcher filewatcher.FileWatcher
+	Watcher           filewatcher.FileWatcher
+	cniWatcherMu      sync.Mutex
+	cniWatcherStarted bool
 }
 
 func NewInstaller(mode string,
