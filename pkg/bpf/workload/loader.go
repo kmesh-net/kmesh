@@ -76,10 +76,10 @@ func NewBpfWorkload(cfg *options.BpfConfig) (*BpfWorkload, error) {
 	return workloadObj, nil
 }
 
-func (w *BpfWorkload) Start() error {
+func (w *BpfWorkload) Start(cfg *options.BpfConfig) error {
 	var ve *ebpf.VerifierError
 
-	if err := w.Load(); err != nil {
+	if err := w.Load(cfg); err != nil {
 		if errors.As(err, &ve) {
 			return fmt.Errorf("bpf Load failed: %+v", ve)
 		}
@@ -123,8 +123,8 @@ func (w *BpfWorkload) GetBpfConfigVariable() factory.KmeshBpfConfig {
 	}
 }
 
-func (w *BpfWorkload) Load() error {
-	if err := w.SockConn.LoadSockConn(); err != nil {
+func (w *BpfWorkload) Load(cfg *options.BpfConfig) error {
+	if err := w.SockConn.LoadSockConn(cfg); err != nil {
 		return err
 	}
 
