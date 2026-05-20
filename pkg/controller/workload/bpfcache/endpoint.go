@@ -128,6 +128,32 @@ func (c *Cache) EndpointLookup(key *EndpointKey, value *EndpointValue) error {
 	return c.bpfMap.KmEndpoint.Lookup(key, value)
 }
 
+// EndpointEntry is a key-value pair read from the BPF endpoint map.
+// It is returned by IterateEndpoints and consumed by the warm-restart
+// restore path in the workload controller.
+type EndpointEntry struct {
+	Key   EndpointKey
+	Value EndpointValue
+}
+
+// IterateEndpoints returns all entries currently stored in the BPF endpoint
+// map. It is called during a warm restart so that the in-memory endpoint
+// cache can be rebuilt to match the persisted BPF state.
+func (c *Cache) IterateEndpoints() []EndpointEntry {
+	log.Debugf("IterateEndpoints: reading all BPF endpoint map entries")
+	var (
+		key     = EndpointKey{}
+		value   = EndpointValue{}
+		entries []EndpointEntry
+	)
+
+	iter := c.bpfMap.KmEndpoint.Iterate()
+	for iter.Next(&key, &value) {
+		entries = append(entries, EndpointEntry{Key: key, Value: value})
+	}
+	return entries
+}
+
 // RestoreEndpointKeys called on restart to construct endpoint indexes from bpf map
 func (c *Cache) RestoreEndpointKeys() {
 	log.Debugf("init endpoint keys")
