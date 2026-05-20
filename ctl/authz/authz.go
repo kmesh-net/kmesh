@@ -154,7 +154,7 @@ func SetAuthzForPods(podNames []string, info string) {
 
 	if len(podNames) == 0 {
 		// Apply to all kmesh daemon pods.
-		podList, err := cli.PodsForSelector(cmd.Context(), utils.KmeshNamespace, utils.KmeshLabel)
+		podList, err := cli.PodsForSelector(context.Background(), utils.KmeshNamespace, utils.KmeshLabel)
 		if err != nil {
 			log.Errorf("failed to get kmesh podList: %v", err)
 			os.Exit(1)
