@@ -21,6 +21,9 @@ import (
 	"fmt"
 	"net"
 	"strings"
+	"time"
+
+	istiosecurity "istio.io/istio/pkg/security"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
@@ -28,6 +31,27 @@ import (
 	"kmesh.net/kmesh/pkg/nets"
 	"kmesh.net/kmesh/pkg/utils"
 )
+
+// Certificate represents a cached TLS certificate for config dump output.
+type Certificate struct {
+	ResourceName     string    `json:"resourceName"`
+	CertificateChain string    `json:"certificateChain"`
+	ExpireTime       time.Time `json:"expireTime"`
+	CreatedTime      time.Time `json:"createdTime"`
+}
+
+// ConvertSecretItem converts an Istio SecretItem into a Certificate for JSON serialization.
+func ConvertSecretItem(s *istiosecurity.SecretItem) *Certificate {
+	if s == nil {
+		return nil
+	}
+	return &Certificate{
+		ResourceName:     s.ResourceName,
+		CertificateChain: string(s.CertificateChain),
+		ExpireTime:       s.ExpireTime,
+		CreatedTime:      s.CreatedTime,
+	}
+}
 
 type Workload struct {
 	Uid                   string            `json:"uid,omitempty"`

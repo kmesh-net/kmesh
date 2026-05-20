@@ -257,3 +257,16 @@ func (s *SecretManager) retryFetchCert(identity string) {
 
 	go s.fetchCert(identity)
 }
+
+// ListCerts returns a snapshot of all cached certificates.
+func (s *SecretManager) ListCerts() map[string]*istiosecurity.SecretItem {
+	s.certsCache.mu.RLock()
+	defer s.certsCache.mu.RUnlock()
+	result := make(map[string]*istiosecurity.SecretItem, len(s.certsCache.certs))
+	for identity, item := range s.certsCache.certs {
+		if item.cert != nil {
+			result[identity] = item.cert
+		}
+	}
+	return result
+}
