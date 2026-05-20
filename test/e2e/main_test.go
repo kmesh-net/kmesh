@@ -71,6 +71,9 @@ type EchoDeployments struct {
 	// Namespace echo apps will be deployed
 	Namespace namespace.Instance
 
+	// Namespace where echo apps are not managed by Kmesh
+	UnmeshedNamespace namespace.Instance
+
 	// All echo services
 	All echo.Instances
 
@@ -80,6 +83,9 @@ type EchoDeployments struct {
 	// The echo service which is enrolled to Kmesh and with service waypoint.
 	ServiceWithWaypointAtServiceGranularity echo.Instances
 
+	// The echo service which is not managed by Kmesh.
+	Unmeshed echo.Instances
+
 	// WaypointProxies by
 	WaypointProxies map[string]ambient.WaypointProxy
 }
@@ -87,6 +93,7 @@ type EchoDeployments struct {
 const (
 	ServiceWithWaypointAtServiceGranularity = "service-with-waypoint-at-service-granularity"
 	EnrolledToKmesh                         = "enrolled-to-kmesh"
+	Unmeshed                                = "unmeshed"
 	Timeout                                 = 2 * time.Minute
 	KmeshReleaseName                        = "kmesh"
 	KmeshDaemonsetName                      = "kmesh"
@@ -137,6 +144,14 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 		return err
 	}
 
+	apps.UnmeshedNamespace, err = namespace.New(t, namespace.Config{
+		Prefix: "unmeshed",
+		Inject: false,
+	})
+	if err != nil {
+		return err
+	}
+
 	builder := deployment.New(t).
 		WithClusters(t.Clusters()...).
 		WithConfig(echo.Config{
@@ -180,6 +195,18 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 					Version:  "v2",
 				},
 			},
+		}).
+		WithConfig(echo.Config{
+			Service:        Unmeshed,
+			Namespace:      apps.UnmeshedNamespace,
+			Ports:          ports.All(),
+			ServiceAccount: true,
+			Subsets: []echo.SubsetConfig{
+				{
+					Replicas: 1,
+					Version:  "v1",
+				},
+			},
 		})
 
 	echos, err := builder.Build()
@@ -192,6 +219,7 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	apps.All = echos
 	apps.EnrolledToKmesh = match.ServiceName(echo.NamespacedName{Name: EnrolledToKmesh, Namespace: apps.Namespace}).GetMatches(echos)
 	apps.ServiceWithWaypointAtServiceGranularity = match.ServiceName(echo.NamespacedName{Name: ServiceWithWaypointAtServiceGranularity, Namespace: apps.Namespace}).GetMatches(echos)
+	apps.Unmeshed = match.ServiceName(echo.NamespacedName{Name: Unmeshed, Namespace: apps.UnmeshedNamespace}).GetMatches(echos)
 
 	if apps.WaypointProxies == nil {
 		apps.WaypointProxies = make(map[string]ambient.WaypointProxy)
