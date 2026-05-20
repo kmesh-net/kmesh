@@ -69,12 +69,12 @@ func TestWatchTokenFile(t *testing.T) {
 	retry.UntilSuccess(func() error {
 		expectedKC, err = createKubeConfig(serviceAccountPath)
 		if err != nil {
-			return fmt.Errorf("failed to create expected kubeconfig after token update: %v", err)
+			return fmt.Errorf("failed to create expected kubeconfig after token update: %w", err)
 		}
 
 		existingKC, err = os.ReadFile(kubeconfigPath)
 		if err != nil {
-			return fmt.Errorf("failed to read the content of existing kubeconfig path update token update: %v", err)
+			return fmt.Errorf("failed to read the content of existing kubeconfig path update token update: %w", err)
 		}
 
 		if expectedKC != string(existingKC) {

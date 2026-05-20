@@ -41,16 +41,16 @@ func NewClient(xdsServer *XDSServer) (*XDSClient, error) {
 			return xdsServer.Listener.Dial()
 		}))
 	if err != nil {
-		return nil, fmt.Errorf("grpc connection client create failed, %s", err)
+		return nil, fmt.Errorf("grpc connection client create failed, %w", err)
 	}
 	client := discoveryv3.NewAggregatedDiscoveryServiceClient(conn)
 	deltaClient, err := client.DeltaAggregatedResources(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("DeltaAggregatedResources failed, %s", err)
+		return nil, fmt.Errorf("DeltaAggregatedResources failed, %w", err)
 	}
 	adsClient, err := client.StreamAggregatedResources(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("StreamAggregatedResources failed, %s", err)
+		return nil, fmt.Errorf("StreamAggregatedResources failed, %w", err)
 	}
 
 	return &XDSClient{

@@ -60,7 +60,7 @@ func newCaClient(opts *security.Options, tlsOpts *tlsOptions) (CaClient, error) 
 
 	conn, err := nets.GrpcConnect(caAddress)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create grpcconnect : %v", err)
+		return nil, fmt.Errorf("failed to create grpcconnect : %w", err)
 	}
 
 	c.conn = conn
@@ -91,7 +91,7 @@ func (c caClient) CsrSend(csrPEM []byte, certValidsec int64, identity string) ([
 	// when certificate acquisition fails. If it still fails, return an error.
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("create certificate failed: %v", err)
+		return nil, fmt.Errorf("create certificate failed: %w", err)
 	}
 
 	if len(resp.CertChain) <= 1 {
@@ -141,7 +141,7 @@ func (c *caClient) FetchCert(identity string) (*security.SecretItem, error) {
 
 	expireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain)
 	if err != nil {
-		return nil, fmt.Errorf("%s failed to extract expire time from server certificate in CSR response %+v: %v",
+		return nil, fmt.Errorf("%s failed to extract expire time from server certificate in CSR response %+v: %w",
 			identity, certChainPEM, err)
 	}
 
