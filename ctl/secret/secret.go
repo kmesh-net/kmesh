@@ -151,7 +151,7 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 
 	ipSecKey.Length = AeadAlgoICVLength
 
-	secretOld, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
+	secretOld, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.Background(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if !apierrors.IsNotFound(err) {
 			log.Errorf("failed to get secret: %v, %v", SecretName, err)
@@ -184,13 +184,13 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 	}
 
 	if ipSecKey.Spi == 1 {
-		_, err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Create(context.TODO(), secret, metav1.CreateOptions{})
+		_, err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Create(context.Background(), secret, metav1.CreateOptions{})
 		if err != nil {
 			log.Errorf("failed to create %v secret, %v", SecretName, err)
 			os.Exit(1)
 		}
 	} else {
-		_, err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
+		_, err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Update(context.Background(), secret, metav1.UpdateOptions{})
 		if err != nil {
 			log.Errorf("failed to update %v secret, %v", SecretName, err)
 			os.Exit(1)
@@ -199,7 +199,7 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 }
 
 func GetSecret() {
-	secret, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
+	secret, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.Background(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Errorf("secret %s not found", SecretName)
@@ -248,7 +248,7 @@ func GetSecret() {
 }
 
 func DeleteSecret() {
-	err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Delete(context.TODO(), SecretName, metav1.DeleteOptions{})
+	err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Delete(context.Background(), SecretName, metav1.DeleteOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Errorf("secret %s not found", SecretName)
