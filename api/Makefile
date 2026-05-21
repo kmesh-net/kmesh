@@ -38,8 +38,19 @@ gen-proto:
 	$(QUIET) cp -rf api/* $(C_OUTPUT_DIR); rm -rf api
 	$(QUIET) find $(C_OUTPUT_DIR) -name *pb-c* | xargs sed -i 's/#include \"api\//#include \"/g'
 
+	# Generate C bindings for google.protobuf well-known types (e.g. UInt32Value)
+	# referenced by our protos (via `import "google/protobuf/wrappers.proto"`).
+	# protoc-c does not bundle these; we generate them explicitly so the resulting
+	# symbols (e.g. google__protobuf__uint32_value__descriptor) are available to
+	# link into libkmesh_api_v2_c.so.
+	$(call printlog, PROTO, api/$(C_OUTPUT_DIR)/google/protobuf)
+	$(QUIET) bash ../hack/gen-protoc.sh ../third_party google/protobuf/wrappers.proto
+	$(QUIET) mkdir -p $(C_OUTPUT_DIR)/google/protobuf
+	$(QUIET) mv google/protobuf/*.pb-c.* $(C_OUTPUT_DIR)/google/protobuf/
+	$(QUIET) rm -rf google
+
 	$(call printlog, PROTO, api/$(GO_OUTPUT_DIR))
-	$(QUIET) protoc --proto_path=$(PROTO_PATH) --go_out=. $(PROTO_SRC)
+	$(QUIET) protoc --proto_path=$(PROTO_PATH) --proto_path=../third_party --go_out=. $(PROTO_SRC)
 	$(QUIET) mkdir -p $(GO_OUTPUT_DIR)
 	$(QUIET) cp -rf $(GO_BUILD_DIR)/* $(GO_OUTPUT_DIR); rm -rf kmesh.net
 	$(QUIET) find $(GO_OUTPUT_DIR) -name *pb.go | xargs sed -i 's/mesh\/api/mesh\/api\/v2/g'

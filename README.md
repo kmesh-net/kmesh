@@ -18,7 +18,7 @@ Service mesh software represented by Istio has gradually become popular and beco
 
 ### Kmesh Architecture
 
-Kmesh transparently intercept and forward traffic based on node local eBPF without introducing extra connection hops, both the latency and resource overhead are negligible.
+Kmesh transparently intercepts and forwards traffic based on node local eBPF without introducing extra connection hops, both the latency and resource overhead are negligible.
 
 <div align="center">
     <img src="docs/pics/kmesh-arch.svg" alt="kmesh-arch" width="800" />
@@ -38,7 +38,7 @@ Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to
     <p>Kernel-Native Mode</p>
 </div>
 
-Kmesh also provide a Dual-Engine Mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allow you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
+Kmesh also provides a Dual-Engine Mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allow you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
 
 <div align="center">
     <img src="docs/pics/dual-engine-mode.png" alt="dual-engine-mode" width="800" />
