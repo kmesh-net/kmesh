@@ -25,6 +25,23 @@ static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_ad
     return 0;
 }
 
+// gateway_manager routes traffic to the East-West gateway.
+// via_waypoint = true so the BPF sock_ops layer embeds TLV with the actual
+// backend IP (backend_v->addr), allowing the EW gateway to forward to the
+// correct remote pod.
+static inline int gateway_manager(struct kmesh_context *kmesh_ctx, struct ip_addr *gw_addr, __u32 port)
+{
+    ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
+
+    if (ctx->user_family == AF_INET)
+        kmesh_ctx->dnat_ip.ip4 = gw_addr->ip4;
+    else
+        bpf_memcpy(kmesh_ctx->dnat_ip.ip6, gw_addr->ip6, IPV6_ADDR_LEN);
+    kmesh_ctx->dnat_port = port;
+    kmesh_ctx->via_waypoint = true; // embed TLV with backend IP for EW gateway
+    return 0;
+}
+
 static inline int svc_dnat(struct kmesh_context *kmesh_ctx, backend_value *backend_v, service_value *service_v)
 {
     int i;
@@ -58,8 +75,20 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
 {
     int ret = -ENOENT;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
-    __u32 i, user_port = ctx->user_port;
 
+    // 1. EW gateway: remote workload routed through East-West gateway (highest priority)
+    if (backend_v->gw_port != 0) {
+        BPF_LOG(
+            DEBUG,
+            BACKEND,
+            "route to EW gateway[%s:%u]\n",
+            ip2str((__u32 *)&backend_v->gw_addr, ctx->family == AF_INET),
+            bpf_ntohs(backend_v->gw_port));
+        ret = gateway_manager(kmesh_ctx, &backend_v->gw_addr, backend_v->gw_port);
+        return ret;
+    }
+
+    // 2. Waypoint proxy
     if (backend_v->waypoint_port != 0) {
         BPF_LOG(
             DEBUG,
@@ -71,6 +100,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
         return ret;
     }
 
+    // 3. Normal DNAT to pod IP
     ret = svc_dnat(kmesh_ctx, backend_v, service_v);
     if (ret == 0) {
         BPF_LOG(
@@ -86,3 +116,4 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
 }
 
 #endif
+
