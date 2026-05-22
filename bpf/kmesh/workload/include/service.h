@@ -66,7 +66,8 @@ static inline int lb_locality_strict_handle(struct kmesh_context *kmesh_ctx, __u
         kmesh_ctx->dnat_ip = (struct ip_addr){0};
         kmesh_ctx->dnat_port = 0;
         BPF_LOG(
-            ERR, SERVICE, "locality loadbalance match nothing in STRICT mode, service_id %d ret:%d\n", service_id, ret);
+            ERR, SERVICE, "locality loadbalance match nothing in STRICT mode for service_id %d ret:%d\n",
+            service_id, ret);
     }
     return ret;
 }
@@ -109,9 +110,9 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
 
     if (service_v->wp_addr.ip4 != 0 && service_v->waypoint_port != 0) {
         BPF_LOG(
-            DEBUG,
+            INFO,
             SERVICE,
-            "find waypoint addr=[%s:%u]\n",
+            "find waypoint dst=[%s:%u]\n",
             ip2str((__u32 *)&service_v->wp_addr, kmesh_ctx->ctx->family == AF_INET),
             bpf_ntohs(service_v->waypoint_port));
         ret = waypoint_manager(kmesh_ctx, &service_v->wp_addr, service_v->waypoint_port);
@@ -121,7 +122,7 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
         return ret;
     }
 
-    BPF_LOG(DEBUG, SERVICE, "service [%u] lb policy [%u]", service_id, service_v->lb_policy);
+    BPF_LOG(INFO, SERVICE, "service [%u] lb policy [%u]\n", service_id, service_v->lb_policy);
 
     switch (service_v->lb_policy) {
     case LB_POLICY_RANDOM:
