@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"sync"
 	"text/tabwriter"
 	"time"
@@ -107,6 +108,13 @@ func RunNodeSummary(cmd *cobra.Command) error {
 		}(cli, pod.GetName(), pod.Spec.NodeName)
 	}
 	wg.Wait()
+
+	sort.Slice(rows, func(i, j int) bool {
+		if rows[i].nodeName != rows[j].nodeName {
+			return rows[i].nodeName < rows[j].nodeName
+		}
+		return rows[i].podName < rows[j].podName
+	})
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	fmt.Fprintln(w, "\nNODE_NAME\tKMESH_POD\tMODE\tVERSION\tLISTENERS/WORKLOADS\tCLUSTERS/SERVICES\tROUTES/POLICIES")

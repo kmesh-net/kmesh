@@ -265,9 +265,8 @@ func RunService(cmd *cobra.Command, args []string) error {
 
 // parsePort converts a Kmesh BPF port value (stored in big-endian) to host uint16.
 func parsePort(p uint32) uint16 {
-	b := make([]byte, 2)
-	binary.BigEndian.PutUint16(b, uint16(p))
-	return binary.LittleEndian.Uint16(b)
+	v := uint16(p)
+	return v>>8 | v<<8
 }
 
 // uint32ToIPStr converts a Kmesh BPF IP value (stored in host/little-endian order) to a dotted IP string.

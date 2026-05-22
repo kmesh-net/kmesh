@@ -42,7 +42,6 @@ var log = logger.NewLoggerScope("kmeshctl/trace")
 var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 func NewCmd() *cobra.Command {
-	var srcIP string
 	var dstIP string
 	var port int
 
@@ -57,20 +56,25 @@ func NewCmd() *cobra.Command {
 				log.Errorf("Error: --dst and --port flags are required")
 				os.Exit(1)
 			}
-			if err := RunTrace(cmd, args[0], srcIP, dstIP, port); err != nil {
+			if err := RunTrace(cmd, args[0], dstIP, port); err != nil {
 				log.Errorf("Error: %v", err)
 				os.Exit(1)
 			}
 		},
 	}
 
-	cmd.Flags().StringVar(&srcIP, "src", "", "Source IP (optional)")
 	cmd.Flags().StringVar(&dstIP, "dst", "", "Destination IP")
 	cmd.Flags().IntVar(&port, "port", 0, "Destination Port")
 	return cmd
 }
 
-func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error {
+func RunTrace(cmd *cobra.Command, podName, dstIP string, port int) error {
+	parsedDst := net.ParseIP(dstIP)
+	if parsedDst == nil || parsedDst.To4() == nil {
+		return fmt.Errorf("invalid --dst IPv4 address: %q", dstIP)
+	}
+	dstUint := binary.LittleEndian.Uint32(parsedDst.To4())
+
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
 		return fmt.Errorf("failed to create cli client: %v", err)
@@ -111,9 +115,7 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 		return fmt.Errorf("failed to parse config dump: %v", err)
 	}
 
-	dstUint := ipStrToUint32(dstIP)
-
-	fmt.Printf("\nSIMULATING TRAFFIC PATH: %s → %s:%d\n", getSrcString(srcIP), dstIP, port)
+	fmt.Printf("\nSIMULATING TRAFFIC PATH: Any Client Pod → %s:%d\n", dstIP, port)
 	fmt.Println(strings.Repeat("═", 65))
 
 	static, dynamic := configDump.GetStaticResources(), configDump.GetDynamicResources()
@@ -270,9 +272,11 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 	for _, ep := range endpoints {
 		weight := ep.GetLoadBalancingWeight()
 		for _, lbEp := range ep.GetLbEndpoints() {
-			epAddr := lbEp.GetAddress()
-			epIP := uint32ToIPStr(epAddr.GetIpv4())
-			epPort := parsePort(epAddr.GetPort())
+			epIP, epPort := "-", uint16(0)
+			if epAddr := lbEp.GetAddress(); epAddr != nil {
+				epIP = uint32ToIPStr(epAddr.GetIpv4())
+				epPort = parsePort(epAddr.GetPort())
+			}
 			fmt.Printf("  → Endpoint %d: %s:%d (Weight: %d)\n", count+1, epIP, epPort, weight)
 			count++
 		}
@@ -284,32 +288,10 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 	return nil
 }
 
-func getSrcString(src string) string {
-	if src == "" {
-		return "Any Client Pod"
-	}
-	return src
-}
-
-// ipStrToUint32 converts a dotted IP string to a uint32 in host/little-endian order,
-// consistent with how Kmesh BPF maps store IP addresses.
-func ipStrToUint32(ipStr string) uint32 {
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return 0
-	}
-	ip4 := ip.To4()
-	if ip4 == nil {
-		return 0
-	}
-	return binary.LittleEndian.Uint32(ip4)
-}
-
 // parsePort converts a Kmesh BPF port value (stored in big-endian) to host uint16.
 func parsePort(p uint32) uint16 {
-	b := make([]byte, 2)
-	binary.BigEndian.PutUint16(b, uint16(p))
-	return binary.LittleEndian.Uint16(b)
+	v := uint16(p)
+	return v>>8 | v<<8
 }
 
 // uint32ToIPStr converts a Kmesh BPF IP value (stored in host/little-endian order) to a dotted IP string.
