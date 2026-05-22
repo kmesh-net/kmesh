@@ -432,3 +432,133 @@ func runIngressTest(t *testing.T, f func(t framework.TestContext, src ingress.In
 		}
 	})
 }
+
+const (
+	defaultEgressServiceName      = "istio-egressgateway"
+	defaultEgressServiceNamespace = "istio-system"
+)
+
+// TestEgress verifies that traffic from mesh pods can be routed through the egress gateway before reaching an external service. We use one of the existing echo apps as the "external" backend (registered under a fake hostname) so the test doesn't need real internet access.
+func TestEgress(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		dst := apps.EnrolledToKmesh
+		if len(dst) == 0 {
+			t.Skip("no enrolled-to-kmesh instances found")
+			return
+		}
+
+		dstIP := dst[0].Address()
+		dstPort := dst[0].Config().Ports.MustForName("http").ServicePort
+
+		// the virtual IP below is IPv4 — skip in IPv6-only clusters
+		if ip := net.ParseIP(dstIP); ip != nil && ip.To4() == nil {
+			t.Skip("skipping egress test in IPv6-only environment: ServiceEntry virtual IP is IPv4")
+			return
+		}
+
+		// 240.240.0.100 is in the range Istio reserves for ServiceEntry virtual IPs, so it won't clash
+		// with any real pod or service address.
+		const (
+			externalHost = "external-svc.example.com"
+			externalVIP  = "240.240.0.100"
+		)
+
+		// Apply config once for all source subtests — it only depends on dst, not src.
+		t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+			"ExternalHost": externalHost,
+			"ExternalVIP":  externalVIP,
+			"DstIP":        dstIP,
+			"DstPort":      fmt.Sprintf("%d", dstPort),
+			"EgressSvc":    defaultEgressServiceName,
+			"EgressNs":     defaultEgressServiceNamespace,
+		}, `
+apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-svc
+spec:
+  hosts:
+  - "{{.ExternalHost}}"
+  addresses:
+  - {{.ExternalVIP}}
+  ports:
+  - number: 80
+    name: http
+    protocol: HTTP
+  location: MESH_EXTERNAL
+  resolution: STATIC
+  endpoints:
+  - address: {{.DstIP}}
+    ports:
+      http: {{.DstPort}}
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: egress-gateway
+spec:
+  selector:
+    istio: egressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "{{.ExternalHost}}"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: external-svc-via-egress
+spec:
+  hosts:
+  - "{{.ExternalHost}}"
+  gateways:
+  - egress-gateway
+  - mesh
+  http:
+  # traffic from mesh pods: divert it to the egress gateway first
+  - match:
+    - gateways:
+      - mesh
+      port: 80
+    route:
+    - destination:
+        host: {{.EgressSvc}}.{{.EgressNs}}.svc.cluster.local
+        port:
+          number: 80
+  # traffic arriving at the egress gateway: forward to the actual destination
+  - match:
+    - gateways:
+      - egress-gateway
+      port: 80
+    route:
+    - destination:
+        host: "{{.ExternalHost}}"
+        port:
+          number: 80
+`).ApplyOrFail(t)
+
+		for _, src := range apps.All {
+			src := src
+			t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
+				opt := echo.CallOptions{
+					// Do NOT set To — we route by raw Address+Port so the echo caller
+					// doesn't try to resolve endpoints from the Instances slice.
+					Address: externalVIP,
+					Port:    echo.Port{ServicePort: 80},
+					Scheme:  scheme.HTTP,
+					Count:   5,
+					Timeout: time.Second * 10,
+					Check:   check.OK(),
+					HTTP: echo.HTTP{
+						Headers: map[string][]string{},
+					},
+				}
+				opt.HTTP.Headers.Set(headers.Host, externalHost)
+				src.CallOrFail(t, opt)
+			})
+		}
+	})
+}
