@@ -23,8 +23,8 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -38,6 +38,8 @@ import (
 )
 
 var log = logger.NewLoggerScope("kmeshctl/trace")
+
+var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 func NewCmd() *cobra.Command {
 	var srcIP string
@@ -84,11 +86,20 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s/debug/config_dump/kernel-native", fw.Address())
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return fmt.Errorf("failed to make HTTP request to status server: %v", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		msg := strings.TrimSpace(string(body))
+		if msg != "" {
+			return fmt.Errorf("config dump request failed with status %s: %s", resp.Status, msg)
+		}
+		return fmt.Errorf("config dump request failed with status %s", resp.Status)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -107,7 +118,6 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 
 	static, dynamic := configDump.GetStaticResources(), configDump.GetDynamicResources()
 
-	// Step 1: Find Matching Listener
 	var matchedListener *listener.Listener
 	findListener := func(res *adminv2.ConfigResources) {
 		if res == nil || matchedListener != nil {
@@ -117,7 +127,6 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 			if sa := l.GetAddress(); sa != nil {
 				lIpv4 := sa.GetIpv4()
 				lPort := parsePort(sa.GetPort())
-				// Match exact IP and Port, or Wildcard IP (0.0.0.0 / 0) and exact Port
 				if (lIpv4 == dstUint || lIpv4 == 0) && int(lPort) == port {
 					matchedListener = l
 					return
@@ -140,7 +149,6 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 		fmt.Printf("  Address: %s:%d\n", uint32ToIPStr(sa.GetIpv4()), parsePort(sa.GetPort()))
 	}
 
-	// Step 2: Parse Filters & Route Configuration
 	var routeConfigName string
 	var directCluster string
 	isHTTP := false
@@ -169,7 +177,6 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 		fmt.Printf("STEP 2: [✓] HTTP FILTER CHAIN FOUND\n")
 		fmt.Printf("  Route Configuration Name: %s\n", routeConfigName)
 
-		// Find Route config
 		var matchedRoute *route.RouteConfiguration
 		findRoute := func(res *adminv2.ConfigResources) {
 			if res == nil || matchedRoute != nil {
@@ -190,11 +197,9 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 			return nil
 		}
 
-		// Find matching virtual host (we default to the first one or match host domain if available)
 		var matchedVirtualHost *route.VirtualHost
 		if len(matchedRoute.GetVirtualHosts()) > 0 {
-			matchedVirtualHost = matchedRoute.GetVirtualHosts()[0] // default fallback
-			// Try to match domain
+			matchedVirtualHost = matchedRoute.GetVirtualHosts()[0]
 			for _, vh := range matchedRoute.GetVirtualHosts() {
 				for _, dom := range vh.GetDomains() {
 					if dom == "*" || dom == dstIP {
@@ -213,7 +218,6 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 		fmt.Printf("  Virtual Host Matched: %s (Domains: %s)\n",
 			matchedVirtualHost.GetName(), strings.Join(matchedVirtualHost.GetDomains(), ", "))
 
-		// Match the route destination cluster
 		if len(matchedVirtualHost.GetRoutes()) > 0 {
 			r := matchedVirtualHost.GetRoutes()[0]
 			if routeAction := r.GetRoute(); routeAction != nil {
@@ -233,7 +237,6 @@ func RunTrace(cmd *cobra.Command, podName, srcIP, dstIP string, port int) error 
 	fmt.Printf("STEP 3: [✓] TARGET CLUSTER RESOLVED\n")
 	fmt.Printf("  Cluster Name: %s\n", targetCluster)
 
-	// Step 4: Find Cluster and Backend Endpoints
 	var matchedCluster *cluster.Cluster
 	findCluster := func(res *adminv2.ConfigResources) {
 		if res == nil || matchedCluster != nil {
@@ -288,14 +291,11 @@ func getSrcString(src string) string {
 	return src
 }
 
+// ipStrToUint32 converts a dotted IP string to a uint32 in host/little-endian order,
+// consistent with how Kmesh BPF maps store IP addresses.
 func ipStrToUint32(ipStr string) uint32 {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {
-		// Try parsing as int directly
-		val, err := strconv.Atoi(ipStr)
-		if err == nil {
-			return uint32(val)
-		}
 		return 0
 	}
 	ip4 := ip.To4()
@@ -305,12 +305,14 @@ func ipStrToUint32(ipStr string) uint32 {
 	return binary.LittleEndian.Uint32(ip4)
 }
 
+// parsePort converts a Kmesh BPF port value (stored in big-endian) to host uint16.
 func parsePort(p uint32) uint16 {
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, uint16(p))
 	return binary.LittleEndian.Uint16(b)
 }
 
+// uint32ToIPStr converts a Kmesh BPF IP value (stored in host/little-endian order) to a dotted IP string.
 func uint32ToIPStr(ip uint32) string {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, ip)

@@ -25,6 +25,7 @@ import (
 	"os"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -38,6 +39,8 @@ import (
 )
 
 var log = logger.NewLoggerScope("kmeshctl/service")
+
+var httpClient = &http.Client{Timeout: 10 * time.Second}
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -75,11 +78,20 @@ func RunService(cmd *cobra.Command, args []string) error {
 	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s/debug/config_dump/kernel-native", fw.Address())
-	resp, err := http.Get(url)
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		return fmt.Errorf("failed to make HTTP request to status server: %v", err)
 	}
 	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		msg := strings.TrimSpace(string(body))
+		if msg != "" {
+			return fmt.Errorf("config dump request failed with status %s: %s (daemon may be running in dual-engine mode)", resp.Status, msg)
+		}
+		return fmt.Errorf("config dump request failed with status %s (daemon may be running in dual-engine mode)", resp.Status)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -93,7 +105,6 @@ func RunService(cmd *cobra.Command, args []string) error {
 
 	static, dynamic := configDump.GetStaticResources(), configDump.GetDynamicResources()
 
-	// --- Step 1: Collect matching routes and clusters ---
 	matchingRouteNames := map[string]bool{}
 	matchingClusterNames := map[string]bool{}
 
@@ -137,9 +148,6 @@ func RunService(cmd *cobra.Command, args []string) error {
 	collectClusters(static)
 	collectClusters(dynamic)
 
-	// --- Step 2: Find listeners that reference matching routes or clusters ---
-	// Listener names are IP_PORT format (e.g. 10.96.0.10_53), not service names.
-	// We must correlate via filter chain content.
 	var matchingListeners []*listener.Listener
 	seenListeners := map[string]bool{}
 
@@ -154,7 +162,6 @@ func RunService(cmd *cobra.Command, args []string) error {
 			matched := false
 			for _, fc := range l.GetFilterChains() {
 				for _, f := range fc.GetFilters() {
-					// HTTP filter: check route config name
 					if hcm := f.GetHttpConnectionManager(); hcm != nil {
 						rcName := hcm.GetRouteConfigName()
 						if rcName == "" && hcm.GetRouteConfig() != nil {
@@ -164,7 +171,6 @@ func RunService(cmd *cobra.Command, args []string) error {
 							matched = true
 						}
 					}
-					// TCP filter: check cluster name
 					if tp := f.GetTcpProxy(); tp != nil {
 						if matchingClusterNames[tp.GetCluster()] {
 							matched = true
@@ -185,13 +191,11 @@ func RunService(cmd *cobra.Command, args []string) error {
 	collectListeners(static)
 	collectListeners(dynamic)
 
-	// --- Print results ---
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 
 	fmt.Printf("\nSERVICE FILTER: %s\n", serviceName)
 	fmt.Println(strings.Repeat("═", 60))
 
-	// Listeners table
 	fmt.Fprintln(w, "\n[LISTENERS]")
 	fmt.Fprintln(w, "NAME\tADDRESS\tPORT\tTYPE")
 	if len(matchingListeners) == 0 {
@@ -204,7 +208,6 @@ func RunService(cmd *cobra.Command, args []string) error {
 			addr = uint32ToIPStr(sa.GetIpv4())
 			port = fmt.Sprintf("%d", parsePort(sa.GetPort()))
 		}
-		// Detect HTTP vs TCP from filter chains
 		for _, fc := range l.GetFilterChains() {
 			for _, f := range fc.GetFilters() {
 				if f.GetHttpConnectionManager() != nil {
@@ -216,7 +219,6 @@ func RunService(cmd *cobra.Command, args []string) error {
 	}
 	_ = w.Flush()
 
-	// Routes table
 	fmt.Fprintln(w, "\n[ROUTES]")
 	fmt.Fprintln(w, "ROUTE_NAME\tVIRTUAL_HOST\tDOMAINS")
 	if len(matchingRoutes) == 0 {
@@ -232,7 +234,6 @@ func RunService(cmd *cobra.Command, args []string) error {
 	}
 	_ = w.Flush()
 
-	// Clusters table
 	fmt.Fprintln(w, "\n[CLUSTERS & ENDPOINTS]")
 	fmt.Fprintln(w, "CLUSTER_NAME\tLB_POLICY\tENDPOINT_IP\tENDPOINT_PORT")
 	if len(matchingClusters) == 0 {
@@ -246,9 +247,11 @@ func RunService(cmd *cobra.Command, args []string) error {
 		} else {
 			for _, ep := range endpoints {
 				for _, lbEp := range ep.GetLbEndpoints() {
-					epAddr := lbEp.GetAddress()
-					epIP := uint32ToIPStr(epAddr.GetIpv4())
-					epPort := fmt.Sprintf("%d", parsePort(epAddr.GetPort()))
+					epIP, epPort := "-", "-"
+					if epAddr := lbEp.GetAddress(); epAddr != nil {
+						epIP = uint32ToIPStr(epAddr.GetIpv4())
+						epPort = fmt.Sprintf("%d", parsePort(epAddr.GetPort()))
+					}
 					fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", c.GetName(), lbPolicy, epIP, epPort)
 				}
 			}
@@ -260,12 +263,14 @@ func RunService(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// parsePort converts a Kmesh BPF port value (stored in big-endian) to host uint16.
 func parsePort(p uint32) uint16 {
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, uint16(p))
 	return binary.LittleEndian.Uint16(b)
 }
 
+// uint32ToIPStr converts a Kmesh BPF IP value (stored in host/little-endian order) to a dotted IP string.
 func uint32ToIPStr(ip uint32) string {
 	b := make([]byte, 4)
 	binary.LittleEndian.PutUint32(b, ip)

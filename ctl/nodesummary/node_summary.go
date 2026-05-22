@@ -23,23 +23,38 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sync"
 	"text/tabwriter"
+	"time"
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
 )
 
 var log = logger.NewLoggerScope("kmeshctl/node-summary")
 
+var httpClient = &http.Client{Timeout: 10 * time.Second}
+
 type workloadDump struct {
 	Workloads []interface{} `json:"workloads"`
 	Services  []interface{} `json:"services"`
 	Policies  []interface{} `json:"policies"`
+}
+
+type summaryRow struct {
+	nodeName       string
+	podName        string
+	mode           string
+	vStr           string
+	listenersCount int
+	clustersCount  int
+	routesCount    int
 }
 
 func NewCmd() *cobra.Command {
@@ -75,92 +90,112 @@ func RunNodeSummary(cmd *cobra.Command) error {
 		return nil
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	fmt.Fprintln(w, "\nNODE_NAME\tKMESH_POD\tMODE\tVERSION\tLISTENERS/WORKLOADS\tCLUSTERS/SERVICES\tROUTES/POLICIES")
+	var (
+		wg   sync.WaitGroup
+		mu   sync.Mutex
+		rows = make([]summaryRow, 0, len(podList.Items))
+	)
 
 	for _, pod := range podList.Items {
-		podName := pod.GetName()
-		nodeName := pod.Spec.NodeName
-		if nodeName == "" {
-			nodeName = "-"
-		}
-
-		fw, err := utils.CreateKmeshPortForwarder(cli, podName)
-		if err != nil {
-			fmt.Fprintf(w, "%s\t%s\tError\t-\t-\t-\t-\n", nodeName, podName)
-			continue
-		}
-		if err := fw.Start(); err != nil {
-			fmt.Fprintf(w, "%s\t%s\tOffline\t-\t-\t-\t-\n", nodeName, podName)
-			fw.Close()
-			continue
-		}
-
-		// 1. Fetch version using the same struct as kmeshctl version
-		vStr := "-"
-		respV, err := http.Get(fmt.Sprintf("http://%s/version", fw.Address()))
-		if err == nil && respV.StatusCode == http.StatusOK {
-			bodyV, _ := io.ReadAll(respV.Body)
-			respV.Body.Close()
-			var v version.Info
-			if json.Unmarshal(bodyV, &v) == nil && v.GitVersion != "" {
-				vStr = v.GitVersion
-			}
-		} else if respV != nil {
-			respV.Body.Close()
-		}
-
-		// 2. Fetch mode and counts by trying kernel-native first
-		mode := "unknown"
-		listenersCount, clustersCount, routesCount := 0, 0, 0
-
-		respKN, err := http.Get(fmt.Sprintf("http://%s/debug/config_dump/kernel-native", fw.Address()))
-		if err == nil && respKN.StatusCode == http.StatusOK {
-			mode = "kernel-native"
-			bodyKN, _ := io.ReadAll(respKN.Body)
-			respKN.Body.Close()
-			configDump := &adminv2.ConfigDump{}
-			if protojson.Unmarshal(bodyKN, configDump) == nil {
-				static, dynamic := configDump.GetStaticResources(), configDump.GetDynamicResources()
-				if static != nil {
-					listenersCount += len(static.GetListenerConfigs())
-					clustersCount += len(static.GetClusterConfigs())
-					routesCount += len(static.GetRouteConfigs())
-				}
-				if dynamic != nil {
-					listenersCount += len(dynamic.GetListenerConfigs())
-					clustersCount += len(dynamic.GetClusterConfigs())
-					routesCount += len(dynamic.GetRouteConfigs())
-				}
-			}
-		} else {
-			if respKN != nil {
-				respKN.Body.Close()
-			}
-			// Try dual-engine
-			respDE, err := http.Get(fmt.Sprintf("http://%s/debug/config_dump/dual-engine", fw.Address()))
-			if err == nil && respDE.StatusCode == http.StatusOK {
-				mode = "dual-engine"
-				bodyDE, _ := io.ReadAll(respDE.Body)
-				respDE.Body.Close()
-				var deDump workloadDump
-				if json.Unmarshal(bodyDE, &deDump) == nil {
-					listenersCount = len(deDump.Workloads)
-					clustersCount = len(deDump.Services)
-					routesCount = len(deDump.Policies)
-				}
-			} else if respDE != nil {
-				respDE.Body.Close()
-			}
-		}
-
-		fw.Close()
-
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t%d\n",
-			nodeName, podName, mode, vStr, listenersCount, clustersCount, routesCount)
+		wg.Add(1)
+		go func(cli kube.CLIClient, podName, nodeName string) {
+			defer wg.Done()
+			row := fetchRow(cli, podName, nodeName)
+			mu.Lock()
+			rows = append(rows, row)
+			mu.Unlock()
+		}(cli, pod.GetName(), pod.Spec.NodeName)
 	}
+	wg.Wait()
 
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	fmt.Fprintln(w, "\nNODE_NAME\tKMESH_POD\tMODE\tVERSION\tLISTENERS/WORKLOADS\tCLUSTERS/SERVICES\tROUTES/POLICIES")
+	for _, r := range rows {
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t%d\n",
+			r.nodeName, r.podName, r.mode, r.vStr, r.listenersCount, r.clustersCount, r.routesCount)
+	}
 	_ = w.Flush()
 	fmt.Println()
 	return nil
+}
+
+func fetchRow(cli kube.CLIClient, podName, nodeName string) summaryRow {
+	if nodeName == "" {
+		nodeName = "-"
+	}
+	row := summaryRow{nodeName: nodeName, podName: podName, mode: "unknown", vStr: "-"}
+
+	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
+	if err != nil {
+		return row
+	}
+	if err := fw.Start(); err != nil {
+		fw.Close()
+		row.mode = "Offline"
+		return row
+	}
+	defer fw.Close()
+
+	respV, err := httpClient.Get(fmt.Sprintf("http://%s/version", fw.Address()))
+	if err == nil && respV.StatusCode == http.StatusOK {
+		bodyV, readErr := io.ReadAll(respV.Body)
+		respV.Body.Close()
+		if readErr == nil {
+			var v version.Info
+			if json.Unmarshal(bodyV, &v) == nil && v.GitVersion != "" {
+				row.vStr = v.GitVersion
+			}
+		}
+	} else if respV != nil {
+		respV.Body.Close()
+	}
+
+	respKN, err := httpClient.Get(fmt.Sprintf("http://%s/debug/config_dump/kernel-native", fw.Address()))
+	if err == nil && respKN.StatusCode == http.StatusOK {
+		row.mode = "kernel-native"
+		bodyKN, readErr := io.ReadAll(respKN.Body)
+		respKN.Body.Close()
+		if readErr != nil {
+			row.mode = "Error"
+			return row
+		}
+		configDump := &adminv2.ConfigDump{}
+		if protojson.Unmarshal(bodyKN, configDump) == nil {
+			static, dynamic := configDump.GetStaticResources(), configDump.GetDynamicResources()
+			if static != nil {
+				row.listenersCount += len(static.GetListenerConfigs())
+				row.clustersCount += len(static.GetClusterConfigs())
+				row.routesCount += len(static.GetRouteConfigs())
+			}
+			if dynamic != nil {
+				row.listenersCount += len(dynamic.GetListenerConfigs())
+				row.clustersCount += len(dynamic.GetClusterConfigs())
+				row.routesCount += len(dynamic.GetRouteConfigs())
+			}
+		}
+		return row
+	} else if respKN != nil {
+		respKN.Body.Close()
+	}
+
+	respDE, err := httpClient.Get(fmt.Sprintf("http://%s/debug/config_dump/dual-engine", fw.Address()))
+	if err == nil && respDE.StatusCode == http.StatusOK {
+		row.mode = "dual-engine"
+		bodyDE, readErr := io.ReadAll(respDE.Body)
+		respDE.Body.Close()
+		if readErr != nil {
+			row.mode = "Error"
+			return row
+		}
+		var deDump workloadDump
+		if json.Unmarshal(bodyDE, &deDump) == nil {
+			row.listenersCount = len(deDump.Workloads)
+			row.clustersCount = len(deDump.Services)
+			row.routesCount = len(deDump.Policies)
+		}
+	} else if respDE != nil {
+		respDE.Body.Close()
+	}
+
+	return row
 }
