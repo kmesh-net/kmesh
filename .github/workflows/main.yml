@@ -65,7 +65,7 @@ jobs:
       uses: golangci/golangci-lint-action@v6
       with:
         args: "--config=common/config/.golangci.yaml --out-format colored-line-number"
-        cache: false
+        skip-cache: true
 
     - name: Go Test
       run: |
