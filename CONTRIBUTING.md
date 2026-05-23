@@ -15,6 +15,7 @@ Welcome to Kmesh!
   - [AI Guidance](#ai-guidance)
   - [Contributor Workflow](#contributor-workflow)
     - [Creating Pull Requests](#creating-pull-requests)
+    - [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
     - [Code Review](#code-review)
   - [Membership](#membership)
 
@@ -103,6 +104,38 @@ fail of continuous integration.
 - To compile, refer to [Compile and Build Kmesh](https://kmesh.net/docs/setup/develop-with-kind/)
 - To run unit test, refer to [Run Unit Test](https://kmesh.net/docs/developer-guide/tests/unit-test/)
 - To run e2e test, refer to [Run E2E Test](https://kmesh.net/docs/developer-guide/tests/e2e-test/)
+
+### Developer Certificate of Origin (DCO)
+
+To ensure that every contribution to Kmesh is intentionally made and that we have the legal right to include it, we require every commit to be "signed off." This is a way of certifying that you have the right to submit the code under the project's license.
+
+Every commit must include a `Signed-off-by` line in the commit message:
+
+```text
+Signed-off-by: Your Name <your-email@example.com>
+```
+
+You can automatically add this line by using the `-s` (or `--signoff`) flag when committing:
+
+```bash
+git commit -s -m "your commit message"
+```
+
+#### Fixing missing sign-offs
+
+If you have already submitted a PR and the DCO check fails, you can fix it using an interactive rebase:
+
+1. Identify how many commits back you need to go (e.g., `HEAD~3`).
+2. Start an interactive rebase: `git rebase -i HEAD~3`.
+3. In the editor that opens, change `pick` to `edit` (or `e`) for each commit that needs a signature.
+4. For each commit, when git stops, run:
+
+    ```bash
+    git commit --amend --no-edit -s
+    ```
+
+5. Continue the rebase: `git rebase --continue`.
+6. Once finished, force push to your fork: `git push --force-with-lease`.
 
 ### Code Review
 
