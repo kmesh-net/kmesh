@@ -56,7 +56,7 @@ func NewIpSecHandler() *IpSecHandler {
 func (is *IpSecHandler) LoadIPSecKeyFromFile(filePath string) error {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return fmt.Errorf("load ipsec keys failed: %v", err)
+		return fmt.Errorf("load ipsec keys failed: %w", err)
 	}
 	defer file.Close()
 
@@ -72,7 +72,7 @@ func (is *IpSecHandler) loadIPSecKeyFromIO(file *os.File) error {
 	decoder := json.NewDecoder(reader)
 	var key encryption.IpSecKey
 	if err := decoder.Decode(&key); err != nil {
-		return fmt.Errorf("ipsec config file decoder error, %v, please use Kmesh tool generate ipsec secret key", err)
+		return fmt.Errorf("ipsec config file decoder error, %w, please use Kmesh tool generate ipsec secret key", err)
 	}
 	if !strings.HasPrefix(key.AeadKeyName, "rfc") {
 		return fmt.Errorf("ipsec config file error, invalid algo name, aead need begin with \"rfc\"")
@@ -86,7 +86,7 @@ func (is *IpSecHandler) loadIPSecKeyFromIO(file *os.File) error {
 func (h *IpSecHandler) StartWatch(f func()) error {
 	h.watcher = filewatcher.NewWatcher()
 	if err := h.watcher.Add(IpSecKeyFile); err != nil {
-		return fmt.Errorf("failed to add %s to file watcher: %v", IpSecKeyFile, err)
+		return fmt.Errorf("failed to add %s to file watcher: %w", IpSecKeyFile, err)
 	}
 	go func() {
 		log.Infof("start watching file %s", IpSecKeyFile)
@@ -168,7 +168,7 @@ func (is *IpSecHandler) CreateXfrmRule(localNode, remoteNode *v1alpha1.KmeshNode
 
 			if err := is.createXfrmRuleEgress(localNicIP, remoteNicIP, localNode.Spec.BootID, remoteNode.Spec.BootID,
 				ipsecKey, remoteNode.Spec.PodCIDRs); err != nil {
-				return fmt.Errorf("create xfrm out rule failed, %v", err)
+				return fmt.Errorf("create xfrm out rule failed, %w", err)
 			}
 		}
 	}
@@ -203,16 +203,16 @@ func (is *IpSecHandler) createXfrmRuleIngress(rawRemoteIP, rawLocalNicIP, remote
 
 	_, remoteCIDR, err := net.ParseCIDR(constants.ALL_CIDR)
 	if err != nil {
-		return fmt.Errorf("failed to parser podCIDR in inserting xfrm rule, %v", err)
+		return fmt.Errorf("failed to parser podCIDR in inserting xfrm rule, %w", err)
 	}
 
 	for _, pocCIDR := range podCIDRs {
 		_, localCIDR, err := net.ParseCIDR(pocCIDR)
 		if err != nil {
-			return fmt.Errorf("failed to parser podCIDR in inserting xfrm rule, %v", err)
+			return fmt.Errorf("failed to parser podCIDR in inserting xfrm rule, %w", err)
 		}
 		if err = is.createPolicyRule(remoteCIDR, localCIDR, src, dst, 0, true); err != nil {
-			return fmt.Errorf("failed to create policy rule, %v", err)
+			return fmt.Errorf("failed to create policy rule, %w", err)
 		}
 	}
 
@@ -245,16 +245,16 @@ func (is *IpSecHandler) createXfrmRuleEgress(rawLocalNicIP, rawRemoteIP, localBo
 
 	_, localCIDR, err := net.ParseCIDR(constants.ALL_CIDR)
 	if err != nil {
-		return fmt.Errorf("failed to parser podCIDR in inserting xfrm rule, %v", err)
+		return fmt.Errorf("failed to parser podCIDR in inserting xfrm rule, %w", err)
 	}
 
 	for _, podCIDR := range podCIDRs {
 		_, remoteCIDR, err := net.ParseCIDR(podCIDR)
 		if err != nil {
-			return fmt.Errorf("failed to parser podCIDR in inserting xfrm rule, %v", err)
+			return fmt.Errorf("failed to parser podCIDR in inserting xfrm rule, %w", err)
 		}
 		if err = is.createPolicyRule(localCIDR, remoteCIDR, src, dst, ipsecKey.Spi, false); err != nil {
-			return fmt.Errorf("failed to create policy rule, %v", err)
+			return fmt.Errorf("failed to create policy rule, %w", err)
 		}
 	}
 
@@ -285,7 +285,7 @@ func (is *IpSecHandler) createStateRule(src net.IP, dst net.IP, key []byte, ipse
 
 	err := netlink.XfrmStateAdd(state)
 	if err != nil && !os.IsExist(err) {
-		return fmt.Errorf("failed to add xfrm state to host in inserting xfrm out rule, %v", err)
+		return fmt.Errorf("failed to add xfrm state to host in inserting xfrm out rule, %w", err)
 	}
 	return nil
 }
@@ -342,7 +342,7 @@ func (*IpSecHandler) xfrmPolicyCreateOrUpdate(policy *netlink.XfrmPolicy) error 
 		err = netlink.XfrmPolicyUpdate(policy)
 	}
 	if err != nil {
-		return fmt.Errorf("failed to add xfrm policy to host in inserting xfrm fwd rule, %v", err)
+		return fmt.Errorf("failed to add xfrm policy to host in inserting xfrm fwd rule, %w", err)
 	}
 	return nil
 }

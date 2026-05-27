@@ -116,7 +116,7 @@ func RouteConfigUpdate(key string, value *route_v2.RouteConfiguration) error {
 
 	cMsg, err := routeConfigToClang(value)
 	if err != nil {
-		return fmt.Errorf("RouteConfigUpdate %s", err)
+		return fmt.Errorf("RouteConfigUpdate %w", err)
 	}
 	if cMsg == nil {
 		return nil

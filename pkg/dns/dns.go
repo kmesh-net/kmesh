@@ -144,7 +144,7 @@ func (r *DNSResolver) resolve(domainName string) ([]string, time.Duration, error
 
 	addrs, ttl, err := r.doResolve(domainName)
 	if err != nil {
-		return []string{}, DeRefreshInterval, fmt.Errorf("dns resolve failed: %v", err)
+		return []string{}, DeRefreshInterval, fmt.Errorf("dns resolve failed: %w", err)
 	}
 
 	r.RLock()
