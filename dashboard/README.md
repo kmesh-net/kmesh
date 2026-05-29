@@ -15,6 +15,7 @@ The dashboard aims to provide a simplified experience through intuitive interfac
 ## ✨ Features
 
 ### 🛣️ Waypoint Management
+
 - One-click waypoint installation
 - Guided setup workflows
 - Support for:
@@ -24,12 +25,14 @@ The dashboard aims to provide a simplified experience through intuitive interfac
 - Real-time deployment status and validation
 
 ### 🌐 Service Topology Visualization
+
 - Interactive service dependency graph
 - Traffic flow visualization
 - Health status indicators
 - Similar experience to Kiali topology view
 
 ### ⚙️ Traffic Management Policies
+
 - Simplified Circuit Breaker configuration
 - Preset policy templates
 - Real-time validation
@@ -37,6 +40,7 @@ The dashboard aims to provide a simplified experience through intuitive interfac
 - Immediate feedback for applied configurations
 
 ### 📊 Observability & Metrics
+
 - Service mesh performance dashboard
 - Latency monitoring
 - Error rate tracking
@@ -44,11 +48,13 @@ The dashboard aims to provide a simplified experience through intuitive interfac
 - Integrated metrics view
 
 ### 🔐 Authentication & Security
+
 - Built-in authentication support
 - Role-Based Access Control (RBAC)
 - Secure dashboard access
 
 ### 📚 Documentation
+
 - User guides
 - Setup instructions
 - Feature walkthroughs
@@ -153,6 +159,7 @@ npm run dev
 Contributions are welcome and appreciated! 🎉
 
 If you'd like to contribute:
+
 1. 🍴 Fork the repository
 2. 🌱 Create a feature branch
 3. 💾 Commit your changes
@@ -164,8 +171,8 @@ Please follow coding standards and include documentation for new features.
 
 ## 🔗 Related Links
 
-- Kmesh Project: https://github.com/kmesh-net/kmesh
-- Upstream Issue: https://github.com/kmesh-net/kmesh/issues/1552
+- Kmesh Project: <https://github.com/kmesh-net/kmesh>
+- Upstream Issue: <https://github.com/kmesh-net/kmesh/issues/1552>
 
 ---
 
