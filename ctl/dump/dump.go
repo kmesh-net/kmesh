@@ -81,10 +81,6 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 
 	if len(args) == 1 {
 		mode = args[0]
-		if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
-			log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
-			os.Exit(1)
-		}
 		// Find kmesh daemon pods automatically
 		pods, err := utils.GetKmeshDaemonPods(cli)
 		if err != nil {
@@ -100,10 +96,11 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	} else {
 		podName = args[0]
 		mode = args[1]
-		if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
-			log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
-			os.Exit(1)
-		}
+	}
+
+	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
+		log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
+		os.Exit(1)
 	}
 
 	fw, err := utils.CreateKmeshPortForwarder(cli, podName)

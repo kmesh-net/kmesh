@@ -20,7 +20,6 @@ import (
 	"context"
 	"fmt"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"kmesh.net/kmesh/pkg/kube"
 )
 
@@ -54,6 +53,9 @@ func GetKmeshDaemonPods(cli kube.CLIClient) ([]string, error) {
 	podList, err := cli.PodsForSelector(context.TODO(), KmeshNamespace, KmeshLabel)
 	if err != nil {
 		return nil, err
+	}
+	if podList == nil {
+		return nil, nil
 	}
 	var podNames []string
 	for _, pod := range podList.Items {

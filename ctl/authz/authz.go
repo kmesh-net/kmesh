@@ -18,7 +18,6 @@ package authz
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
