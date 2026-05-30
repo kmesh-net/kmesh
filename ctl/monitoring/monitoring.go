@@ -18,7 +18,6 @@ package monitoring
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"

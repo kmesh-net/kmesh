@@ -18,6 +18,7 @@ package utils
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	v1 "k8s.io/api/core/v1"
@@ -39,28 +40,50 @@ func (m *mockCLIClient) PodsForSelector(ctx context.Context, namespace string, l
 }
 
 func TestGetKmeshDaemonPods(t *testing.T) {
-	mockPods := &v1.PodList{
-		Items: []v1.Pod{
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "kmesh-daemon-1",
+	t.Run("success case", func(t *testing.T) {
+		mockPods := &v1.PodList{
+			Items: []v1.Pod{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "kmesh-daemon-1",
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "kmesh-daemon-2",
+					},
 				},
 			},
-			{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "kmesh-daemon-2",
-				},
-			},
-		},
-	}
+		}
 
-	cli := &mockCLIClient{pods: mockPods}
-	pods, err := GetKmeshDaemonPods(cli)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+		cli := &mockCLIClient{pods: mockPods}
+		pods, err := GetKmeshDaemonPods(cli)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
 
-	if len(pods) != 2 || pods[0] != "kmesh-daemon-1" || pods[1] != "kmesh-daemon-2" {
-		t.Errorf("expected [kmesh-daemon-1, kmesh-daemon-2], got %v", pods)
-	}
+		if len(pods) != 2 || pods[0] != "kmesh-daemon-1" || pods[1] != "kmesh-daemon-2" {
+			t.Errorf("expected [kmesh-daemon-1, kmesh-daemon-2], got %v", pods)
+		}
+	})
+
+	t.Run("nil podList case", func(t *testing.T) {
+		cli := &mockCLIClient{pods: nil}
+		pods, err := GetKmeshDaemonPods(cli)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if pods != nil {
+			t.Errorf("expected nil pods, got %v", pods)
+		}
+	})
+
+	t.Run("error propagation case", func(t *testing.T) {
+		expectedErr := errors.New("mock selector error")
+		cli := &mockCLIClient{err: expectedErr}
+		_, err := GetKmeshDaemonPods(cli)
+		if err == nil || err.Error() != expectedErr.Error() {
+			t.Errorf("expected error %v, got %v", expectedErr, err)
+		}
+	})
 }

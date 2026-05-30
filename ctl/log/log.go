@@ -210,30 +210,33 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 	}
 
 	for _, podName := range targetPods {
-		if len(targetPods) > 1 {
-			fmt.Printf("Pod: %s\n", podName)
-		}
-		fw, err := utils.CreateKmeshPortForwarder(cli, podName)
-		if err != nil {
-			log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-			continue
-		}
-		if err := fw.Start(); err != nil {
-			log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-			continue
-		}
-
-		url := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
-		if setFlag == "" {
-			if loggerName != "" {
-				url += fmt.Sprintf("?name=%s", loggerName)
-				GetLoggerLevel(url)
-			} else {
-				GetLoggerNames(url)
+		func() {
+			if len(targetPods) > 1 {
+				fmt.Printf("Pod: %s\n", podName)
 			}
-		} else {
-			SetLoggerLevel(url, setFlag)
-		}
-		fw.Close()
+			fw, err := utils.CreateKmeshPortForwarder(cli, podName)
+			if err != nil {
+				log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
+				return
+			}
+			defer fw.Close()
+
+			if err := fw.Start(); err != nil {
+				log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+				return
+			}
+
+			url := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
+			if setFlag == "" {
+				if loggerName != "" {
+					url += fmt.Sprintf("?name=%s", loggerName)
+					GetLoggerLevel(url)
+				} else {
+					GetLoggerNames(url)
+				}
+			} else {
+				SetLoggerLevel(url, setFlag)
+			}
+		}()
 	}
 }

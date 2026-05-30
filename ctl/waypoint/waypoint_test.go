@@ -39,6 +39,11 @@ func TestNamespaceOrDefault(t *testing.T) {
 }
 
 func TestGetKmeshWaypointImage(t *testing.T) {
+	oldImage := image
+	t.Cleanup(func() {
+		image = oldImage
+	})
+
 	// Test when image variable is set manually
 	image = "my-custom-image:latest"
 	got := getKmeshWaypointImage()
