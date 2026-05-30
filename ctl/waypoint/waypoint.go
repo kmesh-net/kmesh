@@ -553,6 +553,13 @@ func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gw []ga
 				break
 			}
 		}
+		// Initialize cond with default values if Programmed condition not found
+		if cond.Type == "" {
+			cond.Status = metav1.ConditionStatus(kstatus.StatusUnknown)
+			cond.Type = string(gateway.GatewayConditionProgrammed)
+			cond.Reason = "NotFound"
+			cond.Message = "Programmed condition not found"
+		}
 		if namespace == "" {
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", gwc.Namespace, gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
 		} else {
