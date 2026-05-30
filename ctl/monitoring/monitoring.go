@@ -121,23 +121,23 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		// Perform operations on all kmesh daemons.
-		podList, err := client.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
+		pods, err := utils.GetKmeshDaemonPods(client)
 		if err != nil {
-			log.Errorf("failed to get kmesh podList: %v", err)
+			log.Errorf("failed to get kmesh daemon pods: %v", err)
 			os.Exit(1)
 		}
-		for _, pod := range podList.Items {
+		for _, podName := range pods {
 			if allFlag != "" {
-				SetObservabilityPerKmeshDaemon(client, pod.GetName(), allFlag, MONITORING, patternMonitoring)
+				SetObservabilityPerKmeshDaemon(client, podName, allFlag, MONITORING, patternMonitoring)
 			}
 			if accesslogFlag != "" {
-				SetObservabilityPerKmeshDaemon(client, pod.GetName(), accesslogFlag, ACCESSLOG, patternAccesslog)
+				SetObservabilityPerKmeshDaemon(client, podName, accesslogFlag, ACCESSLOG, patternAccesslog)
 			}
 			if workloadMetricsFlag != "" {
-				SetObservabilityPerKmeshDaemon(client, pod.GetName(), workloadMetricsFlag, WORKLOAD, patternWorkloadMetrics)
+				SetObservabilityPerKmeshDaemon(client, podName, workloadMetricsFlag, WORKLOAD, patternWorkloadMetrics)
 			}
 			if connectionMetricsFlag != "" {
-				SetObservabilityPerKmeshDaemon(client, pod.GetName(), connectionMetricsFlag, CONNECTION, patternConnectionMetrics)
+				SetObservabilityPerKmeshDaemon(client, podName, connectionMetricsFlag, CONNECTION, patternConnectionMetrics)
 			}
 		}
 	}
