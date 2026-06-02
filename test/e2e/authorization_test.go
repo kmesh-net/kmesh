@@ -69,6 +69,7 @@ func waitForXDPOnDstWorkloads(t framework.TestContext, dst echo.Instances) {
 
 func TestIPAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		t.NewSubTest("IP Authorization").Run(func(t framework.TestContext) {
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
@@ -176,6 +177,7 @@ spec:
 
 func TestPortAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		t.NewSubTest("Port Authorization").Run(func(t framework.TestContext) {
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
@@ -299,6 +301,7 @@ spec:
 
 func TestNamespaceAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		t.NewSubTest("Namespace Authorization").Run(func(t framework.TestContext) {
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
@@ -391,6 +394,7 @@ spec:
 
 func TestHeaderAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		t.NewSubTest("Header Authorization").Run(func(t framework.TestContext) {
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
@@ -520,6 +524,7 @@ spec:
 
 func TestHostAuthorization(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
+		requireEnhancedKernelForKernelNative(t)
 		t.NewSubTest("Host Authorization").Run(func(t framework.TestContext) {
 
 			if len(apps.ServiceWithWaypointAtServiceGranularity) == 0 {
