@@ -57,7 +57,7 @@ func TestGetKmeshDaemonPods(t *testing.T) {
 		}
 
 		cli := &mockCLIClient{pods: mockPods}
-		pods, err := GetKmeshDaemonPods(cli)
+		pods, err := GetKmeshDaemonPods(context.TODO(), cli)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -69,7 +69,7 @@ func TestGetKmeshDaemonPods(t *testing.T) {
 
 	t.Run("nil podList case", func(t *testing.T) {
 		cli := &mockCLIClient{pods: nil}
-		pods, err := GetKmeshDaemonPods(cli)
+		pods, err := GetKmeshDaemonPods(context.TODO(), cli)
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -81,7 +81,7 @@ func TestGetKmeshDaemonPods(t *testing.T) {
 	t.Run("error propagation case", func(t *testing.T) {
 		expectedErr := errors.New("mock selector error")
 		cli := &mockCLIClient{err: expectedErr}
-		_, err := GetKmeshDaemonPods(cli)
+		_, err := GetKmeshDaemonPods(context.TODO(), cli)
 		if err == nil || err.Error() != expectedErr.Error() {
 			t.Errorf("expected error %v, got %v", expectedErr, err)
 		}

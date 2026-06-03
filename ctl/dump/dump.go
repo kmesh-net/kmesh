@@ -82,7 +82,7 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	if len(args) == 1 {
 		mode = args[0]
 		// Find kmesh daemon pods automatically
-		pods, err := utils.GetKmeshDaemonPods(cli)
+		pods, err := utils.GetKmeshDaemonPods(cmd.Context(), cli)
 		if err != nil {
 			log.Errorf("failed to get kmesh daemon pods: %v", err)
 			os.Exit(1)

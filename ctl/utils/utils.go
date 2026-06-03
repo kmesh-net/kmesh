@@ -19,6 +19,7 @@ package utils
 import (
 	"context"
 	"fmt"
+	"sort"
 
 	"kmesh.net/kmesh/pkg/kube"
 )
@@ -49,8 +50,8 @@ func CreateKmeshPortForwarder(cliClient kube.CLIClient, podName string) (kube.Po
 }
 
 // GetKmeshDaemonPods returns a list of Kmesh daemon pod names.
-func GetKmeshDaemonPods(cli kube.CLIClient) ([]string, error) {
-	podList, err := cli.PodsForSelector(context.TODO(), KmeshNamespace, KmeshLabel)
+func GetKmeshDaemonPods(ctx context.Context, cli kube.CLIClient) ([]string, error) {
+	podList, err := cli.PodsForSelector(ctx, KmeshNamespace, KmeshLabel)
 	if err != nil {
 		return nil, err
 	}
@@ -61,5 +62,6 @@ func GetKmeshDaemonPods(cli kube.CLIClient) ([]string, error) {
 	for _, pod := range podList.Items {
 		podNames = append(podNames, pod.GetName())
 	}
+	sort.Strings(podNames)
 	return podNames, nil
 }

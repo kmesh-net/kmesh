@@ -120,7 +120,7 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 		}
 	} else {
 		// Perform operations on all kmesh daemons.
-		pods, err := utils.GetKmeshDaemonPods(client)
+		pods, err := utils.GetKmeshDaemonPods(cmd.Context(), client)
 		if err != nil {
 			log.Errorf("failed to get kmesh daemon pods: %v", err)
 			os.Exit(1)
