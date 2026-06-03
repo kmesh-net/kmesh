@@ -179,7 +179,7 @@ The "Design Details" section below is for the real
 nitty-gritty.
 -->
 
-Kmesh needs to collect metrics through the kernel and pass them on to the user mode. In the user mode, accesslog is generated from metrics. And support querying metrics through kemsh localhost:15020.
+Kmesh needs to collect metrics through the kernel and pass them on to the user mode. In the user mode, accesslog is generated from metrics. And support querying metrics through kmesh localhost:15020.
 
 ### Design Details
 
