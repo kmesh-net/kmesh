@@ -67,7 +67,7 @@ func runVersion(cmd *cobra.Command, args []string) {
 			cmd.Printf("client version: %s-%s\n", v.GitVersion, v.GitCommit)
 		}
 
-		pods, err := utils.GetKmeshDaemonPods(cli)
+		pods, err := utils.GetKmeshDaemonPods(cmd.Context(), cli)
 		if err != nil {
 			log.Errorf("failed to get kmesh daemon pods: %v", err)
 			os.Exit(1)
