@@ -71,3 +71,8 @@ func (c *Cache) ServiceLookupAll() []ServiceValue {
 	log.Debugf("ServiceLookupAll")
 	return LookupAll[ServiceKey, ServiceValue](c.bpfMap.KmService)
 }
+
+func (c *Cache) ServiceBatchUpdate(keys []ServiceKey, values []ServiceValue) (int, error) {
+	log.Debugf("ServiceBatchUpdate count %d", len(keys))
+	return c.bpfMap.KmService.BatchUpdate(keys, values, nil)
+}
