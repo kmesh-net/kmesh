@@ -167,7 +167,7 @@ func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
-	assert.Equal(t, restart.Restart, restart.GetStartType(), "set kmesh start status:Restart failed")
+	assert.Equal(t, restart.Update, restart.GetStartType(), "set kmesh start status:Update failed")
 	restart.SetExitType(restart.Normal)
 	bpfLoader.Stop()
 }
