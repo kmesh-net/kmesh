@@ -74,6 +74,7 @@ type MetricController struct {
 	EnableMonitoring       atomic.Bool
 	EnableWorkloadMetric   atomic.Bool
 	EnableConnectionMetric atomic.Bool
+	EnableDnsProxy         atomic.Bool
 	workloadCache          cache.WorkloadCache
 	serviceCache           cache.ServiceCache
 	workloadMetricCache    map[workloadMetricLabels]*workloadMetricInfo
