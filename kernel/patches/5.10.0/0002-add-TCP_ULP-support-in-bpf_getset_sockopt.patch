@@ -1,19 +1,19 @@
-From 2b40ef8d75316e6fb005ac8c3844b3b096850b07 Mon Sep 17 00:00:00 2001
-From: kongweibin <kongweibin2@huawei.com>
-Date: Fri, 13 Oct 2023 18:06:31 +0800
-Subject: [PATCH 3/8] ipv4, bpf: Introduced to support the ULP to modify
+From 0436456007494da206743fcbcee0a9e23188af32 Mon Sep 17 00:00:00 2001
+From: zhangmingyi <zhangmingyi@huawei.com>
+Date: Thu, 9 Jan 2025 07:29:35 +0000
+Subject: [PATCH 2/2] add TCP_ULP support in bpf_get/set_sockopt
 
 Currently, the ebpf program can distinguish sockets according to
 the address accessed by the client, and use the ULP framework to
 modify the matched sockets to delay link establishment.
 
-Signed-off-by: kongweibin <kongweibin2@huawei.com>
+Signed-off-by: zhangmingyi <zhangmingyi@huawei.com>
 ---
- net/core/filter.c | 6 +++++++
- 1 file changed, 6 insertions(+)
+ net/core/filter.c | 14 ++++++++++++++++++++
+ 1 file changed, 14 insertions(+)
 
 diff --git a/net/core/filter.c b/net/core/filter.c
-index c36dbcee6..6a0fdc5ce 100644
+index 2f56d21c9..789dc1c85 100644
 --- a/net/core/filter.c
 +++ b/net/core/filter.c
 @@ -4838,6 +4838,12 @@ static int _bpf_setsockopt(struct sock *sk, int level, int optname,
@@ -29,6 +29,20 @@ index c36dbcee6..6a0fdc5ce 100644
  		} else {
  			struct inet_connection_sock *icsk = inet_csk(sk);
  			struct tcp_sock *tp = tcp_sk(sk);
+@@ -5042,6 +5048,14 @@ static int _bpf_getsockopt(struct sock *sk, int level, int optname,
+ 				goto err_clear;
+ 			memcpy(optval, tp->saved_syn->data, optlen);
+ 			break;
++		case TCP_ULP:
++			icsk = inet_csk(sk);
++			if (!icsk->icsk_ulp_ops || optlen <= 1) {
++				goto err_clear;
++			}
++			strncpy(optval, icsk->icsk_ulp_ops->name, optlen);
++			optval[optlen - 1] = 0;
++			break;
+ 		default:
+ 			goto err_clear;
+ 		}
 -- 
 2.33.0
-
