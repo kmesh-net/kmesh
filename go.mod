@@ -8,7 +8,7 @@ replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 require (
 	github.com/agiledragon/gomonkey/v2 v2.12.0
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/cilium/ebpf v0.17.3
+	github.com/cilium/ebpf v0.19.0
 	github.com/cncf/xds/go v0.0.0-20241213214725-57cfbe6fad57
 	github.com/containernetworking/cni v1.3.0
 	github.com/containernetworking/plugins v1.9.0
