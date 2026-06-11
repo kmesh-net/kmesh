@@ -108,7 +108,7 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 		fmt.Println(string(body))
 		return nil
 	}
-	
+
 	if outputFormat == "yaml" {
 		yamlData, err := yaml.JSONToYAML(body)
 		if err != nil {
