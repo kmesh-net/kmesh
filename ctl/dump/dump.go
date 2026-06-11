@@ -112,8 +112,9 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	if outputFormat == "yaml" {
 		yamlData, err := yaml.JSONToYAML(body)
 		if err != nil {
-			log.Errorf("failed to convert JSON to YAML: %v", err)
-			os.Exit(1)
+			log.Errorf("failed to convert JSON to YAML: %v, falling back to raw output", err)
+			fmt.Println(string(body))
+			return nil
 		}
 		fmt.Println(string(yamlData))
 		return nil
