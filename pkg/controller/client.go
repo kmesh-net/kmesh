@@ -108,9 +108,20 @@ func (c *XdsClient) recoverConnection() {
 			return
 		}
 
+		if c.ctx.Err() != nil {
+			log.Infof("stopping reconnection: %v", c.ctx.Err())
+			return
+		}
+
 		log.Errorf("grpc reconnect failed, %s", err)
-		time.Sleep(interval + nets.CalculateRandTime(RandTimeSed))
-		interval = nets.CalculateInterval(interval)
+		timer := time.NewTimer(interval + nets.CalculateRandTime(RandTimeSed))
+		select {
+		case <-c.ctx.Done():
+			timer.Stop()
+			return
+		case <-timer.C:
+			interval = nets.CalculateInterval(interval)
+		}
 	}
 }
 
@@ -147,18 +158,46 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 }
 
 func (c *XdsClient) Run(stopCh <-chan struct{}) error {
-	if err := c.createGrpcStreamClient(); err != nil {
-		return fmt.Errorf("create client and stream failed, %s", err)
-	}
-
-	go c.handleUpstream(c.ctx)
-
+	// Cancel c.ctx immediately when stopCh is closed.
+	// This unblocks any blocking call inside createGrpcStreamClient()
+	// that respects c.ctx.
 	go func() {
 		<-stopCh
 		c.closeStreamClient()
 		if c.cancel != nil {
 			c.cancel()
 		}
+	}()
+
+	go func() {
+		var (
+			err      error
+			interval = time.Second
+		)
+
+		for {
+			if err = c.createGrpcStreamClient(); err == nil {
+				break
+			}
+
+			// If the context was already cancelled (stopCh fired), bail out.
+			if c.ctx.Err() != nil {
+				log.Infof("stopped before establishing connection: %v", c.ctx.Err())
+				return
+			}
+
+			log.Errorf("initial grpc connection failed, retrying: %s", err)
+			timer := time.NewTimer(interval + nets.CalculateRandTime(RandTimeSed))
+			select {
+			case <-c.ctx.Done():
+				timer.Stop()
+				return
+			case <-timer.C:
+				interval = nets.CalculateInterval(interval)
+			}
+		}
+
+		go c.handleUpstream(c.ctx)
 	}()
 
 	return nil

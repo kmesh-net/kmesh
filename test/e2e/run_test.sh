@@ -118,24 +118,9 @@ function setup_istio() {
 
 	helm install istio-ingressgateway istio/gateway -n istio-system --create-namespace
 
-	while true; do
-		pod_info=$(kubectl get pods -n istio-system -l app=istiod -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
-
-		if [ -z "$pod_info" ]; then
-			echo "No istiod pod found yet, waiting..."
-			sleep 1
-			continue
-		fi
-
-		read -r pod_name pod_status <<<"$pod_info"
-		if [ "$pod_status" = "Running" ]; then
-			echo "Istiod pod $pod_name is in Running state."
-			break
-		fi
-
-		echo "Waiting for pods of Kmesh daemon to enter Running state..."
-		sleep 1
-	done
+	echo "Waiting for Istiod to be ready..."
+	kubectl rollout status deployment/istiod -n istio-system --timeout=120s
+	echo "Istiod is ready."
 }
 
 function setup_kmesh() {
@@ -157,28 +142,11 @@ function setup_kmesh() {
 		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true --enable-ipsec=true" \
 		$extra_args
 
-	# Wait for all Kmesh pods to be ready.
-	while true; do
-		pod_statuses=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
+	echo "Waiting for Kmesh daemon to be ready..."
+	kubectl rollout status daemonset/kmesh -n kmesh-system --timeout=120s
 
-		running_pods=0
-		total_pods=0
-
-		while read -r pod_name pod_status; do
-			total_pods=$((total_pods + 1))
-			if [ "$pod_status" = "Running" ]; then
-				running_pods=$((running_pods + 1))
-			fi
-		done <<<"$pod_statuses"
-
-		if [ "$running_pods" -eq "$total_pods" ]; then
-			echo "All pods of Kmesh daemon are in Running state."
-			break
-		fi
-
-		echo "Waiting for pods of Kmesh daemon to enter Running state..."
-		sleep 1
-	done
+	echo "Allowing Kmesh daemon to fully initialize (BPF load, admin server startup)..."
+	sleep 5
 
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
