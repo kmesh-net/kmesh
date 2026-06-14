@@ -741,6 +741,7 @@ func TestBuildworkloadMetric(t *testing.T) {
 					receivedBytes: uint32(1024),
 					packetLost:    uint32(5),
 					totalRetrans:  uint32(120),
+					success:       connection_success,
 				},
 			},
 			want: workloadMetricLabels{
@@ -764,7 +765,7 @@ func TestBuildworkloadMetric(t *testing.T) {
 				destinationVersion:           "dstVersion",
 				destinationCluster:           "Kubernetes",
 				requestProtocol:              "tcp",
-				responseFlags:                "",
+				responseFlags:                "-",
 				connectionSecurityPolicy:     "mutual_tls",
 				reporter:                     "",
 			},
@@ -943,6 +944,7 @@ func TestBuildServiceMetric(t *testing.T) {
 					origDstPort:   uint16(8000),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
+					success:       connection_success,
 				},
 			},
 			want: serviceMetricLabels{
@@ -966,7 +968,7 @@ func TestBuildServiceMetric(t *testing.T) {
 				destinationVersion:           "dstVersion",
 				destinationCluster:           "Kubernetes",
 				requestProtocol:              "tcp",
-				responseFlags:                "",
+				responseFlags:                "-",
 				connectionSecurityPolicy:     "mutual_tls",
 				reporter:                     "source",
 			},
@@ -999,6 +1001,7 @@ func TestBuildServiceMetric(t *testing.T) {
 					origDstPort:   uint16(8000),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
+					success:       connection_success,
 				},
 			},
 			want: serviceMetricLabels{
@@ -1022,7 +1025,7 @@ func TestBuildServiceMetric(t *testing.T) {
 				destinationVersion:           "dstVersion",
 				destinationCluster:           "Kubernetes",
 				requestProtocol:              "tcp",
-				responseFlags:                "",
+				responseFlags:                "-",
 				connectionSecurityPolicy:     "mutual_tls",
 				reporter:                     "source",
 			},
@@ -1055,6 +1058,7 @@ func TestBuildServiceMetric(t *testing.T) {
 					origDstPort:   uint16(80),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
+					success:       connection_success,
 				},
 			},
 			want: serviceMetricLabels{
@@ -1078,7 +1082,7 @@ func TestBuildServiceMetric(t *testing.T) {
 				destinationVersion:           "",
 				destinationCluster:           "",
 				requestProtocol:              "tcp",
-				responseFlags:                "",
+				responseFlags:                "-",
 				connectionSecurityPolicy:     "mutual_tls",
 				reporter:                     "source",
 			},
@@ -1111,6 +1115,7 @@ func TestBuildServiceMetric(t *testing.T) {
 					origDstPort:   uint16(80),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
+					success:       connection_success,
 				},
 			},
 			want: serviceMetricLabels{
@@ -1134,7 +1139,7 @@ func TestBuildServiceMetric(t *testing.T) {
 				destinationVersion:           "waypointVersion",
 				destinationCluster:           "Kubernetes",
 				requestProtocol:              "tcp",
-				responseFlags:                "",
+				responseFlags:                "-",
 				connectionSecurityPolicy:     "mutual_tls",
 				reporter:                     "source",
 			},
@@ -1167,6 +1172,7 @@ func TestBuildServiceMetric(t *testing.T) {
 					origDstPort:   uint16(80),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
+					success:       connection_success,
 				},
 			},
 			want: serviceMetricLabels{
@@ -1190,7 +1196,7 @@ func TestBuildServiceMetric(t *testing.T) {
 				destinationVersion:           "waypointVersion",
 				destinationCluster:           "Kubernetes",
 				requestProtocol:              "tcp",
-				responseFlags:                "",
+				responseFlags:                "-",
 				connectionSecurityPolicy:     "mutual_tls",
 				reporter:                     "source",
 			},
@@ -1223,6 +1229,7 @@ func TestBuildServiceMetric(t *testing.T) {
 					origDstPort:   uint16(80),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
+					success:       connection_success,
 				},
 			},
 			want: serviceMetricLabels{
@@ -1246,7 +1253,7 @@ func TestBuildServiceMetric(t *testing.T) {
 				destinationVersion:           "solelyVersion",
 				destinationCluster:           "Kubernetes",
 				requestProtocol:              "tcp",
-				responseFlags:                "",
+				responseFlags:                "-",
 				connectionSecurityPolicy:     "mutual_tls",
 				reporter:                     "source",
 			},
@@ -1362,6 +1369,7 @@ func TestBuildConnectionMetric(t *testing.T) {
 					origDstPort:   uint16(8000),
 					sentBytes:     uint32(156),
 					receivedBytes: uint32(1024),
+					success:       connection_success,
 				},
 			},
 			want: connectionMetricLabels{
@@ -1394,7 +1402,7 @@ func TestBuildConnectionMetric(t *testing.T) {
 				destinationCluster:           "Kubernetes",
 
 				requestProtocol: "tcp",
-				responseFlags:   "",
+				responseFlags:   "-",
 
 				connectionSecurityPolicy: "mutual_tls",
 			},
@@ -1788,6 +1796,31 @@ func TestBuildV4Metric(t *testing.T) {
 			temp.packetLost = temp.packetLost - prevTcpConns[temp.conSrcDstInfo].packetLost
 			temp.totalRetrans = temp.totalRetrans - prevTcpConns[temp.conSrcDstInfo].totalRetrans
 			assert.Equal(t, temp, got)
+		})
+	}
+}
+
+func TestBuildResponseFlags(t *testing.T) {
+	tests := []struct {
+		name   string
+		metric requestMetric
+		want   string
+	}{
+		{
+			name:   "successful connection returns no flag",
+			metric: requestMetric{success: connection_success},
+			want:   "-",
+		},
+		{
+			name:   "failed connection returns upstream failure flag",
+			metric: requestMetric{success: 0},
+			want:   "UF",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := buildResponseFlags(&tt.metric)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
