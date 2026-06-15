@@ -258,7 +258,11 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 					}
 				}
 
-			case event := <-i.Watcher.Events(cniConfigFilePath):
+			case event, ok := <-i.Watcher.Events(cniConfigFilePath):
+				if !ok {
+					log.Infof("File watcher closed, exiting watcher goroutine")
+					return
+				}
 				log.Debugf("Caught a file event: %s", event.String())
 
 				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
@@ -267,7 +271,10 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 						timerC = time.After(100 * time.Millisecond)
 					}
 				}
-			case err := <-i.Watcher.Errors(cniConfigFilePath):
+			case err, ok := <-i.Watcher.Errors(cniConfigFilePath):
+				if !ok {
+					return
+				}
 				if err != nil {
 					log.Errorf("Something went wrong with the file watcher: %v", err)
 					return
