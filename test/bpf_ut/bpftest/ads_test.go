@@ -53,10 +53,20 @@ func load_bpf_prog_to_cgroup_ads(t *testing.T, objFilePath string, progName stri
 			t.Fatal("loading collection:", err)
 		}
 	}
+	progSpec, ok := spec.Programs[progName]
+	if !ok {
+		coll.Close()
+		t.Fatalf("Program %s not found in spec", progName)
+	}
+	prog := coll.Programs[progName]
+	if prog == nil {
+		coll.Close()
+		t.Fatalf("Program %s not found in collection", progName)
+	}
 	lk, err := link.AttachCgroup(link.CgroupOptions{
 		Path:    cgroupPath,
-		Attach:  spec.Programs[progName].AttachType,
-		Program: coll.Programs[progName],
+		Attach:  progSpec.AttachType,
+		Program: prog,
 	})
 	if err != nil {
 		coll.Close()
@@ -83,12 +93,10 @@ func load_bpf_2_cgroup_ads(t *testing.T, objFilePath string, cgroupPath string) 
 		}
 	}
 
-	var prog *ebpf.Program
-	for _, p := range coll.Programs {
-		if p.Type() == ebpf.SockOps {
-			prog = p
-			break
-		}
+	prog := coll.Programs["sockops_prog"]
+	if prog == nil {
+		coll.Close()
+		t.Fatal("No SockOps program found in collection")
 	}
 
 	lk, err := link.AttachCgroup(link.CgroupOptions{
@@ -128,7 +136,9 @@ func testAdsCgroupSock(t *testing.T) {
 						startLogReader(coll)
 						
 						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
-						net.DialTimeout("tcp4", enableAddr, 2*time.Second)
+						if conn, err := net.DialTimeout("tcp4", enableAddr, 2*time.Second); err == nil {
+							conn.Close()
+						}
 						
 						kmManageMap := coll.Maps["km_manage"]
 						if kmManageMap == nil {
@@ -150,7 +160,9 @@ func testAdsCgroupSock(t *testing.T) {
 						}
 						
 						disableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperDisableControl))
-						net.DialTimeout("tcp4", disableAddr, 2*time.Second)
+						if conn, err := net.DialTimeout("tcp4", disableAddr, 2*time.Second); err == nil {
+							conn.Close()
+						}
 						
 						iter = kmManageMap.Iterate()
 						count = 0
@@ -192,7 +204,9 @@ func testAdsSockOps(t *testing.T) {
 						startLogReader(coll)
 
 						enableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperEnableControl))
-						net.DialTimeout("tcp4", enableAddr, 2*time.Second)
+						if conn, err := net.DialTimeout("tcp4", enableAddr, 2*time.Second); err == nil {
+							conn.Close()
+						}
 
 						kmManageMap := coll.Maps["km_manage"]
 						if kmManageMap == nil {
@@ -226,7 +240,9 @@ func testAdsSockOps(t *testing.T) {
 						}
 
 						disableAddr := constants.ControlCommandIp4 + ":" + strconv.Itoa(int(constants.OperDisableControl))
-						net.DialTimeout("tcp4", disableAddr, 2*time.Second)
+						if conn, err := net.DialTimeout("tcp4", disableAddr, 2*time.Second); err == nil {
+							conn.Close()
+						}
 
 						iter = kmManageMap.Iterate()
 						count = 0
