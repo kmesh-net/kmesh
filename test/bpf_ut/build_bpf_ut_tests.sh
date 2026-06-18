@@ -41,4 +41,10 @@ TC_FLAGS="-I${ROOT_DIR}/bpf/kmesh/general/include -I${ROOT_DIR}/bpf/kmesh/genera
 clang $COMMON_FLAGS $INCLUDES $TC_FLAGS -c ${OUT_DIR}/tc_mark_encrypt_test.c -o ${OUT_DIR}/tc_mark_encrypt_test.o
 clang $COMMON_FLAGS $INCLUDES $TC_FLAGS -c ${OUT_DIR}/tc_mark_decrypt_test.c -o ${OUT_DIR}/tc_mark_decrypt_test.o
 
+#ads_cgroup_sock_test.c
+clang $COMMON_FLAGS -I${ROOT_DIR}/bpf/kmesh/ads/include $INCLUDES -c ${OUT_DIR}/ads_cgroup_sock_test.c -o ${OUT_DIR}/ads_cgroup_sock_test.o
+
+#ads_sockops_test.c
+clang $COMMON_FLAGS -I${ROOT_DIR}/bpf/kmesh/ads/include $INCLUDES -c ${OUT_DIR}/ads_sockops_test.c -o ${OUT_DIR}/ads_sockops_test.o
+
 echo "[✓] Done."
