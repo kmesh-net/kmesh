@@ -102,7 +102,7 @@ func NewCmd() *cobra.Command {
 
 	waypointCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
 	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", constants.DefaultNamespaceWaypoint, "name of the waypoint")
-	waypointCmd.PersistentFlags().StringVarP(&image, "image", "", "ghcr.io/kmesh-net/waypoint:v1.0.0-alpha", "image of the waypoint")
+	waypointCmd.PersistentFlags().StringVarP(&image, "image", "", "", "image of the waypoint")
 
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := namespaceOrDefault(namespace)
@@ -630,8 +630,12 @@ func getKmeshWaypointImage() string {
 	}
 
 	ver := version.Get().GitVersion
-	// if ver prefix with v, remove it
 	ver = strings.TrimPrefix(ver, "v")
+
+	// Fallback to a stable published image for dev or unversioned builds
+	if ver == "0.0.0-master" || strings.Contains(ver, "-dev") {
+		return "ghcr.io/kmesh-net/waypoint:v1.0.0-alpha"
+	}
 
 	return fmt.Sprintf("ghcr.io/kmesh-net/waypoint:v%s", ver)
 }
