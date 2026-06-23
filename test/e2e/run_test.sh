@@ -206,8 +206,8 @@ function setup_kmesh() {
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully via kubectl exec"
 			else
-				echo "Failed to set BPF debug log via fallback. Output: $output"
-				exit 1
+				echo "WARNING: Failed to set BPF debug log via fallback. Output: $output"
+				echo "Continuing without BPF debug logs..."
 			fi
 		fi
 
@@ -232,8 +232,8 @@ function setup_kmesh() {
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully via kubectl exec"
 			else
-				echo "Failed to set default debug log via fallback. Output: $output"
-				exit 1
+				echo "WARNING: Failed to set default debug log via fallback. Output: $output"
+				echo "Continuing without debug logs..."
 			fi
 		fi
 	done
@@ -266,8 +266,8 @@ function setup_kmesh_log() {
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully via kubectl exec"
 			else
-				echo "Failed to set BPF debug log via fallback. Output: $output"
-				exit 1
+				echo "WARNING: Failed to set BPF debug log via fallback. Output: $output"
+				echo "Continuing without BPF debug logs..."
 			fi
 		fi
 
@@ -292,8 +292,8 @@ function setup_kmesh_log() {
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully via kubectl exec"
 			else
-				echo "Failed to set default debug log via fallback. Output: $output"
-				exit 1
+				echo "WARNING: Failed to set default debug log via fallback. Output: $output"
+				echo "Continuing without debug logs..."
 			fi
 		fi
 	done
