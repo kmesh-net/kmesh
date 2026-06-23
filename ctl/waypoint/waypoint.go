@@ -102,7 +102,7 @@ func NewCmd() *cobra.Command {
 
 	waypointCmd.PersistentFlags().StringVarP(&namespace, "namespace", "n", "", "Kubernetes namespace")
 	waypointCmd.PersistentFlags().StringVarP(&waypointName, "name", "", constants.DefaultNamespaceWaypoint, "name of the waypoint")
-	waypointCmd.PersistentFlags().StringVarP(&image, "image", "", "", "image of the waypoint")
+	waypointCmd.PersistentFlags().StringVarP(&image, "image", "", "ghcr.io/kmesh-net/waypoint:v1.0.0-alpha", "image of the waypoint")
 
 	makeGateway := func(forApply bool) (*gateway.Gateway, error) {
 		ns := namespaceOrDefault(namespace)
