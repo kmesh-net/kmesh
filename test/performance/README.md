@@ -102,7 +102,7 @@ run:
 Install Cilium: (This test does not require the participation of Istio.)
 
 ```sh
-# https://github.com/cilium/cilium-cli/releases，download cilium
+# https://github.com/cilium/cilium-cli/releases, download cilium
 
 cilium install --helm-set-string kubeProxyReplacement=strict --helm-set-string extraConfig.enable-envoy-config=true
 ```
