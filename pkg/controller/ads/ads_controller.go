@@ -20,6 +20,9 @@ import (
 	"context"
 	"fmt"
 
+	"sync"
+	"sync/atomic"
+
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	resource_v3 "github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"istio.io/istio/pkg/channels"
@@ -35,7 +38,9 @@ var (
 type Controller struct {
 	Processor             *processor
 	dnsResolverController *dnsController
+	mu                    sync.RWMutex
 	con                   *connection
+	initialized           atomic.Bool
 }
 
 type connection struct {
@@ -61,12 +66,15 @@ func NewController(bpfAds *bpfads.BpfAds) *Controller {
 }
 
 func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.AggregatedDiscoveryServiceClient, ctx context.Context) error {
+	c.mu.Lock()
 	if c.con != nil {
 		close(c.con.stopCh)
+		c.con = nil
 	}
 
 	stream, err := client.StreamAggregatedResources(ctx)
 	if err != nil {
+		c.mu.Unlock()
 		return fmt.Errorf("StreamAggregatedResources failed, %s", err)
 	}
 
@@ -75,12 +83,14 @@ func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 		requestsChan: channels.NewUnbounded[*service_discovery_v3.DiscoveryRequest](),
 		stopCh:       make(chan struct{}),
 	}
+	con := c.con
+	c.mu.Unlock()
 
 	c.Processor.Reset()
 	if err := stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
-	go sendUpstream(c.con)
+	go sendUpstream(con)
 
 	return nil
 }
@@ -90,8 +100,16 @@ func (c *Controller) HandleAdsStream() error {
 		err error
 		rsp *service_discovery_v3.DiscoveryResponse
 	)
-	if rsp, err = c.con.Stream.Recv(); err != nil {
-		_ = c.con.Stream.CloseSend()
+
+	c.mu.RLock()
+	con := c.con
+	c.mu.RUnlock()
+	if con == nil {
+		return fmt.Errorf("connection is nil")
+	}
+
+	if rsp, err = con.Stream.Recv(); err != nil {
+		_ = con.Stream.CloseSend()
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
@@ -99,9 +117,10 @@ func (c *Controller) HandleAdsStream() error {
 	// So the original clusterCache is deleted when a new resp is received.
 	c.dnsResolverController.newClusterCache()
 	c.Processor.processAdsResponse(rsp)
-	c.con.requestsChan.Put(c.Processor.ack)
+	c.initialized.Store(true)
+	con.requestsChan.Put(c.Processor.ack)
 	if c.Processor.req != nil {
-		c.con.requestsChan.Put(c.Processor.req)
+		con.requestsChan.Put(c.Processor.req)
 		c.Processor.req = nil
 	}
 
@@ -124,10 +143,19 @@ func sendUpstream(con *connection) {
 }
 
 func (c *Controller) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.con != nil {
 		close(c.con.stopCh)
 		_ = c.con.Stream.CloseSend()
+		c.con = nil
 	}
+}
+
+func (c *Controller) IsReady() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.con != nil && c.con.Stream != nil && c.initialized.Load()
 }
 
 func (c *Controller) StartDnsController(stopCh <-chan struct{}) {

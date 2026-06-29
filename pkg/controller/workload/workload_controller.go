@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -38,6 +39,7 @@ const (
 var log = logger.NewLoggerScope("workload_controller")
 
 type Controller struct {
+	mu                        sync.RWMutex
 	Stream                    discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 	Processor                 *Processor
 	Rbac                      *auth.Rbac
@@ -46,6 +48,7 @@ type Controller struct {
 	OperationMetricController *telemetry.BpfProgMetric
 	bpfWorkloadObj            *bpfwl.BpfWorkload
 	dnsResolverController     *dnsController
+	initialized               atomic.Bool
 }
 
 func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfMonitor bool) (*Controller, error) {
@@ -124,10 +127,14 @@ func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDi
 		initialResourceVersions map[string]string
 	)
 
+	c.mu.Lock()
 	c.Stream, err = client.DeltaAggregatedResources(ctx)
 	if err != nil {
+		c.mu.Unlock()
 		return fmt.Errorf("DeltaAggregatedResources failed, %s", err)
 	}
+	stream := c.Stream
+	c.mu.Unlock()
 
 	if c.Processor != nil {
 		cachedServices := c.Processor.ServiceCache.List()
@@ -145,13 +152,13 @@ func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDi
 	}
 
 	log.Debugf("send initial request with address resources: %v", initialResourceVersions)
-	if err := c.Stream.Send(newDeltaRequest(AddressType, nil, initialResourceVersions)); err != nil {
+	if err := stream.Send(newDeltaRequest(AddressType, nil, initialResourceVersions)); err != nil {
 		return fmt.Errorf("send request failed, %s", err)
 	}
 
 	initialResourceVersions = c.Rbac.GetAllPolicies()
 	log.Debugf("send initial request with authorization resources: %v", initialResourceVersions)
-	if err = c.Stream.Send(newDeltaRequest(AuthorizationType, nil, initialResourceVersions)); err != nil {
+	if err = stream.Send(newDeltaRequest(AuthorizationType, nil, initialResourceVersions)); err != nil {
 		return fmt.Errorf("authorization subscribe failed, %s", err)
 	}
 
@@ -164,19 +171,27 @@ func (c *Controller) HandleWorkloadStream() error {
 		rspDelta *discoveryv3.DeltaDiscoveryResponse
 	)
 
-	if rspDelta, err = c.Stream.Recv(); err != nil {
-		_ = c.Stream.CloseSend()
+	c.mu.RLock()
+	stream := c.Stream
+	c.mu.RUnlock()
+	if stream == nil {
+		return fmt.Errorf("stream is nil")
+	}
+
+	if rspDelta, err = stream.Recv(); err != nil {
+		_ = stream.CloseSend()
 		return fmt.Errorf("stream recv failed, %s", err)
 	}
 
 	c.Processor.processWorkloadResponse(rspDelta, c.Rbac)
+	c.initialized.Store(true)
 
-	if err = c.Stream.Send(c.Processor.ack); err != nil {
+	if err = stream.Send(c.Processor.ack); err != nil {
 		return fmt.Errorf("stream send ack failed, %s", err)
 	}
 
 	if c.Processor.req != nil {
-		if err = c.Stream.Send(c.Processor.req); err != nil {
+		if err = stream.Send(c.Processor.req); err != nil {
 			return fmt.Errorf("stream send req failed, %s", err)
 		}
 	}
@@ -214,4 +229,10 @@ func (c *Controller) SetConnectionMetricTrigger(enable bool) {
 
 func (c *Controller) GetConnectionMetricTrigger() bool {
 	return c.MetricController.EnableConnectionMetric.Load()
+}
+
+func (c *Controller) IsReady() bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.Stream != nil && c.initialized.Load()
 }
