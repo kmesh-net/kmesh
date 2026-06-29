@@ -46,17 +46,20 @@ func NewCmd() *cobra.Command {
 	var outputFormat string
 
 	cmd := &cobra.Command{
-		Use:   "dump",
+		Use:   "dump [kmesh-daemon-pod] <mode>",
 		Short: "Dump config of kernel-native or dual-engine mode",
-		Example: `# Kernel Native mode (table output):
+		Example: `# Kernel Native mode (table output) for a specific pod:
 kmeshctl dump <kmesh-daemon-pod> kernel-native
 
-# Dual Engine mode (table output):
-kmeshctl dump <kmesh-daemon-pod> dual-engine
+# Kernel Native mode (table output) auto-detecting the pod:
+kmeshctl dump kernel-native
+
+# Dual Engine mode (table output) auto-detecting the pod:
+kmeshctl dump dual-engine
 
 # Output as raw JSON:
-kmeshctl dump <kmesh-daemon-pod> kernel-native -o json`,
-		Args: cobra.ExactArgs(2),
+kmeshctl dump kernel-native -o json`,
+		Args: cobra.RangeArgs(1, 2),
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = RunDump(cmd, args, outputFormat)
 		},
@@ -67,16 +70,36 @@ kmeshctl dump <kmesh-daemon-pod> kernel-native -o json`,
 }
 
 func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
-	podName := args[0]
-	mode := args[1]
-	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
-		log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
-		os.Exit(1)
-	}
+	var podName string
+	var mode string
 
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
 		log.Errorf("failed to create cli client: %v", err)
+		os.Exit(1)
+	}
+
+	if len(args) == 1 {
+		mode = args[0]
+		// Find kmesh daemon pods automatically
+		pods, err := utils.GetKmeshDaemonPods(cli)
+		if err != nil {
+			log.Errorf("failed to get kmesh daemon pods: %v", err)
+			os.Exit(1)
+		}
+		if len(pods) == 0 {
+			log.Errorf("Error: no Kmesh daemon pods found in namespace %s with label %s", utils.KmeshNamespace, utils.KmeshLabel)
+			os.Exit(1)
+		}
+		podName = pods[0]
+		fmt.Fprintf(os.Stderr, "No pod specified, using Kmesh daemon pod: %s\n", podName)
+	} else {
+		podName = args[0]
+		mode = args[1]
+	}
+
+	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
+		log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
 		os.Exit(1)
 	}
 
@@ -85,8 +108,11 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
 		os.Exit(1)
 	}
+	defer fw.Close()
+
 	if err := fw.Start(); err != nil {
 		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		os.Exit(1)
 	}
 
 	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), configDumpPrefix, mode)
