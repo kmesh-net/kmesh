@@ -530,40 +530,40 @@ func errorWithMessage(errMsg string, gwc *gateway.Gateway, err error) error {
 }
 
 func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gw []gateway.Gateway) error {
-	var cond metav1.Condition
-	startTime := time.Now()
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
 	if namespace == "" {
 		fmt.Fprintln(w, "NAMESPACE\tNAME\tSTATUS\tTYPE\tREASON\tMESSAGE")
 	} else {
 		fmt.Fprintln(w, "NAME\tSTATUS\tTYPE\tREASON\tMESSAGE")
 	}
 	for _, gw := range gw {
-		for range ticker.C {
-			programmed := false
-			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespaceOrDefault(namespace)).Get(context.TODO(), gw.Name, metav1.GetOptions{})
-			if err == nil {
-				// Check if gateway has Programmed condition set to true
-				for _, cond = range gwc.Status.Conditions {
-					if cond.Type == string(gateway.GatewayConditionProgrammed) && string(cond.Status) == "True" {
-						programmed = true
-						break
-					}
-				}
-			}
+		var cond metav1.Condition
+		gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespaceOrDefault(namespace)).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+		if err != nil {
 			if namespace == "" {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", gwc.Namespace, gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+				fmt.Fprintf(w, "%s\t%s\tUnknown\tUnknown\tError\t%v\n", gw.Namespace, gw.Name, err)
 			} else {
-				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+				fmt.Fprintf(w, "%s\tUnknown\tUnknown\tError\t%v\n", gw.Name, err)
 			}
-
-			if programmed {
+			continue
+		}
+		// Find gateway Programmed condition
+		for _, c := range gwc.Status.Conditions {
+			if c.Type == string(gateway.GatewayConditionProgrammed) {
+				cond = c
 				break
 			}
-			if time.Since(startTime) > waitTimeout {
-				return errorWithMessage("timed out while retrieving status for waypoint", gwc, err)
-			}
+		}
+		// Initialize cond with default values if Programmed condition not found
+		if cond.Type == "" {
+			cond.Status = metav1.ConditionStatus(kstatus.StatusUnknown)
+			cond.Type = string(gateway.GatewayConditionProgrammed)
+			cond.Reason = "NotFound"
+			cond.Message = "Programmed condition not found"
+		}
+		if namespace == "" {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", gwc.Namespace, gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
+		} else {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", gwc.Name, cond.Status, cond.Type, cond.Reason, cond.Message)
 		}
 	}
 	return w.Flush()

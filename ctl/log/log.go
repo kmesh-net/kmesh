@@ -44,17 +44,26 @@ type LoggerInfo struct {
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "log",
+		Use:   "log [podName] [loggerName]",
 		Short: "Get or set kmesh-daemon's logger level",
-		Example: `# Set default logger's level as "debug":
+		Example: `# Set default logger's level as "debug" for all/detected kmesh-daemon pod(s):
+kmeshctl log --set default:debug
+
+# Set default logger's level as "debug" for a specific pod:
 kmeshctl log <kmesh-daemon-pod> --set default:debug
 
-# Get all loggers' name
+# Get all loggers' names for all/detected kmesh-daemon pod(s):
+kmeshctl log
+
+# Get all loggers' names for a specific pod:
 kmeshctl log <kmesh-daemon-pod>
 
-# Get default logger's level:
+# Get default logger's level for all/detected kmesh-daemon pod(s):
+kmeshctl log default
+
+# Get default logger's level for a specific pod:
 kmeshctl log <kmesh-daemon-pod> default`,
-		Args: cobra.MinimumNArgs(1),
+		Args: cobra.MaximumNArgs(2),
 		Run: func(cmd *cobra.Command, args []string) {
 			RunGetOrSetLoggerLevel(cmd, args)
 		},
@@ -157,36 +166,77 @@ func SetLoggerLevel(url string, setFlag string) {
 }
 
 func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
-	podName := args[0]
-
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
 		log.Errorf("failed to create cli client: %v", err)
 		os.Exit(1)
 	}
 
-	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
+	pods, err := utils.GetKmeshDaemonPods(cmd.Context(), cli)
 	if err != nil {
-		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		log.Errorf("failed to get kmesh daemon pods: %v", err)
 		os.Exit(1)
 	}
-	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
-	}
-	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
+	var targetPods []string
+	var loggerName string
 
 	setFlag, _ := cmd.Flags().GetString("set")
-	if setFlag == "" {
-		if len(args) >= 2 {
-			url += fmt.Sprintf("?name=%s", args[1])
-			GetLoggerLevel(url)
+
+	if len(args) == 0 {
+		targetPods = pods
+	} else if len(args) == 1 {
+		isPod := false
+		for _, pod := range pods {
+			if pod == args[0] {
+				isPod = true
+				break
+			}
+		}
+		if isPod {
+			targetPods = []string{args[0]}
 		} else {
-			GetLoggerNames(url)
+			targetPods = pods
+			loggerName = args[0]
 		}
 	} else {
-		SetLoggerLevel(url, setFlag)
+		targetPods = []string{args[0]}
+		loggerName = args[1]
+	}
+
+	if len(targetPods) == 0 {
+		log.Errorf("Error: no Kmesh daemon pods found in namespace %s with label %s", utils.KmeshNamespace, utils.KmeshLabel)
+		os.Exit(1)
+	}
+
+	for _, podName := range targetPods {
+		func() {
+			if len(targetPods) > 1 {
+				fmt.Printf("Pod: %s\n", podName)
+			}
+			fw, err := utils.CreateKmeshPortForwarder(cli, podName)
+			if err != nil {
+				log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
+				return
+			}
+			defer fw.Close()
+
+			if err := fw.Start(); err != nil {
+				log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+				return
+			}
+
+			url := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
+			if setFlag == "" {
+				if loggerName != "" {
+					url += fmt.Sprintf("?name=%s", loggerName)
+					GetLoggerLevel(url)
+				} else {
+					GetLoggerNames(url)
+				}
+			} else {
+				SetLoggerLevel(url, setFlag)
+			}
+		}()
 	}
 }
