@@ -117,7 +117,7 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 			c.handlePodDelete(obj)
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("failed to add event handler to podInformer: %v", err)
+		return nil, fmt.Errorf("failed to add event handler to podInformer: %w", err)
 	}
 
 	if _, err := namespaceInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
@@ -128,7 +128,7 @@ func NewKmeshManageController(client kubernetes.Interface, sm *kmeshsecurity.Sec
 			c.handleNamespaceUpdate(oldObj, newObj)
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("failed to add event handler to namespaceInformer: %v", err)
+		return nil, fmt.Errorf("failed to add event handler to namespaceInformer: %w", err)
 	}
 
 	return c, nil
@@ -357,14 +357,14 @@ func (c *KmeshManageController) syncPod(key QueueItem) error {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to get pod %s/%s: %v", key.podNs, key.podName, err)
+		return fmt.Errorf("failed to get pod %s/%s: %w", key.podNs, key.podName, err)
 	}
 	namespace, err := c.namespaceLister.Get(pod.Namespace)
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
+		return fmt.Errorf("failed to get pod namespace %s: %w", pod.Namespace, err)
 	}
 
 	if key.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
@@ -507,7 +507,7 @@ func managleVethTc(ifIndex uint64, tcProgFd int, mode int) error {
 		link netlink.Link
 	)
 	if link, err = netlink.LinkByIndex(int(ifIndex)); err != nil {
-		return fmt.Errorf("failed to link valid interface, %v", err)
+		return fmt.Errorf("failed to link valid interface, %w", err)
 	}
 
 	return utils.ManageTCProgramByFd(link, tcProgFd, mode)
@@ -529,14 +529,14 @@ func linkTc(netNsPath string, tcProgFd int) error {
 	}
 
 	if err = netns.WithNetNSPath(netNsPath, warpGetVethPeerNum); err != nil {
-		err = fmt.Errorf("Run get veth peer num in netNsPath %v failed, err: %v", netNsPath, err)
+		err = fmt.Errorf("run get veth peer num in netNsPath %v failed, err: %w", netNsPath, err)
 		return err
 	}
 	// set tc on node namespace veth peer
 	if err = netns.WithNetNSPath(kmesh_netns.GetNodeNSpath(), func(_ netns.NetNS) error {
 		return managleVethTc(ifIndex, tcProgFd, constants.TC_ATTACH)
 	}); err != nil {
-		err = fmt.Errorf("Run link tc in netNsPath %v failed, err: %v", netNsPath, err)
+		err = fmt.Errorf("run link tc in netNsPath %v failed, err: %w", netNsPath, err)
 		return err
 	}
 
@@ -559,14 +559,14 @@ func unlinkTc(netNsPath string, tcProgFd int) error {
 	}
 
 	if err = netns.WithNetNSPath(netNsPath, warpGetVethPeerNum); err != nil {
-		err = fmt.Errorf("Run get veth peer num in netNsPath %v failed, err: %v", netNsPath, err)
+		err = fmt.Errorf("run get veth peer num in netNsPath %v failed, err: %w", netNsPath, err)
 		return err
 	}
 	// set tc on node namespace veth peer
 	if err := netns.WithNetNSPath(kmesh_netns.GetNodeNSpath(), func(_ netns.NetNS) error {
 		return managleVethTc(ifIndex, tcProgFd, constants.TC_DETACH)
 	}); err != nil {
-		err = fmt.Errorf("Run link tc in netNsPath %v failed, err: %v", netNsPath, err)
+		err = fmt.Errorf("run unlink tc in netNsPath %v failed, err: %w", netNsPath, err)
 		return err
 	}
 	return nil

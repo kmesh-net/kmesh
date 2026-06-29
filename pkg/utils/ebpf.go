@@ -34,17 +34,17 @@ func GetProgramByName(name string) (*ebpf.Program, error) {
 
 	for {
 		if progID, err = ebpf.ProgramGetNextID(progID); err != nil {
-			err = fmt.Errorf("failed to get system next program id, err is %v\n", err)
+			err = fmt.Errorf("failed to get system next program id, err is %w", err)
 			return nil, err
 		}
 
 		if targetProg, err = ebpf.NewProgramFromID(progID); err != nil {
-			err = fmt.Errorf("failed to get new program from id:%v, err is %v\n", progID, err)
+			err = fmt.Errorf("failed to get new program from id:%v, err is %w", progID, err)
 			return nil, err
 		}
 
 		if targetProgInfo, err = targetProg.Info(); err != nil {
-			err = fmt.Errorf("failed to get new program info from fd:%v, err is %v\n", targetProg, err)
+			err = fmt.Errorf("failed to get new program info from fd:%d, err is %w", targetProg.FD(), err)
 			return nil, err
 		}
 
@@ -66,17 +66,17 @@ func GetMapByName(name string) (*ebpf.Map, error) {
 
 	for {
 		if mapID, err = ebpf.MapGetNextID(mapID); err != nil {
-			err = fmt.Errorf("failed to get system next map id, err is %v\n", err)
+			err = fmt.Errorf("failed to get system next map id, err is %w", err)
 			return nil, err
 		}
 
 		if targetMap, err = ebpf.NewMapFromID(mapID); err != nil {
-			err = fmt.Errorf("failed to get new map from id:%v, err is %v\n", mapID, err)
+			err = fmt.Errorf("failed to get new map from id:%v, err is %w", mapID, err)
 			return nil, err
 		}
 
 		if targetMapInfo, err = targetMap.Info(); err != nil {
-			err = fmt.Errorf("failed to get new map info from fd:%v, err is %v\n", targetMap, err)
+			err = fmt.Errorf("failed to get new map info from fd:%d, err is %w", targetMap.FD(), err)
 			return nil, err
 		}
 

@@ -66,13 +66,13 @@ kmeshctl log <kmesh-daemon-pod> default`,
 func GetJson(url string, val any) error {
 	resp, err := http.Get(url)
 	if err != nil {
-		return fmt.Errorf("failed making GET request(%s): %v", url, err)
+		return fmt.Errorf("failed making GET request(%s): %w", url, err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return fmt.Errorf("failed reading response body(%s): %v", url, err)
+		return fmt.Errorf("failed reading response body(%s): %w", url, err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -81,7 +81,7 @@ func GetJson(url string, val any) error {
 
 	err = json.Unmarshal(body, val)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response body: %v", err)
+		return fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	return nil

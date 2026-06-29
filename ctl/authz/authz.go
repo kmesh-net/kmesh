@@ -212,10 +212,10 @@ func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 func fetchAuthzStatus(cli kube.CLIClient, podName string) (string, error) {
 	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
 	if err != nil {
-		return "", fmt.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		return "", fmt.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %w", podName, err)
 	}
 	if err := fw.Start(); err != nil {
-		return "", fmt.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		return "", fmt.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %w", podName, err)
 	}
 	defer fw.Close()
 
@@ -223,14 +223,14 @@ func fetchAuthzStatus(cli kube.CLIClient, podName string) (string, error) {
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
-		return "", fmt.Errorf("error creating request: %v", err)
+		return "", fmt.Errorf("error creating request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("failed to make HTTP request: %v", err)
+		return "", fmt.Errorf("failed to make HTTP request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -240,7 +240,7 @@ func fetchAuthzStatus(cli kube.CLIClient, podName string) (string, error) {
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("failed to read response body: %v", err)
+		return "", fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	status := string(bodyBytes)

@@ -163,7 +163,7 @@ func addIptables(ns string) error {
 		return nil
 	}
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
+		return fmt.Errorf("enter namespace path: %v, run command failed: %w", ns, err)
 	}
 	return nil
 }
@@ -187,7 +187,7 @@ func deleteIptables(ns string) error {
 	}
 
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
+		return fmt.Errorf("enter namespace path: %v, run command failed: %w", ns, err)
 	}
 	return nil
 }

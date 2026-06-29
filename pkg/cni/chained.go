@@ -43,7 +43,7 @@ func (i *Installer) getCniConfigPath() (string, error) {
 		confFile = filepath.Join(i.CniMountNetEtcDIR, i.CniConfigName)
 		confList, err := libcni.ConfListFromFile(confFile)
 		if err != nil {
-			err = fmt.Errorf("failed to read conflist %v : %v", confFile, err)
+			err = fmt.Errorf("failed to read conflist %v : %w", confFile, err)
 			log.Error(err)
 			return "", err
 		}
@@ -55,7 +55,7 @@ func (i *Installer) getCniConfigPath() (string, error) {
 	} else {
 		files, err := libcni.ConfFiles(i.CniMountNetEtcDIR, []string{".conflist"})
 		if err != nil {
-			err = fmt.Errorf("failed to load conflist from dir :%v, : %v", i.CniMountNetEtcDIR, err)
+			err = fmt.Errorf("failed to load conflist from dir %v: %w", i.CniMountNetEtcDIR, err)
 			log.Error(err)
 			return "", err
 		}
@@ -65,7 +65,7 @@ func (i *Installer) getCniConfigPath() (string, error) {
 		for _, file := range files {
 			confList, err = libcni.ConfListFromFile(file)
 			if err != nil {
-				err = fmt.Errorf("failed to read conflist: %v, %v", file, err)
+				err = fmt.Errorf("failed to read conflist: %v, %w", file, err)
 				log.Info(err)
 				continue
 			}
@@ -91,7 +91,7 @@ func (i *Installer) insertCNIConfig(oldconfig []byte, mode string) ([]byte, erro
 	var cniConfigMap map[string]interface{}
 	err := json.Unmarshal(oldconfig, &cniConfigMap)
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal json: %v", err)
+		err = fmt.Errorf("failed to unmarshal json: %w", err)
 		log.Error(err)
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func (i *Installer) insertCNIConfig(oldconfig []byte, mode string) ([]byte, erro
 
 	byte, err := json.MarshalIndent(cniConfigMap, "", "  ")
 	if err != nil {
-		err = fmt.Errorf("failed to marshal json: %v", err)
+		err = fmt.Errorf("failed to marshal json: %w", err)
 		log.Error(err)
 		return nil, err
 	}
@@ -149,7 +149,7 @@ func deleteCNIConfig(oldconfig []byte) ([]byte, error) {
 
 	err := json.Unmarshal(oldconfig, &cniConfigMap)
 	if err != nil {
-		err = fmt.Errorf("failed to unmarshal json: %v", err)
+		err = fmt.Errorf("failed to unmarshal json: %w", err)
 		log.Error(err)
 		return nil, err
 	}
@@ -179,7 +179,7 @@ func deleteCNIConfig(oldconfig []byte) ([]byte, error) {
 
 	byte, err := json.MarshalIndent(cniConfigMap, "", "  ")
 	if err != nil {
-		err = fmt.Errorf("failed to marshal json: %v", err)
+		err = fmt.Errorf("failed to marshal json: %w", err)
 		log.Error(err)
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	// and we harm no one by doing so.
 	err := copyBinary("/usr/bin/kmesh-cni", MountedCNIBinDir)
 	if err != nil {
-		return fmt.Errorf("copy binaries: %v", err)
+		return fmt.Errorf("copy binaries: %w", err)
 	}
 
 	// Install kubeconfig (if needed) - we write/update this in the shared node CNI bin dir,
@@ -201,7 +201,7 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	// unless it's missing or the contents are not what we expect.
 	kubeconfigFilepath := filepath.Join(cniMountNetEtcDIR, kmeshCniKubeConfig)
 	if err := maybeWriteKubeConfigFile(i.ServiceAccountPath, kubeconfigFilepath); err != nil {
-		return fmt.Errorf("write kubeconfig: %v", err)
+		return fmt.Errorf("write kubeconfig: %w", err)
 	}
 
 	cniConfigFilePath, err := i.getCniConfigPath()
@@ -216,7 +216,7 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {
-		err = fmt.Errorf("failed to read cni config file %v : %v", cniConfigFilePath, err)
+		err = fmt.Errorf("failed to read cni config file %v : %w", cniConfigFilePath, err)
 		log.Error(err)
 		return err
 	}
@@ -256,7 +256,7 @@ func (i *Installer) removeChainedKmeshCniPlugin() error {
 	}
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {
-		err = fmt.Errorf("failed to read cni config file %v : %v", cniConfigFilePath, err)
+		err = fmt.Errorf("failed to read cni config file %v : %w", cniConfigFilePath, err)
 		log.Error(err)
 		return err
 	}
