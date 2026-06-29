@@ -662,3 +662,43 @@ func TestServerMonitoringHandler(t *testing.T) {
 		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})
 }
+
+func TestServer_readyProbe(t *testing.T) {
+	t.Run("nil loader and nil xdsClient returns not ready", func(t *testing.T) {
+		server := &Server{}
+
+		req := httptest.NewRequest(http.MethodGet, patternReadyProbe, nil)
+		w := httptest.NewRecorder()
+		server.readyProbe(w, req)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		var resp ReadyResponse
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.Nil(t, err)
+		assert.False(t, resp.Ready)
+		assert.Equal(t, "not initialized", resp.Components["bpf"])
+		assert.Equal(t, "not initialized", resp.Components["xds_connection"])
+		assert.Equal(t, "not initialized", resp.Components["controller"])
+	})
+
+	t.Run("nil xdsClient with loader returns not ready", func(t *testing.T) {
+		server := &Server{xdsClient: &controller.XdsClient{}}
+
+		req := httptest.NewRequest(http.MethodGet, patternReadyProbe, nil)
+		w := httptest.NewRecorder()
+		server.readyProbe(w, req)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+		var resp ReadyResponse
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.Nil(t, err)
+		assert.False(t, resp.Ready)
+		// loader is nil so bpf is "not initialized"
+		assert.Equal(t, "not initialized", resp.Components["bpf"])
+		// xdsClient exists but controller is not initialized
+		assert.Equal(t, "not initialized", resp.Components["controller"])
+	})
+}
