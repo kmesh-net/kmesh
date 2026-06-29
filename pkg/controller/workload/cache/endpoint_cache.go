@@ -18,14 +18,12 @@ package cache
 
 import (
 	"sync"
+
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 )
 
-// TODO: use `EndpointKey` struct
-type Endpoint struct {
-	ServiceId    uint32
-	Prio         uint32
-	BackendIndex uint32
-}
+// Endpoint is an alias to bpfcache.EndpointKey to avoid duplication.
+type Endpoint = bpfcache.EndpointKey
 
 type EndpointCache interface {
 	List(uint32) map[uint32]Endpoint // Endpoint slice by ServiceId

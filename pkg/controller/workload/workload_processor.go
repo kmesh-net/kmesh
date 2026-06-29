@@ -415,7 +415,7 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 		log.Errorf("Update endpoint map failed, err:%s", err)
 		return ek, err
 	}
-	p.EndpointCache.AddEndpointToService(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
+	p.EndpointCache.AddEndpointToService(ek, ev.BackendUid)
 	if err := p.bpf.ServiceUpdate(sk, sv); err != nil {
 		log.Errorf("Update ServiceUpdate map failed, err:%s", err)
 		return ek, err
