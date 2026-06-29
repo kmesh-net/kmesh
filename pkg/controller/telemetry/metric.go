@@ -207,8 +207,7 @@ type workloadMetricLabels struct {
 	destinationVersion           string
 	destinationCluster           string
 
-	requestProtocol string
-	// TODO: responseFlags is not used for now
+	requestProtocol          string
 	responseFlags            string
 	connectionSecurityPolicy string
 }
@@ -237,8 +236,7 @@ type serviceMetricLabels struct {
 	destinationVersion           string
 	destinationCluster           string
 
-	requestProtocol string
-	// TODO: responseFlags is not used for now
+	requestProtocol          string
 	responseFlags            string
 	connectionSecurityPolicy string
 }
@@ -273,8 +271,7 @@ type connectionMetricLabels struct {
 	destinationVersion           string
 	destinationCluster           string
 
-	requestProtocol string
-	// TODO: responseFlags is not used for now
+	requestProtocol          string
 	responseFlags            string
 	connectionSecurityPolicy string
 }
@@ -665,6 +662,7 @@ func (m *MetricController) buildWorkloadMetric(reqMetric *requestMetric) workloa
 
 	trafficLabels.destinationPodAddress = dstIP
 	trafficLabels.requestProtocol = "tcp"
+	trafficLabels.responseFlags = buildResponseFlags(reqMetric)
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
 	switch reqMetric.conSrcDstInfo.direction {
@@ -758,6 +756,7 @@ func (m *MetricController) buildServiceMetric(reqMetric *requestMetric) (service
 	trafficLabels := NewServiceMetricLabel()
 	trafficLabels.withSource(srcWorkload).withDestination(dstWorkload).withDestinationService(dstService)
 	trafficLabels.requestProtocol = "tcp"
+	trafficLabels.responseFlags = buildResponseFlags(reqMetric)
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
 	accesslog := NewLogInfo()
@@ -808,6 +807,7 @@ func (m *MetricController) buildConnectionMetric(reqMetric *requestMetric) conne
 	trafficLabels.sourceAddress = srcIP + ":" + fmt.Sprintf("%d", reqMetric.conSrcDstInfo.srcPort)
 	trafficLabels.destinationPodAddress = dstIP
 	trafficLabels.requestProtocol = "tcp"
+	trafficLabels.responseFlags = buildResponseFlags(reqMetric)
 	trafficLabels.connectionSecurityPolicy = "mutual_tls"
 
 	switch reqMetric.conSrcDstInfo.direction {
@@ -832,6 +832,16 @@ func (m *MetricController) getWorkloadByAddress(address []byte) (*workloadapi.Wo
 		return nil, networkAddr.Address.String()
 	}
 	return workload, networkAddr.Address.String()
+}
+
+// buildResponseFlags maps connection outcome to an Istio-compatible response_flags value.
+// "UF" (upstream connection failure) is set when the TCP handshake did not succeed;
+// "-" indicates a successfully established connection.
+func buildResponseFlags(reqMetric *requestMetric) string {
+	if reqMetric.success != connection_success {
+		return "UF"
+	}
+	return "-"
 }
 
 func buildPrincipal(workload *workloadapi.Workload) string {
