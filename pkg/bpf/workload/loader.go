@@ -144,8 +144,10 @@ func (w *BpfWorkload) Load() error {
 		return err
 	}
 
-	if err := w.Tc.LoadTC(); err != nil {
-		return err
+	if w.Tc != nil {
+		if err := w.Tc.LoadTC(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -191,8 +193,10 @@ func (w *BpfWorkload) Detach() error {
 		return err
 	}
 
-	if err := w.Tc.Close(); err != nil {
-		return err
+	if w.Tc != nil {
+		if err := w.Tc.Close(); err != nil {
+			return err
+		}
 	}
 
 	return nil
