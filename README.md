@@ -77,7 +77,7 @@ Kmesh also provides a Dual-Engine Mode, which makes use of eBPF and waypoint to 
 
 ## Quick Start
 
-Please refer to [quick start](https://kmesh.net/en/docs/setup/quick-start/) and [user guide](docs/kmesh_demo.md) to try Kmesh quickly.
+Please refer to [quick start](https://kmesh.net/en/docs/setup/quick-start/) and [user guide](docs/en/kmesh_demo.md) to try Kmesh quickly.
 
 ### Guided Install
 
