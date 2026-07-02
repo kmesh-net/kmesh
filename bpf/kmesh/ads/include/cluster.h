@@ -185,27 +185,59 @@ static inline int cluster_init_endpoints(const char *cluster_name, const Endpoin
 static inline int
 cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint__ClusterLoadAssignment *cla)
 {
-    /* 0 -- failed 1 -- succeed */
-    __u32 i;
-    void *ptrs = NULL;
+    __u32 i = 0, j = 0, k = 0;
+    __u32 ep_idx = 0;
+    void *loc_ptrs = NULL;
+    void *ep_ptrs = NULL;
+    Endpoint__LocalityLbEndpoints *ep = NULL;
+
     __u32 lb_num = cluster_get_endpoints_num(cla);
+
+    if (lb_num > KMESH_PER_ENDPOINT_NUM)
+        lb_num = KMESH_PER_ENDPOINT_NUM;
 
     if (!eps || eps->ep_num != lb_num)
         return 0;
 
-    ptrs = KMESH_GET_PTR_VAL(cla->endpoints, void *);
-    if (!ptrs)
+    loc_ptrs = KMESH_GET_PTR_VAL(cla->endpoints, void *);
+    if (!loc_ptrs)
         return 0;
 
 #pragma unroll
-    for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
-        if (i >= lb_num) {
+    for (k = 0; k < KMESH_PER_ENDPOINT_NUM * 2; k++) {
+        if (ep_idx >= eps->ep_num)
             break;
+
+        if (!ep || j >= ep->n_lb_endpoints) {
+            if (i >= cla->n_endpoints)
+                break;
+
+            ep = (Endpoint__LocalityLbEndpoints *)KMESH_GET_PTR_VAL(
+                (void *)*((__u64 *)loc_ptrs + i), Endpoint__LocalityLbEndpoints);
+            i++;
+            j = 0;
+
+            if (!ep)
+                continue;
+
+            ep_ptrs = KMESH_GET_PTR_VAL(ep->lb_endpoints, void *);
+            if (!ep_ptrs)
+                continue;
+
+            if (j >= ep->n_lb_endpoints)
+                continue;
         }
 
-        if (eps->ep_identity[i] != (__u64)_(ptrs + i))
+        if (eps->ep_identity[ep_idx] != (__u64) * ((__u64 *)ep_ptrs + j))
             return 0;
+
+        j++;
+        ep_idx++;
     }
+
+    if (ep_idx != eps->ep_num)
+        return 0;
+
     return 1;
 }
 
@@ -229,7 +261,6 @@ static inline struct cluster_endpoints *cluster_refresh_endpoints(const Cluster_
     }
 
     if (cluster_init_endpoints(name, cla) != 0) {
-        map_delete_cluster_eps(name); // deletes the corrupted/half-written endpoints because initialization failed
         return NULL;
     }
     return map_lookup_cluster_eps(name);
