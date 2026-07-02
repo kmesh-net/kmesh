@@ -61,13 +61,13 @@ Kmesh implements a testing framework based on Mugen. It is primarily used during
   # 3 Execute each test case in the test suite one by one
   # 4 Output the test execution results, as follows
   Tue Oct 25 19:29:50 2022 - INFO  - Configuration file loaded successfully...
-  Tue Oct 25 19:29:51 2022 - INFO  - start to run testcase:oe_test_normal_function.
+  Tue Oct 25 19:29:51 2022 - INFO  - start to run testcase:oe_test_base_function.
   Tue Oct 25 19:29:59 2022 - INFO  - The case exit by code 0.
-  Tue Oct 25 19:29:59 2022 - INFO  - End to run testcase:oe_test_normal_function.
-  Tue Oct 25 19:29:59 2022 - INFO  - A total of 1 use case was executed, with 1 success and 0 failures.
-  the following test cases ran successfully
+  Tue Oct 25 19:29:59 2022 - INFO  - End to run testcase:oe_test_base_function.
+  Tue Oct 25 19:29:59 2022 - INFO  - A total of 1 use cases were executed, with 1 successes and 0 failures.
+  The following test cases run success
   --------------------------------------->
-  oe_test_normal_function
+  oe_test_base_function
   <---------------------------------------
   [root@localhost test]#
   ```
@@ -87,8 +87,8 @@ Kmesh implements a testing framework based on Mugen. It is primarily used during
     The test script may write some temporary files and verify the test results based on them. These temporary files are archived at the test case level.
 
     ```sh
-    # Taking the oe_test_normal_function test case of Kmesh as an example, the temporary file directory is:
-    [root@localhost test]# ./mugen-master/testcases/smoke-test/kmesh/oe_test_normal_function/
+    # Taking the oe_test_base_function test case of Kmesh as an example, the temporary file directory is:
+    [root@localhost test]# ./mugen-master/testcases/smoke-test/kmesh/oe_test_base_function/
     ```
 
   - How to check specific failure information
@@ -96,12 +96,12 @@ Kmesh implements a testing framework based on Mugen. It is primarily used during
     Based on the failed test case name in the test results, find the execution log of the failed test case:
 
     ```sh
-    # 1 Taking the oe_test_normal_function test case of Kmesh as an example
-    [root@localhost test]# cd mugen-master/logs/kmesh/oe_test_normal_function/
-    [root@localhost oe_test_normal_function]# ll
+    # 1 Taking the oe_test_base_function test case of Kmesh as an example
+    [root@localhost test]# cd mugen-master/logs/kmesh/oe_test_base_function/
+    [root@localhost oe_test_base_function]# ll
     total 12K
     -rw-r--r--. 1 root root 9.0K Oct 25 19:29 2022-10-25-19:29:51.log
-    [root@localhost oe_test_normal_function]#
+    [root@localhost oe_test_base_function]#
     # 2 Search for CHECK_RESULT in the log file. The verification item where actual_result is inconsistent with expect_result is the point of failure.
     + CHECK_RESULT 0 0 0 'insmod kmesh.ko failed'
     + actual_result=0
@@ -201,6 +201,11 @@ The `libs` directory encapsulates common operations during the Kmesh test proces
   └── oe_test_lb_policy_function.sh # 3 Define test script
   
   1 directory, 2 files
+  ```
+
+- Add the new test case entry to the `cases` array.
+
+  ```sh
   [root@dev testcases]# pwd
   /home/Kmesh/test/testcases
   [root@dev testcases]# vim kmesh.json
@@ -211,7 +216,7 @@ The `libs` directory encapsulates common operations during the Kmesh test proces
               "name": "oe_test_base_function"
           },
           {
-              "name": "oe_test_lb_policy_function" # Add test case to the test suite
+              "name": "oe_test_lb_policy_function"
           }
       ]
   }
