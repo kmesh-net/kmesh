@@ -1,16 +1,16 @@
 # Introduction to Kmesh Test Framework
 
-## What is mugen
+## What is Mugen
 
-mugen is a testing framework open-sourced by the openEuler community. It provides public configurations and methods for community developers to write and execute test code. Kmesh has implemented its own testing framework based on mugen to ensure the stability of basic Kmesh functions.
+Mugen is a testing framework open-sourced by the openEuler community. It provides public configurations and methods for community developers to write and execute test code. Kmesh has implemented its own testing framework based on Mugen to ensure the stability of basic Kmesh functions.
 
-For a detailed introduction to mugen, please refer to:
+For a detailed introduction to Mugen, please refer to:
 
 <https://gitee.com/openeuler/mugen>
 
 ## Introduction to Kmesh Test Framework
 
-Kmesh has implemented a testing framework based on mugen, mainly used during the development phase to provide basic guarantees for the basic functions of Kmesh and ensure that merged code will not break the main functions of Kmesh. The testing framework code is located in the `test` directory. Description of key files/directories:
+Kmesh implements a testing framework based on Mugen. It is primarily used during the development phase to ensure the basic functionality of Kmesh and prevent merged code from breaking core features. The testing framework code is located in the `test` directory. Description of key files/directories:
 
 ```sh
 ├─runtest.sh # Test framework execution script
@@ -38,11 +38,11 @@ Kmesh has implemented a testing framework based on mugen, mainly used during the
 
 - Pre-test preparation
 
-  - Prepare a linux development environment (e.g., openEuler 2203 LTS)
+  - Prepare a Linux development environment (e.g., openEuler 2203 LTS)
 
   - Replace the kernel series packages containing the Kmesh enhancement patch (kernel.rpm, kernel-devel.rpm, kernel-header.rpm)
 
-    - For how to build kernel series packages containing the Kmesh enhancement patch, please refer to: xxx
+    - For instructions on how to build kernel series packages containing the Kmesh enhancement patch, please refer to: [Kmesh Kernel Compile Guide](../docs/en/kmesh_kernel_compile.md)
 
   - Download Kmesh code
 
@@ -57,15 +57,15 @@ Kmesh has implemented a testing framework based on mugen, mainly used during the
   [root@dev test]# ./runtest.sh {env_ip} {login_password}
   # Main steps of runtest:
   # 1 Execute dependency installation
-  # 2 Compile Kmesh code + Kmesh.ko, and install
+  # 2 Compile Kmesh code and Kmesh.ko, and install
   # 3 Execute each test case in the test suite one by one
   # 4 Output the test execution results, as follows
   Tue Oct 25 19:29:50 2022 - INFO  - Configuration file loaded successfully...
   Tue Oct 25 19:29:51 2022 - INFO  - start to run testcase:oe_test_normal_function.
   Tue Oct 25 19:29:59 2022 - INFO  - The case exit by code 0.
   Tue Oct 25 19:29:59 2022 - INFO  - End to run testcase:oe_test_normal_function.
-  Tue Oct 25 19:29:59 2022 - INFO  - A total of 1 use cases were executed, with 1 successes and 0 failures.
-  the following test cases run successful
+  Tue Oct 25 19:29:59 2022 - INFO  - A total of 1 use case was executed, with 1 success and 0 failures.
+  the following test cases ran successfully
   --------------------------------------->
   oe_test_normal_function
   <---------------------------------------
@@ -84,10 +84,10 @@ Kmesh has implemented a testing framework based on mugen, mainly used during the
 
   - View temporary files during the test process
 
-    The test script may write some temporary files and verify the test results based on the temporary file information. The tmp files are archived at the test case granularity;
+    The test script may write some temporary files and verify the test results based on them. These temporary files are archived at the test case level.
 
     ```sh
-    # Taking the oe_test_normal_function test case of Kmesh as an example, the tmp file directory is:
+    # Taking the oe_test_normal_function test case of Kmesh as an example, the temporary file directory is:
     [root@localhost test]# ./mugen-master/testcases/smoke-test/kmesh/oe_test_normal_function/
     ```
 
@@ -102,7 +102,7 @@ Kmesh has implemented a testing framework based on mugen, mainly used during the
     total 12K
     -rw-r--r--. 1 root root 9.0K Oct 25 19:29 2022-10-25-19:29:51.log
     [root@localhost oe_test_normal_function]#
-    # 2 Search for CHECK_RESULT in the log file, the verification item where actual_result is inconsistent with expect_result is the problematic point
+    # 2 Search for CHECK_RESULT in the log file. The verification item where actual_result is inconsistent with expect_result is the point of failure.
     + CHECK_RESULT 0 0 0 'insmod kmesh.ko failed'
     + actual_result=0
     + expect_result=0
@@ -111,19 +111,19 @@ Kmesh has implemented a testing framework based on mugen, mainly used during the
 
 ## Introduction to Test Framework Basic Library
 
-The `libs` directory encapsulates some public operations during the Kmesh test process to simplify the development of new test cases; the list of APIs included in the basic library is as follows:
+The `libs` directory encapsulates common operations during the Kmesh test process to simplify the development of new test cases. The list of APIs included in the basic library is as follows:
 
 - start_fortio_server
 
   - Function description
 
-    Start the fortio server test program;
+    Start the Fortio server test program.
 
   - Parameter description
 
-    Consistent with the fortio server commands.
+    Consistent with the Fortio server commands.
 
-    However, it should be noted that: if you want to modify the port or IP address here, it must be passed in the complete format of ip:port.
+    However, it should be noted that if you want to modify the port or IP address here, it must be passed in the complete format of IP:port.
 
   - Call example
 
@@ -142,11 +142,11 @@ The `libs` directory encapsulates some public operations during the Kmesh test p
 
   - Function description
 
-    Start Kmesh in local mode, this mode does not require deploying k8s/istio in the environment;
+    Start Kmesh in local mode. This mode does not require deploying Kubernetes or Istio in the environment.
 
   - Parameter description
 
-    NA
+    N/A
 
   - Call example
 
@@ -159,11 +159,11 @@ The `libs` directory encapsulates some public operations during the Kmesh test p
 
   - Function description
 
-    Load the xds configuration file; by default, it is loaded according to the conf under the test case
+    Load the xds configuration file. By default, it is loaded according to the conf directory under the test case.
 
   - Parameter description
 
-    NA
+    N/A
 
   - Call example
 
@@ -175,11 +175,11 @@ The `libs` directory encapsulates some public operations during the Kmesh test p
 
   - Function description
 
-    Test cleanup;
+    Test cleanup.
 
   - Parameter description
 
-    NA
+    N/A
 
   - Call example
 
@@ -211,7 +211,7 @@ The `libs` directory encapsulates some public operations during the Kmesh test p
               "name": "oe_test_base_function"
           },
           {
-              "name": "oe_test_lb_policy" # Add test case to the test suite
+              "name": "oe_test_lb_policy_function" # Add test case to the test suite
           }
       ]
   }
