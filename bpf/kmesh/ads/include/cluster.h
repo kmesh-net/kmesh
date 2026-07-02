@@ -87,6 +87,11 @@ static inline int map_add_cluster_eps(const char *cluster_name, const struct clu
     return kmesh_map_update_elem(&map_of_cluster_eps, cluster_name, eps);
 }
 
+static inline int map_delete_cluster_eps(const char *cluster_name)
+{
+    return kmesh_map_delete_elem(&map_of_cluster_eps, cluster_name);
+}
+
 static inline int
 cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct cluster_endpoints *cluster_eps)
 {
@@ -215,15 +220,18 @@ static inline struct cluster_endpoints *cluster_refresh_endpoints(const Cluster_
         return NULL;
     }
 
-    // FIXME: if control-plane delete or update, clear
-    // FIXME: if cluster_init_endpoints failed, clear
-    // FIXME: if cluster_check_endpoints failed, clear
     eps = map_lookup_cluster_eps(name);
-    if (eps) // TODO: && cluster_check_endpoints(eps, cla) != 0)
-        return eps;
+    if (eps) {
+        if (cluster_check_endpoints(eps, cla) != 0) {
+            return eps;
+        }
+        map_delete_cluster_eps(name); // deletes the stale/invalid cached endpoints
+    }
 
-    if (cluster_init_endpoints(name, cla) != 0)
+    if (cluster_init_endpoints(name, cla) != 0) {
+        map_delete_cluster_eps(name); // deletes the corrupted/half-written endpoints because initialization failed
         return NULL;
+    }
     return map_lookup_cluster_eps(name);
 }
 
