@@ -252,6 +252,11 @@ static inline struct cluster_endpoints *cluster_refresh_endpoints(const Cluster_
         return NULL;
     }
 
+    if (cla->n_endpoints == 0) {
+        (void)map_delete_cluster_eps(name);
+        return NULL;
+    }
+
     eps = map_lookup_cluster_eps(name);
     if (eps) {
         if (cluster_check_endpoints(eps, cla) != 0) {
@@ -261,6 +266,7 @@ static inline struct cluster_endpoints *cluster_refresh_endpoints(const Cluster_
     }
 
     if (cluster_init_endpoints(name, cla) != 0) {
+        (void)map_delete_cluster_eps(name);
         return NULL;
     }
     return map_lookup_cluster_eps(name);
