@@ -630,8 +630,12 @@ func getKmeshWaypointImage() string {
 	}
 
 	ver := version.Get().GitVersion
-	// if ver prefix with v, remove it
 	ver = strings.TrimPrefix(ver, "v")
+
+	// Fallback to a stable published image for dev or unversioned builds
+	if ver == "0.0.0-master" || strings.Contains(ver, "-dev") {
+		return "ghcr.io/kmesh-net/waypoint:v1.0.0-alpha"
+	}
 
 	return fmt.Sprintf("ghcr.io/kmesh-net/waypoint:v%s", ver)
 }
