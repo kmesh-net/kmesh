@@ -406,20 +406,36 @@ func (p *Processor) addWorkloadToService(sk *bpf.ServiceKey, sv *bpf.ServiceValu
 		ev = bpf.EndpointValue{}
 	)
 
-	sv.EndpointCount[priority]++
-	ek.BackendIndex = sv.EndpointCount[priority]
+	// 1. Calculate the required index without mutating the sv object initially.
+	nextIndex := sv.EndpointCount[priority] + 1
+	ek.BackendIndex = nextIndex
 	ek.ServiceId = sk.ServiceId
 	ek.Prio = priority
 	ev.BackendUid = workloadUid
+
+	// 2. Execute p.bpf.EndpointUpdate.
 	if err := p.bpf.EndpointUpdate(&ek, &ev); err != nil {
-		log.Errorf("Update endpoint map failed, err:%s", err)
-		return ek, err
+		// Rollback endpointKeys in bpfcache if the BPF update failed to avoid stale in-memory state.
+		_ = p.bpf.EndpointDelete(&ek)
+		return ek, fmt.Errorf("addWorkloadToService: EndpointUpdate failed for service %d, backend %d: %w", sk.ServiceId, workloadUid, err)
 	}
+
+	// 3. Execute p.bpf.ServiceUpdate using a copy to ensure atomicity.
+	svCopy := *sv
+	svCopy.EndpointCount[priority] = nextIndex
+	if err := p.bpf.ServiceUpdate(sk, &svCopy); err != nil {
+		// 4. Rollback mechanism: If p.bpf.ServiceUpdate fails after a successful p.bpf.EndpointUpdate,
+		// implement a rollback (deletion) of the newly added endpoint from the BPF map.
+		if rollbackErr := p.bpf.EndpointDelete(&ek); rollbackErr != nil {
+			log.Errorf("addWorkloadToService: rollback EndpointDelete failed for service %d, backend %d: %v", sk.ServiceId, workloadUid, rollbackErr)
+		}
+		return ek, fmt.Errorf("addWorkloadToService: ServiceUpdate failed for service %d, priority %d: %w", sk.ServiceId, priority, err)
+	}
+
+	// 5. Only upon success of both, update sv.EndpointCount and in-memory cache.
+	sv.EndpointCount[priority] = nextIndex
 	p.EndpointCache.AddEndpointToService(cache.Endpoint{ServiceId: ek.ServiceId, Prio: ek.Prio, BackendIndex: ek.BackendIndex}, ev.BackendUid)
-	if err := p.bpf.ServiceUpdate(sk, sv); err != nil {
-		log.Errorf("Update ServiceUpdate map failed, err:%s", err)
-		return ek, err
-	}
+
 	return ek, nil
 }
 
@@ -1152,25 +1168,41 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 // 2. update the service map's endpoint count
 // 3. delete the last endpoint
 func (p *Processor) deleteEndpoint(ek bpf.EndpointKey, ev bpf.EndpointValue, sv bpf.ServiceValue, sk bpf.ServiceKey) error {
-	if err := p.bpf.EndpointSwap(ek.BackendIndex, ev.BackendUid, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
-		log.Errorf("swap workload endpoint index failed: %s", err)
-		return err
+	// 0. Underflow guard: ensure the count is greater than 0 before decrementing.
+	if sv.EndpointCount[ek.Prio] == 0 {
+		return fmt.Errorf("deleteEndpoint: underflow prevented, endpoint count is already 0 for service %d, priority %d", sk.ServiceId, ek.Prio)
 	}
 
+	// 1. Swap the endpoint to be deleted with the last endpoint in the same priority group.
+	// This ensures that the indices 1 to sv.EndpointCount[ek.Prio] always point to valid endpoints.
+	if err := p.bpf.EndpointSwap(ek.BackendIndex, ev.BackendUid, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
+		return fmt.Errorf("deleteEndpoint: EndpointSwap failed for service %d, backend %d, index %d: %w", sk.ServiceId, ev.BackendUid, ek.BackendIndex, err)
+	}
+
+	// 2. Update the service map's endpoint count to reflect the removal.
+	// We decrement the count first in the service map so that the BPF program will not access the last index.
 	sv.EndpointCount[ek.Prio] = sv.EndpointCount[ek.Prio] - 1
 	if err := p.bpf.ServiceUpdate(&sk, &sv); err != nil {
-		log.Errorf("ServiceUpdate %#v failed: %v", sk, err)
-		return err
+		// Rollback EndpointSwap: restore the original endpoint value at the current index.
+		// ev contains the original backendUid of the endpoint being deleted.
+		rollbackEv := bpf.EndpointValue{BackendUid: ev.BackendUid}
+		if rollbackErr := p.bpf.EndpointUpdate(&ek, &rollbackEv); rollbackErr != nil {
+			log.Errorf("deleteEndpoint: rollback EndpointUpdate failed for service %d, backend %d: %v", sk.ServiceId, ev.BackendUid, rollbackErr)
+		}
+		return fmt.Errorf("deleteEndpoint: ServiceUpdate failed for service %d, priority %d, count %d: %w", sk.ServiceId, ek.Prio, sv.EndpointCount[ek.Prio], err)
 	}
 
+	// 3. Finally, delete the redundant last endpoint entry.
+	// This is considered best-effort because the service count has already been successfully decremented,
+	// so the BPF program will no longer access this index. Returning an error here would incorrectly
+	// block the userspace cache update.
 	lastKey := &bpf.EndpointKey{
 		ServiceId:    sk.ServiceId,
 		Prio:         ek.Prio,
 		BackendIndex: sv.EndpointCount[ek.Prio] + 1,
 	}
 	if err := p.bpf.EndpointDelete(lastKey); err != nil {
-		log.Errorf("EndpointDelete [%#v] failed: %v", lastKey, err)
-		return err
+		log.Errorf("deleteEndpoint: EndpointDelete (best-effort) failed for service %d, index %d: %v", sk.ServiceId, lastKey.BackendIndex, err)
 	}
 	return nil
 }
