@@ -122,11 +122,31 @@ static inline __u32 cluster_get_endpoints_num(const Endpoint__ClusterLoadAssignm
     return num;
 }
 
+static inline int
+cluster_add_endpoints(const Endpoint__LocalityLbEndpoints *lb_ep, struct cluster_endpoints *cluster_eps)
+{
+    __u32 i;
+    void *ep_ptrs = NULL;
+
+    ep_ptrs = KMESH_GET_PTR_VAL(lb_ep->lb_endpoints, void *);
+    if (!ep_ptrs)
+        return -1;
+
+#pragma unroll
+    for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
+        if (i >= lb_ep->n_lb_endpoints || cluster_eps->ep_num >= KMESH_PER_ENDPOINT_NUM)
+            break;
+
+        cluster_eps->ep_identity[cluster_eps->ep_num++] = (__u64) * ((__u64 *)ep_ptrs + i);
+    }
+    return 0;
+}
+
 static inline int cluster_init_endpoints(const char *cluster_name, const Endpoint__ClusterLoadAssignment *cla)
 {
-    __u32 i = 0, j = 0, k = 0;
+    __u32 i = 0;
+    int ret = 0;
     void *ptrs = NULL;
-    void *ep_ptrs = NULL;
     Endpoint__LocalityLbEndpoints *ep = NULL;
     /* A percpu array map is added to store cluster eps data.
      * The reason for using percpu array map is that a alarge value exceeds
@@ -146,46 +166,52 @@ static inline int cluster_init_endpoints(const char *cluster_name, const Endpoin
         return -1;
     }
 
-    /* The flattened loop bound is set to KMESH_PER_ENDPOINT_NUM * 3 to ensure it can cover both
-     * valid endpoints and skip over any empty localities without prematurely exhausting the loop limit. */
 #pragma unroll
-    for (k = 0; k < KMESH_PER_ENDPOINT_NUM * 3; k++) {
-        if (cluster_eps->ep_num >= KMESH_PER_ENDPOINT_NUM)
+    for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
+        if (i >= cla->n_endpoints)
             break;
 
-        if (!ep || j >= ep->n_lb_endpoints) {
-            if (i >= cla->n_endpoints || i >= KMESH_PER_ENDPOINT_NUM)
-                break;
+        ep = (Endpoint__LocalityLbEndpoints *)KMESH_GET_PTR_VAL(
+            (void *)*((__u64 *)ptrs + i), Endpoint__LocalityLbEndpoints);
+        if (!ep)
+            continue;
 
-            ep = (Endpoint__LocalityLbEndpoints *)KMESH_GET_PTR_VAL(
-                (void *)*((__u64 *)ptrs + i), Endpoint__LocalityLbEndpoints);
-            i++;
-            j = 0;
-
-            if (!ep)
-                continue;
-
-            ep_ptrs = KMESH_GET_PTR_VAL(ep->lb_endpoints, void *);
-            if (!ep_ptrs)
-                return -1;
-
-            if (j >= ep->n_lb_endpoints)
-                continue;
-        }
-
-        cluster_eps->ep_identity[cluster_eps->ep_num++] = (__u64) * ((__u64 *)ep_ptrs + j);
-        j++;
+        ret = cluster_add_endpoints(ep, cluster_eps);
+        if (ret != 0)
+            return -1;
     }
-    return kmesh_map_update_elem(&map_of_cluster_eps, cluster_name, cluster_eps);
+    return map_add_cluster_eps(cluster_name, cluster_eps);
+}
+
+static inline int cluster_check_locality_endpoints(
+    const Endpoint__LocalityLbEndpoints *lb_ep, const struct cluster_endpoints *eps, __u32 *ep_idx)
+{
+    __u32 i;
+    void *ep_ptrs = NULL;
+
+    ep_ptrs = KMESH_GET_PTR_VAL(lb_ep->lb_endpoints, void *);
+    if (!ep_ptrs)
+        return -1;
+
+#pragma unroll
+    for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
+        if (i >= lb_ep->n_lb_endpoints || *ep_idx >= eps->ep_num)
+            break;
+
+        if (eps->ep_identity[*ep_idx] != (__u64) * ((__u64 *)ep_ptrs + i))
+            return -1;
+
+        (*ep_idx)++;
+    }
+    return 0;
 }
 
 static inline int
 cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint__ClusterLoadAssignment *cla)
 {
-    __u32 i = 0, j = 0, k = 0;
+    __u32 i = 0;
     __u32 ep_idx = 0;
     void *loc_ptrs = NULL;
-    void *ep_ptrs = NULL;
     Endpoint__LocalityLbEndpoints *ep = NULL;
 
     __u32 lb_num = cluster_get_endpoints_num(cla);
@@ -200,39 +226,18 @@ cluster_check_endpoints(const struct cluster_endpoints *eps, const Endpoint__Clu
     if (!loc_ptrs)
         return 0;
 
-        /* The flattened loop bound is set to KMESH_PER_ENDPOINT_NUM * 3 to ensure it can cover both
-         * valid endpoints and skip over any empty localities without prematurely exhausting the loop limit. */
 #pragma unroll
-    for (k = 0; k < KMESH_PER_ENDPOINT_NUM * 3; k++) {
-        if (ep_idx >= eps->ep_num)
+    for (i = 0; i < KMESH_PER_ENDPOINT_NUM; i++) {
+        if (i >= cla->n_endpoints || ep_idx >= eps->ep_num)
             break;
 
-        if (!ep || j >= ep->n_lb_endpoints) {
-            if (i >= cla->n_endpoints || i >= KMESH_PER_ENDPOINT_NUM)
-                break;
+        ep = (Endpoint__LocalityLbEndpoints *)KMESH_GET_PTR_VAL(
+            (void *)*((__u64 *)loc_ptrs + i), Endpoint__LocalityLbEndpoints);
+        if (!ep)
+            continue;
 
-            ep = (Endpoint__LocalityLbEndpoints *)KMESH_GET_PTR_VAL(
-                (void *)*((__u64 *)loc_ptrs + i), Endpoint__LocalityLbEndpoints);
-            i++;
-            j = 0;
-
-            if (!ep)
-                continue;
-
-            ep_ptrs = KMESH_GET_PTR_VAL(ep->lb_endpoints, void *);
-            if (!ep_ptrs) {
-                return 0;
-            }
-
-            if (j >= ep->n_lb_endpoints)
-                continue;
-        }
-
-        if (eps->ep_identity[ep_idx] != (__u64) * ((__u64 *)ep_ptrs + j))
+        if (cluster_check_locality_endpoints(ep, eps, &ep_idx) != 0)
             return 0;
-
-        j++;
-        ep_idx++;
     }
 
     if (ep_idx != eps->ep_num)
