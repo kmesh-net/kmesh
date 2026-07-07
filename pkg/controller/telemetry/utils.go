@@ -169,6 +169,11 @@ var (
 		"node_name",
 		"map_name",
 	}
+	kmeshMapDetailLabels = []string{
+		"node_name",
+		"map_name",
+		"map_type",
+	}
 	totalMapLabels = []string{
 		"node_name",
 	}
@@ -292,6 +297,24 @@ var (
 			Help: "The total entry used by an eBPF map.",
 		}, kmeshMapLabels,
 	)
+	mapMaxEntries = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_max_entries",
+			Help: "The maximum number of entries configured for an eBPF map.",
+		}, kmeshMapDetailLabels,
+	)
+	mapMemlockBytes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_memlock_bytes",
+			Help: "The approximate locked memory used by an eBPF map in bytes.",
+		}, kmeshMapDetailLabels,
+	)
+	mapEntryUtilizationRatio = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_entry_utilization_ratio",
+			Help: "Ratio of used entries to max entries for an eBPF map.",
+		}, kmeshMapDetailLabels,
+	)
 	mapCountInNode = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kmesh_map_count_total",
@@ -302,6 +325,19 @@ var (
 
 func RunPrometheusClient(ctx context.Context) {
 	registry := prometheus.NewRegistry()
+
+	// Register metrics and route once to avoid duplicate registration panics on retries.
+	mu.Lock()
+	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
+	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
+	registry.MustRegister(tcpConnectionTotalSendBytes, tcpConnectionTotalReceivedBytes, tcpConnectionTotalPacketLost, tcpConnectionTotalRetrans)
+	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
+	registry.MustRegister(mapEntryCount, mapMaxEntries, mapMemlockBytes, mapEntryUtilizationRatio, mapCountInNode)
+	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		Registry: registry,
+	}))
+	mu.Unlock()
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -313,20 +349,8 @@ func RunPrometheusClient(ctx context.Context) {
 }
 
 func runPrometheusClient(registry *prometheus.Registry) {
-	// ensure not occur matche the same requests as /status/metric panic in unit test
-	mu.Lock()
-	defer mu.Unlock()
-	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
-	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
-	registry.MustRegister(tcpConnectionTotalSendBytes, tcpConnectionTotalReceivedBytes, tcpConnectionTotalPacketLost, tcpConnectionTotalRetrans)
-	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
-	registry.MustRegister(mapEntryCount, mapCountInNode)
-
-	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
-		Registry: registry,
-	}))
 	if err := http.ListenAndServe(":15020", nil); err != nil {
-		log.Fatalf("start prometheus client port failed: %v", err)
+		log.Errorf("start prometheus client port failed: %v", err)
 	}
 }
 
