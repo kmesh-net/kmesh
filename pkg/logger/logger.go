@@ -31,7 +31,9 @@ import (
 )
 
 const (
-	logSubsys = "subsys"
+	logSubsys      = "subsys"
+	recordLenSize  = 4
+	recordNullSize = 1
 )
 
 type LogEvent struct {
@@ -148,6 +150,7 @@ func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {
 			le, err := decodeRecord(record.RawSample)
 			if err != nil {
 				log.Errorf("ringbuf decode data failed:%v", err)
+				continue
 			}
 			log.Infof("%v", le.Msg)
 		}
@@ -156,9 +159,20 @@ func handleLogEvents(ctx context.Context, rbMap *ebpf.Map) {
 
 // 4 is the msg length, -1 is the '\0' terminate character
 func decodeRecord(data []byte) (*LogEvent, error) {
+	if len(data) < recordLenSize {
+		return nil, fmt.Errorf("log record too short: got %d bytes, need at least %d", len(data), recordLenSize)
+	}
+
 	le := LogEvent{}
-	lenOfMsg := binary.NativeEndian.Uint32(data[0:4])
+	lenOfMsg := binary.NativeEndian.Uint32(data[:recordLenSize])
+	if lenOfMsg < recordNullSize {
+		return nil, fmt.Errorf("log record has invalid message length %d", lenOfMsg)
+	}
+	if len(data) < recordLenSize+int(lenOfMsg) {
+		return nil, fmt.Errorf("log record message length %d exceeds sample size %d", lenOfMsg, len(data))
+	}
+
 	le.len = uint32(lenOfMsg)
-	le.Msg = string(data[4 : 4+lenOfMsg-1])
+	le.Msg = string(data[recordLenSize : recordLenSize+lenOfMsg-recordNullSize])
 	return &le, nil
 }
