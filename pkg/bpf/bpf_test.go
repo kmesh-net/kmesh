@@ -57,6 +57,14 @@ func TestUpdateKmeshConfigMap(t *testing.T) {
 	bpfLoader.Stop()
 }
 
+func TestUpdateBpfLogLevelWithoutInitializedLoader(t *testing.T) {
+	bpfLoader := &BpfLoader{}
+
+	err := bpfLoader.UpdateBpfLogLevel(3)
+	assert.EqualError(t, err, "bpf loader is not initialized")
+	assert.Equal(t, uint32(0), bpfLoader.GetBpfLogLevel())
+}
+
 func TestRestart(t *testing.T) {
 	t.Run("new start DualEngine", func(t *testing.T) {
 		runTestNormalDualEngine(t)

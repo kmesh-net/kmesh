@@ -18,6 +18,7 @@ package logger
 
 import (
 	"encoding/binary"
+	"math"
 	"strings"
 	"testing"
 )
@@ -45,6 +46,11 @@ func TestDecodeRecord(t *testing.T) {
 		{
 			name:    "oversized message length",
 			data:    append(makeRecord(8), []byte("hi\x00")...),
+			wantErr: "exceeds sample size",
+		},
+		{
+			name:    "max uint32 message length",
+			data:    append(makeRecord(math.MaxUint32), []byte("hi\x00")...),
 			wantErr: "exceeds sample size",
 		},
 		{

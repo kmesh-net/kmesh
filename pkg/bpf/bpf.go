@@ -388,28 +388,30 @@ func (l *BpfLoader) GetKmeshConfigMap() factory.GlobalBpfConfig {
 
 func (l *BpfLoader) UpdateBpfLogLevel(bpfLogLevel uint32) error {
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockConn.BpfLogLevel.Set(bpfLogLevel); err != nil {
+		if err := setBpfVariable(l.workloadObj.SockConn.BpfLogLevel, "sockconn BpfLogLevel", bpfLogLevel); err != nil {
 			return fmt.Errorf("set sockcon BpfLogLevel failed %w", err)
 		}
-		if err := l.workloadObj.SockOps.BpfLogLevel.Set(bpfLogLevel); err != nil {
+		if err := setBpfVariable(l.workloadObj.SockOps.BpfLogLevel, "sockops BpfLogLevel", bpfLogLevel); err != nil {
 			return fmt.Errorf("set sockops BpfLogLevel failed %w", err)
 		}
-		if err := l.workloadObj.XdpAuth.BpfLogLevel.Set(bpfLogLevel); err != nil {
+		if err := setBpfVariable(l.workloadObj.XdpAuth.BpfLogLevel, "xdp BpfLogLevel", bpfLogLevel); err != nil {
 			return fmt.Errorf("set xdp BpfLogLevel failed %w", err)
 		}
-		if err := l.workloadObj.SendMsg.BpfLogLevel.Set(bpfLogLevel); err != nil {
+		if err := setBpfVariable(l.workloadObj.SendMsg.BpfLogLevel, "sendmsg BpfLogLevel", bpfLogLevel); err != nil {
 			return fmt.Errorf("set sendmsg BpfLogLevel failed %w", err)
 		}
-		if err := l.workloadObj.CgroupSkb.BpfLogLevel.Set(bpfLogLevel); err != nil {
+		if err := setBpfVariable(l.workloadObj.CgroupSkb.BpfLogLevel, "cgroup_skb BpfLogLevel", bpfLogLevel); err != nil {
 			return fmt.Errorf("set cgroup_skb BpfLogLevel failed %w", err)
 		}
 	} else if l.obj != nil {
-		if err := l.obj.SockConn.BpfLogLevel.Set(bpfLogLevel); err != nil {
+		if err := setBpfVariable(l.obj.SockConn.BpfLogLevel, "sockconn BpfLogLevel", bpfLogLevel); err != nil {
 			return fmt.Errorf("set sockcon BpfLogLevel failed %w", err)
 		}
-		if err := l.obj.SockOps.BpfLogLevel.Set(bpfLogLevel); err != nil {
+		if err := setBpfVariable(l.obj.SockOps.BpfLogLevel, "sockops BpfLogLevel", bpfLogLevel); err != nil {
 			return fmt.Errorf("set sockops BpfLogLevel failed %w", err)
 		}
+	} else {
+		return fmt.Errorf("bpf loader is not initialized")
 	}
 
 	return nil
@@ -418,16 +420,30 @@ func (l *BpfLoader) UpdateBpfLogLevel(bpfLogLevel uint32) error {
 func (l *BpfLoader) GetBpfLogLevel() uint32 {
 	var bpfLogLevel uint32
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockConn.BpfLogLevel.Get(&bpfLogLevel); err != nil {
+		if err := getBpfVariable(l.workloadObj.SockConn.BpfLogLevel, "sockconn BpfLogLevel", &bpfLogLevel); err != nil {
 			log.Errorf("get BpfLogLevel failed %v", err)
 		}
 	} else if l.obj != nil {
-		if err := l.obj.SockConn.BpfLogLevel.Get(&bpfLogLevel); err != nil {
+		if err := getBpfVariable(l.obj.SockConn.BpfLogLevel, "sockconn BpfLogLevel", &bpfLogLevel); err != nil {
 			log.Errorf("get BpfLogLevel failed %v", err)
 		}
 	}
 
 	return bpfLogLevel
+}
+
+func setBpfVariable(variable *ebpf.Variable, name string, value any) error {
+	if variable == nil {
+		return fmt.Errorf("%s is unavailable", name)
+	}
+	return variable.Set(value)
+}
+
+func getBpfVariable(variable *ebpf.Variable, name string, valueOut any) error {
+	if variable == nil {
+		return fmt.Errorf("%s is unavailable", name)
+	}
+	return variable.Get(valueOut)
 }
 
 func (l *BpfLoader) UpdateNodeIP(nodeIP [16]byte) error {

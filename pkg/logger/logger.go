@@ -168,11 +168,12 @@ func decodeRecord(data []byte) (*LogEvent, error) {
 	if lenOfMsg < recordNullSize {
 		return nil, fmt.Errorf("log record has invalid message length %d", lenOfMsg)
 	}
-	if len(data) < recordLenSize+int(lenOfMsg) {
+	if uint64(len(data)) < uint64(recordLenSize)+uint64(lenOfMsg) {
 		return nil, fmt.Errorf("log record message length %d exceeds sample size %d", lenOfMsg, len(data))
 	}
 
 	le.len = uint32(lenOfMsg)
-	le.Msg = string(data[recordLenSize : recordLenSize+lenOfMsg-recordNullSize])
+	msgEnd := recordLenSize + int(lenOfMsg) - recordNullSize
+	le.Msg = string(data[recordLenSize:msgEnd])
 	return &le, nil
 }
