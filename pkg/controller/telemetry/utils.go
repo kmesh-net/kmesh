@@ -318,10 +318,16 @@ func RunPrometheusClient(ctx context.Context) {
 
 func runPrometheusClient(ctx context.Context, registry *prometheus.Registry, addr string, serve func(*http.Server) error) error {
 	server := newPrometheusServer(registry, addr)
+	stop := make(chan struct{})
+	defer close(stop)
+
 	if ctx != nil {
 		go func() {
-			<-ctx.Done()
-			_ = server.Shutdown(context.Background())
+			select {
+			case <-ctx.Done():
+				_ = server.Shutdown(context.Background())
+			case <-stop:
+			}
 		}()
 	}
 
