@@ -448,7 +448,7 @@ func getBpfVariable(variable *ebpf.Variable, name string, valueOut any) error {
 
 func (l *BpfLoader) UpdateNodeIP(nodeIP [16]byte) error {
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockOps.NodeIp.Set(nodeIP); err != nil {
+		if err := setBpfVariable(l.workloadObj.SockOps.NodeIp, "sockops NodeIP", nodeIP); err != nil {
 			return fmt.Errorf("set NodeIP failed %w", err)
 		}
 	} else if l.obj != nil {
@@ -461,7 +461,7 @@ func (l *BpfLoader) UpdateNodeIP(nodeIP [16]byte) error {
 func (l *BpfLoader) GetNodeIP() [16]byte {
 	var nodeIP [16]byte
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockOps.NodeIp.Get(&nodeIP); err != nil {
+		if err := getBpfVariable(l.workloadObj.SockOps.NodeIp, "sockops NodeIP", &nodeIP); err != nil {
 			log.Errorf("get NodeIP failed %v", err)
 		}
 	}
@@ -470,7 +470,7 @@ func (l *BpfLoader) GetNodeIP() [16]byte {
 
 func (l *BpfLoader) UpdatePodGateway(podGateway [16]byte) error {
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockOps.PodGateway.Set(podGateway); err != nil {
+		if err := setBpfVariable(l.workloadObj.SockOps.PodGateway, "sockops PodGateway", podGateway); err != nil {
 			return fmt.Errorf("set PodGateway failed %w", err)
 		}
 	} else if l.obj != nil {
@@ -483,7 +483,7 @@ func (l *BpfLoader) UpdatePodGateway(podGateway [16]byte) error {
 func (l *BpfLoader) GetPodGateway() [16]byte {
 	var podGateway [16]byte
 	if l.workloadObj != nil {
-		if err := l.workloadObj.SockOps.PodGateway.Get(&podGateway); err != nil {
+		if err := getBpfVariable(l.workloadObj.SockOps.PodGateway, "sockops PodGateway", &podGateway); err != nil {
 			log.Errorf("get PodGateway failed %v", err)
 		}
 	}
@@ -492,7 +492,7 @@ func (l *BpfLoader) GetPodGateway() [16]byte {
 
 func (l *BpfLoader) UpdateAuthzOffload(authzOffload uint32) error {
 	if l.workloadObj != nil {
-		if err := l.workloadObj.XdpAuth.AuthzOffload.Set(authzOffload); err != nil {
+		if err := setBpfVariable(l.workloadObj.XdpAuth.AuthzOffload, "xdp AuthzOffload", authzOffload); err != nil {
 			return fmt.Errorf("set AuthzOffload failed %w", err)
 		}
 	}
@@ -503,7 +503,7 @@ func (l *BpfLoader) UpdateAuthzOffload(authzOffload uint32) error {
 func (l *BpfLoader) GetAuthzOffload() uint32 {
 	var authzOffload uint32
 	if l.workloadObj != nil {
-		if err := l.workloadObj.XdpAuth.AuthzOffload.Get(&authzOffload); err != nil {
+		if err := getBpfVariable(l.workloadObj.XdpAuth.AuthzOffload, "xdp AuthzOffload", &authzOffload); err != nil {
 			log.Errorf("get AuthzOffload failed %v", err)
 		}
 	}
@@ -512,10 +512,10 @@ func (l *BpfLoader) GetAuthzOffload() uint32 {
 
 func (l *BpfLoader) UpdateEnableMonitoring(enableMonitoring uint32) error {
 	if l.workloadObj != nil {
-		if err := l.workloadObj.CgroupSkb.EnableMonitoring.Set(enableMonitoring); err != nil {
+		if err := setBpfVariable(l.workloadObj.CgroupSkb.EnableMonitoring, "cgroup_skb EnableMonitoring", enableMonitoring); err != nil {
 			return fmt.Errorf("set CgroupSkb EnableMonitoring failed %w", err)
 		}
-		if err := l.workloadObj.SockOps.EnableMonitoring.Set(enableMonitoring); err != nil {
+		if err := setBpfVariable(l.workloadObj.SockOps.EnableMonitoring, "sockops EnableMonitoring", enableMonitoring); err != nil {
 			return fmt.Errorf("set SockOps EnableMonitoring failed %w", err)
 		}
 	}
@@ -526,7 +526,7 @@ func (l *BpfLoader) UpdateEnableMonitoring(enableMonitoring uint32) error {
 func (l *BpfLoader) GetEnableMonitoring() uint32 {
 	var enableMonitoring uint32
 	if l.workloadObj != nil {
-		if err := l.workloadObj.CgroupSkb.EnableMonitoring.Get(&enableMonitoring); err != nil {
+		if err := getBpfVariable(l.workloadObj.CgroupSkb.EnableMonitoring, "cgroup_skb EnableMonitoring", &enableMonitoring); err != nil {
 			log.Errorf("get EnableMonitoring failed %v", err)
 		}
 	}
@@ -535,11 +535,25 @@ func (l *BpfLoader) GetEnableMonitoring() uint32 {
 
 func (l *BpfLoader) UpdateEnablePeriodicReport(EnablePeriodicReport uint32) error {
 	if l.workloadObj != nil {
-		if err := l.workloadObj.CgroupSkb.EnablePeriodicReport.Set(EnablePeriodicReport); err != nil {
+		if err := setBpfVariable(l.workloadObj.CgroupSkb.EnablePeriodicReport, "cgroup_skb EnablePeriodicReport", EnablePeriodicReport); err != nil {
 			return fmt.Errorf("set CgroupSkb enable periodic report failed %w", err)
 		}
 	}
 	return nil
+}
+
+func setBpfVariable(variable *ebpf.Variable, name string, value any) error {
+	if variable == nil {
+		return fmt.Errorf("%s is unavailable", name)
+	}
+	return variable.Set(value)
+}
+
+func getBpfVariable(variable *ebpf.Variable, name string, valueOut any) error {
+	if variable == nil {
+		return fmt.Errorf("%s is unavailable", name)
+	}
+	return variable.Get(valueOut)
 }
 
 func closeMap(m *ebpf.Map) {
