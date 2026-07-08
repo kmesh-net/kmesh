@@ -18,6 +18,7 @@ package telemetry
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 	"sync"
@@ -31,8 +32,10 @@ import (
 
 var (
 	log = logger.NewLoggerScope("telemetry")
-	// ensure not occur matche the same requests as /status/metric panic in unit test
+	// ensure metrics are only registered once per registry in tests
 	mu sync.Mutex
+	// ensure the daemon only starts one metrics server per process
+	prometheusServerOnce sync.Once
 	// Ensure concurrency security when removing metriclabels from workloads and services.
 	deleteLock       sync.Mutex
 	deleteWorkload   = []*workloadapi.Workload{}
@@ -174,6 +177,8 @@ var (
 	}
 )
 
+const prometheusClientAddr = ":15020"
+
 var (
 	tcpConnectionOpenedInWorkload = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Name: "kmesh_tcp_workload_connections_opened_total",
@@ -301,19 +306,48 @@ var (
 )
 
 func RunPrometheusClient(ctx context.Context) {
-	registry := prometheus.NewRegistry()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			runPrometheusClient(registry)
+	prometheusServerOnce.Do(func() {
+		registry := prometheus.NewRegistry()
+		if err := runPrometheusClient(ctx, registry, prometheusClientAddr, func(server *http.Server) error {
+			return server.ListenAndServe()
+		}); err != nil {
+			log.Errorf("start prometheus client port failed: %v", err)
 		}
+	})
+}
+
+func runPrometheusClient(ctx context.Context, registry *prometheus.Registry, addr string, serve func(*http.Server) error) error {
+	server := newPrometheusServer(registry, addr)
+	if ctx != nil {
+		go func() {
+			<-ctx.Done()
+			_ = server.Shutdown(context.Background())
+		}()
+	}
+
+	err := serve(server)
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
+	}
+
+	return nil
+}
+
+func newPrometheusServer(registry *prometheus.Registry, addr string) *http.Server {
+	registerPrometheusMetrics(registry)
+
+	mux := http.NewServeMux()
+	mux.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		Registry: registry,
+	}))
+
+	return &http.Server{
+		Addr:    addr,
+		Handler: mux,
 	}
 }
 
-func runPrometheusClient(registry *prometheus.Registry) {
-	// ensure not occur matche the same requests as /status/metric panic in unit test
+func registerPrometheusMetrics(registry *prometheus.Registry) {
 	mu.Lock()
 	defer mu.Unlock()
 	registry.MustRegister(tcpConnectionOpenedInWorkload, tcpConnectionClosedInWorkload, tcpReceivedBytesInWorkload, tcpSentBytesInWorkload, tcpConnectionTotalRetransInWorkload, tcpConnectionPacketLostInWorkload)
@@ -321,13 +355,6 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	registry.MustRegister(tcpConnectionTotalSendBytes, tcpConnectionTotalReceivedBytes, tcpConnectionTotalPacketLost, tcpConnectionTotalRetrans)
 	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
 	registry.MustRegister(mapEntryCount, mapCountInNode)
-
-	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
-		Registry: registry,
-	}))
-	if err := http.ListenAndServe(":15020", nil); err != nil {
-		log.Fatalf("start prometheus client port failed: %v", err)
-	}
 }
 
 func DeleteWorkloadMetric(workload *workloadapi.Workload) {

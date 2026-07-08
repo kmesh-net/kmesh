@@ -18,26 +18,21 @@ package telemetry
 
 import (
 	"context"
+	"io"
+	"net"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/stretchr/testify/require"
 
 	"kmesh.net/kmesh/api/v2/workloadapi"
 )
 
 func TestRegisterMetrics(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				runPrometheusClient(registry)
-			}
-		}
-	}()
+	registerPrometheusMetrics(registry)
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionClosedInWorkload,
@@ -162,22 +157,11 @@ func TestRegisterMetrics(t *testing.T) {
 			t.Errorf("metric not register")
 		}
 	}
-	cancel()
 }
 
 func TestDeleteWorkloadMetric(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				runPrometheusClient(registry)
-			}
-		}
-	}()
+	registerPrometheusMetrics(registry)
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionClosedInWorkload,
@@ -246,22 +230,11 @@ func TestDeleteWorkloadMetric(t *testing.T) {
 			}
 		})
 	}
-	cancel()
 }
 
 func TestDeleteServiceMetric(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				runPrometheusClient(registry)
-			}
-		}
-	}()
+	registerPrometheusMetrics(registry)
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionClosedInService,
@@ -326,22 +299,11 @@ func TestDeleteServiceMetric(t *testing.T) {
 			}
 		})
 	}
-	cancel()
 }
 
 func TestDeleteConnectionMetric(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	ctx, cancel := context.WithCancel(context.Background())
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				runPrometheusClient(registry)
-			}
-		}
-	}()
+	registerPrometheusMetrics(registry)
 
 	exportMetrics := []*prometheus.GaugeVec{
 		tcpConnectionTotalSendBytes,
@@ -415,5 +377,50 @@ func TestDeleteConnectionMetric(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestRunPrometheusClientPortConflict(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = listener.Close()
+	})
+
+	registry := prometheus.NewRegistry()
+	err = runPrometheusClient(context.Background(), registry, listener.Addr().String(), func(server *http.Server) error {
+		return server.ListenAndServe()
+	})
+	require.Error(t, err)
+}
+
+func TestRunPrometheusClientServesMetricsAndShutsDown(t *testing.T) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	registry := prometheus.NewRegistry()
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- runPrometheusClient(ctx, registry, listener.Addr().String(), func(server *http.Server) error {
+			return server.Serve(listener)
+		})
+	}()
+
+	client := &http.Client{Timeout: time.Second}
+	var resp *http.Response
+	require.Eventually(t, func() bool {
+		resp, err = client.Get("http://" + listener.Addr().String() + "/status/metric")
+		return err == nil
+	}, 5*time.Second, 50*time.Millisecond)
+
+	body, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.NoError(t, resp.Body.Close())
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.NotEmpty(t, body)
+
 	cancel()
+	require.NoError(t, <-serverErr)
 }
