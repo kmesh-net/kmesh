@@ -18,6 +18,8 @@ package config
 
 import (
 	"encoding/json"
+	"fmt"
+	"net"
 	"strings"
 
 	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -40,7 +42,6 @@ import (
 const (
 	sidecarNodeRole           = "sidecar"
 	ztunnelNodeRole           = "ztunnel"
-	localHostIPv4             = "127.0.0.1"
 	serviceNodeSeparator      = "~"
 	defaultClusterLocalDomain = "cluster.local"
 )
@@ -57,11 +58,10 @@ type XdsConfig struct {
 	Node             *corev3.Node
 }
 
-func NewXDSConfig(mode string) *XdsConfig {
+func NewXDSConfig(mode string) (*XdsConfig, error) {
 	c := &XdsConfig{
 		Metadata: &model.BootstrapNodeMetadata{},
 	}
-	podIP := env.Register("INSTANCE_IP", "", "").Get()
 	podName := env.Register("POD_NAME", "", "").Get()
 	podNamespace := env.Register("POD_NAMESPACE", "", "").Get()
 	c.DiscoveryAddress = env.Register("XDS_ADDRESS", "istiod.istio-system.svc:15012", "").Get()
@@ -71,10 +71,9 @@ func NewXDSConfig(mode string) *XdsConfig {
 	meshID := env.Register("MESH_ID", "cluster.local", "").Get()
 	nw := env.Register("ISTIO_META_NETWORK", "", "The network of the proxy.").Get()
 
-	// TODO: fix it once we want to support VM application
-	ip := localHostIPv4
-	if podIP != "" {
-		ip = podIP
+	ip, err := getInstanceIP()
+	if err != nil {
+		return nil, err
 	}
 	id := podName + "." + podNamespace
 	dnsDomain := podNamespace + ".svc." + defaultClusterLocalDomain
@@ -93,15 +92,39 @@ func NewXDSConfig(mode string) *XdsConfig {
 	c.Metadata.NodeName = nodeName
 	c.Metadata.NodeMetadata.ServiceAccount = sa
 
-	return c
+	return c, nil
 }
 
 func GetConfig(mode string) *XdsConfig {
 	if config != nil {
 		return config
 	}
-	config = NewXDSConfig(mode)
+
+	var err error
+	config, err = NewXDSConfig(mode)
+	if err != nil {
+		log.Fatalf("failed to initialize XDS config: %v", err)
+	}
+
 	return config
+}
+
+func getInstanceIP() (string, error) {
+	podIP := strings.TrimSpace(env.Register("INSTANCE_IP", "", "").Get())
+	if podIP == "" {
+		return "", fmt.Errorf("INSTANCE_IP must be set for XDS bootstrap")
+	}
+
+	ip := net.ParseIP(podIP)
+	if ip == nil {
+		return "", fmt.Errorf("INSTANCE_IP %q is not a valid IP address", podIP)
+	}
+
+	if ip.IsLoopback() || ip.IsUnspecified() {
+		return "", fmt.Errorf("INSTANCE_IP %q must not be loopback or unspecified", podIP)
+	}
+
+	return ip.String(), nil
 }
 
 func (c *XdsConfig) GetNode() *corev3.Node {
