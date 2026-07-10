@@ -18,6 +18,8 @@ package utils
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"kmesh.net/kmesh/pkg/kube"
 )
@@ -27,6 +29,19 @@ const (
 	KmeshLabel     = "app=kmesh"
 	KmeshAdminPort = 15200
 )
+
+// AdminRequestTimeout bounds how long kmeshctl waits for a response from a
+// port-forwarded kmesh-daemon admin endpoint before failing the command.
+// It is a var, rather than a const, so tests can shrink it to exercise the
+// timeout path without waiting out the real default.
+var AdminRequestTimeout = 10 * time.Second
+
+// NewAdminHTTPClient returns an http.Client configured with a bounded timeout
+// for requests against a kmesh-daemon admin endpoint, so commands fail
+// instead of hanging indefinitely when the endpoint stops responding.
+func NewAdminHTTPClient() *http.Client {
+	return &http.Client{Timeout: AdminRequestTimeout}
+}
 
 func CreateKubeClient() (kube.CLIClient, error) {
 	cli, err := kube.NewCLIClient()

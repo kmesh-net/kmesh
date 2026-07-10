@@ -21,7 +21,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"regexp"
 	"strings"
@@ -119,9 +118,10 @@ func getVersion(client kube.CLIClient, podName string) (version version.Info) {
 	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s/version", fw.Address())
-	resp, err := http.Get(url)
+	httpClient := utils.NewAdminHTTPClient()
+	resp, err := httpClient.Get(url)
 	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
+		log.Errorf("failed to make HTTP request(%s): %v", url, err)
 		return
 	}
 	defer resp.Body.Close()
