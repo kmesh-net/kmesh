@@ -219,6 +219,10 @@ e2e:
 e2e-ipv6:
 	./test/e2e/run_test.sh --ipv6
 
+.PHONY: perf-smoke
+perf-smoke:
+	./hack/perf-smoke.sh
+
 .PHONY: format
 format:
 	./hack/format.sh
