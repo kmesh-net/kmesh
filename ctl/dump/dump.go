@@ -57,8 +57,8 @@ kmeshctl dump <kmesh-daemon-pod> dual-engine
 # Output as raw JSON:
 kmeshctl dump <kmesh-daemon-pod> kernel-native -o json`,
 		Args: cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			_ = RunDump(cmd, args, outputFormat)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return RunDump(cmd, args, outputFormat)
 		},
 	}
 
@@ -70,41 +70,31 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	podName := args[0]
 	mode := args[1]
 	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
-		log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
-		os.Exit(1)
+		return fmt.Errorf("error: argument must be 'kernel-native' or 'dual-engine'")
 	}
 
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
-		log.Errorf("failed to create cli client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create cli client: %v", err)
 	}
 
 	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
 	if err != nil {
-		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
 	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		return fmt.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
+	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), configDumpPrefix, mode)
-	resp, err := http.Get(url)
+	body, err := GetConfigDump(url)
 	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
-		os.Exit(1)
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Errorf("failed to read HTTP response body: %v", err)
-		os.Exit(1)
+		return err
 	}
 
 	if outputFormat == "json" {
-		fmt.Println(string(body))
+		cmd.Println(string(body))
 		return nil
 	}
 
@@ -116,6 +106,26 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	}
 
 	return nil
+}
+
+// GetConfigDump sends a GET request to the specified URL to retrieve the config dump.
+func GetConfigDump(url string) ([]byte, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to make HTTP request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("received status code %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read HTTP response body: %v", err)
+	}
+
+	return body, nil
 }
 
 // printKernelNativeTable parses and displays kernel-native config dump as tables.

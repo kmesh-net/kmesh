@@ -107,13 +107,13 @@ func (sc *BpfAds) Start() error {
 
 	if err := sc.Load(); err != nil {
 		if errors.As(err, &ve) {
-			return fmt.Errorf("bpf Load failed: %+v", ve)
+			return fmt.Errorf("bpf Load failed: %w", ve)
 		}
-		return fmt.Errorf("bpf Load failed: %v", err)
+		return fmt.Errorf("bpf Load failed: %w", err)
 	}
 
 	if err := sc.Attach(); err != nil {
-		return fmt.Errorf("bpf Attach failed, %s", err)
+		return fmt.Errorf("bpf Attach failed, %w", err)
 	}
 
 	if err := sc.ApiEnvCfg(); err != nil {

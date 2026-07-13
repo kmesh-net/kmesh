@@ -80,18 +80,18 @@ func setDir() (err error) {
 	}()
 
 	if err = os.MkdirAll("/mnt/kmesh_cgroup2", 0755); err != nil {
-		return fmt.Errorf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
+		return fmt.Errorf("Failed to create dir /mnt/kmesh_cgroup2: %w", err)
 	}
 
 	if err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, ""); err != nil {
-		return fmt.Errorf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
+		return fmt.Errorf("Failed to mount /mnt/kmesh_cgroup2/: %w", err)
 	}
 	if err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
-		return fmt.Errorf("Failed to mount /sys/fs/bpf: %v", err)
+		return fmt.Errorf("Failed to mount /sys/fs/bpf: %w", err)
 	}
 
 	if err = rlimit.RemoveMemlock(); err != nil {
-		return fmt.Errorf("Failed to remove mem limit: %v", err)
+		return fmt.Errorf("Failed to remove mem limit: %w", err)
 	}
 	return nil
 }

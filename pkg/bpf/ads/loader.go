@@ -107,17 +107,17 @@ func (sc *BpfAds) Start() error {
 
 	if err := sc.Load(); err != nil {
 		if errors.As(err, &ve) {
-			return fmt.Errorf("bpf load failed: %+v", ve)
+			return fmt.Errorf("bpf load failed: %w", ve)
 		}
-		return fmt.Errorf("bpf load failed: %v", err)
+		return fmt.Errorf("bpf load failed: %w", err)
 	}
 
 	if err := sc.Attach(); err != nil {
-		return fmt.Errorf("bpf attach failed, %s", err)
+		return fmt.Errorf("bpf attach failed, %w", err)
 	}
 
 	if err := sc.ApiEnvCfg(); err != nil {
-		return fmt.Errorf("api env config failed, %s", err)
+		return fmt.Errorf("api env config failed, %w", err)
 	}
 
 	ret := C.deserial_init()
@@ -126,7 +126,7 @@ func (sc *BpfAds) Start() error {
 	}
 
 	if err := maglev.InitMaglevMap(); err != nil {
-		return fmt.Errorf("consistent hash lb maglev config init failed, %s", err)
+		return fmt.Errorf("consistent hash lb maglev config init failed, %w", err)
 	}
 
 	return nil

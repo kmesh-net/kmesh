@@ -54,7 +54,7 @@ func NewMockCaClient(opts *security.Options, certLifetime time.Duration) (*CACli
 	}
 	bundle, err := util.NewVerifiedKeyCertBundleFromFile(caCertPath, caKeyPath, certChainPath, rootCertPath)
 	if err != nil {
-		return nil, fmt.Errorf("mock ca client creation error: %v", err)
+		return nil, fmt.Errorf("mock ca client creation error: %w", err)
 	}
 	cl.bundle = bundle
 	return &cl, nil
@@ -67,12 +67,12 @@ func (c *CAClient) CsrSend(csrPEM []byte, certValidsec int64, identity string) (
 	signingCert, signingKey, certChain, rootCert := c.bundle.GetAll()
 	csr, err := util.ParsePemEncodedCSR(csrPEM)
 	if err != nil {
-		return nil, fmt.Errorf("csr sign error: %v", err)
+		return nil, fmt.Errorf("csr sign error: %w", err)
 	}
 	subjectIDs := []string{"test"}
 	certBytes, err := util.GenCertFromCSR(csr, signingCert, csr.PublicKey, *signingKey, subjectIDs, c.certLifetime, false)
 	if err != nil {
-		return nil, fmt.Errorf("csr sign error: %v", err)
+		return nil, fmt.Errorf("csr sign error: %w", err)
 	}
 
 	block := &pem.Block{
@@ -110,14 +110,14 @@ func (c *CAClient) FetchCert(identity string) (*security.SecretItem, error) {
 	}
 	certChainPEM, err := c.CsrSend(csrPEM, int64(c.opts.SecretTTL.Seconds()), identity)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get certChainPEM due to %v", err)
+		return nil, fmt.Errorf("failed to get certChainPEM due to %w", err)
 	}
 
 	certChain := standardCerts(certChainPEM)
 
 	expireTime, err := nodeagentutil.ParseCertAndGetExpiryTimestamp(certChain)
 	if err != nil {
-		return nil, fmt.Errorf("%s failed to extract expire time from server certificate in CSR response %+v: %v",
+		return nil, fmt.Errorf("%s failed to extract expire time from server certificate in CSR response %+v: %w",
 			identity, certChainPEM, err)
 	}
 
