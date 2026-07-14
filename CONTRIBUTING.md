@@ -36,6 +36,10 @@ and intended to realize multi-cloud centralized management, high availability, f
 - Make your changes on your fork repository.
 - Submit a PR.
 
+### Development Environment
+
+Kmesh relies on Linux kernel technologies such as eBPF. Contributors are recommended to use a Linux environment for development, compilation, and testing. Windows users can use WSL2 to set up a supported development environment.
+
 ## Your First Contribution
 
 We will help you to contribute in different areas like filing issues, developing features, fixing critical bugs and
