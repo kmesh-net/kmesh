@@ -27,6 +27,7 @@ import (
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
 	"kmesh.net/kmesh/pkg/controller/telemetry"
+	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
@@ -71,7 +72,21 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	// restore endpoint index, otherwise endpoint number can double
 	if restart.GetStartType() == restart.Restart {
 		c.Processor.bpf.RestoreEndpointKeys()
+		// Rebuild the in-memory endpoint cache from persisted BPF endpoint
+		// map data so that it is consistent with the BPF state on warm restart.
+		bpfEntries := c.Processor.bpf.IterateEndpoints()
+		cacheEntries := make([]cache.EndpointEntry, 0, len(bpfEntries))
+		for _, e := range bpfEntries {
+			cacheEntries = append(cacheEntries, cache.EndpointEntry{
+				ServiceId:    e.Key.ServiceId,
+				Prio:         e.Key.Prio,
+				BackendIndex: e.Key.BackendIndex,
+				WorkloadId:   e.Value.BackendUid,
+			})
+		}
+		c.Processor.EndpointCache.RestoreEndpoint(cacheEntries)
 	}
+
 	c.Rbac = auth.NewRbac(c.Processor.WorkloadCache)
 	c.MetricController = telemetry.NewMetric(c.Processor.WorkloadCache, c.Processor.ServiceCache, enableMonitoring)
 	if enablePerfMonitor {

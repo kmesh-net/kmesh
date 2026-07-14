@@ -76,3 +76,36 @@ func TestEndpointCache(t *testing.T) {
 	ec.DeleteEndpointByServiceId(serviceId1)
 	assert.Equal(t, 0, len(ec.List(serviceId1)))
 }
+
+func TestRestoreEndpoint(t *testing.T) {
+	ec := NewEndpointCache()
+
+	entries := []EndpointEntry{
+		{ServiceId: 1, Prio: 0, BackendIndex: 1, WorkloadId: 100},
+		{ServiceId: 1, Prio: 0, BackendIndex: 2, WorkloadId: 200},
+		{ServiceId: 1, Prio: 1, BackendIndex: 1, WorkloadId: 300},
+		{ServiceId: 2, Prio: 0, BackendIndex: 1, WorkloadId: 400},
+	}
+
+	ec.RestoreEndpoint(entries)
+
+	// service 1 should have 3 workloads (100, 200, 300 keyed by workload id)
+	svc1 := ec.List(1)
+	assert.Equal(t, 3, len(svc1))
+	assert.Equal(t, Endpoint{ServiceId: 1, Prio: 0, BackendIndex: 1}, svc1[100])
+	assert.Equal(t, Endpoint{ServiceId: 1, Prio: 0, BackendIndex: 2}, svc1[200])
+	assert.Equal(t, Endpoint{ServiceId: 1, Prio: 1, BackendIndex: 1}, svc1[300])
+
+	// service 2 should have 1 workload
+	svc2 := ec.List(2)
+	assert.Equal(t, 1, len(svc2))
+	assert.Equal(t, Endpoint{ServiceId: 2, Prio: 0, BackendIndex: 1}, svc2[400])
+
+	// non-existent service returns empty map
+	assert.Equal(t, 0, len(ec.List(99)))
+
+	// calling RestoreEndpoint again on a fresh cache with an empty slice is a no-op
+	ec2 := NewEndpointCache()
+	ec2.RestoreEndpoint([]EndpointEntry{})
+	assert.Equal(t, 0, len(ec2.List(1)))
+}
