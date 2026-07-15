@@ -15,6 +15,8 @@ Welcome to Kmesh!
   - [AI Guidance](#ai-guidance)
   - [Contributor Workflow](#contributor-workflow)
     - [Creating Pull Requests](#creating-pull-requests)
+    - [Developer Certificate of Origin (DCO)]
+    - [Fixing a missing sign-off] 
     - [Code Review](#code-review)
   - [Membership](#membership)
 
@@ -103,6 +105,36 @@ fail of continuous integration.
 - To compile, refer to [Compile and Build Kmesh](https://kmesh.net/docs/setup/develop-with-kind/)
 - To run unit test, refer to [Run Unit Test](https://kmesh.net/docs/developer-guide/tests/unit-test/)
 - To run e2e test, refer to [Run E2E Test](https://kmesh.net/docs/developer-guide/tests/e2e-test/)
+
+### Developer Certificate of Origin (DCO)
+
+Every commit must include a `Signed-off-by` line to certify that you 
+wrote or have the right to submit the code:
+
+```bash
+git commit -s -m "your commit message"
+```
+
+This automatically appends:
+
+```
+Signed-off-by: Your Name <your-email@example.com>
+```
+
+#### Fixing a missing sign-off
+
+If you forgot to sign off your last commit:
+
+```bash
+git commit --amend -s --no-edit
+```
+
+For multiple commits, use an interactive rebase and add `-s` when 
+re-committing, or run:
+
+```bash
+git rebase --signoff HEAD~N   # N = number of commits to fix
+```
 
 ### Code Review
 
