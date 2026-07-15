@@ -15,8 +15,8 @@ Welcome to Kmesh!
   - [AI Guidance](#ai-guidance)
   - [Contributor Workflow](#contributor-workflow)
     - [Creating Pull Requests](#creating-pull-requests)
-    - [Developer Certificate of Origin (DCO)]
-    - [Fixing a missing sign-off] 
+    - [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
+    - [Fixing a Missing Sign-off](#fixing-a-missing-sign-off)
     - [Code Review](#code-review)
   - [Membership](#membership)
 
