@@ -117,7 +117,7 @@ git commit -s -m "your commit message"
 
 This automatically appends:
 
-```
+```text
 Signed-off-by: Your Name <your-email@example.com>
 ```
 
