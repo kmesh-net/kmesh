@@ -108,7 +108,7 @@ fail of continuous integration.
 
 ### Developer Certificate of Origin (DCO)
 
-Every commit must include a `Signed-off-by` line to certify that you 
+Every commit must include a `Signed-off-by` line to certify that you
 wrote or have the right to submit the code:
 
 ```bash
@@ -129,7 +129,7 @@ If you forgot to sign off your last commit:
 git commit --amend -s --no-edit
 ```
 
-For multiple commits, use an interactive rebase and add `-s` when 
+For multiple commits, use an interactive rebase and add `-s` when
 re-committing, or run:
 
 ```bash
