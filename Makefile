@@ -107,25 +107,25 @@ kmesh-ko:
 BINARIES ?= $(APPS1) $(APPS2) $(APPS3) $(APPS4)
 
 all-binary:
-        $(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 ifneq (,$(filter $(APPS1),$(BINARIES)))
-        $(call printlog, BUILD, $(APPS1))
-        $(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-        $(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
+	$(call printlog, BUILD, $(APPS1))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
 endif
 ifneq (,$(filter $(APPS2),$(BINARIES)))
-        $(call printlog, BUILD, $(APPS2))
-        $(QUIET) cd oncn-mda && cmake . -B build && make -C build
+	$(call printlog, BUILD, $(APPS2))
+	$(QUIET) cd oncn-mda && cmake . -B build && make -C build
 endif
 ifneq (,$(filter $(APPS3),$(BINARIES)))
-        $(call printlog, BUILD, $(APPS3))
-        $(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-        CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
+	$(call printlog, BUILD, $(APPS3))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 endif
 ifneq (,$(filter $(APPS4),$(BINARIES)))
-        $(call printlog, BUILD, $(APPS4))
-        $(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-        CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
+	$(call printlog, BUILD, $(APPS4))
+	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
 endif
 
 OUT ?= kmeshctl
