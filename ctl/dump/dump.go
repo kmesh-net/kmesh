@@ -87,12 +87,15 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	}
 	if err := fw.Start(); err != nil {
 		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
+		os.Exit(1)
 	}
+	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), configDumpPrefix, mode)
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)
+		fw.Close()
 		os.Exit(1)
 	}
 	defer resp.Body.Close()
@@ -100,6 +103,7 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		log.Errorf("failed to read HTTP response body: %v", err)
+		fw.Close()
 		os.Exit(1)
 	}
 
