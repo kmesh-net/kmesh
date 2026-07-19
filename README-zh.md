@@ -56,7 +56,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 - 前提条件
 
   - Kmesh当前是对接Istio控制面，启动Kmesh前，需要提前安装好Istio的控制面软件；具体安装步骤参考：<https://istio.io/latest/docs/setup/getting-started/#install>
-  - 完整的Kmesh能力依赖对OS的增强，需确认执行环境是否在Kmesh支持的[OS列表](docs/kmesh_support-zh.md)中，对于其他OS环境需要参考[Kmesh编译构建](docs/kmesh_compile-zh.md)；也可以使用[兼容模式的kmesh镜像](build/docker/README.md#兼容模式镜像)在其他OS环境中进行尝试，关于kmesh各种镜像的说明请参考[详细文档](build/docker/README.md)。
+  - 完整的Kmesh能力依赖对OS的增强，需确认执行环境是否在Kmesh支持的[OS列表](docs/cn/zh/kmesh_support-zh.md)中，对于其他OS环境需要参考[Kmesh编译构建](docs/cn/zh/kmesh_compile-zh.md)；也可以使用[兼容模式的kmesh镜像](build/docker/README.md#兼容模式镜像)在其他OS环境中进行尝试，关于kmesh各种镜像的说明请参考[详细文档](build/docker/README.md)。
   
 - Docker镜像：
 
@@ -70,7 +70,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
 
     为了兼容不同的OS版本，Kmesh提供在线编译并运行的镜像。在Kmesh被部署之后，它会基于宿主机的内核能力自动选择运行的Kmesh特性，从而满足一个镜像在不同OS环境运行的要求。
 
-    考虑到kmesh使用的通用性，我们也发布了用于kmesh编译构建的镜像。用户可以基于此镜像方便的制作出可以在当前OS版本上运行的kmesh镜像。默认命名为ghcr.io/kmesh-net/kmesh:latest，用户可自行调整，参考[Kmesh编译构建](docs/kmesh_compile-zh.md#docker image编译)
+    考虑到kmesh使用的通用性，我们也发布了用于kmesh编译构建的镜像。用户可以基于此镜像方便的制作出可以在当前OS版本上运行的kmesh镜像。默认命名为ghcr.io/kmesh-net/kmesh:latest，用户可自行调整，参考[Kmesh编译构建](docs/cn/zh/kmesh_compile-zh.md#docker image编译)
   
     ```bash
     make docker TAG=latest
@@ -123,7 +123,7 @@ Kmesh创新性的提出将流量治理下沉OS，在数据路径上无需经过�
     time="2024-02-19T10:16:54Z" level=info msg="command Start cni successful" subsys=manager
   ```
   
-  更多Kmesh编译构建方式，请参考[Kmesh编译构建](docs/kmesh_compile-zh.md)
+  更多Kmesh编译构建方式，请参考[Kmesh编译构建](docs/cn/zh/kmesh_compile-zh.md)
 
 - Kmesh L7
 
@@ -186,11 +186,11 @@ Kmesh的主要部件包括：
 
 - Kmesh命令列表
 
-  [Kmesh命令列表](docs/kmesh_commands-zh.md)
+  [Kmesh命令列表](docs/cn/zh/kmesh_commands-zh.md)
 
 - demo演示
 
-  [Kmesh demo演示](docs/kmesh_demo-zh.md)
+  [Kmesh demo演示](docs/cn/zh/kmesh_demo-zh.md)
 
 ## Kmesh能力地图
 
