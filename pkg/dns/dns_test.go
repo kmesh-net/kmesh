@@ -142,3 +142,25 @@ func TestDNS(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+func TestGetDomainAddress(t *testing.T) {
+	r, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Cached domain: returns its addresses and true.
+	want := []string{"10.0.0.1", "fd00::1"}
+	r.Lock()
+	r.cache["cached.example.com."] = &DomainCacheEntry{Addresses: want}
+	r.Unlock()
+
+	if got, ok := r.GetDomainAddress("cached.example.com."); !ok || !reflect.DeepEqual(got, want) {
+		t.Errorf("GetDomainAddress(cached) = (%v, %v), want (%v, true)", got, ok, want)
+	}
+
+	// Absent domain: must return (nil, false) without panicking on a nil entry.
+	if got, ok := r.GetDomainAddress("absent.example.com."); ok || got != nil {
+		t.Errorf("GetDomainAddress(absent) = (%v, %v), want (nil, false)", got, ok)
+	}
+}
