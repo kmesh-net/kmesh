@@ -272,7 +272,7 @@ func (r *DNSResolver) GetAllCachedDomains() []string {
 func (r *DNSResolver) GetDomainAddress(domain string) ([]string, bool) {
 	r.RLock()
 	defer r.RUnlock()
-	if entry, ok := r.cache[domain]; ok {
+	if entry, ok := r.cache[domain]; ok && entry != nil {
 		return entry.Addresses, true
 	}
 	return nil, false

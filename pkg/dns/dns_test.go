@@ -163,4 +163,12 @@ func TestGetDomainAddress(t *testing.T) {
 	if got, ok := r.GetDomainAddress("absent.example.com."); ok || got != nil {
 		t.Errorf("GetDomainAddress(absent) = (%v, %v), want (nil, false)", got, ok)
 	}
+
+	// Present key mapped to a nil entry: must not panic, returns (nil, false).
+	r.Lock()
+	r.cache["nil.example.com."] = nil
+	r.Unlock()
+	if got, ok := r.GetDomainAddress("nil.example.com."); ok || got != nil {
+		t.Errorf("GetDomainAddress(nil entry) = (%v, %v), want (nil, false)", got, ok)
+	}
 }
