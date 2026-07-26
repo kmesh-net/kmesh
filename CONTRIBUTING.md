@@ -15,6 +15,7 @@ Welcome to Kmesh!
   - [AI Guidance](#ai-guidance)
   - [Contributor Workflow](#contributor-workflow)
     - [Creating Pull Requests](#creating-pull-requests)
+    - [Developer Certificate of Origin (DCO)](#developer-certificate-of-origin-dco)
     - [Code Review](#code-review)
   - [Membership](#membership)
 
@@ -103,6 +104,52 @@ fail of continuous integration.
 - To compile, refer to [Compile and Build Kmesh](https://kmesh.net/docs/setup/develop-with-kind/)
 - To run unit test, refer to [Run Unit Test](https://kmesh.net/docs/developer-guide/tests/unit-test/)
 - To run e2e test, refer to [Run E2E Test](https://kmesh.net/docs/developer-guide/tests/e2e-test/)
+
+### Developer Certificate of Origin (DCO)
+
+Kmesh requires all commits to be signed off with a [Developer Certificate of Origin (DCO)](https://developercertificate.org/). The DCO is a lightweight legal mechanism that certifies you wrote or have the right to submit the code you are contributing — it is the standard adopted by the Linux Foundation and many major open-source projects to ensure clear provenance of contributions.
+
+Every commit must include the following trailer line at the end of its commit message:
+
+```text
+Signed-off-by: Your Name <your-email@example.com>
+```
+
+The name and email must match your real identity and the account registered with Git.
+
+#### Method 1 — Sign a new commit automatically
+
+Pass the `-s` flag to `git commit` to append the `Signed-off-by` trailer automatically:
+
+```bash
+git commit -s -m "your commit message"
+```
+
+#### Method 2 — Fix the most recent unsigned commit
+
+If your last commit is missing the sign-off, amend it in place:
+
+```bash
+git commit --amend -s
+```
+
+#### Method 3 — Fix multiple unsigned commits
+
+If several commits in your branch are unsigned, use an interactive rebase to add the sign-off to all of them at once. Replace `<N>` with the number of commits to fix:
+
+```bash
+git rebase --signoff HEAD~<N>
+```
+
+#### Verifying your sign-off before pushing
+
+Confirm that the latest commit contains the `Signed-off-by` line before opening a pull request:
+
+```bash
+git log -1
+```
+
+> **Warning:** Pull requests that contain any unsigned commits will automatically **fail the DCO CI check** and cannot be merged until every commit in the branch carries a valid `Signed-off-by` line.
 
 ### Code Review
 
