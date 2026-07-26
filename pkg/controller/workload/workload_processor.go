@@ -1152,6 +1152,14 @@ func (p *Processor) deleteEndpointRecords(endpointKeys []bpf.EndpointKey) error 
 // 2. update the service map's endpoint count
 // 3. delete the last endpoint
 func (p *Processor) deleteEndpoint(ek bpf.EndpointKey, ev bpf.EndpointValue, sv bpf.ServiceValue, sk bpf.ServiceKey) error {
+	log.Debugf("defensive flush: explicitly removing endpoint [%#v] (backendUid: %d) from service [%#v] to prevent stale socket routing", ek, ev.BackendUid, sk)
+
+	// In older kernels (e.g. 5.10), rapidly swapping eBPF maps without explicit deletes can cause race conditions
+	// and stale entries. Defensively flush the endpoint key to guarantee it clears out of the datapath immediately.
+	if err := p.bpf.EndpointDelete(&ek); err != nil {
+		log.Debugf("defensive flush EndpointDelete [%#v] ignore err: %v", ek, err)
+	}
+
 	if err := p.bpf.EndpointSwap(ek.BackendIndex, ev.BackendUid, sv.EndpointCount[ek.Prio], sk.ServiceId, ek.Prio); err != nil {
 		log.Errorf("swap workload endpoint index failed: %s", err)
 		return err
