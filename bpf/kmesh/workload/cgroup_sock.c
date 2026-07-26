@@ -180,7 +180,7 @@ int cgroup_connect6_prog(struct bpf_sock_addr *ctx)
     SET_CTX_ADDRESS6(ctx, &kmesh_ctx.dnat_ip, kmesh_ctx.dnat_port);
 
     if (kmesh_ctx.via_waypoint) {
-        kmesh_workload_tail_call(ctx, TAIL_CALL_CONNECT6_INDEX);
+        kmesh_workload_tail_call6(ctx, TAIL_CALL_CONNECT6_INDEX);
 
         // if tail call failed will run this code
         BPF_LOG(ERR, KMESH, "workload tail call6 failed, err is %d\n", ret);
