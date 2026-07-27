@@ -39,7 +39,7 @@ struct {
     __uint(max_entries, RINGBUF_SIZE);
 } kmesh_perf_info SEC(".maps");
 
-static inline void performance_report(struct operation_usage_data *data)
+static inline __attribute__((always_inline)) void performance_report(struct operation_usage_data *data)
 {
     struct operation_usage_data *info = NULL;
     info = bpf_ringbuf_reserve(&kmesh_perf_info, sizeof(struct operation_usage_data), 0);
@@ -54,7 +54,8 @@ static inline void performance_report(struct operation_usage_data *data)
     bpf_ringbuf_submit(info, 0);
 }
 
-static inline void observe_on_operation_start(__u32 operation_type, struct kmesh_context *kmesh_ctx)
+static inline __attribute__((always_inline)) void
+observe_on_operation_start(__u32 operation_type, struct kmesh_context *kmesh_ctx)
 {
 #if PERF_MONITOR
     struct operation_usage_data data = {};
@@ -72,7 +73,8 @@ static inline void observe_on_operation_start(__u32 operation_type, struct kmesh
 #endif
 }
 
-static inline void observe_on_operation_end(__u32 operation_type, struct kmesh_context *kmesh_ctx)
+static inline __attribute__((always_inline)) void
+observe_on_operation_end(__u32 operation_type, struct kmesh_context *kmesh_ctx)
 {
 #if PERF_MONITOR
     struct operation_usage_key key = {};

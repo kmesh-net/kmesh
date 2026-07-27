@@ -11,12 +11,12 @@
 
 volatile __u32 enable_monitoring = 1;
 
-static inline bool is_monitoring_enable()
+static inline __attribute__((always_inline)) bool is_monitoring_enable()
 {
     return enable_monitoring == 1;
 }
 
-static inline void observe_on_pre_connect(struct bpf_sock *sk)
+static inline __attribute__((always_inline)) void observe_on_pre_connect(struct bpf_sock *sk)
 {
     struct sock_storage_data *storage = NULL;
     if (!sk)
@@ -32,7 +32,7 @@ static inline void observe_on_pre_connect(struct bpf_sock *sk)
     return;
 }
 
-static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 direction)
+static inline __attribute__((always_inline)) void observe_on_connect_established(struct bpf_sock *sk, __u8 direction)
 {
     if (!is_monitoring_enable()) {
         return;
@@ -62,7 +62,7 @@ static inline void observe_on_connect_established(struct bpf_sock *sk, __u8 dire
     tcp_report(sk, tcp_sock, storage, BPF_TCP_ESTABLISHED);
 }
 
-static inline void observe_on_close(struct bpf_sock *sk)
+static inline __attribute__((always_inline)) void observe_on_close(struct bpf_sock *sk)
 {
     if (!is_monitoring_enable()) {
         return;
@@ -84,7 +84,7 @@ static inline void observe_on_close(struct bpf_sock *sk)
     tcp_report(sk, tcp_sock, storage, BPF_TCP_CLOSE);
 }
 
-static inline void observe_on_data(struct bpf_sock *sk)
+static inline __attribute__((always_inline)) void observe_on_data(struct bpf_sock *sk)
 {
     struct bpf_tcp_sock *tcp_sock = NULL;
     struct sock_storage_data *storage = NULL;

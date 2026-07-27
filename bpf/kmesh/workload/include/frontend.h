@@ -8,12 +8,13 @@
 #include "service.h"
 #include "backend.h"
 
-static inline frontend_value *map_lookup_frontend(const frontend_key *key)
+static inline __attribute__((always_inline)) frontend_value *map_lookup_frontend(const frontend_key *key)
 {
     return kmesh_map_lookup_elem(&map_of_frontend, key);
 }
 
-static inline int frontend_manager(struct kmesh_context *kmesh_ctx, frontend_value *frontend_v)
+static inline __attribute__((always_inline)) int
+frontend_manager(struct kmesh_context *kmesh_ctx, frontend_value *frontend_v)
 {
     int ret = 0;
     service_key service_k = {0};

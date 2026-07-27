@@ -100,7 +100,7 @@ struct {
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
  * hook. Therefore, ensure that function is correctly used.
  */
-static inline void record_manager_netns_cookie(struct bpf_sock_addr *ctx)
+static inline __attribute__((always_inline)) void record_manager_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
     struct manager_key key = {0};
@@ -116,7 +116,7 @@ static inline void record_manager_netns_cookie(struct bpf_sock_addr *ctx)
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
  * hook. Therefore, ensure that function is correctly used.
  */
-static inline bool is_kmesh_enabled(struct bpf_sock_addr *ctx)
+static inline __attribute__((always_inline)) bool is_kmesh_enabled(struct bpf_sock_addr *ctx)
 {
     struct manager_key key = {0};
     key.netns_cookie = bpf_get_netns_cookie(ctx);
@@ -127,7 +127,7 @@ static inline bool is_kmesh_enabled(struct bpf_sock_addr *ctx)
  * From v5.4, bpf_get_netns_cookie can be called for bpf cgroup hooks, from v5.15, it can be called for bpf sockops
  * hook. Therefore, ensure that function is correctly used.
  */
-static inline void remove_manager_netns_cookie(struct bpf_sock_addr *ctx)
+static inline __attribute__((always_inline)) void remove_manager_netns_cookie(struct bpf_sock_addr *ctx)
 {
     int err;
     struct manager_key key = {0};
@@ -138,7 +138,8 @@ static inline void remove_manager_netns_cookie(struct bpf_sock_addr *ctx)
         BPF_LOG(ERR, KMESH, "remove netcookie failed!, err is %d\n", err);
 }
 
-static inline bool is_control_connect(struct kmesh_context *kmesh_ctx, __u32 ip, __u32 port)
+static inline __attribute__((always_inline)) bool
+is_control_connect(struct kmesh_context *kmesh_ctx, __u32 ip, __u32 port)
 {
     if (bpf_ntohs(kmesh_ctx->ctx->user_port) != port)
         return false;
@@ -151,14 +152,14 @@ static inline bool is_control_connect(struct kmesh_context *kmesh_ctx, __u32 ip,
         && kmesh_ctx->orig_dst_addr.ip6[2] == 0 && bpf_ntohl(kmesh_ctx->orig_dst_addr.ip6[3]) == ip);
 }
 
-static inline bool conn_from_cni_sim_add(struct kmesh_context *kmesh_ctx)
+static inline __attribute__((always_inline)) bool conn_from_cni_sim_add(struct kmesh_context *kmesh_ctx)
 {
     // cni sim connect CONTROL_CMD_IP:929(0x3a1)
     // 0x3a1 is the specific port handled by the cni to enable Kmesh
     return is_control_connect(kmesh_ctx, CONTROL_CMD_IP, ENABLE_KMESH_PORT);
 }
 
-static inline bool conn_from_cni_sim_delete(struct kmesh_context *kmesh_ctx)
+static inline __attribute__((always_inline)) bool conn_from_cni_sim_delete(struct kmesh_context *kmesh_ctx)
 {
     // cni sim connect CONTROL_CMD_IP:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni to disable Kmesh
@@ -169,7 +170,7 @@ static inline bool conn_from_cni_sim_delete(struct kmesh_context *kmesh_ctx)
  * records of pods managed by kmesh. When the record exists
  * and the value is 0, it means it is managed by kmesh.
  */
-static inline bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
+static inline __attribute__((always_inline)) bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
 {
     if (conn_from_cni_sim_add(kmesh_ctx)) {
         record_manager_netns_cookie(kmesh_ctx->ctx);
@@ -185,14 +186,14 @@ static inline bool handle_kmesh_manage_process(struct kmesh_context *kmesh_ctx)
     return false;
 }
 
-static inline void kmesh_parse_outer_key(__u32 outer_key, __u8 *type, __u32 *inner_idx)
+static inline __attribute__((always_inline)) void kmesh_parse_outer_key(__u32 outer_key, __u8 *type, __u32 *inner_idx)
 {
     *type = MAP_GET_TYPE(outer_key);
     *inner_idx = MAP_GET_INDEX(outer_key);
     return;
 }
 
-static inline void *get_ptr_val_from_map(void *map, __u8 map_type, const void *ptr)
+static inline __attribute__((always_inline)) void *get_ptr_val_from_map(void *map, __u8 map_type, const void *ptr)
 {
     __u8 type;
     __u32 inner_idx;
@@ -232,7 +233,7 @@ static inline void *get_ptr_val_from_map(void *map, __u8 map_type, const void *p
         val_tmp;                                                                                                       \
     })
 
-static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
+static inline __attribute__((always_inline)) void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 {
     int err;
     __u32 value = 0;
@@ -247,7 +248,7 @@ static inline void record_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
         BPF_LOG(ERR, KMESH, "record ip failed, err is %d\n", err);
 }
 
-static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
+static inline __attribute__((always_inline)) void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
 {
     struct manager_key key = {0};
     if (family == AF_INET)
@@ -260,7 +261,7 @@ static inline void remove_kmesh_managed_ip(__u32 family, __u32 ip4, __u32 *ip6)
         BPF_LOG(ERR, KMESH, "remove ip failed, err is %d\n", err);
 }
 
-static inline bool sock_conn_from_sim(struct __sk_buff *skb)
+static inline __attribute__((always_inline)) bool sock_conn_from_sim(struct __sk_buff *skb)
 {
     __u16 dst_port = (__u16)(skb->remote_port >> 16);
     if (bpf_ntohs(dst_port) != ENABLE_KMESH_PORT && bpf_ntohs(dst_port) != DISABLE_KMESH_PORT)
@@ -275,7 +276,7 @@ static inline bool sock_conn_from_sim(struct __sk_buff *skb)
         remote_ip6[0] == 0 && remote_ip6[1] == 0 && remote_ip6[2] == 0 && bpf_ntohl(remote_ip6[3]) == CONTROL_CMD_IP);
 }
 
-static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 port)
+static inline __attribute__((always_inline)) bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 port)
 {
     __u16 remote_port = GET_SKOPS_REMOTE_PORT(skops);
     if (bpf_ntohs(remote_port) != port)
@@ -289,21 +290,21 @@ static inline bool conn_from_sim(struct bpf_sock_ops *skops, __u32 ip, __u16 por
         && bpf_ntohl(skops->remote_ip6[3]) == ip);
 }
 
-static inline bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)
+static inline __attribute__((always_inline)) bool skops_conn_from_cni_sim_add(struct bpf_sock_ops *skops)
 {
     // cni sim connect CONTROL_CMD_IP:929(0x3a1)
     // 0x3a1 is the specific port handled by the cni to enable Kmesh
     return conn_from_sim(skops, CONTROL_CMD_IP, ENABLE_KMESH_PORT);
 }
 
-static inline bool skops_conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
+static inline __attribute__((always_inline)) bool skops_conn_from_cni_sim_delete(struct bpf_sock_ops *skops)
 {
     // cni sim connect CONTROL_CMD_IP:930(0x3a2)
     // 0x3a2 is the specific port handled by the cni to disable Kmesh
     return conn_from_sim(skops, CONTROL_CMD_IP, DISABLE_KMESH_PORT);
 }
 
-static inline void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops)
+static inline __attribute__((always_inline)) void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops)
 {
     if (skops_conn_from_cni_sim_add(skops))
         record_kmesh_managed_ip(skops->family, skops->local_ip4, skops->local_ip6);
@@ -311,7 +312,7 @@ static inline void skops_handle_kmesh_managed_process(struct bpf_sock_ops *skops
         remove_kmesh_managed_ip(skops->family, skops->local_ip4, skops->local_ip6);
 }
 
-static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
+static inline __attribute__((always_inline)) bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
 {
     struct manager_key key = {0};
     if (skops->family == AF_INET)
@@ -329,7 +330,7 @@ static inline bool is_managed_by_kmesh(struct bpf_sock_ops *skops)
     return (*value == 0);
 }
 
-static inline bool is_managed_by_kmesh_skb(struct __sk_buff *skb)
+static inline __attribute__((always_inline)) bool is_managed_by_kmesh_skb(struct __sk_buff *skb)
 {
     struct manager_key key = {0};
     if (skb->family == AF_INET)

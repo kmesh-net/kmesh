@@ -12,7 +12,7 @@
 #include "probe.h"
 #include <bpf/bpf_endian.h>
 
-static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
+static inline __attribute__((always_inline)) int sock_traffic_control(struct kmesh_context *kmesh_ctx)
 {
     observe_on_operation_start(SOCK_TRAFFIC_CONTROL, kmesh_ctx);
     int ret;
@@ -57,7 +57,7 @@ static inline int sock_traffic_control(struct kmesh_context *kmesh_ctx)
     return 0;
 }
 
-static inline int set_original_dst_info(struct kmesh_context *kmesh_ctx)
+static inline __attribute__((always_inline)) int set_original_dst_info(struct kmesh_context *kmesh_ctx)
 {
     struct bpf_sock *sk = (struct bpf_sock *)kmesh_ctx->ctx->sk;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
