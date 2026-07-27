@@ -13,7 +13,7 @@
 
 volatile __u32 enable_periodic_report = 0;
 
-static inline bool is__periodic_report_enable()
+static inline __attribute__((always_inline)) bool is__periodic_report_enable()
 {
     return enable_periodic_report == 1;
 }

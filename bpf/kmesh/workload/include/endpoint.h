@@ -7,12 +7,12 @@
 #include "workload_common.h"
 #include "backend.h"
 
-static inline endpoint_value *map_lookup_endpoint(const endpoint_key *key)
+static inline __attribute__((always_inline)) endpoint_value *map_lookup_endpoint(const endpoint_key *key)
 {
     return kmesh_map_lookup_elem(&map_of_endpoint, key);
 }
 
-static inline int endpoint_manager(
+static inline __attribute__((always_inline)) int endpoint_manager(
     struct kmesh_context *kmesh_ctx, endpoint_value *endpoint_v, __u32 service_id, service_value *service_v)
 {
     int ret = 0;

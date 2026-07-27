@@ -7,12 +7,13 @@
 #include "workload_common.h"
 #include "endpoint.h"
 
-static inline service_value *map_lookup_service(const service_key *key)
+static inline __attribute__((always_inline)) service_value *map_lookup_service(const service_key *key)
 {
     return kmesh_map_lookup_elem(&map_of_service, key);
 }
 
-static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, service_value *service_v)
+static inline __attribute__((always_inline)) int
+lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, service_value *service_v)
 {
     int ret = 0;
     endpoint_key endpoint_k = {0};
@@ -46,7 +47,8 @@ static inline int lb_random_handle(struct kmesh_context *kmesh_ctx, __u32 servic
 }
 
 // TODO: reuse with lb_random_handle
-static inline int lb_locality_strict_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, service_value *service_v)
+static inline __attribute__((always_inline)) int
+lb_locality_strict_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, service_value *service_v)
 {
     int ret = -ENOENT;
     endpoint_key endpoint_k = {0};
@@ -71,7 +73,7 @@ static inline int lb_locality_strict_handle(struct kmesh_context *kmesh_ctx, __u
     return ret;
 }
 
-static inline int
+static inline __attribute__((always_inline)) int
 lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, service_value *service_v)
 {
     int i, ret = -ENOENT;
@@ -103,7 +105,8 @@ lb_locality_failover_handle(struct kmesh_context *kmesh_ctx, __u32 service_id, s
     return ret;
 }
 
-static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service_id, service_value *service_v)
+static inline __attribute__((always_inline)) int
+service_manager(struct kmesh_context *kmesh_ctx, __u32 service_id, service_value *service_v)
 {
     int ret = 0;
 

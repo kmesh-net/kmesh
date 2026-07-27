@@ -68,23 +68,23 @@ typedef struct {
     char *data;
 } bytes;
 
-static inline void *kmesh_map_lookup_elem(void *map, const void *key)
+static inline __attribute__((always_inline)) void *kmesh_map_lookup_elem(void *map, const void *key)
 {
     return bpf_map_lookup_elem(map, key);
 }
 
-static inline int kmesh_map_delete_elem(void *map, const void *key)
+static inline __attribute__((always_inline)) int kmesh_map_delete_elem(void *map, const void *key)
 {
     return (int)bpf_map_delete_elem(map, key);
 }
 
-static inline int kmesh_map_update_elem(void *map, const void *key, const void *value)
+static inline __attribute__((always_inline)) int kmesh_map_update_elem(void *map, const void *key, const void *value)
 {
     // TODO: Duplicate element, status update
     return (int)bpf_map_update_elem(map, key, value, BPF_ANY);
 }
 
-static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
+static inline __attribute__((always_inline)) bool is_ipv4_mapped_addr(__u32 ip6[4])
 {
     return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
 }
@@ -149,14 +149,14 @@ struct {
  */
 
 #if KERNEL_VERSION_HIGHER_5_13_0
-static inline int convert_v4(char *data, __u32 *ip)
+static inline __attribute__((always_inline)) int convert_v4(char *data, __u32 *ip)
 {
     int ret = 0;
     ret = BPF_SNPRINTF(data, MAX_IP4_LEN, "%pI4h", ip);
     return ret;
 }
 #else
-static inline int convert_v4(char *data, __u32 *ip_ptr)
+static inline __attribute__((always_inline)) int convert_v4(char *data, __u32 *ip_ptr)
 {
     __u32 ip = *ip_ptr;
     __u8 ip1 = (ip >> 24) & 0xFF;
@@ -214,14 +214,14 @@ static inline int convert_v4(char *data, __u32 *ip_ptr)
 #endif
 
 #if KERNEL_VERSION_HIGHER_5_13_0
-static inline int convert_v6(char *data, __u32 *ip6)
+static inline __attribute__((always_inline)) int convert_v6(char *data, __u32 *ip6)
 {
     int ret = 0;
     ret = BPF_SNPRINTF(data, MAX_IP6_LEN, "%pI6", ip6);
     return ret;
 }
 #else
-static inline int convert_v6(char *data, __u32 *ip6)
+static inline __attribute__((always_inline)) int convert_v6(char *data, __u32 *ip6)
 {
     const char hex_digits[16] = "0123456789abcdef";
 #pragma clang loop unroll(full)
@@ -249,7 +249,7 @@ static inline int convert_v6(char *data, __u32 *ip6)
 
 /* 2001:0db8:3333:4444:CCCC:DDDD:EEEE:FFFF */
 /* 192.168.000.001 */
-static inline char *ip2str(__u32 *ip_ptr, bool v4)
+static inline __attribute__((always_inline)) char *ip2str(__u32 *ip_ptr, bool v4)
 {
     struct buf *buf;
     int zero = 0;

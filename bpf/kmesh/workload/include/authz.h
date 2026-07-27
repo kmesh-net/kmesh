@@ -69,17 +69,17 @@ struct MatchIpParams {
     int ip_type;
 };
 
-static inline Istio__Security__Authorization *map_lookup_authz(__u32 policyKey)
+static inline __attribute__((always_inline)) Istio__Security__Authorization *map_lookup_authz(__u32 policyKey)
 {
     return (Istio__Security__Authorization *)kmesh_map_lookup_elem(&map_of_authz_policy, &policyKey);
 }
 
-static inline wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
+static inline __attribute__((always_inline)) wl_policies_v *get_workload_policies_by_uid(__u32 workload_uid)
 {
     return (wl_policies_v *)kmesh_map_lookup_elem(&map_of_wl_policy, &workload_uid);
 }
 
-static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
+static inline __attribute__((always_inline)) int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
 {
     void *begin = (void *)(long)(ctx->data);
     void *end = (void *)(long)(ctx->data_end);
@@ -112,7 +112,7 @@ static inline int parser_xdp_info(struct xdp_md *ctx, struct xdp_info *info)
     return PARSER_SUCC;
 }
 
-static inline void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline __attribute__((always_inline)) void parser_tuple(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     if (info->iph->version == IPV4_VERSION) {
         tuple_info->ipv4.saddr = info->iph->saddr;
@@ -205,7 +205,8 @@ static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info,
 /* This function is used to convert the IP address
  * from big-endian storage to u32 type data.
  */
-static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_data, bool is_ipv4_in_ipv6)
+static inline __attribute__((always_inline)) __u32
+convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_data, bool is_ipv4_in_ipv6)
 {
     if (!ipv4_data->data || (ipv4_data->len != 4 && ipv4_data->len != 16)) {
         return 0;
@@ -226,7 +227,8 @@ static inline __u32 convert_ipv4_to_u32(const struct ProtobufCBinaryData *ipv4_d
     return (data[0] << 24) | (data[1] << 16) | (data[2] << 8) | (data[3]);
 }
 
-static inline __u32 convert_ipv6_to_ip6addr(struct ip_addr *rule_addr, const struct ProtobufCBinaryData *ipv6_data)
+static inline __attribute__((always_inline)) __u32
+convert_ipv6_to_ip6addr(struct ip_addr *rule_addr, const struct ProtobufCBinaryData *ipv6_data)
 {
     if (!rule_addr || !ipv6_data)
         return CONVERT_FAILED;
@@ -251,7 +253,7 @@ static inline __u32 convert_ipv6_to_ip6addr(struct ip_addr *rule_addr, const str
 // reference cilium https://github.com/cilium/cilium/blob/main/bpf/lib/ipv6.h#L122
 #define GET_PREFIX(PREFIX) bpf_htonl(PREFIX <= 0 ? 0 : PREFIX < 32 ? ((1 << PREFIX) - 1) << (32 - PREFIX) : 0xFFFFFFFF)
 
-static inline void ipv6_addr_clear_suffix(__u32 ip6[4], int prefix)
+static inline __attribute__((always_inline)) void ipv6_addr_clear_suffix(__u32 ip6[4], int prefix)
 {
     ip6[0] &= GET_PREFIX(prefix);
     prefix -= 32;
@@ -262,7 +264,8 @@ static inline void ipv6_addr_clear_suffix(__u32 ip6[4], int prefix)
     ip6[3] &= GET_PREFIX(prefix);
 }
 
-static inline int match_ipv4_rule(__u32 ruleIp, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
+static inline __attribute__((always_inline)) int
+match_ipv4_rule(__u32 ruleIp, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
 {
     __u32 mask = 0;
     __be32 targetIP = (type & TYPE_SRCIP) ? tuple_info->ipv4.saddr : tuple_info->ipv4.daddr;
@@ -278,7 +281,8 @@ static inline int match_ipv4_rule(__u32 ruleIp, __u32 preFixLen, struct bpf_sock
     return UNMATCHED;
 }
 
-static inline int match_ipv6_rule(struct ip_addr *rule_addr, struct ip_addr *target_addr, __u32 prefixLen)
+static inline __attribute__((always_inline)) int
+match_ipv6_rule(struct ip_addr *rule_addr, struct ip_addr *target_addr, __u32 prefixLen)
 {
     if (prefixLen > 128)
         return UNMATCHED;
@@ -292,7 +296,7 @@ static inline int match_ipv6_rule(struct ip_addr *rule_addr, struct ip_addr *tar
     return UNMATCHED;
 }
 
-static inline int
+static inline __attribute__((always_inline)) int
 match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
 {
     if (!addrInfo || addrInfo->len == 0) {
@@ -327,7 +331,7 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
     return UNMATCHED;
 }
 
-static inline int match_ip_common(struct MatchIpParams *params)
+static inline __attribute__((always_inline)) int match_ip_common(struct MatchIpParams *params)
 {
     void *ipPtrs = NULL;
     void *notIpPtrs = NULL;
@@ -411,7 +415,8 @@ static inline int match_ip_common(struct MatchIpParams *params)
     return UNMATCHED;
 }
 
-static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+static inline __attribute__((always_inline)) int
+match_src_ip(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
     if (!match || !tuple_info) {
         return UNMATCHED;
@@ -428,7 +433,8 @@ static inline int match_src_ip(Istio__Security__Match *match, struct bpf_sock_tu
     return match_ip_common(&params);
 }
 
-static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+static inline __attribute__((always_inline)) int
+match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
     if (!match || !tuple_info) {
         return UNMATCHED;
@@ -445,7 +451,8 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
     return match_ip_common(&params);
 }
 
-static inline int match_IPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+static inline __attribute__((always_inline)) int
+match_IPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
     return match_src_ip(match, tuple_info) && match_dst_ip(match, tuple_info);
 }

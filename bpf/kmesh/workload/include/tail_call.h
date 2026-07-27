@@ -40,7 +40,7 @@ struct {
     __uint(map_flags, 0);
 } map_of_xdp_tailcall SEC(".maps");
 
-static inline void kmesh_workload_tail_call(ctx_buff_t *ctx, const __u32 index)
+static inline __attribute__((always_inline)) void kmesh_workload_tail_call(ctx_buff_t *ctx, const __u32 index)
 {
     bpf_tail_call(ctx, &map_of_cgr_tail_call, index);
 }

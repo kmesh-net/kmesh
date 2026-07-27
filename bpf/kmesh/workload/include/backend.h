@@ -7,12 +7,13 @@
 #include "workload_common.h"
 #include "tail_call.h"
 
-static inline backend_value *map_lookup_backend(const backend_key *key)
+static inline __attribute__((always_inline)) backend_value *map_lookup_backend(const backend_key *key)
 {
     return kmesh_map_lookup_elem(&map_of_backend, key);
 }
 
-static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_addr *wp_addr, __u32 port)
+static inline __attribute__((always_inline)) int
+waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_addr *wp_addr, __u32 port)
 {
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
 
@@ -25,7 +26,8 @@ static inline int waypoint_manager(struct kmesh_context *kmesh_ctx, struct ip_ad
     return 0;
 }
 
-static inline int svc_dnat(struct kmesh_context *kmesh_ctx, backend_value *backend_v, service_value *service_v)
+static inline __attribute__((always_inline)) int
+svc_dnat(struct kmesh_context *kmesh_ctx, backend_value *backend_v, service_value *service_v)
 {
     int i;
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
@@ -53,7 +55,7 @@ static inline int svc_dnat(struct kmesh_context *kmesh_ctx, backend_value *backe
     return -ENOENT;
 }
 
-static inline int
+static inline __attribute__((always_inline)) int
 backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32 service_id, service_value *service_v)
 {
     int ret = -ENOENT;

@@ -28,17 +28,17 @@ struct tc_info {
 #define PARSER_SUCC          0
 #define IPSEC_DECRYPTED_MARK 0x00d0
 
-static inline bool is_ipv4(struct tc_info *info)
+static inline __attribute__((always_inline)) bool is_ipv4(struct tc_info *info)
 {
     return info->ethh->h_proto == bpf_htons(ETH_P_IP);
 }
 
-static inline bool is_ipv6(struct tc_info *info)
+static inline __attribute__((always_inline)) bool is_ipv6(struct tc_info *info)
 {
     return info->ethh->h_proto == bpf_htons(ETH_P_IPV6);
 }
 
-static inline int parser_tc_info(struct __sk_buff *ctx, struct tc_info *info)
+static inline __attribute__((always_inline)) int parser_tc_info(struct __sk_buff *ctx, struct tc_info *info)
 {
     void *begin = (void *)(long)(ctx->data);
     void *end = (void *)(long)(ctx->data_end);

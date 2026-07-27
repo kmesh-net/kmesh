@@ -56,7 +56,8 @@ struct {
     __uint(max_entries, 256 * 1024 /* 256 KB */);
 } map_of_tcp_probe SEC(".maps");
 
-static inline void construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
+static inline __attribute__((always_inline)) void
+construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *tuple, __u8 direction)
 {
     if (direction == OUTBOUND) {
         if (sk->family == AF_INET) {
@@ -97,7 +98,8 @@ static inline void construct_tuple(struct bpf_sock *sk, struct bpf_sock_tuple *t
     return;
 }
 
-static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_probe_info *info)
+static inline __attribute__((always_inline)) void
+get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_probe_info *info)
 {
     info->sent_bytes = tcp_sock->bytes_acked; // bytes_acked means already acked sent bytes
     info->received_bytes = tcp_sock->bytes_received;
@@ -110,7 +112,7 @@ static inline void get_tcp_probe_info(struct bpf_tcp_sock *tcp_sock, struct tcp_
 
 // construct_orig_dst_info try to read the dst_info from map_of_sock_storage first
 // if not found, use the tuple info for orig_dst
-static inline void
+static inline __attribute__((always_inline)) void
 construct_orig_dst_info(struct bpf_sock *sk, struct sock_storage_data *storage, struct tcp_probe_info *info)
 {
     if (sk->family == AF_INET) {
@@ -127,7 +129,7 @@ construct_orig_dst_info(struct bpf_sock *sk, struct sock_storage_data *storage, 
     }
 }
 
-static inline void
+static inline __attribute__((always_inline)) void
 tcp_report(struct bpf_sock *sk, struct bpf_tcp_sock *tcp_sock, struct sock_storage_data *storage, __u32 state)
 {
     struct tcp_probe_info *info = NULL;

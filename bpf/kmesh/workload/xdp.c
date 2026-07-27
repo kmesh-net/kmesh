@@ -15,7 +15,7 @@
 #include "authz.h"
 #include "xdp.h"
 
-static inline void shutdown_tuple(struct xdp_info *info)
+static inline __attribute__((always_inline)) void shutdown_tuple(struct xdp_info *info)
 {
     info->tcph->fin = 0;
     info->tcph->syn = 0;
@@ -24,7 +24,8 @@ static inline void shutdown_tuple(struct xdp_info *info)
     info->tcph->ack = 0;
 }
 
-static inline int should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline __attribute__((always_inline)) int
+should_shutdown(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     __u32 *value = bpf_map_lookup_elem(&map_of_auth_result, tuple_info);
     if (value && *value == 1) {
@@ -55,7 +56,8 @@ static bool is_authz_offload_enabled()
     return authz_offload == 1;
 }
 
-static inline wl_policies_v *get_workload_policies(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static inline __attribute__((always_inline)) wl_policies_v *
+get_workload_policies(struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     frontend_key frontend_k = {};
     frontend_value *frontend_v = NULL;

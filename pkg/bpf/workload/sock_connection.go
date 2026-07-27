@@ -76,6 +76,8 @@ func (sc *SockConnWorkload) loadKmeshSockConnObjects() (*ebpf.CollectionSpec, er
 		opts ebpf.CollectionOptions
 	)
 	opts.Maps.PinPath = sc.Info.MapPath
+	opts.Programs.LogLevel = ebpf.LogLevelInstruction | ebpf.LogLevelStats
+	opts.Programs.LogSizeStart = 8 * 1024 * 1024
 	if helper.KernelVersionLowerThan5_13() {
 		spec, err = bpf2go.LoadKmeshCgroupSockWorkloadCompat()
 	} else {

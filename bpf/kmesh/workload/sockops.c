@@ -30,7 +30,7 @@ struct {
 volatile __u32 node_ip[4];
 volatile __u32 pod_gateway[4];
 
-static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
+static inline __attribute__((always_inline)) bool skip_specific_probe(struct bpf_sock_ops *skops)
 {
     if (skops->family == AF_INET) {
         if (node_ip[3] == skops->remote_ip4) {
@@ -55,7 +55,8 @@ static inline bool skip_specific_probe(struct bpf_sock_ops *skops)
     return false;
 }
 
-static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
+static inline __attribute__((always_inline)) void
+extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
     if (skops->family == AF_INET) {
         tuple_key->ipv4.saddr = skops->local_ip4;
@@ -75,7 +76,8 @@ static inline void extract_skops_to_tuple(struct bpf_sock_ops *skops, struct bpf
     }
 }
 
-static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
+static inline __attribute__((always_inline)) void
+extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, struct bpf_sock_tuple *tuple_key)
 {
     if (skops->family == AF_INET) {
         tuple_key->ipv4.saddr = skops->remote_ip4;
@@ -103,7 +105,7 @@ static inline void extract_skops_to_tuple_reverse(struct bpf_sock_ops *skops, st
 }
 
 // clean map_of_auth_result
-static inline void clean_auth_map(struct bpf_sock_ops *skops)
+static inline __attribute__((always_inline)) void clean_auth_map(struct bpf_sock_ops *skops)
 {
     struct bpf_sock_tuple tuple_key = {0};
     // auth run PASSIVE ESTABLISHED CB now. In this state cb
@@ -118,7 +120,7 @@ static inline void clean_auth_map(struct bpf_sock_ops *skops)
 }
 
 // insert an IP tuple into the ringbuf
-static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
+static inline __attribute__((always_inline)) void auth_ip_tuple(struct bpf_sock_ops *skops)
 {
     struct ringbuf_msg_type *msg = bpf_ringbuf_reserve(&map_of_auth_req, sizeof(*msg), 0);
     if (!msg) {
@@ -139,7 +141,7 @@ static inline void auth_ip_tuple(struct bpf_sock_ops *skops)
 }
 
 // update sockmap to trigger sk_msg prog to encode metadata before sending to waypoint
-static inline void enable_encoding_metadata(struct bpf_sock_ops *skops)
+static inline __attribute__((always_inline)) void enable_encoding_metadata(struct bpf_sock_ops *skops)
 {
     int err;
     struct bpf_sock_tuple tuple_info = {0};

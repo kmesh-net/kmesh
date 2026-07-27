@@ -78,7 +78,7 @@ enum TLV_TYPE {
     TLV_PAYLOAD = 0xfe,
 };
 
-static inline int check_overflow(struct sk_msg_md *msg, __u8 *begin, __u32 length)
+static inline __attribute__((always_inline)) int check_overflow(struct sk_msg_md *msg, __u8 *begin, __u32 length)
 {
     if (msg->data_end < (void *)(begin + length)) {
         BPF_LOG(ERR, SENDMSG, "msg over flow\n");
@@ -87,7 +87,8 @@ static inline int check_overflow(struct sk_msg_md *msg, __u8 *begin, __u32 lengt
     return 0;
 }
 
-static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, __u16 *dst_port)
+static inline __attribute__((always_inline)) int
+get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, __u16 *dst_port)
 {
     struct bpf_sock *sk = (struct bpf_sock *)msg->sk;
 
@@ -110,7 +111,7 @@ static inline int get_origin_dst(struct sk_msg_md *msg, struct ip_addr *dst_ip, 
     return 0;
 }
 
-static inline int alloc_dst_length(struct sk_msg_md *msg, __u32 length)
+static inline __attribute__((always_inline)) int alloc_dst_length(struct sk_msg_md *msg, __u32 length)
 {
     int ret;
     ret = bpf_msg_push_data(msg, 0, length, 0);
@@ -132,7 +133,7 @@ static inline int alloc_dst_length(struct sk_msg_md *msg, __u32 length)
         *(offset) += (payloadlen);                                                                                     \
     } while (0)
 
-static inline void encode_metadata_end(struct sk_msg_md *msg, __u32 *off)
+static inline __attribute__((always_inline)) void encode_metadata_end(struct sk_msg_md *msg, __u32 *off)
 {
     __u8 type = TLV_PAYLOAD;
     __u32 size = 0;
@@ -142,7 +143,8 @@ static inline void encode_metadata_end(struct sk_msg_md *msg, __u32 *off)
     return;
 }
 
-static inline void encode_metadata_org_dst_addr(struct sk_msg_md *msg, __u32 *off, bool v4)
+static inline __attribute__((always_inline)) void
+encode_metadata_org_dst_addr(struct sk_msg_md *msg, __u32 *off, bool v4)
 {
     struct ip_addr dst_ip = {0};
     __u16 dst_port;
