@@ -138,7 +138,6 @@ function setup_istio() {
 	done
 }
 
-
 # Dump cluster/pod state for post-mortem debugging when E2E setup fails partway
 # through. This does not change control flow - callers still decide what to do
 # (typically: print this, then exit 1) - it only makes sure that information isn't
