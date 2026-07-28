@@ -496,10 +496,89 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 	printWorkloadDump(w, workloadDump)
 }
 
+type ComponentStatus struct {
+	Name    string `json:"name"`
+	Healthy bool   `json:"healthy"`
+	Message string `json:"message,omitempty"`
+}
+
+type ReadinessResponse struct {
+	Ready      bool              `json:"ready"`
+	Components []ComponentStatus `json:"components"`
+}
+
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
-	// TODO: Add some components check
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("OK"))
+	components := []ComponentStatus{}
+	allHealthy := true
+
+	// Check 1: BPF Loader Status (Data Plane)
+	bpfHealthy := false
+	bpfMessage := ""
+	if s.loader == nil {
+		bpfMessage = "BPF loader not initialized"
+	} else if s.config.BpfConfig.KernelNativeEnabled() {
+		if s.loader.GetBpfKmesh() != nil {
+			bpfHealthy = true
+		} else {
+			bpfMessage = "Kernel-native BPF programs not loaded"
+		}
+	} else if s.config.BpfConfig.DualEngineEnabled() {
+		if s.loader.GetBpfWorkload() != nil {
+			bpfHealthy = true
+		} else {
+			bpfMessage = "Dual-engine BPF programs not loaded"
+		}
+	} else {
+		bpfMessage = "Unknown BPF mode"
+	}
+	components = append(components, ComponentStatus{
+		Name:    "bpf_loader",
+		Healthy: bpfHealthy,
+		Message: bpfMessage,
+	})
+	allHealthy = allHealthy && bpfHealthy
+
+	// Check 2: XDS Controller Status (Control Plane Connectivity)
+	xdsHealthy := false
+	xdsMessage := ""
+	if s.xdsClient == nil {
+		xdsMessage = "XDS client not initialized"
+	} else if s.config.BpfConfig.KernelNativeEnabled() {
+		if s.xdsClient.AdsController != nil {
+			xdsHealthy = true
+		} else {
+			xdsMessage = "ADS controller not initialized"
+		}
+	} else if s.config.BpfConfig.DualEngineEnabled() {
+		if s.xdsClient.WorkloadController != nil {
+			xdsHealthy = true
+		} else {
+			xdsMessage = "Workload controller not initialized"
+		}
+	} else {
+		xdsMessage = "Unknown XDS mode"
+	}
+	components = append(components, ComponentStatus{
+		Name:    "xds_controller",
+		Healthy: xdsHealthy,
+		Message: xdsMessage,
+	})
+	allHealthy = allHealthy && xdsHealthy
+
+	response := ReadinessResponse{
+		Ready:      allHealthy,
+		Components: components,
+	}
+
+	statusCode := http.StatusOK
+	if !allHealthy {
+		statusCode = http.StatusServiceUnavailable
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	data, _ := json.MarshalIndent(response, "", "  ")
+	_, _ = w.Write(data)
 }
 
 func (s *Server) getBpfLogLevel() (*LoggerInfo, error) {
