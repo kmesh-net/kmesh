@@ -47,26 +47,26 @@ func (ps *policyStore) updatePolicy(authPolicy *security.Authorization) error {
 		return nil
 	}
 	key := authPolicy.ResourceName()
-	ps.rwLock.Lock()
-	defer ps.rwLock.Unlock()
-	var ns string
+
+	// Validate the scope before mutating any index so a rejected update
+	// cannot leave the store in a partially modified state.
 	switch authPolicy.GetScope() {
-	case security.Scope_WORKLOAD_SELECTOR:
-		ps.byKey[key] = authPolicy
-		return nil
-	case security.Scope_GLOBAL:
-		ns = ""
-	case security.Scope_NAMESPACE:
-		ns = authPolicy.GetNamespace()
+	case security.Scope_WORKLOAD_SELECTOR, security.Scope_GLOBAL, security.Scope_NAMESPACE:
 	default:
 		return fmt.Errorf("invalid scope %v of authorization policy", authPolicy.GetScope())
 	}
 
-	if s, ok := ps.byNamespace[ns]; !ok {
-		ps.byNamespace[ns] = sets.New(key)
-	} else {
-		s.Insert(key)
+	ps.rwLock.Lock()
+	defer ps.rwLock.Unlock()
+
+	// A policy may change scope on update (e.g. NAMESPACE -> GLOBAL). Unlink the
+	// previously stored version first so no stale namespace/global index entry
+	// is left pointing at it.
+	if old, ok := ps.byKey[key]; ok {
+		ps.unlinkPolicyLocked(key, old)
 	}
+
+	ps.linkPolicyLocked(key, authPolicy)
 	ps.byKey[key] = authPolicy
 	return nil
 }
@@ -82,20 +82,47 @@ func (ps *policyStore) removePolicy(policyKey string) {
 	}
 	// remove authPolicy from byKey
 	delete(ps.byKey, policyKey)
+	ps.unlinkPolicyLocked(policyKey, authPolicy)
+}
 
-	var ns string
-	switch authPolicy.Scope {
+// namespaceIndexKey returns the byNamespace key for a policy and whether the
+// policy is tracked in the namespace index at all. WORKLOAD_SELECTOR scoped
+// policies are only tracked in byKey, so they report ok=false.
+func namespaceIndexKey(authPolicy *security.Authorization) (string, bool) {
+	switch authPolicy.GetScope() {
 	case security.Scope_GLOBAL:
-		ns = ""
+		return "", true
 	case security.Scope_NAMESPACE:
-		ns = authPolicy.GetNamespace()
+		return authPolicy.GetNamespace(), true
 	default:
+		return "", false
+	}
+}
+
+// linkPolicyLocked adds the policy key to the namespace index for its current
+// scope. Callers must hold rwLock.
+func (ps *policyStore) linkPolicyLocked(key string, authPolicy *security.Authorization) {
+	ns, ok := namespaceIndexKey(authPolicy)
+	if !ok {
 		return
 	}
-
-	// remove authPolicy key from byNamespace
 	if s, ok := ps.byNamespace[ns]; ok {
-		s.Delete(policyKey)
+		s.Insert(key)
+	} else {
+		ps.byNamespace[ns] = sets.New(key)
+	}
+}
+
+// unlinkPolicyLocked removes the policy key from the namespace index for the
+// scope of the supplied policy, pruning the namespace bucket when it becomes
+// empty. Callers must hold rwLock.
+func (ps *policyStore) unlinkPolicyLocked(key string, authPolicy *security.Authorization) {
+	ns, ok := namespaceIndexKey(authPolicy)
+	if !ok {
+		return
+	}
+	if s, ok := ps.byNamespace[ns]; ok {
+		s.Delete(key)
 		if s.IsEmpty() {
 			delete(ps.byNamespace, ns)
 		}
