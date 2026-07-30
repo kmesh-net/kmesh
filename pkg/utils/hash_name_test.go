@@ -19,8 +19,13 @@ package utils
 import (
 	"hash/fnv"
 	"os"
+	"path/filepath"
 	"testing"
 )
+
+func init() {
+	persistPath = filepath.Join(os.TempDir(), "hash_name_test.yaml")
+}
 
 func getHashValueMap(testStrings []string) map[string]uint32 {
 	hashValueMap := make(map[string]uint32)
