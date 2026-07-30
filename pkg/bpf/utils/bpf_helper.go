@@ -18,6 +18,7 @@ package utils
 
 import (
 	"os"
+	"reflect"
 	"strconv"
 
 	"fmt"
@@ -25,6 +26,40 @@ import (
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/link"
 )
+
+// VerifierLogSize is the starting size, in bytes, of the verifier log buffer
+// used when BPF verifier logging is enabled. It is sized generously so the
+// full verifier output for kmesh's BPF programs can be captured without
+// relying on the ebpf library's automatic buffer-doubling retries.
+const VerifierLogSize = 10 * 1024 * 1024
+
+// ProgramOptionsForVerifierLog returns the ebpf.ProgramOptions needed to
+// capture verifier output at the given log level. A level of 0 returns the
+// zero value, leaving default (no verifier logging) program load behavior
+// unchanged.
+func ProgramOptionsForVerifierLog(level uint32) ebpf.ProgramOptions {
+	if level == 0 {
+		return ebpf.ProgramOptions{}
+	}
+	return ebpf.ProgramOptions{
+		LogLevel:     ebpf.LogLevel(level),
+		LogSizeStart: VerifierLogSize,
+	}
+}
+
+// LogVerifierOutput logs the captured eBPF verifier output for each
+// *ebpf.Program field in value (a bpf2go-generated *Programs struct).
+// Fields with no captured output (verifier logging disabled or load
+// skipped it) are left untouched.
+func LogVerifierOutput(value *reflect.Value, logf func(format string, args ...interface{})) {
+	for i := 0; i < value.NumField(); i++ {
+		prog, ok := value.Field(i).Interface().(*ebpf.Program)
+		if !ok || prog == nil || prog.VerifierLog == "" {
+			continue
+		}
+		logf("bpf verifier log for %s:\n%s", value.Type().Field(i).Name, prog.VerifierLog)
+	}
+}
 
 func SetEnvByBpfMapId(m *ebpf.Map, key string) error {
 	info, _ := m.Info()
