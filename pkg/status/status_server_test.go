@@ -662,3 +662,76 @@ func TestServerMonitoringHandler(t *testing.T) {
 		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})
 }
+
+func TestServerAuthzHandler(t *testing.T) {
+	t.Run("disable and check authz offload", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, l := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: l,
+		}
+
+		// disable authz
+		url := fmt.Sprintf("%s?enable=%s", patternAuthz, "false")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		// verify it shows as disabled
+		req = httptest.NewRequest(http.MethodGet, patternAuthz, nil)
+		w = httptest.NewRecorder()
+		server.authzHandler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), `"enabled": false`)
+	})
+
+	t.Run("enable and check authz offload", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, l := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: l,
+		}
+
+		// enable authz
+		url := fmt.Sprintf("%s?enable=%s", patternAuthz, "true")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		// verify it shows as enabled
+		req = httptest.NewRequest(http.MethodGet, patternAuthz, nil)
+		w = httptest.NewRecorder()
+		server.authzHandler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Contains(t, w.Body.String(), `"enabled": true`)
+
+		authzOffload := l.GetAuthzOffload()
+		assert.Equal(t, constants.ENABLED, authzOffload)
+	})
+}
