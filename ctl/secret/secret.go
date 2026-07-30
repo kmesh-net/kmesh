@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -85,7 +86,7 @@ kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | 
 kmeshctl secret get`,
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			GetSecret()
+			GetSecret(cmd.OutOrStdout())
 		},
 	}
 
@@ -198,7 +199,7 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 	}
 }
 
-func GetSecret() {
+func GetSecret(out io.Writer) {
 	secret, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -240,11 +241,11 @@ func GetSecret() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Secret name: %s\n", SecretName)
-	fmt.Printf("Namespace: %s\n", utils.KmeshNamespace)
-	fmt.Printf("Created: %s\n", secret.CreationTimestamp.Format("2006-01-02 15:04:05"))
-	fmt.Println("IPsec Configuration:")
-	fmt.Println(string(displayData))
+	fmt.Fprintf(out, "Secret name: %s\n", SecretName)
+	fmt.Fprintf(out, "Namespace: %s\n", utils.KmeshNamespace)
+	fmt.Fprintf(out, "Created: %s\n", secret.CreationTimestamp.Format("2006-01-02 15:04:05"))
+	fmt.Fprintln(out, "IPsec Configuration:")
+	fmt.Fprintln(out, string(displayData))
 }
 
 func DeleteSecret() {

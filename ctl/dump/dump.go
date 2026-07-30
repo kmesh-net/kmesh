@@ -103,16 +103,17 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 		os.Exit(1)
 	}
 
+	out := cmd.OutOrStdout()
 	if outputFormat == "json" {
-		fmt.Println(string(body))
+		fmt.Fprintln(out, string(body))
 		return nil
 	}
 
 	switch mode {
 	case constants.KernelNativeMode:
-		printKernelNativeTable(body)
+		printKernelNativeTable(out, body)
 	case constants.DualEngineMode:
-		printDualEngineTable(body)
+		printDualEngineTable(out, body)
 	}
 
 	return nil
@@ -120,15 +121,15 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 
 // printKernelNativeTable parses and displays kernel-native config dump as tables.
 // Static and dynamic resources of the same type are consolidated under a single header.
-func printKernelNativeTable(body []byte) {
+func printKernelNativeTable(out io.Writer, body []byte) {
 	configDump := &adminv2.ConfigDump{}
 	if err := protojson.Unmarshal(body, configDump); err != nil {
 		log.Errorf("failed to parse config dump: %v, falling back to raw output", err)
-		fmt.Println(string(body))
+		fmt.Fprintln(out, string(body))
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	w := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 	static, dynamic := configDump.GetStaticResources(), configDump.GetDynamicResources()
 
 	// Clusters
@@ -145,7 +146,7 @@ func printKernelNativeTable(body []byte) {
 			}
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	// Listeners
@@ -176,7 +177,7 @@ func printKernelNativeTable(body []byte) {
 			printListeners(dynamic)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	// Routes
@@ -196,7 +197,7 @@ func printKernelNativeTable(body []byte) {
 			printRoutes(dynamic)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 }
 
@@ -230,15 +231,15 @@ type policyEntry struct {
 }
 
 // printDualEngineTable parses and displays dual-engine config dump as tables.
-func printDualEngineTable(body []byte) {
+func printDualEngineTable(out io.Writer, body []byte) {
 	var dump workloadDump
 	if err := json.Unmarshal(body, &dump); err != nil {
 		log.Errorf("failed to parse workload dump: %v, falling back to raw output", err)
-		fmt.Println(string(body))
+		fmt.Fprintln(out, string(body))
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	w := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 
 	if len(dump.Workloads) > 0 {
 		fmt.Fprintln(w, "NAME\tNAMESPACE\tADDRESSES\tPROTOCOL\tSTATUS")
@@ -252,7 +253,7 @@ func printDualEngineTable(body []byte) {
 			)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	if len(dump.Services) > 0 {
@@ -266,7 +267,7 @@ func printDualEngineTable(body []byte) {
 			)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	if len(dump.Policies) > 0 {
@@ -280,7 +281,7 @@ func printDualEngineTable(body []byte) {
 			)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 }
 

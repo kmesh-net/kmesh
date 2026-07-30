@@ -137,7 +137,7 @@ func NewStatusCmd() *cobra.Command {
 				fmt.Fprintf(tw, "%s\t%s\n", s.Pod, s.Status)
 			}
 			tw.Flush()
-			fmt.Print(buf.String())
+			fmt.Fprint(cmd.OutOrStdout(), buf.String())
 		},
 	}
 	return cmd
