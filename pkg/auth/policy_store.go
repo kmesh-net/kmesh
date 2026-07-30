@@ -123,7 +123,7 @@ func (ps *policyStore) unlinkPolicyLocked(key string, authPolicy *security.Autho
 	}
 	if s, ok := ps.byNamespace[ns]; ok {
 		s.Delete(key)
-		if s.IsEmpty() {
+		if len(s) == 0 {
 			delete(ps.byNamespace, ns)
 		}
 	}
