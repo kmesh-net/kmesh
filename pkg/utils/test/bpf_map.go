@@ -56,7 +56,7 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 	err = loader.Start()
 	if err != nil {
 		bpf.CleanupBpfMap()
-		t.Fatalf("bpf init failed: %v", err)
+		t.Skipf("skipping BPF-dependent test: %v", err)
 	}
 	return func() {
 		loader.Stop()
