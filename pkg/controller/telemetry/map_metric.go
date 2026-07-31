@@ -34,13 +34,22 @@ type MapMetricController struct {
 }
 
 type MapInfo struct {
-	mapName    string
-	entryCount uint32
+	mapName      string
+	mapType      string
+	entryCount   uint32
+	maxEntries   uint32
+	memlockBytes uint64
 }
 
 type mapMetricLabels struct {
 	mapName  string
 	nodeName string
+}
+
+type detailedMapMetricLabels struct {
+	mapName  string
+	nodeName string
+	mapType  string
 }
 
 func NewMapMetric() *MapMetricController {
@@ -66,11 +75,18 @@ func (m *MapMetricController) Run(ctx context.Context) {
 }
 
 func buildMapMetricLabel(data *MapInfo) mapMetricLabels {
-	labels := mapMetricLabels{
+	return mapMetricLabels{
 		nodeName: os.Getenv("NODE_NAME"),
 		mapName:  data.mapName,
 	}
-	return labels
+}
+
+func buildMapMetricDetailedLabel(data *MapInfo) detailedMapMetricLabels {
+	return detailedMapMetricLabels{
+		mapName:  data.mapName,
+		nodeName: os.Getenv("NODE_NAME"),
+		mapType:  data.mapType,
+	}
 }
 
 func isKmeshMap(mapName string) bool {
@@ -108,6 +124,14 @@ func (m *MapMetricController) updatePrometheusMetric() {
 		metricLabels := buildMapMetricLabel(&mapData)
 		commonLabels := struct2map(metricLabels)
 		mapEntryCount.With(commonLabels).Set(float64(entryCount))
+
+		detailedLabels := buildMapMetricDetailedLabel(&mapData)
+		detailedLabelsMap := struct2map(detailedLabels)
+		mapMaxEntries.With(detailedLabelsMap).Set(float64(mapData.maxEntries))
+		mapMemlockBytes.With(detailedLabelsMap).Set(float64(mapData.memlockBytes))
+		if mapData.maxEntries > 0 {
+			mapUtilizationRatio.With(detailedLabelsMap).Set(float64(entryCount) / float64(mapData.maxEntries))
+		}
 		mapInfo.Close()
 	}
 	mapCountLabels := map[string]string{"node_name": os.Getenv("NODE_NAME")}
@@ -136,9 +160,13 @@ func getNextMapInfo(startID ebpf.MapID) (ebpf.MapID, *ebpf.Map, *ebpf.MapInfo, e
 }
 
 func buildMapEntrycountMetric(info *ebpf.MapInfo, entryCount uint32) MapInfo {
+	memlock, _ := info.Memlock()
 	return MapInfo{
-		mapName:    info.Name,
-		entryCount: entryCount,
+		mapName:      info.Name,
+		mapType:      info.Type.String(),
+		entryCount:   entryCount,
+		maxEntries:   info.MaxEntries,
+		memlockBytes: memlock,
 	}
 }
 func getMapEntryCountFallback(m *ebpf.Map) (uint32, error) {
