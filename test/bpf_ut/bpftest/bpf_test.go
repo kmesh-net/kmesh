@@ -103,6 +103,7 @@ func TestBPF(t *testing.T) {
 	}
 
 	t.Run("Workload", testWorkload)
+	t.Run("Ads", testAds)
 	t.Run("GeneralTC", testGeneralTC)
 }
 
