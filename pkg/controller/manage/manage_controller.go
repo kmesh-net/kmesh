@@ -395,33 +395,38 @@ func (c *KmeshManageController) syncPod(key QueueItem) error {
 // SecretManager's refcounted cert cache paired 1:1 per pod, even though
 // enableKmeshManage can be invoked many times over a pod's lifetime (pod
 // Update events fire on almost any status change, not just enrollment).
+//
+// The map update and the sendCertRequest call happen under the same lock on
+// purpose. enableKmeshManage and disableKmeshManage/handlePodDelete can run
+// concurrently for the same pod (they come from different informer
+// goroutines, e.g. a namespace-driven disable racing a pod update), so if we
+// dropped the lock before sending the request, a release could run in
+// between, see the map entry, delete it and send DELETE before our ADD ever
+// went out, leaving the pair unbalanced again.
 func (c *KmeshManageController) ensureCertRequested(pod *corev1.Pod) {
 	c.certRequestedMu.Lock()
-	_, alreadyRequested := c.certRequestedPods[pod.UID]
-	if !alreadyRequested {
-		c.certRequestedPods[pod.UID] = struct{}{}
-	}
-	c.certRequestedMu.Unlock()
+	defer c.certRequestedMu.Unlock()
 
-	if alreadyRequested {
+	if _, alreadyRequested := c.certRequestedPods[pod.UID]; alreadyRequested {
 		return
 	}
+	c.certRequestedPods[pod.UID] = struct{}{}
 	sendCertRequest(c.sm, pod, kmeshsecurity.ADD)
 }
 
 // releaseCertRequest sends the matching cert DELETE request for pod if (and
 // only if) ensureCertRequested was previously called for it, and reports
 // whether it did so. This is what keeps the SecretManager refCnt for a
-// pod's identity from being left permanently above zero.
+// pod's identity from being left permanently above zero. See the comment on
+// ensureCertRequested for why this holds the lock across the send too.
 func (c *KmeshManageController) releaseCertRequest(pod *corev1.Pod) bool {
 	c.certRequestedMu.Lock()
-	_, wasRequested := c.certRequestedPods[pod.UID]
-	delete(c.certRequestedPods, pod.UID)
-	c.certRequestedMu.Unlock()
+	defer c.certRequestedMu.Unlock()
 
-	if !wasRequested {
+	if _, wasRequested := c.certRequestedPods[pod.UID]; !wasRequested {
 		return false
 	}
+	delete(c.certRequestedPods, pod.UID)
 	sendCertRequest(c.sm, pod, kmeshsecurity.DELETE)
 	return true
 }
