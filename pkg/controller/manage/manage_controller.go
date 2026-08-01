@@ -219,8 +219,9 @@ func (c *KmeshManageController) handlePodDelete(obj interface{}) {
 	if c.releaseCertRequest(pod) {
 		log.Infof("%s/%s: Pod managed by Kmesh is deleted", pod.GetNamespace(), pod.GetName())
 	}
-	// We donot need to do handleKmeshManage for delete, because we may have no change to execute a cmd in pod net ns.
-	// And we have done this in kmesh-cni
+	// We do not need to do handleKmeshManage for delete, because we may
+	// not have any change to execute a cmd in pod net ns.
+	// And we have done this in kmesh-cni.
 }
 
 func (c *KmeshManageController) handleNamespaceAdd(obj interface{}) {
@@ -261,7 +262,7 @@ func (c *KmeshManageController) handleNamespaceUpdate(oldObj, newObj interface{}
 }
 
 func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
-	c.requestCertRequest(pod)
+	c.ensureCertRequested(pod)
 	if !isPodReady(pod) {
 		log.Debugf("Pod %s/%s is not ready, skipping Kmesh manage enable", pod.GetNamespace(), pod.GetName())
 		return
@@ -389,12 +390,12 @@ func (c *KmeshManageController) syncPod(key QueueItem) error {
 	return nil
 }
 
-// requestCertRequest sends a cert ADD request for pod, but only the first
+// ensureCertRequested sends a cert ADD request for pod, but only the first
 // time it's called for a given pod UID. This keeps ADD/DELETE calls into
 // SecretManager's refcounted cert cache paired 1:1 per pod, even though
 // enableKmeshManage can be invoked many times over a pod's lifetime (pod
 // Update events fire on almost any status change, not just enrollment).
-func (c *KmeshManageController) requestCertRequest(pod *corev1.Pod) {
+func (c *KmeshManageController) ensureCertRequested(pod *corev1.Pod) {
 	c.certRequestedMu.Lock()
 	_, alreadyRequested := c.certRequestedPods[pod.UID]
 	if !alreadyRequested {
@@ -409,7 +410,7 @@ func (c *KmeshManageController) requestCertRequest(pod *corev1.Pod) {
 }
 
 // releaseCertRequest sends the matching cert DELETE request for pod if (and
-// only if) requestCertRequest was previously called for it, and reports
+// only if) ensureCertRequested was previously called for it, and reports
 // whether it did so. This is what keeps the SecretManager refCnt for a
 // pod's identity from being left permanently above zero.
 func (c *KmeshManageController) releaseCertRequest(pod *corev1.Pod) bool {
