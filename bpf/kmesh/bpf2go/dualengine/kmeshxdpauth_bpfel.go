@@ -98,6 +98,7 @@ type KmeshXDPAuthMapSpecs struct {
 	KmAuthRes     *ebpf.MapSpec `ebpf:"km_auth_res"`
 	KmAuthzPolicy *ebpf.MapSpec `ebpf:"km_authz_policy"`
 	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
+	KmCgrTail6    *ebpf.MapSpec `ebpf:"km_cgr_tail6"`
 	KmCgrTailcall *ebpf.MapSpec `ebpf:"km_cgr_tailcall"`
 	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
@@ -147,6 +148,7 @@ type KmeshXDPAuthMaps struct {
 	KmAuthRes     *ebpf.Map `ebpf:"km_auth_res"`
 	KmAuthzPolicy *ebpf.Map `ebpf:"km_authz_policy"`
 	KmBackend     *ebpf.Map `ebpf:"km_backend"`
+	KmCgrTail6    *ebpf.Map `ebpf:"km_cgr_tail6"`
 	KmCgrTailcall *ebpf.Map `ebpf:"km_cgr_tailcall"`
 	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
@@ -170,6 +172,7 @@ func (m *KmeshXDPAuthMaps) Close() error {
 		m.KmAuthRes,
 		m.KmAuthzPolicy,
 		m.KmBackend,
+		m.KmCgrTail6,
 		m.KmCgrTailcall,
 		m.KmEndpoint,
 		m.KmFrontend,
