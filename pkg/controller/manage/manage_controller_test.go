@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kmesh.net/kmesh/pkg/constants"
+	kmeshns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -175,6 +176,67 @@ var (
 	}
 )
 
+// simulateQueueItem stands in for the real workqueue processing loop (processItems/syncPod)
+// in tests, since that loop isn't running here. It mirrors syncPod's action handling,
+// including chaining ActionAttach -> ActionAddAnnotation and ActionDetach -> ActionDeleteAnnotation
+// on success, so tests exercise the same gating the real controller applies.
+func simulateQueueItem(t *testing.T, controller *KmeshManageController, item interface{}) {
+	t.Helper()
+
+	queueItem, ok := item.(QueueItem)
+	if !ok {
+		t.Logf("expected QueueItem but got %T", item)
+		return
+	}
+	pod, err := controller.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			t.Logf("pod %s/%s has been deleted", queueItem.podNs, queueItem.podName)
+			return
+		}
+		t.Errorf("failed to get pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
+		return
+	}
+	if pod == nil {
+		return
+	}
+
+	namespace, _ := controller.namespaceLister.Get(pod.Namespace)
+	switch queueItem.action {
+	case ActionAttach:
+		if !utils.ShouldEnroll(pod, namespace) {
+			return
+		}
+		nspath, _ := kmeshns.GetPodNSpath(pod)
+		if err := attachPod(nspath, controller.xdpProgFd, controller.tcProgFd, controller.mode); err != nil {
+			t.Errorf("failed to attach pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
+		}
+		simulateQueueItem(t, controller, QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
+	case ActionDetach:
+		nspath, _ := kmeshns.GetPodNSpath(pod)
+		if err := detachPod(nspath, controller.tcProgFd, controller.mode); err != nil {
+			t.Errorf("failed to detach pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
+		}
+		simulateQueueItem(t, controller, QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
+	case ActionAddAnnotation:
+		if utils.ShouldEnroll(pod, namespace) {
+			t.Logf("add annotation for pod %s/%s", pod.Namespace, pod.Name)
+			if err := utils.PatchKmeshRedirectAnnotation(controller.client, pod); err != nil {
+				t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
+			}
+		}
+	case ActionDeleteAnnotation:
+		if !utils.ShouldEnroll(pod, namespace) {
+			t.Logf("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
+			if err := utils.DelKmeshRedirectAnnotation(controller.client, pod); err != nil {
+				t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
+			}
+		}
+	}
+}
+
 func waitAndCheckManageAction(t *testing.T, enabled *atomic.Bool, disabled *atomic.Bool, enableExpected bool, disableExpected bool) {
 	retry.UntilSuccess(func() error {
 		// Wait for the handleKmeshManage to be called
@@ -220,33 +282,7 @@ func TestHandleKmeshManage(t *testing.T) {
 	})
 
 	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
-		queueItem, ok := item.(QueueItem)
-		if !ok {
-			t.Logf("expected QueueItem but got %T", item)
-			return
-		}
-		pod, err := controller.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				t.Logf("pod %s/%s has been deleted", queueItem.podNs, queueItem.podName)
-				return
-			}
-			t.Errorf("failed to get pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
-		}
-
-		if pod != nil {
-			namespace, _ := controller.namespaceLister.Get(pod.Namespace)
-			if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
-				t.Logf("add annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = utils.PatchKmeshRedirectAnnotation(controller.client, pod)
-			} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
-				t.Logf("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = utils.DelKmeshRedirectAnnotation(controller.client, pod)
-			}
-		}
-		if err != nil {
-			t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
-		}
+		simulateQueueItem(t, controller, item)
 	})
 
 	type args struct {
@@ -462,33 +498,7 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 	})
 
 	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
-		queueItem, ok := item.(QueueItem)
-		if !ok {
-			t.Logf("expected QueueItem but got %T", item)
-			return
-		}
-		pod, err := controller.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				t.Logf("pod %s/%s has been deleted", queueItem.podNs, queueItem.podName)
-				return
-			}
-			t.Errorf("failed to get pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
-		}
-
-		if pod != nil {
-			namespace, _ := controller.namespaceLister.Get(pod.Namespace)
-			if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
-				t.Logf("add annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = utils.PatchKmeshRedirectAnnotation(controller.client, pod)
-			} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
-				t.Logf("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = utils.DelKmeshRedirectAnnotation(controller.client, pod)
-			}
-		}
-		if err != nil {
-			t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
-		}
+		simulateQueueItem(t, controller, item)
 	})
 
 	type args struct {

@@ -51,6 +51,12 @@ const (
 	MaxRetries             = 5
 	ActionAddAnnotation    = "add"
 	ActionDeleteAnnotation = "delete"
+	// ActionAttach attaches the xdp/tc programs that redirect a pod's traffic into the
+	// Kmesh dataplane. Only once this succeeds is the pod queued for ActionAddAnnotation.
+	ActionAttach = "attach"
+	// ActionDetach removes the xdp/tc programs. Only once this succeeds is the pod queued
+	// for ActionDeleteAnnotation.
+	ActionDetach = "detach"
 )
 
 type QueueItem struct {
@@ -260,9 +266,11 @@ func (c *KmeshManageController) enableKmeshManage(pod *corev1.Pod) {
 		log.Errorf("failed to enable Kmesh manage")
 		return
 	}
-	c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
-	_ = linkXdp(nspath, c.xdpProgFd, c.mode)
-	_ = linkTc(nspath, c.tcProgFd)
+	// The pod must not be annotated as managed until the dataplane programs are
+	// actually attached, otherwise it would be reported as enrolled while traffic
+	// silently bypasses Kmesh. ActionAttach only queues ActionAddAnnotation on success,
+	// and retries (with the controller's standard backoff/MaxRetries) on failure.
+	c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAttach})
 }
 
 func (c *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
@@ -273,9 +281,7 @@ func (c *KmeshManageController) disableKmeshManage(pod *corev1.Pod) {
 		log.Error("failed to disable Kmesh manage")
 		return
 	}
-	c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
-	_ = unlinkXdp(nspath, c.mode)
-	_ = unlinkTc(nspath, c.tcProgFd)
+	c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDetach})
 }
 
 func (c *KmeshManageController) enableKmeshForPodsInNamespace(namespace *corev1.Namespace) {
@@ -367,12 +373,56 @@ func (c *KmeshManageController) syncPod(key QueueItem) error {
 		return fmt.Errorf("failed to get pod namespace %s: %v", pod.Namespace, err)
 	}
 
-	if key.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
-		log.Infof("add annotation for pod %s/%s", pod.Namespace, pod.Name)
-		return utils.PatchKmeshRedirectAnnotation(c.client, pod)
-	} else if key.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
-		log.Infof("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
-		return utils.DelKmeshRedirectAnnotation(c.client, pod)
+	switch key.action {
+	case ActionAddAnnotation:
+		if utils.ShouldEnroll(pod, namespace) {
+			log.Infof("add annotation for pod %s/%s", pod.Namespace, pod.Name)
+			return utils.PatchKmeshRedirectAnnotation(c.client, pod)
+		}
+	case ActionDeleteAnnotation:
+		if !utils.ShouldEnroll(pod, namespace) {
+			log.Infof("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
+			return utils.DelKmeshRedirectAnnotation(c.client, pod)
+		}
+	case ActionAttach:
+		if !utils.ShouldEnroll(pod, namespace) {
+			return nil
+		}
+		nspath, _ := ns.GetPodNSpath(pod)
+		if err := attachPod(nspath, c.xdpProgFd, c.tcProgFd, c.mode); err != nil {
+			return fmt.Errorf("failed to attach kmesh dataplane programs for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+		}
+		log.Infof("attached kmesh dataplane programs for pod %s/%s", pod.Namespace, pod.Name)
+		c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
+	case ActionDetach:
+		nspath, _ := ns.GetPodNSpath(pod)
+		if err := detachPod(nspath, c.tcProgFd, c.mode); err != nil {
+			return fmt.Errorf("failed to detach kmesh dataplane programs for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+		}
+		c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
+	}
+	return nil
+}
+
+// attachPod attaches the xdp and tc programs that redirect a pod's traffic into the
+// Kmesh dataplane. Both must succeed, otherwise the pod must not be treated as enrolled.
+func attachPod(nspath string, xdpProgFd, tcProgFd int, mode string) error {
+	if err := linkXdp(nspath, xdpProgFd, mode); err != nil {
+		return fmt.Errorf("xdp: %w", err)
+	}
+	if err := linkTc(nspath, tcProgFd); err != nil {
+		return fmt.Errorf("tc: %w", err)
+	}
+	return nil
+}
+
+// detachPod removes the xdp and tc programs previously attached by attachPod.
+func detachPod(nspath string, tcProgFd int, mode string) error {
+	if err := unlinkXdp(nspath, mode); err != nil {
+		return fmt.Errorf("xdp: %w", err)
+	}
+	if err := unlinkTc(nspath, tcProgFd); err != nil {
+		return fmt.Errorf("tc: %w", err)
 	}
 	return nil
 }
