@@ -80,7 +80,7 @@ You can follow the steps below to develop in kind:
 + Build your docker image locally:
 
     ```shell
-    docker build -f build/docker/kmesh.dockerfile -t $image_name .
+    docker build -f build/docker/dockerfile -t $image_name .
     ```
 
     You should specify the `image_name`.
