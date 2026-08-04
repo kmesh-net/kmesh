@@ -17,6 +17,7 @@
 package nets
 
 import (
+	"encoding/binary"
 	"net/netip"
 	"testing"
 
@@ -119,7 +120,7 @@ func TestCompareIpByte(t *testing.T) {
 	}
 }
 
-func TestConvertPortToLittleEndian(t *testing.T) {
+func TestConvertPortToHostOrder(t *testing.T) {
 	tests := []struct {
 		input    uint32
 		expected uint32
@@ -129,11 +130,58 @@ func TestConvertPortToLittleEndian(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		input := ConvertPortToBigEndian(test.input)
-		actual := ConvertPortToLittleEndian(input)
+		input := ConvertPortToNetworkOrder(test.input)
+		actual := ConvertPortToHostOrder(input)
 		if actual != test.expected {
-			t.Errorf("ConvertPortToLittleEndian(%#x) = %#x; expected %#x", test.input, actual, test.expected)
+			t.Errorf("ConvertPortToHostOrder(%#x) = %#x; expected %#x", test.input, actual, test.expected)
 		}
+	}
+}
+
+// TestConvertPortByteOrder pins htons/ntohs semantics on both host byte orders.
+// The big endian cases are the regression guard: converting a port there must be
+// an identity, because network order and host order already agree.
+func TestConvertPortByteOrder(t *testing.T) {
+	tests := []struct {
+		name string
+		port uint32
+		// network order value as seen on a little endian host, i.e. byte swapped
+		wantOnLittleEndian uint32
+		// network order value as seen on a big endian host, i.e. unchanged
+		wantOnBigEndian uint32
+	}{
+		{"zero", 0, 0, 0},
+		{"http", 80, 0x5000, 80},
+		{"https", 443, 0xbb01, 443},
+		{"hbone", 15008, 0xa03a, 15008},
+		{"byte symmetric", 0x3c3c, 0x3c3c, 0x3c3c},
+		{"max", 65535, 65535, 65535},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.wantOnLittleEndian, convertPortToNetworkOrder(tt.port, binary.LittleEndian))
+			assert.Equal(t, tt.wantOnBigEndian, convertPortToNetworkOrder(tt.port, binary.BigEndian))
+
+			assert.Equal(t, tt.port, convertPortToHostOrder(tt.wantOnLittleEndian, binary.LittleEndian))
+			assert.Equal(t, tt.port, convertPortToHostOrder(tt.wantOnBigEndian, binary.BigEndian))
+		})
+	}
+}
+
+// TestConvertPortMatchesMapEncoding asserts the invariant the datapath relies on:
+// the bytes a port occupies in a bpf map, marshalled in the host's native order,
+// must spell the port in network byte order.
+func TestConvertPortMatchesMapEncoding(t *testing.T) {
+	for _, port := range []uint32{80, 443, 15008, 65535} {
+		var onWire [2]byte
+		binary.NativeEndian.PutUint16(onWire[:], uint16(ConvertPortToNetworkOrder(port)))
+
+		var want [2]byte
+		binary.BigEndian.PutUint16(want[:], uint16(port))
+
+		assert.Equal(t, want, onWire, "port %d is not in network order on the wire", port)
+		assert.Equal(t, port, ConvertPortToHostOrder(ConvertPortToNetworkOrder(port)))
 	}
 }
 

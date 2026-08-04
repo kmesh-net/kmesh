@@ -491,7 +491,7 @@ func (p *Processor) updateWorkloadInBackendMap(workload *workloadapi.Workload) e
 
 	if waypoint := workload.GetWaypoint(); waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&bv.WaypointAddr, waypoint.GetAddress().Address)
-		bv.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
+		bv.WaypointPort = nets.ConvertPortToNetworkOrder(waypoint.GetHboneMtlsPort())
 	}
 
 	for serviceName := range workload.GetServices() {
@@ -754,7 +754,7 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 
 	if waypoint != nil && waypoint.GetAddress() != nil {
 		nets.CopyIpByteFromSlice(&newServiceInfo.WaypointAddr, waypoint.GetAddress().Address)
-		newServiceInfo.WaypointPort = nets.ConvertPortToBigEndian(waypoint.GetHboneMtlsPort())
+		newServiceInfo.WaypointPort = nets.ConvertPortToNetworkOrder(waypoint.GetHboneMtlsPort())
 	}
 
 	for i, port := range ports {
@@ -763,15 +763,15 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 			break
 		}
 
-		newServiceInfo.ServicePort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
+		newServiceInfo.ServicePort[i] = nets.ConvertPortToNetworkOrder(port.ServicePort)
 		if strings.Contains(serviceName, "waypoint") {
-			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
+			newServiceInfo.TargetPort[i] = nets.ConvertPortToNetworkOrder(KmeshWaypointPort)
 		} else if port.TargetPort == 0 {
 			// NOTE: Target port could be unset in service entry, in which case it should
 			// be consistent with the Service Port.
-			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
+			newServiceInfo.TargetPort[i] = nets.ConvertPortToNetworkOrder(port.ServicePort)
 		} else {
-			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(port.TargetPort)
+			newServiceInfo.TargetPort[i] = nets.ConvertPortToNetworkOrder(port.TargetPort)
 		}
 	}
 
