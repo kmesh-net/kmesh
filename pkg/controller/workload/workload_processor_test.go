@@ -275,7 +275,7 @@ func checkServiceMap(t *testing.T, p *Processor, svcId uint32, fakeSvc *workload
 		assert.Equal(t, true, test.EqualIp(sv.WaypointAddr, waypointAddr))
 	}
 
-	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToBigEndian(fakeSvc.Waypoint.GetHboneMtlsPort()))
+	assert.Equal(t, sv.WaypointPort, nets.ConvertPortToNetworkOrder(fakeSvc.Waypoint.GetHboneMtlsPort()))
 }
 
 func checkNotExistInEndpointMap(t *testing.T, p *Processor, fakeSvc *workloadapi.Service, backendUid []uint32) {
@@ -311,7 +311,7 @@ func checkBackendMap(t *testing.T, p *Processor, workloadID uint32, wl *workload
 	if waypointAddr != nil {
 		assert.Equal(t, true, test.EqualIp(bv.WaypointAddr, waypointAddr))
 	}
-	assert.Equal(t, bv.WaypointPort, nets.ConvertPortToBigEndian(wl.GetWaypoint().GetHboneMtlsPort()))
+	assert.Equal(t, bv.WaypointPort, nets.ConvertPortToNetworkOrder(wl.GetWaypoint().GetHboneMtlsPort()))
 }
 
 func checkFrontEndMapWithNetworkMode(t *testing.T, ip []byte, p *Processor, networkMode workloadapi.NetworkMode) (upstreamId uint32) {

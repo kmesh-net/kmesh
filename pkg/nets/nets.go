@@ -45,23 +45,38 @@ func ConvertIpToUint32(ip string) uint32 {
 	return 0
 }
 
-// ConvertPortToBigEndian convert uint32 to network order
-func ConvertPortToBigEndian(little uint32) uint32 {
-	// first convert to uint16, then convert the byte order,
-	// finally switch back to uint32
-	tmp := make([]byte, 2)
-	little16 := uint16(little)
-	binary.BigEndian.PutUint16(tmp, little16)
-	big16 := binary.LittleEndian.Uint16(tmp)
-	return uint32(big16)
+// ConvertPortToNetworkOrder converts a host order port to the network order
+// value stored in the bpf maps, i.e. htons().
+//
+// Map values are marshalled with the host's native byte order, and the datapath
+// compares them directly against ctx->user_port, which the kernel keeps in
+// network byte order. The conversion is therefore only a byte swap on a little
+// endian host and must be an identity on a big endian one, so the native order
+// has to be resolved at runtime rather than assumed.
+func ConvertPortToNetworkOrder(port uint32) uint32 {
+	return convertPortToNetworkOrder(port, binary.NativeEndian)
 }
 
-// ConvertPortToLittleEndian convert port to host order
-func ConvertPortToLittleEndian(big uint32) uint32 {
-	tmp := make([]byte, 2)
-	binary.LittleEndian.PutUint16(tmp, uint16(big))
-	little16 := binary.BigEndian.Uint16(tmp)
-	return uint32(little16)
+// ConvertPortToHostOrder converts a network order port read back from the bpf
+// maps to host order, i.e. ntohs(). It is the exact inverse of
+// ConvertPortToNetworkOrder and must be kept in sync with it.
+func ConvertPortToHostOrder(port uint32) uint32 {
+	return convertPortToHostOrder(port, binary.NativeEndian)
+}
+
+// convertPortToNetworkOrder and convertPortToHostOrder take the native byte
+// order as a parameter so that the big endian path stays reachable from tests
+// running on a little endian host.
+func convertPortToNetworkOrder(port uint32, native binary.ByteOrder) uint32 {
+	var tmp [2]byte
+	binary.BigEndian.PutUint16(tmp[:], uint16(port))
+	return uint32(native.Uint16(tmp[:]))
+}
+
+func convertPortToHostOrder(port uint32, native binary.ByteOrder) uint32 {
+	var tmp [2]byte
+	native.PutUint16(tmp[:], uint16(port))
+	return uint32(binary.BigEndian.Uint16(tmp[:]))
 }
 
 func CopyIpByteFromSlice(dst *[16]byte, src []byte) {

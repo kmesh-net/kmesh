@@ -384,7 +384,7 @@ func TestNewApiSocketAddress(t *testing.T) {
 			},
 		}
 		kmeshSocketAddr := newApiSocketAddress(addr)
-		port := nets.ConvertPortToBigEndian(addr.GetSocketAddress().GetPortValue())
+		port := nets.ConvertPortToNetworkOrder(addr.GetSocketAddress().GetPortValue())
 		assert.Equal(t, port, kmeshSocketAddr.Port)
 		address := addr.GetSocketAddress().Address
 		ipv4 := nets.ConvertIpToUint32(address)

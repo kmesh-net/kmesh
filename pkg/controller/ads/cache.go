@@ -163,7 +163,7 @@ func newApiSocketAddress(address *config_core_v3.Address) *core_v2.SocketAddress
 
 	return &core_v2.SocketAddress{
 		Protocol: core_v2.SocketAddress_Protocol(addr.GetProtocol()),
-		Port:     nets.ConvertPortToBigEndian(addr.GetPortValue()),
+		Port:     nets.ConvertPortToNetworkOrder(addr.GetPortValue()),
 		Ipv4:     nets.ConvertIpToUint32(addr.GetAddress()),
 	}
 }

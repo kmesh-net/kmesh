@@ -271,7 +271,7 @@ func (wd WorkloadBpfDump) WithBackends(backends []bpfcache.BackendValue) Workloa
 			Ip:           nets.IpString(backend.Ip),
 			ServiceCount: backend.ServiceCount,
 			WaypointAddr: waypointAddr,
-			WaypointPort: nets.ConvertPortToLittleEndian(backend.WaypointPort),
+			WaypointPort: nets.ConvertPortToHostOrder(backend.WaypointPort),
 		}
 		services := make([]string, 0, len(backend.Services))
 		for _, s := range backend.Services {
@@ -321,7 +321,7 @@ func (wd WorkloadBpfDump) WithServices(services []bpfcache.ServiceValue) Workloa
 			EndpointCount: []uint32{},
 			LbPolicy:      workloadapi.LoadBalancing_Mode_name[int32(s.LbPolicy)],
 			WaypointAddr:  waypointAddr,
-			WaypointPort:  nets.ConvertPortToLittleEndian(s.WaypointPort),
+			WaypointPort:  nets.ConvertPortToHostOrder(s.WaypointPort),
 		}
 
 		for _, c := range s.EndpointCount {
@@ -332,14 +332,14 @@ func (wd WorkloadBpfDump) WithServices(services []bpfcache.ServiceValue) Workloa
 			if p == 0 {
 				continue
 			}
-			svc.ServicePort = append(svc.ServicePort, nets.ConvertPortToLittleEndian(p))
+			svc.ServicePort = append(svc.ServicePort, nets.ConvertPortToHostOrder(p))
 		}
 
 		for _, p := range s.TargetPort {
 			if p == 0 {
 				continue
 			}
-			svc.TargetPort = append(svc.TargetPort, nets.ConvertPortToLittleEndian(p))
+			svc.TargetPort = append(svc.TargetPort, nets.ConvertPortToHostOrder(p))
 		}
 
 		converted = append(converted, svc)
