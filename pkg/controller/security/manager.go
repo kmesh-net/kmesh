@@ -257,3 +257,17 @@ func (s *SecretManager) retryFetchCert(identity string) {
 
 	go s.fetchCert(identity)
 }
+
+// DumpCertificates returns a snapshot of the current certificates in the cache
+func (s *SecretManager) DumpCertificates() []*istiosecurity.SecretItem {
+	s.certsCache.mu.RLock()
+	defer s.certsCache.mu.RUnlock()
+
+	var certs []*istiosecurity.SecretItem
+	for _, item := range s.certsCache.certs {
+		if item.cert != nil {
+			certs = append(certs, item.cert)
+		}
+	}
+	return certs
+}
