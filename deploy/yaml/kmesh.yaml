@@ -74,6 +74,14 @@ spec:
       containers:
         - name: kmesh
           image: ghcr.io/kmesh-net/kmesh:latest
+          readinessProbe:
+            httpGet:
+              path: /debug/ready
+              port: 15200
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 5
           imagePullPolicy: IfNotPresent
           command: ["/bin/sh", "-c"]
           args:

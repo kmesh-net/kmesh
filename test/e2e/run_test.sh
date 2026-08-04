@@ -158,27 +158,13 @@ function setup_kmesh() {
 		$extra_args
 
 	# Wait for all Kmesh pods to be ready.
-	while true; do
-		pod_statuses=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
-
-		running_pods=0
-		total_pods=0
-
-		while read -r pod_name pod_status; do
-			total_pods=$((total_pods + 1))
-			if [ "$pod_status" = "Running" ]; then
-				running_pods=$((running_pods + 1))
-			fi
-		done <<<"$pod_statuses"
-
-		if [ "$running_pods" -eq "$total_pods" ]; then
-			echo "All pods of Kmesh daemon are in Running state."
-			break
-		fi
-
-		echo "Waiting for pods of Kmesh daemon to enter Running state..."
-		sleep 1
-	done
+	echo "Waiting for Kmesh daemon to become Ready..."
+	kubectl wait \
+	  --for=condition=Ready \
+	  pods \
+	  -l app=kmesh \
+	  -n kmesh-system \
+	  --timeout=120s
 
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
