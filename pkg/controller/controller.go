@@ -195,12 +195,12 @@ func (c *Controller) Stop() {
 	}
 	if c.client != nil {
 		c.client.Close()
+		if c.client.WorkloadController != nil {
+			c.client.WorkloadController.Close()
+		}
 	}
 	if c.dnsServer != nil {
 		c.dnsServer.Close()
-	}
-	if c.client.WorkloadController != nil {
-		c.client.WorkloadController.Close()
 	}
 }
 
