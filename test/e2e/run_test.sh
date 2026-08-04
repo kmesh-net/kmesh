@@ -160,11 +160,11 @@ function setup_kmesh() {
 	# Wait for all Kmesh pods to be ready.
 	echo "Waiting for Kmesh daemon to become Ready..."
 	kubectl wait \
-	  --for=condition=Ready \
-	  pods \
-	  -l app=kmesh \
-	  -n kmesh-system \
-	  --timeout=120s
+		--for=condition=Ready \
+		pods \
+		-l app=kmesh \
+		-n kmesh-system \
+		--timeout=120s
 
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
