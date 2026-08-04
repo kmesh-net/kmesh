@@ -48,8 +48,7 @@ import (
 )
 
 var (
-	log  = logger.NewLoggerScope("bpf")
-	hash = fnv.New32a()
+	log = logger.NewLoggerScope("bpf")
 )
 
 type BpfLoader struct {
@@ -249,11 +248,13 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 }
 
 func storeVersionInfo(versionMap *ebpf.Map) {
+	if versionMap == nil {
+		return
+	}
 	key := uint32(0)
-	var value uint32
-	hash.Reset()
-	hash.Write([]byte(version.Get().GitVersion))
-	value = hash.Sum32()
+	h := fnv.New32a()
+	h.Write([]byte(version.Get().GitVersion))
+	value := h.Sum32()
 	if err := versionMap.Put(&key, &value); err != nil {
 		log.Errorf("Add Version Map failed, err is %v", err)
 	}

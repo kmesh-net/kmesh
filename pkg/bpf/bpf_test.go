@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 	"syscall"
 	"testing"
 
@@ -540,4 +541,18 @@ func TestDiffStructInfoAgainstBTF_NestedAndMigrateMap_Compatible(t *testing.T) {
 	if m != nil {
 		t.Fatalf("expected nil map (reuse existing), got non-nil: %v", m)
 	}
+}
+
+func TestStoreVersionInfoConcurrent(t *testing.T) {
+	var wg sync.WaitGroup
+	goroutines := 50
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			storeVersionInfo(nil)
+		}()
+	}
+	wg.Wait()
 }
