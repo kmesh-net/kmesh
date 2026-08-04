@@ -164,7 +164,12 @@ function setup_kmesh() {
 		pods \
 		-l app=kmesh \
 		-n kmesh-system \
-		--timeout=120s
+		--timeout=300s || {
+		echo "Kmesh pods failed to become ready"
+		kubectl get pods -n kmesh-system -l app=kmesh
+		kubectl describe pods -n kmesh-system -l app=kmesh
+		exit 1
+	}
 
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
