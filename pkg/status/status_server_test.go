@@ -695,7 +695,15 @@ func TestServerAuthzHandler(t *testing.T) {
 		server.authzHandler(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Body.String(), `"enabled": false`)
+		var resp struct {
+			Enabled bool `json:"enabled"`
+		}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.False(t, resp.Enabled)
+
+		authzOffload := l.GetAuthzOffload()
+		assert.Equal(t, constants.DISABLED, authzOffload)
 	})
 
 	t.Run("enable and check authz offload", func(t *testing.T) {
@@ -729,9 +737,31 @@ func TestServerAuthzHandler(t *testing.T) {
 		server.authzHandler(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code)
-		assert.Contains(t, w.Body.String(), `"enabled": true`)
+		var resp struct {
+			Enabled bool `json:"enabled"`
+		}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.True(t, resp.Enabled)
 
 		authzOffload := l.GetAuthzOffload()
 		assert.Equal(t, constants.ENABLED, authzOffload)
+	})
+
+	t.Run("invalid method", func(t *testing.T) {
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodPut, patternAuthz, nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	})
+
+	t.Run("invalid enable value", func(t *testing.T) {
+		server := &Server{}
+		url := fmt.Sprintf("%s?enable=%s", patternAuthz, "invalid_value")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
