@@ -555,7 +555,7 @@ func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gw []ga
 		}
 		// Initialize cond with default values if Programmed condition not found
 		if cond.Type == "" {
-			cond.Status = metav1.ConditionStatus(kstatus.StatusUnknown)
+			cond.Status = metav1.ConditionUnknown
 			cond.Type = string(gateway.GatewayConditionProgrammed)
 			cond.Reason = "NotFound"
 			cond.Message = "Programmed condition not found"
