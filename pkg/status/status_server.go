@@ -336,6 +336,21 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodGet {
+		enabled := false
+		if authzOffload := s.loader.GetAuthzOffload(); authzOffload == constants.ENABLED {
+			enabled = true
+		}
+		
+		response := map[string]bool{"enabled": enabled}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Errorf("Failed to encode authz response: %v", err)
+		}
+		return
+	}
+
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
