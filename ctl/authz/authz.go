@@ -141,12 +141,18 @@ func NewStatusCmd() *cobra.Command {
 			tw.Flush()
 			fmt.Print(buf.String())
 
-			if len(podNames) > 0 && failedCount == len(podNames) {
+			if shouldExitWithError(failedCount, len(podNames)) {
 				os.Exit(1)
 			}
 		},
 	}
 	return cmd
+}
+
+// shouldExitWithError reports whether the command should exit non-zero,
+// i.e. when at least one pod was requested and all of them failed.
+func shouldExitWithError(failedCount, totalRequested int) bool {
+	return totalRequested > 0 && failedCount == totalRequested
 }
 
 // SetAuthzForPods applies the authz setting (enable/disable) for the given pod(s).
