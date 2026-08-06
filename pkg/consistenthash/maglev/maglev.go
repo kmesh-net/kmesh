@@ -155,8 +155,8 @@ func getOffsetAndSkip(address string, m uint64) (uint64, uint64) {
 	return offset, skip
 }
 
-func getPermutation(b Backend) uint64 {
-	return (b.offset + (b.skip * b.next)) % maglevTableSize
+func getPermutation(b Backend, tableSize uint64) uint64 {
+	return (b.offset + (b.skip * b.next)) % tableSize
 }
 
 func getLookupTable(cluster *cluster_v2.Cluster, tableSize uint64) ([]int, error) {
@@ -178,7 +178,7 @@ func getLookupTable(cluster *cluster_v2.Cluster, tableSize uint64) ([]int, error
 	backends := make([]Backend, 0, len(flatEps))
 
 	for i, ep := range flatEps {
-		epOffset, epSkip := getOffsetAndSkip(ep.GetAddress().String(), maglevTableSize)
+		epOffset, epSkip := getOffsetAndSkip(ep.GetAddress().String(), tableSize)
 		b := Backend{
 			ep:     ep,
 			index:  i,
@@ -204,10 +204,10 @@ func getLookupTable(cluster *cluster_v2.Cluster, tableSize uint64) ([]int, error
 		j := int(n) % length
 		b := backends[j]
 		for {
-			c := getPermutation(b)
+			c := getPermutation(b, tableSize)
 			for lookUpTable[c] >= 0 {
 				b.next++
-				c = getPermutation(b)
+				c = getPermutation(b, tableSize)
 			}
 			lookUpTable[c] = b.index
 			b.next++
