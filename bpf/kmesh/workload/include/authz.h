@@ -144,7 +144,8 @@ static int construct_tuple_key(struct xdp_md *ctx, struct bpf_sock_tuple *tuple_
     return PARSER_SUCC;
 }
 
-static int match_dst_ports(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static __noinline int
+match_dst_ports(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     __u32 *notPorts = NULL;
     __u32 *ports = NULL;
@@ -292,7 +293,7 @@ static inline int match_ipv6_rule(struct ip_addr *rule_addr, struct ip_addr *tar
     return UNMATCHED;
 }
 
-static inline int
+static __noinline int
 match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_sock_tuple *tuple_info, __u8 type)
 {
     if (!addrInfo || addrInfo->len == 0) {
@@ -327,7 +328,7 @@ match_ip_rule(struct ProtobufCBinaryData *addrInfo, __u32 preFixLen, struct bpf_
     return UNMATCHED;
 }
 
-static inline int match_ip_common(struct MatchIpParams *params)
+static __noinline int match_ip_common(struct MatchIpParams *params)
 {
     void *ipPtrs = NULL;
     void *notIpPtrs = NULL;
@@ -445,12 +446,13 @@ static inline int match_dst_ip(Istio__Security__Match *match, struct bpf_sock_tu
     return match_ip_common(&params);
 }
 
-static inline int match_IPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
+static __noinline int match_IPs(Istio__Security__Match *match, struct bpf_sock_tuple *tuple_info)
 {
     return match_src_ip(match, tuple_info) && match_dst_ip(match, tuple_info);
 }
 
-static int match_check(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
+static __noinline int
+match_check(Istio__Security__Match *match, struct xdp_info *info, struct bpf_sock_tuple *tuple_info)
 {
     __u32 matchResult;
 
@@ -467,7 +469,7 @@ bool need_tail_call_to_user(Istio__Security__Match *match)
     return match->n_namespaces || match->n_not_namespaces || match->n_principals || match->n_not_principals;
 }
 
-static int clause_match_check(
+static __noinline int clause_match_check(
     Istio__Security__Clause *cl,
     struct xdp_info *info,
     struct bpf_sock_tuple *tuple_info,
@@ -508,7 +510,7 @@ static int clause_match_check(
     return UNMATCHED;
 }
 
-static int rule_match_check(
+static __noinline int rule_match_check(
     Istio__Security__Rule *rule,
     struct xdp_info *info,
     struct bpf_sock_tuple *tuple_info,
