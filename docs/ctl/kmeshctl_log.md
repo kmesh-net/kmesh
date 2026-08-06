@@ -26,6 +26,12 @@ kmeshctl log <kmesh-daemon-pod> default
       --set string   Set the logger level (e.g., default:debug)
 ```
 
+### Options inherited from parent commands
+
+```bash
+      --kmesh-namespace string   Namespace where Kmesh is installed (default "kmesh-system")
+```
+
 ### SEE ALSO
 
 * [kmeshctl](kmeshctl.md) - Kmesh command line tools to operate and debug Kmesh

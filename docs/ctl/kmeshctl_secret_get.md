@@ -19,6 +19,12 @@ kmeshctl secret get
   -h, --help   help for get
 ```
 
+### Options inherited from parent commands
+
+```bash
+      --kmesh-namespace string   Namespace where Kmesh is installed (default "kmesh-system")
+```
+
 ### SEE ALSO
 
 * [kmeshctl secret](kmeshctl_secret.md) - Use secrets to manage secret configuration data for IPsec

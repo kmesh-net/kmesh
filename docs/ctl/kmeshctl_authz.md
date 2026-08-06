@@ -8,6 +8,12 @@ Manage xdp authz eBPF program for Kmesh's authz offloading
   -h, --help   help for authz
 ```
 
+### Options inherited from parent commands
+
+```bash
+      --kmesh-namespace string   Namespace where Kmesh is installed (default "kmesh-system")
+```
+
 ### SEE ALSO
 
 * [kmeshctl](kmeshctl.md) - Kmesh command line tools to operate and debug Kmesh

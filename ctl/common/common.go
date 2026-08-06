@@ -24,6 +24,7 @@ import (
 	logcmd "kmesh.net/kmesh/ctl/log"
 	"kmesh.net/kmesh/ctl/monitoring"
 	"kmesh.net/kmesh/ctl/secret"
+	"kmesh.net/kmesh/ctl/utils"
 	"kmesh.net/kmesh/ctl/version"
 	"kmesh.net/kmesh/ctl/waypoint"
 )
@@ -37,6 +38,7 @@ func GetRootCommand() *cobra.Command {
 			DisableDefaultCmd: true,
 		},
 	}
+	rootCmd.PersistentFlags().StringVar(&utils.KmeshNamespace, "kmesh-namespace", utils.KmeshNamespace, "Namespace where Kmesh is installed")
 
 	rootCmd.AddCommand(logcmd.NewCmd())
 	rootCmd.AddCommand(dump.NewCmd())
