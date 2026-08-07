@@ -605,7 +605,10 @@ func namespaceHasLabel(kubeClient kube.CLIClient, ns string, label string) (bool
 	if nsObj.Labels == nil {
 		return false, nil
 	}
-	return nsObj.Labels[label] != "", nil
+	// A label present with an empty value is still present; check for the key,
+	// not a non-empty value (istio.io/use-waypoint: "" is a valid, present label).
+	_, ok := nsObj.Labels[label]
+	return ok, nil
 }
 
 func namespaceHasLabelWithValue(kubeClient kube.CLIClient, ns string, label, labelValue string) (bool, error) {
