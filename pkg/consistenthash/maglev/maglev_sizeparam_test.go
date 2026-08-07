@@ -49,3 +49,13 @@ func TestGetLookupTable_RespectsRequestedTableSize(t *testing.T) {
 		}
 	}
 }
+
+// TestGetLookupTable_RejectsZeroTableSize verifies getLookupTable returns an
+// error instead of panicking with a divide-by-zero when asked for a zero-sized
+// table (e.g. a caller invoking it before InitMaglevMap has set a real size).
+func TestGetLookupTable_RejectsZeroTableSize(t *testing.T) {
+	cluster := newCluster()
+	if _, err := getLookupTable(cluster, 0); err == nil {
+		t.Fatal("expected an error for zero tableSize, got nil")
+	}
+}

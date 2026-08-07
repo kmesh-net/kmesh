@@ -164,6 +164,10 @@ func getLookupTable(cluster *cluster_v2.Cluster, tableSize uint64) ([]int, error
 	clusterName := cluster.GetName()
 	localityLbEps := loadAssignment.GetEndpoints()
 
+	if tableSize == 0 {
+		return nil, fmt.Errorf("maglev table size must be non-zero for cluster:%v", clusterName)
+	}
+
 	if len(localityLbEps) == 0 {
 		return nil, fmt.Errorf("current cluster:%v has no any lb endpoints", clusterName)
 	}
