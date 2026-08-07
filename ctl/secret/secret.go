@@ -31,12 +31,10 @@ import (
 
 	"kmesh.net/kmesh/ctl/utils"
 	"kmesh.net/kmesh/pkg/controller/encryption"
-	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 )
 
 var log = logger.NewLoggerScope("kmeshctl/secret")
-var clientset kube.CLIClient
 
 const (
 	SecretName        = "kmesh-ipsec"
@@ -46,8 +44,6 @@ const (
 )
 
 func NewCmd() *cobra.Command {
-	clientset = createKubeClientOrExit()
-
 	cmd := &cobra.Command{
 		Use:   "secret",
 		Short: "Use secrets to manage secret configuration data for IPsec",
@@ -108,15 +104,6 @@ kmeshctl secret get`,
 	return cmd
 }
 
-func createKubeClientOrExit() kube.CLIClient {
-	clientset, err := utils.CreateKubeClient()
-	if err != nil {
-		log.Errorf("failed to connect k8s client, %v", err)
-		os.Exit(1)
-	}
-	return clientset
-}
-
 func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 	var ipSecKey, ipSecKeyOld encryption.IpSecKey
 	var err error
@@ -150,6 +137,12 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 	ipSecKey.AeadKey = aeadKey
 
 	ipSecKey.Length = AeadAlgoICVLength
+
+	clientset, err := utils.CreateKubeClient()
+	if err != nil {
+		log.Errorf("failed to connect k8s client, %v", err)
+		os.Exit(1)
+	}
 
 	secretOld, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
 	if err != nil {
@@ -199,6 +192,12 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 }
 
 func GetSecret() {
+	clientset, err := utils.CreateKubeClient()
+	if err != nil {
+		log.Errorf("failed to connect k8s client, %v", err)
+		os.Exit(1)
+	}
+
 	secret, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -248,7 +247,13 @@ func GetSecret() {
 }
 
 func DeleteSecret() {
-	err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Delete(context.TODO(), SecretName, metav1.DeleteOptions{})
+	clientset, err := utils.CreateKubeClient()
+	if err != nil {
+		log.Errorf("failed to connect k8s client, %v", err)
+		os.Exit(1)
+	}
+
+	err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Delete(context.TODO(), SecretName, metav1.DeleteOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
 			log.Errorf("secret %s not found", SecretName)
