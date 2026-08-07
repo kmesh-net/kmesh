@@ -62,7 +62,6 @@ func NewEnableCmd() *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			// If no pod names are given, apply to all kmesh daemon pods.
 			SetAuthzForPods(args, "true")
-			log.Info("Authorization has been enabled.")
 		},
 	}
 	return cmd
@@ -77,7 +76,6 @@ func NewDisableCmd() *cobra.Command {
 		Args:    cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			SetAuthzForPods(args, "false")
-			log.Info("Authorization has been disabled.")
 		},
 	}
 	return cmd
@@ -143,6 +141,12 @@ func NewStatusCmd() *cobra.Command {
 	return cmd
 }
 
+// shouldExitWithError reports whether the command should exit non-zero,
+// i.e. when at least one pod was requested and all of them failed.
+func shouldExitWithError(failedCount, totalRequested int) bool {
+	return totalRequested > 0 && failedCount == totalRequested
+}
+
 // SetAuthzForPods applies the authz setting (enable/disable) for the given pod(s).
 // If no pod names are specified, it applies the setting to all kmesh daemon pods.
 func SetAuthzForPods(podNames []string, info string) {
@@ -152,6 +156,7 @@ func SetAuthzForPods(podNames []string, info string) {
 		os.Exit(1)
 	}
 
+	var targets []string
 	if len(podNames) == 0 {
 		// Apply to all kmesh daemon pods.
 		podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
@@ -160,51 +165,62 @@ func SetAuthzForPods(podNames []string, info string) {
 			os.Exit(1)
 		}
 		for _, pod := range podList.Items {
-			SetAuthzPerKmeshDaemon(cli, pod.GetName(), info)
+			targets = append(targets, pod.GetName())
 		}
 	} else {
-		// Process for specified pods.
-		for _, podName := range podNames {
-			SetAuthzPerKmeshDaemon(cli, podName, info)
+		targets = podNames
+	}
+
+	failedCount := 0
+	for _, podName := range targets {
+		if err := SetAuthzPerKmeshDaemon(cli, podName, info); err != nil {
+			failedCount++
 		}
+	}
+
+	if shouldExitWithError(failedCount, len(targets)) {
+		os.Exit(1)
 	}
 }
 
 // SetAuthzPerKmeshDaemon sends a POST request to a specific kmesh daemon pod
 // to set the authz flag based on the info parameter ("true" or "false").
-func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
+func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) error {
 	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
 	if err != nil {
 		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return err
 	}
-	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+	if serr := fw.Start(); serr != nil {
+		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, serr)
+		return serr
 	}
 	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternAuthz, info)
 
-	req, err := http.NewRequest(http.MethodPost, url, nil)
-	if err != nil {
-		log.Errorf("Error creating request: %v", err)
-		return
+	req, rerr := http.NewRequest(http.MethodPost, url, nil)
+	if rerr != nil {
+		log.Errorf("Error creating request: %v", rerr)
+		return rerr
 	}
 
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
-		return
+	resp, herr := client.Do(req)
+	if herr != nil {
+		log.Errorf("failed to make HTTP request: %v", herr)
+		return herr
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Errorf("Error: received status code %d", resp.StatusCode)
-		return
+		err := fmt.Errorf("received status code %d", resp.StatusCode)
+		log.Errorf("Error: %v", err)
+		return err
 	}
+
+	return nil
 }
 
 // fetchAuthzStatus sends a GET request to a specific kmesh daemon pod
