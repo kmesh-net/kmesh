@@ -194,9 +194,13 @@ func (c *Controller) Stop() {
 		c.ipsecController.Stop()
 	}
 	if c.client != nil {
-		c.client.Close()
+		if err := c.client.Close(); err != nil {
+			log.Errorf("failed to close client: %v", err)
+		}
 		if c.client.WorkloadController != nil {
-			c.client.WorkloadController.Close()
+			if err := c.client.WorkloadController.Close(); err != nil {
+				log.Errorf("failed to close workload controller: %v", err)
+			}
 		}
 	}
 	if c.dnsServer != nil {
