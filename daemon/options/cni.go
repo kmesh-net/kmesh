@@ -17,6 +17,7 @@
 package options
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -39,11 +40,11 @@ func (c *cniConfig) AttachFlags(cmd *cobra.Command) {
 func (c *cniConfig) ParseConfig() error {
 	var err error
 	if c.CniMountNetEtcDIR, err = filepath.Abs(c.CniMountNetEtcDIR); err != nil {
-		return err
+		return fmt.Errorf("failed to get absolute path for cni etc path %s: %w", c.CniMountNetEtcDIR, err)
 	}
 
 	if _, err = os.Stat(c.CniMountNetEtcDIR); err != nil {
-		return err
+		return fmt.Errorf("failed to stat cni etc path %s: %w", c.CniMountNetEtcDIR, err)
 	}
 
 	c.ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
