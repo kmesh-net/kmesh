@@ -116,6 +116,9 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 
 func (s *Server) version(w http.ResponseWriter, r *http.Request) {
 	v := version.Get()
+	if s.config != nil && s.config.BpfConfig != nil {
+		v.Mode = s.config.BpfConfig.Mode
+	}
 
 	data, err := json.MarshalIndent(&v, "", "  ")
 	if err != nil {
@@ -329,12 +332,37 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusOK)
 }
 
+type AuthzStatus struct {
+	Enabled bool `json:"enabled"`
+}
+
 func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	switch r.Method {
+	case http.MethodGet:
+		s.getAuthzStatus(w)
+	case http.MethodPost:
+		s.setAuthzStatus(w, r)
+	default:
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) getAuthzStatus(w http.ResponseWriter) {
+	enabled := false
+	if s.loader != nil {
+		enabled = s.loader.GetAuthzOffload() == constants.ENABLED
+	}
+	data, err := json.MarshalIndent(AuthzStatus{Enabled: enabled}, "", "  ")
+	if err != nil {
+		log.Errorf("Failed to marshal authz status: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
 
+func (s *Server) setAuthzStatus(w http.ResponseWriter, r *http.Request) {
 	authzInfo := r.URL.Query().Get("enable")
 	enabled, err := strconv.ParseBool(authzInfo)
 	if err != nil {
