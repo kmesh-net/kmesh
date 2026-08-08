@@ -247,14 +247,19 @@ func NewVersionMap(config *options.BpfConfig) *ebpf.Map {
 	return m
 }
 
+func computeVersionHash() uint32 {
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(version.Get().GitVersion))
+	return h.Sum32()
+}
+
 func storeVersionInfo(versionMap *ebpf.Map) {
 	if versionMap == nil {
+		log.Warn("versionMap is nil, skip storing version info")
 		return
 	}
 	key := uint32(0)
-	h := fnv.New32a()
-	h.Write([]byte(version.Get().GitVersion))
-	value := h.Sum32()
+	value := computeVersionHash()
 	if err := versionMap.Put(&key, &value); err != nil {
 		log.Errorf("Add Version Map failed, err is %v", err)
 	}

@@ -551,7 +551,7 @@ func TestStoreVersionInfoConcurrent(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			storeVersionInfo(nil)
+			_ = computeVersionHash()
 		}()
 	}
 	wg.Wait()
