@@ -19,6 +19,7 @@ package controller
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/cilium/ebpf"
@@ -66,6 +67,7 @@ type Controller struct {
 	bpfConfig           *options.BpfConfig
 	loader              *bpf.BpfLoader
 	dnsServer           *dnsclient.LocalDNSServer
+	dnsProxyMu          sync.Mutex
 }
 
 func NewController(opts *options.BootstrapConfigs, bpfLoader *bpf.BpfLoader) *Controller {
@@ -172,6 +174,9 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	}
 
 	if c.client.WorkloadController != nil {
+		// Startup: flag takes precedence; env KMESH_ENABLE_DNS_PROXY is fallback for backward compatibility
+		enableDnsProxy := c.bpfConfig.EnableDnsProxy || workload.EnableDNSProxy
+		c.client.WorkloadController.SetDnsProxyTrigger(enableDnsProxy)
 		if err := c.client.WorkloadController.Run(ctx, stopCh); err != nil {
 			return fmt.Errorf("failed to start workload controller: %+v", err)
 		}
@@ -208,35 +213,85 @@ func (c *Controller) GetXdsClient() *XdsClient {
 	return c.client
 }
 
+func (c *Controller) updateDnsLookupTable() {
+	c.dnsProxyMu.Lock()
+	server := c.dnsServer
+	c.dnsProxyMu.Unlock()
+	if server == nil {
+		return
+	}
+	ntb := dns.NewNameTableBuilder(c.client.WorkloadController.Processor.ServiceCache, c.client.WorkloadController.Processor.WorkloadCache)
+	server.UpdateLookupTable(ntb.BuildNameTable())
+	log.Debugf("trigger name table update")
+}
+
 func (c *Controller) setupDNSProxy() error {
-	if workload.EnableDNSProxy {
-		server, err := dnsclient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
-		if err != nil {
-			return fmt.Errorf("failed to start local dns server: %v", err)
-		}
-		ntb := dns.NewNameTableBuilder(c.client.WorkloadController.Processor.ServiceCache, c.client.WorkloadController.Processor.WorkloadCache)
+	if !c.client.WorkloadController.GetDnsProxyTrigger() {
+		return nil
+	}
+	server, err := dnsclient.NewLocalDNSServer(kmeshNamespace, clusterDomain, ":53", dnsForwardParallel)
+	if err != nil {
+		return fmt.Errorf("failed to start local dns server: %v", err)
+	}
 
-		debounceTime := time.Second
-		timer := time.NewTimer(0)
-		<-timer.C
-		h := func(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
-			// debounce
-			if timer.Reset(debounceTime) {
-				return nil
-			}
-
-			go func() {
-				<-timer.C
-				log.Debugf("trigger name table update")
-				server.UpdateLookupTable(ntb.BuildNameTable())
-			}()
-
+	debounceTime := time.Second
+	timer := time.NewTimer(0)
+	<-timer.C
+	h := func(rsp *service_discovery_v3.DeltaDiscoveryResponse) error {
+		if timer.Reset(debounceTime) {
 			return nil
 		}
-
-		c.client.WorkloadController.Processor.WithResourceHandlers(workload.AddressType, h)
-		server.StartDNS()
-		c.dnsServer = server
+		go func() {
+			<-timer.C
+			c.updateDnsLookupTable()
+		}()
+		return nil
 	}
+
+	c.client.WorkloadController.Processor.WithResourceHandlers(workload.AddressType, h)
+	server.StartDNS()
+	c.dnsServer = server
+	return nil
+}
+
+// StartDnsProxy starts the DNS proxy at runtime (e.g. via kmeshctl).
+func (c *Controller) StartDnsProxy() error {
+	if c.client == nil || c.client.WorkloadController == nil {
+		return fmt.Errorf("dns proxy not supported in this mode")
+	}
+	c.dnsProxyMu.Lock()
+	defer c.dnsProxyMu.Unlock()
+	if c.dnsServer != nil {
+		return nil
+	}
+	c.client.WorkloadController.SetDnsProxyTrigger(true)
+	if err := c.client.WorkloadController.Processor.PrepareDNSProxy(true); err != nil {
+		c.client.WorkloadController.SetDnsProxyTrigger(false)
+		return err
+	}
+	if err := c.setupDNSProxy(); err != nil {
+		c.client.WorkloadController.SetDnsProxyTrigger(false)
+		_ = c.client.WorkloadController.Processor.PrepareDNSProxy(false)
+		return err
+	}
+	return nil
+}
+
+// StopDnsProxy stops the DNS proxy at runtime (e.g. via kmeshctl).
+func (c *Controller) StopDnsProxy() error {
+	if c.client == nil || c.client.WorkloadController == nil {
+		return fmt.Errorf("dns proxy not supported in this mode")
+	}
+	c.dnsProxyMu.Lock()
+	defer c.dnsProxyMu.Unlock()
+	if c.dnsServer == nil {
+		c.client.WorkloadController.SetDnsProxyTrigger(false)
+		_ = c.client.WorkloadController.Processor.PrepareDNSProxy(false)
+		return nil
+	}
+	c.client.WorkloadController.SetDnsProxyTrigger(false)
+	_ = c.client.WorkloadController.Processor.PrepareDNSProxy(false)
+	c.dnsServer.Close()
+	c.dnsServer = nil
 	return nil
 }

@@ -60,6 +60,7 @@ const (
 	patternWorkloadMetrics    = "/workload_metrics"
 	patternConnectionMetrics  = "/connection_metrics"
 	patternAuthz              = "/authz"
+	patternDnsproxy           = "/dnsproxy"
 
 	bpfLoggerName = "bpf"
 
@@ -71,15 +72,17 @@ const (
 type Server struct {
 	config    *options.BootstrapConfigs
 	xdsClient *controller.XdsClient
+	ctrl      *controller.Controller
 	mux       *http.ServeMux
 	server    *http.Server
 	loader    *bpf.BpfLoader
 }
 
-func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loader *bpf.BpfLoader) *Server {
+func NewServer(ctrl *controller.Controller, configs *options.BootstrapConfigs, loader *bpf.BpfLoader) *Server {
 	s := &Server{
 		config:    configs,
-		xdsClient: c,
+		xdsClient: ctrl.GetXdsClient(),
+		ctrl:      ctrl,
 		mux:       http.NewServeMux(),
 		loader:    loader,
 	}
@@ -101,6 +104,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
+	s.mux.HandleFunc(patternDnsproxy, s.dnsproxyHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -238,6 +242,41 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.xdsClient.WorkloadController.SetAccesslogTrigger(enabled)
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) dnsproxyHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	info := r.URL.Query().Get("enable")
+	enabled, err := strconv.ParseBool(info)
+	if err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(fmt.Sprintf("invalid dnsproxy enable=%s", info)))
+		return
+	}
+
+	if s.ctrl == nil || s.xdsClient.WorkloadController == nil {
+		http.Error(w, "dns proxy not supported in this mode", http.StatusBadRequest)
+		return
+	}
+
+	if enabled {
+		if err := s.ctrl.StartDnsProxy(); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(fmt.Sprintf("failed to start dns proxy: %v", err)))
+			return
+		}
+	} else {
+		if err := s.ctrl.StopDnsProxy(); err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(fmt.Sprintf("failed to stop dns proxy: %v", err)))
+			return
+		}
+	}
 	w.WriteHeader(http.StatusOK)
 }
 
