@@ -1,6 +1,6 @@
 # Compiling and Building Kmesh
 
-The Kmesh needs to be compiled and built in the Linux environment with the Kmesh kernel enhancement feature. Currently, Kmesh can be compiled and run in multiple OS versions, and the specific OS versions can see [Kmesh support system](kmesh_support.md).
+The Kmesh needs to be compiled and built in the Linux environment with the Kmesh kernel enhancement feature. Currently, Kmesh can be compiled and run in multiple OS versions, and the specific OS versions can see [Kmesh support system](kmesh_support.md). If you are using macOS, please refer to the [macOS Development Guide](macos_development_guide.md).
 
 ## build
 
