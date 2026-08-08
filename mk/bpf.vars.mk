@@ -35,3 +35,9 @@ INSTALL_LIB ?= $(DESTDIR)/$(LIBDIR)
 EXTRA_GOFLAGS ?= -a
 EXTRA_CFLAGS ?= -O2 -Wall
 EXTRA_CDEFINE ?= -D__x86_64__
+
+# Fallback default when set_enhanced_kernel_env (kmesh_compile_env_pre.sh)
+# hasn't been sourced — e.g. when running `make all-binary` directly outside
+# of the official `make build` / Docker build flow. Prevents an empty
+# -tags value from breaking `go build`.
+ENHANCED_KERNEL ?= normal
