@@ -33,7 +33,7 @@ import (
 )
 
 // ShouldEnroll checks whether a pod should be managed by kmesh.
-// Kmesh manages a pod if a pod has "istio.io/dataplane-mode: kmesh" label
+// Kmesh manages a pod if a pod has "istio.io/dataplane-mode: kmesh" or "istio.io/dataplane: kmesh" label
 // or the namespace where it resides has the label while pod have no "istio.io/dataplane-mode: none" label
 // Excluding cases: a pod has sidecar injected, or the pod is istio managed waypoint
 // https://github.com/istio/istio/blob/33539491628fe5f3ad4f5f1fb339b0da9455c028/manifests/charts/istio-control/istio-discovery/files/waypoint.yaml#L35
@@ -57,8 +57,10 @@ func ShouldEnroll(pod *corev1.Pod, ns *corev1.Namespace) bool {
 		}
 
 		podMode := pod.Labels[constants.DataPlaneModeLabel]
-		// Check if pod label contains istio.io/dataplane-mode: kmesh
-		if strings.EqualFold(podMode, constants.DataPlaneModeKmesh) {
+		// Check if pod dataplane mode is kmesh or
+		// pod label contains istio.io/dataplane-mode: kmesh or istio.io/dataplane: kmesh
+		if strings.EqualFold(podMode, constants.DataPlaneModeKmesh) ||
+			strings.EqualFold(pod.Labels[constants.DataPlaneLabel], constants.DataPlaneModeKmesh) {
 			return true
 		}
 
@@ -72,9 +74,10 @@ func ShouldEnroll(pod *corev1.Pod, ns *corev1.Namespace) bool {
 	if ns != nil {
 		nsMode = ns.Labels[constants.DataPlaneModeLabel]
 	}
-
-	// Check if ns label contains istio.io/dataplane-mode: kmesh
-	if strings.EqualFold(nsMode, constants.DataPlaneModeKmesh) {
+	// Check if namespace dataplane mode is kmesh or
+	// namespace label contains istio.io/dataplane-mode: kmesh or istio.io/dataplane: kmesh
+	if strings.EqualFold(nsMode, constants.DataPlaneModeKmesh) ||
+		(ns != nil && strings.EqualFold(ns.Labels[constants.DataPlaneLabel], constants.DataPlaneModeKmesh)) {
 		return true
 	}
 
@@ -107,6 +110,17 @@ var (
 		`{"metadata":{"annotations":{"%s":"%s"}}}`,
 		constants.KmeshRedirectionAnnotation,
 		"enabled",
+	))
+
+	labelDelPatch = []byte(fmt.Sprintf(
+		`{"metadata":{"labels":{"%s":null}}}`,
+		constants.KmeshManagedLabel,
+	))
+
+	labelAddPatch = []byte(fmt.Sprintf(
+		`{"metadata":{"labels":{"%s":"%s"}}}`,
+		constants.KmeshManagedLabel,
+		constants.KmeshManagedValue,
 	))
 )
 
@@ -142,4 +156,37 @@ func DelKmeshRedirectAnnotation(client kubernetes.Interface, pod *corev1.Pod) er
 
 func AnnotationEnabled(annotation string) bool {
 	return annotation == "enabled"
+}
+
+func PatchKmeshManagedLabel(client kubernetes.Interface, pod *corev1.Pod) error {
+	if pod.Labels[constants.KmeshManagedLabel] == constants.KmeshManagedValue {
+		log.Debugf("Pod %s in namespace %s already has label %s", pod.Name, pod.Namespace, constants.KmeshManagedLabel)
+		return nil
+	}
+	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(),
+		pod.Name,
+		k8stypes.MergePatchType,
+		labelAddPatch,
+		metav1.PatchOptions{},
+	)
+	if err == nil {
+		log.Debugf("Successfully marked pod %s/%s as managed by Kmesh", pod.Namespace, pod.Name)
+	}
+	return err
+}
+
+func DelKmeshManagedLabel(client kubernetes.Interface, pod *corev1.Pod) error {
+	if _, exists := pod.Labels[constants.KmeshManagedLabel]; !exists {
+		log.Debugf("Pod %s in namespace %s does not have label %s", pod.Name, pod.Namespace, constants.KmeshManagedLabel)
+		return nil
+	}
+	_, err := client.CoreV1().Pods(pod.Namespace).Patch(
+		context.Background(),
+		pod.Name,
+		k8stypes.MergePatchType,
+		labelDelPatch,
+		metav1.PatchOptions{},
+	)
+	return err
 }

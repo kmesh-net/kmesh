@@ -246,6 +246,26 @@ func TestShouldEnroll(t *testing.T) {
 			},
 			want: false,
 		},
+		{
+			name: "namespace with istio.io/dataplane label",
+			args: args{
+				namespace: &corev1.Namespace{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "ut-test",
+						Labels: map[string]string{
+							constants.DataPlaneLabel: constants.DataPlaneModeKmesh,
+						},
+					},
+				},
+				pod: &corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Namespace: "ut-test",
+						Name:      "ut-pod",
+					},
+				},
+			},
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -383,4 +403,59 @@ func TestDelKmeshRedirectAnnotation(t *testing.T) {
 	if err != nil {
 		t.Errorf("DelKmeshRedirectAnnotation() returned an error: %v", err)
 	}
+}
+
+func TestPatchKmeshManagedLabel(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	namespace := "test-ns"
+	podName := "test-pod"
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      podName,
+		},
+	}
+
+	_, err := client.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	assert.NoError(t, err)
+
+	err = PatchKmeshManagedLabel(client, pod)
+	assert.NoError(t, err)
+
+	got, err := client.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, constants.KmeshManagedValue, got.Labels[constants.KmeshManagedLabel])
+
+	err = PatchKmeshManagedLabel(client, got)
+	assert.NoError(t, err)
+
+	got, err = client.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	assert.Equal(t, constants.KmeshManagedValue, got.Labels[constants.KmeshManagedLabel])
+}
+
+func TestDelKmeshManagedLabel(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	namespace := "test-ns"
+	podName := "test-pod"
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: namespace,
+			Name:      podName,
+			Labels: map[string]string{
+				constants.KmeshManagedLabel: constants.KmeshManagedValue,
+			},
+		},
+	}
+
+	_, err := client.CoreV1().Pods(namespace).Create(context.Background(), pod, metav1.CreateOptions{})
+	assert.NoError(t, err)
+
+	err = DelKmeshManagedLabel(client, pod)
+	assert.NoError(t, err)
+
+	got, err := client.CoreV1().Pods(namespace).Get(context.Background(), podName, metav1.GetOptions{})
+	assert.NoError(t, err)
+	_, exists := got.Labels[constants.KmeshManagedLabel]
+	assert.False(t, exists)
 }
