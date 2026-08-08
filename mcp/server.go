@@ -54,7 +54,12 @@ func main() {
 	http.Handle("/mcp", transport)
 
 	log.Println("Kmesh MCP server listening on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	srv := &http.Server{
+		Addr:              ":8080",
+		Handler:           nil,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("MCP server stopped: %v", err)
 	}
 }
