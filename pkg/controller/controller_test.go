@@ -22,6 +22,8 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"kmesh.net/kmesh/daemon/options"
+	"kmesh.net/kmesh/pkg/controller/workload"
+	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
 )
 
 func TestControllerStop(t *testing.T) {
@@ -53,6 +55,30 @@ func TestControllerStop(t *testing.T) {
 			client:    &XdsClient{},
 			dnsServer: nil,
 		}
+		assert.NotPanics(t, func() {
+			c.Stop()
+		})
+	})
+
+	t.Run("non-nil client with non-nil WorkloadController", func(t *testing.T) {
+		workloadMap := bpfcache.NewFakeWorkloadMap(t)
+		defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+		processor := workload.NewProcessor(workloadMap)
+		wlCtrl := &workload.Controller{
+			Processor: processor,
+		}
+
+		c := &Controller{
+			bpfConfig: &options.BpfConfig{
+				EnableIPsec: false,
+			},
+			client: &XdsClient{
+				WorkloadController: wlCtrl,
+			},
+			dnsServer: nil,
+		}
+
 		assert.NotPanics(t, func() {
 			c.Stop()
 		})
