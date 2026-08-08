@@ -53,6 +53,8 @@ const (
 	configDumpPrefix          = "/debug/config_dump"
 	patternConfigDumpAds      = configDumpPrefix + "/kernel-native"
 	patternConfigDumpWorkload = configDumpPrefix + "/dual-engine"
+	patternConfigDumpServices = configDumpPrefix + "/services"
+	patternConfigDumpPolicies = configDumpPrefix + "/policies"
 	patternReadyProbe         = "/debug/ready"
 	patternLoggers            = "/debug/loggers"
 	patternAccesslog          = "/accesslog"
@@ -95,6 +97,8 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
 	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
 	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
+	s.mux.HandleFunc(patternConfigDumpServices, s.configDumpServices)
+	s.mux.HandleFunc(patternConfigDumpPolicies, s.configDumpPolicies)
 	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
 	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
 	s.mux.HandleFunc(patternMonitoring, s.monitoringHandler)
@@ -102,7 +106,6 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
 
-	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
 
 	// support pprof
@@ -364,6 +367,7 @@ func (s *Server) getLoggerNames(w http.ResponseWriter) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(data)
 }
 
@@ -494,6 +498,43 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 		workloadDump.Policies = append(workloadDump.Policies, ConvertAuthorizationPolicy(p))
 	}
 	printWorkloadDump(w, workloadDump)
+}
+
+// configDumpServices dumps all K8s services known to Kmesh
+func (s *Server) configDumpServices(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+
+	services := s.xdsClient.WorkloadController.Processor.ServiceCache.List()
+	dumpJSON(w, services, ConvertService, "services")
+}
+
+// configDumpPolicies dumps all security (RBAC) policies
+func (s *Server) configDumpPolicies(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+
+	policies := s.xdsClient.WorkloadController.Rbac.PoliciesList()
+	dumpJSON(w, policies, ConvertAuthorizationPolicy, "policies")
+}
+
+// dumpJSON is a generic helper to marshal and write a slice of items as JSON.
+func dumpJSON[T any, U any](w http.ResponseWriter, items []T, converter func(T) U, subject string) {
+	dump := make([]U, 0, len(items))
+	for _, item := range items {
+		dump = append(dump, converter(item))
+	}
+
+	data, err := json.MarshalIndent(dump, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal %s: %v", subject, err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
