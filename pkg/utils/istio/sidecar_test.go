@@ -47,7 +47,26 @@ func TestPodHasSidecar(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "pod without annotation",
+			name: "pod with sidecar container but no annotation",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "test-pod-no-annotation",
+					Namespace:   "default",
+					Annotations: map[string]string{},
+				},
+				Spec: corev1.PodSpec{
+					NodeName: "test-node",
+					Containers: []corev1.Container{
+						{
+							Name: "istio-proxy",
+						},
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "pod without sidecar annotation and container",
 			pod: &corev1.Pod{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "test-pod",
