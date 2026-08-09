@@ -52,6 +52,13 @@ const (
 	dnsResolveTimeout = 3 * time.Second
 )
 
+type dnsPendingTask struct {
+	uid      string
+	workload *workloadapi.Workload
+	resCh    chan *workloadapi.Workload
+	deadline time.Time
+}
+
 type Processor struct {
 	ack *service_discovery_v3.DeltaDiscoveryRequest
 	req *service_discovery_v3.DeltaDiscoveryRequest
@@ -79,6 +86,7 @@ type Processor struct {
 	DnsResolverChan       chan *workloadapi.Workload
 	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
 	dnsMapMutex           *sync.RWMutex
+	dnsPendingTasksChan   chan *dnsPendingTask
 	// Callback to remove workload from DNS cache when workload is deleted
 	onWorkloadDeleted func(workloadName string)
 }
@@ -86,7 +94,7 @@ type Processor struct {
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 	serviceCache := cache.NewServiceCache()
 
-	return &Processor{
+	p := &Processor{
 		hashName:              utils.NewHashName(),
 		bpf:                   bpf.NewCache(workloadMap),
 		nodeName:              os.Getenv("NODE_NAME"),
@@ -100,7 +108,14 @@ func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 		handlers:              map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error{},
 		ResolvedDomainChanMap: make(map[string]chan *workloadapi.Workload),
 		dnsMapMutex:           &sync.RWMutex{},
+		dnsPendingTasksChan:   make(chan *dnsPendingTask, 1024),
 	}
+
+	for i := 0; i < 4; i++ {
+		go p.runDNSResultWatcher()
+	}
+
+	return p
 }
 
 func (p *Processor) WithResourceHandlers(typeUrl string, h ...func(resp *service_discovery_v3.DeltaDiscoveryResponse) error) *Processor {
@@ -972,17 +987,14 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 }
 
 func (p *Processor) processWorkloadDNSAsync(workload *workloadapi.Workload) {
+	if p.dnsMapMutex == nil || p.ResolvedDomainChanMap == nil {
+		log.Errorf("dnsMapMutex or ResolvedDomainChanMap is nil, skip handling workload %s/%s", workload.Namespace, workload.Name)
+		return
+	}
+
 	uid := workload.GetUid()
 
-	if p.dnsMapMutex == nil {
-		p.dnsMapMutex = &sync.RWMutex{}
-	}
-
 	p.dnsMapMutex.Lock()
-	if p.ResolvedDomainChanMap == nil {
-		p.ResolvedDomainChanMap = make(map[string]chan *workloadapi.Workload)
-	}
-
 	// Deduplication: if workload is already pending DNS resolution, skip re-enqueuing
 	if _, pending := p.ResolvedDomainChanMap[uid]; pending {
 		p.dnsMapMutex.Unlock()
@@ -1005,30 +1017,76 @@ func (p *Processor) processWorkloadDNSAsync(workload *workloadapi.Workload) {
 		return
 	}
 
-	go func(uid string, wl *workloadapi.Workload, resCh chan *workloadapi.Workload) {
-		timer := time.NewTimer(dnsResolveTimeout)
-		defer timer.Stop()
+	task := &dnsPendingTask{
+		uid:      uid,
+		workload: workload,
+		resCh:    ch,
+		deadline: time.Now().Add(dnsResolveTimeout),
+	}
 
-		select {
-		case <-timer.C:
-			log.Warnf("DNS resolution timeout for workload %s/%s/%s, skip handling", wl.Namespace, wl.Name, uid)
-			p.dnsMapMutex.Lock()
-			if existingCh, ok := p.ResolvedDomainChanMap[uid]; ok && existingCh == resCh {
-				delete(p.ResolvedDomainChanMap, uid)
-			}
-			p.dnsMapMutex.Unlock()
+	select {
+	case p.dnsPendingTasksChan <- task:
+	default:
+		log.Warnf("dnsPendingTasksChan is full, dropping task for %s/%s/%s", workload.Namespace, workload.Name, uid)
+		p.dnsMapMutex.Lock()
+		delete(p.ResolvedDomainChanMap, uid)
+		p.dnsMapMutex.Unlock()
+	}
+}
 
-		case newWorkload, ok := <-resCh:
-			if !ok || newWorkload == nil || newWorkload.GetAddresses() == nil {
-				log.Warnf("workload %s/%s resolved addresses is nil or channel closed, skip handling", wl.Namespace, wl.Name)
-				return
-			}
-			log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
-			if err := p.handleWorkload(newWorkload); err != nil {
-				log.Errorf("handle workload %s failed, err: %v", newWorkload.ResourceName(), err)
-			}
+func (p *Processor) runDNSResultWatcher() {
+	for task := range p.dnsPendingTasksChan {
+		p.handlePendingDNSTask(task)
+	}
+}
+
+func (p *Processor) handlePendingDNSTask(task *dnsPendingTask) {
+	timeout := time.Until(task.deadline)
+	if timeout <= 0 {
+		p.cleanupAndTimeoutDNSTask(task)
+		return
+	}
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case <-timer.C:
+		p.cleanupAndTimeoutDNSTask(task)
+
+	case newWorkload, ok := <-task.resCh:
+		p.dnsMapMutex.Lock()
+		existingCh, exists := p.ResolvedDomainChanMap[task.uid]
+		isCurrent := exists && existingCh == task.resCh
+		if isCurrent {
+			delete(p.ResolvedDomainChanMap, task.uid)
 		}
-	}(uid, workload, ch)
+		p.dnsMapMutex.Unlock()
+
+		if !isCurrent {
+			log.Debugf("stale or superseded DNS resolution for workload %s/%s/%s, skipping", task.workload.Namespace, task.workload.Name, task.uid)
+			return
+		}
+
+		if !ok || newWorkload == nil || newWorkload.GetAddresses() == nil {
+			log.Warnf("workload %s/%s resolved addresses is nil or channel closed, skip handling", task.workload.Namespace, task.workload.Name)
+			return
+		}
+
+		log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
+		if err := p.handleWorkload(newWorkload); err != nil {
+			log.Errorf("handle workload %s failed, err: %v", newWorkload.ResourceName(), err)
+		}
+	}
+}
+
+func (p *Processor) cleanupAndTimeoutDNSTask(task *dnsPendingTask) {
+	log.Warnf("DNS resolution timeout for workload %s/%s/%s, skip handling", task.workload.Namespace, task.workload.Name, task.uid)
+	p.dnsMapMutex.Lock()
+	if existingCh, ok := p.ResolvedDomainChanMap[task.uid]; ok && existingCh == task.resCh {
+		delete(p.ResolvedDomainChanMap, task.uid)
+	}
+	p.dnsMapMutex.Unlock()
 }
 
 // After restart, we can get the removed addresses by comparing the

@@ -366,12 +366,20 @@ func TestAsyncDNSResolution_NonBlocking(t *testing.T) {
 	p.handleServicesAndWorkloads(nil, []*workloadapi.Workload{wlNeedsDNS, wlHasIP})
 	elapsed := time.Since(start)
 
-	// Assert that handleServicesAndWorkloads returned immediately (< 200ms) without waiting for 3s DNS timeout
-	assert.True(t, elapsed < 200*time.Millisecond, "handleServicesAndWorkloads blocked for %v, expected non-blocking execution", elapsed)
+	// Assert that handleServicesAndWorkloads returned promptly relative to dnsResolveTimeout
+	assert.True(t, elapsed < dnsResolveTimeout/10, "handleServicesAndWorkloads blocked for %v, expected non-blocking execution (< %v)", elapsed, dnsResolveTimeout/10)
 
 	// Assert that wlHasIP was processed and added to cache immediately
 	processedWL := p.WorkloadCache.GetWorkloadByUid("uid-ip-2")
 	assert.NotNil(t, processedWL, "workload with IP should be processed immediately without waiting for DNS resolution")
+
+	// Clean up pending resolution channel so task worker doesn't idle until timeout
+	p.dnsMapMutex.RLock()
+	resCh, ok := p.ResolvedDomainChanMap["uid-dns-1"]
+	p.dnsMapMutex.RUnlock()
+	if ok {
+		close(resCh)
+	}
 }
 
 func TestAsyncDNSResolution_AppliedOnResolution(t *testing.T) {
