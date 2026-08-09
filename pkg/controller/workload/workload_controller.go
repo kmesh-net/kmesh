@@ -26,6 +26,7 @@ import (
 	"kmesh.net/kmesh/pkg/auth"
 	"kmesh.net/kmesh/pkg/bpf/restart"
 	bpfwl "kmesh.net/kmesh/pkg/bpf/workload"
+	"kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/controller/telemetry"
 	"kmesh.net/kmesh/pkg/logger"
 )
@@ -41,6 +42,7 @@ type Controller struct {
 	Stream                    discoveryv3.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
 	Processor                 *Processor
 	Rbac                      *auth.Rbac
+	SecretManager             *security.SecretManager
 	MetricController          *telemetry.MetricController
 	MapMetricController       *telemetry.MapMetricController
 	OperationMetricController *telemetry.BpfProgMetric

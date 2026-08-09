@@ -112,16 +112,16 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 		tcFd = -1
 	}
 
+	var secretManager *security.SecretManager
 	if c.mode == constants.DualEngineMode {
-		var secertManager *security.SecretManager
 		if c.enableSecretManager {
-			secertManager, err = security.NewSecretManager()
+			secretManager, err = security.NewSecretManager()
 			if err != nil {
 				return fmt.Errorf("secretManager create failed: %v", err)
 			}
-			go secertManager.Run(stopCh)
+			go secretManager.Run(stopCh)
 		}
-		kmeshManageController, err = manage.NewKmeshManageController(clientset, secertManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
+		kmeshManageController, err = manage.NewKmeshManageController(clientset, secretManager, c.bpfWorkloadObj.XdpAuth.XdpAuthz.FD(), tcFd, c.mode)
 	} else {
 		kolog.KmeshModuleLog(stopCh)
 		kmeshManageController, err = manage.NewKmeshManageController(clientset, nil, -1, tcFd, c.mode)
@@ -172,6 +172,7 @@ func (c *Controller) Start(stopCh <-chan struct{}) error {
 	}
 
 	if c.client.WorkloadController != nil {
+		c.client.WorkloadController.SecretManager = secretManager
 		if err := c.client.WorkloadController.Run(ctx, stopCh); err != nil {
 			return fmt.Errorf("failed to start workload controller: %+v", err)
 		}

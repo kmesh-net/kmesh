@@ -26,11 +26,13 @@ import (
 	"net/netip"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/encoding/protojson"
 	"istio.io/istio/pilot/test/util"
+	istiosecurity "istio.io/istio/pkg/security"
 
 	"kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/api/v2/cluster"
@@ -44,6 +46,7 @@ import (
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/controller"
 	"kmesh.net/kmesh/pkg/controller/ads"
+	securitypkg "kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/controller/telemetry"
 	"kmesh.net/kmesh/pkg/controller/workload"
 	"kmesh.net/kmesh/pkg/controller/workload/bpfcache"
@@ -661,4 +664,241 @@ func TestServerMonitoringHandler(t *testing.T) {
 		enableMonitoring := l.GetEnableMonitoring()
 		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})
+}
+
+func TestServer_configDumpServices(t *testing.T) {
+	t.Run("invalid mode returns error", func(t *testing.T) {
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpServices, nil)
+		w := httptest.NewRecorder()
+		server.configDumpServices(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("returns services sorted by hostname", func(t *testing.T) {
+		fakeServiceCache := cache.NewServiceCache()
+		fakeServiceCache.AddOrUpdateService(buildService("svc-b", "hostname-b"))
+		fakeServiceCache.AddOrUpdateService(buildService("svc-a", "hostname-a"))
+		fakeServiceCache.AddOrUpdateService(buildService("svc-c", "hostname-c"))
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					Processor: &workload.Processor{
+						WorkloadCache: cache.NewWorkloadCache(),
+						ServiceCache:  fakeServiceCache,
+					},
+					Rbac: auth.NewRbac(nil),
+				},
+			},
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpServices, nil)
+		w := httptest.NewRecorder()
+		server.configDumpServices(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		var services []*Service
+		err := json.Unmarshal(w.Body.Bytes(), &services)
+		assert.Nil(t, err)
+		assert.Equal(t, 3, len(services))
+		assert.Equal(t, "hostname-a", services[0].Hostname)
+		assert.Equal(t, "hostname-b", services[1].Hostname)
+		assert.Equal(t, "hostname-c", services[2].Hostname)
+	})
+}
+
+func TestServer_configDumpPolicies(t *testing.T) {
+	t.Run("invalid mode returns error", func(t *testing.T) {
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpPolicies, nil)
+		w := httptest.NewRecorder()
+		server.configDumpPolicies(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("returns policies sorted by namespace and name", func(t *testing.T) {
+		fakeWorkloadCache := cache.NewWorkloadCache()
+		fakeAuth := auth.NewRbac(fakeWorkloadCache)
+		fakeAuth.UpdatePolicy(&security.Authorization{
+			Name:      "policy-b",
+			Namespace: "ns-a",
+			Scope:     security.Scope_GLOBAL,
+			Action:    security.Action_ALLOW,
+		})
+		fakeAuth.UpdatePolicy(&security.Authorization{
+			Name:      "policy-a",
+			Namespace: "ns-b",
+			Scope:     security.Scope_GLOBAL,
+			Action:    security.Action_DENY,
+		})
+		fakeAuth.UpdatePolicy(&security.Authorization{
+			Name:      "policy-a",
+			Namespace: "ns-a",
+			Scope:     security.Scope_GLOBAL,
+			Action:    security.Action_ALLOW,
+		})
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					Processor: &workload.Processor{
+						WorkloadCache: fakeWorkloadCache,
+						ServiceCache:  cache.NewServiceCache(),
+					},
+					Rbac: fakeAuth,
+				},
+			},
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpPolicies, nil)
+		w := httptest.NewRecorder()
+		server.configDumpPolicies(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		var policies []*AuthorizationPolicy
+		err := json.Unmarshal(w.Body.Bytes(), &policies)
+		assert.Nil(t, err)
+		assert.Equal(t, 3, len(policies))
+		// sorted by namespace first, then name
+		assert.Equal(t, "ns-a", policies[0].Namespace)
+		assert.Equal(t, "policy-a", policies[0].Name)
+		assert.Equal(t, "ns-a", policies[1].Namespace)
+		assert.Equal(t, "policy-b", policies[1].Name)
+		assert.Equal(t, "ns-b", policies[2].Namespace)
+	})
+}
+
+func TestServer_configDumpCerts(t *testing.T) {
+	t.Run("invalid mode returns error", func(t *testing.T) {
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpCerts, nil)
+		w := httptest.NewRecorder()
+		server.configDumpCerts(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	t.Run("nil secret manager returns empty array", func(t *testing.T) {
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					Processor: &workload.Processor{
+						WorkloadCache: cache.NewWorkloadCache(),
+						ServiceCache:  cache.NewServiceCache(),
+					},
+					Rbac:          auth.NewRbac(nil),
+					SecretManager: nil,
+				},
+			},
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpCerts, nil)
+		w := httptest.NewRecorder()
+		server.configDumpCerts(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+		assert.Equal(t, "[]", w.Body.String())
+	})
+
+	t.Run("returns certificates sorted by resource name", func(t *testing.T) {
+		now := time.Now().Truncate(time.Second)
+		testCerts := map[string]*istiosecurity.SecretItem{
+			"spiffe://cluster.local/ns/default/sa/sleep": {
+				ResourceName:     "spiffe://cluster.local/ns/default/sa/sleep",
+				CertificateChain: []byte("chain-sleep"),
+				ExpireTime:       now.Add(24 * time.Hour),
+				CreatedTime:      now,
+			},
+			"spiffe://cluster.local/ns/default/sa/httpbin": {
+				ResourceName:     "spiffe://cluster.local/ns/default/sa/httpbin",
+				CertificateChain: []byte("chain-httpbin"),
+				ExpireTime:       now.Add(48 * time.Hour),
+				CreatedTime:      now,
+			},
+		}
+		sm := securitypkg.NewTestSecretManager(testCerts)
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					Processor: &workload.Processor{
+						WorkloadCache: cache.NewWorkloadCache(),
+						ServiceCache:  cache.NewServiceCache(),
+					},
+					Rbac:          auth.NewRbac(nil),
+					SecretManager: sm,
+				},
+			},
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpCerts, nil)
+		w := httptest.NewRecorder()
+		server.configDumpCerts(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "application/json", w.Header().Get("Content-Type"))
+
+		var certs []*Certificate
+		err := json.Unmarshal(w.Body.Bytes(), &certs)
+		assert.Nil(t, err)
+		assert.Equal(t, 2, len(certs))
+		// sorted by resource name
+		assert.Equal(t, "spiffe://cluster.local/ns/default/sa/httpbin", certs[0].ResourceName)
+		assert.Equal(t, "spiffe://cluster.local/ns/default/sa/sleep", certs[1].ResourceName)
+		assert.Equal(t, "chain-httpbin", certs[0].CertificateChain)
+	})
+}
+
+func TestServer_configDumpWorkloadWithCerts(t *testing.T) {
+	w := buildWorkload("name")
+	svc := buildService("svc", "hostname")
+
+	now := time.Now().Truncate(time.Second)
+	testCerts := map[string]*istiosecurity.SecretItem{
+		"spiffe://cluster.local/ns/default/sa/test": {
+			ResourceName:     "spiffe://cluster.local/ns/default/sa/test",
+			CertificateChain: []byte("test-chain"),
+			ExpireTime:       now.Add(24 * time.Hour),
+			CreatedTime:      now,
+		},
+	}
+	sm := securitypkg.NewTestSecretManager(testCerts)
+
+	fakeWorkloadCache := cache.NewWorkloadCache()
+	fakeServiceCache := cache.NewServiceCache()
+	fakeWorkloadCache.AddOrUpdateWorkload(w)
+	fakeServiceCache.AddOrUpdateService(svc)
+	fakeAuth := auth.NewRbac(fakeWorkloadCache)
+
+	server := &Server{
+		xdsClient: &controller.XdsClient{
+			WorkloadController: &workload.Controller{
+				Processor: &workload.Processor{
+					WorkloadCache: fakeWorkloadCache,
+					ServiceCache:  fakeServiceCache,
+				},
+				Rbac:          fakeAuth,
+				SecretManager: sm,
+			},
+		},
+	}
+
+	req := httptest.NewRequest(http.MethodGet, patternConfigDumpWorkload, nil)
+	rec := httptest.NewRecorder()
+	server.configDumpWorkload(rec, req)
+
+	assert.Equal(t, http.StatusOK, rec.Code)
+
+	var dump WorkloadDump
+	err := json.Unmarshal(rec.Body.Bytes(), &dump)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(dump.Workloads))
+	assert.Equal(t, 1, len(dump.Services))
+	assert.Equal(t, 1, len(dump.Certificates))
+	assert.Equal(t, "spiffe://cluster.local/ns/default/sa/test", dump.Certificates[0].ResourceName)
 }
