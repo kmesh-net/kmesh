@@ -65,7 +65,11 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 			}
 
 			if !shouldBypass(pod) {
-				// TODO: add delete iptables in case we missed skip bypass during kmesh restart
+				nspath, _ := ns.GetPodNSpath(pod)
+				if nspath != "" {
+					// during daemon restart, reconcile to ensure stale bypass rules are cleared
+					_ = deleteIptables(nspath)
+				}
 				return
 			}
 
@@ -157,7 +161,7 @@ func addIptables(ns string) error {
 		}
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
-				return fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
+				return fmt.Errorf("failed to exec command: iptables %v, err: %v", args, err)
 			}
 		}
 		return nil
@@ -178,7 +182,7 @@ func deleteIptables(ns string) error {
 		log.Infof("Running delete iptables rule in namespace:%s", ns)
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
-				err = fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
+				err = fmt.Errorf("failed to exec command: iptables %v, err: %v", args, err)
 				log.Error(err)
 				return err
 			}
