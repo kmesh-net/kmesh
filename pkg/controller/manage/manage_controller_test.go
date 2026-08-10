@@ -479,12 +479,30 @@ func TestSyncPodAttachGating(t *testing.T) {
 
 	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
 	require.NoError(t, err)
-	require.NoError(t, controller.namespaceInformer.GetStore().Add(nsWithLabel))
 
 	stopChan := make(chan struct{})
 	defer close(stopChan)
 	go controller.Run(stopChan)
 	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced, controller.namespaceInformer.HasSynced)
+
+	_, err = client.CoreV1().Namespaces().Create(context.TODO(), nsWithoutLabel, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	// createSyncedPod creates pod through the fake clientset (not the informer store
+	// directly, since the informer's reflector would just evict a store-only entry on
+	// its next relist, and syncPod's PatchKmeshRedirectAnnotation/DelKmeshRedirectAnnotation
+	// need the pod to actually exist in the fake API server too) and waits for the
+	// controller's podLister to observe it before handing it back.
+	createSyncedPod := func(t *testing.T, pod *corev1.Pod) *corev1.Pod {
+		t.Helper()
+		created, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			_, err := controller.podLister.Pods(pod.Namespace).Get(pod.Name)
+			return err == nil
+		}, 2*time.Second, 5*time.Millisecond, "expected podLister to observe %s/%s", pod.Namespace, pod.Name)
+		return created
+	}
 
 	t.Run("attach failure is retried and the pod stays unannotated", func(t *testing.T) {
 		patches := gomonkey.NewPatches()
@@ -498,9 +516,7 @@ func TestSyncPodAttachGating(t *testing.T) {
 
 		pod := podWithLabel.DeepCopy()
 		pod.Name = "attach-fail-pod"
-		require.NoError(t, controller.podInformer.GetStore().Add(pod))
-		_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
-		require.NoError(t, err)
+		pod = createSyncedPod(t, pod)
 
 		controller.enableKmeshManage(pod)
 
@@ -522,9 +538,7 @@ func TestSyncPodAttachGating(t *testing.T) {
 
 		pod := podWithLabel.DeepCopy()
 		pod.Name = "attach-ok-pod"
-		require.NoError(t, controller.podInformer.GetStore().Add(pod))
-		_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
-		require.NoError(t, err)
+		pod = createSyncedPod(t, pod)
 
 		controller.enableKmeshManage(pod)
 
@@ -546,9 +560,7 @@ func TestSyncPodAttachGating(t *testing.T) {
 
 		pod := podReadyWithAnnotation.DeepCopy()
 		pod.Name = "detach-fail-pod"
-		require.NoError(t, controller.podInformer.GetStore().Add(pod))
-		_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
-		require.NoError(t, err)
+		pod = createSyncedPod(t, pod)
 
 		controller.disableKmeshManage(pod)
 
