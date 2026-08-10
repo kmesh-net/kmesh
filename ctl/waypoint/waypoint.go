@@ -33,7 +33,6 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -419,49 +418,25 @@ func NewCmd() *cobra.Command {
 			} else {
 				ns = namespaceOrDefault(namespace)
 			}
-			gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).
-				List(context.Background(), metav1.ListOptions{})
+			filteredGws, err := ListWaypoints(kubeClient, ns)
 			if err != nil {
 				return err
 			}
-			if len(gws.Items) == 0 {
+			if len(filteredGws) == 0 {
 				fmt.Fprintln(writer, "No waypoints found.")
 				return nil
 			}
 			w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-			slices.SortFunc(gws.Items, func(i, j gateway.Gateway) int {
-				if r := cmp.Compare(i.Namespace, j.Namespace); r != 0 {
-					return r
-				}
-				return cmp.Compare(i.Name, j.Name)
-			})
-			filteredGws := make([]gateway.Gateway, 0)
-			for _, gw := range gws.Items {
-				if gw.Spec.GatewayClassName != constants.WaypointGatewayClassName {
-					continue
-				}
-				filteredGws = append(filteredGws, gw)
-			}
 			if allNamespaces {
 				fmt.Fprintln(w, "NAMESPACE\tNAME\tREVISION\tPROGRAMMED")
 			} else {
 				fmt.Fprintln(w, "NAME\tREVISION\tPROGRAMMED")
 			}
 			for _, gw := range filteredGws {
-				programmed := kstatus.StatusFalse
-				rev := gw.Labels[label.IoIstioRev.Name]
-				if rev == "" {
-					rev = "default"
-				}
-				for _, cond := range gw.Status.Conditions {
-					if cond.Type == string(gateway.GatewayConditionProgrammed) {
-						programmed = string(cond.Status)
-					}
-				}
 				if allNamespaces {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, rev, programmed)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", gw.Namespace, gw.Name, gw.Revision, gw.Programmed)
 				} else {
-					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", gw.Name, rev, programmed)
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", gw.Name, gw.Revision, gw.Programmed)
 				}
 			}
 			return w.Flush()
