@@ -29,6 +29,8 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
+	"istio.io/istio/pkg/log"
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 func GetProgramCount(name string) (int, error) {
@@ -80,6 +82,13 @@ func Test_BpfProgUpdate(t *testing.T) {
 		if err := syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
 			t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)
 		}
+
+		defer func() {
+			err = syscall.Unmount(constants.BpfFsPath, 0)
+			if err != nil {
+				log.Errorf("unmount /sys/fs/bpf error: %v", err)
+			}
+		}()
 	}
 
 	if !bytes.Contains(out, []byte("/mnt/kmesh_cgroup2")) {
@@ -89,6 +98,13 @@ func Test_BpfProgUpdate(t *testing.T) {
 		if err := syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, ""); err != nil {
 			t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 		}
+
+		defer func() {
+			err := syscall.Unmount(constants.Cgroup2Path, 0)
+			if err != nil {
+				log.Errorf("unmount /mnt/kmesh_cgroup2 error: %v", err)
+			}
+		}()
 	}
 
 	pinPath := "/sys/fs/bpf/kmesh_test_prog"
