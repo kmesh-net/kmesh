@@ -1,0 +1,20 @@
+[
+  {
+    "package": "kmesh.net/kmesh/pkg/cache/v2",
+    "benchmark": "BenchmarkClusterFlush",
+    "max_ns_per_op": 2000000000,
+    "description": "Cluster cache flush smoke guard"
+  },
+  {
+    "package": "kmesh.net/kmesh/pkg/cache/v2",
+    "benchmark": "BenchmarkListenerFlush",
+    "max_ns_per_op": 2000000000,
+    "description": "Listener cache flush smoke guard"
+  },
+  {
+    "package": "kmesh.net/kmesh/pkg/controller/workload",
+    "benchmark": "BenchmarkAddNewServicesWithWorkload",
+    "max_ns_per_op": 1000000000,
+    "description": "Workload-to-service indexing smoke guard"
+  }
+]

@@ -1,5 +1,44 @@
 # Kmesh performance test
 
+## Automated smoke benchmark
+
+The repository now includes a low-cost performance smoke workflow at `.github/workflows/performance-smoke.yml`.
+It runs on a weekly schedule and on `workflow_dispatch`, and it keeps a conservative regression guard on a few
+existing hot-path Go benchmarks:
+
+- `BenchmarkClusterFlush`
+- `BenchmarkListenerFlush`
+- `BenchmarkAddNewServicesWithWorkload`
+
+This smoke workflow is not a replacement for the Fortio-based cluster scenarios in this directory. Its purpose is to
+surface obvious regressions automatically and to publish benchmark artifacts that contributors can inspect.
+
+### Run the smoke benchmark locally
+
+The smoke benchmark requires a Linux environment with the generated BPF objects present.
+
+1. Build the benchmark prerequisites:
+
+   ```sh
+   sudo env PATH=$PATH bash ./build.sh
+   ```
+
+2. Run the smoke benchmark entrypoint:
+
+   ```sh
+   sudo env \
+     PATH=$PATH \
+     PKG_CONFIG_PATH=$PWD/mk \
+     LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/api/v2-c:$PWD/bpf/deserialization_to_bpf_map \
+     make perf-smoke
+   ```
+
+3. Review the raw benchmark output and threshold summary under `.artifacts/perf-smoke/`.
+
+Thresholds are defined in `.github/performance/smoke-thresholds.json`. They are intentionally conservative and are
+meant to catch major regressions while the full `test/performance/` Fortio scenarios remain the source of deeper
+cluster-level analysis.
+
 ## Basic test networking
 
 ![perf_network](../../docs/pics/perf_network.png)
