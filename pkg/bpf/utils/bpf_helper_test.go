@@ -31,7 +31,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func GetDuplicateProgramCount(name string) (int, error) {
+func GetProgramCount(name string) (int, error) {
 	var id ebpf.ProgramID
 	count := 0
 
@@ -151,7 +151,11 @@ func Test_BpfProgUpdate(t *testing.T) {
 		t.Fatalf("BpfProgUpdate failed: %v", err)
 	}
 
-	count, err := GetDuplicateProgramCount("test_prog")
+	count, err := GetProgramCount("test_prog")
+
+	if err != nil {
+		t.Fatalf("Error when checking for program count")
+	}
 
 	assert.Equal(t, count, 1)
 }
