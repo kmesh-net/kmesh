@@ -17,8 +17,11 @@
 package maglev
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"os/exec"
+	"syscall"
 	"testing"
 	"unsafe"
 
@@ -28,6 +31,8 @@ import (
 	cluster_v2 "kmesh.net/kmesh/api/v2/cluster"
 	"kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/api/v2/endpoint"
+
+	"kmesh.net/kmesh/pkg/constants"
 )
 
 func TestMaglevTestSuite(t *testing.T) {
@@ -39,10 +44,50 @@ type MaglevTestSuite struct {
 	suite.Suite
 }
 
+func isMountPoint(path string) (bool, error) {
+	cmd := exec.Command("findmnt", "-n", "-t", "bpf", "--target", "/sys/fs/bpf")
+	err := cmd.Run()
+
+	if err != nil {
+		var exitErr *exec.ExitError
+		if !errors.As(err, &exitErr) {
+			return false, err
+		}
+
+		if exitErr.ExitCode() != 1 {
+			return false, err
+		}
+
+		// Exit code 1 = no matching filesystem found.
+
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func (suite *MaglevTestSuite) SetupSuite() {
+	err := os.MkdirAll(constants.BpfFsPath, 0755)
+	if err != nil {
+		fmt.Println("can not mkdir bpf map path", err)
+	}
+
+	bpfMounted, err := isMountPoint(constants.BpfFsPath)
+	if err != nil {
+		fmt.Printf("Error while checking if bpf is mounted: %v\n", err)
+		return
+	}
+
+	if !bpfMounted {
+		if err := syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
+			fmt.Printf("Failed to mount /sys/fs/bpf: %v", err)
+			return
+		}
+	}
+
 	mapPath := "/sys/fs/bpf/bpf_kmesh/map/"
 	suite.mapPath = mapPath
-	_, err := os.Stat(mapPath)
+	_, err = os.Stat(mapPath)
 	if os.IsNotExist(err) {
 		err := os.MkdirAll(mapPath, 0755)
 		if err != nil {
