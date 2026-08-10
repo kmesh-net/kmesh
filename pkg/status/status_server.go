@@ -341,7 +341,7 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 		if authzOffload := s.loader.GetAuthzOffload(); authzOffload == constants.ENABLED {
 			enabled = true
 		}
-		
+
 		response := map[string]bool{"enabled": enabled}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
