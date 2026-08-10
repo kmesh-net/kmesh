@@ -60,6 +60,7 @@ const (
 	patternWorkloadMetrics    = "/workload_metrics"
 	patternConnectionMetrics  = "/connection_metrics"
 	patternAuthz              = "/authz"
+	patternDnsproxy           = "/dnsproxy"
 
 	bpfLoggerName = "bpf"
 
@@ -74,14 +75,16 @@ type Server struct {
 	mux       *http.ServeMux
 	server    *http.Server
 	loader    *bpf.BpfLoader
+	ctrl      *controller.Controller
 }
 
-func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loader *bpf.BpfLoader) *Server {
+func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loader *bpf.BpfLoader, ctrl *controller.Controller) *Server {
 	s := &Server{
 		config:    configs,
 		xdsClient: c,
 		mux:       http.NewServeMux(),
 		loader:    loader,
+		ctrl:      ctrl,
 	}
 	s.server = &http.Server{
 		Addr:         adminAddr,
@@ -101,6 +104,7 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
+	s.mux.HandleFunc(patternDnsproxy, s.dnsproxyHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
@@ -354,6 +358,48 @@ func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) dnsproxyHandler(w http.ResponseWriter, r *http.Request) {
+	if s.ctrl == nil {
+		http.Error(w, "controller not available", http.StatusInternalServerError)
+		return
+	}
+
+	switch r.Method {
+	case http.MethodGet:
+		// Return DNS proxy status
+		status := s.ctrl.GetDnsProxyStatus()
+		w.WriteHeader(http.StatusOK)
+		if status {
+			_, _ = w.Write([]byte("enabled"))
+		} else {
+			_, _ = w.Write([]byte("disabled"))
+		}
+	case http.MethodPost:
+		info := r.URL.Query().Get("enable")
+		enabled, err := strconv.ParseBool(info)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = w.Write([]byte(fmt.Sprintf("invalid dnsproxy enable=%s", info)))
+			return
+		}
+
+		if enabled {
+			if err := s.ctrl.StartDnsProxy(); err != nil {
+				http.Error(w, fmt.Sprintf("failed to start DNS proxy: %v", err), http.StatusInternalServerError)
+				return
+			}
+		} else {
+			if err := s.ctrl.StopDnsProxy(); err != nil {
+				http.Error(w, fmt.Sprintf("failed to stop DNS proxy: %v", err), http.StatusInternalServerError)
+				return
+			}
+		}
+		w.WriteHeader(http.StatusOK)
+	default:
+		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *Server) getLoggerNames(w http.ResponseWriter) {
