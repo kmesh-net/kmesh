@@ -90,10 +90,13 @@ func (r *dnsController) processDomains(cds []*clusterv3.Cluster) {
 	domains := getPendingResolveDomain(cds)
 
 	// store all pending hostnames of clusters in pendingHostnames
-	r.Lock()
+	pending := make(map[string][]string, len(cds))
 	for _, cluster := range cds {
 		clusterName := cluster.GetName()
-		info := getHostName(cluster)
+		pending[clusterName] = getHostName(cluster)
+	}
+	r.Lock()
+	for clusterName, info := range pending {
 		r.pendingHostnames[clusterName] = info
 	}
 	r.Unlock()
