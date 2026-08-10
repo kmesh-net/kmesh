@@ -87,31 +87,31 @@ func GetJson(url string, val any) error {
 	return nil
 }
 
-func GetLoggerNames(url string) {
+func GetLoggerNames(out io.Writer, url string) {
 	var loggerNames []string
 	if err := GetJson(url, &loggerNames); err != nil {
 		log.Errorf("failed to get logger names: %v", err)
 		return
 	}
 
-	fmt.Printf("Existing Loggers:\n")
+	fmt.Fprintf(out, "Existing Loggers:\n")
 	for _, logger := range loggerNames {
-		fmt.Printf("\t%s\n", logger)
+		fmt.Fprintf(out, "\t%s\n", logger)
 	}
 }
 
-func GetLoggerLevel(url string) {
+func GetLoggerLevel(out io.Writer, url string) {
 	var loggerInfo LoggerInfo
 	if err := GetJson(url, &loggerInfo); err != nil {
 		log.Errorf("failed to get logger level: %v", err)
 		return
 	}
 
-	fmt.Printf("Logger Name: %s\n", loggerInfo.Name)
-	fmt.Printf("Logger Level: %s\n", loggerInfo.Level)
+	fmt.Fprintf(out, "Logger Name: %s\n", loggerInfo.Name)
+	fmt.Fprintf(out, "Logger Level: %s\n", loggerInfo.Level)
 }
 
-func SetLoggerLevel(url string, setFlag string) {
+func SetLoggerLevel(out io.Writer, url string, setFlag string) {
 	if !strings.Contains(setFlag, ":") {
 		log.Errorf("Invalid set flag, which should be loggerName:loggerLevel (e.g. default:debug)")
 		os.Exit(1)
@@ -153,7 +153,7 @@ func SetLoggerLevel(url string, setFlag string) {
 		log.Errorf("failed to read HTTP response body: %v", err)
 		return
 	}
-	fmt.Println(string(body))
+	fmt.Fprintln(out, string(body))
 }
 
 func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
@@ -178,15 +178,16 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 
 	url := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
 
+	out := cmd.OutOrStdout()
 	setFlag, _ := cmd.Flags().GetString("set")
 	if setFlag == "" {
 		if len(args) >= 2 {
 			url += fmt.Sprintf("?name=%s", args[1])
-			GetLoggerLevel(url)
+			GetLoggerLevel(out, url)
 		} else {
-			GetLoggerNames(url)
+			GetLoggerNames(out, url)
 		}
 	} else {
-		SetLoggerLevel(url, setFlag)
+		SetLoggerLevel(out, url, setFlag)
 	}
 }
