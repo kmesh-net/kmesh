@@ -111,10 +111,9 @@ func GetLoggerLevel(url string) {
 	fmt.Printf("Logger Level: %s\n", loggerInfo.Level)
 }
 
-func SetLoggerLevel(url string, setFlag string) {
+func SetLoggerLevel(url string, setFlag string) error {
 	if !strings.Contains(setFlag, ":") {
-		log.Errorf("Invalid set flag, which should be loggerName:loggerLevel (e.g. default:debug)")
-		os.Exit(1)
+		return fmt.Errorf("invalid set flag, which should be loggerName:loggerLevel (e.g. default:debug)")
 	}
 	splits := strings.Split(setFlag, ":")
 	loggerName := splits[0]
@@ -126,34 +125,35 @@ func SetLoggerLevel(url string, setFlag string) {
 	}
 	data, err := json.Marshal(loggerInfo)
 	if err != nil {
-		log.Errorf("Error marshaling logger info: %v", err)
-		return
+		return fmt.Errorf("error marshaling logger info: %v", err)
 	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(data))
 	if err != nil {
-		log.Errorf("Error creating request: %v", err)
-		return
+		return fmt.Errorf("error creating request: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
-		return
+		return fmt.Errorf("failed to make HTTP request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		log.Errorf("Error: received status code %d", resp.StatusCode)
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("received status code %d", resp.StatusCode)
+		}
+		return fmt.Errorf("received status code %d, Response body: %s", resp.StatusCode, body)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("failed to read HTTP response body: %v", err)
-		return
+		return fmt.Errorf("failed to read HTTP response body: %v", err)
 	}
 	fmt.Println(string(body))
+	return nil
 }
 
 func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
@@ -187,6 +187,9 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 			GetLoggerNames(url)
 		}
 	} else {
-		SetLoggerLevel(url, setFlag)
+		if err := SetLoggerLevel(url, setFlag); err != nil {
+			log.Errorf("%v", err)
+			os.Exit(1)
+		}
 	}
 }
