@@ -464,6 +464,105 @@ func TestHandleKmeshManage(t *testing.T) {
 	}
 }
 
+// TestSyncPodAttachGating drives the real queue/processItems/syncPod path (unlike the
+// simulateQueueItem test double used elsewhere in this file) to verify the gating added
+// for https://github.com/kmesh-net/kmesh/issues/1846: a pod must only be annotated as
+// Kmesh-managed once attachPod actually succeeds, must stay unannotated (and be retried)
+// while attach keeps failing, and its annotation must not be removed until detachPod
+// actually succeeds.
+func TestSyncPodAttachGating(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	require.NoError(t, os.Setenv("NODE_NAME", "test_node"))
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
+	require.NoError(t, err)
+	require.NoError(t, controller.namespaceInformer.GetStore().Add(nsWithLabel))
+
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	go controller.Run(stopChan)
+	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced, controller.namespaceInformer.HasSynced)
+
+	t.Run("attach failure is retried and the pod stays unannotated", func(t *testing.T) {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(utils.HandleKmeshManage, func(string, bool) error { return nil })
+		var attachCalls atomic.Int32
+		patches.ApplyFunc(attachPod, func(string, int, int, string) error {
+			attachCalls.Add(1)
+			return fmt.Errorf("injected attach failure")
+		})
+
+		pod := podWithLabel.DeepCopy()
+		pod.Name = "attach-fail-pod"
+		require.NoError(t, controller.podInformer.GetStore().Add(pod))
+		_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		controller.enableKmeshManage(pod)
+
+		require.Eventually(t, func() bool {
+			return attachCalls.Load() >= 2
+		}, 2*time.Second, 5*time.Millisecond, "expected attach to be retried after failure via the queue's backoff")
+
+		got, err := client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.False(t, utils.AnnotationEnabled(got.Annotations[constants.KmeshRedirectionAnnotation]),
+			"pod must not be annotated as managed while attach keeps failing")
+	})
+
+	t.Run("attach success annotates the pod only once attachPod succeeds", func(t *testing.T) {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(utils.HandleKmeshManage, func(string, bool) error { return nil })
+		patches.ApplyFunc(attachPod, func(string, int, int, string) error { return nil })
+
+		pod := podWithLabel.DeepCopy()
+		pod.Name = "attach-ok-pod"
+		require.NoError(t, controller.podInformer.GetStore().Add(pod))
+		_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		controller.enableKmeshManage(pod)
+
+		require.Eventually(t, func() bool {
+			got, err := client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+			return err == nil && utils.AnnotationEnabled(got.Annotations[constants.KmeshRedirectionAnnotation])
+		}, 2*time.Second, 5*time.Millisecond, "expected pod to be annotated once attach succeeded")
+	})
+
+	t.Run("detach failure is retried and the annotation is not removed", func(t *testing.T) {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(utils.HandleKmeshManage, func(string, bool) error { return nil })
+		var detachCalls atomic.Int32
+		patches.ApplyFunc(detachPod, func(string, int, string) error {
+			detachCalls.Add(1)
+			return fmt.Errorf("injected detach failure")
+		})
+
+		pod := podReadyWithAnnotation.DeepCopy()
+		pod.Name = "detach-fail-pod"
+		require.NoError(t, controller.podInformer.GetStore().Add(pod))
+		_, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+
+		controller.disableKmeshManage(pod)
+
+		require.Eventually(t, func() bool {
+			return detachCalls.Load() >= 2
+		}, 2*time.Second, 5*time.Millisecond, "expected detach to be retried after failure via the queue's backoff")
+
+		got, err := client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, utils.AnnotationEnabled(got.Annotations[constants.KmeshRedirectionAnnotation]),
+			"annotation must remain in place until detach actually succeeds")
+	})
+}
+
 func TestNsInformerHandleKmeshManage(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
