@@ -29,7 +29,9 @@ import (
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
+
 	"istio.io/istio/pkg/log"
+
 	"kmesh.net/kmesh/pkg/constants"
 )
 
