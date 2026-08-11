@@ -339,3 +339,80 @@ func TestCloneWorkload(t *testing.T) {
 		})
 	}
 }
+
+func TestAsyncDNSResolution_NonBlocking(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+	p.DnsResolverChan = make(chan *workloadapi.Workload, 10)
+
+	wlNeedsDNS := &workloadapi.Workload{
+		Uid:       "uid-dns-1",
+		Name:      "wl-dns",
+		Namespace: "default",
+		Hostname:  "slow.example.com",
+		Addresses: nil,
+	}
+
+	wlHasIP := &workloadapi.Workload{
+		Uid:       "uid-ip-2",
+		Name:      "wl-ip",
+		Namespace: "default",
+		Addresses: [][]byte{netip.MustParseAddr("10.1.2.3").AsSlice()},
+	}
+
+	start := time.Now()
+	p.handleServicesAndWorkloads(nil, []*workloadapi.Workload{wlNeedsDNS, wlHasIP})
+	elapsed := time.Since(start)
+
+	// Assert that handleServicesAndWorkloads returned promptly relative to dnsResolveTimeout
+	assert.True(t, elapsed < dnsResolveTimeout/10, "handleServicesAndWorkloads blocked for %v, expected non-blocking execution (< %v)", elapsed, dnsResolveTimeout/10)
+
+	// Assert that wlHasIP was processed and added to cache immediately
+	processedWL := p.WorkloadCache.GetWorkloadByUid("uid-ip-2")
+	assert.NotNil(t, processedWL, "workload with IP should be processed immediately without waiting for DNS resolution")
+
+	// Clean up pending resolution channel so task worker doesn't idle until timeout
+	p.dnsMapMutex.RLock()
+	resCh, ok := p.ResolvedDomainChanMap["uid-dns-1"]
+	p.dnsMapMutex.RUnlock()
+	if ok {
+		close(resCh)
+	}
+}
+
+func TestAsyncDNSResolution_AppliedOnResolution(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+	p.DnsResolverChan = make(chan *workloadapi.Workload, 10)
+
+	wlNeedsDNS := &workloadapi.Workload{
+		Uid:       "uid-dns-resolve",
+		Name:      "wl-dns-resolve",
+		Namespace: "default",
+		Hostname:  "resolve.example.com",
+		Addresses: nil,
+	}
+
+	p.handleServicesAndWorkloads(nil, []*workloadapi.Workload{wlNeedsDNS})
+
+	// Retrieve the channel created for this workload's resolution
+	p.dnsMapMutex.RLock()
+	resCh, ok := p.ResolvedDomainChanMap["uid-dns-resolve"]
+	p.dnsMapMutex.RUnlock()
+	assert.True(t, ok, "resolution channel should be registered in ResolvedDomainChanMap")
+
+	// Simulate successful DNS resolution
+	resolvedWorkload := cloneWorkload(wlNeedsDNS)
+	resolvedWorkload.Addresses = [][]byte{netip.MustParseAddr("192.168.10.50").AsSlice()}
+	resCh <- resolvedWorkload
+
+	// Assert that async worker applies the resolved workload to cache/bpf within 1 second
+	assert.Eventually(t, func() bool {
+		wl := p.WorkloadCache.GetWorkloadByUid("uid-dns-resolve")
+		return wl != nil && len(wl.Addresses) > 0
+	}, 1*time.Second, 10*time.Millisecond, "resolved workload should be asynchronously applied")
+}
