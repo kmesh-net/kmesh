@@ -1033,17 +1033,10 @@ func (p *Processor) handlePendingDNSTask(task *dnsPendingTask) {
 
 	case newWorkload, ok := <-task.resCh:
 		p.dnsMapMutex.Lock()
-		existingCh, exists := p.ResolvedDomainChanMap[task.uid]
-		isCurrent := exists && existingCh == task.resCh
-		if isCurrent {
+		if existingCh, exists := p.ResolvedDomainChanMap[task.uid]; exists && existingCh == task.resCh {
 			delete(p.ResolvedDomainChanMap, task.uid)
 		}
 		p.dnsMapMutex.Unlock()
-
-		if !isCurrent {
-			log.Debugf("stale or superseded DNS resolution for workload %s/%s/%s, skipping", task.workload.Namespace, task.workload.Name, task.uid)
-			return
-		}
 
 		if !ok || newWorkload == nil || newWorkload.GetAddresses() == nil {
 			log.Warnf("workload %s/%s resolved addresses is nil or channel closed, skip handling", task.workload.Namespace, task.workload.Name)
