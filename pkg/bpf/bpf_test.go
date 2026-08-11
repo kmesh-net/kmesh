@@ -17,6 +17,7 @@
 package bpf
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -143,6 +144,65 @@ func runTestNormalKernelNative(t *testing.T) {
 	NormalStart(t, config)
 }
 
+func CheckAnyDuplicateMap() (bool, error) {
+	var id ebpf.MapID
+	found := make(map[string]bool)
+
+	kmeshMaps := map[string]struct{}{
+		"km_cgrptailcall": {},
+		"km_cluster":      {},
+		"km_cluster_eps":  {},
+		"km_cluster_sock": {},
+		"km_clusterstats": {},
+		"km_eps_data":     {},
+		"km_listener":     {},
+		"km_log_event":    {},
+		"km_maglev_outer": {},
+		"km_manage":       {},
+		"km_ratelimit":    {},
+		"km_sockstorage":  {},
+		"km_tailcall_ctx": {},
+		"km_tmpbuf":       {},
+		"kmesh_map1600":   {},
+		"kmesh_map192":    {},
+		"kmesh_map296":    {},
+		"kmesh_map64":     {},
+	}
+
+	for {
+		nextID, err := ebpf.MapGetNextID(id)
+		if errors.Is(err, syscall.ENOENT) {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+
+		m, err := ebpf.NewMapFromID(nextID)
+		if err != nil {
+			return false, err
+		}
+
+		info, err := m.Info()
+		m.Close()
+		if err != nil {
+			return false, err
+		}
+
+		if _, ok := kmeshMaps[info.Name]; ok {
+			if found[info.Name] {
+				fmt.Println("Found duplicate map:", info.Name)
+				return true, nil
+			}
+			found[info.Name] = true
+		}
+
+		id = nextID
+	}
+
+	return false, nil
+}
+
 func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	var versionPath string
 	restart.SetStartType(restart.Normal)
@@ -167,7 +227,13 @@ func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	if err := bpfLoader.Start(); err != nil {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
+
 	assert.Equal(t, restart.Restart, restart.GetStartType(), "set kmesh start status:Restart failed")
+
+	duplicateMapFound, err := CheckAnyDuplicateMap()
+	assert.Nil(t, err)
+	assert.Equal(t, duplicateMapFound, false)
+
 	restart.SetExitType(restart.Normal)
 	bpfLoader.Stop()
 }
