@@ -281,18 +281,17 @@ func (i *Installer) removeChainedKmeshCniPlugin() error {
 
 	// remove kubeconfig file
 	if kubeconfigFilepath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig); fileExists(kubeconfigFilepath) {
-		kubeconfigFilepath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)
 		log.Infof("Removing Kmesh CNI kubeconfig file: %s", kubeconfigFilepath)
-		if err := os.Remove(kubeconfigFilepath); err != nil {
-			return err
+		if removeErr := os.Remove(kubeconfigFilepath); removeErr != nil {
+			return removeErr
 		}
 	}
 
 	// remove cni binary
 	if kmeshCNIBin := filepath.Join(MountedCNIBinDir, kmeshCniPluginName); fileExists(kmeshCNIBin) {
 		log.Infof("Removing binary: %s", kmeshCNIBin)
-		if err := os.Remove(kmeshCNIBin); err != nil {
-			return err
+		if removeErr := os.Remove(kmeshCNIBin); removeErr != nil {
+			return removeErr
 		}
 	}
 

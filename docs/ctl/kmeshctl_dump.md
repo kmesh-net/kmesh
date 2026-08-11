@@ -3,20 +3,23 @@
 Dump config of kernel-native or dual-engine mode
 
 ```bash
-kmeshctl dump [flags]
+kmeshctl dump [kmesh-daemon-pod] <mode> [flags]
 ```
 
 ### Examples
 
 ```bash
-# Kernel Native mode (table output):
+# Kernel Native mode (table output) for a specific pod:
 kmeshctl dump <kmesh-daemon-pod> kernel-native
 
-# Dual Engine mode (table output):
-kmeshctl dump <kmesh-daemon-pod> dual-engine
+# Kernel Native mode (table output) auto-detecting the pod:
+kmeshctl dump kernel-native
+
+# Dual Engine mode (table output) auto-detecting the pod:
+kmeshctl dump dual-engine
 
 # Output as raw JSON:
-kmeshctl dump <kmesh-daemon-pod> kernel-native -o json
+kmeshctl dump kernel-native -o json
 ```
 
 ### Options

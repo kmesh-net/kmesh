@@ -61,7 +61,7 @@ func NewEnableCmd() *cobra.Command {
 		Args:    cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
 			// If no pod names are given, apply to all kmesh daemon pods.
-			SetAuthzForPods(args, "true")
+			SetAuthzForPods(cmd.Context(), args, "true")
 			log.Info("Authorization has been enabled.")
 		},
 	}
@@ -76,7 +76,7 @@ func NewDisableCmd() *cobra.Command {
 		Example: "kmeshctl authz disable\nkmeshctl authz disable pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			SetAuthzForPods(args, "false")
+			SetAuthzForPods(cmd.Context(), args, "false")
 			log.Info("Authorization has been disabled.")
 		},
 	}
@@ -100,13 +100,11 @@ func NewStatusCmd() *cobra.Command {
 			// Determine which pods to query.
 			var podNames []string
 			if len(args) == 0 {
-				podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
+				var err error
+				podNames, err = utils.GetKmeshDaemonPods(cmd.Context(), cli)
 				if err != nil {
-					log.Errorf("failed to get kmesh podList: %v", err)
+					log.Errorf("failed to get kmesh daemon pods: %v", err)
 					os.Exit(1)
-				}
-				for _, pod := range podList.Items {
-					podNames = append(podNames, pod.GetName())
 				}
 			} else {
 				podNames = args
@@ -145,7 +143,7 @@ func NewStatusCmd() *cobra.Command {
 
 // SetAuthzForPods applies the authz setting (enable/disable) for the given pod(s).
 // If no pod names are specified, it applies the setting to all kmesh daemon pods.
-func SetAuthzForPods(podNames []string, info string) {
+func SetAuthzForPods(ctx context.Context, podNames []string, info string) {
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
 		log.Errorf("failed to create cli client: %v", err)
@@ -154,13 +152,13 @@ func SetAuthzForPods(podNames []string, info string) {
 
 	if len(podNames) == 0 {
 		// Apply to all kmesh daemon pods.
-		podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
+		pods, err := utils.GetKmeshDaemonPods(ctx, cli)
 		if err != nil {
-			log.Errorf("failed to get kmesh podList: %v", err)
+			log.Errorf("failed to get kmesh daemon pods: %v", err)
 			os.Exit(1)
 		}
-		for _, pod := range podList.Items {
-			SetAuthzPerKmeshDaemon(cli, pod.GetName(), info)
+		for _, podName := range pods {
+			SetAuthzPerKmeshDaemon(cli, podName, info)
 		}
 	} else {
 		// Process for specified pods.
