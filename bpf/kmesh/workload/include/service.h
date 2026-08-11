@@ -107,7 +107,8 @@ static inline int service_manager(struct kmesh_context *kmesh_ctx, __u32 service
 {
     int ret = 0;
 
-    if (service_v->wp_addr.ip4 != 0 && service_v->waypoint_port != 0) {
+    if ((((__u64 *)service_v->wp_addr.ip6)[0] != 0 || ((__u64 *)service_v->wp_addr.ip6)[1] != 0)
+        && service_v->waypoint_port != 0) {
         BPF_LOG(
             DEBUG,
             SERVICE,
