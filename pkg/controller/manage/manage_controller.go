@@ -388,14 +388,23 @@ func (c *KmeshManageController) syncPod(key QueueItem) error {
 		if !utils.ShouldEnroll(pod, namespace) {
 			return nil
 		}
-		nspath, _ := ns.GetPodNSpath(pod)
+		nspath, err := ns.GetPodNSpath(pod)
+		if err != nil {
+			return fmt.Errorf("failed to get netns path for pod %s/%s: %w", pod.Namespace, pod.Name, err)
+		}
 		if err := attachPod(nspath, c.xdpProgFd, c.tcProgFd, c.mode); err != nil {
 			return fmt.Errorf("failed to attach kmesh dataplane programs for pod %s/%s: %v", pod.Namespace, pod.Name, err)
 		}
 		log.Infof("attached kmesh dataplane programs for pod %s/%s", pod.Namespace, pod.Name)
 		c.queue.AddRateLimited(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
 	case ActionDetach:
-		nspath, _ := ns.GetPodNSpath(pod)
+		if utils.ShouldEnroll(pod, namespace) {
+			return nil
+		}
+		nspath, err := ns.GetPodNSpath(pod)
+		if err != nil {
+			return fmt.Errorf("failed to get netns path for pod %s/%s: %w", pod.Namespace, pod.Name, err)
+		}
 		if err := detachPod(nspath, c.tcProgFd, c.mode); err != nil {
 			return fmt.Errorf("failed to detach kmesh dataplane programs for pod %s/%s: %v", pod.Namespace, pod.Name, err)
 		}
@@ -411,6 +420,10 @@ func attachPod(nspath string, xdpProgFd, tcProgFd int, mode string) error {
 		return fmt.Errorf("xdp: %w", err)
 	}
 	if err := linkTc(nspath, tcProgFd); err != nil {
+		// Best-effort rollback to avoid leaving the pod partially attached.
+		if rbErr := unlinkXdp(nspath, mode); rbErr != nil {
+			return fmt.Errorf("tc: %w; rollback xdp: %v", err, rbErr)
+		}
 		return fmt.Errorf("tc: %w", err)
 	}
 	return nil
@@ -418,13 +431,14 @@ func attachPod(nspath string, xdpProgFd, tcProgFd int, mode string) error {
 
 // detachPod removes the xdp and tc programs previously attached by attachPod.
 func detachPod(nspath string, tcProgFd int, mode string) error {
+	var errs []error
 	if err := unlinkXdp(nspath, mode); err != nil {
-		return fmt.Errorf("xdp: %w", err)
+		errs = append(errs, fmt.Errorf("xdp: %w", err))
 	}
 	if err := unlinkTc(nspath, tcProgFd); err != nil {
-		return fmt.Errorf("tc: %w", err)
+		errs = append(errs, fmt.Errorf("tc: %w", err))
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 func sendCertRequest(security *kmeshsecurity.SecretManager, pod *corev1.Pod, op int) {

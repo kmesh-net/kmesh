@@ -207,14 +207,25 @@ func simulateQueueItem(t *testing.T, controller *KmeshManageController, item int
 		if !utils.ShouldEnroll(pod, namespace) {
 			return
 		}
-		nspath, _ := kmeshns.GetPodNSpath(pod)
+		nspath, err := kmeshns.GetPodNSpath(pod)
+		if err != nil {
+			t.Errorf("failed to get netns path for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
+		}
 		if err := attachPod(nspath, controller.xdpProgFd, controller.tcProgFd, controller.mode); err != nil {
 			t.Errorf("failed to attach pod %s/%s: %v", pod.Namespace, pod.Name, err)
 			return
 		}
 		simulateQueueItem(t, controller, QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
 	case ActionDetach:
-		nspath, _ := kmeshns.GetPodNSpath(pod)
+		if utils.ShouldEnroll(pod, namespace) {
+			return
+		}
+		nspath, err := kmeshns.GetPodNSpath(pod)
+		if err != nil {
+			t.Errorf("failed to get netns path for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
+		}
 		if err := detachPod(nspath, controller.tcProgFd, controller.mode); err != nil {
 			t.Errorf("failed to detach pod %s/%s: %v", pod.Namespace, pod.Name, err)
 			return
