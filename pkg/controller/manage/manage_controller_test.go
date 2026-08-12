@@ -292,6 +292,14 @@ func TestHandleKmeshManage(t *testing.T) {
 		return nil
 	})
 
+	// simulateQueueItem drives the real ActionAttach/ActionDetach branches, which call
+	// GetPodNSpath. Test pods have no real network namespace on disk, so the real
+	// implementation would fail here regardless of attach/detach outcome; mock it the
+	// same way attachPod/detachPod are mocked elsewhere in this file.
+	patches.ApplyFunc(kmeshns.GetPodNSpath, func(*corev1.Pod) (string, error) {
+		return "/proc/1/ns/net", nil
+	})
+
 	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
 		simulateQueueItem(t, controller, item)
 	})
@@ -499,6 +507,15 @@ func TestSyncPodAttachGating(t *testing.T) {
 	_, err = client.CoreV1().Namespaces().Create(context.TODO(), nsWithoutLabel, metav1.CreateOptions{})
 	require.NoError(t, err)
 
+	// syncPod's ActionAttach/ActionDetach branches call GetPodNSpath before attachPod/
+	// detachPod. Test pods have no real network namespace on disk, so the real
+	// implementation would fail regardless of the injected attach/detach outcome below.
+	nsPatches := gomonkey.NewPatches()
+	defer nsPatches.Reset()
+	nsPatches.ApplyFunc(kmeshns.GetPodNSpath, func(*corev1.Pod) (string, error) {
+		return "/proc/1/ns/net", nil
+	})
+
 	// createSyncedPod creates pod through the fake clientset (not the informer store
 	// directly, since the informer's reflector would just evict a store-only entry on
 	// its next relist, and syncPod's PatchKmeshRedirectAnnotation/DelKmeshRedirectAnnotation
@@ -617,6 +634,14 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 			disabled.Store(true)
 		}
 		return nil
+	})
+
+	// simulateQueueItem drives the real ActionAttach/ActionDetach branches, which call
+	// GetPodNSpath. Test pods have no real network namespace on disk, so the real
+	// implementation would fail here regardless of attach/detach outcome; mock it the
+	// same way attachPod/detachPod are mocked elsewhere in this file.
+	patches.ApplyFunc(kmeshns.GetPodNSpath, func(*corev1.Pod) (string, error) {
+		return "/proc/1/ns/net", nil
 	})
 
 	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
