@@ -57,6 +57,14 @@ const (
 	// ActionDetach removes the xdp/tc programs. Only once this succeeds is the pod queued
 	// for ActionDeleteAnnotation.
 	ActionDetach = "detach"
+	// MaxAttachRetries governs ActionAttach/ActionDetach specifically. Unlike the
+	// annotation actions, these represent real dataplane enforcement state: giving up
+	// after a handful of retries at the queue's starting backoff (5ms, doubling) gives
+	// up in about 150ms of cumulative delay, which is far too fast for the transient
+	// failures expected here (netns not visible yet, interface still coming up, a slow
+	// or contended node) and nothing else re-triggers the attempt afterwards, leaving
+	// the pod silently unenforced. Retry for much longer before giving up.
+	MaxAttachRetries = 20
 )
 
 type QueueItem struct {
@@ -343,11 +351,15 @@ func (c *KmeshManageController) processItems() bool {
 	}
 
 	if err := c.syncPod(queueItem); err != nil {
-		if c.queue.NumRequeues(key) < MaxRetries {
+		maxRetries := MaxRetries
+		if queueItem.action == ActionAttach || queueItem.action == ActionDetach {
+			maxRetries = MaxAttachRetries
+		}
+		if c.queue.NumRequeues(key) < maxRetries {
 			log.Errorf("failed to handle pod %s/%s action %s, err: %v, will retry", queueItem.podNs, queueItem.podName, queueItem.action, err)
 			c.queue.AddRateLimited(key)
 		} else {
-			log.Errorf("failed to handle pod %s/%s action %s after %d retries, err: %v, giving up", queueItem.podNs, queueItem.podName, queueItem.action, MaxRetries, err)
+			log.Errorf("failed to handle pod %s/%s action %s after %d retries, err: %v, giving up", queueItem.podNs, queueItem.podName, queueItem.action, maxRetries, err)
 			c.queue.Forget(key)
 		}
 		return true
