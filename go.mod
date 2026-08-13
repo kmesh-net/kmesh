@@ -18,6 +18,7 @@ require (
 	github.com/golang/protobuf v1.5.4
 	github.com/google/go-cmp v0.7.0
 	github.com/hashicorp/go-multierror v1.1.1
+	github.com/mark3labs/mcp-go v0.8.3
 	github.com/miekg/dns v1.1.66
 	github.com/prometheus/client_golang v1.21.0
 	github.com/prometheus/common v0.62.0
