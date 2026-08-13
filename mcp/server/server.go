@@ -2,6 +2,8 @@ package server
 
 import (
 	"github.com/mark3labs/mcp-go/server"
+
+	"kmesh.net/kmesh/mcp/tools/daemon"
 )
 
 type KmeshMCPServer struct {
@@ -12,7 +14,8 @@ func NewKmeshMCPServer() *KmeshMCPServer {
 	// Initialize the MCP server
 	srv := server.NewMCPServer("kmesh-mcp-server", "1.0.0")
 
-	// We'll register tools here later
+	// Register tools
+	daemon.Register(srv)
 
 	return &KmeshMCPServer{
 		server: srv,
