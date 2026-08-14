@@ -87,10 +87,17 @@ func GetJson(url string, val any) error {
 	return nil
 }
 
-func GetLoggerNames(url string) {
+func GetLoggerNames(cmd *cobra.Command, url string) {
 	var loggerNames []string
 	if err := GetJson(url, &loggerNames); err != nil {
 		log.Errorf("failed to get logger names: %v", err)
+		return
+	}
+
+	if handled, err := utils.PrintOutput(cmd, loggerNames); err != nil {
+		log.Errorf("failed to print output: %v", err)
+		os.Exit(1)
+	} else if handled {
 		return
 	}
 
@@ -100,10 +107,17 @@ func GetLoggerNames(url string) {
 	}
 }
 
-func GetLoggerLevel(url string) {
+func GetLoggerLevel(cmd *cobra.Command, url string) {
 	var loggerInfo LoggerInfo
 	if err := GetJson(url, &loggerInfo); err != nil {
 		log.Errorf("failed to get logger level: %v", err)
+		return
+	}
+
+	if handled, err := utils.PrintOutput(cmd, loggerInfo); err != nil {
+		log.Errorf("failed to print output: %v", err)
+		os.Exit(1)
+	} else if handled {
 		return
 	}
 
@@ -182,9 +196,9 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 	if setFlag == "" {
 		if len(args) >= 2 {
 			url += fmt.Sprintf("?name=%s", args[1])
-			GetLoggerLevel(url)
+			GetLoggerLevel(cmd, url)
 		} else {
-			GetLoggerNames(url)
+			GetLoggerNames(cmd, url)
 		}
 	} else {
 		SetLoggerLevel(url, setFlag)

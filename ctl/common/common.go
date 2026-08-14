@@ -38,6 +38,8 @@ func GetRootCommand() *cobra.Command {
 		},
 	}
 
+	rootCmd.PersistentFlags().StringP("output", "o", "", "Output format. One of: json|yaml")
+
 	rootCmd.AddCommand(logcmd.NewCmd())
 	rootCmd.AddCommand(dump.NewCmd())
 	rootCmd.AddCommand(waypoint.NewCmd())
