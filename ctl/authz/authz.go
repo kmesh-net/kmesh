@@ -113,11 +113,11 @@ func NewStatusCmd() *cobra.Command {
 			}
 
 			// Prepare a slice of podStatuses. We can pre-allocate since we know how many pods we'll check.
-			type podStatus struct {
-				Pod    string
-				Status string
+			type PodStatus struct {
+				Pod    string `json:"pod"`
+				Status string `json:"status"`
 			}
-			statuses := make([]podStatus, 0, len(podNames))
+			statuses := make([]PodStatus, 0, len(podNames))
 
 			// Collect the status for each pod.
 			for _, podName := range podNames {
@@ -126,7 +126,14 @@ func NewStatusCmd() *cobra.Command {
 					log.Errorf("failed to get authz status for pod %s: %v", podName, err)
 					continue
 				}
-				statuses = append(statuses, podStatus{Pod: podName, Status: status})
+				statuses = append(statuses, PodStatus{Pod: podName, Status: status})
+			}
+
+			if handled, err := utils.PrintOutput(cmd, statuses); err != nil {
+				log.Errorf("failed to print output: %v", err)
+				os.Exit(1)
+			} else if handled {
+				return
 			}
 
 			// Output the results in a table format.

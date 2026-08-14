@@ -85,7 +85,7 @@ kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | 
 kmeshctl secret get`,
 		Args: cobra.NoArgs,
 		Run: func(cmd *cobra.Command, args []string) {
-			GetSecret()
+			GetSecret(cmd)
 		},
 	}
 
@@ -198,7 +198,7 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 	}
 }
 
-func GetSecret() {
+func GetSecret(cmd *cobra.Command) {
 	secret, err := clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Get(context.TODO(), SecretName, metav1.GetOptions{})
 	if err != nil {
 		if apierrors.IsNotFound(err) {
@@ -232,6 +232,13 @@ func GetSecret() {
 		AeadKeyName: ipSecKey.AeadKeyName,
 		AeadKey:     hex.EncodeToString(ipSecKey.AeadKey),
 		Length:      ipSecKey.Length,
+	}
+
+	if handled, err := utils.PrintOutput(cmd, displayKey); err != nil {
+		log.Errorf("failed to print output: %v", err)
+		os.Exit(1)
+	} else if handled {
+		return
 	}
 
 	displayData, err := json.MarshalIndent(displayKey, "", "  ")
