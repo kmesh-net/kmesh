@@ -4,6 +4,7 @@ import (
 	"github.com/mark3labs/mcp-go/server"
 
 	"kmesh.net/kmesh/mcp/tools/daemon"
+	"kmesh.net/kmesh/mcp/tools/log"
 )
 
 type KmeshMCPServer struct {
@@ -16,6 +17,7 @@ func NewKmeshMCPServer() *KmeshMCPServer {
 
 	// Register tools
 	daemon.Register(srv)
+	log.Register(srv)
 
 	return &KmeshMCPServer{
 		server: srv,
