@@ -89,6 +89,7 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
 		os.Exit(1)
 	}
+	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), configDumpPrefix, mode)
 	resp, err := http.Get(url)
