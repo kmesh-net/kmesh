@@ -58,6 +58,31 @@ spec:
         image: {{ .Values.deploy.kmesh.image.repository }}:{{ .Values.deploy.kmesh.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.deploy.kmesh.imagePullPolicy }}
         name: kmesh
+        # The kmesh-daemon admin/status server (bpf/xds status, log level, debug
+        # endpoints) only starts listening on 15200 after BPF loading and the XDS
+        # controller have finished initializing - it is not up the instant the
+        # container process starts. Kubernetes only ever reports Pod phase
+        # "Running" the moment the process is exec'd, which is well before that.
+        # Without this probe there is no way for anything outside the process
+        # (kubectl wait, kmeshctl, other tooling) to tell those two moments apart.
+        # readyProbe (pkg/status/status_server.go) is a cheap, unconditional 200 OK
+        # once the server is listening, so this simply reports the true moment the
+        # admin port becomes reachable. It intentionally uses an exec probe rather
+        # than httpGet/tcpSocket: the admin server binds to "localhost:15200" only
+        # (not 0.0.0.0), by design, so it is not reachable from the pod IP that
+        # httpGet/tcpSocket probes target - only from inside the pod's own network
+        # namespace, which is what exec probes run in.
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "cat < /dev/null > /dev/tcp/127.0.0.1/15200"
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          timeoutSeconds: 2
+          failureThreshold: 3
+          successThreshold: 1
         resources: {{- toYaml .Values.deploy.kmesh.resources | nindent 10 }}
         securityContext:
           privileged: true
