@@ -28,12 +28,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
-)
-
-const (
-	patternAuthz = "/authz"
 )
 
 var log = logger.NewLoggerScope("kmeshctl/authz")
@@ -184,7 +181,7 @@ func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), patternAuthz, info)
+	url := fmt.Sprintf("http://%s%s?enable=%s", fw.Address(), constants.AdminPathAuthz, info)
 
 	req, err := http.NewRequest(http.MethodPost, url, nil)
 	if err != nil {
@@ -219,7 +216,7 @@ func fetchAuthzStatus(cli kube.CLIClient, podName string) (string, error) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s", fw.Address(), patternAuthz)
+	url := fmt.Sprintf("http://%s%s", fw.Address(), constants.AdminPathAuthz)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

@@ -36,10 +36,6 @@ import (
 	"kmesh.net/kmesh/pkg/logger"
 )
 
-const (
-	configDumpPrefix = "/debug/config_dump"
-)
-
 var log = logger.NewLoggerScope("kmeshctl/dump")
 
 func NewCmd() *cobra.Command {
@@ -89,7 +85,7 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
 
-	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), configDumpPrefix, mode)
+	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), constants.AdminPathConfigDumpPrefix, mode)
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)

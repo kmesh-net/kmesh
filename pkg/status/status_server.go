@@ -47,20 +47,6 @@ var log = logger.NewLoggerScope("status")
 const (
 	adminAddr = "localhost:15200"
 
-	patternVersion            = "/version"
-	patternBpfAdsMaps         = "/debug/config_dump/bpf/kernel-native"
-	patternBpfWorkloadMaps    = "/debug/config_dump/bpf/dual-engine"
-	configDumpPrefix          = "/debug/config_dump"
-	patternConfigDumpAds      = configDumpPrefix + "/kernel-native"
-	patternConfigDumpWorkload = configDumpPrefix + "/dual-engine"
-	patternReadyProbe         = "/debug/ready"
-	patternLoggers            = "/debug/loggers"
-	patternAccesslog          = "/accesslog"
-	patternMonitoring         = "/monitoring"
-	patternWorkloadMetrics    = "/workload_metrics"
-	patternConnectionMetrics  = "/connection_metrics"
-	patternAuthz              = "/authz"
-
 	bpfLoggerName = "bpf"
 
 	httpTimeout = time.Second * 20
@@ -90,20 +76,20 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 		WriteTimeout: httpTimeout,
 	}
 
-	s.mux.HandleFunc(patternVersion, s.version)
-	s.mux.HandleFunc(patternBpfAdsMaps, s.bpfAdsMaps)
-	s.mux.HandleFunc(patternBpfWorkloadMaps, s.bpfWorkloadMaps)
-	s.mux.HandleFunc(patternConfigDumpAds, s.configDumpAds)
-	s.mux.HandleFunc(patternConfigDumpWorkload, s.configDumpWorkload)
-	s.mux.HandleFunc(patternLoggers, s.loggersHandler)
-	s.mux.HandleFunc(patternAccesslog, s.accesslogHandler)
-	s.mux.HandleFunc(patternMonitoring, s.monitoringHandler)
-	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
-	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
-	s.mux.HandleFunc(patternAuthz, s.authzHandler)
+	s.mux.HandleFunc(constants.AdminPathVersion, s.version)
+	s.mux.HandleFunc(constants.AdminPathBpfAdsMaps, s.bpfAdsMaps)
+	s.mux.HandleFunc(constants.AdminPathBpfWorkloadMaps, s.bpfWorkloadMaps)
+	s.mux.HandleFunc(constants.AdminPathConfigDumpAds, s.configDumpAds)
+	s.mux.HandleFunc(constants.AdminPathConfigDumpWorkload, s.configDumpWorkload)
+	s.mux.HandleFunc(constants.AdminPathLoggers, s.loggersHandler)
+	s.mux.HandleFunc(constants.AdminPathAccesslog, s.accesslogHandler)
+	s.mux.HandleFunc(constants.AdminPathMonitoring, s.monitoringHandler)
+	s.mux.HandleFunc(constants.AdminPathWorkloadMetrics, s.workloadMetricHandler)
+	s.mux.HandleFunc(constants.AdminPathConnectionMetrics, s.connectionMetricHandler)
+	s.mux.HandleFunc(constants.AdminPathAuthz, s.authzHandler)
 
 	// TODO: add dump certificate, authorizationPolicies and services
-	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
+	s.mux.HandleFunc(constants.AdminPathReadyProbe, s.readyProbe)
 
 	// support pprof
 	s.mux.HandleFunc("/debug/pprof/", pprof.Index)

@@ -28,15 +28,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
-)
-
-const (
-	patternAccesslog         = "/accesslog"
-	patternMonitoring        = "/monitoring"
-	patternWorkloadMetrics   = "/workload_metrics"
-	patternConnectionMetrics = "/connection_metrics"
 )
 
 // Different types of monitoring
@@ -108,16 +102,16 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 	if hasKmeshPod {
 		// Processes triggers for specified kmesh daemon.
 		if allFlag != "" {
-			SetObservabilityPerKmeshDaemon(client, podName, allFlag, MONITORING, patternMonitoring)
+			SetObservabilityPerKmeshDaemon(client, podName, allFlag, MONITORING, constants.AdminPathMonitoring)
 		}
 		if accesslogFlag != "" {
-			SetObservabilityPerKmeshDaemon(client, podName, accesslogFlag, ACCESSLOG, patternAccesslog)
+			SetObservabilityPerKmeshDaemon(client, podName, accesslogFlag, ACCESSLOG, constants.AdminPathAccesslog)
 		}
 		if workloadMetricsFlag != "" {
-			SetObservabilityPerKmeshDaemon(client, podName, workloadMetricsFlag, WORKLOAD, patternWorkloadMetrics)
+			SetObservabilityPerKmeshDaemon(client, podName, workloadMetricsFlag, WORKLOAD, constants.AdminPathWorkloadMetrics)
 		}
 		if connectionMetricsFlag != "" {
-			SetObservabilityPerKmeshDaemon(client, podName, connectionMetricsFlag, CONNECTION, patternConnectionMetrics)
+			SetObservabilityPerKmeshDaemon(client, podName, connectionMetricsFlag, CONNECTION, constants.AdminPathConnectionMetrics)
 		}
 	} else {
 		// Perform operations on all kmesh daemons.
@@ -128,16 +122,16 @@ func ControlMonitoring(cmd *cobra.Command, args []string) {
 		}
 		for _, pod := range podList.Items {
 			if allFlag != "" {
-				SetObservabilityPerKmeshDaemon(client, pod.GetName(), allFlag, MONITORING, patternMonitoring)
+				SetObservabilityPerKmeshDaemon(client, pod.GetName(), allFlag, MONITORING, constants.AdminPathMonitoring)
 			}
 			if accesslogFlag != "" {
-				SetObservabilityPerKmeshDaemon(client, pod.GetName(), accesslogFlag, ACCESSLOG, patternAccesslog)
+				SetObservabilityPerKmeshDaemon(client, pod.GetName(), accesslogFlag, ACCESSLOG, constants.AdminPathAccesslog)
 			}
 			if workloadMetricsFlag != "" {
-				SetObservabilityPerKmeshDaemon(client, pod.GetName(), workloadMetricsFlag, WORKLOAD, patternWorkloadMetrics)
+				SetObservabilityPerKmeshDaemon(client, pod.GetName(), workloadMetricsFlag, WORKLOAD, constants.AdminPathWorkloadMetrics)
 			}
 			if connectionMetricsFlag != "" {
-				SetObservabilityPerKmeshDaemon(client, pod.GetName(), connectionMetricsFlag, CONNECTION, patternConnectionMetrics)
+				SetObservabilityPerKmeshDaemon(client, pod.GetName(), connectionMetricsFlag, CONNECTION, constants.AdminPathConnectionMetrics)
 			}
 		}
 	}

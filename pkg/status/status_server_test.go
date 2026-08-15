@@ -62,7 +62,7 @@ func TestServer_getLoggerLevel(t *testing.T) {
 	}
 	loggerNames := logger.GetLoggerNames()
 	for _, loggerName := range loggerNames {
-		getLoggerUrl := patternLoggers + "?name=" + loggerName
+		getLoggerUrl := constants.AdminPathLoggers + "?name=" + loggerName
 		req := httptest.NewRequest(http.MethodGet, getLoggerUrl, nil)
 		w := httptest.NewRecorder()
 		server.getLoggerLevel(w, req)
@@ -80,7 +80,7 @@ func TestServer_getLoggerLevel(t *testing.T) {
 		assert.Equal(t, loggerInfo.Name, loggerName)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, patternLoggers, nil)
+	req := httptest.NewRequest(http.MethodGet, constants.AdminPathLoggers, nil)
 	w := httptest.NewRecorder()
 	server.getLoggerLevel(w, req)
 
@@ -114,7 +114,7 @@ func TestServer_setLoggerLevel(t *testing.T) {
 		logrus.TraceLevel.String(),
 	}
 	for _, loggerName := range loggerNames {
-		setLoggerUrl := patternLoggers
+		setLoggerUrl := constants.AdminPathLoggers
 		for _, testLoggerLevel := range testLoggerLevels {
 			loggerInfo := LoggerInfo{
 				Name:  loggerName,
@@ -365,7 +365,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 
 		// ads mode will failed
 		server := &Server{}
-		req := httptest.NewRequest(http.MethodPost, patternBpfWorkloadMaps, nil)
+		req := httptest.NewRequest(http.MethodPost, constants.AdminPathBpfWorkloadMaps, nil)
 		w := httptest.NewRecorder()
 		server.configDumpWorkload(w, req)
 
@@ -440,7 +440,7 @@ func TestServer_dumpWorkloadBpfMap(t *testing.T) {
 		_, err = bpfMaps.KmService.BatchUpdate(testServiceKeys, testServiceVals, nil)
 		assert.Nil(t, err)
 
-		req := httptest.NewRequest(http.MethodPost, patternBpfWorkloadMaps, nil)
+		req := httptest.NewRequest(http.MethodPost, constants.AdminPathBpfWorkloadMaps, nil)
 		w := httptest.NewRecorder()
 		server.bpfWorkloadMaps(w, req)
 		body, err := io.ReadAll(w.Body)
@@ -470,7 +470,7 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 
 		// dual engine mode will fail
 		server := &Server{}
-		req := httptest.NewRequest(http.MethodGet, patternBpfWorkloadMaps, nil)
+		req := httptest.NewRequest(http.MethodGet, constants.AdminPathBpfWorkloadMaps, nil)
 		w := httptest.NewRecorder()
 		server.configDumpWorkload(w, req)
 
@@ -515,7 +515,7 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 			maps_v2.ListenerUpdate(testListenerKey, testListener)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, patternBpfAdsMaps, nil)
+		req := httptest.NewRequest(http.MethodGet, constants.AdminPathBpfAdsMaps, nil)
 		w := httptest.NewRecorder()
 		server.bpfAdsMaps(w, req)
 		body, err := io.ReadAll(w.Body)
@@ -553,26 +553,26 @@ func TestServerMetricHandler(t *testing.T) {
 		server.xdsClient.WorkloadController.MetricController.EnableConnectionMetric.Store(true)
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
 
-		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "true")
+		url := fmt.Sprintf("%s?enable=%s", constants.AdminPathMonitoring, "true")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
 		w := httptest.NewRecorder()
 		server.monitoringHandler(w, req)
 
-		url = fmt.Sprintf("%s?enable=%s", patternAccesslog, "false")
+		url = fmt.Sprintf("%s?enable=%s", constants.AdminPathAccesslog, "false")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.accesslogHandler(w, req)
 
 		assert.Equal(t, false, server.xdsClient.WorkloadController.GetAccesslogTrigger())
 
-		url = fmt.Sprintf("%s?enable=%s", patternWorkloadMetrics, "false")
+		url = fmt.Sprintf("%s?enable=%s", constants.AdminPathWorkloadMetrics, "false")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.workloadMetricHandler(w, req)
 
 		assert.Equal(t, false, server.xdsClient.WorkloadController.GetWorklaodMetricTrigger())
 
-		url = fmt.Sprintf("%s?enable=%s", patternConnectionMetrics, "false")
+		url = fmt.Sprintf("%s?enable=%s", constants.AdminPathConnectionMetrics, "false")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.connectionMetricHandler(w, req)
@@ -600,28 +600,28 @@ func TestServerMetricHandler(t *testing.T) {
 
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
 
-		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "false")
+		url := fmt.Sprintf("%s?enable=%s", constants.AdminPathMonitoring, "false")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
 		w := httptest.NewRecorder()
 		server.monitoringHandler(w, req)
 
 		assert.Equal(t, false, server.xdsClient.WorkloadController.GetMonitoringTrigger())
 
-		url = fmt.Sprintf("%s?enable=%s", patternAccesslog, "true")
+		url = fmt.Sprintf("%s?enable=%s", constants.AdminPathAccesslog, "true")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.accesslogHandler(w, req)
 
 		assert.Equal(t, false, server.xdsClient.WorkloadController.GetAccesslogTrigger())
 
-		url = fmt.Sprintf("%s?enable=%s", patternWorkloadMetrics, "true")
+		url = fmt.Sprintf("%s?enable=%s", constants.AdminPathWorkloadMetrics, "true")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.workloadMetricHandler(w, req)
 
 		assert.Equal(t, false, server.xdsClient.WorkloadController.GetWorklaodMetricTrigger())
 
-		url = fmt.Sprintf("%s?enable=%s", patternConnectionMetrics, "true")
+		url = fmt.Sprintf("%s?enable=%s", constants.AdminPathConnectionMetrics, "true")
 		req = httptest.NewRequest(http.MethodPost, url, nil)
 		w = httptest.NewRecorder()
 		server.connectionMetricHandler(w, req)
@@ -651,7 +651,7 @@ func TestServerMonitoringHandler(t *testing.T) {
 		server.xdsClient.WorkloadController.MetricController.EnableMonitoring.Store(false)
 		server.xdsClient.WorkloadController.MetricController.EnableAccesslog.Store(false)
 
-		url := fmt.Sprintf("%s?enable=%s", patternMonitoring, "true")
+		url := fmt.Sprintf("%s?enable=%s", constants.AdminPathMonitoring, "true")
 		req := httptest.NewRequest(http.MethodPost, url, nil)
 		w := httptest.NewRecorder()
 		server.monitoringHandler(w, req)

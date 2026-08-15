@@ -28,11 +28,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/logger"
-)
-
-const (
-	patternLoggers = "/debug/loggers"
 )
 
 var log = logger.NewLoggerScope("kmeshctl/log")
@@ -176,7 +173,7 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
+	url := fmt.Sprintf("http://%s%s", fw.Address(), constants.AdminPathLoggers)
 
 	setFlag, _ := cmd.Flags().GetString("set")
 	if setFlag == "" {

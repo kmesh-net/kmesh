@@ -29,6 +29,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/version"
@@ -118,7 +119,7 @@ func getVersion(client kube.CLIClient, podName string) (version version.Info) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s/version", fw.Address())
+	url := fmt.Sprintf("http://%s%s", fw.Address(), constants.AdminPathVersion)
 	resp, err := http.Get(url)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)
