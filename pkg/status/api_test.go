@@ -98,6 +98,7 @@ func TestConvertServiceOmitsEmptyWaypointInJSON(t *testing.T) {
 
 	assert.Contains(t, decoded, "waypoint")
 	assert.Nil(t, decoded["waypoint"])
+	assert.Contains(t, decoded, "loadBalancer")
 	assert.Nil(t, decoded["loadBalancer"])
 }
 
