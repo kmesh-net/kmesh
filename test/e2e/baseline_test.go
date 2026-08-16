@@ -839,7 +839,9 @@ func runTestToServiceWaypoint(t framework.TestContext, f func(t framework.TestCo
 			return
 		}
 		if src.Config().HasSidecar() {
-			// TODO: sidecars do not currently respect waypoints
+			// Sidecar -> waypoint interop is not fully supported in the Istio
+			// version used by these E2E tests. Keep this skipped until
+			// upstream issue https://github.com/istio/istio/issues/51445 is resolved.
 			t.Skip("https://github.com/istio/istio/issues/51445")
 		}
 		f(t, src, dst, opt)
