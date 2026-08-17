@@ -142,3 +142,32 @@ func TestDNS(t *testing.T) {
 	}
 	wg.Wait()
 }
+
+// resolve() writes entry.Addresses after taking only RLock, so two resolves for
+// the same domain running at once race on that write. Catches it under -race.
+func TestResolveConcurrentSameDomain(t *testing.T) {
+	fakeDNSServer := NewFakeDNSServer()
+	fakeDNSServer.SetHosts("concurrent.test.", 9)
+
+	r, err := NewDNSResolver()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dnsServer := fakeDNSServer.Server.PacketConn.LocalAddr().String()
+	r.delegates = []Resolver{NewUpstreamResolver(dnsServer)}
+
+	domain := "concurrent.test."
+	r.Lock()
+	r.cache[domain] = &DomainCacheEntry{}
+	r.Unlock()
+
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			_, _, _ = r.resolve(domain)
+		}()
+	}
+	wg.Wait()
+}
