@@ -77,9 +77,10 @@ type Processor struct {
 	handlers map[string][]func(resp *service_discovery_v3.DeltaDiscoveryResponse) error
 
 	DnsResolverChan       chan *workloadapi.Workload
-	ResolvedDomainChanMap map[string]chan *workloadapi.Workload
+	ResolvedDomainChanMap *sync.Map
 	// Callback to remove workload from DNS cache when workload is deleted
-	onWorkloadDeleted func(workloadName string)
+	onWorkloadDeleted func(uid string)
+	sync.Mutex
 }
 
 func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
@@ -101,6 +102,8 @@ func NewProcessor(workloadMap bpf2go.KmeshCgroupSockWorkloadMaps) *Processor {
 }
 
 func (p *Processor) WithResourceHandlers(typeUrl string, h ...func(resp *service_discovery_v3.DeltaDiscoveryResponse) error) *Processor {
+	p.Lock()
+	defer p.Unlock()
 	p.handlers[typeUrl] = append(p.handlers[typeUrl], h...)
 	return p
 }
@@ -248,14 +251,14 @@ func (p *Processor) removeWorkloadResources(removedResources []string) error {
 
 func (p *Processor) removeWorkload(uid string) error {
 	p.WaypointCache.DeleteWorkload(uid)
+	// Clean up DNS cache for this workload if it was pending DNS resolution
+	if p.onWorkloadDeleted != nil {
+		p.onWorkloadDeleted(uid)
+	}
+
 	wl := p.WorkloadCache.GetWorkloadByUid(uid)
 	if wl == nil {
 		return nil
-	}
-
-	// Clean up DNS cache for this workload if it was pending DNS resolution
-	if p.onWorkloadDeleted != nil && wl.GetName() != "" {
-		p.onWorkloadDeleted(wl.GetName())
 	}
 
 	p.WorkloadCache.DeleteWorkload(uid)
@@ -959,26 +962,12 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 			}
 
 			uid := workload.GetUid()
-			p.ResolvedDomainChanMap[uid] = make(chan *workloadapi.Workload)
+			// We no longer block and wait for DNS resolution here. Instead, we skip
+			// processing this workload for now and let the DNS controller call the
+			// OnResolved callback once it's resolved.
 			p.DnsResolverChan <- workload
-			log.Infof("waiting for DNS resolution: %s/%s/%s", workload.Namespace, workload.Name, uid)
-
-			select {
-			case <-time.After(dnsResolveTimeout):
-				log.Warnf("DNS resolution timeout for workload %s/%s/%s, skip handling", workload.Namespace, workload.Name, uid)
-				if ch, ok := p.ResolvedDomainChanMap[uid]; ok {
-					close(ch)
-					delete(p.ResolvedDomainChanMap, uid)
-				}
-				continue
-			case newWorkload := <-p.ResolvedDomainChanMap[uid]:
-				if newWorkload == nil || newWorkload.GetAddresses() == nil {
-					log.Warnf("workload %s/%s resolved addresses is nil, skip handling", workload.Namespace, workload.Name)
-					continue
-				}
-				log.Infof("workload %s/%s addresses resolved: %v", newWorkload.Namespace, newWorkload.Name, newWorkload.Addresses)
-				workload = newWorkload
-			}
+			log.Infof("triggered asynchronous DNS resolution for workload: %s/%s/%s", workload.Namespace, workload.Name, uid)
+			continue
 		}
 
 		if err := p.handleWorkload(workload); err != nil {
