@@ -157,13 +157,13 @@ func addIptables(ns string) error {
 		}
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
-				return fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
+				return fmt.Errorf("failed to exec command: iptables %v, err: %w", args, err)
 			}
 		}
 		return nil
 	}
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
+		return fmt.Errorf("enter namespace path: %v, run command failed: %w", ns, err)
 	}
 	return nil
 }
@@ -178,7 +178,7 @@ func deleteIptables(ns string) error {
 		log.Infof("Running delete iptables rule in namespace:%s", ns)
 		for _, args := range iptArgs {
 			if err := utils.Execute("iptables", args); err != nil {
-				err = fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
+				err = fmt.Errorf("failed to exec command: iptables %v, err: %w", args, err)
 				log.Error(err)
 				return err
 			}
@@ -187,7 +187,7 @@ func deleteIptables(ns string) error {
 	}
 
 	if err := netns.WithNetNSPath(ns, execFunc); err != nil {
-		return fmt.Errorf("enter namespace path: %v, run command failed: %v", ns, err)
+		return fmt.Errorf("enter namespace path: %v, run command failed: %w", ns, err)
 	}
 	return nil
 }

@@ -149,7 +149,7 @@ func getMapEntryCountFallback(m *ebpf.Map) (uint32, error) {
 		entryCount++
 	}
 	if err := iterator.Err(); err != nil {
-		return 0, fmt.Errorf("failed during map iteration: %v", err)
+		return 0, fmt.Errorf("failed during map iteration: %w", err)
 	}
 	return entryCount, nil
 }
