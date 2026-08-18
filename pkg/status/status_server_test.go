@@ -662,3 +662,188 @@ func TestServerMonitoringHandler(t *testing.T) {
 		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})
 }
+
+func TestServer_readyProbe(t *testing.T) {
+	t.Run("all components healthy - dual engine mode", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, loader := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			config: &options.BootstrapConfigs{
+				BpfConfig: &config,
+			},
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					Processor: workload.NewProcessor(loader.GetBpfWorkload().SockConn.KmeshCgroupSockWorkloadObjects.KmeshCgroupSockWorkloadMaps),
+				},
+			},
+			loader: loader,
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternReadyProbe, nil)
+		w := httptest.NewRecorder()
+		server.readyProbe(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response ReadinessResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.Nil(t, err)
+		assert.True(t, response.Ready)
+		assert.Equal(t, 2, len(response.Components))
+
+		// Check BPF loader component
+		bpfComponent := response.Components[0]
+		assert.Equal(t, "bpf_loader", bpfComponent.Name)
+		assert.True(t, bpfComponent.Healthy)
+
+		// Check XDS controller component
+		xdsComponent := response.Components[1]
+		assert.Equal(t, "xds_controller", xdsComponent.Name)
+		assert.True(t, xdsComponent.Healthy)
+	})
+
+	t.Run("bpf loader not initialized", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+
+		server := &Server{
+			config: &options.BootstrapConfigs{
+				BpfConfig: &config,
+			},
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{},
+			},
+			loader: nil, // BPF loader not initialized
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternReadyProbe, nil)
+		w := httptest.NewRecorder()
+		server.readyProbe(w, req)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+		var response ReadinessResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.Nil(t, err)
+		assert.False(t, response.Ready)
+		assert.Equal(t, 2, len(response.Components))
+
+		// Check BPF loader component
+		bpfComponent := response.Components[0]
+		assert.Equal(t, "bpf_loader", bpfComponent.Name)
+		assert.False(t, bpfComponent.Healthy)
+		assert.Equal(t, "BPF loader not initialized", bpfComponent.Message)
+	})
+
+	t.Run("xds controller not initialized", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, loader := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			config: &options.BootstrapConfigs{
+				BpfConfig: &config,
+			},
+			xdsClient: nil, // XDS client not initialized
+			loader:    loader,
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternReadyProbe, nil)
+		w := httptest.NewRecorder()
+		server.readyProbe(w, req)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+		var response ReadinessResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.Nil(t, err)
+		assert.False(t, response.Ready)
+
+		// Check XDS controller component
+		xdsComponent := response.Components[1]
+		assert.Equal(t, "xds_controller", xdsComponent.Name)
+		assert.False(t, xdsComponent.Healthy)
+		assert.Equal(t, "XDS client not initialized", xdsComponent.Message)
+	})
+
+	t.Run("all components missing", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+
+		server := &Server{
+			config: &options.BootstrapConfigs{
+				BpfConfig: &config,
+			},
+			xdsClient: nil,
+			loader:    nil,
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternReadyProbe, nil)
+		w := httptest.NewRecorder()
+		server.readyProbe(w, req)
+
+		assert.Equal(t, http.StatusServiceUnavailable, w.Code)
+
+		var response ReadinessResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.Nil(t, err)
+		assert.False(t, response.Ready)
+		assert.Equal(t, 2, len(response.Components))
+
+		// Both components should be unhealthy
+		assert.False(t, response.Components[0].Healthy)
+		assert.False(t, response.Components[1].Healthy)
+	})
+
+	t.Run("kernel native mode - all healthy", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.KernelNativeMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, loader := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			config: &options.BootstrapConfigs{
+				BpfConfig: &config,
+			},
+			xdsClient: &controller.XdsClient{
+				AdsController: ads.NewController(loader.GetBpfKmesh()),
+			},
+			loader: loader,
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternReadyProbe, nil)
+		w := httptest.NewRecorder()
+		server.readyProbe(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		var response ReadinessResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.Nil(t, err)
+		assert.True(t, response.Ready)
+		assert.Equal(t, 2, len(response.Components))
+
+		// Check both components are healthy
+		assert.True(t, response.Components[0].Healthy)
+		assert.True(t, response.Components[1].Healthy)
+	})
+}
