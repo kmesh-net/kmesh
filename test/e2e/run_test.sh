@@ -186,28 +186,28 @@ function setup_kmesh() {
 	for POD in $PODS; do
 		echo "turn on the debug mode of the log for pod $POD"
 		# Set BPF debug log
-		for i in {1..5}; do
-			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
+		for i in {1..30}; do
+			echo "Attempt $i of 30: kmeshctl log $POD --set bpf:debug"
 			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully"
 				break
 			fi
 			echo "Failed to set BPF debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			[ $i -eq 30 ] && echo "Failed to set BPF debug log after 30 attempts" && exit 1
 			sleep 2
 		done
 
 		# Set default debug log
-		for i in {1..5}; do
-			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
+		for i in {1..30}; do
+			echo "Attempt $i of 30: kmeshctl log $POD --set default:debug"
 			output=$(kmeshctl log $POD --set default:debug 2>&1)
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully"
 				break
 			fi
 			echo "Failed to set default debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			[ $i -eq 30 ] && echo "Failed to set default debug log after 30 attempts" && exit 1
 			sleep 2
 		done
 	done
@@ -220,28 +220,28 @@ function setup_kmesh_log() {
 	for POD in $PODS; do
 		echo "turn on the debug mode of the log for pod $POD"
 		# Set BPF debug log
-		for i in {1..5}; do
-			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
+		for i in {1..30}; do
+			echo "Attempt $i of 30: kmeshctl log $POD --set bpf:debug"
 			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully"
 				break
 			fi
 			echo "Failed to set BPF debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			[ $i -eq 30 ] && echo "Failed to set BPF debug log after 30 attempts" && exit 1
 			sleep 2
 		done
 
 		# Set default debug log
-		for i in {1..5}; do
-			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
+		for i in {1..30}; do
+			echo "Attempt $i of 30: kmeshctl log $POD --set default:debug"
 			output=$(kmeshctl log $POD --set default:debug 2>&1)
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully"
 				break
 			fi
 			echo "Failed to set default debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			[ $i -eq 30 ] && echo "Failed to set default debug log after 30 attempts" && exit 1
 			sleep 2
 		done
 	done
