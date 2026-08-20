@@ -391,3 +391,58 @@ func TestClearClusterStats(t *testing.T) {
 		assert.Nil(t, iter.Err())
 	}
 }
+
+func TestClusterFlushAssignsIds(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	patches.ApplyFunc(maps_v2.ClusterUpdate, func(key string, value *cluster_v2.Cluster) error {
+		return nil
+	})
+	defer patches.Reset()
+
+	// Circuit breaker stats are held in a map keyed by {netns_cookie,
+	// cluster_id}, so two clusters only keep independent connection counters
+	// and limits while their ids differ.
+	newCluster := func(name string, maxConnections uint32) *cluster_v2.Cluster {
+		return &cluster_v2.Cluster{
+			ApiStatus:       core_v2.ApiStatus_UPDATE,
+			Name:            name,
+			LbPolicy:        cluster_v2.Cluster_RANDOM,
+			CircuitBreakers: &cluster_v2.CircuitBreakers{MaxConnections: maxConnections},
+		}
+	}
+
+	t.Run("clusters get distinct non-zero ids", func(t *testing.T) {
+		hashName := utils.NewHashName()
+		defer hashName.Reset()
+		cache := NewClusterCache(nil, hashName)
+		reviews := newCluster("outbound|9080||reviews.default.svc.cluster.local", 10)
+		ratings := newCluster("outbound|9080||ratings.default.svc.cluster.local", 100)
+		cache.SetApiCluster(reviews.Name, reviews)
+		cache.SetApiCluster(ratings.Name, ratings)
+
+		cache.Flush()
+
+		assert.NotZero(t, reviews.Id)
+		assert.NotZero(t, ratings.Id)
+		assert.NotEqual(t, reviews.Id, ratings.Id)
+	})
+
+	t.Run("id is stable across flushes", func(t *testing.T) {
+		hashName := utils.NewHashName()
+		defer hashName.Reset()
+		cache := NewClusterCache(nil, hashName)
+		cluster := newCluster("outbound|9080||reviews.default.svc.cluster.local", 10)
+		cache.SetApiCluster(cluster.Name, cluster)
+
+		cache.Flush()
+		firstId := cluster.Id
+		assert.NotZero(t, firstId)
+
+		// A later config push re-flushes the same cluster; its stats entries
+		// are keyed by the id, so reallocating one would strand them.
+		cluster.ApiStatus = core_v2.ApiStatus_UPDATE
+		cache.Flush()
+
+		assert.Equal(t, firstId, cluster.Id)
+	})
+}
