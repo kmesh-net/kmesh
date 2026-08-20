@@ -76,6 +76,14 @@ func (w *cache) AddOrUpdateWorkload(workload *workloadapi.Workload) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
+	if oldWorkload := w.byUid[workload.Uid]; oldWorkload != nil {
+		for _, ip := range oldWorkload.Addresses {
+			addr, _ := netip.AddrFromSlice(ip)
+			networkAddress := composeNetworkAddress(oldWorkload.Network, addr)
+			w.deleteAddr(networkAddress, workload.Uid)
+		}
+	}
+
 	w.byUid[workload.Uid] = workload
 
 	// We should exclude the workloads that use host network mode
