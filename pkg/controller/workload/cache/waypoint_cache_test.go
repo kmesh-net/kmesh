@@ -107,3 +107,25 @@ func TestBasic(t *testing.T) {
 	assert.Equal(t, 0, len(cache.workloadToWaypoint))
 	assert.Equal(t, 0, len(cache.waypointAssociatedObjects))
 }
+
+func TestDeleteWaypointBeforeAssociatedResources(t *testing.T) {
+	serviceCache := NewServiceCache()
+	cache := NewWaypointCache(serviceCache)
+
+	waypointHostname := "default/waypoint.default.svc.cluster.local"
+	svc := common.CreateFakeService("svc", "10.240.10.1", waypointHostname, nil)
+	wl := common.CreateFakeWorkload("1.2.3.5", waypointHostname)
+
+	cache.AddOrUpdateService(svc)
+	cache.AddOrUpdateWorkload(wl)
+	cache.DeleteService(waypointHostname)
+
+	svc.Waypoint = nil
+	wl.Waypoint = nil
+	cache.AddOrUpdateService(svc)
+	cache.AddOrUpdateWorkload(wl)
+
+	assert.Equal(t, 0, len(cache.serviceToWaypoint))
+	assert.Equal(t, 0, len(cache.workloadToWaypoint))
+	assert.Equal(t, 0, len(cache.waypointAssociatedObjects))
+}
