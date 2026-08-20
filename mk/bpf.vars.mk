@@ -35,3 +35,9 @@ INSTALL_LIB ?= $(DESTDIR)/$(LIBDIR)
 EXTRA_GOFLAGS ?= -a
 EXTRA_CFLAGS ?= -O2 -Wall
 EXTRA_CDEFINE ?= -D__x86_64__
+
+KERNEL_HEADER_LINUX_BPF ?= $(ROOT_DIR)config/linux-bpf.h
+ifeq ($(wildcard $(KERNEL_HEADER_LINUX_BPF)),)
+KERNEL_HEADER_LINUX_BPF := /usr/include/linux/bpf.h
+endif
+ENHANCED_KERNEL ?= $(shell grep -q "FN(parse_header_msg)" $(KERNEL_HEADER_LINUX_BPF) 2>/dev/null && echo enhanced || echo normal)
