@@ -23,7 +23,7 @@ kmeshctl dump <kmesh-daemon-pod> kernel-native -o json
 
 ```bash
   -h, --help            help for dump
-  -o, --output string   Output format: table or json (default "table")
+  -o, --output string   Output format: table, json, or yaml (default "table")
 ```
 
 ### SEE ALSO

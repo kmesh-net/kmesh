@@ -29,6 +29,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/encoding/protojson"
+	"sigs.k8s.io/yaml"
 
 	adminv2 "kmesh.net/kmesh/api/v2/admin"
 	"kmesh.net/kmesh/ctl/utils"
@@ -62,7 +63,7 @@ kmeshctl dump <kmesh-daemon-pod> kernel-native -o json`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format: table or json")
+	cmd.Flags().StringVarP(&outputFormat, "output", "o", "table", "Output format: table, json, or yaml")
 	return cmd
 }
 
@@ -105,6 +106,17 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 
 	if outputFormat == "json" {
 		fmt.Println(string(body))
+		return nil
+	}
+
+	if outputFormat == "yaml" {
+		yamlData, err := yaml.JSONToYAML(body)
+		if err != nil {
+			log.Errorf("failed to convert JSON to YAML: %v, falling back to raw output", err)
+			fmt.Println(string(body))
+			return nil
+		}
+		fmt.Println(string(yamlData))
 		return nil
 	}
 
