@@ -569,9 +569,31 @@ func (p *Processor) handleWorkload(workload *workloadapi.Workload) error {
 	}
 
 	// update kmesh localityCache
-	// TODO: recalculate endpoints priority once local locality is set
+	// The first local workload initializes LocalityInfo.
+	// Remote workloads processed before this were inserted with
+	// priority 0 because locality could not yet be calculated.
+	// Recalculate endpoint priorities for all locality-LB services.
 	if p.locality.LocalityInfo == nil && p.nodeName == workload.GetNode() {
-		p.locality.SetLocality(p.nodeName, workload.GetClusterId(), workload.GetNetwork(), workload.GetLocality())
+		p.locality.SetLocality(
+			p.nodeName,
+			workload.GetClusterId(),
+			workload.GetNetwork(),
+			workload.GetLocality(),
+		)
+
+		for _, svc := range p.ServiceCache.List() {
+			if lb := svc.GetLoadBalancing(); lb != nil &&
+				lb.GetMode() != workloadapi.LoadBalancing_UNSPECIFIED_MODE {
+				serviceID := p.hashName.Hash(svc.ResourceName())
+				if err := p.updateEndpointPriority(serviceID, true); err != nil {
+					return fmt.Errorf(
+						"recalculate endpoint priority for service %s failed: %w",
+						svc.ResourceName(),
+						err,
+					)
+				}
+			}
+		}
 	}
 
 	// Exclude unhealthy workload, which is not ready to serve traffic, but keep it in the frontend
