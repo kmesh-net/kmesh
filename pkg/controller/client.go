@@ -23,6 +23,7 @@ import (
 
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/metadata"
 	istioGrpc "istio.io/istio/pilot/pkg/grpc"
 
@@ -179,4 +180,12 @@ func (c *XdsClient) closeStreamClient() {
 
 func (c *XdsClient) Close() error {
 	return nil
+}
+
+func (c *XdsClient) IsReady() bool {
+	if c.grpcConn == nil {
+		return false
+	}
+	state := c.grpcConn.GetState()
+	return state == connectivity.Ready || state == connectivity.Idle
 }

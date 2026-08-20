@@ -497,7 +497,14 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
-	// TODO: Add some components check
+	if s.xdsClient == nil || !s.xdsClient.IsReady() {
+		http.Error(w, "XDS client is not ready", http.StatusServiceUnavailable)
+		return
+	}
+	if s.loader == nil || !s.loader.IsReady() {
+		http.Error(w, "BPF loader is not ready", http.StatusServiceUnavailable)
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 }
