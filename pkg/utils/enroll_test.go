@@ -22,6 +22,7 @@ import (
 	"os"
 	"testing"
 
+	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/stretchr/testify/assert"
 	"istio.io/api/annotation"
 	corev1 "k8s.io/api/core/v1"
@@ -257,6 +258,18 @@ func TestShouldEnroll(t *testing.T) {
 }
 
 func TestHandleKmeshManage(t *testing.T) {
+	oldWithNetNSPath := withNetNSPath
+	withNetNSPath = func(nspath string, cb func(netns.NetNS) error) error {
+		if nspath == "invalid ns" {
+			return fmt.Errorf("invalid namespace")
+		}
+		// Do not call cb because nets.TriggerControlCommand might fail without real setup
+		return nil
+	}
+	defer func() {
+		withNetNSPath = oldWithNetNSPath
+	}()
+
 	type args struct {
 		ns     string
 		enroll bool
