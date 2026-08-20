@@ -71,6 +71,17 @@ type SecretManager struct {
 
 //go:noinline
 func (s *SecretManager) SendCertRequest(identity string, op int) {
+	if op == Rotate {
+		select {
+		case s.certRequestChan <- certRequest{Identity: identity, Operation: op}:
+		default:
+			log.Warnf("certRequestChan is full, requeueing Rotate request for identity %s", identity)
+			s.certsRotateQueue.AddAfter(identity, 10*time.Second)
+		}
+		return
+	}
+
+	// For non-Rotate operations (ADD/DELETE/RETRY), use blocking send to apply natural backpressure.
 	s.certRequestChan <- certRequest{Identity: identity, Operation: op}
 }
 
@@ -235,11 +246,18 @@ func (s *SecretManager) rotateCert(identity string) {
 		log.Debugf("identity: %v cert has been deleted", identity)
 		return
 	}
+	cert := certificate.cert
 	s.certsCache.mu.RUnlock()
 
-	if time.Until(certificate.cert.ExpireTime) >= 1*time.Hour {
+	if cert == nil {
+		return
+	}
+
+	// Add a 1-minute safety buffer to prevent skipping rotation if the workqueue timer fires early.
+	if time.Until(cert.ExpireTime) >= 1*time.Hour+1*time.Minute {
 		// This can happen when delete a certificate following adding the same one later.
-		log.Debugf("cert %s expire at %T, skip rotate now", identity, certificate.cert.ExpireTime)
+		log.Debugf("cert %s expires at %v, skip rotate now", identity, cert.ExpireTime)
+		return
 	}
 
 	go s.fetchCert(identity)
