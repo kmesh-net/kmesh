@@ -358,14 +358,15 @@ func TestClearClusterStats(t *testing.T) {
 	adsObj := loader.GetBpfKmesh()
 	assert.NotNil(t, adsObj)
 	hashName := utils.NewHashName()
+	defer hashName.Reset()
 	clusterCache := NewClusterCache(adsObj, hashName)
 	testClusters := []string{"test_cluster1", "test_cluster2", "test_cluster3"}
 	testKeys := []ClusterStatsKey{
-		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[0])},
-		{NetnsCookie: 1, ClusterId: hashName.StrToNum(testClusters[0])},
-		{NetnsCookie: 2, ClusterId: hashName.StrToNum(testClusters[0])},
-		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[1])},
-		{NetnsCookie: 0, ClusterId: hashName.StrToNum(testClusters[2])},
+		{NetnsCookie: 0, ClusterId: hashName.Hash(testClusters[0])},
+		{NetnsCookie: 1, ClusterId: hashName.Hash(testClusters[0])},
+		{NetnsCookie: 2, ClusterId: hashName.Hash(testClusters[0])},
+		{NetnsCookie: 0, ClusterId: hashName.Hash(testClusters[1])},
+		{NetnsCookie: 0, ClusterId: hashName.Hash(testClusters[2])},
 	}
 
 	testValues := []ClusterStatsValue{
@@ -377,18 +378,33 @@ func TestClearClusterStats(t *testing.T) {
 	}
 
 	clusterStatsMap := adsObj.GetClusterStatsMap()
-	clusterStatsMap.BatchUpdate(testKeys, testValues, nil)
+	_, err := clusterStatsMap.BatchUpdate(testKeys, testValues, nil)
+	assert.Nil(t, err)
+
+	expected := make(map[ClusterStatsKey]ClusterStatsValue, len(testKeys))
+	for i, testKey := range testKeys {
+		expected[testKey] = testValues[i]
+	}
 
 	var key ClusterStatsKey
 	var value ClusterStatsValue
 	for _, cluster := range testClusters {
-		clusterCache.clearClusterStats(cluster)
-		iter := clusterStatsMap.Iterate()
 		clusterId := hashName.StrToNum(cluster)
+		clusterCache.clearClusterStats(cluster)
+
+		for expectedKey := range expected {
+			if expectedKey.ClusterId == clusterId {
+				delete(expected, expectedKey)
+			}
+		}
+
+		remaining := make(map[ClusterStatsKey]ClusterStatsValue, len(expected))
+		iter := clusterStatsMap.Iterate()
 		for iter.Next(&key, &value) {
-			assert.NotEqual(t, clusterId, key.ClusterId)
+			remaining[key] = value
 		}
 		assert.Nil(t, iter.Err())
+		assert.Equal(t, expected, remaining)
 	}
 }
 
