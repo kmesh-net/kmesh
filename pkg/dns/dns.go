@@ -119,6 +119,9 @@ func (r *DNSResolver) refreshDns() {
 	_, ttl, err := r.resolve(e.Domain)
 	if err != nil {
 		log.Errorf("failed to dns resolve: %v", err)
+		// Re-queue the domain so a transient resolve failure does not stop it
+		// from ever being refreshed again; every other exit re-queues too.
+		r.refreshQueue.AddAfter(e, RetryAfter)
 		return
 	}
 	if ttl > e.RefreshRate {
