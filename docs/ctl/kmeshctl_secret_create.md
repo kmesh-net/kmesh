@@ -22,6 +22,12 @@ kmeshctl secret create --key=$(echo -n "{36-character user-defined key here}" | 
   -k, --key string   key of the encryption
 ```
 
+### Options inherited from parent commands
+
+```bash
+      --kmesh-namespace string   Namespace where Kmesh is installed (default "kmesh-system")
+```
+
 ### SEE ALSO
 
 * [kmeshctl secret](kmeshctl_secret.md) - Use secrets to manage secret configuration data for IPsec

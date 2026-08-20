@@ -23,13 +23,14 @@ import (
 )
 
 const (
-	KmeshNamespace = "kmesh-system"
 	KmeshLabel     = "app=kmesh"
 	KmeshAdminPort = 15200
 )
 
+var KmeshNamespace = "kmesh-system"
+
 func CreateKubeClient() (kube.CLIClient, error) {
-	cli, err := kube.NewCLIClient()
+	cli, err := kube.NewCLIClientWithNamespace(KmeshNamespace)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube client: %v", err)
 	}

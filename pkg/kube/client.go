@@ -60,7 +60,11 @@ type CLIClient interface {
 }
 
 func NewCLIClient(opts ...ClientOption) (CLIClient, error) {
-	return newClientInternal(opts...)
+	return newClientInternal(KmeshNamespace, opts...)
+}
+
+func NewCLIClientWithNamespace(namespace string, opts ...ClientOption) (CLIClient, error) {
+	return newClientInternal(namespace, opts...)
 }
 
 type ClientOption func(CLIClient) CLIClient
@@ -111,16 +115,20 @@ func newPortForwarder(cliClient *client, podName string, ns string, localAddress
 	}, nil
 }
 
-func newClientInternal(opts ...ClientOption) (*client, error) {
-	var c client
-	var err error
-
-	// Initialize config flags with namespace
+func newConfigFlags(namespace string) *genericclioptions.ConfigFlags {
 	configFlags := genericclioptions.NewConfigFlags(true).
 		WithDeprecatedPasswordFlag().
 		WithDiscoveryBurst(300).
 		WithDiscoveryQPS(50.0)
-	configFlags.Namespace = ptr.To(KmeshNamespace)
+	configFlags.Namespace = ptr.To(namespace)
+	return configFlags
+}
+
+func newClientInternal(namespace string, opts ...ClientOption) (*client, error) {
+	var c client
+	var err error
+
+	configFlags := newConfigFlags(namespace)
 	c.clientFactory = configFlags
 
 	c.config, err = configFlags.ToRESTConfig()

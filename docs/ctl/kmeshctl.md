@@ -5,7 +5,8 @@ Kmesh command line tools to operate and debug Kmesh
 ### Options
 
 ```bash
-  -h, --help   help for kmeshctl
+  -h, --help                     help for kmeshctl
+      --kmesh-namespace string   Namespace where Kmesh is installed (default "kmesh-system")
 ```
 
 ### SEE ALSO

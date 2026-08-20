@@ -36,9 +36,10 @@ kmeshctl waypoint delete [flags]
 ### Options inherited from parent commands
 
 ```bash
-      --image string       image of the waypoint
-      --name string        name of the waypoint (default "waypoint")
-  -n, --namespace string   Kubernetes namespace
+      --image string             image of the waypoint
+      --kmesh-namespace string   Namespace where Kmesh is installed (default "kmesh-system")
+      --name string              name of the waypoint (default "waypoint")
+  -n, --namespace string         Kubernetes namespace
 ```
 
 ### SEE ALSO
