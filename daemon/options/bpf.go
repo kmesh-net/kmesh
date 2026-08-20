@@ -19,6 +19,7 @@ package options
 import (
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -53,18 +54,35 @@ func (c *BpfConfig) ParseConfig() error {
 	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
 		return err
 	}
-	if _, err = os.Stat(c.Cgroup2Path); err != nil {
+	if err = waitForPath(c.Cgroup2Path); err != nil {
 		return err
 	}
 
 	if c.BpfFsPath, err = filepath.Abs(c.BpfFsPath); err != nil {
 		return err
 	}
-	if _, err = os.Stat(c.BpfFsPath); err != nil {
+	if err = waitForPath(c.BpfFsPath); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// waitForPath retries os.Stat on path for a bounded time, to tolerate
+// mount propagation delays in containerized environments (e.g. kind).
+func waitForPath(path string) error {
+	const (
+		maxRetries = 10
+		retryDelay = 500 * time.Millisecond
+	)
+	var err error
+	for i := 0; i < maxRetries; i++ {
+		if _, err = os.Stat(path); err == nil {
+			return nil
+		}
+		time.Sleep(retryDelay)
+	}
+	return err
 }
 
 func (c *BpfConfig) KernelNativeEnabled() bool {
