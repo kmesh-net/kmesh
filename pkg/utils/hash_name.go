@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"hash"
 	"hash/fnv"
-	"math"
 	"os"
 
 	"sigs.k8s.io/yaml"
@@ -99,8 +98,11 @@ func (h *HashName) Hash(str string) uint32 {
 
 	h.hash.Reset()
 	h.hash.Write([]byte(str))
-	// Using linear probing to solve hash conflicts
-	for num = h.hash.Sum32(); num < math.MaxUint32; num++ {
+	// Using linear probing to solve hash conflicts. num is a uint32, so num++
+	// naturally wraps math.MaxUint32 back to 0, making the probe sequence a full
+	// ring without a separate bound check (the old `num < math.MaxUint32` bound
+	// skipped the final slot and made the wraparound below unreachable dead code).
+	for num = h.hash.Sum32(); ; num++ {
 		// Create a new item if we find an empty slot
 		if _, exists := h.numToStr[num]; !exists {
 			h.numToStr[num] = str
@@ -110,10 +112,6 @@ func (h *HashName) Hash(str string) uint32 {
 				log.Errorf("error flushing when calling Hash: %v", err)
 			}
 			break
-		}
-		// It's a ring
-		if num == math.MaxUint32 {
-			num = 0
 		}
 	}
 
