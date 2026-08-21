@@ -1,4 +1,4 @@
-prefix=
+prefix=/kmesh/
 Name: bpf
 Description: bpf
 Version:
