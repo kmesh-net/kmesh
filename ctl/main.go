@@ -17,6 +17,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"kmesh.net/kmesh/ctl/common"
@@ -25,6 +26,7 @@ import (
 func main() {
 	rootCmd := common.GetRootCommand()
 	if err := rootCmd.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 }

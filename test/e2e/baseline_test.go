@@ -725,9 +725,9 @@ func TestRemoveAddNsOrServiceWaypoint(t *testing.T) {
 // and all pass through waypoint.
 func TestMixNsAndServiceWaypoint(t *testing.T) {
 	framework.NewTest(t).Run(func(t framework.TestContext) {
-		waypoint := "namespace-waypoint"
+		waypoint := "mix-namespace-waypoint"
 
-		newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.ServiceTraffic)
+		newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.AllTraffic)
 		t.Cleanup(func() {
 			deleteWaypointProxyOrFail(t, t, apps.Namespace, waypoint)
 		})
@@ -736,6 +736,9 @@ func TestMixNsAndServiceWaypoint(t *testing.T) {
 		t.Cleanup(func() {
 			UnsetWaypoint(t, apps.Namespace.Name(), "", Namespace)
 		})
+
+		// Wait for waypoint configuration to propagate to eBPF/XDS
+		time.Sleep(10 * time.Second)
 
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
@@ -804,9 +807,9 @@ func TestBookinfo(t *testing.T) {
 
 		// Set namespace waypoint to verify that bookinfo could be accessed normally event if each hop
 		// is processed by waypoint.
-		waypoint := "namespace-waypoint"
+		waypoint := "bookinfo-namespace-waypoint"
 
-		newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.ServiceTraffic)
+		newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.AllTraffic)
 		t.Cleanup(func() {
 			deleteWaypointProxyOrFail(t, t, apps.Namespace, waypoint)
 		})
@@ -815,6 +818,9 @@ func TestBookinfo(t *testing.T) {
 		t.Cleanup(func() {
 			UnsetWaypoint(t, namespace, "", Namespace)
 		})
+
+		// Wait for waypoint configuration to propagate to eBPF/XDS
+		time.Sleep(10 * time.Second)
 
 		if err := retry.Until(checkBookinfo, retry.Timeout(900*time.Second), retry.Delay(3*time.Second)); err != nil {
 			t.Fatal("failed to access bookinfo correctly when there is a namespace waypoint: %v", err)
