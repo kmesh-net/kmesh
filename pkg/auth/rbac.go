@@ -235,7 +235,7 @@ func (r *Rbac) aggregate(workload *workloadapi.Workload) (allowPolicies, denyPol
 	policyNames = append(policyNames, r.policyStore.getByNamespace("")...)
 
 	for _, policyName := range policyNames {
-		if policy, ok := r.policyStore.byKey[policyName]; ok {
+		if policy, ok := r.policyStore.getByKey(policyName); ok {
 			if policy.Action == security.Action_ALLOW {
 				allowPolicies = append(allowPolicies, policy)
 			} else if policy.Action == security.Action_DENY {
