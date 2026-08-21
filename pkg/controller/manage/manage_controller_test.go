@@ -404,6 +404,115 @@ func TestEnableKmeshManageRetriesAfterFastRetries(t *testing.T) {
 	assert.True(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
 }
 
+func TestDisableKmeshManageRetriesBeforeDeletingAnnotation(t *testing.T) {
+	pod := podReadyWithAnnotation.DeepCopy()
+	namespace := nsWithoutLabel.DeepCopy()
+	client := fake.NewSimpleClientset(pod.DeepCopy(), namespace.DeepCopy())
+	controller, err := NewKmeshManageController(client, nil, 11, 12, constants.DualEngineMode)
+	require.NoError(t, err)
+	t.Cleanup(controller.queue.ShutDown)
+
+	require.NoError(t, controller.podInformer.GetStore().Add(pod))
+	require.NoError(t, controller.namespaceInformer.GetStore().Add(namespace))
+
+	controller.getPodNSPath = func(*corev1.Pod) (string, error) {
+		return "test-ns", nil
+	}
+	controller.handleManage = func(string, bool) error {
+		return nil
+	}
+	var xdpAttempts atomic.Int32
+	controller.unlinkXDP = func(string, string) error {
+		if xdpAttempts.Add(1) <= 2 {
+			return errors.New("transient XDP failure")
+		}
+		return nil
+	}
+	controller.unlinkTC = func(string, int) error {
+		return nil
+	}
+
+	controller.disableKmeshManage(pod)
+	stored, err := client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+
+	assert.True(t, controller.processItems())
+	stored, err = client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.True(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+
+	assert.True(t, controller.processItems())
+	assert.Equal(t, int32(3), xdpAttempts.Load())
+
+	assert.True(t, controller.processItems())
+	stored, err = client.CoreV1().Pods(pod.Namespace).Get(context.Background(), pod.Name, metav1.GetOptions{})
+	require.NoError(t, err)
+	assert.False(t, utils.AnnotationEnabled(stored.Annotations[constants.KmeshRedirectionAnnotation]))
+}
+
+func TestSyncPodDropsStaleActions(t *testing.T) {
+	tests := []struct {
+		name    string
+		pod     *corev1.Pod
+		action  string
+		wantErr string
+	}{
+		{
+			name:   "enable action after opt out",
+			pod:    podWithoutLabel,
+			action: ActionEnableManage,
+		},
+		{
+			name:   "enable action while pod is not ready",
+			pod:    podNotReadyWithLabel,
+			action: ActionEnableManage,
+		},
+		{
+			name:   "disable action after opt in",
+			pod:    podWithLabel,
+			action: ActionDisableManage,
+		},
+		{
+			name:   "add annotation after opt out",
+			pod:    podWithoutLabel,
+			action: ActionAddAnnotation,
+		},
+		{
+			name:   "delete annotation after opt in",
+			pod:    podWithLabel,
+			action: ActionDeleteAnnotation,
+		},
+		{
+			name:    "unsupported action",
+			pod:     podWithLabel,
+			action:  "unsupported",
+			wantErr: "unsupported action",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pod := tt.pod.DeepCopy()
+			namespace := nsWithoutLabel.DeepCopy()
+			client := fake.NewSimpleClientset(pod.DeepCopy(), namespace.DeepCopy())
+			controller, err := NewKmeshManageController(client, nil, 11, 12, constants.DualEngineMode)
+			require.NoError(t, err)
+			t.Cleanup(controller.queue.ShutDown)
+
+			require.NoError(t, controller.podInformer.GetStore().Add(pod))
+			require.NoError(t, controller.namespaceInformer.GetStore().Add(namespace))
+
+			err = controller.syncPod(QueueItem{podName: pod.Name, podNs: pod.Namespace, action: tt.action})
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+			} else {
+				require.ErrorContains(t, err, tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestHandleKmeshManage(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
