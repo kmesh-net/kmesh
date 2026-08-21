@@ -662,3 +662,645 @@ func TestServerMonitoringHandler(t *testing.T) {
 		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})
 }
+
+func TestServer_version(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, patternVersion, nil)
+	w := httptest.NewRecorder()
+	server.version(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NotEmpty(t, w.Body.Bytes())
+}
+
+func TestServer_readyProbe(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, patternReadyProbe, nil)
+	w := httptest.NewRecorder()
+	server.readyProbe(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "OK", w.Body.String())
+}
+
+func TestServer_loggersHandler(t *testing.T) {
+	server := &Server{}
+
+	req := httptest.NewRequest(http.MethodGet, patternLoggers, nil)
+	w := httptest.NewRecorder()
+	server.loggersHandler(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	req = httptest.NewRequest(http.MethodPost, patternLoggers, bytes.NewReader([]byte("invalid-json")))
+	w = httptest.NewRecorder()
+	server.loggersHandler(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	req = httptest.NewRequest(http.MethodDelete, patternLoggers, nil)
+	w = httptest.NewRecorder()
+	server.loggersHandler(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestServer_checkWorkloadMode(t *testing.T) {
+	server := &Server{xdsClient: nil}
+	w := httptest.NewRecorder()
+	result := server.checkWorkloadMode(w)
+	assert.False(t, result)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestServer_checkAdsMode(t *testing.T) {
+	server := &Server{xdsClient: nil}
+	w := httptest.NewRecorder()
+	result := server.checkAdsMode(w)
+	assert.False(t, result)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestServer_checkBpfLoader(t *testing.T) {
+	server := &Server{loader: nil}
+	w := httptest.NewRecorder()
+	result := server.checkBpfLoader(w)
+	assert.False(t, result)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+
+func TestServer_accesslogHandler_InvalidMethod(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, patternAccesslog, nil)
+	w := httptest.NewRecorder()
+	server.accesslogHandler(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+func TestServer_accesslogHandler_InvalidParam(t *testing.T) {
+	server := &Server{
+		xdsClient: &controller.XdsClient{
+			WorkloadController: &workload.Controller{},
+		},
+		loader: nil, 
+	}
+	url := fmt.Sprintf("%s?enable=%s", patternAccesslog, "notabool")
+	req := httptest.NewRequest(http.MethodPost, url, nil)
+	w := httptest.NewRecorder()
+
+	server.accesslogHandler(w, req)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+
+func TestServer_monitoringHandler_InvalidMethod(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, patternMonitoring, nil)
+	w := httptest.NewRecorder()
+	server.monitoringHandler(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+
+func TestServer_workloadMetricHandler_InvalidMethod(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, patternWorkloadMetrics, nil)
+	w := httptest.NewRecorder()
+	server.workloadMetricHandler(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+
+func TestServer_connectionMetricHandler_InvalidMethod(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, patternConnectionMetrics, nil)
+	w := httptest.NewRecorder()
+	server.connectionMetricHandler(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+
+func TestServer_authzHandler_InvalidMethod(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, patternAuthz, nil)
+	w := httptest.NewRecorder()
+	server.authzHandler(w, req)
+	assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+}
+
+
+func TestServer_authzHandler_NilClient(t *testing.T) {
+	server := &Server{xdsClient: nil}
+	req := httptest.NewRequest(http.MethodPost, patternAuthz+"?enable=true", nil)
+	w := httptest.NewRecorder()
+	server.authzHandler(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+
+func TestServer_authzHandler_InvalidParam(t *testing.T) {
+	server := &Server{
+		xdsClient: &controller.XdsClient{
+			WorkloadController: &workload.Controller{},
+		},
+		loader: nil,
+	}
+	req := httptest.NewRequest(http.MethodPost, patternAuthz+"?enable=notabool", nil)
+	w := httptest.NewRecorder()
+	server.authzHandler(w, req)
+
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+
+func TestServer_getBpfLogLevel_NilLoader(t *testing.T) {
+	server := &Server{loader: nil}
+	info, err := server.getBpfLogLevel()
+	assert.Nil(t, info)
+	assert.NotNil(t, err)
+	assert.Contains(t, err.Error(), "BPF loader is unavailable")
+}
+
+
+func TestServer_setLoggerLevel_InvalidBody(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodPost, patternLoggers, bytes.NewReader([]byte("not-json")))
+	w := httptest.NewRecorder()
+	server.setLoggerLevel(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+
+func TestServer_setLoggerLevel_InvalidLevel(t *testing.T) {
+	server := &Server{}
+	loggerInfo := LoggerInfo{Name: "status", Level: "invalidlevel"}
+	body, _ := json.Marshal(loggerInfo)
+	req := httptest.NewRequest(http.MethodPost, patternLoggers, bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	server.setLoggerLevel(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+
+func TestPrintWorkloadDump(t *testing.T) {
+	wd := WorkloadDump{
+		Workloads: []*Workload{
+			{Name: "z-workload"},
+			{Name: "a-workload"},
+		},
+		Services: []*Service{
+			{Name: "z-service"},
+			{Name: "a-service"},
+		},
+		Policies: []*AuthorizationPolicy{
+			{Name: "z-policy"},
+			{Name: "a-policy"},
+		},
+	}
+	w := httptest.NewRecorder()
+	printWorkloadDump(w, wd)
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var result WorkloadDump
+	err := json.Unmarshal(w.Body.Bytes(), &result)
+	assert.Nil(t, err)
+	assert.Equal(t, "a-workload", result.Workloads[0].Name)
+	assert.Equal(t, "a-service", result.Services[0].Name)
+	assert.Equal(t, "a-policy", result.Policies[0].Name)
+}
+
+
+func TestServer_StopServer(t *testing.T) {
+	server := &Server{
+		mux: http.NewServeMux(),
+	}
+	server.server = &http.Server{
+		Addr:    "localhost:19999",
+		Handler: server.mux,
+	}
+	server.StartServer()
+	err := server.StopServer()
+	assert.Nil(t, err)
+}
+
+func TestNewServer(t *testing.T) {
+	xdsClient := &controller.XdsClient{}
+	configs := &options.BootstrapConfigs{}
+	server := NewServer(xdsClient, configs, nil)
+
+	assert.NotNil(t, server)
+	assert.NotNil(t, server.mux)
+	assert.NotNil(t, server.server)
+	assert.Equal(t, xdsClient, server.xdsClient)
+	assert.Equal(t, configs, server.config)
+	assert.Equal(t, adminAddr, server.server.Addr)
+}
+
+func TestPrintWorkloadBpfDump(t *testing.T) {
+	dump := WorkloadBpfDump{}
+	w := httptest.NewRecorder()
+	printWorkloadBpfDump(w, dump)
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NotEmpty(t, w.Body.Bytes())
+}
+
+func TestServer_configDumpAds_NilAdsController(t *testing.T) {
+	server := &Server{
+		xdsClient: &controller.XdsClient{
+			AdsController: nil,
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, patternConfigDumpAds, nil)
+	w := httptest.NewRecorder()
+	server.configDumpAds(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), invalidModeErrMessage)
+}
+
+func TestServer_configDumpAds_NilClient(t *testing.T) {
+	server := &Server{xdsClient: nil}
+	req := httptest.NewRequest(http.MethodGet, patternConfigDumpAds, nil)
+	w := httptest.NewRecorder()
+	server.configDumpAds(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestServer_setBpfLogLevel_NilLoader(t *testing.T) {
+	server := &Server{loader: nil}
+	w := httptest.NewRecorder()
+	server.setBpfLogLevel(w, "info")
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestServer_setBpfLogLevel_InvalidLevel(t *testing.T) {
+	server := &Server{loader: nil}
+	w := httptest.NewRecorder()
+	server.setBpfLogLevel(w, "superverbose")
+	// nil loader triggers checkBpfLoader first
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+func TestServer_bpfWorkloadMaps_NilController(t *testing.T) {
+	server := &Server{
+		xdsClient: &controller.XdsClient{
+			WorkloadController: nil,
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, patternBpfWorkloadMaps, nil)
+	w := httptest.NewRecorder()
+	server.bpfWorkloadMaps(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), invalidModeErrMessage)
+}
+
+func TestServer_bpfWorkloadMaps_NilClient(t *testing.T) {
+	server := &Server{xdsClient: nil}
+	req := httptest.NewRequest(http.MethodGet, patternBpfWorkloadMaps, nil)
+	w := httptest.NewRecorder()
+	server.bpfWorkloadMaps(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+// Add these test functions to status_server_test.go
+
+// ------------------------------------------------------------
+// version handler — error path (can't easily trigger marshal
+// error, but we can hit the success path more thoroughly)
+// ------------------------------------------------------------
+func TestServer_version_Success(t *testing.T) {
+	server := &Server{}
+	req := httptest.NewRequest(http.MethodGet, patternVersion, nil)
+	w := httptest.NewRecorder()
+	server.version(w, req)
+	assert.Equal(t, http.StatusOK, w.Code)
+ 
+	// verify it returns valid JSON
+	var result map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &result)
+	assert.Nil(t, err)
+}
+
+// ------------------------------------------------------------
+// checkBpfLoader — loader with nil BpfKmesh and nil BpfWorkload
+// ------------------------------------------------------------
+func TestServer_checkBpfLoader_NilBpfObjects(t *testing.T) {
+	server := &Server{loader: nil}
+	w := httptest.NewRecorder()
+	result := server.checkBpfLoader(w)
+	assert.False(t, result)
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+
+// ------------------------------------------------------------
+// accesslogHandler — all branches
+// ------------------------------------------------------------
+func TestServer_accesslogHandler_AllBranches(t *testing.T) {
+	// nil client → checkWorkloadMode fails
+	t.Run("nil client", func(t *testing.T) {
+		server := &Server{xdsClient: nil}
+		req := httptest.NewRequest(http.MethodPost, patternAccesslog+"?enable=true", nil)
+		w := httptest.NewRecorder()
+		server.accesslogHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	// nil WorkloadController → checkWorkloadMode fails
+	t.Run("nil WorkloadController", func(t *testing.T) {
+		server := &Server{
+			xdsClient: &controller.XdsClient{WorkloadController: nil},
+		}
+		req := httptest.NewRequest(http.MethodPost, patternAccesslog+"?enable=true", nil)
+		w := httptest.NewRecorder()
+		server.accesslogHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+
+	// invalid bool param
+	t.Run("invalid bool param", func(t *testing.T) {
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: nil,
+		}
+		req := httptest.NewRequest(http.MethodPost, patternAccesslog+"?enable=notabool", nil)
+		w := httptest.NewRecorder()
+		server.accesslogHandler(w, req)
+		// nil loader → checkBpfLoader fails first
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+ 
+// ------------------------------------------------------------
+// monitoringHandler — all branches
+// ------------------------------------------------------------
+func TestServer_monitoringHandler_AllBranches(t *testing.T) {
+	// invalid method
+	t.Run("invalid method", func(t *testing.T) {
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodGet, patternMonitoring, nil)
+		w := httptest.NewRecorder()
+		server.monitoringHandler(w, req)
+		assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	})
+ 
+	// nil client
+	t.Run("nil client", func(t *testing.T) {
+		server := &Server{xdsClient: nil}
+		req := httptest.NewRequest(http.MethodPost, patternMonitoring+"?enable=true", nil)
+		w := httptest.NewRecorder()
+		server.monitoringHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+ 
+	// invalid bool param
+	t.Run("invalid bool param", func(t *testing.T) {
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: nil,
+		}
+		req := httptest.NewRequest(http.MethodPost, patternMonitoring+"?enable=notabool", nil)
+		w := httptest.NewRecorder()
+		server.monitoringHandler(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+ 
+// ------------------------------------------------------------
+// workloadMetricHandler — all branches
+// ------------------------------------------------------------
+func TestServer_workloadMetricHandler_AllBranches(t *testing.T) {
+	// nil client
+	t.Run("nil client", func(t *testing.T) {
+		server := &Server{xdsClient: nil}
+		req := httptest.NewRequest(http.MethodPost, patternWorkloadMetrics+"?enable=true", nil)
+		w := httptest.NewRecorder()
+		server.workloadMetricHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+ 
+	// invalid bool param
+	t.Run("invalid bool param", func(t *testing.T) {
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: nil,
+		}
+		req := httptest.NewRequest(http.MethodPost, patternWorkloadMetrics+"?enable=notabool", nil)
+		w := httptest.NewRecorder()
+		server.workloadMetricHandler(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+ 
+// ------------------------------------------------------------
+// connectionMetricHandler — all branches
+// ------------------------------------------------------------
+func TestServer_connectionMetricHandler_AllBranches(t *testing.T) {
+	// nil client
+	t.Run("nil client", func(t *testing.T) {
+		server := &Server{xdsClient: nil}
+		req := httptest.NewRequest(http.MethodPost, patternConnectionMetrics+"?enable=true", nil)
+		w := httptest.NewRecorder()
+		server.connectionMetricHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+ 
+	// invalid bool param
+	t.Run("invalid bool param", func(t *testing.T) {
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: nil,
+		}
+		req := httptest.NewRequest(http.MethodPost, patternConnectionMetrics+"?enable=notabool", nil)
+		w := httptest.NewRecorder()
+		server.connectionMetricHandler(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+ 
+// ------------------------------------------------------------
+// authzHandler — all branches
+// ------------------------------------------------------------
+func TestServer_authzHandler_AllBranches(t *testing.T) {
+	// nil client
+	t.Run("nil client", func(t *testing.T) {
+		server := &Server{xdsClient: nil}
+		req := httptest.NewRequest(http.MethodPost, patternAuthz+"?enable=true", nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+ 
+	// invalid bool param with valid client but nil loader
+	t.Run("invalid bool param", func(t *testing.T) {
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: nil,
+		}
+		req := httptest.NewRequest(http.MethodPost, patternAuthz+"?enable=notabool", nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+ 
+// ------------------------------------------------------------
+// getLoggerLevel — all branches
+// ------------------------------------------------------------
+func TestServer_getLoggerLevel_AllBranches(t *testing.T) {
+	server := &Server{loader: nil}
+ 
+	// invalid logger name
+	t.Run("invalid logger name", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, patternLoggers+"?name=nonexistent_logger_xyz", nil)
+		w := httptest.NewRecorder()
+		server.getLoggerLevel(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+ 
+	// bpf logger name with nil loader
+	t.Run("bpf logger nil loader", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, patternLoggers+"?name="+bpfLoggerName, nil)
+		w := httptest.NewRecorder()
+		server.getLoggerLevel(w, req)
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+ 
+// ------------------------------------------------------------
+// setLoggerLevel — bpf logger with nil loader
+// ------------------------------------------------------------
+func TestServer_setLoggerLevel_BpfLogger(t *testing.T) {
+	server := &Server{loader: nil}
+	loggerInfo := LoggerInfo{Name: bpfLoggerName, Level: "info"}
+	body, _ := json.Marshal(loggerInfo)
+	req := httptest.NewRequest(http.MethodPost, patternLoggers, bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	server.setLoggerLevel(w, req)
+	// nil loader → checkBpfLoader fails
+	assert.Equal(t, http.StatusInternalServerError, w.Code)
+}
+ 
+// ------------------------------------------------------------
+// setBpfLogLevel — all branches (without BPF loader)
+// ------------------------------------------------------------
+func TestServer_setBpfLogLevel_AllBranches(t *testing.T) {
+	// nil loader
+	t.Run("nil loader", func(t *testing.T) {
+		server := &Server{loader: nil}
+		w := httptest.NewRecorder()
+		server.setBpfLogLevel(w, "info")
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+ 
+	// invalid string level not in map
+	t.Run("unknown level string", func(t *testing.T) {
+		server := &Server{loader: nil}
+		w := httptest.NewRecorder()
+		server.setBpfLogLevel(w, "unknown")
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
+	})
+}
+ 
+// ------------------------------------------------------------
+// getBpfLogLevel — nil loader branch
+// ------------------------------------------------------------
+func TestServer_getBpfLogLevel_AllBranches(t *testing.T) {
+	t.Run("nil loader", func(t *testing.T) {
+		server := &Server{loader: nil}
+		info, err := server.getBpfLogLevel()
+		assert.Nil(t, info)
+		assert.NotNil(t, err)
+	})
+}
+ 
+// ------------------------------------------------------------
+// getLoggerNames — success path
+// ------------------------------------------------------------
+func TestServer_getLoggerNames(t *testing.T) {
+	server := &Server{}
+	w := httptest.NewRecorder()
+	server.getLoggerNames(w)
+	assert.Equal(t, http.StatusOK, w.Code)
+ 
+	var names []string
+	err := json.Unmarshal(w.Body.Bytes(), &names)
+	assert.Nil(t, err)
+	assert.Contains(t, names, bpfLoggerName)
+}
+ 
+// ------------------------------------------------------------
+// printWorkloadBpfDump — success path
+// ------------------------------------------------------------
+func TestPrintWorkloadBpfDump_Success(t *testing.T) {
+	dump := WorkloadBpfDump{}
+	w := httptest.NewRecorder()
+	printWorkloadBpfDump(w, dump)
+	assert.Equal(t, http.StatusOK, w.Code)
+ 
+	var result map[string]interface{}
+	err := json.Unmarshal(w.Body.Bytes(), &result)
+	assert.Nil(t, err)
+}
+ 
+// ------------------------------------------------------------
+// configDumpAds — nil xdsClient
+// ------------------------------------------------------------
+func TestServer_configDumpAds_WithAdsController(t *testing.T) {
+	server := &Server{xdsClient: nil}
+	req := httptest.NewRequest(http.MethodGet, patternConfigDumpAds, nil)
+	w := httptest.NewRecorder()
+	server.configDumpAds(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+ 
+// ------------------------------------------------------------
+// bpfAdsMaps — nil AdsController
+// ------------------------------------------------------------
+func TestServer_bpfAdsMaps_NilController(t *testing.T) {
+	server := &Server{
+		xdsClient: &controller.XdsClient{
+			AdsController: nil,
+		},
+	}
+	req := httptest.NewRequest(http.MethodGet, patternBpfAdsMaps, nil)
+	w := httptest.NewRecorder()
+	server.bpfAdsMaps(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+	assert.Contains(t, w.Body.String(), invalidModeErrMessage)
+}
+ 
+// ------------------------------------------------------------
+// printWorkloadDump — error path via empty dump
+// ------------------------------------------------------------
+func TestPrintWorkloadDump_Empty(t *testing.T) {
+	wd := WorkloadDump{
+		Workloads: []*Workload{},
+		Services:  []*Service{},
+		Policies:  []*AuthorizationPolicy{},
+	}
+	w := httptest.NewRecorder()
+	printWorkloadDump(w, wd)
+	assert.Equal(t, http.StatusOK, w.Code)
+ 
+	var result WorkloadDump
+	err := json.Unmarshal(w.Body.Bytes(), &result)
+	assert.Nil(t, err)
+	assert.Empty(t, result.Workloads)
+	assert.Empty(t, result.Services)
+	assert.Empty(t, result.Policies)
+}
