@@ -188,7 +188,7 @@ function setup_kmesh() {
 		# Set BPF debug log
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
-			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
+			output=$(kmeshctl log $POD --set bpf:debug 2>&1 || true)
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully"
 				break
@@ -201,7 +201,7 @@ function setup_kmesh() {
 		# Set default debug log
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
-			output=$(kmeshctl log $POD --set default:debug 2>&1)
+			output=$(kmeshctl log $POD --set default:debug 2>&1 || true)
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully"
 				break
@@ -222,7 +222,7 @@ function setup_kmesh_log() {
 		# Set BPF debug log
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
-			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
+			output=$(kmeshctl log $POD --set bpf:debug 2>&1 || true)
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully"
 				break
@@ -235,7 +235,7 @@ function setup_kmesh_log() {
 		# Set default debug log
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
-			output=$(kmeshctl log $POD --set default:debug 2>&1)
+			output=$(kmeshctl log $POD --set default:debug 2>&1 || true)
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully"
 				break
@@ -440,19 +440,11 @@ bash -c "$cmd"
 EXIT_CODE=$?
 set -e
 
-# Log collection is diagnostic and must not replace the test exit status.
-if [ "$EXIT_CODE" -ne 0 ]; then
-	echo "E2E tests failed with exit code $EXIT_CODE."
-	if [[ -r $LOGFILE ]]; then
-		cat "$LOGFILE" || echo "Failed to read Kmesh daemon log: $LOGFILE"
-	elif [[ ${DEBUG:-false} == "true" ]]; then
-		echo "Kmesh daemon log was not created: $LOGFILE"
-	else
-		echo "Kmesh daemon log was not captured; rerun with --debug to enable log capture."
-	fi
+if [ $EXIT_CODE -ne 0 ]; then
+	cat $LOGFILE
 fi
 
-rm -f -- "$LOGFILE" || echo "Failed to remove Kmesh daemon log: $LOGFILE"
+rm -rf $LOGFILE
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster
@@ -462,4 +454,4 @@ if [[ -n ${CLEANUP_REGISTRY} ]]; then
 	cleanup_docker_registry
 fi
 
-exit "$EXIT_CODE"
+exit $EXIT_CODE
