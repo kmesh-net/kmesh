@@ -662,3 +662,106 @@ func TestServerMonitoringHandler(t *testing.T) {
 		assert.Equal(t, constants.ENABLED, enableMonitoring)
 	})
 }
+
+func TestServerAuthzHandler(t *testing.T) {
+	t.Run("disable and check authz offload", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, l := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: l,
+		}
+
+		// disable authz
+		url := fmt.Sprintf("%s?enable=%s", patternAuthz, "false")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		// verify it shows as disabled
+		req = httptest.NewRequest(http.MethodGet, patternAuthz, nil)
+		w = httptest.NewRecorder()
+		server.authzHandler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp struct {
+			Enabled bool `json:"enabled"`
+		}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.False(t, resp.Enabled)
+
+		authzOffload := l.GetAuthzOffload()
+		assert.Equal(t, constants.DISABLED, authzOffload)
+	})
+
+	t.Run("enable and check authz offload", func(t *testing.T) {
+		config := options.BpfConfig{
+			Mode:        constants.DualEngineMode,
+			BpfFsPath:   "/sys/fs/bpf",
+			Cgroup2Path: "/mnt/kmesh_cgroup2",
+		}
+		cleanup, l := test.InitBpfMap(t, config)
+		defer cleanup()
+
+		server := &Server{
+			xdsClient: &controller.XdsClient{
+				WorkloadController: &workload.Controller{
+					MetricController: &telemetry.MetricController{},
+				},
+			},
+			loader: l,
+		}
+
+		// enable authz
+		url := fmt.Sprintf("%s?enable=%s", patternAuthz, "true")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		// verify it shows as enabled
+		req = httptest.NewRequest(http.MethodGet, patternAuthz, nil)
+		w = httptest.NewRecorder()
+		server.authzHandler(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp struct {
+			Enabled bool `json:"enabled"`
+		}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.True(t, resp.Enabled)
+
+		authzOffload := l.GetAuthzOffload()
+		assert.Equal(t, constants.ENABLED, authzOffload)
+	})
+
+	t.Run("invalid method", func(t *testing.T) {
+		server := &Server{}
+		req := httptest.NewRequest(http.MethodPut, patternAuthz, nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusMethodNotAllowed, w.Code)
+	})
+
+	t.Run("invalid enable value", func(t *testing.T) {
+		server := &Server{}
+		url := fmt.Sprintf("%s?enable=%s", patternAuthz, "invalid_value")
+		req := httptest.NewRequest(http.MethodPost, url, nil)
+		w := httptest.NewRecorder()
+		server.authzHandler(w, req)
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+	})
+}

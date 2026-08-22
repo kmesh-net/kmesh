@@ -330,11 +330,32 @@ func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request)
 }
 
 func (s *Server) authzHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
+	if r.Method == http.MethodGet {
+		s.getAuthzStatus(w)
+	} else if r.Method == http.MethodPost {
+		s.setAuthzStatus(w, r)
+	} else {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+func (s *Server) getAuthzStatus(w http.ResponseWriter) {
+	authzOffload := s.loader.GetAuthzOffload()
+	enabled := authzOffload == constants.ENABLED
+
+	data, err := json.MarshalIndent(&struct {
+		Enabled bool `json:"enabled"`
+	}{Enabled: enabled}, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal authz status: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
 
+func (s *Server) setAuthzStatus(w http.ResponseWriter, r *http.Request) {
 	authzInfo := r.URL.Query().Get("enable")
 	enabled, err := strconv.ParseBool(authzInfo)
 	if err != nil {
