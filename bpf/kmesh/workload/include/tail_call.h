@@ -31,6 +31,14 @@ struct {
     __uint(map_flags, 0);
 } map_of_cgr_tail_call SEC(".maps");
 
+struct {
+    __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
+    __uint(key_size, sizeof(__u32));
+    __uint(value_size, sizeof(__u32));
+    __uint(max_entries, MAP_SIZE_OF_TAIL_CALL_PROG);
+    __uint(map_flags, 0);
+} map_of_cgr_tail_call6 SEC(".maps");
+
 // map_of_xdp_tailcall is used to store xdp tail call progs
 struct {
     __uint(type, BPF_MAP_TYPE_PROG_ARRAY);
@@ -43,6 +51,11 @@ struct {
 static inline void kmesh_workload_tail_call(ctx_buff_t *ctx, const __u32 index)
 {
     bpf_tail_call(ctx, &map_of_cgr_tail_call, index);
+}
+
+static inline void kmesh_workload_tail_call6(ctx_buff_t *ctx, const __u32 index)
+{
+    bpf_tail_call(ctx, &map_of_cgr_tail_call6, index);
 }
 
 #endif

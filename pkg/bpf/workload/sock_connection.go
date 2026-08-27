@@ -114,7 +114,7 @@ func (sc *SockConnWorkload) LoadSockConn() error {
 	sc.Info6.Type = prog.Type
 	sc.Info6.AttachType = prog.AttachType
 
-	if err = sc.KmCgrTailcall.Update(
+	if err = sc.KmCgrTail6.Update(
 		uint32(constants.TailCallConnect6Index),
 		uint32(sc.CgroupConnect6Prog.FD()),
 		ebpf.UpdateAny); err != nil {

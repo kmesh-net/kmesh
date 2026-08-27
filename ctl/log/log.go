@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 
@@ -61,6 +62,20 @@ kmeshctl log <kmesh-daemon-pod> default`,
 	}
 	cmd.Flags().String("set", "", "Set the logger level (e.g., default:debug)")
 	return cmd
+}
+
+// loggerLevelURL builds the URL that queries a single logger's level.
+//
+// The name comes straight from the command line, so it has to be escaped. A
+// name containing a space builds a malformed request line that the daemon's
+// HTTP server rejects before routing, and the caller sees a bare
+// "400 Bad Request" instead of the daemon's own "logger <name> does not exist".
+// That matters because Kmesh logs tag every line with a subsys field, and those
+// values ("cni installer", "cache/v2") read like logger names even though the
+// daemon only registers default, fileOnly and bpf. Someone reading logs will
+// reasonably try one, and should get told what is actually wrong.
+func loggerLevelURL(base, name string) string {
+	return base + "?name=" + url.QueryEscape(name)
 }
 
 func GetJson(url string, val any) error {
@@ -176,17 +191,16 @@ func RunGetOrSetLoggerLevel(cmd *cobra.Command, args []string) {
 	}
 	defer fw.Close()
 
-	url := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
+	loggersURL := fmt.Sprintf("http://%s%s", fw.Address(), patternLoggers)
 
 	setFlag, _ := cmd.Flags().GetString("set")
 	if setFlag == "" {
 		if len(args) >= 2 {
-			url += fmt.Sprintf("?name=%s", args[1])
-			GetLoggerLevel(url)
+			GetLoggerLevel(loggerLevelURL(loggersURL, args[1]))
 		} else {
-			GetLoggerNames(url)
+			GetLoggerNames(loggersURL)
 		}
 	} else {
-		SetLoggerLevel(url, setFlag)
+		SetLoggerLevel(loggersURL, setFlag)
 	}
 }

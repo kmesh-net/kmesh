@@ -440,11 +440,19 @@ bash -c "$cmd"
 EXIT_CODE=$?
 set -e
 
-if [ $EXIT_CODE -ne 0 ]; then
-	cat $LOGFILE
+# Log collection is diagnostic and must not replace the test exit status.
+if [ "$EXIT_CODE" -ne 0 ]; then
+	echo "E2E tests failed with exit code $EXIT_CODE."
+	if [[ -r $LOGFILE ]]; then
+		cat "$LOGFILE" || echo "Failed to read Kmesh daemon log: $LOGFILE"
+	elif [[ ${DEBUG:-false} == "true" ]]; then
+		echo "Kmesh daemon log was not created: $LOGFILE"
+	else
+		echo "Kmesh daemon log was not captured; rerun with --debug to enable log capture."
+	fi
 fi
 
-rm -rf $LOGFILE
+rm -f -- "$LOGFILE" || echo "Failed to remove Kmesh daemon log: $LOGFILE"
 
 if [[ -n ${CLEANUP_KIND} ]]; then
 	cleanup_kind_cluster
@@ -454,4 +462,4 @@ if [[ -n ${CLEANUP_REGISTRY} ]]; then
 	cleanup_docker_registry
 fi
 
-exit $EXIT_CODE
+exit "$EXIT_CODE"

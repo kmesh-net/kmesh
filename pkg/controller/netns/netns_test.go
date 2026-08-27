@@ -451,6 +451,55 @@ func TestProcessEntry_WithRealFilesystem(t *testing.T) {
 	}
 }
 
+// processEntry never inserted into netnsObserved, so it never actually
+// deduped anything: two proc entries sharing the same netns inode (common -
+// e.g. two threads of one process) both got processed in full instead of
+// the second one being skipped. Prove it with two entries hard-linked to
+// the same ns/net file, both with cgroup data matching the search filter:
+// with dedup working, only the first is reported as a match.
+func TestProcessEntrySkipsAlreadyObservedInode(t *testing.T) {
+	tmpDir, err := os.MkdirTemp("", "netns-dedup-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tmpDir)
+
+	for _, pid := range []string{"1111", "2222"} {
+		if err := os.MkdirAll(filepath.Join(tmpDir, pid, "ns"), 0755); err != nil {
+			t.Fatalf("Failed to create ns dir: %v", err)
+		}
+		cgroupLine := "12:pids:/kubepods/burstable/pod123e4567-e89b-12d3-a456-426614174000/" +
+			"9bca8d63d5fa610783847915bcff0ecac1273e5b4bed3f6fa1b07350e0135961\n"
+		if err := os.WriteFile(filepath.Join(tmpDir, pid, "cgroup"), []byte(cgroupLine), 0644); err != nil {
+			t.Fatalf("Failed to create cgroup file: %v", err)
+		}
+	}
+	firstNet := filepath.Join(tmpDir, "1111", "ns", "net")
+	if err := os.WriteFile(firstNet, []byte{}, 0644); err != nil {
+		t.Fatalf("Failed to create net file: %v", err)
+	}
+	// hard link so both pids report the same inode, like two threads of one process
+	if err := os.Link(firstNet, filepath.Join(tmpDir, "2222", "ns", "net")); err != nil {
+		t.Fatalf("Failed to hardlink net file: %v", err)
+	}
+
+	dirFS := os.DirFS(tmpDir)
+	netnsObserved := sets.New[uint64]()
+	filter := types.UID("123e4567-e89b-12d3-a456-426614174000")
+
+	first, err := processEntry(dirFS, netnsObserved, filter, createMockDirEntry("1111", true))
+	if err != nil || first == "" {
+		t.Fatalf("processEntry(1111) = %q, %v, want a match", first, err)
+	}
+	second, err := processEntry(dirFS, netnsObserved, filter, createMockDirEntry("2222", true))
+	if err != nil {
+		t.Errorf("processEntry(2222) unexpected error: %v", err)
+	}
+	if second != "" {
+		t.Errorf("processEntry(2222) = %q, want empty: already-observed inode should be deduped", second)
+	}
+}
+
 func TestFindNetnsForPod(t *testing.T) {
 	tests := []struct {
 		name    string

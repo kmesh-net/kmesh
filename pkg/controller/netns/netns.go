@@ -112,7 +112,7 @@ func processEntry(proc fs.FS, netnsObserved sets.Set[uint64], filter types.UID, 
 	if err != nil {
 		return "", err
 	}
-	if _, ok := netnsObserved[inode]; ok {
+	if netnsObserved.InsertContains(inode) {
 		log.Debugf("netns: %d already processed. skipping", inode)
 		return "", nil
 	}

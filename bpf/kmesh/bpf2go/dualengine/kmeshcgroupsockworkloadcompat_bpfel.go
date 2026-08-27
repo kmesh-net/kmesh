@@ -111,6 +111,7 @@ type KmeshCgroupSockWorkloadCompatMapSpecs struct {
 	KmAuthReq     *ebpf.MapSpec `ebpf:"km_auth_req"`
 	KmAuthRes     *ebpf.MapSpec `ebpf:"km_auth_res"`
 	KmBackend     *ebpf.MapSpec `ebpf:"km_backend"`
+	KmCgrTail6    *ebpf.MapSpec `ebpf:"km_cgr_tail6"`
 	KmCgrTailcall *ebpf.MapSpec `ebpf:"km_cgr_tailcall"`
 	KmEndpoint    *ebpf.MapSpec `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.MapSpec `ebpf:"km_frontend"`
@@ -161,6 +162,7 @@ type KmeshCgroupSockWorkloadCompatMaps struct {
 	KmAuthReq     *ebpf.Map `ebpf:"km_auth_req"`
 	KmAuthRes     *ebpf.Map `ebpf:"km_auth_res"`
 	KmBackend     *ebpf.Map `ebpf:"km_backend"`
+	KmCgrTail6    *ebpf.Map `ebpf:"km_cgr_tail6"`
 	KmCgrTailcall *ebpf.Map `ebpf:"km_cgr_tailcall"`
 	KmEndpoint    *ebpf.Map `ebpf:"km_endpoint"`
 	KmFrontend    *ebpf.Map `ebpf:"km_frontend"`
@@ -185,6 +187,7 @@ func (m *KmeshCgroupSockWorkloadCompatMaps) Close() error {
 		m.KmAuthReq,
 		m.KmAuthRes,
 		m.KmBackend,
+		m.KmCgrTail6,
 		m.KmCgrTailcall,
 		m.KmEndpoint,
 		m.KmFrontend,
