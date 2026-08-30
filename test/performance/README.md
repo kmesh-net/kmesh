@@ -6,19 +6,19 @@
 
 ## Test tool
 
-Fortio and dstat are used as performance test tools for Kmesh. Fortio is a powerful microservice load test library that can collect statistics on latency and throughput information such as TP90, TP99, and QPS. dstat is a system information statistics tool. It is used to collect the CPU usage during the test.
+Fortio and dstat are used as performance test tools for Kmesh. Fortio is a powerful microservice load test library that can collect statistics on latency and throughput information such as p90, p99, and QPS. dstat is a system information statistics tool. It is used to collect the CPU usage during the test.
 
 ## Test Case Description
 
 The directory contains a group of test case configuration and script files, which are used to test the performance of kmesh and industry software in the Kubernetes cluster environment.
 
-### Environment Prepare
+### Environment Preparation
 
 - k8s cluster
 
 - install istio
 
-  - Download and install istio. For details, see (<https://istio.io/latest/zh/docs/setup/getting-started/>).
+  - Download and install istio. For details, see (<https://istio.io/latest/docs/setup/getting-started/>).
 
   ```sh
   curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.14.5 TARGET_ARCH=x86_64 sh -
@@ -27,7 +27,7 @@ The directory contains a group of test case configuration and script files, whic
   istioctl install 
   ```
 
-### Test Case Description
+### Test cases
 
 There are eight tests, each of which contains the following sub-items: config and shell directories;
 
@@ -99,12 +99,12 @@ run:
 
 #### cilium test
 
-Install Cillium: (This test does not require the participation of the iStio.)
+Install Cilium: (This test does not require the participation of Istio.)
 
 ```sh
 # https://github.com/cilium/cilium-cli/releases，download cilium
 
-cilium install --helm-set-string kubeProxyReplacement=strict --helm-set-string extraConfig enable-envoy-config=true
+cilium install --helm-set-string kubeProxyReplacement=strict --helm-set-string extraConfig.enable-envoy-config=true
 ```
 
 Start the fortio-client, server, and service:
@@ -125,7 +125,7 @@ Run:
 
 Disable istio-sidecar injection:
 
-`kubectl label namespace default istio-injection=unenabled --overwrite`
+`kubectl label namespace default istio-injection=disabled --overwrite`
 
 Start the fortio-client, server, and service:
 
