@@ -1426,7 +1426,7 @@ void deserial_uninit()
 
 int map_restore(int map_fd, struct bpf_map_info *map_info, unsigned char *bitmap, unsigned int *start_pos)
 {
-    void *prev_key;
+    void *prev_key = NULL;
     unsigned int key = 0;
 
     while (!bpf_map_get_next_key(map_fd, prev_key, &key)) {
