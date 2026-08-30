@@ -126,7 +126,7 @@ func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDi
 
 	c.Stream, err = client.DeltaAggregatedResources(ctx)
 	if err != nil {
-		return fmt.Errorf("DeltaAggregatedResources failed, %s", err)
+		return fmt.Errorf("DeltaAggregatedResources failed, %w", err)
 	}
 
 	if c.Processor != nil {
@@ -146,13 +146,13 @@ func (c *Controller) WorkloadStreamCreateAndSend(client discoveryv3.AggregatedDi
 
 	log.Debugf("send initial request with address resources: %v", initialResourceVersions)
 	if err := c.Stream.Send(newDeltaRequest(AddressType, nil, initialResourceVersions)); err != nil {
-		return fmt.Errorf("send request failed, %s", err)
+		return fmt.Errorf("send request failed, %w", err)
 	}
 
 	initialResourceVersions = c.Rbac.GetAllPolicies()
 	log.Debugf("send initial request with authorization resources: %v", initialResourceVersions)
 	if err = c.Stream.Send(newDeltaRequest(AuthorizationType, nil, initialResourceVersions)); err != nil {
-		return fmt.Errorf("authorization subscribe failed, %s", err)
+		return fmt.Errorf("authorization subscribe failed, %w", err)
 	}
 
 	return nil
@@ -166,18 +166,18 @@ func (c *Controller) HandleWorkloadStream() error {
 
 	if rspDelta, err = c.Stream.Recv(); err != nil {
 		_ = c.Stream.CloseSend()
-		return fmt.Errorf("stream recv failed, %s", err)
+		return fmt.Errorf("stream recv failed, %w", err)
 	}
 
 	c.Processor.processWorkloadResponse(rspDelta, c.Rbac)
 
 	if err = c.Stream.Send(c.Processor.ack); err != nil {
-		return fmt.Errorf("stream send ack failed, %s", err)
+		return fmt.Errorf("stream send ack failed, %w", err)
 	}
 
 	if c.Processor.req != nil {
 		if err = c.Stream.Send(c.Processor.req); err != nil {
-			return fmt.Errorf("stream send req failed, %s", err)
+			return fmt.Errorf("stream send req failed, %w", err)
 		}
 	}
 

@@ -111,7 +111,7 @@ func AuthorizationUpdate(policyKey uint32, value *security_v2.Authorization) err
 	cKey := C.uint(policyKey)
 	cMsg, err := authorizationToClang(value)
 	if err != nil {
-		return fmt.Errorf("authorizationUpdate %s", err)
+		return fmt.Errorf("authorizationUpdate %w", err)
 	}
 	defer authorizationFreeClang(cMsg)
 

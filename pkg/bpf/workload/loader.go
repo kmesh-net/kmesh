@@ -83,11 +83,11 @@ func (w *BpfWorkload) Start() error {
 		if errors.As(err, &ve) {
 			return fmt.Errorf("bpf Load failed: %+v", ve)
 		}
-		return fmt.Errorf("bpf Load failed: %v", err)
+		return fmt.Errorf("bpf load failed: %w", err)
 	}
 
 	if err := w.Attach(); err != nil {
-		return fmt.Errorf("bpf Attach failed, %s", err)
+		return fmt.Errorf("bpf attach failed, %w", err)
 	}
 
 	if err := w.ApiEnvCfg(); err != nil {
@@ -95,7 +95,7 @@ func (w *BpfWorkload) Start() error {
 	}
 
 	if err := w.DeserialInit(); err != nil {
-		return fmt.Errorf("failed to init deserialization: %v", err)
+		return fmt.Errorf("failed to init deserialization: %w", err)
 	}
 	return nil
 }

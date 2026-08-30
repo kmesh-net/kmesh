@@ -102,7 +102,7 @@ func ListenerLookup(key *core_v2.SocketAddress, value *listener_v2.Listener) err
 
 	cKey, err := socketAddressToClang(key)
 	if err != nil {
-		return fmt.Errorf("ListenerLookup %s", err)
+		return fmt.Errorf("ListenerLookup %w", err)
 	}
 	if cKey == nil {
 		return nil
@@ -129,7 +129,7 @@ func ListenerUpdate(key *core_v2.SocketAddress, value *listener_v2.Listener) err
 
 	cKey, err := socketAddressToClang(key)
 	if err != nil {
-		return fmt.Errorf("ListenerLookup %s", err)
+		return fmt.Errorf("ListenerUpdate %w", err)
 	}
 	if cKey == nil {
 		return nil
@@ -138,7 +138,7 @@ func ListenerUpdate(key *core_v2.SocketAddress, value *listener_v2.Listener) err
 
 	cMsg, err := listenerToClang(value)
 	if err != nil {
-		return fmt.Errorf("ListenerUpdate %s", err)
+		return fmt.Errorf("ListenerUpdate %w", err)
 	}
 	if cMsg == nil {
 		return nil
@@ -164,7 +164,7 @@ func ListenerDelete(key *core_v2.SocketAddress) error {
 
 	cKey, err := socketAddressToClang(key)
 	if err != nil {
-		return fmt.Errorf("ListenerLookup %s", err)
+		return fmt.Errorf("ListenerDelete %w", err)
 	}
 	if cKey == nil {
 		return nil
