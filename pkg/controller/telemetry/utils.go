@@ -169,6 +169,11 @@ var (
 		"node_name",
 		"map_name",
 	}
+	kmeshMapDetailedLabels = []string{
+		"node_name",
+		"map_name",
+		"map_type",
+	}
 	totalMapLabels = []string{
 		"node_name",
 	}
@@ -292,6 +297,24 @@ var (
 			Help: "The total entry used by an eBPF map.",
 		}, kmeshMapLabels,
 	)
+	mapMaxEntries = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_max_entries",
+			Help: "The max capacity of an eBPF map.",
+		}, kmeshMapDetailedLabels,
+	)
+	mapMemlockBytes = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_memlock_bytes",
+			Help: "Kernel locked memory of an eBPF map in bytes.",
+		}, kmeshMapDetailedLabels,
+	)
+	mapUtilizationRatio = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "kmesh_map_entry_utilization_ratio",
+			Help: "Ratio of current entries to max capacity of an eBPF map.",
+		}, kmeshMapDetailedLabels,
+	)
 	mapCountInNode = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "kmesh_map_count_total",
@@ -320,7 +343,7 @@ func runPrometheusClient(registry *prometheus.Registry) {
 	registry.MustRegister(tcpConnectionOpenedInService, tcpConnectionClosedInService, tcpReceivedBytesInService, tcpSentBytesInService)
 	registry.MustRegister(tcpConnectionTotalSendBytes, tcpConnectionTotalReceivedBytes, tcpConnectionTotalPacketLost, tcpConnectionTotalRetrans)
 	registry.MustRegister(bpfProgOpDuration, bpfProgOpCount)
-	registry.MustRegister(mapEntryCount, mapCountInNode)
+	registry.MustRegister(mapEntryCount, mapMaxEntries, mapMemlockBytes, mapUtilizationRatio, mapCountInNode)
 
 	http.Handle("/status/metric", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
 		Registry: registry,
