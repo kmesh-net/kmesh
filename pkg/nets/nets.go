@@ -116,7 +116,7 @@ func checkIPVersion() (ipv4, ipv6 bool) {
 	return ipv4, ipv6
 }
 
-// Compare two slices and return the data added to a over b and the data missing from b over a.
+// Compare two slices and return the data missing from b over a.
 //
 // Args:
 //
@@ -125,31 +125,31 @@ func checkIPVersion() (ipv4, ipv6 bool) {
 //
 // return:
 //
-//	    Add: the data added to a over b
-//		Remove: the data missing from b over a
-//
-// TODO: Optimising functions to be able to handle different data types
+//	the data missing from b over a
 func CompareIpByte(a, b [][]byte) [][]byte {
-	aSet := make(map[string][]byte)
+	aSet := make(map[netip.Addr]struct{}, len(a))
 	for _, item := range a {
 		ip, ok := netip.AddrFromSlice(item)
 		if !ok {
-			log.Error("cannot compared IP: Unsupported data types")
+			log.Errorf("cannot compare IP: unsupported data types, length: %d", len(item))
+			continue
 		}
 
-		aSet[ip.String()] = item
+		aSet[ip] = struct{}{}
 	}
 
 	var bMissing [][]byte
 	for _, item := range b {
 		ip, ok := netip.AddrFromSlice(item)
 		if !ok {
-			log.Error("cannot compared IP: Unsupported data types")
+			log.Errorf("cannot compare IP: unsupported data types, length: %d", len(item))
+			bMissing = append(bMissing, item)
+			continue
 		}
-		if _, ok := aSet[ip.String()]; !ok {
+		if _, ok := aSet[ip]; !ok {
 			bMissing = append(bMissing, item)
 		} else {
-			delete(aSet, ip.String())
+			delete(aSet, ip)
 		}
 	}
 
