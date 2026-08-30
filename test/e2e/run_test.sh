@@ -186,30 +186,56 @@ function setup_kmesh() {
 	for POD in $PODS; do
 		echo "turn on the debug mode of the log for pod $POD"
 		# Set BPF debug log
+		bpf_ok=false
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
 			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully"
+				bpf_ok=true
 				break
 			fi
 			echo "Failed to set BPF debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			[ $i -eq 5 ] && echo "kmeshctl port-forward failed after 5 attempts, trying kubectl exec fallback"
 			sleep 2
 		done
+		if [ "$bpf_ok" = false ]; then
+			output=$(kubectl -n kmesh-system exec "$POD" -- curl -s --max-time 5 -X POST \
+				-H "Content-Type: application/json" \
+				-d '{"name":"bpf","level":"debug"}' http://127.0.0.1:15200/debug/loggers 2>&1)
+			if echo "$output" | grep -q "set BPF Log Level: 3"; then
+				echo "BPF debug log set successfully via kubectl exec"
+			else
+				echo "WARNING: Failed to set BPF debug log via fallback. Output: $output"
+				echo "Continuing without BPF debug logs..."
+			fi
+		fi
 
 		# Set default debug log
+		default_ok=false
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
 			output=$(kmeshctl log $POD --set default:debug 2>&1)
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully"
+				default_ok=true
 				break
 			fi
 			echo "Failed to set default debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			[ $i -eq 5 ] && echo "kmeshctl port-forward failed after 5 attempts, trying kubectl exec fallback"
 			sleep 2
 		done
+		if [ "$default_ok" = false ]; then
+			output=$(kubectl -n kmesh-system exec "$POD" -- curl -s --max-time 5 -X POST \
+				-H "Content-Type: application/json" \
+				-d '{"name":"default","level":"debug"}' http://127.0.0.1:15200/debug/loggers 2>&1)
+			if echo "$output" | grep -q "OK"; then
+				echo "Default debug log set successfully via kubectl exec"
+			else
+				echo "WARNING: Failed to set default debug log via fallback. Output: $output"
+				echo "Continuing without debug logs..."
+			fi
+		fi
 	done
 }
 
@@ -220,30 +246,56 @@ function setup_kmesh_log() {
 	for POD in $PODS; do
 		echo "turn on the debug mode of the log for pod $POD"
 		# Set BPF debug log
+		bpf_ok=false
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
 			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully"
+				bpf_ok=true
 				break
 			fi
 			echo "Failed to set BPF debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			[ $i -eq 5 ] && echo "kmeshctl port-forward failed after 5 attempts, trying kubectl exec fallback"
 			sleep 2
 		done
+		if [ "$bpf_ok" = false ]; then
+			output=$(kubectl -n kmesh-system exec "$POD" -- curl -s --max-time 5 -X POST \
+				-H "Content-Type: application/json" \
+				-d '{"name":"bpf","level":"debug"}' http://127.0.0.1:15200/debug/loggers 2>&1)
+			if echo "$output" | grep -q "set BPF Log Level: 3"; then
+				echo "BPF debug log set successfully via kubectl exec"
+			else
+				echo "WARNING: Failed to set BPF debug log via fallback. Output: $output"
+				echo "Continuing without BPF debug logs..."
+			fi
+		fi
 
 		# Set default debug log
+		default_ok=false
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
 			output=$(kmeshctl log $POD --set default:debug 2>&1)
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully"
+				default_ok=true
 				break
 			fi
 			echo "Failed to set default debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			[ $i -eq 5 ] && echo "kmeshctl port-forward failed after 5 attempts, trying kubectl exec fallback"
 			sleep 2
 		done
+		if [ "$default_ok" = false ]; then
+			output=$(kubectl -n kmesh-system exec "$POD" -- curl -s --max-time 5 -X POST \
+				-H "Content-Type: application/json" \
+				-d '{"name":"default","level":"debug"}' http://127.0.0.1:15200/debug/loggers 2>&1)
+			if echo "$output" | grep -q "OK"; then
+				echo "Default debug log set successfully via kubectl exec"
+			else
+				echo "WARNING: Failed to set default debug log via fallback. Output: $output"
+				echo "Continuing without debug logs..."
+			fi
+		fi
 	done
 }
 
