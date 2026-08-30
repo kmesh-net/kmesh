@@ -95,7 +95,7 @@ func (sm *BpfSendMsgWorkload) loadKmeshSendmsgObjects() (*ebpf.CollectionSpec, e
 	// 2) unpin old sk_msg prog: If sockmap is deleted, sk_msg will also be cleaned up
 	// 3) pin new sk_msg prog
 	// 4) attach new sk_msg prog(in SendMsg.Attach): Replace the old sk_msg prog
-	if restart.GetStartType() == restart.Restart {
+	if restart.GetStartType() == restart.Restart || restart.GetStartType() == restart.Update {
 		pinPath := filepath.Join(sm.Info.BpfFsPath, "sendmsg_prog")
 		oldSkMsg, err := ebpf.LoadPinnedProgram(pinPath, nil)
 		if err != nil {
