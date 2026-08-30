@@ -27,6 +27,7 @@ import (
 	"sort"
 
 	"github.com/containernetworking/cni/libcni"
+	"github.com/fsnotify/fsnotify"
 
 	"kmesh.net/kmesh/pkg/utils"
 )
@@ -210,9 +211,58 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	}
 	log.Infof("cni config file: %s", cniConfigFilePath)
 
-	/*
-	 TODO: add watcher for cniConfigFile
-	*/
+	if err := i.Watcher.Add(cniConfigFilePath); err != nil {
+		return fmt.Errorf("failed to add %s to file watcher: %v", cniConfigFilePath, err)
+	}
+
+	go func() {
+		log.Infof("start watching CNI config file %s", cniConfigFilePath)
+		for {
+			select {
+			case event := <-i.Watcher.Events(cniConfigFilePath):
+				log.Debugf("got event %s", event.String())
+
+				if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) {
+					log.Infof("CNI config file changed, reloading...")
+
+					updatedConfig, err := os.ReadFile(cniConfigFilePath)
+					if err != nil {
+						log.Errorf("failed to read updated CNI config: %v", err)
+						continue
+					}
+
+					newConfig, err := i.insertCNIConfig(updatedConfig, mode)
+					if err != nil {
+						log.Errorf("failed to process updated CNI config: %v", err)
+						continue
+					}
+
+					if len(newConfig) == 0 {
+						log.Errorf("updated CNI config is empty")
+						continue
+					}
+
+					fileInfo, err := os.Stat(cniConfigFilePath)
+					if err != nil {
+						log.Errorf("failed to get file info: %v", err)
+						continue
+					}
+
+					err = utils.AtomicWrite(cniConfigFilePath, newConfig, fileInfo.Mode().Perm())
+					if err != nil {
+						log.Errorf("failed to write updated CNI config: %v", err)
+						continue
+					}
+
+					log.Infof("CNI config reloaded successfully")
+				}
+			case err := <-i.Watcher.Errors(cniConfigFilePath):
+				if err != nil {
+					log.Errorf("error from file watcher: %v", err)
+				}
+			}
+		}
+	}()
 
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {
