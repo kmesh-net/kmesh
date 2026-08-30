@@ -5,7 +5,7 @@
 
 ## Introduction
 
-Kmesh is a high-performance and low overhead service mesh data plane based on eBPF and programmable kernel. Kmesh brings traffic management, security and monitoring to service communication without needing application code changes. It is natively sidecarless, zero intrusion and without adding any resource cost to application container.
+Kmesh is a high-performance, low-overhead service mesh data plane based on eBPF and programmable kernel. Kmesh brings traffic management, security and monitoring to service communication without needing application code changes. It is natively sidecarless, zero intrusion and without adding any resource cost to application container.
 
 ## Why Kmesh
 
@@ -27,18 +27,18 @@ Kmesh transparently intercepts and forwards traffic based on node local eBPF wit
 
 The main components of Kmesh include:
 
-- **Kmesh-daemon**: The management component per node responsible for bpf prog management, xDS configuration subscribe, observability, and etc.
+- **Kmesh-daemon**: The management component per node responsible for bpf prog management, xDS configuration subscription, observability, etc.
 - **eBPF Orchestration**: The traffic orchestration implemented based on eBPF, supports L4 load balancing, traffic encryption, monitoring and simple L7 dynamic routing.
 - **Waypoint**: Responsible for advanced L7 traffic governance, can be deployed separately per namespace, per service.
 
-Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to the kernel, and build a transparent sidecarless service mesh without passing through the proxy layer on the data path. We named this Kernel-Native mode.
+Kmesh innovatively sinks Layer 4 and Simple Layer 7 (HTTP) traffic governance to the kernel, and builds a transparent sidecarless service mesh without passing through the proxy layer on the data path. We named this Kernel-Native mode.
 
 <div align="center">
     <img src="docs/pics/kernel-native-mode.png" alt="kernel-native-mode" width="800" />
     <p>Kernel-Native Mode</p>
 </div>
 
-Kmesh also provides a Dual-Engine Mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allow you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
+Kmesh also provides a Dual-Engine Mode, which makes use of eBPF and waypoint to process L4 and L7 traffic separately, thus allowing you to adopt Kmesh incrementally, enabling a smooth transition from no mesh, to a secure L4, to full L7 processing.
 
 <div align="center">
     <img src="docs/pics/dual-engine-mode.png" alt="dual-engine-mode" width="800" />
@@ -63,7 +63,7 @@ Kmesh also provides a Dual-Engine Mode, which makes use of eBPF and waypoint to 
 #### Zero Trust
 
 - Provide zero trust security with default mutual TLS
-- Policy enforcement both in eBPF and waypoints
+- Policy enforcement in both eBPF and waypoints
 
 #### Safety Isolation
 
