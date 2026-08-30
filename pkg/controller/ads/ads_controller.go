@@ -67,7 +67,7 @@ func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 
 	stream, err := client.StreamAggregatedResources(ctx)
 	if err != nil {
-		return fmt.Errorf("StreamAggregatedResources failed, %s", err)
+		return fmt.Errorf("StreamAggregatedResources failed, %w", err)
 	}
 
 	c.con = &connection{
@@ -78,7 +78,7 @@ func (c *Controller) AdsStreamCreateAndSend(client service_discovery_v3.Aggregat
 
 	c.Processor.Reset()
 	if err := stream.Send(newAdsRequest(resource_v3.ClusterType, nil, "")); err != nil {
-		return fmt.Errorf("send request failed, %s", err)
+		return fmt.Errorf("send request failed, %w", err)
 	}
 	go sendUpstream(c.con)
 
@@ -92,7 +92,7 @@ func (c *Controller) HandleAdsStream() error {
 	)
 	if rsp, err = c.con.Stream.Recv(); err != nil {
 		_ = c.con.Stream.CloseSend()
-		return fmt.Errorf("stream recv failed, %s", err)
+		return fmt.Errorf("stream recv failed, %w", err)
 	}
 
 	// Because Kernel-Native mode is full update.

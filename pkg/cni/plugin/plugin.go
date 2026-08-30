@@ -141,7 +141,7 @@ func enableTcMarkEncrypt(args *skel.CmdArgs) error {
 	ifIndex = 0
 
 	if tc, err = utils.GetProgramByName(constants.TC_MARK_ENCRYPT); err != nil {
-		return fmt.Errorf("failed to get tc program: %v", err)
+		return fmt.Errorf("failed to get tc program: %w", err)
 	}
 
 	getVethPeerIndexFunc := func(netns.NetNS) error {
@@ -159,11 +159,11 @@ func enableTcMarkEncrypt(args *skel.CmdArgs) error {
 	}
 
 	if link, err = netlink.LinkByIndex(int(ifIndex)); err != nil {
-		return fmt.Errorf("failed to link valid interface, %v", err)
+		return fmt.Errorf("failed to link valid interface, %w", err)
 	}
 
 	if err = utils.ManageTCProgram(link, tc, constants.TC_ATTACH); err != nil {
-		return fmt.Errorf("failed to attach tc program, %v", err)
+		return fmt.Errorf("failed to attach tc program, %w", err)
 	}
 
 	return nil
@@ -190,14 +190,14 @@ func CmdAdd(args *skel.CmdArgs) error {
 
 	client, err := kube.CreateKubeClient(cniConf.KubeConfig)
 	if err != nil {
-		err = fmt.Errorf("failed to get k8s client: %v", err)
+		err = fmt.Errorf("failed to get k8s client: %w", err)
 		log.Error(err)
 		return err
 	}
 
 	pod, err := client.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
-		err = fmt.Errorf("failed to get pod: %v", err)
+		err = fmt.Errorf("failed to get pod: %w", err)
 		return err
 	}
 

@@ -109,15 +109,15 @@ func (sc *BpfAds) Start() error {
 		if errors.As(err, &ve) {
 			return fmt.Errorf("bpf Load failed: %+v", ve)
 		}
-		return fmt.Errorf("bpf Load failed: %v", err)
+		return fmt.Errorf("bpf Load failed: %w", err)
 	}
 
 	if err := sc.Attach(); err != nil {
-		return fmt.Errorf("bpf Attach failed, %s", err)
+		return fmt.Errorf("bpf Attach failed, %w", err)
 	}
 
 	if err := sc.ApiEnvCfg(); err != nil {
-		return fmt.Errorf("failed to set api env")
+		return fmt.Errorf("failed to set api env: %w", err)
 	}
 
 	ret := C.deserial_init()

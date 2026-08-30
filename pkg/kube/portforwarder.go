@@ -82,12 +82,12 @@ func (p *portForwarder) Start() error {
 
 	f := cmdutil.NewFactory(p.RESTClientGetter)
 	if err := pfOptions.Complete(f, p.cmd, []string{p.podName, ports}); err != nil {
-		return fmt.Errorf("complete failed: %v", err)
+		return fmt.Errorf("complete failed: %w", err)
 	}
 
 	go func() {
 		if err := pfOptions.RunPortForwardContext(p.ctx); err != nil {
-			p.errCh <- fmt.Errorf("error running port forward: %v", err)
+			p.errCh <- fmt.Errorf("error running port forward: %w", err)
 			return
 		}
 	}()
@@ -96,7 +96,7 @@ func (p *portForwarder) Start() error {
 	case <-pfOptions.ReadyChannel:
 		return nil
 	case err := <-p.errCh:
-		return fmt.Errorf("failure running port forward process: %v", err)
+		return fmt.Errorf("failure running port forward process: %w", err)
 	}
 }
 

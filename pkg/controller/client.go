@@ -76,7 +76,7 @@ func (c *XdsClient) createGrpcStreamClient() error {
 	var err error
 
 	if c.grpcConn, err = nets.GrpcConnect(c.xdsConfig.DiscoveryAddress); err != nil {
-		return fmt.Errorf("grpc connect failed: %s", err)
+		return fmt.Errorf("grpc connect failed: %w", err)
 	}
 
 	c.client = discoveryv3.NewAggregatedDiscoveryServiceClient(c.grpcConn)
@@ -84,12 +84,12 @@ func (c *XdsClient) createGrpcStreamClient() error {
 	if c.mode == constants.DualEngineMode {
 		if err = c.WorkloadController.WorkloadStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
-			return fmt.Errorf("create workload stream failed, %s", err)
+			return fmt.Errorf("create workload stream failed, %w", err)
 		}
 	} else if c.mode == constants.KernelNativeMode {
 		if err = c.AdsController.AdsStreamCreateAndSend(c.client, c.ctx); err != nil {
 			_ = c.grpcConn.Close()
-			return fmt.Errorf("create ads stream failed, %s", err)
+			return fmt.Errorf("create ads stream failed, %w", err)
 		}
 	}
 
@@ -148,7 +148,7 @@ func (c *XdsClient) handleUpstream(ctx context.Context) {
 
 func (c *XdsClient) Run(stopCh <-chan struct{}) error {
 	if err := c.createGrpcStreamClient(); err != nil {
-		return fmt.Errorf("create client and stream failed, %s", err)
+		return fmt.Errorf("create client and stream failed, %w", err)
 	}
 
 	go c.handleUpstream(c.ctx)
