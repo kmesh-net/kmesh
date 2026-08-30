@@ -497,7 +497,11 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
-	// TODO: Add some components check
+	if s.xdsClient == nil || s.loader == nil {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_, _ = w.Write([]byte("UNREADY: Core components not initialized"))
+		return
+	}
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("OK"))
 }
