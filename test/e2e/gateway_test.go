@@ -1,5 +1,3 @@
-//go:build integ
-// +build integ
 
 // CODE Copied and modified from https://github.com/istio/istio
 // more specifically: https://github.com/istio/istio/blob/master/pkg/test/framework/components/istio/ingress.go
