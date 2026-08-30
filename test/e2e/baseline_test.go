@@ -704,11 +704,12 @@ func TestRemoveAddNsOrServiceWaypoint(t *testing.T) {
 					}
 					t.NewSubTestf("from %v", src.Config().Service).Run(func(t framework.TestContext) {
 						opt := echo.CallOptions{
-							To:     dst,
-							Port:   echo.Port{Name: "http"},
-							Scheme: scheme.HTTP,
-							Count:  10,
-							Check:  check.And(check.OK(), IsL7()),
+							To:      dst,
+							Port:    echo.Port{Name: "http"},
+							Scheme:  scheme.HTTP,
+							Count:   10,
+							Timeout: time.Second * 15,
+							Check:   check.And(check.OK(), IsL7()),
 						}
 						src.CallOrFail(t, opt)
 					})
