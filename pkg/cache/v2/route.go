@@ -59,8 +59,8 @@ func newApiRouteConfigurationCache() ApiRouteConfigurationCache {
 }
 
 func (cache *RouteConfigCache) SetApiRouteConfig(key string, value *route_v2.RouteConfiguration) {
-	cache.mutex.RLock()
-	defer cache.mutex.RUnlock()
+	cache.mutex.Lock()
+	defer cache.mutex.Unlock()
 	cache.apiRouteConfigCache[key] = value
 }
 
