@@ -53,7 +53,7 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) error {
 	basename := filepath.Base(path) + ".tmp.file"
 	tempfile, err := os.CreateTemp(dir, basename)
 	if err != nil {
-		err = fmt.Errorf("failed to create tempfile %v/%v: %v", dir, basename, err)
+		err = fmt.Errorf("failed to create tempfile %v/%v: %w", dir, basename, err)
 		log.Error(err)
 		return err
 	}
@@ -63,25 +63,25 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) error {
 	}()
 
 	if err = os.Chmod(tempfile.Name(), mode); err != nil {
-		err = fmt.Errorf("failed to chmod tempfile %v: %v", tempfile.Name(), err)
+		err = fmt.Errorf("failed to chmod tempfile %v: %w", tempfile.Name(), err)
 		log.Error(err)
 		return err
 	}
 
 	if _, err = tempfile.Write(data); err != nil {
-		err = fmt.Errorf("failed to write tempfile %v: %v", tempfile.Name(), err)
+		err = fmt.Errorf("failed to write tempfile %v: %w", tempfile.Name(), err)
 		log.Error(err)
 		return err
 	}
 
 	if err = tempfile.Close(); err != nil {
-		err = fmt.Errorf("failed to close tempfile %v: %v", tempfile.Name(), err)
+		err = fmt.Errorf("failed to close tempfile %v: %w", tempfile.Name(), err)
 		log.Error(err)
 		return err
 	}
 
 	if err = os.Rename(tempfile.Name(), path); err != nil {
-		err = fmt.Errorf("failed to rename tempfile %v to %v: %v", tempfile.Name(), path, err)
+		err = fmt.Errorf("failed to rename tempfile %v to %v: %w", tempfile.Name(), path, err)
 		log.Error(err)
 		return err
 	}
