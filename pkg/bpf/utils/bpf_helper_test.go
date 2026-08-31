@@ -126,7 +126,7 @@ func Test_BpfProgUpdate(t *testing.T) {
 	}
 
 	cgopt := link.CgroupOptions{
-		Path:    "/sys/fs/cgroup",
+		Path:    "/sys/fs/cgroup2",
 		Attach:  ebpf.AttachCGroupInet4Connect,
 		Program: prog,
 	}
