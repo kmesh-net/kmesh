@@ -300,7 +300,20 @@ func (c *KmeshManageController) disableKmeshForPodsInNamespace(namespace *corev1
 	}
 
 	for _, pod := range pods {
-		if !utils.ShouldEnroll(pod, namespace) && utils.AnnotationEnabled(pod.Annotations[constants.KmeshRedirectionAnnotation]) {
+		// Do not gate this on the pod's current KmeshRedirectionAnnotation value:
+		// enableKmeshManage links XDP/TC synchronously but only queues the
+		// annotation patch (c.queue.AddRateLimited(... ActionAddAnnotation)), so
+		// the annotation can still be unset in the lister's cache for a pod that
+		// was already enabled moments earlier. If a namespace is unenrolled again
+		// before that patch lands, requiring the annotation here would silently
+		// skip disabling an actually-managed pod - and nothing ever retries it,
+		// since handlePodUpdate deliberately ignores updates that only change
+		// this same annotation (to avoid a self-triggered update loop, see
+		// https://github.com/kmesh-net/kmesh/issues/1357). disableKmeshManage's
+		// unlink calls are idempotent no-ops on a pod that was never linked, so
+		// unconditionally calling it here - mirroring enableKmeshForPodsInNamespace,
+		// which has no equivalent guard - is safe.
+		if !utils.ShouldEnroll(pod, namespace) {
 			c.disableKmeshManage(pod)
 		}
 	}
