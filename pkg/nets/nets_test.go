@@ -28,8 +28,11 @@ func Test_ConvertIpToUint32(t *testing.T) {
 	val := ConvertIpToUint32(ip)
 	assert.Equal(t, uint32(0x100a8c0), val)
 
-	// It can not panic even for invalid ip
+	// It can not panic even for invalid ip or ipv6
 	val = ConvertIpToUint32("a.b.c.d")
+	assert.Equal(t, uint32(0), val)
+
+	val = ConvertIpToUint32("2001:db8::1")
 	assert.Equal(t, uint32(0), val)
 }
 

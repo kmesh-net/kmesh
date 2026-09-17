@@ -35,14 +35,11 @@ func ConvertIpToUint32(ip string) uint32 {
 	if netIP == nil {
 		return 0
 	}
-	// TODO: is this right?
-	if len(netIP) == net.IPv6len {
-		return binary.LittleEndian.Uint32(netIP.To4())
+	ipv4 := netIP.To4()
+	if ipv4 == nil {
+		return 0
 	}
-	if len(netIP) == net.IPv4len {
-		return binary.LittleEndian.Uint32(netIP)
-	}
-	return 0
+	return binary.LittleEndian.Uint32(ipv4)
 }
 
 // ConvertPortToBigEndian convert uint32 to network order
