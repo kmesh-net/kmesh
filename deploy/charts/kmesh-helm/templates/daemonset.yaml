@@ -58,6 +58,19 @@ spec:
         image: {{ .Values.deploy.kmesh.image.repository }}:{{ .Values.deploy.kmesh.image.tag | default .Chart.AppVersion }}
         imagePullPolicy: {{ .Values.deploy.kmesh.imagePullPolicy }}
         name: kmesh
+        # Admin server binds to localhost:15200 only, so it can't be probed via
+        # httpGet/tcpSocket (those target the Pod IP); use exec instead.
+        readinessProbe:
+          exec:
+            command:
+            - /bin/sh
+            - -c
+            - "cat < /dev/null > /dev/tcp/127.0.0.1/15200"
+          initialDelaySeconds: 1
+          periodSeconds: 2
+          timeoutSeconds: 2
+          failureThreshold: 3
+          successThreshold: 1
         resources: {{- toYaml .Values.deploy.kmesh.resources | nindent 10 }}
         securityContext:
           privileged: true
