@@ -140,6 +140,7 @@ func (m *BpfProgMetric) updateOperationMetricCache(data operationDuration, label
 	v, ok := m.operationMetricCache[labels]
 	if ok {
 		v.durations = append(v.durations, data.durations...)
+		m.operationMetricCache[labels] = v
 	} else {
 		m.operationMetricCache[labels] = data
 	}

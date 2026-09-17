@@ -193,7 +193,7 @@ func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
+	client := utils.NewAdminHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)
@@ -227,7 +227,7 @@ func fetchAuthzStatus(cli kube.CLIClient, podName string) (string, error) {
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
+	client := utils.NewAdminHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", fmt.Errorf("failed to make HTTP request: %v", err)
