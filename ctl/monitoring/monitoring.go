@@ -203,7 +203,7 @@ func SetObservabilityPerKmeshDaemon(cli kube.CLIClient, podName, info string, ob
 			return
 		}
 		bodyString := string(bodyBytes)
-		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte(fmt.Sprintf("Kmesh monitoring is disable, cannot enable %s.", observablityType))) {
+		if resp.StatusCode == http.StatusBadRequest && bytes.Contains(bodyBytes, []byte(fmt.Sprintf("Kmesh monitoring is disabled, cannot enable %s.", observablityType))) {
 			log.Errorf("failed to enable %s: %v. Need to start Kmesh's Monitoring. Please run `kmeshctl monitoring -h` for more help.", observablityType, bodyString)
 		}
 	}
