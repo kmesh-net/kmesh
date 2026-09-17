@@ -35,12 +35,8 @@ func ConvertIpToUint32(ip string) uint32 {
 	if netIP == nil {
 		return 0
 	}
-	// TODO: is this right?
-	if len(netIP) == net.IPv6len {
-		return binary.LittleEndian.Uint32(netIP.To4())
-	}
-	if len(netIP) == net.IPv4len {
-		return binary.LittleEndian.Uint32(netIP)
+	if ipv4 := netIP.To4(); ipv4 != nil {
+		return binary.LittleEndian.Uint32(ipv4)
 	}
 	return 0
 }
@@ -77,7 +73,7 @@ func CopyIpByteFromSlice(dst *[16]byte, src []byte) {
 // TODO: this may conflict with IpV6 addresses with the same pattern,
 // we should find a better way to indicate the ipv4 address.
 func IpString(ip [16]byte) string {
-	if isZeros(ip[5:]) {
+	if isZeros(ip[4:]) {
 		return net.IP(ip[:4]).String()
 	}
 	return net.IP(ip[:]).String()
@@ -135,6 +131,7 @@ func CompareIpByte(a, b [][]byte) [][]byte {
 		ip, ok := netip.AddrFromSlice(item)
 		if !ok {
 			log.Error("cannot compared IP: Unsupported data types")
+			continue
 		}
 
 		aSet[ip.String()] = item
@@ -145,6 +142,7 @@ func CompareIpByte(a, b [][]byte) [][]byte {
 		ip, ok := netip.AddrFromSlice(item)
 		if !ok {
 			log.Error("cannot compared IP: Unsupported data types")
+			continue
 		}
 		if _, ok := aSet[ip.String()]; !ok {
 			bMissing = append(bMissing, item)
