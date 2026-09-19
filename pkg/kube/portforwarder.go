@@ -25,8 +25,13 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+	"k8s.io/apimachinery/pkg/api/meta"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/genericiooptions"
+	"k8s.io/client-go/discovery"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/kubectl/pkg/cmd/portforward"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
@@ -58,6 +63,63 @@ type portForwarder struct {
 	errCh        chan error
 }
 
+// namespacedConfigLoader wraps a clientcmd.ClientConfig and overrides the
+// namespace returned by Namespace() with a fixed value, without mutating the
+// state of the wrapped loader. It delegates explicitly (instead of embedding)
+// because the interface itself declares a method named ClientConfig, which an
+// embedded field would shadow.
+type namespacedConfigLoader struct {
+	delegate clientcmd.ClientConfig
+	ns       string
+}
+
+func (l namespacedConfigLoader) RawConfig() (clientcmdapi.Config, error) {
+	return l.delegate.RawConfig()
+}
+
+func (l namespacedConfigLoader) ClientConfig() (*rest.Config, error) {
+	return l.delegate.ClientConfig()
+}
+
+func (l namespacedConfigLoader) Namespace() (string, bool, error) {
+	// Always treat the namespace as explicitly set so it takes precedence
+	// over in-cluster namespace detection, context defaults, etc.
+	return l.ns, true, nil
+}
+
+func (l namespacedConfigLoader) ConfigAccess() clientcmd.ConfigAccess {
+	return l.delegate.ConfigAccess()
+}
+
+// namespacedRESTClientGetter wraps a RESTClientGetter and serves its raw kube
+// config loader through namespacedConfigLoader, so that consumers of this
+// getter (e.g. portforward.PortForwardOptions.Complete via cmdutil.Factory)
+// resolve the namespace from the value supplied to newPortForwarder instead
+// of the one baked into the shared client factory. All other calls are
+// delegated unchanged to the wrapped getter.
+type namespacedRESTClientGetter struct {
+	genericclioptions.RESTClientGetter
+	ns string
+}
+
+var _ genericclioptions.RESTClientGetter = &namespacedRESTClientGetter{}
+
+func (g *namespacedRESTClientGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return namespacedConfigLoader{delegate: g.RESTClientGetter.ToRawKubeConfigLoader(), ns: g.ns}
+}
+
+func (g *namespacedRESTClientGetter) ToRESTConfig() (*rest.Config, error) {
+	return g.RESTClientGetter.ToRESTConfig()
+}
+
+func (g *namespacedRESTClientGetter) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
+	return g.RESTClientGetter.ToDiscoveryClient()
+}
+
+func (g *namespacedRESTClientGetter) ToRESTMapper() (meta.RESTMapper, error) {
+	return g.RESTClientGetter.ToRESTMapper()
+}
+
 // getAvailablePort returns an available port by binding a listener to a port in the ephemeral range.
 func getAvailablePort() (int, error) {
 	listener, err := net.Listen("tcp", ":0") // ":0" will assign a random available port
@@ -80,7 +142,7 @@ func (p *portForwarder) Start() error {
 	pfOptions := portforward.NewDefaultPortForwardOptions(ioStreams)
 	pfOptions.Address = address
 
-	f := cmdutil.NewFactory(p.RESTClientGetter)
+	f := cmdutil.NewFactory(&namespacedRESTClientGetter{RESTClientGetter: p.RESTClientGetter, ns: p.ns})
 	if err := pfOptions.Complete(f, p.cmd, []string{p.podName, ports}); err != nil {
 		return fmt.Errorf("complete failed: %v", err)
 	}
