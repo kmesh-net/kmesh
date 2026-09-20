@@ -257,3 +257,4 @@ func (s *SecretManager) retryFetchCert(identity string) {
 
 	go s.fetchCert(identity)
 }
+
