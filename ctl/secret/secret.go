@@ -189,12 +189,14 @@ func CreateOrUpdateSecret(cmd *cobra.Command, args []string) {
 			log.Errorf("failed to create %v secret, %v", SecretName, err)
 			os.Exit(1)
 		}
+		fmt.Printf("IPsec secret created (SPI: %d)\n", ipSecKey.Spi)
 	} else {
 		_, err = clientset.Kube().CoreV1().Secrets(utils.KmeshNamespace).Update(context.TODO(), secret, metav1.UpdateOptions{})
 		if err != nil {
 			log.Errorf("failed to update %v secret, %v", SecretName, err)
 			os.Exit(1)
 		}
+		fmt.Printf("IPsec secret updated (SPI: %d)\n", ipSecKey.Spi)
 	}
 }
 
