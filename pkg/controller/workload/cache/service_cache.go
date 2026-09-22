@@ -70,6 +70,14 @@ func (s *serviceCache) AddOrUpdateService(svc *workloadapi.Service) {
 	defer s.mutex.Unlock()
 	resourceName := svc.ResourceName()
 
+	if oldSvc, ok := s.servicesByResourceName[resourceName]; ok {
+		for _, addr := range oldSvc.GetAddresses() {
+			addrStr, _ := netip.AddrFromSlice(addr.GetAddress())
+			networkAddress := composeNetworkAddress(addr.GetNetwork(), addrStr)
+			s.deleteAddr(networkAddress, oldSvc)
+		}
+	}
+
 	s.servicesByResourceName[resourceName] = svc
 	for _, addr := range svc.GetAddresses() {
 		addrStr, _ := netip.AddrFromSlice(addr.GetAddress())

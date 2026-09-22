@@ -39,6 +39,42 @@ func TestAddOrUpdateService(t *testing.T) {
 	assert.Equal(t, svc1, cache.GetServiceByAddr(NetworkAddress{Address: netip.MustParseAddr("10.240.10.1")}))
 }
 
+func TestAddOrUpdateServiceRemovesStaleAddressIndexes(t *testing.T) {
+	cache := NewServiceCache()
+	oldIP := netip.MustParseAddr("10.240.10.1")
+	newIP := netip.MustParseAddr("10.240.10.2")
+
+	oldSvc := common.CreateFakeService("example", oldIP.String(), "", nil)
+	updatedSvc := common.CreateFakeService("example", newIP.String(), "", nil)
+
+	cache.AddOrUpdateService(oldSvc)
+	cache.AddOrUpdateService(updatedSvc)
+
+	assert.Nil(t, cache.GetServiceByAddr(NetworkAddress{Address: oldIP}))
+	assert.Nil(t, cache.GetServiceByIP(oldIP))
+	assert.Equal(t, updatedSvc, cache.GetServiceByAddr(NetworkAddress{Address: newIP}))
+	assert.Equal(t, updatedSvc, cache.GetServiceByIP(newIP))
+}
+
+func TestAddOrUpdateServicePreservesReassignedAddressIndexes(t *testing.T) {
+	cache := NewServiceCache()
+	oldIP := netip.MustParseAddr("10.240.10.1")
+	newIP := netip.MustParseAddr("10.240.10.2")
+
+	oldSvc := common.CreateFakeService("svc1", oldIP.String(), "", nil)
+	reassignedSvc := common.CreateFakeService("svc2", oldIP.String(), "", nil)
+	updatedSvc := common.CreateFakeService("svc1", newIP.String(), "", nil)
+
+	cache.AddOrUpdateService(oldSvc)
+	cache.AddOrUpdateService(reassignedSvc)
+	cache.AddOrUpdateService(updatedSvc)
+
+	assert.Equal(t, reassignedSvc, cache.GetServiceByAddr(NetworkAddress{Address: oldIP}))
+	assert.Equal(t, reassignedSvc, cache.GetServiceByIP(oldIP))
+	assert.Equal(t, updatedSvc, cache.GetServiceByAddr(NetworkAddress{Address: newIP}))
+	assert.Equal(t, updatedSvc, cache.GetServiceByIP(newIP))
+}
+
 func TestDeleteService(t *testing.T) {
 	t.Run("normal delete", func(t *testing.T) {
 		cache := NewServiceCache()
