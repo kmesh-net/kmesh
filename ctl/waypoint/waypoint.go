@@ -153,7 +153,10 @@ func NewCmd() *cobra.Command {
 		}
 
 		if revision != "" {
-			gw.Labels = map[string]string{label.IoIstioRev.Name: revision}
+			if gw.Labels == nil {
+				gw.Labels = map[string]string{}
+			}
+			gw.Labels[label.IoIstioRev.Name] = revision
 		}
 		return &gw, nil
 	}
