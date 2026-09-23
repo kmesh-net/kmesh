@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kmesh.net/kmesh/pkg/constants"
+	kmeshns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -175,6 +176,78 @@ var (
 	}
 )
 
+// simulateQueueItem stands in for the real workqueue processing loop (processItems/syncPod)
+// in tests, since that loop isn't running here. It mirrors syncPod's action handling,
+// including chaining ActionAttach -> ActionAddAnnotation and ActionDetach -> ActionDeleteAnnotation
+// on success, so tests exercise the same gating the real controller applies.
+func simulateQueueItem(t *testing.T, controller *KmeshManageController, item interface{}) {
+	t.Helper()
+
+	queueItem, ok := item.(QueueItem)
+	if !ok {
+		t.Logf("expected QueueItem but got %T", item)
+		return
+	}
+	pod, err := controller.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
+	if err != nil {
+		if apierrors.IsNotFound(err) {
+			t.Logf("pod %s/%s has been deleted", queueItem.podNs, queueItem.podName)
+			return
+		}
+		t.Errorf("failed to get pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
+		return
+	}
+	if pod == nil {
+		return
+	}
+
+	namespace, _ := controller.namespaceLister.Get(pod.Namespace)
+	switch queueItem.action {
+	case ActionAttach:
+		if !utils.ShouldEnroll(pod, namespace) {
+			return
+		}
+		nspath, err := kmeshns.GetPodNSpath(pod)
+		if err != nil {
+			t.Errorf("failed to get netns path for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
+		}
+		if err := attachPod(nspath, controller.xdpProgFd, controller.tcProgFd, controller.mode); err != nil {
+			t.Errorf("failed to attach pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
+		}
+		simulateQueueItem(t, controller, QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionAddAnnotation})
+	case ActionDetach:
+		if utils.ShouldEnroll(pod, namespace) {
+			return
+		}
+		nspath, err := kmeshns.GetPodNSpath(pod)
+		if err != nil {
+			t.Errorf("failed to get netns path for pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
+		}
+		if err := detachPod(nspath, controller.tcProgFd, controller.mode); err != nil {
+			t.Errorf("failed to detach pod %s/%s: %v", pod.Namespace, pod.Name, err)
+			return
+		}
+		simulateQueueItem(t, controller, QueueItem{podName: pod.Name, podNs: pod.Namespace, action: ActionDeleteAnnotation})
+	case ActionAddAnnotation:
+		if utils.ShouldEnroll(pod, namespace) {
+			t.Logf("add annotation for pod %s/%s", pod.Namespace, pod.Name)
+			if err := utils.PatchKmeshRedirectAnnotation(controller.client, pod); err != nil {
+				t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
+			}
+		}
+	case ActionDeleteAnnotation:
+		if !utils.ShouldEnroll(pod, namespace) {
+			t.Logf("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
+			if err := utils.DelKmeshRedirectAnnotation(controller.client, pod); err != nil {
+				t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
+			}
+		}
+	}
+}
+
 func waitAndCheckManageAction(t *testing.T, enabled *atomic.Bool, disabled *atomic.Bool, enableExpected bool, disableExpected bool) {
 	retry.UntilSuccess(func() error {
 		// Wait for the handleKmeshManage to be called
@@ -219,34 +292,16 @@ func TestHandleKmeshManage(t *testing.T) {
 		return nil
 	})
 
-	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
-		queueItem, ok := item.(QueueItem)
-		if !ok {
-			t.Logf("expected QueueItem but got %T", item)
-			return
-		}
-		pod, err := controller.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				t.Logf("pod %s/%s has been deleted", queueItem.podNs, queueItem.podName)
-				return
-			}
-			t.Errorf("failed to get pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
-		}
+	// simulateQueueItem drives the real ActionAttach/ActionDetach branches, which call
+	// GetPodNSpath. Test pods have no real network namespace on disk, so the real
+	// implementation would fail here regardless of attach/detach outcome; mock it the
+	// same way attachPod/detachPod are mocked elsewhere in this file.
+	patches.ApplyFunc(kmeshns.GetPodNSpath, func(*corev1.Pod) (string, error) {
+		return "/proc/1/ns/net", nil
+	})
 
-		if pod != nil {
-			namespace, _ := controller.namespaceLister.Get(pod.Namespace)
-			if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
-				t.Logf("add annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = utils.PatchKmeshRedirectAnnotation(controller.client, pod)
-			} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
-				t.Logf("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = utils.DelKmeshRedirectAnnotation(controller.client, pod)
-			}
-		}
-		if err != nil {
-			t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
-		}
+	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
+		simulateQueueItem(t, controller, item)
 	})
 
 	type args struct {
@@ -428,6 +483,126 @@ func TestHandleKmeshManage(t *testing.T) {
 	}
 }
 
+// TestSyncPodAttachGating drives the real queue/processItems/syncPod path (unlike the
+// simulateQueueItem test double used elsewhere in this file) to verify the gating added
+// for https://github.com/kmesh-net/kmesh/issues/1846: a pod must only be annotated as
+// Kmesh-managed once attachPod actually succeeds, must stay unannotated (and be retried)
+// while attach keeps failing, and its annotation must not be removed until detachPod
+// actually succeeds.
+func TestSyncPodAttachGating(t *testing.T) {
+	client := fake.NewSimpleClientset()
+	require.NoError(t, os.Setenv("NODE_NAME", "test_node"))
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
+	require.NoError(t, err)
+
+	stopChan := make(chan struct{})
+	defer close(stopChan)
+	go controller.Run(stopChan)
+	cache.WaitForCacheSync(stopChan, controller.podInformer.HasSynced, controller.namespaceInformer.HasSynced)
+
+	_, err = client.CoreV1().Namespaces().Create(context.TODO(), nsWithoutLabel, metav1.CreateOptions{})
+	require.NoError(t, err)
+
+	// syncPod's ActionAttach/ActionDetach branches call GetPodNSpath before attachPod/
+	// detachPod. Test pods have no real network namespace on disk, so the real
+	// implementation would fail regardless of the injected attach/detach outcome below.
+	nsPatches := gomonkey.NewPatches()
+	defer nsPatches.Reset()
+	nsPatches.ApplyFunc(kmeshns.GetPodNSpath, func(*corev1.Pod) (string, error) {
+		return "/proc/1/ns/net", nil
+	})
+
+	// createSyncedPod creates pod through the fake clientset (not the informer store
+	// directly, since the informer's reflector would just evict a store-only entry on
+	// its next relist, and syncPod's PatchKmeshRedirectAnnotation/DelKmeshRedirectAnnotation
+	// need the pod to actually exist in the fake API server too) and waits for the
+	// controller's podLister to observe it before handing it back.
+	createSyncedPod := func(t *testing.T, pod *corev1.Pod) *corev1.Pod {
+		t.Helper()
+		created, err := client.CoreV1().Pods(pod.Namespace).Create(context.TODO(), pod, metav1.CreateOptions{})
+		require.NoError(t, err)
+		require.Eventually(t, func() bool {
+			_, err := controller.podLister.Pods(pod.Namespace).Get(pod.Name)
+			return err == nil
+		}, 2*time.Second, 5*time.Millisecond, "expected podLister to observe %s/%s", pod.Namespace, pod.Name)
+		return created
+	}
+
+	t.Run("attach failure is retried and the pod stays unannotated", func(t *testing.T) {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(utils.HandleKmeshManage, func(string, bool) error { return nil })
+		var attachCalls atomic.Int32
+		patches.ApplyFunc(attachPod, func(string, int, int, string) error {
+			attachCalls.Add(1)
+			return fmt.Errorf("injected attach failure")
+		})
+
+		pod := podWithLabel.DeepCopy()
+		pod.Name = "attach-fail-pod"
+		pod = createSyncedPod(t, pod)
+
+		controller.enableKmeshManage(pod)
+
+		require.Eventually(t, func() bool {
+			return attachCalls.Load() >= 2
+		}, 2*time.Second, 5*time.Millisecond, "expected attach to be retried after failure via the queue's backoff")
+
+		got, err := client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.False(t, utils.AnnotationEnabled(got.Annotations[constants.KmeshRedirectionAnnotation]),
+			"pod must not be annotated as managed while attach keeps failing")
+	})
+
+	t.Run("attach success annotates the pod only once attachPod succeeds", func(t *testing.T) {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(utils.HandleKmeshManage, func(string, bool) error { return nil })
+		patches.ApplyFunc(attachPod, func(string, int, int, string) error { return nil })
+
+		pod := podWithLabel.DeepCopy()
+		pod.Name = "attach-ok-pod"
+		pod = createSyncedPod(t, pod)
+
+		controller.enableKmeshManage(pod)
+
+		require.Eventually(t, func() bool {
+			got, err := client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+			return err == nil && utils.AnnotationEnabled(got.Annotations[constants.KmeshRedirectionAnnotation])
+		}, 2*time.Second, 5*time.Millisecond, "expected pod to be annotated once attach succeeded")
+	})
+
+	t.Run("detach failure is retried and the annotation is not removed", func(t *testing.T) {
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+		patches.ApplyFunc(utils.HandleKmeshManage, func(string, bool) error { return nil })
+		var detachCalls atomic.Int32
+		patches.ApplyFunc(detachPod, func(string, int, string) error {
+			detachCalls.Add(1)
+			return fmt.Errorf("injected detach failure")
+		})
+
+		pod := podReadyWithAnnotation.DeepCopy()
+		pod.Name = "detach-fail-pod"
+		pod = createSyncedPod(t, pod)
+
+		controller.disableKmeshManage(pod)
+
+		require.Eventually(t, func() bool {
+			return detachCalls.Load() >= 2
+		}, 2*time.Second, 5*time.Millisecond, "expected detach to be retried after failure via the queue's backoff")
+
+		got, err := client.CoreV1().Pods(pod.Namespace).Get(context.TODO(), pod.Name, metav1.GetOptions{})
+		require.NoError(t, err)
+		assert.True(t, utils.AnnotationEnabled(got.Annotations[constants.KmeshRedirectionAnnotation]),
+			"annotation must remain in place until detach actually succeeds")
+	})
+}
+
 func TestNsInformerHandleKmeshManage(t *testing.T) {
 	client := fake.NewSimpleClientset()
 
@@ -461,34 +636,16 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 		return nil
 	})
 
-	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
-		queueItem, ok := item.(QueueItem)
-		if !ok {
-			t.Logf("expected QueueItem but got %T", item)
-			return
-		}
-		pod, err := controller.podLister.Pods(queueItem.podNs).Get(queueItem.podName)
-		if err != nil {
-			if apierrors.IsNotFound(err) {
-				t.Logf("pod %s/%s has been deleted", queueItem.podNs, queueItem.podName)
-				return
-			}
-			t.Errorf("failed to get pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
-		}
+	// simulateQueueItem drives the real ActionAttach/ActionDetach branches, which call
+	// GetPodNSpath. Test pods have no real network namespace on disk, so the real
+	// implementation would fail here regardless of attach/detach outcome; mock it the
+	// same way attachPod/detachPod are mocked elsewhere in this file.
+	patches.ApplyFunc(kmeshns.GetPodNSpath, func(*corev1.Pod) (string, error) {
+		return "/proc/1/ns/net", nil
+	})
 
-		if pod != nil {
-			namespace, _ := controller.namespaceLister.Get(pod.Namespace)
-			if queueItem.action == ActionAddAnnotation && utils.ShouldEnroll(pod, namespace) {
-				t.Logf("add annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = utils.PatchKmeshRedirectAnnotation(controller.client, pod)
-			} else if queueItem.action == ActionDeleteAnnotation && !utils.ShouldEnroll(pod, namespace) {
-				t.Logf("delete annotation for pod %s/%s", pod.Namespace, pod.Name)
-				err = utils.DelKmeshRedirectAnnotation(controller.client, pod)
-			}
-		}
-		if err != nil {
-			t.Errorf("failed to handle pod %s/%s: %v", queueItem.podNs, queueItem.podName, err)
-		}
+	patches.ApplyMethodFunc(reflect.TypeOf(controller.queue), "AddRateLimited", func(item interface{}) {
+		simulateQueueItem(t, controller, item)
 	})
 
 	type args struct {
