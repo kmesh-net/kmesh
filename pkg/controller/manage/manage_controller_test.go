@@ -41,6 +41,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"kmesh.net/kmesh/pkg/constants"
+	kmeshsecurity "kmesh.net/kmesh/pkg/controller/security"
 	"kmesh.net/kmesh/pkg/utils"
 )
 
@@ -426,6 +427,63 @@ func TestHandleKmeshManage(t *testing.T) {
 			waitAndCheckManageAction(t, &enabled, &disabled, tt.expectManaged, tt.expectDisManaged)
 		})
 	}
+}
+
+// TestCertRequestDedupOnRepeatedPodUpdate reproduces the cert refCnt leak:
+// Kubernetes fires a pod Update event on almost any status change (readiness
+// flips, restarts, condition changes), and handlePodUpdate forwards each one
+// to handlePodAdd whenever the KmeshRedirectionAnnotation itself is
+// unchanged, which is the common case since that annotation is only patched
+// asynchronously. Before this fix, every such Update sent a fresh cert ADD
+// through enableKmeshManage, while only a single DELETE was ever sent on
+// pod deletion, so SecretManager's refcounted cert cache never dropped back
+// to zero. This test asserts ADD is only sent once per pod no matter how
+// many Update events fire, and that the single DELETE on deletion balances
+// it.
+func TestCertRequestDedupOnRepeatedPodUpdate(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	require.NoError(t, os.Setenv("NODE_NAME", "test_node"))
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
+	require.NoError(t, err)
+	require.NoError(t, controller.namespaceInformer.GetStore().Add(nsWithoutLabel))
+
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(utils.HandleKmeshManage, func(_ string, _ bool) error { return nil })
+
+	var addCount, deleteCount int32
+	patches.ApplyFunc(sendCertRequest, func(_ *kmeshsecurity.SecretManager, _ *corev1.Pod, op int) {
+		switch op {
+		case kmeshsecurity.ADD:
+			atomic.AddInt32(&addCount, 1)
+		case kmeshsecurity.DELETE:
+			atomic.AddInt32(&deleteCount, 1)
+		}
+	})
+
+	pod := podWithLabel.DeepCopy()
+	pod.UID = "cert-dedup-test-pod"
+
+	controller.handlePodAdd(pod)
+	for i := 0; i < 4; i++ {
+		controller.handlePodUpdate(pod.DeepCopy(), pod)
+	}
+	assert.EqualValues(t, 1, atomic.LoadInt32(&addCount), "expected exactly one cert ADD despite repeated pod Update events")
+
+	controller.handlePodDelete(pod)
+	assert.EqualValues(t, 1, atomic.LoadInt32(&deleteCount), "expected exactly one cert DELETE to balance the single ADD")
+
+	// A pod that never triggered an ADD (e.g. it never matched ShouldEnroll)
+	// must not send a spurious DELETE on deletion.
+	untracked := podWithoutLabel.DeepCopy()
+	untracked.UID = "cert-dedup-test-pod-untracked"
+	controller.handlePodDelete(untracked)
+	assert.EqualValues(t, 1, atomic.LoadInt32(&deleteCount), "deleting a pod that was never enrolled must not send a cert DELETE")
 }
 
 func TestNsInformerHandleKmeshManage(t *testing.T) {
