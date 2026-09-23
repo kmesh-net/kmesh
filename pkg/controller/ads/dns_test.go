@@ -147,6 +147,68 @@ func TestADSCacheConcurrentWriting(t *testing.T) {
 	wg.Wait()
 }
 
+// This test aims to evaluate the concurrent access to pendingHostnames using the test race feature.
+// processDomains (write) and overwriteDnsCluster (read) run on separate goroutines in production,
+// so this reproduces that pattern to catch unsynchronized map access.
+func TestPendingHostnamesConcurrentAccess(t *testing.T) {
+	p := NewController(nil).Processor
+	dnsResolver, err := NewDnsController(p.Cache)
+	assert.NoError(t, err)
+
+	cluster := &clusterv3.Cluster{
+		Name: "ut-cluster",
+		ClusterDiscoveryType: &clusterv3.Cluster_Type{
+			Type: clusterv3.Cluster_LOGICAL_DNS,
+		},
+		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+			Endpoints: []*endpointv3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpointv3.LbEndpoint{
+						{
+							HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+								Endpoint: &endpointv3.Endpoint{
+									Address: &v3.Address{
+										Address: &v3.Address_SocketAddress{
+											SocketAddress: &v3.SocketAddress{
+												Address: "www.google.com",
+												PortSpecifier: &v3.SocketAddress_PortValue{
+													PortValue: uint32(9898),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Writer: mimics processClusters() calling processDomains() on every CDS push.
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			dnsResolver.processDomains([]*clusterv3.Cluster{cluster})
+		}
+	}()
+
+	// Reader: mimics updateClusters()/overwriteDnsCluster() running from refreshWorker
+	// or the goroutine spawned inside processDomains for an already-resolved domain.
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			dnsResolver.overwriteDnsCluster(cluster, "www.google.com", []string{"10.1.1.1"})
+		}
+	}()
+
+	wg.Wait()
+}
+
 func TestHandleCdsResponseWithDns(t *testing.T) {
 	cluster1 := &clusterv3.Cluster{
 		Name: "ut-cluster1",

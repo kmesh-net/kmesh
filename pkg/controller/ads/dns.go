@@ -90,11 +90,16 @@ func (r *dnsController) processDomains(cds []*clusterv3.Cluster) {
 	domains := getPendingResolveDomain(cds)
 
 	// store all pending hostnames of clusters in pendingHostnames
+	pending := make(map[string][]string, len(cds))
 	for _, cluster := range cds {
 		clusterName := cluster.GetName()
-		info := getHostName(cluster)
+		pending[clusterName] = getHostName(cluster)
+	}
+	r.Lock()
+	for clusterName, info := range pending {
 		r.pendingHostnames[clusterName] = info
 	}
+	r.Unlock()
 
 	// delete any scheduled re-resolve for domains we no longer care about
 	r.dnsResolver.RemoveUnwatchDomain(domains)
@@ -156,7 +161,9 @@ func (r *dnsController) updateClusters(pendingDomain *pendingResolveDomain, doma
 
 func (r *dnsController) overwriteDnsCluster(cluster *clusterv3.Cluster, domain string, addrs []string) (bool, *clusterv3.Cluster) {
 	ready := true
+	r.RLock()
 	hostNames := r.pendingHostnames[cluster.GetName()]
+	r.RUnlock()
 	addressesOfHostname := make(map[string][]string)
 
 	for _, hostName := range hostNames {
