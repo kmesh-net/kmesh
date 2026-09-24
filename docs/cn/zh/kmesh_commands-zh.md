@@ -15,9 +15,9 @@ Flags:
       --enable-mda             enable mda
   -h, --help                   help for kmesh-daemon
       --mode string            controller plane mode, valid values are [kernel-native, dual-engine] (default "dual-engine")
-      --monitoring string      enable kmesh traffic monitoring in daemon process(default "true")  
-      --profiliing string      whether to enable profiling or not (default "false")
-      --enable-ipsec string    enable ipsec encryption and authentication between nodes(default false)
+      --monitoring             enable kmesh traffic monitoring in daemon process (default true)
+      --profiling              whether to enable profiling or not, default to false
+      --enable-ipsec           enable ipsec encryption and authentication between nodes
 
 # example
 ./kmesh-daemon --mode=kernel-native
