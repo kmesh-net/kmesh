@@ -89,6 +89,14 @@ static inline bool is_ipv4_mapped_addr(__u32 ip6[4])
     return ip6[0] == 0 && ip6[1] == 0 && ip6[2] == 0xFFFF0000;
 }
 
+static inline bool is_ip_addr_zero(const struct ip_addr *addr)
+{
+    if (!addr)
+        return true;
+
+    return addr->ip4 == 0 && addr->ip6[0] == 0 && addr->ip6[1] == 0 && addr->ip6[2] == 0 && addr->ip6[3] == 0;
+}
+
 #define V4_MAPPED_REVERSE(v4_mapped)                                                                                   \
     do {                                                                                                               \
         (v4_mapped)[0] = (v4_mapped)[3];                                                                               \
