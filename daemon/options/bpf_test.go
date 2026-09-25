@@ -14,19 +14,23 @@
  * limitations under the License.
  */
 
-package general
+package options
 
-import "github.com/cilium/ebpf"
+import (
+	"testing"
 
-type BpfInfo struct {
-	MapPath     string
-	BpfFsPath   string
-	Cgroup2Path string
+	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
+)
 
-	Type       ebpf.ProgramType
-	AttachType ebpf.AttachType
+func TestBpfVerifierLogLevelFlag(t *testing.T) {
+	cfg := &BpfConfig{}
+	cmd := &cobra.Command{Use: "kmesh-daemon"}
+	cfg.AttachFlags(cmd)
 
-	// VerifierLogLevel is the ebpf verifier log level bitmask requested via
-	// --bpf-verifier-log-level. A value of 0 disables verifier logging.
-	VerifierLogLevel uint32
+	// Disabled by default, matching existing behavior when the flag is unset.
+	assert.Equal(t, uint32(0), cfg.BpfVerifierLogLevel)
+
+	assert.NoError(t, cmd.ParseFlags([]string{"--bpf-verifier-log-level=3"}))
+	assert.Equal(t, uint32(3), cfg.BpfVerifierLogLevel)
 }

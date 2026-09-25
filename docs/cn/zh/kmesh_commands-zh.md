@@ -10,7 +10,8 @@ Usage:
   kmesh-daemon [flags]
 
 Flags:
-      --bpf-fs-path string     bpf fs path (default "/sys/fs/bpf")
+      --bpf-fs-path string             bpf fs path (default "/sys/fs/bpf")
+      --bpf-verifier-log-level uint32  bpf verifier log level bitmask for debugging bpf program loads (1=branch, 2=instruction, 4=stats; OR values together); 0 disables verifier logging (default 0)
       --cgroup2-path string    cgroup2 path (default "/mnt/kmesh_cgroup2")
       --enable-mda             enable mda
   -h, --help                   help for kmesh-daemon
@@ -27,6 +28,8 @@ Flags:
 ./kmesh-daemon --mode=kernel-native --enable-mda
 # example
 ./kmesh-daemon --mode=dual-engine --enable-mda
+# example
+./kmesh-daemon --mode=dual-engine --bpf-verifier-log-level=1
   ```
 
 - 运维相关
@@ -52,3 +55,7 @@ Flags:
     [root@localhost Kmesh]# mount | grep "/sys/fs/bpf"
     none on /sys/fs/bpf type bpf (rw,nosuid,nodev,noexec,relatime,mode=700)
     ```
+
+  - `--bpf-verifier-log-level` 默认关闭（`0`），不会带来任何运行时开销。用于调试 bpf 程序加载/校验失败问题，取值为直接
+    透传给 bpf verifier 的位掩码（`1`=branch，`2`=instruction，`4`=stats，可以按位或组合，如 `3`）。开启后，kmesh 会捕获
+    完整的 verifier 输出并写入 daemon 日志。
