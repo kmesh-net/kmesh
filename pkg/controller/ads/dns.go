@@ -17,10 +17,8 @@
 package ads
 
 import (
-	"fmt"
 	"net"
 	"net/netip"
-	"slices"
 	"sync"
 	"time"
 
@@ -172,23 +170,21 @@ func (r *dnsController) overwriteDnsCluster(cluster *clusterv3.Cluster, domain s
 	if ready {
 		newCluster := cloneCluster(cluster)
 		for _, e := range newCluster.LoadAssignment.Endpoints {
-			pos := -1
-			var lbEndpoints []*endpointv3.LbEndpoint
-			for i, le := range e.LbEndpoints {
+			lbEndpoints := make([]*endpointv3.LbEndpoint, 0, len(e.LbEndpoints))
+			for _, le := range e.LbEndpoints {
 				socketAddr, ok := le.GetEndpoint().GetAddress().GetAddress().(*v3.Address_SocketAddress)
 				if !ok {
+					lbEndpoints = append(lbEndpoints, le)
 					continue
 				}
-				_, err := netip.ParseAddr(socketAddr.SocketAddress.Address)
-				if err != nil {
-					host := socketAddr.SocketAddress.Address
-					addresses := addressesOfHostname[host]
-					fmt.Printf("addresses %#v", addresses)
-					pos = i
-					lbEndpoints = buildLbEndpoints(socketAddr.SocketAddress.GetPortValue(), addresses)
+				host := socketAddr.SocketAddress.Address
+				if _, err := netip.ParseAddr(host); err == nil {
+					lbEndpoints = append(lbEndpoints, le)
+					continue
 				}
+				lbEndpoints = append(lbEndpoints, buildLbEndpoints(socketAddr.SocketAddress.GetPortValue(), addressesOfHostname[host])...)
 			}
-			e.LbEndpoints = slices.Replace(e.LbEndpoints, pos, pos+1, lbEndpoints...)
+			e.LbEndpoints = lbEndpoints
 		}
 		return ready, newCluster
 	}
