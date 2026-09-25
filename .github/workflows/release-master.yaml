@@ -51,7 +51,7 @@ jobs:
       run: echo "${{ secrets.GH_PAT }}" | docker login ghcr.io -u $ --password-stdin
 
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Build and Push by digest
       id: build
