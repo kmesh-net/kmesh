@@ -38,6 +38,9 @@ type Info struct {
 	GoVersion    string `json:"goVersion"`
 	Compiler     string `json:"compiler"`
 	Platform     string `json:"platform"`
+	// Mode is the daemon dataplane mode (kernel-native|dual-engine).
+	// Empty for kmeshctl client version responses.
+	Mode string `json:"mode,omitempty"`
 }
 
 // String returns a Go-syntax representation of the Info.
