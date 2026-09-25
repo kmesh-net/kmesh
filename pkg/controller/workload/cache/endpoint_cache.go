@@ -20,6 +20,16 @@ import (
 	"sync"
 )
 
+// EndpointEntry holds the data needed to restore a single endpoint into the
+// in-memory cache. ServiceId, Prio and BackendIndex come from the BPF
+// endpoint map key; WorkloadId is the BackendUid stored in the value.
+type EndpointEntry struct {
+	ServiceId    uint32
+	Prio         uint32
+	BackendIndex uint32
+	WorkloadId   uint32
+}
+
 // TODO: use `EndpointKey` struct
 type Endpoint struct {
 	ServiceId    uint32
@@ -36,6 +46,9 @@ type EndpointCache interface {
 	DeleteEndpointWithPriority(serviceID, workloadID, prio uint32)
 	// DeleteEndpointByServiceId delete all endpoints belong to a given service
 	DeleteEndpointByServiceId(uint32)
+	// RestoreEndpoint rebuilds the in-memory cache from persisted BPF map
+	// entries on a warm restart.
+	RestoreEndpoint(entries []EndpointEntry)
 }
 
 type endpointCache struct {
@@ -82,9 +95,23 @@ func (s *endpointCache) DeleteEndpointByServiceId(serviceId uint32) {
 	delete(s.endpointsByServiceId, serviceId)
 }
 
-func (s *endpointCache) RestoreEndpoint() {
-	// we need update endpoint_cache after bpfcache.RestoreEndpointKeys
-	// Todo
+// RestoreEndpoint rebuilds the in-memory endpoint cache from persisted BPF
+// endpoint map entries after a warm restart. The caller is responsible for
+// supplying the entries (typically obtained by iterating the BPF map).
+func (s *endpointCache) RestoreEndpoint(entries []EndpointEntry) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for _, entry := range entries {
+		ep := Endpoint{
+			ServiceId:    entry.ServiceId,
+			Prio:         entry.Prio,
+			BackendIndex: entry.BackendIndex,
+		}
+		if s.endpointsByServiceId[entry.ServiceId] == nil {
+			s.endpointsByServiceId[entry.ServiceId] = make(map[uint32]Endpoint)
+		}
+		s.endpointsByServiceId[entry.ServiceId][entry.WorkloadId] = ep
+	}
 }
 
 func (s *endpointCache) List(serviceId uint32) map[uint32]Endpoint {
