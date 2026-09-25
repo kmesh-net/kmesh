@@ -16,7 +16,8 @@ VERSION ?= 1.1-dev
 GIT_COMMIT_HASH ?= $(shell git rev-parse HEAD)
 GIT_TREESTATE=$(shell if [ -n "$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
-ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+GIT_ROOT := $(shell git rev-parse --show-toplevel 2>/dev/null)
+ROOT_DIR := $(if $(GIT_ROOT),$(GIT_ROOT)/,$(dir $(abspath $(lastword $(MAKEFILE_LIST)))))
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -63,6 +64,18 @@ APPS1 := kmesh-daemon
 APPS2 := mdacore
 APPS3 := kmesh-cni
 APPS4 := kmeshctl
+# Override BINARIES to build a subset, for example: BINARIES=kmeshctl make build.
+SUPPORTED_BINARIES := $(APPS1) $(APPS2) $(APPS3) $(APPS4)
+BINARIES ?= $(SUPPORTED_BINARIES)
+
+ifeq ($(strip $(BINARIES)),)
+	$(error BINARIES cannot be empty. Supported binaries: $(SUPPORTED_BINARIES))
+endif
+
+UNKNOWN_BINARIES := $(filter-out $(SUPPORTED_BINARIES),$(BINARIES))
+ifneq ($(UNKNOWN_BINARIES),)
+	$(error unsupported BINARIES: $(UNKNOWN_BINARIES). Supported binaries: $(SUPPORTED_BINARIES))
+endif
 
 
 # If the hub is not explicitly set, use default to kmesh-net.
@@ -87,11 +100,11 @@ TMP_FILES := config/kmesh_marcos_def.h \
 	mk/bpf.pc \
 	bpf/include/bpf_helper_defs_ext.h \
 
-.PHONY: all kmesh-bpf kmesh-ko all-binary
+.PHONY: all kmesh-bpf kmesh-ko all-binary prepare-binary-build $(SUPPORTED_BINARIES)
 all: kmesh-bpf kmesh-ko all-binary
 
 kmesh-bpf:
-	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	$(QUIET) find "$(ROOT_DIR)/mk" -name "*.pc" -print0 | xargs -0 sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 
 	$(QUIET) make -C api/v2-c
 	$(QUIET) make -C bpf/deserialization_to_bpf_map
@@ -100,32 +113,33 @@ kmesh-bpf:
 
 	$(QUIET) $(GO) run hack/gen_bpf_specs.go
 kmesh-ko:
-	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	$(QUIET) find "$(ROOT_DIR)/mk" -name "*.pc" -print0 | xargs -0 sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 	$(call printlog, BUILD, "kernel")
 	$(QUIET) make -C kernel/ko_src
 
-all-binary:
-	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+all-binary: $(BINARIES)
+
+prepare-binary-build:
+	$(QUIET) find "$(ROOT_DIR)/mk" -name "*.pc" -print0 | xargs -0 sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+
+$(APPS1): prepare-binary-build
 	$(call printlog, BUILD, $(APPS1))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+	$(QUIET) (export PKG_CONFIG_PATH="$(PKG_CONFIG_PATH):$(ROOT_DIR)mk"; \
 		$(GO) build -ldflags $(LDFLAGS) -tags $(ENHANCED_KERNEL) -o $(APPS1) $(GOFLAGS) ./daemon/main.go)
-	
+
+$(APPS2):
 	$(call printlog, BUILD, $(APPS2))
 	$(QUIET) cd oncn-mda && cmake . -B build && make -C build
 
+$(APPS3):
 	$(call printlog, BUILD, $(APPS3))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+	$(QUIET) (export PKG_CONFIG_PATH="$(PKG_CONFIG_PATH):$(ROOT_DIR)mk"; \
 		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS3) $(GOFLAGS) ./cniplugin/main.go)
 
-	$(call printlog, BUILD, $(APPS4))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
-		CGO_ENABLED=0 $(GO) build -ldflags $(GOLDFLAGS) -o $(APPS4) $(GOFLAGS) ./ctl/main.go)
-
 OUT ?= kmeshctl
-.PHONY: kmeshctl
-kmeshctl:
+$(APPS4):
 	$(call printlog, BUILD, $(APPS4))
-	$(QUIET) (export PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(ROOT_DIR)mk; \
+	$(QUIET) (export PKG_CONFIG_PATH="$(PKG_CONFIG_PATH):$(ROOT_DIR)mk"; \
 		CGO_ENABLED=0 $(GO) build -gcflags $(GOGCFLAGS) -ldflags $(GOLDFLAGS) -o $(OUT) $(GOFLAGS) ./ctl/main.go)
 
 .PHONY: gen-proto
@@ -142,7 +156,7 @@ gen-kmeshctl-doc:
 
 .PHONY: prepare-dev
 prepare-dev:
-	$(QUIET) find $(ROOT_DIR)/mk -name "*.pc" | xargs sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
+	$(QUIET) find "$(ROOT_DIR)/mk" -name "*.pc" -print0 | xargs -0 sed -i "s#^prefix=.*#prefix=${ROOT_DIR}#g"
 	hack/golangci-lint-prepare.sh
 	bash -c "source ./kmesh_compile_env_pre.sh && dependency_pkg_install"
 
@@ -165,23 +179,29 @@ gen-check: gen
 copyright-check:
 	hack/copyright-check.sh
 
-.PHONY: install
-install:
+.PHONY: install install-dependencies $(addprefix install-,$(SUPPORTED_BINARIES))
+install: install-dependencies $(addprefix install-,$(BINARIES))
+
+install-dependencies:
 	$(QUIET) make install -C api/v2-c
 	$(QUIET) make install -C bpf/deserialization_to_bpf_map
 	$(QUIET) make install -C kernel/ko_src
 
+install-$(APPS1):
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS1))
 	$(QUIET) install -Dp -m 0500 $(APPS1) $(INSTALL_BIN)
-	
+
+install-$(APPS2):
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS2))
 	$(QUIET) install -Dp -m 0500 oncn-mda/deploy/$(APPS2) $(INSTALL_BIN)
 	$(QUIET) install -Dp -m 0400 oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o /usr/share/oncn-mda/sock_ops.c.o
 	$(QUIET) install -Dp -m 0400 oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o /usr/share/oncn-mda/sock_redirect.c.o
 
+install-$(APPS3):
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS3))
 	$(QUIET) install -Dp -m 0500 $(APPS3) $(INSTALL_BIN)
 
+install-$(APPS4):
 	$(call printlog, INSTALL, $(INSTALL_BIN)/$(APPS4))
 	$(QUIET) install -Dp -m 0500 $(APPS4) $(INSTALL_BIN)
 
@@ -202,7 +222,7 @@ uninstall:
 
 .PHONY: build
 build:
-	 VERSION=$(VERSION) ./kmesh_compile.sh
+	 BINARIES="$(BINARIES)" VERSION=$(VERSION) ./kmesh_compile.sh
 
 .PHONY: docker
 docker: build

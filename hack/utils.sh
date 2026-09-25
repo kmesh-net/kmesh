@@ -29,10 +29,11 @@ function get_arch() {
 
 function build_kmesh() {
 	local container_id=$1
-	docker exec $container_id git config --global --add safe.directory /kmesh
-	docker exec -e VERSION=$VERSION $container_id sh /kmesh/build.sh
-	docker exec -e VERSION=$VERSION $container_id sh /kmesh/build.sh -i
-	docker exec $container_id sh -c "$(declare -f copy_to_host); copy_to_host"
+	local binaries="${BINARIES:-kmesh-daemon mdacore kmesh-cni kmeshctl}"
+	docker exec "$container_id" git config --global --add safe.directory /kmesh
+	docker exec -e VERSION="$VERSION" -e BINARIES="$binaries" "$container_id" sh /kmesh/build.sh
+	docker exec -e VERSION="$VERSION" -e BINARIES="$binaries" "$container_id" sh /kmesh/build.sh -i
+	docker exec -e BINARIES="$binaries" "$container_id" sh -c "$(declare -f copy_to_host); copy_to_host"
 }
 
 function copy_to_host() {
@@ -41,15 +42,16 @@ function copy_to_host() {
 	cp /usr/lib64/libkmesh_api_v2_c.so out/
 	cp /usr/lib64/libkmesh_deserial.so out/
 	cp /usr/lib64/libboundscheck.so out/
-	cp oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o out/
-	cp oncn-mda/etc/oncn-mda.conf out/
-	cp oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o out/
 	find /usr/lib64 -name 'libbpf.so*' -exec cp {} out/ \;
 	find /usr/lib64 -name 'libprotobuf-c.so*' -exec cp {} out/ \;
-	cp /usr/bin/kmesh-daemon out/
-	cp /usr/bin/kmesh-cni out/
-	cp /usr/bin/mdacore out/
-	cp /usr/bin/kmeshctl out/
+	for binary in $BINARIES; do
+		cp "/usr/bin/$binary" out/
+		if [ "$binary" = "mdacore" ]; then
+			cp oncn-mda/build/ebpf_src/CMakeFiles/sock_redirect.dir/sock_redirect.c.o out/
+			cp oncn-mda/etc/oncn-mda.conf out/
+			cp oncn-mda/build/ebpf_src/CMakeFiles/sock_ops.dir/sock_ops.c.o out/
+		fi
+	done
 	if [ -f "/lib/modules/kmesh/kmesh.ko" ]; then
 		cp /lib/modules/kmesh/kmesh.ko out/ko
 	fi
