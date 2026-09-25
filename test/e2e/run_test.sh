@@ -138,6 +138,42 @@ function setup_istio() {
 	done
 }
 
+function collect_diagnostics() {
+	local ns="${1:-kmesh-system}"
+
+	echo "===== DIAGNOSTICS (namespace: $ns) ====="
+
+	echo "--- kubectl get pods -A -o wide ---"
+	kubectl get pods -A -o wide || true
+
+	echo "--- kubectl get events -n $ns --sort-by=.lastTimestamp ---"
+	kubectl get events -n "$ns" --sort-by=.lastTimestamp || true
+
+	local pods
+	pods=$(kubectl get pods -n "$ns" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
+
+	if [ -z "$pods" ]; then
+		echo "(no pods found in namespace $ns)"
+	fi
+
+	for pod in $pods; do
+		echo "--- kubectl describe pod $pod -n $ns ---"
+		kubectl describe pod "$pod" -n "$ns" || true
+
+		echo "--- container restart counts for pod $pod ---"
+		kubectl get pod "$pod" -n "$ns" \
+			-o jsonpath='{range .status.containerStatuses[*]}{.name}{"  ready="}{.ready}{"  restartCount="}{.restartCount}{"\n"}{end}' || true
+
+		echo "--- kubectl logs $pod -n $ns (current container) ---"
+		kubectl logs "$pod" -n "$ns" --all-containers=true --timestamps=true || true
+
+		echo "--- kubectl logs $pod -n $ns --previous (last crashed/restarted container, if any) ---"
+		kubectl logs "$pod" -n "$ns" --all-containers=true --previous || true
+	done
+
+	echo "===== END DIAGNOSTICS ====="
+}
+
 function setup_kmesh() {
 	# skip dns proxy for ipv6
 	[[ -n ${IPV6:-} ]] && extra_args="--set features.dnsProxy.enabled=false"
@@ -157,28 +193,25 @@ function setup_kmesh() {
 		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true --enable-ipsec=true" \
 		$extra_args
 
-	# Wait for all Kmesh pods to be ready.
+	# kubectl wait below fails immediately if the selector matches zero pods, so
+	# wait for the DaemonSet to schedule at least one before using it.
 	while true; do
-		pod_statuses=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
-
-		running_pods=0
-		total_pods=0
-
-		while read -r pod_name pod_status; do
-			total_pods=$((total_pods + 1))
-			if [ "$pod_status" = "Running" ]; then
-				running_pods=$((running_pods + 1))
-			fi
-		done <<<"$pod_statuses"
-
-		if [ "$running_pods" -eq "$total_pods" ]; then
-			echo "All pods of Kmesh daemon are in Running state."
+		pod_count=$(kubectl get pods -n kmesh-system -l app=kmesh --no-headers 2>/dev/null | wc -l)
+		if [ "$pod_count" -gt 0 ]; then
 			break
 		fi
-
-		echo "Waiting for pods of Kmesh daemon to enter Running state..."
+		echo "No Kmesh daemon pods scheduled yet, waiting..."
 		sleep 1
 	done
+
+	# Wait for Ready (admin port up), not just Running (process exec'd), since
+	# kmeshctl log below depends on the admin server being reachable.
+	if ! kubectl wait --for=condition=Ready pod -l app=kmesh -n kmesh-system --timeout=180s; then
+		echo "Kmesh daemon pods did not become Ready within the timeout."
+		collect_diagnostics "kmesh-system"
+		exit 1
+	fi
+	echo "All pods of Kmesh daemon are Ready."
 
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
@@ -194,7 +227,11 @@ function setup_kmesh() {
 				break
 			fi
 			echo "Failed to set BPF debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			if [ $i -eq 5 ]; then
+				echo "Failed to set BPF debug log after 5 attempts"
+				collect_diagnostics "kmesh-system"
+				exit 1
+			fi
 			sleep 2
 		done
 
@@ -207,7 +244,11 @@ function setup_kmesh() {
 				break
 			fi
 			echo "Failed to set default debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			if [ $i -eq 5 ]; then
+				echo "Failed to set default debug log after 5 attempts"
+				collect_diagnostics "kmesh-system"
+				exit 1
+			fi
 			sleep 2
 		done
 	done
@@ -228,7 +269,11 @@ function setup_kmesh_log() {
 				break
 			fi
 			echo "Failed to set BPF debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			if [ $i -eq 5 ]; then
+				echo "Failed to set BPF debug log after 5 attempts"
+				collect_diagnostics "kmesh-system"
+				exit 1
+			fi
 			sleep 2
 		done
 
@@ -241,7 +286,11 @@ function setup_kmesh_log() {
 				break
 			fi
 			echo "Failed to set default debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			if [ $i -eq 5 ]; then
+				echo "Failed to set default debug log after 5 attempts"
+				collect_diagnostics "kmesh-system"
+				exit 1
+			fi
 			sleep 2
 		done
 	done
