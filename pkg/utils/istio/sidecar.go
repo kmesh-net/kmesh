@@ -26,5 +26,12 @@ func PodHasSidecar(pod *corev1.Pod) bool {
 		return true
 	}
 
+	for _, container := range pod.Spec.Containers {
+		if container.Name == "istio-proxy" {
+			return true
+		}
+	}
+
 	return false
 }
+

@@ -26,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 
+	"kmesh.net/kmesh/pkg/constants"
 	ns "kmesh.net/kmesh/pkg/controller/netns"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/logger"
@@ -59,8 +60,8 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				log.Errorf("expected *corev1.Pod but got %T", obj)
 				return
 			}
-			if !istio.PodHasSidecar(pod) {
-				log.Infof("pod %s/%s does not have sidecar injected, skip", pod.GetNamespace(), pod.GetName())
+			if !istio.PodHasSidecar(pod) && !isKmeshManaged(pod) {
+				log.Infof("pod %s/%s does not need process, skip", pod.GetNamespace(), pod.GetName())
 				return
 			}
 
@@ -89,8 +90,8 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				return
 			}
 
-			if !istio.PodHasSidecar(newPod) {
-				log.Debugf("pod %s/%s does not have a sidecar", newPod.GetNamespace(), newPod.GetName())
+			if !istio.PodHasSidecar(newPod) && !isKmeshManaged(newPod) {
+				log.Debugf("pod %s/%s does not have a sidecar and not managed by kmesh", newPod.GetNamespace(), newPod.GetName())
 				return
 			}
 
@@ -133,6 +134,10 @@ func (c *Controller) Run(stop <-chan struct{}) {
 // checks whether there is a bypass label
 func shouldBypass(pod *corev1.Pod) bool {
 	return pod.Labels[ByPassLabel] == ByPassValue
+}
+
+func isKmeshManaged(pod *corev1.Pod) bool {
+	return utils.AnnotationEnabled(pod.Annotations[constants.KmeshRedirectionAnnotation])
 }
 
 func isPodBeingDeleted(pod *corev1.Pod) bool {
