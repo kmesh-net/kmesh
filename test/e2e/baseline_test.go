@@ -737,6 +737,22 @@ func TestMixNsAndServiceWaypoint(t *testing.T) {
 			UnsetWaypoint(t, apps.Namespace.Name(), "", Namespace)
 		})
 
+		// Wait for namespace waypoint routing to propagate to all workloads.
+		// In loaded CI environments, Istiod XDS push and Waypoint Envoy cluster warmup
+		// can take longer than the default 60s call timeout.
+		warmupOpt := echo.CallOptions{
+			To:      apps.EnrolledToKmesh,
+			Port:    echo.Port{Name: "http"},
+			Scheme:  scheme.HTTP,
+			Count:   1,
+			Check:   check.And(check.OK(), IsL7()),
+			Timeout: 3 * time.Second,
+			Retry: echo.Retry{
+				Options: []retry.Option{retry.Timeout(2 * time.Minute), retry.Delay(2 * time.Second)},
+			},
+		}
+		apps.All[0].CallOrFail(t, warmupOpt)
+
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
