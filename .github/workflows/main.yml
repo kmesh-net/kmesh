@@ -64,6 +64,7 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3.7.0
       with:
+        install-mode: goinstall
         args: "--config=common/config/.golangci.yaml --out-format colored-line-number"
         skip-pkg-cache: true
 
