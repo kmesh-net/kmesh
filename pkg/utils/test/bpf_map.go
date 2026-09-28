@@ -20,6 +20,7 @@ import (
 	"os"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/rlimit"
@@ -31,17 +32,35 @@ import (
 
 type CleanupFn func()
 
+func mountBpfFsWithRetry(source string, target string, fstype string) error {
+	var err error
+	for i := 0; i < 10; i++ {
+		err = syscall.Mount(source, target, fstype, 0, "")
+		if err == nil {
+			return nil
+		}
+		// If the mount is busy (e.g. from a previous test), detach it lazily and retry.
+		if err == syscall.EBUSY {
+			_ = syscall.Unmount(target, syscall.MNT_DETACH)
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		return err
+	}
+	return err
+}
+
 func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoader) {
 	err := os.MkdirAll("/mnt/kmesh_cgroup2", 0755)
 	if err != nil {
 		t.Fatalf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
 	}
-	err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, "")
+	err = mountBpfFsWithRetry("none", "/mnt/kmesh_cgroup2/", "cgroup2")
 	if err != nil {
 		bpf.CleanupBpfMap()
 		t.Fatalf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 	}
-	err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, "")
+	err = mountBpfFsWithRetry("/sys/fs/bpf", "/sys/fs/bpf", "bpf")
 	if err != nil {
 		bpf.CleanupBpfMap()
 		t.Fatalf("Failed to mount /sys/fs/bpf: %v", err)

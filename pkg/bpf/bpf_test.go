@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
@@ -72,6 +73,24 @@ func TestRestart(t *testing.T) {
 	})
 }
 
+func mountBpfFsWithRetry(source string, target string, fstype string) error {
+	var err error
+	for i := 0; i < 10; i++ {
+		err = syscall.Mount(source, target, fstype, 0, "")
+		if err == nil {
+			return nil
+		}
+		// If the mount is busy (e.g. from a previous test), detach it lazily and retry.
+		if err == syscall.EBUSY {
+			_ = syscall.Unmount(target, syscall.MNT_DETACH)
+			time.Sleep(50 * time.Millisecond)
+			continue
+		}
+		return err
+	}
+	return err
+}
+
 func setDir() (err error) {
 	defer func() {
 		if err != nil {
@@ -83,10 +102,10 @@ func setDir() (err error) {
 		return fmt.Errorf("Failed to create dir /mnt/kmesh_cgroup2: %v", err)
 	}
 
-	if err = syscall.Mount("none", "/mnt/kmesh_cgroup2/", "cgroup2", 0, ""); err != nil {
+	if err = mountBpfFsWithRetry("none", "/mnt/kmesh_cgroup2/", "cgroup2"); err != nil {
 		return fmt.Errorf("Failed to mount /mnt/kmesh_cgroup2/: %v", err)
 	}
-	if err = syscall.Mount("/sys/fs/bpf", "/sys/fs/bpf", "bpf", 0, ""); err != nil {
+	if err = mountBpfFsWithRetry("/sys/fs/bpf", "/sys/fs/bpf", "bpf"); err != nil {
 		return fmt.Errorf("Failed to mount /sys/fs/bpf: %v", err)
 	}
 
