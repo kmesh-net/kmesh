@@ -768,7 +768,7 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(KmeshWaypointPort)
 		} else if port.TargetPort == 0 {
 			// NOTE: Target port could be unset in service entry, in which case it should
-			// be consistent with the Service Port.
+			// be consistent with the Service Port. (Fix #1088)
 			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(port.ServicePort)
 		} else {
 			newServiceInfo.TargetPort[i] = nets.ConvertPortToBigEndian(port.TargetPort)

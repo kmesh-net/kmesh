@@ -84,7 +84,7 @@ enum kmesh_l7_msg_type { MSG_UNKNOW = 0, MSG_REQUEST, MSG_MID_REPONSE, MSG_FINAL
 enum kmesh_strncmp_type { STRNCMP_FAILED = 0, STRNCMP_PREFIX, STRNCMP_EXACT };
 
 #define KMESH_PROTO_TYPE_WIDTH (8)
-#define GET_RET_PROTO_TYPE(n)  ((n)&0xff)
+#define GET_RET_PROTO_TYPE(n)  ((n) & 0xff)
 #define GET_RET_MSG_TYPE(n)    (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
 
 #define CHECK_MODULE_NAME_NULL(ret) ((ret) == -EINVAL)
