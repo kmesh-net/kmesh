@@ -60,6 +60,9 @@ const (
 	patternWorkloadMetrics    = "/workload_metrics"
 	patternConnectionMetrics  = "/connection_metrics"
 	patternAuthz              = "/authz"
+	patternConfigDumpServices = configDumpPrefix + "/services"
+	patternConfigDumpPolicies = configDumpPrefix + "/policies"
+	patternConfigDumpCerts    = configDumpPrefix + "/certs"
 
 	bpfLoggerName = "bpf"
 
@@ -101,8 +104,9 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 	s.mux.HandleFunc(patternWorkloadMetrics, s.workloadMetricHandler)
 	s.mux.HandleFunc(patternConnectionMetrics, s.connectionMetricHandler)
 	s.mux.HandleFunc(patternAuthz, s.authzHandler)
-
-	// TODO: add dump certificate, authorizationPolicies and services
+	s.mux.HandleFunc(patternConfigDumpServices, s.configDumpServices)
+	s.mux.HandleFunc(patternConfigDumpPolicies, s.configDumpPolicies)
+	s.mux.HandleFunc(patternConfigDumpCerts, s.configDumpCerts)
 	s.mux.HandleFunc(patternReadyProbe, s.readyProbe)
 
 	// support pprof
@@ -464,9 +468,10 @@ func (s *Server) configDumpAds(w http.ResponseWriter, r *http.Request) {
 }
 
 type WorkloadDump struct {
-	Workloads []*Workload            `json:"workloads"`
-	Services  []*Service             `json:"services"`
-	Policies  []*AuthorizationPolicy `json:"policies"`
+	Workloads    []*Workload            `json:"workloads"`
+	Services     []*Service             `json:"services"`
+	Policies     []*AuthorizationPolicy `json:"policies"`
+	Certificates []*Certificate         `json:"certificates,omitempty"`
 }
 
 func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
@@ -479,10 +484,22 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 	workloads := client.WorkloadController.Processor.WorkloadCache.List()
 	services := client.WorkloadController.Processor.ServiceCache.List()
 	policies := client.WorkloadController.Rbac.PoliciesList()
+	certificates := make([]*Certificate, 0)
+	if client.WorkloadController.SecretManager != nil {
+		certs := client.WorkloadController.SecretManager.ListCerts()
+		for _, c := range certs {
+			certificates = append(certificates, ConvertSecretItem(c))
+		}
+		sort.SliceStable(certificates, func(i, j int) bool {
+			return certificates[i].ResourceName < certificates[j].ResourceName
+		})
+	}
+
 	workloadDump := WorkloadDump{
-		Workloads: make([]*Workload, 0, len(workloads)),
-		Services:  make([]*Service, 0, len(services)),
-		Policies:  make([]*AuthorizationPolicy, 0, len(policies)),
+		Workloads:    make([]*Workload, 0, len(workloads)),
+		Services:     make([]*Service, 0, len(services)),
+		Policies:     make([]*AuthorizationPolicy, 0, len(policies)),
+		Certificates: certificates,
 	}
 	for _, w := range workloads {
 		workloadDump.Workloads = append(workloadDump.Workloads, ConvertWorkload(w))
@@ -494,6 +511,84 @@ func (s *Server) configDumpWorkload(w http.ResponseWriter, r *http.Request) {
 		workloadDump.Policies = append(workloadDump.Policies, ConvertAuthorizationPolicy(p))
 	}
 	printWorkloadDump(w, workloadDump)
+}
+
+func (s *Server) configDumpServices(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+	services := s.xdsClient.WorkloadController.Processor.ServiceCache.List()
+	out := make([]*Service, 0, len(services))
+	for _, svc := range services {
+		out = append(out, ConvertService(svc))
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].Hostname < out[j].Hostname
+	})
+	data, err := json.MarshalIndent(out, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal configDumpServices: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) configDumpPolicies(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+	policies := s.xdsClient.WorkloadController.Rbac.PoliciesList()
+	out := make([]*AuthorizationPolicy, 0, len(policies))
+	for _, pol := range policies {
+		out = append(out, ConvertAuthorizationPolicy(pol))
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Namespace != out[j].Namespace {
+			return out[i].Namespace < out[j].Namespace
+		}
+		return out[i].Name < out[j].Name
+	})
+	data, err := json.MarshalIndent(out, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal configDumpPolicies: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
+func (s *Server) configDumpCerts(w http.ResponseWriter, r *http.Request) {
+	if !s.checkWorkloadMode(w) {
+		return
+	}
+	if s.xdsClient.WorkloadController.SecretManager == nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("[]"))
+		return
+	}
+	certs := s.xdsClient.WorkloadController.SecretManager.ListCerts()
+	out := make([]*Certificate, 0, len(certs))
+	for _, c := range certs {
+		out = append(out, ConvertSecretItem(c))
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		return out[i].ResourceName < out[j].ResourceName
+	})
+	data, err := json.MarshalIndent(out, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal configDumpCerts: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
 }
 
 func (s *Server) readyProbe(w http.ResponseWriter, r *http.Request) {
