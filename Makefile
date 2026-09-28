@@ -14,7 +14,7 @@
 
 VERSION ?= 1.1-dev
 GIT_COMMIT_HASH ?= $(shell git rev-parse HEAD)
-GIT_TREESTATE=$(shell if [ -n "$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
+GIT_TREESTATE=$(shell if [ -n "$$(git status --porcelain)" ]; then echo "dirty"; else echo "clean"; fi)
 BUILD_DATE = $(shell date -u +'%Y-%m-%dT%H:%M:%SZ')
 ROOT_DIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 
