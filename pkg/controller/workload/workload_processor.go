@@ -739,7 +739,7 @@ func (p *Processor) updateEndpointPriority(serviceId uint32, toLLb bool) error {
 	}
 }
 
-func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) error {
+func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service, batchKeys *[]bpf.ServiceKey, batchValues *[]bpf.ServiceValue) error {
 	sk := bpf.ServiceKey{}
 	oldServiceInfo := bpf.ServiceValue{}
 	newServiceInfo := bpf.ServiceValue{}
@@ -828,8 +828,13 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 	}
 
 	// normal update
-	if err := p.bpf.ServiceUpdate(&sk, &newServiceInfo); err != nil {
-		return fmt.Errorf("service map update failed: %v", err)
+	if batchKeys != nil && batchValues != nil {
+		*batchKeys = append(*batchKeys, sk)
+		*batchValues = append(*batchValues, newServiceInfo)
+	} else {
+		if err := p.bpf.ServiceUpdate(&sk, &newServiceInfo); err != nil {
+			return fmt.Errorf("service map update failed: %v", err)
+		}
 	}
 
 	if err := p.updateServiceFrontendMap(sk.ServiceId, service); err != nil {
@@ -839,7 +844,7 @@ func (p *Processor) updateServiceMap(service, oldService *workloadapi.Service) e
 	return nil
 }
 
-func (p *Processor) handleService(service *workloadapi.Service) error {
+func (p *Processor) handleService(service *workloadapi.Service, batchKeys *[]bpf.ServiceKey, batchValues *[]bpf.ServiceValue) error {
 	log.Debugf("handle service resource: %s", service.ResourceName())
 
 	containsPort := func(port uint32) bool {
@@ -874,7 +879,7 @@ func (p *Processor) handleService(service *workloadapi.Service) error {
 	oldService := p.ServiceCache.GetService(service.ResourceName())
 	p.ServiceCache.AddOrUpdateService(service)
 	// update service and endpoint map
-	if err := p.updateServiceMap(service, oldService); err != nil {
+	if err := p.updateServiceMap(service, oldService, batchKeys, batchValues); err != nil {
 		log.Errorf("update service %s maps failed: %v", service.ResourceName(), err)
 		return err
 	}
@@ -934,8 +939,11 @@ func (p *Processor) handleAddressTypeResponse(rsp *service_discovery_v3.DeltaDis
 // Mainly for the convenience of testing.
 func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, workloads []*workloadapi.Workload) {
 	var servicesToRefresh []*workloadapi.Service
+	batchKeys := make([]bpf.ServiceKey, 0, len(services))
+	batchValues := make([]bpf.ServiceValue, 0, len(services))
+
 	for _, service := range services {
-		if err := p.handleService(service); err != nil {
+		if err := p.handleService(service, &batchKeys, &batchValues); err != nil {
 			log.Errorf("handle service %v failed, err: %v", service.ResourceName(), err)
 		}
 		svcs, wls := p.WaypointCache.Refresh(service)
@@ -944,9 +952,15 @@ func (p *Processor) handleServicesAndWorkloads(services []*workloadapi.Service, 
 		workloads = append(workloads, wls...)
 	}
 
+	if len(batchKeys) > 0 {
+		if _, err := p.bpf.ServiceBatchUpdate(batchKeys, batchValues); err != nil {
+			log.Errorf("ServiceBatchUpdate failed: %v", err)
+		}
+	}
+
 	// Handle services that are deferred due to waypoint hostname resolution.
 	for _, service := range servicesToRefresh {
-		if err := p.handleService(service); err != nil {
+		if err := p.handleService(service, nil, nil); err != nil {
 			log.Errorf("handle deferred service %v failed, err: %v", service.ResourceName(), err)
 		}
 	}
