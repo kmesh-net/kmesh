@@ -1,0 +1,24 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+#root {
+  min-height: 100vh;
+}
+
+/* Top navigation language selector - use white text in dark theme */
+.header-lang-select.ant-select .ant-select-selector,
+.header-lang-select.ant-select .ant-select-selection-item,
+.header-lang-select.ant-select .ant-select-arrow {
+  color: rgba(255, 255, 255, 0.85) !important;
+}
+.header-lang-select.ant-select:hover .ant-select-selector {
+  border-color: rgba(255, 255, 255, 0.3) !important;
+}
