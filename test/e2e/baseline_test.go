@@ -797,7 +797,22 @@ func TestBookinfo(t *testing.T) {
 
 		// It's used to check that all services of bookinfo are accessed correctly.
 		checkBookinfo := func() bool {
-			output, err := shell.Execute(true, fmt.Sprintf("kubectl exec deploy/sleep -n %s -- curl -s http://productpage:9080/productpage", namespace))
+			// First, resolve the sleep pod name
+			podCmd := fmt.Sprintf("kubectl get pod -n %s -l app=sleep -o jsonpath='{.items[0].metadata.name}'", namespace)
+			podName, err := shell.Execute(true, podCmd)
+			if err != nil {
+				t.Logf("failed to get sleep pod: %v", err)
+				return false
+			}
+			podName = strings.TrimSpace(podName)
+			if podName == "" {
+				t.Logf("sleep pod not found yet")
+				return false
+			}
+
+			// Execute directly against the sleep pod with '-c sleep'
+			cmd := fmt.Sprintf("kubectl exec %s -n %s -c sleep -- curl -s http://productpage:9080/productpage", podName, namespace)
+			output, err := shell.Execute(true, cmd)
 			if err != nil {
 				t.Logf("failed to execute access command: %v, output is %s", err, output)
 				return false
@@ -815,7 +830,7 @@ func TestBookinfo(t *testing.T) {
 		}
 
 		if err := retry.Until(checkBookinfo, retry.Timeout(900*time.Second), retry.Delay(3*time.Second)); err != nil {
-			t.Fatal("failed to access bookinfo correctly: %v", err)
+			t.Fatalf("failed to access bookinfo correctly: %v", err)
 		}
 
 		// Set namespace waypoint to verify that bookinfo could be accessed normally event if each hop
@@ -833,7 +848,7 @@ func TestBookinfo(t *testing.T) {
 		})
 
 		if err := retry.Until(checkBookinfo, retry.Timeout(900*time.Second), retry.Delay(3*time.Second)); err != nil {
-			t.Fatal("failed to access bookinfo correctly when there is a namespace waypoint: %v", err)
+			t.Fatalf("failed to access bookinfo correctly when there is a namespace waypoint: %v", err)
 		}
 	})
 }

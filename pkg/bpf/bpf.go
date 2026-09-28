@@ -543,11 +543,11 @@ func closeMap(m *ebpf.Map) {
 }
 
 func CleanupBpfMap() {
-	err := syscall.Unmount(constants.Cgroup2Path, 0)
+	err := syscall.Unmount(constants.Cgroup2Path, syscall.MNT_DETACH)
 	if err != nil {
 		log.Errorf("unmount /mnt/kmesh_cgroup2 error: %v", err)
 	}
-	err = syscall.Unmount(constants.BpfFsPath, 0)
+	err = syscall.Unmount(constants.BpfFsPath, syscall.MNT_DETACH)
 	if err != nil {
 		log.Errorf("unmount /sys/fs/bpf error: %v", err)
 	}
