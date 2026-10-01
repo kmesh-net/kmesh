@@ -18,14 +18,17 @@ package utils
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"kmesh.net/kmesh/pkg/kube"
 )
 
 const (
-	KmeshNamespace = "kmesh-system"
-	KmeshLabel     = "app=kmesh"
-	KmeshAdminPort = 15200
+	KmeshNamespace          = "kmesh-system"
+	KmeshLabel              = "app=kmesh"
+	KmeshAdminPort          = 15200
+	DefaultAdminHTTPTimeout = 10 * time.Second
 )
 
 func CreateKubeClient() (kube.CLIClient, error) {
@@ -45,4 +48,11 @@ func CreateKmeshPortForwarder(cliClient kube.CLIClient, podName string) (kube.Po
 	}
 
 	return fw, nil
+}
+
+// NewAdminHTTPClient returns an http.Client configured with a default timeout for kmeshctl admin requests.
+func NewAdminHTTPClient() *http.Client {
+	return &http.Client{
+		Timeout: DefaultAdminHTTPTimeout,
+	}
 }

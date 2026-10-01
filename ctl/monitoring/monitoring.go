@@ -184,7 +184,7 @@ func SetObservabilityPerKmeshDaemon(cli kube.CLIClient, podName, info string, ob
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
+	client := utils.NewAdminHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)
