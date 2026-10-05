@@ -27,10 +27,10 @@ enum kmesh_strncmp_type { STRNCMP_FAILED = 0, STRNCMP_PREFIX, STRNCMP_EXACT };
 
 #define KMESH_PROTO_TYPE_WIDTH (8)
 
-#define SET_RET_PROTO_TYPE(n, type) (n) = (((n)&0xff00) | ((u32)(type)&0xff))
-#define GET_RET_PROTO_TYPE(n)       ((n)&0xff)
+#define SET_RET_PROTO_TYPE(n, type) (n) = (((n) & 0xff00) | ((u32)(type) & 0xff))
+#define GET_RET_PROTO_TYPE(n)       ((n) & 0xff)
 
-#define SET_RET_MSG_TYPE(n, type) (n) = (((n)&0xff) | (((u32)(type)&0xff) << KMESH_PROTO_TYPE_WIDTH))
+#define SET_RET_MSG_TYPE(n, type) (n) = (((n) & 0xff) | (((u32)(type) & 0xff) << KMESH_PROTO_TYPE_WIDTH))
 #define GET_RET_MSG_TYPE(n)       (((n) >> KMESH_PROTO_TYPE_WIDTH) & 0xff)
 
 #define LOG(level, fmt, ...) printk(level "Kmesh_module: " fmt, ##__VA_ARGS__)
