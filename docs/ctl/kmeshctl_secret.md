@@ -2,10 +2,6 @@
 
 Use secrets to manage secret configuration data for IPsec
 
-```bash
-kmeshctl secret [flags]
-```
-
 ### Examples
 
 ```bash
