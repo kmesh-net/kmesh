@@ -901,6 +901,7 @@ static void *create_struct_list(struct op_context *ctx, int *err)
         struct element_list_node *new_node = (struct element_list_node *)calloc(1, sizeof(struct element_list_node));
         if (!new_node) {
             *err = -1;
+            deserial_free_elem(value);
             break;
         }
 
