@@ -218,7 +218,29 @@ func (s *Server) loggersHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func writeFeatureStatus(w http.ResponseWriter, enabled bool) {
+	data, err := json.MarshalIndent(&struct {
+		Enabled bool `json:"enabled"`
+	}{Enabled: enabled}, "", "    ")
+	if err != nil {
+		log.Errorf("Failed to marshal feature status: %v", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(data)
+}
+
 func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
+	if s.xdsClient == nil || s.xdsClient.WorkloadController == nil {
+		http.Error(w, "Endpoint is only supported in dual-engine mode", http.StatusNotImplemented)
+		return
+	}
+	if r.Method == http.MethodGet {
+		writeFeatureStatus(w, s.xdsClient.WorkloadController.GetAccesslogTrigger())
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -242,6 +264,14 @@ func (s *Server) accesslogHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
+	if s.xdsClient == nil || s.xdsClient.WorkloadController == nil {
+		http.Error(w, "Endpoint is only supported in dual-engine mode", http.StatusNotImplemented)
+		return
+	}
+	if r.Method == http.MethodGet {
+		writeFeatureStatus(w, s.xdsClient.WorkloadController.GetMonitoringTrigger())
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -275,6 +305,14 @@ func (s *Server) monitoringHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
+	if s.xdsClient == nil || s.xdsClient.WorkloadController == nil {
+		http.Error(w, "Endpoint is only supported in dual-engine mode", http.StatusNotImplemented)
+		return
+	}
+	if r.Method == http.MethodGet {
+		writeFeatureStatus(w, s.xdsClient.WorkloadController.GetWorkloadMetricTrigger())
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return
@@ -298,6 +336,14 @@ func (s *Server) workloadMetricHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) connectionMetricHandler(w http.ResponseWriter, r *http.Request) {
+	if s.xdsClient == nil || s.xdsClient.WorkloadController == nil {
+		http.Error(w, "Endpoint is only supported in dual-engine mode", http.StatusNotImplemented)
+		return
+	}
+	if r.Method == http.MethodGet {
+		writeFeatureStatus(w, s.xdsClient.WorkloadController.GetConnectionMetricTrigger())
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
 		return

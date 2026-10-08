@@ -204,7 +204,7 @@ func (c *Controller) SetWorkloadMetricTrigger(enable bool) {
 	c.MetricController.EnableWorkloadMetric.Store(enable)
 }
 
-func (c *Controller) GetWorklaodMetricTrigger() bool {
+func (c *Controller) GetWorkloadMetricTrigger() bool {
 	return c.MetricController.EnableWorkloadMetric.Load()
 }
 
