@@ -89,11 +89,20 @@ func parseKmsgLine(line string, bootTime time.Time, appStartTimestamp uint64) {
 	}
 }
 
+// without a real boot time every kmsg timestamp compares as older than
+// startTimestamp, so watching would just run forever without logging anything
+func canWatchKmsg(bootTime time.Time) bool {
+	return !bootTime.IsZero()
+}
+
 func KmeshModuleLog(stopCh <-chan struct{}) {
 	go func() {
 		bootTime, err := getBootTime()
 		if err != nil {
-			log.Errorf("getBootTime: %v, ko log time is inaccurate", err)
+			log.Errorf("getBootTime: %v, ko log will not be watched", err)
+		}
+		if !canWatchKmsg(bootTime) {
+			return
 		}
 		startTimestamp := uint64(time.Now().UnixMicro() - bootTime.UnixMicro())
 
