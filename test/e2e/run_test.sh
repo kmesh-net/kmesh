@@ -188,7 +188,7 @@ function setup_kmesh() {
 		# Set BPF debug log
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
-			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
+			output=$(kmeshctl log $POD --set bpf:debug 2>&1 || true)
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully"
 				break
@@ -201,7 +201,7 @@ function setup_kmesh() {
 		# Set default debug log
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
-			output=$(kmeshctl log $POD --set default:debug 2>&1)
+			output=$(kmeshctl log $POD --set default:debug 2>&1 || true)
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully"
 				break
@@ -222,7 +222,7 @@ function setup_kmesh_log() {
 		# Set BPF debug log
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set bpf:debug"
-			output=$(kmeshctl log $POD --set bpf:debug 2>&1)
+			output=$(kmeshctl log $POD --set bpf:debug 2>&1 || true)
 			if echo "$output" | grep -q "set BPF Log Level: 3"; then
 				echo "BPF debug log set successfully"
 				break
@@ -235,7 +235,7 @@ function setup_kmesh_log() {
 		# Set default debug log
 		for i in {1..5}; do
 			echo "Attempt $i of 5: kmeshctl log $POD --set default:debug"
-			output=$(kmeshctl log $POD --set default:debug 2>&1)
+			output=$(kmeshctl log $POD --set default:debug 2>&1 || true)
 			if echo "$output" | grep -q "OK"; then
 				echo "Default debug log set successfully"
 				break
