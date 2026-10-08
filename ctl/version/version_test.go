@@ -71,3 +71,17 @@ func Test_stringMatch(t *testing.T) {
 		})
 	}
 }
+
+func TestNewCmd(t *testing.T) {
+	cmd := NewCmd()
+
+	if cmd.Use != "version" {
+		t.Errorf("expected Use to be 'version', got %q", cmd.Use)
+	}
+	if cmd.Short == "" {
+		t.Error("expected Short description to be set")
+	}
+	if cmd.Run == nil {
+		t.Error("expected Run function to be set")
+	}
+}
