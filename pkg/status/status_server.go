@@ -117,7 +117,13 @@ func NewServer(c *controller.XdsClient, configs *options.BootstrapConfigs, loade
 func (s *Server) version(w http.ResponseWriter, r *http.Request) {
 	v := version.Get()
 
-	data, err := json.MarshalIndent(&v, "", "  ")
+	data, err := json.MarshalIndent(&struct {
+		version.Info
+		Mode string `json:"mode"`
+	}{
+		Info: v,
+		Mode: s.config.BpfConfig.Mode,
+	}, "", "  ")
 	if err != nil {
 		log.Errorf("Failed to marshal version info: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
