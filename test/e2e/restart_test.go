@@ -64,6 +64,7 @@ func TestKmeshRestart(t *testing.T) {
 		}).Start()
 
 		restartKmesh(t)
+		waitForXDPOnDstWorkloads(t, apps.All)
 
 		g.Stop().CheckSuccessRate(t, 1)
 
