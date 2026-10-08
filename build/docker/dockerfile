@@ -19,3 +19,4 @@ COPY out/kmesh-cni /usr/bin/
 COPY out/mdacore /usr/bin/
 COPY build/docker/start_kmesh.sh /kmesh
 COPY out/ko /kmesh
+RUN chmod 600 /etc/oncn-mda/oncn-mda.conf && chown root:root /etc/oncn-mda/oncn-mda.conf
