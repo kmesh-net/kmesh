@@ -18,6 +18,7 @@ package bpfcache
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cilium/ebpf"
 )
@@ -32,7 +33,10 @@ type WorkloadPolicyValue struct {
 
 func (c *Cache) WorkloadPolicyUpdate(key *WorkloadPolicyKey, value *WorkloadPolicyValue) error {
 	log.Debugf("workload policy update: [%#v], [%#v]", *key, *value)
-	return c.bpfMap.KmWlpolicy.Update(key, value, ebpf.UpdateAny)
+	if err := c.bpfMap.KmWlpolicy.Update(key, value, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("failed to update workload policy map for workload %d: %w", key.WorklodId, err)
+	}
+	return nil
 }
 
 func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicyKey) error {
@@ -41,12 +45,18 @@ func (c *Cache) WorkloadPolicyDelete(key *WorkloadPolicyKey) error {
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete workload policy map for workload %d: %w", key.WorklodId, err)
+	}
+	return nil
 }
 
 func (c *Cache) WorkloadPolicyLookup(key *WorkloadPolicyKey, value *WorkloadPolicyValue) error {
 	log.Debugf("workload policy lookup: [%#v]", *key)
-	return c.bpfMap.KmWlpolicy.Lookup(key, value)
+	if err := c.bpfMap.KmWlpolicy.Lookup(key, value); err != nil {
+		return fmt.Errorf("failed to lookup workload policy map for workload %d: %w", key.WorklodId, err)
+	}
+	return nil
 }
 
 func (c *Cache) WorkloadPolicyLookupAll() []WorkloadPolicyValue {

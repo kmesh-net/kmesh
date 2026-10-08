@@ -47,7 +47,10 @@ func (c *Cache) EndpointUpdate(key *EndpointKey, value *EndpointValue) error {
 		c.endpointKeys[value.BackendUid].Insert(*key)
 	}
 
-	return c.bpfMap.KmEndpoint.Update(key, value, ebpf.UpdateAny)
+	if err := c.bpfMap.KmEndpoint.Update(key, value, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("failed to update endpoint map for key %#v: %w", key, err)
+	}
+	return nil
 }
 
 func (c *Cache) EndpointDelete(key *EndpointKey) error {
@@ -67,7 +70,10 @@ func (c *Cache) EndpointDelete(key *EndpointKey) error {
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete endpoint map for key %#v: %w", key, err)
+	}
+	return nil
 }
 
 // EndpointSwap replaces the current endpoint with the last endpoint
@@ -98,7 +104,7 @@ func (c *Cache) EndpointSwap(currentIndex, backendUid, lastIndex uint32, service
 
 	lastValue := &EndpointValue{}
 	if err := c.EndpointLookup(&k, lastValue); err != nil {
-		return err
+		return fmt.Errorf("failed to lookup last endpoint key %#v for swap: %w", k, err)
 	}
 
 	currentKey := &EndpointKey{
@@ -109,7 +115,7 @@ func (c *Cache) EndpointSwap(currentIndex, backendUid, lastIndex uint32, service
 
 	// replace the current endpoint with the last endpoint
 	if err := c.bpfMap.KmEndpoint.Update(currentKey, lastValue, ebpf.UpdateAny); err != nil {
-		return err
+		return fmt.Errorf("failed to update current endpoint key %#v during swap: %w", currentKey, err)
 	}
 
 	// delete index for the current endpoint
@@ -125,7 +131,10 @@ func (c *Cache) EndpointSwap(currentIndex, backendUid, lastIndex uint32, service
 
 func (c *Cache) EndpointLookup(key *EndpointKey, value *EndpointValue) error {
 	log.Debugf("EndpointLookup [%#v]", *key)
-	return c.bpfMap.KmEndpoint.Lookup(key, value)
+	if err := c.bpfMap.KmEndpoint.Lookup(key, value); err != nil {
+		return fmt.Errorf("failed to lookup endpoint map key %#v: %w", key, err)
+	}
+	return nil
 }
 
 // RestoreEndpointKeys called on restart to construct endpoint indexes from bpf map

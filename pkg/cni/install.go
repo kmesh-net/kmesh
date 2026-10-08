@@ -38,7 +38,7 @@ func (i *Installer) addCniConfig() error {
 		log.Infof("kmesh cni use chained")
 		err = i.chainedKmeshCniPlugin(i.Mode, i.CniMountNetEtcDIR)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to add chained kmesh cni plugin: %w", err)
 		}
 	} else {
 		log.Error("currently kmesh only support chained cni mode")
@@ -48,7 +48,9 @@ func (i *Installer) addCniConfig() error {
 
 func (i *Installer) removeCniConfig() error {
 	if i.CniConfigChained {
-		return i.removeChainedKmeshCniPlugin()
+		if err := i.removeChainedKmeshCniPlugin(); err != nil {
+			return fmt.Errorf("failed to remove chained kmesh cni plugin: %w", err)
+		}
 	}
 	return nil
 }
@@ -127,11 +129,11 @@ func (i *Installer) Start() error {
 		err := i.addCniConfig()
 		if err != nil {
 			i.Stop()
-			return err
+			return fmt.Errorf("failed to add CNI config: %w", err)
 		}
 
 		if err := i.WatchServiceAccountToken(); err != nil {
-			return err
+			return fmt.Errorf("failed to watch service account token: %w", err)
 		}
 	}
 
