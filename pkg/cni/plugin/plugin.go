@@ -217,10 +217,6 @@ func CmdAdd(args *skel.CmdArgs) error {
 		return err
 	}
 
-	if err := utils.PatchKmeshRedirectAnnotation(client, pod); err != nil {
-		log.Errorf("failed to annotate kmesh redirection, err is %v", err)
-	}
-
 	if cniConf.Mode == constants.DualEngineMode {
 		enableXDPFunc := func(netns.NetNS) error {
 			if err := enableXdpAuth(args.IfName); err != nil {
@@ -241,6 +237,13 @@ func CmdAdd(args *skel.CmdArgs) error {
 			err = fmt.Errorf("failed to link tc program(set encryption marker) to dev %v, err is %v", args.IfName, err)
 			return err
 		}
+	}
+
+	// Only mark the pod as kmesh-managed once every required dataplane
+	// program has attached successfully, so the annotation never claims
+	// redirection that isn't actually in place.
+	if err := utils.PatchKmeshRedirectAnnotation(client, pod); err != nil {
+		log.Errorf("failed to annotate kmesh redirection, err is %v", err)
 	}
 
 	return types.PrintResult(preResult, cniConf.CNIVersion)
