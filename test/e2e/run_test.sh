@@ -17,6 +17,10 @@ export KMESH_WAYPOINT_IMAGE=${KMESH_WAYPOINT_IMAGE:-"ghcr.io/kmesh-net/waypoint:
 
 ROOT_DIR=$(git rev-parse --show-toplevel)
 
+# Shared wait helpers with bounded timeouts (see issue #1956).
+# shellcheck source=e2e_wait.sh
+source "$(dirname "${BASH_SOURCE[0]}")/e2e_wait.sh"
+
 TMP="$(mktemp -d)"
 TMPBIN="$TMP/bin"
 mkdir -p "${TMPBIN}"
@@ -118,24 +122,12 @@ function setup_istio() {
 
 	helm install istio-ingressgateway istio/gateway -n istio-system --create-namespace
 
-	while true; do
-		pod_info=$(kubectl get pods -n istio-system -l app=istiod -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
-
-		if [ -z "$pod_info" ]; then
-			echo "No istiod pod found yet, waiting..."
-			sleep 1
-			continue
-		fi
-
-		read -r pod_name pod_status <<<"$pod_info"
-		if [ "$pod_status" = "Running" ]; then
-			echo "Istiod pod $pod_name is in Running state."
-			break
-		fi
-
-		echo "Waiting for pods of Kmesh daemon to enter Running state..."
-		sleep 1
-	done
+	# Bounded wait: fail fast with diagnostics instead of hanging until the
+	# workflow-level timeout (see issue #1956).
+	if ! wait_for_pods_by_phase "istio-system" "app=istiod" "${E2E_WAIT_TIMEOUT:-300}" "${E2E_WAIT_INTERVAL:-5}"; then
+		echo "ERROR: istiod pod did not reach Running state." >&2
+		return 1
+	fi
 }
 
 function setup_kmesh() {
@@ -157,28 +149,13 @@ function setup_kmesh() {
 		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true --enable-ipsec=true" \
 		$extra_args
 
-	# Wait for all Kmesh pods to be ready.
-	while true; do
-		pod_statuses=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
-
-		running_pods=0
-		total_pods=0
-
-		while read -r pod_name pod_status; do
-			total_pods=$((total_pods + 1))
-			if [ "$pod_status" = "Running" ]; then
-				running_pods=$((running_pods + 1))
-			fi
-		done <<<"$pod_statuses"
-
-		if [ "$running_pods" -eq "$total_pods" ]; then
-			echo "All pods of Kmesh daemon are in Running state."
-			break
-		fi
-
-		echo "Waiting for pods of Kmesh daemon to enter Running state..."
-		sleep 1
-	done
+	# Bounded wait: fail fast with diagnostics instead of hanging until the
+	# workflow-level timeout (see issue #1956). Requires at least one pod,
+	# so an empty pod list keeps waiting instead of succeeding early.
+	if ! wait_for_pods_by_phase "kmesh-system" "app=kmesh" "${E2E_WAIT_TIMEOUT:-300}" "${E2E_WAIT_INTERVAL:-5}"; then
+		echo "ERROR: Kmesh daemon pods did not reach Running state." >&2
+		return 1
+	fi
 
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
