@@ -110,6 +110,22 @@ func TestCompareIpByte(t *testing.T) {
 				{3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3},
 			},
 		},
+		{
+			name: "invalid IP bytes are skipped, not treated as matching",
+			args: args{
+				newData: [][]byte{
+					{1, 1, 1, 1},
+					{9, 9, 9},
+				},
+				oldData: [][]byte{
+					{3, 3, 3, 3},
+					{9, 9, 9, 9, 9},
+				},
+			},
+			want: [][]byte{
+				{3, 3, 3, 3},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

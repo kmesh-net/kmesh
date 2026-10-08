@@ -135,16 +135,16 @@ func CompareIpByte(a, b [][]byte) [][]byte {
 		ip, ok := netip.AddrFromSlice(item)
 		if !ok {
 			log.Error("cannot compared IP: Unsupported data types")
+			continue
 		}
-
 		aSet[ip.String()] = item
 	}
-
 	var bMissing [][]byte
 	for _, item := range b {
 		ip, ok := netip.AddrFromSlice(item)
 		if !ok {
 			log.Error("cannot compared IP: Unsupported data types")
+			continue
 		}
 		if _, ok := aSet[ip.String()]; !ok {
 			bMissing = append(bMissing, item)
