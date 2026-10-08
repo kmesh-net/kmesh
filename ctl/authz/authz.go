@@ -218,7 +218,9 @@ func SetAuthzPerKmeshDaemon(cli kube.CLIClient, podName, info string) error {
 		log.Errorf("failed to make HTTP request: %v", herr)
 		return herr
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		err := fmt.Errorf("received status code %d", resp.StatusCode)
@@ -254,7 +256,9 @@ func fetchAuthzStatus(cli kube.CLIClient, podName string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to make HTTP request: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("received status code %d", resp.StatusCode)
