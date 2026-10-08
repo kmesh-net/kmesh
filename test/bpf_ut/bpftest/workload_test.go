@@ -2616,7 +2616,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						enableAddr := "[" + constants.ControlCommandIp6 + "]" + ":" + strconv.Itoa(int(constants.OperEnableControl))
 						net.DialTimeout("tcp6", enableAddr, 2*time.Second)
@@ -2678,7 +2678,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -2804,7 +2804,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -2943,7 +2943,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3075,7 +3075,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3285,7 +3285,7 @@ func testCgroupSock(t *testing.T) {
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
 						//load the eBPF program
-						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect4_prog", cgroupPath)
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect6_prog", cgroupPath)
 						defer coll.Close()
 						defer lk.Close()
 						// Set the BPF configuration
@@ -3295,7 +3295,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
@@ -3505,7 +3505,7 @@ func testCgroupSock(t *testing.T) {
 						mount_cgroup2(t, cgroupPath)
 						defer syscall.Unmount(cgroupPath, 0)
 						//load the eBPF program
-						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect4_prog", cgroupPath)
+						coll, lk := load_bpf_prog_to_cgroup(t, objFilePath, "cgroup_connect6_prog", cgroupPath)
 						defer coll.Close()
 						defer lk.Close()
 						// Set the BPF configuration
@@ -3515,7 +3515,7 @@ func testCgroupSock(t *testing.T) {
 						})
 						startLogReader(coll)
 						//add tail call
-						registerTailCall(t, coll, "km_cgr_tailcall", 0, "cgroup_connect6_tail")
+						registerTailCall(t, coll, "km_cgr_tail6", constants.TailCallConnect6Index, "cgroup_connect6_tail")
 						// record_kmesh_managed_netns_cookie
 						localIP := get_local_ipv6(t)
 						clientPort := 12345
