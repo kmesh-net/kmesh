@@ -21,12 +21,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kmesh.net/kmesh/ctl/utils"
+	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/kube"
 )
 
@@ -111,8 +113,9 @@ func (h *McpHandler) HandleBpfDump(ctx context.Context, req mcp.CallToolRequest)
 	namespace := req.GetString("namespace", "")
 	mode := req.GetString("mode", "")
 
-	if mode == "" {
-		return mcp.NewToolResultError("mode parameter is required (kernel-native or dual-engine)"), nil
+	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
+		return mcp.NewToolResultError(fmt.Sprintf("mode must be %q or %q, got %q",
+			constants.KernelNativeMode, constants.DualEngineMode, mode)), nil
 	}
 
 	endpoint := fmt.Sprintf("debug/config_dump/bpf/%s", mode)
@@ -173,7 +176,11 @@ func (h *McpHandler) HandleGetLoggerLevels(ctx context.Context, req mcp.CallTool
 
 	endpoint := "debug/loggers"
 	if loggerName != "" {
-		endpoint = fmt.Sprintf("debug/loggers?name=%s", loggerName)
+		// The name arrives from the MCP client, so it has to be escaped the same
+		// way `kmeshctl log` escapes it. Without this, a name containing "&",
+		// "#" or a space changes the query string instead of being read as a
+		// logger name, and the daemon returns data for the wrong logger.
+		endpoint = "debug/loggers?name=" + url.QueryEscape(loggerName)
 	}
 	raw, err := h.fetchFromDaemon(ctx, podName, "kmesh-system", endpoint)
 	if err != nil {
