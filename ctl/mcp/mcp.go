@@ -17,16 +17,13 @@
 package mcp
 
 import (
-	"os"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
 	"kmesh.net/kmesh/ctl/utils"
 	"kmesh.net/kmesh/mcp"
-	"kmesh.net/kmesh/pkg/logger"
 )
-
-var log = logger.NewLoggerScope("kmeshctl/mcp")
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -46,8 +43,7 @@ func serveCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cli, err := utils.CreateKubeClient()
 			if err != nil {
-				log.Errorf("failed to create kube client: %v", err)
-				os.Exit(1)
+				return fmt.Errorf("failed to create kube client: %w", err)
 			}
 
 			// Starts the server and blocks
