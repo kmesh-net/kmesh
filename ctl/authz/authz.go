@@ -118,10 +118,12 @@ func NewStatusCmd() *cobra.Command {
 			statuses := make([]podStatus, 0, len(podNames))
 
 			// Collect the status for each pod.
+			failedCount := 0
 			for _, podName := range podNames {
 				status, err := fetchAuthzStatus(cli, podName)
 				if err != nil {
 					log.Errorf("failed to get authz status for pod %s: %v", podName, err)
+					failedCount++
 					continue
 				}
 				statuses = append(statuses, podStatus{Pod: podName, Status: status})
@@ -136,6 +138,10 @@ func NewStatusCmd() *cobra.Command {
 			}
 			tw.Flush()
 			fmt.Print(buf.String())
+
+			if shouldExitWithError(failedCount, len(podNames)) {
+				os.Exit(1)
+			}
 		},
 	}
 	return cmd
