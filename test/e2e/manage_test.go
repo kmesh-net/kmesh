@@ -27,6 +27,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
@@ -189,7 +190,7 @@ func TestCrossNamespace(t *testing.T) {
 
 		dst := apps.ServiceWithWaypointAtServiceGranularity
 
-		unenrolledNSTest := func() {
+		unenrolledNSTest := func(t framework.TestContext) {
 			tests := []struct {
 				svc      echo.Instances
 				enrolled bool
@@ -224,10 +225,11 @@ func TestCrossNamespace(t *testing.T) {
 		}
 
 		t.NewSubTest("cross namespace access, the new namespace is not managed by Kmesh").Run(func(t framework.TestContext) {
-			unenrolledNSTest()
+			unenrolledNSTest(t)
 		})
 
 		enrollNamespaceOrFail(t, anotherNS.Name())
+		time.Sleep(5 * time.Second)
 
 		t.NewSubTest("cross namespace access, the new namespace is managed by Kmesh").Run(func(t framework.TestContext) {
 			for _, src := range all {
@@ -244,9 +246,10 @@ func TestCrossNamespace(t *testing.T) {
 		})
 
 		unenrollNamespaceOrFail(t, anotherNS.Name())
+		time.Sleep(5 * time.Second)
 
 		t.NewSubTest("cross namespace access, the new namespace is not managed by Kmesh **AGAIN**").Run(func(t framework.TestContext) {
-			unenrolledNSTest()
+			unenrolledNSTest(t)
 		})
 	})
 }
