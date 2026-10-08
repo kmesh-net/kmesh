@@ -29,20 +29,20 @@ import (
 
 var log = logger.NewLoggerScope("nets")
 
-// ConvertIpToUint32 converts ip to little-endian uint32 format
+// ConvertIpToUint32 converts ip to little-endian uint32 format.
+// Returns 0 for invalid IPs or non-IPv4 addresses (e.g., IPv6).
 func ConvertIpToUint32(ip string) uint32 {
-	netIP := net.ParseIP(ip) // BigEndian
+	netIP := net.ParseIP(ip)
 	if netIP == nil {
 		return 0
 	}
-	// TODO: is this right?
-	if len(netIP) == net.IPv6len {
-		return binary.LittleEndian.Uint32(netIP.To4())
+
+	ipv4 := netIP.To4()
+	if ipv4 == nil {
+		return 0
 	}
-	if len(netIP) == net.IPv4len {
-		return binary.LittleEndian.Uint32(netIP)
-	}
-	return 0
+
+	return binary.LittleEndian.Uint32(ipv4)
 }
 
 // ConvertPortToBigEndian convert uint32 to network order
