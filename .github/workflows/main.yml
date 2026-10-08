@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-22.04
     strategy:
       matrix:
-        go-version: [ '1.23' ]
+        go-version: [ '1.25.5' ]
 
     steps:
     - name: Free Disk Space
@@ -64,16 +64,17 @@ jobs:
     - name: golangci-lint
       uses: golangci/golangci-lint-action@v3.7.0
       with:
+        install-mode: goinstall
         args: "--config=common/config/.golangci.yaml --out-format colored-line-number"
         skip-pkg-cache: true
 
     - name: Go Test
       run: |
-        sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:$GITHUB_WORKSPACE/api/v2-c:$GITHUB_WORKSPACE/bpf/deserialization_to_bpf_map PKG_CONFIG_PATH=$GITHUB_WORKSPACE/mk go test -gcflags=all=-l -race -v -vet=off -coverprofile=coverage.out ./pkg/...
+        sudo env "PATH=$PATH" "GOROOT=$(go env GOROOT)" LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:$GITHUB_WORKSPACE/api/v2-c:$GITHUB_WORKSPACE/bpf/deserialization_to_bpf_map PKG_CONFIG_PATH=$GITHUB_WORKSPACE/mk go test -gcflags=all=-l -race -v -vet=off -coverprofile=coverage.out ./pkg/...
 
     - name: eBPF Unit Test
       run: |
-        sudo env LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:$GITHUB_WORKSPACE/api/v2-c:$GITHUB_WORKSPACE/bpf/deserialization_to_bpf_map make ebpf_unit_test V=1
+        sudo env "PATH=$PATH" "GOROOT=$(go env GOROOT)" LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib:$GITHUB_WORKSPACE/api/v2-c:$GITHUB_WORKSPACE/bpf/deserialization_to_bpf_map make ebpf_unit_test V=1
 
     - name: Upload coverage reports to Codecov
       uses: codecov/codecov-action@v4
