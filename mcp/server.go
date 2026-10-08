@@ -103,8 +103,13 @@ func RegisterToolsAndServe(cliClient kube.CLIClient) {
 	//Transport Layer Setup for remote network connections
 	sseServer := server.NewSSEServer(mcpServer)
 
-	log.Println("Kmesh MCP Server running on :8080...")
-	if err := sseServer.Start(":8080"); err != nil {
+	// Bind to loopback, matching the daemon admin server. The tools return
+	// cluster config, eBPF maps, pod metadata and logger data with no
+	// authentication, so listening on all interfaces would expose them to any
+	// client that can reach this host.
+	addr := "localhost:8080"
+	log.Printf("Kmesh MCP Server running on %s...", addr)
+	if err := sseServer.Start(addr); err != nil {
 		log.Fatalf("mcp server crashed: %v", err)
 	}
 }
