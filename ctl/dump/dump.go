@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"strings"
 	"text/tabwriter"
@@ -92,7 +91,8 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), configDumpPrefix, mode)
-	resp, err := http.Get(url)
+	httpClient := utils.NewAdminHTTPClient()
+	resp, err := httpClient.Get(url)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)
 		os.Exit(1)

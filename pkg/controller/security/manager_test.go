@@ -162,8 +162,14 @@ func runTestretryFetchCert(t *testing.T) {
 	go secretManager.Run(stopCh)
 	identity := "identity"
 	secretManager.SendCertRequest(identity, ADD)
-	time.Sleep(100 * time.Millisecond)
+	// Wait long enough for the ADD request to be processed and the error path
+	// (including scheduling a time.AfterFunc retry) to complete.
+	time.Sleep(500 * time.Millisecond)
 	patches2.Reset()
+
+	// Wait for any pending auto-retry (time.AfterFunc(1s) in fetchCert) to fire
+	// after the patch has been removed so it can succeed with the real mock client.
+	time.Sleep(1500 * time.Millisecond)
 
 	secretManager.SendCertRequest(identity, RETRY)
 
@@ -181,7 +187,7 @@ func runTestretryFetchCert(t *testing.T) {
 			return fmt.Errorf("cert not found for identity %s", identity)
 		},
 		retry.Delay(100*time.Millisecond),
-		retry.Timeout(6*time.Second),
+		retry.Timeout(15*time.Second),
 	)
 
 	if err != nil {

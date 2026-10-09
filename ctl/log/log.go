@@ -79,7 +79,8 @@ func loggerLevelURL(base, name string) string {
 }
 
 func GetJson(url string, val any) error {
-	resp, err := http.Get(url)
+	client := utils.NewAdminHTTPClient()
+	resp, err := client.Get(url)
 	if err != nil {
 		return fmt.Errorf("failed making GET request(%s): %v", url, err)
 	}
@@ -151,7 +152,7 @@ func SetLoggerLevel(url string, setFlag string) {
 		return
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{}
+	client := utils.NewAdminHTTPClient()
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Errorf("failed to make HTTP request: %v", err)

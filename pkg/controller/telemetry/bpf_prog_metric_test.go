@@ -89,6 +89,35 @@ func TestUpdateOperationMetricCache(t *testing.T) {
 		})
 	}
 }
+
+func TestUpdateOperationMetricCache_MultipleUpdates(t *testing.T) {
+	bpfMetric := NewBpfProgMetric()
+	labels := operationMetricLabels{
+		nodeName:      "test-node",
+		operationType: "SOCK_TRAFFIC_CONTROL",
+	}
+
+	data1 := operationDuration{
+		durations:     []uint64{100},
+		operationType: SOCK_TRAFFIC_CONTROL,
+	}
+	data2 := operationDuration{
+		durations:     []uint64{200, 300},
+		operationType: SOCK_TRAFFIC_CONTROL,
+	}
+
+	bpfMetric.updateOperationMetricCache(data1, labels)
+	bpfMetric.updateOperationMetricCache(data2, labels)
+
+	expected := map[operationMetricLabels]operationDuration{
+		labels: {
+			durations:     []uint64{100, 200, 300},
+			operationType: SOCK_TRAFFIC_CONTROL,
+		},
+	}
+
+	assert.Equal(t, expected, bpfMetric.operationMetricCache)
+}
 func TestBpfProgMetric_updatePrometheusMetric(t *testing.T) {
 	testOperationLabel1 := operationMetricLabels{
 		nodeName:      "test-node-1",
