@@ -215,7 +215,7 @@ func NewCmd() *cobra.Command {
 			// NOTE: This is a warning and not an error because the user may not intend to label their namespace as Kmesh.
 			//
 			// e.g. Users are handling Kmesh redirection per workload rather than at the namespace level.
-			hasWaypoint, err := namespaceHasLabel(kubeClient, ns, KmeshUseWaypointLabel)
+			hasWaypoint, err := namespaceHasLabel(cmd.Context(), kubeClient, ns, KmeshUseWaypointLabel)
 			if err != nil {
 				return err
 			}
@@ -227,7 +227,7 @@ func NewCmd() *cobra.Command {
 						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
 					return nil
 				}
-				namespaceIsLabeledKmesh, err := namespaceHasLabelWithValue(kubeClient, ns, label.IoIstioDataplaneMode.Name, DataplaneModeKmesh)
+				namespaceIsLabeledKmesh, err := namespaceHasLabelWithValue(cmd.Context(), kubeClient, ns, label.IoIstioDataplaneMode.Name, DataplaneModeKmesh)
 				if err != nil {
 					return fmt.Errorf("failed to check if namespace is labeled Kmesh: %v", err)
 				}
@@ -241,7 +241,7 @@ func NewCmd() *cobra.Command {
 				return fmt.Errorf("failed to create gateway: %v", err)
 			}
 
-			_, err = kubeClient.GatewayAPI().GatewayV1().Gateways(ns).Create(context.Background(), gw, metav1.CreateOptions{
+			_, err = kubeClient.GatewayAPI().GatewayV1().Gateways(ns).Create(cmd.Context(), gw, metav1.CreateOptions{
 				FieldManager: "kmeshctl",
 			})
 			if err != nil {
@@ -257,7 +257,7 @@ func NewCmd() *cobra.Command {
 				defer ticker.Stop()
 				for range ticker.C {
 					programmed := false
-					gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+					gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).Get(cmd.Context(), gw.Name, metav1.GetOptions{})
 					if err == nil {
 						// Check if gateway has Programmed condition set to true
 						for _, cond := range gwc.Status.Conditions {
@@ -280,7 +280,7 @@ func NewCmd() *cobra.Command {
 			// If a user decides to enroll their namespace with a waypoint, label the namespace with the waypoint name
 			// after the waypoint has been applied.
 			if enrollNamespace {
-				err = labelNamespaceWithWaypoint(kubeClient, ns)
+				err = labelNamespaceWithWaypoint(cmd.Context(), kubeClient, ns)
 				if err != nil {
 					return fmt.Errorf("failed to label namespace with waypoint: %v", err)
 				}
@@ -325,7 +325,7 @@ func NewCmd() *cobra.Command {
 			}
 			ns := namespaceOrDefault(namespace)
 			gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).
-				List(context.Background(), metav1.ListOptions{})
+				List(cmd.Context(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -348,7 +348,7 @@ func NewCmd() *cobra.Command {
 				}
 				filteredGws = append(filteredGws, gw)
 			}
-			err = printWaypointStatus(w, kubeClient, filteredGws)
+			err = printWaypointStatus(cmd.Context(), w, kubeClient, filteredGws)
 			if err != nil {
 				return fmt.Errorf("failed to print waypoint status: %v", err)
 			}
@@ -420,7 +420,7 @@ func NewCmd() *cobra.Command {
 				ns = namespaceOrDefault(namespace)
 			}
 			gws, err := kubeClient.GatewayAPI().GatewayV1().Gateways(ns).
-				List(context.Background(), metav1.ListOptions{})
+				List(cmd.Context(), metav1.ListOptions{})
 			if err != nil {
 				return err
 			}
@@ -487,7 +487,7 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 	if names == nil {
 		// If names is nil, delete all waypoints
 		waypoints, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).
-			List(context.Background(), metav1.ListOptions{})
+			List(cmd.Context(), metav1.ListOptions{})
 		if err != nil {
 			return err
 		}
@@ -506,7 +506,7 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 		go func(name string) {
 			defer wg.Done()
 			if err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespace).
-				Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
+				Delete(cmd.Context(), name, metav1.DeleteOptions{}); err != nil {
 				if errors.IsNotFound(err) {
 					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
 				} else {
@@ -532,7 +532,7 @@ func errorWithMessage(errMsg string, gwc *gateway.Gateway, err error) error {
 	return fmt.Errorf("%s", errorMsg)
 }
 
-func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gw []gateway.Gateway) error {
+func printWaypointStatus(ctx context.Context, w *tabwriter.Writer, kubeClient kube.CLIClient, gw []gateway.Gateway) error {
 	var cond metav1.Condition
 	startTime := time.Now()
 	ticker := time.NewTicker(1 * time.Second)
@@ -545,7 +545,7 @@ func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gw []ga
 	for _, gw := range gw {
 		for range ticker.C {
 			programmed := false
-			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespaceOrDefault(namespace)).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+			gwc, err := kubeClient.GatewayAPI().GatewayV1().Gateways(namespaceOrDefault(namespace)).Get(ctx, gw.Name, metav1.GetOptions{})
 			if err == nil {
 				// Check if gateway has Programmed condition set to true
 				for _, cond = range gwc.Status.Conditions {
@@ -572,8 +572,8 @@ func printWaypointStatus(w *tabwriter.Writer, kubeClient kube.CLIClient, gw []ga
 	return w.Flush()
 }
 
-func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
-	nsObj, err := getNamespace(kubeClient, ns)
+func labelNamespaceWithWaypoint(ctx context.Context, kubeClient kube.CLIClient, ns string) error {
+	nsObj, err := getNamespace(ctx, kubeClient, ns)
 	if err != nil {
 		return err
 	}
@@ -581,14 +581,14 @@ func labelNamespaceWithWaypoint(kubeClient kube.CLIClient, ns string) error {
 		nsObj.Labels = map[string]string{}
 	}
 	nsObj.Labels[KmeshUseWaypointLabel] = waypointName
-	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(context.Background(), nsObj, metav1.UpdateOptions{}); err != nil {
+	if _, err := kubeClient.Kube().CoreV1().Namespaces().Update(ctx, nsObj, metav1.UpdateOptions{}); err != nil {
 		return fmt.Errorf("failed to update namespace %s: %v", ns, err)
 	}
 	return nil
 }
 
-func getNamespace(kubeClient kube.CLIClient, ns string) (*corev1.Namespace, error) {
-	nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(context.Background(), ns, metav1.GetOptions{})
+func getNamespace(ctx context.Context, kubeClient kube.CLIClient, ns string) (*corev1.Namespace, error) {
+	nsObj, err := kubeClient.Kube().CoreV1().Namespaces().Get(ctx, ns, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		return nil, fmt.Errorf("namespace: %s not found", ns)
 	} else if err != nil {
@@ -597,8 +597,8 @@ func getNamespace(kubeClient kube.CLIClient, ns string) (*corev1.Namespace, erro
 	return nsObj, nil
 }
 
-func namespaceHasLabel(kubeClient kube.CLIClient, ns string, label string) (bool, error) {
-	nsObj, err := getNamespace(kubeClient, ns)
+func namespaceHasLabel(ctx context.Context, kubeClient kube.CLIClient, ns string, label string) (bool, error) {
+	nsObj, err := getNamespace(ctx, kubeClient, ns)
 	if err != nil {
 		return false, err
 	}
@@ -608,8 +608,8 @@ func namespaceHasLabel(kubeClient kube.CLIClient, ns string, label string) (bool
 	return nsObj.Labels[label] != "", nil
 }
 
-func namespaceHasLabelWithValue(kubeClient kube.CLIClient, ns string, label, labelValue string) (bool, error) {
-	nsObj, err := getNamespace(kubeClient, ns)
+func namespaceHasLabelWithValue(ctx context.Context, kubeClient kube.CLIClient, ns string, label, labelValue string) (bool, error) {
+	nsObj, err := getNamespace(ctx, kubeClient, ns)
 	if err != nil {
 		return false, err
 	}
