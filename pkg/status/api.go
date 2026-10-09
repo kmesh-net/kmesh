@@ -164,7 +164,10 @@ func ConvertService(s *workloadapi.Service) *Service {
 		Hostname:  s.Hostname,
 		Addresses: vips,
 		Ports:     s.Ports,
-		Waypoint:  &Waypoint{Destination: waypoint},
+	}
+
+	if waypoint != "" {
+		out.Waypoint = &Waypoint{Destination: waypoint}
 	}
 
 	if s.LoadBalancing != nil {
