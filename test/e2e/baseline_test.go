@@ -633,6 +633,8 @@ func TestAddRemovePodWaypoint(t *testing.T) {
 			})
 		}
 
+		waitForWorkloadWaypointPropagation(t, dst)
+
 		// Now should always be L7.
 		t.NewSubTest("after").Run(func(t framework.TestContext) {
 			for _, src := range apps.All {
@@ -672,6 +674,9 @@ func TestRemoveAddNsOrServiceWaypoint(t *testing.T) {
 			}
 
 			newWaypointProxyOrFail(t, t, apps.Namespace, waypoint, constants.ServiceTraffic)
+			t.Cleanup(func() {
+				deleteWaypointProxyOrFail(t, t, apps.Namespace, waypoint)
+			})
 
 			t.NewSubTest(fmt.Sprintf("%s granularity, before set waypoint", name)).Run(func(t framework.TestContext) {
 				dst := apps.EnrolledToKmesh
@@ -694,6 +699,11 @@ func TestRemoveAddNsOrServiceWaypoint(t *testing.T) {
 			})
 
 			SetWaypoint(t, apps.Namespace.Name(), EnrolledToKmesh, waypoint, granularity)
+			t.Cleanup(func() {
+				UnsetWaypoint(t, apps.Namespace.Name(), EnrolledToKmesh, granularity)
+			})
+
+			waitForWaypointPropagation(t, apps.EnrolledToKmesh)
 
 			// Now should always be L7
 			t.NewSubTest(fmt.Sprintf("%s granularity, after set waypoint", name)).Run(func(t framework.TestContext) {
@@ -737,8 +747,7 @@ func TestMixNsAndServiceWaypoint(t *testing.T) {
 			UnsetWaypoint(t, apps.Namespace.Name(), "", Namespace)
 		})
 
-		// Wait for waypoint configuration to propagate to eBPF/XDS
-		time.Sleep(10 * time.Second)
+		waitForWaypointPropagation(t, apps.EnrolledToKmesh)
 
 		runTestContext(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
@@ -917,6 +926,41 @@ func SetWaypoint(t framework.TestContext, ns string, name string, waypoint strin
 		if err := setWaypoint(waypoint); err != nil {
 			t.Fatal(err)
 		}
+	}
+}
+
+func waitForWaypointPropagation(t framework.TestContext, dst echo.Instances) {
+	src := apps.All[0]
+	d := dst[0]
+	retry.UntilSuccessOrFail(t, func() error {
+		_, err := src.Call(echo.CallOptions{
+			To:                      d,
+			Port:                    echo.Port{Name: "http"},
+			Scheme:                  scheme.HTTP,
+			Count:                   1,
+			Timeout:                 2 * time.Second,
+			NewConnectionPerRequest: true,
+			Check:                   check.And(check.OK(), IsL7()),
+		})
+		return err
+	}, retry.Timeout(1*time.Minute), retry.Delay(500*time.Millisecond))
+}
+
+func waitForWorkloadWaypointPropagation(t framework.TestContext, dst echo.Instances) {
+	src := apps.All[0]
+	for _, dstWl := range dst.WorkloadsOrFail(t) {
+		retry.UntilSuccessOrFail(t, func() error {
+			_, err := src.Call(echo.CallOptions{
+				Address:                 dstWl.Address(),
+				Port:                    echo.Port{ServicePort: ports.All().MustForName("http").WorkloadPort},
+				Scheme:                  scheme.HTTP,
+				Count:                   1,
+				Timeout:                 2 * time.Second,
+				NewConnectionPerRequest: true,
+				Check:                   check.And(check.OK(), IsL7()),
+			})
+			return err
+		}, retry.Timeout(1*time.Minute), retry.Delay(500*time.Millisecond))
 	}
 }
 
