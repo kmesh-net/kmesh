@@ -765,3 +765,27 @@ func TestServerAuthzHandler(t *testing.T) {
 		assert.Equal(t, http.StatusBadRequest, w.Code)
 	})
 }
+
+func TestServerVersion(t *testing.T) {
+	t.Run("returns mode from config", func(t *testing.T) {
+		server := &Server{
+			config: &options.BootstrapConfigs{
+				BpfConfig: &options.BpfConfig{
+					Mode: constants.DualEngineMode,
+				},
+			},
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternVersion, nil)
+		w := httptest.NewRecorder()
+		server.version(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var resp struct {
+			Mode string `json:"mode"`
+		}
+		err := json.Unmarshal(w.Body.Bytes(), &resp)
+		assert.NoError(t, err)
+		assert.Equal(t, constants.DualEngineMode, resp.Mode)
+	})
+}

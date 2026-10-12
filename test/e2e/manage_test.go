@@ -27,6 +27,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/constants"
@@ -228,6 +229,8 @@ func TestCrossNamespace(t *testing.T) {
 		})
 
 		enrollNamespaceOrFail(t, anotherNS.Name())
+		// Label is applied immediately; daemon BPF/L7 programming is not.
+		time.Sleep(15 * time.Second)
 
 		t.NewSubTest("cross namespace access, the new namespace is managed by Kmesh").Run(func(t framework.TestContext) {
 			for _, src := range all {
