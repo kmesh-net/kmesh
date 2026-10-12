@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"strings"
 	"text/tabwriter"
 
@@ -56,8 +55,8 @@ kmeshctl dump <kmesh-daemon-pod> dual-engine
 # Output as raw JSON:
 kmeshctl dump <kmesh-daemon-pod> kernel-native -o json`,
 		Args: cobra.ExactArgs(2),
-		Run: func(cmd *cobra.Command, args []string) {
-			_ = RunDump(cmd, args, outputFormat)
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return RunDump(cmd, args, outputFormat)
 		},
 	}
 
@@ -69,51 +68,47 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 	podName := args[0]
 	mode := args[1]
 	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
-		log.Errorf("Error: Argument must be 'kernel-native' or 'dual-engine'")
-		os.Exit(1)
+		return fmt.Errorf("argument must be 'kernel-native' or 'dual-engine'")
 	}
 
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
-		log.Errorf("failed to create cli client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create cli client: %v", err)
 	}
 
 	fw, err := utils.CreateKmeshPortForwarder(cli, podName)
 	if err != nil {
-		log.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
 	if err := fw.Start(); err != nil {
-		log.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
-		os.Exit(1)
+		return fmt.Errorf("failed to start port forwarder for Kmesh daemon pod %s: %v", podName, err)
 	}
+	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s%s/%s", fw.Address(), configDumpPrefix, mode)
 	httpClient := utils.NewAdminHTTPClient()
 	resp, err := httpClient.Get(url)
 	if err != nil {
-		log.Errorf("failed to make HTTP request: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to make HTTP request: %v", err)
 	}
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		log.Errorf("failed to read HTTP response body: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to read HTTP response body: %v", err)
 	}
 
+	out := cmd.OutOrStdout()
 	if outputFormat == "json" {
-		fmt.Println(string(body))
+		fmt.Fprintln(out, string(body))
 		return nil
 	}
 
 	switch mode {
 	case constants.KernelNativeMode:
-		printKernelNativeTable(body)
+		printKernelNativeTable(out, body)
 	case constants.DualEngineMode:
-		printDualEngineTable(body)
+		printDualEngineTable(out, body)
 	}
 
 	return nil
@@ -121,15 +116,15 @@ func RunDump(cmd *cobra.Command, args []string, outputFormat string) error {
 
 // printKernelNativeTable parses and displays kernel-native config dump as tables.
 // Static and dynamic resources of the same type are consolidated under a single header.
-func printKernelNativeTable(body []byte) {
+func printKernelNativeTable(out io.Writer, body []byte) {
 	configDump := &adminv2.ConfigDump{}
 	if err := protojson.Unmarshal(body, configDump); err != nil {
 		log.Errorf("failed to parse config dump: %v, falling back to raw output", err)
-		fmt.Println(string(body))
+		fmt.Fprintln(out, string(body))
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	w := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 	static, dynamic := configDump.GetStaticResources(), configDump.GetDynamicResources()
 
 	// Clusters
@@ -146,7 +141,7 @@ func printKernelNativeTable(body []byte) {
 			}
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	// Listeners
@@ -177,7 +172,7 @@ func printKernelNativeTable(body []byte) {
 			printListeners(dynamic)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	// Routes
@@ -197,7 +192,7 @@ func printKernelNativeTable(body []byte) {
 			printRoutes(dynamic)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 }
 
@@ -231,15 +226,15 @@ type policyEntry struct {
 }
 
 // printDualEngineTable parses and displays dual-engine config dump as tables.
-func printDualEngineTable(body []byte) {
+func printDualEngineTable(out io.Writer, body []byte) {
 	var dump workloadDump
 	if err := json.Unmarshal(body, &dump); err != nil {
 		log.Errorf("failed to parse workload dump: %v, falling back to raw output", err)
-		fmt.Println(string(body))
+		fmt.Fprintln(out, string(body))
 		return
 	}
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	w := tabwriter.NewWriter(out, 0, 0, 3, ' ', 0)
 
 	if len(dump.Workloads) > 0 {
 		fmt.Fprintln(w, "NAME\tNAMESPACE\tADDRESSES\tPROTOCOL\tSTATUS")
@@ -253,7 +248,7 @@ func printDualEngineTable(body []byte) {
 			)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	if len(dump.Services) > 0 {
@@ -267,7 +262,7 @@ func printDualEngineTable(body []byte) {
 			)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 
 	if len(dump.Policies) > 0 {
@@ -281,7 +276,7 @@ func printDualEngineTable(body []byte) {
 			)
 		}
 		_ = w.Flush()
-		fmt.Println()
+		fmt.Fprintln(out)
 	}
 }
 

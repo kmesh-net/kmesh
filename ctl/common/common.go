@@ -30,9 +30,10 @@ import (
 
 func GetRootCommand() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:          "kmeshctl",
-		Short:        "Kmesh command line tools to operate and debug Kmesh",
-		SilenceUsage: true,
+		Use:           "kmeshctl",
+		Short:         "Kmesh command line tools to operate and debug Kmesh",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 		CompletionOptions: cobra.CompletionOptions{
 			DisableDefaultCmd: true,
 		},

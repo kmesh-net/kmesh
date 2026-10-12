@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -59,9 +58,13 @@ func NewEnableCmd() *cobra.Command {
 		Short:   "Enable xdp authz eBPF program for Kmesh's authz offloading",
 		Example: "kmeshctl authz enable\nkmeshctl authz enable pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			// If no pod names are given, apply to all kmesh daemon pods.
-			SetAuthzForPods(args, "true")
+			if err := SetAuthzForPods(args, "true"); err != nil {
+				return err
+			}
+			log.Info("Authorization has been enabled.")
+			return nil
 		},
 	}
 	return cmd
@@ -74,8 +77,12 @@ func NewDisableCmd() *cobra.Command {
 		Short:   "Disable xdp authz eBPF program for Kmesh's authz offloading",
 		Example: "kmeshctl authz disable\nkmeshctl authz disable pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
-		Run: func(cmd *cobra.Command, args []string) {
-			SetAuthzForPods(args, "false")
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := SetAuthzForPods(args, "false"); err != nil {
+				return err
+			}
+			log.Info("Authorization has been disabled.")
+			return nil
 		},
 	}
 	return cmd
@@ -88,11 +95,10 @@ func NewStatusCmd() *cobra.Command {
 		Short:   "Display the current authorization status",
 		Example: "kmeshctl authz status\nkmeshctl authz status pod1 pod2",
 		Args:    cobra.ArbitraryArgs,
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
 			cli, err := utils.CreateKubeClient()
 			if err != nil {
-				log.Errorf("failed to create cli client: %v", err)
-				os.Exit(1)
+				return fmt.Errorf("failed to create cli client: %v", err)
 			}
 
 			// Determine which pods to query.
@@ -100,8 +106,7 @@ func NewStatusCmd() *cobra.Command {
 			if len(args) == 0 {
 				podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
 				if err != nil {
-					log.Errorf("failed to get kmesh podList: %v", err)
-					os.Exit(1)
+					return fmt.Errorf("failed to get kmesh podList: %v", err)
 				}
 				for _, pod := range podList.Items {
 					podNames = append(podNames, pod.GetName())
@@ -130,6 +135,7 @@ func NewStatusCmd() *cobra.Command {
 			}
 
 			// Output the results in a table format.
+			out := cmd.OutOrStdout()
 			var buf bytes.Buffer
 			tw := tabwriter.NewWriter(&buf, 0, 0, 2, ' ', 0)
 			fmt.Fprintln(tw, "POD\tAUTHORIZATION STATUS")
@@ -137,11 +143,12 @@ func NewStatusCmd() *cobra.Command {
 				fmt.Fprintf(tw, "%s\t%s\n", s.Pod, s.Status)
 			}
 			tw.Flush()
-			fmt.Print(buf.String())
+			fmt.Fprint(out, buf.String())
 
 			if shouldExitWithError(failedCount, len(podNames)) {
-				os.Exit(1)
+				return fmt.Errorf("failed to get authz status for all daemon pod(s)")
 			}
+			return nil
 		},
 	}
 	return cmd
@@ -155,11 +162,10 @@ func shouldExitWithError(failedCount, totalRequested int) bool {
 
 // SetAuthzForPods applies the authz setting (enable/disable) for the given pod(s).
 // If no pod names are specified, it applies the setting to all kmesh daemon pods.
-func SetAuthzForPods(podNames []string, info string) {
+func SetAuthzForPods(podNames []string, info string) error {
 	cli, err := utils.CreateKubeClient()
 	if err != nil {
-		log.Errorf("failed to create cli client: %v", err)
-		os.Exit(1)
+		return fmt.Errorf("failed to create cli client: %v", err)
 	}
 
 	var targets []string
@@ -167,8 +173,7 @@ func SetAuthzForPods(podNames []string, info string) {
 		// Apply to all kmesh daemon pods.
 		podList, err := cli.PodsForSelector(context.TODO(), utils.KmeshNamespace, utils.KmeshLabel)
 		if err != nil {
-			log.Errorf("failed to get kmesh podList: %v", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to get kmesh podList: %v", err)
 		}
 		for _, pod := range podList.Items {
 			targets = append(targets, pod.GetName())
@@ -185,8 +190,9 @@ func SetAuthzForPods(podNames []string, info string) {
 	}
 
 	if shouldExitWithError(failedCount, len(targets)) {
-		os.Exit(1)
+		return fmt.Errorf("failed to set authz for daemon pod(s)")
 	}
+	return nil
 }
 
 // SetAuthzPerKmeshDaemon sends a POST request to a specific kmesh daemon pod
