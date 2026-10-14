@@ -301,6 +301,12 @@ func (r *DNSResolver) RemoveUnwatchDomain(domains map[string]interface{}) {
 	}
 }
 
+func (r *DNSResolver) RemoveDomain(domain string) {
+	r.Lock()
+	defer r.Unlock()
+	delete(r.cache, domain)
+}
+
 func (r *DNSResolver) AddDomainInQueue(info *DomainInfo, time time.Duration) {
 	if info == nil {
 		return
