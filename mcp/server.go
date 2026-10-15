@@ -27,14 +27,12 @@ import (
 
 // RegisterToolsAndServe defines the available MCP tools and mounts the HTTP/SSE transport.
 func RegisterToolsAndServe(cliClient kube.CLIClient) {
-	//Initializing Server
 	mcpServer := server.NewMCPServer("Kmesh-MCP-Server", "1.0.0")
 
 	handler := &McpHandler{
 		cliClient: cliClient,
 	}
 
-	// Define Tools & Bind Handlers
 	toolBpfMaps := mcp.NewTool("get_bpf_maps",
 		mcp.WithDescription("Retrieves the current eBPF map state from a specific Kmesh daemon pod"),
 		mcp.WithString("podName", mcp.Description("Target daemon pod name (auto-discovered if empty)")),
@@ -101,13 +99,8 @@ func RegisterToolsAndServe(cliClient kube.CLIClient) {
 	)
 	mcpServer.AddTool(toolMeshNamespaces, handler.HandleGetMeshNamespaces)
 
-	//Transport Layer Setup for remote network connections
 	sseServer := server.NewSSEServer(mcpServer)
 
-	// Bind to loopback, matching the daemon admin server. The tools return
-	// cluster config, eBPF maps, pod metadata and logger data with no
-	// authentication, so listening on all interfaces would expose them to any
-	// client that can reach this host.
 	addr := "localhost:8080"
 	log.Printf("Kmesh MCP Server running on %s...", addr)
 	if err := sseServer.Start(addr); err != nil {

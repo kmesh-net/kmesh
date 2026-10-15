@@ -220,10 +220,6 @@ func (h *McpHandler) HandleGetLoggerLevels(ctx context.Context, req mcp.CallTool
 
 	endpoint := "debug/loggers"
 	if loggerName != "" {
-		// The name arrives from the MCP client, so it has to be escaped the same
-		// way `kmeshctl log` escapes it. Without this, a name containing "&",
-		// "#" or a space changes the query string instead of being read as a
-		// logger name, and the daemon returns data for the wrong logger.
 		endpoint = "debug/loggers?name=" + url.QueryEscape(loggerName)
 	}
 	raw, err := h.fetchFromDaemon(ctx, podName, namespace, endpoint)
