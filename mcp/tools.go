@@ -268,6 +268,8 @@ func (h *McpHandler) HandleListWaypoints(ctx context.Context, req mcp.CallToolRe
 	allNs := req.GetBool("allNamespaces", false)
 	if allNs {
 		ns = ""
+	} else if ns == "" {
+		ns = "default"
 	}
 
 	gws, err := h.cliClient.GatewayAPI().GatewayV1().Gateways(ns).List(ctx, metav1.ListOptions{
