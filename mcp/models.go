@@ -20,7 +20,7 @@ package mcp
 type BpfMapDumpRequest struct {
 	PodName   string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name (auto-discovered if empty)"`
 	Namespace string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace"`
-	Mode      string `json:"mode" jsonschema:"description=Operating mode (kernel-native or dual-engine),required"`
+	Mode      string `json:"mode,omitempty" jsonschema:"description=Operating mode (kernel-native or dual-engine, auto-detected if empty)"`
 }
 
 type GetVersionRequest struct {
@@ -29,7 +29,6 @@ type GetVersionRequest struct {
 
 type ConfigDumpRequest struct {
 	PodName string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
-	Mode    string `json:"mode,omitempty" jsonschema:"description=Operating mode (kernel-native or dual-engine)"`
 }
 
 type ListWaypointsRequest struct {

@@ -18,6 +18,7 @@ package mcp
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -113,6 +114,21 @@ func (h *McpHandler) HandleBpfDump(ctx context.Context, req mcp.CallToolRequest)
 	namespace := req.GetString("namespace", "")
 	mode := req.GetString("mode", "")
 
+	if mode == "" {
+		versionBytes, err := h.fetchFromDaemon(ctx, podName, namespace, "version")
+		if err == nil {
+			var v struct {
+				Mode string `json:"mode"`
+			}
+			if err := json.Unmarshal(versionBytes, &v); err == nil && v.Mode != "" {
+				mode = v.Mode
+			}
+		}
+	}
+	if mode == "" {
+		mode = constants.KernelNativeMode
+	}
+
 	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
 		return mcp.NewToolResultError(fmt.Sprintf("mode must be %q or %q, got %q",
 			constants.KernelNativeMode, constants.DualEngineMode, mode)), nil
@@ -138,6 +154,7 @@ func (h *McpHandler) HandleGetVersion(ctx context.Context, req mcp.CallToolReque
 
 func (h *McpHandler) HandleConfigDump(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
+	namespace := req.GetString("namespace", "")
 	mode := req.GetString("mode", "")
 
 	endpoint := "debug/config_dump"
@@ -145,7 +162,7 @@ func (h *McpHandler) HandleConfigDump(ctx context.Context, req mcp.CallToolReque
 		endpoint = fmt.Sprintf("debug/config_dump/%s", mode)
 	}
 
-	raw, err := h.fetchFromDaemon(ctx, podName, "kmesh-system", endpoint)
+	raw, err := h.fetchFromDaemon(ctx, podName, namespace, endpoint)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}

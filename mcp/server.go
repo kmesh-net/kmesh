@@ -39,7 +39,7 @@ func RegisterToolsAndServe(cliClient kube.CLIClient) {
 		mcp.WithDescription("Retrieves the current eBPF map state from a specific Kmesh daemon pod"),
 		mcp.WithString("podName", mcp.Description("Target daemon pod name (auto-discovered if empty)")),
 		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace")),
-		mcp.WithString("mode", mcp.Required(), mcp.Description("Operating mode (kernel-native or dual-engine)")),
+		mcp.WithString("mode", mcp.Description("Operating mode (kernel-native or dual-engine, auto-detected if empty)")),
 	)
 	mcpServer.AddTool(toolBpfMaps, handler.HandleBpfDump)
 
@@ -52,7 +52,8 @@ func RegisterToolsAndServe(cliClient kube.CLIClient) {
 	toolConfigDump := mcp.NewTool("config_dump",
 		mcp.WithDescription("Retrieves Istio xDS dynamic listeners, clusters, and routes"),
 		mcp.WithString("podName", mcp.Description("Target daemon pod name")),
-		mcp.WithString("mode", mcp.Description("Operating mode (kernel-native or dual-engine)")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace")),
+		mcp.WithString("mode", mcp.Description("Optional operating mode (kernel-native or dual-engine)")),
 	)
 	mcpServer.AddTool(toolConfigDump, handler.HandleConfigDump)
 
