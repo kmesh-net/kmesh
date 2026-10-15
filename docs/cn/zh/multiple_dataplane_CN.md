@@ -169,7 +169,7 @@ flannel的conflist格式如下：
 
 daemon变更如下：
 
-- 在kmesh使能时写入kemsh plugin配置到cni conflist中
+- 在kmesh使能时写入kmesh plugin配置到cni conflist中
 
  在kmesh-daemon启动时，自动将cni plugin配置`{"type":"kmesh-cni"}`写入到/etc/cni/net.d/目录中的配置文件(.conflist结尾)中去
 
