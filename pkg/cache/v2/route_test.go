@@ -116,6 +116,44 @@ func TestRouteFlush(t *testing.T) {
 		assert.Equal(t, []string{}, deleteRouterName)
 	})
 
+	t.Run("route status is UPDATE with empty virtual hosts", func(t *testing.T) {
+		updateRouterName := []string{}
+		deleteRouterName := []string{}
+
+		patches := gomonkey.NewPatches()
+		defer patches.Reset()
+
+		patches.ApplyFunc(maps_v2.RouteConfigUpdate, func(key string, value *route_v2.RouteConfiguration) error {
+			updateRouterName = append(updateRouterName, key)
+			return nil
+		})
+
+		patches.ApplyFunc(maps_v2.RouteConfigDelete, func(key string) error {
+			deleteRouterName = append(deleteRouterName, key)
+			return nil
+		})
+
+		cache := NewRouteConfigCache()
+
+		routeConfig := &route_v2.RouteConfiguration{
+			ApiStatus:    core_v2.ApiStatus_UPDATE,
+			Name:         "ut-empty-route",
+			VirtualHosts: []*route_v2.VirtualHost{},
+		}
+
+		cache.SetApiRouteConfig(routeConfig.Name, routeConfig)
+
+		cache.Flush()
+
+		apiRouteConfig := cache.GetApiRouteConfig(routeConfig.Name)
+
+		if assert.NotNil(t, apiRouteConfig) {
+			assert.Equal(t, core_v2.ApiStatus_NONE, apiRouteConfig.ApiStatus)
+		}
+		assert.Equal(t, []string{}, updateRouterName)
+		assert.Equal(t, []string{}, deleteRouterName)
+	})
+
 	t.Run("one route status is UPDATE, one route status is DELETE", func(t *testing.T) {
 		updateRouterName := []string{}
 		deleteRouterName := []string{}
