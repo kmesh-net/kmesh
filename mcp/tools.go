@@ -85,15 +85,25 @@ func (h *McpHandler) fetchFromDaemon(ctx context.Context, podName, namespace, en
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	fw, err := utils.CreateKmeshPortForwarder(h.cliClient, podName)
+	fw, err := h.cliClient.NewPortForwarder(podName, namespace, "", 0, utils.KmeshAdminPort)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create port-forward to %s: %w", podName, err)
+		return nil, fmt.Errorf("failed to create port-forward to %s in namespace %s: %w", podName, namespace, err)
 	}
 
-	if err := fw.Start(); err != nil {
-		return nil, fmt.Errorf("failed to start forward: %w", err)
+	startErr := make(chan error, 1)
+	go func() {
+		startErr <- fw.Start()
+	}()
+
+	select {
+	case <-ctx.Done():
+		fw.Close()
+		return nil, fmt.Errorf("timed out connecting to daemon pod %s in namespace %s", podName, namespace)
+	case err := <-startErr:
+		if err != nil {
+			return nil, fmt.Errorf("failed to start forward: %w", err)
+		}
 	}
-	// Important: Guaranteed cleanup to prevent socket leaks
 	defer fw.Close()
 
 	url := fmt.Sprintf("http://%s/%s", fw.Address(), endpoint)
@@ -158,7 +168,8 @@ func (h *McpHandler) HandleBpfDump(ctx context.Context, req mcp.CallToolRequest)
 
 func (h *McpHandler) HandleGetVersion(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
-	raw, err := h.fetchFromDaemon(ctx, podName, "kmesh-system", "version")
+	namespace := req.GetString("namespace", "kmesh-system")
+	raw, err := h.fetchFromDaemon(ctx, podName, namespace, "version")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
@@ -184,7 +195,8 @@ func (h *McpHandler) HandleConfigDump(ctx context.Context, req mcp.CallToolReque
 
 func (h *McpHandler) HandleGetAuthzStatus(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
-	raw, err := h.fetchFromDaemon(ctx, podName, "kmesh-system", "authz")
+	namespace := req.GetString("namespace", "kmesh-system")
+	raw, err := h.fetchFromDaemon(ctx, podName, namespace, "authz")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
@@ -193,7 +205,8 @@ func (h *McpHandler) HandleGetAuthzStatus(ctx context.Context, req mcp.CallToolR
 
 func (h *McpHandler) HandleGetDaemonHealth(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
-	raw, err := h.fetchFromDaemon(ctx, podName, "kmesh-system", "debug/ready")
+	namespace := req.GetString("namespace", "kmesh-system")
+	raw, err := h.fetchFromDaemon(ctx, podName, namespace, "debug/ready")
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Health check failed: %v", err)), nil
 	}
@@ -202,6 +215,7 @@ func (h *McpHandler) HandleGetDaemonHealth(ctx context.Context, req mcp.CallTool
 
 func (h *McpHandler) HandleGetLoggerLevels(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
+	namespace := req.GetString("namespace", "kmesh-system")
 	loggerName := req.GetString("loggerName", "")
 
 	endpoint := "debug/loggers"
@@ -212,7 +226,7 @@ func (h *McpHandler) HandleGetLoggerLevels(ctx context.Context, req mcp.CallTool
 		// logger name, and the daemon returns data for the wrong logger.
 		endpoint = "debug/loggers?name=" + url.QueryEscape(loggerName)
 	}
-	raw, err := h.fetchFromDaemon(ctx, podName, "kmesh-system", endpoint)
+	raw, err := h.fetchFromDaemon(ctx, podName, namespace, endpoint)
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
