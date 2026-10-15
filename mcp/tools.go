@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"kmesh.net/kmesh/ctl/utils"
@@ -38,7 +39,7 @@ type McpHandler struct {
 	cliClient kube.CLIClient
 }
 
-// getDefaultDaemonPod finds the first active kmesh-daemon pod if none is provided.
+// getDefaultDaemonPod finds an active and ready kmesh-daemon pod if none is provided.
 func (h *McpHandler) getDefaultDaemonPod(ctx context.Context, namespace string) (string, error) {
 	if namespace == "" {
 		namespace = "kmesh-system"
@@ -52,7 +53,19 @@ func (h *McpHandler) getDefaultDaemonPod(ctx context.Context, namespace string) 
 	if len(pods.Items) == 0 {
 		return "", fmt.Errorf("no kmesh daemon pods found in namespace %s", namespace)
 	}
-	return pods.Items[0].Name, nil
+
+	for i := range pods.Items {
+		pod := &pods.Items[i]
+		if pod.DeletionTimestamp != nil || pod.Status.Phase != corev1.PodRunning {
+			continue
+		}
+		for _, cond := range pod.Status.Conditions {
+			if cond.Type == corev1.PodReady && cond.Status == corev1.ConditionTrue {
+				return pod.Name, nil
+			}
+		}
+	}
+	return "", fmt.Errorf("kmesh daemon pods found in namespace %s, but none are in Ready state", namespace)
 }
 
 // fetchFromDaemon sets up a secure port-forward to the target daemon pod
