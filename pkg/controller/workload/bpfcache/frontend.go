@@ -18,6 +18,7 @@ package bpfcache
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cilium/ebpf"
 )
@@ -32,7 +33,10 @@ type FrontendValue struct {
 
 func (c *Cache) FrontendUpdate(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendUpdate [%#v], [%#v]", *key, *value)
-	return c.bpfMap.KmFrontend.Update(key, value, ebpf.UpdateAny)
+	if err := c.bpfMap.KmFrontend.Update(key, value, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("failed to update frontend map for key %#v: %w", key, err)
+	}
+	return nil
 }
 
 func (c *Cache) FrontendDelete(key *FrontendKey) error {
@@ -41,13 +45,18 @@ func (c *Cache) FrontendDelete(key *FrontendKey) error {
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete frontend map for key %#v: %w", key, err)
+	}
+	return nil
 }
 
 func (c *Cache) FrontendLookup(key *FrontendKey, value *FrontendValue) error {
 	log.Debugf("FrontendLookup [%#v]", *key)
-	return c.bpfMap.KmFrontend.
-		Lookup(key, value)
+	if err := c.bpfMap.KmFrontend.Lookup(key, value); err != nil {
+		return fmt.Errorf("failed to lookup frontend map for key %#v: %w", key, err)
+	}
+	return nil
 }
 
 func (c *Cache) FrontendIterFindKey(upstreamId uint32) []FrontendKey {

@@ -48,13 +48,13 @@ func (so *BpfSockOpsWorkload) NewBpf(cfg *options.BpfConfig) error {
 	if err := os.MkdirAll(so.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
 			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
-		return err
+		return fmt.Errorf("failed to create sockops map directory %s: %w", so.Info.MapPath, err)
 	}
 
 	if err := os.MkdirAll(so.Info.BpfFsPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
 			syscall.S_IRGRP|syscall.S_IXGRP); err != nil && !os.IsExist(err) {
-		return err
+		return fmt.Errorf("failed to create sockops bpf fs directory %s: %w", so.Info.BpfFsPath, err)
 	}
 
 	return nil
@@ -75,7 +75,7 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 		spec, err = bpf2go.LoadKmeshSockopsWorkload()
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load kmesh sockops collection spec: %w", err)
 	}
 	if spec == nil {
 		return nil, fmt.Errorf("error: loadKmeshSockopsObjects() spec is nil")
@@ -83,7 +83,7 @@ func (so *BpfSockOpsWorkload) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, e
 
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&so.KmeshSockopsWorkloadObjects, &opts); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to load and assign kmesh sockops objects: %w", err)
 	}
 
 	return spec, nil
@@ -93,7 +93,7 @@ func (so *BpfSockOpsWorkload) LoadSockOps() error {
 	/* load kmesh sockops main bpf prog*/
 	spec, err := so.loadKmeshSockopsObjects()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to load sockops objects: %w", err)
 	}
 
 	prog := spec.Programs["sockops_prog"]
@@ -114,17 +114,17 @@ func (so *BpfSockOpsWorkload) Attach() error {
 
 	if restart.GetStartType() == restart.Restart || restart.GetStartType() == restart.Update {
 		if so.Link, err = utils.BpfProgUpdate(pinPath, cgopt); err != nil {
-			return err
+			return fmt.Errorf("failed to update sockops bpf program link at %s: %w", pinPath, err)
 		}
 	} else {
 		lk, err := link.AttachCgroup(cgopt)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to attach cgroup link for sockops: %w", err)
 		}
 		so.Link = lk
 
 		if err := lk.Pin(pinPath); err != nil {
-			return err
+			return fmt.Errorf("failed to pin cgroup link at %s: %w", pinPath, err)
 		}
 	}
 
@@ -133,28 +133,28 @@ func (so *BpfSockOpsWorkload) Attach() error {
 
 func (so *BpfSockOpsWorkload) close() error {
 	if err := so.KmeshSockopsWorkloadObjects.Close(); err != nil {
-		return err
+		return fmt.Errorf("failed to close sockops workload objects: %w", err)
 	}
 	return nil
 }
 
 func (so *BpfSockOpsWorkload) Detach() error {
 	if err := so.close(); err != nil {
-		return err
+		return fmt.Errorf("failed to close sockops objects during detach: %w", err)
 	}
 
 	program_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadPrograms)
 	if err := utils.UnpinPrograms(&program_value); err != nil {
-		return err
+		return fmt.Errorf("failed to unpin sockops programs: %w", err)
 	}
 
 	map_value := reflect.ValueOf(so.KmeshSockopsWorkloadObjects.KmeshSockopsWorkloadMaps)
 	if err := utils.UnpinMaps(&map_value); err != nil {
-		return err
+		return fmt.Errorf("failed to unpin sockops maps: %w", err)
 	}
 
 	if err := os.RemoveAll(so.Info.BpfFsPath); err != nil && !os.IsNotExist(err) {
-		return err
+		return fmt.Errorf("failed to remove sockops bpf fs path %s: %w", so.Info.BpfFsPath, err)
 	}
 
 	if so.Link != nil {

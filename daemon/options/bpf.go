@@ -17,6 +17,7 @@
 package options
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -51,17 +52,17 @@ func (c *BpfConfig) ParseConfig() error {
 	var err error
 
 	if c.Cgroup2Path, err = filepath.Abs(c.Cgroup2Path); err != nil {
-		return err
+		return fmt.Errorf("failed to get absolute path for cgroup2 path %s: %w", c.Cgroup2Path, err)
 	}
 	if _, err = os.Stat(c.Cgroup2Path); err != nil {
-		return err
+		return fmt.Errorf("failed to stat cgroup2 path %s: %w", c.Cgroup2Path, err)
 	}
 
 	if c.BpfFsPath, err = filepath.Abs(c.BpfFsPath); err != nil {
-		return err
+		return fmt.Errorf("failed to get absolute path for bpf fs path %s: %w", c.BpfFsPath, err)
 	}
 	if _, err = os.Stat(c.BpfFsPath); err != nil {
-		return err
+		return fmt.Errorf("failed to stat bpf fs path %s: %w", c.BpfFsPath, err)
 	}
 
 	return nil
