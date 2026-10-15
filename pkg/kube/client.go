@@ -28,6 +28,8 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	"k8s.io/utils/ptr"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 )
@@ -77,6 +79,39 @@ func (c *client) NewPortForwarder(podName string, ns string, localAddress string
 	return newPortForwarder(c, podName, ns, localAddress, localPort, podPort)
 }
 
+type namespaceOverrideClientGetter struct {
+	genericclioptions.RESTClientGetter
+	namespace string
+}
+
+func (g *namespaceOverrideClientGetter) ToRawKubeConfigLoader() clientcmd.ClientConfig {
+	return &namespaceOverrideClientConfig{
+		inner:     g.RESTClientGetter.ToRawKubeConfigLoader(),
+		namespace: g.namespace,
+	}
+}
+
+type namespaceOverrideClientConfig struct {
+	inner     clientcmd.ClientConfig
+	namespace string
+}
+
+func (c *namespaceOverrideClientConfig) RawConfig() (clientcmdapi.Config, error) {
+	return c.inner.RawConfig()
+}
+
+func (c *namespaceOverrideClientConfig) ClientConfig() (*rest.Config, error) {
+	return c.inner.ClientConfig()
+}
+
+func (c *namespaceOverrideClientConfig) Namespace() (string, bool, error) {
+	return c.namespace, false, nil
+}
+
+func (c *namespaceOverrideClientConfig) ConfigAccess() clientcmd.ConfigAccess {
+	return c.inner.ConfigAccess()
+}
+
 func newPortForwarder(cliClient *client, podName string, ns string, localAddress string, localPort int, podPort int) (PortForwarder, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -95,11 +130,11 @@ func newPortForwarder(cliClient *client, podName string, ns string, localAddress
 
 	cmd := &cobra.Command{}
 	cmd.Flags().Duration("pod-running-timeout", DefaultPodRunningTimeout, "Timeout for waiting for pod to be running")
-	cmd.Flags().String("namespace", KmeshNamespace, "Specify the namespace to use")
-	cmd.Flags().StringSlice("address", []string{DefaultLocalAddress}, "Specify the addresses to bind")
+	cmd.Flags().String("namespace", ns, "Specify the namespace to use")
+	cmd.Flags().StringSlice("address", []string{localAddress}, "Specify the addresses to bind")
 	return &portForwarder{
 		cmd:              cmd,
-		RESTClientGetter: cliClient.clientFactory,
+		RESTClientGetter: &namespaceOverrideClientGetter{RESTClientGetter: cliClient.clientFactory, namespace: ns},
 		ctx:              ctx,
 		cancel:           cancel,
 		podName:          podName,
