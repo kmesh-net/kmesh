@@ -26,6 +26,7 @@ import (
 	"kmesh.net/kmesh/ctl/secret"
 	"kmesh.net/kmesh/ctl/version"
 	"kmesh.net/kmesh/ctl/waypoint"
+	"kmesh.net/kmesh/ctl/mcp"
 )
 
 func GetRootCommand() *cobra.Command {
@@ -46,6 +47,7 @@ func GetRootCommand() *cobra.Command {
 	rootCmd.AddCommand(monitoring.NewCmd())
 	rootCmd.AddCommand(authz.NewCmd())
 	rootCmd.AddCommand(secret.NewCmd())
+	rootCmd.AddCommand(mcp.NewCmd())
 
 	return rootCmd
 }
