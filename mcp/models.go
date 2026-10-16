@@ -24,11 +24,13 @@ type BpfMapDumpRequest struct {
 }
 
 type GetVersionRequest struct {
-	PodName string `json:"podName,omitempty" jsonschema:"description=Optional kmesh-daemon pod name"`
+	PodName   string `json:"podName,omitempty" jsonschema:"description=Optional kmesh-daemon pod name"`
+	Namespace string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace (default: kmesh-system)"`
 }
 
 type ConfigDumpRequest struct {
-	PodName string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
+	PodName   string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
+	Namespace string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace (default: kmesh-system)"`
 }
 
 type ListWaypointsRequest struct {
@@ -42,15 +44,18 @@ type GetWaypointStatusRequest struct {
 }
 
 type GetAuthzStatusRequest struct {
-	PodName string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
+	PodName   string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
+	Namespace string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace (default: kmesh-system)"`
 }
 
 type GetDaemonHealthRequest struct {
-	PodName string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
+	PodName   string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
+	Namespace string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace (default: kmesh-system)"`
 }
 
 type GetLoggerLevelsRequest struct {
 	PodName    string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
+	Namespace  string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace (default: kmesh-system)"`
 	LoggerName string `json:"loggerName,omitempty" jsonschema:"description=Optional specific logger module name"`
 }
 

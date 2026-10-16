@@ -44,6 +44,7 @@ func RegisterToolsAndServe(cliClient kube.CLIClient) {
 	toolVersion := mcp.NewTool("get_version",
 		mcp.WithDescription("Retrieves daemon version and BPF operating mode"),
 		mcp.WithString("podName", mcp.Description("Optional kmesh-daemon pod name")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
 	)
 	mcpServer.AddTool(toolVersion, handler.HandleGetVersion)
 
@@ -72,18 +73,21 @@ func RegisterToolsAndServe(cliClient kube.CLIClient) {
 	toolAuthzStatus := mcp.NewTool("get_authz_status",
 		mcp.WithDescription("Gets authorization offload status in the kernel"),
 		mcp.WithString("podName", mcp.Description("Target daemon pod name")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
 	)
 	mcpServer.AddTool(toolAuthzStatus, handler.HandleGetAuthzStatus)
 
 	toolDaemonHealth := mcp.NewTool("get_daemon_health",
 		mcp.WithDescription("Checks readiness probe of a Kmesh daemon pod"),
 		mcp.WithString("podName", mcp.Description("Target daemon pod name")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
 	)
 	mcpServer.AddTool(toolDaemonHealth, handler.HandleGetDaemonHealth)
 
 	toolLoggerLevels := mcp.NewTool("get_logger_levels",
 		mcp.WithDescription("Retrieves log levels of Kmesh internal modules"),
 		mcp.WithString("podName", mcp.Description("Target daemon pod name")),
+		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
 		mcp.WithString("loggerName", mcp.Description("Optional specific logger module name")),
 	)
 	mcpServer.AddTool(toolLoggerLevels, handler.HandleGetLoggerLevels)
