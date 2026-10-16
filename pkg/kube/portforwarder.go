@@ -70,6 +70,12 @@ func getAvailablePort() (int, error) {
 }
 
 func (p *portForwarder) Start() error {
+	if p.ns != "" {
+		if err := p.cmd.Flags().Set("namespace", p.ns); err != nil {
+			return err
+		}
+	}
+
 	address, err := p.cmd.Flags().GetStringSlice("address")
 	if err != nil {
 		return err
