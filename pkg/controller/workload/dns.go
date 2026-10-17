@@ -97,7 +97,17 @@ func (r *dnsController) processDomains(workload *workloadapi.Workload) {
 	hostname := workload.GetHostname()
 
 	r.Lock()
-	r.pendingHostnames[workloadName] = hostname
+	if old, ok := r.pendingHostnames[workloadName]; ok && old != hostname {
+		r.detachPendingWorkload(workloadName, old)
+		r.pendingHostnames[workloadName] = hostname
+		if !r.hostnameInUse(old) {
+			if _, stillPending := r.workloadCache[old]; !stillPending {
+				r.dnsResolver.RemoveDomain(old)
+			}
+		}
+	} else {
+		r.pendingHostnames[workloadName] = hostname
+	}
 	if _, ok := r.workloadCache[hostname]; !ok {
 		r.workloadCache[hostname] = &pendingResolveDomain{
 			Workload:    make([]*workloadapi.Workload, 0),
@@ -108,13 +118,6 @@ func (r *dnsController) processDomains(workload *workloadapi.Workload) {
 		r.workloadCache[hostname].Workload, workload,
 	)
 	r.Unlock()
-
-	// Convert to map[string]any for RemoveUnwatchDomain
-	unwatchDomains := make(map[string]any, len(domains))
-	for k := range domains {
-		unwatchDomains[k] = nil
-	}
-	r.dnsResolver.RemoveUnwatchDomain(unwatchDomains)
 
 	for k, v := range domains {
 		if addresses := r.dnsResolver.GetDNSAddresses(k); addresses != nil {
@@ -265,22 +268,41 @@ func (r *dnsController) removeWorkloadFromDnsCache(workloadName string) {
 	}
 
 	delete(r.pendingHostnames, workloadName)
+	r.detachPendingWorkload(workloadName, hostname)
+	if r.hostnameInUse(hostname) {
+		return
+	}
+	if _, stillPending := r.workloadCache[hostname]; stillPending {
+		return
+	}
+	r.dnsResolver.RemoveDomain(hostname)
+}
 
-	if pendingDomain, ok := r.workloadCache[hostname]; ok {
-		updatedWorkloads := make([]*workloadapi.Workload, 0)
-		for _, wl := range pendingDomain.Workload {
-			if wl.GetName() != workloadName {
-				updatedWorkloads = append(updatedWorkloads, wl)
-			}
-		}
-
-		if len(updatedWorkloads) == 0 {
-			delete(r.workloadCache, hostname)
-			r.dnsResolver.RemoveUnwatchDomain(map[string]any{hostname: nil})
-		} else {
-			pendingDomain.Workload = updatedWorkloads
+func (r *dnsController) detachPendingWorkload(workloadName, hostname string) {
+	pendingDomain, ok := r.workloadCache[hostname]
+	if !ok {
+		return
+	}
+	updatedWorkloads := make([]*workloadapi.Workload, 0, len(pendingDomain.Workload))
+	for _, wl := range pendingDomain.Workload {
+		if wl.GetName() != workloadName {
+			updatedWorkloads = append(updatedWorkloads, wl)
 		}
 	}
+	if len(updatedWorkloads) == 0 {
+		delete(r.workloadCache, hostname)
+		return
+	}
+	pendingDomain.Workload = updatedWorkloads
+}
+
+func (r *dnsController) hostnameInUse(hostname string) bool {
+	for _, h := range r.pendingHostnames {
+		if h == hostname {
+			return true
+		}
+	}
+	return false
 }
 
 func (r *dnsController) getWorkloadsByDomain(domain string) *pendingResolveDomain {
