@@ -85,17 +85,38 @@ kmeshctl monitoring --all enable/disable`,
 	return cmd
 }
 
-func ControlMonitoring(cmd *cobra.Command, args []string) error {
-	client, err := utils.CreateKubeClient()
-	if err != nil {
-		return fmt.Errorf("failed to create cli client: %v", err)
+var clientset kube.CLIClient
+
+func getKubeClient() (kube.CLIClient, error) {
+	if clientset != nil {
+		return clientset, nil
 	}
+	return utils.CreateKubeClient()
+}
+
+func setKubeClient(client kube.CLIClient) {
+	clientset = client
+}
+
+func ControlMonitoring(cmd *cobra.Command, args []string) error {
 	accesslogFlag, _ := cmd.Flags().GetString("accesslog")
 	allFlag, _ := cmd.Flags().GetString("all")
 	workloadMetricsFlag, _ := cmd.Flags().GetString("workloadMetrics")
 	connectionMetricsFlag, _ := cmd.Flags().GetString("connectionMetrics")
 	if accesslogFlag == "" && allFlag == "" && workloadMetricsFlag == "" && connectionMetricsFlag == "" {
 		return fmt.Errorf("no parameters. Need --accesslog, --workloadMetrics, --connectionMetrics or --all")
+	}
+
+	flags := []string{accesslogFlag, allFlag, workloadMetricsFlag, connectionMetricsFlag}
+	for _, val := range flags {
+		if val != "" && val != "enable" && val != "disable" {
+			return fmt.Errorf("argument must be 'enable' or 'disable'")
+		}
+	}
+
+	client, err := getKubeClient()
+	if err != nil {
+		return fmt.Errorf("failed to create cli client: %v", err)
 	}
 
 	podName, hasKmeshPod := getKmeshDaemonPod(args)
