@@ -17,6 +17,7 @@
 package bpf
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -143,6 +144,61 @@ func runTestNormalKernelNative(t *testing.T) {
 	NormalStart(t, config)
 }
 
+func CheckAnyDuplicateProgram() (bool, error) {
+	var id ebpf.ProgramID
+	found := make(map[string]bool)
+
+	kmeshPrograms := map[string]struct{}{
+		"cgroup_connect4_prog":      {},
+		"cgroup_connect6_prog":      {},
+		"bpf_redirect_dns_send":     {},
+		"bpf_restore_dns_recv":      {},
+		"sockops_prog":              {},
+		"xdp_shutdown_in_userspace": {},
+		"sendmsg_prog":              {},
+		"cgroup_skb_ingress_prog":   {},
+		"cgroup_skb_egress_prog":    {},
+		"cluster_manager":           {},
+		"filter_chain_manager":      {},
+		"filter_manager":            {},
+		"tc_mark_encrypt":           {},
+		"tc_mark_decrypt":           {},
+	}
+
+	for {
+		nextID, err := ebpf.ProgramGetNextID(id)
+		if errors.Is(err, syscall.ENOENT) {
+			break
+		}
+		if err != nil {
+			return false, err
+		}
+
+		prog, err := ebpf.NewProgramFromID(nextID)
+		if err != nil {
+			return false, err
+		}
+
+		info, err := prog.Info()
+		prog.Close()
+		if err != nil {
+			return false, err
+		}
+
+		if _, ok := kmeshPrograms[info.Name]; ok {
+			if found[info.Name] {
+				fmt.Println("Found", info.Name)
+				return true, nil
+			}
+			found[info.Name] = true
+		}
+
+		id = nextID
+	}
+
+	return false, nil
+}
+
 func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	var versionPath string
 	restart.SetStartType(restart.Normal)
@@ -168,6 +224,12 @@ func KmeshRestart(t *testing.T, config options.BpfConfig) {
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	assert.Equal(t, restart.Restart, restart.GetStartType(), "set kmesh start status:Restart failed")
+
+	duplicateExists, err := CheckAnyDuplicateProgram()
+
+	assert.Nil(t, err)
+	assert.Equal(t, duplicateExists, false)
+
 	restart.SetExitType(restart.Normal)
 	bpfLoader.Stop()
 }
