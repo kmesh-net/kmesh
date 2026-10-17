@@ -65,7 +65,21 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 			}
 
 			if !shouldBypass(pod) {
-				// TODO: add delete iptables in case we missed skip bypass during kmesh restart
+				// On Kmesh restart the informer re-lists all existing pods and fires
+				// AddFunc for each of them. If a pod previously had the bypass label
+				// (and thus has PREROUTING/OUTPUT RETURN rules) but the label has since
+				// been removed, we must clean up those stale rules here.
+				nspath, err := ns.GetPodNSpath(pod)
+				if err != nil {
+					// Pod may still be initialising; this is not an error.
+					log.Debugf("failed to get netns for pod %s/%s (may still be creating): %v", pod.Namespace, pod.Name, err)
+					return
+				}
+				if err := deleteIptables(nspath); err != nil {
+					// Not an error: the rules simply may not exist for pods that were
+					// never bypassed. Log at Debug to avoid noise.
+					log.Debugf("deleteIptables for %s/%s: %v (may already be clean)", pod.Namespace, pod.Name, err)
+				}
 				return
 			}
 
@@ -98,8 +112,9 @@ func NewByPassController(client kubernetes.Interface) *Controller {
 				log.Infof("%s/%s: restore sidecar control", newPod.GetNamespace(), newPod.GetName())
 				nspath, _ := ns.GetPodNSpath(newPod)
 				if err := deleteIptables(nspath); err != nil {
-					log.Errorf("failed to delete iptables rules for %s: %v", nspath, err)
-					return
+					// Warn rather than error: one or both rules may already be absent
+					// (e.g. node reboot, manual removal). Reconciliation continues.
+					log.Warnf("failed to delete iptables rules for %s: %v", nspath, err)
 				}
 			}
 			if !shouldBypass(oldPod) && shouldBypass(newPod) {
@@ -127,6 +142,7 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	c.informerFactory.Start(stop)
 	if !cache.WaitForCacheSync(stop, c.pod.HasSynced) {
 		log.Error("failed to wait pod cache sync")
+		return
 	}
 }
 
@@ -175,13 +191,12 @@ func deleteIptables(ns string) error {
 	}
 
 	execFunc := func(netns.NetNS) error {
-		log.Infof("Running delete iptables rule in namespace:%s", ns)
+		log.Debugf("Running delete iptables rule in namespace:%s", ns)
+		// Ignore individual iptables errors (e.g., rule does not exist).
+		// This makes the function safely idempotent and prevents log spam.
+		// This mirrors how addIptables handles its delete-before-insert step.
 		for _, args := range iptArgs {
-			if err := utils.Execute("iptables", args); err != nil {
-				err = fmt.Errorf("failed to exec command: iptables %v\", err: %v", args, err)
-				log.Error(err)
-				return err
-			}
+			_ = utils.Execute("iptables", args)
 		}
 		return nil
 	}
