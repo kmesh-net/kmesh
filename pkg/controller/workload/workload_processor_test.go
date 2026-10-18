@@ -21,6 +21,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/cilium/ebpf"
 	service_discovery_v3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
@@ -172,6 +173,80 @@ func Test_handleWorkload(t *testing.T) {
 	checkNotExistInFrontEndMap(t, fakeSvc.Addresses[0].Address, p)
 
 	hashNameClean(p)
+}
+
+func TestWorkloadPolicyRemovedWhenSelectorListEmpty(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+	defer hashNameClean(p)
+	p.nodeName = "test-node"
+
+	wl := createTestWorkloadWithService(false)
+	wl.Uid = "cluster0/pod-a"
+	wl.Node = p.nodeName
+	wl.AuthorizationPolicies = []string{"ns/deny-a", "ns/allow-b"}
+	assert.NoError(t, p.handleWorkload(wl))
+
+	key := bpfcache.WorkloadPolicyKey{WorklodId: p.hashName.Hash(wl.Uid)}
+	var got bpfcache.WorkloadPolicyValue
+	assert.NoError(t, p.bpf.WorkloadPolicyLookup(&key, &got))
+	assert.Equal(t, p.hashName.Hash("ns/deny-a"), got.PolicyIds[0])
+	assert.Equal(t, p.hashName.Hash("ns/allow-b"), got.PolicyIds[1])
+	assert.Equal(t, uint32(0), got.PolicyIds[2])
+	assert.Equal(t, uint32(0), got.PolicyIds[3])
+
+	wl.AuthorizationPolicies = []string{"ns/allow-b"}
+	assert.NoError(t, p.handleWorkload(wl))
+	assert.NoError(t, p.bpf.WorkloadPolicyLookup(&key, &got))
+	assert.Equal(t, p.hashName.Hash("ns/allow-b"), got.PolicyIds[0])
+	assert.Equal(t, uint32(0), got.PolicyIds[1])
+
+	other := createTestWorkloadWithService(false)
+	other.Uid = "cluster0/pod-b"
+	other.Node = p.nodeName
+	other.Addresses = [][]byte{netip.MustParseAddr("1.2.3.8").AsSlice()}
+	other.AuthorizationPolicies = []string{"ns/deny-a"}
+	assert.NoError(t, p.handleWorkload(other))
+
+	wl.AuthorizationPolicies = nil
+	assert.NoError(t, p.handleWorkload(wl))
+	err := p.bpf.WorkloadPolicyLookup(&key, &got)
+	assert.ErrorIs(t, err, ebpf.ErrKeyNotExist)
+
+	otherKey := bpfcache.WorkloadPolicyKey{WorklodId: p.hashName.Hash(other.Uid)}
+	assert.NoError(t, p.bpf.WorkloadPolicyLookup(&otherKey, &got))
+	assert.Equal(t, p.hashName.Hash("ns/deny-a"), got.PolicyIds[0])
+	assert.Equal(t, uint32(0), got.PolicyIds[1])
+
+	wl.AuthorizationPolicies = []string{"ns/deny-a"}
+	assert.NoError(t, p.handleWorkload(wl))
+	assert.NoError(t, p.bpf.WorkloadPolicyLookup(&key, &got))
+	assert.Equal(t, p.hashName.Hash("ns/deny-a"), got.PolicyIds[0])
+	assert.Equal(t, uint32(0), got.PolicyIds[1])
+	assert.NoError(t, p.bpf.WorkloadPolicyLookup(&otherKey, &got))
+	assert.Equal(t, p.hashName.Hash("ns/deny-a"), got.PolicyIds[0])
+
+	plain := createTestWorkloadWithService(false)
+	plain.Uid = "cluster0/pod-c"
+	plain.Node = p.nodeName
+	plain.Addresses = [][]byte{netip.MustParseAddr("1.2.3.9").AsSlice()}
+	assert.NoError(t, p.handleWorkload(plain))
+	assert.NoError(t, p.handleWorkload(plain))
+	plainKey := bpfcache.WorkloadPolicyKey{WorklodId: p.hashName.Hash(plain.Uid)}
+	err = p.bpf.WorkloadPolicyLookup(&plainKey, &got)
+	assert.ErrorIs(t, err, ebpf.ErrKeyNotExist)
+
+	remote := createTestWorkloadWithService(false)
+	remote.Uid = "cluster0/pod-d"
+	remote.Node = "other-node"
+	remote.Addresses = [][]byte{netip.MustParseAddr("1.2.3.10").AsSlice()}
+	remote.AuthorizationPolicies = []string{"ns/deny-a"}
+	assert.NoError(t, p.handleWorkload(remote))
+	remoteKey := bpfcache.WorkloadPolicyKey{WorklodId: p.hashName.Hash(remote.Uid)}
+	err = p.bpf.WorkloadPolicyLookup(&remoteKey, &got)
+	assert.ErrorIs(t, err, ebpf.ErrKeyNotExist)
 }
 
 func Test_handleWaypointWithHostname(t *testing.T) {
