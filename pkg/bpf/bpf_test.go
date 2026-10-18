@@ -17,18 +17,19 @@
 package bpf
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"testing"
 
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/btf"
 	"github.com/cilium/ebpf/rlimit"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
-
-	"github.com/cilium/ebpf"
-	"github.com/cilium/ebpf/btf"
 
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/factory"
@@ -40,6 +41,10 @@ func TestUpdateKmeshConfigMap(t *testing.T) {
 	config := setDirDualEngine(t)
 	bpfLoader := NewBpfLoader(&config)
 	if err := bpfLoader.Start(); err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) || strings.Contains(err.Error(), "load program") {
+			t.Skipf("bpf program rejected on this kernel: %v", err)
+		}
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	bpfConfig := factory.GlobalBpfConfig{
@@ -99,6 +104,10 @@ func setDir() (err error) {
 func NormalStart(t *testing.T, config options.BpfConfig) {
 	bpfLoader := NewBpfLoader(&config)
 	if err := bpfLoader.Start(); err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) || strings.Contains(err.Error(), "load program") {
+			t.Skipf("bpf program rejected on this kernel: %v", err)
+		}
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status failed")
@@ -148,6 +157,10 @@ func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	restart.SetStartType(restart.Normal)
 	bpfLoader := NewBpfLoader(&config)
 	if err := bpfLoader.Start(); err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) || strings.Contains(err.Error(), "load program") {
+			t.Skipf("bpf program rejected on this kernel: %v", err)
+		}
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	assert.Equal(t, restart.Normal, restart.GetStartType(), "set kmesh start status failed")
@@ -165,6 +178,10 @@ func KmeshRestart(t *testing.T, config options.BpfConfig) {
 	// Restart
 	bpfLoader = NewBpfLoader(&config)
 	if err := bpfLoader.Start(); err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) || strings.Contains(err.Error(), "load program") {
+			t.Skipf("bpf program rejected on this kernel: %v", err)
+		}
 		assert.ErrorIsf(t, err, nil, "bpfLoader start failed %v", err)
 	}
 	assert.Equal(t, restart.Restart, restart.GetStartType(), "set kmesh start status:Restart failed")

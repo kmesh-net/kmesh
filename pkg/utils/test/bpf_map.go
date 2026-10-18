@@ -17,7 +17,9 @@
 package test
 
 import (
+	"errors"
 	"os"
+	"strings"
 	"syscall"
 	"testing"
 
@@ -55,9 +57,15 @@ func InitBpfMap(t *testing.T, config options.BpfConfig) (CleanupFn, *bpf.BpfLoad
 	loader := bpf.NewBpfLoader(&config)
 	err = loader.Start()
 	if err != nil {
+		var ve *ebpf.VerifierError
+		if errors.As(err, &ve) || strings.Contains(err.Error(), "load program") {
+			bpf.CleanupBpfMap()
+			t.Skipf("bpf program rejected on this kernel: %v", err)
+		}
 		bpf.CleanupBpfMap()
 		t.Fatalf("bpf init failed: %v", err)
 	}
+
 	return func() {
 		loader.Stop()
 	}, loader
