@@ -19,8 +19,10 @@ package mcp
 // BpfMapDumpRequest defines the input schema for the get_bpf_maps tool.
 type BpfMapDumpRequest struct {
 	PodName   string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name (auto-discovered if empty)"`
-	Namespace string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace"`
+	Namespace string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace (default: kmesh-system)"`
 	Mode      string `json:"mode,omitempty" jsonschema:"description=Operating mode (kernel-native or dual-engine, auto-detected if empty)"`
+	Summary   bool   `json:"summary,omitempty" jsonschema:"description=Return counts and compact identities instead of the full dump (default: true)"`
+	Filter    string `json:"filter,omitempty" jsonschema:"description=Case-insensitive substring matched against entry name/IP/UID"`
 }
 
 type GetVersionRequest struct {
@@ -29,8 +31,11 @@ type GetVersionRequest struct {
 }
 
 type ConfigDumpRequest struct {
-	PodName   string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name"`
+	PodName   string `json:"podName,omitempty" jsonschema:"description=Target daemon pod name (auto-discovered if empty)"`
 	Namespace string `json:"namespace,omitempty" jsonschema:"description=Target daemon pod namespace (default: kmesh-system)"`
+	Mode      string `json:"mode,omitempty" jsonschema:"description=Operating mode (kernel-native or dual-engine)"`
+	Summary   bool   `json:"summary,omitempty" jsonschema:"description=Return counts and compact identities instead of the full dump (default: true)"`
+	Filter    string `json:"filter,omitempty" jsonschema:"description=Case-insensitive substring matched against resource name/IP/UID"`
 }
 
 type ListWaypointsRequest struct {

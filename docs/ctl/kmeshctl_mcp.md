@@ -1,10 +1,10 @@
 ## kmeshctl mcp
 
-Start the Kmesh MCP Server
+Manage the Kmesh Model Context Protocol (MCP) server
 
 ### Synopsis
 
-Starts the Model Context Protocol (MCP) server for Kmesh, exposing internal daemon data to AI agents.
+Manage and run the Model Context Protocol (MCP) server for Kmesh, exposing internal daemon data to AI agents.
 
 ### Options
 
@@ -15,4 +15,4 @@ Starts the Model Context Protocol (MCP) server for Kmesh, exposing internal daem
 ### SEE ALSO
 
 * [kmeshctl](kmeshctl.md) - Kmesh command line tools to operate and debug Kmesh
-* [kmeshctl mcp serve](kmeshctl_mcp_serve.md) - Run the MCP SSE transport server
+* [kmeshctl mcp serve](kmeshctl_mcp_serve.md) - Run the MCP server (supports stdio and sse transport)

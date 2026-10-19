@@ -20,33 +20,31 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
-	istioconstants "istio.io/istio/pkg/config/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	istioconstants "istio.io/istio/pkg/config/constants"
 	"kmesh.net/kmesh/ctl/utils"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/kube"
 )
 
-// McpHandler holds the Kubernetes CLI Client to safely tunnel connections.
 type McpHandler struct {
 	cliClient kube.CLIClient
+	fetch     func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error)
 }
 
-// getDefaultDaemonPod finds an active and ready kmesh-daemon pod if none is provided.
 func (h *McpHandler) getDefaultDaemonPod(ctx context.Context, namespace string) (string, error) {
 	if namespace == "" {
-		namespace = "kmesh-system"
+		namespace = utils.KmeshNamespace
 	}
 	pods, err := h.cliClient.Kube().CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: "app=kmesh",
+		LabelSelector: utils.KmeshLabel,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to list kmesh pods: %v", err)
@@ -55,9 +53,11 @@ func (h *McpHandler) getDefaultDaemonPod(ctx context.Context, namespace string) 
 		return "", fmt.Errorf("no kmesh daemon pods found in namespace %s", namespace)
 	}
 
-	for i := range pods.Items {
-		pod := &pods.Items[i]
-		if pod.DeletionTimestamp != nil || pod.Status.Phase != corev1.PodRunning {
+	for _, pod := range pods.Items {
+		if pod.DeletionTimestamp != nil {
+			continue
+		}
+		if pod.Status.Phase != corev1.PodRunning {
 			continue
 		}
 		for _, cond := range pod.Status.Conditions {
@@ -66,14 +66,17 @@ func (h *McpHandler) getDefaultDaemonPod(ctx context.Context, namespace string) 
 			}
 		}
 	}
-	return "", fmt.Errorf("kmesh daemon pods found in namespace %s, but none are in Ready state", namespace)
+
+	return "", fmt.Errorf("found %d kmesh daemon pod(s) in namespace %s, but none are ready", len(pods.Items), namespace)
 }
 
-// fetchFromDaemon sets up a secure port-forward to the target daemon pod
-// and fetches data from the given endpoint (port 15200).
 func (h *McpHandler) fetchFromDaemon(ctx context.Context, podName, namespace, endpoint string) ([]byte, error) {
+	if h.fetch != nil {
+		return h.fetch(ctx, podName, namespace, endpoint)
+	}
+
 	if namespace == "" {
-		namespace = "kmesh-system"
+		namespace = utils.KmeshNamespace
 	}
 	if podName == "" {
 		defaultPod, err := h.getDefaultDaemonPod(ctx, namespace)
@@ -91,18 +94,18 @@ func (h *McpHandler) fetchFromDaemon(ctx context.Context, podName, namespace, en
 		return nil, fmt.Errorf("failed to create port-forward to %s in namespace %s: %w", podName, namespace, err)
 	}
 
-	startErr := make(chan error, 1)
+	startErrCh := make(chan error, 1)
 	go func() {
-		startErr <- fw.Start()
+		startErrCh <- fw.Start()
 	}()
 
 	select {
 	case <-ctx.Done():
 		fw.Close()
 		return nil, fmt.Errorf("timed out connecting to daemon pod %s in namespace %s", podName, namespace)
-	case err := <-startErr:
+	case err := <-startErrCh:
 		if err != nil {
-			return nil, fmt.Errorf("failed to start forward: %w", err)
+			return nil, fmt.Errorf("failed to start forward to %s in namespace %s: %w", podName, namespace, err)
 		}
 	}
 	defer fw.Close()
@@ -123,32 +126,35 @@ func (h *McpHandler) fetchFromDaemon(ctx context.Context, podName, namespace, en
 		return nil, fmt.Errorf("daemon returned status %d", resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
-}
-
-func condenseJsonDump(raw []byte, maxSize int) string {
-	if len(raw) > maxSize {
-		return string(raw[:maxSize]) + "\n... [WARNING: TRUNCATED due to length. Use specific filters to drill down]"
-	}
-	return string(raw)
+	return readAllLimited(resp.Body, maxDumpBytes)
 }
 
 func (h *McpHandler) HandleBpfDump(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
 	namespace := req.GetString("namespace", "")
 	mode := req.GetString("mode", "")
+	summary := req.GetBool("summary", true)
+	filter := req.GetString("filter", "")
+
+	if err := validateK8sName("podName", podName); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := validateK8sName("namespace", namespace); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
 
 	if mode == "" {
-		versionBytes, err := h.fetchFromDaemon(ctx, podName, namespace, "version")
+		rawVersion, err := h.fetchFromDaemon(ctx, podName, namespace, "version")
 		if err == nil {
-			var v struct {
+			var vInfo struct {
 				Mode string `json:"mode"`
 			}
-			if err := json.Unmarshal(versionBytes, &v); err == nil && v.Mode != "" {
-				mode = v.Mode
+			if json.Unmarshal(rawVersion, &vInfo) == nil && vInfo.Mode != "" {
+				mode = vInfo.Mode
 			}
 		}
 	}
+
 	if mode == "" {
 		mode = constants.KernelNativeMode
 	}
@@ -164,12 +170,24 @@ func (h *McpHandler) HandleBpfDump(ctx context.Context, req mcp.CallToolRequest)
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to fetch BPF maps: %v", err)), nil
 	}
 
-	return mcp.NewToolResultText(condenseJsonDump(raw, 50*1024)), nil
+	out, err := formatDump(raw, filter, summary)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to process BPF maps: %v", err)), nil
+	}
+	return mcp.NewToolResultText(out), nil
 }
 
 func (h *McpHandler) HandleGetVersion(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
-	namespace := req.GetString("namespace", "kmesh-system")
+	namespace := req.GetString("namespace", "")
+
+	if err := validateK8sName("podName", podName); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := validateK8sName("namespace", namespace); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
 	raw, err := h.fetchFromDaemon(ctx, podName, namespace, "version")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -181,6 +199,20 @@ func (h *McpHandler) HandleConfigDump(ctx context.Context, req mcp.CallToolReque
 	podName := req.GetString("podName", "")
 	namespace := req.GetString("namespace", "")
 	mode := req.GetString("mode", "")
+	summary := req.GetBool("summary", true)
+	filter := req.GetString("filter", "")
+
+	if err := validateK8sName("podName", podName); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := validateK8sName("namespace", namespace); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
+	if mode != "" && mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
+		return mcp.NewToolResultError(fmt.Sprintf("mode must be %q or %q, got %q",
+			constants.KernelNativeMode, constants.DualEngineMode, mode)), nil
+	}
 
 	endpoint := "debug/config_dump"
 	if mode != "" {
@@ -191,12 +223,24 @@ func (h *McpHandler) HandleConfigDump(ctx context.Context, req mcp.CallToolReque
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
 	}
-	return mcp.NewToolResultText(condenseJsonDump(raw, 50*1024)), nil
+	out, err := formatDump(raw, filter, summary)
+	if err != nil {
+		return mcp.NewToolResultError(fmt.Sprintf("Failed to process config dump: %v", err)), nil
+	}
+	return mcp.NewToolResultText(out), nil
 }
 
 func (h *McpHandler) HandleGetAuthzStatus(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
-	namespace := req.GetString("namespace", "kmesh-system")
+	namespace := req.GetString("namespace", "")
+
+	if err := validateK8sName("podName", podName); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := validateK8sName("namespace", namespace); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
 	raw, err := h.fetchFromDaemon(ctx, podName, namespace, "authz")
 	if err != nil {
 		return mcp.NewToolResultError(err.Error()), nil
@@ -206,7 +250,15 @@ func (h *McpHandler) HandleGetAuthzStatus(ctx context.Context, req mcp.CallToolR
 
 func (h *McpHandler) HandleGetDaemonHealth(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
-	namespace := req.GetString("namespace", "kmesh-system")
+	namespace := req.GetString("namespace", "")
+
+	if err := validateK8sName("podName", podName); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := validateK8sName("namespace", namespace); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
 	raw, err := h.fetchFromDaemon(ctx, podName, namespace, "debug/ready")
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Health check failed: %v", err)), nil
@@ -216,8 +268,15 @@ func (h *McpHandler) HandleGetDaemonHealth(ctx context.Context, req mcp.CallTool
 
 func (h *McpHandler) HandleGetLoggerLevels(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	podName := req.GetString("podName", "")
-	namespace := req.GetString("namespace", "kmesh-system")
+	namespace := req.GetString("namespace", "")
 	loggerName := req.GetString("loggerName", "")
+
+	if err := validateK8sName("podName", podName); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := validateK8sName("namespace", namespace); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
 
 	endpoint := "debug/loggers"
 	if loggerName != "" {
@@ -233,13 +292,22 @@ func (h *McpHandler) HandleGetLoggerLevels(ctx context.Context, req mcp.CallTool
 func (h *McpHandler) HandleListDaemonPods(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	ns := req.GetString("namespace", "")
 	if ns == "" {
-		ns = "kmesh-system"
+		ns = utils.KmeshNamespace
 	}
+
+	if err := validateK8sName("namespace", ns); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
 	pods, err := h.cliClient.Kube().CoreV1().Pods(ns).List(ctx, metav1.ListOptions{
-		LabelSelector: "app=kmesh",
+		LabelSelector: utils.KmeshLabel,
 	})
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to list pods: %v", err)), nil
+	}
+
+	if len(pods.Items) == 0 {
+		return mcp.NewToolResultText(fmt.Sprintf("No Kmesh daemon pods found in namespace %s.", ns)), nil
 	}
 
 	result := "Kmesh Daemon Pods:\n"
@@ -257,6 +325,10 @@ func (h *McpHandler) HandleGetMeshNamespaces(ctx context.Context, req mcp.CallTo
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to list namespaces: %v", err)), nil
 	}
 
+	if len(namespaces.Items) == 0 {
+		return mcp.NewToolResultText("No namespaces found with label 'istio.io/dataplane-mode=Kmesh'."), nil
+	}
+
 	result := "Kmesh-Enabled Namespaces:\n"
 	for _, ns := range namespaces.Items {
 		result += fmt.Sprintf("- %s\n", ns.Name)
@@ -271,6 +343,12 @@ func (h *McpHandler) HandleListWaypoints(ctx context.Context, req mcp.CallToolRe
 		ns = ""
 	} else if ns == "" {
 		ns = "default"
+	}
+
+	if ns != "" {
+		if err := validateK8sName("namespace", ns); err != nil {
+			return mcp.NewToolResultError(err.Error()), nil
+		}
 	}
 
 	gws, err := h.cliClient.GatewayAPI().GatewayV1().Gateways(ns).List(ctx, metav1.ListOptions{})
@@ -301,14 +379,25 @@ func (h *McpHandler) HandleGetWaypointStatus(ctx context.Context, req mcp.CallTo
 		ns = "default"
 	}
 
+	if err := validateK8sName("name", name); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+	if err := validateK8sName("namespace", ns); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
+	}
+
 	gw, err := h.cliClient.GatewayAPI().GatewayV1().Gateways(ns).Get(ctx, name, metav1.GetOptions{})
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Waypoint not found: %v", err)), nil
 	}
 
 	statusSummary := fmt.Sprintf("Waypoint: %s/%s\nConditions:\n", ns, name)
-	for _, cond := range gw.Status.Conditions {
-		statusSummary += fmt.Sprintf("  - Type: %s, Status: %s, Reason: %s\n", cond.Type, cond.Status, cond.Reason)
+	if len(gw.Status.Conditions) == 0 {
+		statusSummary += "  (no conditions reported yet)\n"
+	} else {
+		for _, cond := range gw.Status.Conditions {
+			statusSummary += fmt.Sprintf("  - Type: %s, Status: %s, Reason: %s\n", cond.Type, cond.Status, cond.Reason)
+		}
 	}
 	return mcp.NewToolResultText(statusSummary), nil
 }
