@@ -24,6 +24,7 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	istioconstants "istio.io/istio/pkg/config/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -33,7 +34,6 @@ import (
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
 	gwfake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 
-	istioconstants "istio.io/istio/pkg/config/constants"
 	"kmesh.net/kmesh/pkg/kube"
 )
 

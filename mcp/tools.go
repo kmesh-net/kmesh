@@ -25,10 +25,10 @@ import (
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
+	istioconstants "istio.io/istio/pkg/config/constants"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	istioconstants "istio.io/istio/pkg/config/constants"
 	"kmesh.net/kmesh/ctl/utils"
 	"kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/kube"
