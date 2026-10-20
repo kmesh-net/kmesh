@@ -15,6 +15,7 @@ Kmesh command line tools to operate and debug Kmesh
 * [kmeshctl log](kmeshctl_log.md) - Get or set kmesh-daemon's logger level
 * [kmeshctl mcp](kmeshctl_mcp.md) - Start the Kmesh MCP Server
 * [kmeshctl monitoring](kmeshctl_monitoring.md) - Control Kmesh's monitoring to be turned on as needed
+* [kmeshctl namespace](kmeshctl_namespace.md) - Manage Kmesh namespaces
 * [kmeshctl secret](kmeshctl_secret.md) - Use secrets to manage secret configuration data for IPsec
 * [kmeshctl version](kmeshctl_version.md) - Prints out build version info
 * [kmeshctl waypoint](kmeshctl_waypoint.md) - Manage waypoint configuration
