@@ -24,12 +24,34 @@ import (
 )
 
 func Test_ConvertIpToUint32(t *testing.T) {
+	// existing: regular IPv4
 	ip := "192.168.0.1"
 	val := ConvertIpToUint32(ip)
 	assert.Equal(t, uint32(0x100a8c0), val)
-
-	// It can not panic even for invalid ip
+ 
+	// existing: invalid ip
 	val = ConvertIpToUint32("a.b.c.d")
+	assert.Equal(t, uint32(0), val)
+ 
+	// new: pure IPv6 address — should return 0, must not panic
+	val = ConvertIpToUint32("2001:db8::1")
+	assert.Equal(t, uint32(0), val)
+ 
+	// new: another pure IPv6 address
+	val = ConvertIpToUint32("fe80::1")
+	assert.Equal(t, uint32(0), val)
+ 
+	// new: IPv4-mapped IPv6 address (::ffff:192.168.0.1) — should return same as IPv4
+	val = ConvertIpToUint32("::ffff:192.168.0.1")
+	assert.Equal(t, uint32(0x100a8c0), val)
+ 
+	// new: IPv4-mapped IPv6 address (::ffff:1.2.3.4)
+	val = ConvertIpToUint32("::ffff:1.2.3.4")
+	expected := ConvertIpToUint32("1.2.3.4")
+	assert.Equal(t, expected, val)
+ 
+	// new: empty string — should return 0
+	val = ConvertIpToUint32("")
 	assert.Equal(t, uint32(0), val)
 }
 
