@@ -25,11 +25,13 @@ import (
 	"kmesh.net/kmesh/mcp"
 )
 
+var transport string
+
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "mcp",
-		Short: "Start the Kmesh MCP Server",
-		Long:  `Starts the Model Context Protocol (MCP) server for Kmesh, exposing internal daemon data to AI agents.`,
+		Short: "Manage the Kmesh Model Context Protocol (MCP) server",
+		Long:  `Manage and run the Model Context Protocol (MCP) server for Kmesh, exposing internal daemon data to AI agents.`,
 	}
 
 	cmd.AddCommand(serveCmd())
@@ -39,17 +41,17 @@ func NewCmd() *cobra.Command {
 func serveCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
-		Short: "Run the MCP SSE transport server",
+		Short: "Run the MCP server (supports stdio and sse transport)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cli, err := utils.CreateKubeClient()
 			if err != nil {
 				return fmt.Errorf("failed to create kube client: %w", err)
 			}
 
-			// Starts the server and blocks
-			mcp.RegisterToolsAndServe(cli)
-			return nil
+			return mcp.RegisterToolsAndServe(cmd.Context(), cli, transport)
 		},
 	}
+
+	cmd.Flags().StringVar(&transport, "transport", "stdio", "Transport protocol to use: 'stdio' (default) or 'sse'")
 	return cmd
 }
