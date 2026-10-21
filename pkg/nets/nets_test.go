@@ -24,13 +24,54 @@ import (
 )
 
 func Test_ConvertIpToUint32(t *testing.T) {
-	ip := "192.168.0.1"
-	val := ConvertIpToUint32(ip)
-	assert.Equal(t, uint32(0x100a8c0), val)
+	testCases := []struct {
+		name     string
+		input    string
+		expected uint32
+	}{
+		{
+			name:     "valid IPv4 address",
+			input:    "192.168.0.1",
+			expected: uint32(0x100a8c0),
+		},
+		{
+			name:     "invalid IP string",
+			input:    "a.b.c.d",
+			expected: 0,
+		},
+		{
+			name:     "IPv6 address does not panic and returns 0",
+			input:    "2001:db8::1",
+			expected: 0,
+		},
+		{
+			name:     "IPv6 loopback does not panic and returns 0",
+			input:    "::1",
+			expected: 0,
+		},
+		{
+			name:     "empty string returns 0",
+			input:    "",
+			expected: 0,
+		},
+		{
+			name:     "IPv4 loopback",
+			input:    "127.0.0.1",
+			expected: uint32(0x100007f),
+		},
+		{
+			name:     "IPv4 broadcast",
+			input:    "255.255.255.255",
+			expected: uint32(0xffffffff),
+		},
+	}
 
-	// It can not panic even for invalid ip
-	val = ConvertIpToUint32("a.b.c.d")
-	assert.Equal(t, uint32(0), val)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			val := ConvertIpToUint32(tc.input)
+			assert.Equal(t, tc.expected, val)
+		})
+	}
 }
 
 func TestCopyIpByteFromSlice(t *testing.T) {
