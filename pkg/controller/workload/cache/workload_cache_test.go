@@ -114,6 +114,20 @@ func TestAddOrUpdateWorkload(t *testing.T) {
 		assert.Equal(t, newWorkload, w.byUid["123456"])
 		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: newWorkload.Network, Address: addr}])
 	})
+
+	t.Run("workload address update", func(t *testing.T) {
+		w := NewWorkloadCache()
+		workload := common.CreateFakeWorkload("1.2.3.4", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"))
+		w.AddOrUpdateWorkload(workload)
+
+		newWorkload := common.CreateFakeWorkload("1.2.3.5", "", common.WithWorkloadBasicInfo("ut-workload", "123456", "ut-net"))
+		w.AddOrUpdateWorkload(newWorkload)
+
+		oldAddr := netip.MustParseAddr("1.2.3.4")
+		newAddr := netip.MustParseAddr("1.2.3.5")
+		assert.Equal(t, (*workloadapi.Workload)(nil), w.byAddr[NetworkAddress{Network: "ut-net", Address: oldAddr}])
+		assert.Equal(t, newWorkload, w.byAddr[NetworkAddress{Network: "ut-net", Address: newAddr}])
+	})
 }
 
 func TestDeleteWorkload(t *testing.T) {
