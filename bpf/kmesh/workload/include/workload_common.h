@@ -25,6 +25,9 @@ typedef enum {
     LB_POLICY_STRICT = 1,
     LB_POLICY_FAILOVER = 2,
 } lb_policy_t;
+// outbound traffic policy
+#define ALLOW_ANY       0
+#define REGISTRY_ONLY   1
 
 #pragma pack(1)
 typedef struct {

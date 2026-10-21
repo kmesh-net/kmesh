@@ -92,7 +92,7 @@ func (l *BpfLoader) Start() error {
 		if l.workloadObj, err = workload.NewBpfWorkload(l.config); err != nil {
 			return err
 		}
-		if err = l.workloadObj.Start(); err != nil {
+		if err = l.workloadObj.Start(l.config); err != nil {
 			return err
 		}
 		// TODO: set bpf prog option in kernel native node
