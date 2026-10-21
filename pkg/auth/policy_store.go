@@ -102,6 +102,14 @@ func (ps *policyStore) removePolicy(policyKey string) {
 	}
 }
 
+func (ps *policyStore) getByKey(key string) (*security.Authorization, bool) {
+	ps.rwLock.RLock()
+	defer ps.rwLock.RUnlock()
+
+	policy, ok := ps.byKey[key]
+	return policy, ok
+}
+
 // getAllPolicies returns a copied set of all policy names
 func (ps *policyStore) getAllPolicies() map[string]string {
 	ps.rwLock.RLock()
