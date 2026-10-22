@@ -52,7 +52,7 @@ func Test_handleWorkload(t *testing.T) {
 
 	// 1. add related service
 	fakeSvc := common.CreateFakeService("testsvc", "10.240.10.1", "10.240.10.2", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
-	_ = p.handleService(fakeSvc)
+	_ = p.handleService(fakeSvc, nil, nil)
 
 	// 2. add workload
 	workload1 := createTestWorkloadWithService(true)
@@ -137,7 +137,7 @@ func Test_handleWorkload(t *testing.T) {
 
 	// 6. add namespace scoped waypoint service
 	wpSvc := common.CreateFakeService("waypoint", "10.240.10.5", "10.240.10.5", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, make([]workloadapi.LoadBalancing_Scope, 0)))
-	_ = p.handleService(wpSvc)
+	_ = p.handleService(wpSvc, nil, nil)
 	assert.Nil(t, wpSvc.Waypoint)
 	// 6.1 check front end map contains service
 	svcID = checkFrontEndMap(t, wpSvc.Addresses[0].Address, p)
@@ -850,4 +850,23 @@ func TestLocalityLBWithNilLocalityInfo(t *testing.T) {
 	checkServiceMap(t, p, svcID, svc, 0, 1)
 
 	hashNameClean(p)
+}
+
+func TestServiceBatchUpdateFlow(t *testing.T) {
+	// Setup Fake BPF Map
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	// Create 2 fake services
+	svc1 := common.CreateFakeService("svc1", "10.96.0.1", "10.96.0.10", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+	svc2 := common.CreateFakeService("svc2", "10.96.0.2", "10.96.0.20", createLoadBalancing(workloadapi.LoadBalancing_UNSPECIFIED_MODE, nil))
+
+	// Call handleServicesAndWorkloads directly with the list of services.
+	// This will trigger the "batchKeys" logic inside the function.
+	// NOTE: We do NOT rely on "BatchUpdate" succeeding in the test environment,
+	// as many CI kernels do not support BPF batch operations. We just want to ensure
+	// the code path is executed for coverage.
+	p.handleServicesAndWorkloads([]*workloadapi.Service{svc1, svc2}, nil)
 }
