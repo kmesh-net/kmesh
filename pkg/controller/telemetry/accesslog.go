@@ -83,7 +83,7 @@ func outputAccesslog(data requestMetric, connMetrics connMetric, accesslog logIn
 		return
 	}
 	logStr := buildAccesslog(data, connMetrics, accesslog)
-	fmt.Println("accesslog:", logStr)
+	log.Infof("accesslog: %s", logStr)
 }
 
 func buildAccesslog(reqMetric requestMetric, connMetrics connMetric, accesslog logInfo) string {
