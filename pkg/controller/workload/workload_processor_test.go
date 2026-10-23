@@ -851,3 +851,52 @@ func TestLocalityLBWithNilLocalityInfo(t *testing.T) {
 
 	hashNameClean(p)
 }
+
+// TestDeletePodFrontendDataMultiAddress verifies that when a workload with
+// multiple IP addresses is removed, all corresponding frontend map entries
+// are correctly cleaned up.
+func TestDeletePodFrontendDataMultiAddress(t *testing.T) {
+	workloadMap := bpfcache.NewFakeWorkloadMap(t)
+	defer bpfcache.CleanupFakeWorkloadMap(workloadMap)
+
+	p := NewProcessor(workloadMap)
+
+	// Create a workload with two IP addresses
+	ip1 := netip.MustParseAddr("1.2.3.10").AsSlice()
+	ip2 := netip.MustParseAddr("1.2.3.11").AsSlice()
+
+	wl := &workloadapi.Workload{
+		Uid:          "cluster0//Pod/default/multi-ip-pod",
+		Namespace:    "default",
+		Name:         "multi-ip-pod",
+		Addresses:    [][]byte{ip1, ip2},
+		Network:      "testnetwork",
+		WorkloadType: workloadapi.WorkloadType_POD,
+		Status:       workloadapi.WorkloadStatus_HEALTHY,
+		ClusterId:    "cluster0",
+		NetworkMode:  workloadapi.NetworkMode_STANDARD,
+	}
+
+	// Store both IPs in the frontend map
+	uid := p.hashName.Hash(wl.Uid)
+	err := p.storePodFrontendData(uid, ip1)
+	assert.NoError(t, err)
+	err = p.storePodFrontendData(uid, ip2)
+	assert.NoError(t, err)
+
+	// Verify both entries are in the frontend map
+	checkFrontEndMap(t, ip1, p)
+	checkFrontEndMap(t, ip2, p)
+	assert.Equal(t, 2, p.bpf.FrontendCount())
+
+	// Now delete using the new multi-address path
+	err = p.deletePodFrontendData(uid, wl.GetAddresses())
+	assert.NoError(t, err)
+
+	// Verify both entries are removed
+	checkNotExistInFrontEndMap(t, ip1, p)
+	checkNotExistInFrontEndMap(t, ip2, p)
+	assert.Equal(t, 0, p.bpf.FrontendCount())
+
+	p.hashName.Delete(wl.Uid)
+}
