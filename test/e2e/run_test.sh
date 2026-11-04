@@ -138,6 +138,46 @@ function setup_istio() {
 	done
 }
 
+# Dump cluster/pod state for post-mortem debugging when E2E setup fails partway
+# through. This does not change control flow - callers still decide what to do
+# (typically: print this, then exit 1) - it only makes sure that information isn't
+# lost the moment the KinD cluster is torn down at the end of the job.
+function collect_diagnostics() {
+	local ns="${1:-kmesh-system}"
+
+	echo "===== DIAGNOSTICS (namespace: $ns) ====="
+
+	echo "--- kubectl get pods -A -o wide ---"
+	kubectl get pods -A -o wide || true
+
+	echo "--- kubectl get events -n $ns --sort-by=.lastTimestamp ---"
+	kubectl get events -n "$ns" --sort-by=.lastTimestamp || true
+
+	local pods
+	pods=$(kubectl get pods -n "$ns" -o jsonpath='{.items[*].metadata.name}' 2>/dev/null || true)
+
+	if [ -z "$pods" ]; then
+		echo "(no pods found in namespace $ns)"
+	fi
+
+	for pod in $pods; do
+		echo "--- kubectl describe pod $pod -n $ns ---"
+		kubectl describe pod "$pod" -n "$ns" || true
+
+		echo "--- container restart counts for pod $pod ---"
+		kubectl get pod "$pod" -n "$ns" \
+			-o jsonpath='{range .status.containerStatuses[*]}{.name}{"  ready="}{.ready}{"  restartCount="}{.restartCount}{"\n"}{end}' || true
+
+		echo "--- kubectl logs $pod -n $ns (current container) ---"
+		kubectl logs "$pod" -n "$ns" --all-containers=true --timestamps=true || true
+
+		echo "--- kubectl logs $pod -n $ns --previous (last crashed/restarted container, if any) ---"
+		kubectl logs "$pod" -n "$ns" --all-containers=true --previous || true
+	done
+
+	echo "===== END DIAGNOSTICS ====="
+}
+
 function setup_kmesh() {
 	# skip dns proxy for ipv6
 	[[ -n ${IPV6:-} ]] && extra_args="--set features.dnsProxy.enabled=false"
@@ -157,28 +197,41 @@ function setup_kmesh() {
 		--set deploy.kmesh.containers.kmeshDaemonArgs="--mode=dual-engine --enable-bypass=false --monitoring=true --enable-ipsec=true" \
 		$extra_args
 
-	# Wait for all Kmesh pods to be ready.
+	# Wait for the Kmesh DaemonSet to actually schedule pods first: "kubectl wait"
+	# below fails immediately (rather than waiting) if the selector currently
+	# matches zero pods, which is normally true for a brief moment right after
+	# "helm install".
 	while true; do
-		pod_statuses=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{range .items[*]}{.metadata.name}{" "}{.status.phase}{"\n"}{end}')
-
-		running_pods=0
-		total_pods=0
-
-		while read -r pod_name pod_status; do
-			total_pods=$((total_pods + 1))
-			if [ "$pod_status" = "Running" ]; then
-				running_pods=$((running_pods + 1))
-			fi
-		done <<<"$pod_statuses"
-
-		if [ "$running_pods" -eq "$total_pods" ]; then
-			echo "All pods of Kmesh daemon are in Running state."
+		pod_count=$(kubectl get pods -n kmesh-system -l app=kmesh --no-headers 2>/dev/null | wc -l)
+		if [ "$pod_count" -gt 0 ]; then
 			break
 		fi
-
-		echo "Waiting for pods of Kmesh daemon to enter Running state..."
+		echo "No Kmesh daemon pods scheduled yet, waiting..."
 		sleep 1
 	done
+
+	# Wait for the Kmesh daemon pods to become Ready, not just Running.
+	#
+	# "Running" only means the container process has been exec'd - it says
+	# nothing about whether kmesh-daemon has finished BPF loading and XDS
+	# controller startup and opened its admin port (15200), which is what
+	# `kmeshctl log` (below) and this test actually depend on. Treating "Running"
+	# as "ready" here is exactly the gap that used to make this script proceed
+	# straight to `kmeshctl log` while the admin server was still initializing,
+	# producing "connection refused" on port 15200 that no number of retries could
+	# fix, because the port genuinely was not open yet.
+	#
+	# The daemonset now has a readinessProbe (deploy/charts/kmesh-helm/templates/
+	# daemonset.yaml) that checks that same admin port directly, so waiting on the
+	# pod's Ready condition here waits on the real signal instead of a proxy for
+	# it. The timeout below is generous because it now bounds actual worst-case
+	# daemon startup time (BPF + XDS init), not a best-effort guess.
+	if ! kubectl wait --for=condition=Ready pod -l app=kmesh -n kmesh-system --timeout=180s; then
+		echo "Kmesh daemon pods did not become Ready within the timeout."
+		collect_diagnostics "kmesh-system"
+		exit 1
+	fi
+	echo "All pods of Kmesh daemon are Ready."
 
 	# Set log of each Kmesh pods.
 	PODS=$(kubectl get pods -n kmesh-system -l app=kmesh -o jsonpath='{.items[*].metadata.name}')
@@ -194,7 +247,11 @@ function setup_kmesh() {
 				break
 			fi
 			echo "Failed to set BPF debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			if [ $i -eq 5 ]; then
+				echo "Failed to set BPF debug log after 5 attempts"
+				collect_diagnostics "kmesh-system"
+				exit 1
+			fi
 			sleep 2
 		done
 
@@ -207,7 +264,11 @@ function setup_kmesh() {
 				break
 			fi
 			echo "Failed to set default debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			if [ $i -eq 5 ]; then
+				echo "Failed to set default debug log after 5 attempts"
+				collect_diagnostics "kmesh-system"
+				exit 1
+			fi
 			sleep 2
 		done
 	done
@@ -228,7 +289,11 @@ function setup_kmesh_log() {
 				break
 			fi
 			echo "Failed to set BPF debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set BPF debug log after 5 attempts" && exit 1
+			if [ $i -eq 5 ]; then
+				echo "Failed to set BPF debug log after 5 attempts"
+				collect_diagnostics "kmesh-system"
+				exit 1
+			fi
 			sleep 2
 		done
 
@@ -241,7 +306,11 @@ function setup_kmesh_log() {
 				break
 			fi
 			echo "Failed to set default debug log. Output: $output"
-			[ $i -eq 5 ] && echo "Failed to set default debug log after 5 attempts" && exit 1
+			if [ $i -eq 5 ]; then
+				echo "Failed to set default debug log after 5 attempts"
+				collect_diagnostics "kmesh-system"
+				exit 1
+			fi
 			sleep 2
 		done
 	done
