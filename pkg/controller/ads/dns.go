@@ -89,6 +89,12 @@ func (r *dnsController) processClusters() {
 func (r *dnsController) processDomains(cds []*clusterv3.Cluster) {
 	domains := getPendingResolveDomain(cds)
 
+	r.Lock()
+	for domain, pending := range domains {
+		r.clusterCache[domain] = pending.(*pendingResolveDomain)
+	}
+	r.Unlock()
+
 	// store all pending hostnames of clusters in pendingHostnames
 	for _, cluster := range cds {
 		clusterName := cluster.GetName()

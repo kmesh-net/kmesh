@@ -97,7 +97,9 @@ func (c *Controller) HandleAdsStream() error {
 
 	// Because Kernel-Native mode is full update.
 	// So the original clusterCache is deleted when a new resp is received.
-	c.dnsResolverController.newClusterCache()
+	if rsp.GetTypeUrl() == resource_v3.ClusterType {
+		c.dnsResolverController.newClusterCache()
+	}
 	c.Processor.processAdsResponse(rsp)
 	c.con.requestsChan.Put(c.Processor.ack)
 	if c.Processor.req != nil {
