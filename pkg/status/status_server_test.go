@@ -36,6 +36,7 @@ import (
 	"kmesh.net/kmesh/api/v2/cluster"
 	"kmesh.net/kmesh/api/v2/core"
 	"kmesh.net/kmesh/api/v2/listener"
+	"kmesh.net/kmesh/api/v2/route"
 	"kmesh.net/kmesh/api/v2/workloadapi"
 	"kmesh.net/kmesh/api/v2/workloadapi/security"
 	"kmesh.net/kmesh/daemon/options"
@@ -50,6 +51,7 @@ import (
 	"kmesh.net/kmesh/pkg/controller/workload/cache"
 	"kmesh.net/kmesh/pkg/logger"
 	"kmesh.net/kmesh/pkg/utils/test"
+	"kmesh.net/kmesh/pkg/version"
 )
 
 func TestServer_getLoggerLevel(t *testing.T) {
@@ -131,6 +133,23 @@ func TestServer_setLoggerLevel(t *testing.T) {
 			assert.Equal(t, loggerInfo.Level, actualLoggerLevel.String())
 		}
 	}
+}
+
+func TestServer_version(t *testing.T) {
+	// The version handler neither depends on the client mode nor
+	// branches on the request method, it always serves the build info.
+	server := &Server{}
+
+	req := httptest.NewRequest(http.MethodGet, patternVersion, nil)
+	w := httptest.NewRecorder()
+	server.version(w, req)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var got version.Info
+	err := json.Unmarshal(w.Body.Bytes(), &got)
+	assert.Nil(t, err)
+	assert.Equal(t, version.Get(), got)
 }
 
 func buildWorkload(name string) *workloadapi.Workload {
@@ -528,6 +547,118 @@ func TestServer_dumpAdsBpfMap(t *testing.T) {
 
 		assert.Equal(t, len(testClusters), len(dump.DynamicResources.ClusterConfigs))
 		assert.Equal(t, len(testListeners), len(dump.DynamicResources.ListenerConfigs))
+	})
+}
+
+// buildAdsModeServer builds a Server backed by a kernel-native (ads) mode
+// controller whose in-memory cache can be seeded without any bpf map.
+func buildAdsModeServer(t *testing.T) *Server {
+	t.Helper()
+	adsController := ads.NewController(nil)
+	if adsController == nil {
+		t.Fatal("failed to create ads controller")
+	}
+	return &Server{
+		xdsClient: &controller.XdsClient{
+			AdsController: adsController,
+		},
+	}
+}
+
+func TestServer_configDumpAds(t *testing.T) {
+	t.Run("invalid client mode returns 400", func(t *testing.T) {
+		testCases := []struct {
+			name   string
+			server *Server
+		}{
+			{
+				name:   "nil xds client",
+				server: &Server{},
+			},
+			{
+				name: "nil ads controller in dual-engine mode",
+				server: &Server{
+					xdsClient: &controller.XdsClient{
+						WorkloadController: &workload.Controller{},
+					},
+				},
+			},
+		}
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				req := httptest.NewRequest(http.MethodGet, patternConfigDumpAds, nil)
+				w := httptest.NewRecorder()
+				tc.server.configDumpAds(w, req)
+
+				assert.Equal(t, http.StatusBadRequest, w.Code)
+				assert.Equal(t, invalidModeErrMessage, w.Body.String())
+			})
+		}
+	})
+
+	t.Run("empty ads cache returns empty config dump", func(t *testing.T) {
+		server := buildAdsModeServer(t)
+
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpAds, nil)
+		w := httptest.NewRecorder()
+		server.configDumpAds(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		dump := admin.ConfigDump{}
+		err := protojson.Unmarshal(w.Body.Bytes(), &dump)
+		assert.Nil(t, err)
+
+		assert.Empty(t, dump.GetDynamicResources().GetClusterConfigs())
+		assert.Empty(t, dump.GetDynamicResources().GetListenerConfigs())
+		assert.Empty(t, dump.GetDynamicResources().GetRouteConfigs())
+		assert.Empty(t, dump.GetDynamicResources().GetVersionInfo())
+	})
+
+	t.Run("populated ads cache dumps clusters, listeners and routes", func(t *testing.T) {
+		server := buildAdsModeServer(t)
+		adsCache := server.xdsClient.AdsController.Processor.Cache
+
+		testClusterNames := []string{"ut-cluster-1", "ut-cluster-2"}
+		for _, name := range testClusterNames {
+			adsCache.ClusterCache.SetApiCluster(name, &cluster.Cluster{Name: name})
+		}
+		testListenerNames := []string{"ut-listener-1", "ut-listener-2"}
+		for _, name := range testListenerNames {
+			adsCache.ListenerCache.SetApiListener(name, &listener.Listener{Name: name})
+		}
+		testRouteNames := []string{"ut-route-1", "ut-route-2"}
+		for _, name := range testRouteNames {
+			adsCache.RouteCache.SetApiRouteConfig(name, &route.RouteConfiguration{Name: name})
+		}
+
+		req := httptest.NewRequest(http.MethodGet, patternConfigDumpAds, nil)
+		w := httptest.NewRecorder()
+		server.configDumpAds(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+
+		dump := admin.ConfigDump{}
+		err := protojson.Unmarshal(w.Body.Bytes(), &dump)
+		assert.Nil(t, err)
+
+		gotClusterNames := make([]string, 0, len(dump.GetDynamicResources().GetClusterConfigs()))
+		for _, c := range dump.GetDynamicResources().GetClusterConfigs() {
+			gotClusterNames = append(gotClusterNames, c.GetName())
+		}
+		gotListenerNames := make([]string, 0, len(dump.GetDynamicResources().GetListenerConfigs()))
+		for _, l := range dump.GetDynamicResources().GetListenerConfigs() {
+			gotListenerNames = append(gotListenerNames, l.GetName())
+		}
+		gotRouteNames := make([]string, 0, len(dump.GetDynamicResources().GetRouteConfigs()))
+		for _, r := range dump.GetDynamicResources().GetRouteConfigs() {
+			gotRouteNames = append(gotRouteNames, r.GetName())
+		}
+
+		assert.ElementsMatch(t, testClusterNames, gotClusterNames)
+		assert.ElementsMatch(t, testListenerNames, gotListenerNames)
+		assert.ElementsMatch(t, testRouteNames, gotRouteNames)
+		assert.Equal(t, "v2", dump.GetDynamicResources().GetVersionInfo())
 	})
 }
 
