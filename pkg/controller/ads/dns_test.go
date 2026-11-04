@@ -115,6 +115,83 @@ func TestOverwriteDNSCluster(t *testing.T) {
 	}
 }
 
+func TestOverwriteDNSClusterMixedEndpoints(t *testing.T) {
+	const (
+		firstDomain  = "first.example.com"
+		secondDomain = "second.example.com"
+	)
+
+	newEndpoint := func(address string) *endpointv3.LbEndpoint {
+		return &endpointv3.LbEndpoint{
+			HostIdentifier: &endpointv3.LbEndpoint_Endpoint{
+				Endpoint: &endpointv3.Endpoint{
+					Address: &v3.Address{
+						Address: &v3.Address_SocketAddress{
+							SocketAddress: &v3.SocketAddress{
+								Address: address,
+								PortSpecifier: &v3.SocketAddress_PortValue{
+									PortValue: 8080,
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+	}
+
+	cluster := &clusterv3.Cluster{
+		Name: "mixed-cluster",
+		LoadAssignment: &endpointv3.ClusterLoadAssignment{
+			Endpoints: []*endpointv3.LocalityLbEndpoints{
+				{
+					LbEndpoints: []*endpointv3.LbEndpoint{
+						newEndpoint(firstDomain),
+						newEndpoint("10.0.0.1"),
+						newEndpoint(secondDomain),
+					},
+				},
+				{
+					LbEndpoints: []*endpointv3.LbEndpoint{
+						newEndpoint("10.0.0.2"),
+					},
+				},
+			},
+		},
+	}
+
+	dnsResolver, err := NewDnsController(NewAdsCache(nil))
+	assert.NoError(t, err)
+	dnsResolver.pendingHostnames[cluster.Name] = []string{firstDomain, secondDomain}
+
+	resolved := map[string][]string{
+		firstDomain:  {"192.0.2.1", "192.0.2.2"},
+		secondDomain: {"192.0.2.3"},
+	}
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyMethod(reflect.TypeOf(dnsResolver.dnsResolver), "GetDNSAddresses",
+		func(_ *dns.DNSResolver, name string) []string {
+			return resolved[name]
+		})
+
+	ready, newCluster := dnsResolver.overwriteDnsCluster(cluster, firstDomain, resolved[firstDomain])
+	assert.True(t, ready)
+
+	var got [][]string
+	for _, locality := range newCluster.GetLoadAssignment().GetEndpoints() {
+		var addresses []string
+		for _, endpoint := range locality.GetLbEndpoints() {
+			addresses = append(addresses, endpoint.GetEndpoint().GetAddress().GetSocketAddress().GetAddress())
+		}
+		got = append(got, addresses)
+	}
+	assert.Equal(t, [][]string{
+		{"192.0.2.1", "192.0.2.2", "10.0.0.1", "192.0.2.3"},
+		{"10.0.0.2"},
+	}, got)
+}
+
 // This test aims to evaluate the concurrent writing behavior of the adsCache by utilizing the test race feature.
 // The test verifies the ability of the adsCache to handle concurrent access and updates correctly in a multi-goroutine environment.
 func TestADSCacheConcurrentWriting(t *testing.T) {
