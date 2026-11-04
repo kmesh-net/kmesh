@@ -56,6 +56,7 @@ func NewController(bpfWorkload *bpfwl.BpfWorkload, enableMonitoring, enablePerfM
 	}
 	processor.DnsResolverChan = dnsResolverController.workloadsChan
 	processor.ResolvedDomainChanMap = dnsResolverController.ResolvedDomainChanMap
+	processor.dnsMapMutex = &dnsResolverController.RWMutex
 
 	// Set up callback to clean DNS cache when workload is deleted
 	processor.onWorkloadDeleted = func(workloadName string) {
