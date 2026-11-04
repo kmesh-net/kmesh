@@ -90,7 +90,9 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) bool {
 		// Service may become unassociated with waypoint.
 		if waypoint, ok := w.serviceToWaypoint[resourceName]; ok {
 			delete(w.serviceToWaypoint, resourceName)
-			w.waypointAssociatedObjects[waypoint].deleteService(resourceName)
+			if associated, ok := w.waypointAssociatedObjects[waypoint]; ok {
+				associated.deleteService(resourceName)
+			}
 		}
 		return true
 	}
@@ -104,7 +106,9 @@ func (w *waypointCache) AddOrUpdateService(svc *workloadapi.Service) bool {
 	if waypoint, ok := w.serviceToWaypoint[resourceName]; ok && waypoint != waypointResourceName {
 		// Service updated associated waypoint, delete previous association first.
 		delete(w.serviceToWaypoint, resourceName)
-		w.waypointAssociatedObjects[waypoint].deleteService(resourceName)
+		if associated, ok := w.waypointAssociatedObjects[waypoint]; ok {
+			associated.deleteService(resourceName)
+		}
 	}
 
 	log.Debugf("Update svc %s with waypoint %s", svc.ResourceName(), waypointResourceName)
@@ -159,7 +163,9 @@ func (w *waypointCache) AddOrUpdateWorkload(workload *workloadapi.Workload) bool
 		// Workload may become unassociated with waypoint.
 		if waypoint, ok := w.workloadToWaypoint[uid]; ok {
 			delete(w.workloadToWaypoint, uid)
-			w.waypointAssociatedObjects[waypoint].deleteWorkload(uid)
+			if associated, ok := w.waypointAssociatedObjects[waypoint]; ok {
+				associated.deleteWorkload(uid)
+			}
 		}
 		return true
 	}
@@ -173,7 +179,9 @@ func (w *waypointCache) AddOrUpdateWorkload(workload *workloadapi.Workload) bool
 	if waypoint, ok := w.workloadToWaypoint[uid]; ok && waypoint != waypointResourceName {
 		// Workload updated associated waypoint, delete previous association first.
 		delete(w.workloadToWaypoint, uid)
-		w.waypointAssociatedObjects[waypoint].deleteWorkload(uid)
+		if associated, ok := w.waypointAssociatedObjects[waypoint]; ok {
+			associated.deleteWorkload(uid)
+		}
 	}
 
 	log.Debugf("Update workload %s with waypoint %s", uid, waypointResourceName)
