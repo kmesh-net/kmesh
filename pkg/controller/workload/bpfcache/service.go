@@ -18,6 +18,7 @@ package bpfcache
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/cilium/ebpf"
 )
@@ -44,7 +45,10 @@ type ServiceValue struct {
 
 func (c *Cache) ServiceUpdate(key *ServiceKey, value *ServiceValue) error {
 	log.Debugf("ServiceUpdate [%#v], [%#v]", *key, *value)
-	return c.bpfMap.KmService.Update(key, value, ebpf.UpdateAny)
+	if err := c.bpfMap.KmService.Update(key, value, ebpf.UpdateAny); err != nil {
+		return fmt.Errorf("failed to update service map for service %d: %w", key.ServiceId, err)
+	}
+	return nil
 }
 
 func (c *Cache) ServiceDelete(key *ServiceKey) error {
@@ -53,12 +57,18 @@ func (c *Cache) ServiceDelete(key *ServiceKey) error {
 	if err != nil && errors.Is(err, ebpf.ErrKeyNotExist) {
 		return nil
 	}
-	return err
+	if err != nil {
+		return fmt.Errorf("failed to delete service map entry for service %d: %w", key.ServiceId, err)
+	}
+	return nil
 }
 
 func (c *Cache) ServiceLookup(key *ServiceKey, value *ServiceValue) error {
 	log.Debugf("ServiceLookup [%#v]", *key)
-	return c.bpfMap.KmService.Lookup(key, value)
+	if err := c.bpfMap.KmService.Lookup(key, value); err != nil {
+		return fmt.Errorf("failed to lookup service map entry for service %d: %w", key.ServiceId, err)
+	}
+	return nil
 }
 
 // ServiceCount returns the length of service map

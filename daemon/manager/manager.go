@@ -19,6 +19,7 @@ package manager
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -53,7 +54,7 @@ func NewCommand() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			printFlags(cmd.Flags())
 			if err := configs.ParseConfigs(); err != nil {
-				return err
+				return fmt.Errorf("failed to parse daemon configuration: %w", err)
 			}
 			return Execute(configs)
 		},
@@ -86,7 +87,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	// https://github.com/kmesh-net/kmesh/issues/951
 	defer bpfLoader.Stop()
 	if err := bpfLoader.Start(); err != nil {
-		return err
+		return fmt.Errorf("failed to start bpf loader: %w", err)
 	}
 	log.Info("bpf loader start successfully")
 
@@ -95,7 +96,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 
 	c := controller.NewController(configs, bpfLoader)
 	if err := c.Start(stopCh); err != nil {
-		return err
+		return fmt.Errorf("failed to start controller: %w", err)
 	}
 	log.Info("controller start successfully")
 	defer c.Stop()
@@ -109,7 +110,7 @@ func Execute(configs *options.BootstrapConfigs) error {
 	cniInstaller := cni.NewInstaller(configs.BpfConfig.Mode, configs.BpfConfig.EnableIPsec,
 		configs.CniConfig.CniMountNetEtcDIR, configs.CniConfig.CniConfigName, configs.CniConfig.CniConfigChained, configs.CniConfig.ServiceAccountPath)
 	if err := cniInstaller.Start(); err != nil {
-		return err
+		return fmt.Errorf("failed to start cni installer: %w", err)
 	}
 	defer cniInstaller.Stop()
 	log.Info("start cni successfully")

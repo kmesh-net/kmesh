@@ -206,7 +206,7 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 
 	cniConfigFilePath, err := i.getCniConfigPath()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get cni config path: %w", err)
 	}
 	log.Infof("cni config file: %s", cniConfigFilePath)
 
@@ -216,7 +216,7 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {
-		err = fmt.Errorf("failed to read cni config file %v : %v", cniConfigFilePath, err)
+		err = fmt.Errorf("failed to read cni config file %s: %w", cniConfigFilePath, err)
 		log.Error(err)
 		return err
 	}
@@ -224,7 +224,7 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	newCNIConfig, err := i.insertCNIConfig(existCNIConfig, mode)
 	if err != nil {
 		log.Error("failed to assemble cni config")
-		return err
+		return fmt.Errorf("failed to assemble cni config: %w", err)
 	}
 
 	if len(newCNIConfig) == 0 {
@@ -235,13 +235,13 @@ func (i *Installer) chainedKmeshCniPlugin(mode string, cniMountNetEtcDIR string)
 	fileInfo, err := os.Stat(cniConfigFilePath)
 	if err != nil {
 		log.Errorf("failed to read cni config file permissions: %v", err)
-		return err
+		return fmt.Errorf("failed to read cni config file permissions for %s: %w", cniConfigFilePath, err)
 	}
 
 	err = utils.AtomicWrite(cniConfigFilePath, newCNIConfig, fileInfo.Mode().Perm())
 	if err != nil {
 		log.Errorf("failed to write cni config file")
-		return err
+		return fmt.Errorf("failed to write cni config file %s: %w", cniConfigFilePath, err)
 	}
 
 	return nil
@@ -252,11 +252,11 @@ func (i *Installer) removeChainedKmeshCniPlugin() error {
 	var newCNIConfig []byte
 	cniConfigFilePath, err := i.getCniConfigPath()
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get cni config path for removal: %w", err)
 	}
 	existCNIConfig, err := os.ReadFile(cniConfigFilePath)
 	if err != nil {
-		err = fmt.Errorf("failed to read cni config file %v : %v", cniConfigFilePath, err)
+		err = fmt.Errorf("failed to read cni config file %s: %w", cniConfigFilePath, err)
 		log.Error(err)
 		return err
 	}
@@ -264,19 +264,19 @@ func (i *Installer) removeChainedKmeshCniPlugin() error {
 	newCNIConfig, err = deleteCNIConfig(existCNIConfig)
 	if err != nil {
 		log.Error("failed to delete cni config")
-		return err
+		return fmt.Errorf("failed to delete cni config: %w", err)
 	}
 
 	fileInfo, err := os.Stat(cniConfigFilePath)
 	if err != nil {
 		log.Errorf("failed to read cni config file permissions: %v", err)
-		return err
+		return fmt.Errorf("failed to read cni config file permissions for %s: %w", cniConfigFilePath, err)
 	}
 
 	err = utils.AtomicWrite(cniConfigFilePath, newCNIConfig, fileInfo.Mode().Perm())
 	if err != nil {
 		log.Errorf("failed to write cni config file")
-		return err
+		return fmt.Errorf("failed to write cni config file %s: %w", cniConfigFilePath, err)
 	}
 
 	// remove kubeconfig file
@@ -284,7 +284,7 @@ func (i *Installer) removeChainedKmeshCniPlugin() error {
 		kubeconfigFilepath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)
 		log.Infof("Removing Kmesh CNI kubeconfig file: %s", kubeconfigFilepath)
 		if err := os.Remove(kubeconfigFilepath); err != nil {
-			return err
+			return fmt.Errorf("failed to remove kmesh cni kubeconfig file %s: %w", kubeconfigFilepath, err)
 		}
 	}
 
@@ -292,7 +292,7 @@ func (i *Installer) removeChainedKmeshCniPlugin() error {
 	if kmeshCNIBin := filepath.Join(MountedCNIBinDir, kmeshCniPluginName); fileExists(kmeshCNIBin) {
 		log.Infof("Removing binary: %s", kmeshCNIBin)
 		if err := os.Remove(kmeshCNIBin); err != nil {
-			return err
+			return fmt.Errorf("failed to remove kmesh cni binary %s: %w", kmeshCNIBin, err)
 		}
 	}
 
@@ -303,7 +303,7 @@ func copyBinary(filename string, targetDir string) error {
 	_, binaryName := filepath.Split(filename)
 	if err := utils.AtomicCopy(filename, targetDir, binaryName); err != nil {
 		log.Errorf("Failed file copy of %s to %s: %s", filename, targetDir, err.Error())
-		return err
+		return fmt.Errorf("failed to copy binary %s to %s: %w", filename, targetDir, err)
 	}
 	log.Infof("Copied %s to %s.", filename, targetDir)
 	return nil
