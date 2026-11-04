@@ -60,7 +60,7 @@ backend_manager(struct kmesh_context *kmesh_ctx, backend_value *backend_v, __u32
     ctx_buff_t *ctx = (ctx_buff_t *)kmesh_ctx->ctx;
     __u32 i, user_port = ctx->user_port;
 
-    if (backend_v->waypoint_port != 0) {
+    if (backend_v->waypoint_port != 0 && !is_ip_addr_zero(&backend_v->wp_addr)) {
         BPF_LOG(
             DEBUG,
             BACKEND,
