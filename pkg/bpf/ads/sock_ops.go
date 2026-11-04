@@ -35,6 +35,7 @@ func (sc *BpfSockOps) NewBpf(cfg *options.BpfConfig) error {
 	sc.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh/map/"
 	sc.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh/sockops/"
 	sc.Info.Cgroup2Path = cfg.Cgroup2Path
+	sc.Info.VerifierLogLevel = cfg.BpfVerifierLogLevel
 
 	if err := os.MkdirAll(sc.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -59,6 +60,7 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 	)
 
 	opts.Maps.PinPath = sc.Info.MapPath
+	opts.Programs = utils.ProgramOptionsForVerifierLog(sc.Info.VerifierLogLevel)
 	spec, err = loadKmeshSockOps()
 	if err != nil || spec == nil {
 		return nil, err
@@ -67,6 +69,11 @@ func (sc *BpfSockOps) loadKmeshSockopsObjects() (*ebpf.CollectionSpec, error) {
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&sc.KmeshSockopsObjects, &opts); err != nil {
 		return nil, err
+	}
+
+	if sc.Info.VerifierLogLevel != 0 {
+		progs := reflect.ValueOf(sc.KmeshSockopsObjects.KmeshSockopsPrograms)
+		utils.LogVerifierOutput(&progs, log.Infof)
 	}
 
 	return spec, nil

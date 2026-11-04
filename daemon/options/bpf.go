@@ -34,6 +34,7 @@ type BpfConfig struct {
 	EnablePeriodicReport bool
 	EnableProfiling      bool
 	EnableIPsec          bool
+	BpfVerifierLogLevel  uint32
 }
 
 func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
@@ -45,6 +46,8 @@ func (c *BpfConfig) AttachFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().BoolVar(&c.EnablePeriodicReport, "periodic-report", false, "enable kmesh periodic report in daemon process")
 	cmd.PersistentFlags().BoolVar(&c.EnableProfiling, "profiling", false, "whether to enable profiling or not, default to false")
 	cmd.PersistentFlags().BoolVar(&c.EnableIPsec, "enable-ipsec", false, "enable ipsec encryption and authentication between nodes")
+	cmd.PersistentFlags().Uint32Var(&c.BpfVerifierLogLevel, "bpf-verifier-log-level", 0,
+		"bpf verifier log level bitmask for debugging bpf program loads (1=branch, 2=instruction, 4=stats; OR values together); 0 disables verifier logging")
 }
 
 func (c *BpfConfig) ParseConfig() error {

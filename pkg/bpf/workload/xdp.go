@@ -41,6 +41,7 @@ func (xa *BpfXdpAuthWorkload) NewBpf(cfg *options.BpfConfig) error {
 	xa.Info.MapPath = cfg.BpfFsPath + "/bpf_kmesh_workload/map/"
 	xa.Info.BpfFsPath = cfg.BpfFsPath + "/bpf_kmesh_workload/xdpauth/"
 	xa.Info.Cgroup2Path = cfg.Cgroup2Path
+	xa.Info.VerifierLogLevel = cfg.BpfVerifierLogLevel
 
 	if err := os.MkdirAll(xa.Info.MapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -65,6 +66,7 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	)
 
 	opts.Maps.PinPath = xa.Info.MapPath
+	opts.Programs = utils.ProgramOptionsForVerifierLog(xa.Info.VerifierLogLevel)
 	if helper.KernelVersionLowerThan5_13() {
 		spec, err = bpf2go.LoadKmeshXDPAuthCompat()
 	} else {
@@ -80,6 +82,11 @@ func (xa *BpfXdpAuthWorkload) loadKmeshXdpAuthObjects() (*ebpf.CollectionSpec, e
 	utils.SetMapPinType(spec, ebpf.PinByName)
 	if err = spec.LoadAndAssign(&xa.KmeshXDPAuthObjects, &opts); err != nil {
 		return nil, err
+	}
+
+	if xa.Info.VerifierLogLevel != 0 {
+		progs := reflect.ValueOf(xa.KmeshXDPAuthObjects.KmeshXDPAuthPrograms)
+		utils.LogVerifierOutput(&progs, log.Infof)
 	}
 
 	return spec, nil

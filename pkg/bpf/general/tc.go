@@ -28,8 +28,11 @@ import (
 	"kmesh.net/kmesh/daemon/options"
 	"kmesh.net/kmesh/pkg/bpf/utils"
 	"kmesh.net/kmesh/pkg/constants"
+	"kmesh.net/kmesh/pkg/logger"
 	helper "kmesh.net/kmesh/pkg/utils"
 )
+
+var log = logger.NewLoggerScope("bpf_general")
 
 type BpfTCGeneral struct {
 	InfoTcMarkEncrypt BpfInfo
@@ -55,10 +58,12 @@ func (tc *BpfTCGeneral) newBpf(encryptInfo *BpfInfo, decryptInfo *BpfInfo, cfg *
 	encryptInfo.MapPath = generalMapPath
 	encryptInfo.BpfFsPath = generalFsPath
 	encryptInfo.Cgroup2Path = cfg.Cgroup2Path
+	encryptInfo.VerifierLogLevel = cfg.BpfVerifierLogLevel
 
 	decryptInfo.MapPath = generalMapPath
 	decryptInfo.BpfFsPath = generalFsPath
 	decryptInfo.Cgroup2Path = cfg.Cgroup2Path
+	decryptInfo.VerifierLogLevel = cfg.BpfVerifierLogLevel
 
 	if err := os.MkdirAll(generalMapPath,
 		syscall.S_IRUSR|syscall.S_IWUSR|syscall.S_IXUSR|
@@ -86,7 +91,9 @@ func (tc *BpfTCGeneral) loadKmeshTCObjects() (*ebpf.CollectionSpec, *ebpf.Collec
 	)
 
 	optsTcMarkEncrypt.Maps.PinPath = tc.InfoTcMarkEncrypt.MapPath
+	optsTcMarkEncrypt.Programs = utils.ProgramOptionsForVerifierLog(tc.InfoTcMarkEncrypt.VerifierLogLevel)
 	optsTcMarkDecrypt.Maps.PinPath = tc.InfoTcMarkDecrypt.MapPath
+	optsTcMarkDecrypt.Programs = utils.ProgramOptionsForVerifierLog(tc.InfoTcMarkDecrypt.VerifierLogLevel)
 	if helper.KernelVersionLowerThan5_13() {
 		specTcMarkEncrypt, errTcMarkEncrypt = general.LoadKmeshTcMarkEncryptCompat()
 		specTcMarkDecrypt, errTcMarkDecrypt = general.LoadKmeshTcMarkDecryptCompat()
@@ -110,6 +117,15 @@ func (tc *BpfTCGeneral) loadKmeshTCObjects() (*ebpf.CollectionSpec, *ebpf.Collec
 	}
 	if err := specTcMarkDecrypt.LoadAndAssign(&tc.KmeshTcMarkDecryptObjects, &optsTcMarkDecrypt); err != nil {
 		return nil, nil, err
+	}
+
+	if tc.InfoTcMarkEncrypt.VerifierLogLevel != 0 {
+		progs := reflect.ValueOf(tc.KmeshTcMarkEncryptObjects.KmeshTcMarkEncryptPrograms)
+		utils.LogVerifierOutput(&progs, log.Infof)
+	}
+	if tc.InfoTcMarkDecrypt.VerifierLogLevel != 0 {
+		progs := reflect.ValueOf(tc.KmeshTcMarkDecryptObjects.KmeshTcMarkDecryptPrograms)
+		utils.LogVerifierOutput(&progs, log.Infof)
 	}
 
 	return specTcMarkEncrypt, specTcMarkDecrypt, nil
