@@ -95,8 +95,8 @@ func newPortForwarder(cliClient *client, podName string, ns string, localAddress
 
 	cmd := &cobra.Command{}
 	cmd.Flags().Duration("pod-running-timeout", DefaultPodRunningTimeout, "Timeout for waiting for pod to be running")
-	cmd.Flags().String("namespace", KmeshNamespace, "Specify the namespace to use")
-	cmd.Flags().StringSlice("address", []string{DefaultLocalAddress}, "Specify the addresses to bind")
+	cmd.Flags().String("namespace", ns, "Specify the namespace to use")
+	cmd.Flags().StringSlice("address", []string{localAddress}, "Specify the addresses to bind")
 	return &portForwarder{
 		cmd:              cmd,
 		RESTClientGetter: cliClient.clientFactory,
