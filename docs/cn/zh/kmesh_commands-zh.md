@@ -31,17 +31,37 @@ Flags:
 
 - 运维相关
 
+  kmesh-daemon在`localhost:15200`上提供管理接口（实现见`pkg/status/status_server.go`）。该接口仅监听环回地址，因此需要在Kmesh daemon Pod内访问，或先通过`kubectl port-forward`将端口转发到本机。推荐使用[`kmeshctl`](../../ctl/kmeshctl.md)操作这些接口。
+
+  | Method | Path | 用途 |
+  | --- | --- | --- |
+  | GET | `/version` | 查看kmesh-daemon版本信息 |
+  | GET | `/debug/ready` | 就绪探针，管理接口可用时返回`OK` |
+  | GET | `/debug/loggers` | 列出日志scope；带`?name=<scope>`时查看指定scope的日志级别（特殊scope `bpf`控制BPF程序日志） |
+  | POST | `/debug/loggers` | 设置日志级别，请求体为`{"name": "<scope>", "level": "<level>"}` |
+  | GET | `/debug/config_dump/kernel-native` | 导出kernel-native模式下的配置缓存 |
+  | GET | `/debug/config_dump/dual-engine` | 导出dual-engine模式下的workload、service和授权策略 |
+  | GET | `/debug/config_dump/bpf/kernel-native` | 导出kernel-native模式下的BPF map配置 |
+  | GET | `/debug/config_dump/bpf/dual-engine` | 导出dual-engine模式下的BPF map配置 |
+  | POST | `/monitoring?enable=<bool>` | 开启或关闭流量监控（同时联动access log、workload metrics和connection metrics） |
+  | POST | `/accesslog?enable=<bool>` | 开启或关闭access log |
+  | POST | `/workload_metrics?enable=<bool>` | 开启或关闭workload metrics |
+  | POST | `/connection_metrics?enable=<bool>` | 开启或关闭connection metrics |
+  | POST | `/authz?enable=<bool>` | 开启或关闭基于XDP的授权卸载 |
+  | GET | `/debug/pprof/` | Go pprof性能分析入口（还包括`/debug/pprof/cmdline`、`/debug/pprof/profile`、`/debug/pprof/symbol`、`/debug/pprof/trace`） |
+
   ```sh
-  # curl http://localhost:15200/help
-   /help: print list of commands
-   /options: print config options
-   /bpf/kmesh/maps: print bpf kmesh maps in kernel
-   /controller/envoy: print control-plane in envoy cache
-   /controller/kubernetes: print control-plane in kubernetes cache
-  
-  # example
-  curl http://localhost:15200/bpf/kmesh/maps
-  curl http://localhost:15200/options
+  # 将Kmesh daemon Pod的管理端口转发到本机
+  kubectl port-forward -n kmesh-system <kmesh-pod> 15200:15200
+
+  # 示例：查看版本信息
+  curl http://localhost:15200/version
+
+  # 示例：导出dual-engine模式下的配置
+  curl http://localhost:15200/debug/config_dump/dual-engine
+
+  # 示例：将default日志scope的级别设置为debug
+  curl -X POST http://localhost:15200/debug/loggers -d '{"name": "default", "level": "debug"}'
   ```
 
 - 命令使用注意事项
