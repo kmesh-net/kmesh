@@ -292,8 +292,16 @@ func (c *Controller) handleKNIUpdate(oldObj, newObj interface{}) {
 func (c *Controller) handleKNIDelete(obj interface{}) {
 	node, ok := obj.(*v1alpha1.KmeshNodeInfo)
 	if !ok {
-		log.Errorf("expected *v1alpha1_core.KmeshNodeInfo but got %T in handle delete func", obj)
-		return
+		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
+		if !ok {
+			log.Errorf("couldn't get object from tombstone %#v", obj)
+			return
+		}
+		node, ok = tombstone.Obj.(*v1alpha1.KmeshNodeInfo)
+		if !ok {
+			log.Errorf("tombstone contained object that is not a KmeshNodeInfo %#v", obj)
+			return
+		}
 	}
 	nodeNsPath := kmesh_netns.GetNodeNSpath()
 	deleteFunc := func(netns.NetNS) error {

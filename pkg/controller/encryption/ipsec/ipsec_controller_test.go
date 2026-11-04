@@ -267,8 +267,8 @@ func TestHandleKNIEvents(t *testing.T) {
 	})
 
 	t.Run("handleKNIDelete", func(t *testing.T) {
-		// Test case 1: Normal delete of remote node
-		t.Run("Normal delete of remote node", func(t *testing.T) {
+		// Test case 1: Delete remote node from tombstone
+		t.Run("Delete remote node from tombstone", func(t *testing.T) {
 			controller := prepare(t)
 			// Create patches for network namespace operations
 			nsPatches := gomonkey.NewPatches()
@@ -300,8 +300,8 @@ func TestHandleKNIEvents(t *testing.T) {
 				assert.Contains(t, testRemoteNodeInfo.Spec.PodCIDRs, remoteCIDR)
 			})
 
-			// Call handleKNIDelete with remote node
-			controller.handleKNIDelete(testRemoteNodeInfo)
+			// Call handleKNIDelete with tombstone
+			controller.handleKNIDelete(cache.DeletedFinalStateUnknown{Obj: testRemoteNodeInfo})
 
 			// Verify that Clean was called for each address
 			assert.Equal(t, len(testRemoteNodeInfo.Spec.Addresses), cleanCallCount, "ipsecHandler.Clean should be called once for each address")
