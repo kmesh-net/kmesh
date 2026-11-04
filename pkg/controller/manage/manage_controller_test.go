@@ -593,6 +593,84 @@ func TestNsInformerHandleKmeshManage(t *testing.T) {
 	}
 }
 
+// TestDisableKmeshForPodsInNamespace_StaleAnnotationRace reproduces the
+// namespace-unenroll race: enableKmeshManage links a pod's XDP/TC datapath
+// synchronously but only queues the KmeshRedirectionAnnotation patch
+// (c.queue.AddRateLimited(... ActionAddAnnotation)), so a pod that was just
+// enrolled can still be missing that annotation in the podLister's cache. If
+// the namespace is unenrolled again before the queued patch lands,
+// disableKmeshForPodsInNamespace must not rely on the stale cached
+// annotation to decide whether to disable the pod - nothing else will retry
+// it, since handlePodUpdate ignores updates that only change this
+// annotation (#1357).
+func TestDisableKmeshForPodsInNamespace_StaleAnnotationRace(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	require.NoError(t, os.Setenv("NODE_NAME", "test_node"))
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
+	require.NoError(t, err)
+
+	disabled := atomic.Bool{}
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(utils.HandleKmeshManage, func(_ string, op bool) error {
+		if !op {
+			disabled.Store(true)
+		}
+		return nil
+	})
+
+	// Pod no longer matches ShouldEnroll against this namespace, but its
+	// cached annotations are empty - exactly as they would be moments after
+	// enableKmeshManage ran and queued (but not yet applied) the annotation
+	// patch.
+	racePod := podWithoutLabel.DeepCopy()
+	racePod.Name = "race-pod"
+	require.NoError(t, controller.podInformer.GetStore().Add(racePod))
+
+	controller.disableKmeshForPodsInNamespace(nsWithoutLabel)
+
+	assert.True(t, disabled.Load(), "disableKmeshManage must run for a pod that no longer matches ShouldEnroll, even though its cached annotation has not caught up with an earlier enable")
+}
+
+// TestDisableKmeshForPodsInNamespace_SkipsStillEnrolledPods is the
+// regression check for the fix above: a pod that still matches ShouldEnroll
+// must not be disabled, proving the unconditional disableKmeshManage call
+// doesn't over-disable pods that are still supposed to be managed.
+func TestDisableKmeshForPodsInNamespace_SkipsStillEnrolledPods(t *testing.T) {
+	client := fake.NewSimpleClientset()
+
+	require.NoError(t, os.Setenv("NODE_NAME", "test_node"))
+	t.Cleanup(func() {
+		os.Unsetenv("NODE_NAME")
+	})
+
+	controller, err := NewKmeshManageController(client, nil, 0, -1, "")
+	require.NoError(t, err)
+
+	disabled := atomic.Bool{}
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	patches.ApplyFunc(utils.HandleKmeshManage, func(_ string, op bool) error {
+		if !op {
+			disabled.Store(true)
+		}
+		return nil
+	})
+
+	stillEnrolledPod := podWithLabel.DeepCopy()
+	stillEnrolledPod.Name = "still-enrolled-pod"
+	require.NoError(t, controller.podInformer.GetStore().Add(stillEnrolledPod))
+
+	controller.disableKmeshForPodsInNamespace(nsWithoutLabel)
+
+	assert.False(t, disabled.Load(), "disableKmeshManage must not run for a pod that still matches ShouldEnroll")
+}
+
 func nsObject(name string, managed bool) *corev1.Namespace {
 	ns := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
@@ -757,6 +835,25 @@ func Test_unlinkXdp(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Test_unlinkXdp_Idempotent proves unlinkXdp is safe to call on an
+// interface with no XDP program attached - the case disableKmeshManage
+// relies on when disableKmeshForPodsInNamespace calls it unconditionally
+// for a pod that was never actually linked, or that a prior call already
+// unlinked.
+func Test_unlinkXdp_Idempotent(t *testing.T) {
+	patches := gomonkey.NewPatches()
+	defer patches.Reset()
+	testNetNs := newTestNetNs(t)
+	patches.ApplyFunc(netns.WithNetNSPath, func(_ string, toRun func(ns.NetNS) error) error {
+		return testNetNs.Do(toRun)
+	})
+
+	require.NoError(t, unlinkXdp("test_ns_path", constants.DualEngineMode))
+	// Nothing remains attached after the first unlink; a second call must
+	// still succeed as a no-op.
+	require.NoError(t, unlinkXdp("test_ns_path", constants.DualEngineMode))
 }
 
 // Create a test netns, link an old TC program on veth0 created inside the netns
