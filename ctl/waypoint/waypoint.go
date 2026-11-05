@@ -46,6 +46,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"kmesh.net/kmesh/ctl/utils"
+	kmeshconstants "kmesh.net/kmesh/pkg/constants"
 	"kmesh.net/kmesh/pkg/kube"
 	"kmesh.net/kmesh/pkg/version"
 )
@@ -61,7 +62,6 @@ var (
 	trafficType       = ""
 	validTrafficTypes = sets.New(constants.ServiceTraffic, constants.WorkloadTraffic, constants.AllTraffic, constants.NoTraffic)
 
-	DataplaneModeKmesh               = "Kmesh"
 	KmeshUseWaypointLabel            = "istio.io/use-waypoint"
 	KmeshWaypointForTrafficTypeLabel = "istio.io/waypoint-for"
 
@@ -227,7 +227,7 @@ func NewCmd() *cobra.Command {
 						"adding the `"+"--overwrite"+"` flag to your apply command.\n", ns)
 					return nil
 				}
-				namespaceIsLabeledKmesh, err := namespaceHasLabelWithValue(cmd.Context(), kubeClient, ns, label.IoIstioDataplaneMode.Name, DataplaneModeKmesh)
+				namespaceIsLabeledKmesh, err := namespaceIsEnrolledInKmesh(cmd.Context(), kubeClient, ns)
 				if err != nil {
 					return fmt.Errorf("failed to check if namespace is labeled Kmesh: %v", err)
 				}
@@ -608,15 +608,16 @@ func namespaceHasLabel(ctx context.Context, kubeClient kube.CLIClient, ns string
 	return nsObj.Labels[label] != "", nil
 }
 
-func namespaceHasLabelWithValue(ctx context.Context, kubeClient kube.CLIClient, ns string, label, labelValue string) (bool, error) {
+// namespaceIsEnrolledInKmesh reports whether the namespace carries the
+// istio.io/dataplane-mode label with the kmesh value. The value is compared
+// case-insensitively to match how the daemon decides enrollment
+// (pkg/utils.ShouldEnroll), so "kmesh" and "Kmesh" are both accepted.
+func namespaceIsEnrolledInKmesh(ctx context.Context, kubeClient kube.CLIClient, ns string) (bool, error) {
 	nsObj, err := getNamespace(ctx, kubeClient, ns)
 	if err != nil {
 		return false, err
 	}
-	if nsObj.Labels == nil {
-		return false, nil
-	}
-	return nsObj.Labels[label] == labelValue, nil
+	return strings.EqualFold(nsObj.Labels[kmeshconstants.DataPlaneModeLabel], kmeshconstants.DataPlaneModeKmesh), nil
 }
 
 func namespaceOrDefault(namespace string) string {
