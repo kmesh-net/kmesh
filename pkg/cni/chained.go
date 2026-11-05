@@ -281,7 +281,6 @@ func (i *Installer) removeChainedKmeshCniPlugin() error {
 
 	// remove kubeconfig file
 	if kubeconfigFilepath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig); fileExists(kubeconfigFilepath) {
-		kubeconfigFilepath := filepath.Join(i.CniMountNetEtcDIR, kmeshCniKubeConfig)
 		log.Infof("Removing Kmesh CNI kubeconfig file: %s", kubeconfigFilepath)
 		if err := os.Remove(kubeconfigFilepath); err != nil {
 			return err

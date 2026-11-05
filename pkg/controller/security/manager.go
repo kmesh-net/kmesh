@@ -237,9 +237,10 @@ func (s *SecretManager) rotateCert(identity string) {
 	}
 	s.certsCache.mu.RUnlock()
 
-	if time.Until(certificate.cert.ExpireTime) >= 1*time.Hour {
+	if certificate.cert != nil && time.Until(certificate.cert.ExpireTime) >= 1*time.Hour {
 		// This can happen when delete a certificate following adding the same one later.
-		log.Debugf("cert %s expire at %T, skip rotate now", identity, certificate.cert.ExpireTime)
+		log.Debugf("cert %s expire at %v, skip rotate now", identity, certificate.cert.ExpireTime)
+		return
 	}
 
 	go s.fetchCert(identity)
