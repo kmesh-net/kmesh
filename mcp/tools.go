@@ -40,6 +40,13 @@ type McpHandler struct {
 	fetch     func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error)
 }
 
+const (
+	// forwardStartTimeout bounds port-forward establishment.
+	forwardStartTimeout = 10 * time.Second
+	// dumpFetchTimeout bounds the daemon request + body read (large dumps need more).
+	dumpFetchTimeout = 30 * time.Second
+)
+
 func (h *McpHandler) getDefaultDaemonPod(ctx context.Context, namespace string) (string, error) {
 	if namespace == "" {
 		namespace = utils.KmeshNamespace
@@ -87,7 +94,45 @@ func (h *McpHandler) fetchFromDaemon(ctx context.Context, podName, namespace, en
 		podName = defaultPod
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	fw, err := h.startPortForward(ctx, podName, namespace)
+	if err != nil {
+		return nil, err
+	}
+	defer fw.Close()
+
+	fetchCtx, cancel := context.WithTimeout(ctx, dumpFetchTimeout)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(fetchCtx, http.MethodGet, fmt.Sprintf("http://%s/%s", fw.Address(), endpoint), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	// Fresh transport per call: never reuse pooled connections across port-forwards,
+	// a stale keep-alive connection to a recycled local port surfaces as EOF.
+	client := &http.Client{Transport: &http.Transport{DisableKeepAlives: true}}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("request to %s failed: %s", endpoint, h.describeFetchErr(ctx, podName, namespace, err))
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		snippet, _ := readAllLimited(resp.Body, 2048)
+		if msg := strings.TrimSpace(string(snippet)); msg != "" {
+			return nil, fmt.Errorf("daemon returned status %d: %s", resp.StatusCode, msg)
+		}
+		return nil, fmt.Errorf("daemon returned status %d", resp.StatusCode)
+	}
+
+	return readAllLimited(resp.Body, maxDumpBytes)
+}
+
+// startPortForward starts a port-forward bounded by forwardStartTimeout.
+// The local port is OS-assigned at bind time (see pkg/kube), so concurrent
+// tool calls run in parallel without port collisions.
+func (h *McpHandler) startPortForward(ctx context.Context, podName, namespace string) (kube.PortForwarder, error) {
+	connectCtx, cancel := context.WithTimeout(ctx, forwardStartTimeout)
 	defer cancel()
 
 	fw, err := h.cliClient.NewPortForwarder(podName, namespace, "", 0, utils.KmeshAdminPort)
@@ -101,37 +146,55 @@ func (h *McpHandler) fetchFromDaemon(ctx context.Context, podName, namespace, en
 	}()
 
 	select {
-	case <-ctx.Done():
+	case <-connectCtx.Done():
 		fw.Close()
 		return nil, fmt.Errorf("timed out connecting to daemon pod %s in namespace %s", podName, namespace)
 	case err := <-startErrCh:
 		if err != nil {
+			fw.Close()
 			return nil, fmt.Errorf("failed to start forward to %s in namespace %s: %w", podName, namespace, err)
 		}
 	}
-	defer fw.Close()
+	return fw, nil
+}
 
-	url := fmt.Sprintf("http://%s/%s", fw.Address(), endpoint)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, err
+// podStatusHint reports the pod's phase/Ready condition so fetch failures are actionable.
+func (h *McpHandler) podStatusHint(ctx context.Context, podName, namespace string) string {
+	if h.cliClient == nil || podName == "" {
+		return ""
 	}
-
-	resp, err := http.DefaultClient.Do(req)
+	pod, err := h.cliClient.Kube().CoreV1().Pods(namespace).Get(ctx, podName, metav1.GetOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("HTTP request failed: %w", err)
+		return ""
 	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		snippet, _ := readAllLimited(resp.Body, 2048)
-		if msg := strings.TrimSpace(string(snippet)); msg != "" {
-			return nil, fmt.Errorf("daemon returned status %d: %s", resp.StatusCode, msg)
+	ready := string(corev1.ConditionUnknown)
+	for _, cond := range pod.Status.Conditions {
+		if cond.Type == corev1.PodReady {
+			ready = string(cond.Status)
 		}
-		return nil, fmt.Errorf("daemon returned status %d", resp.StatusCode)
 	}
+	return fmt.Sprintf("pod %s/%s: phase=%s ready=%s", namespace, podName, pod.Status.Phase, ready)
+}
 
-	return readAllLimited(resp.Body, maxDumpBytes)
+// describeFetchErr turns transport-level failures into actionable messages.
+func (h *McpHandler) describeFetchErr(ctx context.Context, podName, namespace string, err error) string {
+	msg := err.Error()
+	hint := ""
+	switch {
+	case strings.Contains(msg, "EOF"):
+		hint = "the daemon closed the connection without responding; the kmesh status server may not be running inside the pod (check kubectl logs for the daemon container)"
+	case strings.Contains(msg, "connection refused"):
+		hint = "nothing is listening on the daemon status port 15200 inside the pod"
+	case strings.Contains(msg, "context deadline exceeded") || strings.Contains(msg, "timed out"):
+		hint = "request timed out; the daemon may be overloaded or the response too large (try summary=true or a narrower filter)"
+	}
+	if hint == "" {
+		return msg
+	}
+	if status := h.podStatusHint(ctx, podName, namespace); status != "" {
+		hint += "; " + status
+	}
+	return msg + " (" + hint + ")"
 }
 
 // detectMode queries /version to determine the daemon's operating mode.

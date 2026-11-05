@@ -18,7 +18,6 @@ package kube
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -82,15 +81,6 @@ func newPortForwarder(cliClient *client, podName string, ns string, localAddress
 
 	if localAddress == "" {
 		localAddress = DefaultLocalAddress
-	}
-
-	if localPort == 0 {
-		var err error
-		localPort, err = getAvailablePort()
-		if err != nil {
-			cancel()
-			return nil, fmt.Errorf("failed to find an available port: %v", err)
-		}
 	}
 
 	cmd := &cobra.Command{}

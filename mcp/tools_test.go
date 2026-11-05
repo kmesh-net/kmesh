@@ -18,8 +18,12 @@ package mcp
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/assert"
@@ -40,6 +44,7 @@ import (
 type fakeCLIClient struct {
 	kubeClient    kubernetes.Interface
 	gatewayClient gatewayapiclient.Interface
+	newForwarder  func(podName, ns string) (kube.PortForwarder, error)
 }
 
 func (f *fakeCLIClient) Kube() kubernetes.Interface {
@@ -55,8 +60,30 @@ func (f *fakeCLIClient) PodsForSelector(ctx context.Context, namespace string, l
 }
 
 func (f *fakeCLIClient) NewPortForwarder(podName string, ns string, localAddress string, localPort int, podPort int) (kube.PortForwarder, error) {
-	panic("unexpected call to NewPortForwarder in unit tests")
+	if f.newForwarder == nil {
+		panic("unexpected call to NewPortForwarder in unit tests")
+	}
+	return f.newForwarder(podName, ns)
 }
+
+// fakePortForwarder forwards to a local test server instead of a daemon pod.
+type fakePortForwarder struct {
+	addr      string
+	startErrs []error
+	starts    int
+}
+
+func (f *fakePortForwarder) Start() error {
+	var err error
+	if f.starts < len(f.startErrs) {
+		err = f.startErrs[f.starts]
+	}
+	f.starts++
+	return err
+}
+
+func (f *fakePortForwarder) Address() string { return f.addr }
+func (f *fakePortForwarder) Close()          {}
 
 func newTestHandler(k8sObjs []runtime.Object, gwObjs []runtime.Object, fetchStub func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error)) *McpHandler {
 	kClient := k8sfake.NewSimpleClientset(k8sObjs...)
@@ -662,4 +689,145 @@ func TestServerStdioTransportCanceled(t *testing.T) {
 
 	h := newTestHandler(nil, nil, nil)
 	_ = RegisterToolsAndServe(ctx, h.cliClient, "stdio")
+}
+
+func newFetchTestHandler(k8sObjs []runtime.Object, fwd kube.PortForwarder) *McpHandler {
+	h := newTestHandler(k8sObjs, nil, nil)
+	h.cliClient.(*fakeCLIClient).newForwarder = func(string, string) (kube.PortForwarder, error) {
+		return fwd, nil
+	}
+	return h
+}
+
+func TestDescribeFetchError(t *testing.T) {
+	h := &McpHandler{}
+
+	t.Run("EOF gets status-server hint", func(t *testing.T) {
+		msg := h.describeFetchErr(context.Background(), "p", "ns", errors.New(`Get "http://localhost:1/x": EOF`))
+		assert.Contains(t, msg, "status server may not be running")
+	})
+
+	t.Run("connection refused gets port hint", func(t *testing.T) {
+		msg := h.describeFetchErr(context.Background(), "p", "ns", errors.New("dial tcp: connection refused"))
+		assert.Contains(t, msg, "port 15200")
+	})
+
+	t.Run("timeout gets tuning hint", func(t *testing.T) {
+		msg := h.describeFetchErr(context.Background(), "p", "ns", errors.New("context deadline exceeded"))
+		assert.Contains(t, msg, "summary=true")
+	})
+
+	t.Run("unknown errors pass through unchanged", func(t *testing.T) {
+		msg := h.describeFetchErr(context.Background(), "p", "ns", errors.New("boom"))
+		assert.Equal(t, "boom", msg)
+	})
+}
+
+func TestPodStatusHint(t *testing.T) {
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "kmesh-daemon-1", Namespace: "kmesh-system"},
+		Status: corev1.PodStatus{
+			Phase:      corev1.PodRunning,
+			Conditions: []corev1.PodCondition{{Type: corev1.PodReady, Status: corev1.ConditionFalse}},
+		},
+	}
+	h := newFetchTestHandler([]runtime.Object{pod}, nil)
+
+	hint := h.podStatusHint(context.Background(), "kmesh-daemon-1", "kmesh-system")
+	assert.Contains(t, hint, "phase=Running")
+	assert.Contains(t, hint, "ready=False")
+
+	assert.Empty(t, h.podStatusHint(context.Background(), "missing-pod", "kmesh-system"))
+	assert.Empty(t, h.podStatusHint(context.Background(), "", "kmesh-system"))
+}
+
+func TestFetchFromDaemon(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("success returns body", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/debug/ready", r.URL.Path)
+			fmt.Fprint(w, "OK")
+		}))
+		defer srv.Close()
+
+		h := newFetchTestHandler(nil, &fakePortForwarder{addr: srv.Listener.Addr().String()})
+		raw, err := h.fetchFromDaemon(ctx, "pod", "ns", "debug/ready")
+		require.NoError(t, err)
+		assert.Equal(t, "OK", string(raw))
+	})
+
+	t.Run("non-200 includes daemon body", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "no such endpoint", http.StatusNotFound)
+		}))
+		defer srv.Close()
+
+		h := newFetchTestHandler(nil, &fakePortForwarder{addr: srv.Listener.Addr().String()})
+		_, err := h.fetchFromDaemon(ctx, "pod", "ns", "bad/endpoint")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "status 404")
+		assert.Contains(t, err.Error(), "no such endpoint")
+	})
+
+	t.Run("EOF gets actionable hint with pod status", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			hj, ok := w.(http.Hijacker)
+			require.True(t, ok)
+			conn, _, err := hj.Hijack()
+			require.NoError(t, err)
+			conn.Close()
+		}))
+		defer srv.Close()
+
+		pod := &corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{Name: "kmesh-daemon-1", Namespace: "kmesh-system"},
+			Status:     corev1.PodStatus{Phase: corev1.PodRunning},
+		}
+		h := newFetchTestHandler([]runtime.Object{pod}, &fakePortForwarder{addr: srv.Listener.Addr().String()})
+		_, err := h.fetchFromDaemon(ctx, "kmesh-daemon-1", "kmesh-system", "debug/ready")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "status server may not be running")
+		assert.Contains(t, err.Error(), "phase=Running")
+	})
+
+	t.Run("oversized body rejected", func(t *testing.T) {
+		orig := maxDumpBytes
+		maxDumpBytes = 8
+		defer func() { maxDumpBytes = orig }()
+
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, "0123456789abcdef")
+		}))
+		defer srv.Close()
+
+		h := newFetchTestHandler(nil, &fakePortForwarder{addr: srv.Listener.Addr().String()})
+		_, err := h.fetchFromDaemon(ctx, "pod", "ns", "debug/ready")
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errDumpTooLarge)
+	})
+
+	t.Run("read timeout gets tuning hint", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			time.Sleep(300 * time.Millisecond)
+			fmt.Fprint(w, "slow")
+		}))
+		defer srv.Close()
+
+		slowCtx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
+		defer cancel()
+		h := newFetchTestHandler(nil, &fakePortForwarder{addr: srv.Listener.Addr().String()})
+		_, err := h.fetchFromDaemon(slowCtx, "pod", "ns", "debug/ready")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "summary=true")
+	})
+
+	t.Run("start error fails fast", func(t *testing.T) {
+		fwd := &fakePortForwarder{addr: "x", startErrs: []error{errors.New("pods not found")}}
+		h := newFetchTestHandler(nil, fwd)
+		_, err := h.fetchFromDaemon(ctx, "pod", "ns", "debug/ready")
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to start forward")
+		assert.Equal(t, 1, fwd.starts)
+	})
 }
