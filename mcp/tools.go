@@ -401,20 +401,26 @@ func (h *McpHandler) HandleListDaemonPods(ctx context.Context, req mcp.CallToolR
 }
 
 func (h *McpHandler) HandleGetMeshNamespaces(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	// Match the daemon's enrollment check, which compares the label value
+	// case-insensitively (pkg/utils/enroll.go ShouldEnroll, see #1982).
 	namespaces, err := h.cliClient.Kube().CoreV1().Namespaces().List(ctx, metav1.ListOptions{
-		LabelSelector: "istio.io/dataplane-mode=Kmesh",
+		LabelSelector: constants.DataPlaneModeLabel,
 	})
 	if err != nil {
 		return mcp.NewToolResultError(fmt.Sprintf("Failed to list namespaces: %v", err)), nil
 	}
 
-	if len(namespaces.Items) == 0 {
-		return mcp.NewToolResultText("No namespaces found with label 'istio.io/dataplane-mode=Kmesh'."), nil
-	}
-
 	result := "Kmesh-Enabled Namespaces:\n"
+	found := 0
 	for _, ns := range namespaces.Items {
+		if !strings.EqualFold(ns.Labels[constants.DataPlaneModeLabel], constants.DataPlaneModeKmesh) {
+			continue
+		}
 		result += fmt.Sprintf("- %s\n", ns.Name)
+		found++
+	}
+	if found == 0 {
+		return mcp.NewToolResultText("No namespaces found with label 'istio.io/dataplane-mode=Kmesh'."), nil
 	}
 	return mcp.NewToolResultText(result), nil
 }

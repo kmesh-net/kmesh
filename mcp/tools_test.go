@@ -481,6 +481,36 @@ func TestHandleGetMeshNamespaces(t *testing.T) {
 		assert.NotContains(t, text, "kube-system")
 	})
 
+	t.Run("matches label value case-insensitively", func(t *testing.T) {
+		lower := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "ns-lower",
+				Labels: map[string]string{"istio.io/dataplane-mode": "kmesh"},
+			},
+		}
+		upper := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "ns-upper",
+				Labels: map[string]string{"istio.io/dataplane-mode": "KMESH"},
+			},
+		}
+		decoy := &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   "ns-istio",
+				Labels: map[string]string{"istio.io/dataplane-mode": "istio"},
+			},
+		}
+		h := newTestHandler([]runtime.Object{lower, upper, decoy}, nil, nil)
+		req := makeCallRequest(map[string]any{})
+		res, err := h.HandleGetMeshNamespaces(ctx, req)
+		require.NoError(t, err)
+		assert.False(t, res.IsError)
+		text := res.Content[0].(mcp.TextContent).Text
+		assert.Contains(t, text, "ns-lower")
+		assert.Contains(t, text, "ns-upper")
+		assert.NotContains(t, text, "ns-istio")
+	})
+
 	t.Run("empty namespaces informational text", func(t *testing.T) {
 		h := newTestHandler(nil, nil, nil)
 		req := makeCallRequest(map[string]any{})
