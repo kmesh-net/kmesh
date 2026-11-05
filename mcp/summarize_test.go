@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"unicode/utf8"
 )
 
 const (
@@ -204,6 +205,34 @@ func TestFormatDumpFilter(t *testing.T) {
 		}
 	})
 
+	t.Run("does not match against field names", func(t *testing.T) {
+		out, err := formatDump([]byte(workloadDump), "name", true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var parsed filteredOutput
+		if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if parsed.MatchCount != 0 {
+			t.Fatalf("filter must not match field keys, got %d matches", parsed.MatchCount)
+		}
+	})
+
+	t.Run("matches nested values", func(t *testing.T) {
+		out, err := formatDump([]byte(envoyDump), "0.0.0.0", true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		var parsed filteredOutput
+		if err := json.Unmarshal([]byte(out), &parsed); err != nil {
+			t.Fatalf("invalid JSON: %v", err)
+		}
+		if parsed.MatchCount != 2 {
+			t.Fatalf("expected 2 matches (nested socketAddress values), got %d", parsed.MatchCount)
+		}
+	})
+
 	t.Run("no matches", func(t *testing.T) {
 		out, err := formatDump([]byte(workloadDump), "nonexistent", true)
 		if err != nil {
@@ -285,6 +314,24 @@ func TestFormatDumpRaw(t *testing.T) {
 		}
 		if out != "plain text response" {
 			t.Fatalf("got %q", out)
+		}
+	})
+
+	t.Run("multibyte truncation stays valid UTF-8", func(t *testing.T) {
+		orig := maxResultBytes
+		maxResultBytes = 65 // odd cut lands mid-rune on the 2-byte 'é' payload
+		defer func() { maxResultBytes = orig }()
+
+		raw := []byte(`{"note": "` + strings.Repeat("é", 60) + `"}`)
+		out, err := formatDump(raw, "", false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !strings.Contains(out, "WARNING: TRUNCATED") {
+			t.Fatal("expected truncation warning")
+		}
+		if !utf8.ValidString(out) {
+			t.Fatal("truncated output must be valid UTF-8")
 		}
 	})
 }

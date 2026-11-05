@@ -23,6 +23,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 var (
@@ -132,12 +133,33 @@ func summarizeItem(item map[string]any) map[string]any {
 	return out
 }
 
-func itemMatches(item map[string]any, filter string) bool {
-	b, err := json.Marshal(item)
-	if err != nil {
-		return false
+// appendValues collects primitive values from nested maps and slices,
+// skipping object keys so that filters match data, not field names.
+func appendValues(sb *strings.Builder, v any) {
+	switch t := v.(type) {
+	case map[string]any:
+		for _, k := range sortedKeys(t) {
+			appendValues(sb, t[k])
+		}
+	case []any:
+		for _, e := range t {
+			appendValues(sb, e)
+		}
+	case string:
+		sb.WriteString(t)
+		sb.WriteByte(' ')
+	case float64, bool:
+		fmt.Fprint(sb, t)
+		sb.WriteByte(' ')
 	}
-	return strings.Contains(strings.ToLower(string(b)), strings.ToLower(filter))
+}
+
+// itemMatches matches the filter against entry field values only (case-insensitive).
+// Object keys are excluded so filters like "name" do not match every entry.
+func itemMatches(item map[string]any, filter string) bool {
+	var sb strings.Builder
+	appendValues(&sb, item)
+	return strings.Contains(strings.ToLower(sb.String()), strings.ToLower(filter))
 }
 
 func sortedKeys[V any](m map[string]V) []string {
@@ -243,7 +265,11 @@ func formatDump(raw []byte, filter string, summary bool) (string, error) {
 	}
 
 	if len(raw) > maxResultBytes {
-		return string(raw[:maxResultBytes]) +
+		cut := maxResultBytes
+		for cut > 0 && !utf8.RuneStart(raw[cut]) {
+			cut--
+		}
+		return string(raw[:cut]) +
 			"\n... [WARNING: TRUNCATED to fit the context window. Use summary or filter to drill down]", nil
 	}
 	return string(raw), nil

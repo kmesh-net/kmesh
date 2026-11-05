@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/mark3labs/mcp-go/mcp"
@@ -123,10 +124,32 @@ func (h *McpHandler) fetchFromDaemon(ctx context.Context, podName, namespace, en
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		snippet, _ := readAllLimited(resp.Body, 2048)
+		if msg := strings.TrimSpace(string(snippet)); msg != "" {
+			return nil, fmt.Errorf("daemon returned status %d: %s", resp.StatusCode, msg)
+		}
 		return nil, fmt.Errorf("daemon returned status %d", resp.StatusCode)
 	}
 
 	return readAllLimited(resp.Body, maxDumpBytes)
+}
+
+// detectMode queries /version to determine the daemon's operating mode.
+func (h *McpHandler) detectMode(ctx context.Context, podName, namespace string) (string, error) {
+	raw, err := h.fetchFromDaemon(ctx, podName, namespace, "version")
+	if err != nil {
+		return "", fmt.Errorf("failed to auto-detect mode via /version: %w", err)
+	}
+	var vInfo struct {
+		Mode string `json:"mode"`
+	}
+	if err := json.Unmarshal(raw, &vInfo); err != nil {
+		return "", fmt.Errorf("failed to parse /version response: %w", err)
+	}
+	if vInfo.Mode == "" {
+		return "", fmt.Errorf("daemon /version response did not include a mode")
+	}
+	return vInfo.Mode, nil
 }
 
 func (h *McpHandler) HandleBpfDump(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
@@ -144,19 +167,11 @@ func (h *McpHandler) HandleBpfDump(ctx context.Context, req mcp.CallToolRequest)
 	}
 
 	if mode == "" {
-		rawVersion, err := h.fetchFromDaemon(ctx, podName, namespace, "version")
-		if err == nil {
-			var vInfo struct {
-				Mode string `json:"mode"`
-			}
-			if json.Unmarshal(rawVersion, &vInfo) == nil && vInfo.Mode != "" {
-				mode = vInfo.Mode
-			}
+		detected, err := h.detectMode(ctx, podName, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error() + "; pass mode explicitly"), nil
 		}
-	}
-
-	if mode == "" {
-		mode = constants.KernelNativeMode
+		mode = detected
 	}
 
 	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
@@ -209,15 +224,20 @@ func (h *McpHandler) HandleConfigDump(ctx context.Context, req mcp.CallToolReque
 		return mcp.NewToolResultError(err.Error()), nil
 	}
 
-	if mode != "" && mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
+	if mode == "" {
+		detected, err := h.detectMode(ctx, podName, namespace)
+		if err != nil {
+			return mcp.NewToolResultError(err.Error() + "; pass mode explicitly"), nil
+		}
+		mode = detected
+	}
+
+	if mode != constants.KernelNativeMode && mode != constants.DualEngineMode {
 		return mcp.NewToolResultError(fmt.Sprintf("mode must be %q or %q, got %q",
 			constants.KernelNativeMode, constants.DualEngineMode, mode)), nil
 	}
 
-	endpoint := "debug/config_dump"
-	if mode != "" {
-		endpoint = fmt.Sprintf("debug/config_dump/%s", mode)
-	}
+	endpoint := fmt.Sprintf("debug/config_dump/%s", mode)
 
 	raw, err := h.fetchFromDaemon(ctx, podName, namespace, endpoint)
 	if err != nil {
@@ -345,10 +365,8 @@ func (h *McpHandler) HandleListWaypoints(ctx context.Context, req mcp.CallToolRe
 		ns = "default"
 	}
 
-	if ns != "" {
-		if err := validateK8sName("namespace", ns); err != nil {
-			return mcp.NewToolResultError(err.Error()), nil
-		}
+	if err := validateK8sName("namespace", ns); err != nil {
+		return mcp.NewToolResultError(err.Error()), nil
 	}
 
 	gws, err := h.cliClient.GatewayAPI().GatewayV1().Gateways(ns).List(ctx, metav1.ListOptions{})

@@ -204,6 +204,22 @@ func TestHandleConfigDump(t *testing.T) {
 		assert.False(t, res.IsError)
 	})
 
+	t.Run("empty mode auto-detects via version", func(t *testing.T) {
+		calls := []string{}
+		h := newTestHandler(nil, nil, func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error) {
+			calls = append(calls, endpoint)
+			if endpoint == "version" {
+				return []byte(`{"mode":"dual-engine"}`), nil
+			}
+			return []byte(`{"workloads":[]}`), nil
+		})
+		req := makeCallRequest(map[string]any{})
+		res, err := h.HandleConfigDump(ctx, req)
+		require.NoError(t, err)
+		assert.False(t, res.IsError)
+		assert.Equal(t, []string{"version", "debug/config_dump/dual-engine"}, calls)
+	})
+
 	t.Run("invalid mode rejected without fetch", func(t *testing.T) {
 		fetchCalled := false
 		h := newTestHandler(nil, nil, func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error) {
@@ -226,6 +242,9 @@ func TestHandleConfigDump(t *testing.T) {
 			]
 		}`
 		h := newTestHandler(nil, nil, func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error) {
+			if endpoint == "version" {
+				return []byte(`{"mode":"dual-engine"}`), nil
+			}
 			return []byte(dump), nil
 		})
 		req := makeCallRequest(map[string]any{
@@ -259,20 +278,18 @@ func TestHandleBpfDump(t *testing.T) {
 		assert.Equal(t, []string{"version", "debug/config_dump/bpf/dual-engine"}, calls)
 	})
 
-	t.Run("fallback to kernel-native when version fails", func(t *testing.T) {
+	t.Run("mode detection failure returns clear error", func(t *testing.T) {
 		calls := []string{}
 		h := newTestHandler(nil, nil, func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error) {
 			calls = append(calls, endpoint)
-			if endpoint == "version" {
-				return nil, fmt.Errorf("timeout")
-			}
-			return []byte(`{"entries":[]}`), nil
+			return nil, fmt.Errorf("timeout")
 		})
 		req := makeCallRequest(map[string]any{"podName": "kmesh-pod"})
 		res, err := h.HandleBpfDump(ctx, req)
 		require.NoError(t, err)
-		assert.False(t, res.IsError)
-		assert.Equal(t, []string{"version", "debug/config_dump/bpf/kernel-native"}, calls)
+		assert.True(t, res.IsError)
+		assert.Contains(t, res.Content[0].(mcp.TextContent).Text, "pass mode explicitly")
+		assert.Equal(t, []string{"version"}, calls)
 	})
 
 	t.Run("invalid mode rejected", func(t *testing.T) {
@@ -609,6 +626,9 @@ func TestHandleConfigDumpRaw(t *testing.T) {
 	ctx := context.Background()
 	dump := `{"listeners":[{"name":"0.0.0.0_15001"}]}`
 	h := newTestHandler(nil, nil, func(ctx context.Context, podName, namespace, endpoint string) ([]byte, error) {
+		if endpoint == "version" {
+			return []byte(`{"mode":"dual-engine"}`), nil
+		}
 		return []byte(dump), nil
 	})
 	req := makeCallRequest(map[string]any{

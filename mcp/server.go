@@ -45,7 +45,7 @@ func RegisterToolsAndServe(ctx context.Context, cliClient kube.CLIClient, transp
 		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
 		mcp.WithString("mode", mcp.Description("Operating mode (kernel-native or dual-engine, auto-detected if empty)")),
 		mcp.WithBoolean("summary", mcp.Description("Return counts and compact identities instead of the full dump (default: true)")),
-		mcp.WithString("filter", mcp.Description("Case-insensitive substring matched against entry name/IP/UID; matching entries are returned in full")),
+		mcp.WithString("filter", mcp.Description("Case-insensitive substring matched against entry field values (name, IP, UID, ...), not field names; matching entries are returned in full")),
 	)
 	mcpServer.AddTool(toolBpfMaps, handler.HandleBpfDump)
 
@@ -60,9 +60,9 @@ func RegisterToolsAndServe(ctx context.Context, cliClient kube.CLIClient, transp
 		mcp.WithDescription("Retrieves Istio xDS dynamic listeners, clusters, and routes from a Kmesh daemon pod. Use list_daemon_pods to discover pod names. Returns a compact summary by default; use filter to fetch full details of specific resources."),
 		mcp.WithString("podName", mcp.Description("Target daemon pod name (auto-discovered if empty)")),
 		mcp.WithString("namespace", mcp.Description("Target daemon pod namespace (default: kmesh-system)")),
-		mcp.WithString("mode", mcp.Description("Operating mode (kernel-native or dual-engine)")),
+		mcp.WithString("mode", mcp.Description("Operating mode (kernel-native or dual-engine, auto-detected if empty)")),
 		mcp.WithBoolean("summary", mcp.Description("Return counts and compact identities instead of the full dump (default: true)")),
-		mcp.WithString("filter", mcp.Description("Case-insensitive substring matched against resource name/IP/UID; matching resources are returned in full")),
+		mcp.WithString("filter", mcp.Description("Case-insensitive substring matched against resource field values (name, IP, UID, ...), not field names; matching resources are returned in full")),
 	)
 	mcpServer.AddTool(toolConfigDump, handler.HandleConfigDump)
 
