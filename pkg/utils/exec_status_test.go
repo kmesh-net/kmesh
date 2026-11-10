@@ -23,7 +23,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestExecute(t *testing.T) {
+func TestExecuteExitStatus(t *testing.T) {
 	tests := []struct {
 		name    string
 		script  string
@@ -71,12 +71,12 @@ func TestExecute(t *testing.T) {
 	}
 }
 
-func TestExecuteMissingCommand(t *testing.T) {
+func TestExecuteExitStatusMissingCommand(t *testing.T) {
 	err := Execute("kmesh-no-such-command-for-test", nil)
 	assert.Error(t, err)
 }
 
-func TestExecuteWithRedirect(t *testing.T) {
+func TestExecuteWithRedirectExitStatus(t *testing.T) {
 	t.Run("nil stdout is rejected", func(t *testing.T) {
 		err := ExecuteWithRedirect("sh", []string{"-c", "exit 0"}, nil)
 		assert.Error(t, err)
